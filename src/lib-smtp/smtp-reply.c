@@ -80,6 +80,28 @@ smtp_reply_write(string_t *out, const struct smtp_reply *reply)
 	}
 }
 
+void smtp_reply_write_one_line(string_t *out, const struct smtp_reply *reply)
+{
+	const char *enh_code = smtp_reply_get_enh_code(reply);
+	const char *const *lines;
+
+	i_assert(reply->status < 560);
+	i_assert(reply->enhanced_code.x < 6);
+
+	str_printfa(out, "%03u", reply->status);
+	if (enh_code != NULL) {
+		str_append_c(out, ' ');
+		str_append(out, enh_code);
+	}
+
+	lines = reply->text_lines;
+	while (*lines != NULL) {
+		str_append_c(out, ' ');
+		str_append(out, *lines);
+		lines++;
+	}
+}
+
 const char *smtp_reply_log(const struct smtp_reply *reply)
 {
 	const char *const *lines;
