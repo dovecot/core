@@ -7,34 +7,6 @@ AC_DEFUN([DOVECOT_WANT_LUA_PLUGIN],[
   AM_CONDITIONAL([AUTH_LUA_PLUGIN], [test "x$with_lua_plugin" = "xyes"])
 ])
 
-AC_DEFUN([DOVECOT_WANT_LUAJIT],[
-  AS_IF([test "$xwith_luajit" = "xplugin"], [with_lua_plugin=yes], [])
-  AC_MSG_CHECKING([whether we will be linking in LuaJIT])
-  AC_ARG_WITH([luajit],
-    [AS_HELP_STRING([--with-luajit], [build LuaJIT bindings @<:@default=auto@:>@])],
-    [with_luajit=$withval],
-    [with_luajit=no]
-  )
-  AC_MSG_RESULT([$with_luajit])
-
-  AS_IF([test "x$with_luajit" != "xno"], [
-    LUAJITPC="$with_luajit"
-    PKG_CHECK_MODULES([LUA], [luajit],
-      [AC_DEFINE([HAVE_LUA], [1], [Define to 1 if you have LuaJIT])],
-      [LUAJITPC=""]
-    )
-    AS_IF([test "x$LUAJITPC" = "x"], [
-      AC_MSG_ERROR([LuaJIT not found])]
-    )
-  ])
-
-  AS_IF([test "x$with_luajit" = "xyes"],
-    AS_IF([test "x$with_lua_plugin" != "xyes"],
-     AC_DEFINE([BUILTIN_LUA],, [Lua support is builtin])
-   )
-  )
-])
-
 AC_DEFUN([DOVECOT_WANT_LUA],[
   AS_IF([test "$xwith_lua" = "xplugin"], [with_lua_plugin=yes], [])
   AC_MSG_CHECKING([whether we will be linking in Lua])
