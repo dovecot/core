@@ -1159,6 +1159,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		ctx->fd_in = ctx->fd_out = -1;
 		ctx->input = cctx->input;
 		ctx->output = cctx->output;
+		o_stream_set_finish_also_parent(ctx->output, FALSE);
 		o_stream_nsend(ctx->output, "\n+\n", 3);
 		i_set_failure_prefix("dsync-server(%s): ", user->username);
 		name = i_stream_get_name(ctx->input);
