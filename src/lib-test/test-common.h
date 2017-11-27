@@ -83,6 +83,9 @@ int test_run_with_fatals(void (*const test_functions[])(void),
 int test_run_named_with_fatals(const char *match, const struct named_test tests[],
 			       const struct named_fatal fatals[]);
 
+/* Require the Fatal/Panic string to match this or the fatal test fails. */
+void test_expect_fatal_string(const char *substr);
+
 #define FATAL_DECL(x) enum fatal_test_state x(unsigned int);
 #define FATAL_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
 #define FATAL_NAMED(x) { .name = #x , .func = x },

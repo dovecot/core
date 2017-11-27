@@ -20,7 +20,7 @@ static bool test_success;
 static unsigned int failure_count;
 static unsigned int total_count;
 static unsigned int expected_errors;
-static char *expected_error_str;
+static char *expected_error_str, *expected_fatal_str;
 
 void test_begin(const char *name)
 {
@@ -144,7 +144,7 @@ test_expect_no_more_errors(void)
 	expected_errors = 0;
 }
 
-static bool
+static bool ATTR_FORMAT(2, 0)
 expect_error_check(char **error_strp, const char *format, va_list args)
 {
 	if (*error_strp == NULL)
@@ -182,15 +182,31 @@ test_error_handler(const struct failure_context *ctx,
 	}
 }
 
+void test_expect_fatal_string(const char *substr)
+{
+	i_free(expected_fatal_str);
+	expected_fatal_str = i_strdup(substr);
+}
+
 static void ATTR_FORMAT(2, 0) ATTR_NORETURN
-test_fatal_handler(const struct failure_context *ctx ATTR_UNUSED,
-		   const char *format ATTR_UNUSED, va_list args ATTR_UNUSED)
+test_fatal_handler(const struct failure_context *ctx,
+		   const char *format, va_list args)
 {
 	/* Prevent recursion, we can't handle our own errors */
 	i_set_fatal_handler(default_fatal_handler);
 	i_assert(expecting_fatal); /* if not at the right time, bail */
-	i_set_fatal_handler(test_fatal_handler);
-	longjmp(fatal_jmpbuf, 1);
+
+	va_list args2;
+	VA_COPY(args2, args);
+	bool suppress = expect_error_check(&expected_fatal_str, format, args2);
+	va_end(args);
+
+	if (suppress) {
+		i_set_fatal_handler(test_fatal_handler);
+		longjmp(fatal_jmpbuf, 1);
+	} else {
+		default_fatal_handler(ctx, format, args);
+	}
 	i_unreached(); /* we simply can't get here */
 }
 
@@ -328,6 +344,7 @@ void ATTR_NORETURN
 test_exit(int status)
 {
 	i_free_and_null(expected_error_str);
+	i_free_and_null(expected_fatal_str);
 	i_free_and_null(test_prefix);
 	t_pop_last_unsafe(); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
 	lib_deinit();
