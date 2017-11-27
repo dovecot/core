@@ -5,8 +5,12 @@
 #include "safe-memset.h"
 #include "mempool.h"
 
-
-#define MAX_ALLOC_SIZE SSIZE_T_MAX
+#ifndef DEBUG
+#  define POOL_ALLOCONLY_MAX_EXTRA MEM_ALIGN(1)
+#else
+#  define POOL_ALLOCONLY_MAX_EXTRA \
+	(MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(1) + MEM_ALIGN(SENTRY_COUNT))
+#endif
 
 struct alloconly_pool {
 	struct pool pool;
@@ -260,7 +264,7 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 	void *mem;
 	size_t alloc_size;
 
-	if (unlikely(size == 0 || size > SSIZE_T_MAX))
+	if (unlikely(size == 0 || size > SSIZE_T_MAX - POOL_ALLOCONLY_MAX_EXTRA))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 #ifndef DEBUG
@@ -328,7 +332,7 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 	unsigned char *new_mem;
 
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
+	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX - POOL_ALLOCONLY_MAX_EXTRA))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)
