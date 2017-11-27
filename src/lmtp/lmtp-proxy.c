@@ -264,7 +264,7 @@ static void
 lmtp_proxy_write_reply(string_t *reply, const struct smtp_reply *proxy_reply)
 {
 	if (smtp_reply_is_remote(proxy_reply)) {
-		smtp_reply_write(reply, proxy_reply);
+		smtp_reply_write_one_line(reply, proxy_reply);
 	} else {
 		str_append(reply, "451 4.4.0 Remote server not answering");
 		switch (proxy_reply->status) {
