@@ -2239,6 +2239,8 @@ static int director_connection_output(struct director_connection *conn)
 		ret = director_connection_send_users(conn);
 		o_stream_uncork(conn->output);
 		if (ret < 0) {
+			director_connection_log_disconnect(conn, 0,
+				o_stream_get_error(conn->output));
 			director_connection_disconnected(&conn,
 				o_stream_get_error(conn->output));
 		} else {
@@ -2530,11 +2532,13 @@ void director_connection_send(struct director_connection *conn,
 	ret = o_stream_send(conn->output, data, len);
 	if (ret != (off_t)len) {
 		if (ret < 0) {
-			i_error("director(%s): write() failed: %s", conn->name,
-				o_stream_get_error(conn->output));
+			director_connection_log_disconnect(conn, 0, t_strdup_printf(
+				"write() failed: %s",
+				o_stream_get_error(conn->output)));
 		} else {
-			i_error("director(%s): Output buffer full, "
-				"disconnecting", conn->name);
+			director_connection_log_disconnect(conn, 0, t_strdup_printf(
+				"Output buffer full at %zu",
+				o_stream_get_buffer_used_size(conn->output)));
 		}
 		o_stream_close(conn->output);
 		/* closing the stream when output buffer is full doesn't cause
@@ -2558,27 +2562,23 @@ director_connection_ping_idle_timeout(struct director_connection *conn)
 	string_t *str = t_str_new(128);
 	int diff = timeval_diff_msecs(&ioloop_timeval, &conn->ping_sent_time);
 
-	str_printfa(str, "Ping timed out in %u.%03u secs, disconnecting (",
+	str_printfa(str, "Ping timed out in %u.%03u secs: ",
 		    diff/1000, diff%1000);
 	director_ping_append_extra(conn, str, 0, (uintmax_t)-1);
-	str_append(str, ", ");
-	director_connection_append_stats(conn, str);
-	if (conn->handshake_received)
-		str_append(str, ", handshaked");
-	if (conn->synced)
-		str_append(str, ", synced");
-	str_append_c(str, ')');
-	i_error("director(%s): %s", conn->name, str_c(str));
+	director_connection_log_disconnect(conn, 0, str_c(str));
 	director_connection_disconnected(&conn, "Ping timeout");
 }
 
 static void director_connection_pong_timeout(struct director_connection *conn)
 {
 	int diff = timeval_diff_msecs(&ioloop_timeval, &conn->ping_sent_time);
+	const char *errstr;
 
-	i_error("director(%s): PONG reply not received in %u.%03u secs, "
-		"although other input keeps coming, disconnecting", conn->name,
+	errstr = t_strdup_printf(
+		"PONG reply not received in %u.%03u secs, "
+		"although other input keeps coming",
 		diff/1000, diff%1000);
+	director_connection_log_disconnect(conn, 0, errstr);
 	director_connection_disconnected(&conn, "Pong timeout");
 }
 
