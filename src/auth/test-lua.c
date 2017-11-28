@@ -10,6 +10,7 @@ void test_db_lua(void)
 {
 	const char *scheme,*pass;
 	struct auth_settings set;
+	i_zero(&set);
 	global_auth_settings = &set;
 	passdbs_init();
 
