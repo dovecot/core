@@ -2239,7 +2239,7 @@ static int director_connection_output(struct director_connection *conn)
 		/* still handshaking USER list */
 		ret = director_connection_send_users(conn);
 		if (ret < 0) {
-			director_connection_log_disconnect(conn, 0,
+			director_connection_log_disconnect(conn, conn->output->stream_errno,
 				o_stream_get_error(conn->output));
 			director_connection_disconnected(&conn,
 				o_stream_get_error(conn->output));
@@ -2529,13 +2529,14 @@ void director_connection_send(struct director_connection *conn,
 	ret = o_stream_send(conn->output, data, len);
 	if (ret != (off_t)len) {
 		if (ret < 0) {
-			director_connection_log_disconnect(conn, 0, t_strdup_printf(
-				"write() failed: %s",
-				o_stream_get_error(conn->output)));
+			director_connection_log_disconnect(conn,
+				conn->output->stream_errno,
+				t_strdup_printf("write() failed: %s",
+					o_stream_get_error(conn->output)));
 		} else {
-			director_connection_log_disconnect(conn, 0, t_strdup_printf(
-				"Output buffer full at %zu",
-				o_stream_get_buffer_used_size(conn->output)));
+			director_connection_log_disconnect(conn, EINVAL,
+				t_strdup_printf("Output buffer full at %zu",
+					o_stream_get_buffer_used_size(conn->output)));
 		}
 		o_stream_close(conn->output);
 		/* closing the stream when output buffer is full doesn't cause
@@ -2561,7 +2562,7 @@ director_connection_ping_idle_timeout(struct director_connection *conn)
 	str_printfa(str, "Ping timed out in %u.%03u secs: ",
 		    diff/1000, diff%1000);
 	director_ping_append_extra(conn, str, 0, (uintmax_t)-1);
-	director_connection_log_disconnect(conn, 0, str_c(str));
+	director_connection_log_disconnect(conn, EINVAL, str_c(str));
 	director_connection_disconnected(&conn, "Ping timeout");
 }
 
@@ -2574,7 +2575,7 @@ static void director_connection_pong_timeout(struct director_connection *conn)
 		"PONG reply not received in %u.%03u secs, "
 		"although other input keeps coming",
 		diff/1000, diff%1000);
-	director_connection_log_disconnect(conn, 0, errstr);
+	director_connection_log_disconnect(conn, EINVAL, errstr);
 	director_connection_disconnected(&conn, "Pong timeout");
 }
 
