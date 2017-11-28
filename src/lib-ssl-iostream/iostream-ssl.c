@@ -6,7 +6,7 @@
 
 #define OFFSET(name) offsetof(struct ssl_iostream_settings, name)
 static const size_t ssl_iostream_settings_string_offsets[] = {
-	OFFSET(protocols),
+	OFFSET(min_protocol),
 	OFFSET(cipher_list),
 	OFFSET(curve_list),
 	OFFSET(ca),

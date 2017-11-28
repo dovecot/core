@@ -90,9 +90,13 @@ int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 			      EVP_PKEY **pkey_r, const char **error_r);
 bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 			     const char **reason_r);
-int openssl_get_protocol_options(const char *protocols);
 #define OPENSSL_ALL_PROTOCOL_OPTIONS \
 	(SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1)
+/* opt_r is used with SSL_set_options() and version_r is used with
+   SSL_set_min_proto_version(). Using either method should enable the same SSL
+   protocol versions. */
+int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
+				    int *version_r) ATTR_NULL(2,3);
 
 /* Sync plain_input/plain_output streams with BIOs. Returns TRUE if at least
    one byte was read/written. */

@@ -173,12 +173,19 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 #endif
 	if (set->prefer_server_ciphers)
 		SSL_set_options(ssl_io->ssl, SSL_OP_CIPHER_SERVER_PREFERENCE);
-	if (set->protocols != NULL) {
+	if (set->min_protocol != NULL) {
 #if defined(HAVE_SSL_CLEAR_OPTIONS)
 		SSL_clear_options(ssl_io->ssl, OPENSSL_ALL_PROTOCOL_OPTIONS);
 #endif
-		SSL_set_options(ssl_io->ssl,
-				openssl_get_protocol_options(set->protocols));
+		long opts;
+		if (openssl_min_protocol_to_options(set->min_protocol, &opts,
+						    NULL) < 0) {
+			*error_r = t_strdup_printf(
+					"Unknown ssl_min_protocol setting '%s'",
+					set->min_protocol);
+			return -1;
+		}
+		SSL_set_options(ssl_io->ssl, opts);
 	}
 
 	if (set->cert.cert != NULL && strcmp(ctx_set->cert.cert, set->cert.cert) != 0) {

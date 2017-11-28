@@ -117,7 +117,7 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 		return TRUE;
 
 	/* check SSL settings */
-	if (null_strcmp(conn->ssl_set.protocols, set->ssl_set->protocols) != 0)
+	if (null_strcmp(conn->ssl_set.min_protocol, set->ssl_set->min_protocol) != 0)
 		return FALSE;
 	if (null_strcmp(conn->ssl_set.cipher_list, set->ssl_set->cipher_list) != 0)
 		return FALSE;
@@ -166,7 +166,7 @@ int ldap_connection_init(struct ldap_client *client,
 	if (set->ssl_set != NULL) {
 		/* keep in sync with ldap_connection_have_settings() */
 		conn->set.ssl_set = &conn->ssl_set;
-		conn->ssl_set.protocols = p_strdup(pool, set->ssl_set->protocols);
+		conn->ssl_set.min_protocol = p_strdup(pool, set->ssl_set->min_protocol);
 		conn->ssl_set.cipher_list = p_strdup(pool, set->ssl_set->cipher_list);
 		conn->ssl_set.ca_file = p_strdup(pool, set->ssl_set->ca_file);
 		conn->ssl_set.cert.cert = p_strdup(pool, set->ssl_set->cert.cert);

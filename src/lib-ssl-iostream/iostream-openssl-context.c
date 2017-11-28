@@ -382,9 +382,16 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		SSL_CTX_set_options(ctx->ssl_ctx,
 				    SSL_OP_CIPHER_SERVER_PREFERENCE);
 	}
-	if (ctx->set.protocols != NULL) {
-		SSL_CTX_set_options(ctx->ssl_ctx,
-			    openssl_get_protocol_options(ctx->set.protocols));
+	if (ctx->set.min_protocol != NULL) {
+		long opts;
+		if (openssl_min_protocol_to_options(ctx->set.min_protocol,
+						    &opts, NULL) < 0) {
+			*error_r = t_strdup_printf(
+					"Unknown ssl_min_protocol setting '%s'",
+					set->min_protocol);
+			return -1;
+		}
+		SSL_CTX_set_options(ctx->ssl_ctx, opts);
 	}
 
 	if (set->cert.cert != NULL &&

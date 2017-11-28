@@ -28,7 +28,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(SET_STR, ssl_dh),
 	DEF(SET_STR, ssl_cipher_list),
 	DEF(SET_STR, ssl_curve_list),
-	DEF(SET_STR, ssl_protocols),
+	DEF(SET_STR, ssl_min_protocol),
 	DEF(SET_STR, ssl_cert_username_field),
 	DEF(SET_STR, ssl_crypto_device),
 	DEF(SET_BOOL, ssl_verify_client_cert),
@@ -57,7 +57,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_dh = "",
 	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
 	.ssl_curve_list = "",
-	.ssl_protocols = "!SSLv3",
+	.ssl_min_protocol = "TLSv1",
 	.ssl_cert_username_field = "commonName",
 	.ssl_crypto_device = "",
 	.ssl_verify_client_cert = FALSE,
@@ -171,7 +171,7 @@ void master_service_ssl_settings_to_iostream_set(
 	struct ssl_iostream_settings *set_r)
 {
 	i_zero(set_r);
-	set_r->protocols = p_strdup(pool, ssl_set->ssl_protocols);
+	set_r->min_protocol = p_strdup(pool, ssl_set->ssl_min_protocol);
 	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
 	/* NOTE: It's a bit questionable whether ssl_ca should be used for
 	   clients. But at least for now it's needed for login-proxy. */

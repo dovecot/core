@@ -14,7 +14,7 @@ struct ssl_iostream_settings {
 	/* NOTE: when updating, remember to update:
 	   ssl_iostream_settings_string_offsets[],
 	   ssl_iostream_settings_drop_stream_only() */
-	const char *protocols; /* both */
+	const char *min_protocol; /* both */
 	const char *cipher_list; /* both */
 	const char *curve_list; /* both */
 	const char *ca, *ca_file, *ca_dir; /* context-only */

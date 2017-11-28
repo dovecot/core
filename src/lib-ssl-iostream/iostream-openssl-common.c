@@ -9,75 +9,37 @@
 #include <openssl/err.h>
 #include <arpa/inet.h>
 
-enum {
-	DOVECOT_SSL_PROTO_SSLv2		= 0x01,
-	DOVECOT_SSL_PROTO_SSLv3		= 0x02,
-	DOVECOT_SSL_PROTO_TLSv1		= 0x04,
-	DOVECOT_SSL_PROTO_TLSv1_1	= 0x08,
-	DOVECOT_SSL_PROTO_TLSv1_2	= 0x10,
-	DOVECOT_SSL_PROTO_ALL		= 0x1f
+/* openssl_min_protocol_to_options() scans this array for name and returns
+   version and opt. opt is used with SSL_set_options() and version is used with
+   SSL_set_min_proto_version(). Using either method should enable the same
+   SSL protocol versions. */
+static const struct {
+	const char *name;
+	int version;
+	long opt;
+} protocol_versions[] = {
+	{ SSL_TXT_SSLV3,   SSL3_VERSION,   0 },
+	{ SSL_TXT_TLSV1,   TLS1_VERSION,   SSL_OP_NO_SSLv3 },
+	{ SSL_TXT_TLSV1_1, TLS1_1_VERSION, SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 },
+	{ SSL_TXT_TLSV1_2, TLS1_2_VERSION,
+		SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 },
 };
-
-int openssl_get_protocol_options(const char *protocols)
+int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
+				    int *version_r)
 {
-	const char *const *tmp;
-	int proto, op = 0, include = 0, exclude = 0;
-	bool neg;
-
-	tmp = t_strsplit_spaces(protocols, ", ");
-	for (; *tmp != NULL; tmp++) {
-		const char *name = *tmp;
-
-		if (*name != '!')
-			neg = FALSE;
-		else {
-			name++;
-			neg = TRUE;
-		}
-#ifdef SSL_TXT_SSLV2
-		if (strcasecmp(name, SSL_TXT_SSLV2) == 0)
-			proto = DOVECOT_SSL_PROTO_SSLv2;
-		else
-#endif
-#ifdef SSL_TXT_SSLV3
-		if (strcasecmp(name, SSL_TXT_SSLV3) == 0)
-			proto = DOVECOT_SSL_PROTO_SSLv3;
-		else
-#endif
-		if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
-			proto = DOVECOT_SSL_PROTO_TLSv1;
-#ifdef SSL_TXT_TLSV1_1
-		else if (strcasecmp(name, SSL_TXT_TLSV1_1) == 0)
-			proto = DOVECOT_SSL_PROTO_TLSv1_1;
-#endif
-#ifdef SSL_TXT_TLSV1_2
-		else if (strcasecmp(name, SSL_TXT_TLSV1_2) == 0)
-			proto = DOVECOT_SSL_PROTO_TLSv1_2;
-#endif
-		else {
-			i_fatal("Invalid ssl_protocols setting: "
-				"Unknown protocol '%s'", name);
-		}
-		if (neg)
-			exclude |= proto;
-		else
-			include |= proto;
+	unsigned i = 0;
+	for (; i < N_ELEMENTS(protocol_versions); i++) {
+		if (strcmp(protocol_versions[i].name, min_protocol) == 0)
+			break;
 	}
-	if (include != 0) {
-		/* exclude everything, except those that are included
-		   (and let excludes still override those) */
-		exclude |= DOVECOT_SSL_PROTO_ALL & ~include;
-	}
-	if ((exclude & DOVECOT_SSL_PROTO_SSLv2) != 0) op |= SSL_OP_NO_SSLv2;
-	if ((exclude & DOVECOT_SSL_PROTO_SSLv3) != 0) op |= SSL_OP_NO_SSLv3;
-	if ((exclude & DOVECOT_SSL_PROTO_TLSv1) != 0) op |= SSL_OP_NO_TLSv1;
-#ifdef SSL_OP_NO_TLSv1_1
-	if ((exclude & DOVECOT_SSL_PROTO_TLSv1_1) != 0) op |= SSL_OP_NO_TLSv1_1;
-#endif
-#ifdef SSL_OP_NO_TLSv1_2
-	if ((exclude & DOVECOT_SSL_PROTO_TLSv1_2) != 0) op |= SSL_OP_NO_TLSv1_2;
-#endif
-	return op;
+	if (i >= N_ELEMENTS(protocol_versions))
+		return -1;
+
+	if (opt_r != NULL)
+		*opt_r = protocol_versions[i].opt;
+	if (version_r != NULL)
+		*version_r = protocol_versions[i].version;
+	return 0;
 }
 
 static const char *asn1_string_to_c(ASN1_STRING *asn_str)
