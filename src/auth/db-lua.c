@@ -163,14 +163,22 @@ static int auth_request_lua_var_expand_func(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	struct auth_request *request = auth_lua_check_auth_request(script, 1);
-	const char *key = luaL_checkstring(L, 2);
-	const char *param = luaL_checkstring(L, 3);
+	const char *key, *param, *sep;
 	const char *value, *error;
 	/* allows setting parameters for the call */
+	if (lua_gettop(L) == 3) {
+		key = luaL_checkstring(L, 2);
+		param = luaL_checkstring(L, 3);
+		sep = (*param == ';' ? "" : ":");
+	} else {
+		key = luaL_checkstring(L, 2);
+		param = "";
+		sep = "";
+	}
 	const char *tpl =
 		 t_strdup_printf("%%{%s%s%s}",
 				 key,
-				 (*param == ';' ? "" : ":"),
+				 sep,
 				 param);
 
 	if (auth_request_lua_do_var_expand(request, tpl, &value, &error) < 0) {
