@@ -418,8 +418,7 @@ auth_lua_export_fields(struct auth_request *req,
 			key = t_strdup_until(*fields, value++);
 		}
 
-		if (password_r != NULL && strcmp(key, "password") == 0 &&
-		    req->userdb_lookup) {
+		if (password_r != NULL && strcmp(key, "password") == 0) {
 			*scheme_r = password_get_scheme(&value);
 			*password_r = value;
 		} else if (req->userdb_lookup) {
@@ -507,7 +506,7 @@ auth_lua_export_passdb_table(struct dlua_script *script, struct auth_request *re
 
 static enum passdb_result
 auth_lua_call_lookup_finish(struct dlua_script *script, struct auth_request *req,
-			    const char **username_r, const char **password_r,
+			    const char **scheme_r, const char **password_r,
 			    const char **error_r)
 {
 	if (lua_istable(script->L, -1)) {
@@ -522,8 +521,11 @@ auth_lua_call_lookup_finish(struct dlua_script *script, struct auth_request *req
 	if (ret != PASSDB_RESULT_OK && ret != PASSDB_RESULT_NEXT) {
 		*error_r = str;
 	} else {
-		auth_lua_export_fields(req, str, username_r, password_r);
+		auth_lua_export_fields(req, str, scheme_r, password_r);
 	}
+
+	if (scheme_r != NULL && *scheme_r == NULL)
+		*scheme_r = "PLAIN";
 
 	return ret;
 }
