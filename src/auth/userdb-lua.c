@@ -57,7 +57,7 @@ userdb_lua_preinit(pool_t pool, const char *args)
 	}
 
 	if (module->file == NULL)
-		i_fatal("passdb-lua: Missing mandatory file= parameter");
+		i_fatal("userdb-lua: Missing mandatory file= parameter");
 
 	module->module.blocking = blocking;
 	return &module->module;
