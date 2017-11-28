@@ -111,7 +111,7 @@ static void test_password_schemes(void)
 	test_password_scheme("SCRAM-SHA-1", "{SCRAM-SHA-1}4096,GetyLXdBuHzf1FWf8SLz2Q==,NA/OqmF4hhrsrB9KR7po+dliTGM=,QBiURvQaE6H6qYTmeghDHLANBFQ=", "test");
 	test_password_scheme("BLF-CRYPT", "{BLF-CRYPT}$2y$05$11ipvo5dR6CwkzwmhwM26OXgzXwhV2PyPuLV.Qi31ILcRcThQpEiW", "test");
 #ifdef HAVE_LIBSODIUM
-	test_password_scheme("ARGON2", "{ARGON2}$argon2i$v=19$m=32768,t=4,p=1$f2iuP4aUeNMrgu34fhOkkg$1XSZZMWlIs0zmE+snlUIcLADO3GXbA2O/hsQmmc317k", "test");
+	test_password_scheme("ARGON2I", "{ARGON2I}$argon2i$v=19$m=32768,t=4,p=1$f2iuP4aUeNMrgu34fhOkkg$1XSZZMWlIs0zmE+snlUIcLADO3GXbA2O/hsQmmc317k", "test");
 #endif
 }
 
