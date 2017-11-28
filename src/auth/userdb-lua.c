@@ -22,6 +22,9 @@ static void userdb_lua_lookup(struct auth_request *auth_request,
 	const char *error;
 	enum userdb_result result =
 		auth_lua_call_userdb_lookup(module->script, auth_request, &error);
+	if (result == USERDB_RESULT_INTERNAL_FAILURE)
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+				       "userdb-lua: %s", error);
 	callback(result, auth_request);
 }
 
