@@ -967,11 +967,11 @@ static bool password_has_illegal_chars(const char *password)
 
 static bool auth_request_is_disabled_master_user(struct auth_request *request)
 {
-	if (request->passdb != NULL)
+	if (request->requested_login_user == NULL ||
+	    request->passdb != NULL)
 		return FALSE;
 
 	/* no masterdbs, master logins not supported */
-	i_assert(request->requested_login_user != NULL);
 	auth_request_log_info(request, AUTH_SUBSYS_MECH,
 			      "Attempted master login with no master passdbs "
 			      "(trying to log in as user: %s)",
