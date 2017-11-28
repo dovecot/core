@@ -159,34 +159,45 @@ static int auth_request_lua_log_error(lua_State *L)
 	return 0;
 }
 
-static int auth_request_lua_var_expand_func(lua_State *L)
+static int auth_request_lua_passdb(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+
+	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	const char *key = luaL_checkstring(L, 2);
+	lua_pop(L, 1);
+
+	if (request->extra_fields == NULL) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	const char *value = auth_fields_find(request->extra_fields, key);
+
+	if (value == NULL)
+		lua_pushnil(L);
+	else
+		lua_pushstring(L, value);
+	return 1;
+}
+
+static int auth_request_lua_userdb(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	struct auth_request *request = auth_lua_check_auth_request(script, 1);
-	const char *key, *param, *sep;
-	const char *value, *error;
-	/* allows setting parameters for the call */
-	if (lua_gettop(L) == 3) {
-		key = luaL_checkstring(L, 2);
-		param = luaL_checkstring(L, 3);
-		sep = (*param == ';' ? "" : ":");
-	} else {
-		key = luaL_checkstring(L, 2);
-		param = "";
-		sep = "";
-	}
-	const char *tpl =
-		 t_strdup_printf("%%{%s%s%s}",
-				 key,
-				 sep,
-				 param);
+	const char *key = luaL_checkstring(L, 2);
+	lua_pop(L, 1);
 
-	if (auth_request_lua_do_var_expand(request, tpl, &value, &error) < 0) {
-		luaL_error(L, error);
+	if (request->userdb_reply == NULL) {
+		lua_pushnil(L);
 		return 1;
 	}
-	lua_pushstring(L, value);
 
+	const char *value = auth_fields_find(request->userdb_reply, key);
+	if (value == NULL)
+		lua_pushnil(L);
+	else
+		lua_pushstring(L, value);
 	return 1;
 }
 
@@ -204,6 +215,7 @@ static const luaL_Reg auth_request_methods[] ={
 static int auth_request_lua_index(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
+
 	struct auth_request *req = auth_lua_check_auth_request(script, 1);
 	const char *key = luaL_checkstring(L, 2);
 	lua_pop(L, 1);
@@ -222,16 +234,6 @@ static int auth_request_lua_index(lua_State *L)
 		}
 	}
 
-	/* check if it's a variable function */
-	const struct var_expand_func_table *ftable = auth_request_var_funcs_table;
-	while(ftable->func != NULL) {
-		if (null_strcmp(key, ftable->key) == 0) {
-			lua_pushcfunction(L, auth_request_lua_var_expand_func);
-			return 1;
-		}
-		ftable++;
-	}
-
 	/* check if it's function, then */
 	const luaL_Reg *ptr = auth_request_methods;
 	while(ptr->name != NULL) {
@@ -242,32 +244,62 @@ static int auth_request_lua_index(lua_State *L)
 		ptr++;
 	}
 
-	luaL_error(L, "no such method");
+	lua_pushstring(L, key);
+	lua_rawget(L, 1);
+
 	return 1;
 }
 
 static void auth_lua_push_auth_request(struct dlua_script *script, struct auth_request *req)
 {
-	/* we want to store a pointer, not the actual request */
-	struct auth_request **bp =
-		(struct auth_request**)lua_newuserdata(script->L, sizeof(req));
-	*bp = req;
-	/* associate metatable */
+	luaL_checkstack(script->L, 4, "out of memory");
+	/* create a table for holding few things */
+	lua_createtable(script->L, 0, 3);
 	luaL_setmetatable(script->L, AUTH_LUA_AUTH_REQUEST);
+
+	lua_pushlightuserdata(script->L, req);
+	lua_setfield(script->L, -2, "item");
+
+	lua_newtable(script->L);
+	lua_pushlightuserdata(script->L, req);
+	lua_setfield(script->L, -2, "item");
+	luaL_setmetatable(script->L, "passdb_"AUTH_LUA_AUTH_REQUEST);
+	lua_setfield(script->L, -2, "passdb");
+
+	lua_newtable(script->L);
+	lua_pushlightuserdata(script->L, req);
+	lua_setfield(script->L, -2, "item");
+	luaL_setmetatable(script->L, "userdb_"AUTH_LUA_AUTH_REQUEST);
+	lua_setfield(script->L, -2, "userdb");
 }
 
 static struct auth_request *
 auth_lua_check_auth_request(struct dlua_script *script, int arg)
 {
-	struct auth_request **bp =
-		(struct auth_request**)luaL_checkudata(script->L, arg, AUTH_LUA_AUTH_REQUEST);
-	return *bp;
+	i_assert(lua_istable(script->L, arg));
+	lua_pushstring(script->L, "item");
+	lua_rawget(script->L, arg);
+	void *bp = (void*)lua_touserdata(script->L, -1);
+	lua_pop(script->L, 1);
+	return (struct auth_request*)bp;
 }
 
 static void auth_lua_auth_request_register(struct dlua_script *script)
 {
 	luaL_newmetatable(script->L, AUTH_LUA_AUTH_REQUEST);
 	lua_pushcfunction(script->L, auth_request_lua_index);
+	lua_setfield(script->L, -2, "__index");
+	lua_pop(script->L, 1);
+
+	/* register passdb */
+	luaL_newmetatable(script->L, "passdb_"AUTH_LUA_AUTH_REQUEST);
+	lua_pushcfunction(script->L, auth_request_lua_passdb);
+	lua_setfield(script->L, -2, "__index");
+	lua_pop(script->L, 1);
+
+	/* register userdb */
+	luaL_newmetatable(script->L, "userdb_"AUTH_LUA_AUTH_REQUEST);
+	lua_pushcfunction(script->L, auth_request_lua_userdb);
 	lua_setfield(script->L, -2, "__index");
 	lua_pop(script->L, 1);
 }
