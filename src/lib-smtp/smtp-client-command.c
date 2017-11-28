@@ -320,6 +320,13 @@ void smtp_client_command_set_abort_callback(struct smtp_client_command *cmd,
 	cmd->abort_context = context;
 }
 
+void smtp_client_command_set_sent_callback(struct smtp_client_command *cmd,
+	void (*callback)(void *context), void *context)
+{
+	cmd->sent_callback = callback;
+	cmd->sent_context = context;
+}
+
 void smtp_client_command_set_replies(struct smtp_client_command *cmd,
 	unsigned int replies)
 {
@@ -337,6 +344,11 @@ smtp_client_command_sent(struct smtp_client_command *cmd)
 
 	if (smtp_client_command_name_equals(cmd, "QUIT"))
 		cmd->conn->sent_quit = TRUE;
+
+	if (cmd->sent_callback != NULL) {
+		cmd->sent_callback(cmd->sent_context);
+		cmd->sent_callback = NULL;
+	}
 }
 
 static int

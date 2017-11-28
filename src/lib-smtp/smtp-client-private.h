@@ -38,6 +38,9 @@ struct smtp_client_command {
 	void (*abort_callback)(void *context);
 	void *abort_context;
 
+	void (*sent_callback)(void *context);
+	void *sent_context;
+
 	bool has_stream:1;
 	bool stream_dot:1;
 	bool ehlo:1;

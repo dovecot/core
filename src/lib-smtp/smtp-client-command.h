@@ -84,6 +84,9 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd);
 void smtp_client_command_set_abort_callback(struct smtp_client_command *cmd,
 	void (*callback)(void *context), void *context);
 
+void smtp_client_command_set_sent_callback(struct smtp_client_command *cmd,
+	void (*callback)(void *context), void *context);
+
 void smtp_client_command_set_replies(struct smtp_client_command *cmd,
 	unsigned int replies);
 
