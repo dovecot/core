@@ -592,7 +592,7 @@ user_need_refresh(struct director *dir, struct user *user,
 	return TRUE;
 }
 
-static bool
+static int
 director_user_refresh(struct director_connection *conn,
 		      unsigned int username_hash, struct mail_host *host,
 		      time_t timestamp, bool weak, bool *forced_r,
@@ -612,9 +612,11 @@ director_user_refresh(struct director_connection *conn,
 	}
 
 	if (timestamp + (time_t)dir->set->director_user_expire <= ioloop_time) {
+		/* Ignore this refresh entirely, regardless of whether the
+		   user already exists or not. */
 		dir_debug("user refresh: %u has expired timestamp %ld",
 			  username_hash, (long)timestamp);
-		return TRUE;
+		return -1;
 	}
 
 	user = user_directory_lookup(users, username_hash);
@@ -623,7 +625,7 @@ director_user_refresh(struct director_connection *conn,
 					     host, timestamp);
 		(*user_r)->weak = weak;
 		dir_debug("user refresh: %u added", username_hash);
-		return TRUE;
+		return 1;
 	}
 
 	if (user->weak) {
@@ -744,7 +746,7 @@ director_user_refresh(struct director_connection *conn,
 	}
 
 	*user_r = user;
-	return ret;
+	return ret ? 1 : 0;
 }
 
 static bool
@@ -781,8 +783,11 @@ director_handshake_cmd_user(struct director_connection *conn,
 		timestamp = ioloop_time;
 	}
 	conn->dir->num_incoming_requests++;
-	(void)director_user_refresh(conn, username_hash, host,
-				    timestamp, weak, &forced, &user);
+	if (director_user_refresh(conn, username_hash, host,
+				  timestamp, weak, &forced, &user) < 0) {
+		/* user expired - ignore */
+		return TRUE;
+	}
 	/* Possibilities:
 
 	   a) The user didn't exist yet, and it was added with the given
@@ -836,7 +841,8 @@ director_cmd_user(struct director_connection *conn,
 	}
 
 	if (director_user_refresh(conn, username_hash,
-				  host, timestamp, FALSE, &forced, &user)) {
+				  host, timestamp, FALSE, &forced, &user) > 0) {
+		/* user changed - forward the USER in the ring */
 		struct director_host *src_host =
 			forced ? conn->dir->self_host : conn->host;
 		i_assert(!user->weak);
@@ -1059,9 +1065,14 @@ director_cmd_user_weak(struct director_connection *conn,
 		weak_forward = TRUE;
 	}
 
-	if (director_user_refresh(conn, username_hash,
-				  host, ioloop_time, weak, &forced, &user) ||
-	    weak_forward) {
+	ret = director_user_refresh(conn, username_hash,
+				    host, ioloop_time, weak, &forced, &user);
+	/* user is refreshed with ioloop_time, it can't be expired already */
+	i_assert(ret >= 0);
+	if (ret > 0 || weak_forward) {
+		/* user changed, or we've decided that we need to forward
+		   the weakness notification to the rest of the ring even
+		   though we already knew it. */
 		if (forced)
 			src_host = conn->dir->self_host;
 		if (!user->weak)
