@@ -1065,6 +1065,37 @@ static void _cmd_bdat_cb(const struct smtp_reply *reply,
 	}
 }
 
+static void _cmd_bdat_sent_cb(void *context)
+{
+	struct _cmd_data_context *ctx = (struct _cmd_data_context *)context;
+
+	/* send more BDAT commands if possible */
+	(void)_cmd_bdat_send_chunks(ctx, NULL);
+}
+
+static int
+_cmd_bdat_read_data(struct _cmd_data_context *ctx, size_t *data_size_r)
+{
+	int ret;
+
+	while ((ret=i_stream_read(ctx->data)) > 0);
+
+	if (ret < 0) {
+		if (ret != -2 && ctx->data->stream_errno != 0) {
+			smtp_client_command_error(ctx->cmd_data,
+				"Failed to read DATA stream: %s",
+				i_stream_get_error(ctx->data));
+			smtp_client_command_fail(&ctx->cmd_data,
+				SMTP_CLIENT_COMMAND_ERROR_BROKEN_PAYLOAD,
+				"Broken payload stream");
+			return -1;
+		}
+	}
+
+	*data_size_r = i_stream_get_data_size(ctx->data);
+	return 0;
+}
+
 static void
 _cmd_bdat_send_chunks(struct _cmd_data_context *ctx,
 	struct smtp_client_command *after)
@@ -1074,8 +1105,7 @@ _cmd_bdat_send_chunks(struct _cmd_data_context *ctx,
 	struct smtp_client_command *const *cmds, *cmd, *cmd_prev;
 	unsigned int count;
 	struct istream *chunk;
-	size_t data_size;
-	int ret;
+	size_t data_size, max_chunk_size;
 
 	if (smtp_client_command_get_state(ctx->cmd_data) >=
 		SMTP_CLIENT_COMMAND_STATE_SUBMITTED) {
@@ -1095,27 +1125,24 @@ _cmd_bdat_send_chunks(struct _cmd_data_context *ctx,
 	}
 
 	data_size = ctx->data_left;
-	if (data_size == 0) {
-		const unsigned char *data ATTR_UNUSED;
-
-		/* The data stream size is unknown. Determine how much we can
-		   send in the next command */
-		if ((ret=i_stream_read_more(ctx->data, &data, &data_size)) < 0) {
-			if (ret != -2 && ctx->data->stream_errno != 0) {
-				smtp_client_command_error(ctx->cmd_data,
-					"Failed to read DATA stream: %s",
-					i_stream_get_error(ctx->data));
-				smtp_client_command_fail(&ctx->cmd_data,
-					SMTP_CLIENT_COMMAND_ERROR_BROKEN_PAYLOAD,
-					"Broken payload stream");
-				return;
-			}
+	if (data_size > 0) {
+		max_chunk_size = set->max_data_chunk_size;
+	} else {
+		if (ctx->data->v_offset < ctx->data_offset) {
+			/* previous BDAT command not completely sent */
+			return;
 		}
+		max_chunk_size = i_stream_get_max_buffer_size(ctx->data);
+		if (set->max_data_chunk_size < max_chunk_size)
+			max_chunk_size = set->max_data_chunk_size;
+		if (_cmd_bdat_read_data(ctx, &data_size) < 0)
+			return;
 	}
 
 	/* Keep sending more chunks until pipeline is filled to the limit */
-	while (data_size > set->max_data_chunk_size ||
-		(data_size > 0 && ctx->data_left == 0 && !ctx->data->eof)) {
+	cmd = NULL;
+	while (data_size > max_chunk_size ||
+		(data_size == max_chunk_size && !ctx->data->eof)) {
 		size_t size = (data_size > set->max_data_chunk_size ?
 			set->max_data_chunk_size : data_size);
 		chunk = i_stream_create_range(ctx->data,
@@ -1151,28 +1178,29 @@ _cmd_bdat_send_chunks(struct _cmd_data_context *ctx,
 		cmd_prev = cmd;
 	}
 
-	i_assert(ctx->data_left > 0 || ctx->data->eof);
-
 	if (ctx->data_left != 0) {
 		/* data stream size known:
 		record where we left off */
 		ctx->data_left = data_size;
-	}
-	if (ctx->data_left == 0 && !ctx->data->eof) {
+	} else if (!ctx->data->eof) {
 		/* more to read */
+		if (cmd != NULL) {
+			smtp_client_command_set_sent_callback(cmd,
+				_cmd_bdat_sent_cb, ctx);
+		}
 		return;
 	}
 
 	/* the last chunk, which may actually be empty */
 	chunk = i_stream_create_range(ctx->data,
-		ctx->data_offset, ctx->data_left);
+		ctx->data_offset, data_size);
 
 	/* submit final command */
 	cmd = ctx->cmd_data;
 	smtp_client_command_set_stream(cmd, chunk, FALSE);
 	i_stream_unref(&chunk);
 	smtp_client_command_printf(cmd,
-		"BDAT %"PRIuUOFF_T" LAST", ctx->data_left);
+		"BDAT %"PRIuUOFF_T" LAST", data_size);
 	smtp_client_command_submit_after(cmd, cmd_prev);
 
 	if (array_count(&ctx->cmds) == 0) {
