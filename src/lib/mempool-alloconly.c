@@ -227,13 +227,18 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 	struct pool_block *block;
 
 	i_assert(size > SIZEOF_POOLBLOCK);
+	i_assert(size <= SSIZE_T_MAX);
 
 	if (apool->block != NULL) {
 		/* each block is at least twice the size of the previous one */
 		if (size <= apool->block->size)
 			size += apool->block->size;
 
+		/* avoid crashing in nearest_power() if size is too large */
+		size = I_MIN(size, SSIZE_T_MAX);
 		size = nearest_power(size);
+		/* nearest_power() could have grown size to SSIZE_T_MAX+1 */
+		size = I_MIN(size, SSIZE_T_MAX);
 #ifdef DEBUG
 		if (!apool->disable_warning) {
 			/* i_debug() overwrites unallocated data in data
