@@ -2033,6 +2033,8 @@ director_connection_log_disconnect(struct director_connection *conn, int err,
 		str_append(str, ", handshake ME not received");
 	else if (!conn->handshake_received)
 		str_append(str, ", handshake DONE not received");
+	if (conn->synced)
+		str_append(str, ", synced");
 	str_append_c(str, ')');
 	i_error("%s", str_c(str));
 }
