@@ -73,10 +73,12 @@ enum fatal_test_state fatal_mempool_alloconly(unsigned int stage)
 		(void)p_malloc(pool, SSIZE_T_MAX + 1ULL);
 		return FATAL_TEST_FAILURE;
 
+#if SSIZE_T_MAX > 2147483648 /* malloc(SSIZE_T_MAX) may succeed with 32bit */
 	case 2: /* physically impossible size */
 		test_expect_fatal_string("Out of memory");
 		(void)p_malloc(pool, SSIZE_T_MAX - 1024);
 		return FATAL_TEST_FAILURE;
+#endif
 
 	/* Continue with other tests as follows:
 	case 3:
