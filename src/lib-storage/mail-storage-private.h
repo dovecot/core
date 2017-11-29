@@ -20,6 +20,11 @@
 
 #define MAIL_SHARED_STORAGE_NAME "shared"
 
+enum mail_storage_list_index_rebuild_reason {
+	/* Mailbox list index was found to be corrupted. */
+	MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_CORRUPTED,
+};
+
 struct mail_storage_module_register {
 	unsigned int id;
 };
@@ -48,10 +53,12 @@ struct mail_storage_vfuncs {
 					 const char *vname,
 					 enum mailbox_flags flags);
 	int (*purge)(struct mail_storage *storage);
-	/* Called when mailbox list index corruption has been detected.
+	/* Called when mailbox list index rebuild is requested. Additional
+	   parameter is in storage.list_index_rebuild_reason.
+
 	   The callback should add any missing mailboxes to the list index.
 	   Returns 0 on success, -1 on temporary failure that didn't properly
-	   fix the index. */
+	   rebuild the index. */
 	int (*list_index_corrupted)(struct mail_storage *storage);
 };
 
@@ -151,6 +158,10 @@ struct mail_storage {
 
 	struct mail_storage_callbacks callbacks;
 	void *callback_context;
+
+	/* FIXME: remove in v2.3 - should be a parameter to
+	   list_index_corrupted() */
+	enum mail_storage_list_index_rebuild_reason list_index_rebuild_reason;
 
 	struct mail_binary_cache binary_cache;
 	/* Filled lazily by mailbox_attribute_*() when accessing shared

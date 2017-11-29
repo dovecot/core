@@ -587,9 +587,12 @@ int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	struct mail_storage *const *storagep;
+	enum mail_storage_list_index_rebuild_reason reason;
 	int ret = 0;
 
-	if (!ilist->call_corruption_callback)
+	if (ilist->call_corruption_callback)
+		reason = MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_CORRUPTED;
+	else
 		return 0;
 
 	/* make sure we don't recurse */
@@ -599,6 +602,7 @@ int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 
 	array_foreach(&list->ns->all_storages, storagep) {
 		if ((*storagep)->v.list_index_corrupted != NULL) {
+			(*storagep)->list_index_rebuild_reason = reason;
 			if ((*storagep)->v.list_index_corrupted(*storagep) < 0)
 				ret = -1;
 			else {
