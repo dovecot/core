@@ -398,6 +398,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				parent->children = node;
 				continue;
 			}
+		} else if (strcasecmp(node->name, "INBOX") == 0) {
+			ilist->rebuild_on_missing_inbox = FALSE;
 		}
 		if (hash_table_lookup(duplicate_hash, node) == NULL)
 			hash_table_insert(duplicate_hash, node, node);
@@ -592,6 +594,8 @@ int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 
 	if (ilist->call_corruption_callback)
 		reason = MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_CORRUPTED;
+	else if (ilist->rebuild_on_missing_inbox)
+		reason = MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_NO_INBOX;
 	else
 		return 0;
 
@@ -624,6 +628,7 @@ int mailbox_list_index_set_uncorrupted(struct mailbox_list *list)
 	struct mailbox_list_index_sync_context *sync_ctx;
 
 	ilist->call_corruption_callback = FALSE;
+	ilist->rebuild_on_missing_inbox = FALSE;
 
 	if (mailbox_list_index_sync_begin(list, &sync_ctx) < 0)
 		return -1;
@@ -904,6 +909,8 @@ static void mailbox_list_index_init_finish(struct mailbox_list *list)
 	ilist->path = dir == NULL ? "(in-memory mailbox list index)" :
 		p_strdup_printf(list->pool, "%s/%s", dir, list->set.list_index_fname);
 	ilist->index = mail_index_alloc(dir, list->set.list_index_fname);
+	ilist->rebuild_on_missing_inbox =
+		(list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0;
 
 	ilist->ext_id = mail_index_ext_register(ilist->index, "list",
 				sizeof(struct mailbox_list_index_header),

@@ -23,6 +23,12 @@
 enum mail_storage_list_index_rebuild_reason {
 	/* Mailbox list index was found to be corrupted. */
 	MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_CORRUPTED,
+	/* Mailbox list index doesn't have INBOX in an inbox=yes namespace.
+	   Rebuild is done to verify whether the user really is an empty new
+	   user, or if an existing user's mailbox list index was lost. Because
+	   this is called in non-error conditions, the callback shouldn't log
+	   any errors or warnings if it didn't find any missing mailboxes. */
+	MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_NO_INBOX,
 };
 
 struct mail_storage_module_register {
