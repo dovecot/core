@@ -384,14 +384,19 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	}
 	if (ctx->set.min_protocol != NULL) {
 		long opts;
+		int min_protocol;
 		if (openssl_min_protocol_to_options(ctx->set.min_protocol,
-						    &opts, NULL) < 0) {
+						    &opts, &min_protocol) < 0) {
 			*error_r = t_strdup_printf(
 					"Unknown ssl_min_protocol setting '%s'",
 					set->min_protocol);
 			return -1;
 		}
+#ifdef HAVE_SSL_CTX_SET_MIN_PROTO_VERSION
+		SSL_CTX_set_min_proto_version(ctx->ssl_ctx, min_protocol);
+#else
 		SSL_CTX_set_options(ctx->ssl_ctx, opts);
+#endif
 	}
 
 	if (set->cert.cert != NULL &&
