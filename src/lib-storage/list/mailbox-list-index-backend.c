@@ -584,6 +584,43 @@ static int index_list_mailbox_open(struct mailbox *box)
 	return 0;
 }
 
+static struct mailbox_sync_context *
+index_list_mailbox_sync_init(struct mailbox *box,
+			     enum mailbox_sync_flags flags)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+
+	if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0 &&
+	    !ilist->force_resynced) {
+		enum mail_storage_list_index_rebuild_reason reason =
+			MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_FORCE_RESYNC;
+
+		if (box->storage->v.list_index_rebuild(box->storage, reason) < 0)
+			ilist->force_resync_failed = TRUE;
+		/* try to rebuild list index only once - even if it failed */
+		ilist->force_resynced = TRUE;
+	}
+	return ibox->module_ctx.super.sync_init(box, flags);
+}
+
+static int
+index_list_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+			       struct mailbox_sync_status *status_r)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(ctx->box);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(ctx->box->list);
+
+	if (ibox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
+		return -1;
+	if (ilist->force_resync_failed) {
+		/* fail this only once */
+		ilist->force_resync_failed = FALSE;
+		return -1;
+	}
+	return 0;
+}
+
 static void
 index_list_try_delete(struct mailbox_list *_list, const char *name,
 		      enum mailbox_list_path_type type)
@@ -866,4 +903,6 @@ void mailbox_list_index_backend_init_mailbox(struct mailbox *box,
 	v->update_box = index_list_mailbox_update;
 	v->exists = index_list_mailbox_exists;
 	v->open = index_list_mailbox_open;
+	v->sync_init = index_list_mailbox_sync_init;
+	v->sync_deinit = index_list_mailbox_sync_deinit;
 }
