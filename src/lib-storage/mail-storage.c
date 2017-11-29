@@ -1072,7 +1072,7 @@ mailbox_verify_name_prefix(struct mailbox *box, const char **error_r)
 	return TRUE;
 }
 
-static int mailbox_verify_name(struct mailbox *box)
+int mailbox_verify_name(struct mailbox *box)
 {
 	struct mail_namespace *ns = box->list->ns;
 	const char *error, *vname = box->vname;
