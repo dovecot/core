@@ -444,8 +444,11 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 		/* nothing changed */
 		return 0;
 	}
-	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0)
+	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0) {
+		mailbox_list_set_critical(list,
+			"Mailbox list index was marked as fsck'd %s", ilist->path);
 		ilist->call_corruption_callback = TRUE;
+	}
 
 	mailbox_list_index_reset(ilist);
 	ilist->sync_log_file_seq = hdr->log_file_seq;
