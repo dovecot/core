@@ -35,6 +35,9 @@ void test_db_lua(void)
 		test_assert(auth_lua_call_passdb_lookup(script, req, &scheme, &pass, &error) == 1);
 	}
 	dlua_script_unref(&script);
+	i_free(req->passdb);
+	auth_request_unref(&req);
+
 	test_end();
 }
 #endif
