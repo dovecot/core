@@ -29,6 +29,10 @@ enum mail_storage_list_index_rebuild_reason {
 	   this is called in non-error conditions, the callback shouldn't log
 	   any errors or warnings if it didn't find any missing mailboxes. */
 	MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_NO_INBOX,
+	/* MAILBOX_SYNC_FLAG_FORCE_RESYNC is run. This is called only once
+	   per list, so that doveadm force-resync '*' won't cause it to run for
+	   every mailbox. */
+	MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_FORCE_RESYNC,
 };
 
 struct mail_storage_module_register {

@@ -122,6 +122,8 @@ struct mailbox_list_index {
 	unsigned int handling_corruption:1;
 	unsigned int call_corruption_callback:1;
 	unsigned int rebuild_on_missing_inbox:1;
+	unsigned int force_resynced:1;
+	unsigned int force_resync_failed:1;
 };
 
 struct mailbox_list_index_iterate_context {
