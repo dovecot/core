@@ -121,6 +121,7 @@ struct mailbox_list_index {
 	bool corrupted_names_or_parents:1;
 	bool handling_corruption:1;
 	bool call_corruption_callback:1;
+	bool rebuild_on_missing_inbox:1;
 };
 
 struct mailbox_list_index_iterate_context {
