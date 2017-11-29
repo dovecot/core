@@ -1,7 +1,14 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
+#include "mkdir-parents.h"
+#include "unlink-directory.h"
+#include "hex-binary.h"
+#include "randgen.h"
 #include "test-common.h"
+#include "master-service.h"
+#include "mail-storage-service.h"
 #include "mail-storage-private.h"
 
 static void test_init_storage(struct mail_storage *storage_r)
@@ -23,6 +30,15 @@ static void test_deinit_storage(struct mail_storage *storage)
 	event_unref(&storage->event);
 	event_unref(&storage->user->event);
 }
+
+struct test_mail_storage_ctx {
+	pool_t pool;
+	struct mail_storage_service_ctx *storage_service;
+	struct mail_user *user;
+	struct mail_storage_service_user *service_user;
+	struct ioloop *ioloop;
+	const char *mail_home;
+};
 
 static void test_mail_storage_errors(void)
 {
@@ -203,13 +219,127 @@ static void test_mail_storage_last_error_push_pop(void)
 	test_end();
 }
 
-int main(void)
+static void test_mail_init(struct test_mail_storage_ctx *ctx)
 {
-	static void (*const test_functions[])(void) = {
+	const char *error;
+	char path_buf[4096];
+	unsigned char rand[4];
+
+	ctx->pool = pool_allocfree_create("test pool");
+
+	if (getcwd(path_buf, sizeof(path_buf)) == NULL)
+		i_fatal("getcwd() failed: %m");
+
+	random_fill(rand, sizeof(rand));
+	ctx->mail_home = p_strdup_printf(ctx->pool, "%s/.test-dir%s/", path_buf,
+					 binary_to_hex(rand, sizeof(rand)));
+
+	if (unlink_directory(ctx->mail_home, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0 &&
+	    errno != ENOENT)
+		i_warning("unlink_directory(%s) failed: %s", ctx->mail_home, error);
+
+	ctx->ioloop = io_loop_create();
+
+	ctx->storage_service = mail_storage_service_init(master_service, NULL,
+		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
+		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
+		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS);
+}
+
+static void test_mail_deinit(struct test_mail_storage_ctx *ctx)
+{
+	const char *error;
+	mail_storage_service_deinit(&ctx->storage_service);
+
+	if (chdir(ctx->mail_home) < 0)
+		i_fatal("chdir(%s) failed: %m", ctx->mail_home);
+	if (chdir("..") < 0)
+		i_fatal("chdir(..) failed: %m");
+
+	if (unlink_directory(ctx->mail_home, UNLINK_DIRECTORY_FLAG_RMDIR,
+			     &error) < 0)
+		i_error("unlink_directory(%s) failed: %s", ctx->mail_home, error);
+
+	io_loop_destroy(&ctx->ioloop);
+
+	pool_unref(&ctx->pool);
+
+	i_zero(ctx);
+}
+
+static int test_mail_init_user(const char *user, const char *driver,
+			       const char *driver_opts, const char *sep,
+			       const char *const *extra_input,
+			       struct test_mail_storage_ctx *ctx)
+{
+	const char *error, *home;
+	ARRAY_TYPE(const_string) opts;
+
+	home = t_strdup_printf("%s%s", ctx->mail_home, user);
+
+	const char *const default_input[] = {
+		t_strdup_printf("mail=%s:~/%s", driver, driver_opts),
+		"postmaster_address=postmaster@localhost",
+		"namespace=inbox",
+		"namespace/inbox/prefix=",
+		"namespace/inbox/inbox=yes",
+		t_strdup_printf("namespace/inbox/separator=%s", sep),
+		t_strdup_printf("home=%s/%s", home, user),
+	};
+
+	i_assert(mkdir_parents(home, S_IRWXU)==0 || errno == EEXIST);
+
+	t_array_init(&opts, 20);
+	array_append(&opts, default_input, N_ELEMENTS(default_input));
+	if (extra_input != NULL)
+		while(*extra_input != NULL)
+			array_append(&opts, extra_input++, 1);
+
+	array_append_zero(&opts);
+	struct mail_storage_service_input input = {
+		.userdb_fields = array_idx(&opts, 0),
+		.username = user,
+		.no_userdb_lookup = TRUE,
+		.debug = FALSE,
+	};
+
+	if (mail_storage_service_lookup_next(ctx->storage_service, &input,
+					     &ctx->service_user, &ctx->user,
+					     &error) < 0) {
+		 i_error("mail_storage_service_lookup_next(%s) failed: %s",
+			 user, error);
+		 return -1;
+	}
+
+	return 0;
+}
+
+#define test_mail_init_maildir_user(user) test_mail_init_user(user,"maildir","",NULL)
+static void test_mail_deinit_user(struct test_mail_storage_ctx *ctx)
+{
+	mail_user_unref(&ctx->user);
+	mail_storage_service_user_unref(&ctx->service_user);
+}
+
+int main(int argc, char **argv)
+{
+	int ret;
+	void (*const tests[])(void) = {
 		test_mail_storage_errors,
 		test_mail_storage_last_error_push_pop,
 		NULL
 	};
 
-	return test_run(test_functions);
+	master_service = master_service_init("test-mail-storage",
+					     MASTER_SERVICE_FLAG_STANDALONE |
+					     MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS |
+					     MASTER_SERVICE_FLAG_NO_SSL_INIT |
+					     MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
+					     &argc, &argv, "");
+
+	ret = test_run(tests);
+
+	master_service_deinit(&master_service);
+
+	return ret;
 }
