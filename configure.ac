@@ -1771,6 +1771,25 @@ if test $want_openssl != no && test $have_ssl = no; then
       AC_DEFINE(HAVE_SSL_NEW_MEM_FUNCS,, [Define if CRYPTO_set_mem_functions has new style parameters])
     fi
 
+    # SSL_CTX_set_min_proto_version is also a macro so AC_CHECK_LIB fails here.
+    AC_CACHE_CHECK([whether SSL_CTX_set_min_proto_version exists],i_cv_have_ssl_ctx_set_min_proto_version,[
+      old_LIBS=$LIBS
+      LIBS="$LIBS -lssl"
+      AC_TRY_LINK([
+        #include <openssl/ssl.h>
+      ], [
+        SSL_CTX_set_min_proto_version((void*)0, 0);
+      ], [
+        i_cv_have_ssl_ctx_set_min_proto_version=yes
+      ], [
+        i_cv_have_ssl_ctx_set_min_proto_version=no
+      ])
+      LIBS=$old_LIBS
+    ])
+    if test $i_cv_have_ssl_ctx_set_min_proto_version = yes; then
+      AC_DEFINE(HAVE_SSL_CTX_SET_MIN_PROTO_VERSION,, [Define if you have SSL_CTX_set_min_proto_version])
+    fi
+
     AC_CHECK_LIB(ssl, ERR_remove_thread_state, [
       AC_DEFINE(HAVE_OPENSSL_ERR_REMOVE_THREAD_STATE,, [Define if you have ERR_remove_thread_state])
     ],, $SSL_LIBS)
