@@ -304,6 +304,18 @@ config_send_request(struct master_service *service,
 }
 
 static int
+config_send_filters_request(int fd, const char *path, const char **error_r)
+{
+	int ret;
+	ret = write_full(fd, CONFIG_HANDSHAKE"FILTERS\n", strlen(CONFIG_HANDSHAKE"FILTERS\n"));
+	if (ret < 0) {
+		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
+		return -1;
+	}
+	return 0;
+}
+
+static int
 master_service_apply_config_overrides(struct master_service *service,
 				      struct setting_parser_context *parser,
 				      const char **error_r)
@@ -397,6 +409,54 @@ void master_service_config_socket_try_open(struct master_service *service)
 	fd = master_service_open_config(service, &input, &path, &error);
 	if (fd != -1)
 		service->config_fd = fd;
+}
+
+int master_service_settings_get_filters(struct master_service *service,
+					const char *const **filters,
+					const char **error_r)
+{
+	struct master_service_settings_input input;
+	int fd;
+	bool retry = TRUE;
+	const char *path = NULL;
+	ARRAY_TYPE(const_string) filters_tmp;
+	t_array_init(&filters_tmp, 8);
+	i_zero(&input);
+
+	if (getenv("DOVECONF_ENV") == NULL &&
+	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
+		retry = service->config_fd != -1;
+		for (;;) {
+			fd = master_service_open_config(service, &input, &path, error_r);
+			if (fd == -1) {
+				return -1;
+			}
+			if (config_send_filters_request(fd, path, error_r) == 0)
+				break;
+
+			i_close_fd(&fd);
+			if (!retry)
+				return -1;
+			retry = FALSE;
+		}
+		service->config_fd = fd;
+		struct istream *is = i_stream_create_fd(fd, (size_t)-1, FALSE);
+		const char *line;
+		/* try read response */
+		while((line = i_stream_read_next_line(is)) != NULL) {
+			if (*line == '\0')
+				break;
+			if (strncmp(line, "FILTER\t", 7) == 0) {
+				line = t_strdup(line+7);
+				array_append(&filters_tmp, &line, 1);
+			}
+		}
+		i_stream_unref(&is);
+	}
+
+	array_append_zero(&filters_tmp);
+	*filters = array_idx(&filters_tmp, 0);
+	return 0;
 }
 
 int master_service_settings_read(struct master_service *service,
