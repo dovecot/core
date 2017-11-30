@@ -179,6 +179,14 @@ login_settings_read(pool_t pool,
 		set_cache = master_service_settings_cache_init(master_service,
 							       input.module,
 							       input.service);
+		/* lookup filters
+
+		   this is only enabled if service_count > 1 because otherwise
+		   login process will process only one request and this is only
+		   useful when more than one request is processed.
+		*/
+		if (master_service_get_service_count(master_service) > 1)
+			master_service_settings_cache_init_filter(set_cache);
 	}
 
 	if (master_service_settings_cache_read(set_cache, &input, NULL,
