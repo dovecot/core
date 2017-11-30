@@ -1,9 +1,11 @@
 /* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "wildcard-match.h"
 #include "hash.h"
 #include "llist.h"
 #include "settings-parser.h"
+#include "dns-util.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
 #include "master-service-settings-cache.h"
@@ -11,6 +13,14 @@
 /* we start with just a guess. it's updated later. */
 #define CACHE_INITIAL_ENTRY_POOL_SIZE (1024*16)
 #define CACHE_ADD_ENTRY_POOL_SIZE 1024
+
+struct config_filter {
+	struct config_filter *prev, *next;
+
+	const char *local_name;
+	struct ip_addr local_ip, remote_ip;
+	unsigned int local_bits, remote_bits;
+};
 
 struct settings_entry {
 	struct settings_entry *prev, *next;
@@ -41,6 +51,8 @@ struct master_service_settings_cache {
 	HASH_TABLE(char *, struct settings_entry *) local_name_hash;
 	HASH_TABLE(struct ip_addr *, struct settings_entry *) local_ip_hash;
 
+	struct config_filter *filters;
+
 	/* Initial size for new settings entry pools */
 	size_t approx_entry_pool_size;
 	/* number of bytes malloced by cached settings entries
@@ -69,6 +81,78 @@ master_service_settings_cache_init(struct master_service *service,
 	cache->max_cache_size = (size_t)-1;
 	return cache;
 }
+
+int master_service_settings_cache_init_filter(struct master_service_settings_cache *cache)
+{
+	const char *const *filters;
+	const char *error;
+
+	if (cache->filters != NULL)
+		return 0;
+	if (master_service_settings_get_filters(cache->service, &filters, &error) < 0) {
+		i_error("master-service: cannot get filters: %s", error);
+		return -1;
+	}
+
+	/* parse filters */
+	while(*filters != NULL) {
+		const char *const *keys = t_strsplit_spaces(*filters, " ");
+		struct config_filter *filter =
+			p_new(cache->pool, struct config_filter, 1);
+		while(*keys != NULL) {
+			if (strncmp(*keys, "local-net=", 10) == 0) {
+				(void)net_parse_range((*keys)+10,
+					&filter->local_ip, &filter->local_bits);
+			} else if (strncmp(*keys, "remote-net=", 11) == 0) {
+				(void)net_parse_range((*keys)+11,
+					&filter->remote_ip, &filter->remote_bits);
+			} else if (strncmp(*keys, "local-name=", 11) == 0) {
+				filter->local_name = p_strdup(cache->pool, (*keys)+11);
+			}
+			keys++;
+		}
+		DLLIST_PREPEND(&cache->filters, filter);
+		filters++;
+	}
+	return 0;
+}
+
+/* Remove any elements which there is no filter for */
+static void
+master_service_settings_cache_fix_input(struct master_service_settings_cache *cache,
+				        const struct master_service_settings_input *input,
+					struct master_service_settings_input *new_input)
+{
+	bool found_lip, found_rip, found_local_name;
+
+	found_lip = found_rip = found_local_name = FALSE;
+
+	struct config_filter *filter = cache->filters;
+	while(filter != NULL) {
+		if (filter->local_bits > 0 &&
+		    net_is_in_network(&input->local_ip, &filter->local_ip,
+				      filter->local_bits))
+			found_lip = TRUE;
+		if (filter->remote_bits > 0 &&
+		    net_is_in_network(&input->remote_ip, &filter->remote_ip,
+				      filter->remote_bits))
+			found_rip = TRUE;
+		if (filter->local_name != NULL &&
+		    dns_match_wildcard(input->local_name, filter->local_name))
+			found_local_name = TRUE;
+		filter = filter->next;
+	};
+
+	*new_input = *input;
+
+	if (!found_lip)
+		i_zero(&new_input->local_ip);
+	if (!found_rip)
+		i_zero(&new_input->remote_ip);
+	if (!found_local_name)
+		new_input->local_name = NULL;
+}
+
 
 void master_service_settings_cache_deinit(struct master_service_settings_cache **_cache)
 {
@@ -273,6 +357,12 @@ int master_service_settings_cache_read(struct master_service_settings_cache *cac
 		return 0;
 
 	new_input = *input;
+	if (cache->filters != NULL) {
+		master_service_settings_cache_fix_input(cache, input, &new_input);
+		if (cache_find(cache, &new_input, parser_r))
+			return 0;
+	}
+
 	if (dyn_parsers != NULL) {
 		settings_parser_dyn_update(cache->pool, &new_input.roots,
 					   dyn_parsers);
