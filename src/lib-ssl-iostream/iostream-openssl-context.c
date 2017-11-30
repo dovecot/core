@@ -336,8 +336,25 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 				    SSL_OP_CIPHER_SERVER_PREFERENCE);
 	}
 	if (ctx->set->protocols != NULL) {
+#ifdef HAVE_SSL_CTX_SET_MIN_PROTO_VERSION
+		int min_protocol;
+		const char *error;
+		if (ssl_protocols_to_min_protocol(ctx->set->protocols,
+						  &min_protocol, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Unknown ssl_protocols setting: %s", error);
+			return -1;
+		} else if (SSL_CTX_set_min_proto_version(ctx->ssl_ctx,
+							 min_protocol) != 1) {
+			*error_r = t_strdup_printf(
+				"Failed to set SSL minimum protocol version to %d",
+				min_protocol);
+			return -1;
+		}
+#else
 		SSL_CTX_set_options(ctx->ssl_ctx,
 			    openssl_get_protocol_options(ctx->set->protocols));
+#endif
 	}
 
 	if (set->cert != NULL &&

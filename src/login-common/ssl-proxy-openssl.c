@@ -1301,7 +1301,18 @@ ssl_server_context_init(const struct login_settings *login_set,
 	}
 	if (ctx->prefer_server_ciphers)
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+#ifdef HAVE_SSL_CTX_SET_MIN_PROTO_VERSION
+	int min_protocol;
+	const char *error;
+	if (ssl_protocols_to_min_protocol(ctx->protocols, &min_protocol,
+					  &error) < 0)
+		i_fatal("Unknown ssl_protocols setting: %s", error);
+	else if (SSL_CTX_set_min_proto_version(ssl_ctx, min_protocol) != 1)
+		i_fatal("Failed to set SSL minimum protocol version to %d",
+			min_protocol);
+#else
 	SSL_CTX_set_options(ssl_ctx, openssl_get_protocol_options(ctx->protocols));
+#endif
 
 	if (ctx->pri.cert != NULL && *ctx->pri.cert != '\0' &&
 	    ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->pri.cert) != 1) {
