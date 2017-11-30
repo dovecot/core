@@ -56,7 +56,7 @@ passdb_lua_lookup(struct auth_request *request,
 				"No password returned (and no nopassword)");
 			result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		}
-	} else if (*password_r == NULL || **password_r != '\0') {
+	} else if (*password_r != NULL && **password_r != '\0') {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
 				      "nopassword given and password is not empty");
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
