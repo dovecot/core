@@ -544,8 +544,17 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 				/* %{long_key} */
 				const char *error;
 				unsigned int ctr = 1;
+				bool escape = FALSE;
 				end = str;
 				while(*++end != '\0' && ctr > 0) {
+					if (!escape && *end == '\\') {
+						escape = TRUE;
+						continue;
+					}
+					if (escape) {
+						escape = FALSE;
+						continue;
+					}
 					if (*end == '{') ctr++;
 					if (*end == '}') ctr--;
 				}
@@ -644,6 +653,14 @@ var_get_key_range_full(const char *str, unsigned int *idx_r,
 		/* long key */
 		*idx_r = ++i;
 		for (; str[i] != '\0'; i++) {
+			if (!escape && str[i] == '\\') {
+				escape = TRUE;
+				continue;
+			}
+			if (escape) {
+				escape = FALSE;
+				continue;
+			}
 			if (str[i] == '{')
 				depth++;
 			if (str[i] == '}') {
