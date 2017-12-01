@@ -15,7 +15,9 @@ enum auth_request_flags {
 	/* Support final SASL response */
 	AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP	= 0x08,
 	/* Enable auth_debug=yes logging for this request */
-	AUTH_REQUEST_FLAG_DEBUG			= 0x10
+	AUTH_REQUEST_FLAG_DEBUG			= 0x10,
+	/* If TLS was used */
+	AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS = 0x20,
 };
 
 enum auth_request_status {
