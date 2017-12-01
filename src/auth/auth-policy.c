@@ -487,6 +487,11 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 		str_append(context->json, ",\"policy_reject\":");
 		str_append(context->json, context->request->policy_refusal ? "true" : "false");
 	}
+	str_append(context->json, ",\"tls\":");
+	if (context->request->secured == AUTH_REQUEST_SECURED_TLS)
+		str_append(context->json, "true");
+	else
+		str_append(context->json, "false");
 	str_append_c(context->json, '}');
 	auth_request_log_debug(context->request, "policy",
 		"Policy server request JSON: %s", str_c(context->json));
