@@ -193,6 +193,7 @@ client_alloc(int fd, pool_t pool,
 	client->trusted = client_is_trusted(client);
 
 	if (conn->proxied) {
+		client->proxied_ssl = conn->proxy.ssl;
 		client->secured = conn->proxy.ssl || client->trusted;
 		client->ssl_secured = conn->proxy.ssl;
 		client->local_name = conn->proxy.hostname;
@@ -760,6 +761,9 @@ get_var_expand_table(struct client *client)
 	if (!client->tls) {
 		tab[11].value = client->secured ? "secured" : NULL;
 		tab[12].value = "";
+	} else if (client->proxied_ssl) {
+		tab[11].value = "TLS";
+		tab[12].value = "(proxied)";
 	} else {
 		const char *ssl_state =
 			ssl_iostream_is_handshaked(client->ssl_iostream) ?
