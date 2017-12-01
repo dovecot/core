@@ -295,8 +295,8 @@ void murmurhash3_128(const void *key, size_t len, uint32_t seed,
 
   memcpy(out, &h1, sizeof(h1));
   memcpy(out+sizeof(h1), &h2, sizeof(h2));
-  memcpy(out+sizeof(h2), &h3, sizeof(h3));
-  memcpy(out+sizeof(h3), &h4, sizeof(h4));
+  memcpy(out+sizeof(h1)*2, &h3, sizeof(h3));
+  memcpy(out+sizeof(h1)*3, &h4, sizeof(h4));
 }
 
 #endif
