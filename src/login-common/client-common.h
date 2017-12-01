@@ -210,6 +210,7 @@ struct client {
 	bool no_extra_disconnect_reason:1;
 	bool starttls:1;
 	bool tls:1;
+	bool proxied_ssl:1;
 	bool secured:1;
 	bool ssl_secured:1;
 	bool trusted:1;
