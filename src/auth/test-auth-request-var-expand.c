@@ -30,7 +30,7 @@ static struct auth_request default_test_request = {
 	.client_pid = 54321,
 	.mech_password = "-password",
 	.mech_name = "-mech",
-	.secured = TRUE,
+	.secured = AUTH_REQUEST_SECURED,
 	.local_port = 21,
 	.remote_port = 210,
 	.valid_client_cert = TRUE,
@@ -122,7 +122,7 @@ static void test_auth_request_var_expand_flags(void)
 	test_begin("auth request var expand flags");
 
 	test_request.userdb_lookup = FALSE;
-	test_request.secured = FALSE;
+	test_request.secured = AUTH_REQUEST_SECURED_NONE;
 	test_request.valid_client_cert = FALSE;
 	test_assert(var_expand(str, test_input,
 		auth_request_get_var_expand_table(&test_request, test_escape),
@@ -130,7 +130,7 @@ static void test_auth_request_var_expand_flags(void)
 	test_assert(strcmp(str_c(str), "40\n\n\n") == 0);
 
 	test_request.userdb_lookup = TRUE;
-	test_request.secured = TRUE;
+	test_request.secured = AUTH_REQUEST_SECURED;
 	test_request.valid_client_cert = TRUE;
 
 	str_truncate(str, 0);
