@@ -654,11 +654,17 @@ var_get_key_range_full(const char *str, unsigned int *idx_r,
 		*size_r = str[i] == '\0' ? 0 : 1;
 		return FALSE;
 	} else {
+		unsigned int depth = 1;
+		bool escape = FALSE;
 		/* long key */
 		*idx_r = ++i;
 		for (; str[i] != '\0'; i++) {
-			if (str[i] == '}')
-				break;
+			if (str[i] == '{')
+				depth++;
+			if (str[i] == '}') {
+				if (--depth==0)
+					break;
+			}
 		}
 		*size_r = i - *idx_r;
 		return TRUE;
