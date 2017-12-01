@@ -6,7 +6,7 @@
    compile and run any of them on any platform, but your performance with the
    non-native version will be less than optimal.
 
-   Adapted for Dovecot by Aki Tuomi <aki.tuomi@dovecot.> 2017-11-27
+   Adapted for Dovecot by Aki Tuomi <aki.tuomi@dovecot.fi> 2017-11-27
 */
 
 #include "lib.h"
