@@ -23,6 +23,12 @@ enum auth_request_state {
 	AUTH_REQUEST_STATE_MAX
 };
 
+enum auth_request_secured {
+	AUTH_REQUEST_SECURED_NONE,
+	AUTH_REQUEST_SECURED,
+	AUTH_REQUEST_SECURED_TLS,
+};
+
 struct auth_request {
 	int refcount;
 
@@ -108,8 +114,9 @@ struct auth_request {
 	/* auth_debug is enabled for this request */
 	bool debug:1;
 
+	enum auth_request_secured secured;
+
 	/* flags received from auth client: */
-	bool secured:1;
 	bool final_resp_ok:1;
 	bool no_penalty:1;
 	bool valid_client_cert:1;

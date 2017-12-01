@@ -115,7 +115,12 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	}
 	tab[10].value = auth_request->mech_name == NULL ? "" :
 		escape_func(auth_request->mech_name, auth_request);
-	tab[11].value = auth_request->secured ? "secured" : "";
+	switch(auth_request->secured) {
+	case AUTH_REQUEST_SECURED_NONE: tab[11].value = ""; break;
+	case AUTH_REQUEST_SECURED: tab[11].value = "secured"; break;
+	case AUTH_REQUEST_SECURED_TLS: tab[11].value = "TLS"; break;
+	default: tab[11].value = ""; break;
+	};
 	tab[12].value = dec2str(auth_request->local_port);
 	tab[13].value = dec2str(auth_request->remote_port);
 	tab[14].value = auth_request->valid_client_cert ? "valid" : "";

@@ -352,8 +352,12 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_printfa(dest, "\tsession=%s", request->session_id);
 	if (request->debug)
 		str_append(dest, "\tdebug");
-	if (request->secured)
-		str_append(dest, "\tsecured");
+	switch(request->secured) {
+	case AUTH_REQUEST_SECURED_NONE: break;
+	case AUTH_REQUEST_SECURED: str_append(dest, "\tsecured"); break;
+	case AUTH_REQUEST_SECURED_TLS: str_append(dest, "\tsecured=tls"); break;
+	default: break;
+	}
 	if (request->skip_password_check)
 		str_append(dest, "\tskip-password-check");
 	if (request->delayed_credentials != NULL)
@@ -437,8 +441,12 @@ bool auth_request_import_auth(struct auth_request *request,
 		return TRUE;
 
 	/* auth client may set these */
-	if (strcmp(key, "secured") == 0)
-		request->secured = TRUE;
+	if (strcmp(key, "secured") == 0) {
+		if (strcmp(value, "tls") == 0)
+			request->secured = AUTH_REQUEST_SECURED_TLS;
+		else
+			request->secured = AUTH_REQUEST_SECURED;
+	}
 	else if (strcmp(key, "final-resp-ok") == 0)
 		request->final_resp_ok = TRUE;
 	else if (strcmp(key, "no-penalty") == 0)
