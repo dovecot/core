@@ -113,7 +113,7 @@ fs_sis_file_init(struct fs_file *_file, const char *path,
 	if (i_stream_read(file->hash_input) == -1) {
 		/* doesn't exist */
 		if (errno != ENOENT) {
-			i_error("fs-sis: Couldn't read hash file %s: %m",
+			e_error(file->file.event, "Couldn't read hash file %s: %m",
 				file->hash_path);
 		}
 		i_stream_destroy(&file->hash_input);
@@ -153,21 +153,28 @@ static bool fs_sis_try_link(struct sis_fs_file *file)
 
 	/* we can use the existing file */
 	if (fs_copy(file->hash_file, file->file.parent) < 0) {
-		if (errno != ENOENT && errno != EMLINK)
-			i_error("fs-sis: %s", fs_file_last_error(file->hash_file));
+		if (errno != ENOENT && errno != EMLINK) {
+			e_error(file->file.event, "%s",
+				fs_file_last_error(file->hash_file));
+		}
 		/* failed to use link(), continue as if it hadn't been equal */
 		return FALSE;
 	}
 	if (fs_stat(file->file.parent, &st2) < 0) {
-		i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
-		if (fs_delete(file->file.parent) < 0)
-			i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
+		e_error(file->file.event, "%s",
+			fs_file_last_error(file->file.parent));
+		if (fs_delete(file->file.parent) < 0) {
+			e_error(file->file.event, "%s",
+				fs_file_last_error(file->file.parent));
+		}
 		return FALSE;
 	}
 	if (st->st_ino != st2.st_ino) {
 		/* the hashes/ file was already replaced with something else */
-		if (fs_delete(file->file.parent) < 0)
-			i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
+		if (fs_delete(file->file.parent) < 0) {
+			e_error(file->file.event, "%s",
+				fs_file_last_error(file->file.parent));
+		}
 		return FALSE;
 	}
 	return TRUE;
@@ -190,7 +197,8 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 				   a duplicate, but it's too much trouble
 				   trying to deduplicate it anymore */
 			} else {
-				i_error("fs-sis: %s", fs_last_error(super_fs));
+				e_error(file->file.event, "%s",
+					fs_last_error(super_fs));
 			}
 		}
 		return;
@@ -217,11 +225,11 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 		   try to continue. */
 		if (fs_delete(temp_file) < 0 &&
 		    errno != ENOENT)
-			i_error("fs-sis: %s", fs_last_error(super_fs));
+			e_error(file->file.event, "%s", fs_last_error(super_fs));
 		ret = fs_copy(file->file.parent, temp_file);
 	}
 	if (ret < 0) {
-		i_error("fs-sis: %s", fs_last_error(super_fs));
+		e_error(file->file.event, "%s", fs_last_error(super_fs));
 		fs_file_deinit(&temp_file);
 		return;
 	}
@@ -230,7 +238,7 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 		if (errno == ENOENT) {
 			/* apparently someone else just renamed it. ignore. */
 		} else {
-			i_error("fs-sis: %s", fs_last_error(super_fs));
+			e_error(file->file.event, "%s", fs_last_error(super_fs));
 		}
 		(void)fs_delete(temp_file);
 	}
