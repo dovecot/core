@@ -91,6 +91,7 @@ struct fs {
 	unsigned int files_open_count;
 	struct fs_file *files;
 	struct fs_iter *iters;
+	struct event *event;
 
 	struct fs_stats stats;
 
@@ -104,6 +105,7 @@ struct fs_file {
 	struct fs_file *parent; /* for wrapper filesystems */
 	struct fs *fs;
 	struct ostream *output;
+	struct event *event;
 	char *path;
 	enum fs_open_flags flags;
 
@@ -141,6 +143,7 @@ struct fs_iter {
 	struct fs_iter *prev, *next;
 
 	struct fs *fs;
+	struct event *event;
 	enum fs_iter_flags flags;
 	struct timeval start_time;
 

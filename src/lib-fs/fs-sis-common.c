@@ -41,8 +41,9 @@ void fs_sis_try_unlink_hash_file(struct fs *sis_fs, struct fs_file *super_file)
 		/* this may be the last link. if hashes/ file is the same,
 		   delete it. */
 		hash_path = t_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
-		hash_file = fs_file_init(super_file->fs, hash_path,
-					 FS_OPEN_MODE_READONLY);
+		hash_file = fs_file_init_with_event(super_file->fs,
+						    super_file->event, hash_path,
+						    FS_OPEN_MODE_READONLY);
 		if (fs_stat(hash_file, &st2) == 0 &&
 		    st1.st_ino == st2.st_ino &&
 		    CMP_DEV_T(st1.st_dev, st2.st_dev)) {

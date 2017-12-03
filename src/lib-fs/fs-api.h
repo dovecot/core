@@ -145,6 +145,10 @@ struct fs_settings {
 	   them. */
 	struct dns_client *dns_client;
 
+	/* Parent event to use, unless overridden by
+	   fs_file_init_with_event() */
+	struct event *event;
+
 	/* Enable debugging */
 	bool debug;
 	/* Enable timing statistics */
@@ -221,6 +225,8 @@ const char *fs_get_driver(struct fs *fs);
 const char *fs_get_root_driver(struct fs *fs);
 
 struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags);
+struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
+					const char *path, int mode_flags);
 void fs_file_deinit(struct fs_file **file);
 
 /* If the file has an input streams open, close them. */
@@ -246,6 +252,8 @@ int fs_lookup_metadata(struct fs_file *file, const char *key,
 const char *fs_file_path(struct fs_file *file);
 /* Returns the file's fs. */
 struct fs *fs_file_fs(struct fs_file *file);
+/* Returns the file's event. */
+struct event *fs_file_event(struct fs_file *file);
 
 /* Return the error message for the last failed operation. */
 const char *fs_last_error(struct fs *fs);
@@ -340,6 +348,9 @@ void fs_unlock(struct fs_lock **lock);
    nonexistent directory. */
 struct fs_iter *
 fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags);
+struct fs_iter *
+fs_iter_init_with_event(struct fs *fs, struct event *event,
+			const char *path, enum fs_iter_flags flags);
 /* Returns 0 if ok, -1 if iteration failed. */
 int fs_iter_deinit(struct fs_iter **iter);
 /* Returns the next filename. */
