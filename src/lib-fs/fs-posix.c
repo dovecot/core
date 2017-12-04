@@ -306,16 +306,20 @@ static int fs_posix_open(struct posix_fs_file *file)
 	return 0;
 }
 
-static struct fs_file *
-fs_posix_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_posix_file_alloc(void)
+{
+	struct posix_fs_file *file = i_new(struct posix_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_posix_file_init(struct fs_file *_file, const char *path,
 		   enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct posix_fs *fs = (struct posix_fs *)_fs;
-	struct posix_fs_file *file;
+	struct posix_fs_file *file = (struct posix_fs_file *)_file;
+	struct posix_fs *fs = (struct posix_fs *)_file->fs;
 	guid_128_t guid;
 
-	file = i_new(struct posix_fs_file, 1);
-	file->file.fs = _fs;
 	if (mode != FS_OPEN_MODE_CREATE_UNIQUE_128)
 		file->file.path = i_strdup(path);
 	else {
@@ -328,7 +332,6 @@ fs_posix_file_init(struct fs *_fs, const char *path,
 	file->open_mode = mode;
 	file->open_flags = flags;
 	file->fd = -1;
-	return &file->file;
 }
 
 static void fs_posix_file_close(struct fs_file *_file)
@@ -892,6 +895,7 @@ const struct fs fs_class_posix = {
 		fs_posix_init,
 		fs_posix_deinit,
 		fs_posix_get_properties,
+		fs_posix_file_alloc,
 		fs_posix_file_init,
 		fs_posix_file_deinit,
 		fs_posix_file_close,

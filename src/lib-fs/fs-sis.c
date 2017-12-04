@@ -77,32 +77,36 @@ static void fs_sis_deinit(struct fs *_fs)
 	i_free(fs);
 }
 
-static struct fs_file *
-fs_sis_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_sis_file_alloc(void)
+{
+	struct sis_fs_file *file = i_new(struct sis_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_sis_file_init(struct fs_file *_file, const char *path,
 		 enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct sis_fs *fs = (struct sis_fs *)_fs;
-	struct sis_fs_file *file;
+	struct sis_fs_file *file = (struct sis_fs_file *)_file;
+	struct sis_fs *fs = (struct sis_fs *)_file->fs;
 	const char *dir, *hash;
 
-	file = i_new(struct sis_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
 	file->fs = fs;
 	file->open_mode = mode;
 	if (mode == FS_OPEN_MODE_APPEND) {
-		fs_set_error(_fs, "APPEND mode not supported");
-		return &file->file;
+		fs_set_error(_file->fs, "APPEND mode not supported");
+		return;
 	}
 
-	if (fs_sis_path_parse(_fs, path, &dir, &hash) < 0) {
-		fs_set_error(_fs, "Invalid path");
-		return &file->file;
+	if (fs_sis_path_parse(_file->fs, path, &dir, &hash) < 0) {
+		fs_set_error(_file->fs, "Invalid path");
+		return;
 	}
 
 	/* if hashes/<hash> already exists, open it */
 	file->hash_path = i_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
-	file->hash_file = fs_file_init(_fs->parent, file->hash_path,
+	file->hash_file = fs_file_init(_file->fs->parent, file->hash_path,
 				       FS_OPEN_MODE_READONLY);
 
 	file->hash_input = fs_read_stream(file->hash_file, IO_BLOCK_SIZE);
@@ -115,8 +119,7 @@ fs_sis_file_init(struct fs *_fs, const char *path,
 		i_stream_destroy(&file->hash_input);
 	}
 
-	file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
-	return &file->file;
+	file->file.parent = fs_file_init(_file->fs->parent, path, mode | flags);
 }
 
 static void fs_sis_file_deinit(struct fs_file *_file)
@@ -326,6 +329,7 @@ const struct fs fs_class_sis = {
 		fs_sis_init,
 		fs_sis_deinit,
 		fs_wrapper_get_properties,
+		fs_sis_file_alloc,
 		fs_sis_file_init,
 		fs_sis_file_deinit,
 		fs_sis_file_close,

@@ -67,23 +67,27 @@ static void fs_sis_queue_deinit(struct fs *_fs)
 	i_free(fs);
 }
 
-static struct fs_file *
-fs_sis_queue_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_sis_queue_file_alloc(void)
+{
+	struct sis_queue_fs_file *file = i_new(struct sis_queue_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_sis_queue_file_init(struct fs_file *_file, const char *path,
 		       enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
-	struct sis_queue_fs_file *file;
+	struct sis_queue_fs_file *file = (struct sis_queue_fs_file *)_file;
+	struct sis_queue_fs *fs = (struct sis_queue_fs *)_file->fs;
 
-	file = i_new(struct sis_queue_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
 	file->fs = fs;
 
 	if (mode == FS_OPEN_MODE_APPEND)
-		fs_set_error(_fs, "APPEND mode not supported");
+		fs_set_error(_file->fs, "APPEND mode not supported");
 	else
-		file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
-	return &file->file;
+		file->file.parent = fs_file_init(_file->fs->parent,
+						 path, mode | flags);
 }
 
 static void fs_sis_queue_file_deinit(struct fs_file *_file)
@@ -176,6 +180,7 @@ const struct fs fs_class_sis_queue = {
 		fs_sis_queue_init,
 		fs_sis_queue_deinit,
 		fs_wrapper_get_properties,
+		fs_sis_queue_file_alloc,
 		fs_sis_queue_file_init,
 		fs_sis_queue_file_deinit,
 		fs_wrapper_file_close,

@@ -96,15 +96,19 @@ static enum fs_properties fs_metawrap_get_properties(struct fs *_fs)
 	return props;
 }
 
-static struct fs_file *
-fs_metawrap_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_metawrap_file_alloc(void)
+{
+	struct metawrap_fs_file *file = i_new(struct metawrap_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_metawrap_file_init(struct fs_file *_file, const char *path,
 		      enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct metawrap_fs *fs = (struct metawrap_fs *)_fs;
-	struct metawrap_fs_file *file;
+	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs *fs = (struct metawrap_fs *)_file->fs;
 
-	file = i_new(struct metawrap_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
 	file->fs = fs;
 	file->open_mode = mode;
@@ -112,18 +116,17 @@ fs_metawrap_file_init(struct fs *_fs, const char *path,
 	/* avoid unnecessarily creating two seekable streams */
 	flags &= ~FS_OPEN_FLAG_SEEKABLE;
 
-	file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
+	file->file.parent = fs_file_init(_file->fs->parent, path, mode | flags);
 	if (file->fs->wrap_metadata && mode == FS_OPEN_MODE_READONLY &&
 	    (flags & FS_OPEN_FLAG_ASYNC) == 0) {
 		/* use async stream for parent, so fs_read_stream() won't create
 		   another seekable stream needlessly */
-		file->super_read = fs_file_init(_fs->parent, path, mode | flags |
+		file->super_read = fs_file_init(_file->fs->parent, path, mode | flags |
 						FS_OPEN_FLAG_ASYNC);
 	} else {
 		file->super_read = file->file.parent;
 	}
 	fs_metadata_init(&file->file);
-	return &file->file;
 }
 
 static void fs_metawrap_file_deinit(struct fs_file *_file)
@@ -493,6 +496,7 @@ const struct fs fs_class_metawrap = {
 		fs_metawrap_init,
 		fs_metawrap_deinit,
 		fs_metawrap_get_properties,
+		fs_metawrap_file_alloc,
 		fs_metawrap_file_init,
 		fs_metawrap_file_deinit,
 		fs_metawrap_file_close,

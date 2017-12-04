@@ -209,17 +209,20 @@ static enum fs_properties fs_randomfail_get_properties(struct fs *_fs)
 	return fs_get_properties(_fs->parent);
 }
 
-static struct fs_file *
-fs_randomfail_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_randomfail_file_alloc(void)
+{
+	struct randomfail_fs_file *file = i_new(struct randomfail_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_randomfail_file_init(struct fs_file *_file, const char *path,
 			enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct randomfail_fs_file *file;
+	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
 
-	file = i_new(struct randomfail_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
-	file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
-	return &file->file;
+	file->file.parent = fs_file_init(_file->fs->parent, path, mode | flags);
 }
 
 static void fs_randomfail_file_deinit(struct fs_file *_file)
@@ -514,6 +517,7 @@ const struct fs fs_class_randomfail = {
 		fs_randomfail_init,
 		fs_randomfail_deinit,
 		fs_randomfail_get_properties,
+		fs_randomfail_file_alloc,
 		fs_randomfail_file_init,
 		fs_randomfail_file_deinit,
 		fs_wrapper_file_close,

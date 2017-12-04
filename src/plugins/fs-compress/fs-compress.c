@@ -106,15 +106,19 @@ static void fs_compress_deinit(struct fs *_fs)
 	i_free(fs);
 }
 
-static struct fs_file *
-fs_compress_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_compress_file_alloc(void)
+{
+	struct compress_fs_file *file = i_new(struct compress_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_compress_file_init(struct fs_file *_file, const char *path,
 		      enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct compress_fs *fs = (struct compress_fs *)_fs;
-	struct compress_fs_file *file;
+	struct compress_fs *fs = (struct compress_fs *)_file->fs;
+	struct compress_fs_file *file = (struct compress_fs_file *)_file;
 
-	file = i_new(struct compress_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
 	file->fs = fs;
 	file->open_mode = mode;
@@ -122,17 +126,16 @@ fs_compress_file_init(struct fs *_fs, const char *path,
 	/* avoid unnecessarily creating two seekable streams */
 	flags &= ~FS_OPEN_FLAG_SEEKABLE;
 
-	file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
+	file->file.parent = fs_file_init(_file->fs->parent, path, mode | flags);
 	if (mode == FS_OPEN_MODE_READONLY &&
 	    (flags & FS_OPEN_FLAG_ASYNC) == 0) {
 		/* use async stream for parent, so fs_read_stream() won't create
 		   another seekable stream needlessly */
-		file->super_read = fs_file_init(_fs->parent, path, mode | flags |
+		file->super_read = fs_file_init(_file->fs->parent, path, mode | flags |
 						FS_OPEN_FLAG_ASYNC);
 	} else {
 		file->super_read = file->file.parent;
 	}
-	return &file->file;
 }
 
 static void fs_compress_file_deinit(struct fs_file *_file)
@@ -268,6 +271,7 @@ const struct fs fs_class_compress = {
 		fs_compress_init,
 		fs_compress_deinit,
 		fs_wrapper_get_properties,
+		fs_compress_file_alloc,
 		fs_compress_file_init,
 		fs_compress_file_deinit,
 		fs_compress_file_close,

@@ -25,9 +25,9 @@ struct fs_vfuncs {
 
 	enum fs_properties (*get_properties)(struct fs *fs);
 
-	struct fs_file *(*file_init)(struct fs *fs, const char *path,
-				     enum fs_open_mode mode,
-				     enum fs_open_flags flags);
+	struct fs_file *(*file_alloc)(void);
+	void (*file_init)(struct fs_file *file, const char *path,
+			  enum fs_open_mode mode, enum fs_open_flags flags);
 	void (*file_deinit)(struct fs_file *file);
 	void (*file_close)(struct fs_file *file);
 	const char *(*get_path)(struct fs_file *file);

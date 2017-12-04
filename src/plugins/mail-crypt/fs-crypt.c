@@ -32,6 +32,7 @@ const struct fs fs_class_crypt = {
 		fs_crypt_init,
 		fs_crypt_deinit,
 		fs_wrapper_get_properties,
+		fs_crypt_file_alloc,
 		fs_crypt_file_init,
 		fs_crypt_file_deinit,
 		fs_crypt_file_close,

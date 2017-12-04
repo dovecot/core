@@ -38,14 +38,18 @@ static enum fs_properties fs_test_get_properties(struct fs *_fs)
 	return fs->properties;
 }
 
-static struct fs_file *
-fs_test_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_test_file_alloc(void)
+{
+	struct test_fs_file *file = i_new(struct test_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_test_file_init(struct fs_file *_file, const char *path,
 		  enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct test_fs_file *file;
+	struct test_fs_file *file = (struct test_fs_file *)_file;
 
-	file = i_new(struct test_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
 	file->file.flags = flags;
 	file->mode = mode;
@@ -53,7 +57,6 @@ fs_test_file_init(struct fs *_fs, const char *path,
 	file->exists = TRUE;
 	file->seekable = TRUE;
 	file->wait_async = (flags & FS_OPEN_FLAG_ASYNC) != 0;
-	return &file->file;
 }
 
 static void fs_test_file_deinit(struct fs_file *_file)
@@ -393,6 +396,7 @@ const struct fs fs_class_test = {
 		fs_test_init,
 		fs_test_deinit,
 		fs_test_get_properties,
+		fs_test_file_alloc,
 		fs_test_file_init,
 		fs_test_file_deinit,
 		fs_test_file_close,
