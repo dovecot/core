@@ -9,8 +9,8 @@ static struct {
 	const char *scheme_generated;
 	const char *scheme_detected;
 } known_non_aliases[] = {
-	{ "MD5", "CRYPT" },
-	{ "MD5-CRYPT", "CRYPT" },
+	{ "MD5", "DES-CRYPT" },
+	{ "MD5-CRYPT", "DES-CRYPT" },
 	{ "SKEY", "OTP" },
 	{ "ARGON2ID", "ARGON2I" },
 };

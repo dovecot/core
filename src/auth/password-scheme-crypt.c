@@ -162,7 +162,7 @@ static const struct {
 
 /* keep in sync with the sample struct above */
 static const struct password_scheme crypt_schemes[] = {
-	{ "CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
+	{ "DES-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
 	  crypt_generate_des },
 	{ "SHA256-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
 	  crypt_generate_sha256 },
@@ -173,6 +173,11 @@ static const struct password_scheme crypt_schemes[] = {
 static const struct password_scheme blf_crypt_scheme = {
 	"BLF-CRYPT", PW_ENCODING_NONE, 0, crypt_verify_blowfish,
 		crypt_generate_blowfish
+};
+
+static const struct password_scheme default_crypt_scheme = {
+	"CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
+		crypt_generate_des
 };
 
 void password_scheme_register_crypt(void)
@@ -187,4 +192,5 @@ void password_scheme_register_crypt(void)
 			password_scheme_register(&crypt_schemes[i]);
 	}
 	password_scheme_register(&blf_crypt_scheme);
+	password_scheme_register(&default_crypt_scheme);
 }
