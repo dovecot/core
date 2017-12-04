@@ -524,7 +524,7 @@ static const char *client_stats(struct client *client)
 			'o', "uidl_change"))
 		uidl_change = client_build_uidl_change_string(client);
 
-	const struct var_expand_table tab[] = {
+	const struct var_expand_table logout_tab[] = {
 		{ 'p', dec2str(client->top_bytes), "top_bytes" },
 		{ 't', dec2str(client->top_count), "top_count" },
 		{ 'b', dec2str(client->retr_bytes), "retr_bytes" },
@@ -541,11 +541,17 @@ static const char *client_stats(struct client *client)
 		       dec2str(client->deleted_size), "deleted_bytes" },
 		{ '\0', NULL, NULL }
 	};
+	const struct var_expand_table *user_tab =
+		mail_user_var_expand_table(client->user);
+	const struct var_expand_table *tab =
+		t_var_expand_merge_tables(logout_tab, user_tab);
 	string_t *str;
 	const char *error;
 
 	str = t_str_new(128);
-	if (var_expand(str, client->set->pop3_logout_format, tab, &error) <= 0) {
+	if (var_expand_with_funcs(str, client->set->pop3_logout_format,
+				  tab, mail_user_var_expand_func_table,
+				  client->user, &error) < 0) {
 		i_error("Failed to expand pop3_logout_format=%s: %s",
 			client->set->pop3_logout_format, error);
 	}
