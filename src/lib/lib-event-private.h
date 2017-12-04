@@ -20,6 +20,7 @@ struct event {
 	/* Call callbacks with EVENT_CALLBACK_TYPE_FREE for this event. */
 	bool call_free:1;
 
+/* Fields that are exported & imported: */
 	struct timeval tv_created;
 	struct timeval tv_last_sent;
 

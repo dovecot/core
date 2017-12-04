@@ -8,6 +8,18 @@
 #include "strescape.h"
 #include "ioloop.h"
 
+enum event_code {
+	EVENT_CODE_ALWAYS_LOG_SOURCE	= 'a',
+	EVENT_CODE_CATEGORY		= 'c',
+	EVENT_CODE_TV_LAST_SENT		= 'l',
+	EVENT_CODE_SENDING_NAME		= 'n',
+	EVENT_CODE_SOURCE		= 's',
+
+	EVENT_CODE_FIELD_INT		= 'I',
+	EVENT_CODE_FIELD_STR		= 'S',
+	EVENT_CODE_FIELD_TV		= 'T',
+};
+
 extern const struct event_passthrough event_passthrough_vfuncs;
 
 static struct event *events = NULL;
@@ -470,6 +482,206 @@ void event_send_abort(struct event *event)
 		event_unref(&event);
 }
 
+static void
+event_export_field_value(string_t *dest, const struct event_field *field)
+{
+	if (field->value != NULL) {
+		str_append_c(dest, EVENT_CODE_FIELD_STR);
+		str_append_tabescaped(dest, field->key);
+		str_append_c(dest, '\t');
+		str_append_tabescaped(dest, field->value);
+	} else if (field->value_tv.tv_sec != 0) {
+		str_append_c(dest, EVENT_CODE_FIELD_TV);
+		str_append_tabescaped(dest, field->key);
+		str_printfa(dest, "\t%"PRIdTIME_T"\t%u",
+			    field->value_tv.tv_sec,
+			    (unsigned int)field->value_tv.tv_usec);
+	} else {
+		str_append_c(dest, EVENT_CODE_FIELD_INT);
+		str_append_tabescaped(dest, field->key);
+		str_printfa(dest, "\t%jd", field->value_int);
+	}
+}
+
+void event_export(const struct event *event, string_t *dest)
+{
+	/* required fields: */
+	str_printfa(dest, "%"PRIdTIME_T"\t%u",
+		    event->tv_created.tv_sec,
+		    (unsigned int)event->tv_created.tv_usec);
+
+	/* optional fields: */
+	if (event->source_filename != NULL) {
+		str_append_c(dest, '\t');
+		str_append_c(dest, EVENT_CODE_SOURCE);
+		str_append_tabescaped(dest, event->source_filename);
+		str_printfa(dest, "\t%u", event->source_linenum);
+	}
+	if (event->always_log_source) {
+		str_append_c(dest, '\t');
+		str_append_c(dest, EVENT_CODE_ALWAYS_LOG_SOURCE);
+	}
+	if (event->tv_last_sent.tv_sec != 0) {
+		str_printfa(dest, "\t%c%"PRIdTIME_T"\t%u",
+			    EVENT_CODE_TV_LAST_SENT,
+			    event->tv_last_sent.tv_sec,
+			    (unsigned int)event->tv_last_sent.tv_usec);
+	}
+	if (event->sending_name != NULL) {
+		str_append_c(dest, '\t');
+		str_append_c(dest, EVENT_CODE_SENDING_NAME);
+		str_append_tabescaped(dest, event->sending_name);
+	}
+
+	if (array_is_created(&event->categories)) {
+		struct event_category *const *catp;
+		array_foreach(&event->categories, catp) {
+			str_append_c(dest, '\t');
+			str_append_c(dest, EVENT_CODE_CATEGORY);
+			str_append_tabescaped(dest, (*catp)->name);
+		}
+	}
+
+	if (array_is_created(&event->fields)) {
+		const struct event_field *field;
+		array_foreach(&event->fields, field) {
+			str_append_c(dest, '\t');
+			event_export_field_value(dest, field);
+		}
+	}
+}
+
+bool event_import(struct event *event, const char *str, const char **error_r)
+{
+	return event_import_unescaped(event, t_strsplit_tabescaped(str), error_r);
+}
+
+static bool event_import_tv(const char *arg_secs, const char *arg_usecs,
+			    struct timeval *tv_r, const char **error_r)
+{
+	unsigned int usecs;
+
+	if (str_to_time(arg_secs, &tv_r->tv_sec) < 0) {
+		*error_r = "Invalid timeval seconds parameter";
+		return FALSE;
+	}
+
+	if (arg_usecs == NULL) {
+		*error_r = "Timeval missing microseconds parameter";
+		return FALSE;
+	}
+	if (str_to_uint(arg_usecs, &usecs) < 0 || usecs >= 1000000) {
+		*error_r = "Invalid timeval microseconds parameter";
+		return FALSE;
+	}
+	tv_r->tv_usec = usecs;
+	return TRUE;
+}
+
+bool event_import_unescaped(struct event *event, const char *const *args,
+			    const char **error_r)
+{
+	const char *error;
+
+	/* required fields: */
+	if (args[0] == NULL) {
+		*error_r = "Missing required fields";
+		return FALSE;
+	}
+	if (!event_import_tv(args[0], args[1], &event->tv_created, &error)) {
+		*error_r = t_strdup_printf("Invalid tv_created: %s", error);
+		return FALSE;
+	}
+	args += 2;
+
+	/* optional fields: */
+	while (*args != NULL) {
+		const char *arg = *args;
+		enum event_code code = arg[0];
+
+		arg++;
+		switch (code) {
+		case EVENT_CODE_ALWAYS_LOG_SOURCE:
+			event->always_log_source = TRUE;
+			break;
+		case EVENT_CODE_CATEGORY: {
+			struct event_category *category =
+				event_category_find_registered(arg);
+			if (category == NULL) {
+				*error_r = t_strdup_printf("Unregistered category: '%s'", arg);
+				return FALSE;
+			}
+			if (!array_is_created(&event->categories))
+				p_array_init(&event->categories, event->pool, 4);
+			array_append(&event->categories, &category, 1);
+			break;
+		}
+		case EVENT_CODE_TV_LAST_SENT:
+			if (!event_import_tv(arg, args[1], &event->tv_last_sent, &error)) {
+				*error_r = t_strdup_printf("Invalid tv_last_sent: %s", error);
+				return FALSE;
+			}
+			args++;
+			break;
+		case EVENT_CODE_SENDING_NAME:
+			i_free(event->sending_name);
+			event->sending_name = i_strdup(arg);
+			break;
+		case EVENT_CODE_SOURCE:
+			event->source_filename = p_strdup(event->pool, arg);
+			if (args[1] == NULL) {
+				*error_r = "Source line number missing";
+				return FALSE;
+			}
+			if (str_to_uint(args[1], &event->source_linenum) < 0) {
+				*error_r = "Invalid Source line number";
+				return FALSE;
+			}
+			args++;
+			break;
+
+		case EVENT_CODE_FIELD_INT:
+		case EVENT_CODE_FIELD_STR:
+		case EVENT_CODE_FIELD_TV: {
+			struct event_field *field =
+				event_get_field(event, arg);
+			if (args[1] == NULL) {
+				*error_r = "Field value is missing";
+				return FALSE;
+			}
+			args++;
+			switch (code) {
+			case EVENT_CODE_FIELD_INT:
+				if (str_to_intmax(*args, &field->value_int) < 0) {
+					*error_r = t_strdup_printf(
+						"Invalid field value '%s' number for '%s'",
+						*args, field->key);
+					return FALSE;
+				}
+				break;
+			case EVENT_CODE_FIELD_STR:
+				field->value = p_strdup(event->pool, *args);
+				break;
+			case EVENT_CODE_FIELD_TV:
+				if (!event_import_tv(args[0], args[1], &field->value_tv, &error)) {
+					*error_r = t_strdup_printf(
+						"Field '%s' value '%s': %s",
+						field->key, args[1], error);
+					return FALSE;
+				}
+				args++;
+				break;
+			default:
+				i_unreached();
+			}
+			break;
+		}
+		}
+		args++;
+	}
+	return TRUE;
+}
+
 void event_register_callback(event_callback_t *callback)
 {
 	array_append(&event_handlers, &callback, 1);
@@ -483,6 +695,7 @@ void event_unregister_callback(event_callback_t *callback)
 		if (*callbackp == callback) {
 			array_delete(&event_handlers,
 				     array_foreach_idx(&event_handlers, callbackp), 1);
+			return;
 		}
 	}
 	i_unreached();
