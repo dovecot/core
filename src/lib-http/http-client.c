@@ -102,8 +102,7 @@ http_client_debug(struct http_client *client,
 	va_list args;
 
 	va_start(args, format);	
-	if (client->set.debug)
-		e_debug(client->event, "%s", t_strdup_vprintf(format, args));
+	e_debug(client->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 

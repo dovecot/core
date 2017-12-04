@@ -56,11 +56,9 @@ http_client_host_debug(struct http_client_host *host,
 {
 	va_list args;
 
-	if (host->client->set.debug) {
-		va_start(args, format);	
-		e_debug(host->shared->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(host->shared->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*

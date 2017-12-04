@@ -42,13 +42,10 @@ http_client_queue_debug(struct http_client_queue *queue,
 {
 	va_list args;
 
-	if (queue->client->set.debug) {
-
-		// FIXME: find some other method of distinguishing clients
-		va_start(args, format);	
-		e_debug(queue->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	// FIXME: find some other method of distinguishing clients
+	va_start(args, format);
+	e_debug(queue->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*
@@ -776,14 +773,12 @@ http_client_queue_set_request_timer(struct http_client_queue *queue,
 	i_assert(time->tv_sec > 0);
 	timeout_remove(&queue->to_request);	
 
-	if (queue->client->set.debug) {
-		http_client_queue_debug(queue,
-			"Set request timeout to %s.%03lu (now: %s.%03lu)",
-			t_strflocaltime("%Y-%m-%d %H:%M:%S", time->tv_sec),
-			((unsigned long)time->tv_usec)/1000,
-			t_strflocaltime("%Y-%m-%d %H:%M:%S", ioloop_timeval.tv_sec),
-			((unsigned long)ioloop_timeval.tv_usec)/1000);
-	}
+	http_client_queue_debug(queue,
+		"Set request timeout to %s.%03lu (now: %s.%03lu)",
+		t_strflocaltime("%Y-%m-%d %H:%M:%S", time->tv_sec),
+		((unsigned long)time->tv_usec)/1000,
+		t_strflocaltime("%Y-%m-%d %H:%M:%S", ioloop_timeval.tv_sec),
+		((unsigned long)ioloop_timeval.tv_usec)/1000);
 
 	/* set timer */
 	queue->to_request = timeout_add_absolute

@@ -44,11 +44,9 @@ http_client_request_debug(struct http_client_request *req,
 {
 	va_list args;
 
-	if (req->client->set.debug) {
-		va_start(args, format);
-		e_debug(req->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(req->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*

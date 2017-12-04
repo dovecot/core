@@ -32,11 +32,9 @@ http_client_connection_debug(struct http_client_connection *conn,
 {
 	va_list args;
 
-	if (conn->debug || conn->ppool->peer->cctx->set.debug) {
-		va_start(args, format);	
-		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*
@@ -1400,8 +1398,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 		ssl_set.verbose_invalid_cert = TRUE;
 	}
 
-	if (set->debug)
-		http_client_connection_debug(conn, "Starting SSL handshake");
+	http_client_connection_debug(conn, "Starting SSL handshake");
 
 	if (io_stream_create_ssl_client(ssl_ctx,
 					pshared->addr.a.tcp.https_name, &ssl_set,

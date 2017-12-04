@@ -81,14 +81,11 @@ static inline void
 http_client_peer_debug(struct http_client_peer *peer,
 	const char *format, ...)
 {
-	struct http_client *client = peer->client;
 	va_list args;
 
-	if (client->set.debug) {
-		va_start(args, format);
-		e_debug(peer->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(peer->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*
