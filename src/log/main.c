@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 bool verbose_proctitle;
-const char *global_log_prefix;
+char *global_log_prefix;
 static struct log_error_buffer *errorbuf;
 
 static void
@@ -37,6 +37,7 @@ static void main_deinit(void)
 {
 	log_connections_deinit();
 	log_error_buffer_deinit(&errorbuf);
+	i_free(global_log_prefix);
 }
 
 static void client_connected(struct master_service_connection *conn)
@@ -65,7 +66,7 @@ int main(int argc, char *argv[])
 
 	/* use log prefix and log to stderr until we've configured the real
 	   logging */
-	global_log_prefix = t_strdup_printf("log(%s): ", my_pid);
+	global_log_prefix = i_strdup_printf("log(%s): ", my_pid);
 	i_set_failure_file("/dev/stderr", global_log_prefix);
 
 	if (master_getopt(master_service) > 0)

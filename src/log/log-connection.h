@@ -4,7 +4,7 @@
 struct log_connection;
 
 extern bool verbose_proctitle;
-extern const char *global_log_prefix;
+extern char *global_log_prefix;
 
 void log_connection_create(struct log_error_buffer *errorbuf,
 			   int fd, int listen_fd);
