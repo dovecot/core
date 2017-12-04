@@ -289,6 +289,7 @@ static struct doveadm_cmd *doveadm_cmdline_commands[] = {
 int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_SEND_STATS |
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;

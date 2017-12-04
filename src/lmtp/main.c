@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 		NULL
 	};
 	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_SEND_STATS |
 		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
