@@ -245,13 +245,14 @@ http_client_host_shared_refresh(struct http_client_host_shared *hshared)
 }
 
 static struct http_client_host_shared *http_client_host_shared_create
-(struct http_client_context *cctx)
+(struct http_client_context *cctx, const char *name)
 {
 	struct http_client_host_shared *hshared;
 
 	// FIXME: limit the maximum number of inactive cached hosts
 	hshared = i_new(struct http_client_host_shared, 1);
 	hshared->cctx = cctx;
+	hshared->name = i_strdup(name);
 	DLLIST_PREPEND(&cctx->hosts_list, hshared);
 
 	return hshared;
@@ -267,7 +268,7 @@ http_client_host_shared_get
 	if (host_url == NULL) {
 		hshared = cctx->unix_host;
 		if (hshared == NULL) {
-			hshared = http_client_host_shared_create(cctx);
+			hshared = http_client_host_shared_create(cctx, "[unix]");
 			hshared->name = i_strdup("[unix]");
 			hshared->unix_local = TRUE;
 
@@ -282,8 +283,7 @@ http_client_host_shared_get
 
 		hshared = hash_table_lookup(cctx->hosts, hostname);
 		if (hshared == NULL) {
-			hshared = http_client_host_shared_create(cctx);
-			hshared->name = i_strdup(hostname);
+			hshared = http_client_host_shared_create(cctx, hostname);
 			hostname = hshared->name;
 			hash_table_insert(cctx->hosts, hostname, hshared);
 
