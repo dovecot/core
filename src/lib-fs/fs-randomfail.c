@@ -473,7 +473,6 @@ fs_randomfail_iter_init(struct fs_iter *_iter, const char *path,
 	struct randomfail_fs_iter *iter = (struct randomfail_fs_iter *)_iter;
 	uoff_t pos;
 
-	iter->iter.flags = flags;
 	iter->super = fs_iter_init(_iter->fs->parent, path, flags);
 	if (fs_random_fail_range(_iter->fs, FS_OP_ITER, &pos))
 		iter->fail_pos = pos + 1;

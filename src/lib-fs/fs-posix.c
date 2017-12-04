@@ -790,12 +790,11 @@ static struct fs_iter *fs_posix_iter_alloc(void)
 
 static void
 fs_posix_iter_init(struct fs_iter *_iter, const char *path,
-		   enum fs_iter_flags flags)
+		   enum fs_iter_flags flags ATTR_UNUSED)
 {
 	struct posix_fs_iter *iter = (struct posix_fs_iter *)_iter;
 	struct posix_fs *fs = (struct posix_fs *)_iter->fs;
 
-	iter->iter.flags = flags;
 	iter->path = fs->path_prefix == NULL ? i_strdup(path) :
 		i_strconcat(fs->path_prefix, path, NULL);
 	if (iter->path[0] == '\0') {

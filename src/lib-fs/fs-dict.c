@@ -283,12 +283,11 @@ static struct fs_iter *fs_dict_iter_alloc(void)
 
 static void
 fs_dict_iter_init(struct fs_iter *_iter, const char *path,
-		  enum fs_iter_flags flags)
+		  enum fs_iter_flags flags ATTR_UNUSED)
 {
 	struct dict_fs_iter *iter = (struct dict_fs_iter *)_iter;
 	struct dict_fs *fs = (struct dict_fs *)_iter->fs;
 
-	iter->iter.flags = flags;
 	if (fs->path_prefix != NULL)
 		path = t_strconcat(fs->path_prefix, path, NULL);
 

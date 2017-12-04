@@ -1080,6 +1080,7 @@ fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags)
 	} else T_BEGIN {
 		iter = fs->v.iter_alloc();
 		iter->fs = fs;
+		iter->flags = flags;
 		fs->v.iter_init(iter, path, flags);
 	} T_END;
 	iter->start_time = now;

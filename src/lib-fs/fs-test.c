@@ -309,12 +309,11 @@ static struct fs_iter *fs_test_iter_alloc(void)
 
 static void
 fs_test_iter_init(struct fs_iter *_iter, const char *path,
-		  enum fs_iter_flags flags)
+		  enum fs_iter_flags flags ATTR_UNUSED)
 {
 	struct test_fs_iter *iter = (struct test_fs_iter *)_iter;
 	struct test_fs *fs = (struct test_fs *)_iter->fs;
 
-	iter->iter.flags = flags;
 	iter->prefix = i_strdup(path);
 	iter->prefix_len = strlen(iter->prefix);
 	iter->prev_dir = i_strdup("");
