@@ -524,7 +524,7 @@ static const char *client_stats(struct client *client)
 			'o', "uidl_change"))
 		uidl_change = client_build_uidl_change_string(client);
 
-	const struct var_expand_table tab[] = {
+	const struct var_expand_table logout_tab[] = {
 		{ 'p', dec2str(client->top_bytes), "top_bytes" },
 		{ 't', dec2str(client->top_count), "top_count" },
 		{ 'b', dec2str(client->retr_bytes), "retr_bytes" },
@@ -539,10 +539,23 @@ static const char *client_stats(struct client *client)
 		{ '\0', client->session_id, "session" },
 		{ 'd', !client->delete_success ? "0" :
 		       dec2str(client->deleted_size), "deleted_bytes" },
-		{ '\0', NULL, NULL }
 	};
+	ARRAY(struct var_expand_table) tab;
+	const struct var_expand_table *user_tab =
+		mail_user_var_expand_table(client->user);
+	string_t *str;
+	size_t n;
+
+	t_array_init(&tab, 32);
+	array_append(&tab, logout_tab, N_ELEMENTS(logout_tab));
+	/* count elements */
+	for(n = 0; user_tab[n].long_key != NULL; n++)
+		;
+	array_append(&tab, user_tab, n);
+	array_append_zero(&tab);
+
 	str = t_str_new(128);
-	var_expand(str, client->set->pop3_logout_format, tab);
+	var_expand(str, client->set->pop3_logout_format, array_idx(&tab, 0));
 	return str_c(str);
 }
 
