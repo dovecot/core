@@ -103,7 +103,7 @@ http_client_debug(struct http_client *client,
 
 	va_start(args, format);	
 	if (client->set.debug)
-		i_debug("http-client: %s", t_strdup_vprintf(format, args));
+		e_debug(client->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -117,6 +117,7 @@ http_client_init_shared(struct http_client_context *cctx,
 {
 	static unsigned int id = 0;
 	struct http_client *client;
+	const char *log_prefix;
 	pool_t pool;
 
 	pool = pool_alloconly_create("http client", 1024);
@@ -128,11 +129,27 @@ http_client_init_shared(struct http_client_context *cctx,
 	if (cctx != NULL) {
 		client->cctx = cctx;
 		http_client_context_ref(cctx);
-		client->log_prefix = p_strdup_printf(pool, "http-client[%u]: ", id);
+		log_prefix = t_strdup_printf("http-client[%u]: ", id);
 	} else {
 		client->cctx = cctx = http_client_context_create(set);
-		client->log_prefix = "http-client: ";
+		log_prefix = "http-client: ";
 	}
+
+	struct event *parent_event;
+	if (set != NULL && set->event != NULL)
+		parent_event = set->event;
+	else if (cctx->event == NULL)
+		parent_event = NULL;
+	else {
+		/* FIXME: we could use cctx->event, but it already has a log
+		   prefix that we don't want.. should we update event API to
+		   support replacing parent's log prefix? */
+		parent_event = event_get_parent(cctx->event);
+	}
+	client->event = event_create(parent_event);
+	if ((set != NULL && set->debug) || (cctx != NULL && cctx->set.debug))
+		event_set_forced_debug(client->event, TRUE);
+	event_set_append_log_prefix(client->event, log_prefix);
 
 	/* merge provided settings with context defaults */
 	client->set = cctx->set;
@@ -249,6 +266,7 @@ void http_client_deinit(struct http_client **_client)
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
 	http_client_context_unref(&client->cctx);
+	event_unref(&client->event);
 	pool_unref(&client->pool);
 }
 
@@ -394,6 +412,11 @@ http_client_context_create(const struct http_client_settings *set)
 	cctx->pool = pool;
 	cctx->refcount = 1;
 
+	cctx->event = event_create(set->event);
+	if (set->debug)
+		event_set_forced_debug(cctx->event, TRUE);
+	event_set_append_log_prefix(cctx->event, "http-client: ");
+
 	cctx->set.dns_client = set->dns_client;
 	cctx->set.dns_client_socket_path =
 		p_strdup_empty(pool, set->dns_client_socket_path);
@@ -497,6 +520,7 @@ void http_client_context_unref(struct http_client_context **_cctx)
 
 	connection_list_deinit(&cctx->conn_list);
 
+	event_unref(&cctx->event);
 	pool_unref(&cctx->pool);
 }
 

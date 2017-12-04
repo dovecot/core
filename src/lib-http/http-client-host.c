@@ -41,8 +41,7 @@ http_client_host_shared_debug(struct http_client_host_shared *hshared,
 
 	if (hshared->cctx->set.debug) {
 		va_start(args, format);
-		i_debug("http-client: host %s: %s",
-			hshared->name, t_strdup_vprintf(format, args));
+		e_debug(hshared->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -58,9 +57,8 @@ http_client_host_debug(struct http_client_host *host,
 	va_list args;
 
 	if (host->client->set.debug) {
-		va_start(args, format);
-		i_debug("%shost %s: %s", host->client->log_prefix,
-			host->shared->name, t_strdup_vprintf(format, args));
+		va_start(args, format);	
+		e_debug(host->shared->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -253,6 +251,9 @@ static struct http_client_host_shared *http_client_host_shared_create
 	hshared = i_new(struct http_client_host_shared, 1);
 	hshared->cctx = cctx;
 	hshared->name = i_strdup(name);
+	hshared->event = event_create(cctx->event);
+	event_set_append_log_prefix(hshared->event,
+				    t_strdup_printf("host %s: ", name));
 	DLLIST_PREPEND(&cctx->hosts_list, hshared);
 
 	return hshared;
@@ -326,6 +327,7 @@ void http_client_host_shared_free(struct http_client_host_shared **_hshared)
 		http_client_host_free(&host);
 	}
 
+	event_unref(&hshared->event);
 	i_free(hshared->ips);
 	i_free(hshared->name);
 	i_free(hshared);

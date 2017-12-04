@@ -30,18 +30,11 @@ static inline void
 http_client_connection_debug(struct http_client_connection *conn,
 	const char *format, ...)
 {
-	const char *log_prefix;
 	va_list args;
-
-	if (conn->peer != NULL)
-		log_prefix = conn->peer->client->log_prefix;
-	else
-		log_prefix = "http-client: ";
 
 	if (conn->debug || conn->ppool->peer->cctx->set.debug) {
 		va_start(args, format);	
-		i_debug("%sconn %s: %s", log_prefix,
-			conn->label, t_strdup_vprintf(format, args));
+		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -1654,6 +1647,9 @@ http_client_connection_create(struct http_client_peer *peer)
 
 	conn->label = i_strdup_printf("%s [%d]",
 		http_client_peer_shared_label(pshared), conn->id);
+	conn->event = event_create(peer->client->event);
+	event_set_append_log_prefix(conn->event,
+		t_strdup_printf("conn %s: ", conn->label));
 
 	switch (pshared->addr.type) {
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
@@ -1785,6 +1781,7 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 		connection_deinit(&conn->conn);
 	io_wait_timer_remove(&conn->io_wait_timer);
 	
+	event_unref(&conn->event);
 	i_free(conn->label);
 	i_free(conn);
 

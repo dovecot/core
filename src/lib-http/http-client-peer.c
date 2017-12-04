@@ -47,8 +47,7 @@ http_client_peer_pool_debug(struct http_client_peer_pool *ppool,
 
 	if (pshared->cctx->set.debug) {
 		va_start(args, format);
-		i_debug("http-client: peer %s: %s",
-			http_client_peer_shared_label(pshared), t_strdup_vprintf(format, args));
+		e_debug(ppool->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -67,8 +66,7 @@ http_client_peer_shared_debug(struct http_client_peer_shared *pshared,
 
 	if (pshared->cctx->set.debug) {
 		va_start(args, format);
-		i_debug("http-client: peer %s (shared): %s",
-			http_client_peer_shared_label(pshared), t_strdup_vprintf(format, args));
+		e_debug(pshared->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -83,14 +81,12 @@ static inline void
 http_client_peer_debug(struct http_client_peer *peer,
 	const char *format, ...)
 {
-	struct http_client_peer_shared *pshared = peer->shared;
 	struct http_client *client = peer->client;
 	va_list args;
 
 	if (client->set.debug) {
 		va_start(args, format);
-		i_debug("%speer %s: %s", client->log_prefix,
-			http_client_peer_shared_label(pshared), t_strdup_vprintf(format, args));
+		e_debug(peer->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -171,6 +167,9 @@ http_client_peer_pool_create(struct http_client_peer_shared *pshared,
 	ppool = i_new(struct http_client_peer_pool, 1);
 	ppool->refcount = 1;
 	ppool->peer = pshared;
+	ppool->event = event_create(pshared->cctx->event);
+	event_set_append_log_prefix(ppool->event, t_strdup_printf(
+		"peer %s: ", http_client_peer_shared_label(pshared)));
 
 	http_client_peer_shared_ref(pshared);
 
@@ -240,6 +239,7 @@ void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool)
 
 	DLLIST_REMOVE(&pshared->pools_list, ppool);
 
+	event_unref(&ppool->event);
 	i_free(ppool->rawlog_dir);
 	i_free(ppool);
 	http_client_peer_shared_unref(&pshared);
@@ -338,6 +338,9 @@ http_client_peer_shared_create(struct http_client_context *cctx,
 	default:
 		break;
 	}
+	pshared->event = event_create(cctx->event);
+	event_set_append_log_prefix(pshared->event, t_strdup_printf(
+		"peer %s (shared): ", http_client_peer_shared_label(pshared)));
 
 	hash_table_insert(cctx->peers,
 		(const struct http_client_peer_addr *)&pshared->addr, pshared);
@@ -378,6 +381,7 @@ void http_client_peer_shared_unref(struct http_client_peer_shared **_pshared)
 
 	timeout_remove(&pshared->to_backoff);
 
+	event_unref(&pshared->event);
 	i_free(pshared->addr_name);
 	i_free(pshared->label);
 	i_free(pshared);
@@ -598,6 +602,10 @@ http_client_peer_create(struct http_client *client,
 	peer->client = client;
 	peer->shared = pshared;
 
+	peer->event = event_create(client->event);
+	event_set_append_log_prefix(peer->event, t_strdup_printf(
+		"peer %s: ", http_client_peer_shared_label(pshared)));
+
 	i_array_init(&peer->queues, 16);
 	i_array_init(&peer->conns, 16);
 
@@ -690,6 +698,7 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 
 	i_assert(array_count(&peer->queues) == 0);
 
+	event_unref(&peer->event);
 	array_free(&peer->conns);
 	array_free(&peer->queues);
 	i_free(peer);

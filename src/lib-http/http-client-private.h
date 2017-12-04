@@ -100,6 +100,7 @@ struct http_client_request {
 	struct http_client_queue *queue;
 	struct http_client_peer *peer;
 	struct http_client_connection *conn;
+	struct event *event;
 
 	string_t *headers;
 	time_t date;
@@ -159,6 +160,7 @@ struct http_client_request {
 
 struct http_client_connection {
 	struct connection conn;
+	struct event *event;
 	unsigned int refcount;
 
 	struct http_client_peer_pool *ppool;
@@ -206,6 +208,7 @@ struct http_client_peer_shared {
 	unsigned int refcount;
 	struct http_client_peer_addr addr;
 	char *addr_name;
+	struct event *event;
 
 	char *label;
 
@@ -234,6 +237,7 @@ struct http_client_peer_pool {
 	unsigned int refcount;
 	struct http_client_peer_shared *peer;
 	struct http_client_peer_pool *prev, *next;
+	struct event *event;
 
 	/* all connections to this peer */
 	ARRAY_TYPE(http_client_connection) conns;
@@ -261,6 +265,7 @@ struct http_client_peer {
 	struct http_client_peer *client_prev, *client_next;
 
 	struct http_client_peer_pool *ppool;
+	struct event *event;
 
 	/* queues using this peer */
 	ARRAY_TYPE(http_client_queue) queues;
@@ -283,6 +288,7 @@ struct http_client_queue {
 
 	struct http_client_host *host;
 	char *name;
+	struct event *event;
 
 	struct http_client_peer_addr addr;
 	char *addr_name;
@@ -322,6 +328,7 @@ struct http_client_host_shared {
 
 	struct http_client_context *cctx;
 	char *name;
+	struct event *event;
 
 	/* the ip addresses DNS returned for this host */
 	unsigned int ips_count;
@@ -356,8 +363,8 @@ struct http_client {
 	pool_t pool;
 	struct http_client_context *cctx;
 	struct http_client_settings set;
-	const char *log_prefix;
 
+	struct event *event;
 	struct ioloop *ioloop;
 	struct ssl_iostream_context *ssl_ctx;
 
@@ -375,6 +382,7 @@ struct http_client {
 struct http_client_context {
 	pool_t pool;
 	unsigned int refcount;
+	struct event *event;
 
 	struct http_client_settings set;
 

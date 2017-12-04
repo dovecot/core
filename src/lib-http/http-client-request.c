@@ -45,9 +45,8 @@ http_client_request_debug(struct http_client_request *req,
 	va_list args;
 
 	if (req->client->set.debug) {
-		va_start(args, format);	
-		i_debug("%srequest %s: %s", req->client->log_prefix,
-			http_client_request_label(req), t_strdup_vprintf(format, args));
+		va_start(args, format);
+		e_debug(req->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -71,6 +70,16 @@ http_client_request_label(struct http_client_request *req)
 	return req->label;
 }
 
+static void
+http_client_request_update_event(struct http_client_request *req)
+{
+	event_add_str(req->event, "method", req->method);
+	if (req->target != NULL)
+		event_add_str(req->event, "target", req->target);
+	event_set_append_log_prefix(req->event, t_strdup_printf(
+		"request %s: ", http_client_request_label(req)));
+}
+
 static struct http_client_request *
 http_client_request_new(struct http_client *client, const char *method, 
 		    http_client_request_callback_t *callback, void *context)
@@ -89,6 +98,7 @@ http_client_request_new(struct http_client *client, const char *method,
 	req->callback = callback;
 	req->context = context;
 	req->date = (time_t)-1;
+	req->event = event_create(client->event);
 
 	/* default to client-wide settings: */
 	req->max_attempts = client->set.max_attempts;
@@ -109,6 +119,7 @@ http_client_request(struct http_client *client,
 	req = http_client_request_new(client, method, callback, context);
 	req->origin_url.host.name = p_strdup(req->pool, host);
 	req->target = (target == NULL ? "/" : p_strdup(req->pool, target));
+	http_client_request_update_event(req);
 	return req;
 }
 
@@ -128,6 +139,7 @@ http_client_request_url(struct http_client *client,
 		req->username = p_strdup(req->pool, target_url->user);
 		req->password = p_strdup(req->pool, target_url->password);
 	}
+	http_client_request_update_event(req);
 	return req;
 }
 
@@ -151,6 +163,7 @@ http_client_request_url_str(struct http_client *client,
 		http_client_request_error(&tmpreq,
 			HTTP_CLIENT_REQUEST_ERROR_INVALID_URL,
 			t_strdup_printf("Invalid HTTP URL: %s", error));
+		http_client_request_update_event(req);
 		return req;
 	}
 
@@ -161,6 +174,7 @@ http_client_request_url_str(struct http_client *client,
 		req->username = p_strdup(req->pool, target_url->user);
 		req->password = p_strdup(req->pool, target_url->password);
 	}
+	http_client_request_update_event(req);
 	return req;
 }
 
@@ -178,6 +192,7 @@ http_client_request_connect(struct http_client *client,
 	req->origin_url.port = port;
 	req->connect_tunnel = TRUE;
 	req->target = req->origin_url.host.name;
+	http_client_request_update_event(req);
 	return req;
 }
 
@@ -198,6 +213,16 @@ http_client_request_connect_ip(struct http_client *client,
 		(client, hostname, port, callback, context);
 	req->origin_url.host.ip = *ip;
 	return req;
+}
+
+void http_client_request_set_event(struct http_client_request *req,
+				   struct event *event)
+{
+	event_unref(&req->event);
+	req->event = event_create(event);
+	if (req->client->set.debug)
+		event_set_forced_debug(req->event, TRUE);
+	http_client_request_update_event(req);
 }
 
 static void
@@ -269,6 +294,7 @@ bool http_client_request_unref(struct http_client_request **_req)
 	o_stream_unref(&req->payload_output);
 	if (req->headers != NULL)
 		str_free(&req->headers);
+	event_unref(&req->event);
 	pool_unref(&req->pool);
 	return FALSE;
 }

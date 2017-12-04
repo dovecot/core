@@ -120,6 +120,10 @@ struct http_client_settings {
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
 
+	/* Event to use for the http client. For specific requests this can be
+	   overridden with http_client_request_set_event(). */
+	struct event *event;
+
 	/* enable logging debug messages */
 	bool debug;
 };
@@ -265,6 +269,8 @@ http_client_request_connect_ip(struct http_client *client,
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)
 
+void http_client_request_set_event(struct http_client_request *req,
+				   struct event *event);
 /* set the port for the service the request is directed at */
 void http_client_request_set_port(struct http_client_request *req,
 	in_port_t port);

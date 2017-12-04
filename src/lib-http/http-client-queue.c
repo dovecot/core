@@ -46,8 +46,7 @@ http_client_queue_debug(struct http_client_queue *queue,
 
 		// FIXME: find some other method of distinguishing clients
 		va_start(args, format);	
-		i_debug("%squeue %s: %s", queue->client->log_prefix,
-			queue->name, t_strdup_vprintf(format, args));
+		e_debug(queue->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -111,6 +110,9 @@ http_client_queue_create(struct http_client_host *host,
 		i_unreached();
 	}
 
+	queue->event = event_create(queue->client->event);
+	event_set_append_log_prefix(queue->event,
+		t_strdup_printf("queue %s: ", queue->name));
 	queue->ips_connect_idx = 0;
 	i_array_init(&queue->pending_peers, 8);
 	i_array_init(&queue->requests, 16);
@@ -171,6 +173,7 @@ void http_client_queue_free(struct http_client_queue *queue)
 	timeout_remove(&queue->to_delayed);
 
 	/* free */
+	event_unref(&queue->event);
 	i_free(queue->addr_name);
 	i_free(queue->name);
 	i_free(queue);
