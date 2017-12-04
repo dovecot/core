@@ -233,7 +233,7 @@ void client_command_cancel(struct client_command_context **_cmd)
 
 const char *client_stats(struct client *client)
 {
-	const struct var_expand_table tab[] = {
+	const struct var_expand_table logout_tab[] = {
 		{ 'i', dec2str(i_stream_get_absolute_offset(client->input)), "input" },
 		{ 'o', dec2str(client->output->offset), "output" },
 		{ '\0', client->session_id, "session" },
@@ -246,11 +246,22 @@ const char *client_stats(struct client *client)
 		{ '\0', dec2str(client->trashed_count), "trashed" },
 		{ '\0', dec2str(client->autoexpunged_count), "autoexpunged" },
 		{ '\0', dec2str(client->append_count), "appended" },
-		{ '\0', NULL, NULL }
 	};
+	ARRAY(struct var_expand_table) tab;
+	const struct var_expand_table *user_tab =
+		mail_user_var_expand_table(client->user);
 	string_t *str;
+	size_t n;
 
-	var_expand(str, client->set->imap_logout_format, tab);
+	t_array_init(&tab, 32);
+	array_append(&tab, logout_tab, N_ELEMENTS(logout_tab));
+	/* count elements */
+	for(n = 0; user_tab[n].long_key != NULL; n++)
+		;
+	array_append(&tab, user_tab, n);
+	array_append_zero(&tab);
+	str = t_str_new(128);
+	var_expand(str, client->set->imap_logout_format, array_idx(&tab, 0));
 	return str_c(str);
 }
 
