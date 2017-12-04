@@ -247,21 +247,16 @@ const char *client_stats(struct client *client)
 		{ '\0', dec2str(client->autoexpunged_count), "autoexpunged" },
 		{ '\0', dec2str(client->append_count), "appended" },
 	};
-	ARRAY(struct var_expand_table) tab;
 	const struct var_expand_table *user_tab =
 		mail_user_var_expand_table(client->user);
+	const struct var_expand_table *tab =
+		t_var_expand_merge_tables(logout_tab, user_tab);
 	string_t *str;
-	size_t n;
 
-	t_array_init(&tab, 32);
-	array_append(&tab, logout_tab, N_ELEMENTS(logout_tab));
-	/* count elements */
-	for(n = 0; user_tab[n].long_key != NULL; n++)
-		;
-	array_append(&tab, user_tab, n);
-	array_append_zero(&tab);
 	str = t_str_new(128);
-	var_expand(str, client->set->imap_logout_format, array_idx(&tab, 0));
+	var_expand_with_funcs(str, client->set->imap_logout_format,
+			      tab, mail_user_var_expand_func_table,
+			      client->user);
 	return str_c(str);
 }
 
