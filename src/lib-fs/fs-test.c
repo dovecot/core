@@ -301,21 +301,24 @@ static int fs_test_delete(struct fs_file *_file)
 	return 0;
 }
 
-static struct fs_iter *
-fs_test_iter_init(struct fs *_fs, const char *path,
+static struct fs_iter *fs_test_iter_alloc(void)
+{
+	struct test_fs_iter *iter = i_new(struct test_fs_iter, 1);
+	return &iter->iter;
+}
+
+static void
+fs_test_iter_init(struct fs_iter *_iter, const char *path,
 		  enum fs_iter_flags flags)
 {
-	struct test_fs *fs = (struct test_fs *)_fs;
-	struct test_fs_iter *iter;
+	struct test_fs_iter *iter = (struct test_fs_iter *)_iter;
+	struct test_fs *fs = (struct test_fs *)_iter->fs;
 
-	iter = i_new(struct test_fs_iter, 1);
-	iter->iter.fs = _fs;
 	iter->iter.flags = flags;
 	iter->prefix = i_strdup(path);
 	iter->prefix_len = strlen(iter->prefix);
 	iter->prev_dir = i_strdup("");
 	array_sort(&fs->iter_files, i_strcmp_p);
-	return &iter->iter;
 }
 
 static const char *fs_test_iter_next(struct fs_iter *_iter)
@@ -418,6 +421,7 @@ const struct fs fs_class_test = {
 		fs_test_copy,
 		fs_test_rename,
 		fs_test_delete,
+		fs_test_iter_alloc,
 		fs_test_iter_init,
 		fs_test_iter_next,
 		fs_test_iter_deinit,

@@ -202,6 +202,7 @@ const struct fs fs_class_sis_queue = {
 		fs_wrapper_copy,
 		fs_wrapper_rename,
 		fs_sis_queue_delete,
+		fs_wrapper_iter_alloc,
 		fs_wrapper_iter_init,
 		NULL,
 		NULL,

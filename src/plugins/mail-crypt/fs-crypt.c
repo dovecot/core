@@ -54,6 +54,7 @@ const struct fs fs_class_crypt = {
 		fs_wrapper_copy,
 		fs_wrapper_rename,
 		fs_wrapper_delete,
+		fs_wrapper_iter_alloc,
 		fs_wrapper_iter_init,
 		fs_wrapper_iter_next,
 		fs_wrapper_iter_deinit,

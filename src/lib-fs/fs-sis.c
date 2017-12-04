@@ -351,6 +351,7 @@ const struct fs fs_class_sis = {
 		fs_wrapper_copy,
 		fs_wrapper_rename,
 		fs_sis_delete,
+		fs_wrapper_iter_alloc,
 		fs_wrapper_iter_init,
 		NULL,
 		NULL,

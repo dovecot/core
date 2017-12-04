@@ -782,14 +782,19 @@ static int fs_posix_delete(struct fs_file *_file)
 	return 0;
 }
 
-static struct fs_iter *
-fs_posix_iter_init(struct fs *_fs, const char *path, enum fs_iter_flags flags)
+static struct fs_iter *fs_posix_iter_alloc(void)
 {
-	struct posix_fs *fs = (struct posix_fs *)_fs;
-	struct posix_fs_iter *iter;
+	struct posix_fs_iter *iter = i_new(struct posix_fs_iter, 1);
+	return &iter->iter;
+}
 
-	iter = i_new(struct posix_fs_iter, 1);
-	iter->iter.fs = _fs;
+static void
+fs_posix_iter_init(struct fs_iter *_iter, const char *path,
+		   enum fs_iter_flags flags)
+{
+	struct posix_fs_iter *iter = (struct posix_fs_iter *)_iter;
+	struct posix_fs *fs = (struct posix_fs *)_iter->fs;
+
 	iter->iter.flags = flags;
 	iter->path = fs->path_prefix == NULL ? i_strdup(path) :
 		i_strconcat(fs->path_prefix, path, NULL);
@@ -800,9 +805,8 @@ fs_posix_iter_init(struct fs *_fs, const char *path, enum fs_iter_flags flags)
 	iter->dir = opendir(iter->path);
 	if (iter->dir == NULL && errno != ENOENT) {
 		iter->err = errno;
-		fs_set_error(_fs, "opendir(%s) failed: %m", iter->path);
+		fs_set_error(_iter->fs, "opendir(%s) failed: %m", iter->path);
 	}
-	return &iter->iter;
 }
 
 static bool fs_posix_iter_want(struct posix_fs_iter *iter, const char *fname)
@@ -916,6 +920,7 @@ const struct fs fs_class_posix = {
 		fs_posix_copy,
 		fs_posix_rename,
 		fs_posix_delete,
+		fs_posix_iter_alloc,
 		fs_posix_iter_init,
 		fs_posix_iter_next,
 		fs_posix_iter_deinit,

@@ -28,9 +28,9 @@ int fs_wrapper_get_nlinks(struct fs_file *file, nlink_t *nlinks_r);
 int fs_wrapper_copy(struct fs_file *src, struct fs_file *dest);
 int fs_wrapper_rename(struct fs_file *src, struct fs_file *dest);
 int fs_wrapper_delete(struct fs_file *file);
-struct fs_iter *
-fs_wrapper_iter_init(struct fs *fs, const char *path,
-		     enum fs_iter_flags flags);
+struct fs_iter *fs_wrapper_iter_alloc(void);
+void fs_wrapper_iter_init(struct fs_iter *iter, const char *path,
+			  enum fs_iter_flags flags);
 const char *fs_wrapper_iter_next(struct fs_iter *iter);
 int fs_wrapper_iter_deinit(struct fs_iter *iter);
 

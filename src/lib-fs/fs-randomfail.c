@@ -460,20 +460,23 @@ static int fs_randomfail_delete(struct fs_file *_file)
 	return fs_file_random_fail_end(file, ret, FS_OP_DELETE);
 }
 
-static struct fs_iter *
-fs_randomfail_iter_init(struct fs *_fs, const char *path,
-		      enum fs_iter_flags flags)
+static struct fs_iter *fs_randomfail_iter_alloc(void)
 {
-	struct randomfail_fs_iter *iter;
+	struct randomfail_fs_iter *iter = i_new(struct randomfail_fs_iter, 1);
+	return &iter->iter;
+}
+
+static void
+fs_randomfail_iter_init(struct fs_iter *_iter, const char *path,
+			enum fs_iter_flags flags)
+{
+	struct randomfail_fs_iter *iter = (struct randomfail_fs_iter *)_iter;
 	uoff_t pos;
 
-	iter = i_new(struct randomfail_fs_iter, 1);
-	iter->iter.fs = _fs;
 	iter->iter.flags = flags;
-	iter->super = fs_iter_init(_fs->parent, path, flags);
-	if (fs_random_fail_range(_fs, FS_OP_ITER, &pos))
+	iter->super = fs_iter_init(_iter->fs->parent, path, flags);
+	if (fs_random_fail_range(_iter->fs, FS_OP_ITER, &pos))
 		iter->fail_pos = pos + 1;
-	return &iter->iter;
 }
 
 static const char *fs_randomfail_iter_next(struct fs_iter *_iter)
@@ -539,6 +542,7 @@ const struct fs fs_class_randomfail = {
 		fs_randomfail_copy,
 		fs_randomfail_rename,
 		fs_randomfail_delete,
+		fs_randomfail_iter_alloc,
 		fs_randomfail_iter_init,
 		fs_randomfail_iter_next,
 		fs_randomfail_iter_deinit,

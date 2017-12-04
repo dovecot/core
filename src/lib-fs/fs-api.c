@@ -1078,7 +1078,9 @@ fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags)
 		iter = i_new(struct fs_iter, 1);
 		iter->fs = fs;
 	} else T_BEGIN {
-		iter = fs->v.iter_init(fs, path, flags);
+		iter = fs->v.iter_alloc();
+		iter->fs = fs;
+		fs->v.iter_init(iter, path, flags);
 	} T_END;
 	iter->start_time = now;
 	DLLIST_PREPEND(&fs->iters, iter);

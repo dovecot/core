@@ -275,20 +275,24 @@ static int fs_dict_delete(struct fs_file *_file)
 	return 0;
 }
 
-static struct fs_iter *
-fs_dict_iter_init(struct fs *_fs, const char *path, enum fs_iter_flags flags)
+static struct fs_iter *fs_dict_iter_alloc(void)
 {
-	struct dict_fs *fs = (struct dict_fs *)_fs;
-	struct dict_fs_iter *iter;
+	struct dict_fs_iter *iter = i_new(struct dict_fs_iter, 1);
+	return &iter->iter;
+}
 
-	iter = i_new(struct dict_fs_iter, 1);
-	iter->iter.fs = _fs;
+static void
+fs_dict_iter_init(struct fs_iter *_iter, const char *path,
+		  enum fs_iter_flags flags)
+{
+	struct dict_fs_iter *iter = (struct dict_fs_iter *)_iter;
+	struct dict_fs *fs = (struct dict_fs *)_iter->fs;
+
 	iter->iter.flags = flags;
 	if (fs->path_prefix != NULL)
 		path = t_strconcat(fs->path_prefix, path, NULL);
 
 	iter->dict_iter = dict_iterate_init(fs->dict, path, 0);
-	return &iter->iter;
 }
 
 static const char *fs_dict_iter_next(struct fs_iter *_iter)
@@ -342,6 +346,7 @@ const struct fs fs_class_dict = {
 		fs_default_copy,
 		NULL,
 		fs_dict_delete,
+		fs_dict_iter_alloc,
 		fs_dict_iter_init,
 		fs_dict_iter_next,
 		fs_dict_iter_deinit,
