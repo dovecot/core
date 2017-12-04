@@ -79,8 +79,8 @@ int connection_verify_version(struct connection *conn,
 	    strcmp(args[0], "VERSION") != 0 ||
 	    str_to_uint(args[2], &recv_major_version) < 0 ||
 	    str_to_uint(args[3], &conn->minor_version) < 0) {
-		i_error("%s didn't reply with a valid VERSION line",
-			conn->name);
+		i_error("%s didn't reply with a valid VERSION line: %s",
+			conn->name, t_strarray_join(args, "\t"));
 		return -1;
 	}
 
