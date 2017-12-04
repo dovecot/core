@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define DEFAULT_SCHEME "CRAM-MD5"
+#define DEFAULT_SCHEME "CRYPT"
 
 static struct module *modules = NULL;
 
