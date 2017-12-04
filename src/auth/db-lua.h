@@ -3,6 +3,8 @@
 
 #include "dlua-script.h"
 
+#define DB_LUA_CACHE_KEY "%u"
+
 #define AUTH_LUA_PASSWORD_VERIFY "auth_password_verify"
 
 struct dlua_script;

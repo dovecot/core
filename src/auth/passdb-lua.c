@@ -2,6 +2,7 @@
 
 #include "auth-common.h"
 #include "passdb.h"
+#include "auth-cache.h"
 
 #if defined(BUILTIN_LUA) || defined(PLUGIN_BUILD)
 
@@ -100,6 +101,8 @@ passdb_lua_verify_plain(struct auth_request *request, const char *password,
 static struct passdb_module *
 passdb_lua_preinit(pool_t pool, const char *args)
 {
+	const char *cache_key = "%u";
+	const char *scheme = "PLAIN";
 	struct dlua_passdb_module *module;
 	bool blocking = TRUE;
 
@@ -119,6 +122,13 @@ passdb_lua_preinit(pool_t pool, const char *args)
 					"Field blocking must be yes or no",
 					value);
 			}
+                } else if (strncmp(*fields, "cache_key=", 10) == 0) {
+                        if (*((*fields)+10) != '\0')
+                                cache_key = (*fields)+10;
+                        else /* explicitly disable auth caching for lua */
+                                cache_key = NULL;
+		} else if (strncmp(*fields, "scheme=", 7) == 0) {
+			scheme = p_strdup(pool, (*fields)+7);
 		} else {
 			i_fatal("Unsupported parameter %s", *fields);
 		}
@@ -129,6 +139,9 @@ passdb_lua_preinit(pool_t pool, const char *args)
 		i_fatal("passdb-lua: Missing mandatory file= parameter");
 
 	module->module.blocking = blocking;
+	module->module.default_cache_key =
+		auth_cache_parse_key(pool, cache_key);
+	module->module.default_pass_scheme = scheme;
 	return &module->module;
 }
 

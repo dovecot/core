@@ -2,6 +2,7 @@
 
 #include "auth-common.h"
 #include "userdb.h"
+#include "auth-cache.h"
 
 #if defined(BUILTIN_LUA) || defined(PLUGIN_BUILD)
 
@@ -32,6 +33,7 @@ static struct userdb_module *
 userdb_lua_preinit(pool_t pool, const char *args)
 {
 	struct dlua_userdb_module *module;
+	const char *cache_key = "%u";
 	bool blocking = TRUE;
 
 	module = p_new(pool, struct dlua_userdb_module, 1);
@@ -50,6 +52,11 @@ userdb_lua_preinit(pool_t pool, const char *args)
 					"Field blocking must be yes or no",
 					value);
 			}
+		} else if (strncmp(*fields, "cache_key=", 10) == 0) {
+			if (*((*fields)+10) != '\0')
+				cache_key = (*fields)+10;
+			else /* explicitly disable auth caching for lua */
+				cache_key = NULL;
 		} else {
 			i_fatal("Unsupported parameter %s", *fields);
 		}
@@ -60,6 +67,10 @@ userdb_lua_preinit(pool_t pool, const char *args)
 		i_fatal("userdb-lua: Missing mandatory file= parameter");
 
 	module->module.blocking = blocking;
+	if (cache_key != NULL) {
+		module->module.default_cache_key =
+			auth_cache_parse_key(pool, cache_key);
+	}
 	return &module->module;
 }
 
