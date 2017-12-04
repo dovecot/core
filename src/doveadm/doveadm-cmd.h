@@ -154,6 +154,7 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_service_status_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_process_status_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_oldstats_reset_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_oldstats_dump_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_oldstats_top_ver2;
