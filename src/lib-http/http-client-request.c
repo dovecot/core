@@ -1423,7 +1423,9 @@ void http_client_request_finish(struct http_client_request *req)
 
 	i_assert(req->refcount > 0);
 
-	e_debug(req->event, "Finished");
+	e_debug(event_create_passthrough(req->event)->
+		add_int("attempts", req->attempts)->
+		set_name("http_request_finished")->event(), "Finished");
 
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_FINISHED;
