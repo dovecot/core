@@ -106,8 +106,8 @@ fs_sis_file_init(struct fs_file *_file, const char *path,
 
 	/* if hashes/<hash> already exists, open it */
 	file->hash_path = i_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
-	file->hash_file = fs_file_init(_file->fs->parent, file->hash_path,
-				       FS_OPEN_MODE_READONLY);
+	file->hash_file = fs_file_init_parent(_file, file->hash_path,
+					      FS_OPEN_MODE_READONLY);
 
 	file->hash_input = fs_read_stream(file->hash_file, IO_BLOCK_SIZE);
 	if (i_stream_read(file->hash_input) == -1) {
@@ -119,7 +119,7 @@ fs_sis_file_init(struct fs_file *_file, const char *path,
 		i_stream_destroy(&file->hash_input);
 	}
 
-	file->file.parent = fs_file_init(_file->fs->parent, path, mode | flags);
+	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
 }
 
 static void fs_sis_file_deinit(struct fs_file *_file)
@@ -209,8 +209,8 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 		    super_fs->set.temp_file_prefix, hash_fname);
 
 	/* replace existing hash file atomically */
-	temp_file = fs_file_init(super_fs, str_c(temp_path),
-				 FS_OPEN_MODE_READONLY);
+	temp_file = fs_file_init_parent(&file->file, str_c(temp_path),
+					FS_OPEN_MODE_READONLY);
 	ret = fs_copy(file->file.parent, temp_file);
 	if (ret < 0 && errno == EEXIST) {
 		/* either someone's racing us or it's a stale file.

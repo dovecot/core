@@ -222,7 +222,7 @@ fs_randomfail_file_init(struct fs_file *_file, const char *path,
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
 
 	file->file.path = i_strdup(path);
-	file->file.parent = fs_file_init(_file->fs->parent, path, mode | flags);
+	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
 }
 
 static void fs_randomfail_file_deinit(struct fs_file *_file)
@@ -473,7 +473,7 @@ fs_randomfail_iter_init(struct fs_iter *_iter, const char *path,
 	struct randomfail_fs_iter *iter = (struct randomfail_fs_iter *)_iter;
 	uoff_t pos;
 
-	iter->super = fs_iter_init(_iter->fs->parent, path, flags);
+	iter->super = fs_iter_init_parent(_iter, path, flags);
 	if (fs_random_fail_range(_iter->fs, FS_OP_ITER, &pos))
 		iter->fail_pos = pos + 1;
 }

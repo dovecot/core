@@ -1200,3 +1200,16 @@ uint64_t fs_stats_get_write_usecs(const struct fs_stats *stats)
 	};
 	return fs_stats_count_ops(stats, write_ops, N_ELEMENTS(write_ops));
 }
+
+struct fs_file *
+fs_file_init_parent(struct fs_file *parent, const char *path, int mode_flags)
+{
+	return fs_file_init(parent->fs->parent, path, mode_flags);
+}
+
+struct fs_iter *
+fs_iter_init_parent(struct fs_iter *parent,
+		    const char *path, enum fs_iter_flags flags)
+{
+	return fs_iter_init(parent->fs->parent, path, flags);
+}

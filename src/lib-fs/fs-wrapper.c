@@ -143,7 +143,7 @@ void fs_wrapper_iter_init(struct fs_iter *_iter, const char *path,
 {
 	struct wrapper_fs_iter *iter = (struct wrapper_fs_iter *)_iter;
 
-	iter->parent = fs_iter_init(_iter->fs->parent, path, flags);
+	iter->parent = fs_iter_init_parent(_iter, path, flags);
 }
 
 const char *fs_wrapper_iter_next(struct fs_iter *_iter)

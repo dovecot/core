@@ -86,8 +86,7 @@ fs_sis_queue_file_init(struct fs_file *_file, const char *path,
 	if (mode == FS_OPEN_MODE_APPEND)
 		fs_set_error(_file->fs, "APPEND mode not supported");
 	else
-		file->file.parent = fs_file_init(_file->fs->parent,
-						 path, mode | flags);
+		file->file.parent = fs_file_init_parent(_file, path, mode | flags);
 }
 
 static void fs_sis_queue_file_deinit(struct fs_file *_file)
@@ -114,7 +113,7 @@ static void fs_sis_queue_add(struct sis_queue_fs_file *file)
 		fname = path;
 
 	queue_path = t_strdup_printf("%s/%s", fs->queue_dir, fname);
-	queue_file = fs_file_init(fs->fs.parent, queue_path, FS_OPEN_MODE_CREATE);
+	queue_file = fs_file_init_parent(&file->file, queue_path, FS_OPEN_MODE_CREATE);
 	if (fs_write(queue_file, "", 0) < 0 && errno != EEXIST)
 		i_error("fs-sis-queue: %s", fs_file_last_error(queue_file));
 	fs_file_deinit(&queue_file);
