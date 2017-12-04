@@ -177,7 +177,7 @@ static const struct password_scheme blf_crypt_scheme = {
 
 static const struct password_scheme default_crypt_scheme = {
 	"CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
-		crypt_generate_des
+		crypt_generate_blowfish
 };
 
 void password_scheme_register_crypt(void)
