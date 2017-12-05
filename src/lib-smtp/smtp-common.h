@@ -60,6 +60,12 @@ enum smtp_proxy_protocol {
 	SMTP_PROXY_PROTOCOL_LMTP
 };
 
+struct smtp_proxy_data_field {
+	const char *name;
+	const char *value;
+};
+ARRAY_DEFINE_TYPE(smtp_proxy_data_field, struct smtp_proxy_data_field);
+
 struct smtp_proxy_data {
 	/* PROTO */
 	enum smtp_proxy_protocol proto;
@@ -76,6 +82,10 @@ struct smtp_proxy_data {
 	   after this many seconds, so it should try to keep lock waits and such
 	   lower than this. */
 	unsigned int timeout_secs;
+
+	/* additional fields */
+	const struct smtp_proxy_data_field *extra_fields;
+	unsigned int extra_fields_count;
 };
 
 #endif
