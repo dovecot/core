@@ -785,3 +785,29 @@ var_expand_unregister_func_array(const struct var_expand_extension_func_table *f
 		}
 	}
 }
+
+struct var_expand_table *
+var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
+			const struct var_expand_table *b)
+{
+	ARRAY(struct var_expand_table) table;
+	size_t a_size = var_expand_table_size(a);
+	size_t b_size = var_expand_table_size(b);
+	p_array_init(&table, pool, a_size + b_size + 1);
+	for(size_t i=0; i<a_size; i++) {
+		struct var_expand_table *entry =
+			array_append_space(&table);
+		entry->key = a[i].key;
+		entry->value = p_strdup(pool, a[i].value);
+		entry->long_key = p_strdup(pool, a[i].long_key);
+	}
+	for(size_t i=0; i<b_size; i++) {
+		struct var_expand_table *entry =
+			array_append_space(&table);
+		entry->key = b[i].key;
+		entry->value = p_strdup(pool, b[i].value);
+		entry->long_key = p_strdup(pool, b[i].long_key);
+	}
+	array_append_zero(&table);
+	return array_idx_modifiable(&table, 0);
+}

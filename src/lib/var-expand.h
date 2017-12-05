@@ -36,4 +36,19 @@ void var_get_key_range(const char *str, unsigned int *idx_r,
    If key is '\0', it's ignored. If long_key is NULL, it's ignored. */
 bool var_has_key(const char *str, char key, const char *long_key) ATTR_PURE;
 
+static inline size_t ATTR_PURE
+var_expand_table_size(const struct var_expand_table *table)
+{
+	size_t n = 0;
+	while(table != NULL && (table[n].key != '\0' ||
+				table[n].long_key != NULL))
+		 n++;
+	return n;
+}
+
+struct var_expand_table *
+var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
+			const struct var_expand_table *b);
+#define t_var_expand_merge_tables(a, b) \
+	(const struct var_expand_table *)var_expand_merge_tables(pool_datastack_create(), (a), (b))
 #endif
