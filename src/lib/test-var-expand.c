@@ -91,7 +91,8 @@ static void test_var_get_key_range(void)
 		{ "{key}", 1, 3 },
 		{ "5.5Rk", 4, 1 },
 		{ "5.5R{key}", 5, 3 },
-		{ "{key", 1, 3 }
+		{ "{key", 1, 3 },
+		{ "{if;%{if;%{value};eq;value;t;f};eq;t;t;f}", 1, 39 },
 	};
 	unsigned int i, idx, size;
 
