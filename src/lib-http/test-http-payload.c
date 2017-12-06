@@ -35,6 +35,7 @@ static bool debug = FALSE;
 static bool blocking = FALSE;
 static enum payload_handling server_payload_handling =
 	PAYLOAD_HANDLING_LOW_LEVEL;
+static unsigned int parallel_clients = 1;
 
 static bool request_100_continue = FALSE;
 static size_t read_server_partial = 0;
@@ -629,7 +630,7 @@ struct test_client_request {
 	unsigned int files_idx;
 };
 
-static struct http_client *http_client;
+static struct http_client **http_clients;
 static struct test_client_request *client_requests;
 static unsigned int client_files_first, client_files_last;
 
@@ -667,6 +668,24 @@ test_client_requests_switch_ioloop(void)
 		if (tcreq->payload != NULL)
 			i_stream_switch_ioloop(tcreq->payload);
 	}
+}
+
+static void
+test_client_create_clients(const struct http_client_settings *client_set)
+{
+	struct http_client_context *http_context;
+	unsigned int i;
+
+	http_context = http_client_context_create(client_set);
+
+	if (parallel_clients < 1)
+		parallel_clients = 1;
+	http_clients = i_new(struct http_client *, parallel_clients);
+	for (i = 0; i < parallel_clients; i++) {
+		http_clients[i] = http_client_init_shared(http_context, NULL);
+	}
+
+	http_client_context_unref(&http_context);
 }
 
 /* download */
@@ -868,6 +887,8 @@ static void test_client_download_continue(void)
 	for (; client_files_last < count &&
 			(client_files_last - client_files_first) < test_max_pending;
 		client_files_last++) {
+		struct http_client *http_client =
+			http_clients[client_files_last % parallel_clients];
 		const char *path = paths[client_files_last];
 
 		tcreq = test_client_request_new();
@@ -892,8 +913,8 @@ static void test_client_download_continue(void)
 static void
 test_client_download(const struct http_client_settings *client_set)
 {
-	/* create client */
-	http_client = http_client_init(client_set);
+	/* create client(s) */
+	test_client_create_clients(client_set);
 
 	/* start querying server */
 	client_files_first = client_files_last = 0;
@@ -1098,6 +1119,8 @@ static void test_client_echo_continue(void)
 	for (; client_files_last < count &&
 			(client_files_last - client_files_first) < test_max_pending;
 		client_files_last++) {
+		struct http_client *http_client =
+			http_clients[client_files_last % parallel_clients];
 		struct istream *fstream;
 		const char *path = paths[client_files_last];
 
@@ -1158,6 +1181,7 @@ static void test_client_echo_continue(void)
 		((client_files_last / client_ioloop_nesting) !=
 			(first_submitted / client_ioloop_nesting)) ) {
 		struct ioloop *prev_ioloop = current_ioloop;
+		unsigned int i;
 
 		ioloop_nested_first = first_submitted;
 		ioloop_nested_last = first_submitted + client_ioloop_nesting;
@@ -1172,13 +1196,15 @@ static void test_client_echo_continue(void)
 		ioloop_nested_depth++;
 
 		ioloop_nested = io_loop_create();
-		http_client_switch_ioloop(http_client);
+		for (i = 0; i < parallel_clients; i++)
+			http_client_switch_ioloop(http_clients[i]);
 		test_client_requests_switch_ioloop();
 
 		io_loop_run(ioloop_nested);
 
 		io_loop_set_current(prev_ioloop);
-		http_client_switch_ioloop(http_client);
+		for (i = 0; i < parallel_clients; i++)
+			http_client_switch_ioloop(http_clients[i]);
 		test_client_requests_switch_ioloop();
 		io_loop_set_current(ioloop_nested);
 		io_loop_destroy(&ioloop_nested);
@@ -1203,7 +1229,7 @@ static void
 test_client_echo(const struct http_client_settings *client_set)
 {
 	/* create client */
-	http_client = http_client_init(client_set);
+	test_client_create_clients(client_set);
 
 	/* start querying server */
 	client_files_first = client_files_last = 0;
@@ -1214,7 +1240,11 @@ test_client_echo(const struct http_client_settings *client_set)
 
 static void test_client_deinit(void)
 {
-	http_client_deinit(&http_client);
+	unsigned int i;
+
+	for (i = 0; i < parallel_clients; i++)
+		http_client_deinit(&http_clients[i]);
+	i_free(http_clients);
 }
 
 /*
