@@ -31,25 +31,6 @@ const char *http_request_state_names[] = {
 };
 
 /*
- * Logging
- */
-
-static inline void
-http_client_request_debug(struct http_client_request *req,
-	const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_client_request_debug(struct http_client_request *req,
-	const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_debug(req->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
  * Request
  */
 
@@ -267,7 +248,7 @@ bool http_client_request_unref(struct http_client_request **_req)
 	if (--req->refcount > 0)
 		return TRUE;
 
-	http_client_request_debug(req, "Free (requests left=%d)",
+	e_debug(req->event, "Free (requests left=%d)",
 		client->requests_count);
 
 	/* cannot be destroyed while it is still pending */
@@ -304,7 +285,7 @@ void http_client_request_destroy(struct http_client_request **_req)
 
 	*_req = NULL;
 
-	http_client_request_debug(req, "Destroy (requests left=%d)",
+	e_debug(req->event, "Destroy (requests left=%d)",
 		client->requests_count);
 
 	if (req->state < HTTP_REQUEST_STATE_FINISHED)
@@ -826,7 +807,7 @@ void http_client_request_submit(struct http_client_request *req)
 	req->submitted = TRUE;
 	http_client_request_add(req);
 
-	http_client_request_debug(req, "Submitted (requests left=%d)",
+	e_debug(req->event, "Submitted (requests left=%d)",
 		req->client->requests_count);
 }
 
@@ -889,7 +870,7 @@ http_client_request_finish_payload_out(struct http_client_request *req)
 	/* release connection */
 	req->conn->output_locked = FALSE;
 
-	http_client_request_debug(req, "Finished sending%s payload",
+	e_debug(req->event, "Finished sending%s payload",
 		(req->state == HTTP_REQUEST_STATE_ABORTED ? " aborted" : ""));
 }
 
@@ -949,7 +930,7 @@ http_client_request_continue_payload(struct http_client_request **_req,
 			dns_client_switch_ioloop(client->set.dns_client);
 
 		while (req->state < HTTP_REQUEST_STATE_PAYLOAD_IN) {
-			http_client_request_debug(req, "Waiting for request to finish");
+			e_debug(req->event, "Waiting for request to finish");
 		
 			if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
 				o_stream_set_flush_pending(req->payload_output, TRUE);
@@ -1098,7 +1079,7 @@ int http_client_request_send_more(struct http_client_request *req,
 		conn->output_locked = TRUE;
 		if (!pipelined)
 			http_client_connection_start_request_timeout(conn);
-		http_client_request_debug(req, "Partially sent payload");
+		e_debug(req->event, "Partially sent payload");
 		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		/* we're in the middle of sending a request, so the connection
@@ -1248,7 +1229,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 					   o_stream_get_error(output));
 		ret = -1;
 	} else {
-		http_client_request_debug(req, "Sent header");
+		e_debug(req->event, "Sent header");
 
 		if (req->payload_output != NULL) {
 			if (!req->payload_sync) {
@@ -1256,7 +1237,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 					(req, pipelined, error_r) < 0)
 					ret = -1;
 			} else {
-				http_client_request_debug(req, "Waiting for 100-continue");
+				e_debug(req->event, "Waiting for 100-continue");
 				conn->output_locked = TRUE;
 			}
 		} else {
@@ -1442,7 +1423,7 @@ void http_client_request_finish(struct http_client_request *req)
 
 	i_assert(req->refcount > 0);
 
-	http_client_request_debug(req, "Finished");
+	e_debug(req->event, "Finished");
 
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_FINISHED;
@@ -1509,7 +1490,7 @@ void http_client_request_redirect(struct http_client_request *req,
 
 	origin_url = http_url_create(&req->origin_url);
 
-	http_client_request_debug(req, "Redirecting to %s%s",
+	e_debug(req->event, "Redirecting to %s%s",
 		origin_url, target);
 
 	req->label = p_strdup_printf(req->pool, "[%s %s%s]",
@@ -1542,7 +1523,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 {
 	i_assert(!req->payload_wait);
 
-	http_client_request_debug(req, "Resubmitting request");
+	e_debug(req->event, "Resubmitting request");
 
 	/* rewind payload stream */
 	if (req->payload_input != NULL && req->payload_size > 0) {
@@ -1586,7 +1567,7 @@ bool http_client_request_try_retry(struct http_client_request *req)
 		return FALSE;
 	req->attempts++;
 
-	http_client_request_debug(req, "Retrying (attempts=%d)", req->attempts);
+	e_debug(req->event, "Retrying (attempts=%d)", req->attempts);
 	if (req->callback != NULL)
 		http_client_request_resubmit(req);
 	return TRUE;

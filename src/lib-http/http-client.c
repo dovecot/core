@@ -88,25 +88,6 @@
  */
 
 /*
- * Logging
- */
-
-static inline void
-http_client_debug(struct http_client *client,
-	const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_client_debug(struct http_client *client,
-	const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);	
-	e_debug(client->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
  * Client
  */
 
@@ -312,12 +293,12 @@ void http_client_wait(struct http_client *client)
 		 io_loop_have_immediate_timeouts(client->ioloop));
 
 	do {
-		http_client_debug(client,
+		e_debug(client->event,
 			"Waiting for %d requests to finish", client->requests_count);
 		io_loop_run(client->ioloop);
 	} while (client->requests_count > 0);
 
-	http_client_debug(client, "All requests finished");
+	e_debug(client->event, "All requests finished");
 
 	io_loop_set_current(prev_ioloop);
 	http_client_switch_ioloop(client);

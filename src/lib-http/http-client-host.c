@@ -26,49 +26,13 @@ static bool
 http_client_host_is_idle(struct http_client_host *host);
 
 /*
- * Logging
- */
-
-static inline void
-http_client_host_shared_debug(struct http_client_host_shared *hshared,
-	const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_client_host_shared_debug(struct http_client_host_shared *hshared,
-	const char *format, ...)
-{
-	va_list args;
-
-	if (hshared->cctx->set.debug) {
-		va_start(args, format);
-		e_debug(hshared->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
-}
-
-static inline void
-http_client_host_debug(struct http_client_host *host,
-	const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_client_host_debug(struct http_client_host *host,
-	const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_debug(host->shared->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
  * Host (shared)
  */
 
 static void
 http_client_host_shared_idle_timeout(struct http_client_host_shared *hshared)
 {
-	http_client_host_shared_debug(hshared, "Idle host timed out");
+	e_debug(hshared->event, "Idle host timed out");
 	http_client_host_shared_free(&hshared);
 }
 
@@ -101,8 +65,7 @@ http_client_host_shared_check_idle(
 	hshared->to_idle = timeout_add_short(timeout,
 		http_client_host_shared_idle_timeout, hshared);
 
-	http_client_host_shared_debug(hshared,
-		"Host is idle (timeout = %u msecs)", timeout);
+	e_debug(hshared->event, "Host is idle (timeout = %u msecs)", timeout);
 }
 
 static void
@@ -138,7 +101,7 @@ http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
 		return;
 	}
 
-	http_client_host_shared_debug(hshared,
+	e_debug(hshared->event,
 		"DNS lookup successful; got %d IPs", result->ips_count);
 
 	i_assert(result->ips_count > 0);
@@ -170,13 +133,11 @@ static void http_client_host_shared_lookup
 	i_assert(hshared->dns_lookup == NULL);
 
 	if (set->dns_client != NULL) {
-		http_client_host_shared_debug(hshared,
-			"Performing asynchronous DNS lookup");
+		e_debug(hshared->event, "Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(set->dns_client, hshared->name,
 			http_client_host_shared_dns_callback, hshared, &hshared->dns_lookup);
 	} else if (set->dns_client_socket_path != NULL) {
-		http_client_host_shared_debug(hshared,
-			"Performing asynchronous DNS lookup");
+		e_debug(hshared->event, "Performing asynchronous DNS lookup");
 		i_zero(&dns_set);
 		dns_set.dns_client_socket_path = set->dns_client_socket_path;
 		if (set->connect_timeout_msecs > 0)
@@ -198,7 +159,7 @@ static void http_client_host_shared_lookup
 			return;
 		}
 
-		http_client_host_shared_debug(hshared,
+		e_debug(hshared->event,
 			"DNS lookup successful; got %d IPs", ips_count);
 
 		i_free(hshared->ips);
@@ -231,8 +192,7 @@ http_client_host_shared_refresh(struct http_client_host_shared *hshared)
 	if (hshared->to_idle != NULL)
 		return 0;
 
-	http_client_host_shared_debug(hshared,
-		"IPs have expired; need to refresh DNS lookup");
+	e_debug(hshared->event, "IPs have expired; need to refresh DNS lookup");
 
 	http_client_host_shared_lookup(hshared);
 	if (hshared->dns_lookup != NULL)
@@ -273,7 +233,7 @@ http_client_host_shared_get
 
 			cctx->unix_host = hshared;
 
-			http_client_host_shared_debug(hshared, "Unix host created");
+			e_debug(hshared->event, "Unix host created");
 		}
 
 	} else {
@@ -293,7 +253,7 @@ http_client_host_shared_get
 				hshared->explicit_ip = TRUE;
 			}
 
-			http_client_host_shared_debug(hshared, "Host created");
+			e_debug(hshared->event, "Host created");
 		}
 	}
 	return hshared;
@@ -306,7 +266,7 @@ void http_client_host_shared_free(struct http_client_host_shared **_hshared)
 	struct http_client_host *host;
 	const char *hostname = hshared->name;
 
-	http_client_host_shared_debug(hshared, "Host destroy");
+	e_debug(hshared->event, "Host destroy");
 
 	timeout_remove(&hshared->to_idle);
 
@@ -382,7 +342,7 @@ http_client_host_get(struct http_client *client,
 		DLLIST_PREPEND_FULL(&client->hosts_list,
 			host, client_prev, client_next);
 
-		http_client_host_debug(host, "Host session created");
+		e_debug(hshared->event, "Host session created");
 	}
 
 	return host;
@@ -397,7 +357,7 @@ void http_client_host_free(
 	struct http_client_queue *const *queue_idx;
 	ARRAY_TYPE(http_client_queue) queues;
 
-	http_client_host_debug(host, "Host session destroy");
+	e_debug(hshared->event, "Host session destroy");
 
 	DLLIST_REMOVE_FULL(&hshared->hosts_list,
 		host, shared_prev, shared_next);

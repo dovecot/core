@@ -29,26 +29,6 @@ http_client_queue_set_request_timer(struct http_client_queue *queue,
 	const struct timeval *time);
 
 /*
- * Logging
- */
-
-static inline void
-http_client_queue_debug(struct http_client_queue *queue,
-	const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_client_queue_debug(struct http_client_queue *queue,
-	const char *format, ...)
-{
-	va_list args;
-
-	// FIXME: find some other method of distinguishing clients
-	va_start(args, format);
-	e_debug(queue->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
  * Queue object
  */
 
@@ -139,7 +119,7 @@ void http_client_queue_free(struct http_client_queue *queue)
 	struct http_client_peer *const *peer_idx;
 	ARRAY_TYPE(http_client_peer) peers;
 
-	http_client_queue_debug(queue, "Destroy");
+	e_debug(queue->event, "Destroy");
 
 	/* currently only called when peer is freed, so there is no need to
 	   unlink from the peer */
@@ -292,7 +272,7 @@ http_client_queue_soft_connect_timeout(struct http_client_queue *queue)
 	   soft_connect_timeout, we start a connection attempt to the next IP in
 	   parallel */
 	https_name = http_client_peer_addr_get_https_name(addr);
-	http_client_queue_debug(queue, "Connection to %s%s is taking a long time; "
+	e_debug(queue->event, "Connection to %s%s is taking a long time; "
 		"starting parallel connection attempt to next IP",
 		http_client_peer_addr2str(addr), (https_name == NULL ? "" :
 			t_strdup_printf(" (SSL=%s)", https_name)));
@@ -351,7 +331,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 			/* is it still connected? */
 			if (http_client_peer_is_connected(queue->cur_peer)) {
 				/* yes */
-				http_client_queue_debug(queue,
+				e_debug(queue->event,
 					"Using existing connection to %s%s "
 					"(%u requests pending)",
 					http_client_peer_addr2str(addr), ssl, num_requests);
@@ -373,7 +353,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 	if (peer == NULL)
 		peer = http_client_peer_get(queue->client, addr);
 
-	http_client_queue_debug(queue, "Setting up connection to %s%s "
+	e_debug(queue->event, "Setting up connection to %s%s "
 		"(%u requests pending)", http_client_peer_addr2str(addr), ssl,
 		num_requests);
 
@@ -416,7 +396,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 			}
 		}
 		if (new_peer) {
-			http_client_queue_debug(queue, "Started new connection to %s%s",
+			e_debug(queue->event, "Started new connection to %s%s",
 				http_client_peer_addr2str(addr), ssl);
 
 			array_append(&queue->pending_peers, &peer, 1);
@@ -524,7 +504,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	unsigned int ips_count = http_client_host_get_ips_count(host);
 	struct http_client_peer *const *peer_idx;
 
-	http_client_queue_debug(queue,
+	e_debug(queue->event,
 		"Failed to set up connection to %s%s: %s "
 		"(%u peers pending, %u requests pending)",
 		http_client_peer_addr2str(addr),
@@ -554,7 +534,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		}
 		i_assert(found);
 		if (array_count(&queue->pending_peers) > 0) {
-			http_client_queue_debug(queue,
+			e_debug(queue->event,
 				"Waiting for remaining pending peers.");
 			http_client_peer_unlink_queue(peer, queue);
 			return;
@@ -581,7 +561,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 
 		if (queue->cur_peer == NULL && (set->max_connect_attempts == 0 ||
 			queue->connect_attempts >= set->max_connect_attempts)) {
-			http_client_queue_debug(queue,
+			e_debug(queue->event,
 				"Failed to set up any connection; failing all queued requests");
 			if (queue->connect_attempts > 1) {
 				unsigned int total_msecs =
@@ -638,7 +618,7 @@ http_client_queue_drop_request(struct http_client_queue *queue,
 	struct http_client_request **reqs;
 	unsigned int count, i;
 
-	http_client_queue_debug(queue,
+	e_debug(queue->event,
 		"Dropping request %s", http_client_request_label(req));
 
 	/* drop from queue */
@@ -714,7 +694,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 	size_t prefix_size;
 	unsigned int count, i;
 
-	http_client_queue_debug(queue, "Timeout (now: %s.%03lu)",
+	e_debug(queue->event, "Timeout (now: %s.%03lu)",
 		t_strflocaltime("%Y-%m-%d %H:%M:%S", ioloop_timeval.tv_sec),
 			((unsigned long)ioloop_timeval.tv_usec)/1000);
 
@@ -750,7 +730,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 		str_truncate(str, prefix_size);
 		http_client_request_append_stats_text(req, str);
 
-		http_client_queue_debug(queue,
+		e_debug(queue->event,
 			"Absolute timeout expired for request %s (%s)",
 			http_client_request_label(req), str_c(str));
 		http_client_request_error(&req,
@@ -761,7 +741,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 	}
 
 	if (new_to.tv_sec > 0) {
-		http_client_queue_debug(queue, "New timeout");
+		e_debug(queue->event, "New timeout");
 		http_client_queue_set_request_timer(queue, &new_to);
 	}
 }
@@ -773,7 +753,7 @@ http_client_queue_set_request_timer(struct http_client_queue *queue,
 	i_assert(time->tv_sec > 0);
 	timeout_remove(&queue->to_request);	
 
-	http_client_queue_debug(queue,
+	e_debug(queue->event,
 		"Set request timeout to %s.%03lu (now: %s.%03lu)",
 		t_strflocaltime("%Y-%m-%d %H:%M:%S", time->tv_sec),
 		((unsigned long)time->tv_usec)/1000,
@@ -869,8 +849,7 @@ http_client_queue_delay_timeout(struct http_client_queue *queue)
 			break;
 		}
 
-		http_client_queue_debug(queue,
-			"Activated delayed request %s%s",
+		e_debug(queue->event, "Activated delayed request %s%s",
 			http_client_request_label(reqs[i]),
 			(reqs[i]->urgent ? " (urgent)" : ""));
 		http_client_queue_submit_now(queue, reqs[i]);
@@ -929,7 +908,7 @@ void http_client_queue_submit_request(struct http_client_queue *queue,
 		/* timeout rightaway */
 		req->timeout_time = ioloop_timeval;
 
-		http_client_queue_debug(queue,
+		e_debug(queue->event,
 			"Delayed request %s%s already timed out",
 			http_client_request_label(req),
 			(req->urgent ? " (urgent)" : ""));
@@ -959,7 +938,7 @@ void http_client_queue_submit_request(struct http_client_queue *queue,
 
 		if (timeval_cmp_margin(&req->release_time,
 			&ioloop_timeval, TIMEOUT_CMP_MARGIN_USECS) > 0) {
-			http_client_queue_debug(queue,
+			e_debug(queue->event,
 				"Delayed request %s%s submitted (time remaining: %d msecs)",
 				http_client_request_label(req),
 				(req->urgent ? " (urgent)" : ""),
@@ -1004,7 +983,7 @@ http_client_queue_claim_request(struct http_client_queue *queue,
 	else
 		array_delete(&queue->queued_requests, i, 1);
 
-	http_client_queue_debug(queue,
+	e_debug(queue->event,
 		"Connection to peer %s claimed request %s %s",
 		http_client_peer_addr2str(addr), http_client_request_label(req),
 		(req->urgent ? "(urgent)" : ""));
