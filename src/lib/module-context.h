@@ -46,9 +46,10 @@
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(OBJ_REGISTER(obj), (id_ctx).reg)
 
 #define MODULE_CONTEXT(obj, id_ctx) \
-	(*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-		module_get_context_id(&(id_ctx).id)) + \
-	 OBJ_REGISTER_COMPATIBLE(obj, id_ctx)))
+	(module_get_context_id(&(id_ctx).id) < array_count(&(obj)->module_contexts) ? \
+	 (*((void **)array_idx_modifiable(&(obj)->module_contexts,	\
+ 		module_get_context_id(&(id_ctx).id)) + \
+	    OBJ_REGISTER_COMPATIBLE(obj, id_ctx))) : NULL)
 
 /* Will crash if context is missing. This is mainly used to simplify code and
    keep static analyzers happy. This syntax discards result of i_panic and

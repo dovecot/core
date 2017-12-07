@@ -959,7 +959,7 @@ void mail_index_ext_using_reset_id(struct mail_index_transaction *t,
 
 	if (!array_is_created(&t->ext_reset_ids))
 		i_array_init(&t->ext_reset_ids, ext_id + 2);
-	reset_id_p = array_idx_modifiable(&t->ext_reset_ids, ext_id);
+	reset_id_p = array_idx_get_space(&t->ext_reset_ids, ext_id);
 	changed = *reset_id_p != reset_id && *reset_id_p != 0;
 	*reset_id_p = reset_id;
 	if (changed) {
@@ -989,7 +989,7 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 	if (!array_is_created(&t->ext_hdr_updates))
 		i_array_init(&t->ext_hdr_updates, ext_id + 2);
 
-	hdr = array_idx_modifiable(&t->ext_hdr_updates, ext_id);
+	hdr = array_idx_get_space(&t->ext_hdr_updates, ext_id);
 	if (hdr->alloc_size < offset || hdr->alloc_size - offset < size) {
 		i_assert(size < (size_t)-1 - offset);
 		new_size = nearest_power(offset + size);
@@ -1037,7 +1037,7 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 
 	if (!array_is_created(&t->ext_rec_updates))
 		i_array_init(&t->ext_rec_updates, ext_id + 2);
-	array = array_idx_modifiable(&t->ext_rec_updates, ext_id);
+	array = array_idx_get_space(&t->ext_rec_updates, ext_id);
 
 	/* @UNSAFE */
 	if (!mail_index_seq_array_add(array, seq, data, record_size,
@@ -1066,7 +1066,7 @@ int mail_index_atomic_inc_ext(struct mail_index_transaction *t,
 	t->log_ext_updates = TRUE;
 	if (!array_is_created(&t->ext_rec_atomics))
 		i_array_init(&t->ext_rec_atomics, ext_id + 2);
-	array = array_idx_modifiable(&t->ext_rec_atomics, ext_id);
+	array = array_idx_get_space(&t->ext_rec_atomics, ext_id);
 	if (mail_index_seq_array_add(array, seq, &diff32, sizeof(diff32),
 				     &old_diff32)) {
 		/* already incremented this sequence in this transaction */
@@ -1207,7 +1207,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	   first. */
 	if (remove_keywords != NULL) {
 		for (i = 0; i < remove_keywords->count; i++) {
-			u = array_idx_modifiable(&t->keyword_updates,
+			u = array_idx_get_space(&t->keyword_updates,
 						 remove_keywords->idx[i]);
 			seq_range_array_remove(&u->add_seq, seq);
 			/* Don't bother updating remove_seq for new messages,
@@ -1220,7 +1220,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	}
 	if (add_keywords != NULL) {
 		for (i = 0; i < add_keywords->count; i++) {
-			u = array_idx_modifiable(&t->keyword_updates,
+			u = array_idx_get_space(&t->keyword_updates,
 						 add_keywords->idx[i]);
 			seq_range_array_add_with_init(&u->add_seq, 16, seq);
 			seq_range_array_remove(&u->remove_seq, seq);

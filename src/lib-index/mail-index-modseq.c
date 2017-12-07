@@ -569,7 +569,7 @@ modseqs_update(ARRAY_TYPE(modseqs) *array, uint32_t seq1, uint32_t seq2,
 	uint64_t *modseqp;
 
 	for (; seq1 <= seq2; seq1++) {
-		modseqp = array_idx_modifiable(array, seq1-1);
+		modseqp = array_idx_get_space(array, seq1-1);
 		if (*modseqp < value)
 			*modseqp = value;
 	}
@@ -589,7 +589,7 @@ modseqs_idx_update(struct mail_index_modseq_sync *ctx, unsigned int idx,
 	}
 
 	modseq = mail_transaction_log_view_get_prev_modseq(ctx->log_view);
-	metadata = array_idx_modifiable(&ctx->mmap->metadata_modseqs, idx);
+	metadata = array_idx_get_space(&ctx->mmap->metadata_modseqs, idx);
 	if (!array_is_created(&metadata->modseqs))
 		i_array_init(&metadata->modseqs, seq2 + 16);
 	modseqs_update(&metadata->modseqs, seq1, seq2, modseq);

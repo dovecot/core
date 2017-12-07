@@ -35,7 +35,7 @@ static void hash2_alloc_table(struct hash2_table *hash, unsigned int size)
 	hash->hash_table_size = size;
 
 	i_array_init(&hash->hash_table, hash->hash_table_size);
-	(void)array_idx_modifiable(&hash->hash_table, hash->hash_table_size-1);
+	(void)array_idx_get_space(&hash->hash_table, hash->hash_table_size-1);
 }
 
 struct hash2_table *

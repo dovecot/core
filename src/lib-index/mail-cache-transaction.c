@@ -365,7 +365,7 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 	recs = array_get(&ctx->cache_data_seq, &seq_count);
 	rec = buffer_get_modifiable_data(ctx->cache_data, NULL);
 	for (i = 0; i < seq_count; i++) {
-		offsetp = array_idx_modifiable(&seq_offsets,
+		offsetp = array_idx_get_space(&seq_offsets,
 					       recs[i].seq - ctx->min_seq);
 		if (*offsetp != 0)
 			prev_offset = *offsetp;
