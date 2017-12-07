@@ -247,12 +247,16 @@ array_get_modifiable_i(struct array *array, unsigned int *count_r)
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_get_modifiable_i(&(array)->arr, count)
 
-void *array_idx_modifiable_i(struct array *array, unsigned int idx);
+void *
+array_idx_modifiable_i(const struct array *array, unsigned int idx) ATTR_PURE;
 #define array_idx_modifiable(array, idx) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_idx_modifiable_i(&(array)->arr, idx)
 
-#define array_idx_get_space(array, idx) array_idx_modifiable(array, idx)
+void *array_idx_get_space_i(struct array *array, unsigned int idx);
+#define array_idx_get_space(array, idx) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+		array_idx_get_space_i(&(array)->arr, idx)
 
 void array_idx_set_i(struct array *array, unsigned int idx, const void *data);
 #define array_idx_set(array, idx, data) \
