@@ -252,6 +252,8 @@ void *array_idx_modifiable_i(struct array *array, unsigned int idx);
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_idx_modifiable_i(&(array)->arr, idx)
 
+#define array_idx_get_space(array, idx) array_idx_modifiable(array, idx)
+
 void array_idx_set_i(struct array *array, unsigned int idx, const void *data);
 #define array_idx_set(array, idx, data) \
 	array_idx_set_i(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
