@@ -2,6 +2,7 @@
 #define TIMING_H
 
 struct timing *timing_init(void);
+struct timing *timing_init_with_size(unsigned int sample_count);
 void timing_deinit(struct timing **timing);
 
 /* Reset all events. */
