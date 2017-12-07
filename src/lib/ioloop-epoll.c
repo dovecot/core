@@ -90,7 +90,7 @@ void io_loop_handle_add(struct io_file *io)
 	int op;
 	bool first;
 
-	list = array_idx_modifiable(&ctx->fd_index, io->fd);
+	list = array_idx_get_space(&ctx->fd_index, io->fd);
 	if (*list == NULL)
 		*list = i_new(struct io_list, 1);
 

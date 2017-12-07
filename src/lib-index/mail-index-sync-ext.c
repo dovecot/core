@@ -86,7 +86,7 @@ void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 		i_array_init(&ctx->extra_contexts, count);
 
 	/* make sure the extra_contexts contains everything */
-	(void)array_idx_modifiable(&ctx->extra_contexts, count - 1);
+	(void)array_idx_get_space(&ctx->extra_contexts, count - 1);
 	/* we need to update the expunge handler list in case they had
 	   already been called */
 	ctx->expunge_handlers_set = FALSE;

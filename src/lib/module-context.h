@@ -46,9 +46,10 @@
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(OBJ_REGISTER(obj), (id_ctx).reg)
 
 #define MODULE_CONTEXT(obj, id_ctx) \
-	(*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-		module_get_context_id(&(id_ctx).id)) + \
-	 OBJ_REGISTER_COMPATIBLE(obj, id_ctx)))
+	(module_get_context_id(&(id_ctx).id) < array_count(&(obj)->module_contexts) ? \
+	 (*((void **)array_idx_modifiable(&(obj)->module_contexts,	\
+ 		module_get_context_id(&(id_ctx).id)) + \
+	    OBJ_REGISTER_COMPATIBLE(obj, id_ctx))) : NULL)
 
 #ifdef HAVE_TYPEOF
 #  define MODULE_CONTEXT_DEFINE(_name, _reg) \

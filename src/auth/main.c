@@ -142,7 +142,7 @@ static void listeners_init(void)
 		int fd = MASTER_LISTEN_FD_FIRST + i;
 		struct auth_socket_listener *l;
 
-		l = array_idx_modifiable(&listeners, fd);
+		l = array_idx_get_space(&listeners, fd);
 		if (net_getunixname(fd, &path) < 0) {
 			if (errno != ENOTSOCK)
 				i_fatal("getunixname(%d) failed: %m", fd);

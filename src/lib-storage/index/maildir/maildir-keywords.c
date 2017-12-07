@@ -178,7 +178,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 		new_name = p_strdup(mk->pool, p);
 		hash_table_insert(mk->hash, new_name, POINTER_CAST(idx + 1));
 
-		strp = array_idx_modifiable(&mk->list, idx);
+		strp = array_idx_get_space(&mk->list, idx);
 		*strp = new_name;
 	}
 	i_stream_destroy(&input);
@@ -229,7 +229,7 @@ maildir_keywords_create(struct maildir_keywords *mk, const char *name,
 	new_name = p_strdup(mk->pool, name);
 	hash_table_insert(mk->hash, new_name, POINTER_CAST(chridx + 1));
 
-	strp = array_idx_modifiable(&mk->list, chridx);
+	strp = array_idx_get_space(&mk->list, chridx);
 	*strp = new_name;
 
 	mk->changed = TRUE;
@@ -483,7 +483,7 @@ char maildir_keywords_idx_char(struct maildir_keywords_sync_ctx *ctx,
 	unsigned int chridx;
 	int ret;
 
-	chr_p = array_idx_modifiable(&ctx->idx_to_chr, idx);
+	chr_p = array_idx_get_space(&ctx->idx_to_chr, idx);
 	if (*chr_p != '\0')
 		return *chr_p;
 
