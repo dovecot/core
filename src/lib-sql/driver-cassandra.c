@@ -2015,6 +2015,7 @@ driver_cassandra_update_stmt(struct sql_transaction_context *_ctx,
 		ctx->stmt = stmt;
 	else
 		ctx->query = i_strdup(sql_statement_get_query(_stmt));
+	pool_unref(&_stmt->pool);
 }
 
 const struct sql_db driver_cassandra_db = {
