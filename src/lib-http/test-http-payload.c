@@ -1245,6 +1245,8 @@ static void test_client_deinit(void)
 	for (i = 0; i < parallel_clients; i++)
 		http_client_deinit(&http_clients[i]);
 	i_free(http_clients);
+
+	parallel_clients = 1;
 }
 
 /*
@@ -1640,6 +1642,36 @@ static void test_download_client_nested_ioloop(void)
 	test_end();
 }
 
+static void test_echo_client_shared(void)
+{
+	test_begin("http payload echo (server_non-blocking; client shared)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	parallel_clients = 4;
+	test_run_sequential(test_client_download);
+	parallel_clients = 4;
+	test_run_pipeline(test_client_download);
+	parallel_clients = 4;
+	test_run_parallel(test_client_download);
+	test_end();
+
+	test_begin("http payload echo (server blocking; client shared)");
+	blocking = TRUE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	parallel_clients = 4;
+	test_run_sequential(test_client_download);
+	parallel_clients = 4;
+	test_run_pipeline(test_client_download);
+	parallel_clients = 4;
+	test_run_parallel(test_client_download);
+	test_end();
+}
+
 static void (*const test_functions[])(void) = {
 	test_download_server_nonblocking,
 	test_download_server_blocking,
@@ -1651,6 +1683,7 @@ static void (*const test_functions[])(void) = {
 	test_echo_server_blocking_partial,
 	test_download_client_partial,
 	test_download_client_nested_ioloop,
+	test_echo_client_shared,
 	NULL
 };
 
