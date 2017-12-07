@@ -9,7 +9,9 @@
 #include "http-client.h"
 #include "dns-lookup.h"
 #include "iostream-ssl.h"
+#ifdef HAVE_OPENSSL
 #include "iostream-openssl.h"
+#endif
 
 struct http_test_request {
 	struct io *io;
@@ -344,8 +346,9 @@ int main(int argc, char *argv[])
 	struct ioloop *ioloop;
 
 	lib_init();
+#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_init();
-
+#endif
 	ioloop = io_loop_create();
 	io_loop_set_running(ioloop);
 
@@ -401,6 +404,8 @@ int main(int argc, char *argv[])
 	dns_client_deinit(&dns_client);
 
 	io_loop_destroy(&ioloop);
+#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_deinit();
+#endif
 	lib_deinit();
 }
