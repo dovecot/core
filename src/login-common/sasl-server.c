@@ -135,10 +135,16 @@ static int master_send_request(struct anvil_request *anvil_request)
 	req.auth_id = anvil_request->auth_id;
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
+	req.local_port = client->local_port;
+	req.remote_port = client->remote_port;
 	req.client_pid = getpid();
 	if (client->ssl_iostream != NULL &&
 	    ssl_iostream_get_compression(client->ssl_iostream) != NULL)
 		req.flags |= MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION;
+	if (client->secured)
+		req.flags |= MAIL_AUTH_REQUEST_FLAG_CONN_SECURED;
+	if (client->ssl_secured)
+		req.flags |= MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED;
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
 	buf = t_buffer_create(256);
