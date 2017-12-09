@@ -162,13 +162,14 @@ static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)
 
 static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx)
 {
-	unsigned int interval = ctx->client->set->imap_idle_notify_interval;
+	struct client *client = ctx->client;
+	unsigned int interval = client->set->imap_idle_notify_interval;
 
 	if (interval == 0)
 		return;
 
-	interval = imap_keepalive_interval_msecs(ctx->client->user->username,
-						 ctx->client->user->remote_ip,
+	interval = imap_keepalive_interval_msecs(client->user->username,
+						 client->user->remote_ip,
 						 interval);
 
 	timeout_remove(&ctx->keepalive_to);
