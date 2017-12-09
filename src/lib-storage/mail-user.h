@@ -139,8 +139,7 @@ struct mail_user *mail_user_find(struct mail_user *user, const char *name);
 
 /* Specify mail location %variable expansion data. */
 void mail_user_set_vars(struct mail_user *user, const char *service,
-			const struct ip_addr *local_ip,
-			const struct ip_addr *remote_ip);
+			const struct mail_user_connection_data *conn);
 /* Return %variable expansion table for the user. */
 const struct var_expand_table *
 mail_user_var_expand_table(struct mail_user *user);

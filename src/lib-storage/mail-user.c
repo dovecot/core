@@ -227,21 +227,29 @@ struct mail_user *mail_user_find(struct mail_user *user, const char *name)
 	return NULL;
 }
 
+static void
+mail_user_connection_init_from(struct mail_user_connection_data *conn,
+	pool_t pool, const struct mail_user_connection_data *src)
+{
+	*conn = *src;
+
+	if (src->local_ip != NULL && src->local_ip->family != 0) {
+		conn->local_ip = p_new(pool, struct ip_addr, 1);
+		*conn->local_ip = *src->local_ip;
+	}
+	if (src->remote_ip != NULL && src->remote_ip->family != 0) {
+		conn->remote_ip = p_new(pool, struct ip_addr, 1);
+		*conn->remote_ip = *src->remote_ip;
+	}
+}
+
 void mail_user_set_vars(struct mail_user *user, const char *service,
-			const struct ip_addr *local_ip,
-			const struct ip_addr *remote_ip)
+			const struct mail_user_connection_data *conn)
 {
 	i_assert(service != NULL);
 
 	user->service = p_strdup(user->pool, service);
-	if (local_ip != NULL && local_ip->family != 0) {
-		user->conn.local_ip = p_new(user->pool, struct ip_addr, 1);
-		*user->conn.local_ip = *local_ip;
-	}
-	if (remote_ip != NULL && remote_ip->family != 0) {
-		user->conn.remote_ip = p_new(user->pool, struct ip_addr, 1);
-		*user->conn.remote_ip = *remote_ip;
-	}
+	mail_user_connection_init_from(&user->conn, user->pool, conn);
 }
 
 const struct var_expand_table *
@@ -657,8 +665,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	}
 	if (user->_home != NULL)
 		mail_user_set_home(user2, user->_home);
-	mail_user_set_vars(user2, user->service,
-			   user->conn.local_ip, user->conn.remote_ip);
+	mail_user_set_vars(user2, user->service, &user->conn);
 	user2->uid = user->uid;
 	user2->gid = user->gid;
 	user2->anonymous = user->anonymous;

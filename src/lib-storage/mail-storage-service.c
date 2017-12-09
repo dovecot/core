@@ -660,7 +660,12 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 {
 	const struct mail_storage_settings *mail_set;
 	const char *home = priv->home;
+	struct mail_user_connection_data conn_data;
 	struct mail_user *mail_user;
+
+	i_zero(&conn_data);
+	conn_data.local_ip = &user->input.local_ip;
+	conn_data.remote_ip = &user->input.remote_ip;
 
 	/* NOTE: if more user initialization is added, add it also to
 	   mail_user_dup() */
@@ -669,8 +674,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->_service_user = user;
 	mail_storage_service_user_ref(user);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
-	mail_user_set_vars(mail_user, ctx->service->name,
-			   &user->input.local_ip, &user->input.remote_ip);
+	mail_user_set_vars(mail_user, ctx->service->name, &conn_data);
 	mail_user->uid = priv->uid == (uid_t)-1 ? geteuid() : priv->uid;
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
 	mail_user->anonymous = user->anonymous;
