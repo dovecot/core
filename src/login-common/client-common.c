@@ -194,6 +194,7 @@ client_alloc(int fd, pool_t pool,
 
 	if (conn->proxied) {
 		client->secured = conn->proxy.ssl || client->trusted;
+		client->ssl_secured = conn->proxy.ssl;
 		client->local_name = conn->proxy.hostname;
 		client->client_cert_common_name = conn->proxy.cert_common_name;
 	} else {
@@ -499,6 +500,7 @@ int client_init_ssl(struct client *client)
 
 	client->tls = TRUE;
 	client->secured = TRUE;
+	client->ssl_secured = TRUE;
 
 	if (client->starttls) {
 		io_remove(&client->io);

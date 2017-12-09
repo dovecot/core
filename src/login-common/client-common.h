@@ -211,6 +211,7 @@ struct client {
 	bool starttls:1;
 	bool tls:1;
 	bool secured:1;
+	bool ssl_secured:1;
 	bool trusted:1;
 	bool ssl_servername_settings_read:1;
 	bool banner_sent:1;
