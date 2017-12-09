@@ -319,16 +319,22 @@ login_client_connected(const struct master_login_client *login_client,
 #define MSG_BYE_INTERNAL_ERROR "* BYE "MAIL_ERRSTR_CRITICAL_MSG"\r\n"
 	struct mail_storage_service_input input;
 	struct client *client;
-	enum mail_auth_request_flags flags;
+	enum mail_auth_request_flags flags = login_client->auth_req.flags;
 	const char *error;
 
 	i_zero(&input);
 	input.module = input.service = "imap";
 	input.local_ip = login_client->auth_req.local_ip;
 	input.remote_ip = login_client->auth_req.remote_ip;
+	input.local_port = login_client->auth_req.local_port;
+	input.remote_port = login_client->auth_req.remote_port;
 	input.username = username;
 	input.userdb_fields = extra_fields;
 	input.session_id = login_client->session_id;
+	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SECURED) != 0)
+		input.conn_secured = TRUE;
+	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
+		input.conn_ssl_secured = TRUE;
 
 	if (client_create_from_input(&input, login_client->fd, login_client->fd,
 				     &client, &error) < 0) {
@@ -344,7 +350,6 @@ login_client_connected(const struct master_login_client *login_client,
 		master_service_client_connection_destroyed(master_service);
 		return;
 	}
-	flags = login_client->auth_req.flags;
 	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
 		client->tls_compression = TRUE;
 	client_add_input_capability(client, login_client->data,

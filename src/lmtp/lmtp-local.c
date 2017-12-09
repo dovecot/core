@@ -344,6 +344,10 @@ int lmtp_local_rcpt(struct client *client,
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
 	input.session_id = session_id;
+	input.conn_ssl_secured =
+		smtp_server_connection_is_ssl_secured(client->conn);
+	input.conn_secured = input.conn_ssl_secured ||
+		smtp_server_connection_is_trusted(client->conn);
 
 	ret = mail_storage_service_lookup(storage_service, &input,
 					  &service_user, &error);

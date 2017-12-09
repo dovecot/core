@@ -99,7 +99,13 @@ static void client_read_settings(struct client *client)
 	input.module = input.service = "lmtp";
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;
+	input.local_port = client->local_port;
+	input.remote_port = client->remote_port;
 	input.username = "";
+	input.conn_ssl_secured =
+		smtp_server_connection_is_ssl_secured(client->conn);
+	input.conn_secured = input.conn_ssl_secured ||
+		smtp_server_connection_is_trusted(client->conn);
 
 	if (mail_storage_service_read_settings(storage_service, &input,
 					       client->pool,

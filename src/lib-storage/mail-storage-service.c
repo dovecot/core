@@ -666,6 +666,10 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	i_zero(&conn_data);
 	conn_data.local_ip = &user->input.local_ip;
 	conn_data.remote_ip = &user->input.remote_ip;
+	conn_data.local_port = user->input.local_port;
+	conn_data.remote_port = user->input.remote_port;
+	conn_data.secured = user->input.conn_secured;
+	conn_data.ssl_secured = user->input.conn_ssl_secured;
 
 	/* NOTE: if more user initialization is added, add it also to
 	   mail_user_dup() */

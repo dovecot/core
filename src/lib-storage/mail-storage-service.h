@@ -62,6 +62,10 @@ struct mail_storage_service_input {
 	bool no_userdb_lookup:1;
 	/* Enable auth_debug=yes for this lookup */
 	bool debug:1;
+	/* Connection is secure (SSL or just trusted) */
+	bool conn_secured:1;
+	/* Connection is secured using SSL specifically */
+	bool conn_ssl_secured:1;
 };
 
 extern struct module *mail_storage_service_modules;
