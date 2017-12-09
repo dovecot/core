@@ -43,14 +43,15 @@ static int imap_hibernate_handshake(int fd, const char *path)
 static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 				     const buffer_t *state, int fd_notify)
 {
+	struct mail_user *user = client->user;
 	struct stat peer_st;
 	const char *tag;
 
 	tag = client->command_queue == NULL ? NULL : client->command_queue->tag;
 
-	str_append_tabescaped(cmd, client->user->username);
+	str_append_tabescaped(cmd, user->username);
 	str_append_c(cmd, '\t');
-	str_append_tabescaped(cmd, client->user->set->mail_log_prefix);
+	str_append_tabescaped(cmd, user->set->mail_log_prefix);
 	str_printfa(cmd, "\tidle_notify_interval=%u",
 		    client->set->imap_idle_notify_interval);
 	if (fstat(client->fd_in, &peer_st) == 0) {
@@ -64,14 +65,14 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_append(cmd, "\tsession=");
 		str_append_tabescaped(cmd, client->session_id);
 	}
-	if (client->user->session_create_time != 0) {
+	if (user->session_create_time != 0) {
 		str_printfa(cmd, "\tsession_created=%s",
-			    dec2str(client->user->session_create_time));
+			    dec2str(user->session_create_time));
 	}
-	if (client->user->local_ip != NULL)
-		str_printfa(cmd, "\tlip=%s", net_ip2addr(client->user->local_ip));
-	if (client->user->remote_ip != NULL)
-		str_printfa(cmd, "\trip=%s", net_ip2addr(client->user->remote_ip));
+	if (user->local_ip != NULL)
+		str_printfa(cmd, "\tlip=%s", net_ip2addr(user->local_ip));
+	if (user->remote_ip != NULL)
+		str_printfa(cmd, "\trip=%s", net_ip2addr(user->remote_ip));
 	if (client->userdb_fields != NULL) {
 		string_t *userdb_fields = t_str_new(256);
 		unsigned int i;
@@ -84,10 +85,10 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_append(cmd, "\tuserdb_fields=");
 		str_append_tabescaped(cmd, str_c(userdb_fields));
 	}
-	if (client->user->uid != (uid_t)-1)
-		str_printfa(cmd, "\tuid=%s", dec2str(client->user->uid));
-	if (client->user->gid != (gid_t)-1)
-		str_printfa(cmd, "\tgid=%s", dec2str(client->user->gid));
+	if (user->uid != (uid_t)-1)
+		str_printfa(cmd, "\tuid=%s", dec2str(user->uid));
+	if (user->gid != (gid_t)-1)
+		str_printfa(cmd, "\tgid=%s", dec2str(user->gid));
 	if (tag != NULL)
 		str_printfa(cmd, "\ttag=%s", tag);
 	str_append(cmd, "\tstats=");
