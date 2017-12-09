@@ -69,10 +69,10 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_printfa(cmd, "\tsession_created=%s",
 			    dec2str(user->session_create_time));
 	}
-	if (user->local_ip != NULL)
-		str_printfa(cmd, "\tlip=%s", net_ip2addr(user->local_ip));
-	if (user->remote_ip != NULL)
-		str_printfa(cmd, "\trip=%s", net_ip2addr(user->remote_ip));
+	if (user->conn.local_ip != NULL)
+		str_printfa(cmd, "\tlip=%s", net_ip2addr(user->conn.local_ip));
+	if (user->conn.remote_ip != NULL)
+		str_printfa(cmd, "\trip=%s", net_ip2addr(user->conn.remote_ip));
 	if (client->userdb_fields != NULL) {
 		string_t *userdb_fields = t_str_new(256);
 		unsigned int i;

@@ -66,9 +66,10 @@ void imap_refresh_proctitle(void)
 	case 1:
 		client = imap_clients;
 		str_append(title, client->user->username);
-		if (client->user->remote_ip != NULL) {
+		if (client->user->conn.remote_ip != NULL) {
 			str_append_c(title, ' ');
-			str_append(title, net_ip2addr(client->user->remote_ip));
+			str_append(title,
+				   net_ip2addr(client->user->conn.remote_ip));
 		}
 		wait_output = FALSE;
 		for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {

@@ -1,6 +1,7 @@
 #ifndef MAIL_USER_H
 #define MAIL_USER_H
 
+#include "net.h"
 #include "unichar.h"
 #include "mail-storage-settings.h"
 
@@ -14,6 +15,10 @@ struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
 	void (*deinit_pre)(struct mail_user *user);
 	void (*stats_fill)(struct mail_user *user, struct stats *stats);
+};
+
+struct mail_user_connection_data {
+	struct ip_addr *local_ip, *remote_ip;
 };
 
 struct mail_user {
@@ -35,7 +40,7 @@ struct mail_user {
 	gid_t gid;
 	const char *service;
 	const char *session_id;
-	struct ip_addr *local_ip, *remote_ip;
+	struct mail_user_connection_data conn;
 	const char *auth_token, *auth_user;
 	const char *const *userdb_fields;
 	/* Timestamp when this session was initially created. Most importantly

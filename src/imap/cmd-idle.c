@@ -169,7 +169,7 @@ static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx)
 		return;
 
 	interval = imap_keepalive_interval_msecs(client->user->username,
-						 client->user->remote_ip,
+						 client->user->conn.remote_ip,
 						 interval);
 
 	timeout_remove(&ctx->keepalive_to);

@@ -235,12 +235,12 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 
 	user->service = p_strdup(user->pool, service);
 	if (local_ip != NULL && local_ip->family != 0) {
-		user->local_ip = p_new(user->pool, struct ip_addr, 1);
-		*user->local_ip = *local_ip;
+		user->conn.local_ip = p_new(user->pool, struct ip_addr, 1);
+		*user->conn.local_ip = *local_ip;
 	}
 	if (remote_ip != NULL && remote_ip->family != 0) {
-		user->remote_ip = p_new(user->pool, struct ip_addr, 1);
-		*user->remote_ip = *remote_ip;
+		user->conn.remote_ip = p_new(user->pool, struct ip_addr, 1);
+		*user->conn.remote_ip = *remote_ip;
 	}
 }
 
@@ -255,10 +255,10 @@ mail_user_var_expand_table(struct mail_user *user)
 	const char *username =
 		p_strdup(user->pool, t_strcut(user->username, '@'));
 	const char *domain = i_strchr_to_next(user->username, '@');
-	const char *local_ip = user->local_ip == NULL ? NULL :
-		p_strdup(user->pool, net_ip2addr(user->local_ip));
-	const char *remote_ip = user->remote_ip == NULL ? NULL :
-		p_strdup(user->pool, net_ip2addr(user->remote_ip));
+	const char *local_ip = user->conn.local_ip == NULL ? NULL :
+		p_strdup(user->pool, net_ip2addr(user->conn.local_ip));
+	const char *remote_ip = user->conn.remote_ip == NULL ? NULL :
+		p_strdup(user->pool, net_ip2addr(user->conn.remote_ip));
 
 	const char *auth_user, *auth_username, *auth_domain;
 	if (user->auth_user == NULL) {
@@ -376,10 +376,10 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 
 	i_zero(&info);
 	info.service = user->service;
-	if (user->local_ip != NULL)
-		info.local_ip = *user->local_ip;
-	if (user->remote_ip != NULL)
-		info.remote_ip = *user->remote_ip;
+	if (user->conn.local_ip != NULL)
+		info.local_ip = *user->conn.local_ip;
+	if (user->conn.remote_ip != NULL)
+		info.remote_ip = *user->conn.remote_ip;
 
 	userdb_pool = pool_alloconly_create("userdb lookup", 2048);
 	ret = auth_master_user_lookup(mail_user_auth_master_conn,
@@ -586,9 +586,9 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
 {
-	if (user->remote_ip == NULL)
+	if (user->conn.remote_ip == NULL)
 		return NULL;
-	return t_strconcat(net_ip2addr(user->remote_ip), "/",
+	return t_strconcat(net_ip2addr(user->conn.remote_ip), "/",
 			   str_tabescape(user->username), NULL);
 }
 
@@ -658,7 +658,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	if (user->_home != NULL)
 		mail_user_set_home(user2, user->_home);
 	mail_user_set_vars(user2, user->service,
-			   user->local_ip, user->remote_ip);
+			   user->conn.local_ip, user->conn.remote_ip);
 	user2->uid = user->uid;
 	user2->gid = user->gid;
 	user2->anonymous = user->anonymous;

@@ -27,13 +27,13 @@ int mail_stats_connection_connect(struct stats_connection *conn,
 	str_printfa(str, "\t%s", my_pid);
 
 	/* optional fields */
-	if (user->local_ip != NULL) {
+	if (user->conn.local_ip != NULL) {
 		str_append(str, "\tlip=");
-		str_append(str, net_ip2addr(user->local_ip));
+		str_append(str, net_ip2addr(user->conn.local_ip));
 	}
-	if (user->remote_ip != NULL) {
+	if (user->conn.remote_ip != NULL) {
 		str_append(str, "\trip=");
-		str_append(str, net_ip2addr(user->remote_ip));
+		str_append(str, net_ip2addr(user->conn.remote_ip));
 	}
 	str_append_c(str, '\n');
 	return stats_connection_send(conn, str);

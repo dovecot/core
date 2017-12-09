@@ -57,9 +57,10 @@ void pop3_refresh_proctitle(void)
 	case 1:
 		client = pop3_clients;
 		str_append(title, client->user->username);
-		if (client->user->remote_ip != NULL) {
+		if (client->user->conn.remote_ip != NULL) {
 			str_append_c(title, ' ');
-			str_append(title, net_ip2addr(client->user->remote_ip));
+			str_append(title,
+				   net_ip2addr(client->user->conn.remote_ip));
 		}
 		if (client->destroyed)
 			str_append(title, " (deinit)");
