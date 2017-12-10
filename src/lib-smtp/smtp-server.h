@@ -416,6 +416,7 @@ bool smtp_server_command_is_replied(struct smtp_server_command *cmd);
 bool smtp_server_command_replied_success(struct smtp_server_command *cmd);
 
 void smtp_server_command_input_lock(struct smtp_server_cmd_ctx *cmd);
+void smtp_server_command_input_unlock(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_command_input_capture(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_cmd_input_callback_t *callback);
 

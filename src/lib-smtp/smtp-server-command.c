@@ -602,6 +602,15 @@ void smtp_server_command_input_lock(struct smtp_server_cmd_ctx *cmd)
 	smtp_server_connection_input_halt(conn);
 }
 
+void smtp_server_command_input_unlock(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_command *command = cmd->cmd;
+	struct smtp_server_connection *conn = cmd->conn;
+
+	command->input_locked = FALSE;
+	smtp_server_connection_input_resume(conn);
+}
+
 void smtp_server_command_input_capture(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_cmd_input_callback_t *callback)
 {
