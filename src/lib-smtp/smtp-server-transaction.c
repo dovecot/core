@@ -74,6 +74,14 @@ bool smtp_server_transaction_has_rcpt(struct smtp_server_transaction *trans)
 		array_count(&trans->rcpt_to) > 0);
 }
 
+unsigned int
+smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans)
+{
+	if (!array_is_created(&trans->rcpt_to))
+		return 0;
+	return array_count(&trans->rcpt_to);
+}
+
 void smtp_server_transaction_fail_data(struct smtp_server_transaction *trans,
 	struct smtp_server_cmd_ctx *data_cmd,
 	unsigned int status, const char *enh_code,
