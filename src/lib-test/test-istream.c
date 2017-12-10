@@ -52,9 +52,15 @@ static ssize_t test_read(struct istream_private *stream)
 		    cur_max > stream->skip + stream->max_buffer_size)
 			cur_max = stream->skip + stream->max_buffer_size;
 
-		/* use exactly correct buffer size so valgrind can catch
-		   read overflows */
-		if (stream->buffer_size != cur_max && cur_max > 0) {
+		/* Reallocate the memory area if needed. Use exactly correct
+		   buffer size so valgrind can catch read overflows. If a
+		   correctly sized memarea already exists, use it only if
+		   its refcount is 1. Otherwise with refcount>1 we could be
+		   moving data within an existing memarea, which breaks
+		   snapshots. */
+		if (cur_max > 0 && (stream->buffer_size != cur_max ||
+				    stream->memarea == NULL ||
+				    memarea_get_refcount(stream->memarea) > 1)) {
 			void *old_w_buffer = stream->w_buffer;
 			stream->w_buffer = i_malloc(cur_max);
 			memcpy(stream->w_buffer, old_w_buffer,
