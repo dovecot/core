@@ -297,7 +297,9 @@ static void cmd_data_next(struct smtp_server_cmd_ctx *cmd)
 			return;
 	}
 
-	if (!smtp_server_command_is_replied(command)) {
+	if (smtp_server_command_is_replied(command)) {
+		smtp_server_command_input_unlock(cmd);
+	} else {
 		if (data_cmd->client_input) {
 			/* using input from client connection;
 			   capture I/O event */
