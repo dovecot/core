@@ -240,6 +240,10 @@ struct smtp_server_settings {
 	/* maximum number of sequential bad commands */
 	unsigned int max_bad_commands;
 
+	/* maximum number of recipients in a transaction
+	   (0 means unlimited, which is the default) */
+	unsigned int max_recipients;
+
 	/* command limits */
 	struct smtp_command_limits command_limits;
 

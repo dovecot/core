@@ -802,6 +802,8 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		if (set->max_bad_commands > 0) {
 			conn->set.max_bad_commands = set->max_bad_commands;
 		}
+		if (set->max_recipients > 0)
+			conn->set.max_recipients = set->max_recipients;
 		smtp_command_limits_merge(&conn->set.command_limits,
 					  &set->command_limits);
 
