@@ -794,11 +794,6 @@ mail_storage_service_io_deactivate_user_cb(struct mail_storage_service_user *use
 		i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
 }
 
-void mail_storage_service_io_deactivate(struct mail_storage_service_ctx *ctx)
-{
-	i_set_failure_prefix("%s", ctx->default_log_prefix);
-}
-
 static const char *field_get_default(const char *data)
 {
 	const char *p;

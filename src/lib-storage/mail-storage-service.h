@@ -142,7 +142,6 @@ void mail_storage_service_io_activate_user(struct mail_storage_service_user *use
 /* Deactivate user context. This only switches back to non-user-specific
    log prefix. */
 void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *user);
-void mail_storage_service_io_deactivate(struct mail_storage_service_ctx *ctx);
 
 /* Return the settings pointed to by set_root parameter in _init().
    The settings contain all the changes done by userdb lookups. */
