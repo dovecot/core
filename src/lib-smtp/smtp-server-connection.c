@@ -675,9 +675,7 @@ smtp_server_connection_send_replies(struct smtp_server_connection *conn)
 	smtp_server_connection_timeout_update(conn);
 
 	/* accept more commands if possible */
-	if (conn != NULL) {
-		smtp_server_connection_input_resume(conn);
-	}
+	smtp_server_connection_input_resume(conn);
 }
 
 int smtp_server_connection_flush(struct smtp_server_connection *conn)
