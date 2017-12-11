@@ -326,3 +326,19 @@ void ssl_iostream_settings_drop_stream_only(struct ssl_iostream_settings *set)
 	set->verbose_invalid_cert = FALSE;
 	set->allow_invalid_cert = FALSE;
 }
+
+const char *ssl_iostream_get_cipher(struct ssl_iostream *ssl_io,
+				    unsigned int *bits_r)
+{
+	return ssl_vfuncs->get_cipher(ssl_io, bits_r);
+}
+
+const char *ssl_iostream_get_pfs(struct ssl_iostream *ssl_io)
+{
+	return ssl_vfuncs->get_pfs(ssl_io);
+}
+
+const char *ssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io)
+{
+	return ssl_vfuncs->get_protocol_name(ssl_io);
+}

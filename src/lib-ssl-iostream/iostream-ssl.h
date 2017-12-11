@@ -109,6 +109,26 @@ const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
+/* Returns SSL context's current used cipher algorithm. Returns NULL
+   if SSL handshake has not been performed.
+
+   This returns values like 'AESGCM'
+*/
+const char *ssl_iostream_get_cipher(struct ssl_iostream *ssl_io,
+				    unsigned int *bits_r);
+/* Returns currently used forward secrecy algorithm, if available.
+   Returns NULL if handshake not done yet, empty string if missing.
+
+   This returns values like 'DH', 'ECDH' etc..
+*/
+const char *ssl_iostream_get_pfs(struct ssl_iostream *ssl_io);
+/* Returns currently used SSL protocol name. Returns NULL if handshake
+   has not yet been made.
+
+   This returns values like SSLv3, TLSv1, TLSv1.1, TLSv1.2
+*/
+const char *ssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io);
+
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io);
 
 int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
