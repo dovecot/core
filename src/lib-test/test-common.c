@@ -61,6 +61,29 @@ void test_assert_failed_strcmp(const char *code, const char *file, unsigned int 
 	test_success = FALSE;
 }
 
+#ifdef DEBUG
+#include "randgen.h"
+static void
+test_dump_rand_state(void)
+{
+	static int64_t seen_seed = -1;
+	unsigned int seed;
+	if (rand_get_last_seed(&seed) < 0) {
+		if (seen_seed == -1) {
+			printf("test: random sequence not reproduceable, use DOVECOT_SRAND=kiss\n");
+			seen_seed = -2;
+		}
+		return;
+	}
+	if (seed == seen_seed)
+		return;
+	seen_seed = seed;
+	printf("test: DOVECOT_SRAND random seed was %u\n", seed);
+}
+#else
+static inline void test_dump_rand_state(void) { }
+#endif
+
 void test_end(void)
 {
 	if (!expecting_fatal)
@@ -69,6 +92,8 @@ void test_end(void)
 		test_assert(test_prefix != NULL);
 
 	test_out("", test_success);
+	if (!test_success)
+		test_dump_rand_state();
 	i_free_and_null(test_prefix);
 	test_success = FALSE;
 }
@@ -178,6 +203,7 @@ test_error_handler(const struct failure_context *ctx,
 	}
 
 	if (!suppress) {
+		test_dump_rand_state();
 		default_error_handler(ctx, format, args);
 	}
 }
