@@ -43,7 +43,7 @@ void lmtp_anvil_init(void)
 static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);
-	(void)client_create(conn->fd, conn->fd, conn->ssl, conn);
+	(void)client_create(conn->fd, conn->fd, conn);
 }
 
 static void drop_privileges(void)
@@ -80,7 +80,7 @@ static void main_init(void)
 
 	if (IS_STANDALONE()) {
 		i_zero(&conn);
-		(void)client_create(STDIN_FILENO, STDOUT_FILENO, FALSE, &conn);
+		(void)client_create(STDIN_FILENO, STDOUT_FILENO, &conn);
 	}
 
 	const char *error, *tmp_socket_path;

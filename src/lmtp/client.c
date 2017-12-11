@@ -124,7 +124,7 @@ static void client_read_settings(struct client *client)
 	client->unexpanded_lda_set = lda_set;
 }
 
-struct client *client_create(int fd_in, int fd_out, bool ssl_start,
+struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn)
 {
 	struct smtp_server_settings lmtp_set;
@@ -154,7 +154,7 @@ struct client *client_create(int fd_in, int fd_out, bool ssl_start,
 		SMTP_CAPABILITY_ENHANCEDSTATUSCODES |
 		SMTP_CAPABILITY_8BITMIME |
 		SMTP_CAPABILITY_CHUNKING;
-	if (!ssl_start && master_service_ssl_is_enabled(master_service))
+	if (!conn->ssl && master_service_ssl_is_enabled(master_service))
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	lmtp_set.hostname = client->unexpanded_lda_set->hostname;
 	lmtp_set.rcpt_domain_optional = TRUE;
@@ -168,7 +168,7 @@ struct client *client_create(int fd_in, int fd_out, bool ssl_start,
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
-	smtp_server_connection_start(client->conn, ssl_start);
+	smtp_server_connection_start(client->conn, conn->ssl);
 	i_info("Connect from %s", client_remote_id(client));
 	refresh_proctitle();
 	return client;

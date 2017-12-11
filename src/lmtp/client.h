@@ -55,7 +55,7 @@ struct client {
 	bool destroyed:1;
 };
 
-struct client *client_create(int fd_in, int fd_out, bool ssl_start,
+struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn);
 void client_destroy(struct client *client, const char *enh_code,
 		    const char *reason) ATTR_NULL(2, 3);
