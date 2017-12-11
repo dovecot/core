@@ -772,11 +772,23 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 void mail_storage_service_io_activate_user(struct mail_storage_service_user *user)
 {
+	io_loop_context_activate(user->ioloop_ctx);
+}
+
+void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *user)
+{
+	io_loop_context_deactivate(user->ioloop_ctx);
+}
+
+static void
+mail_storage_service_io_activate_user_cb(struct mail_storage_service_user *user)
+{
 	if (user->log_prefix != NULL)
 		i_set_failure_prefix("%s", user->log_prefix);
 }
 
-void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *user)
+static void
+mail_storage_service_io_deactivate_user_cb(struct mail_storage_service_user *user)
 {
 	if (user->log_prefix != NULL)
 		i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
@@ -1452,8 +1464,8 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 	   stats plugin. */
 	user->ioloop_ctx = io_loop_context_new(current_ioloop);
 	io_loop_context_add_callbacks(user->ioloop_ctx,
-				      mail_storage_service_io_activate_user,
-				      mail_storage_service_io_deactivate_user,
+				      mail_storage_service_io_activate_user_cb,
+				      mail_storage_service_io_deactivate_user_cb,
 				      user);
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
@@ -1571,8 +1583,8 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 		if (io_loop_get_current_context(current_ioloop) == user->ioloop_ctx)
 			mail_storage_service_io_deactivate_user(user);
 		io_loop_context_remove_callbacks(user->ioloop_ctx,
-			mail_storage_service_io_activate_user,
-			mail_storage_service_io_deactivate_user, user);
+			mail_storage_service_io_activate_user_cb,
+			mail_storage_service_io_deactivate_user_cb, user);
 		io_loop_context_unref(&user->ioloop_ctx);
 	}
 	settings_parser_deinit(&user->set_parser);
