@@ -49,7 +49,8 @@ bool smtp_server_connection_data_check_state(struct smtp_server_cmd_ctx *cmd)
 	/* special handling for LMTP */
 	if (conn->set.protocol == SMTP_PROTOCOL_LMTP) {
 		/* check valid RCPT (at least one) */
-		if (!smtp_server_transaction_has_rcpt(conn->state.trans)) {
+		if (conn->state.trans == NULL ||
+		    !smtp_server_transaction_has_rcpt(conn->state.trans)) {
 			if (data_cmd->chunk_size > 0 && data_cmd->chunk_last) {
 				/* RFC 2033, Section 4.3:
 				   If there were no previously successful RCPT
