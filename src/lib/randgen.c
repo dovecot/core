@@ -5,6 +5,41 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#ifdef DEBUG
+/* For reproducing tests, fall back onto using a simple deterministic PRNG */
+/* Marsaglia's 1999 KISS, de-macro-ified */
+static bool kiss_in_use;
+static unsigned int kiss_seed;
+static uint32_t kiss_z, kiss_w, kiss_jsr, kiss_jcong;
+static void
+kiss_init(unsigned int seed)
+{
+	/* i_info("Random numbers are PRNG using kiss, seeded with %u", seed); */
+	kiss_seed = seed;
+	kiss_jsr = 0x5eed5eed; /* simply musn't be 0 */
+	kiss_z = kiss_w = kiss_jcong = seed;
+	kiss_in_use = TRUE;
+}
+static unsigned int
+kiss_rand(void)
+{
+	kiss_z = 36969 * (kiss_z&65535) + (kiss_z>>16);
+	kiss_w = 18000 * (kiss_w&65535) + (kiss_w>>16);
+	kiss_jcong = 69069 * kiss_jcong + 1234567;
+	kiss_jsr^=(kiss_jsr<<17);
+	kiss_jsr^=(kiss_jsr>>13);
+	kiss_jsr^=(kiss_jsr<<5);
+	return (((kiss_z<<16) + kiss_w) ^ kiss_jcong) + kiss_jsr;
+}
+int rand_get_last_seed(unsigned int *seed_r)
+{
+	if (!kiss_in_use)
+		return -1; /* not using a deterministic PRNG, seed is irrelevant */
+	*seed_r = kiss_seed;
+	return 0;
+}
+#endif
+
 /* get randomness from either getrandom, arc4random or /dev/urandom */
 
 #if defined(HAVE_GETRANDOM) && HAVE_DECL_GETRANDOM != 0
@@ -81,6 +116,14 @@ void random_fill(void *buf, size_t size)
 	i_assert(init_refcount > 0);
 	i_assert(size < SSIZE_T_MAX);
 
+#ifdef DEBUG
+	if (kiss_in_use) {
+		for (size_t pos = 0; pos < size; pos++)
+			((unsigned char*)buf)[pos] = kiss_rand();
+		return;
+	}
+#endif
+
 #if defined(USE_ARC4RANDOM)
 	arc4random_buf(buf, size);
 #else
@@ -101,6 +144,16 @@ void random_init(void)
 
 	if (init_refcount++ > 0)
 		return;
+
+#ifdef DEBUG
+	const char *env_seed = getenv("DOVECOT_SRAND");
+	if (env_seed != NULL && str_to_uint(env_seed, &seed) >= 0) {
+		kiss_init(seed);
+		/* getrandom_present = FALSE; not needed, only used in random_read() */
+		goto normal_exit;
+	}
+#endif /* DEBUG */
+
 #if defined(USE_RANDOM_DEV)
 	random_open_urandom();
 #endif
@@ -108,6 +161,16 @@ void random_init(void)
 	   needed to make sure getrandom really works.
 	*/
 	random_fill(&seed, sizeof(seed));
+#ifdef DEBUG
+	if (env_seed != NULL) {
+		if (strcmp(env_seed, "kiss") != 0)
+			i_fatal("DOVECOT_SRAND not a number or 'kiss'");
+		kiss_init(seed);
+		i_close_fd(&urandom_fd);
+	}
+
+normal_exit:
+#endif
 	srand(seed);
 }
 
