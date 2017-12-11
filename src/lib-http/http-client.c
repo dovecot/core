@@ -135,9 +135,8 @@ http_client_init_shared(struct http_client_context *cctx,
 	}
 
 	/* merge provided settings with context defaults */
-	i_assert(cctx != NULL || set != NULL);
 	client->set = cctx->set;
-	if (cctx != NULL && set != NULL) {
+	if (set != NULL) {
 		if (set->user_agent != NULL && *set->user_agent != '\0')
 			client->set.user_agent = p_strdup_empty(pool, set->user_agent);
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
