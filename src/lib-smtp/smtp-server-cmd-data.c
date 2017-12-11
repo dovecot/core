@@ -41,12 +41,13 @@ bool smtp_server_connection_data_check_state(struct smtp_server_cmd_ctx *cmd)
 		return FALSE;
 	}
 
+	/* Can only decide whether we have valid recipients once there are no
+	   pending RCPT commands */
+	if (conn->state.pending_rcpt_cmds > 0)
+		return TRUE;
+
 	/* special handling for LMTP */
 	if (conn->set.protocol == SMTP_PROTOCOL_LMTP) {
-
-		if (conn->state.pending_rcpt_cmds > 0)
-			return TRUE;
-
 		/* check valid RCPT (at least one) */
 		if (!smtp_server_transaction_has_rcpt(conn->state.trans)) {
 			if (data_cmd->chunk_size > 0 && data_cmd->chunk_last) {
@@ -71,9 +72,8 @@ bool smtp_server_connection_data_check_state(struct smtp_server_cmd_ctx *cmd)
 
 	} else {
 		/* check valid RCPT (at least one) */
-		if ((conn->state.trans == NULL ||
-			!smtp_server_transaction_has_rcpt(conn->state.trans))
-			&& conn->state.pending_rcpt_cmds == 0) {
+		if (conn->state.trans == NULL ||
+			!smtp_server_transaction_has_rcpt(conn->state.trans)) {
 			smtp_server_command_fail(command,
 				554, "5.5.0", "No valid recipients");
 			return FALSE;
