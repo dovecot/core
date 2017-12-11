@@ -118,7 +118,4 @@ void io_loop_handler_deinit(struct ioloop *ioloop);
 void io_loop_notify_remove(struct io *io);
 void io_loop_notify_handler_deinit(struct ioloop *ioloop);
 
-void io_loop_context_activate(struct ioloop_context *ctx);
-void io_loop_context_deactivate(struct ioloop_context *ctx);
-
 #endif

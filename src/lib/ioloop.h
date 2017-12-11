@@ -175,6 +175,17 @@ void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
 /* Returns the current context set to ioloop. */
 struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop);
 
+/* Explicitly activate an ioloop context. There must not be any context active
+   at the moment, so this most likely shouldn't be called while ioloop is
+   running. An activated context must be explicitly deactivated with
+   io_loop_context_deactivate() before the ioloop is destroyed, or before
+   any ioloop is run. */
+void io_loop_context_activate(struct ioloop_context *ctx);
+/* Explicitly deactivate an ioloop context. The given context must be currently
+   active or it assert-crashes. This should be called only after a context
+   was explicitly activated with io_loop_context_activate(). */
+void io_loop_context_deactivate(struct ioloop_context *ctx);
+
 /* Returns fd, which contains all of the ioloop's current notifications.
    When it becomes readable, there is a new notification. Calling this function
    stops the existing notifications in the ioloop from working anymore.
