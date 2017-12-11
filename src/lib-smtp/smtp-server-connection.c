@@ -1014,10 +1014,8 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 	smtp_server_connection_update_stats(conn);
 
 	smtp_server_connection_timeout_stop(conn);
-	if (conn->conn.output != NULL) {
-		o_stream_flush(conn->conn.output);
+	if (conn->conn.output != NULL)
 		o_stream_uncork(conn->conn.output);
-	}
 	if (conn->smtp_parser != NULL)
 		smtp_command_parser_deinit(&conn->smtp_parser);
 	if (conn->ssl_iostream != NULL)
