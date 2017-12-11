@@ -822,6 +822,46 @@ openssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
 	return ssl_io->last_error;
 }
 
+static const char *
+openssl_iostream_get_cipher(struct ssl_iostream *ssl_io, unsigned int *bits_r)
+{
+	if (!ssl_io->handshaked)
+		return NULL;
+
+	const SSL_CIPHER *cipher = SSL_get_current_cipher(ssl_io->ssl);
+	*bits_r = SSL_CIPHER_get_bits(cipher, NULL);
+	return SSL_CIPHER_get_name(cipher);
+}
+
+static const char *
+openssl_iostream_get_pfs(struct ssl_iostream *ssl_io)
+{
+	if (!ssl_io->handshaked)
+		return NULL;
+
+	const SSL_CIPHER *cipher = SSL_get_current_cipher(ssl_io->ssl);
+#if defined(HAVE_SSL_CIPHER_get_kx_nid)
+	int nid = SSL_CIPHER_get_kx_nid(cipher);
+	return OBJ_nid2sn(nid);
+#else
+	char buf[128];
+	const char *desc, *ptr;
+	if ((desc = SSL_CIPHER_description(cipher, buf, sizeof(buf)))==NULL ||
+	    (ptr = strstr(desc, "Kx=")) == NULL)
+		return "";
+	return t_strcut(ptr+3, ' ');
+#endif
+}
+
+static const char *
+openssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io)
+{
+	if (!ssl_io->handshaked)
+		return NULL;
+	return SSL_get_version(ssl_io->ssl);
+}
+
+
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.global_init = openssl_iostream_global_init,
 	.context_init_client = openssl_iostream_context_init_client,
@@ -849,6 +889,9 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.get_compression = openssl_iostream_get_compression,
 	.get_security_string = openssl_iostream_get_security_string,
 	.get_last_error = openssl_iostream_get_last_error,
+	.get_cipher = openssl_iostream_get_cipher,
+	.get_pfs = openssl_iostream_get_pfs,
+	.get_protocol_name = openssl_iostream_get_protocol_name,
 };
 
 void ssl_iostream_openssl_init(void)
