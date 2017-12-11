@@ -96,8 +96,9 @@ static void cmd_data_destroy(struct smtp_server_cmd_ctx *cmd)
 		/* clean up */
 		i_stream_destroy(&conn->state.data_input);
 		conn->state.data_chain = NULL;
-		i_stream_unref(&data_cmd->chunk_input);
 	}
+
+	i_stream_unref(&data_cmd->chunk_input);
 }
 
 static void cmd_data_replied(struct smtp_server_cmd_ctx *cmd)
@@ -112,6 +113,7 @@ static void cmd_data_completed(struct smtp_server_cmd_ctx *cmd)
 	struct cmd_data_context *data_cmd = command->data;
 
 	i_assert(data_cmd != NULL);
+	i_stream_unref(&data_cmd->chunk_input);
 
 	/* reset state */
 	smtp_server_connection_reset_state(conn);
@@ -137,6 +139,7 @@ cmd_data_chunk_finish(struct smtp_server_cmd_ctx *cmd)
 	struct cmd_data_context *data_cmd = command->data;
 
 	smtp_server_command_input_lock(cmd);
+	i_stream_unref(&data_cmd->chunk_input);
 
 	/* re-check transaction state (for BDAT/B... command) */
 	if (!smtp_server_connection_data_check_state(cmd))
