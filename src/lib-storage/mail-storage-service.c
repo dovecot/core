@@ -772,12 +772,14 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 void mail_storage_service_io_activate_user(struct mail_storage_service_user *user)
 {
-	i_set_failure_prefix("%s", user->log_prefix);
+	if (user->log_prefix != NULL)
+		i_set_failure_prefix("%s", user->log_prefix);
 }
 
 void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *user)
 {
-	i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
+	if (user->log_prefix != NULL)
+		i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
 }
 
 void mail_storage_service_io_deactivate(struct mail_storage_service_ctx *ctx)
@@ -868,10 +870,6 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 
 	if (master_service_get_client_limit(master_service) == 1)
 		i_set_failure_send_prefix(user->log_prefix);
-	io_loop_context_add_callbacks(user->ioloop_ctx,
-				      mail_storage_service_io_activate_user,
-				      mail_storage_service_io_deactivate_user,
-				      user);
 }
 
 static void mail_storage_service_time_moved(time_t old_time, time_t new_time)
@@ -1453,6 +1451,10 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 	/* create ioloop context regardless of logging. it's also used by
 	   stats plugin. */
 	user->ioloop_ctx = io_loop_context_new(current_ioloop);
+	io_loop_context_add_callbacks(user->ioloop_ctx,
+				      mail_storage_service_io_activate_user,
+				      mail_storage_service_io_deactivate_user,
+				      user);
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
 		mail_storage_service_init_log(ctx, user, &priv);
@@ -1566,13 +1568,11 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 		return;
 
 	if (user->ioloop_ctx != NULL) {
-		if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0) {
-			io_loop_context_remove_callbacks(user->ioloop_ctx,
-				mail_storage_service_io_activate_user,
-				mail_storage_service_io_deactivate_user, user);
-			if (io_loop_get_current_context(current_ioloop) == user->ioloop_ctx)
-				mail_storage_service_io_deactivate_user(user);
-		}
+		io_loop_context_remove_callbacks(user->ioloop_ctx,
+			mail_storage_service_io_activate_user,
+			mail_storage_service_io_deactivate_user, user);
+		if (io_loop_get_current_context(current_ioloop) == user->ioloop_ctx)
+			mail_storage_service_io_deactivate_user(user);
 		io_loop_context_unref(&user->ioloop_ctx);
 	}
 	settings_parser_deinit(&user->set_parser);
