@@ -983,7 +983,7 @@ void io_loop_context_deactivate(struct ioloop_context *ctx)
 {
 	struct ioloop_context_callback *cb;
 
-	i_assert(ctx->ioloop->cur_ctx != NULL);
+	i_assert(ctx->ioloop->cur_ctx == ctx);
 
 	array_foreach_modifiable(&ctx->callbacks, cb) {
 		if (!cb->activated) {
