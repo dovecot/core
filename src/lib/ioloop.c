@@ -876,8 +876,12 @@ struct ioloop_context *io_loop_context_new(struct ioloop *ioloop)
 	ctx->ioloop = ioloop;
 	i_array_init(&ctx->callbacks, 4);
 
-	if (ioloop->cur_ctx != NULL)
-		io_loop_context_unref(&ioloop->cur_ctx);
+	if (ioloop->cur_ctx != NULL) {
+		io_loop_context_deactivate(ioloop->cur_ctx);
+		/* deactivation may remove the cur_ctx */
+		if (ioloop->cur_ctx != NULL)
+			io_loop_context_unref(&ioloop->cur_ctx);
+	}
 	ioloop->cur_ctx = ctx;
 	return ctx;
 }
