@@ -46,6 +46,12 @@ struct auth_request_info {
 	const char *local_name;
 	const char *client_id;
 	const char *forward_fields;
+
+	unsigned int ssl_cipher_bits;
+	const char *ssl_cipher;
+	const char *ssl_pfs;
+	const char *ssl_protocol;
+
 	enum auth_request_flags flags;
 
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
