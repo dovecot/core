@@ -23,6 +23,7 @@ example_DATA = \
 	20-imap.conf \
 	20-lmtp.conf \
 	20-pop3.conf \
+	20-submission.conf \
 	90-acl.conf \
 	90-plugin.conf \
 	90-quota.conf
