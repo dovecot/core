@@ -1807,6 +1807,9 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 	unsigned int unused_count = 0;
 	size_t orig_len;
 
+	if (ctx->ldap_request->result_logged)
+		return;
+
 	orig_len = str_len(ctx->debug);
 	if (orig_len == 0) {
 		auth_request_log_debug(ctx->ldap_request->auth_request,
@@ -1834,6 +1837,8 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 	}
 	auth_request_log_debug(ctx->ldap_request->auth_request, AUTH_SUBSYS_DB,
 			       "result: %s", str_c(ctx->debug) + 1);
+
+	ctx->ldap_request->result_logged = TRUE;
 }
 
 void db_ldap_result_iterate_deinit(struct db_ldap_result_iterate_context **_ctx)

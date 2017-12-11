@@ -104,7 +104,9 @@ struct ldap_request {
 	/* timestamp when request was created */
 	time_t create_time;
 
-	bool failed;
+	bool failed:1;
+	/* This is to prevent double logging the result */
+	bool result_logged:1;
 
 	db_search_callback_t *callback;
 	struct auth_request *auth_request;
