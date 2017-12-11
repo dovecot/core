@@ -378,8 +378,14 @@ void sasl_server_auth_begin(struct client *client,
 	info.session_id = client_get_session_id(client);
 	if (client->client_cert_common_name != NULL)
 		info.cert_username = client->client_cert_common_name;
-	else if (client->ssl_iostream != NULL)
+	else if (client->ssl_iostream != NULL) {
 		info.cert_username = ssl_iostream_get_peer_name(client->ssl_iostream);
+		info.ssl_cipher = ssl_iostream_get_cipher(client->ssl_iostream,
+							 &info.ssl_cipher_bits);
+		info.ssl_pfs = ssl_iostream_get_pfs(client->ssl_iostream);
+		info.ssl_protocol =
+			ssl_iostream_get_protocol_name(client->ssl_iostream);
+	}
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;
