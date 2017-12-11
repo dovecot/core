@@ -1568,11 +1568,11 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 		return;
 
 	if (user->ioloop_ctx != NULL) {
+		if (io_loop_get_current_context(current_ioloop) == user->ioloop_ctx)
+			mail_storage_service_io_deactivate_user(user);
 		io_loop_context_remove_callbacks(user->ioloop_ctx,
 			mail_storage_service_io_activate_user,
 			mail_storage_service_io_deactivate_user, user);
-		if (io_loop_get_current_context(current_ioloop) == user->ioloop_ctx)
-			mail_storage_service_io_deactivate_user(user);
 		io_loop_context_unref(&user->ioloop_ctx);
 	}
 	settings_parser_deinit(&user->set_parser);
