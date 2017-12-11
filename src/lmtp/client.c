@@ -87,7 +87,7 @@ static void client_raw_user_create(struct client *client)
 		raw_storage_create_from_set(client->user_set_info, sets[0]);
 }
 
-static void client_read_settings(struct client *client)
+static void client_read_settings(struct client *client, bool ssl)
 {
 	struct mail_storage_service_input input;
 	const struct setting_parser_context *set_parser;
@@ -101,11 +101,9 @@ static void client_read_settings(struct client *client)
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
+	input.conn_secured = ssl;
+	input.conn_ssl_secured = ssl;
 	input.username = "";
-	input.conn_ssl_secured =
-		smtp_server_connection_is_ssl_secured(client->conn);
-	input.conn_secured = input.conn_ssl_secured ||
-		smtp_server_connection_is_trusted(client->conn);
 
 	if (mail_storage_service_read_settings(storage_service, &input,
 					       client->pool,
@@ -138,10 +136,9 @@ struct client *client_create(int fd_in, int fd_out,
 	client->remote_port = conn->remote_port;
 	client->local_ip = conn->local_ip;
 	client->local_port = conn->local_port;
-
 	client->state_pool = pool_alloconly_create("client state", 4096);
 
-	client_read_settings(client);
+	client_read_settings(client, conn->ssl);
 	client_raw_user_create(client);
 	client->my_domain = client->unexpanded_lda_set->hostname;
 
