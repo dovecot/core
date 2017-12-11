@@ -88,6 +88,19 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 		str_append(str, "\tlocal_name=");
 		str_append_tabescaped(str, info->local_name);
 	}
+	if (info->ssl_cipher_bits != 0 && info->ssl_cipher != NULL) {
+		str_append(str, "\tssl_cipher=");
+		str_append_tabescaped(str, info->ssl_cipher);
+		str_printfa(str, "\tssl_cipher_bits=%u", info->ssl_cipher_bits);
+		if (info->ssl_pfs != NULL) {
+			str_append(str, "\tssl_pfs=");
+			str_append_tabescaped(str, info->ssl_pfs);
+		}
+	}
+	if (info->ssl_protocol != NULL) {
+		str_append(str, "\tssl_protocol=");
+		str_append_tabescaped(str, info->ssl_protocol);
+	}
 	if (info->client_id != NULL &&
 	    *info->client_id != '\0') {
 		str_append(str, "\tclient_id=");
