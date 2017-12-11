@@ -146,15 +146,27 @@ void io_loop_set_current(struct ioloop *ioloop);
 void io_loop_add_switch_callback(io_switch_callback_t *callback);
 void io_loop_remove_switch_callback(io_switch_callback_t *callback);
 
-/* This context is used for all further I/O and timeout callbacks that are
-   added until returning to ioloop. When a callback is called, this context is
-   again activated. */
+/* Create a new ioloop context. This context is automatically attached to all
+   the following I/Os and timeouts that are added until the context is
+   deactivated (e.g. returning to back to a running ioloop). Whenever such
+   added I/O or timeout callback is called, this context is automatically
+   activated.
+
+   Creating this context already deactivates any currently running context
+   and activates the newly created context. */
 struct ioloop_context *io_loop_context_new(struct ioloop *ioloop);
 void io_loop_context_ref(struct ioloop_context *ctx);
 void io_loop_context_unref(struct ioloop_context **ctx);
 /* Call the activate callback when this context is activated (I/O callback is
    about to be called), and the deactivate callback when the context is
-   deactivated (I/O callback has returned). You can add multiple callbacks. */
+   deactivated (I/O callback has returned). You can add multiple callbacks.
+
+   The ioloop context is a global state, so only a single context can be active
+   at a time. The callbacks are guaranteed to be called only at their proper
+   states, i.e. activate() callback is called only when switching from
+   no context to the active context, and deactive() is called only when
+   switching from previously activated context into no context. No context is
+   active at a time when the ioloop is destroyed. */
 void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 				   io_callback_t *activate,
 				   io_callback_t *deactivate, void *context);
