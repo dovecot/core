@@ -813,9 +813,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	if (ioloop->handler_context != NULL)
 		io_loop_handler_deinit(ioloop);
 
-	if (ioloop->cur_ctx != NULL)
-		io_loop_context_deactivate(ioloop->cur_ctx);
-
+	i_assert(ioloop->cur_ctx == NULL);
 	i_free(ioloop);
 }
 
