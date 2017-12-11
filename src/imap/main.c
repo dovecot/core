@@ -108,7 +108,6 @@ static void client_kill_idle(struct client *client)
 	client_send_line(client, "* BYE Server shutting down.");
 	mail_storage_service_io_activate_user(client->service_user);
 	client_destroy(client, "Server shutting down.");
-	mail_storage_service_io_deactivate(storage_service);
 }
 
 static void imap_die(void)
@@ -508,7 +507,7 @@ int main(int argc, char *argv[])
 
 	if (io_loop_is_running(current_ioloop))
 		master_service_run(master_service, client_connected);
-	clients_destroy_all(storage_service);
+	clients_destroy_all();
 
 	if (master_login != NULL)
 		master_login_deinit(&master_login);

@@ -323,6 +323,6 @@ void client_input(struct client *client);
 bool client_handle_input(struct client *client);
 int client_output(struct client *client);
 
-void clients_destroy_all(struct mail_storage_service_ctx *storage_service);
+void clients_destroy_all(void);
 
 #endif

@@ -839,7 +839,7 @@ static int client_output(struct client *client)
 	}
 }
 
-void clients_destroy_all(struct mail_storage_service_ctx *storage_service)
+void clients_destroy_all(void)
 {
 	while (pop3_clients != NULL) {
 		if (pop3_clients->cmd == NULL) {
@@ -849,7 +849,6 @@ void clients_destroy_all(struct mail_storage_service_ctx *storage_service)
 		mail_storage_service_io_activate_user(pop3_clients->service_user);
 		client_destroy(pop3_clients, "Server shutting down.");
 	}
-	mail_storage_service_io_deactivate(storage_service);
 }
 
 struct pop3_client_vfuncs pop3_client_vfuncs = {
