@@ -1659,24 +1659,21 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 
 int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list)
 {
-	const char *root_dir, *index_dir;
+	const char *index_dir;
 
 	if (list->index_root_dir_created)
 		return 1;
 
-	/* if index root dir hasn't been created yet, do it now */
+	/* If index root dir hasn't been created yet, do it now.
+	   Do this here even if the index directory is the same as mail root
+	   directory, because it may not have been created elsewhere either. */
 	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
 					&index_dir))
 		return 0;
-	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					&root_dir))
-		return 0;
 
-	if (strcmp(root_dir, index_dir) != 0) {
-		if (mailbox_list_mkdir_root(list, index_dir,
-					    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
-			return -1;
-	}
+	if (mailbox_list_mkdir_root(list, index_dir,
+				    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
+		return -1;
 	list->index_root_dir_created = TRUE;
 	return 1;
 }
