@@ -15,7 +15,8 @@ submission_login_settings_check(void *_set, pool_t pool, const char **error_r);
 
 /* <settings checks> */
 static struct inet_listener_settings submission_login_inet_listeners_array[] = {
-	{ .name = "submission", .address = "", .port = 587  }
+	{ .name = "submission", .address = "", .port = 587  },
+	{ .name = "submissions", .address = "", .port = 465, .ssl = TRUE }
 };
 static struct inet_listener_settings *submission_login_inet_listeners[] = {
 	&submission_login_inet_listeners_array[0]
