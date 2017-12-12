@@ -147,7 +147,7 @@ static
 int dcrypt_gnutls_ctx_sym_init(struct dcrypt_context_symmetric *ctx, const char **error_r)
 {
 	int ec;
-	ec = gnutls_cipher_init(&(ctx->ctx), ctx->cipher, &ctx->key, &ctx->iv);
+	ec = gnutls_cipher_init(&ctx->ctx, ctx->cipher, &ctx->key, &ctx->iv);
 	if(ec < 0) return dcrypt_gnutls_error(ec, error_r);
 	return 0;
 }
@@ -216,7 +216,7 @@ static
 int dcrypt_gnutls_ctx_hmac_init(struct dcrypt_context_hmac *ctx, const char **error_r)
 {
 	int ec;
-	ec = gnutls_hmac_init(&(ctx->ctx), ctx->md, ctx->key.data, ctx->key.size);
+	ec = gnutls_hmac_init(&ctx->ctx, ctx->md, ctx->key.data, ctx->key.size);
 	if (ec < 0) return dcrypt_gnutls_error(ec, error_r);
 	return 0;
 }
@@ -307,7 +307,7 @@ int dcrypt_gnutls_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_ke
 
 	pair_r->priv = (struct dcrypt_private_key*)priv;
 
-	return dcrypt_gnutls_private_to_public_key(pair_r->priv, &(pair_r->pub), error_r);
+	return dcrypt_gnutls_private_to_public_key(pair_r->priv, &pair_r->pub, error_r);
 } 
 
 static
@@ -407,8 +407,8 @@ void dcrypt_gnutls_free_private_key(struct dcrypt_private_key **key)
 static
 void dcrypt_gnutls_free_keypair(struct dcrypt_keypair *keypair)
 {
-	dcrypt_gnutls_free_public_key(&(keypair->pub));
-	dcrypt_gnutls_free_private_key(&(keypair->priv));
+	dcrypt_gnutls_free_public_key(&keypair->pub);
+	dcrypt_gnutls_free_private_key(&keypair->priv);
 }
 
 static

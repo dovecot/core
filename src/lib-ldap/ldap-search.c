@@ -19,14 +19,14 @@ ldap_search_result_failure(struct ldap_op_queue_entry *req,
 	struct ldap_search_ctx *sctx = req->ctx;
 	sctx->res.openldap_ret = ret;
 	sctx->res.error_string = error;
-	req->result_callback(&(sctx->res), req->result_callback_ctx);
+	req->result_callback(&sctx->res, req->result_callback_ctx);
 }
 
 static void ldap_search_result_success(struct ldap_op_queue_entry *req)
 {
 	struct ldap_search_ctx *sctx = req->ctx;
 	sctx->res.openldap_ret = LDAP_SUCCESS;
-	req->result_callback(&(sctx->res), req->result_callback_ctx);
+	req->result_callback(&sctx->res, req->result_callback_ctx);
 }
 
 static int
@@ -69,8 +69,8 @@ ldap_search_callback(struct ldap_connection *conn,
 
 	while(res != NULL) {
 		struct ldap_entry *obj = p_new(req->pool, struct ldap_entry, 1);
-		ldap_entry_init(obj, &(sctx->res), message);
-		array_append(&(sctx->res.entries), obj, 1);
+		ldap_entry_init(obj, &sctx->res, message);
+		array_append(&sctx->res.entries, obj, 1);
 		res = ldap_next_entry(conn->conn, res);
 	}
 
@@ -112,7 +112,7 @@ ldap_search_send(struct ldap_connection *conn, struct ldap_op_queue_entry *req,
 		NULL,
 		&tv,
 		input->size_limit,
-		&(req->msgid));
+		&req->msgid);
 
 	if (ret != LDAP_SUCCESS) {
 		*error_r = t_strdup_printf(
@@ -137,7 +137,7 @@ void ldap_connection_search_start(struct ldap_connection *conn,
 	sctx->res.conn = conn;
 	sctx->res.pool = pool;
 
-	p_array_init(&(sctx->res.entries), req->pool, 8);
+	p_array_init(&sctx->res.entries, req->pool, 8);
 
 	req->internal_response_cb = ldap_search_callback;
 

@@ -568,12 +568,12 @@ void o_stream_encrypt_destroy(struct iostream_private *stream)
 {
 	struct encrypt_ostream *estream = (struct encrypt_ostream *)stream;
 	/* release resources */
-	if (estream->ctx_sym != NULL) dcrypt_ctx_sym_destroy(&(estream->ctx_sym));
-	if (estream->ctx_mac != NULL) dcrypt_ctx_hmac_destroy(&(estream->ctx_mac));
+	if (estream->ctx_sym != NULL) dcrypt_ctx_sym_destroy(&estream->ctx_sym);
+	if (estream->ctx_mac != NULL) dcrypt_ctx_hmac_destroy(&estream->ctx_mac);
 	if (estream->key_data != NULL) i_free(estream->key_data);
-	if (estream->cipher_oid != NULL) buffer_free(&(estream->cipher_oid));
-	if (estream->mac_oid != NULL) buffer_free(&(estream->mac_oid));
-	if (estream->pub != NULL) dcrypt_key_unref_public(&(estream->pub));
+	if (estream->cipher_oid != NULL) buffer_free(&estream->cipher_oid);
+	if (estream->mac_oid != NULL) buffer_free(&estream->mac_oid);
+	if (estream->pub != NULL) dcrypt_key_unref_public(&estream->pub);
 	o_stream_unref(&estream->ostream.parent);
 }
 
@@ -584,7 +584,7 @@ int o_stream_encrypt_init(struct encrypt_ostream *estream, const char *algorithm
 	char *calg, *malg;
 
 	if ((estream->flags & IO_STREAM_ENC_VERSION_1) == IO_STREAM_ENC_VERSION_1) {
-		if (!dcrypt_ctx_sym_create("AES-256-CTR", DCRYPT_MODE_ENCRYPT, &(estream->ctx_sym), &error)) {
+		if (!dcrypt_ctx_sym_create("AES-256-CTR", DCRYPT_MODE_ENCRYPT, &estream->ctx_sym, &error)) {
 			io_stream_set_error(&estream->ostream.iostream, "Cannot create ostream-encrypt: %s", error);
 			return -1;
 		}
@@ -601,7 +601,7 @@ int o_stream_encrypt_init(struct encrypt_ostream *estream, const char *algorithm
 		}
 		(*malg++) = '\0';
 
-		if (!dcrypt_ctx_sym_create(calg, DCRYPT_MODE_ENCRYPT, &(estream->ctx_sym), &error)) {
+		if (!dcrypt_ctx_sym_create(calg, DCRYPT_MODE_ENCRYPT, &estream->ctx_sym, &error)) {
 			io_stream_set_error(&estream->ostream.iostream, "Cannot create ostream-encrypt: %s", error);
 			return -1;
 		}
@@ -616,7 +616,7 @@ int o_stream_encrypt_init(struct encrypt_ostream *estream, const char *algorithm
 
 		/* mac context is optional */
 		if ((estream->flags & IO_STREAM_ENC_INTEGRITY_HMAC) == IO_STREAM_ENC_INTEGRITY_HMAC) {
-			if (!dcrypt_ctx_hmac_create(malg, &(estream->ctx_mac), &error)) {
+			if (!dcrypt_ctx_hmac_create(malg, &estream->ctx_mac, &error)) {
 				io_stream_set_error(&estream->ostream.iostream, "Cannot create ostream-encrypt: %s", error);
 				return -1;
 			}

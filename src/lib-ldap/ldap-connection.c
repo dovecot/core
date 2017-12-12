@@ -30,7 +30,7 @@ void ldap_connection_deinit(struct ldap_connection **_conn)
 	unsigned int n = aqueue_count(conn->request_queue);
 	for (unsigned int i = 0; i < n; i++) {
 		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&(conn->request_array),
+			array_idx(&conn->request_array,
 				  aqueue_idx(conn->request_queue, i));
 		timeout_remove(&(*reqp)->to_abort);
 	}
@@ -42,7 +42,7 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 {
 	int ret, opt;
 
-	ret = ldap_initialize(&(conn->conn), conn->set.uri);
+	ret = ldap_initialize(&conn->conn, conn->set.uri);
 	if (ret != LDAP_SUCCESS) {
 		*error_r = t_strdup_printf("ldap_initialize(uri=%s) failed: %s",
 					   conn->set.uri, ldap_err2string(ret));
@@ -155,7 +155,7 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->set.bind_dn = p_strdup(pool, set->bind_dn);
 	if (set->password != NULL) {
 		conn->set.password = p_strdup(pool, set->password);
-		ber_str2bv(conn->set.password, strlen(conn->set.password), 0, &(conn->cred));
+		ber_str2bv(conn->set.password, strlen(conn->set.password), 0, &conn->cred);
 	}
 	/* cannot use these */
 	conn->ssl_set.ca = NULL;
@@ -179,8 +179,8 @@ int ldap_connection_init(struct ldap_client *client,
 		return -1;
 	}
 
-	p_array_init(&(conn->request_array), conn->pool, 10);
-	conn->request_queue = aqueue_init(&(conn->request_array.arr));
+	p_array_init(&conn->request_array, conn->pool, 10);
+	conn->request_queue = aqueue_init(&conn->request_array.arr);
 
 	*conn_r = conn;
 	return 0;
@@ -198,10 +198,10 @@ void ldap_connection_switch_ioloop(struct ldap_connection *conn)
 
 	for (unsigned int i = 0; i < n; i++) {
 		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&(conn->request_array),
+			array_idx(&conn->request_array,
 				  aqueue_idx(conn->request_queue, i));
 		if ((*reqp)->to_abort != NULL)
-			(*reqp)->to_abort = io_loop_move_timeout(&((*reqp)->to_abort));
+			(*reqp)->to_abort = io_loop_move_timeout(&(*reqp)->to_abort);
 	}
 }
 
@@ -240,7 +240,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 	unsigned int i = 0, n;
 	struct ldap_op_queue_entry *req;
 
-	timeout_remove(&(conn->to_reconnect));
+	timeout_remove(&conn->to_reconnect);
 
 	if (conn->state == LDAP_STATE_DISCONNECT) {
 		if (ldap_connection_connect(conn) == -1)
@@ -260,7 +260,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 
 	for(i=0; i < n; i++) {
 		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&(conn->request_array),
+			array_idx(&conn->request_array,
 				  aqueue_idx(conn->request_queue, i));
 		if ((*reqp)->msgid > -1)
 			break;
@@ -389,7 +389,7 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 			return result_err;
 		}
 		if (msgtype != LDAP_RES_BIND) return 0;
-		ret = ldap_parse_sasl_bind_result(conn->conn, message, &(conn->scred), 0);
+		ret = ldap_parse_sasl_bind_result(conn->conn, message, &conn->scred, 0);
 		if (ret != LDAP_SUCCESS) {
 			const char *error = t_strdup_printf(
 				"Cannot bind with server: %s", ldap_err2string(ret));
@@ -423,7 +423,7 @@ void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 	unsigned int n = aqueue_count(req->conn->request_queue);
 	for (unsigned int i = 0; i < n; i++) {
 		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&(req->conn->request_array),
+			array_idx(&req->conn->request_array,
 				  aqueue_idx(req->conn->request_queue, i));
 		if (req == *reqp) {
 			aqueue_delete(req->conn->request_queue, i);
@@ -445,7 +445,7 @@ void ldap_connection_abort_all_requests(struct ldap_connection *conn)
 	unsigned int n = aqueue_count(conn->request_queue);
 	for (unsigned int i = 0; i < n; i++) {
 		struct ldap_op_queue_entry **reqp =
-			array_idx_modifiable(&(conn->request_array),
+			array_idx_modifiable(&conn->request_array,
 		aqueue_idx(conn->request_queue, i));
 		timeout_remove(&(*reqp)->to_abort);
 		if ((*reqp)->result_callback != NULL)
@@ -467,7 +467,7 @@ ldap_connect_next_message(struct ldap_connection *conn,
 	case LDAP_STATE_DISCONNECT:
 		/* if we should not disable SSL, and the URI is not ldaps:// */
 		if (!conn->set.start_tls || strstr(conn->set.uri, "ldaps://") == NULL) {
-			ret = ldap_start_tls(conn->conn, NULL, NULL, &(req->msgid));
+			ret = ldap_start_tls(conn->conn, NULL, NULL, &req->msgid);
 			if (ret != LDAP_SUCCESS) {
 				ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
 					"ldap_start_tls(uri=%s) failed: %s",
@@ -483,10 +483,10 @@ ldap_connect_next_message(struct ldap_connection *conn,
 		ret = ldap_sasl_bind(conn->conn,
 			conn->set.bind_dn,
 			LDAP_SASL_SIMPLE,
-			&(conn->cred),
+			&conn->cred,
 			NULL,
 			NULL,
-			&(req->msgid));
+			&req->msgid);
 		if (ret != LDAP_SUCCESS) {
 			ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
 				"ldap_sasl_bind(uri=%s, dn=%s) failed: %s",
@@ -548,15 +548,15 @@ int ldap_connection_connect(struct ldap_connection *conn)
 
 void ldap_connection_kill(struct ldap_connection *conn)
 {
-	io_remove_closed(&(conn->io));
-	timeout_remove(&(conn->to_disconnect));
-	timeout_remove(&(conn->to_reconnect));
+	io_remove_closed(&conn->io);
+	timeout_remove(&conn->to_disconnect);
+	timeout_remove(&conn->to_reconnect);
 	if (conn->request_queue != NULL) {
 		unsigned int n = aqueue_count(conn->request_queue);
 
 		for (unsigned int i = 0; i < n; i++) {
 			struct ldap_op_queue_entry *const *reqp =
-				array_idx(&(conn->request_array),
+				array_idx(&conn->request_array,
 					  aqueue_idx(conn->request_queue, i));
 			if ((*reqp)->msgid > -1)
 				ldap_abandon_ext(conn->conn, (*reqp)->msgid, NULL, NULL);
@@ -585,7 +585,7 @@ ldap_connection_find_req_by_msgid(struct ldap_connection *conn, int msgid,
 	unsigned int i, n = aqueue_count(conn->request_queue);
 	for (i = 0; i < n; i++) {
 		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&(conn->request_array),
+			array_idx(&conn->request_array,
 				  aqueue_idx(conn->request_queue, i));
 		if ((*reqp)->msgid == msgid) {
 			*idx_r = i;

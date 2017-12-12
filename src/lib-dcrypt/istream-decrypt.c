@@ -129,7 +129,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 		/* see if we can get one */
 		if (stream->key_callback != NULL) {
 			const char *key_id = binary_to_hex(digest_pos, digest_len);
-			int ret = stream->key_callback(key_id, &(stream->priv_key), &error, stream->key_context);
+			int ret = stream->key_callback(key_id, &stream->priv_key, &error, stream->key_context);
 			if (ret < 0) {
 				io_stream_set_error(&stream->istream.iostream, "Private key not available: %s", error);
 				return -1;
@@ -213,7 +213,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	}
 
 	/* prime context with key */
-	if (!dcrypt_ctx_sym_create("aes-256-ctr", DCRYPT_MODE_DECRYPT, &(stream->ctx_sym), &error)) {
+	if (!dcrypt_ctx_sym_create("aes-256-ctr", DCRYPT_MODE_DECRYPT, &stream->ctx_sym, &error)) {
 		io_stream_set_error(&stream->istream.iostream, "Decryption context create error: %s", error);
 		return -1;
 	}
@@ -313,7 +313,7 @@ ssize_t i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg, u
 		if (stream->key_callback != NULL) {
 			const char *hexdgst = binary_to_hex(data, sizeof(dgst)); /* digest length */
 			/* hope you going to give us right key.. */
-			int ret = stream->key_callback(hexdgst, &(stream->priv_key), &error, stream->key_context);
+			int ret = stream->key_callback(hexdgst, &stream->priv_key, &error, stream->key_context);
 			if (ret < 0) {
 				io_stream_set_error(&stream->istream.iostream, "Private key not available: %s", error);
 				return -1;
@@ -477,7 +477,7 @@ int i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 	const char *calg;
 	if (!i_stream_decrypt_der(&data, end, &calg))
 		return 0;
-	if (calg == NULL || !dcrypt_ctx_sym_create(calg, DCRYPT_MODE_DECRYPT, &(stream->ctx_sym), NULL)) {
+	if (calg == NULL || !dcrypt_ctx_sym_create(calg, DCRYPT_MODE_DECRYPT, &stream->ctx_sym, NULL)) {
 		io_stream_set_error(&stream->istream.iostream, "Decryption error: unsupported/invalid cipher: %s", calg);
 		return -1;
 	}
@@ -486,7 +486,7 @@ int i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 	const char *malg;
 	if (!i_stream_decrypt_der(&data, end, &malg))
 		return 0;
-	if (malg == NULL || !dcrypt_ctx_hmac_create(malg, &(stream->ctx_mac), NULL)) {
+	if (malg == NULL || !dcrypt_ctx_hmac_create(malg, &stream->ctx_mac, NULL)) {
 		io_stream_set_error(&stream->istream.iostream, "Decryption error: unsupported/invalid MAC algorithm: %s", malg);
 		return -1;
 	}
@@ -840,13 +840,13 @@ void i_stream_decrypt_destroy(struct iostream_private *stream)
 	if (dstream->iv != NULL)
 		i_free_and_null(dstream->iv);
 	if (dstream->ctx_sym != NULL)
-		dcrypt_ctx_sym_destroy(&(dstream->ctx_sym));
+		dcrypt_ctx_sym_destroy(&dstream->ctx_sym);
 	if (dstream->ctx_mac != NULL)
-		dcrypt_ctx_hmac_destroy(&(dstream->ctx_mac));
+		dcrypt_ctx_hmac_destroy(&dstream->ctx_mac);
 	if (dstream->priv_key != NULL)
-		dcrypt_key_unref_private(&(dstream->priv_key));
+		dcrypt_key_unref_private(&dstream->priv_key);
 
-	i_stream_unref(&(dstream->istream.parent));
+	i_stream_unref(&dstream->istream.parent);
 }
 
 static

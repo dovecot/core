@@ -743,7 +743,7 @@ bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_
 			pair_r->priv->key = pkey;
 			pair_r->priv->ref++;
 			pair_r->pub = NULL;
-			dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub));
+			dcrypt_openssl_private_to_public_key(pair_r->priv, &pair_r->pub);
 			return TRUE;
 		} else return dcrypt_openssl_error(error_r);
 	} else if (kind == DCRYPT_KEY_EC) {
@@ -758,7 +758,7 @@ bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_
 			pair_r->priv->key = pkey;
 			pair_r->priv->ref++;
 			pair_r->pub = NULL;
-			dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub));
+			dcrypt_openssl_private_to_public_key(pair_r->priv, &pair_r->pub);
 			return TRUE;
 		} else return dcrypt_openssl_error(error_r);
 	}
@@ -1983,8 +1983,8 @@ static
 void dcrypt_openssl_unref_keypair(struct dcrypt_keypair *keypair)
 {
 	i_assert(keypair != NULL);
-	dcrypt_openssl_unref_public_key(&(keypair->pub));
-	dcrypt_openssl_unref_private_key(&(keypair->priv));
+	dcrypt_openssl_unref_public_key(&keypair->pub);
+	dcrypt_openssl_unref_private_key(&keypair->priv);
 }
 
 static

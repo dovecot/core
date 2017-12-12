@@ -18,9 +18,9 @@ struct ldap_search_iterator* ldap_search_iterator_init(struct ldap_result *resul
 
 const struct ldap_entry *ldap_search_iterator_next(struct ldap_search_iterator *iter)
 {
-	if (iter->idx >= array_count(&(iter->result->entries)))
+	if (iter->idx >= array_count(&iter->result->entries))
 		return NULL;
-	return array_idx(&(iter->result->entries), iter->idx++);
+	return array_idx(&iter->result->entries, iter->idx++);
 }
 
 void ldap_search_iterator_deinit(struct ldap_search_iterator **iter)
