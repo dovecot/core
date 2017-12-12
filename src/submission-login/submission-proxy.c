@@ -233,6 +233,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		str_parse_uint(line, &status, &text) < 0 ||
 		status < 200 || status >= 560) {
 		invalid_line = TRUE;
+	} else {
+		text++;
 	}
 	if (subm_client->proxy_reply_status != 0 &&
 		subm_client->proxy_reply_status != status) {
@@ -249,7 +251,6 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	} else {
 		subm_client->proxy_reply_status = status;
 	}
-	text++;
 
 	if ((subm_client->proxy_capability &
 		SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0)
