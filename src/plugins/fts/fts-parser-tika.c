@@ -109,21 +109,21 @@ fts_tika_parser_response(const struct http_response *response,
 		}
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
-	case 500:
-		parser->parser.may_need_retry = TRUE;
-		i_free(parser->parser.retriable_error_msg);
-		parser->parser.retriable_error_msg =
-			i_strdup_printf("fts_tika: PUT %s failed: %s",
-					mail_user_plugin_getenv(parser->user, "fts_tika"),
-					http_response_get_message(response));
-		parser->payload = i_stream_create_from_data("", 0);
-		break;
-
 	default:
-		i_error("fts_tika: PUT %s failed: %s",
-			mail_user_plugin_getenv(parser->user, "fts_tika"),
-			http_response_get_message(response));
-		parser->failed = TRUE;
+		if (response->status / 100 == 5) {
+			parser->parser.may_need_retry = TRUE;
+			i_free(parser->parser.retriable_error_msg);
+			parser->parser.retriable_error_msg =
+				i_strdup_printf("fts_tika: PUT %s failed: %s",
+						mail_user_plugin_getenv(parser->user, "fts_tika"),
+						http_response_get_message(response));
+			parser->payload = i_stream_create_from_data("", 0);
+		} else {
+			i_error("fts_tika: PUT %s failed: %s",
+				mail_user_plugin_getenv(parser->user, "fts_tika"),
+				http_response_get_message(response));
+			parser->failed = TRUE;
+		}
 		break;
 	}
 	parser->http_req = NULL;
