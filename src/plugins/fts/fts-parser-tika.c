@@ -111,6 +111,10 @@ fts_tika_parser_response(const struct http_response *response,
 		break;
 	default:
 		if (response->status / 100 == 5) {
+			/* Server Error - the problem could be anything (in Tika or
+			   HTTP server or proxy) and might be retriable, but Tika has
+			   trouble processing some documents and throws up this error
+			   every time for those documents. */
 			parser->parser.may_need_retry = TRUE;
 			i_free(parser->parser.retriable_error_msg);
 			parser->parser.retriable_error_msg =
