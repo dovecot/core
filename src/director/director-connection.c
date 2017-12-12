@@ -583,7 +583,7 @@ user_need_refresh(struct director *dir, struct user *user,
 		   already set to). However, try to break USER loops here when
 		   director ring latency is >1sec, but below skip_recent_secs
 		   by just not refreshing the user. */
-		unsigned int skip_recent_secs =
+		time_t skip_recent_secs =
 			I_MIN(dir->set->director_user_expire/4,
 			      DIRECTOR_SKIP_RECENT_REFRESH_MAX_SECS);
 		if ((time_t)user->timestamp + skip_recent_secs >= timestamp)
@@ -776,7 +776,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 		return FALSE;
 	}
 
-	if (timestamp > ioloop_time) {
+	if ((time_t)timestamp > ioloop_time) {
 		/* The other director's clock seems to be into the future
 		   compared to us. Don't set any of our users' timestamps into
 		   future though. It's most likely only 1 second difference. */
