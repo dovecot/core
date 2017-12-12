@@ -216,7 +216,7 @@ submission_proxy_success_reply_sent(struct smtp_server_cmd_ctx *cmd)
 int submission_proxy_parse_line(struct client *client, const char *line)
 {
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
 	struct smtp_server_command *command = cmd->cmd;
 	struct ostream *output;
@@ -434,7 +434,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 void submission_proxy_reset(struct client *client)
 {
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 
 	subm_client->proxy_state = SUBMISSION_PROXY_BANNER;
 	subm_client->proxy_capability = 0;
@@ -446,7 +446,7 @@ void submission_proxy_reset(struct client *client)
 void submission_proxy_error(struct client *client, const char *text)
 {
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 
 	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
 	if (cmd != NULL) {
@@ -458,7 +458,7 @@ void submission_proxy_error(struct client *client, const char *text)
 const char *submission_proxy_get_state(struct client *client)
 {
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 
 	i_assert(subm_client->proxy_state < SUBMISSION_PROXY_STATE_COUNT);
 	return submission_proxy_state_names[subm_client->proxy_state];

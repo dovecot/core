@@ -61,7 +61,7 @@ static void submission_client_create(struct client *client,
 	static const char *const xclient_extensions[] =
 		{ "SESSION", "FORWARD", NULL };
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 	struct smtp_server_settings smtp_set;
 
 	subm_client->set = other_sets[0];
@@ -86,7 +86,7 @@ static void submission_client_create(struct client *client,
 static void submission_client_destroy(struct client *client)
 {
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 
 	if (subm_client->conn != NULL)
 		smtp_server_connection_close(&subm_client->conn, NULL);
@@ -96,7 +96,7 @@ static void submission_client_destroy(struct client *client)
 static void submission_client_notify_auth_ready(struct client *client)
 {
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 
 	smtp_server_connection_start(subm_client->conn, FALSE);
 }
@@ -106,7 +106,8 @@ submission_client_notify_disconnect(struct client *_client,
 				    enum client_disconnect_reason reason,
 				    const char *text)
 {
-	struct submission_client *client = (struct submission_client *)_client;
+	struct submission_client *client =
+		container_of(_client, struct submission_client, common);
 	struct smtp_server_connection *conn;
 
 	conn = client->conn;

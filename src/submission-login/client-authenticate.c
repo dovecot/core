@@ -86,7 +86,7 @@ void submission_client_auth_result(struct client *client,
 	const char *text)
 {
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
 
 	subm_client->pending_auth = NULL;
@@ -229,7 +229,7 @@ void submission_client_auth_send_challenge(struct client *client,
 					   const char *data)
 {
 	struct submission_client *subm_client =
-		(struct submission_client *)client;
+		container_of(client, struct submission_client, common);
 	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
 
 	i_assert(cmd != NULL);
