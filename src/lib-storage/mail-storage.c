@@ -240,14 +240,14 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 
 static int
 mail_storage_verify_root(const char *root_dir, const char *dir_type,
-			 bool autocreate, const char **error_r)
+			 const char **error_r)
 {
 	struct stat st;
 
 	if (stat(root_dir, &st) == 0) {
 		/* exists */
 		if (S_ISDIR(st.st_mode))
-			return 1;
+			return 0;
 		*error_r = t_strdup_printf(
 			"Root mail directory is a file: %s", root_dir);
 		return -1;
@@ -257,13 +257,10 @@ mail_storage_verify_root(const char *root_dir, const char *dir_type,
 	} else if (errno != ENOENT) {
 		*error_r = t_strdup_printf("stat(%s) failed: %m", root_dir);
 		return -1;
-	} else if (!autocreate) {
+	} else {
 		*error_r = t_strdup_printf(
 			"Root %s directory doesn't exist: %s", dir_type, root_dir);
 		return -1;
-	} else {
-		/* doesn't exist */
-		return 0;
 	}
 }
 
@@ -273,8 +270,6 @@ mail_storage_create_root(struct mailbox_list *list,
 {
 	const char *root_dir, *type_name, *error;
 	enum mailbox_list_path_type type;
-	bool autocreate;
-	int ret;
 
 	if (list->set.iter_from_index_dir) {
 		type = MAILBOX_LIST_PATH_TYPE_INDEX;
@@ -294,27 +289,19 @@ mail_storage_create_root(struct mailbox_list *list,
 
 		/* we don't need to verify, but since debugging is
 		   enabled, check and log if the root doesn't exist */
-		if (mail_storage_verify_root(root_dir, type_name, FALSE, &error) < 0) {
+		if (mail_storage_verify_root(root_dir, type_name, &error) < 0) {
 			i_debug("Namespace %s: Creating storage despite: %s",
 				list->ns->prefix, error);
 		}
 		return 0;
 	}
 
-	autocreate = (flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) == 0;
-	if (autocreate && list->set.iter_from_index_dir) {
+	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) == 0) {
 		/* If the directories don't exist, we'll just autocreate them
-		   later. FIXME: Make this the default in v2.3 even when
-		   ITERINDEX isn't used. */
+		   later. */
 		return 0;
 	}
-	ret = mail_storage_verify_root(root_dir, type_name, autocreate, error_r);
-	if (ret == 0) {
-		ret = mailbox_list_try_mkdir_root(list, root_dir,
-						  MAILBOX_LIST_PATH_TYPE_MAILBOX,
-						  error_r);
-	}
-	return ret < 0 ? -1 : 0;
+	return mail_storage_verify_root(root_dir, type_name, error_r);
 }
 
 static bool
