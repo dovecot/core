@@ -146,7 +146,7 @@ cmd_data_chunk_finish(struct smtp_server_cmd_ctx *cmd)
 		return;
 
 	smtp_server_reply(cmd, 250, "2.0.0",
-		"Added %"PRIuSIZE_T" octets", data_cmd->chunk_size);
+		"Added %"PRIuUOFF_T" octets", data_cmd->chunk_size);
 }
 
 static void cmd_data_input_error(struct smtp_server_cmd_ctx *cmd)
