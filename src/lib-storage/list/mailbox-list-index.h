@@ -204,8 +204,15 @@ void mailbox_list_index_notify_wait(struct mailbox_list_notify *notify,
 void mailbox_list_index_notify_flush(struct mailbox_list_notify *notify);
 
 void mailbox_list_index_status_init_mailbox(struct mailbox_vfuncs *v);
-void mailbox_list_index_backend_init_mailbox(struct mailbox *box,
+bool mailbox_list_index_backend_init_mailbox(struct mailbox *box,
 					     struct mailbox_vfuncs *v);
 void mailbox_list_index_status_init_finish(struct mailbox_list *list);
+
+void mailbox_list_index_status_sync_init(struct mailbox *box);
+void mailbox_list_index_status_sync_deinit(struct mailbox *box);
+
+void mailbox_list_index_backend_sync_init(struct mailbox *box,
+					  enum mailbox_sync_flags flags);
+int mailbox_list_index_backend_sync_deinit(struct mailbox *box);
 
 #endif

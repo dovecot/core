@@ -936,6 +936,36 @@ mailbox_list_index_namespaces_added(struct mail_namespace *namespaces)
 		mailbox_list_index_init_finish(ns->list);
 }
 
+static struct mailbox_sync_context *
+mailbox_list_index_sync_init(struct mailbox *box,
+			     enum mailbox_sync_flags flags)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+
+	mailbox_list_index_status_sync_init(box);
+	if (ibox->have_backend)
+		mailbox_list_index_backend_sync_init(box, flags);
+	return ibox->module_ctx.super.sync_init(box, flags);
+}
+
+static int
+mailbox_list_index_sync_deinit(struct mailbox_sync_context *ctx,
+			       struct mailbox_sync_status *status_r)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(ctx->box);
+	struct mailbox *box = ctx->box;
+
+	if (ibox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
+		return -1;
+	ctx = NULL;
+
+	mailbox_list_index_status_sync_deinit(box);
+	if (ibox->have_backend)
+		return mailbox_list_index_backend_sync_deinit(box);
+	else
+		return 0;
+}
+
 static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
@@ -955,8 +985,14 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 	v->create_box = mailbox_list_index_create_mailbox;
 	v->update_box = mailbox_list_index_update_mailbox;
 
+	/* These are used by both status and backend code, but they can't both
+	   be overriding the same function pointer since they share the
+	   super pointer. */
+	v->sync_init = mailbox_list_index_sync_init;
+	v->sync_deinit = mailbox_list_index_sync_deinit;
+
 	mailbox_list_index_status_init_mailbox(v);
-	mailbox_list_index_backend_init_mailbox(box, v);
+	ibox->have_backend = mailbox_list_index_backend_init_mailbox(box, v);
 }
 
 static struct mail_storage_hooks mailbox_list_index_hooks = {
