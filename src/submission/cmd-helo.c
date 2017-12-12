@@ -41,8 +41,7 @@ static void cmd_helo_update_xclient(struct client *client,
 static void cmd_helo_do_reply(struct client *client,
 			      struct smtp_server_cmd_ctx *cmd)
 {
-	struct cmd_helo_context *helo =
-		(struct cmd_helo_context *)cmd->context;
+	struct cmd_helo_context *helo = cmd->context;
 	enum smtp_capability proxy_caps =
 		smtp_client_connection_get_capabilities(client->proxy_conn);
 	struct smtp_server_reply *reply;
@@ -97,8 +96,7 @@ static void cmd_helo_do_reply(struct client *client,
 
 static void cmd_helo_reply(struct smtp_server_cmd_ctx *cmd)
 {
-	struct cmd_helo_context *helo =
-		(struct cmd_helo_context *)cmd->context;
+	struct cmd_helo_context *helo = cmd->context;
 	struct client *client = helo->client;
 
 	/* proxy an XCLIENT command */
@@ -138,8 +136,7 @@ static void cmd_helo_proxy_cb(const struct smtp_reply *proxy_reply,
 
 static void cmd_helo_start(struct smtp_server_cmd_ctx *cmd)
 {
-	struct cmd_helo_context *helo =
-		(struct cmd_helo_context *)cmd->context;
+	struct cmd_helo_context *helo = cmd->context;
 	struct client *client = helo->client;
 
 	/* proxy an XCLIENT command */
@@ -150,14 +147,14 @@ static void cmd_helo_start(struct smtp_server_cmd_ctx *cmd)
 int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_helo *data)
 {
-	struct client *client = (struct client *)conn_ctx;
+	struct client *client = conn_ctx;
 	struct cmd_helo_context *helo;
 
 	helo = p_new(cmd->pool, struct cmd_helo_context, 1);
 	helo->client = client;
 	helo->cmd = cmd;
 	helo->data = data;
-	cmd->context = (void*)helo;
+	cmd->context = helo;
 
 	if (!client_proxy_is_ready(client)) {
 		if (client_proxy_is_disconnected(client)) {

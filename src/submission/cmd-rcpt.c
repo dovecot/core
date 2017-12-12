@@ -25,8 +25,7 @@ struct cmd_rcpt_context {
 
 static void cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd)
 {
-	struct cmd_rcpt_context *rcpt_cmd =
-		(struct cmd_rcpt_context *)cmd->context;
+	struct cmd_rcpt_context *rcpt_cmd = cmd->context;
 
 	if (rcpt_cmd->cmd_proxied != NULL)
 		smtp_client_command_abort(&rcpt_cmd->cmd_proxied);
@@ -59,7 +58,7 @@ static void cmd_rcpt_proxy_cb(const struct smtp_reply *proxy_reply,
 int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_rcpt *data)
 {
-	struct client *client = (struct client *)conn_ctx;
+	struct client *client = conn_ctx;
 	struct cmd_rcpt_context *rcpt_cmd;
 
 	/* queue command (pipeline) */
@@ -68,7 +67,7 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	rcpt_cmd->data = data;
 	rcpt_cmd->client = client;
 
-	cmd->context = (void*)rcpt_cmd;
+	cmd->context = rcpt_cmd;
 	cmd->hook_replied = cmd_rcpt_replied;
 	rcpt_cmd->cmd_proxied = smtp_client_command_rcpt_submit(
 		client->proxy_conn, 0, data->path, &data->params,

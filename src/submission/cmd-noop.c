@@ -35,13 +35,13 @@ static void cmd_noop_proxy_cb(const struct smtp_reply *proxy_reply,
 
 int cmd_noop(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 {
-	struct client *client = (struct client *)conn_ctx;
+	struct client *client = conn_ctx;
 	struct cmd_noop_context *noop_cmd;
 
 	noop_cmd = p_new(cmd->pool, struct cmd_noop_context, 1);
 	noop_cmd->client = client;
 	noop_cmd->cmd = cmd;
-	cmd->context = (void*)noop_cmd;
+	cmd->context = noop_cmd;
 
 	noop_cmd->cmd_proxied = smtp_client_command_noop_submit
 		(client->proxy_conn, 0, cmd_noop_proxy_cb, noop_cmd);

@@ -49,14 +49,14 @@ static const struct smtp_server_callbacks smtp_callbacks;
 /* try to proxy pipelined commands in a similarly pipelined fashion */
 static void client_input_pre(void *context)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	if (client->proxy_conn != NULL)
 		smtp_client_connection_cork(client->proxy_conn);
 }
 static void client_input_post(void *context)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	if (client->proxy_conn != NULL)
 		smtp_client_connection_uncork(client->proxy_conn);
@@ -76,7 +76,7 @@ static const char *client_remote_id(struct client *client)
 static void client_proxy_ready_cb(const struct smtp_reply *reply,
 				  void *context)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 	enum smtp_capability caps;
 
 	/* check proxy status */
@@ -282,7 +282,7 @@ static void
 client_connection_trans_free(void *context,
 			     struct smtp_server_transaction *trans ATTR_UNUSED)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	client_state_reset(client);
 }
@@ -297,7 +297,7 @@ client_connection_state_changed(void *context ATTR_UNUSED,
 
 static void client_connection_disconnect(void *context, const char *reason)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 	struct smtp_server_connection *conn = client->conn;
 	const struct smtp_server_stats *stats;
 
@@ -311,7 +311,7 @@ static void client_connection_disconnect(void *context, const char *reason)
 
 static void client_connection_destroy(void *context)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	client_destroy(client, NULL, NULL);
 }

@@ -27,13 +27,13 @@ static void cmd_quit_proxy_cb(
 
 int cmd_quit(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 {
-	struct client *client = (struct client *)conn_ctx;
+	struct client *client = conn_ctx;
 	struct cmd_quit_context *quit_cmd;
 
 	quit_cmd = p_new(cmd->pool, struct cmd_quit_context, 1);
 	quit_cmd->client = client;
 	quit_cmd->cmd = cmd;
-	cmd->context = (void*)quit_cmd;
+	cmd->context = quit_cmd;
 
 	quit_cmd->cmd_proxied = smtp_client_command_new
 		(client->proxy_conn, 0, cmd_quit_proxy_cb, quit_cmd);

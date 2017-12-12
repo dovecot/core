@@ -67,9 +67,8 @@ static void cmd_data_proxy_cb(const struct smtp_reply *proxy_reply,
 int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		      struct smtp_server_transaction *trans)
 {
-	struct client *client = (struct client *)conn_ctx;
-	struct cmd_data_context *data_ctx =
-		(struct cmd_data_context *)trans->context;
+	struct client *client = conn_ctx;
+	struct cmd_data_context *data_ctx = trans->context;
 	struct istream *data_input = client->state.data_input;
 	struct istream *inputs[3];
 	string_t *added_headers;
@@ -123,7 +122,7 @@ int cmd_data_begin(void *conn_ctx,
 		   struct smtp_server_transaction *trans,
 		   struct istream *data_input)
 {
-	struct client *client = (struct client *)conn_ctx;
+	struct client *client = conn_ctx;
 	struct cmd_data_context *data_ctx;
 	struct istream *inputs[2];
 	string_t *path;
@@ -165,8 +164,7 @@ struct cmd_burl_context {
 static void
 cmd_burl_destroy(struct smtp_server_cmd_ctx *cmd)
 {
-	struct cmd_burl_context *burl_cmd =
-		(struct cmd_burl_context *)cmd->context;
+	struct cmd_burl_context *burl_cmd = cmd->context;
 
 	if (burl_cmd->urlauth_fetch != NULL)
 		imap_urlauth_fetch_deinit(&burl_cmd->urlauth_fetch);
@@ -178,7 +176,7 @@ static int
 cmd_burl_fetch_cb(struct imap_urlauth_fetch_reply *reply,
 		  bool last, void *context)
 {
-	struct cmd_burl_context *burl_cmd = (struct cmd_burl_context *)context;
+	struct cmd_burl_context *burl_cmd = context;
 	struct smtp_server_cmd_ctx *cmd = burl_cmd->cmd;
 	int ret;
 
@@ -290,8 +288,7 @@ cmd_burl_fetch(struct cmd_burl_context *burl_cmd, const char *url,
 void cmd_burl(struct smtp_server_cmd_ctx *cmd, const char *params)
 {
 	struct smtp_server_connection *conn = cmd->conn;
-	struct client *client =
-		(struct client *)smtp_server_connection_get_context(conn);
+	struct client *client = smtp_server_connection_get_context(conn);
 	struct cmd_burl_context *burl_cmd;
 	const char *const *argv;
 	enum imap_url_parse_flags url_parse_flags =
@@ -339,7 +336,7 @@ void cmd_burl(struct smtp_server_cmd_ctx *cmd, const char *params)
 	burl_cmd->cmd = cmd;
 	burl_cmd->chunk_last = chunk_last;
 
-	cmd->context = (void*)burl_cmd;
+	cmd->context = burl_cmd;
 	cmd->hook_destroy = cmd_burl_destroy;
 
 	if (imap_url->uauth_rumpurl == NULL) {

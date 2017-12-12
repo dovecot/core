@@ -46,8 +46,7 @@ static void cmd_mail_update_xclient(struct client *client)
 
 static void cmd_mail_replied(struct smtp_server_cmd_ctx *cmd)
 {
-	struct cmd_mail_context *mail_cmd =
-		(struct cmd_mail_context *)cmd->context;
+	struct cmd_mail_context *mail_cmd = cmd->context;
 
 	if (mail_cmd->cmd_proxied != NULL)
 		smtp_client_command_abort(&mail_cmd->cmd_proxied);
@@ -133,7 +132,7 @@ cmd_mail_parameter_size(struct client *client,
 int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_mail *data)
 {
-	struct client *client = (struct client *)conn_ctx;
+	struct client *client = conn_ctx;
 	struct cmd_mail_context *mail_cmd;
 	enum smtp_capability proxy_caps =
 		smtp_client_connection_get_capabilities(client->proxy_conn);
@@ -152,7 +151,7 @@ int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	mail_cmd->data = data;
 	mail_cmd->client = client;
 
-	cmd->context = (void*)mail_cmd;
+	cmd->context = mail_cmd;
 	cmd->hook_replied = cmd_mail_replied;
 	mail_cmd->cmd_proxied = smtp_client_command_mail_submit(
 		client->proxy_conn, 0, data->path, &data->params,
