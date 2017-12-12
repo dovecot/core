@@ -29,8 +29,7 @@ static struct smtp_server *smtp_server = NULL;
 static void submission_login_start_tls(void *conn_ctx,
 	struct istream **input, struct ostream **output)
 {
-	struct submission_client *subm_client =
-		(struct submission_client *)conn_ctx;
+	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 
 	client->starttls = TRUE;
@@ -135,8 +134,7 @@ client_connection_cmd_xclient(void *context,
 {
 	unsigned int i;
 
-	struct submission_client *client =
-		(struct submission_client *)context;
+	struct submission_client *client = context;
 
 	client->common.ip = data->source_ip;
 	client->common.remote_port = data->source_port;
@@ -172,16 +170,14 @@ client_connection_cmd_xclient(void *context,
 
 static void client_connection_disconnect(void *context, const char *reason)
 {
-	struct submission_client *client =
-		(struct submission_client *)context;
+	struct submission_client *client = context;
 
 	client_disconnect(&client->common, reason);
 }
 
 static void client_connection_destroy(void *context)
 {
-	struct submission_client *client =
-		(struct submission_client *)context;
+	struct submission_client *client = context;
 
 	if (client->conn == NULL)
 		return;
@@ -191,8 +187,7 @@ static void client_connection_destroy(void *context)
 
 static bool client_connection_is_trusted(void *context)
 {
-	struct submission_client *client =
-		(struct submission_client *)context;
+	struct submission_client *client = context;
 
 	return client->common.trusted;
 }

@@ -71,8 +71,7 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_helo *data)
 {
-	struct submission_client *subm_client =
-		(struct submission_client *)conn_ctx;
+	struct submission_client *subm_client = conn_ctx;
 
 	T_BEGIN {
 		cmd_helo_reply(subm_client, cmd, data);
@@ -214,8 +213,7 @@ int cmd_auth_continue(void *conn_ctx,
 		      struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		      const char *response)
 {
-	struct submission_client *subm_client =
-		(struct submission_client *)conn_ctx;
+	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 
 	if (strcmp(response, "*") == 0) {
@@ -242,8 +240,7 @@ void submission_client_auth_send_challenge(struct client *client,
 int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_auth *data)
 {
-	struct submission_client *subm_client =
-		(struct submission_client *)conn_ctx;
+	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 	struct smtp_server_helo_data *helo;
 	char *prefix;

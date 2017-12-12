@@ -208,8 +208,7 @@ strip_enhanced_code(const char *text, const char **enh_code_r)
 static void
 submission_proxy_success_reply_sent(struct smtp_server_cmd_ctx *cmd)
 {
-	struct submission_client *subm_client =
-		(struct submission_client *)cmd->context;
+	struct submission_client *subm_client = cmd->context;
 
 	client_proxy_finish_destroy_client(&subm_client->common);
 }
