@@ -573,11 +573,9 @@ static int index_list_mailbox_open(struct mailbox *box)
 	return 0;
 }
 
-static struct mailbox_sync_context *
-index_list_mailbox_sync_init(struct mailbox *box,
-			     enum mailbox_sync_flags flags)
+void mailbox_list_index_backend_sync_init(struct mailbox *box,
+					  enum mailbox_sync_flags flags)
 {
-	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 
 	if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0 &&
@@ -589,18 +587,12 @@ index_list_mailbox_sync_init(struct mailbox *box,
 		/* try to rebuild list index only once - even if it failed */
 		ilist->force_resynced = TRUE;
 	}
-	return ibox->module_ctx.super.sync_init(box, flags);
 }
 
-static int
-index_list_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
-			       struct mailbox_sync_status *status_r)
+int mailbox_list_index_backend_sync_deinit(struct mailbox *box)
 {
-	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(ctx->box);
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(ctx->box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 
-	if (ibox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
-		return -1;
 	if (ilist->force_resync_failed) {
 		/* fail this only once */
 		ilist->force_resync_failed = FALSE;
@@ -882,15 +874,18 @@ struct mailbox_list index_mailbox_list = {
 	}
 };
 
-void mailbox_list_index_backend_init_mailbox(struct mailbox *box,
+bool mailbox_list_index_backend_init_mailbox(struct mailbox *box,
 					     struct mailbox_vfuncs *v)
 {
 	if (strcmp(box->list->name, MAILBOX_LIST_NAME_INDEX) != 0)
-		return;
+		return TRUE;
+
+	/* NOTE: this is using the same v as
+	   mailbox_list_index_status_init_mailbox(), so don't have them
+	   accidentally override each others. */
 	v->create_box = index_list_mailbox_create;
 	v->update_box = index_list_mailbox_update;
 	v->exists = index_list_mailbox_exists;
 	v->open = index_list_mailbox_open;
-	v->sync_init = index_list_mailbox_sync_init;
-	v->sync_deinit = index_list_mailbox_sync_deinit;
+	return FALSE;
 }
