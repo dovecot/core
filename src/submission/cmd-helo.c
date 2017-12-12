@@ -86,7 +86,7 @@ static void cmd_helo_do_reply(struct client *client,
 		cap_size = client_get_max_mail_size(client);
 		if (cap_size > 0) {
 			smtp_server_reply_ehlo_add_param(reply,
-				"SIZE", "%"PRIuSIZE_T, cap_size);
+				"SIZE", "%"PRIuUOFF_T, cap_size);
 		} else {
 			smtp_server_reply_ehlo_add(reply, "SIZE");
 		}
