@@ -24,7 +24,13 @@ uint64_t timing_get_max(const struct timing *timing);
 uint64_t timing_get_avg(const struct timing *timing);
 /* Returns events' approximate (through random subsampling) median. */
 uint64_t timing_get_median(const struct timing *timing);
+/* Returns events' approximate (through random subsampling) percentile.
+   fraction parameter is in the range (0., 1.], so 95th %-ile is 0.95. */
+uint64_t timing_get_percentile(const struct timing *timing, double fraction);
 /* Returns events' approximate (through random subsampling) 95th percentile. */
-uint64_t timing_get_95th(const struct timing *timing);
+static inline uint64_t timing_get_95th(const struct timing *timing)
+{
+	return timing_get_percentile(timing, 0.95);
+}
 
 #endif

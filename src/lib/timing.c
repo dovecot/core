@@ -121,7 +121,29 @@ uint64_t timing_get_median(const struct timing *timing)
 	return (timing->samples[idx1] + timing->samples[idx2]) / 2;
 }
 
-uint64_t timing_get_95th(const struct timing *timing)
+/* This is independent of the timing framework, useful for any selection task */
+static unsigned int timing_get_index(unsigned int range, double fraction)
+{
+	/* With out of range fractions, we can give the caller what
+	   they probably want rather than just crashing. */
+	if (fraction >= 1.)
+		return range - 1;
+	if (fraction <= 0.)
+		return 0;
+
+	double idx_float = range * fraction;
+	unsigned int idx = idx_float; /* C defaults to rounding down */
+	idx_float -= idx;
+	/* Exact boundaries belong to the open range below them.
+	   As FP isn't exact, and ratios may be specified inexactly,
+	   include a small amount of fuzz around the exact boundary. */
+	if (idx_float < 1e-8*range)
+		idx--;
+
+	return idx;
+}
+
+uint64_t timing_get_percentile(const struct timing *timing, double fraction)
 {
 	if (timing->count == 0)
 		return 0;
@@ -130,6 +152,6 @@ uint64_t timing_get_95th(const struct timing *timing)
 	unsigned int count = (timing->count < timing->sample_count)
 		? timing->count
 		: timing->sample_count;
-	unsigned int idx = count - count/20 - 1;
+	unsigned int idx = timing_get_index(count, fraction);
 	return timing->samples[idx];
 }
