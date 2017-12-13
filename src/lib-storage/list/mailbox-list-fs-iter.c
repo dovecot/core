@@ -51,7 +51,7 @@ struct fs_list_iterate_context {
 
 	unsigned int inbox_found:1;
 	unsigned int inbox_has_children:1;
-	unsigned int list_inbox_inbox:1;
+	unsigned int listed_prefix_inbox:1;
 };
 
 static int
@@ -181,6 +181,14 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	}
 
 	match = imap_match(ctx->ctx.glob, vname);
+	if (strcmp(d->d_name, "INBOX") == 0 && strcmp(vname, "INBOX") == 0 &&
+	    ctx->ctx.list->ns->prefix_len > 0) {
+		/* The glob was matched only against "INBOX", but this
+		   directory may hold also prefix/INBOX. Just assume here
+		   that it matches and verify later whether it was needed
+		   or not. */
+		match = IMAP_MATCH_YES;
+	}
 
 	if ((dir->info_flags & (MAILBOX_CHILDREN | MAILBOX_NOCHILDREN |
 				MAILBOX_NOINFERIORS)) == 0 &&
@@ -559,36 +567,14 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
-static void inbox_flags_set(struct fs_list_iterate_context *ctx,
-			    enum imap_match_result child_dir_match)
+static void inbox_flags_set(struct fs_list_iterate_context *ctx)
 {
-	struct mail_namespace *ns = ctx->ctx.list->ns;
-
 	/* INBOX is always selectable */
 	ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT);
 
 	if (mail_namespace_is_inbox_noinferiors(ctx->info.ns)) {
 		ctx->info.flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
 		ctx->info.flags |= MAILBOX_NOINFERIORS;
-	}
-	if (*ns->prefix != '\0' &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
-		/* we're listing INBOX for a namespace with a prefix.
-		   if there are children for the INBOX, they're returned under
-		   the mailbox prefix, not under the INBOX itself. For example
-		   with INBOX = /var/inbox/%u/Maildir, root = ~/Maildir:
-		   ~/Maildir/INBOX/foo/ shows up as <prefix>/INBOX/foo and
-		   INBOX can't directly have any children. */
-		if (ns->prefix_len == 6 &&
-		    strncasecmp(ns->prefix, "INBOX", ns->prefix_len-1) == 0 &&
-		    (ctx->info.flags & MAILBOX_CHILDREN) != 0 &&
-		    (child_dir_match & IMAP_MATCH_CHILDREN) != 0) {
-			/* except, INBOX/ prefix is once again a special case.
-			   we're now listing both the namespace prefix and the
-			   INBOX. we're now doing a LIST INBOX/%, so we'll need
-			   to create a fake \NoSelect INBOX/INBOX */
-			ctx->list_inbox_inbox = TRUE;
-		}
 	}
 }
 
@@ -616,7 +602,7 @@ list_file_unfound_inbox(struct fs_list_iterate_context *ctx)
 	    (ctx->info.flags & MAILBOX_NONEXISTENT) != 0)
 		return FALSE;
 
-	inbox_flags_set(ctx, 0);
+	inbox_flags_set(ctx);
 	if (ctx->inbox_has_children)
 		ctx->info.flags |= MAILBOX_CHILDREN;
 	else {
@@ -660,7 +646,14 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 
 	match = imap_match(ctx->ctx.glob, ctx->info.vname);
 
-	child_dir_name = t_strdup_printf("%s%c", ctx->info.vname, ctx->sep);
+	if (strcmp(ctx->info.vname, "INBOX") == 0 &&
+	    ctx->ctx.list->ns->prefix_len > 0) {
+		/* INBOX's children are matched as prefix/INBOX */
+		child_dir_name = t_strdup_printf("%sINBOX", ns->prefix);
+	} else {
+		child_dir_name =
+			t_strdup_printf("%s%c", ctx->info.vname, ctx->sep);
+	}
 	child_dir_match = imap_match(ctx->ctx.glob, child_dir_name);
 	if (child_dir_match == IMAP_MATCH_YES)
 		child_dir_match |= IMAP_MATCH_CHILDREN;
@@ -711,7 +704,9 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 			}
 			return 0;
 		}
-		inbox_flags_set(ctx, child_dir_match);
+		if (subdir != NULL)
+			ctx->inbox_has_children = TRUE;
+		inbox_flags_set(ctx);
 		ctx->info.vname = "INBOX"; /* always return uppercased */
 		ctx->inbox_found = TRUE;
 	} else if (strcmp(storage_name, "INBOX") == 0 &&
@@ -777,12 +772,13 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 			fs_list_next_root(ctx);
 	}
 
-	if (ctx->list_inbox_inbox) {
+	if (ctx->inbox_has_children && ctx->ctx.list->ns->prefix_len > 0 &&
+	    !ctx->listed_prefix_inbox) {
 		ctx->info.flags = MAILBOX_CHILDREN | MAILBOX_NOSELECT;
 		ctx->info.vname =
 			p_strconcat(ctx->info_pool,
 				    ctx->ctx.list->ns->prefix, "INBOX", NULL);
-		ctx->list_inbox_inbox = FALSE;
+		ctx->listed_prefix_inbox = TRUE;
 		if (imap_match(ctx->ctx.glob, ctx->info.vname) == IMAP_MATCH_YES)
 			return 1;
 	}
