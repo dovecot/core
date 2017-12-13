@@ -21,6 +21,9 @@ struct metric {
 struct stats_metrics *stats_metrics_init(const struct stats_settings *set);
 void stats_metrics_deinit(struct stats_metrics **metrics);
 
+/* Reset all metrics */
+void stats_metrics_reset(struct stats_metrics *metrics);
+
 /* Returns event filter created from the stats_settings. */
 struct event_filter *
 stats_metrics_get_event_filter(struct stats_metrics *metrics);

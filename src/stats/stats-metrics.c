@@ -124,6 +124,17 @@ void stats_metrics_deinit(struct stats_metrics **_metrics)
 	pool_unref(&metrics->pool);
 }
 
+void stats_metrics_reset(struct stats_metrics *metrics)
+{
+	struct metric *const *metricp;
+
+	array_foreach(&metrics->metrics, metricp) {
+		timing_reset((*metricp)->duration_timing);
+		for (unsigned int i = 0; i < (*metricp)->fields_count; i++)
+			timing_reset((*metricp)->fields[i].timing);
+	}
+}
+
 struct event_filter *
 stats_metrics_get_event_filter(struct stats_metrics *metrics)
 {

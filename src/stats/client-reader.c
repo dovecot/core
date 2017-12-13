@@ -90,6 +90,15 @@ reader_client_input_dump(struct reader_client *client, const char *const *args)
 }
 
 static int
+reader_client_input_dump_reset(struct reader_client *client,
+			       const char *const *args)
+{
+	(void)reader_client_input_dump(client, args);
+	stats_metrics_reset(client->metrics);
+	return 1;
+}
+
+static int
 reader_client_input_args(struct connection *conn, const char *const *args)
 {
 	struct reader_client *client = (struct reader_client *)conn;
@@ -102,6 +111,8 @@ reader_client_input_args(struct connection *conn, const char *const *args)
 	args++;
 	if (strcmp(cmd, "DUMP") == 0)
 		return reader_client_input_dump(client, args);
+	else if (strcmp(cmd, "DUMP-RESET") == 0)
+		return reader_client_input_dump_reset(client, args);
 	return 1;
 }
 
