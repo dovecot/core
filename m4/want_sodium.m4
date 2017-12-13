@@ -1,12 +1,17 @@
 AC_DEFUN([DOVECOT_WANT_SODIUM], [
-  if test "$want_sodium" != "no"; then
-    if test "$PKG_CONFIG" != "" && $PKG_CONFIG --exists libsodium 2>/dev/null; then
-      PKG_CHECK_MODULES(LIBSODIUM, libsodium)
-      have_sodium=yes
-      AC_DEFINE(HAVE_LIBSODIUM,, [Define if you have libsodium])
-    elif test "$want_sodium" = "yes"; then
+  AS_IF([test "$want_sodium" != "no"], [
+    PKG_CHECK_MODULES(LIBSODIUM, libsodium, [
+      OLD_LDFLAGS="$LDFLAGS"
+      LDFLAGS="$LDFLAGS $LIBSODIUM_LIBS"
+      AC_CHECK_FUNC([crypto_pwhash_str_verify], [
+        have_sodium=yes
+        AC_DEFINE(HAVE_LIBSODIUM, [1], [Define if you have libsodium])
+      ])
+      LDFLAGS="$OLD_LDFLAGS"
+    ], [have_sodium=no])
+    AS_IF([test "$want_sodium" = "yes" && test "$have_sodium" != "yes"] , [
       AC_ERROR([Can't build with libsodium: not found])
-    fi
-  fi
+    ])
+  ])
   AM_CONDITIONAL(BUILD_LIBSODIUM, test "$have_sodium" = "yes")
 ])
