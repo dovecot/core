@@ -734,6 +734,7 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 	struct http_client_peer_pool *ppool = peer->ppool;
 	struct http_client_connection *const *idle_conns;
 	unsigned int i, idle_count;
+	bool claimed_existing = FALSE;
 
 	if (count == 0)
 		return;
@@ -741,6 +742,7 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 	idle_conns = array_get(&ppool->idle_conns, &idle_count);
 	for (i = 0; i < count && i < idle_count; i++) {
 		http_client_connection_claim_idle(idle_conns[i], peer);
+		claimed_existing = TRUE;
 
 		e_debug(peer->event,
 			"Claimed idle connection (connections=%u)",
@@ -752,6 +754,9 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 			"Making new connection %u of %u", i+1, count);
 		(void)http_client_connection_create(peer);
 	}
+
+	if (claimed_existing)
+		http_client_peer_connection_success(peer);
 }
 
 static void
