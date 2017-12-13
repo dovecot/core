@@ -138,6 +138,7 @@ struct mailbox_list_index_iterate_context {
 	struct mailbox_list_index_node *next_node;
 
 	bool failed:1;
+	bool prefix_inbox_list:1;
 };
 
 extern MODULE_CONTEXT_DEFINE(mailbox_list_index_module,
