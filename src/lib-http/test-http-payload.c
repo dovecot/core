@@ -1644,7 +1644,7 @@ static void test_download_client_nested_ioloop(void)
 
 static void test_echo_client_shared(void)
 {
-	test_begin("http payload echo (server_non-blocking; client shared)");
+	test_begin("http payload download (server non-blocking; client shared)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	read_server_partial = 0;
@@ -1658,7 +1658,7 @@ static void test_echo_client_shared(void)
 	test_run_parallel(test_client_download);
 	test_end();
 
-	test_begin("http payload echo (server blocking; client shared)");
+	test_begin("http payload download (server blocking; client shared)");
 	blocking = TRUE;
 	request_100_continue = FALSE;
 	read_server_partial = 0;
@@ -1669,6 +1669,33 @@ static void test_echo_client_shared(void)
 	test_run_pipeline(test_client_download);
 	parallel_clients = 4;
 	test_run_parallel(test_client_download);
+	test_end();
+
+	test_begin("http payload echo (server non-blocking; client shared)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	parallel_clients = 4;
+	test_run_sequential(test_client_echo);
+	parallel_clients = 4;
+	test_run_pipeline(test_client_echo);
+	parallel_clients = 4;
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (server blocking; client shared)");
+	blocking = TRUE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	parallel_clients = 4;
+	test_run_sequential(test_client_echo);
+	parallel_clients = 4;
+	test_run_pipeline(test_client_echo);
+	parallel_clients = 4;
+	test_run_parallel(test_client_echo);
 	test_end();
 }
 
