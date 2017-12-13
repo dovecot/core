@@ -280,11 +280,15 @@ static void stats_client_wait_handshake(struct stats_client *client)
 {
 	struct ioloop *prev_ioloop = current_ioloop;
 
+	i_assert(client->to_reconnect == NULL);
+
 	client->ioloop = io_loop_create();
 	connection_switch_ioloop(&client->conn);
 	io_loop_run(client->ioloop);
 	io_loop_set_current(prev_ioloop);
 	connection_switch_ioloop(&client->conn);
+	if (client->to_reconnect != NULL)
+		client->to_reconnect = io_loop_move_timeout(&client->to_reconnect);
 	io_loop_set_current(client->ioloop);
 	io_loop_destroy(&client->ioloop);
 }
