@@ -1525,7 +1525,7 @@ static void test_echo_server_blocking_sync(void)
 	request_100_continue = TRUE;
 	read_server_partial = 0;
 	client_ioloop_nesting = 0;
-  test_run_sequential(test_client_echo);
+	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
@@ -1724,7 +1724,7 @@ int main(int argc, char *argv[])
 	(void)signal(SIGSEGV, test_signal_handler);
 	(void)signal(SIGABRT, test_signal_handler);
 
-  while ((c = getopt(argc, argv, "D")) > 0) {
+	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
 		case 'D':
 			debug = TRUE;
@@ -1732,7 +1732,7 @@ int main(int argc, char *argv[])
 		default:
 			i_fatal("Usage: %s [-D]", argv[0]);
 		}
-  }
+	}
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
