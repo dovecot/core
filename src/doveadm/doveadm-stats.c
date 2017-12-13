@@ -21,7 +21,7 @@ static void dump_timing(const char *const **args, unsigned int fields_count)
 	*args += args_count;
 }
 
-static void stats_dump(const char *path, const char *const *fields)
+static void stats_dump(const char *path, const char *const *fields, bool reset)
 {
 	struct istream *input;
 	string_t *cmd = t_str_new(128);
@@ -31,7 +31,8 @@ static void stats_dump(const char *path, const char *const *fields)
 
 	fd = doveadm_connect(path);
 	net_set_nonblock(fd, FALSE);
-	str_append(cmd, "VERSION\tstats-reader-client\t2\t0\nDUMP");
+	str_append(cmd, "VERSION\tstats-reader-client\t2\t0\n");
+	str_append(cmd, reset ? "DUMP-RESET" : "DUMP");
 	for (i = 0; i < fields_count; i++) {
 		str_append_c(cmd, '\t');
 		str_append_tabescaped(cmd, fields[i]);
@@ -81,23 +82,27 @@ static void
 doveadm_cmd_stats_dump(struct doveadm_cmd_context *cctx)
 {
 	const char *path;
+	bool reset;
 
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &path))
 		path = t_strconcat(doveadm_settings->base_dir, "/stats-reader", NULL);
+	if (!doveadm_cmd_param_bool(cctx, "reset", &reset))
+		reset = FALSE;
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 	const char *const fields[] = {
 		"count", "sum", "min", "max", "avg", "median", "%95", NULL
 	};
-	stats_dump(path, fields);
+	stats_dump(path, fields, reset);
 	return;
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2 = {
 	.cmd = doveadm_cmd_stats_dump,
 	.name = "stats dump",
-	.usage = "[-s <stats socket path>]",
+	.usage = "[-s <stats socket path>] [-r]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('r', "reset", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAMS_END
 };
