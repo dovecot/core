@@ -133,6 +133,10 @@ AC_DEFUN([DOVECOT_SSL], [
         AC_DEFINE(HAVE_SSL_CTX_SET_MIN_PROTO_VERSION,, [Define if you have SSL_CTX_set_min_proto_version])
       fi
 
+      AC_CHECK_LIB(ssl, SSL_CIPHER_get_kx_nid, [
+        AC_DEFINE(HAVE_SSL_CIPHER_get_kx_nid,, [Define if you have SSL_CIPHER_get_kx_nid])
+      ],, $SSL_LIBS)
+
       AC_CHECK_LIB(ssl, ERR_remove_thread_state, [
         AC_DEFINE(HAVE_OPENSSL_ERR_REMOVE_THREAD_STATE,, [Define if you have ERR_remove_thread_state])
       ],, $SSL_LIBS)
