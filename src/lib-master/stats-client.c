@@ -26,17 +26,31 @@ static struct connection_list *stats_clients;
 static void stats_client_connect(struct stats_client *client);
 
 static int
+client_handshake_filter(const char *const *args, struct event_filter **filter_r,
+			const char **error_r)
+{
+	if (strcmp(args[0], "FILTER") != 0) {
+		*error_r = "Expected FILTER";
+		return -1;
+	}
+
+	*filter_r = event_filter_create();
+	if (!event_filter_import_unescaped(*filter_r, args+1, error_r)) {
+		event_filter_unref(filter_r);
+		return -1;
+	}
+	return 0;
+}
+
+static int
 stats_client_handshake(struct stats_client *client, const char *const *args)
 {
 	struct event_filter *filter;
 	const char *error;
 
-	filter = event_filter_create();
-	if (strcmp(args[0], "FILTER") != 0 ||
-	    !event_filter_import_unescaped(filter, args+1, &error)) {
+	if (client_handshake_filter(args, &filter, &error) < 0) {
 		i_error("stats: Received invalid handshake: %s (input: %s)",
 			error, t_strarray_join(args, "\t"));
-		event_filter_unref(&filter);
 		return -1;
 	}
 	client->handshaked = TRUE;
