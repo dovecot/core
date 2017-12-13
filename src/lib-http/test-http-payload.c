@@ -24,6 +24,8 @@
 #include <unistd.h>
 #include <dirent.h>
 
+#define CLIENT_PROGRESS_TIMEOUT     10
+
 enum payload_handling {
 	PAYLOAD_HANDLING_LOW_LEVEL,
 	PAYLOAD_HANDLING_FORWARD,
@@ -31,6 +33,7 @@ enum payload_handling {
 };
 
 static bool debug = FALSE;
+static const char *failure = NULL;
 
 static bool blocking = FALSE;
 static enum payload_handling server_payload_handling =
@@ -633,6 +636,7 @@ struct test_client_request {
 static struct http_client **http_clients;
 static struct test_client_request *client_requests;
 static unsigned int client_files_first, client_files_last;
+struct timeout *to_client_progress = NULL;
 
 static struct test_client_request *
 test_client_request_new(void)
@@ -657,9 +661,11 @@ test_client_request_destroy(struct test_client_request *tcreq)
 }
 
 static void
-test_client_requests_switch_ioloop(void)
+test_client_switch_ioloop(void)
 {
 	struct test_client_request *tcreq;
+
+	to_client_progress = io_loop_move_timeout(&to_client_progress);
 
 	for (tcreq = client_requests; tcreq != NULL;
 		tcreq = tcreq->next) {
@@ -671,10 +677,22 @@ test_client_requests_switch_ioloop(void)
 }
 
 static void
+test_client_progress_timeout(void *context ATTR_UNUSED)
+{
+	/* Terminate test due to lack of progress */
+	failure = "Test is hanging";
+	timeout_remove(&to_client_progress);
+	io_loop_stop(current_ioloop);
+}
+
+static void
 test_client_create_clients(const struct http_client_settings *client_set)
 {
 	struct http_client_context *http_context;
 	unsigned int i;
+
+	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
+		test_client_progress_timeout, NULL);
 
 	http_context = http_client_context_create(client_set);
 
@@ -715,6 +733,8 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 	size_t psize, fsize, pleft;
 	unsigned int files_idx = tcreq->files_idx;
 	off_t ret;
+
+	timeout_reset(to_client_progress);
 
 	/* read payload */
 	while ((ret=i_stream_read_more(payload, &pdata, &psize)) > 0) {
@@ -795,6 +815,8 @@ test_client_download_response(const struct http_response *resp,
 			"got response for [%u]",
 			tcreq->files_idx);
 	}
+
+	timeout_reset(to_client_progress);
 
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tcreq->files_idx < count);
@@ -949,6 +971,8 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 	unsigned int files_idx = tcreq->files_idx;
 	off_t ret;
 
+	timeout_reset(to_client_progress);
+
 	/* read payload */
 	while ((ret=i_stream_read_more(payload, &pdata, &psize)) > 0) {
 		if (debug) {
@@ -1027,6 +1051,8 @@ test_client_echo_response(const struct http_response *resp,
 			"got response for [%u]",
 			tcreq->files_idx);
 	}
+
+	timeout_reset(to_client_progress);
 
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tcreq->files_idx < count);
@@ -1198,14 +1224,14 @@ static void test_client_echo_continue(void)
 		ioloop_nested = io_loop_create();
 		for (i = 0; i < parallel_clients; i++)
 			http_client_switch_ioloop(http_clients[i]);
-		test_client_requests_switch_ioloop();
+		test_client_switch_ioloop();
 
 		io_loop_run(ioloop_nested);
 
 		io_loop_set_current(prev_ioloop);
 		for (i = 0; i < parallel_clients; i++)
 			http_client_switch_ioloop(http_clients[i]);
-		test_client_requests_switch_ioloop();
+		test_client_switch_ioloop();
 		io_loop_set_current(ioloop_nested);
 		io_loop_destroy(&ioloop_nested);
 		ioloop_nested = NULL;
@@ -1247,6 +1273,8 @@ static void test_client_deinit(void)
 	i_free(http_clients);
 
 	parallel_clients = 1;
+
+	timeout_remove(&to_client_progress);
 }
 
 /*
@@ -1279,6 +1307,7 @@ static void test_run_client_server(
 {
 	struct ioloop *ioloop;
 
+	failure = NULL;
 	test_open_server_fd();
 
 	if ((server_pid = fork()) == (pid_t)-1)
@@ -1341,7 +1370,7 @@ static void test_run_sequential(
 		(&http_client_set, &http_server_set, client_init);
 	test_files_deinit();
 
-	test_out("sequential", TRUE);
+	test_out_reason("sequential", (failure == NULL), failure);
 }
 
 static void test_run_pipeline(
@@ -1372,7 +1401,7 @@ static void test_run_pipeline(
 		(&http_client_set, &http_server_set, client_init);
 	test_files_deinit();
 
-	test_out("pipeline", TRUE);
+	test_out_reason("pipeline", (failure == NULL), failure);
 }
 
 static void test_run_parallel(
@@ -1403,7 +1432,7 @@ static void test_run_parallel(
 		(&http_client_set, &http_server_set, client_init);
 	test_files_deinit();
 
-	test_out("parallel", TRUE);
+	test_out_reason("parallel", (failure == NULL), failure);
 }
 
 static void test_download_server_nonblocking(void)
