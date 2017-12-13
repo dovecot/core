@@ -244,8 +244,10 @@ writer_client_input_args(struct connection *conn, const char *const *args)
 		ret = writer_client_input_event_end(client, args+1, &error);
 	else if (strcmp(cmd, "CATEGORY") == 0)
 		ret = writer_client_input_category(client, args+1, &error);
-	else
+	else {
+		error = "Unknown command";
 		ret = FALSE;
+	}
 	if (!ret) {
 		i_error("Client sent invalid input for %s: %s (input: %s)",
 			cmd, error, t_strarray_join(args, "\t"));
