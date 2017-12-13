@@ -1233,7 +1233,8 @@ bool client_handle_input(struct client *client)
 {
 	bool ret, remove_io, handled_commands = FALSE;
 
-	i_assert(o_stream_is_corked(client->output));
+	i_assert(o_stream_is_corked(client->output) ||
+		 client->output->stream_errno != 0);
 	i_assert(!client->disconnected);
 
 	client->handling_input = TRUE;
