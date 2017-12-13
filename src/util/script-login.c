@@ -26,6 +26,7 @@ static bool drop_to_userdb_privileges = FALSE;
 static void client_connected(struct master_service_connection *conn)
 {
 	enum mail_storage_service_flags flags =
+		MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS;
 	string_t *instr, *keys;
 	const char *const *args, *key, *value, *error, *version_line, *data_line;

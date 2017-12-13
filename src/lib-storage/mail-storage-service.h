@@ -10,8 +10,8 @@ struct setting_parser_info;
 struct mail_storage_service_user;
 
 enum mail_storage_service_flags {
-	/* Fail if we don't drop root privileges */
-	MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT		= 0x01,
+	/* Allow not dropping root privileges */
+	MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT		= 0x01,
 	/* Lookup user from userdb */
 	MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP		= 0x02,
 	/* Force mail_debug=yes */

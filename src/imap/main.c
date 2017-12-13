@@ -449,7 +449,6 @@ int main(int argc, char *argv[])
 	} else {
 		service_flags |= MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 		storage_service_flags |=
-			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
 			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES;
 
 		/*

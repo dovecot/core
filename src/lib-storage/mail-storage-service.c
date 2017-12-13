@@ -1467,7 +1467,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 	const char *error;
 	size_t len;
 	bool allow_root =
-		(user->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) == 0;
+		(user->flags & MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT) != 0;
 	bool temp_priv_drop =
 		(user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
 	bool use_chroot;

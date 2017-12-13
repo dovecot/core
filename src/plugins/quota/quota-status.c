@@ -224,6 +224,7 @@ static void main_init(void)
 
 	clients = connection_list_init(&client_set, &client_vfuncs);
 	storage_service = mail_storage_service_init(master_service, set_roots,
+		MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP |
 		MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS |
