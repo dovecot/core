@@ -190,4 +190,16 @@ void mail_namespace_finish_list_init(struct mail_namespace *ns,
    type=public namespace "wrong"). */
 bool mail_namespace_is_shared_user_root(struct mail_namespace *ns);
 
+/* Returns TRUE if namespace includes INBOX that should be \Noinferiors.
+   This happens when the namespace has a prefix, which is not empty and not
+   "INBOX". This happens, because if storage_name=INBOX/foo it would be
+   converted to vname=prefix/INBOX/foo. */
+static inline bool
+mail_namespace_is_inbox_noinferiors(struct mail_namespace *ns)
+{
+	return (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+		ns->prefix_len > 0 &&
+		strncmp(ns->prefix, "INBOX", ns->prefix_len-1) != 0;
+}
+
 #endif
