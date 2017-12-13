@@ -225,9 +225,12 @@ static void pool_allocfree_clear(pool_t pool)
 {
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
+	struct pool_block *block, *next;
 
-	while(apool->blocks != NULL)
-		pool_allocfree_free(pool, apool->blocks->block);
+	for (block = apool->blocks; block != NULL; block = next) {
+		next = block->next;
+		pool_allocfree_free(pool, block->block);
+	}
 	i_assert(apool->total_alloc_used == 0 && apool->total_alloc_count == 0);
 }
 
