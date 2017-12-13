@@ -567,6 +567,10 @@ static void inbox_flags_set(struct fs_list_iterate_context *ctx,
 	/* INBOX is always selectable */
 	ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT);
 
+	if (mail_namespace_is_inbox_noinferiors(ctx->info.ns)) {
+		ctx->info.flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
+		ctx->info.flags |= MAILBOX_NOINFERIORS;
+	}
 	if (*ns->prefix != '\0' &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* we're listing INBOX for a namespace with a prefix.
@@ -584,9 +588,6 @@ static void inbox_flags_set(struct fs_list_iterate_context *ctx,
 			   INBOX. we're now doing a LIST INBOX/%, so we'll need
 			   to create a fake \NoSelect INBOX/INBOX */
 			ctx->list_inbox_inbox = TRUE;
-		} else {
-			ctx->info.flags &= ~MAILBOX_CHILDREN;
-			ctx->info.flags |= MAILBOX_NOINFERIORS;
 		}
 	}
 }
