@@ -593,7 +593,8 @@ void mailbox_list_index_backend_sync_init(struct mailbox *box,
 		enum mail_storage_list_index_rebuild_reason reason =
 			MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_FORCE_RESYNC;
 
-		if (box->storage->v.list_index_rebuild(box->storage, reason) < 0)
+		if (box->storage->v.list_index_rebuild != NULL &&
+		    box->storage->v.list_index_rebuild(box->storage, reason) < 0)
 			ilist->force_resync_failed = TRUE;
 		/* try to rebuild list index only once - even if it failed */
 		ilist->force_resynced = TRUE;
