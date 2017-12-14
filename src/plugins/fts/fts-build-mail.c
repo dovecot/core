@@ -615,12 +615,16 @@ int fts_build_mail(struct fts_backend_update_context *update_ctx,
 	bool may_need_retry;
 
 	T_BEGIN {
-		for (;;) {
-			ret = fts_build_mail_real(update_ctx, mail,
-						  &retriable_err_msg, &may_need_retry);
-			if (!may_need_retry || (--attempts == 0)) {
-				if (may_need_retry)
-					i_info("%s - ignoring", retriable_err_msg);
+		while ((ret = fts_build_mail_real(update_ctx, mail,
+						  &retriable_err_msg,
+						  &may_need_retry)) < 0 &&
+		       may_need_retry) {
+			if (--attempts == 0) {
+				/* Log this as info instead of as error,
+				   because e.g. Tika doesn't differentiate
+				   between temporary errors and invalid
+				   document input. */
+				i_info("%s - ignoring", retriable_err_msg);
 				break;
 			}
 		}
