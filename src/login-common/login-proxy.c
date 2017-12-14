@@ -698,6 +698,11 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	   unexpected hangs when login process handles multiple clients. */
 	ssl_set.ca_file = ssl_set.ca_dir = NULL;
 
+	if (proxy->client->set->ssl_client_cert[0] != '\0')
+		ssl_set.cert.cert = proxy->client->set->ssl_client_cert;
+	if (proxy->client->set->ssl_client_key[0] != '\0')
+		ssl_set.cert.key = proxy->client->set->ssl_client_key;
+
 	io_remove(&proxy->server_io);
 	if (ssl_iostream_client_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
 		client_log_err(proxy->client, t_strdup_printf(
