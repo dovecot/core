@@ -121,6 +121,19 @@ struct event *event_ref(struct event *event)
 	return event;
 }
 
+static void event_send_free(struct event *event, ...)
+{
+	va_list args;
+
+	/* the args are empty and not used for anything, but there doesn't seem
+	   to be any nice and standard way of passing an initialized va_list
+	   as a parameter without va_start(). */
+	va_start(args, event);
+	(void)event_send_callbacks(event, EVENT_CALLBACK_TYPE_FREE,
+				   NULL, NULL, args);
+	va_end(args);
+}
+
 void event_unref(struct event **_event)
 {
 	struct event *event = *_event;
@@ -134,11 +147,8 @@ void event_unref(struct event **_event)
 		return;
 	i_assert(event != current_global_event);
 
-	if (event->call_free) {
-		va_list empty;
-		(void)event_send_callbacks(event, EVENT_CALLBACK_TYPE_FREE,
-					   NULL, NULL, empty);
-	}
+	if (event->call_free)
+		event_send_free(event);
 
 	if (last_passthrough_event() == event)
 		event_last_passthrough = NULL;
