@@ -99,9 +99,15 @@ int fts_parser_deinit(struct fts_parser **_parser, const char **retriable_err_ms
 	*_parser = NULL;
 
 	buffer_free(&parser->utf8_output);
-	if (parser->v.deinit != NULL)
-		ret = parser->v.deinit(parser, retriable_err_msg_r);
-	else
+	if (parser->v.deinit != NULL) {
+		const char *error = NULL;
+		ret = parser->v.deinit(parser, &error);
+		if (ret == 0) {
+			i_assert(error != NULL);
+			if (retriable_err_msg_r != NULL)
+				*retriable_err_msg_r = error;
+		}
+	} else
 		i_free(parser);
 	return ret;
 }
