@@ -310,7 +310,7 @@ mailbox_list_index_sync_list(struct mailbox_list_index_sync_context *sync_ctx)
 			  MAILBOX_LIST_ITER_NO_AUTO_BOXES);
 
 	sync_ctx->syncing_list = TRUE;
-	while ((info = sync_ctx->ilist->module_ctx.super.iter_next(iter)) != NULL) {
+	while ((info = sync_ctx->ilist->module_ctx.super.iter_next(iter)) != NULL) T_BEGIN {
 		flags = 0;
 		if ((info->flags & MAILBOX_NONEXISTENT) != 0)
 			flags |= MAILBOX_LIST_INDEX_FLAG_NONEXISTENT;
@@ -319,18 +319,15 @@ mailbox_list_index_sync_list(struct mailbox_list_index_sync_context *sync_ctx)
 		if ((info->flags & MAILBOX_NOINFERIORS) != 0)
 			flags |= MAILBOX_LIST_INDEX_FLAG_NOINFERIORS;
 
-		T_BEGIN {
-			const char *name =
-				mailbox_list_get_storage_name(info->ns->list,
-							      info->vname);
-			seq = mailbox_list_index_sync_name(sync_ctx, name,
-							   &node, &created);
-		} T_END;
+		const char *name = mailbox_list_get_storage_name(info->ns->list,
+								 info->vname);
+		seq = mailbox_list_index_sync_name(sync_ctx, name,
+						   &node, &created);
 
 		node->flags = flags | MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
 		mail_index_update_flags(sync_ctx->trans, seq,
 					MODIFY_REPLACE, (enum mail_flags)flags);
-	}
+	} T_END;
 	sync_ctx->syncing_list = FALSE;
 
 	if (sync_ctx->ilist->module_ctx.super.iter_deinit(iter) < 0)
