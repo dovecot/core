@@ -194,9 +194,7 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 	if (ret < 0) {
 		const char *separator =
 			*error1 != '\0' && *error2 != '\0' ? " and " : "";
-		*error_r = t_strdup_printf(
-			"quota-count failed: %s%s%s",
-			error1, separator, error2);
+		*error_r = t_strconcat(error1, separator, error2, NULL);
 	}
 	root->recounting = FALSE;
 	return ret;
