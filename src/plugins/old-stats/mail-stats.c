@@ -152,17 +152,17 @@ const struct stats_vfuncs mail_stats_vfuncs = {
 };
 
 /* for the stats_mail plugin: */
-void stats_mail_init(void);
-void stats_mail_deinit(void);
+void old_stats_mail_init(void);
+void old_stats_mail_deinit(void);
 
 static struct stats_item *mail_stats_item;
 
-void stats_mail_init(void)
+void old_stats_mail_init(void)
 {
 	mail_stats_item = stats_register(&mail_stats_vfuncs);
 }
 
-void stats_mail_deinit(void)
+void old_stats_mail_deinit(void)
 {
 	stats_unregister(&mail_stats_item);
 }
