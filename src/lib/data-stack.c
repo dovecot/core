@@ -18,7 +18,6 @@
 #  define CLEAR_CHR 0xD5               /* D5 is mnemonic for "Data 5tack" */
 #  define SENTRY_COUNT (4*8)
 #  define BLOCK_CANARY ((void *)0xBADBADD5BADBADD5)      /* contains 'D5' */
-#  define BLOCK_CANARY_CHECK(block) block_canary_check(block)
 #  define ALLOC_SIZE(size) (MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(size + SENTRY_COUNT))
 #else
 #  define CLEAR_CHR 0
