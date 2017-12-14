@@ -38,6 +38,9 @@ struct fts_parser *fts_parser_text_init(void);
    finished, it's still called with incoming size=0 while the parser increases
    it to non-zero. */
 void fts_parser_more(struct fts_parser *parser, struct message_block *block);
+/* Returns 1 if ok, 0 if the parsing should be retried, -1 if error.
+   If 0 is returned, the retriable_err_msg_r is set, which should be logged
+   as error if no retrying is performed. */
 int fts_parser_deinit(struct fts_parser **parser, const char **retriable_err_msg_r);
 
 void fts_parsers_unload(void);
