@@ -458,13 +458,13 @@ static struct mail_storage_hooks stats_mail_storage_hooks = {
 	.mail_user_created = stats_user_created
 };
 
-void stats_plugin_init(struct module *module)
+void old_stats_plugin_init(struct module *module)
 {
 	mail_stats_item = stats_register(&mail_stats_vfuncs);
 	mail_storage_hooks_add(module, &stats_mail_storage_hooks);
 }
 
-void stats_plugin_deinit(void)
+void old_stats_plugin_deinit(void)
 {
 	if (global_stats_conn != NULL)
 		stats_connection_unref(&global_stats_conn);
