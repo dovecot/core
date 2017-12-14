@@ -393,7 +393,7 @@ http_client_host_lookup_done(
 		requests += http_client_queue_host_lookup_done(*queue_idx);
 	}
 
-	if (requests == 0 && client->ioloop != NULL)
+	if (requests == 0 && client->waiting)
 		io_loop_stop(client->ioloop);
 }
 

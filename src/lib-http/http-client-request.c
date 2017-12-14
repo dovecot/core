@@ -628,7 +628,7 @@ void http_client_request_get_stats(struct http_client_request *req,
 			(ioloop_global_wait_usecs - req->sent_global_ioloop_usecs + 999) / 1000;
 
 		/* time spent in the http-client's own ioloop */
-		if (client->ioloop != NULL) {
+		if (client->waiting) {
 			wait_usecs = io_wait_timer_get_usecs(req->conn->io_wait_timer);
 			i_assert(wait_usecs >= req->sent_http_ioloop_usecs);
 			stats_r->http_ioloop_msecs = (unsigned int)

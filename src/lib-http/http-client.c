@@ -282,8 +282,6 @@ void http_client_wait(struct http_client *client)
 {
 	struct ioloop *prev_ioloop, *client_ioloop, *prev_client_ioloop;
 
-	i_assert(client->ioloop == NULL);
-
 	if (client->requests_count == 0)
 		return;
 

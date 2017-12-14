@@ -135,7 +135,7 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 	}	
 	array_clear(&conn->request_wait_list);
 
-	if (client != NULL && client->ioloop != NULL)
+	if (client != NULL && client->waiting)
 		io_loop_stop(client->ioloop);
 
 	http_client_connection_close(_conn);
@@ -437,7 +437,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		i_assert(peer != NULL);
 		client = peer->client;
 
-		if (client->ioloop != NULL)
+		if (client->waiting)
 			io_loop_stop(client->ioloop);
 
 		count = array_count(&peer->conns);
