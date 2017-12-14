@@ -1083,7 +1083,7 @@ bool client_read(struct client *client)
 		return FALSE;
 	case 0:
 		/* nothing new read */
-		return TRUE;
+		return i_stream_get_data_size(client->input) > 0;
 	default:
 		/* something was read */
 		return TRUE;
