@@ -321,12 +321,18 @@ mailbox_list_index_sync_list(struct mailbox_list_index_sync_context *sync_ctx)
 
 		const char *name = mailbox_list_get_storage_name(info->ns->list,
 								 info->vname);
-		seq = mailbox_list_index_sync_name(sync_ctx, name,
-						   &node, &created);
-
-		node->flags = flags | MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
-		mail_index_update_flags(sync_ctx->trans, seq,
-					MODIFY_REPLACE, (enum mail_flags)flags);
+		if (strcmp(name, "INBOX") == 0 &&
+		    strcmp(info->vname, "INBOX") != 0 &&
+		    (info->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+			/* prefix/INBOX - don't override INBOX with this */
+		} else {
+			seq = mailbox_list_index_sync_name(sync_ctx, name,
+							   &node, &created);
+			node->flags = flags | MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
+			mail_index_update_flags(sync_ctx->trans, seq,
+						MODIFY_REPLACE,
+						(enum mail_flags)flags);
+		}
 	} T_END;
 	sync_ctx->syncing_list = FALSE;
 
