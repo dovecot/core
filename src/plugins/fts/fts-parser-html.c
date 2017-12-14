@@ -45,16 +45,15 @@ static void fts_parser_html_more(struct fts_parser *_parser,
 	block->size = parser->output->used;
 }
 
-static int fts_parser_html_deinit(struct fts_parser *_parser, const char **retriable_err_msg_r)
+static int fts_parser_html_deinit(struct fts_parser *_parser,
+				  const char **retriable_err_msg_r ATTR_UNUSED)
 {
 	struct html_fts_parser *parser = (struct html_fts_parser *)_parser;
-	if (retriable_err_msg_r != NULL)
-		*retriable_err_msg_r = NULL;
 
 	mail_html2text_deinit(&parser->html2text);
 	buffer_free(&parser->output);
 	i_free(parser);
-	return 0;
+	return 1;
 }
 
 struct fts_parser_vfuncs fts_parser_html = {
