@@ -1308,8 +1308,11 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 	const char *error;
 	enum quota_get_result error_res;
 
-	if (quota_transaction_set_limits(ctx, &error_res, error_r) < 0)
+	if (quota_transaction_set_limits(ctx, &error_res, error_r) < 0) {
+		if (error_res == QUOTA_GET_RESULT_BACKGROUND_CALC)
+			return QUOTA_ALLOC_RESULT_BACKGROUND_CALC;
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
+	}
 
 	if (ctx->no_quota_updates)
 		return QUOTA_ALLOC_RESULT_OK;
@@ -1351,8 +1354,11 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 	}
 
 	enum quota_get_result error_res;
-	if (quota_transaction_set_limits(ctx, &error_res, error_r) < 0)
+	if (quota_transaction_set_limits(ctx, &error_res, error_r) < 0) {
+		if (error_res == QUOTA_GET_RESULT_BACKGROUND_CALC)
+			return QUOTA_ALLOC_RESULT_BACKGROUND_CALC;
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
+	}
 
 	uoff_t max_size = ctx->quota->set->max_mail_size;
 	if (max_size > 0 && size > max_size) {

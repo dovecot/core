@@ -254,6 +254,8 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 		   currently over quota */
 		quota_alloc(qt, ctx->dest_mail);
 		return 0;
+	} else if (qt->failed) {
+		return 0;
 	}
 
 	const char *error;
@@ -268,6 +270,7 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 	case QUOTA_ALLOC_RESULT_BACKGROUND_CALC:
 		/* Could not determine if there is enough space due to ongoing
 		   background quota calculation, allow saving anyway. */
+		i_warning("quota: Failed to check if user is under quota: %s - saving mail anyway", error);
 		return 0;
 	default:
 		quota_set_storage_error(qt, t->box, ret, error);
@@ -289,9 +292,12 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 	   deadlocks with backends that lock mails for expunging/copying. */
 	enum quota_get_result error_res;
 	const char *error;
-	if (quota_transaction_set_limits(qt, &error_res, &error) < 0 &&
-	    error_res != QUOTA_GET_RESULT_BACKGROUND_CALC)
-		i_error("quota: %s", error);
+	if (quota_transaction_set_limits(qt, &error_res, &error) < 0) {
+		if (error_res == QUOTA_GET_RESULT_BACKGROUND_CALC)
+			i_warning("quota: %s - copying mail anyway", error);
+		else
+			i_error("quota: %s - copying mail anyway", error);
+	}
 
 	if (qbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
@@ -313,7 +319,8 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	const char *error;
 	uoff_t size;
 
-	if (!ctx->moving && i_stream_get_size(input, TRUE, &size) > 0) {
+	if (!ctx->moving && i_stream_get_size(input, TRUE, &size) > 0 &&
+	    !qt->failed) {
 		/* Input size is known, check for quota immediately. This
 		   check isn't perfect, especially because input stream's
 		   linefeeds may contain CR+LFs while physical message would
@@ -337,6 +344,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 			/* Could not determine if there is enough space due to
 			 * ongoing background quota calculation, allow saving
 			 * anyway. */
+			i_warning("quota: Failed to check if user is under quota: %s - saving mail anyway", error);
 			break;
 		default:
 			quota_set_storage_error(qt, t->box, qret, error);
@@ -350,9 +358,12 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	/* get quota before copying any mails. this avoids dovecot-vsize.lock
 	   deadlocks with backends that lock mails for expunging/copying. */
 	enum quota_get_result error_res;
-	if (quota_transaction_set_limits(qt, &error_res, &error) < 0 &&
-	    error_res != QUOTA_GET_RESULT_BACKGROUND_CALC)
-		i_error("quota: %s", error);
+	if (quota_transaction_set_limits(qt, &error_res, &error) < 0) {
+		if (error_res == QUOTA_GET_RESULT_BACKGROUND_CALC)
+			i_warning("quota: %s - saving mail anyway", error);
+		else
+			i_error("quota: %s - saving mail anyway", error);
+	}
 
 	return qbox->module_ctx.super.save_begin(ctx, input);
 }
