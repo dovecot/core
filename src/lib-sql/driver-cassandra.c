@@ -2016,9 +2016,10 @@ driver_cassandra_update_stmt(struct sql_transaction_context *_ctx,
 	}
 	if (stmt->prep != NULL)
 		ctx->stmt = stmt;
-	else
+	else {
 		ctx->query = i_strdup(sql_statement_get_query(_stmt));
-	pool_unref(&_stmt->pool);
+		pool_unref(&_stmt->pool);
+	}
 }
 
 const struct sql_db driver_cassandra_db = {
