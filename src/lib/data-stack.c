@@ -201,10 +201,9 @@ data_stack_frame_t t_push_named(const char *format, ...)
 static void block_canary_check(struct stack_block *block)
 {
 	if (block->canary != BLOCK_CANARY) {
-		/* make sure i_panic() won't try to allocate from the
-		   same block */
-		current_block = mem_block_alloc(INITIAL_STACK_SIZE);
-		current_block->left = current_block->size;
+		/* Make sure i_panic() won't try to allocate from the
+		   same block by falling back onto our emergency block. */
+		current_block = &outofmem_area.block;
 		i_panic("Corrupted data stack canary");
 	}
 }
@@ -597,6 +596,7 @@ void data_stack_init(void)
 
 	outofmem_area.block.size = outofmem_area.block.left =
 		sizeof(outofmem_area) - sizeof(outofmem_area.block);
+	outofmem_area.block.canary = BLOCK_CANARY;
 
 	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
 	current_block->left = current_block->size;
