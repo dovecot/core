@@ -436,7 +436,7 @@ static int fts_build_body_block(struct fts_mail_build_context *ctx,
 }
 
 static int fts_body_parser_finish(struct fts_mail_build_context *ctx,
-				  const char **error_msg_r,
+				  const char **retriable_err_msg_r,
 				  bool *may_need_retry_r)
 {
 	struct message_block block;
@@ -453,7 +453,7 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx,
 		}
 	} while (block.size > 0);
 
-	deinit_ret = fts_parser_deinit(&ctx->body_parser, error_msg_r);
+	deinit_ret = fts_parser_deinit(&ctx->body_parser, retriable_err_msg_r);
 	if (deinit_ret == 0)
 		*may_need_retry_r = TRUE;
 	else if (deinit_ret < 0)
@@ -464,7 +464,7 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx,
 static int
 fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		    struct mail *mail,
-		    const char **error_msg,
+		    const char **retriable_err_msg_r,
 		    bool *may_need_retry_r)
 {
 	struct fts_mail_build_context ctx;
@@ -518,7 +518,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			/* body part changed. we're now parsing the end of
 			   boundary, possibly followed by message epilogue */
 			if (ctx.body_parser != NULL) {
-				if (fts_body_parser_finish(&ctx, error_msg, may_need_retry_r) < 0) {
+				if (fts_body_parser_finish(&ctx, retriable_err_msg_r,
+							   may_need_retry_r) < 0) {
 					ret = -1;
 					break;
 				}
@@ -575,7 +576,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	}
 	if (ctx.body_parser != NULL) {
 		if (ret == 0)
-			ret = fts_body_parser_finish(&ctx, error_msg, may_need_retry_r);
+			ret = fts_body_parser_finish(&ctx, retriable_err_msg_r,
+						     may_need_retry_r);
 		else
 			(void)fts_parser_deinit(&ctx.body_parser, NULL);
 	}
@@ -600,15 +602,16 @@ int fts_build_mail(struct fts_backend_update_context *update_ctx,
 	int ret;
 	/* Number of attempts to be taken if retry is needed */
 	unsigned int attempts = 2;
-	const char *error_msg;
+	const char *retriable_err_msg;
 	bool may_need_retry;
 
 	T_BEGIN {
 		for (;;) {
-			ret = fts_build_mail_real(update_ctx, mail, &error_msg, &may_need_retry);
+			ret = fts_build_mail_real(update_ctx, mail,
+						  &retriable_err_msg, &may_need_retry);
 			if (!may_need_retry || (--attempts == 0)) {
 				if (may_need_retry)
-					i_info("%s - ignoring", error_msg);
+					i_info("%s - ignoring", retriable_err_msg);
 				break;
 			}
 		}
