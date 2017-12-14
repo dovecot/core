@@ -409,7 +409,7 @@ mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 	const char *path, *error;
 	int ret;
 
-	if (ctx->mail_from != NULL)
+	if (!smtp_address_isnull(ctx->mail_from))
 		return ctx->mail_from;
 
 	if ((ret=mail_get_first_header(ctx->src_mail,
