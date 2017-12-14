@@ -454,9 +454,6 @@ int main(int argc, char *argv[])
 			user_source);
 	}
 
-	if (mail_from == NULL)
-		mail_from = DEFAULT_ENVELOPE_SENDER;
-
 	ctx.src_mail = lda_raw_mail_open(&ctx, path);
 	ctx.mail_from = mail_from;
 	ctx.rcpt_to = final_rcpt_to;
