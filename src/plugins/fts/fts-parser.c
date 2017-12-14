@@ -94,7 +94,7 @@ void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 int fts_parser_deinit(struct fts_parser **_parser, const char **retriable_err_msg_r)
 {
 	struct fts_parser *parser = *_parser;
-	int ret = 0;
+	int ret = 1;
 
 	*_parser = NULL;
 
