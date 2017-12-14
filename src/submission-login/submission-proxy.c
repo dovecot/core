@@ -234,6 +234,10 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		invalid_line = TRUE;
 	} else {
 		text++;
+
+		if ((subm_client->proxy_capability &
+			SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0)
+			text = strip_enhanced_code(text, &enh_code);
 	}
 	if (subm_client->proxy_reply_status != 0 &&
 		subm_client->proxy_reply_status != status) {
@@ -250,10 +254,6 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	} else {
 		subm_client->proxy_reply_status = status;
 	}
-
-	if ((subm_client->proxy_capability &
-		SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0)
-		text = strip_enhanced_code(text, &enh_code);
 
 	output = login_proxy_get_ostream(client->login_proxy);
 	switch (subm_client->proxy_state) {
