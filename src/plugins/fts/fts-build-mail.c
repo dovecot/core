@@ -465,7 +465,7 @@ static int
 fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		    struct mail *mail,
 		    const char **error_msg,
-		    bool *may_need_retry)
+		    bool *may_need_retry_r)
 {
 	struct fts_mail_build_context ctx;
 	struct istream *input;
@@ -478,6 +478,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	const char *error;
 	int ret;
 
+	*may_need_retry_r = FALSE;
 	if (mail_get_stream_because(mail, NULL, NULL, "fts indexing", &input) < 0) {
 		if (mail->expunged)
 			return 0;
@@ -517,7 +518,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			/* body part changed. we're now parsing the end of
 			   boundary, possibly followed by message epilogue */
 			if (ctx.body_parser != NULL) {
-				if (fts_body_parser_finish(&ctx, error_msg, may_need_retry) < 0) {
+				if (fts_body_parser_finish(&ctx, error_msg, may_need_retry_r) < 0) {
 					ret = -1;
 					break;
 				}
@@ -574,7 +575,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	}
 	if (ctx.body_parser != NULL) {
 		if (ret == 0)
-			ret = fts_body_parser_finish(&ctx, error_msg, may_need_retry);
+			ret = fts_body_parser_finish(&ctx, error_msg, may_need_retry_r);
 		else
 			(void)fts_parser_deinit(&ctx.body_parser, NULL);
 	}
@@ -600,7 +601,7 @@ int fts_build_mail(struct fts_backend_update_context *update_ctx,
 	/* Number of attempts to be taken if retry is needed */
 	unsigned int attempts = 2;
 	const char *error_msg;
-	bool may_need_retry = FALSE;
+	bool may_need_retry;
 
 	T_BEGIN {
 		for (;;) {
