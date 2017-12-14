@@ -526,11 +526,10 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 
 #ifndef CONFIG_BINARY
-static bool mail_storage_settings_expand_check(void *_set,
-	pool_t pool ATTR_UNUSED, const char **error_r)
+static bool parse_postmaster_address(const char *address, pool_t pool,
+				     const struct message_address **addr_r,
+				     const char **error_r)
 {
-	struct mail_storage_settings *set = _set;
-	const char *address = set->postmaster_address;
 	struct message_address *addr;
 
 	addr = message_address_parse(pool,
@@ -549,8 +548,20 @@ static bool mail_storage_settings_expand_check(void *_set,
 	}
 	if (addr->name == NULL || *addr->name == '\0')
 		addr->name = "Postmaster";
-	set->parsed_postmaster_address = addr;
+	*addr_r = addr;
+	return TRUE;
+}
 
+static bool mail_storage_settings_expand_check(void *_set,
+	pool_t pool, const char **error_r ATTR_UNUSED)
+{
+	struct mail_storage_settings *set = _set;
+	const char *error;
+
+	/* Parse if possible. Perform error handling later. */
+	(void)parse_postmaster_address(set->postmaster_address, pool,
+				       &set->_parsed_postmaster_address,
+				       &error);
 	return TRUE;
 }
 #endif
@@ -688,3 +699,20 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 /* </settings checks> */
+
+bool mail_storage_get_postmaster_address(const struct mail_storage_settings *set,
+					 const struct message_address **address_r,
+					 const char **error_r)
+{
+	*address_r = set->_parsed_postmaster_address;
+	if (*address_r != NULL)
+		return TRUE;
+
+	/* parsing failed - do it again to get the error */
+	const struct message_address *addr;
+	if (parse_postmaster_address(set->postmaster_address,
+				     pool_datastack_create(), &addr, error_r))
+		i_panic("postmaster_address='%s' parsing succeeded unexpectedly after it had already failed",
+			set->postmaster_address);
+	return FALSE;
+}

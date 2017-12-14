@@ -58,6 +58,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	struct istream *input;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
+	const struct message_address *postmaster_addr;
 	const struct smtp_address *return_addr;
 	const char *hdr, *value, *msgid, *orig_msgid, *boundary, *error;
 	const struct var_expand_table *vtable;
@@ -83,6 +84,13 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 		return 0;
 	}
 
+	if (!mail_storage_get_postmaster_address(mail_set, &postmaster_addr,
+						 &error)) {
+		i_error("msgid=%s: Invalid postmaster_address - can't send rejection: %s",
+			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80), error);
+		return -1;
+	}
+
 	if (mailbox_get_settings(mail->box)->mail_debug) {
 		i_debug("Sending a rejection to <%s>: %s",
 			smtp_address_encode(return_addr),
@@ -105,7 +113,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	str_printfa(str, "Message-ID: %s\r\n", msgid);
 	str_printfa(str, "Date: %s\r\n", message_date_create(ioloop_time));
 	str_append(str, "From: ");
-	message_address_write(str, mail_set->parsed_postmaster_address);
+	message_address_write(str, postmaster_addr);
 	str_append(str, "\r\n");
 	str_printfa(str, "To: <%s>\r\n", smtp_address_encode(return_addr));
 	str_append(str, "MIME-Version: 1.0\r\n");

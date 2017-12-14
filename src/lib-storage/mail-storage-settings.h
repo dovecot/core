@@ -60,7 +60,6 @@ struct mail_storage_settings {
 	const char *pop3_uidl_format;
 
 	const char *postmaster_address;
-	const struct message_address *parsed_postmaster_address;
 
 	const char *hostname;
 	const char *recipient_delimiter;
@@ -71,6 +70,9 @@ struct mail_storage_settings {
 
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
+	/* May be NULL - use mail_storage_get_postmaster_address() instead of
+	   directly accessing this. */
+	const struct message_address *_parsed_postmaster_address;
 };
 
 struct mail_namespace_settings {
@@ -152,5 +154,9 @@ const void *mail_namespace_get_driver_settings(struct mail_namespace *ns,
 
 const struct dynamic_settings_parser *
 mail_storage_get_dynamic_parsers(pool_t pool);
+
+bool mail_storage_get_postmaster_address(const struct mail_storage_settings *set,
+					 const struct message_address **address_r,
+					 const char **error_r);
 
 #endif
