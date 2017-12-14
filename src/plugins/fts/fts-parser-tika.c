@@ -240,6 +240,8 @@ static int fts_parser_tika_deinit(struct fts_parser *_parser, const char **retri
 {
 	struct tika_fts_parser *parser = (struct tika_fts_parser *)_parser;
 	int ret = _parser->may_need_retry ? 0: (parser->failed ? -1 : 1);
+
+	i_assert(ret != 0 || _parser->retriable_error_msg != NULL);
 	if (retriable_err_msg_r != NULL)
 		*retriable_err_msg_r = t_strdup(_parser->retriable_error_msg);
 	i_free(_parser->retriable_error_msg);
