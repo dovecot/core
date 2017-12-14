@@ -440,6 +440,7 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx,
 				  bool *may_need_retry_r)
 {
 	struct message_block block;
+	const char *retriable_error;
 	int ret = 0;
 	int deinit_ret;
 	*may_need_retry_r = FALSE;
@@ -453,12 +454,20 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx,
 		}
 	} while (block.size > 0);
 
-	deinit_ret = fts_parser_deinit(&ctx->body_parser, retriable_err_msg_r);
-	if (deinit_ret == 0)
+	deinit_ret = fts_parser_deinit(&ctx->body_parser, &retriable_error);
+	if (ret < 0) {
+		/* indexing already failed - we don't want to retry
+		   in any case */
+		return -1;
+	}
+
+	if (deinit_ret == 0) {
+		/* retry the parsing */
 		*may_need_retry_r = TRUE;
-	else if (deinit_ret < 0)
-		ret = -1;
-	return ret;
+		*retriable_err_msg_r = retriable_error;
+		return -1;
+	}
+	return deinit_ret < 0 ? -1 : 0;
 }
 
 static int
