@@ -229,20 +229,20 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 			error = mailbox_get_last_error(box, &mail_error);
 			if (mail_error == MAIL_ERROR_NOQUOTA) {
 				lmtp_local_rcpt_reply_overquota(rcpt, error);
-				ret = 0;
 			} else {
 				i_error("mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
 					"failed: %s",
 					mailbox_get_vname(box),
 					mailbox_get_last_internal_error(box, NULL));
-				ret = -1;
 			}
+			ret = -1;
 		}
 		mailbox_free(&box);
 		mail_user_unref(&user);
 	}
 
-	if (ret < 0) {
+	if (ret < 0 &&
+		!smtp_server_command_is_replied(rcpt->rcpt.rcpt_cmd->cmd)) {
 		smtp_server_reply(rcpt->rcpt.rcpt_cmd,
 			451, "4.3.0", "<%s> Temporary internal error",
 			smtp_address_encode(address));
