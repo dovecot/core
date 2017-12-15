@@ -187,10 +187,13 @@ void master_service_ssl_settings_to_iostream_set(
 			set_r->alt_cert.key = p_strdup(pool, ssl_set->ssl_alt_key);
 			set_r->alt_cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
 		}
+		set_r->verify_remote_cert = ssl_set->ssl_verify_client_cert;
+		set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 		break;
 	case MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT:
 		set_r->ca_file = p_strdup(pool, ssl_set->ssl_client_ca_file);
 		set_r->ca_dir = p_strdup(pool, ssl_set->ssl_client_ca_dir);
+		set_r->verify_remote_cert = TRUE;
 		break;
 	}
 
@@ -201,8 +204,6 @@ void master_service_ssl_settings_to_iostream_set(
 	set_r->verbose = ssl_set->verbose_ssl;
 	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
 	set_r->skip_crl_check = !ssl_set->ssl_require_crl;
-	set_r->verify_remote_cert = ssl_set->ssl_verify_client_cert;
-	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
 	set_r->compression = ssl_set->parsed_opts.compression;
 	set_r->tickets = ssl_set->parsed_opts.tickets;
