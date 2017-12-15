@@ -448,4 +448,9 @@ http_client_context_create(const struct http_client_settings *set);
 void http_client_context_ref(struct http_client_context *cctx);
 void http_client_context_unref(struct http_client_context **_cctx);
 
+/* Return the default global shared client context, creating it if necessary.
+   The context is freed automatically at exit. Don't unreference the
+   returned context. */
+struct http_client_context *http_client_get_global_context(void);
+
 #endif

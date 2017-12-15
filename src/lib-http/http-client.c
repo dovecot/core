@@ -87,6 +87,8 @@
 
  */
 
+static struct http_client_context *http_client_global_context = NULL;
+
 /*
  * Client
  */
@@ -532,4 +534,22 @@ void http_client_context_switch_ioloop(struct http_client_context *cctx)
 	for (hshared = cctx->hosts_list; hshared != NULL;
 		hshared = hshared->next)
 		http_client_host_shared_switch_ioloop(hshared);
+}
+
+static void http_client_global_context_free(void)
+{
+	http_client_context_unref(&http_client_global_context);
+}
+
+struct http_client_context *http_client_get_global_context(void)
+{
+	if (http_client_global_context != NULL)
+		return http_client_global_context;
+
+	struct http_client_settings set;
+	i_zero(&set);
+	http_client_global_context = http_client_context_create(&set);
+	/* keep this a bit higher than lib-ssl-iostream */
+	lib_atexit_priority(http_client_global_context_free, LIB_ATEXIT_PRIORITY_LOW-1);
+	return http_client_global_context;
 }
