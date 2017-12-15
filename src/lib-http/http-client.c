@@ -212,6 +212,12 @@ http_client_init(const struct http_client_settings *set)
 	return http_client_init_shared(http_client_get_global_context(), set);
 }
 
+struct http_client *
+http_client_init_private(const struct http_client_settings *set)
+{
+	return http_client_init_shared(NULL, set);
+}
+
 void http_client_deinit(struct http_client **_client)
 {
 	struct http_client *client = *_client;

@@ -425,6 +425,9 @@ void http_client_request_start_tunnel(struct http_client_request *req,
 /* Create a client using the global shared client context. */
 struct http_client *
 http_client_init(const struct http_client_settings *set);
+/* Create a client without a shared context. */
+struct http_client *
+http_client_init_private(const struct http_client_settings *set);
 struct http_client *
 http_client_init_shared(struct http_client_context *cctx,
 	const struct http_client_settings *set) ATTR_NULL(1);
