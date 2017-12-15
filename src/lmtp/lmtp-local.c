@@ -175,6 +175,19 @@ lmtp_local_rcpt_fail_all(struct lmtp_local *local,
  * RCPT command
  */
 
+static void lmtp_local_rcpt_cmd_destroy(struct smtp_server_cmd_ctx *cmd)
+{
+	struct lmtp_local_recipient *rcpt =
+		(struct lmtp_local_recipient *)cmd->context;
+
+	if (rcpt == NULL)
+		return;
+
+	/* failed in RCPT command; clean up early */
+	lmtp_local_rcpt_deinit(rcpt);
+	return;
+}
+
 static int
 lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 {
@@ -247,6 +260,8 @@ static void lmtp_local_rcpt_finished(
 		(struct lmtp_local_recipient *)cmd->context;
 	struct client *client = rcpt->rcpt.client;
 
+	cmd->context = NULL;
+
 	if (!smtp_server_command_replied_success(cmd->cmd)) {
 		/* failed in RCPT command; clean up early */
 		lmtp_local_rcpt_deinit(rcpt);
@@ -270,6 +285,7 @@ lmtp_local_rcpt_anvil_finish(struct lmtp_local_recipient *rcpt)
 	int ret;
 
 	if ((ret = lmtp_local_rcpt_check_quota(rcpt)) < 0) {
+		cmd->context = NULL;
 		lmtp_local_rcpt_deinit(rcpt);
 		return FALSE;
 	}
@@ -377,6 +393,7 @@ int lmtp_local_rcpt(struct client *client,
 	rcpt->session_id = i_strdup(session_id);
 
 	cmd->context = (void*)rcpt;
+	cmd->hook_destroy = lmtp_local_rcpt_cmd_destroy;
 	data->hook_finished = lmtp_local_rcpt_finished;
 
 	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
