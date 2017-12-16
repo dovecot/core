@@ -372,6 +372,9 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 		} else if (strcmp(key, "NO-NOSELECT") == 0) {
 			set_r->no_noselect = TRUE;
 			continue;
+		} else if (strcmp(key, "NO-FS-VALIDATION") == 0) {
+			set_r->no_fs_validation = TRUE;
+			continue;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
@@ -1288,7 +1291,8 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 
 	*error_r = NULL;
 
-	if (list->mail_set->mail_full_filesystem_access)
+	if (list->mail_set->mail_full_filesystem_access ||
+	    list->set.no_fs_validation)
 		return TRUE;
 
 	/* either the list backend uses '/' as the hierarchy separator or
