@@ -160,6 +160,8 @@ struct mailbox_list_settings {
 	bool iter_from_index_dir;
 	/* Avoid creating or listing \NoSelect mailboxes. */
 	bool no_noselect;
+	/* Do not validate names as fs names (allows weird names) */
+	bool no_fs_validation;
 };
 
 struct mailbox_permissions {
