@@ -475,6 +475,16 @@ event_get_categories(struct event *event, unsigned int *count_r)
 	return array_get(&event->categories, count_r);
 }
 
+void event_send(struct event *event, struct failure_context *ctx,
+		const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	event_vsend(event, ctx, fmt, args);
+	va_end(args);
+}
+
 void event_vsend(struct event *event, struct failure_context *ctx,
 		 const char *fmt, va_list args)
 {
