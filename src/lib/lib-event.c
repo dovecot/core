@@ -475,8 +475,8 @@ event_get_categories(struct event *event, unsigned int *count_r)
 	return array_get(&event->categories, count_r);
 }
 
-void event_send(struct event *event, struct failure_context *ctx,
-		const char *fmt, va_list args)
+void event_vsend(struct event *event, struct failure_context *ctx,
+		 const char *fmt, va_list args)
 {
 	event->tv_last_sent = ioloop_timeval;
 	if (event_send_callbacks(event, EVENT_CALLBACK_TYPE_EVENT,
