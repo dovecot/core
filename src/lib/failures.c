@@ -16,6 +16,8 @@
 #include <syslog.h>
 #include <time.h>
 
+#define LOG_TYPE_FLAG_DISABLE_LOG_PREFIX 0x80
+
 const char *failure_log_type_prefixes[LOG_TYPE_COUNT] = {
 	"Debug: ",
 	"Info: ",
@@ -651,32 +653,38 @@ internal_handler(const struct failure_context *ctx,
 	return ret;
 }
 
-static bool line_is_ok(const char *line)
+static bool line_parse_prefix(const char *line, enum log_type *log_type_r,
+			      bool *replace_prefix_r)
 {
 	if (*line != 1)
 		return FALSE;
 
-	if (line[1] == '\0') {
+	unsigned char log_type = (line[1] & 0x7f);
+	if (log_type == '\0') {
 		i_warning("Broken log line follows (type=NUL)");
 		return FALSE;
 	}
+	log_type--;
 
-	if (line[1]-1 > LOG_TYPE_OPTION) {
-		i_warning("Broken log line follows (type=%d)", line[1]-1);
+	if (log_type > LOG_TYPE_OPTION) {
+		i_warning("Broken log line follows (type=%d)", log_type);
 		return FALSE;
 	}
+	*log_type_r = log_type;
+	*replace_prefix_r = (line[1] & LOG_TYPE_FLAG_DISABLE_LOG_PREFIX) != 0;
 	return TRUE;
 }
 
 void i_failure_parse_line(const char *line, struct failure_line *failure)
 {
+
 	i_zero(failure);
-	if (!line_is_ok(line)) {
+	if (!line_parse_prefix(line, &failure->log_type,
+			       &failure->disable_log_prefix)) {
 		failure->log_type = LOG_TYPE_ERROR;
 		failure->text = line;
 		return;
 	}
-	failure->log_type = line[1] - 1;
 
 	line += 2;
 	failure->text = line;

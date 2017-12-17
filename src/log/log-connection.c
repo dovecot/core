@@ -271,6 +271,8 @@ log_it(struct log_connection *log, const char *line,
 	failure_ctx.type = failure.log_type;
 	failure_ctx.timestamp = tm;
 	failure_ctx.timestamp_usecs = log_time->tv_usec;
+	if (failure.disable_log_prefix)
+		failure_ctx.log_prefix = "";
 
 	prefix = client != NULL && client->prefix != NULL ?
 		client->prefix : log->default_prefix;

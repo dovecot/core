@@ -29,6 +29,7 @@ enum log_type {
 struct failure_line {
 	pid_t pid;
 	enum log_type log_type;
+	bool disable_log_prefix;
 	const char *text;
 };
 
