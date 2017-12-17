@@ -147,7 +147,7 @@ event_logv_type(struct event *event, enum log_type log_type,
 	};
 
 	int old_errno = errno;
-	event_send(event, &ctx, fmt, args);
+	event_vsend(event, &ctx, fmt, args);
 	errno = old_errno;
 }
 
