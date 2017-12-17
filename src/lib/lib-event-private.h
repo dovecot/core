@@ -54,6 +54,8 @@ typedef bool event_callback_t(struct event *event,
    is always already registered. */
 typedef void event_category_callback_t(struct event_category *category);
 
+void event_send(struct event *event, struct failure_context *ctx,
+		const char *fmt, ...) ATTR_FORMAT(3, 4);
 void event_vsend(struct event *event, struct failure_context *ctx,
 		 const char *fmt, va_list args) ATTR_FORMAT(3, 0);
 
