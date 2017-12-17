@@ -626,14 +626,19 @@ internal_handler(const struct failure_context *ctx,
 	T_BEGIN {
 		string_t *str;
 		size_t prefix_len;
+		unsigned char log_type = ctx->type + 1;
 
-		if (!log_prefix_sent && log_prefix != NULL) {
+		if (ctx->log_prefix != NULL) {
+			log_type |= LOG_TYPE_FLAG_DISABLE_LOG_PREFIX;
+		} else if (!log_prefix_sent && log_prefix != NULL) {
 			log_prefix_sent = TRUE;
 			i_failure_send_option("prefix", log_prefix);
 		}
 
 		str = t_str_new(128);
-		str_printfa(str, "\001%c%s ", ctx->type + 1, my_pid);
+		str_printfa(str, "\001%c%s ", log_type, my_pid);
+		if (ctx->log_prefix != NULL)
+			str_append(str, ctx->log_prefix);
 		prefix_len = str_len(str);
 
 		str_vprintfa(str, format, args);
