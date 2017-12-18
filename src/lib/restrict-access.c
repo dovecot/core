@@ -265,7 +265,7 @@ void restrict_access(const struct restrict_access_settings *set,
 	is_root = geteuid() == 0;
 
 	if (!is_root &&
-	    set->drop_setuid_root &&
+	    !set->allow_setuid_root &&
 	    getuid() == 0) {
 		/* recover current effective UID */
 		if (target_uid == (uid_t)-1)
