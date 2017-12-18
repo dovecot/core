@@ -5,7 +5,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
-#include "timing.h"
+#include "stats-dist.h"
 #include "time-util.h"
 #include "dict-client.h"
 #include "dict-settings.h"
@@ -132,7 +132,7 @@ static void dict_connection_cmd_async(struct dict_connection_cmd *cmd)
 }
 
 static void
-cmd_stats_update(struct dict_connection_cmd *cmd, struct timing *timing)
+cmd_stats_update(struct dict_connection_cmd *cmd, struct stats_dist *stats)
 {
 	long long diff;
 
@@ -142,16 +142,16 @@ cmd_stats_update(struct dict_connection_cmd *cmd, struct timing *timing)
 	diff = timeval_diff_usecs(&ioloop_timeval, &cmd->start_timeval);
 	if (diff < 0)
 		diff = 0;
-	timing_add_usecs(timing, diff);
+	stats_dist_add(stats, diff);
 	dict_proctitle_update_later();
 }
 
 static void
-dict_cmd_reply_handle_timings(struct dict_connection_cmd *cmd,
-			      string_t *str, struct timing *timing)
+dict_cmd_reply_handle_stats(struct dict_connection_cmd *cmd,
+			    string_t *str, struct stats_dist *stats)
 {
 	io_loop_time_refresh();
-	cmd_stats_update(cmd, timing);
+	cmd_stats_update(cmd, stats);
 
 	if (cmd->conn->minor_version < DICT_CLIENT_PROTOCOL_TIMINGS_MIN_VERSION)
 		return;
@@ -202,7 +202,7 @@ cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
 		str_append_c(str, DICT_PROTOCOL_REPLY_FAIL);
 		str_append_tabescaped(str, result->error);
 	}
-	dict_cmd_reply_handle_timings(cmd, str, cmd_stats.lookups);
+	dict_cmd_reply_handle_stats(cmd, str, cmd_stats.lookups);
 	str_append_c(str, '\n');
 
 	cmd->reply = i_strdup(str_c(str));
@@ -268,7 +268,7 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 		i_error("dict_iterate() failed: %s", error);
 		str_printfa(str, "%c%s", DICT_PROTOCOL_REPLY_FAIL, error);
 	}
-	dict_cmd_reply_handle_timings(cmd, str, cmd_stats.iterations);
+	dict_cmd_reply_handle_stats(cmd, str, cmd_stats.iterations);
 	str_append_c(str, '\n');
 
 	cmd->reply = i_strdup(str_c(str));
@@ -423,7 +423,7 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, result->error);
 	}
-	dict_cmd_reply_handle_timings(cmd, str, cmd_stats.commits);
+	dict_cmd_reply_handle_stats(cmd, str, cmd_stats.commits);
 	str_append_c(str, '\n');
 	cmd->reply = i_strdup(str_c(str));
 
@@ -668,14 +668,14 @@ static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd)
 
 void dict_commands_init(void)
 {
-	cmd_stats.lookups = timing_init();
-	cmd_stats.iterations = timing_init();
-	cmd_stats.commits = timing_init();
+	cmd_stats.lookups = stats_dist_init();
+	cmd_stats.iterations = stats_dist_init();
+	cmd_stats.commits = stats_dist_init();
 }
 
 void dict_commands_deinit(void)
 {
-	timing_deinit(&cmd_stats.lookups);
-	timing_deinit(&cmd_stats.iterations);
-	timing_deinit(&cmd_stats.commits);
+	stats_dist_deinit(&cmd_stats.lookups);
+	stats_dist_deinit(&cmd_stats.iterations);
+	stats_dist_deinit(&cmd_stats.commits);
 }

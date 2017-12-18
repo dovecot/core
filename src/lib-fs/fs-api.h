@@ -192,7 +192,7 @@ struct fs_stats {
 
 	/* Cumulative sum of usecs spent on calls - set only if
 	   fs_settings.enable_timing=TRUE */
-	struct timing *timings[FS_OP_COUNT];
+	struct stats_dist *timings[FS_OP_COUNT];
 };
 
 struct fs_metadata {

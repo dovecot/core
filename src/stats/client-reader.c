@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
-#include "timing.h"
+#include "stats-dist.h"
 #include "strescape.h"
 #include "connection.h"
 #include "ostream.h"
@@ -35,27 +35,27 @@ static void reader_client_destroy(struct connection *conn)
 	master_service_client_connection_destroyed(master_service);
 }
 
-static void reader_client_dump_timing(string_t *str, struct timing *timing,
-				      const char *const *fields)
+static void reader_client_dump_stats(string_t *str, struct stats_dist *stats,
+				     const char *const *fields)
 {
 	for (unsigned int i = 0; fields[i] != NULL; i++) {
 		const char *field = fields[i];
 
 		str_append_c(str, '\t');
 		if (strcmp(field, "count") == 0)
-			str_printfa(str, "%u", timing_get_count(timing));
+			str_printfa(str, "%u", stats_dist_get_count(stats));
 		else if (strcmp(field, "sum") == 0)
-			str_printfa(str, "%"PRIu64, timing_get_sum(timing));
+			str_printfa(str, "%"PRIu64, stats_dist_get_sum(stats));
 		else if (strcmp(field, "min") == 0)
-			str_printfa(str, "%"PRIu64, timing_get_min(timing));
+			str_printfa(str, "%"PRIu64, stats_dist_get_min(stats));
 		else if (strcmp(field, "max") == 0)
-			str_printfa(str, "%"PRIu64, timing_get_max(timing));
+			str_printfa(str, "%"PRIu64, stats_dist_get_max(stats));
 		else if (strcmp(field, "avg") == 0)
-			str_printfa(str, "%"PRIu64, timing_get_avg(timing));
+			str_printfa(str, "%"PRIu64, stats_dist_get_avg(stats));
 		else if (strcmp(field, "median") == 0)
-			str_printfa(str, "%"PRIu64, timing_get_median(timing));
+			str_printfa(str, "%"PRIu64, stats_dist_get_median(stats));
 		else if (strcmp(field, "%95") == 0)
-			str_printfa(str, "%"PRIu64, timing_get_95th(timing));
+			str_printfa(str, "%"PRIu64, stats_dist_get_95th(stats));
 		else {
 			/* return unknown fields as empty */
 		}
@@ -74,11 +74,11 @@ reader_client_input_dump(struct reader_client *client, const char *const *args)
 	while ((metric = stats_metrics_iterate(iter)) != NULL) {
 		str_truncate(str, 0);
 		str_append_tabescaped(str, metric->name);
-		reader_client_dump_timing(str, metric->duration_timing, args);
+		reader_client_dump_stats(str, metric->duration_stats, args);
 		for (unsigned int i = 0; i < metric->fields_count; i++) {
 			str_append_c(str, '\t');
 			str_append_tabescaped(str, metric->fields[i].field_key);
-			reader_client_dump_timing(str, metric->fields[i].timing, args);
+			reader_client_dump_stats(str, metric->fields[i].stats, args);
 		}
 		str_append_c(str, '\n');
 		o_stream_nsend(client->conn.output, str_data(str), str_len(str));

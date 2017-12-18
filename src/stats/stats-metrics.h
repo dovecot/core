@@ -5,14 +5,14 @@ struct stats_settings;
 
 struct metric_field {
 	const char *field_key;
-	struct timing *timing;
+	struct stats_dist *stats;
 };
 
 struct metric {
 	const char *name;
 
 	/* Timing for how long the event existed */
-	struct timing *duration_timing;
+	struct stats_dist *duration_stats;
 
 	unsigned int fields_count;
 	struct metric_field *fields;
