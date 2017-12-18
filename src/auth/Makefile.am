@@ -238,7 +238,7 @@ checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 checkpassword_reply_sources = \
 	checkpassword-reply.c
 
-stats_moduledir = $(moduledir)/stats
+stats_moduledir = $(moduledir)/old-stats
 stats_module_LTLIBRARIES = libstats_auth.la
 
 libstats_auth_la_LDFLAGS = -module -avoid-version
