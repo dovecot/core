@@ -137,7 +137,7 @@ void smtp_server_cmd_ehlo(struct smtp_server_cmd_ctx *cmd,
 {
 	/* ehlo = "EHLO" SP ( Domain / address-literal ) CRLF */
 
-	return smtp_server_cmd_helo_run(cmd, params, FALSE);
+	smtp_server_cmd_helo_run(cmd, params, FALSE);
 }
 
 void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd,
@@ -145,5 +145,5 @@ void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd,
 {
 	/* helo = "HELO" SP Domain CRLF */
 
-	return smtp_server_cmd_helo_run(cmd, params, TRUE);
+	smtp_server_cmd_helo_run(cmd, params, TRUE);
 }
