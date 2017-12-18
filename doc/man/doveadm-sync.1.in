@@ -1,5 +1,5 @@
 .\" Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-SYNC 1 "2015-08-31" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-SYNC 1 "2015-08-31" "Dovecot v2.3" "Dovecot"
 .SH NAME
 doveadm\-sync \- Dovecot\(aqs two\-way mailbox synchronization utility
 .br
