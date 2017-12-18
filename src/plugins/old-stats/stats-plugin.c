@@ -368,11 +368,11 @@ static void stats_user_created(struct mail_user *user)
 	}
 
 	/* get refresh time */
-	str = mail_user_plugin_getenv(user, "stats_refresh");
+	str = mail_user_plugin_getenv(user, "old_stats_refresh");
 	if (str == NULL)
 		return;
 	if (settings_get_time(str, &refresh_secs, &error) < 0) {
-		i_error("stats: Invalid stats_refresh setting: %s", error);
+		i_error("stats: Invalid old_stats_refresh setting: %s", error);
 		return;
 	}
 	if (refresh_secs == 0)
@@ -384,7 +384,7 @@ static void stats_user_created(struct mail_user *user)
 	}
 
 	if (global_stats_conn == NULL) {
-		path = mail_user_plugin_getenv(user, "stats_notify_path");
+		path = mail_user_plugin_getenv(user, "old_stats_notify_path");
 		if (path == NULL)
 			path = MAIL_STATS_FIFO_NAME;
 		if (path[0] != '/')
@@ -415,7 +415,7 @@ static void stats_user_created(struct mail_user *user)
 	v->stats_fill = stats_user_stats_fill;
 
 	suser->refresh_secs = refresh_secs;
-	if (mail_user_plugin_getenv_bool(user, "stats_track_cmds"))
+	if (mail_user_plugin_getenv_bool(user, "old_stats_track_cmds"))
 		suser->track_commands = TRUE;
 
 	suser->stats_conn = global_stats_conn;
