@@ -9,7 +9,7 @@
 #include "istream.h"
 #include "istream-seekable.h"
 #include "ostream.h"
-#include "timing.h"
+#include "stats-dist.h"
 #include "time-util.h"
 #include "istream-fs-stats.h"
 #include "fs-api-private.h"
@@ -220,7 +220,7 @@ void fs_unref(struct fs **_fs)
 	i_free(fs->temp_path_prefix);
 	for (i = 0; i < FS_OP_COUNT; i++) {
 		if (fs->stats.timings[i] != NULL)
-			timing_deinit(&fs->stats.timings[i]);
+			stats_dist_deinit(&fs->stats.timings[i]);
 	}
 	T_BEGIN {
 		fs->v.deinit(fs);
@@ -424,7 +424,7 @@ static void fs_file_timing_start(struct fs_file *file, enum fs_op op)
 }
 
 static void
-fs_timing_end(struct timing **timing, const struct timeval *start_tv)
+fs_timing_end(struct stats_dist **timing, const struct timeval *start_tv)
 {
 	struct timeval now;
 	long long diff;
@@ -435,8 +435,8 @@ fs_timing_end(struct timing **timing, const struct timeval *start_tv)
 	diff = timeval_diff_usecs(&now, start_tv);
 	if (diff > 0) {
 		if (*timing == NULL)
-			*timing = timing_init();
-		timing_add_usecs(*timing, diff);
+			*timing = stats_dist_init();
+		stats_dist_add(*timing, diff);
 	}
 }
 
@@ -1216,7 +1216,7 @@ fs_stats_count_ops(const struct fs_stats *stats, const enum fs_op ops[],
 
 	for (unsigned int i = 0; i < ops_count; i++) {
 		if (stats->timings[ops[i]] != NULL)
-			ret += timing_get_sum(stats->timings[ops[i]]);
+			ret += stats_dist_get_sum(stats->timings[ops[i]]);
 	}
 	return ret;
 }

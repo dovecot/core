@@ -4,9 +4,9 @@
 struct dict_connection;
 
 struct dict_command_stats {
-	struct timing *lookups;
-	struct timing *iterations;
-	struct timing *commits;
+	struct stats_dist *lookups;
+	struct stats_dist *iterations;
+	struct stats_dist *commits;
 };
 
 extern struct dict_command_stats cmd_stats;

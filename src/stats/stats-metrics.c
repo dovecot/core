@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "timing.h"
+#include "stats-dist.h"
 #include "time-util.h"
 #include "event-filter.h"
 #include "stats-settings.h"
@@ -54,7 +54,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 
 	metric = p_new(metrics->pool, struct metric, 1);
 	metric->name = p_strdup(metrics->pool, set->name);
-	metric->duration_timing = timing_init();
+	metric->duration_stats = stats_dist_init();
 
 	fields = t_strsplit_spaces(set->fields, " ");
 	metric->fields_count = str_array_length(fields);
@@ -64,7 +64,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 		for (unsigned int i = 0; i < metric->fields_count; i++) {
 			metric->fields[i].field_key =
 				p_strdup(metrics->pool, fields[i]);
-			metric->fields[i].timing = timing_init();
+			metric->fields[i].stats = stats_dist_init();
 		}
 	}
 	array_append(&metrics->metrics, &metric, 1);
@@ -106,9 +106,9 @@ struct stats_metrics *stats_metrics_init(const struct stats_settings *set)
 
 static void stats_metric_free(struct metric *metric)
 {
-	timing_deinit(&metric->duration_timing);
+	stats_dist_deinit(&metric->duration_stats);
 	for (unsigned int i = 0; i < metric->fields_count; i++)
-		timing_deinit(&metric->fields[i].timing);
+		stats_dist_deinit(&metric->fields[i].stats);
 }
 
 void stats_metrics_deinit(struct stats_metrics **_metrics)
@@ -129,9 +129,9 @@ void stats_metrics_reset(struct stats_metrics *metrics)
 	struct metric *const *metricp;
 
 	array_foreach(&metrics->metrics, metricp) {
-		timing_reset((*metricp)->duration_timing);
+		stats_dist_reset((*metricp)->duration_stats);
 		for (unsigned int i = 0; i < (*metricp)->fields_count; i++)
-			timing_reset((*metricp)->fields[i].timing);
+			stats_dist_reset((*metricp)->fields[i].stats);
 	}
 }
 
@@ -151,7 +151,7 @@ stats_metric_event(struct metric *metric, struct event *event)
 		event_get_create_time(event, &tv_start);
 		duration = timeval_diff_usecs(&tv_end, &tv_start);
 	}
-	timing_add_usecs(metric->duration_timing, duration);
+	stats_dist_add(metric->duration_stats, duration);
 
 	for (unsigned int i = 0; i < metric->fields_count; i++) {
 		const struct event_field *field =
@@ -171,7 +171,7 @@ stats_metric_event(struct metric *metric, struct event *event)
 				field->value.timeval.tv_usec;
 			break;
 		}
-		timing_add_usecs(metric->fields[i].timing, num);
+		stats_dist_add(metric->fields[i].stats, num);
 	}
 }
 
