@@ -609,7 +609,7 @@ smtp_server_connection_next_reply(struct smtp_server_connection *conn)
 	}
 
 	i_assert(cmd->state == SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY &&
-		 smtp_server_command_is_replied(cmd));
+		 array_is_created(&cmd->replies));
 
 	smtp_server_command_completed(cmd);
 
@@ -619,8 +619,6 @@ smtp_server_connection_next_reply(struct smtp_server_connection *conn)
 	for (i = 0; i < cmd->replies_expected; i++) {
 		struct smtp_server_reply *reply;
 
-		if (!array_is_created(&cmd->replies))
-			break;
 		reply = array_idx_modifiable(&cmd->replies, i);
 
 		if (!reply->submitted) {
