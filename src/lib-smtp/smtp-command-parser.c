@@ -340,12 +340,10 @@ static int smtp_command_parse(struct smtp_command_parser *parser)
 		parser->cur = begin;
 		parser->end = parser->cur + size;
 
-		if ((ret = smtp_command_parse_line(parser)) < 0)
-			return -1;
-
+		ret = smtp_command_parse_line(parser);
 		i_stream_skip(parser->input, parser->cur - begin);
-		if (ret > 0)
-			return 1;
+		if (ret != 0)
+			return ret;
 		old_bytes = i_stream_get_data_size(parser->input);
 	}
 
