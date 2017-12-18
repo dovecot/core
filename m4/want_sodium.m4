@@ -5,6 +5,7 @@ AC_DEFUN([DOVECOT_WANT_SODIUM], [
       LDFLAGS="$LDFLAGS $LIBSODIUM_LIBS"
       AC_CHECK_FUNC([crypto_pwhash_str_verify], [
         have_sodium=yes
+        AUTH_LIBS="$AUTH_LIBS $LIBSODIUM_LIBS"
         AC_DEFINE(HAVE_LIBSODIUM, [1], [Define if you have libsodium])
       ])
       LDFLAGS="$OLD_LDFLAGS"

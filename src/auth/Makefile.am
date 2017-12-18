@@ -74,8 +74,7 @@ auth_libs = \
 	../lib-ntlm/libntlm.la \
 	../lib-otp/libotp.la \
 	$(LIBDOVECOT_LUA) \
-	$(LIBDOVECOT_SQL) \
-	$(LIBSODIUM_LIBS)
+	$(LIBDOVECOT_SQL)
 
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS)
