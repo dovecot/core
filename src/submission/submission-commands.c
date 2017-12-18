@@ -33,6 +33,7 @@ bool client_command_handle_proxy_reply(struct client *client,
 
 	switch (reply->status) {
 	case SMTP_CLIENT_COMMAND_ERROR_ABORTED:
+		return FALSE;
 	case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
 	case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
