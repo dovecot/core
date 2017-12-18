@@ -85,7 +85,7 @@ static void test_smtp_command_parse_valid(void)
 		while ((ret=smtp_command_parse_next(parser,
 			&cmd_name, &cmd_params, &error_code, &error)) > 0);
 
-		test_out_reason("parse success", ret == 0, error);
+		test_out_reason("parse success", ret == -2, error);
 
 		if (ret == 0) {
 			/* verify last response only */
@@ -167,7 +167,7 @@ static void test_smtp_command_parse_invalid(void)
 		while ((ret=smtp_command_parse_next(parser,
 			&cmd_name, &cmd_params, &error_code, &error)) > 0);
 		test_out_reason(t_strdup_printf("parse(\"%s\")",
-			str_sanitize(command_text, 28)), ret < 0, error);
+			str_sanitize(command_text, 28)), ret == -1, error);
 		test_out_quiet("error code",
 			error_code == test->error_code);
 
@@ -232,7 +232,7 @@ static void test_smtp_auth_response_parse_valid(void)
 		while ((ret=smtp_command_parse_auth_response(parser,
 			&line, &error_code, &error)) > 0);
 
-		test_out_reason("parse success", ret == 0, error);
+		test_out_reason("parse success", ret == -2, error);
 
 		if (ret == 0) {
 			/* verify last response only */
@@ -302,7 +302,7 @@ static void test_smtp_auth_response_parse_invalid(void)
 		while ((ret=smtp_command_parse_auth_response(parser,
 			&line, &error_code, &error)) > 0);
 		test_out_reason(t_strdup_printf("parse(\"%s\")",
-			str_sanitize(response_text, 28)), ret < 0, error);
+			str_sanitize(response_text, 28)), ret == -1, error);
 		test_out_quiet("error code",
 			error_code == test->error_code);
 

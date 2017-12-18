@@ -362,7 +362,7 @@ static int smtp_command_parse(struct smtp_command_parser *parser)
 		i_assert(parser->input->eof);
 		if (parser->input->stream_errno == 0) {
 			if (parser->state.state == SMTP_COMMAND_PARSE_STATE_INIT)
-				return 0;
+				ret = -2;
 			smtp_command_parser_error(parser,
 				SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
 				"Premature end of input");
