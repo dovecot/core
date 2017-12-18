@@ -579,6 +579,8 @@ static void smtp_server_connection_input(struct connection *_conn)
 bool smtp_server_connection_pending_command_data(
 	struct smtp_server_connection *conn)
 {
+	if (conn->smtp_parser == NULL)
+		return FALSE;
 	return smtp_command_parser_pending_data(conn->smtp_parser);
 }
 
