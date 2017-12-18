@@ -1023,6 +1023,8 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_disconnect != NULL) {
+		/* the callback may close the fd, so remove IO before that */
+		io_remove(&conn->conn.io);
 		conn->callbacks->conn_disconnect(conn->context,
 						 reason);
 	}
