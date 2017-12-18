@@ -568,6 +568,7 @@ service_drop_privileges(struct mail_storage_service_user *user,
 	current_euid = geteuid();
 	restrict_access_init(&rset);
 	restrict_access_get_env(&rset);
+	rset.allow_setuid_root = keep_setuid_root;
 	if (priv->uid != (uid_t)-1) {
 		rset.uid = priv->uid;
 		rset.uid_source = priv->uid_source;

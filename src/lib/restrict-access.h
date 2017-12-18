@@ -26,9 +26,10 @@ struct restrict_access_settings {
 	/* Chroot directory */
 	const char *chroot_dir;
 
-	/* Set TRUE to attempt to drop any root privileges
-	   FIXME: Reverse logic on v2.3 */
-	bool drop_setuid_root; 
+	/* Allow running in setuid-root mode, where real UID is root and
+	 * effective UID is non-root. By default the real UID is changed
+	 * to be the same as the effective UID. */
+	bool allow_setuid_root;
 };
 
 /* Initialize settings with values that don't change anything. */
