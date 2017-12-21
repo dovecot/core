@@ -205,6 +205,15 @@ void smtp_server_connection_set_streams(struct smtp_server_connection *conn,
 	smtp_server_connection_streams_changed(conn);
 }
 
+void smtp_server_connection_set_ssl_streams(struct smtp_server_connection *conn,
+	struct istream *input, struct ostream *output)
+{
+	conn->ssl_secured = TRUE;
+	conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
+
+	smtp_server_connection_set_streams(conn, input, output);
+}
+
 static void
 smtp_server_connection_idle_timeout(struct smtp_server_connection *conn)
 {
