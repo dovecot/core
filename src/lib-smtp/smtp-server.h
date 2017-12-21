@@ -147,8 +147,6 @@ struct smtp_server_callbacks {
 	/* STARTTLS */
 	int (*conn_cmd_starttls)(void *conn_ctx,
 		struct smtp_server_cmd_ctx *cmd);
-	void (*conn_start_tls)(void *conn_ctx,
-		struct istream **input, struct ostream **output);
 	/* AUTH */
 	int (*conn_cmd_auth)(void *conn_ctx,
 		struct smtp_server_cmd_ctx *cmd,
@@ -210,6 +208,8 @@ struct smtp_server_callbacks {
 					const struct smtp_proxy_data *data);
 
 	/* Connection */
+	int (*conn_start_tls)(void *conn_ctx,
+		struct istream **input, struct ostream **output);
 	void (*conn_disconnect)(void *context, const char *reason);
 	void (*conn_destroy)(void *context);
 

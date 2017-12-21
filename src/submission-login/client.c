@@ -26,7 +26,7 @@ static const struct smtp_server_callbacks smtp_callbacks;
 
 static struct smtp_server *smtp_server = NULL;
 
-static void submission_login_start_tls(void *conn_ctx,
+static int submission_login_start_tls(void *conn_ctx,
 	struct istream **input, struct ostream **output)
 {
 	struct submission_client *subm_client = conn_ctx;
@@ -39,12 +39,13 @@ static void submission_login_start_tls(void *conn_ctx,
 			"TLS initialization failed.");
 		client_destroy(client,
 			"Disconnected: TLS initialization failed.");
-		return;
+		return -1;
 	}
 	login_refresh_proctitle();
 
 	*input = client->input;
 	*output = client->output;
+	return 0;
 }
 
 static struct client *submission_client_alloc(pool_t pool)
