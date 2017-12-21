@@ -307,8 +307,10 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 
 void smtp_server_connection_input_lock(struct smtp_server_connection *conn);
 void smtp_server_connection_input_unlock(struct smtp_server_connection *conn);
-void smtp_server_connection_set_streams(
-	struct smtp_server_connection *_conn,
+
+void smtp_server_connection_set_streams(struct smtp_server_connection *conn,
+	struct istream *input, struct ostream *output);
+void smtp_server_connection_set_ssl_streams(struct smtp_server_connection *conn,
 	struct istream *input, struct ostream *output);
 
 void smtp_server_connection_close(struct smtp_server_connection **_conn,
