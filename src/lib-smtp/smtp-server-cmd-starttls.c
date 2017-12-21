@@ -30,7 +30,7 @@ static int cmd_starttls_start(struct smtp_server_connection *conn)
 		if (!smtp_server_connection_unref(&tmp_conn) || ret < 0)
 			return -1;
 
-		smtp_server_connection_set_streams(conn, input, output);
+		smtp_server_connection_set_ssl_streams(conn, input, output);
 	} else if (smtp_server_connection_ssl_init(conn) < 0) {
 		smtp_server_connection_close(&conn,
 			"SSL Initialization failed");
