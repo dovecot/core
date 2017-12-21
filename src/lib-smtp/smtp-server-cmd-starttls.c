@@ -22,11 +22,12 @@ static int cmd_starttls_start(struct smtp_server_connection *conn)
 		struct smtp_server_connection *tmp_conn = conn;
 		struct istream *input = conn->conn.input;
 		struct ostream *output = conn->conn.output;
+		int ret;
 
 		smtp_server_connection_ref(tmp_conn);
-		callbacks->conn_start_tls(tmp_conn->context,
+		ret = callbacks->conn_start_tls(tmp_conn->context,
 			&input, &output);
-		if (!smtp_server_connection_unref(&tmp_conn))
+		if (!smtp_server_connection_unref(&tmp_conn) || ret < 0)
 			return -1;
 
 		smtp_server_connection_set_streams(conn, input, output);
