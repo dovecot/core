@@ -211,6 +211,7 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 	const unsigned char *start;
 	size_t len;
 
+	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '"');
 	ctx->data++;
 
@@ -313,6 +314,7 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 			     %d94-126        ;  characters not including "[",
 					     ;  "]", or "\"
 	*/
+	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '[');
 
 	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
@@ -338,6 +340,7 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 	   domain-literal  = [CFWS] "[" *([FWS] dcontent) [FWS] "]" [CFWS]
 	   obs-domain      = atom *("." atom)
 	*/
+	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '@');
 	ctx->data++;
 
