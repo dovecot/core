@@ -451,6 +451,19 @@ void master_service_init_log(struct master_service *service,
 		service->log_initialized = TRUE;
 }
 
+void master_service_init_stats_client(struct master_service *service,
+				      bool silent_notfound_errors)
+{
+	if (service->stats_client == NULL &&
+	    service->set->stats_writer_socket_path[0] != '\0') T_BEGIN {
+		const char *path = t_strdup_printf("%s/%s",
+			service->set->base_dir,
+			service->set->stats_writer_socket_path);
+		service->stats_client =
+			stats_client_init(path, silent_notfound_errors);
+	} T_END;
+}
+
 void master_service_set_die_with_master(struct master_service *service,
 					bool set)
 {
