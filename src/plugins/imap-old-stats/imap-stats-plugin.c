@@ -114,15 +114,15 @@ static void stats_command_post(struct client_command_context *cmd)
 	stats_connection_send(suser->stats_conn, str);
 }
 
-void imap_stats_plugin_init(struct module *module ATTR_UNUSED)
+void imap_old_stats_plugin_init(struct module *module ATTR_UNUSED)
 {
 	command_hook_register(stats_command_pre, stats_command_post);
 }
 
-void imap_stats_plugin_deinit(void)
+void imap_old_stats_plugin_deinit(void)
 {
 	command_hook_unregister(stats_command_pre, stats_command_post);
 }
 
-const char *imap_stats_plugin_dependencies[] = { "stats", NULL };
+const char *imap_stats_plugin_dependencies[] = { "old_stats", NULL };
 const char imap_stats_plugin_binary_dependency[] = "imap";
