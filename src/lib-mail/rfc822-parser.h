@@ -16,6 +16,14 @@ extern unsigned char rfc822_atext_chars[256];
 void rfc822_parser_init(struct rfc822_parser_context *ctx,
 			const unsigned char *data, size_t size,
 			string_t *last_comment) ATTR_NULL(4);
+static inline void rfc822_parser_deinit(struct rfc822_parser_context *ctx)
+{
+	/* make sure the parsing didn't trigger a bug that caused reading
+	   past the end pointer. */
+	i_assert(ctx->data <= ctx->end);
+	/* make sure the parser is no longer accessed */
+	ctx->data = ctx->end = NULL;
+}
 
 /* The functions below return 1 = more data available, 0 = no more data
    available (but a value might have been returned now), -1 = invalid input.
