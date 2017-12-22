@@ -221,7 +221,8 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 		/* end of input or parsing local-part failed */
 		ctx->addr.invalid_syntax = TRUE;
 	}
-	if (ret != 0 && *ctx->parser.data == '@') {
+	if (ret != 0 && ctx->parser.data != ctx->parser.end &&
+	    *ctx->parser.data == '@') {
 		ret2 = parse_domain(ctx);
 		if (ret2 <= 0)
 			ret = ret2;
