@@ -406,9 +406,13 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 
 	client_connection_set_proctitle(&conn->conn, cmd_name);
 	o_stream_cork(conn->output);
+	/* Disable IO while running a command. This is required for commands
+	   that do IO themselves (e.g. dsync-server). */
+	io_remove(&conn->io);
 	if (doveadm_cmd_handle(conn, cmd_name, argc-2, args+2, &cctx) < 0)
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	o_stream_uncork(conn->output);
+	conn->io = io_add_istream(conn->input, client_connection_tcp_input, conn);
 	client_connection_set_proctitle(&conn->conn, "");
 
 	/* flush the output and possibly run next command */
@@ -645,7 +649,6 @@ client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
 
-	conn->io = io_add(fd, IO_READ, client_connection_tcp_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1);
 	i_stream_set_name(conn->input, conn->conn.name);
@@ -658,6 +661,8 @@ client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 			return NULL;
 		}
 	}
+	/* add IO after SSL istream is created */
+	conn->io = io_add_istream(conn->input, client_connection_tcp_input, conn);
 	conn->preauthenticated =
 		client_connection_is_preauthenticated(listen_fd);
 	client_connection_set_proctitle(&conn->conn, "");
