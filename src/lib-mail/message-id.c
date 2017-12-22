@@ -39,6 +39,7 @@ static bool get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 			success = TRUE;
 		}
 	}
+	rfc822_parser_deinit(&parser);
 	return success;
 }
 
