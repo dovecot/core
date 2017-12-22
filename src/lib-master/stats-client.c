@@ -19,6 +19,7 @@ struct stats_client {
 	struct timeout *to_reconnect;
 	bool handshaked;
 	bool handshake_received_at_least_once;
+	bool silent_notfound_errors;
 };
 
 static struct connection_list *stats_clients;
@@ -307,17 +308,19 @@ static void stats_client_send_registered_categories(struct stats_client *client)
 
 static void stats_client_connect(struct stats_client *client)
 {
-	if (connection_client_connect(&client->conn) < 0)
-		i_error("net_connect_unix(%s) failed: %m", client->conn.name);
-	else {
+	if (connection_client_connect(&client->conn) == 0) {
 		/* read the handshake so the global debug filter is updated */
 		stats_client_send_registered_categories(client);
 		if (!client->handshake_received_at_least_once)
 			stats_client_wait_handshake(client);
+	} else if (!client->silent_notfound_errors ||
+		   (errno != ENOENT && errno != ECONNREFUSED)) {
+		i_error("net_connect_unix(%s) failed: %m", client->conn.name);
 	}
 }
 
-struct stats_client *stats_client_init(const char *path)
+struct stats_client *
+stats_client_init(const char *path, bool silent_notfound_errors)
 {
 	struct stats_client *client;
 
@@ -325,6 +328,7 @@ struct stats_client *stats_client_init(const char *path)
 		stats_global_init();
 
 	client = i_new(struct stats_client, 1);
+	client->silent_notfound_errors = silent_notfound_errors;
 	connection_init_client_unix(stats_clients, &client->conn, path);
 	stats_client_connect(client);
 	return client;
