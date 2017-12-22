@@ -6,7 +6,7 @@ struct module;
 extern const char *imap_stats_plugin_dependencies[];
 extern const char imap_stats_plugin_binary_dependency[];
 
-void imap_stats_plugin_init(struct module *module);
-void imap_stats_plugin_deinit(void);
+void imap_old_stats_plugin_init(struct module *module);
+void imap_old_stats_plugin_deinit(void);
 
 #endif
