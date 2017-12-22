@@ -409,13 +409,14 @@ static bool server_connection_input_one(struct server_connection *conn)
 	const char *line;
 	int exit_code;
 
+	/* check logs - NOTE: must be before i_stream_get_data() since checking
+	   for logs may add data to our channel. */
+	if (conn->log_input != NULL)
+		(void)server_connection_print_log(conn);
+
 	data = i_stream_get_data(conn->input, &size);
 	if (size == 0)
 		return FALSE;
-
-	/* check logs */
-	if (conn->log_input != NULL)
-		(void)server_connection_print_log(conn);
 
 	switch (conn->state) {
 	case SERVER_REPLY_STATE_DONE:
