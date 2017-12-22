@@ -453,8 +453,7 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 			value = "";
 		}
 
-		if (password_r != NULL && strcmp(key, "password") == 0 &&
-		    !req->userdb_lookup) {
+		if (password_r != NULL && strcmp(key, "password") == 0) {
 			*scheme_r = password_get_scheme(&value);
 			*password_r = value;
 		} else if (req->userdb_lookup) {
@@ -510,7 +509,8 @@ auth_lua_call_lookup_finish(struct dlua_script *script, struct auth_request *req
 			    const char **error_r)
 {
 	if (lua_istable(script->L, -1)) {
-		return auth_lua_export_passdb_table(script, req, NULL, NULL, error_r);
+		return auth_lua_export_passdb_table(script, req, scheme_r,
+						    password_r, error_r);
 	}
 
 	enum passdb_result ret = lua_tointeger(script->L, -2);

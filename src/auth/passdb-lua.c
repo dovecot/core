@@ -89,6 +89,8 @@ passdb_lua_verify_plain(struct auth_request *request, const char *password,
 	} else {
 		result = passdb_lua_lookup(request, &lua_scheme, &lua_password);
 		if (result == PASSDB_RESULT_OK) {
+			if (lua_scheme == NULL)
+				lua_scheme = "PLAIN";
 			if ((auth_request_password_verify(request, password, lua_password,
 							  lua_scheme, AUTH_SUBSYS_DB)) <=0) {
 				result = PASSDB_RESULT_PASSWORD_MISMATCH;
