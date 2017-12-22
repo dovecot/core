@@ -289,7 +289,6 @@ static struct doveadm_cmd *doveadm_cmdline_commands[] = {
 int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_SEND_STATS |
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
@@ -355,6 +354,7 @@ int main(int argc, char *argv[])
 		quick_init = TRUE;
 	} else {
 		quick_init = FALSE;
+		master_service_init_stats_client(master_service, TRUE);
 		doveadm_print_ostream = o_stream_create_fd(STDOUT_FILENO, 0);
 		o_stream_set_no_error_handling(doveadm_print_ostream, TRUE);
 		doveadm_dump_init();
