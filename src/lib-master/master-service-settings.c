@@ -589,7 +589,13 @@ int master_service_settings_read(struct master_service *service,
 		const char *path = t_strdup_printf("%s/%s",
 			service->set->base_dir,
 			service->set->stats_writer_socket_path);
-		service->stats_client = stats_client_init(path);
+		/* When running standalone (e.g. doveadm) try to connect to the
+		   stats socket, but don't log an error if it's not running.
+		   It may be intentional. */
+		bool silent_notfound_errors =
+			(service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0;
+		service->stats_client =
+			stats_client_init(path, silent_notfound_errors);
 	} T_END;
 
 	if (service->set->shutdown_clients)
