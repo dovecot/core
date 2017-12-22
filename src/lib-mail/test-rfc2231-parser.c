@@ -36,6 +36,7 @@ static void test_rfc2231_parser(void)
 	test_assert(rfc2231_parse(&parser, &result) == 0);
 	for (i = 0; output[i] != NULL && result[i] != NULL; i++)
 		test_assert(strcmp(output[i], result[i]) == 0);
+	rfc822_parser_deinit(&parser);
 	test_assert(output[i] == NULL && result[i] == NULL);
 	test_end();
 }

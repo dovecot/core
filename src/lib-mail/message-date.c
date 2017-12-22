@@ -252,6 +252,7 @@ bool message_date_parse(const unsigned char *data, size_t size,
 		ctx.str = t_str_new(128);
 		success = message_date_parser_tokens(&ctx, timestamp_r,
 						     timezone_offset_r);
+		rfc822_parser_deinit(&ctx.parser);
 	} T_END;
 
 	return success;
