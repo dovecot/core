@@ -8,7 +8,7 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
       case "$host" in
         *)
           gl_COMPILER_OPTION_IF([-O2 -D_FORTIFY_SOURCE=2], [
-            CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
+            CFLAGS="$CFLAGS -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
             ],
             [],
             [AC_LANG_PROGRAM([[
