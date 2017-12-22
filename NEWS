@@ -1,4 +1,4 @@
-v2.3.0 2017-12-xx  Timo Sirainen <tss@iki.fi>
+v2.3.0 2017-12-22  Timo Sirainen <tss@iki.fi>
 
 	* Various setting changes, see https://wiki2.dovecot.org/Upgrading/2.3
 	* Logging rewrite started: Logging is now based on hierarchical events.
@@ -36,6 +36,9 @@ v2.3.0 2017-12-xx  Timo Sirainen <tss@iki.fi>
 	  have ever happened).
 	- virtual plugin: Fixed panic when fetching mails from virtual
 	  mailboxes with IMAP BINARY extension.
+	- doveadm-server: Fix potential hangs with SSL connections
+	- doveadm proxy: Reading commands' output from v2.2.33+ servers could
+	  have caused the output to be corrupted or caused a crash.
 	- Many other smaller fixes
 
 v2.2.33.2 2017-10-20  Timo Sirainen <tss@iki.fi>
