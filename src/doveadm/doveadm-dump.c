@@ -33,7 +33,7 @@ dump_find_test(const char *path)
 	const struct doveadm_cmd_dump *const *dumpp;
 
 	array_foreach(&dumps, dumpp) {
-		if ((*dumpp)->test(path))
+		if ((*dumpp)->test != NULL && (*dumpp)->test(path))
 			return *dumpp;
 	}
 	return NULL;
