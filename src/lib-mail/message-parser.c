@@ -501,8 +501,10 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 
 	if (ret < 0 ||
 	    (ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
-	    ctx->last_boundary != NULL)
+	    ctx->last_boundary != NULL) {
+		rfc822_parser_deinit(&parser);
 		return;
+	}
 
 	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
@@ -512,6 +514,7 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 			break;
 		}
 	}
+	rfc822_parser_deinit(&parser);
 }
 
 static bool block_is_at_eoh(const struct message_block *block)

@@ -173,8 +173,10 @@ static void parse_content_disposition(const char *content_disposition,
 
 	/* type; param; param; .. */
 	str = t_str_new(32);
-	if (rfc822_parse_mime_token(&parser, str) < 0)
+	if (rfc822_parse_mime_token(&parser, str) < 0) {
+		rfc822_parser_deinit(&parser);
 		return;
+	}
 
 	rfc2231_parse(&parser, &results);
 	filename2 = NULL;
@@ -191,6 +193,7 @@ static void parse_content_disposition(const char *content_disposition,
 		   much about the filename actually, just about its extension */
 		*filename_r = filename2;
 	}
+	rfc822_parser_deinit(&parser);
 }
 
 static struct fts_parser *
