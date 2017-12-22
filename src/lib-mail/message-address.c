@@ -404,6 +404,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	} else {
 		(void)parse_address_list(&ctx, max_addresses);
 	}
+	rfc822_parser_deinit(&ctx.parser);
 	return ctx.first_addr;
 }
 
