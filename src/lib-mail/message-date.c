@@ -103,7 +103,7 @@ static int next_token(struct message_date_parser_context *ctx,
 	int ret;
 
 	str_truncate(ctx->str, 0);
-	ret = ctx->parser.data == ctx->parser.end ? 0 :
+	ret = ctx->parser.data >= ctx->parser.end ? 0 :
 		rfc822_parse_atom(&ctx->parser, ctx->str);
 
 	*value = str_data(ctx->str);
@@ -205,7 +205,7 @@ message_date_parser_tokens(struct message_date_parser_context *ctx,
 	tm.tm_min = (value[0]-'0') * 10 + (value[1]-'0');
 
 	/* [:ss] */
-	if (ctx->parser.data != ctx->parser.end &&
+	if (ctx->parser.data < ctx->parser.end &&
 	    IS_TIME_SEP(*ctx->parser.data)) {
 		ctx->parser.data++;
 		rfc822_skip_lwsp(&ctx->parser);
