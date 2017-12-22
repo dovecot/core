@@ -61,6 +61,7 @@ static void parse_content_type(struct message_search_context *ctx,
 	ctx->content_type_text =
 		strncasecmp(str_c(content_type), "text/", 5) == 0 ||
 		strncasecmp(str_c(content_type), "message/", 8) == 0;
+	rfc822_parser_deinit(&parser);
 }
 
 static void handle_header(struct message_search_context *ctx,

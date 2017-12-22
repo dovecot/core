@@ -56,6 +56,7 @@ static void fts_build_parse_content_type(struct fts_mail_build_context *ctx,
 		(void)rfc822_parse_content_type(&parser, content_type);
 		ctx->content_type = str_lcase(i_strdup(str_c(content_type)));
 	} T_END;
+	rfc822_parser_deinit(&parser);
 }
 
 static void

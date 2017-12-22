@@ -309,6 +309,7 @@ parse_content_type(struct message_part_data *data,
 	parse_mime_parameters(&parser, pool,
 		&data->content_type_params,
 		&data->content_type_params_count);
+	rfc822_parser_deinit(&parser);
 }
 
 static void
@@ -327,6 +328,7 @@ parse_content_transfer_encoding(struct message_part_data *data,
 		data->content_transfer_encoding =
 			p_strdup(pool, str_c(str));
 	}
+	rfc822_parser_deinit(&parser);
 }
 
 static void
@@ -340,13 +342,16 @@ parse_content_disposition(struct message_part_data *data,
 	rfc822_skip_lwsp(&parser);
 
 	str = t_str_new(256);
-	if (rfc822_parse_mime_token(&parser, str) < 0)
+	if (rfc822_parse_mime_token(&parser, str) < 0) {
+		rfc822_parser_deinit(&parser);
 		return;
+	}
 	data->content_disposition = p_strdup(pool, str_c(str));
 
 	parse_mime_parameters(&parser, pool,
 		&data->content_disposition_params,
 		&data->content_disposition_params_count);
+	rfc822_parser_deinit(&parser);
 }
 
 static void
@@ -379,6 +384,7 @@ parse_content_language(struct message_part_data *data,
 		parser.data++;
 		rfc822_skip_lwsp(&parser);
 	}
+	rfc822_parser_deinit(&parser);
 
 	if (array_count(&langs) > 0) {
 		array_append_zero(&langs);

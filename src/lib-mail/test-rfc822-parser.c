@@ -31,6 +31,7 @@ static void test_rfc822_parse_quoted_string(void)
 		test_assert_idx(rfc822_parse_quoted_string(&parser, str) == tests[i].ret, i);
 		test_assert_idx(tests[i].ret < 0 ||
 				strcmp(tests[i].output, str_c(str)) == 0, i);
+		rfc822_parser_deinit(&parser);
 		str_truncate(str, 0);
 	}
 	test_end();
@@ -60,6 +61,7 @@ static void test_rfc822_parse_content_param(void)
 		test_assert_idx(strcmp(output[i].value, value) == 0, i);
 		i++;
 	}
+	rfc822_parser_deinit(&parser);
 	test_assert(ret == 0);
 	test_assert(i == N_ELEMENTS(output));
 	test_end();

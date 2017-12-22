@@ -117,6 +117,7 @@ enum message_cte message_decoder_parse_cte(struct message_header_line *hdr)
 			message_cte = MESSAGE_CTE_QP;
 		break;
 	}
+	rfc822_parser_deinit(&parser);
 	return message_cte;
 }
 
@@ -137,8 +138,10 @@ parse_content_type(struct message_decoder_context *ctx,
 	str = t_str_new(64);
 	ret = rfc822_parse_content_type(&parser, str);
 	ctx->content_type = i_strdup(str_c(str));
-	if (ret < 0)
+	if (ret < 0) {
+		rfc822_parser_deinit(&parser);
 		return;
+	}
 
 	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
@@ -147,6 +150,7 @@ parse_content_type(struct message_decoder_context *ctx,
 			break;
 		}
 	}
+	rfc822_parser_deinit(&parser);
 }
 
 static bool message_decode_header(struct message_decoder_context *ctx,
