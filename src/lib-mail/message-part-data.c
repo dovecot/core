@@ -374,7 +374,7 @@ parse_content_language(struct message_part_data *data,
 		array_append(&langs, &lang, 1);
 		str_truncate(str, 0);
 
-		if (parser.data == parser.end || *parser.data != ',')
+		if (parser.data >= parser.end || *parser.data != ',')
 			break;
 		parser.data++;
 		rfc822_skip_lwsp(&parser);
