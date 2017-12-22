@@ -198,6 +198,16 @@ static void test_message_address(void)
 		{ "<@>", "", "<INVALID_ROUTE:MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, NULL, NULL, "", "", TRUE },
 		  { NULL, NULL, "INVALID_ROUTE", "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
+
+		/* Test against a out-of-bounds read bug - keep these two tests
+		   together in this same order: */
+		{ "aaaa@", "<aaaa>", "<aaaa@MISSING_DOMAIN>",
+		  { NULL, NULL, NULL, "aaaa", "", TRUE },
+		  { NULL, NULL, NULL, "aaaa", "MISSING_DOMAIN", TRUE }, 0 },
+		{ "a(aa", "", "<MISSING_MAILBOX@MISSING_DOMAIN>",
+		  { NULL, NULL, NULL, "", "", TRUE },
+		  { NULL, NULL, NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE },
+		  TEST_MESSAGE_ADDRESS_FLAG_SKIP_LIST },
 	};
 	static struct message_address group_prefix = {
 		NULL, NULL, NULL, "group", NULL, FALSE
