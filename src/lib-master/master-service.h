@@ -128,6 +128,12 @@ void master_service_env_clean(void);
    functions. The following calls change the log prefix. */
 void master_service_init_log(struct master_service *service,
 			     const char *prefix);
+/* Initialize stats client (if it's not already initialized). This is called
+   automatically if MASTER_SERVICE_FLAG_SEND_STATS is enabled. If
+   silent_notfound_errors is set, connect() errors aren't logged if they're
+   happening because the stats service isn't running. */
+void master_service_init_stats_client(struct master_service *service,
+				      bool silent_notfound_errors);
 
 /* If set, die immediately when connection to master is lost.
    Normally all existing clients are handled first. */
