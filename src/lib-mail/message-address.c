@@ -84,7 +84,7 @@ static int parse_local_part(struct message_address_parser_context *ctx)
 	   local-part      = dot-atom / quoted-string / obs-local-part
 	   obs-local-part  = word *("." word)
 	*/
-	i_assert(ctx->parser.data != ctx->parser.end);
+	i_assert(ctx->parser.data < ctx->parser.end);
 
 	str_truncate(ctx->str, 0);
 	if (*ctx->parser.data == '"')
@@ -117,7 +117,7 @@ static int parse_domain_list(struct message_address_parser_context *ctx)
 	/* obs-domain-list = "@" domain *(*(CFWS / "," ) [CFWS] "@" domain) */
 	str_truncate(ctx->str, 0);
 	for (;;) {
-		if (ctx->parser.data == ctx->parser.end)
+		if (ctx->parser.data >= ctx->parser.end)
 			return 0;
 
 		if (*ctx->parser.data != '@')
@@ -153,7 +153,7 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 		if (parse_domain_list(ctx) <= 0 || *ctx->parser.data != ':') {
 			if (ctx->fill_missing)
 				ctx->addr.route = "INVALID_ROUTE";
-			if (ctx->parser.data == ctx->parser.end)
+			if (ctx->parser.data >= ctx->parser.end)
 				return -1;
 			/* try to continue anyway */
 		} else {
@@ -203,7 +203,7 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 			ctx->addr.domain = "SYNTAX_ERROR";
 		ctx->addr.invalid_syntax = TRUE;
 	}
-	return ctx->parser.data != ctx->parser.end;
+	return ctx->parser.data < ctx->parser.end ? 1 : 0;
 }
 
 static int parse_addr_spec(struct message_address_parser_context *ctx)
@@ -211,7 +211,7 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 	/* addr-spec       = local-part "@" domain */
 	int ret, ret2 = -2;
 
-	i_assert(ctx->parser.data != ctx->parser.end);
+	i_assert(ctx->parser.data < ctx->parser.end);
 
 	str_truncate(ctx->parser.last_comment, 0);
 
@@ -221,7 +221,7 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 		/* end of input or parsing local-part failed */
 		ctx->addr.invalid_syntax = TRUE;
 	}
-	if (ret != 0 && ctx->parser.data != ctx->parser.end &&
+	if (ret != 0 && ctx->parser.data < ctx->parser.end &&
 	    *ctx->parser.data == '@') {
 		ret2 = parse_domain(ctx);
 		if (ret2 <= 0)
@@ -317,7 +317,7 @@ static int parse_group(struct message_address_parser_context *ctx)
 			if (parse_mailbox(ctx) <= 0) {
 				/* broken mailbox - try to continue anyway. */
 			}
-			if (ctx->parser.data == ctx->parser.end ||
+			if (ctx->parser.data >= ctx->parser.end ||
 			    *ctx->parser.data != ',')
 				break;
 			ctx->parser.data++;
@@ -328,7 +328,7 @@ static int parse_group(struct message_address_parser_context *ctx)
 		}
 	}
 	if (ret >= 0) {
-		if (ctx->parser.data == ctx->parser.end ||
+		if (ctx->parser.data >= ctx->parser.end ||
 		    *ctx->parser.data != ';')
 			ret = -1;
 		else {
@@ -368,7 +368,7 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 		max_addresses--;
 		if ((ret = parse_address(ctx)) == 0)
 			break;
-		if (ctx->parser.data == ctx->parser.end ||
+		if (ctx->parser.data >= ctx->parser.end ||
 		    *ctx->parser.data != ',') {
 			ret = -1;
 			break;
