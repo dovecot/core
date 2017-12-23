@@ -74,7 +74,8 @@ static void submission_client_create(struct client *client,
 		smtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	smtp_set.hostname = subm_client->set->hostname;
 	smtp_set.login_greeting = client->set->login_greeting;
-	smtp_set.tls_required = (strcmp(client->ssl_set->ssl, "required") == 0);
+	smtp_set.tls_required = !client->secured &&
+		(strcmp(client->ssl_set->ssl, "required") == 0);
 	smtp_set.xclient_extensions = xclient_extensions;
 	smtp_set.debug = client->set->auth_debug;
 
