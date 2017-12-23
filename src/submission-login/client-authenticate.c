@@ -141,8 +141,20 @@ void submission_client_auth_result(struct client *client,
 		   SHOULD be 5.7.0. */
 		smtp_server_reply(cmd, 530, "5.7.0", "%s", text);
 		break;
-	case CLIENT_AUTH_RESULT_MECH_INVALID:
 	case CLIENT_AUTH_RESULT_MECH_SSL_REQUIRED:
+		/* RFC5248, Section 2.4:
+
+		   523 X.7.10 Encryption Needed
+
+		   This indicates that an external strong privacy layer is
+		   needed in order to use the requested authentication
+		   mechanism. This is primarily intended for use with clear text
+		   authentication mechanisms. A client that receives this may
+		   activate a security layer such as TLS prior to
+		   authenticating, or attempt to use a stronger mechanism. */
+		smtp_server_reply(cmd, 523, "5.7.10", "%s", text);
+		break;
+	case CLIENT_AUTH_RESULT_MECH_INVALID:
 		/* RFC4954, Section 4:
 
 		   If the requested authentication mechanism is invalid (e.g.,
