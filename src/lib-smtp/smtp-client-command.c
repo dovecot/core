@@ -714,6 +714,7 @@ void smtp_client_command_write(struct smtp_client_command *cmd,
 {
 	unsigned int len = strlen(cmd_str);
 
+	i_assert(cmd->state < SMTP_CLIENT_COMMAND_STATE_SUBMITTED);
 	if (cmd->data == NULL)
 		cmd->data = str_new(cmd->pool, len + 2);
 	str_append(cmd->data, cmd_str);
