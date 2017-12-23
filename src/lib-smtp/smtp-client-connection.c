@@ -122,23 +122,10 @@ smtp_client_connection_error(struct smtp_client_connection *conn,
 static void
 smtp_client_connection_commands_abort(struct smtp_client_connection *conn)
 {
-	struct smtp_client_command *cmd, *cmd_next = NULL;
-
-	cmd = conn->cmd_wait_list_head;
-	while (cmd != NULL) {
-		i_assert(conn->cmd_wait_list_count > 0);
-		cmd_next = cmd->next;
-		smtp_client_command_abort(&cmd);
-		cmd = cmd_next;
-	}
-
-	cmd = conn->cmd_send_queue_head;
-	while (cmd != NULL) {
-		i_assert(conn->cmd_send_queue_count > 0);
-		cmd_next = cmd->next;
-		smtp_client_command_abort(&cmd);
-		cmd = cmd_next;
-	}
+	smtp_client_commands_list_abort(conn->cmd_wait_list_head,
+					conn->cmd_wait_list_count);
+	smtp_client_commands_list_abort(conn->cmd_send_queue_head,
+					conn->cmd_send_queue_count);
 }
 
 static void

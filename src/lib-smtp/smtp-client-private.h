@@ -194,6 +194,9 @@ void smtp_client_command_fail(struct smtp_client_command **_cmd,
 			      unsigned int status, const char *error);
 void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 				    const struct smtp_reply *reply);
+
+void smtp_client_commands_list_abort(struct smtp_client_command *cmds_list,
+				     unsigned int cmds_list_count);
 void smtp_client_commands_list_fail_reply(
 	struct smtp_client_command *cmds_list, unsigned int cmds_list_count,
 	const struct smtp_reply *reply);
