@@ -313,6 +313,36 @@ void smtp_client_command_fail(struct smtp_client_command **_cmd,
 	smtp_client_command_fail_reply(_cmd, &reply);
 }
 
+void smtp_client_commands_list_abort(struct smtp_client_command *cmds_list,
+				     unsigned int cmds_list_count)
+{
+	struct smtp_client_command *cmd;
+	ARRAY(struct smtp_client_command *) cmds_arr;
+	struct smtp_client_command **cmds;
+	unsigned int count, i;
+
+	if (cmds_list == NULL)
+		return;
+	i_assert(cmds_list_count > 0);
+
+	/* copy the array and reference the commands to be robust against more
+	   than one command disappearing from the list */
+	t_array_init(&cmds_arr, cmds_list_count);
+	for (cmd = cmds_list; cmd != NULL; cmd = cmd->next) {
+		smtp_client_command_ref(cmd);
+		array_append(&cmds_arr, &cmd, 1);
+	}
+
+	cmds = array_get_modifiable(&cmds_arr, &count);
+	for (i = 0; i < count; i++) {
+		cmd = cmds[i];
+		/* fail the reply */
+		smtp_client_command_abort(&cmds[i]);
+		/* drop our reference */
+		smtp_client_command_unref(&cmd);
+	}
+}
+
 void smtp_client_commands_list_fail_reply(
 	struct smtp_client_command *cmds_list, unsigned int cmds_list_count,
 	const struct smtp_reply *reply)
