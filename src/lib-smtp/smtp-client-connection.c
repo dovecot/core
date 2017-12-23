@@ -145,23 +145,10 @@ static void
 smtp_client_connection_commands_fail_reply(struct smtp_client_connection *conn,
 	const struct smtp_reply *reply)
 {
-	struct smtp_client_command *cmd, *cmd_next = NULL;
-
-	cmd = conn->cmd_wait_list_head;
-	while (cmd != NULL) {
-		i_assert(conn->cmd_wait_list_count > 0);
-		cmd_next = cmd->next;
-		smtp_client_command_fail_reply(&cmd, reply);
-		cmd = cmd_next;
-	}
-
-	cmd = conn->cmd_send_queue_head;
-	while (cmd != NULL) {
-		i_assert(conn->cmd_send_queue_count > 0);
-		cmd_next = cmd->next;
-		smtp_client_command_fail_reply(&cmd, reply);
-		cmd = cmd_next;
-	}
+	smtp_client_commands_list_fail_reply(conn->cmd_wait_list_head,
+					     conn->cmd_wait_list_count, reply);
+	smtp_client_commands_list_fail_reply(conn->cmd_send_queue_head,
+					     conn->cmd_send_queue_count, reply);
 }
 
 static void
