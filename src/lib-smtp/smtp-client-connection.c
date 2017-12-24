@@ -1137,26 +1137,8 @@ static void smtp_client_connection_destroy(struct connection *_conn)
 static void
 smtp_client_connection_established(struct smtp_client_connection *conn)
 {
-	struct stat st;
-
 	if (conn->to_connect != NULL)
 		timeout_reset(conn->to_connect);
-
-	/* (re-)initialize rawlog */
-	if (conn->set.rawlog_dir != NULL &&
-	    stat(conn->set.rawlog_dir, &st) == 0) {
-		iostream_rawlog_create(conn->set.rawlog_dir,
-				       &conn->conn.input, &conn->conn.output);
-	}
-
-	/* create/update reply parser */
-	if (conn->reply_parser == NULL) {
-		conn->reply_parser = smtp_reply_parser_init(
-			conn->conn.input, conn->set.max_reply_size);
-	} else {
-		smtp_reply_parser_set_stream(conn->reply_parser,
-					     conn->conn.input);
-	}
 
 	/* set flush callback */
 	o_stream_set_flush_callback(conn->conn.output,
@@ -1344,6 +1326,7 @@ smtp_client_connection_connected(struct connection *_conn, bool success)
 
 	conn->raw_input = conn->conn.input;
 	conn->raw_output = conn->conn.output;
+	smtp_client_connection_streams_changed(conn);
 
 	if (conn->ssl_mode == SMTP_CLIENT_SSL_MODE_IMMEDIATE) {
 		if (smtp_client_connection_ssl_init(conn, &error) < 0) {
