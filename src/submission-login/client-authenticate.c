@@ -254,7 +254,7 @@ int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	/* pass ehlo parameter to post-login service upon successful login */
 	i_free(client->master_data_prefix);
 	client->master_data_prefix = (void *)prefix;
-	client->master_data_prefix_len = strlen(prefix);
+	client->master_data_prefix_len = strlen(prefix) + 1;
 
 	subm_client->pending_auth = cmd;
 
