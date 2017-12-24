@@ -16,6 +16,9 @@
 #define SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE 1024
 #define SUBMISSION_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
+/* Maximum time to wait for QUIT reply from relay server */
+#define SUBMISSION_MAX_WAIT_QUIT_REPLY_MSECS 2000
+
 typedef void submission_client_created_func_t(struct client **client);
 
 extern submission_client_created_func_t *hook_client_created;

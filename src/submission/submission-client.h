@@ -32,6 +32,7 @@ struct client {
 	struct imap_urlauth_context *urlauth_ctx;
 
 	struct smtp_client_connection *proxy_conn;
+	struct timeout *to_quit;
 
 	struct smtp_server_stats stats;
 
