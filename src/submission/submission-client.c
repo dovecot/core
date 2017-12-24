@@ -367,6 +367,7 @@ void client_disconnect(struct client *client, const char *enh_code,
 		return;
 	client->disconnected = TRUE;
 
+	timeout_remove(&client->to_quit);
 	if (client->proxy_conn != NULL)
 		smtp_client_connection_close(&client->proxy_conn);
 
