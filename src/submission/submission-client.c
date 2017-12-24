@@ -202,11 +202,12 @@ struct client *client_create(int fd_in, int fd_out,
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		&smtp_set, &smtp_callbacks, client);
+
+	client_proxy_create(client, set);
+
 	smtp_server_connection_login(client->conn,
 		client->user->username, helo,
 		pdata, pdata_len, user->conn.ssl_secured);
-
-	client_proxy_create(client, set);
 
 	mail_set = mail_user_set_get_storage_set(user);
 	if (*set->imap_urlauth_host != '\0' &&
