@@ -291,26 +291,6 @@ static void imapc_sync_expunge_eom(struct imapc_sync_context *ctx)
 	mbox->sync_next_rseq = 0;
 }
 
-static void imapc_sync_uid_validity(struct imapc_sync_context *ctx)
-{
-	struct imapc_mailbox *mbox = ctx->mbox;
-	const struct mail_index_header *hdr;
-
-	hdr = mail_index_get_header(ctx->sync_view);
-	if (hdr->uid_validity != mbox->sync_uid_validity &&
-	    mbox->sync_uid_validity != 0) {
-		if (hdr->uid_validity != 0) {
-			/* uidvalidity changed, reset the entire mailbox */
-			mail_index_reset(ctx->trans);
-			mbox->sync_fetch_first_uid = 1;
-		}
-		mail_index_update_header(ctx->trans,
-			offsetof(struct mail_index_header, uid_validity),
-			&mbox->sync_uid_validity,
-			sizeof(mbox->sync_uid_validity), TRUE);
-	}
-}
-
 static void imapc_sync_uid_next(struct imapc_sync_context *ctx)
 {
 	struct imapc_mailbox *mbox = ctx->mbox;
@@ -451,7 +431,6 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	ctx->keywords = mail_index_get_keywords(mbox->box.index);
 	ctx->pool = pool_alloconly_create("imapc sync pool", 1024);
 
-	imapc_sync_uid_validity(ctx);
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) T_BEGIN {
 		if (!mail_index_lookup_seq_range(ctx->sync_view,
 						 sync_rec.uid1, sync_rec.uid2,

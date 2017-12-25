@@ -589,6 +589,26 @@ static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
 		imapc_search_reply_esearch(reply->args+1, mbox);
 }
 
+static void imapc_sync_uid_validity(struct imapc_mailbox *mbox)
+{
+	const struct mail_index_header *hdr;
+
+	imapc_mailbox_init_delayed_trans(mbox);
+	hdr = mail_index_get_header(mbox->delayed_sync_view);
+	if (hdr->uid_validity != mbox->sync_uid_validity &&
+	    mbox->sync_uid_validity != 0) {
+		if (hdr->uid_validity != 0) {
+			/* uidvalidity changed, reset the entire mailbox */
+			mail_index_reset(mbox->delayed_sync_trans);
+			mbox->sync_fetch_first_uid = 1;
+		}
+		mail_index_update_header(mbox->delayed_sync_trans,
+			offsetof(struct mail_index_header, uid_validity),
+			&mbox->sync_uid_validity,
+			sizeof(mbox->sync_uid_validity), TRUE);
+	}
+}
+
 static void
 imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 			    struct imapc_mailbox *mbox)
@@ -603,6 +623,7 @@ imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 	if (mbox->sync_uid_validity != uid_validity) {
 		mbox->sync_uid_validity = uid_validity;
 		imapc_mail_cache_free(&mbox->prev_mail_cache);
+		imapc_sync_uid_validity(mbox);
 	}
 }
 
