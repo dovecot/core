@@ -135,6 +135,7 @@ struct imapc_connection {
 	bool idling:1;
 	bool idle_stopping:1;
 	bool idle_plus_waiting:1;
+	bool select_waiting_reply:1;
 };
 
 static void imapc_connection_capability_cb(const struct imapc_command_reply *reply,
@@ -383,6 +384,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 		conn->idle_plus_waiting = FALSE;
 		conn->idle_stopping = FALSE;
 
+		conn->select_waiting_reply = FALSE;
 		conn->selecting_box = NULL;
 		conn->selected_box = NULL;
 		/* fall through */
@@ -1443,6 +1445,8 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 			conn->cur_tag, line, reply.text_full);
 		return -1;
 	}
+	if ((cmd->flags & IMAPC_COMMAND_FLAG_SELECT) != 0)
+		conn->select_waiting_reply = FALSE;
 
 	if (reply.state == IMAPC_COMMAND_STATE_BAD) {
 		i_error("imapc(%s): Command '%s' failed with BAD: %u %s",
@@ -2070,6 +2074,7 @@ static void imapc_connection_set_selecting(struct imapc_client_mailbox *box)
 		   are for the mailbox we're selecting */
 		conn->selected_box = box;
 	}
+	conn->select_waiting_reply = TRUE;
 }
 
 static bool imapc_connection_is_throttled(struct imapc_connection *conn)
@@ -2122,6 +2127,10 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 	if ((cmd->flags & IMAPC_COMMAND_FLAG_LOGOUT) != 0 &&
 	    array_count(&conn->cmd_wait_list) > 0) {
 		/* wait until existing commands have finished */
+		return;
+	}
+	if (conn->select_waiting_reply) {
+		/* wait for SELECT to finish */
 		return;
 	}
 	if (cmd->wait_for_literal) {
