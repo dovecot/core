@@ -91,6 +91,8 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		index_mailbox_sync_pvt_deinit(&pvt_sync_ctx);
 	}
 
+	if (ret < 0)
+		mail_index_set_error_nolog(t->box->index, mailbox_get_last_error(t->box, NULL));
 	index_transaction_free(t);
 	return ret;
 }
