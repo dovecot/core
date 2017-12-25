@@ -416,7 +416,7 @@ void smtp_server_connection_data_chunk_init(struct smtp_server_cmd_ctx *cmd)
 	command->hook_replied = cmd_data_chunk_replied;
 	command->hook_destroy = cmd_data_destroy;
 
-	if (conn->state.data_chain == NULL) {
+	if (!conn->state.data_failed && conn->state.data_chain == NULL) {
 		i_assert(data_cmd->chunk_first);
 		i_assert(conn->state.data_chain_input == NULL);
 		conn->state.data_chain_input =
