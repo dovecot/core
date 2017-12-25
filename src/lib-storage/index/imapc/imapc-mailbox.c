@@ -274,7 +274,7 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	uint32_t exists_count = reply->num;
 	const struct mail_index_header *hdr;
 
-	if (mbox == NULL)
+	if (mbox == NULL || IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
 		return;
 
 	mbox->exists_count = exists_count;
@@ -352,7 +352,8 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
 	msg_count = imapc_msgmap_count(msgmap);
 	if (fetch_uid != 0 &&
-	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS)) {
+	    (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS) ||
+	     IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))) {
 		/* if we know the UID, use own own generated rseq instead of
 		   the potentially broken rseq that the server sent. */
 		uint32_t fixed_rseq;
@@ -474,6 +475,11 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			}
 		}
 	}
+	if (fetch_uid == 0 &&
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES)) {
+		/* UID missing and we're not tracking MSNs */
+		return;
+	}
 
 	imapc_mailbox_init_delayed_trans(mbox);
 	if (imapc_mailbox_msgmap_update(mbox, rseq, fetch_uid,
@@ -576,7 +582,8 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 	struct imapc_msgmap *msgmap;
 	uint32_t lseq, uid, rseq = reply->num;
 	
-	if (mbox == NULL || rseq == 0)
+	if (mbox == NULL || rseq == 0 ||
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
 		return;
 
 	mbox->prev_skipped_rseq = 0;
