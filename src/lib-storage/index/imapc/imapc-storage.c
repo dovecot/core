@@ -579,8 +579,10 @@ imapc_mailbox_reopen_callback(const struct imapc_command_reply *reply,
 	mbox->selecting = FALSE;
 	if (reply->state != IMAPC_COMMAND_STATE_OK)
 		errmsg = reply->text_full;
-	else if (imapc_mailbox_verify_select(mbox, &errmsg))
+	else if (imapc_mailbox_verify_select(mbox, &errmsg)) {
 		errmsg = NULL;
+		mbox->selected = TRUE;
+	}
 
 	if (errmsg != NULL) {
 		imapc_client_mailbox_reconnect(mbox->client_box,
@@ -611,6 +613,7 @@ static void imapc_mailbox_reopen(void *context)
 
 	mbox->initial_sync_done = FALSE;
 	mbox->selecting = TRUE;
+	mbox->selected = FALSE;
 	mbox->exists_received = FALSE;
 
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
@@ -637,13 +640,13 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	const char *error;
 
 	ctx->mbox->selecting = FALSE;
-	ctx->mbox->selected = TRUE;
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		if (!imapc_mailbox_verify_select(ctx->mbox, &error)) {
 			mailbox_set_critical(&ctx->mbox->box,
 				"imapc: Opening mailbox failed: %s", error);
 			ctx->ret = -1;
 		} else {
+			ctx->mbox->selected = TRUE;
 			ctx->ret = 0;
 		}
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
