@@ -616,10 +616,14 @@ void mailbox_set_index_error(struct mailbox *box)
 void mail_storage_set_index_error(struct mail_storage *storage,
 				  struct mail_index *index)
 {
+	const char *index_error;
+
 	mail_storage_set_internal_error(storage);
 	/* use the lib-index's error as our internal error string */
-	storage->last_internal_error =
-		i_strdup(mail_index_get_error_message(index));
+	index_error = mail_index_get_error_message(index);
+	if (index_error == NULL)
+		index_error = "BUG: Unknown internal index error";
+	storage->last_internal_error = i_strdup(index_error);
 	storage->last_error_is_internal = TRUE;
 	mail_index_reset_error(index);
 }
