@@ -352,16 +352,12 @@ imapc_initial_sync_check(struct imapc_sync_context *ctx, bool nooped)
 }
 
 static void
-imapc_sync_send_commands(struct imapc_sync_context *ctx, uint32_t first_uid)
+imapc_sync_send_commands(struct imapc_sync_context *ctx)
 {
-	string_t *cmd = t_str_new(64);
-
 	if (ctx->mbox->exists_count == 0) {
 		/* empty mailbox - no point in fetching anything */
 		return;
 	}
-	imapc_mailbox_fetch_state(ctx->mbox, cmd, first_uid);
-	imapc_sync_cmd(ctx, str_c(cmd));
 
 	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_MIGRATION) &&
 	    ctx->mbox->storage->set->pop3_deleted_flag[0] != '\0') {
@@ -407,20 +403,8 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	imapc_sync_finish_store(ctx);
 	pool_unref(&ctx->pool);
 
-	if (!mbox->initial_sync_done) {
-		/* with initial syncing we're fetching all messages' flags and
-		   expunge mails from local index that no longer exist on
-		   remote server */
-		i_assert(mbox->sync_fetch_first_uid == 1);
-		mbox->sync_next_lseq = 1;
-		mbox->sync_next_rseq = 1;
-	}
-	if (mbox->sync_fetch_first_uid != 0) {
-		/* we'll resync existing messages' flags and add new messages.
-		   adding new messages requires sync locking to avoid
-		   duplicates. */
-		imapc_sync_send_commands(ctx, mbox->sync_fetch_first_uid);
-	}
+	if (!mbox->initial_sync_done)
+		imapc_sync_send_commands(ctx);
 
 	imapc_sync_expunge_finish(ctx);
 	while (ctx->sync_command_count > 0)
@@ -431,10 +415,6 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	imapc_sync_uid_next(ctx);
 	imapc_sync_highestmodseq(ctx);
 
-	if (!ctx->failed) {
-		imapc_mailbox_fetch_state_finish(ctx->mbox, ctx->sync_view,
-						 ctx->trans);
-	}
 	if (mbox->box.v.sync_notify != NULL)
 		mbox->box.v.sync_notify(&mbox->box, 0, 0);
 
@@ -446,26 +426,6 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		imapc_initial_sync_check(ctx, FALSE);
 		mbox->initial_sync_done = TRUE;
 	}
-}
-
-void imapc_sync_mailbox_reopened(struct imapc_mailbox *mbox)
-{
-	struct imapc_sync_context *ctx = mbox->sync_ctx;
-
-	i_assert(mbox->syncing);
-
-	if (!mbox->initial_sync_done) {
-		/* the same sync commands are automatically already retried by
-		   lib-imap-client. don't duplicate them here. */
-		return;
-	}
-
-	/* we got disconnected while syncing. need to
-	   re-fetch everything */
-	mbox->sync_next_lseq = 1;
-	mbox->sync_next_rseq = 1;
-
-	imapc_sync_send_commands(ctx, 1);
 }
 
 static int
@@ -612,6 +572,12 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	imapc_noop_if_needed(mbox, flags);
 
+	if (imapc_storage_client_handle_auth_failure(mbox->storage->client))
+		ret = -1;
+	else if (!mbox->state_fetched_success && !mbox->state_fetching_uid1) {
+		/* initial FETCH failed already */
+		ret = -1;
+	}
 	if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
 		ret = -1;
 	if ((changes || mbox->sync_fetch_first_uid != 0 ||
