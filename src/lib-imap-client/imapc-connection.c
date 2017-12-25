@@ -1464,6 +1464,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 
 	if (conn->reconnect_command_count > 0 &&
 	    (cmd->flags & IMAPC_COMMAND_FLAG_RECONNECTED) != 0) {
+		i_assert(conn->reconnect_command_count > 0);
 		if (--conn->reconnect_command_count == 0) {
 			/* we've received replies for all the commands started
 			   before reconnection. if we get disconnected now, we
@@ -2243,6 +2244,8 @@ static void imapc_connection_cmd_send(struct imapc_command *cmd)
 	unsigned int i, count;
 
 	imapc_connection_send_idle_done(conn);
+
+	i_assert((cmd->flags & IMAPC_COMMAND_FLAG_RECONNECTED) == 0);
 
 	if ((cmd->flags & IMAPC_COMMAND_FLAG_PRELOGIN) != 0 &&
 	    conn->state == IMAPC_CONNECTION_STATE_AUTHENTICATING) {
