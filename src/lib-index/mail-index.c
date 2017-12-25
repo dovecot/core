@@ -915,6 +915,15 @@ void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	}
 }
 
+void mail_index_set_error_nolog(struct mail_index *index, const char *str)
+{
+	i_assert(str != NULL);
+
+	char *old_error = index->error;
+	index->error = i_strdup(str);
+	i_free(old_error);
+}
+
 bool mail_index_is_in_memory(struct mail_index *index)
 {
 	return MAIL_INDEX_IS_IN_MEMORY(index);
