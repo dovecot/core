@@ -104,6 +104,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "fetch-bodystructure", IMAPC_FEATURE_FETCH_BODYSTRUCTURE },
 	{ "send-id", IMAPC_FEATURE_SEND_ID },
 	{ "fetch-empty-is-expunged", IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED },
+	{ "no-msn-updates", IMAPC_FEATURE_NO_MSN_UPDATES },
 	{ NULL, 0 }
 };
 
