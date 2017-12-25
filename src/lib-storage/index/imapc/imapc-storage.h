@@ -196,6 +196,12 @@ void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 				 const char *reason, ...) ATTR_FORMAT(2, 3);
 const char *imapc_mailbox_get_remote_name(struct imapc_mailbox *mbox);
 
+void imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, string_t *cmd,
+			       uint32_t first_uid);
+void imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox,
+				      struct mail_index_view *sync_view,
+				      struct mail_index_transaction *trans);
+
 void imapc_storage_client_register_untagged(struct imapc_storage_client *client,
 					    const char *name,
 					    imapc_storage_callback_t *callback);

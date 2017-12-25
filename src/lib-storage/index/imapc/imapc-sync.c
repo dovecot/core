@@ -266,31 +266,6 @@ static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 	imapc_sync_cmd(ctx, str_c(str));
 }
 
-static void imapc_sync_expunge_eom(struct imapc_sync_context *ctx)
-{
-	struct imapc_mailbox *mbox = ctx->mbox;
-	uint32_t lseq, uid, msg_count;
-
-	if (mbox->sync_next_lseq == 0)
-		return;
-
-	/* if we haven't seen FETCH reply for some messages at the end of
-	   mailbox they've been externally expunged. */
-	msg_count = mail_index_view_get_messages_count(ctx->sync_view);
-	for (lseq = mbox->sync_next_lseq; lseq <= msg_count; lseq++) {
-		mail_index_lookup_uid(ctx->sync_view, lseq, &uid);
-		if (uid >= mbox->sync_uid_next) {
-			/* another process already added new messages to index
-			   that our IMAP connection hasn't seen yet */
-			break;
-		}
-		mail_index_expunge(ctx->trans, lseq);
-	}
-
-	mbox->sync_next_lseq = 0;
-	mbox->sync_next_rseq = 0;
-}
-
 static void imapc_sync_uid_next(struct imapc_sync_context *ctx)
 {
 	struct imapc_mailbox *mbox = ctx->mbox;
@@ -385,29 +360,7 @@ imapc_sync_send_commands(struct imapc_sync_context *ctx, uint32_t first_uid)
 		/* empty mailbox - no point in fetching anything */
 		return;
 	}
-
-	str_printfa(cmd, "UID FETCH %u:* (FLAGS", first_uid);
-	if (imapc_mailbox_has_modseqs(ctx->mbox)) {
-		str_append(cmd, " MODSEQ");
-		mail_index_modseq_enable(ctx->mbox->box.index);
-	}
-	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
-		enum mailbox_info_flags flags;
-
-		if (first_uid == 1 &&
-		    !mail_index_is_in_memory(ctx->mbox->box.index)) {
-			/* these can be efficiently fetched among flags and
-			   stored into cache */
-			str_append(cmd, " X-GM-MSGID");
-		}
-		/* do this only for the \All mailbox */
-		if (imapc_list_get_mailbox_flags(ctx->mbox->box.list,
-						 ctx->mbox->box.name, &flags) == 0 &&
-		    (flags & MAILBOX_SPECIALUSE_ALL) != 0)
-			str_append(cmd, " X-GM-LABELS");
-
-	}
-	str_append_c(cmd, ')');
+	imapc_mailbox_fetch_state(ctx->mbox, cmd, first_uid);
 	imapc_sync_cmd(ctx, str_c(cmd));
 
 	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_MIGRATION) &&
@@ -478,8 +431,10 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	imapc_sync_uid_next(ctx);
 	imapc_sync_highestmodseq(ctx);
 
-	if (!ctx->failed)
-		imapc_sync_expunge_eom(ctx);
+	if (!ctx->failed) {
+		imapc_mailbox_fetch_state_finish(ctx->mbox, ctx->sync_view,
+						 ctx->trans);
+	}
 	if (mbox->box.v.sync_notify != NULL)
 		mbox->box.v.sync_notify(&mbox->box, 0, 0);
 

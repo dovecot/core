@@ -2,12 +2,14 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "str.h"
 #include "mail-index-modseq.h"
 #include "imap-arg.h"
 #include "imap-seqset.h"
 #include "imap-util.h"
 #include "imapc-mail.h"
 #include "imapc-msgmap.h"
+#include "imapc-list.h"
 #include "imapc-search.h"
 #include "imapc-sync.h"
 #include "imapc-storage.h"
@@ -153,6 +155,59 @@ static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
 					  imapc_mailbox_idle_timeout, mbox);
 		io_loop_set_current(old_ioloop);
 	}
+}
+
+void imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox,
+				      struct mail_index_view *sync_view,
+				      struct mail_index_transaction *trans)
+{
+	uint32_t lseq, uid, msg_count;
+
+	if (mbox->sync_next_lseq == 0)
+		return;
+
+	/* if we haven't seen FETCH reply for some messages at the end of
+	   mailbox they've been externally expunged. */
+	msg_count = mail_index_view_get_messages_count(sync_view);
+	for (lseq = mbox->sync_next_lseq; lseq <= msg_count; lseq++) {
+		mail_index_lookup_uid(sync_view, lseq, &uid);
+		if (uid >= mbox->sync_uid_next) {
+			/* another process already added new messages to index
+			   that our IMAP connection hasn't seen yet */
+			break;
+		}
+		mail_index_expunge(trans, lseq);
+	}
+
+	mbox->sync_next_lseq = 0;
+	mbox->sync_next_rseq = 0;
+}
+
+void imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, string_t *str,
+			       uint32_t first_uid)
+{
+	str_printfa(str, "UID FETCH %u:* (FLAGS", first_uid);
+	if (imapc_mailbox_has_modseqs(mbox)) {
+		str_append(str, " MODSEQ");
+		mail_index_modseq_enable(mbox->box.index);
+	}
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
+		enum mailbox_info_flags flags;
+
+		if (first_uid == 1 &&
+		    !mail_index_is_in_memory(mbox->box.index)) {
+			/* these can be efficiently fetched among flags and
+			   stored into cache */
+			str_append(str, " X-GM-MSGID");
+		}
+		/* do this only for the \All mailbox */
+		if (imapc_list_get_mailbox_flags(mbox->box.list,
+						 mbox->box.name, &flags) == 0 &&
+		    (flags & MAILBOX_SPECIALUSE_ALL) != 0)
+			str_append(str, " X-GM-LABELS");
+
+	}
+	str_append_c(str, ')');
 }
 
 static void
