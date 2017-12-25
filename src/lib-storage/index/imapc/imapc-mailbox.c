@@ -194,8 +194,7 @@ void imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, string_t *str,
 	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
 		enum mailbox_info_flags flags;
 
-		if (first_uid == 1 &&
-		    !mail_index_is_in_memory(mbox->box.index)) {
+		if (!mail_index_is_in_memory(mbox->box.index)) {
 			/* these can be efficiently fetched among flags and
 			   stored into cache */
 			str_append(str, " X-GM-MSGID");
