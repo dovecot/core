@@ -2200,6 +2200,8 @@ static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 static void imapc_connection_cmd_send(struct imapc_command *cmd)
 {
 	struct imapc_connection *conn = cmd->conn;
+	struct imapc_command *const *cmds;
+	unsigned int i, count;
 
 	imapc_connection_send_idle_done(conn);
 
@@ -2211,14 +2213,13 @@ static void imapc_connection_cmd_send(struct imapc_command *cmd)
 		return;
 	}
 
-	if ((cmd->flags & IMAPC_COMMAND_FLAG_SELECT) != 0 &&
-	    conn->selected_box == NULL) {
-		/* reopening the mailbox. add it before other
-		   queued commands. */
-		array_insert(&conn->cmd_send_queue, 0, &cmd, 1);
-	} else {
-		array_append(&conn->cmd_send_queue, &cmd, 1);
+	/* add the command just before retried commands */
+	cmds = array_get(&conn->cmd_send_queue, &count);
+	for (i = count; i > 0; i--) {
+		if ((cmds[i-1]->flags & IMAPC_COMMAND_FLAG_RECONNECTED) == 0)
+			break;
 	}
+	array_insert(&conn->cmd_send_queue, i, &cmd, 1);
 	imapc_command_send_more(conn);
 }
 
