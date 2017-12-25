@@ -157,35 +157,79 @@ static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
 	}
 }
 
-void imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox,
-				      struct mail_index_view *sync_view,
-				      struct mail_index_transaction *trans)
+static void
+imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox)
 {
 	uint32_t lseq, uid, msg_count;
 
-	if (mbox->sync_next_lseq == 0)
+	if (mbox->sync_next_lseq == 0) {
+		/* FETCH n:*, not 1:* */
+		i_assert(mbox->state_fetched_success ||
+			 (mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0);
 		return;
+	}
 
 	/* if we haven't seen FETCH reply for some messages at the end of
 	   mailbox they've been externally expunged. */
-	msg_count = mail_index_view_get_messages_count(sync_view);
+	msg_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
 	for (lseq = mbox->sync_next_lseq; lseq <= msg_count; lseq++) {
-		mail_index_lookup_uid(sync_view, lseq, &uid);
+		mail_index_lookup_uid(mbox->delayed_sync_view, lseq, &uid);
 		if (uid >= mbox->sync_uid_next) {
 			/* another process already added new messages to index
 			   that our IMAP connection hasn't seen yet */
 			break;
 		}
-		mail_index_expunge(trans, lseq);
+		mail_index_expunge(mbox->delayed_sync_trans, lseq);
 	}
 
 	mbox->sync_next_lseq = 0;
 	mbox->sync_next_rseq = 0;
+	mbox->state_fetched_success = TRUE;
 }
 
-void imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, string_t *str,
-			       uint32_t first_uid)
+static void
+imapc_mailbox_fetch_state_callback(const struct imapc_command_reply *reply,
+				   void *context)
 {
+	struct imapc_mailbox *mbox = context;
+
+	mbox->state_fetching_uid1 = FALSE;
+	imapc_client_stop(mbox->storage->client->client);
+
+	switch (reply->state) {
+	case IMAPC_COMMAND_STATE_OK:
+		imapc_mailbox_fetch_state_finish(mbox);
+		break;
+	case IMAPC_COMMAND_STATE_NO:
+		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS, reply);
+		break;
+	case IMAPC_COMMAND_STATE_DISCONNECTED:
+		mail_storage_set_internal_error(mbox->box.storage);
+
+		break;
+	default:
+		mail_storage_set_critical(mbox->box.storage,
+			"imapc: state FETCH failed: %s", reply->text_full);
+		break;
+	}
+}
+
+static void
+imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
+{
+	struct imapc_command *cmd;
+
+	if (mbox->exists_count == 0) {
+		/* empty mailbox - no point in fetching anything */
+		mbox->state_fetched_success = TRUE;
+		return;
+	}
+	if (mbox->state_fetching_uid1) {
+		/* retrying after reconnection - don't send duplicate */
+		return;
+	}
+
+	string_t *str = t_str_new(64);
 	str_printfa(str, "UID FETCH %u:* (FLAGS", first_uid);
 	if (imapc_mailbox_has_modseqs(mbox)) {
 		str_append(str, " MODSEQ");
@@ -207,6 +251,19 @@ void imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, string_t *str,
 
 	}
 	str_append_c(str, ')');
+
+	cmd = imapc_client_mailbox_cmd(mbox->client_box,
+		imapc_mailbox_fetch_state_callback, mbox);
+	if (first_uid == 1) {
+		mbox->sync_next_lseq = 1;
+		mbox->sync_next_rseq = 1;
+		mbox->state_fetched_success = FALSE;
+		/* only the FETCH 1:* is retriable - others will be retried
+		   by the 1:* after the reconnection */
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
+	}
+	mbox->state_fetching_uid1 = first_uid == 1;
+	imapc_command_send(cmd, str_c(str));
 }
 
 static void
@@ -226,19 +283,21 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 		return;
 	}
 
+	mbox->exists_count = exists_count;
+	mbox->exists_received = TRUE;
+
 	view = mbox->delayed_sync_view;
 	if (view == NULL)
 		view = imapc_mailbox_get_sync_view(mbox);
 
 	if (mbox->selecting) {
 		/* We don't know the latest flags, refresh them. */
-		mbox->sync_fetch_first_uid = 1;
+		imapc_mailbox_fetch_state(mbox, 1);
 	} else if (mbox->sync_fetch_first_uid != 1) {
 		hdr = mail_index_get_header(view);
 		mbox->sync_fetch_first_uid = hdr->next_uid;
+		imapc_mailbox_fetch_state(mbox, hdr->next_uid);
 	}
-	mbox->exists_count = exists_count;
-	mbox->exists_received = TRUE;
 	imapc_mailbox_idle_notify(mbox);
 }
 
@@ -344,7 +403,7 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 		imapc_msgmap_append(msgmap, rseq, uid);
 		if (uid < mbox->min_append_uid) {
 			/* message is already added to index */
-		} else if (mbox->syncing) {
+		} else {
 			mail_index_append(mbox->delayed_sync_trans,
 					  uid, lseq_r);
 			mbox->min_append_uid = uid + 1;
@@ -464,8 +523,6 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	if (rseq == mbox->sync_next_rseq) {
 		/* we're doing the initial full sync of mails. expunge any
 		   mails that no longer exist. */
-		i_assert(mbox->syncing);
-
 		while (mbox->sync_next_lseq < lseq) {
 			mail_index_expunge(mbox->delayed_sync_trans,
 					   mbox->sync_next_lseq);

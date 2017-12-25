@@ -137,7 +137,8 @@ void imapc_mailbox_run_nofetch(struct imapc_mailbox *mbox)
 {
 	do {
 		imapc_client_run(mbox->storage->client->client);
-	} while (mbox->storage->reopen_count > 0);
+	} while (mbox->storage->reopen_count > 0 ||
+		 mbox->state_fetching_uid1);
 }
 
 void imapc_simple_callback(const struct imapc_command_reply *reply,
@@ -627,9 +628,6 @@ static void imapc_mailbox_reopen(void *context)
 				    imapc_mailbox_get_remote_name(mbox));
 	}
 	mbox->storage->reopen_count++;
-
-	if (mbox->syncing)
-		imapc_sync_mailbox_reopened(mbox);
 }
 
 static void
@@ -728,8 +726,10 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 			imapc_mailbox_get_remote_name(mbox));
 	}
 
-	while (ctx.ret == -2)
+	while (ctx.ret == -2 || mbox->state_fetching_uid1)
 		imapc_mailbox_run(mbox);
+	if (!mbox->state_fetched_success)
+		ctx.ret = -1;
 	return ctx.ret;
 }
 
