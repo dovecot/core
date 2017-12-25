@@ -100,7 +100,12 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 
 	if (mbox->delayed_sync_view != NULL)
 		mail_index_view_close(&mbox->delayed_sync_view);
-	if (mbox->delayed_sync_trans != NULL) {
+	if (mbox->delayed_sync_trans == NULL)
+		;
+	else if (!mbox->selected) {
+		/* ignore any changes done during SELECT */
+		mail_index_transaction_rollback(&mbox->delayed_sync_trans);
+	} else {
 		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0) {
 			mailbox_set_index_error(&mbox->box);
 			ret = -1;
