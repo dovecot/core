@@ -335,8 +335,12 @@ void mail_index_view_transaction_unref(struct mail_index_view *view);
 
 void mail_index_fsck_locked(struct mail_index *index);
 
+/* Log an error and set it as the index's current error that is available
+   with mail_index_get_error_message(). */
 void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
+/* Same as mail_index_set_error(), but don't log the error. */
+void mail_index_set_error_nolog(struct mail_index *index, const char *str);
 /* "%s failed with index file %s: %m" */
 void mail_index_set_syscall_error(struct mail_index *index,
 				  const char *function);
