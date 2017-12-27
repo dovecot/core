@@ -23,7 +23,6 @@ struct client {
 	struct smtp_server_connection *conn;
 	enum smtp_server_state last_state;
 	struct client_state state;
-	struct smtp_server_cmd_ctx *pending_helo;
 
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
