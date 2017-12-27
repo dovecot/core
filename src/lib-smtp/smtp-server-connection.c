@@ -285,8 +285,6 @@ smtp_server_connection_timeout_update(struct smtp_server_connection *conn)
 static void
 smtp_server_connection_ready(struct smtp_server_connection *conn)
 {
-	struct ostream *output;
-
 	conn->raw_input = conn->conn.input;
 	conn->raw_output = conn->conn.output;
 
@@ -297,10 +295,7 @@ smtp_server_connection_ready(struct smtp_server_connection *conn)
 	o_stream_set_flush_callback(conn->conn.output,
 		smtp_server_connection_output, conn);
 
-	output = conn->conn.output;
-	o_stream_ref(output);
-	o_stream_cork(output);
-
+	o_stream_cork(conn->conn.output);
 	if (conn->authenticated) {
 		/* RFC 4954, Section 4:
 		   Should the client successfully complete the exchange, the
@@ -312,13 +307,8 @@ smtp_server_connection_ready(struct smtp_server_connection *conn)
 			"220 %s %s", conn->set.hostname,
 			conn->set.login_greeting);
 	}
-
-	if (i_stream_get_data_size(conn->conn.input) > 0)
-		smtp_server_connection_input(&conn->conn);
-
 	if (!conn->corked)
-		o_stream_uncork(output);
-	o_stream_unref(&output);
+		o_stream_uncork(conn->conn.output);
 }
 
 static void smtp_server_connection_destroy(struct connection *_conn)
@@ -1158,11 +1148,11 @@ void smtp_server_connection_start(struct smtp_server_connection *conn)
 	conn->raw_input = conn->conn.input;
 	conn->raw_output = conn->conn.output;
 
-	smtp_server_connection_timeout_start(conn);
-	smtp_server_connection_input_resume(conn);
-
 	if (!conn->ssl_start)
 		smtp_server_connection_ready(conn);
+
+	smtp_server_connection_timeout_start(conn);
+	smtp_server_connection_input_resume(conn);
 }
 
 void smtp_server_connection_close(struct smtp_server_connection **_conn,
