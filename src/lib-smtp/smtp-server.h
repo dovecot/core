@@ -295,7 +295,7 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 void smtp_server_connection_ref(struct smtp_server_connection *conn);
 bool smtp_server_connection_unref(struct smtp_server_connection **_conn);
 
-/* Start the connection with state and data from login service */
+/* Initialize the connection with state and data from login service */
 void smtp_server_connection_login(struct smtp_server_connection *conn,
 				  const char *username, const char *helo,
 				  const unsigned char *pdata,

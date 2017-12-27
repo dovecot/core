@@ -1139,12 +1139,6 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 	const unsigned char *pdata, unsigned int pdata_len,
 	bool ssl_secured)
 {
-	conn->raw_input = conn->conn.input;
-	conn->raw_output = conn->conn.output;
-
-	smtp_server_connection_timeout_start(conn);
-	smtp_server_connection_input_resume(conn);
-
 	i_assert(conn->username == NULL);
 
 	conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
@@ -1157,8 +1151,6 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 		if (!i_stream_add_data(conn->conn.input, pdata, pdata_len))
 			i_panic("Couldn't add client input to stream");
 	}
-
-	smtp_server_connection_ready(conn);
 }
 
 void smtp_server_connection_start(struct smtp_server_connection *conn)
