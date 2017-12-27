@@ -96,8 +96,8 @@ static void client_proxy_ready_cb(const struct smtp_reply *reply,
 		SMTP_CAPABILITY_VRFY;
 	smtp_server_connection_set_capabilities(client->conn, caps);
 
-	/* send EHLO reply when EHLO command is pending */
-	client_handshake(client);
+	/* now that we know our capabilities, commence server protocol dialog */
+	smtp_server_connection_resume(client->conn);
 }
 
 static void client_proxy_create(struct client *client,
@@ -208,7 +208,7 @@ struct client *client_create(int fd_in, int fd_out,
 	smtp_server_connection_login(client->conn,
 		client->user->username, helo,
 		pdata, pdata_len, user->conn.ssl_secured);
-	smtp_server_connection_start(client->conn);
+	smtp_server_connection_start_pending(client->conn);
 
 	mail_set = mail_user_set_get_storage_set(user);
 	if (*set->imap_urlauth_host != '\0' &&
