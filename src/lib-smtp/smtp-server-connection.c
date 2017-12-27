@@ -552,7 +552,13 @@ static void smtp_server_connection_input(struct connection *_conn)
 				"SSL Initialization failed");
 			return;
 		}
+		if (conn->halted) {
+			smtp_server_connection_input_lock(conn);
+			return;
+		}
 	}
+	i_assert(!conn->halted);
+
 
 	if (conn->command_queue_count >
 		conn->server->set.max_pipelined_commands) {
@@ -937,7 +943,7 @@ smtp_server_connection_create(struct smtp_server *server,
 		conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
 
 	/* halt input until started */
-	smtp_server_connection_input_halt(conn);
+	smtp_server_connection_halt(conn);
 
 	smtp_server_connection_debug(conn, "Connection created");
 
@@ -969,7 +975,7 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 	conn->created_from_streams = TRUE;
 
 	/* halt input until started */
-	smtp_server_connection_input_halt(conn);
+	smtp_server_connection_halt(conn);
 
 	smtp_server_connection_debug(conn, "Connection created");
 
@@ -1144,7 +1150,7 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 	}
 }
 
-void smtp_server_connection_start(struct smtp_server_connection *conn)
+void smtp_server_connection_start_pending(struct smtp_server_connection *conn)
 {
 	i_assert(!conn->started);
 	conn->started = TRUE;
@@ -1154,9 +1160,29 @@ void smtp_server_connection_start(struct smtp_server_connection *conn)
 
 	if (!conn->ssl_start)
 		smtp_server_connection_ready(conn);
+	else if (conn->ssl_iostream == NULL)
+		smtp_server_connection_input_unlock(conn);
+}
 
-	smtp_server_connection_timeout_start(conn);
-	smtp_server_connection_input_resume(conn);
+void smtp_server_connection_start(struct smtp_server_connection *conn)
+{
+	smtp_server_connection_start_pending(conn);
+	smtp_server_connection_resume(conn);
+}
+
+void smtp_server_connection_halt(struct smtp_server_connection *conn)
+{
+	conn->halted = TRUE;
+	smtp_server_connection_timeout_stop(conn);
+	if (!conn->started || !conn->ssl_start || conn->ssl_iostream != NULL)
+		smtp_server_connection_input_lock(conn);
+}
+
+void smtp_server_connection_resume(struct smtp_server_connection *conn)
+{
+	smtp_server_connection_input_unlock(conn);
+	smtp_server_connection_timeout_update(conn);
+	conn->halted = FALSE;
 }
 
 void smtp_server_connection_close(struct smtp_server_connection **_conn,
