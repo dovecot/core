@@ -281,7 +281,7 @@ struct smtp_server_connection *
 smtp_server_connection_create(struct smtp_server *server,
 	int fd_in, int fd_out,
 	const struct ip_addr *remote_ip, in_port_t remote_port,
-	const struct smtp_server_settings *set,
+	bool ssl_start, const struct smtp_server_settings *set,
 	const struct smtp_server_callbacks *callbacks, void *context)
 	ATTR_NULL(4, 6, 8);
 struct smtp_server_connection *
@@ -297,8 +297,7 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn);
 
 /* Start the connection. Establishes SSL layer immediately if instructed,
 	and sends the greeting once the connection is ready for commands. */
-void smtp_server_connection_start(struct smtp_server_connection *conn,
-	bool ssl_start);
+void smtp_server_connection_start(struct smtp_server_connection *conn);
 /* Start the connection with state and data from login service */
 void smtp_server_connection_login(struct smtp_server_connection *conn,
 				  const char *username, const char *helo,

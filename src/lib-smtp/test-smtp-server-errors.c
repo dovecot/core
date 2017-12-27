@@ -1165,8 +1165,8 @@ server_connection_accept(void *context ATTR_UNUSED)
 	server_callbacks.conn_destroy = server_connection_destroy;
 
 	conn = smtp_server_connection_create(smtp_server, fd, fd,
-		NULL, 0, NULL, &server_callbacks, sconn);
-	smtp_server_connection_start(conn, FALSE);
+		NULL, 0, FALSE, NULL, &server_callbacks, sconn);
+	smtp_server_connection_start(conn);
 }
 
 /* */
