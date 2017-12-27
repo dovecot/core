@@ -132,6 +132,8 @@ static int dsync_input_line(struct dsync_client *client, const char *line)
 	else if (line[0] == '-') {
 		if (strcmp(line+1, "NOUSER") == 0)
 			dsync_callback(client, "", DSYNC_REPLY_NOUSER);
+		else if (strcmp(line+1, "NOREPLICATE") == 0)
+			dsync_callback(client, "", DSYNC_REPLY_NOREPLICATE);
 		else
 			dsync_callback(client, "", DSYNC_REPLY_FAIL);
 	} else {
