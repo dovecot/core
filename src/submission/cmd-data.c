@@ -268,7 +268,16 @@ cmd_burl_fetch(struct cmd_burl_context *burl_cmd, const char *url,
 	struct client *client = burl_cmd->client;
 
 	if (client->urlauth_ctx == NULL) {
-		smtp_server_reply(cmd, 503, "5.3.3",
+		/* RFC5248, Section 2.4:
+
+		   554 5.7.14 Trust relationship required
+
+		   The submission server requires a configured trust
+		   relationship with a third-party server in order to access
+		   the message content. This value replaces the prior use of
+		   X.7.8 for this error condition, thereby updating [RFC4468].
+		 */
+		smtp_server_reply(cmd, 554, "5.7.14",
 			"No IMAP URLAUTH access available");
 		return -1;
 	}
