@@ -1129,6 +1129,7 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 	const unsigned char *pdata, unsigned int pdata_len,
 	bool ssl_secured)
 {
+	i_assert(!conn->started);
 	i_assert(conn->username == NULL);
 
 	conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
