@@ -304,6 +304,15 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 /* Start the connection. Establishes SSL layer immediately if instructed,
    and sends the greeting once the connection is ready for commands. */
 void smtp_server_connection_start(struct smtp_server_connection *conn);
+/* Start the connection, but only establish SSL layer and send greeting;
+   handling command input is held off until smtp_server_connection_resume() is
+   called. */
+void smtp_server_connection_start_pending(struct smtp_server_connection *conn);
+
+/* Halt connection command input and idle timeout entirely. */
+void smtp_server_connection_halt(struct smtp_server_connection *conn);
+/* Resume connection command input and idle timeout. */
+void smtp_server_connection_resume(struct smtp_server_connection *conn);
 
 void smtp_server_connection_input_lock(struct smtp_server_connection *conn);
 void smtp_server_connection_input_unlock(struct smtp_server_connection *conn);
