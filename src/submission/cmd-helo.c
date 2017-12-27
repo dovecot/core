@@ -115,8 +115,6 @@ static void cmd_helo_proxy_cb(const struct smtp_reply *proxy_reply,
 	struct client *client = cmd_helo->client;
 	struct smtp_reply reply;
 
-	client->pending_helo = NULL;
-
 	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
 		return;
 
@@ -156,22 +154,6 @@ int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	helo->data = data;
 	cmd->context = helo;
 
-	if (!client_proxy_is_ready(client)) {
-		if (client_proxy_is_disconnected(client)) {
-			/* proxy connection died already */
-			client_destroy(client,
-				t_strdup_printf("421 %s", client->set->hostname),
-				"Lost connection to relay server");
-			return -1;
-		}
-
-		if (client->pending_helo == NULL)
-			client->pending_helo = cmd;
-
-		/* wait for proxy to become ready */
-		return 0;
-	}
-
 	if (!data->first || smtp_server_connection_get_state(client->conn)
 		>= SMTP_SERVER_STATE_READY) {
 		/* this is not the first HELO/EHLO; just proxy a RSET command */
@@ -186,15 +168,3 @@ int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	return 1;
 }
 
-void client_handshake(struct client *client)
-{
-	struct smtp_server_cmd_ctx *cmd;
-
-	if (client->pending_helo == NULL)
-		return;
-	cmd = client->pending_helo;
-	client->pending_helo = NULL;
-
-	/* continue EHLO/HELO response */
-	cmd_helo_reply(cmd);
-}
