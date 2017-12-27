@@ -290,6 +290,8 @@ doveadm_mail_cmd_server_run(struct client_connection_tcp *conn,
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	} else if (ret == 0) {
 		o_stream_nsend_str(conn->output, "\n-NOUSER\n");
+	} else if (mctx->exit_code == DOVEADM_EX_NOREPLICATE) {
+		o_stream_nsend_str(conn->output, "\n-NOREPLICATE\n");
 	} else if (mctx->exit_code != 0) {
 		/* maybe not an error, but not a full success either */
 		o_stream_nsend_str(conn->output,
