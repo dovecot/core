@@ -149,6 +149,7 @@ struct smtp_server_connection {
 
 	struct smtp_server_stats stats;
 
+	bool started:1;
 	bool ssl_start:1;
 	bool ssl_secured:1;
 	bool authenticated:1;

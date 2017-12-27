@@ -1145,6 +1145,9 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 
 void smtp_server_connection_start(struct smtp_server_connection *conn)
 {
+	i_assert(!conn->started);
+	conn->started = TRUE;
+
 	conn->raw_input = conn->conn.input;
 	conn->raw_output = conn->conn.output;
 
