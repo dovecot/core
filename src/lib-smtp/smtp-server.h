@@ -295,14 +295,15 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 void smtp_server_connection_ref(struct smtp_server_connection *conn);
 bool smtp_server_connection_unref(struct smtp_server_connection **_conn);
 
-/* Start the connection. Establishes SSL layer immediately if instructed,
-	and sends the greeting once the connection is ready for commands. */
-void smtp_server_connection_start(struct smtp_server_connection *conn);
 /* Start the connection with state and data from login service */
 void smtp_server_connection_login(struct smtp_server_connection *conn,
 				  const char *username, const char *helo,
 				  const unsigned char *pdata,
 				  unsigned int pdata_len, bool ssl_secured);
+
+/* Start the connection. Establishes SSL layer immediately if instructed,
+   and sends the greeting once the connection is ready for commands. */
+void smtp_server_connection_start(struct smtp_server_connection *conn);
 
 void smtp_server_connection_input_lock(struct smtp_server_connection *conn);
 void smtp_server_connection_input_unlock(struct smtp_server_connection *conn);

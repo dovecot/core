@@ -1134,18 +1134,6 @@ void smtp_server_connection_reply_immediate(
 	}
 }
 
-void smtp_server_connection_start(struct smtp_server_connection *conn)
-{
-	conn->raw_input = conn->conn.input;
-	conn->raw_output = conn->conn.output;
-
-	smtp_server_connection_timeout_start(conn);
-	smtp_server_connection_input_resume(conn);
-
-	if (!conn->ssl_start)
-		smtp_server_connection_ready(conn);
-}
-
 void smtp_server_connection_login(struct smtp_server_connection *conn,
 	const char *username, const char *helo,
 	const unsigned char *pdata, unsigned int pdata_len,
@@ -1171,6 +1159,18 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 	}
 
 	smtp_server_connection_ready(conn);
+}
+
+void smtp_server_connection_start(struct smtp_server_connection *conn)
+{
+	conn->raw_input = conn->conn.input;
+	conn->raw_output = conn->conn.output;
+
+	smtp_server_connection_timeout_start(conn);
+	smtp_server_connection_input_resume(conn);
+
+	if (!conn->ssl_start)
+		smtp_server_connection_ready(conn);
 }
 
 void smtp_server_connection_close(struct smtp_server_connection **_conn,
