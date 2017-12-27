@@ -111,8 +111,10 @@ static void dsync_callback(enum dsync_reply reply, const char *state,
 
 	if (!replicator_user_unref(&user)) {
 		/* user was already removed */
-	} else if (reply == DSYNC_REPLY_NOUSER) {
-		/* user no longer exists, remove from replication */
+	} else if (reply == DSYNC_REPLY_NOUSER ||
+		   reply == DSYNC_REPLY_NOREPLICATE) {
+		/* user no longer exists, or is not wanted for replication,
+		   remove from replication */
 		replicator_queue_remove(ctx->brain->queue, &ctx->user);
 	} else {
 		i_free(ctx->user->state);
