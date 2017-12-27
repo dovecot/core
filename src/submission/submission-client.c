@@ -201,7 +201,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
-		&smtp_set, &smtp_callbacks, client);
+		FALSE, &smtp_set, &smtp_callbacks, client);
 
 	client_proxy_create(client, set);
 

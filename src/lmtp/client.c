@@ -160,12 +160,12 @@ struct client *client_create(int fd_in, int fd_out,
 	client->conn = smtp_server_connection_create
 		(lmtp_server, fd_in, fd_out,
 			&conn->remote_ip, conn->remote_port,
-			&lmtp_set, &lmtp_callbacks, client);
+			conn->ssl, &lmtp_set, &lmtp_callbacks, client);
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
-	smtp_server_connection_start(client->conn, conn->ssl);
+	smtp_server_connection_start(client->conn);
 	i_info("Connect from %s", client_remote_id(client));
 	refresh_proctitle();
 	return client;

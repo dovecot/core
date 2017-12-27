@@ -929,7 +929,7 @@ struct smtp_server_connection *
 smtp_server_connection_create(struct smtp_server *server,
 	int fd_in, int fd_out,
 	const struct ip_addr *remote_ip, in_port_t remote_port,
-	const struct smtp_server_settings *set,
+	bool ssl_start, const struct smtp_server_settings *set,
 	const struct smtp_server_callbacks *callbacks, void *context)
 {
 	struct smtp_server_connection *conn;
@@ -941,6 +941,10 @@ smtp_server_connection_create(struct smtp_server *server,
 	name = smtp_server_connection_get_name(conn);
 	connection_init_server(server->conn_list,
 		&conn->conn, name, fd_in, fd_out);
+
+	conn->ssl_start = ssl_start;
+	if (ssl_start)
+		conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
 
 	/* halt input until started */
 	smtp_server_connection_input_halt(conn);
@@ -1130,8 +1134,7 @@ void smtp_server_connection_reply_immediate(
 	}
 }
 
-void smtp_server_connection_start(struct smtp_server_connection *conn,
-				  bool ssl_start)
+void smtp_server_connection_start(struct smtp_server_connection *conn)
 {
 	conn->raw_input = conn->conn.input;
 	conn->raw_output = conn->conn.output;
@@ -1139,10 +1142,7 @@ void smtp_server_connection_start(struct smtp_server_connection *conn,
 	smtp_server_connection_timeout_start(conn);
 	smtp_server_connection_input_resume(conn);
 
-	conn->ssl_start = ssl_start;
-	if (ssl_start)
-		conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
-	else
+	if (!conn->ssl_start)
 		smtp_server_connection_ready(conn);
 }
 

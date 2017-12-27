@@ -100,7 +100,7 @@ static void submission_client_notify_auth_ready(struct client *client)
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
 
-	smtp_server_connection_start(subm_client->conn, FALSE);
+	smtp_server_connection_start(subm_client->conn);
 }
 
 static void
