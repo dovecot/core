@@ -1168,6 +1168,11 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	enum mail_error mail_error;
 
 	if (!cli) {
+		if (ctx->replicator_notify &&
+		    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
+			return DOVEADM_EX_NOREPLICATE;
+		}
+
 		/* doveadm-server connection. start with a success reply.
 		   after that follows the regular dsync protocol. */
 		ctx->fd_in = ctx->fd_out = -1;
