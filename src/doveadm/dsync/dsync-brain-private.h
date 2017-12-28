@@ -7,6 +7,8 @@
 #include "dsync-mailbox-state.h"
 
 #define DSYNC_LOCK_FILENAME ".dovecot-sync.lock"
+#define DSYNC_MAILBOX_LOCK_FILENAME ".dovecot-box-sync.lock"
+#define DSYNC_MAILBOX_DEFAULT_LOCK_TIMEOUT_SECS 30
 
 struct dsync_mailbox_tree_sync_change;
 
@@ -85,6 +87,8 @@ struct dsync_brain {
 	struct dsync_mailbox_exporter *box_exporter;
 
 	struct mailbox *box;
+	struct file_lock *box_lock;
+	unsigned int mailbox_lock_timeout_secs;
 	struct dsync_mailbox local_dsync_box, remote_dsync_box;
 	pool_t dsync_box_pool;
 	/* list of mailbox states
