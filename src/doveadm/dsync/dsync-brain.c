@@ -221,6 +221,11 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	memcpy(brain->sync_box_guid, set->sync_box_guid,
 	       sizeof(brain->sync_box_guid));
 	brain->lock_timeout = set->lock_timeout_secs;
+	if (brain->lock_timeout != 0)
+		brain->mailbox_lock_timeout_secs = brain->lock_timeout;
+	else
+		brain->mailbox_lock_timeout_secs =
+			DSYNC_MAILBOX_DEFAULT_LOCK_TIMEOUT_SECS;
 	brain->import_commit_msgs_interval = set->import_commit_msgs_interval;
 	brain->master_brain = TRUE;
 	brain->hashed_headers =
@@ -498,10 +503,14 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 
 	if (ibc_set->lock_timeout > 0) {
 		brain->lock_timeout = ibc_set->lock_timeout;
+		brain->mailbox_lock_timeout_secs = brain->lock_timeout;
 		if (dsync_brain_lock(brain, ibc_set->hostname) < 0) {
 			brain->failed = TRUE;
 			return FALSE;
 		}
+	} else {
+		brain->mailbox_lock_timeout_secs =
+			DSYNC_MAILBOX_DEFAULT_LOCK_TIMEOUT_SECS;
 	}
 
 	if (ibc_set->sync_ns_prefixes != NULL) {
