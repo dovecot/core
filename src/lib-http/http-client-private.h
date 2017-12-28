@@ -364,6 +364,8 @@ struct http_client {
 	struct http_client_context *cctx;
 	struct http_client_settings set;
 
+	struct http_client *prev, *next;
+
 	struct event *event;
 	struct ioloop *ioloop;
 	struct ssl_iostream_context *ssl_ctx;
@@ -388,6 +390,7 @@ struct http_client_context {
 
 	struct http_client_settings set;
 
+	struct http_client *clients_list;
 	struct connection_list *conn_list;
 
 	HASH_TABLE_TYPE(http_client_peer_shared) peers;
