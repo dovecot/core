@@ -19,6 +19,8 @@
 #include <signal.h>
 #include <unistd.h>
 
+#define CLIENT_PROGRESS_TIMEOUT     10
+
 /*
  * Types
  */
@@ -59,6 +61,7 @@ static unsigned int server_index;
 static void (*test_server_input)(struct server_connection *conn);
 
 /* client */
+static struct timeout *to_client_progress = NULL;
 static struct http_client *http_client = NULL;
 
 /*
@@ -2979,11 +2982,44 @@ test_client_defaults(struct http_client_settings *http_set)
 	http_set->debug = debug;
 }
 
+static void
+test_client_progress_timeout(void *context ATTR_UNUSED)
+{
+	/* Terminate test due to lack of progress */
+	test_assert(FALSE);
+	timeout_remove(&to_client_progress);
+	io_loop_stop(current_ioloop);
+}
+
+static bool
+test_client_init(test_client_init_t client_test,
+		 const struct http_client_settings *client_set)
+{
+	i_assert(client_test != NULL);
+	if (!client_test(client_set))
+		return FALSE;
+
+	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
+		test_client_progress_timeout, NULL);
+
+	return TRUE;
+}
+
 static void test_client_deinit(void)
 {
+	timeout_remove(&to_client_progress);
+
 	if (http_client != NULL)
 		http_client_deinit(&http_client);
-	http_client = NULL;
+}
+
+static void
+test_client_run(test_client_init_t client_test,
+		const struct http_client_settings *client_set)
+{
+	if (test_client_init(client_test, client_set))
+		io_loop_run(ioloop);
+	test_client_deinit();
 }
 
 /*
@@ -3210,9 +3246,7 @@ static void test_run_client_server(
 	usleep(100000); /* wait a little for server setup */
 
 	ioloop = io_loop_create();
-	if (client_test(client_set))
-		io_loop_run(ioloop);
-	test_client_deinit();
+	test_client_run(client_test, client_set);
 	io_loop_destroy(&ioloop);
 
 	test_servers_kill_all();
