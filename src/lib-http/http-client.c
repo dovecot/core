@@ -4,6 +4,7 @@
 #include "net.h"
 #include "str.h"
 #include "hash.h"
+#include "llist.h"
 #include "array.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -88,6 +89,13 @@
  */
 
 static struct http_client_context *http_client_global_context = NULL;
+
+static void
+http_client_context_add_client(struct http_client_context *cctx,
+			       struct http_client *client);
+static void
+http_client_context_remove_client(struct http_client_context *cctx,
+				  struct http_client *client);
 
 /*
  * Client
@@ -209,6 +217,8 @@ http_client_init_shared(struct http_client_context *cctx,
 
 	i_array_init(&client->delayed_failing_requests, 1);
 
+	http_client_context_add_client(cctx, client);
+
 	return client;
 }
 
@@ -259,6 +269,7 @@ void http_client_deinit(struct http_client **_client)
 
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
+	http_client_context_remove_client(client->cctx, client);
 	http_client_context_unref(&client->cctx);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
@@ -524,6 +535,20 @@ void http_client_context_unref(struct http_client_context **_cctx)
 
 	event_unref(&cctx->event);
 	pool_unref(&cctx->pool);
+}
+
+static void
+http_client_context_add_client(struct http_client_context *cctx,
+			       struct http_client *client)
+{
+	DLLIST_PREPEND(&cctx->clients_list, client);
+}
+
+static void
+http_client_context_remove_client(struct http_client_context *cctx,
+				  struct http_client *client)
+{
+	DLLIST_REMOVE(&cctx->clients_list, client);
 }
 
 void http_client_context_switch_ioloop(struct http_client_context *cctx)
