@@ -414,6 +414,9 @@ void file_lock_free(struct file_lock **_lock)
 {
 	struct file_lock *lock = *_lock;
 
+	if (lock == NULL)
+		return;
+
 	*_lock = NULL;
 
 	if (lock->unlink_on_free)
