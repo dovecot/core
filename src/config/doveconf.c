@@ -857,6 +857,7 @@ int main(int argc, char *argv[])
 		info = sysinfo_get(get_setting("mail", "mail_location"));
 		if (*info != '\0')
 			printf("# %s\n", info);
+		printf("# Hostname: %s\n", my_hostdomain());
 		if (!config_path_specified)
 			check_wrong_config(config_path);
 		if (scope == CONFIG_DUMP_SCOPE_ALL)
