@@ -162,6 +162,8 @@ http_client_init_shared(struct http_client_context *cctx,
 				p_strdup(pool, set->proxy_url->password);
 		}
 
+		if (set->max_idle_time_msecs > 0)
+			client->set.max_idle_time_msecs = set->max_idle_time_msecs;
 		if (set->max_parallel_connections > 0)
 			client->set.max_parallel_connections = set->max_parallel_connections;
 		if (set->max_pipelined_requests > 0)
