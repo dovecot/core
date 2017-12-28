@@ -13,6 +13,9 @@
 #include "iostream-openssl.h"
 #endif
 
+#include <fcntl.h>
+#include <unistd.h>
+
 struct http_test_request {
 	struct io *io;
 	struct istream *payload;
@@ -364,11 +367,16 @@ int main(int argc, char *argv[])
 	dns_set.dns_client_socket_path = "/var/run/dovecot/dns-client";
 	dns_set.timeout_msecs = 30*1000;
 	dns_set.idle_timeout_msecs = UINT_MAX;
-	dns_client = dns_client_init(&dns_set);
 
-	if (dns_client_connect(dns_client, &error) < 0)
-		i_fatal("Couldn't initialize DNS client: %s", error);
+	/* check if there is a DNS client */
+	if (access("/var/run/dovecot/dns-client", R_OK|W_OK) == 0) {
+		dns_client = dns_client_init(&dns_set);
 
+		if (dns_client_connect(dns_client, &error) < 0)
+			i_fatal("Couldn't initialize DNS client: %s", error);
+	} else {
+		dns_client = NULL;
+	}
 	i_zero(&ssl_set);
 	ssl_set.allow_invalid_cert = TRUE;
 	ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
@@ -443,7 +451,8 @@ int main(int argc, char *argv[])
 
 	http_client_context_unref(&http_cctx);
 
-	dns_client_deinit(&dns_client);
+	if (dns_client != NULL)
+		dns_client_deinit(&dns_client);
 
 	io_loop_destroy(&ioloop);
 #ifdef HAVE_OPENSSL
