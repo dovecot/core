@@ -1291,6 +1291,4 @@ void http_client_peer_switch_ioloop(struct http_client_peer *peer)
 		peer->to_req_handling =
 			io_loop_move_timeout(&peer->to_req_handling);
 	}
-
-	http_client_peer_shared_switch_ioloop(peer->shared);
 }
