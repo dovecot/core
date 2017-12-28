@@ -530,6 +530,7 @@ void http_client_context_switch_ioloop(struct http_client_context *cctx)
 {
 	struct connection *_conn = cctx->conn_list->connections;
 	struct http_client_host_shared *hshared;
+	struct http_client_peer_shared *pshared;
 
 	/* move connections */
 	/* FIXME: we wouldn't necessarily need to switch all of them
@@ -541,6 +542,11 @@ void http_client_context_switch_ioloop(struct http_client_context *cctx)
 
 		http_client_connection_switch_ioloop(conn);
 	}
+
+	/* move backoff timeouts */
+	for (pshared = cctx->peers_list; pshared != NULL;
+		pshared = pshared->next)
+		http_client_peer_shared_switch_ioloop(pshared);
 
 	/* move dns lookups and delayed requests */
 	for (hshared = cctx->hosts_list; hshared != NULL;
