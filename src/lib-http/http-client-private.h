@@ -390,6 +390,11 @@ struct http_client_context {
 
 	struct http_client_settings set;
 
+	struct dns_client *dns_client;
+	const char *dns_client_socket_path;
+	unsigned int dns_ttl_msecs;
+	unsigned int dns_lookup_timeout_msecs;
+
 	struct http_client *clients_list;
 	struct connection_list *conn_list;
 
