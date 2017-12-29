@@ -611,6 +611,34 @@ http_client_context_remove_client(struct http_client_context *cctx,
 	http_client_context_update_settings(cctx);
 }
 
+static void http_client_context_close(struct http_client_context *cctx)
+{
+	struct connection *_conn, *_conn_next;
+	struct http_client_host_shared *hshared;
+	struct http_client_peer_shared *pshared;
+
+	/* Switching to NULL ioloop;
+	   close all hosts, peers, and connections */
+	i_assert(cctx->clients_list == NULL);
+
+	_conn = cctx->conn_list->connections;
+	while (_conn != NULL) {
+		struct http_client_connection *conn =
+			(struct http_client_connection *)_conn;
+		_conn_next = _conn->next;
+		http_client_connection_close(&conn);
+		_conn = _conn_next;
+	}
+	while (cctx->hosts_list != NULL) {
+		hshared = cctx->hosts_list;
+		http_client_host_shared_free(&hshared);
+	}
+	while (cctx->peers_list != NULL) {
+		pshared = cctx->peers_list;
+		http_client_peer_shared_close(&pshared);
+	}
+}
+
 void http_client_context_switch_ioloop(struct http_client_context *cctx)
 {
 	struct connection *_conn = cctx->conn_list->connections;
@@ -644,6 +672,18 @@ static void http_client_global_context_free(void)
 	http_client_context_unref(&http_client_global_context);
 }
 
+static void
+http_client_global_context_ioloop_switched(
+	struct ioloop *prev_ioloop ATTR_UNUSED)
+{
+	i_assert(http_client_global_context != NULL);
+	if (current_ioloop == NULL) {
+		http_client_context_close(http_client_global_context);
+		return;
+	}
+	http_client_context_switch_ioloop(http_client_global_context);
+}
+
 struct http_client_context *http_client_get_global_context(void)
 {
 	if (http_client_global_context != NULL)
@@ -654,5 +694,6 @@ struct http_client_context *http_client_get_global_context(void)
 	http_client_global_context = http_client_context_create(&set);
 	/* keep this a bit higher than lib-ssl-iostream */
 	lib_atexit_priority(http_client_global_context_free, LIB_ATEXIT_PRIORITY_LOW-1);
+	io_loop_add_switch_callback(http_client_global_context_ioloop_switched);
 	return http_client_global_context;
 }
