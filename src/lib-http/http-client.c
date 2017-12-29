@@ -144,6 +144,11 @@ http_client_init_shared(struct http_client_context *cctx,
 	/* merge provided settings with context defaults */
 	client->set = cctx->set;
 	if (set != NULL) {
+		client->set.dns_client = set->dns_client;
+		client->set.dns_client_socket_path =
+			p_strdup_empty(pool, set->dns_client_socket_path);
+		client->set.dns_ttl_msecs = set->dns_ttl_msecs;
+
 		if (set->user_agent != NULL && *set->user_agent != '\0')
 			client->set.user_agent = p_strdup_empty(pool, set->user_agent);
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
@@ -537,6 +542,16 @@ void http_client_context_unref(struct http_client_context **_cctx)
 	pool_unref(&cctx->pool);
 }
 
+static unsigned int
+http_client_get_dns_lookup_timeout_msecs(const struct http_client_settings *set)
+{
+	if (set->connect_timeout_msecs > 0)
+		return set->connect_timeout_msecs;
+	if (set->request_timeout_msecs > 0)
+		return set->request_timeout_msecs;
+	return HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
+}
+
 static void
 http_client_context_update_settings(struct http_client_context *cctx)
 {
@@ -544,11 +559,36 @@ http_client_context_update_settings(struct http_client_context *cctx)
 	bool debug;
 
 	/* revert back to context settings */
+	cctx->dns_client = cctx->set.dns_client;
+	cctx->dns_client_socket_path = cctx->set.dns_client_socket_path;
+	cctx->dns_ttl_msecs = cctx->set.dns_ttl_msecs;
+	cctx->dns_lookup_timeout_msecs =
+		http_client_get_dns_lookup_timeout_msecs(&cctx->set);
 	debug = cctx->set.debug;
 
-	/* merge with available client settings */
+	i_assert(cctx->dns_ttl_msecs > 0);
+	i_assert(cctx->dns_lookup_timeout_msecs > 0);
+
+	/* override with available client settings */
 	for (client = cctx->clients_list; client != NULL;
 	     client = client->next) {
+		unsigned dns_lookup_timeout_msecs =
+			http_client_get_dns_lookup_timeout_msecs(&client->set);
+
+		if (cctx->dns_client == NULL)
+			cctx->dns_client = client->set.dns_client;
+		if (cctx->dns_client_socket_path == NULL) {
+			cctx->dns_client_socket_path =
+				client->set.dns_client_socket_path;
+		}
+		if (client->set.dns_ttl_msecs != 0 &&
+		    cctx->dns_ttl_msecs > client->set.dns_ttl_msecs)
+			cctx->dns_ttl_msecs = client->set.dns_ttl_msecs;
+		if (dns_lookup_timeout_msecs != 0 &&
+		    cctx->dns_lookup_timeout_msecs > dns_lookup_timeout_msecs) {
+			cctx->dns_lookup_timeout_msecs =
+				dns_lookup_timeout_msecs;
+		}
 		debug = debug || client->set.debug;
 	}
 
