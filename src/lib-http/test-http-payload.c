@@ -39,6 +39,7 @@ static bool blocking = FALSE;
 static enum payload_handling server_payload_handling =
 	PAYLOAD_HANDLING_LOW_LEVEL;
 static unsigned int parallel_clients = 1;
+static bool parallel_clients_global = FALSE;
 
 static bool request_100_continue = FALSE;
 static size_t read_server_partial = 0;
@@ -694,16 +695,20 @@ test_client_create_clients(const struct http_client_settings *client_set)
 	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
 		test_client_progress_timeout, NULL);
 
-	http_context = http_client_context_create(client_set);
+	if (!parallel_clients_global)
+		http_context = http_client_context_create(client_set);
 
 	if (parallel_clients < 1)
 		parallel_clients = 1;
 	http_clients = i_new(struct http_client *, parallel_clients);
 	for (i = 0; i < parallel_clients; i++) {
-		http_clients[i] = http_client_init_shared(http_context, NULL);
+		http_clients[i] = (parallel_clients_global ?
+			http_client_init(client_set) :
+			http_client_init_shared(http_context, NULL));
 	}
 
-	http_client_context_unref(&http_context);
+	if (!parallel_clients_global)
+		http_client_context_unref(&http_context);
 }
 
 /* download */
@@ -1724,6 +1729,23 @@ static void test_echo_client_shared(void)
 	parallel_clients = 4;
 	test_run_pipeline(test_client_echo);
 	parallel_clients = 4;
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (server non-blocking; client global)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	parallel_clients = 4;
+	parallel_clients_global = TRUE;
+	test_run_sequential(test_client_echo);
+	parallel_clients = 4;
+	parallel_clients_global = TRUE;
+	test_run_pipeline(test_client_echo);
+	parallel_clients = 4;
+	parallel_clients_global = TRUE;
 	test_run_parallel(test_client_echo);
 	test_end();
 }
