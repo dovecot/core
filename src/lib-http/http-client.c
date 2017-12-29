@@ -538,10 +538,29 @@ void http_client_context_unref(struct http_client_context **_cctx)
 }
 
 static void
+http_client_context_update_settings(struct http_client_context *cctx)
+{
+	struct http_client *client;
+	bool debug;
+
+	/* revert back to context settings */
+	debug = cctx->set.debug;
+
+	/* merge with available client settings */
+	for (client = cctx->clients_list; client != NULL;
+	     client = client->next) {
+		debug = debug || client->set.debug;
+	}
+
+	event_set_forced_debug(cctx->event, debug);
+}
+
+static void
 http_client_context_add_client(struct http_client_context *cctx,
 			       struct http_client *client)
 {
 	DLLIST_PREPEND(&cctx->clients_list, client);
+	http_client_context_update_settings(cctx);
 }
 
 static void
@@ -549,6 +568,7 @@ http_client_context_remove_client(struct http_client_context *cctx,
 				  struct http_client *client)
 {
 	DLLIST_REMOVE(&cctx->clients_list, client);
+	http_client_context_update_settings(cctx);
 }
 
 void http_client_context_switch_ioloop(struct http_client_context *cctx)
