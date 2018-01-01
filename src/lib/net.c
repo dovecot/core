@@ -1,4 +1,4 @@
-/* Copyright (c) 1999-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 1999-2018 Dovecot authors, see the included COPYING file */
 
 #define _GNU_SOURCE /* For Linux's struct ucred */
 #include "lib.h"
