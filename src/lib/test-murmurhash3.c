@@ -1,3 +1,5 @@
+/* Copyright (c) 2018 Dovecot authors, see the included COPYING file */
+
 #include "test-lib.h"
 #include "murmurhash3.h"
 

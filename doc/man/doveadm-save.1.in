@@ -1,4 +1,4 @@
-.\" Copyright (c) 2017 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-SAVE 1 "2017-05-11" "Dovecot v2.3" "Dovecot"
 .SH NAME
 doveadm\-save \- Save email to a user's mailbox

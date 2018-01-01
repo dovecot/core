@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #ifndef TEST_AUTH_H
 #define TEST_AUTH_H 1

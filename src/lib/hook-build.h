@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 #ifndef HOOK_BUILD_H
 #define HOOK_BUILD_H 1
 
