@@ -721,6 +721,7 @@ bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 			   sending mailbox changes, but not for all mails. */
 			dsync_mailbox_state_remove(brain, local_box->mailbox_guid);
 			*reason_r = "UIDVALIDITY changed during a stateful sync, need to restart";
+			brain->failed = TRUE;
 			ret = FALSE;
 		}
 	}
