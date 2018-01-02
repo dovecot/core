@@ -21,8 +21,8 @@ auth_worker_reply_parse_args(struct auth_request *request,
 		auth_request_set_fields(request, args, NULL);
 }
 
-static enum passdb_result
-auth_worker_reply_parse(struct auth_request *request, const char *reply)
+enum passdb_result
+passdb_blocking_auth_worker_reply_parse(struct auth_request *request, const char *reply)
 {
 	enum passdb_result ret;
 	const char *const *args;
@@ -79,7 +79,7 @@ verify_plain_callback(const char *reply, void *context)
 	struct auth_request *request = context;
 	enum passdb_result result;
 
-	result = auth_worker_reply_parse(request, reply);
+	result = passdb_blocking_auth_worker_reply_parse(request, reply);
 	auth_request_verify_plain_callback(result, request);
 	auth_request_unref(&request);
 	return TRUE;
@@ -106,7 +106,7 @@ static bool lookup_credentials_callback(const char *reply, void *context)
 	enum passdb_result result;
 	const char *password = NULL, *scheme = NULL;
 
-	result = auth_worker_reply_parse(request, reply);
+	result = passdb_blocking_auth_worker_reply_parse(request, reply);
 	if (result == PASSDB_RESULT_OK && request->passdb_password != NULL) {
 		password = request->passdb_password;
 		scheme = password_get_scheme(&password);
