@@ -455,6 +455,7 @@ int main(int argc, char *argv[])
 		dns_client_deinit(&dns_client);
 
 	io_loop_destroy(&ioloop);
+	ssl_iostream_context_cache_free();
 #ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_deinit();
 #endif
