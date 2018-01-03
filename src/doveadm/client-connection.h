@@ -15,6 +15,7 @@ struct client_connection {
 	struct ostream *output;
 	struct ostream *log_out;
 	struct ssl_iostream *ssl_iostream;
+	struct ioloop *ioloop;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 	const struct doveadm_settings *set;

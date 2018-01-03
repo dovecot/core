@@ -41,9 +41,14 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 {
 	if (!log_recursing && doveadm_client != NULL &&
 	    doveadm_client->log_out != NULL) T_BEGIN {
+		struct ioloop *prev_ioloop = current_ioloop;
 		/* prevent re-entering this code if
 		   any of the following code causes logging */
 		log_recursing = TRUE;
+		/* since we can get here from just about anywhere, make sure
+		   the log ostream uses the connection's ioloop. */
+		io_loop_set_current(doveadm_client->ioloop);
+
 		char c = doveadm_log_type_to_char(ctx->type);
 		const char *ptr,*start;
 		bool corked = o_stream_is_corked(doveadm_client->log_out);
@@ -68,6 +73,7 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 		o_stream_uncork(doveadm_client->log_out);
 		if (corked)
 			o_stream_cork(doveadm_client->log_out);
+		io_loop_set_current(prev_ioloop);
 		log_recursing = FALSE;
 	} T_END;
 
@@ -291,7 +297,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 			      int argc, const char *const argv[],
 			      struct doveadm_cmd_context *cctx)
 {
-	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
+	struct ioloop *prev_ioloop = current_ioloop;
 	const struct doveadm_cmd *cmd = NULL;
 	const struct doveadm_mail_cmd *mail_cmd;
 	struct doveadm_mail_cmd_context *mctx;
@@ -318,7 +324,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	/* some commands will want to call io_loop_run(), but we're already
 	   running one and we can't call the original one recursively, so
 	   create a new ioloop. */
-	ioloop = io_loop_create();
+	conn->ioloop = io_loop_create();
 	lib_signals_reset_ioloop();
 
 	if (cmd_ver2 != NULL)
@@ -333,8 +339,8 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	o_stream_switch_ioloop(conn->output);
 	if (conn->log_out != NULL)
 		o_stream_switch_ioloop(conn->log_out);
-	io_loop_set_current(ioloop);
-	io_loop_destroy(&ioloop);
+	io_loop_set_current(conn->ioloop);
+	io_loop_destroy(&conn->ioloop);
 
 	/* clear all headers */
 	doveadm_print_deinit();
