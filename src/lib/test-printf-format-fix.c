@@ -25,6 +25,7 @@ static void test_unchanged()
 		"Precision %.9999s",
 		"Precision %1.9999s",
 		"Precision parameter %1.*s %.*s",
+		"Floating precisions such as %.0f %0.4f %-4.0f",
 		"Length modifiers %hd %hhd %ld %lld %Lg %jd %zd %td",
 		"Specifiers %s %u %d %c %i %x %X %p %o %e %E %f %F %g %G %a %A",
 		"%%doesn't cause confusion in %%m and %%n",
