@@ -269,16 +269,27 @@ static void auth_client_input(struct auth_client_connection *conn)
 			return;
 
 		if (!conn->version_received) {
-			/* make sure the major version matches */
+			unsigned int vmajor, vminor;
+			const char *p;
+
+			/* split the version line */
 			if (strncmp(line, "VERSION\t", 8) != 0 ||
-			    !str_uint_equals(t_strcut(line + 8, '\t'),
-					     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION)) {
+			    str_parse_uint(line + 8, &vmajor, &p) < 0 ||
+			    *(p++) != '\t' || str_to_uint(p, &vminor) < 0) {
+				i_error("Authentication client "
+					"sent invalid VERSION line: %s", line);
+				auth_client_connection_destroy(&conn);
+				return;
+			}
+			/* make sure the major version matches */
+			if (vmajor != AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
 				i_error("Authentication client "
 					"not compatible with this server "
 					"(mixed old and new binaries?)");
 				auth_client_connection_destroy(&conn);
 				return;
 			}
+			conn->version_minor = vminor;
 			conn->version_received = TRUE;
 			continue;
 		}
