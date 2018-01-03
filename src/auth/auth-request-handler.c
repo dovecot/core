@@ -14,6 +14,7 @@
 #include "auth-penalty.h"
 #include "auth-request.h"
 #include "auth-token.h"
+#include "auth-client-connection.h"
 #include "auth-master-connection.h"
 #include "auth-request-handler.h"
 #include "auth-policy.h"
@@ -581,6 +582,13 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	/* Handle initial respose */
 	if (initial_resp == NULL) {
 		/* No initial response */
+		request->initial_response = NULL;
+		request->initial_response_len = 0;
+	} else if (handler->conn->version_minor < 2 && *initial_resp == '\0') {
+		/* Some authentication clients like Exim send and empty initial
+		   response field when it is in fact absent in the
+		   authentication command. This was allowed for older versions
+		   of the Dovecot authentication protocol. */
 		request->initial_response = NULL;
 		request->initial_response_len = 0;
 	} else if (*initial_resp == '\0' || strcmp(initial_resp, "=") == 0 ) {
