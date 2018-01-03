@@ -38,11 +38,12 @@ static bool verify_length(const char **p)
 		/* We don't bother supporting "*m$" - it's not used
 		   anywhere and seems a bit dangerous. */
 		*p += 1;
-	} else if (**p >= '1' && **p <= '9') {
+	} else if (**p >= '0' && **p <= '9') {
 		/* Limit to 4 digits - we'll never want more than that.
 		   Some implementations might not handle long digits
 		   correctly, or maybe even could be used for DoS due
-		   to using too much CPU. */
+		   to using too much CPU. If you want to express '99'
+		   as '00099', then you lose in this function. */
 		unsigned int i = 0;
 		do {
 			*p += 1;
