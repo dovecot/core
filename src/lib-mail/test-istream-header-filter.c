@@ -144,14 +144,14 @@ static void test_istream_filter(void)
 					       HEADER_FILTER_NO_CR,
 					       exclude_headers,
 					       N_ELEMENTS(exclude_headers),
-					       filter_callback, (void *)NULL);
+					       filter_callback, NULL);
 	filter2 = i_stream_create_header_filter(filter,
 						HEADER_FILTER_EXCLUDE |
 						HEADER_FILTER_NO_CR,
 						exclude_headers,
 						N_ELEMENTS(exclude_headers),
 						*null_header_filter_callback,
-						(void *)NULL);
+						NULL);
 	i_stream_unref(&filter);
 	filter = filter2;
 
@@ -307,7 +307,7 @@ static void test_istream_filter_large_buffer2(void)
 	filter = i_stream_create_header_filter(istream,
 		HEADER_FILTER_INCLUDE | HEADER_FILTER_HIDE_BODY,
 		wanted_headers, N_ELEMENTS(wanted_headers),
-		*null_header_filter_callback, (void *)NULL);
+		*null_header_filter_callback, NULL);
 
 	for (i = 0; i < 2; i++) {
 		while ((ret = i_stream_read_more(filter, &data, &size)) > 0) {
@@ -449,7 +449,7 @@ static void test_istream_end_body_with_lf(void)
 					       HEADER_FILTER_END_BODY_WITH_LF,
 					       NULL, 0,
 					       *null_header_filter_callback,
-					       (void *)NULL);
+					       NULL);
 
 	for (i = 1; i < input_len; i++) {
 		test_istream_set_size(istream, i);

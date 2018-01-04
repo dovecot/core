@@ -238,7 +238,7 @@ void mail_index_alloc_cache_unref(struct mail_index **_index)
 		mail_index_alloc_cache_list_free(list);
 	} else if (to_index == NULL) {
 		to_index = timeout_add(INDEX_CACHE_TIMEOUT*1000/2,
-				       index_removal_timeout, (void *)NULL);
+				       index_removal_timeout, NULL);
 	}
 }
 

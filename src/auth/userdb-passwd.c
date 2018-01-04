@@ -204,7 +204,7 @@ static int passwd_iterate_deinit(struct userdb_iterate_context *_ctx)
 
 	if (cur_userdb_iter != NULL) {
 		cur_userdb_iter_to = timeout_add(0, passwd_iterate_next_timeout,
-						 (void *)NULL);
+						 NULL);
 	}
 	return ret;
 }

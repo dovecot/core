@@ -738,7 +738,7 @@ test_server_run(const struct http_server_settings *http_set)
 
 	/* open server socket */
 	io_listen = io_add(fd_listen,
-		IO_READ, server_connection_accept, (void *)NULL);
+		IO_READ, server_connection_accept, NULL);
 
 	http_server = http_server_init(http_set);
 

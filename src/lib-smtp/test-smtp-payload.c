@@ -437,7 +437,7 @@ test_server_init(const struct smtp_server_settings *server_set)
 {
 	/* open server socket */
 	io_listen = io_add(fd_listen,
-		IO_READ, client_accept, (void *)NULL);
+		IO_READ, client_accept, NULL);
 
 	smtp_server = smtp_server_init(server_set);
 }

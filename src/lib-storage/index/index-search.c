@@ -812,7 +812,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 
 	if (have_headers) {
 		/* see if the header search succeeded in finishing the search */
-		ret = mail_search_args_foreach(args, search_none, (void *)NULL);
+		ret = mail_search_args_foreach(args, search_none, NULL);
 		if (ret >= 0 || !have_body)
 			return ret;
 	}

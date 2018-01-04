@@ -541,7 +541,7 @@ static void main_init(const char *admin_path)
 
 	to_disconnect =
 		timeout_add(1000 * i_rand_minmax(5, 5 + DIRECTOR_DISCONNECT_TIMEOUT_SECS - 1),
-			    director_connection_disconnect_timeout, (void *)NULL);
+			    director_connection_disconnect_timeout, NULL);
 }
 
 static void main_deinit(void)

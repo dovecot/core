@@ -64,7 +64,7 @@ static void main_init(void)
 				      REPLICATOR_FAILURE_RESYNC_INTERVAL_SECS);
 	replication_add_users(queue);
 	to_dump = timeout_add(REPLICATOR_DB_DUMP_INTERVAL_MSECS,
-			      replicator_dump_timeout, (void *)NULL);
+			      replicator_dump_timeout, NULL);
 	brain = replicator_brain_init(queue, set);
 	doveadm_connections_init();
 }

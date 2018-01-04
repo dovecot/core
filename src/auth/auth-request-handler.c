@@ -241,7 +241,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 	if (to_auth_failures == NULL) {
 		to_auth_failures =
 			timeout_add_short(AUTH_FAILURE_DELAY_CHECK_MSECS,
-					  auth_failure_timeout, (void *)NULL);
+					  auth_failure_timeout, NULL);
 	}
 }
 

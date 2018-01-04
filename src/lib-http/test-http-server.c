@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
 	if (fd_listen == -1)
 		i_fatal("listen(port=%u) failed: %m", port);
 
-	io_listen = io_add(fd_listen, IO_READ, client_accept, (void *)NULL);
+	io_listen = io_add(fd_listen, IO_READ, client_accept, NULL);
 
 	io_loop_run(ioloop);
 

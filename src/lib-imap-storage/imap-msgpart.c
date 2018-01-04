@@ -382,7 +382,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 						      HEADER_FILTER_HIDE_BODY,
 						      hdr_fields, hdr_count,
 						      *null_header_filter_callback,
-						      (void *)NULL);
+						      NULL);
 	} else if (msgpart->section_number[0] != '\0') {
 		/* fetching partial headers for a message/rfc822 part. */
 		input = i_stream_create_header_filter(mail_input,
@@ -390,7 +390,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 						      HEADER_FILTER_HIDE_BODY,
 						      hdr_fields, hdr_count,
 						      *null_header_filter_callback,
-						      (void *)NULL);
+						      NULL);
 	} else {
 		/* mail_get_header_stream() already filtered out the
 		   unwanted headers. */

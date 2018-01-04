@@ -1187,7 +1187,7 @@ test_server_run(const struct smtp_server_settings *smtp_set)
 
 	/* open server socket */
 	io_listen = io_add(fd_listen,
-		IO_READ, server_connection_accept, (void *)NULL);
+		IO_READ, server_connection_accept, NULL);
 
 	smtp_server = smtp_server_init(smtp_set);
 

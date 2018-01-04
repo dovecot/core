@@ -196,7 +196,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 			HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR |
 			HEADER_FILTER_HIDE_BODY, exclude_headers,
 			N_ELEMENTS(exclude_headers),
-			*null_header_filter_callback, (void *)NULL);
+			*null_header_filter_callback, NULL);
 
 		o_stream_nsend_istream(output, input);
 		i_stream_unref(&input);

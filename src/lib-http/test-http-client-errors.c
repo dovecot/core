@@ -3051,7 +3051,7 @@ static void test_server_run(unsigned int index)
 
 	/* open server socket */
 	io_listen = io_add(fd_listen,
-		IO_READ, server_connection_accept, (void *)NULL);
+		IO_READ, server_connection_accept, NULL);
 
 	server_conn_list = connection_list_init
 		(&server_connection_set, &server_connection_vfuncs);
