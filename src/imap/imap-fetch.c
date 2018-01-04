@@ -993,6 +993,7 @@ imap_fetch_default_handlers[] = {
 	{ "INTERNALDATE", fetch_internaldate_init },
 	{ "MODSEQ", imap_fetch_modseq_init },
 	{ "RFC822", imap_fetch_rfc822_init },
+	{ "SNIPPET", imap_fetch_snippet_init },
 	{ "UID", imap_fetch_uid_init },
 	{ "X-GUID", fetch_guid_init },
 	{ "X-MAILBOX", fetch_x_mailbox_init },

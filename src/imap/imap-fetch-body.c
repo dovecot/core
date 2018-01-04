@@ -588,3 +588,92 @@ bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx)
 	ctx->error = t_strconcat("Unknown parameter ", name, NULL);
 	return FALSE;
 }
+
+static int ATTR_NULL(3)
+fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
+	      void *context)
+{
+	const bool lazy = context != NULL;
+	enum mail_lookup_abort temp_lookup_abort = lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE : mail->lookup_abort;
+	enum mail_lookup_abort orig_lookup_abort = mail->lookup_abort;
+	const char *snippet;
+	const char *str;
+	int ret;
+
+	mail->lookup_abort = temp_lookup_abort;
+	ret = mail_get_special(mail, MAIL_FETCH_BODY_SNIPPET, &snippet);
+	mail->lookup_abort = orig_lookup_abort;
+
+	if (ret == 0) {
+		/* got it => nothing to do */
+		snippet++; /* skip over snippet version byte */
+	} else if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_LOOKUP_ABORTED) {
+		/* actual error => bail */
+		return -1;
+	} else if (lazy) {
+		/* not in cache && lazy => give up */
+		return 1;
+	} else {
+		/*
+		 * not in cache && !lazy => someone higher up set
+		 * MAIL_LOOKUP_ABORT_NOT_IN_CACHE and so even though we got
+		 * a non-lazy request we failed the cache lookup.
+		 *
+		 * This is not an error, but since the scenario is
+		 * sufficiently convoluted this else branch serves to
+		 * document it.
+		 */
+		return 1;
+	}
+
+	str = t_strdup_printf(" SNIPPET FUZZY {%"PRIuSIZE_T"}\r\n", strlen(snippet));
+	if (ctx->state.cur_first) {
+		str++;
+		ctx->state.cur_first = FALSE;
+	}
+	o_stream_nsend_str(ctx->client->output, str);
+	o_stream_nsend_str(ctx->client->output, snippet);
+
+	return 1;
+}
+
+bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
+{
+	const struct imap_arg *list_args;
+	unsigned int list_count;
+	bool lazy;
+
+	lazy = FALSE;
+
+	if (imap_arg_get_list_full(&ctx->args[0], &list_args, &list_count)) {
+		unsigned int i;
+
+		for (i = 0; i < list_count; i++) {
+			const char *str;
+
+			if (!imap_arg_get_atom(&list_args[i], &str)) {
+				ctx->error = "Invalid SNIPPET algorithm/modifier";
+				return FALSE;
+			}
+
+			if (strcasecmp(str, "LAZY") == 0 ||
+			    strcasecmp(str, "LAZY=FUZZY") == 0) {
+				lazy = TRUE;
+			} else if (strcasecmp(str, "FUZZY") == 0) {
+				/* nothing to do */
+			} else {
+				ctx->error = t_strdup_printf("'%s' is not a "
+							     "supported SNIPPET algorithm/modifier",
+							     str);
+				return FALSE;
+			}
+		}
+
+		ctx->args += list_count;
+	}
+
+	ctx->fetch_ctx->fetch_data |= MAIL_FETCH_BODY_SNIPPET;
+	ctx->fetch_ctx->flags_update_seen = TRUE;
+	imap_fetch_add_handler(ctx, 0, "NIL", fetch_snippet, (void *) lazy);
+	return TRUE;
+}
