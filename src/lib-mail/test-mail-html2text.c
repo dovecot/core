@@ -41,6 +41,7 @@ static const struct {
 	{ "a&#228;", "a\xC3\xA4" },
 	{ "a&#xe4;", "a\xC3\xA4" },
 	{ "&#8364;", "\xE2\x82\xAC" },
+	{ "&#deee;", "" }, // invalid codepoint
 };
 
 static const char *test_blockquote_input =
