@@ -33,7 +33,8 @@ static void o_stream_zlib_close(struct iostream_private *stream,
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
 
 	i_assert(zstream->ostream.finished ||
-		 zstream->ostream.ostream.stream_errno != 0);
+		 zstream->ostream.ostream.stream_errno != 0 ||
+		 zstream->ostream.error_handling_disabled);
 	(void)deflateEnd(&zstream->zs);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);
