@@ -61,7 +61,7 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 			continue;
 		line++;
 
-		if (strcmp(line, "OK Begin compression.") == 0 ||
+		if (strncmp(line, "OK Begin compression", 20) == 0 ||
 		    strcasecmp(line, "COMPRESS DEFLATE") == 0)
 			break;
 	}
