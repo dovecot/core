@@ -891,7 +891,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	return TRUE;
 }
 
-static void
+void
 auth_request_verify_plain_callback_finish(enum passdb_result result,
 					  struct auth_request *request)
 {
