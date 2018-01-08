@@ -6,6 +6,7 @@
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
+#include "password-scheme.h"
 #include "auth-request-var-expand.h"
 
 #define AUTH_REQUEST_USER_KEY_IGNORE " "
