@@ -942,6 +942,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 					      &result, TRUE)) {
 			auth_request_log_info(request, AUTH_SUBSYS_DB,
 				"Falling back to expired data from cache");
+			return;
 		}
 	}
 
@@ -1090,7 +1091,6 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (passdb_cache_verify_plain(request, cache_key, password,
 				      &result, FALSE)) {
-		auth_request_verify_plain_callback_finish(result, request);
 		return;
 	}
 
