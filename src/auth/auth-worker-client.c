@@ -76,9 +76,8 @@ auth_worker_client_check_throttle(struct auth_worker_client *client)
 	}
 }
 
-static struct auth_request *
-worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
-			const char *const *args)
+bool auth_worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
+				  const char *const *args, struct auth_request **request_r)
 {
 	struct auth_request *auth_request;
 	const char *key, *value;
@@ -98,6 +97,11 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 			(void)auth_request_import(auth_request, key, value);
 		}
 	}
+	if (auth_request->user == NULL || auth_request->service == NULL) {
+		auth_request_unref(&auth_request);
+		return FALSE;
+	}
+
 	/* reset changed-fields, so we'll export only the ones that were
 	   changed by this lookup. */
 	auth_fields_snapshot(auth_request->extra_fields);
@@ -105,7 +109,9 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 		auth_fields_snapshot(auth_request->userdb_reply);
 
 	auth_request_init(auth_request);
-	return auth_request;
+	*request_r = auth_request;
+
+	return TRUE;
 }
 
 static void auth_worker_send_reply(struct auth_worker_client *client,
@@ -202,15 +208,12 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	}
 	password = args[1];
 
-	auth_request = worker_auth_request_new(client, id, args + 2);
-	auth_request->mech_password =
-		p_strdup(auth_request->pool, password);
-
-	if (auth_request->user == NULL || auth_request->service == NULL) {
-		i_error("BUG: PASSV had missing parameters");
-		auth_request_unref(&auth_request);
+	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
+		i_error("BUG: Auth worker server sent us invalid PASSV");
 		return FALSE;
 	}
+	auth_request->mech_password =
+		p_strdup(auth_request->pool, password);
 
 	passdb = auth_request->passdb;
 	while (passdb != NULL && passdb->passdb->id != passdb_id)
@@ -291,14 +294,11 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	}
 	scheme = args[1];
 
-	auth_request = worker_auth_request_new(client, id, args + 2);
-	auth_request->credentials_scheme = p_strdup(auth_request->pool, scheme);
-
-	if (auth_request->user == NULL || auth_request->service == NULL) {
+	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
 		i_error("BUG: PASSL had missing parameters");
-		auth_request_unref(&auth_request);
 		return FALSE;
 	}
+	auth_request->credentials_scheme = p_strdup(auth_request->pool, scheme);
 
 	while (auth_request->passdb->passdb->id != passdb_id) {
 		auth_request->passdb = auth_request->passdb->next;
@@ -352,10 +352,8 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 	}
 	creds = args[1];
 
-	auth_request = worker_auth_request_new(client, id, args + 2);
-	if (auth_request->user == NULL || auth_request->service == NULL) {
+	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
 		i_error("BUG: SETCRED had missing parameters");
-		auth_request_unref(&auth_request);
 		return FALSE;
 	}
 
@@ -437,10 +435,8 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		return FALSE;
 	}
 
-	auth_request = worker_auth_request_new(client, id, args + 1);
-	if (auth_request->user == NULL || auth_request->service == NULL) {
+	if (!auth_worker_auth_request_new(client, id, args + 1, &auth_request)) {
 		i_error("BUG: USER had missing parameters");
-		auth_request_unref(&auth_request);
 		return FALSE;
 	}
 
@@ -593,15 +589,12 @@ auth_worker_handle_list(struct auth_worker_client *client,
 
 	ctx = i_new(struct auth_worker_list_context, 1);
 	ctx->client = client;
-	ctx->auth_request = worker_auth_request_new(client, id, args + 1);
-	ctx->auth_request->userdb = userdb;
-	if (ctx->auth_request->user == NULL ||
-	    ctx->auth_request->service == NULL) {
+	if (!auth_worker_auth_request_new(client, id, args + 1, &ctx->auth_request)) {
 		i_error("BUG: LIST had missing parameters");
-		auth_request_unref(&ctx->auth_request);
 		i_free(ctx);
 		return FALSE;
 	}
+	ctx->auth_request->userdb = userdb;
 
 	io_remove(&ctx->client->io);
 	if (ctx->client->to_idle != NULL)
