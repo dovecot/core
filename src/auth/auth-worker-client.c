@@ -238,6 +238,58 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	return TRUE;
 }
 
+static bool
+auth_worker_handle_passw(struct auth_worker_client *client,
+			 unsigned int id, const char *const *args)
+{
+	struct auth_request *request;
+	string_t *str;
+	const char *password;
+	const char *crypted, *scheme;
+	unsigned int passdb_id;
+	int ret;
+
+	if (str_to_uint(args[0], &passdb_id) < 0 || args[1] == NULL ||
+	    args[2] == NULL) {
+		i_error("BUG: Auth worker server sent us invalid PASSW");
+		return FALSE;
+	}
+	password = args[1];
+	crypted = args[2];
+	scheme = password_get_scheme(&crypted);
+	if (scheme == NULL) {
+		i_error("BUG: Auth worker server sent us invalid PASSW (scheme is NULL)");
+		return FALSE;
+	}
+
+	if (!auth_worker_auth_request_new(client, id, args + 3, &request)) {
+		i_error("BUG: PASSW had missing parameters");
+		return FALSE;
+	}
+	request->mech_password =
+		p_strdup(request->pool, password);
+
+	ret = auth_request_password_verify(request, password,
+					   crypted, scheme, "cache");
+	str = t_str_new(128);
+	str_printfa(str, "%u\t", request->id);
+
+	if (ret == 1)
+		str_printfa(str, "OK\t\t");
+	else if (ret == 0)
+		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_PASSWORD_MISMATCH);
+	else
+		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE);
+
+	str_append_c(str, '\n');
+	auth_worker_send_reply(client, request, str);
+
+	auth_request_unref(&request);
+	auth_worker_client_check_throttle(client);
+	auth_worker_client_unref(&client);
+	return TRUE;
+}
+
 static void
 lookup_credentials_callback(enum passdb_result result,
 			    const unsigned char *credentials, size_t size,
@@ -630,6 +682,8 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 		ret = auth_worker_handle_passv(client, id, args + 2);
 	else if (strcmp(args[1], "PASSL") == 0)
 		ret = auth_worker_handle_passl(client, id, args + 2);
+	else if (strcmp(args[1], "PASSW") == 0)
+		ret = auth_worker_handle_passw(client, id, args + 2);
 	else if (strcmp(args[1], "SETCRED") == 0)
 		ret = auth_worker_handle_setcred(client, id, args + 2);
 	else if (strcmp(args[1], "USER") == 0)
