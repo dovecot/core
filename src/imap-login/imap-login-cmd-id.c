@@ -98,21 +98,20 @@ imap_id_param_handler_find(const char *key)
 }
 
 static bool
-client_update_info(struct imap_client *client,
-		   const char *key, const char *value)
+client_try_update_info(struct imap_client *client,
+		       const char *key, const char *value)
 {
 	const struct imap_id_param_handler *handler;
 
 	handler = imap_id_param_handler_find(key);
 	if (handler == NULL)
 		return FALSE;
-	handler->callback(client, key, value);
-	return TRUE;
-}
 
-static bool client_id_reserved_word(const char *key)
-{
-	return imap_id_param_handler_find(key) != NULL;
+	/* do not try to process NIL values as client-info,
+	   but store them for non-reserved keys */
+	if (client->common.trusted && !client->id_logged && value != NULL)
+		handler->callback(client, key, value);
+	return TRUE;
 }
 
 static void cmd_id_handle_keyvalue(struct imap_client *client,
@@ -124,18 +123,7 @@ static void cmd_id_handle_keyvalue(struct imap_client *client,
 	size_t kvlen = strlen(key) + 2 + 1 +
 		       (value == NULL ? 3 : strlen(value)) + 2;
 
-	if (client->common.trusted && !client->id_logged) {
-		if (value == NULL) {
-			/* do not try to process NIL values as client-info,
-			   but store them for non-reserved keys */
-			client_id_str = !client_id_reserved_word(key);
-		} else {
-			client_id_str = !client_update_info(client, key, value);
-			i_assert(client_id_str == !client_id_reserved_word(key));
-		}
-	} else {
-		client_id_str = !client_id_reserved_word(key);
-	}
+	client_id_str = !client_try_update_info(client, key, value);
 
 	if (client->set->imap_id_retain && client_id_str &&
 	    (client->common.client_id == NULL ||
