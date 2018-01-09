@@ -9,6 +9,7 @@ static bool get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 {
 	struct rfc822_parser_context parser;
 	int ret;
+	bool success = FALSE;
 
 	rfc822_parser_init(&parser, (const unsigned char *)*msgid_p,
 			   strlen(*msgid_p), NULL);
@@ -27,23 +28,18 @@ static bool get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 		ret = rfc822_parse_quoted_string(&parser, msgid);
 	else
 		ret = rfc822_parse_dot_atom(&parser, msgid);
-	if (ret <= 0)
-		return FALSE;
+	if (ret > 0 && *parser.data == '@') {
+		str_append_c(msgid, '@');
+		parser.data++;
+		rfc822_skip_lwsp(&parser);
 
-	if (*parser.data != '@')
-		return FALSE;
-	str_append_c(msgid, '@');
-	parser.data++;
-	rfc822_skip_lwsp(&parser);
-
-	if (rfc822_parse_dot_atom(&parser, msgid) <= 0)
-		return FALSE;
-
-	if (*parser.data != '>')
-		return FALSE;
-
-	*msgid_p = (const char *)parser.data + 1;
-	return TRUE;
+		if (rfc822_parse_dot_atom(&parser, msgid) > 0 &&
+		    *parser.data == '>') {
+			*msgid_p = (const char *)parser.data + 1;
+			success = TRUE;
+		}
+	}
+	return success;
 }
 
 static void strip_lwsp(char *str)
