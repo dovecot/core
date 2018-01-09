@@ -124,6 +124,9 @@ struct mailbox_list {
 	struct mailbox_log *changelog;
 	time_t changelog_timestamp;
 
+	struct file_lock *lock;
+	int lock_refcount;
+
 	pool_t guid_cache_pool;
 	HASH_TABLE(uint8_t *, struct mailbox_guid_cache_rec *) guid_cache;
 	bool guid_cache_errors;
@@ -243,5 +246,7 @@ const struct mailbox_info *
 mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
 				    const struct mailbox_info *_info);
 
+int mailbox_list_lock(struct mailbox_list *list);
+void mailbox_list_unlock(struct mailbox_list *list);
 
 #endif
