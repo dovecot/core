@@ -1577,7 +1577,7 @@ int mailbox_delete(struct mailbox *box)
 		/* deletion failed. revert the mark so it can maybe be
 		   tried again later. */
 		if (mailbox_mark_index_deleted(box, FALSE) < 0)
-			return -1;
+			ret = -1;
 	}
 
 	box->deleting = FALSE;
