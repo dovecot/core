@@ -499,9 +499,8 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 			ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART_DIGEST;
 	}
 
-	if (ret < 0)
-		return;
-	if ((ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
+	if (ret < 0 ||
+	    (ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
 	    ctx->last_boundary != NULL)
 		return;
 

@@ -400,9 +400,9 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 
 	if (rfc822_skip_lwsp(&ctx.parser) <= 0) {
 		/* no addresses */
-		return NULL;
+	} else {
+		(void)parse_address_list(&ctx, max_addresses);
 	}
-	(void)parse_address_list(&ctx, max_addresses);
 	return ctx.first_addr;
 }
 
