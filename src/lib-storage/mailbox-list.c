@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "file-create-locked.h"
 #include "mkdir-parents.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "sha1.h"
 #include "hash.h"
@@ -27,6 +28,9 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
+
+#define MAILBOX_LIST_LOCK_FNAME "mailboxes.lock"
+#define MAILBOX_LIST_LOCK_SECS 60
 
 #define MAILBOX_LIST_FS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_fs_module)
@@ -2048,4 +2052,76 @@ struct mailbox_list *mailbox_list_fs_get_list(struct fs *fs)
 
 	ctx = MAILBOX_LIST_FS_CONTEXT(fs);
 	return ctx == NULL ? NULL : ctx->list;
+}
+
+int mailbox_list_lock(struct mailbox_list *list)
+{
+	struct mailbox_permissions perm;
+	struct file_create_settings set;
+	const char *lock_dir, *lock_fname, *lock_path, *error;
+
+	if (list->lock_refcount > 0) {
+		list->lock_refcount++;
+		return 0;
+	}
+
+	mailbox_list_get_root_permissions(list, &perm);
+	i_zero(&set);
+	set.lock_timeout_secs = list->mail_set->mail_max_lock_timeout == 0 ?
+		MAILBOX_LIST_LOCK_SECS :
+		I_MIN(MAILBOX_LIST_LOCK_SECS, list->mail_set->mail_max_lock_timeout);
+	set.lock_method = list->mail_set->parsed_lock_method;
+	set.mode = perm.file_create_mode;
+	set.gid = perm.file_create_gid;
+	set.gid_origin = perm.file_create_gid_origin;
+
+	lock_fname = MAILBOX_LIST_LOCK_FNAME;
+	if (list->set.volatile_dir != NULL) {
+		/* Use VOLATILEDIR. It's shared with all mailbox_lists, so use
+		   hash of the namespace prefix as a way to make this lock name
+		   unique across the namespaces. */
+		unsigned char ns_prefix_hash[SHA1_RESULTLEN];
+		sha1_get_digest(list->ns->prefix, list->ns->prefix_len,
+				ns_prefix_hash);
+		lock_fname = t_strconcat(MAILBOX_LIST_LOCK_FNAME,
+			binary_to_hex(ns_prefix_hash, sizeof(ns_prefix_hash)), NULL);
+		lock_dir = list->set.volatile_dir;
+		set.mkdir_mode = 0700;
+	} else if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+					      &lock_dir)) {
+		/* use index root directory */
+		if (mailbox_list_mkdir_missing_index_root(list) < 0)
+			return -1;
+	} else if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR,
+					      &lock_dir)) {
+		/* use mailbox root directory */
+		if (mailbox_list_mkdir_root(list, lock_dir,
+					    MAILBOX_LIST_PATH_TYPE_DIR) < 0)
+			return -1;
+	} else {
+		/* No filesystem used by mailbox list (e.g. imapc).
+		   Just assume it's locked */
+		list->lock_refcount = 1;
+		return 0;
+	}
+	lock_path = t_strdup_printf("%s/%s", lock_dir, lock_fname);
+	if (mail_storage_lock_create(lock_path, &set, list->mail_set,
+				     &list->lock, &error) <= 0) {
+		mailbox_list_set_critical(list,
+			"Couldn't create mailbox list lock %s: %s",
+			lock_path, error);
+		return -1;
+	}
+
+	list->lock_refcount = 1;
+	return 0;
+}
+
+void mailbox_list_unlock(struct mailbox_list *list)
+{
+	i_assert(list->lock_refcount > 0);
+	if (--list->lock_refcount > 0)
+		return;
+
+	file_lock_free(&list->lock);
 }
