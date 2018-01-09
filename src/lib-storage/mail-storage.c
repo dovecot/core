@@ -1747,7 +1747,7 @@ int mailbox_rename_check_children(struct mailbox *src, struct mailbox *dest)
 			continue; /* not our child */
 		/* if total length of new name exceeds the limit, fail */
 		if (strlen(child->vname + src_prefix_len)+dest_prefix_len > MAILBOX_LIST_NAME_MAX_LENGTH) {
-			mail_storage_set_error(dest->storage, MAIL_ERROR_PARAMS,
+			mail_storage_set_error(src->storage, MAIL_ERROR_PARAMS,
 				"Mailbox or child name too long");
 			ret = -1;
 			break;
@@ -1756,7 +1756,7 @@ int mailbox_rename_check_children(struct mailbox *src, struct mailbox *dest)
 
 	/* something went bad */
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		mail_storage_copy_list_error(dest->storage, src->list);
+		mail_storage_copy_list_error(src->storage, src->list);
 		ret = -1;
 	}
 	return ret;
@@ -1775,7 +1775,7 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 		return -1;
 	}
 	if (mailbox_verify_create_name(dest) < 0) {
-		mail_storage_copy_error(dest->storage, src->storage);
+		mail_storage_copy_error(src->storage, dest->storage);
 		return -1;
 	}
 	if (mailbox_rename_check_children(src, dest) != 0) {
