@@ -1536,9 +1536,20 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	if (mailbox_verify_create_name(box) < 0)
 		return -1;
 
+	/* Avoid race conditions by keeping mailbox list locked during changes.
+	   This especially fixes a race during INBOX creation with LAYOUT=index
+	   because it scans for missing mailboxes if INBOX doesn't exist. The
+	   second process's scan can find a half-created INBOX and add it,
+	   causing the first process to become confused. */
+	if (mailbox_list_lock(box->list) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		return -1;
+	}
 	box->creating = TRUE;
 	ret = box->v.create_box(box, update, directory);
 	box->creating = FALSE;
+	mailbox_list_unlock(box->list);
+
 	if (ret == 0) {
 		box->list->guid_cache_updated = TRUE;
 		if (!box->inbox_any)
@@ -1625,6 +1636,7 @@ static void mailbox_close_reset_path(struct mailbox *box)
 
 int mailbox_delete(struct mailbox *box)
 {
+	bool list_locked;
 	int ret;
 
 	if (*box->name == '\0') {
@@ -1641,13 +1653,22 @@ int mailbox_delete(struct mailbox *box)
 		/* might be a \noselect mailbox, so continue deletion */
 	}
 
-	ret = box->v.delete_box(box);
+	if (mailbox_list_lock(box->list) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		list_locked = FALSE;
+		ret = -1;
+	} else {
+		list_locked = TRUE;
+		ret = box->v.delete_box(box);
+	}
 	if (ret < 0 && box->marked_deleted) {
 		/* deletion failed. revert the mark so it can maybe be
 		   tried again later. */
 		if (mailbox_mark_index_deleted(box, FALSE) < 0)
 			ret = -1;
 	}
+	if (list_locked)
+		mailbox_list_unlock(box->list);
 
 	box->deleting = FALSE;
 	mailbox_close(box);
@@ -1806,7 +1827,16 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 		return -1;
 	}
 
-	if (src->v.rename_box(src, dest) < 0)
+	/* It would be safer to lock both source and destination, but that
+	   could lead to deadlocks. So at least for now lets just lock only the
+	   destination list. */
+	if (mailbox_list_lock(dest->list) < 0) {
+		mail_storage_copy_list_error(src->storage, dest->list);
+		return -1;
+	}
+	int ret = src->v.rename_box(src, dest);
+	mailbox_list_unlock(dest->list);
+	if (ret < 0)
 		return -1;
 	src->list->guid_cache_invalidated = TRUE;
 	dest->list->guid_cache_invalidated = TRUE;
