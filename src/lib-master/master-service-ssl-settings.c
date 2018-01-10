@@ -7,6 +7,10 @@
 
 #include <stddef.h>
 
+#ifdef HAVE_OPENSSL
+#include <openssl/ssl.h>
+#endif
+
 #undef DEF
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct master_service_ssl_settings, name), NULL }
