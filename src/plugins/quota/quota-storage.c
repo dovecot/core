@@ -291,7 +291,7 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 	const char *error;
 	if (quota_transaction_set_limits(qt, &error_res, &error) < 0 &&
 	    error_res != QUOTA_GET_RESULT_BACKGROUND_CALC)
-		i_error("Failed to set quota transaction limits: %s", error);
+		i_error("quota: %s", error);
 
 	if (qbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
@@ -352,7 +352,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	enum quota_get_result error_res;
 	if (quota_transaction_set_limits(qt, &error_res, &error) < 0 &&
 	    error_res != QUOTA_GET_RESULT_BACKGROUND_CALC)
-		i_error("Failed to set quota transaction limits: %s", error);
+		i_error("quota: %s", error);
 
 	return qbox->module_ctx.super.save_begin(ctx, input);
 }
