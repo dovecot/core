@@ -16,6 +16,9 @@ void replicator_queue_add_auth_users(struct replicator_queue *queue,
 	struct replicator_user *user;
 	const char *username;
 
+	e_debug(queue->event, "Add users from userdb with usermask '%s'",
+		usermask);
+
 	auth_conn = auth_master_init(auth_socket_path,
 				     AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT);
 

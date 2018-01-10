@@ -180,6 +180,7 @@ replicator_queue_get(struct replicator_queue *queue, const char *username)
 
 	user = replicator_queue_lookup(queue, username);
 	if (user == NULL) {
+		e_debug(queue->event, "user %s: User not found from queue - adding", username);
 		user = i_new(struct replicator_user, 1);
 		user->refcount = 1;
 		user->username = i_strdup(username);
@@ -191,14 +192,19 @@ replicator_queue_get(struct replicator_queue *queue, const char *username)
 	return user;
 }
 
-void replicator_queue_update(struct replicator_queue *queue ATTR_UNUSED,
+void replicator_queue_update(struct replicator_queue *queue,
 			     struct replicator_user *user,
 			     enum replication_priority priority)
 {
 	if (user->priority >= priority) {
 		/* user already has at least this high priority */
+		e_debug(queue->event, "user %s: Ignoring priority %u update, "
+			"since user already has priority=%u",
+			user->username, priority, user->priority);
 		return;
 	}
+	e_debug(queue->event, "user %s: Updating priority %u -> %u",
+		user->username, user->priority, priority);
 	user->priority = priority;
 	user->last_update = ioloop_time;
 }
@@ -210,8 +216,11 @@ void replicator_queue_add(struct replicator_queue *queue,
 		priorityq_remove(queue->user_queue, &user->item);
 		priorityq_add(queue->user_queue, &user->item);
 	}
-	if (queue->change_callback != NULL)
+	if (queue->change_callback != NULL) {
+		e_debug(queue->event, "user %s: Queue changed - calling callback",
+			user->username);
 		queue->change_callback(queue->change_context);
+	}
 }
 
 void replicator_queue_add_sync_callback(struct replicator_queue *queue,
@@ -238,13 +247,17 @@ void replicator_queue_remove(struct replicator_queue *queue,
 	struct replicator_user *user = *_user;
 
 	*_user = NULL;
+	e_debug(queue->event, "user %s: Removing user from queue", user->username);
 	if (!user->popped)
 		priorityq_remove(queue->user_queue, &user->item);
 	hash_table_remove(queue->user_hash, user->username);
 	replicator_user_unref(&user);
 
-	if (queue->change_callback != NULL)
+	if (queue->change_callback != NULL) {
+		e_debug(queue->event, "user %s: Queue changed - calling callback",
+			user->username);
 		queue->change_callback(queue->change_context);
+	}
 }
 
 unsigned int replicator_queue_count(struct replicator_queue *queue)
@@ -326,6 +339,8 @@ replicator_queue_handle_sync_lookups(struct replicator_queue *queue,
 		}
 	}
 
+	e_debug(queue->event, "user %s: Handled sync lookups", user->username);
+
 	array_foreach_modifiable(&callbacks, lookups)
 		lookups->callback(success, lookups->context);
 }
@@ -406,6 +421,8 @@ int replicator_queue_import(struct replicator_queue *queue, const char *path)
 	struct istream *input;
 	const char *line;
 	int fd, ret = 0;
+
+	e_debug(queue->event, "Importing queue from %s", path);
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {

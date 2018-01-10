@@ -11,6 +11,7 @@
 struct replicator_sync_context {
 	struct replicator_brain *brain;
 	struct replicator_user *user;
+	struct event *event;
 };
 
 struct replicator_brain {
@@ -18,6 +19,7 @@ struct replicator_brain {
 	struct replicator_queue *queue;
 	const struct replicator_settings *set;
 	struct timeout *to;
+	struct event *event;
 
 	ARRAY_TYPE(dsync_client) dsync_clients;
 
@@ -28,6 +30,8 @@ static void replicator_brain_fill(struct replicator_brain *brain);
 
 static void replicator_brain_timeout(struct replicator_brain *brain)
 {
+	e_debug(brain->event, "Delayed handling of changed queue");
+
 	timeout_remove(&brain->to);
 	replicator_brain_fill(brain);
 }
@@ -54,6 +58,9 @@ replicator_brain_init(struct replicator_queue *queue,
 	brain->pool = pool;
 	brain->queue = queue;
 	brain->set = set;
+	brain->event = event_create(NULL);
+	event_add_category(brain->event, &event_category_replication);
+
 	p_array_init(&brain->dsync_clients, pool, 16);
 	replicator_queue_set_change_callback(queue,
 		replicator_brain_queue_changed, brain);
@@ -72,6 +79,7 @@ void replicator_brain_deinit(struct replicator_brain **_brain)
 	array_foreach_elem(&brain->dsync_clients, conn)
 		dsync_client_deinit(&conn);
 	timeout_remove(&brain->to);
+	event_unref(&brain->event);
 	pool_unref(&brain->pool);
 }
 
@@ -119,20 +127,33 @@ static void dsync_callback(enum dsync_reply reply, const char *state,
 	struct replicator_user *user = ctx->user;
 
 	if (!replicator_user_unref(&user)) {
+		e_debug(ctx->event, "User was already removed");
 		/* user was already removed */
 	} else if (reply == DSYNC_REPLY_NOUSER ||
 		   reply == DSYNC_REPLY_NOREPLICATE) {
 		/* user no longer exists, or is not wanted for replication,
 		   remove from replication */
+		if (reply == DSYNC_REPLY_NOUSER) {
+			e_debug(ctx->event, "User does not exist");
+		} else {
+			e_debug(ctx->event, "User has 'noreplicate' flag and "
+					    "will not be replicated");
+		}
 		replicator_queue_remove(ctx->brain->queue, &ctx->user);
 	} else {
 		i_free(ctx->user->state);
 		ctx->user->state = i_strdup_empty(state);
 		ctx->user->last_sync_failed = reply != DSYNC_REPLY_OK;
-		if (reply == DSYNC_REPLY_OK)
+		if (reply == DSYNC_REPLY_OK) {
+			e_debug(ctx->event, "User was successfully synced");
 			ctx->user->last_successful_sync = ioloop_time;
+		} else {
+			e_debug(ctx->event, "User sync failed");
+		}
 		replicator_queue_push(ctx->brain->queue, ctx->user);
 	}
+	event_unref(&ctx->event);
+
 	if (!ctx->brain->deinitializing)
 		replicator_brain_fill(ctx->brain);
 	i_free(ctx);
@@ -145,10 +166,17 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	struct dsync_client *conn;
 	time_t next_full_sync;
 	bool full;
+	struct event *event = event_create(brain->event);
+	event_set_append_log_prefix(event, t_strdup_printf(
+		"%s: ", user->username));
+	event_add_str(event, "user", user->username);
 
 	conn = get_dsync_client(brain);
-	if (conn == NULL)
+	if (conn == NULL) {
+		e_debug(event, "Delay replication - dsync queue is full");
+		event_unref(&event);
 		return FALSE;
+	}
 
 	next_full_sync = user->last_full_sync +
 		brain->set->replication_full_sync_interval;
@@ -167,6 +195,11 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	ctx = i_new(struct replicator_sync_context, 1);
 	ctx->brain = brain;
 	ctx->user = user;
+	ctx->event = event;
+
+	e_debug(ctx->event, "Starting %s replication",
+		full ? "full" : "incremental");
+
 	replicator_user_ref(user);
 	dsync_client_sync(conn, user->username, user->state, full,
 			  dsync_callback, ctx);
@@ -180,6 +213,8 @@ static bool replicator_brain_fill_next(struct replicator_brain *brain)
 
 	user = replicator_queue_pop(brain->queue, &next_secs);
 	if (user == NULL) {
+		e_debug(brain->event, "Got no user from queue, waiting for %u seconds",
+			next_secs);
 		/* nothing more to do */
 		timeout_remove(&brain->to);
 		brain->to = timeout_add(next_secs * 1000,
@@ -189,6 +224,8 @@ static bool replicator_brain_fill_next(struct replicator_brain *brain)
 
 	if (!dsync_replicate(brain, user)) {
 		/* all connections were full, put the user back to queue */
+		e_debug(brain->event, "Could not replicate %s - pushing back to queue",
+			user->username);
 		replicator_queue_push(brain->queue, user);
 		return FALSE;
 	}

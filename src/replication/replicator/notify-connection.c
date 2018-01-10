@@ -80,6 +80,8 @@ notify_connection_input_line(struct notify_connection *conn, const char *line)
 	if (priority != REPLICATION_PRIORITY_SYNC) {
 		struct replicator_user *user =
 			replicator_queue_get(conn->queue, args[1]);
+		e_debug(conn->event, "user %s: notification from client (priority=%d)",
+			user->username, priority);
 		replicator_queue_update(conn->queue, user, priority);
 		replicator_queue_add(conn->queue, user);
 	} else if (args[3] == NULL || str_to_uint(args[3], &id) < 0) {
@@ -93,6 +95,8 @@ notify_connection_input_line(struct notify_connection *conn, const char *line)
 		notify_connection_ref(conn);
 		struct replicator_user *user =
 			replicator_queue_get(conn->queue, args[1]);
+		e_debug(conn->event, "user %s: sync notification from client",
+			user->username);
 		replicator_queue_update(conn->queue, user,
 					REPLICATION_PRIORITY_SYNC);
 		replicator_queue_add_sync_callback(conn->queue, user,

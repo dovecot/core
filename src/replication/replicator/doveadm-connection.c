@@ -180,6 +180,8 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 			replicator_queue_get(queue, usermask);
 		if (full)
 			user->force_full_sync = TRUE;
+		e_debug(client->conn.event, "user %s: doveadm REPLICATE command (priority=%d full=%c)",
+			user->username, priority, full ? 'y' : 'n');
 		replicator_queue_update(queue, user, priority);
 		replicator_queue_add(queue, user);
 		o_stream_nsend_str(client->conn.output, "+1\n");
@@ -193,6 +195,8 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 			continue;
 		if (full)
 			user->force_full_sync = TRUE;
+		e_debug(client->conn.event, "user %s: doveadm REPLICATE command (priority=%d full=%c)",
+			user->username, priority, full ? 'y' : 'n');
 		replicator_queue_update(queue, user, priority);
 		replicator_queue_add(queue, user);
 		match_count++;
@@ -220,8 +224,12 @@ client_input_add(struct doveadm_connection *client, const char *const *args)
 	if (strchr(args[0], '*') == NULL && strchr(args[0], '?') == NULL) {
 		struct replicator_user *user =
 			replicator_queue_get(queue, args[0]);
+		e_debug(client->conn.event, "user %s: doveadm ADD command",
+			user->username);
 		replicator_queue_add(queue, user);
 	} else {
+		e_debug(client->conn.event, "doveadm ADD command: Add usermask '%s'",
+			args[0]);
 		replicator_queue_add_auth_users(queue, set->auth_socket_path,
 						args[0], ioloop_time);
 	}
@@ -264,11 +272,14 @@ client_input_notify(struct doveadm_connection *client, const char *const *args)
 		return -1;
 	}
 
+	bool full = args[1][0] == 'f';
 	user = replicator_queue_get(queue, args[0]);
-	if (args[1][0] == 'f')
+	if (full)
 		user->last_full_sync = ioloop_time;
 	user->last_fast_sync = ioloop_time;
 	user->last_update = ioloop_time;
+	e_debug(client->conn.event, "user %s: doveadm NOTIFY command (full=%c)",
+		user->username, full ? 'y' : 'n');
 	replicator_queue_add(queue, user);
 
 	if (args[2][0] != '\0') {
