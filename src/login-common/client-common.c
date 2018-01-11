@@ -261,6 +261,7 @@ void client_disconnect(struct client *client, const char *reason)
 		   so don't disconnect the client until client_unref(). */
 		if (client->iostream_fd_proxy != NULL) {
 			client->fd_proxying = TRUE;
+			i_assert(client->prev == NULL && client->next == NULL);
 			DLLIST_PREPEND(&client_fd_proxies, client);
 			client_fd_proxies_count++;
 		}
@@ -275,13 +276,15 @@ void client_destroy(struct client *client, const char *reason)
 		return;
 	client->destroyed = TRUE;
 
+	if (last_client == client)
+		last_client = client->prev;
+	/* remove from clients linked list before it's added to
+	   client_fd_proxies. */
+	DLLIST_REMOVE(&clients, client);
+
 	client_disconnect(client, reason);
 
 	pool_unref(&client->preproxy_pool);
-
-	if (last_client == client)
-		last_client = client->prev;
-	DLLIST_REMOVE(&clients, client);
 
 	if (client->master_tag != 0) {
 		i_assert(client->auth_request == NULL);
