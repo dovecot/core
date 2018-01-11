@@ -335,7 +335,7 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 		if (mailbox_list_get_path(list, child_name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX,
 					  &child_path) > 0 &&
-		    strncmp(path, child_path, strlen(path)) == 0) {
+		    str_begins(child_path, path)) {
 			/* drop the "/child" part out. */
 			p = strrchr(child_path, '/');
 			if (rmdir(t_strdup_until(child_path, p)) == 0) {

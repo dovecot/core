@@ -197,9 +197,9 @@ static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
 			if (((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0 &&
 			     strcmp(key, *ptr) == 0) ||
 			    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 &&
-			     strncmp(key, *ptr, strlen(*ptr)) == 0) ||
+			     str_begins(key, *ptr)) ||
 			    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
-			     strncmp(key, *ptr, strlen(*ptr)) == 0 &&
+			     str_begins(key, *ptr) &&
 			     strchr(key + strlen(*ptr), '/') == NULL)) {
 				match = TRUE;
 				break;

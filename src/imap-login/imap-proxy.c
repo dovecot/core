@@ -359,8 +359,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			client_proxy_log_failure(client, log_line);
 		}
 #define STR_NO_IMAP_RESP_CODE_AUTHFAILED "NO ["IMAP_RESP_CODE_AUTHFAILED"]"
-		if (strncmp(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED,
-			    strlen(STR_NO_IMAP_RESP_CODE_AUTHFAILED)) == 0) {
+		if (str_begins(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED)) {
 			/* the remote sent a generic "authentication failed"
 			   error. replace it with our one, so that in case
 			   the remote is sending a different error message

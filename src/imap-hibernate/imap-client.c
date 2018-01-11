@@ -490,7 +490,7 @@ imap_client_var_expand_func_userdb(const char *data, void *context,
 	const char *value = NULL;
 
 	for(;*fields != NULL; fields++) {
-		if (strncmp(*fields, field_name, strlen(field_name)) == 0) {
+		if (str_begins(*fields, field_name)) {
 			value = *fields+strlen(field_name);
 			break;
 		}
