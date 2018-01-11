@@ -446,7 +446,7 @@ client_connection_tcp_authenticate(struct client_connection_tcp *conn)
 
 	/* FIXME: some day we should probably let auth process do this and
 	   support all kinds of authentication */
-	if (strncmp(line, "PLAIN\t", 6) != 0) {
+	if (!str_begins(line, "PLAIN\t")) {
 		i_error("doveadm client attempted non-PLAIN authentication: %s", line);
 		return -1;
 	}

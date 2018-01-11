@@ -104,7 +104,7 @@ static void test_mail_storage_errors(void)
 	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	errstr = mail_storage_get_last_internal_error(&storage, &mail_error);
-	test_assert(strncmp(errstr, "critical3: ", 11) == 0);
+	test_assert(str_begins(errstr, "critical3: "));
 	test_assert(strstr(errstr+11, MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);

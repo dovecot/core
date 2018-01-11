@@ -103,7 +103,7 @@ const char *password_get_scheme(const char **password)
 	if (*password == NULL)
 		return NULL;
 
-	if (strncmp(*password, "$1$", 3) == 0) {
+	if (str_begins(*password, "$1$")) {
 		/* $1$<salt>$<password>[$<ignored>] */
 		p = strchr(*password + 3, '$');
 		if (p != NULL) {
@@ -342,7 +342,7 @@ md5_verify(const char *plaintext, const struct password_generate_params *params,
 	size_t md5_size;
 
 	password = t_strndup(raw_password, size);
-	if (strncmp(password, "$1$", 3) == 0) {
+	if (str_begins(password, "$1$")) {
 		/* MD5-CRYPT */
 		str = password_generate_md5_crypt(plaintext, password);
 		return strcmp(str, password) == 0 ? 1 : 0;

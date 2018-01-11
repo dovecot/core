@@ -281,7 +281,7 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 		return FALSE;
 	}
 	for (i = 1; args[i] != NULL; i++) {
-		if (strncmp(args[i], "reason=", 7) == 0)
+		if (str_begins(args[i], "reason="))
 			error = args[i] + 7;
 	}
 
@@ -329,7 +329,7 @@ static void master_login_auth_input(struct master_login_auth *auth)
 			return;
 
 		/* make sure the major version matches */
-		if (strncmp(line, "VERSION\t", 8) != 0 ||
+		if (!str_begins(line, "VERSION\t") ||
 		    !str_uint_equals(t_strcut(line + 8, '\t'),
 				     AUTH_MASTER_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Authentication server not compatible with "
@@ -344,7 +344,7 @@ static void master_login_auth_input(struct master_login_auth *auth)
 		if (line == NULL)
 			return;
 
-		if (strncmp(line, "SPID\t", 5) != 0 ||
+		if (!str_begins(line, "SPID\t") ||
 		    str_to_pid(line + 5, &auth->auth_server_pid) < 0) {
 			i_error("Authentication server didn't "
 				"send valid SPID as expected: %s", line);
@@ -357,11 +357,11 @@ static void master_login_auth_input(struct master_login_auth *auth)
 
 	auth->refcount++;
 	while ((line = i_stream_next_line(auth->input)) != NULL) {
-		if (strncmp(line, "USER\t", 5) == 0)
+		if (str_begins(line, "USER\t"))
 			ret = master_login_auth_input_user(auth, line + 5);
-		else if (strncmp(line, "NOTFOUND\t", 9) == 0)
+		else if (str_begins(line, "NOTFOUND\t"))
 			ret = master_login_auth_input_notfound(auth, line + 9);
-		else if (strncmp(line, "FAIL\t", 5) == 0)
+		else if (str_begins(line, "FAIL\t"))
 			ret = master_login_auth_input_fail(auth, line + 5);
 		else
 			ret = TRUE;

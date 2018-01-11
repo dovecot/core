@@ -33,7 +33,7 @@ auth_checkpassword_callback(struct auth_request *request,
 		break;
 	}
 	for (i = 0; extra_fields[i] != NULL; i++) {
-		if (strncmp(extra_fields[i], "password=", 9) == 0)
+		if (str_begins(extra_fields[i], "password="))
 			crypted_pass = extra_fields[i]+9;
 		else if (extra_fields[i][0] != '\0') {
 			auth_request_set_field_keyvalue(request,
@@ -86,7 +86,7 @@ credentials_checkpassword_callback(struct auth_request *request,
 		break;
 	}
 	for (i = 0; extra_fields[i] != NULL; i++) {
-		if (strncmp(extra_fields[i], "password=", 9) == 0)
+		if (str_begins(extra_fields[i], "password="))
 			crypted_pass = extra_fields[i]+9;
 		else if (extra_fields[i][0] != '\0') {
 			auth_request_set_field_keyvalue(request,

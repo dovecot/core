@@ -209,12 +209,12 @@ static void client_auth_parse_args(struct client *client, bool success,
 		} else if (strcmp(key, "user") == 0 ||
 			   strcmp(key, "postlogin_socket") == 0) {
 			/* already handled in sasl-server.c */
-		} else if (strncmp(key, "user_", 5) == 0) {
+		} else if (str_begins(key, "user_")) {
 			if (success) {
 				alt_username_set(&alt_usernames, client->pool,
 						 key, value);
 			}
-		} else if (strncmp(key, "forward_", 8) == 0) {
+		} else if (str_begins(key, "forward_")) {
 			/* these are passed to upstream */
 		} else if (client->set->auth_debug)
 			i_debug("Ignoring unknown passdb extra field: %s", key);

@@ -614,19 +614,19 @@ int program_client_create(const char *uri, const char *const *args,
 			  bool noreply, struct program_client **pc_r,
 			  const char **error_r)
 {
-	if (strncmp(uri, "exec:", 5) == 0) {
+	if (str_begins(uri, "exec:") == 0) {
 		*pc_r = program_client_local_create(
 			uri+5,
 			args,
 			set);
 		return 0;
-	} else if (strncmp(uri, "unix:", 5) == 0) {
+	} else if (str_begins(uri, "unix:") == 0) {
 		*pc_r = program_client_unix_create(
 			uri+5,
 			args,
 			set, noreply);
 		return 0;
-	} else if (strncmp(uri, "tcp:", 4) == 0) {
+	} else if (str_begins(uri, "tcp:")) {
 		const char *host;
 		in_port_t port;
 		if (net_str2hostport(uri+4, 0, &host, &port) < 0 || port == 0) {

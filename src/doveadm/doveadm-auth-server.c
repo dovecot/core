@@ -142,18 +142,18 @@ cmd_user_input(struct auth_master_connection *conn,
 
 static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 {
-	if (strncmp(arg, "service=", 8) == 0)
+	if (str_begins(arg, "service="))
 		info->service = arg + 8;
-	else if (strncmp(arg, "lip=", 4) == 0) {
+	else if (str_begins(arg, "lip=")) {
 		if (net_addr2ip(arg + 4, &info->local_ip) < 0)
 			i_fatal("lip: Invalid ip");
-	} else if (strncmp(arg, "rip=", 4) == 0) {
+	} else if (str_begins(arg, "rip=")) {
 		if (net_addr2ip(arg + 4, &info->remote_ip) < 0)
 			i_fatal("rip: Invalid ip");
-	} else if (strncmp(arg, "lport=", 6) == 0) {
+	} else if (str_begins(arg, "lport=")) {
 		if (net_str2port(arg + 6, &info->local_port) < 0)
 			i_fatal("lport: Invalid port number");
-	} else if (strncmp(arg, "rport=", 6) == 0) {
+	} else if (str_begins(arg, "rport=")) {
 		if (net_str2port(arg + 6, &info->remote_port) < 0)
 			i_fatal("rport: Invalid port number");
 	} else {

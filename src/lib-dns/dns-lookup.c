@@ -87,7 +87,7 @@ static int dns_lookup_input_line(struct dns_lookup *lookup, const char *line)
 	if (result->ips_count == 0) {
 		if (lookup->ptr_lookup) {
 			/* <ret> [<name>] */
-			if (strncmp(line, "0 ", 2) == 0) {
+			if (str_begins(line, "0 ")) {
 				result->name = lookup->name =
 					i_strdup(line + 2);
 				result->ret = 0;

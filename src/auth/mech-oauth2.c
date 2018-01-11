@@ -104,7 +104,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	const char *const *fields =
 		t_strsplit(t_strndup(data, data_size), "\x01");
 	for(ptr = fields; *ptr != NULL; ptr++) {
-		if (strncmp(*ptr,"user=", 5) == 0) {
+		if (str_begins(*ptr, "user=")) {
 			/* xoauth2 does not require unescaping because the data
 			   format does not contain anything to escape */
 			const char *username = (*ptr)+5;
@@ -115,7 +115,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 				return;
 			}
 			user_given = TRUE;
-		} else if (strncmp(*ptr,"auth=", 5) == 0) {
+		} else if (str_begins(*ptr, "auth=")) {
 			const char *value = (*ptr)+5;
 			if (strncasecmp(value, "bearer ", 7) == 0 &&
 			    oauth2_valid_token(value+7)) {
@@ -212,7 +212,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	}
 
 	for(ptr = fields; *ptr != NULL; ptr++) {
-		if (strncmp(*ptr,"auth=", 5) == 0) {
+		if (str_begins(*ptr, "auth=")) {
 			const char *value = (*ptr)+5;
 			if (strncasecmp(value, "bearer ", 7) == 0 &&
 			    oauth2_valid_token(value+7)) {

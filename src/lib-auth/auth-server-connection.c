@@ -262,7 +262,7 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 			return;
 
 		/* make sure the major version matches */
-		if (strncmp(line, "VERSION\t", 8) != 0 ||
+		if (!str_begins(line, "VERSION\t") ||
 		    !str_uint_equals(t_strcut(line + 8, '\t'),
 				     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Authentication server not compatible with "

@@ -43,7 +43,7 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	if (*tmp != NULL)
 		tmp++;
 	for (; *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "cache_secs=", 11) == 0) {
+		if (str_begins(*tmp, "cache_secs=")) {
 			if (str_to_uint(*tmp + 11, &backend->cache_secs) < 0) {
 				i_error("acl vfile: Invalid cache_secs value: %s",
 					*tmp + 11);

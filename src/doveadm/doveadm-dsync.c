@@ -891,23 +891,23 @@ parse_location(struct dsync_cmd_context *ctx,
 {
 	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
 
-	if (strncmp(location, "tcp:", 4) == 0) {
+	if (str_begins(location, "tcp:")) {
 		/* TCP connection to remote dsync */
 		ctx->remote_name = location+4;
 		return dsync_connect_tcp(ctx, mail_set, ctx->remote_name,
 					 FALSE, error_r);
 	}
-	if (strncmp(location, "tcps:", 5) == 0) {
+	if (str_begins(location, "tcps:")) {
 		/* TCP+SSL connection to remote dsync */
 		ctx->remote_name = location+5;
 		return dsync_connect_tcp(ctx, mail_set, ctx->remote_name,
 					 TRUE, error_r);
 	}
 
-	if (strncmp(location, "remote:", 7) == 0) {
+	if (str_begins(location, "remote:")) {
 		/* this is a remote (ssh) command */
 		ctx->remote_name = location+7;
-	} else if (strncmp(location, "remoteprefix:", 13) == 0) {
+	} else if (str_begins(location, "remoteprefix:")) {
 		/* this is a remote (ssh) command with a "user\n"
 		   prefix sent before dsync actually starts */
 		ctx->remote_name = location+13;
@@ -1380,7 +1380,7 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 		i_fatal("Invalid parameter: %s", argv[src]);
 	src++; dest++;
 
-	if (src < argc && strncmp(argv[src], "-E", 2) == 0) {
+	if (src < argc && str_begins(argv[src], "-E")) {
 		/* we're re-executing dsync due to doveconf */
 		return;
 	}

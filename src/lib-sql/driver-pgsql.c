@@ -284,7 +284,7 @@ static struct sql_db *driver_pgsql_init_v(const char *connect_string)
 		const char *const *arg = t_strsplit(connect_string, " ");
 
 		for (; *arg != NULL; arg++) {
-			if (strncmp(*arg, "host=", 5) == 0)
+			if (str_begins(*arg, "host="))
 				db->host = i_strdup(*arg + 5);
 		}
 	} T_END;

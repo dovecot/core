@@ -315,12 +315,12 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 	unsigned int list_count;
 	const char *str, *p, *error;
 
-	i_assert(strncmp(ctx->name, "BODY", 4) == 0);
+	i_assert(str_begins(ctx->name, "BODY"));
 	p = ctx->name + 4;
 
 	body = p_new(ctx->pool, struct imap_fetch_body_data, 1);
 
-	if (strncmp(p, ".PEEK", 5) == 0)
+	if (str_begins(p, ".PEEK"))
 		p += 5;
 	else
 		ctx->fetch_ctx->flags_update_seen = TRUE;
@@ -380,17 +380,17 @@ bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
 	unsigned int list_count;
 	const char *str, *p, *error;
 
-	i_assert(strncmp(ctx->name, "BINARY", 6) == 0);
+	i_assert(str_begins(ctx->name, "BINARY"));
 	p = ctx->name + 6;
 
 	body = p_new(ctx->pool, struct imap_fetch_body_data, 1);
 	body->binary = TRUE;
 
-	if (strncmp(p, ".SIZE", 5) == 0) {
+	if (str_begins(p, ".SIZE")) {
 		/* fetch decoded size of the section */
 		p += 5;
 		body->binary_size = TRUE;
-	} else if (strncmp(p, ".PEEK", 5) == 0) {
+	} else if (str_begins(p, ".PEEK")) {
 		p += 5;
 	} else {
 		ctx->fetch_ctx->flags_update_seen = TRUE;

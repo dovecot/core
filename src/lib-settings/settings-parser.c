@@ -982,7 +982,7 @@ int settings_parse_stream(struct setting_parser_context *ctx,
 			return 0;
 		}
 		ctx->linenum++;
-		if (ctx->linenum == 1 && strncmp(line, "ERROR ", 6) == 0) {
+		if (ctx->linenum == 1 && str_begins(line, "ERROR ")) {
 			ctx->error = p_strdup(ctx->parser_pool, line + 6);
 			return -1;
 		}

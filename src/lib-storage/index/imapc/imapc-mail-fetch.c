@@ -147,8 +147,8 @@ imapc_mail_try_merge_fetch(struct imapc_mailbox *mbox, string_t *str)
 	const char *s2 = str_c(mbox->pending_fetch_cmd);
 	const char *p1, *p2;
 
-	i_assert(strncmp(s1, "UID FETCH ", 10) == 0);
-	i_assert(strncmp(s2, "UID FETCH ", 10) == 0);
+	i_assert(str_begins(s1, "UID FETCH "));
+	i_assert(str_begins(s2, "UID FETCH "));
 
 	/* skip over UID range */
 	p1 = strchr(s1+10, ' ');

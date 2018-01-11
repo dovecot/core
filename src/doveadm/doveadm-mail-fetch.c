@@ -206,7 +206,7 @@ static int fetch_body_field(struct fetch_cmd_context *ctx)
 	bool binary;
 	int ret;
 
-	binary = strncmp(name, "binary.", 7) == 0;
+	binary = str_begins(name, "binary.");
 	name += binary ? 7 : 5;
 	if (imap_msgpart_parse(name, &msgpart) < 0)
 		i_unreached(); /* we already verified this was ok */
@@ -549,15 +549,15 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 		if ((field = fetch_field_find(name)) != NULL) {
 			ctx->wanted_fields |= field->wanted_fields;
 			array_append(&ctx->fields, field, 1);
-		} else if (strncmp(name, "hdr.", 4) == 0) {
+		} else if (str_begins(name, "hdr.")) {
 			name += 4;
 			hdr_field.name = name;
 			array_append(&ctx->fields, &hdr_field, 1);
 			name = t_strcut(name, '.');
 			array_append(&ctx->header_fields, &name, 1);
-		} else if (strncmp(name, "body.", 5) == 0 ||
-			   strncmp(name, "binary.", 7) == 0) {
-			bool binary = strncmp(name, "binary.", 7) == 0;
+		} else if (str_begins(name, "body.") ||
+			   str_begins(name, "binary.")) {
+			bool binary = str_begins(name, "binary.");
 			body_field.name = t_strarray_join(t_strsplit(name, ","), " ");
 
 			name += binary ? 7 : 5;

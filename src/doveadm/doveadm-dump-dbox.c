@@ -221,7 +221,7 @@ static bool test_dump_dbox(const char *path)
 		p = path;
 	else
 		p++;
-	return strncmp(p, "m.", 2) == 0 || strncmp(p, "u.", 2) == 0;
+	return str_begins(p, "m.") || str_begins(p, "u.");
 }
 
 struct doveadm_cmd_dump doveadm_cmd_dump_dbox = {

@@ -163,7 +163,7 @@ static int client_input_line(struct connection *conn, const char *line)
 		return 1;
 	}
 	if (client->recipient == NULL &&
-	    strncmp(line, "recipient=", 10) == 0) {
+	    str_begins(line, "recipient=")) {
 		if (smtp_address_parse_path(default_pool, line + 10,
 			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
@@ -173,7 +173,7 @@ static int client_input_line(struct connection *conn, const char *line)
 				error);
 			return 0;
 		}
-	} else if (strncmp(line, "size=", 5) == 0) {
+	} else if (str_begins(line, "size=")) {
 		if (str_to_uoff(line+5, &client->size) < 0)
 			client->size = 0;
 	}

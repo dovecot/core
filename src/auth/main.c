@@ -160,8 +160,8 @@ static void listeners_init(void)
 
 static bool auth_module_filter(const char *name, void *context ATTR_UNUSED)
 {
-	if (strncmp(name, "authdb_", 7) == 0 ||
-	    strncmp(name, "mech_", 5) == 0) {
+	if (str_begins(name, "authdb_") ||
+	    str_begins(name, "mech_")) {
 		/* this is lazily loaded */
 		return FALSE;
 	}

@@ -31,7 +31,7 @@ static int dns_client_input_line(struct dns_client *client, const char *line)
 	unsigned int i, ips_count;
 	int ret;
 
-	if (strncmp(line, "IP\t", 3) == 0) {
+	if (str_begins(line, "IP\t")) {
 		ret = net_gethostbyname(line + 3, &ips, &ips_count);
 		if (ret == 0 && ips_count == 0) {
 			/* shouldn't happen, but fix it anyway.. */
@@ -48,7 +48,7 @@ static int dns_client_input_line(struct dns_client *client, const char *line)
 					net_ip2addr(&ips[i]), "\n", NULL));
 			}
 		}
-	} else if (strncmp(line, "NAME\t", 5) == 0) {
+	} else if (str_begins(line, "NAME\t")) {
 		if (net_addr2ip(line+5, &ip) < 0)
 			o_stream_nsend_str(client->output, "-1\n");
 		else if ((ret = net_gethostbyaddr(&ip, &name)) != 0) {

@@ -37,7 +37,7 @@ static bool lsb_distro_get(const char *path, const char **name_r)
 		return FALSE;
 
 	for (p = t_strsplit(data, "\n"); *p != NULL; p++) {
-		if (strncmp(*p, "DISTRIB_DESCRIPTION=", 20) == 0)
+		if (str_begins(*p, "DISTRIB_DESCRIPTION="))
 			break;
 	}
 	if (*p == NULL)

@@ -168,7 +168,7 @@ static int memcached_ascii_input_reply_read(struct memcached_ascii_dict *dict,
 	case MEMCACHED_INPUT_STATE_GET:
 		/* VALUE <key> <flags> <bytes>
 		   END */
-		if (strncmp(line, "VALUE ", 6) == 0) {
+		if (str_begins(line, "VALUE ")) {
 			p = strrchr(line, ' ');
 			if (str_to_uint(p+1, &conn->reply_bytes_left) < 0)
 				break;
@@ -398,22 +398,22 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 
 	args = t_strsplit(uri, ":");
 	for (; *args != NULL; args++) {
-		if (strncmp(*args, "host=", 5) == 0) {
+		if (str_begins(*args, "host=")) {
 			if (net_addr2ip(*args+5, &dict->ip) < 0) {
 				*error_r = t_strdup_printf("Invalid IP: %s",
 							   *args+5);
 				ret = -1;
 			}
-		} else if (strncmp(*args, "port=", 5) == 0) {
+		} else if (str_begins(*args, "port=")) {
 			if (net_str2port(*args+5, &dict->port) < 0) {
 				*error_r = t_strdup_printf("Invalid port: %s",
 							   *args+5);
 				ret = -1;
 			}
-		} else if (strncmp(*args, "prefix=", 7) == 0) {
+		} else if (str_begins(*args, "prefix=")) {
 			i_free(dict->key_prefix);
 			dict->key_prefix = i_strdup(*args + 7);
-		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
+		} else if (str_begins(*args, "timeout_msecs=")) {
 			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid timeout_msecs: %s", *args+14);

@@ -141,7 +141,7 @@ static void pop3c_login_callback(enum pop3c_command_state state,
 		mbox->logged_in = TRUE;
 		break;
 	case POP3C_COMMAND_STATE_ERR:
-		if (strncmp(reply, "[IN-USE] ", 9) == 0) {
+		if (str_begins(reply, "[IN-USE] ")) {
 			mail_storage_set_error(mbox->box.storage,
 					       MAIL_ERROR_INUSE, reply + 9);
 		} else {

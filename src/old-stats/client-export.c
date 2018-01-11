@@ -72,19 +72,19 @@ mail_export_parse_filter(const char *const *args, pool_t pool,
 	*/
 	i_zero(filter_r);
 	for (; *args != NULL; args++) {
-		if (strncmp(*args, "user=", 5) == 0)
+		if (str_begins(*args, "user="))
 			filter_r->user = p_strdup(pool, *args + 5);
-		else if (strncmp(*args, "domain=", 7) == 0)
+		else if (str_begins(*args, "domain="))
 			filter_r->domain = p_strdup(pool, *args + 7);
-		else if (strncmp(*args, "session=", 8) == 0)
+		else if (str_begins(*args, "session="))
 			filter_r->session = p_strdup(pool, *args + 8);
-		else if (strncmp(*args, "ip=", 3) == 0) {
+		else if (str_begins(*args, "ip=")) {
 			if (net_parse_range(*args + 3, &filter_r->ip,
 					    &filter_r->ip_bits) < 0) {
 				*error_r = "Invalid ip filter";
 				return -1;
 			}
-		} else if (strncmp(*args, "since=", 6) == 0) {
+		} else if (str_begins(*args, "since=")) {
 			if (str_to_ulong(*args + 6, &l) < 0) {
 				*error_r = "Invalid since filter";
 				return -1;

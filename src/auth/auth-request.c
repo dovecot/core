@@ -513,9 +513,9 @@ bool auth_request_import(struct auth_request *request,
 		request->delayed_credentials_size = 1;
 	} else if (strcmp(key, "mech") == 0)
 		request->mech_name = p_strdup(request->pool, value);
-	else if (strncmp(key, "passdb_", 7) == 0)
+	else if (str_begins(key, "passdb_"))
 		auth_fields_add(request->extra_fields, key+7, value, 0);
-	else if (strncmp(key, "userdb_", 7) == 0) {
+	else if (str_begins(key, "userdb_")) {
 		if (request->userdb_reply == NULL)
 			request->userdb_reply = auth_fields_init(request->pool);
 		auth_fields_add(request->userdb_reply, key+7, value, 0);
@@ -1962,7 +1962,7 @@ void auth_request_set_field(struct auth_request *request,
 		}
 	} else if (strcmp(name, "allow_real_nets") == 0) {
 		auth_request_validate_networks(request, name, value, &request->real_remote_ip);
-	} else if (strncmp(name, "userdb_", 7) == 0) {
+	} else if (str_begins(name, "userdb_")) {
 		/* for prefetch userdb */
 		request->userdb_prefetch_set = TRUE;
 		if (request->userdb_reply == NULL)
@@ -2017,7 +2017,7 @@ void auth_request_set_field(struct auth_request *request,
 
 void auth_request_set_null_field(struct auth_request *request, const char *name)
 {
-	if (strncmp(name, "userdb_", 7) == 0) {
+	if (str_begins(name, "userdb_")) {
 		/* make sure userdb prefetch is used even if all the fields
 		   were returned as NULL. */
 		request->userdb_prefetch_set = TRUE;

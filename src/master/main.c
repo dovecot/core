@@ -755,7 +755,7 @@ int main(int argc, char *argv[])
 	/* drop -- prefix from all --args. ugly, but the only way that it
 	   works with standard getopt() in all OSes.. */
 	for (i = 1; i < argc; i++) {
-		if (strncmp(argv[i], "--", 2) == 0) {
+		if (str_begins(argv[i], "--")) {
 			if (argv[i][2] == '\0')
 				break;
 			argv[i] += 2;

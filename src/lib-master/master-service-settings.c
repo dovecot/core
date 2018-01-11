@@ -444,7 +444,7 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 				output_r->used_local = TRUE;
 			else if (strcmp(*arg, "used-remote") == 0)
 				output_r->used_remote = TRUE;
-			else if (strncmp(*arg, "service=", 8) == 0) {
+			else if (str_begins(*arg, "service=")) {
 				const char *name = p_strdup(pool, *arg + 8);
 				array_append(&services, &name, 1);
 			 }
@@ -515,7 +515,7 @@ int master_service_settings_get_filters(struct master_service *service,
 		while((line = i_stream_read_next_line(is)) != NULL) {
 			if (*line == '\0')
 				break;
-			if (strncmp(line, "FILTER\t", 7) == 0) {
+			if (str_begins(line, "FILTER\t")) {
 				line = t_strdup(line+7);
 				array_append(&filters_tmp, &line, 1);
 			}

@@ -1246,7 +1246,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 		if (ret != LDAP_SUCCESS) {
 			if (ret == LDAP_OPERATIONS_ERROR &&
 			    conn->set.uris != NULL &&
-			    strncmp(conn->set.uris, "ldaps:", 6) == 0) {
+			    str_begins(conn->set.uris, "ldaps:")) {
 				i_fatal("LDAP %s: Don't use both tls=yes "
 					"and ldaps URI", conn->config_path);
 			}
