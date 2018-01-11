@@ -518,18 +518,15 @@ bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights)
 
 int acl_identifier_parse(const char *line, struct acl_rights *rights)
 {
-	if (strncmp(line, ACL_ID_NAME_USER_PREFIX,
-		    strlen(ACL_ID_NAME_USER_PREFIX)) == 0) {
+	if (str_begins(line, ACL_ID_NAME_USER_PREFIX)) {
 		rights->id_type = ACL_ID_USER;
 		rights->identifier = line + 5;
 	} else if (strcmp(line, ACL_ID_NAME_OWNER) == 0) {
 		rights->id_type = ACL_ID_OWNER;
-	} else if (strncmp(line, ACL_ID_NAME_GROUP_PREFIX,
-			   strlen(ACL_ID_NAME_GROUP_PREFIX)) == 0) {
+	} else if (str_begins(line, ACL_ID_NAME_GROUP_PREFIX)) {
 		rights->id_type = ACL_ID_GROUP;
 		rights->identifier = line + 6;
-	} else if (strncmp(line, ACL_ID_NAME_GROUP_OVERRIDE_PREFIX,
-			   strlen(ACL_ID_NAME_GROUP_OVERRIDE_PREFIX)) == 0) {
+	} else if (str_begins(line, ACL_ID_NAME_GROUP_OVERRIDE_PREFIX)) {
 		rights->id_type = ACL_ID_GROUP_OVERRIDE;
 		rights->identifier = line + 15;
 	} else if (strcmp(line, ACL_ID_NAME_AUTHENTICATED) == 0) {

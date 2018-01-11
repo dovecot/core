@@ -715,8 +715,7 @@ mailbox_delete_all_attributes(struct mailbox_transaction_context *t,
 	iter = mailbox_attribute_iter_init(t->box, type, "");
 	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
 		if (inbox &&
-		    strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
-			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
+		    str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER))
 			continue;
 
 		if (mailbox_attribute_unset(t, type, key) < 0) {
@@ -1079,7 +1078,7 @@ int index_storage_set_subscribed(struct mailbox *box, bool set)
 		   subscription name */
 		subs_name = t_strconcat(list->ns->prefix, box->name, NULL);
 		/* drop the common prefix (typically there isn't one) */
-		i_assert(strncmp(ns->prefix, subs_name, strlen(ns->prefix)) == 0);
+		i_assert(str_begins(subs_name, ns->prefix));
 		subs_name += strlen(ns->prefix);
 
 		list = ns->list;

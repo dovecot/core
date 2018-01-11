@@ -526,8 +526,7 @@ static int mdbox_purge_get_primary_files(struct mdbox_purge_context *ctx)
 	dir_len = str_len(path);
 
 	for (errno = 0; (d = readdir(dir)) != NULL; errno = 0) {
-		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX,
-			    strlen(MDBOX_MAIL_FILE_PREFIX)) != 0)
+		if (!str_begins(d->d_name, MDBOX_MAIL_FILE_PREFIX))
 			continue;
 		if (str_to_uint32(d->d_name + strlen(MDBOX_MAIL_FILE_PREFIX),
 				  &file_id) < 0)

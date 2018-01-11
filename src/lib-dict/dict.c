@@ -117,8 +117,8 @@ bool dict_switch_ioloop(struct dict *dict)
 
 static bool dict_key_prefix_is_valid(const char *key)
 {
-	return strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0 ||
-		strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0;
+	return str_begins(key, DICT_PATH_SHARED) ||
+		str_begins(key, DICT_PATH_PRIVATE);
 }
 
 int dict_lookup(struct dict *dict, pool_t pool, const char *key,

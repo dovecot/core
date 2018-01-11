@@ -69,9 +69,9 @@ static void fs_dict_deinit(struct dict *_dict)
 
 static const char *fs_dict_get_full_key(struct fs_dict *dict, const char *key)
 {
-	if (strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0)
+	if (str_begins(key, DICT_PATH_SHARED))
 		return key + strlen(DICT_PATH_SHARED);
-	else if (strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0) {
+	else if (str_begins(key, DICT_PATH_PRIVATE)) {
 		return t_strdup_printf("%s/%s", dict->username,
 				       key + strlen(DICT_PATH_PRIVATE));
 	} else {

@@ -400,7 +400,7 @@ test_str_match(void)
 		/* This is just 2 ways of wording the same test, but that also
 		   sanity tests the match values above. */
 		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
-				(strncmp(tests[i].s1, tests[i].s2, strlen(tests[i].s2)) == 0), i);
+				(str_begins(tests[i].s1, tests[i].s2)), i);
 		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
 				(strlen(tests[i].s2) == tests[i].match), i);
 	}

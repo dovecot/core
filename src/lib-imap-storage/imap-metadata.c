@@ -84,13 +84,11 @@ imap_metadata_entry2key(struct imap_metadata_transaction *imtrans,
 	/* names are case-insensitive so we'll always lowercase them */
 	entry = t_str_lcase(entry);
 
-	if (strncmp(entry, IMAP_METADATA_PRIVATE_PREFIX,
-		    strlen(IMAP_METADATA_PRIVATE_PREFIX)) == 0) {
+	if (str_begins(entry, IMAP_METADATA_PRIVATE_PREFIX)) {
 		*key_r = entry + strlen(IMAP_METADATA_PRIVATE_PREFIX);
 		*type_r = MAIL_ATTRIBUTE_TYPE_PRIVATE;
 	} else {
-		i_assert(strncmp(entry, IMAP_METADATA_SHARED_PREFIX,
-				 strlen(IMAP_METADATA_SHARED_PREFIX)) == 0);
+		i_assert(str_begins(entry, IMAP_METADATA_SHARED_PREFIX));
 		*key_r = entry + strlen(IMAP_METADATA_SHARED_PREFIX);
 		*type_r = MAIL_ATTRIBUTE_TYPE_SHARED;
 	}
@@ -100,8 +98,7 @@ imap_metadata_entry2key(struct imap_metadata_transaction *imtrans,
 		i_assert((*key_r)[0] == '/');
 		*key_r += 1;
 	}
-	if (strncmp(*key_r, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT,
-		    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) == 0) {
+	if (str_begins(*key_r, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) {
 		/* Dovecot's internal attribute (mailbox or server).
 		   don't allow accessing this. */
 		return FALSE;

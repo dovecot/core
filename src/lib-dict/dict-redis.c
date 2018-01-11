@@ -487,9 +487,9 @@ static void redis_dict_lookup_timeout(struct redis_dict *dict)
 static const char *
 redis_dict_get_full_key(struct redis_dict *dict, const char *key)
 {
-	if (strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0)
+	if (str_begins(key, DICT_PATH_SHARED))
 		key += strlen(DICT_PATH_SHARED);
-	else if (strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0) {
+	else if (str_begins(key, DICT_PATH_PRIVATE)) {
 		key = t_strdup_printf("%s%c%s", dict->username,
 				      DICT_USERNAME_SEPARATOR,
 				      key + strlen(DICT_PATH_PRIVATE));

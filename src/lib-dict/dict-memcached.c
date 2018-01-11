@@ -280,7 +280,7 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	struct timeout *to;
 	size_t key_len;
 
-	if (strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0)
+	if (str_begins(key, DICT_PATH_SHARED))
 		key += strlen(DICT_PATH_SHARED);
 	else {
 		*error_r = t_strdup_printf("memcached: Only shared keys supported currently");
