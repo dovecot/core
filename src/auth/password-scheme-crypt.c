@@ -183,6 +183,8 @@ void password_scheme_register_crypt(void)
 	unsigned int i;
 	const char *crypted;
 
+	i_assert(N_ELEMENTS(crypt_schemes) == N_ELEMENTS(sample));
+
 	for (i = 0; i < N_ELEMENTS(crypt_schemes); i++) {
 		crypted = mycrypt(sample[i].key, sample[i].salt);
 		if (crypted != NULL &&
