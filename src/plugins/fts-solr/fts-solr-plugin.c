@@ -26,7 +26,7 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 		str = "";
 
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "url=", 4) == 0) {
+		if (str_begins(*tmp, "url=")) {
 			set->url = p_strdup(user->pool, *tmp + 4);
 		} else if (strcmp(*tmp, "debug") == 0) {
 			set->debug = TRUE;

@@ -48,7 +48,7 @@ fs_compress_init(struct fs *_fs, const char *args, const
 	const char *parent_name, *parent_args;
 
 	/* get compression handler name */
-	if (strncmp(args, "maybe-", 6) == 0) {
+	if (str_begins(args, "maybe-")) {
 		fs->try_plain = TRUE;
 		args += 6;
 	}

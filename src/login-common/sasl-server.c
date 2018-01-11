@@ -269,26 +269,26 @@ authenticate_callback(struct auth_client_request *request,
 
 		nologin = FALSE;
 		for (i = 0; args[i] != NULL; i++) {
-			if (strncmp(args[i], "user=", 5) == 0) {
+			if (str_begins(args[i], "user=")) {
 				i_free(client->virtual_user);
 				i_free_and_null(client->virtual_user_orig);
 				i_free_and_null(client->virtual_auth_user);
 				client->virtual_user = i_strdup(args[i] + 5);
-			} else if (strncmp(args[i], "original_user=", 14) == 0) {
+			} else if (str_begins(args[i], "original_user=")) {
 				i_free(client->virtual_user_orig);
 				client->virtual_user_orig = i_strdup(args[i] + 14);
-			} else if (strncmp(args[i], "auth_user=", 10) == 0) {
+			} else if (str_begins(args[i], "auth_user=")) {
 				i_free(client->virtual_auth_user);
 				client->virtual_auth_user =
 					i_strdup(args[i] + 10);
-			} else if (strncmp(args[i], "postlogin_socket=", 17) == 0) {
+			} else if (str_begins(args[i], "postlogin_socket=")) {
 				client->postlogin_socket_path =
 					p_strdup(client->pool, args[i] + 17);
 			} else if (strcmp(args[i], "nologin") == 0 ||
 				   strcmp(args[i], "proxy") == 0) {
 				/* user can't login */
 				nologin = TRUE;
-			} else if (strncmp(args[i], "resp=", 5) == 0 &&
+			} else if (str_begins(args[i], "resp=") &&
 				   login_binary->sasl_support_final_reply) {
 				client->sasl_final_resp =
 					p_strdup(client->pool, args[i] + 5);
@@ -313,17 +313,17 @@ authenticate_callback(struct auth_client_request *request,
 		if (args != NULL) {
 			/* parse our username if it's there */
 			for (i = 0; args[i] != NULL; i++) {
-				if (strncmp(args[i], "user=", 5) == 0) {
+				if (str_begins(args[i], "user=")) {
 					i_free(client->virtual_user);
 					i_free_and_null(client->virtual_user_orig);
 					i_free_and_null(client->virtual_auth_user);
 					client->virtual_user =
 						i_strdup(args[i] + 5);
-				} else if (strncmp(args[i], "original_user=", 14) == 0) {
+				} else if (str_begins(args[i], "original_user=")) {
 					i_free(client->virtual_user_orig);
 					client->virtual_user_orig =
 						i_strdup(args[i] + 14);
-				} else if (strncmp(args[i], "auth_user=", 10) == 0) {
+				} else if (str_begins(args[i], "auth_user=")) {
 					i_free(client->virtual_auth_user);
 					client->virtual_auth_user =
 						i_strdup(args[i] + 10);

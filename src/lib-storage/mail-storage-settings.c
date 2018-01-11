@@ -542,7 +542,7 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 				set->parsed_mail_attachment_detection_add_flags_on_fetch = TRUE;
 			} else if (strcmp(opt, "exclude-inlined") == 0) {
 				set->parsed_mail_attachment_exclude_inlined = TRUE;
-			} else if (strncmp(opt, "content-type=", 13) == 0) {
+			} else if (str_begins(opt, "content-type=")) {
 				const char *value = p_strdup(pool, opt+13);
 				array_append(&content_types, &value, 1);
 			}

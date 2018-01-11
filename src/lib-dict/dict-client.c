@@ -721,7 +721,7 @@ client_dict_init(struct dict *driver, const char *uri,
 
 	/* uri = [idle_msecs=<n>:] [warn_slow_msecs=<n>:] [<path>] ":" <uri> */
 	for (;;) {
-		if (strncmp(uri, "idle_msecs=", 11) == 0) {
+		if (str_begins(uri, "idle_msecs=")) {
 			p = strchr(uri+11, ':');
 			if (p == NULL) {
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);
@@ -732,7 +732,7 @@ client_dict_init(struct dict *driver, const char *uri,
 				return -1;
 			}
 			uri = p+1;
-		} else if (strncmp(uri, "warn_slow_msecs=", 16) == 0) {
+		} else if (str_begins(uri, "warn_slow_msecs=")) {
 			p = strchr(uri+11, ':');
 			if (p == NULL) {
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);

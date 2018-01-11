@@ -56,7 +56,7 @@ static void test_str_sanitize_max_bytes(void)
 		str_append(str2, "1234567890");
 		str_sanitize_append(str2, tests[i].str, tests[i].max_len);
 
-		test_assert_idx(strncmp(str_c(str2), "1234567890", 10) == 0, i);
+		test_assert_idx(str_begins(str_c(str2), "1234567890"), i);
 		if (tests[i].sanitized != NULL)
 			test_assert_idx(strcmp(str_c(str2)+10, tests[i].sanitized) == 0, i);
 		else

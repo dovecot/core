@@ -1092,7 +1092,7 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 	if (errno == EACCES) {
 		function = t_strcut(function, '(');
 		if (strcmp(function, "creat") == 0 ||
-		    strncmp(function, "file_dotlock_", 13) == 0)
+		    str_begins(function, "file_dotlock_"))
 			errstr = eacces_error_get_creating(function, filepath);
 		else
 			errstr = eacces_error_get(function, filepath);

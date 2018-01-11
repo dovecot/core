@@ -29,7 +29,7 @@ userdb_checkpassword_callback(struct auth_request *request,
 		break;
 	case DB_CHECKPASSWORD_STATUS_OK:
 		for (i = 0; extra_fields[i] != NULL; i++) {
-			if (strncmp(extra_fields[i], "userdb_", 7) != 0)
+			if (!str_begins(extra_fields[i], "userdb_"))
 				continue;
 			auth_request_set_field_keyvalue(request,
 							extra_fields[i], NULL);

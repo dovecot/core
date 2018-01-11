@@ -277,7 +277,7 @@ static bool auth_worker_request_handle(struct auth_worker_connection *conn,
 				       struct auth_worker_request *request,
 				       const char *line)
 {
-	if (strncmp(line, "*\t", 2) == 0) {
+	if (str_begins(line, "*\t")) {
 		/* multi-line reply, not finished yet */
 		if (conn->resuming)
 			timeout_reset(conn->to);

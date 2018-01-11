@@ -110,9 +110,9 @@ static void log_parse_option(struct log_connection *log,
 	struct log_client *client;
 
 	client = log_client_get(log, failure->pid);
-	if (strncmp(failure->text, "ip=", 3) == 0)
+	if (str_begins(failure->text, "ip="))
 		(void)net_addr2ip(failure->text + 3, &client->ip);
-	else if (strncmp(failure->text, "prefix=", 7) == 0) {
+	else if (str_begins(failure->text, "prefix=")) {
 		i_free(client->prefix);
 		client->prefix = i_strdup(failure->text + 7);
 	}
@@ -220,9 +220,9 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 			return;
 		}
 		log_client_free(log, client, pid);
-	} else if (strncmp(cmd, "FATAL ", 6) == 0) {
+	} else if (str_begins(cmd, "FATAL ")) {
 		client_log_fatal(log, client, cmd + 6, log_time, tm);
-	} else if (strncmp(cmd, "DEFAULT-FATAL ", 14) == 0) {
+	} else if (str_begins(cmd, "DEFAULT-FATAL ")) {
 		/* If the client has logged a fatal/panic, don't log this
 		   message. */
 		if (client == NULL || !client->fatal_logged)

@@ -291,7 +291,7 @@ db_oauth2_have_all_fields(struct db_oauth2_request *req)
 				var_get_key_range(ptr, &idx, &size);
 				ptr = ptr+idx;
 				field = t_strndup(ptr,size);
-				if (strncmp(field, "oauth2:", 8) == 0 &&
+				if (str_begins(field, "oauth2:") &&
 				    !auth_fields_exists(req->fields, ptr+8))
 					return FALSE;
 				ptr = ptr+size;

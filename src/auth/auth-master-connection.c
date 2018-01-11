@@ -610,20 +610,20 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 	if (conn->auth->set->debug)
 		i_debug("master in: %s", line);
 
-	if (strncmp(line, "USER\t", 5) == 0)
+	if (str_begins(line, "USER\t"))
 		return master_input_user(conn, line + 5);
-	if (strncmp(line, "LIST\t", 5) == 0)
+	if (str_begins(line, "LIST\t"))
 		return master_input_list(conn, line + 5);
-	if (strncmp(line, "PASS\t", 5) == 0)
+	if (str_begins(line, "PASS\t"))
 		return master_input_pass(conn, line + 5);
 
 	if (!conn->userdb_only) {
 		i_assert(conn->userdb_restricted_uid == 0);
-		if (strncmp(line, "REQUEST\t", 8) == 0)
+		if (str_begins(line, "REQUEST\t"))
 			return master_input_request(conn, line + 8);
-		if (strncmp(line, "CACHE-FLUSH\t", 12) == 0)
+		if (str_begins(line, "CACHE-FLUSH\t"))
 			return master_input_cache_flush(conn, line + 12);
-		if (strncmp(line, "CPID\t", 5) == 0) {
+		if (str_begins(line, "CPID\t")) {
 			i_error("Authentication client trying to connect to "
 				"master socket");
 			return FALSE;
@@ -662,7 +662,7 @@ static void master_input(struct auth_master_connection *conn)
 			return;
 
 		/* make sure the major version matches */
-		if (strncmp(line, "VERSION\t", 8) != 0 ||
+		if (!str_begins(line, "VERSION\t") ||
 		    !str_uint_equals(t_strcut(line + 8, '\t'),
 				     AUTH_MASTER_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Master not compatible with this server "

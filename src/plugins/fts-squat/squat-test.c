@@ -78,7 +78,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 			fflush(stderr);
 			last = input->v_offset/(1024*100);
 		}
-		if (strncmp(line, "From ", 5) == 0) {
+		if (str_begins(line, "From ")) {
 			if (!first)
 				seq++;
 			data_header = TRUE;
@@ -88,7 +88,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		}
 		first = FALSE;
 
-		if (strncmp(line, "--", 2) == 0) {
+		if (str_begins(line, "--")) {
 			skip_body = FALSE;
 			mime_header = TRUE;
 		}

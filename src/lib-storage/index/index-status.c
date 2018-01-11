@@ -234,7 +234,7 @@ static void get_metadata_precache_fields(struct mailbox *box,
 	for (i = 0; i < count; i++) {
 		const char *name = fields[i].name;
 
-		if (strncmp(name, "hdr.", 4) == 0 ||
+		if (str_begins(name, "hdr.") ||
 		    strcmp(name, "date.sent") == 0 ||
 		    strcmp(name, "imap.envelope") == 0)
 			cache |= MAIL_FETCH_STREAM_HEADER;

@@ -346,7 +346,7 @@ static const char *
 auth_args_find_postlogin_socket(const char *const *auth_args)
 {
 	for (unsigned int i = 0; auth_args[i] != NULL; i++) {
-		if (strncmp(auth_args[i], "postlogin=", 10) == 0)
+		if (str_begins(auth_args[i], "postlogin="))
 			return auth_args[i]+10;
 	}
 	return NULL;

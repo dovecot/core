@@ -57,14 +57,14 @@ fts_backend_squat_init(struct fts_backend *_backend, const char **error_r)
 		return 0;
 
 	for (tmp = t_strsplit_spaces(env, " "); *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "partial=", 8) == 0) {
+		if (str_begins(*tmp, "partial=")) {
 			if (str_to_uint(*tmp + 8, &len) < 0 || len == 0) {
 				*error_r = t_strdup_printf(
 					"Invalid partial length: %s", *tmp + 8);
 				return -1;
 			}
 			backend->partial_len = len;
-		} else if (strncmp(*tmp, "full=", 5) == 0) {
+		} else if (str_begins(*tmp, "full=")) {
 			if (str_to_uint(*tmp + 5, &len) < 0 || len == 0) {
 				*error_r = t_strdup_printf(
 					"Invalid full length: %s", *tmp + 5);

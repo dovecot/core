@@ -156,14 +156,14 @@ static bool client_exec_script(struct master_service_connection *conn)
 	if (*args != NULL) {
 		const char *p;
 
-		if (strncmp(*args, "alarm=", 6) == 0) {
+		if (str_begins(*args, "alarm=")) {
 			unsigned int seconds;
 			if (str_to_uint(*args + 6, &seconds) < 0)
 				i_fatal("invalid alarm option");
 			alarm(seconds);
 			args++;
 		}
-		while (strncmp(*args, "env_", 4) == 0) {
+		while (str_begins(*args, "env_")) {
 			const char *envname, *env;
 
 			env = t_str_tabunescape(*args+4);

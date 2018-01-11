@@ -181,10 +181,10 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 		NULL
 	};
 	if (*value != '\0' &&
-	    ((value-key > 8 && strncmp(value-9, "_password", 8) == 0) ||
-	     (value-key > 7 && strncmp(value-8, "_api_key", 7) == 0) ||
-	     strncmp(key, "ssl_key",7) == 0 ||
-	     strncmp(key, "ssl_dh",6) == 0)) {
+	    ((value-key > 8 && str_begins(value-9, "_password")) ||
+	     (value-key > 7 && str_begins(value-8, "_api_key")) ||
+	     str_begins(key, "ssl_key") ||
+	     str_begins(key, "ssl_dh"))) {
 		o_stream_nsend_str(output, "# hidden, use -P to show it");
 		return TRUE;
 	}

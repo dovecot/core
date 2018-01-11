@@ -111,9 +111,9 @@ passdb_lua_preinit(pool_t pool, const char *args)
 	module = p_new(pool, struct dlua_passdb_module, 1);
 	const char *const *fields = t_strsplit_spaces(args, " ");
 	while(*fields != NULL) {
-		if (strncmp(*fields, "file=", 5) == 0) {
+		if (str_begins(*fields, "file=")) {
 			 module->file = p_strdup(pool, (*fields)+5);
-		} else if (strncmp(*fields, "blocking=", 9) == 0) {
+		} else if (str_begins(*fields, "blocking=")) {
 			const char *value = (*fields)+9;
 			if (strcmp(value, "yes") == 0) {
 				blocking = TRUE;
@@ -124,12 +124,12 @@ passdb_lua_preinit(pool_t pool, const char *args)
 					"Field blocking must be yes or no",
 					value);
 			}
-                } else if (strncmp(*fields, "cache_key=", 10) == 0) {
+                } else if (str_begins(*fields, "cache_key=")) {
                         if (*((*fields)+10) != '\0')
                                 cache_key = (*fields)+10;
                         else /* explicitly disable auth caching for lua */
                                 cache_key = NULL;
-		} else if (strncmp(*fields, "scheme=", 7) == 0) {
+		} else if (str_begins(*fields, "scheme=")) {
 			scheme = p_strdup(pool, (*fields)+7);
 		} else {
 			i_fatal("Unsupported parameter %s", *fields);

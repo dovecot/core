@@ -277,12 +277,12 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 	str = array_get(&reply->extra_fields, &count);
 	for (i = 0; i < count; i++) {
 		line = str[i];
-		if (strncmp(line, "system_groups_user=", 19) == 0) {
+		if (str_begins(line, "system_groups_user=")) {
 			user->system_groups_user =
 				p_strdup(user->pool, line + 19);
-		} else if (strncmp(line, "chdir=", 6) == 0) {
+		} else if (str_begins(line, "chdir=")) {
 			user->chdir_path = p_strdup(user->pool, line+6);
-		} else if (strncmp(line, "nice=", 5) == 0) {
+		} else if (str_begins(line, "nice=")) {
 #ifdef HAVE_SETPRIORITY
 			int n;
 			if (str_to_int(line + 5, &n) < 0) {
@@ -293,11 +293,11 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 					i_error("setpriority(%d) failed: %m", n);
 			}
 #endif
-		} else if (strncmp(line, "auth_token=", 11) == 0) {
+		} else if (str_begins(line, "auth_token=")) {
 			user->auth_token = p_strdup(user->pool, line+11);
-		} else if (strncmp(line, "auth_user=", 10) == 0) {
+		} else if (str_begins(line, "auth_user=")) {
 			user->auth_user = p_strdup(user->pool, line+10);
-		} else if (strncmp(line, "admin=", 6) == 0) {
+		} else if (str_begins(line, "admin=")) {
 			user->admin = line[6] == 'y' || line[6] == 'Y' ||
 				line[6] == '1';
 		} else T_BEGIN {

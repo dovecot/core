@@ -97,7 +97,7 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 			fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
 		else if (strcmp(arg, "lock=dotlock") == 0)
 			fs->lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
-		else if (strncmp(arg, "prefix=", 7) == 0) {
+		else if (str_begins(arg, "prefix=")) {
 			i_free(fs->path_prefix);
 			fs->path_prefix = i_strdup(arg + 7);
 		} else if (strcmp(arg, "mode=auto") == 0) {
@@ -106,7 +106,7 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 			fs->have_dirs = TRUE;
 		} else if (strcmp(arg, "no-fsync") == 0) {
 			fs->disable_fsync = TRUE;
-		} else if (strncmp(arg, "mode=", 5) == 0) {
+		} else if (str_begins(arg, "mode=")) {
 			unsigned int mode;
 			if (str_to_uint_oct(arg+5, &mode) < 0) {
 				fs_set_error(_fs, "Invalid mode value: %s", arg+5);

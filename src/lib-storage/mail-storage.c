@@ -225,7 +225,7 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	if (ns->set->location == NULL || *ns->set->location == '\0') {
 		*error_r = t_strdup_printf(
 			"Mail storage autodetection failed with home=%s", home);
-	} else if (strncmp(ns->set->location, "auto:", 5) == 0) {
+	} else if (str_begins(ns->set->location, "auto:")) {
 		*error_r = t_strdup_printf(
 			"Autodetection failed for %s (home=%s)",
 			ns->set->location, home);
@@ -820,7 +820,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	i_assert(uni_utf8_str_is_valid(vname));
 
 	if (strncasecmp(vname, "INBOX", 5) == 0 &&
-	    strncmp(vname, "INBOX", 5) != 0) {
+	    !str_begins(vname, "INBOX")) {
 		/* make sure INBOX shows up in uppercase everywhere. do this
 		   regardless of whether we're in inbox=yes namespace, because
 		   clients expect INBOX to be case insensitive regardless of
@@ -830,7 +830,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		else if (vname[5] != mail_namespace_get_sep(list->ns))
 			/* not INBOX prefix */ ;
 		else if (strncasecmp(list->ns->prefix, vname, 6) == 0 &&
-			 strncmp(list->ns->prefix, "INBOX", 5) != 0) {
+			 !str_begins(list->ns->prefix, "INBOX")) {
 			mailbox_list_set_critical(list,
 				"Invalid server configuration: "
 				"Namespace prefix=%s must be uppercase INBOX",

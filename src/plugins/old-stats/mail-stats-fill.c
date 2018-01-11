@@ -20,16 +20,16 @@ process_io_buffer_parse(const char *buf, struct mail_stats *stats)
 
 	tmp = t_strsplit(buf, "\n");
 	for (; *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "rchar: ", 7) == 0) {
+		if (str_begins(*tmp, "rchar: ")) {
 			if (str_to_uint64(*tmp + 7, &stats->read_bytes) < 0)
 				return -1;
-		} else if (strncmp(*tmp, "wchar: ", 7) == 0) {
+		} else if (str_begins(*tmp, "wchar: ")) {
 			if (str_to_uint64(*tmp + 7, &stats->write_bytes) < 0)
 				return -1;
-		} else if (strncmp(*tmp, "syscr: ", 7) == 0) {
+		} else if (str_begins(*tmp, "syscr: ")) {
 			if (str_to_uint32(*tmp + 7, &stats->read_count) < 0)
 				return -1;
-		} else if (strncmp(*tmp, "syscw: ", 7) == 0) {
+		} else if (str_begins(*tmp, "syscw: ")) {
 			if (str_to_uint32(*tmp + 7, &stats->write_count) < 0)
 				return -1;
 		}

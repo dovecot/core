@@ -143,9 +143,9 @@ login_host_callback(const struct mail_host *host, const char *hostname,
 	unsigned int secs;
 
 	if (host == NULL) {
-		if (strncmp(request->line, "OK\t", 3) == 0)
+		if (str_begins(request->line, "OK\t"))
 			line_params = request->line + 3;
-		else if (strncmp(request->line, "PASS\t", 5) == 0)
+		else if (str_begins(request->line, "PASS\t"))
 			line_params = request->line + 5;
 		else
 			i_panic("BUG: Unexpected line: %s", request->line);
@@ -196,10 +196,10 @@ static void auth_input_line(const char *line, void *context)
 		return;
 	}
 	if (conn->type != LOGIN_CONNECTION_TYPE_USERDB &&
-	    strncmp(line, "OK\t", 3) == 0)
+	    str_begins(line, "OK\t"))
 		line_params = line + 3;
 	else if (conn->type == LOGIN_CONNECTION_TYPE_USERDB &&
-		 strncmp(line, "PASS\t", 5) == 0)
+		 str_begins(line, "PASS\t"))
 		line_params = line + 5;
 	else {
 		login_connection_send_line(conn, line);
@@ -216,28 +216,28 @@ static void auth_input_line(const char *line, void *context)
 
 	i_zero(&temp_request);
 	for (; *args != NULL; args++) {
-		if (strncmp(*args, "proxy", 5) == 0 &&
+		if (str_begins(*args, "proxy") &&
 		    ((*args)[5] == '=' || (*args)[5] == '\0'))
 			proxy = TRUE;
-		else if (strncmp(*args, "host=", 5) == 0)
+		else if (str_begins(*args, "host="))
 			host = TRUE;
-		else if (strncmp(*args, "lip=", 4) == 0) {
+		else if (str_begins(*args, "lip=")) {
 			if (net_addr2ip((*args) + 4, &temp_request.local_ip) < 0)
 				i_error("auth sent invalid lip field: %s", (*args) + 6);
-		} else if (strncmp(*args, "lport=", 6) == 0) {
+		} else if (str_begins(*args, "lport=")) {
 			if (net_str2port((*args) + 6, &temp_request.local_port) < 0)
 				i_error("auth sent invalid lport field: %s", (*args) + 6);
-		} else if (strncmp(*args, "port=", 5) == 0) {
+		} else if (str_begins(*args, "port=")) {
 			if (net_str2port((*args) + 5, &temp_request.dest_port) < 0)
 				i_error("auth sent invalid port field: %s", (*args) + 6);
-		} else if (strncmp(*args, "destuser=", 9) == 0)
+		} else if (str_begins(*args, "destuser="))
 			username = *args + 9;
-		else if (strncmp(*args, "director_tag=", 13) == 0)
+		else if (str_begins(*args, "director_tag="))
 			tag = *args + 13;
-		else if (strncmp(*args, "director_proxy_maybe", 20) == 0 &&
+		else if (str_begins(*args, "director_proxy_maybe") &&
 			 ((*args)[20] == '=' || (*args)[20] == '\0'))
 			temp_request.director_proxy_maybe = TRUE;
-		else if (strncmp(*args, "user=", 5) == 0) {
+		else if (str_begins(*args, "user=")) {
 			if (username == NULL)
 				username = *args + 5;
 		}

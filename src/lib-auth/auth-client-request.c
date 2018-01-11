@@ -231,7 +231,7 @@ void auth_client_request_server_input(struct auth_client_request *request,
 	switch (status) {
 	case AUTH_REQUEST_STATUS_OK:
 		for (tmp = args; *tmp != NULL; tmp++) {
-			if (strncmp(*tmp, "resp=", 5) == 0) {
+			if (str_begins(*tmp, "resp=")) {
 				base64_data = *tmp + 5;
 				break;
 			}

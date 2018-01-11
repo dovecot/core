@@ -20,14 +20,14 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 	const char *const *tmp;
 
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "default_language=", 17) == 0) {
+		if (str_begins(*tmp, "default_language=")) {
 			set->default_language =
 				p_strdup(user->pool, *tmp + 17);
-		} else if (strncmp(*tmp, "textcat_conf=", 13) == 0) {
+		} else if (str_begins(*tmp, "textcat_conf=")) {
 			set->textcat_conf = p_strdup(user->pool, *tmp + 13);
-		} else if (strncmp(*tmp, "textcat_dir=", 12) == 0) {
+		} else if (str_begins(*tmp, "textcat_dir=")) {
 			set->textcat_dir = p_strdup(user->pool, *tmp + 12);
-		} else if (strncmp(*tmp, "whitespace_chars=", 17) == 0) {
+		} else if (str_begins(*tmp, "whitespace_chars=")) {
 			set->whitespace_chars = p_strdup(user->pool, *tmp + 17);
 		} else if (strcmp(*tmp, "normalize") == 0) {
 			set->normalize = TRUE;

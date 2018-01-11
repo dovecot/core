@@ -264,16 +264,16 @@ int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r)
 		/* body (for root or for message/rfc822) */
 		msgpart->fetch_type = FETCH_BODY;
 		msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
-	} else if (strncmp(section, "HEADER", 6) == 0) {
+	} else if (str_begins(section, "HEADER")) {
 		/* header (for root or for message/rfc822) */
 		if (section[6] == '\0') {
 			msgpart->fetch_type = FETCH_HEADER;
 			ret = 0;
-		} else if (strncmp(section, "HEADER.FIELDS.NOT", 17) == 0) {
+		} else if (str_begins(section, "HEADER.FIELDS.NOT")) {
 			msgpart->fetch_type = FETCH_HEADER_FIELDS_NOT;
 			ret = imap_msgpart_parse_header_fields(msgpart,
 							       section+17);
-		} else if (strncmp(section, "HEADER.FIELDS", 13) == 0) {
+		} else if (str_begins(section, "HEADER.FIELDS")) {
 			msgpart->fetch_type = FETCH_HEADER_FIELDS;
 			ret = imap_msgpart_parse_header_fields(msgpart,
 							       section+13);

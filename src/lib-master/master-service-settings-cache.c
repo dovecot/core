@@ -101,13 +101,13 @@ int master_service_settings_cache_init_filter(struct master_service_settings_cac
 		struct config_filter *filter =
 			p_new(cache->pool, struct config_filter, 1);
 		while(*keys != NULL) {
-			if (strncmp(*keys, "local-net=", 10) == 0) {
+			if (str_begins(*keys, "local-net=")) {
 				(void)net_parse_range((*keys)+10,
 					&filter->local_ip, &filter->local_bits);
-			} else if (strncmp(*keys, "remote-net=", 11) == 0) {
+			} else if (str_begins(*keys, "remote-net=")) {
 				(void)net_parse_range((*keys)+11,
 					&filter->remote_ip, &filter->remote_bits);
-			} else if (strncmp(*keys, "local-name=", 11) == 0) {
+			} else if (str_begins(*keys, "local-name=")) {
 				filter->local_name = p_strdup(cache->pool, (*keys)+11);
 			}
 			keys++;

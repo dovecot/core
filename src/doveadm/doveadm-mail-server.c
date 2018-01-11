@@ -224,18 +224,18 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 		proxy_host = NULL; proxy_hostip = NULL; proxying = FALSE;
 		proxy_port = ctx->set->doveadm_port;
 		for (i = 0; fields[i] != NULL; i++) {
-			if (strncmp(fields[i], "proxy", 5) == 0 &&
+			if (str_begins(fields[i], "proxy") &&
 			    (fields[i][5] == '\0' || fields[i][5] == '='))
 				proxying = TRUE;
-			else if (strncmp(fields[i], "host=", 5) == 0)
+			else if (str_begins(fields[i], "host="))
 				proxy_host = fields[i]+5;
-			else if (strncmp(fields[i], "hostip=", 7) == 0)
+			else if (str_begins(fields[i], "hostip="))
 				proxy_hostip = fields[i]+7;
-			else if (strncmp(fields[i], "user=", 5) == 0)
+			else if (str_begins(fields[i], "user="))
 				*user_r = t_strdup(fields[i]+5);
-			else if (strncmp(fields[i], "destuser=", 9) == 0)
+			else if (str_begins(fields[i], "destuser="))
 				*user_r = t_strdup(fields[i]+9);
-			else if (strncmp(fields[i], "port=", 5) == 0) {
+			else if (str_begins(fields[i], "port=")) {
 				if (net_str2port(fields[i]+5, &proxy_port) < 0)
 					proxy_port = 0;
 			}

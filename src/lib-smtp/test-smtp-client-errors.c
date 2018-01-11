@@ -2647,7 +2647,7 @@ server_connection_input(struct connection *_conn)
 			conn->state = SERVER_CONNECTION_STATE_MAIL_FROM;
 			return;
 		case SERVER_CONNECTION_STATE_MAIL_FROM:
-			if (strncmp(line, "AUTH ", 5) == 0) {
+			if (str_begins(line, "AUTH ")) {
 				o_stream_send_str(conn->conn.output,
 					"235 2.7.0 "
 					"Authentication successful\r\n");
