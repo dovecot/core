@@ -365,7 +365,7 @@ imapc_list_get_vname(struct mailbox_list *_list, const char *storage_name)
 		/* ACL plugin does these lookups */
 	} else if (*prefix != '\0' && strcasecmp(storage_name, "INBOX") != 0) {
 		prefix_len = strlen(prefix);
-		i_assert(strncmp(prefix, storage_name, prefix_len) == 0);
+		i_assert(str_begins(storage_name, prefix));
 		storage_name += prefix_len;
 		if (storage_name[0] == '\0') {
 			/* we're looking up the prefix itself */

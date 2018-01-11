@@ -152,7 +152,7 @@ doveadm_cmd_find_multi_word(const char *cmdname, int *_argc,
 		return FALSE;
 
 	len = strlen(argv[1]);
-	if (strncmp(cmdname, argv[1], len) != 0)
+	if (!str_begins(cmdname, argv[1]))
 		return FALSE;
 
 	argc--; argv++;

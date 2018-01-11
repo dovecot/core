@@ -1072,7 +1072,7 @@ imapc_namespace_find_mailbox(struct imapc_storage *storage, const char *name)
 
 	array_foreach(&storage->remote_namespaces, ns) {
 		len = strlen(ns->prefix);
-		if (strncmp(ns->prefix, name, len) == 0) {
+		if (str_begins(name, ns->prefix)) {
 			if (best_len > len) {
 				best_ns = ns;
 				best_len = len;

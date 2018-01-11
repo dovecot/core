@@ -295,7 +295,7 @@ static bool auth_cache_node_is_user(struct auth_cache_node *node,
 	data++;
 
 	username_len = strlen(username);
-	return strncmp(data, username, username_len) == 0 &&
+	return str_begins(data, username) &&
 		(data[username_len] == '\t' || data[username_len] == '\0');
 }
 

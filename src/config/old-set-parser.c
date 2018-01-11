@@ -673,7 +673,7 @@ static void socket_apply(struct config_parser_context *ctx)
 	}
 	path = set->path;
 	len = strlen(ctx->old->base_dir);
-	if (strncmp(path, ctx->old->base_dir, len) == 0 &&
+	if (str_begins(path, ctx->old->base_dir) &&
 	    path[len] == '/')
 		path += len + 1;
 

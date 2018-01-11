@@ -179,7 +179,7 @@ cmd_notify_add_mailbox(struct imap_notify_context *ctx,
 		else {
 			/* see if one is a subtree of the other */
 			cur_len = strlen(names[i]);
-			if (strncmp(names[i], name, cur_len) == 0 &&
+			if (str_begins(name, names[i]) &&
 			    names[i][cur_len] == ns_sep) {
 				/* already matched in this subtree */
 				return;

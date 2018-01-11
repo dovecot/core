@@ -904,7 +904,7 @@ mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
 
 		array_foreach_modifiable(&actx->boxes, autobox) {
 			name_len = strlen(autobox->name);
-			if (strncmp(info->vname, autobox->name, name_len) != 0 ||
+			if (!str_begins(info->vname, autobox->name) ||
 			    info->vname[name_len] != sep)
 				continue;
 
