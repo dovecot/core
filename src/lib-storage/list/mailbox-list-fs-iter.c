@@ -482,7 +482,7 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 		parentp = array_idx(&ctx->roots, i-1);
 		childp = array_idx(&ctx->roots, i);
 		parentlen = strlen(*parentp);
-		if (strncmp(*parentp, *childp, parentlen) == 0 &&
+		if (str_begins(*childp, *parentp) &&
 		    (parentlen == 0 ||
 		     (*childp)[parentlen] == ctx->sep ||
 		     (*childp)[parentlen] == '\0'))

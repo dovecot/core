@@ -286,7 +286,7 @@ seach_arg_mime_filename_match(struct search_mimepart_context *mpctx,
 	case SEARCH_MIME_FILENAME_ENDS:
 		vlen = strlen(value);
 		alen = strlen(key);
-		return (strncmp(value + (vlen - alen), key, alen) == 0 ? 1 : 0);
+		return (str_begins(value + (vlen - alen), key) ? 1 : 0);
 	default:
 		break;
 	}

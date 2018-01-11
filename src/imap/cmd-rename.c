@@ -27,7 +27,7 @@ bool cmd_rename(struct client_command_context *cmd)
 		   there's really no point in doing it anyway. */
 		old_ns = mailbox_list_get_namespace(old_ns->list);
 		oldlen = strlen(oldname);
-		if (strncmp(oldname, newname, oldlen) == 0 &&
+		if (str_begins(newname, oldname) &&
 		    newname[oldlen] == mail_namespace_get_sep(old_ns)) {
 			client_send_tagline(cmd,
 				"NO Can't rename mailbox under its own child.");

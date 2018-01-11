@@ -734,7 +734,7 @@ doveadm_mail_cmd_try_find_multi_word(const struct doveadm_mail_cmd *cmd,
 	*argv += 1;
 
 	len = strlen((*argv)[0]);
-	if (strncmp(cmdname, (*argv)[0], len) != 0)
+	if (!str_begins(cmdname, (*argv)[0]))
 		return FALSE;
 
 	if (cmdname[len] == ' ') {

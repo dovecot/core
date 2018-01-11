@@ -210,7 +210,7 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 				   implementing "personal" */
 				return TRUE;
 			}
-			if (strncmp(*namep, vname, name_len) == 0 &&
+			if (str_begins(vname, *namep) &&
 			    (vname[name_len] == '\0' ||
 			     vname[name_len] == ns_sep))
 				return TRUE;
