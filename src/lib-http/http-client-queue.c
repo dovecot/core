@@ -653,7 +653,7 @@ http_client_queue_drop_request(struct http_client_queue *queue,
 					timeout_remove(&queue->to_delayed);
 					if (count > 1) {
 						i_assert(reqs[1]->release_time.tv_sec > 0);
-						http_client_queue_set_request_timer(queue, &reqs[1]->release_time);
+						http_client_queue_set_delay_timer(queue, reqs[1]->release_time);
 					}
 				}
 			}
