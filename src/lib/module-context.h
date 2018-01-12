@@ -51,6 +51,15 @@
  		module_get_context_id(&(id_ctx).id)) + \
 	    OBJ_REGISTER_COMPATIBLE(obj, id_ctx))) : NULL)
 
+/* Will crash if context is missing. This is mainly used to simplify code and
+   keep static analyzers happy. This syntax discards result of i_panic and
+   returns NULL instead to keep compilers happy. */
+#define MODULE_CONTEXT_REQUIRE(obj, id_ctx) \
+	(module_get_context_id(&(id_ctx).id) < array_count(&(obj)->module_contexts) ? \
+	 (*((void **)array_idx_modifiable(&(obj)->module_contexts,      \
+		module_get_context_id(&(id_ctx).id)) + \
+	    OBJ_REGISTER_COMPATIBLE(obj, id_ctx))) : (i_panic("Module context " #id_ctx " missing"), NULL))
+
 #ifdef HAVE_TYPEOF
 #  define MODULE_CONTEXT_DEFINE(_name, _reg) \
 	struct _name { \
