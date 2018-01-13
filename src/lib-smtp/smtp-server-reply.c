@@ -251,11 +251,24 @@ smtp_server_reply_allv(struct smtp_server_cmd_ctx *_cmd,
 	struct smtp_server_command *cmd = _cmd->cmd;
 	struct smtp_server_reply *reply;
 	const char *text;
-	unsigned int i;
+	unsigned int i = 0;
 
+	/* find the first unsent reply */
+	if (array_is_created(&cmd->replies)) {
+		for (; i < cmd->replies_expected; i++) {
+			struct smtp_server_reply *reply =
+				array_idx_modifiable(&cmd->replies, i);
+			if (!reply->sent)
+				break;
+		}
+		i_assert (i < cmd->replies_expected);
+	}
+
+	/* compose the reply text */
 	text = t_strdup_vprintf(fmt, args);
 
-	for (i = 0; i < cmd->replies_expected; i++) {
+	/* submit remaining replies */
+	for (; i < cmd->replies_expected; i++) {
 		reply = smtp_server_reply_create_index(cmd,
 			i, status, enh_code);
 		smtp_server_reply_add_text(reply, text);
