@@ -596,6 +596,24 @@ void smtp_params_mail_write(string_t *buffer,
 		str_truncate(buffer, str_len(buffer)-1);
 }
 
+/* evaluate */
+
+const struct smtp_param *
+smtp_params_mail_get_extra(const struct smtp_params_mail *params,
+			   const char *keyword)
+{
+	const struct smtp_param *param;
+
+	if (!array_is_created(&params->extra_params))
+		return NULL;
+
+	array_foreach(&params->extra_params, param) {
+		if (strcasecmp(param->keyword, keyword) == 0)
+			return param;
+	}
+	return NULL;
+}
+
 /*
  * RCPT parameters
  */
@@ -985,4 +1003,22 @@ void smtp_params_rcpt_write(string_t *buffer,
 
 	if (str_len(buffer) > init_len)
 		str_truncate(buffer, str_len(buffer)-1);
+}
+
+/* evaluate */
+
+const struct smtp_param *
+smtp_params_rcpt_get_extra(const struct smtp_params_rcpt *params,
+			   const char *keyword)
+{
+	const struct smtp_param *param;
+
+	if (!array_is_created(&params->extra_params))
+		return NULL;
+
+	array_foreach(&params->extra_params, param) {
+		if (strcasecmp(param->keyword, keyword) == 0)
+			return param;
+	}
+	return NULL;
 }

@@ -100,6 +100,10 @@ void smtp_params_mail_write(string_t *buffer,
 	enum smtp_capability caps,
 	const struct smtp_params_mail *params);
 
+const struct smtp_param *
+smtp_params_mail_get_extra(const struct smtp_params_mail *params,
+			   const char *keyword);
+
 /*
  * RCPT parameters
  */
@@ -117,5 +121,9 @@ void smtp_params_rcpt_copy(pool_t pool,
 void smtp_params_rcpt_write(string_t *buffer,
 	enum smtp_capability caps,
 	const struct smtp_params_rcpt *params);
+
+const struct smtp_param *
+smtp_params_rcpt_get_extra(const struct smtp_params_rcpt *params,
+			   const char *keyword);
 
 #endif
