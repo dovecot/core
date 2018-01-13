@@ -207,6 +207,30 @@ void smtp_server_reply_submit(struct smtp_server_reply *reply)
 	smtp_server_command_submit_reply(reply->command);
 }
 
+void smtp_server_reply_submit_duplicate(struct smtp_server_cmd_ctx *_cmd,
+					unsigned int index,
+					unsigned int from_index)
+{
+	struct smtp_server_command *cmd = _cmd->cmd;
+	struct smtp_server_reply *reply, *from_reply;
+
+	i_assert(cmd->replies_expected > 0);
+	i_assert(index < cmd->replies_expected);
+	i_assert(from_index < cmd->replies_expected);
+	i_assert(array_is_created(&cmd->replies));
+
+	from_reply = array_idx_modifiable(&cmd->replies, from_index);
+	i_assert(from_reply->content != NULL);
+	i_assert(from_reply->submitted);
+
+	reply = smtp_server_reply_alloc(cmd, index);
+	reply->index = index;
+	reply->command = cmd;
+	reply->content = from_reply->content;
+
+	smtp_server_reply_submit(reply);
+}
+
 void smtp_server_reply_indexv(struct smtp_server_cmd_ctx *_cmd,
 	unsigned int index, unsigned int status, const char *enh_code,
 	const char *fmt, va_list args)
