@@ -69,6 +69,11 @@ struct smtp_server_transaction {
 	void *context;
 };
 
+struct smtp_server_recipient *
+smtp_server_transaction_find_rcpt_duplicate(
+	struct smtp_server_transaction *trans,
+	struct smtp_server_recipient *rcpt);
+
 void smtp_server_transaction_fail_data(
 	struct smtp_server_transaction *trans,
 	struct smtp_server_cmd_ctx *data_cmd,

@@ -52,6 +52,26 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 }
 
 struct smtp_server_recipient *
+smtp_server_transaction_find_rcpt_duplicate(
+	struct smtp_server_transaction *trans,
+	struct smtp_server_recipient *rcpt)
+{
+	struct smtp_server_recipient *const *rcptp;
+
+	i_assert(array_is_created(&trans->rcpt_to));
+	array_foreach(&trans->rcpt_to, rcptp) {
+		struct smtp_server_recipient *drcpt = *rcptp;
+
+		if (drcpt == rcpt)
+			continue;
+		if (smtp_address_equals(drcpt->path, rcpt->path) &&
+		    smtp_params_rcpt_equals(&drcpt->params, &rcpt->params))
+			return drcpt;
+	}
+	return NULL;
+}
+
+struct smtp_server_recipient *
 smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
 				 const struct smtp_address *rcpt_to,
 				 const struct smtp_params_rcpt *params)
