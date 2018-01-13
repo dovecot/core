@@ -60,7 +60,25 @@ static void smtp_server_reply_clear(struct smtp_server_reply *reply)
 	if (reply->content == NULL)
 		return;
 	str_free(&reply->content->text);
+}
 
+static struct smtp_server_reply *
+smtp_server_reply_alloc(struct smtp_server_command *cmd, unsigned int index)
+{
+	struct smtp_server_reply *reply;
+	pool_t pool = cmd->context.pool;
+
+	if (array_is_created(&cmd->replies)) {
+		reply = array_idx_modifiable(&cmd->replies, index);
+		/* get rid of any existing reply */
+		i_assert(!reply->sent);
+		smtp_server_reply_clear(reply);
+	} else {
+		p_array_init(&cmd->replies, pool, cmd->replies_expected);
+		array_idx_clear(&cmd->replies, cmd->replies_expected - 1);
+		reply = array_idx_modifiable(&cmd->replies, index);
+	}
+	return reply;
 }
 
 struct smtp_server_reply *
@@ -94,17 +112,7 @@ smtp_server_reply_create_index(struct smtp_server_command *cmd,
 		((unsigned int)(enh_code[0] - '0') == (status / 100)
 			&& enh_code[1] == '.'));
 
-	if (array_is_created(&cmd->replies)) {
-		reply = array_idx_modifiable(&cmd->replies, index);
-		/* get rid of any existing reply */
-		i_assert(!reply->sent);
-		smtp_server_reply_clear(reply);
-	} else {
-		p_array_init(&cmd->replies, pool, cmd->replies_expected);
-		array_idx_clear(&cmd->replies, cmd->replies_expected - 1);
-		reply = array_idx_modifiable(&cmd->replies, index);
-	}
-
+	reply = smtp_server_reply_alloc(cmd, index);
 	reply->index = index;
 	reply->command = cmd;
 
