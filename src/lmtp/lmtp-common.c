@@ -6,10 +6,12 @@
 
 void lmtp_recipient_init(struct lmtp_recipient *rcpt,
 			 struct client *client,
+			 enum lmtp_recipient_type type,
 			 struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_cmd_rcpt *data)
 {
 	rcpt->client = client;
+	rcpt->type = type;
 	rcpt->rcpt_cmd = cmd;
 	rcpt->path = data->path;
 }

@@ -7,8 +7,14 @@ struct smtp_server_cmd_rcpt;
 struct smtp_server_recipient;
 struct client;
 
+enum lmtp_recipient_type {
+	LMTP_RECIPIENT_TYPE_LOCAL,
+	LMTP_RECIPIENT_TYPE_PROXY,
+};
+
 struct lmtp_recipient {
 	struct client *client;
+	enum lmtp_recipient_type type;
 
 	struct smtp_address *path;
 	struct smtp_server_cmd_ctx *rcpt_cmd;
@@ -18,6 +24,7 @@ struct lmtp_recipient {
 
 void lmtp_recipient_init(struct lmtp_recipient *rcpt,
 			 struct client *client,
+			 enum lmtp_recipient_type type,
 			 struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_cmd_rcpt *data);
 

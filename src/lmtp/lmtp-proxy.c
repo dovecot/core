@@ -522,7 +522,8 @@ int lmtp_proxy_rcpt(struct client *client,
 	pool_unref(&auth_pool);
 
 	rcpt = i_new(struct lmtp_proxy_recipient, 1);
-	lmtp_recipient_init(&rcpt->rcpt, client, cmd, data);
+	lmtp_recipient_init(&rcpt->rcpt, client,
+			    LMTP_RECIPIENT_TYPE_PROXY, cmd, data);
 
 	rcpt->conn = conn;
 
