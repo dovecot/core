@@ -6,15 +6,6 @@
 
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
-struct lmtp_recipient {
-	struct client *client;
-
-	struct smtp_address *path;
-	struct smtp_server_cmd_ctx *rcpt_cmd;
-	struct smtp_server_recipient *rcpt;
-	unsigned int index;
-};
-
 struct client_state {
 	const char *name;
 	unsigned int session_id_seq;

@@ -28,6 +28,7 @@
 #include "lmtp-settings.h"
 #include "client.h"
 #include "main.h"
+#include "lmtp-common.h"
 #include "lmtp-settings.h"
 #include "lmtp-local.h"
 
@@ -271,14 +272,10 @@ static void lmtp_local_rcpt_finished(
 		return;
 	}
 
-	trcpt->context = (void *)rcpt;
+	lmtp_recipient_finish(&rcpt->rcpt, trcpt, index);
 
 	/* add to local recipients */
 	array_append(&client->local->rcpt_to, &rcpt, 1);
-
-	rcpt->rcpt.rcpt = trcpt;
-	rcpt->rcpt.index = index;
-	rcpt->rcpt.rcpt_cmd = NULL;
 }
 
 static bool
@@ -388,9 +385,8 @@ int lmtp_local_rcpt(struct client *client,
 		client->local = lmtp_local_init(client);
 
 	rcpt = i_new(struct lmtp_local_recipient, 1);
-	rcpt->rcpt.client = client;
-	rcpt->rcpt.path = data->path;
-	rcpt->rcpt.rcpt_cmd = cmd;
+	lmtp_recipient_init(&rcpt->rcpt, client, cmd, data);
+
 	rcpt->detail = i_strdup(detail);
 	rcpt->service_user = service_user;
 	rcpt->session_id = i_strdup(session_id);

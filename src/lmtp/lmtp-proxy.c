@@ -22,6 +22,7 @@
 #include "lda-settings.h"
 #include "client.h"
 #include "main.h"
+#include "lmtp-common.h"
 #include "lmtp-settings.h"
 #include "lmtp-proxy.h"
 
@@ -384,15 +385,10 @@ lmtp_proxy_rcpt_finished(struct smtp_server_cmd_ctx *cmd,
 
 	cmd->hook_destroy = NULL;
 
-	/* copy to transaction */
-	trcpt->context = (void *)rcpt;
+	lmtp_recipient_finish(&rcpt->rcpt, trcpt, index);
 
 	/* add to local recipients */
 	array_append(&client->proxy->rcpt_to, &rcpt, 1);
-
-	rcpt->rcpt.rcpt = trcpt;
-	rcpt->rcpt.index = index;
-	rcpt->rcpt.rcpt_cmd = NULL;
 }
 
 static void
@@ -526,9 +522,8 @@ int lmtp_proxy_rcpt(struct client *client,
 	pool_unref(&auth_pool);
 
 	rcpt = i_new(struct lmtp_proxy_recipient, 1);
-	rcpt->rcpt.client = client;
-	rcpt->rcpt.rcpt_cmd = cmd;
-	rcpt->rcpt.path = data->path;
+	lmtp_recipient_init(&rcpt->rcpt, client, cmd, data);
+
 	rcpt->conn = conn;
 
 	cmd->context = (void*)rcpt;
