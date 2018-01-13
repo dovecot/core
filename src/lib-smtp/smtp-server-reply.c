@@ -293,7 +293,7 @@ smtp_server_reply_allv(struct smtp_server_cmd_ctx *_cmd,
 	struct smtp_server_command *cmd = _cmd->cmd;
 	struct smtp_server_reply *reply;
 	const char *text;
-	unsigned int i = 0;
+	unsigned int first, i = 0;
 
 	/* find the first unsent reply */
 	if (array_is_created(&cmd->replies)) {
@@ -305,17 +305,19 @@ smtp_server_reply_allv(struct smtp_server_cmd_ctx *_cmd,
 		}
 		i_assert (i < cmd->replies_expected);
 	}
+	first = i++;
 
 	/* compose the reply text */
 	text = t_strdup_vprintf(fmt, args);
 
-	/* submit remaining replies */
-	for (; i < cmd->replies_expected; i++) {
-		reply = smtp_server_reply_create_index(cmd,
-			i, status, enh_code);
-		smtp_server_reply_add_text(reply, text);
-		smtp_server_reply_submit(reply);
-	}
+	/* submit the first remaining reply */
+	reply = smtp_server_reply_create_index(cmd, first, status, enh_code);
+	smtp_server_reply_add_text(reply, text);
+	smtp_server_reply_submit(reply);
+
+	/* duplicate the rest from it */
+	for (; i < cmd->replies_expected; i++)
+		smtp_server_reply_submit_duplicate(_cmd, i, first);
 }
 
 void smtp_server_reply_all(struct smtp_server_cmd_ctx *_cmd,
