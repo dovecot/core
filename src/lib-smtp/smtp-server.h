@@ -466,6 +466,9 @@ smtp_server_reply_create_forward(struct smtp_server_command *cmd,
 void smtp_server_reply_add_text(struct smtp_server_reply *reply,
 	const char *line);
 void smtp_server_reply_submit(struct smtp_server_reply *reply);
+void smtp_server_reply_submit_duplicate(struct smtp_server_cmd_ctx *_cmd,
+					unsigned int index,
+					unsigned int from_index);
 
 /* Submit a reply for the command at the specified index (> 0 only if more than
    a single reply is expected). */
