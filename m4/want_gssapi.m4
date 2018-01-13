@@ -3,10 +3,10 @@ AC_DEFUN([DOVECOT_WANT_GSSAPI], [
   if test $want_gssapi != no; then
   	AC_CHECK_PROG(KRB5CONFIG, krb5-config, krb5-config, NO)
   	if test $KRB5CONFIG != NO; then
+  		KRB5_LIBS="`$KRB5CONFIG --libs`"
+  		KRB5_CFLAGS=`$KRB5CONFIG --cflags`
   		if ! $KRB5CONFIG --version gssapi 2>/dev/null > /dev/null; then
   		  # krb5-config doesn't support gssapi.
-  		  KRB5_LIBS="`$KRB5CONFIG --libs`"
-  		  KRB5_CFLAGS=`$KRB5CONFIG --cflags`
   		  AC_CHECK_LIB(gss, gss_acquire_cred, [
   		    # Solaris
   		    KRB5_LIBS="$KRB5_LIBS -lgss"
@@ -15,8 +15,8 @@ AC_DEFUN([DOVECOT_WANT_GSSAPI], [
   		    KRB5_LIBS=
   		  ], $KRB5_LIBS)
   		else
-  		  KRB5_LIBS=`$KRB5CONFIG --libs gssapi`
-  		  KRB5_CFLAGS=`$KRB5CONFIG --cflags gssapi`
+  		  KRB5_LIBS="$KRB5_LIBS `$KRB5CONFIG --libs gssapi`"
+  		  KRB5_CFLAGS="$KRB5_CFLAGS `$KRB5CONFIG --cflags gssapi`"
   		fi
   		if test "$KRB5_LIBS" != ""; then
   			AC_SUBST(KRB5_LIBS)
@@ -51,6 +51,7 @@ AC_DEFUN([DOVECOT_WANT_GSSAPI], [
   				old_LIBS=$LIBS
   				LIBS="$LIBS $KRB5_LIBS"
   				AC_CHECK_FUNCS(gsskrb5_register_acceptor_identity krb5_gss_register_acceptor_identity)
+  				AC_CHECK_FUNCS(krb5_free_context)
   
   				# does the kerberos library support SPNEGO?
   				AC_CACHE_CHECK([whether GSSAPI supports SPNEGO],i_cv_gssapi_spnego,[
