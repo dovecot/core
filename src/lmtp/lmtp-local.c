@@ -385,7 +385,8 @@ int lmtp_local_rcpt(struct client *client,
 		client->local = lmtp_local_init(client);
 
 	rcpt = i_new(struct lmtp_local_recipient, 1);
-	lmtp_recipient_init(&rcpt->rcpt, client, cmd, data);
+	lmtp_recipient_init(&rcpt->rcpt, client,
+			    LMTP_RECIPIENT_TYPE_LOCAL, cmd, data);
 
 	rcpt->detail = i_strdup(detail);
 	rcpt->service_user = service_user;
