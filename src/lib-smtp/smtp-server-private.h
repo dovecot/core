@@ -43,15 +43,20 @@ enum smtp_server_command_state {
 	SMTP_SERVER_COMMAND_STATE_ABORTED
 };
 
-struct smtp_server_reply {
-	struct smtp_server_command *command;
-	unsigned int index;
-
+struct smtp_server_reply_content {
 	unsigned int status;
 	const char *status_prefix;
 
 	string_t *text;
 	size_t last_line;
+};
+
+struct smtp_server_reply {
+	struct smtp_server_command *command;
+	unsigned int index;
+
+	/* replies may share content */
+	struct smtp_server_reply_content *content;
 
 	bool submitted:1;
 	bool sent:1;
