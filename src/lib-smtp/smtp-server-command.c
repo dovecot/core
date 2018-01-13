@@ -403,10 +403,12 @@ void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
 	for (i = 0; i < cmd->replies_expected; i++) {
 		const struct smtp_server_reply *reply =
 			array_idx(&cmd->replies, i);
-		if (reply->submitted)
-			submitted++;
+		if (!reply->submitted)
+			continue;
+		submitted++;
 
-		switch (reply->status) {
+		i_assert(reply->content != NULL);
+		switch (reply->content->status) {
 		case 500:
 		case 501:
 		case 503:
@@ -497,7 +499,7 @@ bool smtp_server_command_reply_status_equals(struct smtp_server_command *cmd,
 	i_assert(cmd->replies_expected == 1);
 	reply = smtp_server_command_get_reply(cmd, 0);
 
-	return (reply->status == status);
+	return (reply->content != NULL && reply->content->status == status);
 }
 
 bool smtp_server_command_replied_success(struct smtp_server_command *cmd)
@@ -513,7 +515,8 @@ bool smtp_server_command_replied_success(struct smtp_server_command *cmd)
 			array_idx(&cmd->replies, i);
 		if (!reply->submitted)
 			return FALSE;
-		if (reply->status / 100 == 2)
+		i_assert(reply->content != NULL);
+		if (reply->content->status / 100 == 2)
 			success = TRUE;
 	}
 
@@ -535,10 +538,11 @@ void smtp_server_command_finished(struct smtp_server_command *cmd)
 
 	i_assert(array_is_created(&cmd->replies));
 	reply = array_idx_modifiable(&cmd->replies, 0);
+	i_assert(reply->content != NULL);
 
-	if (reply->status == 221 || reply->status == 421) {
+	if (reply->content->status == 221 || reply->content->status == 421) {
 		i_assert(cmd->replies_expected == 1);
-		if (reply->status == 421) {
+		if (reply->content->status == 421) {
 			smtp_server_connection_close(&conn, t_strdup_printf(
 				"Server closed the connection: %s",
 				smtp_server_reply_get_one_line(reply)));
