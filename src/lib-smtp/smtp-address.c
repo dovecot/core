@@ -445,10 +445,13 @@ void smtp_address_detail_parse(pool_t pool, const char *delimiters,
 	struct smtp_address *address, const char **username_r,
 	char *delim_r, const char **detail_r)
 {
-	const char *localpart = address->localpart;
+	const char *localpart;
 	const char *user, *p;
 	size_t idx;
 
+	i_assert(!smtp_address_isnull(address));
+
+	localpart = address->localpart;
 	user = localpart;
 	*detail_r = "";
 	*delim_r = '\0';
@@ -501,7 +504,7 @@ void smtp_address_write(string_t *out,
 	const unsigned char *p, *pend, *pblock;
 	size_t begin;
 
-	if (address == NULL || address->localpart == NULL)
+	if (smtp_address_isnull(address))
 		return;
 	begin = str_len(out);
 
@@ -603,17 +606,15 @@ smtp_address_clone(pool_t pool, const struct smtp_address *src)
 	size_t size, lpsize, dsize;
 	char *data, *localpart, *domain;
 
-	if (src == NULL)
+	if (smtp_address_isnull(src))
 		return NULL;
 
 	/* @UNSAFE */
 
 	lpsize = dsize = 0;
 	size = sizeof(struct smtp_address);
-	if (src->localpart != NULL) {
-		lpsize = strlen(src->localpart) + 1;
-		size = MALLOC_ADD(size, lpsize);
-	}
+	lpsize = strlen(src->localpart) + 1;
+	size = MALLOC_ADD(size, lpsize);
 	if (src->domain != NULL) {
 		dsize = strlen(src->domain) + 1;
 		size = MALLOC_ADD(size, dsize);
@@ -661,6 +662,9 @@ smtp_address_clone_temp(const struct smtp_address *src)
 {
 	struct smtp_address *new;
 
+	if (smtp_address_isnull(src))
+		return NULL;
+
 	new = t_new(struct smtp_address, 1);
 	new->localpart = t_strdup(src->localpart);
 	new->domain = t_strdup(src->domain);
@@ -692,6 +696,8 @@ smtp_address_add_detail(pool_t pool, const struct smtp_address *address,
 	struct smtp_address *new_addr;
 	const char delim[] = {delim_c, '\0'};
 
+	i_assert(!smtp_address_isnull(address));
+
 	new_addr = p_new(pool, struct smtp_address, 1);
 	new_addr->localpart = p_strconcat(pool,
 		address->localpart, delim, detail, NULL);
@@ -707,6 +713,8 @@ smtp_address_add_detail_temp(const struct smtp_address *address,
 	struct smtp_address *new_addr;
 	const char delim[] = {delim_c, '\0'};
 
+	i_assert(!smtp_address_isnull(address));
+
 	new_addr = t_new(struct smtp_address, 1);
 	new_addr->localpart = t_strconcat(
 		address->localpart, delim, detail, NULL);
@@ -718,9 +726,16 @@ smtp_address_add_detail_temp(const struct smtp_address *address,
 int smtp_address_cmp(const struct smtp_address *address1,
 	const struct smtp_address *address2)
 {
+	bool null1, null2;
 	int ret;
 
-	if ((ret=strcasecmp(address1->localpart, address2->localpart)) != 0)
+	null1 = smtp_address_isnull(address1);
+	null2 = smtp_address_isnull(address2);
+	if (null1)
+		return (null2 ? 0 : -1);
+	else if (null2)
+		return 1;
+	if ((ret=null_strcasecmp(address1->domain, address2->domain)) != 0)
 		return ret;
-	return strcasecmp(address1->domain, address2->domain);
+	return null_strcmp(address1->localpart, address2->localpart);
 }

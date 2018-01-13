@@ -78,22 +78,26 @@ smtp_address_encode_path(const struct smtp_address *address)
  */
 
 void smtp_address_init(struct smtp_address *address,
-	const char *localpart, const char *domain);
+	const char *localpart, const char *domain) ATTR_NULL(2,3);
 void smtp_address_init_from_msg(struct smtp_address *address,
 	const struct message_address *msg_addr);
 
 struct smtp_address *
-smtp_address_clone(pool_t pool, const struct smtp_address *address);
+smtp_address_clone(pool_t pool, const struct smtp_address *address)
+	ATTR_NULL(2);
 struct smtp_address *
-smtp_address_create(pool_t pool, const char *localpart, const char *domain);
+smtp_address_create(pool_t pool, const char *localpart, const char *domain)
+	ATTR_NULL(2, 3);
 struct smtp_address *
 smtp_address_create_from_msg(pool_t pool,
 	const struct message_address *msg_addr);
 
 struct smtp_address *
-smtp_address_clone_temp(const struct smtp_address *address);
+smtp_address_clone_temp(const struct smtp_address *address)
+	ATTR_NULL(1);
 struct smtp_address *
-smtp_address_create_temp(const char *localpart, const char *domain);
+smtp_address_create_temp(const char *localpart, const char *domain)
+	ATTR_NULL(2, 3);
 struct smtp_address *
 smtp_address_create_from_msg_temp(const struct message_address *msg_addr);
 
@@ -105,9 +109,10 @@ smtp_address_add_detail_temp(const struct smtp_address *address,
 	const char *detail, char delim_c);
 
 int smtp_address_cmp(const struct smtp_address *address1,
-	const struct smtp_address *address2);
+	const struct smtp_address *address2)
+	ATTR_NULL(1, 2);
 
-static inline bool
+static inline bool ATTR_NULL(1, 2)
 smtp_address_equals(const struct smtp_address *address1,
 	const struct smtp_address *address2)
 {
