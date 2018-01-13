@@ -32,4 +32,8 @@ void lmtp_recipient_finish(struct lmtp_recipient *rcpt,
 			   struct smtp_server_recipient *trcpt,
 			   unsigned int index);
 
+struct lmtp_recipient *
+lmtp_recipient_find_duplicate(struct lmtp_recipient *rcpt,
+			      struct smtp_server_transaction *trans);
+
 #endif
