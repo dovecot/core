@@ -50,7 +50,7 @@ int smtp_address_parse_username(pool_t pool, const char *username,
 
 /* Parse address+detail@domain into address@domain and detail
    using given delimiters. Returns used delimiter. */
-void smtp_address_detail_parse(pool_t poo, const char *delimiters,
+void smtp_address_detail_parse(pool_t pool, const char *delimiters,
 	struct smtp_address *address, const char **username_r,
 	char *delim_r, const char **detail_r);
 void smtp_address_detail_parse_temp(const char *delimiters,
