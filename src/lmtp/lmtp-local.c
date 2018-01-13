@@ -41,6 +41,8 @@ struct lmtp_local_recipient {
 	struct mail_storage_service_user *service_user;
 	struct anvil_query *anvil_query;
 
+	struct lmtp_local_recipient *duplicate;
+
 	bool anvil_connect_sent:1;
 };
 
@@ -256,7 +258,7 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 
 static void lmtp_local_rcpt_finished(
 	struct smtp_server_cmd_ctx *cmd,
-	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct smtp_server_transaction *trans,
 	struct smtp_server_recipient *trcpt,
 	unsigned int index)
 {
@@ -273,6 +275,11 @@ static void lmtp_local_rcpt_finished(
 	}
 
 	lmtp_recipient_finish(&rcpt->rcpt, trcpt, index);
+
+	/* resolve duplicate recipient */
+	rcpt->duplicate = (struct lmtp_local_recipient *)
+		lmtp_recipient_find_duplicate(&rcpt->rcpt, trans);
+	i_assert(rcpt->duplicate == NULL || rcpt->duplicate->duplicate == NULL);
 
 	/* add to local recipients */
 	array_append(&client->local->rcpt_to, &rcpt, 1);
@@ -653,6 +660,13 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 	rcpts = array_get(&local->rcpt_to, &count);
 	for (i = 0; i < count; i++) {
 		struct lmtp_local_recipient *rcpt = rcpts[i];
+
+		if (rcpt->duplicate != NULL) {
+			/* don't deliver more than once to the same recipient */
+			smtp_server_reply_submit_duplicate(cmd,
+			    rcpt->rcpt.index, rcpt->duplicate->rcpt.index);
+			continue;
+		}
 
 		ret = lmtp_local_deliver(local, cmd,
 			trans, rcpt, src_mail, session);

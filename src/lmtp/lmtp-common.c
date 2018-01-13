@@ -26,3 +26,23 @@ void lmtp_recipient_finish(struct lmtp_recipient *rcpt,
 	rcpt->index = index;
 	rcpt->rcpt_cmd = NULL;
 }
+
+struct lmtp_recipient *
+lmtp_recipient_find_duplicate(struct lmtp_recipient *rcpt,
+			      struct smtp_server_transaction *trans)
+{
+	struct smtp_server_recipient *drcpt;
+	struct lmtp_recipient *dup_rcpt;
+
+	i_assert(rcpt->rcpt != NULL);
+	drcpt = smtp_server_transaction_find_rcpt_duplicate(trans, rcpt->rcpt);
+	if (drcpt == NULL)
+		return NULL;
+
+	dup_rcpt = drcpt->context;
+	i_assert(dup_rcpt->rcpt == drcpt);
+	i_assert(dup_rcpt->type == rcpt->type);
+
+	return dup_rcpt;
+}
+
