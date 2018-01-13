@@ -344,7 +344,8 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans);
 
 struct smtp_server_recipient *
 smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
-	const struct smtp_address *rcpt_to);
+	const struct smtp_address *rcpt_to,
+	const struct smtp_params_rcpt *params);
 bool smtp_server_transaction_has_rcpt(struct smtp_server_transaction *trans);
 unsigned int
 smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans);

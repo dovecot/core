@@ -53,12 +53,14 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 
 struct smtp_server_recipient *
 smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
-				 const struct smtp_address *rcpt_to)
+				 const struct smtp_address *rcpt_to,
+				 const struct smtp_params_rcpt *params)
 {
 	struct smtp_server_recipient *rcpt;
 
 	rcpt = p_new(trans->pool, struct smtp_server_recipient, 1);
 	rcpt->path = smtp_address_clone(trans->pool, rcpt_to);
+	smtp_params_rcpt_copy(trans->pool, &rcpt->params, params);
 
 	if (!array_is_created(&trans->rcpt_to))
 		p_array_init(&trans->rcpt_to, trans->pool, 8);

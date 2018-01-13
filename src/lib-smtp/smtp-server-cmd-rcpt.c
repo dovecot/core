@@ -47,7 +47,6 @@ static void cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd)
 		(struct smtp_server_cmd_rcpt *)command->data;
 	struct smtp_server_transaction *trans = conn->state.trans;
 	struct smtp_server_recipient *rcpt;
-	pool_t pool;
 
 	conn->state.pending_rcpt_cmds--;
 
@@ -56,10 +55,9 @@ static void cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd)
 		return;
 
 	/* success */
-	pool = trans->pool;
-	rcpt = smtp_server_transaction_add_rcpt(trans, data->path);
+	rcpt = smtp_server_transaction_add_rcpt(trans, data->path,
+						&data->params);
 	rcpt->context = data->trans_context;
-	smtp_params_rcpt_copy(pool, &rcpt->params, &data->params);
 
 	if (data->hook_finished != NULL) {
 		data->hook_finished(cmd, trans, rcpt,
