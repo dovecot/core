@@ -22,9 +22,9 @@
 	(((size) + MEM_ALIGN_SIZE-1) & ~((size_t) MEM_ALIGN_SIZE-1))
 
 #define PTR_OFFSET(ptr, offset) \
-	((void *) (((unsigned char *) (ptr)) + (offset)))
+	((void *) (((uintptr_t) (ptr)) + (offset)))
 #define CONST_PTR_OFFSET(ptr, offset) \
-	((const void *) (((const unsigned char *) (ptr)) + (offset)))
+	((const void *) (((uintptr_t) (ptr)) + (offset)))
 
 #define container_of(ptr, type, name) \
 	(type *)((uintptr_t)(ptr) - (uintptr_t)offsetof(type, name) + \
@@ -39,7 +39,7 @@
    sizeof(size_t) == sizeof(void *) and they're both the largest datatypes
    that are allowed to be used. so, long long isn't safe with these. */
 #define POINTER_CAST(i) \
-	((void *) ((char *) NULL + (i)))
+	((void *) (((uintptr_t)NULL) + (i)))
 #define POINTER_CAST_TO(p, type) \
 	((type) ((const char *) (p) - (const char *) NULL))
 
