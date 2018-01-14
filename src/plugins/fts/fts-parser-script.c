@@ -71,6 +71,7 @@ static int script_contents_read(struct mail_user *user)
 	struct content *content;
 	bool eof_seen = FALSE;
 	int fd, ret = 0;
+	i_assert(suser != NULL);
 
 	fd = script_connect(user, &path);
 	if (fd == -1)
