@@ -151,7 +151,7 @@ static void snarf_mailbox_allocated(struct mailbox *box)
 
 	if (!box->inbox_user)
 		return;
-	if (sstorage != NULL && sstorage->snarfing_disabled)
+	if (sstorage == NULL || sstorage->snarfing_disabled)
 		return;
 
 	if (!snarf_box_find(box->storage->user, &snarf_list, &snarf_name))
