@@ -106,6 +106,7 @@ static void replication_notify_now(struct mail_user *user)
 	struct replication_user *ruser = REPLICATION_USER_CONTEXT(user);
 	int ret;
 
+	i_assert(ruser != NULL);
 	i_assert(ruser->priority != REPLICATION_PRIORITY_NONE);
 	i_assert(ruser->priority != REPLICATION_PRIORITY_SYNC);
 
@@ -128,6 +129,8 @@ static int replication_notify_sync(struct mail_user *user)
 	int fd;
 	ssize_t ret;
 	bool success = FALSE;
+
+	i_assert(ruser != NULL);
 
 	fd = net_connect_unix(ruser->socket_path);
 	if (fd == -1) {
@@ -301,6 +304,8 @@ static void replication_mailbox_set_subscribed(struct mailbox *box,
 static void replication_user_deinit(struct mail_user *user)
 {
 	struct replication_user *ruser = REPLICATION_USER_CONTEXT(user);
+
+	i_assert(ruser != NULL);
 
 	if (ruser->to != NULL) {
 		replication_notify_now(user);
