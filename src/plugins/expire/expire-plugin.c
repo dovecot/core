@@ -20,10 +20,12 @@
 
 #define EXPIRE_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, expire_storage_module)
+#define EXPIRE_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, expire_storage_module)
 #define EXPIRE_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, expire_mail_module)
+	MODULE_CONTEXT_REQUIRE(obj, expire_mail_module)
 #define EXPIRE_USER_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, expire_mail_user_module)
+	MODULE_CONTEXT_REQUIRE(obj, expire_mail_user_module)
 
 struct expire_mail_index_header {
 	uint32_t timestamp;
@@ -62,7 +64,7 @@ expire_mailbox_transaction_begin(struct mailbox *box,
 				 enum mailbox_transaction_flags flags,
 				 const char *reason)
 {
-	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(box);
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT_REQUIRE(box);
 	struct mailbox_transaction_context *t;
 	struct expire_transaction_context *xt;
 
@@ -97,7 +99,7 @@ static void first_save_timestamp(struct mailbox *box, time_t *stamp_r)
 
 static uint32_t expire_get_ext_id(struct mailbox *box)
 {
-	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(box);
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT_REQUIRE(box);
 
 	if (xpr_box->expire_ext_id != (uint32_t)-1)
 		return xpr_box->expire_ext_id;
@@ -211,8 +213,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				  struct mail_transaction_commit_changes *changes_r)
 {
 	struct mail_user *user = t->box->storage->user;
-	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
-	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT_REQUIRE(t->box);
+	struct expire_transaction_context *xt = EXPIRE_CONTEXT_REQUIRE(t);
 	struct mailbox *box = t->box;
 	time_t new_stamp = 0;
 	bool update_dict = FALSE;
@@ -283,8 +285,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 static void
 expire_mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 {
-	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
-	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT_REQUIRE(t->box);
+	struct expire_transaction_context *xt = EXPIRE_CONTEXT_REQUIRE(t);
 
 	xpr_box->module_ctx.super.transaction_rollback(t);
 	i_free(xt);
@@ -295,7 +297,7 @@ static void expire_mail_expunge(struct mail *_mail)
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *xpr_mail = EXPIRE_MAIL_CONTEXT(mail);
 	struct expire_transaction_context *xt =
-		EXPIRE_CONTEXT(_mail->transaction);
+		EXPIRE_CONTEXT_REQUIRE(_mail->transaction);
 
 	if (_mail->seq == 1) {
 		/* first mail expunged, database needs to be updated */
@@ -325,8 +327,8 @@ static void expire_mail_allocated(struct mail *_mail)
 static int expire_save_finish(struct mail_save_context *ctx)
 {
 	struct expire_transaction_context *xt =
-		EXPIRE_CONTEXT(ctx->transaction);
-	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(ctx->transaction->box);
+		EXPIRE_CONTEXT_REQUIRE(ctx->transaction);
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT_REQUIRE(ctx->transaction->box);
 
 	xt->saves = TRUE;
 	return xpr_box->module_ctx.super.save_finish(ctx);
@@ -336,8 +338,8 @@ static int
 expire_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct expire_transaction_context *xt =
-		EXPIRE_CONTEXT(ctx->transaction);
-	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(ctx->transaction->box);
+		EXPIRE_CONTEXT_REQUIRE(ctx->transaction);
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT_REQUIRE(ctx->transaction->box);
 
 	xt->saves = TRUE;
 	return xpr_box->module_ctx.super.copy(ctx, mail);
