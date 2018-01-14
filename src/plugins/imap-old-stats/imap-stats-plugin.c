@@ -62,7 +62,7 @@ static void stats_command_post(struct client_command_context *cmd)
 	string_t *str;
 	buffer_t *buf;
 
-	if (scmd == NULL)
+	if (suser == NULL || scmd == NULL)
 		return;
 
 	new_stats = stats_alloc(pool_datastack_create());
