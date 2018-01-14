@@ -41,7 +41,7 @@ static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 };
 
 #define ACL_LIST_ITERATE_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, acl_mailbox_list_module)
+	MODULE_CONTEXT_REQUIRE(obj, acl_mailbox_list_module)
 
 struct acl_mailbox_list_module acl_mailbox_list_module =
 	MODULE_CONTEXT_INIT(&mailbox_list_module_register);

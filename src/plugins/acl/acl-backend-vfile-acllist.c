@@ -312,7 +312,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	}
 	if (ret == 0) {
 		struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
-
+		i_assert(auser != NULL);
 		backend->acllist_mtime = st.st_mtime;
 		backend->acllist_last_check = ioloop_time;
 		/* FIXME: dict rebuild is expensive, try to avoid it */
