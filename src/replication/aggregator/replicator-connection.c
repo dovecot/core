@@ -10,6 +10,7 @@
 #include "llist.h"
 #include "strescape.h"
 #include "replicator-connection.h"
+#include "aggregator-settings.h"
 
 #define MAX_INBUF_SIZE 1024
 #define REPLICATOR_RECONNECT_MSECS 5000
@@ -56,6 +57,9 @@ replicator_input_line(struct replicator_connection *conn, const char *line)
 		e_error(conn->event, "Replicator sent invalid ID: %u", id);
 		return -1;
 	}
+
+	e_debug(conn->event, "Request id %u has %s",
+		id, line[0] == '+' ? "succeeded" : "failed");
 	hash_table_remove(conn->requests, POINTER_CAST(id));
 	conn->callback(line[0] == '+', context);
 	return 0;
@@ -143,6 +147,9 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 		return;
 
 	if (conn->port == 0) {
+		event_set_append_log_prefix(conn->event,
+					    t_strdup_printf("(unix:%s): ", conn->path));
+		e_debug(conn->event, "Connecting to replicator");
 		fd = net_connect_unix(conn->path);
 		if (fd == -1)
 			e_error(conn->event, "net_connect_unix(%s) failed: %m",
@@ -152,6 +159,9 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 			unsigned int idx = conn->ip_idx;
 
 			conn->ip_idx = (conn->ip_idx + 1) % conn->ips_count;
+			event_set_append_log_prefix(conn->event, t_strdup_printf(
+				"(%s): ", net_ipport2str(&conn->ips[idx], conn->port)));
+			e_debug(conn->event, "Connecting to replicator");
 			fd = net_connect_ip(&conn->ips[idx], conn->port, NULL);
 			if (fd != -1)
 				break;
@@ -161,7 +171,9 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 	}
 
 	if (fd == -1) {
+		event_set_append_log_prefix(conn->event, "");
 		if (conn->to == NULL) {
+			e_debug(conn->event, "Reconnecting in %u msecs", REPLICATOR_RECONNECT_MSECS);
 			conn->to = timeout_add(REPLICATOR_RECONNECT_MSECS,
 					       replicator_connection_connect,
 					       conn);
@@ -174,6 +186,7 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 	conn->io = io_add(fd, IO_READ, replicator_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(fd, SIZE_MAX);
+	e_debug(conn->event, "Sending handshake");
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_nsend_str(conn->output, REPLICATOR_HANDSHAKE);
 	o_stream_set_flush_callback(conn->output, replicator_output, conn);
@@ -184,6 +197,7 @@ static void replicator_abort_all_requests(struct replicator_connection *conn)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
+	e_debug(conn->event, "Aborting all requests");
 	iter = hash_table_iterate_init(conn->requests);
 	while (hash_table_iterate(iter, conn->requests, &key, &value))
 		conn->callback(FALSE, value);
@@ -196,11 +210,13 @@ static void replicator_connection_disconnect(struct replicator_connection *conn)
 	if (conn->fd == -1)
 		return;
 
+	e_debug(conn->event, "Disconnecting");
 	replicator_abort_all_requests(conn);
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	net_disconnect(conn->fd);
+	event_set_append_log_prefix(conn->event, "");
 	conn->fd = -1;
 }
 
@@ -307,6 +323,8 @@ void replicator_connection_notify(struct replicator_connection *conn,
 	}
 
 	T_BEGIN {
+		e_debug(conn->event, "Requesting replication of %s priority for user %s",
+			priority_str, username);
 		replicator_send(conn, priority, t_strdup_printf(
 			"U\t%s\t%s\n", str_tabescape(username), priority_str));
 	} T_END;
@@ -324,6 +342,8 @@ void replicator_connection_notify_sync(struct replicator_connection *conn,
 	hash_table_insert(conn->requests, POINTER_CAST(id), context);
 
 	T_BEGIN {
+		e_debug(conn->event, "Requesting synchronization with id %u for user %s",
+			id, username);
 		replicator_send(conn, REPLICATION_PRIORITY_SYNC, t_strdup_printf(
 			"U\t%s\tsync\t%u\n", str_tabescape(username), id));
 	} T_END;

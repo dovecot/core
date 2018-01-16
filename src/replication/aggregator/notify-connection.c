@@ -11,6 +11,7 @@
 #include "replication-common.h"
 #include "replicator-connection.h"
 #include "notify-connection.h"
+#include "aggregator-settings.h"
 
 #define MAX_INBUF_SIZE 8192
 
@@ -45,6 +46,8 @@ void notify_connection_sync_callback(bool success, void *context)
 {
 	struct notify_connection *conn = context;
 
+	e_debug(conn->event, "Sending %s result",
+		success ? "success" : "failure");
 	o_stream_nsend_str(conn->output, success ? "+\n" : "-\n");
 	notify_connection_unref(conn);
 }
@@ -67,6 +70,10 @@ notify_input_line(struct notify_connection *conn, const char *line,
 			"Client sent invalid priority: %s", args[1]);
 		return -1;
 	}
+
+	e_debug(conn->event, "Received priority %s request for %s",
+		args[1], args[0]);
+
 	if (priority != REPLICATION_PRIORITY_SYNC)
 		replicator_connection_notify(replicator, args[0], priority);
 	else {
@@ -117,6 +124,7 @@ void notify_connection_create(int fd, bool fifo)
 	conn->io = io_add(fd, IO_READ, notify_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
 	conn->event = event_create(NULL);
+	event_set_append_log_prefix(conn->event, "notify: ");
 	if (!fifo) {
 		conn->output = o_stream_create_fd(fd, SIZE_MAX);
 		o_stream_set_no_error_handling(conn->output, TRUE);
@@ -140,6 +148,8 @@ static void notify_connection_unref(struct notify_connection *conn)
 static void notify_connection_destroy(struct notify_connection *conn)
 {
 	i_assert(conn->fd != -1);
+
+	e_debug(conn->event, "Disconnected");
 
 	if (!CONNECTION_IS_FIFO(conn))
 		master_service_client_connection_destroyed(master_service);
