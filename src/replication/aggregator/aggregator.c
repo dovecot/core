@@ -17,8 +17,14 @@ static struct event_category event_category_replication = {
 
 static void client_connected(struct master_service_connection *conn)
 {
+	const char *name;
+
 	master_service_client_connection_accept(conn);
-	notify_connection_create(conn->fd, conn->fifo);
+	if (conn->remote_port == 0)
+		name = conn->name;
+	else
+		name = net_ipport2str(&conn->remote_ip, conn->remote_port);
+	notify_connection_create(conn->fd, conn->fifo, name);
 }
 
 static void main_preinit(void)

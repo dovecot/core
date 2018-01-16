@@ -114,7 +114,7 @@ static void notify_input(struct notify_connection *conn)
 	}
 }
 
-void notify_connection_create(int fd, bool fifo)
+void notify_connection_create(int fd, bool fifo, const char *name)
 {
 	struct notify_connection *conn;
 
@@ -123,8 +123,10 @@ void notify_connection_create(int fd, bool fifo)
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, notify_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
+	i_stream_set_name(conn->input, name);
 	conn->event = event_create(NULL);
-	event_set_append_log_prefix(conn->event, "notify: ");
+	event_set_append_log_prefix(conn->event,
+		t_strdup_printf("notify(%s): ", name));
 	if (!fifo) {
 		conn->output = o_stream_create_fd(fd, SIZE_MAX);
 		o_stream_set_no_error_handling(conn->output, TRUE);
