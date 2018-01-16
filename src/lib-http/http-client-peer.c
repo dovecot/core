@@ -407,8 +407,9 @@ http_client_peer_shared_start_backoff_timer(
 				(pshared->backoff_current_time_msecs - backoff_time_spent);
 			e_debug(pshared->event,
 				"Starting backoff timer for %d msecs", new_time);
-			pshared->to_backoff = timeout_add(new_time,
-					http_client_peer_shared_connect_backoff, pshared);
+			pshared->to_backoff = timeout_add_to(
+				pshared->cctx->ioloop, new_time,
+				http_client_peer_shared_connect_backoff, pshared);
 			return TRUE;
 		}
 
@@ -1109,8 +1110,9 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 {
 	/* trigger request handling through timeout */
 	if (peer->to_req_handling == NULL) {
-		peer->to_req_handling =
-			timeout_add_short(0, http_client_peer_handle_requests, peer);
+		peer->to_req_handling =	timeout_add_short_to(
+			peer->client->ioloop, 0,
+			http_client_peer_handle_requests, peer);
 	}
 }
 

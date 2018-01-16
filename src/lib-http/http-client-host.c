@@ -62,7 +62,7 @@ http_client_host_shared_check_idle(
 	if (timeout <= HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS)
 		timeout = HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS;
 
-	hshared->to_idle = timeout_add_short(timeout,
+	hshared->to_idle = timeout_add_to(hshared->cctx->ioloop, timeout,
 		http_client_host_shared_idle_timeout, hshared);
 
 	e_debug(hshared->event, "Host is idle (timeout = %u msecs)", timeout);
@@ -143,6 +143,7 @@ static void http_client_host_shared_lookup
 		i_zero(&dns_set);
 		dns_set.dns_client_socket_path = cctx->dns_client_socket_path;
 		dns_set.timeout_msecs = cctx->dns_lookup_timeout_msecs;
+		dns_set.ioloop = cctx->ioloop;
 		(void)dns_lookup(hshared->name, &dns_set,
 				 http_client_host_shared_dns_callback, hshared, &hshared->dns_lookup);
 	} else {

@@ -364,6 +364,7 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 	const struct http_client_settings *set = &client->set;
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client_peer_shared *pshared = ppool->peer;
+	struct http_client_context *cctx = pshared->cctx;
 	unsigned int timeout, count;
 
 	if (!conn->connected) {
@@ -395,8 +396,8 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 			"Lost peer; going idle (timeout = %u msecs)",
 			timeout);
 
-		conn->to_idle =
-			timeout_add(timeout, http_client_connection_idle_timeout, conn);
+		conn->to_idle = timeout_add_to(cctx->ioloop, timeout,
+			http_client_connection_idle_timeout, conn);
 		array_append(&ppool->idle_conns, &conn, 1);
 	} else {
 		e_debug(conn->event, "Lost peer; already idle");
@@ -409,6 +410,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	struct http_client_peer *peer;
 	struct http_client_peer_pool *ppool = conn->ppool;
+	struct http_client_context *cctx = ppool->peer->cctx;
 	struct http_client *client;
 	const struct http_client_settings *set;
 	unsigned int timeout, count;
@@ -461,8 +463,8 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 			"No more requests queued; going idle (timeout = %u msecs)",
 			timeout);
 
-		conn->to_idle =
-			timeout_add(timeout, http_client_connection_idle_timeout, conn);
+		conn->to_idle = timeout_add_to(cctx->ioloop, timeout,
+			http_client_connection_idle_timeout, conn);
 
 		array_append(&ppool->idle_conns, &conn, 1);
 	}
@@ -514,6 +516,7 @@ http_client_connection_request_timeout(struct http_client_connection *conn)
 void http_client_connection_start_request_timeout(
 	struct http_client_connection *conn)
 {
+	struct http_client_context *cctx = conn->ppool->peer->cctx;
 	struct http_client_peer *peer = conn->peer;
 	struct http_client *client = peer->client;
 	const struct http_client_settings *set = &client->set;
@@ -535,8 +538,9 @@ void http_client_connection_start_request_timeout(
 	else if (conn->to_requests != NULL)
 		timeout_reset(conn->to_requests);
 	else {
-		conn->to_requests = timeout_add(timeout_msecs,
-						http_client_connection_request_timeout, conn);
+		conn->to_requests = timeout_add_to(
+			cctx->ioloop, timeout_msecs,
+			http_client_connection_request_timeout, conn);
 	}
 }
 
@@ -585,6 +589,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 {
 	struct http_client_peer *peer = conn->peer;
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
+	struct http_client_context *cctx = pshared->cctx;
 	struct http_client_request *req = NULL;
 	const char *error;
 	bool pipelined;
@@ -641,7 +646,8 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 		i_assert(!pipelined);
 		i_assert(req->payload_chunked || req->payload_size > 0);
 		i_assert(conn->to_response == NULL);
-		conn->to_response =	timeout_add(HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS,
+		conn->to_response = timeout_add_to(cctx->ioloop,
+			HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS,
 			http_client_connection_continue_timeout, conn);
 	}
 
@@ -692,9 +698,12 @@ static void http_client_connection_destroy(struct connection *_conn)
 
 static void http_client_payload_finished(struct http_client_connection *conn)
 {
+	struct http_client_context *cctx = conn->ppool->peer->cctx;
+
 	timeout_remove(&conn->to_input);
-	conn->conn.io = io_add_istream(conn->conn.input,
-				       http_client_connection_input, &conn->conn);
+	conn->conn.io = io_add_istream_to(cctx->ioloop, conn->conn.input,
+					  http_client_connection_input,
+					  &conn->conn);
 	if (array_count(&conn->request_wait_list) > 0)
 		http_client_connection_start_request_timeout(conn);
 }
@@ -712,6 +721,7 @@ http_client_payload_destroyed_timeout(struct http_client_connection *conn)
 static void http_client_payload_destroyed(struct http_client_request *req)
 {
 	struct http_client_connection *conn = req->conn;
+	struct http_client_context *cctx = conn->ppool->peer->cctx;
 
 	i_assert(conn != NULL);
 	i_assert(conn->pending_request == req);
@@ -740,8 +750,9 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	   state it is in). this call also triggers sending a new request if
 	   necessary. */
 	if (!conn->disconnected) {
-		conn->to_input = timeout_add_short
-			(0, http_client_payload_destroyed_timeout, conn);
+		conn->to_input = timeout_add_short_to(
+			cctx->ioloop, 0,
+			http_client_payload_destroyed_timeout, conn);
 	}
 
 	/* room for new requests */
@@ -791,6 +802,7 @@ http_client_connection_return_response(
 	struct http_response *response)
 {
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
+	struct http_client_context *cctx = pshared->cctx;
 	struct istream *payload;
 	bool retrying;
 
@@ -803,8 +815,10 @@ http_client_connection_return_response(
 	req->state = HTTP_REQUEST_STATE_GOT_RESPONSE;
 
 	if (response->payload != NULL) {
-		/* wrap the stream to capture the destroy event without destroying the
-		   actual payload stream. */
+		/* wrap the stream to capture the destroy event without
+		   destroying the actual payload stream. we are already expected
+		   to be on the correct ioloop, so there should be no need to
+		   switch the stream's ioloop here. */
 		conn->incoming_payload = response->payload =
 			i_stream_create_timeout(response->payload,
 				req->attempt_timeout_msecs);
@@ -837,9 +851,10 @@ http_client_connection_return_response(
 			i_stream_remove_destroy_callback(conn->incoming_payload,
 							 http_client_payload_destroyed);
 			i_stream_unref(&conn->incoming_payload);
-			conn->conn.io = io_add_istream(conn->conn.input,
-					       http_client_connection_input,
-					       &conn->conn);
+			conn->conn.io = io_add_istream_to(cctx->ioloop,
+							  conn->conn.input,
+							  http_client_connection_input,
+							  &conn->conn);
 		}
 		http_client_connection_unref_request(conn, &req);
 		return http_client_connection_unref(&conn);
@@ -1485,19 +1500,23 @@ static void
 http_client_connection_connect(struct http_client_connection *conn,
 	unsigned int timeout_msecs)
 {
+	struct http_client_context *cctx = conn->ppool->peer->cctx;
+
 	conn->connect_start_timestamp = ioloop_timeval;
 	if (connection_client_connect(&conn->conn) < 0) {
 		conn->connect_errno = errno;
 		e_debug(conn->event, "Connect failed: %m");
-		conn->to_input = timeout_add_short(0,
+		conn->to_input = timeout_add_short_to(cctx->ioloop, 0,
 			http_client_connection_delayed_connect_error, conn);
 		return;
 	}
+	connection_switch_ioloop_to(&conn->conn, cctx->ioloop);
 
 	/* don't use connection.h timeout because we want this timeout
 	   to include also the SSL handshake */
 	if (timeout_msecs > 0) {
-		conn->to_connect = timeout_add(timeout_msecs,
+		conn->to_connect = timeout_add_to(
+			cctx->ioloop, timeout_msecs,
 			http_client_connect_timeout, conn);
 	}
 }
@@ -1542,8 +1561,9 @@ http_client_connection_tunnel_response(const struct http_response *response,
 
 	http_client_request_start_tunnel(req, &tunnel);
 
-	connection_init_from_streams
-		(cctx->conn_list, &conn->conn, name, tunnel.input, tunnel.output);
+	connection_init_from_streams(cctx->conn_list, &conn->conn,
+				     name, tunnel.input, tunnel.output);
+	connection_switch_ioloop_to(&conn->conn, cctx->ioloop);
 	i_stream_unref(&tunnel.input);
 	o_stream_unref(&tunnel.output);
 	conn->connect_initialized = TRUE;
@@ -1554,6 +1574,7 @@ http_client_connection_connect_tunnel(struct http_client_connection *conn,
 	const struct ip_addr *ip, in_port_t port,
 	unsigned int timeout_msecs)
 {
+	struct http_client_context *cctx = conn->ppool->peer->cctx;
 	struct http_client *client = conn->peer->client;
 
 	conn->connect_start_timestamp = ioloop_timeval;
@@ -1566,7 +1587,8 @@ http_client_connection_connect_tunnel(struct http_client_connection *conn,
 	/* don't use connection.h timeout because we want this timeout
 	   to include also the SSL handshake */
 	if (timeout_msecs > 0) {
-		conn->to_connect = timeout_add(timeout_msecs,
+		conn->to_connect = timeout_add_to(
+			cctx->ioloop, timeout_msecs,
 			http_client_connect_tunnel_timeout, conn);
 	}
 }
@@ -1615,7 +1637,7 @@ http_client_connection_create(struct http_client_peer *peer)
 	conn->debug = client->set.debug;
 	if (pshared->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
 		i_array_init(&conn->request_wait_list, 16);
-	conn->io_wait_timer = io_wait_timer_add();
+	conn->io_wait_timer = io_wait_timer_add_to(cctx->ioloop);
 
 	conn->label = i_strdup_printf("%s [%d]",
 		http_client_peer_shared_label(pshared), conn->id);

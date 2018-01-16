@@ -1057,6 +1057,7 @@ int http_client_request_send_more(struct http_client_request *req,
 				  bool pipelined, const char **error_r)
 {
 	struct http_client_connection *conn = req->conn;
+	struct http_client_context *cctx = conn->ppool->peer->cctx;
 	struct ostream *output = req->payload_output;
 	enum ostream_send_istream_result res;
 	uoff_t offset;
@@ -1108,7 +1109,8 @@ int http_client_request_send_more(struct http_client_request *req,
 		conn->output_locked = TRUE;	
 		if (!pipelined)
 			http_client_connection_stop_request_timeout(conn);
-		conn->io_req_payload = io_add_istream(req->payload_input,
+		conn->io_req_payload = io_add_istream_to(
+			cctx->ioloop, req->payload_input,
 			http_client_request_payload_input, req);
 		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
