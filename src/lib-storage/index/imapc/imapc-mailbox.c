@@ -274,8 +274,14 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	uint32_t exists_count = reply->num;
 	const struct mail_index_header *hdr;
 
-	if (mbox == NULL || IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
+	if (mbox == NULL)
 		return;
+	if (mbox->exists_received &&
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES)) {
+		/* ignore all except the first EXISTS reply (returned by
+		   SELECT) */
+		return;
+	}
 
 	mbox->exists_count = exists_count;
 	mbox->exists_received = TRUE;
