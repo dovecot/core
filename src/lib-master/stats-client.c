@@ -158,34 +158,61 @@ static const struct connection_vfuncs stats_client_vfuncs = {
 	.input_args = stats_client_input_args,
 };
 
-static struct event *stats_event_get_parent(struct event *event)
+static struct event *stats_event_get_merged(struct event *event)
 {
-	struct event *parent = event->parent;
-	unsigned int count;
+	struct event *res = event;
+	struct event *p;
+	unsigned int cat_count, field_count;
+	bool use_original = TRUE;
 
-	if (parent == NULL || parent->id_sent_to_stats)
-		return parent;
-	/* avoid sending unnecessary events that don't add anything */
-	(void)event_get_fields(parent, &count);
-	if (count > 0)
-		return parent;
-	(void)event_get_categories(parent, &count);
-	if (count > 0)
-		return parent;
-	return stats_event_get_parent(parent);
+	for (p = event->parent;
+	     p != NULL && !p->id_sent_to_stats &&
+		     timeval_cmp(&p->tv_created, &res->tv_created) == 0;
+	     p = p->parent) {
+		// Merge all parents with the same timestamp into result.
+		if (!event_has_all_categories(res, p) ||
+		    !event_has_all_fields(res, p)) {
+			if (use_original) {
+				res = event_dup(event);
+				use_original = FALSE;
+			}
+			event_copy_categories_fields(res, p);
+		}
+	}
+
+	for (; p != NULL && !p->id_sent_to_stats; p = p->parent) {
+		// Now skip parents with empty fields and categories.
+		(void)event_get_fields(p, &field_count);
+		(void)event_get_categories(p, &cat_count);
+		if (field_count > 0 || cat_count > 0)
+			break;
+	}
+
+	if (res->parent != p) {
+		/* p is NULL or
+		   p sent to stats or
+		   p is the first parent that has different timestamp from event
+		   and have fields and/or categories
+		   use p as parent,
+		   because we do not want parent without fields and categoris */
+		if (use_original) {
+			res = event_dup(event);
+			use_original = FALSE;
+		}
+		event_unref(&res->parent);
+		res->parent = p;
+		event_ref(res->parent);
+	}
+	return res;
 }
 
 static void
 stats_event_write(struct event *event, const struct failure_context *ctx,
 		  string_t *str, bool begin)
 {
-	struct event *parent_event =
-		begin ? event->parent : stats_event_get_parent(event);
+	struct event *merged_event = begin? event: stats_event_get_merged(event);
+	struct event *parent_event = merged_event->parent;
 
-	/* FIXME: we could use create-timestamp of the events to figure out
-	   whether to use BEGIN or to just merge the categories and fields
-	   to the same EVENT. If the parent's timestamp is the same as ours,
-	   don't bother using BEGIN for parent. */
 	if (parent_event != NULL) {
 		if (!parent_event->id_sent_to_stats)
 			stats_event_write(parent_event, ctx, str, TRUE);
@@ -200,8 +227,10 @@ stats_event_write(struct event *event, const struct failure_context *ctx,
 	str_printfa(str, "%"PRIu64"\t%u\t",
 		    parent_event == NULL ? 0 : parent_event->id,
 		    ctx->type);
-	event_export(event, str);
+	event_export(merged_event, str);
 	str_append_c(str, '\n');
+	if (merged_event != event)
+		event_unref(&merged_event);
 }
 
 static void
