@@ -113,6 +113,7 @@ http_client_init_shared(struct http_client_context *cctx,
 	pool = pool_alloconly_create("http client", 1024);
 	client = p_new(pool, struct http_client, 1);
 	client->pool = pool;
+	client->ioloop = current_ioloop;
 
 	/* create private context if none is provided */
 	id++;
@@ -280,9 +281,8 @@ void http_client_deinit(struct http_client **_client)
 	pool_unref(&client->pool);
 }
 
-struct ioloop *http_client_switch_ioloop(struct http_client *client)
+static void http_client_do_switch_ioloop(struct http_client *client)
 {
-	struct ioloop *prev_ioloop = client->ioloop;
 	struct http_client_peer *peer;
 	struct http_client_host *host;
 
@@ -301,10 +301,17 @@ struct ioloop *http_client_switch_ioloop(struct http_client *client)
 		client->to_failing_requests =
 			io_loop_move_timeout(&client->to_failing_requests);
 	}
+}
 
-	http_client_context_switch_ioloop(client->cctx);
+struct ioloop *http_client_switch_ioloop(struct http_client *client)
+{
+	struct ioloop *prev_ioloop = client->ioloop;
 
 	client->ioloop = current_ioloop;
+
+	http_client_do_switch_ioloop(client);
+	http_client_context_switch_ioloop(client->cctx);
+
 	return prev_ioloop;
 }
 
@@ -394,8 +401,9 @@ void http_client_delay_request_error(struct http_client *client,
 	struct http_client_request *req)
 {
 	if (client->to_failing_requests == NULL) {
-		client->to_failing_requests = timeout_add_short(0,
-			http_client_handle_request_errors, client);
+		client->to_failing_requests =
+			timeout_add_short_to(client->ioloop, 0,
+				http_client_handle_request_errors, client);
 	}
 	array_append(&client->delayed_failing_requests, &req, 1);
 }
@@ -429,6 +437,7 @@ http_client_context_create(const struct http_client_settings *set)
 	cctx = p_new(pool, struct http_client_context, 1);
 	cctx->pool = pool;
 	cctx->refcount = 1;
+	cctx->ioloop = current_ioloop;
 
 	cctx->event = event_create(set->event);
 	if (set->debug)
@@ -609,6 +618,16 @@ http_client_context_remove_client(struct http_client_context *cctx,
 {
 	DLLIST_REMOVE(&cctx->clients_list, client);
 	http_client_context_update_settings(cctx);
+
+	if (cctx->ioloop != current_ioloop &&
+	    cctx->ioloop == client->ioloop &&
+	    cctx->clients_list != NULL) {
+		struct ioloop *prev_ioloop = current_ioloop;
+
+		io_loop_set_current(cctx->clients_list->ioloop);
+		http_client_context_switch_ioloop(cctx);
+		io_loop_set_current(prev_ioloop);
+	}
 }
 
 static void http_client_context_close(struct http_client_context *cctx)
@@ -639,7 +658,8 @@ static void http_client_context_close(struct http_client_context *cctx)
 	}
 }
 
-void http_client_context_switch_ioloop(struct http_client_context *cctx)
+static void
+http_client_context_do_switch_ioloop(struct http_client_context *cctx)
 {
 	struct connection *_conn = cctx->conn_list->connections;
 	struct http_client_host_shared *hshared;
@@ -667,6 +687,13 @@ void http_client_context_switch_ioloop(struct http_client_context *cctx)
 		http_client_host_shared_switch_ioloop(hshared);
 }
 
+void http_client_context_switch_ioloop(struct http_client_context *cctx)
+{
+	cctx->ioloop = current_ioloop;
+
+	http_client_context_do_switch_ioloop(cctx);
+}
+
 static void http_client_global_context_free(void)
 {
 	http_client_context_unref(&http_client_global_context);
@@ -676,12 +703,17 @@ static void
 http_client_global_context_ioloop_switched(
 	struct ioloop *prev_ioloop ATTR_UNUSED)
 {
-	i_assert(http_client_global_context != NULL);
+	struct http_client_context *cctx = http_client_global_context;
+
+	i_assert(cctx != NULL);
 	if (current_ioloop == NULL) {
-		http_client_context_close(http_client_global_context);
+		http_client_context_close(cctx);
 		return;
 	}
-	http_client_context_switch_ioloop(http_client_global_context);
+	if (cctx->clients_list == NULL) {
+		/* follow the current ioloop if there is no client */
+		http_client_context_switch_ioloop(cctx);
+	}
 }
 
 struct http_client_context *http_client_get_global_context(void)

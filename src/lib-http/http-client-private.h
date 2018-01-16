@@ -387,6 +387,7 @@ struct http_client_context {
 	pool_t pool;
 	unsigned int refcount;
 	struct event *event;
+	struct ioloop *ioloop;
 
 	struct http_client_settings set;
 
