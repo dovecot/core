@@ -34,7 +34,7 @@ static void io_loop_initialize_handler(struct ioloop *ioloop)
 }
 
 static struct io_file *
-io_add_file(int fd, enum io_condition condition,
+io_add_file(struct ioloop *ioloop, int fd, enum io_condition condition,
 	    const char *source_filename,
 	    unsigned int source_linenum,
 	    io_callback_t *callback, void *context)
@@ -48,7 +48,7 @@ io_add_file(int fd, enum io_condition condition,
         io->io.condition = condition;
 	io->io.callback = callback;
         io->io.context = context;
-	io->io.ioloop = current_ioloop;
+	io->io.ioloop = ioloop;
 	io->io.source_filename = source_filename;
 	io->io.source_linenum = source_linenum;
 	io->refcount = 1;
@@ -76,16 +76,44 @@ io_add_file(int fd, enum io_condition condition,
 	return io;
 }
 
+#undef io_add_to
+struct io *io_add_to(struct ioloop *ioloop, int fd, enum io_condition condition,
+		     const char *source_filename, unsigned int source_linenum,
+		     io_callback_t *callback, void *context)
+{
+	struct io_file *io;
+
+	i_assert(fd >= 0);
+	io = io_add_file(ioloop, fd, condition,
+			 source_filename, source_linenum,
+			 callback, context);
+	return &io->io;
+}
+
 #undef io_add
 struct io *io_add(int fd, enum io_condition condition,
 		  const char *source_filename,
 		  unsigned int source_linenum,
 		  io_callback_t *callback, void *context)
 {
+	return io_add_to(current_ioloop, fd, condition,
+			 source_filename, source_linenum,
+			 callback, context);
+}
+
+#undef io_add_istream_to
+struct io *io_add_istream_to(struct ioloop *ioloop, struct istream *input,
+			     const char *source_filename,
+			     unsigned int source_linenum,
+			     io_callback_t *callback, void *context)
+{
 	struct io_file *io;
 
-	i_assert(fd >= 0);
-	io = io_add_file(fd, condition, source_filename, source_linenum, callback, context);
+	io = io_add_file(ioloop, i_stream_get_fd(input), IO_READ,
+			 source_filename, source_linenum, callback, context);
+	io->istream = input;
+	i_stream_ref(io->istream);
+	i_stream_set_io(io->istream, &io->io);
 	return &io->io;
 }
 
@@ -94,14 +122,9 @@ struct io *io_add_istream(struct istream *input, const char *source_filename,
 			  unsigned int source_linenum,
 			  io_callback_t *callback, void *context)
 {
-	struct io_file *io;
-
-	io = io_add_file(i_stream_get_fd(input), IO_READ, source_filename,
-			 source_linenum, callback, context);
-	io->istream = input;
-	i_stream_ref(io->istream);
-	i_stream_set_io(io->istream, &io->io);
-	return &io->io;
+	return io_add_istream_to(current_ioloop, input,
+				 source_filename, source_linenum,
+				 callback, context);
 }
 
 static void io_file_unlink(struct io_file *io)
@@ -216,8 +239,9 @@ static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 }
 
 static struct timeout *
-timeout_add_common(const char *source_filename, unsigned int source_linenum,
-			    timeout_callback_t *callback, void *context)
+timeout_add_common(struct ioloop *ioloop, const char *source_filename,
+		   unsigned int source_linenum,
+		   timeout_callback_t *callback, void *context)
 {
 	struct timeout *timeout;
 
@@ -225,7 +249,7 @@ timeout_add_common(const char *source_filename, unsigned int source_linenum,
 	timeout->item.idx = UINT_MAX;
 	timeout->source_filename = source_filename;
 	timeout->source_linenum = source_linenum;
-	timeout->ioloop = current_ioloop;
+	timeout->ioloop = ioloop;
 
 	timeout->callback = callback;
 	timeout->context = context;
@@ -238,14 +262,16 @@ timeout_add_common(const char *source_filename, unsigned int source_linenum,
 	return timeout;
 }
 
-#undef timeout_add
-struct timeout *timeout_add(unsigned int msecs, const char *source_filename,
-			    unsigned int source_linenum,
-			    timeout_callback_t *callback, void *context)
+#undef timeout_add_to
+struct timeout *timeout_add_to(struct ioloop *ioloop, unsigned int msecs,
+			       const char *source_filename,
+			       unsigned int source_linenum,
+			       timeout_callback_t *callback, void *context)
 {
 	struct timeout *timeout;
 
-	timeout = timeout_add_common(source_filename, source_linenum, callback, context);
+	timeout = timeout_add_common(ioloop, source_filename, source_linenum,
+				     callback, context);
 	timeout->msecs = msecs;
 
 	if (msecs > 0) {
@@ -260,13 +286,53 @@ struct timeout *timeout_add(unsigned int msecs, const char *source_filename,
 	return timeout;
 }
 
+#undef timeout_add
+struct timeout *timeout_add(unsigned int msecs, const char *source_filename,
+			    unsigned int source_linenum,
+			    timeout_callback_t *callback, void *context)
+{
+	return timeout_add_to(current_ioloop, msecs,
+			      source_filename, source_linenum,
+			      callback, context);
+}
+
+#undef timeout_add_short_to
+struct timeout *
+timeout_add_short_to(struct ioloop *ioloop, unsigned int msecs,
+		     const char *source_filename, unsigned int source_linenum,
+		     timeout_callback_t *callback, void *context)
+{
+	return timeout_add_to(ioloop, msecs,
+			      source_filename, source_linenum,
+			      callback, context);
+}
+
 #undef timeout_add_short
 struct timeout *
 timeout_add_short(unsigned int msecs, const char *source_filename,
 		  unsigned int source_linenum,
 		  timeout_callback_t *callback, void *context)
 {
-	return timeout_add(msecs, source_filename, source_linenum, callback, context);
+	return timeout_add(msecs, source_filename, source_linenum,
+			   callback, context);
+}
+
+#undef timeout_add_absolute_to
+struct timeout *
+timeout_add_absolute_to(struct ioloop *ioloop, const struct timeval *time,
+			const char *source_filename,
+			unsigned int source_linenum,
+			timeout_callback_t *callback, void *context)
+{
+	struct timeout *timeout;
+
+	timeout = timeout_add_common(ioloop, source_filename, source_linenum,
+				     callback, context);
+	timeout->one_shot = TRUE;
+	timeout->next_run = *time;
+
+	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
+	return timeout;
 }
 
 #undef timeout_add_absolute
@@ -276,25 +342,19 @@ timeout_add_absolute(const struct timeval *time,
 		     unsigned int source_linenum,
 		     timeout_callback_t *callback, void *context)
 {
-	struct timeout *timeout;
-
-	timeout = timeout_add_common(source_filename, source_linenum,
-				     callback, context);
-	timeout->one_shot = TRUE;
-	timeout->next_run = *time;
-
-	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
-	return timeout;
+	return timeout_add_absolute_to(current_ioloop, time,
+				       source_filename, source_linenum,
+				       callback, context);
 }
 
 static struct timeout *
-timeout_copy(const struct timeout *old_to)
+timeout_copy(const struct timeout *old_to, struct ioloop *ioloop)
 {
 	struct timeout *new_to;
 
-	new_to = timeout_add_common
-		(old_to->source_filename, old_to->source_linenum,
-		 old_to->callback, old_to->context);
+	new_to = timeout_add_common(ioloop,
+		old_to->source_filename, old_to->source_linenum,
+		old_to->callback, old_to->context);
 	new_to->one_shot = old_to->one_shot;
 	new_to->msecs = old_to->msecs;
 	new_to->next_run = old_to->next_run;
@@ -1005,19 +1065,19 @@ struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop)
 	return ioloop->cur_ctx;
 }
 
-struct io *io_loop_move_io(struct io **_io)
+struct io *io_loop_move_io_to(struct ioloop *ioloop, struct io **_io)
 {
 	struct io *old_io = *_io;
 	struct io_file *old_io_file, *new_io_file;
 
 	i_assert((old_io->condition & IO_NOTIFY) == 0);
 
-	if (old_io->ioloop == current_ioloop)
+	if (old_io->ioloop == ioloop)
 		return old_io;
 
 	old_io_file = (struct io_file *)old_io;
-	new_io_file = io_add_file(old_io_file->fd, old_io->condition,
-				  old_io->source_filename,
+	new_io_file = io_add_file(ioloop, old_io_file->fd,
+				  old_io->condition, old_io->source_filename,
 				  old_io->source_linenum,
 				  old_io->callback, old_io->context);
 	if (old_io_file->istream != NULL) {
@@ -1035,16 +1095,27 @@ struct io *io_loop_move_io(struct io **_io)
 	return &new_io_file->io;
 }
 
-struct timeout *io_loop_move_timeout(struct timeout **_timeout)
+struct io *io_loop_move_io(struct io **_io)
+{
+	return io_loop_move_io_to(current_ioloop, _io);
+}
+
+struct timeout *io_loop_move_timeout_to(struct ioloop *ioloop,
+					struct timeout **_timeout)
 {
 	struct timeout *new_to, *old_to = *_timeout;
 
-	if (old_to->ioloop == current_ioloop)
+	if (old_to->ioloop == ioloop)
 		return old_to;
 
-	new_to = timeout_copy(old_to);
+	new_to = timeout_copy(old_to, ioloop);
 	timeout_remove(_timeout);
 	return new_to;
+}
+
+struct timeout *io_loop_move_timeout(struct timeout **_timeout)
+{
+	return io_loop_move_timeout_to(current_ioloop, _timeout);
 }
 
 bool io_loop_have_ios(struct ioloop *ioloop)
@@ -1078,29 +1149,44 @@ enum io_condition io_loop_find_fd_conditions(struct ioloop *ioloop, int fd)
 	return conditions;
 }
 
-#undef io_wait_timer_add
+#undef io_wait_timer_add_to
 struct io_wait_timer *
-io_wait_timer_add(const char *source_filename, unsigned int source_linenum)
+io_wait_timer_add_to(struct ioloop *ioloop, const char *source_filename,
+		     unsigned int source_linenum)
 {
 	struct io_wait_timer *timer;
 
 	timer = i_new(struct io_wait_timer, 1);
-	timer->ioloop = current_ioloop;
+	timer->ioloop = ioloop;
 	timer->source_filename = source_filename;
 	timer->source_linenum = source_linenum;
-	DLLIST_PREPEND(&current_ioloop->wait_timers, timer);
+	DLLIST_PREPEND(&ioloop->wait_timers, timer);
 	return timer;
 }
 
-struct io_wait_timer *io_wait_timer_move(struct io_wait_timer **_timer)
+#undef io_wait_timer_add
+struct io_wait_timer *
+io_wait_timer_add(const char *source_filename, unsigned int source_linenum)
+{
+	return io_wait_timer_add_to(current_ioloop, source_filename,
+				    source_linenum);
+}
+
+struct io_wait_timer *io_wait_timer_move_to(struct io_wait_timer **_timer,
+					    struct ioloop *ioloop)
 {
 	struct io_wait_timer *timer = *_timer;
 
 	*_timer = NULL;
 	DLLIST_REMOVE(&timer->ioloop->wait_timers, timer);
-	DLLIST_PREPEND(&current_ioloop->wait_timers, timer);
-	timer->ioloop = current_ioloop;
+	DLLIST_PREPEND(&ioloop->wait_timers, timer);
+	timer->ioloop = ioloop;
 	return timer;
+}
+
+struct io_wait_timer *io_wait_timer_move(struct io_wait_timer **_timer)
+{
+	return io_wait_timer_move_to(_timer, current_ioloop);
 }
 
 void io_wait_timer_remove(struct io_wait_timer **_timer)
