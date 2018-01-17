@@ -10,7 +10,7 @@
 #include "last-login-plugin.h"
 
 #define LAST_LOGIN_USER_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, last_login_user_module)
+	MODULE_CONTEXT_REQUIRE(obj, last_login_user_module)
 
 #define LAST_LOGIN_DEFAULT_KEY_PREFIX "last-login/"
 
