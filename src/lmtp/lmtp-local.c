@@ -133,7 +133,7 @@ static void
 lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *rcpt,
 				const char *error)
 {
-	struct smtp_address *address = rcpt->rcpt.rcpt->path;
+	struct smtp_address *address = rcpt->rcpt.path;
 	struct lda_settings *lda_set =
 		mail_storage_service_user_get_set(rcpt->service_user)[2];
 
