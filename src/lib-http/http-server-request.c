@@ -461,7 +461,8 @@ struct http_server_istream {
 };
 
 static void
-http_server_istream_switch_ioloop(struct istream_private *stream)
+http_server_istream_switch_ioloop_to(struct istream_private *stream,
+				     struct ioloop *ioloop)
 {
 	struct http_server_istream *hsristream =
 		(struct http_server_istream *)stream;
@@ -469,6 +470,7 @@ http_server_istream_switch_ioloop(struct istream_private *stream)
 	if (hsristream->istream.istream.blocking)
 		return;
 
+	i_assert(ioloop == current_ioloop);
 	http_server_connection_switch_ioloop(hsristream->req->conn);
 }
 
@@ -581,7 +583,7 @@ http_server_request_get_payload_input(struct http_server_request *req,
 	hsristream->istream.stream_size_passthrough = TRUE;
 
 	hsristream->istream.read = http_server_istream_read;
-	hsristream->istream.switch_ioloop = http_server_istream_switch_ioloop;
+	hsristream->istream.switch_ioloop_to = http_server_istream_switch_ioloop_to;
 	hsristream->istream.iostream.destroy = http_server_istream_destroy;
 
 	hsristream->istream.istream.readable_fd = FALSE;

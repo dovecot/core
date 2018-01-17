@@ -19,7 +19,8 @@ struct istream_private {
 	void (*sync)(struct istream_private *stream);
 	int (*stat)(struct istream_private *stream, bool exact);
 	int (*get_size)(struct istream_private *stream, bool exact, uoff_t *size_r);
-	void (*switch_ioloop)(struct istream_private *stream);
+	void (*switch_ioloop_to)(struct istream_private *stream,
+				 struct ioloop *ioloop);
 	struct istream_snapshot *
 		(*snapshot)(struct istream_private *stream,
 			    struct istream_snapshot *prev_snapshot);
