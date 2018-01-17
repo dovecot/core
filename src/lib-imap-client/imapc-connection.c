@@ -64,6 +64,8 @@ struct imapc_command {
 	bool idle:1;
 	/* Waiting for '+' literal reply before we can continue */
 	bool wait_for_literal:1;
+	/* Command is fully sent to server */
+	bool sent:1;
 };
 ARRAY_DEFINE_TYPE(imapc_command, struct imapc_command *);
 
@@ -114,6 +116,9 @@ struct imapc_connection {
 	ARRAY_TYPE(imapc_command) cmd_send_queue;
 	/* commands that have been sent, waiting for their tagged reply */
 	ARRAY_TYPE(imapc_command) cmd_wait_list;
+	/* commands that were already sent, but were aborted since (due to
+	   unselecting mailbox). */
+	ARRAY_TYPE(seq_range) aborted_cmd_tags;
 	unsigned int reconnect_command_count;
 
 	unsigned int ips_count, prev_connect_idx;
@@ -202,6 +207,7 @@ imapc_connection_init(struct imapc_client *client,
 	i_array_init(&conn->cmd_send_queue, 8);
 	i_array_init(&conn->cmd_wait_list, 32);
 	i_array_init(&conn->literal_files, 4);
+	i_array_init(&conn->aborted_cmd_tags, 8);
 
 	if (client->set.debug)
 		i_debug("imapc(%s): Created new connection", conn->name);
@@ -234,6 +240,7 @@ static void imapc_connection_unref(struct imapc_connection **_conn)
 	array_free(&conn->cmd_send_queue);
 	array_free(&conn->cmd_wait_list);
 	array_free(&conn->literal_files);
+	array_free(&conn->aborted_cmd_tags);
 	imapc_client_unref(&conn->client);
 	i_free(conn->ips);
 	i_free(conn->name);
@@ -348,6 +355,11 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 	array_foreach(&tmp_array, cmdp) {
 		cmd = *cmdp;
 
+		if (cmd->sent && conn->state == IMAPC_CONNECTION_STATE_DONE) {
+			/* We're not disconnected, so the reply will still
+			   come. Remember that it needs to be ignored. */
+			seq_range_array_add(&conn->aborted_cmd_tags, cmd->tag);
+		}
 		cmd->callback(&reply, cmd->context);
 		imapc_command_free(cmd);
 	}
@@ -385,6 +397,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 			i_free(conn->ips);
 			conn->ips_count = 0;
 		}
+		array_clear(&conn->aborted_cmd_tags);
 		conn->idling = FALSE;
 		conn->idle_plus_waiting = FALSE;
 		conn->idle_stopping = FALSE;
@@ -1445,6 +1458,13 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 		timeout_remove(&conn->to);
 
 	if (cmd == NULL) {
+		if (seq_range_exists(&conn->aborted_cmd_tags, conn->cur_tag)) {
+			/* sent command was already aborted - ignore it */
+			seq_range_array_remove(&conn->aborted_cmd_tags,
+					       conn->cur_tag);
+			imapc_connection_input_reset(conn);
+			return 1;
+		}
 		imapc_connection_input_error(conn,
 			"Unknown tag in a reply: %u %s %s",
 			conn->cur_tag, line, reply.text_full);
@@ -1997,6 +2017,7 @@ static void imapc_command_send_finished(struct imapc_connection *conn,
 
 	if (cmd->idle)
 		conn->idle_plus_waiting = TRUE;
+	cmd->sent = TRUE;
 
 	/* everything sent. move command to wait list. */
 	cmdp = array_idx(&conn->cmd_send_queue, 0);
