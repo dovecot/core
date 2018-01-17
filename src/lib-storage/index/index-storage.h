@@ -47,7 +47,7 @@ struct index_mailbox_context {
 };
 
 #define INDEX_STORAGE_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, index_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, index_storage_module)
 extern MODULE_CONTEXT_DEFINE(index_storage_module,
 			     &mail_storage_module_register);
 
