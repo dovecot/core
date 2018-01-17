@@ -210,7 +210,8 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 void o_stream_get_last_write_time(struct ostream *stream, struct timeval *tv_r);
 
 /* If there are any I/O loop items associated with the stream, move all of
-   them to current_ioloop. */
+   them to provided/current ioloop. */
+void o_stream_switch_ioloop_to(struct ostream *stream, struct ioloop *ioloop);
 void o_stream_switch_ioloop(struct ostream *stream);
 
 #endif

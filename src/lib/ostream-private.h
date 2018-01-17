@@ -25,7 +25,8 @@ struct ostream_private {
 	enum ostream_send_istream_result
 		(*send_istream)(struct ostream_private *outstream,
 				struct istream *instream);
-	void (*switch_ioloop)(struct ostream_private *stream);
+	void (*switch_ioloop_to)(struct ostream_private *stream,
+				 struct ioloop *ioloop);
 
 /* data: */
 	struct ostream ostream;
