@@ -26,7 +26,7 @@
 	 (st).st_atime < (st).st_mtime ? MAILBOX_MARKED : MAILBOX_UNMARKED)
 
 #define MBOX_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mbox_mailbox_list_module)
+	MODULE_CONTEXT_REQUIRE(obj, mbox_mailbox_list_module)
 
 struct mbox_mailbox_list {
 	union mailbox_list_module_context module_ctx;
