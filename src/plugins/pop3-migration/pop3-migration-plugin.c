@@ -17,9 +17,9 @@
 #include "pop3-migration-plugin.h"
 
 #define POP3_MIGRATION_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, pop3_migration_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, pop3_migration_storage_module)
 #define POP3_MIGRATION_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, pop3_migration_mail_module)
+	MODULE_CONTEXT_REQUIRE(obj, pop3_migration_mail_module)
 
 struct msg_map_common {
 	/* sha1(header) - set only when needed */
