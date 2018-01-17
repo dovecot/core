@@ -426,16 +426,22 @@ const char *connection_input_timeout_reason(struct connection *conn)
 	}
 }
 
-void connection_switch_ioloop(struct connection *conn)
+void connection_switch_ioloop_to(struct connection *conn,
+				 struct ioloop *ioloop)
 {
 	if (conn->io != NULL)
-		conn->io = io_loop_move_io(&conn->io);
+		conn->io = io_loop_move_io_to(ioloop, &conn->io);
 	if (conn->to != NULL)
-		conn->to = io_loop_move_timeout(&conn->to);
+		conn->to = io_loop_move_timeout_to(ioloop, &conn->to);
 	if (conn->input != NULL)
-		i_stream_switch_ioloop(conn->input);
+		i_stream_switch_ioloop_to(conn->input, ioloop);
 	if (conn->output != NULL)
-		o_stream_switch_ioloop(conn->output);
+		o_stream_switch_ioloop_to(conn->output, ioloop);
+}
+
+void connection_switch_ioloop(struct connection *conn)
+{
+	connection_switch_ioloop_to(conn, current_ioloop);
 }
 
 struct connection_list *
