@@ -3,6 +3,7 @@
 
 #include "net.h"
 
+struct ioloop;
 struct connection;
 
 enum connection_behavior {
@@ -141,6 +142,8 @@ const char *connection_disconnect_reason(struct connection *conn);
    e.g. "No input for 10.023 secs". */
 const char *connection_input_timeout_reason(struct connection *conn);
 
+void connection_switch_ioloop_to(struct connection *conn,
+				 struct ioloop *ioloop);
 void connection_switch_ioloop(struct connection *conn);
 
 struct connection_list *
