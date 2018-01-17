@@ -14,7 +14,7 @@
 int mail_stats_connection_connect(struct stats_connection *conn,
 				  struct mail_user *user)
 {
-	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	struct stats_user *suser = STATS_USER_CONTEXT_REQUIRE(user);
 	string_t *str = t_str_new(128);
 
 	str_append(str, "CONNECT\t");
@@ -42,7 +42,7 @@ int mail_stats_connection_connect(struct stats_connection *conn,
 void mail_stats_connection_disconnect(struct stats_connection *conn,
 				      struct mail_user *user)
 {
-	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	struct stats_user *suser = STATS_USER_CONTEXT_REQUIRE(user);
 	string_t *str = t_str_new(128);
 
 	str_append(str, "DISCONNECT\t");
@@ -58,7 +58,7 @@ void mail_stats_connection_send_session(struct stats_connection *conn,
 					struct mail_user *user,
 					const struct stats *stats)
 {
-	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	struct stats_user *suser = STATS_USER_CONTEXT_REQUIRE(user);
 	string_t *str = t_str_new(256);
 	buffer_t *buf;
 

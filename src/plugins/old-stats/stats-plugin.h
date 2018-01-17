@@ -8,6 +8,9 @@
 #define STATS_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, stats_user_module)
 
+#define STATS_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, stats_user_module)
+
 struct stats_user {
 	union mail_user_module_context module_ctx;
 
