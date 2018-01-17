@@ -110,15 +110,22 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 	mbox->delayed_sync_cache_trans = NULL;
 	if (mbox->delayed_sync_cache_view != NULL)
 		mail_cache_view_close(&mbox->delayed_sync_cache_view);
-	if (mbox->sync_view != NULL)
-		mail_index_view_close(&mbox->sync_view);
 
 	if (array_count(&mbox->delayed_expunged_uids) > 0) {
 		/* delayed expunges - commit them now in a separate
-		   transaction */
+		   transaction. Reopen mbox->sync_view to see changes
+		   committed in delayed_sync_trans. */
+		if (mbox->sync_view != NULL)
+			mail_index_view_close(&mbox->sync_view);
 		if (imapc_mailbox_commit_delayed_expunges(mbox) < 0)
 			ret = -1;
 	}
+
+	if (mbox->sync_view != NULL)
+		mail_index_view_close(&mbox->sync_view);
+	i_assert(mbox->delayed_sync_trans == NULL);
+	i_assert(mbox->delayed_sync_view == NULL);
+	i_assert(mbox->delayed_sync_cache_trans == NULL);
 	return ret;
 }
 

@@ -563,6 +563,7 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 		return ret;
 	}
 
+	i_assert(mbox->sync_view == NULL);
 	i_assert(mbox->delayed_sync_trans == NULL);
 	mbox->sync_view = ctx->sync_view;
 	mbox->delayed_sync_view =
