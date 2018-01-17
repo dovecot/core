@@ -20,9 +20,9 @@
 #define DUPLICATE_DB_NAME "lda-dupes"
 
 #define MAIL_DELIVER_USER_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_deliver_user_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_deliver_user_module)
 #define MAIL_DELIVER_STORAGE_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_deliver_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_deliver_storage_module)
 
 struct mail_deliver_user {
 	union mail_user_module_context module_ctx;
@@ -598,7 +598,6 @@ mail_deliver_transaction_begin(struct mailbox *box,
 	struct mailbox_transaction_context *t;
 	struct mail_deliver_transaction *dt;
 
-	i_assert(muser != NULL);
 	i_assert(muser->deliver_ctx != NULL);
 
 	t = mbox->module_ctx.super.transaction_begin(box, flags, reason);
@@ -618,8 +617,6 @@ mail_deliver_transaction_commit(struct mailbox_transaction_context *ctx,
 	struct mail_deliver_user *muser =
 		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
 
-	i_assert(dt != NULL);
-	i_assert(muser != NULL);
 	i_assert(muser->deliver_ctx != NULL);
 
 	/* sieve creates multiple transactions, saves the mails and
