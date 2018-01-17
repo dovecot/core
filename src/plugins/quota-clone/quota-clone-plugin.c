@@ -17,9 +17,9 @@
 #define DICT_QUOTA_CLONE_COUNT_PATH DICT_QUOTA_CLONE_PATH"messages"
 
 #define QUOTA_CLONE_USER_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, quota_clone_user_module)
+	MODULE_CONTEXT_REQUIRE(obj, quota_clone_user_module)
 #define QUOTA_CLONE_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, quota_clone_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, quota_clone_storage_module)
 
 static MODULE_CONTEXT_DEFINE_INIT(quota_clone_user_module,
 				  &mail_user_module_register);
