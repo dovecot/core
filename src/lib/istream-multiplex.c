@@ -189,11 +189,12 @@ static ssize_t i_stream_multiplex_ichannel_read(struct istream_private *stream)
 }
 
 static void
-i_stream_multiplex_ichannel_switch_ioloop(struct istream_private *stream)
+i_stream_multiplex_ichannel_switch_ioloop_to(struct istream_private *stream,
+					     struct ioloop *ioloop)
 {
 	struct multiplex_ichannel *channel = (struct multiplex_ichannel*)stream;
 
-	i_stream_switch_ioloop(channel->mstream->parent);
+	i_stream_switch_ioloop_to(channel->mstream->parent, ioloop);
 }
 
 static void
@@ -244,7 +245,7 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 	channel->cid = cid;
 	channel->mstream = mstream;
 	channel->istream.read = i_stream_multiplex_ichannel_read;
-	channel->istream.switch_ioloop = i_stream_multiplex_ichannel_switch_ioloop;
+	channel->istream.switch_ioloop_to = i_stream_multiplex_ichannel_switch_ioloop_to;
 	channel->istream.iostream.close = i_stream_multiplex_ichannel_close;
 	channel->istream.iostream.destroy = i_stream_multiplex_ichannel_destroy;
 	channel->istream.max_buffer_size = mstream->bufsize;

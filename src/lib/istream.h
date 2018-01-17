@@ -4,6 +4,8 @@
 /* Note that some systems (Solaris) may use a macro to redefine struct stat */
 #include <sys/stat.h>
 
+struct ioloop;
+
 struct istream {
 	uoff_t v_offset;
 
@@ -235,7 +237,8 @@ bool i_stream_add_data(struct istream *stream, const unsigned char *data,
 void i_stream_set_input_pending(struct istream *stream, bool pending);
 
 /* If there are any I/O loop items associated with the stream, move all of
-   them to current_ioloop. */
+   them to provided/current ioloop. */
+void i_stream_switch_ioloop_to(struct istream *stream, struct ioloop *ioloop);
 void i_stream_switch_ioloop(struct istream *stream);
 
 #endif

@@ -920,16 +920,22 @@ void i_stream_set_input_pending(struct istream *stream, bool pending)
 		io_set_pending(stream->real_stream->io);
 }
 
-void i_stream_switch_ioloop(struct istream *stream)
+void i_stream_switch_ioloop_to(struct istream *stream, struct ioloop *ioloop)
 {
-	io_stream_switch_ioloop_to(&stream->real_stream->iostream,
-				   current_ioloop);
+	io_stream_switch_ioloop_to(&stream->real_stream->iostream, ioloop);
 
 	do {
-		if (stream->real_stream->switch_ioloop != NULL)
-			stream->real_stream->switch_ioloop(stream->real_stream);
+		if (stream->real_stream->switch_ioloop_to != NULL) {
+			stream->real_stream->switch_ioloop_to(
+				stream->real_stream, ioloop);
+		}
 		stream = stream->real_stream->parent;
 	} while (stream != NULL);
+}
+
+void i_stream_switch_ioloop(struct istream *stream)
+{
+	i_stream_switch_ioloop_to(stream, current_ioloop);
 }
 
 void i_stream_set_io(struct istream *stream, struct io *io)
