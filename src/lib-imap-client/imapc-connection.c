@@ -338,8 +338,13 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 	   callback recurses us back here we don't crash */
 	i_zero(&reply);
 	reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
-	reply.text_without_resp = reply.text_full =
-		"Disconnected from server";
+	if (only_box != NULL) {
+		reply.text_without_resp = reply.text_full =
+			"Unselecting mailbox";
+	} else {
+		reply.text_without_resp = reply.text_full =
+			"Disconnected from server";
+	}
 	array_foreach(&tmp_array, cmdp) {
 		cmd = *cmdp;
 
