@@ -4,7 +4,7 @@
 #include "mail-storage-private.h"
 
 #define INDEX_LIST_STORAGE_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, index_list_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, index_list_storage_module)
 
 struct index_list_mailbox {
 	union mailbox_module_context module_ctx;
