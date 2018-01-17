@@ -499,13 +499,18 @@ io_stream_copy(struct ostream *outstream, struct istream *instream)
 	return OSTREAM_SEND_ISTREAM_RESULT_FINISHED;
 }
 
-void o_stream_switch_ioloop(struct ostream *stream)
+void o_stream_switch_ioloop_to(struct ostream *stream, struct ioloop *ioloop)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	io_stream_switch_ioloop_to(&_stream->iostream, current_ioloop);
+	io_stream_switch_ioloop_to(&_stream->iostream, ioloop);
 
-	_stream->switch_ioloop(_stream);
+	_stream->switch_ioloop_to(_stream, ioloop);
+}
+
+void o_stream_switch_ioloop(struct ostream *stream)
+{
+	o_stream_switch_ioloop_to(stream, current_ioloop);
 }
 
 static void o_stream_default_close(struct iostream_private *stream,
@@ -669,10 +674,12 @@ o_stream_default_send_istream(struct ostream_private *outstream,
 	return io_stream_copy(&outstream->ostream, instream);
 }
 
-static void o_stream_default_switch_ioloop(struct ostream_private *_stream)
+static void
+o_stream_default_switch_ioloop_to(struct ostream_private *_stream,
+				  struct ioloop *ioloop)
 {
 	if (_stream->parent != NULL)
-		o_stream_switch_ioloop(_stream->parent);
+		o_stream_switch_ioloop_to(_stream->parent, ioloop);
 }
 
 struct ostream *
@@ -723,8 +730,8 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 		_stream->write_at = o_stream_default_write_at;
 	if (_stream->send_istream == NULL)
 		_stream->send_istream = o_stream_default_send_istream;
-	if (_stream->switch_ioloop == NULL)
-		_stream->switch_ioloop = o_stream_default_switch_ioloop;
+	if (_stream->switch_ioloop_to == NULL)
+		_stream->switch_ioloop_to = o_stream_default_switch_ioloop_to;
 
 	io_stream_init(&_stream->iostream);
 	return &_stream->ostream;

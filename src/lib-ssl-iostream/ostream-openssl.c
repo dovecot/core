@@ -159,11 +159,12 @@ o_stream_ssl_sendv(struct ostream_private *stream,
 	return bytes_sent;
 }
 
-static void o_stream_ssl_switch_ioloop(struct ostream_private *stream)
+static void o_stream_ssl_switch_ioloop_to(struct ostream_private *stream,
+					  struct ioloop *ioloop)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 
-	o_stream_switch_ioloop(sstream->ssl_io->plain_output);
+	o_stream_switch_ioloop_to(sstream->ssl_io->plain_output, ioloop);
 }
 
 static int plain_flush_callback(struct ssl_ostream *sstream)
@@ -227,7 +228,7 @@ struct ostream *openssl_o_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->ostream.iostream.destroy = o_stream_ssl_destroy;
 	sstream->ostream.sendv = o_stream_ssl_sendv;
 	sstream->ostream.flush = o_stream_ssl_flush;
-	sstream->ostream.switch_ioloop = o_stream_ssl_switch_ioloop;
+	sstream->ostream.switch_ioloop_to = o_stream_ssl_switch_ioloop_to;
 
 	sstream->ostream.get_used_size = o_stream_ssl_get_used_size;
 	sstream->ostream.flush_pending = o_stream_ssl_flush_pending;
