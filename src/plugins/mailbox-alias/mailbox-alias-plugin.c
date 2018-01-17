@@ -8,11 +8,11 @@
 #include "mailbox-alias-plugin.h"
 
 #define MAILBOX_ALIAS_USER_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mailbox_alias_user_module)
+	MODULE_CONTEXT_REQUIRE(obj, mailbox_alias_user_module)
 #define MAILBOX_ALIAS_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mailbox_alias_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, mailbox_alias_storage_module)
 #define MAILBOX_ALIAS_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mailbox_alias_mailbox_list_module)
+	MODULE_CONTEXT_REQUIRE(obj, mailbox_alias_mailbox_list_module)
 
 struct mailbox_alias {
 	const char *old_vname, *new_vname;
