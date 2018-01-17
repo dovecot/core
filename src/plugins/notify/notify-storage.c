@@ -7,9 +7,9 @@
 #include "notify-plugin-private.h"
 
 #define NOTIFY_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, notify_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, notify_storage_module)
 #define NOTIFY_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, notify_mail_module)
+	MODULE_CONTEXT_REQUIRE(obj, notify_mail_module)
 
 static MODULE_CONTEXT_DEFINE_INIT(notify_storage_module,
 				  &mail_storage_module_register);
