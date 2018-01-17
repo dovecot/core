@@ -17,7 +17,7 @@
 #include "mail-crypt-plugin.h"
 
 #define MAIL_CRYPT_ACL_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_crypt_acl_mailbox_list_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_crypt_acl_mailbox_list_module)
 
 struct mail_crypt_acl_mailbox_list {
 	union mailbox_list_module_context module_ctx;

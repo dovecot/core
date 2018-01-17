@@ -34,9 +34,9 @@ struct mail_crypt_mailbox {
 const char *mail_crypt_plugin_version = DOVECOT_ABI_VERSION;
 
 #define MAIL_CRYPT_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_crypt_mail_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_crypt_mail_module)
 #define MAIL_CRYPT_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_crypt_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_crypt_storage_module)
 #define MAIL_CRYPT_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_crypt_user_module)
 
