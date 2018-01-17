@@ -17,11 +17,11 @@
 #define MAIL_MAX_MEMORY_BUFFER (1024*128)
 
 #define MAIL_FILTER_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_filter_mail_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_filter_mail_module)
 #define MAIL_FILTER_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_filter_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_filter_storage_module)
 #define MAIL_FILTER_USER_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_filter_user_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_filter_user_module)
 
 struct mail_filter_user {
 	union mail_user_module_context module_ctx;
