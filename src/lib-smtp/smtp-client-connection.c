@@ -223,7 +223,7 @@ smtp_client_command_timeout(struct smtp_client_connection *conn)
 void smtp_client_connection_start_cmd_timeout(
 	struct smtp_client_connection *conn)
 {
-	unsigned int msecs = conn->client->set.command_timeout_msecs;
+	unsigned int msecs = conn->set.command_timeout_msecs;
 
 	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* pre-login uses connect timeout */
@@ -251,7 +251,7 @@ void smtp_client_connection_start_cmd_timeout(
 void smtp_client_connection_update_cmd_timeout(
 	struct smtp_client_connection *conn)
 {
-	unsigned int msecs = conn->client->set.command_timeout_msecs;
+	unsigned int msecs = conn->set.command_timeout_msecs;
 
 	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* pre-login uses connect timeout */
