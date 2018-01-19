@@ -1658,11 +1658,11 @@ smtp_client_connection_create(struct smtp_client *client,
 		if (set->connect_timeout_msecs > 0)
 			conn->set.connect_timeout_msecs = set->connect_timeout_msecs;
 		if (set->max_reply_size > 0)
-			client->set.max_reply_size = set->max_reply_size;	
+			conn->set.max_reply_size = set->max_reply_size;
 		if (set->max_data_chunk_size > 0)
-			client->set.max_data_chunk_size = set->max_data_chunk_size;
+			conn->set.max_data_chunk_size = set->max_data_chunk_size;
 		if (set->max_data_chunk_pipeline > 0)
-			client->set.max_data_chunk_pipeline = set->max_data_chunk_pipeline;
+			conn->set.max_data_chunk_pipeline = set->max_data_chunk_pipeline;
 
 		if (set->socket_send_buffer_size > 0)
 			conn->set.socket_send_buffer_size = set->socket_send_buffer_size;
