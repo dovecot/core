@@ -1584,7 +1584,7 @@ smtp_client_connection_create(struct smtp_client *client,
 			conn->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
 		if (set->ssl != NULL)
-			client->set.ssl = ssl_iostream_settings_dup(pool, set->ssl);
+			conn->set.ssl = ssl_iostream_settings_dup(pool, set->ssl);
 
 		if (set->master_user != NULL && *set->master_user != '\0')
 			conn->set.master_user = p_strdup_empty(pool, set->master_user);
