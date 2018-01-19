@@ -136,6 +136,7 @@ struct smtp_client_connection {
 	struct istream *raw_input;
 	struct ostream *raw_output, *dot_output;
 
+	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream *ssl_iostream;
 
 	enum smtp_client_connection_state state;

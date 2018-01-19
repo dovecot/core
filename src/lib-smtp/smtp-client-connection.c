@@ -1191,24 +1191,51 @@ smtp_client_connection_ssl_handshaked(const char **error_r, void *context)
 }
 
 static int
+smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
+				    const char **error_r)
+{
+	struct smtp_client *client = conn->client;
+	const char *error;
+
+	if (conn->ssl_ctx != NULL)
+		return 0;
+
+	if (conn->set.ssl == client->set.ssl) {
+		if (smtp_client_init_ssl_ctx(client, error_r) < 0)
+			return -1;
+		conn->ssl_ctx = client->ssl_ctx;
+		ssl_iostream_context_ref(conn->ssl_ctx);
+		return 0;
+	}
+
+	if (conn->set.ssl == NULL) {
+		*error_r = "Requested SSL connection, but no SSL settings given";
+		return -1;
+	}
+	if (ssl_iostream_client_context_cache_get(conn->set.ssl,
+		&conn->ssl_ctx, &error) < 0) {
+		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
+					   error);
+		return -1;
+	}
+	return 0;
+}
+
+static int
 smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 				const char **error_r)
 {
-	struct smtp_client *client = conn->client;
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
-	if(client->ssl_ctx == NULL) {
-		// FIXME: support per-connection settings
-		if (smtp_client_init_ssl_ctx(client, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Failed to initialize SSL: %s", error);
-			return -1;
-		}
+	if (smtp_client_connection_init_ssl_ctx(conn, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to initialize SSL: %s", error);
+		return -1;
 	}
 
 	i_zero(&ssl_set);
-	if (!conn->client->set.ssl->allow_invalid_cert) {
+	if (!conn->set.ssl->allow_invalid_cert) {
 		ssl_set.verbose_invalid_cert = TRUE;
 	}
 
@@ -1225,7 +1252,7 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 		conn->conn.output = conn->raw_output;
 	}
 
-	if (io_stream_create_ssl_client(client->ssl_ctx,
+	if (io_stream_create_ssl_client(conn->ssl_ctx,
 		conn->host, &ssl_set,
 		&conn->conn.input, &conn->conn.output,
 		&conn->ssl_iostream, &error) < 0) {
@@ -1556,6 +1583,8 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
+	if (conn->ssl_ctx != NULL)
+		ssl_iostream_context_unref(&conn->ssl_ctx);
 	if (conn->sasl_client != NULL)
 		dsasl_client_free(&conn->sasl_client);
 
