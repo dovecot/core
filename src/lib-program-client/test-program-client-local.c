@@ -6,6 +6,7 @@
 #include "buffer.h"
 #include "str.h"
 #include "istream.h"
+#include "istream-concat.h"
 #include "ostream.h"
 #include "lib-signals.h"
 #include "program-client.h"
@@ -165,6 +166,57 @@ void test_program_failure(void) {
 	test_end();
 }
 
+static
+void test_program_io_big(void) {
+	test_begin("test_program_io (big)");
+
+	/* nasty program that reads data in bits with intermittent delays
+	   and then finally reads the rest in one go. */
+	const char *const args[] = {
+		"-c",
+		"(head -c 10240; sleep 0.1; "
+		 "head -c 10240; sleep 0.1; "
+		 "head -c 10240; sleep 0.1; "
+		 "head -c 10240; sleep 0.1; "
+		 "head -c 10240; sleep 0.1; "
+		 "head -c 10240; sleep 0.1; cat)",
+		NULL
+	};
+
+	struct program_client *pc =
+		program_client_local_create("/bin/sh", args, &pc_set);
+
+	/* make big input with only a small reference string */
+	struct istream *is1 = test_istream_create(pclient_test_io_string);
+	struct istream *in1[11] = {is1, is1, is1, is1, is1,
+				   is1, is1, is1, is1, is1, NULL};
+	struct istream *is2 = i_stream_create_concat(in1);
+	struct istream *in2[11] = {is2, is2, is2, is2, is2,
+				   is2, is2, is2, is2, is2, NULL};
+	struct istream *is3 = i_stream_create_concat(in2);
+	struct istream *in3[11] = {is3, is3, is3, is3, is3,
+				   is3, is3, is3, is3, is3, NULL};
+	struct istream *is = i_stream_create_concat(in3);
+
+	program_client_set_input(pc, is);
+
+	buffer_t *output = buffer_create_dynamic(default_pool, 16);
+	struct ostream *os = test_ostream_create(output);
+	program_client_set_output(pc, os);
+
+	test_assert(program_client_run(pc) == 1);
+
+	test_assert(str_len(output) == strlen(pclient_test_io_string)*10*10*10);
+
+	program_client_destroy(&pc);
+
+	i_stream_unref(&is);
+	o_stream_unref(&os);
+	buffer_free(&output);
+
+	test_end();
+}
+
 int main(void)
 {
 	int ret;
@@ -173,6 +225,7 @@ int main(void)
 		test_program_success,
 		test_program_io_sync,
 		test_program_io_async,
+		test_program_io_big,
 		test_program_failure,
 		NULL
 	};
