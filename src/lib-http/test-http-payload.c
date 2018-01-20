@@ -689,7 +689,7 @@ test_client_progress_timeout(void *context ATTR_UNUSED)
 static void
 test_client_create_clients(const struct http_client_settings *client_set)
 {
-	struct http_client_context *http_context;
+	struct http_client_context *http_context = NULL;
 	unsigned int i;
 
 	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
