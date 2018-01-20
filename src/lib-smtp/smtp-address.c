@@ -603,15 +603,14 @@ struct smtp_address *
 smtp_address_clone(pool_t pool, const struct smtp_address *src)
 {
 	struct smtp_address *new;
-	size_t size, lpsize, dsize;
-	char *data, *localpart, *domain;
+	size_t size, lpsize, dsize = 0;
+	char *data, *localpart, *domain = NULL;
 
 	if (smtp_address_isnull(src))
 		return NULL;
 
 	/* @UNSAFE */
 
-	lpsize = dsize = 0;
 	size = sizeof(struct smtp_address);
 	lpsize = strlen(src->localpart) + 1;
 	size = MALLOC_ADD(size, lpsize);
@@ -620,13 +619,10 @@ smtp_address_clone(pool_t pool, const struct smtp_address *src)
 		size = MALLOC_ADD(size, dsize);
 	}
 
-	localpart = domain = NULL;
 	data = p_malloc(pool, size);
 	new = (struct smtp_address *)data;
-	if (lpsize > 0) {
-		localpart = PTR_OFFSET(data, sizeof(*new));
-		memcpy(localpart, src->localpart, lpsize);
-	}
+	localpart = PTR_OFFSET(data, sizeof(*new));
+	memcpy(localpart, src->localpart, lpsize);
 	if (dsize > 0) {
 		domain = PTR_OFFSET(data, sizeof(*new) + lpsize);
 		memcpy(domain, src->domain, dsize);
