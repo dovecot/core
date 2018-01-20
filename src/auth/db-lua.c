@@ -58,7 +58,7 @@ static int auth_request_lua_var_expand(lua_State *L)
 	const char *value, *error;
 
 	if (auth_request_lua_do_var_expand(req, tpl, &value, &error) < 0) {
-		luaL_error(L, error);
+		return luaL_error(L, error);
 	} else {
 		lua_pushstring(L, value);
 	}
@@ -109,8 +109,7 @@ static int auth_request_lua_response_from_template(lua_State *L)
 		if (value == NULL) {
 			lua_pushnil(L);
 		} else if (auth_request_lua_do_var_expand(req, value, &expanded, &error) < 0) {
-			luaL_error(L, error);
-			break;
+			return luaL_error(L, error);
 		} else {
 			lua_pushstring(L, expanded);
 		}
