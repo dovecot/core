@@ -818,6 +818,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 
 	host = http_client_host_get(client, req->host_url);
 	req->state = HTTP_REQUEST_STATE_QUEUED;
+	req->last_status = 0;
 
 	http_client_host_submit_request(host, req);
 }
@@ -1311,6 +1312,7 @@ bool http_client_request_callback(struct http_client_request *req,
 	unsigned int orig_attempts = req->attempts;
 
 	req->state = HTTP_REQUEST_STATE_GOT_RESPONSE;
+	req->last_status = response->status;
 
 	req->callback = NULL;
 	if (callback != NULL) {
@@ -1403,7 +1405,9 @@ void http_client_request_error(struct http_client_request **_req,
 
 	i_assert(req->delayed_error_status == 0);
 	i_assert(req->state < HTTP_REQUEST_STATE_FINISHED);
+
 	req->state = HTTP_REQUEST_STATE_ABORTED;
+	req->last_status = status;
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
@@ -1435,6 +1439,8 @@ void http_client_request_abort(struct http_client_request **_req)
 
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_ABORTED;
+	if (req->last_status == 0)
+		req->last_status = HTTP_CLIENT_REQUEST_ERROR_ABORTED;
 
 	/* release payload early (prevents server/client deadlock in proxy) */
 	if (!sending && req->payload_input != NULL)
@@ -1482,6 +1488,8 @@ void http_client_request_redirect(struct http_client_request *req,
 
 	i_assert(req->client != NULL);
 	i_assert(!req->payload_wait);
+
+	req->last_status = status;
 
 	/* parse URL */
 	if (http_url_parse(location, NULL, 0,
@@ -1585,6 +1593,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 	req->peer = NULL;
 	req->state = HTTP_REQUEST_STATE_QUEUED;
 	req->redirects = 0;
+	req->last_status = 0;
 	http_client_host_submit_request(req->host, req);
 }
 

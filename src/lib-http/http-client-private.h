@@ -97,7 +97,9 @@ struct http_client_request {
 	struct http_client_queue *queue;
 	struct http_client_peer *peer;
 	struct http_client_connection *conn;
+
 	struct event *event;
+	unsigned int last_status;
 
 	string_t *headers;
 	time_t date;
