@@ -61,6 +61,15 @@ http_client_request_update_event(struct http_client_request *req)
 		"request %s: ", http_client_request_label(req)));
 }
 
+static struct event_passthrough *
+http_client_request_result_event(struct http_client_request *req)
+{
+	return event_create_passthrough(req->event)->
+		add_int("status_code", req->last_status)->
+		add_int("attempts", req->attempts)->
+		add_int("redirects", req->redirects);
+}
+
 static struct http_client_request *
 http_client_request_new(struct http_client *client, const char *method, 
 		    http_client_request_callback_t *callback, void *context)
@@ -1410,6 +1419,10 @@ void http_client_request_error(struct http_client_request **_req,
 	req->state = HTTP_REQUEST_STATE_ABORTED;
 	req->last_status = status;
 
+	e_debug(http_client_request_result_event(req)->
+		set_name("http_request_finished")->event(),
+		"Error: %u %s", status, error);
+
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
 
@@ -1443,6 +1456,13 @@ void http_client_request_abort(struct http_client_request **_req)
 	if (req->last_status == 0)
 		req->last_status = HTTP_CLIENT_REQUEST_ERROR_ABORTED;
 
+	if (req->state > HTTP_REQUEST_STATE_NEW &&
+	    req->delayed_error_status == 0) {
+		e_debug(http_client_request_result_event(req)->
+			set_name("http_request_finished")->event(),
+			"Aborted");
+	}
+
 	/* release payload early (prevents server/client deadlock in proxy) */
 	if (!sending && req->payload_input != NULL)
 		i_stream_unref(&req->payload_input);
@@ -1464,9 +1484,9 @@ void http_client_request_finish(struct http_client_request *req)
 
 	i_assert(req->refcount > 0);
 
-	e_debug(event_create_passthrough(req->event)->
-		add_int("attempts", req->attempts)->
-		set_name("http_request_finished")->event(), "Finished");
+	e_debug(http_client_request_result_event(req)->
+		set_name("http_request_finished")->event(),
+		"Finished");
 
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_FINISHED;
@@ -1540,8 +1560,10 @@ void http_client_request_redirect(struct http_client_request *req,
 
 	origin_url = http_url_create(&req->origin_url);
 
-	e_debug(req->event, "Redirecting to %s%s",
-		origin_url, target);
+	e_debug(http_client_request_result_event(req)->
+		set_name("http_request_redirected")->event(),
+		"Redirecting to %s%s (redirects=%u)",
+		origin_url, target, req->redirects);
 
 	req->label = p_strdup_printf(req->pool, "[%s %s%s]",
 		req->method, origin_url, req->target);
@@ -1619,7 +1641,10 @@ bool http_client_request_try_retry(struct http_client_request *req)
 		return FALSE;
 	req->attempts++;
 
-	e_debug(req->event, "Retrying (attempts=%d)", req->attempts);
+	e_debug(http_client_request_result_event(req)->
+		set_name("http_request_retried")->event(),
+		"Retrying (attempts=%d)", req->attempts);
+
 	if (req->callback != NULL)
 		http_client_request_resubmit(req);
 	return TRUE;
