@@ -852,7 +852,7 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 		addr->type = HTTP_CLIENT_PEER_ADDR_RAW;
 		addr->a.tcp.ip = host_url->host.ip;
 		addr->a.tcp.port =
-			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
+			http_url_get_port_default(host_url, HTTPS_DEFAULT_PORT);
 	} else if (host_url->have_ssl) {
 		if (req->ssl_tunnel)
 			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL;
@@ -860,13 +860,11 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS;
 		addr->a.tcp.ip = host_url->host.ip;
 		addr->a.tcp.https_name = host_url->host.name;
- 		addr->a.tcp.port =
-			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
+		addr->a.tcp.port = http_url_get_port(host_url);
 	} else {
 		addr->type = HTTP_CLIENT_PEER_ADDR_HTTP;
 		addr->a.tcp.ip = host_url->host.ip;
-		addr->a.tcp.port =
-			(host_url->port != 0 ? host_url->port : HTTP_DEFAULT_PORT);
+		addr->a.tcp.port = http_url_get_port(host_url);
 	}
 }
 
