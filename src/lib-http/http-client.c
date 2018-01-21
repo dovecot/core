@@ -17,9 +17,6 @@
 
 #include "http-client-private.h"
 
-#define HTTP_DEFAULT_PORT 80
-#define HTTPS_DEFAULT_PORT 443
-
 /* Structure:
 
    http_client_context:
