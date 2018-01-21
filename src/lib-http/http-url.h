@@ -4,6 +4,8 @@
 #include "net.h"
 #include "uri-util.h"
 
+#include "http-common.h"
+
 struct http_request_target;
 
 struct http_url {
@@ -50,6 +52,22 @@ int http_url_parse(const char *url, struct http_url *base,
 int http_url_request_target_parse(const char *request_target,
 	const char *host_header, pool_t pool,
 	struct http_request_target *target, const char **error_r);
+
+/*
+ * HTTP URL evaluation
+ */
+
+static inline in_port_t http_url_get_port_default(const struct http_url *url,
+	in_port_t default_port)
+{
+	return (url->port != 0 ? url->port : default_port);
+}
+
+static inline in_port_t http_url_get_port(const struct http_url *url)
+{
+	return http_url_get_port_default(url,
+		(url->have_ssl ? HTTPS_DEFAULT_PORT : HTTP_DEFAULT_PORT));
+}
 
 /*
  * HTTP URL manipulation
