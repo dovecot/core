@@ -1,6 +1,7 @@
 #ifndef HTTP_SERVER_H
 #define HTTP_SERVER_H
 
+#include "http-common.h"
 #include "http-auth.h"
 #include "http-request.h"
 

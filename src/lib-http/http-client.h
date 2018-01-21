@@ -3,6 +3,7 @@
 
 #include "net.h"
 
+#include "http-common.h"
 #include "http-response.h"
 
 struct timeval;

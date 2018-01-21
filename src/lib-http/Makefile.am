@@ -32,6 +32,7 @@ libhttp_la_SOURCES = \
 	http-server.c
 
 headers = \
+	http-common.h \
 	http-date.h \
 	http-url.h \
 	http-parser.h \
