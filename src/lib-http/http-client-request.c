@@ -1491,6 +1491,7 @@ void http_client_request_redirect(struct http_client_request *req,
 		return;
 	}
 
+	i_assert(req->redirects <= req->client->set.max_redirects);
 	if (++req->redirects > req->client->set.max_redirects) {
 		if (req->client->set.max_redirects > 0) {
 			http_client_request_error(&req,
@@ -1583,6 +1584,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 
 	req->peer = NULL;
 	req->state = HTTP_REQUEST_STATE_QUEUED;
+	req->redirects = 0;
 	http_client_host_submit_request(req->host, req);
 }
 
