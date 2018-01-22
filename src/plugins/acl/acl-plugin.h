@@ -12,6 +12,8 @@
 	MODULE_CONTEXT_REQUIRE(obj, acl_storage_module)
 #define ACL_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, acl_mailbox_list_module)
+#define ACL_LIST_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, acl_mailbox_list_module)
 #define ACL_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, acl_user_module)
 
