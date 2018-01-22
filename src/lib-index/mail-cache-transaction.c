@@ -20,6 +20,8 @@
 
 #define CACHE_TRANS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, cache_mail_index_transaction_module)
+#define CACHE_TRANS_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, cache_mail_index_transaction_module)
 
 struct mail_cache_transaction_rec {
 	uint32_t seq;
@@ -57,7 +59,7 @@ static size_t mail_cache_transaction_update_last_rec_size(struct mail_cache_tran
 
 static void mail_index_transaction_cache_reset(struct mail_index_transaction *t)
 {
-	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT_REQUIRE(t);
 	struct mail_index_transaction_vfuncs super = ctx->super;
 
 	mail_cache_transaction_reset(ctx);
@@ -68,7 +70,7 @@ static int
 mail_index_transaction_cache_commit(struct mail_index_transaction *t,
 				    struct mail_index_transaction_commit_result *result_r)
 {
-	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT_REQUIRE(t);
 	struct mail_index_transaction_vfuncs super = ctx->super;
 
 	/* a failed cache commit isn't important enough to fail the entire
@@ -80,7 +82,7 @@ mail_index_transaction_cache_commit(struct mail_index_transaction *t,
 static void
 mail_index_transaction_cache_rollback(struct mail_index_transaction *t)
 {
-	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT_REQUIRE(t);
 	struct mail_index_transaction_vfuncs super = ctx->super;
 
 	mail_cache_transaction_rollback(&ctx);
