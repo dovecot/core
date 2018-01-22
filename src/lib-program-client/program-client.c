@@ -258,19 +258,17 @@ int program_client_program_output(struct program_client *pclient)
 		}
 	}
 
-	if (input == NULL &&
-	    output != NULL &&
-	    pclient->dot_output != NULL) {
-		if ((ret = o_stream_finish(pclient->dot_output)) <= 0) {
-			if (ret < 0) {
-				i_error("write(%s) failed: %s",
-					o_stream_get_name(output),
-					o_stream_get_error(output));
-					program_client_fail(pclient,
-							    PROGRAM_CLIENT_ERROR_IO);
-			}
-			return ret;
+	if (input == NULL && output != NULL) {
+		if ((ret=o_stream_finish(output)) < 0) {
+			i_error("write(%s) failed: %s",
+				o_stream_get_name(output),
+				o_stream_get_error(output));
+			program_client_fail(pclient,
+					    PROGRAM_CLIENT_ERROR_IO);
+			return -1;
 		}
+		if (ret == 0)
+			return 0;
 		o_stream_unref(&pclient->dot_output);
 	}
 
@@ -355,6 +353,20 @@ void program_client_program_input(struct program_client *pclient)
 				return;
 			}
 		}
+
+		if (output != NULL) {
+			if ((ret=o_stream_flush(output)) < 0) {
+				i_error("write(%s) failed: %s",
+					o_stream_get_name(output),
+					o_stream_get_error(output));
+				program_client_fail(pclient,
+						    PROGRAM_CLIENT_ERROR_IO);
+				return;
+			}
+			if (ret == 0)
+				return;
+		}
+
 		if (program_client_input_pending(pclient))
 			return;
 	}
