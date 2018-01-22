@@ -22,9 +22,9 @@
 	(((size) + MEM_ALIGN_SIZE-1) & ~((size_t) MEM_ALIGN_SIZE-1))
 
 #define PTR_OFFSET(ptr, offset) \
-	((void *) (((uintptr_t) (ptr)) + (offset)))
+	((void *) (((uintptr_t) (ptr)) + ((size_t) (offset))))
 #define CONST_PTR_OFFSET(ptr, offset) \
-	((const void *) (((uintptr_t) (ptr)) + (offset)))
+	((const void *) (((uintptr_t) (ptr)) + ((size_t) (offset))))
 
 #define container_of(ptr, type, name) \
 	(type *)((uintptr_t)(ptr) - (uintptr_t)offsetof(type, name) + \
