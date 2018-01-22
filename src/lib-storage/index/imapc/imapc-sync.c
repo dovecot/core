@@ -574,7 +574,8 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	if (imapc_storage_client_handle_auth_failure(mbox->storage->client))
 		ret = -1;
-	else if (!mbox->state_fetched_success && !mbox->state_fetching_uid1) {
+	else if (!mbox->state_fetched_success && !mbox->state_fetching_uid1 &&
+		 !mbox->box.deleting) {
 		/* initial FETCH failed already */
 		ret = -1;
 	}
