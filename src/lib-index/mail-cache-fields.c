@@ -411,7 +411,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			field.name = names;
 			field.type = types[i];
 			field.field_size = sizes[i];
-			field.decision = decisions[i];
+			field.decision = decisions[i] & ~MAIL_CACHE_DECISION_FORCED;
 			mail_cache_register_fields(cache, &field, 1);
 			fidx = field.idx;
 		}
