@@ -110,7 +110,10 @@ static void client_proxy_create(struct client *client,
 
 	i_zero(&ssl_set);
 	mail_user_init_ssl_client_settings(user, &ssl_set);
-	ssl_set.allow_invalid_cert = !set->submission_relay_ssl_verify;
+	if (set->submission_relay_ssl_verify)
+		ssl_set.verbose_invalid_cert = TRUE;
+	else
+		ssl_set.allow_invalid_cert = TRUE;
 
 	/* make proxy connection */
 	i_zero(&smtp_set);
