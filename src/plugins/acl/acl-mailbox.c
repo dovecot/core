@@ -34,11 +34,12 @@ struct acl_object *acl_mailbox_get_aclobj(struct mailbox *box)
 int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
 	int ret;
 
 	if (abox->skip_acl_checks)
 		return 1;
+
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(box->list);
 
 	ret = acl_object_have_right(abox->aclobj,
 			alist->rights.acl_storage_right_idx[right_idx]);
@@ -90,7 +91,7 @@ static void acl_mailbox_free(struct mailbox *box)
 static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(box->list);
 	struct acl_object *parent_aclobj;
 	struct acl_object_list_iter *iter;
 	struct acl_rights_update update;
@@ -490,7 +491,7 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 static int acl_mailbox_open_check_acl(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(box->list);
 	const unsigned int *idx_arr = alist->rights.acl_storage_right_idx;
 	enum acl_storage_rights open_right;
 	int ret;
