@@ -11,7 +11,7 @@
 static bool iter_use_index(struct mailbox_list *list,
 			   enum mailbox_list_iter_flags flags)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* for now we don't use indexes when listing subscriptions,
@@ -37,7 +37,7 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 			     const char *const *patterns,
 			     enum mailbox_list_iter_flags flags)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mailbox_list_index_iterate_context *ctx;
 	pool_t pool;
 	char ns_sep = mail_namespace_get_sep(list->ns);
@@ -178,7 +178,7 @@ iter_subscriptions_ok(struct mailbox_list_index_iterate_context *ctx)
 const struct mailbox_info *
 mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(_ctx->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(_ctx->list);
 	if (!_ctx->index_iteration) {
 		/* index isn't being used */
 		return ilist->module_ctx.super.iter_next(_ctx);
@@ -225,7 +225,7 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 int mailbox_list_index_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(_ctx->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(_ctx->list);
 	if (!_ctx->index_iteration)
 		return ilist->module_ctx.super.iter_deinit(_ctx);
 

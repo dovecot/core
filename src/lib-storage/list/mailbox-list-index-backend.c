@@ -114,7 +114,6 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 		    enum mailbox_list_path_type type, const char **path_r)
 {
 	struct index_mailbox_list *list = (struct index_mailbox_list *)_list;
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(_list);
 	struct mail_index_view *view;
 	struct mailbox_list_index_node *node;
 	struct mailbox_status status;
@@ -151,6 +150,10 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 					      list->create_mailbox_guid);
 		return 1;
 	}
+
+	/* ilist is only required from this point onwards.
+	   At least imapc calls index_list_get_path without this context*/
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(_list);
 
 	if (ilist->sync_ctx != NULL) {
 		/* we could get here during sync from
@@ -282,7 +285,7 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 {
 	struct index_mailbox_list *list =
 		(struct index_mailbox_list *)box->list;
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mailbox_list_index_record rec;
 	struct mailbox_list_index_node *node;
@@ -586,7 +589,7 @@ static int index_list_mailbox_open(struct mailbox *box)
 void mailbox_list_index_backend_sync_init(struct mailbox *box,
 					  enum mailbox_sync_flags flags)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 
 	if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0 &&
 	    !ilist->force_resynced) {
@@ -603,7 +606,7 @@ void mailbox_list_index_backend_sync_init(struct mailbox *box,
 
 int mailbox_list_index_backend_sync_deinit(struct mailbox *box)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 
 	if (ilist->force_resync_failed) {
 		/* fail this only once */

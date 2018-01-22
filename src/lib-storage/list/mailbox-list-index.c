@@ -25,7 +25,7 @@ struct mailbox_list_index_module mailbox_list_index_module =
 
 void mailbox_list_index_set_index_error(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	mailbox_list_set_internal_error(list);
 	mail_index_reset_error(ilist->index);
@@ -54,7 +54,7 @@ void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 
 int mailbox_list_index_index_open(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	const struct mail_storage_settings *set = list->mail_set;
 	enum mail_index_open_flags index_flags;
 	unsigned int lock_timeout;
@@ -128,7 +128,7 @@ mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
 static struct mailbox_list_index_node *
 mailbox_list_index_lookup_real(struct mailbox_list *list, const char *name)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mailbox_list_index_node *node = ilist->mailbox_tree;
 	const char *const *path;
 	unsigned int i;
@@ -433,7 +433,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 int mailbox_list_index_parse(struct mailbox_list *list,
 			     struct mail_index_view *view, bool force)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	const struct mail_index_header *hdr;
 	const char *error;
 
@@ -495,7 +495,7 @@ bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
 
 int mailbox_list_index_refresh(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	if (ilist->syncing)
 		return 0;
@@ -513,7 +513,7 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 
 int mailbox_list_index_refresh_force(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mail_index_view *view;
 	int ret;
 	bool refresh;
@@ -545,7 +545,7 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 
 static void mailbox_list_index_refresh_timeout(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	timeout_remove(&ilist->to_refresh);
 	(void)mailbox_list_index_refresh(list);
@@ -553,7 +553,7 @@ static void mailbox_list_index_refresh_timeout(struct mailbox_list *list)
 
 void mailbox_list_index_refresh_later(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mailbox_list_index_header new_hdr;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
@@ -610,7 +610,7 @@ list_handle_corruption_locked(struct mailbox_list *list,
 
 int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	enum mail_storage_list_index_rebuild_reason reason;
 	int ret;
 
@@ -644,7 +644,7 @@ int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 
 int mailbox_list_index_set_uncorrupted(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mailbox_list_index_sync_context *sync_ctx;
 
 	ilist->call_corruption_callback = FALSE;
@@ -659,7 +659,7 @@ int mailbox_list_index_set_uncorrupted(struct mailbox_list *list)
 
 static void mailbox_list_index_deinit(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	timeout_remove(&ilist->to_refresh);
 	if (ilist->index != NULL) {
@@ -677,7 +677,7 @@ static void
 mailbox_list_index_refresh_if_found(struct mailbox_list *list,
 				    const char *name, bool selectable)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mailbox_list_index_node *node;
 
 	if (ilist->syncing)
@@ -699,7 +699,7 @@ mailbox_list_index_refresh_if_found(struct mailbox_list *list,
 static void mailbox_list_index_refresh_if_not_found(struct mailbox_list *list,
 						    const char *name)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	if (ilist->syncing)
 		return;
@@ -760,7 +760,7 @@ mailbox_list_index_update_mailbox(struct mailbox *box,
 static int
 mailbox_list_index_delete_mailbox(struct mailbox_list *list, const char *name)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	if (ilist->module_ctx.super.delete_mailbox(list, name) < 0) {
 		if (mailbox_list_get_last_mail_error(list) == MAIL_ERROR_NOTFOUND)
@@ -774,7 +774,7 @@ mailbox_list_index_delete_mailbox(struct mailbox_list *list, const char *name)
 static int
 mailbox_list_index_delete_dir(struct mailbox_list *list, const char *name)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	if (ilist->module_ctx.super.delete_dir(list, name) < 0) {
 		if (mailbox_list_get_last_mail_error(list) == MAIL_ERROR_NOTFOUND)
@@ -791,7 +791,7 @@ mailbox_list_index_rename_mailbox(struct mailbox_list *oldlist,
 				  struct mailbox_list *newlist,
 				  const char *newname)
 {
-	struct mailbox_list_index *oldilist = INDEX_LIST_CONTEXT(oldlist);
+	struct mailbox_list_index *oldilist = INDEX_LIST_CONTEXT_REQUIRE(oldlist);
 
 	if (oldilist->module_ctx.super.rename_mailbox(oldlist, oldname,
 						      newlist, newname) < 0) {
@@ -811,7 +811,7 @@ static int
 mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 				  const char *name, bool set)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(_list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(_list);
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 	const void *data;

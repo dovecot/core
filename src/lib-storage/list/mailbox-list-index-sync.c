@@ -225,7 +225,7 @@ sync_expunge_nonexistent(struct mailbox_list_index_sync_context *sync_ctx,
 int mailbox_list_index_sync_begin(struct mailbox_list *list,
 				  struct mailbox_list_index_sync_context **sync_ctx_r)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *view;

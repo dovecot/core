@@ -33,6 +33,8 @@
 
 #define INDEX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_index_module)
+#define INDEX_LIST_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, mailbox_list_index_module)
 
 struct mail_index_view;
 struct mailbox_index_vsize;
