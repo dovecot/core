@@ -734,6 +734,8 @@ extern struct event_category event_category_mail;
 
 #define MAIL_STORAGE_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_storage_mail_index_module)
+#define MAIL_STORAGE_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, mail_storage_mail_index_module)
 extern MODULE_CONTEXT_DEFINE(mail_storage_mail_index_module,
 			     &mail_index_module_register);
 
