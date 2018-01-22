@@ -16,6 +16,8 @@
 
 #define MAIL_THREAD_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_thread_storage_module)
+#define MAIL_THREAD_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, mail_thread_storage_module)
 
 struct mail_thread_context {
 	struct mailbox *box;
@@ -297,7 +299,7 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 		HDR_MESSAGE_ID, HDR_IN_REPLY_TO, HDR_REFERENCES,
 		NULL
 	};
-	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT_REQUIRE(ctx->box);
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
@@ -539,7 +541,7 @@ static void mail_thread_cache_sync_add(struct mail_thread_mailbox *tbox,
 int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 		     struct mail_thread_context **ctx_r)
 {
-	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(box);
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT_REQUIRE(box);
 	struct mail_thread_context *ctx;
 	struct mail_search_context *search_ctx;
 	int ret;
@@ -593,7 +595,7 @@ static void mail_thread_clear(struct mail_thread_context *ctx)
 void mail_thread_deinit(struct mail_thread_context **_ctx)
 {
 	struct mail_thread_context *ctx = *_ctx;
-	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT_REQUIRE(ctx->box);
 
 	*_ctx = NULL;
 
@@ -607,7 +609,7 @@ struct mail_thread_iterate_context *
 mail_thread_iterate_init(struct mail_thread_context *ctx,
 			 enum mail_thread_type thread_type, bool write_seqs)
 {
-	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT_REQUIRE(ctx->box);
 
 	return mail_thread_iterate_init_full(tbox->cache, ctx->tmp_mail,
 					     thread_type, write_seqs);
@@ -615,7 +617,7 @@ mail_thread_iterate_init(struct mail_thread_context *ctx,
 
 static void mail_thread_mailbox_close(struct mailbox *box)
 {
-	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(box);
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT_REQUIRE(box);
 
 	i_assert(tbox->ctx == NULL);
 
@@ -628,7 +630,7 @@ static void mail_thread_mailbox_close(struct mailbox *box)
 
 static void mail_thread_mailbox_free(struct mailbox *box)
 {
-	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(box);
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT_REQUIRE(box);
 
 	mail_index_strmap_deinit(&tbox->strmap);
 	tbox->module_ctx.super.free(box);
