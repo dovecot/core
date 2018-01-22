@@ -188,7 +188,7 @@ bool program_client_input_pending(struct program_client *pclient)
 
 	if (pclient->program_input != NULL &&
 	    !pclient->program_input->closed &&
-	    !i_stream_is_eof(pclient->program_input)) {
+	    i_stream_have_bytes_left(pclient->program_input)) {
 		return TRUE;
 	}
 
@@ -197,7 +197,7 @@ bool program_client_input_pending(struct program_client *pclient)
 		for(i = 0; i < count; i++) {
 			if (efds[i].input != NULL &&
 			    !efds[i].input->closed &&
-			    !i_stream_is_eof(efds[i].input)) {
+			    i_stream_have_bytes_left(efds[i].input)) {
 				return TRUE;
 			}
 		}
@@ -357,7 +357,7 @@ void program_client_extra_fd_input(struct program_client_extra_fd *efd)
 	i_assert(efd->callback != NULL);
 	efd->callback(efd->context, efd->input);
 
-	if (efd->input->closed || i_stream_is_eof(efd->input)) {
+	if (efd->input->closed || !i_stream_have_bytes_left(efd->input)) {
 		if (!program_client_input_pending(pclient))
 			program_client_disconnect(pclient, FALSE);
 	}
