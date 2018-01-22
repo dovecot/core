@@ -398,7 +398,9 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 					   &orig_key, &orig_value)) {
 			/* already exists, see if decision can be updated */
 			fidx = POINTER_CAST_TO(orig_value, unsigned int);
-			if (!cache->fields[fidx].decision_dirty) {
+			if (!cache->fields[fidx].decision_dirty &&
+			    (cache->fields[fidx].field.decision &
+			     MAIL_CACHE_DECISION_FORCED) == 0) {
 				cache->fields[fidx].field.decision =
 					decisions[i];
 			}
