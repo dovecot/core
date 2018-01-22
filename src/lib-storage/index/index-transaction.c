@@ -26,7 +26,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 			       struct mail_index_transaction_commit_result *result_r)
 {
 	struct mailbox_transaction_context *t =
-		MAIL_STORAGE_CONTEXT(index_trans);
+		MAIL_STORAGE_CONTEXT_REQUIRE(index_trans);
 	struct index_mailbox_sync_pvt_context *pvt_sync_ctx = NULL;
 	const char *error;
 	int ret = 0;
@@ -104,7 +104,7 @@ static void
 index_transaction_index_rollback(struct mail_index_transaction *index_trans)
 {
 	struct mailbox_transaction_context *t =
-		MAIL_STORAGE_CONTEXT(index_trans);
+		MAIL_STORAGE_CONTEXT_REQUIRE(index_trans);
 
 	if (t->attr_pvt_trans != NULL)
 		dict_transaction_rollback(&t->attr_pvt_trans);
