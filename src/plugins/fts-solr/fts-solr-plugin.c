@@ -51,7 +51,7 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 
 static void fts_solr_mail_user_deinit(struct mail_user *user)
 {
-	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(user);
+	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT_REQUIRE(user);
 
 	if (fuser->set.use_libfts)
 		fts_mail_user_deinit(user);
