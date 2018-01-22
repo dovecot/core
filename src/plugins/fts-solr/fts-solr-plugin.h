@@ -7,6 +7,8 @@
 
 #define FTS_SOLR_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_solr_user_module)
+#define FTS_SOLR_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, fts_solr_user_module)
 
 struct fts_solr_settings {
 	const char *url, *default_ns_prefix;
