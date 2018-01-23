@@ -442,7 +442,7 @@ static int
 acl_transaction_commit(struct mailbox_transaction_context *ctx,
 		       struct mail_transaction_commit_changes *changes_r)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(ctx->box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(ctx->box);
 	void *at = ACL_CONTEXT(ctx);
 	int ret;
 
@@ -450,8 +450,6 @@ acl_transaction_commit(struct mailbox_transaction_context *ctx,
 		abox->module_ctx.super.transaction_rollback(ctx);
 		return -1;
 	}
-
-	i_assert(abox != NULL);
 
 	ret = abox->module_ctx.super.transaction_commit(ctx, changes_r);
 	if (abox->no_read_right) {
