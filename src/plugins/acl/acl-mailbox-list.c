@@ -551,7 +551,6 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 
 void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 {
-	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
 	struct acl_backend *backend;
 	const char *current_username, *owner_username;
@@ -559,6 +558,7 @@ void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 
 	if (alist == NULL)
 		return;
+	struct acl_user *auser = ACL_USER_CONTEXT_REQUIRE(ns->user);
 
 	owner_username = ns->user->username;
 	current_username = auser->acl_user;
