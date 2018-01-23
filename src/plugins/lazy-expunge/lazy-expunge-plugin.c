@@ -26,8 +26,12 @@
 	MODULE_CONTEXT(obj, lazy_expunge_mailbox_list_module)
 #define LAZY_EXPUNGE_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, lazy_expunge_mail_user_module)
+#define LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, lazy_expunge_mail_user_module)
 #define LAZY_EXPUNGE_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, lazy_expunge_mail_module)
+#define LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, lazy_expunge_mail_module)
 
 struct lazy_expunge_mail {
 	union mail_module_context module_ctx;
@@ -82,7 +86,7 @@ static const char *
 get_dest_vname(struct mailbox_list *list, struct mailbox *src_box)
 {
 	struct lazy_expunge_mail_user *luser =
-		LAZY_EXPUNGE_USER_CONTEXT(list->ns->user);
+		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(list->ns->user);
 	const char *name;
 	char src_sep, dest_sep;
 
@@ -282,9 +286,9 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 {
 	struct mail_namespace *ns = _mail->box->list->ns;
 	struct lazy_expunge_mail_user *luser =
-		LAZY_EXPUNGE_USER_CONTEXT(ns->user);
+		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(ns->user);
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct lazy_expunge_mail *mmail = LAZY_EXPUNGE_MAIL_CONTEXT(mail);
+	struct lazy_expunge_mail *mmail = LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(mail);
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT_REQUIRE(_mail->transaction);
 	struct mail *real_mail;
@@ -292,9 +296,6 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	const char *error;
 	bool moving = mmail->moving;
 	int ret;
-
-	i_assert(luser != NULL);
-	i_assert(mmail != NULL);
 
 	if (lt->delayed_error != MAIL_ERROR_NONE)
 		return;
@@ -384,12 +385,10 @@ lazy_expunge_transaction_begin(struct mailbox *box,
 			       const char *reason)
 {
 	struct lazy_expunge_mail_user *luser =
-		LAZY_EXPUNGE_USER_CONTEXT(box->list->ns->user);
+		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(box->list->ns->user);
 	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT_REQUIRE(box);
 	struct mailbox_transaction_context *t;
 	struct lazy_expunge_transaction *lt;
-
-	i_assert(luser != NULL);
 
 	t = mbox->super.transaction_begin(box, flags, reason);
 	lt = i_new(struct lazy_expunge_transaction, 1);
@@ -572,9 +571,8 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 
 static void lazy_expunge_user_deinit(struct mail_user *user)
 {
-	struct lazy_expunge_mail_user *luser = LAZY_EXPUNGE_USER_CONTEXT(user);
+	struct lazy_expunge_mail_user *luser = LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(user);
 
-	i_assert(luser != NULL);
 	/* mail_namespaces_created hook isn't necessarily ever called */
 	if (luser->lazy_ns != NULL)
 		mail_namespace_unref(&luser->lazy_ns);
