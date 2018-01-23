@@ -76,7 +76,7 @@ static void quota_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct quota_mailbox *qbox = QUOTA_CONTEXT_REQUIRE(_mail->box);
-	struct quota_user *quser = QUOTA_USER_CONTEXT(_mail->box->storage->user);
+	struct quota_user *quser = QUOTA_USER_CONTEXT_REQUIRE(_mail->box->storage->user);
 	union mail_module_context *qmail = QUOTA_MAIL_CONTEXT(mail);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT_REQUIRE(_mail->transaction);
 	uoff_t size;
@@ -215,10 +215,9 @@ quota_move_requires_check(struct mailbox *dest_box, struct mailbox *src_box)
 {
 	struct mail_namespace *src_ns = src_box->list->ns;
 	struct mail_namespace *dest_ns = dest_box->list->ns;
-	struct quota_user *quser = QUOTA_USER_CONTEXT(src_ns->user);
+	struct quota_user *quser = QUOTA_USER_CONTEXT_REQUIRE(src_ns->user);
 	struct quota_root *const *rootp;
 
-	i_assert(quser != NULL);
 	array_foreach(&quser->quota->roots, rootp) {
 		bool have_src_quota, have_dest_quota;
 
@@ -397,13 +396,12 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT_REQUIRE(box);
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
-	struct quota_user *quser = QUOTA_USER_CONTEXT(box->storage->user);
+	struct quota_user *quser = QUOTA_USER_CONTEXT_REQUIRE(box->storage->user);
 	const uint32_t *uids;
 	const uoff_t *sizep;
 	unsigned int i, count;
 	uoff_t size;
 
-	i_assert(quser != NULL);
 	if (qbox->module_ctx.super.sync_notify != NULL)
 		qbox->module_ctx.super.sync_notify(box, uid, sync_type);
 
@@ -528,9 +526,8 @@ static void quota_roots_flush(struct quota *quota)
 static void quota_mailbox_close(struct mailbox *box)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT_REQUIRE(box);
-	struct quota_user *quser = QUOTA_USER_CONTEXT(box->storage->user);
+	struct quota_user *quser = QUOTA_USER_CONTEXT_REQUIRE(box->storage->user);
 
-	i_assert(quser != NULL);
 	/* sync_notify() may be called outside sync_begin()..sync_deinit().
 	   make sure we apply changes at close time at latest. */
 	quota_mailbox_sync_commit(qbox);
@@ -606,8 +603,7 @@ struct quota *quota_get_mail_user_quota(struct mail_user *user)
 
 static void quota_user_deinit(struct mail_user *user)
 {
-	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
-	i_assert(quser != NULL);
+	struct quota_user *quser = QUOTA_USER_CONTEXT_REQUIRE(user);
 	struct quota_settings *quota_set = quser->quota->set;
 
 	quota_deinit(&quser->quota);
