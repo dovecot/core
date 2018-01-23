@@ -24,7 +24,7 @@
 #define VIRTUAL_DEFAULT_MAX_OPEN_MAILBOXES 64
 
 #define VIRTUAL_BACKEND_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, virtual_backend_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, virtual_backend_storage_module)
 
 struct virtual_backend_mailbox {
 	union mailbox_module_context module_ctx;
