@@ -212,6 +212,7 @@ int program_client_program_output(struct program_client *pclient)
 	enum ostream_send_istream_result res;
 	int ret = 0;
 
+	/* flush the output first, before writing more */
 	if ((ret = o_stream_flush(output)) <= 0) {
 		if (ret < 0) {
 			i_error("write(%s) failed: %s",
@@ -223,6 +224,7 @@ int program_client_program_output(struct program_client *pclient)
 		return ret;
 	}
 
+	/* initialize dot stream if required */
 	if (!pclient->output_dot_created &&
 	    pclient->set.use_dotstream &&
 	    output != NULL) {
@@ -233,6 +235,7 @@ int program_client_program_output(struct program_client *pclient)
 		output = pclient->dot_output;
 
 	if (input != NULL && output != NULL) {
+		/* transfer provided input stream to output towards program */
 		res = o_stream_send_istream(output, input);
 		switch (res) {
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
@@ -259,6 +262,7 @@ int program_client_program_output(struct program_client *pclient)
 	}
 
 	if (input == NULL && output != NULL) {
+		/* finish and flush program output */
 		if ((ret=o_stream_finish(output)) < 0) {
 			i_error("write(%s) failed: %s",
 				o_stream_get_name(output),
@@ -273,8 +277,11 @@ int program_client_program_output(struct program_client *pclient)
 	}
 
 	if (input == NULL) {
+		/* check whether program i/o is finished */
 		if (!program_client_input_pending(pclient)) {
+			/* finished */
 			program_client_disconnect(pclient, FALSE);
+		/* close output towards program, so that it reads EOF */
 		} else if (program_client_close_output(pclient) < 0) {
 			program_client_fail(pclient,
 					    PROGRAM_CLIENT_ERROR_OTHER);
@@ -292,6 +299,7 @@ void program_client_program_input(struct program_client *pclient)
 	size_t size;
 	int ret = 0;
 
+	/* initialize seekable output if required */
 	if (pclient->output_seekable && pclient->seekable_output == NULL) {
 		struct istream *input_list[2] = { input, NULL };
 
@@ -306,6 +314,7 @@ void program_client_program_input(struct program_client *pclient)
 	}
 
 	if (input != NULL) {
+		/* initialize dot stream if required */
 		if (!pclient->input_dot_created &&
 		    pclient->set.use_dotstream) {
 			pclient->dot_input = i_stream_create_dot(input, FALSE);
@@ -313,6 +322,8 @@ void program_client_program_input(struct program_client *pclient)
 		}
 		if (pclient->dot_input != NULL)
 			input = pclient->dot_input;
+
+		/* transfer input from program to provided output stream */
 		if (output != NULL) {
 			res = o_stream_send_istream(output, input);
 			switch (res) {
@@ -339,6 +350,8 @@ void program_client_program_input(struct program_client *pclient)
 				return;
 			}
 		}
+
+		/* read (the remainder of) the outer stream */
 		while ((ret=i_stream_read_more(input, &data, &size)) > 0)
 			i_stream_skip(input, size);
 		if (ret == 0)
@@ -354,6 +367,7 @@ void program_client_program_input(struct program_client *pclient)
 			}
 		}
 
+		/* flush output stream to make sure all is sent */
 		if (output != NULL) {
 			if ((ret=o_stream_flush(output)) < 0) {
 				i_error("write(%s) failed: %s",
@@ -367,9 +381,12 @@ void program_client_program_input(struct program_client *pclient)
 				return;
 		}
 
+		/* check whether program i/o is finished */
 		if (program_client_input_pending(pclient))
 			return;
 	}
+
+	/* finished */
 	program_client_disconnect(pclient, FALSE);
 }
 
