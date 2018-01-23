@@ -10,6 +10,8 @@
 
 #define VIRTUAL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, virtual_storage_module)
+#define VIRTUAL_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, virtual_storage_module)
 
 struct virtual_save_context;
 
