@@ -12,7 +12,7 @@
 #include "doveadm-mail.h"
 
 #define DOVEADM_EXPIRE_MAIL_CMD_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, doveadm_expire_mail_cmd_module)
+	MODULE_CONTEXT_REQUIRE(obj, doveadm_expire_mail_cmd_module)
 
 enum expire_user_state {
 	EXPIRE_USER_STATE_NONEXISTENT = 0,
