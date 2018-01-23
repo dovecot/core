@@ -315,13 +315,6 @@ void program_client_program_input(struct program_client *pclient)
 		}
 		if (pclient->dot_input != NULL)
 			input = pclient->dot_input;
-		else if (pclient->set.use_dotstream) {
-			/* just read it empty */
-			while(i_stream_read_more(input, &data,
-						 &size) > 0)
-				i_stream_skip(input, size);
-			output = NULL;
-		}
 		if (output != NULL) {
 			res = o_stream_send_istream(output, input);
 			switch (res) {
@@ -350,21 +343,19 @@ void program_client_program_input(struct program_client *pclient)
 						    PROGRAM_CLIENT_ERROR_IO);
 				return;
 			}
-		} else {
-			while ((ret=i_stream_read_more(input, &data, &size)) > 0)
-				i_stream_skip(input, size);
-
-			if (ret == 0)
+		}
+		while ((ret=i_stream_read_more(input, &data, &size)) > 0)
+			i_stream_skip(input, size);
+		if (ret == 0)
+			return;
+		if (ret < 0) {
+			if (input->stream_errno != 0) {
+				i_error("read(%s) failed: %s",
+					i_stream_get_name(input),
+					i_stream_get_error(input));
+				program_client_fail(pclient,
+						    PROGRAM_CLIENT_ERROR_IO);
 				return;
-			if (ret < 0) {
-				if (input->stream_errno != 0) {
-					i_error("read(%s) failed: %s",
-						i_stream_get_name(input),
-						i_stream_get_error(input));
-					program_client_fail(pclient,
-							    PROGRAM_CLIENT_ERROR_IO);
-					return;
-				}
 			}
 		}
 		if (program_client_input_pending(pclient))
