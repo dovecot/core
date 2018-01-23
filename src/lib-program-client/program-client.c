@@ -319,11 +319,8 @@ void program_client_program_input(struct program_client *pclient)
 			res = o_stream_send_istream(output, input);
 			switch (res) {
 			case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-				if (pclient->set.use_dotstream &&
-				    pclient->dot_input != NULL) {
-					i_stream_unref(&pclient->dot_input);
-					input = pclient->program_input;
-				}
+				i_stream_unref(&pclient->dot_input);
+				input = pclient->program_input;
 				break;
 			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
