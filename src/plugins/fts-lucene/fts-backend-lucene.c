@@ -175,7 +175,7 @@ fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 	struct fts_lucene_user *fuser =
-		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
+		FTS_LUCENE_USER_CONTEXT_REQUIRE(_backend->ns->user);
 	struct fts_index_header hdr;
 	uint32_t set_checksum;
 	int ret;
@@ -213,7 +213,7 @@ fts_backend_lucene_update_init(struct fts_backend *_backend)
 		(struct lucene_fts_backend *)_backend;
 	struct lucene_fts_backend_update_context *ctx;
 	struct fts_lucene_user *fuser =
-		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
+		FTS_LUCENE_USER_CONTEXT_REQUIRE(_backend->ns->user);
 
 	i_assert(!backend->updating);
 
