@@ -219,7 +219,9 @@ static inline int
 i_stream_read_more(struct istream *stream, const unsigned char **data_r,
 		   size_t *size_r)
 {
-	return i_stream_read_bytes(stream, data_r, size_r, 1);
+	int ret = i_stream_read_bytes(stream, data_r, size_r, 1);
+	i_assert(ret != -2); /* stream must have space for at least 1 byte */
+	return ret;
 }
 /* Return the timestamp when istream last successfully read something.
    The timestamp is 0 if nothing has ever been read. */
