@@ -351,11 +351,8 @@ void program_client_program_input(struct program_client *pclient)
 				return;
 			}
 		} else {
-			while ((ret =
-				i_stream_read_more(input, &data, &size)) > 0 ||
-			       ret == -2) {
+			while ((ret=i_stream_read_more(input, &data, &size)) > 0)
 				i_stream_skip(input, size);
-			}
 
 			if (ret == 0)
 				return;
