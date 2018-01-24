@@ -405,7 +405,10 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			enum mail_cache_decision_type cur_dec =
 				cache->fields[fidx].field.decision;
 			if ((cur_dec & MAIL_CACHE_DECISION_FORCED) != 0) {
-				/* Forced decision. */
+				/* Forced decision. If the decision has
+				   changed, update the fields in the file. */
+				if ((cur_dec & ~MAIL_CACHE_DECISION_FORCED) != file_dec)
+					cache->field_header_write_pending = TRUE;
 			} else if (cache->fields[fidx].decision_dirty) {
 				/* Decisions have recently been updated
 				   internally. Don't change them. */
