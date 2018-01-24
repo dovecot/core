@@ -394,24 +394,35 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			return -1;
 		}
 
+		/* ignore any forced-flags in the file */
+		enum mail_cache_decision_type file_dec =
+			decisions[i] & ~MAIL_CACHE_DECISION_FORCED;
+
 		if (hash_table_lookup_full(cache->field_name_hash, names,
 					   &orig_key, &orig_value)) {
 			/* already exists, see if decision can be updated */
 			fidx = POINTER_CAST_TO(orig_value, unsigned int);
-			if (!cache->fields[fidx].decision_dirty &&
-			    (cache->fields[fidx].field.decision &
-			     MAIL_CACHE_DECISION_FORCED) == 0) {
-				cache->fields[fidx].field.decision =
-					decisions[i] & ~MAIL_CACHE_DECISION_FORCED;
+			enum mail_cache_decision_type cur_dec =
+				cache->fields[fidx].field.decision;
+			if ((cur_dec & MAIL_CACHE_DECISION_FORCED) != 0) {
+				/* Forced decision. */
+			} else if (cache->fields[fidx].decision_dirty) {
+				/* Decisions have recently been updated
+				   internally. Don't change them. */
+			} else {
+				/* Use the decision from the cache file. */
+				cache->fields[fidx].field.decision = file_dec;
 			}
 			if (field_type_verify(cache, fidx,
 					      types[i], sizes[i]) < 0)
 				return -1;
 		} else {
+			/* field is currently unknown, so just use whatever
+			   exists in the file. */
 			field.name = names;
 			field.type = types[i];
 			field.field_size = sizes[i];
-			field.decision = decisions[i] & ~MAIL_CACHE_DECISION_FORCED;
+			field.decision = file_dec;
 			mail_cache_register_fields(cache, &field, 1);
 			fidx = field.idx;
 		}
