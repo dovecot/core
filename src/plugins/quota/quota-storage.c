@@ -288,7 +288,7 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 	/* we always want to know the mail size */
 	mail_add_temp_wanted_fields(ctx->dest_mail, MAIL_FETCH_PHYSICAL_SIZE, NULL);
 
-	/* get quota before copying any mails. this avoids .vsize.lock
+	/* get quota before copying any mails. this avoids dovecot-vsize.lock
 	   deadlocks with backends that lock mails for expunging/copying. */
 	enum quota_get_result error_res;
 	const char *error;
@@ -355,7 +355,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	/* we always want to know the mail size */
 	mail_add_temp_wanted_fields(ctx->dest_mail, MAIL_FETCH_PHYSICAL_SIZE, NULL);
 
-	/* get quota before copying any mails. this avoids .vsize.lock
+	/* get quota before copying any mails. this avoids dovecot-vsize.lock
 	   deadlocks with backends that lock mails for expunging/copying. */
 	enum quota_get_result error_res;
 	if (quota_transaction_set_limits(qt, &error_res, &error) < 0) {
