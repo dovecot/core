@@ -309,8 +309,10 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 	struct program_client_remote *prclient =
 		(struct program_client_remote *)pclient;
 
-	if (pclient->error == PROGRAM_CLIENT_ERROR_NONE && !prclient->noreply &&
-	    pclient->program_input != NULL && !force) {
+	if (pclient->program_input == NULL) {
+		/* nothing */
+	} else if (pclient->error == PROGRAM_CLIENT_ERROR_NONE &&
+		   !prclient->noreply && !force) {
 		const unsigned char *data;
 		size_t size;
 
