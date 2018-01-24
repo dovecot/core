@@ -922,6 +922,9 @@ void i_stream_set_input_pending(struct istream *stream, bool pending)
 
 void i_stream_switch_ioloop(struct istream *stream)
 {
+	io_stream_switch_ioloop_to(&stream->real_stream->iostream,
+				   current_ioloop);
+
 	do {
 		if (stream->real_stream->switch_ioloop != NULL)
 			stream->real_stream->switch_ioloop(stream->real_stream);
