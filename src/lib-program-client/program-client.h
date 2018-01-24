@@ -22,7 +22,11 @@ struct program_client_settings {
 	bool allow_root:1;
 	bool debug:1;
 	bool drop_stderr:1;
-	/* use o_stream_dot */
+	/* use o_stream_dot, which is mainly useful to make sure that an
+	   unexpectedly closed connection doesn't cause the partial input to
+	   be accepted as valid and complete program input. This is always
+	   enabled for 'net' program clients, which may likely encounter
+	   unexpected connection termination. */
 	bool use_dotstream:1;
 };
 
