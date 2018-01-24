@@ -503,6 +503,8 @@ void o_stream_switch_ioloop(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
+	io_stream_switch_ioloop_to(&_stream->iostream, current_ioloop);
+
 	_stream->switch_ioloop(_stream);
 }
 

@@ -23,6 +23,7 @@ void io_stream_init(struct iostream_private *stream)
 		stream->close = io_stream_default_close;
 	if (stream->destroy == NULL)
 		stream->destroy = io_stream_default_destroy;
+	stream->ioloop = current_ioloop;
 
 	stream->refcount = 1;
 }
@@ -139,4 +140,15 @@ const char *io_stream_get_disconnect_reason(struct istream *input,
 		return "Connection closed";
 	else
 		return t_strdup_printf("Connection closed: %s", errstr);
+}
+
+void io_stream_switch_ioloop_to(struct iostream_private *stream,
+				struct ioloop *ioloop)
+{
+	stream->ioloop = ioloop;
+}
+
+struct ioloop *io_stream_get_ioloop(struct iostream_private *stream)
+{
+	return (stream->ioloop == NULL ? current_ioloop : stream->ioloop);
 }
