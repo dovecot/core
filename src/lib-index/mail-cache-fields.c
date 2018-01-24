@@ -402,7 +402,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			    (cache->fields[fidx].field.decision &
 			     MAIL_CACHE_DECISION_FORCED) == 0) {
 				cache->fields[fidx].field.decision =
-					decisions[i];
+					decisions[i] & ~MAIL_CACHE_DECISION_FORCED;
 			}
 			if (field_type_verify(cache, fidx,
 					      types[i], sizes[i]) < 0)
