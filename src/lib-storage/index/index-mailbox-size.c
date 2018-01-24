@@ -33,7 +33,7 @@
    need to lock vsize updates before sync.
 */
 
-#define VSIZE_LOCK_SUFFIX ".vsize.lock"
+#define VSIZE_LOCK_SUFFIX "dovecot-vsize.lock"
 #define VSIZE_UPDATE_MAX_LOCK_SECS 10
 
 #define INDEXER_SOCKET_NAME "indexer"
