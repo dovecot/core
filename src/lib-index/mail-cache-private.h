@@ -250,9 +250,14 @@ void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
 
 /* Notify the decision handling code that field was looked up for seq.
-   This should be called even for fields that aren't currently in cache file */
+   This should be called even for fields that aren't currently in cache file.
+   This is used to update caching decisions for fields that already exist
+   in the cache file. */
 void mail_cache_decision_state_update(struct mail_cache_view *view,
 				      uint32_t seq, unsigned int field);
+/* Notify the decision handling code when field is committed to cache.
+   If this is the first time the field is added to cache, its caching decision
+   is updated to TEMP. */
 void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 			     unsigned int field);
 
