@@ -1386,6 +1386,7 @@ index_mail_fetch_body_snippet(struct index_mail *mail, const char **value_r)
 		cache_fields[MAIL_CACHE_BODY_SNIPPET].idx;
 	string_t *str;
 
+	mail->data.cache_fetch_fields |= MAIL_FETCH_BODY_SNIPPET;
 	if (mail->data.body_snippet == NULL) {
 		str = str_new(mail->mail.data_pool, 128);
 		if (index_mail_cache_lookup_field(mail, str, cache_field) > 0 &&
