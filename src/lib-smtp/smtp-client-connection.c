@@ -1247,18 +1247,12 @@ static int
 smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 				const char **error_r)
 {
-	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
 	if (smtp_client_connection_init_ssl_ctx(conn, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to initialize SSL: %s", error);
 		return -1;
-	}
-
-	i_zero(&ssl_set);
-	if (!conn->set.ssl->allow_invalid_cert) {
-		ssl_set.verbose_invalid_cert = TRUE;
 	}
 
 	if (conn->set.debug)
@@ -1276,7 +1270,7 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 
 	io_remove(&conn->conn.io);
 	if (io_stream_create_ssl_client(conn->ssl_ctx,
-		conn->host, &ssl_set,
+		conn->host, conn->set.ssl,
 		&conn->conn.input, &conn->conn.output,
 		&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(
