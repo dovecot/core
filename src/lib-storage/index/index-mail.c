@@ -846,6 +846,10 @@ index_mail_want_cache(struct index_mail *mail, enum index_cache_field field)
 	if ((mail->data.dont_cache_fetch_fields & fetch_field) != 0)
 		return FALSE;
 
+	/* If a field has been explicitly requested to be fetched, it's
+	   included in data.cache_fetch_fields. In that case use _can_add() to
+	   add it to the cache file if at all possible. Otherwise, use
+	   _want_add() to use previous caching decisions. */
 	cache_field = mail->ibox->cache_fields[field].idx;
 	if ((mail->data.cache_fetch_fields & fetch_field) != 0) {
 		return mail_cache_field_can_add(_mail->transaction->cache_trans,
