@@ -933,6 +933,7 @@ src/plugins/imap-zlib/Makefile
 src/plugins/mail-crypt/Makefile
 src/plugins/var-expand-crypt/Makefile
 src/plugins/apparmor/Makefile
+src/plugins/charset-alias/Makefile
 stamp.h
 dovecot-config.in])
 
