@@ -38,4 +38,6 @@ void auth_server_connection_disconnect(struct auth_server_connection *conn,
 unsigned int
 auth_server_connection_add_request(struct auth_server_connection *conn,
 				   struct auth_client_request *request);
+void auth_server_connection_remove_request(struct auth_server_connection *conn,
+					   unsigned int id);
 #endif
