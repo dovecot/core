@@ -49,6 +49,32 @@ void program_client_istream_destroy(struct iostream_private *stream)
 	i_stream_unref(&scstream->istream.parent);
 }
 
+static void
+program_client_istream_parse_result(struct program_client_istream *scstream,
+	size_t pos)
+{
+	struct istream_private *stream = &scstream->istream;
+
+	if (stream->buffer == NULL || pos < 2 ||
+	    stream->buffer[pos - 1] != '\n') {
+		scstream->client->exit_code =
+			PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
+		return;
+	}
+
+	switch (stream->buffer[pos - 2]) {
+	case '+':
+		scstream->client->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
+		break;
+	case '-':
+		scstream->client->exit_code = PROGRAM_CLIENT_EXIT_FAILURE;
+		break;
+	default:
+		scstream->client->exit_code =
+			PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
+	}
+}
+
 static ssize_t
 program_client_istream_read(struct istream_private *stream)
 {
@@ -90,22 +116,7 @@ program_client_istream_read(struct istream_private *stream)
 
 			if (stream->parent->eof) {
 				/* Check return code at EOF */
-				if (stream->buffer != NULL && pos >= 2 &&
-				    stream->buffer[pos - 1] == '\n') {
-					switch (stream->buffer[pos - 2]) {
-					case '+':
-						scstream->client->exit_code = 1;
-						break;
-					case '-':
-						scstream->client->exit_code = 0;
-						break;
-					default:
-						scstream->client->exit_code =
-							-1;
-					}
-				} else {
-					scstream->client->exit_code = -1;
-				}
+				program_client_istream_parse_result(scstream, pos);
 			}
 
 			if (stream->buffer != NULL && pos >= 1) {
@@ -562,9 +573,9 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 		   generally unlikely to occur. */
 		if (pclient->program_input->stream_errno != 0 ||
 		    i_stream_have_bytes_left(pclient->program_input))
-			pclient->exit_code = -1;
+			pclient->exit_code = PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
 	} else {
-		pclient->exit_code = 1;
+		pclient->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
 	}
 
 	program_client_disconnected(pclient);
