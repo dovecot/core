@@ -139,6 +139,10 @@ static void client_proxy_create(struct client *client,
 	smtp_set.username = set->submission_relay_user;
 	smtp_set.master_user = set->submission_relay_master_user;
 	smtp_set.password = set->submission_relay_password;
+	smtp_set.connect_timeout_msecs =
+		set->submission_relay_connect_timeout;
+	smtp_set.command_timeout_msecs =
+		set->submission_relay_command_timeout;
 
 	if (strcmp(set->submission_relay_ssl, "smtps") == 0)
 		ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;

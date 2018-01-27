@@ -29,6 +29,9 @@ struct submission_settings {
 	const char *submission_relay_rawlog_dir;
 	unsigned int submission_relay_max_idle_time;
 
+	unsigned int submission_relay_connect_timeout;
+	unsigned int submission_relay_command_timeout;
+
 	/* imap urlauth: */
 	const char *imap_urlauth_host;
 	in_port_t imap_urlauth_port;
