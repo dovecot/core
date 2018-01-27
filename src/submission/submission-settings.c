@@ -81,6 +81,9 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(SET_STR, submission_relay_rawlog_dir),
 	DEF(SET_TIME, submission_relay_max_idle_time),
 
+	DEF(SET_TIME_MSECS, submission_relay_connect_timeout),
+	DEF(SET_TIME_MSECS, submission_relay_command_timeout),
+
 	DEF(SET_STR, imap_urlauth_host),
 	DEF(SET_IN_PORT, imap_urlauth_port),
 
@@ -112,6 +115,9 @@ static const struct submission_settings submission_default_settings = {
 
 	.submission_relay_rawlog_dir = "",
 	.submission_relay_max_idle_time = 60*29,
+
+	.submission_relay_connect_timeout = 30*1000,
+	.submission_relay_command_timeout = 60*5*1000,
 
 	.imap_urlauth_host = "",
 	.imap_urlauth_port = 143,
