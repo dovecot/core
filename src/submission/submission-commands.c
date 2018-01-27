@@ -46,6 +46,19 @@ bool client_command_handle_proxy_reply(struct client *client,
 		client_destroy(client,
 			"4.4.0", "Lost connection to relay server");
 		return FALSE;
+	/* RFC 4954, Section 6: 530 5.7.0 Authentication required
+
+	   This response SHOULD be returned by any command other than AUTH,
+	   EHLO, HELO, NOOP, RSET, or QUIT when server policy requires
+	   authentication in order to perform the requested action and
+	   authentication is not currently in force. */
+	case 530:
+		i_error("Relay server requires authentication: %s",
+			smtp_reply_log(reply));
+		client_destroy(client, "4.3.5",
+			"Internal error occurred. "
+			"Refer to server log for more information.");
+		return FALSE;
 	default:
 		break;
 	}
