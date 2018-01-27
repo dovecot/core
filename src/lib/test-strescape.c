@@ -51,7 +51,7 @@ static void test_str_escape(void)
 	};
 	unsigned char buf[1 << CHAR_BIT];
 	const char *escaped, *tabstr, *unesc_str;
-	string_t *str;
+	string_t *str, *escaped_str;
 	unsigned int i;
 
 	test_begin("str_escape");
@@ -67,7 +67,15 @@ static void test_str_escape(void)
 	test_assert(escaped['\''+1] == '\'');
 	test_assert(escaped['\\'+2-1] == '\\'); /* 92 */
 	test_assert(escaped['\\'+2] == '\\');
-	test_assert(strcmp(str_escape("\\\\\"\"\'\'"),
+
+	escaped = "\\\\\"\"\'\'";
+	test_assert(strcmp(str_escape(escaped),
+			   "\\\\\\\\\\\"\\\"\\\'\\\'") == 0);
+
+	str = t_str_new(256);
+	escaped_str = t_str_new_const(escaped, strlen(escaped));
+	str_append_escaped_str(str, escaped_str);
+	test_assert(strcmp(str_c(str),
 			   "\\\\\\\\\\\"\\\"\\\'\\\'") == 0);
 	test_end();
 

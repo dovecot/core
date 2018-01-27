@@ -31,6 +31,20 @@ const char *str_escape(const char *str)
 	return str_c(ret);
 }
 
+void str_append_escaped(string_t *dest, const void *src, size_t src_size)
+{
+	const unsigned char *src_c = src;
+	size_t i = 0, j = 0;
+	for (; i < src_size; ++i) {
+		if (IS_ESCAPED_CHAR(src_c[i])) {
+			str_append_n(dest, src_c + j, i - j);
+			str_append_c(dest, '\\');
+			j = i;
+		}
+	}
+	str_append_n(dest, src_c + j, i - j);
+}
+
 void str_append_unescaped(string_t *dest, const void *src, size_t src_size)
 {
 	const unsigned char *src_c = src;
