@@ -6,27 +6,28 @@
 
 const char *str_escape(const char *str)
 {
-	const char *p;
 	string_t *ret;
+	size_t i = 0, j = 0;
 
 	/* see if we need to quote it */
-	for (p = str; *p != '\0'; p++) {
-		if (IS_ESCAPED_CHAR(*p))
+	for (; str[i] != '\0'; ++i) {
+		if (IS_ESCAPED_CHAR(str[i]))
 			break;
 	}
 
-	if (*p == '\0')
+	if (str[i] == '\0')
 		return str;
 
 	/* quote */
-	ret = t_str_new((size_t) (p - str) + 128);
-	str_append_n(ret, str, (size_t) (p - str));
-
-	for (; *p != '\0'; p++) {
-		if (IS_ESCAPED_CHAR(*p))
+	ret = t_str_new(i + 128);
+	for (; str[i] != '\0'; ++i) {
+		if (IS_ESCAPED_CHAR(str[i])) {
+			str_append_n(ret, str + j, i - j);
 			str_append_c(ret, '\\');
-		str_append_c(ret, *p);
+			j = i;
+		}
 	}
+	str_append_n(ret, str + j, i - j);
 	return str_c(ret);
 }
 
