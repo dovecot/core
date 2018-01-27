@@ -50,7 +50,7 @@ smtp_server_reply_debug(struct smtp_server_reply *reply,
  * Reply
  */
 
-static void smtp_server_reply_clear(struct smtp_server_reply *reply)
+static void smtp_server_reply_destroy(struct smtp_server_reply *reply)
 {
 	if (reply->command == NULL)
 		return;
@@ -60,6 +60,16 @@ static void smtp_server_reply_clear(struct smtp_server_reply *reply)
 	if (reply->content == NULL)
 		return;
 	str_free(&reply->content->text);
+}
+
+static void smtp_server_reply_clear(struct smtp_server_reply *reply)
+{
+	smtp_server_reply_destroy(reply);
+	if (reply->submitted) {
+		i_assert(reply->command->replies_submitted > 0);
+		reply->command->replies_submitted--;
+	}
+	reply->submitted = FALSE;
 }
 
 static struct smtp_server_reply *
@@ -160,7 +170,7 @@ void smtp_server_reply_free(struct smtp_server_command *cmd)
 	for (i = 0; i < cmd->replies_expected; i++) {
 		struct smtp_server_reply *reply =
 			array_idx_modifiable(&cmd->replies, i);
-		smtp_server_reply_clear(reply);
+		smtp_server_reply_destroy(reply);
 	}
 }
 
