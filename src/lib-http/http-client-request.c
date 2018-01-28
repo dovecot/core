@@ -1412,8 +1412,10 @@ http_client_request_send_error(struct http_client_request *req,
 				i_stream_unref(&req->payload_input);
 		}
 	}
-	if (req->payload_wait)
+	if (req->payload_wait) {
+		i_assert(req->client != NULL);
 		io_loop_stop(req->client->ioloop);
+	}
 	return TRUE;
 }
 
