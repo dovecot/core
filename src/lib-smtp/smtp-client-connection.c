@@ -1692,6 +1692,9 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 	smtp_client_connection_clear_password(conn);
 	smtp_client_connection_disconnect(conn);
 
+	/* could have been created while already disconnected */
+	timeout_remove(&conn->to_commands);
+
 	smtp_client_connection_debug(conn, "Destroy");
 
 	if (conn->reply_parser != NULL)
@@ -1716,6 +1719,10 @@ void smtp_client_connection_close(struct smtp_client_connection **_conn)
 	conn->closed = TRUE;
 
 	smtp_client_connection_disconnect(conn);
+
+	/* could have been created while already disconnected */
+	timeout_remove(&conn->to_commands);
+
 	smtp_client_connection_unref(&conn);
 }
 
