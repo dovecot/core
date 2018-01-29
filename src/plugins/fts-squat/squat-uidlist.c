@@ -553,8 +553,7 @@ static void squat_uidlist_close(struct squat_uidlist *uidlist)
 	squat_uidlist_unmap(uidlist);
 	if (uidlist->file_cache != NULL)
 		file_cache_free(&uidlist->file_cache);
-	if (uidlist->file_lock != NULL)
-		file_lock_free(&uidlist->file_lock);
+	file_lock_free(&uidlist->file_lock);
 	if (uidlist->dotlock != NULL)
 		file_dotlock_delete(&uidlist->dotlock);
 	i_close_fd_path(&uidlist->fd, uidlist->path);

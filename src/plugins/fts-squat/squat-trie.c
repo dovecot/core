@@ -1703,8 +1703,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 
 	if (ret < 0) {
 		i_unlink_if_exists(path);
-		if (file_lock != NULL)
-			file_lock_free(&file_lock);
+		file_lock_free(&file_lock);
 	} else {
 		squat_trie_close_fd(trie);
 		trie->fd = fd;
@@ -1712,8 +1711,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 		if (trie->file_cache != NULL)
 			file_cache_set_fd(trie->file_cache, trie->fd);
 
-		if (ctx->file_lock != NULL)
-			file_lock_free(&ctx->file_lock);
+		file_lock_free(&ctx->file_lock);
 		ctx->file_lock = file_lock;
 	}
 	return ret;
