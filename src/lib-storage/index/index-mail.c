@@ -1715,8 +1715,7 @@ void index_mail_close(struct mail *_mail)
 	   memory until this point. */
 	mail_cache_close_mail(_mail->transaction->cache_trans, _mail->seq);
 
-	if (mail->data.wanted_headers != NULL)
-		mailbox_header_lookup_unref(&mail->data.wanted_headers);
+	mailbox_header_lookup_unref(&mail->data.wanted_headers);
 	if (!mail->freeing)
 		index_mail_reset_data(mail);
 }
@@ -2075,8 +2074,7 @@ void index_mail_free(struct mail *_mail)
 	if (array_is_created(&mail->header_match_lines))
 		array_free(&mail->header_match_lines);
 
-	if (headers_ctx != NULL)
-		mailbox_header_lookup_unref(&headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
 	event_unref(&_mail->event);
 	pool_unref(&mail->mail.data_pool);
 	pool_unref(&mail->mail.pool);

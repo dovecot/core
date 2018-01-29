@@ -81,8 +81,7 @@ static void virtual_mail_free(struct mail *mail)
 		mail_free(&mails[i]);
 	array_free(&vmail->backend_mails);
 
-	if (vmail->wanted_headers != NULL)
-		mailbox_header_lookup_unref(&vmail->wanted_headers);
+	mailbox_header_lookup_unref(&vmail->wanted_headers);
 
 	pool_unref(&vmail->imail.mail.data_pool);
 	pool_unref(&vmail->imail.mail.pool);
@@ -163,8 +162,7 @@ virtual_mail_set_backend_mail(struct mail *mail,
 					   vmail->wanted_headers->name);
 	vmail->cur_backend_mail =
 		mail_alloc(backend_trans, vmail->wanted_fields, backend_headers);
-	if (backend_headers != NULL)
-		mailbox_header_lookup_unref(&backend_headers);
+	mailbox_header_lookup_unref(&backend_headers);
 
 	backend_pmail = (struct mail_private *)vmail->cur_backend_mail;
 	backend_pmail->vmail = mail;
