@@ -113,6 +113,14 @@ struct dsync_cmd_context {
 
 static bool legacy_dsync = FALSE;
 
+static void dsync_cmd_switch_ioloop(struct dsync_cmd_context *ctx)
+{
+	if (ctx->input != NULL)
+		i_stream_switch_ioloop(ctx->input);
+	if (ctx->output != NULL)
+		o_stream_switch_ioloop(ctx->output);
+}
+
 static void remote_error_input(struct dsync_cmd_context *ctx)
 {
 	const unsigned char *data;
@@ -799,7 +807,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 {
 	struct doveadm_server *server;
 	struct server_connection *conn;
-	struct ioloop *ioloop;
+	struct ioloop *prev_ioloop, *ioloop;
 	string_t *cmd;
 	const char *error;
 
@@ -816,7 +824,9 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	p_array_init(&server->connections, ctx->ctx.pool, 1);
 	p_array_init(&server->queue, ctx->ctx.pool, 1);
 
+	prev_ioloop = current_ioloop;
 	ioloop = io_loop_create();
+	dsync_cmd_switch_ioloop(ctx);
 
 	if (doveadm_verbose_proctitle) {
 		process_title_set(t_strdup_printf(
@@ -852,6 +862,10 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 
 	if (array_count(&server->connections) > 0)
 		server_connection_destroy(&conn);
+
+	io_loop_set_current(prev_ioloop);
+	dsync_cmd_switch_ioloop(ctx);
+	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
 
 	if (ctx->error != NULL) {
