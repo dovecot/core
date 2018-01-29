@@ -79,6 +79,9 @@ void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **_ctx)
 {
 	struct mailbox_header_lookup_ctx *ctx = *_ctx;
 
+	if (ctx == NULL)
+		return;
+
 	*_ctx = NULL;
 
 	i_assert(ctx->refcount > 0);
