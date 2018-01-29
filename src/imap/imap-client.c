@@ -74,12 +74,32 @@ static void client_init_urlauth(struct client *client)
 
 static bool user_has_special_use_mailboxes(struct mail_user *user)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace_settings *const *ns_set;
 
-	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->special_use_mailboxes)
-			return TRUE;
+	/*
+	 * We have to iterate over namespace and mailbox *settings* since
+	 * the namespaces haven't been set up yet.  The namespaces haven't
+	 * been set up so that we don't hold up the OK response to LOGIN
+	 * when using slow lib-storage backends.
+	 */
+
+	/* no namespaces => no special use flags */
+	if (!array_is_created(&user->set->namespaces))
+		return FALSE;
+
+	array_foreach(&user->set->namespaces, ns_set) {
+		struct mailbox_settings *const *box_set;
+
+		/* no mailboxes => no special use flags */
+		if (!array_is_created(&(*ns_set)->mailboxes))
+			continue;
+
+		array_foreach(&(*ns_set)->mailboxes, box_set) {
+			if ((*box_set)->special_use != NULL)
+				return TRUE;
+		}
 	}
+
 	return FALSE;
 }
 
