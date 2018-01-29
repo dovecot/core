@@ -12,14 +12,21 @@ static void openssl_iostream_free(struct ssl_iostream *ssl_io);
 static void
 openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
 {
+	char *new_str;
+
+	/* i_debug() may sometimes be overriden, making it write to this very
+	   same SSL stream, in which case the provided str may be invalidated
+	   before it is even used. Therefore, we duplicate it immediately. */
+	new_str = i_strdup(str);
+
 	if (ssl_io->verbose) {
 		/* This error should normally be logged by lib-ssl-iostream's
 		   caller. But if verbose=TRUE, log it here as well to make
 		   sure that the error is always logged. */
-		i_debug("%sSSL error: %s", ssl_io->log_prefix, str);
+		i_debug("%sSSL error: %s", ssl_io->log_prefix, new_str);
 	}
 	i_free(ssl_io->last_error);
-	ssl_io->last_error = i_strdup(str);
+	ssl_io->last_error = new_str;
 }
 
 static void openssl_info_callback(const SSL *ssl, int where, int ret)
