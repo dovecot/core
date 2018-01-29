@@ -797,8 +797,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			}
 		}
 	}
-	if (headers_ctx != NULL)
-		mailbox_header_lookup_unref(&headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
 
 	if (failed) {
 		/* opening mail failed. maybe because of lookup_abort.
@@ -1355,8 +1354,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	(void)mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_arg_deinit, ctx);
 
-	if (ctx->mail_ctx.wanted_headers != NULL)
-		mailbox_header_lookup_unref(&ctx->mail_ctx.wanted_headers);
+	mailbox_header_lookup_unref(&ctx->mail_ctx.wanted_headers);
 	if (ctx->mail_ctx.sort_program != NULL) {
 		if (index_sort_program_deinit(&ctx->mail_ctx.sort_program) < 0)
 			ret = -1;

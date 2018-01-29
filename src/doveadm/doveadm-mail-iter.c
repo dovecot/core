@@ -61,8 +61,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 	iter->t = mailbox_transaction_begin(iter->box, 0, ctx->cmd->name);
 	iter->search_ctx = mailbox_search_init(iter->t, search_args, NULL,
 					       wanted_fields, headers_ctx);
-	if (headers_ctx != NULL)
-		mailbox_header_lookup_unref(&headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
 	*iter_r = iter;
 	return 0;
 }

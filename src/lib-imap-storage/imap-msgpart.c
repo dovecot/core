@@ -847,6 +847,5 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 
 void imap_msgpart_close_mailbox(struct imap_msgpart *msgpart)
 {
-	if (msgpart->header_ctx != NULL)
-		mailbox_header_lookup_unref(&msgpart->header_ctx);
+	mailbox_header_lookup_unref(&msgpart->header_ctx);
 }

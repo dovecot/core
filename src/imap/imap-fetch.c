@@ -408,8 +408,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 	ctx->state.cur_str = str_new(default_pool, 8192);
 	ctx->state.fetching = TRUE;
 
-	if (wanted_headers != NULL)
-		mailbox_header_lookup_unref(&wanted_headers);
+	mailbox_header_lookup_unref(&wanted_headers);
 }
 
 static int imap_fetch_flush_buffer(struct imap_fetch_context *ctx)
