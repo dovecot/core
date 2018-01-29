@@ -334,6 +334,9 @@ void mail_html2text_deinit(struct mail_html2text **_ht)
 {
 	struct mail_html2text *ht = *_ht;
 
+	if (ht == NULL)
+		return;
+
 	*_ht = NULL;
 	buffer_free(&ht->input);
 	i_free(ht);
