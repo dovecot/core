@@ -222,7 +222,6 @@ unsigned int mail_user_autoexpunge(struct mail_user *user)
 				break;
 		}
 	}
-	if (lock != NULL)
-		file_lock_free(&lock);
+	file_lock_free(&lock);
 	return expunged_count;
 }

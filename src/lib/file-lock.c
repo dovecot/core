@@ -406,8 +406,7 @@ static void file_try_unlink_locked(struct file_lock *lock)
 		/* nobody was waiting on the lock - unlink it */
 		i_unlink(lock->path);
 	}
-	if (temp_lock != NULL)
-		file_lock_free(&temp_lock);
+	file_lock_free(&temp_lock);
 }
 
 void file_lock_free(struct file_lock **_lock)

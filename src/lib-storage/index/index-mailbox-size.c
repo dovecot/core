@@ -225,8 +225,7 @@ void index_mailbox_vsize_update_deinit(struct mailbox_vsize_update **_update)
 
 	if (update->lock != NULL || update->rebuild)
 		index_mailbox_vsize_update_write(update);
-	if (update->lock != NULL)
-		file_lock_free(&update->lock);
+	file_lock_free(&update->lock);
 	if (update->finish_in_background)
 		index_mailbox_vsize_notify_indexer(update->box);
 
