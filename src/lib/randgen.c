@@ -7,7 +7,8 @@
 
 #ifdef DEBUG
 /* For reproducing tests, fall back onto using a simple deterministic PRNG */
-/* Marsaglia's 1999 KISS, de-macro-ified */
+/* Marsaglia's 1999 KISS, de-macro-ified, and with the fixed KISS11 SHR3,
+   which is clearly what was intended given the "cycle length 2^123" claim. */
 static bool kiss_in_use;
 static unsigned int kiss_seed;
 static uint32_t kiss_z, kiss_w, kiss_jsr, kiss_jcong;
@@ -17,7 +18,7 @@ kiss_init(unsigned int seed)
 	/* i_info("Random numbers are PRNG using kiss, seeded with %u", seed); */
 	kiss_seed = seed;
 	kiss_jsr = 0x5eed5eed; /* simply musn't be 0 */
-	kiss_z = kiss_w = kiss_jcong = seed;
+	kiss_z = 1 ^ (kiss_w = kiss_jcong = seed); /* w=z=0 is bad, see Rose */
 	kiss_in_use = TRUE;
 }
 static unsigned int
@@ -26,8 +27,8 @@ kiss_rand(void)
 	kiss_z = 36969 * (kiss_z&65535) + (kiss_z>>16);
 	kiss_w = 18000 * (kiss_w&65535) + (kiss_w>>16);
 	kiss_jcong = 69069 * kiss_jcong + 1234567;
-	kiss_jsr^=(kiss_jsr<<17);
-	kiss_jsr^=(kiss_jsr>>13);
+	kiss_jsr^=(kiss_jsr<<13); /* <<17, >>13 gives cycle length 2^28.2 max */
+	kiss_jsr^=(kiss_jsr>>17); /* <<13, >>17 gives maximal cycle length */
 	kiss_jsr^=(kiss_jsr<<5);
 	return (((kiss_z<<16) + kiss_w) ^ kiss_jcong) + kiss_jsr;
 }
