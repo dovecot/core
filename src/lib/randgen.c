@@ -141,17 +141,21 @@ void random_fill(void *buf, size_t size)
 void random_init(void)
 {
 	unsigned int seed;
+	const char *env_seed;
 
 	if (init_refcount++ > 0)
 		return;
 
+	env_seed = getenv("DOVECOT_SRAND");
 #ifdef DEBUG
-	const char *env_seed = getenv("DOVECOT_SRAND");
 	if (env_seed != NULL && str_to_uint(env_seed, &seed) >= 0) {
 		kiss_init(seed);
 		/* getrandom_present = FALSE; not needed, only used in random_read() */
 		goto normal_exit;
 	}
+#else
+	if (env_seed != NULL && *env_seed != '\0')
+		i_warning("DOVECOT_SRAND is not available in non-debug builds");
 #endif /* DEBUG */
 
 #if defined(USE_RANDOM_DEV)
