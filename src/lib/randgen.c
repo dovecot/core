@@ -15,7 +15,7 @@ static uint32_t kiss_z, kiss_w, kiss_jsr, kiss_jcong;
 static void
 kiss_init(unsigned int seed)
 {
-	/* i_info("Random numbers are PRNG using kiss, seeded with %u", seed); */
+	i_info("Random numbers are PRNG using kiss, as per DOVECOT_SRAND=%u", seed);
 	kiss_seed = seed;
 	kiss_jsr = 0x5eed5eed; /* simply musn't be 0 */
 	kiss_z = 1 ^ (kiss_w = kiss_jcong = seed); /* w=z=0 is bad, see Rose */
