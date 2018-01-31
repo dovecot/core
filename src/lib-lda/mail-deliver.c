@@ -405,8 +405,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 const struct smtp_address *
 mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 {
-	struct smtp_address *address;
-	const char *path, *error;
+	struct message_address *addr;
+	const char *path;
 	int ret;
 
 	if (!smtp_address_isnull(ctx->mail_from))
@@ -421,13 +421,14 @@ mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 		}
 		return NULL;
 	}
-	if (smtp_address_parse_path(ctx->pool, path,
-				    SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
-				    &address, &error) < 0) {
-		i_warning("Failed to parse return-path header: %s", error);
+	if (message_address_parse_path(pool_datastack_create(),
+				       (const unsigned char *)path,
+				       strlen(path), &addr) < 0) {
+		i_warning("Failed to parse return-path header");
 		return NULL;
 	}
-	return address;
+
+	return smtp_address_create_from_msg(ctx->pool, addr);
 }
 
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx)
