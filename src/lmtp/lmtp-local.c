@@ -138,15 +138,18 @@ lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *rcpt,
 				const char *error)
 {
 	struct smtp_address *address = rcpt->rcpt.path;
+	unsigned int rcpt_idx = rcpt->rcpt.index;
 	struct lda_settings *lda_set =
 		mail_storage_service_user_get_set(rcpt->service_user)[2];
 
+	i_assert(rcpt_idx == 0 || rcpt->rcpt.rcpt_cmd == NULL);
+
 	if (lda_set->quota_full_tempfail) {
-		smtp_server_reply(cmd, 452, "4.2.2", "<%s> %s",
-				  smtp_address_encode(address), error);
+		smtp_server_reply_index(cmd, rcpt_idx, 452, "4.2.2", "<%s> %s",
+					smtp_address_encode(address), error);
 	} else {
-		smtp_server_reply(cmd, 552, "5.2.2", "<%s> %s",
-				  smtp_address_encode(address), error);
+		smtp_server_reply_index(cmd, rcpt_idx, 552, "5.2.2", "<%s> %s",
+					smtp_address_encode(address), error);
 	}
 }
 
