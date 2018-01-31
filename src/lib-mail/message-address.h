@@ -30,6 +30,12 @@ struct message_address *
 message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 		      unsigned int max_addresses, bool fill_missing);
 
+/* Parse RFC 5322 "path" (Return-Path header) from given data. Returns -1 if
+   the path is invalid and 0 otherwise.
+ */
+int message_address_parse_path(pool_t pool, const unsigned char *data,
+			       size_t size, struct message_address **addr_r);
+
 void message_address_init(struct message_address *addr,
 	const char *name, const char *mailbox, const char *domain)
 	ATTR_NULL(1);

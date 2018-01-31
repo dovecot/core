@@ -406,6 +406,32 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	return ctx.first_addr;
 }
 
+static int
+message_address_parse_path_real(pool_t pool, const unsigned char *data,
+				size_t size, struct message_address **addr_r)
+{
+	struct message_address_parser_context ctx;
+	int ret;
+
+	i_zero(&ctx);
+	*addr_r = NULL;
+
+	rfc822_parser_init(&ctx.parser, data, size, NULL);
+	ctx.pool = pool;
+	ctx.str = t_str_new(128);
+
+	if (rfc822_skip_lwsp(&ctx.parser) <= 0)
+		return -1;
+	if ((ret=parse_angle_addr(&ctx)) < 0 ||
+		(ctx.addr.mailbox != NULL && ctx.addr.domain == NULL)) {
+		ctx.addr.invalid_syntax = TRUE;
+		ret = -1;
+	}
+	add_address(&ctx);
+	*addr_r = ctx.first_addr;
+	return (ret < 0 ? -1 : 0);
+}
+
 struct message_address *
 message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 		      unsigned int max_addresses, bool fill_missing)
@@ -423,10 +449,31 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 	return addr;
 }
 
+int message_address_parse_path(pool_t pool, const unsigned char *data,
+			       size_t size, struct message_address **addr_r)
+{
+	int ret;
+
+	if (pool->datastack_pool) {
+		return message_address_parse_path_real(pool, data, size, addr_r);
+	}
+	T_BEGIN {
+		ret = message_address_parse_path_real(pool, data, size, addr_r);
+	} T_END;
+	return ret;
+}
+
 void message_address_write(string_t *str, const struct message_address *addr)
 {
 	const char *tmp;
 	bool first = TRUE, in_group = FALSE;
+
+	/* <> path */
+	if (addr->mailbox == NULL && addr->domain == NULL) {
+		i_assert(addr->next == NULL);
+		str_append(str, "<>");
+		return;
+	}
 
 	/* a) mailbox@domain
 	   b) name <@route:mailbox@domain>
