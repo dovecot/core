@@ -165,6 +165,10 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 		/* these access types are only allowed if URL is accessed through imap */
 		if (strcasecmp(url->uauth_access_application, "user") == 0) {
 			/* user+<access_user> */
+			if (url->uauth_access_user == NULL) {
+				*error_r = "URLAUTH `user' access is missing userid";
+				return FALSE;
+			}
 			if (!uctx->access_anonymous ||
 				  strcasecmp(url->uauth_access_user, uctx->access_user) == 0)
 				return TRUE;
@@ -188,6 +192,9 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 			*error_r = t_strdup_printf(
 				"No '%s%s' access allowed for submission service",
 				url->uauth_access_application, userid);
+			return FALSE;
+		} else if (url->uauth_access_user == NULL) {
+			*error_r = "URLAUTH `submit' access is missing userid";
 			return FALSE;
 		} else if (!uctx->access_anonymous &&
 			strcasecmp(url->uauth_access_user, uctx->access_user) == 0) {
