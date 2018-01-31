@@ -192,6 +192,7 @@ static int
 lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 {
 	struct client *client = rcpt->rcpt.client;
+	struct smtp_server_cmd_ctx *cmd = rcpt->rcpt.rcpt_cmd;
 	struct smtp_address *address = rcpt->rcpt.path;
 	struct mail_user *user;
 	struct mail_namespace *ns;
@@ -242,10 +243,10 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 	}
 
 	if (ret < 0 &&
-		!smtp_server_command_is_replied(rcpt->rcpt.rcpt_cmd->cmd)) {
-		smtp_server_reply(rcpt->rcpt.rcpt_cmd,
-			451, "4.3.0", "<%s> Temporary internal error",
-			smtp_address_encode(address));
+		!smtp_server_command_is_replied(cmd->cmd)) {
+		smtp_server_reply(cmd, 451, "4.3.0",
+				  "<%s> Temporary internal error",
+				  smtp_address_encode(address));
 	}
 	return ret;
 }
