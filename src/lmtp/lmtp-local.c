@@ -134,6 +134,7 @@ lmtp_local_rcpt_deinit(struct lmtp_local_recipient *rcpt)
 
 static void
 lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *rcpt,
+				struct smtp_server_cmd_ctx *cmd,
 				const char *error)
 {
 	struct smtp_address *address = rcpt->rcpt.path;
@@ -141,13 +142,11 @@ lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *rcpt,
 		mail_storage_service_user_get_set(rcpt->service_user)[2];
 
 	if (lda_set->quota_full_tempfail) {
-		smtp_server_reply(rcpt->rcpt.rcpt_cmd,
-			452, "4.2.2", "<%s> %s",
-			smtp_address_encode(address), error);
+		smtp_server_reply(cmd, 452, "4.2.2", "<%s> %s",
+				  smtp_address_encode(address), error);
 	} else {
-		smtp_server_reply(rcpt->rcpt.rcpt_cmd,
-			552, "5.2.2", "<%s> %s",
-			smtp_address_encode(address), error);
+		smtp_server_reply(cmd, 552, "5.2.2", "<%s> %s",
+				  smtp_address_encode(address), error);
 	}
 }
 
@@ -232,7 +231,7 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 		if (ret < 0) {
 			error = mailbox_get_last_error(box, &mail_error);
 			if (mail_error == MAIL_ERROR_NOQUOTA) {
-				lmtp_local_rcpt_reply_overquota(rcpt, error);
+				lmtp_local_rcpt_reply_overquota(rcpt, cmd, error);
 			} else {
 				i_error("mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
 					"failed: %s",
@@ -623,7 +622,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	} else if (storage != NULL) {
 		error = mail_storage_get_last_error(storage, &mail_error);
 		if (mail_error == MAIL_ERROR_NOQUOTA) {
-			lmtp_local_rcpt_reply_overquota(rcpt, error);
+			lmtp_local_rcpt_reply_overquota(rcpt, cmd, error);
 		} else {
 			smtp_server_reply_index(cmd, rcpt_idx,
 				451, "4.2.0", "<%s> %s",
