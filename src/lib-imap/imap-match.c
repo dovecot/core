@@ -172,6 +172,8 @@ imap_match_init_multiple(pool_t pool, const char *const *patterns,
 
 void imap_match_deinit(struct imap_match_glob **glob)
 {
+	if (glob == NULL || *glob == NULL)
+		return;
 	p_free((*glob)->pool, (*glob)->patterns);
 	p_free((*glob)->pool, *glob);
 	*glob = NULL;
