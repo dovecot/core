@@ -159,7 +159,7 @@ void ssl_iostream_unref(struct ssl_iostream **_ssl_io)
 
 void ssl_iostream_destroy(struct ssl_iostream **_ssl_io)
 {
-	struct ssl_iostream *ssl_io = *_ssl_io;
+	struct ssl_iostream *ssl_io;
 
 	if (_ssl_io == NULL || *_ssl_io == NULL)
 		return;
