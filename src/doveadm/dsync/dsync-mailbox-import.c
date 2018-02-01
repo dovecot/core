@@ -2363,6 +2363,15 @@ dsync_msg_try_copy(struct dsync_mailbox_importer *importer,
 		if (inst->uid_in_local && !inst->copy_failed &&
 		    mail_set_uid(importer->mail, inst->local_uid)) {
 			if (mailbox_copy(save_ctx_p, importer->mail) < 0) {
+				enum mail_error error;
+				const char *errstr;
+
+				errstr = mailbox_get_last_internal_error(importer->box, &error);
+				if (error != MAIL_ERROR_EXPUNGED) {
+					i_warning("Failed to copy mail from UID=%u: "
+						  "%s - falling back to other means",
+						 inst->local_uid, errstr);
+				}
 				inst->copy_failed = TRUE;
 				return -1;
 			}
@@ -2429,6 +2438,15 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 		if (mailbox_copy(&save_ctx, mail->input_mail) == 0)
 			ret = 1;
 		else {
+			enum mail_error error;
+			const char *errstr;
+
+			errstr = mailbox_get_last_internal_error(importer->box, &error);
+			if (error != MAIL_ERROR_EXPUNGED) {
+				i_warning("Failed to copy source UID=%u mail: "
+					  "%s - falling back to regular saving",
+					  mail->input_mail->uid, errstr);
+			}
 			ret = -1;
 			save_ctx = dsync_mailbox_save_init(importer, mail, newmail);
 		}
