@@ -198,6 +198,10 @@ void test_program_io_big(void) {
 				   is3, is3, is3, is3, is3, NULL};
 	struct istream *is = i_stream_create_concat(in3);
 
+	i_stream_unref(&is1);
+	i_stream_unref(&is2);
+	i_stream_unref(&is3);
+
 	program_client_set_input(pc, is);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
