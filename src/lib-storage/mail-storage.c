@@ -1755,15 +1755,16 @@ int mailbox_rename_check_children(struct mailbox *src, struct mailbox *dest)
 	size_t dest_prefix_len = strlen(dest->vname)+1;
 	/* this can return folders with * in their name, that are not
 	   actually our children */
-	const char *pattern = t_strdup_printf("%s%c*", src->vname,
-				  mail_namespace_get_sep(src->list->ns));
+	char ns_sep = mail_namespace_get_sep(src->list->ns);
+	const char *pattern = t_strdup_printf("%s%c*", src->vname, ns_sep);
 
 	struct mailbox_list_iterate_context *iter = mailbox_list_iter_init(src->list, pattern,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 
 	const struct mailbox_info *child;
 	while((child = mailbox_list_iter_next(iter)) != NULL) {
-		if (strncmp(child->vname, src->vname, src_prefix_len) != 0)
+		if (strncmp(child->vname, src->vname, src_prefix_len-1) != 0 ||
+		    child->vname[src_prefix_len-1] != ns_sep)
 			continue; /* not our child */
 		/* if total length of new name exceeds the limit, fail */
 		if (strlen(child->vname + src_prefix_len)+dest_prefix_len > MAILBOX_LIST_NAME_MAX_LENGTH) {
