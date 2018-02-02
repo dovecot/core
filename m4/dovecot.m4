@@ -45,6 +45,12 @@ else
   noundef=""
 fi
 
+if test "\$NOCHILDREN" != ""; then
+  trace_children="--trace-children=no"
+else
+  trace_children="--trace-children=yes"
+fi
+
 if test "\$NOVALGRIND" != ""; then
   \$[*]
   ret=\$?
@@ -52,9 +58,9 @@ else
   trap "rm -f test.out.\$\$" 0 1 2 3 15
   supp_path="\$top_srcdir/run-test-valgrind.supp"
   if test -r "\$supp_path"; then
-    valgrind -q --trace-children=yes --leak-check=full --suppressions="\$supp_path" --log-file=test.out.\$\$ \$noundef \$[*]
+    valgrind -q \$trace_children --leak-check=full --suppressions="\$supp_path" --log-file=test.out.\$\$ \$noundef \$[*]
   else
-    valgrind -q --trace-children=yes --leak-check=full --log-file=test.out.\$\$ \$noundef \$[*]
+    valgrind -q \$trace_children --leak-check=full --log-file=test.out.\$\$ \$noundef \$[*]
   fi
   ret=\$?
   if test -s test.out.\$\$; then
