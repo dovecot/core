@@ -48,7 +48,7 @@ test_program_client_net_LDADD = $(test_libs)
 check-local:
 	for bin in $(test_programs); do \
 	  if test "$$bin" = "test-program-client-local"; then \
-	    if ! env NOVALGRIND=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	    if ! env NOCHILDREN=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \
           else \
 	    if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	  fi \
