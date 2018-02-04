@@ -266,6 +266,7 @@ const char *client_stats(struct client *client)
 		{ '\0', dec2str(client->trashed_count), "trashed" },
 		{ '\0', dec2str(client->autoexpunged_count), "autoexpunged" },
 		{ '\0', dec2str(client->append_count), "appended" },
+		{ '\0', NULL, NULL }
 	};
 	const struct var_expand_table *user_tab =
 		mail_user_var_expand_table(client->user);
