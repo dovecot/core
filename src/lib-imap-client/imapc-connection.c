@@ -694,8 +694,11 @@ imapc_connection_read_line_more(struct imapc_connection *conn,
 		return 0;
 	}
 	if (ret < 0) {
-		imapc_connection_input_error(conn, "Error parsing input: %s",
-			imap_parser_get_error(conn->parser, &fatal));
+		const char *err_msg = imap_parser_get_error(conn->parser, &fatal);
+		if (fatal)
+			imapc_connection_input_error(conn, "Error parsing input: %s", err_msg);
+		else
+			i_error("Error parsing input: %s", err_msg);
 		return -1;
 	}
 
@@ -729,6 +732,11 @@ imapc_connection_read_line(struct imapc_connection *conn,
 			i_stream_skip(conn->input, 1);
 		else
 			i_panic("imapc: Missing LF from input line");
+	} else if (ret < 0) {
+		data = i_stream_get_data(conn->input, &size);
+		unsigned char *lf = memchr(data, '\n', size);
+		if (lf != NULL)
+			i_stream_skip(conn->input, (lf - data) + 1);
 	}
 	return ret;
 }
@@ -1199,8 +1207,12 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 		return 1;
 	}
 
-	if ((ret = imapc_connection_read_line(conn, &imap_args)) <= 0)
-		return ret;
+	if ((ret = imapc_connection_read_line(conn, &imap_args)) == 0)
+		return 0;
+	else if (ret < 0) {
+		imapc_connection_input_reset(conn);
+		return 1;
+	}
 	if (!imap_arg_get_atom(&imap_args[0], &name)) {
 		imapc_connection_input_error(conn, "Invalid untagged reply");
 		return -1;
