@@ -418,18 +418,23 @@ const char *auth_policy_escape_function(const char *string,
 
 static
 const struct var_expand_table *policy_get_var_expand_table(struct auth_request *auth_request,
-	const char *hashed_password)
+	const char *hashed_password, const char *requested_username)
 {
 	struct var_expand_table *table;
-	unsigned int count = 1;
+	unsigned int count = 2;
 
 	table = auth_request_get_var_expand_table_full(auth_request, auth_policy_escape_function,
 						       &count);
 	table[0].key = '\0';
 	table[0].long_key = "hashed_password";
 	table[0].value = hashed_password;
+	table[1].key = '\0';
+	table[1].long_key = "requested_username";
+	table[1].value = requested_username;
 	if (table[0].value != NULL)
 		table[0].value = auth_policy_escape_function(table[0].value, auth_request);
+	if (table[1].value != NULL)
+		table[1].value = auth_policy_escape_function(table[1].value, auth_request);
 
 	return table;
 }
@@ -441,6 +446,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	const struct var_expand_table *var_table;
 	context->json = str_new(context->pool, 64);
 	unsigned char *ptr;
+	const char *requested_username;
 	const struct hash_method *digest = hash_method_lookup(context->set->policy_hash_mech);
 
 	i_assert(digest != NULL);
@@ -452,11 +458,14 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	digest->loop(ctx,
 		context->set->policy_hash_nonce,
 		strlen(context->set->policy_hash_nonce));
-	/* use +1 to make sure \0 gets included */
-	if (context->request->user == NULL)
-		digest->loop(ctx, "\0", 1);
+	if (context->request->requested_login_user != NULL)
+		requested_username = context->request->requested_login_user;
+	else if (context->request->user != NULL)
+		requested_username = context->request->user;
 	else
-		digest->loop(ctx, context->request->user, strlen(context->request->user) + 1);
+		requested_username = "";
+	/* use +1 to make sure \0 gets included */
+	digest->loop(ctx, requested_username, strlen(requested_username)+1);
 	if (password != NULL)
 		digest->loop(ctx, password, strlen(password));
 	ptr = buffer_get_modifiable_data(buffer, NULL);
@@ -467,7 +476,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	}
 	const char *hashed_password = binary_to_hex(buffer->data, buffer->used);
 	str_append_c(context->json, '{');
-	var_table = policy_get_var_expand_table(context->request, hashed_password);
+	var_table = policy_get_var_expand_table(context->request, hashed_password, requested_username);
 	auth_request_var_expand_with_table(context->json, auth_policy_json_template,
 					   context->request, var_table,
 					   auth_policy_escape_function);
