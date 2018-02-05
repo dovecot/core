@@ -295,6 +295,7 @@ fts_user_init_data_language(struct mail_user *user, struct fts_user *fuser,
 
 	p_array_init(&fuser->data_languages, user->pool, 1);
 	array_append(&fuser->data_languages, &user_lang, 1);
+	array_append(&fuser->languages, &user_lang, 1);
 
 	fuser->data_lang = user_lang;
 	return 0;
@@ -349,8 +350,6 @@ static void fts_user_free(struct fts_user *fuser)
 
 	array_foreach(&fuser->languages, user_langp)
 		fts_user_language_free(*user_langp);
-	if (fuser->data_lang != NULL)
-		fts_user_language_free(fuser->data_lang);
 }
 
 int fts_mail_user_init(struct mail_user *user, const char **error_r)
