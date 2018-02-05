@@ -105,9 +105,10 @@ fts_mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 		if (fts_mailbox_get_last_cached_seq(box, &seq) < 0)
 			return -1;
 
-		/* use whichever is smaller */
-		if (status_r->last_cached_seq > seq)
-			status_r->last_cached_seq = seq;
+		/* Always use the FTS's last_cached_seq. This is because we
+		   don't want to reindex all mails to FTS if .cache file is
+		   deleted. */
+		status_r->last_cached_seq = seq;
 	}
 	return 0;
 }
