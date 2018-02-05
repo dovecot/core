@@ -153,7 +153,9 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	struct mail_search_arg *or_arg, *orig_arg = *argp;
 	const char *error, *orig_token = orig_arg->value.str;
 
-	if ((*argp)->type == SEARCH_HEADER &&
+	if (((*argp)->type == SEARCH_HEADER ||
+	     (*argp)->type == SEARCH_HEADER_ADDRESS ||
+	     (*argp)->type == SEARCH_HEADER_COMPRESS_LWSP) &&
 	    !fts_header_has_language((*argp)->hdr_field_name)) {
 		/* use only the data-language */
 		languages = fts_user_get_data_languages(backend->ns->user);
