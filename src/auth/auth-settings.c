@@ -249,6 +249,9 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_STR, policy_hash_nonce),
 	DEF(SET_STR, policy_request_attributes),
 	DEF(SET_BOOL, policy_reject_on_fail),
+	DEF(SET_BOOL, policy_check_before_auth),
+	DEF(SET_BOOL, policy_check_after_auth),
+	DEF(SET_BOOL, policy_report_after_auth),
 	DEF(SET_UINT, policy_hash_truncate),
 
 	DEF(SET_BOOL, stats),
@@ -304,6 +307,9 @@ static const struct auth_settings auth_default_settings = {
 	.policy_hash_nonce = "",
 	.policy_request_attributes = "login=%{requested_username} pwhash=%{hashed_password} remote=%{rip} device_id=%{client_id} protocol=%s",
 	.policy_reject_on_fail = FALSE,
+	.policy_check_before_auth = TRUE,
+	.policy_check_after_auth = TRUE,
+	.policy_report_after_auth = TRUE,
 	.policy_hash_truncate = 12,
 
 	.stats = FALSE,
