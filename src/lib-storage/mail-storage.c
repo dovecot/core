@@ -2147,7 +2147,6 @@ mailbox_transaction_begin(struct mailbox *box,
 	box->transaction_count++;
 	trans = box->v.transaction_begin(box, flags, reason);
 	i_assert(trans->reason != NULL);
-	trans->flags = flags;
 	return trans;
 }
 
