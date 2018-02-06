@@ -2855,6 +2855,23 @@ void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
 	va_end(va);
 }
 
+int mail_storage_lock_create(const char *lock_path,
+			     const struct file_create_settings *lock_set,
+			     struct file_lock **lock_r, const char **error_r)
+{
+	bool created;
+
+	if (file_create_locked(lock_path, lock_set, lock_r,
+			       &created, error_r) == -1) {
+		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s",
+					   lock_path, *error_r);
+		return errno == EAGAIN ? 0 : -1;
+	}
+	file_lock_set_close_on_free(*lock_r, TRUE);
+	file_lock_set_unlink_on_free(*lock_r, TRUE);
+	return 1;
+}
+
 int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 			     unsigned int lock_secs, struct file_lock **lock_r,
 			     const char **error_r)
@@ -2862,7 +2879,6 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 	const struct mailbox_permissions *perm;
 	struct file_create_settings set;
 	const char *lock_path;
-	bool created;
 
 	perm = mailbox_get_permissions(box);
 	i_zero(&set);
@@ -2893,12 +2909,5 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 		set.mkdir_mode = 0700;
 	}
 
-	if (file_create_locked(lock_path, &set, lock_r, &created, error_r) == -1) {
-		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s",
-					   lock_path, *error_r);
-		return errno == EAGAIN ? 0 : -1;
-	}
-	file_lock_set_close_on_free(*lock_r, TRUE);
-	file_lock_set_unlink_on_free(*lock_r, TRUE);
-	return 1;
+	return mail_storage_lock_create(lock_path, &set, lock_r, error_r);
 }
