@@ -596,7 +596,7 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 				       lock_fname);
 		lock_set.mkdir_mode = 0700;
 	}
-	return mail_storage_lock_create(path, &lock_set, lock_r, error_r);
+	return mail_storage_lock_create(path, &lock_set, mail_set, lock_r, error_r);
 }
 
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user)

@@ -827,6 +827,7 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
    -1 and sets error_r on other errors. */
 int mail_storage_lock_create(const char *lock_path,
 			     const struct file_create_settings *lock_set,
+			     const struct mail_storage_settings *mail_set,
 			     struct file_lock **lock_r, const char **error_r);
 /* Create a lock file to the mailbox with the given filename. Returns the same
    as mail_storage_lock_create(). */
