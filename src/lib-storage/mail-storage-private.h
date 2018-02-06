@@ -10,6 +10,9 @@
 #include "mailbox-attribute-private.h"
 #include "mail-index-private.h"
 
+struct file_lock;
+struct file_create_settings;
+
 /* Default prefix for indexes */
 #define MAIL_INDEX_PREFIX "dovecot.index"
 
@@ -818,10 +821,15 @@ bool mailbox_is_autocreated(struct mailbox *box);
 /* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */
 int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 		      int *fd_r);
-/* Create a lock file to the mailbox with the given filename. If it succeeds,
+/* Create a lock file with the given path and settings. If it succeeds,
    returns 1 and lock_r, which needs to be freed once finished with the lock.
-   If lock_secs is reached, returns 0 and error_r. Returns -1 and sets error_r
-   on other errors. */
+   If lock_set->lock_timeout_secs is reached, returns 0 and error_r. Returns
+   -1 and sets error_r on other errors. */
+int mail_storage_lock_create(const char *lock_path,
+			     const struct file_create_settings *lock_set,
+			     struct file_lock **lock_r, const char **error_r);
+/* Create a lock file to the mailbox with the given filename. Returns the same
+   as mail_storage_lock_create(). */
 int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 			     unsigned int lock_secs, struct file_lock **lock_r,
 			     const char **error_r);
