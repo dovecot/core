@@ -846,9 +846,9 @@ static const char *fs_posix_iter_next(struct fs_iter *_iter)
 #ifdef HAVE_DIRENT_D_TYPE
 		switch (d->d_type) {
 		case DT_UNKNOWN:
-			if (!fs_posix_iter_want(iter, d->d_name))
-				break;
-			/* fall through */
+			if (fs_posix_iter_want(iter, d->d_name))
+				return d->d_name;
+			break;
 		case DT_REG:
 		case DT_LNK:
 			if ((iter->iter.flags & FS_ITER_FLAG_DIRS) == 0)
