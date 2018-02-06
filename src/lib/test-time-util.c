@@ -7,30 +7,49 @@
 
 static void test_timeval_cmp(void)
 {
-	static const struct timeval input[] = {
-		{ 0, 0 }, { 0, 0 },
-		{ INT_MAX, 999999 }, { INT_MAX, 999999 },
-		{ 0, 0 }, { 0, 1 },
-		{ 0, 0 }, { 1, 0 },
-		{ 0, 999999 }, { 1, 0 },
-		{ 1, 0 }, { 1, 1 },
-		{ -INT_MAX, 0 }, { INT_MAX, 0 }
-	};
-	static int output[] = {
-		0,
-		0,
-		-1,
-		-1,
-		-1,
-		-1,
-		-1
+	static const struct {
+		struct timeval tv1, tv2;
+		int output;
+	} tests[] = {
+		{
+			.tv1 = { 0, 0 },
+			.tv2 = { 0, 0 },
+			.output = 0,
+		}, {
+			.tv1 = { INT_MAX, 999999 },
+			.tv2 = { INT_MAX, 999999 },
+			.output = 0,
+		}, {
+			.tv1 = { 0, 0 },
+			.tv2 = { 0, 1 },
+			.output = -1,
+		}, {
+			.tv1 = { 0, 0 },
+			.tv2 = { 1, 0 },
+			.output = -1,
+		}, {
+			.tv1 = { 0, 999999 },
+			.tv2 = { 1, 0 },
+			.output = -1,
+		}, {
+			.tv1 = { 1, 0 },
+			.tv2 = { 1, 1 },
+			.output = -1,
+		}, {
+			.tv1 = { -INT_MAX, 0 },
+			.tv2 = { INT_MAX, 0 },
+			.output = -1,
+		}
 	};
 	unsigned int i;
 
 	test_begin("timeval_cmp()");
-	for (i = 0; i < N_ELEMENTS(input); i += 2) {
-		test_assert(timeval_cmp(&input[i], &input[i+1]) == output[i/2]);
-		test_assert(timeval_cmp(&input[i+1], &input[i]) == -output[i/2]);
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		const struct timeval *tv1 = &tests[i].tv1, *tv2 = &tests[i].tv2;
+		int output = tests[i].output;
+
+		test_assert(timeval_cmp(tv1, tv2) == output);
+		test_assert(timeval_cmp(tv2, tv1) == -output);
 	}
 	test_end();
 }
