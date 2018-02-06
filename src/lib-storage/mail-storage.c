@@ -2098,7 +2098,6 @@ mailbox_transaction_begin(struct mailbox *box,
 
 	box->transaction_count++;
 	trans = box->v.transaction_begin(box, flags);
-	trans->flags = flags;
 	return trans;
 }
 
