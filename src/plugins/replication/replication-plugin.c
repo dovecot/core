@@ -36,6 +36,7 @@ struct replication_user {
 struct replication_mail_txn_context {
 	struct mail_namespace *ns;
 	bool new_messages;
+	bool sync_trans;
 	char *reason;
 };
 
@@ -219,6 +220,10 @@ replication_mail_transaction_begin(struct mailbox_transaction_context *t)
 	ctx = i_new(struct replication_mail_txn_context, 1);
 	ctx->ns = mailbox_get_namespace(t->box);
 	ctx->reason = i_strdup(t->reason);
+	if ((t->flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0) {
+		/* Transaction is from dsync. Don't trigger replication back. */
+		ctx->sync_trans = TRUE;
+	}
 	return ctx;
 }
 
@@ -256,7 +261,8 @@ replication_mail_transaction_commit(void *txn,
 		REPLICATION_USER_CONTEXT(ctx->ns->user);
 	enum replication_priority priority;
 
-	if (ruser != NULL && (ctx->new_messages || changes->changed)) {
+	if (ruser != NULL && !ctx->sync_trans &&
+	    (ctx->new_messages || changes->changed)) {
 		priority = !ctx->new_messages ? REPLICATION_PRIORITY_LOW :
 			ruser->sync_secs == 0 ? REPLICATION_PRIORITY_HIGH :
 			REPLICATION_PRIORITY_SYNC;
