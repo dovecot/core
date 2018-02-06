@@ -9,6 +9,7 @@
 #include "sha1.h"
 #include "unichar.h"
 #include "hex-binary.h"
+#include "file-dotlock.h"
 #include "file-create-locked.h"
 #include "istream.h"
 #include "eacces-error.h"
@@ -2909,11 +2910,41 @@ void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
 	va_end(va);
 }
 
+static int
+mail_storage_dotlock_create(const char *lock_path,
+			    const struct file_create_settings *lock_set,
+			    const struct mail_storage_settings *mail_set,
+			    struct file_lock **lock_r, const char **error_r)
+{
+	const struct dotlock_settings dotlock_set = {
+		.timeout = lock_set->lock_timeout_secs,
+		.stale_timeout = I_MAX(60*5, lock_set->lock_timeout_secs),
+		.lock_suffix = "",
+
+		.use_excl_lock = mail_set->dotlock_use_excl,
+		.nfs_flush = mail_set->mail_nfs_storage,
+		.use_io_notify = TRUE,
+	};
+	struct dotlock *dotlock;
+	int ret = file_dotlock_create(&dotlock_set, lock_path, 0, &dotlock);
+	if (ret <= 0) {
+		*error_r = t_strdup_printf("file_dotlock_create(%s) failed: %m",
+					   lock_path);
+		return ret;
+	}
+	*lock_r = file_lock_from_dotlock(&dotlock);
+	return 1;
+}
+
 int mail_storage_lock_create(const char *lock_path,
 			     const struct file_create_settings *lock_set,
+			     const struct mail_storage_settings *mail_set,
 			     struct file_lock **lock_r, const char **error_r)
 {
 	bool created;
+
+	if (lock_set->lock_method == FILE_LOCK_METHOD_DOTLOCK)
+		return mail_storage_dotlock_create(lock_path, lock_set, mail_set, lock_r, error_r);
 
 	if (file_create_locked(lock_path, lock_set, lock_r,
 			       &created, error_r) == -1) {
@@ -2963,5 +2994,6 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 		set.mkdir_mode = 0700;
 	}
 
-	return mail_storage_lock_create(lock_path, &set, lock_r, error_r);
+	return mail_storage_lock_create(lock_path, &set,
+					box->storage->set, lock_r, error_r);
 }
