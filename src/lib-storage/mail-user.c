@@ -503,8 +503,7 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 			       unsigned int lock_secs,
 			       struct file_lock **lock_r, const char **error_r)
 {
-	bool created;
-	const char *home, *path, *error;
+	const char *home, *path;
 	int ret;
 
 	if ((ret = mail_user_get_home(user, &home)) < 0) {
@@ -534,14 +533,7 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 				       lock_fname);
 		lock_set.mkdir_mode = 0700;
 	}
-
-	if (file_create_locked(path, &lock_set, lock_r, &created, &error) == -1) {
-		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s", path, error);
-		return errno == EAGAIN ? 0 : -1;
-	}
-	file_lock_set_unlink_on_free(*lock_r, TRUE);
-	file_lock_set_close_on_free(*lock_r, TRUE);
-	return 1;
+	return mail_storage_lock_create(path, &lock_set, lock_r, error_r);
 }
 
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
