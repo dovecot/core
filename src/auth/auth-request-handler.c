@@ -216,7 +216,8 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 	auth_request_ref(request);
 	auth_request_handler_remove(handler, request);
 
-	auth_policy_report(request);
+	if (request->set->policy_report_after_auth)
+		auth_policy_report(request);
 
 	if (auth_fields_exists(request->extra_fields, "nodelay")) {
 		/* passdb specifically requested not to delay the reply. */
@@ -264,7 +265,8 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 	str_append_tabescaped(str, request->user);
 	auth_str_append_extra_fields(request, str);
 
-	auth_policy_report(request);
+	if (request->set->policy_report_after_auth)
+		auth_policy_report(request);
 
 	if (handler->master_callback == NULL ||
 	    auth_fields_exists(request->extra_fields, "nologin") ||

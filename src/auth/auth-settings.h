@@ -63,6 +63,9 @@ struct auth_settings {
 	const char *policy_hash_nonce;
 	const char *policy_request_attributes;
 	bool policy_reject_on_fail;
+	bool policy_check_before_auth;
+	bool policy_check_after_auth;
+	bool policy_report_after_auth;
 	unsigned int policy_hash_truncate;
 
 	bool stats;
