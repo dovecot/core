@@ -162,6 +162,7 @@ void index_transaction_init(struct mailbox_transaction_context *t,
 	if ((flags & MAILBOX_TRANSACTION_FLAG_REFRESH) != 0)
 		mail_index_refresh(box->index);
 
+	t->flags = flags;
 	t->box = box;
 	t->reason = i_strdup(reason);
 	t->itrans = mail_index_transaction_begin(box->view, itrans_flags);
