@@ -7,6 +7,7 @@
 #define DEFAULT_LOCK_TIMEOUT 120
 
 struct file_lock;
+struct dotlock;
 
 enum file_lock_method {
 	FILE_LOCK_METHOD_FCNTL,
@@ -52,6 +53,10 @@ void file_lock_set_unlink_on_free(struct file_lock *lock, bool set);
 /* When the lock is freed, close the fd automatically. This can
    be useful for files that are only created to exist as lock files. */
 void file_lock_set_close_on_free(struct file_lock *lock, bool set);
+
+/* Convert dotlock into file_lock, which can be deleted with either
+   file_unlock() or file_lock_free(). */
+struct file_lock *file_lock_from_dotlock(struct dotlock **dotlock);
 
 /* Unlock and free the lock. */
 void file_unlock(struct file_lock **lock);
