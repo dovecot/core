@@ -11,7 +11,7 @@ static bool stats_metric_settings_check(void *_set, pool_t pool, const char **er
 /* <settings checks> */
 static struct file_listener_settings stats_unix_listeners_array[] = {
 	{ "stats-reader", 0600, "", "" },
-	{ "stats-writer", 0600, "", "" },
+	{ "stats-writer", 0660, "", "$default_internal_group" },
 };
 static struct file_listener_settings *stats_unix_listeners[] = {
 	&stats_unix_listeners_array[0],
