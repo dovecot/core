@@ -467,7 +467,14 @@ void restrict_access_by_env(enum restrict_access_flags flags, const char *home)
 	}
 	env_remove("RESTRICT_GID_FIRST");
 	env_remove("RESTRICT_GID_LAST");
-	env_remove("RESTRICT_SETEXTRAGROUPS");
+	if (getuid() != 0)
+		env_remove("RESTRICT_SETEXTRAGROUPS");
+	else {
+		/* Preserve RESTRICT_SETEXTRAGROUPS, so if we're again dropping
+		   more privileges we'll still preserve the extra groups. This
+		   mainly means preserving service { extra_groups } for lmtp
+		   and doveadm accesses. */
+	}
 	env_remove("RESTRICT_USER");
 	env_remove("RESTRICT_CHROOT");
 }
