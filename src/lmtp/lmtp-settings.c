@@ -36,7 +36,7 @@ struct service_settings lmtp_service_settings = {
 	.user = "",
 	.group = "",
 	.privileged_group = "",
-	.extra_groups = "",
+	.extra_groups = "$default_internal_group",
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,
