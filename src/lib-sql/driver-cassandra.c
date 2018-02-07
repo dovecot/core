@@ -1375,6 +1375,7 @@ driver_cassandra_result_more(struct sql_result **_result, bool async,
 	   the caller" error text, so it won't be in the debug log output. */
 	i_free_and_null(old_result->error);
 
+	new_result->timestamp = old_result->timestamp;
 	new_result->consistency = old_result->consistency;
 	new_result->page_num = old_result->page_num + 1;
 	new_result->page0_start_time = old_result->page0_start_time;
@@ -1576,6 +1577,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 			/* wait for prepare to finish */
 		} else {
 			ctx->stmt->result->statement = ctx->stmt->cass_stmt;
+			ctx->stmt->result->timestamp = ctx->stmt->timestamp;
 			(void)driver_cassandra_send_query(ctx->stmt->result);
 			pool_unref(&ctx->stmt->stmt.pool);
 		}
@@ -1987,6 +1989,7 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 						   callback, context);
 	if (stmt->cass_stmt != NULL) {
 		stmt->result->statement = stmt->cass_stmt;
+		stmt->result->timestamp = stmt->timestamp;
 	} else if (stmt->prep != NULL) {
 		/* wait for prepare to finish */
 		return;
