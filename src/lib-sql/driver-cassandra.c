@@ -154,6 +154,7 @@ struct cassandra_transaction_context {
 
 	struct cassandra_sql_statement *stmt;
 	char *query;
+	cass_int64_t query_timestamp;
 	char *error;
 
 	unsigned int begin_succeeded:1;
@@ -1553,8 +1554,17 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 		query_type = CASSANDRA_QUERY_TYPE_WRITE;
 
 	if (ctx->query != NULL) {
-		driver_cassandra_query_full(_ctx->db, query, query_type,
-			  transaction_commit_callback, ctx);
+		struct cassandra_result *cass_result;
+
+		cass_result = driver_cassandra_query_init(db, query, query_type,
+			FALSE, transaction_commit_callback, ctx);
+		cass_result->statement = cass_statement_new(query, 0);
+		if (ctx->query_timestamp != 0) {
+			cass_result->timestamp = ctx->query_timestamp;
+			cass_statement_set_timestamp(cass_result->statement,
+						     ctx->query_timestamp);
+		}
+		(void)driver_cassandra_send_query(cass_result);
 	} else {
 		ctx->stmt->result =
 			driver_cassandra_query_init(db, query, query_type, TRUE,
@@ -2015,6 +2025,7 @@ driver_cassandra_update_stmt(struct sql_transaction_context *_ctx,
 		ctx->stmt = stmt;
 	else {
 		ctx->query = i_strdup(sql_statement_get_query(_stmt));
+		ctx->query_timestamp = stmt->timestamp;
 		pool_unref(&_stmt->pool);
 	}
 }
