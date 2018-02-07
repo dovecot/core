@@ -9,7 +9,7 @@
 
 /* <settings checks> */
 static struct file_listener_settings ipc_unix_listeners_array[] = {
-	{ "ipc", 0600, "", "" },
+	{ "ipc", 0600, "$default_internal_user", "" },
 	{ "login/ipc-proxy", 0600, "$default_login_user", "" }
 };
 static struct file_listener_settings *ipc_unix_listeners[] = {
