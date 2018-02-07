@@ -611,8 +611,8 @@ static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 		nonblock = TRUE;
 	}
 
+	i_assert(cache->file_lock == NULL);
 	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
-		i_assert(cache->file_lock == NULL);
 		timeout_secs = I_MIN(MAIL_CACHE_LOCK_TIMEOUT,
 				     cache->index->max_lock_timeout_secs);
 
@@ -621,14 +621,15 @@ static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 					 nonblock ? 0 : timeout_secs,
 					 &cache->file_lock);
 	} else {
+		struct dotlock *dotlock;
 		enum dotlock_create_flags flags =
 			nonblock ? DOTLOCK_CREATE_FLAG_NONBLOCK : 0;
 
-		i_assert(cache->dotlock == NULL);
 		ret = file_dotlock_create(&cache->dotlock_settings,
-					  cache->filepath, flags,
-					  &cache->dotlock);
-		if (ret < 0) {
+					  cache->filepath, flags, &dotlock);
+		if (ret > 0)
+			cache->file_lock = file_lock_from_dotlock(&dotlock);
+		else if (ret < 0) {
 			mail_cache_set_syscall_error(cache,
 						     "file_dotlock_create()");
 		}
@@ -648,10 +649,7 @@ static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 
 static void mail_cache_unlock_file(struct mail_cache *cache)
 {
-	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK)
-		file_unlock(&cache->file_lock);
-	else
-		file_dotlock_delete(&cache->dotlock);
+	file_unlock(&cache->file_lock);
 }
 
 static int
