@@ -182,6 +182,7 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, listen),
 	DEF(SET_ENUM, ssl),
 	DEF(SET_STR, default_internal_user),
+	DEF(SET_STR, default_internal_group),
 	DEF(SET_STR, default_login_user),
 	DEF(SET_UINT, default_process_limit),
 	DEF(SET_UINT, default_client_limit),
@@ -209,6 +210,7 @@ static const struct master_settings master_default_settings = {
 	.listen = "*, ::",
 	.ssl = "yes:no:required",
 	.default_internal_user = "dovecot",
+	.default_internal_group = "dovecot",
 	.default_login_user = "dovenull",
 	.default_process_limit = 100,
 	.default_client_limit = 1000,
@@ -262,6 +264,16 @@ expand_user(const char **user, enum service_user_default *default_r,
 	}
 }
 
+static void
+expand_group(const char **group, const struct master_settings *set)
+{
+	/* $variable expansion is typically done by doveconf, but these
+	   variables can come from built-in settings, so we need to expand
+	   them here */
+	if (strcmp(*group, "$default_internal_group") == 0)
+		*group = set->default_internal_group;
+}
+
 static bool
 fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 			pool_t pool, const struct master_settings *master_set,
@@ -284,6 +296,7 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 		}
 
 		expand_user(&set->user, &user_default, master_set);
+		expand_group(&set->group, master_set);
 		if (*set->path != '/') {
 			set->path = p_strconcat(pool, master_set->base_dir, "/",
 						set->path, NULL);
@@ -478,6 +491,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			}
 		}
 		expand_user(&service->user, &service->user_default, set);
+		expand_group(&service->extra_groups, set);
 		service_set_login_dump_core(service);
 	}
 	set->protocols_split = p_strsplit_spaces(pool, set->protocols, " ");
