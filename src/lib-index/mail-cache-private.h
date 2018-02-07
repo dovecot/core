@@ -108,7 +108,6 @@ struct mail_cache {
 	unsigned int remap_counter;
 
 	struct dotlock_settings dotlock_settings;
-	struct dotlock *dotlock;
 	struct file_lock *file_lock;
 
 	/* mmap_disable=no: hdr points to data / NULL when cache is invalid.
