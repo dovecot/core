@@ -165,6 +165,16 @@ static void connection_init_streams(struct connection *conn)
 	}
 }
 
+void connection_streams_changed(struct connection *conn)
+{
+	const struct connection_settings *set = &conn->list->set;
+
+	if (set->input_max_size != 0 && conn->io != NULL) {
+		io_remove(&conn->io);
+		conn->io = io_add_istream(conn->input, *conn->list->v.input, conn);
+	}
+}
+
 static void connection_client_connected(struct connection *conn, bool success)
 {
 	i_assert(conn->list->set.client);

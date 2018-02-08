@@ -129,6 +129,8 @@ int connection_client_connect(struct connection *conn);
 void connection_disconnect(struct connection *conn);
 void connection_deinit(struct connection *conn);
 
+void connection_streams_changed(struct connection *conn);
+
 /* Returns -1 = disconnected, 0 = nothing new, 1 = something new.
    If input_full_behavior is ALLOW, may return also -2 = buffer full. */
 int connection_input_read(struct connection *conn);
