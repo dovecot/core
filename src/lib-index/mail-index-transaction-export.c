@@ -411,11 +411,14 @@ log_append_keyword_updates(struct mail_index_export_context *ctx)
 }
 
 void mail_index_transaction_export(struct mail_index_transaction *t,
-				   struct mail_transaction_log_append_ctx *append_ctx)
+				   struct mail_transaction_log_append_ctx *append_ctx,
+				   enum mail_index_transaction_change *changes_r)
 {
 	static uint8_t null4[4] = { 0, 0, 0, 0 };
 	enum mail_index_fsync_mask change_mask = 0;
 	struct mail_index_export_context ctx;
+
+	*changes_r = 0;
 
 	i_zero(&ctx);
 	ctx.trans = t;
@@ -435,6 +438,10 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 		log_append_buffer(&ctx, log_get_hdr_update_buffer(t, TRUE),
 				  MAIL_TRANSACTION_HEADER_UPDATE);
 	}
+
+	if (append_ctx->output->used > 0)
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_OTHERS;
+
 	if (t->attribute_updates != NULL) {
 		buffer_append_c(t->attribute_updates, '\0');
 		/* need to have 32bit alignment */
@@ -447,35 +454,43 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 			      t->attribute_updates_suffix->data,
 			      t->attribute_updates_suffix->used);
 		i_assert(t->attribute_updates->used % 4 == 0);
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_ATTRIBUTE;
 		log_append_buffer(&ctx, t->attribute_updates,
 				  MAIL_TRANSACTION_ATTRIBUTE_UPDATE);
 	}
 	if (array_is_created(&t->appends)) {
 		change_mask |= MAIL_INDEX_FSYNC_MASK_APPENDS;
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_APPEND;
 		log_append_buffer(&ctx, t->appends.arr.buffer,
 				  MAIL_TRANSACTION_APPEND);
 	}
 
 	if (array_is_created(&t->updates)) {
 		change_mask |= MAIL_INDEX_FSYNC_MASK_FLAGS;
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_FLAGS;
 		log_append_flag_updates(&ctx, t);
 	}
 
 	if (array_is_created(&t->ext_rec_updates)) {
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_OTHERS;
 		log_append_ext_recs(&ctx, &t->ext_rec_updates,
 				    MAIL_TRANSACTION_EXT_REC_UPDATE);
 	}
 	if (array_is_created(&t->ext_rec_atomics)) {
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_OTHERS;
 		log_append_ext_recs(&ctx, &t->ext_rec_atomics,
 				    MAIL_TRANSACTION_EXT_ATOMIC_INC);
 	}
 
 	if (array_is_created(&t->keyword_updates)) {
-		if (log_append_keyword_updates(&ctx))
+		if (log_append_keyword_updates(&ctx)) {
 			change_mask |= MAIL_INDEX_FSYNC_MASK_KEYWORDS;
+			*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_KEYWORDS;
+		}
 	}
 	/* keep modseq updates almost last */
 	if (array_is_created(&t->modseq_updates)) {
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_MODSEQ;
 		log_append_buffer(&ctx, t->modseq_updates.arr.buffer,
 				  MAIL_TRANSACTION_MODSEQ_UPDATE);
 	}
@@ -483,23 +498,31 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 	if (array_is_created(&t->expunges)) {
 		/* non-external expunges are only requests, ignore them when
 		   checking fsync_mask */
-		if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
+		if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0) {
 			change_mask |= MAIL_INDEX_FSYNC_MASK_EXPUNGES;
+			*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_EXPUNGE;
+		} else {
+			*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_OTHERS;
+		}
 		log_append_buffer(&ctx, t->expunges.arr.buffer,
 				  MAIL_TRANSACTION_EXPUNGE_GUID);
 	}
 
 	if (t->post_hdr_changed) {
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_OTHERS;
 		log_append_buffer(&ctx, log_get_hdr_update_buffer(t, FALSE),
 				  MAIL_TRANSACTION_HEADER_UPDATE);
 	}
 
 	if (t->index_deleted) {
 		i_assert(!t->index_undeleted);
+		*changes_r |= MAIL_INDEX_TRANSACTION_CHANGE_OTHERS;
 		mail_transaction_log_append_add(ctx.append_ctx,
 						MAIL_TRANSACTION_INDEX_DELETED,
 						&null4, 4);
 	}
+
+	i_assert((append_ctx->output->used > 0) == (*changes_r != 0));
 
 	append_ctx->index_sync_transaction = t->sync_transaction;
 	append_ctx->tail_offset_changed = t->tail_offset_changed;
