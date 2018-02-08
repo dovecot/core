@@ -8,6 +8,7 @@ struct message_size;
 #include "guid.h"
 #include "mail-types.h"
 #include "mail-error.h"
+#include "mail-index.h"
 #include "mail-namespace.h"
 #include "mailbox-list.h"
 #include "mailbox-attribute.h"
