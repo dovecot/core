@@ -254,6 +254,10 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 	SSL *ssl;
 	BIO *bio_int, *bio_ext;
 
+	/* Don't allow an existing io_add_istream() to be use on the input.
+	   It would seem to work, but it would also cause hangs. */
+	i_assert(i_stream_get_root_io(*input)->real_stream->io == NULL);
+
 	ssl = SSL_new(ctx->ssl_ctx);
 	if (ssl == NULL) {
 		*error_r = t_strdup_printf("SSL_new() failed: %s",
