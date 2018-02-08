@@ -792,7 +792,8 @@ index_list_transaction_commit(struct mailbox_transaction_context *t,
 		return -1;
 	t = NULL;
 
-	if (!changes_r->changed)
+	/* check all changes here, because e.g. vsize update is _OTHERS */
+	if (changes_r->changes_mask == 0)
 		return 0;
 
 	/* this transaction commit may have been done in error handling path

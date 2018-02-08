@@ -56,8 +56,6 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		} else if (t->box->v.transaction_save_commit_pre(t->save_ctx) < 0) {
 			t->save_ctx = NULL;
 			ret = -1;
-		} else {
-			t->changes->changed = TRUE;
 		}
 	}
 
@@ -73,9 +71,8 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		if (t->super.commit(index_trans, result_r) < 0) {
 			mailbox_set_index_error(t->box);
 			ret = -1;
-		} else if (result_r->commit_size > 0) {
-			/* something was written to the transaction log */
-			t->changes->changed = TRUE;
+		} else {
+			t->changes->changes_mask = result_r->changes_mask;
 		}
 	}
 

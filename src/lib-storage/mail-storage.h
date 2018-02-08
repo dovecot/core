@@ -343,8 +343,8 @@ struct mail_transaction_commit_changes {
 	/* number of modseq changes that couldn't be changed as requested */
 	unsigned int ignored_modseq_changes;
 
-	/* TRUE if anything actually changed with this commit */
-	bool changed;
+	/* Changes that occurred within this transaction */
+	enum mail_index_transaction_change changes_mask;
 	/* User doesn't have read ACL for the mailbox, so don't show the
 	   uid_validity / saved_uids. */
 	bool no_read_perm;
