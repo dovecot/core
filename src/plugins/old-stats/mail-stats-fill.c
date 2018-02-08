@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "time-util.h"
+#include "restrict-access.h"
 #include "stats-plugin.h"
 #include "mail-stats.h"
 
@@ -45,6 +46,10 @@ static int process_io_open(void)
 
 	if (proc_io_disabled)
 		return -1;
+
+	bool dumpable = restrict_access_get_dumpable();
+	if (!dumpable)
+		restrict_access_set_dumpable(TRUE);
 	proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
 	if (proc_io_fd == -1 && errno == EACCES) {
 		/* kludge: if we're running with permissions temporarily
@@ -60,6 +65,8 @@ static int process_io_open(void)
 		}
 		errno = EACCES;
 	}
+	if (!dumpable)
+		restrict_access_set_dumpable(FALSE);
 	if (proc_io_fd == -1) {
 		/* ignore access errors too, certain security options can
 		   prevent root access to this file when not owned by root */
