@@ -140,7 +140,8 @@ void random_fill(void *buf, size_t size)
 
 void random_init(void)
 {
-	unsigned int seed;
+	/* static analyzer seems to require this */
+	unsigned int seed = 0;
 	const char *env_seed;
 
 	if (init_refcount++ > 0)
