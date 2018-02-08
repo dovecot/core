@@ -476,14 +476,30 @@ const char *restrict_access_get_current_chroot(void)
 	return chroot_dir;
 }
 
-void restrict_access_allow_coredumps(bool allow ATTR_UNUSED)
+void restrict_access_set_dumpable(bool allow ATTR_UNUSED)
 {
 #ifdef HAVE_PR_SET_DUMPABLE
-	if (getenv("PR_SET_DUMPABLE") != NULL) {
-		if (prctl(PR_SET_DUMPABLE, allow ? 1 : 0, 0, 0, 0) < 0)
-			i_error("prctl(PR_SET_DUMPABLE) failed: %m");
-	}
+	if (prctl(PR_SET_DUMPABLE, allow ? 1 : 0, 0, 0, 0) < 0)
+		i_error("prctl(PR_SET_DUMPABLE) failed: %m");
 #endif
+}
+
+bool restrict_access_get_dumpable(void)
+{
+#ifdef HAVE_PR_SET_DUMPABLE
+	bool allow = FALSE;
+	if (prctl(PR_GET_DUMPABLE, &allow, 0, 0, 0) < 0)
+		i_error("prctl(PR_GET_DUMPABLE) failed: %m");
+	return allow;
+#endif
+	return TRUE;
+}
+
+void restrict_access_allow_coredumps(bool allow)
+{
+	if (getenv("PR_SET_DUMPABLE") != NULL) {
+		restrict_access_set_dumpable(allow);
+	}
 }
 
 int restrict_access_use_priv_gid(void)
