@@ -537,7 +537,6 @@ int server_connection_create(struct doveadm_server *server,
 	conn->fd = doveadm_connect_with_default_port(server->name,
 						     doveadm_settings->doveadm_port);
 	net_set_nonblock(conn->fd, TRUE);
-	conn->io = io_add(conn->fd, IO_READ, server_connection_input, conn);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
 	o_stream_set_flush_callback(conn->output, server_connection_output, conn);
@@ -552,6 +551,7 @@ int server_connection_create(struct doveadm_server *server,
 		server_connection_destroy(&conn);
 		return -1;
 	}
+	conn->io = io_add_istream(conn->input, server_connection_input, conn);
 
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->state = SERVER_REPLY_STATE_DONE;
