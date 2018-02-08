@@ -72,6 +72,7 @@ ssize_t i_stream_read_copy_from_parent(struct istream *istream);
 void i_stream_default_seek_nonseekable(struct istream_private *stream,
 				       uoff_t v_offset, bool mark);
 
+struct istream *i_stream_get_root_io(struct istream *stream);
 void i_stream_set_io(struct istream *stream, struct io *io);
 void i_stream_unset_io(struct istream *stream, struct io *io);
 
