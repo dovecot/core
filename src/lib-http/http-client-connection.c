@@ -1383,7 +1383,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 
 	i_assert(ssl_ctx != NULL);
 
-	i_zero(&ssl_set);
+	ssl_set = *set->ssl;
 	if (!set->ssl->allow_invalid_cert) {
 		ssl_set.verbose_invalid_cert = TRUE;
 	}
