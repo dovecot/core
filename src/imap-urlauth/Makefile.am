@@ -59,6 +59,7 @@ imap_urlauth_worker_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap-storage \
 	-I$(top_srcdir)/src/lib-imap-urlauth \
 	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/login-common
 
