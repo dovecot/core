@@ -226,6 +226,17 @@ struct mail_index_view_sync_rec {
 	bool hidden:1;
 };
 
+enum mail_index_transaction_change {
+	MAIL_INDEX_TRANSACTION_CHANGE_APPEND	= BIT(0),
+	MAIL_INDEX_TRANSACTION_CHANGE_EXPUNGE	= BIT(1),
+	MAIL_INDEX_TRANSACTION_CHANGE_FLAGS	= BIT(2),
+	MAIL_INDEX_TRANSACTION_CHANGE_KEYWORDS	= BIT(3),
+	MAIL_INDEX_TRANSACTION_CHANGE_MODSEQ	= BIT(4),
+	MAIL_INDEX_TRANSACTION_CHANGE_ATTRIBUTE	= BIT(5),
+
+	MAIL_INDEX_TRANSACTION_CHANGE_OTHERS	= BIT(30),
+};
+
 struct mail_index_transaction_commit_result {
 	/* seq/offset points to end of transaction */
 	uint32_t log_file_seq;
@@ -234,6 +245,7 @@ struct mail_index_transaction_commit_result {
 	   all of it was written to the same file. */
 	uoff_t commit_size;
 
+	enum mail_index_transaction_change changes_mask;
 	unsigned int ignored_modseq_changes;
 };
 

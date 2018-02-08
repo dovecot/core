@@ -149,7 +149,8 @@ void mail_index_transaction_seq_range_to_uid(struct mail_index_transaction *t,
 void mail_index_transaction_finish_so_far(struct mail_index_transaction *t);
 void mail_index_transaction_finish(struct mail_index_transaction *t);
 void mail_index_transaction_export(struct mail_index_transaction *t,
-				   struct mail_transaction_log_append_ctx *append_ctx);
+				   struct mail_transaction_log_append_ctx *append_ctx,
+				   enum mail_index_transaction_change *changes_r);
 int mail_transaction_expunge_guid_cmp(const struct mail_transaction_expunge_guid *e1,
 				      const struct mail_transaction_expunge_guid *e2);
 unsigned int
