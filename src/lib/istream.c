@@ -907,15 +907,21 @@ bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
 	return TRUE;
 }
 
+struct istream *i_stream_get_root_io(struct istream *stream)
+{
+	while (stream->real_stream->parent != NULL) {
+		i_assert(stream->real_stream->io == NULL);
+		stream = stream->real_stream->parent;
+	}
+	return stream;
+}
+
 void i_stream_set_input_pending(struct istream *stream, bool pending)
 {
 	if (!pending)
 		return;
 
-	while (stream->real_stream->parent != NULL) {
-		i_assert(stream->real_stream->io == NULL);
-		stream = stream->real_stream->parent;
-	}
+	stream = i_stream_get_root_io(stream);
 	if (stream->real_stream->io != NULL)
 		io_set_pending(stream->real_stream->io);
 }
@@ -931,10 +937,7 @@ void i_stream_switch_ioloop(struct istream *stream)
 
 void i_stream_set_io(struct istream *stream, struct io *io)
 {
-	while (stream->real_stream->parent != NULL) {
-		i_assert(stream->real_stream->io == NULL);
-		stream = stream->real_stream->parent;
-	}
+	stream = i_stream_get_root_io(stream);
 
 	i_assert(stream->real_stream->io == NULL);
 	stream->real_stream->io = io;
@@ -942,10 +945,7 @@ void i_stream_set_io(struct istream *stream, struct io *io)
 
 void i_stream_unset_io(struct istream *stream, struct io *io)
 {
-	while (stream->real_stream->parent != NULL) {
-		i_assert(stream->real_stream->io == NULL);
-		stream = stream->real_stream->parent;
-	}
+	stream = i_stream_get_root_io(stream);
 
 	i_assert(stream->real_stream->io == io);
 	stream->real_stream->io = NULL;
