@@ -18,6 +18,8 @@
 
 #define TRASH_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, trash_user_module)
+#define TRASH_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, trash_user_module)
 
 struct trash_mailbox {
 	const char *name;
@@ -102,7 +104,7 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 				 uint64_t size_needed,
 				 unsigned int count_needed)
 {
-	struct trash_user *tuser = TRASH_USER_CONTEXT(ctx->quota->user);
+	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(ctx->quota->user);
 	struct trash_mailbox *trashes;
 	unsigned int i, j, count, oldest_idx;
 	time_t oldest, received = 0;
@@ -283,7 +285,7 @@ static int trash_mailbox_priority_cmp(const struct trash_mailbox *t1,
 
 static int read_configuration(struct mail_user *user, const char *path)
 {
-	struct trash_user *tuser = TRASH_USER_CONTEXT(user);
+	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(user);
 	struct istream *input;
 	const char *line, *name;
 	struct trash_mailbox *trash;
