@@ -618,16 +618,29 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 			   struct ldap_request_search *request,
 			   struct ldap_request_named_result *named_res)
 {
-	static struct var_expand_func_table var_funcs_table[] = {
-		{ "ldap", db_ldap_field_subquery_find },
-		{ "ldap_ptr", db_ldap_field_subquery_find },
-		{ NULL, NULL }
-	};
 	const struct ldap_field *field;
 	const char *p, *error;
 	char *name;
+	struct auth_request *auth_request = request->request.auth_request;
 	struct ldap_field_find_subquery_context ctx;
+	const struct var_expand_table *table =
+		auth_request_get_var_expand_table(auth_request, NULL);
+	const struct var_expand_func_table *ptr;
+	struct var_expand_func_table *ftable;
 	string_t *tmp_str = t_str_new(64);
+	ARRAY(struct var_expand_func_table) var_funcs_table;
+	t_array_init(&var_funcs_table, 8);
+
+	for(ptr = auth_request_var_funcs_table; ptr->key != NULL; ptr++) {
+		array_append(&var_funcs_table, ptr, 1);
+	}
+	ftable = array_append_space(&var_funcs_table);
+	ftable->key = "ldap";
+	ftable->func = db_ldap_field_subquery_find;
+	ftable = array_append_space(&var_funcs_table);
+	ftable->key = "ldap_ptr";
+	ftable->func = db_ldap_field_subquery_find;
+	array_append_zero(&var_funcs_table);
 
 	i_zero(&ctx);
 	t_array_init(&ctx.attr_names, 8);
@@ -637,9 +650,9 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	array_foreach(request->attr_map, field) {
 		if (field->ldap_attr_name[0] == '\0') {
 			str_truncate(tmp_str, 0);
-			if (var_expand_with_funcs(tmp_str, field->value, NULL,
-						  var_funcs_table, &ctx, &error) <= 0) {
-				auth_request_log_error(request->request.auth_request,
+			if (var_expand_with_funcs(tmp_str, field->value, table,
+						  array_idx(&var_funcs_table, 0), &ctx, &error) <= 0) {
+				auth_request_log_error(auth_request,
 					AUTH_SUBSYS_DB,
 					"Failed to expand subquery %s: %s",
 					field->value, error);
@@ -661,7 +674,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 		ldap_search(conn->ld, named_res->dn, LDAP_SCOPE_BASE,
 			    NULL, array_idx_modifiable(&ctx.attr_names, 0), 0);
 	if (request->request.msgid == -1) {
-		auth_request_log_error(request->request.auth_request, AUTH_SUBSYS_DB,
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				       "ldap_search(dn=%s) failed: %s",
 				       named_res->dn, ldap_get_error(conn));
 		return -1;
