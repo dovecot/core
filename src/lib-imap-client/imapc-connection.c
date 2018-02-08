@@ -1668,6 +1668,7 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 		conn->output = conn->raw_output;
 	}
 
+	io_remove(&conn->io);
 	if (io_stream_create_ssl_client(conn->client->ssl_ctx,
 					conn->client->set.host,
 					&ssl_set, &conn->input, &conn->output,
@@ -1676,6 +1677,7 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 			conn->name, error);
 		return -1;
 	}
+	conn->io = io_add_istream(conn->input, imapc_connection_input, conn);
 	ssl_iostream_set_handshake_callback(conn->ssl_iostream,
 					    imapc_connection_ssl_handshaked,
 					    conn);
