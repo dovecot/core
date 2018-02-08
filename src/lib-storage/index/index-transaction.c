@@ -32,8 +32,6 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	int ret = 0;
 
 	index_pop3_uidl_update_exists_finish(t);
-	if (t->nontransactional_changes)
-		t->changes->changed = TRUE;
 
 	if (t->attr_pvt_trans != NULL) {
 		if (dict_transaction_commit(&t->attr_pvt_trans, &error) < 0) {
