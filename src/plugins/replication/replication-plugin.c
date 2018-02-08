@@ -251,6 +251,15 @@ static void replication_mail_copy(void *txn, struct mail *src,
 	}
 }
 
+static bool
+replication_want_sync_changes(const struct mail_transaction_commit_changes *changes)
+{
+	/* Replication needs to be triggered on all the user-visible changes,
+	   but not e.g. due to writes to cache file. */
+	return (changes->changes_mask &
+		~MAIL_INDEX_TRANSACTION_CHANGE_OTHERS) != 0;
+}
+
 static void
 replication_mail_transaction_commit(void *txn,
 				    struct mail_transaction_commit_changes *changes)
@@ -262,7 +271,7 @@ replication_mail_transaction_commit(void *txn,
 	enum replication_priority priority;
 
 	if (ruser != NULL && !ctx->sync_trans &&
-	    (ctx->new_messages || changes->changes_mask != 0)) {
+	    (ctx->new_messages || replication_want_sync_changes(changes))) {
 		priority = !ctx->new_messages ? REPLICATION_PRIORITY_LOW :
 			ruser->sync_secs == 0 ? REPLICATION_PRIORITY_HIGH :
 			REPLICATION_PRIORITY_SYNC;
