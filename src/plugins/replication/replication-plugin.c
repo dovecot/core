@@ -262,7 +262,7 @@ replication_mail_transaction_commit(void *txn,
 	enum replication_priority priority;
 
 	if (ruser != NULL && !ctx->sync_trans &&
-	    (ctx->new_messages || changes->changed)) {
+	    (ctx->new_messages || changes->changes_mask != 0)) {
 		priority = !ctx->new_messages ? REPLICATION_PRIORITY_LOW :
 			ruser->sync_secs == 0 ? REPLICATION_PRIORITY_HIGH :
 			REPLICATION_PRIORITY_SYNC;
