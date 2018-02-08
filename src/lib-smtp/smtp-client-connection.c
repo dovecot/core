@@ -1190,6 +1190,28 @@ smtp_client_connection_ssl_handshaked(const char **error_r, void *context)
 	return 0;
 }
 
+static void
+smtp_client_connection_streams_changed(struct smtp_client_connection *conn)
+{
+	struct stat st;
+
+	if (conn->set.rawlog_dir != NULL &&
+	    stat(conn->set.rawlog_dir, &st) == 0) {
+		iostream_rawlog_create(conn->set.rawlog_dir,
+				       &conn->conn.input, &conn->conn.output);
+	}
+
+	if (conn->reply_parser == NULL) {
+		conn->reply_parser = smtp_reply_parser_init(
+			conn->conn.input, conn->set.max_reply_size);
+	} else {
+		smtp_reply_parser_set_stream(conn->reply_parser,
+					     conn->conn.input);
+	}
+
+	connection_streams_changed(&conn->conn);
+}
+
 static int
 smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
 				    const char **error_r)
@@ -1252,6 +1274,7 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 		conn->conn.output = conn->raw_output;
 	}
 
+	io_remove(&conn->conn.io);
 	if (io_stream_create_ssl_client(conn->ssl_ctx,
 		conn->host, &ssl_set,
 		&conn->conn.input, &conn->conn.output,
@@ -1261,6 +1284,11 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 			conn->conn.name, error);
 		return -1;
 	}
+	conn->conn.io = io_add_istream(conn->conn.input,
+				       smtp_client_connection_input,
+				       &conn->conn);
+	smtp_client_connection_streams_changed(conn);
+
 	ssl_iostream_set_handshake_callback(conn->ssl_iostream,
 		smtp_client_connection_ssl_handshaked, conn);
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
