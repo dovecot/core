@@ -401,6 +401,7 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 	if (conn->server->set.debug)
 		http_server_connection_debug(conn, "Starting SSL handshake");
 
+	http_server_connection_input_halt(conn);
 	if (master_service_ssl_init(master_service,
 				&conn->conn.input, &conn->conn.output,
 				&conn->ssl_iostream, &error) < 0) {
@@ -408,6 +409,8 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 			"Couldn't initialize SSL server for %s: %s", conn->conn.name, error);
 		return -1;
 	}
+	http_server_connection_input_resume(conn);
+
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
 		http_server_connection_error(conn,"SSL handshake failed: %s",
 			ssl_iostream_get_last_error(conn->ssl_iostream));
