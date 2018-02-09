@@ -30,6 +30,10 @@ struct http_server *http_server_init(const struct http_server_settings *set)
 	server->pool = pool;
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 		server->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
+	if (set->ssl != NULL) {
+		server->set.ssl =
+			ssl_iostream_settings_dup(server->pool, set->ssl);
+	}
 	server->set.max_client_idle_time_msecs = set->max_client_idle_time_msecs;
 	server->set.max_pipelined_requests =
 		(set->max_pipelined_requests > 0 ? set->max_pipelined_requests : 1);
@@ -86,4 +90,20 @@ void http_server_shut_down(struct http_server *server)
 		_next = _conn->next;
 		(void)http_server_connection_shut_down(conn);
 	}
+}
+
+int http_server_init_ssl_ctx(struct http_server *server, const char **error_r)
+{
+	const char *error;
+
+	if (server->set.ssl == NULL || server->ssl_ctx != NULL)
+		return 0;
+
+	if (ssl_iostream_server_context_cache_get(server->set.ssl,
+		&server->ssl_ctx, &error) < 0) {
+		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
+					   error);
+		return -1;
+	}
+	return 0;
 }
