@@ -240,6 +240,9 @@ struct smtp_server_settings {
 	const char *login_greeting;
 	const char *rawlog_dir;
 
+	/* SSL settings; if NULL, master_service_ssl_init() is used instead */
+	const struct ssl_iostream_settings *ssl;
+
 	/* The maximum time in milliseconds a client is allowed to be idle
 	   before it is disconnected. */
 	unsigned int max_client_idle_time_msecs;

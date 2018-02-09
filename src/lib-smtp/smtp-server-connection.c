@@ -339,9 +339,42 @@ smtp_server_connection_handle_command(struct smtp_server_connection *conn,
 	return (cmd == NULL || !cmd->input_locked);
 }
 
+static int
+smtp_server_connection_init_ssl_ctx(struct smtp_server_connection *conn,
+				    const char **error_r)
+{
+	struct smtp_server *server = conn->server;
+	const char *error;
+
+	if (conn->ssl_ctx != NULL || conn->set.ssl == NULL)
+		return 0;
+	if (conn->set.ssl == server->set.ssl) {
+		if (smtp_server_init_ssl_ctx(server, error_r) < 0)
+			return -1;
+		conn->ssl_ctx = server->ssl_ctx;
+		ssl_iostream_context_ref(conn->ssl_ctx);
+		return 0;
+	}
+
+	if (ssl_iostream_server_context_cache_get(conn->set.ssl,
+		&conn->ssl_ctx, &error) < 0) {
+		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
+					   error);
+		return -1;
+	}
+	return 0;
+}
+
 int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 {
 	const char *error;
+	int ret;
+
+	if (smtp_server_connection_init_ssl_ctx(conn, &error) < 0) {
+		smtp_server_connection_error(conn,
+			"Couldn't initialize SSL: %s", error);
+		return -1;
+	}
 
 	smtp_server_connection_debug(conn, "Starting SSL handshake");
 
@@ -356,9 +389,16 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 	}
 
 	smtp_server_connection_input_halt(conn);
-	if (master_service_ssl_init(master_service,
-				&conn->conn.input, &conn->conn.output,
-				&conn->ssl_iostream, &error) < 0) {
+	if (conn->ssl_ctx == NULL) {
+		ret = master_service_ssl_init(master_service,
+			&conn->conn.input, &conn->conn.output,
+			&conn->ssl_iostream, &error);
+	} else {
+		ret = io_stream_create_ssl_server(conn->ssl_ctx,
+			conn->set.ssl, &conn->conn.input, &conn->conn.output,
+			&conn->ssl_iostream, &error);
+	}
+	if (ret < 0) {
 		smtp_server_connection_error(conn,
 			"Couldn't initialize SSL server for %s: %s",
 			conn->conn.name, error);
@@ -785,6 +825,10 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		conn->set.protocol = server->set.protocol;
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 			conn->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
+
+		if (set->ssl != NULL)
+			conn->set.ssl = ssl_iostream_settings_dup(pool, set->ssl);
+
 		if (set->hostname != NULL && *set->hostname != '\0')
 			conn->set.hostname = p_strdup(pool, set->hostname);
 		if (set->login_greeting != NULL &&
@@ -1046,6 +1090,8 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 	if (conn->smtp_parser != NULL)
 		smtp_command_parser_deinit(&conn->smtp_parser);
 	ssl_iostream_destroy(&conn->ssl_iostream);
+	if (conn->ssl_ctx != NULL)
+		ssl_iostream_context_unref(&conn->ssl_ctx);
 
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_disconnect != NULL) {

@@ -143,6 +143,7 @@ struct smtp_server_connection {
 	struct timeout *to_idle;
 	struct istream *raw_input;
 	struct ostream *raw_output;
+	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream *ssl_iostream;
 	struct smtp_command_parser *smtp_parser;
 
@@ -179,6 +180,7 @@ struct smtp_server {
 	struct smtp_server_settings set;
 
 	struct ioloop *ioloop;
+	struct ssl_iostream_context *ssl_ctx;
 
 	ARRAY(struct smtp_server_command_reg) commands_reg;
 
@@ -356,5 +358,11 @@ smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
 bool smtp_server_transaction_has_rcpt(struct smtp_server_transaction *trans);
 unsigned int
 smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans);
+
+/*
+ * Server
+ */
+
+int smtp_server_init_ssl_ctx(struct smtp_server *server, const char **error_r);
 
 #endif
