@@ -138,7 +138,13 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 		sstream->ssl_io->ostream_flush_waiting_input = TRUE;
 		ret = 1;
 	}
-	return ret;
+
+	if (ret <= 0)
+		return ret;
+
+	/* return 1 only when the output buffer is empty, which is what the
+	   caller expects. */
+	return o_stream_get_buffer_used_size(plain_output) == 0 ? 1 : 0;
 }
 
 static ssize_t
