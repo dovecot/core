@@ -1377,6 +1377,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 
 	e_debug(conn->event, "Starting SSL handshake");
 
+	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(ssl_ctx,
 					pshared->addr.a.tcp.https_name, &ssl_set,
 					&conn->conn.input, &conn->conn.output,
@@ -1386,6 +1387,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 			conn->conn.name, error);
 		return -1;
 	}
+	connection_input_resume(&conn->conn);
 	ssl_iostream_set_handshake_callback(conn->ssl_iostream,
 					    http_client_connection_ssl_handshaked, conn);
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
