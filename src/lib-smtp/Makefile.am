@@ -111,6 +111,11 @@ test_deps = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
+test_libs_ssl=
+if BUILD_OPENSSL
+test_libs_ssl += ../lib-ssl-iostream/libssl_iostream_openssl.la
+endif
+
 test_smtp_address_SOURCES = test-smtp-address.c
 test_smtp_address_LDFLAGS = -export-dynamic
 test_smtp_address_LDADD = $(test_libs)
@@ -133,7 +138,7 @@ test_smtp_command_parser_DEPENDENCIES = $(test_deps)
 
 test_smtp_payload_SOURCES = test-smtp-payload.c
 test_smtp_payload_LDFLAGS = -export-dynamic
-test_smtp_payload_LDADD = $(test_libs)
+test_smtp_payload_LDADD = $(test_libs) $(test_libs_ssl)
 test_smtp_payload_DEPENDENCIES = $(test_deps)
 
 test_smtp_submit_SOURCES = test-smtp-submit.c
