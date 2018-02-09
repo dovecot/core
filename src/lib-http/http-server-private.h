@@ -276,4 +276,10 @@ int http_server_connection_discard_payload(
 bool http_server_connection_pending_payload(
 	struct http_server_connection *conn);
 
+/*
+ * Server
+ */
+
+int http_server_init_ssl_ctx(struct http_server *server, const char **error_r);
+
 #endif
