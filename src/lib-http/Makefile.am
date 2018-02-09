@@ -157,7 +157,8 @@ endif
 test_http_payload_SOURCES = test-http-payload.c
 test_http_payload_LDFLAGS = -export-dynamic
 test_http_payload_LDADD = \
-	$(test_http_libs)
+	$(test_http_libs) \
+	$(test_http_libs_ssl)
 test_http_payload_DEPENDENCIES = \
 	$(test_http_deps)
 
