@@ -355,6 +355,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 		conn->conn.output = conn->raw_output;
 	}
 
+	smtp_server_connection_input_halt(conn);
 	if (master_service_ssl_init(master_service,
 				&conn->conn.input, &conn->conn.output,
 				&conn->ssl_iostream, &error) < 0) {
@@ -363,6 +364,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 			conn->conn.name, error);
 		return -1;
 	}
+	smtp_server_connection_input_resume(conn);
 
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
 		smtp_server_connection_error(conn,
