@@ -23,7 +23,8 @@ endif
 
 libssl_iostream_la_SOURCES = \
 	iostream-ssl.c \
-	iostream-ssl-context-cache.c
+	iostream-ssl-context-cache.c \
+	iostream-ssl-test.c
 
 noinst_HEADERS = \
 	dovecot-openssl-common.h
@@ -31,7 +32,8 @@ noinst_HEADERS = \
 headers = \
 	iostream-openssl.h \
 	iostream-ssl.h \
-	iostream-ssl-private.h
+	iostream-ssl-private.h \
+	iostream-ssl-test.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
