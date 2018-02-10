@@ -91,8 +91,7 @@ smtp_server_connection_get_stats(struct smtp_server_connection *conn)
 
 void smtp_server_connection_input_halt(struct smtp_server_connection *conn)
 {
-	if (conn->conn.io != NULL)
-		io_remove(&conn->conn.io);
+	connection_input_halt(&conn->conn);
 }
 
 void smtp_server_connection_input_resume(struct smtp_server_connection *conn)
@@ -122,8 +121,7 @@ void smtp_server_connection_input_resume(struct smtp_server_connection *conn)
 			return;
 
 		/* restore input handler */
-		conn->conn.io = io_add_istream(conn->conn.input,
-		    smtp_server_connection_input, &conn->conn);
+		connection_input_resume(&conn->conn);
 	}
 
 	if (conn->conn.io != NULL &&
@@ -149,8 +147,7 @@ void smtp_server_connection_input_capture(struct smtp_server_connection *conn,
 	smtp_server_input_callback_t *callback, void *context)
 {
 	i_assert(!conn->input_broken && !conn->disconnected);
-	if (conn->conn.io != NULL)
-		io_remove(&conn->conn.io);
+	connection_input_halt(&conn->conn);
 	conn->conn.io = io_add_istream(conn->conn.input, *callback, context);
 }
 
