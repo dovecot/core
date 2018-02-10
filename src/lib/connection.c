@@ -139,9 +139,11 @@ static void connection_init_streams(struct connection *conn)
 			conn->input = i_stream_create_fd(conn->fd_in,
 							 set->input_max_size);
 		i_stream_set_name(conn->input, conn->name);
-		conn->io = io_add_istream(conn->input, *conn->list->v.input, conn);
+		conn->io = io_add_istream_to(conn->ioloop, conn->input,
+					     *conn->list->v.input, conn);
 	} else {
-		conn->io = io_add(conn->fd_in, IO_READ, *conn->list->v.input, conn);
+		conn->io = io_add_to(conn->ioloop, conn->fd_in, IO_READ,
+				     *conn->list->v.input, conn);
 	}
 	if (set->output_max_size != 0) {
 		if (conn->unix_socket)
@@ -154,9 +156,12 @@ static void connection_init_streams(struct connection *conn)
 		o_stream_set_finish_via_child(conn->output, FALSE);
 		o_stream_set_name(conn->output, conn->name);
 	}
+	i_stream_switch_ioloop_to(conn->input, conn->ioloop);
+	o_stream_switch_ioloop_to(conn->output, conn->ioloop);
 	if (set->input_idle_timeout_secs != 0) {
-		conn->to = timeout_add(set->input_idle_timeout_secs*1000,
-				       connection_idle_timeout, conn);
+		conn->to = timeout_add_to(conn->ioloop,
+					  set->input_idle_timeout_secs*1000,
+					  connection_idle_timeout, conn);
 	}
 	if (set->major_version != 0 && !set->dont_send_version) {
 		o_stream_nsend_str(conn->output, t_strdup_printf(
@@ -171,7 +176,8 @@ void connection_streams_changed(struct connection *conn)
 
 	if (set->input_max_size != 0 && conn->io != NULL) {
 		io_remove(&conn->io);
-		conn->io = io_add_istream(conn->input, *conn->list->v.input, conn);
+		conn->io = io_add_istream_to(conn->ioloop, conn->input,
+					     *conn->list->v.input, conn);
 	}
 }
 
@@ -194,6 +200,7 @@ static void connection_client_connected(struct connection *conn, bool success)
 void connection_init(struct connection_list *list,
 		     struct connection *conn)
 {
+	conn->ioloop = current_ioloop;
 	conn->fd_in = -1;
 	conn->fd_out = -1;
 	conn->name = NULL;
@@ -313,11 +320,12 @@ int connection_client_connect(struct connection *conn)
 
 	if (conn->port != 0 ||
 	    conn->list->set.delayed_unix_client_connected_callback) {
-		conn->io = io_add(conn->fd_out, IO_WRITE,
-				  connection_socket_connected, conn);
+		conn->io = io_add_to(conn->ioloop, conn->fd_out, IO_WRITE,
+				     connection_socket_connected, conn);
 		if (set->client_connect_timeout_msecs != 0) {
-			conn->to = timeout_add(set->client_connect_timeout_msecs,
-					       connection_connect_timeout, conn);
+			conn->to = timeout_add_to(conn->ioloop,
+						  set->client_connect_timeout_msecs,
+						  connection_connect_timeout, conn);
 		}
 	} else {
 		connection_client_connected(conn, TRUE);
@@ -429,6 +437,7 @@ const char *connection_input_timeout_reason(struct connection *conn)
 void connection_switch_ioloop_to(struct connection *conn,
 				 struct ioloop *ioloop)
 {
+	conn->ioloop = ioloop;
 	if (conn->io != NULL)
 		conn->io = io_loop_move_io_to(ioloop, &conn->io);
 	if (conn->to != NULL)

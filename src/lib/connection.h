@@ -80,6 +80,7 @@ struct connection {
 
 	char *name;
 	int fd_in, fd_out;
+	struct ioloop *ioloop;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
