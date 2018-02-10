@@ -120,6 +120,26 @@ int connection_input_line_default(struct connection *conn, const char *line)
 	return conn->list->v.input_args(conn, args);
 }
 
+void connection_input_halt(struct connection *conn)
+{
+	io_remove(&conn->io);
+}
+
+void connection_input_resume(struct connection *conn)
+{
+	const struct connection_settings *set = &conn->list->set;
+
+	if (conn->io != NULL)
+		return;
+	if (conn->from_streams || set->input_max_size != 0) {
+		conn->io = io_add_istream_to(conn->ioloop, conn->input,
+					     *conn->list->v.input, conn);
+	} else {
+		conn->io = io_add_to(conn->ioloop, conn->fd_in, IO_READ,
+				     *conn->list->v.input, conn);
+	}
+}
+
 static void connection_init_streams(struct connection *conn)
 {
 	const struct connection_settings *set = &conn->list->set;
@@ -139,11 +159,6 @@ static void connection_init_streams(struct connection *conn)
 			conn->input = i_stream_create_fd(conn->fd_in,
 							 set->input_max_size);
 		i_stream_set_name(conn->input, conn->name);
-		conn->io = io_add_istream_to(conn->ioloop, conn->input,
-					     *conn->list->v.input, conn);
-	} else {
-		conn->io = io_add_to(conn->ioloop, conn->fd_in, IO_READ,
-				     *conn->list->v.input, conn);
 	}
 	if (set->output_max_size != 0) {
 		if (conn->unix_socket)
@@ -158,6 +173,7 @@ static void connection_init_streams(struct connection *conn)
 	}
 	i_stream_switch_ioloop_to(conn->input, conn->ioloop);
 	o_stream_switch_ioloop_to(conn->output, conn->ioloop);
+	connection_input_resume(conn);
 	if (set->input_idle_timeout_secs != 0) {
 		conn->to = timeout_add_to(conn->ioloop,
 					  set->input_idle_timeout_secs*1000,
@@ -175,9 +191,8 @@ void connection_streams_changed(struct connection *conn)
 	const struct connection_settings *set = &conn->list->set;
 
 	if (set->input_max_size != 0 && conn->io != NULL) {
-		io_remove(&conn->io);
-		conn->io = io_add_istream_to(conn->ioloop, conn->input,
-					     *conn->list->v.input, conn);
+		connection_input_halt(conn);
+		connection_input_resume(conn);
 	}
 }
 
@@ -265,6 +280,7 @@ void connection_init_from_streams(struct connection_list *list,
 	connection_init(list, conn);
 
 	conn->name = i_strdup(name);
+	conn->from_streams = TRUE;
 	conn->fd_in = i_stream_get_fd(input);
 	conn->fd_out = o_stream_get_fd(output);
 
@@ -284,7 +300,7 @@ void connection_init_from_streams(struct connection_list *list,
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_set_name(conn->output, conn->name);
 
-	conn->io = io_add_istream(conn->input, *list->v.input, conn);
+	connection_input_resume(conn);
 
 	if (list->v.client_connected != NULL)
 		list->v.client_connected(conn, TRUE);
