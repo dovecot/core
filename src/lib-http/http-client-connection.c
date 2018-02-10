@@ -587,8 +587,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 static void http_client_payload_finished(struct http_client_connection *conn)
 {
 	timeout_remove(&conn->to_input);
-	conn->conn.io = io_add_istream(conn->conn.input,
-				       http_client_connection_input, &conn->conn);
+	connection_input_resume(&conn->conn);
 	if (array_count(&conn->request_wait_list) > 0)
 		http_client_connection_start_request_timeout(conn);
 }
@@ -707,7 +706,7 @@ http_client_connection_return_response(
 					      req);
 		/* the callback may add its own I/O, so we need to remove
 		   our one before calling it */
-		io_remove(&conn->conn.io);
+		connection_input_halt(&conn->conn);
 		/* we've received the request itself, and we can't reset the
 		   timeout during the payload reading. */
 		http_client_connection_stop_request_timeout(conn);
@@ -731,9 +730,7 @@ http_client_connection_return_response(
 			i_stream_remove_destroy_callback(conn->incoming_payload,
 							 http_client_payload_destroyed);
 			i_stream_unref(&conn->incoming_payload);
-			conn->conn.io = io_add_istream(conn->conn.input,
-					       http_client_connection_input,
-					       &conn->conn);
+			connection_input_resume(&conn->conn);
 		}
 		http_client_connection_unref_request(conn, &req);
 		return http_client_connection_unref(&conn);
