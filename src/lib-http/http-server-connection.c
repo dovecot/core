@@ -107,18 +107,15 @@ http_server_connection_get_stats(struct http_server_connection *conn)
 static void
 http_server_connection_input_halt(struct http_server_connection *conn)
 {
-	if (conn->conn.io != NULL)
-		io_remove(&conn->conn.io);
+	connection_input_halt(&conn->conn);
 }
 
 static void
 http_server_connection_input_resume(struct http_server_connection *conn)
 {
-	if (conn->conn.io == NULL && !conn->closed &&
-		!conn->input_broken && !conn->close_indicated &&
+	if (!conn->closed && !conn->input_broken && !conn->close_indicated &&
 		!conn->in_req_callback && conn->incoming_payload == NULL) {
-		conn->conn.io = io_add_istream(conn->conn.input,
-       http_server_connection_input, &conn->conn);
+		connection_input_resume(&conn->conn);
 	}
 }
 
