@@ -1224,7 +1224,7 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 		conn->conn.output = conn->raw_output;
 	}
 
-	io_remove(&conn->conn.io);
+	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(conn->ssl_ctx,
 		conn->host, conn->set.ssl,
 		&conn->conn.input, &conn->conn.output,
@@ -1234,9 +1234,7 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 			conn->conn.name, error);
 		return -1;
 	}
-	conn->conn.io = io_add_istream(conn->conn.input,
-				       smtp_client_connection_input,
-				       &conn->conn);
+	connection_input_resume(&conn->conn);
 	smtp_client_connection_streams_changed(conn);
 
 	ssl_iostream_set_handshake_callback(conn->ssl_iostream,
