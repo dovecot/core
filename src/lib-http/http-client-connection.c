@@ -1796,20 +1796,37 @@ void http_client_connection_close(struct http_client_connection **_conn)
 
 void http_client_connection_switch_ioloop(struct http_client_connection *conn)
 {
-	if (conn->io_req_payload != NULL)
-		conn->io_req_payload = io_loop_move_io(&conn->io_req_payload);
-	if (conn->to_requests != NULL)
-		conn->to_requests = io_loop_move_timeout(&conn->to_requests);
-	if (conn->to_connect != NULL)
-		conn->to_connect = io_loop_move_timeout(&conn->to_connect);
-	if (conn->to_input != NULL)
-		conn->to_input = io_loop_move_timeout(&conn->to_input);
-	if (conn->to_idle != NULL)
-		conn->to_idle = io_loop_move_timeout(&conn->to_idle);
-	if (conn->to_response != NULL)
-		conn->to_response = io_loop_move_timeout(&conn->to_response);
+	struct http_client_peer_shared *pshared = conn->ppool->peer;
+	struct http_client_context *cctx = pshared->cctx;
+	struct ioloop *ioloop = cctx->ioloop;
+
+	if (conn->io_req_payload != NULL) {
+		conn->io_req_payload =
+			io_loop_move_io_to(ioloop, &conn->io_req_payload);
+	}
+	if (conn->to_requests != NULL) {
+		conn->to_requests =
+			io_loop_move_timeout_to(ioloop, &conn->to_requests);
+	}
+	if (conn->to_connect != NULL) {
+		conn->to_connect =
+			io_loop_move_timeout_to(ioloop, &conn->to_connect);
+	}
+	if (conn->to_input != NULL) {
+		conn->to_input =
+			io_loop_move_timeout_to(ioloop, &conn->to_input);
+	}
+	if (conn->to_idle != NULL) {
+		conn->to_idle =
+			io_loop_move_timeout_to(ioloop, &conn->to_idle);
+	}
+	if (conn->to_response != NULL) {
+		conn->to_response =
+			io_loop_move_timeout_to(ioloop, &conn->to_response);
+	}
 	if (conn->incoming_payload != NULL)
-		i_stream_switch_ioloop(conn->incoming_payload);
-	conn->io_wait_timer = io_wait_timer_move(&conn->io_wait_timer);
-	connection_switch_ioloop(&conn->conn);
+		i_stream_switch_ioloop_to(conn->incoming_payload, ioloop);
+	conn->io_wait_timer =
+		io_wait_timer_move_to(&conn->io_wait_timer, ioloop);
+	connection_switch_ioloop_to(&conn->conn, ioloop);
 }
