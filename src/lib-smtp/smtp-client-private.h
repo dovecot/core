@@ -235,4 +235,10 @@ void smtp_client_connection_next_transaction(
 	struct smtp_client_connection *conn,
 	struct smtp_client_transaction *trans);
 
+/*
+ * Client
+ */
+
+int smtp_client_init_ssl_ctx(struct smtp_client *client, const char **error_r);
+
 #endif

@@ -94,6 +94,5 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set);
 void smtp_client_deinit(struct smtp_client **_client);
 
 void smtp_client_switch_ioloop(struct smtp_client *client);
-int smtp_client_init_ssl_ctx(struct smtp_client *client, const char **error_r);
 
 #endif
