@@ -102,6 +102,7 @@ struct connection {
 
 	bool version_received:1;
 	bool unix_socket:1;
+	bool from_streams:1;
 };
 
 struct connection_list {
@@ -131,6 +132,8 @@ int connection_client_connect(struct connection *conn);
 void connection_disconnect(struct connection *conn);
 void connection_deinit(struct connection *conn);
 
+void connection_input_halt(struct connection *conn);
+void connection_input_resume(struct connection *conn);
 void connection_streams_changed(struct connection *conn);
 
 /* Returns -1 = disconnected, 0 = nothing new, 1 = something new.
