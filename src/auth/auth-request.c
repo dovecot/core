@@ -163,7 +163,8 @@ void auth_request_success(struct auth_request *request,
 		buffer_create_from_const_data(&buf, "", 0);
 		struct auth_policy_check_ctx ctx = {
 			.success_data = &buf,
-			.request = request
+			.request = request,
+			.type = AUTH_POLICY_CHECK_TYPE_SUCCESS,
 		};
 		auth_request_policy_check_callback(0, &ctx);
 		return;
