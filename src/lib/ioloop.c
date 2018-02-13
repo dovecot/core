@@ -232,7 +232,7 @@ static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 	timeout->next_run.tv_sec += timeout->msecs/1000;
 	timeout->next_run.tv_usec += (timeout->msecs%1000)*1000;
 
-	if (timeout->next_run.tv_usec > 1000000) {
+	if (timeout->next_run.tv_usec >= 1000000) {
                 timeout->next_run.tv_sec++;
                 timeout->next_run.tv_usec -= 1000000;
 	}
