@@ -69,7 +69,8 @@ smtp_server_cmd_xclient_extra_field(struct smtp_server_connection *conn,
 {
 	struct smtp_proxy_data_field *field;
 
-	if (!str_array_icase_find(conn->set.xclient_extensions, param->keyword))
+	if (conn->set.xclient_extensions == NULL ||
+	    !str_array_icase_find(conn->set.xclient_extensions, param->keyword))
 		return;
 
 	if (!array_is_created(fields))
