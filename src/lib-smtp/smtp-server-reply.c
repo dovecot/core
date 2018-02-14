@@ -510,7 +510,7 @@ void smtp_server_reply_ehlo_add_xclient(struct smtp_server_reply *reply)
 	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
 	struct smtp_server_connection *conn = cmd->conn;
 
-	if (smtp_server_connection_is_trusted(conn))
+	if (!smtp_server_connection_is_trusted(conn))
 		return;
 	if (conn->set.xclient_extensions == NULL ||
 	    *conn->set.xclient_extensions == NULL) {
