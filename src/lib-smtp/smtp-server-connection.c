@@ -1405,8 +1405,10 @@ void smtp_server_connection_set_proxy_data(struct smtp_server_connection *conn,
 		conn->proxy_timeout_secs = proxy_data->timeout_secs;
 
 	if (conn->callbacks != NULL &&
-		conn->callbacks->conn_proxy_data_updated != NULL)
-		conn->callbacks->conn_proxy_data_updated(conn, proxy_data);
+		conn->callbacks->conn_proxy_data_updated != NULL) {
+		conn->callbacks->
+			conn_proxy_data_updated(conn->context, proxy_data);
+	}
 }
 
 void smtp_server_connection_switch_ioloop(struct smtp_server_connection *conn)
