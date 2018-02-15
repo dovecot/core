@@ -223,6 +223,13 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	return client;
 }
 
+int client_create_finish(struct client *client, const char **error_r)
+{
+	if (mail_namespaces_init(client->user, error_r) < 0)
+		return -1;
+	return 0;
+}
+
 void client_command_cancel(struct client_command_context **_cmd)
 {
 	struct client_command_context *cmd = *_cmd;
