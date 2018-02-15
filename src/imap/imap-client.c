@@ -156,9 +156,6 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 					     &client->output);
 	}
 
-	mail_namespaces_set_storage_callbacks(user->namespaces,
-					      &mail_storage_callbacks, client);
-
 	client->capability_string =
 		str_new(client->pool, sizeof(CAPABILITY_STRING)+64);
 
@@ -227,6 +224,8 @@ int client_create_finish(struct client *client, const char **error_r)
 {
 	if (mail_namespaces_init(client->user, error_r) < 0)
 		return -1;
+	mail_namespaces_set_storage_callbacks(client->user->namespaces,
+					      &mail_storage_callbacks, client);
 	return 0;
 }
 
