@@ -53,8 +53,6 @@ static void cmd_mail_recheck(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
-	i_assert(conn->state.pending_rcpt_cmds == 0);
-
 	/* all preceeding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the transaction
 	   state */
