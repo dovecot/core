@@ -232,14 +232,6 @@ client_add_input_finalize(struct client *client)
 		client_continue_pending_input(client);
 }
 
-static void
-client_add_input(struct client *client, const unsigned char *client_input,
-		 size_t client_input_size)
-{
-	client_add_input_capability(client, client_input, client_input_size);
-	client_add_input_finalize(client);
-}
-
 int client_create_from_input(const struct mail_storage_service_input *input,
 			     int fd_in, int fd_out,
 			     struct client **client_r, const char **error_r)
@@ -319,15 +311,17 @@ static void main_stdio_run(const char *username)
 				     &client, &error) < 0)
 		i_fatal("%s", error);
 
-	/* TODO: the following could make use of
-	   client_add_input_{capability,finalize} */
 	input_base64 = getenv("CLIENT_INPUT");
 	if (input_base64 == NULL)
-		client_add_input(client, NULL, 0);
+		client_add_input_capability(client, NULL, 0);
 	else {
 		const buffer_t *input_buf = t_base64_decode_str(input_base64);
-		client_add_input(client, input_buf->data, input_buf->used);
+		client_add_input_capability(client, input_buf->data, input_buf->used);
 	}
+
+	if (mail_namespaces_init(client->user, &error) < 0)
+		i_fatal("%s", error);
+	client_add_input_finalize(client);
 	/* client may be destroyed now */
 }
 
@@ -428,7 +422,15 @@ int main(int argc, char *argv[])
 	struct master_login_settings login_set;
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_SEND_STATS;
-	enum mail_storage_service_flags storage_service_flags = 0;
+	enum mail_storage_service_flags storage_service_flags =
+		/*
+		 * We include MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES so
+		 * that the mail_user initialization is fast and we can
+		 * quickly send back the OK response to LOGIN/AUTHENTICATE.
+		 * Otherwise we risk a very slow namespace initialization to
+		 * cause client timeouts on login.
+		 */
+		MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES;
 	const char *username = NULL, *auth_socket_path = "auth-master";
 	int c;
 
@@ -448,16 +450,6 @@ int main(int argc, char *argv[])
 			MASTER_SERVICE_FLAG_STD_CLIENT;
 	} else {
 		service_flags |= MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
-		storage_service_flags |=
-			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES;
-
-		/*
-		 * We include MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES so
-		 * that the mail_user initialization is fast and we can
-		 * quickly send back the OK response to LOGIN/AUTHENTICATE.
-		 * Otherwise we risk a very slow namespace initialization to
-		 * cause client timeouts on login.
-		 */
 	}
 
 	master_service = master_service_init("imap", service_flags,
