@@ -231,9 +231,8 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	}
 	client->imap_client_created = TRUE;
 
-	if (mail_namespaces_init(imap_client->user, &error) < 0) {
-		i_error("imap-master(%s): mail_namespaces_init() failed: %s",
-			input.username, error);
+	if (client_create_finish(imap_client, &error) < 0) {
+		i_error("imap-master(%s): %s", input.username, error);
 		client_destroy(imap_client, error);
 		return -1;
 	}
