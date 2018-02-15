@@ -518,7 +518,7 @@ int master_service_settings_read(struct master_service *service,
 				ret = settings_parse_stream_read(parser,
 								 istream);
 				if (ret < 0)
-					*error_r = p_strdup(service->set_pool,
+					*error_r = t_strdup(
 						settings_parser_get_error(parser));
 			}
 			alarm(0);
@@ -534,7 +534,7 @@ int master_service_settings_read(struct master_service *service,
 
 		if (ret != 0) {
 			if (ret > 0) {
-				*error_r = p_strdup_printf(service->set_pool,
+				*error_r = t_strdup_printf(
 					"Timeout reading config from %s", path);
 			}
 			i_close_fd(&fd);
@@ -555,8 +555,7 @@ int master_service_settings_read(struct master_service *service,
 
 	if (use_environment || service->keep_environment) {
 		if (settings_parse_environ(parser) < 0) {
-			*error_r = p_strdup(service->set_pool,
-					settings_parser_get_error(parser));
+			*error_r = t_strdup(settings_parser_get_error(parser));
 			settings_parser_deinit(&parser);
 			return -1;
 		}
@@ -571,8 +570,7 @@ int master_service_settings_read(struct master_service *service,
 	}
 
 	if (!settings_parser_check(parser, service->set_pool, &error)) {
-		*error_r = p_strdup_printf(service->set_pool,
-				"Invalid settings: %s", error);
+		*error_r = t_strdup_printf("Invalid settings: %s", error);
 		settings_parser_deinit(&parser);
 		return -1;
 	}
