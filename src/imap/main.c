@@ -292,7 +292,7 @@ static void main_stdio_run(const char *username)
 		client_add_input_capability(client, input_buf->data, input_buf->used);
 	}
 
-	if (mail_namespaces_init(client->user, &error) < 0)
+	if (client_create_finish(client, &error) < 0)
 		i_fatal("%s", error);
 	client_add_input_finalize(client);
 	/* client may be destroyed now */
@@ -337,7 +337,7 @@ login_client_connected(const struct master_login_client *login_client,
 			 login_client->auth_req.data_size);
 
 	/* finish initializing the user (see comment in main()) */
-	if (mail_namespaces_init(client->user, &error) < 0) {
+	if (client_create_finish(client, &error) < 0) {
 		if (write_full(login_client->fd, MSG_BYE_INTERNAL_ERROR,
 			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
 			if (errno != EAGAIN && errno != EPIPE)
