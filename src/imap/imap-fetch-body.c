@@ -596,7 +596,6 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 	enum mail_lookup_abort temp_lookup_abort = lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE : mail->lookup_abort;
 	enum mail_lookup_abort orig_lookup_abort = mail->lookup_abort;
 	const char *snippet;
-	const char *str;
 	int ret;
 
 	mail->lookup_abort = temp_lookup_abort;
@@ -625,14 +624,9 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 		return 1;
 	}
 
-	str = t_strdup_printf(" SNIPPET (FUZZY {%"PRIuSIZE_T"}\r\n", strlen(snippet));
-	if (ctx->state.cur_first) {
-		str++;
-		ctx->state.cur_first = FALSE;
-	}
-	o_stream_nsend_str(ctx->client->output, str);
-	o_stream_nsend_str(ctx->client->output, snippet);
-	o_stream_nsend_str(ctx->client->output, ")");
+	str_append(ctx->state.cur_str, "SNIPPET (FUZZY ");
+	imap_append_string(ctx->state.cur_str, snippet);
+	str_append(ctx->state.cur_str, ") ");
 
 	return 1;
 }
