@@ -317,8 +317,10 @@ static void doveadm_user_init_dsync(struct mail_user *user)
 	struct mail_namespace *ns;
 
 	user->dsyncing = TRUE;
-	for (ns = user->namespaces; ns != NULL; ns = ns->next)
-		ns->list->set.broken_char = DSYNC_LIST_BROKEN_CHAR;
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if (ns->list->set.broken_char == '\0')
+			ns->list->set.broken_char = DSYNC_LIST_BROKEN_CHAR;
+	}
 }
 
 static bool paths_are_equal(struct mail_user *user1, struct mail_user *user2,
