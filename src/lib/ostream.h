@@ -136,6 +136,13 @@ bool o_stream_is_corked(struct ostream *stream);
    the stream had overflown, return error. Returns 1 if all data is sent,
    0 there's still buffered data, -1 if error. */
 int o_stream_flush(struct ostream *stream);
+/* Wrapper to easily both uncork and flush. */
+static inline int o_stream_uncork_flush(struct ostream *stream)
+{
+	o_stream_uncork(stream);
+	return o_stream_flush(stream);
+}
+
 /* Set "flush pending" state of stream. If set, the flush callback is called
    when more data is allowed to be sent, even if the buffer itself is empty. */
 void o_stream_set_flush_pending(struct ostream *stream, bool set);
