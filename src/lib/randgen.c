@@ -24,6 +24,7 @@ static bool getrandom_present = FALSE;
 static int init_refcount = 0;
 static int urandom_fd = -1;
 
+#if defined(USE_GETRANDOM) || defined(USE_RANDOM_DEV)
 static void random_open_urandom(void)
 {
 	urandom_fd = open(DEV_URANDOM_PATH, O_RDONLY);
@@ -38,7 +39,6 @@ static void random_open_urandom(void)
 	fd_close_on_exec(urandom_fd, TRUE);
 }
 
-#if defined(USE_GETRANDOM) || defined(USE_RANDOM_DEV)
 static inline int random_read(char *buf, size_t size)
 {
 	ssize_t ret = 0;
