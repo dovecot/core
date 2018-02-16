@@ -49,4 +49,4 @@ SUBDIRS = \
 	$(APPARMOR) \
 	fs-compress \
 	var-expand-crypt \
-	charset-alias	
+	charset-alias
