@@ -415,7 +415,8 @@ static int smtp_server_reply_send_real(struct smtp_server_reply *reply,
 	}
 
 	if (o_stream_send(output, str_data(textbuf), str_len(textbuf)) < 0) {
-		if (errno != EPIPE && errno != ECONNRESET) {
+		if (output->stream_errno != EPIPE &&
+		    output->stream_errno != ECONNRESET) {
 			*error_r = t_strdup_printf("write(%s) failed: %s",
 						   o_stream_get_name(output),
 						   o_stream_get_error(output));
