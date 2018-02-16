@@ -110,7 +110,7 @@ static unsigned int charset_aliases_init(struct mail_user *user, pool_t pool, co
 
 	p_array_init(&charset_aliases, pool, 1);
 	keyvalues = t_strsplit_spaces(str, " ");
-	for (i = 0; keyvalues[i] != '\0'; i++) {
+	for (i = 0; keyvalues[i] != NULL; i++) {
 		value = strchr(keyvalues[i], '=');
 		if (value == NULL) {
 			i_error("charset_alias: Missing '=' in charset_aliases setting");
