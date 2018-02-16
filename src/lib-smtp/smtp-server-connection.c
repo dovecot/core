@@ -689,7 +689,8 @@ int smtp_server_connection_flush(struct smtp_server_connection *conn)
 
 	if ((ret = o_stream_flush(output)) <= 0) {
 		if (ret < 0) {
-			if (errno != EPIPE && errno != ECONNRESET) {
+			if (output->stream_errno != EPIPE &&
+			    output->stream_errno != ECONNRESET) {
 				smtp_server_connection_error(conn,
 					"Connection lost: write(%s) failed: %s",
 					o_stream_get_name(output),
