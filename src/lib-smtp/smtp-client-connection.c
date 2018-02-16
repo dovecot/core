@@ -220,11 +220,14 @@ void smtp_client_connection_cork(struct smtp_client_connection *conn)
 
 void smtp_client_connection_uncork(struct smtp_client_connection *conn)
 {
-	if (conn->conn.output != NULL) {
-		smtp_client_connection_trigger_output(conn);
-		o_stream_uncork(conn->conn.output);
-	}
 	conn->corked = FALSE;
+	if (conn->conn.output != NULL) {
+		if (o_stream_uncork_flush(conn->conn.output) < 0) {
+			smtp_client_connection_handle_output_error(conn);
+			return;
+		}
+		smtp_client_connection_trigger_output(conn);
+	}
 }
 
 enum smtp_client_connection_state
@@ -1082,8 +1085,10 @@ static void smtp_client_connection_input(struct connection *_conn)
 						error));
 		}
 	}
-	if (conn->conn.output != NULL && !conn->corked)
-		o_stream_uncork(conn->conn.output);
+	if (ret >= 0 && conn->conn.output != NULL && !conn->corked) {
+		if (o_stream_uncork_flush(conn->conn.output) < 0)
+			smtp_client_connection_handle_output_error(conn);
+	}
 	smtp_client_connection_unref(&conn);
 }
 
