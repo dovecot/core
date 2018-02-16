@@ -683,11 +683,14 @@ void smtp_server_connection_cork(struct smtp_server_connection *conn)
 
 void smtp_server_connection_uncork(struct smtp_server_connection *conn)
 {
+	conn->corked = FALSE;
 	if (conn->conn.output != NULL) {
-		o_stream_uncork(conn->conn.output);
+		if (o_stream_uncork_flush(conn->conn.output) < 0) {
+			smtp_server_connection_handle_output_error(conn);
+			return;
+		}
 		smtp_server_connection_trigger_output(conn);
 	}
-	conn->corked = FALSE;
 }
 
 static void
@@ -730,8 +733,10 @@ smtp_server_connection_output(struct smtp_server_connection *conn)
 		smtp_server_connection_timeout_reset(conn);
 		smtp_server_connection_send_replies(conn);
 	}
-	if (!conn->corked && conn->conn.output != NULL)
-		o_stream_uncork(conn->conn.output);
+	if (ret >= 0 && !conn->corked && conn->conn.output != NULL) {
+		if ((ret=o_stream_uncork_flush(conn->conn.output)) < 0)
+			smtp_server_connection_handle_output_error(conn);
+	}
 	smtp_server_connection_unref(&conn);
 	return ret;
 }
