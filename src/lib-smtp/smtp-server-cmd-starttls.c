@@ -70,6 +70,7 @@ static void cmd_starttls_destroy(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
+	int ret;
 
 	if (conn->conn.output == NULL)
 		return;
@@ -81,8 +82,12 @@ static void cmd_starttls_destroy(struct smtp_server_cmd_ctx *cmd)
 		/* uncork */
 		o_stream_uncork(conn->conn.output);
 
-		if (o_stream_flush(conn->conn.output) <= 0) {
+		/* flush */
+		if ((ret=smtp_server_connection_flush(conn)) < 0) {
+			return;
+		} else if (ret == 0) {
 			/* the buffer has to be flushed */
+			i_assert(!conn->conn.output->closed);
 			o_stream_set_flush_callback(conn->conn.output,
 						    cmd_starttls_output,
 						    conn);
