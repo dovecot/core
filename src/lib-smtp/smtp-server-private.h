@@ -296,6 +296,9 @@ void smtp_server_connection_error(struct smtp_server_connection *conn,
 struct connection_list *smtp_server_connection_list_init(void);
 
 void smtp_server_connection_switch_ioloop(struct smtp_server_connection *conn);
+
+void smtp_server_connection_handle_output_error(
+	struct smtp_server_connection *conn);
 void smtp_server_connection_trigger_output(struct smtp_server_connection *conn);
 bool smtp_server_connection_pending_payload(struct smtp_server_connection *conn);
 
