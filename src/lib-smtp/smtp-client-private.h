@@ -217,6 +217,8 @@ smpt_client_connection_label(struct smtp_client_connection *conn);
 void smtp_client_connection_fail(struct smtp_client_connection *conn,
 				 unsigned int status, const char *error);
 
+void smtp_client_connection_handle_output_error(
+	struct smtp_client_connection *conn);
 void smtp_client_connection_trigger_output(
 	struct smtp_client_connection *conn);
 
