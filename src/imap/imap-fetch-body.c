@@ -626,13 +626,14 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 		return 1;
 	}
 
-	str = t_strdup_printf(" SNIPPET FUZZY {%"PRIuSIZE_T"}\r\n", strlen(snippet));
+	str = t_strdup_printf(" SNIPPET (FUZZY {%"PRIuSIZE_T"}\r\n", strlen(snippet));
 	if (ctx->state.cur_first) {
 		str++;
 		ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
 	o_stream_nsend_str(ctx->client->output, snippet);
+	o_stream_nsend_str(ctx->client->output, ")");
 
 	return 1;
 }
