@@ -183,7 +183,8 @@ static void mbox_storage_get_list_settings(const struct mail_namespace *ns,
 	if (set->subscription_fname == NULL)
 		set->subscription_fname = MBOX_SUBSCRIPTION_FILE_NAME;
 
-	if (set->inbox_path == NULL) {
+	if (set->inbox_path == NULL &&
+	    strcasecmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) {
 		set->inbox_path = t_strconcat(set->root_dir, "/inbox", NULL);
 		e_debug(ns->user->event, "mbox: INBOX defaulted to %s", set->inbox_path);
 	}
