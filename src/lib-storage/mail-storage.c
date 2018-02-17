@@ -1037,7 +1037,8 @@ mailbox_name_verify_extra_separators(const char *vname, char sep,
 	return TRUE;
 }
 
-static bool mailbox_verify_name_prefix(struct mailbox *box)
+static bool
+mailbox_verify_name_prefix(struct mailbox *box, const char **error_r)
 {
 	const char *vname = box->vname;
 	struct mail_namespace *ns = box->list->ns;
@@ -1053,10 +1054,8 @@ static bool mailbox_verify_name_prefix(struct mailbox *box)
 		   here. The main reason this isn't an assert is to
 		   allow any input at all to mailbox_verify_*_name()
 		   without crashing. */
-		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-			t_strdup_printf("Invalid mailbox name '%s': "
-					"Missing namespace prefix '%s'",
-					str_sanitize(vname, 80), ns->prefix));
+		*error_r = t_strdup_printf("Missing namespace prefix '%s'",
+					   ns->prefix);
 		return FALSE;
 	}
 	vname += ns->prefix_len - 1;
@@ -1066,9 +1065,7 @@ static bool mailbox_verify_name_prefix(struct mailbox *box)
 
 		if (vname[0] == '\0') {
 			/* "namespace/" isn't a valid mailbox name. */
-			mail_storage_set_error(box->storage,
-					       MAIL_ERROR_PARAMS,
-					       "Invalid mailbox name");
+			*error_r = "Ends with hierarchy separator";
 			return FALSE;
 		}
 	}
@@ -1086,8 +1083,12 @@ static int mailbox_verify_name(struct mailbox *box)
 		return 0;
 	}
 
-	if (!mailbox_verify_name_prefix(box))
+	if (!mailbox_verify_name_prefix(box, &error)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+			t_strdup_printf("Invalid mailbox name '%s': %s",
+					str_sanitize(vname, 80), error));
 		return -1;
+	}
 
 	list_sep = mailbox_list_get_hierarchy_sep(box->list);
 	ns_sep = mail_namespace_get_sep(ns);
