@@ -519,6 +519,8 @@ void http_client_connection_peer_closed(struct http_client_connection **_conn);
 void http_client_connection_request_destroyed(
 	struct http_client_connection *conn, struct http_client_request *req);
 
+void http_client_connection_handle_output_error(
+	struct http_client_connection *conn);
 int http_client_connection_output(struct http_client_connection *conn);
 void http_client_connection_start_request_timeout(
 	struct http_client_connection *conn);

@@ -270,6 +270,23 @@ http_client_connection_lost(struct http_client_connection **_conn,
 		HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, error);
 }
 
+void http_client_connection_handle_output_error(
+	struct http_client_connection *conn)
+{
+	struct ostream *output = conn->conn.output;
+
+	if (output->stream_errno != EPIPE &&
+	    output->stream_errno != ECONNRESET) {
+		http_client_connection_lost(&conn,
+			t_strdup_printf("write(%s) failed: %s",
+					o_stream_get_name(output),
+					o_stream_get_error(output)));
+	} else {
+		http_client_connection_lost(&conn,
+			"Remote disconnected");
+	}
+}
+
 int http_client_connection_check_ready(struct http_client_connection *conn)
 {
 	const struct http_client_settings *set = &conn->peer->client->set;
@@ -1192,12 +1209,8 @@ int http_client_connection_output(struct http_client_connection *conn)
 	http_client_connection_reset_request_timeout(conn);
 
 	if ((ret = o_stream_flush(output)) <= 0) {
-		if (ret < 0) {
-			http_client_connection_lost(&conn,
-				t_strdup_printf("write(%s) failed: %s",
-						o_stream_get_name(output),
-						o_stream_get_error(output)));
-		}
+		if (ret < 0)
+			http_client_connection_handle_output_error(conn);
 		return ret;
 	}
 
