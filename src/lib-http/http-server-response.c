@@ -560,7 +560,6 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	struct http_server_request *req = resp->request;
 	struct http_server_connection *conn = req->conn;
 	struct http_server *server = req->server;
-	struct ostream *output = conn->conn.output;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
 	bool is_head = http_request_method_is(&req->req, "HEAD");
@@ -594,8 +593,8 @@ static int http_server_response_send_real(struct http_server_response *resp)
 			if (http_server_request_version_equals(req, 1, 0)) {
 				if (!is_head) {
 					/* cannot use Transfer-Encoding */
-					resp->payload_output = output;
-					o_stream_ref(output);
+					resp->payload_output = conn->conn.output;
+					o_stream_ref(conn->conn.output);
 					/* connection close marks end of payload */
 					close = TRUE;
 				}
@@ -604,7 +603,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 					str_append(rtext, "Transfer-Encoding: chunked\r\n");
 				if (!is_head) {
 					resp->payload_output =
-						http_transfer_chunked_ostream_create(output);
+						http_transfer_chunked_ostream_create(conn->conn.output);
 				}
 			}
 		} else {
@@ -615,8 +614,8 @@ static int http_server_response_send_real(struct http_server_response *resp)
 						  resp->payload_size);
 			}
 			if (!is_head) {
-				resp->payload_output = output;
-				o_stream_ref(output);
+				resp->payload_output = conn->conn.output;
+				o_stream_ref(conn->conn.output);
 			}
 		}
 	} else if (resp->tunnel_callback == NULL && resp->status / 100 != 1
@@ -664,9 +663,8 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	iov[2].iov_len = 2;
 
 	req->state = HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT;
-	o_stream_ref(output);
-	o_stream_cork(output);
-	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
+	o_stream_cork(conn->conn.output);
+	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
 		http_server_connection_handle_output_error(conn);
 		ret = -1;
 	}
@@ -689,12 +687,12 @@ static int http_server_response_send_real(struct http_server_response *resp)
 			http_server_response_finish_payload_out(resp);
 		}
 	}
-	if (ret >= 0 && !resp->payload_corked &&
-	    o_stream_uncork_flush(output) < 0) {
+	if (ret >= 0 && conn->conn.output != NULL &&
+	    !resp->payload_corked &&
+	    o_stream_uncork_flush(conn->conn.output) < 0) {
 		http_server_connection_handle_output_error(conn);
 		ret = -1;
 	}
-	o_stream_unref(&output);
 	return ret;
 }
 
