@@ -235,9 +235,8 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	http_client_connection_close(_conn);
 }
 
-static void
-http_client_connection_lost(struct http_client_connection **_conn,
-	const char *error) ATTR_NULL(2)
+void http_client_connection_lost(struct http_client_connection **_conn,
+				 const char *error)
 {
 	struct http_client_connection *conn = *_conn;
 	const char *sslerr;
