@@ -1054,12 +1054,13 @@ static void http_client_request_payload_input(struct http_client_request *req)
 }
 
 int http_client_request_send_more(struct http_client_request *req,
-				  bool pipelined, const char **error_r)
+				  bool pipelined)
 {
 	struct http_client_connection *conn = req->conn;
 	struct http_client_context *cctx = conn->ppool->peer->cctx;
 	struct ostream *output = req->payload_output;
 	enum ostream_send_istream_result res;
+	const char *error;
 	uoff_t offset;
 
 	i_assert(req->payload_input != NULL);
@@ -1083,11 +1084,12 @@ int http_client_request_send_more(struct http_client_request *req,
 		/* finished sending */
 		if (!req->payload_chunked &&
 		    req->payload_input->v_offset - req->payload_offset != req->payload_size) {
-			*error_r = t_strdup_printf("BUG: stream '%s' input size changed: "
+			error = t_strdup_printf("BUG: stream '%s' input size changed: "
 				"%"PRIuUOFF_T"-%"PRIuUOFF_T" != %"PRIuUOFF_T,
 				i_stream_get_name(req->payload_input),
 				req->payload_input->v_offset, req->payload_offset, req->payload_size);
-			i_error("%s", *error_r); //FIXME: remove?
+			i_error("%s", error); //FIXME: remove?
+			http_client_connection_lost(&conn, error);
 			return -1;
 		}
 
@@ -1123,28 +1125,28 @@ int http_client_request_send_more(struct http_client_request *req,
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		/* we're in the middle of sending a request, so the connection
 		   will also have to be aborted */
-		*error_r = t_strdup_printf("read(%s) failed: %s",
-					   i_stream_get_name(req->payload_input),
-					   i_stream_get_error(req->payload_input));
+		error = t_strdup_printf("read(%s) failed: %s",
+					i_stream_get_name(req->payload_input),
+					i_stream_get_error(req->payload_input));
 
 		/* the payload stream assigned to this request is broken,
 		   fail this the request immediately */
 		http_client_request_error(&req,
 			HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
 			"Broken payload stream");
+
+		http_client_connection_lost(&conn, error);
 		return -1;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		/* failed to send request */
-		*error_r = t_strdup_printf("write(%s) failed: %s",
-					   o_stream_get_name(output),
-					   o_stream_get_error(output));
+		http_client_connection_handle_output_error(conn);
 		return -1;
 	}
 	i_unreached();
 }
 
 static int http_client_request_send_real(struct http_client_request *req,
-					 bool pipelined, const char **error_r)
+					 bool pipelined)
 {
 	const struct http_client_settings *set = &req->client->set;
 	struct http_client_connection *conn = req->conn;
@@ -1263,17 +1265,14 @@ static int http_client_request_send_real(struct http_client_request *req,
 		io_wait_timer_get_usecs(req->conn->io_wait_timer);
 	o_stream_cork(output);
 	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
-		*error_r = t_strdup_printf("write(%s) failed: %s",
-					   o_stream_get_name(output),
-					   o_stream_get_error(output));
+		http_client_connection_handle_output_error(conn);
 		ret = -1;
 	} else {
 		e_debug(req->event, "Sent header");
 
 		if (req->payload_output != NULL) {
 			if (!req->payload_sync) {
-				if (http_client_request_send_more
-					(req, pipelined, error_r) < 0)
+				if (http_client_request_send_more(req, pipelined) < 0)
 					ret = -1;
 			} else {
 				e_debug(req->event, "Waiting for 100-continue");
@@ -1287,9 +1286,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 		}
 	}
 	if (ret >= 0 && o_stream_uncork_flush(output) < 0) {
-		*error_r = t_strdup_printf("flush(%s) failed: %s",
-					   o_stream_get_name(output),
-					   o_stream_get_error(output));
+		http_client_connection_handle_output_error(conn);
 		ret = -1;
 	}
 
@@ -1297,18 +1294,14 @@ static int http_client_request_send_real(struct http_client_request *req,
 }
 
 int http_client_request_send(struct http_client_request *req,
-			     bool pipelined, const char **error_r)
+			     bool pipelined)
 {
-	char *errstr = NULL;
 	int ret;
 
 	T_BEGIN {
-		ret = http_client_request_send_real(req, pipelined, error_r);
-		if (ret < 0)
-			errstr = i_strdup(*error_r);
+		ret = http_client_request_send_real(req, pipelined);
 	} T_END;
-	*error_r = t_strdup(errstr);
-	i_free(errstr);
+
 	return ret;
 }
 

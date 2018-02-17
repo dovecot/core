@@ -484,9 +484,9 @@ void http_client_request_get_peer_addr(const struct http_client_request *req,
 enum http_response_payload_type
 http_client_request_get_payload_type(struct http_client_request *req);
 int http_client_request_send(struct http_client_request *req,
-			    bool pipelined, const char **error_r);
+			    bool pipelined);
 int http_client_request_send_more(struct http_client_request *req,
-				  bool pipelined, const char **error_r);
+				  bool pipelined);
 bool http_client_request_callback(struct http_client_request *req,
 	struct http_response *response);
 void http_client_request_connect_callback(struct http_client_request *req,
