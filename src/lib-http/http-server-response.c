@@ -684,8 +684,16 @@ static int http_server_response_send_real(struct http_server_response *resp,
 			http_server_response_finish_payload_out(resp);
 		}
 	}
-	if (!resp->payload_corked)
-		o_stream_uncork(output);
+	if (ret >= 0 && !resp->payload_corked &&
+	    o_stream_uncork_flush(output) < 0) {
+		if (output->stream_errno != EPIPE &&
+		    output->stream_errno != ECONNRESET) {
+			*error_r = t_strdup_printf("flush(%s) failed: %s",
+				o_stream_get_name(output),
+				o_stream_get_error(output));
+		}
+		ret = -1;
+	}
 	o_stream_unref(&output);
 	return ret;
 }
