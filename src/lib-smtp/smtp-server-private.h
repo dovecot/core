@@ -208,8 +208,7 @@ bool smtp_server_connection_pending_command_data(
 
 void smtp_server_reply_free(struct smtp_server_command *cmd);
 
-int smtp_server_reply_send(struct smtp_server_reply *resp,
-			     const char **error_r);
+int smtp_server_reply_send(struct smtp_server_reply *resp);
 
 const char *smtp_server_reply_get_one_line(struct smtp_server_reply *reply);
 
