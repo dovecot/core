@@ -596,6 +596,7 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 
 int http_client_connection_next_request(struct http_client_connection *conn)
 {
+	struct http_client_connection *tmp_conn;
 	struct http_client_peer *peer = conn->peer;
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
 	struct http_client_request *req = NULL;
@@ -631,7 +632,10 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	e_debug(conn->event, "Claimed request %s",
 		http_client_request_label(req));
 
-	if (http_client_request_send(req, pipelined) < 0)
+	tmp_conn = conn;
+	http_client_connection_ref(tmp_conn);
+	ret = http_client_request_send(req, pipelined);
+	if (!http_client_connection_unref(&tmp_conn) || ret < 0)
 		return -1;
 
 	if (req->connect_tunnel)
