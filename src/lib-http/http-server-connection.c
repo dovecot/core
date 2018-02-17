@@ -836,6 +836,22 @@ void http_server_connection_write_failed(struct http_server_connection *conn,
 	}
 }
 
+void http_server_connection_handle_output_error(
+	struct http_server_connection *conn)
+{
+	struct ostream *output = conn->conn.output;
+	const char *error = NULL;
+	
+	if (output->stream_errno != EPIPE &&
+	    output->stream_errno != ECONNRESET) {
+		error = t_strdup_printf("write(%s) failed: %s",
+					o_stream_get_name(output),
+					o_stream_get_error(output));
+	}
+
+	http_server_connection_write_failed(conn, error);
+}
+
 static bool
 http_server_connection_next_response(struct http_server_connection *conn)
 {
@@ -876,13 +892,7 @@ http_server_connection_next_response(struct http_server_connection *conn)
 			struct ostream *output = conn->conn.output;
 
 			if (o_stream_send(output, response, strlen(response)) < 0) {
-				if (output->stream_errno != EPIPE &&
-					output->stream_errno != ECONNRESET) {
-					error = t_strdup_printf("write(%s) failed: %s",
-						o_stream_get_name(output),
-						o_stream_get_error(output));
-				}
-				http_server_connection_write_failed(conn, error);
+				http_server_connection_handle_output_error(conn);
 				return FALSE;
 			}
 
@@ -940,17 +950,8 @@ int http_server_connection_flush(struct http_server_connection *conn)
 	int ret;
 
 	if ((ret = o_stream_flush(output)) <= 0) {
-		if (ret < 0) {
-			const char *error = NULL;
-
-			if (output->stream_errno != EPIPE &&
-				output->stream_errno != ECONNRESET) {
-				error = t_strdup_printf("write(%s) failed: %s",
-					o_stream_get_name(output),
-					o_stream_get_error(output));
-			}
-			http_server_connection_write_failed(conn, error);
-		}
+		if (ret < 0)
+			http_server_connection_handle_output_error(conn);
 		return -1;
 	}
 
