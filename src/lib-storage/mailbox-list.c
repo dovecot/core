@@ -1291,6 +1291,15 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 	if (list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
+	/* either the list backend uses '/' as the hierarchy separator or
+	   it doesn't use filesystem at all (PROP_NO_ROOT) */
+	if ((list->props & MAILBOX_LIST_PROP_NO_ROOT) == 0 &&
+	    mailbox_list_get_hierarchy_sep(list) != '/' &&
+	    strchr(name, '/') != NULL) {
+		*error_r = "Name must not have '/' characters";
+		return FALSE;
+	}
+
 	/* make sure it's not absolute path */
 	if (*name == '/') {
 		*error_r = "Begins with '/'";
@@ -1363,15 +1372,6 @@ bool mailbox_list_is_valid_name(struct mailbox_list *list,
 			return TRUE;
 		}
 		*error_r = "Name is empty";
-		return FALSE;
-	}
-
-	/* either the list backend uses '/' as the hierarchy separator or
-	   it doesn't use filesystem at all (PROP_NO_ROOT) */
-	if ((list->props & MAILBOX_LIST_PROP_NO_ROOT) == 0 &&
-	    mailbox_list_get_hierarchy_sep(list) != '/' &&
-	    strchr(name, '/') != NULL) {
-		*error_r = "Name must not have '/' characters";
 		return FALSE;
 	}
 
