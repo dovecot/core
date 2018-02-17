@@ -1037,6 +1037,44 @@ mailbox_name_verify_extra_separators(const char *vname, char sep,
 	return TRUE;
 }
 
+static bool mailbox_verify_name_prefix(struct mailbox *box)
+{
+	const char *vname = box->vname;
+	struct mail_namespace *ns = box->list->ns;
+
+	if (ns->prefix_len == 0)
+		return TRUE;
+
+	/* vname is either "namespace/box" or "namespace" */
+	if (strncmp(vname, ns->prefix, ns->prefix_len-1) != 0 ||
+	    (vname[ns->prefix_len-1] != '\0' &&
+	     vname[ns->prefix_len-1] != ns->prefix[ns->prefix_len-1])) {
+		/* User input shouldn't normally be able to get us in
+		   here. The main reason this isn't an assert is to
+		   allow any input at all to mailbox_verify_*_name()
+		   without crashing. */
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+			t_strdup_printf("Invalid mailbox name '%s': "
+					"Missing namespace prefix '%s'",
+					str_sanitize(vname, 80), ns->prefix));
+		return FALSE;
+	}
+	vname += ns->prefix_len - 1;
+	if (vname[0] != '\0') {
+		i_assert(vname[0] == ns->prefix[ns->prefix_len-1]);
+		vname++;
+
+		if (vname[0] == '\0') {
+			/* "namespace/" isn't a valid mailbox name. */
+			mail_storage_set_error(box->storage,
+					       MAIL_ERROR_PARAMS,
+					       "Invalid mailbox name");
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 static int mailbox_verify_name(struct mailbox *box)
 {
 	struct mail_namespace *ns = box->list->ns;
@@ -1048,38 +1086,11 @@ static int mailbox_verify_name(struct mailbox *box)
 		return 0;
 	}
 
+	if (!mailbox_verify_name_prefix(box))
+		return -1;
+
 	list_sep = mailbox_list_get_hierarchy_sep(box->list);
 	ns_sep = mail_namespace_get_sep(ns);
-
-	if (ns->prefix_len > 0) {
-		/* vname is either "namespace/box" or "namespace" */
-		if (strncmp(vname, ns->prefix, ns->prefix_len-1) != 0 ||
-		    (vname[ns->prefix_len-1] != '\0' &&
-		     vname[ns->prefix_len-1] != ns->prefix[ns->prefix_len-1])) {
-			/* User input shouldn't normally be able to get us in
-			   here. The main reason this isn't an assert is to
-			   allow any input at all to mailbox_verify_*_name()
-			   without crashing. */
-			mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				t_strdup_printf("Invalid mailbox name '%s': "
-					"Missing namespace prefix '%s'",
-					str_sanitize(vname, 80), ns->prefix));
-			return -1;
-		}
-		vname += ns->prefix_len - 1;
-		if (vname[0] != '\0') {
-			i_assert(vname[0] == ns->prefix[ns->prefix_len-1]);
-			vname++;
-
-			if (vname[0] == '\0') {
-				/* "namespace/" isn't a valid mailbox name. */
-				mail_storage_set_error(box->storage,
-						       MAIL_ERROR_PARAMS,
-						       "Invalid mailbox name");
-				return -1;
-			}
-		}
-	}
 
 	/* If namespace { separator } differs from the mailbox_list separator,
 	   the list separator can't actually be used in the mailbox name
