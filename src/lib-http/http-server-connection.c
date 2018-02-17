@@ -818,16 +818,22 @@ int http_server_connection_discard_payload(
 	return http_server_connection_unref_is_closed(conn) ? -1 : 0;
 }
 
-void http_server_connection_write_failed(struct http_server_connection *conn,
-	const char *error)
+void http_server_connection_handle_output_error(
+	struct http_server_connection *conn)
 {
+	struct ostream *output = conn->conn.output;
+
 	if (conn->closed)
 		return;
 
-	if (error != NULL) {
+	if (output->stream_errno != EPIPE &&
+	    output->stream_errno != ECONNRESET) {
 		http_server_connection_error(conn,
-			"Connection lost: %s", error);
-		http_server_connection_close(&conn, "Write failure");
+			"Connection lost: write(%s) failed: %s",
+			o_stream_get_name(output),
+			o_stream_get_error(output));
+		http_server_connection_close(&conn,
+			"Write failure");
 	} else {
 		http_server_connection_debug(conn,
 			"Connection lost: Remote disconnected");
@@ -836,27 +842,10 @@ void http_server_connection_write_failed(struct http_server_connection *conn,
 	}
 }
 
-void http_server_connection_handle_output_error(
-	struct http_server_connection *conn)
-{
-	struct ostream *output = conn->conn.output;
-	const char *error = NULL;
-	
-	if (output->stream_errno != EPIPE &&
-	    output->stream_errno != ECONNRESET) {
-		error = t_strdup_printf("write(%s) failed: %s",
-					o_stream_get_name(output),
-					o_stream_get_error(output));
-	}
-
-	http_server_connection_write_failed(conn, error);
-}
-
 static bool
 http_server_connection_next_response(struct http_server_connection *conn)
 {
 	struct http_server_request *req;
-	const char *error = NULL;
 	int ret;
 
 	if (conn->output_locked)
@@ -910,13 +899,11 @@ http_server_connection_next_response(struct http_server_connection *conn)
 	http_server_connection_timeout_start(conn);
 
 	http_server_request_ref(req);
-	ret = http_server_response_send(req->response, &error);
+	ret = http_server_response_send(req->response);
 	http_server_request_unref(&req);
 
-	if (ret < 0) {
-		http_server_connection_write_failed(conn, error);
+	if (ret < 0)
 		return FALSE;
-	}
 
 	http_server_connection_timeout_reset(conn);
 	return TRUE;
@@ -974,20 +961,14 @@ int http_server_connection_output(struct http_server_connection *conn)
 	} else if (conn->request_queue_head != NULL) {
 		struct http_server_request *req = conn->request_queue_head;
 		struct http_server_response *resp = req->response;
-		const char *error = NULL;
 
 		http_server_connection_ref(conn);
 
 		i_assert(resp != NULL);
-		ret = http_server_response_send_more(resp, &error);
+		ret = http_server_response_send_more(resp);
 
-		if (http_server_connection_unref_is_closed(conn))
+		if (http_server_connection_unref_is_closed(conn) || ret < 0)
 			return -1;
-
-		if (ret < 0) {
-			http_server_connection_write_failed(conn, error);
-			return -1;
-		}
 
 		if (!conn->output_locked) {
 			/* room for more responses */

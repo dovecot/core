@@ -174,10 +174,8 @@ struct http_server {
  */
 
 void http_server_response_free(struct http_server_response *resp);
-int http_server_response_send(struct http_server_response *resp,
-			     const char **error_r);
-int http_server_response_send_more(struct http_server_response *resp,
-				  const char **error_r);
+int http_server_response_send(struct http_server_response *resp);
+int http_server_response_send_more(struct http_server_response *resp);
 
 /*
  * Request
@@ -262,8 +260,6 @@ bool http_server_connection_shut_down(struct http_server_connection *conn);
 
 void http_server_connection_switch_ioloop(struct http_server_connection *conn);
 
-void http_server_connection_write_failed(struct http_server_connection *conn,
-	const char *error);
 void http_server_connection_handle_output_error(
 	struct http_server_connection *conn);
 
