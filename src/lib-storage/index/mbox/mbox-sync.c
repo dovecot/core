@@ -1218,7 +1218,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
-static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
+static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx, bool force)
 {
 	string_t *str;
 	unsigned int uid_validity;
@@ -1228,11 +1228,18 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 	if (sync_ctx->mbox->sync_hdr_update != NULL) {
 		const struct mailbox_update *update =
 			sync_ctx->mbox->sync_hdr_update;
+		bool change = FALSE;
 
-		if (update->uid_validity != 0)
+		if (update->uid_validity != 0) {
 			sync_ctx->base_uid_validity = update->uid_validity;
-		if (update->min_next_uid != 0)
+			change = TRUE;
+		}
+		if (update->min_next_uid != 0) {
 			sync_ctx->base_uid_last = update->min_next_uid-1;
+			change = TRUE;
+		}
+		if (!change && !force)
+			return 0;
 	}
 
 	uid_validity = sync_ctx->base_uid_validity != 0 ?
@@ -1400,7 +1407,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		}
 
 		if (offset == 0) {
-			if (mbox_write_pseudo(sync_ctx) < 0)
+			if (mbox_write_pseudo(sync_ctx, TRUE) < 0)
 				return -1;
 		}
 
@@ -1408,7 +1415,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		mbox_sync_file_updated(sync_ctx, FALSE);
 	} else {
 		if (file_size == 0 && sync_ctx->mbox->sync_hdr_update != NULL) {
-			if (mbox_write_pseudo(sync_ctx) < 0)
+			if (mbox_write_pseudo(sync_ctx, FALSE) < 0)
 				return -1;
 		}
 	}
