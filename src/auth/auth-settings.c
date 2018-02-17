@@ -261,6 +261,7 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_STR, verbose_passwords),
 	DEF(SET_BOOL, ssl_require_client_cert),
 	DEF(SET_BOOL, ssl_username_from_cert),
+	DEF(SET_BOOL, auth_external_ignore_authzid),
 	DEF(SET_BOOL, use_winbind),
 
 	DEF(SET_UINT, worker_max_count),
@@ -319,6 +320,7 @@ static const struct auth_settings auth_default_settings = {
 	.verbose_passwords = "no",
 	.ssl_require_client_cert = FALSE,
 	.ssl_username_from_cert = FALSE,
+	.auth_external_ignore_authzid = FALSE,
 	.ssl_client_ca_dir = "",
 	.ssl_client_ca_file = "",
 
