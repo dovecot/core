@@ -1151,7 +1151,6 @@ static int http_client_request_send_real(struct http_client_request *req,
 	struct http_client_connection *conn = req->conn;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
-	int ret = 0;
 
 	i_assert(!req->conn->output_locked);
 	i_assert(req->payload_output == NULL);
@@ -1264,32 +1263,31 @@ static int http_client_request_send_real(struct http_client_request *req,
 	o_stream_cork(conn->conn.output);
 	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
 		http_client_connection_handle_output_error(conn);
-		ret = -1;
-	} else {
-		e_debug(req->event, "Sent header");
-
-		if (req->payload_output != NULL) {
-			if (!req->payload_sync) {
-				if (http_client_request_send_more(req, pipelined) < 0)
-					ret = -1;
-			} else {
-				e_debug(req->event, "Waiting for 100-continue");
-				conn->output_locked = TRUE;
-			}
-		} else {
-			req->state = HTTP_REQUEST_STATE_WAITING;
-			if (!pipelined)
-				http_client_connection_start_request_timeout(req->conn);
-			conn->output_locked = FALSE;
-		}
+		return -1;
 	}
-	if (ret >= 0 && conn->conn.output != NULL &&
+
+	e_debug(req->event, "Sent header");
+
+	if (req->payload_output != NULL) {
+		if (!req->payload_sync) {
+			if (http_client_request_send_more(req, pipelined) < 0)
+				return -1;
+		} else {
+			e_debug(req->event, "Waiting for 100-continue");
+			conn->output_locked = TRUE;
+		}
+	} else {
+		req->state = HTTP_REQUEST_STATE_WAITING;
+		if (!pipelined)
+			http_client_connection_start_request_timeout(req->conn);
+		conn->output_locked = FALSE;
+	}
+	if (conn->conn.output != NULL &&
 	    o_stream_uncork_flush(conn->conn.output) < 0) {
 		http_client_connection_handle_output_error(conn);
-		ret = -1;
+		return -1;
 	}
-
-	return ret;
+	return 0;
 }
 
 int http_client_request_send(struct http_client_request *req,
