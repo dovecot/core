@@ -1189,11 +1189,50 @@ static void http_client_connection_input(struct connection *_conn)
 	}
 }
 
-int http_client_connection_output(struct http_client_connection *conn)
+static int
+http_client_connection_continue_request(struct http_client_connection *conn)
 {
 	struct http_client_request *const *reqs;
-	struct ostream *output = conn->conn.output;
 	unsigned int count;
+	struct http_client_request *req;
+	bool pipelined;
+
+	reqs = array_get(&conn->request_wait_list, &count);
+	if (count == 0 || !conn->output_locked)
+		return 0;
+
+	req = reqs[count-1];
+	pipelined = (count > 1 || conn->pending_request != NULL);
+
+	if (req->state == HTTP_REQUEST_STATE_ABORTED) {
+		e_debug(conn->event,
+			"Request aborted before sending payload was complete.");
+		if (count == 1) {
+			http_client_connection_close(&conn);
+		} else {
+			o_stream_unset_flush_callback(conn->conn.output);
+			conn->output_broken = TRUE;
+		}
+		return 0;
+	}
+
+	if (req->payload_sync && !req->payload_sync_continue)
+		return 0;
+
+	if (http_client_request_send_more(req, pipelined) < 0)
+		return -1;
+
+	if (!conn->output_locked) {
+		/* room for new requests */
+		if (http_client_connection_check_ready(conn) > 0)
+			http_client_peer_trigger_request_handler(conn->peer);
+	}
+	return 0;
+}
+
+int http_client_connection_output(struct http_client_connection *conn)
+{
+	struct ostream *output = conn->conn.output;
 	int ret;
 
 	/* we've seen activity from the server; reset request timeout */
@@ -1211,33 +1250,8 @@ int http_client_connection_output(struct http_client_connection *conn)
 		!ssl_iostream_is_handshaked(conn->ssl_iostream))
 		return 1;
 
-	reqs = array_get(&conn->request_wait_list, &count);
-	if (count > 0 && conn->output_locked) {
-		struct http_client_request *req = reqs[count-1];
-		bool pipelined = (count > 1 || conn->pending_request != NULL);
-
-		if (req->state == HTTP_REQUEST_STATE_ABORTED) {
-			e_debug(conn->event,
-				"Request aborted before sending payload was complete.");
-			if (count == 1) {
-				http_client_connection_close(&conn);
-			} else {
-				o_stream_unset_flush_callback(output);
-				conn->output_broken = TRUE;
-			}
-			return 1;
-		}
-
-		if (!req->payload_sync || req->payload_sync_continue) {
-			if (http_client_request_send_more(req, pipelined) < 0)
-				return -1;
-			if (!conn->output_locked) {
-				/* room for new requests */
-				if (http_client_connection_check_ready(conn) > 0)
-					http_client_peer_trigger_request_handler(conn->peer);
-			}
-		}
-	}
+	if (http_client_connection_continue_request(conn) < 0)
+		return -1;
 	return 1;
 }
 
