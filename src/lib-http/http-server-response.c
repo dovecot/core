@@ -564,7 +564,6 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	struct const_iovec iov[3];
 	bool is_head = http_request_method_is(&req->req, "HEAD");
 	bool close = FALSE;
-	int ret = 0;
 
 	i_assert(!conn->output_locked);
 
@@ -666,34 +665,32 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	o_stream_cork(conn->conn.output);
 	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
 		http_server_connection_handle_output_error(conn);
-		ret = -1;
+		return -1;
 	}
 
-	if (ret >= 0) {
-		http_server_response_debug(resp, "Sent header");
+	http_server_response_debug(resp, "Sent header");
 
-		if (resp->payload_blocking) {
-			/* blocking payload */
-			conn->output_locked = TRUE;
-			if (server->ioloop != NULL)
-				io_loop_stop(server->ioloop);
-		} else if (resp->payload_output != NULL) {
-			/* non-blocking payload */
-			if (http_server_response_send_more(resp) < 0)
-				ret = -1;
-		} else {
-			/* no payload to send */
-			conn->output_locked = FALSE;
-			http_server_response_finish_payload_out(resp);
-		}
+	if (resp->payload_blocking) {
+		/* blocking payload */
+		conn->output_locked = TRUE;
+		if (server->ioloop != NULL)
+			io_loop_stop(server->ioloop);
+	} else if (resp->payload_output != NULL) {
+		/* non-blocking payload */
+		if (http_server_response_send_more(resp) < 0)
+			return -1;
+	} else {
+		/* no payload to send */
+		conn->output_locked = FALSE;
+		http_server_response_finish_payload_out(resp);
 	}
-	if (ret >= 0 && conn->conn.output != NULL &&
-	    !resp->payload_corked &&
+
+	if (conn->conn.output != NULL && !resp->payload_corked &&
 	    o_stream_uncork_flush(conn->conn.output) < 0) {
 		http_server_connection_handle_output_error(conn);
-		ret = -1;
+		return -1;
 	}
-	return ret;
+	return 0;
 }
 
 int http_server_response_send(struct http_server_response *resp)
