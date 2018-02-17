@@ -1192,10 +1192,12 @@ static void http_client_connection_input(struct connection *_conn)
 static int
 http_client_connection_continue_request(struct http_client_connection *conn)
 {
+	struct http_client_connection *tmp_conn;
 	struct http_client_request *const *reqs;
 	unsigned int count;
 	struct http_client_request *req;
 	bool pipelined;
+	int ret;
 
 	reqs = array_get(&conn->request_wait_list, &count);
 	if (count == 0 || !conn->output_locked)
@@ -1219,7 +1221,10 @@ http_client_connection_continue_request(struct http_client_connection *conn)
 	if (req->payload_sync && !req->payload_sync_continue)
 		return 0;
 
-	if (http_client_request_send_more(req, pipelined) < 0)
+	tmp_conn = conn;
+	http_client_connection_ref(tmp_conn);
+	ret = http_client_request_send_more(req, pipelined);
+	if (!http_client_connection_unref(&tmp_conn) || ret < 0)
 		return -1;
 
 	if (!conn->output_locked) {
