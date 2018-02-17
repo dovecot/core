@@ -1004,14 +1004,21 @@ static int mailbox_autocreate_and_reopen(struct mailbox *box)
 }
 
 static bool
-mailbox_name_verify_separators(const char *vname, char sep,
-			       const char **error_r)
+mailbox_name_verify_extra_separators(const char *vname, char sep,
+				     const char **error_r)
 {
 	unsigned int i;
 	bool prev_sep = FALSE;
 
-	/* Make sure the vname is correct: non-empty, doesn't begin or end
-	   with separator and no adjacent separators */
+	/* Make sure the vname doesn't have extra separators:
+
+	   1) Must not have adjacent separators. If we allow these, these could
+	   end up pointing to existing mailboxes due to kernel ignoring
+	   duplicate '/' in paths. However, this might cause us to handle some
+	   of our own checks wrong, such as skipping ACLs.
+
+	   2) Must not end with separator. Similar reasoning as above.
+	*/
 	for (i = 0; vname[i] != '\0'; i++) {
 		if (vname[i] == sep) {
 			if (prev_sep) {
@@ -1074,12 +1081,22 @@ static int mailbox_verify_name(struct mailbox *box)
 		}
 	}
 
+	/* If namespace { separator } differs from the mailbox_list separator,
+	   the list separator can't actually be used in the mailbox name
+	   unless it's escaped with escape_char. For example if namespace
+	   separator is '/' and LAYOUT=Maildir++ has '.' as the separator,
+	   there's no way to use '.' in the mailbox name (without escaping)
+	   because it would end up becoming a hierarchy separator. */
 	if (ns_sep != list_sep && box->list->set.escape_char == '\0' &&
 	    strchr(vname, list_sep) != NULL) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS, t_strdup_printf(
 			"Character not allowed in mailbox name: '%c'", list_sep));
 		return -1;
 	}
+	/* vname must not begin with the hierarchy separator normally.
+	   For example we don't want to allow accessing /etc/passwd. However,
+	   if mail_full_filesystem_access=yes, we do actually want to allow
+	   that. */
 	if (vname[0] == ns_sep &&
 	    !box->storage->set->mail_full_filesystem_access) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
@@ -1087,7 +1104,7 @@ static int mailbox_verify_name(struct mailbox *box)
 		return -1;
 	}
 
-	if (!mailbox_name_verify_separators(vname, ns_sep, &error) ||
+	if (!mailbox_name_verify_extra_separators(vname, ns_sep, &error) ||
 	    !mailbox_list_is_valid_name(box->list, box->name, &error)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 			t_strdup_printf("Invalid mailbox name: %s", error));
