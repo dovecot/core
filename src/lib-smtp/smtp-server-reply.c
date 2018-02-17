@@ -399,8 +399,7 @@ const char *smtp_server_reply_get_one_line(struct smtp_server_reply *reply)
 	return str_c(str);
 }
 
-static int smtp_server_reply_send_real(struct smtp_server_reply *reply,
-				       const char **error_r)
+static int smtp_server_reply_send_real(struct smtp_server_reply *reply)
 {
 	struct smtp_server_command *cmd = reply->command;
 	struct smtp_server_connection *conn = cmd->context.conn;
@@ -409,8 +408,6 @@ static int smtp_server_reply_send_real(struct smtp_server_reply *reply,
 	string_t *textbuf;
 	char *text;
 	int ret = 0;
-
-	*error_r = NULL;
 
 	i_assert(reply->content != NULL);
 	textbuf = reply->content->text;
@@ -425,13 +422,8 @@ static int smtp_server_reply_send_real(struct smtp_server_reply *reply,
 	}
 
 	if (o_stream_send(output, str_data(textbuf), str_len(textbuf)) < 0) {
-		if (output->stream_errno != EPIPE &&
-		    output->stream_errno != ECONNRESET) {
-			*error_r = t_strdup_printf("write(%s) failed: %s",
-						   o_stream_get_name(output),
-						   o_stream_get_error(output));
-		}
-		ret = -1;
+		smtp_server_connection_handle_output_error(conn);
+		return -1;
 	}
 
 	if (set->debug) {
@@ -441,8 +433,7 @@ static int smtp_server_reply_send_real(struct smtp_server_reply *reply,
 	return ret;
 }
 
-int smtp_server_reply_send(struct smtp_server_reply *reply,
-			   const char **error_r)
+int smtp_server_reply_send(struct smtp_server_reply *reply)
 {
 	int ret;
 
@@ -450,7 +441,7 @@ int smtp_server_reply_send(struct smtp_server_reply *reply,
 		return 0;
 
 	T_BEGIN {
-		ret = smtp_server_reply_send_real(reply, error_r);
+		ret = smtp_server_reply_send_real(reply);
 	} T_END;
 
 	reply->sent = TRUE;

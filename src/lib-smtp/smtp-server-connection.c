@@ -617,7 +617,6 @@ static bool
 smtp_server_connection_next_reply(struct smtp_server_connection *conn)
 {
 	struct smtp_server_command *cmd;
-	const char *error = NULL;
 	unsigned int i;
 
 	cmd = conn->command_queue_head;
@@ -651,21 +650,8 @@ smtp_server_connection_next_reply(struct smtp_server_connection *conn)
 			cmd->state = SMTP_SERVER_COMMAND_STATE_PROCESSING;
 			break;
 		}
-		if (smtp_server_reply_send(reply, &error) < 0) {
-			if (error != NULL) {
-				smtp_server_connection_error(conn,
-					"Failed to send reply: %s", error);
-				smtp_server_connection_close(&conn,
-					"Write failure");
-			} else {
-				smtp_server_connection_debug(conn,
-					"Failed to send reply: "
-					"Remote disconnected");
-				smtp_server_connection_close(&conn,
-					"Remote closed connection");
-			}
+		if (smtp_server_reply_send(reply) < 0)
 			return FALSE;
-		}
 	}
 	if (cmd->state == SMTP_SERVER_COMMAND_STATE_PROCESSING)
 		return FALSE;
