@@ -186,8 +186,7 @@ struct smtp_client {
  */
 
 void smtp_client_command_free(struct smtp_client_command *cmd);
-int smtp_client_command_send_more(struct smtp_client_connection *conn,
-				  const char **error_r);
+int smtp_client_command_send_more(struct smtp_client_connection *conn);
 int smtp_client_command_input_reply(struct smtp_client_command *cmd,
 				    const struct smtp_reply *reply);
 void smtp_client_command_fail(struct smtp_client_command **_cmd,
