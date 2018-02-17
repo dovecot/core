@@ -264,6 +264,8 @@ void http_server_connection_switch_ioloop(struct http_server_connection *conn);
 
 void http_server_connection_write_failed(struct http_server_connection *conn,
 	const char *error);
+void http_server_connection_handle_output_error(
+	struct http_server_connection *conn);
 
 void http_server_connection_trigger_responses(
 	struct http_server_connection *conn);
