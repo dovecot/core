@@ -713,8 +713,7 @@ static void mbox_storage_add_list(struct mail_storage *storage,
 	mlist->module_ctx.super = list->v;
 	mlist->set = mail_namespace_get_driver_settings(list->ns, storage);
 
-	if (strcmp(list->name, MAILBOX_LIST_NAME_FS) == 0 &&
-	    *list->set.maildir_name == '\0') {
+	if (*list->set.maildir_name == '\0') {
 		/* have to use .imap/ directories */
 		list->v.get_path = mbox_list_get_path;
 	}
