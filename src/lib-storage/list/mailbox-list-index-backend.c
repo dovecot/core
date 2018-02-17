@@ -865,7 +865,7 @@ static int index_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 
 struct mailbox_list index_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_INDEX,
-	.props = MAILBOX_LIST_PROP_NO_ROOT,
+	.props = MAILBOX_LIST_PROP_NO_ROOT | MAILBOX_LIST_PROP_NO_INTERNAL_NAMES,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	.v = {
