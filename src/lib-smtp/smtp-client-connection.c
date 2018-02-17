@@ -1068,7 +1068,6 @@ static void smtp_client_connection_input(struct connection *_conn)
 
 static int smtp_client_connection_output(struct smtp_client_connection *conn)
 {
-	const char *error;
 	int ret;
 
 	if (conn->to_connect != NULL)
@@ -1081,15 +1080,8 @@ static int smtp_client_connection_output(struct smtp_client_connection *conn)
 	}
 
 	smtp_client_connection_ref(conn);
-	if (smtp_client_command_send_more(conn, &error) < 0) {
-		smtp_client_connection_error(conn,
-			"Connection lost: %s", error);
-		smtp_client_connection_fail(conn,
-			SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST,
-			"Lost connection to remote server "
-			"(failed to send command)");
+	if (smtp_client_command_send_more(conn) < 0)
 		ret = -1;
-	}
 	smtp_client_connection_unref(&conn);
 	return ret;
 }

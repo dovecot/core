@@ -420,8 +420,7 @@ smtp_client_command_sent(struct smtp_client_command *cmd)
 }
 
 static int
-smtp_client_command_send_stream(struct smtp_client_command *cmd,
-	const char **error_r)
+smtp_client_command_send_stream(struct smtp_client_command *cmd)
 {
 	struct smtp_client_connection *conn = cmd->conn;
 	struct istream *stream = cmd->stream;
@@ -450,11 +449,8 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd,
 		if (conn->dot_output != NULL) {
 			/* this concludes the dot stream with CRLF.CRLF */
 			if ((ret=o_stream_finish(conn->dot_output)) < 0) {
-				*error_r = t_strdup_printf(
-					"flush(%s) failed: %s",
-					o_stream_get_name(output),
-					o_stream_get_error(output));
 				o_stream_unref(&conn->dot_output);
+				smtp_client_connection_handle_output_error(conn);
 				return -1;
 			}
 			if (ret == 0)
@@ -471,32 +467,32 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd,
 			stream->v_offset < cmd->stream_size);
 		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+
 		/* the provided payload stream is broken;
 		   fail this command separately */
+		smtp_client_command_error(cmd, "read(%s) failed: %s",
+					  i_stream_get_name(stream),
+					  i_stream_get_error(stream));
 		smtp_client_command_fail(&cmd,
 			SMTP_CLIENT_COMMAND_ERROR_BROKEN_PAYLOAD,
 			"Broken payload stream");
-
 		/* we're in the middle of sending a command, so the connection
 		   will also have to be aborted */
-		*error_r = t_strdup_printf("read(%s) failed: %s",
-					   i_stream_get_name(stream),
-					   i_stream_get_error(stream));
 		o_stream_unref(&conn->dot_output);
+		smtp_client_connection_fail(conn,
+			SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST,
+			"Broken payload stream");
 		return -1;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		/* normal connection failure */
-		*error_r = t_strdup_printf("write(%s) failed: %s",
-					   o_stream_get_name(output),
-					   o_stream_get_error(output));
 		o_stream_unref(&conn->dot_output);
+		smtp_client_connection_handle_output_error(conn);
 		return -1;
 	}
 	i_unreached();
 }
 
-int smtp_client_command_send_more(struct smtp_client_connection *conn,
-	const char **error_r)
+int smtp_client_command_send_more(struct smtp_client_connection *conn)
 {
 	struct smtp_client_command *cmd;
 	const char *data;
@@ -554,10 +550,7 @@ int smtp_client_command_send_more(struct smtp_client_connection *conn,
 				size = cmd->data->used - cmd->send_pos;
 				if ((sent=o_stream_send(conn->conn.output, data, size)) <= 0) {
 					if (sent < 0) {
-						*error_r = t_strdup_printf(
-							"write(%s) failed: %s",
-							o_stream_get_name(conn->conn.output),
-							o_stream_get_error(conn->conn.output));
+						smtp_client_connection_handle_output_error(conn);
 						return -1;
 					}
 					smtp_client_command_debug(cmd,
@@ -571,7 +564,7 @@ int smtp_client_command_send_more(struct smtp_client_connection *conn,
 		}
 
 		if (cmd->stream != NULL &&
-			(ret=smtp_client_command_send_stream(cmd, error_r)) <= 0) {
+			(ret=smtp_client_command_send_stream(cmd)) <= 0) {
 			if (ret < 0)
 				return -1;
 			smtp_client_command_debug(cmd,
