@@ -1149,7 +1149,6 @@ static int http_client_request_send_real(struct http_client_request *req,
 {
 	const struct http_client_settings *set = &req->client->set;
 	struct http_client_connection *conn = req->conn;
-	struct ostream *output = conn->conn.output;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
 	int ret = 0;
@@ -1209,7 +1208,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 		if (!req->have_hdr_body_spec)
 			str_append(rtext, "Transfer-Encoding: chunked\r\n");
 		req->payload_output =
-			http_transfer_chunked_ostream_create(output);
+			http_transfer_chunked_ostream_create(conn->conn.output);
 	} else if (req->payload_input != NULL ||
 		req->payload_empty ||
 		strcasecmp(req->method, "POST") == 0 ||
@@ -1223,8 +1222,8 @@ static int http_client_request_send_real(struct http_client_request *req,
 				req->payload_size);
 		}
 		if (req->payload_input != NULL) {
-			req->payload_output = output;
-			o_stream_ref(output);
+			req->payload_output = conn->conn.output;
+			o_stream_ref(conn->conn.output);
 		}
 	}
 	if (!req->have_hdr_connection &&
@@ -1262,8 +1261,8 @@ static int http_client_request_send_real(struct http_client_request *req,
 	req->sent_global_ioloop_usecs = ioloop_global_wait_usecs;
 	req->sent_http_ioloop_usecs =
 		io_wait_timer_get_usecs(req->conn->io_wait_timer);
-	o_stream_cork(output);
-	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
+	o_stream_cork(conn->conn.output);
+	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
 		http_client_connection_handle_output_error(conn);
 		ret = -1;
 	} else {
@@ -1284,7 +1283,8 @@ static int http_client_request_send_real(struct http_client_request *req,
 			conn->output_locked = FALSE;
 		}
 	}
-	if (ret >= 0 && o_stream_uncork_flush(output) < 0) {
+	if (ret >= 0 && conn->conn.output != NULL &&
+	    o_stream_uncork_flush(conn->conn.output) < 0) {
 		http_client_connection_handle_output_error(conn);
 		ret = -1;
 	}
