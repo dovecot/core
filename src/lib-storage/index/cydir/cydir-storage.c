@@ -139,7 +139,7 @@ struct mailbox cydir_mailbox = {
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		NULL,
+		index_mailbox_get_metadata,
 		index_storage_set_subscribed,
 		index_storage_attribute_set,
 		index_storage_attribute_get,
