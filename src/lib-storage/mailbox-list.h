@@ -29,6 +29,10 @@ enum mailbox_list_properties {
 	MAILBOX_LIST_PROP_AUTOCREATE_DIRS	= 0x10,
 	/* Explicitly disable mailbox list index */
 	MAILBOX_LIST_PROP_NO_LIST_INDEX		= 0x20,
+	/* Disable checking mailbox_list.is_internal_name(). The layout is
+	   implemented in a way that there aren't any such reserved internal
+	   names. For example Maildir++ prefixes all mailboxes with "." */
+	MAILBOX_LIST_PROP_NO_INTERNAL_NAMES	= 0x40,
 };
 
 enum mailbox_list_flags {
