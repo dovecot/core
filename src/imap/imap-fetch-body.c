@@ -668,7 +668,7 @@ bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
 	}
 
 	ctx->fetch_ctx->fetch_data |= MAIL_FETCH_BODY_SNIPPET;
-	ctx->fetch_ctx->flags_update_seen = TRUE;
-	imap_fetch_add_handler(ctx, 0, "NIL", fetch_snippet, (void *) lazy);
+	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
+			       "NIL", fetch_snippet, (void *) lazy);
 	return TRUE;
 }
