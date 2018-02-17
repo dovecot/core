@@ -1320,11 +1320,10 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 
 	   some mailbox formats have reserved directory names, such as
 	   Maildir's cur/new/tmp. if any of those would conflict with the
-	   mailbox directory name, it's not valid. maildir++ is kludged here as
-	   a special case because all of its mailbox dirs begin with "." */
+	   mailbox directory name, it's not valid. */
 	allow_internal_dirs = list->v.is_internal_name == NULL ||
 		*list->set.maildir_name != '\0' ||
-		strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0;
+		(list->props & MAILBOX_LIST_PROP_NO_INTERNAL_NAMES) != 0;
 	T_BEGIN {
 		const char *const *names;
 
