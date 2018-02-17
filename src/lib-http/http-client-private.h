@@ -515,6 +515,9 @@ void http_client_connection_ref(struct http_client_connection *conn);
 bool http_client_connection_unref(struct http_client_connection **_conn);
 void http_client_connection_close(struct http_client_connection **_conn);
 
+void http_client_connection_lost(struct http_client_connection **_conn,
+				 const char *error) ATTR_NULL(2);
+
 void http_client_connection_peer_closed(struct http_client_connection **_conn);
 void http_client_connection_request_destroyed(
 	struct http_client_connection *conn, struct http_client_request *req);
