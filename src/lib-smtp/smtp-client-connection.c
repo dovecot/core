@@ -1080,8 +1080,13 @@ static int smtp_client_connection_output(struct smtp_client_connection *conn)
 	}
 
 	smtp_client_connection_ref(conn);
+	o_stream_cork(conn->conn.output);
 	if (smtp_client_command_send_more(conn) < 0)
 		ret = -1;
+	if (ret >= 0 && conn->conn.output != NULL && !conn->corked) {
+		if (o_stream_uncork_flush(conn->conn.output) < 0)
+			smtp_client_connection_handle_output_error(conn);
+	}
 	smtp_client_connection_unref(&conn);
 	return ret;
 }
