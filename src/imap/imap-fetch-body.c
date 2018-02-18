@@ -611,6 +611,7 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 		return -1;
 	} else if (lazy) {
 		/* not in cache && lazy => give up */
+		str_append(ctx->state.cur_str, "SNIPPET (FUZZY NIL)");
 		return 1;
 	} else {
 		/*
@@ -622,6 +623,7 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 		 * sufficiently convoluted this else branch serves to
 		 * document it.
 		 */
+		str_append(ctx->state.cur_str, "SNIPPET (FUZZY NIL)");
 		return 1;
 	}
 
