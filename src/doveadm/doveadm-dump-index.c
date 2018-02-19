@@ -511,6 +511,16 @@ dump_cache_mime_parts(string_t *str, const void *data, unsigned int size)
 	dump_message_part(str, part);
 }
 
+static void
+dump_cache_snippet(string_t *str, const unsigned char *data, unsigned int size)
+{
+	if (size == 0)
+		return;
+	str_printfa(str, " (version=%u: ", data[0]);
+	str_append_n(str, data+1, size-1);
+	str_append_c(str, ')');
+}
+
 static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 {
 	struct mail_cache_lookup_iterate_ctx iter;
@@ -555,6 +565,8 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 			str_printfa(str, "(%s)", binary_to_hex(data, size));
 			if (strcmp(field->name, "mime.parts") == 0)
 				dump_cache_mime_parts(str, data, size);
+			else if (strcmp(field->name, "body.snippet") == 0)
+				dump_cache_snippet(str, data, size);
 			break;
 		case MAIL_CACHE_FIELD_STRING:
 			if (size > 0)
