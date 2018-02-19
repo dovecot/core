@@ -588,12 +588,32 @@ void mailbox_list_index_refresh_later(struct mailbox_list *list)
 	}
 }
 
+static int
+list_handle_corruption_locked(struct mailbox_list *list,
+			      enum mail_storage_list_index_rebuild_reason reason)
+{
+	struct mail_storage *const *storagep;
+
+	array_foreach(&list->ns->all_storages, storagep) {
+		if ((*storagep)->v.list_index_corrupted != NULL) {
+			(*storagep)->list_index_rebuild_reason = reason;
+			if ((*storagep)->v.list_index_corrupted(*storagep) < 0)
+				return -1;
+			else {
+				/* FIXME: implement a generic handler that
+				   just lists mailbox directories in filesystem
+				   and adds the missing ones to the index. */
+			}
+		}
+	}
+	return mailbox_list_index_set_uncorrupted(list);
+}
+
 int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
-	struct mail_storage *const *storagep;
 	enum mail_storage_list_index_rebuild_reason reason;
-	int ret = 0;
+	int ret;
 
 	if (ilist->call_corruption_callback)
 		reason = MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_CORRUPTED;
@@ -607,20 +627,7 @@ int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 		return 0;
 	ilist->handling_corruption = TRUE;
 
-	array_foreach(&list->ns->all_storages, storagep) {
-		if ((*storagep)->v.list_index_corrupted != NULL) {
-			(*storagep)->list_index_rebuild_reason = reason;
-			if ((*storagep)->v.list_index_corrupted(*storagep) < 0)
-				ret = -1;
-			else {
-				/* FIXME: implement a generic handler that
-				   just lists mailbox directories in filesystem
-				   and adds the missing ones to the index. */
-			}
-		}
-	}
-	if (ret == 0)
-		ret = mailbox_list_index_set_uncorrupted(list);
+	ret = list_handle_corruption_locked(list, reason);
 	ilist->handling_corruption = FALSE;
 	return ret;
 }
