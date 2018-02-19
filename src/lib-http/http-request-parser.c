@@ -292,8 +292,8 @@ static int http_request_parse_request_line(struct http_request_parser *parser,
 
 	while ((ret = i_stream_read_bytes(_parser->input, &begin, &size,
 					  old_bytes + 1)) > 0) {
-		_parser->cur = begin;
-		_parser->end = _parser->cur + size;
+		_parser->begin = _parser->cur = begin;
+		_parser->end = _parser->begin + size;
 
 		if ((ret = http_request_parse(parser, pool)) < 0)
 			return -1;

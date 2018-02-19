@@ -47,7 +47,7 @@ struct http_message_parser {
 	uoff_t max_payload_size;
 	enum http_message_parse_flags flags;
 
-	const unsigned char *cur, *end;
+	const unsigned char *begin, *cur, *end;
 
 	const char *error;
 	enum http_message_parse_error error_code;
