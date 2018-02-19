@@ -10,11 +10,11 @@ LIBDOVECOT_SUBDIRS = \
 	lib \
 	lib-settings \
 	lib-auth \
+	lib-dns \
 	lib-master \
 	lib-charset \
 	lib-ssl-iostream \
 	lib-dcrypt \
-	lib-dns \
 	lib-dict \
 	lib-sasl \
 	lib-old-stats \
