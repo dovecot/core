@@ -32,7 +32,6 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		      const char **error_r)
 {
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
-	struct mail_storage *storage_class;
 	const char *driver, *p;
 	char *wildcardp, key;
 	bool have_username;
@@ -49,10 +48,8 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		p_strdup(_storage->pool, ns->unexpanded_set->location);
 	storage->storage_class_name = p_strdup(_storage->pool, driver);
 
-	storage_class = mail_user_get_storage_class(_storage->user, driver);
-	if (storage_class != NULL)
-		_storage->class_flags = storage_class->class_flags;
-	else if (strcmp(driver, "auto") != 0) {
+	if (mail_user_get_storage_class(_storage->user, driver) == NULL &&
+	    strcmp(driver, "auto") != 0) {
 		*error_r = t_strconcat("Unknown shared storage driver: ",
 				       driver, NULL);
 		return -1;
