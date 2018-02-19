@@ -1067,7 +1067,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 #ifdef SSL_CTX_set_ecdh_auto
 	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
 	   selection. */
-	SSL_CTX_set_ecdh_auto(ssl_ctx, 1);
+	(void)SSL_CTX_set_ecdh_auto(ssl_ctx, 1);
 #else
 	/* For OpenSSL < 1.0.2, ECDH temporary key parameter selection must be
 	   performed manually. Attempt to select the same curve as that used
