@@ -329,11 +329,10 @@ void imap_master_client_create(int fd)
 	struct imap_master_client *client;
 
 	client = i_new(struct imap_master_client, 1);
+	client->conn.unix_socket = TRUE;
 	connection_init_server(master_clients, &client->conn,
 			       "imap-master", fd, fd);
 
-	i_assert(client->conn.input == NULL);
-	client->conn.input = i_stream_create_unix(fd, (size_t)-1);
 	/* read the first file descriptor that we can */
 	i_stream_unix_set_read_fd(client->conn.input);
 }
@@ -344,7 +343,7 @@ static struct connection_settings client_set = {
 	.major_version = 1,
 	.minor_version = 0,
 
-	.input_max_size = 0, /* don't auto-create istream */
+	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
 	.client = FALSE
 };
