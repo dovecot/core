@@ -739,6 +739,9 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	   the payload. make sure here that it's switched back. */
 	net_set_nonblock(conn->conn.fd_in, TRUE);
 
+	i_assert(req->response_offset < conn->conn.input->v_offset);
+	req->bytes_in = conn->conn.input->v_offset - req->response_offset;
+
 	/* drop reference from connection */
 	if (http_client_connection_unref_request(conn, &conn->pending_request)) {
 		/* finish request if not already aborted */
@@ -992,7 +995,13 @@ static void http_client_connection_input(struct connection *_conn)
 			http_client_connection_close(&conn);
 			return;
 		}
+
 		req->response_time = ioloop_timeval;
+		req->response_offset =
+			http_response_parser_get_last_offset(conn->http_parser);
+		i_assert(req->response_offset != (uoff_t)-1);
+		i_assert(req->response_offset < conn->conn.input->v_offset);
+		req->bytes_in = conn->conn.input->v_offset - req->response_offset;
 
 		/* Got some response; cancel response timeout */
 		timeout_remove(&conn->to_response);
