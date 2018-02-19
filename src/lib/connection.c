@@ -159,6 +159,7 @@ static void connection_init_streams(struct connection *conn)
 			conn->input = i_stream_create_fd(conn->fd_in,
 							 set->input_max_size);
 		i_stream_set_name(conn->input, conn->name);
+		i_stream_switch_ioloop_to(conn->input, conn->ioloop);
 	}
 	if (set->output_max_size != 0) {
 		if (conn->unix_socket)
@@ -170,9 +171,8 @@ static void connection_init_streams(struct connection *conn)
 		o_stream_set_no_error_handling(conn->output, TRUE);
 		o_stream_set_finish_via_child(conn->output, FALSE);
 		o_stream_set_name(conn->output, conn->name);
+		o_stream_switch_ioloop_to(conn->output, conn->ioloop);
 	}
-	i_stream_switch_ioloop_to(conn->input, conn->ioloop);
-	o_stream_switch_ioloop_to(conn->output, conn->ioloop);
 	connection_input_resume(conn);
 	if (set->input_idle_timeout_secs != 0) {
 		conn->to = timeout_add_to(conn->ioloop,
