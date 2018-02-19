@@ -814,8 +814,7 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 	}
 }
 
-static bool
-index_mail_want_cache(struct index_mail *mail, enum index_cache_field field)
+bool index_mail_want_cache(struct index_mail *mail, enum index_cache_field field)
 {
 	struct mail *_mail = &mail->mail.mail;
 	enum mail_fetch_field fetch_field;
