@@ -434,6 +434,8 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 		hook_mail_storage_created(storage);
 	} T_END;
 
+	i_assert(storage->unique_root_dir != NULL ||
+		 (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) == 0);
 	DLLIST_PREPEND(&ns->user->storages, storage);
 	mail_namespace_add_storage(ns, storage);
 	*storage_r = storage;
