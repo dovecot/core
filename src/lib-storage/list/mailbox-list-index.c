@@ -930,7 +930,7 @@ static void mailbox_list_index_init_finish(struct mailbox_list *list)
 	ilist->path = dir == NULL ? "(in-memory mailbox list index)" :
 		p_strdup_printf(list->pool, "%s/%s", dir, list->set.list_index_fname);
 	ilist->index = mail_index_alloc(dir, list->set.list_index_fname);
-	ilist->rebuild_on_missing_inbox =
+	ilist->rebuild_on_missing_inbox = !ilist->has_backing_store &&
 		(list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0;
 
 	ilist->ext_id = mail_index_ext_register(ilist->index, "list",
