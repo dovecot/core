@@ -64,10 +64,35 @@ http_client_request_update_event(struct http_client_request *req)
 static struct event_passthrough *
 http_client_request_result_event(struct http_client_request *req)
 {
+	struct http_client_connection *conn = req->conn;
+
+	if (conn != NULL) {
+		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT) {
+			/* got here prematurely; use bytes written so far */
+			i_assert(req->request_offset <
+				 conn->conn.output->offset);
+			req->bytes_out = conn->conn.output->offset -
+				req->request_offset;
+		}
+		if (conn->incoming_payload != NULL &&
+			(req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
+			 req->state == HTTP_REQUEST_STATE_PAYLOAD_IN)) {
+			/* got here prematurely; use bytes read so far */
+			i_assert(conn->in_req_callback ||
+				 conn->pending_request == req);
+			i_assert(req->response_offset <
+				 conn->conn.input->v_offset);
+			req->bytes_in = conn->conn.input->v_offset -
+				req->response_offset;
+		}
+	}
+
 	return event_create_passthrough(req->event)->
 		add_int("status_code", req->last_status)->
 		add_int("attempts", req->attempts)->
-		add_int("redirects", req->redirects);
+		add_int("redirects", req->redirects)->
+		add_int("bytes_in", req->bytes_in)->
+		add_int("bytes_out", req->bytes_out);
 }
 
 static struct http_client_request *
@@ -883,7 +908,9 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 static void
 http_client_request_finish_payload_out(struct http_client_request *req)
 {
-	i_assert(req->conn != NULL);
+	struct http_client_connection *conn = req->conn;
+
+	i_assert(conn != NULL);
 
 	/* drop payload output stream */
 	if (req->payload_output != NULL) {
@@ -891,17 +918,20 @@ http_client_request_finish_payload_out(struct http_client_request *req)
 		req->payload_output = NULL;
 	}
 
+	i_assert(req->request_offset < conn->conn.output->offset);
+	req->bytes_out = conn->conn.output->offset - req->request_offset;
+
 	/* advance state only when request didn't get aborted in the mean time */
 	if (req->state != HTTP_REQUEST_STATE_ABORTED) {
 		i_assert(req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
 
 		/* we're now waiting for a response from the server */
 		req->state = HTTP_REQUEST_STATE_WAITING;
-		http_client_connection_start_request_timeout(req->conn);
+		http_client_connection_start_request_timeout(conn);
 	}
 
 	/* release connection */
-	req->conn->output_locked = FALSE;
+	conn->output_locked = FALSE;
 
 	e_debug(req->event, "Finished sending%s payload",
 		(req->state == HTTP_REQUEST_STATE_ABORTED ? " aborted" : ""));
@@ -1272,6 +1302,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 	req->sent_http_ioloop_usecs =
 		io_wait_timer_get_usecs(req->conn->io_wait_timer);
 	o_stream_cork(conn->conn.output);
+	req->request_offset = conn->conn.output->offset;
 	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
 		http_client_connection_handle_output_error(conn);
 		return -1;
@@ -1293,10 +1324,13 @@ static int http_client_request_send_real(struct http_client_request *req,
 			http_client_connection_start_request_timeout(req->conn);
 		conn->output_locked = FALSE;
 	}
-	if (conn->conn.output != NULL &&
-	    o_stream_uncork_flush(conn->conn.output) < 0) {
-		http_client_connection_handle_output_error(conn);
-		return -1;
+	if (conn->conn.output != NULL) {
+		i_assert(req->request_offset < conn->conn.output->offset);
+		req->bytes_out = conn->conn.output->offset - req->request_offset;
+		if (o_stream_uncork_flush(conn->conn.output) < 0) {
+			http_client_connection_handle_output_error(conn);
+			return -1;
+		}
 	}
 	return 0;
 }

@@ -118,6 +118,9 @@ struct http_client_request {
 	unsigned int attempt_timeout_msecs;
 	unsigned int max_attempts;
 
+	uoff_t response_offset, request_offset;
+	uoff_t bytes_in, bytes_out;
+
 	unsigned int attempts;
 	unsigned int redirects;
 	uint64_t sent_global_ioloop_usecs;
