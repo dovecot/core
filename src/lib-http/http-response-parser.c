@@ -28,6 +28,8 @@ struct http_response_parser {
 
 	unsigned int response_status;
 	const char *response_reason;
+
+	uoff_t response_offset;
 };
 
 struct http_response_parser *
@@ -63,6 +65,7 @@ http_response_parser_restart(struct http_response_parser *parser)
 	http_message_parser_restart(&parser->parser, NULL);
 	parser->response_status = 0;
 	parser->response_reason = NULL;
+	parser->response_offset = (uoff_t)-1;
 }
 
 static int http_response_parse_status(struct http_response_parser *parser)
@@ -152,6 +155,8 @@ static int http_response_parse(struct http_response_parser *parser)
 	switch (parser->state) {
 	case HTTP_RESPONSE_PARSE_STATE_INIT:
 		parser->state = HTTP_RESPONSE_PARSE_STATE_VERSION;
+		parser->response_offset = _parser->input->v_offset +
+			(_parser->cur - _parser->begin);
 		/* fall through */
 	case HTTP_RESPONSE_PARSE_STATE_VERSION:
 		if ((ret=http_message_parse_version(_parser)) <= 0) {
@@ -299,6 +304,11 @@ http_response_parse_retry_after(const char *hdrval, time_t resp_time,
 
 	return (http_date_parse
 		((unsigned char *)hdrval, strlen(hdrval), retry_after_r) ? 0 : -1);
+}
+
+uoff_t http_response_parser_get_last_offset(struct http_response_parser *parser)
+{
+	return parser->response_offset;
 }
 
 int http_response_parse_next(struct http_response_parser *parser,
