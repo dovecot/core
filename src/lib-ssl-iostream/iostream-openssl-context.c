@@ -452,7 +452,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	return 0;
 }
 
-#if defined(HAVE_ECDH) && !defined(SSL_CTRL_SET_ECDH_AUTO)
+#if defined(HAVE_ECDH) && !defined(SSL_CTX_set_ecdh_auto)
 static int
 ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 				     int *nid_r, const char **error_r)
@@ -499,7 +499,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 				const struct ssl_iostream_settings *set ATTR_UNUSED,
 				const char **error_r ATTR_UNUSED)
 {
-#if defined(HAVE_ECDH) && !defined(SSL_CTRL_SET_ECDH_AUTO)
+#if defined(HAVE_ECDH) && !defined(SSL_CTX_set_ecdh_auto)
 	EC_KEY *ecdh;
 	int nid;
 	const char *curve_name;
@@ -512,7 +512,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	   used instead of ECDHE, do not reuse the same ECDH key pair for
 	   different sessions. This option improves forward secrecy. */
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
-#ifdef SSL_CTRL_SET_ECDH_AUTO
+#ifdef SSL_CTX_set_ecdh_auto
 	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
 	   selection. */
 	if (SSL_CTX_set_ecdh_auto(ssl_ctx, 1) == 0) {
