@@ -625,7 +625,19 @@ int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 	if (ilist->handling_corruption)
 		return 0;
 	ilist->handling_corruption = TRUE;
-	ret = list_handle_corruption_locked(list, reason);
+
+	/* Perform the rebuilding locked. Note that if we're here because
+	   INBOX wasn't found, this may be because another process is in the
+	   middle of creating it. Waiting for the lock here makes sure that
+	   we don't start rebuilding before it's finished. In that case the
+	   rebuild is a bit unnecessary, but harmless (and avoiding the rebuild
+	   just adds extra code complexity). */
+	if (mailbox_list_lock(list) < 0)
+		ret = -1;
+	else {
+		ret = list_handle_corruption_locked(list, reason);
+		mailbox_list_unlock(list);
+	}
 	ilist->handling_corruption = FALSE;
 	return ret;
 }
