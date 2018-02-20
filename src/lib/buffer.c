@@ -95,6 +95,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	if (new_size > buf->used)
 		buf->used = new_size;
 	i_assert(buf->used <= buf->alloc);
+	i_assert(buf->w_buffer != NULL);
 }
 
 #undef buffer_create_from_data
@@ -271,6 +272,8 @@ void buffer_copy(buffer_t *_dest, size_t dest_pos,
 		copy_size = max_size;
 
 	buffer_check_limits(dest, dest_pos, copy_size);
+	i_assert(src->r_buffer != NULL);
+
 	if (src == dest) {
 		memmove(dest->w_buffer + dest_pos,
 			src->r_buffer + src_pos, copy_size);
@@ -305,6 +308,7 @@ void *buffer_get_modifiable_data(const buffer_t *_buf, size_t *used_size_r)
 
 	if (used_size_r != NULL)
 		*used_size_r = buf->used;
+	i_assert(buf->used == 0 || buf->w_buffer != NULL);
 	return buf->w_buffer;
 }
 
@@ -345,6 +349,8 @@ bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2)
 {
 	if (buf1->used != buf2->used)
 		return FALSE;
+	if (buf1->used == 0)
+		return TRUE;
 
 	return memcmp(buf1->data, buf2->data, buf1->used) == 0;
 }
