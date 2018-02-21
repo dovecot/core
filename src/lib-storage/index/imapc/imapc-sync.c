@@ -346,7 +346,7 @@ imapc_initial_sync_check(struct imapc_sync_context *ctx, bool nooped)
 			imapc_mailbox_set_corrupted(ctx->mbox,
 				"Expunged message uid=%u reappeared", ruid);
 			ctx->failed = TRUE;
-			rseq++;
+			return;
 		}
 	}
 }
