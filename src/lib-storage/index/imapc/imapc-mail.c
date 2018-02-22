@@ -312,6 +312,12 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 			mail_set_aborted(_mail);
 			return -1;
 		}
+		if (_mail->expunged) {
+			/* We already detected that the mail is expunged.
+			   Don't spend time trying to FETCH it again. */
+			mail_set_expunged(_mail);
+			return -1;
+		}
 		fetch_field = get_body ||
 			(data->access_part & READ_BODY) != 0 ?
 			MAIL_FETCH_STREAM_BODY : MAIL_FETCH_STREAM_HEADER;
