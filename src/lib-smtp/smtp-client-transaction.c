@@ -685,6 +685,8 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 
 	timeout_remove(&trans->to_send);
 
+	trans->state = SMTP_CLIENT_TRANSACTION_STATE_DATA;
+
 	if (trans->failure != NULL) {
 		smtp_client_transaction_fail_reply(trans, trans->failure);
 		finished = TRUE;
