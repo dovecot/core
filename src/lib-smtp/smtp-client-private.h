@@ -99,6 +99,7 @@ struct smtp_client_transaction {
 	unsigned int finish_timeout_msecs;
 	struct timeout *to_finish, *to_send;
 
+	bool data_provided:1;
 	bool finished:1;
 	bool submitted_data:1;
 };
