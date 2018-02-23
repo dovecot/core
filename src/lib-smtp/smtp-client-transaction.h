@@ -70,7 +70,9 @@ void smtp_client_transaction_start(struct smtp_client_transaction *trans,
 /* Add recipient to the transaction with a RCPT TO command. The
    rcpt_to_callback is called once the server replies to the RCPT TO command.
    If RCPT TO succeeded, the data_callback is called once the server replies
-   to the DATA command.
+   to the DATA command. The data_callback will not be called until
+   smtp_client_transaction_send() is called for the transaction (see
+   below). Until that time, any failure is remembered.
  */
 void smtp_client_transaction_add_rcpt(
 	struct smtp_client_transaction *trans,
@@ -90,11 +92,12 @@ void smtp_client_transaction_add_rcpt(
 		(smtp_client_command_callback_t *)rcpt_callback, \
 		(smtp_client_command_callback_t *)data_callback, context)
 
-/* Start sending input stream as DATA. If any RCPT TO succeeded, the
-   data_callback is called once the server replies to the DATA command.
-   This callback is mainly useful for SMTP, for LMTP it will only yield
-   the reply for the last recipient. This function starts the transaction
-   implicitly. */
+/* Start sending input stream as DATA. This completes the transaction, which
+   means that any pending failures that got recorded before this function was
+   called will be triggered now. If any RCPT TO succeeded, the provided
+   data_callback is called once the server replies to the DATA command. This
+   callback is mainly useful for SMTP, for LMTP it will only yield the reply for
+   the last recipient. This function starts the transaction implicitly. */
 void smtp_client_transaction_send(
 	struct smtp_client_transaction *trans, struct istream *data_input,
 	smtp_client_command_callback_t *data_callback, void *data_context);
