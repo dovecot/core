@@ -744,7 +744,7 @@ void smtp_client_transaction_send(
 	if (trans->finish_timeout_msecs > 0) {
 		i_assert(trans->to_finish == NULL);
 		trans->to_finish = timeout_add(trans->finish_timeout_msecs,
-			smtp_client_transaction_send_rcpts, trans);
+			smtp_client_transaction_timeout, trans);
 	}
 }
 
