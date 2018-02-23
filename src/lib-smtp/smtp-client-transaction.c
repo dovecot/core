@@ -356,9 +356,16 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		}
 	}
 
-	if (trans->cmd_data != NULL)
+	if (!trans->data_provided) {
+		/* smtp_client_transaction_send() was not called yet
+		 */
+	} else if (trans->cmd_data != NULL) {
+		/* the DATA command is still pending; handle the failure by
+		   failing the DATA command. */
 		smtp_client_command_fail_reply(&trans->cmd_data, reply);
-	else {
+	} else {
+		/* the DATA command was not sent yet; call all DATA callbacks
+		   for the recipients that were previously accepted. */
 		rcpts = array_get_modifiable(&trans->rcpts, &count);
 		for (i = trans->rcpt_next_data_idx; i < count; i++) {
 			if (rcpts[i]->data_callback != NULL) {
@@ -379,9 +386,9 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		smtp_client_command_abort(&trans->cmd_plug);
 	trans->cmd_plug = NULL;
 
-	if (trans->data_input != NULL) {
-		/* abort the transaction if it is complete
-		   (if it is not aborted already) */
+	if (trans->data_provided) {
+		/* abort the transaction only if smtp_client_transaction_send()
+		   was called (and if it is not aborted already) */
 		smtp_client_transaction_abort(trans);
 	}
 
@@ -731,6 +738,8 @@ void smtp_client_transaction_send(
 	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
 
 	smtp_client_transaction_debug(trans, "Send");
+
+	trans->data_provided = TRUE;
 
 	i_assert(trans->data_input == NULL);
 	trans->data_input = data_input;
