@@ -230,7 +230,8 @@ lmtp_proxy_handle_reply(struct smtp_server_cmd_ctx *cmd,
 {
 	*reply_r = *reply;
 
-	if (!smtp_reply_is_remote(reply)) {
+	if (!smtp_reply_is_remote(reply) ||
+		reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED) {
 		const char *detail = "";
 
 		switch (reply->status) {
@@ -244,6 +245,7 @@ lmtp_proxy_handle_reply(struct smtp_server_cmd_ctx *cmd,
 			detail = " (connect)";
 			break;
 		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
+		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
 			detail = " (connection lost)";
 			break;
 		case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
