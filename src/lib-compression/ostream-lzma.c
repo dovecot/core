@@ -160,6 +160,28 @@ static int o_stream_lzma_flush(struct ostream_private *stream)
 	return o_stream_flush_parent(stream);
 }
 
+static size_t
+o_stream_lzma_get_buffer_used_size(const struct ostream_private *stream)
+{
+	const struct lzma_ostream *zstream =
+		(const struct lzma_ostream *)stream;
+
+	/* outbuf has already compressed data that we're trying to send to the
+	   parent stream. We're not including lzma's internal compression
+	   buffer size. */
+	return (zstream->outbuf_used - zstream->outbuf_offset) +
+		o_stream_get_buffer_used_size(stream->parent);
+}
+
+static size_t
+o_stream_lzma_get_buffer_avail_size(const struct ostream_private *stream)
+{
+	/* FIXME: not correct - this is counting compressed size, which may be
+	   too larger than uncompressed size in some situations. Fixing would
+	   require some kind of additional buffering. */
+	return o_stream_get_buffer_avail_size(stream->parent);
+}
+
 static ssize_t
 o_stream_lzma_sendv(struct ostream_private *stream,
 		    const struct const_iovec *iov, unsigned int iov_count)
@@ -201,6 +223,10 @@ struct ostream *o_stream_create_lzma(struct ostream *output, int level)
 	zstream = i_new(struct lzma_ostream, 1);
 	zstream->ostream.sendv = o_stream_lzma_sendv;
 	zstream->ostream.flush = o_stream_lzma_flush;
+	zstream->ostream.get_buffer_used_size =
+		o_stream_lzma_get_buffer_used_size;
+	zstream->ostream.get_buffer_avail_size =
+		o_stream_lzma_get_buffer_avail_size;
 	zstream->ostream.iostream.close = o_stream_lzma_close;
 
 	ret = lzma_easy_encoder(&zstream->strm, level, LZMA_CHECK_CRC64);
