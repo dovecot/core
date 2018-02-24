@@ -218,15 +218,17 @@ size_t o_stream_get_buffer_used_size(const struct ostream *stream)
 {
 	const struct ostream_private *_stream = stream->real_stream;
 
+	if (_stream->get_buffer_used_size != NULL)
+		return _stream->get_buffer_used_size(_stream);
+
 	return _stream->get_used_size(_stream);
 }
 
 size_t o_stream_get_buffer_avail_size(const struct ostream *stream)
 {
-	size_t used = o_stream_get_buffer_used_size(stream);
+	const struct ostream_private *_stream = stream->real_stream;
 
-	return stream->real_stream->max_buffer_size <= used ? 0 :
-		stream->real_stream->max_buffer_size - used;
+	return _stream->get_buffer_avail_size(_stream);
 }
 
 int o_stream_seek(struct ostream *stream, uoff_t offset)
@@ -636,6 +638,18 @@ o_stream_default_get_used_size(const struct ostream_private *_stream)
 		return o_stream_get_buffer_used_size(_stream->parent);
 }
 
+static size_t
+o_stream_default_get_buffer_avail_size(const struct ostream_private *_stream)
+{
+	/* This default implementation assumes that the returned buffer size is
+	   between 0..max_buffer_size. There's no assert though, in case the
+	   max_buffer_size changes. */
+	size_t used = o_stream_get_buffer_used_size(&_stream->ostream);
+
+	return _stream->max_buffer_size <= used ? 0 :
+		_stream->max_buffer_size - used;
+}
+
 static int
 o_stream_default_seek(struct ostream_private *_stream,
 		      uoff_t offset ATTR_UNUSED)
@@ -722,6 +736,10 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 		_stream->flush_pending = o_stream_default_set_flush_pending;
 	if (_stream->get_used_size == NULL)
 		_stream->get_used_size = o_stream_default_get_used_size;
+	if (_stream->get_buffer_avail_size == NULL) {
+		_stream->get_buffer_avail_size =
+			o_stream_default_get_buffer_avail_size;
+	}
 	if (_stream->seek == NULL)
 		_stream->seek = o_stream_default_seek;
 	if (_stream->sendv == NULL)
