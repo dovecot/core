@@ -29,6 +29,18 @@ static void o_stream_ssl_destroy(struct iostream_private *stream)
 	buffer_free(&sstream->buffer);
 }
 
+static size_t get_buffer_avail_size(const struct ssl_ostream *sstream)
+{
+	if (sstream->ostream.max_buffer_size == 0) {
+		/* we're requested to use whatever space is available in
+		   the buffer */
+		return buffer_get_writable_size(sstream->buffer) - sstream->buffer->used;
+	} else {
+		return sstream->ostream.max_buffer_size > sstream->buffer->used ?
+			sstream->ostream.max_buffer_size - sstream->buffer->used : 0;
+	}
+}
+
 static size_t
 o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 		    unsigned int iov_count, size_t bytes_sent)
@@ -46,14 +58,7 @@ o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 		skip_left -= iov[i].iov_len;
 	}
 
-	if (sstream->ostream.max_buffer_size == 0) {
-		/* we're requested to use whatever space is available in
-		   the buffer */
-		avail = buffer_get_writable_size(sstream->buffer) - sstream->buffer->used;
-	} else {
-		avail = sstream->ostream.max_buffer_size > sstream->buffer->used ?
-			sstream->ostream.max_buffer_size - sstream->buffer->used : 0;
-	}
+	avail = get_buffer_avail_size(sstream);
 	if (i < iov_count && skip_left > 0) {
 		size = I_MIN(iov[i].iov_len - skip_left, avail);
 		buffer_append(sstream->buffer,
@@ -196,11 +201,25 @@ static int plain_flush_callback(struct ssl_ostream *sstream)
 	return ret > 0 && ret2 > 0 ? 1 : 0;
 }
 
-static size_t o_stream_ssl_get_used_size(const struct ostream_private *stream)
+static size_t
+o_stream_ssl_get_buffer_used_size(const struct ostream_private *stream)
 {
-	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
+	const struct ssl_ostream *sstream = (const struct ssl_ostream *)stream;
+	BIO *bio = SSL_get_wbio(sstream->ssl_io->ssl);
+	size_t wbuf_avail = BIO_ctrl_get_write_guarantee(bio);
+	size_t wbuf_total_size = BIO_get_write_buf_size(bio, 0);
 
-	return o_stream_get_buffer_used_size(sstream->ssl_io->plain_output);
+	i_assert(wbuf_avail <= wbuf_total_size);
+	return sstream->buffer->used + (wbuf_total_size - wbuf_avail) +
+		o_stream_get_buffer_used_size(sstream->ssl_io->plain_output);
+}
+
+static size_t
+o_stream_ssl_get_buffer_avail_size(const struct ostream_private *stream)
+{
+	const struct ssl_ostream *sstream = (const struct ssl_ostream *)stream;
+
+	return get_buffer_avail_size(sstream);
 }
 
 static void
@@ -236,7 +255,10 @@ struct ostream *openssl_o_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->ostream.flush = o_stream_ssl_flush;
 	sstream->ostream.switch_ioloop_to = o_stream_ssl_switch_ioloop_to;
 
-	sstream->ostream.get_used_size = o_stream_ssl_get_used_size;
+	sstream->ostream.get_buffer_used_size =
+		o_stream_ssl_get_buffer_used_size;
+	sstream->ostream.get_buffer_avail_size =
+		o_stream_ssl_get_buffer_avail_size;
 	sstream->ostream.flush_pending = o_stream_ssl_flush_pending;
 	sstream->ostream.iostream.set_max_buffer_size =
 		o_stream_ssl_set_max_buffer_size;
