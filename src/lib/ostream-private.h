@@ -16,6 +16,8 @@ struct ostream_private {
 				   void *context);
 	void (*flush_pending)(struct ostream_private *stream, bool set);
 	size_t (*get_used_size)(const struct ostream_private *stream);
+	size_t (*get_buffer_used_size)(const struct ostream_private *stream);
+	size_t (*get_buffer_avail_size)(const struct ostream_private *stream);
 	int (*seek)(struct ostream_private *stream, uoff_t offset);
 	ssize_t (*sendv)(struct ostream_private *stream,
 			 const struct const_iovec *iov,

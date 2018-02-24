@@ -146,9 +146,20 @@ static inline int o_stream_uncork_flush(struct ostream *stream)
 /* Set "flush pending" state of stream. If set, the flush callback is called
    when more data is allowed to be sent, even if the buffer itself is empty. */
 void o_stream_set_flush_pending(struct ostream *stream, bool set);
-/* Returns number of bytes currently in buffer. */
+/* Returns the number of bytes currently in all the pending write buffers of
+   this ostream, including its parent streams. This function is commonly used
+   by callers to determine when they've filled up the ostream so they can stop
+   writing to it. Because of this, the return value shouldn't include buffers
+   that are expected to be filled up before they send anything to their parent
+   stream. Otherwise the callers may stop writing to the stream too early and
+   hang. Such an example could be a compression ostream that won't send
+   anything to its parent stream before an internal compression buffer is
+   full. */
 size_t o_stream_get_buffer_used_size(const struct ostream *stream) ATTR_PURE;
-/* Returns number of bytes we can still write without failing. */
+/* Returns the (minimum) number of bytes we can still write without failing.
+   This is commonly used by callers to find out how many bytes they're
+   guaranteed to be able to send, and then generate that much data and send
+   it. */
 size_t o_stream_get_buffer_avail_size(const struct ostream *stream) ATTR_PURE;
 
 /* Seek to specified position from beginning of file. This works only for
