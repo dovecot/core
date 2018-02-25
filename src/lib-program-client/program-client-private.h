@@ -44,7 +44,7 @@ struct program_client {
 	struct istream *input, *program_input, *raw_program_input;
 	struct ostream *output, *program_output, *raw_program_output;
 
-	struct iostream_pump *pump_out;
+	struct iostream_pump *pump_in, *pump_out;
 
 	ARRAY(struct program_client_extra_fd) extra_fds;
 
