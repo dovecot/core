@@ -1,6 +1,3 @@
-/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file
- */
-
 #ifndef PROGRAM_CLIENT_H
 #define PROGRAM_CLIENT_H
 
@@ -39,8 +36,8 @@ struct program_client *program_client_local_create(const char *bin_path,
 struct program_client *program_client_unix_create(const char *socket_path,
 	const char *const *args,
 	const struct program_client_settings *set, bool noreply);
-struct program_client *program_client_net_create(const char *host, in_port_t port,
-	const char *const *args,
+struct program_client *program_client_net_create(const char *host,
+	in_port_t port, const char *const *args,
 	const struct program_client_settings *set, bool noreply);
 struct program_client *
 program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
@@ -61,7 +58,8 @@ void program_client_set_output(struct program_client *pclient,
 
 void program_client_set_output_seekable(struct program_client *pclient,
 	const char *temp_prefix);
-struct istream *program_client_get_output_seekable(struct program_client *pclient);
+struct istream *
+program_client_get_output_seekable(struct program_client *pclient);
 
 void program_client_switch_ioloop(struct program_client *pclient);
 
