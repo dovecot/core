@@ -14,29 +14,26 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-static
-unsigned char data[] = "hello, world";
+struct nonblock_ctx {
+	struct istream *in;
+	struct ostream *out;
+	uoff_t pos, max_size;
+};
 
-static
-void completed(enum iostream_pump_status status, int *u0)
+static unsigned char data[] = "hello, world";
+
+static void completed(enum iostream_pump_status status, int *u0)
 {
 	/* to somehow discern between error and success .. */
 	(*u0) -= (status == IOSTREAM_PUMP_STATUS_INPUT_EOF ? 1 : 2);
 	io_loop_stop(current_ioloop);
 }
 
-static
-void failed(int *u0)
+static void failed(int *u0)
 {
 	*u0 = -1; /* ensure failure */
 	io_loop_stop(current_ioloop);
 }
-
-struct nonblock_ctx {
-	struct istream *in;
-	struct ostream *out;
-	uoff_t pos, max_size;
-};
 
 static void pump_nonblocking_timeout(struct nonblock_ctx *ctx)
 {
@@ -65,8 +62,9 @@ static void pump_nonblocking_timeout(struct nonblock_ctx *ctx)
 	ctx->pos++;
 }
 
-static
-const char *run_pump(struct istream *in, struct ostream *out, int *counter, buffer_t *out_buffer)
+static const char *
+run_pump(struct istream *in, struct ostream *out, int *counter,
+	 buffer_t *out_buffer)
 {
 	struct iostream_pump *pump;
 	struct ioloop *ioloop = io_loop_create();
@@ -117,9 +115,9 @@ const char *run_pump(struct istream *in, struct ostream *out, int *counter, buff
 	return ret;
 }
 
-static
-void test_iostream_setup(bool block, struct istream **in_r,
-			 struct ostream **out_r, buffer_t **out_buffer_r)
+static void
+test_iostream_setup(bool block, struct istream **in_r,
+		    struct ostream **out_r, buffer_t **out_buffer_r)
 {
 	*out_buffer_r = t_buffer_create(128);
 
@@ -132,36 +130,39 @@ void test_iostream_setup(bool block, struct istream **in_r,
 		*out_r = test_ostream_create_nonblocking(*out_buffer_r, 1);
 }
 
-static
-void test_iostream_pump_simple(bool block)
+static void
+test_iostream_pump_simple(bool block)
 {
-	test_begin(t_strdup_printf("iostream_pump (%sblocking)", block ? "" : "non-"));
 	int counter;
-
 	struct istream *in;
 	struct ostream *out;
 	buffer_t *buffer;
 
+	test_begin(t_strdup_printf("iostream_pump (%sblocking)",
+				   block ? "" : "non-"));
+
 	test_iostream_setup(block, &in, &out, &buffer);
 	counter = 1;
 
-	test_assert(strcmp(run_pump(in, out, &counter, buffer), "hello, world") == 0);
+	test_assert(strcmp(run_pump(in, out, &counter, buffer),
+			   "hello, world") == 0);
 
 	test_end();
 }
 
-static
-void test_iostream_pump_failure_start_read(bool block)
+static void
+test_iostream_pump_failure_start_read(bool block)
 {
-	test_begin(t_strdup_printf("iostream_pump failure start-read (%sblocking)", block ? "" : "non-"));
 	int counter;
-
-	struct istream *in_2;
+	struct istream *in, *in_2;
 	struct ostream *out;
 	buffer_t *buffer;
 
+	test_begin(t_strdup_printf("iostream_pump failure start-read "
+				   "(%sblocking)", block ? "" : "non-"));
+
 	test_iostream_setup(block, &in_2, &out, &buffer);
-	struct istream *in = i_stream_create_failure_at(in_2, 0, EIO, "test pump fail");
+	in = i_stream_create_failure_at(in_2, 0, EIO, "test pump fail");
 	i_stream_unref(&in_2);
 	counter = 2;
 	test_assert(strcmp(run_pump(in, out, &counter, buffer), "") == 0);
@@ -169,18 +170,19 @@ void test_iostream_pump_failure_start_read(bool block)
 	test_end();
 }
 
-static
-void test_iostream_pump_failure_mid_read(bool block)
+static void
+test_iostream_pump_failure_mid_read(bool block)
 {
-	test_begin(t_strdup_printf("iostream_pump failure mid-read (%sblocking)", block ? "" : "non-"));
 	int counter;
-
-	struct istream *in_2;
+	struct istream *in, *in_2;
 	struct ostream *out;
 	buffer_t *buffer;
 
+	test_begin(t_strdup_printf("iostream_pump failure mid-read "
+				   "(%sblocking)", block ? "" : "non-"));
+
 	test_iostream_setup(block, &in_2, &out, &buffer);
-	struct istream *in = i_stream_create_failure_at(in_2, 4, EIO, "test pump fail");
+	in = i_stream_create_failure_at(in_2, 4, EIO, "test pump fail");
 	i_stream_unref(&in_2);
 	counter = 2;
 	test_assert(strcmp(run_pump(in, out, &counter, buffer), "hell") == 0);
@@ -188,37 +190,40 @@ void test_iostream_pump_failure_mid_read(bool block)
 	test_end();
 }
 
-static
-void test_iostream_pump_failure_end_read(bool block)
+static void
+test_iostream_pump_failure_end_read(bool block)
 {
-	test_begin(t_strdup_printf("iostream_pump failure mid-read (%sblocking)", block ? "" : "non-"));
 	int counter;
-
-	struct istream *in_2;
+	struct istream *in, *in_2;
 	struct ostream *out;
 	buffer_t *buffer;
 
+	test_begin(t_strdup_printf("iostream_pump failure mid-read "
+		   "(%sblocking)", block ? "" : "non-"));
+
 	test_iostream_setup(block, &in_2, &out, &buffer);
-	struct istream *in = i_stream_create_failure_at_eof(in_2, EIO, "test pump fail");
+	in = i_stream_create_failure_at_eof(in_2, EIO, "test pump fail");
 	i_stream_unref(&in_2);
 	counter = 2;
-	test_assert(strcmp(run_pump(in, out, &counter, buffer), "hello, world") == 0);
+	test_assert(strcmp(run_pump(in, out, &counter, buffer),
+		    "hello, world") == 0);
 
 	test_end();
 }
 
-static
-void test_iostream_pump_failure_start_write(bool block)
+static void
+test_iostream_pump_failure_start_write(bool block)
 {
-	test_begin(t_strdup_printf("iostream_pump failure start-write (%sblocking)", block ? "" : "non-"));
 	int counter;
-
 	struct istream *in;
-	struct ostream *out_2;
+	struct ostream *out, *out_2;
 	buffer_t *buffer;
 
+	test_begin(t_strdup_printf("iostream_pump failure start-write "
+				   "(%sblocking)", block ? "" : "non-"));
+
 	test_iostream_setup(block, &in, &out_2, &buffer);
-	struct ostream *out = o_stream_create_failure_at(out_2, 0, "test pump fail");
+	out = o_stream_create_failure_at(out_2, 0, "test pump fail");
 	o_stream_unref(&out_2);
 	counter = 2;
 	test_assert(strcmp(run_pump(in, out, &counter, buffer), "") == 0);
@@ -226,46 +231,50 @@ void test_iostream_pump_failure_start_write(bool block)
 	test_end();
 }
 
-static
-void test_iostream_pump_failure_mid_write(bool block)
+static void
+test_iostream_pump_failure_mid_write(bool block)
 {
-	test_begin(t_strdup_printf("iostream_pump failure mid-write (%sblocking)", block ? "" : "non-"));
 	int counter;
-
 	struct istream *in;
-	struct ostream *out_2;
+	struct ostream *out, *out_2;
 	buffer_t *buffer;
 
+	test_begin(t_strdup_printf("iostream_pump failure mid-write "
+				   "(%sblocking)", block ? "" : "non-"));
+
 	test_iostream_setup(block, &in, &out_2, &buffer);
-	struct ostream *out = o_stream_create_failure_at(out_2, 4, "test pump fail");
+	out = o_stream_create_failure_at(out_2, 4, "test pump fail");
 	o_stream_unref(&out_2);
 	counter = 2;
 
 	/* "hel" because the last byte is only in internal buffer */
-	test_assert(strcmp(run_pump(in, out, &counter, buffer), block ? "" : "hel") == 0);
+	test_assert(strcmp(run_pump(in, out, &counter, buffer),
+		           (block ? "" : "hel")) == 0);
 
 	test_end();
 }
 
-static
-void test_iostream_pump_failure_end_write(bool block)
+static void
+test_iostream_pump_failure_end_write(bool block)
 {
+	int counter;
+	struct istream *in;
+	struct ostream *out, *out_2;
+	buffer_t *buffer;
+
 	if (!block) {
 		/* we'll get flushes constantly */
 		return;
 	}
-	test_begin("iostream_pump failure end-write (blocking)");
-	int counter;
 
-	struct istream *in;
-	struct ostream *out_2;
-	buffer_t *buffer;
+	test_begin("iostream_pump failure end-write (blocking)");
 
 	test_iostream_setup(block, &in, &out_2, &buffer);
-	struct ostream *out = o_stream_create_failure_at_flush(out_2, "test pump fail");
+	out = o_stream_create_failure_at_flush(out_2, "test pump fail");
 	o_stream_unref(&out_2);
 	counter = 2;
-	test_assert(strcmp(run_pump(in, out, &counter, buffer), "hello, world") == 0);
+	test_assert(strcmp(run_pump(in, out, &counter, buffer),
+			   "hello, world") == 0);
 
 	test_end();
 }
