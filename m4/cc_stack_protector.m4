@@ -13,15 +13,9 @@ AC_DEFUN([AC_CC_F_STACK_PROTECTOR],[
             [
                gl_COMPILER_OPTION_IF([-fstack-protector], [
                  CFLAGS="$CFLAGS -fstack-protector"
-                 ], [], [AC_LANG_PROGRAM([[
-  #include <pthread.h>
-  __thread unsigned int t_id;
-              ]], [[t_id = 1;]])])
+                 ], [], [AC_LANG_PROGRAM()])
             ],
-            [AC_LANG_PROGRAM([[
-  #include <pthread.h>
-  __thread unsigned int t_id;
-              ]], [[t_id = 1;]])]
+            [AC_LANG_PROGRAM()]
           )
       esac
     fi
