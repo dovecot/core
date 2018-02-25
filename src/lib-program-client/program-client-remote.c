@@ -527,8 +527,6 @@ program_client_remote_close_output(struct program_client *pclient)
 	int fd_out = pclient->fd_out, fd_in = pclient->fd_in;
 
 	pclient->fd_out = -1;
-	if (fd_out >= 0 && pclient->set.use_dotstream)
-		return 1;
 
 	/* Shutdown output; program stdin will get EOF */
 	if (fd_out >= 0) {
