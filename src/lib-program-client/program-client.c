@@ -6,10 +6,10 @@
 #include "str.h"
 #include "safe-mkstemp.h"
 #include "istream-private.h"
-#include "istream-seekable.h"
 #include "ostream-dot.h"
 #include "istream-dot.h"
 #include "ostream.h"
+#include "iostream-temp.h"
 #include "lib-signals.h"
 
 #include "program-client-private.h"
@@ -29,32 +29,6 @@ program_client_callback(struct program_client *pclient, int result,
 	if (pclient->destroying || callback == NULL)
 		return;
 	callback(result, context);
-}
-
-static int
-program_client_seekable_fd_callback(const char **path_r, void *context)
-{
-	struct program_client *pclient = (struct program_client *)context;
-	string_t *path;
-	int fd;
-
-	path = t_str_new(128);
-	str_append(path, pclient->temp_prefix);
-	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
-		return -1;
-	}
-
-	/* we just want the fd, unlink it */
-	if (i_unlink(str_c(path)) < 0) {
-		/* shouldn't happen.. */
-		i_close_fd(&fd);
-		return -1;
-	}
-
-	*path_r = str_c(path);
-	return fd;
 }
 
 static void
@@ -119,8 +93,7 @@ program_client_disconnect_extra_fds(struct program_client *pclient)
 void program_client_disconnected(struct program_client *pclient)
 {
 	if (pclient->program_input != NULL) {
-		if (pclient->output_seekable ||
-		    pclient->set.use_dotstream)
+		if (pclient->set.use_dotstream)
 			i_stream_unref(&pclient->program_input);
 		else
 			i_stream_destroy(&pclient->program_input);
@@ -300,20 +273,6 @@ void program_client_program_input(struct program_client *pclient)
 	size_t size;
 	int ret = 0;
 
-	/* initialize seekable output if required */
-	if (pclient->output_seekable && pclient->seekable_output == NULL) {
-		struct istream *input_list[2] = { input, NULL };
-
-		input = i_stream_create_seekable(input_list,
-			MAX_OUTPUT_MEMORY_BUFFER,
-			program_client_seekable_fd_callback, pclient);
-		i_stream_unref(&pclient->program_input);
-		pclient->program_input = input;
-
-		pclient->seekable_output = input;
-		i_stream_ref(pclient->seekable_output);
-	}
-
 	if (input != NULL) {
 		/* initialize dot stream if required */
 		if (!pclient->input_dot_created &&
@@ -461,26 +420,23 @@ void program_client_set_output(struct program_client *pclient,
 		o_stream_ref(output);
 	pclient->output = output;
 	pclient->output_seekable = FALSE;
-	i_free(pclient->temp_prefix);
 }
 
 void program_client_set_output_seekable(struct program_client *pclient,
 					const char *temp_prefix)
 {
 	o_stream_unref(&pclient->output);
-	pclient->temp_prefix = i_strdup(temp_prefix);
+	pclient->output = iostream_temp_create_sized(temp_prefix, 0,
+		"(program client seekable output)",
+		MAX_OUTPUT_MEMORY_BUFFER);
 	pclient->output_seekable = TRUE;
 }
 
 struct istream *
 program_client_get_output_seekable(struct program_client *pclient)
 {
-	struct istream *input = pclient->seekable_output;
-
-	pclient->seekable_output = NULL;
-
-	i_stream_seek(input, 0);
-	return input;
+	i_assert(pclient->output_seekable);
+	return iostream_temp_finish(&pclient->output, IO_BLOCK_SIZE);
 }
 
 #undef program_client_set_extra_fd
@@ -582,10 +538,8 @@ void program_client_destroy(struct program_client **_pclient)
 	i_stream_unref(&pclient->program_input);
 	o_stream_unref(&pclient->program_output);
 	o_stream_unref(&pclient->output);
-	i_stream_unref(&pclient->seekable_output);
 
 	io_remove(&pclient->io);
-	i_free(pclient->temp_prefix);
 
 	if (pclient->destroy != NULL)
 		pclient->destroy(pclient);
@@ -599,8 +553,6 @@ void program_client_switch_ioloop(struct program_client *pclient)
 		i_stream_switch_ioloop(pclient->input);
 	if (pclient->program_input != NULL)
 		i_stream_switch_ioloop(pclient->program_input);
-	if (pclient->seekable_output != NULL)
-		i_stream_switch_ioloop(pclient->seekable_output);
 	if (pclient->output != NULL)
 		o_stream_switch_ioloop(pclient->output);
 	if (pclient->program_output != NULL)
