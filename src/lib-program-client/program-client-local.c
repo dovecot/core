@@ -159,7 +159,7 @@ program_client_local_connect(struct program_client *pclient)
 			return -1;
 		}
 	}
-	if (pclient->output != NULL || pclient->output_seekable) {
+	if (pclient->output != NULL) {
 		if (pipe(fd_out) < 0) {
 			i_error("pipe(out) failed: %m");
 			return -1;

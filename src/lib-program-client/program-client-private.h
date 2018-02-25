@@ -41,10 +41,8 @@ struct program_client {
 	struct timeout *to;
 	struct timeval start_time;
 
-	struct istream *input, *program_input, *seekable_output;
-	struct istream *dot_input;
+	struct istream *input, *program_input, *dot_input;
 	struct ostream *output, *program_output, *dot_output;
-	char *temp_prefix;
 
 	ARRAY(struct program_client_extra_fd) extra_fds;
 
