@@ -1,5 +1,4 @@
-/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file
- */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -20,9 +19,9 @@
 #define MAX_OUTPUT_BUFFER_SIZE 16384
 #define MAX_OUTPUT_MEMORY_BUFFER (1024*128)
 
-static
-void program_client_callback(struct program_client *pclient, int result, void
-			     *context)
+static void
+program_client_callback(struct program_client *pclient, int result,
+			void *context)
 {
 	/* do not call callback when destroying */
 	if (pclient->destroying) return;
@@ -31,8 +30,8 @@ void program_client_callback(struct program_client *pclient, int result, void
 	callback(result, context);
 }
 
-static
-int program_client_seekable_fd_callback(const char **path_r, void *context)
+static int
+program_client_seekable_fd_callback(const char **path_r, void *context)
 {
 	struct program_client *pclient = (struct program_client *)context;
 	string_t *path;
@@ -57,35 +56,36 @@ int program_client_seekable_fd_callback(const char **path_r, void *context)
 	return fd;
 }
 
-static
-void program_client_timeout(struct program_client *pclient)
+static void
+program_client_timeout(struct program_client *pclient)
 {
 	i_error("program `%s' execution timed out (> %u msecs)",
 		pclient->path, pclient->set.input_idle_timeout_msecs);
 	program_client_fail(pclient, PROGRAM_CLIENT_ERROR_RUN_TIMEOUT);
 }
 
-static
-void program_client_connect_timeout(struct program_client *pclient)
+static void
+program_client_connect_timeout(struct program_client *pclient)
 {
 	i_error("program `%s' socket connection timed out (> %u msecs)",
 		pclient->path, pclient->set.client_connect_timeout_msecs);
 	program_client_fail(pclient, PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT);
 }
 
-static
-int program_client_connect(struct program_client *pclient)
+static int
+program_client_connect(struct program_client *pclient)
 {
 	if (pclient->set.client_connect_timeout_msecs != 0) {
-		pclient->to = timeout_add(pclient->set.client_connect_timeout_msecs,
-					  program_client_connect_timeout, pclient);
+		pclient->to = timeout_add(
+			pclient->set.client_connect_timeout_msecs,
+			program_client_connect_timeout, pclient);
 	}
 
 	return pclient->connect(pclient);
 }
 
-static
-int program_client_close_output(struct program_client *pclient)
+static int
+program_client_close_output(struct program_client *pclient)
 {
 	int ret;
 
@@ -97,8 +97,8 @@ int program_client_close_output(struct program_client *pclient)
 	return ret;
 }
 
-static
-void program_client_disconnect_extra_fds(struct program_client *pclient)
+static void
+program_client_disconnect_extra_fds(struct program_client *pclient)
 {
 	struct program_client_extra_fd *efds;
 	unsigned int i, count;
@@ -137,19 +137,19 @@ void program_client_disconnected(struct program_client *pclient)
 
 	pclient->disconnected = TRUE;
 
-	if (pclient->other_error && pclient->error == PROGRAM_CLIENT_ERROR_NONE) {
+	if (pclient->other_error &&
+	    pclient->error == PROGRAM_CLIENT_ERROR_NONE) {
 		pclient->error = PROGRAM_CLIENT_ERROR_OTHER;
 	}
 
 	program_client_callback(pclient,
-		pclient->error != PROGRAM_CLIENT_ERROR_NONE ?
-			-1 :
-			(int)pclient->exit_code,
+		(pclient->error != PROGRAM_CLIENT_ERROR_NONE ?
+			-1 : (int)pclient->exit_code),
 		pclient->context);
 }
 
-static
-void program_client_disconnect(struct program_client *pclient, bool force)
+static void
+program_client_disconnect(struct program_client *pclient, bool force)
 {
 	int ret;
 
@@ -178,8 +178,8 @@ void program_client_fail(struct program_client *pclient,
 	program_client_disconnect(pclient, TRUE);
 }
 
-static
-bool program_client_input_pending(struct program_client *pclient)
+static bool
+program_client_input_pending(struct program_client *pclient)
 {
 	struct program_client_extra_fd *efds = NULL;
 	unsigned int count, i;
@@ -204,8 +204,8 @@ bool program_client_input_pending(struct program_client *pclient)
 	return FALSE;
 }
 
-static
-int program_client_program_output(struct program_client *pclient)
+static int
+program_client_program_output(struct program_client *pclient)
 {
 	struct istream *input = pclient->input;
 	struct ostream *output = pclient->program_output;
@@ -303,9 +303,9 @@ void program_client_program_input(struct program_client *pclient)
 	if (pclient->output_seekable && pclient->seekable_output == NULL) {
 		struct istream *input_list[2] = { input, NULL };
 
-		input = i_stream_create_seekable(input_list, MAX_OUTPUT_MEMORY_BUFFER,
-						 program_client_seekable_fd_callback,
-						 pclient);
+		input = i_stream_create_seekable(input_list,
+			MAX_OUTPUT_MEMORY_BUFFER,
+			program_client_seekable_fd_callback, pclient);
 		i_stream_unref(&pclient->program_input);
 		pclient->program_input = input;
 
@@ -390,8 +390,8 @@ void program_client_program_input(struct program_client *pclient)
 	program_client_disconnect(pclient, FALSE);
 }
 
-static
-void program_client_extra_fd_input(struct program_client_extra_fd *efd)
+static void
+program_client_extra_fd_input(struct program_client_extra_fd *efd)
 {
 	struct program_client *pclient = efd->pclient;
 
@@ -471,7 +471,8 @@ void program_client_set_output_seekable(struct program_client *pclient,
 	pclient->output_seekable = TRUE;
 }
 
-struct istream *program_client_get_output_seekable(struct program_client *pclient)
+struct istream *
+program_client_get_output_seekable(struct program_client *pclient)
 {
 	struct istream *input = pclient->seekable_output;
 
@@ -553,8 +554,8 @@ void program_client_init_streams(struct program_client *pclient)
 			efds[i].input = i_stream_create_fd
 				(efds[i].parent_fd, (size_t)-1);
 			i_stream_set_name(efds[i].input,
-					  t_strdup_printf("program output fd=%d",
-							  efds[i].child_fd));
+				t_strdup_printf("program output fd=%d",
+						efds[i].child_fd));
 			efds[i].io = io_add(efds[i].parent_fd, IO_READ,
 					    program_client_extra_fd_input,
 					    &efds[i]);
@@ -565,6 +566,7 @@ void program_client_init_streams(struct program_client *pclient)
 void program_client_destroy(struct program_client **_pclient)
 {
 	struct program_client *pclient = *_pclient;
+
 	*_pclient = NULL;
 
 	pclient->destroying = TRUE;
@@ -615,29 +617,24 @@ int program_client_create(const char *uri, const char *const *args,
 			  const char **error_r)
 {
 	if (str_begins(uri, "exec:")) {
-		*pc_r = program_client_local_create(
-			uri+5,
-			args,
-			set);
+		*pc_r = program_client_local_create(uri+5, args, set);
 		return 0;
 	} else if (str_begins(uri, "unix:")) {
-		*pc_r = program_client_unix_create(
-			uri+5,
-			args,
-			set, noreply);
+		*pc_r = program_client_unix_create(uri+5, args, set, noreply);
 		return 0;
 	} else if (str_begins(uri, "tcp:")) {
 		const char *host;
 		in_port_t port;
-		if (net_str2hostport(uri+4, 0, &host, &port) < 0 || port == 0) {
+
+		if (net_str2hostport(uri+4, 0, &host, &port) < 0 ||
+		    port == 0) {
 			*error_r = t_strdup_printf(
-				"Invalid tcp syntax, must be host:port in '%s'", uri+4);
+				"Invalid tcp syntax, "
+				"must be host:port in '%s'", uri+4);
 			return -1;
 		}
-		*pc_r = program_client_net_create(
-			host, port,
-			args,
-			set, noreply);
+		*pc_r = program_client_net_create(host, port, args, set,
+						  noreply);
 		return 0;
 	} else {
 		*error_r = t_strdup_printf(
@@ -647,8 +644,8 @@ int program_client_create(const char *uri, const char *const *args,
 	}
 }
 
-static
-void program_client_run_callback(int result, int *context)
+static void
+program_client_run_callback(int result, int *context)
 {
 	*context = result;
 	io_loop_stop(current_ioloop);
