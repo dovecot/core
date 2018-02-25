@@ -51,6 +51,7 @@ static void iostream_pump_copy(struct iostream_pump *pump)
 			       pump->context);
 		return;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		i_assert(!pump->output->blocking);
 		pump->waiting_output = TRUE;
 		io_remove(&pump->io);
 		return;
@@ -74,6 +75,7 @@ static void iostream_pump_copy(struct iostream_pump *pump)
 		}
 		return;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_assert(!pump->input->blocking);
 		pump->waiting_output = FALSE;
 		return;
 	}
@@ -97,7 +99,9 @@ static int iostream_pump_flush(struct iostream_pump *pump)
 		return 1;
 	}
 
-	if (pump->io == NULL) {
+	if (pump->input->blocking)
+		iostream_pump_copy(pump);
+	else if (pump->io == NULL) {
 		pump->io = io_add_istream(pump->input,
 					  iostream_pump_copy, pump);
 		io_set_pending(pump->io);
@@ -112,6 +116,7 @@ iostream_pump_create(struct istream *input, struct ostream *output)
 
 	i_assert(input != NULL &&
 		 output != NULL);
+	i_assert(!input->blocking || !output->blocking);
 
 	/* ref streams */
 	i_stream_ref(input);
@@ -132,13 +137,20 @@ void iostream_pump_start(struct iostream_pump *pump)
 	i_assert(pump->callback != NULL);
 
 	/* add flush handler */
-	o_stream_set_flush_callback(pump->output, iostream_pump_flush, pump);
+	if (!pump->output->blocking) {
+		o_stream_set_flush_callback(pump->output,
+					    iostream_pump_flush, pump);
+	}
 
 	/* make IO objects */
-	pump->io = io_add_istream(pump->input, iostream_pump_copy, pump);
-
-	/* make sure we do first read right away */
-	io_set_pending(pump->io);
+	if (pump->input->blocking) {
+		i_assert(!pump->output->blocking);
+		o_stream_set_flush_pending(pump->output, TRUE);
+	} else {
+		pump->io = io_add_istream(pump->input,
+					  iostream_pump_copy, pump);
+		io_set_pending(pump->io);
+	}
 }
 
 struct istream *iostream_pump_get_input(struct iostream_pump *pump)
