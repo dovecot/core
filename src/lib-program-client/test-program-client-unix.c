@@ -203,6 +203,8 @@ static void test_program_connected(struct test_server *server)
 	if (fd < 0)
 		i_fatal("Failed to accept connection: %m");
 
+	net_set_nonblock(fd, TRUE);
+
 	pool_t pool = pool_alloconly_create("test_program client", 1024);
 	client = p_new(pool, struct test_client, 1);
 	client->pool = pool;
