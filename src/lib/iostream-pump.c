@@ -191,11 +191,29 @@ void iostream_pump_unref(struct iostream_pump **_pump)
 	i_free(pump);
 }
 
+void iostream_pump_destroy(struct iostream_pump **_pump)
+{
+	i_assert(_pump != NULL);
+	struct iostream_pump *pump = *_pump;
+
+	if (pump == NULL)
+		return;
+
+	*_pump = NULL;
+
+	iostream_pump_stop(pump);
+	o_stream_unref(&pump->output);
+	i_stream_unref(&pump->input);
+
+	iostream_pump_unref(&pump);
+}
+
 void iostream_pump_stop(struct iostream_pump *pump)
 {
 	i_assert(pump != NULL);
 
-	o_stream_unset_flush_callback(pump->output);
+	if (pump->output != NULL)
+		o_stream_unset_flush_callback(pump->output);
 
 	io_remove(&pump->io);
 }
