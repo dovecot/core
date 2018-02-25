@@ -178,12 +178,17 @@ void iostream_pump_unref(struct iostream_pump **_pump)
 		return;
 
 	i_assert(pump->refcount > 0);
-	if (--pump->refcount == 0) {
-		iostream_pump_stop(pump);
-		o_stream_unref(&pump->output);
-		i_stream_unref(&pump->input);
-		i_free(pump);
-	}
+
+	*_pump = NULL;
+
+	if (--pump->refcount > 0)
+		return;
+
+	iostream_pump_stop(pump);
+
+	o_stream_unref(&pump->output);
+	i_stream_unref(&pump->input);
+	i_free(pump);
 }
 
 void iostream_pump_stop(struct iostream_pump *pump)
