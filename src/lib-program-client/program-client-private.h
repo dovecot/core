@@ -41,8 +41,8 @@ struct program_client {
 	struct timeout *to;
 	struct timeval start_time;
 
-	struct istream *input, *program_input, *dot_input;
-	struct ostream *output, *program_output, *dot_output;
+	struct istream *input, *program_input, *raw_program_input;
+	struct ostream *output, *program_output, *raw_program_output;
 
 	ARRAY(struct program_client_extra_fd) extra_fds;
 
@@ -62,8 +62,6 @@ struct program_client {
 	bool debug:1;
 	bool disconnected:1;
 	bool output_seekable:1;
-	bool input_dot_created:1;
-	bool output_dot_created:1;
 	bool destroying:1;
 };
 
