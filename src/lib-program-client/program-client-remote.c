@@ -234,10 +234,9 @@ program_client_remote_connected(struct program_client_remote *prclient)
 	program_client_init_streams(pclient);
 
 	if (!prclient->noreply) {
-		struct istream *is = pclient->program_input;
-		pclient->program_input =
-			program_client_istream_create(pclient,
-						      pclient->program_input);
+		struct istream *is = pclient->raw_program_input;
+		pclient->raw_program_input =
+			program_client_istream_create(pclient, is);
 		i_stream_unref(&is);
 	}
 
@@ -263,11 +262,11 @@ program_client_remote_connected(struct program_client_remote *prclient)
 	}
 	str_append_c(str, '\n');
 
-	if (o_stream_send(pclient->program_output,
+	if (o_stream_send(pclient->raw_program_output,
 			  str_data(str), str_len(str)) < 0) {
 		i_error("write(%s) failed: %s",
-			o_stream_get_name(pclient->program_output),
-			o_stream_get_error(pclient->program_output));
+			o_stream_get_name(pclient->raw_program_output),
+			o_stream_get_error(pclient->raw_program_output));
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 		return;
 	}
@@ -554,7 +553,7 @@ program_client_remote_disconnect(struct program_client *pclient, bool force)
 
 	timeout_remove(&prclient->to_retry);
 
-	if (pclient->program_input == NULL) {
+	if (pclient->raw_program_input == NULL) {
 		/* nothing */
 	} else if (pclient->error == PROGRAM_CLIENT_ERROR_NONE &&
 		   !prclient->noreply && !force) {
@@ -563,15 +562,15 @@ program_client_remote_disconnect(struct program_client *pclient, bool force)
 
 		/* Skip any remaining program output and parse the exit code */
 		while (i_stream_read_more
-			(pclient->program_input, &data, &size) > 0) {
-			i_stream_skip(pclient->program_input, size);
+			(pclient->raw_program_input, &data, &size) > 0) {
+			i_stream_skip(pclient->raw_program_input, size);
 		}
 
 		/* Check for error and EOF. Since we're disconnected, always
 		   mark an internal error when not all input is read. This is
 		   generally unlikely to occur. */
-		if (pclient->program_input->stream_errno != 0 ||
-		    i_stream_have_bytes_left(pclient->program_input)) {
+		if (pclient->raw_program_input->stream_errno != 0 ||
+		    i_stream_have_bytes_left(pclient->raw_program_input)) {
 			pclient->exit_code =
 				PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
 		}

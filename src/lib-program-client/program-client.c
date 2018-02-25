@@ -92,13 +92,10 @@ program_client_disconnect_extra_fds(struct program_client *pclient)
 
 void program_client_disconnected(struct program_client *pclient)
 {
-	if (pclient->program_input != NULL) {
-		if (pclient->set.use_dotstream)
-			i_stream_unref(&pclient->program_input);
-		else
-			i_stream_destroy(&pclient->program_input);
-	}
+	i_stream_destroy(&pclient->program_input);
 	o_stream_destroy(&pclient->program_output);
+	i_stream_destroy(&pclient->raw_program_input);
+	o_stream_destroy(&pclient->raw_program_output);
 
 	io_remove(&pclient->io);
 
@@ -198,16 +195,6 @@ program_client_program_output(struct program_client *pclient)
 		return ret;
 	}
 
-	/* initialize dot stream if required */
-	if (!pclient->output_dot_created &&
-	    pclient->set.use_dotstream &&
-	    output != NULL) {
-		pclient->dot_output = o_stream_create_dot(output, FALSE);
-		pclient->output_dot_created = TRUE;
-	}
-	if (pclient->dot_output != NULL)
-		output = pclient->dot_output;
-
 	if (input != NULL && output != NULL) {
 		/* transfer provided input stream to output towards program */
 		res = o_stream_send_istream(output, input);
@@ -247,7 +234,8 @@ program_client_program_output(struct program_client *pclient)
 		}
 		if (ret == 0)
 			return 0;
-		o_stream_unref(&pclient->dot_output);
+		o_stream_unref(&pclient->program_output);
+		o_stream_unref(&pclient->raw_program_output);
 	}
 
 	if (input == NULL) {
@@ -274,22 +262,19 @@ void program_client_program_input(struct program_client *pclient)
 	int ret = 0;
 
 	if (input != NULL) {
-		/* initialize dot stream if required */
-		if (!pclient->input_dot_created &&
-		    pclient->set.use_dotstream) {
-			pclient->dot_input = i_stream_create_dot(input, FALSE);
-			pclient->input_dot_created = TRUE;
-		}
-		if (pclient->dot_input != NULL)
-			input = pclient->dot_input;
-
 		/* transfer input from program to provided output stream */
 		if (output != NULL) {
 			res = o_stream_send_istream(output, input);
 			switch (res) {
 			case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-				i_stream_unref(&pclient->dot_input);
-				input = pclient->program_input;
+				/* return to raw program input */
+				if (pclient->program_input ==
+					pclient->raw_program_input)
+					break;
+				i_stream_unref(&pclient->program_input);
+				input = pclient->program_input =
+					pclient->raw_program_input;
+				i_stream_ref(pclient->program_input);
 				break;
 			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
@@ -311,7 +296,7 @@ void program_client_program_input(struct program_client *pclient)
 			}
 		}
 
-		/* read (the remainder of) the outer stream */
+		/* read (the remainder of) the raw program input */
 		while ((ret=i_stream_read_more(input, &data, &size)) > 0)
 			i_stream_skip(input, size);
 		if (ret == 0)
@@ -367,6 +352,29 @@ program_client_extra_fd_input(struct program_client_extra_fd *efd)
 int program_client_connected(struct program_client *pclient)
 {
 	int ret = 1;
+
+	/* finish creating program input */
+	if (pclient->raw_program_input != NULL) {
+		struct istream *input = pclient->raw_program_input;
+
+		/* initialize dot input stream if required */
+		if (pclient->set.use_dotstream)
+			input = i_stream_create_dot(input, FALSE);
+		else
+			i_stream_ref(input);
+		pclient->program_input = input;
+	}
+	/* finish creating program output */
+	if (pclient->raw_program_output != NULL) {
+		struct ostream *output = pclient->raw_program_output;
+
+		/* initialize dot output stream if required */
+		if (pclient->set.use_dotstream)
+			output = o_stream_create_dot(output, FALSE);
+		else
+			o_stream_ref(output);
+		pclient->program_output = output;
+	}
 
 	pclient->start_time = ioloop_timeval;
 	timeout_remove(&pclient->to);
@@ -486,18 +494,22 @@ void program_client_init_streams(struct program_client *pclient)
 {
 	/* Create streams for normal program I/O */
 	if (pclient->fd_out >= 0) {
-		pclient->program_output =
-			o_stream_create_fd(pclient->fd_out,
-					   MAX_OUTPUT_BUFFER_SIZE);
-		o_stream_set_name(pclient->program_output, "program stdin");
-		o_stream_set_no_error_handling(pclient->program_output, TRUE);
+		struct ostream *program_output;
+
+		program_output = o_stream_create_fd(pclient->fd_out,
+						    MAX_OUTPUT_BUFFER_SIZE);
+		o_stream_set_name(program_output, "program stdin");
+		o_stream_set_no_error_handling(program_output, TRUE);
+		pclient->raw_program_output = program_output;
 	}
 	if (pclient->fd_in >= 0) {
-		pclient->program_input =
-			i_stream_create_fd(pclient->fd_in, (size_t)-1);
-		i_stream_set_name(pclient->program_input, "program stdout");
+		struct istream *program_input;
+
+		program_input = i_stream_create_fd(pclient->fd_in, (size_t)-1);
+		i_stream_set_name(program_input, "program stdout");
 		pclient->io = io_add(pclient->fd_in, IO_READ,
 				     program_client_program_input, pclient);
+		pclient->raw_program_input = program_input;
 	}
 
 	/* Create streams for additional output through side-channel fds */
@@ -534,10 +546,12 @@ void program_client_destroy(struct program_client **_pclient)
 	i_assert(pclient->callback == NULL);
 
 	i_stream_unref(&pclient->input);
-	i_stream_unref(&pclient->dot_input);
+	o_stream_unref(&pclient->output);
+
 	i_stream_unref(&pclient->program_input);
 	o_stream_unref(&pclient->program_output);
-	o_stream_unref(&pclient->output);
+	i_stream_unref(&pclient->raw_program_input);
+	o_stream_unref(&pclient->raw_program_output);
 
 	io_remove(&pclient->io);
 
