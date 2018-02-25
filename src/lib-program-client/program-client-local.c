@@ -1,5 +1,4 @@
-/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file
- */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "lib-signals.h"
@@ -37,18 +36,18 @@ struct program_client_local {
 	bool sent_term:1;
 };
 
-static
-void program_client_local_waitchild(const struct child_wait_status *,
-				    struct program_client_local *);
-static
-void program_client_local_disconnect(struct program_client *pclient, bool force);
-static
-void program_client_local_exited(struct program_client_local *plclient);
+static void
+program_client_local_waitchild(const struct child_wait_status *status,
+			       struct program_client_local *plclient);
+static void
+program_client_local_disconnect(struct program_client *pclient, bool force);
+static void
+program_client_local_exited(struct program_client_local *plclient);
 
-static
-void exec_child(const char *bin_path, const char *const *args,
-		ARRAY_TYPE(const_string) *envs,
-		int in_fd, int out_fd, int *extra_fds, bool drop_stderr)
+static void
+exec_child(const char *bin_path, const char *const *args,
+	   ARRAY_TYPE(const_string) *envs, int in_fd, int out_fd,
+	   int *extra_fds, bool drop_stderr)
 {
 	ARRAY_TYPE(const_string) exec_args;
 
@@ -127,9 +126,9 @@ void exec_child(const char *bin_path, const char *const *args,
 	execvp_const(args[0], args);
 }
 
-static
-void program_client_local_waitchild(const struct child_wait_status *status,
-				    struct program_client_local *plclient)
+static void
+program_client_local_waitchild(const struct child_wait_status *status,
+			       struct program_client_local *plclient)
 {
 	i_assert(plclient->pid == status->pid);
 
@@ -143,8 +142,8 @@ void program_client_local_waitchild(const struct child_wait_status *status,
 		program_client_program_input(&plclient->client);
 }
 
-static
-int program_client_local_connect(struct program_client *pclient)
+static int
+program_client_local_connect(struct program_client *pclient)
 {
 	struct program_client_local *plclient =
 		(struct program_client_local *)pclient;
@@ -236,7 +235,8 @@ int program_client_local_connect(struct program_client *pclient)
 		/* if we want to allow root, then we will not drop
 		   root privileges */
 		restrict_access(&pclient->set.restrict_set,
-				pclient->set.allow_root ? RESTRICT_ACCESS_FLAG_ALLOW_ROOT : 0,
+				(pclient->set.allow_root ?
+					RESTRICT_ACCESS_FLAG_ALLOW_ROOT : 0),
 				pclient->set.home);
 
 		exec_child(pclient->path, pclient->args, &pclient->envs,
@@ -276,8 +276,8 @@ int program_client_local_connect(struct program_client *pclient)
 	return program_client_connected(pclient);
 }
 
-static
-int program_client_local_close_output(struct program_client *pclient)
+static int
+program_client_local_close_output(struct program_client *pclient)
 {
 	int fd_out = pclient->fd_out;
 
@@ -291,14 +291,15 @@ int program_client_local_close_output(struct program_client *pclient)
 	return 1;
 }
 
-static
-void program_client_local_exited(struct program_client_local *plclient)
+static void
+program_client_local_exited(struct program_client_local *plclient)
 {
+	struct program_client *pclient = &plclient->client;
+
 	timeout_remove(&plclient->to_kill);
 	if (plclient->child_wait != NULL)
 		child_wait_free(&plclient->child_wait);
 
-	struct program_client *pclient = &plclient->client;
 	plclient->exited = TRUE;
 	plclient->pid = -1;
 	/* Evaluate child exit status */
@@ -337,8 +338,8 @@ void program_client_local_exited(struct program_client_local *plclient)
 	program_client_disconnected(pclient);
 }
 
-static
-void program_client_local_kill(struct program_client_local *plclient)
+static void
+program_client_local_kill(struct program_client_local *plclient)
 {
 	/* time to die */
 	timeout_remove(&plclient->to_kill);
@@ -394,8 +395,8 @@ void program_client_local_kill(struct program_client_local *plclient)
 			    program_client_local_kill, plclient);
 }
 
-static
-void program_client_local_disconnect(struct program_client *pclient, bool force)
+static void
+program_client_local_disconnect(struct program_client *pclient, bool force)
 {
 	struct program_client_local *plclient =
 		(struct program_client_local *) pclient;
@@ -438,24 +439,25 @@ void program_client_local_disconnect(struct program_client *pclient, bool force)
 		(timeout == 0 && pclient->set.input_idle_timeout_msecs > 0);
 
 	if (!force) {
-		if (timeout > 0)
+		if (timeout > 0) {
 			plclient->to_kill =
 				timeout_add_short(timeout,
 						  program_client_local_kill,
 						  plclient);
+		}
 	} else {
 		program_client_local_kill(plclient);
 	}
 }
 
-static
-void program_client_local_destroy(struct program_client *pclient ATTR_UNUSED)
+static void
+program_client_local_destroy(struct program_client *pclient ATTR_UNUSED)
 {
 	child_wait_deinit();
 }
 
-static
-void program_client_local_switch_ioloop(struct program_client *pclient)
+static void
+program_client_local_switch_ioloop(struct program_client *pclient)
 {
 	struct program_client_local *plclient =
 		(struct program_client_local *)pclient;
@@ -482,6 +484,7 @@ program_client_local_create(const char *bin_path,
 	pclient->client.disconnect = program_client_local_disconnect;
 	pclient->client.destroy = program_client_local_destroy;
 	pclient->pid = -1;
+
 	child_wait_init();
 
 	return &pclient->client;
