@@ -23,10 +23,11 @@ static void
 program_client_callback(struct program_client *pclient, int result,
 			void *context)
 {
-	/* do not call callback when destroying */
-	if (pclient->destroying) return;
 	program_client_callback_t *callback = pclient->callback;
-	i_assert(pclient->callback != NULL);
+
+	pclient->callback = NULL;
+	if (pclient->destroying || callback == NULL)
+		return;
 	callback(result, context);
 }
 
