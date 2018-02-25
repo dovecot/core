@@ -50,6 +50,7 @@ struct test_client {
 	struct istream *in;
 	struct ostream *out;
 	struct ostream *os_body;
+	struct istream *is_body;
 	struct istream *body;
 	ARRAY_TYPE(const_string) args;
 	enum {
@@ -84,6 +85,7 @@ static void test_program_client_destroy(struct test_client **_client)
 	o_stream_unref(&client->out);
 	i_stream_unref(&client->in);
 	o_stream_unref(&client->os_body);
+	i_stream_unref(&client->is_body);
 	i_stream_unref(&client->body);
 	i_close_fd(&client->fd);
 	pool_unref(&client->pool);
@@ -96,7 +98,6 @@ test_program_input_handle(struct test_client *client, const char *line)
 {
 	int cmp = -1;
 	const char *arg;
-	struct istream *is;
 
 	switch(client->state) {
 	case CLIENT_STATE_INIT:
@@ -126,25 +127,26 @@ test_program_input_handle(struct test_client *client, const char *line)
 		array_push_back(&client->args, &arg);
 		break;
 	case CLIENT_STATE_BODY:
-		client->os_body = iostream_temp_create_named(
-			".dovecot.test.", 0, "test_program_input body");
-		is = client->in;
-		client->in = i_stream_create_dot(is, FALSE);
-		i_stream_unref(&is);
-
-		switch(o_stream_send_istream(client->os_body, client->in)) {
+		if (client->os_body == NULL) {
+			client->os_body = iostream_temp_create_named(
+				".dovecot.test.", 0, "test_program_input body");
+		}
+		if (client->is_body == NULL)
+			client->is_body = i_stream_create_dot(client->in, FALSE);
+		switch(o_stream_send_istream(client->os_body, client->is_body)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 			i_panic("Cannot write to ostream-temp: %s",
 				o_stream_get_error(client->os_body));
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 			i_warning("Client stream error: %s",
-				i_stream_get_error(client->in));
+				  i_stream_get_error(client->is_body));
 			return -1;
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 			client->body =
 				iostream_temp_finish(&client->os_body, -1);
+			i_stream_unref(&client->is_body);
 			return 1;
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 			i_panic("Cannot write to ostream-temp");
