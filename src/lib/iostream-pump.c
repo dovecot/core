@@ -159,19 +159,26 @@ void iostream_pump_ref(struct iostream_pump *pump)
 	pump->ref++;
 }
 
-void iostream_pump_unref(struct iostream_pump **pump_r)
+void iostream_pump_unref(struct iostream_pump **_pump)
 {
-	i_assert(pump_r != NULL && *pump_r != NULL);
-	struct iostream_pump *pump = *pump_r;
-	*pump_r = NULL;
+	i_assert(_pump != NULL);
+	struct iostream_pump *pump = *_pump;
+
+	if (pump == NULL)
+		return;
 
 	i_assert(pump->ref > 0);
-	if (--pump->ref == 0) {
-		iostream_pump_stop(pump);
-		o_stream_unref(&pump->output);
-		i_stream_unref(&pump->input);
-		i_free(pump);
-	}
+
+	*_pump = NULL;
+
+	if (--pump->ref > 0)
+		return;
+
+	iostream_pump_stop(pump);
+
+	o_stream_unref(&pump->output);
+	i_stream_unref(&pump->input);
+	i_free(pump);
 }
 
 void iostream_pump_stop(struct iostream_pump *pump)

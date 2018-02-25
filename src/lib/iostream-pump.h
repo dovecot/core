@@ -48,7 +48,7 @@ void iostream_pump_start(struct iostream_pump *pump);
 void iostream_pump_stop(struct iostream_pump *pump);
 
 void iostream_pump_ref(struct iostream_pump *pump);
-void iostream_pump_unref(struct iostream_pump **pump_r);
+void iostream_pump_unref(struct iostream_pump **_pump);
 
 void iostream_pump_set_completion_callback(struct iostream_pump *pump,
 					   iostream_pump_callback_t *callback, void *context);
