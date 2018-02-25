@@ -78,7 +78,7 @@ static void test_program_client_destroy(struct test_client **_client)
 static int
 test_program_input_handle(struct test_client *client, const char *line)
 {
-	int cmp;
+	int cmp = -1;
 	const char *arg;
 
 	switch(client->state) {
@@ -90,7 +90,10 @@ test_program_input_handle(struct test_client *client, const char *line)
 			return -1;
 		break;
 	case CLIENT_STATE_VERSION:
-		test_assert((cmp = strcmp(line, "-")) == 0);
+		if (strcmp(line, "noreply") == 0 ||
+		    strcmp(line, "-") == 0)
+			cmp = 0;
+		test_assert(cmp == 0);
 		if (cmp == 0)
 			client->state = CLIENT_STATE_ARGS;
 		else
