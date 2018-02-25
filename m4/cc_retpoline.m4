@@ -11,10 +11,7 @@ AC_DEFUN([AC_CC_RETPOLINE],[
             CFLAGS="$CFLAGS -mfunction-return=thunk -mindirect-branch=thunk"
             ],
             [],
-            [AC_LANG_PROGRAM([[
-  #include <pthread.h>
-  __thread unsigned int t_id;
-              ]], [[t_id = 1;]])]
+            [AC_LANG_PROGRAM()]
           )
       esac
     fi
