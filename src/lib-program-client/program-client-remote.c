@@ -1,5 +1,4 @@
-/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file
- */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -25,8 +24,7 @@
 		PROGRAM_CLIENT_VERSION_MAJOR "\t" \
 		PROGRAM_CLIENT_VERSION_MINOR "\n"
 
-static
-void program_client_net_connect_again(struct program_client *pclient);
+static void program_client_net_connect_again(struct program_client *pclient);
 
 /*
  * Script client input stream
@@ -40,8 +38,8 @@ struct program_client_istream {
 	struct program_client *client;
 };
 
-static
-void program_client_istream_destroy(struct iostream_private *stream)
+static void
+program_client_istream_destroy(struct iostream_private *stream)
 {
 	struct program_client_istream *scstream =
 		(struct program_client_istream *) stream;
@@ -102,7 +100,7 @@ program_client_istream_read(struct istream_private *stream)
 		ret = -1;
 	} else
 		do {
-			if ((ret = i_stream_read_memarea(stream->parent)) == -2) {
+			if ((ret=i_stream_read_memarea(stream->parent)) == -2) {
 				return -2;	/* input buffer full */
 			}
 
@@ -120,7 +118,8 @@ program_client_istream_read(struct istream_private *stream)
 			}
 
 			if (stream->buffer != NULL && pos >= 1) {
-				/* retain/hide potential return code at end of buffer */
+				/* retain/hide potential return code at end of
+				   buffer */
 				size_t old_reserved = reserved;
 				ssize_t reserve_mod;
 
@@ -135,7 +134,8 @@ program_client_istream_read(struct istream_private *stream)
 			}
 
 			if (ret <= 0 && stream->parent->eof) {
-				/* Parent EOF and not more data to return; EOF here as well */
+				/* Parent EOF and not more data to return;
+				   EOF here as well */
 				if (pos == 0)
 					i_stream_skip(stream->parent, reserved);
 				stream->istream.eof = TRUE;
@@ -150,14 +150,14 @@ program_client_istream_read(struct istream_private *stream)
 	return ret;
 }
 
-static
-void ATTR_NORETURN program_client_istream_sync(struct istream_private *stream ATTR_UNUSED)
+static void ATTR_NORETURN
+program_client_istream_sync(struct istream_private *stream ATTR_UNUSED)
 {
 	i_panic("program_client_istream sync() not implemented");
 }
 
-static
-int program_client_istream_stat(struct istream_private *stream, bool exact)
+static int
+program_client_istream_stat(struct istream_private *stream, bool exact)
 {
 	struct program_client_istream *scstream =
 		(struct program_client_istream *) stream;
@@ -175,9 +175,9 @@ int program_client_istream_stat(struct istream_private *stream, bool exact)
 	return ret;
 }
 
-static
-struct istream *program_client_istream_create(struct program_client *program_client,
-					      struct istream *input)
+static struct istream *
+program_client_istream_create(struct program_client *program_client,
+			      struct istream *input)
 {
 	struct program_client_istream *scstream;
 
@@ -207,9 +207,6 @@ struct istream *program_client_istream_create(struct program_client *program_cli
 struct program_client_remote {
 	struct program_client client;
 
-	bool noreply:1;
-	bool resolved:1;
-
 	const char *hostname;
 	struct dns_lookup_settings dns_set;
 	struct dns_lookup *lookup;
@@ -219,13 +216,16 @@ struct program_client_remote {
 	in_port_t port;
 
 	struct timeout *to_retry;
+
+	bool noreply:1;
+	bool resolved:1;
 };
 
-static
-void program_client_remote_connected(struct program_client *pclient)
+static void
+program_client_remote_connected(struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
-		(struct program_client_remote *) pclient;
+		(struct program_client_remote *)pclient;
 	const char **args = pclient->args;
 	string_t *str;
 
@@ -275,19 +275,20 @@ void program_client_remote_connected(struct program_client *pclient)
 	(void)program_client_connected(pclient);
 }
 
-static
-int program_client_unix_connect(struct program_client *pclient);
-static
-void program_client_unix_reconnect(struct program_client *pclient)
+static int
+program_client_unix_connect(struct program_client *pclient);
+
+static void
+program_client_unix_reconnect(struct program_client *pclient)
 {
 	(void)program_client_unix_connect(pclient);
 }
 
-static
-int program_client_unix_connect(struct program_client *pclient)
+static int
+program_client_unix_connect(struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
-		(struct program_client_remote *) pclient;
+		(struct program_client_remote *)pclient;
 	int fd;
 
 	if (pclient->set.debug)
@@ -305,8 +306,7 @@ int program_client_unix_connect(struct program_client *pclient)
 		case EAGAIN:
 			prclient->to_retry =
 				timeout_add_short(100,
-						  program_client_unix_reconnect,
-						  pclient);
+					program_client_unix_reconnect, pclient);
 			return 0;
 		default:
 			i_error("net_connect_unix(%s) failed: %m",
@@ -318,13 +318,13 @@ int program_client_unix_connect(struct program_client *pclient)
 	pclient->fd_in = (prclient->noreply && pclient->output == NULL &&
 			  !pclient->output_seekable ? -1 : fd);
 	pclient->fd_out = fd;
-	pclient->io =
-		io_add(fd, IO_WRITE, program_client_remote_connected, pclient);
+	pclient->io = io_add(fd, IO_WRITE,
+			     program_client_remote_connected, pclient);
 	return 0;
 }
 
-static
-void program_client_net_connect_timeout(struct program_client *pclient)
+static void
+program_client_net_connect_timeout(struct program_client *pclient)
 {
 	io_remove(&pclient->io);
 	timeout_remove(&pclient->to);
@@ -332,6 +332,7 @@ void program_client_net_connect_timeout(struct program_client *pclient)
 	i_error("connect(%s) failed: timeout in %u milliseconds", 
 		pclient->path,
 		pclient->set.client_connect_timeout_msecs);
+
 	/* set error to timeout here */
 	pclient->error = PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT;
 	i_close_fd(&pclient->fd_out);
@@ -341,13 +342,15 @@ void program_client_net_connect_timeout(struct program_client *pclient)
 
 /* see if connect succeeded or not, if it did, then proceed
    normally, otherwise try reconnect to next address */
-static
-void program_client_net_connected(struct program_client *pclient)
+static void
+program_client_net_connected(struct program_client *pclient)
 {
 	io_remove(&pclient->io);
+
 	if ((errno = net_geterror(pclient->fd_out)) != 0) {
 		i_error("connect(%s) failed: %m",
 			pclient->path);
+
 		/* disconnect and try again */
 		i_close_fd(&pclient->fd_out);
 		pclient->fd_in = pclient->fd_out = -1;
@@ -358,12 +361,12 @@ void program_client_net_connected(struct program_client *pclient)
 	}
 }
 
-static
-void program_client_net_connect_real(struct program_client *pclient)
+static void
+program_client_net_connect_real(struct program_client *pclient)
 {
-	const char *str;
 	struct program_client_remote *prclient =
-		(struct program_client_remote *) pclient;
+		(struct program_client_remote *)pclient;
+	const char *str;
 
 	timeout_remove(&pclient->to);
 
@@ -388,34 +391,36 @@ void program_client_net_connect_real(struct program_client *pclient)
 				  &net_ip4_any : &net_ip6_any))) < 0) {
 		i_error("connect(%s) failed: %m", pclient->path);
 		prclient->to_retry = timeout_add_short(0,
-						      program_client_net_connect_again,
-						      pclient);
+			program_client_net_connect_again, pclient);
 		return;
 	}
 
 	pclient->fd_in = (prclient->noreply && pclient->output == NULL &&
 			  !pclient->output_seekable ? -1 : fd);
 	pclient->fd_out = fd;
-	pclient->io = io_add(fd, IO_WRITE, program_client_net_connected, pclient);
+	pclient->io = io_add(fd, IO_WRITE,
+			     program_client_net_connected, pclient);
 
 	if (pclient->set.client_connect_timeout_msecs != 0) {
-		pclient->to = timeout_add(pclient->set.client_connect_timeout_msecs,
-					  program_client_net_connect_timeout, pclient);
+		pclient->to = timeout_add(
+			pclient->set.client_connect_timeout_msecs,
+			program_client_net_connect_timeout, pclient);
 	}
 }
 
-static
-void program_client_net_connect_again(struct program_client *pclient)
+static void
+program_client_net_connect_again(struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
-		(struct program_client_remote *) pclient;
-
+		(struct program_client_remote *)pclient;
 	enum program_client_error error = pclient->error;
+
 	pclient->error = PROGRAM_CLIENT_ERROR_NONE;
 
 	if (--prclient->ips_left == 0) {
 		if (prclient->ips_count > 1)
-			i_error("program-client-net: %s: No addresses left to try",
+			i_error("program-client-net: "
+				"%s: No addresses left to try",
 				prclient->hostname);
 		program_client_fail(pclient,
 				    error != PROGRAM_CLIENT_ERROR_NONE ?
@@ -428,12 +433,12 @@ void program_client_net_connect_again(struct program_client *pclient)
 	program_client_net_connect_real(pclient);
 }
 
-static
-void program_client_net_connect_resolved(const struct dns_lookup_result *result,
-					 struct program_client *pclient)
+static void
+program_client_net_connect_resolved(const struct dns_lookup_result *result,
+				    struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
-		(struct program_client_remote *) pclient;
+		(struct program_client_remote *)pclient;
 
 	if (result->ret != 0) {
 		i_error("program-client-net: Cannot resolve '%s': %s",
@@ -448,7 +453,7 @@ void program_client_net_connect_resolved(const struct dns_lookup_result *result,
 		if (pclient->set.client_connect_timeout_msecs <= result->msecs) {
 			/* we ran out of time */
 			program_client_fail(pclient,
-					    PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT);
+				PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT);
 			return;
 		}
 		pclient->set.client_connect_timeout_msecs -= result->msecs;
@@ -462,12 +467,11 @@ void program_client_net_connect_resolved(const struct dns_lookup_result *result,
 	program_client_net_connect_real(pclient);
 }
 
-static
-int program_client_net_connect_init(struct program_client *pclient)
+static int
+program_client_net_connect_init(struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
-		(struct program_client_remote *) pclient;
-
+		(struct program_client_remote *)pclient;
 	struct ip_addr ip;
 
 	if (prclient->ips != NULL) {
@@ -485,9 +489,9 @@ int program_client_net_connect_init(struct program_client *pclient)
 		prclient->hostname = p_strdup(pclient->pool, pclient->path);
 		if (pclient->set.dns_client_socket_path != NULL) {
 			prclient->dns_set.dns_client_socket_path =
-					pclient->set.dns_client_socket_path;
+				pclient->set.dns_client_socket_path;
 			prclient->dns_set.timeout_msecs =
-					pclient->set.client_connect_timeout_msecs;
+				pclient->set.client_connect_timeout_msecs;
 			dns_lookup(pclient->path, &prclient->dns_set,
 				   program_client_net_connect_resolved,
 				   pclient, &prclient->lookup);
@@ -507,22 +511,18 @@ int program_client_net_connect_init(struct program_client *pclient)
 			}
 			prclient->ips_count = ips_count;
 			prclient->ips = p_memdup(pclient->pool,
-						 ips,
-						 sizeof(*ips)*ips_count);
+						 ips, sizeof(*ips)*ips_count);
 		}
 	}
 
 	prclient->ips_left = prclient->ips_count;
 	prclient->to_retry = timeout_add_short(0,
-					       program_client_net_connect_real,
-					       pclient);
-
+		program_client_net_connect_real, pclient);
 	return 0;
 }
 
-
-static
-int program_client_remote_close_output(struct program_client *pclient)
+static int
+program_client_remote_close_output(struct program_client *pclient)
 {
 	int fd_out = pclient->fd_out, fd_in = pclient->fd_in;
 
@@ -533,7 +533,8 @@ int program_client_remote_close_output(struct program_client *pclient)
 	/* Shutdown output; program stdin will get EOF */
 	if (fd_out >= 0) {
 		if (fd_in >= 0) {
-			if (shutdown(fd_out, SHUT_WR) < 0 && errno != ENOTCONN) {
+			if (shutdown(fd_out, SHUT_WR) < 0 &&
+			    errno != ENOTCONN) {
 				i_error("shutdown(%s, SHUT_WR) failed: %m",
 					pclient->path);
 				return -1;
@@ -547,8 +548,8 @@ int program_client_remote_close_output(struct program_client *pclient)
 	return 1;
 }
 
-static
-void program_client_remote_disconnect(struct program_client *pclient, bool force)
+static void
+program_client_remote_disconnect(struct program_client *pclient, bool force)
 {
 	struct program_client_remote *prclient =
 		(struct program_client_remote *)pclient;
@@ -572,8 +573,10 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 		   mark an internal error when not all input is read. This is
 		   generally unlikely to occur. */
 		if (pclient->program_input->stream_errno != 0 ||
-		    i_stream_have_bytes_left(pclient->program_input))
-			pclient->exit_code = PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
+		    i_stream_have_bytes_left(pclient->program_input)) {
+			pclient->exit_code =
+				PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
+		}
 	} else {
 		pclient->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
 	}
@@ -581,11 +584,12 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 	program_client_disconnected(pclient);
 }
 
-static
-void program_client_remote_switch_ioloop(struct program_client *pclient)
+static void
+program_client_remote_switch_ioloop(struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
 		(struct program_client_remote *)pclient;
+
 	if (prclient->to_retry != NULL)
 		prclient->to_retry = io_loop_move_timeout(&prclient->to_retry);
 	if (prclient->lookup != NULL)
@@ -624,12 +628,12 @@ program_client_net_create(const char *host, in_port_t port,
 	pool = pool_alloconly_create("program client net", 1024);
 	pclient = p_new(pool, struct program_client_remote, 1);
 	program_client_init(&pclient->client, pool, host, args, set);
-	pclient->port = port;
 	pclient->client.connect = program_client_net_connect_init;
 	pclient->client.close_output = program_client_remote_close_output;
 	pclient->client.disconnect = program_client_remote_disconnect;
-	pclient->noreply = noreply;
 	pclient->client.set.use_dotstream = TRUE;
+	pclient->port = port;
+	pclient->noreply = noreply;
 	return &pclient->client;
 }
 
@@ -647,17 +651,18 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 
 	pool = pool_alloconly_create("program client net", 1024);
 	pclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&pclient->client, pool, net_ip2addr(ips), args, set);
-	pclient->port = port;
+	program_client_init(&pclient->client, pool, net_ip2addr(ips),
+			    args, set);
 	pclient->client.connect = program_client_net_connect_init;
 	pclient->client.close_output = program_client_remote_close_output;
 	pclient->client.disconnect = program_client_remote_disconnect;
 	pclient->client.switch_ioloop = program_client_remote_switch_ioloop;
-	pclient->noreply = noreply;
 	pclient->client.set.use_dotstream = TRUE;
 	pclient->ips = p_memdup(pool, ips,
 				sizeof(struct ip_addr)*ips_count);
 	pclient->ips_count = ips_count;
+	pclient->port = port;
+	pclient->noreply = noreply;
 	return &pclient->client;
 }
 
