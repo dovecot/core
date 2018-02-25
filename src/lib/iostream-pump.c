@@ -11,7 +11,7 @@
 #undef iostream_pump_set_completion_callback
 
 struct iostream_pump {
-	unsigned int ref;
+	int refcount;
 
 	struct istream *input;
 	struct ostream *output;
@@ -119,7 +119,7 @@ iostream_pump_create(struct istream *input, struct ostream *output)
 
 	/* create pump */
 	pump = i_new(struct iostream_pump, 1);
-	pump->ref = 1;
+	pump->refcount = 1;
 	pump->input = input;
 	pump->output = output;
 
@@ -164,8 +164,9 @@ void iostream_pump_set_completion_callback(struct iostream_pump *pump,
 
 void iostream_pump_ref(struct iostream_pump *pump)
 {
-	i_assert(pump != NULL && pump->ref > 0);
-	pump->ref++;
+	i_assert(pump != NULL);
+	i_assert(pump->refcount > 0);
+	pump->refcount++;
 }
 
 void iostream_pump_unref(struct iostream_pump **pump_r)
@@ -174,8 +175,8 @@ void iostream_pump_unref(struct iostream_pump **pump_r)
 	struct iostream_pump *pump = *pump_r;
 	*pump_r = NULL;
 
-	i_assert(pump->ref > 0);
-	if (--pump->ref == 0) {
+	i_assert(pump->refcount > 0);
+	if (--pump->refcount == 0) {
 		iostream_pump_stop(pump);
 		o_stream_unref(&pump->output);
 		i_stream_unref(&pump->input);
