@@ -1,23 +1,18 @@
-/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file
- */
 #ifndef IOSTREAM_PUMP_H
-#define IOSTREAM_PUMP_H 1
+#define IOSTREAM_PUMP_H
 
-/**
+/* iostream-pump
+   =============
 
-iostream-pump
-=============
+   This construct pumps data from istream to ostream asynchronously.
 
-This construct pumps data from istream to ostream asynchronously.
-
-The pump requires you to provide completion callback. The
-completion callback is called with success parameter to
-indicate whether it ended with error.
-
-The istream and ostream are reffed on creation and unreffed
-on unref.
-
-**/
+   The pump requires you to provide completion callback. The completion
+   callback is called with success parameter to indicate whether it ended
+   with error.
+   
+   The istream and ostream are reffed on creation and unreffed
+   on unref.
+ */
 
 struct istream;
 struct ostream;
@@ -51,10 +46,13 @@ void iostream_pump_ref(struct iostream_pump *pump);
 void iostream_pump_unref(struct iostream_pump **_pump);
 
 void iostream_pump_set_completion_callback(struct iostream_pump *pump,
-					   iostream_pump_callback_t *callback, void *context);
+					   iostream_pump_callback_t *callback,
+					   void *context);
 #define iostream_pump_set_completion_callback(pump, callback, context) \
-	iostream_pump_set_completion_callback(pump, (iostream_pump_callback_t *)callback, context + \
-		CALLBACK_TYPECHECK(callback, void (*)(enum iostream_pump_status, typeof(context))))
+	iostream_pump_set_completion_callback(pump, \
+		(iostream_pump_callback_t *)callback, \
+		context + CALLBACK_TYPECHECK(callback, \
+			void (*)(enum iostream_pump_status, typeof(context))))
 
 /* Returns TRUE if the pump is currently only writing to the ostream. The input
    listener has been removed either because the ostream buffer is full or
