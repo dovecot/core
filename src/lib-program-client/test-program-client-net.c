@@ -57,7 +57,8 @@ struct test_client {
 		CLIENT_STATE_INIT,
 		CLIENT_STATE_VERSION,
 		CLIENT_STATE_ARGS,
-		CLIENT_STATE_BODY
+		CLIENT_STATE_BODY,
+		CLIENT_STATE_FINISH
 	} state;
 };
 
@@ -147,10 +148,15 @@ test_program_input_handle(struct test_client *client, const char *line)
 			client->body =
 				iostream_temp_finish(&client->os_body, -1);
 			i_stream_unref(&client->is_body);
-			return 1;
+			client->state = CLIENT_STATE_FINISH;
+			return 0;
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 			i_panic("Cannot write to ostream-temp");
 		}
+		break;
+	case CLIENT_STATE_FINISH:
+		if (i_stream_read_eof(client->in))
+			return 1;
 		break;
 	}
 	return 0;
@@ -197,11 +203,11 @@ static void test_program_input(struct test_client *client)
 	int ret = 0;
 
 	while (ret >= 0) {
-		if (client->state == CLIENT_STATE_BODY) {
+		if (client->state >= CLIENT_STATE_BODY) {
 			ret = test_program_input_handle(client, NULL);
 			break;
 		}
-		while (client->state != CLIENT_STATE_BODY) {
+		while (client->state < CLIENT_STATE_BODY) {
 			line = i_stream_read_next_line(client->in);
 			if (line == NULL) {
 				ret = 0;
@@ -221,7 +227,7 @@ static void test_program_input(struct test_client *client)
 	if (!client->in->eof)
 		return;
 
-	if (client->state != CLIENT_STATE_BODY)
+	if (client->state < CLIENT_STATE_FINISH)
 		i_warning("Client prematurely disconnected");
 
 	io_remove(&client->io);
