@@ -106,8 +106,10 @@ test_program_input_handle(struct test_client *client, const char *line)
 		array_push_back(&client->args, &arg);
 		break;
 	case CLIENT_STATE_BODY:
-		client->os_body = iostream_temp_create_named(
-			".dovecot.test.", 0, "test_program_input body");
+		if (client->os_body == NULL) {
+			client->os_body = iostream_temp_create_named(
+				".dovecot.test.", 0, "test_program_input body");
+		}
 		switch(o_stream_send_istream(client->os_body, client->in)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 			i_panic("Cannot write to ostream-temp: %s",
