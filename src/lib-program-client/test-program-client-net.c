@@ -214,8 +214,10 @@ static void test_program_input(struct test_client *client)
 		}
 	}
 
-	if (ret < 0 || client->in->stream_errno != 0)
+	if (ret < 0 || client->in->stream_errno != 0) {
+		test_program_client_destroy(&client);
 		return;
+	}
 	if (!client->in->eof)
 		return;
 
