@@ -341,6 +341,27 @@ program_client_local_exited(struct program_client_local *plclient)
 }
 
 static void
+program_client_local_kill_now(struct program_client_local *plclient)
+{
+	if (plclient->child_wait != NULL) {
+		/* no need for this anymore */
+		child_wait_free(&plclient->child_wait);
+	}
+
+	if (plclient->pid < 0)
+		return;
+
+	/* kill it brutally now: it should die right away */
+	if (kill(plclient->pid, SIGKILL) < 0) {
+		i_error("failed to send SIGKILL signal to program `%s'",
+			plclient->client.path);
+	} else if (waitpid(plclient->pid, &plclient->status, 0) < 0) {
+		i_error("waitpid(%s) failed: %m",
+			plclient->client.path);
+	}
+}
+
+static void
 program_client_local_kill(struct program_client_local *plclient)
 {
 	/* time to die */
@@ -352,9 +373,6 @@ program_client_local_kill(struct program_client_local *plclient)
 		plclient->client.error = PROGRAM_CLIENT_ERROR_RUN_TIMEOUT;
 
 	if (plclient->sent_term) {
-		/* no need for this anymore */
-		child_wait_free(&plclient->child_wait);
-
 		/* Timed out again */
 		if (plclient->client.debug) {
 			i_debug("program `%s' (%d) did not die after %d milliseconds: "
@@ -362,14 +380,7 @@ program_client_local_kill(struct program_client_local *plclient)
 				plclient->client.path, plclient->pid, KILL_TIMEOUT);
 		}
 
-		/* Kill it brutally now, it should die right away */
-		if (kill(plclient->pid, SIGKILL) < 0) {
-			i_error("failed to send SIGKILL signal to program `%s'",
-				plclient->client.path);
-		} else if (waitpid(plclient->pid, &plclient->status, 0) < 0) {
-			i_error("waitpid(%s) failed: %m",
-				plclient->client.path);
-		}
+		program_client_local_kill_now(plclient);
 		program_client_local_exited(plclient);
 		return;
 	}
@@ -453,8 +464,12 @@ program_client_local_disconnect(struct program_client *pclient, bool force)
 }
 
 static void
-program_client_local_destroy(struct program_client *pclient ATTR_UNUSED)
+program_client_local_destroy(struct program_client *pclient)
 {
+	struct program_client_local *plclient =
+		(struct program_client_local *)pclient;
+
+	program_client_local_kill_now(plclient);
 	child_wait_deinit();
 }
 
