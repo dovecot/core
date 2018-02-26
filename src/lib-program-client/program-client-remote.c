@@ -271,7 +271,7 @@ program_client_remote_connected(struct program_client_remote *prclient)
 		return;
 	}
 
-	(void)program_client_connected(pclient);
+	program_client_connected(pclient);
 }
 
 static int

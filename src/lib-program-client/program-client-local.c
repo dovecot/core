@@ -273,7 +273,8 @@ program_client_local_connect(struct program_client *pclient)
 		child_wait_new_with_pid(plclient->pid,
 					program_client_local_waitchild,
 					plclient);
-	return program_client_connected(pclient);
+	program_client_connected(pclient);
+	return 0;
 }
 
 static int
