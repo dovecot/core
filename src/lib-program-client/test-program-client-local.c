@@ -10,6 +10,8 @@
 #include "lib-signals.h"
 #include "program-client.h"
 
+#include <unistd.h>
+
 static const char *pclient_test_io_string = 
 	"Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
 	"Praesent vehicula ac leo vel placerat. Nullam placerat \n"
@@ -24,7 +26,7 @@ static const char *pclient_test_io_string =
 static struct program_client_settings pc_set = {
 	.client_connect_timeout_msecs = 5000,
 	.input_idle_timeout_msecs = 10000,
-	.debug = TRUE,
+	.debug = FALSE,
 	.restrict_set = {
 		.uid = (uid_t)-1,
 		.gid = (gid_t)-1,
@@ -224,10 +226,10 @@ static void test_program_io_big(void)
 	test_end();
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	struct ioloop *ioloop;
-	int ret;
+	int ret, c;
 
 	void (*tests[])(void) = {
 		test_program_success,
@@ -239,6 +241,16 @@ int main(void)
 	};
 
 	lib_init();
+
+	while ((c = getopt(argc, argv, "D")) > 0) {
+		switch (c) {
+		case 'D':
+			pc_set.debug = TRUE;
+			break;
+		default:
+			i_fatal("Usage: %s [-D]", argv[0]);
+		}
+	}
 
 	ioloop = io_loop_create();
 	lib_signals_init();
