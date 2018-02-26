@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "safe-mkstemp.h"
 #include "istream-private.h"
 #include "ostream-dot.h"
@@ -60,6 +61,8 @@ program_client_connect_timeout(struct program_client *pclient)
 static int
 program_client_connect(struct program_client *pclient)
 {
+	e_debug(pclient->event, "Establishing connection");
+
 	if (pclient->set.client_connect_timeout_msecs != 0) {
 		pclient->to = timeout_add(
 			pclient->set.client_connect_timeout_msecs,
@@ -122,6 +125,8 @@ program_client_do_disconnect(struct program_client *pclient)
 
 	program_client_disconnect_extra_fds(pclient);
 
+	if (!pclient->disconnected)
+		e_debug(pclient->event, "Disconnected");
 	pclient->disconnected = TRUE;
 }
 
@@ -155,6 +160,8 @@ void program_client_fail(struct program_client *pclient,
 {
 	if (pclient->error != PROGRAM_CLIENT_ERROR_NONE)
 		return;
+
+	e_debug(pclient->event, "Failed to run program");
 
 	pclient->error = error;
 	program_client_disconnect(pclient, TRUE);
@@ -197,6 +204,8 @@ program_client_input_pending(struct program_client *pclient)
 static void
 program_client_output_finished(struct program_client *pclient)
 {
+	e_debug(pclient->event, "Finished input to program");
+
 	/* check whether program i/o is finished */
 	if (!program_client_input_pending(pclient)) {
 		/* finished */
@@ -259,6 +268,8 @@ program_client_output_pump_finished(enum iostream_pump_status status,
 
 	iostream_pump_destroy(&pclient->pump_out);
 
+	e_debug(pclient->event, "Finished streaming payload to program");
+
 	o_stream_set_flush_callback(pclient->program_output,
 		program_client_output_finish, pclient);
 	o_stream_set_flush_pending(pclient->program_output, TRUE);
@@ -267,6 +278,8 @@ program_client_output_pump_finished(enum iostream_pump_status status,
 static void
 program_client_input_finished(struct program_client *pclient)
 {
+	e_debug(pclient->event, "Finished output from program");
+
 	/* check whether program i/o is finished */
 	if (program_client_input_pending(pclient))
 		return;
@@ -347,6 +360,8 @@ program_client_input_pump_finished(enum iostream_pump_status status,
 
 	iostream_pump_destroy(&pclient->pump_in);
 
+	e_debug(pclient->event, "Finished streaming payload from program");
+
 	if (pclient->program_input != pclient->raw_program_input) {
 		/* return to raw program input */
 		i_stream_unref(&pclient->program_input);
@@ -376,6 +391,8 @@ program_client_extra_fd_input(struct program_client_extra_fd *efd)
 
 void program_client_connected(struct program_client *pclient)
 {
+	e_debug(pclient->event, "Connected to program");
+
 	/* finish creating program input */
 	if (pclient->raw_program_input != NULL) {
 		struct istream *input = pclient->raw_program_input;
@@ -458,6 +475,8 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 	if ((set != NULL && set->debug))
 		event_set_forced_debug(pclient->event, TRUE);
 	program_client_set_label(pclient, initial_label);
+
+	e_debug(pclient->event, "Created");
 }
 
 void program_client_set_input(struct program_client *pclient,
@@ -537,6 +556,9 @@ void program_client_set_env(struct program_client *pclient, const char *name,
 
 	env = p_strdup_printf(pclient->pool, "%s=%s", name, value);
 	array_append(&pclient->envs, &env, 1);
+
+	e_debug(pclient->event, "Pass environment: %s",
+		str_sanitize(env, 256));
 }
 
 void program_client_init_streams(struct program_client *pclient)
@@ -584,6 +606,8 @@ void program_client_destroy(struct program_client **_pclient)
 	struct program_client *pclient = *_pclient;
 
 	*_pclient = NULL;
+
+	e_debug(pclient->event, "Destroy");
 
 	pclient->destroying = TRUE;
 	pclient->callback = NULL;

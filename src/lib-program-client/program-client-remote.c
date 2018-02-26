@@ -447,6 +447,9 @@ program_client_net_connect_resolved(const struct dns_lookup_result *result,
 		return;
 	}
 
+	e_debug(pclient->event, "DNS lookup successful; got %d IPs",
+		result->ips_count);
+
 	/* reduce timeout */
 	if (pclient->set.client_connect_timeout_msecs > 0) {
 		if (pclient->set.client_connect_timeout_msecs <= result->msecs) {
@@ -483,6 +486,8 @@ program_client_net_connect_init(struct program_client *pclient)
 	} else {
 		prclient->resolved = FALSE;
 		if (pclient->set.dns_client_socket_path != NULL) {
+			e_debug(pclient->event,
+				"Performing asynchronous DNS lookup");
 			prclient->dns_set.dns_client_socket_path =
 				pclient->set.dns_client_socket_path;
 			prclient->dns_set.timeout_msecs =
@@ -507,6 +512,10 @@ program_client_net_connect_init(struct program_client *pclient)
 			prclient->ips_count = ips_count;
 			prclient->ips = p_memdup(pclient->pool,
 						 ips, sizeof(*ips)*ips_count);
+
+			e_debug(pclient->event,
+				"DNS lookup successful; got %d IPs",
+				ips_count);
 		}
 	}
 
