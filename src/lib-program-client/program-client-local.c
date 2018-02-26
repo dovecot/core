@@ -469,6 +469,8 @@ program_client_local_destroy(struct program_client *pclient)
 	struct program_client_local *plclient =
 		(struct program_client_local *)pclient;
 
+	timeout_remove(&plclient->to_kill);
+
 	program_client_local_kill_now(plclient);
 	child_wait_deinit();
 }
