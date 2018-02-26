@@ -119,7 +119,6 @@ liblib_la_SOURCES = \
 	numpack.c \
 	ostream.c \
 	ostream-buffer.c \
-	ostream-escaped.c \
 	ostream-failure-at.c \
 	ostream-file.c \
 	ostream-hash.c \
@@ -272,7 +271,6 @@ headers = \
 	nfs-workarounds.h \
 	numpack.h \
 	ostream.h \
-	ostream-escaped.h \
 	ostream-failure-at.h \
 	ostream-file-private.h \
 	ostream-hash.h \
@@ -388,7 +386,6 @@ test_lib_SOURCES = \
 	test-net.c \
 	test-numpack.c \
 	test-ostream-buffer.c \
-	test-ostream-escaped.c \
 	test-ostream-failure-at.c \
 	test-ostream-file.c \
 	test-ostream-multiplex.c \
