@@ -73,7 +73,6 @@ struct auth_settings {
 	const char *verbose_passwords;
 	bool ssl_require_client_cert;
 	bool ssl_username_from_cert;
-	boot auth_external_ignore_authzid;
 	bool use_winbind;
 
 	unsigned int worker_max_count;
