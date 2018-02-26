@@ -138,7 +138,7 @@ master_service_settings_cache_fix_input(struct master_service_settings_cache *ca
 				      filter->remote_bits))
 			found_rip = TRUE;
 		if (input->local_name != NULL && filter->local_name != NULL &&
-		    dns_match_wildcard(input->local_name, filter->local_name))
+		    dns_match_wildcard(input->local_name, filter->local_name) == 0)
 			found_local_name = TRUE;
 		filter = filter->next;
 	};
