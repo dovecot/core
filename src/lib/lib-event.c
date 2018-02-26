@@ -46,6 +46,75 @@ static void event_copy_parent_defaults(struct event *event,
 	event->forced_debug = parent->forced_debug;
 }
 
+static bool
+event_find_category(struct event *event, const struct event_category *category);
+
+static struct event_field *
+event_find_field_int(struct event *event, const char *key);
+
+void event_copy_categories_fields(struct event *to, struct event *from)
+{
+	unsigned int cat_count;
+	struct event_category *const *categories = event_get_categories(from, &cat_count);
+	while (cat_count-- > 0)
+		event_add_category(to, categories[cat_count]);
+	const struct event_field *fld;
+	if (!array_is_created(&from->fields))
+		return;
+	array_foreach(&from->fields, fld) {
+		switch (fld->value_type) {
+		case EVENT_FIELD_VALUE_TYPE_STR:
+			event_add_str(to, fld->key, fld->value.str);
+			break;
+		case EVENT_FIELD_VALUE_TYPE_INTMAX:
+			event_add_int(to, fld->key, fld->value.intmax);
+			break;
+		case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+			event_add_timeval(to, fld->key, &fld->value.timeval);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+bool event_has_all_categories(struct event *event, const struct event *other)
+{
+	struct event_category **cat;
+	if (!array_is_created(&other->categories))
+		return TRUE;
+	if (!array_is_created(&event->categories))
+		return FALSE;
+	array_foreach_modifiable(&other->categories, cat) {
+		if (!event_find_category(event, *cat))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+bool event_has_all_fields(struct event *event, const struct event *other)
+{
+	struct event_field *fld;
+	if (!array_is_created(&other->fields))
+		return TRUE;
+	array_foreach_modifiable(&other->fields, fld) {
+		if (event_find_field_int(event, fld->key) == NULL)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+struct event *event_dup(const struct event *source)
+{
+	struct event *ret = event_create(source->parent);
+	string_t *str = t_str_new(256);
+	const char *err;
+	event_export(source, str);
+	if (!event_import(ret, str_c(str), &err))
+		i_panic("event_import(%s) failed: %s", str_c(str), err);
+	return ret;
+}
+
 #undef event_create
 struct event *event_create(struct event *parent, const char *source_filename,
 			   unsigned int source_linenum)
