@@ -30,7 +30,7 @@ static const char *pclient_test_io_string =
 static struct program_client_settings pc_set = {
 	.client_connect_timeout_msecs = 5000,
 	.input_idle_timeout_msecs = 10000,
-	.debug = TRUE,
+	.debug = FALSE,
 };
 
 static struct test_server {
@@ -477,8 +477,10 @@ static void test_program_refused(void)
 	test_end();
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
+	int ret, c;
+
 	void (*tests[])(void) = {
 		test_program_setup,
 		test_program_success,
@@ -490,5 +492,20 @@ int main(void)
 		NULL
 	};
 
-	return test_run(tests);
+	lib_init();
+
+	while ((c = getopt(argc, argv, "D")) > 0) {
+		switch (c) {
+		case 'D':
+			pc_set.debug = TRUE;
+			break;
+		default:
+			i_fatal("Usage: %s [-D]", argv[0]);
+		}
+	}
+
+	ret = test_run(tests);
+
+	lib_deinit();
+	return ret;
 }
