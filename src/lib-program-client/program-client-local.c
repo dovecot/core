@@ -130,16 +130,17 @@ static void
 program_client_local_waitchild(const struct child_wait_status *status,
 			       struct program_client_local *plclient)
 {
+	struct program_client *pclient = &plclient->client;
+
 	i_assert(plclient->pid == status->pid);
 
 	plclient->status = status->status;
 	plclient->exited = TRUE;
 	plclient->pid = -1;
 
-	if (plclient->stopping)
+	if (plclient->stopping ||
+	    (pclient->fd_in < 0 && pclient->fd_out < 0))
 		program_client_local_exited(plclient);
-	else
-		program_client_program_input(&plclient->client);
 }
 
 static int
