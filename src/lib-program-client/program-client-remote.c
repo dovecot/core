@@ -601,19 +601,19 @@ program_client_unix_create(const char *socket_path, const char *const *args,
 			   const struct program_client_settings *set,
 			   bool noreply)
 {
-	struct program_client_remote *pclient;
+	struct program_client_remote *prclient;
 	pool_t pool;
 
 	pool = pool_alloconly_create("program client unix", 1024);
-	pclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&pclient->client, pool, socket_path, args, set);
-	pclient->client.connect = program_client_unix_connect;
-	pclient->client.close_output = program_client_remote_close_output;
-	pclient->client.disconnect = program_client_remote_disconnect;
-	pclient->client.switch_ioloop = program_client_remote_switch_ioloop;
-	pclient->noreply = noreply;
+	prclient = p_new(pool, struct program_client_remote, 1);
+	program_client_init(&prclient->client, pool, socket_path, args, set);
+	prclient->client.connect = program_client_unix_connect;
+	prclient->client.close_output = program_client_remote_close_output;
+	prclient->client.disconnect = program_client_remote_disconnect;
+	prclient->client.switch_ioloop = program_client_remote_switch_ioloop;
+	prclient->noreply = noreply;
 
-	return &pclient->client;
+	return &prclient->client;
 }
 
 struct program_client *
@@ -622,19 +622,19 @@ program_client_net_create(const char *host, in_port_t port,
 			  const struct program_client_settings *set,
 			  bool noreply)
 {
-	struct program_client_remote *pclient;
+	struct program_client_remote *prclient;
 	pool_t pool;
 
 	pool = pool_alloconly_create("program client net", 1024);
-	pclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&pclient->client, pool, host, args, set);
-	pclient->client.connect = program_client_net_connect_init;
-	pclient->client.close_output = program_client_remote_close_output;
-	pclient->client.disconnect = program_client_remote_disconnect;
-	pclient->client.set.use_dotstream = TRUE;
-	pclient->port = port;
-	pclient->noreply = noreply;
-	return &pclient->client;
+	prclient = p_new(pool, struct program_client_remote, 1);
+	program_client_init(&prclient->client, pool, host, args, set);
+	prclient->client.connect = program_client_net_connect_init;
+	prclient->client.close_output = program_client_remote_close_output;
+	prclient->client.disconnect = program_client_remote_disconnect;
+	prclient->client.set.use_dotstream = TRUE;
+	prclient->port = port;
+	prclient->noreply = noreply;
+	return &prclient->client;
 }
 
 struct program_client *
@@ -644,25 +644,25 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 			      const struct program_client_settings *set,
 			      bool noreply)
 {
-	struct program_client_remote *pclient;
+	struct program_client_remote *prclient;
 	pool_t pool;
 
 	i_assert(ips != NULL && ips_count > 0);
 
 	pool = pool_alloconly_create("program client net", 1024);
-	pclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&pclient->client, pool, net_ip2addr(ips),
+	prclient = p_new(pool, struct program_client_remote, 1);
+	program_client_init(&prclient->client, pool, net_ip2addr(ips),
 			    args, set);
-	pclient->client.connect = program_client_net_connect_init;
-	pclient->client.close_output = program_client_remote_close_output;
-	pclient->client.disconnect = program_client_remote_disconnect;
-	pclient->client.switch_ioloop = program_client_remote_switch_ioloop;
-	pclient->client.set.use_dotstream = TRUE;
-	pclient->ips = p_memdup(pool, ips,
-				sizeof(struct ip_addr)*ips_count);
-	pclient->ips_count = ips_count;
-	pclient->port = port;
-	pclient->noreply = noreply;
-	return &pclient->client;
+	prclient->client.connect = program_client_net_connect_init;
+	prclient->client.close_output = program_client_remote_close_output;
+	prclient->client.disconnect = program_client_remote_disconnect;
+	prclient->client.switch_ioloop = program_client_remote_switch_ioloop;
+	prclient->client.set.use_dotstream = TRUE;
+	prclient->ips = p_memdup(pool, ips,
+				 sizeof(struct ip_addr)*ips_count);
+	prclient->ips_count = ips_count;
+	prclient->port = port;
+	prclient->noreply = noreply;
+	return &prclient->client;
 }
 
