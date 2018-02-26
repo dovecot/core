@@ -350,10 +350,8 @@ program_client_extra_fd_input(struct program_client_extra_fd *efd)
 	}
 }
 
-int program_client_connected(struct program_client *pclient)
+void program_client_connected(struct program_client *pclient)
 {
-	int ret = 1;
-
 	/* finish creating program input */
 	if (pclient->raw_program_input != NULL) {
 		struct istream *input = pclient->raw_program_input;
@@ -400,8 +398,6 @@ int program_client_connected(struct program_client *pclient)
 			program_client_output_pump_finished, pclient);
 		iostream_pump_start(pclient->pump_out);
 	}
-
-	return ret;
 }
 
 void program_client_init(struct program_client *pclient, pool_t pool,
