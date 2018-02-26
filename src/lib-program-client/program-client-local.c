@@ -142,6 +142,8 @@ program_client_local_waitchild(const struct child_wait_status *status,
 
 	i_assert(plclient->pid == status->pid);
 
+	e_debug(pclient->event, "Child process ended");
+
 	plclient->status = status->status;
 	plclient->exited = TRUE;
 	plclient->pid = -1;
@@ -267,6 +269,8 @@ program_client_local_connect(struct program_client *pclient)
 	}
 
 	/* parent */
+	e_debug(pclient->event, "Forked child process");
+
 	program_client_set_label(pclient,
 		t_strdup_printf("exec:%s (%d)", plclient->bin_path,
 				plclient->pid));
@@ -386,6 +390,8 @@ program_client_local_kill_now(struct program_client_local *plclient)
 	if (plclient->pid < 0)
 		return;
 
+	e_debug(pclient->event, "Sending SIGKILL signal to program");
+
 	/* kill it brutally now: it should die right away */
 	if (kill(plclient->pid, SIGKILL) < 0) {
 		e_error(pclient->event,
@@ -468,6 +474,7 @@ program_client_local_disconnect(struct program_client *pclient, bool force)
 
 	/* make sure it hasn't already been reaped */
 	if (waitpid(plclient->pid, &plclient->status, WNOHANG) > 0) {
+		e_debug(pclient->event, "Child process ended");
 		program_client_local_exited(plclient);
 		return;
 	}
