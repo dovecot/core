@@ -547,37 +547,13 @@ program_client_remote_close_output(struct program_client *pclient)
 }
 
 static void
-program_client_remote_disconnect(struct program_client *pclient, bool force)
+program_client_remote_disconnect(struct program_client *pclient,
+				 bool force ATTR_UNUSED)
 {
 	struct program_client_remote *prclient =
 		(struct program_client_remote *)pclient;
 
 	timeout_remove(&prclient->to_retry);
-
-	if (pclient->raw_program_input == NULL) {
-		/* nothing */
-	} else if (pclient->error == PROGRAM_CLIENT_ERROR_NONE &&
-		   !prclient->noreply && !force) {
-		const unsigned char *data;
-		size_t size;
-
-		/* Skip any remaining program output and parse the exit code */
-		while (i_stream_read_more
-			(pclient->raw_program_input, &data, &size) > 0) {
-			i_stream_skip(pclient->raw_program_input, size);
-		}
-
-		/* Check for error and EOF. Since we're disconnected, always
-		   mark an internal error when not all input is read. This is
-		   generally unlikely to occur. */
-		if (pclient->raw_program_input->stream_errno != 0 ||
-		    i_stream_have_bytes_left(pclient->raw_program_input)) {
-			pclient->exit_code =
-				PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
-		}
-	} else {
-		pclient->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
-	}
 
 	program_client_disconnected(pclient);
 }
