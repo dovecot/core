@@ -20,6 +20,13 @@
 #define MAX_OUTPUT_BUFFER_SIZE 16384
 #define MAX_OUTPUT_MEMORY_BUFFER (1024*128)
 
+void program_client_set_label(struct program_client *pclient,
+			      const char *label)
+{
+	event_set_append_log_prefix(pclient->event,
+		t_strconcat("program ", label, ": ", NULL));
+}
+
 static void
 program_client_callback(struct program_client *pclient, int result,
 			void *context)
@@ -35,16 +42,18 @@ program_client_callback(struct program_client *pclient, int result,
 static void
 program_client_timeout(struct program_client *pclient)
 {
-	i_error("program `%s' execution timed out (> %u msecs)",
-		pclient->path, pclient->set.input_idle_timeout_msecs);
+	e_error(pclient->event,
+		"Execution timed out (> %u msecs)",
+		pclient->set.input_idle_timeout_msecs);
 	program_client_fail(pclient, PROGRAM_CLIENT_ERROR_RUN_TIMEOUT);
 }
 
 static void
 program_client_connect_timeout(struct program_client *pclient)
 {
-	i_error("program `%s' socket connection timed out (> %u msecs)",
-		pclient->path, pclient->set.client_connect_timeout_msecs);
+	e_error(pclient->event,
+		"Connection timed out (> %u msecs)",
+		pclient->set.client_connect_timeout_msecs);
 	program_client_fail(pclient, PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT);
 }
 
@@ -207,7 +216,8 @@ program_client_output_finish(struct program_client *pclient)
 
 	/* flush the output */
 	if ((ret=o_stream_finish(output)) < 0) {
-		i_error("write(%s) failed: %s",
+		e_error(pclient->event,
+			"write(%s) failed: %s",
 			o_stream_get_name(output),
 			o_stream_get_error(output));
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
@@ -232,13 +242,15 @@ program_client_output_pump_finished(enum iostream_pump_status status,
 	case IOSTREAM_PUMP_STATUS_INPUT_EOF:
 		break;
 	case IOSTREAM_PUMP_STATUS_INPUT_ERROR:
-		i_error("read(%s) failed: %s",
+		e_error(pclient->event,
+			"read(%s) failed: %s",
 			i_stream_get_name(input),
 			i_stream_get_error(input));
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 		return;
 	case IOSTREAM_PUMP_STATUS_OUTPUT_ERROR:
-		i_error("write(%s) failed: %s",
+		e_error(pclient->event,
+			"write(%s) failed: %s",
 			o_stream_get_name(output),
 			o_stream_get_error(output));
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
@@ -278,7 +290,8 @@ program_client_input_finish(struct program_client *pclient)
 		return;
 	if (ret < 0) {
 		if (input->stream_errno != 0) {
-			i_error("read(%s) failed: %s",
+			e_error(pclient->event,
+				"read(%s) failed: %s",
 				i_stream_get_name(input),
 				i_stream_get_error(input));
 			program_client_fail(pclient,
@@ -317,13 +330,15 @@ program_client_input_pump_finished(enum iostream_pump_status status,
 	case IOSTREAM_PUMP_STATUS_INPUT_EOF:
 		break;
 	case IOSTREAM_PUMP_STATUS_INPUT_ERROR:
-		i_error("read(%s) failed: %s",
+		e_error(pclient->event,
+			"read(%s) failed: %s",
 			i_stream_get_name(input),
 			i_stream_get_error(input));
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 		return;
 	case IOSTREAM_PUMP_STATUS_OUTPUT_ERROR:
-		i_error("write(%s) failed: %s",
+		e_error(pclient->event,
+			"write(%s) failed: %s",
 			o_stream_get_name(output),
 			o_stream_get_error(output));
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
@@ -428,18 +443,21 @@ void program_client_connected(struct program_client *pclient)
 }
 
 void program_client_init(struct program_client *pclient, pool_t pool,
-			 const char *path,
-			 const char *const *args,
+			 const char *initial_label, const char *const *args,
 			 const struct program_client_settings *set)
 {
 	pclient->pool = pool;
-	pclient->path = p_strdup(pool, path);
 	if (args != NULL)
 		pclient->args = p_strarray_dup(pool, args);
 	pclient->set = *set;
 	pclient->debug = set->debug;
 	pclient->fd_in = -1;
 	pclient->fd_out = -1;
+
+	pclient->event = event_create(set->event);
+	if ((set != NULL && set->debug))
+		event_set_forced_debug(pclient->event, TRUE);
+	program_client_set_label(pclient, initial_label);
 }
 
 void program_client_set_input(struct program_client *pclient,
@@ -584,6 +602,8 @@ void program_client_destroy(struct program_client **_pclient)
 
 	if (pclient->destroy != NULL)
 		pclient->destroy(pclient);
+
+	event_unref(&pclient->event);
 
 	pool_unref(&pclient->pool);
 }
