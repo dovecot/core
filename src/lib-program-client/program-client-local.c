@@ -472,20 +472,20 @@ program_client_local_create(const char *bin_path,
 			    const char *const *args,
 			    const struct program_client_settings *set)
 {
-	struct program_client_local *pclient;
+	struct program_client_local *plclient;
 	pool_t pool;
 
 	pool = pool_alloconly_create("program client local", 1024);
-	pclient = p_new(pool, struct program_client_local, 1);
-	program_client_init(&pclient->client, pool, bin_path, args, set);
-	pclient->client.connect = program_client_local_connect;
-	pclient->client.close_output = program_client_local_close_output;
-	pclient->client.switch_ioloop = program_client_local_switch_ioloop;
-	pclient->client.disconnect = program_client_local_disconnect;
-	pclient->client.destroy = program_client_local_destroy;
-	pclient->pid = -1;
+	plclient = p_new(pool, struct program_client_local, 1);
+	program_client_init(&plclient->client, pool, bin_path, args, set);
+	plclient->client.connect = program_client_local_connect;
+	plclient->client.close_output = program_client_local_close_output;
+	plclient->client.switch_ioloop = program_client_local_switch_ioloop;
+	plclient->client.disconnect = program_client_local_disconnect;
+	plclient->client.destroy = program_client_local_destroy;
+	plclient->pid = -1;
 
 	child_wait_init();
 
-	return &pclient->client;
+	return &plclient->client;
 }
