@@ -98,6 +98,7 @@ void program_client_disconnected(struct program_client *pclient)
 	i_stream_destroy(&pclient->raw_program_input);
 	o_stream_destroy(&pclient->raw_program_output);
 
+	timeout_remove(&pclient->to);
 	io_remove(&pclient->io);
 	iostream_pump_destroy(&pclient->pump_out);
 
