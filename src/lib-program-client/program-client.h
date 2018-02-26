@@ -16,6 +16,9 @@ struct program_client_settings {
 	const char *dns_client_socket_path;
 	const char *home;
 
+	/* Event to use for the program client. */
+	struct event *event;
+
 	bool allow_root:1;
 	bool debug:1;
 	bool drop_stderr:1;

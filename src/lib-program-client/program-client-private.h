@@ -32,9 +32,10 @@ struct program_client {
 	pool_t pool;
 	struct program_client_settings set;
 
-	char *path;
 	const char **args;
 	ARRAY_TYPE(const_string) envs;
+
+	struct event *event;
 
 	int fd_in, fd_out;
 	struct io *io;
@@ -67,8 +68,11 @@ struct program_client {
 	bool destroying:1;
 };
 
+void program_client_set_label(struct program_client *pclient,
+			      const char *label);
+
 void program_client_init(struct program_client *pclient, pool_t pool,
-			 const char *path,
+			 const char *initial_label,
 			 const char *const *args,
 			 const struct program_client_settings *set);
 

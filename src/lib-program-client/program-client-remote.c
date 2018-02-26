@@ -206,7 +206,7 @@ program_client_istream_create(struct program_client *program_client,
 struct program_client_remote {
 	struct program_client client;
 
-	const char *hostname;
+	const char *address;
 	struct dns_lookup_settings dns_set;
 	struct dns_lookup *lookup;
 	unsigned int ips_count;
@@ -218,6 +218,7 @@ struct program_client_remote {
 
 	bool noreply:1;
 	bool resolved:1;
+	bool have_hostname:1;
 };
 
 static void
@@ -265,7 +266,8 @@ program_client_remote_connected(struct program_client_remote *prclient)
 
 	if (o_stream_send(pclient->raw_program_output,
 			  str_data(str), str_len(str)) < 0) {
-		i_error("write(%s) failed: %s",
+		e_error(pclient->event,
+			"write(%s) failed: %s",
 			o_stream_get_name(pclient->raw_program_output),
 			o_stream_get_error(pclient->raw_program_output));
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
@@ -291,25 +293,25 @@ program_client_unix_connect(struct program_client *pclient)
 		(struct program_client_remote *)pclient;
 	int fd;
 
-	if (pclient->set.debug)
-		i_debug("Trying to connect %s", pclient->path);
+	e_debug(pclient->event, "Trying to connect");
 
 	timeout_remove(&prclient->to_retry);
 
-	if ((fd = net_connect_unix(pclient->path)) < 0) {
+	if ((fd = net_connect_unix(prclient->address)) < 0) {
 		switch (errno) {
 		case EACCES:
-			i_error("%s",
+			e_error(pclient->event, "%s",
 				eacces_error_get("net_connect_unix",
-						 pclient->path));
+						 prclient->address));
 			return -1;
 		case EAGAIN:
 			prclient->to_retry = timeout_add_short(100,
 				program_client_unix_reconnect, prclient);
 			return 0;
 		default:
-			i_error("net_connect_unix(%s) failed: %m",
-				pclient->path);
+			e_error(pclient->event,
+				"net_connect_unix(%s) failed: %m",
+				prclient->address);
 			return -1;
 		}
 	}
@@ -330,8 +332,8 @@ program_client_net_connect_timeout(struct program_client_remote *prclient)
 	io_remove(&pclient->io);
 	timeout_remove(&pclient->to);
 
-	i_error("connect(%s) failed: timeout in %u milliseconds", 
-		pclient->path,
+	e_error(pclient->event, "connect(%s) failed: "
+		"Timeout in %u milliseconds", prclient->address,
 		pclient->set.client_connect_timeout_msecs);
 
 	/* set error to timeout here */
@@ -351,8 +353,8 @@ program_client_net_connected(struct program_client_remote *prclient)
 	io_remove(&pclient->io);
 
 	if ((errno = net_geterror(pclient->fd_out)) != 0) {
-		i_error("connect(%s) failed: %m",
-			pclient->path);
+		e_error(pclient->event, "connect(%s) failed: %m",
+			prclient->address);
 
 		/* disconnect and try again */
 		i_close_fd(&pclient->fd_out);
@@ -368,7 +370,7 @@ static void
 program_client_net_connect_real(struct program_client_remote *prclient)
 {
 	struct program_client *pclient = &prclient->client;
-	const char *str;
+	const char *address, *label;
 
 	timeout_remove(&pclient->to);
 
@@ -376,22 +378,20 @@ program_client_net_connect_real(struct program_client_remote *prclient)
 
 	i_assert(prclient->ips_count > 0);
 
-	if (net_ipport2str(prclient->ips, prclient->port, &str) < 0)
+	if (net_ipport2str(prclient->ips, prclient->port, &address) < 0)
 		i_unreached();
-	pclient->path = p_strdup(pclient->pool, str);
+	label = t_strconcat("tcp:", address, NULL);
+	program_client_set_label(pclient, label);
 
-	if (pclient->debug) {
-		i_debug("Trying to connect %s (timeout %u msecs)",
-			pclient->path,
-			pclient->set.client_connect_timeout_msecs);
-	}
+	e_debug(pclient->event, "Trying to connect (timeout %u msecs)",
+		pclient->set.client_connect_timeout_msecs);
 
 	/* try to connect */
 	int fd;
 	if ((fd = net_connect_ip(prclient->ips, prclient->port,
 				 (prclient->ips->family == AF_INET ?
 				  &net_ip4_any : &net_ip6_any))) < 0) {
-		i_error("connect(%s) failed: %m", pclient->path);
+		e_error(pclient->event, "connect(%s) failed: %m", address);
 		prclient->to_retry = timeout_add_short(0,
 			program_client_net_connect_again, prclient);
 		return;
@@ -419,10 +419,10 @@ program_client_net_connect_again(struct program_client_remote *prclient)
 	pclient->error = PROGRAM_CLIENT_ERROR_NONE;
 
 	if (--prclient->ips_left == 0) {
-		if (prclient->ips_count > 1)
-			i_error("program-client-net: "
-				"%s: No addresses left to try",
-				prclient->hostname);
+		if (prclient->ips_count > 1) {
+			e_error(pclient->event,
+				"No IP addresses left to try");
+		}
 		program_client_fail(pclient,
 				    error != PROGRAM_CLIENT_ERROR_NONE ?
 						error :
@@ -441,9 +441,8 @@ program_client_net_connect_resolved(const struct dns_lookup_result *result,
 	struct program_client *pclient = &prclient->client;
 
 	if (result->ret != 0) {
-		i_error("program-client-net: Cannot resolve '%s': %s",
-			pclient->path,
-			result->error);
+		e_error(pclient->event, "Cannot resolve `%s': %s",
+			prclient->address, result->error);
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_OTHER);
 		return;
 	}
@@ -475,24 +474,20 @@ program_client_net_connect_init(struct program_client *pclient)
 	struct ip_addr ip;
 
 	if (prclient->ips != NULL) {
-		prclient->hostname = p_strdup(pclient->pool,
-					      net_ip2addr(prclient->ips));
-	} else if (net_addr2ip(pclient->path, &ip) == 0) {
-		prclient->hostname = p_strdup(pclient->pool,
-					      net_ip2addr(&ip));
+		/* nothing to do */
+	} else if (net_addr2ip(prclient->address, &ip) == 0) {
 		prclient->resolved = TRUE;
 		prclient->ips = p_new(pclient->pool, struct ip_addr, 1);
 		*prclient->ips = ip;
 		prclient->ips_count = 1;
 	} else {
 		prclient->resolved = FALSE;
-		prclient->hostname = p_strdup(pclient->pool, pclient->path);
 		if (pclient->set.dns_client_socket_path != NULL) {
 			prclient->dns_set.dns_client_socket_path =
 				pclient->set.dns_client_socket_path;
 			prclient->dns_set.timeout_msecs =
 				pclient->set.client_connect_timeout_msecs;
-			dns_lookup(pclient->path, &prclient->dns_set,
+			dns_lookup(prclient->address, &prclient->dns_set,
 				   program_client_net_connect_resolved,
 				   prclient, &prclient->lookup);
 			return 0;
@@ -501,13 +496,13 @@ program_client_net_connect_init(struct program_client *pclient)
 			unsigned int ips_count;
 			int err;
 			/* guess we do it here then.. */
-			if ((err = net_gethostbyname(pclient->path,
+			if ((err = net_gethostbyname(prclient->address,
 					      &ips, &ips_count)) != 0) {
-				i_error("program-client-remote: "
-					"Cannot resolve '%s': %s",
-					pclient->path,
+				e_error(pclient->event,
+					"Cannot resolve `%s': %s",
+					prclient->address,
 					net_gethosterror(err));
-					return -1;
+				return -1;
 			}
 			prclient->ips_count = ips_count;
 			prclient->ips = p_memdup(pclient->pool,
@@ -533,8 +528,8 @@ program_client_remote_close_output(struct program_client *pclient)
 		if (fd_in >= 0) {
 			if (shutdown(fd_out, SHUT_WR) < 0 &&
 			    errno != ENOTCONN) {
-				i_error("shutdown(%s, SHUT_WR) failed: %m",
-					pclient->path);
+				e_error(pclient->event,
+					"shutdown(fd_out, SHUT_WR) failed: %m");
 				return -1;
 			}
 		} else {
@@ -575,15 +570,19 @@ program_client_unix_create(const char *socket_path, const char *const *args,
 			   bool noreply)
 {
 	struct program_client_remote *prclient;
+	const char *label;
 	pool_t pool;
+
+	label = t_strconcat("unix:", socket_path, NULL);
 
 	pool = pool_alloconly_create("program client unix", 1024);
 	prclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&prclient->client, pool, socket_path, args, set);
+	program_client_init(&prclient->client, pool, label, args, set);
 	prclient->client.connect = program_client_unix_connect;
 	prclient->client.close_output = program_client_remote_close_output;
 	prclient->client.disconnect = program_client_remote_disconnect;
 	prclient->client.switch_ioloop = program_client_remote_switch_ioloop;
+	prclient->address = p_strdup(pool, socket_path);
 	prclient->noreply = noreply;
 
 	return &prclient->client;
@@ -596,16 +595,21 @@ program_client_net_create(const char *host, in_port_t port,
 			  bool noreply)
 {
 	struct program_client_remote *prclient;
+	const char *label;
 	pool_t pool;
+
+	label = t_strdup_printf("tcp:%s:%u", host, port);
 
 	pool = pool_alloconly_create("program client net", 1024);
 	prclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&prclient->client, pool, host, args, set);
+	program_client_init(&prclient->client, pool, label, args, set);
 	prclient->client.connect = program_client_net_connect_init;
 	prclient->client.close_output = program_client_remote_close_output;
 	prclient->client.disconnect = program_client_remote_disconnect;
 	prclient->client.set.use_dotstream = TRUE;
+	prclient->address = p_strdup(pool, host);
 	prclient->port = port;
+	prclient->have_hostname = TRUE;
 	prclient->noreply = noreply;
 	return &prclient->client;
 }
@@ -618,19 +622,24 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 			      bool noreply)
 {
 	struct program_client_remote *prclient;
+	const char *label;
 	pool_t pool;
 
 	i_assert(ips != NULL && ips_count > 0);
 
+	if (net_ipport2str(ips, port, &label) < 0)
+		i_unreached();
+	label = t_strconcat("tcp:", label, NULL);
+
 	pool = pool_alloconly_create("program client net", 1024);
 	prclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&prclient->client, pool, net_ip2addr(ips),
-			    args, set);
+	program_client_init(&prclient->client, pool, label, args, set);
 	prclient->client.connect = program_client_net_connect_init;
 	prclient->client.close_output = program_client_remote_close_output;
 	prclient->client.disconnect = program_client_remote_disconnect;
 	prclient->client.switch_ioloop = program_client_remote_switch_ioloop;
 	prclient->client.set.use_dotstream = TRUE;
+	prclient->address = p_strdup(pool, net_ip2addr(ips));
 	prclient->ips = p_memdup(pool, ips,
 				 sizeof(struct ip_addr)*ips_count);
 	prclient->ips_count = ips_count;
