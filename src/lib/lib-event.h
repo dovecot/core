@@ -77,6 +77,19 @@ struct event_passthrough {
 	struct event *(*event)(void);
 };
 
+/* Returns TRUE if the event has all the categories that the "other" event has (and maybe more). */
+bool event_has_all_categories(struct event *event, const struct event *other);
+/* Returns TRUE if the event has all the fields that the "other" event has (and maybe more).
+   Only the fields in the events themselves are checked. Parent events' fields are not checked. */
+bool event_has_all_fields(struct event *event, const struct event *other);
+
+/* Returns the source event duplicated into a new event. */
+struct event *event_dup(const struct event *source);
+/* Copy all categories and fields from source to dest.
+   Only the fields and categories in source event itself are copied.
+   Parent events' fields and categories aren't copied. */
+void event_copy_categories_fields(struct event *dest, struct event *source);
+
 /* Create a new empty event under the parent event, or NULL for root event. */
 struct event *event_create(struct event *parent, const char *source_filename,
 			   unsigned int source_linenum);
