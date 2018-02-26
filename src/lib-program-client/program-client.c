@@ -89,9 +89,12 @@ program_client_disconnect_extra_fds(struct program_client *pclient)
 		if (efds[i].parent_fd != -1 && close(efds[i].parent_fd) < 0)
 			i_error("close(fd=%d) failed: %m", efds[i].parent_fd);
 	}
+
+	array_clear(&pclient->extra_fds);
 }
 
-void program_client_disconnected(struct program_client *pclient)
+static void
+program_client_do_disconnect(struct program_client *pclient)
 {
 	i_stream_destroy(&pclient->program_input);
 	o_stream_destroy(&pclient->program_output);
@@ -110,7 +113,14 @@ void program_client_disconnected(struct program_client *pclient)
 		i_error("close(%s/out) failed: %m", pclient->path);
 	pclient->fd_in = pclient->fd_out = -1;
 
+	program_client_disconnect_extra_fds(pclient);
+
 	pclient->disconnected = TRUE;
+}
+
+void program_client_disconnected(struct program_client *pclient)
+{
+	program_client_do_disconnect(pclient);
 
 	if (pclient->other_error &&
 	    pclient->error == PROGRAM_CLIENT_ERROR_NONE) {
@@ -126,22 +136,10 @@ void program_client_disconnected(struct program_client *pclient)
 static void
 program_client_disconnect(struct program_client *pclient, bool force)
 {
-	int ret;
-
 	if (pclient->disconnected)
 		return;
-	pclient->disconnected = TRUE;
 
-	timeout_remove(&pclient->to);
-	io_remove(&pclient->io);
-	iostream_pump_destroy(&pclient->pump_in);
-	iostream_pump_destroy(&pclient->pump_out);
-
-	if ((ret = program_client_close_output(pclient)) < 0)
-		pclient->other_error = TRUE;
-
-	program_client_disconnect_extra_fds(pclient);
-
+	program_client_do_disconnect(pclient);
 	pclient->disconnect(pclient, force);
 }
 
