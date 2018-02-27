@@ -92,7 +92,7 @@ struct connection {
 	struct timeval connect_finished;
 
 	/* for IP client: */
-	struct ip_addr ip;
+	struct ip_addr ip, my_ip;
 	in_port_t port;
 
 	/* received minor version */
@@ -121,6 +121,10 @@ void connection_init_server(struct connection_list *list,
 void connection_init_client_ip(struct connection_list *list,
 			       struct connection *conn,
 			       const struct ip_addr *ip, in_port_t port);
+void connection_init_client_ip_from(struct connection_list *list,
+				    struct connection *conn,
+				    const struct ip_addr *ip, in_port_t port,
+				    const struct ip_addr *my_ip) ATTR_NULL(5);
 void connection_init_client_unix(struct connection_list *list,
 				 struct connection *conn, const char *path);
 void connection_init_from_streams(struct connection_list *list,
