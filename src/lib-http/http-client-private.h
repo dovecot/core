@@ -121,7 +121,7 @@ struct http_client_request {
 	uoff_t response_offset, request_offset;
 	uoff_t bytes_in, bytes_out;
 
-	unsigned int attempts;
+	unsigned int attempts, send_attempts;
 	unsigned int redirects;
 	uint64_t sent_global_ioloop_usecs;
 	uint64_t sent_http_ioloop_usecs;
