@@ -205,8 +205,11 @@ struct http_client_request_stats {
 	/* Total time spent on waiting for file locks */
 	unsigned int lock_msecs;
 
-	/* Number of attempts for this request */
+	/* Number of times this request was retried */
 	unsigned int attempts;
+	/* Number of times the client attempted to actually send the request
+	   to a server */
+	unsigned int send_attempts;
 };
 
 typedef void
