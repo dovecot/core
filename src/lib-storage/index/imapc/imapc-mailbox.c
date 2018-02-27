@@ -433,7 +433,8 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 
 	fetch_uid = 0; flags = 0;
 	for (i = 0; list[i].type != IMAP_ARG_EOL; i += 2) {
-		if (!imap_arg_get_atom(&list[i], &atom))
+		if (!imap_arg_get_atom(&list[i], &atom) ||
+		    list[i+1].type == IMAP_ARG_EOL)
 			return;
 
 		if (strcasecmp(atom, "UID") == 0) {
