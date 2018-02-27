@@ -38,6 +38,7 @@ enum smtp_client_command_error {
 };
 
 struct smtp_client_settings {
+	struct ip_addr my_ip;
 	const char *my_hostname;
 	const char *temp_path_prefix;
 

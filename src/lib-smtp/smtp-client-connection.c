@@ -1405,19 +1405,25 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 static void
 smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn)
 {
-	const struct ip_addr *ip;
+	const struct ip_addr *ip, *my_ip = &conn->set.my_ip;
 
 	timeout_remove(&conn->to_connect);
 
 	conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
 	ip = &conn->ips[conn->prev_connect_idx];
 
-	smtp_client_connection_debug(conn,
-		"Connecting to %s:%u",
-		net_ip2addr(ip), conn->port);
+	if (my_ip->family != 0) {
+		smtp_client_connection_debug(conn,
+			"Connecting to %s:%u (from %s)",
+			net_ip2addr(ip), conn->port, net_ip2addr(my_ip));
+	} else {
+		smtp_client_connection_debug(conn,
+			"Connecting to %s:%u",
+			net_ip2addr(ip), conn->port);
+	}
 
-	connection_init_client_ip
-		(conn->client->conn_list, &conn->conn, ip, conn->port);
+	connection_init_client_ip_from(conn->client->conn_list,
+				       &conn->conn, ip, conn->port, my_ip);
 
 	smtp_client_connection_do_connect(conn);
 }
@@ -1624,6 +1630,8 @@ smtp_client_connection_create(struct smtp_client *client,
 
 	conn->set = client->set;
 	if (set != NULL) {
+		if (set->my_ip.family != 0)
+			conn->set.my_ip = set->my_ip;
 		if (set->my_hostname != NULL && *set->my_hostname != '\0')
 			conn->set.my_hostname = p_strdup(pool, set->my_hostname);
 
