@@ -32,7 +32,7 @@
 struct lmtp_proxy_rcpt_settings {
 	enum smtp_protocol protocol;
 	const char *host;
-	struct ip_addr hostip;
+	struct ip_addr hostip, source_ip;
 	in_port_t port;
 	unsigned int timeout_msecs;
 	struct smtp_params_rcpt params;
@@ -191,7 +191,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 		if (conn->set.protocol == set->protocol &&
 		    conn->set.port == set->port &&
-		    strcmp(conn->set.host, host) == 0)
+		    strcmp(conn->set.host, host) == 0 &&
+		    net_ip_compare(&conn->set.source_ip, &set->source_ip))
 			return conn;
 	}
 
@@ -201,11 +202,13 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.hostip = set->hostip;
 	conn->host = i_strdup(host);
 	conn->set.host = conn->host;
+	conn->set.source_ip = set->source_ip;
 	conn->set.port = set->port;
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
 
 	i_zero(&lmtp_set);
+	lmtp_set.my_ip = conn->set.source_ip;
 	lmtp_set.peer_trusted = TRUE;
 	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
 
@@ -302,6 +305,11 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 		else if (strcmp(key, "hostip") == 0) {
 			if (net_addr2ip(value, &set->hostip) < 0) {
 				i_error("proxy: Invalid hostip %s", value);
+				return FALSE;
+			}
+		} else if (strcmp(key, "source_ip") == 0) {
+			if (net_addr2ip(value, &set->source_ip) < 0) {
+				i_error("proxy: Invalid source_ip %s", value);
 				return FALSE;
 			}
 		} else if (strcmp(key, "port") == 0) {
