@@ -114,7 +114,6 @@ lmtp_proxy_init(struct client *client,
 		lmtp_set.proxy_data.ttl_plus_1 = LMTP_PROXY_DEFAULT_TTL + 1;
 	else
 		lmtp_set.proxy_data.ttl_plus_1--;
-	lmtp_set.peer_trusted = TRUE;
 
 	proxy->lmtp_client = smtp_client_init(&lmtp_set);
 
@@ -178,6 +177,7 @@ static struct lmtp_proxy_connection *
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  const struct lmtp_proxy_rcpt_settings *set)
 {
+	struct smtp_client_settings lmtp_set;
 	struct smtp_client_connection *lmtp_conn;
 	struct smtp_server_transaction *trans = proxy->trans;
 	struct lmtp_proxy_connection *const *conns, *conn;
@@ -205,9 +205,12 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
 
+	i_zero(&lmtp_set);
+	lmtp_set.peer_trusted = TRUE;
+
 	lmtp_conn = smtp_client_connection_create(proxy->lmtp_client,
 		set->protocol, conn->set.host, conn->set.port,
-		SMTP_CLIENT_SSL_MODE_NONE, NULL);
+		SMTP_CLIENT_SSL_MODE_NONE, &lmtp_set);
 	smtp_client_connection_connect(lmtp_conn, NULL, NULL);
 
 	conn->lmtp_trans = smtp_client_transaction_create(lmtp_conn,
