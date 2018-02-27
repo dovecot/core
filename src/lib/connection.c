@@ -244,9 +244,10 @@ void connection_init_server(struct connection_list *list,
 	connection_init_streams(conn);
 }
 
-void connection_init_client_ip(struct connection_list *list,
-			       struct connection *conn,
-			       const struct ip_addr *ip, in_port_t port)
+void connection_init_client_ip_from(struct connection_list *list,
+				    struct connection *conn,
+				    const struct ip_addr *ip, in_port_t port,
+				    const struct ip_addr *my_ip)
 {
 	i_assert(list->set.client);
 
@@ -257,6 +258,18 @@ void connection_init_client_ip(struct connection_list *list,
 
 	conn->ip = *ip;
 	conn->port = port;
+
+	if (my_ip != NULL)
+		conn->my_ip = *my_ip;
+	else
+		i_zero(&conn->my_ip);
+}
+
+void connection_init_client_ip(struct connection_list *list,
+			       struct connection *conn,
+			       const struct ip_addr *ip, in_port_t port)
+{
+	connection_init_client_ip_from(list, conn, ip, port, NULL);
 }
 
 void connection_init_client_unix(struct connection_list *list,
@@ -323,9 +336,10 @@ int connection_client_connect(struct connection *conn)
 	i_assert(conn->list->set.client);
 	i_assert(conn->fd_in == -1);
 
-	if (conn->port != 0)
-		fd = net_connect_ip(&conn->ip, conn->port, NULL);
-	else if (conn->list->set.unix_client_connect_msecs == 0)
+	if (conn->port != 0) {
+		fd = net_connect_ip(&conn->ip, conn->port,
+			(conn->my_ip.family != 0 ? &conn->my_ip : NULL));
+	} else if (conn->list->set.unix_client_connect_msecs == 0)
 		fd = net_connect_unix(conn->name);
 	else
 		fd = net_connect_unix_with_retries(conn->name, conn->list->set.unix_client_connect_msecs);
