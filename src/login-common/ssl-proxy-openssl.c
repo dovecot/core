@@ -917,7 +917,8 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 
 	if (!proxy->login_set->ssl_require_crl &&
 	    (ctxerr == X509_V_ERR_UNABLE_TO_GET_CRL ||
-	     ctxerr == X509_V_ERR_CRL_HAS_EXPIRED)) {
+	     ctxerr == X509_V_ERR_CRL_HAS_EXPIRED ||
+	     ctxerr == X509_V_ERR_CERT_REVOKED)) {
 		/* no CRL given with the CA list. don't worry about it. */
 		preverify_ok = 1;
 	}
