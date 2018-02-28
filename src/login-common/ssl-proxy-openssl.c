@@ -915,7 +915,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	proxy->cert_received = TRUE;
 	ctxerr = X509_STORE_CTX_get_error(ctx);
 
-	if (proxy->client_proxy && !proxy->login_set->ssl_require_crl &&
+	if (!proxy->login_set->ssl_require_crl &&
 	    (ctxerr == X509_V_ERR_UNABLE_TO_GET_CRL ||
 	     ctxerr == X509_V_ERR_CRL_HAS_EXPIRED)) {
 		/* no CRL given with the CA list. don't worry about it. */
