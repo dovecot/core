@@ -32,8 +32,6 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(SET_TIME, login_proxy_max_disconnect_delay),
 	DEF(SET_STR, director_username_hash),
 
-	DEF(SET_STR, ssl_client_cert),
-	DEF(SET_STR, ssl_client_key),
 	DEF(SET_BOOL, auth_ssl_require_client_cert),
 	DEF(SET_BOOL, auth_ssl_username_from_cert),
 
@@ -60,8 +58,6 @@ static const struct login_settings login_default_settings = {
 	.login_proxy_max_disconnect_delay = 0,
 	.director_username_hash = "%u",
 
-	.ssl_client_cert = "",
-	.ssl_client_key = "",
 	.auth_ssl_require_client_cert = FALSE,
 	.auth_ssl_username_from_cert = FALSE,
 

@@ -15,8 +15,6 @@ struct login_settings {
 	unsigned int login_proxy_max_disconnect_delay;
 	const char *director_username_hash;
 
-	const char *ssl_client_cert;
-	const char *ssl_client_key;
 	bool auth_ssl_require_client_cert;
 	bool auth_ssl_username_from_cert;
 
