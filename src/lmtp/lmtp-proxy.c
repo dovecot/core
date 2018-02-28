@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "istream-sized.h"
 #include "ostream.h"
+#include "iostream-ssl.h"
 #include "str.h"
 #include "time-util.h"
 #include "smtp-common.h"
@@ -18,6 +19,7 @@
 #include "auth-master.h"
 #include "settings-parser.h"
 #include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "mail-storage-service.h"
 #include "lda-settings.h"
 #include "client.h"
@@ -29,11 +31,21 @@
 #define LMTP_MAX_REPLY_SIZE 4096
 #define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*125)
 
+enum lmtp_proxy_ssl_flags {
+	/* Use SSL/TLS enabled */
+	PROXY_SSL_FLAG_YES	= 0x01,
+	/* Don't do SSL handshake immediately after connected */
+	PROXY_SSL_FLAG_STARTTLS	= 0x02,
+	/* Don't require that the received certificate is valid */
+	PROXY_SSL_FLAG_ANY_CERT	= 0x04
+};
+
 struct lmtp_proxy_rcpt_settings {
 	enum smtp_protocol protocol;
 	const char *host;
 	struct ip_addr hostip, source_ip;
 	in_port_t port;
+	enum lmtp_proxy_ssl_flags ssl_flags;
 	unsigned int timeout_msecs;
 	struct smtp_params_rcpt params;
 };
@@ -173,6 +185,32 @@ lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn)
 	conn->lmtp_trans = NULL;
 }
 
+static void
+lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
+			       struct ssl_iostream_settings *ssl_set_r,
+			       enum smtp_client_connection_ssl_mode *ssl_mode_r)
+{
+	const struct master_service_ssl_settings *master_ssl_set;
+
+	i_zero(ssl_set_r);
+	*ssl_mode_r = SMTP_CLIENT_SSL_MODE_NONE;
+
+	if ((conn->set.ssl_flags & PROXY_SSL_FLAG_YES) == 0)
+		return;
+
+	master_ssl_set = master_service_ssl_settings_get(master_service);
+	master_service_ssl_settings_to_iostream_set(
+		master_ssl_set, pool_datastack_create(),
+		MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT, ssl_set_r);
+	if ((conn->set.ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0)
+		ssl_set_r->allow_invalid_cert = TRUE;
+
+	if ((conn->set.ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0)
+		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
+	else
+		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_STARTTLS;
+}
+
 static struct lmtp_proxy_connection *
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  const struct lmtp_proxy_rcpt_settings *set)
@@ -181,8 +219,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	struct smtp_client_connection *lmtp_conn;
 	struct smtp_server_transaction *trans = proxy->trans;
 	struct lmtp_proxy_connection *const *conns, *conn;
-	const char *host = (set->hostip.family == 0 ?
-		set->host : net_ip2addr(&set->hostip));
+	enum smtp_client_connection_ssl_mode ssl_mode;
+	struct ssl_iostream_settings ssl_set;
 
 	i_assert(set->timeout_msecs > 0);
 
@@ -191,8 +229,10 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 		if (conn->set.protocol == set->protocol &&
 		    conn->set.port == set->port &&
-		    strcmp(conn->set.host, host) == 0 &&
-		    net_ip_compare(&conn->set.source_ip, &set->source_ip))
+		    strcmp(conn->set.host, set->host) == 0 &&
+		    net_ip_compare(&conn->set.hostip, &set->hostip) &&
+		    net_ip_compare(&conn->set.source_ip, &set->source_ip) &&
+		    conn->set.ssl_flags == set->ssl_flags)
 			return conn;
 	}
 
@@ -200,21 +240,31 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->proxy = proxy;
 	conn->set.protocol = set->protocol;
 	conn->set.hostip = set->hostip;
-	conn->host = i_strdup(host);
+	conn->host = i_strdup(set->host);
 	conn->set.host = conn->host;
 	conn->set.source_ip = set->source_ip;
 	conn->set.port = set->port;
+	conn->set.ssl_flags = set->ssl_flags;
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
 
+	lmtp_proxy_connection_init_ssl(conn, &ssl_set, &ssl_mode);
+
 	i_zero(&lmtp_set);
 	lmtp_set.my_ip = conn->set.source_ip;
+	lmtp_set.ssl = &ssl_set;
 	lmtp_set.peer_trusted = TRUE;
 	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
 
-	lmtp_conn = smtp_client_connection_create(proxy->lmtp_client,
-		set->protocol, conn->set.host, conn->set.port,
-		SMTP_CLIENT_SSL_MODE_NONE, &lmtp_set);
+	if (conn->set.hostip.family != 0) {
+		lmtp_conn = smtp_client_connection_create_ip(proxy->lmtp_client,
+			set->protocol, &conn->set.hostip, conn->set.port,
+			conn->set.host, ssl_mode, &lmtp_set);
+	} else {
+		lmtp_conn = smtp_client_connection_create(proxy->lmtp_client,
+			set->protocol, conn->set.host, conn->set.port,
+			ssl_mode, &lmtp_set);
+	}
 	smtp_client_connection_connect(lmtp_conn, NULL, NULL);
 
 	conn->lmtp_trans = smtp_client_transaction_create(lmtp_conn,
@@ -337,6 +387,15 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 				i_error("proxy: Unknown protocol %s", value);
 				return FALSE;
 			}
+		} else if (strcmp(key, "ssl") == 0) {
+			set->ssl_flags |= PROXY_SSL_FLAG_YES;
+			if (strcmp(value, "any-cert") == 0)
+				set->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
+		} else if (strcmp(key, "starttls") == 0) {
+			set->ssl_flags |= PROXY_SSL_FLAG_YES |
+				PROXY_SSL_FLAG_STARTTLS;
+			if (strcmp(value, "any-cert") == 0)
+				set->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
 		} else if (strcmp(key, "user") == 0 ||
 			   strcmp(key, "destuser") == 0) {
 			/* changing the username */
