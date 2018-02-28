@@ -29,7 +29,8 @@ mech_external_auth_continue(struct auth_request *request,
 	}
 
 	if (*authzid != '\0' &&
-	    !auth_request_set_login_username(request, authzid, &error)) {
+            !request->set->auth_external_ignore_authzid &&
+            !auth_request_set_login_username(request, authzid, &error)) {
 		/* invalid login username */
 		auth_request_log_info(request, AUTH_SUBSYS_MECH,
 				      "login user: %s", error);
