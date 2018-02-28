@@ -1,3 +1,27 @@
+v2.3.0.1 2018-02-28  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2017-15130: TLS SNI config lookups may lead to excessive
+	  memory usage, causing imap-login/pop3-login VSZ limit to be reached
+	  and the process restarted. This happens only if Dovecot config has
+	  local_name { } or local { } configuration blocks and attacker uses
+	  randomly generated SNI servernames.
+	* CVE-2017-14461: Parsing invalid email addresses may cause a crash or
+	  leak memory contents to attacker. For example, these memory contents
+	  might contain parts of an email from another user if the same imap
+	  process is reused for multiple users. First discovered by Aleksandar
+	  Nikolic of Cisco Talos. Independently also discovered by "flxflndy"
+	  via HackerOne.
+	* CVE-2017-15132: Aborted SASL authentication leaks memory in login
+	  process.
+	* Linux: Core dumping is no longer enabled by default via
+	  PR_SET_DUMPABLE, because this may allow attackers to bypass
+	  chroot/group restrictions. Found by cPanel Security Team. Nowadays
+	  core dumps can be safely enabled by using "sysctl -w
+	  fs.suid_dumpable=2". If the old behaviour is wanted, it can still be
+	  enabled by setting:
+	  import_environment=$import_environment PR_SET_DUMPABLE=1
+	- imap-login with SSL/TLS connections may end up in infinite loop
+
 v2.3.0 2017-12-22  Timo Sirainen <tss@iki.fi>
 
 	* Various setting changes, see https://wiki2.dovecot.org/Upgrading/2.3
