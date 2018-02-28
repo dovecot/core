@@ -921,7 +921,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		/* no CRL given with the CA list. don't worry about it. */
 		preverify_ok = 1;
 	}
-	if (!preverify_ok)
+	if (preverify_ok == 0)
 		proxy->cert_broken = TRUE;
 
 	subject = X509_get_subject_name(X509_STORE_CTX_get_current_cert(ctx));
