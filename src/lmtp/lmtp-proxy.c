@@ -48,6 +48,8 @@ struct lmtp_proxy_rcpt_settings {
 	enum lmtp_proxy_ssl_flags ssl_flags;
 	unsigned int timeout_msecs;
 	struct smtp_params_rcpt params;
+
+	bool proxy_not_trusted:1;
 };
 
 struct lmtp_proxy_recipient {
@@ -253,7 +255,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	i_zero(&lmtp_set);
 	lmtp_set.my_ip = conn->set.source_ip;
 	lmtp_set.ssl = &ssl_set;
-	lmtp_set.peer_trusted = TRUE;
+	lmtp_set.peer_trusted = !conn->set.proxy_not_trusted;
 	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
 
 	if (conn->set.hostip.family != 0) {
@@ -374,6 +376,8 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 				return FALSE;
 			}
 			set->timeout_msecs *= 1000;
+		} else if (strcmp(key, "proxy_not_trusted") == 0) {
+			set->proxy_not_trusted = TRUE;
 		} else if (strcmp(key, "protocol") == 0) {
 			if (strcmp(value, "lmtp") == 0) {
 				set->protocol = SMTP_PROTOCOL_LMTP;
