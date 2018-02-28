@@ -1,4 +1,4 @@
-v2.2.34 2017-10-20  Timo Sirainen <tss@iki.fi>
+v2.2.34 2018-02-28  Timo Sirainen <tss@iki.fi>
 
 	* CVE-2017-15130: TLS SNI config lookups may lead to excessive
 	  memory usage, causing imap-login/pop3-login VSZ limit to be reached
