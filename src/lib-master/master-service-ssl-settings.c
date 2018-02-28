@@ -25,6 +25,8 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(SET_STR, ssl_key_password),
 	DEF(SET_STR, ssl_client_ca_file),
 	DEF(SET_STR, ssl_client_ca_dir),
+	DEF(SET_STR, ssl_client_cert),
+	DEF(SET_STR, ssl_client_key),
 	DEF(SET_STR, ssl_dh),
 	DEF(SET_STR, ssl_cipher_list),
 	DEF(SET_STR, ssl_curve_list),
@@ -54,6 +56,8 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_key_password = "",
 	.ssl_client_ca_file = "",
 	.ssl_client_ca_dir = "",
+	.ssl_client_cert = "",
+	.ssl_client_key = "",
 	.ssl_dh = "",
 	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
 	.ssl_curve_list = "",
@@ -193,6 +197,8 @@ void master_service_ssl_settings_to_iostream_set(
 	case MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT:
 		set_r->ca_file = p_strdup(pool, ssl_set->ssl_client_ca_file);
 		set_r->ca_dir = p_strdup(pool, ssl_set->ssl_client_ca_dir);
+		set_r->cert.cert = p_strdup_empty(pool, ssl_set->ssl_client_cert);
+		set_r->cert.key = p_strdup_empty(pool, ssl_set->ssl_client_key);
 		set_r->verify_remote_cert = TRUE;
 		break;
 	}
