@@ -17,7 +17,6 @@ struct login_settings {
 
 	const char *ssl_client_cert;
 	const char *ssl_client_key;
-	bool ssl_require_crl;
 	bool auth_ssl_require_client_cert;
 	bool auth_ssl_username_from_cert;
 

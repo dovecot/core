@@ -34,7 +34,6 @@ static const struct setting_define login_setting_defines[] = {
 
 	DEF(SET_STR, ssl_client_cert),
 	DEF(SET_STR, ssl_client_key),
-	DEF(SET_BOOL, ssl_require_crl),
 	DEF(SET_BOOL, auth_ssl_require_client_cert),
 	DEF(SET_BOOL, auth_ssl_username_from_cert),
 
@@ -63,7 +62,6 @@ static const struct login_settings login_default_settings = {
 
 	.ssl_client_cert = "",
 	.ssl_client_key = "",
-	.ssl_require_crl = TRUE,
 	.auth_ssl_require_client_cert = FALSE,
 	.auth_ssl_username_from_cert = FALSE,
 
