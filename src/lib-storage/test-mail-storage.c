@@ -387,6 +387,7 @@ test_mailbox_verify_name_one(struct mailbox_verify_test_cases *test_case,
 	/* Cannot rename to INBOX */
 	if (strcmp(test_case->box, "INBOX") == 0) {
 		ret = mailbox_create(box, NULL, FALSE);
+		test_assert_idx(ret == 0, i);
 		mailbox_delete(box);
 		mailbox_free(&box);
 		return;
