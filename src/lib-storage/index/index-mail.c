@@ -2062,8 +2062,6 @@ void index_mail_set_uid_cache_updates(struct mail *_mail, bool set)
 void index_mail_free(struct mail *_mail)
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
-	struct mailbox_header_lookup_ctx *headers_ctx =
-		(struct mailbox_header_lookup_ctx *)mail->mail.wanted_headers;
 
 	/* make sure mailbox_search_*() users don't try to free the mail
 	   directly */
@@ -2083,7 +2081,7 @@ void index_mail_free(struct mail *_mail)
 	if (array_is_created(&mail->header_match_lines))
 		array_free(&mail->header_match_lines);
 
-	mailbox_header_lookup_unref(&headers_ctx);
+	mailbox_header_lookup_unref(&mail->mail.wanted_headers);
 	event_unref(&_mail->event);
 	pool_unref(&mail->mail.data_pool);
 	pool_unref(&mail->mail.pool);
