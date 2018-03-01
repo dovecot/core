@@ -447,6 +447,7 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 static void
 log_coredump(struct service *service, string_t *str, int status)
 {
+#define CORE_DUMP_URL "https://dovecot.org/bugreport.html#coredumps"
 #ifdef WCOREDUMP
 	int signum = WTERMSIG(status);
 
@@ -460,19 +461,20 @@ log_coredump(struct service *service, string_t *str, int status)
 
 	/* let's try to figure out why we didn't get a core dump */
 	if (core_dumps_disabled) {
-		str_printfa(str, " (core dumps disabled)");
+		str_printfa(str, " (core dumps disabled - "CORE_DUMP_URL")");
 		return;
 	}
+	str_append(str, " (core not dumped - "CORE_DUMP_URL);
 
 #ifndef HAVE_PR_SET_DUMPABLE
 	if (!service->set->drop_priv_before_exec && service->uid != 0) {
-		str_printfa(str, " (core not dumped - set service %s "
+		str_printfa(str, " - set service %s "
 			    "{ drop_priv_before_exec=yes })",
 			    service->set->name);
 		return;
 	}
 	if (*service->set->privileged_group != '\0' && service->uid != 0) {
-		str_printfa(str, " (core not dumped - service %s "
+		str_printfa(str, " - service %s "
 			    "{ privileged_group } prevented it)",
 			    service->set->name);
 		return;
@@ -480,18 +482,17 @@ log_coredump(struct service *service, string_t *str, int status)
 #else
 	if (!service->set->login_dump_core &&
 	    service->type == SERVICE_TYPE_LOGIN) {
-		str_printfa(str, " (core not dumped - add -D parameter to "
+		str_printfa(str, " - add -D parameter to "
 			    "service %s { executable }", service->set->name);
 		return;
 	}
 #endif
 	if (service->set->chroot[0] != '\0') {
-		str_printfa(str, " (core not dumped - try to clear "
+		str_printfa(str, " - try to clear "
 			    "service %s { chroot = } )", service->set->name);
 		return;
 	}
-
-	str_append(str, " (core not dumped)");
+	str_append_c(str, ')');
 #endif
 }
 
