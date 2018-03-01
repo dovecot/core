@@ -628,7 +628,8 @@ smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
 
 	if (!conn->set.peer_trusted)
 		return;
-	if (conn->cap_xclient_args == NULL)
+	if ((conn->capabilities & SMTP_CAPABILITY_XCLIENT) == 0 ||
+	    conn->cap_xclient_args == NULL)
 		return;
 
 	str = t_str_new(64);
