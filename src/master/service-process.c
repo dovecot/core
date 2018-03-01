@@ -444,12 +444,57 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 	return NULL;
 }
 
+static bool linux_proc_fs_suid_is_dumpable(unsigned int *value_r)
+{
+	int fd = open(LINUX_PROC_FS_SUID_DUMPABLE, O_RDONLY);
+	if (fd == -1) {
+		/* we already checked that it exists - shouldn't get here */
+		i_error("open(%s) failed: %m", LINUX_PROC_FS_SUID_DUMPABLE);
+		have_proc_fs_suid_dumpable = FALSE;
+		return FALSE;
+	}
+	char buf[10];
+	ssize_t ret = read(fd, buf, sizeof(buf)-1);
+	if (ret < 0) {
+		i_error("read(%s) failed: %m", LINUX_PROC_FS_SUID_DUMPABLE);
+		have_proc_fs_suid_dumpable = FALSE;
+		*value_r = 0;
+	} else {
+		buf[ret] = '\0';
+		if (str_to_uint(buf, value_r) < 0)
+			*value_r = 0;
+	}
+	i_close_fd(&fd);
+	return *value_r != 0;
+}
+
+static bool linux_is_absolute_core_pattern(void)
+{
+	int fd = open(LINUX_PROC_SYS_KERNEL_CORE_PATTERN, O_RDONLY);
+	if (fd == -1) {
+		/* we already checked that it exists - shouldn't get here */
+		i_error("open(%s) failed: %m", LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
+		have_proc_sys_kernel_core_pattern = FALSE;
+		return FALSE;
+	}
+	char buf[10];
+	ssize_t ret = read(fd, buf, sizeof(buf)-1);
+	if (ret < 0) {
+		i_error("read(%s) failed: %m", LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
+		have_proc_sys_kernel_core_pattern = FALSE;
+		buf[0] = '\0';
+	}
+	i_close_fd(&fd);
+	return buf[0] == '/' || buf[0] == '|';
+}
+
 static void
 log_coredump(struct service *service, string_t *str, int status)
 {
 #define CORE_DUMP_URL "https://dovecot.org/bugreport.html#coredumps"
 #ifdef WCOREDUMP
 	int signum = WTERMSIG(status);
+	unsigned int dumpable;
 
 	if (WCOREDUMP(status) != 0) {
 		str_append(str, " (core dumped)");
@@ -465,6 +510,24 @@ log_coredump(struct service *service, string_t *str, int status)
 		return;
 	}
 	str_append(str, " (core not dumped - "CORE_DUMP_URL);
+
+	/* If we're running on Linux, the best way to get core dumps is to set
+	   fs.suid_dumpable=2 and sys.kernel.core_pattern to be an absolute
+	   path. */
+	if (!have_proc_fs_suid_dumpable)
+		;
+	else if (!linux_proc_fs_suid_is_dumpable(&dumpable)) {
+		str_printfa(str, " - set %s to 2)", LINUX_PROC_FS_SUID_DUMPABLE);
+		return;
+	} else if (dumpable == 2 && have_proc_sys_kernel_core_pattern &&
+		   !linux_is_absolute_core_pattern()) {
+		str_printfa(str, " - set %s to absolute path)",
+			    LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
+		return;
+	} else if (dumpable == 1 || have_proc_sys_kernel_core_pattern) {
+		str_append(str, " - core wasn't writable?)");
+		return;
+	}
 
 #ifndef HAVE_PR_SET_DUMPABLE
 	if (!service->set->drop_priv_before_exec && service->uid != 0) {

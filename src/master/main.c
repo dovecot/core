@@ -46,6 +46,8 @@ struct master_delayed_error {
 uid_t master_uid;
 gid_t master_gid;
 bool core_dumps_disabled;
+bool have_proc_fs_suid_dumpable;
+bool have_proc_sys_kernel_core_pattern;
 const char *ssl_manual_key_password;
 int global_master_dead_pipe_fd[2];
 struct service_list *services;
@@ -471,6 +473,7 @@ static void main_log_startup(char **protocols)
 #define STARTUP_STRING PACKAGE_NAME" v"DOVECOT_VERSION_FULL" starting up"
 	string_t *str = t_str_new(128);
 	rlim_t core_limit;
+	struct stat st;
 
 	str_append(str, STARTUP_STRING);
 	if (protocols[0] == NULL)
@@ -484,6 +487,10 @@ static void main_log_startup(char **protocols)
 		core_limit == 0;
 	if (core_dumps_disabled)
 		str_append(str, " (core dumps disabled)");
+	if (stat(LINUX_PROC_FS_SUID_DUMPABLE, &st) == 0)
+		have_proc_fs_suid_dumpable = TRUE;
+	if (stat(LINUX_PROC_SYS_KERNEL_CORE_PATTERN, &st) == 0)
+		have_proc_sys_kernel_core_pattern = TRUE;
 	i_info("%s", str_c(str));
 }
 
