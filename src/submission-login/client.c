@@ -69,7 +69,8 @@ static void submission_client_create(struct client *client,
 
 	i_zero(&smtp_set);
 	smtp_set.capabilities = SMTP_CAPABILITY_SIZE |
-		SMTP_CAPABILITY_ENHANCEDSTATUSCODES | SMTP_CAPABILITY_AUTH;
+		SMTP_CAPABILITY_ENHANCEDSTATUSCODES | SMTP_CAPABILITY_AUTH |
+		SMTP_CAPABILITY_XCLIENT;
 	if (client_is_tls_enabled(client))
 		smtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	smtp_set.hostname = subm_client->set->hostname;

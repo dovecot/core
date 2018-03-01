@@ -95,6 +95,12 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 	   attribute-value = xtext
 	 */
 
+	if ((conn->set.capabilities & SMTP_CAPABILITY_XCLIENT) == 0) {
+		smtp_server_reply(cmd,
+			502, "5.5.1", "Unsupported command");
+		return;
+	}
+
 	/* check transaction state as far as possible */
 	if (!cmd_xclient_check_state(cmd))
 		return;
