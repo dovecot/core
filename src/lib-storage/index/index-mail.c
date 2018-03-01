@@ -2081,6 +2081,7 @@ void index_mail_free(struct mail *_mail)
 	if (array_is_created(&mail->header_match_lines))
 		array_free(&mail->header_match_lines);
 
+	mailbox_header_lookup_unref(&mail->data.wanted_headers);
 	mailbox_header_lookup_unref(&mail->mail.wanted_headers);
 	event_unref(&_mail->event);
 	pool_unref(&mail->mail.data_pool);
