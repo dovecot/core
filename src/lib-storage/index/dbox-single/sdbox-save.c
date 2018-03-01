@@ -368,13 +368,16 @@ void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 				"fdatasync_path(%s) failed: %m", box_path);
 		}
 	}
-	sdbox_transaction_save_rollback(_ctx);
+	i_assert(ctx->ctx.finished);
+	dbox_save_unref_files(ctx);
+	i_free(ctx);
 }
 
 void sdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 {
 	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
 
+	ctx->ctx.failed = TRUE;
 	if (!ctx->ctx.finished)
 		sdbox_save_cancel(_ctx);
 	dbox_save_unref_files(ctx);
