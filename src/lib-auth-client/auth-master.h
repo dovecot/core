@@ -110,10 +110,27 @@ struct auth_user_info {
  * PassDB
  */
 
+typedef void
+auth_master_pass_lookup_callback_t(void *context, int result,
+				   const char *const *fields);
+
 /* Do a PASS lookup (the actual password isn't returned). */
 int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char *const **fields_r);
+
+/* Do an asynchronous PASS lookup. */
+struct auth_master_request *
+auth_master_pass_lookup_async(struct auth_master_connection *conn,
+			      const char *user,
+			      const struct auth_user_info *info,
+			      auth_master_pass_lookup_callback_t *callback,
+			      void *context);
+#define auth_master_pass_lookup_async(conn, user, info, callback, context) \
+	auth_master_pass_lookup_async(conn, user, info + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context), \
+				   int result, const char *const *fields)), \
+		(auth_master_pass_lookup_callback_t *)callback, context)
 
 /*
  * UserDB
@@ -127,6 +144,11 @@ struct auth_user_reply {
 	bool anonymous:1;
 };
 
+typedef void
+auth_master_user_lookup_callback_t(void *context, int result,
+				   const char *username,
+				   const char *const *fields);
+
 /* Do a USER lookup. Returns -2 = user-specific error, -1 = internal error,
    0 = user not found, 1 = ok. When returning -1 and fields[0] isn't NULL, it
    contains an error message that should be shown to user. */
@@ -134,6 +156,20 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char **username_r,
 			    const char *const **fields_r);
+
+/* Do an asynchronous USER lookup. */
+struct auth_master_request *
+auth_master_user_lookup_async(struct auth_master_connection *conn,
+			      const char *user,
+			      const struct auth_user_info *info,
+			      auth_master_user_lookup_callback_t *callback,
+			      void *context);
+#define auth_master_user_lookup_async(conn, user, info, callback, context) \
+	auth_master_user_lookup_async(conn, user, info +  \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context), \
+				   int result, const char *username, \
+				   const char *const *fields)), \
+		(auth_master_user_lookup_callback_t *)callback, context)
 
 /* Parse userdb extra fields into auth_user_reply structure. */
 int auth_user_fields_parse(const char *const *fields, pool_t pool,

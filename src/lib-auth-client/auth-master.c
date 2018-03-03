@@ -678,14 +678,16 @@ void auth_master_wait(struct auth_master_connection *conn)
  */
 
 struct auth_master_lookup {
-	struct auth_master_connection *conn;
+	struct auth_master_request *req;
 	struct event *event;
 	const char *user;
 	const char *expected_reply;
-	int return_value;
 
 	pool_t pool;
 	const char **fields;
+
+	void (*finished)(struct auth_master_lookup *lookup,
+			 int result, const char *const *fields);
 };
 
 static bool is_valid_string(const char *str)
@@ -870,7 +872,7 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 		lookup->fields[0] = p_strdup(lookup->pool, reply->errormsg);
 		e_debug(lookup->event, "auth %s error: %s",
 			lookup->expected_reply, reply->errormsg);
-		lookup->return_value = -1;
+		lookup->finished(lookup, -1, lookup->fields);
 		return 1;
 	}
 	i_assert(reply->reply != NULL);
@@ -911,7 +913,8 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 				lookup->expected_reply);
 		}
 	}
-	lookup->return_value = result;
+
+	lookup->finished(lookup, result, lookup->fields);
 	return 1;
 }
 
@@ -923,6 +926,9 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 
 struct auth_master_pass_lookup {
 	struct auth_master_lookup lookup;
+
+	auth_master_pass_lookup_callback_t *callback;
+	void *context;
 };
 
 struct auth_master_pass_lookup_ctx {
@@ -940,21 +946,10 @@ auth_master_pass_lookup_callback(struct auth_master_pass_lookup_ctx *ctx,
 	ctx->fields = p_strarray_dup(ctx->pool, fields);
 }
 
-static void
-auth_master_pass_lookup_finished(struct auth_master_lookup *_lookup,
-				 int result, const char *const *fields,
-				 struct auth_master_pass_lookup_ctx *ctx);
-static struct auth_master_request *
-auth_master_pass_lookup_start(struct auth_master_pass_lookup *lookup,
-			      struct auth_master_connection *conn,
-			      const char *user,
-			      const struct auth_user_info *info);
-
 int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char *const **fields_r)
 {
-	struct auth_master_pass_lookup lookup;
 	struct auth_master_request *req;
 
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
@@ -972,28 +967,30 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 		.result = -1,
 	};
 
-	i_zero(&lookup);
-	lookup.lookup.pool = pool;
-
-	req = auth_master_pass_lookup_start(&lookup, conn, user, info);
+	req = auth_master_pass_lookup_async(conn, user, info,
+					    auth_master_pass_lookup_callback,
+					    &ctx);
 	(void)auth_master_request_wait(req);
-
-	auth_master_pass_lookup_finished(&lookup.lookup,
-					 lookup.lookup.return_value,
-					 lookup.lookup.fields, &ctx);
-	event_unref(&lookup.lookup.event);
 
 	*fields_r = ctx.fields != NULL ? ctx.fields :
 		p_new(pool, const char *, 1);
 	return ctx.result;
+}
 
+static void
+auth_master_pass_lookup_destroyed(struct auth_master_pass_lookup *lookup)
+{
+	event_unref(&lookup->lookup.event);
+	pool_unref(&lookup->lookup.pool);
 }
 
 static void
 auth_master_pass_lookup_finished(struct auth_master_lookup *_lookup,
-				 int result, const char *const *fields,
-				 struct auth_master_pass_lookup_ctx *ctx)
+				 int result, const char *const *fields)
 {
+	struct auth_master_pass_lookup *lookup =
+		container_of(_lookup, struct auth_master_pass_lookup, lookup);
+
 	if (result <= 0) {
 		struct event_passthrough *e =
 			event_create_passthrough(_lookup->event)->
@@ -1014,20 +1011,39 @@ auth_master_pass_lookup_finished(struct auth_master_lookup *_lookup,
 			(fields == NULL ? "" : t_strarray_join(fields, " ")));
 	}
 
-	auth_master_pass_lookup_callback(ctx, result, fields);
+	lookup->callback(lookup->context, result, fields);
 }
 
-static struct auth_master_request *
-auth_master_pass_lookup_start(struct auth_master_pass_lookup *lookup,
-			      struct auth_master_connection *conn,
+#undef auth_master_pass_lookup_async
+struct auth_master_request *
+auth_master_pass_lookup_async(struct auth_master_connection *conn,
 			      const char *user,
-			      const struct auth_user_info *info)
+			      const struct auth_user_info *info,
+			      auth_master_pass_lookup_callback_t *callback,
+			      void *context)
 {
 	struct auth_master_request *req;
+	struct auth_master_pass_lookup *lookup;
+	pool_t pool;
 	string_t *args;
 
-	lookup->lookup.conn = conn;
-	lookup->lookup.return_value = -1;
+	pool = pool_alloconly_create("auth_master_pass_lookup", 1024);
+	lookup = p_new(pool, struct auth_master_pass_lookup, 1);
+	lookup->lookup.pool = pool;
+	lookup->lookup.finished = auth_master_pass_lookup_finished;
+	lookup->callback = callback;
+	lookup->context = context;
+
+	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
+		/* non-allowed characters, the user can't exist */
+		req = auth_master_request_invalid(conn,
+			auth_lookup_reply_callback, &lookup->lookup);
+		auth_master_request_add_destroy_callback(req,
+			auth_master_pass_lookup_destroyed, lookup);
+		lookup->lookup.req = req;
+		return req;
+	}
+
 	lookup->lookup.expected_reply = "PASS";
 	lookup->lookup.user = user;
 
@@ -1048,6 +1064,9 @@ auth_master_pass_lookup_start(struct auth_master_pass_lookup *lookup,
 				  auth_lookup_reply_callback, &lookup->lookup);
 
 	auth_master_request_set_event(req, lookup->lookup.event);
+	auth_master_request_add_destroy_callback(req,
+		auth_master_pass_lookup_destroyed, lookup);
+	lookup->lookup.req = req;
 
 	return req;
 }
@@ -1060,6 +1079,9 @@ auth_master_pass_lookup_start(struct auth_master_pass_lookup *lookup,
 
 struct auth_master_user_lookup {
 	struct auth_master_lookup lookup;
+
+	auth_master_user_lookup_callback_t *callback;
+	void *context;
 };
 
 struct auth_master_user_lookup_ctx {
@@ -1069,16 +1091,6 @@ struct auth_master_user_lookup_ctx {
 	const char *username;
 	const char *const *fields;
 };
-
-static void
-auth_master_user_lookup_finished(struct auth_master_lookup *_lookup,
-				 int result, const char *const *fields,
-				 struct auth_master_user_lookup_ctx *ctx);
-struct auth_master_request *
-auth_master_user_lookup_start(struct auth_master_user_lookup *lookup,
-			      struct auth_master_connection *conn,
-			      const char *user,
-			      const struct auth_user_info *info);
 
 static void
 auth_master_user_lookup_callback(struct auth_master_user_lookup_ctx *ctx,
@@ -1095,7 +1107,6 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 			    pool_t pool, const char **username_r,
 			    const char *const **fields_r)
 {
-	struct auth_master_user_lookup lookup;
 	struct auth_master_request *req;
 
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
@@ -1114,16 +1125,10 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 		.result = -1,
 	};
 
-	i_zero(&lookup);
-	lookup.lookup.pool = pool;
-
-	req = auth_master_user_lookup_start(&lookup, conn, user, info);
+	req = auth_master_user_lookup_async(conn, user, info,
+					    auth_master_user_lookup_callback,
+					    &ctx);
 	(void)auth_master_request_wait(req);
-
-	auth_master_user_lookup_finished(&lookup.lookup,
-					 lookup.lookup.return_value,
-					 lookup.lookup.fields, &ctx);
-	event_unref(&lookup.lookup.event);
 
 	*username_r = ctx.username;
 	*fields_r = ctx.fields != NULL ? ctx.fields :
@@ -1132,10 +1137,18 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 }
 
 static void
-auth_master_user_lookup_finished(struct auth_master_lookup *_lookup,
-				 int result, const char *const *fields,
-				 struct auth_master_user_lookup_ctx *ctx)
+auth_master_user_lookup_destroyed(struct auth_master_user_lookup *lookup)
 {
+	event_unref(&lookup->lookup.event);
+	pool_unref(&lookup->lookup.pool);
+}
+
+static void
+auth_master_user_lookup_finished(struct auth_master_lookup *_lookup,
+				 int result, const char *const *fields)
+{
+	struct auth_master_user_lookup *lookup =
+		container_of(_lookup, struct auth_master_user_lookup, lookup);
 	const char *username = NULL;
 
 	if (result <= 0 || fields[0] == NULL) {
@@ -1167,20 +1180,39 @@ auth_master_user_lookup_finished(struct auth_master_lookup *_lookup,
 			username, t_strarray_join(fields, " "));
 	}
 
-	auth_master_user_lookup_callback(ctx, result, username, fields);
+	lookup->callback(lookup->context, result, username, fields);
 }
 
+#undef auth_master_user_lookup_async
 struct auth_master_request *
-auth_master_user_lookup_start(struct auth_master_user_lookup *lookup,
-			      struct auth_master_connection *conn,
+auth_master_user_lookup_async(struct auth_master_connection *conn,
 			      const char *user,
-			      const struct auth_user_info *info)
+			      const struct auth_user_info *info,
+			      auth_master_user_lookup_callback_t *callback,
+			      void *context)
 {
 	struct auth_master_request *req;
+	struct auth_master_user_lookup *lookup;
+	pool_t pool;
 	string_t *args;
 
-	lookup->lookup.conn = conn;
-	lookup->lookup.return_value = -1;
+	pool = pool_alloconly_create("auth_master_user_lookup", 1024);
+	lookup = p_new(pool, struct auth_master_user_lookup, 1);
+	lookup->lookup.pool = pool;
+	lookup->lookup.finished = auth_master_user_lookup_finished;
+	lookup->callback = callback;
+	lookup->context = context;
+
+	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
+		/* non-allowed characters, the user can't exist */
+		req = auth_master_request_invalid(conn,
+			auth_lookup_reply_callback, &lookup->lookup);
+		auth_master_request_add_destroy_callback(req,
+			auth_master_user_lookup_destroyed, lookup);
+		lookup->lookup.req = req;
+		return req;
+	}
+
 	lookup->lookup.expected_reply = "USER";
 	lookup->lookup.user = user;
 
@@ -1201,6 +1233,9 @@ auth_master_user_lookup_start(struct auth_master_user_lookup *lookup,
 				  auth_lookup_reply_callback, &lookup->lookup);
 
 	auth_master_request_set_event(req, lookup->lookup.event);
+	auth_master_request_add_destroy_callback(req,
+		auth_master_user_lookup_destroyed, lookup);
+	lookup->lookup.req = req;
 
 	return req;
 }
