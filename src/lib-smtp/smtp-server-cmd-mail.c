@@ -35,6 +35,7 @@ static void cmd_mail_replied(struct smtp_server_cmd_ctx *cmd)
 	struct smtp_server_cmd_mail *data =
 		(struct smtp_server_cmd_mail *)command->data;
 
+	i_assert(conn->state.pending_mail_cmds > 0);
 	conn->state.pending_mail_cmds--;
 
 	i_assert(smtp_server_command_is_replied(command));
