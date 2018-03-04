@@ -280,6 +280,9 @@ static void dlua_script_destroy(struct dlua_script *script)
 		lua_pop(script->L, 1);
 	}
 	lua_close(script->L);
+	/* remove from list */
+	DLLIST_REMOVE(&dlua_scripts, script);
+
 	/* then just release memory */
 	pool_unref(&script->pool);
 }
