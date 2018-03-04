@@ -16,14 +16,9 @@ static bool
 cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
-	struct smtp_server_command *command = cmd->cmd;
 	struct smtp_server_transaction *trans = conn->state.trans;
 
 	if (conn->state.pending_mail_cmds == 0 && trans == NULL) {
-		if (command->hook_replied != NULL) {
-			conn->state.pending_rcpt_cmds--;
-			command->hook_replied = NULL;
-		}
 		smtp_server_reply(cmd,
 			503, "5.5.0", "MAIL needed first");
 		return FALSE;
