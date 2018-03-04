@@ -43,6 +43,7 @@ static void cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd)
 	struct smtp_server_transaction *trans = conn->state.trans;
 	struct smtp_server_recipient *rcpt;
 
+	i_assert(conn->state.pending_rcpt_cmds > 0);
 	conn->state.pending_rcpt_cmds--;
 
 	i_assert(smtp_server_command_is_replied(command));
