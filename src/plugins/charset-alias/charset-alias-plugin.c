@@ -83,13 +83,13 @@ static int charset_alias_to_utf8_begin(const char *charset,
 static void charset_alias_to_utf8_end(struct charset_translation *t)
 {
 	i_assert(original_charset_utf8_vfuncs != NULL);
-	return original_charset_utf8_vfuncs->to_utf8_end(t);
+	original_charset_utf8_vfuncs->to_utf8_end(t);
 }
 
 static void charset_alias_to_utf8_reset(struct charset_translation *t)
 {
 	i_assert(original_charset_utf8_vfuncs != NULL);
-	return original_charset_utf8_vfuncs->to_utf8_reset(t);
+	original_charset_utf8_vfuncs->to_utf8_reset(t);
 }
 
 static enum charset_result charset_alias_to_utf8(struct charset_translation *t,
