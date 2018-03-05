@@ -94,6 +94,7 @@ static void client_proxy_ready_cb(const struct smtp_reply *reply,
 		SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES |
 		SMTP_CAPABILITY_CHUNKING | SMTP_CAPABILITY_BURL |
 		SMTP_CAPABILITY_VRFY;
+	caps &= SUBMISSION_SUPPORTED_SMTP_CAPABILITIES;
 	smtp_server_connection_set_capabilities(client->conn, caps);
 
 	/* now that we know our capabilities, commence server protocol dialog */
