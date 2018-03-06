@@ -10,6 +10,7 @@ struct mail_user;
 struct mail_namespace;
 struct mail_storage;
 struct message_address;
+struct smtp_address;
 
 struct mail_storage_settings {
 	const char *mail_location;
@@ -74,6 +75,7 @@ struct mail_storage_settings {
 	/* May be NULL - use mail_storage_get_postmaster_address() instead of
 	   directly accessing this. */
 	const struct message_address *_parsed_postmaster_address;
+	const struct smtp_address *_parsed_postmaster_address_smtp;
 
 	const char *const *parsed_mail_attachment_content_type_filter;
 	bool parsed_mail_attachment_exclude_inlined;
@@ -164,5 +166,8 @@ mail_storage_get_dynamic_parsers(pool_t pool);
 bool mail_storage_get_postmaster_address(const struct mail_storage_settings *set,
 					 const struct message_address **address_r,
 					 const char **error_r);
+bool mail_storage_get_postmaster_smtp(const struct mail_storage_settings *set,
+				      const struct smtp_address **address_r,
+				      const char **error_r);
 
 #endif
