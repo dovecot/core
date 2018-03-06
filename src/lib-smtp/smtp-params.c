@@ -705,13 +705,15 @@ smtp_params_rcpt_parse_orcpt_rfc822(const char *addr_str,
 	pool_t pool, const struct smtp_address **addr_r)
 {
 	struct message_address *rfc822_addr;
+	struct smtp_address *addr;
 
 	rfc822_addr = message_address_parse(pool_datastack_create(),
 		(const unsigned char *)addr_str, strlen(addr_str), 2, FALSE);
 	if (rfc822_addr == NULL || rfc822_addr->invalid_syntax ||
-		rfc822_addr->next != NULL)
+	    rfc822_addr->next != NULL ||
+	    smtp_address_create_from_msg(pool, rfc822_addr, &addr) < 0)
 		return -1;
-	*addr_r = smtp_address_create_from_msg(pool, rfc822_addr);
+	*addr_r = addr;
 	return 0;
 }
 
