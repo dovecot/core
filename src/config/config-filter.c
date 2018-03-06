@@ -37,13 +37,14 @@ config_filter_match_local_name(const struct config_filter *mask,
 {
 	/* Handle multiple names separated by spaces in local_name
 	   * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
-	const char *const *local_name = t_strsplit_spaces(mask->local_name, " ");
-
-	for (; *local_name != NULL; local_name++) {
-		if (dns_match_wildcard(filter_local_name, *local_name) == 0)
+	const char *ptr, *local_name = mask->local_name;
+	while((ptr = strchr(local_name, ' ')) != NULL) {
+		if (dns_match_wildcard(filter_local_name,
+		    t_strdup_until(local_name, ptr)) == 0)
 			return TRUE;
+		local_name = ptr+1;
 	}
-	return FALSE;
+	return dns_match_wildcard(filter_local_name, local_name) == 0;
 }
 
 static bool config_filter_match_rest(const struct config_filter *mask,
