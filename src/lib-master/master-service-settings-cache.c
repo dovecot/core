@@ -6,6 +6,7 @@
 #include "llist.h"
 #include "settings-parser.h"
 #include "dns-util.h"
+#include "strescape.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
 #include "master-service-settings-cache.h"
@@ -96,7 +97,7 @@ int master_service_settings_cache_init_filter(struct master_service_settings_cac
 
 	/* parse filters */
 	while(*filters != NULL) {
-		const char *const *keys = t_strsplit_spaces(*filters, " ");
+		const char *const *keys = t_strsplit_tabescaped(*filters);
 		struct config_filter *filter =
 			p_new(cache->pool, struct config_filter, 1);
 		while(*keys != NULL) {
