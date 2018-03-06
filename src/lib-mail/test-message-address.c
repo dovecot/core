@@ -311,6 +311,13 @@ static void test_message_address(void)
 		    cmp_addr(addr, &group_suffix));
 	test_assert(strcmp(str_c(str), "group:;") == 0);
 	test_end();
+
+	test_begin("message address parsing empty string");
+	test_assert(message_address_parse(unsafe_data_stack_pool, &uchar_nul, 0, 10, TRUE) == NULL);
+	str_truncate(str, 0);
+	message_address_write(str, NULL);
+	test_assert(str_len(str) == 0);
+	test_end();
 }
 
 static int
