@@ -65,8 +65,8 @@ static MODULE_CONTEXT_DEFINE_INIT(mail_deliver_user_module,
 static MODULE_CONTEXT_DEFINE_INIT(mail_deliver_storage_module,
 				  &mail_storage_module_register);
 
-const struct smtp_address *
-mail_deliver_get_address(struct mail *mail, const char *header)
+static struct message_address *
+mail_deliver_get_message_address(struct mail *mail, const char *header)
 {
 	struct message_address *addr;
 	const char *str;
@@ -76,9 +76,21 @@ mail_deliver_get_address(struct mail *mail, const char *header)
 	addr = message_address_parse(pool_datastack_create(),
 				     (const unsigned char *)str,
 				     strlen(str), 1, FALSE);
-	return addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
-		*addr->mailbox == '\0' || *addr->domain == '\0' ?
-		NULL : smtp_address_create_from_msg_temp(addr);
+	if (addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
+	    *addr->mailbox == '\0' || *addr->domain == '\0')
+		return NULL;
+	return addr;
+}
+
+const struct smtp_address *
+mail_deliver_get_address(struct mail *mail, const char *header)
+{
+	struct message_address *addr;
+
+	addr = mail_deliver_get_message_address(mail, header);
+	if (addr == NULL)
+		return NULL;
+	return smtp_address_create_from_msg_temp(addr);
 }
 
 static void update_cache(pool_t pool, const char **old_str, const char *new_str)
@@ -94,6 +106,7 @@ mail_deliver_log_update_cache(struct mail_deliver_cache *cache, pool_t pool,
 			      struct mail *mail)
 {
 	const char *message_id = NULL, *subject = NULL, *from_envelope = NULL;
+	static struct message_address *from_addr;
 	const char *from;
 
 	if (cache->filled)
@@ -108,7 +121,9 @@ mail_deliver_log_update_cache(struct mail_deliver_cache *cache, pool_t pool,
 		subject = str_sanitize(subject, 80);
 	update_cache(pool, &cache->subject, subject);
 
-	from = smtp_address_encode(mail_deliver_get_address(mail, "From"));
+	from_addr = mail_deliver_get_message_address(mail, "From");
+	from = (from_addr == NULL ? NULL :
+		t_strconcat(from_addr->mailbox, "@", from_addr->domain, NULL));
 	update_cache(pool, &cache->from, from);
 
 	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &from_envelope) > 0)
