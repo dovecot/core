@@ -86,11 +86,13 @@ const struct smtp_address *
 mail_deliver_get_address(struct mail *mail, const char *header)
 {
 	struct message_address *addr;
+	struct smtp_address *smtp_addr;
 
 	addr = mail_deliver_get_message_address(mail, header);
-	if (addr == NULL)
+	if (addr == NULL ||
+	    smtp_address_create_from_msg_temp(addr, &smtp_addr) < 0)
 		return NULL;
-	return smtp_address_create_from_msg_temp(addr);
+	return smtp_addr;
 }
 
 static void update_cache(pool_t pool, const char **old_str, const char *new_str)
@@ -421,6 +423,7 @@ const struct smtp_address *
 mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 {
 	struct message_address *addr;
+	struct smtp_address *smtp_addr;
 	const char *path;
 	int ret;
 
@@ -438,12 +441,12 @@ mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 	}
 	if (message_address_parse_path(pool_datastack_create(),
 				       (const unsigned char *)path,
-				       strlen(path), &addr) < 0) {
+				       strlen(path), &addr) < 0 ||
+	    smtp_address_create_from_msg(ctx->pool, addr, &smtp_addr) < 0) {
 		i_warning("Failed to parse return-path header");
 		return NULL;
 	}
-
-	return smtp_address_create_from_msg(ctx->pool, addr);
+	return smtp_addr;
 }
 
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx)

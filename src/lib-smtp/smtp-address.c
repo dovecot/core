@@ -591,12 +591,26 @@ void smtp_address_init(struct smtp_address *address,
 	address->domain = (localpart == NULL ? NULL : domain);
 }
 
-void smtp_address_init_from_msg(struct smtp_address *address,
-	const struct message_address *msg_addr)
+int smtp_address_init_from_msg(struct smtp_address *address,
+			       const struct message_address *msg_addr)
 {
+	const char *p;
+
 	i_zero(address);
+	if (msg_addr->mailbox == NULL)
+		return 0;
+
+	/* The message_address_parse() function allows UTF-8 codepoints in
+	   the localpart. For SMTP addresses that is not an option, so we
+	   need to check this upon conversion. */
+	for (p = msg_addr->mailbox; *p != '\0'; p++) {
+		if (!smtp_char_is_qpair(*p))
+			return -1;
+	}
+
 	address->localpart = msg_addr->mailbox;
-	address->domain = (msg_addr->mailbox == NULL ? NULL : msg_addr->domain);
+	address->domain = msg_addr->domain;
+	return 0;
 }
 
 struct smtp_address *
@@ -643,14 +657,19 @@ smtp_address_create(pool_t pool,
 	return smtp_address_clone(pool, &addr);
 }
 
-struct smtp_address *
-smtp_address_create_from_msg(pool_t pool,
-	const struct message_address *msg_addr)
+
+int smtp_address_create_from_msg(pool_t pool,
+				 const struct message_address *msg_addr,
+				 struct smtp_address **address_r)
 {
 	struct smtp_address addr;
 
-	smtp_address_init_from_msg(&addr, msg_addr);
-	return smtp_address_clone(pool, &addr);
+	if (smtp_address_init_from_msg(&addr, msg_addr) < 0) {
+		*address_r = NULL;
+		return -1;
+	}
+	*address_r = smtp_address_clone(pool, &addr);
+	return 0;
 }
 
 struct smtp_address *
@@ -676,13 +695,17 @@ smtp_address_create_temp(const char *localpart, const char *domain)
 	return smtp_address_clone_temp(&addr);
 }
 
-struct smtp_address *
-smtp_address_create_from_msg_temp(const struct message_address *msg_addr)
+int  smtp_address_create_from_msg_temp(const struct message_address *msg_addr,
+				       struct smtp_address **address_r)
 {
 	struct smtp_address addr;
 
-	smtp_address_init_from_msg(&addr, msg_addr);
-	return smtp_address_clone_temp(&addr);
+	if (smtp_address_init_from_msg(&addr, msg_addr) < 0) {
+		*address_r = NULL;
+		return -1;
+	}
+	*address_r = smtp_address_clone_temp(&addr);
+	return 0;
 }
 
 struct smtp_address *
