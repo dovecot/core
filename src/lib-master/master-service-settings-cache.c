@@ -118,6 +118,22 @@ int master_service_settings_cache_init_filter(struct master_service_settings_cac
 	return 0;
 }
 
+static bool
+match_local_name(const char *local_name,
+		 const char *filter_local_name)
+{
+	/* Handle multiple names separated by spaces in local_name
+	   * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
+	const char *ptr;
+	while((ptr = strchr(local_name, ' ')) != NULL) {
+		if (dns_match_wildcard(filter_local_name,
+		    t_strdup_until(local_name, ptr)) == 0)
+			return TRUE;
+		local_name = ptr+1;
+	}
+	return dns_match_wildcard(filter_local_name, local_name) == 0;
+}
+
 /* Remove any elements which there is no filter for */
 static void
 master_service_settings_cache_fix_input(struct master_service_settings_cache *cache,
@@ -139,7 +155,7 @@ master_service_settings_cache_fix_input(struct master_service_settings_cache *ca
 				      filter->remote_bits))
 			found_rip = TRUE;
 		if (input->local_name != NULL && filter->local_name != NULL &&
-		    dns_match_wildcard(input->local_name, filter->local_name) == 0)
+		    match_local_name(input->local_name, filter->local_name))
 			found_local_name = TRUE;
 		filter = filter->next;
 	};
