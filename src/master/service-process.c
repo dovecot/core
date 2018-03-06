@@ -461,6 +461,8 @@ static bool linux_proc_fs_suid_is_dumpable(unsigned int *value_r)
 		*value_r = 0;
 	} else {
 		buf[ret] = '\0';
+		if (ret > 0 && buf[ret-1] == '\n')
+			buf[ret-1] = '\0';
 		if (str_to_uint(buf, value_r) < 0)
 			*value_r = 0;
 	}
