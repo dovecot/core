@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
 				SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
 				&final_rcpt_to, &errstr) < 0) {
 				i_fatal_status(EX_USAGE,
-					"Invalid -a parameter: %s", errstr);
+					"Invalid -r parameter: %s", errstr);
 			}
 			break;
 		default:
