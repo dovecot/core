@@ -255,17 +255,19 @@ int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 	struct smtp_server_helo_data *helo;
-	char *prefix;
+	const char *prefix = "";
 
 	i_assert(subm_client->pending_auth == NULL);
 
 	helo = smtp_server_connection_get_helo_data(subm_client->conn);
-
-	prefix = i_strdup(helo->domain == NULL ? "" : helo->domain);
+	if (helo->domain_valid) {
+		i_assert(helo->domain != NULL);
+		prefix = helo->domain;
+	}
 
 	/* pass ehlo parameter to post-login service upon successful login */
 	i_free(client->master_data_prefix);
-	client->master_data_prefix = (void *)prefix;
+	client->master_data_prefix = (void *)i_strdup(prefix);
 	client->master_data_prefix_len = strlen(prefix) + 1;
 
 	subm_client->pending_auth = cmd;
