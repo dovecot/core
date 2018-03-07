@@ -146,7 +146,8 @@ notify_transaction_commit(struct mailbox_transaction_context *t,
 	bool no_notify = (t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) != 0;
 
 	if ((lbox->super.transaction_commit(t, changes_r)) < 0) {
-		notify_contexts_mail_transaction_rollback(t);
+		if (!no_notify)
+			notify_contexts_mail_transaction_rollback(t);
 		return -1;
 	}
 
