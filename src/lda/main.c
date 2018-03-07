@@ -244,8 +244,10 @@ static void failure_exit_callback(int *status)
 static void print_help(void)
 {
 	printf(
-"Usage: dovecot-lda [-c <config file>] [-a <address>] [-d <username>] [-p <path>]\n"
-"                   [-f <envelope sender>] [-m <mailbox>] [-e] [-k]\n");
+"Usage: dovecot-lda [-c <config file>] [-d <username>] [-p <path>]\n"
+"                   [-m <mailbox>] [-e] [-k] [-f <envelope sender>]\n"
+"                   [-a <original envelope recipient>]\n"
+"                   [-r <final envelope recipient>] \n");
 }
 
 int main(int argc, char *argv[])
