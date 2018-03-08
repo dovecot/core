@@ -398,7 +398,8 @@ static size_t get_unused_space(const struct file_ostream *fstream)
 	}
 }
 
-static size_t o_stream_file_get_used_size(const struct ostream_private *stream)
+static size_t
+o_stream_file_get_buffer_used_size(const struct ostream_private *stream)
 {
 	const struct file_ostream *fstream =
 		(const struct file_ostream *)stream;
@@ -961,7 +962,8 @@ o_stream_create_file_common(struct file_ostream *fstream,
 	fstream->ostream.cork = o_stream_file_cork;
 	fstream->ostream.flush = o_stream_file_flush;
 	fstream->ostream.flush_pending = o_stream_file_flush_pending;
-	fstream->ostream.get_used_size = o_stream_file_get_used_size;
+	fstream->ostream.get_buffer_used_size =
+		o_stream_file_get_buffer_used_size;
 	fstream->ostream.seek = o_stream_file_seek;
 	fstream->ostream.sendv = o_stream_file_sendv;
 	fstream->ostream.write_at = o_stream_file_write_at;
