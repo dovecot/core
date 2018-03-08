@@ -218,10 +218,7 @@ size_t o_stream_get_buffer_used_size(const struct ostream *stream)
 {
 	const struct ostream_private *_stream = stream->real_stream;
 
-	if (_stream->get_buffer_used_size != NULL)
-		return _stream->get_buffer_used_size(_stream);
-
-	return _stream->get_used_size(_stream);
+	return _stream->get_buffer_used_size(_stream);
 }
 
 size_t o_stream_get_buffer_avail_size(const struct ostream *stream)
@@ -630,7 +627,7 @@ o_stream_default_set_flush_pending(struct ostream_private *_stream, bool set)
 }
 
 static size_t
-o_stream_default_get_used_size(const struct ostream_private *_stream)
+o_stream_default_get_buffer_used_size(const struct ostream_private *_stream)
 {
 	if (_stream->parent == NULL)
 		return 0;
@@ -734,8 +731,9 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 	}
 	if (_stream->flush_pending == NULL)
 		_stream->flush_pending = o_stream_default_set_flush_pending;
-	if (_stream->get_used_size == NULL)
-		_stream->get_used_size = o_stream_default_get_used_size;
+	if (_stream->get_buffer_used_size == NULL)
+		_stream->get_buffer_used_size =
+			o_stream_default_get_buffer_used_size;
 	if (_stream->get_buffer_avail_size == NULL) {
 		_stream->get_buffer_avail_size =
 			o_stream_default_get_buffer_avail_size;
