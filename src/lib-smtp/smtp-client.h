@@ -41,6 +41,8 @@ struct smtp_client_settings {
 	const char *my_hostname;
 	const char *temp_path_prefix;
 
+	enum smtp_capability forced_capabilities;
+
 	struct dns_client *dns_client;
 	const char *dns_client_socket_path;
 
