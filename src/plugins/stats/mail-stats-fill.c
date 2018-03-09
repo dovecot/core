@@ -149,6 +149,11 @@ void mail_stats_fill(struct stats_user *suser, struct mail_stats *stats_r)
 	user_trans_stats_get(suser, stats_r);
 }
 
+void mail_stats_global_preinit(void)
+{
+	(void)process_io_open();
+}
+
 void mail_stats_fill_global_deinit(void)
 {
 	if (proc_io_fd != -1)
