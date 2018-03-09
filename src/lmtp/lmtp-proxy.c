@@ -210,6 +210,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	i_zero(&lmtp_set);
 	lmtp_set.my_ip = conn->set.source_ip;
 	lmtp_set.peer_trusted = TRUE;
+	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
 
 	lmtp_conn = smtp_client_connection_create(proxy->lmtp_client,
 		set->protocol, conn->set.host, conn->set.port,
