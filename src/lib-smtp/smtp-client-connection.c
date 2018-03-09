@@ -800,7 +800,7 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 
 	/* reset capabilities */
 	p_clear(conn->cap_pool);
-	conn->capabilities = 0;
+	conn->capabilities = conn->set.forced_capabilities;
 	conn->cap_xclient_args = NULL;
 	conn->cap_auth_mechanisms = NULL;
 	conn->cap_size = 0;
@@ -1635,6 +1635,8 @@ smtp_client_connection_create(struct smtp_client *client,
 		if (set->my_hostname != NULL && *set->my_hostname != '\0')
 			conn->set.my_hostname = p_strdup(pool, set->my_hostname);
 
+		conn->set.forced_capabilities |= set->forced_capabilities;
+
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 			conn->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
@@ -1691,6 +1693,7 @@ smtp_client_connection_create(struct smtp_client *client,
 	i_assert(conn->set.my_hostname != NULL &&
 		*conn->set.my_hostname != '\0');
 
+	conn->capabilities = conn->set.forced_capabilities;
 	conn->cap_pool = pool_alloconly_create
 		("smtp client connection capabilities", 128);
 

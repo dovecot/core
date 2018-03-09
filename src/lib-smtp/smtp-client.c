@@ -33,6 +33,9 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 
 	client->set.my_ip = set->my_ip;
 	client->set.my_hostname = p_strdup(pool, set->my_hostname);
+
+	client->set.forced_capabilities = set->forced_capabilities;
+
 	client->set.dns_client = set->dns_client;
 	client->set.dns_client_socket_path =
 		p_strdup(pool, set->dns_client_socket_path);
