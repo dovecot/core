@@ -5,7 +5,7 @@ doveconf \- Dovecot\(aqs configuration dumping utility
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .B doveconf
-.RB [ \-adnNSx ]
+.RB [ \-adnPNSx ]
 [\fB\-c\fP \fIconfig\-file\fP]
 [\fB\-f\fP \fIfilter\fP]
 [\fB\-m\fP \fImodule\fP]
@@ -122,6 +122,12 @@ Show settings with non\-default values and explicitly set default values.
 .TP
 .B \-S
 Dump settings in simplified machine parsable/readable format.
+.\"---------------------------------
+.TP
+.\"---------------------------------
+.TP
+.B \-P/
+Show passwords and other sensitive values.
 .\"---------------------------------
 .TP
 .B \-x
