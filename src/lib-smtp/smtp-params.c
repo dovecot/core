@@ -854,8 +854,9 @@ int smtp_params_rcpt_parse(pool_t pool, const char *args,
 				ret = -1;
 				break;
 			}
-		} else if ((caps & SMTP_CAPABILITY_DSN) != 0 &&
-			strcmp(param.keyword, "ORCPT") == 0) {
+		} else if (((caps & SMTP_CAPABILITY_DSN) != 0 ||
+			    (caps & SMTP_CAPABILITY__ORCPT) != 0) &&
+			   strcmp(param.keyword, "ORCPT") == 0) {
 			if (smtp_params_rcpt_parse_orcpt
 				(&prparser, param.value) < 0) {
 				ret = -1;
@@ -967,7 +968,8 @@ smtp_params_rcpt_write_orcpt(string_t *buffer,
 {
 	if (params->orcpt.addr_type == NULL)
 		return;
-	if ((caps & SMTP_CAPABILITY_DSN) == 0)
+	if ((caps & SMTP_CAPABILITY_DSN) == 0 &&
+	    (caps & SMTP_CAPABILITY__ORCPT) == 0)
 		return;
 
 	/* ORCPT=<address>: RFC 3461 */
