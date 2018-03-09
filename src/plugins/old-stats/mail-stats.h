@@ -35,6 +35,7 @@ void mail_stats_fill(struct stats_user *suser, struct mail_stats *mail_stats);
 void mail_stats_add_transaction(struct mail_stats *stats,
 				const struct mailbox_transaction_stats *trans_stats);
 
+void mail_stats_global_preinit(void);
 void mail_stats_fill_global_deinit(void);
 
 #endif

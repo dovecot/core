@@ -466,6 +466,11 @@ void old_stats_plugin_init(struct module *module)
 	mail_storage_hooks_add(module, &stats_mail_storage_hooks);
 }
 
+void old_stats_plugin_preinit(void)
+{
+	mail_stats_global_preinit();
+}
+
 void old_stats_plugin_deinit(void)
 {
 	if (global_stats_conn != NULL)
