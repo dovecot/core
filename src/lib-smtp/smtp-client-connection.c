@@ -1471,28 +1471,20 @@ smtp_client_connection_dns_callback(const struct dns_lookup_result *result,
 	smtp_client_connection_connect_next_ip(conn);
 }
 
-void smtp_client_connection_connect(struct smtp_client_connection *conn,
-	smtp_client_command_callback_t login_callback, void *login_context)
+static void
+smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 {
 	struct dns_lookup_settings dns_set;
 	struct ip_addr ip, *ips;
 	unsigned int ips_count;
 	int ret;
 
-	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED) {
-		i_assert(login_callback == NULL);
+	if (conn->ips_count != 0)
 		return;
-	}
-	i_assert(conn->login_callback == NULL);
-	conn->login_callback = login_callback;
-	conn->login_context = login_context;
 
 	smtp_client_connection_debug(conn, "Looking up IP address");
 
-	smtp_client_connection_set_state(conn,
-		SMTP_CLIENT_CONNECTION_STATE_CONNECTING);
-	if (conn->ips_count == 0 &&
-	    net_addr2ip(conn->host, &ip) == 0) {
+	if (net_addr2ip(conn->host, &ip) == 0) {
 		/* IP address */
 		conn->ips_count = 1;
 		conn->ips = i_new(struct ip_addr, conn->ips_count);
@@ -1533,7 +1525,23 @@ void smtp_client_connection_connect(struct smtp_client_connection *conn,
 		conn->ips = i_new(struct ip_addr, ips_count);
 		memcpy(conn->ips, ips, ips_count * sizeof(*ips));
 	}
+}
 
+void smtp_client_connection_connect(struct smtp_client_connection *conn,
+	smtp_client_command_callback_t login_callback, void *login_context)
+{
+	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED) {
+		i_assert(login_callback == NULL);
+		return;
+	}
+	i_assert(conn->login_callback == NULL);
+	conn->login_callback = login_callback;
+	conn->login_context = login_context;
+
+	smtp_client_connection_set_state(conn,
+		SMTP_CLIENT_CONNECTION_STATE_CONNECTING);
+
+	smtp_client_connection_lookup_ip(conn);
 	if (conn->ips_count == 0)
 		return;
 
