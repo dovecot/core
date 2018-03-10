@@ -71,6 +71,16 @@ static void test_str_escape(void)
 			   "\\\\\\\\\\\"\\\"\\\'\\\'") == 0);
 	test_end();
 
+	test_begin("str_nescape");
+
+	escaped = str_nescape("\"escape only first but not 'this'", 10);
+	test_assert(strcmp(escaped, "\\\"escape on") == 0);
+
+	escaped = str_nescape("\"hello\"\0\"world\"", 15);
+	test_assert(memcmp(escaped, "\\\"hello\\\"\0\\\"world\\\"", 19) == 0);
+
+	test_end();
+
 	str = t_str_new(256);
 	test_begin("str_unescape");
 	for (i = 0; i < N_ELEMENTS(unesc); i++) {

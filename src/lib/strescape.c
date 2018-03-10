@@ -4,28 +4,27 @@
 #include "str.h"
 #include "strescape.h"
 
-const char *str_escape(const char *str)
+const char *str_nescape(const void *str, size_t len)
 {
-	const char *p;
+	const unsigned char *s = str, *p = str;
 	string_t *ret;
-
 	/* see if we need to quote it */
-	for (p = str; *p != '\0'; p++) {
+	for (p = str; (size_t)(p - s) < len; p++) {
 		if (IS_ESCAPED_CHAR(*p))
 			break;
 	}
 
-	if (*p == '\0')
+	if (p == (s + len))
 		return str;
 
 	/* quote */
-	ret = t_str_new((size_t) (p - str) + 128);
-	str_append_n(ret, str, (size_t) (p - str));
+	ret = t_str_new((size_t)(p - s) + 128);
+	str_append_n(ret, s, (size_t)(p - s));
 
-	for (; *p != '\0'; p++) {
+	for (; (size_t)(p - s) < len; p++) {
 		if (IS_ESCAPED_CHAR(*p))
 			str_append_c(ret, '\\');
-		str_append_c(ret, *p);
+		str_append_data(ret, p, 1);
 	}
 	return str_c(ret);
 }

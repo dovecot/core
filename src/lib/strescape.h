@@ -3,8 +3,15 @@
 
 #define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\' || (c) == '\'')
 
-/* escape all '\', '"' and "'" characters */
-const char *str_escape(const char *str);
+/* escape all '\', '"' and "'" characters,
+   this is nul safe */
+const char *str_nescape(const void *str, size_t len);
+
+/* escape string */
+static inline const char *str_escape(const char *str)
+{
+	return str_nescape(str, strlen(str));
+}
 
 /* remove all '\' characters, append to given string */
 void str_append_unescaped(string_t *dest, const void *src, size_t src_size);
