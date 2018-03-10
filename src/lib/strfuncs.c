@@ -366,6 +366,15 @@ const char *t_str_ucase(const char *str)
 	return str_ucase(t_strdup_noconst(str));
 }
 
+const char *i_strstr_arr(const char *haystack, const char *const *needles)
+{
+	const char *ptr;
+	for(; *needles != NULL; needles++)
+		if ((ptr = strstr(haystack, *needles)) != NULL)
+			return ptr;
+	return NULL;
+}
+
 static void str_trim_parse(const char *str,
 	const char *chars, enum _str_trim_sides sides,
 	const char **begin_r, const char **end_r)
