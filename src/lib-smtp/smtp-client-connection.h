@@ -40,6 +40,12 @@ smtp_client_connection_create(struct smtp_client *client,
 	enum smtp_client_connection_ssl_mode ssl_mode,
 	const struct smtp_client_settings *set)
 	ATTR_NULL(6);
+struct smtp_client_connection *
+smtp_client_connection_create_ip(struct smtp_client *client,
+	enum smtp_protocol protocol, const struct ip_addr *ip, in_port_t port,
+	const char *hostname, enum smtp_client_connection_ssl_mode ssl_mode,
+	const struct smtp_client_settings *set)
+	ATTR_NULL(5,7);
 void smtp_client_connection_ref(struct smtp_client_connection *conn);
 void smtp_client_connection_unref(struct smtp_client_connection **_conn);
 void smtp_client_connection_close(struct smtp_client_connection **_conn);
