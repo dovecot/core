@@ -1712,6 +1712,25 @@ smtp_client_connection_create(struct smtp_client *client,
 	return conn;
 }
 
+struct smtp_client_connection *
+smtp_client_connection_create_ip(struct smtp_client *client,
+	enum smtp_protocol protocol, const struct ip_addr *ip, in_port_t port,
+	const char *hostname, enum smtp_client_connection_ssl_mode ssl_mode,
+	const struct smtp_client_settings *set)
+{
+	struct smtp_client_connection *conn;
+
+	if (hostname == NULL)
+		hostname = net_ip2addr(ip);
+
+	conn = smtp_client_connection_create(client, protocol, hostname, port,
+					     ssl_mode, set);
+	conn->ips_count = 1;
+	conn->ips = i_new(struct ip_addr, conn->ips_count);
+	conn->ips[0] = *ip;
+	return conn;
+}
+
 void smtp_client_connection_ref(struct smtp_client_connection *conn)
 {
 	i_assert(conn->refcount >= 0);
