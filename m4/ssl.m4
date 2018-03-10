@@ -133,6 +133,45 @@ AC_DEFUN([DOVECOT_SSL], [
         AC_DEFINE(HAVE_SSL_CTX_SET_MIN_PROTO_VERSION,, [Define if you have SSL_CTX_set_min_proto_version])
       fi
 
+      # SSL_CTX_add0_chain_cert is also a macro so AC_CHECK_LIB fails here.
+      AC_CACHE_CHECK([whether SSL_CTX_add0_chain_cert exists],i_cv_have_ssl_ctx_add0_chain_cert,[
+        old_LIBS=$LIBS
+        LIBS="$LIBS -lssl"
+        AC_TRY_LINK([
+          #include <openssl/ssl.h>
+        ], [
+          SSL_CTX_add0_chain_cert((void*)0, 0);
+        ], [
+          i_cv_have_ssl_ctx_add0_chain_cert=yes
+        ], [
+          i_cv_have_ssl_ctx_add0_chain_cert=no
+        ])
+        LIBS=$old_LIBS
+      ])
+      if test $i_cv_have_ssl_ctx_add0_chain_cert = yes; then
+        AC_DEFINE(HAVE_SSL_CTX_ADD0_CHAIN_CERT,, [Define if you have SSL_CTX_add0_chain_cert])
+      fi
+
+      # SSL_CTX_set_current_cert is also a macro so AC_CHECK_LIB fails here.
+      AC_CACHE_CHECK([whether SSL_CTX_set_current_cert exists],i_cv_have_ssl_ctx_set_current_cert,[
+        old_LIBS=$LIBS
+        LIBS="$LIBS -lssl"
+        AC_TRY_LINK([
+          #include <openssl/ssl.h>
+        ], [
+          SSL_CTX_set_current_cert((void*)0, 0);
+        ], [
+          i_cv_have_ssl_ctx_set_current_cert=yes
+        ], [
+          i_cv_have_ssl_ctx_set_current_cert=no
+        ])
+        LIBS=$old_LIBS
+      ])
+      if test $i_cv_have_ssl_ctx_set_current_cert = yes; then
+        AC_DEFINE(HAVE_SSL_CTX_SET_CURRENT_CERT,, [Define if you have SSL_CTX_set_current_cert])
+      fi
+
+
       AC_CHECK_LIB(ssl, SSL_CIPHER_get_kx_nid, [
         AC_DEFINE(HAVE_SSL_CIPHER_get_kx_nid,, [Define if you have SSL_CIPHER_get_kx_nid])
       ],, $SSL_LIBS)
