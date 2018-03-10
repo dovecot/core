@@ -39,7 +39,7 @@ smtp_client_connection_create(struct smtp_client *client,
 	enum smtp_protocol protocol, const char *host, in_port_t port,
 	enum smtp_client_connection_ssl_mode ssl_mode,
 	const struct smtp_client_settings *set)
-	ATTR_NULL(5);
+	ATTR_NULL(6);
 void smtp_client_connection_ref(struct smtp_client_connection *conn);
 void smtp_client_connection_unref(struct smtp_client_connection **_conn);
 void smtp_client_connection_close(struct smtp_client_connection **_conn);
