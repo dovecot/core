@@ -54,6 +54,9 @@ char *str_lcase(char *str);
 const char *t_str_lcase(const char *str);
 const char *t_str_ucase(const char *str);
 
+/* Return pointer to first matching needle */
+const char *i_strstr_arr(const char *haystack, const char *const *needles);
+
 /* Trim matching chars from either side of the string */
 const char *t_str_trim(const char *str, const char *chars);
 const char *p_str_trim(pool_t pool, const char *str, const char *chars);
