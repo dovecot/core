@@ -201,6 +201,9 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 		ret = 0;
 
 	if (ret != 0) {
+#ifdef HAVE_SSL_CTX_SET_CURRENT_CERT
+		SSL_CTX_select_current_cert(ctx, x);
+#endif
 		/* If we could set up our certificate, now proceed to
 		 * the CA certificates.
 		 */
@@ -209,7 +212,11 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 		unsigned long err;
 		
 		while ((ca = PEM_read_bio_X509(in,NULL,NULL,NULL)) != NULL) {
+#ifdef HAVE_SSL_CTX_ADD0_CHAIN_CERT
+			r = SSL_CTX_add0_chain_cert(ctx, ca);
+#else
 			r = SSL_CTX_add_extra_chain_cert(ctx, ca);
+#endif
 			if (r == 0) {
 				X509_free(ca);
 				ret = 0;
@@ -227,6 +234,9 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 end:
 	if (x != NULL) X509_free(x);
 	BIO_free(in);
+#ifdef HAVE_SSL_CTX_SET_CURRENT_CERT
+	SSL_CTX_set_current_cert(ctx, SSL_CERT_SET_FIRST);
+#endif
 	return ret;
 }
 
