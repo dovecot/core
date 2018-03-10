@@ -159,10 +159,10 @@ static int config_filters_request(struct config_connection *conn)
 		o_stream_nsend_str(conn->output, "FILTER");
 		if (filter->service != NULL)
 			o_stream_nsend_str(conn->output, t_strdup_printf("\tservice=%s",
-					   filter->service));
+					   str_tabescape(filter->service)));
 		if (filter->local_name != NULL)
 			o_stream_nsend_str(conn->output, t_strdup_printf("\tlocal-name=%s",
-					   filter->local_name));
+					   str_tabescape(filter->local_name)));
 		if (filter->local_bits > 0)
 			o_stream_nsend_str(conn->output, t_strdup_printf("\tlocal-net=%s/%u",
 					   net_ip2addr(&filter->local_net),
