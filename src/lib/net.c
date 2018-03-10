@@ -59,10 +59,15 @@ int net_ip_cmp(const struct ip_addr *ip1, const struct ip_addr *ip2)
 	if (ip1->family != ip2->family)
 		return ip1->family - ip2->family;
 
-	if (ip1->family == AF_INET6)
+	switch (ip1->family) {
+	case AF_INET6:
 		return memcmp(&ip1->u.ip6, &ip2->u.ip6, sizeof(ip1->u.ip6));
-
-	return memcmp(&ip1->u.ip4, &ip2->u.ip4, sizeof(ip1->u.ip4));
+	case AF_INET:
+		return memcmp(&ip1->u.ip4, &ip2->u.ip4, sizeof(ip1->u.ip4));
+	default:
+		break;
+	}
+	return 0;
 }
 
 unsigned int net_ip_hash(const struct ip_addr *ip)
