@@ -75,6 +75,7 @@ const char *auth_master_get_socket_path(struct auth_master_connection *conn);
 void auth_master_switch_ioloop_to(struct auth_master_connection *conn,
 				  struct ioloop *ioloop);
 void auth_master_switch_ioloop(struct auth_master_connection *conn);
+void auth_master_wait(struct auth_master_connection *conn);
 
 /*
  * Lookup common

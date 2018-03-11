@@ -12,6 +12,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "time-util.h"
+#include "master-service.h"
 
 #include "auth-master-private.h"
 
@@ -120,6 +121,19 @@ auth_master_connection_failure(struct auth_master_connection *conn,
 
 	if (conn->ioloop != NULL && conn->waiting)
 		io_loop_stop(conn->ioloop);
+}
+
+static void
+auth_master_connection_abort_requests(struct auth_master_connection *conn)
+{
+	struct auth_master_request *req;
+
+	while (conn->requests_head != NULL) {
+		req = conn->requests_head;
+
+		auth_master_request_abort(&req);
+	}
+	i_assert(hash_table_count(conn->requests) == 0);
 }
 
 void auth_master_disconnect(struct auth_master_connection *conn)
@@ -476,6 +490,72 @@ void auth_master_check_idle(struct auth_master_connection *conn)
 void auth_master_stop_idle(struct auth_master_connection *conn)
 {
 	timeout_remove(&conn->to_idle);
+}
+
+static void auth_master_stop(struct auth_master_connection *conn)
+{
+	if (master_service_is_killed(master_service)) {
+		auth_master_connection_abort_requests(conn);
+		io_loop_stop(conn->ioloop);
+	}
+}
+
+void auth_master_wait(struct auth_master_connection *conn)
+{
+	struct ioloop *ioloop, *prev_ioloop;
+	struct timeout *to;
+	bool waiting = conn->waiting, was_corked = FALSE;
+
+	i_assert(conn->ioloop == NULL);
+	i_assert(auth_master_request_count(conn) > 0);
+
+	auth_master_ref(conn);
+
+	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
+		ioloop = conn->ioloop;
+	else {
+		prev_ioloop = conn->ioloop;
+		if (!waiting)
+			conn->prev_ioloop = prev_ioloop;
+		ioloop = io_loop_create();
+		auth_master_switch_ioloop_to(conn, ioloop);
+	}
+
+	if (conn->conn.input != NULL &&
+	    i_stream_get_data_size(conn->conn.input) > 0)
+		i_stream_set_input_pending(conn->conn.input, TRUE);
+	o_stream_set_flush_pending(conn->conn.output, TRUE);
+	if (conn->conn.output != NULL) {
+		was_corked = o_stream_is_corked(conn->conn.output);
+		o_stream_uncork(conn->conn.output);
+	}
+
+	/* either we're waiting for network I/O or we're getting out of a
+	   callback using timeout_add_short(0) */
+	i_assert(io_loop_have_ios(ioloop) ||
+		 io_loop_have_immediate_timeouts(ioloop));
+
+	/* add stop handler */
+	to = timeout_add_short(100, auth_master_stop, conn);
+
+	conn->waiting = TRUE;
+	while (auth_master_request_count(conn) > 0)
+		io_loop_run(ioloop);
+	conn->waiting = waiting;
+
+	timeout_remove(&to);
+
+	if (conn->conn.output != NULL && was_corked)
+		o_stream_cork(conn->conn.output);
+
+	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) == 0) {
+		auth_master_switch_ioloop_to(conn, prev_ioloop);
+		io_loop_destroy(&ioloop);
+		if (!waiting)
+			conn->prev_ioloop = NULL;
+	}
+
+	auth_master_unref(&conn);
 }
 
 /*
