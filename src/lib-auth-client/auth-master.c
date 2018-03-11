@@ -111,6 +111,7 @@ auth_master_connection_failure(struct auth_master_connection *conn,
 	timeout_remove(&conn->to_connect);
 	timeout_remove(&conn->to_request);
 	timeout_remove(&conn->to_idle);
+	timeout_remove(&conn->to_invalid);
 
 	while (conn->requests_head != NULL) {
 		req = conn->requests_head;
@@ -524,6 +525,32 @@ void auth_master_handle_requests(struct auth_master_connection *conn)
 	o_stream_set_flush_pending(conn->conn.output, TRUE);
 }
 
+static void
+auth_master_abort_invalid_requests(struct auth_master_connection *conn)
+{
+	struct auth_master_request *req, *req_next;
+
+	timeout_remove(&conn->to_invalid);
+
+	req = conn->requests_unsent;
+	while (req != NULL) {
+		req_next = req->next;
+		if (req->invalid)
+			auth_master_request_abort_invalid(&req);
+		req = req_next;
+	}
+}
+
+void auth_master_handle_invalid_requests(struct auth_master_connection *conn)
+{
+	if (conn->to_invalid != NULL)
+		return;
+
+	conn->to_invalid = timeout_add_to(
+		conn->ioloop, 0,
+		auth_master_abort_invalid_requests, conn);
+}
+
 void auth_master_switch_ioloop_to(struct auth_master_connection *conn,
 				  struct ioloop *ioloop)
 {
@@ -539,6 +566,10 @@ void auth_master_switch_ioloop_to(struct auth_master_connection *conn,
 	}
 	if (conn->to_idle != NULL)
 		conn->to_idle = io_loop_move_timeout_to(ioloop, &conn->to_idle);
+	if (conn->to_invalid != NULL) {
+		conn->to_idle =
+			io_loop_move_timeout_to(ioloop, &conn->to_invalid);
+	}
 	connection_switch_ioloop_to(&conn->conn, conn->ioloop);
 }
 

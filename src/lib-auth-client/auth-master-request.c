@@ -226,12 +226,32 @@ void auth_master_request_fail(struct auth_master_request **_req,
 	auth_master_request_abort(_req);
 }
 
+void auth_master_request_abort_invalid(struct auth_master_request **_req)
+{
+	struct auth_master_request *req = *_req;
+
+	if (req->in_callback)
+		return;
+
+	e_debug(req->event, "Aborted as invalid");
+
+	const struct auth_master_reply mreply = {
+		.reply = "NOTFOUND",
+	};
+
+	i_assert(req->callback != NULL);
+	(void)auth_master_request_callback(req, &mreply);
+
+	auth_master_request_abort(_req);
+}
+
 void auth_master_request_send(struct auth_master_request *req)
 {
 	struct auth_master_connection *conn = req->conn;
 	const char *id_str = dec2str(req->id);
 
 	i_assert(req->state == AUTH_MASTER_REQUEST_STATE_SUBMITTED);
+	i_assert(!req->invalid);
 
 	const struct const_iovec iov[] = {
 		{ req->cmd, strlen(req->cmd), },
@@ -253,16 +273,14 @@ void auth_master_request_send(struct auth_master_request *req)
 	e_debug(req->event, "Sent");
 }
 
-#undef auth_master_request
-struct auth_master_request *
-auth_master_request(struct auth_master_connection *conn, const char *cmd,
-		    const unsigned char *args, size_t args_size,
-		    auth_master_request_callback_t *callback, void *context)
+static struct auth_master_request *
+auth_master_request_new(struct auth_master_connection *conn,
+			auth_master_request_callback_t *callback, void *context)
 {
 	pool_t pool;
 	struct auth_master_request *req;
 
-	pool = pool_alloconly_create("auth_master_request", 256 + args_size);
+	pool = pool_alloconly_create("auth_master_request", 1024);
 	req = p_new(pool, struct auth_master_request, 1);
 	req->pool = pool;
 	req->refcount = 1;
@@ -287,17 +305,43 @@ auth_master_request(struct auth_master_connection *conn, const char *cmd,
 	if (conn->requests_unsent == NULL)
 		conn->requests_unsent = conn->requests_tail;
 
-	auth_master_connection_start_timeout(conn);
-	auth_master_stop_idle(conn);
+	e_debug(req->event, "Created");
 
+	return req;
+}
+
+#undef auth_master_request
+struct auth_master_request *
+auth_master_request(struct auth_master_connection *conn, const char *cmd,
+		    const unsigned char *args, size_t args_size,
+		    auth_master_request_callback_t *callback, void *context)
+{
+	struct auth_master_request *req;
+
+	req = auth_master_request_new(conn, callback, context);
 	req->cmd = p_strdup(req->pool, cmd);
 	if (args_size > 0)
 		req->args = p_memdup(req->pool, args, args_size);
 	req->args_size = args_size;
 
-	e_debug(req->event, "Created");
-
 	auth_master_handle_requests(conn);
+	auth_master_connection_start_timeout(conn);
+	auth_master_stop_idle(conn);
+	return req;
+}
+
+#undef auth_master_request_invalid
+struct auth_master_request *
+auth_master_request_invalid(struct auth_master_connection *conn,
+			    auth_master_request_callback_t *callback,
+			    void *context)
+{
+	struct auth_master_request *req;
+
+	req = auth_master_request_new(conn, callback, context);
+	req->invalid = TRUE;
+
+	auth_master_handle_invalid_requests(conn);
 	return req;
 }
 

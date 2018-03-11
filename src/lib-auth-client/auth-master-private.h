@@ -49,6 +49,7 @@ struct auth_master_request {
 	ARRAY(struct auth_master_request_destroy_callback) destroy_callbacks;
 
 	bool sent:1;
+	bool invalid:1;
 	bool aborted:1;
 	bool removed:1;
 	bool in_callback:1;
@@ -63,7 +64,7 @@ struct auth_master_connection {
 	const char *auth_socket_path;
 	enum auth_master_flags flags;
 
-	struct timeout *to_connect, *to_idle, *to_request;
+	struct timeout *to_connect, *to_idle, *to_request, *to_invalid;
 	struct ioloop *ioloop, *prev_ioloop;
 
 	unsigned int id_counter;
@@ -95,6 +96,15 @@ int auth_master_request_got_reply(struct auth_master_request **_req,
 
 void auth_master_request_fail(struct auth_master_request **_req,
 			      const char *reason);
+void auth_master_request_abort_invalid(struct auth_master_request **_req);
+
+struct auth_master_request *
+auth_master_request_invalid(struct auth_master_connection *conn,
+			    auth_master_request_callback_t *callback,
+			    void *context);
+#define auth_master_request_invalid(conn, callback, context) \
+	auth_master_request_invalid(conn, \
+		(auth_master_request_callback_t *)callback, context)
 
 /*
  * Connection
@@ -107,5 +117,6 @@ void auth_master_connection_update_timeout(struct auth_master_connection *conn);
 void auth_master_connection_start_timeout(struct auth_master_connection *conn);
 
 void auth_master_handle_requests(struct auth_master_connection *conn);
+void auth_master_handle_invalid_requests(struct auth_master_connection *conn);
 
 #endif
