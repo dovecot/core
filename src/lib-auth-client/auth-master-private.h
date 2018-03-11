@@ -32,6 +32,8 @@ struct auth_master_connection {
 
 	unsigned int timeout_msecs;
 
+	pid_t auth_server_pid;
+
 	bool connected:1;
 	bool sent_handshake:1;
 	bool aborted:1;

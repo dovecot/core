@@ -195,10 +195,17 @@ auth_master_handshake_line(struct connection *_conn, const char *line)
 			auth_request_lookup_abort(conn);
 			return -1;
 		}
-	} else if (strcmp(tmp[0], "SPID") == 0) {
-		return 1;
+		return 0;
+	} else if (strcmp(tmp[0], "SPID") != 0) {
+		return 0;
 	}
-	return 0;
+
+	if (str_to_pid(tmp[1], &conn->auth_server_pid) < 0) {
+		e_error(conn->event,
+			"Authentication server sent invalid SPID: %s", line);
+		return -1;
+	}
+	return 1;
 }
 
 static int
