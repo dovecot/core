@@ -28,6 +28,8 @@ struct auth_master_reply {
 	const char *errormsg;
 };
 
+typedef void
+auth_master_request_destroy_callback_t(void *context);
 /* Returns 1 upon full completion, 0 upon successful partial completion (will
    be called again) and -1 upon error. */
 typedef int
@@ -54,6 +56,20 @@ void auth_master_request_abort(struct auth_master_request **_req);
 bool auth_master_request_wait(struct auth_master_request *req);
 
 unsigned int auth_master_request_count(struct auth_master_connection *conn);
+
+/* Call the given callback function when the request is destroyed. */
+void auth_master_request_add_destroy_callback(
+	struct auth_master_request *req,
+	auth_master_request_destroy_callback_t *callback, void *context)
+	ATTR_NULL(3);
+#define auth_master_request_add_destroy_callback(stream, callback, context) \
+	auth_master_request_add_destroy_callback(stream + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		(auth_master_request_destroy_callback_t *)callback, context)
+/* Remove the destroy callback. */
+void auth_master_request_remove_destroy_callback(
+	struct auth_master_request *req,
+	auth_master_request_destroy_callback_t *callback);
 
 /*
  * Connection

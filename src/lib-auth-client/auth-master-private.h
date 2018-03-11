@@ -19,6 +19,11 @@ enum auth_master_request_state {
 	AUTH_MASTER_REQUEST_STATE_ABORTED,
 };
 
+struct auth_master_request_destroy_callback {
+	auth_master_request_destroy_callback_t *callback;
+	void *context;
+};
+
 struct auth_master_request {
 	int refcount;
 	pool_t pool;
@@ -38,6 +43,8 @@ struct auth_master_request {
 
 	auth_master_request_callback_t *callback;
 	void *context;
+
+	ARRAY(struct auth_master_request_destroy_callback) destroy_callbacks;
 
 	bool sent:1;
 	bool aborted:1;

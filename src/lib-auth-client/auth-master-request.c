@@ -61,6 +61,7 @@ static void auth_master_request_ref(struct auth_master_request *req)
 static bool auth_master_request_unref(struct auth_master_request **_req)
 {
 	struct auth_master_request *req = *_req;
+	const struct auth_master_request_destroy_callback *dc;
 
 	*_req = NULL;
 
@@ -72,6 +73,13 @@ static bool auth_master_request_unref(struct auth_master_request **_req)
 		return TRUE;
 
 	auth_master_request_remove(req);
+
+	if (array_is_created(&req->destroy_callbacks)) {
+		array_foreach(&req->destroy_callbacks, dc)
+			dc->callback(dc->context);
+		array_free(&req->destroy_callbacks);
+	}
+
 	event_unref(&req->event);
 	pool_unref(&req->pool);
 	return FALSE;
@@ -399,4 +407,35 @@ bool auth_master_request_wait(struct auth_master_request *req)
 unsigned int auth_master_request_count(struct auth_master_connection *conn)
 {
 	return conn->requests_count;
+}
+
+#undef auth_master_request_add_destroy_callback
+void auth_master_request_add_destroy_callback(
+	struct auth_master_request *req,
+	auth_master_request_destroy_callback_t *callback, void *context)
+{
+	struct auth_master_request_destroy_callback *dc;
+
+	if (!array_is_created(&req->destroy_callbacks))
+		i_array_init(&req->destroy_callbacks, 2);
+	dc = array_append_space(&req->destroy_callbacks);
+	dc->callback = callback;
+	dc->context = context;
+}
+
+void auth_master_request_remove_destroy_callback(
+	struct auth_master_request *req,
+	auth_master_request_destroy_callback_t *callback)
+{
+	const struct auth_master_request_destroy_callback *dcs;
+	unsigned int i, count;
+
+	dcs = array_get(&req->destroy_callbacks, &count);
+	for (i = 0; i < count; i++) {
+		if (dcs[i].callback == callback) {
+			array_delete(&req->destroy_callbacks, i, 1);
+			return;
+		}
+	}
+	i_unreached();
 }
