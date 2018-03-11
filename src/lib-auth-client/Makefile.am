@@ -19,6 +19,7 @@ headers = \
 	auth-client-interface.h \
 	auth-client-private.h \
 	auth-master.h \
+	auth-master-private.h \
 	auth-proxy.h
 
 pkginc_libdir=$(pkgincludedir)
