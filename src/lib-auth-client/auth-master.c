@@ -229,6 +229,8 @@ auth_master_handle_input(struct auth_master_connection *conn,
 	e_debug(conn->conn.event, "auth input: %s",
 		t_strarray_join(args, "\t"));
 
+	io_loop_stop(conn->ioloop);
+
 	struct auth_master_reply mreply = {
 		.reply = args[0],
 		.args = args + 2,
@@ -561,8 +563,6 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply, void *context)
 	const char *const *args = reply->args;
 	unsigned int i, len;
 
-	io_loop_stop(lookup->conn->ioloop);
-
 	lookup->return_value = parse_reply(lookup, reply->reply, args);
 
 	len = str_array_length(args);
@@ -802,7 +802,6 @@ auth_user_list_reply_callback(const struct auth_master_reply *reply,
 	const char *const *args = reply->args;
 
 	timeout_reset(ctx->conn->to);
-	io_loop_stop(ctx->conn->ioloop);
 
 	if (strcmp(reply->reply, "DONE") == 0) {
 		if (args[0] != NULL && strcmp(args[0], "fail") == 0) {
@@ -969,7 +968,6 @@ auth_cache_flush_reply_callback(const struct auth_master_reply *reply,
 	else if (args[0] == NULL || str_to_uint(args[0], &ctx->count) < 0)
 		ctx->failed = TRUE;
 
-	io_loop_stop(ctx->conn->ioloop);
 	return 1;
 }
 
