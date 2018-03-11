@@ -39,6 +39,8 @@ static void auth_master_request_remove(struct auth_master_request *req)
 		return;
 	req->removed = TRUE;
 
+	e_debug(req->event, "Remove");
+
 	if (req->sent)
 		hash_table_remove(conn->requests, POINTER_CAST(req->id));
 	DLLIST2_REMOVE(&conn->requests_head, &conn->requests_tail, req);
@@ -71,6 +73,8 @@ static bool auth_master_request_unref(struct auth_master_request **_req)
 	i_assert(req->refcount > 0);
 	if (--req->refcount > 0)
 		return TRUE;
+
+	e_debug(req->event, "Destroy");
 
 	auth_master_request_remove(req);
 
@@ -274,6 +278,8 @@ auth_master_request(struct auth_master_connection *conn, const char *cmd,
 		req->args = p_memdup(req->pool, args, args_size);
 	req->args_size = args_size;
 
+	e_debug(req->event, "Created");
+
 	return req;
 }
 
@@ -326,6 +332,8 @@ int auth_master_request_submit(struct auth_master_request **_req)
 	auth_master_connection_start_timeout(conn);
 	auth_master_stop_idle(conn);
 
+	e_debug(req->event, "Submitted");
+
 	return 0;
 }
 
@@ -351,6 +359,8 @@ bool auth_master_request_wait(struct auth_master_request *req)
 		return TRUE;
 
 	i_assert(auth_master_request_count(conn) > 0);
+
+	e_debug(req->event, "Waiting for request to complete");
 
 	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
 		ioloop = conn->ioloop;
@@ -385,6 +395,8 @@ bool auth_master_request_wait(struct auth_master_request *req)
 	while (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED)
 		io_loop_run(conn->ioloop);
 	conn->waiting = waiting;
+
+	e_debug(req->event, "Finished waiting for request");
 
 	timeout_remove(&to);
 

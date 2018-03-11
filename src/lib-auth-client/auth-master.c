@@ -470,6 +470,7 @@ void auth_master_switch_ioloop(struct auth_master_connection *conn)
 
 static void auth_master_idle_timeout(struct auth_master_connection *conn)
 {
+	e_debug(conn->conn.event, "Idle timeout");
 	auth_master_disconnect(conn);
 }
 
@@ -510,6 +511,8 @@ void auth_master_wait(struct auth_master_connection *conn)
 	i_assert(auth_master_request_count(conn) > 0);
 
 	auth_master_ref(conn);
+
+	e_debug(conn->conn.event, "Waiting for all requests to complete");
 
 	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
 		ioloop = conn->ioloop;
@@ -554,6 +557,8 @@ void auth_master_wait(struct auth_master_connection *conn)
 		if (!waiting)
 			conn->prev_ioloop = NULL;
 	}
+
+	e_debug(conn->conn.event, "Finished waiting for requests");
 
 	auth_master_unref(&conn);
 }
