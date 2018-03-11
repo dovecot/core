@@ -13,7 +13,9 @@
 #define MAX_OUTBUF_SIZE 1024
 
 enum auth_master_request_state {
-	AUTH_MASTER_REQUEST_STATE_SENT = 0,
+	AUTH_MASTER_REQUEST_STATE_SUBMITTED = 0,
+	AUTH_MASTER_REQUEST_STATE_SENT,
+	AUTH_MASTER_REQUEST_STATE_REPLIED_MORE,
 	AUTH_MASTER_REQUEST_STATE_REPLIED,
 	AUTH_MASTER_REQUEST_STATE_FINISHED,
 	AUTH_MASTER_REQUEST_STATE_ABORTED,
@@ -67,6 +69,7 @@ struct auth_master_connection {
 	unsigned int id_counter;
 	HASH_TABLE(void *, struct auth_master_request *) requests;
 	struct auth_master_request *requests_head, *requests_tail;
+	struct auth_master_request *requests_unsent;
 	unsigned int requests_count;
 
 	unsigned int timeout_msecs;
@@ -86,8 +89,10 @@ struct auth_master_connection {
 unsigned int
 auth_master_request_get_timeout_msecs(struct auth_master_request *req);
 
+void auth_master_request_send(struct auth_master_request *req);
 int auth_master_request_got_reply(struct auth_master_request **_req,
 				  const char *reply, const char *const *args);
+
 void auth_master_request_fail(struct auth_master_request **_req,
 			      const char *reason);
 
@@ -100,5 +105,7 @@ void auth_master_stop_idle(struct auth_master_connection *conn);
 
 void auth_master_connection_update_timeout(struct auth_master_connection *conn);
 void auth_master_connection_start_timeout(struct auth_master_connection *conn);
+
+void auth_master_handle_requests(struct auth_master_connection *conn);
 
 #endif

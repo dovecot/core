@@ -47,8 +47,6 @@ auth_master_request(struct auth_master_connection *conn, const char *cmd,
 			typeof(context))), \
 		(auth_master_request_callback_t *)callback, context)
 
-int auth_master_request_submit(struct auth_master_request **_req);
-
 void auth_master_request_set_event(struct auth_master_request *req,
 				   struct event *event);
 

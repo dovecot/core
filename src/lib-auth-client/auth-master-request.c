@@ -43,6 +43,8 @@ static void auth_master_request_remove(struct auth_master_request *req)
 
 	if (req->sent)
 		hash_table_remove(conn->requests, POINTER_CAST(req->id));
+	if (req == conn->requests_unsent)
+		conn->requests_unsent = conn->requests_unsent->next;
 	DLLIST2_REMOVE(&conn->requests_head, &conn->requests_tail, req);
 	conn->requests_count--;
 
@@ -168,6 +170,7 @@ int auth_master_request_got_reply(struct auth_master_request **_req,
 
 	ret = auth_master_request_callback(req, &mreply);
 	if (ret == 0) {
+		req->state = AUTH_MASTER_REQUEST_STATE_REPLIED_MORE;
 		if (conn->waiting) {
 			i_assert(conn->ioloop != NULL);
 			io_loop_stop(conn->ioloop);
@@ -223,10 +226,12 @@ void auth_master_request_fail(struct auth_master_request **_req,
 	auth_master_request_abort(_req);
 }
 
-static void auth_master_request_send(struct auth_master_request *req)
+void auth_master_request_send(struct auth_master_request *req)
 {
 	struct auth_master_connection *conn = req->conn;
 	const char *id_str = dec2str(req->id);
+
+	i_assert(req->state == AUTH_MASTER_REQUEST_STATE_SUBMITTED);
 
 	const struct const_iovec iov[] = {
 		{ req->cmd, strlen(req->cmd), },
@@ -239,6 +244,13 @@ static void auth_master_request_send(struct auth_master_request *req)
 	unsigned int iovc = N_ELEMENTS(iov);
 
 	o_stream_nsendv(conn->conn.output, iov, iovc);
+
+	req->state = AUTH_MASTER_REQUEST_STATE_SENT;
+
+	hash_table_insert(conn->requests, POINTER_CAST(req->id), req);
+	req->sent = TRUE;
+
+	e_debug(req->event, "Sent");
 }
 
 #undef auth_master_request
@@ -272,6 +284,11 @@ auth_master_request(struct auth_master_connection *conn, const char *cmd,
 
 	DLLIST2_APPEND(&conn->requests_head, &conn->requests_tail, req);
 	conn->requests_count++;
+	if (conn->requests_unsent == NULL)
+		conn->requests_unsent = conn->requests_tail;
+
+	auth_master_connection_start_timeout(conn);
+	auth_master_stop_idle(conn);
 
 	req->cmd = p_strdup(req->pool, cmd);
 	if (args_size > 0)
@@ -280,61 +297,8 @@ auth_master_request(struct auth_master_connection *conn, const char *cmd,
 
 	e_debug(req->event, "Created");
 
+	auth_master_handle_requests(conn);
 	return req;
-}
-
-int auth_master_request_submit(struct auth_master_request **_req)
-{
-	struct auth_master_request *req = *_req;
-	struct auth_master_connection *conn = req->conn;
-
-	if (req == NULL)
-		return -1;
-
-	if (!conn->connected) {
-		if (auth_master_connect(conn) < 0) {
-			// FIXME: handle
-			/* we couldn't connect to auth now,
-			   so we probably can't in future either. */
-			auth_master_request_unref(_req);
-			return -1;
-		}
-		// FIXME: allow asynchronous connection
-		i_assert(conn->connected);
-		connection_input_resume(&conn->conn);
-	}
-
-	o_stream_cork(conn->conn.output);
-	if (!conn->sent_handshake) {
-		const struct connection_settings *set = &conn->conn.list->set;
-
-		o_stream_nsend_str(conn->conn.output,
-			t_strdup_printf("VERSION\t%u\t%u\n",
-					set->major_version,
-					set->minor_version));
-		conn->sent_handshake = TRUE;
-	}
-
-	auth_master_request_send(req);
-	o_stream_uncork(conn->conn.output);
-
-	if (o_stream_flush(conn->conn.output) < 0) {
-		e_error(conn->conn.event, "write(auth socket) failed: %s",
-			o_stream_get_error(conn->conn.output));
-		auth_master_disconnect(conn);
-		auth_master_request_unref(_req);
-		return -1;
-	}
-
-	hash_table_insert(conn->requests, POINTER_CAST(req->id), req);
-	req->sent = TRUE;
-
-	auth_master_connection_start_timeout(conn);
-	auth_master_stop_idle(conn);
-
-	e_debug(req->event, "Submitted");
-
-	return 0;
 }
 
 static void auth_master_request_stop(struct auth_master_request *req)
@@ -386,14 +350,18 @@ bool auth_master_request_wait(struct auth_master_request *req)
 		 io_loop_have_immediate_timeouts(ioloop));
 
 	auth_master_request_ref(req);
-	req->state = AUTH_MASTER_REQUEST_STATE_SENT;
 
 	/* add stop handler */
 	to = timeout_add_short(100, auth_master_request_stop, req);
 
 	conn->waiting = TRUE;
-	while (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED)
-		io_loop_run(conn->ioloop);
+	if (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED) {
+		if (req->state == AUTH_MASTER_REQUEST_STATE_REPLIED_MORE)
+			req->state = AUTH_MASTER_REQUEST_STATE_SENT;
+		do
+			io_loop_run(ioloop);
+		while (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED_MORE);
+	}
 	conn->waiting = waiting;
 
 	e_debug(req->event, "Finished waiting for request");

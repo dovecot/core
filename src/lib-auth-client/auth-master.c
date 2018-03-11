@@ -371,6 +371,64 @@ auth_master_input_args(struct connection *_conn, const char *const *args)
 	return (ret > 0 ? 0 : 1);
 }
 
+static void
+auth_master_handle_output_error(struct auth_master_connection *conn)
+{
+	struct ostream *output = conn->conn.output;
+
+	if (output->stream_errno != EPIPE &&
+	    output->stream_errno != ECONNRESET) {
+		e_error(conn->conn.event, "write(%s) failed: %s",
+			o_stream_get_name(output), o_stream_get_error(output));
+	} else {
+		e_error(conn->conn.event, "Remote disconnected");
+	}
+	auth_master_disconnect(conn);
+}
+
+static int
+auth_master_connection_output(struct auth_master_connection *conn)
+{
+	int ret;
+
+	if ((ret = o_stream_flush(conn->conn.output)) <= 0) {
+		if (ret < 0)
+			auth_master_handle_output_error(conn);
+		return ret;
+	}
+
+	if (o_stream_get_buffer_used_size(conn->conn.output) >= MAX_OUTBUF_SIZE)
+		return 1;
+
+	o_stream_cork(conn->conn.output);
+	if (!conn->sent_handshake) {
+		const struct connection_settings *set = &conn->conn.list->set;
+
+		o_stream_nsend_str(conn->conn.output,
+			t_strdup_printf("VERSION\t%u\t%u\n",
+					set->major_version,
+					set->minor_version));
+		conn->sent_handshake = TRUE;
+	}
+
+	e_debug(conn->conn.event, "Sending requests");
+
+	while (conn->requests_unsent != NULL) {
+		auth_master_request_send(conn->requests_unsent);
+		conn->requests_unsent = conn->requests_unsent->next;
+		if (o_stream_get_buffer_used_size(conn->conn.output) >=
+		    MAX_OUTBUF_SIZE)
+			break;
+	}
+
+	if (conn->conn.output != NULL &&
+	    o_stream_uncork_flush(conn->conn.output) < 0) {
+		auth_master_handle_output_error(conn);
+		return -1;
+	}
+	return 1;
+}
+
 static int auth_master_input_line(struct connection *_conn, const char *line)
 {
 	struct auth_master_connection *conn =
@@ -398,6 +456,10 @@ static void auth_master_connected(struct connection *_conn, bool success)
 	i_assert(success);
 
 	conn->connected = TRUE;
+
+	o_stream_set_flush_callback(_conn->output,
+				    auth_master_connection_output, conn);
+	auth_master_handle_requests(conn);
 }
 
 static void auth_master_connect_timeout(struct auth_master_connection *conn)
@@ -445,6 +507,23 @@ int auth_master_connect(struct auth_master_connection *conn)
 					  auth_master_connect_timeout, conn);
 	return 0;
 }
+
+void auth_master_handle_requests(struct auth_master_connection *conn)
+{
+	if (conn->requests_unsent == NULL)
+		return;
+
+	if (!conn->connected) {
+		e_debug(conn->conn.event, "Need to connect");
+
+		(void)auth_master_connect(conn);
+		return;
+	}
+
+	i_assert(conn->conn.output != NULL);
+	o_stream_set_flush_pending(conn->conn.output, TRUE);
+}
+
 void auth_master_switch_ioloop_to(struct auth_master_connection *conn,
 				  struct ioloop *ioloop)
 {
@@ -822,6 +901,10 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 		*fields_r = NULL;
 		return 0;
 	}
+	if (auth_master_connect(conn) < 0) {
+		*fields_r = empty_str_array;
+		return -1;
+	}
 
 	i_zero(&lookup);
 	lookup.conn = conn;
@@ -845,11 +928,6 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 
 	req = auth_master_request(conn, "PASS", str_data(args), str_len(args),
 				  auth_lookup_reply_callback, &lookup);
-	if (auth_master_request_submit(&req) < 0) {
-		*fields_r = empty_str_array;
-		event_unref(&lookup.event);
-		return -1;
-	}
 
 	auth_master_request_set_event(req, lookup.event);
 	(void)auth_master_request_wait(req);
@@ -902,6 +980,10 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 		*fields_r = NULL;
 		return 0;
 	}
+	if (auth_master_connect(conn) < 0) {
+		*fields_r = empty_str_array;
+		return -1;
+	}
 
 	i_zero(&lookup);
 	lookup.conn = conn;
@@ -925,11 +1007,6 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 
 	req = auth_master_request(conn, "USER", str_data(args), str_len(args),
 				  auth_lookup_reply_callback, &lookup);
-	if (auth_master_request_submit(&req) < 0) {
-		*fields_r = empty_str_array;
-		event_unref(&lookup.event);
-		return -1;
-	}
 
 	auth_master_request_set_event(req, lookup.event);
 	(void)auth_master_request_wait(req);
@@ -1089,10 +1166,7 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	ctx->req = auth_master_request(conn, "LIST",
 				       str_data(args), str_len(args),
 				       auth_user_list_reply_callback, ctx);
-	if (auth_master_request_submit(&ctx->req) < 0)
-		ctx->failed = TRUE;
-	else
-		auth_master_request_set_event(ctx->req, ctx->event);
+	auth_master_request_set_event(ctx->req, ctx->event);
 
 	connection_input_halt(&conn->conn);
 
@@ -1221,6 +1295,9 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	struct auth_master_request *req;
 	string_t *args;
 
+	if (auth_master_connect(conn) < 0)
+		return -1;
+
 	i_zero(&ctx);
 	ctx.conn = conn;
 
@@ -1242,12 +1319,8 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	req = auth_master_request(conn, "CACHE-FLUSH",
 				  str_data(args), str_len(args),
 				  auth_cache_flush_reply_callback, &ctx);
-	if (auth_master_request_submit(&req) < 0)
-		ctx.failed = TRUE;
-	else {
-		auth_master_request_set_event(req, ctx.event);
-		(void)auth_master_request_wait(req);
-	}
+	auth_master_request_set_event(req, ctx.event);
+	(void)auth_master_request_wait(req);
 
 	if (ctx.failed)
 		e_debug(ctx.event, "Cache flush failed");
