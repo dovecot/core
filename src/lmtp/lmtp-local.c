@@ -261,7 +261,7 @@ lmtp_local_rcpt_anvil_finish(struct lmtp_local_recipient *llrcpt)
 	if ((ret = lmtp_local_rcpt_check_quota(llrcpt)) < 0)
 		return FALSE;
 
-	smtp_server_reply(cmd, 250, "2.1.5", "OK");
+	smtp_server_cmd_rcpt_reply_success(cmd);
 	return TRUE;
 }
 
