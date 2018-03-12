@@ -303,6 +303,8 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 	o_stream_uncork(ssl_io->plain_output);
 
 	*input = openssl_i_stream_create_ssl(ssl_io);
+	ssl_io->ssl_input = *input;
+
 	*output = openssl_o_stream_create_ssl(ssl_io);
 	i_stream_set_name(*input, t_strconcat("SSL ",
 		i_stream_get_name(ssl_io->plain_input), NULL));
@@ -312,7 +314,6 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 	if (ssl_io->plain_output->real_stream->error_handling_disabled)
 		o_stream_set_no_error_handling(*output, TRUE);
 
-	ssl_io->ssl_input = *input;
 	ssl_io->ssl_output = *output;
 	*iostream_r = ssl_io;
 	return 0;
