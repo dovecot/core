@@ -468,10 +468,9 @@ lmtp_local_deliver(struct lmtp_local *local,
 		   struct mail_deliver_session *session)
 {
 	struct client *client = local->client;
-	struct smtp_address *rcpt_to = rcpt->rcpt.rcpt->path;
+	struct smtp_server_recipient *trcpt = rcpt->rcpt.rcpt;
+	struct smtp_address *rcpt_to = trcpt->path;
 	unsigned int rcpt_idx = rcpt->rcpt.index;
-	const struct smtp_server_recipient *trcpt =
-		*array_idx(&trans->rcpt_to, rcpt_idx);
 	struct mail_storage_service_user *service_user = rcpt->service_user;
 	struct mail_deliver_context dctx;
 	struct mail_user *rcpt_user;
