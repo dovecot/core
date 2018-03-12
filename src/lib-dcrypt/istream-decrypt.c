@@ -673,7 +673,8 @@ i_stream_decrypt_read(struct istream_private *stream)
 
 			bytes = new_pos - stream->pos;
 			stream->pos = new_pos;
-			return (ssize_t)bytes;
+			if (bytes > 0)
+				return (ssize_t)bytes;
 		}
 		if (dstream->finalized) {
 			/* all data decrypted */
