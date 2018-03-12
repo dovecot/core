@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "istream.h"
 #include "ostream-private.h"
 #include "iostream-openssl.h"
 
@@ -23,8 +24,10 @@ o_stream_ssl_close(struct iostream_private *stream, bool close_parent)
 static void o_stream_ssl_destroy(struct iostream_private *stream)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
+	struct istream *ssl_input = sstream->ssl_io->ssl_input;
 
 	sstream->ssl_io->ssl_output = NULL;
+	i_stream_unref(&ssl_input);
 	ssl_iostream_unref(&sstream->ssl_io);
 	buffer_free(&sstream->buffer);
 }
@@ -244,6 +247,13 @@ struct ostream *openssl_o_stream_create_ssl(struct ssl_iostream *ssl_io)
 	struct ssl_ostream *sstream;
 
 	ssl_io->refcount++;
+
+	/* When ostream is destroyed, it's flushed. With iostream-ssl the
+	   flushing requires both istream and ostream to be available. The
+	   istream is referenced here to make sure it's not destroyed before
+	   the ostream. */
+	i_assert(ssl_io->ssl_input != NULL);
+	i_stream_ref(ssl_io->ssl_input);
 
 	sstream = i_new(struct ssl_ostream, 1);
 	sstream->ssl_io = ssl_io;
