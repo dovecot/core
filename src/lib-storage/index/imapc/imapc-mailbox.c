@@ -401,7 +401,8 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 	} else {
 		/* newly seen message */
 		imapc_msgmap_append(msgmap, rseq, uid);
-		if (uid < mbox->min_append_uid) {
+		if (uid < mbox->min_append_uid ||
+		    uid < mail_index_get_header(mbox->delayed_sync_view)->next_uid) {
 			/* message is already added to index */
 		} else {
 			mail_index_append(mbox->delayed_sync_trans,
