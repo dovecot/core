@@ -172,6 +172,14 @@ static bool
 hide_secrets_from_value(struct ostream *output, const char *key,
 			const char *value)
 {
+	bool ret = FALSE, quote = value_need_quote(value);
+	const char *ptr, *optr;
+	const char *const secrets[] = {
+		"key",
+		"secret",
+		"pass",
+		NULL
+	};
 	if (*value != '\0' &&
 	    ((value-key > 8 && strncmp(value-9, "_password", 8) == 0) ||
 	     (value-key > 7 && strncmp(value-8, "_api_key", 7) == 0) ||
@@ -181,7 +189,49 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 		return TRUE;
 	}
 
-	return FALSE;
+	/* Check if we can find anything that has prefix of any of the
+	   secrets. It should match things like secret_api_key or pass or password,
+	   etc. but not something like nonsecret. */
+	optr = ptr = value;
+	while((ptr = i_strstr_arr(ptr, secrets)) != NULL) {
+		/* we have found something that we hide, and will deal with output
+		   here. */
+		ret = TRUE;
+		if (ptr == value ||
+		    (ptr > value && !i_isalnum(ptr[-1]))) {
+			size_t len;
+			while(*ptr != '\0') {
+				if (*ptr == '=' || i_isspace(*ptr))
+					break;
+				ptr++;
+			}
+			while(i_isspace(*ptr))
+				ptr++;
+			len = (size_t)(ptr-optr);
+			if (quote) {
+				o_stream_nsend_str(output,
+						   str_nescape(optr, len));
+			} else {
+				o_stream_nsend(output, optr, len);
+			}
+			if (*ptr == '=') {
+				o_stream_nsend(output, ptr, 1);
+				o_stream_nsend_str(output, "#hidden_use-P_to_show#");
+				while(*ptr != '\0' && !i_isspace(*ptr) &&
+				      *ptr != ';' && *ptr != ':')
+					ptr++;
+			}
+			optr = ptr;
+		}
+	}
+	/* if we are dealing with output, send rest here */
+	if (ret) {
+		if (quote)
+			o_stream_nsend_str(output, str_escape(ptr));
+		else
+			o_stream_nsend_str(output, optr);
+	}
+	return ret;
 }
 
 static int ATTR_NULL(4)
