@@ -201,8 +201,14 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	}
 	if (!smtp_server_command_is_replied(command)) {
 		/* set generic RCPT success reply if none is provided */
-		smtp_server_reply(cmd,
-			250, "2.1.5", "OK");
+		smtp_server_cmd_rcpt_reply_success(cmd);
 	}
 	smtp_server_command_unref(&command);
+}
+
+void smtp_server_cmd_rcpt_reply_success(struct smtp_server_cmd_ctx *cmd)
+{
+	i_assert(cmd->cmd->reg->func == smtp_server_cmd_rcpt);
+
+	smtp_server_reply(cmd, 250, "2.1.5", "OK");
 }
