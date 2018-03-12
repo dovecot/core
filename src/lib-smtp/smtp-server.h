@@ -539,6 +539,10 @@ void smtp_server_cmd_auth_success(struct smtp_server_cmd_ctx *cmd,
 	const char *username, const char *success_msg)
 	ATTR_NULL(3);
 
+/* MAIL */
+
+void smtp_server_cmd_mail_reply_success(struct smtp_server_cmd_ctx *cmd);
+
 /* DATA */
 
 bool smtp_server_cmd_data_check_size(struct smtp_server_cmd_ctx *cmd);

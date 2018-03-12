@@ -193,7 +193,14 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 	}
 	if (!smtp_server_command_is_replied(command)) {
 		/* set generic MAIL success reply if none is provided */
-		smtp_server_reply(cmd, 250, "2.1.0", "OK");
+		smtp_server_cmd_mail_reply_success(cmd);
 	}
 	smtp_server_command_unref(&command);
+}
+
+void smtp_server_cmd_mail_reply_success(struct smtp_server_cmd_ctx *cmd)
+{
+	i_assert(cmd->cmd->reg->func == smtp_server_cmd_mail);
+
+	smtp_server_reply(cmd, 250, "2.1.0", "OK");
 }
