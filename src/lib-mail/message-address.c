@@ -433,13 +433,6 @@ void message_address_write(string_t *str, const struct message_address *addr)
 	if (addr == NULL)
 		return;
 
-	/* <> path */
-	if (addr->mailbox == NULL && addr->domain == NULL) {
-		i_assert(addr->next == NULL);
-		str_append(str, "<>");
-		return;
-	}
-
 	/* a) mailbox@domain
 	   b) name <@route:mailbox@domain>
 	   c) group: .. ; */
