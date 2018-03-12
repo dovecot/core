@@ -168,6 +168,22 @@ static bool value_need_quote(const char *value)
 	return FALSE;
 }
 
+static bool
+hide_secrets_from_value(struct ostream *output, const char *key,
+			const char *value)
+{
+	if (*value != '\0' &&
+	    ((value-key > 8 && strncmp(value-9, "_password", 8) == 0) ||
+	     (value-key > 7 && strncmp(value-8, "_api_key", 7) == 0) ||
+	     strncmp(key, "ssl_key",7) == 0 ||
+	     strncmp(key, "ssl_dh",6) == 0)) {
+		o_stream_nsend_str(output, "# hidden, use -P to show it");
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
 static int ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
@@ -306,13 +322,11 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		i_assert(value != NULL);
 		o_stream_nsend(output, key, value-key);
 		o_stream_nsend_str(output, " = ");
-		if (hide_passwords && value[1] != '\0' &&
-		    ((value-key > 9 && strncmp(value-9, "_password", 9) == 0) ||
-		     (value-key > 8 && strncmp(value-8, "_api_key", 8) == 0) ||
-		     strncmp(key, "ssl_key",7) == 0 ||
-		     strncmp(key, "ssl_dh",6) == 0)) {
-			o_stream_nsend_str(output, " # hidden, use -P to show it");
-		} else if (!value_need_quote(value+1))
+		if (hide_passwords &&
+		    hide_secrets_from_value(output, key, value+1))
+			/* sent */
+			;
+		else if (!value_need_quote(value+1))
 			o_stream_nsend_str(output, value+1);
 		else {
 			o_stream_nsend(output, "\"", 1);
