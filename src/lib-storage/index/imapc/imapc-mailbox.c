@@ -727,6 +727,12 @@ static void imapc_sync_uid_validity(struct imapc_mailbox *mbox)
 			/* uidvalidity changed, reset the entire mailbox */
 			mail_index_reset(mbox->delayed_sync_trans);
 			mbox->sync_fetch_first_uid = 1;
+			/* The reset needs to be committed before FETCH 1:*
+			   results are received. */
+			bool changes;
+			if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
+				mail_index_mark_corrupted(mbox->box.index);
+			imapc_mailbox_init_delayed_trans(mbox);
 		}
 		mail_index_update_header(mbox->delayed_sync_trans,
 			offsetof(struct mail_index_header, uid_validity),
