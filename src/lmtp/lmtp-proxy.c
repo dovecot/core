@@ -96,7 +96,7 @@ struct lmtp_proxy {
 
 static void
 lmtp_proxy_data_cb(const struct smtp_reply *reply,
-		   struct lmtp_proxy_recipient *rcpt);
+		   struct lmtp_proxy_recipient *lprcpt);
 
 /*
  * LMTP proxy
@@ -136,9 +136,9 @@ lmtp_proxy_init(struct client *client,
 }
 
 static void
-lmtp_proxy_recipient_deinit(struct lmtp_proxy_recipient *rcpt)
+lmtp_proxy_recipient_deinit(struct lmtp_proxy_recipient *lprcpt)
 {
-	i_free(rcpt);
+	i_free(lprcpt);
 }
 
 static void
@@ -155,13 +155,13 @@ lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
 void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 {
 	struct lmtp_proxy *proxy = *_proxy;
-	struct lmtp_proxy_recipient *const *rcpts;
+	struct lmtp_proxy_recipient *const *lprcpts;
 	struct lmtp_proxy_connection *const *conns;
 
 	*_proxy = NULL;
 
-	array_foreach(&proxy->rcpt_to, rcpts)
-		lmtp_proxy_recipient_deinit(*rcpts);
+	array_foreach(&proxy->rcpt_to, lprcpts)
+		lmtp_proxy_recipient_deinit(*lprcpts);
 
 	array_foreach(&proxy->connections, conns)
 		lmtp_proxy_connection_deinit(*conns);
@@ -438,9 +438,9 @@ lmtp_proxy_is_ourself(const struct client *client,
 
 static void
 lmtp_proxy_rcpt_cmd_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-			    struct lmtp_proxy_recipient *rcpt)
+			    struct lmtp_proxy_recipient *lprcpt)
 {
-	lmtp_proxy_recipient_deinit(rcpt);
+	lmtp_proxy_recipient_deinit(lprcpt);
 }
 
 static void
@@ -449,33 +449,33 @@ lmtp_proxy_rcpt_finished(struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_recipient *trcpt,
 			 unsigned int index)
 {
-	struct lmtp_proxy_recipient *rcpt = trcpt->context;
-	struct client *client = rcpt->rcpt.client;
+	struct lmtp_proxy_recipient *lprcpt = trcpt->context;
+	struct client *client = lprcpt->rcpt.client;
 
-	if (rcpt->rcpt.rcpt_cmd != NULL) {
+	if (lprcpt->rcpt.rcpt_cmd != NULL) {
 		smtp_server_command_remove_hook(
-			rcpt->rcpt.rcpt_cmd->cmd,
+			lprcpt->rcpt.rcpt_cmd->cmd,
 			SMTP_SERVER_COMMAND_HOOK_DESTROY,
 			lmtp_proxy_rcpt_cmd_destroy);
 	}
 
 	if (!smtp_server_command_replied_success(cmd->cmd)) {
 		/* failed in RCPT command; clean up early */
-		lmtp_proxy_recipient_deinit(rcpt);
+		lmtp_proxy_recipient_deinit(lprcpt);
 		return;
 	}
 
-	lmtp_recipient_finish(&rcpt->rcpt, trcpt, index);
+	lmtp_recipient_finish(&lprcpt->rcpt, trcpt, index);
 
 	/* add to local recipients */
-	array_append(&client->proxy->rcpt_to, &rcpt, 1);
+	array_append(&client->proxy->rcpt_to, &lprcpt, 1);
 }
 
 static void
 lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
-		   struct lmtp_proxy_recipient *rcpt)
+		   struct lmtp_proxy_recipient *lprcpt)
 {
-	struct smtp_server_cmd_ctx *cmd = rcpt->rcpt.rcpt_cmd;
+	struct smtp_server_cmd_ctx *cmd = lprcpt->rcpt.rcpt_cmd;
 	struct smtp_reply reply;
 
 	if (!lmtp_proxy_handle_reply(cmd, proxy_reply, &reply))
@@ -502,7 +502,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
 	struct lmtp_proxy_connection *conn;
-	struct lmtp_proxy_recipient *rcpt;
+	struct lmtp_proxy_recipient *lprcpt;
 	struct smtp_server_transaction *trans;
 	struct smtp_address *address = data->path;
 	struct auth_user_info info;
@@ -601,21 +601,21 @@ int lmtp_proxy_rcpt(struct client *client,
 	conn = lmtp_proxy_get_connection(client->proxy, &set);
 	pool_unref(&auth_pool);
 
-	rcpt = i_new(struct lmtp_proxy_recipient, 1);
-	lmtp_recipient_init(&rcpt->rcpt, client,
+	lprcpt = i_new(struct lmtp_proxy_recipient, 1);
+	lmtp_recipient_init(&lprcpt->rcpt, client,
 			    LMTP_RECIPIENT_TYPE_PROXY, cmd, data);
 
-	rcpt->conn = conn;
+	lprcpt->conn = conn;
 
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
-				     lmtp_proxy_rcpt_cmd_destroy, rcpt);
+				     lmtp_proxy_rcpt_cmd_destroy, lprcpt);
 
-	data->trans_context = rcpt;
+	data->trans_context = lprcpt;
 	data->hook_finished = lmtp_proxy_rcpt_finished;
 
 	smtp_client_transaction_add_rcpt(conn->lmtp_trans,
 		address, &data->params,
-		lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, rcpt);
+		lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, lprcpt);
 	return 1;
 }
 
@@ -625,16 +625,16 @@ int lmtp_proxy_rcpt(struct client *client,
 
 static void
 lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
-		   struct lmtp_proxy_recipient *rcpt)
+		   struct lmtp_proxy_recipient *lprcpt)
 {
-	struct lmtp_proxy_connection *conn = rcpt->conn;
+	struct lmtp_proxy_connection *conn = lprcpt->conn;
 	struct lmtp_proxy *proxy = conn->proxy;
 	struct smtp_server_cmd_ctx *cmd = proxy->pending_data_cmd;
 	struct smtp_server_transaction *trans = proxy->trans;
-	struct smtp_address *address = rcpt->rcpt.rcpt->path;
+	struct smtp_address *address = lprcpt->rcpt.rcpt->path;
 	const struct smtp_client_transaction_times *times =
 		smtp_client_transaction_get_times(conn->lmtp_trans);
-	unsigned int rcpt_index = rcpt->rcpt.index;
+	unsigned int rcpt_index = lprcpt->rcpt.index;
 	struct smtp_reply reply;
 	string_t *msg;
 
