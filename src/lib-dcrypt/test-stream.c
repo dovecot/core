@@ -515,6 +515,35 @@ static void test_read_large_header(void)
 	test_end();
 }
 
+static void test_read_increment(void)
+{
+	test_begin("test_read_increment");
+
+	ssize_t amt, total, i;
+
+	struct istream *is_1 = i_stream_create_file(DCRYPT_SRC_DIR"/sample-v2.asc", IO_BLOCK_SIZE);
+	struct istream *is_2 = i_stream_create_base64_decoder(is_1);
+	i_stream_unref(&is_1);
+	struct istream *is_3 = i_stream_create_decrypt(is_2, test_v2_kp.priv);
+	i_stream_unref(&is_2);
+	total = 0;
+	i = 500;
+
+	i_stream_set_max_buffer_size(is_3, i);
+	while((amt = i_stream_read(is_3)) > 0) {
+		total += amt;
+		i_stream_set_max_buffer_size(is_3, ++i);
+	}
+
+	test_assert(total == 13534);
+	test_assert(is_3->stream_errno == 0);
+	test_assert(is_3->eof);
+
+	i_stream_unref(&is_3);
+
+        test_end();
+}
+
 static
 void test_free_keys() {
 	dcrypt_key_unref_private(&test_v1_kp.priv);
@@ -544,6 +573,7 @@ int main(void) {
 		test_static_v1_input,
 		test_static_v1_input_short,
 		test_static_v2_input,
+		test_read_increment,
 		test_write_read_v1,
 		test_write_read_v1_short,
 		test_write_read_v1_empty,
