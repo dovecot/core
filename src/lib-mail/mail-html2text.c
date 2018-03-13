@@ -191,13 +191,15 @@ parse_data(struct mail_html2text *ht,
 				if (ret == 0)
 					return i;
 				i += ret - 1;
-			} else if (c == '&') {
-				ret = parse_entity(data+i+1, size-i-1, output);
-				if (ret == 0)
-					return i;
-				i += ret - 1;
 			} else if (ht->quote_level == 0) {
-				buffer_append_c(output, c);
+				if (c == '&') {
+					ret = parse_entity(data+i+1, size-i-1, output);
+					if (ret == 0)
+						return i;
+					i += ret - 1;
+				} else {
+					buffer_append_c(output, c);
+				}
 			}
 			break;
 		case HTML_STATE_TAG:
