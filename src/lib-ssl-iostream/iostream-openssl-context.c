@@ -320,21 +320,28 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 			     const struct ssl_iostream_settings *set,
 			     const char **error_r)
 {
-	X509_STORE *store;
-	STACK_OF(X509_NAME) *xnames = NULL;
 	const char *ca_file, *ca_dir;
 	bool have_ca = FALSE;
 
 	if (set->ca != NULL) {
-		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
-		if (load_ca(store, set->ca, &xnames) < 0) {
+		if (load_ca(ctx->ssl_ctx, set->ca) < 0) {
 			*error_r = t_strdup_printf("Couldn't parse ssl_ca: %s",
 						   openssl_iostream_error());
 			return -1;
 		}
-		ssl_iostream_ctx_verify_remote_cert(ctx, xnames);
+		ssl_iostream_ctx_verify_remote_cert(ctx);
 		have_ca = TRUE;
 	}
+
+        if (set->ca_hash_dir != NULL) {
+                if (load_ca(ctx->ssl_ctx, set->ca_hash) < 0) {
+                        *error_r = t_strdup_printf("Couldn't parse ssl_ca_hash_dir: %s",
+                                                   openssl_iostream_error());
+                        return -1;
+                }
+                ssl_iostream_ctx_verify_remote_cert(ctx);
+                have_ca = TRUE;
+        }
 	ca_file = set->ca_file == NULL || *set->ca_file == '\0' ?
 		NULL : set->ca_file;
 	ca_dir = set->ca_dir == NULL || *set->ca_dir == '\0' ?
@@ -351,7 +358,7 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 
 	if (!have_ca && !set->allow_invalid_cert) {
 		*error_r = !ctx->client_ctx ?
-			"Can't verify remote client certs without CA (ssl_ca setting)" :
+			"Can't verify remote client certs without CA (ssl_ca or ssl_ca_hash_dir setting)" :
 			"Can't verify remote server certs without trusted CAs (ssl_client_ca_* settings)";
 		return -1;
 	}

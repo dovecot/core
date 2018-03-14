@@ -18,6 +18,7 @@ master_service_ssl_settings_check(void *_set, pool_t pool, const char **error_r)
 static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(SET_ENUM, ssl),
 	DEF(SET_STR, ssl_ca),
+	DEF(SET_STR, ssl_ca_hash_dir),
 	DEF(SET_STR, ssl_cert),
 	DEF(SET_STR, ssl_key),
 	DEF(SET_STR, ssl_alt_cert),
@@ -47,6 +48,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl = "no:yes:required",
 #endif
 	.ssl_ca = "",
+	.ssl_ca_hash_dir = "",
 	.ssl_cert = "",
 	.ssl_key = "",
 	.ssl_alt_cert = "",
@@ -113,8 +115,8 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 #endif
-	if (set->ssl_verify_client_cert && *set->ssl_ca == '\0') {
-		*error_r = "ssl_verify_client_cert set, but ssl_ca not";
+	if (set->ssl_verify_client_cert && (*set->ssl_ca == '\0' && *set->ssl_ca_hash_dir == '\0')) {
+		*error_r = "ssl_verify_client_cert set, but ssl_ca or ssl_ca_hash_dir not";
 		return FALSE;
 	}
 
@@ -173,9 +175,11 @@ void master_service_ssl_settings_to_iostream_set(
 	i_zero(set_r);
 	set_r->min_protocol = p_strdup(pool, ssl_set->ssl_min_protocol);
 	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
-	/* NOTE: It's a bit questionable whether ssl_ca should be used for
-	   clients. But at least for now it's needed for login-proxy. */
+	/* NOTE: It's a bit questionable whether ssl_ca or ssl_ca_hash_dir
+	   should be used for clients. But at least for now it's needed
+           for login-proxy. */
 	set_r->ca = p_strdup(pool, ssl_set->ssl_ca);
+	set_r->ca_hash_dir = p_strdup(pool, ssl_set->ssl_ca_hash_dir);
 
 	switch (type) {
 	case MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER:

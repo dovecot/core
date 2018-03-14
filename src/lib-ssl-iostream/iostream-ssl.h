@@ -17,7 +17,7 @@ struct ssl_iostream_settings {
 	const char *min_protocol; /* both */
 	const char *cipher_list; /* both */
 	const char *curve_list; /* both */
-	const char *ca, *ca_file, *ca_dir; /* context-only */
+	const char *ca, *ca_hash_dir, *ca_file, *ca_dir; /* context-only */
 	/* alternative cert is for providing certificate using
 	   different key algorithm */
 	struct ssl_iostream_cert cert; /* both */
