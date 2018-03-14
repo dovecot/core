@@ -317,7 +317,7 @@ static void auth_lua_push_auth_request(struct dlua_script *script, struct auth_r
 
 #undef LUA_TABLE_SETBOOL
 #define LUA_TABLE_SETBOOL(field) \
-	lua_pushboolean(script->L, req->field ? 1 : 0); \
+	lua_pushboolean(script->L, req->field); \
 	lua_setfield(script->L, -2, #field);
 
 	LUA_TABLE_SETBOOL(skip_password_check);

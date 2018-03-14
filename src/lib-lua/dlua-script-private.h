@@ -25,6 +25,7 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 #define lua_isstring(L, n) (lua_isstring(L, n) == 1)
 #define lua_isnumber(L, n) (lua_isnumber(L, n) == 1)
 #define lua_toboolean(L, n) (lua_toboolean(L, n) == 1)
+#define lua_pushboolean(L, b) lua_pushboolean((L), (b) ? 1 : 0)
 
 #define DLUA_TABLE_STRING(n, s) { .name = n, .type = DLUA_TABLE_VALUE_STRING, .v.s = s }
 #define DLUA_TABLE_INTEGER(n, i) { .name = n, .type = DLUA_TABLE_VALUE_INTEGER, .v.i = i }

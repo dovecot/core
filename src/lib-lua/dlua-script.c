@@ -333,7 +333,7 @@ void dlua_setmembers(struct dlua_script *script,
 			lua_pushnumber(script->L, values->v.d);
 			break;
 		case DLUA_TABLE_VALUE_BOOLEAN:
-			lua_pushboolean(script->L, values->v.b ? 1 : 0);
+			lua_pushboolean(script->L, values->v.b);
 			break;
 		case DLUA_TABLE_VALUE_NULL:
 			lua_pushnil(script->L);
