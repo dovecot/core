@@ -7,6 +7,7 @@ struct ssl_iostream_settings;
 struct master_service_ssl_settings {
 	const char *ssl;
 	const char *ssl_ca;
+	const char *ssl_ca_hash_dir;
 	const char *ssl_cert;
 	const char *ssl_alt_cert;
 	const char *ssl_key;
