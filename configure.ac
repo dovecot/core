@@ -918,6 +918,7 @@ src/plugins/lazy-expunge/Makefile
 src/plugins/listescape/Makefile
 src/plugins/mail-filter/Makefile
 src/plugins/mail-log/Makefile
+src/plugins/mail-lua/Makefile
 src/plugins/mailbox-alias/Makefile
 src/plugins/notify/Makefile
 src/plugins/notify-status/Makefile
