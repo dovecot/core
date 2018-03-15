@@ -15,6 +15,7 @@ struct cmd_data_context {
 	struct istream *chunk_input;
 	uoff_t chunk_size;
 
+	bool chunking:1;
 	bool client_input:1;
 	bool chunk_first:1;
 	bool chunk_last:1;
@@ -38,6 +39,21 @@ bool smtp_server_connection_data_check_state(struct smtp_server_cmd_ctx *cmd)
 		&& conn->state.pending_mail_cmds == 0) {
 		smtp_server_command_fail(command,
 			503, "5.5.0", "MAIL needed first");
+		return FALSE;
+	}
+	if (conn->state.trans != NULL &&
+	    (conn->state.trans->params.body.type ==
+		SMTP_PARAM_MAIL_BODY_TYPE_BINARYMIME) &&
+	    !data_cmd->chunking) {
+		/* RFC 3030, Section 3:
+		   BINARYMIME cannot be used with the DATA command. If a DATA
+		   command is issued after a MAIL command containing the
+		   body-value of "BINARYMIME", a 503 "Bad sequence of commands"
+		   response MUST be sent. The resulting state from this error
+		   condition is indeterminate and the transaction MUST be reset
+		   with the RSET command. */
+		smtp_server_command_fail(command,
+			503, "5.5.0", "DATA cannot be used with BINARYMIME");
 		return FALSE;
 	}
 
@@ -411,6 +427,7 @@ void smtp_server_connection_data_chunk_init(struct smtp_server_cmd_ctx *cmd)
 
 	data_cmd = p_new(cmd->pool, struct cmd_data_context, 1);
 	command->data = (void *)data_cmd;
+	data_cmd->chunking = TRUE;
 	data_cmd->chunk_first = (conn->state.data_chunks++ == 0);
 
 	command->hook_replied = cmd_data_chunk_replied;
