@@ -1178,6 +1178,93 @@ static void test_data_no_rcpt(void)
 }
 
 /*
+ * DATA with BINARYMIME
+ */
+
+/* client */
+
+static void
+test_data_binarymime_connected(struct client_connection *conn)
+{
+	(void)o_stream_send_str(conn->conn.output,
+		"EHLO frop\r\n"
+		"MAIL FROM:<sender@example.com> BODY=BINARYMIME\r\n"
+		"RCPT TO:<recipient1@example.com>\r\n"
+		"DATA\r\n"
+		".\r\n"
+		"RSET\r\n");
+}
+
+static void test_client_data_binarymime(unsigned int index)
+{
+	test_client_connected = test_data_binarymime_connected;
+	test_client_run(index);
+}
+
+/* server */
+
+static void
+test_server_data_binarymime_trans_free(void *conn_ctx  ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED)
+{
+	io_loop_stop(ioloop);
+}
+
+static int
+test_server_data_binarymime_rcpt(void *conn_ctx ATTR_UNUSED,
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_cmd_rcpt *data)
+{
+	if (debug) {
+		i_debug("RCPT TO:%s",
+			smtp_address_encode(data->path));
+	}
+	return 1;
+}
+
+static int
+test_server_data_binarymime_data_begin(void *conn_ctx ATTR_UNUSED,
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct istream *data_input ATTR_UNUSED)
+{
+	/* not supposed to get here */
+	i_assert(FALSE);
+	return 1;
+}
+
+static void test_server_data_binarymime
+(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_trans_free =
+		test_server_data_binarymime_trans_free;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_data_binarymime_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_data_binarymime_data_begin;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_data_binarymime(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities =
+		SMTP_CAPABILITY_BINARYMIME | SMTP_CAPABILITY_CHUNKING;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+	smtp_server_set.max_recipients = 10;
+
+	test_begin("DATA with BINARYMIME");
+	test_run_client_server(&smtp_server_set,
+		test_server_data_binarymime,
+		test_client_data_binarymime, 1);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -1192,6 +1279,7 @@ static void (*const test_functions[])(void) = {
 	test_too_many_recipients,
 	test_data_no_mail,
 	test_data_no_rcpt,
+	test_data_binarymime,
 	NULL
 };
 
