@@ -576,7 +576,8 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 			index_mail_close_streams(imail);
 			return;
 		}
-	} else if (mail->body_fetched) {
+	}
+	if (mail->body_fetched) {
 		ret = i_stream_get_size(imail->data.stream, TRUE, &size);
 		if (ret < 0) {
 			index_mail_close_streams(imail);
