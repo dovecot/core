@@ -585,13 +585,18 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 			return;
 		}
 	}
-	if (mail->body_fetched) {
-		ret = i_stream_get_size(imail->data.stream, TRUE, &size);
-		if (ret < 0) {
-			index_mail_close_streams(imail);
-			return;
-		}
-		i_assert(ret != 0);
+	ret = i_stream_get_size(imail->data.stream, TRUE, &size);
+	if (ret < 0) {
+		index_mail_close_streams(imail);
+		return;
+	}
+	i_assert(ret != 0);
+	/* Once message body is fetched, we can be sure of what its size is.
+	   If we had already received RFC822.SIZE, overwrite it here in case
+	   it's wrong. Also in more special cases the RFC822.SIZE may be
+	   smaller than the fetched message header. In this case change the
+	   size as well, otherwise reading via istream-mail will fail. */
+	if (mail->body_fetched || imail->data.physical_size < size) {
 		imail->data.physical_size = size;
 		/* we'll assume that the remote server is working properly and
 		   sending CRLF linefeeds */
