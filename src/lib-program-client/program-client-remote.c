@@ -537,9 +537,8 @@ program_client_remote_close_output(struct program_client *pclient)
 					pclient->path);
 				return -1;
 			}
-		} else if (close(fd_out) < 0) {
-			i_error("close(%s) failed: %m", pclient->path);
-			return -1;
+		} else {
+			i_close_fd(&fd_out);
 		}
 	}
 

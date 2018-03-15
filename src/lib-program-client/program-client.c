@@ -86,8 +86,8 @@ program_client_disconnect_extra_fds(struct program_client *pclient)
 	for(i = 0; i < count; i++) {
 		i_stream_unref(&efds[i].input);
 		io_remove(&efds[i].io);
-		if (efds[i].parent_fd != -1 && close(efds[i].parent_fd) < 0)
-			i_error("close(fd=%d) failed: %m", efds[i].parent_fd);
+		if (efds[i].parent_fd != -1)
+			i_close_fd(&efds[i].parent_fd);
 	}
 
 	array_clear(&pclient->extra_fds);
@@ -106,12 +106,10 @@ program_client_do_disconnect(struct program_client *pclient)
 	iostream_pump_destroy(&pclient->pump_in);
 	iostream_pump_destroy(&pclient->pump_out);
 
-	if (pclient->fd_in != -1 && close(pclient->fd_in) < 0)
-		i_error("close(%s) failed: %m", pclient->path);
-	if (pclient->fd_out != -1 && pclient->fd_out != pclient->fd_in
-	    && close(pclient->fd_out) < 0)
-		i_error("close(%s/out) failed: %m", pclient->path);
-	pclient->fd_in = pclient->fd_out = -1;
+	if (pclient->fd_out == pclient->fd_in)
+		pclient->fd_in = -1;
+	i_close_fd(&pclient->fd_in);
+	i_close_fd(&pclient->fd_out);
 
 	program_client_disconnect_extra_fds(pclient);
 
