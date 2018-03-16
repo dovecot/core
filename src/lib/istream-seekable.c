@@ -327,7 +327,7 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	const struct stat *st;
-	uoff_t old_offset;
+	uoff_t old_offset, len;
 	ssize_t ret;
 
 	if (sstream->size != (uoff_t)-1) {
@@ -351,6 +351,7 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 			sstream->cur_input->v_offset);
 	}
 	i_stream_skip(&stream->istream, stream->pos - stream->skip);
+	len = stream->pos;
 	i_stream_seek(&stream->istream, old_offset);
 	unref_streams(sstream);
 
@@ -366,7 +367,7 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 		/* buffer is completely in memory */
 		i_assert(sstream->fd == -1);
 
-		stream->statbuf.st_size = stream->pos;
+		stream->statbuf.st_size = len;
 	}
 	return 0;
 }
