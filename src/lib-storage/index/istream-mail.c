@@ -122,6 +122,9 @@ i_stream_mail_read(struct istream_private *stream)
 		}
 		if (mstream->expected_size < stream->istream.v_offset + size) {
 			i_stream_mail_set_size_corrupted(mstream, size);
+			/* istream code expects that the position has not changed
+			   when read error occurs, so move pos back. */
+			stream->pos -= size;
 			return -1;
 		}
 	} else if (ret == -1 && stream->istream.eof) {
