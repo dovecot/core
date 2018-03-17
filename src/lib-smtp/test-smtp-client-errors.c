@@ -22,6 +22,8 @@
 #include <signal.h>
 #include <unistd.h>
 
+#define CLIENT_PROGRESS_TIMEOUT     10
+
 /*
  * Types
  */
@@ -79,6 +81,7 @@ static int (*test_server_init)(struct server_connection *conn);
 static void (*test_server_deinit)(struct server_connection *conn);
 
 /* client */
+static struct timeout *to_client_progress = NULL;
 static struct smtp_client *smtp_client = NULL;
 
 /*
@@ -2568,11 +2571,44 @@ test_client_defaults(struct smtp_client_settings *smtp_set)
 	smtp_set->debug = debug;
 }
 
+static void
+test_client_progress_timeout(void *context ATTR_UNUSED)
+{
+	/* Terminate test due to lack of progress */
+	test_assert(FALSE);
+	timeout_remove(&to_client_progress);
+	io_loop_stop(current_ioloop);
+}
+
+static bool
+test_client_init(test_client_init_t client_test,
+		 const struct smtp_client_settings *client_set)
+{
+	i_assert(client_test != NULL);
+	if (!client_test(client_set))
+		return FALSE;
+
+	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
+		test_client_progress_timeout, NULL);
+
+	return TRUE;
+}
+
 static void test_client_deinit(void)
 {
+	timeout_remove(&to_client_progress);
+
 	if (smtp_client != NULL)
 		smtp_client_deinit(&smtp_client);
-	smtp_client = NULL;
+}
+
+static void
+test_client_run(test_client_init_t client_test,
+		const struct smtp_client_settings *client_set)
+{
+	if (test_client_init(client_test, client_set))
+		io_loop_run(ioloop);
+	test_client_deinit();
 }
 
 /*
@@ -2902,9 +2938,7 @@ static void test_run_client_server(
 
 	lib_signals_ignore(SIGPIPE, TRUE);
 	ioloop = io_loop_create();
-	if (client_test(client_set))
-		io_loop_run(ioloop);
-	test_client_deinit();
+	test_client_run(client_test, client_set);
 	io_loop_destroy(&ioloop);
 
 	test_servers_kill_all();
