@@ -1313,7 +1313,17 @@ smtp_client_connection_connected(struct connection *_conn, bool success)
 		return;
 	}
 
-	smtp_client_connection_debug(conn, "Connected");
+	if (conn->set.debug) {
+		struct ip_addr local_ip;
+		in_port_t local_port;
+		int ret;
+
+		ret = net_getsockname(_conn->fd_in, &local_ip, &local_port);
+		i_assert(ret == 0);
+		smtp_client_connection_debug(conn,
+			"Connected to server (from %s:%u)",
+			net_ip2addr(&local_ip), local_port);
+	}
 
 	(void)net_set_tcp_nodelay(_conn->fd_out, TRUE);
 	if (set->socket_send_buffer_size > 0) {
