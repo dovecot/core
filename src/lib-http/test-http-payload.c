@@ -588,15 +588,18 @@ static void client_accept(void *context ATTR_UNUSED)
 {
 	int fd;
 
-	/* accept new client */
-	fd = net_accept(fd_listen, NULL, NULL);
-	if (fd == -1)
-		return;
-	if (fd == -2) {
-		i_fatal("test server: accept() failed: %m");
-	}
+	for (;;) {
+		/* accept new client */
+		if ((fd=net_accept(fd_listen, NULL, NULL)) < 0) {
+			if (errno == EAGAIN)
+				break;
+			if (errno == ECONNABORTED)
+				continue;
+			i_fatal("test server: accept() failed: %m");
+		}
 
-	client_init(fd);
+		client_init(fd);
+	}
 }
 
 /* */
@@ -1294,6 +1297,7 @@ static void test_open_server_fd(void)
 		i_fatal("listen(%s:%u) failed: %m",
 			net_ip2addr(&bind_ip), bind_port);
 	}
+	net_set_nonblock(fd_listen, TRUE);
 }
 
 static void test_server_kill(void)
