@@ -32,9 +32,11 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#define MAX_PARALLEL_PENDING 200
+#define CLIENT_PROGRESS_TIMEOUT     30
+#define MAX_PARALLEL_PENDING        200
 
 static bool debug = FALSE;
+static const char *failure = NULL;
 
 enum test_ssl_mode {
 	TEST_SSL_MODE_NONE = 0,
@@ -488,6 +490,7 @@ static enum smtp_protocol client_protocol;
 static struct test_client_transaction *client_requests;
 static unsigned int client_files_first, client_files_last;
 static struct timeout *client_to = NULL;
+struct timeout *to_client_progress = NULL;
 
 static struct test_client_transaction *
 test_client_transaction_new(void)
@@ -550,6 +553,8 @@ test_client_transaction_rcpt(const struct smtp_reply *reply,
 	const char *path;
 	unsigned int count;
 
+	timeout_reset(to_client_progress);
+
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tctrans->files_idx < count);
 	i_assert(client_files_first < count);
@@ -571,6 +576,8 @@ test_client_transaction_rcpt_data(const struct smtp_reply *reply ATTR_UNUSED,
 	const char *path;
 	unsigned int count;
 
+	timeout_reset(to_client_progress);
+
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tctrans->files_idx < count);
 	i_assert(client_files_first < count);
@@ -591,6 +598,8 @@ test_client_transaction_data(const struct smtp_reply *reply,
 	const char **paths;
 	const char *path;
 	unsigned int count;
+
+	timeout_reset(to_client_progress);
 
 	if (debug) {
 		i_debug("test client: "
@@ -630,6 +639,7 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 		i_debug("test client: continue");
 
 	timeout_remove(&client_to);
+	timeout_reset(to_client_progress);
 
 	paths = array_get_modifiable(&files, &count);
 
@@ -757,10 +767,22 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 }
 
 static void
+test_client_progress_timeout(void *context ATTR_UNUSED)
+{
+	/* Terminate test due to lack of progress */
+	failure = "Test is hanging";
+	timeout_remove(&to_client_progress);
+	io_loop_stop(current_ioloop);
+}
+
+static void
 test_client(enum smtp_protocol protocol,
 	const struct smtp_client_settings *client_set)
 {
 	client_protocol = protocol;
+
+	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
+		test_client_progress_timeout, NULL);
 
 	/* create client */
 	smtp_client = smtp_client_init(client_set);
@@ -775,6 +797,7 @@ test_client(enum smtp_protocol protocol,
 static void test_client_deinit(void)
 {
 	timeout_remove(&client_to);
+	timeout_remove(&to_client_progress);
 	smtp_client_deinit(&smtp_client);
 }
 
@@ -815,6 +838,7 @@ static void test_run_client_server(
 	if (test_ssl_mode == TEST_SSL_MODE_STARTTLS)
 		server_set->capabilities |= SMTP_CAPABILITY_STARTTLS;
 
+	failure = NULL;
 	test_open_server_fd();
 
 	if ((server_pid = fork()) == (pid_t)-1)
@@ -890,7 +914,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 		client_init);
 	test_files_deinit();
 
-	test_out("sequential", TRUE);
+	test_out_reason("sequential", (failure == NULL), failure);
 
 	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = FALSE;
@@ -901,7 +925,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 		client_init);
 	test_files_deinit();
 
-	test_out("parallel", TRUE);
+	test_out_reason("parallel", (failure == NULL), failure);
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
@@ -914,7 +938,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 		client_init);
 	test_files_deinit();
 
-	test_out("parallel pipelining", TRUE);
+	test_out_reason("parallel pipelining", (failure == NULL), failure);
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
@@ -927,7 +951,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 		client_init);
 	test_files_deinit();
 
-	test_out("unknown payload size", TRUE);
+	test_out_reason("unknown payload size", (failure == NULL), failure);
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
@@ -940,7 +964,8 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 		client_init);
 	test_files_deinit();
 
-	test_out("parallel pipelining ssl", TRUE);
+	test_out_reason("parallel pipelining ssl",
+			(failure == NULL), failure);
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
@@ -953,7 +978,8 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 		client_init);
 	test_files_deinit();
 
-	test_out("parallel pipelining startls", TRUE);
+	test_out_reason("parallel pipelining startls",
+			(failure == NULL), failure);
 }
 
 static void test_smtp_normal(void)
