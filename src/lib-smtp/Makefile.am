@@ -74,13 +74,13 @@ test_programs = \
 	test-smtp-address \
 	test-smtp-params \
 	test-smtp-reply-parser \
-	test-smtp-command-parser
-
-test_nocheck_programs = \
+	test-smtp-command-parser \
 	test-smtp-payload \
 	test-smtp-submit \
 	test-smtp-client-errors \
 	test-smtp-server-errors
+
+test_nocheck_programs =
 
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
@@ -158,6 +158,9 @@ test_smtp_server_errors_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	  if test "$$bin" = "test-smtp-submit"; then \
+	    if ! env NOCHILDREN=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \
+          else \
+	    if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	  fi \
 	done
-
