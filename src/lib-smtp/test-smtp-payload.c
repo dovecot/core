@@ -27,6 +27,8 @@
 #include <unistd.h>
 #include <dirent.h>
 
+#define MAX_PARALLEL_PENDING 200
+
 static bool debug = FALSE;
 
 static unsigned int test_max_pending = 1;
@@ -843,7 +845,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 
 	test_out("sequential", TRUE);
 
-	test_max_pending = 200;
+	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = FALSE;
 	test_files_init();
 	test_run_client_server(protocol,
@@ -855,7 +857,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
-	test_max_pending = 200;
+	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = FALSE;
 	test_files_init();
 	test_run_client_server(protocol,
@@ -867,7 +869,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
-	test_max_pending = 200;
+	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = TRUE;
 	test_files_init();
 	test_run_client_server(protocol,
