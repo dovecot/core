@@ -611,7 +611,7 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 	struct test_client_transaction *tctrans;
 	struct smtp_params_mail mail_params;
 	const char **paths;
-	unsigned int count;
+	unsigned int count, pending_count, i;
 
 	if (debug)
 		i_debug("test client: continue");
@@ -627,9 +627,17 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 	for (; client_files_first < client_files_last &&
 		paths[client_files_first] == NULL; client_files_first++);
 
+	pending_count = 0;
+	for (i = client_files_first; i < client_files_last; i++) {
+		if (paths[i] != NULL)
+			pending_count++;
+	}
+
 	if (debug) {
-		i_debug("test client: "
-			"received until [%u/%u]", client_files_first-1, count);
+		i_debug("test client: finished until [%u/%u]; "
+			"sending until [%u/%u] (%u pending)",
+			client_files_first-1, count,
+			client_files_last, count, pending_count);
 	}
 
 	if (debug && client_files_first < count) {
@@ -645,9 +653,8 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 		return;
 	}
 
-	for (; client_files_last < count &&
-			(client_files_last - client_files_first) < test_max_pending;
-		client_files_last++) {
+	for (; client_files_last < count && pending_count < test_max_pending;
+	     client_files_last++, pending_count++) {
 		struct istream *fstream, *payload;
 		const char *path = paths[client_files_last];
 		unsigned int r, rcpts;
