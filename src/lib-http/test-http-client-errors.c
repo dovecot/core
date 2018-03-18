@@ -2886,7 +2886,7 @@ test_client_reconnect_failure_response1(
 	test_assert(resp->status == 200);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
-	ctx->to = timeout_add_short(999,
+	ctx->to = timeout_add_short(5000,
 		test_client_reconnect_failure_next, ctx);
 }
 
@@ -2917,7 +2917,7 @@ static void test_reconnect_failure(void)
 
 	test_client_defaults(&http_client_set);
 	http_client_set.dns_client_socket_path = "./dns-test";
-	http_client_set.dns_ttl_msecs = 2000;
+	http_client_set.dns_ttl_msecs = 10000;
 	http_client_set.max_idle_time_msecs = 1000;
 	http_client_set.max_attempts = 1;
 	http_client_set.request_timeout_msecs = 1000;
