@@ -159,21 +159,25 @@ static void test_program_input(struct test_client *client)
 	const char *line = "";
 	int ret = 0;
 
-	for (;;) {
+	while (ret >= 0) {
 		if (client->state == CLIENT_STATE_BODY) {
 			ret = test_program_input_handle(client, NULL);
 			break;
 		}
-		while (client->state != CLIENT_STATE_BODY &&
-			(line=i_stream_read_next_line(client->in)) != NULL) {
-			if (test_program_input_handle(client, line) < 0) {
+		while (client->state < CLIENT_STATE_BODY) {
+			line = i_stream_read_next_line(client->in);
+			if (line == NULL) {
+				ret = 0;
+				break;
+			}
+			if ((ret=test_program_input_handle(client, line)) < 0) {
 				i_warning("Client sent invalid line: %s", line);
 				break;
 			}
 		}
 	}
 
-	if (ret < 0)
+	if (ret < 0 || client->in->stream_errno != 0)
 		return;
 	if (!client->in->eof)
 		return;
