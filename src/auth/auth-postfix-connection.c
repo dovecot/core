@@ -90,8 +90,7 @@ user_callback(enum userdb_result result, struct auth_request *auth_request)
 		break;
 	}
 
-	if (conn->auth->set->debug)
-		i_debug("postfix out: %s", str_c(str));
+	e_debug(auth_event, "postfix out: %s", str_c(str));
 
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
@@ -125,8 +124,7 @@ postfix_input_user(struct auth_postfix_connection *conn, const char *username)
 static bool
 auth_postfix_input_line(struct auth_postfix_connection *conn, const char *line)
 {
-	if (conn->auth->set->debug)
-		i_debug("postfix in: %s", line);
+	e_debug(auth_event, "postfix in: %s", line);
 
 	if (strncasecmp(line, "get ", 4) == 0)
 		return postfix_input_user(conn, line + 4);

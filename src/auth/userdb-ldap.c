@@ -241,12 +241,10 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	request->request.attributes = conn->iterate_attr_names;
 	request->request.multi_entry = TRUE;
 
-	if (global_auth_settings->debug) {
-		i_debug("ldap: iterate: base=%s scope=%s filter=%s fields=%s",
-			request->request.base, conn->set.scope,
-			request->request.filter, attr_names == NULL ? "(all)" :
-			t_strarray_join(attr_names, ","));
-	}
+	e_debug(auth_request->event, "ldap: iterate: base=%s scope=%s filter=%s fields=%s",
+		request->request.base, conn->set.scope,
+		request->request.filter, attr_names == NULL ? "(all)" :
+		t_strarray_join(attr_names, ","));
 	request->request.request.callback = userdb_ldap_iterate_callback;
 	db_ldap_request(conn, &request->request.request);
 	return &ctx->ctx;

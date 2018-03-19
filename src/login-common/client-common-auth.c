@@ -216,8 +216,8 @@ static void client_auth_parse_args(struct client *client, bool success,
 			}
 		} else if (str_begins(key, "forward_")) {
 			/* these are passed to upstream */
-		} else if (client->set->auth_debug)
-			i_debug("Ignoring unknown passdb extra field: %s", key);
+		} else
+			e_debug(event_auth, "Ignoring unknown passdb extra field: %s", key);
 	}
 	if (array_count(&alt_usernames) > 0) {
 		const char **alt;
