@@ -73,10 +73,8 @@ void auth_master_request_callback(const char *reply, struct auth_master_connecti
 {
 	struct const_iovec iov[2];
 
-	if (conn->auth->set->debug) {
-		i_debug("master userdb out: %s",
-			auth_master_reply_hide_passwords(conn, reply));
-	}
+	e_debug(auth_event, "master userdb out: %s",
+		auth_master_reply_hide_passwords(conn, reply));
 
 	iov[0].iov_base = reply;
 	iov[0].iov_len = strlen(reply);
@@ -307,10 +305,8 @@ user_callback(enum userdb_result result,
 		break;
 	}
 
-	if (conn->auth->set->debug) {
-		i_debug("userdb out: %s",
-			auth_master_reply_hide_passwords(conn, str_c(str)));
-	}
+	e_debug(auth_event, "userdb out: %s",
+		auth_master_reply_hide_passwords(conn, str_c(str)));
 
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
@@ -377,8 +373,7 @@ static void pass_callback_finish(struct auth_request *auth_request,
 		break;
 	}
 
-	if (conn->auth->set->debug)
-		i_debug("passdb out: %s", str_c(str));
+	e_debug(auth_event, "passdb out: %s", str_c(str));
 
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
@@ -635,8 +630,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 static bool
 auth_master_input_line(struct auth_master_connection *conn, const char *line)
 {
-	if (conn->auth->set->debug)
-		i_debug("master in: %s", line);
+	e_debug(auth_event, "master in: %s", line);
 
 	if (str_begins(line, "USER\t"))
 		return master_input_user(conn, line + 5);
