@@ -517,7 +517,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		}
 	}
 
-	request = auth_request_new(mech);
+	request = auth_request_new(mech, handler->conn->event);
 	request->handler = handler;
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;

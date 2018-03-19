@@ -76,25 +76,31 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 static
 void auth_request_policy_check_callback(int result, void *context);
 
+static void auth_request_post_alloc_init(struct auth_request *request, struct event *parent_event)
+{
+	request->state = AUTH_REQUEST_STATE_NEW;
+	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
+	request->refcount = 1;
+	request->last_access = ioloop_time;
+	request->session_pid = (pid_t)-1;
+	request->set = global_auth_settings;
+	request->debug = request->set->debug;
+	request->extra_fields = auth_fields_init(request->pool);
+	request->event = event_create(parent_event);
+	if (request->set->debug)
+		event_set_forced_debug(request->event, TRUE);
+	event_add_category(request->event, &event_category_auth);
+}
+
 struct auth_request *
-auth_request_new(const struct mech_module *mech)
+auth_request_new(const struct mech_module *mech, struct event *parent_event)
 {
 	struct auth_request *request;
 
 	request = mech->auth_new();
-
-	request->state = AUTH_REQUEST_STATE_NEW;
-	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
-
-	request->refcount = 1;
-	request->last_access = ioloop_time;
-	request->session_pid = (pid_t)-1;
-
-	request->set = global_auth_settings;
-	request->debug = request->set->debug;
+	auth_request_post_alloc_init(request, parent_event);
 	request->mech = mech;
 	request->mech_name = mech->mech_name;
-	request->extra_fields = auth_fields_init(request->pool);
 	return request;
 }
 
@@ -107,15 +113,7 @@ struct auth_request *auth_request_new_dummy(void)
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
 
-	request->state = AUTH_REQUEST_STATE_NEW;
-	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
-
-	request->refcount = 1;
-	request->last_access = ioloop_time;
-	request->session_pid = (pid_t)-1;
-	request->set = global_auth_settings;
-	request->debug = request->set->debug;
-	request->extra_fields = auth_fields_init(request->pool);
+	auth_request_post_alloc_init(request, NULL);
 	return request;
 }
 
@@ -255,6 +253,7 @@ void auth_request_unref(struct auth_request **_request)
 	if (--request->refcount > 0)
 		return;
 
+	event_unref(&request->event);
 	auth_request_stats_send(request);
 	auth_request_state_count[request->state]--;
 	auth_refresh_proctitle();
