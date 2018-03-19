@@ -11,6 +11,11 @@
 #include "userdb-template.h"
 #include "auth.h"
 
+struct event *auth_event;
+struct event_category event_category_auth = {
+	.name = "auth",
+};
+
 static const struct auth_userdb_settings userdb_dummy_set = {
 	.name = "",
 	.driver = "static",
@@ -371,6 +376,10 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 	const char *not_service = NULL;
 	bool check_default = TRUE;
 
+	auth_event = event_create(NULL);
+	if (set->debug)
+		event_set_forced_debug(auth_event, TRUE);
+	event_add_category(auth_event, &event_category_auth);
 	i_array_init(&auths, 8);
 
 	auth = auth_preinit(set, NULL, pool, reg);
@@ -423,6 +432,7 @@ void auths_deinit(void)
 
 	array_foreach(&auths, auth)
 		auth_deinit(*auth);
+	event_unref(&auth_event);
 }
 
 void auths_free(void)
