@@ -6,6 +6,7 @@
 struct auth_client_connection {
 	struct auth_client_connection *prev, *next;
 	struct auth *auth;
+	struct event *event;
 	int refcount;
 
 	int fd;

@@ -338,6 +338,10 @@ void auth_client_connection_create(struct auth *auth, int fd,
 	conn->connect_uid = ++connect_uid_counter;
 	conn->login_requests = login_requests;
 	conn->token_auth = token_auth;
+	conn->event = event_create(NULL);
+	if (auth->set->debug)
+		event_set_forced_debug(conn->event, TRUE);
+	event_add_category(conn->event, &event_category_auth);
 	random_fill(conn->cookie, sizeof(conn->cookie));
 
 	conn->fd = fd;
@@ -428,6 +432,7 @@ static void auth_client_connection_unref(struct auth_client_connection **_conn)
 	if (--conn->refcount > 0)
 		return;
 
+	event_unref(&conn->event);
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
 	i_free(conn);
