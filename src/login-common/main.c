@@ -34,6 +34,11 @@ struct login_access_lookup {
 	struct access_lookup *access;
 };
 
+struct event *event_auth;
+static struct event_category event_category_auth = {
+	.name = "auth",
+};
+
 const struct login_binary *login_binary;
 struct auth_client *auth_client;
 struct master_auth *master_auth;
@@ -451,6 +456,11 @@ static void main_init(const char *login_socket)
 	/* make sure we can't fork() */
 	restrict_process_count(1);
 
+	event_auth = event_create(NULL);
+	if (global_login_settings->auth_debug)
+		event_set_forced_debug(event_auth, TRUE);
+	event_add_category(event_auth, &event_category_auth);
+
 	i_array_init(&global_alt_usernames, 4);
 	master_service_set_avail_overflow_callback(master_service,
 						   client_destroy_oldest);
@@ -488,6 +498,7 @@ static void main_deinit(void)
 	client_common_deinit();
 	dsasl_clients_deinit();
 	login_settings_deinit();
+	event_unref(&event_auth);
 }
 
 int login_binary_run(const struct login_binary *binary,

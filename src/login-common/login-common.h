@@ -61,6 +61,8 @@ extern void **global_other_settings;
 
 extern const struct ip_addr *login_source_ips;
 extern unsigned int login_source_ips_idx, login_source_ips_count;
+extern struct event *event_auth;
+
 
 void login_refresh_proctitle(void);
 void login_client_destroyed(void);
