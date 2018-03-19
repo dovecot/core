@@ -33,6 +33,8 @@ struct auth_request {
 	int refcount;
 
 	pool_t pool;
+
+	struct event *event;
         enum auth_request_state state;
         /* user contains the user who is being authenticated.
            When master user is logging in as someone else, it gets more
@@ -173,7 +175,7 @@ extern const char auth_default_subsystems[2];
 #define AUTH_SUBSYS_MECH &auth_default_subsystems[1]
 
 struct auth_request *
-auth_request_new(const struct mech_module *mech);
+auth_request_new(const struct mech_module *mech, struct event *parent_event);
 struct auth_request *auth_request_new_dummy(void);
 void auth_request_init(struct auth_request *request);
 struct auth *auth_request_get_auth(struct auth_request *request);
