@@ -283,11 +283,9 @@ static void push_notification_driver_ox_http_callback
     switch (response->status / 100) {
     case 2:
         // Success.
-	if (user->mail_debug) {
-            push_notification_driver_debug(OX_LOG_LABEL, user,
-                                           "Notification sent successfully: %s",
-                                           http_response_get_message(response));
-	}
+	push_notification_driver_debug(OX_LOG_LABEL, user,
+				       "Notification sent successfully: %s",
+				       http_response_get_message(response));
         break;
 
     default:
