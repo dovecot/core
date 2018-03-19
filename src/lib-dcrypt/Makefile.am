@@ -23,7 +23,8 @@ if BUILD_DCRYPT_OPENSSL
 pkglib_LTLIBRARIES += libdcrypt_openssl.la
 libdcrypt_openssl_la_SOURCES = dcrypt-openssl.c
 libdcrypt_openssl_la_LDFLAGS = -module -avoid-version ../lib-ssl-iostream/libssl_iostream_openssl.la
-libdcrypt_openssl_la_LIBADD = $(SSL_LIBS)
+libdcrypt_openssl_la_LIBADD = $(SSL_LIBS) \
+	../lib-ssl-iostream/libssl_iostream.la
 libdcrypt_openssl_la_DEPENDENCIES = ../lib-ssl-iostream/libssl_iostream_openssl.la
 libdcrypt_openssl_la_CFLAGS = $(AM_CPPFLAGS) \
 	$(SSL_CFLAGS)
