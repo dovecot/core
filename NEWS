@@ -1,3 +1,17 @@
+v2.2.35 2018-03-19  Aki Tuomi <aki.tuomi@dovecot.fi>
+	- charset_alias: compile fails with Solaris Studio, reported by
+	  John Woods.
+	- Fix local name handling in v2.2.34 SNI code, bug found by cPanel.
+	- imapc: Don't try to add mails to index if they already exist there.
+	- imapc: If email is modified in istream_opened hook, mail size isn't
+	  updated.
+	- lib-dcrypt: When reading encrypted data, more data would not be
+	  read if buffer was not consumed causing panic or hang.
+	- notify: When notify plugin is used and transaction commit fails in
+	  dsync, crash occurs.
+	- sdbox: When delivering to a mailbox that is over quota, temp files
+	  are not cleaned up when saving or copying fails.
+
 v2.2.34 2018-02-28  Timo Sirainen <tss@iki.fi>
 
 	* CVE-2017-15130: TLS SNI config lookups may lead to excessive
