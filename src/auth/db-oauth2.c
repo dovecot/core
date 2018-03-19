@@ -405,10 +405,9 @@ static void db_oauth2_fields_merge(struct db_oauth2_request *req,
 		req->fields = auth_fields_init(req->pool);
 
 	array_foreach(fields, field) {
-		if (req->auth_request->debug)
-			auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-					       "oauth2: Processing field %s",
-					       field->name);
+		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+				       "oauth2: Processing field %s",
+				       field->name);
 		auth_fields_add(req->fields, field->name, field->value, 0);
 	}
 }
@@ -422,10 +421,9 @@ static void db_oauth2_callback(struct db_oauth2_request *req,
 
 	i_assert(result == PASSDB_RESULT_OK || error != NULL);
 
-	if (req->auth_request->debug)
-		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-				       "oauth2: callback(%d, %s)",
-				       result, error);
+	auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+			       "oauth2: callback(%d, %s)",
+			       result, error);
 
 	if (callback != NULL) {
 		DLLIST_REMOVE(&req->db->head, req);
@@ -500,10 +498,9 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 	if (*req->db->set.scope != '\0') {
 		bool found = FALSE;
 		const char *value = auth_fields_find(req->fields, "scope");
-		if (req->auth_request->debug)
-			auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-					       "oauth2: Token scope(s): %s",
-						value);
+		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+				       "oauth2: Token scope(s): %s",
+				       value);
 		if (value != NULL) {
 			const char **scopes = t_strsplit_spaces(value, " ");
 			found = str_array_find(scopes, req->db->set.scope);
@@ -543,10 +540,9 @@ db_oauth2_introspect_continue(struct oauth2_introspection_result *result,
 
 	req->req = NULL;
 
-	if (req->auth_request->debug)
-		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-				      "oauth2: Introspection result: %s",
-				      result->success ? "success" : "failed");
+	auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+			       "oauth2: Introspection result: %s",
+			       result->success ? "success" : "failed");
 
 	if (!result->success) {
 		/* fail here */
@@ -564,10 +560,9 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 	struct oauth2_request_input input;
 	i_zero(&input);
 
-	if (req->auth_request->debug)
-		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-				       "oauth2: Making introspection request to %s",
-					req->db->set.introspection_url);
+	auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+			       "oauth2: Making introspection request to %s",
+			       req->db->set.introspection_url);
 	input.token = req->token;
 	input.local_ip = req->auth_request->local_ip;
 	input.local_port = req->auth_request->local_port;
@@ -603,9 +598,8 @@ db_oauth2_lookup_continue(struct oauth2_token_validation_result *result,
 		if (*req->db->set.introspection_url != '\0' &&
 		    (req->db->set.force_introspection ||
 		     !db_oauth2_have_all_fields(req))) {
-			if (req->auth_request->debug)
-				auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-						       "oauth2: Introspection needed after token validation");
+			auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+					       "oauth2: Introspection needed after token validation");
 			db_oauth2_lookup_introspect(req);
 			return;
 		}
@@ -640,17 +634,15 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	input.service = req->auth_request->service;
 
 	if (*db->oauth2_set.tokeninfo_url == '\0') {
-		if (req->auth_request->debug)
-			auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-					       "oauth2: Making introspection request to %s",
-						db->set.introspection_url);
+		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+				       "oauth2: Making introspection request to %s",
+				       db->set.introspection_url);
 		req->req = oauth2_introspection_start(&req->db->oauth2_set, &input,
 						      db_oauth2_introspect_continue, req);
 	} else {
-		if (req->auth_request->debug)
-			auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-					       "oauth2: Making token validation lookup to %s",
-					       db->oauth2_set.tokeninfo_url);
+		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+				       "oauth2: Making token validation lookup to %s",
+				       db->oauth2_set.tokeninfo_url);
 		req->req = oauth2_token_validation_start(&db->oauth2_set, &input,
 							 db_oauth2_lookup_continue, req);
 	}
