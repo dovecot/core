@@ -31,15 +31,20 @@ void e_debug(struct event *event,
 	     const char *fmt, ...) ATTR_FORMAT(4, 5);
 #define e_debug(_event, ...) STMT_START { \
 	struct event *_tmp_event = (_event); \
-	if (event_want_debug(_tmp_event, __FILE__, __LINE__)) \
+	if (event_want_debug(_tmp_event)) \
 		e_debug(_tmp_event, __FILE__, __LINE__, __VA_ARGS__); \
 	else \
 		event_send_abort(_tmp_event); \
 	} STMT_END
 /* Returns TRUE if debug event should be sent (either logged or sent to
    stats). */
+bool event_want_debug_log(struct event *event, const char *source_filename,
+			  unsigned int source_linenum);
+#define event_want_debug_log(_event) event_want_debug_log((_event), __FILE__, __LINE__)
+
 bool event_want_debug(struct event *event, const char *source_filename,
 		      unsigned int source_linenum);
+#define event_want_debug(_event) event_want_debug((_event), __FILE__, __LINE__)
 
 void event_log(struct event *event, const struct event_log_params *params,
 	       const char *fmt, ...)

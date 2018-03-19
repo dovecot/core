@@ -108,31 +108,33 @@ void event_log(struct event *event, const struct event_log_params *params,
 	va_end(args);
 }
 
-static bool
-event_want_debug_log(struct event *event, const char *source_filename,
+#undef event_want_debug_log
+bool event_want_debug_log(struct event *event, const char *source_filename,
 		     unsigned int source_linenum)
 {
 	struct failure_context ctx = { .type = LOG_TYPE_DEBUG };
 
 	if (event->forced_debug)
-		return TRUE;
+		event->sending_debug_log = TRUE;
 
-	if (global_debug_log_filter != NULL &&
-	    event_filter_match_source(global_debug_log_filter, event,
-				      source_filename, source_linenum, &ctx))
-		return TRUE;
-	if (global_core_log_filter != NULL &&
-	    event_filter_match_source(global_core_log_filter, event,
-				      source_filename, source_linenum, &ctx))
-		return TRUE;
-	return FALSE;
+	else if (global_debug_log_filter != NULL &&
+		 event_filter_match_source(global_debug_log_filter, event,
+					   source_filename, source_linenum, &ctx))
+		event->sending_debug_log = TRUE;
+	else if (global_core_log_filter != NULL &&
+		 event_filter_match_source(global_core_log_filter, event,
+					   source_filename, source_linenum, &ctx))
+		event->sending_debug_log = TRUE;
+	else
+		event->sending_debug_log = FALSE;
+	return event->sending_debug_log;
 }
 
+#undef event_want_debug
 bool event_want_debug(struct event *event, const char *source_filename,
 		      unsigned int source_linenum)
 {
-	event->sending_debug_log =
-		event_want_debug_log(event, source_filename, source_linenum);
+	(void)event_want_debug_log(event, source_filename, source_linenum);
 	if (event->sending_debug_log)
 		return TRUE;
 
