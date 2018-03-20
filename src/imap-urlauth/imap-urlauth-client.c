@@ -38,6 +38,10 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
+struct event_category event_category_urlauth = {
+	.name = "imap-urlauth",
+};
+
 struct client *imap_urlauth_clients;
 unsigned int imap_urlauth_client_count;
 
@@ -61,6 +65,11 @@ int client_create(const char *service, const char *username,
 	client->fd_out = fd_out;
 	client->fd_ctrl = -1;
 	client->set = set;
+
+	client->event = event_create(NULL);
+	if (set->mail_debug)
+		event_set_forced_debug(client->event, TRUE);
+	event_add_category(client->event, &event_category_urlauth);
 
 	if (client_worker_connect(client) < 0) {
 		i_free(client);
@@ -339,6 +348,8 @@ void client_destroy(struct client *client, const char *reason)
 	o_stream_destroy(&client->output);
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
+
+	event_unref(&client->event);
 
 	i_free(client->username);
 	i_free(client->service);
