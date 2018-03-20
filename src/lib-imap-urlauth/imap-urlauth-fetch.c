@@ -352,8 +352,7 @@ int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 	if (imap_url_parse(url, NULL, url_parse_flags, &imap_url, &error) < 0) {
 		errormsg = t_strdup_printf(
 			"Failed to fetch URLAUTH \"%s\": %s", url, error);
-		if (mail_user->mail_debug)
-			i_debug("%s", errormsg);
+		e_debug(mail_user->event, "%s", errormsg);
 		ufetch->pending_requests++;
 		imap_urlauth_fetch_ref(ufetch);
 		imap_urlauth_fetch_error(ufetch, url, url_flags, errormsg);
@@ -400,8 +399,7 @@ int imap_urlauth_fetch_url_parsed(struct imap_urlauth_fetch *ufetch,
 	} else if (!imap_urlauth_check(uctx, imap_url, TRUE, &error)) {
 		errormsg = t_strdup_printf(
 			"Failed to fetch URLAUTH \"%s\": %s", url, error);
-		if (mail_user->mail_debug)
-			i_debug("%s", errormsg);
+		e_debug(mail_user->event, "%s", errormsg);
 		imap_urlauth_fetch_error(ufetch, url, url_flags, errormsg);
 		imap_url = NULL;
 	}

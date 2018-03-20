@@ -81,15 +81,13 @@ int client_create(const char *service, const char *username,
 	if (username != NULL) {
 		if (set->imap_urlauth_submit_user != NULL &&
 		    strcmp(set->imap_urlauth_submit_user, username) == 0) {
-			if (set->mail_debug)
-				i_debug("User %s has URLAUTH submit access", username);
+			e_debug(client->event, "User %s has URLAUTH submit access", username);
 			app = "submit+";
 			array_append(&client->access_apps, &app, 1);
 		}
 		if (set->imap_urlauth_stream_user != NULL &&
 		    strcmp(set->imap_urlauth_stream_user, username) == 0) {
-			if (set->mail_debug)
-				i_debug("User %s has URLAUTH stream access", username);
+			e_debug(client->event, "User %s has URLAUTH stream access", username);
 			app = "stream";
 			array_append(&client->access_apps, &app, 1);
 		}
@@ -143,8 +141,7 @@ static int client_worker_connect(struct client *client)
 	socket_path = t_strconcat(client->set->base_dir,
 				  "/"IMAP_URLAUTH_WORKER_SOCKET, NULL);
 
-	if (client->set->mail_debug)
-		i_debug("Connecting to worker socket %s", socket_path);
+	e_debug(client->event, "Connecting to worker socket %s", socket_path);
 
 	client->fd_ctrl = net_connect_unix_with_retries(socket_path, 1000);
 	if (client->fd_ctrl < 0) {
@@ -276,8 +273,7 @@ client_worker_input_line(struct client *client, const char *response)
 			return -1;
 		}
 
-		if (client->set->mail_debug)
-			i_debug("Worker finished successfully");
+		e_debug(client->event, "Worker finished successfully");
 
 		if (restart) {
 			/* connect to new worker for accessing different user */

@@ -70,10 +70,8 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 	if (ret < 0)
 		return -1;
 
-	if (user->mail_debug) {
-		i_debug("imap-urlauth: %skey found for mailbox %s",
-			(ret > 0 ? "" : "no "), mailbox_get_vname(box));
-	}
+	e_debug(user->event, "imap-urlauth: %skey found for mailbox %s",
+		(ret > 0 ? "" : "no "), mailbox_get_vname(box));
 
 	if (ret == 0) {
 		if (!create)
@@ -86,10 +84,8 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 
 		if (ret < 0)
 			return -1;
-		if (user->mail_debug) {
-			i_debug("imap-urlauth: created key for mailbox %s",
-				mailbox_get_vname(box));
-		}
+		e_debug(user->event, "imap-urlauth: created key for mailbox %s",
+			mailbox_get_vname(box));
 	} else {
 		/* read existing key */
 		buffer_create_from_data(&key_buf, mailbox_key_r,
