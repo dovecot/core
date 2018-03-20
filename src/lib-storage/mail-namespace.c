@@ -155,17 +155,15 @@ int mail_namespaces_init_add(struct mail_user *user,
 	if (*ns_set->location == '\0')
 		ns_set->location = mail_set->mail_location;
 
-	if (mail_set->mail_debug) {
-		i_debug("Namespace %s: type=%s, prefix=%s, sep=%s, "
-			"inbox=%s, hidden=%s, list=%s, subscriptions=%s "
-			"location=%s",
-			ns_set->name, ns_set->type, ns_set->prefix,
-			ns_set->separator == NULL ? "" : ns_set->separator,
-			ns_set->inbox ? "yes" : "no",
-			ns_set->hidden ? "yes" : "no",
-			ns_set->list,
-			ns_set->subscriptions ? "yes" : "no", ns_set->location);
-	}
+	e_debug(user->event, "Namespace %s: type=%s, prefix=%s, sep=%s, "
+		"inbox=%s, hidden=%s, list=%s, subscriptions=%s "
+		"location=%s",
+		ns_set->name, ns_set->type, ns_set->prefix,
+		ns_set->separator == NULL ? "" : ns_set->separator,
+		ns_set->inbox ? "yes" : "no",
+		ns_set->hidden ? "yes" : "no",
+		ns_set->list,
+		ns_set->subscriptions ? "yes" : "no", ns_set->location);
 
 	if ((ret = mail_namespace_alloc(user, user->set,
 					ns_set, unexpanded_ns_set,
@@ -452,7 +450,6 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 
 int mail_namespaces_init(struct mail_user *user, const char **error_r)
 {
-	const struct mail_storage_settings *mail_set;
 	struct mail_namespace_settings *const *ns_set;
 	struct mail_namespace_settings *const *unexpanded_ns_set;
 	struct mail_namespace *namespaces, **ns_p;
@@ -462,7 +459,6 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 
         namespaces = NULL; ns_p = &namespaces;
 
-	mail_set = mail_user_set_get_storage_set(user);
 	if (array_is_created(&user->set->namespaces)) {
 		ns_set = array_get(&user->set->namespaces, &count);
 		unexpanded_ns_set =
@@ -483,10 +479,8 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 				mail_namespaces_deinit(&namespaces);
 				return -1;
 			}
-			if (mail_set->mail_debug) {
-				i_debug("Skipping namespace %s: %s",
-					ns_set[i]->prefix, *error_r);
-			}
+			e_debug(user->event, "Skipping namespace %s: %s",
+				ns_set[i]->prefix, *error_r);
 		} else {
 			ns_p = &(*ns_p)->next;
 		}

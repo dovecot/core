@@ -303,10 +303,9 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	if (ret <= 0) {
 		get_nonexistent_user_location(storage, userdomain, location);
 		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
-		if (ns->user->mail_debug) {
-			i_debug("shared: Tried to access mails of "
-				"nonexistent user %s", userdomain);
-		}
+		e_debug(ns->user->event,
+			"shared: Tried to access mails of "
+			"nonexistent user %s", userdomain);
 	}
 
 	ns_set = p_new(user->pool, struct mail_namespace_settings, 1);

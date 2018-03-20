@@ -260,8 +260,9 @@ static void get_metadata_precache_fields(struct mailbox *box,
 			cache |= MAIL_FETCH_GUID;
 		else if (strcmp(name, "flags") == 0) {
 			/* just ignore for now at least.. */
-		} else if (box->storage->set->mail_debug)
-			i_debug("Ignoring unknown cache field: %s", name);
+		} else
+			e_debug(box->event,
+				"Ignoring unknown cache field: %s", name);
 	}
 	metadata_r->precache_fields = cache;
 }
