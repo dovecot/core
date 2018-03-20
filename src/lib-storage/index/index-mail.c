@@ -1238,11 +1238,10 @@ int index_mail_init_stream(struct index_mail *mail,
 	bool has_nuls, body_size_from_stream = FALSE;
 	int ret;
 
-	if (_mail->box->storage->user->mail_debug &&
-	    mail->mail.get_stream_reason != NULL &&
+	if (mail->mail.get_stream_reason != NULL &&
 	    mail->mail.get_stream_reason[0] != '\0') {
-		i_debug("Mailbox %s: Opened mail UID=%u because: %s",
-			_mail->box->vname, _mail->uid,
+		e_debug(_mail->event,
+			"Opened mail because: %s",
 			mail->mail.get_stream_reason);
 	}
 	_mail->mail_stream_opened = TRUE;

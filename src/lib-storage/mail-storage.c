@@ -291,7 +291,8 @@ mail_storage_create_root(struct mailbox_list *list,
 		/* we don't need to verify, but since debugging is
 		   enabled, check and log if the root doesn't exist */
 		if (mail_storage_verify_root(root_dir, type_name, &error) < 0) {
-			i_debug("Namespace %s: Creating storage despite: %s",
+			e_debug(list->ns->user->event,
+				"Namespace %s: Creating storage despite: %s",
 				list->ns->prefix, error);
 		}
 		return 0;
@@ -1253,9 +1254,10 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	if (box->opened)
 		return 0;
 
-	if (box->storage->set->mail_debug && box->reason != NULL) {
-		i_debug("%s: Mailbox opened because: %s",
-			box->vname, box->reason);
+	if (box->reason != NULL) {
+		e_debug(box->event,
+			"Mailbox opened because: %s",
+			box->reason);
 	}
 
 	switch (box->open_error) {
@@ -1811,10 +1813,9 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 					     dest->storage, &error) ||
 	    !mailbox_lists_rename_compatible(src->list,
 					     dest->list, &error)) {
-		if (src->storage->set->mail_debug) {
-			i_debug("Can't rename '%s' to '%s': %s",
-				src->vname, dest->vname, error);
-		}
+		e_debug(src->event,
+			"Can't rename '%s' to '%s': %s",
+			src->vname, dest->vname, error);
 		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Can't rename mailboxes across specified storages.");
 		return -1;

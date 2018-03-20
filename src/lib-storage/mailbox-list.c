@@ -209,18 +209,17 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		}
 	}
 
-	if (ns->mail_set->mail_debug) {
-		i_debug("%s: root=%s, index=%s, indexpvt=%s, control=%s, inbox=%s, alt=%s",
-			list->name,
-			list->set.root_dir == NULL ? "" : list->set.root_dir,
-			list->set.index_dir == NULL ? "" : list->set.index_dir,
-			list->set.index_pvt_dir == NULL ? "" : list->set.index_pvt_dir,
-			list->set.control_dir == NULL ?
-			"" : list->set.control_dir,
-			list->set.inbox_path == NULL ?
-			"" : list->set.inbox_path,
-			list->set.alt_dir == NULL ? "" : list->set.alt_dir);
-	}
+	e_debug(ns->user->event,
+		"%s: root=%s, index=%s, indexpvt=%s, control=%s, inbox=%s, alt=%s",
+		list->name,
+		list->set.root_dir == NULL ? "" : list->set.root_dir,
+		list->set.index_dir == NULL ? "" : list->set.index_dir,
+		list->set.index_pvt_dir == NULL ? "" : list->set.index_pvt_dir,
+		list->set.control_dir == NULL ?
+		"" : list->set.control_dir,
+		list->set.inbox_path == NULL ?
+		"" : list->set.inbox_path,
+		list->set.alt_dir == NULL ? "" : list->set.alt_dir);
 	if ((flags & MAILBOX_LIST_FLAG_SECONDARY) == 0)
 		mail_namespace_finish_list_init(ns, list);
 
@@ -937,8 +936,9 @@ mailbox_list_get_permissions_stat(struct mailbox_list *list, const char *path,
 		} else if (!ENOTFOUND(errno)) {
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
 						  path);
-		} else if (list->mail_set->mail_debug) {
-			i_debug("Namespace %s: %s doesn't exist yet, "
+		} else {
+			e_debug(list->ns->user->event,
+				"Namespace %s: %s doesn't exist yet, "
 				"using default permissions",
 				list->ns->prefix, path);
 		}
@@ -1055,8 +1055,9 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 					 list->pool);
 	}
 
-	if (list->mail_set->mail_debug && name == NULL) {
-		i_debug("Namespace %s: Using permissions from %s: "
+	if (name == NULL) {
+		e_debug(list->ns->user->event,
+			"Namespace %s: Using permissions from %s: "
 			"mode=0%o gid=%s", list->ns->prefix,
 			path != NULL ? path : "",
 			(int)permissions_r->dir_create_mode,

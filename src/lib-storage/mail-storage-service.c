@@ -122,11 +122,9 @@ static void set_keyval(struct mail_storage_service_ctx *ctx,
 
 	if (master_service_set_has_config_override(ctx->service, key)) {
 		/* this setting was already overridden with -o parameter */
-		if (mail_user_set_get_mail_debug(user->user_info,
-						 user->user_set)) {
-			i_debug("Ignoring overridden (-o) userdb setting: %s",
-				key);
-		}
+		e_debug(user->event,
+			"Ignoring overridden (-o) userdb setting: %s",
+			key);
 		return;
 	}
 
@@ -141,13 +139,10 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 		    const char *line)
 {
 	struct setting_parser_context *set_parser = user->set_parser;
-	bool mail_debug;
 	const char *key, *orig_key, *append_value = NULL;
 	size_t len;
 	int ret;
 
-	mail_debug = mail_user_set_get_mail_debug(user->user_info,
-						  user->user_set);
 	if (strchr(line, '=') == NULL)
 		line = t_strconcat(line, "=yes", NULL);
 	orig_key = key = t_strcut(line, '=');
@@ -167,10 +162,8 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 
 	if (master_service_set_has_config_override(ctx->service, key)) {
 		/* this setting was already overridden with -o parameter */
-		if (mail_debug) {
-			i_debug("Ignoring overridden (-o) userdb setting: %s",
-				key);
-		}
+		e_debug(user->event, "Ignoring overridden (-o) userdb setting: %s",
+			key);
 		return 1;
 	}
 
@@ -191,13 +184,13 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 	}
 
 	ret = settings_parse_line(set_parser, line);
-	if (mail_debug && ret >= 0) {
+	if (ret >= 0) {
 		if (strstr(key, "pass") != NULL) {
 			/* possibly a password field (e.g. imapc_password).
 			   hide the value. */
 			line = t_strconcat(key, "=<hidden>", NULL);
 		}
-		i_debug(ret == 0 ?
+		e_debug(user->event, ret == 0 ?
 			"Unknown userdb setting: %s" :
 			"Added userdb setting: %s", line);
 	}
@@ -661,7 +654,6 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			       struct mail_user **mail_user_r,
 			       const char **error_r)
 {
-	const struct mail_storage_settings *mail_set;
 	const char *home = priv->home;
 	struct mail_user_connection_data conn_data;
 	struct mail_user *mail_user;
@@ -714,17 +706,13 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);
 	
-	mail_set = mail_user_set_get_storage_set(mail_user);
+	string_t *str = t_str_new(64);
 
-	if (mail_set->mail_debug) {
-		string_t *str = t_str_new(64);
-
-		str_printfa(str, "Effective uid=%s, gid=%s, home=%s",
-			    dec2str(geteuid()), dec2str(getegid()), home);
-		if (*priv->chroot != '\0')
-			str_printfa(str, ", chroot=%s", priv->chroot);
-		i_debug("%s", str_c(str));
-	}
+	str_printfa(str, "Effective uid=%s, gid=%s, home=%s",
+		    dec2str(geteuid()), dec2str(getegid()), home);
+	if (*priv->chroot != '\0')
+		str_printfa(str, ", chroot=%s", priv->chroot);
+	e_debug(mail_user->event, "%s", str_c(str));
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
 	    (user->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) == 0) {
@@ -751,8 +739,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 						t_strconcat(chdir_path, "/", NULL)));
 			} else if (errno != ENOENT)
 				i_error("chdir(%s) failed: %m", chdir_path);
-			else if (mail_set->mail_debug)
-				i_debug("Home dir not found: %s", chdir_path);
+			else
+				e_debug(mail_user->event, "Home dir not found: %s", chdir_path);
 
 			if (chdir("/") < 0)
 				i_error("chdir(/) failed: %m");

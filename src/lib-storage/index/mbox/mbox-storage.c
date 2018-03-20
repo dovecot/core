@@ -185,8 +185,7 @@ static void mbox_storage_get_list_settings(const struct mail_namespace *ns,
 
 	if (set->inbox_path == NULL) {
 		set->inbox_path = t_strconcat(set->root_dir, "/inbox", NULL);
-		if (ns->mail_set->mail_debug)
-			i_debug("mbox: INBOX defaulted to %s", set->inbox_path);
+		e_debug(ns->user->event, "mbox: INBOX defaulted to %s", set->inbox_path);
 	}
 }
 
