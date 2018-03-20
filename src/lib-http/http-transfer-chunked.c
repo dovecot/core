@@ -388,7 +388,8 @@ http_transfer_chunked_istream_read_data(
 	size_t size, avail;
 	ssize_t ret = 0;
 
-	if (tcstream->chunk_pos >= tcstream->chunk_size) {
+	i_assert(tcstream->chunk_pos <= tcstream->chunk_size);
+	if (tcstream->chunk_pos == tcstream->chunk_size) {
 		tcstream->state = HTTP_CHUNKED_PARSE_STATE_DATA_READY;
 		return 0;
 	}
@@ -435,7 +436,8 @@ http_transfer_chunked_istream_read_data(
 	i_stream_skip(stream->parent, size);
 
 	tcstream->chunk_pos += size;
-	if (tcstream->chunk_pos >= tcstream->chunk_size)
+	i_assert(tcstream->chunk_pos <= tcstream->chunk_size);
+	if (tcstream->chunk_pos == tcstream->chunk_size)
 		tcstream->state = HTTP_CHUNKED_PARSE_STATE_DATA_READY;
 
 	ret = size;
