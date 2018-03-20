@@ -570,6 +570,7 @@ struct http_transfer_chunked_ostream {
 	size_t chunk_size, chunk_pos;
 
 	bool chunk_active:1;
+	bool sent_trailer:1;
 };
 
 static size_t _log16(size_t in)
@@ -597,6 +598,34 @@ static size_t _max_chunk_size(size_t avail)
 	return (avail < chunk_extra ? 0 : avail - chunk_extra);
 }
 
+static int
+http_transfer_chunked_ostream_send_trailer(
+	struct http_transfer_chunked_ostream *tcstream)
+{
+	struct ostream_private *stream = &tcstream->ostream;
+	ssize_t sent;
+
+	if (tcstream->sent_trailer)
+		return 1;
+
+	if (o_stream_get_buffer_avail_size(stream->parent) < 5) {
+		if (o_stream_flush_parent(stream) < 0)
+			return -1;
+		if (o_stream_get_buffer_avail_size(stream->parent) < 5)
+			return 0;
+	}
+
+	sent = o_stream_send(tcstream->ostream.parent, "0\r\n\r\n", 5);
+	if (sent < 0) {
+		o_stream_copy_error_from_parent(stream);
+		return -1;
+	}
+	i_assert(sent == 5);
+
+	tcstream->sent_trailer = TRUE;
+	return 1;
+}
+
 static void
 http_transfer_chunked_ostream_close(struct iostream_private *stream,
 				    bool close_parent)
@@ -604,10 +633,27 @@ http_transfer_chunked_ostream_close(struct iostream_private *stream,
 	struct http_transfer_chunked_ostream *tcstream =
 		(struct http_transfer_chunked_ostream *)stream;
 
-	o_stream_nsend(tcstream->ostream.parent, "0\r\n\r\n", 5);
-	(void)o_stream_flush(&tcstream->ostream.ostream);
+	i_assert(tcstream->ostream.finished ||
+		 tcstream->ostream.ostream.stream_errno != 0 ||
+		 tcstream->ostream.error_handling_disabled);
+	if (!tcstream->ostream.finished)
+		(void)o_stream_finish(&tcstream->ostream.ostream);
 	if (close_parent)
 		o_stream_close(tcstream->ostream.parent);
+}
+
+static int
+http_transfer_chunked_ostream_flush(struct ostream_private *stream)
+{
+	struct http_transfer_chunked_ostream *tcstream =
+		(struct http_transfer_chunked_ostream *)stream;
+	int ret;
+
+	if (stream->finished &&
+	    (ret = http_transfer_chunked_ostream_send_trailer(tcstream)) <= 0)
+		return ret;
+
+	return o_stream_flush_parent(stream);
 }
 
 static ssize_t
@@ -691,6 +737,7 @@ http_transfer_chunked_ostream_create(struct ostream *output)
 
 	tcstream = i_new(struct http_transfer_chunked_ostream, 1);
 	tcstream->ostream.sendv = http_transfer_chunked_ostream_sendv;
+	tcstream->ostream.flush = http_transfer_chunked_ostream_flush;
 	tcstream->ostream.iostream.close = http_transfer_chunked_ostream_close;
 	if (output->real_stream->max_buffer_size > 0)
 		max_size = output->real_stream->max_buffer_size;

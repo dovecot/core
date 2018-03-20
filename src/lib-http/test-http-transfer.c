@@ -303,6 +303,7 @@ static void test_http_transfer_chunked_output_valid(void)
 
 		/* cleanup streams */
 		test_out("payload chunk", ret > 0);
+		test_assert(o_stream_finish(ochunked) > 0);
 		o_stream_destroy(&ochunked);
 		o_stream_destroy(&output);
 		i_stream_destroy(&input);
