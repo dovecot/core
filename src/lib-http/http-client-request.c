@@ -985,15 +985,41 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 	}
 }
 
-static void
+static int
+http_client_request_flush_payload(struct http_client_request *req)
+{
+	struct http_client_connection *conn = req->conn;
+	int ret;
+
+	if (req->payload_output != conn->conn.output &&
+	    (ret=o_stream_finish(req->payload_output)) <= 0) {
+		if (ret < 0)
+			http_client_connection_handle_output_error(conn);
+		return ret;
+	}
+
+	return 1;
+}
+
+static int
 http_client_request_finish_payload_out(struct http_client_request *req)
 {
 	struct http_client_connection *conn = req->conn;
+	int ret;
 
 	i_assert(conn != NULL);
+	req->payload_finished = TRUE;
 
 	/* drop payload output stream */
 	if (req->payload_output != NULL) {
+		ret = http_client_request_flush_payload(req);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
+			e_debug(req->event,
+				"Not quite finished sending payload");
+			return 0;
+		}
 		o_stream_unref(&req->payload_output);
 		req->payload_output = NULL;
 	}
@@ -1015,6 +1041,7 @@ http_client_request_finish_payload_out(struct http_client_request *req)
 
 	e_debug(req->event, "Finished sending%s payload",
 		(req->state == HTTP_REQUEST_STATE_ABORTED ? " aborted" : ""));
+	return 1;
 }
 
 static int
@@ -1040,7 +1067,7 @@ http_client_request_continue_payload(struct http_client_request **_req,
 	if (data == NULL) {
 		req->payload_input = NULL;
 		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
-			http_client_request_finish_payload_out(req);
+			(void)http_client_request_finish_payload_out(req);
 	} else { 
 		req->payload_input = i_stream_create_from_data(data, size);
 		i_stream_set_name(req->payload_input, "<HTTP request payload>");
@@ -1186,6 +1213,9 @@ int http_client_request_send_more(struct http_client_request *req,
 	i_assert(req->payload_input != NULL);
 	i_assert(req->payload_output != NULL);
 
+	if (req->payload_finished)
+		return http_client_request_finish_payload_out(req);
+
 	io_remove(&conn->io_req_payload);
 
 	/* chunked ostream needs to write to the parent stream's buffer */
@@ -1223,7 +1253,8 @@ int http_client_request_send_more(struct http_client_request *req,
 				io_loop_stop(req->client->ioloop);
 		} else {
 			/* finished sending payload */
-			http_client_request_finish_payload_out(req);
+			if (http_client_request_finish_payload_out(req) < 0)
+				return -1;
 		}
 		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:

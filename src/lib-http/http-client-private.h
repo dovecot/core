@@ -162,6 +162,7 @@ struct http_client_request {
 	bool payload_sync_continue:1;
 	bool payload_chunked:1;
 	bool payload_wait:1;
+	bool payload_finished:1;
 	bool payload_empty:1;
 	bool urgent:1;
 	bool submitted:1;
