@@ -1,3 +1,49 @@
+v2.3.1 2018-02-29  Aki Tuomi <aki.tuomi@dovecot.fi>
+
+	* Submission server support improvements and bug fixes
+	  - Lots of bug fixes to submission server
+	* API CHANGE: array_idx_modifiable will no longer allocate space
+	  - Particularly affects how you should check MODULE_CONTEXT result, or
+	    use REQUIRE_MODULE_CONTEXT.
+
+	+ mail_attachment_detection_options setting controls when
+	  $HasAttachment and $HasNoAttachment keywords are set for mails.
+	+ imap: Support fetching body snippets using FETCH (SNIPPET) or
+	  (SNIPPET (LAZY=FUZZY))
+	+ fs-compress: Automatically detect whether input is compressed or not.
+	  Prefix the compression algorithm with "maybe-" to enable the
+	  detection, for example: "compress:maybe-gz:6:..."
+	+ Added settings to change dovecot.index* files' optimization behavior.
+	  See https://wiki2.dovecot.org/IndexFiles#Settings
+	+ Auth cache can now utilize auth workers to do password hash
+	  verification by setting auth_cache_verify_password_with_worker=yes.
+	+ Added charset_alias plugin. See
+	  https://wiki2.dovecot.org/Plugins/CharsetAlias
+	+ imap_logout_format and pop3_logout_format settings now support all of
+	  the generic variables (e.g. %{rip}, %{session}, etc.)
+	+ Added auth_policy_check_before_auth, auth_policy_check_after_auth
+	  and auth_policy_report_after_auth settings.
+	+ master: Support HAProxy PP2_TYPE_SSL command and set "secured"
+	  variable appropriately
+	- Invalid UCS4 escape in HTML can cause crashes
+	- imap: IMAP COMPRESS -enabled clietn crashes on disconnect
+	- lmtp: Fix crash when user is over quota
+	- lib-lda: Parsing Return-Path header address fails when it contains
+	  CFWS
+	- auth: SASL with Exim fails for AUTH commands without an initial
+	  response
+	- imap: SPECIAL-USE capability isn't automatically added
+	- auth: LDAP subqueries do not support standard auth variables in
+	  var-expand
+	- auth: SHA256-CRYPT and SHA512-CRYPT schemes do not work
+	- lib-index: mail_always/never_cache_fields are not used for existing
+	  cache files
+	- imap: Fetching headers leaks memory if search doesn't find any mails
+	- lmtp: ORCPT support in RCPT TO
+	- imap-login: Process sometimes ends up in infinite loop
+	- sdbox: Rolled back save/copy transaction doesn't delete temp files
+	- mail: lock_method=dotlock causes crashes
+
 v2.3.0.1 2018-02-28  Timo Sirainen <tss@iki.fi>
 
 	* CVE-2017-15130: TLS SNI config lookups may lead to excessive
