@@ -28,10 +28,9 @@ mail_crypt_load_global_private_keys(struct mail_user *user,
 							error_r) < 0) {
 			/* skip this key */
 			if (ignore_errors) {
-				if (user->namespaces->mail_set->mail_debug)
-					i_debug("mail-crypt-plugin: "
-						"mail_crypt_load_global_private_key failed: %s",
-						*error_r);
+				e_debug(user->event, "mail-crypt-plugin: "
+					"mail_crypt_load_global_private_key failed: %s",
+					*error_r);
 				*error_r = NULL;
 				continue;
 			}

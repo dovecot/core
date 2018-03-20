@@ -48,8 +48,8 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 		dict_set.base_dir = user->set->base_dir;
 		if (dict_init(uri, &dict_set, &dict->dict, &error) < 0)
 			i_error("acl: dict_init(%s) failed: %s", uri, error);
-	} else if (user->mail_debug) {
-		i_debug("acl: No acl_shared_dict setting - "
+	} else {
+		e_debug(user->event, "acl: No acl_shared_dict setting - "
 			"shared mailbox listing is disabled");
 	}
 	return dict;

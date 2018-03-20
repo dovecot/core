@@ -33,13 +33,11 @@ void apparmor_plugin_deinit(void);
 static void apparmor_log_current_context(struct mail_user *user)
 {
 	char *con, *mode;
-	if (!user->mail_debug)
-		return;
 
 	if (aa_getcon(&con, &mode) < 0) {
-		i_debug("aa_getcon() failed: %m");
+		e_debug(user->event, "aa_getcon() failed: %m");
 	} else {
-		i_debug("apparmor: Current context=%s, mode=%s",
+		e_debug(user->event, "apparmor: Current context=%s, mode=%s",
 			con, mode);
 		free(con);
 	}

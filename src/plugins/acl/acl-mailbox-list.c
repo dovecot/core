@@ -220,10 +220,8 @@ acl_mailbox_list_iter_next_info(struct mailbox_list_iterate_context *_ctx)
 		if (ctx->lookup_boxes == NULL ||
 		    mailbox_tree_lookup(ctx->lookup_boxes, info->vname) != NULL)
 			break;
-		if (_ctx->list->ns->user->mail_debug) {
-			i_debug("acl: Mailbox not in dovecot-acl-list: %s",
-				info->vname);
-		}
+		e_debug(_ctx->list->ns->user->event,
+			"acl: Mailbox not in dovecot-acl-list: %s", info->vname);
 	}
 
 	return info;
@@ -468,10 +466,8 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 			return NULL;
 		}
 		/* skip to next one */
-		if (_ctx->list->ns->user->mail_debug) {
-			i_debug("acl: No lookup right to mailbox: %s",
-				info->vname);
-		}
+		e_debug(_ctx->list->ns->user->event,
+			"acl: No lookup right to mailbox: %s", info->vname);
 	}
 	return info == NULL ? NULL : &ctx->info;
 }

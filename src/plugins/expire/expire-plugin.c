@@ -212,7 +212,6 @@ static int
 expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				  struct mail_transaction_commit_changes *changes_r)
 {
-	struct mail_user *user = t->box->storage->user;
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT_REQUIRE(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT_REQUIRE(t);
 	struct mailbox *box = t->box;
@@ -228,11 +227,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			   transaction a new message was saved */
 			new_stamp = ioloop_time;
 		}
-		if (user->mail_debug) {
-			i_debug("expire: Expunging first message in %s, "
-				"updating timestamp to %ld",
-				box->vname, (long)new_stamp);
-		}
+		e_debug(box->event, "expire: Expunging first message, "
+			"updating timestamp to %ld", (long)new_stamp);
 		update_dict = TRUE;
 	}
 
@@ -268,10 +264,9 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			} else {
 				/* already exists */
 			}
-			if (user->mail_debug && update_dict) {
-				i_debug("expire: Saving first message to %s, "
-					"updating timestamp to %ld",
-					box->vname, (long)new_stamp);
+			if (update_dict) {
+				e_debug(box->event, "expire: Saving first message, "
+					"updating timestamp to %ld", (long)new_stamp);
 			}
 		}
 
@@ -412,8 +407,7 @@ static void expire_mail_user_created(struct mail_user *user)
 	const char *dict_uri, *error;
 
 	if (!mail_user_plugin_getenv_bool(user, "expire")) {
-		if (user->mail_debug)
-			i_debug("expire: No expire setting - plugin disabled");
+		e_debug(user->event, "expire: No expire setting - plugin disabled");
 		return;
 	}
 

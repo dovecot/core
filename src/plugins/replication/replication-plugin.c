@@ -189,10 +189,9 @@ static void replication_notify(struct mail_namespace *ns,
 	if (ruser == NULL)
 		return;
 
-	if (ns->user->mail_debug) {
-		i_debug("replication: Replication requested by '%s', priority=%d",
-			event, priority);
-	}
+	e_debug(ns->user->event,
+		"replication: Replication requested by '%s', priority=%d",
+		event, priority);
 
 	if (priority == REPLICATION_PRIORITY_SYNC) {
 		if (replication_notify_sync(ns->user) == 0) {
@@ -336,16 +335,14 @@ static void replication_user_created(struct mail_user *user)
 
 	value = mail_user_plugin_getenv(user, "mail_replica");
 	if (value == NULL || value[0] == '\0') {
-		if (user->mail_debug)
-			i_debug("replication: No mail_replica setting - replication disabled");
+		e_debug(user->event, "replication: No mail_replica setting - replication disabled");
 		return;
 	}
 
 	if (user->dsyncing) {
 		/* we're running dsync, which means that the remote is telling
 		   us about a change. don't trigger a replication back to it */
-		if (user->mail_debug)
-			i_debug("replication: We're running dsync - replication disabled");
+		e_debug(user->event, "replication: We're running dsync - replication disabled");
 		return;
 	}
 
