@@ -33,7 +33,7 @@ static const char version2_header[] = "V\t2\n\n";
 static void subsread_set_syscall_error(struct mailbox_list *list,
 				       const char *function, const char *path)
 {
-	if (errno == EACCES && !list->mail_set->mail_debug) {
+	if (errno == EACCES && !event_want_debug_log(list->ns->user->event)) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
 				       "No permission to read subscriptions");
 	} else {
@@ -46,7 +46,7 @@ static void subsread_set_syscall_error(struct mailbox_list *list,
 static void subswrite_set_syscall_error(struct mailbox_list *list,
 					const char *function, const char *path)
 {
-	if (errno == EACCES && !list->mail_set->mail_debug) {
+	if (errno == EACCES && !event_want_debug_log(list->ns->user->event)) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
 				       "No permission to modify subscriptions");
 	} else {

@@ -285,7 +285,7 @@ mail_storage_create_root(struct mailbox_list *list,
 	}
 
 	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOVERIFY) != 0) {
-		if (!list->mail_set->mail_debug)
+		if (!event_want_debug_log(list->ns->user->event))
 			return 0;
 
 		/* we don't need to verify, but since debugging is
@@ -772,7 +772,7 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 
 	if (!mail_error_from_errno(&error, &error_string))
 		return FALSE;
-	if (storage->set->mail_debug && error != MAIL_ERROR_NOTFOUND) {
+	if (event_want_debug_log(storage->event) && error != MAIL_ERROR_NOTFOUND) {
 		/* debugging is enabled - admin may be debugging a
 		   (permission) problem, so return FALSE to get the caller to
 		   log the full error message. */
