@@ -200,7 +200,8 @@ struct http_client_connection {
 	                               connection into tunnel */
 	bool connect_succeeded:1;   /* Connection succeeded including SSL */
 	bool connect_failed:1;      /* Connection failed */
-	bool lost_prematurely:1;    /* Lost connection before receiving any data */
+	bool lost_prematurely:1;    /* Lost connection before receiving any data
+	                             */
 	bool closing:1;
 	bool disconnected:1;
 	bool close_indicated:1;
@@ -502,9 +503,10 @@ int http_client_request_send_more(struct http_client_request *req,
 
 bool http_client_request_callback(struct http_client_request *req,
 				  struct http_response *response);
-void http_client_request_connect_callback(struct http_client_request *req,
-					  const struct http_client_tunnel *tunnel,
-					  struct http_response *response);
+void http_client_request_connect_callback(
+	struct http_client_request *req,
+	const struct http_client_tunnel *tunnel,
+	struct http_response *response);
 
 void http_client_request_resubmit(struct http_client_request *req);
 void http_client_request_retry(struct http_client_request *req,
@@ -561,7 +563,7 @@ void http_client_connection_claim_idle(struct http_client_connection *conn,
  * Peer
  */
 
-/* address */
+/* Address */
 
 unsigned int
 http_client_peer_addr_hash(const struct http_client_peer_addr *peer) ATTR_PURE;
@@ -569,14 +571,14 @@ int http_client_peer_addr_cmp(const struct http_client_peer_addr *peer1,
 			      const struct http_client_peer_addr *peer2)
 			      ATTR_PURE;
 
-/* connection pool */
+/* Connection pool */
 
 void http_client_peer_pool_ref(struct http_client_peer_pool *ppool);
 void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool);
 
 void http_client_peer_pool_close(struct http_client_peer_pool **_ppool);
 
-/* peer (shared) */
+/* Peer (shared) */
 
 const char *
 http_client_peer_shared_label(struct http_client_peer_shared *pshared);
@@ -592,7 +594,7 @@ unsigned int
 http_client_peer_shared_max_connections(
 	struct http_client_peer_shared *pshared);
 
-/* peer */
+/* Peer */
 
 struct http_client_peer *
 http_client_peer_get(struct http_client *client,
@@ -662,13 +664,13 @@ void http_client_queue_switch_ioloop(struct http_client_queue *queue);
  * Host
  */
 
-/* host (shared) */
+/* Host (shared) */
 
 void http_client_host_shared_free(struct http_client_host_shared **_hshared);
 void http_client_host_shared_switch_ioloop(
 	struct http_client_host_shared *hshared);
 
-/* host */
+/* Host */
 
 static inline unsigned int
 http_client_host_get_ips_count(struct http_client_host *host)
