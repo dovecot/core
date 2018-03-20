@@ -345,7 +345,7 @@ static void openssl_iostream_unref(struct ssl_iostream *ssl_io)
 
 static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 {
-	if (SSL_shutdown(ssl_io->ssl) != 1) {
+	if (ssl_io->handshaked && SSL_shutdown(ssl_io->ssl) != 1) {
 		/* if bidirectional shutdown fails we need to clear
 		   the error queue */
 		openssl_iostream_clear_errors();
