@@ -525,7 +525,13 @@ http_server_connection_finish_request(struct http_server_connection *conn)
 				i_unreached();
 			}
 
-			http_server_connection_unref(&conn);
+			if (http_server_connection_unref_is_closed(conn)) {
+				/* connection got closed */
+				return FALSE;
+			}
+
+			if (conn->input_broken || conn->close_indicated)
+				http_server_connection_input_halt(conn);
 			return FALSE;
 		}
 		if (ret == 0)
