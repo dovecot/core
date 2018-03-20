@@ -686,11 +686,10 @@ import_state_mailbox_open(struct client *client,
 			status.highest_modseq));
 		client->sync_last_full_modseq = status.highest_modseq;
 	}
-	if (client->user->mail_debug) {
-		i_debug("Unhibernation sync: %u expunges, %u new messages, %u flag changes, %"PRIu64" modseq changes",
-			expunge_count, new_mails_count, flag_change_count,
-			status.highest_modseq - state->highest_modseq);
-	}
+	e_debug(client->event,
+		"Unhibernation sync: %u expunges, %u new messages, %u flag changes, %"PRIu64" modseq changes",
+		expunge_count, new_mails_count, flag_change_count,
+		status.highest_modseq - state->highest_modseq);
 	return 0;
 }
 
