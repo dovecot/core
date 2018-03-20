@@ -690,10 +690,8 @@ static bool pop3_uidl_assign_by_size(struct mailbox *box)
 		imap_map[i].pop3_seq = pop3_map[i].pop3_seq;
 	}
 	mbox->first_unfound_idx = i;
-	if (box->storage->user->mail_debug) {
-		i_debug("pop3_migration: cached uidls=%u, size matches=%u, total=%u",
-			uidl_match, size_match, count);
-	}
+	e_debug(box->event, "pop3_migration: cached uidls=%u, size matches=%u, total=%u",
+		uidl_match, size_match, count);
 	return i == count && imap_count == pop3_count;
 }
 
@@ -787,9 +785,8 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 			return -1;
 		}
 		i_warning("%s", str_c(str));
-	} else if (box->storage->user->mail_debug) {
-		i_debug("pop3_migration: %u mails matched by headers", pop3_count);
-	}
+	} else
+		e_debug(box->event, "pop3_migration: %u mails matched by headers", pop3_count);
 	array_sort(&mstorage->pop3_uidl_map, pop3_uidl_map_pop3_seq_cmp);
 	array_sort(&mbox->imap_msg_map, imap_msg_map_uid_cmp);
 	return 0;
@@ -1007,8 +1004,7 @@ static void pop3_migration_mail_storage_created(struct mail_storage *storage)
 	pop3_box_vname = mail_user_plugin_getenv(storage->user,
 						 "pop3_migration_mailbox");
 	if (pop3_box_vname == NULL) {
-		if (storage->user->mail_debug)
-			i_debug("pop3_migration: No pop3_migration_mailbox setting - disabled");
+		e_debug(storage->user->event, "pop3_migration: No pop3_migration_mailbox setting - disabled");
 		return;
 	}
 

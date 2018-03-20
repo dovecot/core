@@ -269,9 +269,7 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 
 	uri = mail_user_plugin_getenv(user, "quota_clone_dict");
 	if (uri == NULL || uri[0] == '\0') {
-		if (user->mail_debug) {
-			i_debug("The quota_clone_dict setting is missing from configuration");
-		}
+		e_debug(user->event, "The quota_clone_dict setting is missing from configuration");
 		return;
 	}
 

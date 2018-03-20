@@ -122,8 +122,7 @@ static unsigned int charset_aliases_init(struct mail_user *user, pool_t pool, co
 			continue;
 		}
 		if (strcasecmp(key, value) != 0) {
-			if (user->mail_debug)
-				i_debug("charset_alias: add charset-alias %s for %s", value, key);
+			e_debug(user->event, "charset_alias: add charset-alias %s for %s", value, key);
 			alias.charset = p_strdup(pool, t_str_lcase(key));
 			alias.alias = p_strdup(pool, value);
 			array_append(&charset_aliases, &alias, 1);

@@ -57,7 +57,6 @@ void acl_mail_user_created(struct mail_user *user)
 	if (env != NULL && *env != '\0')
 		acl_mail_user_create(user, env);
 	else {
-		if (user->mail_debug)
-			i_debug("acl: No acl setting - ACLs are disabled");
+		e_debug(user->event, "acl: No acl setting - ACLs are disabled");
 	}
 }

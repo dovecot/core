@@ -29,8 +29,7 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	char buf[1024];
 	int fd, ret;
 
-	if (user->mail_debug)
-		i_debug("welcome: Executing %s (wait=%d)", cmd, wait ? 1 : 0);
+	e_debug(user->event, "welcome: Executing %s (wait=%d)", cmd, wait ? 1 : 0);
 
 	args = t_strsplit_spaces(cmd, " ");
 	socket_path = args[0];

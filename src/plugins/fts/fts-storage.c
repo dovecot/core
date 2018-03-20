@@ -917,16 +917,15 @@ fts_mailbox_list_created(struct mailbox_list *list)
 	const char *path;
 
 	if (name == NULL || name[0] == '\0') {
-		if (list->mail_set->mail_debug)
-			i_debug("fts: No fts setting - plugin disabled");
+		e_debug(list->ns->user->event,
+			"fts: No fts setting - plugin disabled");
 		return;
 	}
 
 	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path)) {
-		if (list->mail_set->mail_debug) {
-			i_debug("fts: Indexes disabled for namespace '%s'",
-				list->ns->prefix);
-		}
+		e_debug(list->ns->user->event,
+			"fts: Indexes disabled for namespace '%s'",
+			list->ns->prefix);
 		return;
 	}
 

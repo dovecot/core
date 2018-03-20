@@ -208,11 +208,9 @@ static int virtual_backend_box_alloc(struct virtual_mailbox *mbox,
 	}
 	if (existence != MAILBOX_EXISTENCE_SELECT) {
 		/* ignore this. it could be intentional. */
-		if (mbox->storage->storage.user->mail_debug) {
-			i_debug("virtual mailbox %s: "
-				"Skipping non-existing mailbox %s",
-				mbox->box.vname, bbox->box->vname);
-		}
+		e_debug(mbox->box.event,
+			"Skipping non-existing mailbox %s",
+			bbox->box->vname);
 		mailbox_free(&bbox->box);
 		return 0;
 	}
