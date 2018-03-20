@@ -25,6 +25,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
+static struct event_category event_category_auth = {
+	.name = "auth",
+};
+
 struct authtest_input {
 	pool_t pool;
 	const char *username;
@@ -159,12 +163,15 @@ auth_callback(struct auth_client_request *request ATTR_UNUSED,
 static void auth_connected(struct auth_client *client,
 			   bool connected, void *context)
 {
+	struct event *event_auth;
 	struct authtest_input *input = context;
 	struct auth_request_info info;
 	string_t *init_resp, *base64_resp;
 
 	if (!connected)
 		i_fatal("Couldn't connect to auth socket");
+	event_auth = event_create(NULL);
+	event_add_category(event_auth, &event_category_auth);
 
 	init_resp = t_str_new(128);
 	str_append(init_resp, input->username);
@@ -187,11 +194,13 @@ static void auth_connected(struct auth_client *client,
 	info.remote_ip = input->info.remote_ip;
 	info.remote_port = input->info.remote_port;
 	info.initial_resp_base64 = str_c(base64_resp);
-	if (doveadm_settings->auth_debug)
+	if (doveadm_settings->auth_debug ||
+	    event_want_debug_log(event_auth))
 		info.flags |= AUTH_REQUEST_FLAG_DEBUG;
 
 	input->request = auth_client_request_new(client, &info,
 						 auth_callback, input);
+	event_unref(&event_auth);
 }
 
 static void
