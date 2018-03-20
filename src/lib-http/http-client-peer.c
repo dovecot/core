@@ -58,9 +58,8 @@ unsigned int http_client_peer_addr_hash
 	return hash;
 }
 
-int http_client_peer_addr_cmp
-(const struct http_client_peer_addr *peer1,
-	const struct http_client_peer_addr *peer2)
+int http_client_peer_addr_cmp(const struct http_client_peer_addr *peer1,
+			      const struct http_client_peer_addr *peer2)
 {
 	int ret;
 
@@ -71,21 +70,22 @@ int http_client_peer_addr_cmp
 	case HTTP_CLIENT_PEER_ADDR_HTTP:
 	case HTTP_CLIENT_PEER_ADDR_HTTPS:
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
-		/* Queues are created with peer addresses that have an uninitialized
-		   IP value, because that is assigned later when the host lookup completes.
-		   In all other other contexts, the IP is always initialized, so we do not
-		   compare IPs when one of them is unassigned. */
+		/* Queues are created with peer addresses that have an
+		   uninitialized IP value, because that is assigned later when
+		   the host lookup completes. In all other other contexts, the
+		   IP is always initialized, so we do not compare IPs when one
+		   of them is unassigned. */
 		if (peer1->a.tcp.ip.family != 0 &&
-			peer2->a.tcp.ip.family != 0 &&
-			(ret=net_ip_cmp(&peer1->a.tcp.ip, &peer2->a.tcp.ip)) != 0)
+		    peer2->a.tcp.ip.family != 0 &&
+		    (ret = net_ip_cmp(&peer1->a.tcp.ip, &peer2->a.tcp.ip)) != 0)
 			return ret;
 		if (peer1->a.tcp.port != peer2->a.tcp.port)
 			return (peer1->a.tcp.port > peer2->a.tcp.port ? 1 : -1);
 		if (peer1->type != HTTP_CLIENT_PEER_ADDR_HTTPS &&
 			peer1->type != HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL)
 			return 0;
-		return null_strcmp
-			(peer1->a.tcp.https_name, peer2->a.tcp.https_name);
+		return null_strcmp(peer1->a.tcp.https_name,
+				   peer2->a.tcp.https_name);
 	case HTTP_CLIENT_PEER_ADDR_UNIX:
 		return null_strcmp(peer1->a.un.path, peer2->a.un.path);
 	}
@@ -98,7 +98,8 @@ int http_client_peer_addr_cmp
 
 static struct http_client_peer_pool *
 http_client_peer_pool_create(struct http_client_peer_shared *pshared,
-	struct ssl_iostream_context *ssl_ctx, const char *rawlog_dir)
+			     struct ssl_iostream_context *ssl_ctx,
+			     const char *rawlog_dir)
 {
 	struct http_client_peer_pool *ppool;
 
@@ -106,8 +107,10 @@ http_client_peer_pool_create(struct http_client_peer_shared *pshared,
 	ppool->refcount = 1;
 	ppool->peer = pshared;
 	ppool->event = event_create(pshared->cctx->event);
-	event_set_append_log_prefix(ppool->event, t_strdup_printf(
-		"peer %s: ", http_client_peer_shared_label(pshared)));
+	event_set_append_log_prefix(
+		ppool->event,
+		t_strdup_printf("peer %s: ",
+				http_client_peer_shared_label(pshared)));
 
 	http_client_peer_shared_ref(pshared);
 
@@ -140,9 +143,10 @@ void http_client_peer_pool_close(struct http_client_peer_pool **_ppool)
 
 	http_client_peer_pool_ref(ppool);
 
-	/* make a copy of the connection array; freed connections modify it */
+	/* Make a copy of the connection array; freed connections modify it */
 	t_array_init(&conns, array_count(&ppool->conns));
-	array_copy(&conns.arr, 0, &ppool->conns.arr, 0, array_count(&ppool->conns));
+	array_copy(&conns.arr, 0, &ppool->conns.arr, 0,
+		   array_count(&ppool->conns));
 	array_foreach_modifiable(&conns, conn)
 		http_client_connection_unref(conn);
 	i_assert(array_count(&ppool->idle_conns) == 0);
@@ -185,26 +189,26 @@ void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool)
 
 static struct http_client_peer_pool *
 http_client_peer_pool_get(struct http_client_peer_shared *pshared,
-	struct http_client *client)
+			  struct http_client *client)
 {
 	struct http_client_peer_pool *ppool;
 	struct ssl_iostream_context *ssl_ctx = client->ssl_ctx;
 	const char *rawlog_dir = client->set.rawlog_dir;
 
 	i_assert(!http_client_peer_addr_is_https(&pshared->addr) ||
-		ssl_ctx != NULL);
+		 ssl_ctx != NULL);
 
 	ppool = pshared->pools_list;
 	while (ppool != NULL) {
 		if (ppool->ssl_ctx == ssl_ctx &&
-			null_strcmp(ppool->rawlog_dir, rawlog_dir) == 0)
+		    null_strcmp(ppool->rawlog_dir, rawlog_dir) == 0)
 			break;
 		ppool = ppool->next;
 	}
 
 	if (ppool == NULL) {
-		ppool = http_client_peer_pool_create
-			(pshared, ssl_ctx, rawlog_dir);
+		ppool = http_client_peer_pool_create(pshared, ssl_ctx,
+						     rawlog_dir);
 	} else {
 		e_debug(ppool->event, "Peer pool reused");
 		http_client_peer_pool_ref(ppool);
@@ -214,8 +218,7 @@ http_client_peer_pool_get(struct http_client_peer_shared *pshared,
 }
 
 static void
-http_client_peer_pool_connection_success(
-	struct http_client_peer_pool *ppool)
+http_client_peer_pool_connection_success(struct http_client_peer_pool *ppool)
 {
 	e_debug(ppool->event, "Successfully connected "
 		"(%u connections exist, %u pending)",
@@ -224,13 +227,13 @@ http_client_peer_pool_connection_success(
 	http_client_peer_shared_connection_success(ppool->peer);
 
 	if (array_count(&ppool->pending_conns) > 0) {
-		/* if there are other connections attempting to connect, wait
+		/* If there are other connections attempting to connect, wait
 		   for them before notifying other peer objects about the
 		   success (which may be premature). */
 	} else {
 		struct http_client_peer *peer;
 
-		/* this was the only/last connection and connecting to it
+		/* This was the only/last connection and connecting to it
 		   succeeded. notify all interested peers in this pool about the
 		   success */
 		peer = ppool->peer->peers_list;
@@ -244,8 +247,8 @@ http_client_peer_pool_connection_success(
 }
 
 static void
-http_client_peer_pool_connection_failure(
-	struct http_client_peer_pool *ppool, const char *reason)
+http_client_peer_pool_connection_failure(struct http_client_peer_pool *ppool,
+					 const char *reason)
 {
 	e_debug(ppool->event,
 		"Failed to make connection "
@@ -255,14 +258,14 @@ http_client_peer_pool_connection_failure(
 	http_client_peer_shared_connection_failure(ppool->peer);
 
 	if (array_count(&ppool->pending_conns) > 0) {
-		/* if there are other connections attempting to connect, wait
+		/* If there are other connections attempting to connect, wait
 		   for them before failing the requests. remember that we had
 		   trouble with connecting so in future we don't try to create
 		   more than one connection until connects work again. */
 	} else {
 		struct http_client_peer *peer;
 
-		/* this was the only/last connection and connecting to it
+		/* This was the only/last connection and connecting to it
 		   failed. notify all interested peers in this pool about the
 		   failure */
 		peer = ppool->peer->peers_list;
@@ -281,7 +284,7 @@ http_client_peer_pool_connection_failure(
 
 static struct http_client_peer_shared *
 http_client_peer_shared_create(struct http_client_context *cctx,
-			      const struct http_client_peer_addr *addr)
+			       const struct http_client_peer_addr *addr)
 {
 	struct http_client_peer_shared *pshared;
 
@@ -309,11 +312,14 @@ http_client_peer_shared_create(struct http_client_context *cctx,
 		break;
 	}
 	pshared->event = event_create(cctx->event);
-	event_set_append_log_prefix(pshared->event, t_strdup_printf(
-		"peer %s (shared): ", http_client_peer_shared_label(pshared)));
+	event_set_append_log_prefix(
+		pshared->event,
+		t_strdup_printf("peer %s (shared): ",
+				http_client_peer_shared_label(pshared)));
 
 	hash_table_insert(cctx->peers,
-		(const struct http_client_peer_addr *)&pshared->addr, pshared);
+			  (const struct http_client_peer_addr *)&pshared->addr,
+			  pshared);
 	DLLIST_PREPEND(&cctx->peers_list, pshared);
 
 	pshared->backoff_initial_time_msecs =
@@ -344,9 +350,9 @@ void http_client_peer_shared_unref(struct http_client_peer_shared **_pshared)
 
 	i_assert(pshared->pools_list == NULL);
 
-	/* unlist in client */
+	/* Unlist in client */
 	hash_table_remove(pshared->cctx->peers,
-		(const struct http_client_peer_addr *)&pshared->addr);
+			  (const struct http_client_peer_addr *)&pshared->addr);
 	DLLIST_REMOVE(&pshared->cctx->peers_list, pshared);
 
 	timeout_remove(&pshared->to_backoff);
@@ -359,7 +365,7 @@ void http_client_peer_shared_unref(struct http_client_peer_shared **_pshared)
 
 static struct http_client_peer_shared *
 http_client_peer_shared_get(struct http_client_context *cctx,
-			   const struct http_client_peer_addr *addr)
+			    const struct http_client_peer_addr *addr)
 {
 	struct http_client_peer_shared *pshared;
 
@@ -395,20 +401,20 @@ http_client_peer_shared_label(struct http_client_peer_shared *pshared)
 	if (pshared->label == NULL) {
 		switch (pshared->addr.type) {
 		case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
-			pshared->label = i_strconcat
-				(http_client_peer_addr2str(&pshared->addr), " (tunnel)", NULL);
+			pshared->label = i_strconcat(
+				http_client_peer_addr2str(&pshared->addr),
+				" (tunnel)", NULL);
 			break;
 		default:
-			pshared->label = i_strdup
-				(http_client_peer_addr2str(&pshared->addr));
+			pshared->label = i_strdup(
+				http_client_peer_addr2str(&pshared->addr));
 		}
 	}
 	return pshared->label;
 }
 
 static void
-http_client_peer_shared_connect_backoff(
-	struct http_client_peer_shared *pshared)
+http_client_peer_shared_connect_backoff(struct http_client_peer_shared *pshared)
 {
 	struct http_client_peer *peer;
 
@@ -434,11 +440,13 @@ http_client_peer_shared_start_backoff_timer(
 
 	if (pshared->last_failure.tv_sec > 0) {
 		int backoff_time_spent =
-			timeval_diff_msecs(&ioloop_timeval, &pshared->last_failure);
+			timeval_diff_msecs(&ioloop_timeval,
+					   &pshared->last_failure);
 
 		if (backoff_time_spent < (int)pshared->backoff_current_time_msecs) {
 			unsigned int new_time = (unsigned int)
-				(pshared->backoff_current_time_msecs - backoff_time_spent);
+				(pshared->backoff_current_time_msecs -
+				 backoff_time_spent);
 			e_debug(pshared->event,
 				"Starting backoff timer for %d msecs", new_time);
 			pshared->to_backoff = timeout_add_to(
@@ -449,7 +457,8 @@ http_client_peer_shared_start_backoff_timer(
 
 		e_debug(pshared->event,
 			"Backoff time already exceeded by %d msecs",
-			backoff_time_spent - pshared->backoff_current_time_msecs);
+			(backoff_time_spent -
+			 pshared->backoff_current_time_msecs));
 	}
 	return FALSE;
 }
@@ -458,13 +467,16 @@ static void
 http_client_peer_shared_increase_backoff_timer(
 	struct http_client_peer_shared *pshared)
 {
-	if (pshared->backoff_current_time_msecs == 0)
-		pshared->backoff_current_time_msecs = pshared->backoff_initial_time_msecs;
-	else
+	if (pshared->backoff_current_time_msecs == 0) {
+		pshared->backoff_current_time_msecs =
+			pshared->backoff_initial_time_msecs;
+	} else {
 		pshared->backoff_current_time_msecs *= 2;
+	}
 	if (pshared->backoff_current_time_msecs >
-		pshared->backoff_max_time_msecs) {
-		pshared->backoff_current_time_msecs = pshared->backoff_max_time_msecs;
+	    pshared->backoff_max_time_msecs) {
+		pshared->backoff_current_time_msecs =
+			pshared->backoff_max_time_msecs;
 	}
 }
 
@@ -492,7 +504,7 @@ http_client_peer_shared_connection_failure(
 	struct http_client_peer_pool *ppool;
 	unsigned int pending = 0;
 
-	/* determine the number of connections still pending */
+	/* Determine the number of connections still pending */
 	ppool = pshared->pools_list;
 	while (ppool != NULL) {
 		pending += array_count(&ppool->pending_conns);
@@ -501,19 +513,18 @@ http_client_peer_shared_connection_failure(
 
 	pshared->last_failure = ioloop_timeval;
 
-	/* manage backoff timer only when this was the only attempt */
+	/* Manage backoff timer only when this was the only attempt */
 	if (pending == 0)
 		http_client_peer_shared_increase_backoff_timer(pshared);
 }
 
 static void
-http_client_peer_shared_connection_lost(
-	struct http_client_peer_shared *pshared,
-	bool premature)
+http_client_peer_shared_connection_lost(struct http_client_peer_shared *pshared,
+					bool premature)
 {
-	/* update backoff timer if the connection was lost prematurely.
-	   this prevents reconnecting immediately to a server that is
-	   misbehaving by disconnecting before sending a response.
+	/* Update backoff timer if the connection was lost prematurely. this
+	   prevents reconnecting immediately to a server that is misbehaving by
+	   disconnecting before sending a response.
 	 */
 	if (premature) {
 		pshared->last_failure = ioloop_timeval;
@@ -531,8 +542,7 @@ void http_client_peer_shared_switch_ioloop(
 }
 
 unsigned int
-http_client_peer_shared_max_connections(
-	struct http_client_peer_shared *pshared)
+http_client_peer_shared_max_connections(struct http_client_peer_shared *pshared)
 {
 	struct http_client_peer *peer;
 	unsigned int max_conns = 0;
@@ -550,12 +560,11 @@ http_client_peer_shared_max_connections(
  * Peer
  */
 
-static void
-http_client_peer_drop(struct http_client_peer **_peer);
+static void http_client_peer_drop(struct http_client_peer **_peer);
 
 static struct http_client_peer *
 http_client_peer_create(struct http_client *client,
-			      struct http_client_peer_shared *pshared)
+			struct http_client_peer_shared *pshared)
 {
 	struct http_client_peer *peer;
 
@@ -572,25 +581,25 @@ http_client_peer_create(struct http_client *client,
 	i_array_init(&peer->conns, 16);
 	i_array_init(&peer->pending_conns, 16);
 
-	DLLIST_PREPEND_FULL
-		(&client->peers_list, peer, client_prev, client_next);
-	DLLIST_PREPEND_FULL
-		(&pshared->peers_list, peer, shared_prev, shared_next);
+	DLLIST_PREPEND_FULL(&client->peers_list, peer,
+			    client_prev, client_next);
+	DLLIST_PREPEND_FULL(&pshared->peers_list, peer,
+			    shared_prev, shared_next);
 	pshared->peers_count++;
 
 	http_client_peer_shared_ref(pshared);
 	peer->ppool = http_client_peer_pool_get(pshared, client);
 
-	/* choose backoff times */
+	/* Choose backoff times */
 	if (pshared->peers_list == NULL ||
-		client->set.connect_backoff_time_msecs <
-			pshared->backoff_initial_time_msecs) {
+	    (client->set.connect_backoff_time_msecs <
+	     pshared->backoff_initial_time_msecs)) {
 		pshared->backoff_initial_time_msecs =
 			client->set.connect_backoff_time_msecs;
 	}
 	if (pshared->peers_list == NULL ||
-		client->set.connect_backoff_max_time_msecs >
-			pshared->backoff_max_time_msecs) {
+	    (client->set.connect_backoff_max_time_msecs >
+	     pshared->backoff_max_time_msecs)) {
 		pshared->backoff_max_time_msecs =
 			client->set.connect_backoff_max_time_msecs;
 	}
@@ -604,8 +613,7 @@ void http_client_peer_ref(struct http_client_peer *peer)
 	peer->refcount++;
 }
 
-static void
-http_client_peer_disconnect(struct http_client_peer *peer)
+static void http_client_peer_disconnect(struct http_client_peer *peer)
 {
 	struct http_client_queue *const *queue;
 	struct http_client *client = peer->client;
@@ -619,10 +627,10 @@ http_client_peer_disconnect(struct http_client_peer *peer)
 
 	e_debug(peer->event, "Peer disconnect");
 
-	/* make a copy of the connection array; freed connections modify it */
+	/* Make a copy of the connection array; freed connections modify it */
 	t_array_init(&conns, array_count(&peer->conns));
-	array_copy(&conns.arr, 0, &peer->conns.arr,
-		0, array_count(&peer->conns));
+	array_copy(&conns.arr, 0, &peer->conns.arr, 0,
+		   array_count(&peer->conns));
 	array_foreach_modifiable(&conns, conn)
 		http_client_connection_lost_peer(*conn);
 	i_assert(array_count(&peer->conns) == 0);
@@ -630,15 +638,15 @@ http_client_peer_disconnect(struct http_client_peer *peer)
 
 	timeout_remove(&peer->to_req_handling);
 
-	/* unlist in client */
-	DLLIST_REMOVE_FULL
-		(&client->peers_list, peer, client_prev, client_next);
-	/* unlist in peer */
-	DLLIST_REMOVE_FULL
-		(&pshared->peers_list, peer, shared_prev, shared_next);
+	/* Unlist in client */
+	DLLIST_REMOVE_FULL(&client->peers_list, peer,
+			   client_prev, client_next);
+	/* Unlist in peer */
+	DLLIST_REMOVE_FULL(&pshared->peers_list, peer,
+			   shared_prev, shared_next);
 	pshared->peers_count--;
 
-	/* unlink all queues */
+	/* Unlink all queues */
 	array_foreach(&peer->queues, queue)
 		http_client_queue_peer_disconnected(*queue, peer);
 	array_clear(&peer->queues);
@@ -668,18 +676,18 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 	array_free(&peer->queues);
 	i_free(peer);
 
-	/* choose new backoff times */
+	/* Choose new backoff times */
 	peer = pshared->peers_list;
 	while (peer != NULL) {
 		struct http_client *client = peer->client;
 
 		if (client->set.connect_backoff_time_msecs <
-				pshared->backoff_initial_time_msecs) {
+		    pshared->backoff_initial_time_msecs) {
 			pshared->backoff_initial_time_msecs =
 				client->set.connect_backoff_time_msecs;
 		}
 		if (client->set.connect_backoff_max_time_msecs >
-				pshared->backoff_max_time_msecs) {
+		    pshared->backoff_max_time_msecs) {
 			pshared->backoff_max_time_msecs =
 				client->set.connect_backoff_max_time_msecs;
 		}
@@ -702,8 +710,7 @@ void http_client_peer_close(struct http_client_peer **_peer)
 	(void)http_client_peer_unref(_peer);
 }
 
-static void
-http_client_peer_drop(struct http_client_peer **_peer)
+static void http_client_peer_drop(struct http_client_peer **_peer)
 {
 	struct http_client_peer *peer = *_peer;
 	struct http_client_peer_shared *pshared = peer->shared;
@@ -724,18 +731,18 @@ http_client_peer_drop(struct http_client_peer **_peer)
 		e_debug(peer->event,
 			"Dropping peer (waiting for backof timeout)");
 
-		/* will disconnect any pending connections */
+		/* Will disconnect any pending connections */
 		http_client_peer_trigger_request_handler(peer);
 	} else {
 		e_debug(peer->event, "Dropping peer now");
-		/* drop peer immediately */
+		/* Drop peer immediately */
 		http_client_peer_close(_peer);
 	}
 }
 
 struct http_client_peer *
 http_client_peer_get(struct http_client *client,
-			   const struct http_client_peer_addr *addr)
+		     const struct http_client_peer_addr *addr)
 {
 	struct http_client_peer *peer;
 	struct http_client_peer_shared *pshared;
@@ -757,8 +764,7 @@ http_client_peer_get(struct http_client *client,
 }
 
 static void
-http_client_peer_do_connect(struct http_client_peer *peer,
-	unsigned int count)
+http_client_peer_do_connect(struct http_client_peer *peer, unsigned int count)
 {
 	struct http_client_peer_pool *ppool = peer->ppool;
 	struct http_client_connection *const *idle_conns;
@@ -794,11 +800,9 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 		http_client_peer_connection_success(peer);
 }
 
-static void
-http_client_peer_connect_backoff(struct http_client_peer *peer)
+static void http_client_peer_connect_backoff(struct http_client_peer *peer)
 {
-	if (peer->connect_backoff &&
-		array_count(&peer->queues) == 0) {
+	if (peer->connect_backoff && array_count(&peer->queues) == 0) {
 		http_client_peer_close(&peer);
 		return;
 	}
@@ -841,9 +845,10 @@ http_client_peer_cancel(struct http_client_peer *peer)
 
 	e_debug(peer->event, "Peer cancel");
 
-	/* make a copy of the connection array; freed connections modify it */
+	/* Make a copy of the connection array; freed connections modify it */
 	t_array_init(&conns, array_count(&peer->conns));
-	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
+	array_copy(&conns.arr, 0, &peer->conns.arr, 0,
+		   array_count(&peer->conns));
 	array_foreach_modifiable(&conns, conn) {
 		if (!http_client_connection_is_active(*conn))
 			http_client_connection_close(conn);
@@ -874,16 +879,15 @@ static void http_client_peer_check_idle(struct http_client_peer *peer)
 	unsigned int num_urgent = 0;
 
 	if (array_count(&peer->conns) == 0 &&
-		http_client_peer_requests_pending(peer, &num_urgent) == 0) {
-		/* no connections or pending requests; disconnect immediately */
+	    http_client_peer_requests_pending(peer, &num_urgent) == 0) {
+		/* No connections or pending requests; disconnect immediately */
 		http_client_peer_drop(&peer);
 		return;
 	}
 
-	/* check all connections for idle status */
-	array_foreach(&peer->conns, conn_idx) {
+	/* Check all connections for idle status */
+	array_foreach(&peer->conns, conn_idx)
 		http_client_connection_check_idle(*conn_idx);
-	}
 }
 
 static void
@@ -898,18 +902,21 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	struct _conn_available *conn_avail_idx;
 	struct http_client_peer_shared *pshared = peer->shared;
 	unsigned int connecting, closing, idle;
-	unsigned int num_pending, num_urgent, new_connections, 	working_conn_count;
+	unsigned int num_pending, num_urgent, new_connections;
+	unsigned int working_conn_count;
 	struct http_client_peer *tmp_peer;
 	bool statistics_dirty = TRUE;
 
 	/* FIXME: limit the number of requests handled in one run to prevent
 	   I/O starvation. */
 
-	/* disconnect pending connections if we're not linked to any queue
+	/* Disconnect pending connections if we're not linked to any queue
 	   anymore */
 	if (array_count(&peer->queues) == 0) {
-		if (array_count(&peer->conns) == 0 && pshared->to_backoff == NULL) {
-			/* peer is completely unused and inactive; drop it immediately */
+		if (array_count(&peer->conns) == 0 &&
+		    pshared->to_backoff == NULL) {
+			/* Peer is completely unused and inactive; drop it
+			   immediately */
 			http_client_peer_drop(&peer);
 			return;
 		}
@@ -923,7 +930,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		return;
 	}
 
-	/* don't do anything unless we have pending requests */
+	/* Don't do anything unless we have pending requests */
 	num_pending = http_client_peer_requests_pending(peer, &num_urgent);
 	if (num_pending == 0) {
 		e_debug(peer->event,
@@ -944,19 +951,20 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		array_clear(&conns_avail);
 		closing = idle = 0;
 
-		/* gather connection statistics */
+		/* Gather connection statistics */
 		array_foreach(&peer->conns, conn_idx) {
 			struct http_client_connection *conn = *conn_idx;
 			int ret;
 
-			if ((ret=http_client_connection_check_ready(conn)) < 0) {
+			ret = http_client_connection_check_ready(conn);
+			if (ret < 0) {
 				conn_lost = TRUE;
 				break;
 			} else if (ret > 0) {
 				struct _conn_available *conn_avail;
 				unsigned int insert_idx, pending_requests;
 
-				/* compile sorted availability list */
+				/* Compile sorted availability list */
 				pending_requests = http_client_connection_count_pending(conn);
 				if (array_count(&conns_avail) == 0) {
 					insert_idx = 0;
@@ -975,20 +983,20 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 				if (pending_requests == 0)
 					idle++;
 			}
-			/* count the number of connecting and closing connections */
+			/* Count the number of connecting and closing connections */
 			if (conn->closing)
 				closing++;
 		}
 
 		if (conn_lost) {
-			/* connection array changed while iterating; retry */
+			/* Connection array changed while iterating; retry */
 			continue;
 		}
 
 		working_conn_count = array_count(&peer->conns) - closing;
 		statistics_dirty = FALSE;
 
-		/* use idle connections right away */
+		/* Use idle connections right away */
 		if (idle > 0) {
 			e_debug(peer->event,
 				"Using %u idle connections to handle %u requests "
@@ -997,15 +1005,16 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 				array_count(&conns_avail));
 
 			array_foreach_modifiable(&conns_avail, conn_avail_idx) {
-				if (num_pending == 0 || conn_avail_idx->pending_requests > 0)
+				if (num_pending == 0 ||
+				    conn_avail_idx->pending_requests > 0)
 					break;
 				idle--;
 				if (http_client_connection_next_request(conn_avail_idx->conn) <= 0) {
-					/* no longer available (probably connection error/closed) */
+					/* No longer available (probably connection error/closed) */
 					statistics_dirty = TRUE;
 					conn_avail_idx->conn = NULL;
 				} else {
-					/* update statistics */
+					/* Update statistics */
 					conn_avail_idx->pending_requests++;
 					if (num_urgent > 0)
 						num_urgent--;
@@ -1014,7 +1023,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 			}
 		}
 
-		/* don't continue unless we have more pending requests */
+		/* Don't continue unless we have more pending requests */
 		num_pending = http_client_peer_requests_pending(peer, &num_urgent);
 		if (num_pending == 0) {
 			e_debug(peer->event,
@@ -1038,41 +1047,45 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	i_assert(idle == 0);
 	connecting = array_count(&peer->pending_conns);
 
-	/* determine how many new connections we can set up */
+	/* Determine how many new connections we can set up */
 	if (pshared->last_failure.tv_sec > 0 && working_conn_count > 0 &&
 	    working_conn_count == connecting) {
-		/* don't create new connections until the existing ones have
+		/* Don't create new connections until the existing ones have
 		   finished connecting successfully. */
 		new_connections = 0;
 	} else {
-		if (working_conn_count - connecting + num_urgent >=
-			peer->client->set.max_parallel_connections) {
-			/* only create connections for urgent requests */
-			new_connections = (num_urgent > connecting ? num_urgent - connecting : 0);
+		if ((working_conn_count - connecting + num_urgent) >=
+		    peer->client->set.max_parallel_connections) {
+			/* Only create connections for urgent requests */
+			new_connections = (num_urgent > connecting ?
+					   num_urgent - connecting : 0);
 		} else if (num_pending <= connecting) {
-			/* there are already enough connections being made */
+			/* There are already enough connections being made */
 			new_connections = 0;
 		} else if (working_conn_count == connecting) {
-			/* no connections succeeded so far, don't hammer the server with more
-			   than one connection attempt unless its urgent */
+			/* No connections succeeded so far, don't hammer the
+			   server with more than one connection attempt unless
+			   its urgent */
 			if (num_urgent > 0) {
-				new_connections =
-					(num_urgent > connecting ? num_urgent - connecting : 0);
+				new_connections = (num_urgent > connecting ?
+						   num_urgent - connecting : 0);
 			} else {
 				new_connections = (connecting == 0 ? 1 : 0);
 			}
-		} else if (num_pending - connecting >
-			peer->client->set.max_parallel_connections - working_conn_count) {
-			/* create maximum allowed connections */
+		} else if ((num_pending - connecting) >
+			   (peer->client->set.max_parallel_connections -
+			    working_conn_count)) {
+			/* Create maximum allowed connections */
 			new_connections =
-				peer->client->set.max_parallel_connections - working_conn_count;
+				(peer->client->set.max_parallel_connections -
+				 working_conn_count);
 		} else {
-			/* create as many connections as we need */
+			/* Create as many connections as we need */
 			new_connections = num_pending - connecting;
 		}
 	}
 
-	/* create connections */
+	/* Create connections */
 	if (new_connections > 0) {
 		e_debug(peer->event,
 			"Creating %u new connections to handle requests "
@@ -1083,9 +1096,10 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		return;
 	}
 
-	/* cannot create new connections for normal request; attempt pipelining */
-	if (working_conn_count - connecting >=
-		peer->client->set.max_parallel_connections) {
+	/* Cannot create new connections for normal request; attempt pipelining
+	 */
+	if ((working_conn_count - connecting) >=
+	    peer->client->set.max_parallel_connections) {
 		unsigned int pipeline_level = 0, total_handled = 0, handled;
 
 		if (!pshared->allows_pipelining) {
@@ -1094,10 +1108,10 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 			return;
 		}
 
-		/* fill pipelines */
+		/* Fill pipelines */
 		do {
 			handled = 0;
-			/* fill smallest pipelines first,
+			/* Fill smallest pipelines first,
 			   until all pipelines are filled to the same level */
 			array_foreach_modifiable(&conns_avail, conn_avail_idx) {
 				if (conn_avail_idx->conn == NULL)
@@ -1108,28 +1122,29 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 					pipeline_level = conn_avail_idx->pending_requests;
 					break; /* restart from least busy connection */
 				}
-				/* pipeline it */
+				/* Pipeline it */
 				if (http_client_connection_next_request(conn_avail_idx->conn) <= 0) {
 					/* connection now unavailable */
 					conn_avail_idx->conn = NULL;
 				} else {
-					/* successfully pipelined */
+					/* Successfully pipelined */
 					conn_avail_idx->pending_requests++;
 					num_pending--;
 					handled++;
 				}
 			}
-			
+
 			total_handled += handled;
 		} while (num_pending > num_urgent && handled > 0);
 
 		e_debug(peer->event,
-			"Pipelined %u requests (filled pipelines up to %u requests)",
+			"Pipelined %u requests "
+			"(filled pipelines up to %u requests)",
 			total_handled, pipeline_level);
 		return;
 	}
 
-	/* still waiting for connections to finish */
+	/* Still waiting for connections to finish */
 	e_debug(peer->event, "No request handled; "
 		"waiting for pending connections "
 		"(%u connections exist, %u pending)",
@@ -1140,7 +1155,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 static void http_client_peer_handle_requests(struct http_client_peer *peer)
 {
 	timeout_remove(&peer->to_req_handling);
-	
+
 	T_BEGIN {
 		http_client_peer_handle_requests_real(peer);
 	} T_END;
@@ -1148,7 +1163,7 @@ static void http_client_peer_handle_requests(struct http_client_peer *peer)
 
 void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 {
-	/* trigger request handling through timeout */
+	/* Trigger request handling through timeout */
 	if (peer->to_req_handling == NULL) {
 		peer->to_req_handling =	timeout_add_short_to(
 			peer->client->ioloop, 0,
@@ -1157,7 +1172,7 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 }
 
 bool http_client_peer_have_queue(struct http_client_peer *peer,
-				struct http_client_queue *queue)
+				 struct http_client_queue *queue)
 {
 	struct http_client_queue *const *queue_idx;
 
@@ -1169,7 +1184,7 @@ bool http_client_peer_have_queue(struct http_client_peer *peer,
 }
 
 void http_client_peer_link_queue(struct http_client_peer *peer,
-			       struct http_client_queue *queue)
+				 struct http_client_queue *queue)
 {
 	if (!http_client_peer_have_queue(peer, queue)) {
 		array_push_back(&peer->queues, &queue);
@@ -1180,7 +1195,7 @@ void http_client_peer_link_queue(struct http_client_peer *peer,
 }
 
 void http_client_peer_unlink_queue(struct http_client_peer *peer,
-				struct http_client_queue *queue)
+				   struct http_client_queue *queue)
 {
 	struct http_client_queue *const *queue_idx;
 
@@ -1207,8 +1222,9 @@ http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 	struct http_client_request *req;
 
 	array_foreach(&peer->queues, queue_idx) {
-		if ((req=http_client_queue_claim_request
-			(*queue_idx, &peer->shared->addr, no_urgent)) != NULL) {
+		req = http_client_queue_claim_request(
+			*queue_idx, &peer->shared->addr, no_urgent);
+		if (req != NULL) {
 			req->peer = peer;
 			return req;
 		}
@@ -1261,7 +1277,7 @@ http_client_peer_connection_succeeded_pool(struct http_client_peer *peer)
 		"(%u connections exist, %u pending)",
 		array_count(&peer->conns), array_count(&peer->pending_conns));
 
-	/* if there are pending requests for this peer, try creating a new
+	/* If there are pending requests for this peer, try creating a new
 	   connection for them. if not, this peer will wind itself down. */
 	http_client_peer_trigger_request_handler(peer);
 }
@@ -1280,13 +1296,13 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 
 	peer->connect_failed = TRUE;
 
-	/* make a copy of the queue array; queues get linked/unlinged while the
+	/* Make a copy of the queue array; queues get linked/unlinged while the
 	   connection failure is handled */
 	t_array_init(&queues, array_count(&peer->queues));
 	array_copy(&queues.arr, 0, &peer->queues.arr, 0,
 		   array_count(&peer->queues));
 
-	/* failed to make any connection. a second connect will probably also
+	/* Failed to make any connection. a second connect will probably also
 	   fail, so just try another IP for the hosts(s) or abort all requests
 	   if this was the only/last option. */
 	array_foreach(&queues, queuep)
@@ -1294,11 +1310,11 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 }
 
 void http_client_peer_connection_lost(struct http_client_peer *peer,
-	bool premature)
+				      bool premature)
 {
 	unsigned int num_pending, num_urgent;
 
-	/* we get here when an already connected connection fails. if the
+	/* We get here when an already connected connection fails. if the
 	   connect itself fails, http_client_peer_shared_connection_failure() is
 	   called instead. */
 
@@ -1319,13 +1335,13 @@ void http_client_peer_connection_lost(struct http_client_peer *peer,
 		array_count(&peer->pending_conns), num_pending, num_urgent);
 
 	if (peer->handling_requests) {
-		/* we got here from the request handler loop */
+		/* We got here from the request handler loop */
 		e_debug(peer->event,
 			"Lost a connection while handling requests");
 		return;
 	}
 
-	/* if there are pending requests for this peer, create a new connection
+	/* If there are pending requests for this peer, create a new connection
 	   for them. if not, this peer will wind itself down. */
 	http_client_peer_trigger_request_handler(peer);
 }
@@ -1336,7 +1352,7 @@ http_client_peer_active_connections(struct http_client_peer *peer)
 	struct http_client_connection *const *conn_idx;
 	unsigned int active = 0;
 
-	/* find idle connections */
+	/* Find idle connections */
 	array_foreach(&peer->conns, conn_idx) {
 		if (http_client_connection_is_active(*conn_idx))
 			active++;
