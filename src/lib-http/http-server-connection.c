@@ -521,6 +521,11 @@ http_server_connection_finish_request(struct http_server_connection *conn)
 				http_server_request_fail_close(req,
 					413, "Payload Too Large");
 				break;
+			case HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST:
+				conn->input_broken = TRUE;
+				http_server_request_fail_close(req,
+					400, "Bad request");
+				break;
 			default:
 				i_unreached();
 			}
