@@ -1369,6 +1369,7 @@ static void test_run_client_server(
 		hostpid_init();
 		if (debug)
 			i_debug("server: PID=%s", my_pid);
+		i_set_failure_prefix("SERVER: ");
 		/* child: server */
 		ioloop_nested = NULL;
 		ioloop_nested_depth = 0;
@@ -1381,6 +1382,7 @@ static void test_run_client_server(
 	} else {
 		if (debug)
 			i_debug("client: PID=%s", my_pid);
+		i_set_failure_prefix("CLIENT: ");
 		i_close_fd(&fd_listen);
 		/* parent: client */
 		ioloop_nested = NULL;
