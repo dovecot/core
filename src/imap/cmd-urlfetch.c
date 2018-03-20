@@ -68,10 +68,9 @@ static bool cmd_urlfetch_cancel(struct client_command_context *cmd)
 		return FALSE;
 
 	if (ctx->ufetch != NULL) {
-		if (cmd->client->user->mail_debug) {
-			i_debug("URLFETCH: Canceling command; "
-				"aborting URLAUTH fetch requests prematurely");
-		}
+		e_debug(cmd->client->event,
+			"URLFETCH: Canceling command; "
+			"aborting URLAUTH fetch requests prematurely");
 		imap_urlauth_fetch_deinit(&ctx->ufetch);
 	}
 	return TRUE;
