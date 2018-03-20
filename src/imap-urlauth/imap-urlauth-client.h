@@ -18,6 +18,7 @@ struct client {
 	struct ostream *output, *ctrl_output;
 	struct istream *ctrl_input;
 	struct timeout *to_idle;
+	struct event *event;
 
 	char *username, *service;
 	ARRAY_TYPE(const_string) access_apps;
