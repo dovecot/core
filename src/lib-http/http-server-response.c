@@ -66,6 +66,8 @@ http_server_response_create(struct http_server_request *req,
 {
 	struct http_server_response *resp;
 
+	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_SENT_RESPONSE);
+
 	if (req->response == NULL) {
 		resp = req->response = p_new
 			(req->pool, struct http_server_response, 1);
@@ -74,7 +76,6 @@ http_server_response_create(struct http_server_request *req,
 		   start a new one (would usually be a failure response)
 		 */
 		resp = req->response;
-		i_assert(!resp->submitted);
 		http_server_response_free(resp);
 		i_zero(resp);
 	}
