@@ -190,8 +190,8 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		if (error != MAIL_ERROR_NOTFOUND) {
 			i_error("Syncing mailbox %s failed: %s",
 				mailbox, errstr);
-		} else if (user->mail_debug) {
-			i_debug("Syncing mailbox %s failed: %s",
+		} else {
+			e_debug(user->event, "Syncing mailbox %s failed: %s",
 				mailbox, errstr);
 		}
 		ret = -1;
