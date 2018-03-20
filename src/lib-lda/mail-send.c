@@ -91,11 +91,9 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 		return -1;
 	}
 
-	if (mailbox_get_settings(mail->box)->mail_debug) {
-		i_debug("Sending a rejection to <%s>: %s",
-			smtp_address_encode(return_addr),
-			str_sanitize(reason, 512));
-	}
+	e_debug(mail->event, "Sending a rejection to <%s>: %s",
+		smtp_address_encode(return_addr),
+		str_sanitize(reason, 512));
 
 	vtable = get_var_expand_table(mail, recipient, reason);
 

@@ -210,10 +210,9 @@ lda_set_rcpt_to(struct mail_deliver_context *ctx,
 	if (ctx->rcpt_to == NULL)
 		ctx->rcpt_to = rcpt_to;
 
-	if (ctx->rcpt_user->mail_debug) {
-		i_debug("Destination address: %s (source: %s)",
-			smtp_address_encode_path(rcpt_to), rcpt_to_source);
-	}
+	e_debug(ctx->rcpt_user->event,
+		"Destination address: %s (source: %s)",
+		smtp_address_encode_path(rcpt_to), rcpt_to_source);
 }
 
 static void failure_exit_callback(int *status)
@@ -452,8 +451,9 @@ int main(int argc, char *argv[])
 	ctx.set = lda_set;
 	ctx.smtp_set = smtp_set;
 
-	if (ctx.rcpt_user->mail_debug && *user_source != '\0') {
-		i_debug("userdb lookup skipped, username taken from %s",
+	if (*user_source != '\0') {
+		e_debug(ctx.rcpt_user->event,
+			"userdb lookup skipped, username taken from %s",
 			user_source);
 	}
 
