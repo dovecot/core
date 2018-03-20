@@ -105,7 +105,9 @@ http_message_parse_finish_payload_error(struct http_message_parser *parser)
 		parser->error = "Payload is too large";
 	} else if (parser->payload->stream_errno == EIO) {
 		parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
-		parser->error = "Invalid payload";
+		parser->error = t_strdup_printf(
+			"Invalid payload: %s",
+			i_stream_get_error(parser->payload));
 	} else {
 		parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
 		parser->error = t_strdup_printf(
