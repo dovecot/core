@@ -131,7 +131,7 @@ match_local_name(const char *local_name,
 			return TRUE;
 		local_name = ptr+1;
 	}
-	return dns_match_wildcard(filter_local_name, local_name) == 0;
+	return dns_match_wildcard(local_name, filter_local_name) == 0;
 }
 
 /* Remove any elements which there is no filter for */
