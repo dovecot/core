@@ -1173,6 +1173,9 @@ static void http_client_peer_handle_requests(struct http_client_peer *peer)
 
 void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 {
+	if (peer->disconnected)
+		return;
+
 	/* Trigger request handling through timeout */
 	if (peer->to_req_handling == NULL) {
 		peer->to_req_handling =	timeout_add_short_to(
