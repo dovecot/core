@@ -24,6 +24,8 @@ uint64_t stats_dist_get_max(const struct stats_dist *stats);
 uint64_t stats_dist_get_avg(const struct stats_dist *stats);
 /* Returns events' approximate (through random subsampling) median. */
 uint64_t stats_dist_get_median(const struct stats_dist *stats);
+/* Returns events' variance */
+double stats_dist_get_variance(const struct stats_dist *stats);
 /* Returns events' approximate (through random subsampling) percentile.
    fraction parameter is in the range (0., 1.], so 95th %-ile is 0.95. */
 uint64_t stats_dist_get_percentile(const struct stats_dist *stats, double fraction);

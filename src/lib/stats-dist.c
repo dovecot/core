@@ -121,6 +121,24 @@ uint64_t stats_dist_get_median(const struct stats_dist *stats)
 	return (stats->samples[idx1] + stats->samples[idx2]) / 2;
 }
 
+double stats_dist_get_variance(const struct stats_dist *stats)
+{
+	double sum = 0;
+	if (stats->count == 0)
+		return 0;
+
+	double avg = (double)(int64_t)stats_dist_get_avg(stats);
+	double count = (stats->count < stats->sample_count)
+		? stats->count
+		: stats->sample_count;
+
+	for(unsigned int i = 0; i < count; i++) {
+		sum += (stats->samples[i] - avg)*(stats->samples[i] - avg);
+	}
+
+	return sum / count;
+}
+
 /* This is independent of the stats framework, useful for any selection task */
 static unsigned int stats_dist_get_index(unsigned int range, double fraction)
 {
