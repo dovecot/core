@@ -394,6 +394,7 @@ test_lib_SOURCES = \
 	test-primes.c \
 	test-printf-format-fix.c \
 	test-priorityq.c \
+	test-random.c \
 	test-seq-range-array.c \
 	test-stats-dist.c \
 	test-str.c \
@@ -414,7 +415,7 @@ test_headers = \
 	test-lib.h \
 	test-lib.inc
 
-test_lib_LDADD = $(test_libs)
+test_lib_LDADD = $(test_libs) -lm
 test_lib_DEPENDENCIES = $(test_libs)
 
 check-local:
