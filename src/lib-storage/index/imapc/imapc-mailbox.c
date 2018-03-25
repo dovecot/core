@@ -357,11 +357,14 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
 	msg_count = imapc_msgmap_count(msgmap);
-	if (fetch_uid != 0 &&
+	if (fetch_uid != 0 && mbox->state_fetched_success &&
 	    (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS) ||
 	     IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))) {
 		/* if we know the UID, use own own generated rseq instead of
-		   the potentially broken rseq that the server sent. */
+		   the potentially broken rseq that the server sent.
+		   Skip this during the initial FETCH 1:* (UID ..) handling,
+		   or we can't detect duplicate UIDs and will instead
+		   assert-crash later on. */
 		uint32_t fixed_rseq;
 
 		if (imapc_msgmap_uid_to_rseq(msgmap, fetch_uid, &fixed_rseq))
