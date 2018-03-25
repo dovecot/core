@@ -220,8 +220,10 @@ imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 	struct imapc_command *cmd;
 
 	if (mbox->exists_count == 0) {
-		/* empty mailbox - no point in fetching anything */
-		mbox->state_fetched_success = TRUE;
+		/* empty mailbox - no point in fetching anything.
+		   just make sure everything is expunged in local index. */
+		mbox->sync_next_lseq = 1;
+		imapc_mailbox_fetch_state_finish(mbox);
 		return;
 	}
 	if (mbox->state_fetching_uid1) {
