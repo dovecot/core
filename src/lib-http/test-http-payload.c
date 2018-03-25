@@ -40,20 +40,23 @@ enum payload_handling {
 
 static bool debug = FALSE;
 static const char *failure = NULL;
-static bool test_ssl = FALSE;
 
-static bool blocking = FALSE;
-static enum payload_handling server_payload_handling =
-	PAYLOAD_HANDLING_LOW_LEVEL;
-static unsigned int parallel_clients = 1;
-static bool parallel_clients_global = FALSE;
+static struct test_settings {
+	/* client */
+	unsigned int max_pending;
+	unsigned int client_ioloop_nesting;
+	bool request_100_continue;
+	unsigned int parallel_clients;
+	bool parallel_clients_global;
+	size_t read_client_partial;
+	bool unknown_size;
 
-static bool request_100_continue = FALSE;
-static size_t read_server_partial = 0;
-static size_t read_client_partial = 0;
-static unsigned int test_max_pending = 200;
-static unsigned int client_ioloop_nesting = 0;
-static bool test_unknown_size = FALSE;
+	bool server_blocking;
+	enum payload_handling server_payload_handling;
+	size_t read_server_partial;
+
+	bool ssl;
+} tset;
 
 static struct ip_addr bind_ip;
 static in_port_t bind_port = 0;
@@ -63,6 +66,18 @@ static struct ioloop *ioloop_nested = NULL;
 static unsigned ioloop_nested_first = 0;
 static unsigned ioloop_nested_last = 0;
 static unsigned ioloop_nested_depth = 0;
+
+/*
+ * Test settings
+ */
+
+static void test_init_defaults(void)
+{
+	i_zero(&tset);
+	tset.max_pending = 200;
+	tset.server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	tset.parallel_clients = 1;
+}
 
 /*
  * Test files
@@ -263,7 +278,7 @@ client_handle_download_request(struct client_request *creq,
 	resp = http_server_response_create(req, 200, "OK");
 	http_server_response_add_header(resp, "Content-Type", "text/plain");
 
-	if (blocking) {
+	if (tset.server_blocking) {
 		output = http_server_response_get_payload_output(resp, TRUE);
 		if (o_stream_send_istream(output, fstream) !=
 				OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
@@ -390,16 +405,16 @@ client_handle_echo_request(struct client_request *creq,
 
 	payload_output = iostream_temp_create("/tmp/test-http-server", 0);
 
-	if (blocking) {
+	if (tset.server_blocking) {
 		struct istream *payload_input;
 
 		payload_input =
 			http_server_request_get_payload_input(req, TRUE);
 
-		if (read_server_partial > 0) {
+		if (tset.read_server_partial > 0) {
 			struct istream *partial =
 				i_stream_create_limit(payload_input,
-						      read_server_partial);
+						      tset.read_server_partial);
 			i_stream_unref(&payload_input);
 			payload_input = partial;
 		}
@@ -443,15 +458,15 @@ client_handle_echo_request(struct client_request *creq,
 	} else {
 		creq->payload_output = payload_output;
 
-		switch (server_payload_handling) {
+		switch (tset.server_payload_handling) {
 		case PAYLOAD_HANDLING_LOW_LEVEL:
 			creq->payload_input =
 				http_server_request_get_payload_input(req, FALSE);
 
-			if (read_server_partial > 0) {
+			if (tset.read_server_partial > 0) {
 				struct istream *partial =
 					i_stream_create_limit(creq->payload_input,
-							      read_server_partial);
+							      tset.read_server_partial);
 				i_stream_unref(&creq->payload_input);
 				creq->payload_input = partial;
 			}
@@ -581,7 +596,7 @@ static void client_init(int fd)
 	client->pool = pool;
 
 	client->http_conn = http_server_connection_create(
-		http_server, fd, fd, test_ssl, &http_callbacks, client);
+		http_server, fd, fd, tset.ssl, &http_callbacks, client);
 	DLLIST_PREPEND(&clients, client);
 }
 
@@ -719,19 +734,19 @@ test_client_create_clients(const struct http_client_settings *client_set)
 	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
 		test_client_progress_timeout, NULL);
 
-	if (!parallel_clients_global)
+	if (!tset.parallel_clients_global)
 		http_context = http_client_context_create(client_set);
 
-	if (parallel_clients < 1)
-		parallel_clients = 1;
-	http_clients = i_new(struct http_client *, parallel_clients);
-	for (i = 0; i < parallel_clients; i++) {
-		http_clients[i] = (parallel_clients_global ?
+	if (tset.parallel_clients < 1)
+		tset.parallel_clients = 1;
+	http_clients = i_new(struct http_client *, tset.parallel_clients);
+	for (i = 0; i < tset.parallel_clients; i++) {
+		http_clients[i] = (tset.parallel_clients_global ?
 			http_client_init(client_set) :
 			http_client_init_shared(http_context, NULL));
 	}
 
-	if (!parallel_clients_global)
+	if (!tset.parallel_clients_global)
 		http_client_context_unref(&http_context);
 }
 
@@ -894,16 +909,16 @@ test_client_download_response(const struct http_response *resp,
 	}
 
 	i_assert(fstream != NULL);
-	if (read_client_partial == 0) {
+	if (tset.read_client_partial == 0) {
 		i_stream_ref(resp->payload);
 		tcreq->payload = resp->payload;
 		tcreq->file = fstream;
 	} else {
 		struct istream *payload = resp->payload;
 		tcreq->payload = i_stream_create_limit(payload,
-						       read_client_partial);
+						       tset.read_client_partial);
 		tcreq->file = i_stream_create_limit(fstream,
-						    read_client_partial);
+						    tset.read_client_partial);
 		i_stream_unref(&fstream);
 	}
 
@@ -939,10 +954,10 @@ static void test_client_download_continue(void)
 	}
 
 	for (; (client_files_last < count &&
-	        (client_files_last - client_files_first) < test_max_pending);
+	        (client_files_last - client_files_first) < tset.max_pending);
 	     client_files_last++) {
 		struct http_client *http_client =
-			http_clients[client_files_last % parallel_clients];
+			http_clients[client_files_last % tset.parallel_clients];
 		const char *path = paths[client_files_last];
 
 		tcreq = test_client_request_new();
@@ -958,7 +973,7 @@ static void test_client_download_continue(void)
 			t_strconcat("/download/", path, NULL),
 			test_client_download_response, tcreq);
 		http_client_request_set_port(hreq, bind_port);
-		http_client_request_set_ssl(hreq, test_ssl);
+		http_client_request_set_ssl(hreq, tset.ssl);
 		http_client_request_set_destroy_callback(hreq,
 			test_client_request_destroy, tcreq);
 		http_client_request_submit(hreq);
@@ -1111,7 +1126,7 @@ test_client_echo_response(const struct http_response *resp,
 			"failed to open %s", path);
 	}
 
-	if (test_unknown_size) {
+	if (tset.unknown_size) {
 		struct istream *ustream;
 
 		ustream = i_stream_create_crlf(fstream);
@@ -1119,9 +1134,9 @@ test_client_echo_response(const struct http_response *resp,
 		fstream = ustream;
 	}
 
-	if (read_server_partial > 0) {
+	if (tset.read_server_partial > 0) {
 		struct istream *partial =
-			i_stream_create_limit(fstream, read_server_partial);
+			i_stream_create_limit(fstream, tset.read_server_partial);
 		i_stream_unref(&fstream);
 		fstream = partial;
 	}
@@ -1184,10 +1199,10 @@ static void test_client_echo_continue(void)
 
 	first_submitted = client_files_last;
 	for (; (client_files_last < count &&
-	        (client_files_last - client_files_first) < test_max_pending);
+	        (client_files_last - client_files_first) < tset.max_pending);
 	     client_files_last++) {
 		struct http_client *http_client =
-			http_clients[client_files_last % parallel_clients];
+			http_clients[client_files_last % tset.parallel_clients];
 		struct istream *fstream;
 		const char *path = paths[client_files_last];
 
@@ -1208,7 +1223,7 @@ static void test_client_echo_continue(void)
 				path, client_files_last);
 		}
 
-		if (test_unknown_size) {
+		if (tset.unknown_size) {
 			struct istream *ustream;
 
 			ustream = i_stream_create_crlf(fstream);
@@ -1224,9 +1239,9 @@ static void test_client_echo_continue(void)
 			t_strconcat("/echo/", path, NULL),
 			test_client_echo_response, tcreq);
 		http_client_request_set_port(hreq, bind_port);
-		http_client_request_set_ssl(hreq, test_ssl);
+		http_client_request_set_ssl(hreq, tset.ssl);
 		http_client_request_set_payload(hreq, fstream,
-						request_100_continue);
+						tset.request_100_continue);
 		http_client_request_set_destroy_callback(hreq,
 			test_client_request_destroy, tcreq);
 		http_client_request_submit(hreq);
@@ -1253,14 +1268,14 @@ static void test_client_echo_continue(void)
 
 		if (i == ioloop_nested_last)
 			io_loop_stop(ioloop_nested);
-	} else if (client_ioloop_nesting > 0 &&
-		   ((client_files_last / client_ioloop_nesting) !=
-			(first_submitted / client_ioloop_nesting))) {
+	} else if (tset.client_ioloop_nesting > 0 &&
+		   ((client_files_last / tset.client_ioloop_nesting) !=
+			(first_submitted / tset.client_ioloop_nesting))) {
 		struct ioloop *prev_ioloop = current_ioloop;
 		unsigned int i;
 
 		ioloop_nested_first = first_submitted;
-		ioloop_nested_last = first_submitted + client_ioloop_nesting;
+		ioloop_nested_last = first_submitted + tset.client_ioloop_nesting;
 		if (ioloop_nested_last > client_files_last)
 			ioloop_nested_last = client_files_last;
 
@@ -1273,14 +1288,14 @@ static void test_client_echo_continue(void)
 		ioloop_nested_depth++;
 
 		ioloop_nested = io_loop_create();
-		for (i = 0; i < parallel_clients; i++)
+		for (i = 0; i < tset.parallel_clients; i++)
 			http_client_switch_ioloop(http_clients[i]);
 		test_client_switch_ioloop();
 
 		io_loop_run(ioloop_nested);
 
 		io_loop_set_current(prev_ioloop);
-		for (i = 0; i < parallel_clients; i++)
+		for (i = 0; i < tset.parallel_clients; i++)
 			http_client_switch_ioloop(http_clients[i]);
 		test_client_switch_ioloop();
 		io_loop_set_current(ioloop_nested);
@@ -1319,11 +1334,11 @@ static void test_client_deinit(void)
 {
 	unsigned int i;
 
-	for (i = 0; i < parallel_clients; i++)
+	for (i = 0; i < tset.parallel_clients; i++)
 		http_client_deinit(&http_clients[i]);
 	i_free(http_clients);
 
-	parallel_clients = 1;
+	tset.parallel_clients = 1;
 
 	timeout_remove(&to_client_progress);
 }
@@ -1519,13 +1534,7 @@ test_run_parallel(
 static void test_download_server_nonblocking(void)
 {
 	test_begin("http payload download (server non-blocking)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	test_ssl = FALSE;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	test_init_defaults();
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
@@ -1535,12 +1544,8 @@ static void test_download_server_nonblocking(void)
 static void test_download_server_blocking(void)
 {
 	test_begin("http payload download (server blocking)");
-	blocking = TRUE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.server_blocking = TRUE;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
@@ -1551,13 +1556,7 @@ static void test_echo_server_nonblocking(void)
 {
 	test_begin("http payload echo "
 		   "(server non-blocking)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = FALSE;
+	test_init_defaults();
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1565,13 +1564,8 @@ static void test_echo_server_nonblocking(void)
 
 	test_begin("http payload echo "
 		   "(server non-blocking; low-level)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1579,25 +1573,18 @@ static void test_echo_server_nonblocking(void)
 
 	test_begin("http payload echo "
 		   "(server non-blocking; handler)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_HANDLER;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.server_payload_handling = PAYLOAD_HANDLING_HANDLER;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; size unknown)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = TRUE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	test_begin("http payload echo "
+		   "(server non-blocking; size unknown)");
+	test_init_defaults();
+	tset.unknown_size = TRUE;
+	tset.server_payload_handling = PAYLOAD_HANDLING_FORWARD;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1607,12 +1594,8 @@ static void test_echo_server_nonblocking(void)
 static void test_echo_server_blocking(void)
 {
 	test_begin("http payload echo (server blocking)");
-	blocking = TRUE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.server_blocking = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1623,13 +1606,8 @@ static void test_echo_server_nonblocking_sync(void)
 {
 	test_begin("http payload echo "
 		   "(server non-blocking; 100-continue)");
-	blocking = FALSE;
-	request_100_continue = TRUE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.request_100_continue = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1637,13 +1615,9 @@ static void test_echo_server_nonblocking_sync(void)
 
 	test_begin("http payload echo "
 		   "(server non-blocking; 100-continue; low-level)");
-	blocking = FALSE;
-	request_100_continue = TRUE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.request_100_continue = TRUE;
+	tset.server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1651,13 +1625,9 @@ static void test_echo_server_nonblocking_sync(void)
 
 	test_begin("http payload echo "
 		   "(server non-blocking; 100-continue; handler)");
-	blocking = FALSE;
-	request_100_continue = TRUE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_HANDLER;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.request_100_continue = TRUE;
+	tset.server_payload_handling = PAYLOAD_HANDLING_HANDLER;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1667,12 +1637,9 @@ static void test_echo_server_nonblocking_sync(void)
 static void test_echo_server_blocking_sync(void)
 {
 	test_begin("http payload echo (server blocking; 100-continue)");
-	blocking = TRUE;
-	request_100_continue = TRUE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.request_100_continue = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1683,20 +1650,16 @@ static void test_echo_server_nonblocking_partial(void)
 {
 	test_begin("http payload echo "
 		   "(server non-blocking; partial short)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 1024;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.read_server_partial = 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 	test_begin("http payload echo "
 		   "(server non-blocking; partial long)");
-	read_server_partial = IO_BLOCK_SIZE + 1024;
+	test_init_defaults();
+	tset.read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1704,20 +1667,18 @@ static void test_echo_server_nonblocking_partial(void)
 
 	test_begin("http payload echo (server non-blocking; "
 		   "partial short; low-level)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 1024;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
+	tset.read_server_partial = 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 	test_begin("http payload echo "
 		   "(server non-blocking; partial long; low-level)");
-	read_server_partial = IO_BLOCK_SIZE + 1024;
+	test_init_defaults();
+	tset.server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
+	tset.read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1725,20 +1686,18 @@ static void test_echo_server_nonblocking_partial(void)
 
 	test_begin("http payload echo "
 		   "(server non-blocking; partial short; handler)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 1024;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_HANDLER;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.server_payload_handling = PAYLOAD_HANDLING_HANDLER;
+	tset.read_server_partial = 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 	test_begin("http payload echo "
 		   "(server non-blocking; partial long; handler)");
-	read_server_partial = IO_BLOCK_SIZE + 1024;
+	test_init_defaults();
+	tset.server_payload_handling = PAYLOAD_HANDLING_HANDLER;
+	tset.read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1748,18 +1707,17 @@ static void test_echo_server_nonblocking_partial(void)
 static void test_echo_server_blocking_partial(void)
 {
 	test_begin("http payload echo (server blocking; partial short)");
-	blocking = TRUE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 1024;
-	client_ioloop_nesting = 0;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.read_server_partial = 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 	test_begin("http payload echo (server blocking; partial long)");
-	read_server_partial = IO_BLOCK_SIZE + 1024;
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1769,25 +1727,15 @@ static void test_echo_server_blocking_partial(void)
 static void test_download_client_partial(void)
 {
 	test_begin("http payload download (client partial)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	read_client_partial = 1024;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.read_client_partial = 1024;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
 	test_end();
 	test_begin("http payload download (client partial long)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	read_client_partial = IO_BLOCK_SIZE + 1024;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	test_init_defaults();
+	tset.read_client_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
@@ -1797,14 +1745,8 @@ static void test_download_client_partial(void)
 static void test_download_client_nested_ioloop(void)
 {
 	test_begin("http payload echo (client nested ioloop)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	read_client_partial = 0;
-	client_ioloop_nesting = 10;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = FALSE;
+	test_init_defaults();
+	tset.client_ioloop_nesting = 10;
 	test_run_parallel(test_client_echo);
 	test_end();
 }
@@ -1813,87 +1755,61 @@ static void test_echo_client_shared(void)
 {
 	test_begin("http payload download "
 		   "(server non-blocking; client shared)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = FALSE;
-	parallel_clients = 4;
+	test_init_defaults();
+	tset.parallel_clients = 4;
 	test_run_sequential(test_client_download);
-	parallel_clients = 4;
+	tset.parallel_clients = 4;
 	test_run_pipeline(test_client_download);
-	parallel_clients = 4;
+	tset.parallel_clients = 4;
 	test_run_parallel(test_client_download);
 	test_end();
 
 	test_begin("http payload download "
 		   "(server blocking; client shared)");
-	blocking = TRUE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	test_ssl = FALSE;
-	parallel_clients = 4;
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.parallel_clients = 4;
 	test_run_sequential(test_client_download);
-	parallel_clients = 4;
+	tset.parallel_clients = 4;
 	test_run_pipeline(test_client_download);
-	parallel_clients = 4;
+	tset.parallel_clients = 4;
 	test_run_parallel(test_client_download);
 	test_end();
 
 	test_begin("http payload echo "
 		   "(server non-blocking; client shared)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = FALSE;
-	parallel_clients = 4;
+	test_init_defaults();
+	tset.parallel_clients = 4;
 	test_run_sequential(test_client_echo);
-	parallel_clients = 4;
+	tset.parallel_clients = 4;
 	test_run_pipeline(test_client_echo);
-	parallel_clients = 4;
+	tset.parallel_clients = 4;
 	test_run_parallel(test_client_echo);
 	test_end();
 
 	test_begin("http payload echo "
 		   "(server blocking; client shared)");
-	blocking = TRUE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	test_ssl = FALSE;
-	parallel_clients = 4;
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.parallel_clients = 4;
 	test_run_sequential(test_client_echo);
-	parallel_clients = 4;
+	tset.parallel_clients = 4;
 	test_run_pipeline(test_client_echo);
-	parallel_clients = 4;
+	tset.parallel_clients = 4;
 	test_run_parallel(test_client_echo);
 	test_end();
 
 	test_begin("http payload echo "
 		   "(server non-blocking; client global)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = FALSE;
-	parallel_clients = 4;
-	parallel_clients_global = TRUE;
+	test_init_defaults();
+	tset.parallel_clients = 4;
+	tset.parallel_clients_global = TRUE;
 	test_run_sequential(test_client_echo);
-	parallel_clients = 4;
-	parallel_clients_global = TRUE;
+	tset.parallel_clients = 4;
+	tset.parallel_clients_global = TRUE;
 	test_run_pipeline(test_client_echo);
-	parallel_clients = 4;
-	parallel_clients_global = TRUE;
+	tset.parallel_clients = 4;
+	tset.parallel_clients_global = TRUE;
 	test_run_parallel(test_client_echo);
 	test_end();
 }
@@ -1902,26 +1818,17 @@ static void test_echo_client_shared(void)
 static void test_echo_ssl(void)
 {
 	test_begin("http payload echo (ssl)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = FALSE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = TRUE;
+	test_init_defaults();
+	tset.ssl = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 
 	test_begin("http payload echo (ssl; unknown size)");
-	blocking = FALSE;
-	request_100_continue = FALSE;
-	test_unknown_size = TRUE;
-	read_server_partial = 0;
-	client_ioloop_nesting = 0;
-	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
-	test_ssl = TRUE;
+	test_init_defaults();
+	tset.unknown_size = TRUE;
+	tset.ssl = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
