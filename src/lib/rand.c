@@ -27,7 +27,8 @@ uint32_t i_rand(void)
 
 uint32_t i_rand_limit(uint32_t upper_bound)
 {
-	/* FIXME: This simple implementation suffers from modulo-bias. */
-	return i_rand() % upper_bound;
+	uint32_t val, min = -upper_bound % upper_bound;
+	while((val = i_rand()) < min);
+	return val % upper_bound;
 }
 #endif
