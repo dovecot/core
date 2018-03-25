@@ -173,3 +173,12 @@ uint64_t stats_dist_get_percentile(const struct stats_dist *stats, double fracti
 	unsigned int idx = stats_dist_get_index(count, fraction);
 	return stats->samples[idx];
 }
+
+const uint64_t *stats_dist_get_samples(const struct stats_dist *stats,
+				       unsigned int *count_r)
+{
+	*count_r = (stats->count < stats->sample_count)
+		? stats->count
+		: stats->sample_count;
+	return stats->samples;
+}

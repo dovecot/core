@@ -34,5 +34,7 @@ static inline uint64_t stats_dist_get_95th(const struct stats_dist *stats)
 {
 	return stats_dist_get_percentile(stats, 0.95);
 }
-
+/* Returns the sample array */
+const uint64_t *stats_dist_get_samples(const struct stats_dist *stats,
+				       unsigned int *count_r);
 #endif
