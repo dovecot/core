@@ -550,7 +550,7 @@ http_server_istream_read_any(struct http_server_istream *hsristream)
 	struct http_server *server = hsristream->req->server;
 	ssize_t ret;
 
-	if ((ret = i_stream_read_copy_from_parent(&stream->istream)) > 0) {
+	if ((ret = i_stream_read_copy_from_parent(&stream->istream)) != 0) {
 		hsristream->read_status = ret;
 		io_loop_stop(server->ioloop);
 	}
