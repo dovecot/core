@@ -10,6 +10,7 @@
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <sys/stat.h>
 
 #if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L
 #  define HAVE_ECDH
@@ -230,50 +231,33 @@ end:
 	return ret;
 }
 
-static int load_ca(X509_STORE *store, const char *ca,
-		   STACK_OF(X509_NAME) **xnames_r)
+static int load_ca(SSL_CTX *ssl_ctx, const char *ca)
 {
-	/* mostly just copy&pasted from X509_load_cert_crl_file() */
-	STACK_OF(X509_INFO) *inf;
-	STACK_OF(X509_NAME) *xnames;
-	X509_INFO *itmp;
-	X509_NAME *xname;
-	BIO *bio;
-	int i;
+    struct stat statbuf;
+	int ret = 0;
 
-	bio = BIO_new_mem_buf(t_strdup_noconst(ca), strlen(ca));
-	if (bio == NULL)
-		i_fatal("BIO_new_mem_buf() failed");
-	inf = PEM_X509_INFO_read_bio(bio, NULL, NULL, NULL);
-	BIO_free(bio);
+    if (!stat(ca, &statbuf)) {
+        if (S_ISREG(statbuf.st_mode)) {
+            ret = SSL_CTX_load_verify_locations(ssl_ctx, ca, NULL);
+        } else if (S_ISDIR(statbuf.st_mode)) { 
+            ret = SSL_CTX_load_verify_locations(ssl_ctx, NULL, ca);
+        }
 
-	if (inf == NULL)
-		return -1;
-
-	xnames = sk_X509_NAME_new_null();
-	if (xnames == NULL)
-		i_fatal("sk_X509_NAME_new_null() failed");
-	for(i = 0; i < sk_X509_INFO_num(inf); i++) {
-		itmp = sk_X509_INFO_value(inf, i);
-		if(itmp->x509 != NULL) {
-			X509_STORE_add_cert(store, itmp->x509);
-			xname = X509_get_subject_name(itmp->x509);
-			if (xname != NULL)
-				xname = X509_NAME_dup(xname);
-			if (xname != NULL)
-				sk_X509_NAME_push(xnames, xname);
-		}
-		if(itmp->crl != NULL)
-			X509_STORE_add_crl(store, itmp->crl);
-	}
-	sk_X509_INFO_pop_free(inf, X509_INFO_free);
-	*xnames_r = xnames;
+        if (!ret) {
+            i_debug("SSL_CTX_load_verify_locations() failed: %s", openssl_iostream_error());
+            return -1;
+        } else if (S_ISREG(statbuf.st_mode)) {
+            SSL_CTX_set_client_CA_list(ssl_ctx, SSL_load_client_CA_file(ca));
+        }
 	return 0;
+    } else {
+        i_debug("stat error while checking CA locations: %s", strerror(errno));
+        return -1;
+    }
 }
 
 static void
-ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx,
-				    STACK_OF(X509_NAME) *ca_names)
+ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx)
 {
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
 	if (!ctx->set.skip_crl_check) {
@@ -284,8 +268,6 @@ ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx,
 				     X509_V_FLAG_CRL_CHECK_ALL);
 	}
 #endif
-
-	SSL_CTX_set_client_CA_list(ctx->ssl_ctx, ca_names);
 }
 
 #ifdef HAVE_SSL_GET_SERVERNAME
@@ -320,21 +302,19 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 			     const struct ssl_iostream_settings *set,
 			     const char **error_r)
 {
-	X509_STORE *store;
-	STACK_OF(X509_NAME) *xnames = NULL;
 	const char *ca_file, *ca_dir;
 	bool have_ca = FALSE;
 
 	if (set->ca != NULL) {
-		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
-		if (load_ca(store, set->ca, &xnames) < 0) {
+		if (load_ca(ctx->ssl_ctx, set->ca) < 0) {
 			*error_r = t_strdup_printf("Couldn't parse ssl_ca: %s",
 						   openssl_iostream_error());
 			return -1;
 		}
-		ssl_iostream_ctx_verify_remote_cert(ctx, xnames);
+		ssl_iostream_ctx_verify_remote_cert(ctx);
 		have_ca = TRUE;
 	}
+
 	ca_file = set->ca_file == NULL || *set->ca_file == '\0' ?
 		NULL : set->ca_file;
 	ca_dir = set->ca_dir == NULL || *set->ca_dir == '\0' ?
