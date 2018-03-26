@@ -23,7 +23,7 @@
 
 static inline uint32_t getblock32(const uint32_t *p, int i)
 {
-  return p[i];
+  return le32_to_cpu(p[i]);
 }
 
 //-----------------------------------------------------------------------------
@@ -94,6 +94,8 @@ void murmurhash3_32 (const void *key, size_t len, uint32_t seed,
 
   h1 = fmix32(h1);
 
+  h1 = cpu32_to_be(h1);
+
   memcpy(out, &h1, sizeof(h1));
 }
 
@@ -103,7 +105,7 @@ void murmurhash3_32 (const void *key, size_t len, uint32_t seed,
 
 static inline uint64_t getblock64(const uint64_t *p, int i)
 {
-  return p[i];
+  return le64_to_cpu(p[i]);
 }
 
 static inline uint64_t fmix64(uint64_t k)
@@ -205,6 +207,9 @@ void murmurhash3_128(const void *key, size_t len, uint32_t seed,
 
   h1 += h2;
   h2 += h1;
+
+  h1 = cpu64_to_be(h1);
+  h2 = cpu64_to_be(h2);
 
   memcpy(out, &h1, sizeof(h1));
   memcpy(out+sizeof(h1), &h2, sizeof(h2));
@@ -322,6 +327,11 @@ void murmurhash3_128(const void *key, size_t len, uint32_t seed,
 
   h1 += h2; h1 += h3; h1 += h4;
   h2 += h1; h3 += h1; h4 += h1;
+
+  h1 = cpu32_to_be(h1);
+  h2 = cpu32_to_be(h2);
+  h3 = cpu32_to_be(h3);
+  h4 = cpu32_to_be(h4);
 
   memcpy(out, &h1, sizeof(h1));
   memcpy(out+sizeof(h1), &h2, sizeof(h2));
