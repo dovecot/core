@@ -92,7 +92,7 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 #define message_parser_parse_body(ctx, callback, context) \
 	  message_parser_parse_body(ctx, \
 		(message_part_header_callback_t *)callback, \
-		(void *)((char *)context + CALLBACK_TYPECHECK(callback, \
+		(void *)((uintptr_t)context + CALLBACK_TYPECHECK(callback, \
 			void (*)(struct message_part *, \
 				struct message_header_line *, typeof(context)))))
 

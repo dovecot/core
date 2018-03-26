@@ -5,7 +5,9 @@
 	((user)->kill_ctx != NULL)
 
 struct user {
-	/* sorted by time */
+	/* Approximately sorted by time (except during handshaking).
+	   The sorting order may be constantly wrong a few seconds here and
+	   there. */
 	struct user *prev, *next;
 
 	/* first 32 bits of MD5(username). collisions are quite unlikely, but
@@ -60,10 +62,15 @@ bool user_directory_user_is_near_expiring(struct user_directory *dir,
 					  struct user *user);
 
 /* Iterate through users in the directory. It's safe to modify user directory
-   while iterators are running. The moved/removed users will just be skipped
-   over. */
+   while iterators are running. The removed users will just be skipped over.
+   Users that are refreshed (= moved to end of list) may be processed twice.
+
+   Using iter_until_current_tail=TRUE causes the iterator to not iterate
+   through any users that were added/refreshed since the iteration began.
+   Note that this may skip some users entirely. */
 struct user_directory_iter *
-user_directory_iter_init(struct user_directory *dir);
+user_directory_iter_init(struct user_directory *dir,
+			 bool iter_until_current_tail);
 struct user *user_directory_iter_next(struct user_directory_iter *iter);
 void user_directory_iter_deinit(struct user_directory_iter **iter);
 

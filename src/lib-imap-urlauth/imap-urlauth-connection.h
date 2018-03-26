@@ -11,8 +11,8 @@ imap_urlauth_request_callback_t(struct imap_urlauth_fetch_reply *reply,
 /* If reconnect_callback is specified, it's called when connection is lost.
    If the callback returns FALSE, reconnection isn't attempted. */
 struct imap_urlauth_connection *
-imap_urlauth_connection_init(const char *path, struct mail_user *user,
-			     const char *session_id,
+imap_urlauth_connection_init(const char *path, const char *service,
+			     struct mail_user *user, const char *session_id,
 			     unsigned int idle_timeout_msecs);
 void imap_urlauth_connection_deinit(struct imap_urlauth_connection **conn);
 

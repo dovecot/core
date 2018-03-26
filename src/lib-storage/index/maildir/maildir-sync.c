@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 /*
    Here's a description of how we handle Maildir synchronization and
@@ -195,7 +195,7 @@
    readdir() skips some files. we don't of course wish to lose them, so we
    go and rescan the new/ directory again from beginning until no files are
    left. This value is just an optimization to avoid checking the directory
-   twice unneededly. usually only NFS is the problem case. 1 is the safest
+   twice needlessly. usually only NFS is the problem case. 1 is the safest
    bet here, but I guess 5 will do just fine too. */
 #define MAILDIR_RENAME_RESCAN_COUNT 5
 
@@ -347,7 +347,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	if (rename(path2, new_path) == 0)
 		i_warning("Fixed a duplicate: %s -> %s", path2, new_fname);
 	else if (errno != ENOENT) {
-		mail_storage_set_critical(&ctx->mbox->storage->storage,
+		mailbox_set_critical(&ctx->mbox->box,
 			"Couldn't fix a duplicate: rename(%s, %s) failed: %m",
 			path2, new_path);
 		return -1;
@@ -368,7 +368,7 @@ maildir_rename_empty_basename(struct maildir_sync_context *ctx,
 	if (rename(old_path, new_path) == 0)
 		i_warning("Fixed broken filename: %s -> %s", old_path, new_fname);
 	else if (errno != ENOENT) {
-		mail_storage_set_critical(&ctx->mbox->storage->storage,
+		mailbox_set_critical(&ctx->mbox->box,
 			"Couldn't fix a broken filename: rename(%s, %s) failed: %m",
 			old_path, new_path);
 		return -1;
@@ -393,7 +393,7 @@ maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 		/* try again */
 	}
 
-	mail_storage_set_critical(box->storage, "stat(%s) failed: %m", path);
+	mailbox_set_critical(box, "stat(%s) failed: %m", path);
 	return -1;
 }
 
@@ -401,7 +401,6 @@ static int
 maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 		 enum maildir_scan_why why)
 {
-	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *path;
 	DIR *dirp;
 	string_t *src, *dest;
@@ -421,10 +420,10 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT) {
 			if (errno == EACCES) {
-				mail_storage_set_critical(storage, "%s",
+				mailbox_set_critical(&ctx->mbox->box, "%s",
 					eacces_error_get("opendir", path));
 			} else {
-				mail_storage_set_critical(storage,
+				mailbox_set_critical(&ctx->mbox->box,
 					"opendir(%s) failed: %m", path);
 			}
 			return -1;
@@ -437,7 +436,7 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 
 #ifdef HAVE_DIRFD
 	if (fstat(dirfd(dirp), &st) < 0) {
-		mail_storage_set_critical(storage,
+		mailbox_set_critical(&ctx->mbox->box,
 			"fstat(%s) failed: %m", path);
 		(void)closedir(dirp);
 		return -1;
@@ -510,7 +509,7 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 				move_new = FALSE;
 			} else {
 				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
-				mail_storage_set_critical(storage,
+				mailbox_set_critical(&ctx->mbox->box,
 					"rename(%s, %s) failed: %m",
 					str_c(src), str_c(dest));
 			}
@@ -550,14 +549,14 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 #endif
 
 	if (errno != 0) {
-		mail_storage_set_critical(storage,
-					  "readdir(%s) failed: %m", path);
+		mailbox_set_critical(&ctx->mbox->box,
+				     "readdir(%s) failed: %m", path);
 		ret = -1;
 	}
 
 	if (closedir(dirp) < 0) {
-		mail_storage_set_critical(storage,
-					  "closedir(%s) failed: %m", path);
+		mailbox_set_critical(&ctx->mbox->box,
+				     "closedir(%s) failed: %m", path);
 		ret = -1;
 	}
 
@@ -947,7 +946,7 @@ maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	if (ctx->index_sync_ctx != NULL) {
 		/* NOTE: index syncing here might cause a re-sync due to
 		   files getting lost, so this function might be called
-		   re-entrantly. */
+		   reentrantly. */
 		ret = maildir_sync_index(ctx->index_sync_ctx, ctx->partial);
 		if (ret < 0)
 			maildir_sync_index_rollback(&ctx->index_sync_ctx);
@@ -1095,7 +1094,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			 (box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0);
 
 		if (lost_files) {
-			/* lost some files from new/, see if thery're in cur/ */
+			/* lost some files from new/, see if they're in cur/ */
 			ret = maildir_storage_sync_force(mbox, 0);
 		}
 	}

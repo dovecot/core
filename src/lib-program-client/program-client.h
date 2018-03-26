@@ -1,6 +1,3 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file
- */
-
 #ifndef PROGRAM_CLIENT_H
 #define PROGRAM_CLIENT_H
 
@@ -19,10 +16,17 @@ struct program_client_settings {
 	const char *dns_client_socket_path;
 	const char *home;
 
+	/* Event to use for the program client. */
+	struct event *event;
+
 	bool allow_root:1;
 	bool debug:1;
 	bool drop_stderr:1;
-	/* use o_stream_dot */
+	/* use o_stream_dot, which is mainly useful to make sure that an
+	   unexpectedly closed connection doesn't cause the partial input to
+	   be accepted as valid and complete program input. This is always
+	   enabled for 'net' program clients, which may likely encounter
+	   unexpected connection termination. */
 	bool use_dotstream:1;
 };
 
@@ -35,8 +39,8 @@ struct program_client *program_client_local_create(const char *bin_path,
 struct program_client *program_client_unix_create(const char *socket_path,
 	const char *const *args,
 	const struct program_client_settings *set, bool noreply);
-struct program_client *program_client_net_create(const char *host, in_port_t port,
-	const char *const *args,
+struct program_client *program_client_net_create(const char *host,
+	in_port_t port, const char *const *args,
 	const struct program_client_settings *set, bool noreply);
 struct program_client *
 program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
@@ -57,7 +61,8 @@ void program_client_set_output(struct program_client *pclient,
 
 void program_client_set_output_seekable(struct program_client *pclient,
 	const char *temp_prefix);
-struct istream *program_client_get_output_seekable(struct program_client *pclient);
+struct istream *
+program_client_get_output_seekable(struct program_client *pclient);
 
 void program_client_switch_ioloop(struct program_client *pclient);
 

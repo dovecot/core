@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "mailbox-list-private.h"
@@ -32,7 +32,7 @@ static int sync_pvt_expunges(struct index_mailbox_sync_pvt_context *ctx)
 			mail_index_expunge(ctx->trans_pvt, seq_pvt);
 			seq_pvt++;
 		} else {
-			mail_storage_set_critical(ctx->box->storage,
+			mailbox_set_critical(ctx->box,
 				"%s: Message UID=%u unexpectedly inserted to mailbox",
 				ctx->box->index_pvt->filepath, uid_shared);
 			return -1;

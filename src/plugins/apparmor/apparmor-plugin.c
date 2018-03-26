@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -49,6 +49,7 @@ static void apparmor_mail_user_deinit(struct mail_user *user)
 {
 	struct apparmor_mail_user *auser = APPARMOR_USER_CONTEXT(user);
 
+	i_assert(auser != NULL);
 	auser->module_ctx.super.deinit(user);
 
 	if (aa_change_hat(NULL, auser->token)<0)

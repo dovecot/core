@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -113,7 +113,7 @@ static void cmd_fs_put(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "h:")) > 0) {
 		switch (c) {
 		case 'h':
-			hash = buffer_create_dynamic(pool_datastack_create(), 32);
+			hash = t_buffer_create(32);
 			if (hex_to_binary(optarg, hash) < 0)
 				i_fatal("Invalid -h parameter: Hash not in hex");
 			break;

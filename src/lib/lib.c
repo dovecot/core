@@ -1,8 +1,9 @@
-/* Copyright (c) 2001-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2001-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "dovecot-version.h"
 #include "array.h"
+#include "event-filter.h"
 #include "env-util.h"
 #include "hostpid.h"
 #include "ipwd.h"
@@ -137,6 +138,8 @@ void lib_init(void)
 	data_stack_init();
 	hostpid_init();
 	lib_open_non_stdio_dev_null();
+	lib_event_init();
+	event_filter_init();
 	var_expand_extensions_init();
 
 	lib_initialized = TRUE;
@@ -155,6 +158,8 @@ void lib_deinit(void)
 	ipwd_deinit();
 	hostpid_deinit();
 	var_expand_extensions_deinit();
+	event_filter_deinit();
+	lib_event_deinit();
 	i_close_fd(&dev_null_fd);
 	data_stack_deinit();
 	env_deinit();

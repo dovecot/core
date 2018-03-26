@@ -25,9 +25,9 @@ struct fs_vfuncs {
 
 	enum fs_properties (*get_properties)(struct fs *fs);
 
-	struct fs_file *(*file_init)(struct fs *fs, const char *path,
-				     enum fs_open_mode mode,
-				     enum fs_open_flags flags);
+	struct fs_file *(*file_alloc)(void);
+	void (*file_init)(struct fs_file *file, const char *path,
+			  enum fs_open_mode mode, enum fs_open_flags flags);
 	void (*file_deinit)(struct fs_file *file);
 	void (*file_close)(struct fs_file *file);
 	const char *(*get_path)(struct fs_file *file);
@@ -63,8 +63,9 @@ struct fs_vfuncs {
 	int (*rename)(struct fs_file *src, struct fs_file *dest);
 	int (*delete_file)(struct fs_file *file);
 
-	struct fs_iter *(*iter_init)(struct fs *fs, const char *path,
-				     enum fs_iter_flags flags);
+	struct fs_iter *(*iter_alloc)(void);
+	void (*iter_init)(struct fs_iter *iter, const char *path,
+			  enum fs_iter_flags flags);
 	const char *(*iter_next)(struct fs_iter *iter);
 	int (*iter_deinit)(struct fs_iter *iter);
 
@@ -90,6 +91,7 @@ struct fs {
 	unsigned int files_open_count;
 	struct fs_file *files;
 	struct fs_iter *iters;
+	struct event *event;
 
 	struct fs_stats stats;
 
@@ -103,6 +105,7 @@ struct fs_file {
 	struct fs_file *parent; /* for wrapper filesystems */
 	struct fs *fs;
 	struct ostream *output;
+	struct event *event;
 	char *path;
 	enum fs_open_flags flags;
 
@@ -140,6 +143,7 @@ struct fs_iter {
 	struct fs_iter *prev, *next;
 
 	struct fs *fs;
+	struct event *event;
 	enum fs_iter_flags flags;
 	struct timeval start_time;
 
@@ -174,6 +178,12 @@ const char *fs_metadata_find(const ARRAY_TYPE(fs_metadata) *metadata,
 int fs_default_copy(struct fs_file *src, struct fs_file *dest);
 
 void fs_file_timing_end(struct fs_file *file, enum fs_op op);
+
+struct fs_file *
+fs_file_init_parent(struct fs_file *parent, const char *path, int mode_flags);
+struct fs_iter *
+fs_iter_init_parent(struct fs_iter *parent,
+		    const char *path, enum fs_iter_flags flags);
 
 /* Same as fs_write_stream_abort_error(), except it closes the *parent* file
    and error is left untouched */

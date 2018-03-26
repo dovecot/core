@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 /*
 The imap-urlauth service provides URLAUTH access between different accounts. If
@@ -6,7 +6,7 @@ user A has an URLAUTH that references a mail from user B, it makes a connection
 to the imap-urlauth service to access user B's mail store to retrieve the
 mail.
 
-The authentication and authorization of the URLAUTH is performed whithin
+The authentication and authorization of the URLAUTH is performed within
 this service. Because access to the mailbox and the associated mailbox keys is
 necessary to retrieve the message and for verification of the URLAUTH, the
 urlauth services need root privileges. To mitigate security concerns, the
@@ -47,6 +47,7 @@ The imap-urlauth service thus consists of three separate stages:
 #include "lib-signals.h"
 #include "ioloop.h"
 #include "buffer.h"
+#include "array.h"
 #include "istream.h"
 #include "ostream.h"
 #include "path-util.h"
@@ -102,11 +103,12 @@ static void imap_urlauth_die(void)
 }
 
 static int
-client_create_from_input(const char *username, int fd_in, int fd_out)
+client_create_from_input(const char *service, const char *username,
+		int fd_in, int fd_out)
 {
 	struct client *client;
 
-	if (client_create(username, fd_in, fd_out,
+	if (client_create(service, username, fd_in, fd_out,
 			  imap_urlauth_settings, &client) < 0)
 		return -1;
 
@@ -123,7 +125,7 @@ static void main_stdio_run(const char *username)
 	if (username == NULL)
 		i_fatal("USER environment missing");
 
-	(void)client_create_from_input(username, STDIN_FILENO, STDOUT_FILENO);
+	(void)client_create_from_input("", username, STDIN_FILENO, STDOUT_FILENO);
 }
 
 static void
@@ -133,6 +135,9 @@ login_client_connected(const struct master_login_client *client,
 	const char *msg = "NO\n";
 	struct auth_user_reply reply;
 	struct net_unix_cred cred;
+	const char *const *fields;
+	const char *service = NULL;
+	unsigned int count, i;
 
 	auth_user_fields_parse(extra_fields, pool_datastack_create(), &reply);
 
@@ -149,10 +154,27 @@ login_client_connected(const struct master_login_client *client,
 		return;
 	}
 
+	fields = array_get(&reply.extra_fields, &count);
+	for (i = 0; i < count; i++) {
+		if (strncmp(fields[i], "client_service=", 15) == 0) {
+			service = fields[i] + 15;
+			break;
+		}
+	}
+
+	if (service == NULL) {
+		i_error("Auth did not yield required client_service field (BUG).");
+		if (write(client->fd, msg, strlen(msg)) < 0) {
+			/* ignored */
+		}
+		net_disconnect(client->fd);
+		return;
+	}
+
 	if (reply.anonymous)
 		username = NULL;
 
-	if (client_create_from_input(username, client->fd, client->fd) < 0)
+	if (client_create_from_input(service, username, client->fd, client->fd) < 0)
 		net_disconnect(client->fd);
 }
 

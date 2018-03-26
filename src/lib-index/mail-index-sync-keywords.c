@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -61,7 +61,7 @@ keywords_get_header_buf(struct mail_index_map *map,
 	offset = kw_rec[kw_hdr->keywords_count-1].name_offset;
 	offset += strlen(name + offset) + 1;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 512);
+	buf = t_buffer_create(512);
 	buffer_append(buf, &new_kw_hdr, sizeof(new_kw_hdr));
 	buffer_append(buf, kw_rec, sizeof(*kw_rec) * kw_hdr->keywords_count);
 	*rec_offset_r = buf->used;
@@ -143,7 +143,7 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 		/* create new / replace broken header */
 		const unsigned int initial_keywords_count = 1;
 
-		buf = buffer_create_dynamic(pool_datastack_create(), 512);
+		buf = t_buffer_create(512);
 		kw_hdr = buffer_append_space_unsafe(buf, sizeof(*kw_hdr));
 		kw_hdr->keywords_count = initial_keywords_count;
 

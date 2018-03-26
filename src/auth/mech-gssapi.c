@@ -632,7 +632,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 
 	/* Set username early, so that the credential lookup is for the
 	 * authorizing user. This means the username in subsequent log
-	 * messagess will be the authorization name, not the authentication
+	 * messages will be the authorization name, not the authentication
 	 * name, which may mean that future log messages should be adjusted
 	 * to log the right thing. */
 	if (!auth_request_set_username(auth_request, login_user, &error)) {

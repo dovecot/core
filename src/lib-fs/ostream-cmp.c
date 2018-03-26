@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -21,7 +21,6 @@ static void o_stream_cmp_close(struct iostream_private *stream,
 		return;
 
 	i_stream_unref(&cstream->input);
-	(void)o_stream_flush(&cstream->ostream.ostream);
 	if (close_parent)
 		o_stream_close(cstream->ostream.parent);
 }

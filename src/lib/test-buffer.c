@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "buffer.h"
@@ -136,7 +136,7 @@ static void test_buffer_write(void)
 	buffer_t *buf;
 
 	test_begin("buffer_write");
-	buf = buffer_create_dynamic(pool_datastack_create(), 8);
+	buf = t_buffer_create(8);
 	buffer_write(buf, 5, buf, 0);
 	test_assert(buf->used == 5);
 	test_end();
@@ -147,7 +147,7 @@ static void test_buffer_set_used_size(void)
 	buffer_t *buf;
 
 	test_begin("buffer_set_used_size");
-	buf = buffer_create_dynamic(pool_datastack_create(), 8);
+	buf = t_buffer_create(8);
 	memset(buffer_append_space_unsafe(buf, 7), 'a', 7);
 	buffer_set_used_size(buf, 4);
 	test_assert(memcmp(buffer_get_space_unsafe(buf, 0, 7), "aaaa\0\0\0", 7) == 0);
@@ -259,7 +259,7 @@ static void test_buffer_truncate_bits(void)
 
 	};
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 10);
+	buf = t_buffer_create(10);
 
 	for(size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
 		buffer_set_used_size(buf, 0);

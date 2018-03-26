@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -79,7 +79,7 @@ i_stream_create_callback(istream_callback_read_t *callback, void *context)
 	cstream->istream.iostream.destroy = i_stream_callback_destroy;
 	cstream->istream.read = i_stream_callback_read;
 
-	istream = i_stream_create(&cstream->istream, NULL, -1);
+	istream = i_stream_create(&cstream->istream, NULL, -1, 0);
 	istream->blocking = TRUE;
 	return istream;
 }

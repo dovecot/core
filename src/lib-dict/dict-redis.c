@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING redis */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING redis */
 
 #include "lib.h"
 #include "array.h"
@@ -13,6 +13,8 @@
 #define DICT_USERNAME_SEPARATOR '/'
 
 enum redis_input_state {
+	/* expecting +OK reply for AUTH */
+	REDIS_INPUT_STATE_AUTH,
 	/* expecting +OK reply for SELECT */
 	REDIS_INPUT_STATE_SELECT,
 	/* expecting $-1 / $<size> followed by GET reply */
@@ -45,7 +47,7 @@ struct redis_dict_reply {
 
 struct redis_dict {
 	struct dict dict;
-	char *username, *key_prefix, *expire_value;
+	char *username, *password, *key_prefix, *expire_value;
 	unsigned int timeout_msecs, db_id;
 
 	struct ioloop *ioloop, *prev_ioloop;
@@ -233,6 +235,7 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 	switch (state) {
 	case REDIS_INPUT_STATE_GET:
 		i_unreached();
+	case REDIS_INPUT_STATE_AUTH:
 	case REDIS_INPUT_STATE_SELECT:
 	case REDIS_INPUT_STATE_MULTI:
 	case REDIS_INPUT_STATE_DISCARD:
@@ -272,6 +275,8 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 		}
 		return 1;
 	}
+	str_truncate(dict->conn.last_reply, 0);
+	str_append(dict->conn.last_reply, line);
 	*error_r = t_strdup_printf("redis: Unexpected input (state=%d): %s", state, line);
 	return -1;
 }
@@ -367,6 +372,7 @@ redis_dict_init(struct dict *driver, const char *uri,
 		i_unreached();
 	dict->timeout_msecs = REDIS_DEFAULT_LOOKUP_TIMEOUT_MSECS;
 	dict->key_prefix = i_strdup("");
+	dict->password   = i_strdup("");
 
 	args = t_strsplit(uri, ":");
 	for (; *args != NULL; args++) {
@@ -409,6 +415,9 @@ redis_dict_init(struct dict *driver, const char *uri,
 					"Invalid timeout_msecs: %s", *args+14);
 				ret = -1;
 			}
+		} else if (strncmp(*args, "password=", 9) == 0) {
+			i_free(dict->password);
+			dict->password = i_strdup(*args + 9);
 		} else {
 			*error_r = t_strdup_printf("Unknown parameter: %s",
 						   *args);
@@ -416,6 +425,7 @@ redis_dict_init(struct dict *driver, const char *uri,
 		}
 	}
 	if (ret < 0) {
+		i_free(dict->password);
 		i_free(dict->key_prefix);
 		i_free(dict);
 		return -1;
@@ -458,6 +468,7 @@ static void redis_dict_deinit(struct dict *_dict)
 	array_free(&dict->input_states);
 	i_free(dict->expire_value);
 	i_free(dict->key_prefix);
+	i_free(dict->password);
 	i_free(dict->username);
 	i_free(dict);
 
@@ -488,6 +499,19 @@ redis_dict_get_full_key(struct redis_dict *dict, const char *key)
 	if (*dict->key_prefix != '\0')
 		key = t_strconcat(dict->key_prefix, key, NULL);
 	return key;
+}
+
+static void redis_dict_auth(struct redis_dict *dict)
+{
+	const char *cmd;
+
+	if (*dict->password == '\0')
+		return;
+
+	cmd = t_strdup_printf("*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n",
+	                      (int)strlen(dict->password), dict->password);
+	o_stream_nsend_str(dict->conn.conn.output, cmd);
+	redis_input_state_add(dict, REDIS_INPUT_STATE_AUTH);
 }
 
 static void redis_dict_select_db(struct redis_dict *dict)
@@ -535,6 +559,8 @@ static int redis_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 		if (!dict->connected) {
 			/* wait for connection */
 			io_loop_run(dict->ioloop);
+			if (dict->connected)
+				redis_dict_auth(dict);
 		}
 
 		if (dict->connected) {
@@ -561,7 +587,8 @@ static int redis_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	if (!dict->conn.value_received) {
 		/* we failed in some way. make sure we disconnect since the
 		   connection state isn't known anymore */
-		*error_r = "redis: Communication failure";
+		*error_r = t_strdup_printf("redis: Communication failure (last reply: %s)",
+					   str_c(dict->conn.last_reply));
 		redis_disconnected(&dict->conn, *error_r);
 		return -1;
 	}
@@ -591,6 +618,8 @@ redis_transaction_init(struct dict *_dict)
 	} else if (!dict->connected) {
 		/* wait for connection */
 		redis_wait(dict);
+		if (dict->connected)
+			redis_dict_auth(dict);
 	}
 	if (dict->connected)
 		redis_dict_select_db(dict);

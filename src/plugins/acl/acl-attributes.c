@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -138,7 +138,7 @@ int acl_attribute_set(struct mailbox_transaction_context *t,
 		      enum mail_attribute_type type, const char *key,
 		      const struct mail_attribute_value *value)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(t->box);
 
 	if (acl_have_attribute_rights(t->box) < 0)
 		return -1;
@@ -152,7 +152,7 @@ int acl_attribute_get(struct mailbox *box,
 		      enum mail_attribute_type type, const char *key,
 		      struct mail_attribute_value *value_r)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
 	if (acl_have_attribute_rights(box) < 0)
 		return -1;
@@ -166,7 +166,7 @@ struct mailbox_attribute_iter *
 acl_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
 			const char *prefix)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	struct acl_mailbox_attribute_iter *aiter;
 
 	aiter = i_new(struct acl_mailbox_attribute_iter, 1);
@@ -214,7 +214,7 @@ const char *acl_attribute_iter_next(struct mailbox_attribute_iter *iter)
 {
 	struct acl_mailbox_attribute_iter *aiter =
 		(struct acl_mailbox_attribute_iter *)iter;
-	struct acl_mailbox *abox = ACL_CONTEXT(iter->box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(iter->box);
 	const char *key;
 
 	if (aiter->super == NULL)
@@ -230,7 +230,7 @@ int acl_attribute_iter_deinit(struct mailbox_attribute_iter *iter)
 {
 	struct acl_mailbox_attribute_iter *aiter =
 		(struct acl_mailbox_attribute_iter *)iter;
-	struct acl_mailbox *abox = ACL_CONTEXT(iter->box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(iter->box);
 	int ret = aiter->failed ? -1 : 0;
 
 	if (aiter->super != NULL) {
@@ -241,8 +241,7 @@ int acl_attribute_iter_deinit(struct mailbox_attribute_iter *iter)
 		mail_storage_set_internal_error(aiter->iter.box->storage);
 		ret = -1;
 	}
-	if (aiter->acl_name != NULL)
-		str_free(&aiter->acl_name);
+	str_free(&aiter->acl_name);
 	i_free(aiter);
 	return ret;
 }

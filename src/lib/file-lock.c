@@ -1,8 +1,9 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
 #include "file-lock.h"
+#include "file-dotlock.h"
 #include "time-util.h"
 
 #include <time.h>
@@ -14,6 +15,7 @@
 struct file_lock {
 	int fd;
 	char *path;
+	struct dotlock *dotlock;
 
 	struct timeval locked_time;
 	int lock_type;
@@ -352,6 +354,23 @@ void file_lock_set_close_on_free(struct file_lock *lock, bool set)
 	lock->close_on_free = set;
 }
 
+struct file_lock *file_lock_from_dotlock(struct dotlock **dotlock)
+{
+	struct file_lock *lock;
+
+	lock = i_new(struct file_lock, 1);
+	lock->fd = -1;
+	lock->path = i_strdup(file_dotlock_get_lock_path(*dotlock));
+	lock->lock_type = F_WRLCK;
+	lock->lock_method = FILE_LOCK_METHOD_DOTLOCK;
+	if (gettimeofday(&lock->locked_time, NULL) < 0)
+		i_fatal("gettimeofday() failed: %m");
+	lock->dotlock = *dotlock;
+
+	*dotlock = NULL;
+	return lock;
+}
+
 static void file_unlock_real(struct file_lock *lock)
 {
 	const char *error;
@@ -374,7 +393,8 @@ void file_unlock(struct file_lock **_lock)
 	   could be deleting the new lock. */
 	i_assert(!lock->unlink_on_free);
 
-	file_unlock_real(lock);
+	if (lock->dotlock == NULL)
+		file_unlock_real(lock);
 	file_lock_free(&lock);
 }
 
@@ -406,16 +426,20 @@ static void file_try_unlink_locked(struct file_lock *lock)
 		/* nobody was waiting on the lock - unlink it */
 		i_unlink(lock->path);
 	}
-	if (temp_lock != NULL)
-		file_lock_free(&temp_lock);
+	file_lock_free(&temp_lock);
 }
 
 void file_lock_free(struct file_lock **_lock)
 {
 	struct file_lock *lock = *_lock;
 
+	if (lock == NULL)
+		return;
+
 	*_lock = NULL;
 
+	if (lock->dotlock != NULL)
+		file_dotlock_delete(&lock->dotlock);
 	if (lock->unlink_on_free)
 		file_try_unlink_locked(lock);
 	if (lock->close_on_free)

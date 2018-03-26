@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -330,6 +330,7 @@ void mailbox_list_delete_mailbox_until_root(struct mailbox_list *list,
 		MAILBOX_LIST_PATH_TYPE_CONTROL,
 		MAILBOX_LIST_PATH_TYPE_INDEX,
 		MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE,
+		MAILBOX_LIST_PATH_TYPE_INDEX_CACHE,
 	};
 	const char *path;
 
@@ -404,6 +405,9 @@ int mailbox_list_delete_finish(struct mailbox_list *list, const char *name)
 	int ret, ret2;
 
 	ret = mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
+	ret2 = mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_INDEX_CACHE);
+	if (ret == 0 || ret2 < 0)
+		ret = ret2;
 	ret2 = mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	if (ret == 0 || ret2 < 0)
 		ret = ret2;

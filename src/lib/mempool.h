@@ -68,6 +68,14 @@ pool_t pool_alloconly_create_clean(const char *name, size_t size);
    that the stack frame is the same. This should make it quite safe to use. */
 pool_t pool_datastack_create(void);
 
+/* Create new alloc pool. This is very similar to system pool, but it
+   will deallocate all memory on deinit. */
+pool_t pool_allocfree_create(const char *name);
+
+/* Like alloc pool, but all memory is cleaned before freeing.
+   See pool_alloconly_create_clean. */
+pool_t pool_allocfree_create_clean(const char *name);
+
 /* Similar to nearest_power(), but try not to exceed buffer's easy
    allocation size. If you don't have any explicit minimum size, use
    old_size + 1. */
@@ -143,6 +151,11 @@ static inline void pool_unref(pool_t *pool)
 size_t pool_alloconly_get_total_used_size(pool_t pool);
 /* Returns how much system memory has been allocated for this pool. */
 size_t pool_alloconly_get_total_alloc_size(pool_t pool);
+
+/* Returns how much memory has been allocated from this pool. */
+size_t pool_allocfree_get_total_used_size(pool_t pool);
+/* Returns how much system memory has been allocated for this pool. */
+size_t pool_allocfree_get_total_alloc_size(pool_t pool);
 
 /* private: */
 void pool_system_free(pool_t pool, void *mem);

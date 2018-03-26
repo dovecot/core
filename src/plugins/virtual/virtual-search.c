@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -123,7 +123,7 @@ virtual_search_init(struct mailbox_transaction_context *t,
 
 int virtual_search_deinit(struct mail_search_context *ctx)
 {
-	struct virtual_search_context *vctx = VIRTUAL_CONTEXT(ctx);
+	struct virtual_search_context *vctx = VIRTUAL_CONTEXT_REQUIRE(ctx);
 
 	array_free(&vctx->result);
 	array_free(&vctx->records);
@@ -134,7 +134,7 @@ int virtual_search_deinit(struct mail_search_context *ctx)
 bool virtual_search_next_nonblock(struct mail_search_context *ctx,
 				  struct mail **mail_r, bool *tryagain_r)
 {
-	struct virtual_search_context *vctx = VIRTUAL_CONTEXT(ctx);
+	struct virtual_search_context *vctx = VIRTUAL_CONTEXT_REQUIRE(ctx);
 	struct index_search_context *ictx = (struct index_search_context *)ctx;
 	uint32_t seq;
 
@@ -180,7 +180,7 @@ static void search_args_set_full_match(struct mail_search_arg *args)
 
 bool virtual_search_next_update_seq(struct mail_search_context *ctx)
 {
-	struct virtual_search_context *vctx = VIRTUAL_CONTEXT(ctx);
+	struct virtual_search_context *vctx = VIRTUAL_CONTEXT_REQUIRE(ctx);
 	const struct virtual_search_record *recs;
 	unsigned int count;
 

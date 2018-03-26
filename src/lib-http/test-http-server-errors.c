@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -258,7 +258,7 @@ test_server_hanging_request_payload_input(struct _hanging_request_payload *ctx)
 		return;
 	}
 
-	i_assert(i_stream_is_eof(ctx->payload_input));
+	i_assert(ctx->payload_input->eof);
 		
 	resp = http_server_response_create(req, 200, "OK");
 	http_server_response_submit(resp);
@@ -738,7 +738,7 @@ test_server_run(const struct http_server_settings *http_set)
 
 	/* open server socket */
 	io_listen = io_add(fd_listen,
-		IO_READ, server_connection_accept, (void *)NULL);
+		IO_READ, server_connection_accept, NULL);
 
 	http_server = http_server_init(http_set);
 

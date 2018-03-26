@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "llist.h"
@@ -8,6 +8,27 @@
 #include "master-service-settings.h"
 
 #define HAPROXY_V1_MAX_HEADER_SIZE (108)
+
+#define PP2_TYPE_ALPN           0x01
+#define PP2_TYPE_AUTHORITY      0x02
+#define PP2_TYPE_CRC32C         0x03
+#define PP2_TYPE_NOOP           0x04
+#define PP2_TYPE_SSL            0x20
+#define PP2_SUBTYPE_SSL_VERSION 0x21
+#define PP2_SUBTYPE_SSL_CN      0x22
+#define PP2_SUBTYPE_SSL_CIPHER  0x23
+#define PP2_SUBTYPE_SSL_SIG_ALG 0x24
+#define PP2_SUBTYPE_SSL_KEY_ALG 0x25
+#define PP2_TYPE_NETNS          0x30
+
+#define PP2_CLIENT_SSL	   	0x01
+#define PP2_CLIENT_CERT_CONN	0x02
+#define PP2_CLIENT_CERT_SESS	0x04
+
+enum haproxy_version_t {
+	HAPROXY_VERSION_1,
+	HAPROXY_VERSION_2,
+};
 
 enum {
 	HAPROXY_CMD_LOCAL = 0x00,
@@ -58,8 +79,26 @@ struct haproxy_data_v2 {
 	} addr;
 };
 
+#define SIZEOF_PP2_TLV (1U+2U)
+struct haproxy_pp2_tlv {
+	uint8_t type;
+	uint16_t len;
+	const unsigned char *data;
+};
+
+#define SIZEOF_PP2_TLV_SSL (1U+4U)
+struct haproxy_pp2_tlv_ssl {
+	uint8_t client;
+	uint32_t verify;
+
+	size_t len;
+	const unsigned char *data;
+};
+
 struct master_service_haproxy_conn {
 	struct master_service_connection conn;
+
+	pool_t pool;
 
 	struct master_service_haproxy_conn *prev, *next;
 	
@@ -78,7 +117,7 @@ master_service_haproxy_conn_free(struct master_service_haproxy_conn *hpconn)
 
 	io_remove(&hpconn->io);
 	timeout_remove(&hpconn->to);
-	i_free(hpconn);
+	pool_unref(&hpconn->pool);
 }
 
 static void
@@ -110,8 +149,138 @@ master_service_haproxy_timeout(struct master_service_haproxy_conn *hpconn)
 }
 
 static int
+master_service_haproxy_recv(int fd, void *buf, size_t len, int flags)
+{
+	ssize_t ret;
+
+	do {
+		ret = recv(fd, buf, len, flags);
+	} while (ret < 0 && errno == EINTR);
+
+	if (ret < 0 && errno == EAGAIN)
+		return 0;
+	if (ret <= 0) {
+		if (ret == 0)
+			errno = ECONNRESET;
+		return -1;
+	}
+
+	return ret;
+}
+
+static int get_ssl_tlv(const unsigned char *kvdata, size_t dlen,
+		       struct haproxy_pp2_tlv_ssl *kv)
+{
+	if (dlen < SIZEOF_PP2_TLV_SSL)
+		return -1;
+	kv->client = kvdata[0];
+	/* spec does not specify the endianess of this field */
+	kv->verify = cpu32_to_cpu_unaligned(kvdata+1);
+	kv->data = kvdata+SIZEOF_PP2_TLV_SSL;
+	kv->len = dlen - SIZEOF_PP2_TLV_SSL;
+	return 0;
+}
+
+static int get_tlv(const unsigned char *kvdata, size_t dlen,
+		   struct haproxy_pp2_tlv *kv)
+{
+	if (dlen < SIZEOF_PP2_TLV)
+		return -1;
+
+	/* spec says
+		uint8_t type
+		uint8_t len_hi
+		uint8_t len_lo
+	  so we combine the hi and lo here. */
+	kv->type = kvdata[0];
+	kv->len = (kvdata[1]<<8)+kvdata[2];
+	kv->data = kvdata + SIZEOF_PP2_TLV;
+
+	if (kv->len + SIZEOF_PP2_TLV > dlen)
+		return -1;
+
+	return 0;
+}
+
+static int
+master_service_haproxy_parse_ssl_tlv(struct master_service_haproxy_conn *hpconn,
+				     const struct haproxy_pp2_tlv_ssl *ssl_kv,
+				     const char **error_r)
+{
+	hpconn->conn.proxy.ssl = (ssl_kv->client & (PP2_CLIENT_SSL)) != 0;
+
+	/* try parse some more */
+	for(size_t i = 0; i < ssl_kv->len;) {
+		struct haproxy_pp2_tlv kv;
+		if (get_tlv(ssl_kv->data + i, ssl_kv->len - i, &kv) < 0) {
+			*error_r = t_strdup_printf("get_tlv(%"PRIuSIZE_T") failed:"
+						   "Truncated data", i);
+			return -1;
+		}
+		i += SIZEOF_PP2_TLV + kv.len;
+		switch(kv.type) {
+		/* we don't care about these */
+		case PP2_SUBTYPE_SSL_CIPHER:
+		case PP2_SUBTYPE_SSL_SIG_ALG:
+		case PP2_SUBTYPE_SSL_KEY_ALG:
+			break;
+		case PP2_SUBTYPE_SSL_CN:
+			hpconn->conn.proxy.cert_common_name =
+				p_strndup(hpconn->pool, kv.data, kv.len);
+			break;
+		}
+	}
+	return 0;
+}
+
+static int
+master_service_haproxy_parse_tlv(struct master_service_haproxy_conn *hpconn,
+				 const unsigned char *buf, size_t blen,
+				 const char **error_r)
+{
+	for(size_t i = 0; i < blen;) {
+		struct haproxy_pp2_tlv kv;
+                struct haproxy_pp2_tlv_ssl ssl_kv;
+
+		if (get_tlv(buf + i, blen - i, &kv) < 0) {
+			*error_r = t_strdup_printf("get_tlv(%"PRIuSIZE_T") failed:"
+						   "Truncated data", i);
+			return -1;
+		}
+
+                /* skip unsupported values */
+                switch(kv.type) {
+		case PP2_TYPE_ALPN:
+			hpconn->conn.proxy.alpn_size = kv.len;
+			hpconn->conn.proxy.alpn =
+				p_memdup(hpconn->pool, kv.data, kv.len);
+			break;
+                case PP2_TYPE_AUTHORITY:
+                        /* store hostname somewhere */
+                        hpconn->conn.proxy.hostname =
+				p_strndup(hpconn->pool, kv.data, kv.len);
+                        break;
+                case PP2_TYPE_SSL:
+			if (get_ssl_tlv(kv.data, kv.len, &ssl_kv) < 0) {
+				*error_r = t_strdup_printf("get_ssl_tlv(%"PRIuSIZE_T") failed:"
+							   "Truncated data", i);
+				return -1;
+			}
+                        if (master_service_haproxy_parse_ssl_tlv(hpconn, &ssl_kv, error_r)<0)
+				return -1;
+                        break;
+		}
+		i += SIZEOF_PP2_TLV + kv.len;
+        }
+	return 0;
+}
+
+static int
 master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 {
+	/* reasonable max size for haproxy data */
+	unsigned char rbuf[1500];
+	const char *error;
 	static union {
 		unsigned char v1_data[HAPROXY_V1_MAX_HEADER_SIZE];
 		struct {
@@ -123,23 +292,55 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	int fd = hpconn->conn.fd;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
-	size_t size;
+	size_t size,i,want;
 	ssize_t ret;
+	enum haproxy_version_t version;
 
 	/* the protocol specification explicitly states that the protocol header
 	   must be sent as one TCP frame, meaning that we will get it in full
 	   with the first recv() call.
-	   FIXME: still, it would be cleaner to allow reading it incrementally.
 	 */
-	do {
-		ret = recv(fd, &buf, sizeof(buf), MSG_PEEK);
-	} while (ret < 0 && errno == EINTR);
+	i_zero(&buf);
+	i_zero(rbuf);
 
-	if (ret < 0 && errno == EAGAIN)
-		return 0;
-	if (ret <= 0) {
-		i_info("haproxy: Client disconnected (rip=%s)",
-		       net_ip2addr(real_remote_ip));
+	/* see if there is a HAPROXY protocol command waiting */
+	if ((ret = master_service_haproxy_recv(fd, &buf, sizeof(buf), MSG_PEEK))<=0) {
+		if (ret < 0)
+			i_info("haproxy: Client disconnected (rip=%s): %m",
+			       net_ip2addr(real_remote_ip));
+		return ret;
+	/* see if there is a haproxy command, 8 is used later on as well */
+	} else if (ret >= 8 && memcmp(buf.v1_data, "PROXY", 5) == 0) {
+		/* fine */
+		version = HAPROXY_VERSION_1;
+	} else if ((size_t)ret >= sizeof(buf.v2.hdr) &&
+		   memcmp(buf.v2.hdr.sig, haproxy_v2sig, sizeof(haproxy_v2sig)) == 0) {
+		want = ntohs(buf.v2.hdr.len) + sizeof(buf.v2.hdr);
+		if (want > sizeof(rbuf)) {
+			i_error("haproxy: Client disconnected: Too long header (rip=%s)",
+				net_ip2addr(real_remote_ip));
+			return -1;
+		}
+
+		if ((ret = master_service_haproxy_recv(fd, rbuf, want, MSG_WAITALL))<=0) {
+			if (ret < 0)
+				i_info("haproxy: Client disconnected (rip=%s): %m",
+				       net_ip2addr(real_remote_ip));
+			return ret;
+		}
+
+		if (ret != (ssize_t)want) {
+			i_info("haproxy: Client disconnected: Failed to read full header (rip=%s)",
+				net_ip2addr(real_remote_ip));
+			return -1;
+		}
+		memcpy(&buf, rbuf, sizeof(buf));
+		version = HAPROXY_VERSION_2;
+	} else {
+		/* it wasn't haproxy data */
+		i_error("haproxy: Client disconnected: "
+			"Failed to read valid HAproxy data (rip=%s)",
+			net_ip2addr(real_remote_ip));
 		return -1;
 	}
 
@@ -150,12 +351,12 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	remote_port = hpconn->conn.remote_port;
 
 	/* protocol version 2 */
-	if (ret >= (ssize_t)sizeof(buf.v2.hdr) &&
-	    memcmp(buf.v2.hdr.sig, haproxy_v2sig,
-		   sizeof(buf.v2.hdr.sig)) == 0) {
+	if (version == HAPROXY_VERSION_2) {
 		const struct haproxy_header_v2 *hdr = &buf.v2.hdr;
 		const struct haproxy_data_v2 *data = &buf.v2.data;
 		size_t hdr_len;
+
+		i_assert(ret >= (ssize_t)sizeof(buf.v2.hdr));
 
 		if ((hdr->ver_cmd & 0xf0) != 0x20) {
 			i_error("haproxy: Client disconnected: "
@@ -167,6 +368,10 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 
 		hdr_len = ntohs(hdr->len);
 		size = sizeof(*hdr) + hdr_len;
+		/* keep tab of how much address data there really is because
+		   because TLVs begin after that. */
+		i = 0;
+
 		if (ret < (ssize_t)size) {
 			i_error("haproxy(v2): Client disconnected: "
 				"Protocol payload length does not match header "
@@ -174,6 +379,8 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 				(size_t)ret, size, net_ip2addr(real_remote_ip));
 			return -1;
 		}
+
+		i += sizeof(*hdr);
 
 		switch (hdr->ver_cmd & 0x0f) {
 		case HAPROXY_CMD_LOCAL:
@@ -204,6 +411,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 				remote_ip.family = AF_INET;
 				remote_ip.u.ip4.s_addr = data->addr.ip4.src_addr;
 				remote_port = ntohs(data->addr.ip4.src_port);
+				i += sizeof(data->addr.ip4);
 				break;
 			case HAPROXY_AF_INET6:
 				/* IPv6 */
@@ -219,6 +427,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 				remote_ip.family = AF_INET6;
 				memcpy(&remote_ip.u.ip6.s6_addr, data->addr.ip6.src_addr, 16);
 				remote_port = ntohs(data->addr.ip6.src_port);
+				i += sizeof(data->addr.ip6);
 				break;
 			case HAPROXY_AF_UNSPEC:
 			case HAPROXY_AF_UNIX:
@@ -244,14 +453,21 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 			return -1; /* not a supported command */
 		}
 
-		// FIXME: TLV vectors are ignored
-		//         (useful to see whether proxied client is using SSL)
-
+		if (master_service_haproxy_parse_tlv(hpconn, rbuf+i, size-i, &error) < 0) {
+			i_error("haproxy(v2): Client disconnected: "
+				"Invalid TLV: %s (cmd=%02x, rip=%s)",
+				error,
+				(hdr->ver_cmd & 0x0f),
+				net_ip2addr(real_remote_ip));
+			return -1;
+		}
 	/* protocol version 1 (soon obsolete) */
-	} else if (ret >= 8 && memcmp(buf.v1_data, "PROXY", 5) == 0) {
+	} else if (version == HAPROXY_VERSION_1) {
 		unsigned char *data = buf.v1_data, *end;
 		const char *const *fields;
 		unsigned int family = 0;
+
+		i_assert(ret >= 8);
 
 		/* find end of header line */
 		end = memchr(data, '\r', ret - 1);
@@ -362,32 +578,22 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 				return -1;
 			}
 		}
+		i_assert(size <= sizeof(buf));
 
+		if ((ret = master_service_haproxy_recv(fd, &buf, size, 0))<=0) {
+			if (ret < 0)
+				i_info("haproxy: Client disconnected (rip=%s): %m",
+				       net_ip2addr(real_remote_ip));
+			return ret;
+		} else if (ret != (ssize_t)size) {
+			i_error("haproxy: Client disconnected: "
+				"Failed to read full header (rip=%s)",
+				net_ip2addr(real_remote_ip));
+			return -1;
+		}
 	/* invalid protocol */
 	} else {
-		i_error("haproxy: Client disconnected: "
-			"No valid proxy header found (rip=%s)",
-			net_ip2addr(real_remote_ip));
-		return -1;
-	}
-
-	/* remove proxy protocol header from socket buffer */
-	i_assert(size <= sizeof(buf));
-	do {
-		  ret = recv(fd, &buf, size, 0);
-	} while (ret == -1 && errno == EINTR);
-
-	if (ret <= 0) {
-		i_info("haproxy: Client disconnected (rip=%s)",
-		       net_ip2addr(real_remote_ip));
-		return -1;
-	}
-	if (ret != (ssize_t)size) {
-		/* not supposed to happen */
-		i_error("haproxy: Client disconencted: "
-			"Failed to read full header (rip=%s)",
-			net_ip2addr(real_remote_ip));
-		return -1;
+		i_unreached();
 	}
 
 	/* assign data from proxy */
@@ -395,6 +601,8 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	hpconn->conn.remote_ip = remote_ip;
 	hpconn->conn.local_port = local_port;
 	hpconn->conn.remote_port = remote_port;
+	hpconn->conn.proxied = TRUE;
+
 	return 1;
 }
 
@@ -440,6 +648,7 @@ void master_service_haproxy_new(struct master_service *service,
 				struct master_service_connection *conn)
 {
 	struct master_service_haproxy_conn *hpconn;
+	pool_t pool;
 
 	if (!master_service_haproxy_conn_is_trusted(service, conn)) {
 		i_warning("haproxy: Client not trusted (rip=%s)",
@@ -448,7 +657,9 @@ void master_service_haproxy_new(struct master_service *service,
 		return;
 	}
 
-	hpconn = i_new(struct master_service_haproxy_conn, 1);
+	pool = pool_alloconly_create("haproxy connection", 128);
+	hpconn = p_new(pool, struct master_service_haproxy_conn, 1);
+	hpconn->pool = pool;
 	hpconn->conn = *conn;
 	hpconn->service = service;
 	DLLIST_PREPEND(&service->haproxy_conns, hpconn);

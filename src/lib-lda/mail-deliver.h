@@ -4,9 +4,11 @@
 #include "guid.h"
 #include "mail-types.h"
 #include "mail-error.h"
+#include "smtp-params.h"
 
 #include <sys/time.h>
 
+struct smtp_address;
 struct mail_storage;
 struct mail_save_context;
 struct mailbox;
@@ -33,18 +35,21 @@ struct mail_deliver_context {
 	const char *session_id;
 	/* Mail to save */
 	struct mail *src_mail;
-	/* Envelope sender, if known. */
-	const char *src_envelope_sender;
 
+	/* Envelope sender, if known. */
+	const struct smtp_address *mail_from;
+	/* MAIL parameters */
+	struct smtp_params_mail mail_params;
+
+	/* Envelope recipient (final recipient) */
+	const struct smtp_address *rcpt_to;
+	/* RCPT parameters (can contain original recipient) */
+	struct smtp_params_rcpt rcpt_params;
 	/* Destination user */
-	struct mail_user *dest_user;
-	/* Original recipient address */
-	const char *dest_addr;
-	/* Final recipient address (typically same as dest_addr) */
-	const char *final_dest_addr;
+	struct mail_user *rcpt_user;
 	/* Mailbox where mail should be saved, unless e.g. Sieve does
 	   something to it. */
-	const char *dest_mailbox_name;
+	const char *rcpt_default_mailbox;
 
 	/* Filled with destination mail, if save_dest_mail=TRUE.
 	   The caller must free the mail, its transaction and close
@@ -84,8 +89,10 @@ mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
 
-const char *mail_deliver_get_address(struct mail *mail, const char *header);
-const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx);
+const struct smtp_address *
+mail_deliver_get_address(struct mail *mail, const char *header);
+const struct smtp_address *
+mail_deliver_get_return_address(struct mail_deliver_context *ctx);
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx);
 
 struct mail_deliver_session *mail_deliver_session_init(void);

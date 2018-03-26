@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -590,7 +590,7 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	}
 	hash_table_iterate_deinit(&iter);
 
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) <= 0) {
 		*error_r = t_strdup_printf("write(%s) failed: %s", temp_path,
 					   o_stream_get_error(output));
 		o_stream_destroy(&output);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 
@@ -129,7 +129,7 @@ checkpassword_request_finish_auth(struct chkpw_auth_request *request)
 	/* standard checkpassword exit codes: */
 	case 1:
 		/* (1 is additionally defined in vpopmail for
-		   "pop/smtp/webmal/ imap/access denied") */
+		   "pop/smtp/webmail/ imap/access denied") */
 		auth_request_log_info(request->request, AUTH_SUBSYS_DB,
 				      "Login failed (status=%d)",
 				      request->exit_status);
@@ -335,8 +335,7 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 	size_t size;
 	ssize_t ret;
 
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    CHECKPASSWORD_MAX_REQUEST_LEN);
+	buf = t_buffer_create(CHECKPASSWORD_MAX_REQUEST_LEN);
 	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
 	if (request->auth_password != NULL) {
 		buffer_append(buf, request->auth_password,

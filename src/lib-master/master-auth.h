@@ -25,7 +25,11 @@ struct master_service;
 
 enum mail_auth_request_flags {
 	/* Connection has TLS compression enabled */
-	MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION	= 0x01
+	MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION	= BIT(0),
+	/* Connection is secure (SSL or just trusted) */
+	MAIL_AUTH_REQUEST_FLAG_CONN_SECURED = BIT(1),
+	/* Connection is secured using SSL specifically */
+	MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED = BIT(2),
 };
 
 /* Authentication request. File descriptor may be sent along with the
@@ -40,9 +44,10 @@ struct master_auth_request {
 	unsigned int client_pid;
 	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
 
-	/* Local and remote IPs of the connection. The file descriptor
+	/* Properties of the connection. The file descriptor
 	   itself may be a local socketpair. */
 	struct ip_addr local_ip, remote_ip;
+	in_port_t local_port, remote_port;
 
 	uint32_t flags;
 

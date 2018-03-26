@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 /* @UNSAFE: whole file */
 
@@ -51,9 +51,6 @@ void o_stream_file_close(struct iostream_private *stream,
 				bool close_parent ATTR_UNUSED)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
-
-	/* flush output before really closing it */
-	(void)o_stream_flush(&fstream->ostream.ostream);
 
 	stream_closed(fstream);
 }
@@ -336,6 +333,7 @@ static int buffer_flush(struct file_ostream *fstream)
 static void o_stream_file_cork(struct ostream_private *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
+	struct iostream_private *iostream = &fstream->ostream.iostream;
 	int ret;
 
 	if (stream->corked != set && !stream->ostream.closed) {
@@ -344,11 +342,14 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 		else if (!set) {
 			/* buffer flushing might close the stream */
 			ret = buffer_flush(fstream);
+			stream->last_errors_not_checked = TRUE;
 			if (fstream->io == NULL &&
 			    (ret == 0 || fstream->flush_pending) &&
 			    !stream->ostream.closed) {
-				fstream->io = io_add(fstream->fd, IO_WRITE,
-						     stream_send_io, fstream);
+				fstream->io = io_add_to(
+					io_stream_get_ioloop(iostream),
+					fstream->fd, IO_WRITE,
+					stream_send_io, fstream);
 			}
 		}
 
@@ -373,11 +374,13 @@ static void
 o_stream_file_flush_pending(struct ostream_private *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
+	struct iostream_private *iostream = &fstream->ostream.iostream;
 
 	fstream->flush_pending = set;
 	if (set && !stream->corked && fstream->io == NULL) {
-		fstream->io = io_add(fstream->fd, IO_WRITE,
-				     stream_send_io, fstream);
+		fstream->io = io_add_to(io_stream_get_ioloop(iostream),
+					fstream->fd, IO_WRITE,
+					stream_send_io, fstream);
 	}
 }
 
@@ -395,7 +398,8 @@ static size_t get_unused_space(const struct file_ostream *fstream)
 	}
 }
 
-static size_t o_stream_file_get_used_size(const struct ostream_private *stream)
+static size_t
+o_stream_file_get_buffer_used_size(const struct ostream_private *stream)
 {
 	const struct file_ostream *fstream =
 		(const struct file_ostream *)stream;
@@ -461,6 +465,7 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 static void stream_send_io(struct file_ostream *fstream)
 {
 	struct ostream *ostream = &fstream->ostream.ostream;
+	struct iostream_private *iostream = &fstream->ostream.iostream;
 	bool use_cork = !fstream->ostream.corked;
 	int ret;
 
@@ -490,8 +495,9 @@ static void stream_send_io(struct file_ostream *fstream)
 		   might have just returned 0 without there being any data
 		   to be sent. */
 		if (fstream->io == NULL) {
-			fstream->io = io_add(fstream->fd, IO_WRITE,
-					     stream_send_io, fstream);
+			fstream->io = io_add_to(io_stream_get_ioloop(iostream),
+						fstream->fd, IO_WRITE,
+						stream_send_io, fstream);
 		}
 	}
 
@@ -501,6 +507,7 @@ static void stream_send_io(struct file_ostream *fstream)
 static size_t o_stream_add(struct file_ostream *fstream,
 			   const void *data, size_t size)
 {
+	struct iostream_private *iostream = &fstream->ostream.iostream;
 	size_t unused, sent;
 	int i;
 
@@ -531,8 +538,9 @@ static size_t o_stream_add(struct file_ostream *fstream,
 
 	if (sent != 0 && fstream->io == NULL &&
 	    !fstream->ostream.corked && !fstream->file) {
-		fstream->io = io_add(fstream->fd, IO_WRITE, stream_send_io,
-				     fstream);
+		fstream->io = io_add_to(io_stream_get_ioloop(iostream),
+					fstream->fd, IO_WRITE, stream_send_io,
+				     	fstream);
 	}
 
 	return sent;
@@ -929,12 +937,13 @@ o_stream_file_send_istream(struct ostream_private *outstream,
 	return io_stream_copy_same_stream(outstream, instream);
 }
 
-static void o_stream_file_switch_ioloop(struct ostream_private *stream)
+static void o_stream_file_switch_ioloop_to(struct ostream_private *stream,
+					   struct ioloop *ioloop)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	if (fstream->io != NULL)
-		fstream->io = io_loop_move_io(&fstream->io);
+		fstream->io = io_loop_move_io_to(ioloop, &fstream->io);
 }
 
 struct ostream *
@@ -953,12 +962,13 @@ o_stream_create_file_common(struct file_ostream *fstream,
 	fstream->ostream.cork = o_stream_file_cork;
 	fstream->ostream.flush = o_stream_file_flush;
 	fstream->ostream.flush_pending = o_stream_file_flush_pending;
-	fstream->ostream.get_used_size = o_stream_file_get_used_size;
+	fstream->ostream.get_buffer_used_size =
+		o_stream_file_get_buffer_used_size;
 	fstream->ostream.seek = o_stream_file_seek;
 	fstream->ostream.sendv = o_stream_file_sendv;
 	fstream->ostream.write_at = o_stream_file_write_at;
 	fstream->ostream.send_istream = o_stream_file_send_istream;
-	fstream->ostream.switch_ioloop = o_stream_file_switch_ioloop;
+	fstream->ostream.switch_ioloop_to = o_stream_file_switch_ioloop_to;
 
 	fstream->writev = o_stream_file_writev;
 

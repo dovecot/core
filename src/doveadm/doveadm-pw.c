@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define DEFAULT_SCHEME "CRAM-MD5"
+#define DEFAULT_SCHEME "CRYPT"
 
 static struct module *modules = NULL;
 

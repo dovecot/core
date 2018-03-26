@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 
@@ -28,7 +28,6 @@ static void o_stream_lz4_close(struct iostream_private *stream,
 {
 	struct lz4_ostream *zstream = (struct lz4_ostream *)stream;
 
-	(void)o_stream_flush(&zstream->ostream.ostream);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);
 }
@@ -138,17 +137,38 @@ o_stream_lz4_send_chunk(struct lz4_ostream *zstream,
 static int o_stream_lz4_flush(struct ostream_private *stream)
 {
 	struct lz4_ostream *zstream = (struct lz4_ostream *)stream;
-	int ret;
 
 	if (o_stream_lz4_compress(zstream) < 0)
 		return -1;
 	if (o_stream_lz4_send_outbuf(zstream) < 0)
 		return -1;
 
-	ret = o_stream_flush(stream->parent);
-	if (ret < 0)
-		o_stream_copy_error_from_parent(stream);
-	return ret;
+	return o_stream_flush_parent(stream);
+}
+
+static size_t
+o_stream_lz4_get_buffer_used_size(const struct ostream_private *stream)
+{
+	const struct lz4_ostream *zstream =
+		(const struct lz4_ostream *)stream;
+
+	/* outbuf has already compressed data that we're trying to send to the
+	   parent stream. compressbuf isn't included in the return value,
+	   because it needs to be filled up or flushed. */
+	return (zstream->outbuf_used - zstream->outbuf_offset) +
+		o_stream_get_buffer_used_size(stream->parent);
+}
+
+static size_t
+o_stream_lz4_get_buffer_avail_size(const struct ostream_private *stream)
+{
+	const struct lz4_ostream *zstream =
+		(const struct lz4_ostream *)stream;
+
+	/* We're only guaranteed to accept data to compressbuf. The parent
+	   stream might have space, but since compressed data gets written
+	   there it's not really known how much we can actually write there. */
+	return sizeof(zstream->compressbuf) - zstream->compressbuf_offset;
 }
 
 static ssize_t
@@ -188,6 +208,10 @@ struct ostream *o_stream_create_lz4(struct ostream *output, int level)
 	zstream = i_new(struct lz4_ostream, 1);
 	zstream->ostream.sendv = o_stream_lz4_sendv;
 	zstream->ostream.flush = o_stream_lz4_flush;
+	zstream->ostream.get_buffer_used_size =
+		o_stream_lz4_get_buffer_used_size;
+	zstream->ostream.get_buffer_avail_size =
+		o_stream_lz4_get_buffer_avail_size;
 	zstream->ostream.iostream.close = o_stream_lz4_close;
 
 	i_assert(sizeof(zstream->outbuf) >= sizeof(*hdr));

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "array.h"
@@ -408,8 +408,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 	ctx->state.cur_str = str_new(default_pool, 8192);
 	ctx->state.fetching = TRUE;
 
-	if (wanted_headers != NULL)
-		mailbox_header_lookup_unref(&wanted_headers);
+	mailbox_header_lookup_unref(&wanted_headers);
 }
 
 static int imap_fetch_flush_buffer(struct imap_fetch_context *ctx)
@@ -666,8 +665,7 @@ int imap_fetch_end(struct imap_fetch_context *ctx)
 	}
 	ctx->client->output_cmd_lock = NULL;
 
-	if (state->cur_str != NULL)
-		str_free(&state->cur_str);
+	str_free(&state->cur_str);
 
 	i_stream_unref(&state->cur_input);
 
@@ -993,6 +991,7 @@ imap_fetch_default_handlers[] = {
 	{ "INTERNALDATE", fetch_internaldate_init },
 	{ "MODSEQ", imap_fetch_modseq_init },
 	{ "RFC822", imap_fetch_rfc822_init },
+	{ "SNIPPET", imap_fetch_snippet_init },
 	{ "UID", imap_fetch_uid_init },
 	{ "X-GUID", fetch_guid_init },
 	{ "X-MAILBOX", fetch_x_mailbox_init },

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "crc32.h"
@@ -794,6 +794,8 @@ void imap_state_import_idle_cmd_tag(struct client *client, const char *tag)
 		i_assert(command != NULL);
 		cmd->func = command->func;
 		cmd->cmd_flags = command->flags;
+		client_command_init_finished(cmd);
+
 		if (command_exec(cmd)) {
 			/* IDLE terminated because of an external change, but
 			   DONE was already buffered */

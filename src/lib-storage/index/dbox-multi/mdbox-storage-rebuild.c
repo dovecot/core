@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -331,7 +331,7 @@ rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 	}
 }
 
-static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
+static void rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 {
 	struct mdbox_map *map = ctx->storage->map;
 	const struct mail_index_header *hdr;
@@ -347,8 +347,14 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 	hdr = mail_index_get_header(ctx->atomic->sync_view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		if (mdbox_map_view_lookup_rec(map, ctx->atomic->sync_view,
-					      seq, &rec) < 0)
-			return -1;
+					      seq, &rec) < 0) {
+			/* map or ref extension is missing from the index.
+			   Just ignore the file entirely. (Don't try to
+			   continue with other records, since they'll fail
+			   as well, and each failure logs the same error.) */
+			i_assert(seq == 1);
+			break;
+		}
 
 		/* look up the rebuild msg record for this message based on
 		   the (file_id, offset, size) triplet */
@@ -373,7 +379,6 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 	/* afterwards we're interested in looking up map_uids.
 	   re-sort the messages to make it easier. */
 	array_sort(&ctx->msgs, mdbox_rebuild_msg_uid_cmp);
-	return 0;
 }
 
 static struct mdbox_rebuild_msg *
@@ -944,8 +949,8 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 			return -1;
 	}
 
-	if (rebuild_apply_map(ctx) < 0 ||
-	    rebuild_mailboxes(ctx) < 0 ||
+	rebuild_apply_map(ctx);
+	if (rebuild_mailboxes(ctx) < 0 ||
 	    rebuild_finish(ctx) < 0) {
 		mdbox_map_atomic_set_failed(ctx->atomic);
 		return -1;

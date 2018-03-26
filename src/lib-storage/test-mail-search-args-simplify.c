@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -276,7 +276,7 @@ static void test_mail_search_args_simplify(void)
 	unsigned int i;
 
 	test_begin("mail search args simplify");
-	box.index = mail_index_alloc(NULL, "dovecot.index.");
+	box.index = mail_index_alloc(NULL, NULL, "dovecot.index.");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		args = test_build_search_args(tests[i].input);
 		/* delay simplification until after init. that way we can test

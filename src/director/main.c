@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -32,11 +32,11 @@ enum director_socket_type {
 	DIRECTOR_SOCKET_TYPE_USERDB,
 	DIRECTOR_SOCKET_TYPE_AUTHREPLY,
 	DIRECTOR_SOCKET_TYPE_RING,
-	DIRECTOR_SOCKET_TYPE_DOVEADM
+	DIRECTOR_SOCKET_TYPE_DOVEADM,
+	DIRECTOR_SOCKET_TYPE_PROXY_NOTIFY,
 };
 
 static struct director *director;
-static struct notify_connection *notify_conn;
 static struct timeout *to_proctitle_refresh;
 static ARRAY(enum director_socket_type) listener_socket_types;
 
@@ -53,20 +53,27 @@ static unsigned int director_total_users_count(void)
 static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
 {
 	static uint64_t prev_requests = 0, prev_input = 0, prev_output;
+	static uint64_t prev_incoming_requests = 0;
 	string_t *str;
 
 	str = t_str_new(64);
 	str_printfa(str, "[%u users", director_total_users_count());
+	if (director->requests_delayed_count > 0)
+		str_printfa(str, ", %u delayed", director->requests_delayed_count);
 	if (director->users_moving_count > 0)
 		str_printfa(str, ", %u moving", director->users_moving_count);
-	str_printfa(str, ", %"PRIu64" req/s",
-		    director->num_requests - prev_requests);
+	if (director->users_kicking_count > 0)
+		str_printfa(str, ", %u kicking", director->users_kicking_count);
+	str_printfa(str, ", %"PRIu64"+%"PRIu64" req/s",
+		    director->num_requests - prev_requests,
+		    director->num_incoming_requests - prev_incoming_requests);
 	str_printfa(str, ", %"PRIu64"+%"PRIu64" kB/s",
 		    (director->ring_traffic_input - prev_input)/1024,
 		    (director->ring_traffic_output - prev_output)/1024);
 	str_append_c(str, ']');
 
 	prev_requests = director->num_requests;
+	prev_incoming_requests = director->num_incoming_requests;
 	prev_input = director->ring_traffic_input;
 	prev_output = director->ring_traffic_output;
 
@@ -101,6 +108,8 @@ director_socket_type_get_from_name(const char *path)
 	else if (strcmp(suffix, "admin") == 0 ||
 		 strcmp(suffix, "doveadm") == 0)
 		return DIRECTOR_SOCKET_TYPE_DOVEADM;
+	else if (strcmp(suffix, "notify") == 0)
+		return DIRECTOR_SOCKET_TYPE_PROXY_NOTIFY;
 	else
 		return DIRECTOR_SOCKET_TYPE_UNKNOWN;
 }
@@ -172,12 +181,8 @@ static void client_connected(struct master_service_connection *conn)
 	bool userdb;
 
 	if (conn->fifo) {
-		if (notify_conn != NULL) {
-			i_error("Received another proxy-notify connection");
-			return;
-		}
 		master_service_client_connection_accept(conn);
-		notify_conn = notify_connection_init(director, conn->fd);
+		notify_connection_init(director, conn->fd, TRUE);
 		return;
 	}
 
@@ -216,6 +221,10 @@ static void client_connected(struct master_service_connection *conn)
 	case DIRECTOR_SOCKET_TYPE_DOVEADM:
 		master_service_client_connection_accept(conn);
 		(void)doveadm_connection_init(director, conn->fd);
+		break;
+	case DIRECTOR_SOCKET_TYPE_PROXY_NOTIFY:
+		master_service_client_connection_accept(conn);
+		notify_connection_init(director, conn->fd, FALSE);
 		break;
 	}
 }
@@ -261,7 +270,7 @@ static void main_preinit(void)
 	if (master_service_settings_get(master_service)->verbose_proctitle) {
 		to_proctitle_refresh =
 			timeout_add(1000, director_refresh_proctitle_timeout,
-				    (void *)NULL);
+				    NULL);
 	}
 	set = master_service_settings_get_others(master_service)[0];
 
@@ -273,7 +282,8 @@ static void main_preinit(void)
 
 	directors_init();
 	director = director_init(set, &listen_ip, listen_port,
-				 director_state_changed);
+				 director_state_changed,
+				 doveadm_connections_kick_callback);
 	director_host_add_from_string(director, set->director_servers);
 	director_find_self(director);
 	if (mail_hosts_parse_and_add(director->mail_hosts,
@@ -281,15 +291,14 @@ static void main_preinit(void)
 		i_fatal("Invalid value for director_mail_servers setting");
 	director->orig_config_hosts = mail_hosts_dup(director->mail_hosts);
 
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 }
 
 static void main_deinit(void)
 {
 	timeout_remove(&to_proctitle_refresh);
-	if (notify_conn != NULL)
-		notify_connection_deinit(&notify_conn);
+	notify_connections_deinit();
 	/* deinit doveadm connections before director, so it can clean up
 	   its pending work, such as abort user moves. */
 	doveadm_connections_deinit();

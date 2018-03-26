@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -90,7 +90,7 @@ void io_loop_handle_add(struct io_file *io)
 	int op;
 	bool first;
 
-	list = array_idx_modifiable(&ctx->fd_index, io->fd);
+	list = array_idx_get_space(&ctx->fd_index, io->fd);
 	if (*list == NULL)
 		*list = i_new(struct io_list, 1);
 
@@ -154,7 +154,7 @@ void io_loop_handle_remove(struct io_file *io, bool closed)
 	if (last) {
 		/* since we're not freeing memory in any case, just increase
 		   deleted counter so next handle_add() can just decrease it
-		   insteading of appending to the events array */
+		   instead of appending to the events array */
 		ctx->deleted_count++;
 	}
 	i_free(io);

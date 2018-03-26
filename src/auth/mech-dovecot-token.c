@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 /* Used internally by Dovecot processes to authenticate against each others
    (e.g. imap to imap-urlauth). See auth-token.c */
@@ -54,6 +54,7 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 		if (auth_token != NULL &&
 		    strcmp(auth_token, valid_token) == 0) {
 			request->passdb_success = TRUE;
+			auth_request_set_field(request, "userdb_client_service", service, "");
 			auth_request_success(request, NULL, 0);
 		} else {
 			auth_request_fail(request);

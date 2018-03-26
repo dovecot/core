@@ -19,7 +19,9 @@ enum config_dump_flags {
 	CONFIG_DUMP_FLAG_CHECK_SETTINGS		= 0x01,
 	CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS	= 0x02,
 	/* Errors are reported using callback and they don't stop handling */
-	CONFIG_DUMP_FLAG_CALLBACK_ERRORS	= 0x04
+	CONFIG_DUMP_FLAG_CALLBACK_ERRORS	= 0x04,
+	/* Set if dumping a section and not top level config */
+	CONFIG_DUMP_FLAG_IN_SECTION		= 0x08,
 };
 
 enum config_key_type {

@@ -6,7 +6,8 @@ struct dsync_client;
 enum dsync_reply {
 	DSYNC_REPLY_OK,
 	DSYNC_REPLY_FAIL,
-	DSYNC_REPLY_NOUSER
+	DSYNC_REPLY_NOUSER,
+	DSYNC_REPLY_NOREPLICATE,
 };
 
 enum dsync_type {

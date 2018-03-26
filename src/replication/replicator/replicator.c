@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -64,7 +64,7 @@ static void main_init(void)
 				      REPLICATOR_FAILURE_RESYNC_INTERVAL_SECS);
 	replication_add_users(queue);
 	to_dump = timeout_add(REPLICATOR_DB_DUMP_INTERVAL_MSECS,
-			      replicator_dump_timeout, (void *)NULL);
+			      replicator_dump_timeout, NULL);
 	brain = replicator_brain_init(queue, set);
 	doveadm_connections_init();
 }
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service, "replicator: ");
 
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 	/* finish init before we get list of users from auth, because that
 	   can take long enough for master process to kill us otherwise. */

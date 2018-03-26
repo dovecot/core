@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 #define FS_CLASS_CRYPT fs_class_mail_crypt
 #include "fs-crypt-common.c"
 
@@ -39,6 +39,7 @@ const struct fs fs_class_mail_crypt = {
 		fs_crypt_init,
 		fs_crypt_deinit,
 		fs_wrapper_get_properties,
+		fs_crypt_file_alloc,
 		fs_crypt_file_init,
 		fs_crypt_file_deinit,
 		fs_crypt_file_close,
@@ -60,6 +61,7 @@ const struct fs fs_class_mail_crypt = {
 		fs_wrapper_copy,
 		fs_wrapper_rename,
 		fs_wrapper_delete,
+		fs_wrapper_iter_alloc,
 		fs_wrapper_iter_init,
 		fs_wrapper_iter_next,
 		fs_wrapper_iter_deinit,

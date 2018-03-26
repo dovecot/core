@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -74,7 +74,7 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 	if (ssl_dh_parameters != NULL) *value = ssl_dh_parameters;
 
 	const char *fn = t_strconcat(PKG_STATEDIR, "/ssl-parameters.dat", NULL);
-	buffer_t *data = buffer_create_dynamic(pool_datastack_create(), 300);
+	buffer_t *data = t_buffer_create(300);
 	string_t *b64_data = t_str_new(500);
 	size_t siz;
 	unsigned short keysize;
@@ -129,7 +129,7 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 
 		if (!seen_ssl_parameters_dat) {
 			i_warning("please set ssl_dh=<%s", SYSCONFDIR"/dh.pem");
-			i_warning("You can generate it with: dd if=%s bs=1 skip=%u | openssl dh -inform der > %s", fn, off, SYSCONFDIR"/dh.pem");
+			i_warning("You can generate it with: dd if=%s bs=1 skip=%u | openssl dhparam -inform der > %s", fn, off, SYSCONFDIR"/dh.pem");
 			seen_ssl_parameters_dat = TRUE;
 		}
 	} else if (is->stream_errno == ENOENT) {
@@ -143,6 +143,61 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 	i_stream_unref(&is);
 
 	return TRUE;
+}
+
+/* FIXME: Remove ssl_protocols_to_min_protocol() in v2.4 */
+static int ssl_protocols_to_min_protocol(const char *ssl_protocols,
+					 const char **min_protocol_r,
+					 const char **error_r)
+{
+	static const char *protocol_versions[] = {
+		"SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2",
+	};
+	/* Array where -1 = disable, 0 = not found, 1 = enable */
+	int protos[N_ELEMENTS(protocol_versions)];
+	memset(protos, 0, sizeof(protos));
+	bool explicit_enable = FALSE;
+
+	const char *const *tmp = t_strsplit_spaces(ssl_protocols, ", ");
+	for (; *tmp != NULL; tmp++) {
+		const char *p = *tmp;
+		bool enable = TRUE;
+		if (p[0] == '!') {
+			enable = FALSE;
+			++p;
+		}
+		for (unsigned i = 0; i < N_ELEMENTS(protocol_versions); i++) {
+			if (strcmp(p, protocol_versions[i]) == 0) {
+				if (enable) {
+					protos[i] = 1;
+					explicit_enable = TRUE;
+				} else {
+					protos[i] = -1;
+				}
+				goto found;
+			}
+		}
+		*error_r = t_strdup_printf("Unrecognized protocol '%s'", p);
+		return -1;
+
+		found:;
+	}
+
+	unsigned min = N_ELEMENTS(protocol_versions);
+	for (unsigned i = 0; i < N_ELEMENTS(protocol_versions); i++) {
+		if (explicit_enable) {
+			if (protos[i] > 0)
+				min = I_MIN(min, i);
+		} else if (protos[i] == 0)
+			min = I_MIN(min, i);
+	}
+	if (min == N_ELEMENTS(protocol_versions)) {
+		*error_r = "All protocols disabled";
+		return -1;
+	}
+
+	*min_protocol_r = protocol_versions[min];
+	return 0;
 }
 
 static bool
@@ -227,6 +282,19 @@ old_settings_handle_root(struct config_parser_context *ctx,
 	if (strcmp(key, "ssl_parameters_regenerate") == 0 ||
 	    strcmp(key, "ssl_dh_parameters_length") == 0) {
 		obsolete(ctx, "%s is no longer needed", key);
+		return TRUE;
+	}
+	if (strcmp(key, "ssl_protocols") == 0) {
+		obsolete(ctx, "%s has been replaced by ssl_min_protocol", key);
+		const char *min_protocol, *error;
+		if (ssl_protocols_to_min_protocol(value,  &min_protocol, &error) < 0) {
+			i_error("Could not find a minimum ssl_min_protocol "
+				"setting from ssl_protocols = %s: %s",
+				value, error);
+			return TRUE;
+		}
+		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+					 "ssl_min_protocol", min_protocol);
 		return TRUE;
 	}
 	if (strcmp(key, "sieve") == 0 ||

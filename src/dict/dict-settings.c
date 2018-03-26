@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -8,7 +8,7 @@
 
 /* <settings checks> */
 static struct file_listener_settings dict_unix_listeners_array[] = {
-	{ "dict", 0600, "", "" }
+	{ "dict", 0660, "", "$default_internal_group" }
 };
 static struct file_listener_settings *dict_unix_listeners[] = {
 	&dict_unix_listeners_array[0]
@@ -18,7 +18,7 @@ static buffer_t dict_unix_listeners_buf = {
 };
 
 static struct file_listener_settings dict_async_unix_listeners_array[] = {
-	{ "dict-async", 0600, "", "" }
+	{ "dict-async", 0660, "", "$default_internal_group" }
 };
 static struct file_listener_settings *dict_async_unix_listeners[] = {
 	&dict_async_unix_listeners_array[0]

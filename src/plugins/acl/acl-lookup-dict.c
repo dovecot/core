@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -301,6 +301,8 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 	const char *id;
 	unsigned int i;
 	pool_t pool;
+
+	i_assert(auser != NULL);
 
 	pool = pool_alloconly_create("acl lookup dict iter", 1024);
 	iter = p_new(pool, struct acl_lookup_dict_iter, 1);

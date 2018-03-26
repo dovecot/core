@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -20,11 +20,13 @@ struct dot_ostream {
 	bool force_extra_crlf;
 };
 
-static int
-o_stream_dot_flush(struct ostream_private *stream)
+static int o_stream_dot_finish(struct ostream_private *stream)
 {
 	struct dot_ostream *dstream = (struct dot_ostream *)stream;
 	int ret;
+
+	if (dstream->state == STREAM_STATE_DONE)
+		return 1;
 
 	if (o_stream_get_buffer_avail_size(stream->parent) < 5) {
 		/* make space for the dot line */
@@ -35,10 +37,8 @@ o_stream_dot_flush(struct ostream_private *stream)
 		}
 	}
 
-	if (dstream->state == STREAM_STATE_DONE)
-		;
-	else if (dstream->state == STREAM_STATE_CRLF &&
-		 !dstream->force_extra_crlf) {
+	if (dstream->state == STREAM_STATE_CRLF &&
+	    !dstream->force_extra_crlf) {
 		ret = o_stream_send(stream->parent, ".\r\n", 3);
 		i_assert(ret == 3);
 	} else {
@@ -46,10 +46,20 @@ o_stream_dot_flush(struct ostream_private *stream)
 		i_assert(ret == 5);
 	}
 	dstream->state = STREAM_STATE_DONE;
+	return 1;
+}
 
-	if ((ret = o_stream_flush(stream->parent)) < 0)
-		o_stream_copy_error_from_parent(stream);
-	return ret;
+static int
+o_stream_dot_flush(struct ostream_private *stream)
+{
+	int ret;
+
+	if (stream->finished) {
+		if ((ret = o_stream_dot_finish(stream)) <= 0)
+			return ret;
+	}
+
+	return o_stream_flush_parent(stream);
 }
 
 static void
@@ -212,5 +222,10 @@ o_stream_create_dot(struct ostream *output, bool force_extra_crlf)
 	dstream->ostream.flush = o_stream_dot_flush;
 	dstream->ostream.max_buffer_size = output->real_stream->max_buffer_size;
 	dstream->force_extra_crlf = force_extra_crlf;
-	return o_stream_create(&dstream->ostream, output, o_stream_get_fd(output));
+	(void)o_stream_create(&dstream->ostream, output, o_stream_get_fd(output));
+	/* ostream-dot is always used inside another ostream that shouldn't
+	   get finished when the "." line is written. Disable it here so all
+	   of the callers don't have to set this. */
+	o_stream_set_finish_also_parent(&dstream->ostream.ostream, FALSE);
+	return &dstream->ostream.ostream;
 }

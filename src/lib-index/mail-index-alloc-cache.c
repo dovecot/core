@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -134,7 +134,7 @@ mail_index_alloc_cache_find(const char *mailbox_path, const char *index_dir,
 }
 
 struct mail_index *
-mail_index_alloc_cache_get(const char *mailbox_path,
+mail_index_alloc_cache_get(struct event *parent_event, const char *mailbox_path,
 			   const char *index_dir, const char *prefix)
 {
 	struct mail_index_alloc_cache_list *match;
@@ -158,7 +158,8 @@ mail_index_alloc_cache_get(const char *mailbox_path,
 
 	match = mail_index_alloc_cache_find(mailbox_path, index_dir, &st);
 	if (match == NULL) {
-		struct mail_index *index = mail_index_alloc(index_dir, prefix);
+		struct mail_index *index =
+			mail_index_alloc(parent_event, index_dir, prefix);
 		match = mail_index_alloc_cache_add(index, mailbox_path, &st);
 	} else {
 		match->refcount++;
@@ -237,7 +238,7 @@ void mail_index_alloc_cache_unref(struct mail_index **_index)
 		mail_index_alloc_cache_list_free(list);
 	} else if (to_index == NULL) {
 		to_index = timeout_add(INDEX_CACHE_TIMEOUT*1000/2,
-				       index_removal_timeout, (void *)NULL);
+				       index_removal_timeout, NULL);
 	}
 }
 

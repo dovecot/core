@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -28,7 +28,7 @@ void mail_index_map_init_extbufs(struct mail_index_map *map,
 		p_clear(map->extension_pool);
 
 		/* try to use the existing pool's size for initial_count so
-		   we don't grow it unneededly */
+		   we don't grow it needlessly */
 		size = p_get_max_easy_alloc_size(map->extension_pool);
 		if (size > EXT_GLOBAL_ALLOC_SIZE + EXT_PER_ALLOC_SIZE) {
 			initial_count = (size - EXT_GLOBAL_ALLOC_SIZE) /
@@ -239,7 +239,7 @@ static void mail_index_header_init(struct mail_index *index,
 	hdr->header_size = sizeof(*hdr);
 	hdr->record_size = sizeof(struct mail_index_record);
 
-#if !WORDS_BIGENDIAN
+#ifndef WORDS_BIGENDIAN
 	hdr->compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 

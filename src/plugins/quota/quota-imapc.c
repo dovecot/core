@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -294,7 +294,8 @@ imapc_quota_refresh_root_order_cmp(const struct imapc_quota_refresh_root *root1,
 		return 0;
 }
 
-static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root)
+static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root,
+				       const char **error_r)
 {
 	struct imapc_simple_context sctx;
 	struct imapc_command *cmd;
@@ -316,10 +317,18 @@ static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root)
 	array_sort(&root->refresh.roots, imapc_quota_refresh_root_order_cmp);
 	imapc_quota_refresh_deinit(root->root.quota, &root->refresh,
 				   sctx.ret == 0);
+	if (sctx.ret < 0)
+		*error_r = t_strdup_printf(
+			"GETQUOTAROOT %s failed: %s",
+			root->box_name,
+			mail_storage_get_last_internal_error(
+				&root->client->_storage->storage, NULL));
+
 	return sctx.ret;
 }
 
-static int imapc_quota_refresh_root(struct imapc_quota_root *root)
+static int imapc_quota_refresh_root(struct imapc_quota_root *root,
+				    const char **error_r)
 {
 	struct imapc_simple_context sctx;
 	struct imapc_command *cmd;
@@ -346,10 +355,17 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root)
 	}
 	imapc_quota_refresh_deinit(root->root.quota, &root->refresh,
 				   sctx.ret == 0);
+	if (sctx.ret < 0)
+		*error_r = t_strdup_printf(
+			"GETQUOTA %s failed: %s",
+			root->root_name,
+			mail_storage_get_last_internal_error(
+				&root->client->_storage->storage, NULL));
 	return sctx.ret;
 }
 
-static int imapc_quota_refresh(struct imapc_quota_root *root)
+static int imapc_quota_refresh(struct imapc_quota_root *root,
+			       const char **error_r)
 {
 	enum imapc_capability capa;
 	int ret;
@@ -364,8 +380,10 @@ static int imapc_quota_refresh(struct imapc_quota_root *root)
 	if (!imapc_quota_client_init(root))
 		return 0;
 
-	if (imapc_client_get_capabilities(root->client->client, &capa) < 0)
+	if (imapc_client_get_capabilities(root->client->client, &capa) < 0) {
+		*error_r = "Failed to get server capabilities";
 		return -1;
+	}
 	if ((capa & IMAPC_CAPABILITY_QUOTA) == 0) {
 		/* no QUOTA capability - disable quota */
 		i_warning("quota: Remote IMAP server doesn't support QUOTA - disabling");
@@ -374,20 +392,22 @@ static int imapc_quota_refresh(struct imapc_quota_root *root)
 	}
 
 	if (root->root_name == NULL)
-		ret = imapc_quota_refresh_mailbox(root);
+		ret = imapc_quota_refresh_mailbox(root, error_r);
 	else
-		ret = imapc_quota_refresh_root(root);
+		ret = imapc_quota_refresh_root(root, error_r);
+
 	/* set the last_refresh only after the refresh, because it changes
 	   ioloop_timeval. */
 	root->last_refresh = ioloop_timeval;
 	return ret;
 }
 
-static int imapc_quota_init_limits(struct quota_root *_root)
+static int imapc_quota_init_limits(struct quota_root *_root,
+				   const char **error_r)
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 
-	return imapc_quota_refresh(root);
+	return imapc_quota_refresh(root, error_r);
 }
 
 static void
@@ -417,45 +437,45 @@ imapc_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources_both;
 }
 
-static int
+static enum quota_get_result
 imapc_quota_get_resource(struct quota_root *_root, const char *name,
-			 uint64_t *value_r)
+			 uint64_t *value_r, const char **error_r)
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 
-	if (imapc_quota_refresh(root) < 0)
-		return -1;
+	if (imapc_quota_refresh(root, error_r) < 0)
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = root->bytes_last;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		*value_r = root->count_last;
-	else
-		return 0;
-	return 1;
+	else {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static int
 imapc_quota_update(struct quota_root *root ATTR_UNUSED,
-		   struct quota_transaction_context *ctx ATTR_UNUSED)
+		   struct quota_transaction_context *ctx ATTR_UNUSED,
+		   const char **error_r ATTR_UNUSED)
 {
 	return 0;
 }
 
 struct quota_backend quota_backend_imapc = {
-	"imapc",
+	.name = "imapc",
 
-	{
-		imapc_quota_alloc,
-		imapc_quota_init,
-		imapc_quota_deinit,
-		NULL,
-		imapc_quota_init_limits,
-		imapc_quota_namespace_added,
-		imapc_quota_root_get_resources,
-		imapc_quota_get_resource,
-		imapc_quota_update,
-		NULL,
-		NULL
+	.v = {
+		.alloc = imapc_quota_alloc,
+		.init = imapc_quota_init,
+		.deinit = imapc_quota_deinit,
+		.init_limits = imapc_quota_init_limits,
+		.namespace_added = imapc_quota_namespace_added,
+		.get_resources = imapc_quota_root_get_resources,
+		.get_resource = imapc_quota_get_resource,
+		.update = imapc_quota_update,
 	}
 };

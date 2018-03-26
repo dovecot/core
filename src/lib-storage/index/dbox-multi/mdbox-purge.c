@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -207,7 +207,7 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 
 	input = i_stream_create_limit(file->input, msg_size);
 	o_stream_nsend_istream(output, input);
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_flush(output) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 					  "write(%s) failed: %s",
 					  out_file_append->file->cur_path,
@@ -215,7 +215,7 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 		ret = -1;
 	} else if (input->v_offset != msg_size) {
 		i_assert(input->v_offset < msg_size);
-		i_assert(i_stream_is_eof(file->input));
+		i_assert(i_stream_read_eof(file->input));
 
 		dbox_file_set_corrupted(file, "truncated message at EOF");
 		ret = 0;

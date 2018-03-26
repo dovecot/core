@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 /* imap_match_init() logic originates from Cyrus, but the code is fully
    rewritten. */
@@ -172,6 +172,8 @@ imap_match_init_multiple(pool_t pool, const char *const *patterns,
 
 void imap_match_deinit(struct imap_match_glob **glob)
 {
+	if (glob == NULL || *glob == NULL)
+		return;
 	p_free((*glob)->pool, (*glob)->patterns);
 	p_free((*glob)->pool, *glob);
 	*glob = NULL;

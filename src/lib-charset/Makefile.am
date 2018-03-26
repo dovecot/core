@@ -7,10 +7,12 @@ AM_CPPFLAGS = \
 libcharset_la_LIBADD = $(LTLIBICONV)
 libcharset_la_SOURCES = \
 	charset-iconv.c \
-	charset-utf8.c
+	charset-utf8.c \
+	charset-utf8-only.c
 
 headers = \
-	charset-utf8.h
+	charset-utf8.h \
+	charset-utf8-private.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
@@ -29,8 +31,7 @@ test_charset_SOURCES = test-charset.c
 test_charset_LDADD = libcharset.la $(test_libs)
 test_charset_DEPENDENCIES = libcharset.la $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

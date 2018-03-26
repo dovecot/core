@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -33,7 +33,7 @@
    need to lock vsize updates before sync.
 */
 
-#define VSIZE_LOCK_SUFFIX ".vsize.lock"
+#define VSIZE_LOCK_SUFFIX "dovecot-vsize.lock"
 #define VSIZE_UPDATE_MAX_LOCK_SECS 10
 
 #define INDEXER_SOCKET_NAME "indexer"
@@ -71,7 +71,7 @@ static void vsize_header_refresh(struct mailbox_vsize_update *update)
 		memcpy(&update->vsize_hdr, data, sizeof(update->vsize_hdr));
 	else {
 		if (size != 0) {
-			mail_storage_set_critical(update->box->storage,
+			mailbox_set_critical(update->box,
 				"vsize-hdr has invalid size: %"PRIuSIZE_T,
 				size);
 		}
@@ -94,7 +94,7 @@ index_mailbox_vsize_check_rebuild(struct mailbox_vsize_update *update)
 
 	if (update->vsize_hdr.message_count != seq2) {
 		if (update->vsize_hdr.message_count < seq2) {
-			mail_storage_set_critical(update->box->storage,
+			mailbox_set_critical(update->box,
 				"vsize-hdr has invalid message-count (%u < %u)",
 				update->vsize_hdr.message_count, seq2);
 		} else {
@@ -139,7 +139,7 @@ static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 		/* don't log lock timeouts, because we're somewhat expecting
 		   them. Especially when lock_secs is 0. */
 		if (ret < 0)
-			mail_storage_set_critical(box->storage, "%s", error);
+			mailbox_set_critical(box, "%s", error);
 		update->lock_failed = TRUE;
 		return FALSE;
 	}
@@ -197,7 +197,7 @@ static void index_mailbox_vsize_notify_indexer(struct mailbox *box)
 			   "/"INDEXER_SOCKET_NAME, NULL);
 	fd = net_connect_unix(path);
 	if (fd == -1) {
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"Can't start vsize building on background: "
 			"net_connect_unix(%s) failed: %m", path);
 		return;
@@ -210,7 +210,7 @@ static void index_mailbox_vsize_notify_indexer(struct mailbox *box)
 	str_append_c(str, '\n');
 
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"Can't start vsize building on background: "
 			"write(%s) failed: %m", path);
 	}
@@ -225,8 +225,7 @@ void index_mailbox_vsize_update_deinit(struct mailbox_vsize_update **_update)
 
 	if (update->lock != NULL || update->rebuild)
 		index_mailbox_vsize_update_write(update);
-	if (update->lock != NULL)
-		file_lock_free(&update->lock);
+	file_lock_free(&update->lock);
 	if (update->finish_in_background)
 		index_mailbox_vsize_notify_indexer(update->box);
 
@@ -242,14 +241,14 @@ void index_mailbox_vsize_hdr_expunge(struct mailbox_vsize_update *update,
 	if (uid > update->vsize_hdr.highest_uid)
 		return;
 	if (update->vsize_hdr.message_count == 0) {
-		mail_storage_set_critical(update->box->storage,
+		mailbox_set_critical(update->box,
 			"vsize-hdr's message_count shrank below 0");
 		i_zero(&update->vsize_hdr);
 		return;
 	}
 	update->vsize_hdr.message_count--;
 	if (update->vsize_hdr.vsize < vsize) {
-		mail_storage_set_critical(update->box->storage,
+		mailbox_set_critical(update->box,
 			"vsize-hdr's vsize shrank below 0");
 		i_zero(&update->vsize_hdr);
 		return;

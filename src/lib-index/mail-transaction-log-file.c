@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -230,7 +230,7 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	hdr->hdr_size = sizeof(struct mail_transaction_log_header);
 	hdr->indexid = log->index->indexid;
 	hdr->create_stamp = ioloop_time;
-#if !WORDS_BIGENDIAN
+#ifndef WORDS_BIGENDIAN
 	hdr->compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 
@@ -535,7 +535,7 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		/* we have compatibility flags */
 		enum mail_index_header_compat_flags compat_flags = 0;
 
-#if !WORDS_BIGENDIAN
+#ifndef WORDS_BIGENDIAN
 		compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 		if (file->hdr.compat_flags != compat_flags) {
@@ -766,7 +766,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		file->hdr.prev_file_offset = 0;
 	}
 
-	writebuf = buffer_create_dynamic(pool_datastack_create(), 128);
+	writebuf = t_buffer_create(128);
 	buffer_append(writebuf, &file->hdr, sizeof(file->hdr));
 
 	if (index->ext_hdr_init_data != NULL && reset)

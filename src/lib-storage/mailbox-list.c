@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "file-create-locked.h"
 #include "mkdir-parents.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "sha1.h"
 #include "hash.h"
@@ -27,6 +28,9 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
+
+#define MAILBOX_LIST_LOCK_FNAME "mailboxes.lock"
+#define MAILBOX_LIST_LOCK_SECS 60
 
 #define MAILBOX_LIST_FS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_fs_module)
@@ -158,6 +162,9 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		list->set.index_pvt_dir = set->index_pvt_dir == NULL ||
 			strcmp(set->index_pvt_dir, set->root_dir) == 0 ? NULL :
 			p_strdup(list->pool, set->index_pvt_dir);
+		list->set.index_cache_dir = set->index_cache_dir == NULL ||
+			strcmp(set->index_cache_dir, set->root_dir) == 0 ? NULL :
+			p_strdup(list->pool, set->index_cache_dir);
 		list->set.control_dir = set->control_dir == NULL ||
 			strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
 			p_strdup(list->pool, set->control_dir);
@@ -329,6 +336,8 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->index_dir;
 		else if (strcmp(key, "INDEXPVT") == 0)
 			dest = &set_r->index_pvt_dir;
+		else if (strcmp(key, "INDEXCACHE") == 0)
+			dest = &set_r->index_cache_dir;
 		else if (strcmp(key, "CONTROL") == 0)
 			dest = &set_r->control_dir;
 		else if (strcmp(key, "ALT") == 0)
@@ -363,6 +372,9 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			continue;
 		} else if (strcmp(key, "NO-NOSELECT") == 0) {
 			set_r->no_noselect = TRUE;
+			continue;
+		} else if (strcmp(key, "NO-FS-VALIDATION") == 0) {
+			set_r->no_fs_validation = TRUE;
 			continue;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
@@ -1278,8 +1290,18 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 
 	*error_r = NULL;
 
-	if (list->mail_set->mail_full_filesystem_access)
+	if (list->mail_set->mail_full_filesystem_access ||
+	    list->set.no_fs_validation)
 		return TRUE;
+
+	/* either the list backend uses '/' as the hierarchy separator or
+	   it doesn't use filesystem at all (PROP_NO_ROOT) */
+	if ((list->props & MAILBOX_LIST_PROP_NO_ROOT) == 0 &&
+	    mailbox_list_get_hierarchy_sep(list) != '/' &&
+	    strchr(name, '/') != NULL) {
+		*error_r = "Name must not have '/' characters";
+		return FALSE;
+	}
 
 	/* make sure it's not absolute path */
 	if (*name == '/') {
@@ -1297,11 +1319,10 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 
 	   some mailbox formats have reserved directory names, such as
 	   Maildir's cur/new/tmp. if any of those would conflict with the
-	   mailbox directory name, it's not valid. maildir++ is kludged here as
-	   a special case because all of its mailbox dirs begin with "." */
+	   mailbox directory name, it's not valid. */
 	allow_internal_dirs = list->v.is_internal_name == NULL ||
 		*list->set.maildir_name != '\0' ||
-		strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0;
+		(list->props & MAILBOX_LIST_PROP_NO_INTERNAL_NAMES) != 0;
 	T_BEGIN {
 		const char *const *names;
 
@@ -1353,15 +1374,6 @@ bool mailbox_list_is_valid_name(struct mailbox_list *list,
 			return TRUE;
 		}
 		*error_r = "Name is empty";
-		return FALSE;
-	}
-
-	/* either the list backend uses '/' as the hierarchy separator or
-	   it doesn't use filesystem at all (PROP_NO_ROOT) */
-	if ((list->props & MAILBOX_LIST_PROP_NO_ROOT) == 0 &&
-	    mailbox_list_get_hierarchy_sep(list) != '/' &&
-	    strchr(name, '/') != NULL) {
-		*error_r = "Name must not have '/' characters";
 		return FALSE;
 	}
 
@@ -1455,6 +1467,13 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 			break;
 		}
 		/* fall through - default to index directory */
+	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
+		if (set->index_cache_dir != NULL &&
+		    type == MAILBOX_LIST_PATH_TYPE_INDEX_CACHE) {
+			path = set->index_cache_dir;
+			break;
+		}
+		/* fall through */
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (set->index_dir != NULL) {
 			if (set->index_dir[0] == '\0') {
@@ -1647,24 +1666,21 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 
 int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list)
 {
-	const char *root_dir, *index_dir;
+	const char *index_dir;
 
 	if (list->index_root_dir_created)
 		return 1;
 
-	/* if index root dir hasn't been created yet, do it now */
+	/* If index root dir hasn't been created yet, do it now.
+	   Do this here even if the index directory is the same as mail root
+	   directory, because it may not have been created elsewhere either. */
 	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
 					&index_dir))
 		return 0;
-	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					&root_dir))
-		return 0;
 
-	if (strcmp(root_dir, index_dir) != 0) {
-		if (mailbox_list_mkdir_root(list, index_dir,
-					    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
-			return -1;
-	}
+	if (mailbox_list_mkdir_root(list, index_dir,
+				    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
+		return -1;
 	list->index_root_dir_created = TRUE;
 	return 1;
 }
@@ -2043,4 +2059,76 @@ struct mailbox_list *mailbox_list_fs_get_list(struct fs *fs)
 
 	ctx = MAILBOX_LIST_FS_CONTEXT(fs);
 	return ctx == NULL ? NULL : ctx->list;
+}
+
+int mailbox_list_lock(struct mailbox_list *list)
+{
+	struct mailbox_permissions perm;
+	struct file_create_settings set;
+	const char *lock_dir, *lock_fname, *lock_path, *error;
+
+	if (list->lock_refcount > 0) {
+		list->lock_refcount++;
+		return 0;
+	}
+
+	mailbox_list_get_root_permissions(list, &perm);
+	i_zero(&set);
+	set.lock_timeout_secs = list->mail_set->mail_max_lock_timeout == 0 ?
+		MAILBOX_LIST_LOCK_SECS :
+		I_MIN(MAILBOX_LIST_LOCK_SECS, list->mail_set->mail_max_lock_timeout);
+	set.lock_method = list->mail_set->parsed_lock_method;
+	set.mode = perm.file_create_mode;
+	set.gid = perm.file_create_gid;
+	set.gid_origin = perm.file_create_gid_origin;
+
+	lock_fname = MAILBOX_LIST_LOCK_FNAME;
+	if (list->set.volatile_dir != NULL) {
+		/* Use VOLATILEDIR. It's shared with all mailbox_lists, so use
+		   hash of the namespace prefix as a way to make this lock name
+		   unique across the namespaces. */
+		unsigned char ns_prefix_hash[SHA1_RESULTLEN];
+		sha1_get_digest(list->ns->prefix, list->ns->prefix_len,
+				ns_prefix_hash);
+		lock_fname = t_strconcat(MAILBOX_LIST_LOCK_FNAME,
+			binary_to_hex(ns_prefix_hash, sizeof(ns_prefix_hash)), NULL);
+		lock_dir = list->set.volatile_dir;
+		set.mkdir_mode = 0700;
+	} else if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+					      &lock_dir)) {
+		/* use index root directory */
+		if (mailbox_list_mkdir_missing_index_root(list) < 0)
+			return -1;
+	} else if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR,
+					      &lock_dir)) {
+		/* use mailbox root directory */
+		if (mailbox_list_mkdir_root(list, lock_dir,
+					    MAILBOX_LIST_PATH_TYPE_DIR) < 0)
+			return -1;
+	} else {
+		/* No filesystem used by mailbox list (e.g. imapc).
+		   Just assume it's locked */
+		list->lock_refcount = 1;
+		return 0;
+	}
+	lock_path = t_strdup_printf("%s/%s", lock_dir, lock_fname);
+	if (mail_storage_lock_create(lock_path, &set, list->mail_set,
+				     &list->lock, &error) <= 0) {
+		mailbox_list_set_critical(list,
+			"Couldn't create mailbox list lock %s: %s",
+			lock_path, error);
+		return -1;
+	}
+
+	list->lock_refcount = 1;
+	return 0;
+}
+
+void mailbox_list_unlock(struct mailbox_list *list)
+{
+	i_assert(list->lock_refcount > 0);
+	if (--list->lock_refcount > 0)
+		return;
+
+	file_lock_free(&list->lock);
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "str.h"
@@ -91,7 +91,8 @@ static void test_var_get_key_range(void)
 		{ "{key}", 1, 3 },
 		{ "5.5Rk", 4, 1 },
 		{ "5.5R{key}", 5, 3 },
-		{ "{key", 1, 3 }
+		{ "{key", 1, 3 },
+		{ "{if;%{if;%{value};eq;value;t;f};eq;t;t;f}", 1, 39 },
 	};
 	unsigned int i, idx, size;
 
@@ -421,6 +422,42 @@ static void test_var_expand_if(void)
 	test_end();
 }
 
+static void test_var_expand_merge_tables(void)
+{
+	const struct var_expand_table one[] = {
+		{ 'a', "1", "alpha" },
+		{ '\0', "2", "beta" },
+		{ '\0', NULL, NULL }
+	},
+	two[] = {
+		{ 't', "3", "theta" },
+		{ '\0', "4", "phi" },
+		{ '\0', NULL, NULL }
+	},
+	*merged = NULL;
+
+
+	test_begin("var_expand_merge_tables");
+
+	merged = t_var_expand_merge_tables(one, two);
+
+	test_assert(var_expand_table_size(merged) == 4);
+	for(unsigned int i = 0; i < var_expand_table_size(merged); i++) {
+		if (i < 2) {
+			test_assert_idx(merged[i].key == one[i].key, i);
+			test_assert_idx(merged[i].value == one[i].value || strcmp(merged[i].value, one[i].value) == 0, i);
+			test_assert_idx(merged[i].long_key == one[i].long_key || strcmp(merged[i].long_key, one[i].long_key) == 0, i);
+		} else if (i < 4) {
+			test_assert_idx(merged[i].key == two[i-2].key, i);
+			test_assert_idx(merged[i].value == two[i-2].value || strcmp(merged[i].value, two[i-2].value) == 0, i);
+			test_assert_idx(merged[i].long_key == two[i-2].long_key || strcmp(merged[i].long_key, two[i-2].long_key) == 0, i);
+		} else {
+			break;
+		}
+	}
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
@@ -431,4 +468,5 @@ void test_var_expand(void)
 	test_var_has_key();
 	test_var_expand_extensions();
 	test_var_expand_if();
+	test_var_expand_merge_tables();
 }

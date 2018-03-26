@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "fs-api-private.h"
@@ -43,5 +43,5 @@ i_stream_create_fs_stats(struct istream *input, struct fs_file *file)
 	sstream->istream.istream.blocking = input->blocking;
 	sstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&sstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

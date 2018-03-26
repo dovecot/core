@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "net.h"
@@ -38,9 +38,11 @@ int imap_msgpart_url_create(struct mail_user *user, const struct imap_url *url,
 	struct imap_msgpart_url *mpurl;
 	struct imap_msgpart *msgpart;
 
-	i_assert(url->mailbox != NULL && url->uid != 0 &&
-		 url->search_program == NULL);
-
+	if (url->mailbox == NULL || url->uid == 0 ||
+	    url->search_program != NULL) {
+		*error_r = "Invalid messagepart IMAP URL";
+		return -1;
+	}
 	if (imap_msgpart_parse(section, &msgpart) < 0) {
 		*error_r = "Invalid section";
 		return -1;
@@ -90,10 +92,6 @@ int imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
 	}
 	if (url->mailbox == NULL) {
 		*error_r = "Mailbox-relative IMAP URL, but no mailbox selected";
-		return 0;
-	}
-	if (url->uid == 0 || url->search_program != NULL) {
-		*error_r = "Invalid messagepart IMAP URL";
 		return 0;
 	}
 	if (imap_msgpart_url_create(user, url, mpurl_r, error_r) < 0)

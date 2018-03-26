@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -10,19 +10,23 @@
 #include "var-expand.h"
 #include "message-date.h"
 #include "message-size.h"
+#include "message-address.h"
 #include "istream-header-filter.h"
 #include "mail-storage.h"
 #include "mail-storage-settings.h"
+#include "iostream-ssl.h"
 #include "lda-settings.h"
 #include "mail-deliver.h"
+#include "smtp-address.h"
 #include "smtp-submit.h"
 #include "mail-send.h"
 
 #include <sys/wait.h>
 
 static const struct var_expand_table *
-get_var_expand_table(struct mail *mail, const char *reason,
-		     const char *recipient)
+get_var_expand_table(struct mail *mail,
+		     const struct smtp_address *recipient,
+		     const char *reason)
 {
 	const char *subject;
 	if (mail_get_first_header(mail, "Subject", &subject) <= 0)
@@ -32,7 +36,7 @@ get_var_expand_table(struct mail *mail, const char *reason,
 		{ 'n', "\r\n", "crlf" },
 		{ 'r', reason, "reason" },
 		{ 's', str_sanitize(subject, 80), "subject" },
-		{ 't', recipient, "to" },
+		{ 't', smtp_address_encode(recipient), "to" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -42,18 +46,21 @@ get_var_expand_table(struct mail *mail, const char *reason,
 	return tab;
 }
 
-int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
+int mail_send_rejection(struct mail_deliver_context *ctx,
+			const struct smtp_address *recipient,
 			const char *reason)
 {
-	struct mail_user *user = ctx->dest_user;
+	struct mail_user *user = ctx->rcpt_user;
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
+	struct ssl_iostream_settings ssl_set;
 	struct mail *mail = ctx->src_mail;
 	struct istream *input;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
-	const char *return_addr, *hdr;
-	const char *value, *msgid, *orig_msgid, *boundary, *error;
+	const struct message_address *postmaster_addr;
+	const struct smtp_address *return_addr;
+	const char *hdr, *value, *msgid, *orig_msgid, *boundary, *error;
 	const struct var_expand_table *vtable;
 	string_t *str;
 	int ret;
@@ -70,21 +77,32 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	}
 
 	return_addr = mail_deliver_get_return_address(ctx);
-	if (return_addr == NULL) {
+	if (smtp_address_isnull(return_addr)) {
 		i_info("msgid=%s: Return-Path missing, rejection reason: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 			str_sanitize(reason, 512));
 		return 0;
 	}
 
-	if (mailbox_get_settings(mail->box)->mail_debug) {
-		i_debug("Sending a rejection to %s: %s",
-			return_addr, str_sanitize(reason, 512));
+	if (!mail_storage_get_postmaster_address(mail_set, &postmaster_addr,
+						 &error)) {
+		i_error("msgid=%s: Invalid postmaster_address - can't send rejection: %s",
+			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80), error);
+		return -1;
 	}
 
-	vtable = get_var_expand_table(mail, reason, recipient);
+	if (mailbox_get_settings(mail->box)->mail_debug) {
+		i_debug("Sending a rejection to <%s>: %s",
+			smtp_address_encode(return_addr),
+			str_sanitize(reason, 512));
+	}
 
-	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, NULL);
+	vtable = get_var_expand_table(mail, recipient, reason);
+
+	i_zero(&ssl_set);
+	mail_user_init_ssl_client_settings(user, &ssl_set);
+
+	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, &ssl_set, NULL);
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
 
@@ -94,9 +112,10 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	str = t_str_new(512);
 	str_printfa(str, "Message-ID: %s\r\n", msgid);
 	str_printfa(str, "Date: %s\r\n", message_date_create(ioloop_time));
-	str_printfa(str, "From: Mail Delivery Subsystem <%s>\r\n",
-		mail_set->postmaster_address);
-	str_printfa(str, "To: <%s>\r\n", return_addr);
+	str_append(str, "From: ");
+	message_address_write(str, postmaster_addr);
+	str_append(str, "\r\n");
+	str_printfa(str, "To: <%s>\r\n", smtp_address_encode(return_addr));
 	str_append(str, "MIME-Version: 1.0\r\n");
 	str_printfa(str, "Content-Type: "
 		"multipart/report; report-type=%s;\r\n"
@@ -137,7 +156,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 		str_printfa(str, "Reporting-MTA: dns; %s\r\n", mail_set->hostname);
 		if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 			str_printfa(str, "Original-Recipient: rfc822; %s\r\n", hdr);
-		str_printfa(str, "Final-Recipient: rfc822; %s\r\n", recipient);
+		str_printfa(str, "Final-Recipient: rfc822; %s\r\n",
+			smtp_address_encode(recipient));
 		str_append(str, "Action: failed\r\n");
 		str_printfa(str, "Status: %s\r\n", ctx->mailbox_full ? "5.2.2" : "5.2.0");
 	} else {
@@ -149,7 +169,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			mail_set->hostname);
 		if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 			str_printfa(str, "Original-Recipient: rfc822; %s\r\n", hdr);
-		str_printfa(str, "Final-Recipient: rfc822; %s\r\n", recipient);
+		str_printfa(str, "Final-Recipient: rfc822; %s\r\n",
+			smtp_address_encode(recipient));
 
 		if (orig_msgid != NULL)
 			str_printfa(str, "Original-Message-ID: %s\r\n", orig_msgid);
@@ -175,7 +196,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR |
 			HEADER_FILTER_HIDE_BODY, exclude_headers,
 			N_ELEMENTS(exclude_headers),
-			*null_header_filter_callback, (void *)NULL);
+			*null_header_filter_callback, NULL);
 
 		o_stream_nsend_istream(output, input);
 		i_stream_unref(&input);

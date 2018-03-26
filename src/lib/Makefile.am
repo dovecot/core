@@ -18,6 +18,7 @@ liblib_la_SOURCES = \
 	base32.c \
 	base64.c \
 	bits.c \
+	bloomfilter.c \
 	bsearch-insert-pos.c \
 	buffer.c \
 	child-wait.c \
@@ -27,6 +28,8 @@ liblib_la_SOURCES = \
 	data-stack.c \
 	eacces-error.c \
 	env-util.c \
+	event-filter.c \
+	event-log.c \
 	execv-const.c \
 	failures.c \
 	fd-util.c \
@@ -77,6 +80,7 @@ liblib_la_SOURCES = \
 	istream-seekable.c \
 	istream-sized.c \
 	istream-tee.c \
+	istream-try.c \
 	istream-timeout.c \
 	istream-unix.c \
 	ioloop.c \
@@ -92,11 +96,14 @@ liblib_la_SOURCES = \
 	json-parser.c \
 	json-tree.c \
 	lib.c \
+	lib-event.c \
 	lib-signals.c \
 	log-throttle.c \
 	md4.c \
 	md5.c \
+	memarea.c \
 	mempool.c \
+	mempool-allocfree.c \
 	mempool-alloconly.c \
 	mempool-datastack.c \
 	mempool-system.c \
@@ -106,12 +113,12 @@ liblib_la_SOURCES = \
 	mmap-util.c \
 	module-dir.c \
 	mountpoint.c \
+	murmurhash3.c \
 	net.c \
 	nfs-workarounds.c \
 	numpack.c \
 	ostream.c \
 	ostream-buffer.c \
-	ostream-escaped.c \
 	ostream-failure-at.c \
 	ostream-file.c \
 	ostream-hash.c \
@@ -139,6 +146,7 @@ liblib_la_SOURCES = \
 	sha2.c \
 	sha3.c \
 	sort.c \
+	stats-dist.c \
 	str.c \
 	str-find.c \
 	str-sanitize.c \
@@ -147,7 +155,6 @@ liblib_la_SOURCES = \
 	strfuncs.c \
 	strnum.c \
 	time-util.c \
-	timing.c \
 	unix-socket-create.c \
 	unlink-directory.c \
 	unlink-old-files.c \
@@ -169,6 +176,7 @@ headers = \
 	base32.h \
 	base64.h \
 	bits.h \
+	bloomfilter.h \
 	bsearch-insert-pos.h \
 	buffer.h \
 	byteorder.h \
@@ -179,6 +187,8 @@ headers = \
 	data-stack.h \
 	eacces-error.h \
 	env-util.h \
+	event-filter.h \
+	event-log.h \
 	execv-const.h \
 	failures.h \
 	fd-util.h \
@@ -230,6 +240,7 @@ headers = \
 	istream-seekable.h \
 	istream-sized.h \
 	istream-tee.h \
+	istream-try.h \
 	istream-timeout.h \
 	istream-unix.h \
 	ioloop.h \
@@ -239,6 +250,8 @@ headers = \
 	json-parser.h \
 	json-tree.h \
 	lib.h \
+	lib-event.h \
+	lib-event-private.h \
 	lib-signals.h \
 	llist.h \
 	log-throttle.h \
@@ -246,17 +259,18 @@ headers = \
 	md4.h \
 	md5.h \
 	malloc-overflow.h \
+	memarea.h \
 	mempool.h \
 	mkdir-parents.h \
 	mmap-util.h \
 	module-context.h \
 	module-dir.h \
 	mountpoint.h \
+	murmurhash3.h \
 	net.h \
 	nfs-workarounds.h \
 	numpack.h \
 	ostream.h \
-	ostream-escaped.h \
 	ostream-failure-at.h \
 	ostream-file-private.h \
 	ostream-hash.h \
@@ -285,6 +299,7 @@ headers = \
 	sha2.h \
 	sha3.h \
 	sort.h \
+	stats-dist.h \
 	str.h \
 	str-find.h \
 	str-sanitize.h \
@@ -293,7 +308,6 @@ headers = \
 	strfuncs.h \
 	strnum.h \
 	time-util.h \
-	timing.h \
 	unix-socket-create.h \
 	unlink-directory.h \
 	unlink-old-files.h \
@@ -323,6 +337,7 @@ test_lib_SOURCES = \
 	test-base32.c \
 	test-base64.c \
 	test-bits.c \
+	test-bloomfilter.c \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
 	test-byteorder.c \
@@ -354,6 +369,7 @@ test_lib_SOURCES = \
 	test-istream-seekable.c \
 	test-istream-sized.c \
 	test-istream-tee.c \
+	test-istream-try.c \
 	test-istream-unix.c \
 	test-json-parser.c \
 	test-json-tree.c \
@@ -361,13 +377,15 @@ test_lib_SOURCES = \
 	test-llist.c \
 	test-log-throttle.c \
 	test-malloc-overflow.c \
+	test-memarea.c \
 	test-mempool.c \
+	test-mempool-allocfree.c \
 	test-mempool-alloconly.c \
+	test-murmurhash3.c \
 	test-pkcs5.c \
 	test-net.c \
 	test-numpack.c \
 	test-ostream-buffer.c \
-	test-ostream-escaped.c \
 	test-ostream-failure-at.c \
 	test-ostream-file.c \
 	test-ostream-multiplex.c \
@@ -377,6 +395,7 @@ test_lib_SOURCES = \
 	test-printf-format-fix.c \
 	test-priorityq.c \
 	test-seq-range-array.c \
+	test-stats-dist.c \
 	test-str.c \
 	test-strescape.c \
 	test-strfuncs.c \
@@ -385,7 +404,6 @@ test_lib_SOURCES = \
 	test-str-sanitize.c \
 	test-str-table.c \
 	test-time-util.c \
-	test-timing.c \
 	test-unichar.c \
 	test-utc-mktime.c \
 	test-uri.c \
@@ -399,8 +417,7 @@ test_headers = \
 test_lib_LDADD = $(test_libs)
 test_lib_DEPENDENCIES = $(test_libs)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

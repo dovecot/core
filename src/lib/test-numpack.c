@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "buffer.h"
@@ -32,7 +32,7 @@ static const struct fail {
 
 void test_numpack(void)
 {
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 32);
+	buffer_t *buf = t_buffer_create(32);
 	unsigned int i;
 	const uint8_t *p, *end;
 	uint64_t num;

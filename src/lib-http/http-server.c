@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "net.h"
@@ -52,7 +52,7 @@ void http_server_deinit(struct http_server **_server)
 	connection_list_deinit(&server->conn_list);
 
 	if (server->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&server->ssl_ctx);
+		ssl_iostream_context_unref(&server->ssl_ctx);
 	pool_unref(&server->pool);
 }
 

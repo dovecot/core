@@ -12,6 +12,8 @@ auth_request_escape_func_t(const char *string,
 extern const struct var_expand_table
 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1];
 
+extern const struct var_expand_func_table auth_request_var_funcs_table[];
+
 const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  auth_request_escape_func_t *escape_func)

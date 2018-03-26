@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "mail-storage-private.h"
@@ -122,6 +122,9 @@ i_stream_mail_read(struct istream_private *stream)
 		}
 		if (mstream->expected_size < stream->istream.v_offset + size) {
 			i_stream_mail_set_size_corrupted(mstream, size);
+			/* istream code expects that the position has not changed
+			   when read error occurs, so move pos back. */
+			stream->pos -= size;
 			return -1;
 		}
 	} else if (ret == -1 && stream->istream.eof) {
@@ -165,5 +168,5 @@ struct istream *i_stream_create_mail(struct mail *mail, struct istream *input,
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&mstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -9,7 +9,7 @@
 
 /* <settings checks> */
 static struct file_listener_settings ipc_unix_listeners_array[] = {
-	{ "ipc", 0600, "", "" },
+	{ "ipc", 0600, "$default_internal_user", "" },
 	{ "login/ipc-proxy", 0600, "$default_login_user", "" }
 };
 static struct file_listener_settings *ipc_unix_listeners[] = {

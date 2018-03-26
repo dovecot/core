@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file
  */
 #include "lib.h"
 #include "buffer.h"
@@ -19,16 +19,41 @@ struct iostream_proxy {
 	void *context;
 };
 
-static
-void iostream_proxy_rtl_completion(bool success, struct iostream_proxy *proxy)
+static void
+iostream_proxy_completion(struct iostream_proxy *proxy,
+			  enum iostream_proxy_side side,
+			  enum iostream_pump_status pump_status)
 {
-	proxy->callback(IOSTREAM_PROXY_SIDE_RIGHT, success, proxy->context);
+	enum iostream_proxy_status status;
+
+	switch (pump_status) {
+	case IOSTREAM_PUMP_STATUS_INPUT_EOF:
+		status = IOSTREAM_PROXY_STATUS_INPUT_EOF;
+		break;
+	case IOSTREAM_PUMP_STATUS_INPUT_ERROR:
+		status = IOSTREAM_PROXY_STATUS_INPUT_ERROR;
+		break;
+	case IOSTREAM_PUMP_STATUS_OUTPUT_ERROR:
+		status = IOSTREAM_PROXY_STATUS_OTHER_SIDE_OUTPUT_ERROR;
+		break;
+	default:
+		i_unreached();
+	}
+	proxy->callback(side, status, proxy->context);
 }
 
 static
-void iostream_proxy_ltr_completion(bool success, struct iostream_proxy *proxy)
+void iostream_proxy_rtl_completion(enum iostream_pump_status status,
+				   struct iostream_proxy *proxy)
 {
-	proxy->callback(IOSTREAM_PROXY_SIDE_LEFT, success, proxy->context);
+	iostream_proxy_completion(proxy, IOSTREAM_PROXY_SIDE_RIGHT, status);
+}
+
+static
+void iostream_proxy_ltr_completion(enum iostream_pump_status status,
+				   struct iostream_proxy *proxy)
+{
+	iostream_proxy_completion(proxy, IOSTREAM_PROXY_SIDE_LEFT, status);
 }
 
 struct iostream_proxy *
@@ -103,8 +128,12 @@ void iostream_proxy_ref(struct iostream_proxy *proxy)
 
 void iostream_proxy_unref(struct iostream_proxy **proxy_r)
 {
-	i_assert(proxy_r != NULL && *proxy_r != NULL);
-	struct iostream_proxy *proxy = *proxy_r;
+	struct iostream_proxy *proxy;
+
+	if (proxy_r == NULL || *proxy_r == NULL)
+		return;
+
+	proxy = *proxy_r;
 	*proxy_r = NULL;
 
 	i_assert(proxy->ref > 0);
@@ -122,6 +151,18 @@ void iostream_proxy_stop(struct iostream_proxy *proxy)
 	i_assert(proxy != NULL);
 	iostream_pump_stop(proxy->ltr);
 	iostream_pump_stop(proxy->rtl);
+}
+
+bool iostream_proxy_is_waiting_output(struct iostream_proxy *proxy,
+				      enum iostream_proxy_side side)
+{
+	switch (side) {
+	case IOSTREAM_PROXY_SIDE_LEFT:
+		return iostream_pump_is_waiting_output(proxy->ltr);
+	case IOSTREAM_PROXY_SIDE_RIGHT:
+		return iostream_pump_is_waiting_output(proxy->rtl);
+	}
+	i_unreached();
 }
 
 void iostream_proxy_switch_ioloop(struct iostream_proxy *proxy)

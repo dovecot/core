@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
 #include "array.h"
@@ -344,7 +344,6 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		client_send_login_reply(imap_client, str, line + 5);
 		o_stream_nsend(client->output, str_data(str), str_len(str));
 
-		(void)client_skip_line(imap_client);
 		client_proxy_finish_destroy_client(client);
 		return 1;
 	} else if (strncmp(line, "L ", 2) == 0) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -36,7 +36,7 @@ static int
 index_list_open_view(struct mailbox *box, bool status_check,
 		     struct mail_index_view **view_r, uint32_t *seq_r)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mailbox_list_index_node *node;
 	struct mail_index_view *view;
 	uint32_t seq;
@@ -121,7 +121,7 @@ bool mailbox_list_index_status(struct mailbox_list *list,
 			       uint8_t *mailbox_guid,
 			       struct mailbox_index_vsize *vsize_r)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	const void *data;
 	bool expunged;
 	bool ret = TRUE;
@@ -228,7 +228,7 @@ index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 static int
 index_list_get_cached_guid(struct mailbox *box, guid_128_t guid_r)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mailbox_status status;
 	struct mail_index_view *view;
 	uint32_t seq;
@@ -252,7 +252,7 @@ index_list_get_cached_guid(struct mailbox *box, guid_128_t guid_r)
 
 static int index_list_get_cached_vsize(struct mailbox *box, uoff_t *vsize_r)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mailbox_status status;
 	struct mailbox_index_vsize vsize;
 	struct mail_index_view *view;
@@ -286,7 +286,7 @@ static int
 index_list_get_cached_first_saved(struct mailbox *box,
 				  struct mailbox_index_first_saved *first_saved_r)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mail_index_view *view;
 	struct mailbox_status status;
 	const void *data;
@@ -454,7 +454,7 @@ index_list_first_saved_update_changes(struct mailbox *box,
 				      struct mail_index_view *list_view,
 				      struct index_list_changes *changes)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mailbox_index_first_saved first_saved;
 	const void *data;
 	bool expunged;
@@ -529,7 +529,7 @@ index_list_update_first_saved(struct mailbox *box,
 			      struct mail_index_transaction *list_trans,
 			      const struct index_list_changes *changes)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct mailbox_index_first_saved first_saved;
@@ -572,7 +572,7 @@ index_list_update(struct mailbox *box, struct mail_index_view *list_view,
 		  struct mail_index_transaction *list_trans,
 		  const struct index_list_changes *changes)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 
 	if (changes->rec_changed) {
 		struct mailbox_list_index_record rec;
@@ -620,7 +620,7 @@ index_list_update(struct mailbox *box, struct mail_index_view *list_view,
 
 static int index_list_update_mailbox(struct mailbox *box)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mail_index_sync_ctx *list_sync_ctx;
 	struct mail_index_view *list_view;
 	struct mail_index_transaction *list_trans;
@@ -633,7 +633,7 @@ static int index_list_update_mailbox(struct mailbox *box)
 		return 0;
 	if (box->deleting) {
 		/* don't update status info while mailbox is being deleted.
-		   especially not a good idea if we're rollbacking a created
+		   especially not a good idea if we're rolling back a created
 		   mailbox that somebody else had just created */
 		return 0;
 	}
@@ -749,8 +749,7 @@ void mailbox_list_index_update_mailbox_index(struct mailbox *box,
 	mail_index_view_close(&list_view);
 }
 
-static struct mailbox_sync_context *
-index_list_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
+void mailbox_list_index_status_sync_init(struct mailbox *box)
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	const struct mail_index_header *hdr;
@@ -758,21 +757,13 @@ index_list_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	hdr = mail_index_get_header(box->view);
 	ibox->pre_sync_log_file_seq = hdr->log_file_seq;
 	ibox->pre_sync_log_file_head_offset = hdr->log_file_head_offset;
-
-	return ibox->module_ctx.super.sync_init(box, flags);
 }
 
-static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
-				  struct mailbox_sync_status *status_r)
+void mailbox_list_index_status_sync_deinit(struct mailbox *box)
 {
-	struct mailbox *box = ctx->box;
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	const struct mail_index_header *hdr;
-
-	if (ibox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
-		return -1;
-	ctx = NULL;
 
 	hdr = mail_index_get_header(box->view);
 	if (!ilist->opened &&
@@ -780,7 +771,7 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	    ibox->pre_sync_log_file_seq == hdr->log_file_seq) {
 		/* List index isn't open and sync changed nothing.
 		   Don't bother opening the list index. */
-		return 0;
+		return;
 	}
 
 	/* it probably doesn't matter much here if we push/pop the error,
@@ -788,7 +779,6 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	mail_storage_last_error_push(mailbox_get_storage(box));
 	(void)index_list_update_mailbox(box);
 	mail_storage_last_error_pop(mailbox_get_storage(box));
-	return 0;
 }
 
 static int
@@ -802,7 +792,8 @@ index_list_transaction_commit(struct mailbox_transaction_context *t,
 		return -1;
 	t = NULL;
 
-	if (!changes_r->changed)
+	/* check all changes here, because e.g. vsize update is _OTHERS */
+	if (changes_r->changes_mask == 0)
 		return 0;
 
 	/* this transaction commit may have been done in error handling path
@@ -817,7 +808,7 @@ index_list_transaction_commit(struct mailbox_transaction_context *t,
 void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 					      enum mailbox_info_flags *flags)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mail_index_view *view;
 	struct mailbox_status status;
 	uint32_t seq;
@@ -854,14 +845,12 @@ void mailbox_list_index_status_init_mailbox(struct mailbox_vfuncs *v)
 	v->exists = index_list_exists;
 	v->get_status = index_list_get_status;
 	v->get_metadata = index_list_get_metadata;
-	v->sync_init = index_list_sync_init;
-	v->sync_deinit = index_list_sync_deinit;
 	v->transaction_commit = index_list_transaction_commit;
 }
 
 void mailbox_list_index_status_init_finish(struct mailbox_list *list)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	ilist->msgs_ext_id = mail_index_ext_register(ilist->index, "msgs", 0,
 		sizeof(struct mailbox_list_index_msgs_record),

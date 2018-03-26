@@ -7,6 +7,7 @@
 #include "userdb.h"
 #include "passdb.h"
 #include "auth-request-var-expand.h"
+#include "password-scheme.h"
 
 #define AUTH_REQUEST_USER_KEY_IGNORE " "
 
@@ -20,6 +21,12 @@ enum auth_request_state {
 	AUTH_REQUEST_STATE_USERDB,
 
 	AUTH_REQUEST_STATE_MAX
+};
+
+enum auth_request_secured {
+	AUTH_REQUEST_SECURED_NONE,
+	AUTH_REQUEST_SECURED,
+	AUTH_REQUEST_SECURED_TLS,
 };
 
 struct auth_request {
@@ -107,8 +114,9 @@ struct auth_request {
 	/* auth_debug is enabled for this request */
 	bool debug:1;
 
+	enum auth_request_secured secured;
+
 	/* flags received from auth client: */
-	bool secured:1;
 	bool final_resp_ok:1;
 	bool no_penalty:1;
 	bool valid_client_cert:1;
@@ -262,7 +270,9 @@ void auth_request_log_unknown_user(struct auth_request *auth_request,
 void auth_request_log_login_failure(struct auth_request *request,
 				    const char *subsystem,
 				    const char *message);
-
+void
+auth_request_verify_plain_callback_finish(enum passdb_result result,
+                                          struct auth_request *request);
 void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request);
 void auth_request_lookup_credentials_callback(enum passdb_result result,

@@ -23,11 +23,6 @@ struct mail_index_sync_map_ctx;
    try to catch them by limiting the header size. */
 #define MAIL_INDEX_EXT_HEADER_MAX_SIZE (1024*1024*16-1)
 
-/* Write to main index file when bytes-to-be-read-from-log is between these
-   values. */
-#define MAIL_INDEX_MIN_WRITE_BYTES (1024*8)
-#define MAIL_INDEX_MAX_WRITE_BYTES (1024*128)
-
 #define MAIL_INDEX_IS_IN_MEMORY(index) \
 	((index)->dir == NULL)
 
@@ -159,6 +154,8 @@ union mail_index_module_context {
 
 struct mail_index {
 	char *dir, *prefix;
+	char *cache_dir;
+	struct event *event;
 
 	struct mail_cache *cache;
 	struct mail_transaction_log *log;
@@ -171,9 +168,7 @@ struct mail_index {
 	gid_t gid;
 	char *gid_origin;
 
-	uoff_t log_rotate_min_size, log_rotate_max_size;
-	unsigned int log_rotate_min_created_ago_secs;
-	unsigned int log_rotate_log2_stale_secs;
+	struct mail_index_optimization_settings optimization_set;
 	uint32_t pending_log2_rotate_time;
 
 	pool_t extension_pool;
@@ -241,6 +236,7 @@ struct mail_index {
 };
 
 extern struct mail_index_module_register mail_index_module_register;
+extern struct event_category event_category_index;
 
 /* Add/replace sync handler for specified extra record. */
 void mail_index_register_expunge_handler(struct mail_index *index,
@@ -342,8 +338,12 @@ void mail_index_view_transaction_unref(struct mail_index_view *view);
 
 void mail_index_fsck_locked(struct mail_index *index);
 
+/* Log an error and set it as the index's current error that is available
+   with mail_index_get_error_message(). */
 void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
+/* Same as mail_index_set_error(), but don't log the error. */
+void mail_index_set_error_nolog(struct mail_index *index, const char *str);
 /* "%s failed with index file %s: %m" */
 void mail_index_set_syscall_error(struct mail_index *index,
 				  const char *function);

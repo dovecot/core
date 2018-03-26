@@ -1,12 +1,15 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
+#include "str.h"
 #include "strescape.h"
 #include "restrict-process-size.h"
 #include "auth-request-stats.h"
+#include "auth-worker-server.h"
 #include "password-scheme.h"
 #include "passdb.h"
 #include "passdb-cache.h"
+#include "passdb-blocking.h"
 
 struct auth_cache *passdb_cache = NULL;
 
@@ -50,6 +53,17 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 	return TRUE;
 }
 
+static bool passdb_cache_verify_plain_callback(const char *reply, void *context)
+{
+	struct auth_request *request = context;
+	enum passdb_result result;
+
+	result = passdb_blocking_auth_worker_reply_parse(request, reply);
+	auth_request_verify_plain_callback_finish(result, request);
+	auth_request_unref(&request);
+	return TRUE;
+}
+
 bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 			       const char *password,
 			       enum passdb_result *result_r, bool use_expired)
@@ -70,6 +84,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		/* negative cache entry */
 		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
+		auth_request_verify_plain_callback_finish(*result_r, request);
 		return TRUE;
 	}
 
@@ -81,6 +96,23 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
 				      "Cached NULL password access");
 		ret = 1;
+	} else if (request->set->cache_verify_password_with_worker) {
+		string_t *str;
+
+		str = t_str_new(128);
+		str_printfa(str, "PASSW\t%u\t", request->passdb->passdb->id);
+		str_append_tabescaped(str, password);
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, cached_pw);
+		str_append_c(str, '\t');
+		auth_request_export(request, str);
+
+		auth_request_log_debug(request, AUTH_SUBSYS_DB, "cache: "
+				       "validating password on worker");
+		auth_request_ref(request);
+		auth_worker_call(request->pool, request->user, str_c(str),
+				 passdb_cache_verify_plain_callback, request);
+		return TRUE;
 	} else {
 		scheme = password_get_scheme(&cached_pw);
 		i_assert(scheme != NULL);
@@ -106,6 +138,8 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 
 	*result_r = ret > 0 ? PASSDB_RESULT_OK :
 		PASSDB_RESULT_PASSWORD_MISMATCH;
+
+	auth_request_verify_plain_callback_finish(*result_r, request);
 	return TRUE;
 }
 

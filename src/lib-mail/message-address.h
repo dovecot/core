@@ -1,6 +1,8 @@
 #ifndef MESSAGE_ADDRESS_H
 #define MESSAGE_ADDRESS_H
 
+struct smtp_address;
+
 /* group: ... ; will be stored like:
    {name = NULL, NULL, "group", NULL}, ..., {NULL, NULL, NULL, NULL}
 */
@@ -28,15 +30,24 @@ struct message_address *
 message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 		      unsigned int max_addresses, bool fill_missing);
 
+/* Parse RFC 5322 "path" (Return-Path header) from given data. Returns -1 if
+   the path is invalid and 0 otherwise.
+ */
+int message_address_parse_path(pool_t pool, const unsigned char *data,
+			       size_t size, struct message_address **addr_r);
+
+void message_address_init(struct message_address *addr,
+	const char *name, const char *mailbox, const char *domain)
+	ATTR_NULL(1);
+void message_address_init_from_smtp(struct message_address *addr,
+	const char *name, const struct smtp_address *smtp_addr)
+	ATTR_NULL(1);
+
 void message_address_write(string_t *str, const struct message_address *addr);
+const char *message_address_to_string(const struct message_address *addr);
+const char *message_address_first_to_string(const struct message_address *addr);
 
 /* Returns TRUE if header is known to be an address */
 bool message_header_is_address(const char *hdr_name);
-
-/* Parse address+detail@domain into address@domain and detail
-   using given delimiters. Returns used delimiter. */
-void message_detail_address_parse(const char *delimiters, const char *address,
-				  const char **username_r, char *delim_r,
-				  const char **detail_r);
 
 #endif

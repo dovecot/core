@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "istream.h"
@@ -20,7 +20,7 @@ void test_istream_failure_at(void)
 	data_input = i_stream_create_from_data(test_data, sizeof(test_data));
 	for (i = 0; i < TEST_DATA_LENGTH; i++) {
 		i_stream_seek(data_input, 0);
-		input = i_stream_create_failure_at(data_input, i, TEST_ERRMSG);
+		input = i_stream_create_failure_at(data_input, i, EIO, TEST_ERRMSG);
 		while ((ret = i_stream_read(input)) > 0)
 			i_stream_skip(input, ret);
 		test_assert_idx(ret == -1 && input->v_offset == i &&
@@ -30,14 +30,14 @@ void test_istream_failure_at(void)
 	}
 	/* shouldn't fail */
 	i_stream_seek(data_input, 0);
-	input = i_stream_create_failure_at(data_input, TEST_DATA_LENGTH, TEST_ERRMSG);
+	input = i_stream_create_failure_at(data_input, TEST_DATA_LENGTH, EIO, TEST_ERRMSG);
 	while ((ret = i_stream_read(input)) > 0)
 		i_stream_skip(input, ret);
 	test_assert(ret == -1 && input->stream_errno == 0);
 	i_stream_destroy(&input);
 	/* fail at EOF */
 	i_stream_seek(data_input, 0);
-	input = i_stream_create_failure_at_eof(data_input, TEST_ERRMSG);
+	input = i_stream_create_failure_at_eof(data_input, EIO, TEST_ERRMSG);
 	while ((ret = i_stream_read(input)) > 0)
 		i_stream_skip(input, ret);
 	test_assert_idx(ret == -1 && input->v_offset == TEST_DATA_LENGTH &&

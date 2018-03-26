@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -22,7 +22,7 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	struct mail_storage_settings *mail_set;
 	const char *error;
 
-	user = mail_user_alloc("raw mail user", set_info, set);
+	user = mail_user_alloc(NULL, "raw mail user", set_info, set);
 	user->autocreated = TRUE;
 	mail_user_set_home(user, "/");
 	if (mail_user_init(user, &error) < 0)
@@ -165,8 +165,7 @@ static int raw_mailbox_open(struct mailbox *box)
 				MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		} else if (!mail_storage_set_error_from_errno(box->storage)) {
-			mail_storage_set_critical(box->storage,
-				"open(%s) failed: %m", path);
+			mailbox_set_critical(box, "open(%s) failed: %m", path);
 		}
 		return -1;
 	}

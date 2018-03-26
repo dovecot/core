@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -10,7 +10,7 @@
 
 /* <settings checks> */
 static struct file_listener_settings imap_hibernate_unix_listeners_array[] = {
-	{ "imap-hibernate", 0600, "", "" }
+	{ "imap-hibernate", 0660, "", "$default_internal_group" }
 };
 static struct file_listener_settings *imap_hibernate_unix_listeners[] = {
 	&imap_hibernate_unix_listeners_array[0]

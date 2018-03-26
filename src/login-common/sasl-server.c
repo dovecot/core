@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
 #include "str.h"
@@ -12,7 +12,7 @@
 #include "str-sanitize.h"
 #include "anvil-client.h"
 #include "auth-client.h"
-#include "ssl-proxy.h"
+#include "iostream-ssl.h"
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
 #include "master-interface.h"
@@ -65,9 +65,11 @@ client_get_auth_flags(struct client *client)
 {
         enum auth_request_flags auth_flags = 0;
 
-	if (client->ssl_proxy != NULL &&
-	    ssl_proxy_has_valid_client_cert(client->ssl_proxy))
+	if (client->ssl_iostream != NULL &&
+	    ssl_iostream_has_valid_client_cert(client->ssl_iostream))
 		auth_flags |= AUTH_REQUEST_FLAG_VALID_CLIENT_CERT;
+	if (client->tls)
+		auth_flags |= AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS;
 	if (client->secured)
 		auth_flags |= AUTH_REQUEST_FLAG_SECURED;
 	if (login_binary->sasl_support_final_reply)
@@ -115,7 +117,7 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 	call_client_callback(client, sasl_reply, data, NULL);
 }
 
-static void master_send_request(struct anvil_request *anvil_request)
+static int master_send_request(struct anvil_request *anvil_request)
 {
 	struct client *client = anvil_request->client;
 	struct master_auth_request_params params;
@@ -124,19 +126,30 @@ static void master_send_request(struct anvil_request *anvil_request)
 	size_t size;
 	buffer_t *buf;
 	const char *session_id = client_get_session_id(client);
+	int fd;
+	bool close_fd;
+
+	if (client_get_plaintext_fd(client, &fd, &close_fd) < 0)
+		return -1;
 
 	i_zero(&req);
 	req.auth_pid = anvil_request->auth_pid;
 	req.auth_id = anvil_request->auth_id;
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
+	req.local_port = client->local_port;
+	req.remote_port = client->remote_port;
 	req.client_pid = getpid();
-	if (client->ssl_proxy != NULL &&
-	    ssl_proxy_get_compression(client->ssl_proxy) != NULL)
+	if (client->ssl_iostream != NULL &&
+	    ssl_iostream_get_compression(client->ssl_iostream) != NULL)
 		req.flags |= MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION;
+	if (client->secured)
+		req.flags |= MAIL_AUTH_REQUEST_FLAG_CONN_SECURED;
+	if (client->ssl_secured)
+		req.flags |= MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED;
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 	/* session ID */
 	buffer_append(buf, session_id, strlen(session_id)+1);
 	/* protocol specific data (e.g. IMAP tag) */
@@ -151,12 +164,15 @@ static void master_send_request(struct anvil_request *anvil_request)
 	client->master_auth_id = req.auth_id;
 
 	i_zero(&params);
-	params.client_fd = client->fd;
+	params.client_fd = fd;
 	params.socket_path = client->postlogin_socket_path;
 	params.request = req;
 	params.data = buf->data;
 	master_auth_request_full(master_auth, &params, master_auth_callback,
 				 client, &client->master_tag);
+	if (close_fd)
+		i_close_fd(&fd);
+	return 0;
 }
 
 static void ATTR_NULL(1)
@@ -167,6 +183,7 @@ anvil_lookup_callback(const char *reply, void *context)
 	const struct login_settings *set = client->set;
 	const char *errmsg;
 	unsigned int conn_count;
+	int ret;
 
 	conn_count = 0;
 	if (reply != NULL && str_to_uint(reply, &conn_count) < 0)
@@ -174,13 +191,17 @@ anvil_lookup_callback(const char *reply, void *context)
 
 	/* reply=NULL if we didn't need to do anvil lookup,
 	   or if the anvil lookup failed. allow failed anvil lookups in. */
-	if (reply == NULL || conn_count < set->mail_max_userip_connections)
-		master_send_request(req);
-	else {
-		client->authenticating = FALSE;
-		auth_client_send_cancel(auth_client, req->auth_id);
+	if (reply == NULL || conn_count < set->mail_max_userip_connections) {
+		ret = master_send_request(req);
+		errmsg = NULL; /* client will see internal error */
+	} else {
+		ret = -1;
 		errmsg = t_strdup_printf(ERR_TOO_MANY_USERIP_CONNECTIONS,
 					 set->mail_max_userip_connections);
+	}
+	if (ret < 0) {
+		client->authenticating = FALSE;
+		auth_client_send_cancel(auth_client, req->auth_id);
 		call_client_callback(client, SASL_SERVER_REPLY_MASTER_FAILED,
 				     errmsg, NULL);
 	}
@@ -355,8 +376,16 @@ void sasl_server_auth_begin(struct client *client,
 	info.mech = mech->name;
 	info.service = service;
 	info.session_id = client_get_session_id(client);
-	info.cert_username = client->ssl_proxy == NULL ? NULL :
-		ssl_proxy_get_peer_name(client->ssl_proxy);
+	if (client->client_cert_common_name != NULL)
+		info.cert_username = client->client_cert_common_name;
+	else if (client->ssl_iostream != NULL) {
+		info.cert_username = ssl_iostream_get_peer_name(client->ssl_iostream);
+		info.ssl_cipher = ssl_iostream_get_cipher(client->ssl_iostream,
+							 &info.ssl_cipher_bits);
+		info.ssl_pfs = ssl_iostream_get_pfs(client->ssl_iostream);
+		info.ssl_protocol =
+			ssl_iostream_get_protocol_name(client->ssl_iostream);
+	}
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;

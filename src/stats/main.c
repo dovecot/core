@@ -1,45 +1,68 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "module-dir.h"
 #include "restrict-access.h"
 #include "master-service.h"
 #include "master-service-settings.h"
-#include "global-memory.h"
 #include "stats-settings.h"
-#include "fifo-input-connection.h"
-#include "mail-command.h"
-#include "mail-session.h"
-#include "mail-user.h"
-#include "mail-domain.h"
-#include "mail-ip.h"
-#include "mail-stats.h"
-#include "client.h"
+#include "stats-event-category.h"
+#include "stats-metrics.h"
+#include "client-writer.h"
+#include "client-reader.h"
 
-static struct module *modules = NULL;
+static struct stats_metrics *metrics;
+
+static bool client_is_writer(const char *path)
+{
+	const char *name, *suffix;
+
+	name = strrchr(path, '/');
+	if (name == NULL)
+		name = path;
+	else
+		name++;
+
+	suffix = strrchr(name, '-');
+	if (suffix == NULL)
+		suffix = name;
+	else
+		suffix++;
+
+	return strcmp(suffix, "writer") == 0;
+}
 
 static void client_connected(struct master_service_connection *conn)
 {
-	if (conn->fifo)
-		(void)fifo_input_connection_create(conn->fd);
+	if (client_is_writer(conn->name))
+		(void)client_writer_create(conn->fd, metrics);
 	else
-		(void)client_create(conn->fd);
+		(void)client_reader_create(conn->fd, metrics);
 	master_service_client_connection_accept(conn);
 }
 
 static void main_preinit(void)
 {
-	struct module_dir_load_settings mod_set;
-
-	i_zero(&mod_set);
-	mod_set.abi_version = DOVECOT_ABI_VERSION;
-	mod_set.require_init_funcs = TRUE;
-
-	modules = module_dir_load(STATS_MODULE_DIR, NULL, &mod_set);
-	module_dir_init(modules);
-
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
+}
+
+static void main_init(void)
+{
+	void **sets = master_service_settings_get_others(master_service);
+	const struct stats_settings *set = sets[0];
+
+	metrics = stats_metrics_init(set);
+	stats_event_categories_init();
+	client_readers_init();
+	client_writers_init();
+}
+
+static void main_deinit(void)
+{
+	client_readers_deinit();
+	client_writers_deinit();
+	stats_event_categories_deinit();
+	stats_metrics_deinit(&metrics);
 }
 
 int main(int argc, char *argv[])
@@ -52,7 +75,6 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_NO_IDLE_DIE |
 		MASTER_SERVICE_FLAG_UPDATE_PROCTITLE;
 	const char *error;
-	void **sets;
 
 	master_service = master_service_init("stats", service_flags,
 					     &argc, &argv, "");
@@ -65,30 +87,10 @@ int main(int argc, char *argv[])
 
 	main_preinit();
 
-	sets = master_service_settings_get_others(master_service);
-	stats_settings = sets[0];
-
-	mail_commands_init();
-	mail_sessions_init();
-	mail_users_init();
-	mail_domains_init();
-	mail_ips_init();
-	mail_global_init();
-
 	master_service_init_finish(master_service);
+	main_init();
 	master_service_run(master_service, client_connected);
-
-	clients_destroy_all();
-	fifo_input_connections_destroy_all();
-	mail_commands_deinit();
-	mail_sessions_deinit();
-	mail_users_deinit();
-	mail_domains_deinit();
-	mail_ips_deinit();
-	mail_global_deinit();
-
-	module_dir_unload(&modules);
-	i_assert(global_used_memory == 0);
+	main_deinit();
 	master_service_deinit(&master_service);
         return 0;
 }

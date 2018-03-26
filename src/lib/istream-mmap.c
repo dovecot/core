@@ -1,19 +1,24 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
+#include "memarea.h"
 #include "mmap-util.h"
 #include "istream-private.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
 
+struct mmap_memarea {
+	void *mmap_base;
+	size_t mmap_size;
+};
+
 struct mmap_istream {
 	struct istream_private istream;
 
         struct timeval fstat_cache_stamp;
 
-	void *mmap_base;
 	off_t mmap_offset;
 	uoff_t v_size;
 
@@ -41,14 +46,13 @@ static void i_stream_munmap(struct mmap_istream *mstream)
 	struct istream_private *_stream = &mstream->istream;
 
 	if (_stream->buffer != NULL) {
-		if (munmap(mstream->mmap_base, _stream->buffer_size) < 0) {
-			i_error("mmap_istream.munmap(%s) failed: %m",
-				i_stream_get_name(&_stream->istream));
-		}
-		mstream->mmap_base = NULL;
+		if (_stream->memarea != NULL)
+			memarea_unref(&_stream->memarea);
 		_stream->buffer = NULL;
 		_stream->buffer_size = 0;
 		mstream->mmap_offset = 0;
+	} else {
+		i_assert(_stream->memarea == NULL);
 	}
 }
 
@@ -63,6 +67,12 @@ static size_t mstream_get_mmap_block_size(struct istream_private *stream)
 {
 	return (stream->max_buffer_size + mmap_get_page_size() - 1) & ~
 		(mmap_get_page_size() - 1);
+}
+
+static void i_stream_mmap_marea_free(struct mmap_memarea *marea)
+{
+	if (munmap(marea->mmap_base, marea->mmap_size) < 0)
+		i_error("mmap_istream.munmap() failed: %m");
 }
 
 static ssize_t i_stream_mmap_read(struct istream_private *stream)
@@ -83,7 +93,7 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 	}
 
 	aligned_skip = stream->skip & ~mmap_pagemask;
-	if (aligned_skip == 0 && mstream->mmap_base != NULL) {
+	if (aligned_skip == 0 && stream->buffer != NULL) {
 		/* didn't skip enough bytes */
 		return -2;
 	}
@@ -91,12 +101,8 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 	stream->skip -= aligned_skip;
 	mstream->mmap_offset += aligned_skip;
 
-	if (mstream->mmap_base != NULL) {
-		if (munmap(mstream->mmap_base, stream->buffer_size) < 0) {
-			i_error("mmap_istream.munmap(%s) failed: %m",
-				i_stream_get_name(&stream->istream));
-		}
-	}
+	if (stream->memarea != NULL)
+		memarea_unref(&stream->memarea);
 
 	top = mstream->v_size - mstream->mmap_offset;
 	stream->buffer_size = I_MIN(top, mstream_get_mmap_block_size(stream));
@@ -106,16 +112,14 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 
 	if (stream->buffer_size == 0) {
 		/* don't bother even trying mmap */
-		mstream->mmap_base = NULL;
 		stream->buffer = NULL;
 	} else {
-		mstream->mmap_base =
+		void *mmap_base =
 			mmap(NULL, stream->buffer_size, PROT_READ, MAP_PRIVATE,
 			     stream->fd, mstream->mmap_offset);
-		if (mstream->mmap_base == MAP_FAILED) {
+		if (mmap_base == MAP_FAILED) {
 			i_assert(errno != 0);
 			stream->istream.stream_errno = errno;
-			mstream->mmap_base = NULL;
 			stream->buffer = NULL;
 			stream->buffer_size = 0;
 			stream->skip = stream->pos = 0;
@@ -125,14 +129,19 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 				i_stream_get_name(&stream->istream));
 			return -1;
 		}
-		stream->buffer = mstream->mmap_base;
-	}
+		stream->buffer = mmap_base;
 
-	if (stream->buffer_size > mmap_get_page_size()) {
-		if (madvise(mstream->mmap_base, stream->buffer_size,
-			    MADV_SEQUENTIAL) < 0) {
-			i_error("mmap_istream.madvise(%s): %m",
-				i_stream_get_name(&stream->istream));
+		struct mmap_memarea *marea = i_new(struct mmap_memarea, 1);
+		marea->mmap_base = mmap_base;
+		marea->mmap_size = stream->buffer_size;
+		stream->memarea = memarea_init(mmap_base, marea->mmap_size,
+					       i_stream_mmap_marea_free, marea);
+		if (stream->buffer_size > mmap_get_page_size()) {
+			if (madvise(mmap_base, stream->buffer_size,
+				    MADV_SEQUENTIAL) < 0) {
+				i_error("mmap_istream.madvise(%s): %m",
+					i_stream_get_name(&stream->istream));
+			}
 		}
 	}
 
@@ -235,7 +244,7 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 
 	mstream->istream.istream.readable_fd = TRUE;
 	mstream->istream.start_offset = start_offset;
-	istream = i_stream_create(&mstream->istream, NULL, fd);
+	istream = i_stream_create(&mstream->istream, NULL, fd, 0);
 	istream->mmaped = TRUE;
 	istream->blocking = TRUE;
 	istream->seekable = TRUE;

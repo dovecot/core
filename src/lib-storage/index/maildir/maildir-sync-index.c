@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -71,10 +71,9 @@ maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
 	if (memcmp(guid_128, expunged_guid_128, sizeof(guid_128)) == 0)
 		return TRUE;
 
-	mail_storage_set_critical(&ctx->mbox->storage->storage,
-		"Mailbox %s: Expunged GUID mismatch for UID %u: %s vs %s",
-		ctx->mbox->box.vname, ctx->uid,
-		guid_128_to_string(guid_128),
+	mailbox_set_critical(&ctx->mbox->box,
+		"Expunged GUID mismatch for UID %u: %s vs %s",
+		ctx->uid, guid_128_to_string(guid_128),
 		guid_128_to_string(expunged_guid_128));
 	return FALSE;
 }
@@ -98,8 +97,7 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 	if (UNLINK_EISDIR(errno))
 		return maildir_lose_unexpected_dir(box->storage, path);
 
-	mail_storage_set_critical(&mbox->storage->storage,
-				  "unlink(%s) failed: %m", path);
+	mailbox_set_critical(&mbox->box, "unlink(%s) failed: %m", path);
 	return -1;
 }
 
@@ -141,8 +139,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		if (stat(path, &st) < 0) {
 			if (errno == ENOENT)
 				return 0;
-			mail_storage_set_critical(box->storage,
-				"stat(%s) failed: %m", path);
+			mailbox_set_critical(box, "stat(%s) failed: %m", path);
 			return -1;
 		}
 	} else {
@@ -150,7 +147,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			if (errno == ENOENT)
 				return 0;
 			if (!ENOSPACE(errno) && errno != EACCES) {
-				mail_storage_set_critical(box->storage,
+				mailbox_set_critical(box,
 					"rename(%s, %s) failed: %m",
 					path, newpath);
 			}
@@ -741,8 +738,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 	/* check if new/ changed */
 	new_dir = t_strconcat(root_dir, "/new", NULL);
 	if (stat(new_dir, &st) < 0) {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", new_dir);
+		mailbox_set_critical(box, "stat(%s) failed: %m", new_dir);
 		return -1;
 	}
 	if ((time_t)rec->new_mtime != st.st_mtime)
@@ -751,8 +747,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 	/* check if cur/ changed */
 	cur_dir = t_strconcat(root_dir, "/cur", NULL);
 	if (stat(cur_dir, &st) < 0) {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", cur_dir);
+		mailbox_set_critical(box, "stat(%s) failed: %m", cur_dir);
 		return -1;
 	}
 	if ((time_t)rec->cur_mtime != st.st_mtime)

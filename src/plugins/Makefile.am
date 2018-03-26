@@ -36,8 +36,8 @@ SUBDIRS = \
 	pop3-migration \
 	replication \
 	snarf \
-	stats \
-	imap-stats \
+	old-stats \
+	imap-old-stats \
 	mail-crypt \
 	trash \
 	virtual \
@@ -48,4 +48,5 @@ SUBDIRS = \
 	$(DICT_LDAP) \
 	$(APPARMOR) \
 	fs-compress \
-	var-expand-crypt
+	var-expand-crypt \
+	charset-alias

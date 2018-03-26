@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -161,7 +161,8 @@ index_mailbox_alloc_index(struct mailbox *box, struct mail_index **index_r)
 	    mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
 				&index_dir) <= 0)
 		index_dir = NULL;
-	*index_r = mail_index_alloc_cache_get(mailbox_path, index_dir,
+	*index_r = mail_index_alloc_cache_get(box->storage->user->event,
+					      mailbox_path, index_dir,
 					      box->index_prefix);
 	return 0;
 }
@@ -218,8 +219,7 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 		return 0;
 	}
 	if (!ENOTFOUND(errno) && errno != EACCES) {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -235,19 +235,48 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 
 int index_storage_mailbox_alloc_index(struct mailbox *box)
 {
+	const char *cache_dir;
+
 	if (box->index != NULL)
 		return 0;
 
 	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
 		return -1;
-
 	if (index_mailbox_alloc_index(box, &box->index) < 0)
 		return -1;
-	mail_index_set_fsync_mode(box->index,
-				  box->storage->set->parsed_fsync_mode, 0);
+
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX_CACHE,
+				&cache_dir) > 0) {
+		if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_CACHE) < 0)
+			return -1;
+		mail_index_set_cache_dir(box->index, cache_dir);
+	}
 	mail_index_set_lock_method(box->index,
 		box->storage->set->parsed_lock_method,
 		mail_storage_get_lock_timeout(box->storage, UINT_MAX));
+
+	const struct mail_storage_settings *set = box->storage->set;
+	struct mail_index_optimization_settings optimization_set = {
+		.index = {
+			.rewrite_min_log_bytes = set->mail_index_rewrite_min_log_bytes,
+			.rewrite_max_log_bytes = set->mail_index_rewrite_max_log_bytes,
+		},
+		.log = {
+			.min_size = set->mail_index_log_rotate_min_size,
+			.max_size = set->mail_index_log_rotate_max_size,
+			.min_age_secs = set->mail_index_log_rotate_min_age,
+			.log2_max_age_secs = set->mail_index_log2_max_age,
+		},
+		.cache = {
+			.unaccessed_field_drop_secs = set->mail_cache_unaccessed_field_drop,
+			.record_max_size = set->mail_cache_record_max_size,
+			.compress_min_size = set->mail_cache_compress_min_size,
+			.compress_delete_percentage = set->mail_cache_compress_delete_percentage,
+			.compress_continued_percentage = set->mail_cache_compress_continued_percentage,
+			.compress_header_continue_count = set->mail_cache_compress_header_continue_count,
+		},
+	};
+	mail_index_set_optimization_settings(box->index, &optimization_set);
 	return 0;
 }
 
@@ -287,7 +316,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	}
 	if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
 		if (mail_index_is_in_memory(box->index)) {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"Couldn't create index file");
 			mail_index_close(box->index);
 			return -1;
@@ -348,6 +377,11 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 			     mailbox_list_get_storage_name(box->list, vname));
 	box->flags = flags;
 	box->index_prefix = p_strdup(box->pool, index_prefix);
+	box->event = event_create(box->storage->user->event);
+	event_add_category(box->event, &event_category_mailbox);
+	event_add_str(box->event, "name", box->vname);
+	event_set_append_log_prefix(box->event,
+		t_strdup_printf("Mailbox %s: ", box->vname));
 
 	p_array_init(&box->search_results, box->pool, 16);
 	array_create(&box->module_contexts,
@@ -415,6 +449,7 @@ static void index_storage_mailbox_unref_indexes(struct mailbox *box)
 void index_storage_mailbox_free(struct mailbox *box)
 {
 	index_storage_mailbox_unref_indexes(box);
+	event_unref(&box->event);
 }
 
 static void
@@ -912,6 +947,7 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 	const struct mail_cache_field *dest_field;
 	unsigned int src_field_idx, dest_field_idx;
 	uint32_t t;
+	bool add = FALSE;
 
 	src_field_idx = mail_cache_register_lookup(src_mail->box->cache, name);
 	i_assert(src_field_idx != UINT_MAX);
@@ -934,12 +970,14 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 		/* save date must update when mail is copied */
 		t = ioloop_time;
 		buffer_append(buf, &t, sizeof(t));
+		add = TRUE;
+	} else if (mail_cache_lookup_field(src_mail->transaction->cache_view, buf,
+					   src_mail->seq, src_field_idx) <= 0) {
+		/* error / not found */
+		buffer_set_used_size(buf, 0);
 	} else {
-		if (mail_cache_lookup_field(src_mail->transaction->cache_view, buf,
-					    src_mail->seq, src_field_idx) <= 0)
-			buffer_set_used_size(buf, 0);
-		else if (strcmp(name, "size.physical") == 0 ||
-			 strcmp(name, "size.virtual") == 0) {
+		if (strcmp(name, "size.physical") == 0 ||
+		    strcmp(name, "size.virtual") == 0) {
 			/* FIXME: until mail_cache_lookup() can read unwritten
 			   cached data from buffer, we'll do this optimization
 			   to make quota plugin's work faster */
@@ -954,8 +992,11 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 			else
 				imail->data.virtual_size = size;
 		}
+		/* NOTE: we'll want to add also nonexistent headers, which
+		   will keep the buf empty */
+		add = TRUE;
 	}
-	if (buf->used > 0) {
+	if (add) {
 		mail_cache_add(dest_trans->cache_trans, dest_seq,
 			       dest_field_idx, buf->data, buf->used);
 	}
@@ -998,13 +1039,13 @@ void index_copy_cache_fields(struct mail_save_context *ctx,
 			i_unreached();
 		/* the only reason we're doing the destination lookup is to
 		   make sure that the cache file is opened and the cache
-		   decisinos are up to date */
+		   decisions are up to date */
 		if (mailbox_get_metadata(ctx->transaction->box,
 					 MAILBOX_METADATA_CACHE_FIELDS,
 					 &dest_metadata) < 0)
 			i_unreached();
 
-		buf = buffer_create_dynamic(pool_datastack_create(), 1024);
+		buf = t_buffer_create(1024);
 		array_foreach(src_metadata.cache_fields, field) {
 			mail_copy_cache_field(ctx, src_mail, dest_seq,
 					      field->name, buf);
@@ -1152,7 +1193,7 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 			if (!mail_storage_set_error_from_errno(storage)) {
-				mail_storage_set_critical(storage,
+				mail_set_critical(ctx->dest_mail,
 					"save: write(%s) failed: %s",
 					o_stream_get_name(ctx->data.output),
 					o_stream_get_error(ctx->data.output));
@@ -1168,7 +1209,7 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 	} while (i_stream_read(input) > 0);
 
 	if (input->stream_errno != 0) {
-		mail_storage_set_critical(storage, "save: read(%s) failed: %s",
+		mail_set_critical(ctx->dest_mail, "save: read(%s) failed: %s",
 			i_stream_get_name(input), i_stream_get_error(input));
 		return -1;
 	}
@@ -1214,8 +1255,7 @@ int index_mailbox_fix_inconsistent_existence(struct mailbox *box,
 	} else if (errno == ENOENT) {
 		/* race condition - mailbox was just deleted */
 	} else {
-		mail_storage_set_critical(box->storage,
-			"stat(%s) failed: %m", index_path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", index_path);
 		return -1;
 	}
 	mailbox_set_deleted(box);

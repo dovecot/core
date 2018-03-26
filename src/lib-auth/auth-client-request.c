@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -34,8 +34,13 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 
 	if ((info->flags & AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP) != 0)
 		str_append(str, "\tfinal-resp-ok");
-	if ((info->flags & AUTH_REQUEST_FLAG_SECURED) != 0)
+	if ((info->flags & AUTH_REQUEST_FLAG_SECURED) != 0) {
 		str_append(str, "\tsecured");
+		if ((info->flags & AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS) != 0)
+			str_append(str, "=tls");
+	} else {
+		i_assert((info->flags & AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS) == 0);
+	}
 	if ((info->flags & AUTH_REQUEST_FLAG_NO_PENALTY) != 0)
 		str_append(str, "\tno-penalty");
 	if ((info->flags & AUTH_REQUEST_FLAG_VALID_CLIENT_CERT) != 0)
@@ -82,6 +87,19 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 	    *info->local_name != '\0') {
 		str_append(str, "\tlocal_name=");
 		str_append_tabescaped(str, info->local_name);
+	}
+	if (info->ssl_cipher_bits != 0 && info->ssl_cipher != NULL) {
+		str_append(str, "\tssl_cipher=");
+		str_append_tabescaped(str, info->ssl_cipher);
+		str_printfa(str, "\tssl_cipher_bits=%u", info->ssl_cipher_bits);
+		if (info->ssl_pfs != NULL) {
+			str_append(str, "\tssl_pfs=");
+			str_append_tabescaped(str, info->ssl_pfs);
+		}
+	}
+	if (info->ssl_protocol != NULL) {
+		str_append(str, "\tssl_protocol=");
+		str_append_tabescaped(str, info->ssl_protocol);
 	}
 	if (info->client_id != NULL &&
 	    *info->client_id != '\0') {
@@ -168,6 +186,9 @@ void auth_client_request_abort(struct auth_client_request **_request)
 
 	auth_client_send_cancel(request->conn->client, request->id);
 	call_callback(request, AUTH_REQUEST_STATUS_ABORT, NULL, NULL);
+	/* remove the request */
+	auth_server_connection_remove_request(request->conn, request->id);
+	pool_unref(&request->pool);
 }
 
 unsigned int auth_client_request_get_id(struct auth_client_request *request)

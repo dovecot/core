@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "fs-sis-common.h"
@@ -41,13 +41,16 @@ void fs_sis_try_unlink_hash_file(struct fs *sis_fs, struct fs_file *super_file)
 		/* this may be the last link. if hashes/ file is the same,
 		   delete it. */
 		hash_path = t_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
-		hash_file = fs_file_init(super_file->fs, hash_path,
-					 FS_OPEN_MODE_READONLY);
+		hash_file = fs_file_init_with_event(super_file->fs,
+						    super_file->event, hash_path,
+						    FS_OPEN_MODE_READONLY);
 		if (fs_stat(hash_file, &st2) == 0 &&
 		    st1.st_ino == st2.st_ino &&
 		    CMP_DEV_T(st1.st_dev, st2.st_dev)) {
-			if (fs_delete(hash_file) < 0)
-				i_error("%s", fs_last_error(hash_file->fs));
+			if (fs_delete(hash_file) < 0) {
+				e_error(hash_file->event, "%s",
+					fs_last_error(hash_file->fs));
+			}
 		}
 		fs_file_deinit(&hash_file);
 	}

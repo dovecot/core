@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 /* @UNSAFE: whole file */
 
@@ -18,12 +18,11 @@
 #  define CLEAR_CHR 0xD5               /* D5 is mnemonic for "Data 5tack" */
 #  define SENTRY_COUNT (4*8)
 #  define BLOCK_CANARY ((void *)0xBADBADD5BADBADD5)      /* contains 'D5' */
-#  define BLOCK_CANARY_CHECK(block) i_assert((block)->canary == BLOCK_CANARY)
 #  define ALLOC_SIZE(size) (MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(size + SENTRY_COUNT))
 #else
 #  define CLEAR_CHR 0
 #  define BLOCK_CANARY NULL
-#  define BLOCK_CANARY_CHECK(block) do { ; } while(0)
+#  define block_canary_check(block) do { ; } while(0)
 #  define ALLOC_SIZE(size) MEM_ALIGN(size)
 #endif
 
@@ -92,6 +91,8 @@ static union {
 	struct stack_block block;
 	unsigned char data[512];
 } outofmem_area;
+
+static struct stack_block *mem_block_alloc(size_t min_size);
 
 static inline
 unsigned char *data_stack_after_last_alloc(struct stack_block *block)
@@ -196,6 +197,18 @@ data_stack_frame_t t_push_named(const char *format, ...)
 	return ret;
 }
 
+#ifdef DEBUG
+static void block_canary_check(struct stack_block *block)
+{
+	if (block->canary != BLOCK_CANARY) {
+		/* Make sure i_panic() won't try to allocate from the
+		   same block by falling back onto our emergency block. */
+		current_block = &outofmem_area.block;
+		i_panic("Corrupted data stack canary");
+	}
+}
+#endif
+
 static void free_blocks(struct stack_block *block)
 {
 	struct stack_block *next;
@@ -203,7 +216,7 @@ static void free_blocks(struct stack_block *block)
 	/* free all the blocks, except if any of them is bigger than
 	   unused_block, replace it */
 	while (block != NULL) {
-		BLOCK_CANARY_CHECK(block);
+		block_canary_check(block);
 		next = block->next;
 
 		if (clean_after_pop)
@@ -231,7 +244,7 @@ static void t_pop_verify(void)
 	block = current_frame_block->block[frame_pos];
 	pos = block->size - current_frame_block->block_space_used[frame_pos];
 	while (block != NULL) {
-		BLOCK_CANARY_CHECK(block);
+		block_canary_check(block);
 		used_size = block->size - block->left;
 		p = STACK_BLOCK_DATA(block);
 		while (pos < used_size) {
@@ -272,7 +285,7 @@ void t_pop_last_unsafe(void)
 
 	/* update the current block */
 	current_block = current_frame_block->block[frame_pos];
-	BLOCK_CANARY_CHECK(current_block);
+	block_canary_check(current_block);
 	if (clean_after_pop) {
 		size_t pos, used_size;
 
@@ -373,7 +386,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 		/* kludgy, but allow this before initialization */
 		data_stack_init();
 	}
-	BLOCK_CANARY_CHECK(current_block);
+	block_canary_check(current_block);
 
 	/* allocate only aligned amount of memory so alignment comes
 	   always properly */
@@ -462,7 +475,7 @@ bool t_try_realloc(void *mem, size_t size)
 
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
-	BLOCK_CANARY_CHECK(current_block);
+	block_canary_check(current_block);
 
 	last_alloc_size = current_frame_block->last_alloc_size[frame_pos];
 
@@ -516,7 +529,7 @@ size_t t_get_bytes_available(void)
 	const unsigned int extra = MEM_ALIGN_SIZE-1 + SENTRY_COUNT +
 		MEM_ALIGN(sizeof(size_t));
 #endif
-	BLOCK_CANARY_CHECK(current_block);
+	block_canary_check(current_block);
 	return current_block->left < extra ? current_block->left :
 		current_block->left - extra;
 }
@@ -583,6 +596,7 @@ void data_stack_init(void)
 
 	outofmem_area.block.size = outofmem_area.block.left =
 		sizeof(outofmem_area) - sizeof(outofmem_area.block);
+	outofmem_area.block.canary = BLOCK_CANARY;
 
 	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
 	current_block->left = current_block->size;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "ioloop.h"
@@ -125,9 +125,9 @@ static void test_ostream_multiplex_stream(void)
 	io_remove(&io0);
 	io_remove(&io1);
 
-	test_assert(o_stream_nfinish(chan1) == 0);
+	test_assert(o_stream_finish(chan1) > 0);
 	o_stream_unref(&chan1);
-	test_assert(o_stream_nfinish(chan0) == 0);
+	test_assert(o_stream_finish(chan0) > 0);
 	o_stream_unref(&chan0);
 
 	i_stream_unref(&is);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream-private.h"
@@ -50,7 +50,7 @@ i_stream_sized_parent_read(struct istream_private *stream, size_t *pos_r)
 	ssize_t ret;
 
 	do {
-		if ((ret = i_stream_read(stream->parent)) == -2)
+		if ((ret = i_stream_read_memarea(stream->parent)) == -2)
 			break;
 
 		stream->istream.stream_errno = stream->parent->stream_errno;
@@ -168,7 +168,7 @@ i_stream_create_sized_common(struct istream *input, uoff_t size)
 	sstream->istream.istream.blocking = input->blocking;
 	sstream->istream.istream.seekable = input->seekable;
 	(void)i_stream_create(&sstream->istream, input,
-			      i_stream_get_fd(input));
+			      i_stream_get_fd(input), 0);
 	return sstream;
 }
 

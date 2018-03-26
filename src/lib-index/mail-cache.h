@@ -44,6 +44,8 @@ struct mail_cache_field {
 };
 
 struct mail_cache *mail_cache_open_or_create(struct mail_index *index);
+struct mail_cache *
+mail_cache_open_or_create_path(struct mail_index *index, const char *path);
 void mail_cache_free(struct mail_cache **cache);
 
 /* Register fields. fields[].idx is updated to contain field index.

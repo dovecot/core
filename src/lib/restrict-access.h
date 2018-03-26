@@ -1,6 +1,13 @@
 #ifndef RESTRICT_ACCESS_H
 #define RESTRICT_ACCESS_H
 
+enum restrict_access_flags {
+	/* If flags given to restrict_access() include
+	 * RESTRICT_ACCESS_FLAG_ALLOW_ROOT, we won't kill
+	 * ourself when we have root privileges. */
+	RESTRICT_ACCESS_FLAG_ALLOW_ROOT = 1,
+};
+
 struct restrict_access_settings {
 	/* UID to use, or (uid_t)-1 if you don't want to change it */
 	uid_t uid;
@@ -26,9 +33,10 @@ struct restrict_access_settings {
 	/* Chroot directory */
 	const char *chroot_dir;
 
-	/* Set TRUE to attempt to drop any root privileges
-	   FIXME: Reverse logic on v2.3 */
-	bool drop_setuid_root; 
+	/* Allow running in setuid-root mode, where real UID is root and
+	 * effective UID is non-root. By default the real UID is changed
+	 * to be the same as the effective UID. */
+	bool allow_setuid_root;
 };
 
 /* Initialize settings with values that don't change anything. */
@@ -36,24 +44,37 @@ void restrict_access_init(struct restrict_access_settings *set);
 /* Restrict access as specified by the settings. If home is not NULL,
    it's chdir()ed after chrooting, otherwise it chdirs to / (the chroot). */
 void restrict_access(const struct restrict_access_settings *set,
-		     const char *home, bool disallow_root) ATTR_NULL(2);
+		     enum restrict_access_flags flags, const char *home)
+		     ATTR_NULL(3);
 /* Set environment variables so they can be read with
    restrict_access_by_env(). */
 void restrict_access_set_env(const struct restrict_access_settings *set);
 /* Read restrict_access_set_env() environments back into struct. */
 void restrict_access_get_env(struct restrict_access_settings *set_r);
 /* Read restrictions from environment and call restrict_access().
-   If disallow_roots is TRUE, we'll kill ourself if we didn't have the
-   environment settings. */
-void restrict_access_by_env(const char *home, bool disallow_root) ATTR_NULL(1);
+   If flags do not include RESTRICT_ACCESS_FLAG_ALLOW_ROOT, we'll kill ourself
+   unless the RESTRICT_* environments caused root privileges to be dropped */
+void restrict_access_by_env(enum restrict_access_flags flags,
+			    const char *home) ATTR_NULL(2);
 
 /* Return the chrooted directory if restrict_access*() chrooted,
    otherwise NULL. */
 const char *restrict_access_get_current_chroot(void);
 
-/* Try to set up the process in a way that core dumps are still allowed
-   after calling restrict_access_by_env(). */
+/*
+   Checks if PR_SET_DUMPABLE environment variable is set, and if it is,
+   calls restrict_access_set_dumpable(allow). 
+*/
 void restrict_access_allow_coredumps(bool allow);
+
+/* Sets process dumpable true or false. Setting this true allows core dumping,
+   reading /proc/self/io, attaching with PTRACE_ATTACH, and also changes
+   ownership of /proc/[pid] directory. */
+void restrict_access_set_dumpable(bool allow);
+
+/* Gets process dumpability, returns TRUE if not supported, because
+   we then assume that constraint is not present. */
+bool restrict_access_get_dumpable(void);
 
 /* If privileged_gid was set, these functions can be used to temporarily
    gain access to the group. */

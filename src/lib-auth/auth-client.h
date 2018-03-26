@@ -15,7 +15,9 @@ enum auth_request_flags {
 	/* Support final SASL response */
 	AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP	= 0x08,
 	/* Enable auth_debug=yes logging for this request */
-	AUTH_REQUEST_FLAG_DEBUG			= 0x10
+	AUTH_REQUEST_FLAG_DEBUG			= 0x10,
+	/* If TLS was used */
+	AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS = 0x20,
 };
 
 enum auth_request_status {
@@ -44,6 +46,12 @@ struct auth_request_info {
 	const char *local_name;
 	const char *client_id;
 	const char *forward_fields;
+
+	unsigned int ssl_cipher_bits;
+	const char *ssl_cipher;
+	const char *ssl_pfs;
+	const char *ssl_protocol;
+
 	enum auth_request_flags flags;
 
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;

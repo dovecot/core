@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -211,9 +211,9 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 				  &data, &data_size);
 	if (data_size < MDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
-		mail_storage_set_critical(&mbox->storage->storage.storage,
-			"mdbox %s: Invalid dbox header size: %"PRIuSIZE_T,
-			mailbox_get_path(&mbox->box), data_size);
+		mailbox_set_critical(&mbox->box,
+			"mdbox: Invalid dbox header size: %"PRIuSIZE_T,
+			data_size);
 		mdbox_storage_set_corrupted(mbox->storage);
 		return -1;
 	}

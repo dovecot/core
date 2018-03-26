@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "safe-mkstemp.h"
@@ -69,12 +69,12 @@ static int index_attachment_open_temp_fd(void *context)
 	mail_user_set_get_temp_prefix(temp_path, storage->user->set);
 	fd = safe_mkstemp_hostpid(temp_path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
-		mail_storage_set_critical(storage,
+		mailbox_set_critical(ctx->transaction->box,
 			"safe_mkstemp(%s) failed: %m", str_c(temp_path));
 		return -1;
 	}
 	if (unlink(str_c(temp_path)) < 0) {
-		mail_storage_set_critical(storage,
+		mailbox_set_critical(ctx->transaction->box,
 			"unlink(%s) failed: %m", str_c(temp_path));
 		i_close_fd(&fd);
 		return -1;
@@ -190,14 +190,16 @@ void index_attachment_save_begin(struct mail_save_context *ctx,
 	ctx->data.attach = attach;
 }
 
-static int save_check_write_error(struct mail_storage *storage,
+static int save_check_write_error(struct mail_save_context *ctx,
 				  struct ostream *output)
 {
+	struct mail_storage *storage = ctx->transaction->box->storage;
+
 	if (output->stream_errno == 0)
 		return 0;
 
 	if (!mail_storage_set_error_from_errno(storage)) {
-		mail_storage_set_critical(storage, "write(%s) failed: %s",
+		mail_set_critical(ctx->dest_mail, "write(%s) failed: %s",
 			o_stream_get_name(output), o_stream_get_error(output));
 	}
 	return -1;
@@ -205,7 +207,6 @@ static int save_check_write_error(struct mail_storage *storage,
 
 int index_attachment_save_continue(struct mail_save_context *ctx)
 {
-	struct mail_storage *storage = ctx->transaction->box->storage;
 	struct mail_save_attachment *attach = ctx->data.attach;
 	const unsigned char *data;
 	size_t size;
@@ -229,13 +230,13 @@ int index_attachment_save_continue(struct mail_save_context *ctx)
 	} while (ret != -1);
 
 	if (attach->input->stream_errno != 0) {
-		mail_storage_set_critical(storage, "read(%s) failed: %s",
+		mail_set_critical(ctx->dest_mail, "read(%s) failed: %s",
 					  i_stream_get_name(attach->input),
 					  i_stream_get_error(attach->input));
 		return -1;
 	}
 	if (ctx->data.output != NULL) {
-		if (save_check_write_error(storage, ctx->data.output) < 0)
+		if (save_check_write_error(ctx, ctx->data.output) < 0)
 			return -1;
 	}
 	return 0;

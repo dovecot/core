@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 /* Quota reporting based on simply summing sizes of all files in mailbox
    together. */
@@ -45,7 +45,8 @@ dirsize_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources;
 }
 
-static int get_dir_usage(const char *dir, uint64_t *value)
+static int get_dir_usage(const char *dir, uint64_t *value,
+			 const char **error_r)
 {
 	DIR *dirp;
 	string_t *path;
@@ -59,7 +60,7 @@ static int get_dir_usage(const char *dir, uint64_t *value)
 		if (errno == ENOENT)
 			return 0;
 
-		i_error("opendir(%s) failed: %m", dir);
+		*error_r = t_strdup_printf("opendir(%s) failed: %m", dir);
 		return -1;
 	}
 
@@ -84,11 +85,11 @@ static int get_dir_usage(const char *dir, uint64_t *value)
 			if (errno == ENOENT)
 				continue;
 
-			i_error("lstat(%s) failed: %m", dir);
+			*error_r = t_strdup_printf("lstat(%s) failed: %m", dir);
 			ret = -1;
 			break;
 		} else if (S_ISDIR(st.st_mode)) {
-			if (get_dir_usage(str_c(path), value) < 0) {
+			if (get_dir_usage(str_c(path), value, error_r) < 0) {
 				ret = -1;
 				break;
 			}
@@ -101,7 +102,8 @@ static int get_dir_usage(const char *dir, uint64_t *value)
 	return ret;
 }
 
-static int get_usage(const char *path, bool is_file, uint64_t *value_r)
+static int get_usage(const char *path, bool is_file, uint64_t *value_r,
+		     const char **error_r)
 {
 	struct stat st;
 
@@ -110,12 +112,12 @@ static int get_usage(const char *path, bool is_file, uint64_t *value_r)
 			if (errno == ENOENT)
 				return 0;
 
-			i_error("lstat(%s) failed: %m", path);
+			*error_r = t_strdup_printf("lstat(%s) failed: %m", path);
 			return -1;
 		}
 		*value_r += st.st_size;
 	} else {
-		if (get_dir_usage(path, value_r) < 0)
+		if (get_dir_usage(path, value_r, error_r) < 0)
 			return -1;
 	}
 	return 0;
@@ -153,7 +155,8 @@ static void quota_count_path_add(ARRAY_TYPE(quota_count_path) *paths,
 }
 
 static int
-get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
+get_quota_root_usage(struct quota_root *root, uint64_t *value_r,
+		     const char **error_r)
 {
 	struct mail_namespace *const *namespaces;
 	ARRAY_TYPE(quota_count_path) paths;
@@ -184,49 +187,45 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 	count_paths = array_get(&paths, &count);
 	for (i = 0; i < count; i++) {
 		if (get_usage(count_paths[i].path, count_paths[i].is_file,
-			      value_r) < 0)
+			      value_r, error_r) < 0)
 			return -1;
 	}
 	return 0;
 }
 
-static int
+static enum quota_get_result
 dirsize_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r)
+			   uint64_t *value_r, const char **error_r)
 {
 	int ret;
 
-	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0)
-		return 0;
+	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0) {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
 
-	T_BEGIN {
-		ret = get_quota_root_usage(_root, value_r);
-	} T_END;
+	ret = get_quota_root_usage(_root, value_r, error_r);
 
-	return ret < 0 ? -1 : 1;
+	return ret < 0 ? QUOTA_GET_RESULT_INTERNAL_ERROR : QUOTA_GET_RESULT_LIMITED;
 }
 
 static int 
 dirsize_quota_update(struct quota_root *root ATTR_UNUSED, 
-		     struct quota_transaction_context *ctx ATTR_UNUSED)
+		     struct quota_transaction_context *ctx ATTR_UNUSED,
+		     const char **error_r ATTR_UNUSED)
 {
 	return 0;
 }
 
 struct quota_backend quota_backend_dirsize = {
-	"dirsize",
+	.name = "dirsize",
 
-	{
-		dirsize_quota_alloc,
-		dirsize_quota_init,
-		dirsize_quota_deinit,
-		NULL,
-		NULL,
-		NULL,
-		dirsize_quota_root_get_resources,
-		dirsize_quota_get_resource,
-		dirsize_quota_update,
-		NULL,
-		NULL
+	.v = {
+		.alloc = dirsize_quota_alloc,
+		.init = dirsize_quota_init,
+		.deinit = dirsize_quota_deinit,
+		.get_resources = dirsize_quota_root_get_resources,
+		.get_resource = dirsize_quota_get_resource,
+		.update = dirsize_quota_update,
 	}
 };

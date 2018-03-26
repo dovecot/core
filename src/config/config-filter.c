@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -37,13 +37,14 @@ config_filter_match_local_name(const struct config_filter *mask,
 {
 	/* Handle multiple names separated by spaces in local_name
 	   * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
-	const char *const *local_name = t_strsplit_spaces(mask->local_name, " ");
-
-	for (; *local_name != NULL; local_name++) {
-		if (dns_match_wildcard(filter_local_name, *local_name) == 0)
+	const char *ptr, *local_name = mask->local_name;
+	while((ptr = strchr(local_name, ' ')) != NULL) {
+		if (dns_match_wildcard(filter_local_name,
+		    t_strdup_until(local_name, ptr)) == 0)
 			return TRUE;
+		local_name = ptr+1;
 	}
-	return FALSE;
+	return dns_match_wildcard(filter_local_name, local_name) == 0;
 }
 
 static bool config_filter_match_rest(const struct config_filter *mask,
@@ -249,6 +250,21 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 	array_sort(&matches, config_filter_parser_cmp);
 	array_append_zero(&matches);
 	return array_idx(&matches, 0);
+}
+
+struct config_filter_parser *const *
+config_filter_get_all(struct config_filter_context *ctx)
+{
+	ARRAY_TYPE(config_filter_parsers) filters;
+	unsigned int i;
+
+	t_array_init(&filters, 8);
+	for (i = 0; ctx->parsers[i] != NULL; i++) {
+		array_append(&filters, &ctx->parsers[i], 1);
+	}
+	array_sort(&filters, config_filter_parser_cmp_rev);
+	array_append_zero(&filters);
+	return array_idx(&filters, 0);
 }
 
 struct config_filter_parser *const *

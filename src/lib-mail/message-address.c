@@ -1,8 +1,9 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
+#include "smtp-address.h"
 #include "message-parser.h"
 #include "message-address.h"
 #include "rfc822-parser.h"
@@ -84,7 +85,7 @@ static int parse_local_part(struct message_address_parser_context *ctx)
 	   local-part      = dot-atom / quoted-string / obs-local-part
 	   obs-local-part  = word *("." word)
 	*/
-	i_assert(ctx->parser.data != ctx->parser.end);
+	i_assert(ctx->parser.data < ctx->parser.end);
 
 	str_truncate(ctx->str, 0);
 	if (*ctx->parser.data == '"')
@@ -117,7 +118,7 @@ static int parse_domain_list(struct message_address_parser_context *ctx)
 	/* obs-domain-list = "@" domain *(*(CFWS / "," ) [CFWS] "@" domain) */
 	str_truncate(ctx->str, 0);
 	for (;;) {
-		if (ctx->parser.data == ctx->parser.end)
+		if (ctx->parser.data >= ctx->parser.end)
 			return 0;
 
 		if (*ctx->parser.data != '@')
@@ -153,7 +154,7 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 		if (parse_domain_list(ctx) <= 0 || *ctx->parser.data != ':') {
 			if (ctx->fill_missing)
 				ctx->addr.route = "INVALID_ROUTE";
-			if (ctx->parser.data == ctx->parser.end)
+			if (ctx->parser.data >= ctx->parser.end)
 				return -1;
 			/* try to continue anyway */
 		} else {
@@ -203,7 +204,7 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 			ctx->addr.domain = "SYNTAX_ERROR";
 		ctx->addr.invalid_syntax = TRUE;
 	}
-	return ctx->parser.data != ctx->parser.end ? 1 : 0;
+	return ctx->parser.data < ctx->parser.end ? 1 : 0;
 }
 
 static int parse_addr_spec(struct message_address_parser_context *ctx)
@@ -211,7 +212,7 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 	/* addr-spec       = local-part "@" domain */
 	int ret, ret2 = -2;
 
-	i_assert(ctx->parser.data != ctx->parser.end);
+	i_assert(ctx->parser.data < ctx->parser.end);
 
 	str_truncate(ctx->parser.last_comment, 0);
 
@@ -221,7 +222,8 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 		/* end of input or parsing local-part failed */
 		ctx->addr.invalid_syntax = TRUE;
 	}
-	if (ret != 0 && *ctx->parser.data == '@') {
+	if (ret != 0 && ctx->parser.data < ctx->parser.end &&
+	    *ctx->parser.data == '@') {
 		ret2 = parse_domain(ctx);
 		if (ret2 <= 0)
 			ret = ret2;
@@ -316,7 +318,7 @@ static int parse_group(struct message_address_parser_context *ctx)
 			if (parse_mailbox(ctx) <= 0) {
 				/* broken mailbox - try to continue anyway. */
 			}
-			if (ctx->parser.data == ctx->parser.end ||
+			if (ctx->parser.data >= ctx->parser.end ||
 			    *ctx->parser.data != ',')
 				break;
 			ctx->parser.data++;
@@ -327,7 +329,7 @@ static int parse_group(struct message_address_parser_context *ctx)
 		}
 	}
 	if (ret >= 0) {
-		if (ctx->parser.data == ctx->parser.end ||
+		if (ctx->parser.data >= ctx->parser.end ||
 		    *ctx->parser.data != ';')
 			ret = -1;
 		else {
@@ -367,7 +369,7 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 		max_addresses--;
 		if ((ret = parse_address(ctx)) == 0)
 			break;
-		if (ctx->parser.data == ctx->parser.end ||
+		if (ctx->parser.data >= ctx->parser.end ||
 		    *ctx->parser.data != ',') {
 			ret = -1;
 			break;
@@ -399,10 +401,37 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 
 	if (rfc822_skip_lwsp(&ctx.parser) <= 0) {
 		/* no addresses */
-		return NULL;
+	} else {
+		(void)parse_address_list(&ctx, max_addresses);
 	}
-	(void)parse_address_list(&ctx, max_addresses);
+	rfc822_parser_deinit(&ctx.parser);
 	return ctx.first_addr;
+}
+
+static int
+message_address_parse_path_real(pool_t pool, const unsigned char *data,
+				size_t size, struct message_address **addr_r)
+{
+	struct message_address_parser_context ctx;
+	int ret;
+
+	i_zero(&ctx);
+	*addr_r = NULL;
+
+	rfc822_parser_init(&ctx.parser, data, size, NULL);
+	ctx.pool = pool;
+	ctx.str = t_str_new(128);
+
+	if (rfc822_skip_lwsp(&ctx.parser) <= 0)
+		return -1;
+	if ((ret=parse_angle_addr(&ctx)) < 0 ||
+		(ctx.addr.mailbox != NULL && ctx.addr.domain == NULL)) {
+		ctx.addr.invalid_syntax = TRUE;
+		ret = -1;
+	}
+	add_address(&ctx);
+	*addr_r = ctx.first_addr;
+	return (ret < 0 ? -1 : 0);
 }
 
 struct message_address *
@@ -422,10 +451,34 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 	return addr;
 }
 
+int message_address_parse_path(pool_t pool, const unsigned char *data,
+			       size_t size, struct message_address **addr_r)
+{
+	int ret;
+
+	if (pool->datastack_pool) {
+		return message_address_parse_path_real(pool, data, size, addr_r);
+	}
+	T_BEGIN {
+		ret = message_address_parse_path_real(pool, data, size, addr_r);
+	} T_END;
+	return ret;
+}
+
 void message_address_write(string_t *str, const struct message_address *addr)
 {
 	const char *tmp;
 	bool first = TRUE, in_group = FALSE;
+
+	if (addr == NULL)
+		return;
+
+	/* <> path */
+	if (addr->mailbox == NULL && addr->domain == NULL) {
+		i_assert(addr->next == NULL);
+		str_append(str, "<>");
+		return;
+	}
 
 	/* a) mailbox@domain
 	   b) name <@route:mailbox@domain>
@@ -511,6 +564,41 @@ void message_address_write(string_t *str, const struct message_address *addr)
 	}
 }
 
+const char *message_address_to_string(const struct message_address *addr)
+{
+	string_t *str = t_str_new(256);
+	message_address_write(str, addr);
+	return str_c(str);
+}
+
+const char *message_address_first_to_string(const struct message_address *addr)
+{
+	struct message_address first_addr;
+
+	first_addr = *addr;
+	first_addr.next = NULL;
+	first_addr.route = NULL;
+	return message_address_to_string(&first_addr);
+}
+
+void message_address_init(struct message_address *addr,
+	const char *name, const char *mailbox, const char *domain)
+{
+	i_zero(addr);
+	addr->name = name;
+	addr->mailbox = mailbox;
+	addr->domain = domain;
+}
+
+void message_address_init_from_smtp(struct message_address *addr,
+	const char *name, const struct smtp_address *smtp_addr)
+{
+	i_zero(addr);
+	addr->name = name;
+	addr->mailbox = smtp_addr->localpart;
+	addr->domain = smtp_addr->domain;
+}
+
 static const char *address_headers[] = {
 	"From", "Sender", "Reply-To",
 	"To", "Cc", "Bcc",
@@ -527,33 +615,3 @@ bool message_header_is_address(const char *hdr_name)
 	}
 	return FALSE;
 }
-
-void message_detail_address_parse(const char *delimiters, const char *address,
-				  const char **username_r, char *delim_r,
-				  const char **detail_r)
-{
-	const char *p, *domain;
-	size_t idx;
-
-	*username_r = address;
-	*detail_r = "";
-	*delim_r = '\0';
-
-	domain = strchr(address, '@');
-	/* first character that matches the recipient_delimiter */
-	idx = strcspn(address, delimiters);
-	p = address[idx] != '\0' ? address + idx : NULL;
-
-	if (p != NULL && (domain == NULL || p < domain)) {
-		*delim_r = *p;
-		/* user+detail@domain */
-		*username_r = t_strdup_until(*username_r, p);
-		if (domain == NULL)
-			*detail_r = p+1;
-		else {
-			*detail_r = t_strdup_until(p+1, domain);
-			*username_r = t_strconcat(*username_r, domain, NULL);
-		}
-	}
-}
-

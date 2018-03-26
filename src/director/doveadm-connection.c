@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -9,6 +9,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "llist.h"
+#include "time-util.h"
 #include "master-service.h"
 #include "user-directory.h"
 #include "mail-host.h"
@@ -24,7 +25,7 @@
 #define DOVEADM_HANDSHAKE "VERSION\tdirector-doveadm\t1\t0\n"
 
 #define MAX_VALID_VHOST_COUNT 1000
-#define DEFAULT_MAX_MOVING_USERS 100
+
 #define DOVEADM_CONNECTION_RING_SYNC_TIMEOUT_MSECS (30*1000)
 
 enum doveadm_director_cmd_ret {
@@ -46,10 +47,22 @@ struct director_reset_cmd {
 
 	struct director *dir;
 	struct doveadm_connection *_conn;
+	struct timeval start_time;
+
 	struct director_user_iter *iter;
-	unsigned int host_idx, hosts_count;
+	unsigned int host_start_idx, host_idx, hosts_count;
 	unsigned int max_moving_users;
+	unsigned int reset_count;
 	bool users_killed;
+};
+
+struct director_kick_cmd {
+	struct director_kick_cmd *prev, *next;
+
+	struct doveadm_connection *_conn;
+	struct director *dir;
+	char *mask, *field, *value;
+	bool alt:1;
 };
 
 struct doveadm_connection {
@@ -63,6 +76,7 @@ struct doveadm_connection {
 
 	struct timeout *to_ring_sync_abort;
 	struct director_reset_cmd *reset_cmd;
+	struct director_kick_cmd *kick_cmd;
 	doveadm_connection_ring_sync_callback_t *ring_sync_callback;
 
 	const char **cmd_pending_args;
@@ -74,6 +88,7 @@ struct doveadm_connection {
 static struct doveadm_connection *doveadm_connections;
 static struct doveadm_connection *doveadm_ring_sync_pending_connections;
 static struct director_reset_cmd *reset_cmds = NULL;
+static struct director_kick_cmd *kick_cmds = NULL;
 
 static void doveadm_connection_set_io(struct doveadm_connection *conn);
 static void doveadm_connection_deinit(struct doveadm_connection **_conn);
@@ -90,7 +105,7 @@ doveadm_cmd_host_list(struct doveadm_connection *conn,
 
 	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
 		str_printfa(str, "%s\t%u\t%u\t",
-			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count,
+			    (*hostp)->ip_str, (*hostp)->vhost_count,
 			    (*hostp)->user_count);
 		str_append_tabescaped(str, mail_host_get_tag(*hostp));
 		str_printfa(str, "\t%c\t%ld", (*hostp)->down ? 'D' : 'U',
@@ -130,13 +145,12 @@ doveadm_cmd_host_list_removed(struct doveadm_connection *conn,
 		else if (ret > 0)
 			j++;
 		else {
-			str_printfa(str, "%s\n",
-				    net_ip2addr(&orig_hosts[i]->ip));
+			str_printfa(str, "%s\n", orig_hosts[i]->ip_str);
 			i++;
 		}
 	}
 	for (; i < orig_hosts_count; i++)
-		str_printfa(str, "%s\n", net_ip2addr(&orig_hosts[i]->ip));
+		str_printfa(str, "%s\n", orig_hosts[i]->ip_str);
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
 
@@ -144,57 +158,95 @@ doveadm_cmd_host_list_removed(struct doveadm_connection *conn,
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
+static void
+doveadm_director_host_append_status(const struct director_host *host,
+				    const char *type, string_t *str)
+{
+	time_t last_failed = I_MAX(host->last_network_failure,
+				   host->last_protocol_failure);
+	str_printfa(str, "%s\t%u\t%s\t%"PRIdTIME_T"\t",
+		    host->ip_str, host->port, type,
+		    last_failed);
+}
+
 static void doveadm_director_append_status(struct director *dir, string_t *str)
 {
 	if (!dir->ring_handshaked)
-		str_append(str, "handshaking");
+		str_append(str, "ring handshaking");
 	else if (dir->ring_synced)
-		str_append(str, "synced");
+		str_append(str, "ring synced");
 	else {
-		str_printfa(str, "syncing - last sync %d secs ago",
+		str_printfa(str, "ring syncing - last sync %d secs ago",
 			    (int)(ioloop_time - dir->ring_last_sync_time));
 	}
+	str_printfa(str, "\t%u", dir->last_sync_msecs);
 }
 
 static void
 doveadm_director_connection_append_status(struct director_connection *conn,
 					  string_t *str)
 {
-	if (!director_connection_is_handshaked(conn))
-		str_append(str, "handshaking");
-	else if (director_connection_is_synced(conn))
+	struct director_connection_status status;
+
+	director_connection_get_status(conn, &status);
+	if (!director_connection_is_handshaked(conn)) {
+		str_append(str, "handshaking - ");
+		if (director_connection_is_incoming(conn))
+			str_printfa(str, "%u USERs received", status.handshake_users_received);
+		else
+			str_printfa(str, "%u USERs sent", status.handshake_users_sent);
+	} else if (director_connection_is_synced(conn))
 		str_append(str, "synced");
 	else
 		str_append(str, "syncing");
+
+	str_printfa(str, "\t%u\t%"PRIuUOFF_T"\t%"PRIuUOFF_T"\t%zu\t%zu\t"
+		    "%"PRIdTIME_T"\t%"PRIdTIME_T, status.last_ping_msecs,
+		    status.bytes_read, status.bytes_sent,
+		    status.bytes_buffered, status.peak_bytes_buffered,
+		    status.last_input.tv_sec, status.last_output.tv_sec);
 }
 
 static void
-doveadm_director_host_append_status(struct director *dir,
-				    const struct director_host *host,
-				    string_t *str)
+doveadm_director_connection_append(struct director *dir,
+				   struct director_connection *conn,
+				   const struct director_host *host,
+				   string_t *str)
 {
-	struct director_connection *conn = NULL;
+	const char *type;
 
-	if (dir->left != NULL &&
-	    director_connection_get_host(dir->left) == host)
-		conn = dir->left;
-	else if (dir->right != NULL &&
-		 director_connection_get_host(dir->right) == host)
-		conn = dir->right;
-	else {
-		/* we might have a connection that is being connected */
-		struct director_connection *const *connp;
+	if (conn == dir->left)
+		type = "left";
+	else if (conn == dir->right)
+		type = "right";
+	else if (director_connection_is_incoming(conn))
+		type = "in";
+	else
+		type = "out";
 
-		array_foreach(&dir->connections, connp) {
-			if (director_connection_get_host(*connp) == host) {
-				conn = *connp;
-				break;
-			}
-		}
-	}
+	if (host != NULL)
+		doveadm_director_host_append_status(host, type, str);
+	doveadm_director_connection_append_status(conn, str);
+	str_append_c(str, '\n');
+}
 
-	if (conn != NULL)
-		doveadm_director_connection_append_status(conn, str);
+static void
+doveadm_director_host_append(struct director *dir,
+			     const struct director_host *host, string_t *str)
+{
+	const char *type;
+
+	if (host->removed)
+		type = "removed";
+	else if (dir->self_host == host)
+		type = "self";
+	else
+		type = "";
+
+	doveadm_director_host_append_status(host, type, str);
+	if (dir->self_host == host)
+		doveadm_director_append_status(dir, str);
+	str_append_c(str, '\n');
 }
 
 static enum doveadm_director_cmd_ret
@@ -204,40 +256,36 @@ doveadm_cmd_director_list(struct doveadm_connection *conn,
 	struct director *dir = conn->dir;
 	struct director_host *const *hostp;
 	string_t *str = t_str_new(1024);
-	const char *type;
-	bool left, right;
-	time_t last_failed;
+	struct director_connection *const *connp;
+	ARRAY(struct director_host *) hosts;
 
-	array_foreach(&dir->dir_hosts, hostp) {
-		const struct director_host *host = *hostp;
+	t_array_init(&hosts, array_count(&dir->dir_hosts));
+	array_append_array(&hosts, &dir->dir_hosts);
+	array_sort(&hosts, director_host_cmp_p);
 
-		left = dir->left != NULL &&
-			director_connection_get_host(dir->left) == host;
-		right = dir->right != NULL &&
-			 director_connection_get_host(dir->right) == host;
-
-		if (host->removed)
-			type = "removed";
-		else if (dir->self_host == host)
-			type = "self";
-		else if (left)
-			type = right ? "l+r" : "left";
-		else if (right)
-			type = "right";
-		else
-			type = "";
-
-		last_failed = I_MAX(host->last_network_failure,
-				    host->last_protocol_failure);
-		str_printfa(str, "%s\t%u\t%s\t%"PRIdTIME_T"\t",
-			    net_ip2addr(&host->ip), host->port, type,
-			    last_failed);
-		if (dir->self_host == host)
-			doveadm_director_append_status(dir, str);
-		else
-			doveadm_director_host_append_status(dir, host, str);
-		str_append_c(str, '\n');
+	/* first show incoming connections that have no known host yet */
+	array_foreach(&dir->connections, connp) {
+		if (director_connection_get_host(*connp) == NULL)
+			doveadm_director_connection_append(dir, *connp, NULL, str);
 	}
+
+	/* show other connections and host without connections sorted by host */
+	array_foreach(&hosts, hostp) {
+		const struct director_host *host = *hostp;
+		bool have_connections = FALSE;
+
+		array_foreach(&dir->connections, connp) {
+			const struct director_host *conn_host =
+				director_connection_get_host(*connp);
+			if (conn_host != host)
+				continue;
+			have_connections = TRUE;
+			doveadm_director_connection_append(dir, *connp, host, str);
+		}
+		if (!have_connections)
+			doveadm_director_host_append(dir, host, str);
+	}
+
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
@@ -497,7 +545,7 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 		director_connection_cork(dir->right);
 
 	if (cmd->iter == NULL) {
-		cmd->iter = director_iterate_users_init(dir);
+		cmd->iter = director_iterate_users_init(dir, FALSE);
 		cmd->users_killed = FALSE;
 	}
 
@@ -520,11 +568,16 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 						   TRUE);
 				cmd->users_killed = TRUE;
 			}
+			cmd->reset_count++;
 		} T_END;
 		if (dir->users_moving_count >= cmd->max_moving_users)
 			break;
 	}
 	if (user == NULL) {
+		int msecs = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+		i_info("Moved %u users in %u hosts in %u.%03u secs (max parallel=%u)",
+		       cmd->reset_count, cmd->hosts_count - cmd->host_start_idx,
+		       msecs / 1000, msecs % 1000, cmd->max_moving_users);
 		director_iterate_users_deinit(&cmd->iter);
 		if (cmd->users_killed) {
 			/* no more backends. we already sent kills. now remove
@@ -570,10 +623,12 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 	struct ip_addr ip;
 	struct mail_host *const *hosts;
 	unsigned int i = 0, count;
-	unsigned int max_moving_users = DEFAULT_MAX_MOVING_USERS;
+	unsigned int max_moving_users =
+		conn->dir->set->director_max_parallel_moves;
 
 	if (args[0] != NULL && args[1] != NULL &&
-	    str_to_uint(args[1], &max_moving_users) < 0) {
+	    (str_to_uint(args[1], &max_moving_users) < 0 ||
+	     max_moving_users == 0)) {
 		i_error("doveadm sent invalid HOST-RESET-USERS parameters");
 		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
@@ -601,8 +656,10 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 	cmd->dir = conn->dir;
 	cmd->_conn = conn;
 	cmd->max_moving_users = max_moving_users;
+	cmd->host_start_idx = i;
 	cmd->host_idx = i;
 	cmd->hosts_count = count;
+	cmd->start_time = ioloop_timeval;
 	DLLIST_PREPEND(&reset_cmds, cmd);
 
 	if (!director_reset_cmd_run(cmd)) {
@@ -647,7 +704,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 	if (user == NULL)
 		str_append(str, "\t0");
 	else {
-		str_printfa(str, "%s\t%u", net_ip2addr(&user->host->ip),
+		str_printfa(str, "%s\t%u", user->host->ip_str,
 			    user->timestamp +
 			    conn->dir->set->director_user_expire);
 	}
@@ -657,7 +714,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 	if (host == NULL)
 		str_append(str, "\t");
 	else
-		str_printfa(str, "\t%s", net_ip2addr(&host->ip));
+		str_printfa(str, "\t%s", host->ip_str);
 
 	/* get host with default configuration */
 	host = mail_host_get_by_hash(conn->dir->orig_config_hosts,
@@ -665,7 +722,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 	if (host == NULL)
 		str_append(str, "\t\n");
 	else
-		str_printfa(str, "\t%s\n", net_ip2addr(&host->ip));
+		str_printfa(str, "\t%s\n", host->ip_str);
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
@@ -686,7 +743,7 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 		ip.family = 0;
 	}
 
-	iter = director_iterate_users_init(conn->dir);
+	iter = director_iterate_users_init(conn->dir, FALSE);
 	while ((user = director_iterate_users_next(iter)) != NULL) {
 		if (ip.family == 0 ||
 		    net_ip_compare(&ip, &user->host->ip)) T_BEGIN {
@@ -696,7 +753,7 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 			o_stream_nsend_str(conn->output, t_strdup_printf(
 				"%u\t%u\t%s\n",
 				user->username_hash, expire_time,
-				net_ip2addr(&user->host->ip)));
+				user->host->ip_str));
 		} T_END;
 	}
 	director_iterate_users_deinit(&iter);
@@ -749,30 +806,117 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
+static void doveadm_kick_cmd_free(struct director_kick_cmd **_cmd)
+{
+	struct director_kick_cmd *cmd = *_cmd;
+	*_cmd = NULL;
+
+	if (cmd->_conn != NULL)
+		cmd->_conn->kick_cmd = NULL;
+
+	i_free(cmd->field);
+	i_free(cmd->value);
+	i_free(cmd->mask);
+	i_free(cmd);
+}
+
+static bool doveadm_cmd_user_kick_run(struct director_kick_cmd *cmd)
+{
+	if (cmd->dir->users_kicking_count >=
+	    cmd->dir->set->director_max_parallel_kicks)
+		return FALSE;
+
+	if (cmd->alt)
+		director_kick_user_alt(cmd->dir, cmd->dir->self_host,
+				       NULL, cmd->field, cmd->value);
+	else
+		director_kick_user(cmd->dir, cmd->dir->self_host,
+				       NULL, cmd->mask);
+	if (cmd->_conn != NULL) {
+		struct doveadm_connection *conn = cmd->_conn;
+
+		o_stream_nsend(conn->output, "OK\n", 3);
+		if (conn->io == NULL)
+			doveadm_connection_set_io(conn);
+	}
+	DLLIST_REMOVE(&kick_cmds, cmd);
+	doveadm_kick_cmd_free(&cmd);
+	return TRUE;
+}
+
 static enum doveadm_director_cmd_ret
 doveadm_cmd_user_kick(struct doveadm_connection *conn, const char *const *args)
 {
+	struct director_kick_cmd *cmd;
+	bool wait = TRUE;
+
 	if (args[0] == NULL) {
 		i_error("doveadm sent invalid USER-KICK parameters");
 		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
-	director_kick_user(conn->dir, conn->dir->self_host, NULL, args[0]);
-	o_stream_nsend(conn->output, "OK\n", 3);
+	if (null_strcmp(args[1], "nowait") == 0)
+		wait = FALSE;
+
+	cmd = conn->kick_cmd = i_new(struct director_kick_cmd, 1);
+	cmd->alt = FALSE;
+	cmd->mask = i_strdup(args[0]);
+	cmd->dir = conn->dir;
+	cmd->_conn = conn;
+
+	DLLIST_PREPEND(&kick_cmds, cmd);
+
+	if (!doveadm_cmd_user_kick_run(cmd)) {
+		if (wait) {
+			/* we have work to do, wait until it finishes */
+			io_remove(&conn->io);
+			return DOVEADM_DIRECTOR_CMD_RET_UNFINISHED;
+		} else {
+			o_stream_nsend_str(conn->output, "TRYAGAIN\n");
+			/* need to remove it here */
+			DLLIST_REMOVE(&kick_cmds, cmd);
+			doveadm_kick_cmd_free(&cmd);
+		}
+	}
+
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
 static enum doveadm_director_cmd_ret
 doveadm_cmd_user_kick_alt(struct doveadm_connection *conn, const char *const *args)
 {
+	bool wait = TRUE;
+	struct director_kick_cmd *cmd;
+
 	if (str_array_length(args) < 2) {
 		i_error("doveadm sent invalid USER-KICK-ALT parameters");
 		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
-	director_kick_user_alt(conn->dir, conn->dir->self_host, NULL,
-			       args[0], args[1]);
-	o_stream_nsend(conn->output, "OK\n", 3);
+	if (null_strcmp(args[2], "nowait") == 0)
+		wait = FALSE;
+
+	conn->kick_cmd = cmd = i_new(struct director_kick_cmd, 1);
+	cmd->alt = TRUE;
+	cmd->field = i_strdup(args[0]);
+	cmd->value = i_strdup(args[1]);
+	cmd->dir = conn->dir;
+	cmd->_conn = conn;
+
+	DLLIST_PREPEND(&kick_cmds, cmd);
+
+	if (!doveadm_cmd_user_kick_run(cmd)) {
+		if (wait) {
+			/* we have work to do, wait until it finishes */
+			io_remove(&conn->io);
+			return DOVEADM_DIRECTOR_CMD_RET_UNFINISHED;
+		} else {
+			o_stream_nsend_str(conn->output, "TRYAGAIN\n");
+			DLLIST_REMOVE(&kick_cmds, cmd);
+			doveadm_kick_cmd_free(&cmd);
+		}
+	}
+
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
@@ -964,6 +1108,10 @@ static void doveadm_connection_deinit(struct doveadm_connection **_conn)
 		/* finish the move even if doveadm disconnected */
 		conn->reset_cmd->_conn = NULL;
 	}
+	if (conn->kick_cmd != NULL) {
+		/* finish the kick even if doveadm disconnected */
+		conn->kick_cmd->_conn = NULL;
+	}
 
 	DLLIST_REMOVE(&doveadm_connections, conn);
 	io_remove(&conn->io);
@@ -1001,6 +1149,13 @@ void doveadm_connections_deinit(void)
 
 		doveadm_connection_deinit(&conn);
 	}
+}
+
+void doveadm_connections_kick_callback(struct director *dir ATTR_UNUSED)
+{
+	while(kick_cmds != NULL)
+		if (!doveadm_cmd_user_kick_run(kick_cmds))
+			break;
 }
 
 static void doveadm_connections_continue_reset_cmds(void)

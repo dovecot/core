@@ -44,8 +44,7 @@ test_dict_client_SOURCES = test-dict-client.c
 test_dict_client_LDADD = $(noinst_LTLIBRARIES) ../lib/liblib.la
 test_dict_client_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
 
-check: check-am check-test
-check-test: all-am
-	for bin in $(test_programs); do \
+check-local:
+	for bin in $(test_programs) $(check_PROGRAMS); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

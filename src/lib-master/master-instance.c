@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "path-util.h"
@@ -29,8 +29,9 @@ struct master_instance_list_iter {
 };
 
 static const struct dotlock_settings dotlock_set = {
-	.timeout = 2,
-	.stale_timeout = 60
+	.timeout = 10,
+	.stale_timeout = 60,
+	.use_io_notify = TRUE,
 };
 
 struct master_instance_list *master_instance_list_init(const char *path)
@@ -150,7 +151,7 @@ master_instance_list_write(struct master_instance_list *list,
 		str_append_c(str, '\n');
 		o_stream_nsend(output, str_data(str), str_len(str));
 	}
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", path, o_stream_get_error(output));
 		ret = -1;
 	}

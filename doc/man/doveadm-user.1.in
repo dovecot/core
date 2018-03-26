@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-USER 1 "2013-11-23" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-USER 1 "2013-11-23" "Dovecot v2.3" "Dovecot"
 .SH NAME
 doveadm\-user \- Perform a user lookup in Dovecot\(aqs userdbs
 .\"------------------------------------------------------------------------

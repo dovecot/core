@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "pop3-common.h"
 #include "array.h"
@@ -206,7 +206,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 		ret = -1;
 
 	if (ret <= 0) {
-		/* commit the transaction instead of rollbacking to make sure
+		/* commit the transaction instead of rolling back to make sure
 		   we don't lose data (virtual sizes) added to cache file */
 		(void)mailbox_transaction_commit(&t);
 		array_free(&message_sizes);
@@ -524,7 +524,7 @@ static const char *client_stats(struct client *client)
 			'o', "uidl_change"))
 		uidl_change = client_build_uidl_change_string(client);
 
-	const struct var_expand_table tab[] = {
+	const struct var_expand_table logout_tab[] = {
 		{ 'p', dec2str(client->top_bytes), "top_bytes" },
 		{ 't', dec2str(client->top_count), "top_count" },
 		{ 'b', dec2str(client->retr_bytes), "retr_bytes" },
@@ -541,11 +541,17 @@ static const char *client_stats(struct client *client)
 		       dec2str(client->deleted_size), "deleted_bytes" },
 		{ '\0', NULL, NULL }
 	};
+	const struct var_expand_table *user_tab =
+		mail_user_var_expand_table(client->user);
+	const struct var_expand_table *tab =
+		t_var_expand_merge_tables(logout_tab, user_tab);
 	string_t *str;
 	const char *error;
 
 	str = t_str_new(128);
-	if (var_expand(str, client->set->pop3_logout_format, tab, &error) <= 0) {
+	if (var_expand_with_funcs(str, client->set->pop3_logout_format,
+				  tab, mail_user_var_expand_func_table,
+				  client->user, &error) < 0) {
 		i_error("Failed to expand pop3_logout_format=%s: %s",
 			client->set->pop3_logout_format, error);
 	}
@@ -833,7 +839,7 @@ static int client_output(struct client *client)
 	}
 }
 
-void clients_destroy_all(struct mail_storage_service_ctx *storage_service)
+void clients_destroy_all(void)
 {
 	while (pop3_clients != NULL) {
 		if (pop3_clients->cmd == NULL) {
@@ -843,7 +849,6 @@ void clients_destroy_all(struct mail_storage_service_ctx *storage_service)
 		mail_storage_service_io_activate_user(pop3_clients->service_user);
 		client_destroy(pop3_clients, "Server shutting down.");
 	}
-	mail_storage_service_io_deactivate(storage_service);
 }
 
 struct pop3_client_vfuncs pop3_client_vfuncs = {

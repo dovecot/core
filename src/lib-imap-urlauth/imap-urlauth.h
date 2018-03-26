@@ -16,8 +16,13 @@ struct imap_urlauth_config {
 	const char *socket_path;
 	const char *session_id;
 
+	/* the user who is requesting access to URLAUTHs */
 	const char *access_user;
+	/* ... is using this service (i.e. imap or submission) */
+	const char *access_service;
+	/* ... represents these applications */
 	const char *const *access_applications;
+	/* ... is anonymous? */
 	bool access_anonymous;
 };
 

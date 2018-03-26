@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -509,6 +509,16 @@ dump_cache_mime_parts(string_t *str, const void *data, unsigned int size)
 	dump_message_part(str, part);
 }
 
+static void
+dump_cache_snippet(string_t *str, const unsigned char *data, unsigned int size)
+{
+	if (size == 0)
+		return;
+	str_printfa(str, " (version=%u: ", data[0]);
+	str_append_n(str, data+1, size-1);
+	str_append_c(str, ')');
+}
+
 static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 {
 	struct mail_cache_lookup_iterate_ctx iter;
@@ -553,6 +563,8 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 			str_printfa(str, "(%s)", binary_to_hex(data, size));
 			if (strcmp(field->name, "mime.parts") == 0)
 				dump_cache_mime_parts(str, data, size);
+			else if (strcmp(field->name, "body.snippet") == 0)
+				dump_cache_snippet(str, data, size);
 			break;
 		case MAIL_CACHE_FIELD_STRING:
 			if (size > 0)
@@ -727,15 +739,15 @@ static struct mail_index *path_open_index(const char *path)
 
 	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
 		if (dir_has_index(path, "dovecot.index"))
-			return mail_index_alloc(path, "dovecot.index");
+			return mail_index_alloc(NULL, path, "dovecot.index");
 		else if (dir_has_index(path, "dovecot.map.index"))
-			return mail_index_alloc(path, "dovecot.map.index");
+			return mail_index_alloc(NULL, path, "dovecot.map.index");
 		else
 			return NULL;
 	} else if ((p = strrchr(path, '/')) != NULL)
-		return mail_index_alloc(t_strdup_until(path, p), p + 1);
+		return mail_index_alloc(NULL, t_strdup_until(path, p), p + 1);
 	else
-		return mail_index_alloc(".", path);
+		return mail_index_alloc(NULL, ".", path);
 }
 
 static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])

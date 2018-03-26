@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ostream.h"
@@ -51,7 +51,7 @@ static ssize_t i_stream_rawlog_read(struct istream_private *stream)
 	if (pos > stream->pos)
 		ret = 0;
 	else do {
-		if ((ret = i_stream_read(stream->parent)) == -2)
+		if ((ret = i_stream_read_memarea(stream->parent)) == -2)
 			return -2;
 
 		stream->istream.stream_errno = stream->parent->stream_errno;
@@ -112,5 +112,5 @@ i_stream_create_rawlog_from_stream(struct istream *input,
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&rstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
 #include "str.h"
@@ -13,7 +13,7 @@
 #include "client-common.h"
 #include "imap-urlauth-login-settings.h"
 
-#define IMAP_URLAUTH_PROTOCOL_MAJOR_VERSION 1
+#define IMAP_URLAUTH_PROTOCOL_MAJOR_VERSION 2
 #define IMAP_URLAUTH_PROTOCOL_MINOR_VERSION 0
 
 struct imap_urlauth_client {
@@ -41,7 +41,7 @@ imap_urlauth_client_auth_result(struct client *client,
 
 static void imap_urlauth_client_handle_input(struct client *client)
 {
-#define AUTH_ARG_COUNT 5
+#define AUTH_ARG_COUNT 6
 	struct imap_urlauth_client *uauth_client =
 		(struct imap_urlauth_client *)client;
 	struct net_unix_cred cred;
@@ -67,11 +67,18 @@ static void imap_urlauth_client_handle_input(struct client *client)
 		return;
 
 	/* read authentication info from input;
-	   "AUTH"\t<session-pid>\t<auth-username>\t<session_id>\t<token> */
+	   "AUTH"\t<service>\t<session-pid>\t<auth-username>\t<session_id>\t<token> */
 	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) < AUTH_ARG_COUNT ||
-	    strcmp(args[0], "AUTH") != 0 || str_to_pid(args[1], &pid) < 0) {
+	    strcmp(args[0], "AUTH") != 0 || str_to_pid(args[2], &pid) < 0) {
 		i_error("IMAP URLAUTH client sent unexpected AUTH input: %s", line);
+		client_destroy(client, "Disconnected: Unexpected input");
+		return;
+	}
+
+	/* only imap and submission have direct access to urlauth service */
+	if (strcmp(args[1], "imap") != 0 && strcmp(args[1], "submission") != 0) {
+		i_error("IMAP URLAUTH accessed from inappropriate service: %s", args[1]);
 		client_destroy(client, "Disconnected: Unexpected input");
 		return;
 	}
@@ -91,8 +98,8 @@ static void imap_urlauth_client_handle_input(struct client *client)
 		string_t *init_resp;
 		unsigned int i;
 
-		str_append(auth_data, "imap");
-		for (i = 1; i < AUTH_ARG_COUNT; i++) {
+		str_append(auth_data, args[1]);
+		for (i = 2; i < AUTH_ARG_COUNT; i++) {
 			str_append_c(auth_data, '\0');
 			str_append(auth_data, args[i]);
 		}
@@ -139,7 +146,7 @@ static void imap_urlauth_client_create
 		(struct imap_urlauth_client *)client;
 
 	uauth_client->set = other_sets[0];
-	client->io = io_add(client->fd, IO_READ, client_input, client);
+	client->io = io_add_istream(client->input, client_input, client);
 }
 
 static void imap_urlauth_login_preinit(void)

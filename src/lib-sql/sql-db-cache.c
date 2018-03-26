@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -7,7 +7,7 @@
 #include "sql-db-cache.h"
 
 #define SQL_DB_CACHE_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, sql_db_cache_module)
+	MODULE_CONTEXT_REQUIRE(obj, sql_db_cache_module)
 
 struct sql_db_cache_context {
 	union sql_db_module_context module_ctx;

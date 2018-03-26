@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "buffer.h"
@@ -37,12 +37,11 @@ static void fetch_read_error(struct imap_fetch_context *ctx,
 			return;
 		}
 	}
-	mail_storage_set_critical(state->cur_mail->box->storage,
-		"read(%s) failed: %s (FETCH %s for mailbox %s UID %u)",
+	mail_set_critical(state->cur_mail,
+		"read(%s) failed: %s (FETCH %s)",
 		i_stream_get_name(state->cur_input),
 		i_stream_get_error(state->cur_input),
-		state->cur_human_name,
-		mailbox_get_vname(state->cur_mail->box), state->cur_mail->uid);
+		state->cur_human_name);
 	*disconnect_reason_r = "FETCH read() failed";
 }
 
@@ -562,30 +561,116 @@ bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx)
 			MAIL_FETCH_STREAM_BODY;
 		ctx->fetch_ctx->flags_update_seen = TRUE;
 		imap_fetch_add_handler(ctx, 0, "NIL",
-				       fetch_rfc822, (void *)NULL);
+				       fetch_rfc822, NULL);
 		return TRUE;
 	}
 
 	if (strcmp(name+6, ".SIZE") == 0) {
 		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_VIRTUAL_SIZE;
 		imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
-				       "0", fetch_rfc822_size, (void *)NULL);
+				       "0", fetch_rfc822_size, NULL);
 		return TRUE;
 	}
 	if (strcmp(name+6, ".HEADER") == 0) {
 		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
 		imap_fetch_add_handler(ctx, 0, "NIL",
-				       fetch_rfc822_header, (void *)NULL);
+				       fetch_rfc822_header, NULL);
 		return TRUE;
 	}
 	if (strcmp(name+6, ".TEXT") == 0) {
 		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
 		ctx->fetch_ctx->flags_update_seen = TRUE;
 		imap_fetch_add_handler(ctx, 0, "NIL",
-				       fetch_rfc822_text, (void *)NULL);
+				       fetch_rfc822_text, NULL);
 		return TRUE;
 	}
 
 	ctx->error = t_strconcat("Unknown parameter ", name, NULL);
 	return FALSE;
+}
+
+static int ATTR_NULL(3)
+fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
+	      void *context)
+{
+	const bool lazy = context != NULL;
+	enum mail_lookup_abort temp_lookup_abort = lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE : mail->lookup_abort;
+	enum mail_lookup_abort orig_lookup_abort = mail->lookup_abort;
+	const char *snippet;
+	int ret;
+
+	mail->lookup_abort = temp_lookup_abort;
+	ret = mail_get_special(mail, MAIL_FETCH_BODY_SNIPPET, &snippet);
+	mail->lookup_abort = orig_lookup_abort;
+
+	if (ret == 0) {
+		/* got it => nothing to do */
+		snippet++; /* skip over snippet version byte */
+	} else if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_LOOKUP_ABORTED) {
+		/* actual error => bail */
+		return -1;
+	} else if (lazy) {
+		/* not in cache && lazy => give up */
+		str_append(ctx->state.cur_str, "SNIPPET (FUZZY NIL)");
+		return 1;
+	} else {
+		/*
+		 * not in cache && !lazy => someone higher up set
+		 * MAIL_LOOKUP_ABORT_NOT_IN_CACHE and so even though we got
+		 * a non-lazy request we failed the cache lookup.
+		 *
+		 * This is not an error, but since the scenario is
+		 * sufficiently convoluted this else branch serves to
+		 * document it.
+		 */
+		str_append(ctx->state.cur_str, "SNIPPET (FUZZY NIL)");
+		return 1;
+	}
+
+	str_append(ctx->state.cur_str, "SNIPPET (FUZZY ");
+	imap_append_string(ctx->state.cur_str, snippet);
+	str_append(ctx->state.cur_str, ") ");
+
+	return 1;
+}
+
+bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
+{
+	const struct imap_arg *list_args;
+	unsigned int list_count;
+	bool lazy;
+
+	lazy = FALSE;
+
+	if (imap_arg_get_list_full(&ctx->args[0], &list_args, &list_count)) {
+		unsigned int i;
+
+		for (i = 0; i < list_count; i++) {
+			const char *str;
+
+			if (!imap_arg_get_atom(&list_args[i], &str)) {
+				ctx->error = "Invalid SNIPPET algorithm/modifier";
+				return FALSE;
+			}
+
+			if (strcasecmp(str, "LAZY") == 0 ||
+			    strcasecmp(str, "LAZY=FUZZY") == 0) {
+				lazy = TRUE;
+			} else if (strcasecmp(str, "FUZZY") == 0) {
+				/* nothing to do */
+			} else {
+				ctx->error = t_strdup_printf("'%s' is not a "
+							     "supported SNIPPET algorithm/modifier",
+							     str);
+				return FALSE;
+			}
+		}
+
+		ctx->args += list_count;
+	}
+
+	ctx->fetch_ctx->fetch_data |= MAIL_FETCH_BODY_SNIPPET;
+	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
+			       "NIL", fetch_snippet, (void *) lazy);
+	return TRUE;
 }

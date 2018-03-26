@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -7,9 +7,9 @@
 #include "notify-plugin-private.h"
 
 #define NOTIFY_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, notify_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, notify_storage_module)
 #define NOTIFY_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, notify_mail_module)
+	MODULE_CONTEXT_REQUIRE(obj, notify_mail_module)
 
 static MODULE_CONTEXT_DEFINE_INIT(notify_storage_module,
 				  &mail_storage_module_register);
@@ -146,7 +146,8 @@ notify_transaction_commit(struct mailbox_transaction_context *t,
 	bool no_notify = (t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) != 0;
 
 	if ((lbox->super.transaction_commit(t, changes_r)) < 0) {
-		notify_contexts_mail_transaction_rollback(t);
+		if (!no_notify)
+			notify_contexts_mail_transaction_rollback(t);
 		return -1;
 	}
 

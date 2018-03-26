@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "time-util.h"
@@ -23,16 +23,31 @@ int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2)
 int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 	unsigned int usec_margin)
 {
-	if (tv1->tv_sec < tv2->tv_sec)
-		return -1;
-	if (tv1->tv_sec > tv2->tv_sec)
-		return 1;
+	unsigned long long usecs_diff;
+	int sec_margin, ret;
 
-	if ((tv2->tv_usec - tv1->tv_usec) > (int)usec_margin)
-		return -1;
-	if ((tv1->tv_usec - tv2->tv_usec) > (int)usec_margin)
-		return 1;
-	return 0;
+	if (tv1->tv_sec < tv2->tv_sec) {
+		sec_margin = ((int)usec_margin / 1000000) + 1;
+		if ((tv2->tv_sec - tv1->tv_sec) > sec_margin)
+			return -1;
+		usecs_diff = (tv2->tv_sec - tv1->tv_sec) * 1000000ULL +
+			(tv2->tv_usec - tv1->tv_usec);
+		ret = -1;
+	} else if (tv1->tv_sec > tv2->tv_sec) {
+		sec_margin = ((int)usec_margin / 1000000) + 1;
+		if ((tv1->tv_sec - tv2->tv_sec) > sec_margin)
+			return 1;
+		usecs_diff = (tv1->tv_sec - tv2->tv_sec) * 1000000ULL +
+			(tv1->tv_usec - tv2->tv_usec);
+		ret = 1;
+	} else if (tv1->tv_usec < tv2->tv_usec) {
+		usecs_diff = tv2->tv_usec - tv1->tv_usec;
+		ret = -1;
+	} else {
+		usecs_diff = tv1->tv_usec - tv2->tv_usec;
+		ret = 1;
+	}
+	return usecs_diff > usec_margin ? ret : 0;
 }
 
 int timeval_diff_msecs(const struct timeval *tv1, const struct timeval *tv2)

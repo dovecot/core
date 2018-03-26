@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -72,7 +72,7 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 		str_truncate(ctx->last_comment, 0);
 
 	start = ++ctx->data;
-	for (; ctx->data != ctx->end; ctx->data++) {
+	for (; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
 		case '(':
 			level++;
@@ -84,7 +84,7 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 						     ctx->data - start);
 				}
 				ctx->data++;
-				return ctx->data != ctx->end ? 1 : 0;
+				return ctx->data < ctx->end ? 1 : 0;
 			}
 			break;
 		case '\\':
@@ -95,7 +95,7 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 			start = ctx->data + 1;
 
 			ctx->data++;
-			if (ctx->data == ctx->end)
+			if (ctx->data >= ctx->end)
 				return -1;
 			break;
 		}
@@ -107,7 +107,7 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 
 int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 {
-	for (; ctx->data != ctx->end;) {
+	for (; ctx->data < ctx->end;) {
 		if (*ctx->data == ' ' || *ctx->data == '\t' ||
 		    *ctx->data == '\r' || *ctx->data == '\n') {
                         ctx->data++;
@@ -120,7 +120,7 @@ int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 		if (rfc822_skip_comment(ctx) < 0)
 			return -1;
 	}
-	return ctx->data != ctx->end ? 1 : 0;
+	return ctx->data < ctx->end ? 1 : 0;
 }
 
 int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)
@@ -132,10 +132,10 @@ int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)
 	   atext           =
 	     ; Any character except controls, SP, and specials.
 	*/
-	if (ctx->data == ctx->end || !IS_ATEXT(*ctx->data))
+	if (ctx->data >= ctx->end || !IS_ATEXT(*ctx->data))
 		return -1;
 
-	for (start = ctx->data++; ctx->data != ctx->end; ctx->data++) {
+	for (start = ctx->data++; ctx->data < ctx->end; ctx->data++) {
 		if (IS_ATEXT(*ctx->data))
 			continue;
 
@@ -161,10 +161,10 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 
 	   For RFC-822 compatibility allow LWSP around '.'
 	*/
-	if (ctx->data == ctx->end || !IS_ATEXT(*ctx->data))
+	if (ctx->data >= ctx->end || !IS_ATEXT(*ctx->data))
 		return -1;
 
-	for (start = ctx->data++; ctx->data != ctx->end; ) {
+	for (start = ctx->data++; ctx->data < ctx->end; ) {
 		if (IS_ATEXT(*ctx->data)) {
 			ctx->data++;
 			continue;
@@ -194,7 +194,7 @@ int rfc822_parse_mime_token(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
 
-	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		if (IS_ATEXT_NON_TSPECIAL(*ctx->data) || *ctx->data == '.')
 			continue;
 
@@ -211,10 +211,11 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 	const unsigned char *start;
 	size_t len;
 
+	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '"');
 	ctx->data++;
 
-	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
 		case '"':
 			str_append_n(str, start, ctx->data - start);
@@ -230,7 +231,7 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 			break;
 		case '\\':
 			ctx->data++;
-			if (ctx->data == ctx->end)
+			if (ctx->data >= ctx->end)
 				return -1;
 
 			str_append_n(str, start, ctx->data - start - 1);
@@ -256,7 +257,7 @@ rfc822_parse_atom_or_dot(struct rfc822_parser_context *ctx, string_t *str)
 	   The difference between this function and rfc822_parse_dot_atom()
 	   is that this doesn't just silently skip over all the whitespace.
 	*/
-	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		if (IS_ATEXT(*ctx->data) || *ctx->data == '.')
 			continue;
 
@@ -278,7 +279,7 @@ int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str)
 	   obs-phrase = word *(word / "." / CFWS)
 	*/
 
-	if (ctx->data == ctx->end)
+	if (ctx->data >= ctx->end)
 		return 0;
 	if (*ctx->data == '.')
 		return -1;
@@ -313,12 +314,13 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 			     %d94-126        ;  characters not including "[",
 					     ;  "]", or "\"
 	*/
+	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '[');
 
-	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		if (*ctx->data == '\\') {
 			ctx->data++;
-			if (ctx->data == ctx->end)
+			if (ctx->data >= ctx->end)
 				break;
 		} else if (*ctx->data == ']') {
 			ctx->data++;
@@ -338,6 +340,7 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 	   domain-literal  = [CFWS] "[" *([FWS] dcontent) [FWS] "]" [CFWS]
 	   obs-domain      = atom *("." atom)
 	*/
+	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '@');
 	ctx->data++;
 
@@ -386,7 +389,7 @@ int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
 	*key_r = NULL;
 	*value_r = NULL;
 
-	if (ctx->data == ctx->end)
+	if (ctx->data >= ctx->end)
 		return 0;
 	if (*ctx->data != ';')
 		return -1;
@@ -409,10 +412,10 @@ int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
 		/* broken / no value */
 	} else if (*ctx->data == '"') {
 		ret = rfc822_parse_quoted_string(ctx, tmp);
-	} else if (ctx->data != ctx->end && *ctx->data == '=') {
+	} else if (ctx->data < ctx->end && *ctx->data == '=') {
 		/* workaround for broken input:
 		   name==?utf-8?b?...?= */
-		while (ctx->data != ctx->end && *ctx->data != ';' &&
+		while (ctx->data < ctx->end && *ctx->data != ';' &&
 		       *ctx->data != ' ' && *ctx->data != '\t' &&
 		       *ctx->data != '\r' && *ctx->data != '\n') {
 			str_append_c(tmp, *ctx->data);

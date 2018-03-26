@@ -1,5 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file
- */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "test-lib.h"
@@ -17,25 +16,24 @@
 
 #include <unistd.h>
 
-static const char *pclient_test_io_string = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\r\n"
-					    "Praesent vehicula ac leo vel placerat. Nullam placerat \r\n"
-					    "volutpat leo, sed ultricies felis pulvinar quis. Nam \r\n"
-					    "tempus, augue ut tempor cursus, neque felis commodo lacus, \r\n"
-					    "sit amet tincidunt arcu justo vel augue. Proin dapibus \r\n"
-					    "vulputate maximus. Mauris congue lacus felis, sed varius \r\n"
-					    "leo finibus sagittis. Cum sociis natoque penatibus et magnis \r\n"
-					    "dis parturient montes, nascetur ridiculus mus. Aliquam \r\n"
-					    "laoreet arcu a hendrerit consequat. Duis vitae erat tellus.";
+static const char *pclient_test_io_string =
+	"Lorem ipsum dolor sit amet, consectetur adipiscing elit.\r\n"
+	"Praesent vehicula ac leo vel placerat. Nullam placerat \r\n"
+	"volutpat leo, sed ultricies felis pulvinar quis. Nam \r\n"
+	"tempus, augue ut tempor cursus, neque felis commodo lacus, \r\n"
+	"sit amet tincidunt arcu justo vel augue. Proin dapibus \r\n"
+	"vulputate maximus. Mauris congue lacus felis, sed varius \r\n"
+	"leo finibus sagittis. Cum sociis natoque penatibus et magnis \r\n"
+	"dis parturient montes, nascetur ridiculus mus. Aliquam \r\n"
+	"laoreet arcu a hendrerit consequat. Duis vitae erat tellus.";
 
-static
-struct program_client_settings pc_set = {
+static struct program_client_settings pc_set = {
 	.client_connect_timeout_msecs = 5000,
 	.input_idle_timeout_msecs = 10000,
-	.debug = TRUE,
+	.debug = FALSE,
 };
 
-static
-struct test_server {
+static struct test_server {
 	struct ioloop *ioloop;
 	struct io *io;
 	struct timeout *to;
@@ -52,43 +50,43 @@ struct test_client {
 	struct istream *in;
 	struct ostream *out;
 	struct ostream *os_body;
+	struct istream *is_body;
 	struct istream *body;
 	ARRAY_TYPE(const_string) args;
 	enum {
 		CLIENT_STATE_INIT,
 		CLIENT_STATE_VERSION,
 		CLIENT_STATE_ARGS,
-		CLIENT_STATE_BODY
+		CLIENT_STATE_BODY,
+		CLIENT_STATE_FINISH
 	} state;
 };
 
-static
-void test_program_io_loop_run(void)
+static void test_program_io_loop_run(void)
 {
 	if (test_globals.io_loop_ref++ == 0)
 		io_loop_run(current_ioloop);
 }
 
-static
-void test_program_io_loop_stop(void)
+static void test_program_io_loop_stop(void)
 {
 	if (--test_globals.io_loop_ref == 0)
 		io_loop_stop(current_ioloop);
 }
 
-static
-void test_program_client_destroy(struct test_client **_client)
+static void test_program_client_destroy(struct test_client **_client)
 {
 	struct test_client *client = *_client;
 	*_client = NULL;
 
-	if (o_stream_nfinish(client->out) != 0)
+	if (o_stream_finish(client->out) < 0)
 		i_error("output error: %s", o_stream_get_error(client->out));
 
 	io_remove(&client->io);
 	o_stream_unref(&client->out);
 	i_stream_unref(&client->in);
 	o_stream_unref(&client->os_body);
+	i_stream_unref(&client->is_body);
 	i_stream_unref(&client->body);
 	i_close_fd(&client->fd);
 	pool_unref(&client->pool);
@@ -96,16 +94,15 @@ void test_program_client_destroy(struct test_client **_client)
 	test_program_io_loop_stop();
 }
 
-static
-int test_program_input_handle(struct test_client *client, const char *line)
+static int
+test_program_input_handle(struct test_client *client, const char *line)
 {
 	int cmp = -1;
 	const char *arg;
-	struct istream *is;
 
 	switch(client->state) {
 	case CLIENT_STATE_INIT:
-		test_assert((cmp = strncmp(line, "VERSION\tscript\t", 15)) == 0);
+		test_assert((cmp=strncmp(line, "VERSION\tscript\t", 15)) == 0);
 		if (cmp == 0) {
 			client->state = CLIENT_STATE_VERSION;
 		} else
@@ -122,7 +119,7 @@ int test_program_input_handle(struct test_client *client, const char *line)
 			return -1;
 		break;
 	case CLIENT_STATE_ARGS:
-		if  (strcmp(line, "") == 0) {
+		if (strcmp(line, "") == 0) {
 			array_append_zero(&client->args);
 			client->state = CLIENT_STATE_BODY;
 			return 0;
@@ -131,33 +128,41 @@ int test_program_input_handle(struct test_client *client, const char *line)
 		array_append(&client->args, &arg, 1);
 		break;
 	case CLIENT_STATE_BODY:
-		client->os_body =
-			iostream_temp_create_named(".dovecot.test.", 0,
-						   "test_program_input body");
-		is = client->in;
-		client->in = i_stream_create_dot(is, FALSE);
-		i_stream_unref(&is);
-
-		switch(o_stream_send_istream(client->os_body, client->in)) {
+		if (client->os_body == NULL) {
+			client->os_body = iostream_temp_create_named(
+				".dovecot.test.", 0, "test_program_input body");
+		}
+		if (client->is_body == NULL)
+			client->is_body = i_stream_create_dot(client->in, FALSE);
+		switch(o_stream_send_istream(client->os_body, client->is_body)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+			i_panic("Cannot write to ostream-temp: %s",
+				o_stream_get_error(client->os_body));
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+			i_warning("Client stream error: %s",
+				  i_stream_get_error(client->is_body));
 			return -1;
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-			client->body = iostream_temp_finish(&client->os_body,
-							    -1);
-			return 1;
+			client->body =
+				iostream_temp_finish(&client->os_body, -1);
+			i_stream_unref(&client->is_body);
+			client->state = CLIENT_STATE_FINISH;
+			return 0;
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 			i_panic("Cannot write to ostream-temp");
 		}
+		break;
+	case CLIENT_STATE_FINISH:
+		if (i_stream_read_eof(client->in))
+			return 1;
 		break;
 	}
 	return 0;
 }
 
-static
-void test_program_run(struct test_client *client)
+static void test_program_run(struct test_client *client)
 {
 	const char *const *args;
 	unsigned int count;
@@ -170,19 +175,20 @@ void test_program_run(struct test_client *client)
 		args = array_get(&client->args, &count);
 		test_assert(count > 0);
 		if (count > 0) {
-			if (strcmp(args[0], "test_program_success")==0) {
+			if (strcmp(args[0], "test_program_success") == 0) {
 				/* return hello world */
 				i_assert(count >= 3);
-				o_stream_nsend_str(client->out, t_strdup_printf(
-						   "%s %s\r\n.\n+\n",
-						   args[1], args[2]));
-			} else if (strcmp(args[0], "test_program_io")==0) {
+				o_stream_nsend_str(client->out,
+					t_strdup_printf("%s %s\r\n.\n+\n",
+						   	args[1], args[2]));
+			} else if (strcmp(args[0], "test_program_io") == 0) {
 				os = o_stream_create_dot(client->out, FALSE);
 				o_stream_send_istream(os, client->body);
-				test_assert(o_stream_flush(os) > 0);
+				test_assert(o_stream_finish(os) > 0);
 				o_stream_unref(&os);
 				o_stream_nsend_str(client->out, "+\n");
-			} else if (strcmp(args[0], "test_program_failure")==0) {
+			} else if (strcmp(args[0],
+					  "test_program_failure") == 0) {
 				o_stream_nsend_str(client->out, ".\n-\n");
 			}
 		} else
@@ -191,54 +197,59 @@ void test_program_run(struct test_client *client)
 	test_program_client_destroy(&client);
 }
 
-static
-void test_program_input(struct test_client *client)
+static void test_program_input(struct test_client *client)
 {
 	const char *line = "";
 	int ret = 0;
 
-	if (client->state == CLIENT_STATE_BODY) {
-		if (test_program_input_handle(client, NULL)==0 &&
-		    !client->in->eof)
-			return;
-	} else {
-		while((line = i_stream_read_next_line(client->in)) != NULL) {
-			ret = test_program_input_handle(client, line);
-			if (client->state == CLIENT_STATE_BODY)
-				ret = test_program_input_handle(client, NULL);
-			if (ret != 0) break;
+	while (ret >= 0) {
+		if (client->state >= CLIENT_STATE_BODY) {
+			ret = test_program_input_handle(client, NULL);
+			break;
 		}
-
-		if ((line == NULL && !client->in->eof) ||
-		    (line != NULL &&
-		     ret == 0))
-			return;
+		while (client->state < CLIENT_STATE_BODY) {
+			line = i_stream_read_next_line(client->in);
+			if (line == NULL) {
+				ret = 0;
+				break;
+			}
+			if ((ret=test_program_input_handle(client, line)) < 0) {
+				i_warning("Client sent invalid line: %s", line);
+				break;
+			}
+		}
 	}
 
-	/* incur short delay to make sure the client did not disconnect
-	   prematurely */
+	if (ret < 0 || client->in->stream_errno != 0) {
+		test_program_client_destroy(&client);
+		return;
+	}
+	if (!client->in->eof)
+		return;
+
+	if (client->state < CLIENT_STATE_FINISH)
+		i_warning("Client prematurely disconnected");
+
 	io_remove(&client->io);
+	/* incur slight delay to check if the connection gets
+	   prematurely closed */
 	test_globals.to = timeout_add_short(100, test_program_run, client);
-
-	if (client->state != CLIENT_STATE_BODY) {
-		if (client->in->eof)
-			i_warning("Client prematurely disconnected");
-		else
-			i_warning("Client sent invalid line: %s", line);
-	}
 }
 
-static
-void test_program_connected(struct test_server *server)
+static void test_program_connected(struct test_server *server)
 {
+	struct test_client *client;
 	int fd;
+
 	i_assert(server->client == NULL);
 	fd = net_accept(server->listen_fd, NULL, NULL); /* makes no sense on net */
 	if (fd < 0)
 		i_fatal("Failed to accept connection: %m");
 
+	net_set_nonblock(fd, TRUE);
+
 	pool_t pool = pool_alloconly_create("test_program client", 1024);
-	struct test_client *client = p_new(pool, struct test_client, 1);
+	client = p_new(pool, struct test_client, 1);
 	client->pool = pool;
 	client->fd = fd;
 	client->in = i_stream_create_fd(fd, -1);
@@ -250,14 +261,16 @@ void test_program_connected(struct test_server *server)
 	test_program_io_loop_run();
 }
 
-static
-void test_program_setup(void) {
+static void test_program_setup(void)
+{
+	struct ip_addr ip;
+
 	test_begin("test_program_setup");
+
 	test_globals.ioloop = io_loop_create();
 	io_loop_set_current(test_globals.ioloop);
 
 	/* create listener */
-	struct ip_addr ip;
 	test_globals.port = 0;
 	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
 
@@ -271,10 +284,10 @@ void test_program_setup(void) {
 	test_end();
 }
 
-static
-void test_program_teardown(void)
+static void test_program_teardown(void)
 {
 	test_begin("test_program_teardown");
+
 	if (test_globals.client != NULL)
 		test_program_client_destroy(&test_globals.client);
 	io_remove(&test_globals.io);
@@ -283,25 +296,25 @@ void test_program_teardown(void)
 	test_end();
 }
 
-static
-void test_program_async_callback(int result, int *ret)
+static void test_program_async_callback(int result, int *ret)
 {
 	*ret = result;
 	test_program_io_loop_stop();
 }
 
-static
-void test_program_success(void) {
-	test_begin("test_program_success");
+static void test_program_success(void)
+{
+	struct program_client *pc;
 	int ret = -2;
 
 	const char *const args[] = {
 		"test_program_success", "hello", "world", NULL
 	};
 
-	struct program_client *pc =
-		program_client_net_create("127.0.0.1", test_globals.port, args,
-					  &pc_set, FALSE);
+	test_begin("test_program_success");	
+
+	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
+				       &pc_set, FALSE);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -325,19 +338,19 @@ void test_program_success(void) {
 	test_end();
 }
 
-static
-void test_program_io(void) {
-	test_begin("test_program_io (async)");
-
+static void test_program_io(void)
+{
+	struct program_client *pc;
 	int ret = -2;
 
 	const char *const args[] = {
 		"test_program_io", NULL
 	};
 
-	struct program_client *pc =
-		program_client_net_create("127.0.0.1", test_globals.port, args,
-					  &pc_set, FALSE);
+	test_begin("test_program_io (async)");
+
+	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
+				       &pc_set, FALSE);
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -365,19 +378,19 @@ void test_program_io(void) {
 	test_end();
 }
 
-static
-void test_program_failure(void) {
-	test_begin("test_program_failure");
-
+static void test_program_failure(void)
+{
+	struct program_client *pc;
 	int ret = -2;
 
 	const char *const args[] = {
 		"test_program_failure", NULL
 	};
 
-	struct program_client *pc =
-		program_client_net_create("127.0.0.1", test_globals.port, args,
-					  &pc_set, FALSE);
+	test_begin("test_program_failure");
+
+	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
+				       &pc_set, FALSE);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -400,19 +413,19 @@ void test_program_failure(void) {
 	test_end();
 }
 
-static
-void test_program_noreply(void) {
-	test_begin("test_program_noreply");
-
+static void test_program_noreply(void)
+{
+	struct program_client *pc;
 	int ret = -2;
 
 	const char *const args[] = {
 		"test_program_success", "hello", "world", NULL
 	};
 
-	struct program_client *pc =
-		program_client_net_create("127.0.0.1", test_globals.port, args,
-					  &pc_set, TRUE);
+	test_begin("test_program_noreply");
+
+	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
+				       &pc_set, TRUE);
 
 	program_client_run_async(pc, test_program_async_callback, &ret);
 
@@ -428,28 +441,28 @@ void test_program_noreply(void) {
 	test_end();
 }
 
-static
-void test_program_refused(void) {
-	test_begin("test_program_refused");
-
+static void test_program_refused(void)
+{
+	struct program_client *pc;
+	struct ip_addr ips[4];
 	int ret = -2;
 
 	const char *const args[] = {
 		"test_program_success", "hello", "world", NULL
 	};
 
-	struct ip_addr ips[4];
+	test_begin("test_program_refused");
+
 	if (net_addr2ip("::1", &ips[0]) < 0 ||
 	    net_addr2ip("127.0.0.3", &ips[1]) < 0 ||
 	    net_addr2ip("127.0.0.2", &ips[2]) < 0 ||
 	    net_addr2ip("127.0.0.1", &ips[3]) < 0) {
 		i_fatal("Cannot convert addresses");
 	}
-
-	struct program_client *pc =
-		program_client_net_create_ips(ips, N_ELEMENTS(ips),
-					      test_globals.port, args,
-					      &pc_set, TRUE);
+	
+	pc = program_client_net_create_ips(ips, N_ELEMENTS(ips),
+					   test_globals.port, args,
+					   &pc_set, TRUE);
 
 	test_expect_errors(N_ELEMENTS(ips)-1);
 	program_client_run_async(pc, test_program_async_callback, &ret);
@@ -464,9 +477,10 @@ void test_program_refused(void) {
 	test_end();
 }
 
-
-int main(void)
+int main(int argc, char *argv[])
 {
+	int ret, c;
+
 	void (*tests[])(void) = {
 		test_program_setup,
 		test_program_success,
@@ -478,5 +492,20 @@ int main(void)
 		NULL
 	};
 
-	return test_run(tests);
+	lib_init();
+
+	while ((c = getopt(argc, argv, "D")) > 0) {
+		switch (c) {
+		case 'D':
+			pc_set.debug = TRUE;
+			break;
+		default:
+			i_fatal("Usage: %s [-D]", argv[0]);
+		}
+	}
+
+	ret = test_run(tests);
+
+	lib_deinit();
+	return ret;
 }

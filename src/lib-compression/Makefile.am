@@ -45,8 +45,7 @@ test_compression_SOURCES = test-compression.c
 test_compression_LDADD = $(test_libs)
 test_compression_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

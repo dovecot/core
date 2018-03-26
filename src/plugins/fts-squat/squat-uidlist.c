@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -553,8 +553,7 @@ static void squat_uidlist_close(struct squat_uidlist *uidlist)
 	squat_uidlist_unmap(uidlist);
 	if (uidlist->file_cache != NULL)
 		file_cache_free(&uidlist->file_cache);
-	if (uidlist->file_lock != NULL)
-		file_lock_free(&uidlist->file_lock);
+	file_lock_free(&uidlist->file_lock);
 	if (uidlist->dotlock != NULL)
 		file_dotlock_delete(&uidlist->dotlock);
 	i_close_fd_path(&uidlist->fd, uidlist->path);
@@ -860,7 +859,7 @@ int squat_uidlist_build_finish(struct squat_uidlist_build_context *ctx)
 		(void)o_stream_seek(ctx->output, ctx->build_hdr.used_file_size);
 	}
 
-	if (o_stream_nfinish(ctx->output) < 0) {
+	if (o_stream_finish(ctx->output) < 0) {
 		i_error("write() to %s failed: %s", ctx->uidlist->path,
 			o_stream_get_error(ctx->output));
 		return -1;
@@ -1064,7 +1063,7 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 
 		if (ctx->uidlist->corrupted)
 			ret = -1;
-		else if (o_stream_nfinish(ctx->output) < 0) {
+		else if (o_stream_finish(ctx->output) < 0) {
 			i_error("write(%s) failed: %s", temp_path,
 				o_stream_get_error(ctx->output));
 			ret = -1;
@@ -1074,13 +1073,14 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 			ret = -1;
 		}
 		ctx->build_ctx->need_reopen = TRUE;
+	} else {
+		o_stream_abort(ctx->output);
 	}
 
 	/* we no longer require the entire uidlist to be in memory,
 	   let it be used for something more useful. */
 	squat_uidlist_free_from_memory(ctx->uidlist);
 
-	o_stream_ignore_last_errors(ctx->output);
 	o_stream_unref(&ctx->output);
 	if (close(ctx->fd) < 0)
 		i_error("close(%s) failed: %m", temp_path);

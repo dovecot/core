@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -394,7 +394,7 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 		const char *box_path = mailbox_get_path(&ctx->mbox->box);
 
 		if (fdatasync_path(box_path) < 0) {
-			mail_storage_set_critical(storage,
+			mail_set_critical(_ctx->dest_mail,
 				"fdatasync_path(%s) failed: %m", box_path);
 		}
 	}

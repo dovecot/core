@@ -19,18 +19,7 @@ liblogin_la_SOURCES = \
 	login-proxy-state.c \
 	login-settings.c \
 	main.c \
-	sasl-server.c \
-	ssl-proxy.c \
-	ssl-proxy-gnutls.c \
-	ssl-proxy-openssl.c
-
-if BUILD_OPENSSL
-openssl_obj = ../lib-ssl-iostream/iostream-openssl-common.lo
-endif
-
-liblogin_la_LIBADD = \
-	$(openssl_obj) \
-	$(SSL_LIBS)
+	sasl-server.c
 
 headers = \
 	access-lookup.h \
@@ -39,14 +28,13 @@ headers = \
 	login-proxy.h \
 	login-proxy-state.h \
 	login-settings.h \
-	sasl-server.h \
-	ssl-proxy.h
+	sasl-server.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 pkglib_LTLIBRARIES = libdovecot-login.la
 libdovecot_login_la_SOURCES = 
-libdovecot_login_la_LIBADD = liblogin.la ../lib-ssl-iostream/libssl_iostream.la ../lib-dovecot/libdovecot.la $(SSL_LIBS)
+libdovecot_login_la_LIBADD = liblogin.la ../lib-dovecot/libdovecot.la $(SSL_LIBS)
 libdovecot_login_la_DEPENDENCIES = liblogin.la
 libdovecot_login_la_LDFLAGS = -export-dynamic

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "ioloop.h"
@@ -196,10 +196,8 @@ auth_postfix_connection_destroy(struct auth_postfix_connection **_conn)
 
 	DLLIST_REMOVE(&auth_postfix_connections, conn);
 
-	if (conn->input != NULL)
-		i_stream_close(conn->input);
-	if (conn->output != NULL)
-		o_stream_close(conn->output);
+	i_stream_close(conn->input);
+	o_stream_close(conn->output);
 	io_remove(&conn->io);
 	i_close_fd_path(&conn->fd, conn->path);
 

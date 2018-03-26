@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -27,7 +27,7 @@ static int i_stream_read_parent(struct istream_private *stream)
 
 	/* we have less than one base64 block.
 	   see if there is more data available. */
-	ret = i_stream_read(stream->parent);
+	ret = i_stream_read_memarea(stream->parent);
 	if (ret <= 0) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		stream->istream.eof = stream->parent->eof;
@@ -158,6 +158,8 @@ i_stream_base64_encoder_stat(struct istream_private *stream,
 	}
 
 	stream->statbuf = *st;
+	if (st->st_size == 0)
+		return 0;
 	
 	/* calculate size of encoded data */
 	size = (st->st_size / 3) * 4 +
@@ -193,5 +195,5 @@ i_stream_create_base64_encoder(struct istream *input,
 	bstream->istream.istream.blocking = input->blocking;
 	bstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&bstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

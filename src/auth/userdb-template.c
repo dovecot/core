@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "array.h"
@@ -29,6 +29,11 @@ userdb_template_build(pool_t pool, const char *userdb_name, const char *args)
 			key = *tmp;
 		else
 			key = t_strdup_until(*tmp, value++);
+
+
+		if (*key == '\0')
+			i_fatal("Invalid userdb template %s - key must not be empty",
+				args);
 
 		nonull_value = value == NULL ? "" : value;
 		if (strcasecmp(key, "uid") == 0) {
@@ -111,4 +116,9 @@ bool userdb_template_remove(struct userdb_template *tmpl,
 bool userdb_template_is_empty(struct userdb_template *tmpl)
 {
 	return array_count(&tmpl->args) == 0;
+}
+
+const char *const *userdb_template_get_args(struct userdb_template *tmpl, unsigned int *count_r)
+{
+	return array_get(&tmpl->args, count_r);
 }

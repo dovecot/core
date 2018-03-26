@@ -134,8 +134,7 @@ CL_NS_DEF2(analysis,snowball)
 	  lucene_utf8_n_to_tchar(stemmed, stemmedLen, tchartext, tchartext_size);
 	  token->set(tchartext,token->startOffset(), token->endOffset(), token->type());
 	} else T_BEGIN {
-	  buffer_t *norm_buf = buffer_create_dynamic(pool_datastack_create(),
-												 stemmedLen);
+	  buffer_t *norm_buf = t_buffer_create(stemmedLen);
 	  normalizer(stemmed, stemmedLen, norm_buf);
 
 	  unsigned int tchartext_size =

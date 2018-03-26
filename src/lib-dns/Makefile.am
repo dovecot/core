@@ -26,8 +26,7 @@ test_dns_util_LDADD = $(test_libs)
 test_dns_util_CFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_srcdir)/src/lib-test
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if test "$$bin" = "test-program-client-local"; then \
 	    if ! env NOVALGRIND=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \

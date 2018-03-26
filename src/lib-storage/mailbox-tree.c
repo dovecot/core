@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -163,6 +163,8 @@ mailbox_tree_lookup(struct mailbox_tree_context *tree, const char *path)
 {
 	struct mailbox_node *node;
 	bool created;
+
+	i_assert(tree != NULL);
 
 	T_BEGIN {
 		node = mailbox_tree_traverse(tree, path, FALSE, &created);

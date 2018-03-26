@@ -7,14 +7,11 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
     if test $enable_hardening = yes; then
       case "$host" in
         *)
-          gl_COMPILER_OPTION_IF([-O2 -D_FORTIFY_SOURCE=2], [
-            CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
+          gl_COMPILER_OPTION_IF([-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2], [
+            CFLAGS="$CFLAGS -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
             ],
             [],
-            [AC_LANG_PROGRAM([[
-  #include <pthread.h>
-  __thread unsigned int t_id;
-              ]], [[t_id = 1;]])]
+            [AC_LANG_PROGRAM()]
           )
       esac
     fi

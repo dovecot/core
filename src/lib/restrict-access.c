@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #define _GNU_SOURCE /* setresgid() */
 #include <stdio.h> /* for AIX */
@@ -256,16 +256,17 @@ get_setuid_error_str(const struct restrict_access_settings *set, uid_t target_ui
 }
 
 void restrict_access(const struct restrict_access_settings *set,
-		     const char *home, bool disallow_root)
+		     enum restrict_access_flags flags, const char *home)
 {
 	bool is_root, have_root_group, preserve_groups = FALSE;
 	bool allow_root_gid;
+	bool allow_root = (flags & RESTRICT_ACCESS_FLAG_ALLOW_ROOT) != 0;
 	uid_t target_uid = set->uid;
 
 	is_root = geteuid() == 0;
 
 	if (!is_root &&
-	    set->drop_setuid_root &&
+	    !set->allow_setuid_root &&
 	    getuid() == 0) {
 		/* recover current effective UID */
 		if (target_uid == (uid_t)-1)
@@ -345,9 +346,9 @@ void restrict_access(const struct restrict_access_settings *set,
 	}
 
 	/* verify that we actually dropped the privileges */
-	if ((target_uid != (uid_t)-1 && target_uid != 0) || disallow_root) {
+	if ((target_uid != (uid_t)-1 && target_uid != 0) || !allow_root) {
 		if (setuid(0) == 0) {
-			if (disallow_root &&
+			if (!allow_root &&
 			    (target_uid == 0 || target_uid == (uid_t)-1))
 				i_fatal("This process must not be run as root");
 
@@ -448,12 +449,12 @@ void restrict_access_get_env(struct restrict_access_settings *set_r)
 	set_r->chroot_dir = null_if_empty(getenv("RESTRICT_CHROOT"));
 }
 
-void restrict_access_by_env(const char *home, bool disallow_root)
+void restrict_access_by_env(enum restrict_access_flags flags, const char *home)
 {
 	struct restrict_access_settings set;
 
 	restrict_access_get_env(&set);
-	restrict_access(&set, home, disallow_root);
+	restrict_access(&set, flags, home);
 
 	/* clear the environment, so we don't fail if we get back here */
 	env_remove("RESTRICT_SETUID");
@@ -466,7 +467,14 @@ void restrict_access_by_env(const char *home, bool disallow_root)
 	}
 	env_remove("RESTRICT_GID_FIRST");
 	env_remove("RESTRICT_GID_LAST");
-	env_remove("RESTRICT_SETEXTRAGROUPS");
+	if (getuid() != 0)
+		env_remove("RESTRICT_SETEXTRAGROUPS");
+	else {
+		/* Preserve RESTRICT_SETEXTRAGROUPS, so if we're again dropping
+		   more privileges we'll still preserve the extra groups. This
+		   mainly means preserving service { extra_groups } for lmtp
+		   and doveadm accesses. */
+	}
 	env_remove("RESTRICT_USER");
 	env_remove("RESTRICT_CHROOT");
 }
@@ -476,11 +484,30 @@ const char *restrict_access_get_current_chroot(void)
 	return chroot_dir;
 }
 
-void restrict_access_allow_coredumps(bool allow ATTR_UNUSED)
+void restrict_access_set_dumpable(bool allow ATTR_UNUSED)
 {
 #ifdef HAVE_PR_SET_DUMPABLE
-	(void)prctl(PR_SET_DUMPABLE, allow ? 1 : 0, 0, 0, 0);
+	if (prctl(PR_SET_DUMPABLE, allow ? 1 : 0, 0, 0, 0) < 0)
+		i_error("prctl(PR_SET_DUMPABLE) failed: %m");
 #endif
+}
+
+bool restrict_access_get_dumpable(void)
+{
+#ifdef HAVE_PR_SET_DUMPABLE
+	bool allow = FALSE;
+	if (prctl(PR_GET_DUMPABLE, &allow, 0, 0, 0) < 0)
+		i_error("prctl(PR_GET_DUMPABLE) failed: %m");
+	return allow;
+#endif
+	return TRUE;
+}
+
+void restrict_access_allow_coredumps(bool allow)
+{
+	if (getenv("PR_SET_DUMPABLE") != NULL) {
+		restrict_access_set_dumpable(allow);
+	}
 }
 
 int restrict_access_use_priv_gid(void)

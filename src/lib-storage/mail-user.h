@@ -1,6 +1,7 @@
 #ifndef MAIL_USER_H
 #define MAIL_USER_H
 
+#include "net.h"
 #include "unichar.h"
 #include "mail-storage-settings.h"
 
@@ -16,11 +17,20 @@ struct mail_user_vfuncs {
 	void (*stats_fill)(struct mail_user *user, struct stats *stats);
 };
 
+struct mail_user_connection_data {
+	struct ip_addr *local_ip, *remote_ip;
+	in_port_t local_port, remote_port;
+
+	bool secured:1;
+	bool ssl_secured:1;
+};
+
 struct mail_user {
 	pool_t pool;
 	struct mail_user_vfuncs v, *vlast;
 	int refcount;
 
+	struct event *event;
 	/* User's creator if such exists. For example for autocreated shared
 	   mailbox users their creator is the logged in user. */
 	struct mail_user *creator;
@@ -35,7 +45,7 @@ struct mail_user {
 	gid_t gid;
 	const char *service;
 	const char *session_id;
-	struct ip_addr *local_ip, *remote_ip;
+	struct mail_user_connection_data conn;
 	const char *auth_token, *auth_user;
 	const char *const *userdb_fields;
 	/* Timestamp when this session was initially created. Most importantly
@@ -112,11 +122,13 @@ extern struct mail_user_module_register mail_user_module_register;
 extern struct auth_master_connection *mail_user_auth_master_conn;
 extern const struct var_expand_func_table *mail_user_var_expand_func_table;
 
-struct mail_user *mail_user_alloc(const char *username,
+struct mail_user *mail_user_alloc(struct event *parent_event,
+				  const char *username,
 				  const struct setting_parser_info *set_info,
 				  const struct mail_user_settings *set);
 struct mail_user *
-mail_user_alloc_nodup_set(const char *username,
+mail_user_alloc_nodup_set(struct event *parent_event,
+			  const char *username,
 			  const struct setting_parser_info *set_info,
 			  const struct mail_user_settings *set);
 /* Returns -1 if settings were invalid. */
@@ -134,8 +146,7 @@ struct mail_user *mail_user_find(struct mail_user *user, const char *name);
 
 /* Specify mail location %variable expansion data. */
 void mail_user_set_vars(struct mail_user *user, const char *service,
-			const struct ip_addr *local_ip,
-			const struct ip_addr *remote_ip);
+			const struct mail_user_connection_data *conn);
 /* Return %variable expansion table for the user. */
 const struct var_expand_table *
 mail_user_var_expand_table(struct mail_user *user);

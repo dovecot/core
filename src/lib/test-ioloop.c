@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "net.h"
@@ -155,9 +155,9 @@ static void test_ioloop_find_fd_conditions(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		if (socketpair(AF_UNIX, SOCK_STREAM, 0, tests[i].fd) < 0)
 			i_fatal("socketpair() failed: %m");
-		tests[i].io = io_add(tests[i].fd[0], tests[i].condition, io_callback, (void *)NULL);
+		tests[i].io = io_add(tests[i].fd[0], tests[i].condition, io_callback, NULL);
 	}
-	io = io_add(tests[i-1].fd[0], IO_WRITE, io_callback, (void *)NULL);
+	io = io_add(tests[i-1].fd[0], IO_WRITE, io_callback, NULL);
 	tests[i-1].condition |= IO_WRITE;
 
 	for (i = 0; i < N_ELEMENTS(tests); i++)

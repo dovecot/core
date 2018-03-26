@@ -5,8 +5,8 @@
 #include "istream.h"
 #include "str.h"
 #include "net.h"
-#include "doveadm-cmd.h"
 #include "doveadm.h"
+#include "doveadm-cmd.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -25,7 +25,8 @@ static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
 	&doveadm_cmd_stop_ver2,
 	&doveadm_cmd_reload_ver2,
 	&doveadm_cmd_stats_dump_ver2,
-	&doveadm_cmd_stats_reset_ver2,
+	&doveadm_cmd_oldstats_dump_ver2,
+	&doveadm_cmd_oldstats_reset_ver2,
 	&doveadm_cmd_penalty_ver2,
 	&doveadm_cmd_kick_ver2,
 	&doveadm_cmd_who_ver2
@@ -233,7 +234,7 @@ doveadm_cmd_param_get(const struct doveadm_cmd_context *cctx,
 	i_assert(cctx->argv != NULL);
 	for(int i = 0; i < cctx->argc; i++) {
 		if (strcmp(cctx->argv[i].name, name) == 0 && cctx->argv[i].value_set)
-			return &(cctx->argv[i]);
+			return &cctx->argv[i];
 	}
 	return NULL;
 }
@@ -327,7 +328,7 @@ void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
 	array_foreach_modifiable(pargv, param) {
 		if (param->type == CMD_PARAM_ISTREAM &&
 		    param->value.v_istream != NULL)
-			i_stream_destroy(&(param->value.v_istream));
+			i_stream_destroy(&param->value.v_istream);
 	}
 	array_clear(pargv);
 }
@@ -516,7 +517,7 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 
 	for(pargc=0;cctx->cmd->parameters[pargc].name != NULL;pargc++) {
 		param = array_append_space(&pargv);
-		memcpy(param, &(cctx->cmd->parameters[pargc]), sizeof(struct doveadm_cmd_param));
+		memcpy(param, &cctx->cmd->parameters[pargc], sizeof(struct doveadm_cmd_param));
 		param->value_set = FALSE;
 	}
 	i_assert(pargc == array_count(&opts)-1); /* opts is NULL-terminated */

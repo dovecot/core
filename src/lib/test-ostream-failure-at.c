@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "buffer.h"
@@ -12,7 +12,7 @@ void test_ostream_failure_at(void)
 {
 	unsigned char test_data[TEST_DATA_LENGTH];
 	struct ostream *output, *buf_output;
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buffer_t *buf = t_buffer_create(256);
 	unsigned int i;
 
 	test_begin("ostream failure at");

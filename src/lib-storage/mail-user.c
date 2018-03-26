@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -52,7 +52,8 @@ static void mail_user_stats_fill_base(struct mail_user *user ATTR_UNUSED,
 }
 
 static struct mail_user *
-mail_user_alloc_int(const char *username,
+mail_user_alloc_int(struct event *parent_event,
+		    const char *username,
 		    const struct setting_parser_info *set_info,
 		    const struct mail_user_settings *set, pool_t pool)
 {
@@ -72,6 +73,9 @@ mail_user_alloc_int(const char *username,
 	user->service = master_service_get_name(master_service);
 	user->default_normalizer = uni_utf8_to_decomposed_titlecase;
 	user->session_create_time = ioloop_time;
+	user->event = event_create(parent_event);
+	event_add_category(user->event, &event_category_storage);
+	event_add_str(user->event, "user", username);
 
 	/* check settings so that the duplicated structure will again
 	   contain the parsed fields */
@@ -86,24 +90,26 @@ mail_user_alloc_int(const char *username,
 }
 
 struct mail_user *
-mail_user_alloc_nodup_set(const char *username,
+mail_user_alloc_nodup_set(struct event *parent_event,
+			  const char *username,
 			  const struct setting_parser_info *set_info,
 			  const struct mail_user_settings *set)
 {
 	pool_t pool;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
-	return mail_user_alloc_int(username, set_info, set, pool);
+	return mail_user_alloc_int(parent_event, username, set_info, set, pool);
 }
 
-struct mail_user *mail_user_alloc(const char *username,
+struct mail_user *mail_user_alloc(struct event *parent_event,
+				  const char *username,
 				  const struct setting_parser_info *set_info,
 				  const struct mail_user_settings *set)
 {
 	pool_t pool;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
-	return mail_user_alloc_int(username, set_info,
+	return mail_user_alloc_int(parent_event, username, set_info,
 				   settings_dup(set_info, set, pool), pool);
 }
 
@@ -212,6 +218,7 @@ void mail_user_unref(struct mail_user **_user)
 	   assert-crash in mail_user_ref() that is called by some handlers. */
 	user->v.deinit_pre(user);
 	user->v.deinit(user);
+	event_unref(&user->event);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);
 }
@@ -227,21 +234,37 @@ struct mail_user *mail_user_find(struct mail_user *user, const char *name)
 	return NULL;
 }
 
+static void
+mail_user_connection_init_from(struct mail_user_connection_data *conn,
+	pool_t pool, const struct mail_user_connection_data *src)
+{
+	*conn = *src;
+
+	if (src->local_ip != NULL && src->local_ip->family != 0) {
+		conn->local_ip = p_new(pool, struct ip_addr, 1);
+		*conn->local_ip = *src->local_ip;
+	}
+	if (src->remote_ip != NULL && src->remote_ip->family != 0) {
+		conn->remote_ip = p_new(pool, struct ip_addr, 1);
+		*conn->remote_ip = *src->remote_ip;
+	}
+}
+
 void mail_user_set_vars(struct mail_user *user, const char *service,
-			const struct ip_addr *local_ip,
-			const struct ip_addr *remote_ip)
+			const struct mail_user_connection_data *conn)
 {
 	i_assert(service != NULL);
 
 	user->service = p_strdup(user->pool, service);
-	if (local_ip != NULL && local_ip->family != 0) {
-		user->local_ip = p_new(user->pool, struct ip_addr, 1);
-		*user->local_ip = *local_ip;
-	}
-	if (remote_ip != NULL && remote_ip->family != 0) {
-		user->remote_ip = p_new(user->pool, struct ip_addr, 1);
-		*user->remote_ip = *remote_ip;
-	}
+	event_add_str(user->event, "service", service);
+
+	mail_user_connection_init_from(&user->conn, user->pool, conn);
+	if (user->conn.local_ip != NULL)
+		event_add_str(user->event, "local_ip",
+			      net_ip2addr(user->conn.local_ip));
+	if (user->conn.remote_ip != NULL)
+		event_add_str(user->event, "remote_ip",
+			      net_ip2addr(user->conn.remote_ip));
 }
 
 const struct var_expand_table *
@@ -255,10 +278,10 @@ mail_user_var_expand_table(struct mail_user *user)
 	const char *username =
 		p_strdup(user->pool, t_strcut(user->username, '@'));
 	const char *domain = i_strchr_to_next(user->username, '@');
-	const char *local_ip = user->local_ip == NULL ? NULL :
-		p_strdup(user->pool, net_ip2addr(user->local_ip));
-	const char *remote_ip = user->remote_ip == NULL ? NULL :
-		p_strdup(user->pool, net_ip2addr(user->remote_ip));
+	const char *local_ip = user->conn.local_ip == NULL ? NULL :
+		p_strdup(user->pool, net_ip2addr(user->conn.local_ip));
+	const char *remote_ip = user->conn.remote_ip == NULL ? NULL :
+		p_strdup(user->pool, net_ip2addr(user->conn.remote_ip));
 
 	const char *auth_user, *auth_username, *auth_domain;
 	if (user->auth_user == NULL) {
@@ -376,10 +399,10 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 
 	i_zero(&info);
 	info.service = user->service;
-	if (user->local_ip != NULL)
-		info.local_ip = *user->local_ip;
-	if (user->remote_ip != NULL)
-		info.remote_ip = *user->remote_ip;
+	if (user->conn.local_ip != NULL)
+		info.local_ip = *user->conn.local_ip;
+	if (user->conn.remote_ip != NULL)
+		info.remote_ip = *user->conn.remote_ip;
 
 	userdb_pool = pool_alloconly_create("userdb lookup", 2048);
 	ret = auth_master_user_lookup(mail_user_auth_master_conn,
@@ -543,8 +566,7 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 			       unsigned int lock_secs,
 			       struct file_lock **lock_r, const char **error_r)
 {
-	bool created;
-	const char *home, *path, *error;
+	const char *home, *path;
 	int ret;
 
 	if ((ret = mail_user_get_home(user, &home)) < 0) {
@@ -574,21 +596,14 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 				       lock_fname);
 		lock_set.mkdir_mode = 0700;
 	}
-
-	if (file_create_locked(path, &lock_set, lock_r, &created, &error) == -1) {
-		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s", path, error);
-		return errno == EAGAIN ? 0 : -1;
-	}
-	file_lock_set_unlink_on_free(*lock_r, TRUE);
-	file_lock_set_close_on_free(*lock_r, TRUE);
-	return 1;
+	return mail_storage_lock_create(path, &lock_set, mail_set, lock_r, error_r);
 }
 
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
 {
-	if (user->remote_ip == NULL)
+	if (user->conn.remote_ip == NULL)
 		return NULL;
-	return t_strconcat(net_ip2addr(user->remote_ip), "/",
+	return t_strconcat(net_ip2addr(user->conn.remote_ip), "/",
 			   str_tabescape(user->username), NULL);
 }
 
@@ -649,16 +664,15 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 {
 	struct mail_user *user2;
 
-	user2 = mail_user_alloc(user->username, user->set_info,
-				user->unexpanded_set);
+	user2 = mail_user_alloc(event_get_parent(user->event), user->username,
+				user->set_info, user->unexpanded_set);
 	if (user2->_service_user != NULL) {
 		user2->_service_user = user->_service_user;
 		mail_storage_service_user_ref(user2->_service_user);
 	}
 	if (user->_home != NULL)
 		mail_user_set_home(user2, user->_home);
-	mail_user_set_vars(user2, user->service,
-			   user->local_ip, user->remote_ip);
+	mail_user_set_vars(user2, user->service, &user->conn);
 	user2->uid = user->uid;
 	user2->gid = user->gid;
 	user2->anonymous = user->anonymous;

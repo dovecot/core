@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -32,11 +32,11 @@ do_open(struct maildir_mailbox *mbox, const char *path,
 		return 0;
 
 	if (errno == EACCES) {
-		mail_storage_set_critical(&mbox->storage->storage, "%s",
+		mailbox_set_critical(&mbox->box, "%s",
 			mail_error_eacces_msg("open", path));
 	} else {
-		mail_storage_set_critical(&mbox->storage->storage,
-					  "open(%s) failed: %m", path);
+		mailbox_set_critical(&mbox->box,
+				     "open(%s) failed: %m", path);
 	}
 	return -1;
 }
@@ -50,11 +50,10 @@ do_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st)
 		return 0;
 
 	if (errno == EACCES) {
-		mail_storage_set_critical(&mbox->storage->storage, "%s",
+		mailbox_set_critical(&mbox->box, "%s",
 			mail_error_eacces_msg("stat", path));
 	} else {
-		mail_storage_set_critical(&mbox->storage->storage,
-					  "stat(%s) failed: %m", path);
+		mailbox_set_critical(&mbox->box, "stat(%s) failed: %m", path);
 	}
 	return -1;
 }
@@ -126,8 +125,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 	    (fd = i_stream_get_fd(imail->data.stream)) != -1) {
 		mail->transaction->stats.fstat_lookup_count++;
 		if (fstat(fd, st_r) < 0) {
-			mail_storage_set_critical(mail->box->storage,
-				"fstat(%s) failed: %m",
+			mail_set_critical(mail, "fstat(%s) failed: %m",
 				i_stream_get_name(imail->data.stream));
 			return -1;
 		}
@@ -143,8 +141,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 		mail->transaction->stats.stat_lookup_count++;
 		path = maildir_save_file_get_path(mail->transaction, mail->seq);
 		if (stat(path, st_r) < 0) {
-			mail_storage_set_critical(mail->box->storage,
-						  "stat(%s) failed: %m", path);
+			mail_set_critical(mail, "stat(%s) failed: %m", path);
 			return -1;
 		}
 	}
@@ -476,8 +473,7 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		path = maildir_save_file_get_path(_mail->transaction,
 						  _mail->seq);
 		if (stat(path, &st) < 0) {
-			mail_storage_set_critical(_mail->box->storage,
-						  "stat(%s) failed: %m", path);
+			mail_set_critical(_mail, "stat(%s) failed: %m", path);
 			return -1;
 		}
 	}
@@ -520,10 +516,9 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 				return 0;
 			}
 
-			mail_storage_set_critical(_mail->box->storage,
-				"Maildir %s: Corrupted dovecot-uidlist: "
-				"UID %u had empty GUID, clearing it",
-				mailbox_get_path(_mail->box), _mail->uid);
+			mail_set_critical(_mail,
+				"Maildir: Corrupted dovecot-uidlist: "
+				"UID had empty GUID, clearing it");
 			maildir_uidlist_unset_ext(mbox->uidlist, _mail->uid,
 				MAILDIR_UIDLIST_REC_EXT_GUID);
 		}
@@ -634,7 +629,6 @@ static void maildir_update_pop3_uidl(struct mail *_mail, const char *uidl)
 		uidl = "";
 	}
 
-	_mail->transaction->nontransactional_changes = TRUE;
 	maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
 				MAILDIR_UIDLIST_REC_EXT_POP3_UIDL, uidl);
 }
@@ -680,8 +674,8 @@ do_fix_size(struct maildir_mailbox *mbox, const char *path,
 		if (stat(path, &st) < 0) {
 			if (errno == ENOENT)
 				return 0;
-			mail_storage_set_critical(&mbox->storage->storage,
-						  "stat(%s) failed: %m", path);
+			mailbox_set_critical(&mbox->box,
+					     "stat(%s) failed: %m", path);
 			return -1;
 		}
 		ctx->physical_size = st.st_size;
@@ -692,7 +686,7 @@ do_fix_size(struct maildir_mailbox *mbox, const char *path,
 				  ctx->physical_size, info);
 
 	if (rename(path, newpath) == 0) {
-		mail_storage_set_critical(mbox->box.storage,
+		mailbox_set_critical(&mbox->box,
 			"Maildir filename has wrong %c value, "
 			"renamed the file from %s to %s",
 			ctx->wrong_key, path, newpath);
@@ -701,8 +695,8 @@ do_fix_size(struct maildir_mailbox *mbox, const char *path,
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(&mbox->storage->storage,
-				  "rename(%s, %s) failed: %m", path, newpath);
+	mailbox_set_critical(&mbox->box, "rename(%s, %s) failed: %m",
+			     path, newpath);
 	return -1;
 }
 

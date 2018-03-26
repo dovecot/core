@@ -1,6 +1,7 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "randgen.h"
 #include "dovecot-openssl-common.h"
 
 #include <openssl/ssl.h>
@@ -51,8 +52,6 @@ static void dovecot_openssl_free(void *ptr)
 
 void dovecot_openssl_common_global_ref(void)
 {
-	unsigned char buf;
-
 	if (openssl_init_refcount++ > 0)
 		return;
 
@@ -67,12 +66,6 @@ void dovecot_openssl_common_global_ref(void)
 	SSL_library_init();
 	SSL_load_error_strings();
 	OpenSSL_add_all_algorithms();
-
-	/* PRNG initialization might want to use /dev/urandom, make sure it
-	   does it before chrooting. We might not have enough entropy at
-	   the first try, so this function may fail. It's still been
-	   initialized though. */
-	(void)RAND_bytes(&buf, 1);
 }
 
 bool dovecot_openssl_common_global_unref(void)

@@ -1,5 +1,5 @@
-.\" Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-PROXY 1 "2014-10-07" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-PROXY 1 "2014-11-09" "Dovecot v2.3" "Dovecot"
 .SH NAME
 doveadm\-proxy \- Handle Dovecot proxy connections
 .\"------------------------------------------------------------------------
@@ -29,9 +29,7 @@ Command specific
 .BI \-a \ ipc_socket_path
 This option is used to specify an alternative socket.
 The option\(aqs argument is either an absolute path to a local UNIX domain
-socket, or a hostname and port
-.RI ( hostname : port ),
-in order to connect a remote host via a TCP socket.
+socket.
 .sp
 By default
 .BR doveadm (1)

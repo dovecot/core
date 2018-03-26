@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "test-common.h"
@@ -145,7 +145,7 @@ int init_test_mail_user(void)
 			t_strdup_printf("mail_crypt_curve=prime256v1"),
 			NULL
 		},
-		.username = "mcp_test",
+		.username = "mcp_test@example.com",
 		.no_userdb_lookup = TRUE,
 		.debug = TRUE,
 	};
@@ -433,7 +433,7 @@ static void test_old_key(void)
 	test_assert(privkey != NULL);
 
 	if (privkey != NULL) {
-		buffer_t *key_id = buffer_create_dynamic(pool_datastack_create(), 32);
+		buffer_t *key_id = t_buffer_create(32);
 		test_assert(dcrypt_key_id_private_old(privkey, key_id, &error));
 		test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), mcp_old_box_key_id) == 0);
 		dcrypt_key_unref_private(&privkey);

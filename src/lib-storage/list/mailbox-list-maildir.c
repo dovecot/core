@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -136,6 +136,13 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 			return 1;
 		}
 		break;
+	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
+		if (_list->set.index_cache_dir != NULL) {
+			*path_r = maildir_list_get_dirname_path(_list,
+						_list->set.index_cache_dir, name);
+			return 1;
+		}
+		/* fall through */
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (_list->set.index_dir != NULL) {
 			if (*_list->set.index_dir == '\0')
@@ -391,6 +398,8 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 				 MAILBOX_LIST_PATH_TYPE_CONTROL);
 		(void)rename_dir(oldlist, old_childname, newlist, new_childname,
 				 MAILBOX_LIST_PATH_TYPE_INDEX);
+		(void)rename_dir(oldlist, old_childname, newlist, new_childname,
+				 MAILBOX_LIST_PATH_TYPE_INDEX_CACHE);
 	}
 	array_free(&names_arr);
 	pool_unref(&pool);
@@ -449,6 +458,8 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 				 MAILBOX_LIST_PATH_TYPE_CONTROL);
 		(void)rename_dir(oldlist, oldname, newlist, newname,
 				 MAILBOX_LIST_PATH_TYPE_INDEX);
+		(void)rename_dir(oldlist, oldname, newlist, newname,
+				 MAILBOX_LIST_PATH_TYPE_INDEX_CACHE);
 
 		found = ret == 0;
 		T_BEGIN {
@@ -480,7 +491,8 @@ struct mailbox_list maildir_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
 	.props = MAILBOX_LIST_PROP_NO_MAILDIR_NAME |
 		MAILBOX_LIST_PROP_NO_ALT_DIR |
-		MAILBOX_LIST_PROP_NO_NOSELECT,
+		MAILBOX_LIST_PROP_NO_NOSELECT |
+		MAILBOX_LIST_PROP_NO_INTERNAL_NAMES,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	.v = {
@@ -508,7 +520,8 @@ struct mailbox_list imapdir_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_IMAPDIR,
 	.props = MAILBOX_LIST_PROP_NO_MAILDIR_NAME |
 		MAILBOX_LIST_PROP_NO_ALT_DIR |
-		MAILBOX_LIST_PROP_NO_NOSELECT,
+		MAILBOX_LIST_PROP_NO_NOSELECT |
+		MAILBOX_LIST_PROP_NO_INTERNAL_NAMES,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	.v = {

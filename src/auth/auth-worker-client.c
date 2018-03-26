@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "base64.h"
@@ -75,9 +75,8 @@ auth_worker_client_check_throttle(struct auth_worker_client *client)
 	}
 }
 
-static struct auth_request *
-worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
-			const char *const *args)
+bool auth_worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
+				  const char *const *args, struct auth_request **request_r)
 {
 	struct auth_request *auth_request;
 	const char *key, *value;
@@ -97,6 +96,11 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 			(void)auth_request_import(auth_request, key, value);
 		}
 	}
+	if (auth_request->user == NULL || auth_request->service == NULL) {
+		auth_request_unref(&auth_request);
+		return FALSE;
+	}
+
 	/* reset changed-fields, so we'll export only the ones that were
 	   changed by this lookup. */
 	auth_fields_snapshot(auth_request->extra_fields);
@@ -104,7 +108,9 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 		auth_fields_snapshot(auth_request->userdb_reply);
 
 	auth_request_init(auth_request);
-	return auth_request;
+	*request_r = auth_request;
+
+	return TRUE;
 }
 
 static void auth_worker_send_reply(struct auth_worker_client *client,
@@ -117,7 +123,7 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 	if (worker_restart_request)
 		o_stream_nsend_str(client->output, "RESTART\n");
 	o_stream_nsend(client->output, str_data(str), str_len(str));
-	if (o_stream_nfinish(client->output) < 0 && request != NULL &&
+	if (o_stream_flush(client->output) < 0 && request != NULL &&
 	    cmd_duration > AUTH_WORKER_WARN_DISCONNECTED_LONG_CMD_SECS) {
 		p = i_strchr_to_next(str_c(str), '\t');
 		p = p == NULL ? "BUG" : t_strcut(p, '\t');
@@ -201,15 +207,12 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	}
 	password = args[1];
 
-	auth_request = worker_auth_request_new(client, id, args + 2);
-	auth_request->mech_password =
-		p_strdup(auth_request->pool, password);
-
-	if (auth_request->user == NULL || auth_request->service == NULL) {
-		i_error("BUG: PASSV had missing parameters");
-		auth_request_unref(&auth_request);
+	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
+		i_error("BUG: Auth worker server sent us invalid PASSV");
 		return FALSE;
 	}
+	auth_request->mech_password =
+		p_strdup(auth_request->pool, password);
 
 	passdb = auth_request->passdb;
 	while (passdb != NULL && passdb->passdb->id != passdb_id)
@@ -231,6 +234,58 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	auth_request->passdb = passdb;
 	passdb->passdb->iface.
 		verify_plain(auth_request, password, verify_plain_callback);
+	return TRUE;
+}
+
+static bool
+auth_worker_handle_passw(struct auth_worker_client *client,
+			 unsigned int id, const char *const *args)
+{
+	struct auth_request *request;
+	string_t *str;
+	const char *password;
+	const char *crypted, *scheme;
+	unsigned int passdb_id;
+	int ret;
+
+	if (str_to_uint(args[0], &passdb_id) < 0 || args[1] == NULL ||
+	    args[2] == NULL) {
+		i_error("BUG: Auth worker server sent us invalid PASSW");
+		return FALSE;
+	}
+	password = args[1];
+	crypted = args[2];
+	scheme = password_get_scheme(&crypted);
+	if (scheme == NULL) {
+		i_error("BUG: Auth worker server sent us invalid PASSW (scheme is NULL)");
+		return FALSE;
+	}
+
+	if (!auth_worker_auth_request_new(client, id, args + 3, &request)) {
+		i_error("BUG: PASSW had missing parameters");
+		return FALSE;
+	}
+	request->mech_password =
+		p_strdup(request->pool, password);
+
+	ret = auth_request_password_verify(request, password,
+					   crypted, scheme, "cache");
+	str = t_str_new(128);
+	str_printfa(str, "%u\t", request->id);
+
+	if (ret == 1)
+		str_printfa(str, "OK\t\t");
+	else if (ret == 0)
+		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_PASSWORD_MISMATCH);
+	else
+		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE);
+
+	str_append_c(str, '\n');
+	auth_worker_send_reply(client, request, str);
+
+	auth_request_unref(&request);
+	auth_worker_client_check_throttle(client);
+	auth_worker_client_unref(&client);
 	return TRUE;
 }
 
@@ -290,14 +345,11 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	}
 	scheme = args[1];
 
-	auth_request = worker_auth_request_new(client, id, args + 2);
-	auth_request->credentials_scheme = p_strdup(auth_request->pool, scheme);
-
-	if (auth_request->user == NULL || auth_request->service == NULL) {
+	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
 		i_error("BUG: PASSL had missing parameters");
-		auth_request_unref(&auth_request);
 		return FALSE;
 	}
+	auth_request->credentials_scheme = p_strdup(auth_request->pool, scheme);
 
 	while (auth_request->passdb->passdb->id != passdb_id) {
 		auth_request->passdb = auth_request->passdb->next;
@@ -351,10 +403,8 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 	}
 	creds = args[1];
 
-	auth_request = worker_auth_request_new(client, id, args + 2);
-	if (auth_request->user == NULL || auth_request->service == NULL) {
+	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
 		i_error("BUG: SETCRED had missing parameters");
-		auth_request_unref(&auth_request);
 		return FALSE;
 	}
 
@@ -436,10 +486,8 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		return FALSE;
 	}
 
-	auth_request = worker_auth_request_new(client, id, args + 1);
-	if (auth_request->user == NULL || auth_request->service == NULL) {
+	if (!auth_worker_auth_request_new(client, id, args + 1, &auth_request)) {
 		i_error("BUG: USER had missing parameters");
-		auth_request_unref(&auth_request);
 		return FALSE;
 	}
 
@@ -592,15 +640,12 @@ auth_worker_handle_list(struct auth_worker_client *client,
 
 	ctx = i_new(struct auth_worker_list_context, 1);
 	ctx->client = client;
-	ctx->auth_request = worker_auth_request_new(client, id, args + 1);
-	ctx->auth_request->userdb = userdb;
-	if (ctx->auth_request->user == NULL ||
-	    ctx->auth_request->service == NULL) {
+	if (!auth_worker_auth_request_new(client, id, args + 1, &ctx->auth_request)) {
 		i_error("BUG: LIST had missing parameters");
-		auth_request_unref(&ctx->auth_request);
 		i_free(ctx);
 		return FALSE;
 	}
+	ctx->auth_request->userdb = userdb;
 
 	io_remove(&ctx->client->io);
 	timeout_remove(&ctx->client->to_idle);
@@ -635,6 +680,8 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 		ret = auth_worker_handle_passv(client, id, args + 2);
 	else if (strcmp(args[1], "PASSL") == 0)
 		ret = auth_worker_handle_passl(client, id, args + 2);
+	else if (strcmp(args[1], "PASSW") == 0)
+		ret = auth_worker_handle_passw(client, id, args + 2);
 	else if (strcmp(args[1], "SETCRED") == 0)
 		ret = auth_worker_handle_setcred(client, id, args + 2);
 	else if (strcmp(args[1], "USER") == 0)

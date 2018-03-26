@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -41,7 +41,7 @@ static struct {
 
 extern struct mailbox_list imapc_mailbox_list;
 
-static void imapc_list_send_hierarcy_sep_lookup(struct imapc_mailbox_list *list);
+static void imapc_list_send_hierarchy_sep_lookup(struct imapc_mailbox_list *list);
 static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 				struct imapc_storage_client *client);
 static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
@@ -78,7 +78,7 @@ static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 					       imapc_untagged_list);
 	imapc_storage_client_register_untagged(list->client, "LSUB",
 					       imapc_untagged_lsub);
-	imapc_list_send_hierarcy_sep_lookup(list);
+	imapc_list_send_hierarchy_sep_lookup(list);
 	return 0;
 }
 
@@ -295,7 +295,7 @@ static void imapc_storage_sep_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(list->client->client);
 }
 
-static void imapc_list_send_hierarcy_sep_lookup(struct imapc_mailbox_list *list)
+static void imapc_list_send_hierarchy_sep_lookup(struct imapc_mailbox_list *list)
 {
 	struct imapc_command *cmd;
 
@@ -314,7 +314,7 @@ int imapc_list_try_get_root_sep(struct imapc_mailbox_list *list, char *sep_r)
 	if (list->root_sep == '\0') {
 		if (imapc_storage_client_handle_auth_failure(list->client))
 			return -1;
-		imapc_list_send_hierarcy_sep_lookup(list);
+		imapc_list_send_hierarchy_sep_lookup(list);
 		while (list->root_sep_pending)
 			imapc_client_run(list->client->client);
 		if (list->root_sep == '\0')
@@ -727,6 +727,7 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	} while ((node->flags & MAILBOX_MATCHED) == 0);
 
 	if (ctx->info.ns->prefix_len > 0 &&
+	    strcasecmp(vname, "INBOX") != 0 &&
 	    strncmp(vname, ctx->info.ns->prefix, ctx->info.ns->prefix_len-1) == 0 &&
 	    vname[ctx->info.ns->prefix_len] == '\0' &&
 	    list->set->imapc_list_prefix[0] == '\0') {
@@ -951,7 +952,8 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 
 struct mailbox_list imapc_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_IMAPC,
-	.props = MAILBOX_LIST_PROP_NO_ROOT | MAILBOX_LIST_PROP_AUTOCREATE_DIRS,
+	.props = MAILBOX_LIST_PROP_NO_ROOT | MAILBOX_LIST_PROP_AUTOCREATE_DIRS |
+		 MAILBOX_LIST_PROP_NO_LIST_INDEX,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	.v = {

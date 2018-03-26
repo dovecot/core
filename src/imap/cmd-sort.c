@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "buffer.h"
@@ -38,7 +38,7 @@ get_sort_program(struct client_command_context *cmd,
 	bool reverse, last_reverse;
 
 	if (IMAP_ARG_IS_EOL(args)) {
-		/* empyty list */
+		/* empty list */
 		client_send_command_error(cmd, "Empty sort program.");
 		return -1;
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "lib-signals.h"
@@ -112,6 +112,15 @@ struct dsync_cmd_context {
 
 static bool legacy_dsync = FALSE;
 
+static void dsync_cmd_switch_ioloop_to(struct dsync_cmd_context *ctx,
+				       struct ioloop *ioloop)
+{
+	if (ctx->input != NULL)
+		i_stream_switch_ioloop_to(ctx->input, ioloop);
+	if (ctx->output != NULL)
+		o_stream_switch_ioloop_to(ctx->output, ioloop);
+}
+
 static void remote_error_input(struct dsync_cmd_context *ctx)
 {
 	const unsigned char *data;
@@ -137,6 +146,7 @@ static void remote_error_input(struct dsync_cmd_context *ctx)
 static void
 run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 {
+	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
 	int fd_in[2], fd_out[2], fd_err[2];
 
 	ctx->remote_cmd_args = p_strarray_dup(ctx->ctx.pool, args);
@@ -178,7 +188,7 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 
 	if (ctx->remote_user_prefix) {
 		const char *prefix =
-			t_strdup_printf("%s\n", ctx->ctx.cur_username);
+			t_strdup_printf("%s\n", cctx->username);
 		if (write_full(ctx->fd_out, prefix, strlen(prefix)) < 0)
 			i_fatal("write(remote out) failed: %m");
 	}
@@ -316,8 +326,10 @@ static void doveadm_user_init_dsync(struct mail_user *user)
 	struct mail_namespace *ns;
 
 	user->dsyncing = TRUE;
-	for (ns = user->namespaces; ns != NULL; ns = ns->next)
-		ns->list->set.broken_char = DSYNC_LIST_BROKEN_CHAR;
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if (ns->list->set.broken_char == '\0')
+			ns->list->set.broken_char = DSYNC_LIST_BROKEN_CHAR;
+	}
 }
 
 static bool paths_are_equal(struct mail_user *user1, struct mail_user *user2,
@@ -559,6 +571,7 @@ static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	struct dsync_ibc *ibc, *ibc2 = NULL;
 	struct dsync_brain *brain;
 	struct dsync_brain_settings set;
@@ -572,10 +585,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	int ret = 0;
 
 	i_zero(&set);
-	if (_ctx->cur_client_ip.family != 0) {
+	if (cctx->remote_ip.family != 0) {
 		/* include the doveadm client's IP address in the ps output */
 		set.process_title_prefix = t_strdup_printf(
-			"%s ", net_ip2addr(&_ctx->cur_client_ip));
+			"%s ", net_ip2addr(&cctx->remote_ip));
 	}
 	set.sync_since_timestamp = ctx->sync_since_timestamp;
 	set.sync_until_timestamp = ctx->sync_until_timestamp;
@@ -684,7 +697,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (changes_during_sync != NULL || changes_during_sync2 != NULL) {
 		/* don't log a warning when running via doveadm server
 		   (e.g. called by replicator) */
-		if (ctx->ctx.conn == NULL) {
+		if (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI) {
 			i_warning("Mailbox changes caused a desync. "
 				  "You may want to run dsync again: %s",
 				  changes_during_sync == NULL ||
@@ -706,10 +719,9 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	dsync_ibc_deinit(&ibc);
 	if (ibc2 != NULL)
 		dsync_ibc_deinit(&ibc2);
-	if (ctx->ssl_iostream != NULL)
-		ssl_iostream_destroy(&ctx->ssl_iostream);
+	ssl_iostream_destroy(&ctx->ssl_iostream);
 	if (ctx->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&ctx->ssl_ctx);
+		ssl_iostream_context_unref(&ctx->ssl_ctx);
 	if (ctx->input != NULL) {
 		i_stream_set_max_buffer_size(ctx->input, ctx->input_orig_bufsize);
 		i_stream_unref(&ctx->input);
@@ -789,7 +801,7 @@ static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
 	ssl_set.ca_file = mail_set->ssl_client_ca_file;
 	ssl_set.crypto_device = mail_set->ssl_crypto_device;
 
-	return ssl_iostream_context_init_client(&ssl_set, &ctx->ssl_ctx, error_r);
+	return ssl_iostream_client_context_cache_get(&ssl_set, &ctx->ssl_ctx, error_r);
 }
 
 static int
@@ -797,14 +809,18 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		  const struct mail_storage_settings *mail_set,
 		  const char *target, bool ssl, const char **error_r)
 {
+	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
 	struct doveadm_server *server;
 	struct server_connection *conn;
-	struct ioloop *ioloop;
+	struct ioloop *prev_ioloop, *ioloop;
 	string_t *cmd;
-	const char *error;
+	const char *p, *error;
 
 	server = p_new(ctx->ctx.pool, struct doveadm_server, 1);
 	server->name = p_strdup(ctx->ctx.pool, target);
+	p = strrchr(server->name, ':');
+	server->hostname = p == NULL ? server->name :
+		p_strdup_until(ctx->ctx.pool, server->name, p);
 	if (ssl) {
 		if (dsync_init_ssl_ctx(ctx, mail_set, &error) < 0) {
 			*error_r = t_strdup_printf(
@@ -816,7 +832,9 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	p_array_init(&server->connections, ctx->ctx.pool, 1);
 	p_array_init(&server->queue, ctx->ctx.pool, 1);
 
+	prev_ioloop = current_ioloop;
 	ioloop = io_loop_create();
+	dsync_cmd_switch_ioloop_to(ctx, ioloop);
 
 	if (doveadm_verbose_proctitle) {
 		process_title_set(t_strdup_printf(
@@ -832,9 +850,9 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	if (doveadm_debug)
 		str_append_c(cmd, 'D');
 	str_append_c(cmd, '\t');
-	str_append_tabescaped(cmd, ctx->ctx.cur_username);
+	str_append_tabescaped(cmd, cctx->username);
 	str_append(cmd, "\tdsync-server\t-u");
-	str_append_tabescaped(cmd, ctx->ctx.cur_username);
+	str_append_tabescaped(cmd, cctx->username);
 	if (ctx->replicator_notify)
 		str_append(cmd, "\t-U");
 	str_append_c(cmd, '\n');
@@ -852,6 +870,8 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 
 	if (array_count(&server->connections) > 0)
 		server_connection_destroy(&conn);
+
+	dsync_cmd_switch_ioloop_to(ctx, prev_ioloop);
 	io_loop_destroy(&ioloop);
 
 	if (ctx->error != NULL) {
@@ -869,6 +889,8 @@ parse_location(struct dsync_cmd_context *ctx,
 	       const char *location,
 	       const char *const **remote_cmd_args_r, const char **error_r)
 {
+	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
+
 	if (strncmp(location, "tcp:", 4) == 0) {
 		/* TCP connection to remote dsync */
 		ctx->remote_name = location+4;
@@ -896,7 +918,7 @@ parse_location(struct dsync_cmd_context *ctx,
 		return 0;
 	}
 	*remote_cmd_args_r =
-		parse_ssh_location(ctx->remote_name, ctx->ctx.cur_username);
+		parse_ssh_location(ctx->remote_name, cctx->username);
 	return 0;
 }
 
@@ -905,6 +927,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    const char **error_r)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	const char *const *remote_cmd_args = NULL;
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
@@ -932,7 +955,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 		/* if we're executing remotely, give -u parameter if we also
 		   did a userdb lookup. */
 		if ((_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0)
-			username = _ctx->cur_username;
+			username = cctx->username;
 
 		if (!mirror_get_remote_cmd(ctx, username, &remote_cmd_args)) {
 			/* it's a mail_location */
@@ -1135,6 +1158,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
 	string_t *temp_prefix, *state_str = NULL;
@@ -1142,20 +1167,26 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	const char *name, *process_title_prefix = "";
 	enum mail_error mail_error;
 
-	if (_ctx->conn != NULL) {
+	if (!cli) {
+		if (ctx->replicator_notify &&
+		    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
+			return DOVEADM_EX_NOREPLICATE;
+		}
+
 		/* doveadm-server connection. start with a success reply.
 		   after that follows the regular dsync protocol. */
 		ctx->fd_in = ctx->fd_out = -1;
-		ctx->input = _ctx->conn->input;
-		ctx->output = _ctx->conn->output;
+		ctx->input = cctx->input;
+		ctx->output = cctx->output;
+		o_stream_set_finish_also_parent(ctx->output, FALSE);
 		o_stream_nsend(ctx->output, "\n+\n", 3);
 		i_set_failure_prefix("dsync-server(%s): ", user->username);
 		name = i_stream_get_name(ctx->input);
 
-		if (_ctx->cur_client_ip.family != 0) {
+		if (cctx->remote_ip.family != 0) {
 			/* include the doveadm client's IP address in the ps output */
 			process_title_prefix = t_strdup_printf(
-				"%s ", net_ip2addr(&_ctx->cur_client_ip));
+				"%s ", net_ip2addr(&cctx->remote_ip));
 		}
 	} else {
 		/* the log messages go via stderr to the remote dsync,
@@ -1184,10 +1215,10 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_mail_failed_error(_ctx, mail_error);
 	dsync_ibc_deinit(&ibc);
 
-	if (_ctx->conn != NULL) {
+	if (!cli) {
 		/* make sure nothing more is written by the generic doveadm
 		   connection code */
-		o_stream_close(_ctx->conn->output);
+		o_stream_close(cctx->output);
 	}
 
 	if (ctx->replicator_notify && _ctx->exit_code == 0)

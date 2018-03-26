@@ -143,6 +143,8 @@ struct imapc_mailbox {
 	bool initial_sync_done:1;
 	bool selected:1;
 	bool exists_received:1;
+	bool state_fetching_uid1:1;
+	bool state_fetched_success:1;
 };
 
 struct imapc_simple_context {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 
@@ -64,16 +64,21 @@ enum fatal_test_state fatal_mempool_alloconly(unsigned int stage)
 	case 0: /* forbidden size */
 		test_begin("fatal_mempool_alloconly");
 		pool = pool_alloconly_create(MEMPOOL_GROWING"fatal", 1);
+		test_expect_fatal_string("Trying to allocate 0 bytes");
 		(void)p_malloc(pool, 0);
 		return FATAL_TEST_FAILURE;
 
 	case 1: /* logically impossible size */
+		test_expect_fatal_string("Trying to allocate");
 		(void)p_malloc(pool, SSIZE_T_MAX + 1ULL);
 		return FATAL_TEST_FAILURE;
 
+#if SSIZE_T_MAX > 2147483648 /* malloc(SSIZE_T_MAX) may succeed with 32bit */
 	case 2: /* physically impossible size */
-		(void)p_malloc(pool, SSIZE_T_MAX - (size_t)MEM_ALIGN(1));
+		test_expect_fatal_string("Out of memory");
+		(void)p_malloc(pool, SSIZE_T_MAX - 1024);
 		return FATAL_TEST_FAILURE;
+#endif
 
 	/* Continue with other tests as follows:
 	case 3:

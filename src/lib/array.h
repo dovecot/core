@@ -171,7 +171,7 @@ array_count_i(const struct array *array)
 }
 #define array_count(array) \
 	array_count_i(&(array)->arr)
-/* No need for the real count if all we're doing is comparing againts 0 */
+/* No need for the real count if all we're doing is comparing against 0 */
 #define array_is_empty(array) \
 	((array)->arr.buffer->used == 0)
 #define array_not_empty(array) \
@@ -247,10 +247,16 @@ array_get_modifiable_i(struct array *array, unsigned int *count_r)
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_get_modifiable_i(&(array)->arr, count)
 
-void *array_idx_modifiable_i(struct array *array, unsigned int idx);
+void *
+array_idx_modifiable_i(const struct array *array, unsigned int idx) ATTR_PURE;
 #define array_idx_modifiable(array, idx) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_idx_modifiable_i(&(array)->arr, idx)
+
+void *array_idx_get_space_i(struct array *array, unsigned int idx);
+#define array_idx_get_space(array, idx) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+		array_idx_get_space_i(&(array)->arr, idx)
 
 void array_idx_set_i(struct array *array, unsigned int idx, const void *data);
 #define array_idx_set(array, idx, data) \
@@ -293,7 +299,7 @@ array_copy(struct array *dest, unsigned int dest_idx,
 
 /* Exchange ownership of two arrays, which should have been allocated
    from the same pool/context. Useful for updating an array with a
-   replacement. Can also do it with uninitialised arrays (which will
+   replacement. Can also do it with uninitialized arrays (which will
    have .element_size == 0). */
 static inline void
 array_swap_i(struct array *array1, struct array *array2)

@@ -1,6 +1,7 @@
 #ifndef HTTP_SERVER_H
 #define HTTP_SERVER_H
 
+#include "http-common.h"
 #include "http-auth.h"
 #include "http-request.h"
 
@@ -148,6 +149,11 @@ void http_server_request_ref(struct http_server_request *req);
    references, FALSE if not. */
 bool http_server_request_unref(struct http_server_request **_req);
 
+/* Set flag that determines whether the connection is closed after the
+   request is handled. */
+void http_server_request_connection_close(struct http_server_request *req,
+	bool close);
+
 /* Get the pool for this request. */
 pool_t http_server_request_get_pool(struct http_server_request *req);
 /* Returns the response created for the request with
@@ -216,6 +222,11 @@ void http_server_request_fail(struct http_server_request *req,
    and close the connection. */
 void http_server_request_fail_close(struct http_server_request *req,
 	unsigned int status, const char *reason);
+/* Send a failure response for the request with given status/reason/text.
+   The text is sent as the response payload, if appropriate. */
+void http_server_request_fail_text(struct http_server_request *req,
+	unsigned int status, const char *reason, const char *format, ...)
+	 ATTR_FORMAT(4, 5);
 /* Send an authentication failure response for the request with given reason.
    The provided challenge is set in the WWW-Authenticate header of the
    response. */

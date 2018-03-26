@@ -64,8 +64,7 @@ test_fs_posix_SOURCES = test-fs-posix.c
 test_fs_posix_LDADD = $(test_libs)
 test_fs_posix_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

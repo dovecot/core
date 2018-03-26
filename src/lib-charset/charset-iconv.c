@@ -1,9 +1,8 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
-#include "unichar.h"
-#include "charset-utf8.h"
+#include "charset-utf8-private.h"
 
 #ifdef HAVE_ICONV
 
@@ -15,8 +14,9 @@ struct charset_translation {
 	normalizer_func_t *normalizer;
 };
 
-int charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
-			  struct charset_translation **t_r)
+static int
+iconv_charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
+			    struct charset_translation **t_r)
 {
 	struct charset_translation *t;
 	iconv_t cd;
@@ -38,18 +38,14 @@ int charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
 	return 0;
 }
 
-void charset_to_utf8_end(struct charset_translation **_t)
+static void iconv_charset_to_utf8_end(struct charset_translation *t)
 {
-	struct charset_translation *t = *_t;
-
-	*_t = NULL;
-
 	if (t->cd != (iconv_t)-1)
 		iconv_close(t->cd);
 	i_free(t);
 }
 
-void charset_to_utf8_reset(struct charset_translation *t)
+static void iconv_charset_to_utf8_reset(struct charset_translation *t)
 {
 	if (t->cd != (iconv_t)-1)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
@@ -103,9 +99,10 @@ charset_to_utf8_try(struct charset_translation *t,
 	return ret;
 }
 
-enum charset_result
-charset_to_utf8(struct charset_translation *t,
-		const unsigned char *src, size_t *src_size, buffer_t *dest)
+static enum charset_result
+iconv_charset_to_utf8(struct charset_translation *t,
+		      const unsigned char *src, size_t *src_size,
+		      buffer_t *dest)
 {
 	enum charset_result result;
 	size_t pos, size;
@@ -139,5 +136,12 @@ charset_to_utf8(struct charset_translation *t,
 	*src_size = pos;
 	return result;
 }
+
+const struct charset_utf8_vfuncs charset_iconv = {
+	.to_utf8_begin = iconv_charset_to_utf8_begin,
+	.to_utf8_end = iconv_charset_to_utf8_end,
+	.to_utf8_reset = iconv_charset_to_utf8_reset,
+	.to_utf8 = iconv_charset_to_utf8,
+};
 
 #endif

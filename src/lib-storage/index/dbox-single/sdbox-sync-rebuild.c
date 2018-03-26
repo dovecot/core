@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -95,7 +95,6 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
 					const char *path, bool primary)
 {
-	struct mail_storage *storage = ctx->box->storage;
 	DIR *dir;
 	struct dirent *d;
 	int ret = 0;
@@ -109,8 +108,7 @@ static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
 			}
 			return index_mailbox_fix_inconsistent_existence(ctx->box, path);
 		}
-		mail_storage_set_critical(storage,
-			"opendir(%s) failed: %m", path);
+		mailbox_set_critical(ctx->box, "opendir(%s) failed: %m", path);
 		return -1;
 	}
 	do {
@@ -121,14 +119,12 @@ static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
 		ret = sdbox_sync_add_file(ctx, d->d_name, primary);
 	} while (ret >= 0);
 	if (errno != 0) {
-		mail_storage_set_critical(storage,
-			"readdir(%s) failed: %m", path);
+		mailbox_set_critical(ctx->box, "readdir(%s) failed: %m", path);
 		ret = -1;
 	}
 
 	if (closedir(dir) < 0) {
-		mail_storage_set_critical(storage,
-			"closedir(%s) failed: %m", path);
+		mailbox_set_critical(ctx->box, "closedir(%s) failed: %m", path);
 		ret = -1;
 	}
 	return ret;
@@ -164,13 +160,11 @@ sdbox_sync_index_rebuild_singles(struct index_rebuild_context *ctx)
 
 	sdbox_sync_set_uidvalidity(ctx);
 	if (sdbox_sync_index_rebuild_dir(ctx, path, TRUE) < 0) {
-		mail_storage_set_critical(ctx->box->storage,
-			"sdbox: Rebuilding failed on path %s",
-			mailbox_get_path(ctx->box));
+		mailbox_set_critical(ctx->box, "sdbox: Rebuilding failed");
 		ret = -1;
 	} else if (alt_path != NULL) {
 		if (sdbox_sync_index_rebuild_dir(ctx, alt_path, FALSE) < 0) {
-			mail_storage_set_critical(ctx->box->storage,
+			mailbox_set_critical(ctx->box,
 				"sdbox: Rebuilding failed on alt path %s",
 				alt_path);
 			ret = -1;
@@ -199,9 +193,9 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force)
 	i_warning("sdbox %s: Rebuilding index", mailbox_get_path(&mbox->box));
 
 	if (dbox_verify_alt_storage(mbox->box.list) < 0) {
-		mail_storage_set_critical(mbox->box.storage,
-			"sdbox %s: Alt storage not mounted, "
-			"aborting index rebuild", mailbox_get_path(&mbox->box));
+		mailbox_set_critical(&mbox->box,
+			"sdbox: Alt storage not mounted, "
+			"aborting index rebuild");
 		return -1;
 	}
 

@@ -34,6 +34,8 @@ lmtp_SOURCES = \
 	main.c \
 	client.c \
 	commands.c \
+	lmtp-common.c \
+	lmtp-local.c \
 	lmtp-proxy.c \
 	lmtp-settings.c
 
@@ -41,5 +43,7 @@ noinst_HEADERS = \
 	main.h \
 	client.h \
 	commands.h \
+	lmtp-common.h \
+	lmtp-local.h \
 	lmtp-proxy.h \
 	lmtp-settings.h

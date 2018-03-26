@@ -34,7 +34,8 @@ struct ipc_connection {
 };
 
 struct ipc_connection *ipc_connection_create(int listen_fd, int fd);
-void ipc_connection_destroy(struct ipc_connection **conn);
+void ipc_connection_destroy(struct ipc_connection **conn,
+			    bool log_error, const char *error);
 
 struct ipc_connection *
 ipc_connection_lookup_id(struct ipc_group *group, unsigned int id);

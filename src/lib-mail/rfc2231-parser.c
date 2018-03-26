@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -59,7 +59,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 		if (ret < 0) {
 			/* try to continue anyway.. */
 			broken = TRUE;
-			if (ctx->data == ctx->end)
+			if (ctx->data >= ctx->end)
 				break;
 			ctx->data++;
 			continue;

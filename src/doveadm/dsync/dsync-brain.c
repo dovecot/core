@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -221,6 +221,11 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	memcpy(brain->sync_box_guid, set->sync_box_guid,
 	       sizeof(brain->sync_box_guid));
 	brain->lock_timeout = set->lock_timeout_secs;
+	if (brain->lock_timeout != 0)
+		brain->mailbox_lock_timeout_secs = brain->lock_timeout;
+	else
+		brain->mailbox_lock_timeout_secs =
+			DSYNC_MAILBOX_DEFAULT_LOCK_TIMEOUT_SECS;
 	brain->import_commit_msgs_interval = set->import_commit_msgs_interval;
 	brain->master_brain = TRUE;
 	brain->hashed_headers =
@@ -370,6 +375,11 @@ int dsync_brain_deinit(struct dsync_brain **_brain, enum mail_error *error_r)
 	if (brain->lock_fd != -1) {
 		/* unlink the lock file before it gets unlocked */
 		i_unlink(brain->lock_path);
+		if (brain->debug) {
+			i_debug("brain %c: Unlocked %s",
+				brain->master_brain ? 'M' : 'S',
+				brain->lock_path);
+		}
 		file_lock_free(&brain->lock);
 		i_close_fd(&brain->lock_fd);
 	}
@@ -390,17 +400,29 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 		.lock_timeout_secs = brain->lock_timeout,
 		.lock_method = FILE_LOCK_METHOD_FCNTL,
 	};
-	const char *home, *error;
+	const char *home, *error, *local_hostname = my_hostdomain();
 	bool created;
 	int ret;
 
-	if ((ret = strcmp(remote_hostname, my_hostdomain())) < 0) {
+	if ((ret = strcmp(remote_hostname, local_hostname)) < 0) {
 		/* locking done by remote */
+		if (brain->debug) {
+			i_debug("brain %c: Locking done by remote "
+				"(local hostname=%s, remote hostname=%s)",
+				brain->master_brain ? 'M' : 'S',
+				local_hostname, remote_hostname);
+		}
 		return 0;
 	}
 	if (ret == 0 && !brain->master_brain) {
 		/* running dsync within the same server.
 		   locking done by master brain. */
+		if (brain->debug) {
+			i_debug("brain %c: Locking done by local master-brain "
+				"(local hostname=%s, remote hostname=%s)",
+				brain->master_brain ? 'M' : 'S',
+				local_hostname, remote_hostname);
+		}
 		return 0;
 	}
 
@@ -421,6 +443,12 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 					    &brain->lock, &created, &error);
 	if (brain->lock_fd == -1)
 		i_error("Couldn't lock %s: %s", brain->lock_path, error);
+	else if (brain->debug) {
+		i_debug("brain %c: Locking done locally in %s "
+			"(local hostname=%s, remote hostname=%s)",
+			brain->master_brain ? 'M' : 'S',
+			brain->lock_path, local_hostname, remote_hostname);
+	}
 	if (brain->verbose_proctitle)
 		process_title_set(dsync_brain_get_proctitle(brain));
 	return brain->lock_fd == -1 ? -1 : 0;
@@ -475,10 +503,14 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 
 	if (ibc_set->lock_timeout > 0) {
 		brain->lock_timeout = ibc_set->lock_timeout;
+		brain->mailbox_lock_timeout_secs = brain->lock_timeout;
 		if (dsync_brain_lock(brain, ibc_set->hostname) < 0) {
 			brain->failed = TRUE;
 			return FALSE;
 		}
+	} else {
+		brain->mailbox_lock_timeout_secs =
+			DSYNC_MAILBOX_DEFAULT_LOCK_TIMEOUT_SECS;
 	}
 
 	if (ibc_set->sync_ns_prefixes != NULL) {

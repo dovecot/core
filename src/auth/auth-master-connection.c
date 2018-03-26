@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "buffer.h"
@@ -782,10 +782,8 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 
 	if (conn->iter_ctx != NULL)
 		master_input_list_finish(conn->iter_ctx);
-	if (conn->input != NULL)
-		i_stream_close(conn->input);
-	if (conn->output != NULL)
-		o_stream_close(conn->output);
+	i_stream_close(conn->input);
+	o_stream_close(conn->output);
 	io_remove(&conn->io);
 	i_close_fd_path(&conn->fd, conn->path);
 

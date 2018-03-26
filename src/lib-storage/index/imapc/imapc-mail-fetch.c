@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -92,7 +92,7 @@ imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
 		/* The disconnection message was already logged */
 		mail_storage_set_internal_error(&mbox->storage->storage);
 	} else {
-		mail_storage_set_critical(&mbox->storage->storage,
+		mailbox_set_critical(&mbox->box,
 			"imapc: Mail FETCH failed: %s", reply->text_full);
 	}
 	imapc_client_stop(mbox->storage->client->client);
@@ -547,7 +547,7 @@ static void imapc_stream_filter(struct istream **input)
 	filter_input = i_stream_create_header_filter(*input,
 		HEADER_FILTER_EXCLUDE,
 		imapc_hide_headers, N_ELEMENTS(imapc_hide_headers),
-		*null_header_filter_callback, (void *)NULL);
+		*null_header_filter_callback, NULL);
 	i_stream_unref(input);
 	*input = filter_input;
 }
@@ -576,13 +576,19 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 			index_mail_close_streams(imail);
 			return;
 		}
-	} else if (mail->body_fetched) {
-		ret = i_stream_get_size(imail->data.stream, TRUE, &size);
-		if (ret < 0) {
-			index_mail_close_streams(imail);
-			return;
-		}
-		i_assert(ret != 0);
+	}
+	ret = i_stream_get_size(imail->data.stream, TRUE, &size);
+	if (ret < 0) {
+		index_mail_close_streams(imail);
+		return;
+	}
+	i_assert(ret != 0);
+	/* Once message body is fetched, we can be sure of what its size is.
+	   If we had already received RFC822.SIZE, overwrite it here in case
+	   it's wrong. Also in more special cases the RFC822.SIZE may be
+	   smaller than the fetched message header. In this case change the
+	   size as well, otherwise reading via istream-mail will fail. */
+	if (mail->body_fetched || imail->data.physical_size < size) {
 		imail->data.physical_size = size;
 		/* we'll assume that the remote server is working properly and
 		   sending CRLF linefeeds */
@@ -601,6 +607,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 		   bool have_header, bool have_body)
 {
 	struct index_mail *imail = &mail->imail;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(imail->mail.mail.box);
 	struct istream *hdr_stream = NULL;
 	const char *value;
 	int fd;
@@ -649,7 +656,9 @@ imapc_fetch_stream(struct imapc_mail *mail,
 	} else {
 		if (!imap_arg_get_nstring(arg, &value))
 			value = NULL;
-		if (value == NULL) {
+		if (value == NULL ||
+		    (value[0] == '\0' &&
+		     IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED))) {
 			mail_set_expunged(&imail->mail.mail);
 			i_stream_unref(&hdr_stream);
 			return;
@@ -762,14 +771,14 @@ imapc_args_to_bodystructure(struct imapc_mail *mail,
 	pool_t pool;
 
 	if (!imap_arg_get_list(list_arg, &args)) {
-		mail_storage_set_critical(mail->imail.mail.mail.box->storage,
+		mail_set_critical(&mail->imail.mail.mail,
 			"imapc: Server sent invalid BODYSTRUCTURE parameters");
 		return NULL;
 	}
 
 	pool = pool_alloconly_create("imap bodystructure", 1024);
 	if (imap_bodystructure_parse_args(args, pool, &parts, &error) < 0) {
-		mail_storage_set_critical(mail->imail.mail.mail.box->storage,
+		mail_set_critical(&mail->imail.mail.mail,
 			"imapc: Server sent invalid BODYSTRUCTURE: %s", error);
 		ret = NULL;
 	} else {

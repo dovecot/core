@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
 #include "base64.h"
@@ -12,7 +12,6 @@
 #include "str-sanitize.h"
 #include "auth-client.h"
 #include "../pop3/pop3-capability.h"
-#include "ssl-proxy.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "pop3-proxy.h"
@@ -81,7 +80,7 @@ bool cmd_auth(struct pop3_client *pop3_client, const char *args)
 {
 	struct client *client = &pop3_client->common;
 	const struct auth_mech_desc *mech;
-	const char *mech_name, *p;
+	const char *mech_name, *init_resp, *p;
 
 	if (*args == '\0') {
 		/* Old-style SASL discovery, used by MS Outlook */
@@ -101,13 +100,21 @@ bool cmd_auth(struct pop3_client *pop3_client, const char *args)
 	p = strchr(args, ' ');
 	if (p == NULL) {
 		mech_name = args;
-		args = NULL;
+		/* no initial response */
+		init_resp = NULL;
 	} else {
 		mech_name = t_strdup_until(args, p);
-		args = p+1;
+		init_resp = p + 1;
+		if (*init_resp == '\0') {
+			/* no initial response */
+			init_resp = NULL;
+		} else if (strcmp(init_resp, "=") == 0) {
+			/* empty initial response */
+			init_resp = "";
+		}
 	}
 
-	(void)client_auth_begin(client, mech_name, args);
+	(void)client_auth_begin(client, mech_name, init_resp);
 	return TRUE;
 }
 
@@ -151,8 +158,7 @@ bool cmd_pass(struct pop3_client *pop3_client, const char *args)
 
 	i_free_and_null(pop3_client->last_user);
 
-	base64 = buffer_create_dynamic(pool_datastack_create(),
-        			MAX_BASE64_ENCODED_SIZE(plain_login->used));
+	base64 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(plain_login->used));
 	base64_encode(plain_login->data, plain_login->used, base64);
 
 	(void)client_auth_begin(client, "PLAIN", str_c(base64));
@@ -185,7 +191,7 @@ bool cmd_apop(struct pop3_client *pop3_client, const char *args)
 	}
 
 	/* APOP challenge \0 username \0 APOP response */
-	apop_data = buffer_create_dynamic(pool_datastack_create(), 128);
+	apop_data = t_buffer_create(128);
 	buffer_append(apop_data, pop3_client->apop_challenge,
 		      strlen(pop3_client->apop_challenge)+1);
 	buffer_append(apop_data, args, (size_t)(p-args));
@@ -201,8 +207,7 @@ bool cmd_apop(struct pop3_client *pop3_client, const char *args)
 		return TRUE;
 	}
 
-	base64 = buffer_create_dynamic(pool_datastack_create(),
-        			MAX_BASE64_ENCODED_SIZE(apop_data->used));
+	base64 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(apop_data->used));
 	base64_encode(apop_data->data, apop_data->used, base64);
 
 	auth_client_get_connect_id(auth_client, &server_pid, &connect_uid);

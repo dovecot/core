@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "base64.h"
@@ -159,8 +159,7 @@ buffer_t *t_base64_decode_str(const char *str)
 	buffer_t *buf;
 	size_t len = strlen(str);
 
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    MAX_BASE64_DECODED_SIZE(len));
+	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
 	(void)base64_decode(str, len, NULL, buf);
 	return buf;
 }

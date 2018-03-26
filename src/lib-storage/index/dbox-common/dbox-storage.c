@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "path-util.h"
@@ -79,8 +79,15 @@ static void dbox_verify_alt_path(struct mailbox_list *list)
 	/* unlink/create the current alt path symlink */
 	i_unlink_if_exists(alt_symlink_path);
 	if (alt_path != NULL) {
-		if (symlink(alt_path, alt_symlink_path) < 0 &&
-		    errno != EEXIST) {
+		int ret = symlink(alt_path, alt_symlink_path);
+		if (ret < 0 && errno == ENOENT) {
+			/* root_dir doesn't exist yet - create it */
+			if (mailbox_list_mkdir_root(list, root_dir,
+					MAILBOX_LIST_PATH_TYPE_DIR) < 0)
+				return;
+			ret = symlink(alt_path, alt_symlink_path);
+		}
+		if (ret < 0 && errno != EEXIST) {
 			i_error("symlink(%s, %s) failed: %m",
 				alt_path, alt_symlink_path);
 		}
@@ -246,12 +253,11 @@ int dbox_mailbox_check_existence(struct mailbox *box, time_t *path_ctime_r)
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
 	} else if (errno == EACCES) {
-		mail_storage_set_critical(box->storage, "%s",
+		mailbox_set_critical(box, "%s",
 			mail_error_eacces_msg("stat", box_path));
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", box_path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", box_path);
 		return -1;
 	}
 }
@@ -334,10 +340,9 @@ int dbox_mailbox_create(struct mailbox *box,
 		if (ret < 0)
 			return -1;
 		if (ret == 0) {
-			mail_storage_set_critical(&storage->storage,
-				"Mailbox %s has existing files in alt path, "
-				"rebuilding storage to avoid losing messages",
-				box->vname);
+			mailbox_set_critical(box,
+				"Existing files in alt path, "
+				"rebuilding storage to avoid losing messages");
 			storage->v.set_mailbox_corrupted(box);
 			return -1;
 		}

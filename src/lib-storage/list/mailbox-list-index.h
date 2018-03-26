@@ -29,10 +29,12 @@
 
 #include <sys/time.h>
 
-#define MAILBOX_LIST_INDEX_HIERARHCY_SEP '~'
+#define MAILBOX_LIST_INDEX_HIERARCHY_SEP '~'
 
 #define INDEX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_index_module)
+#define INDEX_LIST_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, mailbox_list_index_module)
 
 struct mail_index_view;
 struct mailbox_index_vsize;
@@ -121,6 +123,9 @@ struct mailbox_list_index {
 	bool corrupted_names_or_parents:1;
 	bool handling_corruption:1;
 	bool call_corruption_callback:1;
+	bool rebuild_on_missing_inbox:1;
+	bool force_resynced:1;
+	bool force_resync_failed:1;
 };
 
 struct mailbox_list_index_iterate_context {
@@ -135,6 +140,7 @@ struct mailbox_list_index_iterate_context {
 	struct mailbox_list_index_node *next_node;
 
 	bool failed:1;
+	bool prefix_inbox_list:1;
 };
 
 extern MODULE_CONTEXT_DEFINE(mailbox_list_index_module,
@@ -200,8 +206,15 @@ void mailbox_list_index_notify_wait(struct mailbox_list_notify *notify,
 void mailbox_list_index_notify_flush(struct mailbox_list_notify *notify);
 
 void mailbox_list_index_status_init_mailbox(struct mailbox_vfuncs *v);
-void mailbox_list_index_backend_init_mailbox(struct mailbox *box,
+bool mailbox_list_index_backend_init_mailbox(struct mailbox *box,
 					     struct mailbox_vfuncs *v);
 void mailbox_list_index_status_init_finish(struct mailbox_list *list);
+
+void mailbox_list_index_status_sync_init(struct mailbox *box);
+void mailbox_list_index_status_sync_deinit(struct mailbox *box);
+
+void mailbox_list_index_backend_sync_init(struct mailbox *box,
+					  enum mailbox_sync_flags flags);
+int mailbox_list_index_backend_sync_deinit(struct mailbox *box);
 
 #endif

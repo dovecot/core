@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "path-util.h"
@@ -6,6 +6,7 @@
 #include "str.h"
 
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 
@@ -16,6 +17,7 @@ static const char *cwd;
 static const char *link1;
 static const char *link2;
 static const char *link3;
+static const char *link4;
 
 static void test_local_path(void)
 {
@@ -96,9 +98,33 @@ static void test_relative_dotdot(void)
 
 static void test_link1(void)
 {
-	const char *npath = NULL, *error = NULL;
+	const char *old_dir, *npath = NULL, *error = NULL;
 	test_assert(t_realpath_to(link1, "/", &npath, &error) == 0);
 	test_assert_strcmp(npath, tmpdir);
+
+	/* .../link1/link1/child */
+	test_assert(t_realpath_to(t_strconcat(link1, "/link1/child", NULL),
+				  "/", &npath, &error) == 0);
+	test_assert_strcmp(npath, t_strconcat(tmpdir, "/child", NULL));
+
+	/* relative link1/link1/child */
+	if (t_get_working_dir(&old_dir, &error) < 0)
+		i_fatal("t_get_working_dir() failed: %s", error);
+	if (chdir(tmpdir) < 0)
+		i_fatal("chdir(%s) failed: %m", tmpdir);
+	test_assert(t_realpath(t_strconcat("link1", "/link1/child", NULL),
+			       &npath, &error) == 0);
+	if (chdir(old_dir) < 0)
+		i_fatal("chdir(%s) failed: %m", old_dir);
+}
+
+static void test_link4(void)
+{
+	const char *npath = NULL, *error = NULL;
+
+	test_assert(t_realpath_to(t_strconcat(link1, "/link4/child", NULL),
+				  "/", &npath, &error) == 0);
+	test_assert_strcmp(npath, t_strconcat(tmpdir, "/child", NULL));
 }
 
 static void test_link_loop(void)
@@ -118,6 +144,32 @@ static void test_abspath_vs_normpath(void)
 	const char *norm = NULL, *error = NULL;
 	test_assert(t_normpath_to("../../bin", "/usr///lib/", &norm, &error) == 0);
 	test_assert_strcmp(norm, "/bin");
+}
+
+static void create_links(const char *tmpdir)
+{
+	link1 = t_strconcat(tmpdir, "/link1", NULL);
+	if (symlink(tmpdir, link1) < 0)
+		i_fatal("symlink(%s, %s) failed: %m", tmpdir, link1);
+
+	const char *link1_child = t_strconcat(link1, "/child", NULL);
+	int fd = creat(link1_child, 0600);
+	if (fd == -1)
+		i_fatal("creat(%s) failed: %m", link1_child);
+	i_close_fd(&fd);
+
+	/* link2 and link3 point to each other to create a loop */
+	link2 = t_strconcat(tmpdir, "/link2", NULL);
+	link3 = t_strconcat(tmpdir, "/link3", NULL);
+	if (symlink(link3, link2) < 0)
+		i_fatal("symlink(%s, %s) failed: %m", link3, link2);
+	if (symlink(link2, link3) < 0)
+		i_fatal("symlink(%s, %s) failed: %m", link2, link3);
+
+	/* link4 points to link1 */
+	link4 = t_strconcat(tmpdir, "/link4", NULL);
+	if (symlink("link1", link4) < 0)
+		i_fatal("symlink(link1, %s) failed: %m", link4);
 }
 
 static void test_link_alloc(void)
@@ -143,24 +195,41 @@ static void test_link_alloc(void)
 	o_tmpdir = tmpdir;
 	tmpdir = str_c(basedir);
 
-        link1 = t_strconcat(tmpdir, "/link1", NULL);
-        if (symlink(tmpdir, link1) < 0) {
-                i_fatal("symlink(%s, %s) failed: %m", tmpdir, link1);
-        }
-
-        /* link2 and link3 point to each other to create a loop */
-        link2 = t_strconcat(tmpdir, "/link2", NULL);
-        link3 = t_strconcat(tmpdir, "/link3", NULL);
-        if (symlink(link3, link2) < 0) {
-                i_fatal("symlink(%s, %s) failed: %m", link3, link2);
-        }
-        if (symlink(link2, link3) < 0) {
-                i_fatal("symlink(%s, %s) failed: %m", link2, link3);
-        }
+	create_links(tmpdir);
 
 	test_link1();
 	test_link_loop();
 
+	tmpdir = o_tmpdir;
+}
+
+static void test_link_alloc2(void)
+{
+	const char *o_tmpdir;
+
+	/* try enough different sized base directory lengths so the code
+	   hits the different reallocations and tests for off-by-one errors */
+	string_t *basedir = t_str_new(256);
+	str_append(basedir, cwd);
+	str_append(basedir, "/"TEMP_DIRNAME);
+	str_append_c(basedir, '/');
+	size_t base_len = str_len(basedir);
+
+	o_tmpdir = tmpdir;
+	/* path_normalize() initially allocates 128 bytes, so we'll test paths
+	   up to that length+1. */
+	unsigned char buf[128+1];
+	memset(buf, 'x', sizeof(buf));
+	for (size_t i = 1; i <= sizeof(buf); i++) {
+		str_truncate(basedir, base_len);
+		str_append_n(basedir, buf, i);
+		tmpdir = str_c(basedir);
+		(void)mkdir(str_c(basedir), 0700);
+
+		create_links(tmpdir);
+		test_link1();
+		test_link_loop();
+	}
 	tmpdir = o_tmpdir;
 }
 
@@ -183,20 +252,7 @@ static void test_init(void)
 		i_fatal("mkdir: %m");
 	}
 
-	link1 = t_strconcat(tmpdir, "/link1", NULL);
-	if (symlink(tmpdir, link1) < 0) {
-		i_fatal("symlink(%s, %s) failed: %m", tmpdir, link1);
-	}
-
-	/* link2 and link3 point to each other to create a loop */
-	link2 = t_strconcat(tmpdir, "/link2", NULL);
-	link3 = t_strconcat(tmpdir, "/link3", NULL);
-	if (symlink(link3, link2) < 0) {
-		i_fatal("symlink(%s, %s) failed: %m", link3, link2);
-	}
-	if (symlink(link2, link3) < 0) {
-		i_fatal("symlink(%s, %s) failed: %m", link2, link3);
-	}
+	create_links(tmpdir);
 }
 
 void test_path_util(void)
@@ -211,9 +267,11 @@ void test_path_util(void)
 	test_nonexistent_path();
 	test_relative_dotdot();
 	test_link1();
+	test_link4();
 	test_link_loop();
 	test_abspath_vs_normpath();
 	test_link_alloc();
+	test_link_alloc2();
 	test_cleanup();
 	alarm(0);
 	test_end();

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -23,12 +23,15 @@ void io_stream_init(struct iostream_private *stream)
 		stream->close = io_stream_default_close;
 	if (stream->destroy == NULL)
 		stream->destroy = io_stream_default_destroy;
+	stream->ioloop = current_ioloop;
 
 	stream->refcount = 1;
 }
 
 void io_stream_ref(struct iostream_private *stream)
 {
+	i_assert(stream->refcount > 0);
+
 	stream->refcount++;
 }
 
@@ -110,8 +113,11 @@ void io_stream_set_error(struct iostream_private *stream,
 void io_stream_set_verror(struct iostream_private *stream,
 			  const char *fmt, va_list args)
 {
+	/* one of the parameters may be the old stream->error, so don't free
+	   it before the new error is created. */
+	char *error = i_strdup_vprintf(fmt, args);
 	i_free(stream->error);
-	stream->error = i_strdup_vprintf(fmt, args);
+	stream->error = error;
 }
 
 const char *io_stream_get_disconnect_reason(struct istream *input,
@@ -134,4 +140,15 @@ const char *io_stream_get_disconnect_reason(struct istream *input,
 		return "Connection closed";
 	else
 		return t_strdup_printf("Connection closed: %s", errstr);
+}
+
+void io_stream_switch_ioloop_to(struct iostream_private *stream,
+				struct ioloop *ioloop)
+{
+	stream->ioloop = ioloop;
+}
+
+struct ioloop *io_stream_get_ioloop(struct iostream_private *stream)
+{
+	return (stream->ioloop == NULL ? current_ioloop : stream->ioloop);
 }

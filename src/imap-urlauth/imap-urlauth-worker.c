@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -42,7 +42,7 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
-#define IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION 1
+#define IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION 2
 #define IMAP_URLAUTH_WORKER_PROTOCOL_MINOR_VERSION 0
 
 struct client {
@@ -55,7 +55,7 @@ struct client {
 	struct ostream *output, *ctrl_output;
 	struct timeout *to_idle;
 
-	char *access_user;
+	char *access_user, *access_service;
 	ARRAY_TYPE(string) access_apps;
 
 	struct mail_storage_service_user *service_user;
@@ -255,6 +255,7 @@ static void client_destroy(struct client *client)
 	if (client->service_user != NULL)
 		mail_storage_service_user_unref(&client->service_user);
 	i_free(client->access_user);
+	i_free(client->access_service);
 	array_foreach_modifiable(&client->access_apps, app)
 		i_free(*app);
 	array_free(&client->access_apps);
@@ -636,14 +637,16 @@ client_handle_user_command(struct client *client, const char *cmd,
 	config.url_host = set->imap_urlauth_host;
 	config.url_port = set->imap_urlauth_port;
 	config.access_user = client->access_user;
+	config.access_service = client->access_service;
 	config.access_anonymous = client->access_anonymous;
 	config.access_applications =
 		(const void *)array_get(&client->access_apps, &count);
 		
 	client->urlauth_ctx = imap_urlauth_init(client->mail_user, &config);
 	if (client->debug) {
-		i_debug("Providing access to user account `%s' on behalf of `%s'",
-			mail_user->username, client->access_user);
+		i_debug("Providing access to user account `%s' on behalf of user `%s' "
+			"using service `%s'", mail_user->username, client->access_user,
+			client->access_service);
 	}
 
 	i_set_failure_prefix("imap-urlauth[%s](%s->%s): ",
@@ -854,13 +857,14 @@ static void client_ctrl_input(struct client *client)
 		return;
 	}
 	args++;
-	if (*args == NULL) {
+	if (args[0] == NULL || args[1] == NULL) {
 		i_error("Invalid ACCESS command: %s", str_sanitize(line, 80));
 		client_abort(client, "Control session aborted: Invalid command");
 		return;
 	}
 
 	i_assert(client->access_user == NULL);
+	i_assert(client->access_service == NULL);
 	if (**args != '\0') {
 		client->access_user = i_strdup(*args);
 		client->access_anonymous = FALSE;
@@ -868,6 +872,9 @@ static void client_ctrl_input(struct client *client)
 		client->access_user = i_strdup("anonymous");
 		client->access_anonymous = TRUE;
 	}
+	args++;
+	client->access_service = i_strdup(*args);
+
 	i_set_failure_prefix("imap-urlauth[%s](%s): ",
 			     my_pid, client->access_user);
 
@@ -912,8 +919,8 @@ static void client_ctrl_input(struct client *client)
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	if (client->debug) {
-		i_debug("Worker activated for access by user %s",
-			client->access_user);
+		i_debug("Worker activated for access by user `%s' using service `%s'",
+			client->access_user, client->access_service);
 	}
 }
 
@@ -963,8 +970,6 @@ int main(int argc, char *argv[])
 			MASTER_SERVICE_FLAG_STD_CLIENT;
 	} else {
 		service_flags |= MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
-		storage_service_flags |=
-			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 	}
 
 	master_service = master_service_init("imap-urlauth-worker", service_flags,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -83,7 +83,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 	pid_t pid;
 
 	net_set_nonblock(conn->fd, FALSE);
-	input = buffer_create_dynamic(pool_datastack_create(), IO_BLOCK_SIZE);
+	input = t_buffer_create(IO_BLOCK_SIZE);
 
 	/* Input contains:
 
@@ -269,7 +269,7 @@ int main(int argc, char *argv[])
 	master_service_init_log(master_service, "script: ");
 	if (argv[0] == NULL)
 		i_fatal("Missing script path");
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 
 	master_service_init_finish(master_service);

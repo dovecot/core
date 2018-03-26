@@ -52,6 +52,8 @@
 	STMT_START { \
 	(item)->prev = (after); \
 	(item)->next = (after)->next; \
+	if ((after)->next != NULL) \
+		(after)->next->prev = (item); \
 	(after)->next = (item); \
 	if (*(tail) == (after)) \
 		*(tail) = (item); \

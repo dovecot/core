@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -14,7 +14,7 @@ static uint32_t thread_msg_add(struct mail_thread_cache *cache,
 	i_assert(msgid_idx != 0);
 	i_assert(msgid_idx < cache->first_invalid_msgid_str_idx);
 
-	node = array_idx_modifiable(&cache->thread_nodes, msgid_idx);
+	node = array_idx_get_space(&cache->thread_nodes, msgid_idx);
 	if (node->uid == 0)
 		node->uid = uid;
 	else {
@@ -23,7 +23,7 @@ static uint32_t thread_msg_add(struct mail_thread_cache *cache,
 		node->expunge_rebuilds = TRUE;
 
 		msgid_idx = cache->next_invalid_msgid_str_idx++;
-		node = array_idx_modifiable(&cache->thread_nodes, msgid_idx);
+		node = array_idx_get_space(&cache->thread_nodes, msgid_idx);
 		node->uid = uid;
 	}
 	return msgid_idx;
@@ -54,10 +54,10 @@ static void thread_link_reference(struct mail_thread_cache *cache,
 	   grow. in such situation the other pointer may become invalid if
 	   we don't get the pointers in correct order. */
 	if (child_idx < parent_idx) {
-		parent = array_idx_modifiable(&cache->thread_nodes, parent_idx);
+		parent = array_idx_get_space(&cache->thread_nodes, parent_idx);
 		child = array_idx_modifiable(&cache->thread_nodes, child_idx);
 	} else {
-		child = array_idx_modifiable(&cache->thread_nodes, child_idx);
+		child = array_idx_get_space(&cache->thread_nodes, child_idx);
 		parent = array_idx_modifiable(&cache->thread_nodes, parent_idx);
 	}
 

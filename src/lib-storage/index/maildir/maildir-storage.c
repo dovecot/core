@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -30,6 +30,8 @@ extern struct mailbox maildir_mailbox;
 static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
 				  &mailbox_list_module_register);
 static const char *maildir_subdirs[] = { "cur", "new", "tmp" };
+
+static void maildir_mailbox_close(struct mailbox *box);
 
 static struct mail_storage *maildir_storage_alloc(void)
 {
@@ -165,8 +167,7 @@ mkdir_verify(struct mailbox *box, const char *dir, bool verify)
 			return 0;
 
 		if (errno != ENOENT) {
-			mail_storage_set_critical(box->storage,
-						  "stat(%s) failed: %m", dir);
+			mailbox_set_critical(box, "stat(%s) failed: %m", dir);
 			return -1;
 		}
 	}
@@ -192,11 +193,10 @@ mkdir_verify(struct mailbox *box, const char *dir, bool verify)
 					       MAIL_ERRSTR_NO_PERMISSION);
 			return -1;
 		}
-		mail_storage_set_critical(box->storage, "%s",
+		mailbox_set_critical(box, "%s",
 			mail_error_create_eacces_msg("mkdir", dir));
 	} else {
-		mail_storage_set_critical(box->storage,
-					  "mkdir(%s) failed: %m", dir);
+		mailbox_set_critical(box, "mkdir(%s) failed: %m", dir);
 	}
 	return -1;
 }
@@ -295,15 +295,19 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 	mbox->keywords = maildir_keywords_init(mbox);
 
 	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {
-		if (maildir_uidlist_lock(mbox->uidlist) <= 0)
+		if (maildir_uidlist_lock(mbox->uidlist) <= 0) {
+			maildir_mailbox_close(box);
 			return -1;
+		}
 		mbox->keep_lock_to = timeout_add(MAILDIR_LOCK_TOUCH_SECS * 1000,
 						 maildir_lock_touch_timeout,
 						 mbox);
 	}
 
-	if (index_storage_mailbox_open(box, FALSE) < 0)
+	if (index_storage_mailbox_open(box, FALSE) < 0) {
+		maildir_mailbox_close(box);
 		return -1;
+	}
 
 	mbox->maildir_ext_id =
 		mail_index_ext_register(mbox->box.index, "maildir",
@@ -377,8 +381,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", box_path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", box_path);
 		return -1;
 	}
 }
@@ -402,19 +405,18 @@ static int maildir_create_shared(struct mailbox *box)
 	umask(old_mask);
 
 	if (fd == -1) {
-		mail_storage_set_critical(box->storage, "open(%s) failed: %m",
-					  path);
+		mailbox_set_critical(box, "open(%s) failed: %m", path);
 		return -1;
 	}
 
 	if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 		if (errno == EPERM) {
-			mail_storage_set_critical(box->storage, "%s",
+			mailbox_set_critical(box, "%s",
 				eperm_error_get_chgrp("fchown", path,
 					perm->file_create_gid,
 					perm->file_create_gid_origin));
 		} else {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"fchown(%s) failed: %m", path);
 		}
 	}
@@ -484,8 +486,7 @@ static int maildir_create_maildirfolder_file(struct mailbox *box)
 			"Mailbox was deleted while it was being created");
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
-			"open(%s, O_CREAT) failed: %m", path);
+		mailbox_set_critical(box, "open(%s, O_CREAT) failed: %m", path);
 		return -1;
 	}
 
@@ -493,13 +494,12 @@ static int maildir_create_maildirfolder_file(struct mailbox *box)
 		if (fchown(fd, (uid_t)-1, perm->file_create_gid) == 0) {
 			/* ok */
 		} else if (errno == EPERM) {
-			mail_storage_set_critical(box->storage, "%s",
+			mailbox_set_critical(box, "%s",
 				eperm_error_get_chgrp("fchown", path,
 						      perm->file_create_gid,
 						      perm->file_create_gid_origin));
 		} else {
-			mail_storage_set_critical(box->storage,
-				"fchown(%s) failed: %m", path);
+			mailbox_set_critical(box, "fchown(%s) failed: %m", path);
 		}
 	}
 	i_close_fd(&fd);

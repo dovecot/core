@@ -26,7 +26,13 @@ enum mailbox_list_properties {
 	/* Automatically create mailbox directories when needed. Normally it's
 	   assumed that if a mailbox directory doesn't exist, the mailbox
 	   doesn't exist either. */
-	MAILBOX_LIST_PROP_AUTOCREATE_DIRS	= 0x10
+	MAILBOX_LIST_PROP_AUTOCREATE_DIRS	= 0x10,
+	/* Explicitly disable mailbox list index */
+	MAILBOX_LIST_PROP_NO_LIST_INDEX		= 0x20,
+	/* Disable checking mailbox_list.is_internal_name(). The layout is
+	   implemented in a way that there aren't any such reserved internal
+	   names. For example Maildir++ prefixes all mailboxes with "." */
+	MAILBOX_LIST_PROP_NO_INTERNAL_NAMES	= 0x40,
 };
 
 enum mailbox_list_flags {
@@ -83,6 +89,9 @@ enum mailbox_list_path_type {
 	MAILBOX_LIST_PATH_TYPE_INDEX,
 	/* Return the private index directory (NULL if none) */
 	MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE,
+	/* Return the index cache directory (usually same as
+	   MAILBOX_LIST_PATH_TYPE_INDEX) */
+	MAILBOX_LIST_PATH_TYPE_INDEX_CACHE,
 	/* Return mailbox list index directory (usually same as
 	   MAILBOX_LIST_PATH_TYPE_INDEX) */
 	MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
@@ -101,6 +110,7 @@ struct mailbox_list_settings {
 	const char *root_dir;
 	const char *index_dir;
 	const char *index_pvt_dir;
+	const char *index_cache_dir;
 	const char *control_dir;
 	const char *alt_dir; /* FIXME: dbox-specific.. */
 	/* Backend-local directory where volatile data, such as lock files,
@@ -154,6 +164,8 @@ struct mailbox_list_settings {
 	bool iter_from_index_dir;
 	/* Avoid creating or listing \NoSelect mailboxes. */
 	bool no_noselect;
+	/* Do not validate names as fs names (allows weird names) */
+	bool no_fs_validation;
 };
 
 struct mailbox_permissions {

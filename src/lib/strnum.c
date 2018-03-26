@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "strnum.h"
@@ -87,7 +87,7 @@ int str_parse_uintmax(const char *str, uintmax_t *num_r,
 	if (*str < '0' || *str > '9')
 		return -1;
 
-	for (; *str >= '0' && *str <= '9'; str++) {
+	do {
 		if (n >= ((uintmax_t)-1 / 10)) {
 			if (n > (uintmax_t)-1 / 10)
 				return -1;
@@ -95,7 +95,9 @@ int str_parse_uintmax(const char *str, uintmax_t *num_r,
 				return -1;
 		}
 		n = n * 10 + (*str - '0');
-	}
+		str++;
+	} while (*str >= '0' && *str <= '9');
+
 	if (endp_r != NULL)
 		*endp_r = str;
 	*num_r = n;

@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-PURGE 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-PURGE 1 "2015-05-09" "Dovecot v2.3" "Dovecot"
 .SH NAME
 doveadm\-purge \- Remove messages with refcount=0 from mdbox files
 .\"------------------------------------------------------------------------

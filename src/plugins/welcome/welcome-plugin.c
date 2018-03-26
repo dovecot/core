@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "net.h"
@@ -12,7 +12,7 @@
 #define WELCOME_SOCKET_TIMEOUT_SECS 30
 
 #define WELCOME_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, welcome_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, welcome_storage_module)
 
 struct welcome_mailbox {
 	union mailbox_module_context module_ctx;

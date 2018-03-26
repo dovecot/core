@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -153,7 +153,7 @@ static void pop3c_login_callback(enum pop3c_command_state state,
 		}
 		break;
 	case POP3C_COMMAND_STATE_DISCONNECTED:
-		mail_storage_set_critical(mbox->box.storage,
+		mailbox_set_critical(&mbox->box,
 			"pop3c: Disconnected from remote server");
 		break;
 	}

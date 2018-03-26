@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -879,11 +879,11 @@ void mail_index_map_check(struct mail_index_map *map)
 		i_assert(rec->uid > prev_uid);
 		prev_uid = rec->uid;
 
-		if (rec->flags & MAIL_DELETED) {
+		if ((rec->flags & MAIL_DELETED) != 0) {
 			i_assert(rec->uid >= hdr->first_deleted_uid_lowwater);
 			del++;
 		}
-		if (rec->flags & MAIL_SEEN)
+		if ((rec->flags & MAIL_SEEN) != 0)
 			seen++;
 		else
 			i_assert(rec->uid >= hdr->first_unseen_uid_lowwater);
@@ -972,7 +972,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	mail_transaction_log_get_head(index->log, &prev_seq, &prev_offset);
 	if (prev_seq != map->hdr.log_file_seq ||
 	    prev_offset - map->hdr.log_file_tail_offset >
-	    				MAIL_INDEX_MIN_WRITE_BYTES) {
+	    		index->optimization_set.index.rewrite_min_log_bytes) {
 		/* we're reading more from log than we would have preferred.
 		   remember that we probably want to rewrite index soon. */
 		index->index_min_write = TRUE;

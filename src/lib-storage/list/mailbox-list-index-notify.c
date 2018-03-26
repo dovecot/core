@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -209,7 +209,7 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 		   struct mailbox_status *status_r, guid_128_t guid_r)
 {
 	struct mailbox_list_index *ilist =
-		INDEX_LIST_CONTEXT(inotify->notify.list);
+		INDEX_LIST_CONTEXT_REQUIRE(inotify->notify.list);
 	struct mailbox_list_index_node *index_node;
 	uint32_t seq;
 
@@ -311,7 +311,7 @@ static int
 mailbox_list_index_notify_read_next(struct mailbox_list_notify_index *inotify)
 {
 	struct mailbox_list_notify *notify = &inotify->notify;
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(notify->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(notify->list);
 	const struct mail_transaction_header *hdr;
 	const void *data;
 	int ret;

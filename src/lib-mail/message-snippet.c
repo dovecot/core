@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -138,8 +138,7 @@ int message_snippet_generate(struct istream *input,
 	i_assert(ret != 0);
 	message_decoder_deinit(&decoder);
 	message_parser_deinit(&parser, &parts);
-	if (ctx.html2text != NULL)
-		mail_html2text_deinit(&ctx.html2text);
+	mail_html2text_deinit(&ctx.html2text);
 	pool_unref(&pool);
 	return input->stream_errno == 0 ? 0 : -1;
 }

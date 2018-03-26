@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "hash-method.h"
@@ -81,5 +81,5 @@ i_stream_create_hash(struct istream *input, const struct hash_method *method,
 	hstream->method = method;
 	hstream->hash_context = hash_context;
 	return i_stream_create(&hstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

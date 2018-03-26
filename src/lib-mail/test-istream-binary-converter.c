@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "base64.h"
@@ -123,8 +123,8 @@ static void test_istream_binary_converter_mime(void)
 
 static void test_istream_binary_converter_root(void)
 {
-	buffer_t *inbuf = buffer_create_dynamic(pool_datastack_create(), 512);
-	buffer_t *outbuf = buffer_create_dynamic(pool_datastack_create(), 512);
+	buffer_t *inbuf = t_buffer_create(512);
+	buffer_t *outbuf = t_buffer_create(512);
 	const char *const suffixes[] = { "\n", "\r\n", "\n\r\n\n\n" };
 	unsigned int i;
 	unsigned int input_hdr_len = sizeof(mail_input_root_hdr)-1;

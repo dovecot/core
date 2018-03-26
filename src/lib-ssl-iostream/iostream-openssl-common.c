@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "net.h"
@@ -9,75 +9,37 @@
 #include <openssl/err.h>
 #include <arpa/inet.h>
 
-enum {
-	DOVECOT_SSL_PROTO_SSLv2		= 0x01,
-	DOVECOT_SSL_PROTO_SSLv3		= 0x02,
-	DOVECOT_SSL_PROTO_TLSv1		= 0x04,
-	DOVECOT_SSL_PROTO_TLSv1_1	= 0x08,
-	DOVECOT_SSL_PROTO_TLSv1_2	= 0x10,
-	DOVECOT_SSL_PROTO_ALL		= 0x1f
+/* openssl_min_protocol_to_options() scans this array for name and returns
+   version and opt. opt is used with SSL_set_options() and version is used with
+   SSL_set_min_proto_version(). Using either method should enable the same
+   SSL protocol versions. */
+static const struct {
+	const char *name;
+	int version;
+	long opt;
+} protocol_versions[] = {
+	{ SSL_TXT_SSLV3,   SSL3_VERSION,   0 },
+	{ SSL_TXT_TLSV1,   TLS1_VERSION,   SSL_OP_NO_SSLv3 },
+	{ SSL_TXT_TLSV1_1, TLS1_1_VERSION, SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 },
+	{ SSL_TXT_TLSV1_2, TLS1_2_VERSION,
+		SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 },
 };
-
-int openssl_get_protocol_options(const char *protocols)
+int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
+				    int *version_r)
 {
-	const char *const *tmp;
-	int proto, op = 0, include = 0, exclude = 0;
-	bool neg;
-
-	tmp = t_strsplit_spaces(protocols, ", ");
-	for (; *tmp != NULL; tmp++) {
-		const char *name = *tmp;
-
-		if (*name != '!')
-			neg = FALSE;
-		else {
-			name++;
-			neg = TRUE;
-		}
-#ifdef SSL_TXT_SSLV2
-		if (strcasecmp(name, SSL_TXT_SSLV2) == 0)
-			proto = DOVECOT_SSL_PROTO_SSLv2;
-		else
-#endif
-#ifdef SSL_TXT_SSLV3
-		if (strcasecmp(name, SSL_TXT_SSLV3) == 0)
-			proto = DOVECOT_SSL_PROTO_SSLv3;
-		else
-#endif
-		if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
-			proto = DOVECOT_SSL_PROTO_TLSv1;
-#ifdef SSL_TXT_TLSV1_1
-		else if (strcasecmp(name, SSL_TXT_TLSV1_1) == 0)
-			proto = DOVECOT_SSL_PROTO_TLSv1_1;
-#endif
-#ifdef SSL_TXT_TLSV1_2
-		else if (strcasecmp(name, SSL_TXT_TLSV1_2) == 0)
-			proto = DOVECOT_SSL_PROTO_TLSv1_2;
-#endif
-		else {
-			i_fatal("Invalid ssl_protocols setting: "
-				"Unknown protocol '%s'", name);
-		}
-		if (neg)
-			exclude |= proto;
-		else
-			include |= proto;
+	unsigned i = 0;
+	for (; i < N_ELEMENTS(protocol_versions); i++) {
+		if (strcmp(protocol_versions[i].name, min_protocol) == 0)
+			break;
 	}
-	if (include != 0) {
-		/* exclude everything, except those that are included
-		   (and let excludes still override those) */
-		exclude |= DOVECOT_SSL_PROTO_ALL & ~include;
-	}
-	if ((exclude & DOVECOT_SSL_PROTO_SSLv2) != 0) op |= SSL_OP_NO_SSLv2;
-	if ((exclude & DOVECOT_SSL_PROTO_SSLv3) != 0) op |= SSL_OP_NO_SSLv3;
-	if ((exclude & DOVECOT_SSL_PROTO_TLSv1) != 0) op |= SSL_OP_NO_TLSv1;
-#ifdef SSL_OP_NO_TLSv1_1
-	if ((exclude & DOVECOT_SSL_PROTO_TLSv1_1) != 0) op |= SSL_OP_NO_TLSv1_1;
-#endif
-#ifdef SSL_OP_NO_TLSv1_2
-	if ((exclude & DOVECOT_SSL_PROTO_TLSv1_2) != 0) op |= SSL_OP_NO_TLSv1_2;
-#endif
-	return op;
+	if (i >= N_ELEMENTS(protocol_versions))
+		return -1;
+
+	if (opt_r != NULL)
+		*opt_r = protocol_versions[i].opt;
+	if (version_r != NULL)
+		*version_r = protocol_versions[i].version;
+	return 0;
 }
 
 static const char *asn1_string_to_c(ASN1_STRING *asn_str)
@@ -154,7 +116,8 @@ static bool openssl_hostname_equals(const char *ssl_name, const char *host)
 	return p != NULL && strcmp(ssl_name+2, p+1) == 0;
 }
 
-int openssl_cert_match_name(SSL *ssl, const char *verify_name)
+bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
+			     const char **reason_r)
 {
 	X509 *cert;
 	STACK_OF(GENERAL_NAME) *gnames;
@@ -163,7 +126,9 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 	const char *dnsname;
 	bool dns_names = FALSE;
 	unsigned int i, count;
-	int ret;
+	bool ret;
+
+	*reason_r = NULL;
 
 	cert = SSL_get_peer_certificate(ssl);
 	i_assert(cert != NULL);
@@ -187,27 +152,44 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 		if (gn->type == GEN_DNS) {
 			dns_names = TRUE;
 			dnsname = get_general_dns_name(gn);
-			if (openssl_hostname_equals(dnsname, verify_name))
+			if (openssl_hostname_equals(dnsname, verify_name)) {
+				*reason_r = t_strdup_printf(
+					"Matches DNS name in SubjectAltNames: %s", dnsname);
 				break;
+			}
 		} else if (gn->type == GEN_IPADD) {
 			struct ip_addr ip_2;
 			i_zero(&ip_2);
 			dns_names = TRUE;
 			if (get_general_ip_addr(gn, &ip_2) == 0 &&
-			    net_ip_compare(&ip, &ip_2))
+			    net_ip_compare(&ip, &ip_2)) {
+				*reason_r = t_strdup_printf(
+					"Matches IP in SubjectAltNames: %s", net_ip2addr(&ip_2));
 				break;
+			}
 		}
 	}
 	sk_GENERAL_NAME_pop_free(gnames, GENERAL_NAME_free);
 
 	/* verify against CommonName only when there wasn't any DNS
 	   SubjectAltNames */
-	if (dns_names)
-		ret = i < count ? 0 : -1;
-	else if (openssl_hostname_equals(get_cname(cert), verify_name))
-		ret = 0;
-	else
-		ret = -1;
+	if (dns_names) {
+		i_assert(*reason_r != NULL);
+		ret = i < count;
+	} else {
+		const char *cname = get_cname(cert);
+
+		if (openssl_hostname_equals(cname, verify_name)) {
+			ret = TRUE;
+			*reason_r = t_strdup_printf(
+				"Matches to CommonName: %s", cname);
+		} else {
+			*reason_r = t_strdup_printf(
+				"No match to CommonName=%s or %u SubjectAltNames",
+				cname, count);
+			ret = FALSE;
+		}
+	}
 	X509_free(cert);
 	return ret;
 }

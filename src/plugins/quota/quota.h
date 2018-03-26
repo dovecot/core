@@ -47,17 +47,23 @@ enum quota_alloc_result {
 	QUOTA_ALLOC_RESULT_OVER_QUOTA,
 	/* Mail size is larger than even the maximum allowed quota. */
 	QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT,
+	/* Blocked by ongoing background quota calculation. */
+	QUOTA_ALLOC_RESULT_BACKGROUND_CALC,
 };
 
+/* Anything <= QUOTA_GET_RESULT_INTERNAL_ERROR is an error. */
 enum quota_get_result {
+	/* Ongoing background quota calculation */
+	QUOTA_GET_RESULT_BACKGROUND_CALC,
+	/* Quota resource name doesn't exist */
+	QUOTA_GET_RESULT_UNKNOWN_RESOURCE,
+	/* Internal error */
+	QUOTA_GET_RESULT_INTERNAL_ERROR,
+
 	/* Quota limit exists and was returned successfully */
 	QUOTA_GET_RESULT_LIMITED,
 	/* Quota is unlimited, but its value was returned */
 	QUOTA_GET_RESULT_UNLIMITED,
-	/* Quota resource name doesn't exist */
-	QUOTA_GET_RESULT_UNKNOWN_RESOURCE,
-	/* Internal error */
-	QUOTA_GET_RESULT_INTERNAL_ERROR = -1,
 };
 
 const char *quota_alloc_result_errstr(enum quota_alloc_result res,
@@ -102,7 +108,8 @@ bool quota_root_is_hidden(struct quota_root *root);
    exist or isn't enabled, -1 if error. */
 enum quota_get_result
 quota_get_resource(struct quota_root *root, const char *mailbox_name,
-		   const char *name, uint64_t *value_r, uint64_t *limit_r);
+		   const char *name, uint64_t *value_r, uint64_t *limit_r,
+		   const char **error_r);
 /* Returns 0 if OK, -1 if error (eg. permission denied, invalid name). */
 int quota_set_resource(struct quota_root *root, const char *name,
 		       uint64_t value, const char **error_r);
@@ -114,12 +121,13 @@ int quota_transaction_commit(struct quota_transaction_context **ctx);
 /* Rollback quota transaction changes. */
 void quota_transaction_rollback(struct quota_transaction_context **ctx);
 
-/* Allocate from quota if there's space. */
+/* Allocate from quota if there's space. error_r is set when result is not
+ * QUOTA_ALLOC_RESULT_OK. */
 enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
-					struct mail *mail);
+					struct mail *mail, const char **error_r);
 /* Like quota_try_alloc(), but don't actually allocate anything. */
 enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
-					 uoff_t size);
+					 uoff_t size, const char **error_r);
 /* Update quota by allocating/freeing space used by mail. */
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail);
 void quota_free_bytes(struct quota_transaction_context *ctx,

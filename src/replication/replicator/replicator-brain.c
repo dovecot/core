@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -107,9 +107,14 @@ static void dsync_callback(enum dsync_reply reply, const char *state,
 			   void *context)
 {
 	struct replicator_sync_context *ctx = context;
+	struct replicator_user *user = ctx->user;
 
-	if (reply == DSYNC_REPLY_NOUSER) {
-		/* user no longer exists, remove from replication */
+	if (!replicator_user_unref(&user)) {
+		/* user was already removed */
+	} else if (reply == DSYNC_REPLY_NOUSER ||
+		   reply == DSYNC_REPLY_NOREPLICATE) {
+		/* user no longer exists, or is not wanted for replication,
+		   remove from replication */
 		replicator_queue_remove(ctx->brain->queue, &ctx->user);
 	} else {
 		i_free(ctx->user->state);
@@ -153,6 +158,7 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	ctx = i_new(struct replicator_sync_context, 1);
 	ctx->brain = brain;
 	ctx->user = user;
+	replicator_user_ref(user);
 	dsync_client_sync(conn, user->username, user->state, full,
 			  dsync_callback, ctx);
 	return TRUE;

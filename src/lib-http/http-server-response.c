@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -37,6 +37,23 @@ http_server_response_debug(struct http_server_response *resp,
 			t_strdup_vprintf(format, args));
 		va_end(args);
 	}
+}
+
+static inline void
+http_server_response_error(struct http_server_response *resp,
+	const char *format, ...) ATTR_FORMAT(2, 3);
+
+static inline void
+http_server_response_error(struct http_server_response *resp,
+	const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);	
+	i_error("http-server: request %s; %u response: %s",
+		http_server_request_label(resp->request), resp->status,
+		t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*
@@ -189,41 +206,38 @@ void http_server_response_add_auth_basic(
 	http_server_response_add_auth(resp, &chlng);
 }
 
-static void http_server_response_do_submit(struct http_server_response *resp,
-	bool close)
+static void
+http_server_response_do_submit(struct http_server_response *resp)
 {
+	i_assert(!resp->submitted);
 	if (resp->date == (time_t)-1)
 		resp->date = ioloop_time;
-	resp->close = close;
 	resp->submitted = TRUE;
 	http_server_request_submit_response(resp->request);	
 }
 
 void http_server_response_submit(struct http_server_response *resp)
 {
-	i_assert(!resp->submitted);
 	http_server_response_debug(resp, "Submitted");
 
-	http_server_response_do_submit(resp, FALSE);
+	http_server_response_do_submit(resp);
 }
 
 void http_server_response_submit_close(struct http_server_response *resp)
 {
-	i_assert(!resp->submitted);
-	http_server_response_debug(resp, "Submitted");
-
-	http_server_response_do_submit(resp, TRUE);
+	http_server_request_connection_close(resp->request, TRUE);
+	http_server_response_submit(resp);
 }
 
 void http_server_response_submit_tunnel(struct http_server_response *resp,
 	http_server_tunnel_callback_t callback, void *context)
 {
-	i_assert(!resp->submitted);
 	http_server_response_debug(resp, "Started tunnelling");
 
 	resp->tunnel_callback = callback;
 	resp->tunnel_context = context;
-	http_server_response_do_submit(resp, TRUE);
+	http_server_request_connection_close(resp->request, TRUE);
+	http_server_response_do_submit(resp);
 }
 
 static void
@@ -238,13 +252,18 @@ http_server_response_finish_payload_out(struct http_server_response *resp)
 
 	http_server_response_debug(resp, "Finished sending payload");
 
+	http_server_connection_ref(conn);
 	conn->output_locked = FALSE;
-	if (resp->payload_corked)
-		o_stream_uncork(conn->conn.output);
-	o_stream_set_flush_callback(conn->conn.output,
-		http_server_connection_output, conn);
+	if (conn->conn.output != NULL && !conn->conn.output->closed) {
+		if (resp->payload_corked &&
+			o_stream_uncork_flush(conn->conn.output) < 0)
+			http_server_connection_handle_output_error(conn);
+		o_stream_set_flush_callback(conn->conn.output,
+			http_server_connection_output, conn);
+	}
 
 	http_server_request_finished(resp->request);
+	http_server_connection_unref(&conn);
 }
 
 static int
@@ -266,15 +285,7 @@ http_server_response_output_direct(struct http_server_response_payload *rpay)
 	iov_count = rpay->iov_count - rpay->iov_idx;
 
 	if ((ret=o_stream_sendv(output, iov, iov_count)) < 0) {
-		const char *error = NULL;
-
-		if (output->stream_errno != EPIPE &&
-			output->stream_errno != ECONNRESET) {
-			error = t_strdup_printf("write(%s) failed: %s",
-				o_stream_get_name(output),
-				o_stream_get_error(output));
-		}
-		http_server_connection_write_failed(conn, error);
+		http_server_connection_handle_output_error(conn);
 		return -1;
 	}
 	if (ret > 0) {
@@ -473,15 +484,12 @@ http_server_response_payload_input(struct http_server_response *resp)
 	(void)http_server_connection_output(conn);
 }
 
-int http_server_response_send_more(struct http_server_response *resp,
-				  const char **error_r)
+int http_server_response_send_more(struct http_server_response *resp)
 {
 	struct http_server_connection *conn = resp->request->conn;
 	struct ostream *output = resp->payload_output;
 	enum ostream_send_istream_result res;
 	int ret = 0;
-
-	*error_r = NULL;
 
 	i_assert(!resp->payload_blocking);
 	i_assert(resp->payload_input != NULL);
@@ -500,9 +508,11 @@ int http_server_response_send_more(struct http_server_response *resp,
 		if (!resp->payload_chunked &&
 		    resp->payload_input->v_offset - resp->payload_offset !=
 				resp->payload_size) {
-			*error_r = t_strdup_printf(
-				"Input stream %s size changed unexpectedly",
+			http_server_response_error(resp,
+				"Payload stream %s size changed unexpectedly",
 				i_stream_get_name(resp->payload_input));
+			http_server_connection_close(&conn,
+				"Payload read failure");
 			ret = -1;
 		} else {
 			ret = 1;
@@ -523,18 +533,17 @@ int http_server_response_send_more(struct http_server_response *resp,
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		/* we're in the middle of sending a response, so the connection
 		   will also have to be aborted */
-		*error_r = t_strdup_printf("read(%s) failed: %s",
+		http_server_response_error(resp,
+			"read(%s) failed: %s",
 			i_stream_get_name(resp->payload_input),
 			i_stream_get_error(resp->payload_input));
+		http_server_connection_close(&conn,
+			"Payload read failure");
 		ret = -1;
 		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		/* failed to send response */
-		if (output->stream_errno != EPIPE &&
-		    output->stream_errno != ECONNRESET) {
-			*error_r = t_strdup_printf("write(%s) failed: %s",
-				o_stream_get_name(output), o_stream_get_error(output));
-		}
+		http_server_connection_handle_output_error(conn);
 		ret = -1;
 		break;
 	}
@@ -546,19 +555,15 @@ int http_server_response_send_more(struct http_server_response *resp,
 	return ret < 0 ? -1 : 0;
 }
 
-static int http_server_response_send_real(struct http_server_response *resp,
-					 const char **error_r)
+static int http_server_response_send_real(struct http_server_response *resp)
 {
 	struct http_server_request *req = resp->request;
 	struct http_server_connection *conn = req->conn;
 	struct http_server *server = req->server;
-	struct ostream *output = conn->conn.output;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
 	bool is_head = http_request_method_is(&req->req, "HEAD");
-	int ret = 0;
-
-	*error_r = NULL;
+	bool close = FALSE;
 
 	i_assert(!conn->output_locked);
 
@@ -587,17 +592,17 @@ static int http_server_response_send_real(struct http_server_response *resp,
 			if (http_server_request_version_equals(req, 1, 0)) {
 				if (!is_head) {
 					/* cannot use Transfer-Encoding */
-					resp->payload_output = output;
-					o_stream_ref(output);
+					resp->payload_output = conn->conn.output;
+					o_stream_ref(conn->conn.output);
 					/* connection close marks end of payload */
-					resp->close = TRUE;
+					close = TRUE;
 				}
 			} else {
 				if (!resp->have_hdr_body_spec)
 					str_append(rtext, "Transfer-Encoding: chunked\r\n");
 				if (!is_head) {
 					resp->payload_output =
-						http_transfer_chunked_ostream_create(output);
+						http_transfer_chunked_ostream_create(conn->conn.output);
 				}
 			}
 		} else {
@@ -608,8 +613,8 @@ static int http_server_response_send_real(struct http_server_response *resp,
 						  resp->payload_size);
 			}
 			if (!is_head) {
-				resp->payload_output = output;
-				o_stream_ref(output);
+				resp->payload_output = conn->conn.output;
+				o_stream_ref(conn->conn.output);
 			}
 		}
 	} else if (resp->tunnel_callback == NULL && resp->status / 100 != 1
@@ -638,7 +643,9 @@ static int http_server_response_send_real(struct http_server_response *resp,
 			str_append(rtext, "Content-Length: 0\r\n");
 	}
 	if (!resp->have_hdr_connection) {
-		if (resp->close && resp->tunnel_callback == NULL)
+		close = close || req->req.connection_close ||
+			req->connection_close || req->conn->input_broken;
+		if (close && resp->tunnel_callback == NULL)
 			str_append(rtext, "Connection: close\r\n");
 		else if (http_server_request_version_equals(req, 1, 0))
 			str_append(rtext, "Connection: Keep-Alive\r\n");
@@ -655,54 +662,44 @@ static int http_server_response_send_real(struct http_server_response *resp,
 	iov[2].iov_len = 2;
 
 	req->state = HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT;
-	o_stream_ref(output);
-	o_stream_cork(output);
-	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
-		if (output->stream_errno != EPIPE &&
-		    output->stream_errno != ECONNRESET) {
-			*error_r = t_strdup_printf("write(%s) failed: %s",
-				o_stream_get_name(output), o_stream_get_error(output));
-		}
-		ret = -1;
+	o_stream_cork(conn->conn.output);
+	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
+		http_server_connection_handle_output_error(conn);
+		return -1;
 	}
 
-	if (ret >= 0) {
-		http_server_response_debug(resp, "Sent header");
+	http_server_response_debug(resp, "Sent header");
 
-		if (resp->payload_blocking) {
-			/* blocking payload */
-			conn->output_locked = TRUE;
-			if (server->ioloop != NULL)
-				io_loop_stop(server->ioloop);
-		} else if (resp->payload_output != NULL) {
-			/* non-blocking payload */
-			if (http_server_response_send_more(resp, error_r) < 0)
-				ret = -1;
-		} else {
-			/* no payload to send */
-			conn->output_locked = FALSE;
-			http_server_response_finish_payload_out(resp);
-		}
+	if (resp->payload_blocking) {
+		/* blocking payload */
+		conn->output_locked = TRUE;
+		if (server->ioloop != NULL)
+			io_loop_stop(server->ioloop);
+	} else if (resp->payload_output != NULL) {
+		/* non-blocking payload */
+		if (http_server_response_send_more(resp) < 0)
+			return -1;
+	} else {
+		/* no payload to send */
+		conn->output_locked = FALSE;
+		http_server_response_finish_payload_out(resp);
 	}
-	if (!resp->payload_corked)
-		o_stream_uncork(output);
-	o_stream_unref(&output);
-	return ret;
+
+	if (conn->conn.output != NULL && !resp->payload_corked &&
+	    o_stream_uncork_flush(conn->conn.output) < 0) {
+		http_server_connection_handle_output_error(conn);
+		return -1;
+	}
+	return 0;
 }
 
-int http_server_response_send(struct http_server_response *resp,
-			     const char **error_r)
+int http_server_response_send(struct http_server_response *resp)
 {
-	char *errstr = NULL;
 	int ret;
 
 	T_BEGIN {
-		ret = http_server_response_send_real(resp, error_r);
-		if (ret < 0)
-			errstr = i_strdup(*error_r);
+		ret = http_server_response_send_real(resp);
 	} T_END;
-	*error_r = t_strdup(errstr);
-	i_free(errstr);
 	return ret;
 }
 

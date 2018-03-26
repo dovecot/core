@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "safe-memset.h"
@@ -9,13 +9,20 @@
 #include "http-client.h"
 #include "dns-lookup.h"
 #include "iostream-ssl.h"
+#ifdef HAVE_OPENSSL
 #include "iostream-openssl.h"
+#endif
+
+#include <fcntl.h>
+#include <unistd.h>
 
 struct http_test_request {
 	struct io *io;
 	struct istream *payload;
 	bool write_output;
 };
+
+static struct ioloop *ioloop;
 
 static void payload_input(struct http_test_request *req)
 {
@@ -51,6 +58,8 @@ static void
 got_request_response(const struct http_response *response,
 		     struct http_test_request *req)
 {
+	io_loop_stop(ioloop);
+
 	if (response->status / 100 != 2) {
 		i_error("HTTP Request failed: %s", response->reason);
 		i_free(req);
@@ -338,14 +347,15 @@ int main(int argc, char *argv[])
 	struct dns_client *dns_client;
 	struct dns_lookup_settings dns_set;
 	struct http_client_settings http_set;
-	struct http_client *http_client;
+	struct http_client_context *http_cctx;
+	struct http_client *http_client1, *http_client2, *http_client3, *http_client4;
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
-	struct ioloop *ioloop;
 
 	lib_init();
+#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_init();
-
+#endif
 	ioloop = io_loop_create();
 	io_loop_set_running(ioloop);
 
@@ -357,11 +367,16 @@ int main(int argc, char *argv[])
 	dns_set.dns_client_socket_path = "/var/run/dovecot/dns-client";
 	dns_set.timeout_msecs = 30*1000;
 	dns_set.idle_timeout_msecs = UINT_MAX;
-	dns_client = dns_client_init(&dns_set);
 
-	if (dns_client_connect(dns_client, &error) < 0)
-		i_fatal("Couldn't initialize DNS client: %s", error);
+	/* check if there is a DNS client */
+	if (access("/var/run/dovecot/dns-client", R_OK|W_OK) == 0) {
+		dns_client = dns_client_init(&dns_set);
 
+		if (dns_client_connect(dns_client, &error) < 0)
+			i_fatal("Couldn't initialize DNS client: %s", error);
+	} else {
+		dns_client = NULL;
+	}
 	i_zero(&ssl_set);
 	ssl_set.allow_invalid_cert = TRUE;
 	ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
@@ -379,28 +394,70 @@ int main(int argc, char *argv[])
 	http_set.debug = TRUE;
 	http_set.rawlog_dir = "/tmp/http-test";
 
-	http_client = http_client_init(&http_set);
+	http_cctx = http_client_context_create(&http_set);
+
+	http_client1 = http_client_init_shared(http_cctx, NULL);
+	http_client2 = http_client_init_shared(http_cctx, NULL);
+	http_client3 = http_client_init_shared(http_cctx, NULL);
+	http_client4 = http_client_init_shared(http_cctx, NULL);
 
 	switch (argc) {
 	case 1:
-		run_tests(http_client);
+		run_tests(http_client1);
+		run_tests(http_client2);
+		run_tests(http_client3);
+		run_tests(http_client4);
 		break;
 	case 2:
-		run_http_get(http_client, argv[1]);
+		run_http_get(http_client1, argv[1]);
+		run_http_get(http_client2, argv[1]);
+		run_http_get(http_client3, argv[1]);
+		run_http_get(http_client4, argv[1]);
 		break;
 	case 3:
-		run_http_post(http_client, argv[1], argv[2]);
+		run_http_post(http_client1, argv[1], argv[2]);
+		run_http_post(http_client2, argv[1], argv[2]);
+		run_http_post(http_client3, argv[1], argv[2]);
+		run_http_post(http_client4, argv[1], argv[2]);
 		break;
 	default:
 		i_fatal("Too many parameters");
 	}
 
-	http_client_wait(http_client);
-	http_client_deinit(&http_client);
+	for (;;) {
+		bool pending = FALSE;
 
-	dns_client_deinit(&dns_client);
+		if (http_client_get_pending_request_count(http_client1) > 0) {
+			i_debug("Requests still pending in client 1");
+			pending = TRUE;
+		} else if (http_client_get_pending_request_count(http_client2) > 0) {
+			i_debug("Requests still pending in client 2");
+			pending = TRUE;
+		} else if (http_client_get_pending_request_count(http_client3) > 0) {
+			i_debug("Requests still pending in client 3");
+			pending = TRUE;
+		} else if (http_client_get_pending_request_count(http_client4) > 0) {
+			i_debug("Requests still pending in client 4");
+			pending = TRUE;
+		}
+		if (!pending)
+			break;
+		io_loop_run(ioloop);
+	}
+	http_client_deinit(&http_client1);
+	http_client_deinit(&http_client2);
+	http_client_deinit(&http_client3);
+	http_client_deinit(&http_client4);
+
+	http_client_context_unref(&http_cctx);
+
+	if (dns_client != NULL)
+		dns_client_deinit(&dns_client);
 
 	io_loop_destroy(&ioloop);
+	ssl_iostream_context_cache_free();
+#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_deinit();
+#endif
 	lib_deinit();
 }

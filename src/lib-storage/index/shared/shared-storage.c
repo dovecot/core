@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -32,7 +32,6 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		      const char **error_r)
 {
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
-	struct mail_storage *storage_class;
 	const char *driver, *p;
 	char *wildcardp, key;
 	bool have_username;
@@ -49,10 +48,8 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		p_strdup(_storage->pool, ns->unexpanded_set->location);
 	storage->storage_class_name = p_strdup(_storage->pool, driver);
 
-	storage_class = mail_user_get_storage_class(_storage->user, driver);
-	if (storage_class != NULL)
-		_storage->class_flags = storage_class->class_flags;
-	else if (strcmp(driver, "auto") != 0) {
+	if (mail_user_get_storage_class(_storage->user, driver) == NULL &&
+	    strcmp(driver, "auto") != 0) {
 		*error_r = t_strconcat("Unknown shared storage driver: ",
 				       driver, NULL);
 		return -1;
@@ -251,8 +248,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		return 0;
 	}
 
-	owner = mail_user_alloc(userdomain, user->set_info,
-				user->unexpanded_set);
+	owner = mail_user_alloc(event_get_parent(user->event), userdomain,
+				user->set_info, user->unexpanded_set);
 	owner->_service_user = user->_service_user;
 	mail_storage_service_user_ref(owner->_service_user);
 	owner->creator = user;

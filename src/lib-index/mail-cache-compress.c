@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -207,7 +207,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	   used fields */
 	idx_hdr = mail_index_get_header(view);
 	max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
-		idx_hdr->day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
+		idx_hdr->day_stamp -
+		cache->index->optimization_set.cache.unaccessed_field_drop_secs;
 
 	orig_fields_count = cache->fields_count;
 	if (cache->file_fields_count == 0) {
@@ -272,7 +273,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			mail_cache_compress_field(&ctx, &field);
 
 		if (ctx.buffer->used == sizeof(cache_rec) ||
-		    ctx.buffer->used > MAIL_CACHE_RECORD_MAX_SIZE) {
+		    ctx.buffer->used > cache->index->optimization_set.cache.record_max_size) {
 			/* nothing cached */
 			ext_offset = 0;
 		} else {
@@ -303,7 +304,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 	mail_cache_view_close(&cache_view);
 
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		mail_cache_set_syscall_error(cache, "write()");
 		o_stream_destroy(&output);
 		array_free(ext_offsets);

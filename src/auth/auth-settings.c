@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -230,6 +230,7 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_SIZE, cache_size),
 	DEF(SET_TIME, cache_ttl),
 	DEF(SET_TIME, cache_negative_ttl),
+	DEF(SET_BOOL, cache_verify_password_with_worker),
 	DEF(SET_STR, username_chars),
 	DEF(SET_STR, username_translation),
 	DEF(SET_STR, username_format),
@@ -248,6 +249,9 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_STR, policy_hash_nonce),
 	DEF(SET_STR, policy_request_attributes),
 	DEF(SET_BOOL, policy_reject_on_fail),
+	DEF(SET_BOOL, policy_check_before_auth),
+	DEF(SET_BOOL, policy_check_after_auth),
+	DEF(SET_BOOL, policy_report_after_auth),
 	DEF(SET_UINT, policy_hash_truncate),
 
 	DEF(SET_BOOL, stats),
@@ -284,6 +288,7 @@ static const struct auth_settings auth_default_settings = {
 	.cache_size = 0,
 	.cache_ttl = 60*60,
 	.cache_negative_ttl = 60*60,
+	.cache_verify_password_with_worker = FALSE,
 	.username_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-_@",
 	.username_translation = "",
 	.username_format = "%Lu",
@@ -300,8 +305,11 @@ static const struct auth_settings auth_default_settings = {
 	.policy_server_timeout_msecs = 2000,
 	.policy_hash_mech = "sha256",
 	.policy_hash_nonce = "",
-	.policy_request_attributes = "login=%{orig_username} pwhash=%{hashed_password} remote=%{real_rip} device_id=%{client_id} protocol=%s",
+	.policy_request_attributes = "login=%{requested_username} pwhash=%{hashed_password} remote=%{rip} device_id=%{client_id} protocol=%s",
 	.policy_reject_on_fail = FALSE,
+	.policy_check_before_auth = TRUE,
+	.policy_check_after_auth = TRUE,
+	.policy_report_after_auth = TRUE,
 	.policy_hash_truncate = 12,
 
 	.stats = FALSE,

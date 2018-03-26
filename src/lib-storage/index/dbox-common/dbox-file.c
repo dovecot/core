@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -454,7 +454,7 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 			*offset_r = file->cur_offset;
 			return ret;
 		}
-		if (i_stream_is_eof(file->input)) {
+		if (i_stream_read_eof(file->input)) {
 			*last_r = TRUE;
 			return 0;
 		}
@@ -482,6 +482,7 @@ struct dbox_file_append_context *dbox_file_append_init(struct dbox_file *file)
 	if (file->fd != -1) {
 		ctx->output = o_stream_create_fd_file(file->fd, 0, FALSE);
 		o_stream_set_name(ctx->output, file->cur_path);
+		o_stream_set_finish_via_child(ctx->output, FALSE);
 		o_stream_cork(ctx->output);
 	}
 	return ctx;
@@ -522,7 +523,7 @@ void dbox_file_append_rollback(struct dbox_file_append_context **_ctx)
 	if (ctx->first_append_offset == 0) {
 		/* nothing changed */
 	} else if (ctx->first_append_offset == file->file_header_size) {
-		/* rollbacking everything */
+		/* rolling back everything */
 		if (unlink(file->cur_path) < 0)
 			dbox_file_set_syscall_error(file, "unlink()");
 		close_file = TRUE;
@@ -533,7 +534,7 @@ void dbox_file_append_rollback(struct dbox_file_append_context **_ctx)
 			dbox_file_set_syscall_error(file, "ftruncate()");
 	}
 	if (ctx->output != NULL) {
-		o_stream_ignore_last_errors(ctx->output);
+		o_stream_abort(ctx->output);
 		o_stream_unref(&ctx->output);
 	}
 	i_free(ctx);
@@ -551,7 +552,7 @@ int dbox_file_append_flush(struct dbox_file_append_context *ctx)
 	    ctx->last_checkpoint_offset == ctx->output->offset)
 		return 0;
 
-	if (o_stream_nfinish(ctx->output) < 0) {
+	if (o_stream_flush(ctx->output) < 0) {
 		dbox_file_set_syscall_error(ctx->file, "write()");
 		return -1;
 	}

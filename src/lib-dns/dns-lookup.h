@@ -11,6 +11,9 @@ struct dns_lookup_settings {
 	/* the idle_timeout_msecs works only with the dns_client_* API.
 	   0 = disconnect immediately */
 	unsigned int idle_timeout_msecs;
+
+	/* ioloop to run the lookup on (defaults to current_ioloop) */
+	struct ioloop *ioloop;
 };
 
 struct dns_lookup_result {

@@ -1,11 +1,11 @@
-.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
-.TH DOVECONF 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file
+.TH DOVECONF 1 "2014-10-19" "Dovecot v2.3" "Dovecot"
 .SH NAME
 doveconf \- Dovecot\(aqs configuration dumping utility
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .B doveconf
-.RB [ \-adnNSx ]
+.RB [ \-adnPNSx ]
 [\fB\-c\fP \fIconfig\-file\fP]
 [\fB\-f\fP \fIfilter\fP]
 [\fB\-m\fP \fImodule\fP]
@@ -122,6 +122,12 @@ Show settings with non\-default values and explicitly set default values.
 .TP
 .B \-S
 Dump settings in simplified machine parsable/readable format.
+.\"---------------------------------
+.TP
+.\"---------------------------------
+.TP
+.B \-P/
+Show passwords and other sensitive values.
 .\"---------------------------------
 .TP
 .B \-x

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "hex-dec.h"
@@ -243,7 +243,7 @@ stream_copy(struct dbox_file *file, struct ostream *output,
 			"read(%s) failed: %s", file->cur_path,
 			i_stream_get_error(input));
 		ret = -1;
-	} else if (o_stream_nfinish(output) < 0) {
+	} else if (o_stream_flush(output) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"write(%s) failed: %s", out_path,
 			o_stream_get_error(output));
@@ -436,7 +436,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 		if (output->stream_errno != 0)
 			break;
 	}
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_flush(output) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"write(%s) failed: %s", temp_path, o_stream_get_error(output));
 		ret = -1;
@@ -466,7 +466,7 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 	o_stream_cork(output);
 	ret = dbox_file_fix_write_stream(file, start_offset, temp_path, output);
 	if (ret < 0)
-		o_stream_ignore_last_errors(output);
+		o_stream_abort(output);
 	have_messages = output->offset > file->file_header_size;
 	o_stream_unref(&output);
 	if (close(fd) < 0) {

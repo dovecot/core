@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -15,6 +15,8 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <time.h>
+
+#define LOG_TYPE_FLAG_DISABLE_LOG_PREFIX 0x80
 
 const char *failure_log_type_prefixes[LOG_TYPE_COUNT] = {
 	"Debug: ",
@@ -69,8 +71,12 @@ static const char *get_log_stamp_format(const char *format_arg ATTR_UNUSED,
 
 void failure_exit(int status)
 {
-	if (failure_exit_callback != NULL)
+	static bool recursed = FALSE;
+
+	if (failure_exit_callback != NULL && !recursed) {
+		recursed = TRUE;
 		failure_exit_callback(&status);
+	}
 	exit(status);
 }
 
@@ -93,7 +99,9 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 			     get_log_stamp_format("unused", now.tv_usec), tm) > 0)
 			str_append(str, buf);
 	}
-	if (log_prefix != NULL)
+	if (ctx->log_prefix != NULL)
+		str_append(str, ctx->log_prefix);
+	else if (log_prefix != NULL)
 		str_append(str, log_prefix);
 }
 
@@ -205,11 +213,15 @@ static void ATTR_NORETURN
 default_fatal_finish(enum log_type type, int status)
 {
 	const char *backtrace;
+	static int recursed = 0;
 
-	if (type == LOG_TYPE_PANIC || status == FATAL_OUTOFMEM) {
+	recursed++;
+	if ((type == LOG_TYPE_PANIC || status == FATAL_OUTOFMEM) &&
+	    recursed == 1) {
 		if (backtrace_get(&backtrace) == 0)
 			i_error("Raw backtrace: %s", backtrace);
 	}
+	recursed--;
 
 	if (type == LOG_TYPE_PANIC || getenv("CORE_ERROR") != NULL ||
 	    (status == FATAL_OUTOFMEM && getenv("CORE_OUTOFMEM") != NULL))
@@ -263,7 +275,13 @@ void i_log_type(const struct failure_context *ctx, const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
+	i_log_typev(ctx, format, args);
+	va_end(args);
+}
 
+void i_log_typev(const struct failure_context *ctx, const char *format,
+		 va_list args)
+{
 	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
 		debug_handler(ctx, format, args);
@@ -274,8 +292,6 @@ void i_log_type(const struct failure_context *ctx, const char *format, ...)
 	default:
 		error_handler(ctx, format, args);
 	}
-
-	va_end(args);
 }
 
 void i_panic(const char *format, ...)
@@ -402,8 +418,9 @@ void i_get_failure_handlers(failure_callback_t **fatal_callback_r,
 	*debug_callback_r = debug_handler;
 }
 
-static int ATTR_FORMAT(3, 0)
-syslog_handler(int level, enum log_type type, const char *format, va_list args)
+static int ATTR_FORMAT(4, 0)
+syslog_handler(const struct failure_context *ctx,
+	       int level, enum log_type type, const char *format, va_list args)
 {
 	static int recursed = 0;
 
@@ -411,11 +428,13 @@ syslog_handler(int level, enum log_type type, const char *format, va_list args)
 		return -1;
 	recursed++;
 
-	/* syslogs don't generatelly bother to log the level in any way,
+	/* syslogs don't generally bother to log the level in any way,
 	   so make sure errors are shown clearly */
 	T_BEGIN {
+		const char *cur_log_prefix = ctx->log_prefix != NULL ?
+			ctx->log_prefix : log_prefix;
 		syslog(level, "%s%s%s",
-		       log_prefix == NULL ? "" : log_prefix,
+		       cur_log_prefix == NULL ? "" : cur_log_prefix,
 		       type != LOG_TYPE_INFO ?
 		       failure_log_type_prefixes[type] : "",
 		       t_strdup_vprintf(format, args));
@@ -429,7 +448,7 @@ void i_syslog_fatal_handler(const struct failure_context *ctx,
 {
 	int status = ctx->exit_status;
 
-	if (syslog_handler(LOG_CRIT, ctx->type, format, args) < 0 &&
+	if (syslog_handler(ctx, LOG_CRIT, ctx->type, format, args) < 0 &&
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
@@ -463,7 +482,7 @@ void i_syslog_error_handler(const struct failure_context *ctx,
 		i_unreached();
 	}
 
-	if (syslog_handler(level, ctx->type, format, args) < 0)
+	if (syslog_handler(ctx, level, ctx->type, format, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 }
 
@@ -607,14 +626,19 @@ internal_handler(const struct failure_context *ctx,
 	T_BEGIN {
 		string_t *str;
 		size_t prefix_len;
+		unsigned char log_type = ctx->type + 1;
 
-		if (!log_prefix_sent && log_prefix != NULL) {
+		if (ctx->log_prefix != NULL) {
+			log_type |= LOG_TYPE_FLAG_DISABLE_LOG_PREFIX;
+		} else if (!log_prefix_sent && log_prefix != NULL) {
 			log_prefix_sent = TRUE;
 			i_failure_send_option("prefix", log_prefix);
 		}
 
 		str = t_str_new(128);
-		str_printfa(str, "\001%c%s ", ctx->type + 1, my_pid);
+		str_printfa(str, "\001%c%s ", log_type, my_pid);
+		if (ctx->log_prefix != NULL)
+			str_append(str, ctx->log_prefix);
 		prefix_len = str_len(str);
 
 		str_vprintfa(str, format, args);
@@ -634,32 +658,38 @@ internal_handler(const struct failure_context *ctx,
 	return ret;
 }
 
-static bool line_is_ok(const char *line)
+static bool line_parse_prefix(const char *line, enum log_type *log_type_r,
+			      bool *replace_prefix_r)
 {
 	if (*line != 1)
 		return FALSE;
 
-	if (line[1] == '\0') {
+	unsigned char log_type = (line[1] & 0x7f);
+	if (log_type == '\0') {
 		i_warning("Broken log line follows (type=NUL)");
 		return FALSE;
 	}
+	log_type--;
 
-	if (line[1]-1 > LOG_TYPE_OPTION) {
-		i_warning("Broken log line follows (type=%d)", line[1]-1);
+	if (log_type > LOG_TYPE_OPTION) {
+		i_warning("Broken log line follows (type=%d)", log_type);
 		return FALSE;
 	}
+	*log_type_r = log_type;
+	*replace_prefix_r = (line[1] & LOG_TYPE_FLAG_DISABLE_LOG_PREFIX) != 0;
 	return TRUE;
 }
 
 void i_failure_parse_line(const char *line, struct failure_line *failure)
 {
+
 	i_zero(failure);
-	if (!line_is_ok(line)) {
+	if (!line_parse_prefix(line, &failure->log_type,
+			       &failure->disable_log_prefix)) {
 		failure->log_type = LOG_TYPE_ERROR;
 		failure->text = line;
 		return;
 	}
-	failure->log_type = line[1] - 1;
 
 	line += 2;
 	failure->text = line;

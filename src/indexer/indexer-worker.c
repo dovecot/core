@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "restrict-access.h"
@@ -40,15 +40,15 @@ static void drop_privileges(void)
 		(void)master_service_settings_read(master_service,
 						   &input, &output, &error);
 	}
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 }
 
 int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_SEND_STATS |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 	enum mail_storage_service_flags storage_service_flags =
-		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP |
 		MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT;

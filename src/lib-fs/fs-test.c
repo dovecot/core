@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -38,14 +38,18 @@ static enum fs_properties fs_test_get_properties(struct fs *_fs)
 	return fs->properties;
 }
 
-static struct fs_file *
-fs_test_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_test_file_alloc(void)
+{
+	struct test_fs_file *file = i_new(struct test_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_test_file_init(struct fs_file *_file, const char *path,
 		  enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct test_fs_file *file;
+	struct test_fs_file *file = (struct test_fs_file *)_file;
 
-	file = i_new(struct test_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
 	file->file.flags = flags;
 	file->mode = mode;
@@ -53,7 +57,6 @@ fs_test_file_init(struct fs *_fs, const char *path,
 	file->exists = TRUE;
 	file->seekable = TRUE;
 	file->wait_async = (flags & FS_OPEN_FLAG_ASYNC) != 0;
-	return &file->file;
 }
 
 static void fs_test_file_deinit(struct fs_file *_file)
@@ -298,21 +301,23 @@ static int fs_test_delete(struct fs_file *_file)
 	return 0;
 }
 
-static struct fs_iter *
-fs_test_iter_init(struct fs *_fs, const char *path,
-		  enum fs_iter_flags flags)
+static struct fs_iter *fs_test_iter_alloc(void)
 {
-	struct test_fs *fs = (struct test_fs *)_fs;
-	struct test_fs_iter *iter;
+	struct test_fs_iter *iter = i_new(struct test_fs_iter, 1);
+	return &iter->iter;
+}
 
-	iter = i_new(struct test_fs_iter, 1);
-	iter->iter.fs = _fs;
-	iter->iter.flags = flags;
+static void
+fs_test_iter_init(struct fs_iter *_iter, const char *path,
+		  enum fs_iter_flags flags ATTR_UNUSED)
+{
+	struct test_fs_iter *iter = (struct test_fs_iter *)_iter;
+	struct test_fs *fs = (struct test_fs *)_iter->fs;
+
 	iter->prefix = i_strdup(path);
 	iter->prefix_len = strlen(iter->prefix);
 	iter->prev_dir = i_strdup("");
 	array_sort(&fs->iter_files, i_strcmp_p);
-	return &iter->iter;
 }
 
 static const char *fs_test_iter_next(struct fs_iter *_iter)
@@ -393,6 +398,7 @@ const struct fs fs_class_test = {
 		fs_test_init,
 		fs_test_deinit,
 		fs_test_get_properties,
+		fs_test_file_alloc,
 		fs_test_file_init,
 		fs_test_file_deinit,
 		fs_test_file_close,
@@ -414,6 +420,7 @@ const struct fs fs_class_test = {
 		fs_test_copy,
 		fs_test_rename,
 		fs_test_delete,
+		fs_test_iter_alloc,
 		fs_test_iter_init,
 		fs_test_iter_next,
 		fs_test_iter_deinit,

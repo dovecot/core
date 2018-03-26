@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "module-context.h"
@@ -237,6 +237,7 @@ fts_user_language_find(struct mail_user *user,
 	struct fts_user_language *const *user_langp;
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 		
+	i_assert(fuser != NULL);
 	array_foreach(&fuser->languages, user_langp) {
 		if (strcmp((*user_langp)->lang->name, lang->name) == 0)
 			return *user_langp;
@@ -295,6 +296,7 @@ fts_user_init_data_language(struct mail_user *user, struct fts_user *fuser,
 
 	p_array_init(&fuser->data_languages, user->pool, 1);
 	array_append(&fuser->data_languages, &user_lang, 1);
+	array_append(&fuser->languages, &user_lang, 1);
 
 	fuser->data_lang = user_lang;
 	return 0;
@@ -304,6 +306,7 @@ struct fts_language_list *fts_user_get_language_list(struct mail_user *user)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
+	i_assert(fuser != NULL);
 	return fuser->lang_list;
 }
 
@@ -312,6 +315,7 @@ fts_user_get_all_languages(struct mail_user *user)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
+	i_assert(fuser != NULL);
 	return &fuser->languages;
 }
 
@@ -320,6 +324,7 @@ fts_user_get_data_languages(struct mail_user *user)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
+	i_assert(fuser != NULL);
 	return &fuser->data_languages;
 }
 
@@ -327,6 +332,7 @@ struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
+	i_assert(fuser != NULL);
 	return fuser->data_lang;
 }
 
@@ -349,8 +355,6 @@ static void fts_user_free(struct fts_user *fuser)
 
 	array_foreach(&fuser->languages, user_langp)
 		fts_user_language_free(*user_langp);
-	if (fuser->data_lang != NULL)
-		fts_user_language_free(fuser->data_lang);
 }
 
 int fts_mail_user_init(struct mail_user *user, const char **error_r)

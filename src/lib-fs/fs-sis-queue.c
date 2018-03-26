@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -67,23 +67,26 @@ static void fs_sis_queue_deinit(struct fs *_fs)
 	i_free(fs);
 }
 
-static struct fs_file *
-fs_sis_queue_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_sis_queue_file_alloc(void)
+{
+	struct sis_queue_fs_file *file = i_new(struct sis_queue_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_sis_queue_file_init(struct fs_file *_file, const char *path,
 		       enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
-	struct sis_queue_fs_file *file;
+	struct sis_queue_fs_file *file = (struct sis_queue_fs_file *)_file;
+	struct sis_queue_fs *fs = (struct sis_queue_fs *)_file->fs;
 
-	file = i_new(struct sis_queue_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
 	file->fs = fs;
 
 	if (mode == FS_OPEN_MODE_APPEND)
-		fs_set_error(_fs, "APPEND mode not supported");
+		fs_set_error(_file->fs, "APPEND mode not supported");
 	else
-		file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
-	return &file->file;
+		file->file.parent = fs_file_init_parent(_file, path, mode | flags);
 }
 
 static void fs_sis_queue_file_deinit(struct fs_file *_file)
@@ -110,9 +113,9 @@ static void fs_sis_queue_add(struct sis_queue_fs_file *file)
 		fname = path;
 
 	queue_path = t_strdup_printf("%s/%s", fs->queue_dir, fname);
-	queue_file = fs_file_init(fs->fs.parent, queue_path, FS_OPEN_MODE_CREATE);
+	queue_file = fs_file_init_parent(&file->file, queue_path, FS_OPEN_MODE_CREATE);
 	if (fs_write(queue_file, "", 0) < 0 && errno != EEXIST)
-		i_error("fs-sis-queue: %s", fs_file_last_error(queue_file));
+		e_error(file->file.event, "%s", fs_file_last_error(queue_file));
 	fs_file_deinit(&queue_file);
 }
 
@@ -176,6 +179,7 @@ const struct fs fs_class_sis_queue = {
 		fs_sis_queue_init,
 		fs_sis_queue_deinit,
 		fs_wrapper_get_properties,
+		fs_sis_queue_file_alloc,
 		fs_sis_queue_file_init,
 		fs_sis_queue_file_deinit,
 		fs_wrapper_file_close,
@@ -197,6 +201,7 @@ const struct fs fs_class_sis_queue = {
 		fs_wrapper_copy,
 		fs_wrapper_rename,
 		fs_sis_queue_delete,
+		fs_wrapper_iter_alloc,
 		fs_wrapper_iter_init,
 		NULL,
 		NULL,

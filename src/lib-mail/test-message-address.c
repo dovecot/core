@@ -1,9 +1,13 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
 #include "message-address.h"
 #include "test-common.h"
+
+enum test_message_address {
+	TEST_MESSAGE_ADDRESS_FLAG_SKIP_LIST = BIT(0),
+};
 
 static bool cmp_addr(const struct message_address *a1,
 		     const struct message_address *a2)
@@ -38,161 +42,172 @@ static void test_message_address(void)
 		const char *wanted_filled_output;
 		struct message_address addr;
 		struct message_address filled_addr;
+		enum test_message_address flags;
 	} tests[] = {
 		/* user@domain -> <user@domain> */
 		{ "user@domain", "<user@domain>", NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE },
-		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user", "domain", FALSE }, 0 },
 		{ "\"user\"@domain", "<user@domain>", NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE },
-		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user", "domain", FALSE }, 0 },
 		{ "\"user name\"@domain", "<\"user name\"@domain>", NULL,
 		  { NULL, NULL, NULL, "user name", "domain", FALSE },
-		  { NULL, NULL, NULL, "user name", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user name", "domain", FALSE }, 0 },
 		{ "\"user@na\\\\me\"@domain", "<\"user@na\\\\me\"@domain>", NULL,
 		  { NULL, NULL, NULL, "user@na\\me", "domain", FALSE },
-		  { NULL, NULL, NULL, "user@na\\me", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user@na\\me", "domain", FALSE }, 0 },
 		{ "\"user\\\"name\"@domain", "<\"user\\\"name\"@domain>", NULL,
 		  { NULL, NULL, NULL, "user\"name", "domain", FALSE },
-		  { NULL, NULL, NULL, "user\"name", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user\"name", "domain", FALSE }, 0 },
 		{ "\"\"@domain", "<\"\"@domain>", NULL,
 		  { NULL, NULL, NULL, "", "domain", FALSE },
-		  { NULL, NULL, NULL, "", "domain", FALSE } },
+		  { NULL, NULL, NULL, "", "domain", FALSE }, 0 },
 		{ "user", "<user>", "<user@MISSING_DOMAIN>",
 		  { NULL, NULL, NULL, "user", "", TRUE },
-		  { NULL, NULL, NULL, "user", "MISSING_DOMAIN", TRUE } },
+		  { NULL, NULL, NULL, "user", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "@domain", "<\"\"@domain>", "<MISSING_MAILBOX@domain>",
 		  { NULL, NULL, NULL, "", "domain", TRUE },
-		  { NULL, NULL, NULL, "MISSING_MAILBOX", "domain", TRUE } },
+		  { NULL, NULL, NULL, "MISSING_MAILBOX", "domain", TRUE }, 0 },
 
 		/* Display Name -> Display Name */
 		{ "Display Name", "\"Display Name\"", "\"Display Name\" <MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, "Display Name", NULL, "", "", TRUE },
-		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE } },
+		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "\"Display Name\"", "\"Display Name\"", "\"Display Name\" <MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, "Display Name", NULL, "", "", TRUE },
-		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE } },
+		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "Display \"Name\"", "\"Display Name\"", "\"Display Name\" <MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, "Display Name", NULL, "", "", TRUE },
-		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE } },
+		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "\"Display\" \"Name\"", "\"Display Name\"", "\"Display Name\" <MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, "Display Name", NULL, "", "", TRUE },
-		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE } },
+		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "\"\"", "", "<MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, "", NULL, "", "", TRUE },
-		  { NULL, "", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE } },
+		  { NULL, "", NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
 
 		/* <user@domain> -> <user@domain> */
 		{ "<user@domain>", NULL, NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE },
-		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user", "domain", FALSE }, 0 },
 		{ "<\"user\"@domain>", "<user@domain>", NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE },
-		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user", "domain", FALSE }, 0 },
 		{ "<\"user name\"@domain>", NULL, NULL,
 		  { NULL, NULL, NULL, "user name", "domain", FALSE },
-		  { NULL, NULL, NULL, "user name", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user name", "domain", FALSE }, 0 },
 		{ "<\"user@na\\\\me\"@domain>", NULL, NULL,
 		  { NULL, NULL, NULL, "user@na\\me", "domain", FALSE },
-		  { NULL, NULL, NULL, "user@na\\me", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user@na\\me", "domain", FALSE }, 0 },
 		{ "<\"user\\\"name\"@domain>", NULL, NULL,
 		  { NULL, NULL, NULL, "user\"name", "domain", FALSE },
-		  { NULL, NULL, NULL, "user\"name", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user\"name", "domain", FALSE }, 0 },
 		{ "<\"\"@domain>", NULL, NULL,
 		  { NULL, NULL, NULL, "", "domain", FALSE },
-		  { NULL, NULL, NULL, "", "domain", FALSE } },
+		  { NULL, NULL, NULL, "", "domain", FALSE }, 0 },
 		{ "<user>", NULL, "<user@MISSING_DOMAIN>",
 		  { NULL, NULL, NULL, "user", "", TRUE },
-		  { NULL, NULL, NULL, "user", "MISSING_DOMAIN", TRUE } },
+		  { NULL, NULL, NULL, "user", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "<@route>", "<@route:\"\">", "<INVALID_ROUTE:MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, NULL, "@route", "", "", TRUE },
-		  { NULL, NULL, "INVALID_ROUTE", "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE } },
+		  { NULL, NULL, "INVALID_ROUTE", "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
 
 		/* user@domain (Display Name) -> "Display Name" <user@domain> */
 		{ "user@domain (DisplayName)", "DisplayName <user@domain>", NULL,
 		  { NULL, "DisplayName", NULL, "user", "domain", FALSE },
-		  { NULL, "DisplayName", NULL, "user", "domain", FALSE } },
+		  { NULL, "DisplayName", NULL, "user", "domain", FALSE }, 0 },
 		{ "user@domain (Display Name)", "\"Display Name\" <user@domain>", NULL,
 		  { NULL, "Display Name", NULL, "user", "domain", FALSE },
-		  { NULL, "Display Name", NULL, "user", "domain", FALSE } },
+		  { NULL, "Display Name", NULL, "user", "domain", FALSE }, 0 },
 		{ "user@domain (Display\"Name)", "\"Display\\\"Name\" <user@domain>", NULL,
 		  { NULL, "Display\"Name", NULL, "user", "domain", FALSE },
-		  { NULL, "Display\"Name", NULL, "user", "domain", FALSE } },
+		  { NULL, "Display\"Name", NULL, "user", "domain", FALSE }, 0 },
 		{ "user (Display Name)", "\"Display Name\" <user>", "\"Display Name\" <user@MISSING_DOMAIN>",
 		  { NULL, "Display Name", NULL, "user", "", TRUE },
-		  { NULL, "Display Name", NULL, "user", "MISSING_DOMAIN", TRUE } },
+		  { NULL, "Display Name", NULL, "user", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "@domain (Display Name)", "\"Display Name\" <\"\"@domain>", "\"Display Name\" <MISSING_MAILBOX@domain>",
 		  { NULL, "Display Name", NULL, "", "domain", TRUE },
-		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "domain", TRUE } },
+		  { NULL, "Display Name", NULL, "MISSING_MAILBOX", "domain", TRUE }, 0 },
 		{ "user@domain ()", "<user@domain>", NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE },
-		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user", "domain", FALSE }, 0 },
 
 		/* Display Name <user@domain> -> "Display Name" <user@domain> */
 		{ "DisplayName <user@domain>", NULL, NULL,
 		  { NULL, "DisplayName", NULL, "user", "domain", FALSE },
-		  { NULL, "DisplayName", NULL, "user", "domain", FALSE } },
+		  { NULL, "DisplayName", NULL, "user", "domain", FALSE }, 0 },
 		{ "Display Name <user@domain>", "\"Display Name\" <user@domain>", NULL,
 		  { NULL, "Display Name", NULL, "user", "domain", FALSE },
-		  { NULL, "Display Name", NULL, "user", "domain", FALSE } },
+		  { NULL, "Display Name", NULL, "user", "domain", FALSE }, 0 },
 		{ "\"Display Name\" <user@domain>", NULL, NULL,
 		  { NULL, "Display Name", NULL, "user", "domain", FALSE },
-		  { NULL, "Display Name", NULL, "user", "domain", FALSE } },
+		  { NULL, "Display Name", NULL, "user", "domain", FALSE }, 0 },
 		{ "\"Display\\\"Name\" <user@domain>", NULL, NULL,
 		  { NULL, "Display\"Name", NULL, "user", "domain", FALSE },
-		  { NULL, "Display\"Name", NULL, "user", "domain", FALSE } },
+		  { NULL, "Display\"Name", NULL, "user", "domain", FALSE }, 0 },
 		{ "Display Name <user>", "\"Display Name\" <user>", "\"Display Name\" <user@MISSING_DOMAIN>",
 		  { NULL, "Display Name", NULL, "user", "", TRUE },
-		  { NULL, "Display Name", NULL, "user", "MISSING_DOMAIN", TRUE } },
+		  { NULL, "Display Name", NULL, "user", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "\"\" <user@domain>", "<user@domain>", NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE },
-		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		  { NULL, NULL, NULL, "user", "domain", FALSE }, 0 },
 
 		/* <@route:user@domain> -> <@route:user@domain> */
 		{ "<@route:user@domain>", NULL, NULL,
 		  { NULL, NULL, "@route", "user", "domain", FALSE },
-		  { NULL, NULL, "@route", "user", "domain", FALSE } },
+		  { NULL, NULL, "@route", "user", "domain", FALSE }, 0 },
 		{ "<@route,@route2:user@domain>", NULL, NULL,
 		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE },
-		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE } },
+		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE }, 0 },
 		{ "<@route@route2:user@domain>", "<@route,@route2:user@domain>", NULL,
 		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE },
-		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE } },
+		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE }, 0 },
 		{ "<@route@route2:user>", "<@route,@route2:user>", "<@route,@route2:user@MISSING_DOMAIN>",
 		  { NULL, NULL, "@route,@route2", "user", "", TRUE },
-		  { NULL, NULL, "@route,@route2", "user", "MISSING_DOMAIN", TRUE } },
+		  { NULL, NULL, "@route,@route2", "user", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "<@route@route2:\"\"@domain>", "<@route,@route2:\"\"@domain>", NULL,
 		  { NULL, NULL, "@route,@route2", "", "domain", FALSE },
-		  { NULL, NULL, "@route,@route2", "", "domain", FALSE } },
+		  { NULL, NULL, "@route,@route2", "", "domain", FALSE }, 0 },
 
 		/* Display Name <@route:user@domain> ->
 		   "Display Name" <@route:user@domain> */
 		{ "Display Name <@route:user@domain>", "\"Display Name\" <@route:user@domain>", NULL,
 		  { NULL, "Display Name", "@route", "user", "domain", FALSE },
-		  { NULL, "Display Name", "@route", "user", "domain", FALSE } },
+		  { NULL, "Display Name", "@route", "user", "domain", FALSE }, 0 },
 		{ "Display Name <@route,@route2:user@domain>", "\"Display Name\" <@route,@route2:user@domain>", NULL,
 		  { NULL, "Display Name", "@route,@route2", "user", "domain", FALSE },
-		  { NULL, "Display Name", "@route,@route2", "user", "domain", FALSE } },
+		  { NULL, "Display Name", "@route,@route2", "user", "domain", FALSE }, 0 },
 		{ "Display Name <@route@route2:user@domain>", "\"Display Name\" <@route,@route2:user@domain>", NULL,
 		  { NULL, "Display Name", "@route,@route2", "user", "domain", FALSE },
-		  { NULL, "Display Name", "@route,@route2", "user", "domain", FALSE } },
+		  { NULL, "Display Name", "@route,@route2", "user", "domain", FALSE }, 0 },
 		{ "Display Name <@route@route2:user>", "\"Display Name\" <@route,@route2:user>", "\"Display Name\" <@route,@route2:user@MISSING_DOMAIN>",
 		  { NULL, "Display Name", "@route,@route2", "user", "", TRUE },
-		  { NULL, "Display Name", "@route,@route2", "user", "MISSING_DOMAIN", TRUE } },
+		  { NULL, "Display Name", "@route,@route2", "user", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "Display Name <@route@route2:\"\"@domain>", "\"Display Name\" <@route,@route2:\"\"@domain>", NULL,
 		  { NULL, "Display Name", "@route,@route2", "", "domain", FALSE },
-		  { NULL, "Display Name", "@route,@route2", "", "domain", FALSE } },
+		  { NULL, "Display Name", "@route,@route2", "", "domain", FALSE }, 0 },
 
 		/* other tests: */
 		{ "\"foo: <a@b>;,\" <user@domain>", NULL, NULL,
 		  { NULL, "foo: <a@b>;,", NULL, "user", "domain", FALSE },
-		  { NULL, "foo: <a@b>;,", NULL, "user", "domain", FALSE } },
+		  { NULL, "foo: <a@b>;,", NULL, "user", "domain", FALSE }, 0 },
 		{ "<>", "", "<MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, NULL, NULL, "", "", TRUE },
-		  { NULL, NULL, NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE } },
+		  { NULL, NULL, NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
 		{ "<@>", "", "<INVALID_ROUTE:MISSING_MAILBOX@MISSING_DOMAIN>",
 		  { NULL, NULL, NULL, "", "", TRUE },
-		  { NULL, NULL, "INVALID_ROUTE", "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE } },
+		  { NULL, NULL, "INVALID_ROUTE", "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE }, 0 },
+
+		/* Test against a out-of-bounds read bug - keep these two tests
+		   together in this same order: */
+		{ "aaaa@", "<aaaa>", "<aaaa@MISSING_DOMAIN>",
+		  { NULL, NULL, NULL, "aaaa", "", TRUE },
+		  { NULL, NULL, NULL, "aaaa", "MISSING_DOMAIN", TRUE }, 0 },
+		{ "a(aa", "", "<MISSING_MAILBOX@MISSING_DOMAIN>",
+		  { NULL, NULL, NULL, "", "", TRUE },
+		  { NULL, NULL, NULL, "MISSING_MAILBOX", "MISSING_DOMAIN", TRUE },
+		  TEST_MESSAGE_ADDRESS_FLAG_SKIP_LIST },
 	};
 	static struct message_address group_prefix = {
 		NULL, NULL, NULL, "group", NULL, FALSE
@@ -230,6 +245,9 @@ static void test_message_address(void)
 		else
 			wanted_string = test->input;
 		test_assert_idx(strcmp(str_c(str), wanted_string) == 0, i);
+
+		if ((test->flags & TEST_MESSAGE_ADDRESS_FLAG_SKIP_LIST) != 0)
+			continue;
 
 		/* test the address as a list of itself */
 		for (unsigned int list_length = 2; list_length <= 5; list_length++) {
@@ -293,50 +311,87 @@ static void test_message_address(void)
 		    cmp_addr(addr, &group_suffix));
 	test_assert(strcmp(str_c(str), "group:;") == 0);
 	test_end();
+
+	test_begin("message address parsing empty string");
+	test_assert(message_address_parse(unsafe_data_stack_pool, &uchar_nul, 0, 10, TRUE) == NULL);
+	str_truncate(str, 0);
+	message_address_write(str, NULL);
+	test_assert(str_len(str) == 0);
+	test_end();
 }
 
-static void test_message_delim(void) {
-	test_begin("message address detail parsing");
+static int
+test_parse_path(const char *input, const struct message_address **addr_r)
+{
+	struct message_address *addr;
+	int ret;
 
-	struct {
-		const char *delimiters;
-		const char *address;
-		const char *username;
-		const char *detail;
-		char delim;
+	/* duplicate the input (without trailing NUL) so valgrind notices
+	   if there's any out-of-bounds access */
+	size_t input_len = strlen(input);
+	unsigned char *input_dup = i_malloc(input_len);
+	memcpy(input_dup, input, input_len);
+	ret = message_address_parse_path(pool_datastack_create(),
+					 input_dup, input_len, &addr);
+	i_free(input_dup);
+	*addr_r = addr;
+	return ret;
+}
+
+static void test_message_address_path(void)
+{
+	static const struct test {
+		const char *input;
+		const char *wanted_output;
+		struct message_address addr;
 	} tests[] = {
-		{ "", "", "", "", '\0' },
-		{ "", "test", "test", "", '\0' },
-		{ "", "test+address", "test+address", "", '\0' },
-		{ "", "test:address", "test:address", "", '\0' },
-		{ "", "test-address:another+delim", "test-address:another+delim", "", '\0' },
-		{ "", "test@domain", "test@domain", "", '\0' },
-		{ "", "test+address@domain", "test+address@domain", "", '\0' },
-		{ "", "test:address@domain", "test:address@domain", "", '\0' },
-		{ "", "test-address:another+delim@domain", "test-address:another+delim@domain", "", '\0' },
-
-		{ "+-:", "", "", "", '\0' },
-		{ "+-:", "test", "test", "", '\0' },
-		{ "+-:", "test+address", "test", "address", '+' },
-		{ "+-:", "test:address", "test", "address", ':' },
-		{ "+-:", "test-address:another+delim", "test", "address:another+delim", '-' },
-		{ "+-:", "test@domain", "test@domain", "", '\0' },
-		{ "+-:", "test+address@domain", "test@domain", "address", '+' },
-		{ "+-:", "test:address@domain", "test@domain", "address", ':' },
-		{ "+-:", "test-address:another+delim@domain", "test@domain", "address:another+delim", '-' }
+		{ "<>", NULL,
+		  { NULL, NULL, NULL, NULL, NULL, FALSE } },
+		{ " < > ", "<>",
+		  { NULL, NULL, NULL, NULL, NULL, FALSE } },
+		{ "<user@domain>", NULL,
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "  <user@domain>  ", "<user@domain>",
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "<\"user\"@domain>", "<user@domain>",
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "<\"user name\"@domain>", NULL,
+		  { NULL, NULL, NULL, "user name", "domain", FALSE } },
+		{ "<\"user@na\\\\me\"@domain>", NULL,
+		  { NULL, NULL, NULL, "user@na\\me", "domain", FALSE } },
+		{ "<\"user\\\"name\"@domain>", NULL,
+		  { NULL, NULL, NULL, "user\"name", "domain", FALSE } },
+		{ "<\"\"@domain>", NULL,
+		  { NULL, NULL, NULL, "", "domain", FALSE } },
 	};
+	const struct message_address *addr;
+	string_t *str;
+	const char *wanted_string;
+	unsigned int i;
 
-	for(size_t i = 0; i < N_ELEMENTS(tests); i++) {
-		const char *username, *detail;
-		char delim;
+	test_begin("message address path parsing");
+	str = t_str_new(128);
 
-		message_detail_address_parse(tests[i].delimiters, tests[i].address,
-					     &username, &delim, &detail);
-		test_assert_idx(strcmp(username, tests[i].username) == 0, i);
-		test_assert_idx(strcmp(detail, tests[i].detail) == 0, i);
-		test_assert_idx(delim == tests[i].delim, i);
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		const struct test *test = &tests[i];
+		const struct message_address *test_wanted_addr;
+		int ret;
+
+		test_wanted_addr = &test->addr;
+		ret = test_parse_path(test->input, &addr);
+		test_assert_idx(ret == 0, i);
+		test_assert_idx(addr != NULL && addr->next == NULL &&
+				cmp_addr(addr, test_wanted_addr), i);
+
+		/* test the address alone */
+		str_truncate(str, 0);
+		message_address_write(str, addr);
+		if (test->wanted_output != NULL)
+			wanted_string = test->wanted_output;
+		else
+			wanted_string = test->input;
+		test_assert_idx(strcmp(str_c(str), wanted_string) == 0, i);
 	}
-
 	test_end();
 }
 
@@ -344,7 +399,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_address,
-		test_message_delim,
+		test_message_address_path,
 		NULL
 	};
 	return test_run(test_functions);

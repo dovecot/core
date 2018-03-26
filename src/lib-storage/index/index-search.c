@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -703,7 +703,7 @@ static void search_body(struct mail_search_arg *arg,
 		i_assert(ret >= 0 || ctx->input->stream_errno != 0);
 	}
 	if (ctx->input->stream_errno != 0) {
-		mail_storage_set_critical(ctx->index_ctx->box->storage,
+		mailbox_set_critical(ctx->index_ctx->box,
 			"read(%s) failed: %s", i_stream_get_name(ctx->input),
 			i_stream_get_error(ctx->input));
 	}
@@ -769,7 +769,17 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			search_cur_mail_failed(ctx);
 			failed = TRUE;
 		} else {
+			/* FIXME: The header parsing here is an optimization to
+			   avoid parsing the header twice: First when checking
+			   whether the search matches, and secondly when
+			   generating wanted fields. However, if we already
+			   know that we want to generate a BODYSTRUCTURE reply,
+			   index_mail_parse_header() must have a non-NULL part
+			   parameter. That's not easily possible at this point
+			   without larger code changes, so for now we'll just
+			   disable this optimization for that case. */
 			hdr_ctx.parse_headers =
+				!hdr_ctx.imail->data.save_bodystructure_header &&
 				index_mail_want_parse_headers(hdr_ctx.imail);
 			if (hdr_ctx.parse_headers) {
 				index_mail_parse_header_init(hdr_ctx.imail,
@@ -778,7 +788,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			message_parse_header(input, NULL, hdr_parser_flags,
 					     search_header, &hdr_ctx);
 			if (input->stream_errno != 0) {
-				mail_storage_set_critical(ctx->box->storage,
+				mailbox_set_critical(ctx->box,
 					"read(%s) failed: %s",
 					i_stream_get_name(input),
 					i_stream_get_error(input));
@@ -787,8 +797,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			}
 		}
 	}
-	if (headers_ctx != NULL)
-		mailbox_header_lookup_unref(&headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
 
 	if (failed) {
 		/* opening mail failed. maybe because of lookup_abort.
@@ -802,7 +811,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 
 	if (have_headers) {
 		/* see if the header search succeeded in finishing the search */
-		ret = mail_search_args_foreach(args, search_none, (void *)NULL);
+		ret = mail_search_args_foreach(args, search_none, NULL);
 		if (ret >= 0 || !have_body)
 			return ret;
 	}
@@ -1345,8 +1354,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	(void)mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_arg_deinit, ctx);
 
-	if (ctx->mail_ctx.wanted_headers != NULL)
-		mailbox_header_lookup_unref(&ctx->mail_ctx.wanted_headers);
+	mailbox_header_lookup_unref(&ctx->mail_ctx.wanted_headers);
 	if (ctx->mail_ctx.sort_program != NULL) {
 		if (index_sort_program_deinit(&ctx->mail_ctx.sort_program) < 0)
 			ret = -1;

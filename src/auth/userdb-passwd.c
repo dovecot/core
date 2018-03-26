@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "userdb.h"
@@ -204,7 +204,7 @@ static int passwd_iterate_deinit(struct userdb_iterate_context *_ctx)
 
 	if (cur_userdb_iter != NULL) {
 		cur_userdb_iter_to = timeout_add(0, passwd_iterate_next_timeout,
-						 (void *)NULL);
+						 NULL);
 	}
 	return ret;
 }

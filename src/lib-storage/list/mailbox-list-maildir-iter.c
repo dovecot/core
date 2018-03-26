@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -505,6 +505,12 @@ maildir_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		return mailbox_list_iter_default_next(_ctx);
 
 	ctx->info.flags = node->flags;
+	if (strcmp(ctx->info.vname, "INBOX") == 0 &&
+	    mail_namespace_is_inbox_noinferiors(ctx->info.ns)) {
+		i_assert((ctx->info.flags & MAILBOX_NOCHILDREN) != 0);
+		ctx->info.flags &= ~MAILBOX_NOCHILDREN;
+		ctx->info.flags |= MAILBOX_NOINFERIORS;
+	}
 	if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0 &&
 	    (_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
 		/* we're listing all mailboxes but we want to know

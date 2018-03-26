@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -414,7 +414,12 @@ static bool imap_parser_literal_end(struct imap_parser *parser)
 
 		if (parser->output != NULL && !parser->literal_nonsync) {
 			o_stream_nsend(parser->output, "+ OK\r\n", 6);
-			o_stream_nflush(parser->output);
+			if (o_stream_is_corked(parser->output)) {
+				/* make sure this continuation is sent to the
+				   client as soon as possible */
+				o_stream_uncork(parser->output);
+				o_stream_cork(parser->output);
+			}
 		}
 	}
 

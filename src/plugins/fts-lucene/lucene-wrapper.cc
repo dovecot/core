@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 extern "C" {
 #include "lib.h"
@@ -152,8 +152,7 @@ struct lucene_index *lucene_index_init(const char *path,
 
 void lucene_index_close(struct lucene_index *index)
 {
-	if (index->to_close != NULL)
-		timeout_remove(&index->to_close);
+	timeout_remove(&index->to_close);
 
 	_CLDELETE(index->searcher);
 	if (index->writer != NULL) {
@@ -1210,13 +1209,13 @@ lucene_add_definite_query(struct lucene_index *index,
 
 	switch (arg->type) {
 	case SEARCH_TEXT: {
-		BooleanQuery *bq = _CLNEW BooleanQuery();
 		Query *q1 = lucene_get_query(index, _T("hdr"), arg);
 		Query *q2 = lucene_get_query(index, _T("body"), arg);
 
 		if (q1 == NULL && q2 == NULL)
 			q = NULL;
 		else {
+			BooleanQuery *bq = _CLNEW BooleanQuery();
 			if (q1 != NULL)
 				bq->add(q1, true, BooleanClause::SHOULD);
 			if (q2 != NULL)

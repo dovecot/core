@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -18,14 +18,16 @@ struct quota_mailbox_iter {
 	unsigned int ns_idx;
 	struct mailbox_list_iterate_context *iter;
 	struct mailbox_info info;
-	bool failed;
+	const char *error;
 };
 
 extern struct quota_backend quota_backend_count;
 
 static int
 quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
-		    const char *vname, uint64_t *bytes, uint64_t *count)
+		    const char *vname, uint64_t *bytes, uint64_t *count,
+		    enum quota_get_result *error_result_r,
+		    const char **error_r)
 {
 	struct quota_rule *rule;
 	struct mailbox *box;
@@ -53,11 +55,17 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	    mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_TEMP) {
-			i_error("quota: Couldn't get size of mailbox %s: %s",
+			*error_r = t_strdup_printf(
+				"Couldn't get size of mailbox %s: %s",
 				vname, errstr);
+			*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 			ret = -1;
 		} else if (error == MAIL_ERROR_INUSE) {
 			/* started on background. don't log an error. */
+			*error_r = t_strdup_printf(
+				"Ongoing quota calculation blocked getting size of %s: %s",
+				vname, errstr);
+			*error_result_r = QUOTA_GET_RESULT_BACKGROUND_CALC;
 			ret = -1;
 		} else {
 			/* non-temporary error, e.g. ACLs denied access. */
@@ -80,24 +88,34 @@ quota_mailbox_iter_begin(struct quota_root *root)
 
 	iter = i_new(struct quota_mailbox_iter, 1);
 	iter->root = root;
+	iter->error = "";
 	return iter;
 }
 
 static int
-quota_mailbox_iter_deinit(struct quota_mailbox_iter **_iter)
+quota_mailbox_iter_deinit(struct quota_mailbox_iter **_iter,
+			  const char **error_r)
 {
 	struct quota_mailbox_iter *iter = *_iter;
-	int ret = iter->failed ? -1 : 0;
+	int ret = *iter->error != '\0' ? -1 : 0;
 
 	*_iter = NULL;
 
+	const char *error2 = "";
 	if (iter->iter != NULL) {
 		if (mailbox_list_iter_deinit(&iter->iter) < 0) {
-			i_error("quota: Listing namespace '%s' failed: %s",
+			error2 = t_strdup_printf(
+				"Listing namespace '%s' failed: %s",
 				iter->ns->prefix,
 				mailbox_list_get_last_internal_error(iter->ns->list, NULL));
 			ret = -1;
 		}
+	}
+	if (ret < 0) {
+		const char *separator =
+			*iter->error != '\0' && *error2 != '\0' ? " and " : "";
+		*error_r = t_strdup_printf("%s%s%s",
+					   iter->error, separator, error2);
 	}
 	i_free(iter);
 	return ret;
@@ -129,10 +147,10 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 			return info;
 	}
 	if (mailbox_list_iter_deinit(&iter->iter) < 0) {
-		i_error("quota: Listing namespace '%s' failed: %s",
+		iter->error = t_strdup_printf(
+			"Listing namespace '%s' failed: %s",
 			iter->ns->prefix,
 			mailbox_list_get_last_internal_error(iter->ns->list, NULL));
-		iter->failed = TRUE;
 	}
 	if (iter->ns->prefix_len > 0 &&
 	    (iter->ns->prefix_len != 6 ||
@@ -147,10 +165,12 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 	return quota_mailbox_iter_next(iter);
 }
 
-int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
+int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
+		enum quota_get_result *error_result_r, const char **error_r)
 {
 	struct quota_mailbox_iter *iter;
 	const struct mailbox_info *info;
+	const char *error1 = "", *error2 = "";
 	int ret = 1;
 
 	*bytes_r = *count_r = 0;
@@ -161,19 +181,29 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
 		if (quota_count_mailbox(root, info->ns, info->vname,
-					bytes_r, count_r) < 0) {
+					bytes_r, count_r, error_result_r,
+					&error1) < 0) {
 			ret = -1;
 			break;
 		}
 	}
-	if (quota_mailbox_iter_deinit(&iter) < 0)
+	if (quota_mailbox_iter_deinit(&iter, &error2) < 0) {
+		*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 		ret = -1;
+	}
+	if (ret < 0) {
+		const char *separator =
+			*error1 != '\0' && *error2 != '\0' ? " and " : "";
+		*error_r = t_strconcat(error1, separator, error2, NULL);
+	}
 	root->recounting = FALSE;
 	return ret;
 }
 
-static int quota_count_cached(struct count_quota_root *root,
-			      uint64_t *bytes_r, uint64_t *count_r)
+static enum quota_get_result
+quota_count_cached(struct count_quota_root *root,
+		   uint64_t *bytes_r, uint64_t *count_r,
+		   const char **error_r)
 {
 	int ret;
 
@@ -182,15 +212,19 @@ static int quota_count_cached(struct count_quota_root *root,
 	    ioloop_timeval.tv_sec != 0) {
 		*bytes_r = root->cached_bytes;
 		*count_r = root->cached_count;
-		return 1;
+		return QUOTA_GET_RESULT_LIMITED;
 	}
-	ret = quota_count(&root->root, bytes_r, count_r);
-	if (ret > 0) {
+
+	enum quota_get_result error_res;
+	ret = quota_count(&root->root, bytes_r, count_r, &error_res, error_r);
+	if (ret < 0) {
+		return error_res;
+	} else if (ret > 0) {
 		root->cache_timeval = ioloop_timeval;
 		root->cached_bytes = *bytes_r;
 		root->cached_count = *count_r;
 	}
-	return ret < 0 ? -1 : 0;
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static struct quota_root *count_quota_alloc(void)
@@ -226,26 +260,32 @@ count_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources;
 }
 
-static int
+static enum quota_get_result
 count_quota_get_resource(struct quota_root *_root,
-			 const char *name, uint64_t *value_r)
+			 const char *name, uint64_t *value_r,
+			 const char **error_r)
 {
 	struct count_quota_root *root = (struct count_quota_root *)_root;
 	uint64_t bytes, count;
+	enum quota_get_result ret;
 
-	if (quota_count_cached(root, &bytes, &count) < 0)
-		return -1;
+	ret = quota_count_cached(root, &bytes, &count, error_r);
+	if (ret <= QUOTA_GET_RESULT_INTERNAL_ERROR)
+		return ret;
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = bytes;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		*value_r = count;
-	else
-		return 0;
-	return 1;
+	else {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
-static int quota_count_recalculate_box(struct mailbox *box)
+static int quota_count_recalculate_box(struct mailbox *box,
+				       const char **error_r)
 {
 	struct mail_index_transaction *trans;
 	struct mailbox_metadata metadata;
@@ -259,7 +299,8 @@ static int quota_count_recalculate_box(struct mailbox *box)
 			/* non-temporary error, e.g. ACLs denied access. */
 			return 0;
 		}
-		i_error("Couldn't open mailbox %s: %s", box->vname, errstr);
+		*error_r = t_strdup_printf(
+			"Couldn't open mailbox %s: %s", box->vname, errstr);
 		return -1;
 	}
 
@@ -269,72 +310,84 @@ static int quota_count_recalculate_box(struct mailbox *box)
 	i_zero(&vsize_hdr);
 	mail_index_update_header_ext(trans, box->vsize_hdr_ext_id,
 				     0, &vsize_hdr, sizeof(vsize_hdr));
-	if (mail_index_transaction_commit(&trans) < 0)
+	if (mail_index_transaction_commit(&trans) < 0) {
+		*error_r = t_strdup_printf(
+			"Couldn't commit mail index transaction for %s: %s",
+			box->vname,
+			mail_index_get_error_message(box->view->index));
 		return -1;
+	}
 	/* getting the vsize now forces its recalculation */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_VIRTUAL_SIZE,
 				 &metadata) < 0) {
-		i_error("Couldn't get mailbox %s vsize: %s", box->vname,
+		*error_r = t_strdup_printf(
+			"Couldn't get mailbox %s vsize: %s", box->vname,
 			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	/* call sync to write the change to mailbox list index */
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0) {
-		i_error("Couldn't sync mailbox %s: %s", box->vname,
+		*error_r = t_strdup_printf(
+			"Couldn't sync mailbox %s: %s", box->vname,
 			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	return 0;
 }
 
-static int quota_count_recalculate(struct quota_root *root)
+static int quota_count_recalculate(struct quota_root *root,
+				   const char **error_r)
 {
 	struct quota_mailbox_iter *iter;
 	const struct mailbox_info *info;
 	struct mailbox *box;
 	int ret = 0;
+	const char *error1 = "", *error2 = "";
 
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(info->ns->list, info->vname, 0);
 		mailbox_set_reason(box, "quota recalculate");
-		if (quota_count_recalculate_box(box) < 0)
+		if (quota_count_recalculate_box(box, &error1) < 0)
 			ret = -1;
 		mailbox_free(&box);
 	}
-	if (quota_mailbox_iter_deinit(&iter) < 0)
+	if (quota_mailbox_iter_deinit(&iter, &error2) < 0)
 		ret = -1;
+	if (ret < 0) {
+		const char *separator =
+			*error1 != '\0' && *error2 != '\0' ? " and " : "";
+		*error_r = t_strdup_printf(
+			"quota-count: recalculate failed: %s%s%s",
+			error1, separator, error2);
+	}
 	return ret;
 }
 
 static int
 count_quota_update(struct quota_root *root,
-		   struct quota_transaction_context *ctx)
+		   struct quota_transaction_context *ctx,
+		   const char **error_r)
 {
 	struct count_quota_root *croot = (struct count_quota_root *)root;
 
 	croot->cache_timeval.tv_sec = 0;
 	if (ctx->recalculate == QUOTA_RECALCULATE_FORCED) {
-		if (quota_count_recalculate(root) < 0)
+		if (quota_count_recalculate(root, error_r) < 0)
 			return -1;
 	}
 	return 0;
 }
 
 struct quota_backend quota_backend_count = {
-	"count",
+	.name = "count",
 
-	{
-		count_quota_alloc,
-		count_quota_init,
-		count_quota_deinit,
-		NULL,
-		NULL,
-		NULL,
-		count_quota_root_get_resources,
-		count_quota_get_resource,
-		count_quota_update,
-		NULL,
-		NULL
+	.v = {
+		.alloc = count_quota_alloc,
+		.init = count_quota_init,
+		.deinit = count_quota_deinit,
+		.get_resources = count_quota_root_get_resources,
+		.get_resource = count_quota_get_resource,
+		.update = count_quota_update,
 	}
 };

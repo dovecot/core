@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -161,7 +161,7 @@ mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 	get_existing_name_ids(&existing_name_ids, ilist->mailbox_tree);
 	array_sort(&existing_name_ids, uint32_cmp);
 
-	hdr_buf = buffer_create_dynamic(pool_datastack_create(), 1024);
+	hdr_buf = t_buffer_create(1024);
 	buffer_append_zero(hdr_buf, sizeof(struct mailbox_list_index_header));
 
 	/* add existing names to header (with deduplication) */
@@ -225,7 +225,7 @@ sync_expunge_nonexistent(struct mailbox_list_index_sync_context *sync_ctx,
 int mailbox_list_index_sync_begin(struct mailbox_list *list,
 				  struct mailbox_list_index_sync_context **sync_ctx_r)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *view;
@@ -311,7 +311,7 @@ mailbox_list_index_sync_list(struct mailbox_list_index_sync_context *sync_ctx)
 			  MAILBOX_LIST_ITER_NO_AUTO_BOXES);
 
 	sync_ctx->syncing_list = TRUE;
-	while ((info = sync_ctx->ilist->module_ctx.super.iter_next(iter)) != NULL) {
+	while ((info = sync_ctx->ilist->module_ctx.super.iter_next(iter)) != NULL) T_BEGIN {
 		flags = 0;
 		if ((info->flags & MAILBOX_NONEXISTENT) != 0)
 			flags |= MAILBOX_LIST_INDEX_FLAG_NONEXISTENT;
@@ -320,18 +320,21 @@ mailbox_list_index_sync_list(struct mailbox_list_index_sync_context *sync_ctx)
 		if ((info->flags & MAILBOX_NOINFERIORS) != 0)
 			flags |= MAILBOX_LIST_INDEX_FLAG_NOINFERIORS;
 
-		T_BEGIN {
-			const char *name =
-				mailbox_list_get_storage_name(info->ns->list,
-							      info->vname);
+		const char *name = mailbox_list_get_storage_name(info->ns->list,
+								 info->vname);
+		if (strcmp(name, "INBOX") == 0 &&
+		    strcmp(info->vname, "INBOX") != 0 &&
+		    (info->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+			/* prefix/INBOX - don't override INBOX with this */
+		} else {
 			seq = mailbox_list_index_sync_name(sync_ctx, name,
 							   &node, &created);
-		} T_END;
-
-		node->flags = flags | MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
-		mail_index_update_flags(sync_ctx->trans, seq,
-					MODIFY_REPLACE, (enum mail_flags)flags);
-	}
+			node->flags = flags | MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
+			mail_index_update_flags(sync_ctx->trans, seq,
+						MODIFY_REPLACE,
+						(enum mail_flags)flags);
+		}
+	} T_END;
 	sync_ctx->syncing_list = FALSE;
 
 	if (sync_ctx->ilist->module_ctx.super.iter_deinit(iter) < 0)

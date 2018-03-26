@@ -1,10 +1,17 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
 
 
-void *array_idx_modifiable_i(struct array *array, unsigned int idx)
+void *
+array_idx_modifiable_i(const struct array *array, unsigned int idx)
+{
+	i_assert(idx * array->element_size < array->buffer->used);
+	return PTR_OFFSET(array->buffer->data, idx * array->element_size);
+}
+
+void *array_idx_get_space_i(struct array *array, unsigned int idx)
 {
 	return buffer_get_space_unsafe(array->buffer, idx * array->element_size,
 				       array->element_size);

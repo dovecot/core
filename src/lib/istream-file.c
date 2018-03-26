@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 /* @UNSAFE: whole file */
 
@@ -231,7 +231,7 @@ i_stream_create_file_common(struct file_istream *fstream,
 	}
 	fstream->istream.istream.readable_fd = TRUE;
 
-	input = i_stream_create(&fstream->istream, NULL, fd);
+	input = i_stream_create(&fstream->istream, NULL, fd, 0);
 	i_stream_set_name(input, is_file ? "(file)" : "(fd)");
 	return input;
 }

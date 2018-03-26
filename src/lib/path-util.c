@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -66,7 +66,7 @@ static int path_normalize(const char *path, bool resolve_links,
 		ptrdiff_t seglen;
 		const char *segend;
 
-		/* skip duplicate shashes */
+		/* skip duplicate slashes */
 		while (*p == '/')
 			p++;
 
@@ -81,28 +81,32 @@ static int path_normalize(const char *path, bool resolve_links,
 		} else if (seglen == 2 && p[0] == '.' && p[1] == '.') {
 			/* a reference to parent segment; back up to previous
 			 * slash */
-			if (npath_pos > npath + 1) {
+			i_assert(npath_pos >= npath);
+			if ((npath_pos - npath) > 1) {
 				if (*(npath_pos-1) == '/')
 					npath_pos--;
 				for (; *(npath_pos-1) != '/'; npath_pos--);
 			}
 		} else {
-			/* make sure npath now ends in slash */
-			if (*(npath_pos-1) != '/') {
-				i_assert(npath_pos + 1 < npath + asize);
-				*(npath_pos++) = '/';
-			}
-
 			/* allocate space if necessary */
-			if ((npath_pos + seglen + 1) >= (npath + asize)) {
+			i_assert(npath_pos >= npath);
+			if ((size_t)((npath_pos - npath) + seglen + 1) >= asize) {
 				ptrdiff_t npath_offset = npath_pos - npath;
 				asize = nearest_power(npath_offset + seglen + 2);
 				npath = t_buffer_reget(npath, asize);
 				npath_pos = npath + npath_offset;
 			}
 
+			/* make sure npath now ends in slash */
+			i_assert(npath_pos > npath);
+			if (*(npath_pos-1) != '/') {
+				i_assert((size_t)((npath_pos - npath) + 1) < asize);
+				*(npath_pos++) = '/';
+			}
+
 			/* copy segment to normalized path */
-			i_assert((npath_pos + seglen) < (npath + asize));
+			i_assert(npath_pos >= npath);
+			i_assert((size_t)((npath_pos - npath) + seglen) < asize);
 			memmove(npath_pos, p, seglen);
 			npath_pos += seglen;
 		}
@@ -136,7 +140,8 @@ static int path_normalize(const char *path, bool resolve_links,
 				   [npath][0][preserved tail][link buffer][room for tail][0]
 				 */
 				espace = ltlen + tlen + 2;
-				if ((npath_pos + espace + lsize) >= (npath + asize)) {
+				i_assert(npath_pos >= npath);
+				if ((size_t)((npath_pos - npath) + espace + lsize) >= asize) {
 					ptrdiff_t npath_offset = npath_pos - npath;
 					asize = nearest_power((npath_offset + espace + lsize) + 1);
 					lsize = asize - (npath_offset + espace);
@@ -146,6 +151,8 @@ static int path_normalize(const char *path, bool resolve_links,
 
 				if (ltlen > 0) {
 					/* preserve tail just after end of npath */
+					i_assert(npath_pos >= npath);
+					i_assert((size_t)((npath_pos + 1 - npath) + ltlen) < asize);
 					memmove(npath_pos + 1, segend, ltlen);
 				}
 
@@ -153,7 +160,8 @@ static int path_normalize(const char *path, bool resolve_links,
 				for (;;) {
 					npath_link = (npath_pos + 1) + ltlen;
 
-					i_assert(npath_link + lsize < npath + asize);
+					i_assert(npath_link >= npath_pos);
+					i_assert((size_t)((npath_link - npath) + lsize) < asize);
 
 					/* attempt to read the link */
 					if ((ret=readlink(npath, npath_link, lsize)) < 0) {
@@ -179,8 +187,9 @@ static int path_normalize(const char *path, bool resolve_links,
 					   we need to allocate more space as well if lsize == ret,
 					   because the returned link may have gotten truncated */
 					espace = ltlen + tlen + 2;
-					if ((npath_pos + espace + lsize) >= (npath + asize) ||
-					     lsize == (size_t)ret) {
+					i_assert(npath_pos >= npath);
+					if ((size_t)((npath_pos - npath) + espace + lsize) >= asize ||
+					    lsize == (size_t)ret) {
 						ptrdiff_t npath_offset = npath_pos - npath;
 						asize = nearest_power((npath_offset + espace + lsize) + 1);
 						lsize = asize - (npath_offset + espace);
@@ -190,11 +199,14 @@ static int path_normalize(const char *path, bool resolve_links,
 				}
 
 				/* add tail of previous path at end of symlink */
+				i_assert(npath_link >= npath);
 				if (ltlen > 0) {
-					i_assert(npath_pos + 1 + tlen < npath + asize);
+					i_assert(npath_pos >= npath);
+					i_assert((size_t)((npath_pos - npath) + 1 + tlen) < asize);
+					i_assert((size_t)((npath_link - npath) + ret + tlen) < asize);
 					memcpy(npath_link + ret, npath_pos + 1, tlen);
 				} else {
-					i_assert(segend + tlen < npath + asize);
+					i_assert((size_t)((npath_link - npath) + ret + tlen) < asize);
 					memcpy(npath_link + ret, segend, tlen);
 				}
 				*(npath_link+ret+tlen) = '\0';
@@ -207,7 +219,8 @@ static int path_normalize(const char *path, bool resolve_links,
 					npath_pos = npath + 1;
 				} else {
 					/* relative symlink; back up to previous segment */
-					if (npath_pos > npath + 1) {
+					i_assert(npath_pos >= npath);
+					if ((npath_pos - npath) > 1) {
 						if (*(npath_pos-1) == '/')
 							npath_pos--;
 						for (; *(npath_pos-1) != '/'; npath_pos--);
@@ -225,10 +238,11 @@ static int path_normalize(const char *path, bool resolve_links,
 		p = segend;
 	}
 
-	i_assert(npath_pos < npath + asize);
+	i_assert(npath_pos >= npath);
+	i_assert((size_t)(npath_pos - npath) < asize);
 
 	/* remove any trailing slash */
-	if (npath_pos > npath + 1 && *(npath_pos-1) == '/')
+	if ((npath_pos - npath) > 1 && *(npath_pos-1) == '/')
 		npath_pos--;
 	*npath_pos = '\0';
 

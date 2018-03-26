@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
 #include "base64.h"
@@ -129,6 +129,10 @@ imap_client_auth_begin(struct imap_client *imap_client, const char *mech_name,
 	imap_client->common.master_data_prefix = (void *)prefix;
 	imap_client->common.master_data_prefix_len = strlen(prefix)+1;
 
+	if (*init_resp == '\0')
+		init_resp = NULL;
+	else if (strcmp(init_resp, "=") == 0)
+		init_resp = "";
 	return client_auth_begin(&imap_client->common, mech_name, init_resp);
 }
 
@@ -196,14 +200,13 @@ int cmd_login(struct imap_client *imap_client, const struct imap_arg *args)
 	}
 
 	/* authorization ID \0 authentication ID \0 pass */
-	plain_login = buffer_create_dynamic(pool_datastack_create(), 64);
+	plain_login = t_buffer_create(64);
 	buffer_append_c(plain_login, '\0');
 	buffer_append(plain_login, user, strlen(user));
 	buffer_append_c(plain_login, '\0');
 	buffer_append(plain_login, pass, strlen(pass));
 
-	base64 = buffer_create_dynamic(pool_datastack_create(),
-        			MAX_BASE64_ENCODED_SIZE(plain_login->used));
+	base64 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(plain_login->used));
 	base64_encode(plain_login->data, plain_login->used, base64);
 	return imap_client_auth_begin(imap_client, "PLAIN", str_c(base64));
 }

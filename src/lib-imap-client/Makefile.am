@@ -47,8 +47,7 @@ test_imapc_client_SOURCES = test-imapc-client.c
 test_imapc_client_LDADD = $(test_libs)
 test_imapc_client_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

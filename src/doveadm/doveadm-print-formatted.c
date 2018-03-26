@@ -1,13 +1,14 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
 #include "str.h"
 #include "ostream.h"
-#include "client-connection.h"
+#include "doveadm.h"
 #include "doveadm-server.h"
 #include "doveadm-print.h"
 #include "doveadm-print-private.h"
+#include "client-connection.h"
 #include "var-expand.h"
 
 struct doveadm_print_formatted_context {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "connection.h"
@@ -233,9 +233,8 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	}
 	client->imap_client_created = TRUE;
 
-	if (mail_namespaces_init(imap_client->user, &error) < 0) {
-		i_error("imap-master(%s): mail_namespaces_init() failed: %s",
-			input.username, error);
+	if (client_create_finish(imap_client, &error) < 0) {
+		i_error("imap-master(%s): %s", input.username, error);
 		client_destroy(imap_client, error);
 		return -1;
 	}
@@ -330,11 +329,10 @@ void imap_master_client_create(int fd)
 	struct imap_master_client *client;
 
 	client = i_new(struct imap_master_client, 1);
+	client->conn.unix_socket = TRUE;
 	connection_init_server(master_clients, &client->conn,
 			       "imap-master", fd, fd);
 
-	i_assert(client->conn.input == NULL);
-	client->conn.input = i_stream_create_unix(fd, (size_t)-1);
 	/* read the first file descriptor that we can */
 	i_stream_unix_set_read_fd(client->conn.input);
 }
@@ -345,7 +343,7 @@ static struct connection_settings client_set = {
 	.major_version = 1,
 	.minor_version = 0,
 
-	.input_max_size = 0, /* don't auto-create istream */
+	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
 	.client = FALSE
 };

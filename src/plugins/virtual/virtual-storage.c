@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -24,7 +24,7 @@
 #define VIRTUAL_DEFAULT_MAX_OPEN_MAILBOXES 64
 
 #define VIRTUAL_BACKEND_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, virtual_backend_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, virtual_backend_storage_module)
 
 struct virtual_backend_mailbox {
 	union mailbox_module_context module_ctx;
@@ -197,8 +197,15 @@ static int virtual_backend_box_alloc(struct virtual_mailbox *mbox,
 		t_strdup_printf("virtual mailbox %s", mailbox_get_vname(&mbox->box)) :
 		t_strdup_printf("virtual mailbox %s: %s", mailbox_get_vname(&mbox->box), mbox->box.reason));
 
-	if (mailbox_exists(bbox->box, TRUE, &existence) < 0)
-		return virtual_backend_box_open_failed(mbox, bbox);
+	if (bbox == mbox->save_bbox) {
+		/* Assume that the save_bbox exists, whether or not it truly
+		   does. This at least gives a better error message than crash
+		   later on. */
+		existence = MAILBOX_EXISTENCE_SELECT;
+	} else {
+		if (mailbox_exists(bbox->box, TRUE, &existence) < 0)
+			return virtual_backend_box_open_failed(mbox, bbox);
+	}
 	if (existence != MAILBOX_EXISTENCE_SELECT) {
 		/* ignore this. it could be intentional. */
 		if (mbox->storage->storage.user->mail_debug) {
@@ -480,7 +487,7 @@ static int virtual_mailbox_open(struct mailbox *box)
 	int ret = 0;
 
 	if (virtual_mailbox_is_in_open_stack(mbox->storage, box->name)) {
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"Virtual mailbox loops: %s", box->name);
 		return -1;
 	}
@@ -523,9 +530,8 @@ static int virtual_mailbox_open(struct mailbox *box)
 		mail_index_update_header_ext(t, mbox->virtual_guid_ext_id,
 					     0, mbox->guid, GUID_128_SIZE);
 		if (mail_index_transaction_commit(&t) < 0) {
-			mail_storage_set_critical(box->storage,
-						  "Cannot write GUID for virtual mailbox %s to index",
-						  mailbox_get_vname(box));
+			mailbox_set_critical(box,
+				"Cannot write GUID for virtual mailbox to index");
 			virtual_mailbox_close_internal(mbox);
 			index_storage_mailbox_close(box);
 			return -1;
@@ -599,9 +605,8 @@ static int virtual_storage_set_have_guid_flags(struct virtual_mailbox *mbox)
 			   since this could be called from
 			   mailbox_get_open_status() and it would panic.
 			   So just log the error and skip the mailbox. */
-			mail_storage_set_critical(mbox->box.storage,
-				"Virtual mailbox %s: Failed to get have_guid existence for backend mailbox %s: %s",
-				mailbox_get_vname(&mbox->box),
+			mailbox_set_critical(&mbox->box,
+				"Virtual mailbox: Failed to get have_guid existence for backend mailbox %s: %s",
 				mailbox_get_vname(bboxes[i]->box), errstr);
 			continue;
 		}
@@ -659,8 +664,7 @@ virtual_mailbox_get_metadata(struct mailbox *box,
 	i_assert(box->opened);
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		if (guid_128_is_empty(mbox->guid)) {
-			mail_storage_set_critical(box->storage, "GUID missing for virtual folder %s",
-						  mailbox_get_vname(box));
+			mailbox_set_critical(box, "GUID missing for virtual folder");
 			return -1;
 		}
 		guid_128_copy(metadata_r->guid, mbox->guid);

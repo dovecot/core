@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "hostpid.h"
@@ -125,7 +125,7 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 		iostream_rawlog_write_unbuffered(rstream, data, size);
 	o_stream_uncork(rstream->rawlog_output);
 
-	if (o_stream_nfinish(rstream->rawlog_output) < 0) {
+	if (o_stream_flush(rstream->rawlog_output) < 0) {
 		i_error("write(%s) failed: %s",
 			o_stream_get_name(rstream->rawlog_output),
 			o_stream_get_error(rstream->rawlog_output));

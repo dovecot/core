@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream-private.h"
@@ -87,6 +87,7 @@ static void parse_content_type(struct attachment_istream *astream,
 		(void)rfc822_parse_content_type(&parser, content_type);
 		astream->part.content_type = i_strdup(str_c(content_type));
 	} T_END;
+	rfc822_parser_deinit(&parser);
 }
 
 static void
@@ -336,10 +337,10 @@ static void astream_add_body(struct attachment_istream *astream,
 	}
 }
 
-static int astream_decode_base64(struct attachment_istream *astream)
+static int astream_decode_base64(struct attachment_istream *astream,
+				 buffer_t **extra_buf_r)
 {
 	struct attachment_istream_part *part = &astream->part;
-	buffer_t *extra_buf = NULL;
 	struct istream *input, *base64_input;
 	struct ostream *output;
 	const unsigned char *data;
@@ -348,6 +349,8 @@ static int astream_decode_base64(struct attachment_istream *astream)
 	buffer_t *buf;
 	int outfd;
 	bool failed = FALSE;
+
+	*extra_buf_r = NULL;
 
 	if (part->base64_bytes < astream->set.min_size ||
 	    part->temp_output->offset > part->base64_bytes +
@@ -398,7 +401,7 @@ static int astream_decode_base64(struct attachment_istream *astream)
 			i_stream_get_error(base64_input));
 		failed = TRUE;
 	}
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("istream-attachment: write(%s) failed: %s",
 			o_stream_get_name(output), o_stream_get_error(output));
 		failed = TRUE;
@@ -410,9 +413,9 @@ static int astream_decode_base64(struct attachment_istream *astream)
 
 	if (input->v_offset != part->temp_output->offset && !failed) {
 		/* write the rest of the data to the message stream */
-		extra_buf = buffer_create_dynamic(default_pool, 1024);
+		*extra_buf_r = buffer_create_dynamic(default_pool, 1024);
 		while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
-			buffer_append(extra_buf, data, size);
+			buffer_append(*extra_buf_r, data, size);
 			i_stream_skip(input, size);
 		}
 		i_assert(ret == -1);
@@ -434,11 +437,6 @@ static int astream_decode_base64(struct attachment_istream *astream)
 	o_stream_destroy(&part->temp_output);
 	i_close_fd(&part->temp_fd);
 	part->temp_fd = outfd;
-
-	if (extra_buf != NULL) {
-		stream_add_data(astream, extra_buf->data, extra_buf->used);
-		buffer_free(&extra_buf);
-	}
 	return 0;
 }
 
@@ -450,11 +448,12 @@ astream_part_finish(struct attachment_istream *astream, const char **error_r)
 	struct istream *input;
 	struct ostream *output;
 	string_t *digest_str;
+	buffer_t *extra_buf = NULL;
 	const unsigned char *data;
 	size_t size;
 	int ret = 0;
 
-	if (o_stream_nfinish(part->temp_output) < 0) {
+	if (o_stream_finish(part->temp_output) < 0) {
 		*error_r = t_strdup_printf("write(%s) failed: %s",
 					   o_stream_get_name(part->temp_output),
 					   o_stream_get_error(part->temp_output));
@@ -484,7 +483,7 @@ astream_part_finish(struct attachment_istream *astream, const char **error_r)
 		}
 		if (part->base64_state == BASE64_STATE_EOM) {
 			/* base64 data looks ok. */
-			if (astream_decode_base64(astream) < 0)
+			if (astream_decode_base64(astream, &extra_buf) < 0)
 				part->base64_failed = TRUE;
 		} else {
 			part->base64_failed = TRUE;
@@ -506,8 +505,10 @@ astream_part_finish(struct attachment_istream *astream, const char **error_r)
 		info.encoded_size = part->temp_output->offset;
 	}
 	if (astream->set.open_attachment_ostream(&info, &output, error_r,
-						 astream->context) < 0)
+						 astream->context) < 0) {
+		buffer_free(&extra_buf);
 		return -1;
+	}
 
 	/* copy data to attachment from temp file */
 	input = i_stream_create_fd(part->temp_fd, IO_BLOCK_SIZE);
@@ -526,6 +527,9 @@ astream_part_finish(struct attachment_istream *astream, const char **error_r)
 	if (astream->set.close_attachment_ostream(output, ret == 0, error_r,
 						  astream->context) < 0)
 		ret = -1;
+	if (ret == 0 && extra_buf != NULL)
+		stream_add_data(astream, extra_buf->data, extra_buf->used);
+	buffer_free(&extra_buf);
 	return ret;
 }
 
@@ -715,7 +719,7 @@ i_stream_create_attachment_extractor(struct istream *input,
 				MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
 				MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES);
 	return i_stream_create(&astream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }
 
 bool i_stream_attachment_extractor_can_retry(struct istream *input)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -516,7 +516,7 @@ mail_search_args_analyze(struct mail_search_arg *args,
 
 	*have_headers = *have_body = have_text = FALSE;
 
-	headers = buffer_create_dynamic(pool_datastack_create(), 128);
+	headers = t_buffer_create(128);
 	for (; args != NULL; args = args->next)
 		search_arg_analyze(args, headers, have_body, &have_text);
 

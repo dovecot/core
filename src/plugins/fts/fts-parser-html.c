@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -13,13 +13,11 @@ struct html_fts_parser {
 };
 
 static struct fts_parser *
-fts_parser_html_try_init(struct mail_user *user ATTR_UNUSED,
-			 const char *content_type,
-			 const char *content_disposition ATTR_UNUSED)
+fts_parser_html_try_init(struct fts_parser_context *parser_context)
 {
 	struct html_fts_parser *parser;
 
-	if (!mail_html2text_content_type_match(content_type))
+	if (!mail_html2text_content_type_match(parser_context->content_type))
 		return NULL;
 
 	parser = i_new(struct html_fts_parser, 1);
@@ -47,14 +45,15 @@ static void fts_parser_html_more(struct fts_parser *_parser,
 	block->size = parser->output->used;
 }
 
-static int fts_parser_html_deinit(struct fts_parser *_parser)
+static int fts_parser_html_deinit(struct fts_parser *_parser,
+				  const char **retriable_err_msg_r ATTR_UNUSED)
 {
 	struct html_fts_parser *parser = (struct html_fts_parser *)_parser;
 
 	mail_html2text_deinit(&parser->html2text);
 	buffer_free(&parser->output);
 	i_free(parser);
-	return 0;
+	return 1;
 }
 
 struct fts_parser_vfuncs fts_parser_html = {

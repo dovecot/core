@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -126,12 +126,31 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 	return total;
 }
 
+static size_t
+o_stream_multiplex_ochannel_get_buffer_used_size(const struct ostream_private *stream)
+{
+	const struct multiplex_ochannel *channel =
+		(const struct multiplex_ochannel*)stream;
+
+	return channel->buf->used + channel->mstream->wbuf->used +
+		o_stream_get_buffer_used_size(channel->mstream->parent);
+}
+
+static size_t
+o_stream_multiplex_ochannel_get_buffer_avail_size(const struct ostream_private *stream)
+{
+	const struct multiplex_ochannel *channel =
+		(const struct multiplex_ochannel*)stream;
+
+	return channel->mstream->bufsize <= channel->buf->used ? 0 :
+		channel->mstream->bufsize - channel->buf->used;
+}
+
 static void
 o_stream_multiplex_ochannel_close(struct iostream_private *stream, bool close_parent)
 {
 	struct multiplex_ochannel *const *channelp;
 	struct multiplex_ochannel *channel = (struct multiplex_ochannel*)stream;
-	(void)o_stream_flush(&channel->ostream.ostream);
 
 	channel->closed = TRUE;
 	if (close_parent) {
@@ -159,7 +178,6 @@ static void o_stream_multiplex_ochannel_destroy(struct iostream_private *stream)
 {
 	struct multiplex_ochannel **channelp;
 	struct multiplex_ochannel *channel = (struct multiplex_ochannel*)stream;
-	o_stream_multiplex_ochannel_close(stream, TRUE);
 	o_stream_unref(&channel->ostream.parent);
 	if (channel->buf != NULL)
 		buffer_free(&channel->buf);
@@ -181,6 +199,10 @@ o_stream_add_channel_real(struct multiplex_ostream *mstream, uint8_t cid)
 	channel->buf = buffer_create_dynamic(default_pool, 256);
 	channel->mstream = mstream;
 	channel->ostream.sendv = o_stream_multiplex_ochannel_sendv;
+	channel->ostream.get_buffer_used_size =
+		o_stream_multiplex_ochannel_get_buffer_used_size;
+	channel->ostream.get_buffer_avail_size =
+		o_stream_multiplex_ochannel_get_buffer_avail_size;
 	channel->ostream.iostream.close = o_stream_multiplex_ochannel_close;
 	channel->ostream.iostream.destroy = o_stream_multiplex_ochannel_destroy;
 	channel->ostream.fd = o_stream_get_fd(mstream->parent);

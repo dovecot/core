@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -21,9 +21,7 @@ static void sdbox_mail_set_expunged(struct dbox_mail *mail)
 		return;
 	}
 
-	mail_storage_set_critical(_mail->box->storage,
-				  "dbox %s: Unexpectedly lost uid=%u",
-				  mailbox_get_path(_mail->box), _mail->uid);
+	mail_set_critical(_mail, "dbox: Unexpectedly lost uid");
 	sdbox_set_mailbox_corrupted(_mail->box);
 }
 
@@ -50,9 +48,8 @@ static int sdbox_mail_file_set(struct dbox_mail *mail)
 		/* it doesn't have input stream yet */
 		ret = dbox_file_open(mail->open_file, &deleted);
 		if (ret <= 0) {
-			mail_storage_set_critical(_mail->box->storage,
-				"dbox %s: Unexpectedly lost mail being saved",
-				  mailbox_get_path(_mail->box));
+			mail_set_critical(_mail,
+				"dbox: Unexpectedly lost mail being saved");
 			sdbox_set_mailbox_corrupted(_mail->box);
 			return -1;
 		}

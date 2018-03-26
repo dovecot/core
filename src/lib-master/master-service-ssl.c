@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -61,16 +61,22 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	}
 
 	i_zero(&ssl_set);
-	ssl_set.protocols = set->ssl_protocols;
+	ssl_set.min_protocol = set->ssl_min_protocol;
 	ssl_set.cipher_list = set->ssl_cipher_list;
 	ssl_set.curve_list = set->ssl_curve_list;
 	ssl_set.ca = set->ssl_ca;
-	ssl_set.cert = set->ssl_cert;
-	ssl_set.key = set->ssl_key;
+	ssl_set.cert.cert = set->ssl_cert;
+	ssl_set.cert.key = set->ssl_key;
 	ssl_set.dh = set->ssl_dh;
-	ssl_set.key_password = set->ssl_key_password;
+	ssl_set.cert.key_password = set->ssl_key_password;
 	ssl_set.cert_username_field = set->ssl_cert_username_field;
+	if (set->ssl_alt_cert != NULL && *set->ssl_alt_cert != '\0') {
+		ssl_set.alt_cert.cert = set->ssl_alt_cert;
+		ssl_set.alt_cert.key = set->ssl_alt_key;
+		ssl_set.alt_cert.key_password = set->ssl_key_password;
+	}
 	ssl_set.crypto_device = set->ssl_crypto_device;
+	ssl_set.skip_crl_check = !set->ssl_require_crl;
 
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
@@ -89,6 +95,6 @@ void master_service_ssl_ctx_init(struct master_service *service)
 void master_service_ssl_ctx_deinit(struct master_service *service)
 {
 	if (service->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&service->ssl_ctx);
+		ssl_iostream_context_unref(&service->ssl_ctx);
 	service->ssl_ctx_initialized = FALSE;
 }

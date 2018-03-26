@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -62,6 +62,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 		test_assert(o_stream_send(output, buf, sizeof(buf)) == sizeof(buf));
 	}
 
+	test_assert(o_stream_finish(output) > 0);
 	o_stream_destroy(&output);
 	o_stream_destroy(&file_output);
 	sha1_result(&sha1, output_sha1);
@@ -101,23 +102,24 @@ static void test_gz(const char *str1, const char *str2)
 	const struct compression_handler *gz = compression_lookup_handler("gz");
 	struct ostream *buf_output, *output;
 	struct istream *test_input, *input;
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 512);
+	buffer_t *buf = t_buffer_create(512);
 
 	if (gz == NULL || gz->create_ostream == NULL)
 		return; /* not compiled in */
 
 	/* write concated output */
 	buf_output = o_stream_create_buffer(buf);
+	o_stream_set_finish_via_child(buf_output, FALSE);
 
 	output = gz->create_ostream(buf_output, 6);
 	o_stream_nsend_str(output, str1);
-	test_assert(o_stream_nfinish(output) == 0);
+	test_assert(o_stream_finish(output) > 0);
 	o_stream_destroy(&output);
 
 	if (str2[0] != '\0') {
 		output = gz->create_ostream(buf_output, 6);
 		o_stream_nsend_str(output, "world");
-		test_assert(o_stream_nfinish(output) == 0);
+		test_assert(o_stream_finish(output) > 0);
 		o_stream_destroy(&output);
 	}
 
@@ -260,7 +262,7 @@ static void test_compress_file(const char *in_path, const char *out_path)
 		o_stream_nsend(output, data, size);
 		i_stream_skip(input, size);
 	}
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_fatal("write(%s) failed: %s",
 			out_path, o_stream_get_error(output));
 	}

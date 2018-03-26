@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -259,7 +259,7 @@ static void thread_add_shadow_child(struct thread_finish_context *ctx,
 {
 	struct mail_thread_shadow_node *parent_shadow, *child_shadow;
 
-	parent_shadow = array_idx_modifiable(&ctx->shadow_nodes, parent_idx);
+	parent_shadow = array_idx_get_space(&ctx->shadow_nodes, parent_idx);
 	child_shadow = array_idx_modifiable(&ctx->shadow_nodes, child_idx);
 
 	child_shadow->next_sibling_idx = parent_shadow->first_child_idx;
@@ -523,7 +523,7 @@ static void mail_thread_finish(struct thread_finish_context *ctx,
 	i_array_init(&ctx->roots, I_MIN(128, record_count));
 	i_array_init(&ctx->shadow_nodes, record_count);
 	/* make sure all shadow indexes are accessible directly. */
-	(void)array_idx_modifiable(&ctx->shadow_nodes, record_count);
+	(void)array_idx_get_space(&ctx->shadow_nodes, record_count);
 
 	mail_thread_create_shadows(ctx, record_count);
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "net.h"
@@ -45,8 +45,8 @@ static void test_ostream_file_random_once(void)
 			test_assert(o_stream_flush(output) > 0);
 	}
 
-	test_assert(o_stream_flush(output) > 0);
 	o_stream_uncork(output);
+	test_assert(o_stream_finish(output) > 0);
 	ret = pread(fd, buf2, sizeof(buf2), 0);
 	if (ret < 0)
 		i_fatal("pread() failed: %m");

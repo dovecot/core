@@ -1,13 +1,15 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
+#include "str.h"
 #include "mail-index-modseq.h"
 #include "imap-arg.h"
 #include "imap-seqset.h"
 #include "imap-util.h"
 #include "imapc-mail.h"
 #include "imapc-msgmap.h"
+#include "imapc-list.h"
 #include "imapc-search.h"
 #include "imapc-sync.h"
 #include "imapc-storage.h"
@@ -100,7 +102,12 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 
 	if (mbox->delayed_sync_view != NULL)
 		mail_index_view_close(&mbox->delayed_sync_view);
-	if (mbox->delayed_sync_trans != NULL) {
+	if (mbox->delayed_sync_trans == NULL)
+		;
+	else if (!mbox->selected) {
+		/* ignore any changes done during SELECT */
+		mail_index_transaction_rollback(&mbox->delayed_sync_trans);
+	} else {
 		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0) {
 			mailbox_set_index_error(&mbox->box);
 			ret = -1;
@@ -110,15 +117,22 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 	mbox->delayed_sync_cache_trans = NULL;
 	if (mbox->delayed_sync_cache_view != NULL)
 		mail_cache_view_close(&mbox->delayed_sync_cache_view);
-	if (mbox->sync_view != NULL)
-		mail_index_view_close(&mbox->sync_view);
 
 	if (array_count(&mbox->delayed_expunged_uids) > 0) {
 		/* delayed expunges - commit them now in a separate
-		   transaction */
+		   transaction. Reopen mbox->sync_view to see changes
+		   committed in delayed_sync_trans. */
+		if (mbox->sync_view != NULL)
+			mail_index_view_close(&mbox->sync_view);
 		if (imapc_mailbox_commit_delayed_expunges(mbox) < 0)
 			ret = -1;
 	}
+
+	if (mbox->sync_view != NULL)
+		mail_index_view_close(&mbox->sync_view);
+	i_assert(mbox->delayed_sync_trans == NULL);
+	i_assert(mbox->delayed_sync_view == NULL);
+	i_assert(mbox->delayed_sync_cache_trans == NULL);
 	return ret;
 }
 
@@ -144,6 +158,115 @@ static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
 }
 
 static void
+imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox)
+{
+	uint32_t lseq, uid, msg_count;
+
+	if (mbox->sync_next_lseq == 0) {
+		/* FETCH n:*, not 1:* */
+		i_assert(mbox->state_fetched_success ||
+			 (mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0);
+		return;
+	}
+
+	/* if we haven't seen FETCH reply for some messages at the end of
+	   mailbox they've been externally expunged. */
+	msg_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
+	for (lseq = mbox->sync_next_lseq; lseq <= msg_count; lseq++) {
+		mail_index_lookup_uid(mbox->delayed_sync_view, lseq, &uid);
+		if (uid >= mbox->sync_uid_next) {
+			/* another process already added new messages to index
+			   that our IMAP connection hasn't seen yet */
+			break;
+		}
+		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+	}
+
+	mbox->sync_next_lseq = 0;
+	mbox->sync_next_rseq = 0;
+	mbox->state_fetched_success = TRUE;
+}
+
+static void
+imapc_mailbox_fetch_state_callback(const struct imapc_command_reply *reply,
+				   void *context)
+{
+	struct imapc_mailbox *mbox = context;
+
+	mbox->state_fetching_uid1 = FALSE;
+	imapc_client_stop(mbox->storage->client->client);
+
+	switch (reply->state) {
+	case IMAPC_COMMAND_STATE_OK:
+		imapc_mailbox_fetch_state_finish(mbox);
+		break;
+	case IMAPC_COMMAND_STATE_NO:
+		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS, reply);
+		break;
+	case IMAPC_COMMAND_STATE_DISCONNECTED:
+		mail_storage_set_internal_error(mbox->box.storage);
+
+		break;
+	default:
+		mail_storage_set_critical(mbox->box.storage,
+			"imapc: state FETCH failed: %s", reply->text_full);
+		break;
+	}
+}
+
+static void
+imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
+{
+	struct imapc_command *cmd;
+
+	if (mbox->exists_count == 0) {
+		/* empty mailbox - no point in fetching anything */
+		mbox->state_fetched_success = TRUE;
+		return;
+	}
+	if (mbox->state_fetching_uid1) {
+		/* retrying after reconnection - don't send duplicate */
+		return;
+	}
+
+	string_t *str = t_str_new(64);
+	str_printfa(str, "UID FETCH %u:* (FLAGS", first_uid);
+	if (imapc_mailbox_has_modseqs(mbox)) {
+		str_append(str, " MODSEQ");
+		mail_index_modseq_enable(mbox->box.index);
+	}
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
+		enum mailbox_info_flags flags;
+
+		if (!mail_index_is_in_memory(mbox->box.index)) {
+			/* these can be efficiently fetched among flags and
+			   stored into cache */
+			str_append(str, " X-GM-MSGID");
+		}
+		/* do this only for the \All mailbox */
+		if (imapc_list_get_mailbox_flags(mbox->box.list,
+						 mbox->box.name, &flags) == 0 &&
+		    (flags & MAILBOX_SPECIALUSE_ALL) != 0)
+			str_append(str, " X-GM-LABELS");
+
+	}
+	str_append_c(str, ')');
+
+	cmd = imapc_client_mailbox_cmd(mbox->client_box,
+		imapc_mailbox_fetch_state_callback, mbox);
+	if (first_uid == 1) {
+		mbox->sync_next_lseq = 1;
+		mbox->sync_next_rseq = 1;
+		mbox->state_fetched_success = FALSE;
+		/* only the FETCH 1:* is retriable - others will be retried
+		   by the 1:* after the reconnection */
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
+	}
+	mbox->state_fetching_uid1 = first_uid == 1;
+	imapc_command_send(cmd, str_c(str));
+}
+
+static void
 imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 		      struct imapc_mailbox *mbox)
 {
@@ -153,6 +276,15 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 
 	if (mbox == NULL)
 		return;
+	if (mbox->exists_received &&
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES)) {
+		/* ignore all except the first EXISTS reply (returned by
+		   SELECT) */
+		return;
+	}
+
+	mbox->exists_count = exists_count;
+	mbox->exists_received = TRUE;
 
 	view = mbox->delayed_sync_view;
 	if (view == NULL)
@@ -160,13 +292,12 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 
 	if (mbox->selecting) {
 		/* We don't know the latest flags, refresh them. */
-		mbox->sync_fetch_first_uid = 1;
+		imapc_mailbox_fetch_state(mbox, 1);
 	} else if (mbox->sync_fetch_first_uid != 1) {
 		hdr = mail_index_get_header(view);
 		mbox->sync_fetch_first_uid = hdr->next_uid;
+		imapc_mailbox_fetch_state(mbox, hdr->next_uid);
 	}
-	mbox->exists_count = exists_count;
-	mbox->exists_received = TRUE;
 	imapc_mailbox_idle_notify(mbox);
 }
 
@@ -227,7 +358,8 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
 	msg_count = imapc_msgmap_count(msgmap);
 	if (fetch_uid != 0 &&
-	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS)) {
+	    (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS) ||
+	     IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))) {
 		/* if we know the UID, use own own generated rseq instead of
 		   the potentially broken rseq that the server sent. */
 		uint32_t fixed_rseq;
@@ -269,9 +401,10 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 	} else {
 		/* newly seen message */
 		imapc_msgmap_append(msgmap, rseq, uid);
-		if (uid < mbox->min_append_uid) {
+		if (uid < mbox->min_append_uid ||
+		    uid < mail_index_get_header(mbox->delayed_sync_view)->next_uid) {
 			/* message is already added to index */
-		} else if (mbox->syncing) {
+		} else {
 			mail_index_append(mbox->delayed_sync_trans,
 					  uid, lseq_r);
 			mbox->min_append_uid = uid + 1;
@@ -301,7 +434,8 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 
 	fetch_uid = 0; flags = 0;
 	for (i = 0; list[i].type != IMAP_ARG_EOL; i += 2) {
-		if (!imap_arg_get_atom(&list[i], &atom))
+		if (!imap_arg_get_atom(&list[i], &atom) ||
+		    list[i+1].type == IMAP_ARG_EOL)
 			return;
 
 		if (strcasecmp(atom, "UID") == 0) {
@@ -349,6 +483,11 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			}
 		}
 	}
+	if (fetch_uid == 0 &&
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES)) {
+		/* UID missing and we're not tracking MSNs */
+		return;
+	}
 
 	imapc_mailbox_init_delayed_trans(mbox);
 	if (imapc_mailbox_msgmap_update(mbox, rseq, fetch_uid,
@@ -386,8 +525,6 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	if (rseq == mbox->sync_next_rseq) {
 		/* we're doing the initial full sync of mails. expunge any
 		   mails that no longer exist. */
-		i_assert(mbox->syncing);
-
 		while (mbox->sync_next_lseq < lseq) {
 			mail_index_expunge(mbox->delayed_sync_trans,
 					   mbox->sync_next_lseq);
@@ -453,7 +590,8 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 	struct imapc_msgmap *msgmap;
 	uint32_t lseq, uid, rseq = reply->num;
 	
-	if (mbox == NULL || rseq == 0)
+	if (mbox == NULL || rseq == 0 ||
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
 		return;
 
 	mbox->prev_skipped_rseq = 0;
@@ -577,6 +715,32 @@ static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
 		imapc_search_reply_esearch(reply->args+1, mbox);
 }
 
+static void imapc_sync_uid_validity(struct imapc_mailbox *mbox)
+{
+	const struct mail_index_header *hdr;
+
+	imapc_mailbox_init_delayed_trans(mbox);
+	hdr = mail_index_get_header(mbox->delayed_sync_view);
+	if (hdr->uid_validity != mbox->sync_uid_validity &&
+	    mbox->sync_uid_validity != 0) {
+		if (hdr->uid_validity != 0) {
+			/* uidvalidity changed, reset the entire mailbox */
+			mail_index_reset(mbox->delayed_sync_trans);
+			mbox->sync_fetch_first_uid = 1;
+			/* The reset needs to be committed before FETCH 1:*
+			   results are received. */
+			bool changes;
+			if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
+				mail_index_mark_corrupted(mbox->box.index);
+			imapc_mailbox_init_delayed_trans(mbox);
+		}
+		mail_index_update_header(mbox->delayed_sync_trans,
+			offsetof(struct mail_index_header, uid_validity),
+			&mbox->sync_uid_validity,
+			sizeof(mbox->sync_uid_validity), TRUE);
+	}
+}
+
 static void
 imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 			    struct imapc_mailbox *mbox)
@@ -591,6 +755,7 @@ imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 	if (mbox->sync_uid_validity != uid_validity) {
 		mbox->sync_uid_validity = uid_validity;
 		imapc_mail_cache_free(&mbox->prev_mail_cache);
+		imapc_sync_uid_validity(mbox);
 	}
 }
 

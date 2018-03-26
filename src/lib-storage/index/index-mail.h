@@ -256,6 +256,7 @@ bool index_mail_get_cached_bodystructure(struct index_mail *mail,
 					 const char **value_r);
 const uint32_t *index_mail_get_vsize_extension(struct mail *_mail);
 
+bool index_mail_want_cache(struct index_mail *mail, enum index_cache_field field);
 void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
 			  const void *data, size_t data_size);
 void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,

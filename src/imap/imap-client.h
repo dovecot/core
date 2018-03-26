@@ -78,6 +78,7 @@ struct client_command_stats_start {
 struct client_command_context {
 	struct client_command_context *prev, *next;
 	struct client *client;
+	struct event *event;
 
 	pool_t pool;
 	/* IMAP command tag */
@@ -143,6 +144,7 @@ struct client {
 	struct client *prev, *next;
 
 	struct imap_client_vfuncs v;
+	struct event *event;
 	const char *session_id;
 	const char *const *userdb_fields; /* for internal session saving/restoring */
 
@@ -251,10 +253,12 @@ extern unsigned int imap_client_count;
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out, const char *session_id,
-			     struct mail_user *user,
+			     struct event *event, struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set);
+/* Finish creating the client. Returns 0 if ok, -1 if there's an error. */
+int client_create_finish(struct client *client, const char **error_r);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */
@@ -309,6 +313,7 @@ client_search_update_lookup(struct client *client, const char *tag,
 void client_search_updates_free(struct client *client);
 
 struct client_command_context *client_command_alloc(struct client *client);
+void client_command_init_finished(struct client_command_context *cmd);
 void client_command_cancel(struct client_command_context **cmd);
 void client_command_free(struct client_command_context **cmd);
 
@@ -323,6 +328,6 @@ void client_input(struct client *client);
 bool client_handle_input(struct client *client);
 int client_output(struct client *client);
 
-void clients_destroy_all(struct mail_storage_service_ctx *storage_service);
+void clients_destroy_all(void);
 
 #endif

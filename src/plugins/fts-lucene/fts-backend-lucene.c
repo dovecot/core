@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -175,7 +175,7 @@ fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 	struct fts_lucene_user *fuser =
-		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
+		FTS_LUCENE_USER_CONTEXT_REQUIRE(_backend->ns->user);
 	struct fts_index_header hdr;
 	uint32_t set_checksum;
 	int ret;
@@ -213,7 +213,7 @@ fts_backend_lucene_update_init(struct fts_backend *_backend)
 		(struct lucene_fts_backend *)_backend;
 	struct lucene_fts_backend_update_context *ctx;
 	struct fts_lucene_user *fuser =
-		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
+		FTS_LUCENE_USER_CONTEXT_REQUIRE(_backend->ns->user);
 
 	i_assert(!backend->updating);
 
@@ -263,6 +263,7 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 	if (ctx->expunge_ctx != NULL) {
 		if (fts_expunge_log_append_commit(&ctx->expunge_ctx) < 0) {
 			struct stat st;
+			ret = -1;
 
 			if (stat(backend->dir_path, &st) < 0 && errno == ENOENT) {
 				/* lucene-indexes directory doesn't even exist,
@@ -271,7 +272,6 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 				(void)lucene_index_rescan(backend->index);
 				ret = 0;
 			}
-			ret = -1;
 		}
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
 #include "array.h"
@@ -6,6 +6,8 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream-ssl.h"
+#include "iostream-proxy.h"
 #include "iostream-rawlog.h"
 #include "process-title.h"
 #include "hook-build.h"
@@ -23,13 +25,14 @@
 #include "auth-client.h"
 #include "dsasl-client.h"
 #include "login-proxy.h"
-#include "ssl-proxy.h"
 #include "client-common.h"
-
 
 struct client *clients = NULL;
 static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
+
+static struct client *client_fd_proxies = NULL;
+static unsigned int client_fd_proxies_count = 0;
 
 struct login_client_module_hooks {
 	struct module *module;
@@ -152,11 +155,10 @@ static bool client_is_trusted(struct client *client)
 }
 
 struct client *
-client_create(int fd, bool ssl, pool_t pool,
-	      const struct master_service_connection *conn,
-	      const struct login_settings *set,
-	      const struct master_service_ssl_settings *ssl_set,
-	      void **other_sets)
+client_alloc(int fd, pool_t pool,
+	     const struct master_service_connection *conn,
+	     const struct login_settings *set,
+	     const struct master_service_ssl_settings *ssl_set)
 {
 	struct client *client;
 
@@ -179,8 +181,6 @@ client_create(int fd, bool ssl, pool_t pool,
 	p_array_init(&client->module_contexts, client->pool, 5);
 
 	client->fd = fd;
-	client->tls = ssl;
-
 	client->local_ip = conn->local_ip;
 	client->local_port = conn->local_port;
 	client->ip = conn->remote_ip;
@@ -190,12 +190,25 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->real_remote_ip = conn->real_remote_ip;
 	client->real_remote_port = conn->real_remote_port;
 	client->listener_name = p_strdup(client->pool, conn->name);
-
 	client->trusted = client_is_trusted(client);
-	client->secured = ssl || client->trusted ||
-		net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
-	client->proxy_ttl = LOGIN_PROXY_TTL;
 
+	if (conn->proxied) {
+		client->proxied_ssl = conn->proxy.ssl;
+		client->secured = conn->proxy.ssl || client->trusted;
+		client->ssl_secured = conn->proxy.ssl;
+		client->local_name = conn->proxy.hostname;
+		client->client_cert_common_name = conn->proxy.cert_common_name;
+	} else {
+		client->secured = client->trusted ||
+			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
+	}
+	client->proxy_ttl = LOGIN_PROXY_TTL;
+	client_open_streams(client);
+	return client;
+}
+
+void client_init(struct client *client, void **other_sets)
+{
 	if (last_client == NULL)
 		last_client = client;
 	DLLIST_PREPEND(&clients, client);
@@ -204,10 +217,10 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->to_disconnect =
 		timeout_add(CLIENT_LOGIN_TIMEOUT_MSECS,
 			    client_idle_disconnect_timeout, client);
-	client_open_streams(client);
 
 	hook_login_client_allocated(client);
 	client->v.create(client, other_sets);
+	client->create_finished = TRUE;
 
 	if (auth_client_is_connected(auth_client))
 		client_notify_auth_ready(client);
@@ -215,18 +228,16 @@ client_create(int fd, bool ssl, pool_t pool,
 		client_set_auth_waiting(client);
 
 	login_refresh_proctitle();
-	return client;
 }
 
-void client_destroy(struct client *client, const char *reason)
+void client_disconnect(struct client *client, const char *reason)
 {
-	if (client->destroyed)
+	if (client->disconnected)
 		return;
-	client->destroyed = TRUE;
+	client->disconnected = TRUE;
 
-	pool_unref(&client->preproxy_pool);
-
-	if (!client->login_success && reason != NULL) {
+	if (!client->login_success &&
+	    !client->no_extra_disconnect_reason && reason != NULL) {
 		const char *extra_reason =
 			client_get_extra_disconnect_reason(client);
 		if (extra_reason[0] != '\0')
@@ -235,18 +246,44 @@ void client_destroy(struct client *client, const char *reason)
 	if (reason != NULL)
 		client_log(client, reason);
 
-	if (last_client == client)
-		last_client = client->prev;
-	DLLIST_REMOVE(&clients, client);
-
 	if (client->output != NULL)
 		o_stream_uncork(client->output);
-	if (!client->login_success && client->ssl_proxy != NULL)
-		ssl_proxy_destroy(client->ssl_proxy);
-	if (client->input != NULL)
+	if (!client->login_success) {
+		io_remove(&client->io);
+		ssl_iostream_destroy(&client->ssl_iostream);
+		iostream_proxy_unref(&client->iostream_fd_proxy);
 		i_stream_close(client->input);
-	if (client->output != NULL)
 		o_stream_close(client->output);
+		i_close_fd(&client->fd);
+	} else {
+		/* Login was successful. We may now be proxying the connection,
+		   so don't disconnect the client until client_unref(). */
+		if (client->iostream_fd_proxy != NULL) {
+			client->fd_proxying = TRUE;
+			i_assert(client->prev == NULL && client->next == NULL);
+			DLLIST_PREPEND(&client_fd_proxies, client);
+			client_fd_proxies_count++;
+		}
+	}
+}
+
+void client_destroy(struct client *client, const char *reason)
+{
+	i_assert(client->create_finished);
+
+	if (client->destroyed)
+		return;
+	client->destroyed = TRUE;
+
+	if (last_client == client)
+		last_client = client->prev;
+	/* remove from clients linked list before it's added to
+	   client_fd_proxies. */
+	DLLIST_REMOVE(&clients, client);
+
+	client_disconnect(client, reason);
+
+	pool_unref(&client->preproxy_pool);
 
 	if (client->master_tag != 0) {
 		i_assert(client->auth_request == NULL);
@@ -262,16 +299,9 @@ void client_destroy(struct client *client, const char *reason)
 		i_assert(!client->authenticating);
 	}
 
-	io_remove(&client->io);
 	timeout_remove(&client->to_disconnect);
 	timeout_remove(&client->to_auth_waiting);
-	if (client->auth_response != NULL)
-		str_free(&client->auth_response);
-
-	if (client->fd != -1) {
-		net_disconnect(client->fd);
-		client->fd = -1;
-	}
+	str_free(&client->auth_response);
 
 	if (client->proxy_password != NULL) {
 		safe_memset(client->proxy_password, 0,
@@ -303,16 +333,6 @@ void client_destroy_success(struct client *client, const char *reason)
 	client_destroy(client, reason);
 }
 
-void client_destroy_internal_failure(struct client *client)
-{
-	client_notify_disconnect(client, CLIENT_DISCONNECT_INTERNAL_ERROR,
-		"Internal login failure. "
-		"Refer to server log for more information.");
-	client_destroy(client, t_strdup_printf(
-		"Internal login failure (pid=%s id=%u)",
-		my_pid, client->master_auth_id));
-}
-
 void client_ref(struct client *client)
 {
 	client->refcount++;
@@ -322,11 +342,19 @@ bool client_unref(struct client **_client)
 {
 	struct client *client = *_client;
 
+	*_client = NULL;
+
 	i_assert(client->refcount > 0);
 	if (--client->refcount > 0)
 		return TRUE;
 
-	*_client = NULL;
+	if (!client->create_finished) {
+		i_stream_unref(&client->input);
+		o_stream_unref(&client->output);
+		pool_unref(&client->preproxy_pool);
+		pool_unref(&client->pool);
+		return FALSE;
+	}
 
 	i_assert(client->destroyed);
 	i_assert(client->login_proxy == NULL);
@@ -334,10 +362,16 @@ bool client_unref(struct client **_client)
 	if (client->v.free != NULL)
 		client->v.free(client);
 
-	if (client->ssl_proxy != NULL)
-		ssl_proxy_free(&client->ssl_proxy);
+	ssl_iostream_destroy(&client->ssl_iostream);
+	iostream_proxy_unref(&client->iostream_fd_proxy);
+	if (client->fd_proxying) {
+		DLLIST_REMOVE(&client_fd_proxies, client);
+		i_assert(client_fd_proxies_count > 0);
+		client_fd_proxies_count--;
+	}
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
+	i_close_fd(&client->fd);
 
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);
@@ -401,18 +435,86 @@ void clients_destroy_all(void)
 	clients_destroy_all_reason("Disconnected: Shutting down");
 }
 
+static int client_sni_callback(const char *name, const char **error_r,
+			       void *context)
+{
+	struct client *client = context;
+	struct ssl_iostream_context *ssl_ctx;
+	struct ssl_iostream_settings ssl_set;
+	void **other_sets;
+	const char *error;
+
+	if (client->ssl_servername_settings_read)
+		return 0;
+	client->ssl_servername_settings_read = TRUE;
+
+	client->local_name = p_strdup(client->pool, name);
+	client->set = login_settings_read(client->pool, &client->local_ip,
+					  &client->ip, name,
+					  &client->ssl_set, &other_sets);
+
+	master_service_ssl_settings_to_iostream_set(client->ssl_set,
+		pool_datastack_create(),
+		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to initialize SSL server context: %s", error);
+		return -1;
+	}
+	ssl_iostream_change_context(client->ssl_iostream, ssl_ctx);
+	ssl_iostream_context_unref(&ssl_ctx);
+	return 0;
+}
+
+int client_init_ssl(struct client *client)
+{
+	struct ssl_iostream_context *ssl_ctx;
+	struct ssl_iostream_settings ssl_set;
+	const char *error;
+
+	i_assert(client->fd != -1);
+
+	master_service_ssl_settings_to_iostream_set(client->ssl_set,
+		pool_datastack_create(),
+		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	/* If the client cert is invalid, we'll reply NO to the login
+	   command. */
+	ssl_set.allow_invalid_cert = TRUE;
+	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
+		client_log_err(client, t_strdup_printf(
+			"Failed to initialize SSL server context: %s", error));
+		return -1;
+	}
+	if (io_stream_create_ssl_server(ssl_ctx, &ssl_set,
+					&client->input, &client->output,
+					&client->ssl_iostream, &error) < 0) {
+		client_log_err(client, t_strdup_printf(
+			"Failed to initialize SSL connection: %s", error));
+		ssl_iostream_context_unref(&ssl_ctx);
+		return -1;
+	}
+	ssl_iostream_context_unref(&ssl_ctx);
+	ssl_iostream_set_sni_callback(client->ssl_iostream,
+				      client_sni_callback, client);
+
+	client->tls = TRUE;
+	client->secured = TRUE;
+	client->ssl_secured = TRUE;
+
+	if (client->starttls) {
+		io_remove(&client->io);
+		if (!client_does_custom_io(client)) {
+			client->io = io_add_istream(client->input,
+						    client_input, client);
+		}
+	}
+	return 0;
+}
+
 static void client_start_tls(struct client *client)
 {
-	int fd_ssl;
-
-	client_ref(client);
-	if (!client_unref(&client) || client->destroyed)
-		return;
-
-	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip, client->pool,
-				 client->set, client->ssl_set,
-				 &client->ssl_proxy);
-	if (fd_ssl == -1) {
+	client->starttls = TRUE;
+	if (client_init_ssl(client) < 0) {
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_INTERNAL_ERROR,
 			"TLS initialization failed.");
@@ -420,19 +522,7 @@ static void client_start_tls(struct client *client)
 			"Disconnected: TLS initialization failed.");
 		return;
 	}
-	ssl_proxy_set_client(client->ssl_proxy, client);
-	ssl_proxy_start(client->ssl_proxy);
-
-	client->starttls = TRUE;
-	client->tls = TRUE;
-	client->secured = TRUE;
 	login_refresh_proctitle();
-
-	client->fd = fd_ssl;
-	client->io = io_add(client->fd, IO_READ, client_input, client);
-	i_stream_unref(&client->input);
-	o_stream_unref(&client->output);
-	client_open_streams(client);
 
 	client->v.starttls(client);
 }
@@ -484,9 +574,77 @@ void client_cmd_starttls(struct client *client)
 	}
 }
 
+static void
+iostream_fd_proxy_finished(enum iostream_proxy_side side ATTR_UNUSED,
+			   enum iostream_proxy_status status ATTR_UNUSED,
+			   struct client *client)
+{
+	/* Destroy the proxy now. The other side of the proxy is still
+	   unfinished and we don't want to get back here and unreference
+	   the client twice. */
+	iostream_proxy_unref(&client->iostream_fd_proxy);
+	client_unref(&client);
+}
+
+int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
+{
+	int fds[2];
+
+	if (!client->tls) {
+		/* Plaintext connection - We can send the fd directly to
+		   the post-login process without any proxying. */
+		*fd_r = client->fd;
+		*close_fd_r = FALSE;
+		return 0;
+	}
+
+	/* We'll have to start proxying from now on until either side
+	   disconnects. Create a socketpair where login process is proxying on
+	   one side and the other side is sent to the post-login process. */
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
+		client_log_err(client, t_strdup_printf("socketpair() failed: %m"));
+		return -1;
+	}
+	fd_set_nonblock(fds[0], TRUE);
+	fd_set_nonblock(fds[1], TRUE);
+
+	struct ostream *output = o_stream_create_fd(fds[0], IO_BLOCK_SIZE);
+	struct istream *input =
+		i_stream_create_fd_autoclose(&fds[0], IO_BLOCK_SIZE);
+	o_stream_set_no_error_handling(output, TRUE);
+
+	i_assert(client->io == NULL);
+
+	client_ref(client);
+	client->iostream_fd_proxy =
+		iostream_proxy_create(input, output,
+				      client->input, client->output);
+	i_stream_unref(&input);
+	o_stream_unref(&output);
+
+	iostream_proxy_set_completion_callback(client->iostream_fd_proxy,
+					       iostream_fd_proxy_finished,
+					       client);
+	iostream_proxy_start(client->iostream_fd_proxy);
+
+	*fd_r = fds[1];
+	*close_fd_r = TRUE;
+	return 0;
+}
+
 unsigned int clients_get_count(void)
 {
 	return clients_count;
+}
+
+unsigned int clients_get_fd_proxies_count(void)
+{
+	return client_fd_proxies_count;
+}
+
+struct client *clients_get_first_fd_proxy(void)
+{
+	return client_fd_proxies;
 }
 
 void client_add_forward_field(struct client *client, const char *key,
@@ -512,8 +670,8 @@ const char *client_get_session_id(struct client *client)
 	if (client->session_id != NULL)
 		return client->session_id;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 24);
-	base64_buf = buffer_create_dynamic(pool_datastack_create(), 24*2);
+	buf = t_buffer_create(24);
+	base64_buf = t_buffer_create(24*2);
 
 	if (gettimeofday(&tv, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
@@ -603,17 +761,20 @@ get_var_expand_table(struct client *client)
 	if (!client->tls) {
 		tab[11].value = client->secured ? "secured" : NULL;
 		tab[12].value = "";
+	} else if (client->proxied_ssl) {
+		tab[11].value = "TLS";
+		tab[12].value = "(proxied)";
 	} else {
 		const char *ssl_state =
-			ssl_proxy_is_handshaked(client->ssl_proxy) ?
+			ssl_iostream_is_handshaked(client->ssl_iostream) ?
 			"TLS" : "TLS handshaking";
 		const char *ssl_error =
-			ssl_proxy_get_last_error(client->ssl_proxy);
+			ssl_iostream_get_last_error(client->ssl_iostream);
 
 		tab[11].value = ssl_error == NULL ? ssl_state :
 			t_strdup_printf("%s: %s", ssl_state, ssl_error);
 		tab[12].value =
-			ssl_proxy_get_security_string(client->ssl_proxy);
+			ssl_iostream_get_security_string(client->ssl_iostream);
 	}
 	tab[13].value = client->mail_pid == 0 ? "" :
 		dec2str(client->mail_pid);
@@ -771,7 +932,7 @@ void client_log_warn(struct client *client, const char *msg)
 
 bool client_is_tls_enabled(struct client *client)
 {
-	return ssl_initialized && strcmp(client->ssl_set->ssl, "no") != 0;
+	return login_ssl_initialized && strcmp(client->ssl_set->ssl, "no") != 0;
 }
 
 const char *client_get_extra_disconnect_reason(struct client *client)
@@ -780,10 +941,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		ioloop_time - client->auth_first_started;
 
 	if (client->set->auth_ssl_require_client_cert &&
-	    client->ssl_proxy != NULL) {
-		if (ssl_proxy_has_broken_client_cert(client->ssl_proxy))
+	    client->ssl_iostream != NULL) {
+		if (ssl_iostream_has_broken_client_cert(client->ssl_iostream))
 			return "(client sent an invalid cert)";
-		if (!ssl_proxy_has_valid_client_cert(client->ssl_proxy))
+		if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream))
 			return "(client didn't send a cert)";
 	}
 
@@ -803,7 +964,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 
 	/* some auth attempts without SSL/TLS */
 	if (client->set->auth_ssl_require_client_cert &&
-	    client->ssl_proxy == NULL)
+	    client->ssl_iostream == NULL)
 		return "(cert required, client didn't start TLS)";
 
 	if (client->auth_waiting && client->auth_attempts == 1) {
@@ -924,7 +1085,7 @@ bool client_read(struct client *client)
 		return FALSE;
 	case 0:
 		/* nothing new read */
-		return TRUE;
+		return i_stream_get_data_size(client->input) > 0;
 	default:
 		/* something was read */
 		return TRUE;
@@ -933,12 +1094,22 @@ bool client_read(struct client *client)
 
 void client_input(struct client *client)
 {
+	i_assert(client->v.input != NULL);
 	client->v.input(client);
 }
 
 void client_common_init(void)
 {
 	i_array_init(&module_hooks, 32);
+}
+
+void client_destroy_fd_proxies(void)
+{
+	while (client_fd_proxies != NULL) {
+		struct client *client = client_fd_proxies;
+		client_unref(&client);
+	}
+	i_assert(client_fd_proxies_count == 0);
 }
 
 void client_common_deinit(void)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "llist.h"
@@ -107,17 +107,15 @@ http_server_connection_get_stats(struct http_server_connection *conn)
 static void
 http_server_connection_input_halt(struct http_server_connection *conn)
 {
-	io_remove(&conn->conn.io);
+	connection_input_halt(&conn->conn);
 }
 
 static void
 http_server_connection_input_resume(struct http_server_connection *conn)
 {
-	if (conn->conn.io == NULL && !conn->closed &&
-		!conn->input_broken && !conn->close_indicated &&
+	if (!conn->closed && !conn->input_broken && !conn->close_indicated &&
 		!conn->in_req_callback && conn->incoming_payload == NULL) {
-		conn->conn.io = io_add_istream(conn->conn.input,
-       http_server_connection_input, &conn->conn);
+		connection_input_resume(&conn->conn);
 	}
 }
 
@@ -403,6 +401,7 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 	if (conn->server->set.debug)
 		http_server_connection_debug(conn, "Starting SSL handshake");
 
+	http_server_connection_input_halt(conn);
 	if (master_service_ssl_init(master_service,
 				&conn->conn.input, &conn->conn.output,
 				&conn->ssl_iostream, &error) < 0) {
@@ -410,6 +409,8 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 			"Couldn't initialize SSL server for %s: %s", conn->conn.name, error);
 		return -1;
 	}
+	http_server_connection_input_resume(conn);
+
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
 		http_server_connection_error(conn,"SSL handshake failed: %s",
 			ssl_iostream_get_last_error(conn->ssl_iostream));
@@ -817,16 +818,22 @@ int http_server_connection_discard_payload(
 	return http_server_connection_unref_is_closed(conn) ? -1 : 0;
 }
 
-void http_server_connection_write_failed(struct http_server_connection *conn,
-	const char *error)
+void http_server_connection_handle_output_error(
+	struct http_server_connection *conn)
 {
+	struct ostream *output = conn->conn.output;
+
 	if (conn->closed)
 		return;
 
-	if (error != NULL) {
+	if (output->stream_errno != EPIPE &&
+	    output->stream_errno != ECONNRESET) {
 		http_server_connection_error(conn,
-			"Connection lost: %s", error);
-		http_server_connection_close(&conn, "Write failure");
+			"Connection lost: write(%s) failed: %s",
+			o_stream_get_name(output),
+			o_stream_get_error(output));
+		http_server_connection_close(&conn,
+			"Write failure");
 	} else {
 		http_server_connection_debug(conn,
 			"Connection lost: Remote disconnected");
@@ -839,7 +846,6 @@ static bool
 http_server_connection_next_response(struct http_server_connection *conn)
 {
 	struct http_server_request *req;
-	const char *error = NULL;
 	int ret;
 
 	if (conn->output_locked)
@@ -875,13 +881,7 @@ http_server_connection_next_response(struct http_server_connection *conn)
 			struct ostream *output = conn->conn.output;
 
 			if (o_stream_send(output, response, strlen(response)) < 0) {
-				if (output->stream_errno != EPIPE &&
-					output->stream_errno != ECONNRESET) {
-					error = t_strdup_printf("write(%s) failed: %s",
-						o_stream_get_name(output),
-						o_stream_get_error(output));
-				}
-				http_server_connection_write_failed(conn, error);
+				http_server_connection_handle_output_error(conn);
 				return FALSE;
 			}
 
@@ -899,13 +899,11 @@ http_server_connection_next_response(struct http_server_connection *conn)
 	http_server_connection_timeout_start(conn);
 
 	http_server_request_ref(req);
-	ret = http_server_response_send(req->response, &error);
+	ret = http_server_response_send(req->response);
 	http_server_request_unref(&req);
 
-	if (ret < 0) {
-		http_server_connection_write_failed(conn, error);
+	if (ret < 0)
 		return FALSE;
-	}
 
 	http_server_connection_timeout_reset(conn);
 	return TRUE;
@@ -939,17 +937,8 @@ int http_server_connection_flush(struct http_server_connection *conn)
 	int ret;
 
 	if ((ret = o_stream_flush(output)) <= 0) {
-		if (ret < 0) {
-			const char *error = NULL;
-
-			if (output->stream_errno != EPIPE &&
-				output->stream_errno != ECONNRESET) {
-				error = t_strdup_printf("write(%s) failed: %s",
-					o_stream_get_name(output),
-					o_stream_get_error(output));
-			}
-			http_server_connection_write_failed(conn, error);
-		}
+		if (ret < 0)
+			http_server_connection_handle_output_error(conn);
 		return -1;
 	}
 
@@ -972,20 +961,14 @@ int http_server_connection_output(struct http_server_connection *conn)
 	} else if (conn->request_queue_head != NULL) {
 		struct http_server_request *req = conn->request_queue_head;
 		struct http_server_response *resp = req->response;
-		const char *error = NULL;
 
 		http_server_connection_ref(conn);
 
 		i_assert(resp != NULL);
-		ret = http_server_response_send_more(resp, &error);
+		ret = http_server_response_send_more(resp);
 
-		if (http_server_connection_unref_is_closed(conn))
+		if (http_server_connection_unref_is_closed(conn) || ret < 0)
 			return -1;
-
-		if (ret < 0) {
-			http_server_connection_write_failed(conn, error);
-			return -1;
-		}
 
 		if (!conn->output_locked) {
 			/* room for more responses */
@@ -1167,10 +1150,8 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 
 	http_server_connection_timeout_stop(conn);
 	io_remove(&conn->io_resp_payload);
-	if (conn->conn.output != NULL) {
-		o_stream_nflush(conn->conn.output);
+	if (conn->conn.output != NULL)
 		o_stream_uncork(conn->conn.output);
-	}
 
 	if (conn->http_parser != NULL)
 		http_request_parser_deinit(&conn->http_parser);

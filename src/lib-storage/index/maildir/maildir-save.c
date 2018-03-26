@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -109,8 +109,9 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 				       MAIL_ERRSTR_NO_QUOTA);
 		return -1;
 	} else {
-		mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
-					  tmp_path, new_path);
+		mail_set_critical(ctx->ctx.dest_mail,
+				  "rename(%s, %s) failed: %m",
+				  tmp_path, new_path);
 		return -1;
 	}
 }
@@ -375,19 +376,19 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			mail_storage_set_error(box->storage,
 				MAIL_ERROR_NOQUOTA, MAIL_ERRSTR_NO_QUOTA);
 		} else {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"open(%s) failed: %m", str_c(path));
 		}
 	} else if (perm->file_create_gid != (gid_t)-1) {
 		if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 			if (errno == EPERM) {
-				mail_storage_set_critical(box->storage, "%s",
+				mailbox_set_critical(box, "%s",
 					eperm_error_get_chgrp("fchown",
 						str_c(path),
 						perm->file_create_gid,
 						perm->file_create_gid_origin));
 			} else {
-				mail_storage_set_critical(box->storage,
+				mailbox_set_critical(box,
 					"fchown(%s) failed: %m", str_c(path));
 			}
 		}
@@ -462,7 +463,6 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 static int maildir_save_finish_received_date(struct maildir_save_context *ctx,
 					     const char *path)
 {
-	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	struct utimbuf buf;
 	struct stat st;
 
@@ -472,16 +472,16 @@ static int maildir_save_finish_received_date(struct maildir_save_context *ctx,
 		buf.modtime = ctx->ctx.data.received_date;
 
 		if (utime(path, &buf) < 0) {
-			mail_storage_set_critical(storage,
-						  "utime(%s) failed: %m", path);
+			mail_set_critical(ctx->ctx.dest_mail,
+					  "utime(%s) failed: %m", path);
 			return -1;
 		}
 	} else if (ctx->fd != -1) {
 		if (fstat(ctx->fd, &st) == 0)
 			ctx->ctx.data.received_date = st.st_mtime;
 		else {
-			mail_storage_set_critical(storage,
-						  "fstat(%s) failed: %m", path);
+			mail_set_critical(ctx->ctx.dest_mail,
+					  "fstat(%s) failed: %m", path);
 			return -1;
 		}
 	} else {
@@ -489,8 +489,8 @@ static int maildir_save_finish_received_date(struct maildir_save_context *ctx,
 		if (stat(path, &st) == 0)
 			ctx->ctx.data.received_date = st.st_mtime;
 		else {
-			mail_storage_set_critical(storage,
-						  "stat(%s) failed: %m", path);
+			mail_set_critical(ctx->ctx.dest_mail,
+					  "stat(%s) failed: %m", path);
 			return -1;
 		}
 	}
@@ -529,9 +529,9 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	}
 
 	path = t_strconcat(ctx->tmpdir, "/", ctx->file_last->tmp_name, NULL);
-	if (!ctx->failed && o_stream_nfinish(_ctx->data.output) < 0) {
+	if (!ctx->failed && o_stream_finish(_ctx->data.output) < 0) {
 		if (!mail_storage_set_error_from_errno(storage)) {
-			mail_storage_set_critical(storage,
+			mail_set_critical(_ctx->dest_mail,
 				"write(%s) failed: %s", path,
 				o_stream_get_error(_ctx->data.output));
 		}
@@ -571,7 +571,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	    !ctx->failed) {
 		if (fsync(ctx->fd) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
-				mail_storage_set_critical(storage,
+				mail_set_critical(_ctx->dest_mail,
 						  "fsync(%s) failed: %m", path);
 			}
 			ctx->failed = TRUE;
@@ -579,8 +579,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	}
 	real_size = lseek(ctx->fd, 0, SEEK_END);
 	if (real_size == (off_t)-1) {
-		mail_storage_set_critical(storage,
-					  "lseek(%s) failed: %m", path);
+		mail_set_critical(_ctx->dest_mail, "lseek(%s) failed: %m", path);
 	} else if (real_size != (off_t)ctx->file_last->size &&
 		   (!maildir_filename_get_size(ctx->file_last->dest_basename,
 					       MAILDIR_EXTRA_FILE_SIZE, &size) ||
@@ -597,8 +596,8 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	}
 	if (close(ctx->fd) < 0) {
 		if (!mail_storage_set_error_from_errno(storage)) {
-			mail_storage_set_critical(storage,
-						  "close(%s) failed: %m", path);
+			mail_set_critical(_ctx->dest_mail,
+					  "close(%s) failed: %m", path);
 		}
 		ctx->failed = TRUE;
 	}
@@ -612,7 +611,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 			mail_storage_set_error(storage,
 				MAIL_ERROR_NOQUOTA, MAIL_ERRSTR_NO_QUOTA);
 		} else if (output_errno != 0) {
-			mail_storage_set_critical(storage,
+			mail_set_critical(_ctx->dest_mail,
 				"write(%s) failed: %s", path, output_errstr);
 		}
 
@@ -664,14 +663,14 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 
 	if (new_changed) {
 		if (fdatasync_path(ctx->newdir) < 0) {
-			mail_storage_set_critical(storage,
+			mail_set_critical(ctx->ctx.dest_mail,
 				"fdatasync_path(%s) failed: %m", ctx->newdir);
 			return -1;
 		}
 	}
 	if (cur_changed) {
 		if (fdatasync_path(ctx->curdir) < 0) {
-			mail_storage_set_critical(storage,
+			mail_set_critical(ctx->ctx.dest_mail,
 				"fdatasync_path(%s) failed: %m", ctx->curdir);
 			return -1;
 		}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -56,9 +56,9 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 	o_stream_cork(ctx->dbox_output);
 	if (o_stream_send(ctx->dbox_output, &dbox_msg_hdr,
 			  sizeof(dbox_msg_hdr)) < 0) {
-		mail_storage_set_critical(_storage, "write(%s) failed: %s",
-					  o_stream_get_name(ctx->dbox_output),
-					  o_stream_get_error(ctx->dbox_output));
+		mail_set_critical(_ctx->dest_mail, "write(%s) failed: %s",
+				  o_stream_get_name(ctx->dbox_output),
+				  o_stream_get_error(ctx->dbox_output));
 		ctx->failed = TRUE;
 	}
 	_ctx->data.output = ctx->dbox_output;
@@ -90,6 +90,7 @@ void dbox_save_end(struct dbox_save_context *ctx)
 {
 	struct mail_save_data *mdata = &ctx->ctx.data;
 	struct ostream *dbox_output = ctx->dbox_output;
+	int ret;
 
 	i_assert(mdata->output != NULL);
 
@@ -97,15 +98,22 @@ void dbox_save_end(struct dbox_save_context *ctx)
 		if (index_attachment_save_finish(&ctx->ctx) < 0)
 			ctx->failed = TRUE;
 	}
-	if (o_stream_nfinish(mdata->output) < 0) {
-		mail_storage_set_critical(ctx->ctx.transaction->box->storage,
-					  "write(%s) failed: %s",
-					  o_stream_get_name(mdata->output),
-					  o_stream_get_error(mdata->output));
+	if (mdata->output != dbox_output) {
+		/* e.g. zlib plugin had changed this. make sure we
+		   successfully write the trailer. */
+		ret = o_stream_finish(mdata->output);
+	} else {
+		/* no plugins - flush the output so far */
+		ret = o_stream_flush(mdata->output);
+	}
+	if (ret < 0) {
+		mail_set_critical(ctx->ctx.dest_mail,
+				  "write(%s) failed: %s",
+				  o_stream_get_name(mdata->output),
+				  o_stream_get_error(mdata->output));
 		ctx->failed = TRUE;
 	}
 	if (mdata->output != dbox_output) {
-		/* e.g. zlib plugin had changed this */
 		o_stream_ref(dbox_output);
 		o_stream_destroy(&mdata->output);
 		mdata->output = dbox_output;

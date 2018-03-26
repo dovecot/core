@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -222,7 +222,6 @@ bool imap_envelope_parse(const char *envelope,
 	struct istream *input;
 	struct imap_parser *parser;
 	const struct imap_arg *args;
-	char *error = NULL;
 	int ret;
 
 	input = i_stream_create_from_data(envelope, strlen(envelope));
@@ -238,18 +237,8 @@ bool imap_envelope_parse(const char *envelope,
 		*error_r = "Empty envelope";
 		ret = -1;
 	} else {
-		T_BEGIN {
-			if (!imap_envelope_parse_args
-				(args, pool, envlp_r, error_r)) {
-				error = i_strdup(*error_r);
-				ret = -1;
-			}
-		} T_END;
-
-		if (ret < 0) {
-			*error_r = t_strdup(error);
-			i_free(error);
-		}
+		if (!imap_envelope_parse_args(args, pool, envlp_r, error_r))
+			ret = -1;
 	}
 
 	imap_parser_unref(&parser);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 /* FIXME: cache handling could be useful to move to Dovecot core, so that if
    we're using this plugin together with zlib plugin there would be just one
@@ -34,11 +34,13 @@ struct mail_crypt_mailbox {
 const char *mail_crypt_plugin_version = DOVECOT_ABI_VERSION;
 
 #define MAIL_CRYPT_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_crypt_mail_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_crypt_mail_module)
 #define MAIL_CRYPT_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_crypt_storage_module)
+	MODULE_CONTEXT_REQUIRE(obj, mail_crypt_storage_module)
 #define MAIL_CRYPT_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_crypt_user_module)
+#define MAIL_CRYPT_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, mail_crypt_user_module)
 
 static MODULE_CONTEXT_DEFINE_INIT(mail_crypt_user_module,
 				  &mail_user_module_register);
@@ -121,8 +123,7 @@ static int mail_crypt_istream_get_private_key(const char *pubkey_digest,
 	int ret;
 	struct mail *_mail = context;
 	struct mail_crypt_user *muser =
-		MAIL_CRYPT_USER_CONTEXT(_mail->box->storage->user);
-	i_assert(muser != NULL);
+		MAIL_CRYPT_USER_CONTEXT_REQUIRE(_mail->box->storage->user);
 
 	*priv_key_r = mail_crypt_global_key_find(&muser->global_keys,
 						 pubkey_digest);
@@ -152,7 +153,7 @@ mail_crypt_istream_opened(struct mail *_mail, struct istream **stream)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct mail_user *user = _mail->box->storage->user;
-	struct mail_crypt_user *muser = MAIL_CRYPT_USER_CONTEXT(user);
+	struct mail_crypt_user *muser = MAIL_CRYPT_USER_CONTEXT_REQUIRE(user);
 	struct mail_crypt_cache *cache = &muser->cache;
 	union mail_module_context *mmail = MAIL_CRYPT_MAIL_CONTEXT(mail);
 	struct istream *input;
@@ -185,7 +186,7 @@ static void mail_crypt_close(struct mail *_mail)
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *mmail = MAIL_CRYPT_MAIL_CONTEXT(mail);
 	struct mail_crypt_user *muser =
-		MAIL_CRYPT_USER_CONTEXT(_mail->box->storage->user);
+		MAIL_CRYPT_USER_CONTEXT_REQUIRE(_mail->box->storage->user);
 	struct mail_crypt_cache *cache = &muser->cache;
 	uoff_t size;
 
@@ -250,8 +251,7 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 	struct mailbox *box = ctx->transaction->box;
 	struct mail_crypt_mailbox *mbox = MAIL_CRYPT_CONTEXT(box);
 	struct mail_crypt_user *muser =
-		MAIL_CRYPT_USER_CONTEXT(box->storage->user);
-	i_assert(muser != NULL);
+		MAIL_CRYPT_USER_CONTEXT_REQUIRE(box->storage->user);
 
 	enum io_stream_encrypt_flags enc_flags;
 	if (muser->save_version == 1) {
@@ -340,7 +340,7 @@ static void mail_crypt_mailbox_close(struct mailbox *box)
 {
 	struct mail_crypt_mailbox *mbox = MAIL_CRYPT_CONTEXT(box);
 	struct mail_crypt_user *muser =
-		MAIL_CRYPT_USER_CONTEXT(box->storage->user);
+		MAIL_CRYPT_USER_CONTEXT_REQUIRE(box->storage->user);
 
 	if (mbox->pub_key != NULL)
 		dcrypt_key_unref_public(&mbox->pub_key);
@@ -384,7 +384,7 @@ static void mail_crypt_mailbox_allocated(struct mailbox *box)
 
 static void mail_crypt_mail_user_deinit(struct mail_user *user)
 {
-	struct mail_crypt_user *muser = MAIL_CRYPT_USER_CONTEXT(user);
+	struct mail_crypt_user *muser = MAIL_CRYPT_USER_CONTEXT_REQUIRE(user);
 
 	mail_crypt_key_cache_destroy(&muser->key_cache);
 	mail_crypt_global_keys_free(&muser->global_keys);

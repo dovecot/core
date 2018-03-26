@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "array.h"
@@ -26,6 +26,10 @@ struct passdb_template *passdb_template_build(pool_t pool, const char *args)
 			key = *tmp;
 		else
 			key = t_strdup_until(*tmp, value++);
+
+		if (*key == '\0')
+			i_fatal("Invalid passdb template %s - key must not be empty",
+				args);
 
 		key = p_strdup(pool, key);
 		value = p_strdup(pool, value);

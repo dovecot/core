@@ -8,26 +8,6 @@
 #define MAIL_CACHE_MAJOR_VERSION 1
 #define MAIL_CACHE_MINOR_VERSION 1
 
-/* Drop fields that haven't been accessed for n seconds */
-#define MAIL_CACHE_FIELD_DROP_SECS (3600*24*30)
-
-/* Never compress the file if it's smaller than this */
-#define MAIL_CACHE_COMPRESS_MIN_SIZE (1024*32)
-
-/* Compress the file when n% of records are deleted */
-#define MAIL_CACHE_COMPRESS_DELETE_PERCENTAGE 20
-
-/* Compress the file when n% of rows contain continued rows.
-   200% means that there's 2 continued rows per record. */
-#define MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE 200
-
-/* Compress the file when we need to follow more than n next_offsets to find
-   the latest cache header. */
-#define MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT 4
-
-/* If cache record becomes larger than this, don't add it. */
-#define MAIL_CACHE_RECORD_MAX_SIZE (64*1024)
-
 #define MAIL_CACHE_LOCK_TIMEOUT 10
 #define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 300
 
@@ -128,7 +108,6 @@ struct mail_cache {
 	unsigned int remap_counter;
 
 	struct dotlock_settings dotlock_settings;
-	struct dotlock *dotlock;
 	struct file_lock *file_lock;
 
 	/* mmap_disable=no: hdr points to data / NULL when cache is invalid.
@@ -270,9 +249,14 @@ void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
 
 /* Notify the decision handling code that field was looked up for seq.
-   This should be called even for fields that aren't currently in cache file */
+   This should be called even for fields that aren't currently in cache file.
+   This is used to update caching decisions for fields that already exist
+   in the cache file. */
 void mail_cache_decision_state_update(struct mail_cache_view *view,
 				      uint32_t seq, unsigned int field);
+/* Notify the decision handling code when field is committed to cache.
+   If this is the first time the field is added to cache, its caching decision
+   is updated to TEMP. */
 void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 			     unsigned int field);
 

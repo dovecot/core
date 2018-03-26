@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -45,6 +45,14 @@ const char *o_stream_get_error(struct ostream *stream)
 
 static void o_stream_close_full(struct ostream *stream, bool close_parents)
 {
+	/* Ideally o_stream_finish() would be called for all non-failed
+	   ostreams, but strictly requiring it would cause unnecessary
+	   complexity for many callers. Just require that at this point
+	   after flushing there isn't anything in the output buffer or that
+	   we're ignoring all errors. */
+	if (o_stream_flush(stream) == 0)
+		i_assert(stream->real_stream->error_handling_disabled);
+
 	if (!stream->closed && !stream->real_stream->closing) {
 		/* first mark the stream as being closed so the
 		   o_stream_copy_error_from_parent() won't recurse us back
@@ -111,7 +119,8 @@ void o_stream_remove_destroy_callback(struct ostream *stream,
 
 void o_stream_close(struct ostream *stream)
 {
-	o_stream_close_full(stream, TRUE);
+	if (stream != NULL)
+		o_stream_close_full(stream, TRUE);
 }
 
 #undef o_stream_set_flush_callback
@@ -173,8 +182,18 @@ int o_stream_flush(struct ostream *stream)
 	struct ostream_private *_stream = stream->real_stream;
 	int ret = 1;
 
+	o_stream_ignore_last_errors(stream);
+
 	if (unlikely(stream->closed || stream->stream_errno != 0)) {
 		errno = stream->stream_errno;
+		return -1;
+	}
+
+	if (unlikely(_stream->noverflow)) {
+		io_stream_set_error(&_stream->iostream,
+			"Output stream buffer was full (%"PRIuSIZE_T" bytes)",
+			o_stream_get_max_buffer_size(stream));
+		errno = stream->stream_errno = ENOBUFS;
 		return -1;
 	}
 
@@ -199,15 +218,14 @@ size_t o_stream_get_buffer_used_size(const struct ostream *stream)
 {
 	const struct ostream_private *_stream = stream->real_stream;
 
-	return _stream->get_used_size(_stream);
+	return _stream->get_buffer_used_size(_stream);
 }
 
 size_t o_stream_get_buffer_avail_size(const struct ostream *stream)
 {
-	size_t used = o_stream_get_buffer_used_size(stream);
+	const struct ostream_private *_stream = stream->real_stream;
 
-	return stream->real_stream->max_buffer_size <= used ? 0 :
-		stream->real_stream->max_buffer_size - used;
+	return _stream->get_buffer_avail_size(_stream);
 }
 
 int o_stream_seek(struct ostream *stream, uoff_t offset)
@@ -254,7 +272,10 @@ o_stream_sendv_int(struct ostream *stream, const struct const_iovec *iov,
 	if (total_size == 0)
 		return 0;
 
+	i_assert(!_stream->finished);
 	ret = _stream->sendv(_stream, iov, iov_count);
+	if (ret > 0)
+		stream->real_stream->last_write_timeval = ioloop_timeval;
 	if (unlikely(ret != (ssize_t)total_size)) {
 		if (ret < 0) {
 			i_assert(stream->stream_errno != 0);
@@ -315,25 +336,20 @@ void o_stream_nsend_str(struct ostream *stream, const char *str)
 	o_stream_nsend(stream, str, strlen(str));
 }
 
-void o_stream_nflush(struct ostream *stream)
+int o_stream_finish(struct ostream *stream)
 {
-	if (unlikely(stream->closed || stream->stream_errno != 0))
-		return;
-	(void)o_stream_flush(stream);
-	stream->real_stream->last_errors_not_checked = TRUE;
+	stream->real_stream->finished = TRUE;
+	return o_stream_flush(stream);
 }
 
-int o_stream_nfinish(struct ostream *stream)
+void o_stream_set_finish_also_parent(struct ostream *stream, bool set)
 {
-	o_stream_nflush(stream);
-	o_stream_ignore_last_errors(stream);
-	if (stream->stream_errno == 0 && stream->real_stream->noverflow) {
-		io_stream_set_error(&stream->real_stream->iostream,
-			"Output stream buffer was full (%"PRIuSIZE_T" bytes)",
-			o_stream_get_max_buffer_size(stream));
-		stream->stream_errno = ENOBUFS;
-	}
-	return stream->stream_errno != 0 ? -1 : 0;
+	stream->real_stream->finish_also_parent = set;
+}
+
+void o_stream_set_finish_via_child(struct ostream *stream, bool set)
+{
+	stream->real_stream->finish_via_child = set;
 }
 
 void o_stream_ignore_last_errors(struct ostream *stream)
@@ -342,6 +358,15 @@ void o_stream_ignore_last_errors(struct ostream *stream)
 		stream->real_stream->last_errors_not_checked = FALSE;
 		stream = stream->real_stream->parent;
 	}
+}
+
+void o_stream_abort(struct ostream *stream)
+{
+	o_stream_ignore_last_errors(stream);
+	if (stream->stream_errno != 0)
+		return;
+	io_stream_set_error(&stream->real_stream->iostream, "aborted writing");
+	stream->stream_errno = EPIPE;
 }
 
 void o_stream_set_no_error_handling(struct ostream *stream, bool set)
@@ -366,6 +391,7 @@ o_stream_send_istream(struct ostream *outstream, struct istream *instream)
 		return OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT;
 	}
 
+	i_assert(!_outstream->finished);
 	res = _outstream->send_istream(_outstream, instream);
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
@@ -390,6 +416,9 @@ o_stream_send_istream(struct ostream *outstream, struct istream *instream)
 	/* non-failure - make sure stream offsets match */
 	i_assert((outstream->offset - old_outstream_offset) ==
 		 (instream->v_offset - old_instream_offset));
+
+	if (outstream->offset != old_outstream_offset)
+		outstream->real_stream->last_write_timeval = ioloop_timeval;
 	return res;
 }
 
@@ -428,13 +457,22 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 		return -1;
 	}
 
+	i_assert(!stream->real_stream->finished);
 	ret = stream->real_stream->write_at(stream->real_stream,
 					    data, size, offset);
-	if (unlikely(ret < 0)) {
+	if (ret > 0)
+		stream->real_stream->last_write_timeval = ioloop_timeval;
+	else if (unlikely(ret < 0)) {
 		i_assert(stream->stream_errno != 0);
 		errno = stream->stream_errno;
 	}
+
 	return ret;
+}
+
+void o_stream_get_last_write_time(struct ostream *stream, struct timeval *tv_r)
+{
+	*tv_r = stream->real_stream->last_write_timeval;
 }
 
 enum ostream_send_istream_result
@@ -460,11 +498,18 @@ io_stream_copy(struct ostream *outstream, struct istream *instream)
 	return OSTREAM_SEND_ISTREAM_RESULT_FINISHED;
 }
 
-void o_stream_switch_ioloop(struct ostream *stream)
+void o_stream_switch_ioloop_to(struct ostream *stream, struct ioloop *ioloop)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	_stream->switch_ioloop(_stream);
+	io_stream_switch_ioloop_to(&_stream->iostream, ioloop);
+
+	_stream->switch_ioloop_to(_stream, ioloop);
+}
+
+void o_stream_switch_ioloop(struct ostream *stream)
+{
+	o_stream_switch_ioloop_to(stream, current_ioloop);
 }
 
 static void o_stream_default_close(struct iostream_private *stream,
@@ -473,7 +518,7 @@ static void o_stream_default_close(struct iostream_private *stream,
 	struct ostream_private *_stream = (struct ostream_private *)stream;
 
 	(void)o_stream_flush(&_stream->ostream);
-	if (close_parent && _stream->parent != NULL)
+	if (close_parent)
 		o_stream_close(_stream->parent);
 }
 
@@ -503,6 +548,8 @@ static void o_stream_default_cork(struct ostream_private *_stream, bool set)
 			o_stream_cork(_stream->parent);
 	} else {
 		(void)o_stream_flush(&_stream->ostream);
+		_stream->last_errors_not_checked = TRUE;
+
 		if (_stream->parent != NULL)
 			o_stream_uncork(_stream->parent);
 	}
@@ -536,16 +583,28 @@ int o_stream_flush_parent_if_needed(struct ostream_private *_stream)
 	return 1;
 }
 
-static int o_stream_default_flush(struct ostream_private *_stream)
+int o_stream_flush_parent(struct ostream_private *_stream)
 {
 	int ret;
 
+	i_assert(_stream->parent != NULL);
+
+	if (!_stream->finished || !_stream->finish_also_parent ||
+	    !_stream->parent->real_stream->finish_via_child)
+		ret = o_stream_flush(_stream->parent);
+	else
+		ret = o_stream_finish(_stream->parent);
+	if (ret < 0)
+		o_stream_copy_error_from_parent(_stream);
+	return ret;
+}
+
+static int o_stream_default_flush(struct ostream_private *_stream)
+{
 	if (_stream->parent == NULL)
 		return 1;
 
-	if ((ret = o_stream_flush(_stream->parent)) < 0)
-		o_stream_copy_error_from_parent(_stream);
-	return ret;
+	return o_stream_flush_parent(_stream);
 }
 
 static void
@@ -568,12 +627,24 @@ o_stream_default_set_flush_pending(struct ostream_private *_stream, bool set)
 }
 
 static size_t
-o_stream_default_get_used_size(const struct ostream_private *_stream)
+o_stream_default_get_buffer_used_size(const struct ostream_private *_stream)
 {
 	if (_stream->parent == NULL)
 		return 0;
 	else
 		return o_stream_get_buffer_used_size(_stream->parent);
+}
+
+static size_t
+o_stream_default_get_buffer_avail_size(const struct ostream_private *_stream)
+{
+	/* This default implementation assumes that the returned buffer size is
+	   between 0..max_buffer_size. There's no assert though, in case the
+	   max_buffer_size changes. */
+	size_t used = o_stream_get_buffer_used_size(&_stream->ostream);
+
+	return _stream->max_buffer_size <= used ? 0 :
+		_stream->max_buffer_size - used;
 }
 
 static int
@@ -614,15 +685,19 @@ o_stream_default_send_istream(struct ostream_private *outstream,
 	return io_stream_copy(&outstream->ostream, instream);
 }
 
-static void o_stream_default_switch_ioloop(struct ostream_private *_stream)
+static void
+o_stream_default_switch_ioloop_to(struct ostream_private *_stream,
+				  struct ioloop *ioloop)
 {
 	if (_stream->parent != NULL)
-		o_stream_switch_ioloop(_stream->parent);
+		o_stream_switch_ioloop_to(_stream->parent, ioloop);
 }
 
 struct ostream *
 o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 {
+	_stream->finish_also_parent = TRUE;
+	_stream->finish_via_child = TRUE;
 	_stream->fd = fd;
 	_stream->ostream.real_stream = _stream;
 	if (parent != NULL) {
@@ -656,8 +731,13 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 	}
 	if (_stream->flush_pending == NULL)
 		_stream->flush_pending = o_stream_default_set_flush_pending;
-	if (_stream->get_used_size == NULL)
-		_stream->get_used_size = o_stream_default_get_used_size;
+	if (_stream->get_buffer_used_size == NULL)
+		_stream->get_buffer_used_size =
+			o_stream_default_get_buffer_used_size;
+	if (_stream->get_buffer_avail_size == NULL) {
+		_stream->get_buffer_avail_size =
+			o_stream_default_get_buffer_avail_size;
+	}
 	if (_stream->seek == NULL)
 		_stream->seek = o_stream_default_seek;
 	if (_stream->sendv == NULL)
@@ -666,8 +746,8 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 		_stream->write_at = o_stream_default_write_at;
 	if (_stream->send_istream == NULL)
 		_stream->send_istream = o_stream_default_send_istream;
-	if (_stream->switch_ioloop == NULL)
-		_stream->switch_ioloop = o_stream_default_switch_ioloop;
+	if (_stream->switch_ioloop_to == NULL)
+		_stream->switch_ioloop_to = o_stream_default_switch_ioloop_to;
 
 	io_stream_init(&_stream->iostream);
 	return &_stream->ostream;

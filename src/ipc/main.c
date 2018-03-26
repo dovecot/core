@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "restrict-access.h"
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service, "ipc: ");
 
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 	ipc_groups_init();
 	master_service_init_finish(master_service);

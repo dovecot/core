@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "crc32.h"
@@ -94,7 +94,7 @@ uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 
 static void fts_lucene_mail_user_deinit(struct mail_user *user)
 {
-	struct fts_lucene_user *fuser = FTS_LUCENE_USER_CONTEXT(user);
+	struct fts_lucene_user *fuser = FTS_LUCENE_USER_CONTEXT_REQUIRE(user);
 
 	if (fuser->set.use_libfts)
 		fts_mail_user_deinit(user);

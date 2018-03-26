@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -17,7 +17,7 @@ struct mail_filter_ostream {
 	int fd;
 	struct istream *ext_in;
 	struct ostream *ext_out;
-	bool flushed;
+	bool finished;
 };
 
 static void
@@ -61,7 +61,7 @@ o_stream_mail_filter_sendv(struct ostream_private *stream,
 	return ret;
 }
 
-static int o_stream_mail_filter_flush(struct ostream_private *stream)
+static int o_stream_mail_filter_finish(struct ostream_private *stream)
 {
 	struct mail_filter_ostream *mstream =
 		(struct mail_filter_ostream *)stream;
@@ -73,7 +73,7 @@ static int o_stream_mail_filter_flush(struct ostream_private *stream)
 		/* connect failed */
 		return -1;
 	}
-	if (mstream->flushed)
+	if (mstream->finished)
 		return 0;
 
 	if (shutdown(mstream->fd, SHUT_WR) < 0)
@@ -92,7 +92,7 @@ static int o_stream_mail_filter_flush(struct ostream_private *stream)
 
 	if (!i_stream_have_bytes_left(mstream->ext_in) &&
 	    mstream->ext_in->v_offset == 0) {
-		/* EOF without any input -> assume the script is repoting
+		/* EOF without any input -> assume the script is reporting
 		   failure. pretty ugly way, but currently there's no error
 		   reporting channel. */
 		io_stream_set_error(&stream->iostream, "EOF without input");
@@ -106,12 +106,19 @@ static int o_stream_mail_filter_flush(struct ostream_private *stream)
 		return -1;
 	}
 
-	ret = o_stream_flush(stream->parent);
-	if (ret < 0)
-		o_stream_copy_error_from_parent(stream);
-	else
-		mstream->flushed = TRUE;
+	mstream->finished = TRUE;
 	return ret;
+}
+
+static int o_stream_mail_filter_flush(struct ostream_private *stream)
+{
+	int ret;
+
+	if (stream->finished) {
+		if ((ret = o_stream_mail_filter_finish(stream)) <= 0)
+			return ret;
+	}
+	return o_stream_flush_parent(stream);
 }
 
 static int filter_connect(struct mail_filter_ostream *mstream,

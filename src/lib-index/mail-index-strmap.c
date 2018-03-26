@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -1015,7 +1015,7 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 	output = o_stream_create_fd(fd, 0);
 	o_stream_cork(output);
 	mail_index_strmap_recreate_write(view, output);
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		mail_index_set_error(strmap->index, "write(%s) failed: %s",
 				     temp_path, o_stream_get_error(output));
 		ret = -1;
@@ -1171,7 +1171,7 @@ mail_index_strmap_write_append(struct mail_index_strmap_view *view)
 	o_stream_cork(output);
 	mail_index_strmap_write_block(view, output, i,
 				      view->last_read_uid + 1);
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		mail_index_strmap_set_syscall_error(view->strmap, "write()");
 		ret = -1;
 	}

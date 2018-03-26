@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "ioloop.h"
@@ -158,7 +158,6 @@ static bool cmd_append_send_literal_continue(struct cmd_append_context *ctx)
 	}
 
 	o_stream_nsend(ctx->client->output, "+ OK\r\n", 6);
-	o_stream_nflush(ctx->client->output);
 	o_stream_uncork(ctx->client->output);
 	o_stream_cork(ctx->client->output);
 	return TRUE;
@@ -208,7 +207,7 @@ cmd_append_catenate_mpurl(struct client_command_context *cmd,
 	} while (mailbox_save_continue(ctx->save_ctx) == 0 && ret != -1);
 
 	if (mpresult.input->stream_errno != 0) {
-		mail_storage_set_critical(ctx->box->storage,
+		mailbox_set_critical(ctx->box,
 			"read(%s) failed: %s (for CATENATE URL %s)",
 			i_stream_get_name(mpresult.input),
 			i_stream_get_error(mpresult.input), caturl);
@@ -564,6 +563,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	if (cat_list != NULL) {
 		ctx->cat_msg_size = 0;
 		ctx->input = i_stream_create_chain(&ctx->catchain);
+		i_stream_set_max_buffer_size(ctx->input, IO_BLOCK_SIZE);
 	} else {
 		if (ctx->literal_size == 0) {
 			/* no message data, abort */

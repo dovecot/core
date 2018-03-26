@@ -1,4 +1,4 @@
-/* Copyright (c) 2001-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2001-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -300,7 +300,7 @@ lib_signals_enable_delayed_hander(void)
 {
 	if (current_ioloop != NULL) {
 		io_sig = io_add(sig_pipe_fd[0], IO_READ,
-			signal_read, (void *)NULL);
+			signal_read, NULL);
 	}
 }
 

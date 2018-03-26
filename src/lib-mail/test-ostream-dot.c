@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -23,7 +23,7 @@ static void test_ostream_dot_one(const struct dot_test *test)
 	ssize_t ret;
 
 	test_input = test_istream_create(test->input);
-	output_data = buffer_create_dynamic(pool_datastack_create(), 1024);
+	output_data = t_buffer_create(1024);
 	test_output = o_stream_create_buffer(output_data);
 
 	output = o_stream_create_dot(test_output, FALSE);
@@ -39,7 +39,7 @@ static void test_ostream_dot_one(const struct dot_test *test)
 
 	test_assert(test_input->eof);
 
-	test_assert(o_stream_flush(output) > 0);
+	test_assert(o_stream_finish(output) > 0);
 	test_assert(output->offset == strlen(test->input));
 	test_assert(test_output->offset == strlen(test->output));
 	o_stream_unref(&output);

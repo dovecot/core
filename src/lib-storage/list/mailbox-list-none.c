@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -24,6 +24,7 @@ static struct mailbox_list *none_list_alloc(void)
 
 	list = p_new(pool, struct mailbox_list, 1);
 	*list = none_mailbox_list;
+	list->props = MAILBOX_LIST_PROP_NO_LIST_INDEX;
 	list->pool = pool;
 	return list;
 }

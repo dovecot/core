@@ -1,7 +1,8 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "lib-signals.h"
+#include "event-filter.h"
 #include "ioloop.h"
 #include "path-util.h"
 #include "array.h"
@@ -12,11 +13,13 @@
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "syslog-util.h"
+#include "stats-client.h"
 #include "master-instance.h"
 #include "master-login.h"
 #include "master-service-ssl.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
+#include "iostream-ssl.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -178,6 +181,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	data_stack_frame_t datastack_frame_id = 0;
 	unsigned int count;
 	const char *value;
+	const char *error;
 
 	i_assert(name != NULL);
 
@@ -257,6 +261,10 @@ master_service_init(const char *name, enum master_service_flags flags,
 		master_service_init_socket_listeners(service);
 	} T_END;
 
+	/* load SSL module if necessary */
+	if (service->want_ssl_settings && ssl_module_load(&error) < 0)
+		i_fatal("Cannot load SSL module: %s", error);
+
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
 	if (getenv("LOG_SERVICE") != NULL)
@@ -265,6 +273,19 @@ master_service_init(const char *name, enum master_service_flags flags,
 		i_set_failure_prefix("%s(%s): ", name, getenv("USER"));
 	else
 		i_set_failure_prefix("%s: ", name);
+
+	/* Initialize debug logging */
+	value = getenv(DOVECOT_LOG_DEBUG_ENV);
+	if (value != NULL) {
+		struct event_filter *filter = event_filter_create();
+		const char *error;
+		if (master_service_log_debug_parse(filter, value, &error) < 0) {
+			i_error("Invalid "DOVECOT_LOG_DEBUG_ENV" - ignoring: %s",
+				error);
+		}
+		event_set_global_debug_log_filter(filter);
+		event_filter_unref(&filter);
+	}
 
 	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		/* initialize master_status structure */
@@ -348,40 +369,32 @@ bool master_getopt_str_is_valid(const char *str)
 	return TRUE;
 }
 
-void master_service_init_log(struct master_service *service,
-			     const char *prefix)
+static bool
+master_service_try_init_log(struct master_service *service,
+			    const char *prefix)
 {
 	const char *path, *timestamp;
-	bool log_already_initialized = service->log_initialized;
 
-	service->log_initialized = TRUE;
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0 &&
 	    (service->flags & MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR) == 0) {
-		if (log_already_initialized)
-			return;
 		timestamp = getenv("LOG_STDERR_TIMESTAMP");
 		if (timestamp != NULL)
 			i_set_failure_timestamp_format(timestamp);
 		i_set_failure_file("/dev/stderr", "");
-		return;
-	}
-
-	if (log_already_initialized) {
-		/* change only the prefix */
-		i_set_failure_prefix("%s", prefix);
-		return;
+		return TRUE;
 	}
 
 	if (getenv("LOG_SERVICE") != NULL && !service->log_directly) {
 		/* logging via log service */
 		i_set_failure_internal();
 		i_set_failure_prefix("%s", prefix);
-		return;
+		return TRUE;
 	}
 
 	if (service->set == NULL) {
 		i_set_failure_file("/dev/stderr", prefix);
-		return;
+		/* may be called again after we have settings */
+		return FALSE;
 	}
 
 	if (strcmp(service->set->log_path, "syslog") != 0) {
@@ -423,6 +436,32 @@ void master_service_init_log(struct master_service *service,
 			i_set_debug_file(path);
 	}
 	i_set_failure_timestamp_format(service->set->log_timestamp);
+	return TRUE;
+}
+
+void master_service_init_log(struct master_service *service,
+			     const char *prefix)
+{
+	if (service->log_initialized) {
+		/* change only the prefix */
+		i_set_failure_prefix("%s", prefix);
+		return;
+	}
+	if (master_service_try_init_log(service, prefix))
+		service->log_initialized = TRUE;
+}
+
+void master_service_init_stats_client(struct master_service *service,
+				      bool silent_notfound_errors)
+{
+	if (service->stats_client == NULL &&
+	    service->set->stats_writer_socket_path[0] != '\0') T_BEGIN {
+		const char *path = t_strdup_printf("%s/%s",
+			service->set->base_dir,
+			service->set->stats_writer_socket_path);
+		service->stats_client =
+			stats_client_init(path, silent_notfound_errors);
+	} T_END;
 }
 
 void master_service_set_die_with_master(struct master_service *service,
@@ -956,6 +995,8 @@ void master_service_deinit(struct master_service **_service)
 	master_service_io_listeners_remove(service);
 	master_service_ssl_ctx_deinit(service);
 
+	if (service->stats_client != NULL)
+		stats_client_deinit(&service->stats_client);
 	master_service_close_config_fd(service);
 	timeout_remove(&service->to_die);
 	timeout_remove(&service->to_overflow_state);
@@ -1170,10 +1211,8 @@ void master_status_update(struct master_service *service)
 	    service->master_status.available_count ==
 	    service->last_sent_status_avail_count) {
 		/* a) closed, b) updating to same state */
-		if (service->to_status != NULL)
-			timeout_remove(&service->to_status);
-		if (service->io_status_write != NULL)
-			io_remove(&service->io_status_write);
+		timeout_remove(&service->to_status);
+		io_remove(&service->io_status_write);
 		return;
 	}
 	if (ioloop_time == service->last_sent_status_time &&
@@ -1231,4 +1270,10 @@ bool version_string_verify_full(const char *line, const char *service_name,
 		}
 	} T_END;
 	return ret;
+}
+
+bool master_service_is_ssl_module_loaded(struct master_service *service)
+{
+	/* if this is TRUE, then ssl module is loaded by init */
+	return service->want_ssl_settings;
 }

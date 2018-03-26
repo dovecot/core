@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -114,7 +114,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	message_parse_header_deinit(&parser);
 
 	if (ctx->input->stream_errno != 0) {
-		mail_storage_set_critical(ctx->mail->box->storage,
+		mail_set_critical(ctx->mail,
 			"read(%s) failed: %s", i_stream_get_name(ctx->input),
 			i_stream_get_error(ctx->input));
 		return -1;
@@ -143,7 +143,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 		block->input = i_stream_create_header_filter(linput,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_HIDE_BODY,
 				filter_headers, N_ELEMENTS(filter_headers),
-				binary_cte_filter_callback, (void *)NULL);
+				binary_cte_filter_callback, NULL);
 		i_stream_unref(&linput);
 	} else {
 		/* copy everything as-is until the end of this header */
@@ -282,7 +282,7 @@ static void binary_parts_cache(struct binary_ctx *ctx)
 	struct index_mail *mail = INDEX_MAIL(ctx->mail);
 	buffer_t *buf;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	buf = t_buffer_create(128);
 	message_binary_part_serialize(mail->data.bin_parts, buf);
 	index_mail_cache_add(mail, MAIL_CACHE_BINARY_PARTS,
 			     buf->data, buf->used);
@@ -342,7 +342,7 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 		if (cur_block->input->eof) {
 			/* go to the next block */
 			if (++block_idx == block_count) {
-				i_assert(i_stream_is_eof(full_input));
+				i_assert(i_stream_read_eof(full_input));
 				ret = -1;
 				break;
 			}
@@ -399,10 +399,9 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 					       MAIL_ERROR_INVALIDDATA,
 					       "Invalid data in MIME part");
 		} else {
-			mail_storage_set_critical(_mail->box->storage,
-				"read(%s) failed: %s",
-				i_stream_get_name(is),
-				i_stream_get_error(is));
+			mail_set_critical(_mail, "read(%s) failed: %s",
+					  i_stream_get_name(is),
+					  i_stream_get_error(is));
 		}
 		i_stream_unref(&is);
 		binary_streams_free(&ctx);
@@ -447,7 +446,7 @@ static bool get_cached_binary_parts(struct index_mail *mail)
 	if (mail->data.bin_parts != NULL)
 		return TRUE;
 
-	part_buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	part_buf = t_buffer_create(128);
 	ret = index_mail_cache_lookup_field(mail, part_buf, field_idx);
 	if (ret <= 0)
 		return FALSE;

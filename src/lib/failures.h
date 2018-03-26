@@ -29,6 +29,7 @@ enum log_type {
 struct failure_line {
 	pid_t pid;
 	enum log_type log_type;
+	bool disable_log_prefix;
 	const char *text;
 };
 
@@ -37,6 +38,7 @@ struct failure_context {
 	int exit_status; /* for LOG_TYPE_FATAL */
 	const struct tm *timestamp; /* NULL = use time() + localtime() */
 	unsigned int timestamp_usecs;
+	const char *log_prefix; /* override the default log prefix */
 };
 
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
@@ -49,6 +51,8 @@ extern const char *failure_log_type_names[];
 
 void i_log_type(const struct failure_context *ctx, const char *format, ...)
 	ATTR_FORMAT(2, 3);
+void i_log_typev(const struct failure_context *ctx, const char *format,
+		 va_list args) ATTR_FORMAT(2, 0);
 
 void i_panic(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
 void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;

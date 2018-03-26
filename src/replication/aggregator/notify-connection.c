@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -140,8 +140,7 @@ static void notify_connection_destroy(struct notify_connection *conn)
 
 	io_remove(&conn->io);
 	i_stream_close(conn->input);
-	if (conn->output != NULL)
-		o_stream_close(conn->output);
+	o_stream_close(conn->output);
 	net_disconnect(conn->fd);
 	conn->fd = -1;
 

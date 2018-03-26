@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "ioloop.h"
@@ -14,6 +14,7 @@
 #include "auth-penalty.h"
 #include "auth-request.h"
 #include "auth-token.h"
+#include "auth-client-connection.h"
 #include "auth-master-connection.h"
 #include "auth-request-handler.h"
 #include "auth-policy.h"
@@ -216,7 +217,8 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 	auth_request_ref(request);
 	auth_request_handler_remove(handler, request);
 
-	auth_policy_report(request);
+	if (request->set->policy_report_after_auth)
+		auth_policy_report(request);
 
 	if (auth_fields_exists(request->extra_fields, "nodelay")) {
 		/* passdb specifically requested not to delay the reply. */
@@ -240,7 +242,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 	if (to_auth_failures == NULL) {
 		to_auth_failures =
 			timeout_add_short(AUTH_FAILURE_DELAY_CHECK_MSECS,
-					  auth_failure_timeout, (void *)NULL);
+					  auth_failure_timeout, NULL);
 	}
 }
 
@@ -264,7 +266,8 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 	str_append_tabescaped(str, request->user);
 	auth_str_append_extra_fields(request, str);
 
-	auth_policy_report(request);
+	if (request->set->policy_report_after_auth)
+		auth_policy_report(request);
 
 	if (handler->master_callback == NULL ||
 	    auth_fields_exists(request->extra_fields, "nologin") ||
@@ -578,14 +581,33 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return TRUE;
 	}
 
-	/* Empty initial response is a "=" base64 string. Completely empty
-	   string shouldn't really be sent, but at least Exim does it,
-	   so just allow it for backwards compatibility.. */
-	if (initial_resp != NULL && *initial_resp != '\0') {
+	/* Handle initial respose */
+	if (initial_resp == NULL) {
+		/* No initial response */
+		request->initial_response = NULL;
+		request->initial_response_len = 0;
+	} else if (handler->conn->version_minor < 2 && *initial_resp == '\0') {
+		/* Some authentication clients like Exim send and empty initial
+		   response field when it is in fact absent in the
+		   authentication command. This was allowed for older versions
+		   of the Dovecot authentication protocol. */
+		request->initial_response = NULL;
+		request->initial_response_len = 0;
+	} else if (*initial_resp == '\0' || strcmp(initial_resp, "=") == 0 ) {
+		/* Empty initial response - Protocols that use SASL often
+		   use '=' to indicate an empty initial response; i.e., to
+		   distinguish it from an absent initial response. However, that
+		   should not be conveyed to the SASL layer (it is not even
+		   valid Base64); only the empty string should be passed on.
+		   Still, we recognize it here anyway, because we used to make
+		   the same mistake. */
+		request->initial_response = uchar_empty_ptr;
+		request->initial_response_len = 0;
+	} else {
 		size_t len = strlen(initial_resp);
 
-		buf = buffer_create_dynamic(pool_datastack_create(),
-					    MAX_BASE64_DECODED_SIZE(len));
+		/* Initial response encoded in Bas64 */
+		buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(initial_resp, len, NULL, buf) < 0) {
 			auth_request_handler_auth_fail_code(handler, request,
 				AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
@@ -641,8 +663,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	request->accept_cont_input = FALSE;
 
 	data_len = strlen(data);
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    MAX_BASE64_DECODED_SIZE(data_len));
+	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(data_len));
 	if (base64_decode(data, data_len, NULL, buf) < 0) {
 		auth_request_handler_auth_fail_code(handler, request,
 			AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
@@ -841,7 +862,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 	for (i = 0; i < count; i++) {
 		auth_request = auth_requests[aqueue_idx(auth_failures, i)];
 
-		/* FIXME: assumess that failure_delay is always the same. */
+		/* FIXME: assumes that failure_delay is always the same. */
 		diff = ioloop_time - auth_request->last_access;
 		if (diff < (time_t)auth_request->set->failure_delay &&
 		    !flush_all)

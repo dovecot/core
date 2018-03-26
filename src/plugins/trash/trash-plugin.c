@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -18,6 +18,8 @@
 
 #define TRASH_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, trash_user_module)
+#define TRASH_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, trash_user_module)
 
 struct trash_mailbox {
 	const char *name;
@@ -45,7 +47,8 @@ const char *trash_plugin_version = DOVECOT_ABI_VERSION;
 static MODULE_CONTEXT_DEFINE_INIT(trash_user_module,
 				  &mail_user_module_register);
 static enum quota_alloc_result (*trash_next_quota_test_alloc)(
-		struct quota_transaction_context *, uoff_t);
+		struct quota_transaction_context *, uoff_t,
+		const char **error_r);
 
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
@@ -101,7 +104,7 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 				 uint64_t size_needed,
 				 unsigned int count_needed)
 {
-	struct trash_user *tuser = TRASH_USER_CONTEXT(ctx->quota->user);
+	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(ctx->quota->user);
 	struct trash_mailbox *trashes;
 	unsigned int i, j, count, oldest_idx;
 	time_t oldest, received = 0;
@@ -219,7 +222,7 @@ err:
 
 static enum quota_alloc_result
 trash_quota_test_alloc(struct quota_transaction_context *ctx,
-		       uoff_t size)
+		       uoff_t size, const char **error_r)
 {
 	int i;
 	uint64_t size_needed = 0;
@@ -227,7 +230,7 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 
 	for (i = 0; ; i++) {
 		enum quota_alloc_result ret;
-		ret = trash_next_quota_test_alloc(ctx, size);
+		ret = trash_next_quota_test_alloc(ctx, size, error_r);
 		if (ret != QUOTA_ALLOC_RESULT_OVER_QUOTA) {
 			if (ret == QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT &&
 			    ctx->quota->user->mail_debug)
@@ -252,9 +255,14 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 			count_needed = 1 + ctx->count_over - ctx->count_ceil;
 
 		/* not enough space. try deleting some from mailbox. */
-		if (trash_try_clean_mails(ctx, size_needed, count_needed) <= 0)
+		if (trash_try_clean_mails(ctx, size_needed, count_needed) <= 0) {
+			*error_r = t_strdup_printf(
+				"Allocating %"PRIuUOFF_T" bytes would exceed quota", size);
 			return QUOTA_ALLOC_RESULT_OVER_QUOTA;
+		}
 	}
+	*error_r = t_strdup_printf(
+		"Allocating %"PRIuUOFF_T" bytes would exceed quota", size);
 	return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 }
 
@@ -279,7 +287,7 @@ static int trash_mailbox_priority_cmp(const struct trash_mailbox *t1,
 
 static int read_configuration(struct mail_user *user, const char *path)
 {
-	struct trash_user *tuser = TRASH_USER_CONTEXT(user);
+	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(user);
 	struct istream *input;
 	const char *line, *name;
 	struct trash_mailbox *trash;
@@ -361,6 +369,7 @@ trash_mail_namespaces_created(struct mail_namespace *namespaces)
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 
 	if (tuser != NULL && read_configuration(user, tuser->config_file) == 0) {
+		i_assert(quser != NULL);
 		trash_next_quota_test_alloc =
 			quser->quota->set->test_alloc;
 		quser->quota->set->test_alloc = trash_quota_test_alloc;

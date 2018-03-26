@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -39,6 +39,7 @@ struct json_parser {
 	enum json_state state;
 	ARRAY(enum json_state) nesting;
 	unsigned int nested_skip_count;
+
 	bool skipping;
 	bool seen_eof;
 };
@@ -202,9 +203,82 @@ static int json_skip_string(struct json_parser *parser)
 	return 0;
 }
 
+static int json_parse_unicode_escape(struct json_parser *parser)
+{
+	char chbuf[5] = {0};
+	unichar_t chr, hi_surg;
+
+	parser->data++;
+	if (parser->end - parser->data < 4) {
+		/* wait for more data */
+		parser->data = parser->end;
+		return 0;
+	}
+	memcpy(chbuf, parser->data, 4);
+	if (str_to_uint32_hex(chbuf, &chr) < 0) {
+		parser->error = "Invalid unicode escape seen";
+		return -1;
+	}
+	if (UTF16_VALID_HIGH_SURROGATE(chr)) {
+		/* possible surrogate pair */
+		hi_surg = chr;
+		chr = 0;
+		parser->data += 4;
+		if (parser->data >= parser->end) {
+			/* wait for more data */
+			parser->data = parser->end;
+			return 0;
+		}
+		if ((parser->end - parser->data) < 2) {
+			if (parser->data[0] == '\\') {
+				/* wait for more data */
+				parser->data = parser->end;
+				return 0;
+			}
+			/* error */
+		}
+		if ((parser->end - parser->data) < 6) {
+			if (parser->data[0] == '\\' &&
+			    parser->data[1] == 'u') {
+				/* wait for more data */
+				parser->data = parser->end;
+				return 0;
+			}
+			/* error */
+		} else {
+			memcpy(chbuf, &parser->data[2], 4);
+			if (str_to_uint32_hex(chbuf, &chr) < 0) {
+				parser->error = "Invalid unicode escape seen";
+				return -1;
+			}
+		}
+		if (parser->data[0] != '\\' || parser->data[1] != 'u' ||
+		    !UTF16_VALID_LOW_SURROGATE(chr)) {
+			parser->error =
+				t_strdup_printf("High surrogate 0x%04x seen, "
+						"but not followed by low surrogate",
+						hi_surg);
+			return -1;
+		}
+		chr = uni_join_surrogate(hi_surg, chr);
+		parser->data += 2;
+	}
+
+	if (!uni_is_valid_ucs4(chr)) {
+		parser->error =
+			t_strdup_printf("Invalid unicode character U+%04x", chr);
+		return -1;
+	}
+	uni_ucs4_to_utf8_c(chr, parser->value);
+	parser->data += 3;
+	return 1;
+}
+
 static int json_parse_string(struct json_parser *parser, bool allow_skip,
 			     const char **value_r)
 {
+	int ret;
+
 	if (*parser->data != '"')
 		return -1;
 	parser->data++;
@@ -248,15 +322,8 @@ static int json_parse_string(struct json_parser *parser, bool allow_skip,
 				str_append_c(parser->value, '\t');
 				break;
 			case 'u':
-				parser->data++;
-				if (parser->end - parser->data < 4) {
-					/* wait for more data */
-					parser->data = parser->end;
-					return 0;
-				}
-				uni_ucs4_to_utf8_c(hex2dec(parser->data, 4),
-						   parser->value);
-				parser->data += 3;
+				if ((ret=json_parse_unicode_escape(parser)) <= 0)
+					return ret;
 				break;
 			default:
 				return -1;
@@ -462,7 +529,8 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 			*type_r = JSON_TYPE_NULL;
 			*value_r = NULL;
 		} else {
-			parser->error = "Invalid data as value";
+			if (parser->error == NULL)
+				parser->error = "Invalid data as value";
 			return -1;
 		}
 		if (ret == 0) {
@@ -696,11 +764,24 @@ static void json_append_escaped_char(string_t *dest, unsigned char src)
 		str_append(dest, "\\\\");
 		break;
 	default:
-		if (src < 32)
+		if (src < 0x20 || src >= 0x80)
 			str_printfa(dest, "\\u%04x", src);
 		else
 			str_append_c(dest, src);
 		break;
+	}
+}
+
+void json_append_escaped_ucs4(string_t *dest, unichar_t chr)
+{
+	unichar_t high,low;
+	if (chr < 0x80)
+		json_append_escaped_char(dest, (unsigned char)chr);
+	else if (chr >= UTF16_SURROGATE_BASE) {
+		uni_split_surrogate(chr, &high, &low);
+		str_printfa(dest, "\\u%04x\\u%04x", high, low);
+	} else {
+		str_printfa(dest, "\\u%04x", chr);
 	}
 }
 
@@ -711,14 +792,20 @@ void ostream_escaped_json_format(string_t *dest, unsigned char src)
 
 void json_append_escaped(string_t *dest, const char *src)
 {
-	for (; *src != '\0'; src++)
-		json_append_escaped_char(dest, *src);
+	json_append_escaped_data(dest, (const unsigned char*)src, strlen(src));
 }
 
 void json_append_escaped_data(string_t *dest, const unsigned char *src, size_t size)
 {
 	size_t i;
+	int bytes = 0;
+	unichar_t chr;
 
-	for (i = 0; i < size; i++)
-		json_append_escaped_char(dest, src[i]);
+	for (i = 0; i < size;) {
+		bytes = uni_utf8_get_char_n(src+i, size-i, &chr);
+		/* refuse to add invalid data */
+		i_assert(bytes > 0 && uni_is_valid_ucs4(chr));
+		json_append_escaped_ucs4(dest, chr);
+		i += bytes;
+	}
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "ioloop.h"
@@ -158,8 +158,19 @@ void auth_request_success(struct auth_request *request,
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	/* perform second policy lookup here */
+	if (!request->set->policy_check_after_auth) {
+		buffer_t buf;
+		buffer_create_from_const_data(&buf, "", 0);
+		struct auth_policy_check_ctx ctx = {
+			.success_data = &buf,
+			.request = request,
+			.type = AUTH_POLICY_CHECK_TYPE_SUCCESS,
+		};
+		auth_request_policy_check_callback(0, &ctx);
+		return;
+	}
 
+	/* perform second policy lookup here */
 	struct auth_policy_check_ctx *ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
 	ctx->request = request;
 	ctx->success_data = buffer_create_dynamic(request->pool, data_size);
@@ -341,8 +352,12 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_printfa(dest, "\tsession=%s", request->session_id);
 	if (request->debug)
 		str_append(dest, "\tdebug");
-	if (request->secured)
-		str_append(dest, "\tsecured");
+	switch(request->secured) {
+	case AUTH_REQUEST_SECURED_NONE: break;
+	case AUTH_REQUEST_SECURED: str_append(dest, "\tsecured"); break;
+	case AUTH_REQUEST_SECURED_TLS: str_append(dest, "\tsecured=tls"); break;
+	default: break;
+	}
 	if (request->skip_password_check)
 		str_append(dest, "\tskip-password-check");
 	if (request->delayed_credentials != NULL)
@@ -426,8 +441,12 @@ bool auth_request_import_auth(struct auth_request *request,
 		return TRUE;
 
 	/* auth client may set these */
-	if (strcmp(key, "secured") == 0)
-		request->secured = TRUE;
+	if (strcmp(key, "secured") == 0) {
+		if (strcmp(value, "tls") == 0)
+			request->secured = AUTH_REQUEST_SECURED_TLS;
+		else
+			request->secured = AUTH_REQUEST_SECURED;
+	}
 	else if (strcmp(key, "final-resp-ok") == 0)
 		request->final_resp_ok = TRUE;
 	else if (strcmp(key, "no-penalty") == 0)
@@ -891,7 +910,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	return TRUE;
 }
 
-static void
+void
 auth_request_verify_plain_callback_finish(enum passdb_result result,
 					  struct auth_request *request)
 {
@@ -942,6 +961,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 					      &result, TRUE)) {
 			auth_request_log_info(request, AUTH_SUBSYS_DB,
 				"Falling back to expired data from cache");
+			return;
 		}
 	}
 
@@ -967,11 +987,11 @@ static bool password_has_illegal_chars(const char *password)
 
 static bool auth_request_is_disabled_master_user(struct auth_request *request)
 {
-	if (request->passdb != NULL)
+	if (request->requested_login_user == NULL ||
+	    request->passdb != NULL)
 		return FALSE;
 
 	/* no masterdbs, master logins not supported */
-	i_assert(request->requested_login_user != NULL);
 	auth_request_log_info(request, AUTH_SUBSYS_MECH,
 			      "Attempted master login with no master passdbs "
 			      "(trying to log in as user: %s)",
@@ -1036,7 +1056,7 @@ void auth_request_verify_plain(struct auth_request *request,
 		i_assert(request->mech_password == password);
 	request->user_changed_by_lookup = FALSE;
 
-	if (request->policy_processed) {
+	if (request->policy_processed || !request->set->policy_check_before_auth) {
 		auth_request_verify_plain_continue(request, callback);
 	} else {
 		ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
@@ -1090,7 +1110,6 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (passdb_cache_verify_plain(request, cache_key, password,
 				      &result, FALSE)) {
-		auth_request_verify_plain_callback_finish(result, request);
 		return;
 	}
 
@@ -1227,7 +1246,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 		request->credentials_scheme = p_strdup(request->pool, scheme);
 	request->user_changed_by_lookup = FALSE;
 
-	if (request->policy_processed)
+	if (request->policy_processed || !request->set->policy_check_before_auth)
 		auth_request_lookup_credentials_policy_continue(request, callback);
 	else {
 		ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
@@ -1247,7 +1266,6 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 	enum passdb_result result;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
-
 	if (auth_request_is_disabled_master_user(request)) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, 0, request);
 		return;
@@ -2452,7 +2470,7 @@ auth_request_append_password(struct auth_request *request, string_t *str)
 void auth_request_log_password_mismatch(struct auth_request *request,
 					const char *subsystem)
 {
-	auth_request_log_login_failure(request, subsystem, "Password mismatch");
+	auth_request_log_login_failure(request, subsystem, AUTH_LOG_MSG_PASSWORD_MISMATCH);
 }
 
 void auth_request_log_unknown_user(struct auth_request *request,

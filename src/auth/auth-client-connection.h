@@ -13,6 +13,7 @@ struct auth_client_connection {
 	struct istream *input;
 	struct ostream *output;
 
+	unsigned int version_minor;
 	unsigned int pid;
 	unsigned int connect_uid;
 	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];

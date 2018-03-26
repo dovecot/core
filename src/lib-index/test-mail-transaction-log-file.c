@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -243,7 +243,7 @@ static void test_mail_transaction_update_modseq(void)
 
 static struct mail_index *test_mail_index_open(void)
 {
-	struct mail_index *index = mail_index_alloc(NULL, "test.dovecot.index");
+	struct mail_index *index = mail_index_alloc(NULL, NULL, "test.dovecot.index");
 	test_assert(mail_index_open_or_create(index, MAIL_INDEX_OPEN_FLAG_CREATE) == 0);
 	struct mail_index_view *view = mail_index_view_open(index);
 

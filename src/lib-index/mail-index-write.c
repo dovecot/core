@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "read-full.h"
@@ -83,8 +83,7 @@ static int mail_index_recreate(struct mail_index *index)
 		       map->hdr.header_size - base_size);
 	o_stream_nsend(output, map->rec_map->records,
 		       map->rec_map->records_count * map->hdr.record_size);
-	o_stream_nflush(output);
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write()");
 		ret = -1;
 	}

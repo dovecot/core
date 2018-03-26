@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "array.h"
@@ -218,9 +218,11 @@ extern struct userdb_module_interface userdb_passwd_file;
 extern struct userdb_module_interface userdb_vpopmail;
 extern struct userdb_module_interface userdb_ldap;
 extern struct userdb_module_interface userdb_sql;
-extern struct userdb_module_interface userdb_nss;
 extern struct userdb_module_interface userdb_checkpassword;
 extern struct userdb_module_interface userdb_dict;
+#ifdef HAVE_LUA
+extern struct userdb_module_interface userdb_lua;
+#endif
 
 void userdbs_init(void)
 {
@@ -233,9 +235,11 @@ void userdbs_init(void)
 	userdb_register_module(&userdb_vpopmail);
 	userdb_register_module(&userdb_ldap);
 	userdb_register_module(&userdb_sql);
-	userdb_register_module(&userdb_nss);
 	userdb_register_module(&userdb_checkpassword);
 	userdb_register_module(&userdb_dict);
+#ifdef HAVE_LUA
+	userdb_register_module(&userdb_lua);
+#endif
 }
 
 void userdbs_deinit(void)

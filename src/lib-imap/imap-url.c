@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -413,7 +413,7 @@ imap_url_parse_urlauth(struct imap_url_parser *url_parser, const char *urlext)
 		return -1;
 	}
 
-	uauth_token = buffer_create_dynamic(pool_datastack_create(), 64);
+	uauth_token = t_buffer_create(64);
 	if (hex_to_binary(q, uauth_token) < 0) {
 		parser->error = "Invalid URLAUTH token";
 		return -1;

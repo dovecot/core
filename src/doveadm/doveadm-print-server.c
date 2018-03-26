@@ -1,12 +1,13 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
 #include "ostream.h"
-#include "client-connection.h"
+#include "doveadm.h"
 #include "doveadm-print-private.h"
+#include "client-connection.h"
 
 struct doveadm_print_server_context {
 	unsigned int header_idx, header_count;

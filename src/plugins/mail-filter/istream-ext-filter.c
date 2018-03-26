@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -47,7 +47,7 @@ i_stream_read_copy_from(struct istream *istream, struct istream *source)
 	if (pos > stream->pos)
 		ret = 0;
 	else do {
-		if ((ret = i_stream_read(source)) == -2)
+		if ((ret = i_stream_read_memarea(source)) == -2)
 			return -2;
 
 		stream->istream.stream_errno = source->stream_errno;
@@ -122,7 +122,7 @@ static ssize_t i_stream_mail_filter_read(struct istream_private *stream)
 	}
 	if (ret == -1 && !i_stream_have_bytes_left(&stream->istream) &&
 	    stream->istream.v_offset == 0) {
-		/* EOF without any input -> assume the script is repoting
+		/* EOF without any input -> assume the script is reporting
 		   failure. pretty ugly way, but currently there's no error
 		   reporting channel. */
 		stream->istream.stream_errno = EIO;
@@ -212,5 +212,5 @@ i_stream_create_ext_filter(struct istream *input, const char *socket_path,
 	mstream->fd = -1;
 	(void)filter_connect(mstream, socket_path, args);
 
-	return i_stream_create(&mstream->istream, input, mstream->fd);
+	return i_stream_create(&mstream->istream, input, mstream->fd, 0);
 }

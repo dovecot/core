@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "llist.h"
@@ -95,6 +95,9 @@ void notify_contexts_mail_update_flags(struct mail *mail,
 	struct notify_context *ctx;
 	struct notify_mail_txn *mail_txn;
 
+	if (mail->saving)
+		return;
+
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
 		if (ctx->v.mail_update_flags == NULL)
 			continue;
@@ -108,6 +111,9 @@ void notify_contexts_mail_update_keywords(struct mail *mail,
 {
 	struct notify_context *ctx;
 	struct notify_mail_txn *mail_txn;
+
+	if (mail->saving)
+		return;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
 		if (ctx->v.mail_update_keywords == NULL)

@@ -6,7 +6,7 @@
 
 #define DIRECTOR_VERSION_NAME "director"
 #define DIRECTOR_VERSION_MAJOR 1
-#define DIRECTOR_VERSION_MINOR 8
+#define DIRECTOR_VERSION_MINOR 9
 
 /* weak users supported in protocol */
 #define DIRECTOR_VERSION_WEAK_USERS 1
@@ -26,6 +26,10 @@
 #define DIRECTOR_VERSION_TAGS_V2 7
 /* user-kick-alt supported */
 #define DIRECTOR_VERSION_USER_KICK_ALT 8
+/* Users are sent as "U" command in handshake */
+#define DIRECTOR_VERSION_HANDSHAKE_U_CMD 9
+/* USER event with timestamp supported */
+#define DIRECTOR_VERSION_USER_TIMESTAMP 9
 
 /* Minimum time between even attempting to communicate with a director that
    failed due to a protocol error. */
@@ -63,6 +67,7 @@ enum user_kill_state {
 extern const char *user_kill_state_names[USER_KILL_STATE_DELAY+1];
 
 typedef void director_state_change_callback_t(struct director *dir);
+typedef director_state_change_callback_t director_kick_callback_t;
 
 /* When a user gets freed, the kill_ctx may still be left alive. It's also
    possible for the user to come back, in which case the kill_ctx is usually
@@ -121,6 +126,10 @@ struct director {
 	struct mail_host_list *orig_config_hosts;
 	/* Number of users currently being moved */
 	unsigned int users_moving_count;
+	/* Number of users currently being kicked */
+	unsigned int users_kicking_count;
+	/* Number of requests currently delayed */
+	unsigned int requests_delayed_count;
 
 	/* these requests are waiting for directors to be in synced */
 	ARRAY(struct director_request *) pending_requests;
@@ -128,6 +137,7 @@ struct director {
 	struct timeout *to_handshake_warning;
 
 	director_state_change_callback_t *state_change_callback;
+	director_kick_callback_t *kick_callback;
 
 	/* director hosts are sorted by IP (and port) */
 	ARRAY(struct director_host *) dir_hosts;
@@ -137,13 +147,19 @@ struct director {
 	unsigned int sync_seq;
 	unsigned int ring_change_counter;
 	unsigned int last_sync_sent_ring_change_counter;
+	/* Timestamp when the last SYNC was initiated by us */
+	struct timeval last_sync_start_time;
 	/* the lowest minor version supported by the ring */
 	unsigned int ring_min_version;
+	/* Timestamp when ring became synced or unsynced the last time */
 	time_t ring_last_sync_time;
+	/* How many milliseconds it took for the last SYNC to travel through
+	   the ring. */
+	unsigned int last_sync_msecs;
 
 	time_t ring_first_alone;
 
-	uint64_t num_requests;
+	uint64_t num_requests, num_incoming_requests;
 	uint64_t ring_traffic_input, ring_traffic_output;
 
 	/* director ring handshaking is complete.
@@ -164,7 +180,8 @@ extern bool director_debug;
 struct director *
 director_init(const struct director_settings *set,
 	      const struct ip_addr *listen_ip, in_port_t listen_port,
-	      director_state_change_callback_t *callback);
+	      director_state_change_callback_t *callback,
+	      director_kick_callback_t *kick_callback);
 void director_deinit(struct director **dir);
 void director_find_self(struct director *dir);
 
@@ -250,7 +267,8 @@ void directors_deinit(void);
 
 void dir_debug(const char *fmt, ...) ATTR_FORMAT(1, 2);
 
-struct director_user_iter *director_iterate_users_init(struct director *dir);
+struct director_user_iter *
+director_iterate_users_init(struct director *dir, bool iter_until_current_tail);
 struct user *director_iterate_users_next(struct director_user_iter *iter);
 void director_iterate_users_deinit(struct director_user_iter **_iter);
 

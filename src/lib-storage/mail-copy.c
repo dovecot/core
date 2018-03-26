@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -85,7 +85,7 @@ mail_storage_try_copy(struct mail_save_context **_ctx, struct mail *mail)
 	} while (ret != -1);
 
 	if (input->stream_errno != 0) {
-		mail_storage_set_critical(ctx->transaction->box->storage,
+		mailbox_set_critical(ctx->transaction->box,
 			"copy: i_stream_read(%s) failed: %s",
 			i_stream_get_name(input), i_stream_get_error(input));
 		return -1;

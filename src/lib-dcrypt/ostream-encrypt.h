@@ -13,10 +13,9 @@ struct dcrypt_context_symmetric;
  */
 
 struct ostream *
-o_stream_create_encrypt(struct ostream *output,
-	const char *algorithm,
-	struct dcrypt_public_key *box_pub,
-	enum io_stream_encrypt_flags flags);
+o_stream_create_encrypt(struct ostream *output, const char *algorithm,
+			struct dcrypt_public_key *box_pub,
+			enum io_stream_encrypt_flags flags);
 
 /* create context for performing encryption with
    preset crypto context. do not call ctx_sym_init.
@@ -26,6 +25,6 @@ o_stream_create_encrypt(struct ostream *output,
  */
 struct ostream *
 o_stream_create_sym_encrypt(struct ostream *output,
-	struct dcrypt_context_symmetric *ctx);
+			    struct dcrypt_context_symmetric *ctx);
 
 #endif

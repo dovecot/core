@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -16,7 +16,7 @@ int mail_index_map_parse_extensions(struct mail_index_map *map)
 	   doesn't happen to be 64bit aligned we'll skip some bytes */
 	offset = MAIL_INDEX_HEADER_SIZE_ALIGN(map->hdr.base_header_size);
 	if (offset >= map->hdr.header_size && map->extension_pool == NULL) {
-		/* nothing to do, skip allocatations and all */
+		/* nothing to do, skip allocations and all */
 		return 0;
 	}
 
@@ -171,7 +171,7 @@ bool mail_index_check_header_compat(struct mail_index *index,
 {
         enum mail_index_header_compat_flags compat_flags = 0;
 
-#if !WORDS_BIGENDIAN
+#ifndef WORDS_BIGENDIAN
 	compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 

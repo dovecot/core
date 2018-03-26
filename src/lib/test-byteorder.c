@@ -64,7 +64,7 @@ static const struct bswap_run runs[] = {
 
 #define CHECK(iter, size, in, exp)					\
 	do {								\
-		uint##size##_t got = bswap_##size(in);			\
+		uint##size##_t got = i_bswap_##size(in);			\
 									\
 		test_begin(t_strdup_printf("byteorder - bswap "		\
 					   "(size:%-2u iter:%u)",	\
@@ -103,7 +103,7 @@ struct unaligned_run {
 	uint32_t le32;
 	uint64_t le64;
 
-#if WORDS_BIGENDIAN
+#ifdef WORDS_BIGENDIAN
 #define cpu8 be8
 #define cpu16 be16
 #define cpu32 be32

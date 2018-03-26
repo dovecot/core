@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -11,7 +11,7 @@
 static bool iter_use_index(struct mailbox_list *list,
 			   enum mailbox_list_iter_flags flags)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* for now we don't use indexes when listing subscriptions,
@@ -37,7 +37,7 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 			     const char *const *patterns,
 			     enum mailbox_list_iter_flags flags)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mailbox_list_index_iterate_context *ctx;
 	pool_t pool;
 	char ns_sep = mail_namespace_get_sep(list->ns);
@@ -85,16 +85,30 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 	str_append(ctx->path, node->name);
 
 	ctx->info.vname = mailbox_list_get_vname(ctx->ctx.list, str_c(ctx->path));
-	ctx->info.vname = p_strdup(ctx->info_pool, ctx->info.vname);
-	ctx->info.flags = 0;
+	ctx->info.flags = node->children != NULL ?
+		MAILBOX_CHILDREN : MAILBOX_NOCHILDREN;
+	if (strcmp(ctx->info.vname, "INBOX") != 0) {
+		/* non-INBOX */
+		ctx->info.vname = p_strdup(ctx->info_pool, ctx->info.vname);
+	} else if (!ctx->prefix_inbox_list) {
+		/* listing INBOX itself */
+		ctx->info.vname = "INBOX";
+		if (mail_namespace_is_inbox_noinferiors(ctx->info.ns)) {
+			ctx->info.flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
+			ctx->info.flags |= MAILBOX_NOINFERIORS;
+		}
+	} else {
+		/* listing INBOX/INBOX */
+		ctx->info.vname = p_strconcat(ctx->info_pool,
+			ctx->ctx.list->ns->prefix, "INBOX", NULL);
+		ctx->info.flags |= MAILBOX_NONEXISTENT;
+	}
 	if ((node->flags & MAILBOX_LIST_INDEX_FLAG_NONEXISTENT) != 0)
 		ctx->info.flags |= MAILBOX_NONEXISTENT;
 	else if ((node->flags & MAILBOX_LIST_INDEX_FLAG_NOSELECT) != 0)
 		ctx->info.flags |= MAILBOX_NOSELECT;
 	if ((node->flags & MAILBOX_LIST_INDEX_FLAG_NOINFERIORS) != 0)
 		ctx->info.flags |= MAILBOX_NOINFERIORS;
-	ctx->info.flags |= node->children != NULL ?
-		MAILBOX_CHILDREN : MAILBOX_NOCHILDREN;
 
 	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 			       MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
@@ -116,6 +130,14 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 			       bool follow_children)
 {
 	struct mailbox_list_index_node *node = ctx->next_node;
+
+	if (!ctx->prefix_inbox_list && ctx->ctx.list->ns->prefix_len > 0 &&
+	    strcmp(node->name, "INBOX") == 0 && node->parent == NULL &&
+	    node->children != NULL) {
+		/* prefix/INBOX has children */
+		ctx->prefix_inbox_list = TRUE;
+		return;
+	}
 
 	if (node->children != NULL && follow_children) {
 		ctx->parent_len = str_len(ctx->path);
@@ -156,7 +178,7 @@ iter_subscriptions_ok(struct mailbox_list_index_iterate_context *ctx)
 const struct mailbox_info *
 mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(_ctx->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(_ctx->list);
 	if (!_ctx->index_iteration) {
 		/* index isn't being used */
 		return ilist->module_ctx.super.iter_next(_ctx);
@@ -203,7 +225,7 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 int mailbox_list_index_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(_ctx->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(_ctx->list);
 	if (!_ctx->index_iteration)
 		return ilist->module_ctx.super.iter_deinit(_ctx);
 

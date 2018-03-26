@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -38,6 +38,8 @@ struct dns_client {
 	char *path;
 
 	unsigned int timeout_msecs, idle_timeout_msecs;
+
+	struct ioloop *ioloop;
 
 	struct istream *input;
 	struct io *io;
@@ -239,8 +241,9 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 	if (client->deinit_client_at_free)
 		dns_client_deinit(&client);
 	else if (client->head == NULL && client->fd != -1) {
-		client->to_idle = timeout_add(client->idle_timeout_msecs,
-					      dns_client_idle_timeout, client);
+		client->to_idle = timeout_add_to(client->ioloop,
+						 client->idle_timeout_msecs,
+						 dns_client_idle_timeout, client);
 	}
 	i_free(lookup);
 }
@@ -255,7 +258,7 @@ void dns_lookup_switch_ioloop(struct dns_lookup *lookup)
 	if (lookup->to != NULL)
 		lookup->to = io_loop_move_timeout(&lookup->to);
 	if (lookup->client->deinit_client_at_free)
-		lookup->client->io = io_loop_move_io(&lookup->client->io);
+		dns_client_switch_ioloop(lookup->client);
 }
 
 struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
@@ -266,6 +269,7 @@ struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
 	client->path = i_strdup(set->dns_client_socket_path);
 	client->timeout_msecs = set->timeout_msecs;
 	client->idle_timeout_msecs = set->idle_timeout_msecs;
+	client->ioloop = (set->ioloop != NULL ? set->ioloop : current_ioloop);
 	client->fd = -1;
 	return client;
 }
@@ -349,8 +353,9 @@ dns_client_lookup_common(struct dns_client *client,
 	lookup->client = client;
 	lookup->ptr_lookup = ptr_lookup;
 	if (client->timeout_msecs != 0) {
-		lookup->to = timeout_add(client->timeout_msecs,
-					 dns_lookup_timeout, lookup);
+		lookup->to = timeout_add_to(client->ioloop,
+					    client->timeout_msecs,
+					    dns_lookup_timeout, lookup);
 	}
 	lookup->result.ret = EAI_FAIL;
 	lookup->callback = callback;
@@ -385,6 +390,10 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 void dns_client_switch_ioloop(struct dns_client *client)
 {
 	struct dns_lookup *lookup;
+
+	if (client->ioloop == current_ioloop)
+		return;
+	client->ioloop = current_ioloop;
 	
 	if (client->io != NULL)
 		client->io = io_loop_move_io(&client->io);

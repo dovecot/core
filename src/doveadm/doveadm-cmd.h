@@ -76,11 +76,12 @@ struct doveadm_cmd_context {
 	const struct doveadm_cmd_param *argv;
 
 	const char *username;
-	bool cli;
-	bool tcp_server;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
-	struct client_connection *conn;
+
+	enum doveadm_client_type conn_type;
+	struct istream *input;
+	struct ostream *output;
 };
 
 ARRAY_DEFINE_TYPE(doveadm_cmd, struct doveadm_cmd);
@@ -153,9 +154,10 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_service_status_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_process_status_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2;
-extern struct doveadm_cmd_ver2 doveadm_cmd_stats_reset_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2;
-extern struct doveadm_cmd_ver2 doveadm_cmd_stats_top_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_oldstats_reset_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_oldstats_dump_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_oldstats_top_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_penalty_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_kick_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_who_ver2;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -127,16 +127,15 @@ static int do_racecheck(struct maildir_mailbox *mbox, const char *path,
 	ret = lstat(path, &st);
 	if (ret == 0 && (st.st_mode & S_IFMT) == S_IFLNK) {
 		/* most likely a symlink pointing to a nonexistent file */
-		mail_storage_set_critical(&mbox->storage->storage,
+		mailbox_set_critical(&mbox->box,
 			"Maildir: Symlink destination doesn't exist for UID=%u: %s", *uidp, path);
 		return -2;
 	} else if (ret < 0 && errno != ENOENT) {
-		mail_storage_set_critical(&mbox->storage->storage,
-			"lstat(%s) failed: %m", path);
+		mailbox_set_critical(&mbox->box, "lstat(%s) failed: %m", path);
 		return -1;
 	} else {
 		/* success or ENOENT, either way we're done */
-		mail_storage_set_critical(&mbox->storage->storage,
+		mailbox_set_critical(&mbox->box,
 			"maildir_file_do(%s): Filename keeps changing for UID=%u", path, *uidp);
 		return -1;
 	}
@@ -205,8 +204,7 @@ static int maildir_create_path(struct mailbox *box, const char *path,
 		/* should work now, try again */
 		return maildir_create_path(box, path, type, FALSE);
 	default:
-		mail_storage_set_critical(box->storage,
-					  "mkdir(%s) failed: %m", path);
+		mailbox_set_critical(box, "mkdir(%s) failed: %m", path);
 		return -1;
 	}
 }
@@ -242,8 +240,7 @@ static int maildir_create_subdirs(struct mailbox *box)
 		if (stat(path, &st) == 0)
 			continue;
 		if (errno != ENOENT) {
-			mail_storage_set_critical(box->storage,
-						  "stat(%s) failed: %m", path);
+			mailbox_set_critical(box, "stat(%s) failed: %m", path);
 			break;
 		}
 		if (maildir_create_path(box, path, types[i], TRUE) < 0)
@@ -261,7 +258,7 @@ bool maildir_set_deleted(struct mailbox *box)
 		if (errno == ENOENT)
 			mailbox_set_deleted(box);
 		else {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"stat(%s) failed: %m", mailbox_get_path(box));
 		}
 		return FALSE;

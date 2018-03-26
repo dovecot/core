@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -92,8 +92,7 @@ acl_cache_mask_init_real(struct acl_cache *cache, pool_t pool,
 	buffer_t *bitmask;
 
 	rights_count = str_array_length(rights);
-	bitmask = buffer_create_dynamic(pool_datastack_create(),
-					DEFAULT_ACL_RIGHTS_COUNT / CHAR_BIT);
+	bitmask = t_buffer_create(DEFAULT_ACL_RIGHTS_COUNT / CHAR_BIT);
 	for (i = 0; i < rights_count; i++) {
 		idx = acl_cache_right_lookup(cache, rights[i]);
 		p = buffer_get_space_unsafe(bitmask, idx / CHAR_BIT, 1);

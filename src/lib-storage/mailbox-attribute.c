@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -404,7 +404,7 @@ mailbox_attribute_iter_init(struct mailbox *box,
 
 	/* copy relevant attributes */
 	array_foreach(&extra_attrs, attr) {
-		/* skip internal server attributes unless we're interating inbox */
+		/* skip internal server attributes unless we're iterating inbox */
 		if (!box->inbox_any &&
 		    strncmp(*attr, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
 			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)

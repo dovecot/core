@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -54,7 +54,7 @@ o_stream_buffer_sendv(struct ostream_private *stream,
 }
 
 static size_t
-o_stream_buffer_get_used_size(const struct ostream_private *stream)
+o_stream_buffer_get_buffer_used_size(const struct ostream_private *stream)
 {
 	struct buffer_ostream *bstream = (struct buffer_ostream *)stream;
 
@@ -74,7 +74,8 @@ struct ostream *o_stream_create_buffer(buffer_t *buf)
 	bstream->ostream.seek = o_stream_buffer_seek;
 	bstream->ostream.sendv = o_stream_buffer_sendv;
 	bstream->ostream.write_at = o_stream_buffer_write_at;
-	bstream->ostream.get_used_size = o_stream_buffer_get_used_size;
+	bstream->ostream.get_buffer_used_size =
+		o_stream_buffer_get_buffer_used_size;
 
 	bstream->buf = buf;
 	output = o_stream_create(&bstream->ostream, NULL, -1);

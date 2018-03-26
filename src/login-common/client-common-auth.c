@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "hostpid.h"
 #include "login-common.h"
@@ -71,8 +71,10 @@ static void client_auth_failed(struct client *client)
 
 	io_remove(&client->io);
 
-	client->io = io_add(client->fd, IO_READ, client_input, client);
-	client_input(client);
+	if (!client_does_custom_io(client)) {
+		client->io = io_add(client->fd, IO_READ, client_input, client);
+		client_input(client);
+	}
 }
 
 static void client_auth_waiting_timeout(struct client *client)
@@ -580,7 +582,8 @@ void client_auth_respond(struct client *client, const char *response)
 	client->auth_waiting = FALSE;
 	client_set_auth_waiting(client);
 	auth_client_request_continue(client->auth_request, response);
-	io_remove(&client->io);
+	if (!client_does_custom_io(client))
+		io_remove(&client->io);
 }
 
 void client_auth_abort(struct client *client)
@@ -727,10 +730,19 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (shutdown(client->fd, SHUT_RDWR) < 0 && errno != ENOTCONN)
 			i_error("shutdown() failed: %m");
 
-		if (data == NULL)
-			client_destroy_internal_failure(client);
-		else
-			client_destroy_success(client, data);
+		if (data != NULL) {
+			/* e.g. mail_max_userip_connections is reached */
+		} else {
+			/* The error should have been logged already.
+			   The client will only see a generic internal error. */
+			client_notify_disconnect(client, CLIENT_DISCONNECT_INTERNAL_ERROR,
+				"Internal login failure. "
+				"Refer to server log for more information.");
+			data = t_strdup_printf("Internal login failure (pid=%s id=%u)",
+					       my_pid, client->master_auth_id);
+		}
+		client->no_extra_disconnect_reason = TRUE;
+		client_destroy(client, data);
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
 		i_assert(client->v.auth_send_challenge != NULL);
@@ -743,9 +755,11 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 		i_assert(client->io == NULL);
 		client->auth_waiting = TRUE;
-		client->io = io_add(client->fd, IO_READ,
-				    client_auth_input, client);
-		client_auth_input(client);
+		if (!client_does_custom_io(client)) {
+			client->io = io_add(client->fd, IO_READ,
+					    client_auth_input, client);
+			client_auth_input(client);
+		}
 		return;
 	}
 
@@ -822,7 +836,7 @@ void clients_notify_auth_connected(void)
 
 		client_notify_auth_ready(client);
 
-		if (client->input_blocked) {
+		if (!client_does_custom_io(client) && client->input_blocked) {
 			client->input_blocked = FALSE;
 			client_input(client);
 		}

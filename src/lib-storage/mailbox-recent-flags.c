@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "mail-storage-private.h"
@@ -10,9 +10,7 @@ void mailbox_recent_flags_set_uid(struct mailbox *box, uint32_t uid)
 		if (seq_range_exists(&box->recent_flags, uid))
 			return;
 
-		mail_storage_set_critical(box->storage,
-			"Recent flags state corrupted for mailbox %s",
-			box->vname);
+		mailbox_set_critical(box, "Recent flags state corrupted");
 		array_clear(&box->recent_flags);
 		box->recent_flags_count = 0;
 	}

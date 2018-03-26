@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
 #include "array.h"
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service, "anvil: ");
 
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 	anvil_restarted = getenv("ANVIL_RESTARTED") != NULL;
 
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	connect_limit = connect_limit_init();
 	penalty = penalty_init();
 	log_fdpass_io = io_add(MASTER_ANVIL_LOG_FDPASS_FD, IO_READ,
-			       log_fdpass_input, (void *)NULL);
+			       log_fdpass_input, NULL);
 	master_service_init_finish(master_service);
 
 	master_service_run(master_service, client_connected);

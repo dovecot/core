@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -123,7 +123,7 @@ static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
 
 static struct config_dump_human_context *
 config_dump_human_init(const char *const *modules, enum config_dump_scope scope,
-		       bool check_settings)
+		       bool check_settings, bool in_section)
 {
 	struct config_dump_human_context *ctx;
 	enum config_dump_flags flags;
@@ -140,7 +140,8 @@ config_dump_human_init(const char *const *modules, enum config_dump_scope scope,
 		CONFIG_DUMP_FLAG_CALLBACK_ERRORS;
 	if (check_settings)
 		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
-
+	if (in_section)
+		flags |= CONFIG_DUMP_FLAG_IN_SECTION;
 	ctx->export_ctx = config_export_init(modules, scope, flags,
 					     config_request_get_strings, ctx);
 	return ctx;
@@ -165,6 +166,72 @@ static bool value_need_quote(const char *value)
 	if (IS_WHITE(value[0]) || IS_WHITE(value[len-1]))
 		return TRUE;
 	return FALSE;
+}
+
+static bool
+hide_secrets_from_value(struct ostream *output, const char *key,
+			const char *value)
+{
+	bool ret = FALSE, quote = value_need_quote(value);
+	const char *ptr, *optr;
+	const char *const secrets[] = {
+		"key",
+		"secret",
+		"pass",
+		NULL
+	};
+	if (*value != '\0' &&
+	    ((value-key > 8 && strncmp(value-9, "_password", 8) == 0) ||
+	     (value-key > 7 && strncmp(value-8, "_api_key", 7) == 0) ||
+	     strncmp(key, "ssl_key",7) == 0 ||
+	     strncmp(key, "ssl_dh",6) == 0)) {
+		o_stream_nsend_str(output, "# hidden, use -P to show it");
+		return TRUE;
+	}
+
+	/* Check if we can find anything that has prefix of any of the
+	   secrets. It should match things like secret_api_key or pass or password,
+	   etc. but not something like nonsecret. */
+	optr = ptr = value;
+	while((ptr = i_strstr_arr(ptr, secrets)) != NULL) {
+		/* we have found something that we hide, and will deal with output
+		   here. */
+		ret = TRUE;
+		if (ptr == value ||
+		    (ptr > value && !i_isalnum(ptr[-1]))) {
+			size_t len;
+			while(*ptr != '\0') {
+				if (*ptr == '=' || i_isspace(*ptr))
+					break;
+				ptr++;
+			}
+			while(i_isspace(*ptr))
+				ptr++;
+			len = (size_t)(ptr-optr);
+			if (quote) {
+				o_stream_nsend_str(output,
+						   str_nescape(optr, len));
+			} else {
+				o_stream_nsend(output, optr, len);
+			}
+			if (*ptr == '=') {
+				o_stream_nsend(output, ptr, 1);
+				o_stream_nsend_str(output, "#hidden_use-P_to_show#");
+				while(*ptr != '\0' && !i_isspace(*ptr) &&
+				      *ptr != ';' && *ptr != ':')
+					ptr++;
+			}
+			optr = ptr;
+		}
+	}
+	/* if we are dealing with output, send rest here */
+	if (ret) {
+		if (quote)
+			o_stream_nsend_str(output, str_escape(ptr));
+		else
+			o_stream_nsend_str(output, optr);
+	}
+	return ret;
 }
 
 static int ATTR_NULL(4)
@@ -305,13 +372,11 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		i_assert(value != NULL);
 		o_stream_nsend(output, key, value-key);
 		o_stream_nsend_str(output, " = ");
-		if (hide_passwords && value[1] != '\0' &&
-		    ((value-key > 9 && strncmp(value-9, "_password", 9) == 0) ||
-		     (value-key > 8 && strncmp(value-8, "_api_key", 8) == 0) ||
-		     strncmp(key, "ssl_key",7) == 0 ||
-		     strncmp(key, "ssl_dh",6) == 0)) {
-			o_stream_nsend_str(output, " # hidden, use -P to show it");
-		} else if (!value_need_quote(value+1))
+		if (hide_passwords &&
+		    hide_secrets_from_value(output, key, value+1))
+			/* sent */
+			;
+		else if (!value_need_quote(value+1))
 			o_stream_nsend_str(output, value+1);
 		else {
 			o_stream_nsend(output, "\"", 1);
@@ -417,7 +482,7 @@ config_dump_human_sections(struct ostream *output,
 
 	for (; *filters != NULL; filters++) {
 		ctx = config_dump_human_init(modules, CONFIG_DUMP_SCOPE_SET,
-					     FALSE);
+					     FALSE, TRUE);
 		indent = config_dump_filter_begin(ctx->list_prefix,
 						  &(*filters)->filter);
 		config_export_parsers(ctx->export_ctx, (*filters)->parsers);
@@ -443,7 +508,7 @@ config_dump_human(const struct config_filter *filter, const char *const *modules
 	o_stream_set_no_error_handling(output, TRUE);
 	o_stream_cork(output);
 
-	ctx = config_dump_human_init(modules, scope, TRUE);
+	ctx = config_dump_human_init(modules, scope, TRUE, FALSE);
 	config_export_by_filter(ctx->export_ctx, filter);
 	ret = config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
@@ -466,7 +531,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	size_t len;
 	bool dump_section = FALSE;
 
-	ctx = config_dump_human_init(NULL, scope, FALSE);
+	ctx = config_dump_human_init(NULL, scope, FALSE, FALSE);
 	config_export_by_filter(ctx->export_ctx, filter);
 	if (config_export_finish(&ctx->export_ctx) < 0)
 		return -1;
@@ -862,6 +927,7 @@ int main(int argc, char *argv[])
 		info = sysinfo_get(get_setting("mail", "mail_location"));
 		if (*info != '\0')
 			printf("# %s\n", info);
+		printf("# Hostname: %s\n", my_hostdomain());
 		if (!config_path_specified)
 			check_wrong_config(config_path);
 		if (scope == CONFIG_DUMP_SCOPE_ALL)

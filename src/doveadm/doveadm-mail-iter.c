@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "mail-storage.h"
@@ -61,6 +61,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 	iter->t = mailbox_transaction_begin(iter->box, 0, ctx->cmd->name);
 	iter->search_ctx = mailbox_search_init(iter->t, search_args, NULL,
 					       wanted_fields, headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
 	*iter_r = iter;
 	return 0;
 }

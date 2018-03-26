@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "restrict-access.h"
@@ -6,7 +6,7 @@
 #include "randgen.h"
 #include "str.h"
 #include "hostpid.h"
-#include "timing.h"
+#include "stats-dist.h"
 #include "process-title.h"
 #include "env-util.h"
 #include "module-dir.h"
@@ -25,13 +25,13 @@ static struct timeout *to_proctitle;
 static bool proctitle_updated;
 
 static void
-add_timing_string(string_t *str, struct timing *timing, const char *name)
+add_stats_string(string_t *str, struct stats_dist *stats, const char *name)
 {
 	str_printfa(str, ", %u %s:%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64,
-		    timing_get_count(timing), name,
-		    timing_get_min(timing)/1000, timing_get_avg(timing)/1000,
-		    timing_get_95th(timing)/1000, timing_get_max(timing)/1000);
-	timing_reset(timing);
+		    stats_dist_get_count(stats), name,
+		    stats_dist_get_min(stats)/1000, stats_dist_get_avg(stats)/1000,
+		    stats_dist_get_95th(stats)/1000, stats_dist_get_max(stats)/1000);
+	stats_dist_reset(stats);
 }
 
 static void dict_proctitle_update(void *context ATTR_UNUSED)
@@ -43,9 +43,9 @@ static void dict_proctitle_update(void *context ATTR_UNUSED)
 
 	str_printfa(str, "[%u clients", dict_connections_current_count());
 
-	add_timing_string(str, cmd_stats.lookups, "lookups");
-	add_timing_string(str, cmd_stats.iterations, "iters");
-	add_timing_string(str, cmd_stats.commits, "commits");
+	add_stats_string(str, cmd_stats.lookups, "lookups");
+	add_stats_string(str, cmd_stats.iterations, "iters");
+	add_stats_string(str, cmd_stats.commits, "commits");
 	str_append_c(str, ']');
 
 	process_title_set(str_c(str));
@@ -82,7 +82,7 @@ static void main_preinit(void)
 	dict_driver_register(&dict_driver_cdb);
 #endif
 
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 }
 

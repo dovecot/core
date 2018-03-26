@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -36,6 +36,7 @@ struct replication_user {
 struct replication_mail_txn_context {
 	struct mail_namespace *ns;
 	bool new_messages;
+	bool sync_trans;
 	char *reason;
 };
 
@@ -105,6 +106,7 @@ static void replication_notify_now(struct mail_user *user)
 	struct replication_user *ruser = REPLICATION_USER_CONTEXT(user);
 	int ret;
 
+	i_assert(ruser != NULL);
 	i_assert(ruser->priority != REPLICATION_PRIORITY_NONE);
 	i_assert(ruser->priority != REPLICATION_PRIORITY_SYNC);
 
@@ -127,6 +129,8 @@ static int replication_notify_sync(struct mail_user *user)
 	int fd;
 	ssize_t ret;
 	bool success = FALSE;
+
+	i_assert(ruser != NULL);
 
 	fd = net_connect_unix(ruser->socket_path);
 	if (fd == -1) {
@@ -216,6 +220,10 @@ replication_mail_transaction_begin(struct mailbox_transaction_context *t)
 	ctx = i_new(struct replication_mail_txn_context, 1);
 	ctx->ns = mailbox_get_namespace(t->box);
 	ctx->reason = i_strdup(t->reason);
+	if ((t->flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0) {
+		/* Transaction is from dsync. Don't trigger replication back. */
+		ctx->sync_trans = TRUE;
+	}
 	return ctx;
 }
 
@@ -243,6 +251,15 @@ static void replication_mail_copy(void *txn, struct mail *src,
 	}
 }
 
+static bool
+replication_want_sync_changes(const struct mail_transaction_commit_changes *changes)
+{
+	/* Replication needs to be triggered on all the user-visible changes,
+	   but not e.g. due to writes to cache file. */
+	return (changes->changes_mask &
+		~MAIL_INDEX_TRANSACTION_CHANGE_OTHERS) != 0;
+}
+
 static void
 replication_mail_transaction_commit(void *txn,
 				    struct mail_transaction_commit_changes *changes)
@@ -253,7 +270,8 @@ replication_mail_transaction_commit(void *txn,
 		REPLICATION_USER_CONTEXT(ctx->ns->user);
 	enum replication_priority priority;
 
-	if (ruser != NULL && (ctx->new_messages || changes->changed)) {
+	if (ruser != NULL && !ctx->sync_trans &&
+	    (ctx->new_messages || replication_want_sync_changes(changes))) {
 		priority = !ctx->new_messages ? REPLICATION_PRIORITY_LOW :
 			ruser->sync_secs == 0 ? REPLICATION_PRIORITY_HIGH :
 			REPLICATION_PRIORITY_SYNC;
@@ -295,6 +313,8 @@ static void replication_mailbox_set_subscribed(struct mailbox *box,
 static void replication_user_deinit(struct mail_user *user)
 {
 	struct replication_user *ruser = REPLICATION_USER_CONTEXT(user);
+
+	i_assert(ruser != NULL);
 
 	if (ruser->to != NULL) {
 		replication_notify_now(user);

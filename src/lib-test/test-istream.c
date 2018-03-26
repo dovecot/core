@@ -1,6 +1,7 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "memarea.h"
 #include "istream-private.h"
 #include "test-common.h"
 
@@ -11,6 +12,11 @@ struct test_istream {
 	size_t max_pos;
 	bool allow_eof;
 };
+
+static void test_buffer_free(unsigned char *buf)
+{
+	i_free(buf);
+}
 
 static ssize_t test_read(struct istream_private *stream)
 {
@@ -46,14 +52,28 @@ static ssize_t test_read(struct istream_private *stream)
 		    cur_max > stream->skip + stream->max_buffer_size)
 			cur_max = stream->skip + stream->max_buffer_size;
 
-		/* use exactly correct buffer size so valgrind can catch
-		   read overflows */
-		if (stream->buffer_size != cur_max && cur_max > 0) {
-			stream->w_buffer = i_realloc(stream->w_buffer,
-						     stream->buffer_size,
-						     cur_max);
+		/* Reallocate the memory area if needed. Use exactly correct
+		   buffer size so valgrind can catch read overflows. If a
+		   correctly sized memarea already exists, use it only if
+		   its refcount is 1. Otherwise with refcount>1 we could be
+		   moving data within an existing memarea, which breaks
+		   snapshots. */
+		if (cur_max > 0 && (stream->buffer_size != cur_max ||
+				    stream->memarea == NULL ||
+				    memarea_get_refcount(stream->memarea) > 1)) {
+			void *old_w_buffer = stream->w_buffer;
+			stream->w_buffer = i_malloc(cur_max);
+			memcpy(stream->w_buffer, old_w_buffer,
+			       I_MIN(stream->buffer_size, cur_max));
 			stream->buffer = stream->w_buffer;
 			stream->buffer_size = cur_max;
+
+			if (stream->memarea != NULL)
+				memarea_unref(&stream->memarea);
+			stream->memarea = memarea_init(stream->w_buffer,
+						       stream->buffer_size,
+						       test_buffer_free,
+						       stream->w_buffer);
 		}
 		ssize_t size = cur_max - new_skip_diff;
 		if (size > 0)
@@ -97,7 +117,7 @@ struct istream *test_istream_create_data(const void *data, size_t size)
 
 	tstream->istream.istream.blocking = FALSE;
 	tstream->istream.istream.seekable = TRUE;
-	i_stream_create(&tstream->istream, NULL, -1);
+	i_stream_create(&tstream->istream, NULL, -1, 0);
 	tstream->istream.statbuf.st_size = tstream->max_pos = size;
 	tstream->allow_eof = TRUE;
 	tstream->istream.max_buffer_size = (size_t)-1;

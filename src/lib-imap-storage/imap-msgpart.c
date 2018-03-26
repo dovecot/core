@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -382,7 +382,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 						      HEADER_FILTER_HIDE_BODY,
 						      hdr_fields, hdr_count,
 						      *null_header_filter_callback,
-						      (void *)NULL);
+						      NULL);
 	} else if (msgpart->section_number[0] != '\0') {
 		/* fetching partial headers for a message/rfc822 part. */
 		input = i_stream_create_header_filter(mail_input,
@@ -390,7 +390,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 						      HEADER_FILTER_HIDE_BODY,
 						      hdr_fields, hdr_count,
 						      *null_header_filter_callback,
-						      (void *)NULL);
+						      NULL);
 	} else {
 		/* mail_get_header_stream() already filtered out the
 		   unwanted headers. */
@@ -399,7 +399,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 	}
 
 	if (message_get_header_size(input, &hdr_size, &has_nuls) < 0) {
-		mail_storage_set_critical(mail->box->storage,
+		mail_set_critical(mail,
 			"read(%s) failed: %s", i_stream_get_name(input),
 			i_stream_get_error(input));
 		i_stream_unref(&input);
@@ -847,6 +847,5 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 
 void imap_msgpart_close_mailbox(struct imap_msgpart *msgpart)
 {
-	if (msgpart->header_ctx != NULL)
-		mailbox_header_lookup_unref(&msgpart->header_ctx);
+	mailbox_header_lookup_unref(&msgpart->header_ctx);
 }

@@ -12,8 +12,6 @@
  - quota: maybe check quota once more at commit time to make sure the whole
    transaction fits. avoids multiple parallel slow COPY commands from being
    able to go over quota
- - lmtp: Calculate incoming mail's hash, forward it via proxying, have the
-   final delivery code verify that it's correct
  - METADATA: quota, NOTIFY interaction, METADATA-SERVER capability
  - fts: if SEARCH X-MAILBOX is used on virtual/all folder, it doesn't update
    any indexes. (and it should skip those physical mailboxes that don't
@@ -95,8 +93,6 @@
  - after reading whole message text, update has_nul-state to cache
  - FIFOs maybe should be counted as connections, but unlisten should
    unlink+reopen it in master?
- - lmtp client/proxy: Handle multiline replies better
- - lmtp: support DSN extension (especially ORCPT)
  - recreate mailbox -> existing sessions log "indexid changed" error
  - add message/mime limits
  - imapc:
@@ -341,3 +337,34 @@
           multiple services can coexist independently on the same HTTP server.
         - Implement support for `Range:' requests.
     - Review compliance with RFC 7230 and RFC 7231
+
+ - lmtp:
+    - Implement parallel pipelined RCPT TO: verification (requires auth API
+      changes).
+    - Improve efficiency and security by splitting lmtp up into a protocol
+      handler and a one-user local delivery service.
+    - Fully support DSN extension (especially ORCPT)
+    - Calculate incoming mail's hash, forward it via proxying, have the
+      final delivery code verify that it's correct
+
+ - submission
+    - Implement support for Postfix XFORWARD (analogous to XCLIENT)
+    - Implement a re-connect attempt to the relay server if the connection is
+      lost at some point. We now terminate the whole client with a 421, which
+      is a waste of resources.
+    - Implement running submission service without access to mail storage.
+    - Implement auto-save-to-sent feature.
+    - Implement proxy support for various (sometimes bizarre) SMTP extensions.
+      We only announce the support if available on the relay and forward
+      commands and command options. We likely don't need to implement much
+      ourselves:
+       -> RFC 2852: Deliver By
+       -> RFC 3885: Message Tracking
+       -> RFC 4865: Future Message Release
+       -> RFC 6710: Message Transfer Priorities
+    - Implement Internationalized Email (RFC 6531) support
+    - Low priority:
+       - Investigate relevance of RFC 4405 (Responsible Submitter)
+       - Add RFC5451 Authentication-Results header
+       - Implement downgrading to always support BINARYMIME
+       - Implement downgrading to always support 8BITMIME

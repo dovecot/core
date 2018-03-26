@@ -2,16 +2,17 @@
 #define COMMANDS_H
 
 struct client;
+struct smtp_server_cmd_ctx;
+struct smtp_server_cmd_helo;
 
-int cmd_lhlo(struct client *client, const char *args);
-int cmd_starttls(struct client *client);
-int cmd_mail(struct client *client, const char *args);
-int cmd_rcpt(struct client *client, const char *args);
-int cmd_quit(struct client *client, const char *args);
-int cmd_vrfy(struct client *client, const char *args);
-int cmd_rset(struct client *client, const char *args);
-int cmd_noop(struct client *client, const char *args);
-int cmd_data(struct client *client, const char *args);
-int cmd_xclient(struct client *client, const char *args);
+int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+	struct smtp_server_cmd_mail *data);
+int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+	struct smtp_server_cmd_rcpt *data);
+int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+	struct smtp_server_transaction *trans);
+int cmd_data_begin(void *conn_ctx,
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans, struct istream *data_input);
 
 #endif

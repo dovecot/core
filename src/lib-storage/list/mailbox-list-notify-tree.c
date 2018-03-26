@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -78,7 +78,7 @@ mailbox_list_notify_node_build(struct mailbox_list_notify_tree *tree,
 static void
 mailbox_list_notify_tree_build(struct mailbox_list_notify_tree *tree)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(tree->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(tree->list);
 	struct mailbox_list_index_node *index_node;
 	string_t *path = t_str_new(128);
 

@@ -47,6 +47,7 @@ typedef void lib_atexit_callback_t(void);
 #include "hash-decl.h" /* HASH_TABLE*()s may exist in any header */
 #include "strfuncs.h"
 #include "strnum.h"
+#include "event-log.h"
 
 #define LIB_ATEXIT_PRIORITY_HIGH -10
 #define LIB_ATEXIT_PRIORITY_DEFAULT 0

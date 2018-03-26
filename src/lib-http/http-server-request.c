@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -121,6 +121,13 @@ bool http_server_request_unref(struct http_server_request **_req)
 		http_server_response_free(req->response);
 	pool_unref(&req->pool);
 	return FALSE;
+}
+
+void http_server_request_connection_close(struct http_server_request *req,
+	bool close)
+{
+	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_SENT_RESPONSE);
+	req->connection_close = close;
 }
 
 void http_server_request_destroy(struct http_server_request **_req)
@@ -323,18 +330,24 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_connection_remove_request(conn, req);
 	conn->stats.response_count++;
 
-	if (tunnel_callback == NULL && (req->req.connection_close || resp->close)) {
-		if (resp->close) {
+	if (tunnel_callback == NULL) {
+		if (req->connection_close) {
 			http_server_connection_close(&conn,
 				t_strdup_printf("Server closed connection: %u %s",
 					resp->status, resp->reason));
-			
-		} else {
+			http_server_request_destroy(&req);
+			return;
+		} else if (req->conn->input_broken) {
+			http_server_connection_close(&conn,
+				"Connection input is broken");
+			http_server_request_destroy(&req);
+			return;
+		} else if (req->req.connection_close) {
 			http_server_connection_close(&conn,
 				"Client requested connection close");
+			http_server_request_destroy(&req);
+			return;
 		}
-		http_server_request_destroy(&req);
-		return;
 	}
 
 	http_server_request_destroy(&req);
@@ -346,9 +359,10 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_connection_trigger_responses(conn);
 }
 
-static 	struct http_server_response *
+static struct http_server_response *
 http_server_request_create_fail_response(struct http_server_request *req,
-	unsigned int status, const char *reason)
+	unsigned int status, const char *reason, const char *text)
+	ATTR_NULL(4)
 {
 	struct http_server_response *resp;
 
@@ -360,9 +374,11 @@ http_server_request_create_fail_response(struct http_server_request *req,
 	if (!http_request_method_is(&req->req, "HEAD")) {
 		http_server_response_add_header
 			(resp, "Content-Type", "text/plain; charset=utf-8");
-		reason = t_strconcat(reason, "\r\n", NULL);
+		if (text == NULL)
+			text = reason;
+		text = t_strconcat(text, "\r\n", NULL);
 		http_server_response_set_payload_data
-			(resp, (const unsigned char *)reason, strlen(reason));
+			(resp, (const unsigned char *)text, strlen(text));
 	}
 
 	return resp;
@@ -370,29 +386,41 @@ http_server_request_create_fail_response(struct http_server_request *req,
 
 static void
 http_server_request_fail_full(struct http_server_request *req,
-	unsigned int status, const char *reason, bool close)
+	unsigned int status, const char *reason, const char *text)
+	ATTR_NULL(4)
 {
 	struct http_server_response *resp;
 
 	req->failed = TRUE;
-	resp = http_server_request_create_fail_response(req, status, reason);
-	if (close)
-		http_server_response_submit_close(resp);
-	else
-		http_server_response_submit(resp);
+	resp = http_server_request_create_fail_response(req,
+		status, reason, text);
+	http_server_response_submit(resp);
+	if (req->conn->input_broken)
+		req->connection_close = TRUE;
 }
 
 void http_server_request_fail(struct http_server_request *req,
 	unsigned int status, const char *reason)
 {
-	http_server_request_fail_full(req, status, reason,
-				      req->conn->input_broken);
+	http_server_request_fail_full(req, status, reason, NULL);
 }
 
 void http_server_request_fail_close(struct http_server_request *req,
 	unsigned int status, const char *reason)
 {
-	http_server_request_fail_full(req, status, reason, TRUE);
+	http_server_request_connection_close(req, TRUE);
+	http_server_request_fail_full(req, status, reason, NULL);
+}
+
+void http_server_request_fail_text(struct http_server_request *req,
+	unsigned int status, const char *reason, const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	http_server_request_fail_full(req, status, reason,
+		t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 void http_server_request_fail_auth(struct http_server_request *req,
@@ -405,7 +433,8 @@ void http_server_request_fail_auth(struct http_server_request *req,
 	if (reason == NULL)
 		reason = "Unauthenticated";
 
-	resp = http_server_request_create_fail_response(req, 401, reason);
+	resp = http_server_request_create_fail_response(req,
+		401, reason, reason);
 	http_server_response_add_auth(resp, chlng);
 	http_server_response_submit(resp);
 }
@@ -432,7 +461,8 @@ struct http_server_istream {
 };
 
 static void
-http_server_istream_switch_ioloop(struct istream_private *stream)
+http_server_istream_switch_ioloop_to(struct istream_private *stream,
+				     struct ioloop *ioloop)
 {
 	struct http_server_istream *hsristream =
 		(struct http_server_istream *)stream;
@@ -440,6 +470,7 @@ http_server_istream_switch_ioloop(struct istream_private *stream)
 	if (hsristream->istream.istream.blocking)
 		return;
 
+	i_assert(ioloop == current_ioloop);
 	http_server_connection_switch_ioloop(hsristream->req->conn);
 }
 
@@ -552,7 +583,7 @@ http_server_request_get_payload_input(struct http_server_request *req,
 	hsristream->istream.stream_size_passthrough = TRUE;
 
 	hsristream->istream.read = http_server_istream_read;
-	hsristream->istream.switch_ioloop = http_server_istream_switch_ioloop;
+	hsristream->istream.switch_ioloop_to = http_server_istream_switch_ioloop_to;
 	hsristream->istream.iostream.destroy = http_server_istream_destroy;
 
 	hsristream->istream.istream.readable_fd = FALSE;
@@ -560,7 +591,7 @@ http_server_request_get_payload_input(struct http_server_request *req,
 	hsristream->istream.istream.seekable = FALSE;
 
 	req->payload_input = i_stream_create
-		(&hsristream->istream, payload, i_stream_get_fd(payload));
+		(&hsristream->istream, payload, i_stream_get_fd(payload), 0);
 	i_stream_unref(&req->req.payload);
 	return req->payload_input;
 }
@@ -641,7 +672,7 @@ payload_handler_pump_switch_ioloop(
 }
 
 static void
-payload_handler_pump_callback(bool success,
+payload_handler_pump_callback(enum iostream_pump_status status,
 	struct http_server_payload_handler_pump *phandler)
 {
 	struct http_server_payload_handler *handler = &phandler->handler;
@@ -650,8 +681,9 @@ payload_handler_pump_callback(bool success,
 	struct istream *input = iostream_pump_get_input(phandler->pump);
 	struct ostream *output = iostream_pump_get_output(phandler->pump);
 
-	if (success) {
-		if (!i_stream_is_eof(conn->incoming_payload)) {
+	switch (status) {
+	case IOSTREAM_PUMP_STATUS_INPUT_EOF:
+		if (!i_stream_read_eof(conn->incoming_payload)) {
 			http_server_request_fail_close(req,
 				413, "Payload Too Large");
 		} else {
@@ -665,14 +697,16 @@ payload_handler_pump_callback(bool success,
 			i_assert(req->callback_refcount > 0 ||
 				(req->response != NULL && req->response->submitted));
 		}
-	} else if (input->stream_errno != 0) {
+		break;
+	case IOSTREAM_PUMP_STATUS_INPUT_ERROR:
 		http_server_request_client_error(req,
 			"iostream_pump: read(%s) failed: %s",
 			i_stream_get_name(input),
 			i_stream_get_error(input));
 		http_server_request_fail_close(req,
 			400, "Bad Request");
-	} else {
+		break;
+	case IOSTREAM_PUMP_STATUS_OUTPUT_ERROR:
 		if (output->stream_errno != 0) {
 			http_server_request_error(req,
 				"iostream_pump: write(%s) failed: %s",
@@ -681,6 +715,7 @@ payload_handler_pump_callback(bool success,
 		}
 		http_server_request_fail_close(req,
 			500, "Internal Server Error");
+		break;
 	}
 
 	if (conn->payload_handler != NULL)

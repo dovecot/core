@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -49,7 +49,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	lines = array_get(&mail->header_lines, &count);
 	match = array_get(&mail->header_match, &match_count);
 	header = mail->header_data->data;
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 
 	/* go through all the header lines we found */
 	for (i = match_idx = 0; i < count; i = j) {
@@ -384,6 +384,10 @@ index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 	mail->data.save_sent_date = TRUE;
 	mail->data.save_bodystructure_header = TRUE;
 	mail->data.save_bodystructure_body = TRUE;
+	/* Don't unnecessarily waste time generating a snippet, since it's
+	   not as cheap as the others to generate. */
+	if (index_mail_want_cache(mail, MAIL_CACHE_BODY_SNIPPET))
+		mail->data.save_body_snippet = TRUE;
 
 	mail->data.tee_stream = tee_i_stream_create(input);
 	input = tee_i_stream_create_child(mail->data.tee_stream);

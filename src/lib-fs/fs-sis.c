@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -77,46 +77,49 @@ static void fs_sis_deinit(struct fs *_fs)
 	i_free(fs);
 }
 
-static struct fs_file *
-fs_sis_file_init(struct fs *_fs, const char *path,
+static struct fs_file *fs_sis_file_alloc(void)
+{
+	struct sis_fs_file *file = i_new(struct sis_fs_file, 1);
+	return &file->file;
+}
+
+static void
+fs_sis_file_init(struct fs_file *_file, const char *path,
 		 enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct sis_fs *fs = (struct sis_fs *)_fs;
-	struct sis_fs_file *file;
+	struct sis_fs_file *file = (struct sis_fs_file *)_file;
+	struct sis_fs *fs = (struct sis_fs *)_file->fs;
 	const char *dir, *hash;
 
-	file = i_new(struct sis_fs_file, 1);
-	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
 	file->fs = fs;
 	file->open_mode = mode;
 	if (mode == FS_OPEN_MODE_APPEND) {
-		fs_set_error(_fs, "APPEND mode not supported");
-		return &file->file;
+		fs_set_error(_file->fs, "APPEND mode not supported");
+		return;
 	}
 
-	if (fs_sis_path_parse(_fs, path, &dir, &hash) < 0) {
-		fs_set_error(_fs, "Invalid path");
-		return &file->file;
+	if (fs_sis_path_parse(_file->fs, path, &dir, &hash) < 0) {
+		fs_set_error(_file->fs, "Invalid path");
+		return;
 	}
 
 	/* if hashes/<hash> already exists, open it */
 	file->hash_path = i_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
-	file->hash_file = fs_file_init(_fs->parent, file->hash_path,
-				       FS_OPEN_MODE_READONLY);
+	file->hash_file = fs_file_init_parent(_file, file->hash_path,
+					      FS_OPEN_MODE_READONLY);
 
 	file->hash_input = fs_read_stream(file->hash_file, IO_BLOCK_SIZE);
 	if (i_stream_read(file->hash_input) == -1) {
 		/* doesn't exist */
 		if (errno != ENOENT) {
-			i_error("fs-sis: Couldn't read hash file %s: %m",
+			e_error(file->file.event, "Couldn't read hash file %s: %m",
 				file->hash_path);
 		}
 		i_stream_destroy(&file->hash_input);
 	}
 
-	file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
-	return &file->file;
+	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
 }
 
 static void fs_sis_file_deinit(struct fs_file *_file)
@@ -150,21 +153,28 @@ static bool fs_sis_try_link(struct sis_fs_file *file)
 
 	/* we can use the existing file */
 	if (fs_copy(file->hash_file, file->file.parent) < 0) {
-		if (errno != ENOENT && errno != EMLINK)
-			i_error("fs-sis: %s", fs_file_last_error(file->hash_file));
+		if (errno != ENOENT && errno != EMLINK) {
+			e_error(file->file.event, "%s",
+				fs_file_last_error(file->hash_file));
+		}
 		/* failed to use link(), continue as if it hadn't been equal */
 		return FALSE;
 	}
 	if (fs_stat(file->file.parent, &st2) < 0) {
-		i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
-		if (fs_delete(file->file.parent) < 0)
-			i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
+		e_error(file->file.event, "%s",
+			fs_file_last_error(file->file.parent));
+		if (fs_delete(file->file.parent) < 0) {
+			e_error(file->file.event, "%s",
+				fs_file_last_error(file->file.parent));
+		}
 		return FALSE;
 	}
 	if (st->st_ino != st2.st_ino) {
 		/* the hashes/ file was already replaced with something else */
-		if (fs_delete(file->file.parent) < 0)
-			i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
+		if (fs_delete(file->file.parent) < 0) {
+			e_error(file->file.event, "%s",
+				fs_file_last_error(file->file.parent));
+		}
 		return FALSE;
 	}
 	return TRUE;
@@ -187,7 +197,8 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 				   a duplicate, but it's too much trouble
 				   trying to deduplicate it anymore */
 			} else {
-				i_error("fs-sis: %s", fs_last_error(super_fs));
+				e_error(file->file.event, "%s",
+					fs_last_error(super_fs));
 			}
 		}
 		return;
@@ -206,19 +217,19 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 		    super_fs->set.temp_file_prefix, hash_fname);
 
 	/* replace existing hash file atomically */
-	temp_file = fs_file_init(super_fs, str_c(temp_path),
-				 FS_OPEN_MODE_READONLY);
+	temp_file = fs_file_init_parent(&file->file, str_c(temp_path),
+					FS_OPEN_MODE_READONLY);
 	ret = fs_copy(file->file.parent, temp_file);
 	if (ret < 0 && errno == EEXIST) {
 		/* either someone's racing us or it's a stale file.
 		   try to continue. */
 		if (fs_delete(temp_file) < 0 &&
 		    errno != ENOENT)
-			i_error("fs-sis: %s", fs_last_error(super_fs));
+			e_error(file->file.event, "%s", fs_last_error(super_fs));
 		ret = fs_copy(file->file.parent, temp_file);
 	}
 	if (ret < 0) {
-		i_error("fs-sis: %s", fs_last_error(super_fs));
+		e_error(file->file.event, "%s", fs_last_error(super_fs));
 		fs_file_deinit(&temp_file);
 		return;
 	}
@@ -227,7 +238,7 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 		if (errno == ENOENT) {
 			/* apparently someone else just renamed it. ignore. */
 		} else {
-			i_error("fs-sis: %s", fs_last_error(super_fs));
+			e_error(file->file.event, "%s", fs_last_error(super_fs));
 		}
 		(void)fs_delete(temp_file);
 	}
@@ -243,7 +254,7 @@ static int fs_sis_write(struct fs_file *_file, const void *data, size_t size)
 
 	if (file->hash_input != NULL &&
 	    stream_cmp_block(file->hash_input, data, size) &&
-	    i_stream_is_eof(file->hash_input)) {
+	    i_stream_read_eof(file->hash_input)) {
 		/* try to use existing file */
 		if (fs_sis_try_link(file))
 			return 0;
@@ -293,7 +304,7 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 
 	if (file->hash_input != NULL &&
 	    o_stream_cmp_equals(_file->output) &&
-	    i_stream_is_eof(file->hash_input)) {
+	    i_stream_read_eof(file->hash_input)) {
 		o_stream_unref(&_file->output);
 		if (fs_sis_try_link(file)) {
 			fs_write_stream_abort_parent(_file, &file->fs_output);
@@ -326,6 +337,7 @@ const struct fs fs_class_sis = {
 		fs_sis_init,
 		fs_sis_deinit,
 		fs_wrapper_get_properties,
+		fs_sis_file_alloc,
 		fs_sis_file_init,
 		fs_sis_file_deinit,
 		fs_sis_file_close,
@@ -347,6 +359,7 @@ const struct fs fs_class_sis = {
 		fs_wrapper_copy,
 		fs_wrapper_rename,
 		fs_sis_delete,
+		fs_wrapper_iter_alloc,
 		fs_wrapper_iter_init,
 		NULL,
 		NULL,

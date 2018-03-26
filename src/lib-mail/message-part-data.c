@@ -1,7 +1,8 @@
-/* Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
+#include "wildcard-match.h"
 #include "array.h"
 #include "rfc822-parser.h"
 #include "rfc2231-parser.h"
@@ -308,6 +309,7 @@ parse_content_type(struct message_part_data *data,
 	parse_mime_parameters(&parser, pool,
 		&data->content_type_params,
 		&data->content_type_params_count);
+	rfc822_parser_deinit(&parser);
 }
 
 static void
@@ -326,6 +328,7 @@ parse_content_transfer_encoding(struct message_part_data *data,
 		data->content_transfer_encoding =
 			p_strdup(pool, str_c(str));
 	}
+	rfc822_parser_deinit(&parser);
 }
 
 static void
@@ -339,13 +342,16 @@ parse_content_disposition(struct message_part_data *data,
 	rfc822_skip_lwsp(&parser);
 
 	str = t_str_new(256);
-	if (rfc822_parse_mime_token(&parser, str) < 0)
+	if (rfc822_parse_mime_token(&parser, str) < 0) {
+		rfc822_parser_deinit(&parser);
 		return;
+	}
 	data->content_disposition = p_strdup(pool, str_c(str));
 
 	parse_mime_parameters(&parser, pool,
 		&data->content_disposition_params,
 		&data->content_disposition_params_count);
+	rfc822_parser_deinit(&parser);
 }
 
 static void
@@ -373,11 +379,12 @@ parse_content_language(struct message_part_data *data,
 		array_append(&langs, &lang, 1);
 		str_truncate(str, 0);
 
-		if (parser.data == parser.end || *parser.data != ',')
+		if (parser.data >= parser.end || *parser.data != ',')
 			break;
 		parser.data++;
 		rfc822_skip_lwsp(&parser);
 	}
+	rfc822_parser_deinit(&parser);
 
 	if (array_count(&langs) > 0) {
 		array_append_zero(&langs);
@@ -497,4 +504,66 @@ void message_part_data_parse_from_header(pool_t pool,
 		/* message/rfc822, we need the envelope */
 		message_part_envelope_parse_from_header(pool, &part_data->envelope, hdr);
 	}
+}
+
+bool message_part_has_content_types(struct message_part *part,
+				    const char *const *types)
+{
+	struct message_part_data *data = part->data;
+	bool ret = TRUE;
+	const char *const *ptr;
+	const char *content_type;
+
+	if (data->content_type == NULL)
+		return FALSE;
+	else if (data->content_subtype == NULL)
+		content_type = t_strdup_printf("%s/", data->content_type);
+	else
+		content_type = t_strdup_printf("%s/%s", data->content_type,
+							data->content_subtype);
+	for(ptr = types; *ptr != NULL; ptr++) {
+		bool exclude = (**ptr == '!');
+		if (wildcard_match_icase(content_type, (*ptr)+(exclude?1:0)))
+			ret = !exclude;
+	}
+
+	return ret;
+}
+
+bool message_part_has_parameter(struct message_part *part, const char *parameter,
+				bool has_value)
+{
+	struct message_part_data *data = part->data;
+
+	for (unsigned int i = 0; i < data->content_disposition_params_count; i++) {
+		const struct message_part_param *param =
+			&data->content_disposition_params[i];
+		if (strcasecmp(param->name, parameter) == 0 &&
+		    (!has_value || *param->value != '\0')) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+bool message_part_is_attachment(struct message_part *part,
+				const struct message_part_attachment_settings *set)
+{
+	struct message_part_data *data = part->data;
+
+	i_assert(data != NULL);
+
+	/* see if the content-type is excluded */
+	if (set->content_type_filter != NULL &&
+	    !message_part_has_content_types(part, set->content_type_filter))
+		return FALSE;
+
+	/* accept any attachment, or any inlined attachment with filename,
+	   unless inlined ones are excluded */
+	if (null_strcasecmp(data->content_disposition, "attachment") == 0 ||
+	    (!set->exclude_inlined &&
+	     null_strcasecmp(data->content_disposition, "inline") == 0 &&
+	     message_part_has_parameter(part, "filename", FALSE)))
+		return TRUE;
+	return FALSE;
 }

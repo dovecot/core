@@ -1,8 +1,9 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
 #include "str.h"
+#include "memarea.h"
 #include "read-full.h"
 #include "write-full.h"
 #include "safe-mkstemp.h"
@@ -20,11 +21,11 @@ struct seekable_istream {
 	char *temp_path;
 	uoff_t write_peak;
 	uoff_t size;
+	size_t buffer_peak;
 
 	int (*fd_callback)(const char **path_r, void *context);
 	void *context;
 
-	buffer_t *membuf;
 	struct istream **input, *cur_input;
 	struct istream *fd_input;
 	unsigned int cur_idx;
@@ -38,8 +39,7 @@ static void i_stream_seekable_close(struct iostream_private *stream,
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 
 	sstream->fd = -1;
-	if (sstream->fd_input != NULL)
-		i_stream_close(sstream->fd_input);
+	i_stream_close(sstream->fd_input);
 }
 
 static void unref_streams(struct seekable_istream *sstream)
@@ -54,7 +54,7 @@ static void i_stream_seekable_destroy(struct iostream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 
-	buffer_free(&sstream->membuf);
+	i_stream_free_buffer(&sstream->istream);
 	i_stream_unref(&sstream->fd_input);
 	unref_streams(sstream);
 
@@ -91,14 +91,15 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 		return -1;
 
 	/* copy our currently read buffer to it */
-	if (write_full(fd, sstream->membuf->data, sstream->membuf->used) < 0) {
+	i_assert(stream->pos <= sstream->buffer_peak);
+	if (write_full(fd, stream->buffer, sstream->buffer_peak) < 0) {
 		if (!ENOSPACE(errno))
 			i_error("istream-seekable: write_full(%s) failed: %m", path);
 		i_close_fd(&fd);
 		return -1;
 	}
 	sstream->temp_path = i_strdup(path);
-	sstream->write_peak = sstream->membuf->used;
+	sstream->write_peak = sstream->buffer_peak;
 
 	sstream->fd = fd;
 	sstream->fd_input = i_stream_create_fd_autoclose(&fd,
@@ -107,14 +108,13 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 		"(seekable temp-istream for: %s)", i_stream_get_name(&stream->istream)));
 
 	/* read back the data we just had in our buffer */
-	i_stream_seek(sstream->fd_input, stream->istream.v_offset);
 	for (;;) {
 		buffer = i_stream_get_data(sstream->fd_input, &size);
 		if (size >= stream->pos)
 			break;
 
 		ssize_t ret;
-		if ((ret = i_stream_read(sstream->fd_input)) <= 0) {
+		if ((ret = i_stream_read_memarea(sstream->fd_input)) <= 0) {
 			i_assert(ret != 0);
 			i_assert(ret != -2);
 			i_error("istream-seekable: Couldn't read back "
@@ -122,6 +122,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 				i_stream_get_name(&stream->istream),
 				i_stream_get_error(sstream->fd_input));
 			i_stream_destroy(&sstream->fd_input);
+			i_close_fd(&sstream->fd);
 			return -1;
 		}
 	}
@@ -131,8 +132,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	i_stream_set_max_buffer_size(sstream->fd_input,
 				     sstream->istream.max_buffer_size);
 	stream->buffer = buffer;
-	stream->pos = size;
-	buffer_free(&sstream->membuf);
+	i_stream_free_buffer(&sstream->istream);
 	return 0;
 }
 
@@ -146,7 +146,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 		return -1;
 	}
 
-	while ((ret = i_stream_read(sstream->cur_input)) == -1) {
+	while ((ret = i_stream_read_memarea(sstream->cur_input)) == -1) {
 		if (sstream->cur_input->stream_errno != 0) {
 			io_stream_set_error(&sstream->istream.iostream,
 				"read(%s) failed: %s",
@@ -180,15 +180,18 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 {
 	struct istream_private *stream = &sstream->istream;
 	const unsigned char *data;
-	size_t size, pos, offset;
+	size_t size, avail_size;
 
-	i_assert(stream->skip == 0);
-
-	if (stream->istream.v_offset + stream->pos >= sstream->membuf->used) {
+	if (stream->pos < sstream->buffer_peak) {
+		/* This could be the first read() or we could have already
+		   seeked backwards. */
+		i_assert(stream->pos == 0 && stream->skip == 0);
+		stream->skip = stream->istream.v_offset;
+		stream->pos = sstream->buffer_peak;
+		size = stream->pos - stream->skip;
+	} else {
 		/* need to read more */
-		if (sstream->membuf->used >= stream->max_buffer_size)
-			return FALSE;
-
+		i_assert(stream->pos == sstream->buffer_peak);
 		size = sstream->cur_input == NULL ? 0 :
 			i_stream_get_data_size(sstream->cur_input);
 		if (size == 0) {
@@ -201,17 +204,26 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 		/* we should have more now. */
 		data = i_stream_get_data(sstream->cur_input, &size);
 		i_assert(size > 0);
-		buffer_append(sstream->membuf, data, size);
+
+		/* change skip to 0 temporarily so i_stream_try_alloc() won't try to
+		   compress the buffer. */
+		size_t old_skip = stream->skip;
+		stream->skip = 0;
+		bool have_space = i_stream_try_alloc(stream, size, &avail_size);
+		stream->skip = old_skip;
+		if (!have_space)
+			return FALSE;
+
+		if (size > avail_size)
+			size = avail_size;
+		memcpy(stream->w_buffer + stream->pos, data, size);
+		stream->pos += size;
+		sstream->buffer_peak += size;
 		i_stream_skip(sstream->cur_input, size);
 	}
 
-	offset = stream->istream.v_offset;
-	stream->buffer = CONST_PTR_OFFSET(sstream->membuf->data, offset);
-	pos = sstream->membuf->used - offset;
-
-	*ret_r = pos - stream->pos;
+	*ret_r = size;
 	i_assert(*ret_r > 0);
-	stream->pos = pos;
 	return TRUE;
 }
 
@@ -220,21 +232,19 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 	struct istream_private *stream = &sstream->istream;
 	void *data;
 
-	i_assert(sstream->membuf == NULL);
+	i_assert(sstream->fd != -1);
 
-	sstream->membuf =
-		buffer_create_dynamic(default_pool, sstream->write_peak);
-	data = buffer_append_space_unsafe(sstream->membuf, sstream->write_peak);
+	stream->max_buffer_size = (size_t)-1;
+	data = i_stream_alloc(stream, sstream->write_peak);
 
 	if (pread_full(sstream->fd, data, sstream->write_peak, 0) < 0) {
 		i_error("istream-seekable: read(%s) failed: %m", sstream->temp_path);
-		buffer_free(&sstream->membuf);
+		memarea_unref(&stream->memarea);
 		return -1;
 	}
 	i_stream_destroy(&sstream->fd_input);
 	i_close_fd(&sstream->fd);
 
-	stream->max_buffer_size = (size_t)-1;
 	i_free_and_null(sstream->temp_path);
 	return 0;
 }
@@ -246,11 +256,7 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	size_t size, pos;
 	ssize_t ret;
 
-	stream->buffer = CONST_PTR_OFFSET(stream->buffer, stream->skip);
-	stream->pos -= stream->skip;
-	stream->skip = 0;
-
-	if (sstream->membuf != NULL) {
+	if (sstream->fd == -1) {
 		if (read_from_buffer(sstream, &ret))
 			return ret;
 
@@ -261,15 +267,22 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 				i_unreached();
 			return ret;
 		}
-		i_assert(sstream->membuf == NULL);
+		i_assert(sstream->fd != -1);
 	}
+
+	stream->buffer = CONST_PTR_OFFSET(stream->buffer, stream->skip);
+	stream->pos -= stream->skip;
+	stream->skip = 0;
 
 	i_assert(stream->istream.v_offset + stream->pos <= sstream->write_peak);
 	if (stream->istream.v_offset + stream->pos == sstream->write_peak) {
 		/* need to read more */
-		ret = read_more(sstream);
-		if (ret == -1 || ret == 0)
-			return ret;
+		if (sstream->cur_input == NULL ||
+		    i_stream_get_data_size(sstream->cur_input) == 0) {
+			ret = read_more(sstream);
+			if (ret == -1 || ret == 0)
+				return ret;
+		}
 
 		/* save to our file */
 		data = i_stream_get_data(sstream->cur_input, &size);
@@ -291,7 +304,7 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	}
 
 	i_stream_seek(sstream->fd_input, stream->istream.v_offset);
-	ret = i_stream_read(sstream->fd_input);
+	ret = i_stream_read_memarea(sstream->fd_input);
 	if (ret <= 0) {
 		stream->istream.eof = sstream->fd_input->eof;
 		stream->istream.stream_errno =
@@ -314,7 +327,7 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	const struct stat *st;
-	uoff_t old_offset;
+	uoff_t old_offset, len;
 	ssize_t ret;
 
 	if (sstream->size != (uoff_t)-1) {
@@ -338,6 +351,7 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 			sstream->cur_input->v_offset);
 	}
 	i_stream_skip(&stream->istream, stream->pos - stream->skip);
+	len = stream->pos;
 	i_stream_seek(&stream->istream, old_offset);
 	unref_streams(sstream);
 
@@ -351,9 +365,9 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 		stream->statbuf = *st;
 	} else {
 		/* buffer is completely in memory */
-		i_assert(sstream->membuf != NULL);
+		i_assert(sstream->fd == -1);
 
-		stream->statbuf.st_size = sstream->membuf->used;
+		stream->statbuf.st_size = len;
 	}
 	return 0;
 }
@@ -369,6 +383,24 @@ static void i_stream_seekable_seek(struct istream_private *stream,
 		/* we can't skip over data we haven't yet read and written to
 		   our buffer/temp file */
 		i_stream_default_seek_nonseekable(stream, v_offset, mark);
+	}
+}
+
+static struct istream_snapshot *
+i_stream_seekable_snapshot(struct istream_private *stream,
+			   struct istream_snapshot *prev_snapshot)
+{
+	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+
+	if (sstream->fd == -1) {
+		/* still in memory */
+		if (stream->memarea == NULL)
+			return prev_snapshot;
+		return i_stream_default_snapshot(stream, prev_snapshot);
+	} else {
+		/* using the fd_input stream */
+		return sstream->fd_input->real_stream->
+			snapshot(sstream->fd_input->real_stream, prev_snapshot);
 	}
 }
 
@@ -396,7 +428,6 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	sstream = i_new(struct seekable_istream, 1);
 	sstream->fd_callback = fd_callback;
 	sstream->context = context;
-	sstream->membuf = buffer_create_dynamic(default_pool, BUF_INITIAL_SIZE);
         sstream->istream.max_buffer_size = max_buffer_size;
 	sstream->fd = -1;
 	sstream->size = (uoff_t)-1;
@@ -404,11 +435,6 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	sstream->input = i_new(struct istream *, count + 1);
 	memcpy(sstream->input, input, sizeof(*input) * count);
 	sstream->cur_input = sstream->input[0];
-
-	/* initialize our buffer from first stream's pending data */
-	data = i_stream_get_data(sstream->cur_input, &size);
-	buffer_append(sstream->membuf, data, size);
-	i_stream_skip(sstream->cur_input, size);
 
 	sstream->istream.iostream.close = i_stream_seekable_close;
 	sstream->istream.iostream.destroy = i_stream_seekable_destroy;
@@ -418,11 +444,21 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	sstream->istream.read = i_stream_seekable_read;
 	sstream->istream.stat = i_stream_seekable_stat;
 	sstream->istream.seek = i_stream_seekable_seek;
+	sstream->istream.snapshot = i_stream_seekable_snapshot;
 
 	sstream->istream.istream.readable_fd = FALSE;
 	sstream->istream.istream.blocking = blocking;
 	sstream->istream.istream.seekable = TRUE;
-	return i_stream_create(&sstream->istream, NULL, -1);
+	(void)i_stream_create(&sstream->istream, NULL, -1, 0);
+
+	/* initialize our buffer from first stream's pending data */
+	data = i_stream_get_data(sstream->cur_input, &size);
+	if (size > 0) {
+		memcpy(i_stream_alloc(&sstream->istream, size), data, size);
+		sstream->buffer_peak = size;
+		i_stream_skip(sstream->cur_input, size);
+	}
+	return &sstream->istream.istream;
 }
 
 static bool inputs_are_seekable(struct istream *input[])

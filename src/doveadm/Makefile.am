@@ -49,6 +49,7 @@ doveadm_LDADD = \
 	$(CRYPT_LIBS) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
+	$(LIBSODIUM_LIBS) \
 	$(BINARY_LDFLAGS)
 
 doveadm_DEPENDENCIES = \
@@ -83,6 +84,7 @@ doveadm_common_cmds = \
 	doveadm-replicator.c \
 	doveadm-sis.c \
 	doveadm-stats.c \
+	doveadm-oldstats.c \
 	doveadm-who.c
 
 doveadm_common_mail_cmds = \
@@ -145,6 +147,7 @@ doveadm_server_SOURCES = \
 	$(common) \
 	doveadm-auth-server.c \
 	client-connection.c \
+	client-connection-tcp.c \
 	client-connection-http.c \
 	doveadm-print-server.c \
 	doveadm-print-json.c \
@@ -188,8 +191,7 @@ test_doveadm_util_SOURCES = doveadm-util.c test-doveadm-util.c
 test_doveadm_util_LDADD = $(test_libs) $(MODULE_LIBS)
 test_doveadm_util_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

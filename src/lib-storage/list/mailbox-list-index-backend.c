@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "hostpid.h"
@@ -45,16 +45,8 @@ static struct mailbox_list *index_list_alloc(void)
 
 static int index_list_init(struct mailbox_list *_list, const char **error_r)
 {
-	const char *dir;
-
 	if (!_list->mail_set->mailbox_list_index) {
 		*error_r = "LAYOUT=index requires mailbox_list_index=yes";
-		return -1;
-	}
-	if (mailbox_list_get_root_path(_list, MAILBOX_LIST_PATH_TYPE_INDEX, &dir) &&
-	    mailbox_list_mkdir_root(_list, dir, MAILBOX_LIST_PATH_TYPE_INDEX) < 0) {
-		*error_r = t_strdup_printf("Failed to create the index root directory: %s",
-					   mailbox_list_get_last_internal_error(_list, NULL));
 		return -1;
 	}
 	return 0;
@@ -70,7 +62,7 @@ static void index_list_deinit(struct mailbox_list *_list)
 static char index_list_get_hierarchy_sep(struct mailbox_list *list)
 {
 	return *list->ns->set->separator != '\0' ? *list->ns->set->separator :
-		MAILBOX_LIST_INDEX_HIERARHCY_SEP;
+		MAILBOX_LIST_INDEX_HIERARCHY_SEP;
 }
 
 static int
@@ -114,7 +106,6 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 		    enum mailbox_list_path_type type, const char **path_r)
 {
 	struct index_mailbox_list *list = (struct index_mailbox_list *)_list;
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(_list);
 	struct mail_index_view *view;
 	struct mailbox_list_index_node *node;
 	struct mailbox_status status;
@@ -151,6 +142,10 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 					      list->create_mailbox_guid);
 		return 1;
 	}
+
+	/* ilist is only required from this point onwards.
+	   At least imapc calls index_list_get_path without this context*/
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(_list);
 
 	if (ilist->sync_ctx != NULL) {
 		/* we could get here during sync from
@@ -282,7 +277,7 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 {
 	struct index_mailbox_list *list =
 		(struct index_mailbox_list *)box->list;
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mailbox_list_index_record rec;
 	struct mailbox_list_index_node *node;
@@ -459,9 +454,8 @@ index_list_mailbox_update(struct mailbox *box,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 			return -1;
 		} else {
-			mail_storage_set_critical(box->storage,
-						  "rename(%s, %s) failed: %m",
-						  old_path, new_path);
+			mailbox_set_critical(box, "rename(%s, %s) failed: %m",
+					     old_path, new_path);
 			return -1;
 		}
 	}
@@ -584,6 +578,36 @@ static int index_list_mailbox_open(struct mailbox *box)
 	return 0;
 }
 
+void mailbox_list_index_backend_sync_init(struct mailbox *box,
+					  enum mailbox_sync_flags flags)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
+
+	if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0 &&
+	    !ilist->force_resynced) {
+		enum mail_storage_list_index_rebuild_reason reason =
+			MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_FORCE_RESYNC;
+
+		if (box->storage->v.list_index_rebuild != NULL &&
+		    box->storage->v.list_index_rebuild(box->storage, reason) < 0)
+			ilist->force_resync_failed = TRUE;
+		/* try to rebuild list index only once - even if it failed */
+		ilist->force_resynced = TRUE;
+	}
+}
+
+int mailbox_list_index_backend_sync_deinit(struct mailbox *box)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
+
+	if (ilist->force_resync_failed) {
+		/* fail this only once */
+		ilist->force_resync_failed = FALSE;
+		return -1;
+	}
+	return 0;
+}
+
 static void
 index_list_try_delete(struct mailbox_list *_list, const char *name,
 		      enum mailbox_list_path_type type)
@@ -633,7 +657,7 @@ index_list_delete_entry(struct index_mailbox_list *list, const char *name,
 
 	if (list->create_mailbox_name != NULL &&
 	    strcmp(name, list->create_mailbox_name) == 0) {
-		/* we're rollbacking a failed create. if the name exists in the
+		/* we're rolling back a failed create. if the name exists in the
 		   list, it was done by somebody else so we don't want to
 		   remove it. */
 		return 0;
@@ -833,7 +857,7 @@ static int index_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 
 struct mailbox_list index_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_INDEX,
-	.props = MAILBOX_LIST_PROP_NO_ROOT,
+	.props = MAILBOX_LIST_PROP_NO_ROOT | MAILBOX_LIST_PROP_NO_INTERNAL_NAMES,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	.v = {
@@ -857,13 +881,18 @@ struct mailbox_list index_mailbox_list = {
 	}
 };
 
-void mailbox_list_index_backend_init_mailbox(struct mailbox *box,
+bool mailbox_list_index_backend_init_mailbox(struct mailbox *box,
 					     struct mailbox_vfuncs *v)
 {
 	if (strcmp(box->list->name, MAILBOX_LIST_NAME_INDEX) != 0)
-		return;
+		return TRUE;
+
+	/* NOTE: this is using the same v as
+	   mailbox_list_index_status_init_mailbox(), so don't have them
+	   accidentally override each others. */
 	v->create_box = index_list_mailbox_create;
 	v->update_box = index_list_mailbox_update;
 	v->exists = index_list_mailbox_exists;
 	v->open = index_list_mailbox_open;
+	return FALSE;
 }

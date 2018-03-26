@@ -1,5 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file
- */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "lib-signals.h"
@@ -30,6 +29,8 @@ struct program_client_local {
 	struct child_wait *child_wait;
 	struct timeout *to_kill;
 
+	char *bin_path;
+
 	pid_t pid;
 	int status;
 	bool exited:1;
@@ -37,18 +38,18 @@ struct program_client_local {
 	bool sent_term:1;
 };
 
-static
-void program_client_local_waitchild(const struct child_wait_status *,
-				    struct program_client_local *);
-static
-void program_client_local_disconnect(struct program_client *pclient, bool force);
-static
-void program_client_local_exited(struct program_client_local *plclient);
+static void
+program_client_local_waitchild(const struct child_wait_status *status,
+			       struct program_client_local *plclient);
+static void
+program_client_local_disconnect(struct program_client *pclient, bool force);
+static void
+program_client_local_exited(struct program_client_local *plclient);
 
-static
-void exec_child(const char *bin_path, const char *const *args,
-		ARRAY_TYPE(const_string) *envs,
-		int in_fd, int out_fd, int *extra_fds, bool drop_stderr)
+static void
+exec_child(const char *bin_path, const char *const *args,
+	   ARRAY_TYPE(const_string) *envs, int in_fd, int out_fd,
+	   int *extra_fds, bool drop_stderr)
 {
 	ARRAY_TYPE(const_string) exec_args;
 
@@ -60,20 +61,22 @@ void exec_child(const char *bin_path, const char *const *args,
 		out_fd = dev_null_fd;
 
 	if (in_fd != STDIN_FILENO && dup2(in_fd, STDIN_FILENO) < 0)
-		i_fatal("dup2(stdin) failed: %m");
+		i_fatal("program %s: dup2(stdin) failed: %m", bin_path);
 	if (out_fd != STDOUT_FILENO && dup2(out_fd, STDOUT_FILENO) < 0)
-		i_fatal("dup2(stdout) failed: %m");
+		i_fatal("program %s: dup2(stdout) failed: %m", bin_path);
 
 	if (in_fd != STDIN_FILENO && in_fd != dev_null_fd && close(in_fd) < 0)
-		i_error("close(in_fd) failed: %m");
+		i_error("program %s: close(in_fd) failed: %m", bin_path);
 	if (out_fd != STDOUT_FILENO && out_fd != dev_null_fd &&
 	    (out_fd != in_fd) && close(out_fd) < 0)
-		i_error("close(out_fd) failed: %m");
+		i_error("program %s: close(out_fd) failed: %m", bin_path);
 
 	/* Drop stderr if requested */
 	if (drop_stderr) {
-		if (dup2(dev_null_fd, STDERR_FILENO) < 0)
-			i_fatal("dup2(stderr) failed: %m");
+		if (dup2(dev_null_fd, STDERR_FILENO) < 0) {
+			i_fatal("program %s: "
+				"dup2(stderr) failed: %m", bin_path);
+		}
 	}
 
 	/* Setup extra fds */
@@ -84,18 +87,22 @@ void exec_child(const char *bin_path, const char *const *args,
 			i_assert(efd[1] != STDOUT_FILENO);
 			i_assert(efd[1] != STDERR_FILENO);
 			if (efd[0] != efd[1]) {
-				if (dup2(efd[0], efd[1]) < 0)
-					i_fatal("dup2(extra_fd=%d) failed: %m",
-						efd[1]);
+				if (dup2(efd[0], efd[1]) < 0) {
+					i_fatal("program %s"
+						"dup2(extra_fd=%d) failed: %m",
+						bin_path, efd[1]);
+				}
 			}
 		}
 		for(efd = extra_fds; *efd != -1; efd += 2) {
 			if (efd[0] != efd[1] && efd[0] != STDIN_FILENO &&
 			    efd[0] != STDOUT_FILENO &&
 			    efd[0] != STDERR_FILENO) {
-				if (close(efd[0]) < 0)
-					i_error("close(extra_fd=%d) failed: %m",
-						efd[1]);
+				if (close(efd[0]) < 0) {
+					i_error("program %s"
+						"close(extra_fd=%d) failed: %m",
+						bin_path, efd[1]);
+				}
 			}
 		}
 	}
@@ -127,24 +134,27 @@ void exec_child(const char *bin_path, const char *const *args,
 	execvp_const(args[0], args);
 }
 
-static
-void program_client_local_waitchild(const struct child_wait_status *status,
-				    struct program_client_local *plclient)
+static void
+program_client_local_waitchild(const struct child_wait_status *status,
+			       struct program_client_local *plclient)
 {
+	struct program_client *pclient = &plclient->client;
+
 	i_assert(plclient->pid == status->pid);
+
+	e_debug(pclient->event, "Child process ended");
 
 	plclient->status = status->status;
 	plclient->exited = TRUE;
 	plclient->pid = -1;
 
-	if (plclient->stopping)
+	if (plclient->stopping ||
+	    (pclient->fd_in < 0 && pclient->fd_out < 0))
 		program_client_local_exited(plclient);
-	else
-		program_client_program_input(&plclient->client);
 }
 
-static
-int program_client_local_connect(struct program_client *pclient)
+static int
+program_client_local_connect(struct program_client *pclient)
 {
 	struct program_client_local *plclient =
 		(struct program_client_local *)pclient;
@@ -156,13 +166,13 @@ int program_client_local_connect(struct program_client *pclient)
 	/* create normal I/O fds */
 	if (pclient->input != NULL) {
 		if (pipe(fd_in) < 0) {
-			i_error("pipe(in) failed: %m");
+			e_error(pclient->event, "pipe(in) failed: %m");
 			return -1;
 		}
 	}
-	if (pclient->output != NULL || pclient->output_seekable) {
+	if (pclient->output != NULL) {
 		if (pipe(fd_out) < 0) {
-			i_error("pipe(out) failed: %m");
+			e_error(pclient->event, "pipe(out) failed: %m");
 			return -1;
 		}
 	}
@@ -178,7 +188,8 @@ int program_client_local_connect(struct program_client *pclient)
 			child_extra_fds = t_new(int, xfd_count * 2 + 1);
 			for(i = 0; i < xfd_count; i++) {
 				if (pipe(extra_fd) < 0) {
-					i_error("pipe(extra=%d) failed: %m",
+					e_error(pclient->event,
+						"pipe(extra=%d) failed: %m",
 						extra_fd[1]);
 					return -1;
 				}
@@ -192,28 +203,34 @@ int program_client_local_connect(struct program_client *pclient)
 
 	/* fork child */
 	if ((plclient->pid = fork()) == (pid_t)-1) {
-		i_error("fork() failed: %m");
+		e_error(pclient->event, "fork() failed: %m");
 
 		/* clean up */
 		if (fd_in[0] >= 0 && close(fd_in[0]) < 0) {
-			i_error("close(pipe:in:rd) failed: %m");
+			e_error(pclient->event,
+				"close(pipe:in:rd) failed: %m");
 		}
 		if (fd_in[1] >= 0 && close(fd_in[1]) < 0) {
-			i_error("close(pipe:in:wr) failed: %m");
+			e_error(pclient->event,
+				"close(pipe:in:wr) failed: %m");
 		}
 		if (fd_out[0] >= 0 && close(fd_out[0]) < 0) {
-			i_error("close(pipe:out:rd) failed: %m");
+			e_error(pclient->event,
+				"close(pipe:out:rd) failed: %m");
 		}
 		if (fd_out[1] >= 0 && close(fd_out[1]) < 0) {
-			i_error("close(pipe:out:wr) failed: %m");
+			e_error(pclient->event,
+				"close(pipe:out:wr) failed: %m");
 		}
 		for(i = 0; i < xfd_count; i++) {
 			if (close(child_extra_fds[i * 2]) < 0) {
-				i_error("close(pipe:extra=%d:wr) failed: %m",
+				e_error(pclient->event,
+					"close(pipe:extra=%d:wr) failed: %m",
 					child_extra_fds[i * 2 + 1]);
 			}
 			if (close(parent_extra_fds[i]) < 0) {
-				i_error("close(pipe:extra=%d:rd) failed: %m",
+				e_error(pclient->event,
+					"close(pipe:extra=%d:rd) failed: %m",
 					child_extra_fds[i * 2 + 1]);
 			}
 		}
@@ -222,36 +239,48 @@ int program_client_local_connect(struct program_client *pclient)
 
 	if (plclient->pid == 0) {
 		/* child */
-		if (fd_in[1] >= 0 && close(fd_in[1]) < 0)
-			i_error("close(pipe:in:wr) failed: %m");
-		if (fd_out[0] >= 0 && close(fd_out[0]) < 0)
-			i_error("close(pipe:out:rd) failed: %m");
+		if (fd_in[1] >= 0 && close(fd_in[1]) < 0) {
+			e_error(pclient->event,
+				"close(pipe:in:wr) failed: %m");
+		}
+		if (fd_out[0] >= 0 && close(fd_out[0]) < 0) {
+			e_error(pclient->event,
+				"close(pipe:out:rd) failed: %m");
+		}
 		for(i = 0; i < xfd_count; i++) {
 			if (close(parent_extra_fds[i]) < 0) {
-				i_error("close(pipe:extra=%d:rd) failed: %m",
+				e_error(pclient->event,
+					"close(pipe:extra=%d:rd) failed: %m",
 					child_extra_fds[i * 2 + 1]);
 			}
 		}
 
 		/* if we want to allow root, then we will not drop
 		   root privileges */
-		pclient->set.restrict_set.drop_setuid_root =
-			!pclient->set.allow_root;
+		restrict_access(&pclient->set.restrict_set,
+				(pclient->set.allow_root ?
+					RESTRICT_ACCESS_FLAG_ALLOW_ROOT : 0),
+				pclient->set.home);
 
-		restrict_access(&pclient->set.restrict_set, pclient->set.home,
-				!pclient->set.allow_root);
-
-		exec_child(pclient->path, pclient->args, &pclient->envs,
+		exec_child(plclient->bin_path, pclient->args, &pclient->envs,
 			   fd_in[0], fd_out[1], child_extra_fds,
 			   pclient->set.drop_stderr);
 		i_unreached();
 	}
 
 	/* parent */
-	if (fd_in[0] >= 0 && close(fd_in[0]) < 0)
-		i_error("close(pipe:in:rd) failed: %m");
-	if (fd_out[1] >= 0 && close(fd_out[1]) < 0)
-		i_error("close(pipe:out:wr) failed: %m");
+	e_debug(pclient->event, "Forked child process");
+
+	program_client_set_label(pclient,
+		t_strdup_printf("exec:%s (%d)", plclient->bin_path,
+				plclient->pid));
+
+	if (fd_in[0] >= 0 && close(fd_in[0]) < 0) {
+		e_error(pclient->event, "close(pipe:in:rd) failed: %m");
+	}
+	if (fd_out[1] >= 0 && close(fd_out[1]) < 0) {
+		e_error(pclient->event, "close(pipe:out:wr) failed: %m");
+	}
 	if (fd_in[1] >= 0) {
 		net_set_nonblock(fd_in[1], TRUE);
 		pclient->fd_out = fd_in[1];
@@ -262,7 +291,8 @@ int program_client_local_connect(struct program_client *pclient)
 	}
 	for(i = 0; i < xfd_count; i++) {
 		if (close(child_extra_fds[i * 2]) < 0) {
-			i_error("close(pipe:extra=%d:wr) failed: %m",
+			e_error(pclient->event,
+				"close(pipe:extra=%d:wr) failed: %m",
 				child_extra_fds[i * 2 + 1]);
 		}
 		net_set_nonblock(parent_extra_fds[i], TRUE);
@@ -275,11 +305,12 @@ int program_client_local_connect(struct program_client *pclient)
 		child_wait_new_with_pid(plclient->pid,
 					program_client_local_waitchild,
 					plclient);
-	return program_client_connected(pclient);
+	program_client_connected(pclient);
+	return 0;
 }
 
-static
-int program_client_local_close_output(struct program_client *pclient)
+static int
+program_client_local_close_output(struct program_client *pclient)
 {
 	int fd_out = pclient->fd_out;
 
@@ -287,61 +318,95 @@ int program_client_local_close_output(struct program_client *pclient)
 
 	/* Shutdown output; program stdin will get EOF */
 	if (fd_out >= 0 && close(fd_out) < 0) {
-		i_error("close(%s) failed: %m", pclient->path);
+		e_error(pclient->event,
+			"close(fd_out) failed: %m");
 		return -1;
 	}
 	return 1;
 }
 
-static
-void program_client_local_exited(struct program_client_local *plclient)
+static void
+program_client_local_exited(struct program_client_local *plclient)
 {
+	struct program_client *pclient = &plclient->client;
+
 	timeout_remove(&plclient->to_kill);
 	if (plclient->child_wait != NULL)
 		child_wait_free(&plclient->child_wait);
 
-	struct program_client *pclient = &plclient->client;
 	plclient->exited = TRUE;
 	plclient->pid = -1;
 	/* Evaluate child exit status */
-	pclient->exit_code = -1;
+	pclient->exit_code = PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
 
 	if (WIFEXITED(plclient->status)) {
 		/* Exited */
 		int exit_code = WEXITSTATUS(plclient->status);
 
 		if (exit_code != 0) {
-			i_info("program `%s' terminated with non-zero exit code %d",
-			       pclient->path, exit_code);
-			pclient->exit_code = 0;
+			e_info(pclient->event,
+			       "Terminated with non-zero exit code %d",
+			       exit_code);
+			pclient->exit_code = PROGRAM_CLIENT_EXIT_FAILURE;
 		} else {
-			pclient->exit_code = 1;
+			pclient->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
 		}
 	} else if (WIFSIGNALED(plclient->status)) {
 		/* Killed with a signal */
 		if (plclient->sent_term) {
-			i_error("program `%s' was forcibly terminated with signal %d",
-				pclient->path, WTERMSIG(plclient->status));
+			e_error(pclient->event,
+				"Forcibly terminated with signal %d",
+				WTERMSIG(plclient->status));
 		} else {
-			i_error("program `%s' terminated abnormally, signal %d",
-				pclient->path, WTERMSIG(plclient->status));
+			e_error(pclient->event,
+				"Terminated abnormally with signal %d",
+				WTERMSIG(plclient->status));
 		}
 	} else if (WIFSTOPPED(plclient->status)) {
 		/* Stopped */
-		i_error("program `%s' stopped, signal %d",
-			pclient->path, WSTOPSIG(plclient->status));
+		e_error(pclient->event,
+			"Stopped with signal %d",
+			WSTOPSIG(plclient->status));
 	} else {
 		/* Something else */
-		i_error("program `%s' terminated abnormally, return status %d",
-			pclient->path, plclient->status);
+		e_error(pclient->event,
+			"Terminated abnormally with status %d",
+			plclient->status);
 	}
 
 	program_client_disconnected(pclient);
 }
 
-static
-void program_client_local_kill(struct program_client_local *plclient)
+static void
+program_client_local_kill_now(struct program_client_local *plclient)
 {
+	struct program_client *pclient = &plclient->client;
+
+	if (plclient->child_wait != NULL) {
+		/* no need for this anymore */
+		child_wait_free(&plclient->child_wait);
+	}
+
+	if (plclient->pid < 0)
+		return;
+
+	e_debug(pclient->event, "Sending SIGKILL signal to program");
+
+	/* kill it brutally now: it should die right away */
+	if (kill(plclient->pid, SIGKILL) < 0) {
+		e_error(pclient->event,
+			"Failed to send SIGKILL signal to program");
+	} else if (waitpid(plclient->pid, &plclient->status, 0) < 0) {
+		e_error(pclient->event, "waitpid(%d) failed: %m",
+			plclient->pid);
+	}
+}
+
+static void
+program_client_local_kill(struct program_client_local *plclient)
+{
+	struct program_client *pclient = &plclient->client;
+
 	/* time to die */
 	timeout_remove(&plclient->to_kill);
 
@@ -351,40 +416,28 @@ void program_client_local_kill(struct program_client_local *plclient)
 		plclient->client.error = PROGRAM_CLIENT_ERROR_RUN_TIMEOUT;
 
 	if (plclient->sent_term) {
-		/* no need for this anymore */
-		child_wait_free(&plclient->child_wait);
-
 		/* Timed out again */
-		if (plclient->client.debug) {
-			i_debug("program `%s' (%d) did not die after %d milliseconds: "
-				"sending KILL signal",
-				plclient->client.path, plclient->pid, KILL_TIMEOUT);
-		}
+		e_debug(pclient->event,
+			"Program did not die after %d milliseconds",
+			KILL_TIMEOUT);
 
-		/* Kill it brutally now, it should die right away */
-		if (kill(plclient->pid, SIGKILL) < 0) {
-			i_error("failed to send SIGKILL signal to program `%s'",
-				plclient->client.path);
-		} else if (waitpid(plclient->pid, &plclient->status, 0) < 0) {
-			i_error("waitpid(%s) failed: %m",
-				plclient->client.path);
-		}
+		program_client_local_kill_now(plclient);
 		program_client_local_exited(plclient);
 		return;
 	}
 
-	if (plclient->client.debug)
-		i_debug("program `%s'(%d) execution timed out after %u milliseconds: "
-			"sending TERM signal", plclient->client.path, plclient->pid,
-			plclient->client.set.input_idle_timeout_msecs);
+	e_debug(pclient->event,
+		"Execution timed out after %u milliseconds: "
+		"Sending TERM signal",
+		pclient->set.input_idle_timeout_msecs);
 
 	/* send sigterm, keep on waiting */
 	plclient->sent_term = TRUE;
 
 	/* Kill child gently first */
 	if (kill(plclient->pid, SIGTERM) < 0) {
-		i_error("failed to send SIGTERM signal to program `%s'",
-			plclient->client.path);
+		e_error(pclient->event,
+			"Failed to send SIGTERM signal to program");
 		(void)kill(plclient->pid, SIGKILL);
 		program_client_local_exited(plclient);
 		return;
@@ -396,8 +449,8 @@ void program_client_local_kill(struct program_client_local *plclient)
 			    program_client_local_kill, plclient);
 }
 
-static
-void program_client_local_disconnect(struct program_client *pclient, bool force)
+static void
+program_client_local_disconnect(struct program_client *pclient, bool force)
 {
 	struct program_client_local *plclient =
 		(struct program_client_local *) pclient;
@@ -414,13 +467,14 @@ void program_client_local_disconnect(struct program_client *pclient, bool force)
 
 	if (pid < 0) {
 		/* program never started */
-		pclient->exit_code = 0;
+		pclient->exit_code = PROGRAM_CLIENT_EXIT_FAILURE;
 		program_client_local_exited(plclient);
 		return;
 	}
 
 	/* make sure it hasn't already been reaped */
 	if (waitpid(plclient->pid, &plclient->status, WNOHANG) > 0) {
+		e_debug(pclient->event, "Child process ended");
 		program_client_local_exited(plclient);
 		return;
 	}
@@ -431,33 +485,38 @@ void program_client_local_disconnect(struct program_client *pclient, bool force)
 	    runtime < pclient->set.input_idle_timeout_msecs)
 		timeout = pclient->set.input_idle_timeout_msecs - runtime;
 
-	if (pclient->debug) {
-		i_debug("waiting for program `%s' to finish after %lu msecs",
-			pclient->path, runtime);
-	}
+	e_debug(pclient->event,
+		"Waiting for program to finish after %lu msecs", runtime);
 
 	force = force ||
 		(timeout == 0 && pclient->set.input_idle_timeout_msecs > 0);
 
 	if (!force) {
-		if (timeout > 0)
+		if (timeout > 0) {
 			plclient->to_kill =
 				timeout_add_short(timeout,
 						  program_client_local_kill,
 						  plclient);
+		}
 	} else {
 		program_client_local_kill(plclient);
 	}
 }
 
-static
-void program_client_local_destroy(struct program_client *pclient ATTR_UNUSED)
+static void
+program_client_local_destroy(struct program_client *pclient)
 {
+	struct program_client_local *plclient =
+		(struct program_client_local *)pclient;
+
+	timeout_remove(&plclient->to_kill);
+
+	program_client_local_kill_now(plclient);
 	child_wait_deinit();
 }
 
-static
-void program_client_local_switch_ioloop(struct program_client *pclient)
+static void
+program_client_local_switch_ioloop(struct program_client *pclient)
 {
 	struct program_client_local *plclient =
 		(struct program_client_local *)pclient;
@@ -472,19 +531,24 @@ program_client_local_create(const char *bin_path,
 			    const char *const *args,
 			    const struct program_client_settings *set)
 {
-	struct program_client_local *pclient;
+	struct program_client_local *plclient;
+	const char *label;
 	pool_t pool;
 
+	label = t_strconcat("exec:", bin_path, NULL);
+
 	pool = pool_alloconly_create("program client local", 1024);
-	pclient = p_new(pool, struct program_client_local, 1);
-	program_client_init(&pclient->client, pool, bin_path, args, set);
-	pclient->client.connect = program_client_local_connect;
-	pclient->client.close_output = program_client_local_close_output;
-	pclient->client.switch_ioloop = program_client_local_switch_ioloop;
-	pclient->client.disconnect = program_client_local_disconnect;
-	pclient->client.destroy = program_client_local_destroy;
-	pclient->pid = -1;
+	plclient = p_new(pool, struct program_client_local, 1);
+	program_client_init(&plclient->client, pool, label, args, set);
+	plclient->client.connect = program_client_local_connect;
+	plclient->client.close_output = program_client_local_close_output;
+	plclient->client.switch_ioloop = program_client_local_switch_ioloop;
+	plclient->client.disconnect = program_client_local_disconnect;
+	plclient->client.destroy = program_client_local_destroy;
+	plclient->bin_path = p_strdup(pool, bin_path);
+	plclient->pid = -1;
+
 	child_wait_init();
 
-	return &pclient->client;
+	return &plclient->client;
 }

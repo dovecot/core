@@ -17,9 +17,9 @@ libdovecot_ldap_la_SOURCES = \
 	ldap-compare.c \
 	ldap-entry.c
 
-libdovecot_ldap_la_DEPENDENCIES = ../lib/liblib.la
+libdovecot_ldap_la_DEPENDENCIES = ../lib-dovecot/libdovecot.la
 libdovecot_ldap_la_LDFLAGS = -export-dynamic
-libdovecot_ldap_la_LIBADD = ../lib/liblib.la $(LDAP_LIBS)
+libdovecot_ldap_la_LIBADD = ../lib-dovecot/libdovecot.la $(LDAP_LIBS)
 
 headers = \
 	ldap-client.h
@@ -36,8 +36,7 @@ test_libs = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib/liblib.la
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

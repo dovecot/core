@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -938,8 +938,7 @@ int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
 		(void)mailbox_attribute_iter_deinit(&exporter->attr_iter);
 	dsync_mailbox_export_body_search_deinit(exporter);
 	(void)mailbox_transaction_commit(&exporter->trans);
-	if (exporter->wanted_headers != NULL)
-		mailbox_header_lookup_unref(&exporter->wanted_headers);
+	mailbox_header_lookup_unref(&exporter->wanted_headers);
 
 	i_stream_unref(&exporter->attr.value_stream);
 	hash_table_destroy(&exporter->export_guids);

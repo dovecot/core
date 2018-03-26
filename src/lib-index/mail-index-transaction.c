@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -172,7 +172,8 @@ mail_transaction_log_file_refresh(struct mail_index_transaction *t,
 
 static int
 mail_index_transaction_commit_real(struct mail_index_transaction *t,
-				   uoff_t *commit_size_r)
+				   uoff_t *commit_size_r,
+				   enum mail_index_transaction_change *changes_r)
 {
 	struct mail_transaction_log *log = t->view->index->log;
 	struct mail_transaction_log_append_ctx *ctx;
@@ -180,6 +181,8 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	uint32_t log_seq1, log_seq2;
 	uoff_t log_offset1, log_offset2;
 	int ret;
+
+	*changes_r = 0;
 
 	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
 		trans_flags |= MAIL_TRANSACTION_EXTERNAL;
@@ -195,7 +198,7 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 #endif
 	if (ret > 0) T_BEGIN {
 		mail_index_transaction_finish(t);
-		mail_index_transaction_export(t, ctx);
+		mail_index_transaction_export(t, ctx, changes_r);
 	} T_END;
 
 	mail_transaction_log_get_head(log, &log_seq1, &log_offset1);
@@ -237,7 +240,8 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 
 	changed = MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) || t->reset;
 	ret = !changed ? 0 :
-		mail_index_transaction_commit_real(t, &result_r->commit_size);
+		mail_index_transaction_commit_real(t, &result_r->commit_size,
+						   &result_r->changes_mask);
 	mail_transaction_log_get_head(index->log, &result_r->log_file_seq,
 				      &result_r->log_file_offset);
 

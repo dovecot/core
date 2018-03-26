@@ -1,8 +1,9 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
 #include "ioloop.h"
 #include "array.h"
+#include "str.h"
 #include "randgen.h"
 #include "module-dir.h"
 #include "process-title.h"
@@ -11,13 +12,13 @@
 #include "master-auth.h"
 #include "master-service.h"
 #include "master-interface.h"
+#include "iostream-ssl.h"
 #include "client-common.h"
 #include "access-lookup.h"
 #include "anvil-client.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
 #include "master-service-ssl-settings.h"
-#include "ssl-proxy.h"
 #include "login-proxy.h"
 
 #include <unistd.h>
@@ -42,6 +43,7 @@ const char *login_rawlog_dir = NULL;
 unsigned int initial_service_count;
 struct login_module_register login_module_register;
 ARRAY_TYPE(string) global_alt_usernames;
+bool login_ssl_initialized;
 
 const struct login_settings *global_login_settings;
 const struct master_service_ssl_settings *global_ssl_settings;
@@ -59,28 +61,67 @@ static bool auth_connected_once = FALSE;
 
 static void login_access_lookup_next(struct login_access_lookup *lookup);
 
-void login_refresh_proctitle(void)
+static bool get_first_client(struct client **client_r)
 {
 	struct client *client = clients;
+
+	if (client == NULL)
+		client = login_proxies_get_first_detached_client();
+	if (client == NULL)
+		client = clients_get_first_fd_proxy();
+	*client_r = client;
+	return client != NULL;
+}
+
+void login_refresh_proctitle(void)
+{
+	struct client *client;
 	const char *addr;
 
 	if (!global_login_settings->verbose_proctitle)
 		return;
 
+	/* clients_get_count() includes all the clients being served.
+	   Inside that there are 3 groups:
+	   1. pre-login clients
+	   2. post-login clients being proxied to remote hosts
+	   3. post-login clients being proxied to post-login processes
+	   Currently the post-login proxying is done only for SSL/TLS
+	   connections, so we're assuming that they're the same. */
+	string_t *str = t_str_new(64);
 	if (clients_get_count() == 0) {
-		process_title_set("");
-	} else if (clients_get_count() > 1 || client == NULL) {
-		process_title_set(t_strdup_printf("[%u connections (%u TLS)]",
-			clients_get_count(), ssl_proxy_get_count()));
-	} else {
-		addr = net_ip2addr(&client->ip);
-		if (addr[0] != '\0') {
-			process_title_set(t_strdup_printf(client->tls ?
-				"[%s TLS]" : "[%s]", addr));
-		} else {
-			process_title_set(client->tls ? "[TLS]" : "");
+		/* no clients */
+	} else if (clients_get_count() > 1 || !get_first_client(&client)) {
+		str_printfa(str, "[%u pre-login", clients_get_count() -
+			    login_proxies_get_detached_count() -
+			    clients_get_fd_proxies_count());
+		if (login_proxies_get_detached_count() > 0) {
+			/* show detached proxies only if they exist, so
+			   non-proxy servers don't unnecessarily show them. */
+			str_printfa(str, " + %u proxies",
+				    login_proxies_get_detached_count());
 		}
+		if (clients_get_fd_proxies_count() > 0) {
+			/* show post-login proxies only if they exist, so
+			   proxy-only servers don't unnecessarily show them. */
+			str_printfa(str, " + %u TLS proxies",
+				    clients_get_fd_proxies_count());
+		}
+		str_append_c(str, ']');
+	} else {
+		str_append_c(str, '[');
+		addr = net_ip2addr(&client->ip);
+		if (addr[0] != '\0')
+			str_printfa(str, "%s ", addr);
+		if (client->fd_proxying)
+			str_append(str, "TLS proxy");
+		else if (client->destroyed)
+			str_append(str, "proxy");
+		else
+			str_append(str, "pre-login");
+		str_append_c(str, ']');
 	}
+	process_title_set(str_c(str));
 }
 
 static void auth_client_idle_timeout(struct auth_client *auth_client)
@@ -115,36 +156,25 @@ static void
 client_connected_finish(const struct master_service_connection *conn)
 {
 	struct client *client;
-	struct ssl_proxy *proxy;
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;
 	pool_t pool;
-	int fd_ssl;
 	void **other_sets;
 
 	pool = pool_alloconly_create("login client", 8*1024);
 	set = login_settings_read(pool, &conn->local_ip,
 				  &conn->remote_ip, NULL, &ssl_set, &other_sets);
 
-	if (!ssl_connections && !conn->ssl) {
-		(void)client_create(conn->fd, FALSE, pool, conn,
-				    set, ssl_set, other_sets);
-	} else {
-		fd_ssl = ssl_proxy_alloc(conn->fd, &conn->remote_ip, pool,
-					 set, ssl_set, &proxy);
-		if (fd_ssl == -1) {
+	client = client_alloc(conn->fd, pool, conn, set, ssl_set);
+	if (ssl_connections || conn->ssl) {
+		if (client_init_ssl(client) < 0) {
+			client_unref(&client);
 			net_disconnect(conn->fd);
-			pool_unref(&pool);
 			master_service_client_connection_destroyed(master_service);
 			return;
 		}
-
-		client = client_create(fd_ssl, TRUE, pool, conn,
-				       set, ssl_set, other_sets);
-		client->ssl_proxy = proxy;
-		ssl_proxy_set_client(proxy, client);
-		ssl_proxy_start(proxy);
 	}
+	client_init(client, other_sets);
 
 	timeout_remove(&auth_client_to);
 }
@@ -334,13 +364,29 @@ static void login_load_modules(void)
 	module_dir_init(modules);
 }
 
+static void login_ssl_init(void)
+{
+	struct ssl_iostream_settings ssl_set;
+	const char *error;
+
+	if (strcmp(global_ssl_settings->ssl, "no") == 0)
+		return;
+
+	master_service_ssl_settings_to_iostream_set(global_ssl_settings,
+		pool_datastack_create(),
+		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	if (io_stream_ssl_global_init(&ssl_set, &error) < 0)
+		i_fatal("Failed to initialize SSL library: %s", error);
+	login_ssl_initialized = TRUE;
+}
+
 static void main_preinit(void)
 {
 	unsigned int max_fds;
 
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
-	ssl_proxy_init();
+	login_ssl_init();
 	dsasl_clients_init();
 	client_common_init();
 
@@ -364,7 +410,7 @@ static void main_preinit(void)
 	io_loop_set_max_fd_count(current_ioloop, max_fds);
 
 	i_assert(strcmp(global_ssl_settings->ssl, "no") == 0 ||
-		 ssl_initialized);
+		 login_ssl_initialized);
 
 	if (global_login_settings->mail_max_userip_connections > 0)
 		login_anvil_init();
@@ -382,7 +428,7 @@ static void main_preinit(void)
 
 	login_load_modules();
 
-	restrict_access_by_env(NULL, TRUE);
+	restrict_access_by_env(0, NULL);
 	if (login_debug)
 		restrict_access_allow_coredumps(TRUE);
 	initial_service_count = master_service_get_service_count(master_service);
@@ -416,12 +462,14 @@ static void main_init(const char *login_socket)
 	master_auth = master_auth_init(master_service, post_login_socket);
 
 	login_binary->init();
-	login_proxy_init("proxy-notify");
+
+	login_proxy_init(global_login_settings->login_proxy_notify_path);
 }
 
 static void main_deinit(void)
 {
-	ssl_proxy_deinit();
+	client_destroy_fd_proxies();
+	ssl_iostream_context_cache_free();
 	login_proxy_deinit();
 
 	login_binary->deinit();

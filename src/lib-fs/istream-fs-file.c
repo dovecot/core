@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream-private.h"
@@ -54,7 +54,7 @@ i_stream_create_fs_file(struct fs_file **file, size_t max_buffer_size)
 	fstream->istream.istream.seekable =
 		((*file)->flags & FS_OPEN_FLAG_SEEKABLE) != 0;
 
-	input = i_stream_create(&fstream->istream, NULL, -1);
+	input = i_stream_create(&fstream->istream, NULL, -1, 0);
 	i_stream_set_name(input, fs_file_path(*file));
 	*file = NULL;
 	return input;

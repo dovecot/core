@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 /*
    Modifying mbox can be slow, so we try to do it all at once minimizing the
@@ -71,17 +71,15 @@ void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
 
 	sync_ctx->errors = TRUE;
 	if (sync_ctx->ext_modified) {
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
-			"mbox file %s was modified while we were syncing, "
-			"check your locking settings",
-			mailbox_get_path(&sync_ctx->mbox->box));
+		mailbox_set_critical(&sync_ctx->mbox->box,
+			"mbox was modified while we were syncing, "
+			"check your locking settings");
 	}
 
 	va_start(va, fmt);
-	mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
-				  "Sync failed for mbox file %s: %s",
-				  mailbox_get_path(&sync_ctx->mbox->box),
-				  t_strdup_vprintf(fmt, va));
+	mailbox_set_critical(&sync_ctx->mbox->box,
+			     "Sync failed for mbox: %s",
+			     t_strdup_vprintf(fmt, va));
 	va_end(va);
 }
 
@@ -1136,11 +1134,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				/* oh no, we're out of UIDs. this shouldn't
 				   happen normally, so just try to get it fixed
 				   without crashing. */
-				mail_storage_set_critical(
-					&sync_ctx->mbox->storage->storage,
-					"Out of UIDs, renumbering them in mbox "
-					"file %s",
-					mailbox_get_path(&sync_ctx->mbox->box));
+				mailbox_set_critical(&sync_ctx->mbox->box,
+					"Out of UIDs, renumbering them in mbox");
 				sync_ctx->renumber_uids = TRUE;
 				return 0;
 			}
@@ -1224,7 +1219,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
-static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
+static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx, bool force)
 {
 	string_t *str;
 	unsigned int uid_validity;
@@ -1234,11 +1229,18 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 	if (sync_ctx->mbox->sync_hdr_update != NULL) {
 		const struct mailbox_update *update =
 			sync_ctx->mbox->sync_hdr_update;
+		bool change = FALSE;
 
-		if (update->uid_validity != 0)
+		if (update->uid_validity != 0) {
 			sync_ctx->base_uid_validity = update->uid_validity;
-		if (update->min_next_uid != 0)
+			change = TRUE;
+		}
+		if (update->min_next_uid != 0) {
 			sync_ctx->base_uid_last = update->min_next_uid-1;
+			change = TRUE;
+		}
+		if (!change && !force)
+			return 0;
 	}
 
 	uid_validity = sync_ctx->base_uid_validity != 0 ?
@@ -1406,7 +1408,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		}
 
 		if (offset == 0) {
-			if (mbox_write_pseudo(sync_ctx) < 0)
+			if (mbox_write_pseudo(sync_ctx, TRUE) < 0)
 				return -1;
 		}
 
@@ -1414,7 +1416,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		mbox_sync_file_updated(sync_ctx, FALSE);
 	} else {
 		if (file_size == 0 && sync_ctx->mbox->sync_hdr_update != NULL) {
-			if (mbox_write_pseudo(sync_ctx) < 0)
+			if (mbox_write_pseudo(sync_ctx, FALSE) < 0)
 				return -1;
 		}
 	}
@@ -1770,7 +1772,7 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 		/* fully synced */
 		if (mbox->mbox_hdr.dirty_flag != 0 || leave_dirty)
 			return 0;
-		/* flushing dirtyness */
+		/* flushing dirtiness */
 	}
 
 	/* file changed */
@@ -1886,7 +1888,7 @@ again:
 		/* nothing to do */
 	nothing_to_do:
 		/* index may need to do internal syncing though, so commit
-		   instead of rollbacking. */
+		   instead of rolling back. */
 		index_storage_expunging_deinit(&mbox->box);
 		if (mail_index_sync_commit(&index_sync_ctx) < 0) {
 			mailbox_set_index_error(&mbox->box);

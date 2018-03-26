@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "askpass.h"
@@ -487,7 +487,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 	int ret;
 
 	/* we need to use the mailbox attribute API here, as we
-	   are not necessarely able to decrypt any of these keys
+	   are not necessarily able to decrypt any of these keys
 	*/
 
 	ARRAY_TYPE(const_string) ids;
@@ -692,6 +692,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct mcp_cmd_context *ctx =
 		(struct mcp_cmd_context *)_ctx;
+	bool cli = (_ctx->cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 
 	struct raw_key {
 		const char *attr;
@@ -711,7 +712,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 			_ctx->exit_code = EX_USAGE;
 			return -1;
 		}
-		if (!_ctx->cli) {
+		if (!cli) {
 			doveadm_print("No cli - cannot ask for password");
 			_ctx->exit_code = EX_USAGE;
 			return -1;
@@ -726,7 +727,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 			_ctx->exit_code = EX_USAGE;
 			return -1;
 		}
-		if (!_ctx->cli) {
+		if (!cli) {
 			doveadm_print("No cli - cannot ask for password");
 			_ctx->exit_code = EX_USAGE;
 			return -1;

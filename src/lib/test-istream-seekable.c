@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "istream-private.h"
@@ -59,7 +59,7 @@ static void test_istream_seekable_one(unsigned int buffer_size)
 	}
 	test_assert(i_stream_read(input) == -1);
 	for (i = 0; i < STREAM_COUNT; i++) {
-		test_assert(i_stream_is_eof(streams[i]));
+		test_assert(streams[i]->eof && streams[i]->stream_errno == 0);
 		i_stream_unref(&streams[i]);
 	}
 	i_stream_unref(&input);
@@ -120,7 +120,7 @@ static void test_istream_seekable_random(void)
 		size = i_stream_get_data_size(input);
 	}
 	for (i = 0; i < stream_count; i++) {
-		test_assert(i_stream_is_eof(streams[i]));
+		test_assert(streams[i]->eof && streams[i]->stream_errno == 0);
 		i_stream_unref(&streams[i]);
 	}
 	i_stream_unref(&input);

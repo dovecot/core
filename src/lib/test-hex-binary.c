@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "buffer.h"
@@ -38,7 +38,7 @@ static void test_hex_to_binary(void)
 		"0x01",
 		"0g"
 	};
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 10);
+	buffer_t *buf = t_buffer_create(10);
 	unsigned int i;
 
 	test_begin("hex to binary");

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -51,8 +51,7 @@ mail_crypt_key_get_ids(struct dcrypt_private_key *key,
 	*key_id_old_r = NULL;
 
 	/* new key ID */
-	key_id = buffer_create_dynamic(pool_datastack_create(),
-					MAIL_CRYPT_HASH_BUF_SIZE);
+	key_id = t_buffer_create(MAIL_CRYPT_HASH_BUF_SIZE);
 	if (!dcrypt_key_id_private(key, MAIL_CRYPT_KEY_ID_ALGORITHM, key_id, &error)) {
 		*error_r = t_strdup_printf("Failed to get private key ID: %s", error);
 		return -1;

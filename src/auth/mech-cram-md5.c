@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 /* CRAM-MD5 SASL authentication, see RFC-2195
    Joshua Goodall <joshua@roughtrade.net> */
@@ -69,7 +69,7 @@ static bool verify_credentials(struct cram_auth_request *request,
 
 	if (!mem_equals_timing_safe(response_hex, request->response, sizeof(digest)*2)) {
 		auth_request_log_info(&request->auth_request, AUTH_SUBSYS_MECH,
-				      "password mismatch");
+				      AUTH_LOG_MSG_PASSWORD_MISMATCH);
 		return FALSE;
 	}
 

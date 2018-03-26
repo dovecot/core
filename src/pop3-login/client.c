@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
 #include "base64.h"
@@ -15,7 +15,6 @@
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
-#include "ssl-proxy.h"
 #include "pop3-proxy.h"
 #include "pop3-login-settings.h"
 
@@ -137,8 +136,8 @@ static void pop3_client_input(struct client *client)
 	if (auth_client != NULL && !auth_client_is_connected(auth_client))
 		client->input_blocked = TRUE;
 
-	if (client_unref(&client))
-		o_stream_uncork(client->output);
+	o_stream_uncork(client->output);
+	client_unref(&client);
 }
 
 static bool pop3_client_input_next_cmd(struct client *client)
@@ -218,7 +217,7 @@ static void pop3_client_notify_auth_ready(struct client *client)
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
 	string_t *str;
 
-	client->io = io_add(client->fd, IO_READ, client_input, client);
+	client->io = io_add_istream(client->input, client_input, client);
 
 	str = t_str_new(128);
 	if (client->trusted) {

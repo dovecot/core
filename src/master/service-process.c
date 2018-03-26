@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
 #include "array.h"
@@ -170,7 +170,7 @@ static void
 drop_privileges(struct service *service)
 {
 	struct restrict_access_settings rset;
-	bool disallow_root;
+	bool allow_root;
 	size_t len;
 
 	if (service->vsz_limit != 0)
@@ -192,8 +192,10 @@ drop_privileges(struct service *service)
 
 	restrict_access_set_env(&rset);
 	if (service->set->drop_priv_before_exec) {
-		disallow_root = service->type == SERVICE_TYPE_LOGIN;
-		restrict_access(&rset, NULL, disallow_root);
+		allow_root = service->type != SERVICE_TYPE_LOGIN;
+		restrict_access(&rset,
+				allow_root ? RESTRICT_ACCESS_FLAG_ALLOW_ROOT : 0,
+				NULL);
 	}
 }
 
@@ -262,6 +264,8 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 	if (service->type == SERVICE_TYPE_ANVIL &&
 	    service_anvil_global->restarted)
 		env_put("ANVIL_RESTARTED=1");
+	env_put(t_strconcat(DOVECOT_LOG_DEBUG_ENV"=",
+			    service->list->service_set->log_debug, NULL));
 }
 
 static void service_process_status_timeout(struct service_process *process)
@@ -440,11 +444,59 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 	return NULL;
 }
 
+static bool linux_proc_fs_suid_is_dumpable(unsigned int *value_r)
+{
+	int fd = open(LINUX_PROC_FS_SUID_DUMPABLE, O_RDONLY);
+	if (fd == -1) {
+		/* we already checked that it exists - shouldn't get here */
+		i_error("open(%s) failed: %m", LINUX_PROC_FS_SUID_DUMPABLE);
+		have_proc_fs_suid_dumpable = FALSE;
+		return FALSE;
+	}
+	char buf[10];
+	ssize_t ret = read(fd, buf, sizeof(buf)-1);
+	if (ret < 0) {
+		i_error("read(%s) failed: %m", LINUX_PROC_FS_SUID_DUMPABLE);
+		have_proc_fs_suid_dumpable = FALSE;
+		*value_r = 0;
+	} else {
+		buf[ret] = '\0';
+		if (ret > 0 && buf[ret-1] == '\n')
+			buf[ret-1] = '\0';
+		if (str_to_uint(buf, value_r) < 0)
+			*value_r = 0;
+	}
+	i_close_fd(&fd);
+	return *value_r != 0;
+}
+
+static bool linux_is_absolute_core_pattern(void)
+{
+	int fd = open(LINUX_PROC_SYS_KERNEL_CORE_PATTERN, O_RDONLY);
+	if (fd == -1) {
+		/* we already checked that it exists - shouldn't get here */
+		i_error("open(%s) failed: %m", LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
+		have_proc_sys_kernel_core_pattern = FALSE;
+		return FALSE;
+	}
+	char buf[10];
+	ssize_t ret = read(fd, buf, sizeof(buf)-1);
+	if (ret < 0) {
+		i_error("read(%s) failed: %m", LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
+		have_proc_sys_kernel_core_pattern = FALSE;
+		buf[0] = '\0';
+	}
+	i_close_fd(&fd);
+	return buf[0] == '/' || buf[0] == '|';
+}
+
 static void
 log_coredump(struct service *service, string_t *str, int status)
 {
+#define CORE_DUMP_URL "https://dovecot.org/bugreport.html#coredumps"
 #ifdef WCOREDUMP
 	int signum = WTERMSIG(status);
+	unsigned int dumpable;
 
 	if (WCOREDUMP(status) != 0) {
 		str_append(str, " (core dumped)");
@@ -456,19 +508,38 @@ log_coredump(struct service *service, string_t *str, int status)
 
 	/* let's try to figure out why we didn't get a core dump */
 	if (core_dumps_disabled) {
-		str_printfa(str, " (core dumps disabled)");
+		str_printfa(str, " (core dumps disabled - "CORE_DUMP_URL")");
+		return;
+	}
+	str_append(str, " (core not dumped - "CORE_DUMP_URL);
+
+	/* If we're running on Linux, the best way to get core dumps is to set
+	   fs.suid_dumpable=2 and sys.kernel.core_pattern to be an absolute
+	   path. */
+	if (!have_proc_fs_suid_dumpable)
+		;
+	else if (!linux_proc_fs_suid_is_dumpable(&dumpable)) {
+		str_printfa(str, " - set %s to 2)", LINUX_PROC_FS_SUID_DUMPABLE);
+		return;
+	} else if (dumpable == 2 && have_proc_sys_kernel_core_pattern &&
+		   !linux_is_absolute_core_pattern()) {
+		str_printfa(str, " - set %s to absolute path)",
+			    LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
+		return;
+	} else if (dumpable == 1 || have_proc_sys_kernel_core_pattern) {
+		str_append(str, " - core wasn't writable?)");
 		return;
 	}
 
 #ifndef HAVE_PR_SET_DUMPABLE
 	if (!service->set->drop_priv_before_exec && service->uid != 0) {
-		str_printfa(str, " (core not dumped - set service %s "
+		str_printfa(str, " - set service %s "
 			    "{ drop_priv_before_exec=yes })",
 			    service->set->name);
 		return;
 	}
 	if (*service->set->privileged_group != '\0' && service->uid != 0) {
-		str_printfa(str, " (core not dumped - service %s "
+		str_printfa(str, " - service %s "
 			    "{ privileged_group } prevented it)",
 			    service->set->name);
 		return;
@@ -476,18 +547,17 @@ log_coredump(struct service *service, string_t *str, int status)
 #else
 	if (!service->set->login_dump_core &&
 	    service->type == SERVICE_TYPE_LOGIN) {
-		str_printfa(str, " (core not dumped - add -D parameter to "
+		str_printfa(str, " - add -D parameter to "
 			    "service %s { executable }", service->set->name);
 		return;
 	}
 #endif
 	if (service->set->chroot[0] != '\0') {
-		str_printfa(str, " (core not dumped - try to clear "
+		str_printfa(str, " - try to clear "
 			    "service %s { chroot = } )", service->set->name);
 		return;
 	}
-
-	str_append(str, " (core not dumped)");
+	str_append_c(str, ')');
 #endif
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -129,7 +129,6 @@ client_log_ctx(struct log_connection *log,
 	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
 	case LOG_TYPE_INFO:
-	case LOG_TYPE_COUNT:
 	case LOG_TYPE_OPTION:
 		break;
 	case LOG_TYPE_WARNING:
@@ -143,6 +142,8 @@ client_log_ctx(struct log_connection *log,
 		err.text = text;
 		log_error_buffer_add(log->errorbuf, &err);
 		break;
+	case LOG_TYPE_COUNT:
+		i_unreached();
 	}
 	i_set_failure_prefix("%s", prefix);
 	i_log_type(ctx, "%s", text);
@@ -271,6 +272,8 @@ log_it(struct log_connection *log, const char *line,
 	failure_ctx.type = failure.log_type;
 	failure_ctx.timestamp = tm;
 	failure_ctx.timestamp_usecs = log_time->tv_usec;
+	if (failure.disable_log_prefix)
+		failure_ctx.log_prefix = "";
 
 	prefix = client != NULL && client->prefix != NULL ?
 		client->prefix : log->default_prefix;

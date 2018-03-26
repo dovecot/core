@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "net.h"
@@ -61,7 +61,7 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 			continue;
 		line++;
 
-		if (strcmp(line, "OK Begin compression.") == 0 ||
+		if (strncmp(line, "OK Begin compression", 20) == 0 ||
 		    strcasecmp(line, "COMPRESS DEFLATE") == 0)
 			break;
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "buffer.h"
@@ -38,8 +38,8 @@ static void test_ostream_buffer_random_once(void)
 			test_assert(o_stream_flush(output) > 0);
 	}
 
-	test_assert(o_stream_flush(output) > 0);
 	o_stream_uncork(output);
+	test_assert(o_stream_finish(output) > 0);
 
 	i_assert(buffer->used <= MAX_BUFSIZE*4);
 	test_assert(memcmp(buf, buffer->data, buffer->used) == 0);

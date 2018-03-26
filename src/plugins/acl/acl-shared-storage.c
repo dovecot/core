@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -84,6 +84,7 @@ int acl_shared_namespaces_add(struct mail_namespace *ns)
 	struct acl_lookup_dict_iter *iter;
 	const char *name;
 
+	i_assert(auser != NULL && alist != NULL);
 	i_assert(ns->type == MAIL_NAMESPACE_TYPE_SHARED);
 	i_assert(strcmp(storage->name, MAIL_SHARED_STORAGE_NAME) == 0);
 

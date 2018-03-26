@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "str.h"
@@ -9,11 +9,30 @@ struct strinput {
 	const char *output;
 };
 
-static const char *tabescaped_input = "\0011\001t\001r\001nplip\001n";
-static const char *tabunescaped_input = "\001\t\r\nplip\n";
+static const char tabescaped_input[] = "\0011\001t\001r\001nplip\001n";
+static const char tabunescaped_input[] = "\001\t\r\nplip\n";
 
 static const char *wrong_tabescaped_input = "a\001\001b\001\nc\0011\001t\001r\001nplip\001n";
 static const char *wrong_tabescaped_output = "a\001b\nc\001\t\r\nplip\n";
+
+static struct {
+	const char *input;
+	const char *const *output;
+} strsplit_tests[] = {
+	{ /*tabescaped_input3*/NULL, (const char *const []) {
+		tabunescaped_input,
+		tabunescaped_input,
+		tabunescaped_input,
+		"",
+		NULL
+	} },
+	{ "", (const char *const []) { NULL } },
+	{ "\t", (const char *const []) { "", "", NULL } },
+	{ tabescaped_input, (const char *const []) {
+		tabunescaped_input,
+		NULL
+	} },
+};
 
 static void test_str_escape(void)
 {
@@ -50,6 +69,16 @@ static void test_str_escape(void)
 	test_assert(escaped['\\'+2] == '\\');
 	test_assert(strcmp(str_escape("\\\\\"\"\'\'"),
 			   "\\\\\\\\\\\"\\\"\\\'\\\'") == 0);
+	test_end();
+
+	test_begin("str_nescape");
+
+	escaped = str_nescape("\"escape only first but not 'this'", 10);
+	test_assert(strcmp(escaped, "\\\"escape on") == 0);
+
+	escaped = str_nescape("\"hello\"\0\"world\"", 15);
+	test_assert(memcmp(escaped, "\\\"hello\\\"\0\\\"world\\\"", 19) == 0);
+
 	test_end();
 
 	str = t_str_new(256);
@@ -125,38 +154,37 @@ static void test_tabescape(void)
 
 static void test_strsplit_tabescaped(void)
 {
-	const char *input = t_strdup_printf("%s\t%s\t%s\t",
-		tabescaped_input, tabescaped_input, tabescaped_input);
-	const char *const output[] = {
-		tabunescaped_input,
-		tabunescaped_input,
-		tabunescaped_input,
-		"",
-		NULL
-	};
 	const char *const *args;
 
 	test_begin("*_strsplit_tabescaped()");
+	for (unsigned int i = 0; i < N_ELEMENTS(strsplit_tests); i++) {
+		args = t_strsplit_tabescaped(strsplit_tests[i].input);
+		for (unsigned int j = 0; strsplit_tests[i].output[j] != NULL; j++)
+			test_assert_idx(null_strcmp(strsplit_tests[i].output[j], args[j]) == 0, i);
+	}
+	test_end();
+}
 
-	args = t_strsplit_tabescaped("");
-	test_assert(args[0] == NULL);
+static void test_strsplit_tabescaped_inplace(void)
+{
+	const char *const *args;
 
-	args = t_strsplit_tabescaped("\t");
-	test_assert(args[0][0] == '\0' && args[1][0] == '\0' && args[2] == NULL);
-
-	args = t_strsplit_tabescaped(tabescaped_input);
-	test_assert(strcmp(args[0], tabunescaped_input) == 0 && args[1] == NULL);
-
-	args = t_strsplit_tabescaped(input);
-	for (unsigned int i = 0; i < N_ELEMENTS(output); i++)
-		test_assert_idx(null_strcmp(output[i], args[i]) == 0, i);
-
+	test_begin("*_strsplit_tabescaped_inplace()");
+	for (unsigned int i = 0; i < N_ELEMENTS(strsplit_tests); i++) {
+		char *input = t_strdup_noconst(strsplit_tests[i].input);
+		args = t_strsplit_tabescaped_inplace(input);
+		for (unsigned int j = 0; strsplit_tests[i].output[j] != NULL; j++)
+			test_assert_idx(null_strcmp(strsplit_tests[i].output[j], args[j]) == 0, i);
+	}
 	test_end();
 }
 
 void test_strescape(void)
 {
+	strsplit_tests[0].input = t_strdup_printf("%s\t%s\t%s\t",
+		tabescaped_input, tabescaped_input, tabescaped_input);
 	test_str_escape();
 	test_tabescape();
 	test_strsplit_tabescaped();
+	test_strsplit_tabescaped_inplace();
 }

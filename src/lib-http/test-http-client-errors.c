@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -1023,10 +1023,11 @@ test_connection_lost_input(struct server_connection *conn)
 		return;
 	}
 	if (ret < 0) {
-		if (i_stream_is_eof(conn->conn.input))
+		i_assert(conn->conn.input->eof);
+		if (conn->conn.input->stream_errno == 0)
 			i_fatal("server: Client stream ended prematurely");
 		else
-			i_fatal("server: Streem error: %s",
+			i_fatal("server: Stream error: %s",
 				i_stream_get_error(conn->conn.input));
 	}
 }
@@ -1814,7 +1815,7 @@ test_request_aborted_early_input(struct server_connection *conn ATTR_UNUSED)
 		"HTTP/1.1 404 Not Found\r\n"
 		"\r\n";
 
-	/* wait one second to respon */
+	/* wait one second to respond */
 	sleep(1);
 
 	/* respond */
@@ -2017,7 +2018,7 @@ test_client_deinit_early_input(struct server_connection *conn ATTR_UNUSED)
 		"HTTP/1.1 404 Not Found\r\n"
 		"\r\n";
 
-	/* wait one second to respon */
+	/* wait one second to respond */
 	sleep(1);
 
 	/* respond */
@@ -3050,7 +3051,7 @@ static void test_server_run(unsigned int index)
 
 	/* open server socket */
 	io_listen = io_add(fd_listen,
-		IO_READ, server_connection_accept, (void *)NULL);
+		IO_READ, server_connection_accept, NULL);
 
 	server_conn_list = connection_list_init
 		(&server_connection_set, &server_connection_vfuncs);

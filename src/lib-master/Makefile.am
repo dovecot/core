@@ -4,6 +4,7 @@ noinst_LTLIBRARIES = libmaster.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
@@ -26,6 +27,7 @@ libmaster_la_SOURCES = \
 	master-service-settings-cache.c \
 	master-service-ssl.c \
 	master-service-ssl-settings.c \
+	stats-client.c \
 	syslog-util.c
 
 headers = \
@@ -44,6 +46,7 @@ headers = \
 	master-service-ssl.h \
 	master-service-ssl-settings.h \
 	service-settings.h \
+	stats-client.h \
 	syslog-util.h
 
 pkginc_libdir=$(pkgincludedir)
@@ -56,6 +59,7 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	../lib-test/libtest.la \
+	../lib-dns/libdns.la \
 	../lib/liblib.la
 
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
@@ -64,8 +68,7 @@ test_master_service_settings_cache_SOURCES = test-master-service-settings-cache.
 test_master_service_settings_cache_LDADD = master-service-settings-cache.lo ../lib-settings/libsettings.la $(test_libs)
 test_master_service_settings_cache_DEPENDENCIES = $(test_deps) ../lib-settings/libsettings.la
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

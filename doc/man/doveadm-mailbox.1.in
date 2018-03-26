@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MAILBOX 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-MAILBOX 1 "2015-05-09" "Dovecot v2.3" "Dovecot"
 .SH NAME
 doveadm\-mailbox \- Commands related to handling mailboxes
 .\"------------------------------------------------------------------------
@@ -75,14 +75,32 @@ Please see doveadm-mailbox-cryptokey(1) for more details.
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-s ]
+.RB [ \-r ]
+.RB [ \-e ]
+.RB [ \-Z ]
 .IR mailbox\  ...
 .PP
 This command deletes a mailbox and expunges all the messages it contains.
-If the mailbox has any children, they won\(aqt be deleted.
-.br
-When the
+If the mailbox has any children, they won\(aqt be deleted, unless
+.B \-r
+is given.
+.PP
+.\"-------------------------------------
+.TP
+.B \-r
+Delete mailboxes recursively
+.\"-------------------------------------
+.TP
 .B \-s
-option is present, the deleted mailboxes will be also unsubscribed.
+Unsubscribe deleted mailboxes.
+.\"-------------------------------------
+.TP
+.B \-e
+Require mailboxes to be empty before deleting.
+.\"-------------------------------------
+.TP
+.B \-Z
+Delete the mailbox as efficiently as possible, but the user may not be in fully consistent state afterwards. For example quota may be wrong. This option is mainly useful when deleting the entire user.
 .\"------------------------------------------------------------------------
 .SS mailbox list
 .B doveadm mailbox list

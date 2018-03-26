@@ -92,8 +92,7 @@ test_imap_util_SOURCES = test-imap-util.c
 test_imap_util_LDADD = imap-util.lo imap-arg.lo $(test_libs)
 test_imap_util_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

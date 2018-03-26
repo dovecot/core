@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -181,7 +181,7 @@ static int test_close_attachment_ostream(struct ostream *output, bool success,
 	a = array_idx_modifiable(&attachments, array_count(&attachments)-1);
 	a->decoded_size = output->offset - a->buffer_offset;
 
-	if (o_stream_nfinish(output) < 0)
+	if (o_stream_finish(output) < 0)
 		i_unreached();
 	o_stream_destroy(&output);
 	return 0;
@@ -194,7 +194,7 @@ test_close_attachment_ostream_error(struct ostream *output,
 {
 	if (success)
 		*error = "test output error";
-	o_stream_ignore_last_errors(output);
+	o_stream_abort(output);
 	o_stream_destroy(&output);
 	return -1;
 }

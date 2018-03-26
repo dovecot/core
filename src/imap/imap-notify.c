@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "str.h"
@@ -397,6 +397,7 @@ static void imap_notify_callback(struct mailbox *box, struct client *client)
 	cmd = client_command_alloc(client);
 	cmd->tag = "*";
 	cmd->name = "NOTIFY-CALLBACK";
+	client_command_init_finished(cmd);
 
 	if (!client->notify_ctx->selected_immediate_expunges)
 		sync_flags |= MAILBOX_SYNC_FLAG_NO_EXPUNGES;
@@ -459,8 +460,7 @@ void imap_client_notify_command_allocated(struct client *client)
 		mailbox_notify_changes_stop(client->mailbox);
 		ctx->watching_mailbox = FALSE;
 	}
-	if (ctx->to_watch != NULL)
-		timeout_remove(&ctx->to_watch);
+	timeout_remove(&ctx->to_watch);
 }
 
 int imap_notify_begin(struct imap_notify_context *ctx)

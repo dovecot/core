@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -56,8 +56,15 @@ static void propagate_eof(struct multiplex_istream *mstream)
 {
 	struct multiplex_ichannel **channelp;
 	array_foreach_modifiable(&mstream->channels, channelp) {
-		if (*channelp != NULL) {
-			(*channelp)->istream.istream.eof = TRUE;
+		if (*channelp == NULL)
+			continue;
+
+		(*channelp)->istream.istream.eof = TRUE;
+		if (mstream->remain > 0) {
+			(*channelp)->istream.istream.stream_errno = EPIPE;
+			io_stream_set_error(&(*channelp)->istream.iostream,
+				"Unexpected EOF - %u bytes remaining in packet",
+				mstream->remain);
 		}
 	}
 }
@@ -84,7 +91,7 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 
 	if (((mstream->remain > 0 && len == 0) ||
 	     (mstream->remain == 0 && len < 5)) &&
-	    (ret = i_stream_read(mstream->parent)) <= 0) {
+	    (ret = i_stream_read_memarea(mstream->parent)) <= 0) {
 		propagate_error(mstream, mstream->parent->stream_errno);
 		if (mstream->parent->eof)
 			propagate_eof(mstream);
@@ -182,11 +189,12 @@ static ssize_t i_stream_multiplex_ichannel_read(struct istream_private *stream)
 }
 
 static void
-i_stream_multiplex_ichannel_switch_ioloop(struct istream_private *stream)
+i_stream_multiplex_ichannel_switch_ioloop_to(struct istream_private *stream,
+					     struct ioloop *ioloop)
 {
 	struct multiplex_ichannel *channel = (struct multiplex_ichannel*)stream;
 
-	i_stream_switch_ioloop(channel->mstream->parent);
+	i_stream_switch_ioloop_to(channel->mstream->parent, ioloop);
 }
 
 static void
@@ -220,7 +228,7 @@ static void i_stream_multiplex_ichannel_destroy(struct iostream_private *stream)
 	struct multiplex_ichannel **channelp;
 	struct multiplex_ichannel *channel = (struct multiplex_ichannel*)stream;
 	i_stream_multiplex_ichannel_close(stream, TRUE);
-	i_free(channel->istream.w_buffer);
+	i_stream_free_buffer(&channel->istream);
 	array_foreach_modifiable(&channel->mstream->channels, channelp) {
 		if (*channelp == channel) {
 			*channelp = NULL;
@@ -237,7 +245,7 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 	channel->cid = cid;
 	channel->mstream = mstream;
 	channel->istream.read = i_stream_multiplex_ichannel_read;
-	channel->istream.switch_ioloop = i_stream_multiplex_ichannel_switch_ioloop;
+	channel->istream.switch_ioloop_to = i_stream_multiplex_ichannel_switch_ioloop_to;
 	channel->istream.iostream.close = i_stream_multiplex_ichannel_close;
 	channel->istream.iostream.destroy = i_stream_multiplex_ichannel_destroy;
 	channel->istream.max_buffer_size = mstream->bufsize;
@@ -248,7 +256,7 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 		channel->istream.fd = -1;
 	array_append(&channel->mstream->channels, &channel, 1);
 
-	return i_stream_create(&channel->istream, NULL, channel->istream.fd);
+	return i_stream_create(&channel->istream, NULL, channel->istream.fd, 0);
 }
 
 struct istream *i_stream_multiplex_add_channel(struct istream *stream, uint8_t cid)

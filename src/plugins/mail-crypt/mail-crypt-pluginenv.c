@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 #include "lib.h"
 #include "str.h"
 #include "array.h"
@@ -100,6 +100,7 @@ int mail_crypt_global_keys_load_pluginenv(const char *set_prefix,
 						error_r) < 0)
 		ret = -1;
 
-	mail_crypt_global_keys_free(global_keys_r);
+	if (ret != 0)
+		mail_crypt_global_keys_free(global_keys_r);
 	return ret;
 }

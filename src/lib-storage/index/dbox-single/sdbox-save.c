@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -364,17 +364,20 @@ void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 		const char *box_path = mailbox_get_path(&ctx->mbox->box);
 
 		if (fdatasync_path(box_path) < 0) {
-			mail_storage_set_critical(storage,
+			mail_set_critical(_ctx->dest_mail,
 				"fdatasync_path(%s) failed: %m", box_path);
 		}
 	}
-	sdbox_transaction_save_rollback(_ctx);
+	i_assert(ctx->ctx.finished);
+	dbox_save_unref_files(ctx);
+	i_free(ctx);
 }
 
 void sdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 {
 	struct sdbox_save_context *ctx = SDBOX_SAVECTX(_ctx);
 
+	ctx->ctx.failed = TRUE;
 	if (!ctx->ctx.finished)
 		sdbox_save_cancel(_ctx);
 	dbox_save_unref_files(ctx);

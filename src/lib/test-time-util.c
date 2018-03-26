@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "time-util.h"
@@ -7,30 +7,186 @@
 
 static void test_timeval_cmp(void)
 {
-	static const struct timeval input[] = {
-		{ 0, 0 }, { 0, 0 },
-		{ INT_MAX, 999999 }, { INT_MAX, 999999 },
-		{ 0, 0 }, { 0, 1 },
-		{ 0, 0 }, { 1, 0 },
-		{ 0, 999999 }, { 1, 0 },
-		{ 1, 0 }, { 1, 1 },
-		{ -INT_MAX, 0 }, { INT_MAX, 0 }
-	};
-	static int output[] = {
-		0,
-		0,
-		-1,
-		-1,
-		-1,
-		-1,
-		-1
+	static const struct {
+		struct timeval tv1, tv2;
+		int output;
+	} tests[] = {
+		{
+			.tv1 = { 0, 0 },
+			.tv2 = { 0, 0 },
+			.output = 0,
+		}, {
+			.tv1 = { INT_MAX, 999999 },
+			.tv2 = { INT_MAX, 999999 },
+			.output = 0,
+		}, {
+			.tv1 = { 0, 0 },
+			.tv2 = { 0, 1 },
+			.output = -1,
+		}, {
+			.tv1 = { 0, 0 },
+			.tv2 = { 1, 0 },
+			.output = -1,
+		}, {
+			.tv1 = { 0, 999999 },
+			.tv2 = { 1, 0 },
+			.output = -1,
+		}, {
+			.tv1 = { 1, 0 },
+			.tv2 = { 1, 1 },
+			.output = -1,
+		}, {
+			.tv1 = { -INT_MAX, 0 },
+			.tv2 = { INT_MAX, 0 },
+			.output = -1,
+		}
 	};
 	unsigned int i;
 
 	test_begin("timeval_cmp()");
-	for (i = 0; i < N_ELEMENTS(input); i += 2) {
-		test_assert(timeval_cmp(&input[i], &input[i+1]) == output[i/2]);
-		test_assert(timeval_cmp(&input[i+1], &input[i]) == -output[i/2]);
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		const struct timeval *tv1 = &tests[i].tv1, *tv2 = &tests[i].tv2;
+		int output = tests[i].output;
+
+		test_assert(timeval_cmp(tv1, tv2) == output);
+		test_assert(timeval_cmp(tv2, tv1) == -output);
+	}
+	test_end();
+}
+
+static void test_timeval_cmp_margin(void)
+{
+	static const struct {
+		struct timeval tv1, tv2;
+		unsigned int margin;
+		int output;
+	} tests[] = {
+		{
+			.tv1 = { 0, 0 },
+			.tv2 = { 0, 0 },
+			.output = 0,
+		},{
+			.tv1 = { INT_MAX, 999999 },
+			.tv2 = { INT_MAX, 999999 },
+			.output = 0,
+
+		},{
+			.tv1 = { 0, 0 },
+			.tv2 = { 0, 1 },
+			.output = -1,
+		},{
+			.tv1 = { 0, 0 },
+			.tv2 = { 1, 0 },
+			.output = -1,
+		},{
+			.tv1 = { 0, 999999 },
+			.tv2 = { 1, 0 },
+			.output = -1,
+		},{
+			.tv1 = { 1, 0 },
+			.tv2 = { 1, 1 },
+			.output = -1,
+		},{
+			.tv1 = { -INT_MAX, 0 },
+			.tv2 = { INT_MAX, 0 },
+			.output = -1,
+		},{
+			.tv1 = { 0, 999999 },
+			.tv2 = { 1, 0 },
+			.margin = 1,
+			.output = 0,
+		},{
+			.tv1 = { 1, 0 },
+			.tv2 = { 1, 1 },
+			.margin = 1,
+			.output = 0,
+		},{
+			.tv1 = { 0, 999998 },
+			.tv2 = { 1, 0 },
+			.margin = 1,
+			.output = -1,
+		},{
+			.tv1 = { 1, 0 },
+			.tv2 = { 1, 2 },
+			.margin = 1,
+			.output = -1,
+		},{
+			.tv1 = { 0, 998000 },
+			.tv2 = { 1, 0 },
+			.margin = 2000,
+			.output = 0,
+		},{
+			.tv1 = { 1, 0 },
+			.tv2 = { 1, 2000 },
+			.margin = 2000,
+			.output = 0,
+		},{
+			.tv1 = { 0, 997999 },
+			.tv2 = { 1, 0 },
+			.margin = 2000,
+			.output = -1,
+		},{
+			.tv1 = { 1, 0 },
+			.tv2 = { 1, 2001 },
+			.margin = 2000,
+			.output = -1,
+		},{
+			.tv1 = { 0, 1 },
+			.tv2 = { 1, 0 },
+			.margin = 999999,
+			.output = 0,
+		},{
+			.tv1 = { 1, 0 },
+			.tv2 = { 1, 999999 },
+			.margin = 999999,
+			.output = 0,
+		},{
+			.tv1 = { 0, 0 },
+			.tv2 = { 1, 0 },
+			.margin = 999999,
+			.output = -1,
+		},{
+			.tv1 = { 1, 0 },
+			.tv2 = { 2, 0 },
+			.margin = 999999,
+			.output = -1,
+		},{
+			.tv1 = { 10, 0 },
+			.tv2 = { 11, 500000 },
+			.margin = 1500000,
+			.output = 0,
+		},{
+			.tv1 = { 8, 500000 },
+			.tv2 = { 10, 0 },
+			.margin = 1500000,
+			.output = 0,
+		},{
+			.tv1 = { 10, 0 },
+			.tv2 = { 11, 500001 },
+			.margin = 1500000,
+			.output = -1,
+		},{
+			.tv1 = { 8, 499999 },
+			.tv2 = { 10, 0 },
+			.margin = 1500000,
+			.output = -1,
+		},{
+			.tv1 = { 1517925358, 999989 },
+			.tv2 = { 1517925359, 753 },
+			.margin = 2000,
+			.output = 0,
+		}
+	};
+	unsigned int i;
+
+	test_begin("timeval_cmp_margin()");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		const struct timeval *tv1 = &tests[i].tv1, *tv2 = &tests[i].tv2;
+		unsigned int margin = tests[i].margin;
+		int output = tests[i].output;
+
+		test_assert(timeval_cmp_margin(tv1, tv2, margin) == output);
+		test_assert(timeval_cmp_margin(tv2, tv1, margin) == -output);
 	}
 	test_end();
 }
@@ -182,6 +338,7 @@ static void test_strftime_fixed(void)
 void test_time_util(void)
 {
 	test_timeval_cmp();
+	test_timeval_cmp_margin();
 	test_timeval_diff();
 	test_time_to_local_day_start();
 	test_strftime_now();

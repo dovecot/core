@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -281,7 +281,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 		}
 	}
 
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", str_c(path),
 			o_stream_get_error(output));
 		ret = -1;
@@ -312,10 +312,10 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	}
 	if (ret == 0) {
 		struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
-
+		i_assert(auser != NULL);
 		backend->acllist_mtime = st.st_mtime;
 		backend->acllist_last_check = ioloop_time;
-		/* FIXME: dict reubild is expensive, try to avoid it */
+		/* FIXME: dict rebuild is expensive, try to avoid it */
 		(void)acl_lookup_dict_rebuild(auser->acl_lookup_dict);
 	} else {
 		acllist_clear(backend, 0);

@@ -33,6 +33,7 @@ struct mail_host {
 	time_t last_updown_change;
 
 	struct ip_addr ip;
+	char *ip_str;
 	char *hostname;
 	struct mail_tag *tag;
 

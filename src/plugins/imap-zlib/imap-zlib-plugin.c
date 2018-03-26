@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "str.h"
@@ -13,7 +13,7 @@
 #define IMAP_COMPRESS_DEFAULT_LEVEL 6
 
 #define IMAP_ZLIB_IMAP_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, imap_zlib_imap_module)
+	MODULE_CONTEXT_REQUIRE(obj, imap_zlib_imap_module)
 
 struct zlib_client {
 	union imap_module_context module_ctx;

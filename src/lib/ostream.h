@@ -100,7 +100,13 @@ void o_stream_remove_destroy_callback(struct ostream *stream,
 				      void (*callback)());
 
 /* Mark the stream and all of its parent streams closed. Nothing will be
-   sent after this call. */
+   sent after this call. When using ostreams that require writing a trailer,
+   o_stream_finish() must be used before the stream is closed. When ostream
+   is destroyed, it's also closed but its parents aren't.
+
+   Closing the ostream (also via destroy) will first flush the ostream, and
+   afterwards requires one of: a) stream has failed, b) there is no more
+   buffered data, c) o_stream_set_no_error_handling() has been called. */
 void o_stream_close(struct ostream *stream);
 
 /* Set IO_WRITE callback. Default will just try to flush the output and
@@ -121,17 +127,39 @@ size_t o_stream_get_max_buffer_size(struct ostream *stream);
 /* Delays sending as far as possible, writing only full buffers. Also sets
    TCP_CORK on if supported. */
 void o_stream_cork(struct ostream *stream);
+/* Try to flush the buffer by calling o_stream_flush() and remove TCP_CORK.
+   Note that after this o_stream_flush() must be called, unless the stream
+   ignores errors. */
 void o_stream_uncork(struct ostream *stream);
 bool o_stream_is_corked(struct ostream *stream);
-/* Try to flush the output stream. Returns 1 if all sent, 0 if not,
-   -1 if error. */
+/* Try to flush the output stream. If o_stream_nsend*() had been used and
+   the stream had overflown, return error. Returns 1 if all data is sent,
+   0 there's still buffered data, -1 if error. */
 int o_stream_flush(struct ostream *stream);
+/* Wrapper to easily both uncork and flush. */
+static inline int o_stream_uncork_flush(struct ostream *stream)
+{
+	o_stream_uncork(stream);
+	return o_stream_flush(stream);
+}
+
 /* Set "flush pending" state of stream. If set, the flush callback is called
    when more data is allowed to be sent, even if the buffer itself is empty. */
 void o_stream_set_flush_pending(struct ostream *stream, bool set);
-/* Returns number of bytes currently in buffer. */
+/* Returns the number of bytes currently in all the pending write buffers of
+   this ostream, including its parent streams. This function is commonly used
+   by callers to determine when they've filled up the ostream so they can stop
+   writing to it. Because of this, the return value shouldn't include buffers
+   that are expected to be filled up before they send anything to their parent
+   stream. Otherwise the callers may stop writing to the stream too early and
+   hang. Such an example could be a compression ostream that won't send
+   anything to its parent stream before an internal compression buffer is
+   full. */
 size_t o_stream_get_buffer_used_size(const struct ostream *stream) ATTR_PURE;
-/* Returns number of bytes we can still write without failing. */
+/* Returns the (minimum) number of bytes we can still write without failing.
+   This is commonly used by callers to find out how many bytes they're
+   guaranteed to be able to send, and then generate that much data and send
+   it. */
 size_t o_stream_get_buffer_avail_size(const struct ostream *stream) ATTR_PURE;
 
 /* Seek to specified position from beginning of file. This works only for
@@ -142,23 +170,33 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size);
 ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 		       unsigned int iov_count);
 ssize_t o_stream_send_str(struct ostream *stream, const char *str);
-/* Send with delayed error handling. o_stream_nfinish() or
+/* Send with delayed error handling. o_stream_flush() or
    o_stream_ignore_last_errors() must be called after these functions before
    the stream is destroyed. If any of the data can't be sent due to stream's
-   buffer getting full, all further nsends are ignores and o_stream_nfinish()
+   buffer getting full, all further nsends are ignores and o_stream_flush()
    will fail. */
 void o_stream_nsend(struct ostream *stream, const void *data, size_t size);
 void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 		     unsigned int iov_count);
 void o_stream_nsend_str(struct ostream *stream, const char *str);
-void o_stream_nflush(struct ostream *stream);
-/* Marks the stream's error handling as completed. Flushes the stream and
-   returns -1 if stream->stream_errno is non-zero. Returns failure if any of
-   the o_stream_nsend*() didn't write all data. */
-int o_stream_nfinish(struct ostream *stream);
+/* Mark the ostream as finished and flush it. If the ostream has a footer,
+   it's written here. Any further write attempts to the ostream will
+   assert-crash. Returns the same as o_stream_flush(). Afterwards any calls to
+   this function are identical to o_stream_flush(). */
+int o_stream_finish(struct ostream *stream);
+/* Specify whether calling o_stream_finish() will cause the parent stream to
+   be finished as well. The default is yes. */
+void o_stream_set_finish_also_parent(struct ostream *stream, bool set);
+/* Specify whether calling o_stream_finish() on a child stream will cause
+   this stream to be finished as well. The default is yes. */
+void o_stream_set_finish_via_child(struct ostream *stream, bool set);
 /* Marks the stream's error handling as completed to avoid i_panic() on
    destroy. */
 void o_stream_ignore_last_errors(struct ostream *stream);
+/* Abort writing to the ostream, also marking any previous error handling as
+   completed. If the stream hasn't already failed, sets the stream_errno=EPIPE.
+   This is necessary when aborting write to streams that require finishing. */
+void o_stream_abort(struct ostream *stream);
 /* If error handling is disabled, the i_panic() on destroy is never called.
    This function can be called immediately after the stream is created.
    When creating wrapper streams, they copy this behavior from the parent
@@ -176,7 +214,7 @@ void o_stream_set_no_error_handling(struct ostream *stream, bool set);
 enum ostream_send_istream_result
 o_stream_send_istream(struct ostream *outstream, struct istream *instream);
 /* Same as o_stream_send_istream(), but assume that reads and writes will
-   succeed. If not, o_stream_nfinish() will fail with the correct error
+   succeed. If not, o_stream_flush() will fail with the correct error
    message (even istream's). */
 void o_stream_nsend_istream(struct ostream *outstream, struct istream *instream);
 
@@ -184,8 +222,14 @@ void o_stream_nsend_istream(struct ostream *outstream, struct istream *instream)
 int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 		    uoff_t offset);
 
+/* Return the last timestamp when something was successfully sent to the
+   ostream's internal buffers (no guarantees that anything was sent further).
+   The timestamp is 0 if nothing has ever been written. */
+void o_stream_get_last_write_time(struct ostream *stream, struct timeval *tv_r);
+
 /* If there are any I/O loop items associated with the stream, move all of
-   them to current_ioloop. */
+   them to provided/current ioloop. */
+void o_stream_switch_ioloop_to(struct ostream *stream, struct ioloop *ioloop);
 void o_stream_switch_ioloop(struct ostream *stream);
 
 #endif

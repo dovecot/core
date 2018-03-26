@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -549,7 +549,7 @@ settings_include(struct config_parser_context *ctx, const char *pattern,
 		return -1;
 	}
 
-	/* iterate throuth the different files matching the globbing */
+	/* iterate through the different files matching the globbing */
 	for (i = globbers.gl_pathc; i > 0; i--) {
 		if (settings_add_include(ctx, globbers.gl_pathv[i-1],
 					 ignore_errors, &error) < 0) {

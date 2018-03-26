@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -224,7 +224,7 @@ get_last_uid_fallback(struct fts_backend *_backend, struct mailbox *box,
 	int ret = 0;
 
 	str = t_str_new(256);
-	str_append(str, "fl=uid&rows=1&sort=uid+desc&q=");
+	str_append(str, "wt=xml&fl=uid&rows=1&sort=uid+desc&q=");
 
 	if (fts_mailbox_get_guid(box, &box_guid) < 0)
 		return -1;
@@ -410,10 +410,8 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 			ret = -1;
 	}
 
-	if (ctx->cmd != NULL)
-		str_free(&ctx->cmd);
-	if (ctx->cmd_expunge != NULL)
-		str_free(&ctx->cmd_expunge);
+	str_free(&ctx->cmd);
+	str_free(&ctx->cmd_expunge);
 	array_foreach_modifiable(&ctx->fields, field) {
 		str_free(&field->value);
 		i_free(field->key);
@@ -836,7 +834,7 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
 
 	str = t_str_new(256);
-	str_printfa(str, "fl=uid,score&rows=%u&sort=uid+asc&q=%%7b!lucene+q.op%%3dAND%%7d",
+	str_printfa(str, "wt=xml&fl=uid,score&rows=%u&sort=uid+asc&q=%%7b!lucene+q.op%%3dAND%%7d",
 		    status.uidnext);
 	prefix_len = str_len(str);
 
@@ -946,7 +944,7 @@ fts_backend_solr_lookup_multi(struct fts_backend *backend,
 	string_t *str;
 
 	str = t_str_new(256);
-	str_printfa(str, "fl=box,uid,score&rows=%u&sort=box+asc,uid+asc&q=%%7b!lucene+q.op%%3dAND%%7d",
+	str_printfa(str, "wt=xml&fl=box,uid,score&rows=%u&sort=box+asc,uid+asc&q=%%7b!lucene+q.op%%3dAND%%7d",
 		    SOLR_MAX_MULTI_ROWS);
 
 	if (solr_add_definite_query_args(str, args, and_args)) {

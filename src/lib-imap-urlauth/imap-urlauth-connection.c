@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "llist.h"
@@ -56,7 +56,7 @@ struct imap_urlauth_target {
 struct imap_urlauth_connection {
 	int refcount;
 
-	char *path, *session_id;
+	char *path, *service, *session_id;
 	struct mail_user *user;
 
 	int fd;
@@ -87,7 +87,7 @@ struct imap_urlauth_connection {
 
 #define IMAP_URLAUTH_RESPONSE_TIMEOUT_MSECS 2*60*1000
 
-#define IMAP_URLAUTH_HANDSHAKE "VERSION\timap-urlauth\t1\t0\n"
+#define IMAP_URLAUTH_HANDSHAKE "VERSION\timap-urlauth\t2\t0\n"
 
 #define IMAP_URLAUTH_MAX_INLINE_LITERAL_SIZE (1024*32)
 
@@ -105,14 +105,15 @@ static void imap_urlauth_connection_fail
 	(struct imap_urlauth_connection *conn);
 
 struct imap_urlauth_connection *
-imap_urlauth_connection_init(const char *path, struct mail_user *user,
-			     const char *session_id,
+imap_urlauth_connection_init(const char *path, const char *service,
+			     struct mail_user *user, const char *session_id,
 			     unsigned int idle_timeout_msecs)
 {
 	struct imap_urlauth_connection *conn;
 
 	conn = i_new(struct imap_urlauth_connection, 1);
 	conn->refcount = 1;
+	conn->service = i_strdup(service);
 	conn->path = i_strdup(path);
 	if (session_id != NULL)
 		conn->session_id = i_strdup(session_id);
@@ -132,6 +133,7 @@ void imap_urlauth_connection_deinit(struct imap_urlauth_connection **_conn)
 	imap_urlauth_connection_abort(conn, NULL);
 
 	i_free(conn->path);
+	i_free(conn->service);
 	if (conn->session_id != NULL)
 		i_free(conn->session_id);
 
@@ -891,7 +893,7 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 
 	if (conn->user->auth_token == NULL) {
 		i_error("imap-urlauth: cannot authenticate because no auth token "
-			"is available for this session (standalone IMAP?).");
+			"is available for this session (running standalone?).");
 		imap_urlauth_connection_abort(conn, NULL);
 		return -1;
 	}
@@ -917,7 +919,8 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 	conn->state = IMAP_URLAUTH_STATE_AUTHENTICATING;
 
 	str = t_str_new(128);
-	str_printfa(str, IMAP_URLAUTH_HANDSHAKE"AUTH\t%s\t", my_pid);
+	str_printfa(str, IMAP_URLAUTH_HANDSHAKE"AUTH\t%s\t%s\t",
+		conn->service, my_pid);
 	str_append_tabescaped(str, conn->user->username);
 	str_append_c(str, '\t');
 	if (conn->session_id != NULL)

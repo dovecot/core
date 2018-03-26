@@ -11,6 +11,8 @@ struct mail;
 
 #define QUOTA_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, quota_user_module)
+#define QUOTA_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, quota_user_module)
 
 struct quota_user {
 	union mail_user_module_context module_ctx;

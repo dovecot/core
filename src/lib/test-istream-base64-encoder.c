@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "str.h"
@@ -11,6 +11,12 @@ static const struct test {
 	bool crlf;
 	const char *output;
 } tests[] = {
+	{ "", 80, FALSE, "" },
+	{ "1", 80, FALSE, "MQ==" },
+	{ "12", 80, FALSE, "MTI=" },
+	{ "123", 80, FALSE, "MTIz" },
+	{ "1234", 80, FALSE, "MTIzNA==" },
+	{ "12345", 80, FALSE, "MTIzNDU=" },
 	{ "hello world", 80, FALSE, "aGVsbG8gd29ybGQ=" },
 	{ "hello world", 4, FALSE, "aGVs\nbG8g\nd29y\nbGQ=" },
 	{ "hello world", 4, TRUE, "aGVs\r\nbG8g\r\nd29y\r\nbGQ=" },

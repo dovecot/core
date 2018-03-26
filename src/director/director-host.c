@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -16,8 +16,8 @@ static int director_host_cmp(const struct director_host *b1,
 	return (int)b1->port - (int)b2->port;
 }
 
-static int director_host_cmp_p(struct director_host *const *host1,
-			       struct director_host *const *host2)
+int director_host_cmp_p(struct director_host *const *host1,
+			struct director_host *const *host2)
 {
 	return director_host_cmp(*host1, *host2);
 }
@@ -34,8 +34,9 @@ director_host_add(struct director *dir,
 	host->dir = dir;
 	host->refcount = 1;
 	host->ip = *ip;
+	host->ip_str = i_strdup(net_ip2addr(&host->ip));
 	host->port = port;
-	host->name = i_strdup_printf("%s:%u", net_ip2addr(ip), port);
+	host->name = i_strdup_printf("%s:%u", host->ip_str, port);
 
 	array_append(&dir->dir_hosts, &host, 1);
 
@@ -79,6 +80,7 @@ void director_host_unref(struct director_host *host)
 		}
 	}
 	i_free(host->name);
+	i_free(host->ip_str);
 	i_free(host);
 }
 

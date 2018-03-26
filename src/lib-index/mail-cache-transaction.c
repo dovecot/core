@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -20,6 +20,8 @@
 
 #define CACHE_TRANS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, cache_mail_index_transaction_module)
+#define CACHE_TRANS_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, cache_mail_index_transaction_module)
 
 struct mail_cache_transaction_rec {
 	uint32_t seq;
@@ -57,7 +59,7 @@ static size_t mail_cache_transaction_update_last_rec_size(struct mail_cache_tran
 
 static void mail_index_transaction_cache_reset(struct mail_index_transaction *t)
 {
-	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT_REQUIRE(t);
 	struct mail_index_transaction_vfuncs super = ctx->super;
 
 	mail_cache_transaction_reset(ctx);
@@ -68,7 +70,7 @@ static int
 mail_index_transaction_cache_commit(struct mail_index_transaction *t,
 				    struct mail_index_transaction_commit_result *result_r)
 {
-	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT_REQUIRE(t);
 	struct mail_index_transaction_vfuncs super = ctx->super;
 
 	/* a failed cache commit isn't important enough to fail the entire
@@ -80,7 +82,7 @@ mail_index_transaction_cache_commit(struct mail_index_transaction *t,
 static void
 mail_index_transaction_cache_rollback(struct mail_index_transaction *t)
 {
-	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT_REQUIRE(t);
 	struct mail_index_transaction_vfuncs super = ctx->super;
 
 	mail_cache_transaction_rollback(&ctx);
@@ -363,7 +365,7 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 	recs = array_get(&ctx->cache_data_seq, &seq_count);
 	rec = buffer_get_modifiable_data(ctx->cache_data, NULL);
 	for (i = 0; i < seq_count; i++) {
-		offsetp = array_idx_modifiable(&seq_offsets,
+		offsetp = array_idx_get_space(&seq_offsets,
 					       recs[i].seq - ctx->min_seq);
 		if (*offsetp != 0)
 			prev_offset = *offsetp;
@@ -520,7 +522,7 @@ mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
 	size_t size;
 
 	size = mail_cache_transaction_update_last_rec_size(ctx);
-	if (size > MAIL_CACHE_RECORD_MAX_SIZE) {
+	if (size > ctx->cache->index->optimization_set.cache.record_max_size) {
 		buffer_set_used_size(ctx->cache_data, ctx->last_rec_pos);
 		return;
 	}
@@ -572,7 +574,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx **_ctx)
 		}
 		/* Here would be a good place to do fdatasync() to make sure
 		   everything is written before offsets are updated to index.
-		   However it slows down I/O unneededly and we're pretty good
+		   However it slows down I/O needlessly and we're pretty good
 		   at catching and fixing cache corruption, so we no longer do
 		   it. */
 	}
@@ -683,7 +685,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	T_BEGIN {
 		buffer_t *buffer;
 
-		buffer = buffer_create_dynamic(pool_datastack_create(), 256);
+		buffer = t_buffer_create(256);
 		mail_cache_header_fields_get(cache, buffer);
 		ret = mail_cache_header_fields_write(ctx, buffer);
 	} T_END;

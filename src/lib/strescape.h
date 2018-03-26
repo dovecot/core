@@ -3,8 +3,15 @@
 
 #define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\' || (c) == '\'')
 
-/* escape all '\', '"' and "'" characters */
-const char *str_escape(const char *str);
+/* escape all '\', '"' and "'" characters,
+   this is nul safe */
+const char *str_nescape(const void *str, size_t len);
+
+/* escape string */
+static inline const char *str_escape(const char *str)
+{
+	return str_nescape(str, strlen(str));
+}
 
 /* remove all '\' characters, append to given string */
 void str_append_unescaped(string_t *dest, const void *src, size_t src_size);
@@ -28,5 +35,8 @@ const char *t_str_tabunescape(const char *str);
 
 char **p_strsplit_tabescaped(pool_t pool, const char *str);
 const char *const *t_strsplit_tabescaped(const char *str);
+/* Same as t_strsplit_tabescaped(), but the input string is modified and the
+   returned pointers inside the array point to the original string. */
+const char *const *t_strsplit_tabescaped_inplace(char *str);
 
 #endif

@@ -1,12 +1,16 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 /* @UNSAFE: whole file */
 #include "lib.h"
 #include "safe-memset.h"
 #include "mempool.h"
 
-
-#define MAX_ALLOC_SIZE SSIZE_T_MAX
+#ifndef DEBUG
+#  define POOL_ALLOCONLY_MAX_EXTRA MEM_ALIGN(1)
+#else
+#  define POOL_ALLOCONLY_MAX_EXTRA \
+	(MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(1) + MEM_ALIGN(SENTRY_COUNT))
+#endif
 
 struct alloconly_pool {
 	struct pool pool;
@@ -223,13 +227,18 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 	struct pool_block *block;
 
 	i_assert(size > SIZEOF_POOLBLOCK);
+	i_assert(size <= SSIZE_T_MAX);
 
 	if (apool->block != NULL) {
 		/* each block is at least twice the size of the previous one */
 		if (size <= apool->block->size)
 			size += apool->block->size;
 
+		/* avoid crashing in nearest_power() if size is too large */
+		size = I_MIN(size, SSIZE_T_MAX);
 		size = nearest_power(size);
+		/* nearest_power() could have grown size to SSIZE_T_MAX+1 */
+		size = I_MIN(size, SSIZE_T_MAX);
 #ifdef DEBUG
 		if (!apool->disable_warning) {
 			/* i_debug() overwrites unallocated data in data
@@ -260,7 +269,7 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 	void *mem;
 	size_t alloc_size;
 
-	if (unlikely(size == 0 || size > SSIZE_T_MAX))
+	if (unlikely(size == 0 || size > SSIZE_T_MAX - POOL_ALLOCONLY_MAX_EXTRA))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 #ifndef DEBUG
@@ -328,7 +337,7 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 	unsigned char *new_mem;
 
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
+	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX - POOL_ALLOCONLY_MAX_EXTRA))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)

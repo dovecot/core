@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -131,7 +131,7 @@ o_stream_test_flush_pending(struct ostream_private *stream, bool set)
 }
 
 static size_t
-o_stream_test_get_used_size(const struct ostream_private *stream)
+o_stream_test_get_buffer_used_size(const struct ostream_private *stream)
 {
 	struct test_ostream *tstream = (struct test_ostream *)stream;
 
@@ -150,7 +150,8 @@ struct ostream *test_ostream_create(buffer_t *output)
 	tstream->ostream.sendv = o_stream_test_sendv;
 	tstream->ostream.flush = o_stream_test_flush;
 	tstream->ostream.flush_pending = o_stream_test_flush_pending;
-	tstream->ostream.get_used_size = o_stream_test_get_used_size;
+	tstream->ostream.get_buffer_used_size =
+		o_stream_test_get_buffer_used_size;
 	tstream->ostream.ostream.blocking = TRUE;
 
 	tstream->output_buf = output;

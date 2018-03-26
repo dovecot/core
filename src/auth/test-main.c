@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "test-common.h"
@@ -11,6 +11,9 @@ int main(int argc, const char *argv[])
 		TEST_NAMED(test_auth_request_var_expand)
 		TEST_NAMED(test_db_dict_parse_cache_key)
 		TEST_NAMED(test_username_filter)
+#if defined(BUILTIN_LUA)
+		TEST_NAMED(test_db_lua)
+#endif
 		{ NULL, NULL }
 	};
 

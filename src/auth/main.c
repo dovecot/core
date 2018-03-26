@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "array.h"
@@ -142,7 +142,7 @@ static void listeners_init(void)
 		int fd = MASTER_LISTEN_FD_FIRST + i;
 		struct auth_socket_listener *l;
 
-		l = array_idx_modifiable(&listeners, fd);
+		l = array_idx_get_space(&listeners, fd);
 		if (net_getunixname(fd, &path) < 0) {
 			if (errno != ENOTSOCK)
 				i_fatal("getunixname(%d) failed: %m", fd);
@@ -209,7 +209,7 @@ static void main_preinit(void)
 		auth_token_init();
 
 	/* Password lookups etc. may require roots, allow it. */
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 }
 

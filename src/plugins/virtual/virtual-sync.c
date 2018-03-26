@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -299,7 +299,7 @@ static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
 	ext_hdr.highest_mailbox_id = ctx->mbox->highest_mailbox_id;
 	ext_hdr.search_args_crc32 = ctx->mbox->search_args_crc32;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), name_pos + 256);
+	buf = t_buffer_create(name_pos + 256);
 	buffer_append(buf, &ext_hdr, sizeof(ext_hdr));
 
 	for (i = 0; i < count; i++) {

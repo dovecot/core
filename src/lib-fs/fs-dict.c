@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -93,33 +93,38 @@ static enum fs_properties fs_dict_get_properties(struct fs *fs ATTR_UNUSED)
 	return FS_PROPERTY_ITER | FS_PROPERTY_RELIABLEITER;
 }
 
-static struct fs_file *
-fs_dict_file_init(struct fs *_fs, const char *path,
-		  enum fs_open_mode mode, enum fs_open_flags flags ATTR_UNUSED)
+static struct fs_file *fs_dict_file_alloc(void)
 {
-	struct dict_fs *fs = (struct dict_fs *)_fs;
 	struct dict_fs_file *file;
-	guid_128_t guid;
 	pool_t pool;
-
-	i_assert(mode != FS_OPEN_MODE_APPEND); /* not supported */
-	i_assert(mode != FS_OPEN_MODE_CREATE); /* not supported */
 
 	pool = pool_alloconly_create("fs dict file", 128);
 	file = p_new(pool, struct dict_fs_file, 1);
 	file->pool = pool;
-	file->file.fs = _fs;
+	return &file->file;
+}
+
+static void
+fs_dict_file_init(struct fs_file *_file, const char *path,
+		  enum fs_open_mode mode, enum fs_open_flags flags ATTR_UNUSED)
+{
+	struct dict_fs_file *file = (struct dict_fs_file *)_file;
+	struct dict_fs *fs = (struct dict_fs *)_file->fs;
+	guid_128_t guid;
+
+	i_assert(mode != FS_OPEN_MODE_APPEND); /* not supported */
+	i_assert(mode != FS_OPEN_MODE_CREATE); /* not supported */
+
 	if (mode != FS_OPEN_MODE_CREATE_UNIQUE_128)
-		file->file.path = p_strdup(pool, path);
+		file->file.path = p_strdup(file->pool, path);
 	else {
 		guid_128_generate(guid);
-		file->file.path = p_strdup_printf(pool, "%s/%s", path,
+		file->file.path = p_strdup_printf(file->pool, "%s/%s", path,
 						  guid_128_to_string(guid));
 	}
 	file->key = fs->path_prefix == NULL ?
-		p_strdup(pool, file->file.path) :
-		p_strconcat(pool, fs->path_prefix, file->file.path, NULL);
-	return &file->file;
+		p_strdup(file->pool, file->file.path) :
+		p_strconcat(file->pool, fs->path_prefix, file->file.path, NULL);
 }
 
 static void fs_dict_file_deinit(struct fs_file *_file)
@@ -270,20 +275,23 @@ static int fs_dict_delete(struct fs_file *_file)
 	return 0;
 }
 
-static struct fs_iter *
-fs_dict_iter_init(struct fs *_fs, const char *path, enum fs_iter_flags flags)
+static struct fs_iter *fs_dict_iter_alloc(void)
 {
-	struct dict_fs *fs = (struct dict_fs *)_fs;
-	struct dict_fs_iter *iter;
+	struct dict_fs_iter *iter = i_new(struct dict_fs_iter, 1);
+	return &iter->iter;
+}
 
-	iter = i_new(struct dict_fs_iter, 1);
-	iter->iter.fs = _fs;
-	iter->iter.flags = flags;
+static void
+fs_dict_iter_init(struct fs_iter *_iter, const char *path,
+		  enum fs_iter_flags flags ATTR_UNUSED)
+{
+	struct dict_fs_iter *iter = (struct dict_fs_iter *)_iter;
+	struct dict_fs *fs = (struct dict_fs *)_iter->fs;
+
 	if (fs->path_prefix != NULL)
 		path = t_strconcat(fs->path_prefix, path, NULL);
 
 	iter->dict_iter = dict_iterate_init(fs->dict, path, 0);
-	return &iter->iter;
 }
 
 static const char *fs_dict_iter_next(struct fs_iter *_iter)
@@ -316,6 +324,7 @@ const struct fs fs_class_dict = {
 		fs_dict_init,
 		fs_dict_deinit,
 		fs_dict_get_properties,
+		fs_dict_file_alloc,
 		fs_dict_file_init,
 		fs_dict_file_deinit,
 		NULL,
@@ -336,6 +345,7 @@ const struct fs fs_class_dict = {
 		fs_default_copy,
 		NULL,
 		fs_dict_delete,
+		fs_dict_iter_alloc,
 		fs_dict_iter_init,
 		fs_dict_iter_next,
 		fs_dict_iter_deinit,

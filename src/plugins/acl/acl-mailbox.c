@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 /* FIXME: If we don't have permission to change flags/keywords, the changes
    should still be stored temporarily for this session. However most clients
@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 
 #define ACL_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, acl_mail_module)
+	MODULE_CONTEXT_REQUIRE(obj, acl_mail_module)
 
 struct acl_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
@@ -26,19 +26,20 @@ static struct acl_transaction_context acl_transaction_failure;
 
 struct acl_object *acl_mailbox_get_aclobj(struct mailbox *box)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
 	return abox->aclobj;
 }
 
 int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	int ret;
 
 	if (abox->skip_acl_checks)
 		return 1;
+
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(box->list);
 
 	ret = acl_object_have_right(abox->aclobj,
 			alist->rights.acl_storage_right_idx[right_idx]);
@@ -56,7 +57,7 @@ int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 
 static bool acl_is_readonly(struct mailbox *box)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	enum acl_storage_rights save_right;
 
 	if (abox->module_ctx.super.is_readonly(box))
@@ -81,7 +82,7 @@ static bool acl_is_readonly(struct mailbox *box)
 
 static void acl_mailbox_free(struct mailbox *box)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
 	acl_object_deinit(&abox->aclobj);
 	abox->module_ctx.super.free(box);
@@ -89,8 +90,8 @@ static void acl_mailbox_free(struct mailbox *box)
 
 static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(box->list);
 	struct acl_object *parent_aclobj;
 	struct acl_object_list_iter *iter;
 	struct acl_rights_update update;
@@ -116,7 +117,7 @@ static int
 acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	int ret;
 
 	if (!mailbox_is_autocreated(box)) {
@@ -155,7 +156,7 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 static int
 acl_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	int ret;
 
 	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_ADMIN);
@@ -181,7 +182,7 @@ static void acl_mailbox_fail_not_found(struct mailbox *box)
 static int
 acl_mailbox_delete(struct mailbox *box)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	int ret;
 
 	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_DELETE);
@@ -197,7 +198,7 @@ acl_mailbox_delete(struct mailbox *box)
 static int
 acl_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(src);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(src);
 	int ret;
 
 	/* renaming requires rights to delete the old mailbox */
@@ -387,7 +388,7 @@ static int
 acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 {
 	struct mailbox *box = ctx->transaction->box;
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	enum acl_storage_rights save_right;
 
 	save_right = (box->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
@@ -427,7 +428,7 @@ static int
 acl_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mailbox_transaction_context *t = ctx->transaction;
-	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(t->box);
 
 	if (!acl_copy_has_rights(ctx, mail)) {
 		mailbox_save_cancel(&ctx);
@@ -441,7 +442,7 @@ static int
 acl_transaction_commit(struct mailbox_transaction_context *ctx,
 		       struct mail_transaction_commit_changes *changes_r)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(ctx->box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(ctx->box);
 	void *at = ACL_CONTEXT(ctx);
 	int ret;
 
@@ -461,7 +462,7 @@ acl_transaction_commit(struct mailbox_transaction_context *ctx,
 static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 			      enum mailbox_existence *existence_r)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	const char *const *rights;
 	unsigned int i;
 
@@ -487,8 +488,8 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 
 static int acl_mailbox_open_check_acl(struct mailbox *box)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(box->list);
 	const unsigned int *idx_arr = alist->rights.acl_storage_right_idx;
 	enum acl_storage_rights open_right;
 	int ret;
@@ -529,7 +530,7 @@ static int acl_mailbox_open_check_acl(struct mailbox *box)
 
 static int acl_mailbox_open(struct mailbox *box)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
 	if (acl_mailbox_open_check_acl(box) < 0)
 		return -1;
@@ -541,7 +542,7 @@ static int acl_mailbox_get_status(struct mailbox *box,
 				  enum mailbox_status_items items,
 				  struct mailbox_status *status_r)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
 	if (abox->module_ctx.super.get_status(box, items, status_r) < 0)
 		return -1;
@@ -645,7 +646,7 @@ int acl_mailbox_update_acl(struct mailbox_transaction_context *t,
 			      acl_rights_get_id(&update->rights));
 	aclobj = acl_mailbox_get_aclobj(t->box);
 	if (acl_object_update(aclobj, update) < 0) {
-		mail_storage_set_critical(t->box->storage, "Failed to set ACL");
+		mailbox_set_critical(t->box, "Failed to set ACL");
 		return -1;
 	}
 

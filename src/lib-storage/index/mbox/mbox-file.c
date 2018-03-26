@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream.h"
@@ -150,9 +150,8 @@ int mbox_file_lookup_offset(struct mbox_mailbox *mbox,
 		return -1;
 
 	if (data == NULL) {
-		mail_storage_set_critical(&mbox->storage->storage,
-			"Cached message offset lost for seq %u in mbox file %s",
-			seq, mailbox_get_path(&mbox->box));
+		mailbox_set_critical(&mbox->box,
+			"Cached message offset lost for seq %u in mbox", seq);
 		mbox->mbox_hdr.dirty_flag = 1;
                 mbox->mbox_broken_offsets = TRUE;
 		return 0;
@@ -187,9 +186,9 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 		if (mbox->mbox_hdr.dirty_flag != 0)
 			return 0;
 
-		mail_storage_set_critical(&mbox->storage->storage,
-			"Cached message offset %s is invalid for mbox file %s",
-			dec2str(offset), mailbox_get_path(&mbox->box));
+		mailbox_set_critical(&mbox->box,
+			"Cached message offset %s is invalid for mbox",
+			dec2str(offset));
 		mbox->mbox_hdr.dirty_flag = 1;
 		mbox->mbox_broken_offsets = TRUE;
 		return 0;

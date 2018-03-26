@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -92,7 +92,7 @@ int password_verify(const char *plaintext,
 	}
 
 	if (ret == 0)
-		*error_r = "Password mismatch";
+		*error_r = AUTH_LOG_MSG_PASSWORD_MISMATCH;
 	return ret;
 }
 
@@ -165,8 +165,7 @@ int password_decode(const char *password, const char *scheme,
 		*size_r = len;
 		break;
 	case PW_ENCODING_HEX:
-		buf = buffer_create_dynamic(pool_datastack_create(),
-					    len / 2 + 1);
+		buf = t_buffer_create(len / 2 + 1);
 		if (hex_to_binary(password, buf) == 0) {
 			*raw_password_r = buf->data;
 			*size_r = buf->used;
@@ -180,8 +179,7 @@ int password_decode(const char *password, const char *scheme,
 		   produce matching hex and base64 encoded lengths. */
 		/* fall through */
 	case PW_ENCODING_BASE64:
-		buf = buffer_create_dynamic(pool_datastack_create(),
-					    MAX_BASE64_DECODED_SIZE(len));
+		buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(password, len, NULL, buf) < 0) {
 			*error_r = "Input isn't valid base64 encoded data";
 			return -1;
@@ -304,6 +302,7 @@ password_scheme_detect(const char *plain_password, const char *crypted_password,
 			break;
 		key = NULL;
 	}
+	hash_table_iterate_deinit(&ctx);
 	return key;
 }
 
@@ -312,6 +311,11 @@ int crypt_verify(const char *plaintext, const struct password_generate_params *p
 		 const char **error_r)
 {
 	const char *password, *crypted;
+
+	if (size > 4 && raw_password[0] == '$' && raw_password[1] == '2' &&
+	    raw_password[3] == '$')
+		return password_verify(plaintext, params, "BLF-CRYPT",
+				       raw_password, size, error_r);
 
 	if (size == 0) {
 		/* the default mycrypt() handler would return match */
@@ -868,6 +872,9 @@ void password_schemes_init(void)
 	for (i = 0; i < N_ELEMENTS(builtin_schemes); i++)
 		password_scheme_register(&builtin_schemes[i]);
 	password_scheme_register_crypt();
+#ifdef HAVE_LIBSODIUM
+	password_scheme_register_sodium();
+#endif
 }
 
 void password_schemes_deinit(void)

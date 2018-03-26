@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -22,7 +22,7 @@
 #define PUSH_NOTIFICATION_CONFIG_OLD "push_notification_backend"
 
 #define PUSH_NOTIFICATION_USER_CONTEXT(obj) \
-        MODULE_CONTEXT(obj, push_notification_user_module)
+        MODULE_CONTEXT_REQUIRE(obj, push_notification_user_module)
 static MODULE_CONTEXT_DEFINE_INIT(push_notification_user_module,
                                   &mail_user_module_register);
 static struct ioloop *main_ioloop;

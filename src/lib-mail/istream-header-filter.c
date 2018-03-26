@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -80,7 +80,7 @@ read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 			 (mstream->end_body_with_lf &&
 			  pos+1 == body_highwater_size));
 
-		ret = i_stream_read(mstream->istream.parent);
+		ret = i_stream_read_memarea(mstream->istream.parent);
 		mstream->istream.istream.stream_errno =
 			mstream->istream.parent->stream_errno;
 		mstream->istream.istream.eof = mstream->istream.parent->eof;
@@ -187,8 +187,10 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	}
 
 	max_buffer_size = i_stream_get_max_buffer_size(&mstream->istream.istream);
-	if (mstream->hdr_buf->used >= max_buffer_size)
+	if (mstream->hdr_buf->used >= max_buffer_size) {
+		i_assert(max_buffer_size > 0);
 		return -2;
+	}
 
 	while ((hdr_ret = message_parse_header_next(mstream->hdr_ctx,
 						    &hdr)) > 0) {
@@ -441,11 +443,8 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 	}
 
 	if (!mstream->header_read ||
-	    stream->istream.v_offset < mstream->header_size.virtual_size) {
-		ret = read_header(mstream);
-		if (ret != -2 || stream->pos != stream->skip)
-			return ret;
-	}
+	    stream->istream.v_offset < mstream->header_size.virtual_size)
+		return read_header(mstream);
 
 	if (mstream->hide_body) {
 		stream->istream.eof = TRUE;
@@ -497,7 +496,7 @@ static int skip_header(struct header_filter_istream *mstream)
 	}
 
 	while (!mstream->header_read &&
-	       i_stream_read(&mstream->istream.istream) != -1) {
+	       i_stream_read_memarea(&mstream->istream.istream) != -1) {
 		pos = i_stream_get_data_size(&mstream->istream.istream);
 		i_stream_skip(&mstream->istream.istream, pos);
 	}
@@ -597,7 +596,7 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	} else {
 		/* check if we need to add LF */
 		i_stream_seek(stream->parent, st->st_size - 1);
-		(void)i_stream_read(stream->parent);
+		(void)i_stream_read_memarea(stream->parent);
 		if (stream->parent->stream_errno != 0) {
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;
@@ -676,7 +675,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
 
-	return i_stream_create(&mstream->istream, input, -1);
+	return i_stream_create(&mstream->istream, input, -1, 0);
 }
 
 void i_stream_header_filter_add(struct header_filter_istream *input,

@@ -367,7 +367,7 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 					     &error)) {
 			if (!verify_credentials(request)) {
 				auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-						      "password mismatch");
+						      AUTH_LOG_MSG_PASSWORD_MISMATCH);
 			} else {
 				server_final_message =
 					get_scram_server_final(request);

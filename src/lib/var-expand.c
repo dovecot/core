@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -556,8 +556,17 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 			if (*str == '{' && (end = strchr(str, '}')) != NULL) {
 				/* %{long_key} */
 				unsigned int ctr = 1;
+				bool escape = FALSE;
 				end = str;
 				while(*++end != '\0' && ctr > 0) {
+					if (!escape && *end == '\\') {
+						escape = TRUE;
+						continue;
+					}
+					if (escape) {
+						escape = FALSE;
+						continue;
+					}
 					if (*end == '{') ctr++;
 					if (*end == '}') ctr--;
 				}
@@ -654,11 +663,25 @@ var_get_key_range_full(const char *str, unsigned int *idx_r,
 		*size_r = str[i] == '\0' ? 0 : 1;
 		return FALSE;
 	} else {
+		unsigned int depth = 1;
+		bool escape = FALSE;
 		/* long key */
 		*idx_r = ++i;
 		for (; str[i] != '\0'; i++) {
-			if (str[i] == '}')
-				break;
+			if (!escape && str[i] == '\\') {
+				escape = TRUE;
+				continue;
+			}
+			if (escape) {
+				escape = FALSE;
+				continue;
+			}
+			if (str[i] == '{')
+				depth++;
+			if (str[i] == '}') {
+				if (--depth==0)
+					break;
+			}
 		}
 		*size_r = i - *idx_r;
 		return TRUE;
@@ -776,4 +799,30 @@ var_expand_unregister_func_array(const struct var_expand_extension_func_table *f
 			}
 		}
 	}
+}
+
+struct var_expand_table *
+var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
+			const struct var_expand_table *b)
+{
+	ARRAY(struct var_expand_table) table;
+	size_t a_size = var_expand_table_size(a);
+	size_t b_size = var_expand_table_size(b);
+	p_array_init(&table, pool, a_size + b_size + 1);
+	for(size_t i=0; i<a_size; i++) {
+		struct var_expand_table *entry =
+			array_append_space(&table);
+		entry->key = a[i].key;
+		entry->value = p_strdup(pool, a[i].value);
+		entry->long_key = p_strdup(pool, a[i].long_key);
+	}
+	for(size_t i=0; i<b_size; i++) {
+		struct var_expand_table *entry =
+			array_append_space(&table);
+		entry->key = b[i].key;
+		entry->value = p_strdup(pool, b[i].value);
+		entry->long_key = p_strdup(pool, b[i].long_key);
+	}
+	array_append_zero(&table);
+	return array_idx_modifiable(&table, 0);
 }

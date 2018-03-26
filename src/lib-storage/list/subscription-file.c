@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -231,7 +231,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	}
 
 	if (changed && !failed) {
-		if (o_stream_nfinish(output) < 0) {
+		if (o_stream_finish(output) < 0) {
 			subswrite_set_syscall_error(list, "write()", path);
 			failed = TRUE;
 		} else if (mail_set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
@@ -242,7 +242,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			}
 		}
 	} else {
-		o_stream_ignore_last_errors(output);
+		o_stream_abort(output);
 	}
 	o_stream_destroy(&output);
 

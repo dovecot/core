@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 
@@ -32,7 +32,9 @@ static void o_stream_zlib_close(struct iostream_private *stream,
 {
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
 
-	(void)o_stream_flush(&zstream->ostream.ostream);
+	i_assert(zstream->ostream.finished ||
+		 zstream->ostream.ostream.stream_errno != 0 ||
+		 zstream->ostream.error_handling_disabled);
 	(void)deflateEnd(&zstream->zs);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);
@@ -228,15 +230,33 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 static int o_stream_zlib_flush(struct ostream_private *stream)
 {
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
-	int ret;
 
-	if (o_stream_zlib_send_flush(zstream, TRUE) < 0)
+	if (o_stream_zlib_send_flush(zstream, stream->finished) < 0)
 		return -1;
 
-	ret = o_stream_flush(stream->parent);
-	if (ret < 0)
-		o_stream_copy_error_from_parent(stream);
-	return ret;
+	return o_stream_flush_parent(stream);
+}
+
+static size_t
+o_stream_zlib_get_buffer_used_size(const struct ostream_private *stream)
+{
+	const struct zlib_ostream *zstream =
+		(const struct zlib_ostream *)stream;
+
+	/* outbuf has already compressed data that we're trying to send to the
+	   parent stream. We're not including zlib's internal compression
+	   buffer size. */
+	return (zstream->outbuf_used - zstream->outbuf_offset) +
+		o_stream_get_buffer_used_size(stream->parent);
+}
+
+static size_t
+o_stream_zlib_get_buffer_avail_size(const struct ostream_private *stream)
+{
+	/* FIXME: not correct - this is counting compressed size, which may be
+	   too larger than uncompressed size in some situations. Fixing would
+	   require some kind of additional buffering. */
+	return o_stream_get_buffer_avail_size(stream->parent);
 }
 
 static ssize_t
@@ -301,6 +321,10 @@ o_stream_create_zlib(struct ostream *output, int level, bool gz)
 	zstream = i_new(struct zlib_ostream, 1);
 	zstream->ostream.sendv = o_stream_zlib_sendv;
 	zstream->ostream.flush = o_stream_zlib_flush;
+	zstream->ostream.get_buffer_used_size =
+		o_stream_zlib_get_buffer_used_size;
+	zstream->ostream.get_buffer_avail_size =
+		o_stream_zlib_get_buffer_avail_size;
 	zstream->ostream.iostream.close = o_stream_zlib_close;
 	zstream->crc = 0;
 	zstream->gz = gz;

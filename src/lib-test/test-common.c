@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "test-common.h"
@@ -20,11 +20,12 @@ static bool test_success;
 static unsigned int failure_count;
 static unsigned int total_count;
 static unsigned int expected_errors;
-static char *expected_error_str;
+static char *expected_error_str, *expected_fatal_str;
 
 void test_begin(const char *name)
 {
 	test_success = TRUE;
+	expected_errors = 0;
 	if (!expecting_fatal)
 		i_assert(test_prefix == NULL);
 	else
@@ -60,6 +61,29 @@ void test_assert_failed_strcmp(const char *code, const char *file, unsigned int 
 	test_success = FALSE;
 }
 
+#ifdef DEBUG
+#include "randgen.h"
+static void
+test_dump_rand_state(void)
+{
+	static int64_t seen_seed = -1;
+	unsigned int seed;
+	if (rand_get_last_seed(&seed) < 0) {
+		if (seen_seed == -1) {
+			printf("test: random sequence not reproduceable, use DOVECOT_SRAND=kiss\n");
+			seen_seed = -2;
+		}
+		return;
+	}
+	if (seed == seen_seed)
+		return;
+	seen_seed = seed;
+	printf("test: DOVECOT_SRAND random seed was %u\n", seed);
+}
+#else
+static inline void test_dump_rand_state(void) { }
+#endif
+
 void test_end(void)
 {
 	if (!expecting_fatal)
@@ -68,6 +92,8 @@ void test_end(void)
 		test_assert(test_prefix != NULL);
 
 	test_out("", test_success);
+	if (!test_success)
+		test_dump_rand_state();
 	i_free_and_null(test_prefix);
 	test_success = FALSE;
 }
@@ -143,6 +169,23 @@ test_expect_no_more_errors(void)
 	expected_errors = 0;
 }
 
+static bool ATTR_FORMAT(2, 0)
+expect_error_check(char **error_strp, const char *format, va_list args)
+{
+	if (*error_strp == NULL)
+		return TRUE;
+
+	bool suppress;
+	T_BEGIN {
+		/* test_assert() will reset test_success if need be. */
+		const char *str = t_strdup_vprintf(format, args);
+		suppress = strstr(str, *error_strp) != NULL;
+		test_assert(suppress == TRUE);
+		i_free_and_null(*error_strp);
+	} T_END;
+	return suppress;
+}
+
 static void ATTR_FORMAT(2, 0)
 test_error_handler(const struct failure_context *ctx,
 		   const char *format, va_list args)
@@ -150,38 +193,46 @@ test_error_handler(const struct failure_context *ctx,
 	bool suppress = FALSE;
 
 	if (expected_errors > 0) {
-		if (expected_error_str != NULL) T_BEGIN {
-			/* test_assert() will reset test_success if need be. */
-			va_list args2;
-			VA_COPY(args2, args);
-			const char *str = t_strdup_vprintf(format, args2);
-			suppress = strstr(str, expected_error_str) != NULL;
-			test_assert(suppress == TRUE);
-			i_free_and_null(expected_error_str);
-			va_end(args2);
-		} T_END;
-		else {
-			suppress = TRUE;
-		}
+		va_list args2;
+		VA_COPY(args2, args);
+		suppress = expect_error_check(&expected_error_str, format, args2);
 		expected_errors--;
+		va_end(args2);
 	} else {
 		test_success = FALSE;
 	}
 
 	if (!suppress) {
+		test_dump_rand_state();
 		default_error_handler(ctx, format, args);
 	}
 }
 
+void test_expect_fatal_string(const char *substr)
+{
+	i_free(expected_fatal_str);
+	expected_fatal_str = i_strdup(substr);
+}
+
 static void ATTR_FORMAT(2, 0) ATTR_NORETURN
-test_fatal_handler(const struct failure_context *ctx ATTR_UNUSED,
-		   const char *format ATTR_UNUSED, va_list args ATTR_UNUSED)
+test_fatal_handler(const struct failure_context *ctx,
+		   const char *format, va_list args)
 {
 	/* Prevent recursion, we can't handle our own errors */
 	i_set_fatal_handler(default_fatal_handler);
 	i_assert(expecting_fatal); /* if not at the right time, bail */
-	i_set_fatal_handler(test_fatal_handler);
-	longjmp(fatal_jmpbuf, 1);
+
+	va_list args2;
+	VA_COPY(args2, args);
+	bool suppress = expect_error_check(&expected_fatal_str, format, args2);
+	va_end(args);
+
+	if (suppress) {
+		i_set_fatal_handler(test_fatal_handler);
+		longjmp(fatal_jmpbuf, 1);
+	} else {
+		default_fatal_handler(ctx, format, args);
+	}
 	i_unreached(); /* we simply can't get here */
 }
 
@@ -319,6 +370,7 @@ void ATTR_NORETURN
 test_exit(int status)
 {
 	i_free_and_null(expected_error_str);
+	i_free_and_null(expected_fatal_str);
 	i_free_and_null(test_prefix);
 	t_pop_last_unsafe(); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
 	lib_deinit();

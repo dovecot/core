@@ -29,8 +29,7 @@ test_settings_parser_SOURCES = test-settings-parser.c
 test_settings_parser_LDADD = $(test_libs)
 test_settings_parser_DEPENDENCIES = $(test_libs)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

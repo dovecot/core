@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING memcached */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING memcached */
 
 #include "lib.h"
 
@@ -210,10 +210,10 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 		template = map->filter;
 	}
 
-	for(size_t i = 0; i < array_count(values) && i < array_count(&(map->ldap_attributes)); i++) {
+	for(size_t i = 0; i < array_count(values) && i < array_count(&map->ldap_attributes); i++) {
 		struct var_expand_table entry;
 		const char *const *valuep = array_idx(values, i);
-		const char *const *long_keyp = array_idx(&(map->ldap_attributes), i);
+		const char *const *long_keyp = array_idx(&map->ldap_attributes, i);
 
 		entry.value = ldap_escape(*valuep);
 		entry.long_key = *long_keyp;
@@ -342,7 +342,7 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 		}
 		ldap_search_iterator_deinit(&iter);
 	}
-	op->callback(&(op->res), op->callback_ctx);
+	op->callback(&op->res, op->callback_ctx);
 	pool_unref(&pool);
 }
 
@@ -441,7 +441,7 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 		input.scope = map->scope_val;
 		if (!ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {
 			op->res.error = error;
-			callback(&(op->res), context);
+			callback(&op->res, context);
 			pool_unref(&oppool);
 		}
 		input.filter = str_c(query);
@@ -451,7 +451,7 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 		ldap_search_start(ctx->client, &input, ldap_dict_lookup_callback, op);
 	} else {
 		op->res.error = "no such key";
-		callback(&(op->res), context);
+		callback(&op->res, context);
 		pool_unref(&oppool);
 	}
 }

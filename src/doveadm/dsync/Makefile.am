@@ -70,8 +70,7 @@ test_dsync_mailbox_tree_sync_SOURCES = test-dsync-mailbox-tree-sync.c
 test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
 test_dsync_mailbox_tree_sync_DEPENDENCIES = $(pkglib_LTLIBRARIES) $(test_libs)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

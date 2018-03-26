@@ -2,8 +2,8 @@ AC_PREREQ([2.59])
 
 # Be sure to update ABI version also if anything changes that might require
 # recompiling plugins. Most importantly that means if any structs are changed.
-AC_INIT([Dovecot],[2.3.devel],[dovecot@dovecot.org])
-AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "2.3.ABIv0($PACKAGE_VERSION)", [Dovecot ABI version])
+AC_INIT([Dovecot],[2.4.devel],[dovecot@dovecot.org])
+AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "2.4.ABIv0($PACKAGE_VERSION)", [Dovecot ABI version])
 
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_MACRO_DIR([m4])
@@ -180,6 +180,11 @@ AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   TEST_WITH(solr, $withval),
   want_solr=no)
 
+AC_ARG_WITH(sodium,
+AS_HELP_STRING([--with-sodium], [Build with libsodium support (enables argon2, default: auto)]),
+  TEST_WITH(sodium, $withval),
+  want_sodium=auto)
+
 AC_ARG_WITH(zlib,
 AS_HELP_STRING([--with-zlib], [Build with zlib compression support (auto)]),
   TEST_WITH(zlib, $withval),
@@ -316,7 +321,9 @@ CC_CLANG
 AC_CC_PIE
 AC_CC_F_STACK_PROTECTOR
 AC_CC_D_FORTIFY_SOURCE
+AC_CC_RETPOLINE
 AC_LD_RELRO
+AC_LD_WHOLE_ARCHIVE
 
 DOVECOT_CFLAGS
 
@@ -536,6 +543,7 @@ userdb="$userdb static"
 dict_drivers=""
 
 dnl *** auth/userdb/dict things
+DOVECOT_WANT_LUA
 DOVECOT_WANT_PREFETCH
 DOVECOT_WANT_PASSWD
 DOVECOT_WANT_SHADOW
@@ -549,11 +557,20 @@ DOVECOT_WANT_DB
 DOVECOT_WANT_CDB
 DOVECOT_WANT_PGSQL
 DOVECOT_WANT_MYSQL
+DOVECOT_WANT_SODIUM
 DOVECOT_WANT_SQLITE
 DOVECOT_WANT_CASSANDRA
 DOVECOT_WANT_VPOPMAIL
 
 DOVECOT_SQL
+
+AM_CONDITIONAL([AUTH_LUA_PLUGIN], [test "x$with_lua_plugin" = "xyes"])
+AM_CONDITIONAL([HAVE_LUA], [test "x$with_luajit" = "xyes" || test "x$with_lua" = "xyes"])
+AS_IF([test "x$with_luajit" = "xyes" || test "x$with_lua" = "xyes"],
+  AS_IF([test "x$with_lua_plugin" = "xyes"],
+      [userdb="$userdb lua (plugin)"; passdb="$passdb lua (plugin)"],
+      [userdb="$userdb lua"; passdb="$passdb lua"],
+  ), [])
 
 if test $have_modules = yes; then
   AC_DEFINE(HAVE_MODULES,, [Define if you have dynamic module support])
@@ -586,7 +603,7 @@ AC_SUBST(DICT_LIBS)
 AC_SUBST(CDB_LIBS)
 AC_SUBST(dict_drivers)
 
-DOVECOT_ENDIAN
+AC_C_BIGENDIAN
 
 DOVECOT_IPV6
 
@@ -611,7 +628,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-program-client/libprogram_client.la \
 	$(top_builddir)/src/lib-master/libmaster.la \
 	$(top_builddir)/src/lib-settings/libsettings.la \
-	$(top_builddir)/src/lib-stats/libstats.la \
+	$(top_builddir)/src/lib-old-stats/libold_stats.la \
 	$(top_builddir)/src/lib-http/libhttp.la \
 	$(top_builddir)/src/lib-fs/libfs.la \
 	$(top_builddir)/src/lib-dict/libdict.la \
@@ -625,6 +642,10 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-dcrypt/libdcrypt.la \
 	$(top_builddir)/src/lib-test/libtest.la \
 	$(top_builddir)/src/lib/liblib.la'
+# This is used in dovecot-config, which is grepped in dovecot.m4,
+# so it needs to be in a single line.
+LIBDOVECOT_LA_LIBS=`echo "$LIBDOVECOT_LA_LIBS" | tr -d '\t\n\\\\'`
+
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
@@ -763,7 +784,7 @@ dnl **
 dnl IDLE doesn't really belong to banner. It's there just to make Blackberries
 dnl happy, because otherwise BIS server disables push email.
 capability_banner="IMAP4rev1 SASL-IR LOGIN-REFERRALS ID ENABLE IDLE"
-capability="$capability_banner SORT SORT=DISPLAY THREAD=REFERENCES THREAD=REFS THREAD=ORDEREDSUBJECT MULTIAPPEND URL-PARTIAL CATENATE UNSELECT CHILDREN NAMESPACE UIDPLUS LIST-EXTENDED I18NLEVEL=1 CONDSTORE QRESYNC ESEARCH ESORT SEARCHRES WITHIN CONTEXT=SEARCH LIST-STATUS BINARY MOVE"
+capability="$capability_banner SORT SORT=DISPLAY THREAD=REFERENCES THREAD=REFS THREAD=ORDEREDSUBJECT MULTIAPPEND URL-PARTIAL CATENATE UNSELECT CHILDREN NAMESPACE UIDPLUS LIST-EXTENDED I18NLEVEL=1 CONDSTORE QRESYNC ESEARCH ESORT SEARCHRES WITHIN CONTEXT=SEARCH LIST-STATUS BINARY MOVE SNIPPET=FUZZY"
 AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", [IMAP capabilities])
 AC_DEFINE_UNQUOTED(CAPABILITY_BANNER_STRING, "$capability_banner", [IMAP capabilities advertised in banner])
 
@@ -778,7 +799,7 @@ NOPLUGIN_LDFLAGS="-no-undefined"
 if test "$with_gnu_ld" = yes; then
   NOPLUGIN_LDFLAGS="$NOPLUGIN_LDFLAGS -Wl,--as-needed"
 fi
-LDFLAGS="\$(NOPLUGIN_LDFLAGS) $LDFLAGS"
+LDFLAGS="\$(NOPLUGIN_LDFLAGS) $LDFLAGS $EXTRA_LDFLAGS"
 AC_SUBST(NOPLUGIN_LDFLAGS)
 
 DC_CC_WRAPPER
@@ -823,6 +844,7 @@ src/lib-imap-urlauth/Makefile
 src/lib-index/Makefile
 src/lib-lda/Makefile
 src/lib-ldap/Makefile
+src/lib-lua/Makefile
 src/lib-mail/Makefile
 src/lib-master/Makefile
 src/lib-ntlm/Makefile
@@ -833,7 +855,7 @@ src/lib-sasl/Makefile
 src/lib-settings/Makefile
 src/lib-smtp/Makefile
 src/lib-ssl-iostream/Makefile
-src/lib-stats/Makefile
+src/lib-old-stats/Makefile
 src/lib-test/Makefile
 src/lib-storage/Makefile
 src/lib-storage/list/Makefile
@@ -869,10 +891,13 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
+src/submission/Makefile
+src/submission-login/Makefile
 src/replication/Makefile
 src/replication/aggregator/Makefile
 src/replication/replicator/Makefile
 src/stats/Makefile
+src/old-stats/Makefile
 src/util/Makefile
 src/plugins/Makefile
 src/plugins/acl/Makefile
@@ -899,8 +924,8 @@ src/plugins/quota-clone/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/replication/Makefile
 src/plugins/snarf/Makefile
-src/plugins/stats/Makefile
-src/plugins/imap-stats/Makefile
+src/plugins/old-stats/Makefile
+src/plugins/imap-old-stats/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
 src/plugins/welcome/Makefile
@@ -909,6 +934,7 @@ src/plugins/imap-zlib/Makefile
 src/plugins/mail-crypt/Makefile
 src/plugins/var-expand-crypt/Makefile
 src/plugins/apparmor/Makefile
+src/plugins/charset-alias/Makefile
 stamp.h
 dovecot-config.in])
 

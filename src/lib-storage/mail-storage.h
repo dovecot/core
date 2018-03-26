@@ -8,12 +8,16 @@ struct message_size;
 #include "guid.h"
 #include "mail-types.h"
 #include "mail-error.h"
+#include "mail-index.h"
 #include "mail-namespace.h"
 #include "mailbox-list.h"
 #include "mailbox-attribute.h"
 
 /* If some operation is taking long, call notify_ok every n seconds. */
 #define MAIL_STORAGE_STAYALIVE_SECS 15
+
+#define MAIL_KEYWORD_HAS_ATTACHMENT "$HasAttachment"
+#define MAIL_KEYWORD_HAS_NO_ATTACHMENT "$HasNoAttachment"
 
 enum mail_storage_flags {
 	/* Remember message headers' MD5 sum */
@@ -339,8 +343,8 @@ struct mail_transaction_commit_changes {
 	/* number of modseq changes that couldn't be changed as requested */
 	unsigned int ignored_modseq_changes;
 
-	/* TRUE if anything actually changed with this commit */
-	bool changed;
+	/* Changes that occurred within this transaction */
+	enum mail_index_transaction_change changes_mask;
 	/* User doesn't have read ACL for the mailbox, so don't show the
 	   uid_validity / saved_uids. */
 	bool no_read_perm;
@@ -388,6 +392,7 @@ struct mail {
 	/* always set */
 	struct mailbox *box;
 	struct mailbox_transaction_context *transaction;
+	struct event *event;
 	uint32_t seq, uid;
 
 	bool expunged:1;

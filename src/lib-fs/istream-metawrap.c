@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream-private.h"
@@ -77,7 +77,7 @@ static ssize_t i_stream_metawrap_read(struct istream_private *stream)
 		mstream->in_metadata = FALSE;
 		if (mstream->pending_seek != 0) {
 			i_stream_seek(&stream->istream, mstream->pending_seek);
-			return i_stream_read(&stream->istream);
+			return i_stream_read_memarea(&stream->istream);
 		}
 	}
 	/* after metadata header it's all just passthrough */
@@ -115,7 +115,7 @@ static int i_stream_metawrap_stat(struct istream_private *stream, bool exact)
 	stream->statbuf = *st;
 
 	if (mstream->in_metadata) {
-		ret = i_stream_read(&stream->istream);
+		ret = i_stream_read_memarea(&stream->istream);
 		if (ret < 0 && stream->istream.stream_errno != 0)
 			return -1;
 		if (ret == 0) {
@@ -148,5 +148,5 @@ i_stream_create_metawrap(struct istream *input,
 	mstream->callback = callback;
 	mstream->context = context;
 	return i_stream_create(&mstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

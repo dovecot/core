@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "array.h"
@@ -289,6 +289,9 @@ void passdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
 extern struct passdb_module_interface passdb_passwd;
 extern struct passdb_module_interface passdb_bsdauth;
 extern struct passdb_module_interface passdb_dict;
+#ifdef HAVE_LUA
+extern struct passdb_module_interface passdb_lua;
+#endif
 extern struct passdb_module_interface passdb_shadow;
 extern struct passdb_module_interface passdb_passwd_file;
 extern struct passdb_module_interface passdb_pam;
@@ -307,6 +310,9 @@ void passdbs_init(void)
 	passdb_register_module(&passdb_passwd);
 	passdb_register_module(&passdb_bsdauth);
 	passdb_register_module(&passdb_dict);
+#ifdef HAVE_LUA
+	passdb_register_module(&passdb_lua);
+#endif
 	passdb_register_module(&passdb_passwd_file);
 	passdb_register_module(&passdb_pam);
 	passdb_register_module(&passdb_checkpassword);

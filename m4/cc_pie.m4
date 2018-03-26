@@ -39,16 +39,10 @@ AC_DEFUN([AC_CC_PIE],[
                 PIE_CFLAGS="-fPIE -DPIE"
                 PIE_LDFLAGS="-Wl,-pie"
                 ], [AC_MSG_RESULT([not supported])],
-                [AC_LANG_PROGRAM([[
-  #include <pthread.h>
-  __thread unsigned int t_id;
-                  ]], [[t_id = 1;]])]
+                [AC_LANG_PROGRAM()]
               )
             ],
-            [AC_LANG_PROGRAM([[
-  #include <pthread.h>
-  __thread unsigned int t_id;
-              ]], [[t_id = 1;]])]
+            [AC_LANG_PROGRAM()]
           )
       esac
       CFLAGS=$OLD_CFLAGS

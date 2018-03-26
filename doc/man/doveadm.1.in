@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
-.TH DOVEADM 1 "2014-10-07" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file
+.TH DOVEADM 1 "2014-10-07" "Dovecot v2.3" "Dovecot"
 .SH NAME
 doveadm \- Dovecot\(aqs administration utility
 .\"------------------------------------------------------------------------
@@ -189,7 +189,7 @@ Initialize/recalculate or show current quota usage.
 .TP
 .B doveadm replicator
 .BR doveadm\-replicator (1),
-Manage users\(aq mail replicaton.
+Manage users\(aq mail replication.
 .\"-------------------------------------
 .TP
 .B doveadm stats

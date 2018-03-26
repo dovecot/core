@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"
@@ -98,7 +98,7 @@ static void test_fs_posix(void)
 	fs_deinit(&fs);
 
 error_no_fs:
-	if (unlink_directory(testdir, UNLINK_DIRECTORY_FLAG_RMDIR, &unlink_err) != 0)
+	if (unlink_directory(testdir, UNLINK_DIRECTORY_FLAG_RMDIR, &unlink_err) < 0)
 		i_error("Couldn't clean up test directory (%s): %s", testdir, unlink_err);
 error_no_testdir:
 	return;

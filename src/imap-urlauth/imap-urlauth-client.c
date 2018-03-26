@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-urlauth-common.h"
 #include "array.h"
@@ -45,8 +45,8 @@ static int client_worker_connect(struct client *client);
 static void client_worker_disconnect(struct client *client);
 static void client_worker_input(struct client *client);
 
-int client_create(const char *username, int fd_in, int fd_out,
-		  const struct imap_urlauth_settings *set,
+int client_create(const char *service, const char *username,
+		  int fd_in, int fd_out, const struct imap_urlauth_settings *set,
 		  struct client **client_r)
 {
 	struct client *client;
@@ -86,8 +86,8 @@ int client_create(const char *username, int fd_in, int fd_out,
 		}
 	}
 
-	if (username != NULL)
-		client->username = i_strdup(username);
+	client->username = i_strdup(username);
+	client->service = i_strdup(service);
 
 	client->output = o_stream_create_fd(fd_out, (size_t)-1);
 
@@ -126,7 +126,7 @@ void client_send_line(struct client *client, const char *fmt, ...)
 
 static int client_worker_connect(struct client *client)
 {
-	static const char handshake[] = "VERSION\timap-urlauth-worker\t1\t0\n";
+	static const char handshake[] = "VERSION\timap-urlauth-worker\t2\t0\n";
 	const char *socket_path;
 	ssize_t ret;
 	unsigned char data;
@@ -221,6 +221,8 @@ client_worker_input_line(struct client *client, const char *response)
 		str_append(str, "ACCESS\t");
 		if (client->username != NULL)
 			str_append_tabescaped(str, client->username);
+		str_append(str, "\t");
+		str_append_tabescaped(str, client->service);
 		if (client->set->mail_debug)
 			str_append(str, "\tdebug");
 		if (array_count(&client->access_apps) > 0) {
@@ -338,8 +340,8 @@ void client_destroy(struct client *client, const char *reason)
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 
-	if (client->username != NULL)
-		i_free(client->username);
+	i_free(client->username);
+	i_free(client->service);
 	array_free(&client->access_apps);
 	i_free(client);
 

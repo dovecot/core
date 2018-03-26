@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -172,7 +172,7 @@ static void solr_quote_http(string_t *dest, const char *str)
 static void fts_solr_set_default_ns(struct solr_fts_backend *backend)
 {
 	struct mail_namespace *ns = backend->backend.ns;
-	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(ns->user);
+	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT_REQUIRE(ns->user);
 	const struct fts_solr_settings *set = &fuser->set;
 	const char *str;
 

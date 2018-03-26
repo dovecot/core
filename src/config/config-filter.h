@@ -45,6 +45,9 @@ struct config_filter_parser *const *
 config_filter_find_subset(struct config_filter_context *ctx,
 			  const struct config_filter *filter);
 
+struct config_filter_parser *const *
+config_filter_get_all(struct config_filter_context *ctx);
+
 /* Returns TRUE if filter matches mask. */
 bool config_filter_match(const struct config_filter *mask,
 			 const struct config_filter *filter);

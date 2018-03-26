@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -27,16 +27,18 @@ static void i_stream_timeout_close(struct iostream_private *stream,
 		i_stream_close(tstream->istream.parent);
 }
 
-static void i_stream_timeout_switch_ioloop(struct istream_private *stream)
+static void i_stream_timeout_switch_ioloop_to(struct istream_private *stream,
+					      struct ioloop *ioloop)
 {
 	struct timeout_istream *tstream = (struct timeout_istream *)stream;
 
 	if (tstream->to != NULL)
-		tstream->to = io_loop_move_timeout(&tstream->to);
+		tstream->to = io_loop_move_timeout_to(ioloop, &tstream->to);
 }
 
 static void i_stream_timeout(struct timeout_istream *tstream)
 {
+	struct iostream_private *iostream = &tstream->istream.iostream;
 	unsigned int over_msecs;
 	int diff;
 
@@ -54,8 +56,9 @@ static void i_stream_timeout(struct timeout_istream *tstream)
 		/* we haven't reached the read timeout yet, update it */
 		if (diff < 0)
 			diff = 0;
-		tstream->to = timeout_add(tstream->timeout_msecs - diff,
-					  i_stream_timeout, tstream);
+		tstream->to = timeout_add_to(io_stream_get_ioloop(iostream),
+					     tstream->timeout_msecs - diff,
+					     i_stream_timeout, tstream);
 		return;
 	}
 	over_msecs = diff - tstream->timeout_msecs;
@@ -86,6 +89,7 @@ static ssize_t
 i_stream_timeout_read(struct istream_private *stream)
 {
 	struct timeout_istream *tstream = (struct timeout_istream *)stream;
+	struct iostream_private *iostream = &tstream->istream.iostream;
 	ssize_t ret;
 
 	i_stream_seek(stream->parent, stream->parent_start_offset +
@@ -105,8 +109,9 @@ i_stream_timeout_read(struct istream_private *stream)
 		/* first read. add the timeout here instead of in init
 		   in case the stream is created long before it's actually
 		   read from. */
-		tstream->to = timeout_add(tstream->timeout_msecs,
-					  i_stream_timeout, tstream);
+		tstream->to = timeout_add_to(io_stream_get_ioloop(iostream),
+					     tstream->timeout_msecs,
+					     i_stream_timeout, tstream);
 		i_stream_timeout_set_pending(tstream);
 	} else if (ret > 0 && tstream->to != NULL) {
 		/* we read something, reset the timeout */
@@ -131,12 +136,12 @@ i_stream_create_timeout(struct istream *input, unsigned int timeout_msecs)
 	tstream->created = ioloop_time;
 
 	tstream->istream.read = i_stream_timeout_read;
-	tstream->istream.switch_ioloop = i_stream_timeout_switch_ioloop;
+	tstream->istream.switch_ioloop_to = i_stream_timeout_switch_ioloop_to;
 	tstream->istream.iostream.close = i_stream_timeout_close;
 
 	tstream->istream.istream.readable_fd = input->readable_fd;
 	tstream->istream.istream.blocking = input->blocking;
 	tstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&tstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

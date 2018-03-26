@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -105,30 +105,30 @@ dict_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources;
 }
 
-static int
+static enum quota_get_result
 dict_quota_count(struct dict_quota_root *root,
-		 bool want_bytes, uint64_t *value_r)
+		 bool want_bytes, uint64_t *value_r,
+		 const char **error_r)
 {
 	struct dict_transaction_context *dt;
 	uint64_t bytes, count;
+	enum quota_get_result error_res;
 
-	if (quota_count(&root->root, &bytes, &count) < 0)
-		return -1;
+	if (quota_count(&root->root, &bytes, &count, &error_res, error_r) < 0)
+		return error_res;
 
-	T_BEGIN {
-		dt = dict_transaction_begin(root->dict);
-		/* these unsets are mainly necessary for pgsql, because its
-		   trigger otherwise increases quota without deleting it.
-		   but some people with other databases want to store the
-		   quota usage among other data in the same row, which
-		   shouldn't be deleted. */
-		if (!root->disable_unset) {
-			dict_unset(dt, DICT_QUOTA_CURRENT_BYTES_PATH);
-			dict_unset(dt, DICT_QUOTA_CURRENT_COUNT_PATH);
-		}
-		dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
-		dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
-	} T_END;
+	dt = dict_transaction_begin(root->dict);
+	/* these unsets are mainly necessary for pgsql, because its
+	   trigger otherwise increases quota without deleting it.
+	   but some people with other databases want to store the
+	   quota usage among other data in the same row, which
+	   shouldn't be deleted. */
+	if (!root->disable_unset) {
+		dict_unset(dt, DICT_QUOTA_CURRENT_BYTES_PATH);
+		dict_unset(dt, DICT_QUOTA_CURRENT_COUNT_PATH);
+	}
+	dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
+	dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
 
 	if (root->root.quota->set->debug) {
 		i_debug("dict quota: Quota recalculated: "
@@ -137,12 +137,13 @@ dict_quota_count(struct dict_quota_root *root,
 
 	dict_transaction_commit_async(&dt, NULL, NULL);
 	*value_r = want_bytes ? bytes : count;
-	return 1;
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
-static int
+static enum quota_get_result
 dict_quota_get_resource(struct quota_root *_root,
-			const char *name, uint64_t *value_r)
+			const char *name, uint64_t *value_r,
+			const char **error_r)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 	bool want_bytes;
@@ -152,43 +153,43 @@ dict_quota_get_resource(struct quota_root *_root,
 		want_bytes = TRUE;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		want_bytes = FALSE;
+	else {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
+
+	const char *key, *value, *error;
+	key = want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
+		DICT_QUOTA_CURRENT_COUNT_PATH;
+	ret = dict_lookup(root->dict, unsafe_data_stack_pool,
+			  key, &value, &error);
+	if (ret < 0) {
+		*error_r = t_strdup_printf(
+			"dict_lookup(%s) failed: %s", key, error);
+		*value_r = 0;
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
+	}
+
+	intmax_t tmp;
+	/* recalculate quota if it's negative or if it wasn't found */
+	if (ret == 0 || str_to_intmax(value, &tmp) < 0)
+		tmp = -1;
+	if (tmp >= 0)
+		*value_r = tmp;
 	else
-		return 0;
-
-	T_BEGIN {
-		const char *key, *value, *error;
-
-		key = want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
-			DICT_QUOTA_CURRENT_COUNT_PATH;
-		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
-				  key, &value, &error);
-		if (ret < 0) {
-			i_error("dict quota: dict_lookup(%s) failed: %s", key, error);
-			*value_r = 0;
-		} else {
-			intmax_t tmp;
-
-			/* recalculate quota if it's negative or if it
-			   wasn't found */
-			if (ret == 0 || str_to_intmax(value, &tmp) < 0)
-				tmp = -1;
-			if (tmp >= 0)
-				*value_r = tmp;
-			else {
-				ret = dict_quota_count(root, want_bytes,
-						       value_r);
-			}
-		}
-	} T_END;
-	return ret;
+		return dict_quota_count(root, want_bytes, value_r, error_r);
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static void dict_quota_recalc_timeout(struct dict_quota_root *root)
 {
 	uint64_t value;
+	const char *error;
 
 	timeout_remove(&root->to_update);
-	(void)dict_quota_count(root, TRUE, &value);
+	if (dict_quota_count(root, TRUE, &value, &error)
+	    <= QUOTA_GET_RESULT_INTERNAL_ERROR)
+		i_error("quota-dict: Recalculation failed: %s", error);
 }
 
 static void dict_quota_update_callback(const struct dict_commit_result *result,
@@ -208,14 +209,16 @@ static void dict_quota_update_callback(const struct dict_commit_result *result,
 
 static int
 dict_quota_update(struct quota_root *_root, 
-		  struct quota_transaction_context *ctx)
+		  struct quota_transaction_context *ctx,
+		  const char **error_r)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *) _root;
 	struct dict_transaction_context *dt;
 	uint64_t value;
 
 	if (ctx->recalculate != QUOTA_RECALCULATE_DONT) {
-		if (dict_quota_count(root, TRUE, &value) < 0)
+		if (dict_quota_count(root, TRUE, &value, error_r)
+		    <= QUOTA_GET_RESULT_INTERNAL_ERROR)
 			return -1;
 	} else {
 		dt = dict_transaction_begin(root->dict);
@@ -246,19 +249,15 @@ static void dict_quota_flush(struct quota_root *_root)
 }
 
 struct quota_backend quota_backend_dict = {
-	"dict",
+	.name = "dict",
 
-	{
-		dict_quota_alloc,
-		dict_quota_init,
-		dict_quota_deinit,
-		NULL,
-		NULL,
-		NULL,
-		dict_quota_root_get_resources,
-		dict_quota_get_resource,
-		dict_quota_update,
-		NULL,
-		dict_quota_flush
+	.v = {
+		.alloc = dict_quota_alloc,
+		.init = dict_quota_init,
+		.deinit = dict_quota_deinit,
+		.get_resources = dict_quota_root_get_resources,
+		.get_resource = dict_quota_get_resource,
+		.update = dict_quota_update,
+		.flush = dict_quota_flush,
 	}
 };

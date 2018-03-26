@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -54,17 +54,14 @@ static void mail_vhost_add(struct mail_tag *tag, struct mail_host *host)
 	struct mail_vhost *vhost;
 	struct md5_context md5_ctx, md5_ctx2;
 	unsigned char md5[MD5_RESULTLEN];
-	const char *ip_str;
 	char num_str[MAX_INT_STRLEN];
 	unsigned int i, j;
 
 	if (host->down || host->tag != tag)
 		return;
 
-	ip_str = net_ip2addr(&host->ip);
-
 	md5_init(&md5_ctx);
-	md5_update(&md5_ctx, ip_str, strlen(ip_str));
+	md5_update(&md5_ctx, host->ip_str, strlen(host->ip_str));
 
 	for (i = 0; i < host->vhost_count; i++) {
 		md5_ctx2 = md5_ctx;
@@ -171,6 +168,7 @@ mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip,
 	host->list = list;
 	host->vhost_count = VHOST_MULTIPLIER;
 	host->ip = *ip;
+	host->ip_str = i_strdup(net_ip2addr(ip));
 	host->tag = mail_tag_get(list, tag_name);
 	array_append(&list->hosts, &host, 1);
 
@@ -340,7 +338,7 @@ void mail_host_set_down(struct mail_host *host, bool down,
 		const char *updown = down ? "down" : "up";
 		i_info("%sHost %s changed %s "
 		       "(vhost_count=%u last_updown_change=%ld)",
-		       log_prefix, net_ip2addr(&host->ip), updown,
+		       log_prefix, host->ip_str, updown,
 		       host->vhost_count, (long)host->last_updown_change);
 
 		host->down = down;
@@ -353,7 +351,7 @@ void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count,
 			       const char *log_prefix)
 {
 	i_info("%sHost %s vhost count changed from %u to %u",
-	       log_prefix, net_ip2addr(&host->ip),
+	       log_prefix, host->ip_str,
 	       host->vhost_count, vhost_count);
 
 	host->vhost_count = vhost_count;
@@ -363,6 +361,7 @@ void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count,
 static void mail_host_free(struct mail_host *host)
 {
 	i_free(host->hostname);
+	i_free(host->ip_str);
 	i_free(host);
 }
 
@@ -522,6 +521,7 @@ mail_host_dup(struct mail_host_list *dest_list, const struct mail_host *src)
 	dest = i_new(struct mail_host, 1);
 	*dest = *src;
 	dest->tag = mail_tag_get(dest_list, src->tag->name);
+	dest->ip_str = i_strdup(src->ip_str);
 	dest->hostname = i_strdup(src->hostname);
 	return dest;
 }

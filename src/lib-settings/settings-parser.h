@@ -87,6 +87,7 @@ struct setting_parser_info {
 	const struct setting_parser_info *parent;
 
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
+	bool (*expand_check_func)(void *set, pool_t pool, const char **error_r);
 	const struct setting_parser_info *const *dependencies;
 	struct dynamic_settings_parser *dynamic_parsers;
 
@@ -179,10 +180,10 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 void settings_parse_set_expanded(struct setting_parser_context *ctx,
 				 bool is_expanded);
 /* Mark all the parsed settings with given keys as being already expanded. */
-void settings_parse_set_key_expandeded(struct setting_parser_context *ctx,
-				       pool_t pool, const char *key);
-void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
-					pool_t pool, const char *const *keys);
+void settings_parse_set_key_expanded(struct setting_parser_context *ctx,
+				     pool_t pool, const char *key);
+void settings_parse_set_keys_expanded(struct setting_parser_context *ctx,
+				      pool_t pool, const char *const *keys);
 /* Update variable string pointers to skip over the '1' or '0'.
    This is mainly useful when you want to run settings_parser_check() without
    actually knowing what the variables are. */

@@ -30,6 +30,11 @@
 
 #define UTF8_REPLACEMENT_CHAR_LEN 3
 
+#define UNICHAR_T_MAX 0x10ffff
+
+#define UTF16_VALID_HIGH_SURROGATE(chr) (((chr) & 0xfffc00) == UTF16_SURROGATE_HIGH_FIRST)
+#define UTF16_VALID_LOW_SURROGATE(chr) (((chr) & 0xfffc00) == UTF16_SURROGATE_LOW_FIRST)
+
 typedef uint32_t unichar_t;
 ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
@@ -41,6 +46,13 @@ typedef int normalizer_func_t(const void *input, size_t size,
 
 extern const unsigned char utf8_replacement_char[UTF8_REPLACEMENT_CHAR_LEN];
 extern const uint8_t *const uni_utf8_non1_bytes;
+
+static inline bool ATTR_PURE uni_is_valid_ucs4(unichar_t chr)
+{
+	return (!UTF16_VALID_HIGH_SURROGATE(chr) &&
+		!UTF16_VALID_LOW_SURROGATE(chr) &&
+		chr <= UNICHAR_T_MAX);
+};
 
 /* Returns number of characters in a NUL-terminated unicode string */
 unsigned int uni_strlen(const unichar_t *str) ATTR_PURE;
@@ -100,4 +112,22 @@ bool uni_utf8_str_is_valid(const char *str);
 /* Returns TRUE if data contains only valid UTF-8 input. */
 bool uni_utf8_data_is_valid(const unsigned char *data, size_t size);
 
+/* surrogate handling */
+static inline unichar_t uni_join_surrogate(unichar_t high, unichar_t low)
+{
+	i_assert(UTF16_VALID_HIGH_SURROGATE(high) &&
+		 UTF16_VALID_LOW_SURROGATE(low));
+
+	return ((high - UTF16_SURROGATE_HIGH_FIRST)<<10) +
+		(low - UTF16_SURROGATE_LOW_FIRST) +
+		UTF16_SURROGATE_BASE;
+}
+
+static inline void uni_split_surrogate(unichar_t chr, unichar_t *high_r, unichar_t *low_r)
+{
+	i_assert(chr >= UTF16_SURROGATE_BASE && chr <= UNICHAR_T_MAX);
+	i_assert(high_r != NULL && low_r != NULL);
+	*high_r = UTF16_SURROGATE_HIGH(chr);
+	*low_r = UTF16_SURROGATE_LOW(chr);
+}
 #endif

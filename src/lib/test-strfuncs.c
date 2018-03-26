@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "array.h"
@@ -83,33 +83,75 @@ static void test_p_strarray_dup(void)
 
 static void test_t_strsplit(void)
 {
-	const char *const *args;
+	struct {
+		const char *input;
+		const char *const *output;
+	} tests[] = {
+		/* empty string -> empty array. was this perhaps a mistake for
+		   the API to do this originally?.. can't really change now
+		   anyway. */
+		{ "", (const char *const []) { NULL } },
+		{ "\n", (const char *const []) { "", "", NULL } },
+		{ "\n\n", (const char *const []) { "", "", "", NULL } },
+		{ "foo", (const char *const []) { "foo", NULL } },
+		{ "foo\n", (const char *const []) { "foo", "", NULL } },
+		{ "foo\nbar", (const char *const []) { "foo", "bar", NULL } },
+		{ "foo\nbar\n", (const char *const []) { "foo", "bar", "", NULL } },
+		{ "\nfoo\n\nbar\n\n", (const char *const []) { "", "foo", "", "bar", "", "", NULL } },
+	};
+	const char *const *args, *const *args2, *const *args3;
 
 	test_begin("t_strsplit");
-	/* empty string -> empty array. was this perhaps a mistake for the
-	   API to do this originally?.. can't really change now anyway. */
-	args = t_strsplit("", "\n");
-	test_assert(args[0] == NULL);
-	/* two empty strings */
-	args = t_strsplit("\n", "\n");
-	test_assert(args[0][0] == '\0');
-	test_assert(args[1][0] == '\0');
-	test_assert(args[2] == NULL);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		/* split_str_fast() with single separator */
+		args = t_strsplit(tests[i].input, "\n");
+		/* split_str_slow() with a secondary separator */
+		args2 = t_strsplit(tests[i].input, "\r\n");
+		/* also as suffix */
+		args3 = t_strsplit(tests[i].input, "\n\r");
+		for (unsigned int j = 0; tests[i].output[j] != NULL; j++) {
+			test_assert_idx(null_strcmp(tests[i].output[j], args[j]) == 0, i);
+			test_assert_idx(null_strcmp(args[j], args2[j]) == 0, i);
+			test_assert_idx(null_strcmp(args[j], args3[j]) == 0, i);
+		}
+	}
 	test_end();
 }
 
 static void test_t_strsplit_spaces(void)
 {
-	const char *const *args;
+	struct {
+		const char *input;
+		const char *const *output;
+	} tests[] = {
+		/* empty strings */
+		{ "", (const char *const []) { NULL } },
+		{ "\n", (const char *const []) { NULL } },
+		{ "\n\n", (const char *const []) { NULL } },
+		/* normal */
+		{ "foo", (const char *const []) { "foo", NULL } },
+		{ "foo\n", (const char *const []) { "foo", NULL } },
+		{ "foo\nbar", (const char *const []) { "foo", "bar", NULL } },
+		{ "foo\nbar\n", (const char *const []) { "foo", "bar", NULL } },
+		{ "\nfoo\n\nbar\n\n", (const char *const []) { "foo", "bar", NULL } },
+	};
+	const char *const *args, *const *args2, *const *args3;
 
 	test_begin("t_strsplit_spaces");
-	/* empty strings */
-	args = t_strsplit_spaces("", "\n");
-	test_assert(args[0] == NULL);
-	args = t_strsplit_spaces("\n", "\n");
-	test_assert(args[0] == NULL);
-	args = t_strsplit_spaces("\n\n", "\n");
-	test_assert(args[0] == NULL);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		args = t_strsplit_spaces(tests[i].input, "\n");
+		/* test also with a secondary nonexistent separator */
+		args2 = t_strsplit_spaces(tests[i].input, "\r\n");
+		/* also as suffix */
+		args3 = t_strsplit_spaces(tests[i].input, "\n\r");
+		for (unsigned int j = 0; tests[i].output[j] != NULL; j++) {
+			test_assert_idx(null_strcmp(tests[i].output[j], args[j]) == 0, i);
+			test_assert_idx(null_strcmp(args[j], args2[j]) == 0, i);
+			test_assert_idx(null_strcmp(args[j], args3[j]) == 0, i);
+		}
+	}
 
 	/* multiple separators */
 	args = t_strsplit_spaces(" , ,   ,str1  ,  ,,, , str2   , ", " ,");
@@ -306,6 +348,26 @@ static void test_mem_equals_timing_safe(void)
 	test_end();
 }
 
+static void test_dec2str_buf(void)
+{
+	const uintmax_t test_input[] = {
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		99, 999, 9999, 65535, 65536, 99999, 999999, 9999999,
+		99999999, 999999999, 4294967295, 4294967296ULL,
+		9999999999999999999ULL,
+		18446744073709551615ULL
+	};
+	char buf[MAX_INT_STRLEN], buf2[MAX_INT_STRLEN];
+
+	test_begin("dec2str_buf()");
+	for (unsigned int i = 0; i < N_ELEMENTS(test_input); i++) {
+		i_snprintf(buf2, sizeof(buf2), "%ju", test_input[i]);
+		test_assert_idx(strcmp(dec2str_buf(buf, test_input[i]),
+				       buf2) == 0, i);
+	}
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strdup();
@@ -321,4 +383,5 @@ void test_strfuncs(void)
 	test_t_strarray_join();
 	test_p_array_const_string_join();
 	test_mem_equals_timing_safe();
+	test_dec2str_buf();
 }

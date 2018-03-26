@@ -3,13 +3,15 @@
 
 #include "net.h"
 
+#include "http-common.h"
 #include "http-response.h"
 
 struct timeval;
 struct http_response;
 
-struct http_client;
 struct http_client_request;
+struct http_client;
+struct http_client_context;
 
 struct ssl_iostream_settings;
 
@@ -119,6 +121,10 @@ struct http_client_settings {
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
 
+	/* Event to use for the http client. For specific requests this can be
+	   overridden with http_client_request_set_event(). */
+	struct event *event;
+
 	/* enable logging debug messages */
 	bool debug;
 };
@@ -195,8 +201,11 @@ struct http_client_request_stats {
 	/* Total time spent on waiting for file locks */
 	unsigned int lock_msecs;
 
-	/* Number of attempts for this request */
+	/* Number of times this request was retried */
 	unsigned int attempts;
+	/* Number of times the client attempted to actually send the request
+	   to a server */
+	unsigned int send_attempts;
 };
 
 typedef void
@@ -264,6 +273,8 @@ http_client_request_connect_ip(struct http_client *client,
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)
 
+void http_client_request_set_event(struct http_client_request *req,
+				   struct event *event);
 /* set the port for the service the request is directed at */
 void http_client_request_set_port(struct http_client_request *req,
 	in_port_t port);
@@ -415,11 +426,19 @@ void http_client_request_start_tunnel(struct http_client_request *req,
  * Client
  */
 
-struct http_client *http_client_init(const struct http_client_settings *set);
+/* Create a client using the global shared client context. */
+struct http_client *
+http_client_init(const struct http_client_settings *set);
+/* Create a client without a shared context. */
+struct http_client *
+http_client_init_private(const struct http_client_settings *set);
+struct http_client *
+http_client_init_shared(struct http_client_context *cctx,
+	const struct http_client_settings *set) ATTR_NULL(1);
 void http_client_deinit(struct http_client **_client);
 
 /* switch this client to the current ioloop */
-void http_client_switch_ioloop(struct http_client *client);
+struct ioloop *http_client_switch_ioloop(struct http_client *client);
 
 /* blocks until all currently submitted requests are handled */
 void http_client_wait(struct http_client *client);
@@ -427,5 +446,19 @@ void http_client_wait(struct http_client *client);
 /* Returns the total number of pending HTTP requests. */
 unsigned int
 http_client_get_pending_request_count(struct http_client *client);
+
+/*
+ * Client shared context
+ */
+
+struct http_client_context *
+http_client_context_create(const struct http_client_settings *set);
+void http_client_context_ref(struct http_client_context *cctx);
+void http_client_context_unref(struct http_client_context **_cctx);
+
+/* Return the default global shared client context, creating it if necessary.
+   The context is freed automatically at exit. Don't unreference the
+   returned context. */
+struct http_client_context *http_client_get_global_context(void);
 
 #endif

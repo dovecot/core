@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
@@ -153,7 +153,7 @@ void ipc_groups_deinit(void)
 
 		while ((*groupp)->connections != NULL) {
 			struct ipc_connection *conn = (*groupp)->connections;
-			ipc_connection_destroy(&conn);
+			ipc_connection_destroy(&conn, FALSE, "Shutting down");
 		}
 		ipc_group_free(&group);
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -20,21 +20,21 @@ static const char *plaintext_content_types[] = {
 	NULL
 };
 
-bool fts_parser_init(struct mail_user *user,
-		     const char *content_type, const char *content_disposition,
+bool fts_parser_init(struct fts_parser_context *parser_context,
 		     struct fts_parser **parser_r)
 {
 	unsigned int i;
+	i_assert(parser_context->user != NULL);
+	i_assert(parser_context->content_type != NULL);
 
-	if (str_array_find(plaintext_content_types, content_type)) {
+	if (str_array_find(plaintext_content_types, parser_context->content_type)) {
 		/* we probably don't want/need to allow parsers to handle
 		   plaintext? */
 		return FALSE;
 	}
 
 	for (i = 0; i < N_ELEMENTS(parsers); i++) {
-		*parser_r = parsers[i]->try_init(user, content_type,
-						 content_disposition);
+		*parser_r = parsers[i]->try_init(parser_context);
 		if (*parser_r != NULL)
 			return TRUE;
 	}
@@ -91,17 +91,23 @@ void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 	}
 }
 
-int fts_parser_deinit(struct fts_parser **_parser)
+int fts_parser_deinit(struct fts_parser **_parser, const char **retriable_err_msg_r)
 {
 	struct fts_parser *parser = *_parser;
-	int ret = 0;
+	int ret = 1;
 
 	*_parser = NULL;
 
 	buffer_free(&parser->utf8_output);
-	if (parser->v.deinit != NULL)
-		ret = parser->v.deinit(parser);
-	else
+	if (parser->v.deinit != NULL) {
+		const char *error = NULL;
+		ret = parser->v.deinit(parser, &error);
+		if (ret == 0) {
+			i_assert(error != NULL);
+			if (retriable_err_msg_r != NULL)
+				*retriable_err_msg_r = error;
+		}
+	} else
 		i_free(parser);
 	return ret;
 }

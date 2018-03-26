@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
@@ -46,7 +46,7 @@ static void i_stream_concat_destroy(struct iostream_private *stream)
 		i_stream_unref(&cstream->input[i]);
 	i_free(cstream->input);
 	i_free(cstream->input_size);
-	i_free(cstream->istream.w_buffer);
+	i_stream_free_buffer(&cstream->istream);
 }
 
 static void
@@ -155,7 +155,9 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	if (data_size > cur_data_pos)
 		ret = 0;
 	else {
-		/* need to read more */
+		/* need to read more - NOTE: Can't use i_stream_read_memarea()
+		   here, because our stream->buffer may point to the parent
+		   istream. */
 		i_assert(cur_data_pos == data_size);
 		ret = i_stream_read(cstream->cur_input);
 		if (ret == -2 || ret == 0)
@@ -187,17 +189,17 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		data = i_stream_get_data(cstream->cur_input, &data_size);
 	}
 
+	if (data_size == cur_data_pos) {
+		/* nothing new read - preserve the buffer as it was */
+		i_assert(ret == 0 || ret == -1);
+		return ret;
+	}
 	if (cstream->prev_stream_left == 0) {
 		/* we can point directly to the current stream's buffers */
 		stream->buffer = data;
 		stream->pos -= stream->skip;
 		stream->skip = 0;
 		new_pos = data_size;
-	} else if (data_size == cur_data_pos) {
-		/* nothing new read */
-		i_assert(ret == 0 || ret == -1);
-		stream->buffer = stream->w_buffer;
-		new_pos = stream->pos;
 	} else {
 		/* we still have some of the previous stream left. merge the
 		   new data with it. */
@@ -219,8 +221,8 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		new_pos = stream->pos + new_bytes_count;
 	}
 
-	ret = new_pos > stream->pos ? (ssize_t)(new_pos - stream->pos) :
-		(ret == 0 ? 0 : -1);
+	i_assert(new_pos > stream->pos);
+	ret = (ssize_t)(new_pos - stream->pos);
 	stream->pos = new_pos;
 	cstream->prev_skip = stream->skip;
 	return ret;
@@ -363,5 +365,6 @@ struct istream *i_stream_create_concat(struct istream *input[])
 	cstream->istream.istream.readable_fd = FALSE;
 	cstream->istream.istream.blocking = blocking;
 	cstream->istream.istream.seekable = seekable;
-	return i_stream_create(&cstream->istream, NULL, -1);
+	return i_stream_create(&cstream->istream, NULL, -1,
+			       ISTREAM_CREATE_FLAG_NOOP_SNAPSHOT);
 }

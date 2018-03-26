@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-smtp \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-imap-client \
 	-I$(top_srcdir)/src/lib-settings \
@@ -135,8 +136,7 @@ test_quota_util_SOURCES = test-quota-util.c
 test_quota_util_LDADD = quota-util.lo $(test_libs)
 test_quota_util_DEPENDENCIES = quota-util.lo $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
