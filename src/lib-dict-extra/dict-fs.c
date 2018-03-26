@@ -168,12 +168,13 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 		iter->fs_iter = fs_iter_init(dict->fs, path, 0);
 		return fs_dict_iterate(ctx, key_r, value_r);
 	}
+	path = t_strconcat(iter->paths[iter->path_idx], *key_r, NULL);
 	if ((iter->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
+		*key_r = path;
 		*value_r = NULL;
 		return TRUE;
 	}
 	p_clear(iter->value_pool);
-	path = t_strconcat(iter->paths[iter->path_idx], *key_r, NULL);
 	if ((ret = fs_dict_lookup(ctx->dict, iter->value_pool, path, value_r, &error)) < 0) {
 		/* I/O error */
 		iter->error = i_strdup(error);
@@ -182,6 +183,7 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 		/* file was just deleted, just skip to next one */
 		return fs_dict_iterate(ctx, key_r, value_r);
 	}
+	*key_r = path;
 	return TRUE;
 }
 
