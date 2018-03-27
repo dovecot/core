@@ -615,8 +615,6 @@ static bool
 openssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 				 const char *verify_name, const char **reason_r)
 {
-	if (ssl_io->allow_invalid_cert)
-		return TRUE;
 	if (!ssl_iostream_has_valid_client_cert(ssl_io)) {
 		*reason_r = "Invalid certificate";
 		return FALSE;
@@ -660,7 +658,8 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			openssl_iostream_set_error(ssl_io, error);
 			ssl_io->handshake_failed = TRUE;
 		}
-	} else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed) {
+       } else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed &&
+		  !ssl_io->allow_invalid_cert) {
 		if (!ssl_iostream_cert_match_name(ssl_io, ssl_io->connected_host, &reason)) {
 			openssl_iostream_set_error(ssl_io, t_strdup_printf(
 				"SSL certificate doesn't match expected host name %s: %s",
