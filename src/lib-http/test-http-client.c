@@ -284,6 +284,12 @@ static void run_tests(struct http_client *http_client)
 	http_client_request_set_payload(http_req, post_payload, TRUE);
 	i_stream_unref(&post_payload);
 	http_client_request_submit(http_req);
+
+	test_req = i_new(struct http_test_request, 1);
+	http_req = http_client_request_url_str(http_client,
+		"GET", "https://invalid.dovecot.org/",
+		got_request_response, test_req);
+	http_client_request_submit(http_req);
 }
 
 static void
