@@ -68,7 +68,7 @@ client_get_auth_flags(struct client *client)
 	if (client->ssl_iostream != NULL &&
 	    ssl_iostream_has_valid_client_cert(client->ssl_iostream))
 		auth_flags |= AUTH_REQUEST_FLAG_VALID_CLIENT_CERT;
-	if (client->tls)
+	if (client->tls || client->proxied_ssl)
 		auth_flags |= AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS;
 	if (client->secured)
 		auth_flags |= AUTH_REQUEST_FLAG_SECURED;
