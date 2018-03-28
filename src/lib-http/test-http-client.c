@@ -356,6 +356,7 @@ int main(int argc, char *argv[])
 	struct http_client_context *http_cctx;
 	struct http_client *http_client1, *http_client2, *http_client3, *http_client4;
 	struct ssl_iostream_settings ssl_set;
+	struct stat st;
 	const char *error;
 
 	lib_init();
@@ -385,8 +386,10 @@ int main(int argc, char *argv[])
 	}
 	i_zero(&ssl_set);
 	ssl_set.allow_invalid_cert = TRUE;
-	ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
-	ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
+	if (stat("/etc/ssl/certs", &st) == 0 && S_ISDIR(st.st_mode))
+		ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
+	if (stat("/etc/ssl/certs", &st) == 0 && S_ISREG(st.st_mode))
+		ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
 
 	i_zero(&http_set);
 	http_set.ssl = &ssl_set;
