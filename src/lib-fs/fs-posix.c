@@ -827,7 +827,8 @@ static bool fs_posix_iter_want(struct posix_fs_iter *iter, const char *fname)
 		const char *path = t_strdup_printf("%s/%s", iter->path, fname);
 		struct stat st;
 
-		if (stat(path, &st) < 0)
+		if (stat(path, &st) < 0 &&
+		    lstat(path, &st) < 0)
 			ret = FALSE;
 		else if (!S_ISDIR(st.st_mode))
 			ret = (iter->iter.flags & FS_ITER_FLAG_DIRS) == 0;
