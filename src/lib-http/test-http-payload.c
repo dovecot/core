@@ -1176,7 +1176,7 @@ static void test_client_echo_continue(void)
 			(path == NULL ? "none" : path), client_files_first);
 	}
 
-	if (client_files_first >= count) {
+	if (client_files_first >= count || failure != NULL) {
 		io_loop_stop(current_ioloop);
 		return;
 	}
@@ -1295,7 +1295,7 @@ static void test_client_echo_continue(void)
 		}
 		ioloop_nested_first = ioloop_nested_last = 0;
 
-		if (client_files_first >= count) {
+		if (client_files_first >= count || failure != NULL) {
 			io_loop_stop(current_ioloop);
 			return;
 		}
