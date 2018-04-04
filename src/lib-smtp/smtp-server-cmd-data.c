@@ -174,7 +174,8 @@ static void cmd_data_input_error(struct smtp_server_cmd_ctx *cmd)
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
 	struct cmd_data_context *data_cmd = command->data;
-	unsigned int stream_errno = conn->state.data_input->stream_errno;
+	struct istream *data_input = conn->state.data_input;
+	unsigned int stream_errno = data_input->stream_errno;
 
 	conn->state.data_failed = TRUE;
 
@@ -190,8 +191,8 @@ static void cmd_data_input_error(struct smtp_server_cmd_ctx *cmd)
 		smtp_server_connection_error(conn,
 			"Connection lost during data transfer: "
 			"read(%s) failed: %s",
-			i_stream_get_name(conn->conn.input),
-			i_stream_get_error(conn->conn.input));
+			i_stream_get_name(data_input),
+			i_stream_get_error(data_input));
 		smtp_server_connection_close(&conn, "Read failure");
 	} else {
 		smtp_server_connection_debug(conn,
