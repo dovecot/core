@@ -759,9 +759,10 @@ test_client_create_clients(const struct http_client_settings *client_set)
 
 static void test_client_download_continue(void);
 
-static void test_client_download_finished(unsigned int files_idx)
+static void test_client_download_finished(struct test_client_request *tcreq)
 {
 	const char **paths;
+	unsigned int files_idx = tcreq->files_idx;
 	unsigned int count;
 
 	paths = array_get_modifiable(&files, &count);
@@ -779,7 +780,6 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 	struct istream *payload = tcreq->payload;
 	const unsigned char *pdata, *fdata;
 	size_t psize, fsize, pleft;
-	unsigned int files_idx = tcreq->files_idx;
 	off_t ret;
 
 	timeout_reset(to_client_progress);
@@ -841,13 +841,14 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 				tcreq->files_idx);
 		}
 
-		/* dereference payload stream; finishes the request */
+		/* finished */
 		tcreq->payload = NULL;
+		test_client_download_finished(tcreq);
+
+		/* dereference payload stream; finishes the request */
+		i_stream_unref(&tcreq->file_in);
 		io_remove(&tcreq->io); /* holds a reference too */
 		i_stream_unref(&payload);
-
-		/* finished */
-		test_client_download_finished(files_idx);
 	}
 }
 
@@ -898,7 +899,7 @@ test_client_download_response(const struct http_response *resp,
 				path, resp->status, resp->reason);
 		}
 		i_stream_unref(&fstream);
-		test_client_download_finished(tcreq->files_idx);
+		test_client_download_finished(tcreq);
 		return;
 	}
 
@@ -909,7 +910,7 @@ test_client_download_response(const struct http_response *resp,
 				path, tcreq->files_idx);
 		}
 		i_stream_unref(&fstream);
-		test_client_download_finished(tcreq->files_idx);
+		test_client_download_finished(tcreq);
 		return;
 	}
 
