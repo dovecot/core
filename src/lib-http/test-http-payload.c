@@ -40,6 +40,9 @@ enum payload_handling {
 
 static bool debug = FALSE;
 static const char *failure = NULL;
+static struct timeout *to_continue = NULL;
+static bool files_finished = FALSE;
+static bool running_continue = FALSE;
 
 static struct test_settings {
 	/* client */
@@ -705,6 +708,8 @@ static void test_client_switch_ioloop(void)
 {
 	struct test_client_request *tcreq;
 
+	if (to_continue != NULL)
+		to_continue = io_loop_move_timeout(&to_continue);
 	if (to_client_progress != NULL)
 		to_client_progress = io_loop_move_timeout(&to_client_progress);
 
@@ -992,7 +997,7 @@ static void test_client_download(const struct http_client_settings *client_set)
 
 /* echo */
 
-static void test_client_echo_continue(void);
+static void test_client_echo_continue(void *context);
 
 static void test_client_echo_finished(unsigned int files_idx)
 {
@@ -1005,7 +1010,11 @@ static void test_client_echo_finished(unsigned int files_idx)
 	i_assert(paths[files_idx] != NULL);
 
 	paths[files_idx] = NULL;
-	test_client_echo_continue();
+	files_finished = TRUE;
+	if (!running_continue && to_continue == NULL) {
+		to_continue = timeout_add_short(0,
+			test_client_echo_continue, NULL);
+	}
 }
 
 static void test_client_echo_payload_input(struct test_client_request *tcreq)
@@ -1163,12 +1172,17 @@ test_client_echo_response(const struct http_response *resp,
 	test_client_echo_payload_input(tcreq);
 }
 
-static void test_client_echo_continue(void)
+static void test_client_echo_continue(void *context ATTR_UNUSED)
 {
 	struct test_client_request *tcreq;
 	struct http_client_request *hreq;
 	const char **paths;
 	unsigned int count, first_submitted;
+	bool prev_files_finished = files_finished;
+
+	running_continue = TRUE;
+	files_finished = FALSE;
+	timeout_remove(&to_continue);
 
 	paths = array_get_modifiable(&files, &count);
 
@@ -1193,6 +1207,8 @@ static void test_client_echo_continue(void)
 	}
 
 	if (client_files_first >= count || failure != NULL) {
+		running_continue = FALSE;
+		files_finished = prev_files_finished;
 		io_loop_stop(current_ioloop);
 		return;
 	}
@@ -1248,6 +1264,13 @@ static void test_client_echo_continue(void)
 
 		i_stream_unref(&fstream);
 	}
+
+	if (files_finished && to_continue == NULL) {
+		to_continue = timeout_add_short(0,
+			test_client_echo_continue, NULL);
+	}
+	running_continue = FALSE;
+	files_finished = prev_files_finished;
 
 	/* run nested ioloop (if requested) if new requests cross a nesting
 	   boundary */
@@ -1325,7 +1348,10 @@ static void test_client_echo(const struct http_client_settings *client_set)
 
 	/* start querying server */
 	client_files_first = client_files_last = 0;
-	test_client_echo_continue();
+
+	i_assert(to_continue == NULL);
+	to_continue = timeout_add_short(0,
+		test_client_echo_continue, NULL);
 }
 
 /* cleanup */
@@ -1340,6 +1366,7 @@ static void test_client_deinit(void)
 
 	tset.parallel_clients = 1;
 
+	timeout_remove(&to_continue);
 	timeout_remove(&to_client_progress);
 }
 
