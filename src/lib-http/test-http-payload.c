@@ -876,6 +876,8 @@ static void test_server_deinit(void)
  */
 
 struct test_client_request {
+	int refcount;
+
 	struct test_client_request *prev, *next;
 	struct http_client_request *hreq;
 
@@ -895,19 +897,38 @@ static struct test_client_request *test_client_request_new(void)
 	struct test_client_request *tcreq;
 
 	tcreq = i_new(struct test_client_request, 1);
+	tcreq->refcount = 1;
 	DLLIST_PREPEND(&client_requests, tcreq);
 
 	return tcreq;
 }
 
-static void test_client_request_destroy(struct test_client_request *tcreq)
+static void test_client_request_ref(struct test_client_request *tcreq)
 {
+	tcreq->refcount++;
+}
+
+static void test_client_request_unref(struct test_client_request **_tcreq)
+{
+	struct test_client_request *tcreq = *_tcreq;
+
+	*_tcreq = NULL;
+
+	i_assert(tcreq->refcount > 0);
+	if (--tcreq->refcount > 0)
+		return;
+
 	io_remove(&tcreq->io);
 	i_stream_unref(&tcreq->payload);
 	i_stream_unref(&tcreq->file_in);
 
 	DLLIST_REMOVE(&client_requests, tcreq);
 	i_free(tcreq);
+}
+
+static void test_client_request_destroy(struct test_client_request *tcreq)
+{
+	test_client_request_unref(&tcreq);
 }
 
 static void test_client_switch_ioloop(void)
