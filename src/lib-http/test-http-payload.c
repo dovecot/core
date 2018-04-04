@@ -91,7 +91,7 @@ static void test_files_read_dir(const char *path)
 		struct stat st;
 
 		errno = 0;
-		if ((dp=readdir(dirp)) == NULL)
+		if ((dp = readdir(dirp)) == NULL)
 			break;
 		if (*dp->d_name == '.' ||
 		    dp->d_name[strcspn(dp->d_name, unsafe_characters)] != '\0')
@@ -122,8 +122,8 @@ static void test_files_read_dir(const char *path)
 static void test_files_init(void)
 {
 	/* initialize file array */
-	files_pool = pool_alloconly_create
-		(MEMPOOL_GROWING"http_server_request", 4096);
+	files_pool = pool_alloconly_create(
+		MEMPOOL_GROWING"http_server_request", 4096);
 	p_array_init(&files, files_pool, 512);
 
 	/* obtain all filenames */
@@ -136,9 +136,8 @@ static void test_files_deinit(void)
 }
 
 static struct istream *
-test_file_open(const char *path,
-	unsigned int *status_r, const char **reason_r)
-	ATTR_NULL(2, 3)
+test_file_open(const char *path, unsigned int *status_r, const char **reason_r)
+	       ATTR_NULL(2, 3)
 {
 	int fd;
 
@@ -210,8 +209,7 @@ static struct client *clients;
 
 /* location: /succes */
 
-static void
-client_handle_success_request(struct client_request *creq)
+static void client_handle_success_request(struct client_request *creq)
 {
 	struct http_server_request *req = creq->server_req;
 	const struct http_request *hreq =
@@ -231,9 +229,8 @@ client_handle_success_request(struct client_request *creq)
 /* location: /download/... */
 
 static void
-client_handle_download_request(
-	struct client_request *creq,
-	const char *path)
+client_handle_download_request(struct client_request *creq,
+			       const char *path)
 {
 	struct http_server_request *req = creq->server_req;
 	const struct http_request *hreq =
@@ -268,7 +265,8 @@ client_handle_download_request(
 
 	if (blocking) {
 		output = http_server_response_get_payload_output(resp, TRUE);
-		if (o_stream_send_istream(output, fstream) != OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
+		if (o_stream_send_istream(output, fstream) !=
+				OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
 			i_fatal("test server: download: "
 				"failed to send blocking file payload");
 		}
@@ -291,16 +289,15 @@ client_handle_download_request(
 
 /* location: /echo */
 
-static void
-client_request_finish_payload_in(struct client_request *creq)
+static void client_request_finish_payload_in(struct client_request *creq)
 {
 	struct http_server_response *resp;
 	struct istream *payload_input;
 
-	payload_input = iostream_temp_finish(&creq->payload_output, 4096);
+	payload_input =
+		iostream_temp_finish(&creq->payload_output, 4096);
 
-	resp = http_server_response_create
-		(creq->server_req, 200, "OK");
+	resp = http_server_response_create(creq->server_req, 200, "OK");
 	http_server_response_add_header(resp, "Content-Type", "text/plain");
 	http_server_response_set_payload(resp, payload_input);
 	http_server_response_submit(resp);
@@ -308,8 +305,7 @@ client_request_finish_payload_in(struct client_request *creq)
 	i_stream_unref(&payload_input);
 }
 
-static void
-client_request_read_echo(struct client_request *creq)
+static void client_request_read_echo(struct client_request *creq)
 {
 	enum ostream_send_istream_result res;
 
@@ -325,18 +321,19 @@ client_request_read_echo(struct client_request *creq)
 		return;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		i_fatal("test server: echo: "
-			"Failed to read all echo payload [%s]", creq->path);
+			"Failed to read all echo payload [%s]",
+			creq->path);
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		i_fatal("test server: echo: "
-			"Failed to write all echo payload [%s]", creq->path);
+			"Failed to write all echo payload [%s]",
+			creq->path);
 	}
 
 	client_request_finish_payload_in(creq);
 	i_stream_unref(&creq->payload_input);
 }
 
-static void
-client_request_read_echo_more(struct client_request *creq)
+static void client_request_read_echo_more(struct client_request *creq)
 {
 	client_request_read_echo(creq);
 
@@ -347,13 +344,14 @@ client_request_read_echo_more(struct client_request *creq)
 
 	if (debug) {
 		i_debug("test server: echo: "
-			"finished receiving payload for %s", creq->path);
+			"finished receiving payload for %s",
+			creq->path);
 	}
 }
 
 static void
 client_handle_echo_request(struct client_request *creq,
-	const char *path)
+			   const char *path)
 {
 	struct http_server_request *req = creq->server_req;
 	const struct http_request *hreq =
@@ -362,8 +360,7 @@ client_handle_echo_request(struct client_request *creq,
 	struct ostream *payload_output;
 	uoff_t size;
 
-	creq->path = p_strdup
-		(http_server_request_get_pool(req), path);
+	creq->path = p_strdup(http_server_request_get_pool(req), path);
 
 	if (strcmp(hreq->method, "PUT") != 0) {
 		http_server_request_fail(req,
@@ -374,15 +371,14 @@ client_handle_echo_request(struct client_request *creq,
 	size = 0;
 	(void)http_request_get_payload_size(hreq, &size);
 	if (size == 0) {
-		resp = http_server_response_create
-			(creq->server_req, 200, "OK");
-		http_server_response_add_header(resp, "Content-Type", "text/plain");
+		resp = http_server_response_create(creq->server_req, 200, "OK");
+		http_server_response_add_header(resp,
+			"Content-Type", "text/plain");
 		http_server_response_submit(resp);
 		return;
 	}
 
-	payload_output = iostream_temp_create
-		("/tmp/test-http-server", 0);
+	payload_output = iostream_temp_create("/tmp/test-http-server", 0);
 
 	if (blocking) {
 		struct istream *payload_input;
@@ -392,12 +388,14 @@ client_handle_echo_request(struct client_request *creq,
 
 		if (read_server_partial > 0) {
 			struct istream *partial =
-				i_stream_create_limit(payload_input, read_server_partial);
+				i_stream_create_limit(payload_input,
+						      read_server_partial);
 			i_stream_unref(&payload_input);
 			payload_input = partial;
 		}
 
-		if (o_stream_send_istream(payload_output, payload_input) != OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
+		if (o_stream_send_istream(payload_output, payload_input) !=
+			OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
 			i_fatal("test server: echo: "
 				"failed to receive blocking echo payload");
 		}
@@ -407,27 +405,31 @@ client_handle_echo_request(struct client_request *creq,
 
 		if (debug) {
 			i_debug("test server: echo: "
-				"finished receiving blocking payload for %s", path);
+				"finished receiving blocking payload for %s",
+				path);
 		}
 
 		resp = http_server_response_create(req, 200, "OK");
-		http_server_response_add_header(resp, "Content-Type", "text/plain");
+		http_server_response_add_header(resp,
+			"Content-Type", "text/plain");
 
-		payload_output = http_server_response_get_payload_output(resp, TRUE);
-		if (o_stream_send_istream(payload_output, payload_input) != OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
+		payload_output =
+			http_server_response_get_payload_output(resp, TRUE);
+		if (o_stream_send_istream(payload_output, payload_input) !=
+			OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
 			i_fatal("test server: echo: "
 				"failed to send blocking echo payload");
 		}
 
 		if (debug) {
 			i_debug("test server: echo: "
-				"finished sending blocking payload for %s", path);
+				"finished sending blocking payload for %s",
+				path);
 		}
 
 		i_stream_unref(&payload_input);
 		o_stream_close(payload_output);
 		o_stream_unref(&payload_output);
-
 	} else {
 		creq->payload_output = payload_output;
 
@@ -438,7 +440,8 @@ client_handle_echo_request(struct client_request *creq,
 
 			if (read_server_partial > 0) {
 				struct istream *partial =
-					i_stream_create_limit(creq->payload_input, read_server_partial);
+					i_stream_create_limit(creq->payload_input,
+							      read_server_partial);
 				i_stream_unref(&creq->payload_input);
 				creq->payload_input = partial;
 			}
@@ -469,7 +472,7 @@ http_server_request_destroyed(struct client_request *creq);
 
 static struct client_request *
 client_request_init(struct client *client,
-	struct http_server_request *req)
+		    struct http_server_request *req)
 {
 	struct client_request *creq;
 	pool_t pool = http_server_request_get_pool(req);
@@ -509,7 +512,7 @@ http_server_request_destroyed(struct client_request *creq)
 
 static void
 client_handle_request(void *context,
-	struct http_server_request *req)
+		      struct http_server_request *req)
 {
 	const struct http_request *hreq =
 		http_server_request_get(req);
@@ -519,7 +522,8 @@ client_handle_request(void *context,
 
 	if (debug) {
 		i_debug("test server: "
-			"request method=`%s' path=`%s'", hreq->method, path);
+			"request method=`%s' path=`%s'",
+			hreq->method, path);
 	}
 
 	creq = client_request_init(client, req);
@@ -529,7 +533,7 @@ client_handle_request(void *context,
 		return;
 	}
 
-	if ((p=strchr(path+1, '/')) == NULL) {
+	if ((p = strchr(path+1, '/')) == NULL) {
 		http_server_request_fail(req, 404, "Not found");
 		return;
 	}
@@ -548,8 +552,7 @@ client_handle_request(void *context,
 
 /* client connection */
 
-static void
-client_connection_destroy(void *context, const char *reason);
+static void client_connection_destroy(void *context, const char *reason);
 
 static const struct http_server_callbacks http_callbacks = {
 	.connection_destroy = client_connection_destroy,
@@ -567,8 +570,8 @@ static void client_init(int fd)
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
 
-	client->http_conn = http_server_connection_create(http_server,
-		fd, fd, test_ssl, &http_callbacks, client);
+	client->http_conn = http_server_connection_create(
+		http_server, fd, fd, test_ssl, &http_callbacks, client);
 	DLLIST_PREPEND(&clients, client);
 }
 
@@ -580,8 +583,10 @@ static void client_deinit(struct client **_client)
 
 	DLLIST_REMOVE(&clients, client);
 
-	if (client->http_conn != NULL)
-		http_server_connection_close(&client->http_conn, "deinit");
+	if (client->http_conn != NULL) {
+		http_server_connection_close(&client->http_conn,
+					     "deinit");
+	}
 	pool_unref(&client->pool);
 }
 
@@ -600,7 +605,7 @@ static void client_accept(void *context ATTR_UNUSED)
 
 	for (;;) {
 		/* accept new client */
-		if ((fd=net_accept(fd_listen, NULL, NULL)) < 0) {
+		if ((fd = net_accept(fd_listen, NULL, NULL)) < 0) {
 			if (errno == EAGAIN)
 				break;
 			if (errno == ECONNABORTED)
@@ -614,8 +619,7 @@ static void client_accept(void *context ATTR_UNUSED)
 
 /* */
 
-static void
-test_server_init(const struct http_server_settings *server_set)
+static void test_server_init(const struct http_server_settings *server_set)
 {
 	/* open server socket */
 	io_listen = io_add(fd_listen,
@@ -652,8 +656,7 @@ static struct test_client_request *client_requests;
 static unsigned int client_files_first, client_files_last;
 struct timeout *to_client_progress = NULL;
 
-static struct test_client_request *
-test_client_request_new(void)
+static struct test_client_request *test_client_request_new(void)
 {
 	struct test_client_request *tcreq;
 
@@ -663,8 +666,7 @@ test_client_request_new(void)
 	return tcreq;
 }
 
-static void
-test_client_request_destroy(struct test_client_request *tcreq)
+static void test_client_request_destroy(struct test_client_request *tcreq)
 {
 	io_remove(&tcreq->io);
 	i_stream_unref(&tcreq->payload);
@@ -674,8 +676,7 @@ test_client_request_destroy(struct test_client_request *tcreq)
 	i_free(tcreq);
 }
 
-static void
-test_client_switch_ioloop(void)
+static void test_client_switch_ioloop(void)
 {
 	struct test_client_request *tcreq;
 
@@ -690,8 +691,7 @@ test_client_switch_ioloop(void)
 	}
 }
 
-static void
-test_client_progress_timeout(void *context ATTR_UNUSED)
+static void test_client_progress_timeout(void *context ATTR_UNUSED)
 {
 	/* Terminate test due to lack of progress */
 	failure = "Test is hanging";
@@ -728,8 +728,7 @@ test_client_create_clients(const struct http_client_settings *client_set)
 
 static void test_client_download_continue(void);
 
-static void
-test_client_download_finished(unsigned int files_idx)
+static void test_client_download_finished(unsigned int files_idx)
 {
 	const char **paths;
 	unsigned int count;
@@ -755,7 +754,7 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 	timeout_reset(to_client_progress);
 
 	/* read payload */
-	while ((ret=i_stream_read_more(payload, &pdata, &psize)) > 0) {
+	while ((ret = i_stream_read_more(payload, &pdata, &psize)) > 0) {
 		if (debug) {
 			i_debug("test client: download: "
 				"got data for [%u] (size=%d)",
@@ -763,14 +762,16 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 		}
 		/* compare with file on disk */
 		pleft = psize;
-		while ((ret=i_stream_read_more
-			(tcreq->file, &fdata, &fsize)) > 0 && pleft > 0) {
+		while ((ret = i_stream_read_more(tcreq->file,
+						 &fdata, &fsize)) > 0 &&
+		       pleft > 0) {
 			fsize = (fsize > pleft ? pleft : fsize);
 			if (memcmp(pdata, fdata, fsize) != 0) {
 				i_fatal("test client: download: "
 					"received data does not match file "
 					"(%"PRIuUOFF_T":%"PRIuUOFF_T")",
-					payload->v_offset, tcreq->file->v_offset);
+					payload->v_offset,
+					tcreq->file->v_offset);
 			}
 			i_stream_skip(tcreq->file, fsize);
 			pleft -= fsize;
@@ -778,7 +779,8 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 		}
 		if (ret < 0 && tcreq->file->stream_errno != 0) {
 			i_fatal("test client: download: "
-				"failed to read file: %s", i_stream_get_error(tcreq->file));
+				"failed to read file: %s",
+				i_stream_get_error(tcreq->file));
 		}
 		i_stream_skip(payload, psize);
 	}
@@ -820,7 +822,7 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 
 static void
 test_client_download_response(const struct http_response *resp,
-		     struct test_client_request *tcreq)
+			      struct test_client_request *tcreq)
 {
 	const char **paths;
 	const char *path;
@@ -853,8 +855,9 @@ test_client_download_response(const struct http_response *resp,
 
 	if (status != resp->status) {
 		i_fatal("test client: download: "
-			"got wrong response for %s: %u %s (expected: %u %s)",
-			path, resp->status, resp->reason, status, reason);
+			"got wrong response for %s: %u %s "
+			"(expected: %u %s)", path,
+			resp->status, resp->reason, status, reason);
 	}
 
 	if (resp->status / 100 != 2) {
@@ -886,10 +889,10 @@ test_client_download_response(const struct http_response *resp,
 		tcreq->file = fstream;
 	} else {
 		struct istream *payload = resp->payload;
-		tcreq->payload = i_stream_create_limit
-			(payload, read_client_partial);
-		tcreq->file = i_stream_create_limit
-			(fstream, read_client_partial);
+		tcreq->payload = i_stream_create_limit(payload,
+						       read_client_partial);
+		tcreq->file = i_stream_create_limit(fstream,
+						    read_client_partial);
 		i_stream_unref(&fstream);
 	}
 
@@ -924,9 +927,9 @@ static void test_client_download_continue(void)
 		return;
 	}
 
-	for (; client_files_last < count &&
-			(client_files_last - client_files_first) < test_max_pending;
-		client_files_last++) {
+	for (; (client_files_last < count &&
+	        (client_files_last - client_files_first) < test_max_pending);
+	     client_files_last++) {
 		struct http_client *http_client =
 			http_clients[client_files_last % parallel_clients];
 		const char *path = paths[client_files_last];
@@ -951,8 +954,7 @@ static void test_client_download_continue(void)
 	}
 }
 
-static void
-test_client_download(const struct http_client_settings *client_set)
+static void test_client_download(const struct http_client_settings *client_set)
 {
 	/* create client(s) */
 	test_client_create_clients(client_set);
@@ -966,8 +968,7 @@ test_client_download(const struct http_client_settings *client_set)
 
 static void test_client_echo_continue(void);
 
-static void
-test_client_echo_finished(unsigned int files_idx)
+static void test_client_echo_finished(unsigned int files_idx)
 {
 	const char **paths;
 	unsigned int count;
@@ -981,8 +982,7 @@ test_client_echo_finished(unsigned int files_idx)
 	test_client_echo_continue();
 }
 
-static void
-test_client_echo_payload_input(struct test_client_request *tcreq)
+static void test_client_echo_payload_input(struct test_client_request *tcreq)
 {
 	struct istream *payload = tcreq->payload;
 	const unsigned char *pdata, *fdata;
@@ -993,7 +993,7 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 	timeout_reset(to_client_progress);
 
 	/* read payload */
-	while ((ret=i_stream_read_more(payload, &pdata, &psize)) > 0) {
+	while ((ret = i_stream_read_more(payload, &pdata, &psize)) > 0) {
 		if (debug) {
 			i_debug("test client: echo: "
 				"got data for [%u] (size=%d)",
@@ -1001,14 +1001,16 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 		}
 		/* compare with file on disk */
 		pleft = psize;
-		while ((ret=i_stream_read_more
-			(tcreq->file, &fdata, &fsize)) > 0 && pleft > 0) {
+		while ((ret = i_stream_read_more(tcreq->file,
+						 &fdata, &fsize)) > 0 &&
+		       pleft > 0) {
 			fsize = (fsize > pleft ? pleft : fsize);
 			if (memcmp(pdata, fdata, fsize) != 0) {
 				i_fatal("test client: echo: "
 					"received data does not match file "
 					"(%"PRIuUOFF_T":%"PRIuUOFF_T")",
-					payload->v_offset, tcreq->file->v_offset);
+					payload->v_offset,
+					tcreq->file->v_offset);
 			}
 			i_stream_skip(tcreq->file, fsize);
 			pleft -= fsize;
@@ -1016,7 +1018,8 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 		}
 		if (ret < 0 && tcreq->file->stream_errno != 0) {
 			i_fatal("test client: echo: "
-				"failed to read file: %s", i_stream_get_error(tcreq->file));
+				"failed to read file: %s",
+				i_stream_get_error(tcreq->file));
 		}
 		i_stream_skip(payload, psize);
 	}
@@ -1058,7 +1061,7 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 
 static void
 test_client_echo_response(const struct http_response *resp,
-		     struct test_client_request *tcreq)
+			  struct test_client_request *tcreq)
 {
 	const char **paths;
 	const char *path;
@@ -1106,8 +1109,8 @@ test_client_echo_response(const struct http_response *resp,
 	}
 
 	if (read_server_partial > 0) {
-		struct istream *partial = i_stream_create_limit
-			(fstream, read_server_partial);
+		struct istream *partial =
+			i_stream_create_limit(fstream, read_server_partial);
 		i_stream_unref(&fstream);
 		fstream = partial;
 	}
@@ -1152,15 +1155,15 @@ static void test_client_echo_continue(void)
 
 	if (debug) {
 		i_debug("test client: echo: "
-			"received until [%u/%u]", client_files_first-1, count);
+			"received until [%u/%u]",
+			client_files_first-1, count);
 	}
 
 	if (debug && client_files_first < count) {
 		const char *path = paths[client_files_first];
 		i_debug("test client: echo: "
 			"next blocking: %s [%d]",
-			(path == NULL ? "none" : path),
-			client_files_first);
+			(path == NULL ? "none" : path), client_files_first);
 	}
 
 	if (client_files_first >= count) {
@@ -1169,9 +1172,9 @@ static void test_client_echo_continue(void)
 	}
 
 	first_submitted = client_files_last;
-	for (; client_files_last < count &&
-			(client_files_last - client_files_first) < test_max_pending;
-		client_files_last++) {
+	for (; (client_files_last < count &&
+	        (client_files_last - client_files_first) < test_max_pending);
+	     client_files_last++) {
 		struct http_client *http_client =
 			http_clients[client_files_last % parallel_clients];
 		struct istream *fstream;
@@ -1211,8 +1214,8 @@ static void test_client_echo_continue(void)
 			test_client_echo_response, tcreq);
 		http_client_request_set_port(hreq, bind_port);
 		http_client_request_set_ssl(hreq, test_ssl);
-		http_client_request_set_payload
-			(hreq, fstream, request_100_continue);
+		http_client_request_set_payload(hreq, fstream,
+						request_100_continue);
 		http_client_request_set_destroy_callback(hreq,
 			test_client_request_destroy, tcreq);
 		http_client_request_submit(hreq);
@@ -1240,8 +1243,8 @@ static void test_client_echo_continue(void)
 		if (i == ioloop_nested_last)
 			io_loop_stop(ioloop_nested);
 	} else if (client_ioloop_nesting > 0 &&
-		((client_files_last / client_ioloop_nesting) !=
-			(first_submitted / client_ioloop_nesting)) ) {
+		   ((client_files_last / client_ioloop_nesting) !=
+			(first_submitted / client_ioloop_nesting))) {
 		struct ioloop *prev_ioloop = current_ioloop;
 		unsigned int i;
 
@@ -1251,8 +1254,9 @@ static void test_client_echo_continue(void)
 			ioloop_nested_last = client_files_last;
 
 		if (debug) {
-			i_debug("test client: echo: entering ioloop for %u...%u (depth=%u)",
-				ioloop_nested_first, ioloop_nested_last, ioloop_nested_depth);
+			i_debug("test client: echo: entering ioloop for %u...%u "
+				"(depth=%u)", ioloop_nested_first,
+				ioloop_nested_last, ioloop_nested_depth);
 		}
 
 		ioloop_nested_depth++;
@@ -1275,8 +1279,9 @@ static void test_client_echo_continue(void)
 		ioloop_nested_depth--;
 
 		if (debug) {
-			i_debug("test client: echo: leaving ioloop for %u...%u (depth=%u)",
-				ioloop_nested_first, ioloop_nested_last, ioloop_nested_depth);
+			i_debug("test client: echo: leaving ioloop for %u...%u "
+				"(depth=%u)", ioloop_nested_first,
+				ioloop_nested_last, ioloop_nested_depth);
 		}
 		ioloop_nested_first = ioloop_nested_last = 0;
 
@@ -1287,8 +1292,7 @@ static void test_client_echo_continue(void)
 	}
 }
 
-static void
-test_client_echo(const struct http_client_settings *client_set)
+static void test_client_echo(const struct http_client_settings *client_set)
 {
 	/* create client */
 	test_client_create_clients(client_set);
@@ -1379,7 +1383,8 @@ static void test_run_client_server(
 	}
 }
 
-static void test_run_sequential(
+static void
+test_run_sequential(
 	void (*client_init)(const struct http_client_settings *client_set))
 {
 	struct http_server_settings http_server_set;
@@ -1412,14 +1417,14 @@ static void test_run_sequential(
 	http_client_set.debug = debug;
 
 	test_files_init();
-	test_run_client_server
-		(&http_client_set, &http_server_set, client_init);
+	test_run_client_server(&http_client_set, &http_server_set, client_init);
 	test_files_deinit();
 
 	test_out_reason("sequential", (failure == NULL), failure);
 }
 
-static void test_run_pipeline(
+static void
+test_run_pipeline(
 	void (*client_init)(const struct http_client_settings *client_set))
 {
 	struct http_server_settings http_server_set;
@@ -1452,14 +1457,14 @@ static void test_run_pipeline(
 	http_client_set.debug = debug;
 
 	test_files_init();
-	test_run_client_server
-		(&http_client_set, &http_server_set, client_init);
+	test_run_client_server(&http_client_set, &http_server_set, client_init);
 	test_files_deinit();
 
 	test_out_reason("pipeline", (failure == NULL), failure);
 }
 
-static void test_run_parallel(
+static void
+test_run_parallel(
 	void (*client_init)(const struct http_client_settings *client_set))
 {
 	struct http_server_settings http_server_set;
@@ -1492,8 +1497,7 @@ static void test_run_parallel(
 	http_client_set.debug = debug;
 
 	test_files_init();
-	test_run_client_server
-		(&http_client_set, &http_server_set, client_init);
+	test_run_client_server(&http_client_set, &http_server_set, client_init);
 	test_files_deinit();
 
 	test_out_reason("parallel", (failure == NULL), failure);
@@ -1532,7 +1536,8 @@ static void test_download_server_blocking(void)
 
 static void test_echo_server_nonblocking(void)
 {
-	test_begin("http payload echo (server non-blocking)");
+	test_begin("http payload echo "
+		   "(server non-blocking)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1545,7 +1550,8 @@ static void test_echo_server_nonblocking(void)
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; low-level)");
+	test_begin("http payload echo "
+		   "(server non-blocking; low-level)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1558,7 +1564,8 @@ static void test_echo_server_nonblocking(void)
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; handler)");
+	test_begin("http payload echo "
+		   "(server non-blocking; handler)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1601,7 +1608,8 @@ static void test_echo_server_blocking(void)
 
 static void test_echo_server_nonblocking_sync(void)
 {
-	test_begin("http payload echo (server non-blocking; 100-continue)");
+	test_begin("http payload echo "
+		   "(server non-blocking; 100-continue)");
 	blocking = FALSE;
 	request_100_continue = TRUE;
 	test_unknown_size = FALSE;
@@ -1614,7 +1622,8 @@ static void test_echo_server_nonblocking_sync(void)
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; 100-continue; low-level)");
+	test_begin("http payload echo "
+		   "(server non-blocking; 100-continue; low-level)");
 	blocking = FALSE;
 	request_100_continue = TRUE;
 	test_unknown_size = FALSE;
@@ -1627,7 +1636,8 @@ static void test_echo_server_nonblocking_sync(void)
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; 100-continue; handler)");
+	test_begin("http payload echo "
+		   "(server non-blocking; 100-continue; handler)");
 	blocking = FALSE;
 	request_100_continue = TRUE;
 	test_unknown_size = FALSE;
@@ -1658,7 +1668,8 @@ static void test_echo_server_blocking_sync(void)
 
 static void test_echo_server_nonblocking_partial(void)
 {
-	test_begin("http payload echo (server non-blocking; partial short)");
+	test_begin("http payload echo "
+		   "(server non-blocking; partial short)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1670,14 +1681,16 @@ static void test_echo_server_nonblocking_partial(void)
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
-	test_begin("http payload echo (server non-blocking; partial long)");
+	test_begin("http payload echo "
+		   "(server non-blocking; partial long)");
 	read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; partial short; low-level)");
+	test_begin("http payload echo (server non-blocking; "
+		   "partial short; low-level)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1689,14 +1702,16 @@ static void test_echo_server_nonblocking_partial(void)
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
-	test_begin("http payload echo (server non-blocking; partial long; low-level)");
+	test_begin("http payload echo "
+		   "(server non-blocking; partial long; low-level)");
 	read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; partial short; handler)");
+	test_begin("http payload echo "
+		   "(server non-blocking; partial short; handler)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1708,7 +1723,8 @@ static void test_echo_server_nonblocking_partial(void)
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
-	test_begin("http payload echo (server non-blocking; partial long; handler)");
+	test_begin("http payload echo "
+		   "(server non-blocking; partial long; handler)");
 	read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
@@ -1782,7 +1798,8 @@ static void test_download_client_nested_ioloop(void)
 
 static void test_echo_client_shared(void)
 {
-	test_begin("http payload download (server non-blocking; client shared)");
+	test_begin("http payload download "
+		   "(server non-blocking; client shared)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1798,7 +1815,8 @@ static void test_echo_client_shared(void)
 	test_run_parallel(test_client_download);
 	test_end();
 
-	test_begin("http payload download (server blocking; client shared)");
+	test_begin("http payload download "
+		   "(server blocking; client shared)");
 	blocking = TRUE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1813,7 +1831,8 @@ static void test_echo_client_shared(void)
 	test_run_parallel(test_client_download);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; client shared)");
+	test_begin("http payload echo "
+		   "(server non-blocking; client shared)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1829,7 +1848,8 @@ static void test_echo_client_shared(void)
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server blocking; client shared)");
+	test_begin("http payload echo "
+		   "(server blocking; client shared)");
 	blocking = TRUE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1844,7 +1864,8 @@ static void test_echo_client_shared(void)
 	test_run_parallel(test_client_echo);
 	test_end();
 
-	test_begin("http payload echo (server non-blocking; client global)");
+	test_begin("http payload echo "
+		   "(server non-blocking; client global)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
 	test_unknown_size = FALSE;
@@ -1919,8 +1940,7 @@ static void (*const test_functions[])(void) = {
 
 volatile sig_atomic_t terminating = 0;
 
-static void
-test_signal_handler(int signo)
+static void test_signal_handler(int signo)
 {
 	if (terminating != 0)
 		raise(signo);
