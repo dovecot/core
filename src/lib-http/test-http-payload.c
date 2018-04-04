@@ -369,8 +369,12 @@ client_handle_echo_request(struct client_request *creq,
 	}
 
 	size = 0;
-	(void)http_request_get_payload_size(hreq, &size);
-	if (size == 0) {
+	if (http_request_get_payload_size(hreq, &size) > 0 && size == 0) {
+		if (debug) {
+			i_debug("test server: echo: "
+				"empty payload for %s", creq->path);
+		}
+
 		resp = http_server_response_create(creq->server_req, 200, "OK");
 		http_server_response_add_header(resp,
 			"Content-Type", "text/plain");
