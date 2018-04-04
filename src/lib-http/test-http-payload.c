@@ -297,6 +297,12 @@ static void client_request_finish_payload_in(struct client_request *creq)
 	payload_input =
 		iostream_temp_finish(&creq->payload_output, 4096);
 
+	if (debug) {
+		i_debug("test server: echo: "
+			"finished receiving payload for %s",
+			creq->path);
+	}
+
 	resp = http_server_response_create(creq->server_req, 200, "OK");
 	http_server_response_add_header(resp, "Content-Type", "text/plain");
 	http_server_response_set_payload(resp, payload_input);
