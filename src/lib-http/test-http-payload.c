@@ -672,7 +672,7 @@ struct test_client_request {
 
 	struct io *io;
 	struct istream *payload;
-	struct istream *file;
+	struct istream *file_in;
 	unsigned int files_idx;
 };
 
@@ -695,7 +695,7 @@ static void test_client_request_destroy(struct test_client_request *tcreq)
 {
 	io_remove(&tcreq->io);
 	i_stream_unref(&tcreq->payload);
-	i_stream_unref(&tcreq->file);
+	i_stream_unref(&tcreq->file_in);
 
 	DLLIST_REMOVE(&client_requests, tcreq);
 	i_free(tcreq);
@@ -788,7 +788,7 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 		}
 		/* compare with file on disk */
 		pleft = psize;
-		while ((ret = i_stream_read_more(tcreq->file,
+		while ((ret = i_stream_read_more(tcreq->file_in,
 						 &fdata, &fsize)) > 0 &&
 		       pleft > 0) {
 			fsize = (fsize > pleft ? pleft : fsize);
@@ -797,16 +797,16 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 					"received data does not match file "
 					"(%"PRIuUOFF_T":%"PRIuUOFF_T")",
 					payload->v_offset,
-					tcreq->file->v_offset);
+					tcreq->file_in->v_offset);
 			}
-			i_stream_skip(tcreq->file, fsize);
+			i_stream_skip(tcreq->file_in, fsize);
 			pleft -= fsize;
 			pdata += fsize;
 		}
-		if (ret < 0 && tcreq->file->stream_errno != 0) {
+		if (ret < 0 && tcreq->file_in->stream_errno != 0) {
 			i_fatal("test client: download: "
 				"failed to read file: %s",
-				i_stream_get_error(tcreq->file));
+				i_stream_get_error(tcreq->file_in));
 		}
 		i_stream_skip(payload, psize);
 	}
@@ -819,13 +819,13 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 		}
 		/* we will be called again for this request */
 	} else {
-		(void)i_stream_read(tcreq->file);
+		(void)i_stream_read(tcreq->file_in);
 		if (payload->stream_errno != 0) {
 			i_fatal("test client: download: "
 				"failed to read request payload: %s",
 				i_stream_get_error(payload));
-		} if (i_stream_have_bytes_left(tcreq->file)) {
-			if (i_stream_read_more(tcreq->file, &fdata, &fsize) <= 0)
+		} if (i_stream_have_bytes_left(tcreq->file_in)) {
+			if (i_stream_read_more(tcreq->file_in, &fdata, &fsize) <= 0)
 				fsize = 0;
 			i_fatal("test client: download: "
 				"payload ended prematurely "
@@ -912,13 +912,13 @@ test_client_download_response(const struct http_response *resp,
 	if (tset.read_client_partial == 0) {
 		i_stream_ref(resp->payload);
 		tcreq->payload = resp->payload;
-		tcreq->file = fstream;
+		tcreq->file_in = fstream;
 	} else {
 		struct istream *payload = resp->payload;
 		tcreq->payload = i_stream_create_limit(payload,
 						       tset.read_client_partial);
-		tcreq->file = i_stream_create_limit(fstream,
-						    tset.read_client_partial);
+		tcreq->file_in = i_stream_create_limit(fstream,
+						       tset.read_client_partial);
 		i_stream_unref(&fstream);
 	}
 
@@ -1027,7 +1027,7 @@ static void test_client_echo_payload_input(struct test_client_request *tcreq)
 		}
 		/* compare with file on disk */
 		pleft = psize;
-		while ((ret = i_stream_read_more(tcreq->file,
+		while ((ret = i_stream_read_more(tcreq->file_in,
 						 &fdata, &fsize)) > 0 &&
 		       pleft > 0) {
 			fsize = (fsize > pleft ? pleft : fsize);
@@ -1036,16 +1036,16 @@ static void test_client_echo_payload_input(struct test_client_request *tcreq)
 					"received data does not match file "
 					"(%"PRIuUOFF_T":%"PRIuUOFF_T")",
 					payload->v_offset,
-					tcreq->file->v_offset);
+					tcreq->file_in->v_offset);
 			}
-			i_stream_skip(tcreq->file, fsize);
+			i_stream_skip(tcreq->file_in, fsize);
 			pleft -= fsize;
 			pdata += fsize;
 		}
-		if (ret < 0 && tcreq->file->stream_errno != 0) {
+		if (ret < 0 && tcreq->file_in->stream_errno != 0) {
 			i_fatal("test client: echo: "
 				"failed to read file: %s",
-				i_stream_get_error(tcreq->file));
+				i_stream_get_error(tcreq->file_in));
 		}
 		i_stream_skip(payload, psize);
 	}
@@ -1058,13 +1058,13 @@ static void test_client_echo_payload_input(struct test_client_request *tcreq)
 		}
 		/* we will be called again for this request */
 	} else {
-		(void)i_stream_read(tcreq->file);
+		(void)i_stream_read(tcreq->file_in);
 		if (payload->stream_errno != 0) {
 			i_fatal("test client: echo: "
 				"failed to read request payload: %s",
 				i_stream_get_error(payload));
-		} if (i_stream_have_bytes_left(tcreq->file)) {
-			if (i_stream_read_more(tcreq->file, &fdata, &fsize) <= 0)
+		} if (i_stream_have_bytes_left(tcreq->file_in)) {
+			if (i_stream_read_more(tcreq->file_in, &fdata, &fsize) <= 0)
 				fsize = 0;
 			i_fatal("test client: echo: "
 				"payload ended prematurely "
@@ -1154,7 +1154,7 @@ test_client_echo_response(const struct http_response *resp,
 	}
 
 	i_assert(fstream != NULL);
-	tcreq->file = fstream;
+	tcreq->file_in = fstream;
 
 	i_stream_ref(resp->payload);
 	tcreq->payload = resp->payload;
