@@ -690,7 +690,8 @@ static void test_client_switch_ioloop(void)
 {
 	struct test_client_request *tcreq;
 
-	to_client_progress = io_loop_move_timeout(&to_client_progress);
+	if (to_client_progress != NULL)
+		to_client_progress = io_loop_move_timeout(&to_client_progress);
 
 	for (tcreq = client_requests; tcreq != NULL;
 		tcreq = tcreq->next) {
