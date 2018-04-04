@@ -20,9 +20,7 @@ PrivateTmp=true
 NonBlocking=yes
 ProtectSystem=full
 PrivateDevices=true
-# disable this if you want to use apparmor plugin
-NoNewPrivileges=true
-CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_IPC_LOCK CAP_KILL CAP_NET_BIND_SERVICE CAP_SETGID CAP_SETUID CAP_SYS_CHROOT CAP_SYS_RESOURCE
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_IPC_LOCK CAP_KILL CAP_NET_BIND_SERVICE CAP_SETGID CAP_SETUID CAP_SYS_CHROOT CAP_SYS_RESOURCE CAP_AUDIT_WRITE
 
 # You can add environment variables with e.g.:
 #Environment='CORE_OUTOFMEM=1'
