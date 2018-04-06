@@ -100,7 +100,7 @@ static const struct submission_settings submission_default_settings = {
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_trusted_networks = "",
 
-	.submission_max_mail_size = 0,
+	.submission_max_mail_size = 40*1024*1024,
 	.submission_max_recipients = 0,
 	.submission_client_workarounds = "",
 	.submission_logout_format = "in=%i out=%o",
