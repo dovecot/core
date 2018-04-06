@@ -177,6 +177,9 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		}
 
 		i_stream_skip(data_input, size);
+
+		if (!smtp_server_cmd_data_check_size(cmd))
+			return -1;
 	}
 
 	if (ret == 0)
