@@ -477,7 +477,9 @@ smtp_command_parse_data_with_size(struct smtp_command_parser *parser,
 	if (size > parser->limits.max_data_size) {
 		/* not supposed to happen; command should check size */
 		parser->data = i_stream_create_error_str(EMSGSIZE, 
-			"Command data size exceeds maximum");
+			"Command data size exceeds maximum "
+			"(%"PRIuUOFF_T" > %"PRIuUOFF_T")",
+			size, parser->limits.max_data_size);
 	} else {
 		// FIXME: make exact_size stream type
 		parser->data = i_stream_create_min_sized(
@@ -497,7 +499,9 @@ smtp_command_parse_data_with_dot(struct smtp_command_parser *parser)
 	if (parser->limits.max_data_size != (uoff_t)-1) {
 		parser->data = i_stream_create_failure_at(
 			data, parser->limits.max_data_size, EMSGSIZE,
-			"Command data size exceeds maximum");
+			t_strdup_printf("Command data size exceeds maximum "
+					"(> %"PRIuUOFF_T")",
+					parser->limits.max_data_size));
 		i_stream_unref(&data);
 	} else {
 		parser->data = data;
