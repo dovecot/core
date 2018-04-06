@@ -151,6 +151,13 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
+	if ((caps & SMTP_CAPABILITY_SIZE) != 0 && set->max_message_size > 0 &&
+	    mail_data->params.size > set->max_message_size) {
+		smtp_server_reply(cmd, 552, "5.2.3",
+			"Message size exceeds administrative limit");
+		return;
+	}
+
 	mail_data->path = smtp_address_clone(cmd->pool, path);
 	mail_data->timestamp = ioloop_timeval;
 

@@ -258,6 +258,9 @@ struct smtp_server_settings {
 	/* command limits */
 	struct smtp_command_limits command_limits;
 
+	/* message size limit */
+	uoff_t max_message_size;
+
 	/* accept these additional custom XCLIENT fields */
 	const char *const *xclient_extensions;
 
@@ -453,6 +456,10 @@ void smtp_server_cmd_auth_send_challenge(struct smtp_server_cmd_ctx *cmd,
 void smtp_server_cmd_auth_success(struct smtp_server_cmd_ctx *cmd,
 	const char *username, const char *success_msg)
 	ATTR_NULL(3);
+
+/* DATA */
+
+bool smtp_server_cmd_data_check_size(struct smtp_server_cmd_ctx *cmd);
 
 /*
  * Reply

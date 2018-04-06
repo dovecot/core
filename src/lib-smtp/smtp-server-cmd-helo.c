@@ -122,6 +122,15 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 					"ENHANCEDSTATUSCODES");
 			}
 			smtp_server_reply_ehlo_add(reply, "PIPELINING");
+			if ((caps & SMTP_CAPABILITY_SIZE) != 0) {
+				uoff_t cap_size = conn->set.max_message_size;
+				if (cap_size > 0 && cap_size != (uoff_t)-1) {
+					smtp_server_reply_ehlo_add_param(reply,
+						"SIZE", "%"PRIuUOFF_T, cap_size);
+				} else {
+					smtp_server_reply_ehlo_add(reply, "SIZE");
+				}
+			}
 			if ((caps & SMTP_CAPABILITY_STARTTLS) != 0)
 				smtp_server_reply_ehlo_add(reply, "STARTTLS");
 			smtp_server_reply_ehlo_add(reply, "VRFY");

@@ -5,10 +5,11 @@
 
 #include "smtp-server.h"
 
-#define SMTP_SERVER_COMMAND_POOL_MAX          (8 * 1024)
+#define SMTP_SERVER_COMMAND_POOL_MAX              (8 * 1024)
 
-#define SMTP_SERVER_DEFAULT_MAX_COMMAND_LINE  (4 * 1024)
-#define SMTP_SERVER_DEFAULT_MAX_BAD_COMMANDS  10
+#define SMTP_SERVER_DEFAULT_MAX_COMMAND_LINE      (4 * 1024)
+#define SMTP_SERVER_DEFAULT_MAX_BAD_COMMANDS      10
+#define SMTP_SERVER_DEFAULT_MAX_SIZE_EXCESS_LIMIT (1024*1024)
 
 #define SMTP_SERVER_DEFAULT_CAPABILITIES \
 	(SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES | \
@@ -110,6 +111,7 @@ struct smtp_server_state_data {
 	struct istream *data_input, *data_chain_input;
 	struct istream_chain *data_chain;
 	unsigned int data_chunks;
+	uoff_t data_size;
 
 	bool data_failed:1;
 };
