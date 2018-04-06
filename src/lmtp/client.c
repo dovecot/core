@@ -157,6 +157,7 @@ struct client *client_create(int fd_in, int fd_out,
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	lmtp_set.hostname = client->unexpanded_lda_set->hostname;
 	lmtp_set.login_greeting = client->lmtp_set->login_greeting;
+	lmtp_set.max_message_size = (uoff_t)-1;
 	lmtp_set.rcpt_domain_optional = TRUE;
 	lmtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
 	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_rawlog_dir;
