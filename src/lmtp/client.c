@@ -156,6 +156,7 @@ struct client *client_create(int fd_in, int fd_out,
 	if (!conn->ssl && master_service_ssl_is_enabled(master_service))
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	lmtp_set.hostname = client->unexpanded_lda_set->hostname;
+	lmtp_set.max_message_size = (uoff_t)-1;
 	lmtp_set.rcpt_domain_optional = TRUE;
 	lmtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
 
