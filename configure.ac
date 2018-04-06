@@ -391,6 +391,7 @@ AC_TYPEOF(off_t, long int long-long)
 case "$typeof_off_t" in
   int)
     offt_max=INT_MAX
+    uofft_max=UINT_MAX
     uofft_fmt="u"
     if test "$have_uoff_t" != "yes"; then
       AC_DEFINE(UOFF_T_INT,, [Define if off_t is int])
@@ -399,6 +400,7 @@ case "$typeof_off_t" in
     ;;
   long)
     offt_max=LONG_MAX
+    uofft_max=ULONG_MAX
     uofft_fmt="lu"
     if test "$have_uoff_t" != "yes"; then
       AC_DEFINE(UOFF_T_LONG,, [Define if off_t is long])
@@ -407,6 +409,7 @@ case "$typeof_off_t" in
     ;;
   "long long")
     offt_max=LLONG_MAX
+    uofft_max=ULLONG_MAX
     uofft_fmt="llu"
     if test "$have_uoff_t" != "yes"; then
       AC_DEFINE(UOFF_T_LONG_LONG,, [Define if off_t is long long])
@@ -420,6 +423,7 @@ esac
 
 DOVECOT_DIRENT_DTYPE
 DOVECOT_OFF_T_MAX
+DOVECOT_UOFF_T_MAX
 
 AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", [printf() format for uoff_t])
 
