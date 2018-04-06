@@ -812,6 +812,24 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		smtp_command_limits_merge(&conn->set.command_limits,
 					  &set->command_limits);
 
+		conn->set.max_message_size = set->max_message_size;
+		if (set->max_message_size == 0 ||
+		    set->max_message_size == (uoff_t)-1) {
+			conn->set.command_limits.max_data_size = UOFF_T_MAX;
+		} else if (conn->set.command_limits.max_data_size != 0) {
+			/* explicit limit given */
+		} else if (set->max_message_size >
+			(UOFF_T_MAX - SMTP_SERVER_DEFAULT_MAX_SIZE_EXCESS_LIMIT)) {
+			/* very high limit */
+			conn->set.command_limits.max_data_size = UOFF_T_MAX;
+		} else {
+			/* absolute maximum before connection is closed in DATA
+			   command */
+			conn->set.command_limits.max_data_size =
+				set->max_message_size +
+					SMTP_SERVER_DEFAULT_MAX_SIZE_EXCESS_LIMIT;
+		}
+
 		if (set->xclient_extensions != NULL) {
 			server->set.xclient_extensions =
 				p_strarray_dup(pool, set->xclient_extensions);

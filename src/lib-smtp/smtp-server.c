@@ -51,6 +51,7 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 		set->max_bad_commands : SMTP_SERVER_DEFAULT_MAX_BAD_COMMANDS);
 	server->set.max_recipients = set->max_recipients;
 	server->set.command_limits = set->command_limits;
+	server->set.max_message_size = set->max_message_size;
 
 	if (set->xclient_extensions != NULL) {
 		server->set.xclient_extensions =

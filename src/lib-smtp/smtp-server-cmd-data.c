@@ -21,6 +21,33 @@ struct cmd_data_context {
 	bool chunk_last:1;
 };
 
+static void
+smtp_server_cmd_data_size_limit_exceeded(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_command *command = cmd->cmd;
+
+	smtp_server_command_fail(command, 552, "5.2.3",
+				 "Message size exceeds administrative limit");
+}
+
+bool smtp_server_cmd_data_check_size(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_connection *conn = cmd->conn;
+	const struct smtp_server_settings *set = &conn->set;
+
+	i_assert(conn->state.state == SMTP_SERVER_STATE_DATA);
+
+	if (conn->state.data_input == NULL)
+		return TRUE;
+	if (set->max_message_size == 0)
+		return TRUE;
+	if (conn->state.data_input->v_offset <= set->max_message_size)
+		return TRUE;
+
+	smtp_server_cmd_data_size_limit_exceeded(cmd);
+	return FALSE;
+}
+
 bool smtp_server_connection_data_check_state(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
@@ -213,6 +240,9 @@ static int cmd_data_handle_input(struct smtp_server_cmd_ctx *cmd)
 
 	i_assert(data_cmd != NULL);
 
+	if (!smtp_server_cmd_data_check_size(cmd))
+		return -1;
+
 	/* continue reading from client */
 	smtp_server_command_ref(command);
 	i_assert(callbacks != NULL &&
@@ -220,7 +250,10 @@ static int cmd_data_handle_input(struct smtp_server_cmd_ctx *cmd)
 	ret = callbacks->conn_cmd_data_continue(conn->context,
 		cmd, conn->state.trans);
 	if (ret >= 0) {
-		if (!i_stream_have_bytes_left(conn->state.data_input)) {
+		if (!smtp_server_cmd_data_check_size(cmd)) {
+			smtp_server_command_unref(&command);
+			return -1;
+		} else if (!i_stream_have_bytes_left(conn->state.data_input)) {
 			smtp_server_command_debug(cmd,
 				"End of data");
 			smtp_server_command_input_lock(cmd);
@@ -451,15 +484,26 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 	bool client_input)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	const struct smtp_server_settings *set = &conn->set;
 	struct smtp_server_command *command = cmd->cmd;
 	struct cmd_data_context *data_cmd =
 		(struct cmd_data_context *)command->data;
 	struct istream *input;
+	uoff_t new_size;
 
 	i_assert(data_cmd != NULL);
 
 	if (!smtp_server_connection_data_check_state(cmd))
 		return -1;
+
+	/* check message size increase early */
+	new_size = conn->state.data_size + chunk_size;
+	if (new_size < conn->state.data_size ||
+	    (set->max_message_size > 0 && new_size > set->max_message_size)) {
+		smtp_server_cmd_data_size_limit_exceeded(cmd);
+		return -1;
+	}
+	conn->state.data_size = new_size;
 
 	command->hook_replied = (chunk_last ?
 		cmd_data_replied : cmd_data_chunk_replied);
