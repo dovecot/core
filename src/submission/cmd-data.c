@@ -76,8 +76,11 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	size_t size;
 	int ret;
 
-	while ((ret = i_stream_read_more(data_input, &data, &size)) > 0)
+	while ((ret = i_stream_read_more(data_input, &data, &size)) > 0) {
 		i_stream_skip(data_input, size);
+		if (!smtp_server_cmd_data_check_size(cmd))
+			return -1;
+	}
 
 	if (ret == 0)
 		return 0;
