@@ -55,6 +55,7 @@ static struct smtp_server *smtp_server = NULL;
 static struct io *io_listen;
 static int fd_listen = -1;
 static struct smtp_server_callbacks server_callbacks;
+static unsigned int server_pending;
 
 /* client */
 static pid_t *client_pids = NULL;
@@ -1409,6 +1410,8 @@ static void server_connection_destroy(void *context)
 	if (debug)
 		i_debug("Connection destroyed");
 
+	if (--server_pending == 0)
+		io_loop_stop(ioloop);
 	i_free(sconn);
 }
 
@@ -1574,6 +1577,7 @@ static void test_run_client_server(
 
 	i_zero(&server_callbacks);
 
+	server_pending = client_tests_count;
 	ioloop = io_loop_create();
 	server_test(server_set);
 	io_loop_destroy(&ioloop);
