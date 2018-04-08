@@ -185,6 +185,8 @@ struct client *client_create(int fd_in, int fd_out,
 			     const char *helo,
 			     const unsigned char *pdata, unsigned int pdata_len)
 {
+	enum submission_client_workarounds workarounds =
+		set->parsed_workarounds;
 	const struct mail_storage_settings *mail_set;
 	struct smtp_server_settings smtp_set;
 	const char *ident;
@@ -206,6 +208,15 @@ struct client *client_create(int fd_in, int fd_out,
 	smtp_set.max_recipients = set->submission_max_recipients;
 	smtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
 	smtp_set.debug = user->mail_debug;
+
+	if ((workarounds & WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
+		smtp_set.workarounds |=
+			SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH;
+	}
+	if ((workarounds & WORKAROUND_MAILBOX_FOR_PATH) != 0) {
+		smtp_set.workarounds |=
+			SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH;
+	}
 
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
