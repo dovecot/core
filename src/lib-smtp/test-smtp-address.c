@@ -178,6 +178,11 @@ valid_path_parse_tests[] = {
 		.input = "<@otherdomain.tld,@yetanotherdomain.tld:user@domain.tld>",
 		.address = { .localpart = "user", .domain = "domain.tld" },
 		.output = "<user@domain.tld>"
+	},{
+		.input = "user@domain.tld",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
+		.address = { .localpart = "user", .domain = "domain.tld" },
+		.output = "<user@domain.tld>"
 	}
 };
 
@@ -585,6 +590,9 @@ invalid_path_parse_tests[] = {
 		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL
 	}, {
 		.input = "email@example..com",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL
+	}, {
+		.input = "@otherdomain.tld,@yetanotherdomain.tld:user@domain.tld",
 		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL
 	}, {
 		.input = "<>",

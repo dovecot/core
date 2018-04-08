@@ -195,7 +195,7 @@ smtp_parse_path(struct smtp_address_parser *aparser,
 	}
 
 	/* [ A-d-l ":" ] */
-	if ((sret=smtp_parse_source_route(parser)) < 0)
+	if (aparser->path && (sret=smtp_parse_source_route(parser)) < 0)
 		return -1;
 
 	/* Mailbox */
