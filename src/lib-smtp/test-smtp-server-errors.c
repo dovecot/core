@@ -1502,6 +1502,8 @@ static void test_run_client_server(
 {
 	unsigned int i;
 
+	i_set_failure_prefix("SERVER: ");
+
 	client_pids = NULL;
 	client_pids_count = 0;
 
@@ -1519,9 +1521,10 @@ static void test_run_client_server(
 			if (client_pids[i] == 0) {
 				client_pids[i] = (pid_t)-1;
 				client_pids_count = 0;
+				i_set_failure_prefix("CLIENT[%d]: ", i+1);
 				hostpid_init();
 				if (debug)
-					i_debug("client[%d]: PID=%s", i+1, my_pid);
+					i_debug("PID=%s", my_pid);
 				/* child: client */
 				usleep(100000); /* wait a little for server setup */
 				i_close_fd(&fd_listen);
@@ -1537,7 +1540,7 @@ static void test_run_client_server(
 			}
 		}
 		if (debug)
-			i_debug("server: PID=%s", my_pid);
+			i_debug("PID=%s", my_pid);
 	}
 
 	/* parent: server */
