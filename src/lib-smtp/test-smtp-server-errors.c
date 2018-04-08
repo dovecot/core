@@ -1405,6 +1405,10 @@ static void server_connection_destroy(void *context)
 {
 	struct server_connection *sconn =
 		(struct server_connection *)context;
+
+	if (debug)
+		i_debug("Connection destroyed");
+
 	i_free(sconn);
 }
 
@@ -1422,6 +1426,9 @@ server_connection_accept(void *context ATTR_UNUSED)
 	if (fd == -2) {
 		i_fatal("test server: accept() failed: %m");
 	}
+
+	if (debug)
+		i_debug("Accepted connection");
 
 	sconn = i_new(struct server_connection, 1);
 
@@ -1455,6 +1462,9 @@ test_server_run(const struct smtp_server_settings *smtp_set)
 	smtp_server = smtp_server_init(smtp_set);
 
 	io_loop_run(ioloop);
+
+	if (debug)
+		i_debug("Server finished");
 
 	/* close server socket */
 	io_remove(&io_listen);
