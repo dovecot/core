@@ -794,6 +794,8 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		}
 		if (set->capabilities != 0)
 			conn->set.capabilities = set->capabilities;
+		conn->set.workarounds |= set->workarounds;
+
 		if (set->max_client_idle_time_msecs > 0) {
 			conn->set.max_client_idle_time_msecs =
 				set->max_client_idle_time_msecs;

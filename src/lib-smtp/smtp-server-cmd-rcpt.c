@@ -100,6 +100,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	struct smtp_server_command *command = cmd->cmd;
 	struct smtp_server_cmd_rcpt *rcpt_data;
+	enum smtp_address_parse_flags path_parse_flags;
 	struct smtp_address *path;
 	enum smtp_param_parse_error pperror;
 	const char *error;
@@ -120,9 +121,25 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 			501, "5.5.4", "Invalid parameters");
 		return;
 	}
-	if (smtp_address_parse_path_full(pool_datastack_create(), params + 3,
-					 SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART,
-					 &path, &error, &params) < 0) {
+	if (params[3] != ' ' && params[3] != '\t') {
+		params += 3;
+	} else if ((set->workarounds &
+		    SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
+		params += 3;
+		while (*params == ' ' || *params == '\t')
+			params++;
+	} else {
+		smtp_server_reply(cmd, 501, "5.5.4",
+				  "Invalid TO: "
+				  "Unexpected whitespace before path");
+		return;
+	}
+	path_parse_flags = SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART;
+	if ((set->workarounds & SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH) != 0)
+		path_parse_flags |= SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL;
+	if (smtp_address_parse_path_full(pool_datastack_create(), params,
+					 path_parse_flags, &path, &error,
+					 &params) < 0) {
 		smtp_server_reply(cmd,
 			501, "5.5.4", "Invalid TO: %s", error);
 		return;

@@ -43,6 +43,7 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	} else  {
 		server->set.capabilities = set->capabilities;
 	}
+	server->set.workarounds = set->workarounds;
 	server->set.max_client_idle_time_msecs = set->max_client_idle_time_msecs;
 	server->set.max_pipelined_commands = (set->max_pipelined_commands > 0 ?
 		set->max_pipelined_commands : 1);
