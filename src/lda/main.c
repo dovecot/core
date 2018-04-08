@@ -311,9 +311,9 @@ int main(int argc, char *argv[])
 		case 'a':
 			/* original recipient address */
 			if (smtp_address_parse_path(ctx.pool, optarg,
-				SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
-					SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
-				&rcpt_to, &errstr) < 0) {
+			    SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
+				SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
+			    &rcpt_to, &errstr) < 0) {
 				i_fatal_status(EX_USAGE,
 					"Invalid -a parameter: %s", errstr);
 			}
@@ -330,8 +330,8 @@ int main(int argc, char *argv[])
 		case 'f':
 			/* envelope sender address */
 			if (smtp_address_parse_path(ctx.pool, optarg,
-				SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
-				&mail_from, &errstr) < 0) {
+			    SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
+			    &mail_from, &errstr) < 0) {
 				i_fatal_status(EX_USAGE,
 					"Invalid -f parameter: %s", errstr);
 			}
@@ -358,9 +358,9 @@ int main(int argc, char *argv[])
 		case 'r':
 			/* final recipient address */
 			if (smtp_address_parse_path(ctx.pool, optarg,
-				SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
+			    SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 				SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
-				&final_rcpt_to, &errstr) < 0) {
+			    &final_rcpt_to, &errstr) < 0) {
 				i_fatal_status(EX_USAGE,
 					"Invalid -a parameter: %s", errstr);
 			}
