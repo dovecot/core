@@ -30,6 +30,7 @@ struct server_connection {
 
 struct client_connection {
 	struct connection conn;
+	void *context;
 
 	pool_t pool;
 };
@@ -61,6 +62,7 @@ static unsigned int client_pids_count = 0;
 static unsigned int client_index;
 static void (*test_client_connected)(struct client_connection *conn);
 static void (*test_client_input)(struct client_connection *conn);
+static void (*test_client_deinit)(struct client_connection *conn);
 
 /*
  * Forward declarations
@@ -1332,6 +1334,8 @@ server_connection_deinit(struct client_connection **_conn)
 
 	*_conn = NULL;
 
+	if (test_client_deinit != NULL)
+		test_client_deinit(conn);
 	connection_deinit(&conn->conn);
 	pool_unref(&conn->pool);
 }
