@@ -226,9 +226,15 @@ struct smtp_server_callbacks {
  * Server
  */
 
+enum smtp_server_workarounds {
+	SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH   = BIT(0),
+	SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH         = BIT(1)
+};
+
 struct smtp_server_settings {
 	enum smtp_protocol protocol;
 	enum smtp_capability capabilities;
+	enum smtp_server_workarounds workarounds;
 
 	const char *hostname;
 	const char *login_greeting;
