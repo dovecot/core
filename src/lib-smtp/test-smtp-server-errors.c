@@ -1091,6 +1091,185 @@ static void test_bad_mail(void)
 }
 
 /*
+ * Bad RCPT
+ */
+
+/* client */
+
+struct _bad_rcpt_client {
+	struct smtp_reply_parser *parser;
+	unsigned int reply;
+
+	bool replied:1;
+};
+
+static void
+test_bad_rcpt_client_input(struct client_connection *conn)
+{
+	struct _bad_rcpt_client *ctx = conn->context;
+	struct smtp_reply *reply;
+	const char *error;
+	int ret;
+
+	while ((ret=smtp_reply_parse_next(ctx->parser, FALSE,
+					  &reply, &error)) > 0) {
+		if (debug)
+			i_debug("REPLY: %s", smtp_reply_log(reply));
+
+		switch (ctx->reply++) {
+		case 0: /* greeting */
+			i_assert(reply->status == 220);
+			break;
+		case 1: /* MAIL FROM */
+			i_assert(reply->status == 250);
+			break;
+		case 2: /* bad command reply */
+			switch (client_index) {
+			case 0: case 1: case 2: case 3: case 4: case 5:
+				i_assert(reply->status == 501);
+				break;
+			case 6:
+				i_assert(reply->status == 250);
+				break;
+			default:
+				i_unreached();
+			}
+			ctx->replied = TRUE;
+			io_loop_stop(ioloop);
+			connection_disconnect(&conn->conn);
+			return;
+		default:
+			i_unreached();
+		}
+	}
+
+	i_assert(ret >= 0);
+}
+
+static void
+test_bad_rcpt_client_connected(struct client_connection *conn)
+{
+	struct _bad_rcpt_client *ctx;
+
+	ctx = p_new(conn->pool, struct _bad_rcpt_client, 1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	conn->context = ctx;
+
+	switch (client_index) {
+	case 0:
+		o_stream_nsend_str(conn->conn.output,
+			"MAIL FROM:<hendrik@example.com>\r\n"
+			"RCPT TO: <harrie@example.com>\r\n");
+		break;
+	case 1:
+		o_stream_nsend_str(conn->conn.output,
+			"MAIL FROM:<hendrik@example.com>\r\n"
+			"RCPT TO:harrie@example.com\r\n");
+		break;
+	case 2:
+		o_stream_nsend_str(conn->conn.output,
+			"MAIL FROM:<hendrik@example.com>\r\n"
+			"RCPT TO: harrie@example.com\r\n");
+		break;
+	case 3:
+		o_stream_nsend_str(conn->conn.output,
+			"MAIL FROM:<hendrik@example.com>\r\n"
+			"RCPT TO:\r\n");
+		break;
+	case 4:
+		o_stream_nsend_str(conn->conn.output,
+			"MAIL FROM:<hendrik@example.com>\r\n"
+			"RCPT TO: \r\n");
+		break;
+	case 5:
+		o_stream_nsend_str(conn->conn.output,
+			"MAIL FROM:<hendrik@example.com>\r\n"
+			"RCPT TO: NOTIFY=NEVER\r\n");
+		break;
+	case 6:
+		o_stream_nsend_str(conn->conn.output,
+			"MAIL FROM:<hendrik@example.com>\r\n"
+			"RCPT TO:<harrie@example.com>\r\n");
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+static void
+test_bad_rcpt_client_deinit(struct client_connection *conn)
+{
+	struct _bad_rcpt_client *ctx = conn->context;
+
+	i_assert(ctx->replied);
+	smtp_reply_parser_deinit(&ctx->parser);
+}
+
+static void test_client_bad_rcpt(unsigned int index)
+{
+	test_client_input = test_bad_rcpt_client_input;
+	test_client_connected = test_bad_rcpt_client_connected;
+	test_client_deinit = test_bad_rcpt_client_deinit;
+	test_client_run(index);
+}
+
+/* server */
+
+static void
+test_server_bad_rcpt_disconnect(void *context ATTR_UNUSED, const char *reason)
+{
+	if (debug)
+		i_debug("Disconnect: %s", reason);
+}
+
+static int
+test_server_bad_rcpt_rcpt(void *conn_ctx ATTR_UNUSED,
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+{
+	return 1;
+}
+
+static int
+test_server_bad_rcpt_data_begin(void *conn_ctx ATTR_UNUSED,
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct istream *data_input ATTR_UNUSED)
+{
+	test_assert(FALSE);
+	return 1;
+}
+
+static void test_server_bad_rcpt
+(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_disconnect =
+		test_server_bad_rcpt_disconnect;
+
+	server_callbacks.conn_cmd_rcpt =
+		test_server_bad_rcpt_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_bad_rcpt_data_begin;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_rcpt(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+
+	test_begin("bad RCPT");
+	test_run_client_server(&smtp_server_set,
+		test_server_bad_rcpt,
+		test_client_bad_rcpt, 7);
+	test_end();
+}
+
+/*
  * Too many recipients
  */
 
@@ -1460,6 +1639,7 @@ static void (*const test_functions[])(void) = {
 	test_big_data,
 	test_bad_ehlo,
 	test_bad_mail,
+	test_bad_rcpt,
 	test_too_many_recipients,
 	test_data_no_mail,
 	test_data_no_rcpt,
