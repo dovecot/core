@@ -1,6 +1,15 @@
 #ifndef SUBMISSION_SETTINGS_H
 #define SUBMISSION_SETTINGS_H
 
+#include "smtp-server.h"
+
+/* <settings checks> */
+enum submission_client_workarounds {
+	WORKAROUND_WHITESPACE_BEFORE_PATH	= BIT(0),
+	WORKAROUND_MAILBOX_FOR_PATH		= BIT(1),
+};
+/* </settings checks> */
+
 struct submission_settings {
 	bool verbose_proctitle;
 
@@ -12,6 +21,7 @@ struct submission_settings {
 	/* submission: */
 	size_t submission_max_mail_size;
 	unsigned int submission_max_recipients;
+	const char *submission_client_workarounds;
 	const char *submission_logout_format;
 
 	/* submission relay: */
@@ -35,6 +45,8 @@ struct submission_settings {
 	/* imap urlauth: */
 	const char *imap_urlauth_host;
 	in_port_t imap_urlauth_port;
+
+	enum submission_client_workarounds parsed_workarounds;
 };
 
 extern const struct setting_parser_info submission_setting_parser_info;
