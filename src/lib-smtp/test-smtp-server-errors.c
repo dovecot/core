@@ -102,7 +102,7 @@ test_slow_server_connected(struct client_connection *conn)
 	if (debug)
 		i_debug("CONNECTED");
 
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO frop\r\n");
 }
 
@@ -207,7 +207,7 @@ test_slow_client_connected(struct client_connection *conn)
 	if (debug)
 		i_debug("CONNECTED");
 
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO frop\r\n");
 }
 
@@ -336,7 +336,7 @@ static void test_slow_client(void)
 static void
 test_hanging_command_payload_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO frop\r\n"
 		"MAIL FROM:<hangman@example.com>\r\n"
 		"RCPT TO:<jerry@example.com>\r\n"
@@ -479,7 +479,7 @@ static void test_hanging_command_payload(void)
 static void
 test_bad_command_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO\tfrop\r\n");
 }
 
@@ -573,7 +573,7 @@ static void test_bad_command(void)
 static void
 test_long_command_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO some.very.very.very.very.very.long.domain\r\n");
 }
 
@@ -668,7 +668,7 @@ static void test_long_command(void)
 static void
 test_big_data_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO frop\r\n"
 		"MAIL FROM:<sender@example.com>\r\n"
 		"RCPT TO:<recipient@example.com>\r\n"
@@ -822,7 +822,7 @@ static void test_big_data(void)
 static void
 test_bad_ehlo_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO \r\n");
 }
 
@@ -916,7 +916,7 @@ static void test_bad_ehlo(void)
 static void
 test_too_many_recipients_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO frop\r\n"
 		"MAIL FROM:<sender@example.com>\r\n"
 		"RCPT TO:<recipient1@example.com>\r\n"
@@ -1018,7 +1018,7 @@ static void test_too_many_recipients(void)
 static void
 test_data_no_mail_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO frop\r\n"
 		"DATA\r\n"
 		".\r\n"
@@ -1102,7 +1102,7 @@ static void test_data_no_mail(void)
 static void
 test_data_no_rcpt_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO frop\r\n"
 		"MAIL FROM:<sender@example.com>\r\n"
 		"DATA\r\n"
@@ -1186,7 +1186,7 @@ static void test_data_no_rcpt(void)
 static void
 test_data_binarymime_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"EHLO frop\r\n"
 		"MAIL FROM:<sender@example.com> BODY=BINARYMIME\r\n"
 		"RCPT TO:<recipient1@example.com>\r\n"
