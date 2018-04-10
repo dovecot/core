@@ -398,10 +398,14 @@ static void test_message_address_path(void)
 static void test_message_address_path_invalid(void)
 {
 	static const char *tests[] = {
+		"<",
+		" < ",
 		">",
 		" > ",
 		"user@domain",
 		"  user@domain  ",
+		"<user@domain",
+		"  <user@domain  ",
 		"user@domain>",
 		"  user@domain>  ",
 		"<user>",
