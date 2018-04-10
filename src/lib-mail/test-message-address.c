@@ -395,11 +395,39 @@ static void test_message_address_path(void)
 	test_end();
 }
 
+static void test_message_address_path_invalid(void)
+{
+	static const char *tests[] = {
+		">",
+		" > ",
+		"user@domain",
+		"  user@domain  ",
+		"user@domain>",
+		"  user@domain>  ",
+		"<user>",
+		"<@route@route2:user>",
+	};
+	const struct message_address *addr;
+	unsigned int i;
+
+	test_begin("message address path invalid");
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		const char *test = tests[i];
+		int ret;
+
+		ret = test_parse_path(test, &addr);
+		test_assert_idx(ret < 0, i);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_address,
 		test_message_address_path,
+		test_message_address_path_invalid,
 		NULL
 	};
 	return test_run(test_functions);
