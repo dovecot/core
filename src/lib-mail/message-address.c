@@ -141,14 +141,12 @@ static int parse_domain_list(struct message_address_parser_context *ctx)
 
 static int parse_angle_addr(struct message_address_parser_context *ctx)
 {
-	int ret;
-
 	/* "<" [ "@" route ":" ] local-part "@" domain ">" */
 	i_assert(*ctx->parser.data == '<');
 	ctx->parser.data++;
 
-	if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
-		return ret;
+	if (rfc822_skip_lwsp(&ctx->parser) <= 0)
+		return -1;
 
 	if (*ctx->parser.data == '@') {
 		if (parse_domain_list(ctx) <= 0 || *ctx->parser.data != ':') {
@@ -160,18 +158,18 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 		} else {
 			ctx->parser.data++;
 		}
-		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
-			return ret;
+		if (rfc822_skip_lwsp(&ctx->parser) <= 0)
+			return -1;
 	}
 
 	if (*ctx->parser.data == '>') {
 		/* <> address isn't valid */
 	} else {
-		if ((ret = parse_local_part(ctx)) <= 0)
-			return ret;
+		if (parse_local_part(ctx) <= 0)
+			return -1;
 		if (*ctx->parser.data == '@') {
-			if ((ret = parse_domain(ctx)) <= 0)
-				return ret;
+			if (parse_domain(ctx) <= 0)
+				return -1;
 		}
 	}
 
