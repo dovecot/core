@@ -261,9 +261,11 @@ master_service_init(const char *name, enum master_service_flags flags,
 		master_service_init_socket_listeners(service);
 	} T_END;
 
+#ifdef HAVE_SSL
 	/* load SSL module if necessary */
 	if (service->want_ssl_settings && ssl_module_load(&error) < 0)
 		i_fatal("Cannot load SSL module: %s", error);
+#endif
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
