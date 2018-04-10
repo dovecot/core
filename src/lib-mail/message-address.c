@@ -424,6 +424,8 @@ message_address_parse_path_real(pool_t pool, const unsigned char *data,
 
 	if (rfc822_skip_lwsp(&ctx.parser) <= 0)
 		return -1;
+	if (*ctx.parser.data != '<')
+		return -1;
 	if ((ret=parse_angle_addr(&ctx)) < 0 ||
 		(ctx.addr.mailbox != NULL && ctx.addr.domain == NULL)) {
 		ctx.addr.invalid_syntax = TRUE;
