@@ -647,8 +647,22 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 			ctx->ret = 0;
 		}
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+		/* Unless the remote IMAP server supports sending
+		   resp-text-code, we don't know if the NO reply is because
+		   the mailbox doesn't exist or because of some internal error.
+		   We'll default to assuming it doesn't exist, so e.g.
+		   mailbox { auto=create } will auto-create missing mailboxes.
+		   However, INBOX is a special mailbox, which is always
+		   autocreated if it doesn't exist. This is true in both the
+		   local Dovecot and the remote IMAP server. This means that
+		   there's no point in trying to send CREATE INBOX to the
+		   remote server. We'll avoid that by defaulting to temporary
+		   failure with INBOX. */
+		enum mail_error default_error =
+			ctx->mbox->box.inbox_any ?
+			MAIL_ERROR_TEMP : MAIL_ERROR_NOTFOUND;
 		imapc_copy_error_from_reply(ctx->mbox->storage,
-					    MAIL_ERROR_NOTFOUND, reply);
+					    default_error, reply);
 		ctx->ret = -1;
 	} else if (imapc_storage_client_handle_auth_failure(ctx->mbox->storage->client)) {
 		ctx->ret = -1;
