@@ -24,8 +24,8 @@ static const char *pclient_test_io_string =
 	"laoreet arcu a hendrerit consequat. Duis vitae erat tellus.";
 
 static struct program_client_settings pc_set = {
-	.client_connect_timeout_msecs = 5000,
-	.input_idle_timeout_msecs = 1000,
+	.client_connect_timeout_msecs = 10000,
+	.input_idle_timeout_msecs = 5000,
 	.debug = FALSE,
 	.restrict_set = {
 		.uid = (uid_t)-1,
