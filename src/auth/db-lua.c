@@ -207,7 +207,7 @@ static const luaL_Reg auth_request_methods[] ={
 	{ "log_debug", auth_request_lua_log_debug },
 	{ "log_info", auth_request_lua_log_info },
 	{ "log_warning", auth_request_lua_log_warning },
-	{" log_error", auth_request_lua_log_error },
+	{ "log_error", auth_request_lua_log_error },
 	{ NULL, NULL }
 };
 
