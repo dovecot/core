@@ -270,6 +270,16 @@ static void auth_lua_push_auth_request(struct dlua_script *script, struct auth_r
 	lua_setfield(script->L, -2, "item");
 	luaL_setmetatable(script->L, "userdb_"AUTH_LUA_AUTH_REQUEST);
 	lua_setfield(script->L, -2, "userdb");
+
+#undef LUA_TABLE_SETBOOL
+#define LUA_TABLE_SETBOOL(field) \
+	lua_pushboolean(script->L, req->field ? 1 : 0); \
+	lua_setfield(script->L, -2, #field);
+
+	LUA_TABLE_SETBOOL(skip_password_check);
+	LUA_TABLE_SETBOOL(passdbs_seen_user_unknown);
+	LUA_TABLE_SETBOOL(passdbs_seen_internal_failure);
+	LUA_TABLE_SETBOOL(userdbs_seen_internal_failure);
 }
 
 static struct auth_request *
