@@ -13,7 +13,9 @@ enum message_header_parser_flags {
 	/* Don't add CRs to full_value even if input had them */
 	MESSAGE_HEADER_PARSER_FLAG_DROP_CR		= 0x02,
 	/* Convert [CR+]LF+LWSP to a space character in full_value */
-	MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE	= 0x04
+	MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE	= 0x04,
+	/* Replace 0x0 symbols with 0x80 */
+	MESSAGE_HEADER_REPLACE_NULS_WITH_0x80		= 0x08,
 };
 
 struct message_header_line {
