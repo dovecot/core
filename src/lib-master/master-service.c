@@ -263,8 +263,11 @@ master_service_init(const char *name, enum master_service_flags flags,
 
 #ifdef HAVE_SSL
 	/* load SSL module if necessary */
-	if (service->want_ssl_settings && ssl_module_load(&error) < 0)
-		i_fatal("Cannot load SSL module: %s", error);
+	if (service->want_ssl_settings) {
+		if (ssl_module_load(&error) < 0)
+			i_fatal("Cannot load SSL module: %s", error);
+		service->ssl_module_loaded = TRUE;
+	}
 #endif
 
 	/* set up some kind of logging until we know exactly how and where
@@ -1277,5 +1280,5 @@ bool version_string_verify_full(const char *line, const char *service_name,
 bool master_service_is_ssl_module_loaded(struct master_service *service)
 {
 	/* if this is TRUE, then ssl module is loaded by init */
-	return service->want_ssl_settings;
+	return service->ssl_module_loaded;
 }
