@@ -16,6 +16,7 @@ struct lmtp_settings {
 	bool lmtp_proxy;
 	bool lmtp_save_to_detail_mailbox;
 	bool lmtp_rcpt_check_quota;
+	bool lmtp_add_received_header;
 	unsigned int lmtp_user_concurrency_limit;
 	const char *lmtp_hdr_delivery_address;
 	const char *login_greeting;
