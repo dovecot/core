@@ -200,6 +200,49 @@ static int auth_request_lua_userdb(lua_State *L)
 	return 1;
 }
 
+static int auth_request_lua_password_verify(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	const char *crypted_password = lua_tostring(L, 2);
+	const char *scheme;
+	const char *plain_password = lua_tostring(L, 3);
+	const char *error = NULL;
+	const unsigned char *raw_password = NULL;
+	size_t raw_password_size;
+	int ret;
+	struct password_generate_params gen_params = {.user = request->original_username,
+						      .rounds = 0};
+	scheme = password_get_scheme(&crypted_password);
+	if (scheme == NULL)
+		scheme = "PLAIN";
+	ret = password_decode(crypted_password, scheme,
+			      &raw_password, &raw_password_size, &error);
+	if (ret <= 0) {
+		if (ret < 0) {
+			error = t_strdup_printf("Password data is not valid for scheme %s: %s",
+						scheme, error);
+		} else {
+			error = t_strdup_printf("Unknown scheme %s", scheme);
+		}
+	} else {
+		/* Use original_username since it may be important for some
+		   password schemes (eg. digest-md5).
+		*/
+		ret = password_verify(plain_password, &gen_params,
+				      scheme, raw_password, raw_password_size, &error);
+	}
+
+	lua_pushnumber(script->L, ret);
+	if (error != NULL)
+		lua_pushstring(script->L, error);
+	else
+		lua_pushnil(script->L);
+
+	return 2;
+}
+
+
 /* put all methods here */
 static const luaL_Reg auth_request_methods[] ={
 	{ "var_expand", auth_request_lua_var_expand },
@@ -208,6 +251,7 @@ static const luaL_Reg auth_request_methods[] ={
 	{ "log_info", auth_request_lua_log_info },
 	{ "log_warning", auth_request_lua_log_warning },
 	{ "log_error", auth_request_lua_log_error },
+	{ "password_verify", auth_request_lua_password_verify },
 	{ NULL, NULL }
 };
 
