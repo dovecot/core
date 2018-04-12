@@ -11,6 +11,7 @@
 #include "mail-cache.h"
 #include "mail-storage-private.h"
 #include "message-part-data.h"
+#include "imap-bodystructure.h"
 
 #include <time.h>
 
@@ -496,6 +497,23 @@ bool mail_has_attachment_keywords(struct mail *mail)
 		str_array_icase_find(kw, MAIL_KEYWORD_HAS_NO_ATTACHMENT));
 }
 
+static int mail_parse_parts(struct mail *mail, struct message_part **parts_r)
+{
+	const char *structure, *error;
+	struct mail_private *pmail = (struct mail_private*)mail;
+
+	/* need to get bodystructure first */
+	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE, &structure) < 0)
+		return -1;
+	if (imap_bodystructure_parse_full(structure, pmail->data_pool, parts_r,
+					  &error) < 0) {
+		mail_storage_set_critical(mail->box->storage,
+			"imap_bodystructure_parse() failed: %s", error);
+		return -1;
+	}
+	return 0;
+}
+
 int mail_set_attachment_keywords(struct mail *mail)
 {
 	int ret;
@@ -525,6 +543,9 @@ int mail_set_attachment_keywords(struct mail *mail)
 			"Failed to add attachment keywords: "
 			"mail_get_parts() failed: %s",
 			mail_storage_get_last_internal_error(mail->box->storage, NULL));
+		ret = -1;
+	} else if (parts->data == NULL &&
+		   mail_parse_parts(mail, &parts) < 0) {
 		ret = -1;
 	} else if (mailbox_keywords_create(mail->box, keyword_has_attachment, &kw_has) < 0 ||
 		   mailbox_keywords_create(mail->box, keyword_has_no_attachment, &kw_has_not) < 0) {
