@@ -396,6 +396,8 @@ static int parse_path(struct message_address_parser_context *ctx)
 	if (*ctx->parser.data != '<')
 		return -1;
 	if ((ret=parse_angle_addr(ctx, TRUE)) < 0 ||
+	    (ret=rfc822_skip_lwsp(&ctx->parser)) < 0 ||
+	    ctx->parser.data != ctx->parser.end ||
 	    (ctx->addr.mailbox != NULL &&
 	     (ctx->addr.domain == NULL || *ctx->addr.domain == '\0')) ||
 	    (ctx->addr.mailbox == NULL && ctx->addr.domain != NULL)) {
