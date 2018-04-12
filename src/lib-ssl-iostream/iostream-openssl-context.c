@@ -514,8 +514,9 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
 #ifdef SSL_CTX_set_ecdh_auto
 	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
-	   selection. */
-	if (SSL_CTX_set_ecdh_auto(ssl_ctx, 1) == 0) {
+	   selection. The return value of this function changes is changed to
+	   bool in OpenSSL 1.1 and is int in OpenSSL 1.0.2+ */
+	if (!(bool)SSL_CTX_set_ecdh_auto(ssl_ctx, 1)) {
 		/* shouldn't happen */
 		*error_r = t_strdup_printf("SSL_CTX_set_ecdh_auto() failed: %s",
 					   openssl_iostream_error());
