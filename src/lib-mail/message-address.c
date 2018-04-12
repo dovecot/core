@@ -396,7 +396,9 @@ static int parse_path(struct message_address_parser_context *ctx)
 	if (*ctx->parser.data != '<')
 		return -1;
 	if ((ret=parse_angle_addr(ctx, TRUE)) < 0 ||
-	    (ctx->addr.mailbox != NULL && ctx->addr.domain == NULL)) {
+	    (ctx->addr.mailbox != NULL &&
+	     (ctx->addr.domain == NULL || *ctx->addr.domain == '\0')) ||
+	    (ctx->addr.mailbox == NULL && ctx->addr.domain != NULL)) {
 		ctx->addr.invalid_syntax = TRUE;
 		ret = -1;
 	}

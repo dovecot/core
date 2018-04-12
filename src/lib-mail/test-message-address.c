@@ -414,6 +414,7 @@ static void test_message_address_path_invalid(void)
 		"<user>",
 		"<@route@route2:user>",
 		"<@domain>",
+		"<user@>",
 	};
 	const struct message_address *addr;
 	unsigned int i;
