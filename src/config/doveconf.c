@@ -222,6 +222,11 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 					ptr++;
 			}
 			optr = ptr;
+		} else {
+			/* "secret" is prefixed with alphanumeric character,
+			   e.g. "nopassword". So it's not really a secret.
+			   Skip forward to avoid infinite loop. */
+			ptr++;
 		}
 	}
 	/* if we are dealing with output, send rest here */
