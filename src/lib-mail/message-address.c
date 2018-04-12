@@ -384,6 +384,23 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 	return ret;
 }
 
+static int parse_path(struct message_address_parser_context *ctx)
+{
+	int ret;
+
+	if (rfc822_skip_lwsp(&ctx->parser) <= 0)
+		return -1;
+	if (*ctx->parser.data != '<')
+		return -1;
+	if ((ret=parse_angle_addr(ctx)) < 0 ||
+	    (ctx->addr.mailbox != NULL && ctx->addr.domain == NULL)) {
+		ctx->addr.invalid_syntax = TRUE;
+		ret = -1;
+	}
+	add_address(ctx);
+	return ret;
+}
+
 static struct message_address *
 message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 			   unsigned int max_addresses, bool fill_missing)
@@ -420,16 +437,9 @@ message_address_parse_path_real(pool_t pool, const unsigned char *data,
 	ctx.pool = pool;
 	ctx.str = t_str_new(128);
 
-	if (rfc822_skip_lwsp(&ctx.parser) <= 0)
-		return -1;
-	if (*ctx.parser.data != '<')
-		return -1;
-	if ((ret=parse_angle_addr(&ctx)) < 0 ||
-		(ctx.addr.mailbox != NULL && ctx.addr.domain == NULL)) {
-		ctx.addr.invalid_syntax = TRUE;
-		ret = -1;
-	}
-	add_address(&ctx);
+	ret = parse_path(&ctx);
+
+	rfc822_parser_deinit(&ctx.parser);
 	*addr_r = ctx.first_addr;
 	return (ret < 0 ? -1 : 0);
 }
