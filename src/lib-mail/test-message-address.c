@@ -355,6 +355,10 @@ static void test_message_address_path(void)
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
 		{ "  <user@domain>  ", "<user@domain>",
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "user@domain", "<user@domain>",
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "  user@domain  ", "<user@domain>",
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
 		{ "<\"user\"@domain>", "<user@domain>",
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
 		{ "<\"user name\"@domain>", NULL,
@@ -405,8 +409,6 @@ static void test_message_address_path_invalid(void)
 		" < ",
 		">",
 		" > ",
-		"user@domain",
-		"  user@domain  ",
 		"<user@domain",
 		"  <user@domain  ",
 		"user@domain>",
@@ -414,8 +416,13 @@ static void test_message_address_path_invalid(void)
 		"<user>",
 		"<@route@route2:user>",
 		"<@domain>",
+		"@domain",
+		"  @domain  ",
 		"<user@>",
+		"user@",
+		"  user@  ",
 		"<user@domain>bladiebla",
+		"user@domain@"
 	};
 	const struct message_address *addr;
 	unsigned int i;
