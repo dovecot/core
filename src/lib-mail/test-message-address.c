@@ -25,8 +25,7 @@ test_parse_address(const char *input, bool fill_missing)
 	/* duplicate the input (without trailing NUL) so valgrind notices
 	   if there's any out-of-bounds access */
 	size_t input_len = strlen(input);
-	unsigned char *input_dup = i_malloc(input_len);
-	memcpy(input_dup, input, input_len);
+	unsigned char *input_dup = i_memdup(input, input_len);
 	const struct message_address *addr =
 		message_address_parse(pool_datastack_create(),
 				      input_dup, input_len, UINT_MAX, fill_missing);
@@ -329,8 +328,7 @@ test_parse_path(const char *input, const struct message_address **addr_r)
 	/* duplicate the input (without trailing NUL) so valgrind notices
 	   if there's any out-of-bounds access */
 	size_t input_len = strlen(input);
-	unsigned char *input_dup = i_malloc(input_len);
-	memcpy(input_dup, input, input_len);
+	unsigned char *input_dup = i_memdup(input, input_len);
 	ret = message_address_parse_path(pool_datastack_create(),
 					 input_dup, input_len, &addr);
 	i_free(input_dup);
