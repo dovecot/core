@@ -323,15 +323,19 @@ static int
 test_parse_path(const char *input, const struct message_address **addr_r)
 {
 	struct message_address *addr;
+	char *input_dup;
 	int ret;
 
 	/* duplicate the input (without trailing NUL) so valgrind notices
 	   if there's any out-of-bounds access */
 	size_t input_len = strlen(input);
-	unsigned char *input_dup = i_memdup(input, input_len);
+	if (input_len > 0)
+		input = input_dup = i_memdup(input, input_len);
 	ret = message_address_parse_path(pool_datastack_create(),
-					 input_dup, input_len, &addr);
-	i_free(input_dup);
+					 (unsigned char *)input, input_len,
+					 &addr);
+	if (input_len > 0)
+		i_free(input_dup);
 	*addr_r = addr;
 	return ret;
 }
@@ -396,6 +400,7 @@ static void test_message_address_path(void)
 static void test_message_address_path_invalid(void)
 {
 	static const char *tests[] = {
+		"",
 		"<",
 		" < ",
 		">",
