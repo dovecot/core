@@ -918,7 +918,8 @@ static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
 	&doveadm_cmd_purge_ver2,
 	&doveadm_cmd_search_ver2,
 	&doveadm_cmd_copy_ver2,
-	&doveadm_cmd_move_ver2
+	&doveadm_cmd_move_ver2,
+	&doveadm_cmd_rebuild_attachments,
 };
 
 void doveadm_mail_init(void)
