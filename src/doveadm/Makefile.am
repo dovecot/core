@@ -109,7 +109,8 @@ doveadm_common_mail_cmds = \
 	doveadm-mail-save.c \
 	doveadm-mail-search.c \
 	doveadm-mail-server.c \
-	doveadm-mail-mailbox-cache.c
+	doveadm-mail-mailbox-cache.c \
+	doveadm-mail-rebuild.c
 
 # these aren't actually useful in doveadm-server, but plugins may implement
 # both dumping and some other commands inside a single plugin. not having the
