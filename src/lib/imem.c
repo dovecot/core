@@ -19,6 +19,11 @@ char *i_strdup(const char *str)
 	return p_strdup(default_pool, str);
 }
 
+void *i_memdup(const void *data, size_t size)
+{
+	return p_memdup(default_pool, data, size);
+}
+
 char *i_strdup_empty(const char *str)
 {
 	return p_strdup_empty(default_pool, str);
