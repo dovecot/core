@@ -393,10 +393,19 @@ static int parse_path(struct message_address_parser_context *ctx)
 
 	if (rfc822_skip_lwsp(&ctx->parser) <= 0)
 		return -1;
-	if (*ctx->parser.data != '<')
-		return -1;
-	if ((ret=parse_angle_addr(ctx, TRUE)) < 0 ||
-	    (ret=rfc822_skip_lwsp(&ctx->parser)) < 0 ||
+	if (*ctx->parser.data != '<') {
+		/* Cope with paths that omit < and >. This is a syntax
+		   violation, but we allow it to account for a rather wide
+		   selection of software that does not follow the standards.
+		 */
+		if ((ret=parse_local_part(ctx)) > 0 &&
+		    *ctx->parser.data == '@') {
+			ret = parse_domain(ctx);
+		}
+	} else {
+		ret = parse_angle_addr(ctx, TRUE);
+	}
+	if (ret < 0 || (ret=rfc822_skip_lwsp(&ctx->parser)) < 0 ||
 	    ctx->parser.data != ctx->parser.end ||
 	    (ctx->addr.mailbox != NULL &&
 	     (ctx->addr.domain == NULL || *ctx->addr.domain == '\0')) ||
