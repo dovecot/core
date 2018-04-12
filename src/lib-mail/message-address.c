@@ -139,7 +139,8 @@ static int parse_domain_list(struct message_address_parser_context *ctx)
 	return 1;
 }
 
-static int parse_angle_addr(struct message_address_parser_context *ctx)
+static int parse_angle_addr(struct message_address_parser_context *ctx,
+			    bool parsing_path)
 {
 	/* "<" [ "@" route ":" ] local-part "@" domain ">" */
 	i_assert(*ctx->parser.data == '<');
@@ -149,14 +150,16 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 		return -1;
 
 	if (*ctx->parser.data == '@') {
-		if (parse_domain_list(ctx) <= 0 || *ctx->parser.data != ':') {
+		if (parse_domain_list(ctx) > 0 && *ctx->parser.data == ':') {
+			ctx->parser.data++;
+		} else if (parsing_path && *ctx->parser.data != ':') {
+			return -1;
+		} else {
 			if (ctx->fill_missing)
 				ctx->addr.route = "INVALID_ROUTE";
 			if (ctx->parser.data >= ctx->parser.end)
 				return -1;
 			/* try to continue anyway */
-		} else {
-			ctx->parser.data++;
 		}
 		if (rfc822_skip_lwsp(&ctx->parser) <= 0)
 			return -1;
@@ -196,7 +199,7 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 		/* Cope with "<address>" without display name */
 		ctx->addr.name = NULL;
 	}
-	if (parse_angle_addr(ctx) < 0) {
+	if (parse_angle_addr(ctx, FALSE) < 0) {
 		/* broken */
 		if (ctx->fill_missing)
 			ctx->addr.domain = "SYNTAX_ERROR";
@@ -392,7 +395,7 @@ static int parse_path(struct message_address_parser_context *ctx)
 		return -1;
 	if (*ctx->parser.data != '<')
 		return -1;
-	if ((ret=parse_angle_addr(ctx)) < 0 ||
+	if ((ret=parse_angle_addr(ctx, TRUE)) < 0 ||
 	    (ctx->addr.mailbox != NULL && ctx->addr.domain == NULL)) {
 		ctx->addr.invalid_syntax = TRUE;
 		ret = -1;
