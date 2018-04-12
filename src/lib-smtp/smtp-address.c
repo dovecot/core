@@ -181,7 +181,7 @@ smtp_parse_path(struct smtp_address_parser *aparser,
 	enum smtp_address_parse_flags flags)
 {
 	struct smtp_parser *parser = &aparser->parser;
-	int ret, sret;
+	int ret, sret = 0;
 
 	/* Path = "<" [ A-d-l ":" ] Mailbox ">"
 	 */
