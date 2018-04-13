@@ -295,6 +295,7 @@ void pop3c_client_wait_one(struct pop3c_client *client)
 	    array_count(&client->commands) > 0) {
 		while (array_count(&client->commands) > 0)
 			pop3c_client_async_callback_disconnected(client);
+		return;
 	}
 
 	i_assert(client->fd != -1 ||
