@@ -296,8 +296,10 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 						 "Internal auth failure");
 		} else {
 			i_error("Internal auth failure: %s "
-				"(client-pid=%u client-id=%u)",
-				error, request->client_pid, request->auth_id);
+				"(Request took %ld secs, "
+				"client-pid=%u client-id=%u)",
+				error, (long)(ioloop_time - request->create_stamp),
+				request->client_pid, request->auth_id);
 			request->callback(NULL, error, request->context);
 		}
 		i_free(request);
