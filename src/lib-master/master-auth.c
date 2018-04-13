@@ -5,6 +5,7 @@
 #include "fdpass.h"
 #include "buffer.h"
 #include "hash.h"
+#include "time-util.h"
 #include "master-service-private.h"
 #include "master-auth.h"
 
@@ -12,6 +13,7 @@
 #include <sys/stat.h>
 
 #define SOCKET_CONNECT_RETRY_MSECS 500
+#define SOCKET_CONNECT_RETRY_WARNING_INTERVAL_SECS 2
 #define MASTER_AUTH_REQUEST_TIMEOUT_MSECS (MASTER_LOGIN_TIMEOUT_SECS/2*1000)
 
 struct master_auth_connection {
@@ -35,6 +37,7 @@ struct master_auth {
 	pool_t pool;
 
 	const char *default_path;
+	time_t last_connect_warning;
 
 	unsigned int tag_counter;
 	HASH_TABLE(void *, struct master_auth_connection *) connections;
@@ -185,8 +188,28 @@ void master_auth_request_full(struct master_auth *auth,
 	buffer_append(buf, &req, sizeof(req));
 	buffer_append(buf, params->data, req.data_size);
 
-	conn->fd = net_connect_unix_with_retries(conn->path,
-						 SOCKET_CONNECT_RETRY_MSECS);
+	conn->fd = net_connect_unix(conn->path);
+	if (conn->fd == -1 && errno == EAGAIN) {
+		/* Couldn't connect to the socket immediately. This will add
+		   a delay that causes hangs to the whole process, which won't
+		   be obvious unless we log a warning. FIXME: The wait could
+		   be asynchronous. */
+		struct timeval start_time;
+
+		io_loop_time_refresh();
+		start_time = ioloop_timeval;
+		conn->fd = net_connect_unix_with_retries(conn->path,
+			SOCKET_CONNECT_RETRY_MSECS);
+		io_loop_time_refresh();
+		if (conn->fd != -1 &&
+		    ioloop_time - auth->last_connect_warning >=
+		    SOCKET_CONNECT_RETRY_WARNING_INTERVAL_SECS) {
+			i_warning("net_connect_unix(%s) succeeded only after retrying - "
+				  "took %lld us", conn->path,
+				  timeval_diff_usecs(&ioloop_timeval, &start_time));
+			auth->last_connect_warning = ioloop_time;
+		}
+	}
 	if (conn->fd == -1) {
 		i_error("net_connect_unix(%s) failed: %m%s",
 			conn->path, errno != EAGAIN ? "" :
