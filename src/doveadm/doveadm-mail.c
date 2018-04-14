@@ -1052,7 +1052,23 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			const char *short_opt_str = p_strdup_printf(
 				mctx->pool, "-%c", arg->short_opt);
 
-			optarg = (char*)arg->value.v_string;
+			switch(arg->type) {
+			case CMD_PARAM_BOOL:
+				optarg = NULL;
+				break;
+			case CMD_PARAM_INT64:
+				optarg = (char*)dec2str(arg->value.v_int64);
+				break;
+			case CMD_PARAM_IP:
+				optarg = (char*)net_ip2addr(&arg->value.v_ip);
+				break;
+			case CMD_PARAM_STR:
+				optarg = (char*)arg->value.v_string;
+				break;
+			default:
+				i_panic("Cannot convert parameter %s to short opt",
+					arg->name);
+			}
 			if (!mctx->v.parse_arg(mctx, arg->short_opt)) {
 				i_error("Invalid parameter %c", arg->short_opt);
 				doveadm_mail_cmd_free(mctx);
