@@ -59,7 +59,7 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 	map->path = i_strconcat(root, "/"MDBOX_GLOBAL_DIR_NAME, NULL);
 	map->index_path =
 		i_strconcat(index_root, "/"MDBOX_GLOBAL_DIR_NAME, NULL);
-	map->index = mail_index_alloc(storage->storage.storage.user->event,
+	map->index = mail_index_alloc(storage->storage.storage.event,
 				      map->index_path,
 				      MDBOX_GLOBAL_INDEX_PREFIX);
 	mail_index_set_fsync_mode(map->index,

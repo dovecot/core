@@ -214,7 +214,7 @@ index_index_rebuild_init(struct mailbox *box, struct mail_index_view *view,
 	/* if backup index file exists, try to use it */
 	index_dir = mailbox_get_index_path(box);
 	backup_path = t_strconcat(box->index_prefix, ".backup", NULL);
-	ctx->backup_index = mail_index_alloc(box->storage->user->event,
+	ctx->backup_index = mail_index_alloc(box->storage->event,
 					     index_dir, backup_path);
 
 #ifndef MMAP_CONFLICTS_WRITE

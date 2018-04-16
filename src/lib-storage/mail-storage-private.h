@@ -160,6 +160,7 @@ struct mail_storage {
 	char *error_string;
 	enum mail_error error;
 	ARRAY(struct mail_storage_error) error_stack;
+	struct event *event;
 
         const struct mail_storage *storage_class;
 	struct mail_user *user;
