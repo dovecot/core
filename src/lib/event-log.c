@@ -7,6 +7,7 @@
 
 static struct event_filter *global_debug_log_filter = NULL;
 static struct event_filter *global_debug_send_filter = NULL;
+static struct event_filter *global_core_log_filter = NULL;
 
 #undef e_error
 void e_error(struct event *event,
@@ -120,6 +121,10 @@ event_want_debug_log(struct event *event, const char *source_filename,
 	    event_filter_match_source(global_debug_log_filter, event,
 				      source_filename, source_linenum, &ctx))
 		return TRUE;
+	if (global_core_log_filter != NULL &&
+	    event_filter_match_source(global_core_log_filter, event,
+				      source_filename, source_linenum, &ctx))
+		return TRUE;
 	return FALSE;
 }
 
@@ -167,6 +172,11 @@ event_logv_type(struct event *event, enum log_type log_type,
 		str_vprintfa(log_prefix_str, fmt, args);
 		event_send(event, &ctx, "%s", str_c(log_prefix_str));
 	}
+	if (global_core_log_filter != NULL &&
+	    event_filter_match_source(global_core_log_filter, event,
+				      event->source_filename,
+				      event->source_linenum, &ctx))
+		abort();
 	errno = old_errno;
 }
 
@@ -228,4 +238,22 @@ void event_unset_global_debug_send_filter(void)
 {
 	if (global_debug_send_filter != NULL)
 		event_filter_unref(&global_debug_send_filter);
+}
+
+void event_set_global_core_log_filter(struct event_filter *filter)
+{
+	event_unset_global_core_log_filter();
+	global_core_log_filter = filter;
+	event_filter_ref(global_core_log_filter);
+}
+
+struct event_filter *event_get_global_core_log_filter(void)
+{
+	return global_core_log_filter;
+}
+
+void event_unset_global_core_log_filter(void)
+{
+	if (global_core_log_filter != NULL)
+		event_filter_unref(&global_core_log_filter);
 }
