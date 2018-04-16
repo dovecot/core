@@ -116,6 +116,9 @@ writer_client_run_event(struct writer_client *client,
 		*error_r = "Invalid log type";
 		return FALSE;
 	}
+	const struct failure_context ctx = {
+		.type = (enum log_type)log_type
+	};
 	args++;
 
 	struct event *event = event_create(parent_event);
@@ -123,7 +126,7 @@ writer_client_run_event(struct writer_client *client,
 		event_unref(&event);
 		return FALSE;
 	}
-	stats_metrics_event(client->metrics, event);
+	stats_metrics_event(client->metrics, event, &ctx);
 	*event_r = event;
 	return TRUE;
 }

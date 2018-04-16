@@ -201,7 +201,7 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 			const struct failure_context *ctx)
 {
 	if (!client->handshaked ||
-	    !event_filter_match(client->filter, event))
+	    !event_filter_match(client->filter, event, ctx))
 		return;
 
 	string_t *str = t_str_new(256);
