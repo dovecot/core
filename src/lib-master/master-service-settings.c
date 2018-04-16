@@ -123,6 +123,21 @@ int master_service_log_filter_parse(struct event_filter *filter, const char *str
 }
 
 static bool
+log_filter_parse(const char *set_name, const char *set_value,
+		 struct event_filter **filter_r, const char **error_r)
+{
+	const char *error;
+
+	*filter_r = event_filter_create();
+	if (master_service_log_filter_parse(*filter_r, set_value, &error) < 0) {
+		*error_r = t_strdup_printf("Invalid %s: %s", set_name, error);
+		event_filter_unref(filter_r);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool
 master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			      const char **error_r)
 {
@@ -138,13 +153,10 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					   set->syslog_facility);
 		return FALSE;
 	}
-	struct event_filter *filter = event_filter_create();
-	const char *error;
-	if (master_service_log_filter_parse(filter, set->log_debug, &error) < 0) {
-		*error_r = t_strdup_printf("Invalid log_debug: %s", error);
-		event_filter_unref(&filter);
+
+	struct event_filter *filter;
+	if (!log_filter_parse("log_debug", set->log_debug, &filter, error_r))
 		return FALSE;
-	}
 #ifndef CONFIG_BINARY
 	event_set_global_debug_log_filter(filter);
 #endif
