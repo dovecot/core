@@ -65,7 +65,7 @@ last_login_dict_commit(const struct dict_commit_result *result,
 		i_error("last_login_dict: Write was unconfirmed (timeout or disconnect): %s",
 			result->error);
 		break;
-	};
+	}
 
 	/* don't deinit the dict immediately here, lib-dict will just crash */
 	luser->to = timeout_add(0, last_login_dict_deinit, user);
