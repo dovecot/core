@@ -75,4 +75,11 @@ struct event_filter *event_get_global_debug_send_filter(void);
 /* Unset global debug send filter, if one exists. */
 void event_unset_global_debug_send_filter(void);
 
+/* Set/replace the global core filter, which abort()s on matching events. */
+void event_set_global_core_log_filter(struct event_filter *filter);
+/* Return the current global core filter. */
+struct event_filter *event_get_global_core_log_filter(void);
+/* Unset the global core filter, if one exists. */
+void event_unset_global_core_log_filter(void);
+
 #endif
