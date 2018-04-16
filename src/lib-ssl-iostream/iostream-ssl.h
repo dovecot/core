@@ -64,9 +64,8 @@ int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r);
-/* returned input and output streams must also be unreferenced */
-void ssl_iostream_unref(struct ssl_iostream **ssl_io);
-/* shutdown SSL connection and unreference ssl iostream */
+/* Shutdown SSL connection and unreference ssl iostream.
+   The returned input and output streams must also be unreferenced. */
 void ssl_iostream_destroy(struct ssl_iostream **ssl_io);
 
 /* If verbose logging is enabled, use the specified log prefix */
