@@ -98,6 +98,7 @@ writer_client_run_event(struct writer_client *client,
 			struct event **event_r, const char **error_r)
 {
 	struct event *parent_event;
+	unsigned int log_type;
 
 	if (parent_event_id == 0)
 		parent_event = NULL;
@@ -110,6 +111,12 @@ writer_client_run_event(struct writer_client *client,
 		}
 		parent_event = stats_parent_event->event;
 	}
+	if (args[0] == NULL || str_to_uint(args[0], &log_type) < 0 ||
+	    log_type >= LOG_TYPE_COUNT) {
+		*error_r = "Invalid log type";
+		return FALSE;
+	}
+	args++;
 
 	struct event *event = event_create(parent_event);
 	if (!event_import_unescaped(event, args, error_r)) {
@@ -259,7 +266,7 @@ writer_client_input_args(struct connection *conn, const char *const *args)
 static struct connection_settings client_set = {
 	.service_name_in = "stats-client",
 	.service_name_out = "stats-server",
-	.major_version = 2,
+	.major_version = 3,
 	.minor_version = 0,
 
 	.input_max_size = 1024*128, /* "big enough" */
