@@ -21,6 +21,11 @@
 extern struct mail_storage mdbox_storage;
 extern struct mailbox mdbox_mailbox;
 
+static struct event_category event_category_mdbox = {
+	.name = "mdbox",
+	.parent = &event_category_storage,
+};
+
 static struct mail_storage *mdbox_storage_alloc(void)
 {
 	struct mdbox_storage *storage;
@@ -448,6 +453,7 @@ struct mail_storage mdbox_storage = {
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
+	.event_category = &event_category_mdbox,
 
 	.v = {
                 mdbox_get_setting_parser_info,

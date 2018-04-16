@@ -27,6 +27,11 @@ struct maildir_mailbox_list_context {
 extern struct mail_storage maildir_storage;
 extern struct mailbox maildir_mailbox;
 
+static struct event_category event_category_maildir = {
+	.name = "maildir",
+	.parent = &event_category_storage,
+};
+
 static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
 				  &mailbox_list_module_register);
 static const char *maildir_subdirs[] = { "cur", "new", "tmp" };
@@ -668,6 +673,7 @@ struct mail_storage maildir_storage = {
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
+	.event_category = &event_category_maildir,
 
 	.v = {
                 maildir_get_setting_parser_info,

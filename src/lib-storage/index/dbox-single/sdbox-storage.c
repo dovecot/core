@@ -17,6 +17,11 @@ extern struct mail_storage dbox_storage, sdbox_storage;
 extern struct mailbox sdbox_mailbox;
 extern struct dbox_storage_vfuncs sdbox_dbox_storage_vfuncs;
 
+static struct event_category event_category_sdbox = {
+	.name = "sdbox",
+	.parent = &event_category_storage,
+};
+
 static struct mail_storage *sdbox_storage_alloc(void)
 {
 	struct sdbox_storage *storage;
@@ -452,6 +457,7 @@ struct mail_storage sdbox_storage = {
 struct mail_storage dbox_storage = {
 	.name = "dbox", /* alias */
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG,
+	.event_category = &event_category_sdbox,
 
 	.v = {
 		NULL,
