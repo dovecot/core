@@ -58,12 +58,12 @@ last_login_dict_commit(const struct dict_commit_result *result,
 	case DICT_COMMIT_RET_NOTFOUND:
 		break;
 	case DICT_COMMIT_RET_FAILED:
-		i_error("last_login_dict: Failed to write value for user %s: %s",
-			user->username, result->error);
+		i_error("last_login_dict: Failed to write value: %s",
+			result->error);
 		break;
 	case DICT_COMMIT_RET_WRITE_UNCERTAIN:
-		i_error("last_login_dict: Write was unconfirmed (timeout or disconnect) for user %s: %s",
-			 user->username, result->error);
+		i_error("last_login_dict: Write was unconfirmed (timeout or disconnect): %s",
+			result->error);
 		break;
 	};
 
