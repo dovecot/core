@@ -9,6 +9,7 @@ static void test_init_storage(struct mail_storage *storage_r)
 	i_zero(storage_r);
 	storage_r->user = t_new(struct mail_user, 1);
 	storage_r->user->event = event_create(NULL);
+	storage_r->event = event_create(storage_r->user->event);
 }
 
 static void test_deinit_storage(struct mail_storage *storage)
@@ -19,6 +20,7 @@ static void test_deinit_storage(struct mail_storage *storage)
 		i_assert(array_count(&storage->error_stack) == 0);
 		array_free(&storage->error_stack);
 	}
+	event_unref(&storage->event);
 	event_unref(&storage->user->event);
 }
 

@@ -421,6 +421,7 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 	storage->user = ns->user;
 	storage->set = ns->mail_set;
 	storage->flags = flags;
+	storage->event = event_create(ns->user->event);
 	p_array_init(&storage->module_contexts, storage->pool, 5);
 
 	if (storage->v.create != NULL &&
@@ -480,6 +481,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 		i_assert(array_count(&storage->error_stack) == 0);
 		array_free(&storage->error_stack);
 	}
+	event_unref(&storage->event);
 
 	*_storage = NULL;
 	pool_unref(&storage->pool);
@@ -559,7 +561,7 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	storage->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
 	storage->last_error_is_internal = TRUE;
-	e_error(storage->user->event, "%s", storage->last_internal_error);
+	e_error(storage->event, "%s", storage->last_internal_error);
 
 	/* free the old_error and old_internal_error only after the new error
 	   is generated, because they may be one of the parameters. */
@@ -1378,7 +1380,7 @@ static int mailbox_alloc_index_pvt(struct mailbox *box)
 	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE) < 0)
 		return -1;
 
-	box->index_pvt = mail_index_alloc_cache_get(box->storage->user->event,
+	box->index_pvt = mail_index_alloc_cache_get(box->storage->event,
 		NULL, index_dir, t_strconcat(box->index_prefix, ".pvt", NULL));
 	mail_index_set_fsync_mode(box->index_pvt,
 				  box->storage->set->parsed_fsync_mode, 0);

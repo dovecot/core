@@ -161,7 +161,7 @@ index_mailbox_alloc_index(struct mailbox *box, struct mail_index **index_r)
 	    mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
 				&index_dir) <= 0)
 		index_dir = NULL;
-	*index_r = mail_index_alloc_cache_get(box->storage->user->event,
+	*index_r = mail_index_alloc_cache_get(box->storage->event,
 					      mailbox_path, index_dir,
 					      box->index_prefix);
 	return 0;
@@ -379,7 +379,7 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 			     mailbox_list_get_storage_name(box->list, vname));
 	box->flags = flags;
 	box->index_prefix = p_strdup(box->pool, index_prefix);
-	box->event = event_create(box->storage->user->event);
+	box->event = event_create(box->storage->event);
 	event_add_category(box->event, &event_category_mailbox);
 	event_add_str(box->event, "name", box->vname);
 	event_set_append_log_prefix(box->event,
