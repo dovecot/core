@@ -15,6 +15,7 @@ struct master_service_settings {
 	const char *debug_log_path;
 	const char *log_timestamp;
 	const char *log_debug;
+	const char *log_core_filter;
 	const char *syslog_facility;
 	const char *import_environment;
 	const char *stats_writer_socket_path;
