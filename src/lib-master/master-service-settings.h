@@ -99,8 +99,8 @@ int master_service_set(struct master_service *service, const char *line);
 bool master_service_set_has_config_override(struct master_service *service,
 					    const char *key);
 
-/* Parse log_debug setting into an event filter. */
-int master_service_log_debug_parse(struct event_filter *filter, const char *str,
-				   const char **error_r);
+/* Parse log filter setting into an event filter. */
+int master_service_log_filter_parse(struct event_filter *filter, const char *str,
+				    const char **error_r);
 
 #endif

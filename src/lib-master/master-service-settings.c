@@ -104,8 +104,8 @@ const struct setting_parser_info master_service_setting_parser_info = {
 };
 
 /* <settings checks> */
-int master_service_log_debug_parse(struct event_filter *filter, const char *str,
-				   const char **error_r)
+int master_service_log_filter_parse(struct event_filter *filter, const char *str,
+				    const char **error_r)
 {
 	const char *categories[2] = { NULL, NULL };
 	struct event_filter_query query = {
@@ -140,7 +140,7 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 	struct event_filter *filter = event_filter_create();
 	const char *error;
-	if (master_service_log_debug_parse(filter, set->log_debug, &error) < 0) {
+	if (master_service_log_filter_parse(filter, set->log_debug, &error) < 0) {
 		*error_r = t_strdup_printf("Invalid log_debug: %s", error);
 		event_filter_unref(&filter);
 		return FALSE;

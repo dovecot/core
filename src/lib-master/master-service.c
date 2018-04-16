@@ -284,7 +284,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	if (value != NULL) {
 		struct event_filter *filter = event_filter_create();
 		const char *error;
-		if (master_service_log_debug_parse(filter, value, &error) < 0) {
+		if (master_service_log_filter_parse(filter, value, &error) < 0) {
 			i_error("Invalid "DOVECOT_LOG_DEBUG_ENV" - ignoring: %s",
 				error);
 		}
