@@ -137,7 +137,7 @@ static void stats_client_destroy(struct connection *conn)
 static const struct connection_settings stats_client_set = {
 	.service_name_in = "stats-server",
 	.service_name_out = "stats-client",
-	.major_version = 2,
+	.major_version = 3,
 	.minor_version = 0,
 
 	.input_max_size = (size_t)-1,
@@ -167,7 +167,9 @@ static struct event *stats_event_get_parent(struct event *event)
 	return stats_event_get_parent(parent);
 }
 
-static void stats_event_write(struct event *event, string_t *str, bool begin)
+static void
+stats_event_write(struct event *event, const struct failure_context *ctx,
+		  string_t *str, bool begin)
 {
 	struct event *parent_event =
 		begin ? event->parent : stats_event_get_parent(event);
@@ -178,7 +180,7 @@ static void stats_event_write(struct event *event, string_t *str, bool begin)
 	   don't bother using BEGIN for parent. */
 	if (parent_event != NULL) {
 		if (!parent_event->id_sent_to_stats)
-			stats_event_write(parent_event, str, TRUE);
+			stats_event_write(parent_event, ctx, str, TRUE);
 	}
 	if (begin) {
 		str_printfa(str, "BEGIN\t%"PRIu64"\t", event->id);
@@ -187,20 +189,23 @@ static void stats_event_write(struct event *event, string_t *str, bool begin)
 	} else {
 		str_append(str, "EVENT\t");
 	}
-	str_printfa(str, "%"PRIu64"\t",
-		    parent_event == NULL ? 0 : parent_event->id);
+	str_printfa(str, "%"PRIu64"\t%u\t",
+		    parent_event == NULL ? 0 : parent_event->id,
+		    ctx->type);
 	event_export(event, str);
 	str_append_c(str, '\n');
 }
 
 static void
-stats_client_send_event(struct stats_client *client, struct event *event)
+stats_client_send_event(struct stats_client *client, struct event *event,
+			const struct failure_context *ctx)
 {
-	if (!client->handshaked || !event_filter_match(client->filter, event))
+	if (!client->handshaked ||
+	    !event_filter_match(client->filter, event))
 		return;
 
 	string_t *str = t_str_new(256);
-	stats_event_write(event, str, FALSE);
+	stats_event_write(event, ctx, str, FALSE);
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 }
 
@@ -215,7 +220,7 @@ stats_client_free_event(struct stats_client *client, struct event *event)
 
 static bool
 stats_event_callback(struct event *event, enum event_callback_type type,
-		     struct failure_context *ctx ATTR_UNUSED,
+		     struct failure_context *ctx,
 		     const char *fmt ATTR_UNUSED, va_list args ATTR_UNUSED)
 {
 	if (stats_clients->connections == NULL)
@@ -227,7 +232,7 @@ stats_event_callback(struct event *event, enum event_callback_type type,
 
 	switch (type) {
 	case EVENT_CALLBACK_TYPE_EVENT:
-		stats_client_send_event(client, event);
+		stats_client_send_event(client, event, ctx);
 		break;
 	case EVENT_CALLBACK_TYPE_FREE:
 		stats_client_free_event(client, event);
