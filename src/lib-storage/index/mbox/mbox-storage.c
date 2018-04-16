@@ -65,6 +65,11 @@ unsigned int mbox_save_drop_headers_count = N_ELEMENTS(mbox_save_drop_headers);
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
 
+static struct event_category event_category_mbox = {
+	.name = "mbox",
+	.parent = &event_category_storage,
+};
+
 static MODULE_CONTEXT_DEFINE_INIT(mbox_mailbox_list_module,
 				  &mailbox_list_module_register);
 
@@ -815,6 +820,7 @@ struct mail_storage mbox_storage = {
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
 		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
+	.event_category = &event_category_mbox,
 
 	.v = {
                 mbox_get_setting_parser_info,

@@ -12,6 +12,11 @@
 extern struct mail_storage cydir_storage;
 extern struct mailbox cydir_mailbox;
 
+static struct event_category event_category_cydir = {
+	.name = "cydir",
+	.parent = &event_category_storage,
+};
+
 static struct mail_storage *cydir_storage_alloc(void)
 {
 	struct cydir_storage *storage;
@@ -111,6 +116,7 @@ struct mail_storage cydir_storage = {
 	.name = CYDIR_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG |
 		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
+	.event_category = &event_category_cydir,
 
 	.v = {
 		NULL,

@@ -16,6 +16,11 @@
 extern struct mail_storage pop3c_storage;
 extern struct mailbox pop3c_mailbox;
 
+static struct event_category event_category_pop3c = {
+	.name = "pop3c",
+	.parent = &event_category_storage,
+};
+
 static struct mail_storage *pop3c_storage_alloc(void)
 {
 	struct pop3c_storage *storage;
@@ -296,6 +301,7 @@ struct mail_storage pop3c_storage = {
 	.name = POP3C_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
+	.event_category = &event_category_pop3c,
 
 	.v = {
 		pop3c_get_setting_parser_info,

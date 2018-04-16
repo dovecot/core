@@ -30,6 +30,11 @@ struct imapc_resp_code_map {
 extern struct mail_storage imapc_storage;
 extern struct mailbox imapc_mailbox;
 
+static struct event_category event_category_imapc = {
+	.name = "imapc",
+	.parent = &event_category_storage,
+};
+
 static struct imapc_resp_code_map imapc_resp_code_map[] = {
 	{ IMAP_RESP_CODE_UNAVAILABLE, MAIL_ERROR_TEMP },
 	{ IMAP_RESP_CODE_AUTHFAILED, MAIL_ERROR_PERM },
@@ -1208,6 +1213,7 @@ struct mail_storage imapc_storage = {
 	.name = IMAPC_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
 		       MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT,
+	.event_category = &event_category_imapc,
 
 	.v = {
 		imapc_get_setting_parser_info,
