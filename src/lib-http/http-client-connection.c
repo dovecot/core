@@ -1797,8 +1797,7 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 	if (array_is_created(&conn->request_wait_list))
 		array_free(&conn->request_wait_list);
 
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_unref(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	if (conn->connect_initialized)
 		connection_deinit(&conn->conn);
 	io_wait_timer_remove(&conn->io_wait_timer);

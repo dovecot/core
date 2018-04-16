@@ -603,8 +603,7 @@ void server_connection_destroy(struct server_connection **_conn)
 	i_stream_destroy(&conn->cmd_input);
 	/* close cmd_output after its parent, so the "." isn't sent */
 	o_stream_destroy(&conn->cmd_output);
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_unref(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	io_remove(&conn->io_log);
 	/* make sure all logs got consumed */
 	if (conn->log_input != NULL)

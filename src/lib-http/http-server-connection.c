@@ -1172,8 +1172,7 @@ bool http_server_connection_unref(struct http_server_connection **_conn)
 
 	http_server_connection_debug(conn, "Connection destroy");
 
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_unref(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	connection_deinit(&conn->conn);
 
 	if (conn->callbacks != NULL &&
