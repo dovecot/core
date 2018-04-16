@@ -423,6 +423,8 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 	storage->set = ns->mail_set;
 	storage->flags = flags;
 	storage->event = event_create(ns->user->event);
+	if (storage_class->event_category != NULL)
+		event_add_category(storage->event, storage_class->event_category);
 	p_array_init(&storage->module_contexts, storage->pool, 5);
 
 	if (storage->v.create != NULL &&
