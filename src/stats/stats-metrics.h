@@ -29,7 +29,8 @@ struct event_filter *
 stats_metrics_get_event_filter(struct stats_metrics *metrics);
 
 /* Update metrics with given event. */
-void stats_metrics_event(struct stats_metrics *metrics, struct event *event);
+void stats_metrics_event(struct stats_metrics *metrics, struct event *event,
+			 const struct failure_context *ctx);
 
 /* Iterate through all the tracked metrics. */
 struct stats_metrics_iter *

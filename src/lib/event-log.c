@@ -111,12 +111,16 @@ static bool
 event_want_debug_log(struct event *event, const char *source_filename,
 		     unsigned int source_linenum)
 {
+	struct failure_context ctx = { .type = LOG_TYPE_DEBUG };
+
 	if (event->forced_debug)
 		return TRUE;
 
-	return global_debug_log_filter == NULL ? FALSE :
-		event_filter_match_source(global_debug_log_filter, event,
-					  source_filename, source_linenum);
+	if (global_debug_log_filter != NULL &&
+	    event_filter_match_source(global_debug_log_filter, event,
+				      source_filename, source_linenum, &ctx))
+		return TRUE;
+	return FALSE;
 }
 
 bool event_want_debug(struct event *event, const char *source_filename,
@@ -129,8 +133,11 @@ bool event_want_debug(struct event *event, const char *source_filename,
 
 	/* see if debug send filtering matches */
 	if (global_debug_send_filter != NULL) {
+		struct failure_context ctx = { .type = LOG_TYPE_DEBUG };
+
 		if (event_filter_match_source(global_debug_send_filter, event,
-					      source_filename, source_linenum))
+					      source_filename, source_linenum,
+					      &ctx))
 			return TRUE;
 	}
 	return FALSE;

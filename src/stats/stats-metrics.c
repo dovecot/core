@@ -175,12 +175,13 @@ stats_metric_event(struct metric *metric, struct event *event)
 	}
 }
 
-void stats_metrics_event(struct stats_metrics *metrics, struct event *event)
+void stats_metrics_event(struct stats_metrics *metrics, struct event *event,
+			 const struct failure_context *ctx)
 {
 	struct event_filter_match_iter *iter;
 	struct metric *metric;
 
-	iter = event_filter_match_iter_init(metrics->filter, event);
+	iter = event_filter_match_iter_init(metrics->filter, event, ctx);
 	while ((metric = event_filter_match_iter_next(iter)) != NULL)
 		stats_metric_event(metric, event);
 	event_filter_match_iter_deinit(&iter);
