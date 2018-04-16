@@ -93,6 +93,12 @@ static struct event_category event_category_pgsql = {
 	.name = "pgsql"
 };
 
+static void pgsql_notice_processor(void *arg, const char *message)
+{
+	struct pgsql_db *db = arg;
+	e_info(db->api.event, "%s", message);
+}
+
 static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
 {
 	i_assert(state == SQL_DB_STATE_BUSY || db->cur_result == NULL);
@@ -236,6 +242,8 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	if (db->pg == NULL) {
 		i_fatal("pgsql: PQconnectStart() failed (out of memory)");
 	}
+
+	(void)PQsetNoticeProcessor(db->pg, pgsql_notice_processor, db);
 
 	if (PQstatus(db->pg) == CONNECTION_BAD) {
 		e_error(_db->event, "Connect failed to database %s: %s",
