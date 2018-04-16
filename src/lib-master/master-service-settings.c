@@ -44,6 +44,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, debug_log_path),
 	DEF(SET_STR, log_timestamp),
 	DEF(SET_STR, log_debug),
+	DEF(SET_STR, log_core_filter),
 	DEF(SET_STR, syslog_facility),
 	DEF(SET_STR, import_environment),
 	DEF(SET_STR, stats_writer_socket_path),
@@ -79,6 +80,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.debug_log_path = "",
 	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
 	.log_debug = "",
+	.log_core_filter = "",
 	.syslog_facility = "mail",
 	.import_environment = "TZ CORE_OUTOFMEM CORE_ERROR" ENV_SYSTEMD ENV_GDB,
 	.stats_writer_socket_path = "stats-writer",
@@ -165,6 +167,16 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	if (filter != NULL) {
 #ifndef CONFIG_BINARY
 		event_set_global_debug_log_filter(filter);
+#endif
+		event_filter_unref(&filter);
+	}
+
+	if (!log_filter_parse("log_core_filter", set->log_core_filter,
+			      &filter, error_r))
+		return FALSE;
+	if (filter != NULL) {
+#ifndef CONFIG_BINARY
+		event_set_global_core_log_filter(filter);
 #endif
 		event_filter_unref(&filter);
 	}
