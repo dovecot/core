@@ -88,6 +88,12 @@ static const char *pgsql_prefix(struct pgsql_db *db)
 		t_strdup_printf("pgsql(%s)", db->host);
 }
 
+static void pgsql_notice_processor(void *arg, const char *message)
+{
+	struct pgsql_db *db = arg;
+	i_info("%s: %s", pgsql_prefix(db), message);
+}
+
 static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
 {
 	i_assert(state == SQL_DB_STATE_BUSY || db->cur_result == NULL);
@@ -228,6 +234,8 @@ static int driver_pgsql_connect(struct sql_db *_db)
 		i_fatal("%s: PQconnectStart() failed (out of memory)",
 			pgsql_prefix(db));
 	}
+
+	(void)PQsetNoticeProcessor(db->pg, pgsql_notice_processor, db);
 
 	if (PQstatus(db->pg) == CONNECTION_BAD) {
 		i_error("%s: Connect failed to database %s: %s",

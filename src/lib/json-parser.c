@@ -138,7 +138,7 @@ int json_parser_deinit(struct json_parser **_parser, const char **error_r)
 					   i_stream_get_name(parser->input),
 					   i_stream_get_error(parser->input));
 	} else if (parser->data == parser->end &&
-		   !i_stream_have_bytes_left(parser->input) &&
+		   parser->input->eof &&
 		   parser->state != JSON_STATE_DONE) {
 		*error_r = "Missing '}'";
 	} else {
