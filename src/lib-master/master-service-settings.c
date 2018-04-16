@@ -128,6 +128,11 @@ log_filter_parse(const char *set_name, const char *set_value,
 {
 	const char *error;
 
+	if (set_value[0] == '\0') {
+		*filter_r = NULL;
+		return TRUE;
+	}
+
 	*filter_r = event_filter_create();
 	if (master_service_log_filter_parse(*filter_r, set_value, &error) < 0) {
 		*error_r = t_strdup_printf("Invalid %s: %s", set_name, error);
@@ -157,10 +162,12 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	struct event_filter *filter;
 	if (!log_filter_parse("log_debug", set->log_debug, &filter, error_r))
 		return FALSE;
+	if (filter != NULL) {
 #ifndef CONFIG_BINARY
-	event_set_global_debug_log_filter(filter);
+		event_set_global_debug_log_filter(filter);
 #endif
-	event_filter_unref(&filter);
+		event_filter_unref(&filter);
+	}
 	return TRUE;
 }
 /* </settings checks> */
