@@ -1592,8 +1592,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 	timeout_remove(&conn->to_trans);
 	timeout_remove(&conn->to_commands);
 
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_unref(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	if (conn->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&conn->ssl_ctx);
 	if (conn->sasl_client != NULL)

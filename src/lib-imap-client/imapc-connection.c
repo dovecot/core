@@ -461,8 +461,7 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 	if (conn->parser != NULL)
 		imap_parser_unref(&conn->parser);
 	io_remove(&conn->io);
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_unref(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	if (conn->fd != -1) {
 		i_stream_destroy(&conn->input);
 		o_stream_destroy(&conn->output);
