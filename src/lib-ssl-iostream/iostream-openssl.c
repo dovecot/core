@@ -344,6 +344,7 @@ static void openssl_iostream_unref(struct ssl_iostream *ssl_io)
 
 static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 {
+	ssl_io->destroyed = TRUE;
 	if (ssl_io->handshaked && SSL_shutdown(ssl_io->ssl) != 1) {
 		/* if bidirectional shutdown fails we need to clear
 		   the error queue */
@@ -627,6 +628,10 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	int ret;
 
 	i_assert(!ssl_io->handshaked);
+
+	/* we are being destroyed, so do not do any more handshaking */
+	if (ssl_io->destroyed)
+		return 0;
 
 	if (ssl_io->ctx->client_ctx) {
 		while ((ret = SSL_connect(ssl_io->ssl)) <= 0) {
