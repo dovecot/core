@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "test-common.h"
 #include "test-auth.h"
+#include "password-scheme.h"
 
 int main(int argc, const char *argv[])
 {
@@ -16,6 +17,8 @@ int main(int argc, const char *argv[])
 #endif
 		{ NULL, NULL }
 	};
+
+	password_schemes_init();
 
 	if (argc > 2 && strcasecmp(argv[1], "--match") == 0)
 		match = argv[2];
