@@ -372,6 +372,14 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 
 		if (imapc_msgmap_uid_to_rseq(msgmap, fetch_uid, &fixed_rseq))
 			rseq = fixed_rseq;
+		else if (fetch_uid >= imapc_msgmap_uidnext(msgmap) &&
+			 rseq <= msg_count) {
+			/* The current rseq is wrong. Lets hope that the
+			   correct rseq is the next new one. This happens
+			   especially with no-msn-updates when mails have been
+			   expunged and new mails arrive in the same session. */
+			rseq = msg_count+1;
+		}
 	}
 
 	if (rseq <= msg_count) {
