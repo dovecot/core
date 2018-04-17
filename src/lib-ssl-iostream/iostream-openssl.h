@@ -66,6 +66,7 @@ struct ssl_iostream {
 	bool want_read:1;
 	bool ostream_flush_waiting_input:1;
 	bool closed:1;
+	bool destroyed:1;
 };
 
 extern int dovecot_ssl_extdata_index;
