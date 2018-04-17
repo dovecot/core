@@ -126,6 +126,9 @@ kick_print_kicked(struct kick_context *ctx, const bool show_warning)
 		if (strcmp(users[i-1], users[i]) != 0)
 			doveadm_print(users[i]);
 	}
+
+	doveadm_print_flush();
+
 	if (cli)
 		printf("\n");
 

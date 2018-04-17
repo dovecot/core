@@ -256,6 +256,8 @@ static void who_print_user(const struct who_user *user)
 		str_truncate(str, str_len(str)-1);
 	str_append_c(str, ')');
 	doveadm_print(str_c(str));
+
+	doveadm_print_flush();
 }
 
 static void who_print(struct who_context *ctx)
