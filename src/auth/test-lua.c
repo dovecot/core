@@ -13,7 +13,6 @@ static void test_db_lua_auth_verify(void)
         struct auth_settings set;
         i_zero(&set);
         global_auth_settings = &set;
-        passdbs_init();
 
         struct auth_request *req = auth_request_new_dummy();
         req->passdb = passdb_mock();
@@ -52,7 +51,6 @@ static void test_db_lua_auth_lookup(void)
 	struct auth_settings set;
 	i_zero(&set);
 	global_auth_settings = &set;
-	passdbs_init();
 
 	struct auth_request *req = auth_request_new_dummy();
 	req->passdb = passdb_mock();

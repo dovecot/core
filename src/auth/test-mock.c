@@ -8,6 +8,7 @@ struct auth_penalty *auth_penalty;
 time_t process_start_time;
 bool worker, worker_restart_request;
 static struct passdb_module *mock_passdb_mod = NULL;
+static pool_t mock_pool;
 
 void auth_module_load(const char *names ATTR_UNUSED)
 {
@@ -52,10 +53,12 @@ static struct auth_passdb_settings set = {
 	.auth_verbose = "default"
 };
 
-static void passdb_mock_mod_init(void)
+void passdb_mock_mod_init(void)
 {
 	if (mock_passdb_mod != NULL)
 		return;
+
+	mock_pool = pool_allocfree_create("auth mock");
 
 	passdb_register_module(&mock_interface);
 
@@ -78,12 +81,19 @@ static void passdb_mock_mod_init(void)
 		.master = FALSE,
 		.auth_verbose = "default"
 	};
-	mock_passdb_mod = passdb_preinit(default_pool, &set);
+	mock_passdb_mod = passdb_preinit(mock_pool, &set);
+	passdb_init(mock_passdb_mod);
+}
+
+void passdb_mock_mod_deinit(void)
+{
+	passdb_deinit(mock_passdb_mod);
+	passdb_unregister_module(&mock_interface);
+	pool_unref(&mock_pool);
 }
 
 struct auth_passdb *passdb_mock(void)
 {
-	passdb_mock_mod_init();
 	struct auth_passdb *ret = i_new(struct auth_passdb, 1);
 	ret->set = &set;
 	ret->passdb = mock_passdb_mod;
