@@ -187,6 +187,7 @@ module_load(const char *path, const char *name,
 	void *handle;
 	struct module *module;
 	const char *const *module_version;
+	void (*preinit)(void);
 
 	*module_r = NULL;
 	*error_r = NULL;
@@ -243,6 +244,11 @@ module_load(const char *path, const char *name,
 	module->deinit = (void (*)(void))
 		get_symbol(module, t_strconcat(name, "_deinit", NULL),
 			   !set->require_init_funcs);
+	preinit = (void (*)(void))
+		get_symbol(module, t_strconcat(name, "_preinit", NULL),
+			   TRUE);
+	if (preinit != NULL)
+		preinit();
 
 	if ((module->init == NULL || module->deinit == NULL) &&
 	    set->require_init_funcs) {
