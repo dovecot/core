@@ -1050,6 +1050,8 @@ index_mail_parse_body_finish(struct index_mail *mail,
 			     enum index_cache_field field, bool success)
 {
 	struct istream *parser_input = mail->data.parser_input;
+	const struct mail_storage_settings *mail_set =
+		mailbox_get_settings(mail->mail.mail.box);
 	const char *error = NULL;
 	int ret;
 
@@ -1113,6 +1115,12 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_body_parsed_cache_bodystructure(mail, field);
 	index_mail_cache_sizes(mail);
 	index_mail_cache_dates(mail);
+	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+	    !mail_has_attachment_keywords(&mail->mail.mail)) {
+		i_assert(mail->data.parts != NULL);
+		i_assert(mail->data.parsed_bodystructure);
+		(void)mail_set_attachment_keywords(&mail->mail.mail);
+	}
 	return 0;
 }
 
@@ -1754,6 +1762,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 	struct mail_storage *storage = _mail->box->storage;
 	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct mail_cache_view *cache_view = _mail->transaction->cache_view;
+	const struct mail_storage_settings *mail_set = _mail->box->storage->set;
 
 	if (_mail->seq == 0) {
 		/* mail_add_temp_wanted_fields() called before mail_set_seq*().
@@ -1845,6 +1854,10 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 			data->access_part |= PARSE_HDR;
 			data->save_sent_date = TRUE;
 		}
+	}
+	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save) {
+		data->save_bodystructure_header = TRUE;
+		data->save_bodystructure_body = TRUE;
 	}
 	if ((data->wanted_fields & MAIL_FETCH_BODY_SNIPPET) != 0 &&
 	    (storage->nonbody_access_fields & MAIL_FETCH_BODY_SNIPPET) == 0) {
