@@ -2458,7 +2458,7 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 
 	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
 	    !mail_has_attachment_keywords(ctx->dest_mail))
-		mail_set_attachment_keywords(ctx->dest_mail);
+		(void)mail_set_attachment_keywords(ctx->dest_mail);
 
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
