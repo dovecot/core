@@ -38,10 +38,16 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(SET_BOOL, auth_ssl_require_client_cert),
 	DEF(SET_BOOL, auth_ssl_username_from_cert),
 
+	DEF(SET_STR, ssl_cert_md_algorithm),
+	DEF(SET_UINT, ssl_verify_depth),
+
 	DEF(SET_BOOL, disable_plaintext_auth),
 	DEF(SET_BOOL, auth_verbose),
 	DEF(SET_BOOL, auth_debug),
 	DEF(SET_BOOL, verbose_proctitle),
+
+	DEF(SET_BOOL, ssl_cert_info),
+	DEF(SET_BOOL, ssl_cert_debug),
 
 	DEF(SET_UINT, mail_max_userip_connections),
 
@@ -67,12 +73,18 @@ static const struct login_settings login_default_settings = {
 	.auth_ssl_require_client_cert = FALSE,
 	.auth_ssl_username_from_cert = FALSE,
 
+	.ssl_cert_md_algorithm = "sha1",
+	.ssl_verify_depth = 9,
+
 	.disable_plaintext_auth = TRUE,
 	.auth_verbose = FALSE,
 	.auth_debug = FALSE,
 	.verbose_proctitle = FALSE,
 
-	.mail_max_userip_connections = 10
+	.mail_max_userip_connections = 10,
+
+	.ssl_cert_info = FALSE,
+	.ssl_cert_debug = FALSE
 };
 
 const struct setting_parser_info login_setting_parser_info = {

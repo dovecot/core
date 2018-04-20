@@ -322,7 +322,6 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		auth_str_add_keyvalue(dest, "requested-login-user",
 				      request->requested_login_user);
 	}
-
 	if (request->local_ip.family != 0) {
 		auth_str_add_keyvalue(dest, "lip",
 				      net_ip2addr(&request->local_ip));
@@ -444,6 +443,12 @@ bool auth_request_import_auth(struct auth_request *request,
 		request->no_penalty = TRUE;
 	else if (strcmp(key, "valid-client-cert") == 0)
 		request->valid_client_cert = TRUE;
+	else if (strcmp(key, "cert_loginname") == 0)
+		request->cert_loginname = p_strdup(request->pool, value);
+	else if (strcmp(key, "cert_fingerprint") == 0)
+		request->cert_fingerprint = p_strdup(request->pool, value);
+	else if (strcmp(key, "cert_fingerprint_base64") == 0)
+		request->cert_fingerprint_base64 = p_strdup(request->pool, value);
 	else if (strcmp(key, "cert_username") == 0) {
 		if (request->set->ssl_username_from_cert && *value != '\0') {
 			/* get username from SSL certificate. it overrides
@@ -841,6 +846,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	} else {
 		next_passdb = request->passdb->next;
 	}
+
 	while (next_passdb != NULL &&
 		auth_request_want_skip_passdb(request, next_passdb))
 		next_passdb = next_passdb->next;

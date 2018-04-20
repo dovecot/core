@@ -43,4 +43,9 @@ unsigned int ssl_proxy_get_count(void) ATTR_PURE;
 void ssl_proxy_init(void);
 void ssl_proxy_deinit(void);
 
+const char *ssl_proxy_get_fingerprint(struct ssl_proxy *proxy);
+const char *ssl_proxy_get_fingerprint_base64(struct ssl_proxy *proxy);
+const char *__ssl_proxy_get_fingerprint(struct ssl_proxy *proxy, bool base64mode);
+char *__base64(const char *input, int length);
+
 #endif

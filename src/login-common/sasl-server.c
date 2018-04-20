@@ -337,7 +337,7 @@ static bool get_cert_username(struct client *client, const char **username_r,
 	}
 
 	/* get peer name */
-	const char *username = ssl_proxy_get_peer_name(client->ssl_proxy);
+	const char *username = client->ssl_proxy == NULL ? NULL : ssl_proxy_get_peer_name(client->ssl_proxy);
 
 	/* if we wanted peer name, but it was not there, fail */
 	if (client->set->auth_ssl_username_from_cert &&
@@ -347,7 +347,7 @@ static bool get_cert_username(struct client *client, const char **username_r,
 			return FALSE;
 		}
 	}
-
+	
 	*username_r = username;
 	return TRUE;
 }
@@ -399,6 +399,12 @@ void sasl_server_auth_begin(struct client *client,
 			return;
 		}
 	}
+	info.cert_loginname = client->ssl_proxy == NULL ? NULL :
+		ssl_proxy_get_peer_name(client->ssl_proxy);
+	info.cert_fingerprint = client->ssl_proxy == NULL ? NULL :
+		ssl_proxy_get_fingerprint(client->ssl_proxy);
+	info.cert_fingerprint_base64 = client->ssl_proxy == NULL ? NULL :
+		ssl_proxy_get_fingerprint_base64(client->ssl_proxy);
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;
