@@ -27,14 +27,14 @@ struct auth_request {
 	int refcount;
 
 	pool_t pool;
-        enum auth_request_state state;
-        /* user contains the user who is being authenticated.
-           When master user is logging in as someone else, it gets more
-           complicated. Initially user is set to master's username and the
-           requested_login_user is set to destination username. After masterdb
-           has validated user as a valid master user, master_user is set to
-           user and user is set to requested_login_user. */
-        char *user, *requested_login_user, *master_user;
+	enum auth_request_state state;
+	/* user contains the user who is being authenticated.
+	   When master user is logging in as someone else, it gets more
+	   complicated. Initially user is set to master's username and the
+	   requested_login_user is set to destination username. After masterdb
+	   has validated user as a valid master user, master_user is set to
+	   user and user is set to requested_login_user. */
+	char *user, *requested_login_user, *master_user;
 	/* original_username contains the username exactly as given by the
 	   client. this is needed at least with DIGEST-MD5 for password
 	   verification. however with master logins the master username has
@@ -47,9 +47,13 @@ struct auth_request {
 	const char *realm;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
-        /* extra_fields are returned in authentication reply. Fields prefixed
-           with "userdb_" are automatically placed to userdb_reply instead. */
-        struct auth_fields *extra_fields;
+	/* extra_fields are returned in authentication reply. Fields prefixed
+	   with "userdb_" are automatically placed to userdb_reply instead. */
+	/* the login/username and fingerprint given by the certificate */
+	char *cert_loginname;
+    char *cert_fingerprint;
+    char *cert_fingerprint_base64;
+	struct auth_fields *extra_fields;
 	/* the whole userdb result reply */
 	struct auth_fields *userdb_reply;
 	struct auth_request_proxy_dns_lookup_ctx *dns_lookup_ctx;

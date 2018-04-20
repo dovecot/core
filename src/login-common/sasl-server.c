@@ -361,6 +361,12 @@ void sasl_server_auth_begin(struct client *client,
 	info.session_id = client_get_session_id(client);
 	info.cert_username = client->ssl_proxy == NULL ? NULL :
 		ssl_proxy_get_peer_name(client->ssl_proxy);
+	info.cert_loginname = client->ssl_proxy == NULL ? NULL :
+		ssl_proxy_get_peer_name(client->ssl_proxy);
+	info.cert_fingerprint = client->ssl_proxy == NULL ? NULL :
+		ssl_proxy_get_fingerprint(client->ssl_proxy);
+	info.cert_fingerprint_base64 = client->ssl_proxy == NULL ? NULL :
+		ssl_proxy_get_fingerprint_base64(client->ssl_proxy);
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;

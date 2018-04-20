@@ -90,6 +90,16 @@ void ssl_proxy_destroy(struct ssl_proxy *proxy ATTR_UNUSED) {}
 
 void ssl_proxy_free(struct ssl_proxy **proxy ATTR_UNUSED) {}
 
+const char *ssl_proxy_get_fingerprint(struct ssl_proxy *proxy __attr_unused__)
+{
+	return NULL;
+}
+
+const char *ssl_proxy_get_fingerprint_base64(struct ssl_proxy *proxy __attr_unused__)
+{
+	return NULL;
+}
+
 unsigned int ssl_proxy_get_count(void)
 {
 	return 0;

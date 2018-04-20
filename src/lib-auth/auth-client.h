@@ -41,6 +41,9 @@ struct auth_request_info {
 	const char *service;
 	const char *session_id;
 	const char *cert_username;
+	const char *cert_loginname;
+	const char *cert_fingerprint;
+	const char *cert_fingerprint_base64;
 	const char *local_name;
 	const char *client_id;
 	const char *forward_fields;

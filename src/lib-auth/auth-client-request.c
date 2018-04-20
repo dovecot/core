@@ -53,6 +53,18 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 		str_append(str, "\tcert_username=");
 		str_append_tabescaped(str, info->cert_username);
 	}
+	if (info->cert_loginname != NULL) {
+		str_append(str, "\tcert_loginname=");
+		str_append_tabescaped(str, info->cert_loginname);
+	}
+	if (info->cert_fingerprint != NULL) {
+		str_append(str, "\tcert_fingerprint=");
+		str_append_tabescaped(str, info->cert_fingerprint);
+	}
+	if (info->cert_fingerprint_base64 != NULL) {
+		str_append(str, "\tcert_fingerprint_base64=");
+		str_append_tabescaped(str, info->cert_fingerprint_base64);
+	}
 	if (info->local_ip.family != 0)
 		str_printfa(str, "\tlip=%s", net_ip2addr(&info->local_ip));
 	if (info->remote_ip.family != 0)
@@ -125,6 +137,12 @@ auth_client_request_new(struct auth_client *client,
 		p_strdup_empty(pool, request_info->session_id);
 	request->request_info.cert_username =
 		p_strdup_empty(pool, request_info->cert_username);
+	request->request_info.cert_loginname =
+		p_strdup(pool, request_info->cert_loginname);
+	request->request_info.cert_fingerprint =
+		p_strdup(pool, request_info->cert_fingerprint);
+	request->request_info.cert_fingerprint_base64 =
+		p_strdup(pool, request_info->cert_fingerprint_base64);
 	request->request_info.initial_resp_base64 =
 		p_strdup_empty(pool, request_info->initial_resp_base64);
 	
