@@ -303,13 +303,18 @@ static void checkpassword_child_input(struct chkpw_auth_request *request)
 
 	ret = read(request->fd_in, buf, sizeof(buf));
 	if (ret > 0) {
-		str_append_n(request->input_buf, buf, ret);
+		str_append_data(request->input_buf, buf, ret);
 		return;
 	}
 
 	if (ret < 0) {
 		auth_request_log_error(request->request, AUTH_SUBSYS_DB,
 				       "read() failed: %m");
+		checkpassword_internal_failure(&request);
+	} else if (memchr(str_data(request->input_buf), '\0',
+			  str_len(request->input_buf)) != NULL) {
+		auth_request_log_error(request->request, AUTH_SUBSYS_DB,
+				       "NUL characters in checkpassword reply");
 		checkpassword_internal_failure(&request);
 	} else if (strchr(str_c(request->input_buf), '\n') != NULL) {
 		auth_request_log_error(request->request, AUTH_SUBSYS_DB,
