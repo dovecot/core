@@ -331,7 +331,7 @@ fts_backend_squat_update_build_more(struct fts_backend_update_context *_ctx,
 		(struct squat_fts_backend_update_context *)_ctx;
 
 	if (ctx->squat_type == SQUAT_INDEX_TYPE_HEADER) {
-		str_append_n(ctx->hdr, data, size);
+		str_append_data(ctx->hdr, data, size);
 		return 0;
 	}
 	return squat_trie_build_more(ctx->build_ctx, ctx->uid, ctx->squat_type,
