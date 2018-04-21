@@ -346,7 +346,7 @@ void index_mail_parse_header(struct message_part *part,
 		   cache as nonexistent. */
 		match[field_idx] |= HEADER_MATCH_FLAG_FOUND;
 	}
-	str_append_n(mail->header_data, hdr->value, hdr->value_len);
+	str_append_data(mail->header_data, hdr->value, hdr->value_len);
 	if (!hdr->no_newline)
 		str_append(mail->header_data, "\n");
 	if (!hdr->continues) {
