@@ -319,6 +319,23 @@ static void test_message_address(void)
 	test_end();
 }
 
+static void test_message_address_nuls(void)
+{
+	const unsigned char input[] =
+		"\"user\0nuls\"@[domain\0nuls] (comment\0nuls)";
+	const struct message_address output = {
+		NULL, "comment\x80nuls", NULL, "user\x80nuls",
+		"[domain\x80nuls]", FALSE
+	};
+	const struct message_address *addr;
+
+	test_begin("message address parsing with NULs");
+	addr = message_address_parse(pool_datastack_create(),
+				     input, sizeof(input)-1, UINT_MAX, FALSE);
+	test_assert(addr != NULL && cmp_addr(addr, &output));
+	test_end();
+}
+
 static int
 test_parse_path(const char *input, const struct message_address **addr_r)
 {
@@ -443,6 +460,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_address,
+		test_message_address_nuls,
 		test_message_address_path,
 		test_message_address_path_invalid,
 		NULL
