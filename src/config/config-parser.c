@@ -479,7 +479,7 @@ str_append_file(string_t *str, const char *key, const char *path,
 		return -1;
 	}
 	while ((ret = read(fd, buf, sizeof(buf))) > 0)
-		str_append_n(str, buf, ret);
+		str_append_data(str, buf, ret);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("%s: read(%s) failed: %m",
 					   key, path);
