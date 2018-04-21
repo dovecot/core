@@ -60,6 +60,10 @@ static bool snippet_generate(struct snippet_context *ctx,
 				count += 2; /* because we skip +1 next */
 				break;
 			}
+			if (data[i] == '\0') {
+				/* skip NULs without increasing snippet size */
+				break;
+			}
 			if (data[i] == '\r' || data[i] == '\n' ||
 			    data[i] == '\t' || data[i] == ' ') {
 				/* skip any leading whitespace */
