@@ -216,7 +216,7 @@ doveadm_print_table_print_stream(const unsigned char *value, size_t size)
 		i_fatal("table formatter doesn't support multi-line values");
 
 	if (size != 0)
-		str_append_n(ctx->stream, value, size);
+		str_append_data(ctx->stream, value, size);
 	else {
 		doveadm_print_table_print(str_c(ctx->stream));
 		str_truncate(ctx->stream, 0);
