@@ -47,7 +47,13 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 	string_t *str;
 	unsigned int i, j, count, next, next_idx;
 	bool ok, have_extended, broken = FALSE;
+	char prev_replacement_char;
 	int ret;
+
+	/* Temporarily replace the nul_replacement_char while we're parsing
+	   the content-params. It'll be restored before we return. */
+	prev_replacement_char = ctx->nul_replacement_char;
+	ctx->nul_replacement_char = RFC822_NUL_REPLACEMENT_CHAR;
 
 	/* Get a list of all parameters. RFC 2231 uses key*<n>[*]=value pairs,
 	   which we want to merge to a key[*]=value pair. Save them to a
@@ -97,6 +103,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 			array_append(&result, &value, 1);
 		}
 	}
+	ctx->nul_replacement_char = prev_replacement_char;
 
 	if (array_count(&rfc2231_params_arr) == 0) {
 		/* No RFC 2231 parameters */
