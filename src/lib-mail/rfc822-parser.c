@@ -312,6 +312,7 @@ static int
 rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
+	size_t len;
 
 	/*
 	   domain-literal  = [CFWS] "[" *([FWS] dcontent) [FWS] "]" [CFWS]
@@ -324,15 +325,38 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '[');
 
-	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
-		if (*ctx->data == '\\') {
+	for (start = ctx->data++; ctx->data < ctx->end; ctx->data++) {
+		switch (*ctx->data) {
+		case '[':
+			/* not allowed */
+			return -1;
+		case ']':
+			str_append_data(str, start, ctx->data - start + 1);
+			ctx->data++;
+			return rfc822_skip_lwsp(ctx);
+		case '\n':
+			/* folding whitespace, remove the (CR)LF */
+			len = ctx->data - start;
+			if (len > 0 && start[len-1] == '\r')
+				len--;
+			str_append_data(str, start, len);
+			start = ctx->data + 1;
+			break;
+		case '\\':
+			/* note: the '\' is preserved in the output */
 			ctx->data++;
 			if (ctx->data >= ctx->end)
+				return -1;
+
+			if (*ctx->data == '\r' || *ctx->data == '\n') {
+				/* quoted-pair doesn't allow CR/LF.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				str_append_data(str, start, ctx->data - start);
+				start = ctx->data;
+				ctx->data--;
 				break;
-		} else if (*ctx->data == ']') {
-			ctx->data++;
-			str_append_data(str, start, ctx->data - start);
-			return rfc822_skip_lwsp(ctx);
+			}
 		}
 	}
 

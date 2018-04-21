@@ -41,6 +41,39 @@ static void test_rfc822_parse_quoted_string(void)
 	test_end();
 }
 
+static void test_rfc822_parse_domain_literal(void)
+{
+	static const struct {
+		const char *input, *output;
+		int ret;
+	} tests[] = {
+		{ "@[", "", -1 },
+		{ "@[foo", "", -1 },
+		{ "@[foo[]", "", -1 },
+		{ "@[foo[]]", "", -1 },
+		{ "@[]", "[]", 0 },
+		{ "@[foo bar]", "[foo bar]", 0 },
+		{ "@[foo\n bar]", "[foo bar]", 0 },
+		{ "@[foo\n\t\t bar]", "[foo\t\t bar]", 0 },
+		{ "@[foo\\\n bar]", "[foo\\ bar]", 0 },
+	};
+	struct rfc822_parser_context parser;
+	string_t *str = t_str_new(64);
+	unsigned int i = 0;
+
+	test_begin("rfc822 parse domain literal");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		rfc822_parser_init(&parser, (const void *)tests[i].input,
+				   strlen(tests[i].input), NULL);
+		test_assert_idx(rfc822_parse_domain(&parser, str) == tests[i].ret, i);
+		test_assert_idx(tests[i].ret < 0 ||
+				strcmp(tests[i].output, str_c(str)) == 0, i);
+		rfc822_parser_deinit(&parser);
+		str_truncate(str, 0);
+	}
+	test_end();
+}
+
 static void test_rfc822_parse_content_param(void)
 {
 	const char *input =
@@ -76,6 +109,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_rfc822_parse_quoted_string,
+		test_rfc822_parse_domain_literal,
 		test_rfc822_parse_content_param,
 		NULL
 	};
