@@ -186,7 +186,7 @@ static int redis_input_get(struct redis_connection *conn, const char **error_r)
 	data = i_stream_get_data(conn->conn.input, &size);
 	if (size > conn->bytes_left)
 		size = conn->bytes_left;
-	str_append_n(conn->last_reply, data, size);
+	str_append_data(conn->last_reply, data, size);
 
 	conn->bytes_left -= size;
 	i_stream_skip(conn->conn.input, size);

@@ -122,7 +122,7 @@ static bool memcached_ascii_input_value(struct memcached_ascii_connection *conn)
 		size = conn->reply_bytes_left;
 	conn->reply_bytes_left -= size;
 
-	str_append_n(conn->reply_str, data, size);
+	str_append_data(conn->reply_str, data, size);
 	i_stream_skip(conn->conn.input, size);
 	if (conn->reply_bytes_left > 0)
 		return FALSE;
