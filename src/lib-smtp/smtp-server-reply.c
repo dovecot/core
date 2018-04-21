@@ -196,9 +196,9 @@ void smtp_server_reply_add_text(struct smtp_server_reply *reply,
 			text = NULL;
 		} else {
 			if (p > text && *(p-1) == '\r')
-				str_append_n(textbuf, text, p - text - 1);
+				str_append_data(textbuf, text, p - text - 1);
 			else
-				str_append_n(textbuf, text, p - text);
+				str_append_data(textbuf, text, p - text);
 			text = p + 1;
 		}
 		str_append(textbuf, "\r\n");
@@ -382,7 +382,7 @@ const char *smtp_server_reply_get_one_line(struct smtp_server_reply *reply)
 	for (;;) {
 		p = strchr(text, '\n');
 		i_assert(p != NULL && p > text && *(p-1) == '\r');
-		str_append_n(str, text, p - text - 1);
+		str_append_data(str, text, p - text - 1);
 		line_len = (size_t)(p - text) + 1;
 		i_assert(text_len >= line_len);
 		text_len -= line_len;

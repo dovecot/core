@@ -197,7 +197,7 @@ void imap_append_string_for_humans(string_t *dest,
 		/* fast path: we can simply write it as quoted string
 		   without any escaping */
 		str_append_c(dest, '"');
-		str_append_n(dest, src, size);
+		str_append_data(dest, src, size);
 		str_append_c(dest, '"');
 		return;
 	}

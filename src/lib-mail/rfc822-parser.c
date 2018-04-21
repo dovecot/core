@@ -168,11 +168,11 @@ int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)
 		if (IS_ATEXT(*ctx->data))
 			continue;
 
-		str_append_n(str, start, ctx->data - start);
+		str_append_data(str, start, ctx->data - start);
 		return rfc822_skip_lwsp(ctx);
 	}
 
-	str_append_n(str, start, ctx->data - start);
+	str_append_data(str, start, ctx->data - start);
 	return 0;
 }
 
@@ -199,7 +199,7 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 			continue;
 		}
 
-		str_append_n(str, start, ctx->data - start);
+		str_append_data(str, start, ctx->data - start);
 
 		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
 			return ret;
@@ -215,7 +215,7 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 		start = ctx->data;
 	}
 
-	str_append_n(str, start, ctx->data - start);
+	str_append_data(str, start, ctx->data - start);
 	return 0;
 }
 
@@ -227,11 +227,11 @@ int rfc822_parse_mime_token(struct rfc822_parser_context *ctx, string_t *str)
 		if (IS_ATEXT_NON_TSPECIAL(*ctx->data) || *ctx->data == '.')
 			continue;
 
-		str_append_n(str, start, ctx->data - start);
+		str_append_data(str, start, ctx->data - start);
 		return rfc822_skip_lwsp(ctx);
 	}
 
-	str_append_n(str, start, ctx->data - start);
+	str_append_data(str, start, ctx->data - start);
 	return 0;
 }
 
@@ -304,11 +304,11 @@ rfc822_parse_atom_or_dot(struct rfc822_parser_context *ctx, string_t *str)
 		if (IS_ATEXT(*ctx->data) || *ctx->data == '.')
 			continue;
 
-		str_append_n(str, start, ctx->data - start);
+		str_append_data(str, start, ctx->data - start);
 		return rfc822_skip_lwsp(ctx);
 	}
 
-	str_append_n(str, start, ctx->data - start);
+	str_append_data(str, start, ctx->data - start);
 	return 0;
 }
 

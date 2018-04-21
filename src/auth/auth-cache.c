@@ -57,7 +57,7 @@ auth_cache_key_add_var(string_t *str, const char *data, unsigned int len)
 		str_append_c(str, data[0]);
 	else {
 		str_append_c(str, '{');
-		str_append_n(str, data, len);
+		str_append_data(str, data, len);
 		str_append_c(str, '}');
 	}
 }

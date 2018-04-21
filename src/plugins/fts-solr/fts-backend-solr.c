@@ -120,10 +120,10 @@ xml_encode_data_max(string_t *dest, const unsigned char *data, size_t len,
 				unsigned int char_len =
 					uni_utf8_get_char_n(data + i, len - i, &chr);
 				if (char_len > 0 && is_valid_xml_char(chr))
-					str_append_n(dest, data + i, char_len);
+					str_append_data(dest, data + i, char_len);
 				else {
-					str_append_n(dest, utf8_replacement_char,
-						     UTF8_REPLACEMENT_CHAR_LEN);
+					str_append_data(dest, utf8_replacement_char,
+							UTF8_REPLACEMENT_CHAR_LEN);
 				}
 				i += char_len - 1;
 			} else {

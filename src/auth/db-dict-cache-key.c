@@ -53,7 +53,7 @@ db_dict_parse_cache_key(const ARRAY_TYPE(db_dict_key) *keys,
 				str_printfa(str, "\t%%%c", p[0]);
 			} else {
 				str_append(str, "\t%{");
-				str_append_n(str, p, size);
+				str_append_data(str, p, size);
 				str_append_c(str, '}');
 			}
 			p += size;

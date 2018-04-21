@@ -145,7 +145,7 @@ const char *str_tabescape(const char *str)
 	for (p = str; *p != '\0'; p++) {
 		if (*p <= '\r') {
 			tmp = t_str_new(128);
-			str_append_n(tmp, str, p-str);
+			str_append_data(tmp, str, p-str);
 			str_append_tabescaped(tmp, p);
 			return str_c(tmp);
 		}

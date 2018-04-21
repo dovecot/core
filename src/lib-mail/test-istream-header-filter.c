@@ -243,7 +243,7 @@ static void test_istream_filter_large_buffer(void)
 				break;
 			if (ret == -2) {
 				data = i_stream_get_data(filter, &size);
-				str_append_n(output, data, size);
+				str_append_data(output, data, size);
 				i_stream_skip(filter, size);
 			}
 		}
@@ -252,7 +252,7 @@ static void test_istream_filter_large_buffer(void)
 
 		data = i_stream_get_data(filter, &size);
 		test_assert(size <= 8192);
-		str_append_n(output, data, size);
+		str_append_data(output, data, size);
 
 		p = strstr(str_c(input), "To: ");
 		i_assert(p != NULL);
@@ -311,7 +311,7 @@ static void test_istream_filter_large_buffer2(void)
 
 	for (i = 0; i < 2; i++) {
 		while ((ret = i_stream_read_more(filter, &data, &size)) > 0) {
-			str_append_n(output, data, size);
+			str_append_data(output, data, size);
 			i_stream_skip(filter, size);
 		}
 		test_assert(ret == -1);
@@ -473,7 +473,7 @@ static void test_istream_end_body_with_lf(void)
 
 		data = i_stream_get_data(filter, &size);
 		if (size > 0)
-			str_append_n(str, data, size);
+			str_append_data(str, data, size);
 		i_stream_skip(filter, size);
 	}
 	test_istream_set_size(istream, input_len);
@@ -482,7 +482,7 @@ static void test_istream_end_body_with_lf(void)
 	test_assert(i_stream_read(filter) == -1);
 
 	data = i_stream_get_data(filter, &size);
-	str_append_n(str, data, size);
+	str_append_data(str, data, size);
 	test_assert(strcmp(str_c(str), output) == 0);
 
 	i_stream_unref(&filter);

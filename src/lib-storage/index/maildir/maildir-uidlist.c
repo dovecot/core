@@ -1291,7 +1291,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 				i_assert(MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(*p));
 				len = strlen((const char *)p);
 				str_append_c(str, ' ');
-				str_append_n(str, p, len);
+				str_append_data(str, p, len);
 				p += len + 1;
 			}
 		}
@@ -1300,7 +1300,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		if (strp == NULL)
 			str_append(str, rec->filename);
 		else
-			str_append_n(str, rec->filename, strp - rec->filename);
+			str_append_data(str, rec->filename, strp - rec->filename);
 		str_append_c(str, '\n');
 		o_stream_nsend(output, str_data(str), str_len(str));
 	}

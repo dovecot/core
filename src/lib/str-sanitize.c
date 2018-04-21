@@ -85,7 +85,7 @@ void str_sanitize_append(string_t *dest, const char *src, size_t max_bytes)
 		if ((unsigned char)src[i] < 32)
 			str_append_c(dest, '?');
 		else
-			str_append_n(dest, src+i, len);
+			str_append_data(dest, src+i, len);
 		i += len;
 	}
 
@@ -125,7 +125,7 @@ void str_sanitize_append_utf8(string_t *dest, const char *src,
 		if ((unsigned char)src[i] < 32)
 			str_append(dest, UNICODE_REPLACEMENT_CHAR_UTF8);
 		else
-			str_append_n(dest, src+i, len);
+			str_append_data(dest, src+i, len);
 		i += len;
 		c++;
 	}

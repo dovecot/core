@@ -263,7 +263,7 @@ mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 	}
 
 	memset(space, ' ', sizeof(space));
-	str_append_n(ctx->headers, space, sizeof(space));
+	str_append_data(ctx->headers, space, sizeof(space));
 	ctx->space_end_idx = str_len(ctx->headers);
 	str_append_c(ctx->headers, '\n');
 }

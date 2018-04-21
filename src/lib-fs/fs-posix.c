@@ -252,7 +252,7 @@ static int fs_posix_create(struct posix_fs_file *file)
 	i_assert(file->temp_path == NULL);
 
 	if ((slash = strrchr(file->full_path, '/')) != NULL) {
-		str_append_n(str, file->full_path, slash - file->full_path);
+		str_append_data(str, file->full_path, slash - file->full_path);
 		if (fs_posix_get_mode(fs, str_c(str), &mode) < 0)
 			return -1;
 		str_append_c(str, '/');

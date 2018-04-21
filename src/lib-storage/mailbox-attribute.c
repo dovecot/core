@@ -253,7 +253,7 @@ int mailbox_attribute_value_to_string(struct mail_storage *storage,
 				"Attribute string value has NULs");
 			return -1;
 		}
-		str_append_n(str, data, size);
+		str_append_data(str, data, size);
 		i_stream_skip(value->value_stream, size);
 	}
 	if (value->value_stream->stream_errno != 0) {
