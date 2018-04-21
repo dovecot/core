@@ -75,6 +75,16 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 	start = ++ctx->data;
 	for (; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
+		case '\0':
+			if (ctx->last_comment != NULL &&
+			    ctx->nul_replacement_char != '\0') {
+				str_append_data(ctx->last_comment, start,
+						ctx->data - start);
+				str_append_c(ctx->last_comment,
+					     ctx->nul_replacement_char);
+				start = ctx->data + 1;
+			}
+			break;
 		case '(':
 			level++;
 			break;
@@ -103,8 +113,9 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 			if (ctx->data >= ctx->end)
 				return -1;
 
-			if (*ctx->data == '\r' || *ctx->data == '\n') {
-				/* quoted-pair doesn't allow CR/LF.
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
 				   They are part of the obs-qp though, so don't
 				   return them as error. */
 				ctx->data--;
@@ -235,6 +246,13 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 
 	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
+		case '\0':
+			if (ctx->nul_replacement_char != '\0') {
+				str_append_data(str, start, ctx->data - start);
+				str_append_c(str, ctx->nul_replacement_char);
+				start = ctx->data + 1;
+			}
+			break;
 		case '"':
 			str_append_data(str, start, ctx->data - start);
 			ctx->data++;
@@ -345,6 +363,13 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 
 	for (start = ctx->data++; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
+		case '\0':
+			if (ctx->nul_replacement_char != '\0') {
+				str_append_data(str, start, ctx->data - start);
+				str_append_c(str, ctx->nul_replacement_char);
+				start = ctx->data + 1;
+			}
+			break;
 		case '[':
 			/* not allowed */
 			return -1;
