@@ -157,14 +157,14 @@ fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
 	}
 	 /* localpart and @ */
 	if (seen_at && (pos > 1 || str_len(tok->last_word) > 0)) {
-		str_append_n(tok->last_word, data, pos);
+		str_append_data(tok->last_word, data, pos);
 		*skip_r = pos;
 		return EMAIL_ADDRESS_PARSER_STATE_DOMAIN;
 	}
 
 	/* localpart, @ not included yet */
 	if (pos > 0 && (IS_ATEXT(data[pos-1]) || data[pos-1] == '.')) {
-		str_append_n(tok->last_word, data, pos);
+		str_append_data(tok->last_word, data, pos);
 		*skip_r = pos;
 		return  EMAIL_ADDRESS_PARSER_STATE_LOCALPART;
 	}
@@ -195,12 +195,12 @@ fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok
 	 /* A complete domain name */
 	if ((pos > 0 && pos < size) || /* non-atext after atext in this data*/
 	    (pos < size && !domain_is_empty(tok))) { /* non-atext after previous atext */
-		str_append_n(tok->last_word, data, pos);
+		str_append_data(tok->last_word, data, pos);
 		*skip_r = pos;
 		return EMAIL_ADDRESS_PARSER_STATE_COMPLETE;
 	}
 	if (pos == size) { /* All good, but possibly not complete. */
-		str_append_n(tok->last_word, data, pos);
+		str_append_data(tok->last_word, data, pos);
 		*skip_r = pos;
 		return EMAIL_ADDRESS_PARSER_STATE_DOMAIN;
 	}

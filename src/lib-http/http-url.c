@@ -270,7 +270,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 			}
 
 			if (url != NULL && pend > pbegin)
-				str_append_n(fullpath, pbegin, pend-pbegin);
+				str_append_data(fullpath, pbegin, pend-pbegin);
 		}
 
 		/* append relative path */

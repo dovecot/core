@@ -523,7 +523,7 @@ void smtp_address_write(string_t *out,
 			str_insert(out, begin, "\"");
 		}
 
-		str_append_n(out, pblock, p - pblock);
+		str_append_data(out, pblock, p - pblock);
 		if (p >= pend)
 			break;
 

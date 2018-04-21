@@ -518,7 +518,7 @@ static int uri_do_parse_host_name(struct uri_parser *parser,
 						break;
 					if (host_name != NULL) {
 						if (offset > part)
-							str_append_n(host_name, part, offset - part);
+							str_append_data(host_name, part, offset - part);
 						str_append_c(host_name, ch);
 					}
 					part = parser->cur;
@@ -538,7 +538,7 @@ static int uri_do_parse_host_name(struct uri_parser *parser,
 		}
 
 		if (host_name != NULL && parser->cur > part)
-			str_append_n(host_name, part, parser->cur - part);
+			str_append_data(host_name, part, parser->cur - part);
 
 		/* "." */
 		if (parser->cur >= parser->end || ch != '.')
@@ -609,7 +609,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 	}
 
 	if (literal != NULL)
-		str_append_n(literal, parser->cur, p-parser->cur+1);
+		str_append_data(literal, parser->cur, p-parser->cur+1);
 	address = t_strdup_until(parser->cur+1, p);
 	parser->cur = p + 1;	
 
@@ -1196,7 +1196,7 @@ void uri_data_encode(string_t *out,
 		if ((*p & 0x80) != 0 || (esc_table[*p] & esc_mask) == 0 ||
 			(esc_extra != NULL && strchr(esc_extra, (char)*p) != NULL)) {
 			if ((p - pbegin) > 0)
-				str_append_n(out, pbegin, p - pbegin);
+				str_append_data(out, pbegin, p - pbegin);
 			str_printfa(out, "%%%02x", *p);
 			p++;
 			pbegin = p;
@@ -1205,7 +1205,7 @@ void uri_data_encode(string_t *out,
 		}
 	}
 	if ((p - pbegin) > 0)
-		str_append_n(out, pbegin, p - pbegin);
+		str_append_data(out, pbegin, p - pbegin);
 }
 
 void uri_append_scheme(string_t *out, const char *scheme)

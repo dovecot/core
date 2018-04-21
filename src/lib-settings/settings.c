@@ -250,7 +250,7 @@ prevfile:
 			len--;
 			while (IS_WHITE(line[len-1]))
 				len--;
-			str_append_n(full_line, line, len);
+			str_append_data(full_line, line, len);
 			str_append_c(full_line, ' ');
 			continue;
 		}

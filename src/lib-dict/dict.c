@@ -370,7 +370,7 @@ const char *dict_escape_string(const char *str)
 
 	/* escape */
 	ret = t_str_new((size_t) (p - str) + 128);
-	str_append_n(ret, str, (size_t) (p - str));
+	str_append_data(ret, str, (size_t) (p - str));
 
 	for (; *p != '\0'; p++) {
 		switch (*p) {
@@ -406,7 +406,7 @@ const char *dict_unescape_string(const char *str)
 
 	/* unescape */
 	ret = t_str_new((size_t) (p - str) + strlen(p) + 1);
-	str_append_n(ret, str, (size_t) (p - str));
+	str_append_data(ret, str, (size_t) (p - str));
 
 	for (; *p != '\0'; p++) {
 		if (*p != '\\')

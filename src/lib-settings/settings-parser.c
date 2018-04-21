@@ -2200,7 +2200,7 @@ const char *settings_section_escape(const char *name)
 		return name;
 
 	str = t_str_new(i + strlen(name+i) + 8);
-	str_append_n(str, name, i);
+	str_append_data(str, name, i);
 	for (; name[i] != '\0'; i++) {
 		switch (name[i]) {
 		case '=':

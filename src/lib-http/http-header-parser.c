@@ -98,7 +98,7 @@ static int http_header_parse_name(struct http_header_parser *parser)
 	while (parser->cur < parser->end && http_char_is_token(*parser->cur))
 		parser->cur++;
 
-	str_append_n(parser->name, first, parser->cur-first);
+	str_append_data(parser->name, first, parser->cur-first);
 
 	if (parser->cur == parser->end)
 		return 0;

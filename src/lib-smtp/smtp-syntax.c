@@ -58,7 +58,7 @@ void smtp_string_write(string_t *out, const char *value)
 			str_insert(out, begin, "\"");
 		}
 
-		str_append_n(out, pblock, p-pblock);
+		str_append_data(out, pblock, p-pblock);
 		if (p >= pend)
 			break;
 
@@ -129,7 +129,7 @@ void smtp_xtext_encode(string_t *out, const unsigned char *data,
 		while (p < pend && smtp_char_is_xtext(*p))
 			p++;
 
-		str_append_n(out, pbegin, p-pbegin);
+		str_append_data(out, pbegin, p-pbegin);
 		if (p >= pend)
 			break;
 

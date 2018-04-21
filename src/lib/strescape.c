@@ -19,7 +19,7 @@ const char *str_nescape(const void *str, size_t len)
 
 	/* quote */
 	ret = t_str_new((size_t)(p - s) + 128);
-	str_append_n(ret, s, (size_t)(p - s));
+	str_append_data(ret, s, (size_t)(p - s));
 
 	for (; (size_t)(p - s) < len; p++) {
 		if (IS_ESCAPED_CHAR(*p))
@@ -144,7 +144,7 @@ const char *str_tabescape(const char *str)
 	for (p = str; *p != '\0'; p++) {
 		if (*p <= '\r') {
 			tmp = t_str_new(128);
-			str_append_n(tmp, str, p-str);
+			str_append_data(tmp, str, p-str);
 			str_append_tabescaped(tmp, p);
 			return str_c(tmp);
 		}

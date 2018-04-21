@@ -77,7 +77,7 @@ static int config_add_type(struct setting_parser_context *parser,
 
 	str = t_str_new(256);
 	p = strchr(line, '=');
-	str_append_n(str, line, p-line);
+	str_append_data(str, line, p-line);
 	str_append_c(str, SETTINGS_SEPARATOR);
 	str_append(str, p+1);
 	if (info != NULL) {
@@ -631,7 +631,7 @@ config_parse_line(struct config_parser_context *ctx,
 			len--;
 		}
 		if(len >= 1) {
-			str_append_n(full_line, line, len);
+			str_append_data(full_line, line, len);
 			str_append_c(full_line, ' ');
 		}
 		return CONFIG_LINE_TYPE_CONTINUE;

@@ -119,7 +119,7 @@ static void test_message_parser_small_blocks(void)
 		if (block.hdr != NULL)
 			message_header_line_write(output, block.hdr);
 		else if (block.size > 0)
-			str_append_n(output, block.data, block.size);
+			str_append_data(output, block.data, block.size);
 	}
 
 	test_assert(ret < 0);

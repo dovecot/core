@@ -81,7 +81,7 @@ int imap_utf8_to_utf7(const char *src, string_t *dest)
 	}
 
 	/* at least one encoded character */
-	str_append_n(dest, src, p-src);
+	str_append_data(dest, src, p-src);
 	utf16 = t_malloc0(MALLOC_MULTIPLY(strlen(p), 2));
 	while (*p != '\0') {
 		if (*p == '&') {
@@ -265,7 +265,7 @@ int imap_utf7_to_utf8(const char *src, string_t *dest)
 	}
 
 	/* at least one encoded character */
-	str_append_n(dest, src, p-src);
+	str_append_data(dest, src, p-src);
 	while (*p != '\0') {
 		if (*p == '&') {
 			if (*++p == '-') {

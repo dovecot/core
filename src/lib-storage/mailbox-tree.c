@@ -104,7 +104,7 @@ mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 			continue;
 
 		str_truncate(str, 0);
-		str_append_n(str, name, (size_t) (path - name));
+		str_append_data(str, name, (size_t) (path - name));
 		name = str_c(str);
 
 		/* find the node */

@@ -323,7 +323,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		   with use_full_value */
 		line->middle = msg + colon_pos;
 		line->middle_len = (size_t)(line->value - line->middle);
-		str_append_n(ctx->name, line->middle, line->middle_len);
+		str_append_data(ctx->name, line->middle, line->middle_len);
 
 		line->name = str_c(ctx->name);
 		line->name_len = colon_pos;
