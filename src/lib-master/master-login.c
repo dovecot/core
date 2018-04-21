@@ -299,7 +299,7 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 				conn_error(conn, "close(client) failed: %m");
 			pl->client->fd = fd;
 		}
-		str_append_n(pl->input, buf, ret);
+		str_append_data(pl->input, buf, ret);
 	}
 
 	len = str_len(pl->input);
