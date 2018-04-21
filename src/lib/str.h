@@ -26,7 +26,8 @@ static inline size_t str_len(const string_t *str)
 	return str->used;
 }
 
-/* Append string/character */
+/* Append NUL-terminated string. If the trailing NUL isn't found earlier,
+   append a maximum of max_len characters. */
 void str_append_n(string_t *str, const void *cstr, size_t max_len);
 
 static inline void str_append(string_t *str, const char *cstr)
