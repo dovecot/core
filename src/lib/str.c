@@ -84,7 +84,7 @@ bool str_equals(const string_t *str1, const string_t *str2)
 	return memcmp(str1->data, str2->data, str1->used) == 0;
 }
 
-void str_append_n(string_t *str, const void *cstr, size_t max_len)
+void str_append_max(string_t *str, const char *cstr, size_t max_len)
 {
 	const char *p;
 	size_t len;
