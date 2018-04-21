@@ -234,6 +234,13 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 			if (ctx->data >= ctx->end)
 				return -1;
 
+			if (*ctx->data == '\r' || *ctx->data == '\n') {
+				/* quoted-pair doesn't allow CR/LF.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				ctx->data--;
+				break;
+			}
 			str_append_data(str, start, ctx->data - start - 1);
 			start = ctx->data;
 			break;
