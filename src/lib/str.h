@@ -29,7 +29,7 @@ static inline size_t str_len(const string_t *str)
 /* Append NUL-terminated string. If the trailing NUL isn't found earlier,
    append a maximum of max_len characters. */
 void str_append_max(string_t *str, const char *cstr, size_t max_len);
-static inline void
+static inline void ATTR_DEPRECATED("Use str_append_max() or str_append_data() instead")
 str_append_n(string_t *str, const void *cstr, size_t max_len)
 {
 	str_append_max(str, cstr, max_len);
