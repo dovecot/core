@@ -40,7 +40,7 @@ decode_test(const char *qp_input, const char *output, int stream_errno,
 	for (i = 1; i <= qp_input_len; i++) {
 		test_istream_set_size(input_data, i);
 		while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
-			str_append_n(str, data, size);
+			str_append_data(str, data, size);
 			i_stream_skip(input, size);
 		}
 		if (ret == -1 && stream_errno != 0)
@@ -50,7 +50,7 @@ decode_test(const char *qp_input, const char *output, int stream_errno,
 	if (ret == 0) {
 		test_istream_set_allow_eof(input_data, TRUE);
 		while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
-			str_append_n(str, data, size);
+			str_append_data(str, data, size);
 			i_stream_skip(input, size);
 		}
 	}

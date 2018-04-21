@@ -166,7 +166,7 @@ static int smtp_reply_parse_code
 	if (str_len(parser->strbuf) + (parser->cur-first) > 3)
 		return -1;
 
-	str_append_n(parser->strbuf, first, parser->cur - first);
+	str_append_data(parser->strbuf, first, parser->cur - first);
 	if (parser->cur == parser->end)
 		return 0;
 	if (str_len(parser->strbuf) != 3)
@@ -195,7 +195,7 @@ static int smtp_reply_parse_textstring(struct smtp_reply_parser *parser)
 		return -1;
 	}
 
-	str_append_n(parser->strbuf, first, parser->cur - first);
+	str_append_data(parser->strbuf, first, parser->cur - first);
 	if (parser->cur == parser->end)
 		return 0;
 	return 1;
@@ -217,7 +217,7 @@ static int smtp_reply_parse_ehlo_domain(struct smtp_reply_parser *parser)
 			"Reply exceeds size limit");
 		return -1;
 	}
-	str_append_n(parser->strbuf, first, parser->cur - first);
+	str_append_data(parser->strbuf, first, parser->cur - first);
 	if (parser->cur == parser->end)
 		return 0;
 	return 1;
@@ -249,7 +249,7 @@ static int smtp_reply_parse_ehlo_greet(struct smtp_reply_parser *parser)
 			}
 
 			/* sanitize bad characters */
-			str_append_n(parser->strbuf,
+			str_append_data(parser->strbuf,
 				first, parser->cur - first);
 
 			if (parser->cur == parser->end)

@@ -255,13 +255,13 @@ http_auth_create_param(string_t *out, const struct http_auth_param *param)
 		p = first = param->value;
 		while (*p != '\0') {
 			if (*p == '\\' || *p == '"') {
-				str_append_n(out, first, p-first);
+				str_append_data(out, first, p-first);
 				str_append_c(out, '\\');
 				first = p;
 			}
 			p++;
 		}
-		str_append_n(out, first, p-first);
+		str_append_data(out, first, p-first);
 		str_append_c(out, '"');
 	} else {
 		str_append(out, param->value);

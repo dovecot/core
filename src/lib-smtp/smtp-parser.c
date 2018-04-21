@@ -156,7 +156,7 @@ smtp_parser_parse_ldh_str(struct smtp_parser *parser,
 
 	parser->cur = palnum+1;
 	if (out != NULL)
-		str_append_n(out, pbegin, parser->cur - pbegin);
+		str_append_data(out, pbegin, parser->cur - pbegin);
 	return 1;
 }
 
@@ -250,7 +250,7 @@ smtp_parser_parse_snum(struct smtp_parser *parser, string_t *literal,
 	} while (*parser->cur >= '0' && *parser->cur <= '9');
 
 	if (literal != NULL)
-		str_append_n(literal, pbegin, parser->cur - pbegin);
+		str_append_data(literal, pbegin, parser->cur - pbegin);
 	*octet_r = octet;
 	return 1;
 }
@@ -377,7 +377,7 @@ int smtp_parser_parse_address_literal(struct smtp_parser *parser,
 			return -1;
 		}
 		if (value_r != NULL)
-			str_append_n(value, pblock, parser->cur - pblock);
+			str_append_data(value, pblock, parser->cur - pblock);
 
 		if (ipv6) {
 			i_zero(&ip6);
@@ -446,7 +446,7 @@ int smtp_parser_parse_quoted_string(struct smtp_parser *parser,
 		}
 
 		if (value_r != NULL)
-			str_append_n(value, pbegin, parser->cur - pbegin);
+			str_append_data(value, pbegin, parser->cur - pbegin);
 
 		if (parser->cur >= parser->end || *parser->cur != '\\')
 			break;
@@ -563,7 +563,7 @@ int smtp_parser_parse_xtext(struct smtp_parser *parser,
 			parser->cur++;
 
 		if (out != NULL)
-			str_append_n(out, pbegin, parser->cur - pbegin);
+			str_append_data(out, pbegin, parser->cur - pbegin);
 
 		if (parser->cur >= parser->end || *parser->cur != '+')
 			break;

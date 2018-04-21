@@ -222,7 +222,7 @@ static void test_link_alloc2(void)
 	memset(buf, 'x', sizeof(buf));
 	for (size_t i = 1; i <= sizeof(buf); i++) {
 		str_truncate(basedir, base_len);
-		str_append_n(basedir, buf, i);
+		str_append_data(basedir, buf, i);
 		tmpdir = str_c(basedir);
 		(void)mkdir(str_c(basedir), 0700);
 

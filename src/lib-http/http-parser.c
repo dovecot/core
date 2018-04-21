@@ -172,7 +172,7 @@ int http_parse_quoted_string(struct http_parser *parser, const char **str_r)
 		if (parser->cur >= parser->end)
 			return -1;
 
-		str_append_n(str, first, parser->cur - first);
+		str_append_data(str, first, parser->cur - first);
 
 		/* DQUOTE */
 		if (*parser->cur == '"') {

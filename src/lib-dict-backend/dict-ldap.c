@@ -179,7 +179,7 @@ static const char *ldap_escape(const char *str)
 		if (IS_LDAP_ESCAPED_CHAR(*p)) {
 			if (ret == NULL) {
 				ret = t_str_new((size_t) (p - str) + 64);
-				str_append_n(ret, str, (size_t) (p - str));
+				str_append_data(ret, str, (size_t) (p - str));
 			}
 			str_printfa(ret, "\\%02X", (unsigned char)*p);
 		} else if (ret != NULL)

@@ -613,7 +613,7 @@ static int internal_send_split(string_t *full_str, size_t prefix_len)
 	size_t max_text_len, pos = prefix_len;
 
 	str = t_str_new(PIPE_BUF);
-	str_append_n(str, str_c(full_str), prefix_len);
+	str_append_data(str, str_data(full_str), prefix_len);
 	max_text_len = PIPE_BUF - prefix_len - 1;
 
 	while (pos < str_len(full_str)) {

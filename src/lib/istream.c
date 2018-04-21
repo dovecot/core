@@ -577,8 +577,8 @@ static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 		if (stream->line_str == NULL)
 			stream->line_str = str_new(default_pool, 256);
 		str_truncate(stream->line_str, 0);
-		str_append_n(stream->line_str, stream->buffer + stream->skip,
-			     end - stream->skip);
+		str_append_data(stream->line_str, stream->buffer + stream->skip,
+				end - stream->skip);
 		ret = str_c_modifiable(stream->line_str);
 	}
 

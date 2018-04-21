@@ -483,7 +483,7 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 
 	/* no escaping of namespace prefix */
 	if (str_begins(vname, ns_prefix)) {
-		str_append_n(escaped_name, vname, ns_prefix_len);
+		str_append_data(escaped_name, vname, ns_prefix_len);
 		vname += ns_prefix_len;
 	}
 
@@ -658,7 +658,7 @@ mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
 	unsigned int num;
 
 	if (str_begins(src, ns_prefix)) {
-		str_append_n(dest, src, ns_prefix_len);
+		str_append_data(dest, src, ns_prefix_len);
 		src += ns_prefix_len;
 	}
 

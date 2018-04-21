@@ -426,7 +426,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				str_append_n(ctx->list_prefix, indent_str, indent*2);
 				p = strchr(key2, '/');
 				if (p != NULL)
-					str_append_n(ctx->list_prefix, key2, p - key2);
+					str_append_data(ctx->list_prefix, key2, p - key2);
 				else
 					str_append(ctx->list_prefix, key2);
 				if (unique_key && *value != '\0') {
