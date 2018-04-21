@@ -64,6 +64,7 @@ void rfc822_parser_init(struct rfc822_parser_context *ctx,
 int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 {
 	const unsigned char *start;
+	size_t len;
 	int level = 1;
 
 	i_assert(*ctx->data == '(');
@@ -87,16 +88,33 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 				return ctx->data < ctx->end ? 1 : 0;
 			}
 			break;
-		case '\\':
-			if (ctx->last_comment != NULL) {
-				str_append_data(ctx->last_comment, start,
-						ctx->data - start);
-			}
+		case '\n':
+			/* folding whitespace, remove the (CR)LF */
+			if (ctx->last_comment == NULL)
+				break;
+			len = ctx->data - start;
+			if (len > 0 && start[len-1] == '\r')
+				len--;
+			str_append_data(ctx->last_comment, start, len);
 			start = ctx->data + 1;
-
+			break;
+		case '\\':
 			ctx->data++;
 			if (ctx->data >= ctx->end)
 				return -1;
+
+			if (*ctx->data == '\r' || *ctx->data == '\n') {
+				/* quoted-pair doesn't allow CR/LF.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				ctx->data--;
+				break;
+			}
+			if (ctx->last_comment != NULL) {
+				str_append_data(ctx->last_comment, start,
+						ctx->data - start - 1);
+			}
+			start = ctx->data;
 			break;
 		}
 	}
