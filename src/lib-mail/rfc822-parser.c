@@ -80,8 +80,8 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 		case ')':
 			if (--level == 0) {
 				if (ctx->last_comment != NULL) {
-					str_append_n(ctx->last_comment, start,
-						     ctx->data - start);
+					str_append_data(ctx->last_comment, start,
+							ctx->data - start);
 				}
 				ctx->data++;
 				return ctx->data < ctx->end ? 1 : 0;
@@ -89,8 +89,8 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 			break;
 		case '\\':
 			if (ctx->last_comment != NULL) {
-				str_append_n(ctx->last_comment, start,
-					     ctx->data - start);
+				str_append_data(ctx->last_comment, start,
+						ctx->data - start);
 			}
 			start = ctx->data + 1;
 
@@ -218,7 +218,7 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
 		case '"':
-			str_append_n(str, start, ctx->data - start);
+			str_append_data(str, start, ctx->data - start);
 			ctx->data++;
 			return rfc822_skip_lwsp(ctx);
 		case '\n':
@@ -226,7 +226,7 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 			len = ctx->data - start;
 			if (len > 0 && start[len-1] == '\r')
 				len--;
-			str_append_n(str, start, len);
+			str_append_data(str, start, len);
 			start = ctx->data + 1;
 			break;
 		case '\\':
@@ -234,7 +234,7 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 			if (ctx->data >= ctx->end)
 				return -1;
 
-			str_append_n(str, start, ctx->data - start - 1);
+			str_append_data(str, start, ctx->data - start - 1);
 			start = ctx->data;
 			break;
 		}
@@ -324,7 +324,7 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 				break;
 		} else if (*ctx->data == ']') {
 			ctx->data++;
-			str_append_n(str, start, ctx->data - start);
+			str_append_data(str, start, ctx->data - start);
 			return rfc822_skip_lwsp(ctx);
 		}
 	}
