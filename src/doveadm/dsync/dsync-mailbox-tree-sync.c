@@ -405,7 +405,7 @@ sync_rename_node_to_temp(struct dsync_mailbox_tree_sync_ctx *ctx,
 		if (max_prefix_len > (size_t)(p - node->name))
 			max_prefix_len = p - node->name;
 	}
-	str_append_n(&buf, node->name, max_prefix_len);
+	str_append_max(&buf, node->name, max_prefix_len);
 	str_append_c(&buf, '-');
 	prefix_len = buf.used;
 
@@ -1004,7 +1004,7 @@ sync_rename_temp_mailbox_node(struct dsync_mailbox_tree *tree,
 	max_prefix_len = TEMP_MAX_NAME_LEN - strlen(new_suffix) - 1;
 	if (max_prefix_len > (size_t)(p-node->name))
 		max_prefix_len = p-node->name;
-	str_append_n(str, node->name, max_prefix_len);
+	str_append_max(str, node->name, max_prefix_len);
 	str_append(str, new_suffix);
 	while (node_has_child(node->parent, str_c(str)))
 		suffix_inc(str);

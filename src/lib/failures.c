@@ -618,7 +618,7 @@ static int internal_send_split(string_t *full_str, size_t prefix_len)
 
 	while (pos < str_len(full_str)) {
 		str_truncate(str, prefix_len);
-		str_append_n(str, str_c(full_str) + pos, max_text_len);
+		str_append_max(str, str_c(full_str) + pos, max_text_len);
 		str_append_c(str, '\n');
 		if (log_fd_write(STDERR_FILENO,
 				 str_data(str), str_len(str)) < 0)
