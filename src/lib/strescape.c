@@ -41,7 +41,7 @@ void str_append_unescaped(string_t *dest, const void *src, size_t src_size)
 				break;
 		}
 
-		str_append_n(dest, src_c + start, i-start);
+		str_append_data(dest, src_c + start, i-start);
 
 		if (i < src_size) {
 			if (++i == src_size)
@@ -164,7 +164,7 @@ void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size)
 				break;
 		}
 
-		str_append_n(dest, src_c + start, i-start);
+		str_append_data(dest, src_c + start, i-start);
 
 		if (i < src_size) {
 			i++;
