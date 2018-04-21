@@ -617,7 +617,7 @@ int client_auth_read_line(struct client *client)
 		client_destroy(client, "Authentication response too large");
 		return -1;
 	}
-	str_append_n(client->auth_response, data, i);
+	str_append_data(client->auth_response, data, i);
 	i_stream_skip(client->input, i == size ? size : i+1);
 
 	/* drop trailing \r */
