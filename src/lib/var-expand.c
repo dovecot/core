@@ -609,7 +609,7 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 				else if (!ctx.zero_padding) {
 					if (ctx.width < 0)
 						ctx.width = strlen(var) - (-ctx.width);
-					str_append_n(dest, var, ctx.width);
+					str_append_max(dest, var, ctx.width);
 				} else {
 					/* %05d -like padding. no truncation. */
 					ssize_t len = strlen(var);

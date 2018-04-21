@@ -423,7 +423,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				prefix.prefix_idx = prefix_idx;
 				array_append(&prefix_stack, &prefix, 1);
 
-				str_append_n(ctx->list_prefix, indent_str, indent*2);
+				str_append_max(ctx->list_prefix, indent_str, indent*2);
 				p = strchr(key2, '/');
 				if (p != NULL)
 					str_append_data(ctx->list_prefix, key2, p - key2);
@@ -514,13 +514,13 @@ config_dump_filter_begin(string_t *str,
 	}
 
 	if (filter->local_name != NULL) {
-		str_append_n(str, indent_str, indent*2);
+		str_append_max(str, indent_str, indent*2);
 		str_printfa(str, "local_name %s {\n", filter->local_name);
 		indent++;
 	}
 
 	if (filter->remote_bits > 0) {
-		str_append_n(str, indent_str, indent*2);
+		str_append_max(str, indent_str, indent*2);
 		str_printfa(str, "remote %s", net_ip2addr(&filter->remote_net));
 
 		if (IPADDR_IS_V4(&filter->remote_net)) {
@@ -534,7 +534,7 @@ config_dump_filter_begin(string_t *str,
 		indent++;
 	}
 	if (filter->service != NULL) {
-		str_append_n(str, indent_str, indent*2);
+		str_append_max(str, indent_str, indent*2);
 		str_printfa(str, "protocol %s {\n", filter->service);
 		indent++;
 	}
