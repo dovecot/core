@@ -18,7 +18,11 @@ static void test_rfc822_parse_quoted_string(void)
 		{ "\"\"\"", "", 1 },
 		{ "\"\\\"\"", "\"", 0 },
 		{ "\"\\\\\"", "\\", 0 },
-		{ "\"\\\\foo\\\\foo\\\\\"", "\\foo\\foo\\", 0 }
+		{ "\"\\\\foo\\\\foo\\\\\"", "\\foo\\foo\\", 0 },
+		{ "\"foo\n bar\"", "foo bar", 0 },
+		{ "\"foo\n\t\t bar\"", "foo\t\t bar", 0 },
+		{ "\"foo\\\n bar\"", "foo\\ bar", 0 },
+		{ "\"foo\\\r\n bar\"", "foo\\ bar", 0 },
 	};
 	struct rfc822_parser_context parser;
 	string_t *str = t_str_new(64);
