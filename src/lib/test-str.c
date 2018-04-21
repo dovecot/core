@@ -84,26 +84,26 @@ static void test_str_delete(void)
 	test_end();
 }
 
-static void test_str_append_n(void)
+static void test_str_append_max(void)
 {
 	string_t *str = t_str_new(32);
 
-	test_begin("str_append_n()");
-	str_append_n(str, "foo", 0);
+	test_begin("str_append_max()");
+	str_append_max(str, "foo", 0);
 	test_assert(str->used == 0);
 
-	str_append_n(str, "\0foo", 4);
+	str_append_max(str, "\0foo", 4);
 	test_assert(str->used == 0);
 
-	str_append_n(str, "foo", 3);
+	str_append_max(str, "foo", 3);
 	test_assert(str->used == 3 && memcmp(str_data(str), "foo", 3) == 0);
 	str_truncate(str, 0);
 
-	str_append_n(str, "foo", 2);
+	str_append_max(str, "foo", 2);
 	test_assert(str->used == 2 && memcmp(str_data(str), "fo", 2) == 0);
 	str_truncate(str, 0);
 
-	str_append_n(str, "foo\0bar", 7);
+	str_append_max(str, "foo\0bar", 7);
 	test_assert(str->used == 3 && memcmp(str_data(str), "foo", 3) == 0);
 	str_truncate(str, 0);
 	test_end();
@@ -133,6 +133,6 @@ void test_str(void)
 	test_str_c();
 	test_str_insert();
 	test_str_delete();
-	test_str_append_n();
+	test_str_append_max();
 	test_str_truncate();
 }
