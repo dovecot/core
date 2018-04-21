@@ -43,7 +43,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 	ARRAY(struct rfc2231_parameter) rfc2231_params_arr;
 	struct rfc2231_parameter rfc2231_param;
 	const struct rfc2231_parameter *rfc2231_params;
-	const char *key, *value, *p, *p2;
+	const char *key, *p, *p2;
 	string_t *str;
 	unsigned int i, j, count, next, next_idx;
 	bool ok, have_extended, broken = FALSE;
@@ -55,7 +55,8 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 	i_zero(&rfc2231_param);
 	t_array_init(&result, 8);
 	t_array_init(&rfc2231_params_arr, 8);
-	while ((ret = rfc822_parse_content_param(ctx, &key, &value)) != 0) {
+	str = t_str_new(64);
+	while ((ret = rfc822_parse_content_param(ctx, &key, str)) != 0) {
 		if (ret < 0) {
 			/* try to continue anyway.. */
 			broken = TRUE;
@@ -85,12 +86,13 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 				p = NULL;
 			else {
 				rfc2231_param.key = t_strdup_until(key, p2);
-				rfc2231_param.value = value;
+				rfc2231_param.value = t_strdup(str_c(str));
 				array_append(&rfc2231_params_arr,
 					     &rfc2231_param, 1);
 			}
 		}
 		if (p == NULL) {
+			const char *value = t_strdup(str_c(str));
 			array_append(&result, &key, 1);
 			array_append(&result, &value, 1);
 		}
@@ -111,7 +113,6 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 	/* keys are now sorted primarily by their name and secondarily by
 	   their index. If any indexes are missing, fallback to assuming
 	   these aren't RFC 2231 encoded parameters. */
-	str = t_str_new(64);
 	for (i = 0; i < count; i = next) {
 		ok = TRUE;
 		have_extended = FALSE;
@@ -160,7 +161,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 			key = rfc2231_params[i].key;
 			if (have_extended)
 				key = t_strconcat(key, "*", NULL);
-			value = t_strdup(str_c(str));
+			const char *value = t_strdup(str_c(str));
 			array_append(&result, &key, 1);
 			array_append(&result, &value, 1);
 		}

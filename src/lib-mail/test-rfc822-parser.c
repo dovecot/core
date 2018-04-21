@@ -49,16 +49,17 @@ static void test_rfc822_parse_content_param(void)
 		{ "key2", " \"(),/:;<=>?@[\\]" }
 	};
 	struct rfc822_parser_context parser;
-	const char *key, *value;
+	const char *key;
+	string_t *value = t_str_new(64);
 	unsigned int i = 0;
 	int ret;
 
 	test_begin("rfc822 parse content param");
 	rfc822_parser_init(&parser, (const void *)input, strlen(input), NULL);
-	while ((ret = rfc822_parse_content_param(&parser, &key, &value)) > 0 &&
+	while ((ret = rfc822_parse_content_param(&parser, &key, value)) > 0 &&
 	       i < N_ELEMENTS(output)) {
 		test_assert_idx(strcmp(output[i].key, key) == 0, i);
-		test_assert_idx(strcmp(output[i].value, value) == 0, i);
+		test_assert_idx(strcmp(output[i].value, str_c(value)) == 0, i);
 		i++;
 	}
 	rfc822_parser_deinit(&parser);
