@@ -50,6 +50,32 @@ static void test_rfc822_parse_comment(void)
 	test_end();
 }
 
+static void test_rfc822_parse_comment_nuls(void)
+{
+	const unsigned char input[] = "(\000a\000\000b\\\000c(\000d)\000)";
+	const char output[] = "!a!!b\\!c(!d)!";
+	struct rfc822_parser_context parser;
+	string_t *str = t_str_new(64);
+
+	test_begin("rfc822 parse comment with NULs");
+
+	rfc822_parser_init(&parser, input, sizeof(input)-1, str);
+	test_assert(rfc822_skip_comment(&parser) == 0);
+	/* should be same as input, except the outer () removed */
+	test_assert(str_len(str) == sizeof(input)-1-2 &&
+		    memcmp(input+1, str_data(str), str_len(str)) == 0);
+	rfc822_parser_deinit(&parser);
+
+	str_truncate(str, 0);
+	rfc822_parser_init(&parser, input, sizeof(input)-1, str);
+	parser.nul_replacement_char = '!';
+	test_assert(rfc822_skip_comment(&parser) == 0);
+	test_assert(strcmp(str_c(str), output) == 0);
+	rfc822_parser_deinit(&parser);
+
+	test_end();
+}
+
 static void test_rfc822_parse_quoted_string(void)
 {
 	static const struct {
@@ -154,6 +180,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_rfc822_parse_comment,
+		test_rfc822_parse_comment_nuls,
 		test_rfc822_parse_quoted_string,
 		test_rfc822_parse_domain_literal,
 		test_rfc822_parse_content_param,
