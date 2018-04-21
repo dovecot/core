@@ -216,7 +216,7 @@ fts_tokenizer_address_update_parent(struct email_address_fts_tokenizer *tok,
                                     const unsigned char *data, size_t size)
 {
 	if (tok->tokenizer.parent != NULL)
-		str_append_n(tok->parent_data, data, size);
+		str_append_data(tok->parent_data, data, size);
 }
 
 static void fts_tokenizer_email_address_reset(struct fts_tokenizer *_tok)
