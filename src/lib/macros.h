@@ -150,6 +150,11 @@
 #else
 #  define ATTR_RETURNS_NONNULL
 #endif
+#ifdef HAVE_ATTR_DEPRECATED
+#  define ATTR_DEPRECATED(str) __attribute__((deprecated(str)))
+#else
+#  define ATTR_DEPRECATED(str)
+#endif
 
 /* Macros to provide type safety for callback functions' context parameters */
 #ifdef HAVE_TYPE_CHECKS

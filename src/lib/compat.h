@@ -27,6 +27,7 @@
 
 #if (defined(__GNUC__) && __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)) || \
     (defined(__clang__) && (__has_extension(attribute_deprecated_with_message)))
+#  define HAVE_ATTR_DEPRECATED
 int rand(void) __attribute__((deprecated("Do not use rand, use i_rand")));
 int rand_r(unsigned int*) __attribute__((deprecated("Do not use rand_r, use i_rand")));
 #endif
