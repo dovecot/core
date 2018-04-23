@@ -203,17 +203,19 @@ static void doveadm_mail_cmd_input_read(struct doveadm_mail_cmd_context *ctx)
 	struct timeout *to;
 
 	ioloop = io_loop_create();
-	io = io_add(ctx->cmd_input_fd, IO_READ,
-		    doveadm_mail_cmd_input_input, ctx);
-	to = timeout_add(DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS,
-			 doveadm_mail_cmd_input_timeout, ctx);
-	/* read the pending input from stream. */
+	/* Read the pending input from stream. Delay adding the IO in case
+	   we're reading from a file. That would cause a panic with epoll. */
 	io_loop_set_running(ioloop);
 	doveadm_mail_cmd_input_input(ctx);
-	if (io_loop_is_running(ioloop))
+	if (io_loop_is_running(ioloop)) {
+		io = io_add(ctx->cmd_input_fd, IO_READ,
+			    doveadm_mail_cmd_input_input, ctx);
+		to = timeout_add(DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS,
+				 doveadm_mail_cmd_input_timeout, ctx);
 		io_loop_run(ioloop);
-	io_remove(&io);
-	timeout_remove(&to);
+		io_remove(&io);
+		timeout_remove(&to);
+	}
 	io_loop_destroy(&ioloop);
 
 	i_assert(ctx->cmd_input->eof);
