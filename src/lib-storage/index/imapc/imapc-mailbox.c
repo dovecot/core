@@ -613,7 +613,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		if (mail_cache_field_can_add(mbox->delayed_sync_cache_trans,
 					     lseq, guid_cache_idx)) {
 			mail_cache_add(mbox->delayed_sync_cache_trans, lseq,
-				       guid_cache_idx, guid, strlen(guid)+1);
+				       guid_cache_idx, guid, strlen(guid));
 		}
 	}
 	imapc_mailbox_idle_notify(mbox);

@@ -248,7 +248,7 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 			mail_index_append(sync_trans, next_uid++, &lseq);
 			mail_cache_add(cache_trans, lseq, cache_idx,
 				       rmsg[ridx].uidl,
-				       strlen(rmsg[ridx].uidl)+1);
+				       strlen(rmsg[ridx].uidl));
 			ridx++;
 		} else {
 			/* UIDL matched */

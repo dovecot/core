@@ -509,7 +509,7 @@ static bool imapc_mail_get_cached_guid(struct mail *_mail)
 					     _mail->seq, cache_idx)) {
 			/* GUID was prefetched - add to cache */
 			index_mail_cache_add_idx(imail, cache_idx,
-				imail->data.guid, strlen(imail->data.guid)+1);
+				imail->data.guid, strlen(imail->data.guid));
 		}
 		return TRUE;
 	}
@@ -550,7 +550,7 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 	}
 
 	index_mail_cache_add_idx(imail, cache_idx,
-				 imail->data.guid, strlen(imail->data.guid)+1);
+				 imail->data.guid, strlen(imail->data.guid));
 	*value_r = imail->data.guid;
 	return 0;
 }

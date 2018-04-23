@@ -203,7 +203,7 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 		value = "";
 	if (cache_field != MAIL_CACHE_POP3_ORDER) {
 		index_mail_cache_add_idx(imail, ibox->cache_fields[cache_field].idx,
-					 value, strlen(value)+1);
+					 value, strlen(value));
 	} else {
 		if (str_to_uint(value, &order) < 0)
 			order = 0;
