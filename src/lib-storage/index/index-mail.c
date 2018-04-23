@@ -779,7 +779,7 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 		data->bodystructure = str_c(str);
 
 		index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODYSTRUCTURE,
-				     str_c(str), str_len(str)+1);
+				     str_c(str), str_len(str));
 		bodystructure_cached = TRUE;
 	} else {
 		bodystructure_cached =
@@ -811,7 +811,7 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 		data->body = str_c(str);
 
 		index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODY,
-				     str_c(str), str_len(str)+1);
+				     str_c(str), str_len(str));
 	}
 }
 
@@ -873,7 +873,7 @@ static void index_mail_save_finish_make_snippet(struct index_mail *mail)
 	    index_mail_want_cache(mail, MAIL_CACHE_BODY_SNIPPET)) {
 		index_mail_cache_add(mail, MAIL_CACHE_BODY_SNIPPET,
 				     mail->data.body_snippet,
-				     strlen(mail->data.body_snippet)+1);
+				     strlen(mail->data.body_snippet));
 	}
 }
 
@@ -1365,7 +1365,7 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 			if (index_mail_want_cache(mail, MAIL_CACHE_BODY_SNIPPET))
 				index_mail_cache_add(mail, MAIL_CACHE_BODY_SNIPPET,
 						     mail->data.body_snippet,
-						     strlen(mail->data.body_snippet) + 1);
+						     strlen(mail->data.body_snippet));
 		}
 		i_assert(data->body_snippet != NULL &&
 			 data->body_snippet[0] != '\0');
