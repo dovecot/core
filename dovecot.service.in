@@ -1,8 +1,11 @@
 # This file is part of Dovecot
 #
-# If you want to pass additionally command line options to the dovecot
-# binary, create the file:
-# 	`/etc/systemd/system/dovecot.service.d/service.conf'.
+# DO NOT CUSTOMIZE THIS FILE, INSTEAD
+# create the file:
+#	`/etc/systemd/system/dovecot.service.d/service.conf'.
+# or copy this as
+#	`/etc/systemd/system/dovecot.service` and edit then
+# and put your changes there
 
 [Unit]
 Description=Dovecot IMAP/POP3 email server
