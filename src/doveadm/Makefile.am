@@ -50,7 +50,8 @@ doveadm_LDADD = \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(LIBSODIUM_LIBS) \
-	$(BINARY_LDFLAGS)
+	$(BINARY_LDFLAGS) \
+	-lm
 
 doveadm_DEPENDENCIES = \
 	$(libs) \
@@ -62,7 +63,8 @@ doveadm_server_LDADD = \
 	$(libs) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
-	$(BINARY_LDFLAGS)
+	$(BINARY_LDFLAGS) \
+	-lm
 
 doveadm_server_DEPENDENCIES = \
 	$(libs) \

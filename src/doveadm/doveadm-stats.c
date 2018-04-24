@@ -10,17 +10,38 @@
 #include "doveadm.h"
 #include "doveadm-print.h"
 
-#define DOVEADM_DUMP_DEFAULT_FIELDS \
-	"count sum min max avg median %95"
+#include <math.h>
 
-static void dump_timing(const char *const **args, unsigned int fields_count)
+#define DOVEADM_DUMP_DEFAULT_FIELDS \
+	"count sum min max avg median stddev %95"
+
+enum doveadm_dump_field_type {
+	DOVEADM_DUMP_FIELD_TYPE_PASSTHROUGH = 0,
+	DOVEADM_DUMP_FIELD_TYPE_STDDEV,
+};
+
+static void dump_timing(const char *const **args,
+			const enum doveadm_dump_field_type field_types[],
+			unsigned int fields_count)
 {
 	unsigned int i, args_count = str_array_length(*args);
 
 	if (args_count > fields_count)
 		args_count = fields_count;
-	for (i = 0; i < args_count; i++)
-		doveadm_print((*args)[i]);
+	for (i = 0; i < args_count; i++) {
+		const char *value = (*args)[i];
+
+		switch (field_types[i]) {
+		case DOVEADM_DUMP_FIELD_TYPE_PASSTHROUGH:
+			break;
+		case DOVEADM_DUMP_FIELD_TYPE_STDDEV: {
+			double variance = strtod(value, NULL);
+			value = t_strdup_printf("%.02f", sqrt(variance));
+			break;
+		}
+		}
+		doveadm_print(value);
+	}
 	*args += args_count;
 }
 
@@ -29,6 +50,7 @@ static void stats_dump(const char *path, const char *const *fields, bool reset)
 	struct istream *input;
 	string_t *cmd = t_str_new(128);
 	unsigned int i, fields_count = str_array_length(fields);
+	enum doveadm_dump_field_type field_types[fields_count];
 	char *line;
 	int fd;
 
@@ -36,9 +58,15 @@ static void stats_dump(const char *path, const char *const *fields, bool reset)
 	net_set_nonblock(fd, FALSE);
 	str_append(cmd, "VERSION\tstats-reader-client\t2\t0\n");
 	str_append(cmd, reset ? "DUMP-RESET" : "DUMP");
+	i_zero(field_types);
 	for (i = 0; i < fields_count; i++) {
 		str_append_c(cmd, '\t');
-		str_append_tabescaped(cmd, fields[i]);
+		if (strcmp(fields[i], "stddev") == 0) {
+			field_types[i] = DOVEADM_DUMP_FIELD_TYPE_STDDEV;
+			str_append(cmd, "variance");
+		} else {
+			str_append_tabescaped(cmd, fields[i]);
+		}
 	}
 	str_append_c(cmd, '\n');
 	if (write_full(fd, str_data(cmd), str_len(cmd)) < 0)
@@ -67,11 +95,11 @@ static void stats_dump(const char *path, const char *const *fields, bool reset)
 			const char *metric_name = args[0];
 			doveadm_print(metric_name); args++;
 			doveadm_print("duration");
-			dump_timing(&args, fields_count);
+			dump_timing(&args, field_types, fields_count);
 			while (*args != NULL) {
 				doveadm_print(metric_name);
 				doveadm_print(*args); args++;
-				dump_timing(&args, fields_count);
+				dump_timing(&args, field_types, fields_count);
 			}
 		} T_END;
 	}
