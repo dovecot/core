@@ -170,6 +170,23 @@ envelope_get_field(const char *name)
 	return ENVELOPE_FIELD_UNKNOWN;
 }
 
+static const char *
+hdr_strdup(pool_t pool, const unsigned char *data, size_t size)
+{
+	char *dest = p_malloc(pool, size+1);
+
+	if (memchr(data, '\0', size) == NULL) {
+		/* fast path */
+		memcpy(dest, data, size);
+	} else {
+		/* slow path - this could be made faster, but it should be
+		   rare so keep it simple */
+		for (size_t i = 0; i < size; i++)
+			dest[i] = data[i] == '\0' ? 0x80 : data[i];
+	}
+	return dest;
+}
+
 void message_part_envelope_parse_from_header(pool_t pool,
 	struct message_part_envelope **data,
 	struct message_header_line *hdr)
@@ -238,8 +255,7 @@ void message_part_envelope_parse_from_header(pool_t pool,
 						hdr->full_value_len,
 						UINT_MAX, TRUE);
 	} else if (str_p != NULL) {
-		*str_p = p_strndup(pool,
-			hdr->full_value, hdr->full_value_len);
+		*str_p = hdr_strdup(pool, hdr->full_value, hdr->full_value_len);
 	}
 }
 
@@ -407,26 +423,25 @@ parse_content_header(struct message_part_data *data,
 	pool_t pool, struct message_header_line *hdr)
 {
 	const char *name = hdr->name + strlen("Content-");
-	const char *value;
 
 	if (hdr->continues) {
 		hdr->use_full_value = TRUE;
 		return;
 	}
 
-	value = t_strndup(hdr->full_value, hdr->full_value_len);
-
 	switch (*name) {
 	case 'i':
 	case 'I':
 		if (strcasecmp(name, "ID") == 0 && data->content_id == NULL)
-			data->content_id = p_strdup(pool, value);
+			data->content_id = hdr_strdup(pool, hdr->full_value,
+						      hdr->full_value_len);
 		break;
 
 	case 'm':
 	case 'M':
 		if (strcasecmp(name, "MD5") == 0 && data->content_md5 == NULL)
-			data->content_md5 = p_strdup(pool, value);
+			data->content_md5 = hdr_strdup(pool, hdr->full_value,
+						       hdr->full_value_len);
 		break;
 
 	case 't':
@@ -446,7 +461,9 @@ parse_content_header(struct message_part_data *data,
 				hdr->full_value, hdr->full_value_len);
 		} else if (strcasecmp(name, "Location") == 0 &&
 			   data->content_location == NULL) {
-			data->content_location = p_strdup(pool, value);
+			data->content_location =
+				hdr_strdup(pool, hdr->full_value,
+					   hdr->full_value_len);
 		}
 		break;
 
@@ -454,7 +471,9 @@ parse_content_header(struct message_part_data *data,
 	case 'D':
 		if (strcasecmp(name, "Description") == 0 &&
 		    data->content_description == NULL)
-			data->content_description = p_strdup(pool, value);
+			data->content_description =
+				hdr_strdup(pool, hdr->full_value,
+					   hdr->full_value_len);
 		else if (strcasecmp(name, "Disposition") == 0 &&
 			 data->content_disposition_params == NULL)
 			parse_content_disposition(data, pool, hdr);
