@@ -442,6 +442,13 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 				       "/"DSYNC_LOCK_FILENAME, NULL);
 	brain->lock_fd = file_create_locked(brain->lock_path, &lock_set,
 					    &brain->lock, &created, &error);
+	if (brain->lock_fd == -1 && errno == ENOENT) {
+		/* home directory not created */
+		if (mail_user_home_mkdir(brain->user) < 0)
+			return -1;
+		brain->lock_fd = file_create_locked(brain->lock_path, &lock_set,
+			&brain->lock, &created, &error);
+	}
 	if (brain->lock_fd == -1)
 		i_error("Couldn't lock %s: %s", brain->lock_path, error);
 	else if (brain->debug) {
