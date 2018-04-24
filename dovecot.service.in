@@ -19,6 +19,7 @@ ExecStop=@bindir@/doveadm stop
 PrivateTmp=true
 NonBlocking=yes
 ProtectSystem=full
+ProtectHome=no
 PrivateDevices=true
 
 # You can add environment variables with e.g.:
