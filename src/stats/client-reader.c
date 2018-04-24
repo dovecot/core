@@ -54,6 +54,8 @@ static void reader_client_dump_stats(string_t *str, struct stats_dist *stats,
 			str_printfa(str, "%"PRIu64, stats_dist_get_avg(stats));
 		else if (strcmp(field, "median") == 0)
 			str_printfa(str, "%"PRIu64, stats_dist_get_median(stats));
+		else if (strcmp(field, "variance") == 0)
+			str_printfa(str, "%.02f", stats_dist_get_variance(stats));
 		else if (strcmp(field, "%95") == 0)
 			str_printfa(str, "%"PRIu64, stats_dist_get_95th(stats));
 		else {
