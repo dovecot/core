@@ -10,6 +10,9 @@
 #include "doveadm.h"
 #include "doveadm-print.h"
 
+#define DOVEADM_DUMP_DEFAULT_FIELDS \
+	"count sum min max avg median %95"
+
 static void dump_timing(const char *const **args, unsigned int fields_count)
 {
 	unsigned int i, args_count = str_array_length(*args);
@@ -81,7 +84,7 @@ static void stats_dump(const char *path, const char *const *fields, bool reset)
 static void
 doveadm_cmd_stats_dump(struct doveadm_cmd_context *cctx)
 {
-	const char *path;
+	const char *path, *fields;
 	bool reset;
 
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &path))
@@ -89,20 +92,21 @@ doveadm_cmd_stats_dump(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_bool(cctx, "reset", &reset))
 		reset = FALSE;
 
+	if (!doveadm_cmd_param_str(cctx, "fields", &fields))
+		fields = DOVEADM_DUMP_DEFAULT_FIELDS;
+
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
-	const char *const fields[] = {
-		"count", "sum", "min", "max", "avg", "median", "%95", NULL
-	};
-	stats_dump(path, fields, reset);
+	stats_dump(path, t_strsplit_spaces(fields, ", "), reset);
 	return;
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2 = {
 	.cmd = doveadm_cmd_stats_dump,
 	.name = "stats dump",
-	.usage = "[-s <stats socket path>] [-r]",
+	.usage = "[-s <stats socket path>] [-r] [-f <fields>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('r', "reset", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('f', "fields", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAMS_END
 };
