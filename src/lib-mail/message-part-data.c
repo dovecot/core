@@ -173,18 +173,23 @@ envelope_get_field(const char *name)
 static const char *
 hdr_strdup(pool_t pool, const unsigned char *data, size_t size)
 {
-	char *dest = p_malloc(pool, size+1);
-
 	if (memchr(data, '\0', size) == NULL) {
 		/* fast path */
+		char *dest = p_malloc(pool, size+1);
 		memcpy(dest, data, size);
-	} else {
-		/* slow path - this could be made faster, but it should be
-		   rare so keep it simple */
-		for (size_t i = 0; i < size; i++)
-			dest[i] = data[i] == '\0' ? 0x80 : data[i];
+		return dest;
 	}
-	return dest;
+
+	/* slow path - this could be made faster, but it should be
+	   rare so keep it simple */
+	string_t *str = str_new(pool, size+2);
+	for (size_t i = 0; i < size; i++) {
+		if (data[i] != '\0')
+			str_append_c(str, data[i]);
+		else
+			str_append(str, UNICODE_REPLACEMENT_CHAR_UTF8);
+	}
+	return str_c(str);
 }
 
 void message_part_envelope_parse_from_header(pool_t pool,
