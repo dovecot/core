@@ -18,7 +18,7 @@ static void test_rfc2231_parser(void)
 		"; key*1=baz";
 	const char *output[] = {
 		"key",
-		"f\x80oobazba%",
+		"f\xEF\xBF\xBDoobazba%",
 		"key2*",
 		"''ab%25",
 		"key3*",

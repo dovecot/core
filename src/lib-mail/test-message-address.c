@@ -324,8 +324,8 @@ static void test_message_address_nuls(void)
 	const unsigned char input[] =
 		"\"user\0nuls\"@[domain\0nuls] (comment\0nuls)";
 	const struct message_address output = {
-		NULL, "comment\x80nuls", NULL, "user\x80nuls",
-		"[domain\x80nuls]", FALSE
+		NULL, "comment\xEF\xBF\xBDnuls", NULL, "user\xEF\xBF\xBDnuls",
+		"[domain\xEF\xBF\xBDnuls]", FALSE
 	};
 	const struct message_address *addr;
 
