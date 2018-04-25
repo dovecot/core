@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
-#include "istream-nonuls.h"
 #include "str.h"
 #include "message-size.h"
 #include "message-header-parser.h"
@@ -29,16 +28,12 @@ message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 	struct message_header_parser_ctx *ctx;
 
 	ctx = i_new(struct message_header_parser_ctx, 1);
-	if ((flags & MESSAGE_HEADER_REPLACE_NULS_WITH_0x80) != 0)
-		ctx->input = i_stream_create_nonuls(input, 0x80);
-	else {
-		ctx->input = input;
-		i_stream_ref(input);
-	}
+	ctx->input = input;
 	ctx->hdr_size = hdr_size;
 	ctx->name = str_new(default_pool, 128);
 	ctx->flags = flags;
 	ctx->value_buf = buffer_create_dynamic(default_pool, 4096);
+	i_stream_ref(input);
 
 	if (hdr_size != NULL)
 		i_zero(hdr_size);
