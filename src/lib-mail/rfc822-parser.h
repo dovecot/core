@@ -1,8 +1,10 @@
 #ifndef RFC822_PARSER_H
 #define RFC822_PARSER_H
 
+#include "unichar.h"
+
 /* This can be used as a common NUL replacement character */
-#define RFC822_NUL_REPLACEMENT_STR "\x80"
+#define RFC822_NUL_REPLACEMENT_STR UNICODE_REPLACEMENT_CHAR_UTF8
 
 struct rfc822_parser_context {
 	const unsigned char *data, *end;
