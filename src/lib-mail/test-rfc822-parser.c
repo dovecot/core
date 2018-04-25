@@ -68,7 +68,7 @@ static void test_rfc822_parse_comment_nuls(void)
 
 	str_truncate(str, 0);
 	rfc822_parser_init(&parser, input, sizeof(input)-1, str);
-	parser.nul_replacement_char = '!';
+	parser.nul_replacement_str = "!";
 	test_assert(rfc822_skip_comment(&parser) == 0);
 	test_assert(strcmp(str_c(str), output) == 0);
 	rfc822_parser_deinit(&parser);
