@@ -57,11 +57,8 @@ static void cmd_mailbox_cache_decision_init(struct doveadm_mail_cmd_context *_ct
 	doveadm_print_header_simple("decision");
 	doveadm_print_header_simple("last-used");
 
-	if (!ctx->all_fields && ctx->fields == NULL) {
-		i_error("Missing fields parameter");
-		_ctx->exit_code = EX_USAGE;
-		return;
-	}
+	if (!ctx->all_fields && ctx->fields == NULL)
+		i_fatal("Missing fields parameter");
 
 	ctx->boxes = args;
 }
@@ -223,6 +220,9 @@ static int cmd_mailbox_cache_decision_run(struct doveadm_mail_cmd_context *_ctx,
 		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
 	const char *const *boxname;
 	int ret = 0;
+
+	if (_ctx->exit_code != 0)
+		return -1;
 
 	for(boxname = ctx->boxes; ret == 0 && *boxname != NULL; boxname++) {
 		struct mailbox *box;
