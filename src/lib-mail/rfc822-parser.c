@@ -77,11 +77,11 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 		switch (*ctx->data) {
 		case '\0':
 			if (ctx->last_comment != NULL &&
-			    ctx->nul_replacement_char != '\0') {
+			    ctx->nul_replacement_str != NULL) {
 				str_append_data(ctx->last_comment, start,
 						ctx->data - start);
-				str_append_c(ctx->last_comment,
-					     ctx->nul_replacement_char);
+				str_append(ctx->last_comment,
+					   ctx->nul_replacement_str);
 				start = ctx->data + 1;
 			}
 			break;
@@ -247,9 +247,9 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
 		case '\0':
-			if (ctx->nul_replacement_char != '\0') {
+			if (ctx->nul_replacement_str != NULL) {
 				str_append_data(str, start, ctx->data - start);
-				str_append_c(str, ctx->nul_replacement_char);
+				str_append(str, ctx->nul_replacement_str);
 				start = ctx->data + 1;
 			}
 			break;
@@ -364,9 +364,9 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 	for (start = ctx->data++; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
 		case '\0':
-			if (ctx->nul_replacement_char != '\0') {
+			if (ctx->nul_replacement_str != NULL) {
 				str_append_data(str, start, ctx->data - start);
-				str_append_c(str, ctx->nul_replacement_char);
+				str_append(str, ctx->nul_replacement_str);
 				start = ctx->data + 1;
 			}
 			break;
