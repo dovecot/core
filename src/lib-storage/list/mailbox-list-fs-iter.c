@@ -111,8 +111,9 @@ fs_list_rename_invalid(struct fs_list_iterate_context *ctx,
 					  MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	src = t_strconcat(root, "/", storage_name, NULL);
 
-	(void)uni_utf8_get_valid_data((const void *)storage_name,
-				      strlen(storage_name), destname);
+	if (uni_utf8_get_valid_data((const void *)storage_name,
+				    strlen(storage_name), destname))
+		i_unreached(); /* already checked that it was invalid */
 
 	str_append(dest, root);
 	str_append_c(dest, '/');
