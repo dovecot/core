@@ -426,7 +426,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	i_zero(&ctx);
 
 	rfc822_parser_init(&ctx.parser, data, size, t_str_new(128));
-	ctx.parser.nul_replacement_char = RFC822_NUL_REPLACEMENT_CHAR;
+	ctx.parser.nul_replacement_str = RFC822_NUL_REPLACEMENT_STR;
 	ctx.pool = pool;
 	ctx.str = t_str_new(128);
 	ctx.fill_missing = fill_missing;

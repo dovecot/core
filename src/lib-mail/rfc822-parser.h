@@ -2,14 +2,14 @@
 #define RFC822_PARSER_H
 
 /* This can be used as a common NUL replacement character */
-#define RFC822_NUL_REPLACEMENT_CHAR 0x80
+#define RFC822_NUL_REPLACEMENT_STR "\x80"
 
 struct rfc822_parser_context {
 	const unsigned char *data, *end;
 	string_t *last_comment;
 
-	/* Replace NULs with this character */
-	char nul_replacement_char;
+	/* Replace NUL characters with this string */
+	const char *nul_replacement_str;
 };
 
 #define IS_ATEXT(c) \
