@@ -300,8 +300,9 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 		string_t *destvname = t_str_new(128);
 		string_t *dest = t_str_new(128);
 
-		(void)uni_utf8_get_valid_data((const void *)fname,
-					      strlen(fname), destvname);
+		if (uni_utf8_get_valid_data((const void *)fname,
+					    strlen(fname), destvname))
+			i_unreached(); /* already checked that it was invalid */
 
 		str_append(dest, ctx->dir);
 		str_append_c(dest, '/');
