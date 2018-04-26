@@ -487,7 +487,8 @@ event_filter_query_match(const struct event_filter_query_internal *query,
 			return FALSE;
 	}
 	if (query->source_filename != NULL) {
-		if (source_linenum != query->source_linenum ||
+		if ((source_linenum != query->source_linenum &&
+		     query->source_linenum != 0) ||
 		    source_filename == NULL ||
 		    strcmp(event->source_filename, query->source_filename) != 0)
 			return FALSE;
