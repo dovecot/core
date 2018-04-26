@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hostpid.h"
 #include "hex-binary.h"
 #include "str.h"
 #include "ioloop.h"
@@ -13,6 +14,7 @@
 #include "sql-api-private.h"
 
 #ifdef BUILD_CASSANDRA
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cassandra.h>
@@ -236,6 +238,65 @@ prepare_finish_pending_statements(struct cassandra_sql_prepared_statement *prep_
 static void driver_cassandra_result_send_query(struct cassandra_result *result);
 static void driver_cassandra_send_queries(struct cassandra_db *db);
 static void result_finish(struct cassandra_result *result);
+
+static void
+driver_cassandra_log_handler(const CassLogMessage* message,
+			     void *data ATTR_UNUSED)
+{
+	enum log_type log_type = LOG_TYPE_ERROR;
+	const char *log_level_str = "";
+
+	switch (message->severity) {
+	case CASS_LOG_DISABLED:
+	case CASS_LOG_LAST_ENTRY:
+		i_unreached();
+	case CASS_LOG_CRITICAL:
+		log_type = LOG_TYPE_PANIC;
+		break;
+	case CASS_LOG_ERROR:
+		log_type = LOG_TYPE_ERROR;
+		break;
+	case CASS_LOG_WARN:
+		log_type = LOG_TYPE_WARNING;
+		break;
+	case CASS_LOG_INFO:
+		log_type = LOG_TYPE_INFO;
+		break;
+	case CASS_LOG_TRACE:
+		log_level_str = "[TRACE] ";
+		/* fall through */
+	case CASS_LOG_DEBUG:
+		log_type = LOG_TYPE_DEBUG;
+		break;
+	}
+
+	/* NOTE: We may not be in the main thread. We can't use the
+	   standard Dovecot functions that may use data stack. That's why
+	   we can't use i_log_type() in here, but have to re-implement the
+	   internal logging protocol. Otherwise preserve Cassandra's own
+	   logging format. */
+	fprintf(stderr, "\001%c%s %u.%03u %s(%s:%d:%s): %s\n",
+		log_type+1, my_pid,
+		(unsigned int)(message->time_ms / 1000),
+		(unsigned int)(message->time_ms % 1000),
+		log_level_str,
+		message->file, message->line, message->function,
+		message->message);
+}
+
+static void driver_cassandra_init_log(void)
+{
+	failure_callback_t *fatal_callback, *error_callback;
+	failure_callback_t *info_callback, *debug_callback;
+
+	i_get_failure_handlers(&fatal_callback, &error_callback,
+			       &info_callback, &debug_callback);
+	if (i_failure_handler_is_internal(debug_callback)) {
+		/* Using internal logging protocol. Use it ourself to set log
+		   levels correctly. */
+		cass_log_set_callback(driver_cassandra_log_handler, NULL);
+	}
+}
 
 static int consistency_parse(const char *str, CassConsistency *consistency_r)
 {
@@ -672,6 +733,8 @@ static void driver_cassandra_metrics_write(struct cassandra_db *db)
 static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 {
 	struct cassandra_db *db;
+
+	driver_cassandra_init_log();
 
 	db = i_new(struct cassandra_db, 1);
 	db->api = driver_cassandra_db;
