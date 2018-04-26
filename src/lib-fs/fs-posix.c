@@ -37,6 +37,7 @@ struct posix_fs {
 	bool mode_auto;
 	bool have_dirs;
 	bool disable_fsync;
+	bool accurate_mtime;
 };
 
 struct posix_fs_file {
@@ -106,6 +107,8 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 			fs->have_dirs = TRUE;
 		} else if (strcmp(arg, "no-fsync") == 0) {
 			fs->disable_fsync = TRUE;
+		} else if (strcmp(arg, "accurate-mtime") == 0) {
+			fs->accurate_mtime = TRUE;
 		} else if (str_begins(arg, "mode=")) {
 			unsigned int mode;
 			if (str_to_uint_oct(arg+5, &mode) < 0) {
@@ -472,6 +475,21 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 		if (fdatasync(file->fd) < 0) {
 			fs_set_error(file->file.fs, "fdatasync(%s) failed: %m",
 				     file->full_path);
+			return -1;
+		}
+	}
+	if (fs->accurate_mtime) {
+		/* Linux updates the mtime timestamp only on timer interrupts.
+		   This isn't anywhere close to being microsecond precision.
+		   If requested, use utimes() to explicitly set a more accurate
+		   mtime. */
+		struct timeval tv[2];
+		if (gettimeofday(&tv[0], NULL) < 0)
+			i_fatal("gettimeofday() failed: %m");
+		tv[1] = tv[0];
+		if ((utimes(file->temp_path, tv)) < 0) {
+			fs_set_error(file->file.fs, "utimes(%s) failed: %m",
+				     file->temp_path);
 			return -1;
 		}
 	}
