@@ -266,7 +266,7 @@ int unlink_directory(const char *dir, enum unlink_directory_flags flags,
 
 	if (ret < 0) {
 		errno = old_errno;
-		return errno == ENOENT ? 0 : 1;
+		return errno == ENOENT ? 0 : -1;
 	}
 
 	if ((flags & UNLINK_DIRECTORY_FLAG_RMDIR) != 0) {
