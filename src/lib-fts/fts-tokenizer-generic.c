@@ -95,7 +95,7 @@ static void
 fts_tokenizer_generic_destroy(struct fts_tokenizer *_tok)
 {
 	struct generic_fts_tokenizer *tok =
-		(struct generic_fts_tokenizer *)_tok;
+		container_of(_tok, struct generic_fts_tokenizer, tokenizer);
 
 	buffer_free(&tok->token);
 	i_free(tok);
@@ -176,7 +176,7 @@ fts_simple_is_word_break(struct generic_fts_tokenizer *tok,
 static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
 {
 	struct generic_fts_tokenizer *tok =
-		(struct generic_fts_tokenizer *)_tok;
+		container_of(_tok, struct generic_fts_tokenizer, tokenizer);
 
 	tok->prev_letter = LETTER_TYPE_NONE;
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
@@ -199,7 +199,7 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 				  const char **error_r ATTR_UNUSED)
 {
 	struct generic_fts_tokenizer *tok =
-		(struct generic_fts_tokenizer *)_tok;
+		container_of(_tok, struct generic_fts_tokenizer, tokenizer);
 	size_t i, start = 0;
 	int char_size;
 	unichar_t c;
@@ -653,7 +653,7 @@ fts_tokenizer_generic_tr29_next(struct fts_tokenizer *_tok,
 				const char **error_r ATTR_UNUSED)
 {
 	struct generic_fts_tokenizer *tok =
-		(struct generic_fts_tokenizer *)_tok;
+		container_of(_tok, struct generic_fts_tokenizer, tokenizer);
 	unichar_t c;
 	size_t i, char_start_i, start_pos = 0;
 	enum letter_type lt;
