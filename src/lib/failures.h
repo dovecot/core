@@ -110,6 +110,9 @@ void i_set_failure_file(const char *path, const char *prefix);
 
 /* Send errors to stderr using internal error protocol. */
 void i_set_failure_internal(void);
+/* Returns TRUE if the given callback handler was set via
+   i_set_failure_internal(). */
+bool i_failure_handler_is_internal(failure_callback_t *const callback);
 /* If writing to log fails, ignore it instead of existing with
    FATAL_LOGWRITE or FATAL_LOGERROR. */
 void i_set_failure_ignore_errors(bool ignore);

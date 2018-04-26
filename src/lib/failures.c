@@ -869,6 +869,12 @@ void i_set_failure_internal(void)
 	i_set_debug_handler(i_internal_error_handler);
 }
 
+bool i_failure_handler_is_internal(failure_callback_t *const callback)
+{
+	return callback == i_internal_fatal_handler ||
+		callback == i_internal_error_handler;
+}
+
 void i_set_failure_ignore_errors(bool ignore)
 {
 	failure_ignore_errors = ignore;
