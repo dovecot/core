@@ -428,6 +428,7 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 	if (storage->v.create != NULL &&
 	    storage->v.create(storage, ns, error_r) < 0) {
 		*error_r = t_strdup_printf("%s: %s", storage->name, *error_r);
+		event_unref(&storage->event);
 		pool_unref(&storage->pool);
 		return -1;
 	}
