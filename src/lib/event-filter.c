@@ -483,7 +483,7 @@ event_filter_query_match(const struct event_filter_query_internal *query,
 
 	if (query->name != NULL) {
 		if (event->sending_name == NULL ||
-		    strcmp(event->sending_name, query->name) != 0)
+		    !wildcard_match(event->sending_name, query->name))
 			return FALSE;
 	}
 	if (query->source_filename != NULL) {
