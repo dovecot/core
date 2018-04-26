@@ -14,7 +14,7 @@ struct event_filter_query {
 	/* key=NULL-terminated list of key=value fields */
 	const struct event_filter_field *fields;
 
-	/* event name */
+	/* event name. Supports '*' and '?' wildcards. */
 	const char *name;
 	/* source filename:line */
 	const char *source_filename;
