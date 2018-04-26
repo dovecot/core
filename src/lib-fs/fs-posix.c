@@ -449,19 +449,14 @@ fs_posix_read_stream(struct fs_file *_file, size_t max_buffer_size)
 static void fs_posix_write_rename_if_needed(struct posix_fs_file *file)
 {
 	struct posix_fs *fs = (struct posix_fs *)file->file.fs;
-	const char *new_fname, *new_prefix, *p;
+	const char *new_fname;
 
 	new_fname = fs_metadata_find(&file->file.metadata, FS_METADATA_WRITE_FNAME);
 	if (new_fname == NULL)
 		return;
 
-	p = strrchr(file->file.path, '/');
-	if (p == NULL)
-		new_prefix = "";
-	else
-		new_prefix = t_strdup_until(file->file.path, p+1);
 	i_free(file->file.path);
-	file->file.path = i_strconcat(new_prefix, new_fname, NULL);
+	file->file.path = i_strdup(new_fname);
 
 	i_free(file->full_path);
 	file->full_path = fs->path_prefix == NULL ? i_strdup(file->file.path) :
