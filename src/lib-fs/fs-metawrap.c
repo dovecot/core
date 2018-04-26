@@ -158,7 +158,8 @@ fs_metawrap_set_metadata(struct fs_file *_file, const char *key,
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
-	if (!file->fs->wrap_metadata)
+	if (!file->fs->wrap_metadata ||
+	    strcmp(key, FS_METADATA_WRITE_FNAME) == 0)
 		fs_set_metadata(_file->parent, key, value);
 	else {
 		fs_default_set_metadata(_file, key, value);
