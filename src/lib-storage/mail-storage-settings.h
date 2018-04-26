@@ -69,7 +69,6 @@ struct mail_storage_settings {
 	const char *const *parsed_mail_attachment_content_type_filter;
 	bool parsed_mail_attachment_exclude_inlined;
 	bool parsed_mail_attachment_detection_add_flags_on_save;
-	bool parsed_mail_attachment_detection_add_flags_on_fetch;
 };
 
 struct mail_namespace_settings {
