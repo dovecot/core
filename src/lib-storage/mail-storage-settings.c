@@ -521,6 +521,10 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 			} else if (strncmp(opt, "content-type=", 13) == 0) {
 				const char *value = p_strdup(pool, opt+13);
 				array_append(&content_types, &value, 1);
+			} else {
+				*error_r = t_strdup_printf("mail_attachment_detection_options: "
+					"Unknown option: %s", opt);
+				return FALSE;
 			}
 			options++;
 		}
