@@ -273,6 +273,16 @@ const uint32_t *index_mail_get_vsize_extension(struct mail *_mail);
 bool index_mail_want_cache(struct index_mail *mail, enum index_cache_field field);
 void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
 			  const void *data, size_t data_size);
+static inline bool
+index_mail_cache_add_if_wanted(struct index_mail *mail, enum index_cache_field field,
+			       const void *data, size_t data_size)
+{
+	bool want = index_mail_want_cache(mail, field);
+	if (want)
+		index_mail_cache_add(mail, field, data, data_size);
+	return want;
+}
+
 void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 			      const void *data, size_t data_size);
 
