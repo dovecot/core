@@ -439,6 +439,48 @@ static int fetch_imap_bodystructure(struct fetch_cmd_context *ctx)
 	doveadm_print(value);
 	return 0;
 }
+
+static void
+fetch_message_part_append_size(string_t *str, const struct message_size *size)
+{
+	str_printfa(str, "(virtual=%"PRIuUOFF_T",physical=%"PRIuUOFF_T
+		    ",lines=%u)", size->virtual_size, size->physical_size,
+		    size->lines);
+}
+
+static void
+fetch_message_parts_append(string_t *str, unsigned int indent,
+			  const struct message_part *parts)
+{
+	const struct message_part *part;
+
+	for (part = parts; part != NULL; part = part->next) {
+		str_append_c(str, '\n');
+		for (unsigned int i = 0; i < indent; i++)
+			str_append(str, "  ");
+		str_printfa(str, "- pos=%"PRIuUOFF_T" hdr_size=",
+			    part->physical_pos);
+		fetch_message_part_append_size(str, &part->header_size);
+		str_append(str, " body_size=");
+		fetch_message_part_append_size(str, &part->body_size);
+		str_printfa(str, " flags=0x%x", part->flags);
+		fetch_message_parts_append(str, indent+1, part->children);
+	}
+}
+
+static int fetch_mime_parts(struct fetch_cmd_context *ctx)
+{
+	struct message_part *parts;
+
+	if (mail_get_parts(ctx->mail, &parts) < 0)
+		return -1;
+
+	string_t *str = t_str_new(128);
+	fetch_message_parts_append(str, 0, parts);
+	doveadm_print(str_c(str));
+	return 0;
+}
+
 static int fetch_pop3_uidl(struct fetch_cmd_context *ctx)
 {
 	const char *value;
@@ -507,6 +549,7 @@ static const struct fetch_field fetch_fields[] = {
 	{ "imap.envelope", MAIL_FETCH_IMAP_ENVELOPE, fetch_imap_envelope },
 	{ "imap.body",     MAIL_FETCH_IMAP_BODY,     fetch_imap_body },
 	{ "imap.bodystructure", MAIL_FETCH_IMAP_BODYSTRUCTURE, fetch_imap_bodystructure },
+	{ "mime.parts",    MAIL_FETCH_MESSAGE_PARTS, fetch_mime_parts },
 	{ "pop3.uidl",     MAIL_FETCH_UIDL_BACKEND,  fetch_pop3_uidl },
 	{ "pop3.order",    MAIL_FETCH_POP3_ORDER,    fetch_pop3_order },
 	{ "refcount",      MAIL_FETCH_REFCOUNT,      fetch_refcount },
