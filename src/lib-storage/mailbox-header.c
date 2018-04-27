@@ -93,3 +93,21 @@ void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **_ctx)
 
 	pool_unref(&ctx->pool);
 }
+
+struct mailbox_header_lookup_ctx *
+mailbox_header_lookup_merge(const struct mailbox_header_lookup_ctx *hdr1,
+			    const struct mailbox_header_lookup_ctx *hdr2)
+{
+	ARRAY_TYPE(const_string) names;
+	unsigned int i;
+
+	i_assert(hdr1->box == hdr2->box);
+
+	t_array_init(&names, 32);
+	for (i = 0; i < hdr1->count; i++)
+		array_push_back(&names, &hdr1->name[i]);
+	for (i = 0; i < hdr2->count; i++)
+		array_push_back(&names, &hdr2->name[i]);
+	array_append_zero(&names);
+	return mailbox_header_lookup_init(hdr1->box, array_front(&names));
+}

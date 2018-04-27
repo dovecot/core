@@ -702,6 +702,10 @@ struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
 void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx);
 void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **ctx);
+/* Merge two header lookups. */
+struct mailbox_header_lookup_ctx *
+mailbox_header_lookup_merge(const struct mailbox_header_lookup_ctx *hdr1,
+			    const struct mailbox_header_lookup_ctx *hdr2);
 
 /* Initialize new search request. If sort_program is non-NULL, the messages are
    returned in the requested order, otherwise from first to last. */
