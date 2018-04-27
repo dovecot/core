@@ -2074,8 +2074,6 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct mailbox_header_lookup_ctx *new_wanted_headers;
-	ARRAY_TYPE(const_string) names;
-	unsigned int i;
 
 	data->wanted_fields |= fields;
 	if (headers == NULL) {
@@ -2085,18 +2083,9 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 		mailbox_header_lookup_ref(headers);
 	} else {
 		/* merge headers */
-		t_array_init(&names, 32);
-		for (i = 0; i < data->wanted_headers->count; i++)
-			array_push_back(&names,
-					&data->wanted_headers->name[i]);
-		for (i = 0; i < headers->count; i++)
-			array_push_back(&names, &headers->name[i]);
-		array_append_zero(&names);
-		new_wanted_headers =
-			mailbox_header_lookup_init(_mail->box,
-						   array_front(&names));
-		if (data->wanted_headers != NULL)
-			mailbox_header_lookup_unref(&data->wanted_headers);
+		new_wanted_headers = mailbox_header_lookup_merge(data->wanted_headers,
+								 headers);
+		mailbox_header_lookup_unref(&data->wanted_headers);
 		data->wanted_headers = new_wanted_headers;
 	}
 	index_mail_update_access_parts_pre(_mail);
