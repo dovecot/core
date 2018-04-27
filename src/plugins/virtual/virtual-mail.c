@@ -258,12 +258,15 @@ virtual_mail_add_temp_wanted_fields(struct mail *mail,
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail *backend_mail;
-	struct mail_private *p;
+	struct mailbox_header_lookup_ctx *backend_headers;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
 		return;
-	p = (struct mail_private *)backend_mail;
-	p->v.add_temp_wanted_fields(backend_mail, fields, headers);
+	/* convert header indexes to backend mailbox's header indexes */
+	backend_headers = headers == NULL ? NULL :
+		mailbox_header_lookup_init(backend_mail->box, headers->name);
+	mail_add_temp_wanted_fields(backend_mail, fields, backend_headers);
+	mailbox_header_lookup_unref(&backend_headers);
 }
 
 static int
