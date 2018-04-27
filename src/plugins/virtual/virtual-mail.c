@@ -12,6 +12,11 @@ struct virtual_mail {
 	enum mail_fetch_field wanted_fields;
 	struct mailbox_header_lookup_ctx *wanted_headers;
 
+	/* temp_wanted_fields for this mail. Used only when mail doesn't have
+	   a backend mail yet. */
+	enum mail_fetch_field delayed_temp_fields;
+	struct mailbox_header_lookup_ctx *delayed_temp_headers;
+
 	/* currently active mail */
 	struct mail *cur_backend_mail;
 	struct virtual_mail_index_record cur_vrec;
@@ -60,6 +65,11 @@ static void virtual_mail_close(struct mail *mail)
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail **mails;
 	unsigned int i, count;
+
+	if (mail->seq != 0) {
+		mailbox_header_lookup_unref(&vmail->delayed_temp_headers);
+		vmail->delayed_temp_fields = 0;
+	}
 
 	mails = array_get_modifiable(&vmail->backend_mails, &count);
 	for (i = 0; i < count; i++) {
@@ -140,6 +150,10 @@ static int backend_mail_get(struct virtual_mail *vmail,
 		mail_set_expunged(&vmail->imail.mail.mail);
 		return -1;
 	}
+	/* headers need to be converted to backend-headers, so go through
+	   the virtual add_temp_wanted_fields() again. */
+	mail_add_temp_wanted_fields(mail, vmail->delayed_temp_fields,
+				    vmail->delayed_temp_headers);
 	*backend_mail_r = vmail->cur_backend_mail;
 	return 0;
 }
@@ -258,7 +272,21 @@ virtual_mail_add_temp_wanted_fields(struct mail *mail,
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail *backend_mail;
-	struct mailbox_header_lookup_ctx *backend_headers;
+	struct mailbox_header_lookup_ctx *backend_headers, *new_headers;
+
+	if (mail->seq == 0) {
+		/* No mail set yet. Delay until it is set. */
+		vmail->delayed_temp_fields |= fields;
+		if (vmail->delayed_temp_headers == NULL)
+			vmail->delayed_temp_headers = headers;
+		else {
+			new_headers = mailbox_header_lookup_merge(
+				vmail->delayed_temp_headers, headers);
+			mailbox_header_lookup_unref(&vmail->delayed_temp_headers);
+			vmail->delayed_temp_headers = new_headers;
+		}
+		return;
+	}
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
 		return;
