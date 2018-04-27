@@ -846,7 +846,10 @@ void mail_set_seq(struct mail *mail, uint32_t seq);
 bool mail_set_uid(struct mail *mail, uint32_t uid);
 
 /* Add wanted fields/headers on top of existing ones. These will be forgotten
-   after the next mail_set_seq/uid(). */
+   after the next mail_set_seq/uid() that closes the existing mail. Note that
+   it's valid to call this function while there is no mail assigned
+   (mail->seq==0), i.e. this is called before any mail_set_seq/uid() or after
+   mail.close(). */
 void mail_add_temp_wanted_fields(struct mail *mail,
 				 enum mail_fetch_field fields,
 				 struct mailbox_header_lookup_ctx *headers)
