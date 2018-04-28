@@ -43,8 +43,8 @@ struct generic_fts_tokenizer {
 	bool wb5a; /* TR29 rule for prefix separation
 	              in e.g. French or Italian. */
 	bool seen_wb5a;
-	unichar_t prev_letter_c;
-	unichar_t letter_c;
+	unichar_t prev_letter;
+	unichar_t letter;
 	enum boundary_algorithm algorithm;
 	enum letter_type prev_type;
 	enum letter_type prev_prev_type;
