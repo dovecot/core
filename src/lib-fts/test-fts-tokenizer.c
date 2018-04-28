@@ -132,12 +132,13 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 
 static void
 test_tokenizer_inputs(struct fts_tokenizer *tok,
+		      const char *const *inputs, unsigned int count,
 		      const char *const *expected_output)
 {
 	unsigned int i, outi = 0;
 
-	for (i = 0; i < N_ELEMENTS(test_inputs); i++) {
-		outi = test_tokenizer_inputoutput(tok, test_inputs[i],
+	for (i = 0; i < count; i++) {
+		outi = test_tokenizer_inputoutput(tok, inputs[i],
 						  expected_output, outi);
 	}
 	test_assert_idx(expected_output[outi] == NULL, outi);
@@ -193,7 +194,7 @@ static void test_fts_tokenizer_generic_only(void)
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &tok, &error) == 0);
 	test_assert(((struct generic_fts_tokenizer *) tok)->algorithm == BOUNDARY_ALGORITHM_SIMPLE);
 
-	test_tokenizer_inputs(tok, expected_output);
+	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
@@ -249,7 +250,7 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 
 	test_begin("fts tokenizer generic TR29");
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
-	test_tokenizer_inputs(tok, expected_output);
+	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
@@ -306,7 +307,7 @@ static void test_fts_tokenizer_generic_tr29_wb5a(void)
 
 	test_begin("fts tokenizer generic TR29 with WB5a");
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings_wb5a, &tok, &error) == 0);
-	test_tokenizer_inputs(tok, expected_output);
+	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
