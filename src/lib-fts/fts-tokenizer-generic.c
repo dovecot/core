@@ -367,7 +367,7 @@ static bool letter_aletter(struct generic_fts_tokenizer *tok)
 
 	/* WB5a */
 	if (tok->wb5a && tok->token->used <= FTS_WB5A_PREFIX_MAX_LENGTH)
-		if (IS_WB5A_APOSTROPHE(tok->prev_letter_c) && IS_VOWEL(tok->letter_c)) {
+		if (IS_WB5A_APOSTROPHE(tok->prev_letter) && IS_VOWEL(tok->letter)) {
 			tok->seen_wb5a = TRUE;
 			return TRUE;
 		}
@@ -506,12 +506,12 @@ add_prev_type(struct generic_fts_tokenizer *tok, enum letter_type lt)
 	tok->prev_type = lt;
 }
 
-static void
-add_letter_c(struct generic_fts_tokenizer *tok, unichar_t c)
+static inline void
+add_letter(struct generic_fts_tokenizer *tok, unichar_t c)
 {
-	if(tok->letter_c != 0)
-		tok->prev_letter_c = tok->letter_c;
-	tok->letter_c = c;
+	if(tok->letter != 0)
+		tok->prev_letter = tok->letter;
+	tok->letter = c;
 }
 
 /*
@@ -588,11 +588,11 @@ static void wb5a_reinsert(struct generic_fts_tokenizer *tok)
 {
 	string_t *utf8_str = t_str_new(6);
 
-	uni_ucs4_to_utf8_c(tok->letter_c, utf8_str);
+	uni_ucs4_to_utf8_c(tok->letter, utf8_str);
 	buffer_insert(tok->token, 0, str_data(utf8_str), str_len(utf8_str));
-	tok->prev_type = letter_type(tok->letter_c);
-	tok->letter_c = 0;
-	tok->prev_letter_c = 0;
+	tok->prev_type = letter_type(tok->letter);
+	tok->letter = 0;
+	tok->prev_letter = 0;
 	tok->seen_wb5a = FALSE;
 }
 
@@ -680,7 +680,7 @@ fts_tokenizer_generic_tr29_next(struct fts_tokenizer *_tok,
 		}
 
 		if (tok->wb5a &&  tok->token->used <= FTS_WB5A_PREFIX_MAX_LENGTH)
-			add_letter_c(tok, c);
+			add_letter(tok, c);
 
 		if (uni_found_word_boundary(tok, lt)) {
 			i_assert(char_start_i >= start_pos && size >= start_pos);
