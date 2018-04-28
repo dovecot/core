@@ -502,6 +502,66 @@ static void test_fts_tokenizer_random(void)
 	test_end();
 }
 
+
+static void
+test_fts_tokenizer_explicit_prefix(void)
+{
+	const char *input = "* ** "
+		"*pre *both* post* "
+		"mid*dle *mid*dle* "
+		"**twopre **twoboth** twopost**";
+	const char *const expected_star[] = { "pre", "both*", "post*",
+					      "mid*", "dle", "mid*", "dle*",
+					      "twopre", "twoboth*", "twopost*",
+					      NULL, NULL };
+	const char *const expected_nostar[] = { "pre", "both", "post",
+						"mid", "dle", "mid", "dle",
+						"twopre", "twoboth", "twopost",
+						NULL, NULL };
+
+	const char *settings[9] = { "algorithm", "tr29", "wb5a", "yes" };
+	const char **setptr;
+
+	const char *algos[] = { ALGORITHM_SIMPLE_NAME,
+				ALGORITHM_TR29_NAME,
+				ALGORITHM_TR29_NAME "+wb5a" };
+	const char *searches[] = { "indexing", "searching" };
+	const char *prefixes[] = { "fixed", "prefix" };
+
+	for (int algo = 2; algo >= 0; algo--) { /* We overwrite the settings over time */
+		setptr = &settings[algo*2]; /* 4, 2, or 0 settings strings preserved */
+
+		for (int search = 0; search < 2; search++) {
+			const char **setptr2 = setptr;
+			if (search > 0) { *setptr2++ = "search"; *setptr2++ = "yes"; }
+
+			for (int explicitprefix = 0; explicitprefix < 2; explicitprefix++) {
+				const char **setptr3 = setptr2;
+				if (explicitprefix > 0) { *setptr3++ = "explicitprefix"; *setptr3++ = "y"; }
+
+				*setptr3++ = NULL;
+
+				test_begin(t_strdup_printf("prefix search %s:%s:%s",
+							   algos[algo],
+							   searches[search],
+							   prefixes[explicitprefix]));
+				struct fts_tokenizer *tok;
+				const char *error;
+
+				fts_tokenizer_create(fts_tokenizer_generic, NULL, settings,
+						     &tok, &error);
+				test_tokenizer_inputs(
+					tok, &input, 1,
+					(search!=0) && (explicitprefix!=0) && (algo==0)
+					? expected_star : expected_nostar);
+
+				fts_tokenizer_unref(&tok);
+				test_end();
+			}
+		}
+	}
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -516,6 +576,7 @@ int main(void)
 		test_fts_tokenizer_address_search,
 		test_fts_tokenizer_delete_trailing_partial_char,
 		test_fts_tokenizer_random,
+		test_fts_tokenizer_explicit_prefix,
 		NULL
 	};
 	int ret;
