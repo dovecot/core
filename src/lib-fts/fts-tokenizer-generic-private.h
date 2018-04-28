@@ -46,8 +46,8 @@ struct generic_fts_tokenizer {
 	unichar_t prev_letter_c;
 	unichar_t letter_c;
 	enum boundary_algorithm algorithm;
-	enum letter_type prev_letter;
-	enum letter_type prev_prev_letter;
+	enum letter_type prev_type;
+	enum letter_type prev_prev_type;
 	size_t untruncated_length;
 	buffer_t *token;
 };
