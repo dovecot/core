@@ -392,6 +392,11 @@ event_add_str(struct event *event, const char *key, const char *value)
 {
 	struct event_field *field;
 
+	if (value == NULL) {
+		/* silently ignoring is perhaps better than assert-crashing? */
+		return event;
+	}
+
 	field = event_get_field(event, key);
 	field->value_type = EVENT_FIELD_VALUE_TYPE_STR;
 	i_zero(&field->value);
