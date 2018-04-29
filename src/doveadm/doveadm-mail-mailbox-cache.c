@@ -321,6 +321,73 @@ static void cmd_mailbox_cache_remove_init(struct doveadm_mail_cmd_context *_ctx,
 	ctx->ctx.search_args = doveadm_mail_build_search_args(args);
 }
 
+static int cmd_mailbox_cache_compress_run_box(struct mailbox_cache_cmd_context *ctx,
+					      struct mailbox *box)
+{
+	struct mailbox_transaction_context *t =
+		mailbox_transaction_begin(box,
+					  MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+					  "mailbox cache compress");
+	struct mail_cache *cache = t->box->cache;
+	struct mail_cache_compress_lock *lock;
+	int ret = 0;
+
+	if (mail_cache_open_and_verify(cache) < 0 ||
+	    MAIL_CACHE_IS_UNUSABLE(cache)) {
+		mailbox_transaction_rollback(&t);
+		i_error("Cache is unusable");
+		ctx->ctx.exit_code = EX_TEMPFAIL;
+		return -1;
+	}
+
+	cache->need_compress_file_seq = UINT_MAX;
+	if (mail_cache_compress_forced(cache, t->itrans, &lock) < 0) {
+		mailbox_set_index_error(t->box);
+		doveadm_mail_failed_mailbox(&ctx->ctx, box);
+		ret = -1;
+	}
+
+	if (mailbox_transaction_commit(&t) < 0) {
+		i_error("mailbox_transaction_commit() failed: %s",
+			mailbox_get_last_internal_error(box, NULL));
+		doveadm_mail_failed_mailbox(&ctx->ctx, box);
+		ret = -1;
+	}
+	mail_cache_compress_unlock(&lock);
+	return ret;
+}
+
+static int cmd_mailbox_cache_compress_run(struct doveadm_mail_cmd_context *_ctx,
+					  struct mail_user *user)
+{
+	struct mailbox_cache_cmd_context *ctx =
+		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
+	const char *const *boxname;
+	int ret = 0;
+
+	if (_ctx->exit_code != 0)
+		return -1;
+
+	for(boxname = ctx->boxes; ret == 0 && *boxname != NULL; boxname++) {
+		struct mailbox *box;
+		if ((ret = cmd_mailbox_cache_open_box(_ctx, user, *boxname, &box)) < 0)
+			break;
+		ret = cmd_mailbox_cache_compress_run_box(ctx, box);
+		mailbox_free(&box);
+	}
+
+	return ret;
+}
+
+static void cmd_mailbox_cache_compress_init(struct doveadm_mail_cmd_context *_ctx,
+					    const char *const args[])
+{
+	struct mailbox_cache_cmd_context *ctx =
+		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
+
+	ctx->boxes = args;
+}
+
 static struct doveadm_mail_cmd_context *cmd_mailbox_cache_decision_alloc(void)
 {
 	struct mailbox_cache_cmd_context *ctx =
@@ -340,6 +407,17 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_cache_remove_alloc(void)
 	ctx->ctx.v.init = cmd_mailbox_cache_remove_init;
 	ctx->ctx.v.parse_arg = cmd_mailbox_cache_parse_arg;
 	ctx->ctx.v.run = cmd_mailbox_cache_remove_run;
+	ctx->ctx.getopt_args = "";
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+	return &ctx->ctx;
+}
+
+static struct doveadm_mail_cmd_context *cmd_mailbox_cache_compress_alloc(void)
+{
+	struct mailbox_cache_cmd_context *ctx =
+		doveadm_mail_cmd_alloc(struct mailbox_cache_cmd_context);
+	ctx->ctx.v.init = cmd_mailbox_cache_compress_init;
+	ctx->ctx.v.run = cmd_mailbox_cache_compress_run;
 	ctx->ctx.getopt_args = "";
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	return &ctx->ctx;
@@ -368,5 +446,15 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_cache_remove = {
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_mailbox_cache_compress = {
+	.name = "mailbox cache compress",
+	.mail_cmd = cmd_mailbox_cache_compress_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"<mailbox> [...]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
