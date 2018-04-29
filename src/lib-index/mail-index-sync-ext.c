@@ -94,26 +94,8 @@ void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 
 void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx)
 {
-	const struct mail_index_registered_ext *rext;
-	void **extra_contexts;
-	unsigned int i, rext_count, context_count;
-
-	if (!array_is_created(&ctx->extra_contexts))
-		return;
-
-	rext = array_get(&ctx->view->index->extensions, &rext_count);
-	extra_contexts =
-		array_get_modifiable(&ctx->extra_contexts, &context_count);
-	i_assert(context_count <= rext_count);
-
-	for (i = 0; i < context_count; i++) {
-		if (extra_contexts[i] != NULL) {
-			rext[i].sync_handler.callback(ctx, 0, NULL, NULL,
-						      &extra_contexts[i]);
-		}
-	}
-
-	array_free(&ctx->extra_contexts);
+	if (array_is_created(&ctx->extra_contexts))
+		array_free(&ctx->extra_contexts);
 }
 
 static struct mail_index_ext_header *
@@ -660,10 +642,8 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	const struct mail_index_ext *ext;
-	const struct mail_index_registered_ext *rext;
 	void *old_data;
 	uint32_t seq;
-	int ret;
 
 	i_assert(ctx->cur_ext_map_idx != (uint32_t)-1);
 	i_assert(!ctx->cur_ext_ignore);
@@ -683,20 +663,6 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 
 	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 	old_data = PTR_OFFSET(rec, ext->record_offset);
-
-	rext = array_idx(&view->index->extensions, ext->index_idx);
-
-	/* call sync handlers only when its registered type matches with
-	   current synchronization type (index/view) */
-	if ((rext->sync_handler.type & ctx->type) != 0) {
-		void **extra_context =
-			array_idx_modifiable(&ctx->extra_contexts,
-					     ext->index_idx);
-		ret = rext->sync_handler.callback(ctx, seq, old_data, u + 1,
-						  extra_context);
-		if (ret <= 0)
-			return ret;
-	}
 
 	/* @UNSAFE */
 	memcpy(old_data, u + 1, ctx->cur_ext_record_size);

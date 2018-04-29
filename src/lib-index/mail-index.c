@@ -315,31 +315,6 @@ void mail_index_unregister_expunge_handler(struct mail_index *index,
 	rext->expunge_handler = NULL;
 }
 
-void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
-				      mail_index_sync_handler_t *cb,
-				      enum mail_index_sync_handler_type type)
-{
-	struct mail_index_registered_ext *rext;
-
-	rext = array_idx_modifiable(&index->extensions, ext_id);
-	i_assert(rext->sync_handler.callback == NULL);
-
-	rext->sync_handler.callback = cb;
-	rext->sync_handler.type = type;
-}
-
-void mail_index_unregister_sync_handler(struct mail_index *index,
-					uint32_t ext_id)
-{
-	struct mail_index_registered_ext *rext;
-
-	rext = array_idx_modifiable(&index->extensions, ext_id);
-	i_assert(rext->sync_handler.callback != NULL);
-
-	rext->sync_handler.callback = NULL;
-	rext->sync_handler.type = 0;
-}
-
 void mail_index_register_sync_lost_handler(struct mail_index *index,
 					   mail_index_sync_lost_handler_t *cb)
 {
