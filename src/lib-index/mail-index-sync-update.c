@@ -1028,14 +1028,9 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		if (LOG_IS_BEFORE(prev_seq, prev_offset,
 				  view->map->hdr.log_file_seq,
 				  view->map->hdr.log_file_head_offset)) {
-			/* this has been synced already. we're here only to call
-			   expunge handlers and extension update handlers. */
+			/* this has been synced already. */
 			i_assert(type == MAIL_INDEX_SYNC_HANDLER_FILE);
-
-			if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) != 0)
-				continue;
-			if ((thdr->type & MAIL_TRANSACTION_EXT_MASK) == 0)
-				continue;
+			continue;
 		}
 
 		/* we'll just skip over broken entries */
