@@ -504,6 +504,7 @@ static void fts_mail_index(struct mail *_mail)
 			ft->failed = TRUE;
 			return;
 		}
+		ft->next_index_seq = _mail->seq;
 	}
 
 	if (ft->next_index_seq == _mail->seq) {
