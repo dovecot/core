@@ -976,10 +976,24 @@ static void counters_inc_error(struct cassandra_db *db, CassError error)
 static bool query_error_want_fallback(CassError error)
 {
 	switch (error) {
+	case CASS_ERROR_LIB_WRITE_ERROR:
+	case CASS_ERROR_LIB_REQUEST_TIMED_OUT:
+		/* Communication problems on client side. Maybe it will work
+		   with fallback consistency? */
+		return TRUE;
 	case CASS_ERROR_LIB_NO_HOSTS_AVAILABLE:
 		/* The client library couldn't connect to enough Cassandra
 		   nodes. The error message text is the same as for
 		   CASS_ERROR_SERVER_UNAVAILABLE. */
+		return TRUE;
+	case CASS_ERROR_SERVER_SERVER_ERROR:
+	case CASS_ERROR_SERVER_OVERLOADED:
+	case CASS_ERROR_SERVER_IS_BOOTSTRAPPING:
+	case CASS_ERROR_SERVER_READ_TIMEOUT:
+	case CASS_ERROR_SERVER_READ_FAILURE:
+	case CASS_ERROR_SERVER_WRITE_FAILURE:
+		/* Servers are having trouble. Maybe with fallback consistency
+		   we can reach non-troubled servers? */
 		return TRUE;
 	case CASS_ERROR_SERVER_UNAVAILABLE:
 		/* Cassandra server knows that there aren't enough nodes
