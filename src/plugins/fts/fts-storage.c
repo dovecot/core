@@ -58,6 +58,7 @@ struct fts_transaction_context {
 	uint32_t highest_virtual_uid;
 	unsigned int precache_extra_count;
 
+	bool indexing:1;
 	bool precached:1;
 	bool mails_saved:1;
 	bool failed:1;
@@ -529,8 +530,12 @@ static void fts_mail_precache(struct mail *_mail)
 	if (fmail->virtual_mail) {
 		if (ft->highest_virtual_uid < _mail->uid)
 			ft->highest_virtual_uid = _mail->uid;
-	} else T_BEGIN {
+	} else if (!ft->indexing) T_BEGIN {
+		/* avoid recursing here from fts_mail_precache_range() */
+		ft->indexing = TRUE;
 		fts_mail_index(_mail);
+		i_assert(ft->indexing);
+		ft->indexing = FALSE;
 	} T_END;
 }
 
