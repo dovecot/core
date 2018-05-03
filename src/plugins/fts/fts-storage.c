@@ -482,6 +482,7 @@ static void fts_mail_index(struct mail *_mail)
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(_mail->box->list);
+	struct mail_private *pmail = (struct mail_private *)_mail;
 
 	if (ft->failed)
 		return;
@@ -492,9 +493,30 @@ static void fts_mail_index(struct mail *_mail)
 			return;
 		}
 	}
+	if (pmail->vmail != NULL) {
+		/* Indexing via virtual mailbox: Index all the mails in this
+		   same real mailbox. */
+		uint32_t msgs_count =
+			mail_index_view_get_messages_count(_mail->box->view);
+
+		fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
+		if (ft->next_index_seq > msgs_count) {
+			/* everything indexed already */
+		} else if (fts_mail_precache_range(_mail->transaction,
+						   flist->update_ctx,
+						   ft->next_index_seq,
+						   msgs_count,
+						   &ft->precache_extra_count) < 0) {
+			ft->failed = TRUE;
+		} else {
+			ft->next_index_seq = msgs_count+1;
+		}
+		return;
+	}
+
 	if (ft->next_index_seq < _mail->seq) {
-		/* most likely a virtual mailbox. we'll first need to
-		   index all mails up to the current one. */
+		/* we'll first need to index all the missing mails up to the
+		   current one. */
 		fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
 		if (fts_mail_precache_range(_mail->transaction,
 					    flist->update_ctx,
