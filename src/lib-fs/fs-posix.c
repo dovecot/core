@@ -472,9 +472,31 @@ static void fs_posix_write_rename_if_needed(struct posix_fs_file *file)
 		i_strconcat(fs->path_prefix, file->file.path, NULL);
 }
 
+static int fs_posix_write_finish_link(struct posix_fs_file *file)
+{
+	struct posix_fs *fs = (struct posix_fs *)file->file.fs;
+	unsigned int try_count = 0;
+	int ret;
+
+	ret = link(file->temp_path, file->full_path);
+	while (ret < 0 && errno == ENOENT &&
+	       try_count <= MAX_MKDIR_RETRY_COUNT) {
+		if (fs_posix_mkdir_parents(fs, file->full_path) < 0)
+			return -1;
+		ret = link(file->temp_path, file->full_path);
+		try_count++;
+	}
+	if (ret < 0) {
+		fs_set_error(file->file.fs, "link(%s, %s) failed: %m",
+			     file->temp_path, file->full_path);
+	}
+	return ret;
+}
+
 static int fs_posix_write_finish(struct posix_fs_file *file)
 {
 	struct posix_fs *fs = (struct posix_fs *)file->file.fs;
+	unsigned int try_count = 0;
 	int ret, old_errno;
 
 	if ((file->open_flags & FS_OPEN_FLAG_FSYNC) != 0 &&
@@ -505,10 +527,7 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 	switch (file->open_mode) {
 	case FS_OPEN_MODE_CREATE_UNIQUE_128:
 	case FS_OPEN_MODE_CREATE:
-		if ((ret = link(file->temp_path, file->full_path)) < 0) {
-			fs_set_error(file->file.fs, "link(%s, %s) failed: %m",
-				     file->temp_path, file->full_path);
-		}
+		ret = fs_posix_write_finish_link(file);
 		old_errno = errno;
 		if (unlink(file->temp_path) < 0) {
 			fs_set_error(file->file.fs, "unlink(%s) failed: %m",
@@ -522,7 +541,15 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 		}
 		break;
 	case FS_OPEN_MODE_REPLACE:
-		if (rename(file->temp_path, file->full_path) < 0) {
+		ret = rename(file->temp_path, file->full_path);
+		while (ret < 0 && errno == ENOENT &&
+		       try_count <= MAX_MKDIR_RETRY_COUNT) {
+			if (fs_posix_mkdir_parents(fs, file->full_path) < 0)
+				return -1;
+			ret = rename(file->temp_path, file->full_path);
+			try_count++;
+		}
+		if (ret < 0) {
 			fs_set_error(file->file.fs, "rename(%s, %s) failed: %m",
 				     file->temp_path, file->full_path);
 			return -1;
