@@ -8,6 +8,7 @@
 #include "llist.h"
 #include "str.h"
 #include "strescape.h"
+#include "time-util.h"
 #include "master-service-private.h"
 #include "master-login.h"
 #include "master-login-auth.h"
@@ -25,6 +26,7 @@ struct master_login_connection {
 
 	struct master_login *login;
 	struct master_login_client *clients;
+	struct timeval create_time;
 	int refcount;
 	int fd;
 	struct io *io;
@@ -102,6 +104,36 @@ void master_login_deinit(struct master_login **_login)
 	i_free(login);
 }
 
+static void ATTR_FORMAT(2, 3)
+conn_error(struct master_login_connection *conn, const char *fmt, ...)
+{
+	string_t *str = t_str_new(128);
+	va_list args;
+
+	va_start(args, fmt);
+	str_printfa(str, "connection created %d msecs ago",
+		    timeval_diff_msecs(&ioloop_timeval, &conn->create_time));
+	if (conn->clients != NULL) {
+		struct master_login_client *client = conn->clients;
+
+		str_append(str, ", ");
+		if (client->next != NULL)
+			str_printfa(str, "%u clients, first ", conn->refcount-1);
+		str_printfa(str, "client created %d msecs ago: ",
+			    timeval_diff_msecs(&ioloop_timeval,
+					       &client->create_time));
+		str_printfa(str, "session=%s, rip=%s, auth_pid=%ld, "
+			    "client-pid=%u, client-id=%u",
+			    client->session_id,
+			    net_ip2addr(&client->auth_req.remote_ip),
+			    (long)client->auth_req.auth_pid,
+			    client->auth_req.client_pid,
+			    client->auth_req.auth_id);
+	}
+	i_error("%s (%s)", t_strdup_vprintf(fmt, args), str_c(str));
+	va_end(args);
+}
+
 static int
 master_login_conn_read_request(struct master_login_connection *conn,
 			       struct master_auth_request *req_r,
@@ -118,23 +150,23 @@ master_login_conn_read_request(struct master_login_connection *conn,
 		if (ret == 0) {
 			/* disconnected */
 			if (master_login_conn_has_clients(conn))
-				i_error("Login client disconnected too early");
+				conn_error(conn, "Login client disconnected too early");
 		} else if (ret > 0) {
 			/* request wasn't fully read */
-			i_error("fd_read() partial input (%d/%d)",
-				(int)ret, (int)sizeof(*req_r));
+			conn_error(conn, "fd_read() partial input (%d/%d)",
+				   (int)ret, (int)sizeof(*req_r));
 		} else {
 			if (errno == EAGAIN)
 				return 0;
 
-			i_error("fd_read() failed: %m");
+			conn_error(conn, "fd_read() failed: %m");
 		}
 		return -1;
 	}
 
 	if (req_r->data_size != 0) {
 		if (req_r->data_size > MASTER_AUTH_MAX_DATA_SIZE) {
-			i_error("Too large auth data_size sent");
+			conn_error(conn, "Too large auth data_size sent");
 			return -1;
 		}
 		/* @UNSAFE */
@@ -143,32 +175,32 @@ master_login_conn_read_request(struct master_login_connection *conn,
 			if (ret == 0) {
 				/* disconnected */
 				if (master_login_conn_has_clients(conn)) {
-					i_error("Login client disconnected too early "
+					conn_error(conn, "Login client disconnected too early "
 						"(while reading data)");
 				}
 			} else if (ret > 0) {
 				/* request wasn't fully read */
-				i_error("Data read partially %d/%u",
+				conn_error(conn, "Data read partially %d/%u",
 					(int)ret, req_r->data_size);
 			} else {
-				i_error("read(data) failed: %m");
+				conn_error(conn, "read(data) failed: %m");
 			}
 			return -1;
 		}
 	}
 
 	if (*client_fd_r == -1) {
-		i_error("Auth request missing a file descriptor");
+		conn_error(conn, "Auth request missing a file descriptor");
 		return -1;
 	}
 
 	if (fstat(*client_fd_r, &st) < 0) {
-		i_error("fstat(fd_read client) failed: %m");
+		conn_error(conn, "fstat(fd_read client) failed: %m");
 		return -1;
 	}
 	if (st.st_ino != req_r->ino) {
-		i_error("Auth request inode mismatch: %s != %s",
-			dec2str(st.st_ino), dec2str(req_r->ino));
+		conn_error(conn, "Auth request inode mismatch: %s != %s",
+			   dec2str(st.st_ino), dec2str(req_r->ino));
 		return -1;
 	}
 	return 1;
@@ -436,10 +468,12 @@ static void master_login_conn_input(struct master_login_connection *conn)
 			break;
 		}
 	}
+	io_loop_time_refresh();
 
 	/* @UNSAFE: we have a request. do userdb lookup for it. */
 	req.data_size -= i;
 	client = i_malloc(MALLOC_ADD(sizeof(struct master_login_client), req.data_size));
+	client->create_time = ioloop_timeval;
 	client->conn = conn;
 	client->fd = client_fd;
 	client->auth_req = req;
@@ -459,6 +493,7 @@ void master_login_add(struct master_login *login, int fd)
 	conn = i_new(struct master_login_connection, 1);
 	conn->refcount = 1;
 	conn->login = login;
+	conn->create_time = ioloop_timeval;
 	conn->fd = fd;
 	conn->io = io_add(conn->fd, IO_READ, master_login_conn_input, conn);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
