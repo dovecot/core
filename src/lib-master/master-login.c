@@ -24,6 +24,7 @@ struct master_login_connection {
 	struct master_login_connection *prev, *next;
 
 	struct master_login *login;
+	struct master_login_client *clients;
 	int refcount;
 	int fd;
 	struct io *io;
@@ -192,6 +193,7 @@ static void master_login_client_free(struct master_login_client **_client)
 		i_assert(client->conn->refcount > 1);
 		client->conn->refcount--;
 	}
+	DLLIST_REMOVE(&client->conn->clients, client);
 	master_login_conn_unref(&client->conn);
 	i_free(client->session_id);
 	i_free(client);
@@ -444,6 +446,7 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	client->session_id = i_strndup(data, session_len);
 	memcpy(client->data, data+i, req.data_size);
 	conn->refcount++;
+	DLLIST_PREPEND(&conn->clients, client);
 
 	master_login_auth_request(login->auth, &req,
 				  master_login_auth_callback, client);
@@ -491,6 +494,7 @@ static void master_login_conn_unref(struct master_login_connection **_conn)
 		return;
 
 	*_conn = NULL;
+	i_assert(conn->clients == NULL);
 	master_login_conn_close(conn);
 	o_stream_unref(&conn->output);
 
