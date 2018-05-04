@@ -339,6 +339,40 @@ static void test_message_address_nuls(void)
 	test_end();
 }
 
+static void test_message_address_non_strict_dots(void)
+{
+	const char *const inputs[] = {
+		".@example.com",
+		"..@example.com",
+		"..foo@example.com",
+		"..foo..@example.com",
+		"..foo..bar..@example.com",
+	};
+	const struct message_address *addr;
+	struct message_address output = {
+		NULL, NULL, NULL, "local-part",
+		"example.com", FALSE
+	};
+
+	test_begin("message address parsing with non-strict dots");
+	for (unsigned int i = 0; i < N_ELEMENTS(inputs); i++) {
+		const unsigned char *addr_input =
+			(const unsigned char *)inputs[i];
+		/* invalid without non-strict-dots flag */
+		addr = message_address_parse(pool_datastack_create(),
+			addr_input, strlen(inputs[i]), UINT_MAX, 0);
+		test_assert_idx(addr != NULL && addr->invalid_syntax, i);
+
+		/* valid with the non-strict-dots flag */
+		addr = message_address_parse(pool_datastack_create(),
+			addr_input, strlen(inputs[i]), UINT_MAX,
+			MESSAGE_ADDRESS_PARSE_FLAG_NON_STRICT_DOTS);
+		output.mailbox = t_strcut(inputs[i], '@');
+		test_assert_idx(addr != NULL && cmp_addr(addr, &output), i);
+	}
+	test_end();
+}
+
 static int
 test_parse_path(const char *input, const struct message_address **addr_r)
 {
@@ -464,6 +498,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_message_address,
 		test_message_address_nuls,
+		test_message_address_non_strict_dots,
 		test_message_address_path,
 		test_message_address_path_invalid,
 		NULL

@@ -7,6 +7,11 @@ enum message_address_parse_flags {
 	/* If enabled, missing mailbox and domain are set to MISSING_MAILBOX
 	   and MISSING_DOMAIN strings. Otherwise they're set to "". */
 	MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING = BIT(0),
+	/* Allow local-part to contain any number of dots anywhere in it.
+	   For example ".user", "us..ser" and "user." will be valid. This
+	   isn't strictly allowed by RFC5322, but these addresses are commonly
+	   used in Japan. */
+	MESSAGE_ADDRESS_PARSE_FLAG_NON_STRICT_DOTS = BIT(1),
 };
 
 /* group: ... ; will be stored like:
