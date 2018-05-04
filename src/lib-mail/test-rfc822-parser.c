@@ -112,6 +112,59 @@ static void test_rfc822_parse_quoted_string(void)
 	test_end();
 }
 
+static void test_rfc822_parse_dot_atom(void)
+{
+	static const struct {
+		const char *input, *output;
+		int ret;
+	} tests[] = {
+		{ "foo", "foo", 0 },
+		{ "foo.bar", "foo.bar", 0 },
+		{ "foo.bar.baz", "foo.bar.baz", 0 },
+		{ "foo  . \tbar (comments) . (...) baz\t  ", "foo.bar.baz", 0 },
+
+		{ ".", "", -1 },
+		{ "..", "", -1 },
+		{ ".foo", "", -1 },
+		{ "foo.", "foo.", -1 },
+		{ "foo..bar", "foo.", -1 },
+		{ "foo. .bar", "foo.", -1 },
+		{ "foo.(middle).bar", "foo.", -1 },
+		{ "foo. ", "foo.", -1 },
+		{ "foo.\t", "foo.", -1 },
+		{ "foo.(ending)", "foo.", -1 },
+	};
+	struct rfc822_parser_context parser;
+	string_t *str = t_str_new(64);
+	string_t *input2 = t_str_new(64);
+	unsigned int i = 0;
+
+	test_begin("rfc822 parse dot-atom");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		rfc822_parser_init(&parser, (const void *)tests[i].input,
+				   strlen(tests[i].input), NULL);
+		test_assert_idx(rfc822_parse_dot_atom(&parser, str) == tests[i].ret, i);
+		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+		rfc822_parser_deinit(&parser);
+		str_truncate(str, 0);
+
+		/* same input but with "," appended should return 1 on success,
+		   and -1 still on error. */
+		int expected_ret = tests[i].ret == -1 ? -1 : 1;
+		str_append(input2, tests[i].input);
+		str_append_c(input2, ',');
+		rfc822_parser_init(&parser, str_data(input2),
+				   str_len(input2), NULL);
+		test_assert_idx(rfc822_parse_dot_atom(&parser, str) == expected_ret, i);
+		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+		rfc822_parser_deinit(&parser);
+
+		str_truncate(str, 0);
+		str_truncate(input2, 0);
+	}
+	test_end();
+}
+
 static void test_rfc822_parse_domain_literal(void)
 {
 	static const struct {
@@ -182,6 +235,7 @@ int main(void)
 		test_rfc822_parse_comment,
 		test_rfc822_parse_comment_nuls,
 		test_rfc822_parse_quoted_string,
+		test_rfc822_parse_dot_atom,
 		test_rfc822_parse_domain_literal,
 		test_rfc822_parse_content_param,
 		NULL
