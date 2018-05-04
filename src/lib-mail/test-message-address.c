@@ -358,15 +358,15 @@ static void test_message_address_non_strict_dots(void)
 	for (unsigned int i = 0; i < N_ELEMENTS(inputs); i++) {
 		const unsigned char *addr_input =
 			(const unsigned char *)inputs[i];
-		/* invalid without non-strict-dots flag */
-		addr = message_address_parse(pool_datastack_create(),
-			addr_input, strlen(inputs[i]), UINT_MAX, 0);
-		test_assert_idx(addr != NULL && addr->invalid_syntax, i);
-
-		/* valid with the non-strict-dots flag */
+		/* invalid with strict-dots flag */
 		addr = message_address_parse(pool_datastack_create(),
 			addr_input, strlen(inputs[i]), UINT_MAX,
-			MESSAGE_ADDRESS_PARSE_FLAG_NON_STRICT_DOTS);
+			MESSAGE_ADDRESS_PARSE_FLAG_STRICT_DOTS);
+		test_assert_idx(addr != NULL && addr->invalid_syntax, i);
+
+		/* valid without the strict-dots flag */
+		addr = message_address_parse(pool_datastack_create(),
+			addr_input, strlen(inputs[i]), UINT_MAX, 0);
 		output.mailbox = t_strcut(inputs[i], '@');
 		test_assert_idx(addr != NULL && cmp_addr(addr, &output), i);
 	}
