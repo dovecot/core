@@ -456,7 +456,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	ctx.pool = pool;
 	ctx.str = t_str_new(128);
 	ctx.fill_missing = (flags & MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING) != 0;
-	ctx.non_strict_dots = (flags & MESSAGE_ADDRESS_PARSE_FLAG_NON_STRICT_DOTS) != 0;
+	ctx.non_strict_dots = (flags & MESSAGE_ADDRESS_PARSE_FLAG_STRICT_DOTS) == 0;
 
 	if (rfc822_skip_lwsp(&ctx.parser) <= 0) {
 		/* no addresses */
