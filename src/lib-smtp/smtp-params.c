@@ -708,7 +708,7 @@ smtp_params_rcpt_parse_orcpt_rfc822(const char *addr_str,
 	struct smtp_address *addr;
 
 	rfc822_addr = message_address_parse(pool_datastack_create(),
-		(const unsigned char *)addr_str, strlen(addr_str), 2, FALSE);
+		(const unsigned char *)addr_str, strlen(addr_str), 2, 0);
 	if (rfc822_addr == NULL || rfc822_addr->invalid_syntax ||
 	    rfc822_addr->next != NULL ||
 	    smtp_address_create_from_msg(pool, rfc822_addr, &addr) < 0)

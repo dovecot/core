@@ -22,13 +22,15 @@ static bool cmp_addr(const struct message_address *a1,
 static const struct message_address *
 test_parse_address(const char *input, bool fill_missing)
 {
+	const enum message_address_parse_flags flags =
+		fill_missing ? MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING : 0;
 	/* duplicate the input (without trailing NUL) so valgrind notices
 	   if there's any out-of-bounds access */
 	size_t input_len = strlen(input);
 	unsigned char *input_dup = i_memdup(input, input_len);
 	const struct message_address *addr =
 		message_address_parse(pool_datastack_create(),
-				      input_dup, input_len, UINT_MAX, fill_missing);
+				      input_dup, input_len, UINT_MAX, flags);
 	i_free(input_dup);
 	return addr;
 }
@@ -312,7 +314,8 @@ static void test_message_address(void)
 	test_end();
 
 	test_begin("message address parsing empty string");
-	test_assert(message_address_parse(unsafe_data_stack_pool, &uchar_nul, 0, 10, TRUE) == NULL);
+	test_assert(message_address_parse(unsafe_data_stack_pool, &uchar_nul, 0, 10,
+					  MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING) == NULL);
 	str_truncate(str, 0);
 	message_address_write(str, NULL);
 	test_assert(str_len(str) == 0);
@@ -331,7 +334,7 @@ static void test_message_address_nuls(void)
 
 	test_begin("message address parsing with NULs");
 	addr = message_address_parse(pool_datastack_create(),
-				     input, sizeof(input)-1, UINT_MAX, FALSE);
+				     input, sizeof(input)-1, UINT_MAX, 0);
 	test_assert(addr != NULL && cmp_addr(addr, &output));
 	test_end();
 }
