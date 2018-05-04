@@ -11,6 +11,7 @@
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
+#include "time-util.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "master-auth.h"
@@ -23,7 +24,7 @@ struct master_login_auth_request {
 	struct master_login_auth_request *prev, *next;
 
 	unsigned int id;
-	time_t create_stamp;
+	struct timeval create_stamp;
 
 	pid_t auth_pid;
 	unsigned int auth_id;
@@ -145,7 +146,7 @@ static unsigned int auth_get_next_timeout_secs(struct master_login_auth *auth)
 {
 	time_t expires;
 
-	expires = auth->request_head->create_stamp +
+	expires = auth->request_head->create_stamp.tv_sec +
 		MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
 	return expires <= ioloop_time ? 0 : expires - ioloop_time;
 }
@@ -164,7 +165,7 @@ static void master_login_auth_timeout(struct master_login_auth *auth)
 
 		reason = t_strdup_printf(
 			"Auth server request timed out after %u secs",
-			(unsigned int)(ioloop_time - request->create_stamp));
+			(unsigned int)(ioloop_time - request->create_stamp.tv_sec));
 		request_internal_failure(request, reason);
 		i_free(request);
 	}
@@ -292,9 +293,10 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 						 "Internal auth failure");
 		} else {
 			i_error("Internal auth failure: %s "
-				"(Request took %"PRIdTIME_T" secs, "
+				"(Request took %u msecs, "
 				"client-pid=%u client-id=%u)",
-				error, ioloop_time - request->create_stamp,
+				error, timeval_diff_msecs(&ioloop_timeval,
+							  &request->create_stamp),
 				request->client_pid, request->auth_id);
 			request->callback(NULL, error, request->context);
 		}
@@ -474,8 +476,9 @@ void master_login_auth_request(struct master_login_auth *auth,
 	if (id == 0)
 		id++;
 
+	io_loop_time_refresh();
 	login_req = i_new(struct master_login_auth_request, 1);
-	login_req->create_stamp = ioloop_time;
+	login_req->create_stamp = ioloop_timeval;
 	login_req->id = id;
 	login_req->auth_pid = req->auth_pid;
 	login_req->client_pid = req->client_pid;
