@@ -38,6 +38,7 @@ struct master_login_postlogin {
 	struct master_login_client *client;
 
 	int fd;
+	struct timeval create_time;
 	struct io *io;
 	struct timeout *to;
 	string_t *input;
@@ -128,6 +129,14 @@ conn_error(struct master_login_connection *conn, const char *fmt, ...)
 			    (long)client->auth_req.auth_pid,
 			    client->auth_req.client_pid,
 			    client->auth_req.auth_id);
+		if (client->postlogin_client != NULL) {
+			struct master_login_postlogin *pl =
+				client->postlogin_client;
+			str_printfa(str, ", post-login script %s started %d msecs ago",
+				    pl->socket_path,
+				    timeval_diff_msecs(&ioloop_timeval,
+						       &pl->create_time));
+		}
 	}
 	i_error("%s (%s)", t_strdup_vprintf(fmt, args), str_c(str));
 	va_end(args);
@@ -260,6 +269,10 @@ static void master_login_auth_finish(struct master_login_client *client,
 
 static void master_login_postlogin_free(struct master_login_postlogin *pl)
 {
+	if (pl->client != NULL) {
+		i_assert(pl->client->postlogin_client == pl);
+		master_login_client_free(&pl->client);
+	}
 	timeout_remove(&pl->to);
 	io_remove(&pl->io);
 	if (close(pl->fd) < 0)
@@ -272,6 +285,7 @@ static void master_login_postlogin_free(struct master_login_postlogin *pl)
 
 static void master_login_postlogin_input(struct master_login_postlogin *pl)
 {
+	struct master_login_connection *conn = pl->client->conn;
 	char buf[1024];
 	const char *const *auth_args;
 	size_t len;
@@ -282,7 +296,7 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 		if (fd != -1) {
 			/* post-login script replaced fd */
 			if (close(pl->client->fd) < 0)
-				i_error("close(client) failed: %m");
+				conn_error(conn, "close(client) failed: %m");
 			pl->client->fd = fd;
 		}
 		str_append_data(pl->input, buf, ret);
@@ -297,30 +311,31 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 			if (errno == EAGAIN)
 				return;
 
-			i_error("fd_read(%s) failed: %m", pl->socket_path);
+			conn_error(conn, "fd_read(%s) failed: %m", pl->socket_path);
 		} else if (str_len(pl->input) > 0) {
-			i_error("fd_read(%s) failed: disconnected",
-				pl->socket_path);
+			conn_error(conn, "fd_read(%s) failed: disconnected",
+				   pl->socket_path);
 		} else {
-			i_info("Post-login script denied access to user %s",
-			       pl->username);
+			conn_error(conn, "Post-login script denied access to user %s",
+				   pl->username);
 		}
-		master_login_client_free(&pl->client);
 		master_login_postlogin_free(pl);
 		return;
 	}
 
 	auth_args = t_strsplit_tabescaped(str_c(pl->input));
+	pl->client->postlogin_client = NULL;
 	master_login_auth_finish(pl->client, auth_args);
+
+	pl->client = NULL;
 	master_login_postlogin_free(pl);
 }
 
 static void master_login_postlogin_timeout(struct master_login_postlogin *pl)
 {
-	i_error("%s: Timeout waiting for post-login script to finish, aborting",
-		pl->socket_path);
+	conn_error(pl->client->conn,
+		   "Timeout waiting for post-login script to finish, aborting");
 
-	master_login_client_free(&pl->client);
 	master_login_postlogin_free(pl);
 }
 
@@ -337,9 +352,9 @@ static int master_login_postlogin(struct master_login_client *client,
 
 	fd = net_connect_unix_with_retries(socket_path, 1000);
 	if (fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m%s",
-			socket_path, errno != EAGAIN ? "" :
-			" - http://wiki2.dovecot.org/SocketUnavailable");
+		conn_error(client->conn, "net_connect_unix(%s) failed: %m%s",
+			   socket_path, errno != EAGAIN ? "" :
+			   " - http://wiki2.dovecot.org/SocketUnavailable");
 		return -1;
 	}
 
@@ -355,24 +370,29 @@ static int master_login_postlogin(struct master_login_client *client,
 	ret = fd_send(fd, client->fd, str_data(str), str_len(str));
 	if (ret != (ssize_t)str_len(str)) {
 		if (ret < 0) {
-			i_error("write(%s) failed: %m", socket_path);
+			conn_error(client->conn, "write(%s) failed: %m", socket_path);
 		} else {
-			i_error("write(%s) failed: partial write", socket_path);
+			conn_error(client->conn, "write(%s) failed: partial write", socket_path);
 		}
 		i_close_fd(&fd);
 		return -1;
 	}
 	net_set_nonblock(fd, TRUE);
+	io_loop_time_refresh();
 
 	pl = i_new(struct master_login_postlogin, 1);
 	pl->client = client;
 	pl->username = i_strdup(auth_args[0]);
 	pl->socket_path = i_strdup(socket_path);
+	pl->create_time = ioloop_timeval;
 	pl->fd = fd;
 	pl->io = io_add(fd, IO_READ, master_login_postlogin_input, pl);
 	pl->to = timeout_add(login->postlogin_timeout_secs * 1000,
 			     master_login_postlogin_timeout, pl);
 	pl->input = str_new(default_pool, 512);
+
+	i_assert(client->postlogin_client == NULL);
+	client->postlogin_client = pl;
 	return 0;
 }
 
