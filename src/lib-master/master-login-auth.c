@@ -81,14 +81,21 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 	return auth;
 }
 
+static void request_failure(struct master_login_auth_request *request,
+			    const char *log_reason, const char *client_reason)
+{
+	i_error("%s (Request took %u msecs, client-pid=%u client-id=%u)",
+		log_reason,
+		timeval_diff_msecs(&ioloop_timeval, &request->create_stamp),
+		request->client_pid, request->auth_id);
+	request->callback(NULL, client_reason, request->context);
+}
+
 static void
 request_internal_failure(struct master_login_auth_request *request,
 			 const char *reason)
 {
-	i_error("%s (client-pid=%u client-id=%u)",
-		reason, request->client_pid, request->auth_id);
-	request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
-			  request->context);
+	request_failure(request, reason, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE);
 }
 
 void master_login_auth_disconnect(struct master_login_auth *auth)
@@ -296,13 +303,9 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 			request_internal_failure(request,
 						 "Internal auth failure");
 		} else {
-			i_error("Internal auth failure: %s "
-				"(Request took %u msecs, "
-				"client-pid=%u client-id=%u)",
-				error, timeval_diff_msecs(&ioloop_timeval,
-							  &request->create_stamp),
-				request->client_pid, request->auth_id);
-			request->callback(NULL, error, request->context);
+			const char *log_reason = t_strdup_printf(
+				"Internal auth failure: %s", error);
+			request_failure(request, log_reason, error);
 		}
 		i_free(request);
 	}
