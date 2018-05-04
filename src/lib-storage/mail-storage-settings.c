@@ -568,7 +568,7 @@ static bool parse_postmaster_address(const char *address, pool_t pool,
 
 	addr = message_address_parse(pool,
 		(const unsigned char *)address,
-		strlen(address), 2, FALSE);
+		strlen(address), 2, 0);
 	if (addr == NULL || addr->domain == NULL || addr->invalid_syntax ||
 	    smtp_address_create_from_msg(pool, addr, &smtp_addr) < 0) {
 		*error_r = t_strdup_printf(

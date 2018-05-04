@@ -258,7 +258,8 @@ void message_part_envelope_parse_from_header(pool_t pool,
 	if (addr_p != NULL) {
 		*addr_p = message_address_parse(pool, hdr->full_value,
 						hdr->full_value_len,
-						UINT_MAX, TRUE);
+						UINT_MAX,
+						MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING);
 	} else if (str_p != NULL) {
 		*str_p = hdr_strdup(pool, hdr->full_value, hdr->full_value_len);
 	}
