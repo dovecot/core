@@ -15,7 +15,7 @@ struct message_address_parser_context {
 	struct message_address *first_addr, *last_addr, addr;
 	string_t *str;
 
-	bool fill_missing;
+	bool fill_missing, non_strict_dots;
 };
 
 static void add_address(struct message_address_parser_context *ctx)
@@ -77,6 +77,29 @@ static void str_append_maybe_escape(string_t *dest, const char *cstr, bool escap
 	str_append_c(dest, '"');
 }
 
+static int
+parse_nonstrict_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
+{
+	int ret = -1;
+
+	do {
+		while (*ctx->data == '.') {
+			str_append_c(str, '.');
+			ctx->data++;
+			if (ctx->data == ctx->end) {
+				/* @domain is missing, but local-part
+				   parsing was successful */
+				return 0;
+			}
+			ret = 1;
+		}
+		if (*ctx->data == '@')
+			break;
+		ret = rfc822_parse_atom(ctx, str);
+	} while (ret > 0 && *ctx->data == '.');
+	return ret;
+}
+
 static int parse_local_part(struct message_address_parser_context *ctx)
 {
 	int ret;
@@ -90,8 +113,10 @@ static int parse_local_part(struct message_address_parser_context *ctx)
 	str_truncate(ctx->str, 0);
 	if (*ctx->parser.data == '"')
 		ret = rfc822_parse_quoted_string(&ctx->parser, ctx->str);
-	else
+	else if (!ctx->non_strict_dots)
 		ret = rfc822_parse_dot_atom(&ctx->parser, ctx->str);
+	else
+		ret = parse_nonstrict_dot_atom(&ctx->parser, ctx->str);
 	if (ret < 0)
 		return -1;
 
@@ -431,6 +456,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	ctx.pool = pool;
 	ctx.str = t_str_new(128);
 	ctx.fill_missing = (flags & MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING) != 0;
+	ctx.non_strict_dots = (flags & MESSAGE_ADDRESS_PARSE_FLAG_NON_STRICT_DOTS) != 0;
 
 	if (rfc822_skip_lwsp(&ctx.parser) <= 0) {
 		/* no addresses */
