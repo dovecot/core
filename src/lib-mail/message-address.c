@@ -419,7 +419,8 @@ static int parse_path(struct message_address_parser_context *ctx)
 
 static struct message_address *
 message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
-			   unsigned int max_addresses, bool fill_missing)
+			   unsigned int max_addresses,
+			   enum message_address_parse_flags flags)
 {
 	struct message_address_parser_context ctx;
 
@@ -429,7 +430,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	ctx.parser.nul_replacement_str = RFC822_NUL_REPLACEMENT_STR;
 	ctx.pool = pool;
 	ctx.str = t_str_new(128);
-	ctx.fill_missing = fill_missing;
+	ctx.fill_missing = (flags & MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING) != 0;
 
 	if (rfc822_skip_lwsp(&ctx.parser) <= 0) {
 		/* no addresses */
@@ -463,17 +464,18 @@ message_address_parse_path_real(pool_t pool, const unsigned char *data,
 
 struct message_address *
 message_address_parse(pool_t pool, const unsigned char *data, size_t size,
-		      unsigned int max_addresses, bool fill_missing)
+		      unsigned int max_addresses,
+		      enum message_address_parse_flags flags)
 {
 	struct message_address *addr;
 
 	if (pool->datastack_pool) {
 		return message_address_parse_real(pool, data, size,
-						  max_addresses, fill_missing);
+						  max_addresses, flags);
 	}
 	T_BEGIN {
 		addr = message_address_parse_real(pool, data, size,
-						  max_addresses, fill_missing);
+						  max_addresses, flags);
 	} T_END;
 	return addr;
 }

@@ -588,7 +588,8 @@ static void search_header_arg(struct mail_search_arg *arg,
 			addr = message_address_parse(pool_datastack_create(),
 						     ctx->hdr->full_value,
 						     ctx->hdr->full_value_len,
-						     UINT_MAX, TRUE);
+						     UINT_MAX,
+						     MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING);
 			str = t_str_new(ctx->hdr->value_len);
 			message_address_write(str, addr);
 			hdr.value = hdr.full_value = str_data(str);

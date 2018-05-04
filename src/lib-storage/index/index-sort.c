@@ -424,7 +424,8 @@ get_first_addr(struct mail *mail, const char *header,
 
 	*addr_r = message_address_parse(pool_datastack_create(),
 					(const unsigned char *)str,
-					strlen(str), 1, TRUE);
+					strlen(str), 1,
+					MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING);
 	return 0;
 }
 
