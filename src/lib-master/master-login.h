@@ -6,6 +6,7 @@
 #define MASTER_POSTLOGIN_TIMEOUT_DEFAULT 60
 
 struct master_login_client {
+	struct master_login_client *prev, *next;
 	struct master_login_connection *conn;
 	int fd;
 
