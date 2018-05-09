@@ -209,8 +209,10 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 				ptr++;
 			len = (size_t)(ptr-optr);
 			if (quote) {
-				o_stream_nsend_str(output,
-						   str_nescape(optr, len));
+				string_t *quoted = t_str_new(len*2);
+				str_append_escaped(quoted, optr, len);
+				o_stream_nsend(output,
+					       quoted->data, quoted->used);
 			} else {
 				o_stream_nsend(output, optr, len);
 			}
@@ -228,11 +230,11 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 			   Skip forward to avoid infinite loop. */
 			ptr++;
 		}
-	}
+	};
 	/* if we are dealing with output, send rest here */
 	if (ret) {
 		if (quote)
-			o_stream_nsend_str(output, str_escape(ptr));
+			o_stream_nsend_str(output, str_escape(optr));
 		else
 			o_stream_nsend_str(output, optr);
 	}
