@@ -6,27 +6,28 @@
 
 const char *str_nescape(const void *str, size_t len)
 {
-	const unsigned char *s = str, *p = str;
-	string_t *ret;
+	string_t *dest = t_str_new(len*2);
+	str_append_escaped(dest, str, len);
+	return str_c(dest);
+}
+
+void str_append_escaped(string_t *dest, const void *src, size_t src_size)
+{
+	const unsigned char *pstart = src, *p = src, *pend = pstart + src_size;
 	/* see if we need to quote it */
-	for (p = str; (size_t)(p - s) < len; p++) {
+	for (; p < pend; p++) {
 		if (IS_ESCAPED_CHAR(*p))
 			break;
 	}
 
-	if (p == (s + len))
-		return str;
-
 	/* quote */
-	ret = t_str_new((size_t)(p - s) + 128);
-	str_append_n(ret, s, (size_t)(p - s));
+	str_append_data(dest, pstart, (size_t)(p - pstart));
 
-	for (; (size_t)(p - s) < len; p++) {
+	for (; p < pend; p++) {
 		if (IS_ESCAPED_CHAR(*p))
-			str_append_c(ret, '\\');
-		str_append_data(ret, p, 1);
+			str_append_c(dest, '\\');
+		str_append_data(dest, p, 1);
 	}
-	return str_c(ret);
 }
 
 void str_append_unescaped(string_t *dest, const void *src, size_t src_size)
