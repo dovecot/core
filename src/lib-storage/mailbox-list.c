@@ -1439,7 +1439,7 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
 		if (*set->mailbox_dir_name == '\0')
-			path = set->root_dir;
+			path = set->alt_dir;
 		else if (set->alt_dir != NULL) {
 			path = t_strconcat(set->alt_dir, "/",
 					   set->mailbox_dir_name, NULL);
