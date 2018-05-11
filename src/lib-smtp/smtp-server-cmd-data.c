@@ -119,7 +119,11 @@ static void cmd_data_destroy(struct smtp_server_cmd_ctx *cmd)
 
 static void cmd_data_replied(struct smtp_server_cmd_ctx *cmd)
 {
+	struct smtp_server_command *command = cmd->cmd;
+
 	smtp_server_command_input_lock(cmd);
+	if (!smtp_server_command_replied_success(command))
+		smtp_server_command_input_unlock(cmd);
 }
 
 static void cmd_data_completed(struct smtp_server_cmd_ctx *cmd)
