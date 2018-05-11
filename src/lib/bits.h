@@ -6,6 +6,17 @@
 
 #define BIT(n) (1u << (n))
 
+/* These expressions make it easy to ensure that bit test expressions
+   are boolean in order to satisfy the in-house -Wstrict-bool. */
+/* ((val & bits) == 0) is very common */
+#define HAS_NO_BITS(val,bits) (((val) & (bits)) == 0)
+/* ((val & bits) != 0) is even more common */
+/* Note - illogical behaviour if bits==0, fixing that requires potential
+   multiple evaluation, but it's a corner case that should never occur. */
+#define HAS_ANY_BITS(val,bits) (((val) & (bits)) != 0)
+/* ((val & bits) == bits) is uncommon */
+#define HAS_ALL_BITS(val,bits) ((~(val) & (bits)) == 0)
+
 /* Returns x, such that x is the smallest power of 2 >= num. */
 size_t nearest_power(size_t num) ATTR_CONST;
 
