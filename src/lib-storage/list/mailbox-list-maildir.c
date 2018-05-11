@@ -68,7 +68,7 @@ maildir_list_get_dirname_path(struct mailbox_list *list, const char *dir,
 {
 	if (*name == '\0')
 		return dir;
-	else if (list->name == imapdir_mailbox_list.name)
+	else if (strcmp(list->name, imapdir_mailbox_list.name) == 0)
 		return t_strdup_printf("%s/%s", dir, name);
 
 	return t_strdup_printf("%s/%c%s", dir,
