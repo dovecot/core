@@ -190,6 +190,35 @@ static void test_bits_rotr64(void)
 	test_end();
 }
 
+static void test_bit_tests(void)
+{
+	test_begin("HAS_..._BITS() macro tests");
+
+	test_assert(HAS_NO_BITS(1,0));
+	test_assert(HAS_NO_BITS(2,~2));
+	test_assert(!HAS_NO_BITS(2,2));
+
+	/* OUCH - this vacuously true expression fails. However, if you are
+	   dumb enough to use 0 as bits, then it will also fail in the verbose
+	   case that this macro replaces, it's not a regression. */
+	/* test_assert(HAS_ANY_BITS(6,0)); */
+	test_assert(HAS_ANY_BITS(3,1));
+	test_assert(HAS_ANY_BITS(2,3));
+	test_assert(!HAS_ANY_BITS(7,~(7|128)));
+
+	test_assert(HAS_ALL_BITS(0,0));
+	test_assert(HAS_ALL_BITS(30,14));
+	test_assert(!HAS_ALL_BITS(~1,~0));
+
+	/* Trap double-evaluation */
+	unsigned int v=10,b=2;
+	test_assert(!HAS_NO_BITS(v++, b++) && v==11 && b==3);
+	test_assert(HAS_ANY_BITS(v++, b++) && v==12 && b==4);
+	test_assert(HAS_ALL_BITS(v++, b++) && v==13 && b==5);
+
+	test_end();
+}
+
 void test_bits(void)
 {
 	test_nearest_power();
@@ -202,4 +231,5 @@ void test_bits(void)
 	test_bits_rotl64();
 	test_bits_rotr64();
 	test_sum_overflows();
+	test_bit_tests();
 }
