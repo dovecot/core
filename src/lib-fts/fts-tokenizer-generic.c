@@ -255,7 +255,10 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 			start = i + char_size;
 			shift_prev_type(tok, LETTER_TYPE_SINGLE_QUOTE);
 		} else {
-			shift_prev_type(tok, LETTER_TYPE_NONE);
+			/* Lie slightly about the type. This is anything that
+			   we're not skipping or cutting on and are prepared to
+			   search for - it's "as good as" a letter. */
+			shift_prev_type(tok, LETTER_TYPE_ALETTER);
 		}
 	}
 	/* word boundary not found yet */
