@@ -65,6 +65,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 	DEF(SET_UINT, lmtp_user_concurrency_limit),
 	DEF(SET_ENUM, lmtp_hdr_delivery_address),
 	DEF(SET_STR_VARS, lmtp_rawlog_dir),
+	DEF(SET_STR_VARS, lmtp_proxy_rawlog_dir),
 
 	DEF(SET_STR_VARS, login_greeting),
 	DEF(SET_STR, login_trusted_networks),
@@ -79,6 +80,7 @@ static const struct lmtp_settings lmtp_default_settings = {
 	.lmtp_user_concurrency_limit = 0,
 	.lmtp_hdr_delivery_address = "final:none:original",
 	.lmtp_rawlog_dir = "",
+	.lmtp_proxy_rawlog_dir = "",
 
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_trusted_networks = ""

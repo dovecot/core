@@ -119,6 +119,7 @@ lmtp_proxy_init(struct client *client,
 	lmtp_set.my_hostname = client->my_domain;
 	lmtp_set.dns_client_socket_path = dns_client_socket_path;
 	lmtp_set.max_reply_size = LMTP_MAX_REPLY_SIZE;
+	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_proxy_rawlog_dir;
 
 	smtp_server_connection_get_proxy_data(client->conn,
 					      &lmtp_set.proxy_data);
