@@ -58,6 +58,7 @@ struct service_settings submission_service_settings = {
 
 static const struct setting_define submission_setting_defines[] = {
 	DEF(SET_BOOL, verbose_proctitle),
+	DEF(SET_STR_VARS, rawlog_dir),
 
 	DEF(SET_STR, hostname),
 
@@ -94,6 +95,7 @@ static const struct setting_define submission_setting_defines[] = {
 
 static const struct submission_settings submission_default_settings = {
 	.verbose_proctitle = FALSE,
+	.rawlog_dir = "",
 
 	.hostname = "",
 
