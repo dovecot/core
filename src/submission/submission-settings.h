@@ -12,6 +12,7 @@ enum submission_client_workarounds {
 
 struct submission_settings {
 	bool verbose_proctitle;
+	const char *rawlog_dir;
 
 	const char *hostname;
 
