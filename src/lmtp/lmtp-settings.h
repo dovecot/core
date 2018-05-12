@@ -18,6 +18,8 @@ struct lmtp_settings {
 	bool lmtp_rcpt_check_quota;
 	unsigned int lmtp_user_concurrency_limit;
 	const char *lmtp_hdr_delivery_address;
+	const char *lmtp_rawlog_dir;
+
 	const char *login_greeting;
 	const char *login_trusted_networks;
 
