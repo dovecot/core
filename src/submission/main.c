@@ -12,6 +12,7 @@
 #include "process-title.h"
 #include "restrict-access.h"
 #include "fd-util.h"
+#include "settings-parser.h"
 #include "master-service.h"
 #include "master-login.h"
 #include "master-service-settings.h"
@@ -112,7 +113,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 {
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
-	const struct submission_settings *set;
+	struct submission_settings *set;
+	const char *errstr;
 	const char *helo = NULL;
 	const unsigned char *data;
 	size_t data_len;
@@ -128,6 +130,17 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	set = mail_storage_service_user_get_set(user)[1];
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
+
+	if (settings_var_expand(&submission_setting_parser_info, set,
+				mail_user->pool, mail_user_var_expand_table(mail_user),
+				&errstr) <= 0) {
+		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
+		send_error(fd_out, set->hostname,
+			"4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
+		mail_user_unref(&mail_user);
+		mail_storage_service_user_unref(&user);
+		return -1;
+	}
 
 	if (set->submission_relay_host == NULL ||
 		*set->submission_relay_host == '\0') {
