@@ -81,7 +81,7 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(SET_ENUM, submission_relay_ssl),
 	DEF(SET_BOOL, submission_relay_ssl_verify),
 
-	DEF(SET_STR, submission_relay_rawlog_dir),
+	DEF(SET_STR_VARS, submission_relay_rawlog_dir),
 	DEF(SET_TIME, submission_relay_max_idle_time),
 
 	DEF(SET_TIME_MSECS, submission_relay_connect_timeout),
