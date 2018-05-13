@@ -79,12 +79,25 @@ struct client {
 	struct submission_backend *backends;
 	unsigned int backends_count;
 
+	/* Module-specific contexts. */
+	ARRAY(union submission_module_context *) module_contexts;
+
 	bool standalone:1;
 	bool disconnected:1;
 	bool destroyed:1;
 	bool anvil_sent:1;
 	bool backend_capabilities_configured:1;
 };
+
+struct submission_module_register {
+	unsigned int id;
+};
+
+union submission_module_context {
+	struct submission_client_vfuncs super;
+	struct submission_module_register *reg;
+};
+extern struct submission_module_register submission_module_register;
 
 extern struct client *submission_clients;
 extern unsigned int submission_client_count;
