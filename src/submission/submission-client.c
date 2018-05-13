@@ -41,10 +41,11 @@
 /* Disconnect client after idling this many milliseconds */
 #define CLIENT_IDLE_TIMEOUT_MSECS (10*60*1000)
 
+static const struct smtp_server_callbacks smtp_callbacks;
+static const struct submission_client_vfuncs submission_client_vfuncs;
+
 struct client *submission_clients;
 unsigned int submission_client_count;
-
-static const struct smtp_server_callbacks smtp_callbacks;
 
 static void client_input_pre(void *context)
 {
@@ -195,6 +196,7 @@ struct client *client_create(int fd_in, int fd_out,
 	pool = pool_alloconly_create("submission client", 2048);
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
+	client->v = submission_client_vfuncs;
 	client->user = user;
 	client->service_user = service_user;
 	client->set = set;
@@ -277,6 +279,13 @@ static void client_state_reset(struct client *client)
 
 void client_destroy(struct client *client, const char *prefix,
 		    const char *reason)
+{
+	client->v.destroy(client, prefix, reason);
+}
+
+static void
+client_default_destroy(struct client *client, const char *prefix,
+		       const char *reason)
 {
 	if (client->destroyed)
 		return;
@@ -507,4 +516,8 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 
 	.conn_disconnect = client_connection_disconnect,
 	.conn_destroy = client_connection_destroy,
+};
+
+static const struct submission_client_vfuncs submission_client_vfuncs = {
+	client_default_destroy,
 };
