@@ -17,11 +17,17 @@ struct client_state {
 	uoff_t data_size;
 };
 
+struct submission_client_vfuncs {
+	void (*destroy)(struct client *client, const char *prefix,
+			const char *reason);
+};
+
 struct client {
 	struct client *prev, *next;
 	pool_t pool;
 
-	const char *session_id;
+	struct submission_client_vfuncs v;
+	char *session_id;
 
 	const struct setting_parser_info *user_set_info;
 	const struct submission_settings *set;
