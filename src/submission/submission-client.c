@@ -44,6 +44,8 @@
 static const struct smtp_server_callbacks smtp_callbacks;
 static const struct submission_client_vfuncs submission_client_vfuncs;
 
+struct submission_module_register submission_module_register = { 0 };
+
 struct client *submission_clients;
 unsigned int submission_client_count;
 
@@ -224,6 +226,8 @@ struct client *client_create(int fd_in, int fd_out,
 	}
 
 	client_parse_backend_capabilities(client);
+
+	p_array_init(&client->module_contexts, client->pool, 5);
 
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
