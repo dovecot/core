@@ -32,6 +32,11 @@
 
 #define DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS (5*60*1000)
 
+struct force_resync_cmd_context {
+	struct doveadm_mail_cmd_context ctx;
+	bool fsck;
+};
+
 ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 void (*hook_doveadm_mail_init)(struct doveadm_mail_cmd_context *ctx);
 struct doveadm_mail_cmd_module_register
@@ -281,25 +286,30 @@ doveadm_mail_build_search_args(const char *const args[])
 	return sargs;
 }
 
-static int cmd_force_resync_box(struct doveadm_mail_cmd_context *ctx,
+static int cmd_force_resync_box(struct doveadm_mail_cmd_context *_ctx,
 				const struct mailbox_info *info)
 {
+	struct force_resync_cmd_context *ctx =
+		(struct force_resync_cmd_context *)_ctx;
+	enum mailbox_flags flags = MAILBOX_FLAG_IGNORE_ACLS;
 	struct mailbox *box;
 	int ret = 0;
 
-	box = mailbox_alloc(info->ns->list, info->vname,
-			    MAILBOX_FLAG_IGNORE_ACLS);
-	mailbox_set_reason(box, ctx->cmd->name);
+	if (ctx->fsck)
+		flags |= MAILBOX_FLAG_FSCK;
+
+	box = mailbox_alloc(info->ns->list, info->vname, flags);
+	mailbox_set_reason(box, _ctx->cmd->name);
 	if (mailbox_open(box) < 0) {
 		i_error("Opening mailbox %s failed: %s", info->vname,
 			mailbox_get_last_internal_error(box, NULL));
-		doveadm_mail_failed_mailbox(ctx, box);
+		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	} else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
 				MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
 		i_error("Forcing a resync on mailbox %s failed: %s",
 			info->vname, mailbox_get_last_internal_error(box, NULL));
-		doveadm_mail_failed_mailbox(ctx, box);
+		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	}
 	mailbox_free(&box);
@@ -356,15 +366,33 @@ cmd_force_resync_init(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
 		doveadm_mail_help_name("force-resync");
 }
 
+static bool
+cmd_force_resync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+{
+	struct force_resync_cmd_context *ctx =
+		(struct force_resync_cmd_context *)_ctx;
+
+	switch (c) {
+	case 'f':
+		ctx->fsck = TRUE;
+		break;
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static struct doveadm_mail_cmd_context *cmd_force_resync_alloc(void)
 {
-	struct doveadm_mail_cmd_context *ctx;
+	struct force_resync_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
-	ctx->v.init = cmd_force_resync_init;
-	ctx->v.run = cmd_force_resync_run;
-	ctx->v.prerun = cmd_force_resync_prerun;
-	return ctx;
+	ctx = doveadm_mail_cmd_alloc(struct force_resync_cmd_context);
+	ctx->ctx.getopt_args = "f";
+	ctx->ctx.v.parse_arg = cmd_force_resync_parse_arg;
+	ctx->ctx.v.init = cmd_force_resync_init;
+	ctx->ctx.v.run = cmd_force_resync_run;
+	ctx->ctx.v.prerun = cmd_force_resync_prerun;
+	return &ctx->ctx;
 }
 
 static void
@@ -868,9 +896,10 @@ void doveadm_mail_help_name(const char *cmd_name)
 static struct doveadm_cmd_ver2 doveadm_cmd_force_resync_ver2 = {
 	.name = "force-resync",
 	.mail_cmd = cmd_force_resync_alloc,
-	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<mailbox mask>",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[-f] <mailbox mask>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('f', "fsck", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox-mask", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
