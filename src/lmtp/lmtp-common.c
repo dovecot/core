@@ -22,6 +22,7 @@ void lmtp_recipient_finish(struct lmtp_recipient *rcpt,
 {
 	trcpt->context = rcpt;
 
+	rcpt->path = trcpt->path;
 	rcpt->rcpt = trcpt;
 	rcpt->index = index;
 	rcpt->rcpt_cmd = NULL;
