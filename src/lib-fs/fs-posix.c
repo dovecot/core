@@ -890,16 +890,13 @@ static const char *fs_posix_iter_next(struct fs_iter *_iter)
 			if (fs_posix_iter_want(iter, d->d_name))
 				return d->d_name;
 			break;
-		case DT_REG:
-		case DT_LNK:
-			if ((iter->iter.flags & FS_ITER_FLAG_DIRS) == 0)
-				return d->d_name;
-			break;
 		case DT_DIR:
 			if ((iter->iter.flags & FS_ITER_FLAG_DIRS) != 0)
 				return d->d_name;
 			break;
 		default:
+			if ((iter->iter.flags & FS_ITER_FLAG_DIRS) == 0)
+				return d->d_name;
 			break;
 		}
 #else
