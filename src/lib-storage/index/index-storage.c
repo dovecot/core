@@ -332,6 +332,12 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 			return -1;
 		}
 	}
+	if ((box->flags & MAILBOX_FLAG_FSCK) != 0) {
+		if (mail_index_fsck(box->index) < 0) {
+			mailbox_set_index_error(box);
+			return -1;
+		}
+	}
 
 	box->cache = mail_index_get_cache(box->index);
 	index_cache_register_defaults(box);
