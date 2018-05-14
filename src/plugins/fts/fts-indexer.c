@@ -12,6 +12,7 @@
 #include "mail-user.h"
 #include "mail-storage-private.h"
 #include "fts-api.h"
+#include "fts-storage.h"
 #include "fts-indexer.h"
 
 #define INDEXER_NOTIFY_INTERVAL_SECS 10
@@ -223,7 +224,6 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 {
 	struct ioloop *prev_ioloop = current_ioloop;
 	struct fts_indexer_context *ctx;
-	struct mailbox_status status;
 	uint32_t last_uid, seq1, seq2;
 	const char *path, *value, *error;
 	unsigned int timeout_secs = 0;
@@ -239,11 +239,10 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 		}
 	}
 
-	if (fts_backend_get_last_uid(backend, box, &last_uid) < 0)
+	ret = fts_search_get_first_missing_uid(backend, box, &last_uid);
+	if (ret < 0)
 		return -1;
-
-	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
-	if (status.uidnext == last_uid+1) {
+	if (ret > 0) {
 		/* everything is already indexed */
 		return 0;
 	}

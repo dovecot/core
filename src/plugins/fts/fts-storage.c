@@ -81,15 +81,22 @@ static int fts_mailbox_get_last_cached_seq(struct mailbox *box, uint32_t *seq_r)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(box->list);
 	uint32_t seq1, seq2, last_uid;
+	int ret;
 
-	if (fts_backend_get_last_uid(flist->backend, box, &last_uid) < 0) {
+	ret = fts_search_get_first_missing_uid(flist->backend, box, &last_uid);
+	if (ret < 0) {
 		mail_storage_set_internal_error(box->storage);
 		return -1;
 	}
 
-	if (last_uid == 0)
+	if (ret == 0 && last_uid == 0) {
+		/* nothing is indexed. */
 		*seq_r = 0;
-	else {
+	} else {
+		if (ret > 0) {
+			/* everything is indexed */
+			last_uid = (uint32_t)-1;
+		}
 		mailbox_get_seq_range(box, 1, last_uid, &seq1, &seq2);
 		*seq_r = seq2;
 	}

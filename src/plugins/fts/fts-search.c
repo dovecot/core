@@ -342,19 +342,56 @@ static void fts_search_merge_scores(struct fts_search_context *fctx)
 				      TRUE, &fctx->scores->score_map);
 }
 
+int fts_search_get_first_missing_uid(struct fts_backend *backend,
+				     struct mailbox *box,
+				     uint32_t *last_indexed_uid_r)
+{
+	uint32_t messages_count = mail_index_view_get_messages_count(box->view);
+	uint32_t uid, last_indexed_uid;
+	int ret;
+
+	if (messages_count == 0)
+		return 1;
+
+	mail_index_lookup_uid(box->view, messages_count, &uid);
+	for (bool refreshed = FALSE;; refreshed = TRUE) {
+		ret = fts_backend_is_uid_indexed(backend, box, uid,
+						 &last_indexed_uid);
+		if (ret != 0)
+			return ret;
+		if (refreshed || backend->updating) {
+			*last_indexed_uid_r = last_indexed_uid;
+			return 0;
+		}
+
+		/* UID doesn't seem to be indexed yet.
+		   Refresh FTS and check again. */
+		if (fts_backend_refresh(backend) < 0)
+			return -1;
+	}
+	i_unreached();
+}
+
 static void fts_search_try_lookup(struct fts_search_context *fctx)
 {
 	uint32_t last_uid, seq1, seq2;
+	int ret;
 
 	i_assert(array_count(&fctx->levels) == 0);
 	i_assert(fctx->args->simplified);
 
-	if (fts_backend_refresh(fctx->backend) < 0)
+	ret = fts_search_get_first_missing_uid(fctx->backend, fctx->box,
+					       &last_uid);
+	if (ret < 0)
 		return;
-	if (fts_backend_get_last_uid(fctx->backend, fctx->box, &last_uid) < 0)
-		return;
-	mailbox_get_seq_range(fctx->box, last_uid+1, (uint32_t)-1,
-			      &seq1, &seq2);
+
+	if (ret > 0) {
+		/* everything is already indexed */
+		seq1 = seq2 = 0;
+	} else {
+		mailbox_get_seq_range(fctx->box, last_uid+1, (uint32_t)-1,
+				      &seq1, &seq2);
+	}
 	fctx->first_unindexed_seq = seq1 != 0 ? seq1 : (uint32_t)-1;
 
 	if (fctx->virtual_mailbox) {

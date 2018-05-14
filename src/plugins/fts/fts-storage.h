@@ -58,6 +58,10 @@ struct fts_search_context {
 void fts_search_analyze(struct fts_search_context *fctx);
 /* Perform the actual index lookup and update definite_uids and maybe_uids. */
 void fts_search_lookup(struct fts_search_context *fctx);
+/* Returns 1 if everything is already indexed, 0 if not, -1 on error. */
+int fts_search_get_first_missing_uid(struct fts_backend *backend,
+				     struct mailbox *box,
+				     uint32_t *last_indexed_uid_r);
 /* Returns FTS backend for the given mailbox (assumes it has one). */
 struct fts_backend *fts_mailbox_backend(struct mailbox *box);
 /* Returns FTS backend for the given mailbox list, or NULL if it has none. */
