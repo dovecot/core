@@ -126,6 +126,23 @@ int fts_backend_get_last_uid(struct fts_backend *backend, struct mailbox *box,
 	return backend->v.get_last_uid(backend, box, last_uid_r);
 }
 
+int fts_backend_is_uid_indexed(struct fts_backend *backend, struct mailbox *box,
+			       uint32_t uid, uint32_t *last_indexed_uid_r)
+{
+	uint32_t last_uid;
+
+	if (box->virtual_vfuncs != NULL || backend->v.is_uid_indexed == NULL) {
+		if (fts_backend_get_last_uid(backend, box, &last_uid) < 0)
+			return -1;
+		if (uid > last_uid) {
+			*last_indexed_uid_r = last_uid;
+			return 0;
+		}
+		return 1;
+	}
+	return backend->v.is_uid_indexed(backend, box, uid, last_indexed_uid_r);
+}
+
 bool fts_backend_is_updating(struct fts_backend *backend)
 {
 	return backend->updating;

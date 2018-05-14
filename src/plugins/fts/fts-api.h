@@ -100,6 +100,10 @@ void fts_backend_deinit(struct fts_backend **backend);
 /* Get the last_uid for the mailbox. */
 int fts_backend_get_last_uid(struct fts_backend *backend, struct mailbox *box,
 			     uint32_t *last_uid_r);
+/* Returns 1 if uid has already been indexed, 0 if not, -1 on error.
+   If 0 is returned, also return last_indexed_uid_r. */
+int fts_backend_is_uid_indexed(struct fts_backend *backend, struct mailbox *box,
+			       uint32_t uid, uint32_t *last_indexed_uid_r);
 
 /* Returns TRUE if there exists an update context. */
 bool fts_backend_is_updating(struct fts_backend *backend);

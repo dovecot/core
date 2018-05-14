@@ -16,6 +16,9 @@ struct fts_backend_vfuncs {
 
 	int (*get_last_uid)(struct fts_backend *backend, struct mailbox *box,
 			    uint32_t *last_uid_r);
+	/* If NULL, this is implemented using get_last_uid() */
+	int (*is_uid_indexed)(struct fts_backend *backend, struct mailbox *box,
+			      uint32_t uid, uint32_t *last_indexed_uid_r);
 
 	struct fts_backend_update_context *
 		(*update_init)(struct fts_backend *backend);
