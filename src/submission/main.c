@@ -126,6 +126,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	restrict_access_allow_coredumps(TRUE);
 
 	set = mail_storage_service_user_get_set(user)[1];
+	if (set->verbose_proctitle)
+		verbose_proctitle = TRUE;
 
 	if (set->submission_relay_host == NULL ||
 		*set->submission_relay_host == '\0') {
@@ -137,8 +139,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		mail_storage_service_user_unref(&user);
 		return -1;
 	}
-	if (set->verbose_proctitle)
-		verbose_proctitle = TRUE;
 
 	/* parse input data */
 	data = NULL;
