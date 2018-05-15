@@ -266,6 +266,9 @@ static int passwd_file_sync(struct auth_request *request,
 		if (errno == EACCES) {
 			auth_request_log_error(request, AUTH_SUBSYS_DB,
 				"%s", eacces_error_get("stat", pw->path));
+		} else if (errno == ENOENT) {
+			auth_request_log_info(request, "passwd-file",
+					      "missing passwd file: %s", pw->path);
 		} else {
 			auth_request_log_error(request, AUTH_SUBSYS_DB,
 				"stat(%s) failed: %m", pw->path);
