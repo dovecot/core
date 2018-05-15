@@ -322,6 +322,13 @@ fs_posix_file_init(struct fs_file *_file, const char *path,
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 	struct posix_fs *fs = (struct posix_fs *)_file->fs;
 	guid_128_t guid;
+	size_t path_len = strlen(path);
+
+	if (path_len > 0 && path[path_len-1] == '/') {
+		/* deleting "path/" (used e.g. by doveadm fs delete) - strip
+		   out the trailing "/" since it doesn't work well with NFS. */
+		path = t_strndup(path, path_len-1);
+	}
 
 	if (mode != FS_OPEN_MODE_CREATE_UNIQUE_128)
 		file->file.path = i_strdup(path);
