@@ -36,6 +36,8 @@ fts_tokenizer_generic_create(const char *const *settings,
 	unsigned int max_length = FTS_DEFAULT_TOKEN_MAX_LENGTH;
 	enum boundary_algorithm algo = BOUNDARY_ALGORITHM_SIMPLE;
 	bool wb5a = FALSE;
+	bool search = FALSE;
+	bool explicitprefix = FALSE;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
@@ -61,16 +63,23 @@ fts_tokenizer_generic_create(const char *const *settings,
 		} else if (strcmp(key, "search") == 0) {
 			/* tokenizing a search string -
 			   makes no difference to us */
+			search = TRUE;
 		} else if (strcasecmp(key, "wb5a") == 0) {
 			if (strcasecmp(value, "no") == 0)
 				wb5a = FALSE;
 			else
 				wb5a = TRUE;
+		} else if (strcasecmp(key, "explicitprefix") == 0) {
+			explicitprefix = TRUE;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
 		}
 	}
+
+	/* Tokenise normally unless tokenising an explicit prefix query */
+	if (!search)
+		explicitprefix = FALSE;
 
 	if (wb5a && algo != BOUNDARY_ALGORITHM_TR29) {
 		*error_r = "Can not use WB5a for algorithms other than TR29.";
@@ -85,6 +94,7 @@ fts_tokenizer_generic_create(const char *const *settings,
 	tok->max_length = max_length;
 	tok->algorithm = algo;
 	tok->wb5a = wb5a;
+	tok->prefixsplat = explicitprefix;
 	tok->token = buffer_create_dynamic(default_pool, 64);
 
 	*tokenizer_r = &tok->tokenizer;
