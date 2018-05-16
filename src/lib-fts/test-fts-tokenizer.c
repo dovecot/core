@@ -552,7 +552,7 @@ test_fts_tokenizer_explicit_prefix(void)
 						     &tok, &error);
 				test_tokenizer_inputs(
 					tok, &input, 1,
-					(search!=0) && (explicitprefix!=0) && (algo==0)
+					(search!=0) && (explicitprefix!=0)
 					? expected_star : expected_nostar);
 
 				fts_tokenizer_unref(&tok);

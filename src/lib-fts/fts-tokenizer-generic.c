@@ -356,6 +356,8 @@ static enum letter_type letter_type(unichar_t c)
 		return LETTER_TYPE_NUMERIC;
 	if (uint32_find(ExtendNumLet, N_ELEMENTS(ExtendNumLet), c, &idx))
 		return LETTER_TYPE_EXTENDNUMLET;
+	if (IS_PREFIX_SPLAT(c)) /* prioritise appropriately */
+		return LETTER_TYPE_PREFIXSPLAT;
 	return LETTER_TYPE_OTHER;
 }
 
@@ -554,7 +556,11 @@ static bool letter_apostrophe(struct generic_fts_tokenizer *tok)
 
        return TRUE; /* Any / Any */
 }
-
+static bool letter_prefixsplat(struct generic_fts_tokenizer *tok ATTR_UNUSED)
+{
+	/* Dovecot explicit-prefix specific */
+	return TRUE; /* Always induces a word break - but with special handling */
+}
 static bool letter_other(struct generic_fts_tokenizer *tok ATTR_UNUSED)
 {
 	return TRUE; /* Any / Any */
@@ -653,7 +659,7 @@ static struct letter_fn letter_fns[] = {
 	{letter_single_quote}, {letter_double_quote},
 	{letter_midnumlet}, {letter_midletter}, {letter_midnum},
 	{letter_numeric}, {letter_extendnumlet}, {letter_panic},
-	{letter_panic}, {letter_apostrophe}, {letter_panic},
+	{letter_panic}, {letter_apostrophe}, {letter_prefixsplat},
 	{letter_other}
 };
 
@@ -733,6 +739,10 @@ fts_tokenizer_generic_tr29_next(struct fts_tokenizer *_tok,
 			i_assert(char_start_i >= start_pos && size >= start_pos);
 			tok_append_truncated(tok, data + start_pos,
 					     char_start_i - start_pos);
+			if (lt == LETTER_TYPE_PREFIXSPLAT && tok->prefixsplat) {
+				const unsigned char prefix_char = FTS_PREFIX_SPLAT_CHAR;
+				tok_append_truncated(tok, &prefix_char, 1);
+			}
 			*skip_r = i;
 			fts_tokenizer_generic_tr29_current_token(tok, token_r);
 			return 1;
