@@ -101,6 +101,13 @@ fts_tokenizer_generic_destroy(struct fts_tokenizer *_tok)
 	i_free(tok);
 }
 
+static inline void
+shift_prev_type(struct generic_fts_tokenizer *tok, enum letter_type lt)
+{
+	tok->prev_prev_type = tok->prev_type;
+	tok->prev_type = lt;
+}
+
 static bool
 fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
                                            const char **token_r)
@@ -128,7 +135,7 @@ fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
 		t_strndup(tok->token->data, len);
 	buffer_set_used_size(tok->token, 0);
 	tok->untruncated_length = 0;
-	tok->prev_type = LETTER_TYPE_NONE;
+	shift_prev_type(tok, LETTER_TYPE_NONE);
 	return len > 0;
 }
 
@@ -221,7 +228,7 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 			   subsequent apostrophes are handled by prefix
 			   skipping or by ignoring empty tokens - they will be
 			   dropped in any case. */
-			tok->prev_type = LETTER_TYPE_NONE;
+			shift_prev_type(tok, LETTER_TYPE_NONE);
 		} else if (apostrophe) {
 			/* all apostrophes require special handling */
 			const unsigned char apostrophe_char = '\'';
@@ -230,9 +237,9 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 			if (tok->token->used > 0)
 				tok_append_truncated(tok, &apostrophe_char, 1);
 			start = i + char_size;
-			tok->prev_type = LETTER_TYPE_SINGLE_QUOTE;
+			shift_prev_type(tok, LETTER_TYPE_SINGLE_QUOTE);
 		} else {
-			tok->prev_type = LETTER_TYPE_NONE;
+			shift_prev_type(tok, LETTER_TYPE_NONE);
 		}
 	}
 	/* word boundary not found yet */
