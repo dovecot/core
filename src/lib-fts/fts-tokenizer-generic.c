@@ -152,6 +152,10 @@ fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
 			len--;
 			i_assert(len > 0 && data[len-1] != '\'');
 		}
+		if (len > 0 && data[len-1] == '*' && !tok->prefixsplat) {
+			len--;
+			i_assert(len > 0 && data[len-1] != '*');
+		}
 	} else {
 		fts_tokenizer_delete_trailing_partial_char(data, &len);
 	}
@@ -161,7 +165,6 @@ fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
 		t_strndup(tok->token->data, len);
 	buffer_set_used_size(tok->token, 0);
 	tok->untruncated_length = 0;
-	shift_prev_type(tok, LETTER_TYPE_NONE);
 	return len > 0;
 }
 
@@ -260,19 +263,23 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 		i_assert(char_size > 0);
 
 		apostrophe = IS_APOSTROPHE(c);
-		break_type = fts_simple_is_word_break(tok, c, apostrophe);
-		if (break_type != FTS_WORD_TO_WORD && break_type != FTS_STOP_TO_WORD) {
+		if ((tok->prefixsplat && IS_PREFIX_SPLAT(c)) &&
+		    (tok->prev_type == LETTER_TYPE_ALETTER)) {
+			/* this might be a prefix-mathing query */
+			shift_prev_type(tok, LETTER_TYPE_PREFIXSPLAT);
+		} else if ((break_type = fts_simple_is_word_break(tok, c, apostrophe))
+			   != FTS_WORD_TO_WORD) {
 			tok_append_truncated(tok, data + start, i - start);
+			shift_prev_type(tok, (break_type & FTS_TO_WORD) != 0
+					? LETTER_TYPE_ALETTER : LETTER_TYPE_NONE);
 			if (fts_tokenizer_generic_simple_current_token(tok, token_r)) {
-				*skip_r = i + char_size;
+				*skip_r = i;
+				if (break_type != FTS_STOP_TO_WORD) /* therefore *_TO_STOP */
+					*skip_r += char_size;
 				return 1;
 			}
-			start = i + char_size;
-			/* it doesn't actually matter at this point how whether
-			   subsequent apostrophes are handled by prefix
-			   skipping or by ignoring empty tokens - they will be
-			   dropped in any case. */
-			shift_prev_type(tok, LETTER_TYPE_NONE);
+			if ((break_type & FTS_TO_WORD) == 0)
+				start = i + char_size;
 		} else if (apostrophe) {
 			/* all apostrophes require special handling */
 			const unsigned char apostrophe_char = '\'';
@@ -295,6 +302,7 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 
 	/* return the last token */
 	if (size == 0) {
+		shift_prev_type(tok, LETTER_TYPE_NONE);
 		if (fts_tokenizer_generic_simple_current_token(tok, token_r))
 			return 1;
 	}
@@ -645,7 +653,8 @@ static struct letter_fn letter_fns[] = {
 	{letter_single_quote}, {letter_double_quote},
 	{letter_midnumlet}, {letter_midletter}, {letter_midnum},
 	{letter_numeric}, {letter_extendnumlet}, {letter_panic},
-	{letter_panic}, {letter_apostrophe}, {letter_other}
+	{letter_panic}, {letter_apostrophe}, {letter_panic},
+	{letter_other}
 };
 
 /*
