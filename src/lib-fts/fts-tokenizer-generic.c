@@ -194,16 +194,32 @@ static bool fts_uni_word_break(unichar_t c)
 	return FALSE;
 }
 
-static inline bool
-fts_simple_is_word_break(struct generic_fts_tokenizer *tok,
+enum fts_break_type {
+	FTS_FROM_STOP = 0,
+	FTS_FROM_WORD = 2,
+	FTS_TO_STOP= 0,
+	FTS_TO_WORD = 1,
+#define FROM_TO(f,t) FTS_##f##_TO_##t = FTS_FROM_##f | FTS_TO_##t
+	FROM_TO(STOP,STOP),
+	FROM_TO(STOP,WORD),
+	FROM_TO(WORD,STOP),
+	FROM_TO(WORD,WORD),
+};
+static inline enum fts_break_type
+fts_simple_is_word_break(const struct generic_fts_tokenizer *tok,
 			 unichar_t c, bool apostrophe)
 {
+	/* Until we know better, a letter followed by an apostrophe is continuation of the word.
+	   However, if we see non-word letters afterwards, we'll reverse that decision. */
 	if (apostrophe)
-		return tok->prev_type == LETTER_TYPE_SINGLE_QUOTE;
-	else if (c < 0x80)
-		return fts_ascii_word_breaks[c] != 0;
-	else
-		return fts_uni_word_break(c);
+		return tok->prev_type == LETTER_TYPE_ALETTER ? FTS_WORD_TO_WORD : FTS_STOP_TO_STOP;
+
+	bool new_breakiness = (c < 0x80) ? (fts_ascii_word_breaks[c] != 0) : fts_uni_word_break(c);
+
+	return (new_breakiness ? FTS_TO_STOP : FTS_TO_WORD)
+		+ (tok->prev_type == LETTER_TYPE_ALETTER ||
+		   tok->prev_type == LETTER_TYPE_SINGLE_QUOTE
+		   ? FTS_FROM_WORD : FTS_FROM_STOP);
 }
 
 static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
@@ -237,13 +253,15 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 	int char_size;
 	unichar_t c;
 	bool apostrophe;
+	enum fts_break_type break_type;
 
 	for (i = 0; i < size; i += char_size) {
 		char_size = uni_utf8_get_char_n(data + i, size - i, &c);
 		i_assert(char_size > 0);
 
 		apostrophe = IS_APOSTROPHE(c);
-		if (fts_simple_is_word_break(tok, c, apostrophe)) {
+		break_type = fts_simple_is_word_break(tok, c, apostrophe);
+		if (break_type != FTS_WORD_TO_WORD && break_type != FTS_STOP_TO_WORD) {
 			tok_append_truncated(tok, data + start, i - start);
 			if (fts_tokenizer_generic_simple_current_token(tok, token_r)) {
 				*skip_r = i + char_size;
