@@ -40,6 +40,7 @@ enum boundary_algorithm {
 struct generic_fts_tokenizer {
 	struct fts_tokenizer tokenizer;
 	unsigned int max_length;
+	bool prefixsplat; /* for search strings, accept a trailing '*' for explicit prefix */
 	bool wb5a; /* TR29 rule for prefix separation
 	              in e.g. French or Italian. */
 	bool seen_wb5a;
