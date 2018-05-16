@@ -108,6 +108,22 @@ shift_prev_type(struct generic_fts_tokenizer *tok, enum letter_type lt)
 	tok->prev_type = lt;
 }
 
+static inline void
+add_prev_type(struct generic_fts_tokenizer *tok, enum letter_type lt)
+{
+	if(tok->prev_type != LETTER_TYPE_NONE)
+		tok->prev_prev_type = tok->prev_type;
+	tok->prev_type = lt;
+}
+
+static inline void
+add_letter(struct generic_fts_tokenizer *tok, unichar_t c)
+{
+	if(tok->letter != 0)
+		tok->prev_letter = tok->letter;
+	tok->letter = c;
+}
+
 static bool
 fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
                                            const char **token_r)
@@ -503,22 +519,6 @@ static bool letter_apostrophe(struct generic_fts_tokenizer *tok)
 static bool letter_other(struct generic_fts_tokenizer *tok ATTR_UNUSED)
 {
 	return TRUE; /* Any / Any */
-}
-
-static inline void
-add_prev_type(struct generic_fts_tokenizer *tok, enum letter_type lt)
-{
-	if(tok->prev_type != LETTER_TYPE_NONE)
-		tok->prev_prev_type = tok->prev_type;
-	tok->prev_type = lt;
-}
-
-static inline void
-add_letter(struct generic_fts_tokenizer *tok, unichar_t c)
-{
-	if(tok->letter != 0)
-		tok->prev_letter = tok->letter;
-	tok->letter = c;
 }
 
 /*
