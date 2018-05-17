@@ -444,8 +444,10 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 		/* we've sent the reply. the connection is no longer needed,
 		   so disconnect it (before login process disconnects us and
 		   logs an error) */
-		master_login_conn_close(conn);
-		master_login_conn_unref(&conn);
+		if (!master_login_conn_is_closed(conn)) {
+			master_login_conn_close(conn);
+			master_login_conn_unref(&conn);
+		}
 
 		/* execute post-login scripts before finishing auth */
 		if (master_login_postlogin(client, auth_args,
