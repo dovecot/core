@@ -105,20 +105,17 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 		str_append(str, log_prefix);
 }
 
-static void log_fd_flush_stop(struct ioloop *ioloop)
-{
-	io_loop_stop(ioloop);
-}
-
 static int log_fd_write(int fd, const unsigned char *data, size_t len)
 {
-	struct ioloop *ioloop;
-	struct io *io;
 	ssize_t ret;
 	unsigned int prev_signal_term_counter = signal_term_counter;
 	unsigned int terminal_eintr_count = 0;
+	const char *old_title = NULL;
+	int fd_orig_flags = -1;
+	bool failed = FALSE;
 
-	while ((ret = write(fd, data, len)) != (ssize_t)len) {
+	while (!failed &&
+	       (ret = write(fd, data, len)) != (ssize_t)len) {
 		if (ret > 0) {
 			/* some was written, continue.. */
 			data += ret;
@@ -128,17 +125,19 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 		if (ret == 0) {
 			/* out of disk space? */
 			errno = ENOSPC;
-			return -1;
+			failed = TRUE;
+			break;
 		}
 		switch (errno) {
 		case EAGAIN: {
-			/* wait until we can write more. this can happen at
-			   least when writing to terminal, even if fd is
-			   blocking. Internal logging fd is also now
-			   non-blocking, so we can show warnings about blocking
-			   on a log write. */
-			const char *title, *old_title =
-				t_strdup(process_title_get());
+			/* Update the process title to show that we're waiting
+			   on log writing. Switch to blocking writes and retry.
+			   When logging is finished, restore the process
+			   title. */
+			const char *title;
+
+			if (old_title == NULL)
+				old_title = t_strdup(process_title_get());
 
 			if (old_title == NULL)
 				title = "[blocking on log write]";
@@ -147,13 +146,22 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 							old_title);
 			process_title_set(title);
 
-			ioloop = io_loop_create();
-			io = io_add(fd, IO_WRITE, log_fd_flush_stop, ioloop);
-			io_loop_run(ioloop);
-			io_remove(&io);
-			io_loop_destroy(&ioloop);
+			/* Now that the process title is updated, set fd to be
+			   blocking and retry. */
+			if (fd_orig_flags == -1) {
+				fd_orig_flags = fcntl(fd, F_GETFL, 0);
+				if (fd_orig_flags < 0)
+					i_fatal("fcntl(%d, F_GETFL) failed: %m", fd);
 
-			process_title_set(old_title);
+				if ((fd_orig_flags & O_NONBLOCK) == 0) {
+					/* EAGAIN on a blocking fd? This is a
+					   bit weird, but just continue. */
+				} else {
+					int flags = fd_orig_flags | O_NONBLOCK;
+					if (fcntl(fd, F_SETFL, flags) < 0)
+						i_fatal("fcntl(%d, F_SETFL) failed: %m", fd);
+				}
+			}
 			break;
 		}
 		case EINTR:
@@ -165,15 +173,23 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 			} else {
 				/* received two terminal signals.
 				   someone wants us dead. */
-				return -1;
+				failed = TRUE;
+				break;
 			}
 			break;
 		default:
-			return -1;
+			failed = TRUE;
+			break;
 		}
 		prev_signal_term_counter = signal_term_counter;
 	}
-	return 0;
+	if (fd_orig_flags != -1) {
+		if (fcntl(fd, F_SETFL, fd_orig_flags) < 0)
+			i_fatal("fcntl(%d, F_SETFL) failed: %m", fd);
+	}
+	if (old_title != NULL)
+		process_title_set(old_title);
+	return failed ? -1 : 0;
 }
 
 static int ATTR_FORMAT(3, 0)
