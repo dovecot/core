@@ -19,7 +19,15 @@ static char *current_process_title;
 
 #ifdef PROCTITLE_HACK
 
-#define PROCTITLE_CLEAR_CHAR 0xab
+#ifdef DEBUG
+/* if there are problems with this approach, try to make sure we notice it */
+#  define PROCTITLE_CLEAR_CHAR 0xab
+#else
+/* There are always race conditions when updating the process title. ps might
+   read a partially written title. Try to at least minimize this by using NUL
+   as the fill character, so ps won't show a large number of 0xab chars. */
+#  define PROCTITLE_CLEAR_CHAR 0
+#endif
 
 static char *process_title;
 static size_t process_title_len, process_title_clean_pos;
@@ -54,8 +62,6 @@ static void proctitle_hack_init(char *argv[], char *env[])
 	process_title = argv[0];
 	process_title_len = last - argv[0];
 
-	/* if there are problems with this approach, try to make sure we
-	   notice it */
 	if (clear_env) {
 		memset(env[0], PROCTITLE_CLEAR_CHAR, last - env[0]);
 		process_title_clean_pos = env[0] - process_title;
