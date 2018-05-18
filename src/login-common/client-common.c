@@ -474,6 +474,11 @@ int client_init_ssl(struct client *client)
 
 	i_assert(client->fd != -1);
 
+	if (strcmp(client->ssl_set->ssl, "no") == 0) {
+		client_log(client, "SSL is disabled (ssl=no)");
+		return -1;
+	}
+
 	master_service_ssl_settings_to_iostream_set(client->ssl_set,
 		pool_datastack_create(),
 		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
