@@ -420,6 +420,27 @@ smtp_client_command_sent(struct smtp_client_command *cmd)
 }
 
 static int
+smtp_client_command_finish_dot_stream(struct smtp_client_command *cmd)
+{
+	struct smtp_client_connection *conn = cmd->conn;
+	int ret;
+
+	i_assert(cmd->stream_dot);
+	i_assert(conn->dot_output != NULL);
+
+	/* this concludes the dot stream with CRLF.CRLF */
+	if ((ret=o_stream_finish(conn->dot_output)) < 0) {
+		o_stream_unref(&conn->dot_output);
+		smtp_client_connection_handle_output_error(conn);
+		return -1;
+	}
+	if (ret == 0)
+		return 0;
+	o_stream_unref(&conn->dot_output);
+	return 1;
+}
+
+static int
 smtp_client_command_send_stream(struct smtp_client_command *cmd)
 {
 	struct smtp_client_connection *conn = cmd->conn;
@@ -428,6 +449,14 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 	enum ostream_send_istream_result res;
 	int ret;
 
+	if (cmd->stream_finished) {
+		if ((ret=smtp_client_command_finish_dot_stream(cmd)) <= 0)
+			return ret;
+		/* done sending payload */
+		smtp_client_command_debug(cmd, "Finished sending payload");
+		i_stream_unref(&cmd->stream);
+		return 1;
+	}
 	if (cmd->stream_dot) {
 		if (conn->dot_output == NULL)
 			conn->dot_output = o_stream_create_dot(output, FALSE);
@@ -446,16 +475,10 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 		/* finished with the stream */
 		smtp_client_command_debug(cmd,
 			"Finished reading payload stream");
-		if (conn->dot_output != NULL) {
-			/* this concludes the dot stream with CRLF.CRLF */
-			if ((ret=o_stream_finish(conn->dot_output)) < 0) {
-				o_stream_unref(&conn->dot_output);
-				smtp_client_connection_handle_output_error(conn);
-				return -1;
-			}
-			if (ret == 0)
-				return 0;
-			o_stream_unref(&conn->dot_output);
+		cmd->stream_finished = TRUE;
+		if (cmd->stream_dot) {
+			if ((ret=smtp_client_command_finish_dot_stream(cmd)) <= 0)
+				return ret;
 		}
 		/* done sending payload */
 		smtp_client_command_debug(cmd, "Finished sending payload");

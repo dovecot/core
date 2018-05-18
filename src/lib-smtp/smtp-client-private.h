@@ -43,6 +43,7 @@ struct smtp_client_command {
 
 	bool has_stream:1;
 	bool stream_dot:1;
+	bool stream_finished:1;
 	bool ehlo:1;
 	bool locked:1;
 	bool plug:1;
