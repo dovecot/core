@@ -691,11 +691,6 @@ void http_client_context_switch_ioloop(struct http_client_context *cctx)
 	http_client_context_do_switch_ioloop(cctx);
 }
 
-static void http_client_global_context_free(void)
-{
-	http_client_context_unref(&http_client_global_context);
-}
-
 static void
 http_client_global_context_ioloop_switched(
 	struct ioloop *prev_ioloop ATTR_UNUSED)
@@ -711,6 +706,15 @@ http_client_global_context_ioloop_switched(
 		/* follow the current ioloop if there is no client */
 		http_client_context_switch_ioloop(cctx);
 	}
+}
+
+static void http_client_global_context_free(void)
+{
+	/* drop ioloop switch callback to make absolutely sure there is no
+	   recursion. */
+	io_loop_remove_switch_callback(http_client_global_context_ioloop_switched);
+
+	http_client_context_unref(&http_client_global_context);
 }
 
 struct http_client_context *http_client_get_global_context(void)
