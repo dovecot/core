@@ -177,6 +177,10 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	for (; io != NULL && ret > 0; io = ioloop->next_io_file) {
 		ioloop->next_io_file = io->next;
 
+		if (io->fd == -1) {
+			/* io_add_istream() without fd */
+			continue;
+		}
 		pollfd = &ctx->fds[ctx->fd_index[io->fd]];
 		if (pollfd->revents != 0) {
 			if (pollfd->revents & POLLNVAL) {
