@@ -1169,8 +1169,6 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			str_append(str, ") - ");
 
 			vhost_count = I_MIN(vhost_count, host->vhost_count);
-			last_updown_change = I_MAX(last_updown_change,
-						   host->last_updown_change);
 			str_printfa(str, "setting to state=%s vhosts=%u",
 				    down ? "down" : "up", vhost_count);
 			i_warning("%s", str_c(str));
@@ -1178,6 +1176,13 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			   reaches the full ring */
 			dir_host = NULL;
 			src_host = conn->dir->self_host;
+		}
+		if (update) {
+			/* Make sure the host's timestamp never shrinks.
+			   Otherwise we might get into a loop where the up/down
+			   state keeps switching. */
+			last_updown_change = I_MAX(last_updown_change,
+						   host->last_updown_change);
 		}
 	}
 
