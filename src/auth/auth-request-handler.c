@@ -490,7 +490,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	/* <id> <mechanism> [...] */
 	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || list[1] == NULL ||
-	    str_to_uint(list[0], &id) < 0) {
+	    str_to_uint(list[0], &id) < 0 || id == 0) {
 		i_error("BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
 		return FALSE;
