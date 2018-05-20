@@ -47,7 +47,8 @@ mail_index_fsck_log_pos(struct mail_index *index, struct mail_index_map *map,
 
 		if (hdr->log_file_tail_offset > hdr->log_file_head_offset)
 			hdr->log_file_tail_offset = hdr->log_file_head_offset;
-		else if (hdr->log_file_tail_offset < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE)
+		else if (hdr->log_file_tail_offset != 0 &&
+			 hdr->log_file_tail_offset < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE)
 			hdr->log_file_tail_offset = MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE;
 	} else {
 		/* index's log_file_seq is newer than exists. move it to
