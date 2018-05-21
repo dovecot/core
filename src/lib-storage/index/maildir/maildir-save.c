@@ -36,8 +36,7 @@ struct maildir_filename {
 	enum mail_flags flags;
 	unsigned int pop3_order;
 	bool preserve_filename:1;
-	unsigned int keywords_count;
-	/* unsigned int keywords[]; */
+	ARRAY_TYPE(keyword_indexes) keywords;
 };
 
 struct maildir_save_context {
@@ -54,9 +53,6 @@ struct maildir_save_context {
 	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files, **files_tail, *file_last;
 	unsigned int files_count;
-
-	buffer_t keywords_buffer;
-	ARRAY_TYPE(keyword_indexes) keywords_array;
 
 	struct istream *input;
 	int fd;
@@ -138,9 +134,6 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 	ctx->newdir = p_strconcat(pool, path, "/new", NULL);
 	ctx->curdir = p_strconcat(pool, path, "/cur", NULL);
 
-	buffer_create_from_const_data(&ctx->keywords_buffer, "", 0);
-	array_create_from_buffer(&ctx->keywords_array, &ctx->keywords_buffer,
-				 sizeof(unsigned int));
 	ctx->last_save_finished = TRUE;
 	return &ctx->ctx;
 }
@@ -170,8 +163,7 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	   into new/ or cur/. */
 	/* @UNSAFE */
 	keyword_count = mdata->keywords == NULL ? 0 : mdata->keywords->count;
-	mf = p_malloc(ctx->pool, MALLOC_ADD(sizeof(*mf),
-		MALLOC_MULTIPLY(sizeof(unsigned int), keyword_count)));
+	mf = p_new(ctx->pool, struct maildir_filename, 1);
 	mf->tmp_name = mf->dest_basename = p_strdup(ctx->pool, tmp_fname);
 	mf->flags = mdata->flags;
 	mf->size = (uoff_t)-1;
@@ -184,10 +176,8 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	ctx->files_count++;
 
 	if (mdata->keywords != NULL) {
-		/* @UNSAFE */
-		mf->keywords_count = keyword_count;
-		memcpy(mf + 1, mdata->keywords->idx,
-		       sizeof(unsigned int) * keyword_count);
+		p_array_init(&mf->keywords, ctx->pool, keyword_count);
+		array_append(&mf->keywords, mdata->keywords->idx, keyword_count);
 		ctx->have_keywords = TRUE;
 	}
 	if (mdata->pop3_uidl != NULL)
@@ -265,7 +255,7 @@ maildir_get_dest_filename(struct maildir_save_context *ctx,
 					   mf->vsize);
 	}
 
-	if (mf->keywords_count == 0) {
+	if (!array_is_created(&mf->keywords) || array_count(&mf->keywords) == 0) {
 		if ((mf->flags & MAIL_FLAGS_MASK) == MAIL_RECENT) {
 			*fname_r = basename;
 			return TRUE;
@@ -276,13 +266,12 @@ maildir_get_dest_filename(struct maildir_save_context *ctx,
 		return FALSE;
 	}
 
-	i_assert(ctx->keywords_sync_ctx != NULL || mf->keywords_count == 0);
-	buffer_create_from_const_data(&ctx->keywords_buffer, mf + 1,
-				      mf->keywords_count * sizeof(unsigned int));
+	i_assert(ctx->keywords_sync_ctx != NULL ||
+		 !array_is_created(&mf->keywords) || array_count(&mf->keywords) == 0);
 	*fname_r = maildir_filename_flags_kw_set(ctx->keywords_sync_ctx,
 						 basename,
 						 mf->flags & MAIL_FLAGS_MASK,
-						 &ctx->keywords_array);
+						 &mf->keywords);
 	return FALSE;
 }
 
