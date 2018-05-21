@@ -96,7 +96,7 @@ master_client_stop(struct master_client *client, const char *const *args)
 			service->doveadm_stop = TRUE;
 		}
 	}
-	o_stream_send_str(client->conn.output, reply);
+	o_stream_nsend_str(client->conn.output, reply);
 	return 1;
 }
 
