@@ -146,7 +146,6 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	struct mail_save_data *mdata = &_ctx->data;
 	struct maildir_filename *mf;
 	struct istream *input;
-	unsigned int keyword_count;
 
 	i_assert(*tmp_fname != '\0');
 
@@ -161,8 +160,6 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
 	   into new/ or cur/. */
-	/* @UNSAFE */
-	keyword_count = mdata->keywords == NULL ? 0 : mdata->keywords->count;
 	mf = p_new(ctx->pool, struct maildir_filename, 1);
 	mf->tmp_name = mf->dest_basename = p_strdup(ctx->pool, tmp_fname);
 	mf->flags = mdata->flags;
