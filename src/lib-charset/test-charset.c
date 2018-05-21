@@ -1,9 +1,12 @@
 /* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "istream.h"
 #include "str.h"
 #include "test-common.h"
 #include "charset-utf8.h"
+
+#include <unistd.h>
 
 static void test_charset_is_utf8(void)
 {
@@ -154,7 +157,60 @@ static void test_charset_iconv_utf7_state(void)
 }
 #endif
 
-int main(void)
+static int convert(const char *charset, const char *path)
+{
+	struct istream *input;
+	const unsigned char *data;
+	size_t size;
+	struct charset_translation *trans;
+	buffer_t *buf = buffer_create_dynamic(default_pool, IO_BLOCK_SIZE);
+	enum charset_result last_ret = CHARSET_RET_OK;
+	bool seen_invalid_input = FALSE;
+
+	input = path == NULL ? i_stream_create_fd(STDIN_FILENO, IO_BLOCK_SIZE) :
+		i_stream_create_file(path, IO_BLOCK_SIZE);
+
+	if (charset_to_utf8_begin(charset, NULL, &trans) < 0)
+		i_fatal("Failed to initialize charset '%s'", charset);
+
+	size_t need = 1;
+	while (i_stream_read_bytes(input, &data, &size, need) > 0) {
+		last_ret = charset_to_utf8(trans, data, &size, buf);
+		if (size > 0)
+			need = 1;
+		i_stream_skip(input, size);
+		switch (last_ret) {
+		case CHARSET_RET_OK:
+			break;
+		case CHARSET_RET_INCOMPLETE_INPUT:
+			need++;
+			break;
+		case CHARSET_RET_INVALID_INPUT:
+			seen_invalid_input = TRUE;
+			break;
+		}
+		if (write(STDOUT_FILENO, buf->data, buf->used) != (ssize_t)buf->used)
+			i_fatal("write(stdout) failed: %m");
+		buffer_set_used_size(buf, 0);
+	}
+	if (input->stream_errno != 0)
+		i_error("read() failed: %s", i_stream_get_error(input));
+	charset_to_utf8_end(&trans);
+	i_stream_destroy(&input);
+	buffer_free(&buf);
+
+	if (seen_invalid_input) {
+		i_error("Seen invalid input");
+		return 1;
+	}
+	if (last_ret == CHARSET_RET_INCOMPLETE_INPUT) {
+		i_error("Incomplete input");
+		return 2;
+	}
+	return 0;
+}
+
+int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
 		test_charset_is_utf8,
@@ -167,5 +223,9 @@ int main(void)
 		NULL
 	};
 
+	if (argc >= 2) {
+		/* <charset> [<input path>] */
+		return convert(argv[1], argv[2]);
+	}
 	return test_run(test_functions);
 }
