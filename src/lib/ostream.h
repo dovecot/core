@@ -166,10 +166,12 @@ size_t o_stream_get_buffer_avail_size(const struct ostream *stream) ATTR_PURE;
    files. Returns 1 if successful, -1 if error. */
 int o_stream_seek(struct ostream *stream, uoff_t offset);
 /* Returns number of bytes sent, -1 = error */
-ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size);
+ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size)
+	ATTR_WARN_UNUSED_RESULT;
 ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
-		       unsigned int iov_count);
-ssize_t o_stream_send_str(struct ostream *stream, const char *str);
+		       unsigned int iov_count) ATTR_WARN_UNUSED_RESULT;
+ssize_t o_stream_send_str(struct ostream *stream, const char *str)
+	ATTR_WARN_UNUSED_RESULT;
 /* Send with delayed error handling. o_stream_flush() or
    o_stream_ignore_last_errors() must be called after these functions before
    the stream is destroyed. If any of the data can't be sent due to stream's
@@ -211,7 +213,7 @@ void o_stream_set_no_error_handling(struct ostream *stream, bool set);
    It's also possible to use this function to copy data within same file
    descriptor, even if the source and destination overlaps. If the file must
    be grown, you have to do it manually before calling this function. */
-enum ostream_send_istream_result
+enum ostream_send_istream_result ATTR_WARN_UNUSED_RESULT
 o_stream_send_istream(struct ostream *outstream, struct istream *instream);
 /* Same as o_stream_send_istream(), but assume that reads and writes will
    succeed. If not, o_stream_flush() will fail with the correct error
