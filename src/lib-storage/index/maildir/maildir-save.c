@@ -175,11 +175,6 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	ctx->files_tail = &mf->next;
 	ctx->files_count++;
 
-	if (mdata->keywords != NULL) {
-		p_array_init(&mf->keywords, ctx->pool, keyword_count);
-		array_append(&mf->keywords, mdata->keywords->idx, keyword_count);
-		ctx->have_keywords = TRUE;
-	}
 	if (mdata->pop3_uidl != NULL)
 		mf->pop3_uidl = p_strdup(ctx->pool, mdata->pop3_uidl);
 	mf->pop3_order = mdata->pop3_order;
@@ -555,6 +550,20 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	output_errno = _ctx->data.output->stream_errno;
 	output_errstr = t_strdup(o_stream_get_error(_ctx->data.output));
 	o_stream_destroy(&_ctx->data.output);
+
+	ARRAY_TYPE(keyword_indexes) keyword_idx;
+	t_array_init(&keyword_idx, 8);
+	mail_index_lookup_keywords(ctx->ctx.transaction->view, ctx->seq,
+				   &keyword_idx);
+
+	if (array_count(&keyword_idx) > 0) {
+		/* copy keywords */
+		p_array_init(&ctx->file_last->keywords, ctx->pool,
+			     array_count(&keyword_idx));
+		array_copy(&ctx->file_last->keywords.arr, 0, &keyword_idx.arr, 0,
+			   array_count(&keyword_idx));
+		ctx->have_keywords = TRUE;
+	}
 
 	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER &&
 	    !ctx->failed) {
