@@ -169,7 +169,7 @@ imap_hibernate_client_input_args(struct connection *conn,
 
 	if (imap_hibernate_client_parse_input(args, pool, &state, &error) < 0) {
 		i_error("Failed to parse client input: %s", error);
-		o_stream_send_str(conn->output, t_strdup_printf(
+		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"-Failed to parse client input: %s\n", error));
 		return -1;
 	}
@@ -220,8 +220,8 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 			ret = -1;
 		} else if (line[0] != '\0') {
 			i_error("Expected empty notify fd line from client, but got: %s", line);
-			o_stream_send_str(conn->output,
-					  "Expected empty notify fd line");
+			o_stream_nsend_str(conn->output,
+					   "Expected empty notify fd line");
 			ret = -1;
 		} else {
 			imap_client_add_notify_fd(client->imap_client, fd);
@@ -243,7 +243,7 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 		   itself before we have a chance to create another one. */
 		client->finished = TRUE;
 	}
-	o_stream_send_str(conn->output, "+\n");
+	o_stream_nsend_str(conn->output, "+\n");
 	return 1;
 }
 

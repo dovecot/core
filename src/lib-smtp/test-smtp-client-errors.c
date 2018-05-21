@@ -481,7 +481,7 @@ test_connection_lost_prematurely_input(struct server_connection *conn)
 static int
 test_connection_lost_prematurely_init(struct server_connection *conn)
 {
-	o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"220 testserver ESMTP Testfix (Frop/GNU)\r\n");
 	return 1;
 }
@@ -671,7 +671,7 @@ test_broken_payload_chunking_input_line(
 	struct server_connection *conn, const char *line ATTR_UNUSED)
 {
 	if (conn->state == SERVER_CONNECTION_STATE_EHLO) {
-		o_stream_send_str(conn->conn.output,
+		o_stream_nsend_str(conn->conn.output,
 			"250-testserver\r\n"
 			"250-PIPELINING\r\n"
 			"250-CHUNKING\r\n"
@@ -1081,9 +1081,9 @@ static int
 test_unexpected_reply_init(struct server_connection *conn)
 {
 	if (server_index == 5) {
-		o_stream_send_str(conn->conn.output,
+		o_stream_nsend_str(conn->conn.output,
 			"220 testserver ESMTP Testfix (Debian/GNU)\r\n");
-		o_stream_send_str(conn->conn.output,
+		o_stream_nsend_str(conn->conn.output,
 			"421 testserver Server shutting down for maintenance\r\n");
 		sleep(4);
 		server_connection_deinit(&conn);
@@ -1099,12 +1099,12 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_EHLO:
 		if (server_index == 4) {
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"250-testserver\r\n"
 				"250-PIPELINING\r\n"
 				"250-ENHANCEDSTATUSCODES\r\n"
 				"250 DSN\r\n");
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"421 testserver Server shutting down for maintenance\r\n");
 			sleep(4);
 			server_connection_deinit(&conn);
@@ -1113,9 +1113,9 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 		break;
 	case SERVER_CONNECTION_STATE_MAIL_FROM:
 		if (server_index == 3) {
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"250 2.1.0 Ok\r\n");
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"421 testserver Server shutting down for maintenance\r\n");
 			sleep(4);
 			server_connection_deinit(&conn);
@@ -1124,9 +1124,9 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 		break;
 	case SERVER_CONNECTION_STATE_RCPT_TO:
 		if (server_index == 2) {
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"250 2.1.5 Ok\r\n");
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"421 testserver Server shutting down for maintenance\r\n");
 			sleep(4);
 			server_connection_deinit(&conn);
@@ -1135,9 +1135,9 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 		break;
 	case SERVER_CONNECTION_STATE_DATA:
 		if (server_index == 1) {
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"354 End data with <CR><LF>.<CR><LF>\r\n");
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"421 testserver Server shutting down for maintenance\r\n");
 			sleep(4);
 			server_connection_deinit(&conn);
@@ -1417,7 +1417,7 @@ test_partial_reply_input_line(struct server_connection *conn,
 {
 	if (conn->state == SERVER_CONNECTION_STATE_EHLO)
 		return 0;
-	o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"500 Command not");
 	server_connection_deinit(&conn);
 	return -1;
@@ -1511,7 +1511,7 @@ test_bad_reply_input_line(struct server_connection *conn,
 {
 	if (conn->state == SERVER_CONNECTION_STATE_EHLO)
 		return 0;
-	o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"666 Really bad reply\r\n");
 	server_connection_deinit(&conn);
 	return -1;
@@ -1604,15 +1604,15 @@ test_bad_greeting_init(struct server_connection *conn)
 {
 	switch (server_index) {
 	case 0:
-		o_stream_send_str(conn->conn.output,
+		o_stream_nsend_str(conn->conn.output,
 			"666 Mouhahahaha!!\r\n");
 		break;
 	case 1:
-		o_stream_send_str(conn->conn.output,
+		o_stream_nsend_str(conn->conn.output,
 			"446 Not right now, sorry.\r\n");
 		break;
 	case 2:
-		o_stream_send_str(conn->conn.output,
+		o_stream_nsend_str(conn->conn.output,
 			"233 Gimme all your mail, NOW!!\r\n");
 		break;
 	}
@@ -2293,7 +2293,7 @@ test_authentication_failed_input_line(struct server_connection *conn,
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_EHLO:
 		if (server_index == 1) {
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"250-testserver\r\n"
 				"250-PIPELINING\r\n"
 				"250-ENHANCEDSTATUSCODES\r\n"
@@ -2305,7 +2305,7 @@ test_authentication_failed_input_line(struct server_connection *conn,
 		break;
 	case SERVER_CONNECTION_STATE_MAIL_FROM:
 		if (server_index == 1) {
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"535 5.7.8 "
 				"Authentication credentials invalid\r\n");
 			sleep(10);
@@ -2654,7 +2654,7 @@ server_connection_input(struct connection *_conn)
 				return;
 			}
 
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"250 2.0.0 Ok: queued as 73BDE342129\r\n");
 			conn->state = SERVER_CONNECTION_STATE_MAIL_FROM;
 			continue;
@@ -2675,7 +2675,7 @@ server_connection_input(struct connection *_conn)
 
 		switch (conn->state) {
 		case SERVER_CONNECTION_STATE_EHLO:
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"250-testserver\r\n"
 				"250-PIPELINING\r\n"
 				"250-ENHANCEDSTATUSCODES\r\n"
@@ -2684,22 +2684,22 @@ server_connection_input(struct connection *_conn)
 			return;
 		case SERVER_CONNECTION_STATE_MAIL_FROM:
 			if (str_begins(line, "AUTH ")) {
-				o_stream_send_str(conn->conn.output,
+				o_stream_nsend_str(conn->conn.output,
 					"235 2.7.0 "
 					"Authentication successful\r\n");
 				continue;
 			}
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"250 2.1.0 Ok\r\n");
 			conn->state = SERVER_CONNECTION_STATE_RCPT_TO;
 			continue;
 		case SERVER_CONNECTION_STATE_RCPT_TO:
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"250 2.1.5 Ok\r\n");
 			conn->state = SERVER_CONNECTION_STATE_DATA;
 			continue;
 		case SERVER_CONNECTION_STATE_DATA:
-			o_stream_send_str(conn->conn.output,
+			o_stream_nsend_str(conn->conn.output,
 				"354 End data with <CR><LF>.<CR><LF>\r\n");
 			conn->state = SERVER_CONNECTION_STATE_FINISH;
 			continue;
@@ -2731,7 +2731,7 @@ server_connection_init(int fd)
 	}
 
 	if (test_server_input == NULL) {
-		o_stream_send_str(conn->conn.output,
+		o_stream_nsend_str(conn->conn.output,
 			"220 testserver ESMTP Testfix (Debian/GNU)\r\n");
 	}
 }

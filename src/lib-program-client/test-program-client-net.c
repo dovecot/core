@@ -183,7 +183,7 @@ static void test_program_run(struct test_client *client)
 						   	args[1], args[2]));
 			} else if (strcmp(args[0], "test_program_io") == 0) {
 				os = o_stream_create_dot(client->out, FALSE);
-				o_stream_send_istream(os, client->body);
+				o_stream_nsend_istream(os, client->body);
 				test_assert(o_stream_finish(os) > 0);
 				o_stream_unref(&os);
 				o_stream_nsend_str(client->out, "+\n");

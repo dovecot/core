@@ -188,7 +188,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 	o_stream_cork(output);
 	if (version >= 2)
-		o_stream_send_str(output, version2_header);
+		o_stream_nsend_str(output, version2_header);
 	if (version < 2 || name[0] == '\0')
 		escaped_name = name;
 	else {

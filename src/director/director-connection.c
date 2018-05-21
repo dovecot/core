@@ -2411,7 +2411,7 @@ void director_connection_deinit(struct director_connection **_conn,
 	}
 	if (*remote_reason != '\0' &&
 	    conn->minor_version >= DIRECTOR_VERSION_QUIT) {
-		o_stream_send_str(conn->output, t_strdup_printf(
+		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"QUIT\t%s\n", remote_reason));
 	}
 
