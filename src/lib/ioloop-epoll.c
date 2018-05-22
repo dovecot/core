@@ -217,8 +217,11 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 			else if ((io->io.condition & IO_ERROR) != 0)
 				call = (event->events & IO_EPOLL_ERROR) != 0;
 
-			if (call)
+			if (call) {
 				io_loop_call_io(&io->io);
+				if (!ioloop->running)
+					return;
+			}
 		}
 	}
 }

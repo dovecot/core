@@ -139,6 +139,8 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 		} else if (io_check_condition(ctx, io->fd, io->io.condition)) {
 			ret--;
 			io_loop_call_io(&io->io);
+			if (!ioloop->running)
+				break;
 		}
 	}
 }

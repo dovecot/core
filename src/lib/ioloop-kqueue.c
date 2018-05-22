@@ -149,6 +149,9 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	/* execute timeout handlers */
 	io_loop_handle_timeouts(ioloop);
 
+	if (!ioloop->running)
+		return;
+
 	for (i = 0; i < ret; i++) {
 		/* io_loop_handle_add() may cause events array reallocation,
 		   so we have use array_idx() */
@@ -156,8 +159,11 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 		io = (void *)event->udata;
 
 		/* callback is NULL if io_remove() was already called */
-		if (io->io.callback != NULL)
+		if (io->io.callback != NULL) {
 			io_loop_call_io(&io->io);
+			if (!ioloop->running)
+				break;
+		}
 
 		i_assert(io->refcount > 0);
 		if (--io->refcount == 0)

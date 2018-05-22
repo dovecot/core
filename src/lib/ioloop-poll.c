@@ -209,8 +209,11 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 			if (pollfd->revents == 0)
 				ret--;
 
-			if (call)
+			if (call) {
 				io_loop_call_io(&io->io);
+				if (!ioloop->running)
+					return;
+			}
 		}
 	}
 }

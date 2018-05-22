@@ -647,7 +647,8 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 	ioloop_time = ioloop_timeval.tv_sec;
 	tv_call = ioloop_timeval;
 
-	while ((item = priorityq_peek(ioloop->timeouts)) != NULL) {
+	while (ioloop->running &&
+	       (item = priorityq_peek(ioloop->timeouts)) != NULL) {
 		struct timeout *timeout = (struct timeout *)item;
 
 		/* use tv_call to make sure we don't get to infinite loop in
