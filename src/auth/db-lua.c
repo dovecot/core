@@ -171,12 +171,7 @@ static int auth_request_lua_passdb(lua_State *L)
 		return 1;
 	}
 
-	const char *value = auth_fields_find(request->extra_fields, key);
-
-	if (value == NULL)
-		lua_pushnil(L);
-	else
-		lua_pushstring(L, value);
+	lua_pushstring(L, auth_fields_find(request->extra_fields, key));
 	return 1;
 }
 
@@ -192,11 +187,7 @@ static int auth_request_lua_userdb(lua_State *L)
 		return 1;
 	}
 
-	const char *value = auth_fields_find(request->userdb_reply, key);
-	if (value == NULL)
-		lua_pushnil(L);
-	else
-		lua_pushstring(L, value);
+	lua_pushstring(L, auth_fields_find(request->userdb_reply, key));
 	return 1;
 }
 
@@ -234,10 +225,7 @@ static int auth_request_lua_password_verify(lua_State *L)
 	}
 
 	lua_pushnumber(script->L, ret);
-	if (error != NULL)
-		lua_pushstring(script->L, error);
-	else
-		lua_pushnil(script->L);
+	lua_pushstring(script->L, error);
 
 	return 2;
 }
@@ -269,10 +257,7 @@ static int auth_request_lua_index(lua_State *L)
 	/* check if it's variable */
 	for(unsigned int i = 0; i < AUTH_REQUEST_VAR_TAB_COUNT; i++) {
 		if (null_strcmp(table[i].long_key, key) == 0) {
-			if (table[i].value != NULL)
-				lua_pushstring(L, table[i].value);
-			else
-				lua_pushnil(L);
+			lua_pushstring(L, table[i].value);
 			return 1;
 		}
 	}
