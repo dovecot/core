@@ -405,7 +405,7 @@ void log_connection_create(struct log_error_buffer *errorbuf,
 	log->listen_fd = listen_fd;
 	log->io = io_add(fd, IO_READ, log_connection_input, log);
 	log->input = i_stream_create_fd(fd, PIPE_BUF);
-	log->default_prefix = i_strdup_printf("listen_fd %d", listen_fd);
+	log->default_prefix = i_strdup_printf("listen_fd(%d): ", listen_fd);
 	hash_table_create_direct(&log->clients, default_pool, 0);
 	array_idx_set(&logs_by_fd, listen_fd, &log);
 
