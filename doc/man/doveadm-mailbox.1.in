@@ -395,5 +395,5 @@ doveadm mailbox mutf7 ~peter/mail/台北/日本語
 .\"------------------------------------------------------------------------
 .SH SEE ALSO
 .BR doveadm (1)
-.BR doveadm-search-query (5)
+.BR doveadm-search-query (7)
 .BR doveadm-mailbox-cryptokey(1)
