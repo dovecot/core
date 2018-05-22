@@ -763,6 +763,7 @@ static int fs_posix_copy(struct fs_file *_src, struct fs_file *_dest)
 	unsigned int try_count = 0;
 	int ret;
 
+	fs_posix_write_rename_if_needed(dest);
 	ret = link(src->full_path, dest->full_path);
 	if (errno == EEXIST && dest->open_mode == FS_OPEN_MODE_REPLACE) {
 		/* destination file already exists - replace it */
