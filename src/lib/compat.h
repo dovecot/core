@@ -295,6 +295,10 @@ int fdatasync(int);
 #ifndef IO_BLOCK_SIZE
 #  define IO_BLOCK_SIZE 8192
 #endif
+/* Default size for data blocks transferred over the network */
+#ifndef NET_BLOCK_SIZE
+#  define NET_BLOCK_SIZE (128*1024)
+#endif
 
 #if !defined(PIPE_BUF) && defined(_POSIX_PIPE_BUF)
 #  define PIPE_BUF (8 * _POSIX_PIPE_BUF) /* for HURD */
