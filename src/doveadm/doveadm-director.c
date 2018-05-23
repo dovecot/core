@@ -510,12 +510,12 @@ cmd_director_add_or_update(struct doveadm_cmd_context *cctx, bool update)
 		if (line == NULL)
 			director_disconnected(ctx);
 		else if (strcmp(line, "OK") != 0) {
-			i_error("%s: %s\n", net_ip2addr(&ips[i]),
+			i_error("%s: %s", net_ip2addr(&ips[i]),
 				strcmp(line, "NOTFOUND") == 0 ?
 				"doesn't exist" : line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
-			i_info("%s: OK\n", net_ip2addr(&ips[i]));
+			i_info("%s: OK", net_ip2addr(&ips[i]));
 		}
 	}
 	director_disconnect(ctx);
@@ -558,17 +558,17 @@ cmd_director_ipcmd(const char *cmd_name, const char *success_result,
 	for (i = 0; i < ips_count; i++) {
 		line = i_stream_read_next_line(ctx->input);
 		if (line != NULL && strcmp(line, "NOTFOUND") == 0) {
-			i_error("%s: doesn't exist\n",
+			i_error("%s: doesn't exist",
 				net_ip2addr(&ips[i]));
 			if (doveadm_exit_code == 0)
 				doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 		} else if (line == NULL) {
 			director_disconnected(ctx);
 		} else if (strcmp(line, "OK") != 0) {
-			i_error("%s: %s\n", net_ip2addr(&ips[i]), line);
+			i_error("%s: %s", net_ip2addr(&ips[i]), line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
-			i_info("%s: %s\n", net_ip2addr(&ips[i]), success_result);
+			i_info("%s: %s", net_ip2addr(&ips[i]), success_result);
 		}
 	}
 	director_disconnect(ctx);
@@ -615,7 +615,7 @@ static void cmd_director_move(struct doveadm_cmd_context *cctx)
 		director_disconnected(ctx);
 	} else if (strcmp(line, "OK") == 0) {
 		if (doveadm_verbose)
-			i_info("User hash %u moved to %s\n", user_hash, ip_str);
+			i_info("User hash %u moved to %s", user_hash, ip_str);
 	} else if (strcmp(line, "NOTFOUND") == 0) {
 		i_error("Host '%s' doesn't exist", ip_str);
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
