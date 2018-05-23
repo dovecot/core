@@ -288,7 +288,7 @@ smtp_server_connection_ready(struct smtp_server_connection *conn)
 	smtp_server_connection_update_rawlog(conn);
 
 	conn->smtp_parser = smtp_command_parser_init(conn->conn.input,
-		&conn->server->set.command_limits);
+		&conn->set.command_limits);
 	o_stream_set_flush_callback(conn->conn.output,
 		smtp_server_connection_output, conn);
 
