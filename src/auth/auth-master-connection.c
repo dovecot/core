@@ -176,7 +176,7 @@ master_input_cache_flush(struct auth_master_connection *conn, const char *args)
 	} else {
 		count = auth_cache_clear_users(passdb_cache, list+1);
 	}
-	(void)o_stream_send_str(conn->output,
+	o_stream_nsend_str(conn->output,
 		t_strdup_printf("OK\t%s\t%u\n", list[0], count));
 	return TRUE;
 }

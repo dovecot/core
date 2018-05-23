@@ -200,7 +200,7 @@ static void test_http_transfer_chunked_input_invalid(void)
 
 		buffer_set_used_size(payload_buffer, 0);
 		output = o_stream_create_buffer(payload_buffer);
-		(void)o_stream_send_istream(output, chunked);
+		o_stream_nsend_istream(output, chunked);
 		test_out("payload read failure", chunked->stream_errno != 0);
 		i_stream_unref(&chunked);
 		o_stream_destroy(&output);
