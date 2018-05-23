@@ -95,6 +95,7 @@ static void setup_channel(struct test_channel *channel,
 
 static void teardown_channel(struct test_channel *channel)
 {
+	test_istream_read_alt(channel);
 	test_assert(memcmp(channel->received->data,
 			   channel->received_alt->data,
 			   channel->received->used) == 0);
