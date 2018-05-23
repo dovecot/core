@@ -34,6 +34,10 @@ client_handshake_filter(const char *const *args, struct event_filter **filter_r,
 		*error_r = "Expected FILTER";
 		return -1;
 	}
+	if (args[1] == NULL || args[1][0] == '\0') {
+		*filter_r = NULL;
+		return 0;
+	}
 
 	*filter_r = event_filter_create();
 	if (!event_filter_import_unescaped(*filter_r, args+1, error_r)) {
@@ -58,6 +62,10 @@ stats_client_handshake(struct stats_client *client, const char *const *args)
 	client->handshake_received_at_least_once = TRUE;
 	if (client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
+	if (filter == NULL) {
+		/* stats process wants nothing to be sent to it */
+		return 1;
+	}
 
 	if (client->filter != NULL) {
 		/* Filter is already set. It becomes a bit complicated to
@@ -200,7 +208,7 @@ static void
 stats_client_send_event(struct stats_client *client, struct event *event,
 			const struct failure_context *ctx)
 {
-	if (!client->handshaked ||
+	if (!client->handshaked || client->filter == NULL ||
 	    !event_filter_match(client->filter, event, ctx))
 		return;
 
