@@ -166,7 +166,7 @@ struct cassandra_sql_arg {
 	unsigned int column_idx;
 
 	char *value_str;
-	unsigned char *value_binary;
+	const unsigned char *value_binary;
 	size_t value_binary_size;
 	int64_t value_int64;
 };
@@ -1976,7 +1976,8 @@ driver_cassandra_statement_bind_binary(struct sql_statement *_stmt,
 	} else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
 			driver_cassandra_add_pending_arg(stmt, column_idx);
-		arg->value_binary = p_memdup(_stmt->pool, value, value_size);
+		arg->value_binary = value_size == 0 ? &uchar_nul :
+			p_memdup(_stmt->pool, value, value_size);
 		arg->value_binary_size = value_size;
 	}
 }
