@@ -565,7 +565,7 @@ http_transfer_chunked_ostream_close(struct iostream_private *stream,
 	struct http_transfer_chunked_ostream *tcstream =
 		(struct http_transfer_chunked_ostream *)stream;
 
-	(void)o_stream_send(tcstream->ostream.parent, "0\r\n\r\n", 5);
+	o_stream_nsend(tcstream->ostream.parent, "0\r\n\r\n", 5);
 	(void)o_stream_flush(&tcstream->ostream.ostream);
 	if (close_parent)
 		o_stream_close(tcstream->ostream.parent);

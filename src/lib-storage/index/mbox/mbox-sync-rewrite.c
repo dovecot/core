@@ -40,7 +40,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	/* we're moving data within a file. it really shouldn't be failing at
 	   this point or we're corrupted. */
 	input = i_stream_create_limit(sync_ctx->file_input, size);
-	(void)o_stream_send_istream(output, input);
+	o_stream_nsend_istream(output, input);
 	if (input->stream_errno != 0) {
 		mailbox_set_critical(&mbox->box,
 			"read() failed with mbox: %s",

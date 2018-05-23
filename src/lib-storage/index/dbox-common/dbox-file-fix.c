@@ -236,7 +236,7 @@ stream_copy(struct dbox_file *file, struct ostream *output,
 	int ret = 0;
 
 	input = i_stream_create_limit(file->input, count);
-	(void)o_stream_send_istream(output, input);
+	o_stream_nsend_istream(output, input);
 
 	if (input->stream_errno != 0) {
 		mail_storage_set_critical(&file->storage->storage,
