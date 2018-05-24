@@ -147,6 +147,8 @@ fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
 	size_t pos = 0;
 	bool seen_at = FALSE;
 
+	i_assert(size == 0 || data != NULL);
+
 	while (pos < size && (IS_ATEXT(data[pos]) ||
 			      data[pos] == '@' || data[pos] == '.')) {
 		if (data[pos] == '@')
