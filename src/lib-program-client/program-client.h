@@ -33,24 +33,28 @@ struct program_client_settings {
 typedef void program_client_fd_callback_t(void *context, struct istream *input);
 typedef void program_client_callback_t(int, void *);
 
-struct program_client *program_client_local_create(const char *bin_path,
-	const char *const *args,
-	const struct program_client_settings *set);
-struct program_client *program_client_unix_create(const char *socket_path,
-	const char *const *args,
-	const struct program_client_settings *set, bool noreply);
-struct program_client *program_client_net_create(const char *host,
-	in_port_t port, const char *const *args,
-	const struct program_client_settings *set, bool noreply);
+struct program_client *
+program_client_local_create(const char *bin_path, const char *const *args,
+			    const struct program_client_settings *set)
+			    ATTR_NULL(3);
+struct program_client *
+program_client_unix_create(const char *socket_path, const char *const *args,
+			   const struct program_client_settings *set,
+			   bool noreply) ATTR_NULL(3);
+struct program_client *
+program_client_net_create(const char *host, in_port_t port,
+			  const char *const *args,
+			  const struct program_client_settings *set,
+			  bool noreply) ATTR_NULL(4);
 struct program_client *
 program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 			      in_port_t port, const char *const *args,
 			      const struct program_client_settings *set,
-			      bool noreply);
+			      bool noreply) ATTR_NULL(5);
 int program_client_create(const char *uri, const char *const *args,
 			  const struct program_client_settings *set,
 			  bool noreply, struct program_client **pc_r,
-			  const char **error_r);
+			  const char **error_r) ATTR_NULL(3);
 
 void program_client_destroy(struct program_client **_pclient);
 

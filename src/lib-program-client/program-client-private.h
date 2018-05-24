@@ -74,7 +74,8 @@ void program_client_set_label(struct program_client *pclient,
 void program_client_init(struct program_client *pclient, pool_t pool,
 			 const char *initial_label,
 			 const char *const *args,
-			 const struct program_client_settings *set);
+			 const struct program_client_settings *set)
+			 ATTR_NULL(5);
 
 void program_client_init_streams(struct program_client *pclient);
 

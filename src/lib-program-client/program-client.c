@@ -463,20 +463,25 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 			 const char *initial_label, const char *const *args,
 			 const struct program_client_settings *set)
 {
-	i_assert(set != NULL);
 	pclient->pool = pool;
 	if (args != NULL)
 		pclient->args = p_strarray_dup(pool, args);
-	pclient->set = *set;
-	pclient->set.dns_client_socket_path =
-		p_strdup(pool, set->dns_client_socket_path);
-	pclient->set.home = p_strdup(pool, set->home);
-	pclient->debug = set->debug;
 	pclient->fd_in = -1;
 	pclient->fd_out = -1;
 
-	pclient->event = event_create(set->event);
-	event_set_forced_debug(pclient->event, set->debug);
+	if (set == NULL)
+		pclient->event = event_create(NULL);
+	else {
+		pclient->set = *set;
+		pclient->debug = set->debug;
+		pclient->set.dns_client_socket_path =
+			p_strdup(pool, set->dns_client_socket_path);
+		pclient->set.home = p_strdup(pool, set->home);
+
+		pclient->event = event_create(set->event);
+		event_set_forced_debug(pclient->event, set->debug);
+	}
+
 	program_client_set_label(pclient, initial_label);
 
 	e_debug(pclient->event, "Created");
