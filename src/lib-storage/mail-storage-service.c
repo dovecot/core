@@ -1332,6 +1332,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	   This event won't be a parent to any other events - mail_user.event
 	   will be used for that. */
 	user->event = event_create(input->parent_event);
+	if (user->service_ctx->debug)
+		event_set_forced_debug(user->event, TRUE);
 	event_add_fields(user->event, (const struct event_add_field []){
 		{ .key = "user", .value = user->input.username },
 		{ .key = "service", .value = ctx->service->name },
