@@ -60,7 +60,7 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 	struct acl_object_list_iter *iter;
 	struct acl_rights rights, wanted_rights;
 	const char *id;
-	int ret;
+	int ret = 0;
 
 	i_zero(value_r);
 
@@ -88,11 +88,17 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 		    rights.id_type == wanted_rights.id_type &&
 		    null_strcmp(rights.identifier, wanted_rights.identifier) == 0) {
 			value_r->value = acl_rights_export(&rights);
+			ret = 1;
 			break;
 		}
 	}
-	if ((ret = acl_object_list_deinit(&iter)) < 0)
+	/* the return value here cannot be used, because this function
+	   needs to return whether it actually matched something
+	   or not */
+	if (acl_object_list_deinit(&iter) < 0) {
 		mail_storage_set_internal_error(box->storage);
+		ret = -1;
+	}
 	return ret;
 }
 
