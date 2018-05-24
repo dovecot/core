@@ -181,7 +181,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 	data_stack_frame_t datastack_frame_id = 0;
 	unsigned int count;
 	const char *value;
-	const char *error;
 
 	i_assert(name != NULL);
 
@@ -264,6 +263,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 #ifdef HAVE_SSL
 	/* load SSL module if necessary */
 	if (service->want_ssl_settings) {
+		const char *error;
 		if (ssl_module_load(&error) < 0)
 			i_fatal("Cannot load SSL module: %s", error);
 		service->ssl_module_loaded = TRUE;
