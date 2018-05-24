@@ -23,6 +23,7 @@ enum log_type {
 	LOG_TYPE_PANIC,
 
 	LOG_TYPE_COUNT,
+	/* special case */
 	LOG_TYPE_OPTION
 };
 

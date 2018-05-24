@@ -129,7 +129,6 @@ client_log_ctx(struct log_connection *log,
 	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
 	case LOG_TYPE_INFO:
-	case LOG_TYPE_OPTION:
 		break;
 	case LOG_TYPE_WARNING:
 	case LOG_TYPE_ERROR:
@@ -142,6 +141,7 @@ client_log_ctx(struct log_connection *log,
 		err.text = text;
 		log_error_buffer_add(log->errorbuf, &err);
 		break;
+	case LOG_TYPE_OPTION:
 	case LOG_TYPE_COUNT:
 		i_unreached();
 	}
