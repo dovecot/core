@@ -34,8 +34,8 @@ static void test_db_lua_auth_verify(void)
 
 	test_begin("auth db lua passdb_verify");
 
-	test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
-	if (script != NULL) {
+        test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
+        if (script != NULL) {
 		test_assert(auth_lua_script_init(script, &error) == 0);
 		test_assert(auth_lua_call_password_verify(script, req, "password", &error) == 1);
 		dlua_script_unref(&script);
