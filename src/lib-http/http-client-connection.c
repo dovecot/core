@@ -1726,8 +1726,7 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 	conn->closing = TRUE;
 	conn->connected = FALSE;
 
-	if (conn->connect_request != NULL)
-		http_client_request_abort(&conn->connect_request);
+	http_client_request_abort(&conn->connect_request);
 
 	if (conn->incoming_payload != NULL) {
 		/* the stream is still accessed by lib-http caller. */
