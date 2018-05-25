@@ -307,6 +307,9 @@ void fs_file_deinit(struct fs_file **_file)
 
 void fs_file_close(struct fs_file *file)
 {
+	if (file == NULL)
+		return;
+
 	i_assert(!file->writing_stream);
 	i_assert(file->output == NULL);
 
