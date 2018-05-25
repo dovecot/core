@@ -133,7 +133,7 @@ static void fs_metawrap_file_deinit(struct fs_file *_file)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
-	if (file->super_read != _file->parent && file->super_read != NULL)
+	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
 	str_free(&file->metadata_header);
 	fs_file_deinit(&_file->parent);
