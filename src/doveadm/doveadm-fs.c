@@ -323,8 +323,7 @@ static void doveadm_fs_delete_async_finish(struct fs_delete_ctx *ctx)
 		fs_wait_async(ctx->fs);
 	}
 	for (i = 0; i < ctx->files_count; i++) {
-		if (ctx->files[i] != NULL)
-			fs_file_deinit(&ctx->files[i]);
+		fs_file_deinit(&ctx->files[i]);
 	}
 }
 
