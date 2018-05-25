@@ -197,9 +197,15 @@ void fs_ref(struct fs *fs)
 void fs_unref(struct fs **_fs)
 {
 	struct fs *fs = *_fs;
-	string_t *last_error = fs->last_error;
-	struct array module_contexts_arr = fs->module_contexts.arr;
+	string_t *last_error;
+	struct array module_contexts_arr;
 	unsigned int i;
+
+	if (fs == NULL)
+		return;
+
+	last_error = fs->last_error;
+	module_contexts_arr = fs->module_contexts.arr;
 
 	i_assert(fs->refcount > 0);
 
