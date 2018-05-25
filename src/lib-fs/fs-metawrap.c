@@ -75,8 +75,7 @@ static void fs_metawrap_deinit(struct fs *_fs)
 {
 	struct metawrap_fs *fs = (struct metawrap_fs *)_fs;
 
-	if (_fs->parent != NULL)
-		fs_deinit(&_fs->parent);
+	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 

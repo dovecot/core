@@ -101,8 +101,7 @@ static void fs_compress_deinit(struct fs *_fs)
 {
 	struct compress_fs *fs = (struct compress_fs *)_fs;
 
-	if (_fs->parent != NULL)
-		fs_deinit(&_fs->parent);
+	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 
