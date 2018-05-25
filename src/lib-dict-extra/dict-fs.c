@@ -195,10 +195,9 @@ static int fs_dict_iterate_deinit(struct dict_iterate_context *ctx,
 	struct fs_dict *dict = (struct fs_dict *)ctx->dict;
 	int ret;
 
-	if (iter->fs_iter != NULL) {
-		if (fs_iter_deinit(&iter->fs_iter) < 0 && iter->error == NULL)
-			iter->error = i_strdup(fs_last_error(dict->fs));
-	}
+	if (fs_iter_deinit(&iter->fs_iter) < 0 && iter->error == NULL)
+		iter->error = i_strdup(fs_last_error(dict->fs));
+
 	ret = iter->error != NULL ? -1 : 0;
 	*error_r = t_strdup(iter->error);
 
