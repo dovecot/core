@@ -143,8 +143,7 @@ void dbox_storage_destroy(struct mail_storage *_storage)
 {
 	struct dbox_storage *storage = DBOX_STORAGE(_storage);
 
-	if (storage->attachment_fs != NULL)
-		fs_deinit(&storage->attachment_fs);
+	fs_deinit(&storage->attachment_fs);
 	index_storage_destroy(_storage);
 }
 
