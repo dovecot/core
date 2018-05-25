@@ -1477,7 +1477,12 @@ void http_client_request_error(struct http_client_request **_req,
 void http_client_request_abort(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
-	bool sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
+	bool sending;
+
+	if (req == NULL)
+		return;
+
+	sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
 
 	*_req = NULL;
 
