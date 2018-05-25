@@ -279,8 +279,14 @@ struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
 void fs_file_deinit(struct fs_file **_file)
 {
 	struct fs_file *file = *_file;
-	struct event *event = file->event;
-	pool_t metadata_pool = file->metadata_pool;
+	struct event *event;
+	pool_t metadata_pool;
+
+	if (file == NULL)
+		return;
+
+	event = file->event;
+	metadata_pool = file->metadata_pool;
 
 	i_assert(file->fs->files_open_count > 0);
 
