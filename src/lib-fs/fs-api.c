@@ -897,6 +897,9 @@ void fs_unlock(struct fs_lock **_lock)
 {
 	struct fs_lock *lock = *_lock;
 
+	if (lock == NULL)
+		return;
+
 	*_lock = NULL;
 	T_BEGIN {
 		lock->file->fs->v.unlock(lock);
