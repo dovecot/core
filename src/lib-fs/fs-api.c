@@ -1141,8 +1141,13 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 int fs_iter_deinit(struct fs_iter **_iter)
 {
 	struct fs_iter *iter = *_iter;
-	struct event *event = iter->event;
+	struct event *event;
 	int ret;
+
+	if (iter == NULL)
+		return 0;
+
+	event = iter->event;
 
 	*_iter = NULL;
 	DLLIST_REMOVE(&iter->fs->iters, iter);
