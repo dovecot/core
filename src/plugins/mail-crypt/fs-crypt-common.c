@@ -180,10 +180,8 @@ static void fs_crypt_file_close(struct fs_file *_file)
 	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
 
 	i_stream_unref(&file->input);
-	if (file->super_read != NULL)
-		fs_file_close(file->super_read);
-	if (_file->parent != NULL)
-		fs_file_close(_file->parent);
+	fs_file_close(file->super_read);
+	fs_file_close(_file->parent);
 }
 
 static int fs_crypt_read_file(const char *set_name, const char *path,
