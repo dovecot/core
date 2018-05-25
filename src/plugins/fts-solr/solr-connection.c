@@ -556,8 +556,7 @@ int solr_connection_post_end(struct solr_connection_post **_post)
 			ret = -1;
 		}
 	} else {
-		if (post->http_req != NULL)
-			http_client_request_abort(&post->http_req);
+		http_client_request_abort(&post->http_req);
 	}
 	i_free(post);
 

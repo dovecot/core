@@ -250,8 +250,7 @@ static int fts_parser_tika_deinit(struct fts_parser *_parser, const char **retri
 	   timeout to ioloop unnecessarily */
 	i_stream_unref(&parser->payload);
 	io_remove(&parser->io);
-	if (parser->http_req != NULL)
-		http_client_request_abort(&parser->http_req);
+	http_client_request_abort(&parser->http_req);
 	if (parser->ioloop != NULL) {
 		io_loop_set_current(parser->ioloop);
 		io_loop_destroy(&parser->ioloop);
