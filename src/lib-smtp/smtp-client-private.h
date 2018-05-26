@@ -10,6 +10,7 @@
 #include "smtp-client-transaction.h"
 #include "smtp-client-connection.h"
 
+#define SMTP_CLIENT_BASE_LINE_LENGTH_LIMIT 512
 #define SMTP_CLIENT_DATA_CHUNK_SIZE IO_BLOCK_SIZE
 
 struct smtp_client_command {
@@ -130,6 +131,7 @@ struct smtp_client_connection {
 
 	struct smtp_reply_parser *reply_parser;
 	struct smtp_reply reply;
+	unsigned int xclient_replies_expected;
 
 	struct dns_lookup *dns_lookup;
 	struct dsasl_client *sasl_client;

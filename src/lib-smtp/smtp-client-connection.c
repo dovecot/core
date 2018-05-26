@@ -606,6 +606,8 @@ smtp_client_connection_xclient_cb(const struct smtp_reply *reply,
 			smtp_reply_log(reply));
 	}
 
+	i_assert(conn->xclient_replies_expected > 0);
+
 	if (reply->status == 421) {
 		smtp_client_connection_fail_reply(conn, reply);
 		return;
@@ -615,79 +617,16 @@ smtp_client_connection_xclient_cb(const struct smtp_reply *reply,
 
 	if (conn->to_connect != NULL)
 		timeout_reset(conn->to_connect);
-	smtp_client_connection_handshake(conn);
+	if (--conn->xclient_replies_expected == 0)
+		smtp_client_connection_handshake(conn);
 }
 
-bool smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
-					 struct smtp_proxy_data *xclient)
+static void
+smtp_client_connection_xclient_submit(struct smtp_client_connection *conn,
+				      const char *cmdstr)
 {
-	const char **xclient_args = conn->cap_xclient_args;
 	struct smtp_client_command *cmd;
 	enum smtp_client_command_flags flags;
-	unsigned int empty_len;
-	string_t *str;
-
-	if (!conn->set.peer_trusted)
-		return TRUE;
-	if ((conn->capabilities & SMTP_CAPABILITY_XCLIENT) == 0 ||
-	    conn->cap_xclient_args == NULL)
-		return TRUE;
-
-	str = t_str_new(64);
-	str_append(str, "XCLIENT");
-	empty_len = str_len(str);
-
-	if (xclient->source_ip.family != 0 &&
-	    str_array_icase_find(xclient_args, "ADDR")) {
-		/* Older versions of Dovecot LMTP don't quite follow Postfix'
-		   specification of the XCLIENT command regarding IPv6
-		   addresses: the "IPV6:" prefix is omitted. For now, we
-		   maintain this deviation for LMTP. Newer versions of Dovecot
-		   LMTP can work with or without the prefix. */
-		if (conn->protocol != SMTP_PROTOCOL_LMTP &&
-			xclient->source_ip.family == AF_INET6)
-			str_append(str, " ADDR=IPV6:");
-		else
-			str_append(str, " ADDR=");
-		str_append(str, net_ip2addr(&xclient->source_ip));
-	}
-	if (xclient->source_port != 0 &&
-	    str_array_icase_find(xclient_args, "PORT"))
-		str_printfa(str, " PORT=%u", xclient->source_port);
-	if (xclient->helo != NULL &&
-	    str_array_icase_find(xclient_args, "HELO")) {
-		str_append(str, " HELO=");
-		smtp_xtext_encode_cstr(str, xclient->helo);
-	}
-	if (str_array_icase_find(xclient_args, "PROTO")) {
-		switch (xclient->proto) {
-		case SMTP_PROXY_PROTOCOL_SMTP:
-			str_printfa(str, " PROTO=SMTP");
-			break;
-		case SMTP_PROXY_PROTOCOL_ESMTP:
-			str_printfa(str, " PROTO=ESMTP");
-			break;
-		case SMTP_PROXY_PROTOCOL_LMTP:
-			str_printfa(str, " PROTO=LMTP");
-			break;
-		default:
-			break;
-		}
-	}
-	if (xclient->login != NULL &&
-	    str_array_icase_find(xclient_args, "LOGIN")) {
-		str_append(str, " LOGIN=");
-		smtp_xtext_encode_cstr(str, xclient->login);
-	}
-	if (xclient->ttl_plus_1 > 0 &&
-	    str_array_icase_find(xclient_args, "TTL"))
-		str_printfa(str, " TTL=%u", xclient->ttl_plus_1-1);
-	if (xclient->timeout_secs > 0 &&
-	    str_array_icase_find(xclient_args, "TIMEOUT"))
-		str_printfa(str, " TIMEOUT=%u", xclient->timeout_secs);
-
-	if (str_len(str) <= empty_len)
-		return TRUE;
 
 	smtp_client_connection_debug(conn,
 		"Sending XCLIENT handshake");
@@ -697,9 +636,164 @@ bool smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
 
 	cmd = smtp_client_command_new(conn, flags,
 		smtp_client_connection_xclient_cb, conn);
-	smtp_client_command_write(cmd, str_c(str));
+	smtp_client_command_write(cmd, cmdstr);
 	smtp_client_command_submit(cmd);
-	return FALSE;
+
+	conn->xclient_replies_expected++;
+}
+
+static void
+smtp_client_connection_xclient_add(struct smtp_client_connection *conn,
+				   string_t *str, size_t offset,
+				   const char *field, const char *value)
+{
+	size_t prev_offset = str_len(str);
+	const char *new_field;
+
+	str_append_c(str, ' ');
+	str_append(str, field);
+	str_append_c(str, '=');
+	smtp_xtext_encode_cstr(str, value);
+
+	if (str_len(str) <= SMTP_CLIENT_BASE_LINE_LENGTH_LIMIT)
+		return;
+		
+	/* preserve field we just added */
+	new_field = t_strdup(str_c(str) + prev_offset);
+
+	/* revert to previous position */
+	str_truncate(str, prev_offset);
+
+	/* send XCLIENT command */
+	smtp_client_connection_xclient_submit(conn, str_c(str));
+
+	/* start next XCLIENT command with new field */
+	str_truncate(str, offset);
+	str_append(str, new_field);
+}
+
+static void ATTR_FORMAT(5, 6)
+smtp_client_connection_xclient_addf(struct smtp_client_connection *conn,
+				    string_t *str, size_t offset,
+				    const char *field, const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	smtp_client_connection_xclient_add(conn, str, offset, field,
+					   t_strdup_vprintf(format, args));
+	va_end(args);
+}
+
+bool smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
+					 struct smtp_proxy_data *xclient)
+{
+	const char **xclient_args = conn->cap_xclient_args;
+	size_t offset;
+	string_t *str;
+
+	if (!conn->set.peer_trusted)
+		return TRUE;
+	if ((conn->capabilities & SMTP_CAPABILITY_XCLIENT) == 0 ||
+	    conn->cap_xclient_args == NULL)
+		return TRUE;
+
+	i_assert(conn->xclient_replies_expected == 0);
+
+	/* http://www.postfix.org/XCLIENT_README.html:
+
+	   The client must not send XCLIENT commands that exceed the 512
+	   character limit for SMTP commands. To avoid exceeding the limit the
+	   client should send the information in multiple XCLIENT commands; for
+	   example, send NAME and ADDR last, after HELO and PROTO. Once ADDR is
+	   sent, the client is usually no longer authorized to send XCLIENT
+	   commands.
+	 */
+
+	str = t_str_new(64);
+	str_append(str, "XCLIENT");
+	offset = str_len(str);
+
+	/* HELO */
+	if (xclient->helo != NULL &&
+	    str_array_icase_find(xclient_args, "HELO")) {
+		smtp_client_connection_xclient_add(conn, str, offset,
+						   "HELO", xclient->helo);
+	}
+
+	/* PROTO */
+	if (str_array_icase_find(xclient_args, "PROTO")) {
+		switch (xclient->proto) {
+		case SMTP_PROXY_PROTOCOL_SMTP:
+			smtp_client_connection_xclient_add(conn, str, offset,
+							   "PROTO", "SMTP");
+			break;
+		case SMTP_PROXY_PROTOCOL_ESMTP:
+			smtp_client_connection_xclient_add(conn, str, offset,
+							   "PROTO", "ESMTP");
+			break;
+		case SMTP_PROXY_PROTOCOL_LMTP:
+			smtp_client_connection_xclient_add(conn, str, offset,
+							   "PROTO", "LMTP");
+			break;
+		default:
+			break;
+		}
+	}
+
+	/* LOGIN */
+	if (xclient->login != NULL &&
+	    str_array_icase_find(xclient_args, "LOGIN")) {
+		smtp_client_connection_xclient_add(conn, str, offset,
+						   "LOGIN", xclient->login);
+	}
+
+	/* TTL */
+	if (xclient->ttl_plus_1 > 0 &&
+	    str_array_icase_find(xclient_args, "TTL")) {
+		smtp_client_connection_xclient_addf(conn, str, offset,
+						    "TTL", "%u",
+						    xclient->ttl_plus_1-1);
+	}
+
+	/* TIMEOUT */
+	if (xclient->timeout_secs > 0 &&
+	    str_array_icase_find(xclient_args, "TIMEOUT")) {
+		smtp_client_connection_xclient_addf(conn, str, offset,
+						    "TIMEOUT", "%u",
+						    xclient->timeout_secs);
+	}
+
+	/* PORT */
+	if (xclient->source_port != 0 &&
+	    str_array_icase_find(xclient_args, "PORT")) {
+		smtp_client_connection_xclient_addf(conn, str, offset,
+						    "PORT", "%u",
+						    xclient->source_port);
+	}
+
+	/* ADDR */
+	if (xclient->source_ip.family != 0 &&
+	    str_array_icase_find(xclient_args, "ADDR")) {
+		const char *addr = net_ip2addr(&xclient->source_ip);
+
+		/* Older versions of Dovecot LMTP don't quite follow Postfix'
+		   specification of the XCLIENT command regarding IPv6
+		   addresses: the "IPV6:" prefix is omitted. For now, we
+		   maintain this deviation for LMTP. Newer versions of Dovecot
+		   LMTP can work with or without the prefix. */
+		if (conn->protocol != SMTP_PROTOCOL_LMTP &&
+			xclient->source_ip.family == AF_INET6)
+			addr = t_strconcat("IPV6:", addr, NULL);
+		smtp_client_connection_xclient_add(conn, str, offset,
+						   "ADDR", addr);
+	}
+
+	/* final XCLIENT command */
+	if (str_len(str) > offset)
+		smtp_client_connection_xclient_submit(conn, str_c(str));
+
+	return (conn->xclient_replies_expected == 0);
 }
 
 static bool
@@ -1550,6 +1644,9 @@ void smtp_client_connection_connect(struct smtp_client_connection *conn,
 		i_assert(login_callback == NULL);
 		return;
 	}
+
+	conn->xclient_replies_expected = 0;
+
 	i_assert(conn->login_callback == NULL);
 	conn->login_callback = login_callback;
 	conn->login_context = login_context;
