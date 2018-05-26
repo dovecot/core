@@ -331,6 +331,7 @@ int main(int argc, char *argv[])
 			/* envelope sender address */
 			if (smtp_address_parse_path(ctx.pool, optarg,
 			    SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+				SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 				SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY,
 			    &mail_from, &errstr) < 0) {
 				i_fatal_status(EX_USAGE,
