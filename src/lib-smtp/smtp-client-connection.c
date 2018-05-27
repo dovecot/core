@@ -618,19 +618,20 @@ smtp_client_connection_xclient_cb(const struct smtp_reply *reply,
 	smtp_client_connection_handshake(conn);
 }
 
-void
-smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
-	struct smtp_proxy_data *xclient)
+bool smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
+					 struct smtp_proxy_data *xclient)
 {
 	const char **xclient_args = conn->cap_xclient_args;
+	struct smtp_client_command *cmd;
+	enum smtp_client_command_flags flags;
 	unsigned int empty_len;
 	string_t *str;
 
 	if (!conn->set.peer_trusted)
-		return;
+		return TRUE;
 	if ((conn->capabilities & SMTP_CAPABILITY_XCLIENT) == 0 ||
 	    conn->cap_xclient_args == NULL)
-		return;
+		return TRUE;
 
 	str = t_str_new(64);
 	str_append(str, "XCLIENT");
@@ -685,21 +686,20 @@ smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
 	    str_array_icase_find(xclient_args, "TIMEOUT"))
 		str_printfa(str, " TIMEOUT=%u", xclient->timeout_secs);
 
-	if (str_len(str) > empty_len) {
-		struct smtp_client_command *cmd;
-		enum smtp_client_command_flags flags;
+	if (str_len(str) <= empty_len)
+		return TRUE;
 
-		smtp_client_connection_debug(conn,
-			"Sending XCLIENT handshake");
+	smtp_client_connection_debug(conn,
+		"Sending XCLIENT handshake");
 
-		flags = SMTP_CLIENT_COMMAND_FLAG_PRELOGIN |
-			SMTP_CLIENT_COMMAND_FLAG_PRIORITY;
+	flags = SMTP_CLIENT_COMMAND_FLAG_PRELOGIN |
+		SMTP_CLIENT_COMMAND_FLAG_PRIORITY;
 
-		cmd = smtp_client_command_new(conn, flags,
-			smtp_client_connection_xclient_cb, conn);
-		smtp_client_command_write(cmd, str_c(str));
-		smtp_client_command_submit(cmd);
-	}
+	cmd = smtp_client_command_new(conn, flags,
+		smtp_client_connection_xclient_cb, conn);
+	smtp_client_command_write(cmd, str_c(str));
+	smtp_client_command_submit(cmd);
+	return FALSE;
 }
 
 static bool
@@ -707,8 +707,9 @@ smtp_client_connection_init_xclient(struct smtp_client_connection *conn)
 {
 	if (!conn->initial_xclient_sent) {
 		conn->initial_xclient_sent = TRUE;
-		smtp_client_connection_send_xclient(conn,
-			&conn->set.proxy_data);
+		if (!smtp_client_connection_send_xclient(conn,
+							 &conn->set.proxy_data))
+			return FALSE;
 	}
 
 	return smtp_client_connection_authenticate(conn);
