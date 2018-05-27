@@ -160,8 +160,15 @@ event_logv_type(struct event *event, enum log_type log_type,
 	struct failure_context ctx = {
 		.type = log_type,
 	};
-
+	bool abort_after_event = FALSE;
 	int old_errno = errno;
+
+	if (global_core_log_filter != NULL &&
+	    event_filter_match_source(global_core_log_filter, event,
+				      event->source_filename,
+				      event->source_linenum, &ctx))
+		abort_after_event = TRUE;
+
 	if (!event_get_log_prefix(event, log_prefix_str, &replace_prefix)) {
 		/* keep log prefix as it is */
 		event_vsend(event, &ctx, fmt, args);
@@ -174,10 +181,7 @@ event_logv_type(struct event *event, enum log_type log_type,
 		str_vprintfa(log_prefix_str, fmt, args);
 		event_send(event, &ctx, "%s", str_c(log_prefix_str));
 	}
-	if (global_core_log_filter != NULL &&
-	    event_filter_match_source(global_core_log_filter, event,
-				      event->source_filename,
-				      event->source_linenum, &ctx))
+	if (abort_after_event)
 		abort();
 	errno = old_errno;
 }
