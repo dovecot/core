@@ -47,7 +47,8 @@ static int fetch_and_copy(struct client_command_context *cmd, bool move,
 	string_t *src_uidset;
 	int ret;
 
-	i_assert(o_stream_is_corked(client->output));
+	i_assert(o_stream_is_corked(client->output) ||
+		 client->output->stream_errno != 0);
 
 	src_uidset = t_str_new(256);
 	msgset_generator_init(&srcset_ctx, src_uidset);
