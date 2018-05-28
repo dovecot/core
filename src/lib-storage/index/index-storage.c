@@ -251,6 +251,8 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 			return -1;
 		mail_index_set_cache_dir(box->index, cache_dir);
 	}
+	mail_index_set_fsync_mode(box->index,
+				  box->storage->set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(box->index,
 		box->storage->set->parsed_lock_method,
 		mail_storage_get_lock_timeout(box->storage, UINT_MAX));
