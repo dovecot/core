@@ -16,8 +16,10 @@
 #define DICT_QUOTA_CLONE_BYTES_PATH DICT_QUOTA_CLONE_PATH"storage"
 #define DICT_QUOTA_CLONE_COUNT_PATH DICT_QUOTA_CLONE_PATH"messages"
 
-#define QUOTA_CLONE_USER_CONTEXT(obj) \
+#define QUOTA_CLONE_USER_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, quota_clone_user_module)
+#define QUOTA_CLONE_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, quota_clone_user_module)
 #define QUOTA_CLONE_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, quota_clone_storage_module)
 
@@ -42,7 +44,7 @@ static void quota_clone_flush_real(struct mailbox *box)
 {
 	struct quota_clone_mailbox *qbox = QUOTA_CLONE_CONTEXT(box);
 	struct quota_clone_user *quser =
-		QUOTA_CLONE_USER_CONTEXT(box->storage->user);
+		QUOTA_CLONE_USER_CONTEXT_REQUIRE(box->storage->user);
 	struct dict_transaction_context *trans;
 	struct quota_root_iter *iter;
 	struct quota_root *root;
@@ -114,7 +116,7 @@ static void quota_clone_flush(struct mailbox *box)
 {
 	struct quota_clone_mailbox *qbox = QUOTA_CLONE_CONTEXT(box);
 	struct quota_clone_user *quser =
-		QUOTA_CLONE_USER_CONTEXT(box->storage->user);
+		QUOTA_CLONE_USER_CONTEXT_REQUIRE(box->storage->user);
 
 	timeout_remove(&qbox->to_quota_flush);
 
@@ -202,7 +204,7 @@ static void quota_clone_mailbox_allocated(struct mailbox *box)
 
 static void quota_clone_mail_user_deinit(struct mail_user *user)
 {
-	struct quota_clone_user *quser = QUOTA_CLONE_USER_CONTEXT(user);
+	struct quota_clone_user *quser = QUOTA_CLONE_USER_CONTEXT_REQUIRE(user);
 
 	dict_deinit(&quser->dict);
 	quser->module_ctx.super.deinit(user);
