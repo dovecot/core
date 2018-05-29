@@ -28,7 +28,7 @@ PrivateDevices=true
 # You can add environment variables with e.g.:
 #Environment='CORE_OUTOFMEM=1'
 # If you have trouble with `Too many open files', increase
-LimitNOFILE=8192
+LimitNOFILE=65535
 # If you want to allow the Dovecot services to produce core dumps, use:
 #LimitCORE=infinity
 
