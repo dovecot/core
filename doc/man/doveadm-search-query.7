@@ -14,6 +14,8 @@ This manual page describes all
 .IR SEARCH\ KEYS ,
 which can be used in a
 .IR search_query .
+The query is mostly compatible with the IMAP SEARCH command parameters,
+although there are some differences.
 .PP
 Each
 .I search_query
@@ -90,6 +92,25 @@ doveadm search mailbox Trash DELETED
 .SH SEARCH KEYS
 The following search keys from the specification of IMAP version 4 revision
 1 (see: RFC 3501, section 6.4.4) are supported:
+.\"-----------------
+.TP
+.I sequence\-set
+Matches messages with the given sequence numbers. The
+.I sequence\-set
+may be a single UID.
+Can be a sequence range, written as
+.IR from : to ,
+.RB e.g.\  100 : 125 .
+As comma separated list of sequences, e.g.
+.BR 11,50,4 .
+It\(aqs also possible to combine multiple sequences, e.g.
+.BR 1,3,5,7,10:20 .
+Using
+.BR *
+selects the last mail in the mailbox.
+.br
+For example 1:100 matches the first 100 mails and 101:200 the next second
+hundred mails. 1,5,* matches the first, the fifth and the last email.
 .\"-----------------
 .TP
 .B ALL
@@ -254,18 +275,12 @@ Matches messages, which contain
 in the TO field of the message\(aqs IMAP envelope structure.
 .\"-----------------
 .TP
-.BI UID\  sequence
-Matches messages with the given UID(s).
-A
-.I sequence
-may be a single UID.
-Can be a sequence range, written as
-.IR from : to ,
-.RB e.g.\  100 : 125 .
-As comma separated list of UIDs, e.g.
-.BR 11,50,4 .
-It\(aqs also possible to combine multiple sequences, e.g.
-.BR 1,3,5,7,10:20 .
+.BI UID\  sequence\-set
+Matches messages with the given IMAP UID(s). See the
+.BI sequence\-set
+description for details on it. For example
+.BR 1:10,100:200,*
+matches the UIDs from 1 to 10, 100 to 200 and also the last mail.
 .\"-----------------
 .TP
 .B UNANSWERED
