@@ -20,7 +20,7 @@ master_client_service_status_output(string_t *str,
 				    const struct service *service)
 {
 	str_append_tabescaped(str, service->set->name);
-	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\t%c\n",
+	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\t%c\t%"PRIu64"\n",
 		    service->process_count, service->process_avail,
 		    service->process_limit, service->client_limit,
 		    service->to_throttle == NULL ? 0 : service->throttle_secs,
@@ -29,7 +29,8 @@ master_client_service_status_output(string_t *str,
 		    (long)service->last_drop_warning,
 		    service->listen_pending ? 'y' : 'n',
 		    service->listening ? 'y' : 'n',
-		    service->doveadm_stop ? 'y' : 'n');
+		    service->doveadm_stop ? 'y' : 'n',
+		    service->process_count_total);
 }
 
 static int
