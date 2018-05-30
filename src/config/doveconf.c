@@ -51,6 +51,9 @@ static const char *const secrets[] = {
 	"key",
 	"secret",
 	"pass",
+	"http://",
+	"https://",
+	"ftp://",
 	NULL
 };
 
@@ -190,6 +193,50 @@ static const char *find_next_secret(const char *input, const char **secret_r)
 }
 
 static bool
+hide_url_userpart_from_value(struct ostream *output, const char **_ptr,
+			     const char **optr, bool quote)
+{
+	const char *ptr = *_ptr;
+	const char *start_of_user = ptr;
+	const char *start_of_host = NULL;
+	string_t *quoted = NULL;
+
+	if (quote)
+		quoted = t_str_new(256);
+
+	/* it's a URL, see if there is a userpart */
+	while(*ptr != '\0' && !i_isspace(*ptr) && *ptr != '/') {
+		if (*ptr == '@') {
+			start_of_host = ptr;
+			break;
+		}
+		ptr++;
+	}
+
+	if (quote) {
+		str_truncate(quoted, 0);
+		str_append_escaped(quoted, *optr, start_of_user - (*optr));
+		o_stream_nsend(output, quoted->data, quoted->used);
+	} else {
+		o_stream_nsend(output, *optr, start_of_user - (*optr));
+	}
+
+	if (start_of_host != NULL && start_of_host != start_of_user) {
+		o_stream_nsend_str(output, "#hidden_use-P_to_show#");
+	} else if (quote) {
+		str_truncate(quoted, 0);
+		str_append_escaped(quoted, start_of_user, ptr - start_of_user);
+		o_stream_nsend(output, quoted->data, quoted->used);
+	} else {
+		o_stream_nsend(output, start_of_user, ptr - start_of_user);
+	}
+
+	*optr = ptr;
+	*_ptr = ptr;
+	return TRUE;
+}
+
+static bool
 hide_secrets_from_value(struct ostream *output, const char *key,
 			const char *value)
 {
@@ -209,6 +256,11 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 	   etc. but not something like nonsecret. */
 	optr = ptr = value;
 	while((ptr = find_next_secret(ptr, &secret)) != NULL) {
+		if (strstr(secret, "://") != NULL) {
+			ptr += strlen(secret);
+			if ((ret = hide_url_userpart_from_value(output, &ptr, &optr, quote)))
+				continue;
+		}
 		/* we have found something that we hide, and will deal with output
 		   here. */
 		ret = TRUE;
