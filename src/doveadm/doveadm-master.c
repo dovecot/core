@@ -172,6 +172,7 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("listen_pending");
 	doveadm_print_header_simple("listening");
 	doveadm_print_header_simple("doveadm_stop");
+	doveadm_print_header_simple("process_total");
 	fields_count = doveadm_print_get_headers_count();
 
 	alarm(5);
