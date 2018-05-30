@@ -19,7 +19,7 @@ bool str_equals(const string_t *str1, const string_t *str2) ATTR_PURE;
 
 static inline const unsigned char *str_data(const string_t *str)
 {
-	return str->data;
+	return (const unsigned char*)str->data;
 }
 static inline size_t str_len(const string_t *str)
 {
