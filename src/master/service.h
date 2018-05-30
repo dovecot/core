@@ -67,6 +67,8 @@ struct service {
 	unsigned int process_avail;
 	/* max number of processes allowed */
 	unsigned int process_limit;
+	/* Total number of processes ever created */
+	uint64_t process_count_total;
 
 	/* Maximum number of client connections a process can handle. */
 	unsigned int client_limit;

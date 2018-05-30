@@ -352,6 +352,7 @@ struct service_process *service_process_create(struct service *service)
 	}
 
 	process->available_count = service->client_limit;
+	service->process_count_total++;
 	service->process_count++;
 	service->process_avail++;
 	DLLIST_PREPEND(&service->processes, process);
