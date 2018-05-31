@@ -428,3 +428,20 @@ bool uni_utf8_data_is_valid(const unsigned char *data, size_t size)
 
 	return uni_utf8_find_invalid_pos(data, size, &i) == 0;
 }
+
+size_t uni_utf8_data_truncate(const unsigned char *data, size_t old_size,
+			      size_t max_new_size)
+{
+	if (max_new_size >= old_size)
+		return old_size;
+	if (max_new_size == 0)
+		return 0;
+
+	if ((data[max_new_size] & 0x80) == 0)
+		return max_new_size;
+	while (max_new_size > 0 && (data[max_new_size-1] & 0xc0) == 0x80)
+		max_new_size--;
+	if (max_new_size > 0 && (data[max_new_size-1] & 0xc0) == 0xc0)
+		max_new_size--;
+	return max_new_size;
+}

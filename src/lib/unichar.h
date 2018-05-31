@@ -114,6 +114,11 @@ bool uni_utf8_get_valid_data(const unsigned char *input, size_t size,
 bool uni_utf8_str_is_valid(const char *str);
 /* Returns TRUE if data contains only valid UTF-8 input. */
 bool uni_utf8_data_is_valid(const unsigned char *data, size_t size);
+/* Returns the size of the data when truncated to be less than or equal to
+   max_new_size, making sure UTF-8 character boundaries are respected. This only
+   looks at the last character at the new boundary. */
+size_t uni_utf8_data_truncate(const unsigned char *data, size_t old_size,
+			      size_t max_new_size);
 
 /* surrogate handling */
 static inline unichar_t uni_join_surrogate(unichar_t high, unichar_t low)
