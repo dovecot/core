@@ -554,6 +554,9 @@ void http_client_request_set_payload(struct http_client_request *req,
 		}
 		req->payload_size = 0;
 		req->payload_chunked = TRUE;
+	} else {
+		i_assert(input->v_offset <= req->payload_size);
+		req->payload_size -= input->v_offset;
 	}
 	req->payload_offset = input->v_offset;
 
