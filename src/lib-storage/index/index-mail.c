@@ -453,17 +453,12 @@ static bool get_cached_msgpart_sizes(struct index_mail *mail)
 
 const uint32_t *index_mail_get_vsize_extension(struct mail *_mail)
 {
-	struct index_mail *mail = INDEX_MAIL(_mail);
 	const void *idata;
 	bool expunged ATTR_UNUSED;
 
 	mail_index_lookup_ext(_mail->transaction->view, _mail->seq,
 			      _mail->box->mail_vsize_ext_id, &idata, &expunged);
 	const uint32_t *vsize = idata;
-
-	if (vsize != NULL && *vsize > 0) {
-		mail->data.virtual_size = (*vsize)-1;
-	}
 	return vsize;
 }
 
@@ -478,6 +473,8 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 	const uint32_t *vsize = index_mail_get_vsize_extension(_mail);
 
 	data->cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
+	if (data->virtual_size == (uoff_t)-1 && vsize != NULL && *vsize > 0)
+		data->virtual_size = (*vsize)-1;
 	if (data->virtual_size == (uoff_t)-1) {
 		if (index_mail_get_cached_uoff_t(mail,
 						 MAIL_CACHE_VIRTUAL_FULL_SIZE,
