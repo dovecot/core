@@ -589,6 +589,8 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 	   smaller than the fetched message header. In this case change the
 	   size as well, otherwise reading via istream-mail will fail. */
 	if (mail->body_fetched || imail->data.physical_size < size) {
+		if (mail->body_fetched)
+			imail->data.inexact_total_sizes = FALSE;
 		imail->data.physical_size = size;
 		/* we'll assume that the remote server is working properly and
 		   sending CRLF linefeeds */
@@ -839,8 +841,11 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 		} else if (strcasecmp(key, "RFC822.SIZE") == 0) {
 			if (imap_arg_get_atom(&args[i+1], &value) &&
 			    str_to_uoff(value, &size) == 0 &&
-			    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
+			    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE)) {
 				mail->imail.data.physical_size = size;
+				mail->imail.data.virtual_size = size;
+				mail->imail.data.inexact_total_sizes = TRUE;
+			}
 			match = TRUE;
 		} else if (strcasecmp(key, "X-GM-MSGID") == 0 ||
 			   strcasecmp(key, "X-GUID") == 0) {
