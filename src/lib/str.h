@@ -78,4 +78,10 @@ static inline void str_truncate(string_t *str, size_t len)
 		buffer_set_used_size(str, len);
 }
 
+/* Truncate the string to specified length, but also make sure the truncation
+   doesn't happen in the middle of an UTF-8 character sequence. In that case,
+   the string will end up being up to a few bytes smaller than len. If it's
+   already smaller to begin with, do nothing. */
+void str_truncate_utf8(string_t *str, size_t len);
+
 #endif
