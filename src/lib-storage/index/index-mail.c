@@ -466,9 +466,14 @@ static void index_mail_try_set_body_size(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 
-	if (data->hdr_size_set &&
+	if (data->hdr_size_set && !data->inexact_total_sizes &&
 	    data->physical_size != (uoff_t)-1 &&
 	    data->virtual_size != (uoff_t)-1) {
+		/* We know the total size of this mail and we know the
+		   header size, so we can calculate also the body size.
+		   However, don't do this if there's a possibility that
+		   physical_size or virtual_size don't actually match the
+		   mail stream's size (e.g. buggy imapc servers). */
 		data->body_size.physical_size = data->physical_size -
 			data->hdr_size.physical_size;
 		data->body_size.virtual_size = data->virtual_size -
@@ -1230,7 +1235,7 @@ int index_mail_init_stream(struct index_mail *mail,
 	struct mail *_mail = &mail->mail.mail;
 	struct index_mail_data *data = &mail->data;
 	struct istream *input;
-	bool has_nuls;
+	bool has_nuls, body_size_from_stream = FALSE;
 	int ret;
 
 	if (mail->mail.get_stream_reason != NULL &&
@@ -1301,6 +1306,7 @@ int index_mail_init_stream(struct index_mail *mail,
 				}
 				data->body_size_set = TRUE;
 			}
+			body_size_from_stream = TRUE;
 		}
 
 		*body_size = data->body_size;
@@ -1311,6 +1317,10 @@ int index_mail_init_stream(struct index_mail *mail,
 			data->body_size.virtual_size;
 		data->physical_size = data->hdr_size.physical_size +
 			data->body_size.physical_size;
+		if (body_size_from_stream) {
+			/* the sizes were just calculated */
+			data->inexact_total_sizes = FALSE;
+		}
 	}
 	ret = index_mail_stream_check_failure(mail);
 

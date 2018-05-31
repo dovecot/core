@@ -129,6 +129,9 @@ struct index_mail_data {
 	bool destroy_callback_set:1;
 	bool prefetch_sent:1;
 	bool header_parser_initialized:1;
+	/* virtual_size and physical_size may not match the stream size.
+	   Try to avoid trusting them too much. */
+	bool inexact_total_sizes:1;
 };
 
 struct index_mail {
