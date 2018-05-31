@@ -48,21 +48,14 @@ static void str_sanitize_truncate_char(string_t *dest, unsigned int initial_pos)
 	const unsigned char *data = str_data(dest);
 	size_t len = str_len(dest);
 
+	i_assert(len >= initial_pos);
 	if (len == initial_pos)
 		return;
 
-	i_assert(len > 0);
-	if ((data[len-1] & 0x80) == 0) {
-		str_truncate(dest, len-1);
-		return;
-	}
-	/* truncate UTF-8 sequence. */
-	while (len > 0 && (data[len-1] & 0xc0) == 0x80)
-		len--;
-	if (len > 0 && (data[len-1] & 0xc0) == 0xc0)
-		len--;
-	if (len >= initial_pos)
-		str_truncate(dest, len);
+	data += initial_pos;
+	len -= initial_pos;
+	str_truncate(dest, initial_pos +
+		uni_utf8_data_truncate(data, len, len-1));
 }
 
 void str_sanitize_append(string_t *dest, const char *src, size_t max_bytes)
