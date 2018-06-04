@@ -462,6 +462,21 @@ const uint32_t *index_mail_get_vsize_extension(struct mail *_mail)
 	return vsize;
 }
 
+static void index_mail_try_set_body_size(struct index_mail *mail)
+{
+	struct index_mail_data *data = &mail->data;
+
+	if (data->hdr_size_set &&
+	    data->physical_size != (uoff_t)-1 &&
+	    data->virtual_size != (uoff_t)-1) {
+		data->body_size.physical_size = data->physical_size -
+			data->hdr_size.physical_size;
+		data->body_size.virtual_size = data->virtual_size -
+			data->hdr_size.virtual_size;
+		data->body_size_set = TRUE;
+	}
+}
+
 bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 {
 	struct index_mail_data *data = &mail->data;
@@ -485,13 +500,7 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 				return FALSE;
 		}
 	}
-	if (data->hdr_size_set && data->physical_size != (uoff_t)-1) {
-		data->body_size.physical_size = data->physical_size -
-			data->hdr_size.physical_size;
-		data->body_size.virtual_size = data->virtual_size -
-			data->hdr_size.virtual_size;
-		data->body_size_set = TRUE;
-	}
+	index_mail_try_set_body_size(mail);
 	*size_r = data->virtual_size;
 
 	/* if vsize is present and wanted for index, but missing from index
