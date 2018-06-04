@@ -51,6 +51,11 @@ else
   trace_children="--trace-children=yes"
 fi
 
+skip_path="\$top_srcdir/run-test-valgrind.exclude"
+if test -r "\$skip_path" && grep -w -q "\$(basename \$[1])" "\$skip_path"; then
+  NOVALGRIND=true
+fi
+
 if test "\$NOVALGRIND" != ""; then
   \$[*]
   ret=\$?
