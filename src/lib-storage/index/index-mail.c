@@ -1321,6 +1321,10 @@ int index_mail_init_stream(struct index_mail *mail,
 			/* the sizes were just calculated */
 			data->inexact_total_sizes = FALSE;
 		}
+	} else {
+		/* If body_size==NULL, the caller doesn't care about it.
+		   However, try to set it anyway if it can be calculated. */
+		index_mail_try_set_body_size(mail);
 	}
 	ret = index_mail_stream_check_failure(mail);
 
