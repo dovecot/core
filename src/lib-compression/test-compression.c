@@ -76,6 +76,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 		i_stream_skip(input, size);
 	}
 	test_assert(ret == -1);
+	test_assert(input->stream_errno == 0);
 	i_stream_destroy(&input);
 	i_stream_destroy(&file_input);
 	sha1_result(&sha1, input_sha1);
