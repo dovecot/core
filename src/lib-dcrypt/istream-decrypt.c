@@ -40,6 +40,10 @@ struct decrypt_istream {
 	struct dcrypt_context_hmac *ctx_mac;
 
 	enum decrypt_istream_format format;
+
+	/* Initially (uoff_t)-1. Otherwise it's the exact known stream size,
+	   which can be used by stat() / get_size(). */
+	uoff_t cached_stream_size;
 };
 
 static void i_stream_decrypt_reset(struct decrypt_istream *dstream)
@@ -855,6 +859,47 @@ i_stream_decrypt_seek(struct istream_private *stream, uoff_t v_offset,
 		i_unreached();
 }
 
+static int
+seekable_i_stream_get_size(struct istream_private *stream)
+{
+	struct decrypt_istream *dstream =
+		(struct decrypt_istream *)stream;
+
+	if (dstream->cached_stream_size == (uoff_t)-1) {
+		uoff_t old_offset = stream->istream.v_offset;
+		ssize_t ret;
+
+		do {
+			i_stream_skip(&stream->istream,
+				      i_stream_get_data_size(&stream->istream));
+		} while ((ret = i_stream_read(&stream->istream)) > 0);
+		i_assert(ret == -1);
+		if (stream->istream.stream_errno != 0)
+			return -1;
+
+		dstream->cached_stream_size = stream->istream.v_offset;
+		i_stream_seek(&stream->istream, old_offset);
+	}
+	stream->statbuf.st_size = dstream->cached_stream_size;
+	return 0;
+}
+
+static int i_stream_decrypt_stat(struct istream_private *stream, bool exact)
+{
+	const struct stat *st;
+
+	if (i_stream_stat(stream->parent, exact, &st) < 0) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		return -1;
+	}
+	stream->statbuf = *st;
+	if (exact) {
+		if (seekable_i_stream_get_size(stream) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 static
 void i_stream_decrypt_close(struct iostream_private *stream,
 				   bool close_parent)
@@ -894,8 +939,10 @@ struct decrypt_istream *i_stream_create_decrypt_common(struct istream *input)
 	dstream = i_new(struct decrypt_istream, 1);
 	dstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	dstream->istream.read = i_stream_decrypt_read;
-	if (input->seekable)
+	if (input->seekable) {
 		dstream->istream.seek = i_stream_decrypt_seek;
+		dstream->istream.stat = i_stream_decrypt_stat;
+	}
 	dstream->istream.iostream.close = i_stream_decrypt_close;
 	dstream->istream.iostream.destroy = i_stream_decrypt_destroy;
 
@@ -904,6 +951,7 @@ struct decrypt_istream *i_stream_create_decrypt_common(struct istream *input)
 	dstream->istream.istream.seekable = input->seekable;
 
 	dstream->buf = buffer_create_dynamic(default_pool, 512);
+	dstream->cached_stream_size = (uoff_t)-1;
 
 	(void)i_stream_create(&dstream->istream, input,
 			      i_stream_get_fd(input));
