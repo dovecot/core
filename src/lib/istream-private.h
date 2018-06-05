@@ -35,6 +35,9 @@ struct istream_private {
 
 	size_t buffer_size, max_buffer_size, init_buffer_size;
 	size_t skip, pos, try_alloc_limit;
+	/* If seeking backwards within the buffer, the next read() will
+	   return again pos..high_pos */
+	size_t high_pos;
 
 	struct istream *parent; /* for filter streams */
 	uoff_t parent_start_offset;
@@ -71,6 +74,12 @@ void *i_stream_alloc(struct istream_private *stream, size_t size);
 ssize_t i_stream_read_copy_from_parent(struct istream *istream);
 void i_stream_default_seek_nonseekable(struct istream_private *stream,
 				       uoff_t v_offset, bool mark);
+/* Returns FALSE if seeking must be done by starting from the beginning.
+   The caller is then expected to reset the stream and call this function
+   again, which should work then. If TRUE is returned, the seek was either
+   successfully done or stream_errno is set. */
+bool i_stream_nonseekable_try_seek(struct istream_private *stream,
+				   uoff_t v_offset);
 
 struct istream *i_stream_get_root_io(struct istream *stream);
 void i_stream_set_io(struct istream *stream, struct io *io);
