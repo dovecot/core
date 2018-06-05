@@ -180,52 +180,14 @@ static void
 i_stream_lz4_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 {
 	struct lz4_istream *zstream = (struct lz4_istream *) stream;
-	uoff_t start_offset = stream->istream.v_offset - stream->skip;
 
-	if (v_offset < start_offset) {
-		/* have to seek backwards */
-		i_stream_lz4_reset(zstream);
-		start_offset = 0;
-	}
+	if (i_stream_nonseekable_try_seek(stream, v_offset))
+		return;
 
-	if (v_offset <= start_offset + stream->pos) {
-		/* seeking backwards within what's already cached */
-		stream->skip = v_offset - start_offset;
-		stream->istream.v_offset = v_offset;
-		stream->pos = stream->skip;
-	} else {
-		/* read and cache forward */
-		ssize_t ret;
-
-		do {
-			size_t avail = stream->pos - stream->skip;
-
-			if (stream->istream.v_offset + avail >= v_offset) {
-				i_stream_skip(&stream->istream,
-					      v_offset -
-					      stream->istream.v_offset);
-				ret = -1;
-				break;
-			}
-
-			i_stream_skip(&stream->istream, avail);
-		} while ((ret = i_stream_read(&stream->istream)) > 0);
-		i_assert(ret == -1);
-
-		if (stream->istream.v_offset != v_offset) {
-			/* some failure, we've broken it */
-			if (stream->istream.stream_errno != 0) {
-				i_error("lz4_istream.seek(%s) failed: %s",
-					i_stream_get_name(&stream->istream),
-					strerror(stream->istream.stream_errno));
-				i_stream_close(&stream->istream);
-			} else {
-				/* unexpected EOF. allow it since we may just
-				   want to check if there's anything.. */
-				i_assert(stream->istream.eof);
-			}
-		}
-	}
+	/* have to seek backwards - reset state and retry */
+	i_stream_lz4_reset(zstream);
+	if (!i_stream_nonseekable_try_seek(stream, v_offset))
+		i_unreached();
 
 	if (mark)
 		zstream->marked = TRUE;
