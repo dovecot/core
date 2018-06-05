@@ -390,6 +390,16 @@ static void test_write_read_v2(void)
 	if (is_2->stream_errno != 0)
 		i_debug("error: %s", i_stream_get_error(is_2));
 
+	/* test seeking */
+	for (size_t i = sizeof(payload)-100; i > 100; i -= 100) {
+		i_stream_seek(is_2, i);
+		test_assert_idx(i_stream_read_data(is_2, &ptr, &siz, 0) == 1, i);
+		test_assert_idx(memcmp(ptr, payload + i, siz) == 0, i);
+	}
+	i_stream_seek(is_2, 0);
+	test_assert(i_stream_read_data(is_2, &ptr, &siz, 0) == 1);
+	test_assert(memcmp(ptr, payload, siz) == 0);
+
 	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
