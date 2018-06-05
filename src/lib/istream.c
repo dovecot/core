@@ -1067,6 +1067,28 @@ bool i_stream_nonseekable_try_seek(struct istream_private *stream,
 }
 
 static int
+seekable_i_stream_get_size(struct istream_private *stream)
+{
+	if (stream->cached_stream_size == (uoff_t)-1) {
+		uoff_t old_offset = stream->istream.v_offset;
+		ssize_t ret;
+
+		do {
+			i_stream_skip(&stream->istream,
+				i_stream_get_data_size(&stream->istream));
+		} while ((ret = i_stream_read(&stream->istream)) > 0);
+		i_assert(ret == -1);
+		if (stream->istream.stream_errno != 0)
+			return -1;
+
+		stream->cached_stream_size = stream->istream.v_offset;
+		i_stream_seek(&stream->istream, old_offset);
+	}
+	stream->statbuf.st_size = stream->cached_stream_size;
+	return 0;
+}
+
+static int
 i_stream_default_stat(struct istream_private *stream, bool exact)
 {
 	const struct stat *st;
@@ -1082,6 +1104,15 @@ i_stream_default_stat(struct istream_private *stream, bool exact)
 	if (exact && !stream->stream_size_passthrough) {
 		/* exact size is not known, even if parent returned something */
 		stream->statbuf.st_size = -1;
+		if (stream->istream.seekable) {
+			if (seekable_i_stream_get_size(stream) < 0)
+				return -1;
+		}
+	} else {
+		/* When exact=FALSE always return the parent stat's size, even
+		   if we know the exact value. This is necessary because
+		   otherwise e.g. mbox code can see two different values and
+		   think that the mbox file keeps changing. */
 	}
 	return 0;
 }
@@ -1159,6 +1190,7 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd,
 	_stream->statbuf.st_atime =
 		_stream->statbuf.st_mtime =
 		_stream->statbuf.st_ctime = ioloop_time;
+	_stream->cached_stream_size = (uoff_t)-1;
 
 	io_stream_init(&_stream->iostream);
 

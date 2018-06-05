@@ -45,6 +45,9 @@ struct istream_private {
 
 	struct istream *parent; /* for filter streams */
 	uoff_t parent_start_offset;
+	/* Initially (uoff_t)-1. Otherwise it's the exact known stream size,
+	   which can be used by stat() / get_size(). */
+	uoff_t cached_stream_size;
 
 	/* parent stream's expected offset is kept here. i_stream_read()
 	   always seeks parent stream to here before calling read(). */
