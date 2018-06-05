@@ -21,6 +21,7 @@
 struct decrypt_istream {
 	struct istream_private istream;
 	buffer_t *buf;
+	bool symmetric;
 
 	i_stream_decrypt_get_key_callback_t *key_callback;
 	void *key_context;
@@ -40,6 +41,26 @@ struct decrypt_istream {
 
 	enum decrypt_istream_format format;
 };
+
+static void i_stream_decrypt_reset(struct decrypt_istream *dstream)
+{
+	dstream->finalized = FALSE;
+	dstream->use_mac = FALSE;
+
+	dstream->ftr = 0;
+	dstream->pos = 0;
+	dstream->flags = 0;
+
+	if (!dstream->symmetric) {
+		dstream->initialized = FALSE;
+		if (dstream->ctx_sym != NULL)
+			dcrypt_ctx_sym_destroy(&dstream->ctx_sym);
+		if (dstream->ctx_mac != NULL)
+			dcrypt_ctx_hmac_destroy(&dstream->ctx_mac);
+	}
+	i_free(dstream->iv);
+	dstream->format = DECRYPT_FORMAT_V1;
+}
 
 enum decrypt_istream_format i_stream_encrypt_get_format(const struct istream *input)
 {
@@ -818,6 +839,22 @@ i_stream_decrypt_read(struct istream_private *stream)
 	}
 }
 
+static void
+i_stream_decrypt_seek(struct istream_private *stream, uoff_t v_offset,
+		      bool mark ATTR_UNUSED)
+{
+	struct decrypt_istream *dstream =
+		(struct decrypt_istream *)stream;
+
+	if (i_stream_nonseekable_try_seek(stream, v_offset))
+		return;
+
+	/* have to seek backwards - reset crypt state and retry */
+	i_stream_decrypt_reset(dstream);
+	if (!i_stream_nonseekable_try_seek(stream, v_offset))
+		i_unreached();
+}
+
 static
 void i_stream_decrypt_close(struct iostream_private *stream,
 				   bool close_parent)
@@ -857,12 +894,14 @@ struct decrypt_istream *i_stream_create_decrypt_common(struct istream *input)
 	dstream = i_new(struct decrypt_istream, 1);
 	dstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	dstream->istream.read = i_stream_decrypt_read;
+	if (input->seekable)
+		dstream->istream.seek = i_stream_decrypt_seek;
 	dstream->istream.iostream.close = i_stream_decrypt_close;
 	dstream->istream.iostream.destroy = i_stream_decrypt_destroy;
 
 	dstream->istream.istream.readable_fd = FALSE;
 	dstream->istream.istream.blocking = input->blocking;
-	dstream->istream.istream.seekable = FALSE;
+	dstream->istream.istream.seekable = input->seekable;
 
 	dstream->buf = buffer_create_dynamic(default_pool, 512);
 
@@ -891,6 +930,7 @@ i_stream_create_sym_decrypt(struct istream *input, struct dcrypt_context_symmetr
 	dstream = i_stream_create_decrypt_common(input);
 	dstream->use_mac = FALSE;
 	dstream->initialized = TRUE;
+	dstream->symmetric = TRUE;
 
 	if (!dcrypt_ctx_sym_init(ctx, &error)) ec = -1;
 	else ec = 0;
