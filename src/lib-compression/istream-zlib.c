@@ -25,7 +25,7 @@ struct zlib_istream {
 	struct istream_private istream;
 
 	z_stream zs;
-	uoff_t eof_offset, stream_size;
+	uoff_t eof_offset;
 	size_t prev_size, high_pos;
 	uint32_t crc32;
 	struct stat last_parent_statbuf;
@@ -206,8 +206,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		}
 
 		/* gzip file with concatenated content */
+		stream->cached_stream_size = (uoff_t)-1;
 		zstream->eof_offset = (uoff_t)-1;
-		zstream->stream_size = (uoff_t)-1;
 		zstream->header_read = FALSE;
 		zstream->trailer_read = FALSE;
 		zstream->crc32 = 0;
@@ -299,7 +299,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	case Z_STREAM_END:
 		zstream->eof_offset = stream->istream.v_offset +
 			(stream->pos - stream->skip);
-		zstream->stream_size = zstream->eof_offset;
+		stream->cached_stream_size = zstream->eof_offset;
 		zstream->zs.avail_in = 0;
 
 		if (!zstream->trailer_read) {
@@ -420,44 +420,6 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		zstream->marked = TRUE;
 }
 
-static int
-i_stream_zlib_stat(struct istream_private *stream, bool exact)
-{
-	struct zlib_istream *zstream = (struct zlib_istream *) stream;
-	const struct stat *st;
-	size_t size;
-
-	if (i_stream_stat(stream->parent, exact, &st) < 0) {
-		stream->istream.stream_errno = stream->parent->stream_errno;
-		return -1;
-	}
-	stream->statbuf = *st;
-
-	/* when exact=FALSE always return the parent stat's size, even if we
-	   know the exact value. this is necessary because otherwise e.g. mbox
-	   code can see two different values and think that a compressed mbox
-	   file keeps changing. */
-	if (!exact)
-		return 0;
-
-	if (zstream->stream_size == (uoff_t)-1) {
-		uoff_t old_offset = stream->istream.v_offset;
-		ssize_t ret;
-
-		do {
-			size = i_stream_get_data_size(&stream->istream);
-			i_stream_skip(&stream->istream, size);
-		} while ((ret = i_stream_read(&stream->istream)) > 0);
-		i_assert(ret == -1);
-
-		i_stream_seek(&stream->istream, old_offset);
-		if (zstream->stream_size == (uoff_t)-1)
-			return -1;
-	}
-	stream->statbuf.st_size = zstream->stream_size;
-	return 0;
-}
-
 static void i_stream_zlib_sync(struct istream_private *stream)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
@@ -482,7 +444,6 @@ i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 
 	zstream = i_new(struct zlib_istream, 1);
 	zstream->eof_offset = (uoff_t)-1;
-	zstream->stream_size = (uoff_t)-1;
 	zstream->gz = gz;
 	zstream->log_errors = log_errors;
 
@@ -492,7 +453,6 @@ i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 	zstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	zstream->istream.read = i_stream_zlib_read;
 	zstream->istream.seek = i_stream_zlib_seek;
-	zstream->istream.stat = i_stream_zlib_stat;
 	zstream->istream.sync = i_stream_zlib_sync;
 
 	zstream->istream.istream.readable_fd = FALSE;

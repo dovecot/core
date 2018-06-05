@@ -63,7 +63,9 @@ static void test_compression_handler(const struct compression_handler *handler)
 	}
 
 	test_assert(o_stream_finish(output) > 0);
+	uoff_t uncompressed_size = output->offset;
 	o_stream_destroy(&output);
+	uoff_t compressed_size = file_output->offset;
 	o_stream_destroy(&file_output);
 	sha1_result(&sha1, output_sha1);
 
@@ -71,6 +73,13 @@ static void test_compression_handler(const struct compression_handler *handler)
 	sha1_init(&sha1);
 	file_input = i_stream_create_fd(fd, IO_BLOCK_SIZE);
 	input = handler->create_istream(file_input, FALSE);
+
+	test_assert(i_stream_get_size(input, FALSE, &size) == 1);
+	test_assert(size == compressed_size);
+
+	test_assert(i_stream_get_size(input, TRUE, &size) == 1);
+	test_assert(size == uncompressed_size);
+
 	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
 		sha1_loop(&sha1, data, size);
 		i_stream_skip(input, size);

@@ -13,7 +13,6 @@
 struct lz4_istream {
 	struct istream_private istream;
 
-	uoff_t stream_size;
 	struct stat last_parent_statbuf;
 
 	buffer_t *chunk_buf;
@@ -102,7 +101,8 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 				stream->parent->stream_errno;
 			if (stream->istream.stream_errno == 0) {
 				stream->istream.eof = TRUE;
-				zstream->stream_size = stream->istream.v_offset +
+				stream->cached_stream_size =
+					stream->istream.v_offset +
 					stream->pos - stream->skip;
 			}
 			return ret;
@@ -231,44 +231,6 @@ i_stream_lz4_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		zstream->marked = TRUE;
 }
 
-static int
-i_stream_lz4_stat(struct istream_private *stream, bool exact)
-{
-	struct lz4_istream *zstream = (struct lz4_istream *) stream;
-	const struct stat *st;
-	size_t size;
-
-	if (i_stream_stat(stream->parent, exact, &st) < 0) {
-		stream->istream.stream_errno = stream->parent->stream_errno;
-		return -1;
-	}
-	stream->statbuf = *st;
-
-	/* when exact=FALSE always return the parent stat's size, even if we
-	   know the exact value. this is necessary because otherwise e.g. mbox
-	   code can see two different values and think that a compressed mbox
-	   file keeps changing. */
-	if (!exact)
-		return 0;
-
-	if (zstream->stream_size == (uoff_t)-1) {
-		uoff_t old_offset = stream->istream.v_offset;
-		ssize_t ret;
-
-		do {
-			size = i_stream_get_data_size(&stream->istream);
-			i_stream_skip(&stream->istream, size);
-		} while ((ret = i_stream_read(&stream->istream)) > 0);
-		i_assert(ret == -1);
-
-		i_stream_seek(&stream->istream, old_offset);
-		if (zstream->stream_size == (uoff_t)-1)
-			return -1;
-	}
-	stream->statbuf.st_size = zstream->stream_size;
-	return 0;
-}
-
 static void i_stream_lz4_sync(struct istream_private *stream)
 {
 	struct lz4_istream *zstream = (struct lz4_istream *) stream;
@@ -291,14 +253,12 @@ struct istream *i_stream_create_lz4(struct istream *input, bool log_errors)
 	struct lz4_istream *zstream;
 
 	zstream = i_new(struct lz4_istream, 1);
-	zstream->stream_size = (uoff_t)-1;
 	zstream->log_errors = log_errors;
 
 	zstream->istream.iostream.close = i_stream_lz4_close;
 	zstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	zstream->istream.read = i_stream_lz4_read;
 	zstream->istream.seek = i_stream_lz4_seek;
-	zstream->istream.stat = i_stream_lz4_stat;
 	zstream->istream.sync = i_stream_lz4_sync;
 
 	zstream->istream.istream.readable_fd = FALSE;
