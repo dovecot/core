@@ -336,6 +336,9 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	   running one and we can't call the original one recursively, so
 	   create a new ioloop. */
 	conn->ioloop = io_loop_create();
+	o_stream_switch_ioloop(conn->output);
+	if (conn->log_out != NULL)
+		o_stream_switch_ioloop(conn->log_out);
 
 	if (cmd_ver2 != NULL)
 		doveadm_cmd_server_run_ver2(conn, argc, argv, cctx);
