@@ -226,9 +226,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	cctx.cmd->cmd(&cctx);
 	client_connection_set_proctitle(&conn->conn, "");
 
-	io_loop_set_current(prev_ioloop);
-	o_stream_switch_ioloop(req->output);
-	io_loop_set_current(ioloop);
+	o_stream_switch_ioloop_to(req->output, prev_ioloop);
 	io_loop_destroy(&ioloop);
 
 	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
