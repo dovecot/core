@@ -345,11 +345,9 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	else
 		doveadm_mail_cmd_server_run(conn, mctx);
 
-	io_loop_set_current(prev_ioloop);
-	o_stream_switch_ioloop(conn->output);
+	o_stream_switch_ioloop_to(conn->output, prev_ioloop);
 	if (conn->log_out != NULL)
-		o_stream_switch_ioloop(conn->log_out);
-	io_loop_set_current(conn->ioloop);
+		o_stream_switch_ioloop_to(conn->log_out, prev_ioloop);
 	io_loop_destroy(&conn->ioloop);
 
 	/* clear all headers */
