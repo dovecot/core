@@ -15,7 +15,6 @@ struct bzlib_istream {
 
 	bz_stream zs;
 	uoff_t eof_offset;
-	size_t high_pos;
 	struct stat last_parent_statbuf;
 
 	bool log_errors:1;
@@ -56,27 +55,9 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	if (zstream->eof_offset == high_offset) {
-		i_assert(zstream->high_pos == 0 ||
-			 zstream->high_pos == stream->pos);
 		stream->istream.eof = TRUE;
 		return -1;
 	}
-
-	if (stream->pos < zstream->high_pos) {
-		/* we're here because we seeked back within the read buffer. */
-		ret = zstream->high_pos - stream->pos;
-		stream->pos = zstream->high_pos;
-		zstream->high_pos = 0;
-
-		if (zstream->eof_offset != (uoff_t)-1) {
-			high_offset = stream->istream.v_offset +
-				(stream->pos - stream->skip);
-			i_assert(zstream->eof_offset == high_offset);
-			stream->istream.eof = TRUE;
-		}
-		return ret;
-	}
-	zstream->high_pos = 0;
 
 	if (!zstream->marked) {
 		if (!i_stream_try_alloc(stream, CHUNK_SIZE, &out_size))
@@ -183,7 +164,7 @@ static void i_stream_bzlib_reset(struct bzlib_istream *zstream)
 	stream->parent_expected_offset = stream->parent_start_offset;
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
-	zstream->high_pos = 0;
+	stream->high_pos = 0;
 
 	(void)BZ2_bzDecompressEnd(&zstream->zs);
 	i_stream_bzlib_init(zstream);
@@ -193,56 +174,14 @@ static void
 i_stream_bzlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 {
 	struct bzlib_istream *zstream = (struct bzlib_istream *) stream;
-	uoff_t start_offset = stream->istream.v_offset - stream->skip;
 
-	if (v_offset < start_offset) {
-		/* have to seek backwards */
-		i_stream_bzlib_reset(zstream);
-		start_offset = 0;
-	} else if (zstream->high_pos != 0) {
-		stream->pos = zstream->high_pos;
-		zstream->high_pos = 0;
-	}
+	if (i_stream_nonseekable_try_seek(stream, v_offset))
+		return;
 
-	if (v_offset <= start_offset + stream->pos) {
-		/* seeking backwards within what's already cached */
-		stream->skip = v_offset - start_offset;
-		stream->istream.v_offset = v_offset;
-		zstream->high_pos = stream->pos;
-		stream->pos = stream->skip;
-	} else {
-		/* read and cache forward */
-		ssize_t ret;
-
-		do {
-			size_t avail = stream->pos - stream->skip;
-
-			if (stream->istream.v_offset + avail >= v_offset) {
-				i_stream_skip(&stream->istream,
-					      v_offset -
-					      stream->istream.v_offset);
-				ret = -1;
-				break;
-			}
-
-			i_stream_skip(&stream->istream, avail);
-		} while ((ret = i_stream_read(&stream->istream)) > 0);
-		i_assert(ret == -1);
-
-		if (stream->istream.v_offset != v_offset) {
-			/* some failure, we've broken it */
-			if (stream->istream.stream_errno != 0) {
-				i_error("bzlib_istream.seek(%s) failed: %s",
-					i_stream_get_name(&stream->istream),
-					strerror(stream->istream.stream_errno));
-				i_stream_close(&stream->istream);
-			} else {
-				/* unexpected EOF. allow it since we may just
-				   want to check if there's anything.. */
-				i_assert(stream->istream.eof);
-			}
-		}
-	}
+	/* have to seek backwards - reset state and retry */
+	i_stream_bzlib_reset(zstream);
+	if (!i_stream_nonseekable_try_seek(stream, v_offset))
+		i_unreached();
 
 	if (mark)
 		zstream->marked = TRUE;
