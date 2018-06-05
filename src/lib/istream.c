@@ -171,7 +171,15 @@ ssize_t i_stream_read(struct istream *stream)
 		i_stream_seek(_stream->parent, _stream->parent_expected_offset);
 
 	old_size = _stream->pos - _stream->skip;
-	ret = _stream->read(_stream);
+	if (_stream->pos < _stream->high_pos) {
+		/* we're here because we seeked back within the read buffer. */
+		ret = _stream->high_pos - _stream->pos;
+		_stream->pos = _stream->high_pos;
+		_stream->high_pos = 0;
+	} else {
+		_stream->high_pos = 0;
+		ret = _stream->read(_stream);
+	}
 	i_assert(old_size <= _stream->pos - _stream->skip);
 	switch (ret) {
 	case -2:
@@ -796,6 +804,34 @@ void i_stream_default_seek_nonseekable(struct istream_private *stream,
 				      v_offset - stream->istream.v_offset);
 		}
 	}
+}
+
+bool i_stream_nonseekable_try_seek(struct istream_private *stream,
+				   uoff_t v_offset)
+{
+	uoff_t start_offset = stream->istream.v_offset - stream->skip;
+
+	if (v_offset < start_offset) {
+		/* have to seek backwards */
+		i_stream_seek(stream->parent, stream->parent_start_offset);
+		stream->parent_expected_offset = stream->parent_start_offset;
+		stream->skip = stream->pos = 0;
+		stream->istream.v_offset = 0;
+		stream->high_pos = 0;
+		return FALSE;
+	}
+
+	if (v_offset <= start_offset + stream->pos) {
+		/* seeking backwards within what's already cached */
+		stream->skip = v_offset - start_offset;
+		stream->istream.v_offset = v_offset;
+		stream->high_pos = stream->pos;
+		stream->pos = stream->skip;
+	} else {
+		/* read forward */
+		i_stream_default_seek_nonseekable(stream, v_offset, FALSE);
+	}
+	return TRUE;
 }
 
 static int
