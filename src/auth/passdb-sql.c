@@ -119,6 +119,9 @@ static void sql_query_callback(struct sql_result *result,
 		passdb_handle_credentials(passdb_result, password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);
+		if ( password != NULL){
+			safe_memset(password, 0, strlen(password));
+		}
 		auth_request_unref(&auth_request);
 		return;
 	}
@@ -137,6 +140,7 @@ static void sql_query_callback(struct sql_result *result,
 	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					   PASSDB_RESULT_PASSWORD_MISMATCH,
 					   auth_request);
+	safe_memset(password, 0, strlen(password));
 	auth_request_unref(&auth_request);
 }
 
