@@ -4,7 +4,7 @@
 #include "istream.h"
 #include "istream-try.h"
 
-void test_istream_try(void)
+static void test_istream_try_normal(void)
 {
 	bool finished = FALSE;
 
@@ -127,4 +127,28 @@ void test_istream_try(void)
 	}
 	i_assert(finished);
 	test_end();
+}
+
+static void test_istream_try_empty(void)
+{
+	test_begin("istream try empty stream");
+	struct istream *test_inputs[] = {
+		test_istream_create(""),
+		test_istream_create(""),
+		NULL
+	};
+	struct istream *try_input = istream_try_create(test_inputs);
+	test_assert(i_stream_read(try_input) == -1);
+	test_assert(try_input->eof);
+	test_assert(try_input->stream_errno == 0);
+	i_stream_unref(&test_inputs[0]);
+	i_stream_unref(&test_inputs[1]);
+	i_stream_unref(&try_input);
+	test_end();
+}
+
+void test_istream_try(void)
+{
+	test_istream_try_normal();
+	test_istream_try_empty();
 }
