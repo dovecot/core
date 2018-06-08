@@ -309,7 +309,7 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	struct ioloop *prev_ioloop = current_ioloop;
 	const struct doveadm_cmd *cmd = NULL;
 	const struct doveadm_mail_cmd *mail_cmd;
-	struct doveadm_mail_cmd_context *mctx;
+	struct doveadm_mail_cmd_context *mctx = NULL;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
 
 	if ((cmd_ver2 = doveadm_cmd_find_with_args_ver2(cmd_name, &argc, &argv)) == NULL) {
@@ -342,8 +342,10 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 		doveadm_cmd_server_run_ver2(conn, argc, argv, cctx);
 	else if (cmd != NULL)
 		doveadm_cmd_server_run(conn, argc, argv, cmd);
-	else
+	else {
+		i_assert(mctx != NULL);
 		doveadm_mail_cmd_server_run(conn, mctx);
+	}
 
 	o_stream_switch_ioloop_to(conn->output, prev_ioloop);
 	if (conn->log_out != NULL)
