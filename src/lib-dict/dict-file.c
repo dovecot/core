@@ -367,12 +367,13 @@ static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 
 static int
 fd_copy_stat_permissions(const struct stat *src_st,
-			 int dest_fd, const char *dest_path)
+			 int dest_fd, const char *dest_path,
+			 const char **error_r)
 {
 	struct stat dest_st;
 
 	if (fstat(dest_fd, &dest_st) < 0) {
-		i_error("fstat(%s) failed: %m", dest_path);
+		*error_r = t_strdup_printf("fstat(%s) failed: %m", dest_path);
 		return -1;
 	}
 
@@ -381,16 +382,16 @@ fd_copy_stat_permissions(const struct stat *src_st,
 		/* group has different permissions from world.
 		   preserve the group. */
 		if (fchown(dest_fd, (uid_t)-1, src_st->st_gid) < 0) {
-			i_error("fchown(%s, -1, %s) failed: %m",
-				dest_path, dec2str(src_st->st_gid));
+			*error_r = t_strdup_printf("fchown(%s, -1, %s) failed: %m",
+						   dest_path, dec2str(src_st->st_gid));
 			return -1;
 		}
 	}
 
 	if ((src_st->st_mode & 07777) != (dest_st.st_mode & 07777)) {
 		if (fchmod(dest_fd, src_st->st_mode & 07777) < 0) {
-			i_error("fchmod(%s, %o) failed: %m",
-				dest_path, (int)(src_st->st_mode & 0777));
+			*error_r = t_strdup_printf("fchmod(%s, %o) failed: %m",
+						   dest_path, (int)(src_st->st_mode & 0777));
 			return -1;
 		}
 	}
@@ -398,20 +399,21 @@ fd_copy_stat_permissions(const struct stat *src_st,
 }
 
 static int fd_copy_permissions(int src_fd, const char *src_path,
-			       int dest_fd, const char *dest_path)
+			       int dest_fd, const char *dest_path,
+			       const char **error_r)
 {
 	struct stat src_st;
 
 	if (fstat(src_fd, &src_st) < 0) {
-		i_error("fstat(%s) failed: %m", src_path);
+		*error_r = t_strdup_printf("fstat(%s) failed: %m", src_path);
 		return -1;
 	}
-	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path);
+	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path, error_r);
 }
 
 static int
 fd_copy_parent_dir_permissions(const char *src_path, int dest_fd,
-			       const char *dest_path)
+			       const char *dest_path, const char **error_r)
 {
 	struct stat src_st;
 	const char *src_dir, *p;
@@ -422,11 +424,11 @@ fd_copy_parent_dir_permissions(const char *src_path, int dest_fd,
 	else
 		src_dir = t_strdup_until(src_path, p);
 	if (stat(src_dir, &src_st) < 0) {
-		i_error("stat(%s) failed: %m", src_dir);
+		*error_r = t_strdup_printf("stat(%s) failed: %m", src_dir);
 		return -1;
 	}
 	src_st.st_mode &= 0666;
-	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path);
+	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path, error_r);
 }
 
 static int file_dict_mkdir(struct file_dict *dict, const char **error_r)
@@ -467,6 +469,7 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 	       const char **error_r)
 {
 	int ret;
+	const char *error;
 
 	if (file_dict_open_latest(dict, error_r) < 0)
 		return -1;
@@ -488,8 +491,9 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 			}
 			return -1;
 		}
-		(void)fd_copy_parent_dir_permissions(dict->path, dict->fd,
-						     dict->path);
+		if (fd_copy_parent_dir_permissions(dict->path, dict->fd,
+						   dict->path, &error) < 0)
+			i_error("%s", error);
 	}
 
 	*lock_r = NULL;
@@ -518,6 +522,7 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	struct dotlock *dotlock = NULL;
 	struct file_lock *lock = NULL;
 	const char *temp_path = NULL;
+	const char *error;
 	struct hash_iterate_context *iter;
 	struct ostream *output;
 	char *key, *value;
@@ -571,10 +576,12 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	}
 	if (dict->fd != -1) {
 		/* preserve the permissions */
-		(void)fd_copy_permissions(dict->fd, dict->path, fd, temp_path);
+		if (fd_copy_permissions(dict->fd, dict->path, fd, temp_path, &error) < 0)
+			i_error("%s", error);
 	} else {
 		/* get initial permissions from parent directory */
-		(void)fd_copy_parent_dir_permissions(dict->path, fd, temp_path);
+		if (fd_copy_parent_dir_permissions(dict->path, fd, temp_path, &error) < 0)
+			i_error("%s", error);
 	}
 	file_dict_apply_changes(ctx, atomic_inc_not_found_r);
 
