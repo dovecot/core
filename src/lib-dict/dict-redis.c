@@ -291,7 +291,7 @@ static void redis_conn_connected(struct connection *_conn, bool success)
 	struct redis_connection *conn = (struct redis_connection *)_conn;
 
 	if (!success) {
-		i_error("redis: connect(%s) failed: %m", _conn->name);
+		e_error(conn->conn.event, "connect() failed: %m");
 	} else {
 		conn->dict->connected = TRUE;
 	}
@@ -412,6 +412,9 @@ redis_dict_init(struct dict *driver, const char *uri,
 		i_free(dict);
 		return -1;
 	}
+
+	dict->conn.conn.event_parent = set->event_parent;
+
 	if (unix_path != NULL) {
 		connection_init_client_unix(redis_connections, &dict->conn.conn,
 					    unix_path);
@@ -419,6 +422,7 @@ redis_dict_init(struct dict *driver, const char *uri,
 		connection_init_client_ip(redis_connections, &dict->conn.conn,
 					  NULL, &ip, port);
 	}
+	event_set_append_log_prefix(dict->conn.conn.event, "redis: ");
 	dict->dict = *driver;
 	dict->conn.last_reply = str_new(default_pool, 256);
 	dict->conn.dict = dict;
@@ -542,7 +546,7 @@ static int redis_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 
 	if (dict->conn.conn.fd_in == -1 &&
 	    connection_client_connect(&dict->conn.conn) < 0) {
-		i_error("redis: Couldn't connect to %s", dict->conn.conn.name);
+		e_error(dict->conn.conn.event, "Couldn't connect");
 	} else {
 		to = timeout_add(dict->timeout_msecs,
 				 redis_dict_lookup_timeout, dict);
@@ -603,8 +607,7 @@ redis_transaction_init(struct dict *_dict)
 
 	if (dict->conn.conn.fd_in == -1 &&
 	    connection_client_connect(&dict->conn.conn) < 0) {
-		i_error("redis: Couldn't connect to %s",
-			dict->conn.conn.name);
+		e_error(dict->conn.conn.event, "Couldn't connect");
 	} else if (!dict->connected) {
 		/* wait for connection */
 		redis_wait(dict);
