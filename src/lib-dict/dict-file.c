@@ -122,13 +122,13 @@ static bool file_dict_need_refresh(struct file_dict *dict)
 	   setting nowadays. */
 	/*nfs_flush_file_handle_cache(dict->path);*/
 	if (nfs_safe_stat(dict->path, &st1) < 0) {
-		i_error("stat(%s) failed: %m", dict->path);
+		e_error(dict->dict.event, "stat(%s) failed: %m", dict->path);
 		return FALSE;
 	}
 
 	if (fstat(dict->fd, &st2) < 0) {
 		if (errno != ESTALE)
-			i_error("fstat(%s) failed: %m", dict->path);
+			e_error(dict->dict.event, "fstat(%s) failed: %m", dict->path);
 		return TRUE;
 	}
 	if (st1.st_ino != st2.st_ino ||
@@ -493,7 +493,7 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 		}
 		if (fd_copy_parent_dir_permissions(dict->path, dict->fd,
 						   dict->path, &error) < 0)
-			i_error("%s", error);
+			e_error(dict->dict.event, "%s", error);
 	}
 
 	*lock_r = NULL;
@@ -577,11 +577,11 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	if (dict->fd != -1) {
 		/* preserve the permissions */
 		if (fd_copy_permissions(dict->fd, dict->path, fd, temp_path, &error) < 0)
-			i_error("%s", error);
+			e_error(ctx->ctx.event, "%s", error);
 	} else {
 		/* get initial permissions from parent directory */
 		if (fd_copy_parent_dir_permissions(dict->path, fd, temp_path, &error) < 0)
-			i_error("%s", error);
+			e_error(ctx->ctx.event, "%s", error);
 	}
 	file_dict_apply_changes(ctx, atomic_inc_not_found_r);
 
