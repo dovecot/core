@@ -61,6 +61,7 @@ struct dict {
 
 struct dict_iterate_context {
 	struct dict *dict;
+	struct event *event;
 
 	dict_iterate_callback_t *async_callback;
 	void *async_context;
@@ -74,6 +75,7 @@ struct dict_transaction_context {
 	struct dict *dict;
 	struct dict_transaction_context *prev, *next;
 
+	struct event *event;
 	struct timespec timestamp;
 
 	bool changed:1;
