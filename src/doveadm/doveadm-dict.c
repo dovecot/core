@@ -15,7 +15,7 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 {
 	struct dict_settings dict_set;
 	struct dict *dict;
-	bool set;
+	bool set = FALSE;
 	const char *dict_uri, *error, *key, *username = "";
 
 	if (doveadm_cmd_param_bool(cctx, "exact", &set) && set)
