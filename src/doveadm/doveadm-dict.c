@@ -36,8 +36,6 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 	    !doveadm_cmd_param_str(cctx, "key", &key))
 		key = "";
 
-	i_debug("key = %s", key);
-
 	if (!str_begins(key, DICT_PATH_PRIVATE) &&
 	    !str_begins(key, DICT_PATH_SHARED)) {
 		i_error("Key must begin with '"DICT_PATH_PRIVATE
