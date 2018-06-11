@@ -333,8 +333,7 @@ memcached_ascii_conn_connected(struct connection *_conn, bool success)
 	struct memcached_ascii_connection *conn = (struct memcached_ascii_connection *)_conn;
 
 	if (!success) {
-		i_error("memcached_ascii: connect(%s, %u) failed: %m",
-			net_ip2addr(&conn->dict->ip), conn->dict->port);
+		e_error(conn->conn.event, "connect() failed: %m");
 	}
 	if (conn->dict->dict.ioloop != NULL)
 		io_loop_stop(conn->dict->dict.ioloop);
@@ -430,8 +429,10 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 		return -1;
 	}
 
+	dict->conn.conn.event_parent = dict->dict.event;
 	connection_init_client_ip(memcached_ascii_connections, &dict->conn.conn,
 				  NULL, &dict->ip, dict->port);
+	event_set_append_log_prefix(dict->conn.conn.event, "memcached: ");
 	dict->dict = *driver;
 	dict->conn.reply_str = str_new(default_pool, 256);
 	dict->conn.dict = dict;

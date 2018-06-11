@@ -82,7 +82,7 @@ static int memcached_input_get(struct memcached_connection *conn)
 		return 0;
 
 	if (data[0] != MEMCACHED_REPLY_HDR_MAGIC) {
-		i_error("memcached: Invalid reply magic: %u != %u",
+		e_error(conn->conn.event, "Invalid reply magic: %u != %u",
 			data[0], MEMCACHED_REPLY_HDR_MAGIC);
 		return -1;
 	}
@@ -98,7 +98,7 @@ static int memcached_input_get(struct memcached_connection *conn)
 	data_type = data[5];
 	memcpy(&status, data+6, 2); status = ntohs(status);
 	if (data_type != MEMCACHED_DATA_TYPE_RAW) {
-		i_error("memcached: Unsupported data type: %u != %u",
+		e_error(conn->conn.event, "Unsupported data type: %u != %u",
 			data[0], MEMCACHED_DATA_TYPE_RAW);
 		return -1;
 	}
@@ -106,7 +106,7 @@ static int memcached_input_get(struct memcached_connection *conn)
 	key_pos = MEMCACHED_REPLY_HDR_LENGTH + extras_len;
 	value_pos = key_pos + key_len;
 	if (value_pos > body_len) {
-		i_error("memcached: Invalid key/extras lengths");
+		e_error(conn->conn.event, "Invalid key/extras lengths");
 		return -1;
 	}
 	conn->reply.value = data + value_pos;
@@ -145,8 +145,7 @@ static void memcached_conn_connected(struct connection *_conn, bool success)
 		(struct memcached_connection *)_conn;
 
 	if (!success) {
-		i_error("memcached: connect(%s, %u) failed: %m",
-			net_ip2addr(&conn->dict->ip), conn->dict->port);
+		e_error(conn->conn.event, "connect() failed: %m");
 	} else {
 		conn->dict->connected = TRUE;
 	}
@@ -223,8 +222,11 @@ memcached_dict_init(struct dict *driver, const char *uri,
 		return -1;
 	}
 
+	dict->conn.conn.event_parent = dict->dict.event;
+
 	connection_init_client_ip(memcached_connections, &dict->conn.conn,
 				  NULL, &dict->ip, dict->port);
+	event_set_append_log_prefix(dict->conn.conn.event, "memcached: ");
 	dict->dict = *driver;
 	dict->conn.cmd = buffer_create_dynamic(default_pool, 256);
 	dict->conn.dict = dict;
@@ -247,7 +249,7 @@ static void memcached_dict_deinit(struct dict *_dict)
 
 static void memcached_dict_lookup_timeout(struct memcached_dict *dict)
 {
-	i_error("memcached: Lookup timed out in %u.%03u secs",
+	e_error(dict->dict.event, "Lookup timed out in %u.%03u secs",
 		dict->timeout_msecs/1000, dict->timeout_msecs%1000);
 	io_loop_stop(dict->dict.ioloop);
 }
@@ -301,8 +303,7 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 
 	if (dict->conn.conn.fd_in == -1 &&
 	    connection_client_connect(&dict->conn.conn) < 0) {
-		i_error("memcached: Couldn't connect to %s:%u",
-			net_ip2addr(&dict->ip), dict->port);
+		e_error(dict->conn.conn.event, "Couldn't connect");
 	} else {
 		to = timeout_add(dict->timeout_msecs,
 				 memcached_dict_lookup_timeout, dict);
@@ -335,7 +336,7 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 		/* we failed in some way. make sure we disconnect since the
 		   connection state isn't known anymore */
 		memcached_conn_destroy(&dict->conn.conn);
-		*error_r = "memcached: Communication failure";
+		*error_r = "Communication failure";
 		return -1;
 	}
 	switch (dict->conn.reply.status) {
@@ -346,17 +347,17 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	case MEMCACHED_RESPONSE_NOTFOUND:
 		return 0;
 	case MEMCACHED_RESPONSE_INTERNALERROR:
-		*error_r = "memcached: Lookup failed: Internal error";
+		*error_r = "Lookup failed: Internal error";
 		return -1;
 	case MEMCACHED_RESPONSE_BUSY:
-		*error_r = "memcached: Lookup failed: Busy";
+		*error_r = "Lookup failed: Busy";
 		return -1;
 	case MEMCACHED_RESPONSE_TEMPFAILURE:
-		*error_r = "memcached: Lookup failed: Temporary failure";
+		*error_r = "Lookup failed: Temporary failure";
 		return -1;
 	}
 
-	*error_r = t_strdup_printf("memcached: Lookup failed: Error code=%u",
+	*error_r = t_strdup_printf("Lookup failed: Error code=%u",
 				   dict->conn.reply.status);
 	return -1;
 }
