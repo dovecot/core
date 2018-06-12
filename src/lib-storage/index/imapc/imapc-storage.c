@@ -117,12 +117,15 @@ void imapc_simple_context_init(struct imapc_simple_context *sctx,
 	sctx->ret = -2;
 }
 
-void imapc_simple_run(struct imapc_simple_context *sctx)
+void imapc_simple_run(struct imapc_simple_context *sctx,
+		      struct imapc_command **cmd)
 {
 	if (imapc_storage_client_handle_auth_failure(sctx->client)) {
+		imapc_command_abort(cmd);
 		imapc_client_logout(sctx->client->client);
 		sctx->ret = -1;
 	}
+	*cmd = NULL;
 	while (sctx->ret == -2)
 		imapc_client_run(sctx->client->client);
 }
@@ -179,7 +182,7 @@ void imapc_mailbox_noop(struct imapc_mailbox *mbox)
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_simple_callback, &sctx);
 	imapc_command_send(cmd, "NOOP");
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 }
 
 static void
@@ -835,7 +838,7 @@ imapc_mailbox_create(struct mailbox *box,
 	cmd = imapc_client_cmd(mbox->storage->client->client,
 			       imapc_simple_callback, &sctx);
 	imapc_command_sendf(cmd, "CREATE %s", name);
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 	return sctx.ret;
 }
 
@@ -1005,7 +1008,7 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "STATUS %s (%1s)",
 			    imapc_mailbox_get_remote_name(mbox), str_c(str)+1);
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 	mbox->storage->cur_status_box = NULL;
 	mbox->storage->cur_status = NULL;
 	return sctx.ret;
@@ -1065,7 +1068,7 @@ static int imapc_mailbox_get_namespaces(struct imapc_mailbox *mbox)
 			       imapc_simple_callback, &sctx);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, "NAMESPACE");
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 
 	if (sctx.ret < 0)
 		return -1;
