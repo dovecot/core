@@ -127,17 +127,22 @@ static int mail_crypt_istream_get_private_key(const char *pubkey_digest,
 
 	*priv_key_r = mail_crypt_global_key_find(&muser->global_keys,
 						 pubkey_digest);
-	if (*priv_key_r != NULL) return 1;
+	if (*priv_key_r != NULL) {
+		dcrypt_key_ref_private(*priv_key_r);
+		return 1;
+	}
 
 	struct mail_namespace *ns = mailbox_get_namespace(_mail->box);
 
 	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED) {
 		ret = mail_crypt_box_get_shared_key(_mail->box, pubkey_digest,
 						    priv_key_r, error_r);
+		/* priv_key_r is already referenced */
 	} else if (ns->type != MAIL_NAMESPACE_TYPE_PUBLIC) {
 		ret = mail_crypt_get_private_key(_mail->box, pubkey_digest,
 						 FALSE, FALSE, priv_key_r,
 						 error_r);
+		/* priv_key_r is already referenced */
 	} else {
 		*error_r = "Public emails cannot have keys";
 		ret = -1;

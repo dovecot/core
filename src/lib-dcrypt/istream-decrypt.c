@@ -167,7 +167,6 @@ i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 						    "Private key not available");
 				return -1;
 			}
-			dcrypt_key_ref_private(stream->priv_key);
 		} else {
 			io_stream_set_error(&stream->istream.iostream,
 					    "Private key not available");
@@ -378,7 +377,6 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 				return -1;
 			}
 			if (ret > 0) {
-				dcrypt_key_ref_private(stream->priv_key);
 				have_key = TRUE;
 				break;
 			}
