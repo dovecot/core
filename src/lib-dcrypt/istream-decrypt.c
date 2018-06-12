@@ -340,13 +340,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 	keys = *data++;
 
 	/* if we have a key, prefab the digest */
-	if (stream->key_callback == NULL) {
-		if (stream->priv_key == NULL) {	
-			io_stream_set_error(&stream->istream.iostream,
-					    "Decryption error: "
-					    "no private key available");
-			return -1;
-		}
+	if (stream->priv_key != NULL) {
 		buffer_create_from_data(&buf, dgst, sizeof(dgst));
 		if (!dcrypt_key_id_private(stream->priv_key, "sha256", &buf,
 					   &error)) {
@@ -356,6 +350,11 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 					    error);
 			return -1;
 		}
+	} else if (stream->key_callback == NULL) {
+		io_stream_set_error(&stream->istream.iostream,
+				    "Decryption error: "
+				    "no private key available");
+		return -1;
 	}
 
 	/* for each key */
@@ -364,9 +363,17 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 			return 0;
 		ktype = *data++;
 
-		if (stream->key_callback != NULL) {
+		if (stream->priv_key != NULL) {
+			/* see if key matches to the one we have */
+			if (memcmp(dgst, data, sizeof(dgst)) == 0) {
+				have_key = TRUE;
+				break;
+			}
+		} else if (stream->key_callback != NULL) {
 			const char *hexdgst = /* digest length */
 				binary_to_hex(data, sizeof(dgst));
+			if (stream->priv_key != NULL)
+				dcrypt_key_unref_private(&stream->priv_key);
 			/* hope you going to give us right key.. */
 			int ret = stream->key_callback(hexdgst,
 				&stream->priv_key, &error, stream->key_context);
@@ -378,12 +385,6 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 			}
 			if (ret > 0) {
 				have_key = TRUE;
-				break;
-			}
-		} else {
-			/* see if key matches to the one we have */
-			if (memcmp(dgst, data, sizeof(dgst)) == 0) {
-			      	have_key = TRUE;
 				break;
 			}
 		}
