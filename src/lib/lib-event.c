@@ -909,4 +909,5 @@ void lib_event_deinit(void)
 	array_free(&event_handlers);
 	array_free(&event_category_callbacks);
 	array_free(&event_registered_categories);
+	array_free(&global_event_stack);
 }
