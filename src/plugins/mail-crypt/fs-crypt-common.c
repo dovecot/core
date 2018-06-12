@@ -252,7 +252,10 @@ fs_crypt_istream_get_key(const char *pubkey_digest,
 		return -1;
 
 	*priv_key_r = mail_crypt_global_key_find(&file->fs->keys, pubkey_digest);
-	return *priv_key_r == NULL ? 0 : 1;
+	if (*priv_key_r == NULL)
+		return 0;
+	dcrypt_key_ref_private(*priv_key_r);
+	return 1;
 }
 
 static struct istream *
