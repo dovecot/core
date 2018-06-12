@@ -188,7 +188,8 @@ void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 const struct imapc_command_reply *reply);
 void imapc_simple_context_init(struct imapc_simple_context *sctx,
 			       struct imapc_storage_client *client);
-void imapc_simple_run(struct imapc_simple_context *sctx);
+void imapc_simple_run(struct imapc_simple_context *sctx,
+		      struct imapc_command **cmd);
 void imapc_simple_callback(const struct imapc_command_reply *reply,
 			   void *context);
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,

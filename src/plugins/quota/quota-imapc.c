@@ -310,7 +310,7 @@ static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root,
 	cmd = imapc_client_cmd(root->client->client,
 			       imapc_simple_callback, &sctx);
 	imapc_command_sendf(cmd, "GETQUOTAROOT %s", root->box_name);
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 
 	/* if there are multiple quota roots, use the first one returned by
 	   the QUOTAROOT */
@@ -342,7 +342,7 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root,
 	cmd = imapc_client_cmd(root->client->client,
 			       imapc_simple_callback, &sctx);
 	imapc_command_sendf(cmd, "GETQUOTA %s", root->root_name);
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 
 	/* there shouldn't be more than one QUOTA reply, but ignore anyway
 	   anything we didn't expect. */
