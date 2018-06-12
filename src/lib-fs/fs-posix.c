@@ -107,7 +107,7 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 			fs->have_dirs = TRUE;
 		} else if (strcmp(arg, "no-fsync") == 0) {
 			fs->disable_fsync = TRUE;
-		} else if (str_begins(arg, "accurate-mtime") == 0) {
+		} else if (str_begins(arg, "accurate-mtime")) {
 			fs->accurate_mtime = TRUE;
 		} else if (str_begins(arg, "mode=")) {
 			unsigned int mode;

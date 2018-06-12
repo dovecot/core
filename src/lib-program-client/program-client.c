@@ -614,13 +614,13 @@ int program_client_create(const char *uri, const char *const *args,
 			  bool noreply, struct program_client **pc_r,
 			  const char **error_r)
 {
-	if (str_begins(uri, "exec:") == 0) {
+	if (str_begins(uri, "exec:")) {
 		*pc_r = program_client_local_create(
 			uri+5,
 			args,
 			set);
 		return 0;
-	} else if (str_begins(uri, "unix:") == 0) {
+	} else if (str_begins(uri, "unix:")) {
 		*pc_r = program_client_unix_create(
 			uri+5,
 			args,
