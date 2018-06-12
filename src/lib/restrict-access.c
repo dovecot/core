@@ -538,3 +538,8 @@ bool restrict_access_have_priv_gid(void)
 {
 	return process_privileged_gid != (gid_t)-1;
 }
+
+void restrict_access_deinit(void)
+{
+	i_free(chroot_dir);
+}

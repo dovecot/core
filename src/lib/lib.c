@@ -8,6 +8,7 @@
 #include "hostpid.h"
 #include "ipwd.h"
 #include "process-title.h"
+#include "restrict-access.h"
 #include "var-expand-private.h"
 #include "randgen.h"
 
@@ -160,6 +161,7 @@ void lib_deinit(void)
 	var_expand_extensions_deinit();
 	event_filter_deinit();
 	lib_event_deinit();
+	restrict_access_deinit();
 	i_close_fd(&dev_null_fd);
 	data_stack_deinit();
 	env_deinit();
