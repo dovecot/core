@@ -582,6 +582,9 @@ void master_service_init_finish(struct master_service *service)
 	enum libsig_flags sigint_flags = LIBSIG_FLAG_DELAYED;
 	struct stat st;
 
+	i_assert(!service->init_finished);
+	service->init_finished = TRUE;
+
 	/* set default signal handlers */
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0)
 		sigint_flags |= LIBSIG_FLAG_RESTART;
@@ -995,6 +998,11 @@ void master_service_deinit(struct master_service **_service)
 
 	*_service = NULL;
 
+	if (!service->init_finished &&
+	    (service->flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0) {
+		if (!t_pop(&service->datastack_frame_id))
+			i_panic("Leaked t_pop() call");
+	}
 	master_service_haproxy_abort(service);
 
 	master_service_io_listeners_remove(service);
