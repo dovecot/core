@@ -482,8 +482,10 @@ smtp_command_parse_data_with_size(struct smtp_command_parser *parser,
 			size, parser->limits.max_data_size);
 	} else {
 		// FIXME: make exact_size stream type
-		parser->data = i_stream_create_min_sized(
-			i_stream_create_limit(parser->input, size), size);
+		struct istream *limit_input =
+			i_stream_create_limit(parser->input, size);
+		parser->data = i_stream_create_min_sized(limit_input, size);
+		i_stream_unref(&limit_input);
 	}
 	i_stream_ref(parser->data);
 	return parser->data;
