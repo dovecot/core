@@ -725,6 +725,7 @@ smtp_params_rcpt_parse_orcpt(struct smtp_params_rcpt_parser *prparser,
 	struct smtp_parser parser;
 	const unsigned char *p, *pend;
 	string_t *address;
+	const char *addr_type;
 	int ret;
 
 	/* ORCPT=<address>: RFC 3461
@@ -751,12 +752,13 @@ smtp_params_rcpt_parse_orcpt(struct smtp_params_rcpt_parser *prparser,
 
 	/* check addr-type */
 	smtp_parser_init(&parser, pool_datastack_create(), value);
-	if (smtp_parser_parse_atom(&parser, &params->orcpt.addr_type) <= 0 ||
+	if (smtp_parser_parse_atom(&parser, &addr_type) <= 0 ||
 		parser.cur >= parser.end || *parser.cur != ';') {
 		prparser->error = "Invalid addr-type for ORCPT= parameter";
 		prparser->error_code = SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX;
 		return -1;
 	}
+	params->orcpt.addr_type = p_strdup(prparser->pool, addr_type);
 	parser.cur++;
 
 	/* check xtext */
