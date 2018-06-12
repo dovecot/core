@@ -85,4 +85,6 @@ bool restrict_access_have_priv_gid(void);
 
 gid_t *restrict_get_groups_list(unsigned int *gid_count_r);
 
+void restrict_access_deinit(void);
+
 #endif
