@@ -1516,12 +1516,13 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 
 	/* create ioloop context regardless of logging. it's also used by
 	   stats plugin. */
-	user->ioloop_ctx = io_loop_context_new(current_ioloop);
-	io_loop_context_add_callbacks(user->ioloop_ctx,
+	if (user->ioloop_ctx == NULL) {
+		user->ioloop_ctx = io_loop_context_new(current_ioloop);
+		io_loop_context_add_callbacks(user->ioloop_ctx,
 				      mail_storage_service_io_activate_user_cb,
 				      mail_storage_service_io_deactivate_user_cb,
 				      user);
-
+	}
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
 		mail_storage_service_init_log(ctx, user, &priv);
 
