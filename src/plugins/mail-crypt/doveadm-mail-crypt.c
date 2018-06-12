@@ -342,6 +342,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 						key_id, &error)) {
 				i_error("dcrypt_key_id_public() failed: %s",
 					error);
+				dcrypt_key_unref_public(&user_key);
 				return -1;
 			}
 			const char *hash = binary_to_hex(key_id->data,
@@ -351,6 +352,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			res->id = p_strdup(_ctx->pool, hash);
 			res->success = TRUE;
 			ctx->matched_keys++;
+			dcrypt_key_unref_public(&user_key);
 			return 1;
 		}
 		struct dcrypt_keypair pair;
@@ -371,8 +373,10 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 		ctx->matched_keys++;
 	}
 
-	if (ctx->userkey_only)
+	if (ctx->userkey_only) {
+		dcrypt_key_unref_public(&user_key);
 		return 0;
+	}
 
 	const char *const *patterns = (const char *const[]){ "*", NULL };
 
