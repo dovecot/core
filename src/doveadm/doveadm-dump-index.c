@@ -715,7 +715,10 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			printf("                   : unseen   = %u\n", lrec->unseen);
 			printf("                   : recent   = %u\n", lrec->recent);
 			printf("                   : uidnext  = %u\n", lrec->uidnext);
-		} else if (strcmp(ext[i].name, "vsize") == 0) {
+		} else if (strcmp(ext[i].name, "vsize") == 0 &&
+			   ext[i].record_size >= sizeof(struct mailbox_index_vsize)) {
+			/* this is "vsize" in dovecot.list.index, not the
+			   32bit "vsize" in dovecot.index */
 			const struct mailbox_index_vsize *vrec = data;
 			printf("                   : vsize         = %"PRIu64"\n", vrec->vsize);
 			printf("                   : highest_uid   = %u\n", vrec->highest_uid);
