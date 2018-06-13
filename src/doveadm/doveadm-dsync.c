@@ -521,8 +521,6 @@ cmd_dsync_ibc_stream_init(struct dsync_cmd_context *ctx,
 		iostream_rawlog_create_path(ctx->rawlog_path,
 					    &ctx->input, &ctx->output);
 	}
-	i_stream_ref(ctx->input);
-	o_stream_ref(ctx->output);
 	return dsync_ibc_init_stream(ctx->input, ctx->output,
 				     name, temp_prefix, ctx->io_timeout_secs);
 }
