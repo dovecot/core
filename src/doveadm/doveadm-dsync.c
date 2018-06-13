@@ -1171,6 +1171,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		ctx->fd_in = ctx->fd_out = -1;
 		ctx->input = cctx->input;
 		ctx->output = cctx->output;
+		i_stream_ref(ctx->input);
+		o_stream_ref(ctx->output);
 		o_stream_set_finish_also_parent(ctx->output, FALSE);
 		o_stream_nsend(ctx->output, "\n+\n", 3);
 		i_set_failure_prefix("dsync-server(%s): ", user->username);
@@ -1213,6 +1215,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		   connection code */
 		o_stream_close(cctx->output);
 	}
+	i_stream_unref(&ctx->input);
+	o_stream_unref(&ctx->output);
 
 	if (ctx->replicator_notify && _ctx->exit_code == 0)
 		dsync_replicator_notify(ctx, sync_type, str_c(state_str));
