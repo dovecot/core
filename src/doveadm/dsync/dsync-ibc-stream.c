@@ -2110,6 +2110,8 @@ dsync_ibc_init_stream(struct istream *input, struct ostream *output,
 	ibc->ibc.v = dsync_ibc_stream_vfuncs;
 	ibc->input = input;
 	ibc->output = output;
+	i_stream_ref(ibc->input);
+	o_stream_ref(ibc->output);
 	ibc->name = i_strdup(name);
 	ibc->temp_path_prefix = i_strdup(temp_path_prefix);
 	ibc->timeout_secs = timeout_secs;
