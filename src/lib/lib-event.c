@@ -284,6 +284,9 @@ static void event_category_register(struct event_category *category)
 	if (category->parent != NULL)
 		event_category_register(category->parent);
 
+	/* Don't allow duplicate category structs with the same name.
+	   Event filtering uses pointer comparisons for efficiency. */
+	i_assert(event_category_find_registered(category->name) == NULL);
 	category->registered = TRUE;
 	array_append(&event_registered_categories, &category, 1);
 
