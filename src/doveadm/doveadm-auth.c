@@ -112,6 +112,7 @@ cmd_user_input(struct auth_master_connection *conn,
 			}
 		}
 	}
+	pool_unref(&pool);
 	return ret;
 }
 
