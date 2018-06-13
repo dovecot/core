@@ -279,6 +279,8 @@ static void cmd_log_find(int argc, char *argv[])
 		if (!found)
 			printf("%sNot found\n", failure_log_type_prefixes[i]);
 	}
+	hash_table_destroy(&ctx.files);
+	pool_unref(&ctx.pool);
 }
 
 static const char *t_cmd_log_error_trim(const char *orig)
