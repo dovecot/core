@@ -123,6 +123,60 @@ static void default_post_handler(const struct failure_context *ctx)
 		abort();
 }
 
+static string_t * ATTR_FORMAT(3, 0) syslog_format(const struct failure_context *ctx,
+						  size_t *prefix_len_r ATTR_UNUSED,
+						  const char *format,
+						  va_list args)
+{
+	string_t *str = t_str_new(128);
+	if (ctx->log_prefix != NULL)
+		str_append(str, ctx->log_prefix);
+	else if (log_prefix != NULL)
+		str_append(str, log_prefix);
+	if (ctx->type != LOG_TYPE_INFO)
+		str_append(str, failure_log_type_prefixes[ctx->type]);
+	str_vprintfa(str, format, args);
+	return str;
+}
+
+static int syslog_write(enum log_type type, string_t *data, size_t prefix_len ATTR_UNUSED)
+{
+	int level = LOG_ERR;
+
+	switch (type) {
+	case LOG_TYPE_DEBUG:
+		level = LOG_DEBUG;
+		break;
+	case LOG_TYPE_INFO:
+		level = LOG_INFO;
+		break;
+	case LOG_TYPE_WARNING:
+		level = LOG_WARNING;
+		break;
+	case LOG_TYPE_ERROR:
+		level = LOG_ERR;
+		break;
+	case LOG_TYPE_FATAL:
+	case LOG_TYPE_PANIC:
+		level = LOG_CRIT;
+		break;
+	case LOG_TYPE_COUNT:
+	case LOG_TYPE_OPTION:
+		i_unreached();
+	}
+	syslog(level, "%s", str_c(data));
+	return 0;
+}
+
+static void syslog_on_handler_failure(const struct failure_context *ctx ATTR_UNUSED)
+{
+	failure_exit(FATAL_LOGERROR);
+}
+
+static void syslog_post_handler(const struct failure_context *ctx ATTR_UNUSED)
+{
+}
+
 
 struct failure_handler_vfuncs {
 	failure_write_to_file_t write;
@@ -140,6 +194,11 @@ struct failure_handler_vfuncs default_handler_vfuncs = { .write = &default_write
 							 .format = &default_format,
 							 .on_handler_failure = &default_on_handler_failure,
 							 .post_handler = &default_post_handler };
+
+struct failure_handler_vfuncs syslog_handler_vfuncs = { .write = &syslog_write,
+							.format = &syslog_format,
+							.on_handler_failure = &syslog_on_handler_failure,
+							.post_handler = &syslog_post_handler };
 
 struct failure_handler_config handler_config = { .fatal_err_reset = FATAL_LOGWRITE,
 						 .v = &default_handler_vfuncs };
@@ -516,72 +575,20 @@ void i_get_failure_handlers(failure_callback_t **fatal_callback_r,
 	*debug_callback_r = debug_handler;
 }
 
-static int ATTR_FORMAT(4, 0)
-syslog_handler(const struct failure_context *ctx,
-	       int level, enum log_type type, const char *format, va_list args)
-{
-	static int recursed = 0;
-
-	if (recursed >= 2)
-		return -1;
-	recursed++;
-
-	/* syslogs don't generally bother to log the level in any way,
-	   so make sure errors are shown clearly */
-	T_BEGIN {
-		const char *cur_log_prefix = ctx->log_prefix != NULL ?
-			ctx->log_prefix : log_prefix;
-		syslog(level, "%s%s%s",
-		       cur_log_prefix == NULL ? "" : cur_log_prefix,
-		       type != LOG_TYPE_INFO ?
-		       failure_log_type_prefixes[type] : "",
-		       t_strdup_vprintf(format, args));
-	} T_END;
-	recursed--;
-	return 0;
-}
-
 void i_syslog_fatal_handler(const struct failure_context *ctx,
 			    const char *format, va_list args)
 {
-	int status = ctx->exit_status;
-
-	if (syslog_handler(ctx, LOG_CRIT, ctx->type, format, args) < 0 &&
-	    status == FATAL_DEFAULT)
-		status = FATAL_LOGERROR;
-
-	default_fatal_finish(ctx->type, status);
+	handler_config.v = &syslog_handler_vfuncs;
+	handler_config.fatal_err_reset = FATAL_LOGERROR;
+	fatal_handler_real(ctx, format, args);
 }
 
 void i_syslog_error_handler(const struct failure_context *ctx,
 			    const char *format, va_list args)
 {
-	int level = LOG_ERR;
-
-	switch (ctx->type) {
-	case LOG_TYPE_DEBUG:
-		level = LOG_DEBUG;
-		break;
-	case LOG_TYPE_INFO:
-		level = LOG_INFO;
-		break;
-	case LOG_TYPE_WARNING:
-		level = LOG_WARNING;
-		break;
-	case LOG_TYPE_ERROR:
-		level = LOG_ERR;
-		break;
-	case LOG_TYPE_FATAL:
-	case LOG_TYPE_PANIC:
-		level = LOG_CRIT;
-		break;
-	case LOG_TYPE_COUNT:
-	case LOG_TYPE_OPTION:
-		i_unreached();
-	}
-
-	if (syslog_handler(ctx, level, ctx->type, format, args) < 0)
-		failure_exit(FATAL_LOGERROR);
+	handler_config.v = &syslog_handler_vfuncs;
+	handler_config.fatal_err_reset = FATAL_LOGERROR;
+	error_handler_real(ctx, format, args);
 }
 
 void i_set_failure_syslog(const char *ident, int options, int facility)
