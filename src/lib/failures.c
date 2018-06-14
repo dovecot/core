@@ -57,6 +57,8 @@ static char *log_stamp_format = NULL, *log_stamp_format_suffix = NULL;
 static bool failure_ignore_errors = FALSE, log_prefix_sent = FALSE;
 static bool coredump_on_error = FALSE;
 static void log_prefix_add(const struct failure_context *ctx, string_t *str);
+static void i_failure_send_option(const char *key, const char *value);
+static int internal_send_split(string_t *full_str, size_t prefix_len);
 
 typedef int (*failure_write_to_file_t)(enum log_type type, string_t *data, size_t prefix_len);
 typedef string_t *(*failure_format_str_t)(const struct failure_context *ctx,
@@ -177,6 +179,49 @@ static void syslog_post_handler(const struct failure_context *ctx ATTR_UNUSED)
 {
 }
 
+static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context *ctx,
+						    size_t *prefix_len_r,
+						    const char *format,
+						    va_list args)
+{
+	string_t *str;
+	unsigned char log_type = ctx->type + 1;
+
+	if (ctx->log_prefix != NULL) {
+		log_type |= LOG_TYPE_FLAG_DISABLE_LOG_PREFIX;
+	} else if (!log_prefix_sent && log_prefix != NULL) {
+		log_prefix_sent = TRUE;
+		i_failure_send_option("prefix", log_prefix);
+	}
+
+	str = t_str_new(128);
+	str_printfa(str, "\001%c%s ", log_type, my_pid);
+	if (ctx->log_prefix != NULL)
+		str_append(str, ctx->log_prefix);
+	*prefix_len_r = str_len(str);
+
+	str_vprintfa(str, format, args);
+	return str;
+}
+
+static int internal_write(enum log_type type ATTR_UNUSED, string_t *data, size_t prefix_len)
+{
+	if (str_len(data)+1 <= PIPE_BUF) {
+		str_append_c(data, '\n');
+		return log_fd_write(STDERR_FILENO,
+				    str_data(data), str_len(data));
+	}
+	return internal_send_split(data, prefix_len);
+}
+
+static void internal_on_handler_failure(const struct failure_context *ctx ATTR_UNUSED)
+{
+	failure_exit(FATAL_LOGERROR);
+}
+
+static void internal_post_handler(const struct failure_context *ctx ATTR_UNUSED)
+{
+}
 
 struct failure_handler_vfuncs {
 	failure_write_to_file_t write;
@@ -199,6 +244,11 @@ struct failure_handler_vfuncs syslog_handler_vfuncs = { .write = &syslog_write,
 							.format = &syslog_format,
 							.on_handler_failure = &syslog_on_handler_failure,
 							.post_handler = &syslog_post_handler };
+
+struct failure_handler_vfuncs internal_handler_vfuncs = { .write = &internal_write,
+							  .format = &internal_format,
+							  .on_handler_failure = &internal_on_handler_failure,
+							  .post_handler = &internal_post_handler };
 
 struct failure_handler_config handler_config = { .fatal_err_reset = FATAL_LOGWRITE,
 						 .v = &default_handler_vfuncs };
@@ -714,54 +764,6 @@ static int internal_send_split(string_t *full_str, size_t prefix_len)
 	return 0;
 }
 
-static int ATTR_FORMAT(2, 0)
-internal_handler(const struct failure_context *ctx,
-		 const char *format, va_list args)
-{
-	static int recursed = 0;
-	int ret;
-
-	if (recursed >= 2) {
-		/* we're being called from some signal handler or we ran
-		   out of memory */
-		return -1;
-	}
-
-	recursed++;
-	T_BEGIN {
-		string_t *str;
-		size_t prefix_len;
-		unsigned char log_type = ctx->type + 1;
-
-		if (ctx->log_prefix != NULL) {
-			log_type |= LOG_TYPE_FLAG_DISABLE_LOG_PREFIX;
-		} else if (!log_prefix_sent && log_prefix != NULL) {
-			log_prefix_sent = TRUE;
-			i_failure_send_option("prefix", log_prefix);
-		}
-
-		str = t_str_new(128);
-		str_printfa(str, "\001%c%s ", log_type, my_pid);
-		if (ctx->log_prefix != NULL)
-			str_append(str, ctx->log_prefix);
-		prefix_len = str_len(str);
-
-		str_vprintfa(str, format, args);
-		if (str_len(str)+1 <= PIPE_BUF) {
-			str_append_c(str, '\n');
-			ret = log_fd_write(STDERR_FILENO,
-					   str_data(str), str_len(str));
-		} else {
-			ret = internal_send_split(str, prefix_len);
-		}
-	} T_END;
-
-	if (ret < 0 && failure_ignore_errors)
-		ret = 0;
-
-	recursed--;
-	return ret;
-}
 
 static bool line_parse_prefix(const char *line, enum log_type *log_type_r,
 			      bool *replace_prefix_r)
@@ -814,21 +816,20 @@ static void ATTR_NORETURN ATTR_FORMAT(2, 0)
 i_internal_fatal_handler(const struct failure_context *ctx,
 			 const char *format, va_list args)
 {
-	int status = ctx->exit_status;
+	handler_config.v = &internal_handler_vfuncs;
+	handler_config.fatal_err_reset = FATAL_LOGERROR;
+	fatal_handler_real(ctx, format, args);
 
-	if (internal_handler(ctx, format, args) < 0 &&
-	    status == FATAL_DEFAULT)
-		status = FATAL_LOGERROR;
 
-	default_fatal_finish(ctx->type, status);
 }
 
 static void
 i_internal_error_handler(const struct failure_context *ctx,
 			 const char *format, va_list args)
 {
-	if (internal_handler(ctx, format, args) < 0)
-		failure_exit(FATAL_LOGERROR);
+	handler_config.v = &internal_handler_vfuncs;
+	handler_config.fatal_err_reset = FATAL_LOGERROR;
+	error_handler_real(ctx, format, args);
 }
 
 void i_set_failure_internal(void)
