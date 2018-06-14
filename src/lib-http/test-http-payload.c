@@ -67,6 +67,7 @@ static unsigned ioloop_nested_depth = 0;
 /*
  * Test files
  */
+static const char unsafe_characters[] = "\"<>#%{}|\\^~[]` ;/?:@=&";
 
 static ARRAY_TYPE(const_string) files;
 static pool_t files_pool;
@@ -92,7 +93,8 @@ static void test_files_read_dir(const char *path)
 		errno = 0;
 		if ((dp=readdir(dirp)) == NULL)
 			break;
-		if (*dp->d_name == '.')
+		if (*dp->d_name == '.' ||
+		    dp->d_name[strcspn(dp->d_name, unsafe_characters)] != '\0')
 			continue;
 
 		file = t_abspath_to(dp->d_name, path);
