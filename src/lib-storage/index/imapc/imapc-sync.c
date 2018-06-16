@@ -411,6 +411,12 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		imapc_mailbox_run(mbox);
 	array_free(&ctx->expunged_uids);
 
+	if (!mbox->state_fetched_success) {
+		/* All the sync commands succeeded, but we got disconnected.
+		   imapc_initial_sync_check() will crash if we go there. */
+		ctx->failed = TRUE;
+	}
+
 	/* add uidnext & highestmodseq after all appends */
 	imapc_sync_uid_next(ctx);
 	imapc_sync_highestmodseq(ctx);

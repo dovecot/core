@@ -620,6 +620,7 @@ static void imapc_mailbox_reopen(void *context)
 		mbox->sync_next_rseq = 1;
 	}
 
+	mbox->state_fetched_success = FALSE;
 	mbox->initial_sync_done = FALSE;
 	mbox->selecting = TRUE;
 	mbox->selected = FALSE;
