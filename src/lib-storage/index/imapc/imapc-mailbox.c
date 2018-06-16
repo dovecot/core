@@ -199,7 +199,7 @@ imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox)
 			   that our IMAP connection hasn't seen yet */
 			break;
 		}
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+		imapc_mailbox_index_expunge(mbox, uid);
 	}
 
 	mbox->sync_next_lseq = 0;
@@ -560,8 +560,9 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		/* we're doing the initial full sync of mails. expunge any
 		   mails that no longer exist. */
 		while (mbox->sync_next_lseq < lseq) {
-			mail_index_expunge(mbox->delayed_sync_trans,
-					   mbox->sync_next_lseq);
+			mail_index_lookup_uid(mbox->delayed_sync_view,
+					      mbox->sync_next_lseq, &uid);
+			imapc_mailbox_index_expunge(mbox, uid);
 			mbox->sync_next_lseq++;
 		}
 		i_assert(lseq == mbox->sync_next_lseq);
