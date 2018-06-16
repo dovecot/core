@@ -619,6 +619,14 @@ static void imapc_mailbox_reopen(void *context)
 		i_assert(!mbox->initial_sync_done);
 		return;
 	}
+	if (!mbox->initial_sync_done) {
+		/* Initial FETCH 1:* didn't fully succeed. We're reconnecting
+		   and lib-imap-client is automatically resending it. But we
+		   need to reset the sync_next_* state so that if any of the
+		   mails are now expunged we won't get confused and crash. */
+		mbox->sync_next_lseq = 1;
+		mbox->sync_next_rseq = 1;
+	}
 
 	mbox->initial_sync_done = FALSE;
 	mbox->selecting = TRUE;
