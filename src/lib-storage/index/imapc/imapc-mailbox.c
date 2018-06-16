@@ -158,6 +158,26 @@ static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
 }
 
 static void
+imapc_mailbox_index_expunge(struct imapc_mailbox *mbox, uint32_t uid)
+{
+	uint32_t lseq;
+
+	if (mail_index_lookup_seq(mbox->sync_view, uid, &lseq))
+		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+	else if (mail_index_lookup_seq(mbox->delayed_sync_view, uid, &lseq)) {
+		/* this message exists only in this transaction. lib-index
+		   can't currently handle expunging anything except the last
+		   appended message in a transaction, and fixing it would be
+		   quite a lot of trouble. so instead we'll just delay doing
+		   this expunge until after the current transaction has been
+		   committed. */
+		seq_range_array_add(&mbox->delayed_expunged_uids, uid);
+	} else {
+		/* already expunged by another session */
+	}
+}
+
+static void
 imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox)
 {
 	uint32_t lseq, uid, msg_count;
@@ -602,7 +622,7 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 				   struct imapc_mailbox *mbox)
 {
 	struct imapc_msgmap *msgmap;
-	uint32_t lseq, uid, rseq = reply->num;
+	uint32_t uid, rseq = reply->num;
 	
 	if (mbox == NULL || rseq == 0 ||
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
@@ -629,19 +649,7 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 		array_delete(&mbox->rseq_modseqs, rseq-1, 1);
 
 	imapc_mailbox_init_delayed_trans(mbox);
-	if (mail_index_lookup_seq(mbox->sync_view, uid, &lseq))
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
-	else if (mail_index_lookup_seq(mbox->delayed_sync_view, uid, &lseq)) {
-		/* this message exists only in this transaction. lib-index
-		   can't currently handle expunging anything except the last
-		   appended message in a transaction, and fixing it would be
-		   quite a lot of trouble. so instead we'll just delay doing
-		   this expunge until after the current transaction has been
-		   committed. */
-		seq_range_array_add(&mbox->delayed_expunged_uids, uid);
-	} else {
-		/* already expunged by another session */
-	}
+	imapc_mailbox_index_expunge(mbox, uid);
 	imapc_mailbox_idle_notify(mbox);
 }
 
