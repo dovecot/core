@@ -410,8 +410,6 @@ bool imapc_client_mailbox_can_reconnect(struct imapc_client_mailbox *box)
 void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box,
 				    const char *errmsg)
 {
-	i_assert(!box->reconnecting);
-
 	imapc_connection_try_reconnect(box->conn, errmsg, 0, FALSE);
 }
 
