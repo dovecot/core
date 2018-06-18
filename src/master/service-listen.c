@@ -335,6 +335,9 @@ static int services_listen_master(struct service_list *service_list)
 	const char *path;
 	mode_t old_umask;
 
+	if (service_list->master_fd != -1)
+		return 1;
+
 	path = t_strdup_printf("%s/master", service_list->set->base_dir);
 	old_umask = umask(0600 ^ 0777);
 	service_list->master_fd = net_listen_unix(path, 16);
@@ -411,6 +414,10 @@ int services_listen_using(struct service_list *new_service_list,
 	ARRAY(struct service_listener *) old_listeners_arr;
 	struct service_listener *const *new_listeners, *const *old_listeners;
 	unsigned int i, j, count, new_count, old_count;
+
+	/* copy master listener */
+	new_service_list->master_fd = old_service_list->master_fd;
+	old_service_list->master_fd = -1;
 
 	/* rescue anvil's UNIX socket listener */
 	new_service = service_lookup_type(new_service_list, SERVICE_TYPE_ANVIL);

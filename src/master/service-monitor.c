@@ -652,7 +652,6 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 		services_monitor_wait_and_kill(service_list);
 
 	io_remove(&service_list->io_master);
-	i_close_fd(&service_list->master_fd);
 
 	array_foreach(&service_list->services, services)
 		service_monitor_stop(*services);
