@@ -589,12 +589,15 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 	   smaller than the fetched message header. In this case change the
 	   size as well, otherwise reading via istream-mail will fail. */
 	if (mail->body_fetched || imail->data.physical_size < size) {
-		if (mail->body_fetched)
+		if (mail->body_fetched) {
 			imail->data.inexact_total_sizes = FALSE;
+			/* Don't trust any existing virtual_size. Also don't
+			   set it to size, because there's no guarantees about
+			   the content having proper CRLF newlines, especially
+			   not if istream_opened() has changed the stream. */
+			imail->data.virtual_size = (uoff_t)-1;
+		}
 		imail->data.physical_size = size;
-		/* we'll assume that the remote server is working properly and
-		   sending CRLF linefeeds */
-		imail->data.virtual_size = size;
 	}
 
 	imail->data.stream_has_only_header = !mail->body_fetched;
