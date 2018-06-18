@@ -464,8 +464,7 @@ int services_listen_using(struct service_list *new_service_list,
 		if (old_listeners[j]->fd == -1)
 			continue;
 
-		if (close(old_listeners[j]->fd) < 0)
-			i_error("close(listener) failed: %m");
+		i_close_fd(&old_listeners[j]->fd);
 		switch (old_listeners[j]->type) {
 		case SERVICE_LISTENER_UNIX:
 		case SERVICE_LISTENER_FIFO: {
