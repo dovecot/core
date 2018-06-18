@@ -666,6 +666,8 @@ void service_list_unref(struct service_list *service_list)
 		array_foreach(&(*servicep)->listeners, listenerp)
 			i_close_fd(&(*listenerp)->fd);
 	}
+	i_close_fd(&service_list->master_fd);
+
 	timeout_remove(&service_list->to_kill);
 	pool_unref(&service_list->set_pool);
 	pool_unref(&service_list->pool);
