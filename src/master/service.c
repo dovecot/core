@@ -655,10 +655,17 @@ void service_list_ref(struct service_list *service_list)
 
 void service_list_unref(struct service_list *service_list)
 {
+	struct service *const *servicep;
+	struct service_listener *const *listenerp;
+
 	i_assert(service_list->refcount > 0);
 	if (--service_list->refcount > 0)
 		return;
 
+	array_foreach(&service_list->services, servicep) {
+		array_foreach(&(*servicep)->listeners, listenerp)
+			i_close_fd(&(*listenerp)->fd);
+	}
 	timeout_remove(&service_list->to_kill);
 	pool_unref(&service_list->set_pool);
 	pool_unref(&service_list->pool);
