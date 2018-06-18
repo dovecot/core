@@ -127,8 +127,11 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 	ssize_t ret;
 	unsigned int prev_signal_term_counter = signal_term_counter;
 	unsigned int terminal_eintr_count = 0;
+	const char *old_title = NULL;
+	bool failed = FALSE, process_title_changed = FALSE;
 
-	while ((ret = write(fd, data, len)) != (ssize_t)len) {
+	while (!failed &&
+	       (ret = write(fd, data, len)) != (ssize_t)len) {
 		if (ret > 0) {
 			/* some was written, continue.. */
 			data += ret;
@@ -138,7 +141,8 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 		if (ret == 0) {
 			/* out of disk space? */
 			errno = ENOSPC;
-			return -1;
+			failed = TRUE;
+			break;
 		}
 		switch (errno) {
 		case EAGAIN: {
@@ -152,17 +156,19 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 			   all the processes see the change. To avoid problems,
 			   we'll wait using poll() instead of changing the
 			   O_NONBLOCK flag. */
-			const char *title, *old_title =
-				t_strdup(process_title_get());
+			if (!process_title_changed) {
+				const char *title;
 
-			if (old_title == NULL)
-				title = "[blocking on log write]";
-			else
-				title = t_strdup_printf("%s - [blocking on log write]",
-							old_title);
-			process_title_set(title);
+				process_title_changed = TRUE;
+				old_title = t_strdup(process_title_get());
+				if (old_title == NULL)
+					title = "[blocking on log write]";
+				else
+					title = t_strdup_printf("%s - [blocking on log write]",
+								old_title);
+				process_title_set(title);
+			}
 			fd_wait_writable(fd);
-			process_title_set(old_title);
 			break;
 		}
 		case EINTR:
@@ -174,15 +180,19 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 			} else {
 				/* received two terminal signals.
 				   someone wants us dead. */
-				return -1;
+				failed = TRUE;
+				break;
 			}
 			break;
 		default:
-			return -1;
+			failed = TRUE;
+			break;
 		}
 		prev_signal_term_counter = signal_term_counter;
 	}
-	return 0;
+	if (process_title_changed)
+		process_title_set(old_title);
+	return failed ? -1 : 0;
 }
 
 static int ATTR_FORMAT(3, 0)
