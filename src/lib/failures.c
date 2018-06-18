@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <time.h>
+#include <poll.h>
 
 #define LOG_TYPE_FLAG_DISABLE_LOG_PREFIX 0x80
 
@@ -105,15 +106,24 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 		str_append(str, log_prefix);
 }
 
-static void log_fd_flush_stop(struct ioloop *ioloop)
+static void fd_wait_writable(int fd)
 {
-	io_loop_stop(ioloop);
+	struct pollfd pfd = {
+		.fd = fd,
+		.events = POLLOUT | POLLERR | POLLHUP | POLLNVAL,
+	};
+
+	/* Use poll() instead of ioloop, because we don't want to recurse back
+	   to log writing in case something fails. */
+	if (poll(&pfd, 1, -1) < 0 && errno != EINTR) {
+		/* Unexpected error. We're already blocking on log writes,
+		   so we can't log it. */
+		abort();
+	}
 }
 
 static int log_fd_write(int fd, const unsigned char *data, size_t len)
 {
-	struct ioloop *ioloop;
-	struct io *io;
 	ssize_t ret;
 	unsigned int prev_signal_term_counter = signal_term_counter;
 	unsigned int terminal_eintr_count = 0;
@@ -132,11 +142,16 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 		}
 		switch (errno) {
 		case EAGAIN: {
-			/* wait until we can write more. this can happen at
-			   least when writing to terminal, even if fd is
-			   blocking. Internal logging fd is also now
-			   non-blocking, so we can show warnings about blocking
-			   on a log write. */
+			/* Log fd is nonblocking - wait until we can write more.
+			   Indicate in process title that the process is waiting
+			   because it's waiting on the log.
+
+			   Remember that the log fd is shared across processes,
+			   which also means the log fd flags are shared. So if
+			   one process changes the O_NONBLOCK flag for a log fd,
+			   all the processes see the change. To avoid problems,
+			   we'll wait using poll() instead of changing the
+			   O_NONBLOCK flag. */
 			const char *title, *old_title =
 				t_strdup(process_title_get());
 
@@ -146,13 +161,7 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 				title = t_strdup_printf("%s - [blocking on log write]",
 							old_title);
 			process_title_set(title);
-
-			ioloop = io_loop_create();
-			io = io_add(fd, IO_WRITE, log_fd_flush_stop, ioloop);
-			io_loop_run(ioloop);
-			io_remove(&io);
-			io_loop_destroy(&ioloop);
-
+			fd_wait_writable(fd);
 			process_title_set(old_title);
 			break;
 		}
