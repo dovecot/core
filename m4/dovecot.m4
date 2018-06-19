@@ -60,7 +60,7 @@ if test "\$NOVALGRIND" != ""; then
   \$[*]
   ret=\$?
 else
-  test_out="test.out.\$\$"
+  test_out="test.out~\$\$"
   trap "rm -f \$test_out" 0 1 2 3 15
   supp_path="\$top_srcdir/run-test-valgrind.supp"
   if test -r "\$supp_path"; then
