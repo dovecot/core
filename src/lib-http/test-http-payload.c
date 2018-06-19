@@ -563,7 +563,7 @@ static void client_init(int fd)
 
 	net_set_nonblock(fd, TRUE);
 
-	pool = pool_alloconly_create("client", 256);
+	pool = pool_alloconly_create("client", 512);
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
 
