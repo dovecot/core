@@ -1287,6 +1287,7 @@ void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 	   the session.
 	 */
 	i_stream_destroy(&conn->state.data_input);
+	i_stream_destroy(&conn->state.data_chain_input);
 	conn->state.data_chain = NULL;
 
 	/* reset state */
