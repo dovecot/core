@@ -636,14 +636,24 @@ void quota_remove_user_namespace(struct mail_namespace *ns)
 }
 
 struct quota_root_iter *
-quota_root_iter_init(struct mailbox *box)
+quota_root_iter_init_user(struct mail_user *user)
 {
 	struct quota_root_iter *iter;
 
 	iter = i_new(struct quota_root_iter, 1);
-	iter->quota = box->list->ns->owner != NULL ?
-		quota_get_mail_user_quota(box->list->ns->owner) :
-		quota_get_mail_user_quota(box->list->ns->user);
+	iter->quota = quota_get_mail_user_quota(user);
+	return iter;
+}
+
+struct quota_root_iter *
+quota_root_iter_init(struct mailbox *box)
+{
+	struct quota_root_iter *iter;
+	struct mail_user *user;
+
+	user = box->list->ns->owner != NULL ?
+		box->list->ns->owner : box->list->ns->user;
+	iter = quota_root_iter_init_user(user);
 	iter->box = box;
 	return iter;
 }
@@ -702,7 +712,8 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 		return NULL;
 
 	for (; iter->i < count; iter->i++) {
-		if (!quota_root_is_visible(roots[iter->i], iter->box, FALSE))
+		if (iter->box != NULL &&
+		    !quota_root_is_visible(roots[iter->i], iter->box, FALSE))
 			continue;
 
 		root = roots[iter->i];

@@ -89,6 +89,7 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 void quota_deinit(struct quota **quota);
 
 /* List all visible quota roots. They don't need to be freed. */
+struct quota_root_iter *quota_root_iter_init_user(struct mail_user *user);
 struct quota_root_iter *quota_root_iter_init(struct mailbox *box);
 struct quota_root *quota_root_iter_next(struct quota_root_iter *iter);
 void quota_root_iter_deinit(struct quota_root_iter **iter);
