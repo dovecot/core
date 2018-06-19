@@ -501,7 +501,6 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 	struct smtp_server_command *command = cmd->cmd;
 	struct cmd_data_context *data_cmd =
 		(struct cmd_data_context *)command->data;
-	struct istream *input;
 	uoff_t new_size;
 
 	i_assert(data_cmd != NULL);
@@ -527,9 +526,8 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 	data_cmd->client_input = client_input;
 	i_stream_ref(chunk);
 
-	input = (data_cmd->chunk_first ? conn->state.data_chain_input : NULL);
-	cmd_data_start_input(cmd, input);
-	i_stream_unref(&input);
+	cmd_data_start_input(cmd, conn->state.data_chain_input);
+	i_stream_unref(&conn->state.data_chain_input);
 	return 0;
 }
 
