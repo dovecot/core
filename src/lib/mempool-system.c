@@ -6,6 +6,39 @@
 #include "safe-memset.h"
 #include "mempool.h"
 
+/*
+ * The system pool is a thin wrapper around calloc() and free().  It exists
+ * to allow direct heap usage via the pool API.
+ *
+ * Implementation
+ * ==============
+ *
+ * Creation
+ * --------
+ *
+ * The system pool is created statically and therefore is available at any
+ * time.
+ *
+ * Allocation, Reallocation & Freeing
+ * ----------------------------------
+ *
+ * The p_malloc(), p_realloc(), and p_free() calls get directed to calloc(),
+ * realloc(), and free().  There is no additional per-allocation information
+ * to track.
+ *
+ * Clearing
+ * --------
+ *
+ * Not supported.  Attempting to clear the system pool will result in a
+ * panic.
+ *
+ * Destruction
+ * -----------
+ *
+ * It is not possible to destroy the system pool.  Any attempt to unref the
+ * pool is a no-op.
+ */
+
 #ifndef HAVE_MALLOC_USABLE_SIZE
 /* no extra includes needed */
 #elif defined (HAVE_MALLOC_NP_H)
