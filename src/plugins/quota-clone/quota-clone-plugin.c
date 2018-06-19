@@ -36,7 +36,34 @@ struct quota_clone_user {
 	bool quota_flushing;
 };
 
-static void quota_clone_flush_real(struct mail_user *user)
+static void
+quota_clone_dict_commit(const struct dict_commit_result *result,
+			void *context)
+{
+	struct quota_clone_user *quser = context;
+
+	switch (result->ret) {
+	case DICT_COMMIT_RET_OK:
+	case DICT_COMMIT_RET_NOTFOUND:
+		if (!quser->quota_changed)
+			timeout_remove(&quser->to_quota_flush);
+		break;
+	case DICT_COMMIT_RET_FAILED:
+		quser->quota_changed = TRUE;
+		i_error("quota_clone_dict: Failed to write value: %s",
+			result->error);
+		break;
+	case DICT_COMMIT_RET_WRITE_UNCERTAIN:
+		quser->quota_changed = TRUE;
+		i_error("quota_clone_dict: Write was unconfirmed (timeout or disconnect): %s",
+			result->error);
+		break;
+	}
+
+	quser->quota_flushing = FALSE;
+}
+
+static bool quota_clone_flush_real(struct mail_user *user)
 {
 	struct quota_clone_user *quser =
 		QUOTA_CLONE_USER_CONTEXT_REQUIRE(user);
@@ -54,7 +81,7 @@ static void quota_clone_flush_real(struct mail_user *user)
 	if (root == NULL) {
 		/* no quota roots defined - ignore */
 		quser->quota_changed = FALSE;
-		return;
+		return TRUE;
 	}
 
 	/* get new values first */
@@ -64,7 +91,7 @@ static void quota_clone_flush_real(struct mail_user *user)
 		i_error("quota_clone_plugin: "
 			"Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES": %s",
 			error);
-		return;
+		return TRUE;
 	}
 	count_res = quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
 				       &count_value, &limit, &error);
@@ -72,17 +99,18 @@ static void quota_clone_flush_real(struct mail_user *user)
 		i_error("quota_clone_plugin: "
 			"Failed to get quota resource "QUOTA_NAME_MESSAGES": %s",
 			error);
-		return;
+		return TRUE;
 	}
 	if (bytes_res == QUOTA_GET_RESULT_UNKNOWN_RESOURCE &&
 	    count_res == QUOTA_GET_RESULT_UNKNOWN_RESOURCE) {
 		/* quota resources don't exist - no point in updating it */
-		return;
+		return TRUE;
 	}
 	if (bytes_res == QUOTA_GET_RESULT_BACKGROUND_CALC &&
 	    count_res == QUOTA_GET_RESULT_BACKGROUND_CALC) {
 		/* Blocked by an ongoing quota calculation - try again later */
-		return;
+		quser->quota_flushing = FALSE;
+		return FALSE;
 	}
 
 	/* Then update the resources that exist. The resources' existence can't
@@ -101,10 +129,9 @@ static void quota_clone_flush_real(struct mail_user *user)
 		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
 			 t_strdup_printf("%"PRIu64, count_value));
 	}
-	if (dict_transaction_commit(&trans, &error) < 0)
-		i_error("quota_clone_plugin: Failed to commit dict update: %s", error);
-	else
-		quser->quota_changed = FALSE;
+	quser->quota_changed = FALSE;
+	dict_transaction_commit_async(&trans, quota_clone_dict_commit, quser);
+	return FALSE;
 }
 
 static void quota_clone_flush(struct mail_user *user)
@@ -112,14 +139,21 @@ static void quota_clone_flush(struct mail_user *user)
 	struct quota_clone_user *quser =
 		QUOTA_CLONE_USER_CONTEXT_REQUIRE(user);
 
-	timeout_remove(&quser->to_quota_flush);
-
-	if (quser->quota_flushing) {
-		/* recursing back from quota recalculation */
-	} else if (quser->quota_changed) {
-		quser->quota_flushing = TRUE;
-		quota_clone_flush_real(user);
-		quser->quota_flushing = FALSE;
+	if (quser->quota_changed) {
+		i_assert(quser->to_quota_flush != NULL);
+		if (quser->quota_flushing) {
+			/* async quota commit is running in background. timeout is still
+			   active, so another update will be done later. */
+		} else {
+			quser->quota_flushing = TRUE;
+			/* Returns TRUE if flushing action is complete. */
+			if (quota_clone_flush_real(user)) {
+				quser->quota_flushing = FALSE;
+				timeout_remove(&quser->to_quota_flush);
+			}
+		}
+	} else {
+		timeout_remove(&quser->to_quota_flush);
 	}
 }
 
