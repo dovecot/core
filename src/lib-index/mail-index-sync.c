@@ -850,6 +850,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		   (ctx->flags & MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX) == 0) {
 		/* another process just marked the index deleted.
 		   finish the sync, but return error. */
+		mail_index_set_error_nolog(index, "Index is marked deleted");
 		ret = -1;
 	}
 

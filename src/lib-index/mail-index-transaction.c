@@ -284,6 +284,7 @@ int mail_index_transaction_commit_full(struct mail_index_transaction **_t,
 	bool index_undeleted = t->index_undeleted;
 
 	if (mail_index_view_is_inconsistent(t->view)) {
+		mail_index_set_error_nolog(index, "View is inconsistent");
 		mail_index_transaction_rollback(_t);
 		return -1;
 	}
@@ -292,6 +293,7 @@ int mail_index_transaction_commit_full(struct mail_index_transaction **_t,
 		    (t->view->index->index_delete_requested &&
 		     !t->view->index->syncing)) {
 			/* no further changes allowed */
+			mail_index_set_error_nolog(index, "Index is marked deleted");
 			mail_index_transaction_rollback(_t);
 			return -1;
 		}
