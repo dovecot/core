@@ -138,6 +138,7 @@ static void cmd_data_destroy(struct smtp_server_cmd_ctx *cmd)
 		!smtp_server_command_replied_success(command)) {
 		/* clean up */
 		i_stream_destroy(&conn->state.data_input);
+		i_stream_destroy(&conn->state.data_chain_input);
 		conn->state.data_chain = NULL;
 	}
 
