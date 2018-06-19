@@ -106,8 +106,10 @@ http_client_init_shared(struct http_client_context *cctx,
 	struct http_client *client;
 	const char *log_prefix;
 	pool_t pool;
+	size_t pool_size;
 
-	pool = pool_alloconly_create("http client", 1024);
+	pool_size = (set != NULL && set->ssl != NULL) ? 8192 : 1024; /* certs will be >4K */
+	pool = pool_alloconly_create("http client", pool_size);
 	client = p_new(pool, struct http_client, 1);
 	client->pool = pool;
 	client->ioloop = current_ioloop;
@@ -429,8 +431,10 @@ http_client_context_create(const struct http_client_settings *set)
 {
 	struct http_client_context *cctx;
 	pool_t pool;
+	size_t pool_size;
 
-	pool = pool_alloconly_create("http client context", 1024);
+	pool_size = (set->ssl != NULL) ? 8192 : 1024; /* certs will be >4K */
+	pool = pool_alloconly_create("http client context", pool_size);
 	cctx = p_new(pool, struct http_client_context, 1);
 	cctx->pool = pool;
 	cctx->refcount = 1;

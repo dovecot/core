@@ -24,8 +24,10 @@ struct http_server *http_server_init(const struct http_server_settings *set)
 {
 	struct http_server *server;
 	pool_t pool;
+	size_t pool_size;
 
-	pool = pool_alloconly_create("http server", 1024);
+	pool_size = (set->ssl != NULL) ? 10240 : 1024; /* ca/cert/key will be >8K */
+	pool = pool_alloconly_create("http server", pool_size);
 	server = p_new(pool, struct http_server, 1);
 	server->pool = pool;
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
