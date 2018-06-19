@@ -47,6 +47,14 @@ struct config_dump_human_context {
 
 static const char *indent_str = "                              !!!!";
 
+static const char *const secrets[] = {
+	"key",
+	"secret",
+	"pass",
+	NULL
+};
+
+
 static void
 config_request_get_strings(const char *key, const char *value,
 			   enum config_key_type type, void *context)
@@ -168,18 +176,25 @@ static bool value_need_quote(const char *value)
 	return FALSE;
 }
 
+static const char *find_next_secret(const char *input, const char **secret_r)
+{
+	const char *const *secret;
+	for(secret = secrets; *secret != NULL; secret++) {
+		const char *ptr;
+		if ((ptr = strstr(input, *secret)) != NULL) {
+			*secret_r = *secret;
+			return ptr;
+		}
+	}
+	return NULL;
+}
+
 static bool
 hide_secrets_from_value(struct ostream *output, const char *key,
 			const char *value)
 {
 	bool ret = FALSE, quote = value_need_quote(value);
-	const char *ptr, *optr;
-	const char *const secrets[] = {
-		"key",
-		"secret",
-		"pass",
-		NULL
-	};
+	const char *ptr, *optr, *secret;
 	if (*value != '\0' &&
 	    ((value-key > 8 && strncmp(value-9, "_password", 8) == 0) ||
 	     (value-key > 7 && strncmp(value-8, "_api_key", 7) == 0) ||
@@ -193,7 +208,7 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 	   secrets. It should match things like secret_api_key or pass or password,
 	   etc. but not something like nonsecret. */
 	optr = ptr = value;
-	while((ptr = i_strstr_arr(ptr, secrets)) != NULL) {
+	while((ptr = find_next_secret(ptr, &secret)) != NULL) {
 		/* we have found something that we hide, and will deal with output
 		   here. */
 		ret = TRUE;
