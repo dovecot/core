@@ -94,7 +94,7 @@ static int imapc_mailbox_commit_delayed_expunges(struct imapc_mailbox *mbox)
 }
 
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
-				       bool *changes_r)
+				       bool force, bool *changes_r)
 {
 	int ret = 0;
 
@@ -104,7 +104,7 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 		mail_index_view_close(&mbox->delayed_sync_view);
 	if (mbox->delayed_sync_trans == NULL)
 		;
-	else if (!mbox->selected) {
+	else if (!mbox->selected && !force) {
 		/* ignore any changes done during SELECT */
 		mail_index_transaction_rollback(&mbox->delayed_sync_trans);
 	} else {
@@ -744,7 +744,7 @@ static void imapc_sync_uid_validity(struct imapc_mailbox *mbox)
 			/* The reset needs to be committed before FETCH 1:*
 			   results are received. */
 			bool changes;
-			if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
+			if (imapc_mailbox_commit_delayed_trans(mbox, TRUE, &changes) < 0)
 				mail_index_mark_corrupted(mbox->box.index);
 			imapc_mailbox_init_delayed_trans(mbox);
 		}

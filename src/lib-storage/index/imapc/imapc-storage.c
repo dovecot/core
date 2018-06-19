@@ -788,7 +788,7 @@ static void imapc_mailbox_close(struct mailbox *box)
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	bool changes;
 
-	(void)imapc_mailbox_commit_delayed_trans(mbox, &changes);
+	(void)imapc_mailbox_commit_delayed_trans(mbox, FALSE, &changes);
 	imapc_mail_fetch_flush(mbox);
 	if (mbox->client_box != NULL)
 		imapc_client_mailbox_close(&mbox->client_box);

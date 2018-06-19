@@ -512,7 +512,7 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 
 	/* this is done simply to commit delayed expunges if there are any
 	   (has to be done after sync is committed) */
-	if (imapc_mailbox_commit_delayed_trans(ctx->mbox, &changes) < 0)
+	if (imapc_mailbox_commit_delayed_trans(ctx->mbox, FALSE, &changes) < 0)
 		ctx->failed = TRUE;
 
 	i_free(ctx);
@@ -579,7 +579,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		/* initial FETCH failed already */
 		ret = -1;
 	}
-	if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
+	if (imapc_mailbox_commit_delayed_trans(mbox, FALSE, &changes) < 0)
 		ret = -1;
 	if ((changes || mbox->sync_fetch_first_uid != 0 ||
 	     index_mailbox_want_full_sync(&mbox->box, flags)) &&
