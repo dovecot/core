@@ -5,6 +5,114 @@
 #include "safe-memset.h"
 #include "mempool.h"
 
+/*
+ * As the name implies, alloconly pools support only allocating memory.
+ * Memory freeing is not supported, except as a special case - the pool's
+ * last allocation can be freed.  Additionally, p_realloc() also tries to
+ * grow an existing allocation if and only if it is the last allocation,
+ * otherwise it just allocates a new memory area and copies the data there.
+ *
+ * Alloconly pools are commonly used for an object that builds its state
+ * from many memory allocations, but doesn't change (much of) its state.
+ * It is simpler to free such an object by destroying the entire memory
+ * pool.
+ *
+ * Implementation
+ * ==============
+ *
+ * Each alloconly pool contains a pool structure (struct alloconly_pool) to
+ * keep track of alloconly-specific pool information and one or more blocks
+ * (struct pool_block) that keep track of ranges of memory used to back the
+ * allocations.  The blocks are kept in a linked list implementing a stack.
+ * The block size decreases the further down the stack one goes.
+ *
+ * +-----------+
+ * | alloconly |
+ * |    pool   |
+ * +-----+-----+
+ *       |
+ *       | block  +------------+ next  +------------+ next
+ *       \------->| pool block |------>| pool block |------>...
+ *                +------------+       +------------+
+ *                |   <data>   |       |   <data>   |
+ *                      .                    .
+ *                      .                    .
+ *                      .              |   <data>   |
+ *                      .              +------------+
+ *                |   <data>   |
+ *                +------------+
+ *
+ * Creation
+ * --------
+ *
+ * When an alloconly pool is created, one block is allocated.  This block is
+ * large enough to hold the necessary internal structures (struct
+ * alloconly_pool and struct pool_block) and still have enough space to
+ * satisfy allocations for at least the amount of space requested by the
+ * consumer via the size argument to pool_alloconly_create().
+ *
+ * Allocation
+ * ----------
+ *
+ * Each allocation (via p_malloc()) checks the top-most block to see whether
+ * or not it has enough space to satisfy the allocation.  If there is not
+ * enough space, it allocates a new block (via block_alloc()) to serve as
+ * the new top-most block.  This newly-allocated block is guaranteed to have
+ * enough space for the allocation.  Then, regardless of whether or not a
+ * new block was allocated, the allocation code reserves enough space in the
+ * top-most block for the allocation and returns a pointer to it to the
+ * caller.
+ *
+ * The free space tracking within each block is very simple.  In addition to
+ * keeping track of the size of the block, the block header contains a
+ * "pointer" to the beginning of free space.  A new allocation simply moves
+ * this pointer by the number of bytes allocated.
+ *
+ * Reallocation
+ * ------------
+ *
+ * If the passed in allocation is the last allocation in a block and there
+ * is enough space after it, the allocation is resized.  Otherwise, a new
+ * buffer is allocated (see Allocation above) and the contents are copied
+ * over.
+ *
+ * Freeing
+ * -------
+ *
+ * Freeing of the last allocation moves the "pointer" to free space back by
+ * the size of the last allocation.
+ *
+ * Freeing of any other allocation is a no-op.
+ *
+ * Clearing
+ * --------
+ *
+ * Clearing the pool is supposed to return the pool to the same state it was
+ * in when it was first created.  To that end, the alloconly pool frees all
+ * the blocks allocated since the pool's creation.  The remaining block
+ * (allocated during creation) is reset to consider all the space for
+ * allocations as available.
+ *
+ * In other words, the per-block free space tracking variables are set to
+ * indicate that the full block is available and that there have been no
+ * allocations.
+ *
+ * Finally, if the pool was created via pool_alloconly_create_clean(), all
+ * blocks are safe_memset()/memset() to zero before being free()d.
+ *
+ * Destruction
+ * -----------
+ *
+ * Destroying a pool first clears it (see above).  The clearing leaves the
+ * pool in a minimal state with only one block allocated.  This remaining
+ * block may be safe_memset() to zero if the pool was created with
+ * pool_alloconly_create_clean().
+ *
+ * Since the pool structure itself is allocated from the first block, this
+ * final call to free() will release the memory allocated for struct
+ * alloconly_pool and struct pool.
+ */
+
 #ifndef DEBUG
 #  define POOL_ALLOCONLY_MAX_EXTRA MEM_ALIGN(1)
 #else
