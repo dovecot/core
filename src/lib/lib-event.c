@@ -904,6 +904,7 @@ void lib_event_deinit(void)
 {
 	event_unset_global_debug_log_filter();
 	event_unset_global_debug_send_filter();
+	event_unset_global_core_log_filter();
 	for (struct event *event = events; event != NULL; event = event->next) {
 		i_warning("Event %p leaked (parent=%p): %s:%u",
 			  event, event->parent,
