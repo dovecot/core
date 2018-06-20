@@ -101,12 +101,18 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 static inline void * ATTR_MALLOC ATTR_RETURNS_NONNULL
 p_malloc(pool_t pool, size_t size)
 {
+	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
+		i_panic("Trying to allocate %" PRIuSIZE_T " bytes", size);
+
 	return pool->v->malloc(pool, size);
 }
 
 static inline void * ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL
 p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 {
+	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
+		i_panic("Trying to allocate %" PRIuSIZE_T " bytes", new_size);
+
 	return pool->v->realloc(pool, mem, old_size, new_size);
 }
 

@@ -255,9 +255,6 @@ static void *pool_allocfree_malloc(pool_t pool, size_t size)
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
 
-	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
-
 	struct pool_block *block = calloc(1, SIZEOF_POOLBLOCK + size);
 	if (block == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %"PRIuSIZE_T"): Out of memory",
@@ -284,9 +281,6 @@ static void *pool_allocfree_realloc(pool_t pool, void *mem,
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
 	unsigned char *new_mem;
-
-	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)
 		return pool_allocfree_malloc(pool, new_size);
