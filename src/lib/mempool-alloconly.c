@@ -420,7 +420,7 @@ static void pool_alloconly_free(pool_t pool, void *mem)
 	}
 }
 
-static bool pool_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
+static bool pool_alloconly_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
 {
 	/* see if we want to grow the memory we allocated last */
 	if (POOL_BLOCK_DATA(apool->block) +
@@ -457,7 +457,7 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 	new_size = MEM_ALIGN(new_size);
 
 	/* see if we can directly grow it */
-	if (!pool_try_grow(apool, mem, new_size)) {
+	if (!pool_alloconly_try_grow(apool, mem, new_size)) {
 		/* slow way - allocate + copy */
 		new_mem = pool_alloconly_malloc(pool, new_size);
 		memcpy(new_mem, mem, old_size);
