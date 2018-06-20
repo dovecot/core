@@ -112,7 +112,8 @@ static const char *pool_data_stack_get_name(pool_t pool ATTR_UNUSED)
 
 static void pool_data_stack_ref(pool_t pool)
 {
-	struct datastack_pool *dpool = (struct datastack_pool *) pool;
+	struct datastack_pool *dpool =
+		container_of(pool, struct datastack_pool, pool);
 
 	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_ref(): stack frame changed");
@@ -122,7 +123,8 @@ static void pool_data_stack_ref(pool_t pool)
 
 static void pool_data_stack_unref(pool_t *pool)
 {
-	struct datastack_pool *dpool = (struct datastack_pool *)*pool;
+	struct datastack_pool *dpool =
+		container_of(*pool, struct datastack_pool, pool);
 
 	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_unref(): stack frame changed");
@@ -135,7 +137,8 @@ static void pool_data_stack_unref(pool_t *pool)
 
 static void *pool_data_stack_malloc(pool_t pool ATTR_UNUSED, size_t size)
 {
-	struct datastack_pool *dpool = (struct datastack_pool *) pool;
+	struct datastack_pool *dpool =
+		container_of(pool, struct datastack_pool, pool);
 
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
@@ -148,7 +151,8 @@ static void *pool_data_stack_malloc(pool_t pool ATTR_UNUSED, size_t size)
 
 static void pool_data_stack_free(pool_t pool, void *mem ATTR_UNUSED)
 {
-	struct datastack_pool *dpool = (struct datastack_pool *) pool;
+	struct datastack_pool *dpool =
+		container_of(pool, struct datastack_pool, pool);
 
 	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_free(): stack frame changed");
@@ -157,7 +161,8 @@ static void pool_data_stack_free(pool_t pool, void *mem ATTR_UNUSED)
 static void *pool_data_stack_realloc(pool_t pool, void *mem,
 				     size_t old_size, size_t new_size)
 {
-	struct datastack_pool *dpool = (struct datastack_pool *) pool;
+	struct datastack_pool *dpool =
+		container_of(pool, struct datastack_pool, pool);
 	void *new_mem;
 
 	/* @UNSAFE */
