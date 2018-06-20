@@ -147,7 +147,11 @@ static void cmd_data_destroy(struct smtp_server_cmd_ctx *cmd)
 
 static void cmd_data_replied(struct smtp_server_cmd_ctx *cmd)
 {
+	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
+
+        i_assert(conn->state.pending_data_cmds > 0);
+        conn->state.pending_data_cmds--;
 
 	smtp_server_command_input_lock(cmd);
 	if (!smtp_server_command_replied_success(command))
@@ -175,7 +179,20 @@ static void cmd_data_chunk_replied(struct smtp_server_cmd_ctx *cmd)
 
 	i_assert(data_cmd != NULL);
 
+        i_assert(conn->state.pending_data_cmds > 0);
+        conn->state.pending_data_cmds--;
+
 	i_assert(smtp_server_command_is_replied(command));
+	if (!smtp_server_command_replied_success(command) &&
+	    conn->state.pending_data_cmds == 0)
+		conn->state.data_failed = TRUE;
+}
+
+static void cmd_data_chunk_completed(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_command *command = cmd->cmd;
+
 	if (!smtp_server_command_replied_success(command))
 		conn->state.data_failed = TRUE;
 }
@@ -401,6 +418,8 @@ static void cmd_data_start_input(struct smtp_server_cmd_ctx *cmd,
 
 	if (data_cmd->chunk_last)
 		command->hook_completed = cmd_data_completed;
+	else
+		command->hook_completed = cmd_data_chunk_completed;
 
 	if (conn->state.pending_mail_cmds == 0 &&
 		conn->state.pending_rcpt_cmds == 0) {
@@ -446,6 +465,7 @@ static void cmd_data_start(struct smtp_server_cmd_ctx *cmd)
 void smtp_server_cmd_data(struct smtp_server_cmd_ctx *cmd,
 			  const char *params)
 {
+	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
 	struct cmd_data_context *data_cmd;
 
@@ -467,6 +487,7 @@ void smtp_server_cmd_data(struct smtp_server_cmd_ctx *cmd,
 	command->hook_next = cmd_data_start;
 	command->hook_replied = cmd_data_replied;
 	command->hook_destroy = cmd_data_destroy;
+	conn->state.pending_data_cmds++;
 }
 
 /* BDAT/B... commands */
@@ -484,6 +505,7 @@ void smtp_server_connection_data_chunk_init(struct smtp_server_cmd_ctx *cmd)
 
 	command->hook_replied = cmd_data_chunk_replied;
 	command->hook_destroy = cmd_data_destroy;
+	conn->state.pending_data_cmds++;
 
 	if (!conn->state.data_failed && conn->state.data_chain == NULL) {
 		i_assert(data_cmd->chunk_first);

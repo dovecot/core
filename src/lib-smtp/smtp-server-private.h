@@ -106,6 +106,7 @@ struct smtp_server_state_data {
 	time_t timestamp;
 
 	unsigned int pending_mail_cmds, pending_rcpt_cmds;
+	unsigned int pending_data_cmds;
 
 	struct smtp_server_transaction *trans;
 	struct istream *data_input, *data_chain_input;
