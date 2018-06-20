@@ -384,9 +384,6 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 	void *mem;
 	size_t alloc_size;
 
-	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
-
 #ifndef DEBUG
 	alloc_size = MEM_ALIGN(size);
 #else
@@ -453,9 +450,6 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 	struct alloconly_pool *apool =
 		container_of(pool, struct alloconly_pool, pool);
 	unsigned char *new_mem;
-
-	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)
 		return pool_alloconly_malloc(pool, new_size);

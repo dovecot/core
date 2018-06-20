@@ -96,9 +96,6 @@ static void pool_unsafe_data_stack_unref(pool_t *pool ATTR_UNUSED)
 static void *pool_unsafe_data_stack_malloc(pool_t pool ATTR_UNUSED,
 					   size_t size)
 {
-	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
-
 	return t_malloc0(size);
 }
 
@@ -114,9 +111,6 @@ static void *pool_unsafe_data_stack_realloc(pool_t pool ATTR_UNUSED,
 	void *new_mem;
 
 	/* @UNSAFE */
-	if (new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE)
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
-
 	if (mem == NULL)
 		return pool_unsafe_data_stack_malloc(pool, new_size);
 

@@ -140,9 +140,6 @@ static void *pool_data_stack_malloc(pool_t pool ATTR_UNUSED, size_t size)
 	struct datastack_pool *dpool =
 		container_of(pool, struct datastack_pool, pool);
 
-	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
-
 	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_malloc(): stack frame changed");
 
@@ -166,9 +163,6 @@ static void *pool_data_stack_realloc(pool_t pool, void *mem,
 	void *new_mem;
 
 	/* @UNSAFE */
-	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
-
 	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_realloc(): stack frame changed");
 
