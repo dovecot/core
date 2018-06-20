@@ -401,7 +401,7 @@ void client_disconnect(struct client *client, const char *enh_code,
 
 	if (reason == NULL)
 		reason = "Connection closed";
-	i_info("Disconnect from %s: %s %s (state = %s)",
+	i_info("Disconnect from %s: %s %s (state=%s)",
 	       client_remote_id(client),
 	       reason, client_stats(client),
 	       client_state_get_name(client));
