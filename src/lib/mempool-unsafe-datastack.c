@@ -111,9 +111,6 @@ static void *pool_unsafe_data_stack_realloc(pool_t pool ATTR_UNUSED,
 	void *new_mem;
 
 	/* @UNSAFE */
-	if (mem == NULL)
-		return pool_unsafe_data_stack_malloc(pool, new_size);
-
 	if (old_size >= new_size)
 		return mem;
 

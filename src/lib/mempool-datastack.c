@@ -166,9 +166,6 @@ static void *pool_data_stack_realloc(pool_t pool, void *mem,
 	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_realloc(): stack frame changed");
 
-	if (mem == NULL)
-		return pool_data_stack_malloc(pool, new_size);
-
 	if (old_size >= new_size)
 		return mem;
 
