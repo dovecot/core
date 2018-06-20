@@ -113,6 +113,9 @@ p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
 		i_panic("Trying to allocate %" PRIuSIZE_T " bytes", new_size);
 
+	if (mem == NULL)
+		return pool->v->malloc(pool, new_size);
+
 	return pool->v->realloc(pool, mem, old_size, new_size);
 }
 

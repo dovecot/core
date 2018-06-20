@@ -132,10 +132,6 @@ void pool_system_free(pool_t pool ATTR_UNUSED, void *mem ATTR_UNUSED)
 static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 				 size_t old_size, size_t new_size)
 {
-	if (mem == NULL) {
-		i_assert(old_size == 0);
-		return pool_system_malloc(pool, new_size);
-	}
 #if defined(HAVE_MALLOC_USABLE_SIZE)
 	i_assert(old_size == (size_t)-1 || mem == NULL ||
 		 old_size <= malloc_usable_size(mem));

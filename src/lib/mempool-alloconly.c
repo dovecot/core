@@ -451,9 +451,6 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 		container_of(pool, struct alloconly_pool, pool);
 	unsigned char *new_mem;
 
-	if (mem == NULL)
-		return pool_alloconly_malloc(pool, new_size);
-
 	if (new_size <= old_size)
 		return mem;
 
