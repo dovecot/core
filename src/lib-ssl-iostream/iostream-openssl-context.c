@@ -587,6 +587,12 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 #ifdef SSL_MODE_RELEASE_BUFFERS
 	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
 #endif
+#ifdef SSL_MODE_ENABLE_PARTIAL_WRITE
+	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
+#endif
+#ifdef SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
+	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+#endif
 	if (ssl_proxy_ctx_set_crypto_params(ctx->ssl_ctx, set, error_r) < 0)
 		return -1;
 
