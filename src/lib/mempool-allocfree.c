@@ -267,8 +267,6 @@ static void pool_allocfree_free(pool_t pool, void *mem)
 {
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
-	if (mem == NULL)
-		return;
 	struct pool_block *block = pool_block_detach(apool, mem);
 	if (apool->clean_frees)
 		safe_memset(block, 0, SIZEOF_POOLBLOCK+block->size);

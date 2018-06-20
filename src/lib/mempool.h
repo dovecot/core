@@ -130,7 +130,8 @@ p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 
 static inline void p_free_internal(pool_t pool, void *mem)
 {
-	pool->v->free(pool, mem);
+	if (mem != NULL)
+		pool->v->free(pool, mem);
 }
 
 static inline void p_clear(pool_t pool)
