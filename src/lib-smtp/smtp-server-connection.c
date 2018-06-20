@@ -1286,8 +1286,7 @@ void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 	   BDAT LAST, clears all segments sent during that transaction and resets
 	   the session.
 	 */
-	if (conn->state.data_input != NULL)
-		i_stream_destroy(&conn->state.data_input);
+	i_stream_destroy(&conn->state.data_input);
 	conn->state.data_chain = NULL;
 
 	/* reset state */
