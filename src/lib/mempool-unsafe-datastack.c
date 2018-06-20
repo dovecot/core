@@ -3,6 +3,48 @@
 #include "lib.h"
 #include "mempool.h"
 
+/*
+ * The unsafe datastack pool is a very thin wrapper around the datastack
+ * API.  It is a simpler version of the datastack pool that does not do any
+ * sanity checking, it simply forwards the calls to the datastack API.  It
+ * exists to allow some internal APIs to make datastack allocations via the
+ * pool API.
+ *
+ * Note to consumers: Consider using the (safe) datastack pool instead of
+ * this one.
+ *
+ * Implementation
+ * ==============
+ *
+ * Creation
+ * --------
+ *
+ * The unsafe datastack pool is created statically and therefore is
+ * available at any time after the datastack allocator is initialized.
+ *
+ * Allocation & Reallocation
+ * -------------------------
+ *
+ * The p_malloc() and p_realloc() calls get directed to t_malloc0() and
+ * t_try_realloc(), respectively.  There is no additional per-allocation
+ * information to track.
+ *
+ * Freeing
+ * -------
+ *
+ * A no-op.
+ *
+ * Clearing
+ * --------
+ *
+ * A no-op.
+ *
+ * Destruction
+ * -----------
+ *
+ * It is not possible to destroy the unsafe datastack pool.  Any attempt to
+ * unref the pool is a no-op.
+ */
 
 static const char *pool_unsafe_data_stack_get_name(pool_t pool);
 static void pool_unsafe_data_stack_ref(pool_t pool);
