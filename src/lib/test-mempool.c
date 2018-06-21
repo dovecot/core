@@ -57,23 +57,23 @@ enum fatal_test_state fatal_mempool(unsigned int stage)
 		m2 = p_new(&test_pool, uint32_t, BIG_MAX / sizeof(uint32_t) + 1);
 		return FATAL_TEST_FAILURE;
 	case 2: /* grow */
-		test_expect_fatal_string("Trying to allocate");
+		test_expect_fatal_string("Trying to reallocate");
 		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t,
 				    LITTLE_MAX + 2, LITTLE_MAX + 3);
 		return FATAL_TEST_FAILURE;
 	case 3:
-		test_expect_fatal_string("Trying to allocate");
+		test_expect_fatal_string("Trying to reallocate");
 		m2 = p_realloc_type(&test_pool, m2, uint32_t,
 				    BIG_MAX / sizeof(uint32_t),
 				    BIG_MAX / sizeof(uint32_t) + 1);
 		return FATAL_TEST_FAILURE;
 	case 4: /* shrink */
-		test_expect_fatal_string("Trying to allocate");
+		test_expect_fatal_string("Trying to reallocate");
 		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t,
 				    LITTLE_MAX + 3, LITTLE_MAX + 2);
 		return FATAL_TEST_FAILURE;
 	case 5:
-		test_expect_fatal_string("Trying to allocate");
+		test_expect_fatal_string("Trying to reallocate");
 		m2 = p_realloc_type(&test_pool, m2, uint32_t,
 				    BIG_MAX / sizeof(uint32_t) + 2,
 				    BIG_MAX / sizeof(uint32_t) + 1);

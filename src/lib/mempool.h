@@ -111,7 +111,8 @@ static inline void * ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL
 p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 {
 	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %" PRIuSIZE_T " bytes", new_size);
+		i_panic("Trying to reallocate %" PRIuSIZE_T " -> %" PRIuSIZE_T " bytes",
+			old_size, new_size);
 
 	if (mem == NULL)
 		return pool->v->malloc(pool, new_size);
