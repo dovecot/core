@@ -279,18 +279,21 @@ static int cmd_data_do_handle_input(struct smtp_server_cmd_ctx *cmd)
 
 static int cmd_data_handle_input(struct smtp_server_cmd_ctx *cmd)
 {
+	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
 	int ret;
 
 	if (!smtp_server_cmd_data_check_size(cmd))
 		return -1;
 
+	smtp_server_connection_ref(conn);
 	smtp_server_command_ref(command);
 
 	/* continue reading from client */
 	ret = cmd_data_do_handle_input(cmd);
 	
 	smtp_server_command_unref(&command);
+	smtp_server_connection_unref(&conn);
 
 	return ret;
 }
