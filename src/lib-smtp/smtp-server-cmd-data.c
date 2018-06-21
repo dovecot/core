@@ -230,28 +230,22 @@ static void cmd_data_input_error(struct smtp_server_cmd_ctx *cmd)
 	}
 }
 
-static int cmd_data_handle_input(struct smtp_server_cmd_ctx *cmd)
+static int cmd_data_do_handle_input(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	struct smtp_server_command *command = cmd->cmd;
 	struct cmd_data_context *data_cmd = command->data;
-	ssize_t ret;
+	int ret;
 
 	i_assert(data_cmd != NULL);
 
-	if (!smtp_server_cmd_data_check_size(cmd))
-		return -1;
-
-	/* continue reading from client */
-	smtp_server_command_ref(command);
 	i_assert(callbacks != NULL &&
 		 callbacks->conn_cmd_data_continue != NULL);
 	ret = callbacks->conn_cmd_data_continue(conn->context,
 		cmd, conn->state.trans);
 	if (ret >= 0) {
 		if (!smtp_server_cmd_data_check_size(cmd)) {
-			smtp_server_command_unref(&command);
 			return -1;
 		} else if (!i_stream_have_bytes_left(conn->state.data_input)) {
 			smtp_server_command_debug(cmd,
@@ -274,15 +268,31 @@ static int cmd_data_handle_input(struct smtp_server_cmd_ctx *cmd)
 	} else {
 		if (conn->state.data_input->stream_errno != 0) {
 			cmd_data_input_error(cmd);
-			smtp_server_command_unref(&command);
 			return -1;
 		}
 		/* command is waiting for external event or it failed */
 		i_assert(smtp_server_command_is_replied(command));
 	}
+	
+	return 1;
+}
+
+static int cmd_data_handle_input(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_command *command = cmd->cmd;
+	int ret;
+
+	if (!smtp_server_cmd_data_check_size(cmd))
+		return -1;
+
+	smtp_server_command_ref(command);
+
+	/* continue reading from client */
+	ret = cmd_data_do_handle_input(cmd);
+	
 	smtp_server_command_unref(&command);
 
-	return 1;
+	return ret;
 }
 
 static void cmd_data_input(struct smtp_server_cmd_ctx *cmd)
