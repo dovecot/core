@@ -146,6 +146,10 @@ static const struct pool static_allocfree_pool = {
 pool_t pool_allocfree_create(const char *name ATTR_UNUSED)
 {
 	struct allocfree_pool *pool;
+
+	if (SIZEOF_POOLBLOCK > (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE))
+		i_panic("POOL_MAX_ALLOC_SIZE is too large");
+
 	pool = calloc(1, SIZEOF_ALLOCFREE_POOL);
 	if (pool == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %"PRIuSIZE_T"): Out of memory",
@@ -251,7 +255,7 @@ static void *pool_allocfree_malloc(pool_t pool, size_t size)
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
 
-	if (unlikely(size == 0 || size > SSIZE_T_MAX - SIZEOF_POOLBLOCK))
+	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	struct pool_block *block = calloc(1, SIZEOF_POOLBLOCK + size);
@@ -281,7 +285,7 @@ static void *pool_allocfree_realloc(pool_t pool, void *mem,
 		container_of(pool, struct allocfree_pool, pool);
 	unsigned char *new_mem;
 
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX - SIZEOF_POOLBLOCK))
+	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)

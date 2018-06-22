@@ -231,6 +231,9 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	size_t min_alloc = SIZEOF_POOLBLOCK +
 		MEM_ALIGN(sizeof(struct alloconly_pool) + SENTRY_COUNT);
 
+	if (POOL_ALLOCONLY_MAX_EXTRA > (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE))
+		i_panic("POOL_MAX_ALLOC_SIZE is too large");
+
 #ifdef DEBUG
 	min_alloc += MEM_ALIGN(strlen(name) + 1 + SENTRY_COUNT) +
 		sizeof(size_t)*2;
@@ -381,7 +384,7 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 	void *mem;
 	size_t alloc_size;
 
-	if (unlikely(size == 0 || size > SSIZE_T_MAX - POOL_ALLOCONLY_MAX_EXTRA))
+	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 #ifndef DEBUG
@@ -451,7 +454,7 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 		container_of(pool, struct alloconly_pool, pool);
 	unsigned char *new_mem;
 
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX - POOL_ALLOCONLY_MAX_EXTRA))
+	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)

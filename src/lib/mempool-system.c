@@ -102,7 +102,7 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 	int old_errno = errno;
 #endif
 
-	if (unlikely(size == 0 || size > SSIZE_T_MAX))
+	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	mem = calloc(size, 1);
@@ -135,7 +135,7 @@ void pool_system_free(pool_t pool ATTR_UNUSED, void *mem ATTR_UNUSED)
 static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 				 size_t old_size, size_t new_size)
 {
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
+	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL) {

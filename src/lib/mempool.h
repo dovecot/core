@@ -10,6 +10,11 @@
    pools to disable the warning. */
 #define MEMPOOL_GROWING "GROWING-"
 
+/* The maximum allocation size that's allowed.  Anything larger than that
+   will panic.  No pool ever should need more than 4kB of overhead per
+   allocation. */
+#define POOL_MAX_ALLOC_SIZE	(SSIZE_T_MAX - 4096)
+
 /* Memory allocated and reallocated (the new data in it) in pools is always
    zeroed, it will cost only a few CPU cycles and may well save some debug
    time. */
