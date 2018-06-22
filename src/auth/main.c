@@ -264,7 +264,6 @@ static void main_deinit(void)
 		/* cancel all pending anvil penalty lookups */
 		auth_penalty_deinit(&auth_penalty);
 	}
-	auth_policy_deinit();
 	/* deinit auth workers, which aborts pending requests */
         auth_worker_server_deinit();
 	/* deinit passdbs and userdbs. it aborts any pending async requests. */
@@ -284,6 +283,7 @@ static void main_deinit(void)
 	if (auth_worker_client != NULL)
 		auth_worker_client_destroy(&auth_worker_client);
 
+	auth_policy_deinit();
 	mech_register_deinit(&mech_reg);
 	mech_deinit(global_auth_settings);
 
