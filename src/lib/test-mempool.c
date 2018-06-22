@@ -8,12 +8,12 @@ typedef char uint32max_array_t[4294967295];
 typedef char uint32max_array_t[65535];
 #endif
 
+#define BIG_MAX			POOL_MAX_ALLOC_SIZE
+
 #if defined(_LP64)
-#define LITTLE_MAX		((unsigned long long) UINT32_MAX)
-#define BIG_MAX			((unsigned long long) UINT64_MAX)
+#define LITTLE_MAX		((unsigned long long) INT32_MAX)
 #elif defined(_ILP32)
-#define LITTLE_MAX		((unsigned long long) UINT16_MAX)
-#define BIG_MAX			((unsigned long long) UINT32_MAX)
+#define LITTLE_MAX		((unsigned long long) INT16_MAX)
 #else
 #error unsupported pointer size
 #endif
@@ -46,32 +46,37 @@ enum fatal_test_state fatal_mempool(unsigned int stage)
 	static uint32max_array_t *m1;
 	static uint32_t *m2;
 
-	test_expect_fatal_string("memory allocation overflow");
 	switch(stage) {
 	case 0:
+		test_expect_fatal_string("Trying to allocate");
 		test_begin("fatal mempool overflow");
 		m1 = p_new(&test_pool, uint32max_array_t, LITTLE_MAX + 3);
 		return FATAL_TEST_FAILURE;
 	case 1:
+		test_expect_fatal_string("Trying to allocate");
 		m2 = p_new(&test_pool, uint32_t, BIG_MAX / sizeof(uint32_t) + 1);
 		return FATAL_TEST_FAILURE;
 	case 2: /* grow */
+		test_expect_fatal_string("Trying to allocate");
 		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t,
 				    LITTLE_MAX + 2, LITTLE_MAX + 3);
 		return FATAL_TEST_FAILURE;
 	case 3:
+		test_expect_fatal_string("Trying to allocate");
 		m2 = p_realloc_type(&test_pool, m2, uint32_t,
 				    BIG_MAX / sizeof(uint32_t),
 				    BIG_MAX / sizeof(uint32_t) + 1);
 		return FATAL_TEST_FAILURE;
 	case 4: /* shrink */
+		test_expect_fatal_string("Trying to allocate");
 		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t,
 				    LITTLE_MAX + 3, LITTLE_MAX + 2);
 		return FATAL_TEST_FAILURE;
 	case 5:
+		test_expect_fatal_string("Trying to allocate");
 		m2 = p_realloc_type(&test_pool, m2, uint32_t,
-				    BIG_MAX / sizeof(uint32_t) + 1,
-				    BIG_MAX / sizeof(uint32_t));
+				    BIG_MAX / sizeof(uint32_t) + 2,
+				    BIG_MAX / sizeof(uint32_t) + 1);
 		return FATAL_TEST_FAILURE;
 	}
 	test_expect_fatal_string(NULL);

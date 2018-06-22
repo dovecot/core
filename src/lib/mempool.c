@@ -2,6 +2,13 @@
 
 #include "lib.h"
 
+/* The various implementations of pools API assume that they'll never be
+   asked for more than SSIZE_T_MAX bytes.  This is a sanity check to make
+   sure nobody accidentally bumped the define beyond what's expected. */
+#if POOL_MAX_ALLOC_SIZE > SSIZE_T_MAX
+#error "POOL_MAX_ALLOC_SIZE is too large"
+#endif
+
 size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size)
 {
 	size_t exp_size, easy_size;
