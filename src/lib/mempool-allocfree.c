@@ -88,8 +88,6 @@
  * with no blocks allocated.)
  */
 
-#define MAX_ALLOC_SIZE SSIZE_T_MAX
-
 struct allocfree_pool {
 	struct pool pool;
 	int refcount;
