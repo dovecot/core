@@ -77,7 +77,7 @@ static struct event_filter *event_filters = NULL;
 struct event_filter *event_filter_create(void)
 {
 	struct event_filter *filter;
-	pool_t pool = pool_alloconly_create("event filter", 256);
+	pool_t pool = pool_alloconly_create("event filter", 2048);
 
 	filter = p_new(pool, struct event_filter, 1);
 	filter->pool = pool;
