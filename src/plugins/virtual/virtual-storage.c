@@ -741,6 +741,16 @@ static void virtual_notify_changes(struct mailbox *box)
 }
 
 static void
+virtual_uidmap_to_uid_array(struct virtual_backend_box *bbox,
+			    ARRAY_TYPE(seq_range) *uids_r)
+{
+	const struct virtual_backend_uidmap *uid;
+	array_foreach(&bbox->uids, uid) {
+		seq_range_array_add(uids_r, uid->real_uid);
+	}
+}
+
+static void
 virtual_get_virtual_uids(struct mailbox *box,
 			 struct mailbox *backend_mailbox,
 			 const ARRAY_TYPE(seq_range) *backend_uids,
@@ -749,6 +759,7 @@ virtual_get_virtual_uids(struct mailbox *box,
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
 	struct virtual_backend_box *bbox;
 	const struct virtual_backend_uidmap *uids;
+	ARRAY_TYPE(seq_range) uid_range;
 	struct seq_range_iter iter;
 	unsigned int n, i, count;
 	uint32_t uid;
@@ -764,7 +775,12 @@ virtual_get_virtual_uids(struct mailbox *box,
 		return;
 
 	uids = array_get(&bbox->uids, &count); i = 0;
-	seq_range_array_iter_init(&iter, backend_uids); n = 0;
+
+	t_array_init(&uid_range, 8);
+	virtual_uidmap_to_uid_array(bbox, &uid_range);
+	seq_range_array_intersect(&uid_range, backend_uids);
+
+	seq_range_array_iter_init(&iter, &uid_range); n = 0;
 	while (seq_range_array_iter_nth(&iter, n++, &uid)) {
 		while (i < count && uids[i].real_uid < uid) i++;
 		if (i < count && uids[i].real_uid == uid) {
