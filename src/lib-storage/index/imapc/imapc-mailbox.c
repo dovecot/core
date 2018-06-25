@@ -234,6 +234,16 @@ imapc_mailbox_fetch_state_callback(const struct imapc_command_reply *reply,
 	}
 }
 
+void imap_mailbox_select_finish(struct imapc_mailbox *mbox)
+{
+	if (mbox->exists_count == 0) {
+		/* no mails. expunge everything. */
+		mbox->sync_next_lseq = 1;
+		imapc_mailbox_init_delayed_trans(mbox);
+		imapc_mailbox_fetch_state_finish(mbox);
+	}
+}
+
 static void
 imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 {
@@ -241,10 +251,9 @@ imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 
 	if (mbox->exists_count == 0) {
 		/* empty mailbox - no point in fetching anything.
-		   just make sure everything is expunged in local index. */
-		mbox->sync_next_lseq = 1;
-		imapc_mailbox_init_delayed_trans(mbox);
-		imapc_mailbox_fetch_state_finish(mbox);
+		   just make sure everything is expunged in local index.
+		   Delay calling imapc_mailbox_fetch_state_finish() until
+		   SELECT finishes, so we see the updated UIDNEXT. */
 		return;
 	}
 	if (mbox->state_fetching_uid1) {

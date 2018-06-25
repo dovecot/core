@@ -589,6 +589,7 @@ imapc_mailbox_reopen_callback(const struct imapc_command_reply *reply,
 	if (reply->state != IMAPC_COMMAND_STATE_OK)
 		errmsg = reply->text_full;
 	else if (imapc_mailbox_verify_select(mbox, &errmsg)) {
+		imap_mailbox_select_finish(mbox);
 		errmsg = NULL;
 		mbox->selected = TRUE;
 	}
@@ -661,6 +662,7 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 				"imapc: Opening mailbox failed: %s", error);
 			ctx->ret = -1;
 		} else {
+			imap_mailbox_select_finish(ctx->mbox);
 			ctx->mbox->selected = TRUE;
 			ctx->ret = 0;
 		}
