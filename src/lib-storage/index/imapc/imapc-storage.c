@@ -591,7 +591,6 @@ imapc_mailbox_reopen_callback(const struct imapc_command_reply *reply,
 	else if (imapc_mailbox_verify_select(mbox, &errmsg)) {
 		imap_mailbox_select_finish(mbox);
 		errmsg = NULL;
-		mbox->selected = TRUE;
 	}
 
 	if (errmsg != NULL) {
@@ -663,7 +662,6 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 			ctx->ret = -1;
 		} else {
 			imap_mailbox_select_finish(ctx->mbox);
-			ctx->mbox->selected = TRUE;
 			ctx->ret = 0;
 		}
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {

@@ -242,6 +242,7 @@ void imap_mailbox_select_finish(struct imapc_mailbox *mbox)
 		imapc_mailbox_init_delayed_trans(mbox);
 		imapc_mailbox_fetch_state_finish(mbox);
 	}
+	mbox->selected = TRUE;
 }
 
 static void
