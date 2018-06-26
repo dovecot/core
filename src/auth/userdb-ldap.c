@@ -208,7 +208,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	const char *error;
 	string_t *str;
 
-	ctx = i_new(struct ldap_userdb_iterate_context, 1);
+	ctx = p_new(auth_request->pool, struct ldap_userdb_iterate_context, 1);
 	ctx->ctx.auth_request = auth_request;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
@@ -268,7 +268,6 @@ static int userdb_ldap_iterate_deinit(struct userdb_iterate_context *_ctx)
 
 	db_ldap_enable_input(ctx->conn, TRUE);
 	auth_request_unref(&ctx->request.request.request.auth_request);
-	i_free(ctx);
 	return ret;
 }
 
