@@ -240,7 +240,9 @@ static void quota_clone_mail_user_deinit_pre(struct mail_user *user)
 		i_assert(!quser->quota_flushing);
 		quota_clone_flush(user);
 		dict_wait(quser->dict);
-		i_assert(quser->to_quota_flush == NULL);
+		/* If dict update fails or background calculation is running,
+		   the timeout is still set. Just forget about it. */
+		timeout_remove(&quser->to_quota_flush);
 	}
 	quser->module_ctx.super.deinit_pre(user);
 }
