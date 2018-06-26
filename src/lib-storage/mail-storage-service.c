@@ -1120,7 +1120,8 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 {
 	enum auth_master_flags flags = 0;
 
-	ctx->debug = mail_user_set_get_mail_debug(user_info, user_set);
+	ctx->debug = mail_user_set_get_mail_debug(user_info, user_set) ||
+		     (service_flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0;
 	if (ctx->debug)
 		flags |= AUTH_MASTER_FLAG_DEBUG;
 	if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT) != 0)
