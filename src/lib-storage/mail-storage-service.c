@@ -1115,14 +1115,15 @@ void mail_storage_service_set_auth_conn(struct mail_storage_service_ctx *ctx,
 static void
 mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 				const struct setting_parser_info *user_info,
-				const struct mail_user_settings *user_set)
+				const struct mail_user_settings *user_set,
+				enum mail_storage_service_flags service_flags)
 {
 	enum auth_master_flags flags = 0;
 
 	ctx->debug = mail_user_set_get_mail_debug(user_info, user_set);
 	if (ctx->debug)
 		flags |= AUTH_MASTER_FLAG_DEBUG;
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT) != 0)
+	if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT) != 0)
 		flags |= AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT;
 	mail_storage_service_set_auth_conn(ctx,
 		auth_master_init(user_set->auth_socket_path, flags));
@@ -1263,7 +1264,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_set_log_prefix(ctx, user_set, NULL, input, NULL);
 
 	if (ctx->conn == NULL)
-		mail_storage_service_first_init(ctx, user_info, user_set);
+		mail_storage_service_first_init(ctx, user_info, user_set, flags);
 	/* load global plugins */
 	if (mail_storage_service_load_modules(ctx, user_info, user_set, error_r) < 0) {
 		pool_unref(&user_pool);
@@ -1665,7 +1666,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 							 set_parser);
 	user_set = sets[0];
 
-	mail_storage_service_first_init(ctx, user_info, user_set);
+	mail_storage_service_first_init(ctx, user_info, user_set, ctx->flags);
 	pool_unref(&temp_pool);
 }
 
