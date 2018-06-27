@@ -32,7 +32,7 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 			set->debug = TRUE;
 		} else if (strcmp(*tmp, "use_libfts") == 0) {
 			set->use_libfts = TRUE;
-		} else if (strcmp(*tmp, "default_ns=") == 0) {
+		} else if (str_begins(*tmp, "default_ns=")) {
 			set->default_ns_prefix =
 				p_strdup(user->pool, *tmp + 11);
 		} else {
