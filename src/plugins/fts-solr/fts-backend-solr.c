@@ -165,7 +165,7 @@ static void solr_quote_http(string_t *dest, const char *str)
 	if (str[0] != '\0')
 		http_url_escape_param(dest, solr_escape(str));
 	else
-		str_append(dest, "\"\"");
+		str_append(dest, "%22%22");
 }
 
 static struct fts_backend *fts_backend_solr_alloc(void)
