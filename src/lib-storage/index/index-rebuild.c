@@ -32,7 +32,7 @@ index_index_copy_cache(struct index_rebuild_context *ctx,
 {
 	struct mail_index_map *map;
 	const void *data;
-	uint32_t reset_id;
+	uint32_t reset_id = 0;
 	bool expunged;
 
 	if (ctx->cache_ext_id == (uint32_t)-1)
