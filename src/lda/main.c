@@ -501,23 +501,22 @@ int main(int argc, char *argv[])
 	if (ret <= 0) {
 		if (ret < 0)
 			i_fatal("%s", errstr);
-		return EX_NOUSER;
-	}
-
+		ret = EX_NOUSER;
+	} else {
 #ifdef SIGXFSZ
-        lib_signals_ignore(SIGXFSZ, TRUE);
+		lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
-	if (*user_source != '\0') {
-		e_debug(ctx.rcpt_user->event,
-			"userdb lookup skipped, username taken from %s",
-			user_source);
-	}
-	ctx.mail_from = mail_from;
-	ctx.rcpt_to = final_rcpt_to;
+		if (*user_source != '\0') {
+			e_debug(ctx.rcpt_user->event,
+				"userdb lookup skipped, username taken from %s",
+				user_source);
+		}
+		ctx.mail_from = mail_from;
+		ctx.rcpt_to = final_rcpt_to;
 
-	ret = lda_deliver(&ctx, service_user, user, path,
-			  rcpt_to, rcpt_to_source, stderr_rejection);
-	{
+		ret = lda_deliver(&ctx, service_user, user, path,
+				  rcpt_to, rcpt_to_source, stderr_rejection);
+
 		struct mailbox_transaction_context *t =
 			ctx.src_mail->transaction;
 		struct mailbox *box = ctx.src_mail->box;
@@ -525,12 +524,12 @@ int main(int argc, char *argv[])
 		mail_free(&ctx.src_mail);
 		mailbox_transaction_rollback(&t);
 		mailbox_free(&box);
+
+		mail_user_unref(&ctx.rcpt_user);
+		mail_storage_service_user_unref(&service_user);
 	}
 
-	mail_user_unref(&ctx.rcpt_user);
 	mail_deliver_session_deinit(&ctx.session);
-
-	mail_storage_service_user_unref(&service_user);
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
         return ret;
