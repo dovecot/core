@@ -56,6 +56,8 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	struct mail_storage *storage = mailbox_get_storage(box);
 	const char *username = mail_storage_get_user(storage)->username;
 	const char *box_vname = mailbox_get_vname(box);
+	const char *errstr;
+	enum mail_error error;
 	struct mailbox_status status;
 	struct mailbox_transaction_context *trans;
 	struct mail_search_args *search_args;
@@ -122,11 +124,11 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	const char *uids = first_uid == 0 ? "" :
 		t_strdup_printf(" (UIDs %u..%u)", first_uid, last_uid);
 	if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Mailbox %s: Transaction commit failed: %s"
-			" (attempted to index %u messages%s)",
-			mailbox_get_vname(box),
-			mailbox_get_last_internal_error(box, NULL),
-			counter, uids);
+		errstr = mailbox_get_last_internal_error(box, &error);
+		if (error != MAIL_ERROR_NOTFOUND)
+			i_error("Mailbox %s: Transaction commit failed: %s"
+				" (attempted to index %u messages%s)",
+				mailbox_get_vname(box), errstr, counter, uids);
 		ret = -1;
 	} else {
 		i_info("Indexed %u messages in %s%s",
