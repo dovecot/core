@@ -542,6 +542,7 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	/* this function doesn't set last_internal_error, so
 	   last_error_is_internal can't be TRUE. */
 	storage->last_error_is_internal = FALSE;
+	i_free(storage->last_internal_error);
 }
 
 void mail_storage_set_critical(struct mail_storage *storage,
