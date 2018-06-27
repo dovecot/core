@@ -433,6 +433,14 @@ int main(int argc, char *argv[])
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
+	if (*user_source != '\0') {
+		e_debug(ctx.rcpt_user->event,
+			"userdb lookup skipped, username taken from %s",
+			user_source);
+	}
+	ctx.mail_from = mail_from;
+	ctx.rcpt_to = final_rcpt_to;
+
 	var_table = mail_user_var_expand_table(ctx.rcpt_user);
 	smtp_set = mail_storage_service_user_get_set(service_user)[1];
 	lda_set = mail_storage_service_user_get_set(service_user)[2];
@@ -451,15 +459,7 @@ int main(int argc, char *argv[])
 	ctx.set = lda_set;
 	ctx.smtp_set = smtp_set;
 
-	if (*user_source != '\0') {
-		e_debug(ctx.rcpt_user->event,
-			"userdb lookup skipped, username taken from %s",
-			user_source);
-	}
-
 	ctx.src_mail = lda_raw_mail_open(&ctx, path);
-	ctx.mail_from = mail_from;
-	ctx.rcpt_to = final_rcpt_to;
 	lda_set_rcpt_to(&ctx, rcpt_to, user, rcpt_to_source);
 
 	if (mail_deliver(&ctx, &storage) < 0) {
