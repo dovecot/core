@@ -560,6 +560,11 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	}
 #endif
 #endif
+#ifdef SSL_OP_SINGLE_DH_USE
+	/* Improves forward secrecy with DH parameters, especially if the
+	   parameters used aren't strong primes. See OpenSSL manual. */
+	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_DH_USE);
+#endif
 	return 0;
 }
 
