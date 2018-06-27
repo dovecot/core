@@ -170,8 +170,10 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		   don't bother syncing the mailbox, that alone can take a
 		   while with large maildirs. */
 		if (mailbox_open(box) < 0) {
-			i_error("Opening mailbox %s failed: %s", mailbox,
-				mailbox_get_last_internal_error(box, NULL));
+			errstr = mailbox_get_last_internal_error(box, &error);
+			if (error != MAIL_ERROR_NOTFOUND)
+				i_error("Opening mailbox %s failed: %s",
+					mailbox, errstr);
 			ret = -1;
 		} else {
 			mailbox_get_open_status(box, STATUS_RECENT, &status);
