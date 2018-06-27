@@ -517,9 +517,6 @@ int main(int argc, char *argv[])
 
 	ret = lda_deliver(&ctx, service_user, user, path,
 			  rcpt_to, rcpt_to_source, stderr_rejection);
-	if (ret != EX_OK)
-		return ret;
-
 	{
 		struct mailbox_transaction_context *t =
 			ctx.src_mail->transaction;
@@ -536,5 +533,5 @@ int main(int argc, char *argv[])
 	mail_storage_service_user_unref(&service_user);
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
-        return EX_OK;
+        return ret;
 }
