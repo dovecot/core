@@ -155,8 +155,10 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	mailbox_set_reason(box, "indexing");
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
 	if (ret < 0) {
-		i_error("Getting path to mailbox %s failed: %s",
-			mailbox, mailbox_get_last_internal_error(box, NULL));
+		errstr = mailbox_get_last_internal_error(box, &error);
+		if (error != MAIL_ERROR_NOTFOUND)
+			i_error("Getting path to mailbox %s failed: %s",
+				mailbox, errstr);
 		mailbox_free(&box);
 		return -1;
 	}
