@@ -125,11 +125,11 @@ match_local_name(const char *local_name,
 	/* Handle multiple names separated by spaces in local_name
 	   * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
 	const char *ptr;
-	while((ptr = strchr(local_name, ' ')) != NULL) {
-		if (dns_match_wildcard(filter_local_name,
-		    t_strdup_until(local_name, ptr)) == 0)
+	while((ptr = strchr(filter_local_name, ' ')) != NULL) {
+		if (dns_match_wildcard(local_name,
+		    t_strdup_until(filter_local_name, ptr)) == 0)
 			return TRUE;
-		local_name = ptr+1;
+		filter_local_name = ptr+1;
 	}
 	return dns_match_wildcard(local_name, filter_local_name) == 0;
 }
