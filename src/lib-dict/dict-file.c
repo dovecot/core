@@ -492,7 +492,9 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 						     dict->path);
 	}
 
+	*lock_r = NULL;
 	do {
+		file_lock_free(lock_r);
 		if (file_wait_lock(dict->fd, dict->path, F_WRLCK,
 				   dict->lock_method,
 				   file_dict_dotlock_settings.timeout,
