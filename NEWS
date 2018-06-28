@@ -1,4 +1,4 @@
-v2.3.2 2018-06-xx  Timo Sirainen <tss@iki.fi>
+v2.3.2 2018-06-29  Timo Sirainen <tss@iki.fi>
 
 	* old-stats plugin: Don't temporarily enable PR_SET_DUMPABLE while
 	  opening /proc/self/io. This may still cause security problems if the
