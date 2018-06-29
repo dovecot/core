@@ -20,29 +20,25 @@ typedef char uint32max_array_t[65535];
 
 extern struct pool test_pool;
 
+/* Checks allocations & reallocations for a given type. */
+#define CHECK_OVERFLOW(type, nelem, _maxsize)					\
+	do {									\
+		const size_t maxsize = (_maxsize);				\
+		test_begin("mempool overflow - " #type);			\
+		type *ptr = p_new(&test_pool, type, (nelem));			\
+		test_assert(ptr == POINTER_CAST(maxsize));			\
+		/* grow: */							\
+		test_assert(p_realloc_type(&test_pool, ptr, type, (nelem) - 1, (nelem)) == POINTER_CAST(maxsize)); \
+		/* shrink: */							\
+		test_assert(p_realloc_type(&test_pool, ptr, type, (nelem), (nelem) - 1) == POINTER_CAST(maxsize - sizeof(type))); \
+		test_end();							\
+	} while (0)
+
 static void test_mempool_overflow(void)
 {
-	test_begin("mempool overflow");
-
-	const size_t max_num_u32 = BIG_MAX / sizeof(uint32_t);
-	uint32max_array_t *m1 = p_new(&test_pool, uint32max_array_t, LITTLE_MAX + 2);
-	test_assert(m1 == POINTER_CAST(BIG_MAX));
-	char *m2 = p_new(&test_pool, char, BIG_MAX);
-	test_assert(m2 == POINTER_CAST(BIG_MAX));
-	uint32_t *m3 = p_new(&test_pool, uint32_t, max_num_u32);
-	test_assert(m3 == POINTER_CAST(BIG_MAX - 3));
-
-	/* grow */
-	test_assert(p_realloc_type(&test_pool, m1, uint32max_array_t, LITTLE_MAX + 1, LITTLE_MAX + 2) == POINTER_CAST(BIG_MAX));
-	test_assert(p_realloc_type(&test_pool, m2, char, BIG_MAX - 1, BIG_MAX) == POINTER_CAST(BIG_MAX));
-	test_assert(p_realloc_type(&test_pool, m3, uint32_t, max_num_u32 - 1, max_num_u32) == POINTER_CAST(BIG_MAX - 3));
-
-	/* shrink */
-	test_assert(p_realloc_type(&test_pool, m1, uint32max_array_t, LITTLE_MAX + 2, LITTLE_MAX + 1) == POINTER_CAST(BIG_MAX - LITTLE_MAX));
-	test_assert(p_realloc_type(&test_pool, m2, char, BIG_MAX, BIG_MAX - 1) == POINTER_CAST(BIG_MAX - 1));
-	test_assert(p_realloc_type(&test_pool, m3, uint32_t, max_num_u32, max_num_u32 - 1) == POINTER_CAST(BIG_MAX - 2 * sizeof(uint32_t) + 1));
-
-	test_end();
+	CHECK_OVERFLOW(uint32max_array_t, LITTLE_MAX, sizeof(uint32max_array_t) * LITTLE_MAX);
+	CHECK_OVERFLOW(char, BIG_MAX, BIG_MAX);
+	CHECK_OVERFLOW(uint32_t, BIG_MAX / sizeof(uint32_t), BIG_MAX - 3);
 }
 
 enum fatal_test_state fatal_mempool(unsigned int stage)
