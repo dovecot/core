@@ -63,7 +63,18 @@ valid_request_parse_tests[] = {
 		},
 		.version_major = 1, .version_minor = 1,
 	},{ .request =
-			"OPTIONS * HTTP/1.0\r\n"
+			"GET / HTTP/1.0\r\n"
+			"\r\n",
+		.method = "GET",
+		.target_raw = "/",
+		.target = {
+			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
+			.url = { .host = { .name = "example.org" } }
+		},
+		.version_major = 1, .version_minor = 0,
+		.connection_close = TRUE,
+	},{ .request =
+			"OPTIONS * HTTP/1.1\r\n"
 			"Host: example.com\r\n"
 			"Connection: Keep-Alive\r\n"
 			"\r\n",
@@ -72,6 +83,17 @@ valid_request_parse_tests[] = {
 		.target = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ASTERISK,
 			.url = { .host = { .name = "example.com" } }
+		},
+		.version_major = 1, .version_minor = 1,
+	},{ .request =
+			"OPTIONS * HTTP/1.0\r\n"
+			"Connection: Keep-Alive\r\n"
+			"\r\n",
+		.method = "OPTIONS",
+		.target_raw = "*",
+		.target = {
+			.format = HTTP_REQUEST_TARGET_FORMAT_ASTERISK,
+			.url = { .host = { .name = "example.org" } }
 		},
 		.version_major = 1, .version_minor = 0,
 	},{ .request =
