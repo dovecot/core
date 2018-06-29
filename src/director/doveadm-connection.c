@@ -1069,8 +1069,11 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 			ret = doveadm_connection_cmd(conn, line);
 		} T_END;
 	}
-	if (conn->input->eof || conn->input->stream_errno != 0 ||
-	    ret == DOVEADM_DIRECTOR_CMD_RET_FAIL)
+	/* Delay deinit if io was removed, even if the client
+	   already disconnected. */
+	if (conn->io != NULL &&
+	    (conn->input->eof || conn->input->stream_errno != 0 ||
+	     ret == DOVEADM_DIRECTOR_CMD_RET_FAIL))
 		doveadm_connection_deinit(&conn);
 }
 
