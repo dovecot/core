@@ -24,6 +24,8 @@ enum http_request_parser_state {
 
 struct http_request_parser {
 	struct http_message_parser parser;
+	pool_t pool;
+	
 	enum http_request_parser_state state;
 
 	uoff_t max_target_length;
@@ -42,11 +44,15 @@ http_request_parser_init(struct istream *input,
 	enum http_request_parse_flags flags)
 {
 	struct http_request_parser *parser;
+	pool_t pool;
 	struct http_header_limits hdr_limits;
 	uoff_t max_payload_size;
 	enum http_message_parse_flags msg_flags = 0;
 
-	parser = i_new(struct http_request_parser, 1);
+	pool = pool_alloconly_create("http request parser", 512);
+	parser = p_new(pool, struct http_request_parser, 1);
+	parser->pool = pool;
+	
 	if (limits != NULL) {
 		hdr_limits = limits->header;
 		max_payload_size = limits->max_payload_size;
@@ -81,7 +87,7 @@ void http_request_parser_deinit(struct http_request_parser **_parser)
 	*_parser = NULL;
 
 	http_message_parser_deinit(&parser->parser);
-	i_free(parser);
+	pool_unref(&parser->pool);
 }
 
 static void
