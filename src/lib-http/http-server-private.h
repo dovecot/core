@@ -129,6 +129,8 @@ struct http_server_connection {
 	const struct http_server_callbacks *callbacks;
 	void *context;
 
+	struct ip_addr ip;
+	in_port_t port;
 	unsigned int id; // DEBUG
 
 	struct timeout *to_input, *to_idle;
