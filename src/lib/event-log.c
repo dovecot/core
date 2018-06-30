@@ -202,7 +202,8 @@ void event_logv(struct event *event, const struct event_log_params *params,
 
 struct event *event_set_forced_debug(struct event *event, bool force)
 {
-	event->forced_debug = force;
+	if (force)
+		event->forced_debug = TRUE;
 	return event;
 }
 
