@@ -377,8 +377,7 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 	bool check_default = TRUE;
 
 	auth_event = event_create(NULL);
-	if (set->debug)
-		event_set_forced_debug(auth_event, TRUE);
+	event_set_forced_debug(auth_event, set->debug);
 	event_add_category(auth_event, &event_category_auth);
 	i_array_init(&auths, 8);
 

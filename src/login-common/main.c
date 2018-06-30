@@ -457,8 +457,7 @@ static void main_init(const char *login_socket)
 	restrict_process_count(1);
 
 	event_auth = event_create(NULL);
-	if (global_login_settings->auth_debug)
-		event_set_forced_debug(event_auth, TRUE);
+	event_set_forced_debug(event_auth, global_login_settings->auth_debug);
 	event_add_category(event_auth, &event_category_auth);
 
 	i_array_init(&global_alt_usernames, 4);

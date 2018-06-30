@@ -336,8 +336,7 @@ void auth_client_connection_create(struct auth *auth, int fd,
 	conn->login_requests = login_requests;
 	conn->token_auth = token_auth;
 	conn->event = event_create(NULL);
-	if (auth->set->debug)
-		event_set_forced_debug(conn->event, TRUE);
+	event_set_forced_debug(conn->event, auth->set->debug);
 	event_add_category(conn->event, &event_category_auth);
 	random_fill(conn->cookie, sizeof(conn->cookie));
 
