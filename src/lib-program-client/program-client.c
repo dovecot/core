@@ -472,8 +472,7 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 	pclient->fd_out = -1;
 
 	pclient->event = event_create(set->event);
-	if ((set != NULL && set->debug))
-		event_set_forced_debug(pclient->event, TRUE);
+	event_set_forced_debug(pclient->event, (set != NULL && set->debug));
 	program_client_set_label(pclient, initial_label);
 
 	e_debug(pclient->event, "Created");

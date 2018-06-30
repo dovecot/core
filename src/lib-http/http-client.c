@@ -135,8 +135,8 @@ http_client_init_shared(struct http_client_context *cctx,
 		parent_event = event_get_parent(cctx->event);
 	}
 	client->event = event_create(parent_event);
-	if ((set != NULL && set->debug) || (cctx != NULL && cctx->set.debug))
-		event_set_forced_debug(client->event, TRUE);
+	event_set_forced_debug(client->event,
+			       (set != NULL && set->debug) || (cctx != NULL && cctx->set.debug));
 	event_set_append_log_prefix(client->event, log_prefix);
 
 	/* merge provided settings with context defaults */
@@ -437,8 +437,7 @@ http_client_context_create(const struct http_client_settings *set)
 	cctx->ioloop = current_ioloop;
 
 	cctx->event = event_create(set->event);
-	if (set->debug)
-		event_set_forced_debug(cctx->event, TRUE);
+	event_set_forced_debug(cctx->event, set->debug);
 	event_set_append_log_prefix(cctx->event, "http-client: ");
 
 	cctx->set.dns_client = set->dns_client;

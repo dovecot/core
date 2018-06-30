@@ -87,8 +87,7 @@ static void auth_request_post_alloc_init(struct auth_request *request, struct ev
 	request->debug = request->set->debug;
 	request->extra_fields = auth_fields_init(request->pool);
 	request->event = event_create(parent_event);
-	if (request->set->debug)
-		event_set_forced_debug(request->event, TRUE);
+	event_set_forced_debug(request->event, request->set->debug);
 	event_add_category(request->event, &event_category_auth);
 }
 

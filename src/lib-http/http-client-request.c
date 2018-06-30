@@ -235,8 +235,7 @@ void http_client_request_set_event(struct http_client_request *req,
 {
 	event_unref(&req->event);
 	req->event = event_create(event);
-	if (req->client->set.debug)
-		event_set_forced_debug(req->event, TRUE);
+	event_set_forced_debug(req->event, req->client->set.debug);
 	http_client_request_update_event(req);
 }
 

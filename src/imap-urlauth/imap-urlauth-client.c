@@ -67,8 +67,7 @@ int client_create(const char *service, const char *username,
 	client->set = set;
 
 	client->event = event_create(NULL);
-	if (set->mail_debug)
-		event_set_forced_debug(client->event, TRUE);
+	event_set_forced_debug(client->event, set->mail_debug);
 	event_add_category(client->event, &event_category_urlauth);
 
 	if (client_worker_connect(client) < 0) {
