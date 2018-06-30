@@ -206,6 +206,12 @@ struct event *event_set_forced_debug(struct event *event, bool force)
 	return event;
 }
 
+struct event *event_unset_forced_debug(struct event *event)
+{
+	event->forced_debug = FALSE;
+	return event;
+}
+
 void event_set_global_debug_log_filter(struct event_filter *filter)
 {
 	event_unset_global_debug_log_filter();
