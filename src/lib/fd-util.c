@@ -140,7 +140,13 @@ void i_close_fd_path(int *fd, const char *path, const char *arg,
 	if (*fd == -1)
 		return;
 
-	i_assert(*fd > 0);
+	if (unlikely(*fd <= 0)) {
+		i_panic("%s: close(%s%s%s) @ %s:%d attempted with fd=%d",
+			func, arg,
+			(path == NULL) ? "" : " = ",
+			(path == NULL) ? "" : path,
+			file, line, *fd);
+	}
 
 	saved_errno = errno;
 	if (unlikely(close(*fd) < 0))
