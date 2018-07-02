@@ -30,6 +30,9 @@ struct http_server *http_server_init(const struct http_server_settings *set)
 	pool = pool_alloconly_create("http server", pool_size);
 	server = p_new(pool, struct http_server, 1);
 	server->pool = pool;
+
+	if (set->default_host != NULL && *set->default_host != '\0')
+		server->set.default_host = p_strdup(pool, set->default_host);
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 		server->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	if (set->ssl != NULL) {

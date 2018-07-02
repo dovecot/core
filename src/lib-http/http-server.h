@@ -19,6 +19,8 @@ struct http_server_response;
  */
 
 struct http_server_settings {
+	const char *default_host;
+
 	const char *rawlog_dir;
 
 	/* SSL settings; if NULL, master_service_ssl_init() is used instead */

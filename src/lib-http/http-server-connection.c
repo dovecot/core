@@ -4,6 +4,7 @@
 #include "llist.h"
 #include "array.h"
 #include "str.h"
+#include "hostpid.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "istream-timeout.h"
@@ -14,6 +15,7 @@
 #include "master-service.h"
 #include "master-service-ssl.h"
 #include "http-date.h"
+#include "http-url.h"
 #include "http-request-parser.h"
 
 #include "http-server-private.h"
@@ -160,6 +162,8 @@ bool http_server_connection_shut_down(struct http_server_connection *conn)
 
 static void http_server_connection_ready(struct http_server_connection *conn)
 {
+	const struct http_server_settings *set = &conn->server->set;
+	struct http_url base_url;
 	struct stat st;
 
 	if (conn->server->set.rawlog_dir != NULL &&
@@ -168,8 +172,18 @@ static void http_server_connection_ready(struct http_server_connection *conn)
 				       &conn->conn.input, &conn->conn.output);
 	}
 
+	i_zero(&base_url);
+	if (set->default_host != NULL)
+		base_url.host.name = set->default_host;
+	else if (conn->ip.family != 0)
+		base_url.host.ip = conn->ip;
+	else
+		base_url.host.name = my_hostname;
+	base_url.port = conn->port;
+	base_url.have_ssl = conn->ssl;
+
 	conn->http_parser = http_request_parser_init(
-		conn->conn.input, NULL, &conn->server->set.request_limits,
+		conn->conn.input, &base_url, &conn->server->set.request_limits,
 		HTTP_REQUEST_PARSE_FLAG_STRICT);
 	o_stream_set_flush_callback(conn->conn.output,
     http_server_connection_output, conn);
