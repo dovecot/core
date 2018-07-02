@@ -590,7 +590,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 
 	pool = http_message_parser_get_pool(&parser->parser);
 	if (http_url_request_target_parse(parser->request_target, hdr->value,
-		pool, &request->target, &error) < 0) {
+		NULL, pool, &request->target, &error) < 0) {
 		*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
 		*error_r = t_strdup_printf("Bad request target `%s': %s",
 			parser->request_target, error);
