@@ -20,6 +20,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 	unsigned char buf[IO_BLOCK_SIZE];
 	const unsigned char *data;
 	size_t size;
+	uoff_t stream_size;
 	struct sha1_ctxt sha1;
 	unsigned char output_sha1[SHA1_RESULTLEN], input_sha1[SHA1_RESULTLEN];
 	unsigned int i;
@@ -73,11 +74,11 @@ static void test_compression_handler(const struct compression_handler *handler)
 	file_input = i_stream_create_fd(fd, IO_BLOCK_SIZE);
 	input = handler->create_istream(file_input, FALSE);
 
-	test_assert(i_stream_get_size(input, FALSE, &size) == 1);
-	test_assert(size == compressed_size);
+	test_assert(i_stream_get_size(input, FALSE, &stream_size) == 1);
+	test_assert(stream_size == compressed_size);
 
-	test_assert(i_stream_get_size(input, TRUE, &size) == 1);
-	test_assert(size == uncompressed_size);
+	test_assert(i_stream_get_size(input, TRUE, &stream_size) == 1);
+	test_assert(stream_size == uncompressed_size);
 
 	sha1_init(&sha1);
 	for (bool seeked = FALSE;;) {
