@@ -28,6 +28,8 @@ struct http_request_parser {
 	
 	enum http_request_parser_state state;
 
+	struct http_url *default_base_url;
+
 	uoff_t max_target_length;
 
 	enum http_request_parse_error error_code;
@@ -40,8 +42,9 @@ struct http_request_parser {
 
 struct http_request_parser *
 http_request_parser_init(struct istream *input,
-	const struct http_request_limits *limits,
-	enum http_request_parse_flags flags)
+			 const struct http_url *default_base_url,
+			 const struct http_request_limits *limits,
+			 enum http_request_parse_flags flags)
 {
 	struct http_request_parser *parser;
 	pool_t pool;
@@ -52,7 +55,12 @@ http_request_parser_init(struct istream *input,
 	pool = pool_alloconly_create("http request parser", 512);
 	parser = p_new(pool, struct http_request_parser, 1);
 	parser->pool = pool;
-	
+
+	if (default_base_url != NULL) {
+		parser->default_base_url =
+			http_url_clone_authority(pool, default_base_url);
+	}
+
 	if (limits != NULL) {
 		hdr_limits = limits->header;
 		max_payload_size = limits->max_payload_size;
@@ -590,7 +598,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 
 	pool = http_message_parser_get_pool(&parser->parser);
 	if (http_url_request_target_parse(parser->request_target, hdr->value,
-		NULL, pool, &request->target, &error) < 0) {
+		parser->default_base_url, pool, &request->target, &error) < 0) {
 		*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
 		*error_r = t_strdup_printf("Bad request target `%s': %s",
 			parser->request_target, error);

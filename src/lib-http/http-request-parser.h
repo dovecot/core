@@ -24,8 +24,9 @@ enum http_request_parse_flags {
 
 struct http_request_parser *
 http_request_parser_init(struct istream *input,
-	const struct http_request_limits *limits,
-	enum http_request_parse_flags flags) ATTR_NULL(2);
+			 const struct http_url *default_base_url,
+			 const struct http_request_limits *limits,
+			 enum http_request_parse_flags flags) ATTR_NULL(2);
 void http_request_parser_deinit(struct http_request_parser **_parser);
 
 int http_request_parse_finish_payload(
