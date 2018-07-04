@@ -152,6 +152,7 @@ static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 static void cmd_service_status(struct doveadm_cmd_context *cctx)
 {
 	const char *line, *const *services;
+	unsigned int fields_count;
 
 	if (!doveadm_cmd_param_array(cctx, "service", &services))
 		services = NULL;
@@ -171,6 +172,7 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("listen_pending");
 	doveadm_print_header_simple("listening");
 	doveadm_print_header_simple("doveadm_stop");
+	fields_count = doveadm_print_get_headers_count();
 
 	alarm(5);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
@@ -178,11 +180,14 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 			break;
 		T_BEGIN {
 			const char *const *args = t_strsplit_tabescaped(line);
-			if (str_array_length(args) >= 12 &&
+			if (args[0] != NULL &&
 			    (services == NULL ||
 			     str_array_find(services, args[0]))) {
-				for (unsigned int i = 0; i < 12; i++)
+				unsigned int i;
+				for (i = 0; i < fields_count && args[i] != NULL; i++)
 					doveadm_print(args[i]);
+				for (; i < fields_count; i++)
+					doveadm_print("");
 			}
 		} T_END;
 	}
