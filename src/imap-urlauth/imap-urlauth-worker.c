@@ -198,6 +198,7 @@ client_create_standalone(const char *access_user,
 	client->io = io_add(fd_in, IO_READ, client_input, client);
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	imap_urlauth_worker_client_count++;
@@ -290,7 +291,7 @@ static int client_run_url(struct client *client)
 	}
 
 	if (client->msg_part_input->eof) {
-		(void)o_stream_send(client->output, "\n", 1);
+		o_stream_nsend(client->output, "\n", 1);
 		imap_msgpart_url_free(&client->url);
 		return 1;
 	}
@@ -307,7 +308,6 @@ static void ATTR_FORMAT(2, 3)
 client_send_line(struct client *client, const char *fmt, ...)
 {
 	va_list va;
-	ssize_t ret;
 
 	if (client->output->closed)
 		return;
@@ -321,9 +321,7 @@ client_send_line(struct client *client, const char *fmt, ...)
 		str_vprintfa(str, fmt, va);
 		str_append(str, "\n");
 
-		ret = o_stream_send(client->output,
-				    str_data(str), str_len(str));
-		i_assert(ret < 0 || (size_t)ret == str_len(str));
+		o_stream_nsend(client->output, str_data(str), str_len(str));
 	} T_END;
 
 	va_end(va);
@@ -533,7 +531,7 @@ client_handle_command(struct client *client, const char *cmd,
 
 		client->finished = TRUE;
 		if (client->ctrl_output != NULL)
-			(void)o_stream_send_str(client->ctrl_output, "FINISHED\n");
+			o_stream_nsend_str(client->ctrl_output, "FINISHED\n");
 		client_destroy(client);
 		return 0;
 	}
@@ -681,7 +679,7 @@ static bool client_handle_input(struct client *client)
 	case -1:
 		/* disconnected */
 		if (client->ctrl_output != NULL)
-			(void)o_stream_send_str(client->ctrl_output, "DISCONNECTED\n");
+			o_stream_nsend_str(client->ctrl_output, "DISCONNECTED\n");
 		client_destroy(client);
 		return FALSE;
 	case -2:
@@ -722,7 +720,7 @@ static int client_output(struct client *client)
 {
 	if (o_stream_flush(client->output) < 0) {
 		if (client->ctrl_output != NULL)
-			(void)o_stream_send_str(client->ctrl_output, "DISCONNECTED\n");
+			o_stream_nsend_str(client->ctrl_output, "DISCONNECTED\n");
 		client_destroy(client);
 		return 1;
 	}
@@ -792,6 +790,7 @@ client_ctrl_read_fds(struct client *client)
 	client->ctrl_input =
 		i_stream_create_fd(client->fd_ctrl, MAX_INBUF_SIZE);
 	client->ctrl_output = o_stream_create_fd(client->fd_ctrl, (size_t)-1);
+	o_stream_set_no_error_handling(client->ctrl_output, TRUE);
 	return 1;
 }
 
@@ -916,6 +915,7 @@ static void client_ctrl_input(struct client *client)
 	client->input = i_stream_create_fd(client->fd_in, MAX_INBUF_SIZE);
 	client->output = o_stream_create_fd(client->fd_out, (size_t)-1);
 	client->io = io_add(client->fd_in, IO_READ, client_input, client);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	if (client->debug) {
