@@ -55,6 +55,11 @@ void doveadm_print_header_simple(const char *key_title)
 	doveadm_print_header(key_title, key_title, 0);
 }
 
+unsigned int doveadm_print_get_headers_count(void)
+{
+	return array_count(&ctx->headers);
+}
+
 static void doveadm_print_sticky_headers(void)
 {
 	const struct doveadm_print_header_context *headers;
