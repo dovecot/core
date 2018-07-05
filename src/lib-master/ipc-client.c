@@ -36,6 +36,7 @@ static void ipc_client_input_line(struct ipc_client *client, const char *line)
 	const struct ipc_client_cmd *cmds;
 	unsigned int count;
 	enum ipc_client_cmd_state state;
+	bool disconnect = FALSE;
 
 	cmds = array_get(&client->cmds, &count);
 	if (count == 0) {
@@ -56,7 +57,7 @@ static void ipc_client_input_line(struct ipc_client *client, const char *line)
 	default:
 		i_error("IPC proxy sent invalid input: %s", line);
 		line = "Invalid input";
-		ipc_client_disconnect(client);
+		disconnect = TRUE;
 		state = IPC_CLIENT_CMD_STATE_ERROR;
 		break;
 	}
@@ -64,6 +65,8 @@ static void ipc_client_input_line(struct ipc_client *client, const char *line)
 	cmds[0].callback(state, line, cmds[0].context);
 	if (state != IPC_CLIENT_CMD_STATE_REPLY)
 		array_delete(&client->cmds, 0, 1);
+	if (disconnect)
+		ipc_client_disconnect(client);
 }
 
 static void ipc_client_input(struct ipc_client *client)
