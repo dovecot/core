@@ -1,6 +1,22 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
+/* _ILP32 and _LP64 are common but not universal, make sure that exactly one
+   of them is defined. */
+#if !defined(_ILP32) && \
+	(SIZEOF_INT == 4) && (SIZEOF_LONG == 4) && (SIZEOF_VOID_P == 4)
+#  define _ILP32
+#endif
+#if !defined(_LP64) && \
+	(SIZEOF_INT == 4) && (SIZEOF_LONG == 8) && (SIZEOF_VOID_P == 8)
+#  define _LP64
+#endif
+#if defined(_ILP32) && defined(_LP64)
+#  error "Cannot have both _ILP32 and _LP64 defined"
+#elif !defined(_ILP32) && !defined(_LP64)
+#  error "Must have one of _ILP32 and _LP64 defined"
+#endif
+
 /* well, this is obviously wrong since it assumes it's 64bit, but older
    GCCs don't define it and we really want it. */
 #ifndef LLONG_MAX
