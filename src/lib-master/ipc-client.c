@@ -25,7 +25,7 @@ struct ipc_client {
 
 	int fd;
 	struct io *io;
-	struct timeout *to;
+	struct timeout *to_failed;
 	struct istream *input;
 	struct ostream *output;
 	struct ipc_client_cmd *cmds_head, *cmds_tail;
@@ -117,10 +117,11 @@ static void ipc_client_abort_commands(struct ipc_client *client,
 
 static void ipc_client_disconnect(struct ipc_client *client)
 {
+	timeout_remove(&client->to_failed);
+	ipc_client_abort_commands(client, "Disconnected");
+
 	if (client->fd == -1)
 		return;
-
-	ipc_client_abort_commands(client, "Disconnected");
 
 	io_remove(&client->io);
 	i_stream_destroy(&client->input);
@@ -152,15 +153,31 @@ void ipc_client_deinit(struct ipc_client **_client)
 	i_free(client);
 }
 
+static void ipc_client_cmd_connect_failed(struct ipc_client *client)
+{
+	ipc_client_abort_commands(client, "ipc connect failed");
+	timeout_remove(&client->to_failed);
+}
+
 void ipc_client_cmd(struct ipc_client *client, const char *cmd,
 		    ipc_client_callback_t *callback, void *context)
 {
 	struct ipc_client_cmd *ipc_cmd;
 	struct const_iovec iov[2];
 
-	if (ipc_client_connect(client) < 0) {
-		callback(IPC_CLIENT_CMD_STATE_ERROR,
-			 "ipc connect failed", context);
+	ipc_cmd = i_new(struct ipc_client_cmd, 1);
+	ipc_cmd->callback = callback;
+	ipc_cmd->context = context;
+	DLLIST2_APPEND(&client->cmds_head, &client->cmds_tail, ipc_cmd);
+
+	if (client->to_failed != NULL ||
+	    ipc_client_connect(client) < 0) {
+		/* Delay calling the failure callback. Fail all commands until
+		   the callback is called. */
+		if (client->to_failed == NULL) {
+			client->to_failed = timeout_add_short(0,
+				ipc_client_cmd_connect_failed, client);
+		}
 		return;
 	}
 
@@ -169,9 +186,4 @@ void ipc_client_cmd(struct ipc_client *client, const char *cmd,
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
 	o_stream_nsendv(client->output, iov, N_ELEMENTS(iov));
-
-	ipc_cmd = i_new(struct ipc_client_cmd, 1);
-	ipc_cmd->callback = callback;
-	ipc_cmd->context = context;
-	DLLIST2_APPEND(&client->cmds_head, &client->cmds_tail, ipc_cmd);
 }
