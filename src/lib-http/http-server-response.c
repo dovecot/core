@@ -601,6 +601,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 				if (!is_head) {
 					resp->payload_output =
 						http_transfer_chunked_ostream_create(conn->conn.output);
+					o_stream_set_finish_also_parent(resp->payload_output, FALSE);
 				}
 			}
 		} else {
