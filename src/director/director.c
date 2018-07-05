@@ -1028,9 +1028,6 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	if (ctx->dir->kick_callback != NULL)
 		ctx->dir->kick_callback(ctx->dir);
 
-
-	ctx->callback_pending = FALSE;
-
 	user = user_directory_lookup(ctx->tag->users, ctx->username_hash);
 	if (!DIRECTOR_KILL_CONTEXT_IS_VALID(user, ctx)) {
 		/* user was already freed - ignore */
@@ -1106,7 +1103,6 @@ void director_kill_user(struct director *dir, struct director_host *src,
 	if ((old_host != NULL && old_host != user->host) || forced_kick) {
 		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
 				      user->username_hash);
-		ctx->callback_pending = TRUE;
 		dir->users_kicking_count++;
 		ctx->ipc_cmd = ipc_client_cmd(dir->ipc_proxy, cmd,
 					      director_kill_user_callback, ctx);
