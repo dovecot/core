@@ -90,6 +90,8 @@ struct director_kill_context {
 	/* Move timeout to make sure user's connections won't silently hang
 	   indefinitely if there is some trouble moving it. */
 	struct timeout *to_move;
+	/* IPC command to kick the user */
+	struct ipc_client_cmd *ipc_cmd;
 
 	/* these are set only for director_flush_socket handling: */
 	struct ip_addr host_ip;
