@@ -101,21 +101,26 @@ static int ipc_client_connect(struct ipc_client *client)
 	return 0;
 }
 
-static void ipc_client_disconnect(struct ipc_client *client)
+static void ipc_client_abort_commands(struct ipc_client *client,
+				      const char *reason)
 {
 	struct ipc_client_cmd *cmd, *next;
-
-	if (client->fd == -1)
-		return;
 
 	cmd = client->cmds_head;
 	client->cmds_head = client->cmds_tail = NULL;
 	for (; cmd != NULL; cmd = next) {
-		cmd->callback(IPC_CLIENT_CMD_STATE_ERROR,
-			      "Disconnected", cmd->context);
+		cmd->callback(IPC_CLIENT_CMD_STATE_ERROR, reason, cmd->context);
 		next = cmd->next;
 		i_free(cmd);
 	}
+}
+
+static void ipc_client_disconnect(struct ipc_client *client)
+{
+	if (client->fd == -1)
+		return;
+
+	ipc_client_abort_commands(client, "Disconnected");
 
 	io_remove(&client->io);
 	i_stream_destroy(&client->input);
