@@ -1,9 +1,9 @@
 /* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
 #include "ioloop.h"
 #include "net.h"
+#include "llist.h"
 #include "istream.h"
 #include "ostream.h"
 #include "hostpid.h"
@@ -13,6 +13,8 @@
 #include <unistd.h>
 
 struct ipc_client_cmd {
+	struct ipc_client_cmd *prev, *next;
+
 	ipc_client_callback_t *callback;
 	void *context;
 };
@@ -26,20 +28,18 @@ struct ipc_client {
 	struct timeout *to;
 	struct istream *input;
 	struct ostream *output;
-	ARRAY(struct ipc_client_cmd) cmds;
+	struct ipc_client_cmd *cmds_head, *cmds_tail;
 };
 
 static void ipc_client_disconnect(struct ipc_client *client);
 
 static void ipc_client_input_line(struct ipc_client *client, const char *line)
 {
-	const struct ipc_client_cmd *cmds;
-	unsigned int count;
+	struct ipc_client_cmd *cmd = client->cmds_head;
 	enum ipc_client_cmd_state state;
 	bool disconnect = FALSE;
 
-	cmds = array_get(&client->cmds, &count);
-	if (count == 0) {
+	if (cmd == NULL) {
 		i_error("IPC proxy sent unexpected input: %s", line);
 		return;
 	}
@@ -62,9 +62,10 @@ static void ipc_client_input_line(struct ipc_client *client, const char *line)
 		break;
 	}
 
-	cmds[0].callback(state, line, cmds[0].context);
 	if (state != IPC_CLIENT_CMD_STATE_REPLY)
-		array_delete(&client->cmds, 0, 1);
+		DLLIST2_REMOVE(&client->cmds_head, &client->cmds_tail, cmd);
+	cmd->callback(state, line, cmd->context);
+	i_free(cmd);
 	if (disconnect)
 		ipc_client_disconnect(client);
 }
@@ -102,16 +103,19 @@ static int ipc_client_connect(struct ipc_client *client)
 
 static void ipc_client_disconnect(struct ipc_client *client)
 {
-	const struct ipc_client_cmd *cmd;
+	struct ipc_client_cmd *cmd, *next;
 
 	if (client->fd == -1)
 		return;
 
-	array_foreach(&client->cmds, cmd) {
+	cmd = client->cmds_head;
+	client->cmds_head = client->cmds_tail = NULL;
+	for (; cmd != NULL; cmd = next) {
 		cmd->callback(IPC_CLIENT_CMD_STATE_ERROR,
 			      "Disconnected", cmd->context);
+		next = cmd->next;
+		i_free(cmd);
 	}
-	array_clear(&client->cmds);
 
 	io_remove(&client->io);
 	i_stream_destroy(&client->input);
@@ -129,7 +133,6 @@ ipc_client_init(const char *ipc_socket_path)
 	client = i_new(struct ipc_client, 1);
 	client->path = i_strdup(ipc_socket_path);
 	client->fd = -1;
-	i_array_init(&client->cmds, 8);
 	return client;
 }
 
@@ -140,7 +143,6 @@ void ipc_client_deinit(struct ipc_client **_client)
 	*_client = NULL;
 
 	ipc_client_disconnect(client);
-	array_free(&client->cmds);
 	i_free(client->path);
 	i_free(client);
 }
@@ -163,7 +165,8 @@ void ipc_client_cmd(struct ipc_client *client, const char *cmd,
 	iov[1].iov_len = 1;
 	o_stream_nsendv(client->output, iov, N_ELEMENTS(iov));
 
-	ipc_cmd = array_append_space(&client->cmds);
+	ipc_cmd = i_new(struct ipc_client_cmd, 1);
 	ipc_cmd->callback = callback;
 	ipc_cmd->context = context;
+	DLLIST2_APPEND(&client->cmds_head, &client->cmds_tail, ipc_cmd);
 }
