@@ -925,6 +925,8 @@ static void director_user_move_free(struct user *user)
 	dir_debug("User %u move finished at state=%s", user->username_hash,
 		  user_kill_state_names[kill_ctx->kill_state]);
 
+	if (kill_ctx->ipc_cmd != NULL)
+		ipc_client_cmd_abort(dir->ipc_proxy, &kill_ctx->ipc_cmd);
 	if (kill_ctx->to_move != NULL)
 		timeout_remove(&kill_ctx->to_move);
 	i_free(kill_ctx->socket_path);
@@ -1002,6 +1004,9 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 {
 	struct director_kill_context *ctx = context;
 	struct user *user;
+
+	/* don't try to abort the IPC command anymore */
+	ctx->ipc_cmd = NULL;
 
 	/* this is an asynchronous notification about user being killed.
 	   there are no guarantees about what might have happened to the user
@@ -1107,8 +1112,8 @@ void director_kill_user(struct director *dir, struct director_host *src,
 				      user->username_hash);
 		ctx->callback_pending = TRUE;
 		dir->users_kicking_count++;
-		ipc_client_cmd(dir->ipc_proxy, cmd,
-			       director_kill_user_callback, ctx);
+		ctx->ipc_cmd = ipc_client_cmd(dir->ipc_proxy, cmd,
+					      director_kill_user_callback, ctx);
 	} else {
 		/* a) we didn't even know about the user before now.
 		   don't bother performing a local kick, since it wouldn't
