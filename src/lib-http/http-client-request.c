@@ -1329,6 +1329,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 			str_append(rtext, "Transfer-Encoding: chunked\r\n");
 		req->payload_output =
 			http_transfer_chunked_ostream_create(conn->conn.output);
+		o_stream_set_finish_also_parent(req->payload_output, FALSE);
 	} else if (req->payload_input != NULL ||
 		req->payload_empty ||
 		strcasecmp(req->method, "POST") == 0 ||
