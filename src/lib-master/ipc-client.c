@@ -178,12 +178,11 @@ void ipc_client_cmd(struct ipc_client *client, const char *cmd,
 			client->to_failed = timeout_add_short(0,
 				ipc_client_cmd_connect_failed, client);
 		}
-		return;
+	} else {
+		iov[0].iov_base = cmd;
+		iov[0].iov_len = strlen(cmd);
+		iov[1].iov_base = "\n";
+		iov[1].iov_len = 1;
+		o_stream_nsendv(client->output, iov, N_ELEMENTS(iov));
 	}
-
-	iov[0].iov_base = cmd;
-	iov[0].iov_len = strlen(cmd);
-	iov[1].iov_base = "\n";
-	iov[1].iov_len = 1;
-	o_stream_nsendv(client->output, iov, N_ELEMENTS(iov));
 }
