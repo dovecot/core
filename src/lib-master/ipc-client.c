@@ -29,6 +29,7 @@ struct ipc_client {
 	struct istream *input;
 	struct ostream *output;
 	struct ipc_client_cmd *cmds_head, *cmds_tail;
+	unsigned int aborted_cmds_count;
 };
 
 static void ipc_client_disconnect(struct ipc_client *client);
@@ -39,7 +40,10 @@ static void ipc_client_input_line(struct ipc_client *client, const char *line)
 	enum ipc_client_cmd_state state;
 	bool disconnect = FALSE;
 
-	if (cmd == NULL) {
+	if (client->aborted_cmds_count > 0) {
+		/* the command was already aborted */
+		cmd = NULL;
+	} else if (cmd == NULL) {
 		i_error("IPC proxy sent unexpected input: %s", line);
 		return;
 	}
@@ -62,10 +66,17 @@ static void ipc_client_input_line(struct ipc_client *client, const char *line)
 		break;
 	}
 
-	if (state != IPC_CLIENT_CMD_STATE_REPLY)
-		DLLIST2_REMOVE(&client->cmds_head, &client->cmds_tail, cmd);
-	cmd->callback(state, line, cmd->context);
-	i_free(cmd);
+	if (state != IPC_CLIENT_CMD_STATE_REPLY) {
+		if (cmd != NULL)
+			DLLIST2_REMOVE(&client->cmds_head,
+				       &client->cmds_tail, cmd);
+		else
+			client->aborted_cmds_count--;
+	}
+	if (cmd != NULL) {
+		cmd->callback(state, line, cmd->context);
+		i_free(cmd);
+	}
 	if (disconnect)
 		ipc_client_disconnect(client);
 }
@@ -159,8 +170,9 @@ static void ipc_client_cmd_connect_failed(struct ipc_client *client)
 	timeout_remove(&client->to_failed);
 }
 
-void ipc_client_cmd(struct ipc_client *client, const char *cmd,
-		    ipc_client_callback_t *callback, void *context)
+struct ipc_client_cmd *
+ipc_client_cmd(struct ipc_client *client, const char *cmd,
+	       ipc_client_callback_t *callback, void *context)
 {
 	struct ipc_client_cmd *ipc_cmd;
 	struct const_iovec iov[2];
@@ -184,5 +196,25 @@ void ipc_client_cmd(struct ipc_client *client, const char *cmd,
 		iov[1].iov_base = "\n";
 		iov[1].iov_len = 1;
 		o_stream_nsendv(client->output, iov, N_ELEMENTS(iov));
+	}
+	return ipc_cmd;
+}
+
+void ipc_client_cmd_abort(struct ipc_client *client,
+			  struct ipc_client_cmd **_cmd)
+{
+	struct ipc_client_cmd *cmd = *_cmd;
+
+	*_cmd = NULL;
+	cmd->callback = NULL;
+	/* Free the command only if it's the oldest. Free also other such
+	   commands in case they were aborted earlier. */
+	while (client->cmds_head != NULL &&
+	       client->cmds_head->callback == NULL) {
+		struct ipc_client_cmd *head = client->cmds_head;
+
+		client->aborted_cmds_count++;
+		DLLIST2_REMOVE(&client->cmds_head, &client->cmds_tail, head);
+		i_free(head);
 	}
 }
