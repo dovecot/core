@@ -12,10 +12,8 @@ typedef char uint32max_array_t[65535];
 
 #if defined(_LP64)
 #define LITTLE_MAX		((unsigned long long) INT32_MAX)
-#elif defined(_ILP32)
-#define LITTLE_MAX		((unsigned long long) INT16_MAX)
 #else
-#error unsupported pointer size
+#define LITTLE_MAX		((unsigned long long) INT16_MAX)
 #endif
 
 extern struct pool test_pool;
