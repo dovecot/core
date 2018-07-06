@@ -343,8 +343,14 @@ static void openssl_iostream_unref(struct ssl_iostream *ssl_io)
 	openssl_iostream_free(ssl_io);
 }
 
-static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
+void openssl_iostream_shutdown(struct ssl_iostream *ssl_io)
 {
+	if (ssl_io->destroyed)
+		return;
+
+	i_assert(ssl_io->ssl_input != NULL);
+	i_assert(ssl_io->ssl_output != NULL);
+
 	ssl_io->destroyed = TRUE;
 	if (ssl_io->handshaked && SSL_shutdown(ssl_io->ssl) != 1) {
 		/* if bidirectional shutdown fails we need to clear
@@ -357,7 +363,11 @@ static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 	   but we may still keep this ssl-iostream referenced until later. */
 	i_stream_close(ssl_io->plain_input);
 	o_stream_close(ssl_io->plain_output);
+}
 
+static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
+{
+	openssl_iostream_shutdown(ssl_io);
 	ssl_iostream_unref(&ssl_io);
 }
 
