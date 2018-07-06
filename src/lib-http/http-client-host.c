@@ -426,11 +426,11 @@ void http_client_host_submit_request(struct http_client_host *host,
 		}
 	}
 
+	http_client_host_shared_request_submitted(host->shared);
+
 	/* add request to queue */
 	queue = http_client_queue_get(host, &addr);
 	http_client_queue_submit_request(queue, req);
-
-	http_client_host_shared_request_submitted(host->shared);
 
 	/* queue will trigger host lookup once the request is activated
 	   (may be delayed) */
