@@ -773,6 +773,8 @@ want_kick_alt_username(struct client *client, const char *const *args,
 		if (client->alt_usernames[i] == NULL)
 			return FALSE;
 	}
+	if (client->alt_usernames[i] == NULL)
+		return FALSE;
 	return str_array_find(args, client->alt_usernames[i]);
 }
 
