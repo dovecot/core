@@ -116,6 +116,9 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 				  enum openssl_iostream_sync_type type,
 				  const char *func_name);
 
+/* Perform clean shutdown for the connection. */
+void openssl_iostream_shutdown(struct ssl_iostream *ssl_io);
+
 void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str);
 const char *openssl_iostream_error(void);
 const char *openssl_iostream_key_load_error(void);
