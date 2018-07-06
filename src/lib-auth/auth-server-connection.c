@@ -406,6 +406,7 @@ void auth_server_connection_deinit(struct auth_server_connection **_conn)
 	auth_server_connection_disconnect(conn, "deinitializing");
 	i_assert(hash_table_count(conn->requests) == 0);
 	hash_table_destroy(&conn->requests);
+	timeout_remove(&conn->to);
 	array_free(&conn->available_auth_mechs);
 	pool_unref(&conn->pool);
 }
