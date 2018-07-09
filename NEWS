@@ -1,3 +1,10 @@
+v2.3.2.1 2018-07-09  Timo Sirainen <tss@iki.fi>
+
+	- SSL/TLS servers may have crashed during client disconnection
+	- lmtp: With lmtp_rcpt_check_quota=yes mail deliveries may have
+	  sometimes assert-crashed.
+	- v2.3.2: "make check" may have crashed with 32bit systems
+
 v2.3.2 2018-06-29  Timo Sirainen <tss@iki.fi>
 
 	* old-stats plugin: Don't temporarily enable PR_SET_DUMPABLE while
