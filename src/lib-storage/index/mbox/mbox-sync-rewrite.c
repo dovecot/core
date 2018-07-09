@@ -41,12 +41,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	   this point or we're corrupted. */
 	input = i_stream_create_limit(sync_ctx->file_input, size);
 	o_stream_nsend_istream(output, input);
-	if (input->stream_errno != 0) {
-		mailbox_set_critical(&mbox->box,
-			"read() failed with mbox: %s",
-			i_stream_get_error(input));
-		ret = -1;
-	} else if (output->stream_errno != 0) {
+	if (o_stream_flush(output) < 0) {
 		mailbox_set_critical(&mbox->box,
 			"write() failed with mbox: %s",
 			o_stream_get_error(output));
