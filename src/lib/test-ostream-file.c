@@ -215,3 +215,21 @@ void test_ostream_file(void)
 	test_ostream_file_send_istream_sendfile();
 	test_ostream_file_send_over_iov_max();
 }
+
+enum fatal_test_state fatal_ostream_file(unsigned int stage)
+{
+	struct ostream *output;
+
+	switch (stage) {
+	case 0:
+		test_begin("ostream file missing error handling");
+		output = o_stream_create_fd(dev_null_fd, 0);
+		o_stream_set_name(output, "stdout");
+		o_stream_nsend_str(output, "test\n");
+		test_expect_fatal_string("output stream stdout is missing error handling");
+		o_stream_destroy(&output);
+		return FATAL_TEST_FAILURE;
+	}
+	test_end();
+	return FATAL_TEST_FINISHED;
+}
