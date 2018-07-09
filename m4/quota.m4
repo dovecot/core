@@ -7,8 +7,10 @@ AC_DEFUN([DOVECOT_RPCGEN], [
   
   have_rquota=no
   if test -f /usr/include/rpcsvc/rquota.x && test -n "$RPCGEN"; then
-    AC_DEFINE(HAVE_RQUOTA,, [Define if you wish to retrieve quota of NFS mounted mailboxes])
-    have_rquota=yes
+    AC_CHECK_HEADER([rpc/rpc.h], [
+      AC_DEFINE(HAVE_RQUOTA,, [Define if you wish to retrieve quota of NFS mounted mailboxes])
+      have_rquota=yes
+    ])
   fi
   AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
 ])
