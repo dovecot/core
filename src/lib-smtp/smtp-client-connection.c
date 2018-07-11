@@ -314,6 +314,27 @@ void smtp_client_connection_fail(struct smtp_client_connection *conn,
 	smtp_client_connection_fail_reply(conn, &reply);
 }
 
+static void
+smtp_client_connection_lost(struct smtp_client_connection *conn,
+			    const char *error, const char *user_error)
+{
+	if (error != NULL)
+		error = t_strdup_printf("Connection lost: %s", error);
+
+	if (user_error == NULL)
+		user_error = "Lost connection to remote server";
+	else {
+		user_error = t_strdup_printf(
+			"Lost connection to remote server: %s",
+			user_error);
+	}
+
+	if (error != NULL)
+		e_error(conn->event, "%s", error);
+	smtp_client_connection_fail(
+		conn, SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST, user_error);
+}
+
 void smtp_client_connection_handle_output_error(
 	struct smtp_client_connection *conn)
 {
@@ -321,18 +342,15 @@ void smtp_client_connection_handle_output_error(
 
 	if (output->stream_errno != EPIPE &&
 	    output->stream_errno != ECONNRESET) {
-		e_error(conn->event, "Connection lost: write(%s) failed: %s",
-			o_stream_get_name(conn->conn.output),
-			o_stream_get_error(conn->conn.output));
-		smtp_client_connection_fail(
-			conn, SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST,
-			"Lost connection to remote server: "
+		smtp_client_connection_lost(
+			conn,
+			t_strdup_printf("write(%s) failed: %s",
+					o_stream_get_name(conn->conn.output),
+					o_stream_get_error(conn->conn.output)),
 			"Write failure");
 	} else {
-		e_error(conn->event, "Connection lost: Remote disconnected");
-		smtp_client_connection_fail(
-			conn, SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST,
-			"Lost connection to remote server: "
+		smtp_client_connection_lost(
+			conn, "Remote disconnected while writing output",
 			"Remote closed connection unexpectedly");
 	}
 }
@@ -1143,18 +1161,23 @@ static void smtp_client_connection_input(struct connection *_conn)
 				conn, SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
 				"Command reply line too long");
 		} else if (conn->conn.input->stream_errno != 0) {
-			e_error(conn->event, "read(%s) failed: %s",
-				i_stream_get_name(conn->conn.input),
-				i_stream_get_error(conn->conn.input));
-			smtp_client_connection_fail(
-				conn, SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST,
-				"Lost connection to remote server "
-				"(read failure)");
+			smtp_client_connection_lost(
+				conn,
+				t_strdup_printf(
+					"read(%s) failed: %s",
+					i_stream_get_name(conn->conn.input),
+					i_stream_get_error(conn->conn.input)),
+				"Read failure");
 		} else if (!i_stream_have_bytes_left(conn->conn.input)) {
-			smtp_client_connection_fail(
-				conn, SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST,
-				"Lost connection to remote server "
-				"(disconnected in input)");
+			if (conn->sent_quit) {
+				smtp_client_connection_lost(
+					conn, NULL,
+					"Remote closed connection");
+			} else {
+				smtp_client_connection_lost(
+					conn, NULL,
+					"Remote closed connection unexpectedly");
+			}
 		} else {
 			i_assert(error != NULL);
 			smtp_client_connection_fail(
@@ -1206,7 +1229,6 @@ static void smtp_client_connection_destroy(struct connection *_conn)
 {
 	struct smtp_client_connection *conn =
 		(struct smtp_client_connection *)_conn;
-	const char *error;
 
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_NOT:
@@ -1231,12 +1253,18 @@ static void smtp_client_connection_destroy(struct connection *_conn)
 				"Failed to connect to remote server");
 			break;
 		}
-		error = (_conn->input == NULL ?
-			 "Connection lost" :
-			 t_strdup_printf("Connection lost: %s",
-					 i_stream_get_error(_conn->input)));
-		smtp_client_connection_fail(
-			conn, SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST, error);
+		if (_conn->input != NULL && _conn->input->stream_errno != 0) {
+			smtp_client_connection_lost(
+				conn,
+				t_strdup_printf("read(%s) failed: %s",
+					i_stream_get_name(conn->conn.input),
+					i_stream_get_error(conn->conn.input)),
+				"Read failure");
+			break;
+		}
+		smtp_client_connection_lost(
+			conn, "Remote disconnected",
+			"Remote closed connection unexpectedly");
 		break;
 	}
 }
