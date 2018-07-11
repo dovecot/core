@@ -9,6 +9,11 @@
 #include "istream-chain.h"
 #include "istream-failure-at.h"
 #include "ostream.h"
+#include "iostream-ssl.h"
+#include "iostream-ssl-test.h"
+#ifdef HAVE_OPENSSL
+#  include "iostream-openssl.h"
+#endif
 #include "time-util.h"
 #include "sleep.h"
 #include "connection.h"
@@ -41,11 +46,15 @@ struct server_connection {
 	struct connection conn;
 	void *context;
 
+	struct ssl_iostream *ssl_iostream;
+
 	enum server_connection_state state;
 	char *file_path;
 	struct istream *dot_input;
 
 	pool_t pool;
+
+	bool version_sent:1;
 };
 
 typedef void (*test_server_init_t)(unsigned int index);
@@ -68,6 +77,8 @@ static struct io *io_listen;
 static int fd_listen = -1;
 static struct connection_list *server_conn_list;
 static unsigned int server_index;
+struct ssl_iostream_context *server_ssl_ctx = NULL;
+bool test_server_ssl = FALSE;
 static void (*test_server_input)(struct server_connection *conn);
 static int
 (*test_server_input_line)(struct server_connection *conn, const char *line);
@@ -3541,6 +3552,157 @@ static void test_transaction_timeout(void)
 }
 
 /*
+ * Invalid SSL certificate
+ */
+
+#ifdef HAVE_OPENSSL
+
+/* dns */
+
+static void
+test_dns_invalid_ssl_certificate_input(struct server_connection *conn)
+{
+	const char *line;
+
+	if (!conn->version_sent) {
+		conn->version_sent = TRUE;
+		o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
+	}
+
+
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (debug)
+			i_debug("DNS REQUEST: %s", line);
+
+		o_stream_nsend_str(conn->conn.output,
+				   t_strdup_printf("0\t%s\n",
+						   net_ip2addr(&bind_ip)));
+	}
+}
+
+static void test_dns_invalid_ssl_certificate(void)
+{
+	test_server_input = test_dns_invalid_ssl_certificate_input;
+	test_server_run(0);
+}
+
+/* server */
+
+static void
+test_invalid_ssl_certificate_input(struct server_connection *conn)
+{
+	const char *line;
+
+	line = i_stream_read_next_line(conn->conn.input);
+	if (line == NULL) {
+		if (conn->conn.input->eof ||
+		    conn->conn.input->stream_errno != 0)
+			server_connection_deinit(&conn);
+		return;
+	}
+	server_connection_deinit(&conn);
+}
+
+static int
+test_invalid_ssl_certificate_init(struct server_connection *conn)
+{
+	sleep(1);
+	o_stream_nsend_str(conn->conn.output,
+		"220 testserver ESMTP Testfix (Frop/GNU)\r\n");
+	return 1;
+}
+
+static void test_server_invalid_ssl_certificate(unsigned int index)
+{
+	test_server_ssl = TRUE;
+	test_server_init = test_invalid_ssl_certificate_init;
+	test_server_input = test_invalid_ssl_certificate_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _invalid_ssl_certificate {
+	unsigned int count;
+};
+
+static void
+test_client_invalid_ssl_certificate_reply(const struct smtp_reply *reply,
+					  struct _invalid_ssl_certificate *ctx)
+{
+	if (debug)
+		i_debug("REPLY: %s", smtp_reply_log(reply));
+
+	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED);
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static bool
+test_client_invalid_ssl_certificate(
+	const struct smtp_client_settings *client_set)
+{
+	struct smtp_client_connection *sconn;
+	struct smtp_client_command *scmd;
+	struct _invalid_ssl_certificate *ctx;
+
+	test_expect_errors(2);
+
+	ctx = i_new(struct _invalid_ssl_certificate, 1);
+	ctx->count = 2;
+
+	smtp_client = smtp_client_init(client_set);
+
+	sconn = smtp_client_connection_create(
+		smtp_client, SMTP_PROTOCOL_SMTP, "example.com", bind_ports[0],
+		SMTP_CLIENT_SSL_MODE_IMMEDIATE, NULL);
+	smtp_client_connection_connect(sconn, NULL, NULL);
+	scmd = smtp_client_command_new(
+		sconn, 0, test_client_invalid_ssl_certificate_reply, ctx);
+	smtp_client_command_write(scmd, "FROP");
+	smtp_client_command_submit(scmd);
+
+	sconn = smtp_client_connection_create(
+		smtp_client, SMTP_PROTOCOL_SMTP, "example.com", bind_ports[0],
+		SMTP_CLIENT_SSL_MODE_IMMEDIATE, NULL);
+	smtp_client_connection_connect(sconn, NULL, NULL);
+	scmd = smtp_client_command_new(
+		sconn, 0, test_client_invalid_ssl_certificate_reply, ctx);
+	smtp_client_command_write(scmd, "FROP");
+	smtp_client_command_submit(scmd);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_invalid_ssl_certificate(void)
+{
+	struct smtp_client_settings smtp_client_set;
+	struct ssl_iostream_settings ssl_set;
+
+	/* ssl settings */
+	ssl_iostream_test_settings_client(&ssl_set);
+	ssl_set.verbose = debug;
+
+	test_client_defaults(&smtp_client_set);
+	smtp_client_set.dns_client_socket_path = "./dns-test";
+	smtp_client_set.ssl = &ssl_set;
+
+	test_begin("invalid ssl certificate");
+	test_run_client_server(&smtp_client_set,
+			       test_client_invalid_ssl_certificate,
+			       test_server_invalid_ssl_certificate, 1,
+			       test_dns_invalid_ssl_certificate);
+	test_end();
+}
+
+#endif
+
+/*
  * All tests
  */
 
@@ -3567,6 +3729,9 @@ static void (*const test_functions[])(void) = {
 	test_dns_lookup_failure,
 	test_authentication_failed,
 	test_transaction_timeout,
+#ifdef HAVE_OPENSSL
+	test_invalid_ssl_certificate,
+#endif
 	NULL
 };
 
@@ -3626,6 +3791,43 @@ test_client_run(test_client_init_t client_test,
  */
 
 /* client connection */
+
+static int
+server_connection_init_ssl(struct server_connection *conn)
+{
+	struct ssl_iostream_settings ssl_set;
+	const char *error;
+
+	if (!test_server_ssl)
+		return 0;
+
+	connection_input_halt(&conn->conn);
+
+	ssl_iostream_test_settings_server(&ssl_set);
+	ssl_set.verbose = debug;
+
+	if (server_ssl_ctx == NULL &&
+	    ssl_iostream_context_init_server(&ssl_set, &server_ssl_ctx,
+					     &error) < 0) {
+		i_error("SSL context initialization failed: %s", error);
+		return -1;
+	}
+
+	if (io_stream_create_ssl_server(server_ssl_ctx, &ssl_set,
+					&conn->conn.input, &conn->conn.output,
+					&conn->ssl_iostream, &error) < 0) {
+		i_error("SSL init failed: %s", error);
+		return -1;
+	}
+	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
+		i_error("SSL handshake failed: %s",
+			ssl_iostream_get_last_error(conn->ssl_iostream));
+		return -1;
+	}
+
+	connection_input_resume(&conn->conn);
+	return 0;
+}
 
 static void
 server_connection_input(struct connection *_conn)
@@ -3744,6 +3946,11 @@ static void server_connection_init(int fd)
 	connection_init_server(server_conn_list, &conn->conn,
 			       "server connection", fd, fd);
 
+	if (server_connection_init_ssl(conn) < 0) {
+		server_connection_deinit(&conn);
+		return;
+	}
+
 	if (test_server_init != NULL) {
 		if (test_server_init(conn) != 0)
 			return;
@@ -3767,6 +3974,7 @@ static void server_connection_deinit(struct server_connection **_conn)
 
 	i_stream_unref(&conn->dot_input);
 
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	connection_deinit(&conn->conn);
 	pool_unref(&conn->pool);
 }
@@ -3822,6 +4030,9 @@ static void test_server_run(unsigned int index)
 	io_remove(&io_listen);
 
 	connection_list_deinit(&server_conn_list);
+
+	if (server_ssl_ctx != NULL)
+		ssl_iostream_context_unref(&server_ssl_ctx);
 }
 
 /*
@@ -3851,6 +4062,8 @@ static int test_run_server(struct test_server_data *data)
 
 	if (debug)
 		i_debug("PID=%s", my_pid);
+
+	server_ssl_ctx = NULL;
 
 	ioloop = io_loop_create();
 	data->server_test(data->index);
@@ -3965,12 +4178,17 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 
 static void main_init(void)
 {
-	/* nothing yet */
+#ifdef HAVE_OPENSSL
+	ssl_iostream_openssl_init();
+#endif
 }
 
 static void main_deinit(void)
 {
-	/* nothing yet; also called from sub-processes */
+	ssl_iostream_context_cache_free();
+#ifdef HAVE_OPENSSL
+	ssl_iostream_openssl_deinit();
+#endif
 }
 
 int main(int argc, char *argv[])
