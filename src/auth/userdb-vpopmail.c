@@ -17,6 +17,16 @@ struct vpopmail_userdb_module {
 	const char *quota_template_value;
 };
 
+struct vpopmail_iterate_context {
+	struct userdb_iterate_context ctx;
+	char *domain;
+	int user_first;
+};
+
+static void vpopmail_iterate_next(struct userdb_iterate_context *_ctx);
+static int vpopmail_iterate_deinit(struct userdb_iterate_context *_ctx);
+static bool vpopmail_iter_domain_next(struct vpopmail_iterate_context *ctx, bool start);
+
 struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 				     char vpop_user[VPOPMAIL_LIMIT],
 				     char vpop_domain[VPOPMAIL_LIMIT])
@@ -182,6 +192,87 @@ vpopmail_preinit(pool_t pool, const char *args)
 	return &module->module;
 }
 
+static struct userdb_iterate_context *
+vpopmail_iterate_init(struct auth_request *auth_request,
+			userdb_iter_callback_t *callback, void *context)
+{
+	struct vpopmail_iterate_context *ctx;
+
+	ctx = i_new(struct vpopmail_iterate_context, 1);
+	ctx->ctx.auth_request = auth_request;
+	ctx->ctx.callback = callback;
+	ctx->ctx.context = context;
+	
+	auth_request_ref(auth_request);
+
+	vpopmail_iter_domain_next(ctx, TRUE);
+
+	return &ctx->ctx;
+}
+
+static void vpopmail_iterate_next(struct userdb_iterate_context *_ctx)
+{
+	struct vpopmail_iterate_context *ctx =
+		(struct vpopmail_iterate_context *)_ctx;
+	struct vqpasswd *vpw;
+
+	if (!ctx->domain) {
+		_ctx->callback(NULL, _ctx->context);
+		return;
+	}
+
+	vpw = vauth_getall(ctx->domain, ctx->user_first, 0);
+
+	/* no more users in current domain, try next domain */
+	while (!vpw) {
+		if (vpopmail_iter_domain_next(ctx, FALSE)) {
+			vpw = vauth_getall(ctx->domain, ctx->user_first, 0);
+		} else {
+			_ctx->callback(NULL, _ctx->context);
+			return;
+		}
+	}
+
+	if (vpw) {
+		ctx->user_first = 0;
+		_ctx->callback(t_strconcat(vpw->pw_name, "@", ctx->domain, NULL), _ctx->context);
+		return;
+	}
+
+	_ctx->callback(NULL, _ctx->context);
+}
+
+static bool vpopmail_iter_domain_next(struct vpopmail_iterate_context *ctx, bool start)
+{
+	struct domain_entry *domain;
+
+	domain = get_domain_entries(start ? "" : NULL);
+	while (domain) {
+
+		/* ignore alias domains, because they would duplicate the returned accounts */
+		if (strcmp(domain->domain, domain->realdomain) != 0) {
+			domain = get_domain_entries(NULL);
+			continue;
+		}
+		
+		ctx->domain = domain->domain;
+		ctx->user_first = 1;
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+static int vpopmail_iterate_deinit(struct userdb_iterate_context *_ctx)
+{
+	struct vpopmail_iterate_context *ctx =
+		(struct vpopmail_iterate_context *)_ctx;
+
+	auth_request_unref(&_ctx->auth_request);
+	i_free(ctx);
+	return 0;
+}
+
 struct userdb_module_interface userdb_vpopmail = {
 	"vpopmail",
 
@@ -191,9 +282,9 @@ struct userdb_module_interface userdb_vpopmail = {
 
 	vpopmail_lookup,
 
-	NULL,
-	NULL,
-	NULL
+	vpopmail_iterate_init,
+	vpopmail_iterate_next,
+	vpopmail_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_vpopmail = {
