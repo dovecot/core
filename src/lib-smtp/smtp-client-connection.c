@@ -329,6 +329,29 @@ smtp_client_connection_lost(struct smtp_client_connection *conn,
 			user_error);
 	}
 
+	if (conn->ssl_iostream != NULL) {
+		const char *sslerr =
+			ssl_iostream_get_last_error(conn->ssl_iostream);
+
+		if (error != NULL && sslerr != NULL) {
+			error = t_strdup_printf("%s (last SSL error: %s)",
+						error, sslerr);
+		} else if (sslerr != NULL) {
+			error = t_strdup_printf(
+				"Connection lost (last SSL error: %s)", sslerr);
+		}
+		if (ssl_iostream_has_handshake_failed(conn->ssl_iostream)) {
+			/* This isn't really a "connection lost", but that we
+			   don't trust the remote's SSL certificate. */
+			i_assert(error != NULL);
+			e_error(conn->event, "%s", error);
+			smtp_client_connection_fail(
+				conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
+				user_error);
+			return;
+		}
+	}
+
 	if (error != NULL)
 		e_error(conn->event, "%s", error);
 	smtp_client_connection_fail(
