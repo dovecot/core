@@ -297,9 +297,10 @@ void smtp_client_connection_fail(struct smtp_client_connection *conn,
 	struct smtp_reply reply;
 	const char *text_lines[] = {error, NULL};
 
+	timeout_remove(&conn->to_connect);
+
 	if (status == SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED &&
 	    !smtp_client_connection_last_ip(conn)) {
-		i_assert(conn->to_connect == NULL);
 		conn->to_connect = timeout_add_short(
 			0, smtp_client_connection_connect_next_ip, conn);
 		return;
@@ -1226,8 +1227,12 @@ static void smtp_client_connection_destroy(struct connection *_conn)
 		break;
 	default:
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
-		if (conn->connect_failed)
+		if (conn->connect_failed) {
+			smtp_client_connection_fail(conn,
+				SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
+				"Failed to connect to remote server");
 			break;
+		}
 		error = (_conn->input == NULL ?
 			 "Connection lost" :
 			 t_strdup_printf("Connection lost: %s",
@@ -1385,19 +1390,6 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 }
 
 static void
-smtp_client_connection_delayed_connect_failure(
-	struct smtp_client_connection *conn)
-{
-	e_debug(conn->event, "Delayed connect failure");
-
-	i_assert(conn->to_connect != NULL);
-	timeout_remove(&conn->to_connect);
-	smtp_client_connection_fail(
-		conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
-		"Failed to connect to remote server");
-}
-
-static void
 smtp_client_connection_connected(struct connection *_conn, bool success)
 {
 	struct smtp_client_connection *conn =
@@ -1408,10 +1400,6 @@ smtp_client_connection_connected(struct connection *_conn, bool success)
 	if (!success) {
 		e_error(conn->event, "connect(%s) failed: %m", _conn->name);
 		conn->connect_failed = TRUE;
-		timeout_remove(&conn->to_connect);
-		conn->to_connect = timeout_add_short(
-			0, smtp_client_connection_delayed_connect_failure,
-			conn);
 		return;
 	}
 
@@ -1450,11 +1438,9 @@ smtp_client_connection_connected(struct connection *_conn, bool success)
 		if (smtp_client_connection_ssl_init(conn, &error) < 0) {
 			e_error(conn->event, "connect(%s) failed: %s",
 				_conn->name, error);
-			timeout_remove(&conn->to_connect);
-			conn->to_connect = timeout_add_short(
-				0,
-				smtp_client_connection_delayed_connect_failure,
-				conn);
+			smtp_client_connection_fail(
+				conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
+				"Failed to connect to remote server");
 		}
 	} else {
 		smtp_client_connection_established(conn);
@@ -1497,6 +1483,19 @@ smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 }
 
 static void
+smtp_client_connection_delayed_connect_error(struct smtp_client_connection *conn)
+{
+	e_debug(conn->event, "Delayed connect error");
+
+	timeout_remove(&conn->to_connect);
+	errno = conn->connect_errno;
+	smtp_client_connection_connected(&conn->conn, FALSE);
+	smtp_client_connection_fail(conn,
+		SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
+		"Failed to connect to remote server");
+}
+
+static void
 smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 {
 	unsigned int msecs;
@@ -1509,7 +1508,10 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 	p_clear(conn->state_pool);
 
 	if (connection_client_connect(&conn->conn) < 0) {
-		smtp_client_connection_connected(&conn->conn, FALSE);
+		conn->connect_errno = errno;
+		e_debug(conn->event, "Connect failed: %m");
+		conn->to_connect = timeout_add_short(0,
+			smtp_client_connection_delayed_connect_error, conn);
 		return;
 	}
 
