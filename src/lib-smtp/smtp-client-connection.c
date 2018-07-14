@@ -1085,16 +1085,14 @@ static void smtp_client_connection_input(struct connection *_conn)
 		if (ret < 0) {
 			/* failed somehow */
 			i_assert(ret != -2);
-			error = t_strdup_printf(
+			e_error(conn->event,
 				"SSL handshaking with %s failed: "
 				"read(%s) failed: %s", _conn->name,
 				i_stream_get_name(conn->conn.input),
 				i_stream_get_error(conn->conn.input));
-			e_debug(conn->event, "connect(%s) failed: %s",
-				_conn->name, error);
 			smtp_client_connection_fail(
 				conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
-				error);
+				"Failed to connect to remote server");
 			return;
 		}
 
