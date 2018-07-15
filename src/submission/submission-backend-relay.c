@@ -2,6 +2,7 @@
 
 #include "submission-common.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "mail-user.h"
 #include "smtp-client.h"
 #include "smtp-client-connection.h"
@@ -423,3 +424,66 @@ int cmd_rset_relay(struct client *client, struct smtp_server_cmd_ctx *cmd)
 	return 0;
 }
 
+/*
+ * DATA/BDAT commands
+ */
+
+struct cmd_data_context {
+	struct client *client;
+	struct smtp_server_cmd_ctx *cmd;
+	struct smtp_server_transaction *trans;
+
+	struct smtp_client_command *cmd_proxied;
+};
+
+static void cmd_data_proxy_cb(const struct smtp_reply *proxy_reply,
+			      struct cmd_data_context *data_ctx)
+{
+	struct smtp_server_cmd_ctx *cmd = data_ctx->cmd;
+	struct smtp_server_transaction *trans = data_ctx->trans;
+	struct client *client = data_ctx->client;
+	struct smtp_reply reply;
+
+	/* finished proxying message to relay server */
+
+	/* check for fatal problems */
+	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
+		return;
+
+	if (proxy_reply->status / 100 == 2) {
+		i_info("Successfully relayed message: "
+		       "from=<%s>, size=%"PRIuUOFF_T", "
+		       "id=%s, nrcpt=%u, reply=`%s'",
+		       smtp_address_encode(trans->mail_from),
+		       client->state.data_size, trans->id,
+		       array_count(&trans->rcpt_to),
+		       str_sanitize(smtp_reply_log(proxy_reply), 128));
+
+	} else {
+		i_info("Failed to relay message: "
+		       "from=<%s>, size=%"PRIuUOFF_T", nrcpt=%u, reply=`%s'",
+		       smtp_address_encode(trans->mail_from),
+		       client->state.data_size, array_count(&trans->rcpt_to),
+		       str_sanitize(smtp_reply_log(proxy_reply), 128));
+	}
+
+	smtp_server_reply_forward(cmd, &reply);
+}
+
+int cmd_data_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_transaction *trans,
+		   struct istream *data_input)
+{
+	struct cmd_data_context *data_ctx;
+
+	/* start relaying to relay server */
+	data_ctx = p_new(trans->pool, struct cmd_data_context, 1);
+	data_ctx->client = client;
+	data_ctx->cmd = cmd;
+	data_ctx->trans = trans;
+	trans->context = (void*)data_ctx;
+
+	data_ctx->cmd_proxied = smtp_client_command_data_submit(
+		client->proxy_conn, 0, data_input, cmd_data_proxy_cb, data_ctx);
+	return 0;
+}
