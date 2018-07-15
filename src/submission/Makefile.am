@@ -34,7 +34,6 @@ submission_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 
 cmds = \
-	cmd-noop.c \
 	cmd-quit.c
 
 submission_SOURCES = \

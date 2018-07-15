@@ -13,5 +13,6 @@ int cmd_data_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		   struct istream *data_input);
 int cmd_vrfy_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		   const char *param);
+int cmd_noop_relay(struct client *client, struct smtp_server_cmd_ctx *cmd);
 
 #endif
