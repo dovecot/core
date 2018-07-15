@@ -46,6 +46,7 @@ cmds = \
 submission_SOURCES = \
 	$(cmds) \
 	main.c \
+	submission-backend-relay.c \
 	submission-client.c \
 	submission-commands.c \
 	submission-settings.c
