@@ -60,8 +60,6 @@ typedef void (*client_input_callback_t)(struct client *context);
 
 const char *client_state_get_name(struct client *client);
 
-bool client_proxy_is_disconnected(struct client *client);
-
 uoff_t client_get_max_mail_size(struct client *client);
 
 int client_input_read(struct client *client);
