@@ -2,6 +2,7 @@
 #define CLIENT_H
 
 #include "net.h"
+#include "submission-backend-relay.h"
 
 struct smtp_reply;
 
@@ -29,13 +30,13 @@ struct client {
 	/* IMAP URLAUTH context (RFC4467) for BURL (RFC4468) */
 	struct imap_urlauth_context *urlauth_ctx;
 
-	struct smtp_client_connection *proxy_conn;
 	struct timeout *to_quit;
 
 	struct smtp_server_stats stats;
 
+	struct submission_backend_relay backend;
+
 	bool standalone:1;
-	bool xclient_sent:1;
 	bool disconnected:1;
 	bool destroyed:1;
 	bool anvil_sent:1;

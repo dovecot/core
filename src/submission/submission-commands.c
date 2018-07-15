@@ -25,8 +25,9 @@ void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 				  struct smtp_server_cmd_helo *data)
 {
 	struct client *client = smtp_server_connection_get_context(cmd->conn);
+	struct submission_backend_relay *backend = &client->backend;
 	enum smtp_capability proxy_caps =
-		smtp_client_connection_get_capabilities(client->proxy_conn);
+		smtp_client_connection_get_capabilities(backend->conn);
 	struct smtp_server_reply *reply;
 	uoff_t cap_size;
 

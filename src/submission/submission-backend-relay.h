@@ -1,6 +1,10 @@
 #ifndef SUBMISSION_BACKEND_RELAY_H
 #define SUBMISSION_BACKEND_RELAY_H
 
+#include "submission-backend.h"
+
+struct client;
+
 int cmd_helo_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		   struct smtp_server_cmd_helo *data);
 int cmd_mail_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
@@ -17,6 +21,14 @@ int cmd_noop_relay(struct client *client, struct smtp_server_cmd_ctx *cmd);
 int cmd_quit_relay(struct client *client, struct smtp_server_cmd_ctx *cmd);
 
 struct submission_settings;
+
+struct submission_backend_relay {
+	struct submission_backend backend;
+
+	struct smtp_client_connection *conn;
+
+	bool xclient_sent:1;
+};
 
 void client_proxy_create(struct client *client,
 			 const struct submission_settings *set);

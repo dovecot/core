@@ -42,6 +42,7 @@ submission_SOURCES = \
 
 noinst_HEADERS = \
 	submission-common.h \
+	submission-backend.h \
 	submission-backend-relay.h \
 	submission-commands.h \
 	submission-client.h \
