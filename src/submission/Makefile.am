@@ -35,7 +35,6 @@ submission_DEPENDENCIES = \
 
 cmds = \
 	cmd-data.c \
-	cmd-rset.c \
 	cmd-noop.c \
 	cmd-quit.c \
 	cmd-vrfy.c
