@@ -4,8 +4,6 @@
 bool client_command_handle_proxy_reply(struct client *client,
 	const struct smtp_reply *reply, struct smtp_reply *reply_r);
 
-int cmd_helo_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
-		   struct smtp_server_cmd_helo *data);
 int cmd_mail_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		   struct smtp_server_cmd_mail *data);
 int cmd_rcpt_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
