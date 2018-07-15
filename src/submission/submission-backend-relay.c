@@ -50,7 +50,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
 	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
 		client_destroy(client,
-			"4.4.0", "Lost connection to relay server");
+			       "4.4.0", "Lost connection to relay server");
 		return FALSE;
 	/* RFC 4954, Section 6: 530 5.7.0 Authentication required
 
@@ -62,8 +62,8 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 		i_error("Relay server requires authentication: %s",
 			smtp_reply_log(reply));
 		client_destroy(client, "4.3.5",
-			"Internal error occurred. "
-			"Refer to server log for more information.");
+			       "Internal error occurred. "
+			       "Refer to server log for more information.");
 		return FALSE;
 	default:
 		break;
@@ -265,11 +265,10 @@ relay_cmd_mail_parameter_auth(struct submission_backend_relay *backend,
 		return 0;
 
 	auth_addr = NULL;
-	if (smtp_address_parse_username(cmd->pool,
-		client->user->username,
-		&auth_addr, &error) < 0) {
+	if (smtp_address_parse_username(cmd->pool, client->user->username,
+					&auth_addr, &error) < 0) {
 		i_warning("Username `%s' is not a valid SMTP address: %s",
-			client->user->username, error);
+			  client->user->username, error);
 	}
 
 	params->auth = auth_addr;
@@ -523,6 +522,7 @@ struct relay_cmd_vrfy_context {
 	struct submission_backend_relay *backend;
 
 	struct smtp_server_cmd_ctx *cmd;
+
 	struct smtp_client_command *cmd_relayed;
 };
 
@@ -575,6 +575,7 @@ struct relay_cmd_noop_context {
 	struct submission_backend_relay *backend;
 
 	struct smtp_server_cmd_ctx *cmd;
+
 	struct smtp_client_command *cmd_relayed;
 };
 
@@ -618,6 +619,7 @@ struct relay_cmd_quit_context {
 	struct submission_backend_relay *backend;
 
 	struct smtp_server_cmd_ctx *cmd;
+
 	struct smtp_client_command *cmd_relayed;
 };
 
@@ -772,8 +774,8 @@ void client_proxy_create(struct client *client,
 	else
 		ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
 
-	backend->conn = smtp_client_connection_create(smtp_client,
-		SMTP_PROTOCOL_SMTP, set->submission_relay_host,
+	backend->conn = smtp_client_connection_create(
+		smtp_client, SMTP_PROTOCOL_SMTP, set->submission_relay_host,
 		set->submission_relay_port, ssl_mode, &smtp_set);
 }
 
@@ -819,7 +821,7 @@ void client_proxy_start(struct client *client)
 	struct submission_backend_relay *backend = &client->backend;
 
 	smtp_client_connection_connect(backend->conn,
-		client_proxy_ready_cb, client);
+				       client_proxy_ready_cb, client);
 }
 
 /* try to proxy pipelined commands in a similarly pipelined fashion */
