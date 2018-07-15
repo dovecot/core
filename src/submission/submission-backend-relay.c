@@ -120,7 +120,7 @@ relay_cmd_helo_reply(struct smtp_server_cmd_ctx *cmd,
 }
 
 static void
-relay_cmd_helo_proxy_cb(const struct smtp_reply *proxy_reply,
+relay_cmd_helo_callback(const struct smtp_reply *proxy_reply,
 			struct relay_cmd_helo_context *helo)
 {
 	struct smtp_server_cmd_ctx *cmd = helo->cmd;
@@ -172,7 +172,7 @@ int cmd_helo_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
 		relay_cmd_helo_start, helo);
 	helo->cmd_proxied = smtp_client_command_rset_submit
-		(backend->conn, 0, relay_cmd_helo_proxy_cb, helo);
+		(backend->conn, 0, relay_cmd_helo_callback, helo);
 	return 0;
 }
 
@@ -221,7 +221,7 @@ relay_cmd_mail_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 }
 
 static void
-relay_cmd_mail_proxy_cb(const struct smtp_reply *proxy_reply,
+relay_cmd_mail_callback(const struct smtp_reply *proxy_reply,
 			struct relay_cmd_mail_context *mail_cmd)
 {
 	struct smtp_server_cmd_ctx *cmd = mail_cmd->cmd;
@@ -328,7 +328,7 @@ int cmd_mail_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 
 	mail_cmd->cmd_proxied = smtp_client_command_mail_submit(
 		backend->conn, 0, data->path, &data->params,
-		relay_cmd_mail_proxy_cb, mail_cmd);
+		relay_cmd_mail_callback, mail_cmd);
 	return 0;
 }
 
@@ -354,7 +354,7 @@ relay_cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 }
 
 static void
-relay_cmd_rcpt_proxy_cb(const struct smtp_reply *proxy_reply,
+relay_cmd_rcpt_callback(const struct smtp_reply *proxy_reply,
 			struct relay_cmd_rcpt_context *rcpt_cmd)
 {
 	struct smtp_server_cmd_ctx *cmd = rcpt_cmd->cmd;
@@ -396,7 +396,7 @@ int cmd_rcpt_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 
 	rcpt_cmd->cmd_proxied = smtp_client_command_rcpt_submit(
 		backend->conn, 0, data->path, &data->params,
-		relay_cmd_rcpt_proxy_cb, rcpt_cmd);
+		relay_cmd_rcpt_callback, rcpt_cmd);
 	return 0;
 }
 
@@ -413,7 +413,7 @@ struct relay_cmd_rset_context {
 };
 
 static void
-relay_cmd_rset_proxy_cb(const struct smtp_reply *proxy_reply,
+relay_cmd_rset_callback(const struct smtp_reply *proxy_reply,
 			struct relay_cmd_rset_context *rset_cmd)
 {
 	struct smtp_server_cmd_ctx *cmd = rset_cmd->cmd;
@@ -442,7 +442,7 @@ int cmd_rset_relay(struct client *client, struct smtp_server_cmd_ctx *cmd)
 	rset_cmd->cmd = cmd;
 
 	rset_cmd->cmd_proxied = smtp_client_command_rset_submit(
-		backend->conn, 0, relay_cmd_rset_proxy_cb, rset_cmd);
+		backend->conn, 0, relay_cmd_rset_callback, rset_cmd);
 	return 0;
 }
 
@@ -460,7 +460,7 @@ struct relay_cmd_data_context {
 };
 
 static void
-relay_cmd_data_proxy_cb(const struct smtp_reply *proxy_reply,
+relay_cmd_data_callback(const struct smtp_reply *proxy_reply,
 			struct relay_cmd_data_context *data_ctx)
 {
 	struct smtp_server_cmd_ctx *cmd = data_ctx->cmd;
@@ -510,7 +510,7 @@ int cmd_data_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	trans->context = (void*)data_ctx;
 
 	data_ctx->cmd_proxied = smtp_client_command_data_submit(
-		backend->conn, 0, data_input, relay_cmd_data_proxy_cb,
+		backend->conn, 0, data_input, relay_cmd_data_callback,
 		data_ctx);
 	return 0;
 }
@@ -527,7 +527,7 @@ struct relay_cmd_vrfy_context {
 };
 
 static void
-relay_cmd_vrfy_proxy_cb(const struct smtp_reply *proxy_reply,
+relay_cmd_vrfy_callback(const struct smtp_reply *proxy_reply,
 			struct relay_cmd_vrfy_context *vrfy_cmd)
 {
 	struct smtp_server_cmd_ctx *cmd = vrfy_cmd->cmd;
@@ -564,7 +564,7 @@ int cmd_vrfy_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	vrfy_cmd->cmd = cmd;
 
 	vrfy_cmd->cmd_proxied = smtp_client_command_vrfy_submit(
-		backend->conn, 0, param, relay_cmd_vrfy_proxy_cb, vrfy_cmd);
+		backend->conn, 0, param, relay_cmd_vrfy_callback, vrfy_cmd);
 	return 0;
 }
 
@@ -580,7 +580,7 @@ struct relay_cmd_noop_context {
 };
 
 static void
-relay_cmd_noop_proxy_cb(const struct smtp_reply *proxy_reply,
+relay_cmd_noop_callback(const struct smtp_reply *proxy_reply,
 			struct relay_cmd_noop_context *noop_cmd)
 {
 	struct smtp_server_cmd_ctx *cmd = noop_cmd->cmd;
@@ -608,7 +608,7 @@ int cmd_noop_relay(struct client *client, struct smtp_server_cmd_ctx *cmd)
 	noop_cmd->cmd = cmd;
 
 	noop_cmd->cmd_proxied = smtp_client_command_noop_submit(
-		backend->conn, 0, relay_cmd_noop_proxy_cb, noop_cmd);
+		backend->conn, 0, relay_cmd_noop_callback, noop_cmd);
 	return 0;
 }
 
@@ -649,7 +649,7 @@ static void relay_cmd_quit_finish(struct relay_cmd_quit_context *quit_cmd)
 }
 
 static void
-relay_cmd_quit_proxy_cb(const struct smtp_reply *proxy_reply ATTR_UNUSED,
+relay_cmd_quit_callback(const struct smtp_reply *proxy_reply ATTR_UNUSED,
 			struct relay_cmd_quit_context *quit_cmd)
 {
 	quit_cmd->cmd_proxied = NULL;
@@ -680,7 +680,7 @@ static void relay_cmd_quit_proxy(struct relay_cmd_quit_context *quit_cmd)
 	   command). */
 	quit_cmd->cmd_proxied =
 		smtp_client_command_new(backend->conn, 0,
-					relay_cmd_quit_proxy_cb, quit_cmd);
+					relay_cmd_quit_callback, quit_cmd);
 	smtp_client_command_write(quit_cmd->cmd_proxied, "QUIT");
 	smtp_client_command_submit(quit_cmd->cmd_proxied);
 }
