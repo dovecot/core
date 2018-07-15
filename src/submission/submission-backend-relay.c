@@ -28,9 +28,13 @@
      if the error condition is clear (e.g. missing MAIL, RCPT).
 */
 
-bool client_command_handle_proxy_reply(struct client *client,
-	const struct smtp_reply *reply, struct smtp_reply *reply_r)
+static bool
+backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
+				 const struct smtp_reply *reply,
+				 struct smtp_reply *reply_r)
 {
+	struct client *client = backend->backend.client;
+
 	*reply_r = *reply;
 
 	switch (reply->status) {
@@ -125,10 +129,9 @@ relay_cmd_helo_callback(const struct smtp_reply *proxy_reply,
 {
 	struct smtp_server_cmd_ctx *cmd = helo->cmd;
 	struct submission_backend_relay *backend = helo->backend;
-	struct client *client = backend->backend.client;
 	struct smtp_reply reply;
 
-	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, proxy_reply, &reply))
 		return;
 
 	if ((proxy_reply->status / 100) == 2) {
@@ -226,14 +229,13 @@ relay_cmd_mail_callback(const struct smtp_reply *proxy_reply,
 {
 	struct smtp_server_cmd_ctx *cmd = mail_cmd->cmd;
 	struct submission_backend_relay *backend = mail_cmd->backend;
-	struct client *client = backend->backend.client;
 	struct smtp_reply reply;
 
 	/* finished proxying MAIL command to relay server */
 	i_assert(mail_cmd != NULL);
 	mail_cmd->cmd_proxied = NULL;
 
-	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, proxy_reply, &reply))
 		return;
 
 	if ((proxy_reply->status / 100) == 2) {
@@ -359,14 +361,13 @@ relay_cmd_rcpt_callback(const struct smtp_reply *proxy_reply,
 {
 	struct smtp_server_cmd_ctx *cmd = rcpt_cmd->cmd;
 	struct submission_backend_relay *backend = rcpt_cmd->backend;
-	struct client *client = backend->backend.client;
 	struct smtp_reply reply;
 
 	/* finished proxying MAIL command to relay server */
 	i_assert(rcpt_cmd != NULL);
 	rcpt_cmd->cmd_proxied = NULL;
 
-	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, proxy_reply, &reply))
 		return;
 
 	if ((proxy_reply->status / 100) == 2) {
@@ -418,14 +419,13 @@ relay_cmd_rset_callback(const struct smtp_reply *proxy_reply,
 {
 	struct smtp_server_cmd_ctx *cmd = rset_cmd->cmd;
 	struct submission_backend_relay *backend = rset_cmd->backend;
-	struct client *client = backend->backend.client;
 	struct smtp_reply reply;
 
 	/* finished proxying MAIL command to relay server */
 	i_assert(rset_cmd != NULL);
 	rset_cmd->cmd_proxied = NULL;
 
-	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, proxy_reply, &reply))
 		return;
 
 	/* forward reply */
@@ -472,7 +472,7 @@ relay_cmd_data_callback(const struct smtp_reply *proxy_reply,
 	/* finished proxying message to relay server */
 
 	/* check for fatal problems */
-	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, proxy_reply, &reply))
 		return;
 
 	if (proxy_reply->status / 100 == 2) {
@@ -532,10 +532,9 @@ relay_cmd_vrfy_callback(const struct smtp_reply *proxy_reply,
 {
 	struct smtp_server_cmd_ctx *cmd = vrfy_cmd->cmd;
 	struct submission_backend_relay *backend = vrfy_cmd->backend;
-	struct client *client = backend->backend.client;
 	struct smtp_reply reply;
 
-	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, proxy_reply, &reply))
 		return;
 
 	if (!smtp_reply_has_enhanced_code(proxy_reply)) {
@@ -585,10 +584,9 @@ relay_cmd_noop_callback(const struct smtp_reply *proxy_reply,
 {
 	struct smtp_server_cmd_ctx *cmd = noop_cmd->cmd;
 	struct submission_backend_relay *backend = noop_cmd->backend;
-	struct client *client = backend->backend.client;
 	struct smtp_reply reply;
 
-	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, proxy_reply, &reply))
 		return;
 
 	if ((proxy_reply->status / 100) == 2) {
