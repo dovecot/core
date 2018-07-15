@@ -16,6 +16,10 @@ int cmd_vrfy_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 int cmd_noop_relay(struct client *client, struct smtp_server_cmd_ctx *cmd);
 int cmd_quit_relay(struct client *client, struct smtp_server_cmd_ctx *cmd);
 
+struct submission_settings;
+
+void client_proxy_create(struct client *client,
+			 const struct submission_settings *set);
 void client_proxy_start(struct client *client);
 
 #endif

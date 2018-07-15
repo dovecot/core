@@ -4,6 +4,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "mail-user.h"
+#include "iostream-ssl.h"
 #include "smtp-client.h"
 #include "smtp-client-connection.h"
 #include "smtp-client-command.h"
@@ -681,6 +682,62 @@ int cmd_quit_relay(struct client *client, struct smtp_server_cmd_ctx *cmd)
 /*
  * Relay backend
  */
+
+void client_proxy_create(struct client *client,
+			 const struct submission_settings *set)
+{
+	struct mail_user *user = client->user;
+	struct ssl_iostream_settings ssl_set;
+	struct smtp_client_settings smtp_set;
+	enum smtp_client_connection_ssl_mode ssl_mode;
+
+	i_zero(&ssl_set);
+	mail_user_init_ssl_client_settings(user, &ssl_set);
+	if (set->submission_relay_ssl_verify)
+		ssl_set.verbose_invalid_cert = TRUE;
+	else
+		ssl_set.allow_invalid_cert = TRUE;
+
+	/* make proxy connection */
+	i_zero(&smtp_set);
+	smtp_set.my_hostname = set->hostname;
+	smtp_set.ssl = &ssl_set;
+	smtp_set.debug = user->mail_debug;
+	smtp_set.rawlog_dir =
+		mail_user_home_expand(user,
+				      set->submission_relay_rawlog_dir);
+
+	if (set->submission_relay_trusted) {
+		smtp_set.peer_trusted = TRUE;
+
+		if (user->conn.remote_ip != NULL) {
+			smtp_set.proxy_data.source_ip =
+				*user->conn.remote_ip;
+			smtp_set.proxy_data.source_port =
+				user->conn.remote_port;
+		}
+		smtp_set.proxy_data.login = user->username;
+	}
+
+	smtp_set.username = set->submission_relay_user;
+	smtp_set.master_user = set->submission_relay_master_user;
+	smtp_set.password = set->submission_relay_password;
+	smtp_set.connect_timeout_msecs =
+		set->submission_relay_connect_timeout;
+	smtp_set.command_timeout_msecs =
+		set->submission_relay_command_timeout;
+
+	if (strcmp(set->submission_relay_ssl, "smtps") == 0)
+		ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
+	else if (strcmp(set->submission_relay_ssl, "starttls") == 0)
+		ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
+	else
+		ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
+
+	client->proxy_conn = smtp_client_connection_create(smtp_client,
+		SMTP_PROTOCOL_SMTP, set->submission_relay_host,
+		set->submission_relay_port, ssl_mode, &smtp_set);
+}
 
 static void client_proxy_ready_cb(const struct smtp_reply *reply,
 				  void *context)
