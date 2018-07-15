@@ -34,7 +34,6 @@ submission_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 
 cmds = \
-	cmd-helo.c \
 	cmd-mail.c \
 	cmd-rcpt.c \
 	cmd-data.c \
@@ -53,6 +52,7 @@ submission_SOURCES = \
 
 noinst_HEADERS = \
 	submission-common.h \
+	submission-backend-relay.h \
 	submission-commands.h \
 	submission-client.h \
 	submission-settings.h

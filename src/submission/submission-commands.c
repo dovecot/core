@@ -6,6 +6,7 @@
 #include "smtp-client-connection.h"
 
 #include "submission-commands.h"
+#include "submission-backend-relay.h"
 
 /*
  * EHLO, HELO commands
@@ -67,10 +68,6 @@ void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_reply_submit(reply);
 }
 
-/*
- * EHLO, HELO commands
- */
-
 int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_helo *data)
 {
@@ -85,4 +82,3 @@ int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	submission_helo_reply_submit(cmd, data);
 	return 1;
 }
-
