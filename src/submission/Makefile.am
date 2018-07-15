@@ -34,7 +34,6 @@ submission_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 
 cmds = \
-	cmd-data.c \
 	cmd-noop.c \
 	cmd-quit.c \
 	cmd-vrfy.c
