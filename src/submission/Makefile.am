@@ -34,7 +34,6 @@ submission_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 
 cmds = \
-	cmd-mail.c \
 	cmd-rcpt.c \
 	cmd-data.c \
 	cmd-rset.c \
