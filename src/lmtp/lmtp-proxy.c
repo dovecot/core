@@ -83,7 +83,6 @@ struct lmtp_proxy {
 	ARRAY(struct lmtp_proxy_recipient *) rcpt_to;
 	unsigned int next_data_reply_idx;
 
-	struct timeout *to_finish;
 	struct istream *data_input;
 
 	unsigned int max_timeout_msecs;
@@ -162,7 +161,6 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 
 	smtp_client_deinit(&proxy->lmtp_client);
 	i_stream_unref(&proxy->data_input);
-	timeout_remove(&proxy->to_finish);
 	array_free(&proxy->rcpt_to);
 	array_free(&proxy->connections);
 	i_free(proxy);
