@@ -23,10 +23,10 @@ struct cmd_rcpt_context {
 	struct smtp_client_command *cmd_proxied;
 };
 
-static void cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		 struct cmd_rcpt_context *rcpt_cmd)
 {
-	struct cmd_rcpt_context *rcpt_cmd = cmd->context;
-
 	if (rcpt_cmd->cmd_proxied != NULL)
 		smtp_client_command_abort(&rcpt_cmd->cmd_proxied);
 }
@@ -67,8 +67,9 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	rcpt_cmd->data = data;
 	rcpt_cmd->client = client;
 
-	cmd->context = rcpt_cmd;
-	cmd->hook_replied = cmd_rcpt_replied;
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED,
+				     cmd_rcpt_replied, rcpt_cmd);
+
 	rcpt_cmd->cmd_proxied = smtp_client_command_rcpt_submit(
 		client->proxy_conn, 0, data->path, &data->params,
 		cmd_rcpt_proxy_cb, rcpt_cmd);

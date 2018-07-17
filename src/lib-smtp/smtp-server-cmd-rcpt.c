@@ -34,12 +34,12 @@ cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd)
 	return TRUE;
 }
 
-static void cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_cmd_rcpt *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_cmd_rcpt *data =
-		(struct smtp_server_cmd_rcpt *)command->data;
 	struct smtp_server_transaction *trans = conn->state.trans;
 	struct smtp_server_recipient *rcpt;
 
@@ -62,7 +62,9 @@ static void cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd)
 	}
 }
 
-static void cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd,
+		 struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
 {
 	struct smtp_server_command *command = cmd->cmd;
 
@@ -74,7 +76,9 @@ static void cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd)
 	}
 }
 
-static void cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd,
+		 struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
@@ -181,10 +185,13 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 
 	rcpt_data->path = smtp_address_clone(cmd->pool, path);
 
-	command->data = rcpt_data;
-	command->hook_next = cmd_rcpt_recheck;
-	command->hook_replied = cmd_rcpt_replied;
-	command->hook_completed = cmd_rcpt_completed;
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     cmd_rcpt_recheck, rcpt_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
+				     cmd_rcpt_replied, rcpt_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+				     cmd_rcpt_completed, rcpt_data);
+
 	conn->state.pending_rcpt_cmds++;
 
 	smtp_server_command_ref(command);

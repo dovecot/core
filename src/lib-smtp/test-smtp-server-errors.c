@@ -127,9 +127,9 @@ struct _slow_server {
 };
 
 static void
-test_server_slow_server_destroyed(struct smtp_server_cmd_ctx *cmd)
+test_server_slow_server_destroyed(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+				  struct _slow_server *ctx)
 {
-	struct _slow_server *ctx = (struct _slow_server *)cmd->context;
 	test_assert(ctx->serviced);
 	timeout_remove(&ctx->to_delay);
 	i_free(ctx);
@@ -162,8 +162,9 @@ test_server_slow_server_cmd_helo(void *conn_ctx ATTR_UNUSED,
 	ctx = i_new(struct _slow_server, 1);
 	ctx->cmd = cmd;
 
-	cmd->hook_destroy = test_server_slow_server_destroyed;
-	cmd->context = ctx;
+	smtp_server_command_add_hook(cmd->cmd,
+				     SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     test_server_slow_server_destroyed, ctx);
 
 	ctx->to_delay = timeout_add(4000,
 		test_server_slow_server_delayed, ctx);
@@ -257,9 +258,9 @@ test_server_slow_client_disconnect(void *conn_ctx, const char *reason)
 }
 
 static void
-test_server_slow_client_cmd_destroyed(struct smtp_server_cmd_ctx *cmd)
+test_server_slow_client_cmd_destroyed(
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED, struct _slow_client *ctx)
 {
-	struct _slow_client *ctx = (struct _slow_client *)cmd->context;
 	test_assert(ctx->serviced);
 	timeout_remove(&ctx->to_delay);
 }
@@ -299,8 +300,10 @@ test_server_slow_client_cmd_helo(void *conn_ctx,
 
 	conn->context = ctx;
 
-	cmd->hook_destroy = test_server_slow_client_cmd_destroyed;
-	cmd->context = ctx;
+	smtp_server_command_add_hook(cmd->cmd,
+				     SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     test_server_slow_client_cmd_destroyed,
+				     ctx);
 
 	ctx->to_delay = timeout_add_short(500,
 		test_server_slow_client_delayed, ctx);

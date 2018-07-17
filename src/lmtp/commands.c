@@ -194,7 +194,7 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 }
 
 int cmd_data_begin(void *conn_ctx,
-		   struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		   struct smtp_server_transaction *trans,
 		   struct istream *data_input)
 {
@@ -207,8 +207,6 @@ int cmd_data_begin(void *conn_ctx,
 	mail_user_set_get_temp_prefix(path, client->raw_mail_user->set);
 	client->state.mail_data_output = 
 		iostream_temp_create_named(str_c(path), 0, "(lmtp data)");
-
-	cmd->context = (void*)client;
 
 	trans->context = (void*)data_input;
 	return 0;

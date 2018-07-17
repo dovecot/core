@@ -44,7 +44,6 @@ int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 	rset_cmd->cmd = cmd;
 	rset_cmd->client = client;
 
-	cmd->context = rset_cmd;
 	rset_cmd->cmd_proxied = smtp_client_command_rset_submit
 		(client->proxy_conn, 0, cmd_rset_proxy_cb, rset_cmd);
 	return 0;

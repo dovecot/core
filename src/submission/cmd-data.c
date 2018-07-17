@@ -165,10 +165,9 @@ struct cmd_burl_context {
 };
 
 static void
-cmd_burl_destroy(struct smtp_server_cmd_ctx *cmd)
+cmd_burl_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		 struct cmd_burl_context *burl_cmd)
 {
-	struct cmd_burl_context *burl_cmd = cmd->context;
-
 	if (burl_cmd->urlauth_fetch != NULL)
 		imap_urlauth_fetch_deinit(&burl_cmd->urlauth_fetch);
 	if (burl_cmd->url_fetch != NULL)
@@ -348,8 +347,8 @@ void cmd_burl(struct smtp_server_cmd_ctx *cmd, const char *params)
 	burl_cmd->cmd = cmd;
 	burl_cmd->chunk_last = chunk_last;
 
-	cmd->context = burl_cmd;
-	cmd->hook_destroy = cmd_burl_destroy;
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     cmd_burl_destroy, burl_cmd);
 
 	if (imap_url->uauth_rumpurl == NULL) {
 		/* direct local url */

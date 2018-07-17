@@ -8,12 +8,12 @@
 
 /* EHLO, HELO commands */
 
-static void cmd_helo_completed(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_helo_completed(struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_cmd_helo *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_cmd_helo *data =
-		(struct smtp_server_cmd_helo *)command->data;
 
 	i_assert(smtp_server_command_is_replied(command));
 	if (!smtp_server_command_replied_success(command)) {
@@ -34,12 +34,11 @@ static void cmd_helo_completed(struct smtp_server_cmd_ctx *cmd)
 	conn->helo.old_smtp = data->helo.old_smtp;
 }
 
-static void cmd_helo_next(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_helo_next(struct smtp_server_cmd_ctx *cmd,
+	      struct smtp_server_cmd_helo *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
-	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_cmd_helo *data =
-		(struct smtp_server_cmd_helo *)command->data;
 
 	if (conn->helo.domain == NULL ||
 		strcmp(conn->helo.domain, data->helo.domain) != 0 ||
@@ -87,9 +86,10 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	if (conn->pending_helo == NULL)
 		conn->pending_helo = &helo_data->helo;
 
-	command->data = helo_data;
-	command->hook_next = cmd_helo_next;
-	command->hook_completed = cmd_helo_completed;
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     cmd_helo_next, helo_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+				     cmd_helo_completed, helo_data);
 
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_helo != NULL) {

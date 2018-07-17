@@ -437,11 +437,9 @@ lmtp_proxy_is_ourself(const struct client *client,
 }
 
 static void
-lmtp_proxy_rcpt_destroy(struct smtp_server_cmd_ctx *cmd)
+lmtp_proxy_rcpt_cmd_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+			    struct lmtp_proxy_recipient *rcpt)
 {
-	struct lmtp_proxy_recipient *rcpt =
-		(struct lmtp_proxy_recipient *)cmd->context;
-
 	lmtp_proxy_recipient_deinit(rcpt);
 }
 
@@ -451,17 +449,21 @@ lmtp_proxy_rcpt_finished(struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_recipient *trcpt,
 			 unsigned int index)
 {
-	struct lmtp_proxy_recipient *rcpt =
-		(struct lmtp_proxy_recipient *)cmd->context;
+	struct lmtp_proxy_recipient *rcpt = trcpt->context;
 	struct client *client = rcpt->rcpt.client;
+
+	if (rcpt->rcpt.rcpt_cmd != NULL) {
+		smtp_server_command_remove_hook(
+			rcpt->rcpt.rcpt_cmd->cmd,
+			SMTP_SERVER_COMMAND_HOOK_DESTROY,
+			lmtp_proxy_rcpt_cmd_destroy);
+	}
 
 	if (!smtp_server_command_replied_success(cmd->cmd)) {
 		/* failed in RCPT command; clean up early */
 		lmtp_proxy_recipient_deinit(rcpt);
 		return;
 	}
-
-	cmd->hook_destroy = NULL;
 
 	lmtp_recipient_finish(&rcpt->rcpt, trcpt, index);
 
@@ -605,8 +607,10 @@ int lmtp_proxy_rcpt(struct client *client,
 
 	rcpt->conn = conn;
 
-	cmd->context = (void*)rcpt;
-	cmd->hook_destroy = lmtp_proxy_rcpt_destroy;
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     lmtp_proxy_rcpt_cmd_destroy, rcpt);
+
+	data->trans_context = rcpt;
 	data->hook_finished = lmtp_proxy_rcpt_finished;
 
 	smtp_client_transaction_add_rcpt(conn->lmtp_trans,
