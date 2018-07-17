@@ -206,10 +206,10 @@ strip_enhanced_code(const char *text, const char **enh_code_r)
 }
 
 static void
-submission_proxy_success_reply_sent(struct smtp_server_cmd_ctx *cmd)
+submission_proxy_success_reply_sent(
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct submission_client *subm_client)
 {
-	struct submission_client *subm_client = cmd->context;
-
 	client_proxy_finish_destroy_client(&subm_client->common);
 }
 
@@ -388,8 +388,11 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			break;
 
 		smtp_server_connection_input_lock(cmd->conn);
-		cmd->context = subm_client;
-		cmd->hook_destroy = submission_proxy_success_reply_sent;
+
+		smtp_server_command_add_hook(
+			command, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+			submission_proxy_success_reply_sent, subm_client);
+
 		subm_client->pending_auth = NULL;
 
 		/* Login successful. Send this reply to client. */

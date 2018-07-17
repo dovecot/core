@@ -28,12 +28,12 @@ cmd_xclient_check_state(struct smtp_server_cmd_ctx *cmd)
 	return TRUE;
 }
 
-static void cmd_xclient_completed(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_xclient_completed(struct smtp_server_cmd_ctx *cmd,
+		      struct smtp_proxy_data *proxy_data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_proxy_data *proxy_data =
-		(struct smtp_proxy_data *)command->data;
 
 	i_assert(smtp_server_command_is_replied(command));
 	if (!smtp_server_command_replied_success(command)) {
@@ -46,7 +46,9 @@ static void cmd_xclient_completed(struct smtp_server_cmd_ctx *cmd)
 	smtp_server_connection_set_proxy_data(conn, proxy_data);
 }
 
-static void cmd_xclient_recheck(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_xclient_recheck(struct smtp_server_cmd_ctx *cmd,
+		    struct smtp_proxy_data *proxy_data ATTR_UNUSED)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
@@ -208,9 +210,12 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 	}
 
 	smtp_server_command_input_lock(cmd);
-	command->data = proxy_data;
-	command->hook_next = cmd_xclient_recheck;
-	command->hook_completed = cmd_xclient_completed;
+
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     cmd_xclient_recheck, proxy_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+				     cmd_xclient_completed, proxy_data);
+
 	if (conn->state.state == SMTP_SERVER_STATE_GREETING)
 		smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_XCLIENT);
 

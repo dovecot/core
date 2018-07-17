@@ -388,6 +388,18 @@ enum smtp_server_command_flags {
 	SMTP_SERVER_CMD_FLAG_PREAUTH = BIT(1)
 };
 
+enum smtp_server_command_hook_type {
+	/* next: command is next to reply but has not submittted all replies
+	   yet. */
+	SMTP_SERVER_COMMAND_HOOK_NEXT,
+	/* replied: command has submitted all replies. */
+	SMTP_SERVER_COMMAND_HOOK_REPLIED,
+	/* completed: server is about to send last replies for this command. */
+	SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+	/* destroy: command is about to be destroyed. */
+	SMTP_SERVER_COMMAND_HOOK_DESTROY
+};
+
 /* Commands are handled asynchronously, which means that the command is not
    necessary finished when the start function ends. A command is finished
    when a reply is submitted for it. Several command hooks are available to
@@ -397,7 +409,8 @@ enum smtp_server_command_flags {
 typedef void smtp_server_cmd_input_callback_t(struct smtp_server_cmd_ctx *cmd);
 typedef void smtp_server_cmd_start_func_t(struct smtp_server_cmd_ctx *cmd,
 					  const char *params);
-typedef void smtp_server_cmd_func_t(struct smtp_server_cmd_ctx *cmd);
+typedef void smtp_server_cmd_func_t(struct smtp_server_cmd_ctx *cmd,
+				    void *context);
 
 struct smtp_server_cmd_ctx {
 	pool_t pool;
@@ -406,21 +419,27 @@ struct smtp_server_cmd_ctx {
 	struct smtp_server *server;
 	struct smtp_server_connection *conn;
 	struct smtp_server_command *cmd;
-
-	/* public hooks */
-
-	/* next: command is next to reply but has not submittted all replies
-	   yet */
-	smtp_server_cmd_func_t *hook_next;
-	/* replied: command has submitted all replies */
-	smtp_server_cmd_func_t *hook_replied;
-	/* completed: server is about to send last replies for this command */
-	smtp_server_cmd_func_t *hook_completed;
-	/* destroy: command is about to be destroyed */
-	smtp_server_cmd_func_t *hook_destroy;
-
-	void *context;
 };
+
+/* Hooks:
+
+ */
+
+void smtp_server_command_add_hook(struct smtp_server_command *cmd,
+				  enum smtp_server_command_hook_type type,
+				  smtp_server_cmd_func_t func,
+				  void *context);
+#define smtp_server_command_add_hook(_cmd, _type, _func, _context) \
+	smtp_server_command_add_hook((_cmd), (_type) + \
+		CALLBACK_TYPECHECK(_func, void (*)( \
+			struct smtp_server_cmd_ctx *, typeof(_context))), \
+		(smtp_server_cmd_func_t *)(_func), (_context))
+void smtp_server_command_remove_hook(struct smtp_server_command *cmd,
+				     enum smtp_server_command_hook_type type,
+				     smtp_server_cmd_func_t *func);
+#define smtp_server_command_remove_hook(_cmd, _type, _func) \
+	smtp_server_command_remove_hook((_cmd), (_type), \
+		(smtp_server_cmd_func_t *)(_func));
 
 /* The core SMTP commands are pre-registered. Special connection callbacks are
    provided for the core SMTP commands. Only use this command registration API

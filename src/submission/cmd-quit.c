@@ -64,9 +64,10 @@ static void cmd_quit_proxy(struct cmd_quit_context *quit_cmd)
 	smtp_client_command_submit(quit_cmd->cmd_proxied);
 }
 
-static void cmd_quit_next(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_quit_next(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	      struct cmd_quit_context *quit_cmd)
 {
-	struct cmd_quit_context *quit_cmd = cmd->context;
 	struct client *client = quit_cmd->client;
 
 	/* QUIT command is next to reply */
@@ -90,8 +91,8 @@ int cmd_quit(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 	quit_cmd->client = client;
 	quit_cmd->cmd = cmd;
 
-	cmd->hook_next = cmd_quit_next;
-	cmd->context = quit_cmd;
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     cmd_quit_next, quit_cmd);
 
 	if (smtp_client_connection_get_state(client->proxy_conn)
 		>= SMTP_CLIENT_CONNECTION_STATE_READY)

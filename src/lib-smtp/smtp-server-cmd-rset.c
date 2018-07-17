@@ -6,7 +6,8 @@
 
 /* RSET command */
 
-static void cmd_rset_completed(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_rset_completed(struct smtp_server_cmd_ctx *cmd, void *context ATTR_UNUSED)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
@@ -37,7 +38,8 @@ void smtp_server_cmd_rset(struct smtp_server_cmd_ctx *cmd,
 	}
 
 	smtp_server_command_input_lock(cmd);
-	command->hook_completed = cmd_rset_completed;
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+				     cmd_rset_completed, NULL);
 
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_rset != NULL) {

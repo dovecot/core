@@ -44,10 +44,10 @@ static void cmd_mail_update_xclient(struct client *client)
 	client->xclient_sent = TRUE;
 }
 
-static void cmd_mail_replied(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_mail_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		 struct cmd_mail_context *mail_cmd)
 {
-	struct cmd_mail_context *mail_cmd = cmd->context;
-
 	if (mail_cmd->cmd_proxied != NULL)
 		smtp_client_command_abort(&mail_cmd->cmd_proxied);
 }
@@ -151,8 +151,9 @@ int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	mail_cmd->data = data;
 	mail_cmd->client = client;
 
-	cmd->context = mail_cmd;
-	cmd->hook_replied = cmd_mail_replied;
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED,
+				     cmd_mail_replied, mail_cmd);
+
 	mail_cmd->cmd_proxied = smtp_client_command_mail_submit(
 		client->proxy_conn, 0, data->path, &data->params,
 		cmd_mail_proxy_cb, mail_cmd);

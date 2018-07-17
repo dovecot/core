@@ -11,6 +11,10 @@
 
 /* MAIL command */
 
+static void
+cmd_mail_replied(struct smtp_server_cmd_ctx *cmd,
+		 struct smtp_server_cmd_mail *data);
+
 static bool
 cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
 {
@@ -18,9 +22,11 @@ cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
 	struct smtp_server_command *command = cmd->cmd;
 
 	if (conn->state.trans != NULL) {
-		if (command->hook_replied != NULL) {
+		if (!smtp_server_command_is_replied(command)) {
 			conn->state.pending_mail_cmds--;
-			command->hook_replied = NULL;
+			smtp_server_command_remove_hook(
+				command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
+				cmd_mail_replied);
 		}
 		smtp_server_reply(cmd, 503, "5.5.0", "MAIL already given");
 		return FALSE;
@@ -28,12 +34,12 @@ cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
 	return TRUE;
 }
 
-static void cmd_mail_replied(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_mail_replied(struct smtp_server_cmd_ctx *cmd,
+		 struct smtp_server_cmd_mail *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_cmd_mail *data =
-		(struct smtp_server_cmd_mail *)command->data;
 
 	i_assert(conn->state.pending_mail_cmds > 0);
 	conn->state.pending_mail_cmds--;
@@ -50,7 +56,9 @@ static void cmd_mail_replied(struct smtp_server_cmd_ctx *cmd)
 		data->path, &data->params, &data->timestamp);
 }
 
-static void cmd_mail_recheck(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_mail_recheck(struct smtp_server_cmd_ctx *cmd,
+		 struct smtp_server_cmd_mail *data ATTR_UNUSED)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
@@ -161,9 +169,11 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 	mail_data->path = smtp_address_clone(cmd->pool, path);
 	mail_data->timestamp = ioloop_timeval;
 
-	command->data = mail_data;
-	command->hook_next = cmd_mail_recheck;
-	command->hook_replied = cmd_mail_replied;
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     cmd_mail_recheck, mail_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
+				     cmd_mail_replied, mail_data);
+
 	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_MAIL_FROM);
 	conn->state.pending_mail_cmds++;
 

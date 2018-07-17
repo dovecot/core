@@ -51,7 +51,6 @@ int cmd_vrfy(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	vrfy_cmd = p_new(cmd->pool, struct cmd_vrfy_context, 1);
 	vrfy_cmd->client = client;
 	vrfy_cmd->cmd = cmd;
-	cmd->context = vrfy_cmd;
 
 	vrfy_cmd->cmd_proxied = smtp_client_command_vrfy_submit(
 		client->proxy_conn, 0, param, cmd_vrfy_proxy_cb, vrfy_cmd);

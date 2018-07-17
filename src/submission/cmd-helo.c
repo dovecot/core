@@ -38,10 +38,10 @@ static void cmd_helo_update_xclient(struct client *client,
 	client->xclient_sent = TRUE;
 }
 
-static void cmd_helo_do_reply(struct client *client,
-			      struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_helo_do_reply(struct client *client, struct smtp_server_cmd_ctx *cmd,
+		  struct cmd_helo_context *helo)
 {
-	struct cmd_helo_context *helo = cmd->context;
 	enum smtp_capability proxy_caps =
 		smtp_client_connection_get_capabilities(client->proxy_conn);
 	struct smtp_server_reply *reply;
@@ -94,9 +94,9 @@ static void cmd_helo_do_reply(struct client *client,
 	smtp_server_reply_submit(reply);
 }
 
-static void cmd_helo_reply(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_helo_reply(struct smtp_server_cmd_ctx *cmd, struct cmd_helo_context *helo)
 {
-	struct cmd_helo_context *helo = cmd->context;
 	struct client *client = helo->client;
 
 	/* proxy an XCLIENT command */
@@ -104,22 +104,22 @@ static void cmd_helo_reply(struct smtp_server_cmd_ctx *cmd)
 		cmd_helo_update_xclient(client, helo->data);
 
 	T_BEGIN {
-		cmd_helo_do_reply(client, cmd);
+		cmd_helo_do_reply(client, cmd, helo);
 	} T_END;
 }
 
 static void cmd_helo_proxy_cb(const struct smtp_reply *proxy_reply,
-			      struct cmd_helo_context *cmd_helo)
+			      struct cmd_helo_context *helo)
 {
-	struct smtp_server_cmd_ctx *cmd = cmd_helo->cmd;
-	struct client *client = cmd_helo->client;
+	struct smtp_server_cmd_ctx *cmd = helo->cmd;
+	struct client *client = helo->client;
 	struct smtp_reply reply;
 
 	if (!client_command_handle_proxy_reply(client, proxy_reply, &reply))
 		return;
 
 	if ((proxy_reply->status / 100) == 2) {
-		cmd_helo_reply(cmd);
+		cmd_helo_reply(cmd, helo);
 	} else {
 		/* RFC 2034, Section 4:
 
@@ -132,9 +132,10 @@ static void cmd_helo_proxy_cb(const struct smtp_reply *proxy_reply,
 	}
 }
 
-static void cmd_helo_start(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_helo_start(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	       struct cmd_helo_context *helo)
 {
-	struct cmd_helo_context *helo = cmd->context;
 	struct client *client = helo->client;
 
 	/* proxy an XCLIENT command */
@@ -152,19 +153,20 @@ int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	helo->client = client;
 	helo->cmd = cmd;
 	helo->data = data;
-	cmd->context = helo;
 
 	if (!data->first || smtp_server_connection_get_state(client->conn)
 		>= SMTP_SERVER_STATE_READY) {
 		/* this is not the first HELO/EHLO; just proxy a RSET command */
-		cmd->hook_next = cmd_helo_start;
+		smtp_server_command_add_hook(
+			cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
+			cmd_helo_start, helo);
 		helo->cmd_proxied = smtp_client_command_rset_submit
 			(client->proxy_conn, 0, cmd_helo_proxy_cb, helo);
 		return 0;
 	}
 
 	/* respond right away */
-	cmd_helo_reply(cmd);
+	cmd_helo_reply(cmd, helo);
 	return 1;
 }
 

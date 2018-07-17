@@ -15,11 +15,13 @@
 	(SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES | \
 		SMTP_CAPABILITY_8BITMIME | SMTP_CAPABILITY_CHUNKING)
 
+struct smtp_server_cmd_hook;
 struct smtp_server_reply;
 struct smtp_server_command;
 struct smtp_server_connection;
 
 ARRAY_DEFINE_TYPE(smtp_server_reply, struct smtp_server_reply);
+ARRAY_DEFINE_TYPE(smtp_server_cmd_hook, struct smtp_server_cmd_hook);
 
 enum smtp_server_command_state {
 	/* New command; callback to command start handler executing. */
@@ -42,6 +44,14 @@ enum smtp_server_command_state {
 	SMTP_SERVER_COMMAND_STATE_FINISHED,
 	/* Request is aborted; still lingering due to references */
 	SMTP_SERVER_COMMAND_STATE_ABORTED
+};
+
+struct smtp_server_command_hook {
+	enum smtp_server_command_hook_type type;
+	struct smtp_server_command_hook *prev, *next;
+
+	smtp_server_cmd_func_t *func;
+	void *context;
 };
 
 struct smtp_server_reply_content {
@@ -79,22 +89,12 @@ struct smtp_server_command {
 
 	struct smtp_server_command *prev, *next;
 
+	struct smtp_server_command_hook *hooks_head, *hooks_tail;
+	void *data;
+
 	ARRAY_TYPE(smtp_server_reply) replies;
 	unsigned int replies_expected;
 	unsigned int replies_submitted;
-
-	/* private hooks */
-
-	/* next: command is next to reply but has not submittted all replies yet */
-	smtp_server_cmd_func_t *hook_next;
-	/* replied: command has submitted all replies */
-	smtp_server_cmd_func_t *hook_replied;
-	/* completed: server is about to send last replies for this command */
-	smtp_server_cmd_func_t *hook_completed;
-	/* destroy: command is about to be destroyed */
-	smtp_server_cmd_func_t *hook_destroy;
-	/* private context data */
-	void *data;
 
 	bool input_locked:1;
 	bool input_captured:1;
@@ -234,6 +234,11 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 void smtp_server_command_ref(struct smtp_server_command *cmd);
 bool smtp_server_command_unref(struct smtp_server_command **_cmd);
 void smtp_server_command_abort(struct smtp_server_command **_cmd);
+
+void smtp_server_command_call_hooks(struct smtp_server_command *cmd,
+				    enum smtp_server_command_hook_type type);
+void smtp_server_command_remove_hooks(struct smtp_server_command *cmd,
+				      enum smtp_server_command_hook_type type);
 
 void smtp_server_command_submit_reply(struct smtp_server_command *cmd);
 
