@@ -682,13 +682,8 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 }
 
 static bool
-quota_root_is_visible(struct quota_root *root, struct mailbox *box,
-		      bool enforce)
+quota_root_is_visible(struct quota_root *root, struct mailbox *box)
 {
-	if (root->no_enforcing && enforce) {
-		/* we don't want to include this root in quota enforcing */
-		return FALSE;
-	}
 	if (!quota_root_is_namespace_visible(root, box->list->ns))
 		return FALSE;
 	if (array_count(&root->quota->roots) == 1) {
@@ -713,7 +708,7 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 
 	for (; iter->i < count; iter->i++) {
 		if (iter->box != NULL &&
-		    !quota_root_is_visible(roots[iter->i], iter->box, FALSE))
+		    !quota_root_is_visible(roots[iter->i], iter->box))
 			continue;
 
 		root = roots[iter->i];
@@ -889,7 +884,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 
 	ctx->auto_updating = TRUE;
 	array_foreach(&ctx->quota->roots, rootp) {
-		if (!quota_root_is_visible(*rootp, ctx->box, FALSE))
+		if (!quota_root_is_visible(*rootp, ctx->box))
 			continue;
 
 		rule = quota_root_rule_find((*rootp)->set, mailbox_name);
@@ -939,7 +934,8 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
+		if (!quota_root_is_visible(roots[i], ctx->box) ||
+		    roots[i]->no_enforcing)
 			continue;
 
 		if (quota_root_get_rule_limits(roots[i], mailbox_name,
@@ -1143,7 +1139,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		roots = array_get(&ctx->quota->roots, &count);
 		t_array_init(&warn_roots, count);
 		for (i = 0; i < count; i++) {
-			if (!quota_root_is_visible(roots[i], ctx->box, FALSE))
+			if (!quota_root_is_visible(roots[i], ctx->box))
 				continue;
 
 			rule = quota_root_rule_find(roots[i]->set,
@@ -1403,7 +1399,8 @@ static enum quota_alloc_result quota_default_test_alloc(
 	for (i = 0; i < count; i++) {
 		uint64_t bytes_limit, count_limit;
 
-		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
+		if (!quota_root_is_visible(roots[i], ctx->box) ||
+		    roots[i]->no_enforcing)
 			continue;
 
 		const char *error;
