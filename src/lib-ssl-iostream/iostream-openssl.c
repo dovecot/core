@@ -130,8 +130,11 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		certname[sizeof(certname)-1] = '\0'; /* just in case.. */
 	if (preverify_ok == 0) {
 		openssl_iostream_set_error(ssl_io, t_strdup_printf(
-			"Received invalid SSL certificate: %s: %s",
-			X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)), certname));
+			"Received invalid SSL certificate: %s: %s (check %s)",
+			X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)), certname,
+			ssl_io->ctx->client_ctx ?
+				"ssl_client_ca_* settings?" :
+				"ssl_ca setting?"));
 		if (ssl_io->verbose_invalid_cert)
 			i_info("%s", ssl_io->last_error);
 	} else if (ssl_io->verbose) {
