@@ -320,6 +320,12 @@ parse_content_type(struct message_part_data *data,
 	}
 	str_truncate(str, i);
 	data->content_type = p_strdup(pool, str_c(str));
+	if (data->content_subtype == NULL) {
+		/* The Content-Type is invalid. Don't leave it NULL so that
+		   callers can assume that if content_type != NULL,
+		   content_subtype != NULL also. */
+		data->content_subtype = p_strdup(pool, "");
+	}
 
 	if (ret < 0) {
 		/* Content-Type is broken, but we wanted to get it as well as
