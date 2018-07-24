@@ -128,10 +128,7 @@ static void part_write_body_multipart(const struct message_part *part,
 	}
 
 	str_append_c(str, ' ');
-	if (data->content_subtype != NULL)
-		imap_append_string(str, data->content_subtype);
-	else
-		str_append(str, "\"x-unknown\"");
+	imap_append_string(str, data->content_subtype);
 
 	if (!extended)
 		return;
@@ -160,20 +157,12 @@ static void part_write_body(const struct message_part *part,
 		/* "content type" "subtype" */
 		if (data->content_type == NULL) {
 			text = TRUE;
-			str_append(str, "\"text\"");
+			str_append(str, "\"text\" \"plain\"");
 		} else {
 			text = (strcasecmp(data->content_type, "text") == 0);
 			imap_append_string(str, data->content_type);
-		}
-		str_append_c(str, ' ');
-
-		if (data->content_subtype != NULL)
+			str_append_c(str, ' ');
 			imap_append_string(str, data->content_subtype);
-		else {
-			if (text)
-				str_append(str, "\"plain\"");
-			else
-				str_append(str, "\"unknown\"");
 		}
 	}
 
