@@ -935,12 +935,15 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		if (!quota_root_is_visible(roots[i], ctx->box) ||
-		    roots[i]->no_enforcing)
+		    (roots[i]->no_enforcing && ctx->auto_updating))
 			continue;
-
-		if (quota_root_get_rule_limits(roots[i], mailbox_name,
-					       &bytes_limit, &count_limit,
-					       &ignored, &error) < 0) {
+		else if (roots[i]->no_enforcing) {
+			bytes_limit = (uint64_t)-1;
+			count_limit = (uint64_t)-1;
+			ignored = FALSE;
+		} else if (quota_root_get_rule_limits(roots[i], mailbox_name,
+						      &bytes_limit, &count_limit,
+						      &ignored, &error) < 0) {
 			ctx->failed = TRUE;
 			*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 			*error_r = t_strdup_printf(
@@ -955,7 +958,10 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			ret = quota_get_resource(roots[i], mailbox_name,
 						 QUOTA_NAME_STORAGE_BYTES,
 						 &current, &limit, &error);
-			if (ret == QUOTA_GET_RESULT_LIMITED) {
+			if (roots[i]->no_enforcing) {
+				ctx->bytes_ceil = (uint64_t)-1;
+				ctx->bytes_ceil2 = (uint64_t)-1;
+			} else if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
 					ctx->bytes_ceil = 0;
@@ -987,7 +993,9 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			ret = quota_get_resource(roots[i], mailbox_name,
 						 QUOTA_NAME_MESSAGES,
 						 &current, &limit, &error);
-			if (ret == QUOTA_GET_RESULT_LIMITED) {
+			if (roots[i]->no_enforcing) {
+				ctx->count_ceil = (uint64_t)-1;
+			} else if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
 					ctx->count_ceil = 0;
