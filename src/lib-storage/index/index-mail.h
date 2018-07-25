@@ -118,6 +118,7 @@ struct index_mail_data {
 	bool save_body_snippet:1;
 	bool stream_has_only_header:1;
 	bool parsed_bodystructure:1;
+	bool parsed_bodystructure_header:1;
 	bool hdr_size_set:1;
 	bool body_size_set:1;
 	bool messageparts_saved_to_cache:1;

@@ -313,7 +313,7 @@ void index_mail_parse_header(struct message_part *part,
 		if (data->save_bodystructure_header) {
 			i_assert(!data->save_bodystructure_body ||
 				 data->parser_ctx != NULL);
-			data->save_bodystructure_header = FALSE;
+			data->parsed_bodystructure_header = TRUE;
 		}
 		return;
 	}
@@ -413,6 +413,12 @@ static void index_mail_init_parser(struct index_mail *mail)
 		if (message_parser_deinit_from_parts(&data->parser_ctx, &parts, &error) < 0) {
 			index_mail_set_message_parts_corrupted(&mail->mail.mail, error);
 			data->parts = NULL;
+		}
+		if (data->parts == NULL) {
+			/* The previous parsing didn't finish, so we're
+			   re-parsing the header. The new parts don't have data
+			   filled anymore. */
+			data->parsed_bodystructure_header = FALSE;
 		}
 	}
 
