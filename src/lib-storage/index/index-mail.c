@@ -1193,7 +1193,7 @@ static int index_mail_parse_body(struct index_mail *mail,
 	if (data->save_bodystructure_body) {
 		/* bodystructure header is parsed, we want the body's mime
 		   headers too */
-		i_assert(!data->save_bodystructure_header);
+		i_assert(data->parsed_bodystructure_header);
 		message_parser_parse_body(data->parser_ctx,
 					  parse_bodystructure_part_header,
 					  mail->mail.data_pool);
@@ -1347,7 +1347,8 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 		   a string */
 		index_mail_body_parsed_cache_bodystructure(mail, field);
 	} else {
-		if (data->save_bodystructure_header ||
+		if ((data->save_bodystructure_header &&
+		     !data->parsed_bodystructure_header) ||
 		    !data->save_bodystructure_body ||
 		    field == MAIL_CACHE_BODY_SNIPPET) {
 			/* we haven't parsed the header yet */
