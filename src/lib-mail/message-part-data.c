@@ -25,6 +25,7 @@ bool message_part_data_is_plain_7bit(const struct message_part *part)
 {
 	const struct message_part_data *data = part->data;
 
+	i_assert(data != NULL);
 	i_assert(part->parent == NULL);
 
 	/* if content-type is text/xxx we don't have to check any
@@ -72,6 +73,8 @@ bool message_part_data_get_filename(const struct message_part *part,
 	const struct message_part_data *data = part->data;
 	const struct message_part_param *params;
 	unsigned int params_count, i;
+
+	i_assert(data != NULL);
 
 	params = data->content_disposition_params;
 	params_count = data->content_disposition_params_count;
@@ -539,6 +542,8 @@ bool message_part_has_content_types(struct message_part *part,
 	const char *const *ptr;
 	const char *content_type;
 
+	i_assert(data != NULL);
+
 	if (data->content_type == NULL)
 		return FALSE;
 	else if (data->content_subtype == NULL)
@@ -559,6 +564,8 @@ bool message_part_has_parameter(struct message_part *part, const char *parameter
 				bool has_value)
 {
 	struct message_part_data *data = part->data;
+
+	i_assert(data != NULL);
 
 	for (unsigned int i = 0; i < data->content_disposition_params_count; i++) {
 		const struct message_part_param *param =
