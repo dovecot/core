@@ -118,6 +118,7 @@ struct index_mail_data {
 	unsigned int save_body_snippet:1;
 	unsigned int stream_has_only_header:1;
 	unsigned int parsed_bodystructure:1;
+	unsigned int parsed_bodystructure_header:1;
 	unsigned int hdr_size_set:1;
 	unsigned int body_size_set:1;
 	unsigned int messageparts_saved_to_cache:1;
