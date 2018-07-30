@@ -112,10 +112,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "ssl enabled, but ssl_key not set";
 		return FALSE;
 	}
-	if (*set->ssl_dh == '\0') {
-		*error_r = "ssl enabled, but ssl_dh not set";
-		return FALSE;
-	}
 #endif
 	if (set->ssl_verify_client_cert && *set->ssl_ca == '\0') {
 		*error_r = "ssl_verify_client_cert set, but ssl_ca not";
