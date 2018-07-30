@@ -500,12 +500,47 @@ static int dlua_i_error(lua_State *L)
 	return 0;
 }
 
+static int dlua_has_flag(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	/* we rather deal with unsigned value here */
+	lua_Integer value = luaL_checkinteger(script->L, 1);
+	lua_Integer flag = luaL_checkinteger(script->L, 2);
+
+	lua_pushboolean(script->L, (value & flag) == flag);
+	return 1;
+}
+
+static int dlua_set_flag(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	lua_Integer value = luaL_checkinteger(script->L, 1);
+	lua_Integer flag = luaL_checkinteger(script->L, 2);
+
+	lua_pushinteger(script->L, value | flag);
+	return 1;
+}
+
+static int dlua_clear_flag(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	lua_Integer value = luaL_checkinteger(script->L, 1);
+	lua_Integer flag = luaL_checkinteger(script->L, 2);
+
+	lua_pushinteger(script->L, value & (~flag));
+	return 1;
+}
+
+
 static luaL_Reg lua_dovecot_methods[] = {
 	{ "i_debug", dlua_i_debug },
 	{ "i_info", dlua_i_info },
 	{ "i_warning", dlua_i_warning },
 	{ "i_error", dlua_i_error },
 	{ "event", dlua_event_new },
+	{ "has_flag", dlua_has_flag },
+	{ "set_flag", dlua_set_flag },
+	{ "clear_flag", dlua_clear_flag },
 	{ NULL, NULL }
 };
 
