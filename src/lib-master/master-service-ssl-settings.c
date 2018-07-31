@@ -213,4 +213,5 @@ void master_service_ssl_settings_to_iostream_set(
 	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
 	set_r->compression = ssl_set->parsed_opts.compression;
 	set_r->tickets = ssl_set->parsed_opts.tickets;
+	set_r->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
 }
