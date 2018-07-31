@@ -57,6 +57,14 @@ struct dns_client {
 
 static void dns_lookup_free(struct dns_lookup **_lookup);
 
+static void dns_lookup_save_msecs(struct dns_lookup *lookup);
+
+static void dns_lookup_callback(struct dns_lookup *lookup)
+{
+	dns_lookup_save_msecs(lookup);
+	lookup->callback(&lookup->result, lookup->context);
+}
+
 static void dns_client_disconnect(struct dns_client *client, const char *error)
 {
 	struct dns_lookup *lookup, *next;
@@ -76,7 +84,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 	client->head = NULL;
 	while (lookup != NULL) {
 		next = lookup->next;
-		lookup->callback(&result, lookup->context);
+		dns_lookup_callback(lookup);
 		dns_lookup_free(&lookup);
 		lookup = next;
 	}
@@ -163,8 +171,7 @@ static int dns_client_input_args(struct connection *conn, const char *const *arg
 			"Invalid input from %s", conn->name));
 		return -1;
 	} else if (ret > 0) {
-		dns_lookup_save_msecs(lookup);
-		lookup->callback(&lookup->result, lookup->context);
+		dns_lookup_callback(lookup);
 		retry = !lookup->client->deinit_client_at_free;
 		dns_lookup_free(&lookup);
 	}
@@ -176,7 +183,7 @@ static void dns_lookup_timeout(struct dns_lookup *lookup)
 {
 	lookup->result.error = "DNS lookup timed out";
 
-	lookup->callback(&lookup->result, lookup->context);
+	dns_lookup_callback(lookup);
 	dns_lookup_free(&lookup);
 }
 
@@ -375,7 +382,7 @@ dns_client_lookup_common(struct dns_client *client,
 						      &lookup->result.error);
 		}
 		if (ret <= 0) {
-			callback(&lookup.result, context);
+			dns_lookup_callback(lookup);
 			return -1;
 		}
 	}
