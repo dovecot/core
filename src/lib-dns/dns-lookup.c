@@ -5,6 +5,7 @@
 #include "str.h"
 #include "ostream.h"
 #include "connection.h"
+#include "lib-event.h"
 #include "llist.h"
 #include "istream.h"
 #include "write-full.h"
@@ -15,6 +16,10 @@
 #include <unistd.h>
 
 #define MAX_INBUF_SIZE 512
+
+static struct event_category event_category_dns = {
+	.name = "dns"
+};
 
 struct dns_lookup {
 	struct dns_lookup *prev, *next;
@@ -30,6 +35,7 @@ struct dns_lookup {
 	struct ip_addr *ips;
 	unsigned int ip_idx;
 	char *name;
+	struct event *event;
 
 	dns_lookup_callback_t *callback;
 	void *context;
@@ -43,6 +49,7 @@ struct dns_client {
 	struct ioloop *ioloop;
 	char *path;
 
+	struct event *event;
 	unsigned int timeout_msecs;
 	unsigned int idle_timeout_msecs;
 
@@ -61,8 +68,23 @@ static void dns_lookup_save_msecs(struct dns_lookup *lookup);
 
 static void dns_lookup_callback(struct dns_lookup *lookup)
 {
+	struct event_passthrough *e =
+		event_create_passthrough(lookup->event)->
+		set_name("dns_request_finished");
+
 	dns_lookup_save_msecs(lookup);
+
+	if (lookup->result.ret != 0) {
+		e->add_int("error_code", lookup->result.ret);
+		e->add_str("error", lookup->result.error);
+		e_debug(e->event(), "DNS lookup failed after %u msecs: %s",
+			lookup->result.msecs, lookup->result.error);
+	} else {
+		e_debug(e->event(), "DNS lookup successful after %u msecs",
+			lookup->result.msecs);
+	}
 	lookup->callback(&lookup->result, lookup->context);
+	event_unref(&lookup->event);
 }
 
 static void dns_client_disconnect(struct dns_client *client, const char *error)
@@ -88,6 +110,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 		dns_lookup_free(&lookup);
 		lookup = next;
 	}
+	e_debug(client->event, "Disconnect: %s", error);
 }
 
 static void dns_client_destroy(struct connection *conn)
@@ -245,6 +268,7 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 						 client->idle_timeout_msecs,
 						 dns_client_idle_timeout, client);
 	}
+	event_unref(&lookup->event);
 	i_free(lookup);
 }
 
@@ -299,6 +323,8 @@ struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
 	client->clist = connection_list_init(&dns_client_set, &dns_client_vfuncs);
 	client->ioloop = set->ioloop == NULL ? current_ioloop : set->ioloop;
 	client->path = i_strdup(set->dns_client_socket_path);
+	client->event = event_create(set->event_parent);
+	event_add_category(client->event, &event_category_dns);
 	return client;
 }
 
@@ -313,6 +339,7 @@ void dns_client_deinit(struct dns_client **_client)
 	dns_client_disconnect(client, "deinit");
 	connection_list_deinit(&clist);
 	i_free(client->path);
+	event_unref(&client->event);
 	i_free(client);
 }
 
@@ -320,6 +347,7 @@ int dns_client_connect(struct dns_client *client, const char **error_r ATTR_UNUS
 {
 	if (client->connected)
 		return 0;
+	client->conn.event_parent = client->event;
 	connection_init_client_unix(client->clist, &client->conn, client->path);
 	if (client->ioloop != NULL)
 		connection_switch_ioloop_to(&client->conn, client->ioloop);
@@ -374,6 +402,12 @@ dns_client_lookup_common(struct dns_client *client,
 	lookup->context = context;
 	lookup->ptr_lookup = ptr_lookup;
 	lookup->result.ret = EAI_FAIL;
+	lookup->event = event_create(client->event);
+	event_set_append_log_prefix(lookup->event, t_strconcat(param, ": ", NULL));
+	struct event_passthrough *e =
+		event_create_passthrough(lookup->event)->
+		set_name("dns_request_started");
+	e_debug(e->event(), "Lookup started");
 
 	if ((ret = dns_client_send_request(client, cmd, &lookup->result.error)) <= 0) {
 		if (ret == 0) {
