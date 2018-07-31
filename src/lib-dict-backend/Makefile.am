@@ -100,8 +100,8 @@ test_dict_sql_CFLAGS = $(AM_CPPFLAGS) -DDICT_SRC_DIR=\"$(top_srcdir)/src/lib-dic
 test_dict_sql_SOURCES = \
 	test-dict-sql.c
 test_dict_sql_LDADD = \
-	$(DICT_LIBS) \
 	$(noinst_LTLIBRARIES) \
+	$(DICT_LIBS) \
 	../lib-sql/libdriver_test.la \
 	../lib-sql/libsql.la \
 	../lib-dovecot/libdovecot.la
