@@ -50,7 +50,7 @@ obsolete(struct config_parser_context *ctx, const char *str, ...)
 
 	if (!seen_obsoletes) {
 		i_warning("NOTE: You can get a new clean config file with: "
-			  "doveconf -n > dovecot-new.conf");
+			  "doveconf -Pn > dovecot-new.conf");
 		seen_obsoletes = TRUE;
 	}
 
