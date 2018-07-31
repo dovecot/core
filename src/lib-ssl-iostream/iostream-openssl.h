@@ -22,7 +22,6 @@ struct ssl_iostream_context {
 	pool_t pool;
 	struct ssl_iostream_settings set;
 
-	DH *dh_512, *dh_default;
 	int username_nid;
 
 	bool client_ctx:1;
