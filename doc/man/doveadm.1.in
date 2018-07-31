@@ -39,6 +39,11 @@ and all its child processes.
 .\"------------------------------------------------------------------------
 .SS ADDITIONAL MASTER COMMANDS
 .TP
+.B doveadm config
+.BR doveadm\-config (1),
+Dump Dovecot configuration.
+.\"-------------------------------------
+.TP
 .B doveadm director
 .BR doveadm\-director (1),
 Manage Dovecot directors (if used by proxy servers).
@@ -147,14 +152,19 @@ Fetch messages matching given search query.
 Add, remove or replace messages\(aq flags.
 .\"-------------------------------------
 .TP
-.B doveadm fts
-.BR doveadm\-fts (1),
-Manipulate the Full Text Search (FTS) index.
-.\"-------------------------------------
-.TP
 .B doveadm force\-resync
 .BR doveadm\-force\-resync (1),
 Repair broken mailboxes, in case Dovecot doesn\(aqt automatically do that.
+.\"-------------------------------------
+.TP
+.B doveadm fs
+.BR doveadm\-fs (1),
+Interact with the abstract mail storage filesystem.
+.\"-------------------------------------
+.TP
+.B doveadm fts
+.BR doveadm\-fts (1),
+Manipulate the Full Text Search (FTS) index.
 .\"-------------------------------------
 .TP
 .B doveadm import
@@ -172,6 +182,11 @@ Index messages in a given mailbox.
 Various commands related to handling mailboxes.
 .\"-------------------------------------
 .TP
+.B doveadm mailbox cryptokey
+.BR doveadm\-mailbox\-cryptokey (1),
+Mail crypt plugin management.
+.\"-------------------------------------
+.TP
 .B doveadm move
 .BR doveadm\-move (1)
 Move messages matching the given search query into another mailbox.
@@ -187,9 +202,24 @@ Remove messages with refcount=0 from mdbox files.
 Initialize/recalculate or show current quota usage.
 .\"-------------------------------------
 .TP
+.B doveadm rebuild
+.BR doveadm\-rebuild (1),
+Rebuild index metadata from message data.
+.\"-------------------------------------
+.TP
 .B doveadm replicator
 .BR doveadm\-replicator (1),
 Manage users\(aq mail replication.
+.\"-------------------------------------
+.TP
+.B doveadm save
+.BR doveadm\-save (1),
+Save email to users\(aq mailboxes.
+.\"-------------------------------------
+.TP
+.B doveadm search
+.BR doveadm\-search (1),
+Show a list of mailbox GUIDs and message UIDs matching given search query.
 .\"-------------------------------------
 .TP
 .B doveadm stats
@@ -200,11 +230,6 @@ Inspect or reset stats.
 .B doveadm sync
 .BR doveadm\-sync (1),
 Dovecot\(aqs two\-way mailbox synchronization utility.
-.\"-------------------------------------
-.TP
-.B doveadm search
-.BR doveadm\-search (1),
-Show a list of mailbox GUIDs and message UIDs matching given search query.
 .\"------------------------------------------------------------------------
 .SH "EXIT STATUS"
 .B doveadm
