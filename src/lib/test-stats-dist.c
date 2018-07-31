@@ -48,6 +48,37 @@ test_stats_dist_verify(const struct stats_dist *t, const int64_t *input,
 	i_free(copy);
 }
 
+static void test_stats_dist_get_variance(void)
+{
+	static const struct {
+		int64_t in[10];
+		double out;
+	} tests[] = {
+		{ .in = { 2, 2, 2, -1 }, .out = 0.0 },
+		{ .in = { -1 }, .out = 0.0 },
+		{ .in = { 1, 2, 3, 4, 5, 6, 7, 8, -1 }, .out = 5.25 },
+	};
+
+	struct stats_dist *t;
+	unsigned int i, j;
+
+	test_begin("stats_dists_get_variance");
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		t = stats_dist_init();
+		for (j = 0; tests[i].in[j] >= 0; j++) {
+			stats_dist_add(t, tests[i].in[j]);
+			test_stats_dist_verify(t, tests[i].in, j+1);
+		}
+		test_assert_idx(DBL_EQ(stats_dist_get_variance(t),
+				       tests[i].out), i);
+
+		stats_dist_deinit(&t);
+	}
+
+	test_end();
+}
+
 void test_stats_dist(void)
 {
 	static int64_t test_input1[] = {
@@ -96,4 +127,6 @@ void test_stats_dist(void)
 	test_assert(stats_dist_get_95th(t) > 0 && stats_dist_get_95th(t) < i-1);
 	stats_dist_deinit(&t);
 	test_end();
+
+	test_stats_dist_get_variance();
 }
