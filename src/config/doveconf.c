@@ -182,14 +182,17 @@ static bool value_need_quote(const char *value)
 static const char *find_next_secret(const char *input, const char **secret_r)
 {
 	const char *const *secret;
+	const char *ptr = NULL;
 	for(secret = secrets; *secret != NULL; secret++) {
-		const char *ptr;
-		if ((ptr = strstr(input, *secret)) != NULL) {
-			*secret_r = *secret;
-			return ptr;
+		const char *cptr;
+		if ((cptr = strstr(input, *secret)) != NULL) {
+			if (ptr == NULL || cptr < ptr) {
+				*secret_r = *secret;
+				ptr = cptr;
+			}
 		}
 	}
-	return NULL;
+	return ptr;
 }
 
 static bool
