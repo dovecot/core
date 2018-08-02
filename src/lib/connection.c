@@ -198,9 +198,17 @@ void connection_streams_changed(struct connection *conn)
 
 static void connection_client_connected(struct connection *conn, bool success)
 {
+	const char *ename = conn->list->set.client ?
+		"server_connection_connected" :
+		"client_connection_connected";
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name(ename);
+
 	i_assert(conn->list->set.client);
 
 	conn->connect_finished = ioloop_timeval;
+	event_add_timeval(conn->event, "connect_finished_time", &ioloop_timeval);
+
 	if (success)
 		connection_init_streams(conn);
 	if (conn->list->v.client_connected != NULL)
@@ -219,6 +227,11 @@ void connection_init(struct connection_list *list,
 	conn->fd_in = -1;
 	conn->fd_out = -1;
 	conn->name = NULL;
+
+	if (conn->event == NULL)
+		conn->event = event_create(conn->event_parent);
+	if (list->set.debug)
+		event_set_forced_debug(conn->event, TRUE);
 
 	if (conn->list != NULL) {
 		i_assert(conn->list == list);
@@ -239,8 +252,15 @@ void connection_init_server(struct connection_list *list,
 	connection_init(list, conn);
 
 	conn->name = i_strdup(name);
+	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
+				    conn->name));
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;
+
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name("client_connection_connected");
+	e_debug(e->event(), "Client connected");
+
 	connection_init_streams(conn);
 }
 
@@ -263,6 +283,13 @@ void connection_init_client_ip_from(struct connection_list *list,
 		conn->my_ip = *my_ip;
 	else
 		i_zero(&conn->my_ip);
+
+	if (my_ip != NULL)
+		event_add_str(conn->event, "client_ip", net_ip2addr(my_ip));
+	event_add_str(conn->event, "ip", net_ip2addr(ip));
+	event_add_str(conn->event, "port", dec2str(port));
+	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
+				    conn->name));
 }
 
 void connection_init_client_ip(struct connection_list *list,
@@ -282,6 +309,14 @@ void connection_init_client_unix(struct connection_list *list,
 	conn->fd_in = conn->fd_out = -1;
 	conn->name = i_strdup(path);
 	conn->unix_socket = TRUE;
+
+	event_field_clear(conn->event, "ip");
+	event_field_clear(conn->event, "port");
+	event_field_clear(conn->event, "client_ip");
+	event_field_clear(conn->event, "client_port");
+
+	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
+				    conn->name));
 }
 
 void connection_init_from_streams(struct connection_list *list,
@@ -312,6 +347,8 @@ void connection_init_from_streams(struct connection_list *list,
 	o_stream_ref(conn->output);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_set_name(conn->output, conn->name);
+	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
+				    conn->name));
 
 	connection_input_resume(conn);
 
@@ -363,8 +400,17 @@ int connection_client_connect(struct connection *conn)
 	return 0;
 }
 
+static void connection_update_counters(struct connection *conn)
+{
+	if (conn->input != NULL)
+		event_add_int(conn->event, "bytes_in", conn->input->v_offset);
+	if (conn->output != NULL)
+		event_add_int(conn->event, "bytes_out", conn->output->offset);
+}
+
 void connection_disconnect(struct connection *conn)
 {
+	connection_update_counters(conn);
 	conn->last_input = 0;
 	i_zero(&conn->last_input_tv);
 	timeout_remove(&conn->to);
@@ -385,6 +431,7 @@ void connection_deinit(struct connection *conn)
 
 	connection_disconnect(conn);
 	i_free(conn->name);
+	event_unref(&conn->event);
 }
 
 int connection_input_read(struct connection *conn)
