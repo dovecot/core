@@ -79,23 +79,22 @@ int connection_verify_version(struct connection *conn,
 	    strcmp(args[0], "VERSION") != 0 ||
 	    str_to_uint(args[2], &recv_major_version) < 0 ||
 	    str_to_uint(args[3], &conn->minor_version) < 0) {
-		i_error("%s didn't reply with a valid VERSION line: %s",
-			conn->name, t_strarray_join(args, "\t"));
+		e_error(conn->event, "didn't reply with a valid VERSION line: %s",
+			t_strarray_join(args, "\t"));
 		return -1;
 	}
 
 	if (strcmp(args[1], conn->list->set.service_name_in) != 0) {
-		i_error("%s: Connected to wrong socket type. "
-			"We want '%s', but received '%s'", conn->name,
+		e_error(conn->event, "Connected to wrong socket type. "
+			"We want '%s', but received '%s'",
 			conn->list->set.service_name_in, args[1]);
 		return -1;
 	}
 
 	if (recv_major_version != conn->list->set.major_version) {
-		i_error("%s: Socket supports major version %u, "
+		e_error(conn->event, "Socket supports major version %u, "
 			"but we support only %u (mixed old and new binaries?)",
-			conn->name, recv_major_version,
-			conn->list->set.major_version);
+			recv_major_version, conn->list->set.major_version);
 		return -1;
 	}
 	return 0;
@@ -113,7 +112,7 @@ int connection_input_line_default(struct connection *conn, const char *line)
 		return 1;
 	}
 	if (args[0] == NULL && !conn->list->set.allow_empty_args_input) {
-		i_error("%s: Unexpectedly received empty line", conn->name);
+		e_error(conn->event, "Unexpectedly received empty line");
 		return -1;
 	}
 
@@ -180,6 +179,7 @@ static void connection_init_streams(struct connection *conn)
 					  connection_idle_timeout, conn);
 	}
 	if (set->major_version != 0 && !set->dont_send_version) {
+		e_debug(conn->event, "Sending version handshake");
 		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"VERSION\t%s\t%u\t%u\n", set->service_name_out,
 			set->major_version, set->minor_version));
@@ -208,6 +208,11 @@ static void connection_client_connected(struct connection *conn, bool success)
 
 	conn->connect_finished = ioloop_timeval;
 	event_add_timeval(conn->event, "connect_finished_time", &ioloop_timeval);
+
+	if (success)
+		e_debug(e->event(), "Client connected (fd=%d)", conn->fd_in);
+	else
+		e_debug(e->event(), "Client connection failed (fd=%d)", conn->fd_in);
 
 	if (success)
 		connection_init_streams(conn);
@@ -373,6 +378,8 @@ int connection_client_connect(struct connection *conn)
 	i_assert(conn->list->set.client);
 	i_assert(conn->fd_in == -1);
 
+	e_debug(conn->event, "Connecting");
+
 	if (conn->port != 0) {
 		fd = net_connect_ip(&conn->ip, conn->port,
 			(conn->my_ip.family != 0 ? &conn->my_ip : NULL));
@@ -389,6 +396,8 @@ int connection_client_connect(struct connection *conn)
 	    conn->list->set.delayed_unix_client_connected_callback) {
 		conn->io = io_add_to(conn->ioloop, conn->fd_out, IO_WRITE,
 				     connection_socket_connected, conn);
+		e_debug(conn->event, "Waiting for connect (fd=%d) to finish for max %u msecs",
+			fd, set->client_connect_timeout_msecs);
 		if (set->client_connect_timeout_msecs != 0) {
 			conn->to = timeout_add_to(conn->ioloop,
 						  set->client_connect_timeout_msecs,
@@ -411,6 +420,20 @@ static void connection_update_counters(struct connection *conn)
 void connection_disconnect(struct connection *conn)
 {
 	connection_update_counters(conn);
+	/* client connects to a Server, and Server gets connection from Client */
+	const char *ename = conn->list->set.client ?
+		"server_connection_disconnected" :
+		"client_connection_disconnected";
+
+	/* probably isn't connected anymore if it's 0 */
+	if (conn->fd_in > 0) {
+		struct event_passthrough *e = event_create_passthrough(conn->event)->
+			set_name(ename)->
+			add_str("reason", connection_disconnect_reason(conn));
+		e_debug(e->event(), "Disconnected: %s (fd=%u)",
+			connection_disconnect_reason(conn), conn->fd_in);
+	}
+
 	conn->last_input = 0;
 	i_zero(&conn->last_input_tv);
 	timeout_remove(&conn->to);
