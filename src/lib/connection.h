@@ -72,6 +72,8 @@ struct connection_settings {
 	/* If connect() to UNIX socket fails with EAGAIN, retry for this many
 	   milliseconds before giving up (0 = try once) */
 	unsigned int unix_client_connect_msecs;
+	/* Turn on debug logging */
+	bool debug;
 };
 
 struct connection {
@@ -90,6 +92,10 @@ struct connection {
 	struct timeval last_input_tv;
 	struct timeval connect_started;
 	struct timeval connect_finished;
+
+	/* set to parent event before calling init */
+	struct event *event_parent;
+	struct event *event;
 
 	/* for IP client: */
 	struct ip_addr ip, my_ip;
