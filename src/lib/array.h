@@ -254,6 +254,18 @@ array_get_i(const struct array *array, unsigned int *count_r)
 #define array_get(array, count) \
 	ARRAY_TYPE_CAST_CONST(array)array_get_i(&(array)->arr, count)
 
+static inline void *
+array_get_copy_i(const struct array *array, pool_t pool, unsigned int *count_r)
+{
+	*count_r = array_count_i(array);
+	if (array->buffer->used == 0)
+		return NULL;
+	return p_memdup(pool, array->buffer->data, array->buffer->used);
+}
+#define array_get_copy(array, pool, count) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+		array_get_copy_i(&(array)->arr, pool, count)
+
 /* Re: i_assert() vs. pure: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=51971#c1 */
 static inline const void * ATTR_PURE
 array_idx_i(const struct array *array, unsigned int idx)
