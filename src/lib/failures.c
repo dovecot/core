@@ -32,6 +32,11 @@ const char *failure_log_type_names[LOG_TYPE_COUNT] = {
 	"debug", "info", "warning", "error", "fatal", "panic"
 };
 
+static int log_fd_write(int fd, const unsigned char *data, size_t len);
+
+static void error_handler_real(const struct failure_context *ctx,
+			    const char *format, va_list args);
+
 /* Initialize working defaults */
 static failure_callback_t *fatal_handler ATTR_NORETURN =
 	default_fatal_handler;
@@ -51,6 +56,7 @@ static char *log_prefix = NULL;
 static char *log_stamp_format = NULL, *log_stamp_format_suffix = NULL;
 static bool failure_ignore_errors = FALSE, log_prefix_sent = FALSE;
 static bool coredump_on_error = FALSE;
+static void log_prefix_add(const struct failure_context *ctx, string_t *str);
 
 typedef int (*failure_write_to_file_t)(enum log_type type, string_t *data, size_t prefix_len);
 typedef string_t *(*failure_format_str_t)(const struct failure_context *ctx,
@@ -58,6 +64,64 @@ typedef string_t *(*failure_format_str_t)(const struct failure_context *ctx,
 				  va_list args);
 typedef void (*failure_on_handler_failure_t)(const struct  failure_context *ctx);
 typedef void (*failure_post_handler_t)(const struct  failure_context *ctx);
+
+static string_t * ATTR_FORMAT(3, 0) default_format(const struct failure_context *ctx,
+						   size_t *prefix_len_r ATTR_UNUSED,
+						   const char *format,
+						   va_list args)
+{
+	string_t *str = t_str_new(256);
+	log_prefix_add(ctx, str);
+	str_append(str, failure_log_type_prefixes[ctx->type]);
+
+	/* make sure there's no %n in there and fix %m */
+	str_vprintfa(str, printf_format_fix(format), args);
+	str_append_c(str, '\n');
+	return str;
+}
+
+static int default_write(enum log_type type, string_t *data, size_t prefix_len ATTR_UNUSED)
+{
+	int fd;
+
+	switch (type) {
+	case LOG_TYPE_DEBUG:
+		fd = log_debug_fd;
+		break;
+	case LOG_TYPE_INFO:
+		fd = log_info_fd;
+		break;
+	default:
+		fd = log_fd;
+		break;
+	}
+	return log_fd_write(fd, str_data(data), str_len(data));
+}
+
+static void default_on_handler_failure(const struct failure_context *ctx)
+{
+	const char *log_type = "info";
+	switch (ctx->type) {
+	case LOG_TYPE_DEBUG:
+		log_type = "debug";
+		/* fall through */
+	case LOG_TYPE_INFO:
+		/* we failed to log to info/debug log, try to log the
+		   write error to error log - maybe that'll work. */
+		i_fatal_status(FATAL_LOGWRITE, "write() failed to %s log: %m",
+			       log_type);
+		break;
+	default:
+		failure_exit(FATAL_LOGWRITE);
+		break;
+	}
+}
+
+static void default_post_handler(const struct failure_context *ctx)
+{
+	if (ctx->type == LOG_TYPE_ERROR && coredump_on_error)
+		abort();
+}
 
 
 struct failure_handler_vfuncs {
@@ -71,6 +135,48 @@ struct failure_handler_config {
 	int fatal_err_reset;
 	struct failure_handler_vfuncs *v;
 };
+
+struct failure_handler_vfuncs default_handler_vfuncs = { .write = &default_write,
+							 .format = &default_format,
+							 .on_handler_failure = &default_on_handler_failure,
+							 .post_handler = &default_post_handler };
+
+struct failure_handler_config handler_config = { .fatal_err_reset = FATAL_LOGWRITE,
+						 .v = &default_handler_vfuncs };
+
+static int common_handler(const struct failure_context *ctx,
+			  const char *format, va_list args)
+{
+	static int recursed = 0;
+	int ret;
+	size_t prefix_len = 0;
+
+	if (recursed >= 2) {
+		/* we're being called from some signal handler or we ran
+		   out of memory */
+		return -1;
+	}
+	recursed++;
+
+	T_BEGIN {
+		string_t *str = handler_config.v->format(ctx, &prefix_len, format, args);
+		ret = handler_config.v->write(ctx->type, str, prefix_len);
+	} T_END;
+
+	if (ret < 0 && failure_ignore_errors)
+		ret = 0;
+
+	recursed--;
+	return ret;
+}
+
+static void error_handler_real(const struct failure_context *ctx,
+			 const char *format, va_list args)
+{
+	if (common_handler(ctx, format, args) < 0)
+		handler_config.v->on_handler_failure(ctx);
+	handler_config.v->post_handler(ctx);
+}
 
 static void ATTR_FORMAT(2, 0)
 i_internal_error_handler(const struct failure_context *ctx,
@@ -215,39 +321,6 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 	return failed ? -1 : 0;
 }
 
-static int ATTR_FORMAT(3, 0)
-default_handler(const struct failure_context *ctx, int fd,
-		const char *format, va_list args)
-{
-	static int recursed = 0;
-	int ret;
-
-	if (recursed >= 2) {
-		/* we're being called from some signal handler or we ran
-		   out of memory */
-		return -1;
-	}
-
-	recursed++;
-	T_BEGIN {
-		string_t *str = t_str_new(256);
-		log_prefix_add(ctx, str);
-		str_append(str, failure_log_type_prefixes[ctx->type]);
-
-		/* make sure there's no %n in there and fix %m */
-		str_vprintfa(str, printf_format_fix(format), args);
-		str_append_c(str, '\n');
-
-		ret = log_fd_write(fd, str_data(str), str_len(str));
-	} T_END;
-
-	if (ret < 0 && failure_ignore_errors)
-		ret = 0;
-
-	recursed--;
-	return ret;
-}
-
 static void ATTR_NORETURN
 default_fatal_finish(enum log_type type, int status)
 {
@@ -269,44 +342,30 @@ default_fatal_finish(enum log_type type, int status)
 		failure_exit(status);
 }
 
+static void ATTR_NORETURN fatal_handler_real(const struct failure_context *ctx,
+			    const char *format, va_list args)
+{
+	int status = ctx->exit_status;
+	if (common_handler(ctx, format, args) < 0 &&
+	    status == FATAL_DEFAULT)
+		status = handler_config.fatal_err_reset;
+	default_fatal_finish(ctx->type, status);
+}
+
 void default_fatal_handler(const struct failure_context *ctx,
 			   const char *format, va_list args)
 {
-	int status = ctx->exit_status;
-
-	if (default_handler(ctx, log_fd, format, args) < 0 &&
-	    status == FATAL_DEFAULT)
-		status = FATAL_LOGWRITE;
-
-	default_fatal_finish(ctx->type, status);
+	handler_config.v = &default_handler_vfuncs;
+	handler_config.fatal_err_reset = FATAL_LOGWRITE;
+	fatal_handler_real(ctx, format, args);
 }
 
 void default_error_handler(const struct failure_context *ctx,
 			   const char *format, va_list args)
 {
-	int fd;
-
-	switch (ctx->type) {
-	case LOG_TYPE_DEBUG:
-		fd = log_debug_fd;
-		break;
-	case LOG_TYPE_INFO:
-		fd = log_info_fd;
-		break;
-	default:
-		fd = log_fd;
-	}
-
-	if (default_handler(ctx, fd, format, args) < 0) {
-		if (fd == log_fd)
-			failure_exit(FATAL_LOGWRITE);
-		/* we failed to log to info/debug log, try to log the
-		   write error to error log - maybe that'll work. */
-		i_fatal_status(FATAL_LOGWRITE, "write() failed to %s log: %m",
-			       fd == log_info_fd ? "info" : "debug");
-	}
-	if (ctx->type == LOG_TYPE_ERROR && coredump_on_error)
-		abort();
+	handler_config.v = &default_handler_vfuncs;
+	handler_config.fatal_err_reset = FATAL_LOGWRITE;
+	error_handler_real(ctx, format, args);
 }
 
 void i_log_type(const struct failure_context *ctx, const char *format, ...)
