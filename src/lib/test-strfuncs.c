@@ -395,7 +395,7 @@ test_str_match(void)
 		test_assert_idx(str_match(tests[i].s1, tests[i].s2) == tests[i].match, i);
 	test_end();
 
-	test_begin("i_strbegins");
+	test_begin("str_begins");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		/* This is just 2 ways of wording the same test, but that also
 		   sanity tests the match values above. */
