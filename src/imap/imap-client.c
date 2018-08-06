@@ -785,7 +785,13 @@ client_command_find_with_flags(struct client_command_context *new_cmd,
 
 	cmd = new_cmd->client->command_queue;
 	for (; cmd != NULL; cmd = cmd->next) {
-		if (cmd->state <= max_state &&
+		/* The tagline_sent check is a bit kludgy here. Plugins may
+		   hook into sync_notify_more() and send the tagline before
+		   finishing the command. During this stage the state was been
+		   dropped from _WAIT_SYNC to _WAIT_OUTPUT, so the <= max_state
+		   check doesn't work correctly here. (Perhaps we should add
+		   a new _WAIT_SYNC_OUTPUT?) */
+		if (cmd->state <= max_state && !cmd->tagline_sent &&
 		    cmd != new_cmd && (cmd->cmd_flags & flags) != 0)
 			return cmd;
 	}
