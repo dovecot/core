@@ -183,6 +183,7 @@ static const char *find_next_secret(const char *input, const char **secret_r)
 {
 	const char *const *secret;
 	const char *ptr = NULL;
+	*secret_r = NULL;
 	for(secret = secrets; *secret != NULL; secret++) {
 		const char *cptr;
 		if ((cptr = strstr(input, *secret)) != NULL) {
@@ -192,6 +193,7 @@ static const char *find_next_secret(const char *input, const char **secret_r)
 			}
 		}
 	}
+	i_assert(*secret_r != NULL || ptr == NULL);
 	return ptr;
 }
 
