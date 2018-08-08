@@ -315,7 +315,7 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h \
   quota.h sys/fs/quota_common.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
   xfs/xqm.h execinfo.h ucontext.h malloc_np.h sys/utsname.h sys/vmount.h \
-  sys/utsname.h glob.h linux/falloc.h ucred.h sys/ucred.h)
+  sys/utsname.h glob.h linux/falloc.h ucred.h sys/ucred.h crypt.h)
 
 CC_CLANG
 AC_CC_PIE
