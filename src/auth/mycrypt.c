@@ -14,6 +14,9 @@
 #  define _XPG6 /* Some Solaris versions require this, some break with this */
 #endif
 #include <unistd.h>
+#ifdef HAVE_CRYPT_H
+# include <crypt.h>
+#endif
 
 #include "mycrypt.h"
 
