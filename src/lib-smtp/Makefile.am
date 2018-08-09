@@ -84,6 +84,10 @@ test_nocheck_programs =
 
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
+EXTRA_DIST = \
+	test-bin/sendmail-exit-1.sh \
+	test-bin/sendmail-success.sh
+
 test_libs = \
 	$(noinst_LTLIBRARIES) \
 	../lib-program-client/libprogram_client.la \
