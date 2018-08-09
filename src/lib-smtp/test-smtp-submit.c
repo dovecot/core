@@ -2144,6 +2144,7 @@ static void test_atexit(void)
 int main(int argc, char *argv[])
 {
 	int c;
+	int ret;
 
 	atexit(test_atexit);
 	(void)signal(SIGCHLD, SIG_IGN);
@@ -2173,7 +2174,9 @@ int main(int argc, char *argv[])
 	bind_ip.family = AF_INET;
 	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);
 
-	test_run(test_functions);
+	ret = test_run(test_functions);
 
 	master_service_deinit(&master_service);
+
+	return ret;
 }

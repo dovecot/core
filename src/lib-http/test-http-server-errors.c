@@ -892,5 +892,5 @@ int main(int argc, char *argv[])
 	bind_ip.family = AF_INET;
 	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);	
 
-	test_run(test_functions);
+	return test_run(test_functions);
 }
