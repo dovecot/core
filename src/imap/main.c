@@ -297,6 +297,8 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 			       event, mail_user, user, imap_set, smtp_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
+	client->secured = input->conn_secured;
+	client->ssl_secured = input->conn_ssl_secured;
 	event_unref(&event);
 	*client_r = client;
 	return 0;
