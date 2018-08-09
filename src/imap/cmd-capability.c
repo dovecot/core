@@ -7,7 +7,7 @@
 bool cmd_capability(struct client_command_context *cmd)
 {
 	client_send_line(cmd->client, t_strconcat(
-		"* CAPABILITY ", str_c(cmd->client->capability_string), NULL));
+		"* CAPABILITY ", client_get_capability(cmd->client), NULL));
 
 	client_send_tagline(cmd, "OK Capability completed.");
 	return TRUE;

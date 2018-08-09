@@ -169,7 +169,7 @@ struct client {
 	struct mail_storage_service_user *service_user;
 	const struct imap_settings *set;
 	const struct smtp_submit_settings *smtp_set;
-	string_t *capability_string;
+	struct imap_capability_list *capability_list;
 	const char *disconnect_reason;
 
         struct mail_user *user;
@@ -287,6 +287,9 @@ void client_disconnect_with_error(struct client *client,
 /* Add the given capability to the CAPABILITY reply. If imap_capability setting
    has an explicit capability, nothing is changed. */
 void client_add_capability(struct client *client, const char *capability);
+
+/* Generate the string of capabilities from the client */
+const char *client_get_capability(struct client *client);
 
 /* Send a line of data to client. */
 void client_send_line(struct client *client, const char *data);
