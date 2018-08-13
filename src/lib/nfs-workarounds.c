@@ -150,6 +150,17 @@ static void nfs_flush_chown_uid(const char *path)
 
 #ifdef ATTRCACHE_FLUSH_CHOWN_UID_1
 	uid = (uid_t)-1;
+	if (chown(path, uid, (gid_t)-1) < 0) {
+		if (errno == ESTALE || errno == EPERM || errno == ENOENT) {
+			/* attr cache is flushed */
+			return;
+		}
+		if (likely(errno == ENOENT)) {
+			nfs_flush_file_handle_cache_parent_dir(path);
+			return;
+		}
+		i_error("nfs_flush_chown_uid: chown(%s) failed: %m", path);
+	}
 #else
 	struct stat st;
 
@@ -167,7 +178,6 @@ static void nfs_flush_chown_uid(const char *path)
 		i_error("nfs_flush_chown_uid: stat(%s) failed: %m", path);
 		return;
 	}
-#endif
 	if (chown(path, uid, (gid_t)-1) < 0) {
 		if (errno == ESTALE || errno == EPERM || errno == ENOENT) {
 			/* attr cache is flushed */
@@ -179,6 +189,7 @@ static void nfs_flush_chown_uid(const char *path)
 		}
 		i_error("nfs_flush_chown_uid: chown(%s) failed: %m", path);
 	}
+#endif
 }
 
 #ifdef __FreeBSD__
