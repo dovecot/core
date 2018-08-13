@@ -2668,7 +2668,7 @@ test_client_peer_reuse_failure_response2(
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
+	test_assert((resp->status / 100) > 2);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 	i_free(ctx);
 	io_loop_stop(ioloop);
