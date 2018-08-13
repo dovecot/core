@@ -178,8 +178,10 @@ static void nfs_flush_chown_uid(const char *path)
 		i_error("nfs_flush_chown_uid: stat(%s) failed: %m", path);
 		return;
 	}
-	if (chown(path, uid, (gid_t)-1) < 0) {
-		if (errno == ESTALE || errno == EPERM || errno == ENOENT) {
+	/* we use chmod for this operation since chown has been seen to drop S_UID
+	   and S_GID bits from directory inodes in certain conditions */
+	if (chmod(path, st.st_mode & 07777) < 0) {
+		if (errno == EPERM) {
 			/* attr cache is flushed */
 			return;
 		}
@@ -187,7 +189,8 @@ static void nfs_flush_chown_uid(const char *path)
 			nfs_flush_file_handle_cache_parent_dir(path);
 			return;
 		}
-		i_error("nfs_flush_chown_uid: chown(%s) failed: %m", path);
+		i_error("nfs_flush_chown_uid: chmod(%s, %04o) failed: %m",
+				path, st.st_mode & 07777);
 	}
 #endif
 }
