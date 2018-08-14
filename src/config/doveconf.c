@@ -239,6 +239,14 @@ hide_url_userpart_from_value(struct ostream *output, const char **_ptr,
 	return TRUE;
 }
 
+static inline bool key_ends_with(const char *key, const char *eptr,
+				 const char *suffix)
+{
+	/* take = into account */
+	size_t n = strlen(suffix)+1;
+	return (eptr-key > (ptrdiff_t)n && str_begins(eptr-n, suffix));
+}
+
 static bool
 hide_secrets_from_value(struct ostream *output, const char *key,
 			const char *value)
@@ -246,10 +254,10 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 	bool ret = FALSE, quote = value_need_quote(value);
 	const char *ptr, *optr, *secret;
 	if (*value != '\0' &&
-	    ((value-key > 8 && strncmp(value-9, "_password", 8) == 0) ||
-	     (value-key > 7 && strncmp(value-8, "_api_key", 7) == 0) ||
-	     strncmp(key, "ssl_key",7) == 0 ||
-	     strncmp(key, "ssl_dh",6) == 0)) {
+	    (key_ends_with(key, value, "_password") ||
+	     key_ends_with(key, value, "_api_key") ||
+	     str_begins(key, "ssl_key") ||
+	     str_begins(key, "ssl_dh"))) {
 		o_stream_nsend_str(output, "# hidden, use -P to show it");
 		return TRUE;
 	}
