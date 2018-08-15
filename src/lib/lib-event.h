@@ -182,6 +182,10 @@ struct event *
 event_add_str(struct event *event, const char *key, const char *value);
 struct event *
 event_add_int(struct event *event, const char *key, intmax_t num);
+/* Increase the key's value. If it's not set or isn't an integer type,
+   initialize the value to num. */
+struct event *
+event_inc_int(struct event *event, const char *key, intmax_t num);
 struct event *
 event_add_timeval(struct event *event, const char *key,
 		  const struct timeval *tv);
