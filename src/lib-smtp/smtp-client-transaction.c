@@ -550,6 +550,8 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 	rcpt_callback(reply, context);
 
 	if (trans->data_provided && array_count(&trans->rcpts_pending) == 0) {
+		smtp_client_transaction_debug(trans, "Got all RCPT replies");
+
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_DATA;
 
 		if (array_count(&trans->rcpts) == 0) {
@@ -746,6 +748,9 @@ void smtp_client_transaction_send(
 	smtp_client_command_callback_t *data_callback, void *data_context)
 {
 	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
+
+	if (array_count(&trans->rcpts_pending) == 0)
+		smtp_client_transaction_debug(trans, "Got all RCPT replies");
 
 	smtp_client_transaction_debug(trans, "Send");
 
