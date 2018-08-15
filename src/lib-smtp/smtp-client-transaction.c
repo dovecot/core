@@ -216,6 +216,9 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 	struct smtp_client_transaction_rcpt **rcpts;
 	unsigned int i, count;
 
+	if (trans->failing)
+		return;
+
 	smtp_client_transaction_debug(trans, "Abort");
 
 	/* clean up */
@@ -313,6 +316,8 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		reply = trans->failure;
 	i_assert(reply != NULL);
 
+	trans->failing = TRUE;
+
 	smtp_client_transaction_debug(trans,
 		"Returning failure: %s", smtp_reply_log(reply));
 
@@ -385,6 +390,8 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED)
 		smtp_client_command_abort(&trans->cmd_plug);
 	trans->cmd_plug = NULL;
+
+	trans->failing = FALSE;
 
 	if (trans->data_provided) {
 		/* abort the transaction only if smtp_client_transaction_send()
