@@ -2532,6 +2532,268 @@ static void test_authentication_failed(void)
 }
 
 /*
+ * Transaction timeout
+ */
+
+/* server */
+
+static int
+test_transaction_timeout_input_line(struct server_connection *conn,
+	const char *line ATTR_UNUSED)
+{
+	switch (conn->state) {
+	case SERVER_CONNECTION_STATE_EHLO:
+		break;
+	case SERVER_CONNECTION_STATE_MAIL_FROM:
+		if (server_index == 0)
+			sleep(20);
+		break;
+	case SERVER_CONNECTION_STATE_RCPT_TO:
+		if (server_index == 1)
+			sleep(20);
+		break;
+	case SERVER_CONNECTION_STATE_DATA:
+		if (server_index == 2)
+			sleep(20);
+		break;
+	case SERVER_CONNECTION_STATE_FINISH:
+		break;
+	}
+	return 0;
+}
+
+static void test_server_transaction_timeout(unsigned int index)
+{
+	test_server_input_line = test_transaction_timeout_input_line;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _transaction_timeout {
+	unsigned int count;
+};
+
+struct _transaction_timeout_peer {
+	struct _transaction_timeout *context;
+	unsigned int index;
+
+	struct smtp_client_connection *conn;
+	struct smtp_client_transaction *trans;
+	struct timeout *to;
+
+	bool login_callback:1;
+	bool mail_from_callback:1;
+	bool rcpt_to_callback:1;
+	bool rcpt_data_callback:1;
+	bool data_callback:1;
+};
+
+static void
+test_client_transaction_timeout_mail_from_cb(const struct smtp_reply *reply,
+	struct _transaction_timeout_peer *pctx)
+{
+	if (debug)
+		i_debug("MAIL FROM REPLY[%u]: %s", pctx->index, smtp_reply_log(reply));
+
+	pctx->mail_from_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0:
+		test_assert(reply->status == 451);
+		break;
+	case 1: case 2: case 3:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	}
+}
+
+static void
+test_client_transaction_timeout_rcpt_to_cb(const struct smtp_reply *reply,
+	struct _transaction_timeout_peer *pctx)
+{
+	if (debug)
+		i_debug("RCPT TO REPLY[%u]: %s", pctx->index, smtp_reply_log(reply));
+
+	pctx->rcpt_to_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0: case 1:
+		test_assert(reply->status == 451);
+		break;
+	case 2: case 3:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	}
+}
+
+static void
+test_client_transaction_timeout_rcpt_data_cb(const struct smtp_reply *reply,
+	struct _transaction_timeout_peer *pctx)
+{
+	if (debug)
+		i_debug("RCPT DATA REPLY[%u]: %s", pctx->index, smtp_reply_log(reply));
+
+	pctx->rcpt_data_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0: case 1:
+		i_unreached();
+	case 2:
+		test_assert(reply->status == 451);
+		break;
+	case 3:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	}
+}
+
+static void
+test_client_transaction_timeout_data_cb(const struct smtp_reply *reply,
+	struct _transaction_timeout_peer *pctx)
+{
+	if (debug)
+		i_debug("DATA REPLY[%u]: %s", pctx->index, smtp_reply_log(reply));
+
+	pctx->data_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0: case 1: case 2:
+		test_assert(reply->status == 451);
+		break;
+	case 3:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	}
+}
+
+static void
+test_client_transaction_timeout_finished(struct _transaction_timeout_peer *pctx)
+{
+	struct _transaction_timeout *ctx = pctx->context;
+
+	if (debug)
+		i_debug("FINISHED[%u]", pctx->index);
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+
+	switch (pctx->index) {
+	case 0: case 1:
+		test_assert(pctx->mail_from_callback);
+		test_assert(pctx->rcpt_to_callback);
+		test_assert(!pctx->rcpt_data_callback);
+		test_assert(pctx->data_callback);
+		break;
+	case 2: case 3:
+		test_assert(pctx->mail_from_callback);
+		test_assert(pctx->rcpt_to_callback);
+		test_assert(pctx->rcpt_data_callback);
+		test_assert(pctx->data_callback);
+		break;
+	}
+
+	pctx->trans = NULL;
+	timeout_remove(&pctx->to);
+	i_free(pctx);
+}
+
+static void
+test_client_transaction_timeout_submit2(struct _transaction_timeout_peer *pctx)
+{
+	struct smtp_client_transaction *strans = pctx->trans;
+	static const char *message =
+		"From: stephan@example.com\r\n"
+		"To: timo@example.com\r\n"
+		"Subject: Frop!\r\n"
+		"\r\n"
+		"Frop!\r\n";
+	struct istream *input;
+
+	timeout_remove(&pctx->to);
+
+	input = i_stream_create_from_data(message, strlen(message));
+	i_stream_set_name(input, "message");
+
+	smtp_client_transaction_send
+		(strans, input, test_client_transaction_timeout_data_cb, pctx);
+	i_stream_unref(&input);
+}
+
+static void
+test_client_transaction_timeout_submit1(struct _transaction_timeout_peer *pctx)
+{
+	timeout_remove(&pctx->to);
+
+	smtp_client_transaction_add_rcpt(pctx->trans,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"), NULL,
+		test_client_transaction_timeout_rcpt_to_cb,
+		test_client_transaction_timeout_rcpt_data_cb, pctx);
+
+	pctx->to = timeout_add_short(500,
+		test_client_transaction_timeout_submit2, pctx);
+}
+
+static void
+test_client_transaction_timeout_submit(struct _transaction_timeout *ctx,
+	unsigned int index)
+{
+	struct _transaction_timeout_peer *pctx;
+
+	pctx = i_new(struct _transaction_timeout_peer, 1);
+	pctx->context = ctx;
+	pctx->index = index;
+
+	pctx->conn = smtp_client_connection_create(smtp_client,
+		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
+		SMTP_CLIENT_SSL_MODE_NONE, NULL);
+	pctx->trans = smtp_client_transaction_create(pctx->conn,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL,
+		test_client_transaction_timeout_finished, pctx);
+	smtp_client_transaction_set_timeout(pctx->trans, 1000);
+	smtp_client_transaction_start(pctx->trans,
+		test_client_transaction_timeout_mail_from_cb, pctx);
+	smtp_client_connection_unref(&pctx->conn);
+
+	pctx->to = timeout_add_short(500,
+		test_client_transaction_timeout_submit1, pctx);
+}
+
+static bool
+test_client_transaction_timeout(
+	const struct smtp_client_settings *client_set)
+{
+	struct _transaction_timeout *ctx;
+	unsigned int i;
+
+	ctx = i_new(struct _transaction_timeout, 1);
+	ctx->count = 4;
+
+	smtp_client = smtp_client_init(client_set);
+
+	for (i = 0; i < ctx->count; i++)
+		test_client_transaction_timeout_submit(ctx, i);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_transaction_timeout(void)
+{
+	struct smtp_client_settings smtp_client_set;
+
+	test_client_defaults(&smtp_client_set);
+
+	test_begin("transaction timeout");
+	test_run_client_server(&smtp_client_set,
+		test_client_transaction_timeout,
+		test_server_transaction_timeout, 6, NULL);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -2555,6 +2817,7 @@ static void (*const test_functions[])(void) = {
 	test_dns_timeout,
 	test_dns_lookup_failure,
 	test_authentication_failed,
+	test_transaction_timeout,
 	NULL
 };
 
