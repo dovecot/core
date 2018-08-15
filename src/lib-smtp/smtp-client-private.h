@@ -186,9 +186,11 @@ struct smtp_client_connection {
 	/* commands pending in queue to be sent */
 	struct smtp_client_command *cmd_send_queue_head, *cmd_send_queue_tail;
 	unsigned int cmd_send_queue_count;
-	/* commands that have been sent, waiting for response */
+	/* commands that have been (mostly) sent, waiting for response */
 	struct smtp_client_command *cmd_wait_list_head, *cmd_wait_list_tail;
 	unsigned int cmd_wait_list_count;
+	/* command sending data stream */
+	struct smtp_client_command *cmd_streaming;
 
 	/* active transactions */
 	struct smtp_client_transaction *transactions_head, *transactions_tail;

@@ -1091,20 +1091,32 @@ smtp_client_connection_input_reply(struct smtp_client_connection *conn,
 		return 1;
 	}
 
+	if (reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED) {
+		smtp_client_connection_fail_reply(conn, reply);
+		return -1;
+	}
+
 	/* unexpected reply? */
 	if (conn->cmd_wait_list_head == NULL) {
 		smtp_client_connection_debug(conn,
 			"Unexpected reply: %s", smtp_reply_log(reply));
+		smtp_client_connection_fail(conn,
+			SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
+			"Got unexpected reply");
+		return -1;
+	}
 
-		if (reply->status ==
-			SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED) {
-			smtp_client_connection_fail_reply(conn, reply);
-		} else {
+	/* replied early? */
+	if (conn->cmd_wait_list_head == conn->cmd_streaming &&
+	    !conn->cmd_wait_list_head->stream_finished) {
+		smtp_client_connection_debug(conn,
+			"Early reply: %s", smtp_reply_log(reply));
+		if (smtp_reply_is_success(reply)) {
 			smtp_client_connection_fail(conn,
 				SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
-				"Got unexpected reply");
+				"Got early success reply");
+			return -1;
 		}
-		return -1;
 	}
 
 	/* command reply */
@@ -1815,6 +1827,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 			SMTP_CLIENT_COMMAND_ERROR_ABORTED,
 			"Disconnected from server");
 	}
+	conn->cmd_streaming = NULL;
 }
 
 static struct smtp_client_connection *
