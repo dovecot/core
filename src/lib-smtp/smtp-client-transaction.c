@@ -661,7 +661,8 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 	smtp_client_transaction_ref(trans);
 
 	rcpt = array_get_modifiable(&trans->rcpts, &count);
-	if (trans->rcpt_next_data_idx == 0 && count > 0) 
+	if (trans->cmd_data != NULL && /* NULL when failed early */
+	    trans->rcpt_next_data_idx == 0 && count > 0)
 		smtp_client_command_set_replies(trans->cmd_data, count);
 	for (i = trans->rcpt_next_data_idx; i < count; i++) {
 		trans->rcpt_next_data_idx = i + 1;
