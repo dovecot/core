@@ -103,6 +103,7 @@ struct smtp_client_transaction {
 
 	bool data_provided:1;
 	bool finished:1;
+	bool failing:1;
 	bool submitted_data:1;
 };
 
