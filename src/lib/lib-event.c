@@ -420,6 +420,19 @@ event_add_int(struct event *event, const char *key, intmax_t num)
 }
 
 struct event *
+event_inc_int(struct event *event, const char *key, intmax_t num)
+{
+	struct event_field *field;
+
+	field = event_find_field_int(event, key);
+	if (field == NULL || field->value_type != EVENT_FIELD_VALUE_TYPE_INTMAX)
+		return event_add_int(event, key, num);
+
+	field->value.intmax += num;
+	return event;
+}
+
+struct event *
 event_add_timeval(struct event *event, const char *key,
 		  const struct timeval *tv)
 {
