@@ -549,10 +549,11 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 
 	rcpt_callback(reply, context);
 
-	/* abort DATA command if all recipients failed */
-	if (trans->cmd_data != NULL &&
-		array_count(&trans->rcpts_pending) == 0) {
+	if (trans->data_provided && array_count(&trans->rcpts_pending) == 0) {
+		trans->state = SMTP_CLIENT_TRANSACTION_STATE_DATA;
+
 		if (array_count(&trans->rcpts) == 0) {
+			/* abort transaction if all recipients failed */
 			smtp_client_transaction_abort(trans);
 		} else if (conn->protocol == SMTP_PROTOCOL_LMTP) {
 			smtp_client_command_set_replies(trans->cmd_data,
@@ -631,6 +632,8 @@ void smtp_client_transaction_add_rcpt(
 
 	smtp_client_transaction_debug(trans, "Add recipient");
 
+	i_assert(!trans->data_provided);
+
 	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
 
 	if (trans->cmd_mail_from == NULL &&
@@ -700,8 +703,6 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 
 	timeout_remove(&trans->to_send);
 
-	trans->state = SMTP_CLIENT_TRANSACTION_STATE_DATA;
-
 	if (trans->failure != NULL) {
 		smtp_client_transaction_fail_reply(trans, trans->failure);
 		finished = TRUE;
@@ -719,6 +720,7 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 		smtp_client_command_unlock(trans->cmd_last);
 
 		if (array_count(&trans->rcpts_pending) == 0) {
+			trans->state = SMTP_CLIENT_TRANSACTION_STATE_DATA;
 			smtp_client_command_set_replies(trans->cmd_data,
 			array_count(&trans->rcpts));
 		}
