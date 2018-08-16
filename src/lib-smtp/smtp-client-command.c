@@ -529,12 +529,39 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 	i_unreached();
 }
 
-static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
+static int
+smtp_client_command_send_line(struct smtp_client_command *cmd)
 {
-	struct smtp_client_command *cmd;
+	struct smtp_client_connection *conn = cmd->conn;
 	const char *data;
 	size_t size;
 	ssize_t sent;
+
+	if (cmd->data == NULL)
+		return 1;
+
+	while (cmd->send_pos < cmd->data->used) {
+		data = CONST_PTR_OFFSET(cmd->data->data, cmd->send_pos);
+		size = cmd->data->used - cmd->send_pos;
+		if ((sent=o_stream_send(conn->conn.output, data, size)) <= 0) {
+			if (sent < 0) {
+				smtp_client_connection_handle_output_error(conn);
+				return -1;
+			}
+			smtp_client_command_debug(cmd,
+				"Blocked while sending");
+			return 0;
+		}
+		cmd->send_pos += sent;
+	}
+
+	i_assert(cmd->send_pos == cmd->data->used);
+	return 1;
+}
+
+static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
+{
+	struct smtp_client_command *cmd;
 	int ret;
 
 	for (;;) {
@@ -581,24 +608,9 @@ static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 		cmd = conn->cmd_send_queue_head;
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_SENDING;
 		conn->sending_command = TRUE;
-		if (cmd->data != NULL) {
-			while (cmd->send_pos < cmd->data->used) {
-				data = CONST_PTR_OFFSET(cmd->data->data, cmd->send_pos);
-				size = cmd->data->used - cmd->send_pos;
-				if ((sent=o_stream_send(conn->conn.output, data, size)) <= 0) {
-					if (sent < 0) {
-						smtp_client_connection_handle_output_error(conn);
-						return -1;
-					}
-					smtp_client_command_debug(cmd,
-						"Blocked while sending");
-					return 0;
-				}
-				cmd->send_pos += sent;
-			}
 
-			i_assert(cmd->send_pos == cmd->data->used);
-		}
+		if ((ret=smtp_client_command_send_line(cmd)) <= 0)
+			return ret;
 
 		if (cmd->stream != NULL &&
 			(ret=smtp_client_command_send_stream(cmd)) <= 0) {
