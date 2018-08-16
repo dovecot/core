@@ -553,6 +553,51 @@ smtp_client_command_send_line(struct smtp_client_command *cmd)
 	return 1;
 }
 
+static bool
+smtp_client_command_pipeline_is_open(struct smtp_client_connection *conn)
+{
+	struct smtp_client_command *cmd = conn->cmd_send_queue_head;
+
+	if (cmd == NULL)
+		return TRUE;
+
+	if (cmd->plug) {
+		smtp_client_command_debug(cmd, "Pipeline is plugged");
+		return FALSE;
+	}
+
+	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY &&
+	    (cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PRELOGIN) == 0) {
+		/* wait until we're fully connected */
+		smtp_client_command_debug(cmd,
+			"Connection not ready [state=%s]",
+			smtp_client_connection_state_names[conn->state]);
+		return FALSE;
+	}
+
+	cmd = conn->cmd_wait_list_head;
+	if (cmd != NULL &&
+	    (conn->caps.standard & SMTP_CAPABILITY_PIPELINING) == 0) {
+		/* cannot pipeline; wait for reply */
+		smtp_client_command_debug(cmd, "Pipeline occupied");
+		return FALSE;
+	}
+	while (cmd != NULL) {
+		if ((conn->caps.standard & SMTP_CAPABILITY_PIPELINING) == 0 ||
+		    (cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PIPELINE) == 0 ||
+		    cmd->locked) {
+			/* cannot pipeline with previous command;
+			   wait for reply */
+			smtp_client_command_debug(cmd, "Pipeline blocked");
+			return FALSE;
+		}
+		cmd = cmd->next;
+	}
+
+	cmd = conn->cmd_send_queue_head;
+	return TRUE;
+}
+
 static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 {
 	struct smtp_client_command *cmd;
@@ -560,46 +605,12 @@ static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 
 	for (;;) {
 		/* check whether we can send anything */
-
 		cmd = conn->cmd_send_queue_head;
 		if (cmd == NULL)
 			return 0;
-
-		if (cmd->plug) {
-			smtp_client_command_debug(cmd, "Pipeline is plugged");
+		if (!smtp_client_command_pipeline_is_open(conn))
 			return 0;
-		}
 
-		if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY &&
-		    (cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PRELOGIN) == 0) {
-			/* wait until we're fully connected */
-			smtp_client_command_debug(cmd,
-				"Connection not ready [state=%s]",
-				smtp_client_connection_state_names[conn->state]);
-			return 0;
-		}
-
-		cmd = conn->cmd_wait_list_head;
-		if (cmd != NULL &&
-		    (conn->caps.standard & SMTP_CAPABILITY_PIPELINING) == 0) {
-			/* cannot pipeline; wait for reply */
-			smtp_client_command_debug(cmd, "Pipeline occupied");
-			return 0;
-		}
-		while (cmd != NULL) {
-			if ((conn->caps.standard & SMTP_CAPABILITY_PIPELINING) == 0 ||
-				(cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PIPELINE) == 0 ||
-				cmd->locked) {
-				/* cannot pipeline with previous command;
-				   wait for reply */
-				smtp_client_command_debug(cmd,
-					"Pipeline blocked");
-				return 0;
-			}
-			cmd = cmd->next;
-		}
-
-		cmd = conn->cmd_send_queue_head;
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_SENDING;
 		conn->sending_command = TRUE;
 
