@@ -1618,7 +1618,7 @@ test_bad_greeting_init(struct server_connection *conn)
 	}
 	server_connection_deinit(&conn);
 	return -1;
-}	
+}
 
 static void test_server_bad_greeting(unsigned int index)
 {
