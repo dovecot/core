@@ -36,6 +36,7 @@
 #define MAX_PARALLEL_PENDING        200
 
 static bool debug = FALSE;
+static bool small_socket_buffers = FALSE;
 static const char *failure = NULL;
 
 enum test_ssl_mode {
@@ -553,7 +554,8 @@ test_client_transaction_rcpt(const struct smtp_reply *reply,
 	const char *path;
 	unsigned int count;
 
-	timeout_reset(to_client_progress);
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tctrans->files_idx < count);
@@ -576,7 +578,8 @@ test_client_transaction_rcpt_data(const struct smtp_reply *reply ATTR_UNUSED,
 	const char *path;
 	unsigned int count;
 
-	timeout_reset(to_client_progress);
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tctrans->files_idx < count);
@@ -599,7 +602,8 @@ test_client_transaction_data(const struct smtp_reply *reply,
 	const char *path;
 	unsigned int count;
 
-	timeout_reset(to_client_progress);
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	if (debug) {
 		i_debug("test client: "
@@ -639,7 +643,8 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 		i_debug("test client: continue");
 
 	timeout_remove(&client_to);
-	timeout_reset(to_client_progress);
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	paths = array_get_modifiable(&files, &count);
 
@@ -782,8 +787,10 @@ test_client(enum smtp_protocol protocol,
 {
 	client_protocol = protocol;
 
-	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
-		test_client_progress_timeout, NULL);
+	if (!small_socket_buffers) {
+		to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
+			test_client_progress_timeout, NULL);
+	}
 
 	/* create client */
 	smtp_client = smtp_client_init(client_set);
@@ -905,6 +912,15 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 	smtp_client_set.temp_path_prefix = "/tmp";
 	smtp_client_set.ssl = &ssl_client_set;
 	smtp_client_set.debug = debug;
+
+	if (small_socket_buffers) {
+		smtp_client_set.socket_send_buffer_size = 4096;
+		smtp_client_set.socket_recv_buffer_size = 4096;
+		smtp_client_set.command_timeout_msecs = 20*60*1000;
+		smtp_client_set.connect_timeout_msecs = 20*60*1000;
+		smtp_server_set.socket_send_buffer_size = 4096;
+		smtp_server_set.socket_recv_buffer_size = 4096;
+	}
 
 	test_max_pending = 1;
 	test_unknown_size = FALSE;
@@ -1069,13 +1085,16 @@ int main(int argc, char *argv[])
 	(void)signal(SIGSEGV, test_signal_handler);
 	(void)signal(SIGABRT, test_signal_handler);
 
-	while ((c = getopt(argc, argv, "D")) > 0) {
+	while ((c = getopt(argc, argv, "DS")) > 0) {
 		switch (c) {
 		case 'D':
 			debug = TRUE;
 			break;
+		case 'S':
+			small_socket_buffers = TRUE;
+			break;
 		default:
-			i_fatal("Usage: %s [-D]", argv[0]);
+			i_fatal("Usage: %s [-D][-S]", argv[0]);
 		}
 	}
 
