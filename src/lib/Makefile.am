@@ -338,6 +338,7 @@ test_lib_SOURCES = \
 	test-byteorder.c \
 	test-crc32.c \
 	test-data-stack.c \
+	test-event-filter.c \
 	test-failures.c \
 	test-file-create-locked.c \
 	test-guid.c \
