@@ -290,7 +290,7 @@ void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 	struct smtp_client_transaction *trans = *_trans;
 
 	*_trans = NULL;
-	
+
 	smtp_client_transaction_ref(trans);
 	smtp_client_transaction_abort(trans);
 
@@ -809,7 +809,7 @@ smtp_client_transaction_get_state_destription(
 		break;
 	case SMTP_CLIENT_TRANSACTION_STATE_PENDING:
 		conn_state = smtp_client_connection_get_state(trans->conn);
-		switch (conn_state) {	
+		switch (conn_state) {
 		case SMTP_CLIENT_CONNECTION_STATE_CONNECTING:
 		case SMTP_CLIENT_CONNECTION_STATE_HANDSHAKING:
 		case SMTP_CLIENT_CONNECTION_STATE_AUTHENTICATING:
