@@ -529,6 +529,11 @@ event_add_fields(struct event *event,
 	return event;
 }
 
+void event_field_clear(struct event *event, const char *key)
+{
+	event_add_str(event, key, "");
+}
+
 struct event *event_get_parent(struct event *event)
 {
 	return event->parent;
