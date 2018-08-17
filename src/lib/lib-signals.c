@@ -301,6 +301,7 @@ lib_signals_enable_delayed_hander(void)
 	if (current_ioloop != NULL) {
 		io_sig = io_add(sig_pipe_fd[0], IO_READ,
 			signal_read, NULL);
+		io_set_never_wait_alone(io_sig, TRUE);
 	}
 }
 
