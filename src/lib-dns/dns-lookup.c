@@ -350,40 +350,43 @@ dns_client_lookup_common(struct dns_client *client,
 			 dns_lookup_callback_t *callback, void *context,
 			 struct dns_lookup **lookup_r)
 {
-	struct dns_lookup *lookup;
-	struct dns_lookup_result result;
+	struct dns_lookup tlookup, *lookup;
 	int ret;
 
-	i_zero(&result);
-	result.ret = EAI_FAIL;
 	i_assert(param != NULL && *param != '\0');
 	cmd = t_strdup_printf("%s\t%s\n", cmd, param);
 
-	if ((ret = dns_client_send_request(client, cmd, &result.error)) <= 0) {
+	i_zero(&tlookup);
+	lookup = &tlookup;
+
+	if (gettimeofday(&lookup->start_time, NULL) < 0)
+		i_fatal("gettimeofday() failed: %m");
+
+	lookup->client = client;
+	lookup->callback = callback;
+	lookup->context = context;
+	lookup->ptr_lookup = ptr_lookup;
+	lookup->result.ret = EAI_FAIL;
+
+	if ((ret = dns_client_send_request(client, cmd, &lookup->result.error)) <= 0) {
 		if (ret == 0) {
 			/* retry once */
-			ret = dns_client_send_request(client, cmd, &result.error);
+			ret = dns_client_send_request(client, cmd,
+						      &lookup->result.error);
 		}
 		if (ret <= 0) {
-			callback(&result, context);
+			callback(&lookup.result, context);
 			return -1;
 		}
 	}
 
 	lookup = i_new(struct dns_lookup, 1);
-	lookup->client = client;
-	lookup->ptr_lookup = ptr_lookup;
+	*lookup = tlookup;
 	if (client->timeout_msecs != 0) {
 		lookup->to = timeout_add_to(client->ioloop,
 					    client->timeout_msecs,
 					    dns_lookup_timeout, lookup);
 	}
-	lookup->result.ret = EAI_FAIL;
-	lookup->callback = callback;
-	lookup->context = context;
-	if (gettimeofday(&lookup->start_time, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
-
 	timeout_remove(&client->to_idle);
 	DLLIST2_APPEND(&client->head, &client->tail, lookup);
 	*lookup_r = lookup;
