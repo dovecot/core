@@ -70,6 +70,10 @@ struct event_passthrough {
 		(*add_int)(const char *key, intmax_t num);
 	struct event_passthrough *
 		(*add_timeval)(const char *key, const struct timeval *tv);
+
+	struct event_passthrough *
+		(*inc_int)(const char *key, intmax_t num);
+
 	struct event *(*event)(void);
 };
 
