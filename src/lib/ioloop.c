@@ -215,6 +215,11 @@ void io_set_pending(struct io *io)
 	}
 }
 
+void io_set_never_wait_alone(struct io *io, bool set)
+{
+	io->never_wait_alone = set;
+}
+
 static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 {
 	if (tv_now == NULL) {
@@ -512,9 +517,23 @@ static int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	return msecs;
 }
 
+static bool io_loop_have_waitable_io_files(struct ioloop *ioloop)
+{
+	struct io_file *io;
+
+	for (io = ioloop->io_files; io != NULL; io = io->next) {
+		if (io->io.callback != NULL && !io->io.never_wait_alone)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 int io_loop_run_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 {
-	return io_loop_get_wait_time(ioloop, tv_r);
+	int msecs = io_loop_get_wait_time(ioloop, tv_r);
+	if (msecs < 0 && !io_loop_have_waitable_io_files(ioloop))
+		i_panic("BUG: No IOs or timeouts set. Not waiting for infinity.");
+	return msecs;
 }
 
 static int timeout_cmp(const void *p1, const void *p2)
