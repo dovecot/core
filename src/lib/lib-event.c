@@ -889,6 +889,13 @@ event_passthrough_add_timeval(const char *key, const struct timeval *tv)
 	return event_last_passthrough;
 }
 
+static struct event_passthrough *
+event_passthrough_inc_int(const char *key, intmax_t num)
+{
+	event_inc_int(last_passthrough_event(), key, num);
+	return event_last_passthrough;
+}
+
 static struct event *event_passthrough_event(void)
 {
 	struct event *event = last_passthrough_event();
@@ -908,6 +915,7 @@ const struct event_passthrough event_passthrough_vfuncs = {
 	event_passthrough_add_str,
 	event_passthrough_add_int,
 	event_passthrough_add_timeval,
+	event_passthrough_inc_int,
 	event_passthrough_event,
 };
 
