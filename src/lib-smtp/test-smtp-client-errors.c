@@ -2194,7 +2194,7 @@ static void
 test_dns_lookup_failure_input(struct server_connection *conn)
 {
 	o_stream_nsend_str(conn->conn.output,
-		t_strdup_printf("%d\n", EAI_FAIL));
+		t_strdup_printf("VERSION\tdns\t1\t0\n%d\tFAIL\n", EAI_FAIL));
 	server_connection_deinit(&conn);
 }
 

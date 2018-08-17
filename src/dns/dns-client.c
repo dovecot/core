@@ -61,17 +61,17 @@ static int dns_client_input_args(struct connection *client, const char *const *a
 		} else {
 			ARRAY_TYPE(const_string) tmp;
 			t_array_init(&tmp, ips_count);
-			o_stream_nsend_str(client->output,
-				t_strdup_printf("0 %u\n", ips_count));
+			o_stream_nsend_str(client->output, "0\t");
 			for (i = 0; i < ips_count; i++) {
 				const char *ip = net_ip2addr(&ips[i]);
 				array_append(&tmp, &ip, 1);
-				o_stream_nsend_str(client->output, t_strconcat(
-					net_ip2addr(&ips[i]), "\n", NULL));
 			}
 			array_append_zero(&tmp);
 			e_debug(e->event(), "Resolve success: %s",
 				t_strarray_join(array_idx(&tmp, 0), ", "));
+			o_stream_nsend_str(client->output,
+					   t_strarray_join(array_idx(&tmp, 0), "\t"));
+			o_stream_nsend_str(client->output, "\n");
 		}
 		event_unref(&event);
 	} else if (strcmp(args[0], "NAME") == 0) {
@@ -86,16 +86,16 @@ static int dns_client_input_args(struct connection *client, const char *const *a
 			e->add_str("error", err);
 			e_debug(e->event(), "Resolve failed: %s", err);
 			o_stream_nsend_str(client->output,
-				t_strdup_printf("%d\n", ret));
+				t_strdup_printf("%d\t%s\n", ret, err));
 		} else {
 			e_debug(e->event(), "Resolve success: %s", name);
 			o_stream_nsend_str(client->output,
-				t_strdup_printf("0 %s\n", name));
+				t_strdup_printf("0\t%s\n", name));
 		}
 	} else {
 		e->add_str("error", "Unknown command");
 		e_error(e->event(), "Unknown command '%s'", args[0]);
-		o_stream_nsend_str(client->output, "Unknown command\n");
+		o_stream_nsend_str(client->output, "-1\tUnknown command\n");
 	}
 
 	event_unref(&event);
@@ -117,7 +117,10 @@ static const struct connection_vfuncs dns_client_vfuncs = {
 };
 
 static const struct connection_settings dns_client_set = {
-	.dont_send_version = TRUE,
+	.service_name_in = "dns-client",
+	.service_name_out = "dns",
+	.major_version = 1,
+	.minor_version = 0,
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1
 };

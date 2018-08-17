@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "array.h"
 #include "ostream.h"
 #include "connection.h"
 #include "lib-event.h"
@@ -124,41 +125,28 @@ static int dns_lookup_input_args(struct dns_lookup *lookup, const char *const *a
 {
 	struct dns_lookup_result *result = &lookup->result;
 
-	/* temporary workaround until protocol change */
-	args = t_strsplit_spaces(args[0], " ");
-
-	if (result->ips_count == 0) {
-		/* first reply MUST start with number */
-		if (str_to_int(args[0], &result->ret) < 0)
-			return -1;
-
-		if (lookup->ptr_lookup) {
-			if (result->ret == 0) {
-				result->name = lookup->name =
-					i_strdup(args[1]);
-			} else {
-				result->error = net_gethosterror(result->ret);
-			}
-			return 1;
-		}
-
-		if (str_to_uint(args[1], &result->ips_count) < 0) {
-			return -1;
-		} else if (result->ret != 0) {
-			result->error = net_gethosterror(result->ret);
-			return 1;
-		}
-		result->ips = lookup->ips =
-			i_new(struct ip_addr, result->ips_count);
-	} else {
-		if (net_addr2ip(args[0], &lookup->ips[lookup->ip_idx]) < 0)
-			return -1;
-		if (++lookup->ip_idx == result->ips_count) {
-			result->ret = 0;
-			return 1;
-		}
+	if (str_to_int(args[0], &result->ret) < 0)
+		return -1;
+	if (result->ret != 0) {
+		result->error = args[1];
+		return 1;
 	}
-	return 0;
+
+	if (lookup->ptr_lookup) {
+		result->name = lookup->name = i_strdup(args[1]);
+		return 1;
+	}
+
+	ARRAY(struct ip_addr) ips;
+	i_array_init(&ips, 2);
+	for(unsigned int i = 1; args[i] != NULL; i++) {
+		struct ip_addr *ip = array_append_space(&ips);
+		if (net_addr2ip(args[i], ip) < 0)
+			return -1;
+	}
+	result->ips = array_get(&ips, &result->ips_count);
+
+	return 1;
 }
 
 static void dns_lookup_save_msecs(struct dns_lookup *lookup)
@@ -307,7 +295,10 @@ static const struct connection_vfuncs dns_client_vfuncs = {
 };
 
 static const struct connection_settings dns_client_set = {
-	.dont_send_version = TRUE,
+	.service_name_in = "dns",
+	.service_name_out = "dns-client",
+	.major_version = 1,
+	.minor_version = 0,
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
 	.client = TRUE,
