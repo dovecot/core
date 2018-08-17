@@ -175,7 +175,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	i_assert(ctx != NULL);
 
         /* get the time left for next timeout task */
-	msecs = io_loop_get_wait_time(ioloop, &tv);
+	msecs = io_loop_run_get_wait_time(ioloop, &tv);
 
 	events = array_get_modifiable(&ctx->events, &events_count);
 	if (ioloop->io_files != NULL && events_count > ctx->deleted_count) {

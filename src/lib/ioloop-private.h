@@ -102,7 +102,7 @@ struct ioloop_context {
 	ARRAY(struct ioloop_context_callback) callbacks;
 };
 
-int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);
+int io_loop_run_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);
 void io_loop_handle_timeouts(struct ioloop *ioloop);
 void io_loop_call_io(struct io *io);
 

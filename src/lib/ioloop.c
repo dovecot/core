@@ -470,7 +470,7 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 	return ret;
 }
 
-int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
+static int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 {
 	struct timeval tv_now;
 	struct priorityq_item *item;
@@ -510,6 +510,11 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	ioloop_timeval = tv_now;
 	ioloop_time = tv_now.tv_sec;
 	return msecs;
+}
+
+int io_loop_run_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
+{
+	return io_loop_get_wait_time(ioloop, tv_r);
 }
 
 static int timeout_cmp(const void *p1, const void *p2)
