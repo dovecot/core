@@ -74,4 +74,9 @@ void message_parse_header(struct istream *input, struct message_size *hdr_size,
 void message_header_line_write(buffer_t *output,
 			       const struct message_header_line *hdr);
 
+/* Duplicate the given header value data and return it. Replaces any NULs with
+   UNICODE_REPLACEMENT_CHAR_UTF8. */
+const char *
+message_header_strdup(pool_t pool, const unsigned char *data, size_t size);
+
 #endif
