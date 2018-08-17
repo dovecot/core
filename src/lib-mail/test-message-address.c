@@ -325,10 +325,11 @@ static void test_message_address(void)
 static void test_message_address_nuls(void)
 {
 	const unsigned char input[] =
-		"\"user\0nuls\"@[domain\0nuls] (comment\0nuls)";
+		"\"user\0nuls\\\0-esc\"@[domain\0nuls\\\0-esc] (comment\0nuls\\\0-esc)";
 	const struct message_address output = {
-		NULL, "comment\xEF\xBF\xBDnuls", NULL, "user\xEF\xBF\xBDnuls",
-		"[domain\xEF\xBF\xBDnuls]", FALSE
+		NULL, "comment\xEF\xBF\xBDnuls\\\xEF\xBF\xBD-esc", NULL,
+		"user\xEF\xBF\xBDnuls\\\xEF\xBF\xBD-esc",
+		"[domain\xEF\xBF\xBDnuls\\\xEF\xBF\xBD-esc]", FALSE
 	};
 	const struct message_address *addr;
 
@@ -342,10 +343,11 @@ static void test_message_address_nuls(void)
 static void test_message_address_nuls_display_name(void)
 {
 	const unsigned char input[] =
-		"\"displayname\0nuls\" <\"user\0nuls\"@[domain\0nuls]>";
+		"\"displayname\0nuls\\\0-esc\" <\"user\0nuls\\\0-esc\"@[domain\0nuls\\\0-esc]>";
 	const struct message_address output = {
-		NULL, "displayname\xEF\xBF\xBDnuls", NULL, "user\xEF\xBF\xBDnuls",
-		"[domain\xEF\xBF\xBDnuls]", FALSE
+		NULL, "displayname\xEF\xBF\xBDnuls\\\xEF\xBF\xBD-esc", NULL,
+		"user\xEF\xBF\xBDnuls\\\xEF\xBF\xBD-esc",
+		"[domain\xEF\xBF\xBDnuls\\\xEF\xBF\xBD-esc]", FALSE
 	};
 	const struct message_address *addr;
 

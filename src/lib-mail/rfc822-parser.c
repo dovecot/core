@@ -273,8 +273,9 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 			if (ctx->data >= ctx->end)
 				return -1;
 
-			if (*ctx->data == '\r' || *ctx->data == '\n') {
-				/* quoted-pair doesn't allow CR/LF.
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
 				   They are part of the obs-qp though, so don't
 				   return them as error. */
 				ctx->data--;
@@ -394,8 +395,9 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 			if (ctx->data >= ctx->end)
 				return -1;
 
-			if (*ctx->data == '\r' || *ctx->data == '\n') {
-				/* quoted-pair doesn't allow CR/LF.
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
 				   They are part of the obs-qp though, so don't
 				   return them as error. */
 				str_append_data(str, start, ctx->data - start);
