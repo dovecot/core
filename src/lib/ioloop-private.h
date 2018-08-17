@@ -42,6 +42,9 @@ struct io {
 	/* trigger I/O callback even if OS doesn't think there is input
 	   pending */
 	bool pending;
+	/* This IO event shouldn't be the only thing being waited on, because
+	   it would just result in infinite wait. */
+	bool never_wait_alone;
 
 	io_callback_t *callback;
         void *context;
