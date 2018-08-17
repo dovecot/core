@@ -185,8 +185,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	} else {
 		/* no I/Os, but we should have some timeouts.
 		   just wait for them. */
-		if (msecs < 0)
-			i_panic("BUG: No IOs or timeouts set. Not waiting for infinity.");
+		i_assert(msecs >= 0);
 		usleep(msecs*1000);
 		ret = 0;
 	}
