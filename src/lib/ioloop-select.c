@@ -111,7 +111,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	int ret;
 
 	/* get the time left for next timeout task */
-	io_loop_get_wait_time(ioloop, &tv);
+	io_loop_run_get_wait_time(ioloop, &tv);
 
 	memcpy(&ctx->tmp_read_fds, &ctx->read_fds, sizeof(fd_set));
 	memcpy(&ctx->tmp_write_fds, &ctx->write_fds, sizeof(fd_set));
