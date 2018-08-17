@@ -339,6 +339,23 @@ static void test_message_address_nuls(void)
 	test_end();
 }
 
+static void test_message_address_nuls_display_name(void)
+{
+	const unsigned char input[] =
+		"\"displayname\0nuls\" <\"user\0nuls\"@[domain\0nuls]>";
+	const struct message_address output = {
+		NULL, "displayname\xEF\xBF\xBDnuls", NULL, "user\xEF\xBF\xBDnuls",
+		"[domain\xEF\xBF\xBDnuls]", FALSE
+	};
+	const struct message_address *addr;
+
+	test_begin("message address parsing with NULs in display-name");
+	addr = message_address_parse(pool_datastack_create(),
+				     input, sizeof(input)-1, UINT_MAX, 0);
+	test_assert(addr != NULL && cmp_addr(addr, &output));
+	test_end();
+}
+
 static void test_message_address_non_strict_dots(void)
 {
 	const char *const inputs[] = {
@@ -498,6 +515,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_message_address,
 		test_message_address_nuls,
+		test_message_address_nuls_display_name,
 		test_message_address_non_strict_dots,
 		test_message_address_path,
 		test_message_address_path_invalid,
