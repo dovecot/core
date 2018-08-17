@@ -171,7 +171,7 @@ envelope_get_field(const char *name)
 }
 
 static const char *
-hdr_strdup(pool_t pool, const unsigned char *data, size_t size)
+message_header_strdup(pool_t pool, const unsigned char *data, size_t size)
 {
 	if (memchr(data, '\0', size) == NULL) {
 		/* fast path */
@@ -261,7 +261,8 @@ void message_part_envelope_parse_from_header(pool_t pool,
 						UINT_MAX,
 						MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING);
 	} else if (str_p != NULL) {
-		*str_p = hdr_strdup(pool, hdr->full_value, hdr->full_value_len);
+		*str_p = message_header_strdup(pool, hdr->full_value,
+					       hdr->full_value_len);
 	}
 }
 
@@ -439,15 +440,17 @@ parse_content_header(struct message_part_data *data,
 	case 'i':
 	case 'I':
 		if (strcasecmp(name, "ID") == 0 && data->content_id == NULL)
-			data->content_id = hdr_strdup(pool, hdr->full_value,
+			data->content_id =
+				message_header_strdup(pool, hdr->full_value,
 						      hdr->full_value_len);
 		break;
 
 	case 'm':
 	case 'M':
 		if (strcasecmp(name, "MD5") == 0 && data->content_md5 == NULL)
-			data->content_md5 = hdr_strdup(pool, hdr->full_value,
-						       hdr->full_value_len);
+			data->content_md5 =
+				message_header_strdup(pool, hdr->full_value,
+						      hdr->full_value_len);
 		break;
 
 	case 't':
@@ -468,8 +471,8 @@ parse_content_header(struct message_part_data *data,
 		} else if (strcasecmp(name, "Location") == 0 &&
 			   data->content_location == NULL) {
 			data->content_location =
-				hdr_strdup(pool, hdr->full_value,
-					   hdr->full_value_len);
+				message_header_strdup(pool, hdr->full_value,
+						      hdr->full_value_len);
 		}
 		break;
 
@@ -478,8 +481,8 @@ parse_content_header(struct message_part_data *data,
 		if (strcasecmp(name, "Description") == 0 &&
 		    data->content_description == NULL)
 			data->content_description =
-				hdr_strdup(pool, hdr->full_value,
-					   hdr->full_value_len);
+				message_header_strdup(pool, hdr->full_value,
+						      hdr->full_value_len);
 		else if (strcasecmp(name, "Disposition") == 0 &&
 			 data->content_disposition_params == NULL)
 			parse_content_disposition(data, pool, hdr);
