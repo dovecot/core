@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "str.h"
 #include "ostream.h"
 #include "connection.h"
 #include "llist.h"
@@ -345,7 +346,7 @@ dns_client_send_request(struct dns_client *client, const char *cmd,
 
 static int
 dns_client_lookup_common(struct dns_client *client,
-			 const char *cmd, bool ptr_lookup,
+			 const char *cmd, const char *param, bool ptr_lookup,
 			 dns_lookup_callback_t *callback, void *context,
 			 struct dns_lookup **lookup_r)
 {
@@ -355,6 +356,8 @@ dns_client_lookup_common(struct dns_client *client,
 
 	i_zero(&result);
 	result.ret = EAI_FAIL;
+	i_assert(param != NULL && *param != '\0');
+	cmd = t_strdup_printf("%s\t%s\n", cmd, param);
 
 	if ((ret = dns_client_send_request(client, cmd, &result.error)) <= 0) {
 		if (ret == 0) {
@@ -391,8 +394,7 @@ int dns_client_lookup(struct dns_client *client, const char *host,
 		      dns_lookup_callback_t *callback, void *context,
 		      struct dns_lookup **lookup_r)
 {
-	const char *cmd = t_strconcat("IP\t", host, "\n", NULL);
-	return dns_client_lookup_common(client, cmd, FALSE,
+	return dns_client_lookup_common(client, "IP", host, FALSE,
 					callback, context, lookup_r);
 }
 
@@ -400,8 +402,7 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 			  dns_lookup_callback_t *callback, void *context,
 			  struct dns_lookup **lookup_r)
 {
-	const char *cmd = t_strconcat("NAME\t", net_ip2addr(ip), "\n", NULL);
-	return dns_client_lookup_common(client, cmd, TRUE,
+	return dns_client_lookup_common(client, "NAME", net_ip2addr(ip), TRUE,
 					callback, context, lookup_r);
 }
 
