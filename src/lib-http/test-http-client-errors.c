@@ -29,6 +29,7 @@ struct server_connection {
 	struct connection conn;
 
 	pool_t pool;
+	bool version_sent:1;
 };
 
 typedef void (*test_server_init_t)(unsigned int index);
@@ -2383,8 +2384,13 @@ static void test_dns_timeout(void)
 static void
 test_dns_lookup_failure_input(struct server_connection *conn)
 {
+	if (!conn->version_sent) {
+	        conn->version_sent = TRUE;
+	        o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
+	}
+
 	o_stream_nsend_str(conn->conn.output,
-		t_strdup_printf("%d\n", EAI_FAIL));
+		t_strdup_printf("%d\tFAIL\n", EAI_FAIL));
 	server_connection_deinit(&conn);
 }
 
@@ -2472,16 +2478,21 @@ test_dns_lookup_ttl_input(struct server_connection *conn)
 	static unsigned int count = 0;
 	const char *line;
 
+	if (!conn->version_sent) {
+		conn->version_sent = TRUE;
+		o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
+	}
+
 	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
 		if (debug)
 			i_debug("DNS REQUEST %u: %s", count, line);
 
 		if (count == 0) {
 			o_stream_nsend_str(conn->conn.output,
-				"0 1\n127.0.0.1\n");
+				"0\t127.0.0.1\n");
 		} else {
 			o_stream_nsend_str(conn->conn.output,
-				t_strdup_printf("%d\n", EAI_FAIL));
+				t_strdup_printf("%d\tFAIL\n", EAI_FAIL));
 			if (count > 4) {
 				server_connection_deinit(&conn);
 				return;
@@ -2770,16 +2781,21 @@ test_dns_reconnect_failure_input(struct server_connection *conn)
 	static unsigned int count = 0;
 	const char *line;
 
+	if (!conn->version_sent) {
+	        conn->version_sent = TRUE;
+	        o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
+	}
+
 	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
 		if (debug)
 			i_debug("DNS REQUEST %u: %s", count, line);
 
 		if (count == 0) {
 			o_stream_nsend_str(conn->conn.output,
-				"0 1\n127.0.0.1\n");
+				"0\t127.0.0.1\n");
 		} else {
 			o_stream_nsend_str(conn->conn.output,
-				t_strdup_printf("%d\n", EAI_FAIL));
+				t_strdup_printf("%d\tFAIL\n", EAI_FAIL));
 			if (count > 4) {
 				server_connection_deinit(&conn);
 				return;
