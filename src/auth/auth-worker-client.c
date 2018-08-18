@@ -197,6 +197,7 @@ static void verify_plain_callback(enum passdb_result result,
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, request, str);
 
+	auth_request_passdb_lookup_end(request, result);
 	auth_worker_log_finished(client, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
@@ -246,6 +247,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	}
 
 	auth_request->passdb = passdb;
+	auth_request_passdb_lookup_begin(auth_request);
 	passdb->passdb->iface.
 		verify_plain(auth_request, password, verify_plain_callback);
 	return TRUE;
@@ -340,6 +342,7 @@ lookup_credentials_callback(enum passdb_result result,
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, request, str);
 
+	auth_request_passdb_lookup_end(request, result);
 	auth_request_unref(&request);
 	auth_worker_log_finished(client, NULL);
 	auth_worker_client_check_throttle(client);
@@ -385,6 +388,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	}
 
 	auth_request->prefer_plain_credentials = TRUE;
+	auth_request_passdb_lookup_begin(auth_request);
 	auth_request->passdb->passdb->iface.
 		lookup_credentials(auth_request, lookup_credentials_callback);
 	return TRUE;
@@ -475,6 +479,7 @@ lookup_user_callback(enum userdb_result result,
 
 	auth_worker_send_reply(client, auth_request, str);
 
+	auth_request_userdb_lookup_end(auth_request, result);
 	auth_worker_log_finished(client, NULL);
 	auth_request_unref(&auth_request);
 	auth_worker_client_check_throttle(client);
@@ -524,6 +529,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 
 	if (auth_request->userdb_reply == NULL)
 		auth_request_init_userdb_reply(auth_request);
+	auth_request_userdb_lookup_begin(auth_request);
 	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);
 	return TRUE;
@@ -553,6 +559,7 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	connection_input_resume(&client->conn);
 	o_stream_set_flush_callback(client->conn.output, auth_worker_output,
 				    client);
+	auth_request_userdb_lookup_end(ctx->auth_request, USERDB_RESULT_OK);
 	auth_worker_log_finished(client, NULL);
 	auth_request_unref(&ctx->auth_request);
 	auth_worker_client_unref(&client);
@@ -659,6 +666,8 @@ auth_worker_handle_list(struct auth_worker_client *client,
 
 	o_stream_set_flush_callback(ctx->client->conn.output,
 				    auth_worker_list_output, ctx);
+	ctx->auth_request->userdb_lookup = TRUE;
+	auth_request_userdb_lookup_begin(ctx->auth_request);
 	ctx->iter = ctx->auth_request->userdb->userdb->iface->
 		iterate_init(ctx->auth_request, list_iter_callback, ctx);
 	ctx->auth_request->userdb->userdb->iface->iterate_next(ctx->iter);
@@ -784,6 +793,7 @@ static void auth_worker_client_unref(struct auth_worker_client **_client)
 
 	/* the connection should've been destroyed before getting here */
 	i_assert(client->destroyed);
+	event_unref(&client->event);
 	connection_deinit(&client->conn);
 	i_free(client);
 }
