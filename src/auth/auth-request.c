@@ -82,6 +82,13 @@ static const char *get_log_prefix_mech(struct auth_request *auth_request)
 	return str_c(str);
 }
 
+static const char *get_log_prefix_db(struct auth_request *auth_request)
+{
+	string_t *str = t_str_new(64);
+	auth_request_get_log_prefix(str, auth_request, AUTH_SUBSYS_DB);
+	return str_c(str);
+}
+
 static void auth_request_post_alloc_init(struct auth_request *request, struct event *parent_event)
 {
 	request->state = AUTH_REQUEST_STATE_NEW;
@@ -109,6 +116,8 @@ auth_request_new(const struct mech_module *mech, struct event *parent_event)
 	auth_request_post_alloc_init(request, parent_event);
 	request->mech = mech;
 	request->mech_name = mech->mech_name;
+	event_add_str(request->event, "mech", request->mech->mech_name);
+
 	return request;
 }
 
@@ -336,6 +345,8 @@ void auth_request_unref(struct auth_request **_request)
 	i_assert(request->refcount > 0);
 	if (--request->refcount > 0)
 		return;
+
+	i_assert(array_count(&request->authdb_event) == 0);
 
 	event_unref(&request->mech_event);
 	event_unref(&request->event);
@@ -834,6 +845,109 @@ auth_request_want_skip_userdb(struct auth_request *request,
 	i_unreached();
 }
 
+void auth_request_passdb_lookup_begin(struct auth_request *request)
+{
+	struct event *event;
+	const char *name;
+
+	i_assert(request->passdb != NULL);
+	i_assert(!request->userdb_lookup);
+
+	name = (request->passdb->set->name[0] != '\0' ?
+		request->passdb->set->name :
+		request->passdb->passdb->iface.name);
+
+	event = event_create(request->event);
+	event_add_str(event, "passdb_name", name);
+	event_add_str(event, "passdb", request->passdb->passdb->iface.name);
+	event_set_log_prefix_callback(event, FALSE, get_log_prefix_db, request);
+
+	/* check if we should enable verbose logging here */
+	if (*request->passdb->set->auth_verbose == 'y')
+		event_set_min_log_level(event, LOG_TYPE_INFO);
+	else if (*request->passdb->set->auth_verbose == 'n')
+		event_set_min_log_level(event, LOG_TYPE_WARNING);
+
+	e_debug(event_create_passthrough(event)->
+			set_name("auth_passdb_request_started")->
+			event(),
+		"Performing passdb lookup");
+	array_push_back(&request->authdb_event, &event);
+}
+
+static struct event_passthrough *
+auth_request_lookup_end_common(struct auth_request *request,
+			       struct event *event)
+{
+	const char *p;
+	struct event_passthrough *e = event_create_passthrough(event)->
+		add_str("user", request->user);
+	if (request->master_user != NULL)
+		e->add_str("master_user", request->master_user);
+	if ((p = strchr(request->user, '@')) == NULL)
+		e->add_str("username", request->user);
+	else
+		e->add_str("username", t_strdup_until(request->user, p))->
+			add_str("domain", p + 1);
+	return e;
+}
+
+void auth_request_passdb_lookup_end(struct auth_request *request,
+				    enum passdb_result result)
+{
+	struct event *event = authdb_event(request);
+	struct event_passthrough *e =
+		auth_request_lookup_end_common(request, event)->
+		set_name("auth_passdb_request_finished")->
+		add_str("result", passdb_result_to_string(result));
+	e_debug(e->event(), "Finished passdb lookup");
+	event_unref(&event);
+	array_pop_back(&request->authdb_event);
+}
+
+void auth_request_userdb_lookup_begin(struct auth_request *request)
+{
+	struct event *event;
+	const char *name;
+
+	i_assert(request->userdb != NULL);
+	i_assert(request->userdb_lookup);
+
+	name = (request->userdb->set->name[0] != '\0' ?
+		request->userdb->set->name :
+		request->userdb->userdb->iface->name);
+
+	event = event_create(request->event);
+	event_add_str(event, "userdb_name", name);
+	event_add_str(event, "userdb", request->userdb->userdb->iface->name);
+	event_set_log_prefix_callback(event, FALSE, get_log_prefix_db, request);
+
+	/* check if we should enable verbose logging here*/
+	if (*request->userdb->set->auth_verbose == 'y')
+		event_set_min_log_level(event, LOG_TYPE_INFO);
+	else if (*request->userdb->set->auth_verbose == 'n')
+		event_set_min_log_level(event, LOG_TYPE_WARNING);
+
+	e_debug(event_create_passthrough(event)->
+			set_name("auth_userdb_request_started")->
+			event(),
+		"Performing userdb lookup");
+	array_push_back(&request->authdb_event, &event);
+}
+
+void auth_request_userdb_lookup_end(struct auth_request *request,
+				    enum userdb_result result)
+{
+	struct event *event = authdb_event(request);
+	struct event_passthrough *e =
+		auth_request_lookup_end_common(request, event)->
+		set_name("auth_userdb_request_finished")->
+		add_str("result", userdb_result_to_string(result));
+	e_debug(e->event(), "Finished userdb lookup");
+	event_unref(&event);
+	array_pop_back(&request->authdb_event);
+}
+
 static bool
 auth_request_handle_passdb_callback(enum passdb_result *result,
 				    struct auth_request *request)
@@ -941,6 +1055,9 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	} else {
 		next_passdb = request->passdb->next;
 	}
+
+	auth_request_passdb_lookup_end(request, *result);
+
 	while (next_passdb != NULL &&
 		auth_request_want_skip_passdb(request, next_passdb))
 		next_passdb = next_passdb->next;
@@ -1209,6 +1326,7 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 		return;
 	}
 
+	auth_request_passdb_lookup_begin(request);
 	request->private_callback.verify_plain = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
@@ -1387,6 +1505,7 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 		return;
 	}
 
+	auth_request_passdb_lookup_begin(request);
 	request->private_callback.lookup_credentials = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
@@ -1574,6 +1693,8 @@ void auth_request_userdb_callback(enum userdb_result result,
 		break;
 	}
 
+	auth_request_userdb_lookup_end(request, result);
+
 	next_userdb = userdb->next;
 	while (next_userdb != NULL &&
 		auth_request_want_skip_userdb(request, next_userdb))
@@ -1684,6 +1805,8 @@ void auth_request_lookup_user(struct auth_request *request,
 			return;
 		}
 	}
+
+	auth_request_userdb_lookup_begin(request);
 
 	/* (for now) auth_cache is shared between passdb and userdb */
 	cache_key = passdb_cache == NULL ? NULL : userdb->cache_key;

@@ -1,6 +1,7 @@
 #ifndef AUTH_REQUEST_H
 #define AUTH_REQUEST_H
 
+#include "array.h"
 #include "net.h"
 #include "var-expand.h"
 #include "mech.h"
@@ -36,6 +37,8 @@ struct auth_request {
 
 	struct event *event;
 	struct event *mech_event;
+	ARRAY(struct event *) authdb_event;
+
         enum auth_request_state state;
         /* user contains the user who is being authenticated.
            When master user is logging in as someone else, it gets more
@@ -299,5 +302,21 @@ bool auth_request_username_accepted(const char *const *filter, const char *usern
 struct event_passthrough *
 auth_request_finished_event(struct auth_request *request, struct event *event);
 void auth_request_log_finished(struct auth_request *request);
+
+void auth_request_passdb_lookup_begin(struct auth_request *request);
+void auth_request_passdb_lookup_end(struct auth_request *request,
+				    enum passdb_result result);
+void auth_request_userdb_lookup_begin(struct auth_request *request);
+void auth_request_userdb_lookup_end(struct auth_request *request,
+				    enum userdb_result result);
+
+/* Fetches the current authdb event, this is done because
+   some lookups can recurse into new lookups, requiring new event,
+   which will be returned here. */
+static inline struct event *authdb_event(struct auth_request *request)
+{
+	struct event **e = array_back_modifiable(&request->authdb_event);
+	return *e;
+}
 
 #endif

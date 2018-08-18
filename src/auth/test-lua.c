@@ -15,6 +15,9 @@ static void test_db_lua_auth_verify(void)
 	global_auth_settings = &set;
 
 	struct auth_request *req = auth_request_new_dummy();
+
+	struct event *event = event_create(req->event);
+	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
 	req->debug = TRUE;
 	req->user = "testuser";
@@ -41,6 +44,9 @@ static void test_db_lua_auth_verify(void)
 		i_error("Test failed: %s", error);
 	}
 	i_free(req->passdb);
+
+	event_unref(&event);
+	array_pop_back(&req->authdb_event);
 	auth_request_unref(&req);
 
 	test_end();
@@ -54,6 +60,9 @@ static void test_db_lua_auth_lookup_numberish_value(void)
 	global_auth_settings = &set;
 
 	struct auth_request *req = auth_request_new_dummy();
+
+	struct event *event = event_create(req->event);
+	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
 	req->debug = TRUE;
 	req->user = "testuser";
@@ -80,6 +89,8 @@ static void test_db_lua_auth_lookup_numberish_value(void)
 		i_error("Test failed: %s", error);
 	}
 	i_free(req->passdb);
+	event_unref(&event);
+	array_pop_back(&req->authdb_event);
 	auth_request_unref(&req);
 
 	test_end();
@@ -93,6 +104,9 @@ static void test_db_lua_auth_lookup(void)
 	global_auth_settings = &set;
 
 	struct auth_request *req = auth_request_new_dummy();
+
+	struct event *event = event_create(req->event);
+	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
 	req->debug = TRUE;
 	req->user = "testuser";
@@ -117,6 +131,8 @@ static void test_db_lua_auth_lookup(void)
 		i_error("Test failed: %s", error);
 	}
 	i_free(req->passdb);
+	event_unref(&event);
+	array_pop_back(&req->authdb_event);
 	auth_request_unref(&req);
 
 	test_end();
