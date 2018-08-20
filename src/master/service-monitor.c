@@ -631,7 +631,7 @@ static void services_monitor_wait_and_kill(struct service_list *service_list)
 	if (service_list_processes_close_listeners(service_list)) {
 		/* SIGQUITs were sent. wait a little bit to make sure they're
 		   also processed before quitting. */
-		usleep(100000);
+		usleep(1000000);
 	}
 }
 
