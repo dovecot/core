@@ -599,16 +599,19 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 			      uint32_t seq, unsigned int field_idxs[],
 			      unsigned int fields_count)
 {
-	pool_t pool;
+	pool_t pool = NULL;
 	int ret;
 
-	T_BEGIN {
+	if (buffer_get_pool(dest)->datastack_pool)
 		ret = mail_cache_lookup_headers_real(view, dest, seq,
 						     field_idxs, fields_count,
 						     &pool);
-		if (pool != NULL)
-			pool_unref(&pool);
+	else T_BEGIN {
+		ret = mail_cache_lookup_headers_real(view, dest, seq,
+						     field_idxs, fields_count,
+						     &pool);
 	} T_END;
+	pool_unref(&pool);
 	return ret;
 }
 
