@@ -87,12 +87,12 @@ uint64_t stats_dist_get_max(const struct stats_dist *stats)
 	return stats->max;
 }
 
-uint64_t stats_dist_get_avg(const struct stats_dist *stats)
+double stats_dist_get_avg(const struct stats_dist *stats)
 {
 	if (stats->count == 0)
 		return 0;
 
-	return (stats->sum + stats->count/2) / stats->count;
+	return (double)stats->sum / stats->count;
 }
 
 static void stats_dist_ensure_sorted(struct stats_dist *stats)
@@ -127,7 +127,7 @@ double stats_dist_get_variance(const struct stats_dist *stats)
 	if (stats->count == 0)
 		return 0;
 
-	double avg = (double)(int64_t)stats_dist_get_avg(stats);
+	double avg = stats_dist_get_avg(stats);
 	double count = (stats->count < stats->sample_count)
 		? stats->count
 		: stats->sample_count;
