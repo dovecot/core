@@ -254,6 +254,9 @@ int auth_request_password_verify_log(struct auth_request *request,
 				 const char *scheme, const char *subsystem,
 				 bool log_password_mismatch);
 
+void auth_request_get_log_prefix(string_t *str, struct auth_request *auth_request,
+				 const char *subsystem);
+
 void auth_request_log_debug(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) ATTR_FORMAT(3, 4);

@@ -62,8 +62,7 @@ const char auth_default_subsystems[2];
 
 unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
-static void get_log_prefix(string_t *str, struct auth_request *auth_request,
-			   const char *subsystem);
+static void get_log_identifier(string_t *str, struct auth_request *auth_request);
 static void
 auth_request_userdb_import(struct auth_request *request, const char *args);
 
@@ -2508,7 +2507,7 @@ void auth_request_log_login_failure(struct auth_request *request,
 		return;
 	}
 	str = t_str_new(128);
-	get_log_prefix(str, request, subsystem);
+	auth_request_get_log_prefix(str, request, subsystem);
 	str_append(str, message);
 	str_append(str, " ");
 
@@ -2600,11 +2599,10 @@ int auth_request_password_verify_log(struct auth_request *request,
 	return ret;
 }
 
-static void get_log_prefix(string_t *str, struct auth_request *auth_request,
-			   const char *subsystem)
+void auth_request_get_log_prefix(string_t *str, struct auth_request *auth_request,
+				 const char *subsystem)
 {
-#define MAX_LOG_USERNAME_LEN 64
-	const char *ip, *name;
+	const char *name;
 
 	if (subsystem == AUTH_SUBSYS_DB) {
 		if (!auth_request->userdb_lookup) {
@@ -2626,24 +2624,29 @@ static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 	}
 	str_append(str, name);
 	str_append_c(str, '(');
+	get_log_identifier(str, auth_request);
+	str_append(str, "): ");
+}
+
+#define MAX_LOG_USERNAME_LEN 64
+static void get_log_identifier(string_t *str, struct auth_request *auth_request)
+{
+	const char *ip;
 
 	if (auth_request->user == NULL)
-		str_append(str, "?");
-	else {
-		str_sanitize_append(str, auth_request->user,
-				    MAX_LOG_USERNAME_LEN);
-	}
+	        str_append(str, "?");
+	else
+	        str_sanitize_append(str, auth_request->user, MAX_LOG_USERNAME_LEN);
 
 	ip = net_ip2addr(&auth_request->remote_ip);
 	if (ip[0] != '\0') {
-		str_append_c(str, ',');
-		str_append(str, ip);
+	        str_append_c(str, ',');
+	        str_append(str, ip);
 	}
-	if (auth_request->requested_login_user != NULL)
-		str_append(str, ",master");
+	if (auth_request->auth_requested_login_user != NULL)
+	        str_append(str, ",master");
 	if (auth_request->session_id != NULL)
-		str_printfa(str, ",<%s>", auth_request->session_id);
-	str_append(str, "): ");
+	        str_printfa(str, ",<%s>", auth_request->session_id);
 }
 
 static const char * ATTR_FORMAT(3, 0)
@@ -2653,7 +2656,7 @@ get_log_str(struct auth_request *auth_request, const char *subsystem,
 	string_t *str;
 
 	str = t_str_new(128);
-	get_log_prefix(str, auth_request, subsystem);
+	auth_request_get_log_prefix(str, auth_request, subsystem);
 	str_vprintfa(str, format, va);
 	return str_c(str);
 }
