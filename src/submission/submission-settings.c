@@ -163,8 +163,10 @@ struct submission_client_workaround_list {
 
 static const struct submission_client_workaround_list
 submission_client_workaround_list[] = {
-	{ "whitespace-before-path", WORKAROUND_WHITESPACE_BEFORE_PATH },
-	{ "mailbox-for-path", WORKAROUND_MAILBOX_FOR_PATH },
+	{ "whitespace-before-path",
+	  SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH },
+	{ "mailbox-for-path",
+	  SUBMISSION_WORKAROUND_MAILBOX_FOR_PATH },
 	{ NULL, 0 }
 };
 

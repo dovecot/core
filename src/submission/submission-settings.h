@@ -5,8 +5,8 @@
 
 /* <settings checks> */
 enum submission_client_workarounds {
-	WORKAROUND_WHITESPACE_BEFORE_PATH	= BIT(0),
-	WORKAROUND_MAILBOX_FOR_PATH		= BIT(1),
+	SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH	= BIT(0),
+	SUBMISSION_WORKAROUND_MAILBOX_FOR_PATH		= BIT(1),
 };
 /* </settings checks> */
 

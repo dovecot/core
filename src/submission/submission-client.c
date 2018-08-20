@@ -225,11 +225,11 @@ struct client *client_create(int fd_in, int fd_out,
 	smtp_set.rawlog_dir = set->rawlog_dir;
 	smtp_set.debug = user->mail_debug;
 
-	if ((workarounds & WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
+	if ((workarounds & SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
 		smtp_set.workarounds |=
 			SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH;
 	}
-	if ((workarounds & WORKAROUND_MAILBOX_FOR_PATH) != 0) {
+	if ((workarounds & SUBMISSION_WORKAROUND_MAILBOX_FOR_PATH) != 0) {
 		smtp_set.workarounds |=
 			SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH;
 	}
