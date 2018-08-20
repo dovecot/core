@@ -3,6 +3,9 @@
 #include "test-lib.h"
 #include "stats-dist.h"
 #include "sort.h"
+#include "math.h"
+
+#define DBL_EQ(a, b) (fabs((a)-(b)) < 0.001)
 
 static void
 test_stats_dist_verify(const struct stats_dist *t, const int64_t *input,
@@ -31,7 +34,8 @@ test_stats_dist_verify(const struct stats_dist *t, const int64_t *input,
 	test_assert_idx(stats_dist_get_sum(t) == sum, input_size);
 	test_assert_idx(stats_dist_get_min(t)  == min, input_size);
 	test_assert_idx(stats_dist_get_max(t) == max, input_size);
-	test_assert_idx(stats_dist_get_avg(t) == (sum + input_size/2)/input_size, input_size);
+	test_assert_idx(DBL_EQ(stats_dist_get_avg(t), (double)sum/input_size),
+			input_size);
 
 	/* these aren't always fully accurate: */
 	test_assert_idx(stats_dist_get_median(t) >= copy[(input_size-1)/2] &&
@@ -86,7 +90,7 @@ void test_stats_dist(void)
 	test_assert(stats_dist_get_sum(t) == (i-1)*i/2);
 	test_assert(stats_dist_get_min(t) == 0);
 	test_assert(stats_dist_get_max(t) == i-1);
-	test_assert(stats_dist_get_avg(t) == i/2);
+	test_assert(DBL_EQ(stats_dist_get_avg(t), 4999.500000));
 	/* just test that these work: */
 	test_assert(stats_dist_get_median(t) > 0 && stats_dist_get_median(t) < i-1);
 	test_assert(stats_dist_get_95th(t) > 0 && stats_dist_get_95th(t) < i-1);

@@ -27,7 +27,7 @@ static bool proctitle_updated;
 static void
 add_stats_string(string_t *str, struct stats_dist *stats, const char *name)
 {
-	str_printfa(str, ", %u %s:%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64,
+	str_printfa(str, ", %u %s:%"PRIu64"/%.02f/%"PRIu64"/%"PRIu64,
 		    stats_dist_get_count(stats), name,
 		    stats_dist_get_min(stats)/1000, stats_dist_get_avg(stats)/1000,
 		    stats_dist_get_95th(stats)/1000, stats_dist_get_max(stats)/1000);
