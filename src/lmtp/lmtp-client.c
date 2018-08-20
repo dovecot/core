@@ -143,6 +143,7 @@ static void client_read_settings(struct client *client, bool ssl)
 struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn)
 {
+	enum lmtp_client_workarounds workarounds;
 	struct smtp_server_settings lmtp_set;
 	struct client *client;
 	pool_t pool;
@@ -191,6 +192,16 @@ struct client *client_create(int fd_in, int fd_out,
 	lmtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
 	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_rawlog_dir;
 	lmtp_set.event_parent = client->event;
+
+	workarounds = client->lmtp_set->parsed_workarounds;
+	if ((workarounds & LMTP_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
+		lmtp_set.workarounds |=
+			SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH;
+	}
+	if ((workarounds & LMTP_WORKAROUND_MAILBOX_FOR_PATH) != 0) {
+		lmtp_set.workarounds |=
+			SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH;
+	}
 
 	client->conn = smtp_server_connection_create
 		(lmtp_server, fd_in, fd_out,

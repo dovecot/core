@@ -68,6 +68,8 @@ static const struct setting_define lmtp_setting_defines[] = {
 	DEF(SET_STR_VARS, lmtp_rawlog_dir),
 	DEF(SET_STR_VARS, lmtp_proxy_rawlog_dir),
 
+	DEF(SET_STR, lmtp_client_workarounds),
+
 	DEF(SET_STR_VARS, login_greeting),
 	DEF(SET_STR, login_trusted_networks),
 
@@ -86,6 +88,8 @@ static const struct lmtp_settings lmtp_default_settings = {
 	.lmtp_hdr_delivery_address = "final:none:original",
 	.lmtp_rawlog_dir = "",
 	.lmtp_proxy_rawlog_dir = "",
+
+	.lmtp_client_workarounds = "",
 
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_trusted_networks = "",
@@ -114,10 +118,53 @@ const struct setting_parser_info lmtp_setting_parser_info = {
 };
 
 /* <settings checks> */
+struct lmtp_client_workaround_list {
+	const char *name;
+	enum lmtp_client_workarounds num;
+};
+
+static const struct lmtp_client_workaround_list
+lmtp_client_workaround_list[] = {
+	{ "whitespace-before-path", LMTP_WORKAROUND_WHITESPACE_BEFORE_PATH },
+	{ "mailbox-for-path", LMTP_WORKAROUND_MAILBOX_FOR_PATH },
+	{ NULL, 0 }
+};
+
+static int
+lmtp_settings_parse_workarounds(struct lmtp_settings *set,
+				const char **error_r)
+{
+	enum lmtp_client_workarounds client_workarounds = 0;
+        const struct lmtp_client_workaround_list *list;
+	const char *const *str;
+
+        str = t_strsplit_spaces(set->lmtp_client_workarounds, " ,");
+	for (; *str != NULL; str++) {
+		list = lmtp_client_workaround_list;
+		for (; list->name != NULL; list++) {
+			if (strcasecmp(*str, list->name) == 0) {
+				client_workarounds |= list->num;
+				break;
+			}
+		}
+		if (list->name == NULL) {
+			*error_r = t_strdup_printf(
+				"lmtp_client_workarounds: "
+				"Unknown workaround: %s", *str);
+			return -1;
+		}
+	}
+	set->parsed_workarounds = client_workarounds;
+	return 0;
+}
+
 static bool lmtp_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				const char **error_r)
 {
 	struct lmtp_settings *set = _set;
+
+	if (lmtp_settings_parse_workarounds(set, error_r) < 0)
+		return FALSE;
 
 	if (strcmp(set->lmtp_hdr_delivery_address, "none") == 0) {
 		set->parsed_lmtp_hdr_delivery_address =
