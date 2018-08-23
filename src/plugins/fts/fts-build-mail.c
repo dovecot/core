@@ -91,15 +91,15 @@ fts_build_unstructured_header(struct fts_mail_build_context *ctx,
 
 	/* @UNSAFE: if there are any NULs, replace them with spaces */
 	for (i = 0; i < hdr->full_value_len; i++) {
-		if (data[i] == '\0') {
+		if (hdr->full_value[i] == '\0') {
 			if (buf == NULL) {
 				buf = i_malloc(hdr->full_value_len);
-				memcpy(buf, data, i);
+				memcpy(buf, hdr->full_value, i);
 				data = buf;
 			}
 			buf[i] = ' ';
 		} else if (buf != NULL) {
-			buf[i] = data[i];
+			buf[i] = hdr->full_value[i];
 		}
 	}
 	ret = fts_build_data(ctx, data, hdr->full_value_len, TRUE);
