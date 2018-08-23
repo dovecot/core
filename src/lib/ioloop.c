@@ -1095,6 +1095,9 @@ struct io *io_loop_move_io_to(struct ioloop *ioloop, struct io **_io)
 	struct io *old_io = *_io;
 	struct io_file *old_io_file, *new_io_file;
 
+	if (old_io == NULL)
+		return NULL;
+
 	i_assert((old_io->condition & IO_NOTIFY) == 0);
 
 	if (old_io->ioloop == ioloop)
@@ -1130,7 +1133,7 @@ struct timeout *io_loop_move_timeout_to(struct ioloop *ioloop,
 {
 	struct timeout *new_to, *old_to = *_timeout;
 
-	if (old_to->ioloop == ioloop)
+	if (old_to == NULL || old_to->ioloop == ioloop)
 		return old_to;
 
 	new_to = timeout_copy(old_to, ioloop);
