@@ -154,7 +154,7 @@ smtp_server_command_alloc(struct smtp_server_connection *conn)
 	struct smtp_server_command *cmd;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp_server_command", 256);
+	pool = pool_alloconly_create("smtp_server_command", 1024);
 	cmd = p_new(pool, struct smtp_server_command, 1);
 	cmd->context.pool = pool;
 	cmd->context.cmd = cmd;
