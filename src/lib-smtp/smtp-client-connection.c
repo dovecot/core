@@ -1730,7 +1730,7 @@ smtp_client_connection_create(struct smtp_client *client,
 	struct smtp_client_connection *conn;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp client connection", 512);
+	pool = pool_alloconly_create("smtp client connection", 2048);
 	conn = p_new(pool, struct smtp_client_connection, 1);
 	conn->refcount = 1;
 	conn->pool = pool;

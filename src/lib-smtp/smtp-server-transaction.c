@@ -23,7 +23,7 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	string_t *id;
 
 	/* create new transaction */
-	pool = pool_alloconly_create("smtp server transaction", 512);
+	pool = pool_alloconly_create("smtp server transaction", 4096);
 	trans = p_new(pool, struct smtp_server_transaction, 1);
 	trans->pool = pool;
 	trans->conn = conn;

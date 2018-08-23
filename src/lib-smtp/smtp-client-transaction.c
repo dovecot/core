@@ -45,7 +45,7 @@ smtp_client_transaction_rcpt_new(
 	struct smtp_client_transaction_rcpt *rcpt;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp transaction rcpt", 256);
+	pool = pool_alloconly_create("smtp transaction rcpt", 512);
 	rcpt = p_new(pool, struct smtp_client_transaction_rcpt, 1);
 	rcpt->pool = pool;
 	rcpt->trans = trans;
@@ -163,7 +163,7 @@ smtp_client_transaction_create(struct smtp_client_connection *conn,
 	struct smtp_client_transaction *trans;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp transaction", 512);
+	pool = pool_alloconly_create("smtp transaction", 4096);
 	trans = p_new(pool, struct smtp_client_transaction, 1);
 	trans->refcount = 1;
 	trans->pool = pool;

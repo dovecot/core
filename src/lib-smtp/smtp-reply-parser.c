@@ -146,7 +146,7 @@ smtp_reply_parser_restart(struct smtp_reply_parser *parser)
 	pool_unref(&parser->reply_pool);
 	i_zero(&parser->state);
 
-	parser->reply_pool = pool_alloconly_create("smtp_reply", 256);
+	parser->reply_pool = pool_alloconly_create("smtp_reply", 1024);
 	parser->state.reply = p_new(parser->reply_pool, struct smtp_reply, 1);
 	p_array_init(&parser->state.reply_lines, parser->reply_pool, 8);
 

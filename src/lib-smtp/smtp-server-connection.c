@@ -810,7 +810,7 @@ smtp_server_connection_alloc(struct smtp_server *server,
 	struct smtp_server_connection *conn;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp server", 512);
+	pool = pool_alloconly_create("smtp server", 1024);
 	conn = p_new(pool, struct smtp_server_connection, 1);
 	conn->pool = pool;
 	conn->refcount = 1;

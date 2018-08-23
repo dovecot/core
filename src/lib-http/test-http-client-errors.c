@@ -3040,7 +3040,7 @@ server_connection_init(int fd)
 
 	net_set_nonblock(fd, TRUE);
 
-	pool = pool_alloconly_create("server connection", 256);
+	pool = pool_alloconly_create("server connection", 512);
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 
