@@ -354,10 +354,6 @@ dns_client_send_request(struct dns_client *client, const char *cmd,
 	if (!client->connected) {
 		if (dns_client_connect(client, error_r) < 0)
 			return -1;
-		ret = -1;
-	} else {
-		/* already connected. if write() fails, retry connecting */
-		ret = 0;
 	}
 
 	if ((ret = o_stream_send(client->conn.output, cmd, strlen(cmd))) < 0) {
@@ -367,7 +363,7 @@ dns_client_send_request(struct dns_client *client, const char *cmd,
 		dns_client_disconnect(client, "Cannot send data");
 	}
 
-	return 1;
+	return ret;
 }
 
 static int
