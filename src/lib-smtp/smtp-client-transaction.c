@@ -557,7 +557,8 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 		if (array_count(&trans->rcpts) == 0) {
 			/* abort transaction if all recipients failed */
 			smtp_client_transaction_abort(trans);
-		} else if (conn->protocol == SMTP_PROTOCOL_LMTP) {
+		} else if (conn->protocol == SMTP_PROTOCOL_LMTP &&
+			   trans->cmd_data != NULL) {
 			smtp_client_command_set_replies(trans->cmd_data,
 				array_count(&trans->rcpts));
 		}
