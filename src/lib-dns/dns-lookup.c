@@ -86,7 +86,6 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 			lookup->result.msecs);
 	}
 	lookup->callback(&lookup->result, lookup->context);
-	event_unref(&lookup->event);
 }
 
 static void dns_client_disconnect(struct dns_client *client, const char *error)
@@ -207,11 +206,7 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 
 	client = dns_client_init(set);
 	client->deinit_client_at_free = TRUE;
-	if (dns_client_lookup(client, host, callback, context, lookup_r) < 0) {
-		dns_client_deinit(&client);
-		return -1;
-	}
-	return 0;
+	return dns_client_lookup(client, host, callback, context, lookup_r);
 }
 
 int dns_lookup_ptr(const struct ip_addr *ip,
@@ -223,11 +218,7 @@ int dns_lookup_ptr(const struct ip_addr *ip,
 
 	client = dns_client_init(set);
 	client->deinit_client_at_free = TRUE;
-	if (dns_client_lookup_ptr(client, ip, callback, context, lookup_r) < 0) {
-		dns_client_deinit(&client);
-		return -1;
-	}
-	return 0;
+	return dns_client_lookup_ptr(client, ip, callback, context, lookup_r);
 }
 
 static void dns_client_idle_timeout(struct dns_client *client)
@@ -404,7 +395,7 @@ dns_client_lookup_common(struct dns_client *client,
 		}
 		if (ret <= 0) {
 			dns_lookup_callback(lookup);
-			pool_unref(&lookup->pool);
+			dns_lookup_free(&lookup);
 			return -1;
 		}
 	}
