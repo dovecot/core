@@ -93,13 +93,11 @@ fts_build_unstructured_header(struct fts_mail_build_context *ctx,
 	for (i = 0; i < hdr->full_value_len; i++) {
 		if (hdr->full_value[i] == '\0') {
 			if (buf == NULL) {
-				buf = i_malloc(hdr->full_value_len);
-				memcpy(buf, hdr->full_value, i);
+				buf = i_memdup(hdr->full_value,
+					       hdr->full_value_len);
 				data = buf;
 			}
 			buf[i] = ' ';
-		} else if (buf != NULL) {
-			buf[i] = hdr->full_value[i];
 		}
 	}
 	ret = fts_build_data(ctx, data, hdr->full_value_len, TRUE);
