@@ -64,11 +64,28 @@ static void cmd_data_proxy_cb(const struct smtp_reply *proxy_reply,
 	smtp_server_reply_forward(cmd, &reply);
 }
 
+int cmd_data_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_transaction *trans,
+		   struct istream *data_input)
+{
+	struct cmd_data_context *data_ctx;
+
+	/* start relaying to relay server */
+	data_ctx = p_new(trans->pool, struct cmd_data_context, 1);
+	data_ctx->client = client;
+	data_ctx->cmd = cmd;
+	data_ctx->trans = trans;
+	trans->context = (void*)data_ctx;
+
+	data_ctx->cmd_proxied = smtp_client_command_data_submit(
+		client->proxy_conn, 0, data_input, cmd_data_proxy_cb, data_ctx);
+	return 0;
+}
+
 int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		      struct smtp_server_transaction *trans)
 {
 	struct client *client = conn_ctx;
-	struct cmd_data_context *data_ctx = trans->context;
 	struct istream *data_input = client->state.data_input;
 	struct istream *inputs[3];
 	string_t *added_headers;
@@ -105,35 +122,24 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	inputs[1] = data_input;
 	inputs[2] = NULL;
 
-	data_ctx->cmd = cmd;
-
 	data_input = i_stream_create_concat(inputs);
 	i_stream_unref(&inputs[0]);
 	i_stream_unref(&inputs[1]);
 
-	/* start proxying to relay server */
+	ret = cmd_data_relay(client, cmd, trans, data_input);
 
-	data_ctx->cmd_proxied = smtp_client_command_data_submit(
-		client->proxy_conn, 0, data_input,
-		cmd_data_proxy_cb, data_ctx);
 	i_stream_unref(&data_input);
-	return 0;
+	return ret;
 }
 
 int cmd_data_begin(void *conn_ctx,
 		   struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-		   struct smtp_server_transaction *trans,
+		   struct smtp_server_transaction *trans ATTR_UNUSED,
 		   struct istream *data_input)
 {
 	struct client *client = conn_ctx;
-	struct cmd_data_context *data_ctx;
 	struct istream *inputs[2];
 	string_t *path;
-
-	data_ctx = p_new(trans->pool, struct cmd_data_context, 1);
-	data_ctx->client = client;
-	data_ctx->trans = trans;
-	trans->context = (void*)data_ctx;
 
 	inputs[0] = data_input;
 	inputs[1] = NULL;
