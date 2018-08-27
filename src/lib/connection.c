@@ -262,7 +262,10 @@ void connection_init_server(struct connection_list *list,
 
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name("client_connection_connected");
-	e_debug(e->event(), "Client connected");
+	/* fd_out differs from fd_in only for stdin/stdout. Keep the logging
+	   output nice and clean by logging only the fd_in. If it's 0, it'll
+	   also be obvious that fd_out=1. */
+	e_debug(e->event(), "Server accepted connection (fd=%d)", fd_in);
 
 	connection_init_streams(conn);
 }
