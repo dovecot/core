@@ -371,14 +371,15 @@ dns_client_lookup_common(struct dns_client *client,
 			 dns_lookup_callback_t *callback, void *context,
 			 struct dns_lookup **lookup_r)
 {
-	struct dns_lookup tlookup, *lookup;
+	struct dns_lookup *lookup;
 	int ret;
 
 	i_assert(param != NULL && *param != '\0');
 	cmd = t_strdup_printf("%s\t%s\n", cmd, param);
 
-	i_zero(&tlookup);
-	lookup = &tlookup;
+	pool_t pool = pool_alloconly_create("dns lookup", 512);
+	lookup = p_new(pool, struct dns_lookup, 1);
+	lookup->pool = pool;
 
 	if (gettimeofday(&lookup->start_time, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
@@ -403,14 +404,11 @@ dns_client_lookup_common(struct dns_client *client,
 		}
 		if (ret <= 0) {
 			dns_lookup_callback(lookup);
+			pool_unref(&lookup->pool);
 			return -1;
 		}
 	}
 
-	pool_t pool = pool_alloconly_create("dns lookup", 512);
-	lookup = p_new(pool, struct dns_lookup, 1);
-	lookup->pool = pool;
-	*lookup = tlookup;
 	if (client->timeout_msecs != 0) {
 		lookup->to = timeout_add_to(client->ioloop,
 					    client->timeout_msecs,
