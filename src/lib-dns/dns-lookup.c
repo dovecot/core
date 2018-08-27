@@ -25,6 +25,7 @@ static struct event_category event_category_dns = {
 struct dns_lookup {
 	struct dns_lookup *prev, *next;
 	struct dns_client *client;
+	pool_t pool;
 	bool ptr_lookup;
 
 	struct timeout *to;
@@ -133,12 +134,12 @@ static int dns_lookup_input_args(struct dns_lookup *lookup, const char *const *a
 	}
 
 	if (lookup->ptr_lookup) {
-		result->name = lookup->name = i_strdup(args[1]);
+		result->name = lookup->name = p_strdup(lookup->pool, args[1]);
 		return 1;
 	}
 
 	ARRAY(struct ip_addr) ips;
-	i_array_init(&ips, 2);
+	p_array_init(&ips, lookup->pool, 2);
 	for(unsigned int i = 1; args[i] != NULL; i++) {
 		struct ip_addr *ip = array_append_space(&ips);
 		if (net_addr2ip(args[i], ip) < 0)
@@ -247,8 +248,6 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 
 	DLLIST2_REMOVE(&client->head, &client->tail, lookup);
 	timeout_remove(&lookup->to);
-	i_free(lookup->name);
-	i_free(lookup->ips);
 	if (client->deinit_client_at_free)
 		dns_client_deinit(&client);
 	else if (client->head == NULL && client->connected) {
@@ -257,7 +256,7 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 						 dns_client_idle_timeout, client);
 	}
 	event_unref(&lookup->event);
-	i_free(lookup);
+	pool_unref(&lookup->pool);
 }
 
 void dns_lookup_abort(struct dns_lookup **lookup)
@@ -408,7 +407,9 @@ dns_client_lookup_common(struct dns_client *client,
 		}
 	}
 
-	lookup = i_new(struct dns_lookup, 1);
+	pool_t pool = pool_alloconly_create("dns lookup", 512);
+	lookup = p_new(pool, struct dns_lookup, 1);
+	lookup->pool = pool;
 	*lookup = tlookup;
 	if (client->timeout_msecs != 0) {
 		lookup->to = timeout_add_to(client->ioloop,
