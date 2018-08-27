@@ -199,11 +199,8 @@ void connection_streams_changed(struct connection *conn)
 
 static void connection_client_connected(struct connection *conn, bool success)
 {
-	const char *ename = conn->list->set.client ?
-		"server_connection_connected" :
-		"client_connection_connected";
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
-		set_name(ename);
+		set_name("server_connection_connected");
 
 	i_assert(conn->list->set.client);
 
