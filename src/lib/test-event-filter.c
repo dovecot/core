@@ -98,8 +98,55 @@ static void test_event_filter_clear_parent_fields(void)
 	test_end();
 }
 
+static void test_event_filter_inc_int(void)
+{
+	struct event_filter *filter;
+	struct event_filter_field filter_fields[] = {
+		{ .key = "int", .value = "14" },
+		{ .key = NULL, .value = NULL }
+	};
+	const struct event_filter_query query = {
+		.fields = filter_fields,
+	};
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: create and update keys with event_inc_int");
+
+	struct event *root = event_create(NULL);
+
+	filter = event_filter_create();
+	event_filter_add(filter, &query);
+
+	const struct event_field *f = event_find_field(root, "int");
+	test_assert(f == NULL);
+	test_assert(!event_filter_match(filter, root, &failure_ctx));
+
+	event_inc_int(root, "int", 7);
+	test_assert(!event_filter_match(filter, root, &failure_ctx));
+	f = event_find_field(root, "int");
+	test_assert(f != NULL);
+	test_assert_strcmp(f->key, "int");
+	test_assert(f->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX);
+	test_assert(f->value.intmax == 7);
+
+	event_inc_int(root, "int", 7);
+	test_assert(event_filter_match(filter, root, &failure_ctx));
+	f = event_find_field(root, "int");
+	test_assert(f != NULL);
+	test_assert_strcmp(f->key, "int");
+	test_assert(f->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX);
+	test_assert(f->value.intmax == 14);
+
+	event_filter_unref(&filter);
+	event_unref(&root);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
 	test_event_filter_clear_parent_fields();
+	test_event_filter_inc_int();
 }
