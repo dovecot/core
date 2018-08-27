@@ -10,9 +10,8 @@ int imap_status_parse_items(struct client_command_context *cmd,
 			    const struct imap_arg *args,
 			    struct imap_status_items *items_r)
 {
+	enum imap_status_item_flags flags = 0;
 	const char *item;
-	enum mailbox_status_items status = 0;
-	enum mailbox_metadata_items metadata = 0;
 
 	if (IMAP_ARG_IS_EOL(args)) {
 		client_send_command_error(cmd, "Empty status list.");
@@ -30,21 +29,21 @@ int imap_status_parse_items(struct client_command_context *cmd,
 
 		item = t_str_ucase(item);
 		if (strcmp(item, "MESSAGES") == 0)
-			status |= STATUS_MESSAGES;
+			flags |= IMAP_STATUS_ITEM_MESSAGES;
 		else if (strcmp(item, "RECENT") == 0)
-			status |= STATUS_RECENT;
+			flags |= IMAP_STATUS_ITEM_RECENT;
 		else if (strcmp(item, "UIDNEXT") == 0)
-			status |= STATUS_UIDNEXT;
+			flags |= IMAP_STATUS_ITEM_UIDNEXT;
 		else if (strcmp(item, "UIDVALIDITY") == 0)
-			status |= STATUS_UIDVALIDITY;
+			flags |= IMAP_STATUS_ITEM_UIDVALIDITY;
 		else if (strcmp(item, "UNSEEN") == 0)
-			status |= STATUS_UNSEEN;
+			flags |= IMAP_STATUS_ITEM_UNSEEN;
 		else if (strcmp(item, "HIGHESTMODSEQ") == 0)
-			status |= STATUS_HIGHESTMODSEQ;
+			flags |= IMAP_STATUS_ITEM_HIGHESTMODSEQ;
 		else if (strcmp(item, "X-SIZE") == 0)
-			metadata |= MAILBOX_METADATA_VIRTUAL_SIZE;
+			flags |= IMAP_STATUS_ITEM_X_SIZE;
 		else if (strcmp(item, "X-GUID") == 0)
-			metadata |= MAILBOX_METADATA_GUID;
+			flags |= IMAP_STATUS_ITEM_X_GUID;
 		else {
 			client_send_command_error(cmd, t_strconcat(
 				"Invalid status item ", item, NULL));
@@ -52,9 +51,42 @@ int imap_status_parse_items(struct client_command_context *cmd,
 		}
 	}
 
-	items_r->status = status;
-	items_r->metadata = metadata;
+	items_r->flags = flags;
 	return 0;
+}
+
+int imap_status_get_result(struct client *client, struct mailbox *box,
+			   const struct imap_status_items *items,
+			   struct imap_status_result *result_r)
+{
+	enum mailbox_status_items status = 0;
+	enum mailbox_metadata_items metadata = 0;
+	int ret;
+
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_MESSAGES))
+		status |= STATUS_MESSAGES;
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_RECENT))
+		status |= STATUS_RECENT;
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDNEXT))
+		status |= STATUS_UIDNEXT;
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDVALIDITY))
+		status |= STATUS_UIDVALIDITY;
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UNSEEN))
+		status |= STATUS_UNSEEN;
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_HIGHESTMODSEQ)) {
+		client_enable(client, imap_feature_condstore);
+		status |= STATUS_HIGHESTMODSEQ;
+	}
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_X_SIZE))
+		metadata |= MAILBOX_METADATA_VIRTUAL_SIZE;
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_X_GUID))
+		metadata |= MAILBOX_METADATA_GUID;
+
+	ret = mailbox_get_status(box, status, &result_r->status);
+	if (metadata != 0 && ret == 0)
+		ret = mailbox_get_metadata(box, metadata, &result_r->metadata);
+
+	return ret;
 }
 
 int imap_status_get(struct client_command_context *cmd,
@@ -78,15 +110,7 @@ int imap_status_get(struct client_command_context *cmd,
 		(void)mailbox_enable(box, client_enabled_mailbox_features(client));
 	}
 
-	if ((items->status & STATUS_HIGHESTMODSEQ) != 0)
-		client_enable(client, imap_feature_condstore);
-
-	ret = mailbox_get_status(box, items->status, &result_r->status);
-	if (items->metadata != 0 && ret == 0) {
-		ret = mailbox_get_metadata(box, items->metadata,
-					   &result_r->metadata);
-	}
-
+	ret = imap_status_get_result(client, box, items, result_r);
 	if (ret < 0) {
 		errstr = mailbox_get_last_error(box, &result_r->error);
 		result_r->errstr = imap_get_error_string(cmd, errstr,
@@ -111,25 +135,25 @@ int imap_status_send(struct client *client, const char *mailbox_mutf7,
 	str_append(str, " (");
 
 	prefix_len = str_len(str);
-	if ((items->status & STATUS_MESSAGES) != 0)
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_MESSAGES))
 		str_printfa(str, "MESSAGES %u ", status->messages);
-	if ((items->status & STATUS_RECENT) != 0)
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_RECENT))
 		str_printfa(str, "RECENT %u ", status->recent);
-	if ((items->status & STATUS_UIDNEXT) != 0)
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDNEXT))
 		str_printfa(str, "UIDNEXT %u ", status->uidnext);
-	if ((items->status & STATUS_UIDVALIDITY) != 0)
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDVALIDITY))
 		str_printfa(str, "UIDVALIDITY %u ", status->uidvalidity);
-	if ((items->status & STATUS_UNSEEN) != 0)
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UNSEEN))
 		str_printfa(str, "UNSEEN %u ", status->unseen);
-	if ((items->status & STATUS_HIGHESTMODSEQ) != 0) {
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_HIGHESTMODSEQ)) {
 		str_printfa(str, "HIGHESTMODSEQ %"PRIu64" ",
 			    status->highest_modseq);
 	}
-	if ((items->metadata & MAILBOX_METADATA_VIRTUAL_SIZE) != 0) {
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_X_SIZE)) {
 		str_printfa(str, "X-SIZE %"PRIu64" ",
 			    result->metadata.virtual_size);
 	}
-	if ((items->metadata & MAILBOX_METADATA_GUID) != 0) {
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_X_GUID)) {
 		str_printfa(str, "X-GUID %s ",
 			    guid_128_to_string(result->metadata.guid));
 	}

@@ -52,25 +52,27 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 
 	i_zero(&items);
 	if (client_has_enabled(client, imap_feature_condstore))
-		items.status |= STATUS_HIGHESTMODSEQ;
+		items.flags |= IMAP_STATUS_ITEM_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(notify_ns->ns->list, rec->vname, 0);
 	mailbox_set_reason(box, "NOTIFY STATUS");
 	if ((rec->events & MAILBOX_LIST_NOTIFY_UIDVALIDITY) != 0) {
-		items.status |= STATUS_UIDVALIDITY | STATUS_UIDNEXT |
-			STATUS_MESSAGES | STATUS_UNSEEN;
+		items.flags |= IMAP_STATUS_ITEM_UIDVALIDITY |
+			IMAP_STATUS_ITEM_UIDNEXT | IMAP_STATUS_ITEM_MESSAGES |
+			IMAP_STATUS_ITEM_UNSEEN;
 	}
 	if ((rec->events & (MAILBOX_LIST_NOTIFY_APPENDS |
 			    MAILBOX_LIST_NOTIFY_EXPUNGES)) != 0)
-		items.status |= STATUS_UIDNEXT | STATUS_MESSAGES | STATUS_UNSEEN;
+		items.flags |= IMAP_STATUS_ITEM_UIDNEXT |
+			IMAP_STATUS_ITEM_MESSAGES | IMAP_STATUS_ITEM_UNSEEN;
 	if ((rec->events & MAILBOX_LIST_NOTIFY_SEEN_CHANGES) != 0)
-		items.status |= STATUS_UNSEEN;
+		items.flags |= IMAP_STATUS_ITEM_UNSEEN;
 	if ((rec->events & MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES) != 0) {
 		/* if HIGHESTMODSEQ isn't being sent, don't send anything */
 	}
-	if (items.status == 0) {
+	if (imap_status_items_is_empty(&items)) {
 		/* don't send anything */
-	} else if (mailbox_get_status(box, items.status, &result.status) < 0) {
+	} else if (imap_status_get_result(client, box, &items, &result) < 0) {
 		/* hide permission errors from client. we don't want to leak
 		   information about existence of mailboxes where user doesn't
 		   have access to */

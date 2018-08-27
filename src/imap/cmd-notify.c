@@ -429,11 +429,11 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 	i_zero(&items);
 	i_zero(&result);
 
-	items.status = STATUS_UIDVALIDITY | STATUS_UIDNEXT |
-		STATUS_MESSAGES | STATUS_UNSEEN;
+	items.flags = IMAP_STATUS_ITEM_UIDVALIDITY | IMAP_STATUS_ITEM_UIDNEXT |
+		IMAP_STATUS_ITEM_MESSAGES | IMAP_STATUS_ITEM_UNSEEN;
 	if ((ctx->global_used_events & (IMAP_NOTIFY_EVENT_FLAG_CHANGE |
 					IMAP_NOTIFY_EVENT_ANNOTATION_CHANGE)) != 0)
-		items.status |= STATUS_HIGHESTMODSEQ;
+		items.flags |= IMAP_STATUS_ITEM_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
 	mailbox_set_reason(box, "NOTIFY send STATUS");
