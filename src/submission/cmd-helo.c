@@ -38,17 +38,17 @@ static void cmd_helo_update_xclient(struct client *client,
 	client->xclient_sent = TRUE;
 }
 
-static void
-cmd_helo_do_reply(struct client *client, struct smtp_server_cmd_ctx *cmd,
-		  struct cmd_helo_context *helo)
+void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
+				  struct smtp_server_cmd_helo *data)
 {
+	struct client *client = smtp_server_connection_get_context(cmd->conn);
 	enum smtp_capability proxy_caps =
 		smtp_client_connection_get_capabilities(client->proxy_conn);
 	struct smtp_server_reply *reply;
 	uoff_t cap_size;
 
 	reply = smtp_server_reply_create_ehlo(cmd->cmd);
-	if (!helo->data->helo.old_smtp) {
+	if (!data->helo.old_smtp) {
 		string_t *burl_params = t_str_new(256);
 
 		str_append(burl_params, "imap");
@@ -104,7 +104,7 @@ cmd_helo_reply(struct smtp_server_cmd_ctx *cmd, struct cmd_helo_context *helo)
 		cmd_helo_update_xclient(client, helo->data);
 
 	T_BEGIN {
-		cmd_helo_do_reply(client, cmd, helo);
+		submission_helo_reply_submit(cmd, helo->data);
 	} T_END;
 }
 
