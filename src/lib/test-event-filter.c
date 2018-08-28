@@ -120,13 +120,13 @@ static void test_event_filter_inc_int(void)
 	event_filter_add(filter, &query);
 
 	const struct event_field *f = event_find_field(root, "int");
-	test_assert(f == NULL);
+	i_assert(f == NULL);
 	test_assert(!event_filter_match(filter, root, &failure_ctx));
 
 	event_inc_int(root, "int", 7);
 	test_assert(!event_filter_match(filter, root, &failure_ctx));
 	f = event_find_field(root, "int");
-	test_assert(f != NULL);
+	i_assert(f != NULL);
 	test_assert_strcmp(f->key, "int");
 	test_assert(f->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX);
 	test_assert(f->value.intmax == 7);
@@ -134,7 +134,7 @@ static void test_event_filter_inc_int(void)
 	event_inc_int(root, "int", 7);
 	test_assert(event_filter_match(filter, root, &failure_ctx));
 	f = event_find_field(root, "int");
-	test_assert(f != NULL);
+	i_assert(f != NULL);
 	test_assert_strcmp(f->key, "int");
 	test_assert(f->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX);
 	test_assert(f->value.intmax == 14);
