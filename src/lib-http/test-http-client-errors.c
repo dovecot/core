@@ -2481,6 +2481,8 @@ test_dns_lookup_ttl_input(struct server_connection *conn)
 	}
 
 	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (str_begins(line, "VERSION"))
+			continue;
 		if (debug)
 			i_debug("DNS REQUEST %u: %s", count, line);
 
@@ -2784,6 +2786,8 @@ test_dns_reconnect_failure_input(struct server_connection *conn)
 	}
 
 	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (str_begins(line, "VERSION"))
+			continue;
 		if (debug)
 			i_debug("DNS REQUEST %u: %s", count, line);
 
