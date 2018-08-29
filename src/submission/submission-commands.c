@@ -2,6 +2,10 @@
 
 #include "submission-common.h"
 #include "str.h"
+#include "istream.h"
+#include "istream-concat.h"
+#include "istream-seekable.h"
+#include "mail-storage.h"
 #include "smtp-client.h"
 #include "smtp-client-connection.h"
 
@@ -116,5 +120,78 @@ int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 	struct client *client = conn_ctx;
 
 	return cmd_rset_relay(client, cmd);
+}
+
+/*
+ * DATA/BDAT commands
+ */
+
+int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+		      struct smtp_server_transaction *trans)
+{
+	struct client *client = conn_ctx;
+	struct istream *data_input = client->state.data_input;
+	struct istream *inputs[3];
+	string_t *added_headers;
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	while ((ret = i_stream_read_more(data_input, &data, &size)) > 0) {
+		i_stream_skip(data_input, size);
+		if (!smtp_server_cmd_data_check_size(cmd))
+			return -1;
+	}
+
+	if (ret == 0)
+		return 0;
+	if (ret < 0 && data_input->stream_errno != 0)
+		return -1;
+
+	/* Done reading DATA stream; remove it from state and continue with
+	   local variable. */
+	client->state.data_input = NULL;
+
+	ret = i_stream_get_size(data_input, TRUE,
+				&client->state.data_size);
+	i_assert(ret > 0); // FIXME
+
+	/* prepend our own headers */
+	added_headers = t_str_new(200);
+	smtp_server_transaction_write_trace_record(added_headers, trans);
+
+	i_stream_seek(data_input, 0);
+	inputs[0] = i_stream_create_copy_from_data(
+		str_data(added_headers), str_len(added_headers));
+	inputs[1] = data_input;
+	inputs[2] = NULL;
+
+	data_input = i_stream_create_concat(inputs);
+	i_stream_unref(&inputs[0]);
+	i_stream_unref(&inputs[1]);
+
+	ret = cmd_data_relay(client, cmd, trans, data_input);
+
+	i_stream_unref(&data_input);
+	return ret;
+}
+
+int cmd_data_begin(void *conn_ctx,
+		   struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		   struct smtp_server_transaction *trans ATTR_UNUSED,
+		   struct istream *data_input)
+{
+	struct client *client = conn_ctx;
+	struct istream *inputs[2];
+	string_t *path;
+
+	inputs[0] = data_input;
+	inputs[1] = NULL;
+
+	path = t_str_new(256);
+	mail_user_set_get_temp_prefix(path, client->user->set);
+	client->state.data_input = i_stream_create_seekable_path(inputs,
+		SUBMISSION_MAIL_DATA_MAX_INMEMORY_SIZE, str_c(path));
+	return 0;
 }
 
