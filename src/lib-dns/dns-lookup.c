@@ -378,7 +378,7 @@ dns_client_lookup_common(struct dns_client *client,
 	lookup->ptr_lookup = ptr_lookup;
 	lookup->result.ret = EAI_FAIL;
 	lookup->event = event_create(client->event);
-	event_set_append_log_prefix(lookup->event, t_strconcat(param, ": ", NULL));
+	event_set_append_log_prefix(lookup->event, t_strconcat("dns(", param, "): ", NULL));
 	struct event_passthrough *e =
 		event_create_passthrough(lookup->event)->
 		set_name("dns_request_started");
