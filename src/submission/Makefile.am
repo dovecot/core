@@ -33,11 +33,7 @@ submission_DEPENDENCIES = \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
-cmds = \
-	cmd-quit.c
-
 submission_SOURCES = \
-	$(cmds) \
 	main.c \
 	submission-backend-relay.c \
 	submission-client.c \
