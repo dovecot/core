@@ -1302,6 +1302,11 @@ test_client_connection_lost_sub_ioloop_response2(
 {
 	if (debug)
 		i_debug("SUB-RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == 200 ||
+		    resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
 	io_loop_stop(sub_ioloop);
 }
 
@@ -1316,7 +1321,8 @@ test_client_connection_lost_sub_ioloop_response(
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	test_assert(resp->status == 200);
+	test_assert(resp->status == 200 ||
+		    resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
 	sub_ioloop = io_loop_create();
