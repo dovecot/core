@@ -47,10 +47,3 @@ int cmd_rset_relay(struct client *client, struct smtp_server_cmd_ctx *cmd)
 		(client->proxy_conn, 0, cmd_rset_proxy_cb, rset_cmd);
 	return 0;
 }
-
-int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
-{
-	struct client *client = conn_ctx;
-
-	return cmd_rset_relay(client, cmd);
-}
