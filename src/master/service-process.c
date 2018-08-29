@@ -232,6 +232,8 @@ static void
 service_process_setup_environment(struct service *service, unsigned int uid,
 				  const char *hostdomain)
 {
+	const struct master_service_settings *service_set =
+		service->list->service_set;
 	master_service_env_clean();
 
 	env_put(MASTER_IS_PARENT_ENV"=1");
@@ -255,6 +257,11 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 	if (!service->set->master_set->version_ignore)
 		env_put(MASTER_DOVECOT_VERSION_ENV"="PACKAGE_VERSION);
 
+	if (service_set->stats_writer_socket_path[0] != '\0') {
+		env_put(t_strdup_printf(DOVECOT_STATS_WRITER_SOCKET_PATH"=%s/%s",
+					service_set->base_dir,
+					service_set->stats_writer_socket_path));
+	}
 	if (ssl_manual_key_password != NULL && service->have_inet_listeners) {
 		/* manually given SSL password. give it only to services
 		   that have inet listeners. */
@@ -265,7 +272,7 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 	    service_anvil_global->restarted)
 		env_put("ANVIL_RESTARTED=1");
 	env_put(t_strconcat(DOVECOT_LOG_DEBUG_ENV"=",
-			    service->list->service_set->log_debug, NULL));
+			    service_set->log_debug, NULL));
 }
 
 static void service_process_status_timeout(struct service_process *process)
