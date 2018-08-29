@@ -74,11 +74,3 @@ int cmd_rcpt_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		cmd_rcpt_proxy_cb, rcpt_cmd);
 	return 0;
 }
-
-int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
-	     struct smtp_server_cmd_rcpt *data)
-{
-	struct client *client = conn_ctx;
-
-	return cmd_rcpt_relay(client, cmd, data);
-}
