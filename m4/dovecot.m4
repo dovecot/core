@@ -60,16 +60,17 @@ if test "\$NOVALGRIND" != ""; then
   \$[*]
   ret=\$?
 else
-  trap "rm -f test.out.\$\$" 0 1 2 3 15
+  test_out="test.out.\$\$"
+  trap "rm -f \$test_out" 0 1 2 3 15
   supp_path="\$top_srcdir/run-test-valgrind.supp"
   if test -r "\$supp_path"; then
-    valgrind -q \$trace_children --leak-check=full --suppressions="\$supp_path" --log-file=test.out.\$\$ \$noundef \$[*]
+    valgrind -q \$trace_children --leak-check=full --suppressions="\$supp_path" --log-file=\$test_out \$noundef \$[*]
   else
-    valgrind -q \$trace_children --leak-check=full --log-file=test.out.\$\$ \$noundef \$[*]
+    valgrind -q \$trace_children --leak-check=full --log-file=\$test_out \$noundef \$[*]
   fi
   ret=\$?
-  if test -s test.out.\$\$; then
-    cat test.out.\$\$
+  if test -s \$test_out; then
+    cat \$test_out
     ret=1
   fi
 fi
