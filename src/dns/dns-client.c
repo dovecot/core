@@ -51,6 +51,9 @@ static int dns_client_input_args(struct connection *client, const char *const *a
 			/* shouldn't happen, but fix it anyway.. */
 			ret = EAI_NONAME;
 		}
+		/* update timestamp after hostname lookup so the event duration
+		   field gets set correctly */
+		io_loop_time_refresh();
 		if (ret != 0) {
 			const char *err = net_gethosterror(ret);
 			e->add_int("error_code", ret);
