@@ -106,3 +106,15 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	return cmd_rcpt_relay(client, cmd, data);
 }
+
+/*
+ * RSET command
+ */
+
+int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
+{
+	struct client *client = conn_ctx;
+
+	return cmd_rset_relay(client, cmd);
+}
+
