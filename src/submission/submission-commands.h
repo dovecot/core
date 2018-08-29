@@ -14,6 +14,8 @@ int cmd_rset_relay(struct client *client, struct smtp_server_cmd_ctx *cmd);
 int cmd_data_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		   struct smtp_server_transaction *trans,
 		   struct istream *data_input);
+int cmd_vrfy_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
+		   const char *param);
 
 void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 				  struct smtp_server_cmd_helo *data);
