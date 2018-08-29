@@ -45,10 +45,3 @@ int cmd_noop_relay(struct client *client, struct smtp_server_cmd_ctx *cmd)
 		(client->proxy_conn, 0, cmd_noop_proxy_cb, noop_cmd);
 	return 0;
 }
-
-int cmd_noop(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
-{
-	struct client *client = conn_ctx;
-
-	return cmd_noop_relay(client, cmd);
-}
