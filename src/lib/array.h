@@ -140,6 +140,14 @@ array_free_i(struct array *array)
 #define array_free(array) \
 	array_free_i(&(array)->arr)
 
+static inline void * ATTR_WARN_UNUSED_RESULT
+array_free_without_data_i(struct array *array)
+{
+	return buffer_free_without_data(&array->buffer);
+}
+#define array_free_without_data(array) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array)array_free_without_data_i(&(array)->arr)
+
 static inline bool
 array_is_created_i(const struct array *array)
 {
