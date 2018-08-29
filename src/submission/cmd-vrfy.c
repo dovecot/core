@@ -56,10 +56,3 @@ int cmd_vrfy_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	return 0;
 }
 
-int cmd_vrfy(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
-	     const char *param)
-{
-	struct client *client = conn_ctx;
-
-	return cmd_vrfy_relay(client, cmd, param);
-}

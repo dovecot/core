@@ -415,3 +415,15 @@ void cmd_burl(struct smtp_server_cmd_ctx *cmd, const char *params)
 	if (ret == 0 && chunk_last)
 		smtp_server_command_input_lock(cmd);
 }
+
+/*
+ * VRFY command
+ */
+
+int cmd_vrfy(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+	     const char *param)
+{
+	struct client *client = conn_ctx;
+
+	return cmd_vrfy_relay(client, cmd, param);
+}
