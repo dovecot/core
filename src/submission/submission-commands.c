@@ -438,3 +438,49 @@ int cmd_noop(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 
 	return cmd_noop_relay(client, cmd);
 }
+
+/*
+ * QUIT command
+ */
+
+struct cmd_quit_context {
+	struct client *client;
+
+	struct smtp_server_cmd_ctx *cmd;
+};
+
+static void cmd_quit_finish(struct cmd_quit_context *quit_cmd)
+{
+	struct client *client = quit_cmd->client;
+	struct smtp_server_cmd_ctx *cmd = quit_cmd->cmd;
+
+	timeout_remove(&client->to_quit);
+	smtp_server_reply_quit(cmd);
+}
+
+static void
+cmd_quit_next(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	      struct cmd_quit_context *quit_cmd)
+{
+	struct client *client = quit_cmd->client;
+
+	/* give backend a brief interval to generate a quit reply */
+	client->to_quit = timeout_add(SUBMISSION_MAX_WAIT_QUIT_REPLY_MSECS,
+				      cmd_quit_finish, quit_cmd);
+}
+
+int cmd_quit(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
+{
+	struct client *client = conn_ctx;
+	struct cmd_quit_context *quit_cmd;
+
+	quit_cmd = p_new(cmd->pool, struct cmd_quit_context, 1);
+	quit_cmd->client = client;
+	quit_cmd->cmd = cmd;
+
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     cmd_quit_next, quit_cmd);
+
+	return cmd_quit_relay(client, cmd);
+}
+
