@@ -55,10 +55,9 @@ static void cmd_rcpt_proxy_cb(const struct smtp_reply *proxy_reply,
 	smtp_server_reply_forward(cmd, &reply);
 }
 
-int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
-	     struct smtp_server_cmd_rcpt *data)
+int cmd_rcpt_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_cmd_rcpt *data)
 {
-	struct client *client = conn_ctx;
 	struct cmd_rcpt_context *rcpt_cmd;
 
 	/* queue command (pipeline) */
@@ -74,4 +73,12 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		client->proxy_conn, 0, data->path, &data->params,
 		cmd_rcpt_proxy_cb, rcpt_cmd);
 	return 0;
+}
+
+int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+	     struct smtp_server_cmd_rcpt *data)
+{
+	struct client *client = conn_ctx;
+
+	return cmd_rcpt_relay(client, cmd, data);
 }
