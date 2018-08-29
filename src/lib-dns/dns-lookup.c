@@ -34,9 +34,6 @@ struct dns_lookup {
 	unsigned int warn_msecs;
 
 	struct dns_lookup_result result;
-	struct ip_addr *ips;
-	unsigned int ip_idx;
-	char *name;
 	struct event *event;
 
 	dns_lookup_callback_t *callback;
@@ -133,7 +130,7 @@ static int dns_lookup_input_args(struct dns_lookup *lookup, const char *const *a
 	}
 
 	if (lookup->ptr_lookup) {
-		result->name = lookup->name = p_strdup(lookup->pool, args[1]);
+		result->name = p_strdup(lookup->pool, args[1]);
 		return 1;
 	}
 
