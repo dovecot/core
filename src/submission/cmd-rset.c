@@ -35,9 +35,8 @@ static void cmd_rset_proxy_cb(const struct smtp_reply *proxy_reply,
 	smtp_server_reply_forward(cmd, &reply);
 }
 
-int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
+int cmd_rset_relay(struct client *client, struct smtp_server_cmd_ctx *cmd)
 {
-	struct client *client = conn_ctx;
 	struct cmd_rset_context *rset_cmd;
 
 	rset_cmd = p_new(cmd->pool, struct cmd_rset_context, 1);
@@ -47,4 +46,11 @@ int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 	rset_cmd->cmd_proxied = smtp_client_command_rset_submit
 		(client->proxy_conn, 0, cmd_rset_proxy_cb, rset_cmd);
 	return 0;
+}
+
+int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
+{
+	struct client *client = conn_ctx;
+
+	return cmd_rset_relay(client, cmd);
 }
