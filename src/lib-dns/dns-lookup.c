@@ -321,7 +321,7 @@ void dns_client_deinit(struct dns_client **_client)
 	i_free(client);
 }
 
-int dns_client_connect(struct dns_client *client, const char **error_r ATTR_UNUSED)
+int dns_client_connect(struct dns_client *client, const char **error_r)
 {
 	if (client->connected)
 		return 0;
@@ -329,7 +329,11 @@ int dns_client_connect(struct dns_client *client, const char **error_r ATTR_UNUS
 	connection_init_client_unix(client->clist, &client->conn, client->path);
 	if (client->ioloop != NULL)
 		connection_switch_ioloop_to(&client->conn, client->ioloop);
-	return connection_client_connect(&client->conn);
+	int ret = connection_client_connect(&client->conn);
+	if (ret < 0)
+		*error_r = t_strdup_printf("Failed to connect to %s: %m",
+					   client->path);
+	return ret;
 }
 
 static int
