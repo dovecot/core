@@ -94,3 +94,15 @@ int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	return cmd_mail_relay(client, cmd, data);
 }
+
+/*
+ * RCPT command
+ */
+
+int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+	     struct smtp_server_cmd_rcpt *data)
+{
+	struct client *client = conn_ctx;
+
+	return cmd_rcpt_relay(client, cmd, data);
+}
