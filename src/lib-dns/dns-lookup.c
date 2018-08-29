@@ -76,10 +76,10 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 	if (lookup->result.ret != 0) {
 		e->add_int("error_code", lookup->result.ret);
 		e->add_str("error", lookup->result.error);
-		e_debug(e->event(), "DNS lookup failed after %u msecs: %s",
+		e_debug(e->event(), "Lookup failed after %u msecs: %s",
 			lookup->result.msecs, lookup->result.error);
 	} else {
-		e_debug(e->event(), "DNS lookup successful after %u msecs",
+		e_debug(e->event(), "Lookup successful after %u msecs",
 			lookup->result.msecs);
 	}
 	lookup->callback(&lookup->result, lookup->context);
@@ -189,7 +189,7 @@ static int dns_client_input_args(struct connection *conn, const char *const *arg
 
 static void dns_lookup_timeout(struct dns_lookup *lookup)
 {
-	lookup->result.error = "DNS lookup timed out";
+	lookup->result.error = "Lookup timed out";
 
 	dns_lookup_callback(lookup);
 	dns_lookup_free(&lookup);
