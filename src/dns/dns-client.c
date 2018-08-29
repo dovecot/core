@@ -57,7 +57,7 @@ static int dns_client_input_args(struct connection *client, const char *const *a
 			e->add_str("error", err);
 			e_debug(e->event(), "Resolve failed: %s", err);
 			o_stream_nsend_str(client->output,
-				t_strdup_printf("%d\n", ret));
+				t_strdup_printf("%d\t%s\n", ret, err));
 		} else {
 			ARRAY_TYPE(const_string) tmp;
 			t_array_init(&tmp, ips_count);
