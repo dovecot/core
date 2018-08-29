@@ -24,6 +24,8 @@
 
 static void http_client_connection_ready(struct http_client_connection *conn);
 static void http_client_connection_input(struct connection *_conn);
+static void
+http_client_connection_disconnect(struct http_client_connection *conn);
 
 static inline const struct http_client_settings *
 http_client_connection_get_settings(struct http_client_connection *conn)
@@ -263,6 +265,7 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	e_debug(conn->event,
 		"Aborting connection with temporary error: %s", error);
 
+	http_client_connection_disconnect(conn);
 	http_client_connection_retry_requests(conn, status, error);
 	http_client_connection_close(_conn);
 }
