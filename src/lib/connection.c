@@ -14,6 +14,7 @@
 #include "connection.h"
 
 #include <unistd.h>
+#include <libgen.h>
 
 static void connection_idle_timeout(struct connection *conn)
 {
@@ -321,7 +322,7 @@ void connection_init_client_unix(struct connection_list *list,
 	event_field_clear(conn->event, "client_port");
 
 	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
-				    conn->name));
+				    basename(conn->name)));
 }
 
 void connection_init_from_streams(struct connection_list *list,
