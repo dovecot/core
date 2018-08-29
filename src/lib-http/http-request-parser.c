@@ -52,7 +52,7 @@ http_request_parser_init(struct istream *input,
 	uoff_t max_payload_size;
 	enum http_message_parse_flags msg_flags = 0;
 
-	pool = pool_alloconly_create("http request parser", 512);
+	pool = pool_alloconly_create("http request parser", 1024);
 	parser = p_new(pool, struct http_request_parser, 1);
 	parser->pool = pool;
 
