@@ -73,7 +73,6 @@ static int dns_client_input_args(struct connection *client, const char *const *a
 					   t_strarray_join(array_idx(&tmp, 0), "\t"));
 			o_stream_nsend_str(client->output, "\n");
 		}
-		event_unref(&event);
 	} else if (strcmp(args[0], "NAME") == 0) {
 		if (net_addr2ip(args[1], &ip) < 0) {
 			e->add_int("error_code", EAI_FAIL);
