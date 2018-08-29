@@ -82,3 +82,15 @@ int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	submission_helo_reply_submit(cmd, data);
 	return 1;
 }
+
+/*
+ * MAIL command
+ */
+
+int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+	     struct smtp_server_cmd_mail *data)
+{
+	struct client *client = conn_ctx;
+
+	return cmd_mail_relay(client, cmd, data);
+}

@@ -158,12 +158,3 @@ int cmd_mail_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		cmd_mail_proxy_cb, mail_cmd);
 	return 0;
 }
-
-int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
-	     struct smtp_server_cmd_mail *data)
-{
-	struct client *client = conn_ctx;
-
-	return cmd_mail_relay(client, cmd, data);
-}
-
