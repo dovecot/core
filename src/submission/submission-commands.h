@@ -6,6 +6,8 @@ bool client_command_handle_proxy_reply(struct client *client,
 
 int cmd_helo_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		   struct smtp_server_cmd_helo *data);
+int cmd_mail_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_cmd_mail *data);
 
 void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 				  struct smtp_server_cmd_helo *data);
