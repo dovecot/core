@@ -427,3 +427,14 @@ int cmd_vrfy(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	return cmd_vrfy_relay(client, cmd, param);
 }
+
+/*
+ * NOOP command
+ */
+
+int cmd_noop(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
+{
+	struct client *client = conn_ctx;
+
+	return cmd_noop_relay(client, cmd);
+}
