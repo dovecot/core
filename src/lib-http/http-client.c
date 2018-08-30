@@ -121,6 +121,7 @@ http_client_init_shared(struct http_client_context *cctx,
 		http_client_context_ref(cctx);
 		log_prefix = t_strdup_printf("http-client[%u]: ", id);
 	} else {
+		i_assert(set != NULL);
 		client->cctx = cctx = http_client_context_create(set);
 		log_prefix = "http-client: ";
 	}
