@@ -224,12 +224,12 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 
 	client->trans = t;
 	client->message_sizes =
-		buffer_free_without_data(&message_sizes.arr.buffer);
+		array_free_without_data(&message_sizes);
 	if (array_is_created(&msgnum_to_seq_map)) {
 		client->msgnum_to_seq_map_count =
 			array_count(&msgnum_to_seq_map);
 		client->msgnum_to_seq_map =
-			buffer_free_without_data(&msgnum_to_seq_map.arr.buffer);
+			array_free_without_data(&msgnum_to_seq_map);
 	}
 	return 1;
 }
