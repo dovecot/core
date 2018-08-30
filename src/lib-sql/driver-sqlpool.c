@@ -79,6 +79,7 @@ driver_sqlpool_query_callback(struct sql_result *result,
 static void
 driver_sqlpool_commit_callback(const struct sql_commit_result *result,
 			       struct sqlpool_transaction_context *ctx);
+static void driver_sqlpool_deinit(struct sql_db *_db);
 
 static struct sqlpool_request * ATTR_NULL(2)
 sqlpool_request_new(struct sqlpool_db *db, const char *query)
@@ -401,8 +402,9 @@ driver_sqlpool_get_sync_connection(struct sqlpool_db *db,
 	return FALSE;
 }
 
-static void
-driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string)
+static int
+driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
+			   const char **error_r)
 {
 	const char *const *args, *key, *value, *const *hostnamep;
 	struct sqlpool_host *host;
@@ -427,8 +429,9 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string)
 
 		if (strcmp(key, "maxconns") == 0) {
 			if (str_to_uint(value, &db->connection_limit) < 0) {
-				i_fatal("Invalid value for maxconns: %s",
+				*error_r = t_strdup_printf("Invalid value for maxconns: %s",
 					value);
+				return -1;
 			}
 		} else if (strcmp(key, "host") == 0) {
 			array_append(&hostnames, &value, 1);
@@ -459,6 +462,7 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string)
 
 	if (db->connection_limit == 0)
 		db->connection_limit = SQL_DEFAULT_CONNECTION_LIMIT;
+	return 0;
 }
 
 static void sqlpool_add_all_once(struct sqlpool_db *db)
@@ -474,12 +478,12 @@ static void sqlpool_add_all_once(struct sqlpool_db *db)
 	}
 }
 
-struct sql_db *
-driver_sqlpool_init(const char *connect_string, const struct sql_db *driver)
+int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db *driver,
+			     struct sql_db **db_r, const char **error_r)
 {
+	char *error;
 	struct sqlpool_db *db;
-
-	i_assert(connect_string != NULL);
+	int ret;
 
 	db = i_new(struct sqlpool_db, 1);
 	db->driver = driver;
@@ -488,13 +492,23 @@ driver_sqlpool_init(const char *connect_string, const struct sql_db *driver)
 	i_array_init(&db->hosts, 8);
 
 	T_BEGIN {
-		driver_sqlpool_parse_hosts(db, connect_string);
+		const char *tmp = NULL;
+		ret = driver_sqlpool_parse_hosts(db, set->connect_string, &tmp);
+		error = i_strdup(tmp);
 	} T_END;
 
+	if (ret < 0) {
+		*error_r = t_strdup(error);
+		i_free(error);
+		driver_sqlpool_deinit(&db->api);
+		return ret;
+	}
 	i_array_init(&db->all_connections, 16);
 	/* connect to all databases so we can do load balancing immediately */
 	sqlpool_add_all_once(db);
-	return &db->api;
+
+	*db_r = &db->api;
+	return 0;
 }
 
 static void driver_sqlpool_abort_requests(struct sqlpool_db *db)
