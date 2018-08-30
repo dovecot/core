@@ -280,6 +280,35 @@ static void test_array_cmp_str(void)
 	test_end();
 }
 
+static void
+test_array_free_case(bool keep)
+{
+	pool_t pool = pool_allocfree_create("array test");
+	ARRAY(int) r;
+	int *p;
+
+	test_begin(keep ? "array_free" : "array_free_without_data");
+
+	p_array_init(&r, pool, 100);
+	p = array_append_space(&r);
+	if (keep) {
+		p = array_free_without_data(&r);
+		test_assert(pool_allocfree_get_total_used_size(pool)>=400);
+		p_free(pool, p);
+	} else {
+		array_free(&r);
+		test_assert(pool_allocfree_get_total_used_size(pool)==0);
+	}
+	pool_unref(&pool);
+	test_end();
+}
+static void
+test_array_free(void)
+{
+	test_array_free_case(FALSE);
+	test_array_free_case(TRUE);
+}
+
 void test_array(void)
 {
 	test_array_count();
@@ -290,6 +319,7 @@ void test_array(void)
 	test_array_cmp();
 	test_array_cmp_str();
 	test_array_swap();
+	test_array_free();
 }
 
 enum fatal_test_state fatal_array(unsigned int stage)
