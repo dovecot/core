@@ -36,7 +36,7 @@
 #define I_MAX(a, b)  (((a) > (b)) ? (a) : (b))
 
 /* make it easier to cast from/to pointers. assumes that
-   sizeof(size_t) == sizeof(void *) and they're both the largest datatypes
+   sizeof(uintptr_t) == sizeof(void *) and they're both the largest datatypes
    that are allowed to be used. so, long long isn't safe with these. */
 #define POINTER_CAST(i) \
 	((void *) (((uintptr_t)NULL) + (i)))
