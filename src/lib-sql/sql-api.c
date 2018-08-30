@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "str.h"
+#include "time-util.h"
 #include "sql-api-private.h"
 
 #include <time.h>
@@ -11,6 +12,10 @@
 struct default_sql_prepared_statement {
 	struct sql_prepared_statement prep_stmt;
 	char *query_template;
+};
+
+struct event_category event_category_sql = {
+	.name = "sql",
 };
 
 struct sql_db_module_register sql_db_module_register = { 0 };
@@ -92,9 +97,11 @@ int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
 	}
 
 	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0) {
-		if (driver->v.init_full == NULL)
+		if (driver->v.init_full == NULL) {
 			db = driver->v.init(set->connect_string);
-		else
+			db->event = event_create(set->event_parent);
+			event_add_category(db->event, &event_category_sql);
+		} else
 			ret = driver->v.init_full(set, &db, error_r);
 	} else
 		ret = driver_sqlpool_init_full(set, driver, &db, error_r);
@@ -717,6 +724,51 @@ void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 	else
 		ctx->tail->next = tquery;
 	ctx->tail = tquery;
+}
+
+void sql_connection_log_finished(struct sql_db *db)
+{
+	struct event_passthrough *e = event_create_passthrough(db->event)->
+		set_name(SQL_CONNECTION_FINISHED);
+	e_debug(e->event(),
+		"Connection finished (queries=%"PRIu64", slow queries=%"PRIu64")",
+		db->succeeded_queries + db->failed_queries,
+		db->slow_queries);
+}
+
+struct event_passthrough *
+sql_query_finished_event(struct sql_db *db, struct event *event, const char *query,
+			 bool success, int *duration_r)
+{
+	int diff;
+	struct timeval tv;
+	event_get_create_time(event, &tv);
+	struct event_passthrough *e = event_create_passthrough(event)->
+			set_name(SQL_QUERY_FINISHED)->
+			add_str("query_first_word", t_strcut(query, ' '));
+	diff = timeval_diff_msecs(&ioloop_timeval, &tv);
+
+	if (!success) {
+		db->failed_queries++;
+	} else {
+		db->succeeded_queries++;
+	}
+
+	if (diff >= SQL_SLOW_QUERY_MSEC) {
+		e->add_str("slow_query", "y");
+		db->slow_queries++;
+	}
+
+	if (duration_r != NULL)
+		*duration_r = diff;
+
+	return e;
+}
+
+struct event_passthrough *sql_transaction_finished_event(struct sql_transaction_context *ctx)
+{
+	return event_create_passthrough(ctx->event)->
+		set_name(SQL_TRANSACTION_FINISHED);
 }
 
 struct sql_result sql_not_connected_result = {

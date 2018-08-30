@@ -73,6 +73,7 @@ struct sql_commit_result {
 struct sql_settings {
 	const char *driver;
 	const char *connect_string;
+	struct event *event_parent;
 };
 
 typedef void sql_query_callback_t(struct sql_result *result, void *context);
