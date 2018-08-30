@@ -290,7 +290,7 @@ test_array_free_case(bool keep)
 	test_begin(keep ? "array_free" : "array_free_without_data");
 
 	p_array_init(&r, pool, 100);
-	p = array_append_space(&r);
+	array_append_zero(&r);
 	if (keep) {
 		p = array_free_without_data(&r);
 		test_assert(pool_allocfree_get_total_used_size(pool)>=400);
