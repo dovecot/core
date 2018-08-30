@@ -70,6 +70,11 @@ struct sql_commit_result {
 	enum sql_result_error_type error_type;
 };
 
+struct sql_settings {
+	const char *driver;
+	const char *connect_string;
+};
+
 typedef void sql_query_callback_t(struct sql_result *result, void *context);
 typedef void sql_commit_callback_t(const struct sql_commit_result *result, void *context);
 
@@ -85,6 +90,9 @@ void sql_driver_unregister(const struct sql_db *driver);
 /* Initialize database connections. db_driver is the database driver name,
    eg. "mysql" or "pgsql". connect_string is driver-specific. */
 struct sql_db *sql_init(const char *db_driver, const char *connect_string);
+int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
+		  const char **error_r);
+
 void sql_deinit(struct sql_db **db);
 
 /* Returns SQL database state flags. */
