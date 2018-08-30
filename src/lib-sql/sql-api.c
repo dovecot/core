@@ -64,21 +64,47 @@ void sql_driver_unregister(const struct sql_db *driver)
 
 struct sql_db *sql_init(const char *db_driver, const char *connect_string)
 {
+	const char *error;
+	struct sql_db *db;
+	struct sql_settings set = {
+		.driver = db_driver,
+		.connect_string = connect_string,
+	};
+
+	if (sql_init_full(&set, &db, &error) < 0)
+		i_fatal("%s", error);
+	return db;
+}
+
+int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
+		  const char **error_r)
+{
 	const struct sql_db *driver;
 	struct sql_db *db;
+	int ret = 0;
 
-	i_assert(connect_string != NULL);
+	i_assert(set->connect_string != NULL);
 
-	driver = sql_driver_lookup(db_driver);
-	if (driver == NULL)
-		i_fatal("Unknown database driver '%s'", db_driver);
+	driver = sql_driver_lookup(set->driver);
+	if (driver == NULL) {
+		*error_r = t_strdup_printf("Unknown database driver '%s'", set->driver);
+		return -1;
+	}
 
-	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0)
-		db = driver->v.init(connect_string);
-	else
-		db = driver_sqlpool_init(connect_string, driver);
+	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0) {
+		if (driver->v.init_full == NULL)
+			db = driver->v.init(set->connect_string);
+		else
+			ret = driver->v.init_full(set, &db, error_r);
+	} else
+		ret = driver_sqlpool_init_full(set, driver, &db, error_r);
+
+	if (ret < 0)
+		return -1;
+
 	i_array_init(&db->module_contexts, 5);
-	return db;
+	*db_r = db;
+	return 0;
 }
 
 void sql_deinit(struct sql_db **_db)
