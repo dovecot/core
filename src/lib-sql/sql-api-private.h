@@ -205,6 +205,8 @@ extern struct sql_result sql_not_connected_result;
 
 struct sql_db *
 driver_sqlpool_init(const char *connect_string, const struct sql_db *driver);
+int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db *driver,
+			     struct sql_db **db_r, const char **error_r);
 
 void sql_db_set_state(struct sql_db *db, enum sql_db_state state);
 
