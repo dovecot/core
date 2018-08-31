@@ -78,17 +78,20 @@ void e_debug(struct event *event,
 }
 
 static bool event_get_log_prefix(struct event *event, string_t *log_prefix,
-				 bool *replace_prefix)
+				 bool *replace_prefix, unsigned int *type_pos)
 {
 	bool ret = FALSE;
 
 	if (event->log_prefix_replace) {
 		/* this event replaces all parent log prefixes */
 		*replace_prefix = TRUE;
+		*type_pos = event->log_prefix == NULL ? 0 :
+			strlen(event->log_prefix);
 	} else if (event->parent == NULL) {
 		/* append to default log prefix, don't replace it */
 	} else {
-		if (event_get_log_prefix(event->parent, log_prefix, replace_prefix))
+		if (event_get_log_prefix(event->parent, log_prefix,
+					 replace_prefix, type_pos))
 			ret = TRUE;
 	}
 	if (event->log_prefix != NULL) {
@@ -156,6 +159,7 @@ event_logv_type(struct event *event, enum log_type log_type,
 {
 	string_t *log_prefix_str = t_str_new(64);
 	bool replace_prefix = FALSE;
+	unsigned int type_pos = 0;
 
 	struct failure_context ctx = {
 		.type = log_type,
@@ -169,12 +173,14 @@ event_logv_type(struct event *event, enum log_type log_type,
 				      event->source_linenum, &ctx))
 		abort_after_event = TRUE;
 
-	if (!event_get_log_prefix(event, log_prefix_str, &replace_prefix)) {
+	if (!event_get_log_prefix(event, log_prefix_str,
+				  &replace_prefix, &type_pos)) {
 		/* keep log prefix as it is */
 		event_vsend(event, &ctx, fmt, args);
 	} else if (replace_prefix) {
 		/* event overrides the log prefix (even if it's "") */
 		ctx.log_prefix = str_c(log_prefix_str);
+		ctx.log_prefix_type_pos = type_pos;
 		event_vsend(event, &ctx, fmt, args);
 	} else {
 		/* append to log prefix, but don't fully replace it */

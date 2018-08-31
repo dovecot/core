@@ -138,7 +138,9 @@ struct event *event_pop_global(struct event *event);
 struct event *event_get_global(void);
 
 /* Set the appended log prefix string for this event. All the parent events'
-   log prefixes will be concatenated together when logging. */
+   log prefixes will be concatenated together when logging. The log type
+   text (e.g. "Info: ") will be inserted before appended log prefixes (but
+   after replaced log prefix). */
 struct event *
 event_set_append_log_prefix(struct event *event, const char *prefix);
 /* Replace the full log prefix string for this event. The parent events' log
