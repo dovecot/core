@@ -245,9 +245,7 @@ log_it(struct log_connection *log, const char *line,
 	const char *prefix;
 
 	if (log->master) {
-		T_BEGIN {
-			log_parse_master_line(line, log_time, tm);
-		} T_END;
+		log_parse_master_line(line, log_time, tm);
 		return;
 	}
 
@@ -359,8 +357,9 @@ static void log_connection_input(struct log_connection *log)
 		now = ioloop_timeval;
 		tm = *localtime(&now.tv_sec);
 
-		while ((line = i_stream_next_line(log->input)) != NULL)
+		while ((line = i_stream_next_line(log->input)) != NULL) T_BEGIN {
 			log_it(log, line, &now, &tm);
+		} T_END;
 		io_loop_time_refresh();
 		if (timeval_diff_msecs(&ioloop_timeval, &start_timeval) > MAX_MSECS_PER_CONNECTION) {
 			too_much = TRUE;
