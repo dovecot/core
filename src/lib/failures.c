@@ -57,6 +57,7 @@ static char *log_prefix = NULL;
 static char *log_stamp_format = NULL, *log_stamp_format_suffix = NULL;
 static bool failure_ignore_errors = FALSE, log_prefix_sent = FALSE;
 static bool coredump_on_error = FALSE;
+static void log_timestamp_add(const struct failure_context *ctx, string_t *str);
 static void log_prefix_add(const struct failure_context *ctx, string_t *str);
 static void i_failure_send_option(const char *key, const char *value);
 static int internal_send_split(string_t *full_str, size_t prefix_len);
@@ -67,8 +68,8 @@ static string_t * ATTR_FORMAT(3, 0) default_format(const struct failure_context 
 						   va_list args)
 {
 	string_t *str = t_str_new(256);
+	log_timestamp_add(ctx, str);
 	log_prefix_add(ctx, str);
-	str_append(str, failure_log_type_prefixes[ctx->type]);
 
 	/* make sure there's no %n in there and fix %m */
 	str_vprintfa(str, printf_format_fix(format), args);
@@ -125,12 +126,14 @@ static string_t * ATTR_FORMAT(3, 0) syslog_format(const struct failure_context *
 						  va_list args)
 {
 	string_t *str = t_str_new(128);
-	if (ctx->log_prefix != NULL)
-		str_append(str, ctx->log_prefix);
-	else if (log_prefix != NULL)
-		str_append(str, log_prefix);
-	if (ctx->type != LOG_TYPE_INFO)
-		str_append(str, failure_log_type_prefixes[ctx->type]);
+	if (ctx->type == LOG_TYPE_INFO) {
+		if (ctx->log_prefix != NULL)
+			str_append(str, ctx->log_prefix);
+		else if (log_prefix != NULL)
+			str_append(str, log_prefix);
+	} else {
+		log_prefix_add(ctx, str);
+	}
 	str_vprintfa(str, format, args);
 	return str;
 }
@@ -304,7 +307,7 @@ void failure_exit(int status)
 	exit(status);
 }
 
-static void log_prefix_add(const struct failure_context *ctx, string_t *str)
+static void log_timestamp_add(const struct failure_context *ctx, string_t *str)
 {
 	const struct tm *tm = ctx->timestamp;
 	char buf[256];
@@ -323,10 +326,18 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 			     get_log_stamp_format("unused", now.tv_usec), tm) > 0)
 			str_append(str, buf);
 	}
-	if (ctx->log_prefix != NULL)
+}
+
+static void log_prefix_add(const struct failure_context *ctx, string_t *str)
+{
+	if (ctx->log_prefix == NULL) {
+		/* use global log prefix */
+		if (log_prefix != NULL)
+			str_append(str, log_prefix);
+	} else {
 		str_append(str, ctx->log_prefix);
-	else if (log_prefix != NULL)
-		str_append(str, log_prefix);
+	}
+	str_append(str, failure_log_type_prefixes[ctx->type]);
 }
 
 static void fd_wait_writable(int fd)
