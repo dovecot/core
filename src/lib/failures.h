@@ -29,6 +29,10 @@ enum log_type {
 struct failure_line {
 	pid_t pid;
 	enum log_type log_type;
+	/* If non-zero, the first log_prefix_len bytes in text indicate
+	   the log prefix. This implies disable_log_prefix=TRUE. */
+	unsigned int log_prefix_len;
+	/* Disable the global log prefix. */
 	bool disable_log_prefix;
 	const char *text;
 };
