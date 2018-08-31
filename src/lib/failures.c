@@ -18,6 +18,7 @@
 #include <time.h>
 #include <poll.h>
 
+#define LOG_TYPE_FLAG_PREFIX_LEN 0x40
 #define LOG_TYPE_FLAG_DISABLE_LOG_PREFIX 0x80
 
 const char *failure_log_type_prefixes[LOG_TYPE_COUNT] = {
@@ -765,12 +766,12 @@ static int internal_send_split(string_t *full_str, size_t prefix_len)
 
 
 static bool line_parse_prefix(const char *line, enum log_type *log_type_r,
-			      bool *replace_prefix_r)
+			      bool *replace_prefix_r, bool *have_prefix_len_r)
 {
 	if (*line != 1)
 		return FALSE;
 
-	unsigned char log_type = (line[1] & 0x7f);
+	unsigned char log_type = (line[1] & 0x3f);
 	if (log_type == '\0') {
 		i_warning("Broken log line follows (type=NUL)");
 		return FALSE;
@@ -783,15 +784,18 @@ static bool line_parse_prefix(const char *line, enum log_type *log_type_r,
 	}
 	*log_type_r = log_type;
 	*replace_prefix_r = (line[1] & LOG_TYPE_FLAG_DISABLE_LOG_PREFIX) != 0;
+	*have_prefix_len_r = (line[1] & LOG_TYPE_FLAG_PREFIX_LEN) != 0;
 	return TRUE;
 }
 
 void i_failure_parse_line(const char *line, struct failure_line *failure)
 {
+	bool have_prefix_len = FALSE;
 
 	i_zero(failure);
 	if (!line_parse_prefix(line, &failure->log_type,
-			       &failure->disable_log_prefix)) {
+			       &failure->disable_log_prefix,
+			       &have_prefix_len)) {
 		failure->log_type = LOG_TYPE_ERROR;
 		failure->text = line;
 		return;
@@ -808,7 +812,21 @@ void i_failure_parse_line(const char *line, struct failure_line *failure)
 		failure->pid = 0;
 		return;
 	}
-	failure->text = line + 1;
+	line++;
+
+	if (have_prefix_len) {
+		if (str_parse_uint(line, &failure->log_prefix_len, &line) < 0 ||
+		    line[0] != ' ') {
+			/* unexpected, but ignore */
+		} else {
+			line++;
+			if (failure->log_prefix_len > strlen(line)) {
+				/* invalid */
+				failure->log_prefix_len = 0;
+			}
+		}
+	}
+	failure->text = line;
 }
 
 static void ATTR_NORETURN ATTR_FORMAT(2, 0)
