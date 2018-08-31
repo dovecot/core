@@ -264,10 +264,22 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 {
 	struct sql_db *conndb;
 	struct sqlpool_connection *conn;
+	const char *error;
+	int ret = 0;
 
 	host->connection_count++;
 
-	conndb = db->driver->v.init(host->connect_string);
+	if (db->driver->v.init_full == NULL) {
+		conndb = db->driver->v.init(host->connect_string);
+	} else {
+		struct sql_settings set = {
+			.connect_string = host->connect_string,
+		};
+		ret = db->driver->v.init_full(&set, &conndb, &error);
+	}
+	if (ret < 0)
+		i_fatal("sqlpool: %s", error);
+
 	i_array_init(&conndb->module_contexts, 5);
 
 	conndb->state_change_callback = sqlpool_state_changed;
