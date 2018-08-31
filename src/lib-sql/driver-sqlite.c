@@ -68,21 +68,20 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 	db->sqlite = NULL;
 }
 
-static struct sql_db *driver_sqlite_init_v(const char *connect_string)
+static int driver_sqlite_init_full_v(const struct sql_settings *set, struct sql_db **db_r,
+				     const char **error_r ATTR_UNUSED)
 {
 	struct sqlite_db *db;
 	pool_t pool;
-
-	i_assert(connect_string != NULL);
 
 	pool = pool_alloconly_create("sqlite driver", 512);
 	db = p_new(pool, struct sqlite_db, 1);
 	db->pool = pool;
 	db->api = driver_sqlite_db;
-	db->dbfile = p_strdup(db->pool, connect_string);
+	db->dbfile = p_strdup(db->pool, set->connect_string);
 	db->connected = FALSE;
-
-	return &db->api;
+	*db_r = &db->api;
+	return 0;
 }
 
 static void driver_sqlite_deinit_v(struct sql_db *_db)
@@ -411,7 +410,7 @@ const struct sql_db driver_sqlite_db = {
 	.flags = SQL_DB_FLAG_BLOCKING,
 
 	.v = {
-		.init = driver_sqlite_init_v,
+		.init_full = driver_sqlite_init_full_v,
 		.deinit = driver_sqlite_deinit_v,
 		.connect = driver_sqlite_connect,
 		.disconnect = driver_sqlite_disconnect,
