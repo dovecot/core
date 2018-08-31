@@ -401,6 +401,17 @@ bool event_filter_import_unescaped(struct event_filter *filter,
 }
 
 static bool
+event_category_match(const struct event_category *category,
+		     const struct event_category *wanted_category)
+{
+	for (; category != NULL; category = category->parent) {
+		if (category == wanted_category)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
 event_has_category(struct event *event, struct event_category *wanted_category)
 {
 	struct event_category *const *catp;
@@ -410,7 +421,7 @@ event_has_category(struct event *event, struct event_category *wanted_category)
 	while (event != NULL) {
 		if (array_is_created(&event->categories)) {
 			array_foreach(&event->categories, catp) {
-				if (*catp == wanted_category)
+				if (event_category_match(*catp, wanted_category))
 					return TRUE;
 			}
 		}
