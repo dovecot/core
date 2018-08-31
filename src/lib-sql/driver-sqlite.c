@@ -41,12 +41,12 @@ extern const struct sql_result driver_sqlite_error_result;
 static int driver_sqlite_connect(struct sql_db *_db)
 {
  	struct sqlite_db *db = (struct sqlite_db *)_db;
-  
+
 	if (db->connected)
 		return 1;
 
 	db->rc = sqlite3_open(db->dbfile, &db->sqlite);
-	
+
 	if (db->rc == SQLITE_OK) {
 		db->connected = TRUE;
 		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
@@ -246,7 +246,7 @@ static int driver_sqlite_result_find_field(struct sql_result *_result,
 		if (strcmp(col, field_name) == 0)
 			return i;
 	}
-	
+
 	return -1;
 }
 
@@ -348,7 +348,7 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 	if (ctx->failed) {
 		commit_result.error = sqlite3_errmsg(db->sqlite);
 		callback(&commit_result, context);
-                /* also does i_free(ctx) */
+		/* also does i_free(ctx) */
 		driver_sqlite_transaction_rollback(_ctx);
 	} else {
 		callback(&commit_result, context);
@@ -365,7 +365,7 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 	struct sqlite_db *db = (struct sqlite_db *) ctx->ctx.db;
 
 	if (ctx->failed) {
-                /* also does i_free(ctx) */
+		/* also does i_free(ctx) */
 		driver_sqlite_transaction_rollback(_ctx);
 		return -1;
 	}
