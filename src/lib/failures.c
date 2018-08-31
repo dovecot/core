@@ -187,6 +187,8 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 
 	if (ctx->log_prefix != NULL) {
 		log_type |= LOG_TYPE_FLAG_DISABLE_LOG_PREFIX;
+		if (ctx->log_prefix_type_pos != 0)
+			log_type |= LOG_TYPE_FLAG_PREFIX_LEN;
 	} else if (!log_prefix_sent && log_prefix != NULL) {
 		log_prefix_sent = TRUE;
 		i_failure_send_option("prefix", log_prefix);
@@ -194,6 +196,8 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 
 	str = t_str_new(128);
 	str_printfa(str, "\001%c%s ", log_type, my_pid);
+	if ((log_type & LOG_TYPE_FLAG_PREFIX_LEN) != 0)
+		str_printfa(str, "%u ", ctx->log_prefix_type_pos);
 	if (ctx->log_prefix != NULL)
 		str_append(str, ctx->log_prefix);
 	*prefix_len_r = str_len(str);
@@ -335,10 +339,17 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 		/* use global log prefix */
 		if (log_prefix != NULL)
 			str_append(str, log_prefix);
-	} else {
+		str_append(str, failure_log_type_prefixes[ctx->type]);
+	} else if (ctx->log_prefix_type_pos == 0) {
 		str_append(str, ctx->log_prefix);
+		str_append(str, failure_log_type_prefixes[ctx->type]);
+	} else {
+		i_assert(ctx->log_prefix_type_pos <= strlen(ctx->log_prefix));
+		str_append_data(str, ctx->log_prefix, ctx->log_prefix_type_pos);
+		str_insert(str, ctx->log_prefix_type_pos,
+			   failure_log_type_prefixes[ctx->type]);
+		str_append(str, ctx->log_prefix + ctx->log_prefix_type_pos);
 	}
-	str_append(str, failure_log_type_prefixes[ctx->type]);
 }
 
 static void fd_wait_writable(int fd)
