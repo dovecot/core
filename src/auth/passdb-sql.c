@@ -15,7 +15,7 @@
 struct sql_passdb_module {
 	struct passdb_module module;
 
-	struct sql_connection *conn;
+	struct db_sql_connection *conn;
 };
 
 struct passdb_sql_request {
@@ -262,7 +262,7 @@ static struct passdb_module *
 passdb_sql_preinit(pool_t pool, const char *args)
 {
 	struct sql_passdb_module *module;
-	struct sql_connection *conn;
+	struct db_sql_connection *conn;
 
 	module = p_new(pool, struct sql_passdb_module, 1);
 	module->conn = conn = db_sql_init(args, FALSE);
