@@ -66,14 +66,14 @@ static void test_event_log_prefix(void)
 			},
 			.result = "replaced2.Info: TEXT",
 		},
-		/*{
+		{
 			.prefixes = (const struct test_log_prefix []) {
 				{ TYPE_REPLACE, "replaced1," },
 				{ TYPE_APPEND, "appended2." },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced1,Info: appended2.TEXT",
-		},*/
+		},
 		{
 			.prefixes = (const struct test_log_prefix []) {
 				{ TYPE_APPEND, "appended1," },
@@ -99,7 +99,7 @@ static void test_event_log_prefix(void)
 			.global_log_prefix = "global3.",
 			.result = "global3.Info: appended1,appended2.TEXT",
 		},
-		/*{
+		{
 			.prefixes = (const struct test_log_prefix []) {
 				{ TYPE_APPEND, "appended1," },
 				{ TYPE_REPLACE, "replaced2." },
@@ -107,7 +107,7 @@ static void test_event_log_prefix(void)
 				{ .type = TYPE_END }
 			},
 			.result = "replaced2.Info: appended3#TEXT",
-		},*/
+		},
 		{
 			.prefixes = (const struct test_log_prefix []) {
 				{ TYPE_APPEND, "appended1," },
@@ -118,7 +118,7 @@ static void test_event_log_prefix(void)
 			},
 			.result = "replaced4;Info: TEXT",
 		},
-		/*{
+		{
 			.prefixes = (const struct test_log_prefix []) {
 				{ TYPE_APPEND, "appended1," },
 				{ TYPE_REPLACE, "replaced2." },
@@ -128,7 +128,7 @@ static void test_event_log_prefix(void)
 				{ .type = TYPE_END }
 			},
 			.result = "replaced4;Info: appended5-TEXT",
-		},*/
+		},
 	};
 	const struct event_log_params params = {
 		.log_type = LOG_TYPE_INFO,
