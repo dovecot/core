@@ -235,20 +235,26 @@ struct failure_handler_config {
 	struct failure_handler_vfuncs *v;
 };
 
-struct failure_handler_vfuncs default_handler_vfuncs = { .write = &default_write,
-							 .format = &default_format,
-							 .on_handler_failure = &default_on_handler_failure,
-							 .post_handler = &default_post_handler };
+static struct failure_handler_vfuncs default_handler_vfuncs = {
+	.write = &default_write,
+	.format = &default_format,
+	.on_handler_failure = &default_on_handler_failure,
+	.post_handler = &default_post_handler
+};
 
-struct failure_handler_vfuncs syslog_handler_vfuncs = { .write = &syslog_write,
-							.format = &syslog_format,
-							.on_handler_failure = &syslog_on_handler_failure,
-							.post_handler = &syslog_post_handler };
+static struct failure_handler_vfuncs syslog_handler_vfuncs = {
+	.write = &syslog_write,
+	.format = &syslog_format,
+	.on_handler_failure = &syslog_on_handler_failure,
+	.post_handler = &syslog_post_handler
+};
 
-struct failure_handler_vfuncs internal_handler_vfuncs = { .write = &internal_write,
-							  .format = &internal_format,
-							  .on_handler_failure = &internal_on_handler_failure,
-							  .post_handler = &internal_post_handler };
+static struct failure_handler_vfuncs internal_handler_vfuncs = {
+	.write = &internal_write,
+	.format = &internal_format,
+	.on_handler_failure = &internal_on_handler_failure,
+	.post_handler = &internal_post_handler
+};
 
 struct failure_handler_config failure_handler = { .fatal_err_reset = FATAL_LOGWRITE,
 						 .v = &default_handler_vfuncs };
