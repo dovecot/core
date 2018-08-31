@@ -72,7 +72,6 @@ static string_t * ATTR_FORMAT(3, 0) default_format(const struct failure_context 
 
 	/* make sure there's no %n in there and fix %m */
 	str_vprintfa(str, printf_format_fix(format), args);
-	str_append_c(str, '\n');
 	return str;
 }
 
@@ -91,6 +90,7 @@ static int default_write(enum log_type type, string_t *data, size_t prefix_len A
 		fd = log_fd;
 		break;
 	}
+	str_append_c(data, '\n');
 	return log_fd_write(fd, str_data(data), str_len(data));
 }
 
