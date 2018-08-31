@@ -250,7 +250,7 @@ struct failure_handler_vfuncs internal_handler_vfuncs = { .write = &internal_wri
 							  .on_handler_failure = &internal_on_handler_failure,
 							  .post_handler = &internal_post_handler };
 
-struct failure_handler_config handler_config = { .fatal_err_reset = FATAL_LOGWRITE,
+struct failure_handler_config failure_handler = { .fatal_err_reset = FATAL_LOGWRITE,
 						 .v = &default_handler_vfuncs };
 
 static int common_handler(const struct failure_context *ctx,
@@ -268,8 +268,8 @@ static int common_handler(const struct failure_context *ctx,
 	recursed++;
 
 	T_BEGIN {
-		string_t *str = handler_config.v->format(ctx, &prefix_len, format, args);
-		ret = handler_config.v->write(ctx->type, str, prefix_len);
+		string_t *str = failure_handler.v->format(ctx, &prefix_len, format, args);
+		ret = failure_handler.v->write(ctx->type, str, prefix_len);
 	} T_END;
 
 	if (ret < 0 && failure_ignore_errors)
@@ -283,8 +283,8 @@ static void error_handler_real(const struct failure_context *ctx,
 			 const char *format, va_list args)
 {
 	if (common_handler(ctx, format, args) < 0)
-		handler_config.v->on_handler_failure(ctx);
-	handler_config.v->post_handler(ctx);
+		failure_handler.v->on_handler_failure(ctx);
+	failure_handler.v->post_handler(ctx);
 }
 
 static void ATTR_FORMAT(2, 0)
@@ -457,23 +457,23 @@ static void ATTR_NORETURN fatal_handler_real(const struct failure_context *ctx,
 	int status = ctx->exit_status;
 	if (common_handler(ctx, format, args) < 0 &&
 	    status == FATAL_DEFAULT)
-		status = handler_config.fatal_err_reset;
+		status = failure_handler.fatal_err_reset;
 	default_fatal_finish(ctx->type, status);
 }
 
 void default_fatal_handler(const struct failure_context *ctx,
 			   const char *format, va_list args)
 {
-	handler_config.v = &default_handler_vfuncs;
-	handler_config.fatal_err_reset = FATAL_LOGWRITE;
+	failure_handler.v = &default_handler_vfuncs;
+	failure_handler.fatal_err_reset = FATAL_LOGWRITE;
 	fatal_handler_real(ctx, format, args);
 }
 
 void default_error_handler(const struct failure_context *ctx,
 			   const char *format, va_list args)
 {
-	handler_config.v = &default_handler_vfuncs;
-	handler_config.fatal_err_reset = FATAL_LOGWRITE;
+	failure_handler.v = &default_handler_vfuncs;
+	failure_handler.fatal_err_reset = FATAL_LOGWRITE;
 	error_handler_real(ctx, format, args);
 }
 
@@ -628,16 +628,16 @@ void i_get_failure_handlers(failure_callback_t **fatal_callback_r,
 void i_syslog_fatal_handler(const struct failure_context *ctx,
 			    const char *format, va_list args)
 {
-	handler_config.v = &syslog_handler_vfuncs;
-	handler_config.fatal_err_reset = FATAL_LOGERROR;
+	failure_handler.v = &syslog_handler_vfuncs;
+	failure_handler.fatal_err_reset = FATAL_LOGERROR;
 	fatal_handler_real(ctx, format, args);
 }
 
 void i_syslog_error_handler(const struct failure_context *ctx,
 			    const char *format, va_list args)
 {
-	handler_config.v = &syslog_handler_vfuncs;
-	handler_config.fatal_err_reset = FATAL_LOGERROR;
+	failure_handler.v = &syslog_handler_vfuncs;
+	failure_handler.fatal_err_reset = FATAL_LOGERROR;
 	error_handler_real(ctx, format, args);
 }
 
@@ -816,8 +816,8 @@ static void ATTR_NORETURN ATTR_FORMAT(2, 0)
 i_internal_fatal_handler(const struct failure_context *ctx,
 			 const char *format, va_list args)
 {
-	handler_config.v = &internal_handler_vfuncs;
-	handler_config.fatal_err_reset = FATAL_LOGERROR;
+	failure_handler.v = &internal_handler_vfuncs;
+	failure_handler.fatal_err_reset = FATAL_LOGERROR;
 	fatal_handler_real(ctx, format, args);
 
 
@@ -827,8 +827,8 @@ static void
 i_internal_error_handler(const struct failure_context *ctx,
 			 const char *format, va_list args)
 {
-	handler_config.v = &internal_handler_vfuncs;
-	handler_config.fatal_err_reset = FATAL_LOGERROR;
+	failure_handler.v = &internal_handler_vfuncs;
+	failure_handler.fatal_err_reset = FATAL_LOGERROR;
 	error_handler_real(ctx, format, args);
 }
 
