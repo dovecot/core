@@ -43,6 +43,9 @@ struct failure_context {
 	const struct tm *timestamp; /* NULL = use time() + localtime() */
 	unsigned int timestamp_usecs;
 	const char *log_prefix; /* override the default log prefix */
+	/* If non-0, insert the log type text (e.g. "Info: ") at this position
+	   in the log_prefix instead of appending it. */
+	unsigned int log_prefix_type_pos;
 };
 
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
