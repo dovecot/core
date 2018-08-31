@@ -243,7 +243,7 @@ log_it(struct log_connection *log, const char *line,
 	struct failure_line failure;
 	struct failure_context failure_ctx;
 	struct log_client *client = NULL;
-	const char *prefix;
+	const char *prefix = "";
 
 	if (log->master) {
 		log_parse_master_line(line, log_time, tm);
@@ -274,11 +274,16 @@ log_it(struct log_connection *log, const char *line,
 	failure_ctx.type = failure.log_type;
 	failure_ctx.timestamp = tm;
 	failure_ctx.timestamp_usecs = log_time->tv_usec;
-	if (failure.disable_log_prefix)
+	if (failure.log_prefix_len != 0) {
+		failure_ctx.log_prefix =
+			t_strndup(failure.text, failure.log_prefix_len);
+		failure.text += failure.log_prefix_len;
+	} else if (failure.disable_log_prefix) {
 		failure_ctx.log_prefix = "";
-
-	prefix = client != NULL && client->prefix != NULL ?
-		client->prefix : log->default_prefix;
+	} else {
+		prefix = client != NULL && client->prefix != NULL ?
+			client->prefix : log->default_prefix;
+	}
 	client_log_ctx(log, &failure_ctx, log_time, prefix, failure.text);
 }
 
