@@ -144,9 +144,13 @@ client_log_ctx(struct log_connection *log,
 		log_error_buffer_add(log->errorbuf, &err);
 		break;
 	}
-	i_set_failure_prefix("%s", prefix);
+	/* log_prefix overrides the global prefix. Don't bother changing the
+	   global prefix in that case. */
+	if (ctx->log_prefix == NULL)
+		i_set_failure_prefix("%s", prefix);
 	i_log_type(ctx, "%s", text);
-	i_set_failure_prefix("%s", global_log_prefix);
+	if (ctx->log_prefix == NULL)
+		i_set_failure_prefix("%s", global_log_prefix);
 }
 
 static void
