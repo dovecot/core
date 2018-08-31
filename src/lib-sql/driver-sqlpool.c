@@ -10,6 +10,14 @@
 
 #define QUERY_TIMEOUT_SECS 6
 
+/* sqlpool events are separate from category:sql, because
+   they are usually not very interesting, and would only
+   make logging too noisy. They can be enabled explicitly.
+*/
+static struct event_category event_category_sqlpool = {
+	.name = "sqlpool",
+};
+
 struct sqlpool_host {
 	char *connect_string;
 
@@ -48,6 +56,8 @@ struct sqlpool_request {
 
 	unsigned int host_idx;
 	unsigned int retry_count;
+
+	struct event *event;
 
 	/* requests are a) queries */
 	char *query;
@@ -90,6 +100,7 @@ sqlpool_request_new(struct sqlpool_db *db, const char *query)
 	request->db = db;
 	request->created = time(NULL);
 	request->query = i_strdup(query);
+	request->event = event_create(db->api.event);
 	return request;
 }
 
@@ -101,6 +112,7 @@ sqlpool_request_free(struct sqlpool_request **_request)
 	*_request = NULL;
 
 	i_assert(request->prev == NULL && request->next == NULL);
+	event_unref(&request->event);
 	i_free(request->query);
 	i_free(request);
 }
@@ -270,11 +282,17 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 
 	host->connection_count++;
 
+	e_debug(db->api.event, "Creating new connection");
+
 	if (db->driver->v.init_full == NULL) {
 		conndb = db->driver->v.init(host->connect_string);
+		/* do not use sqlpool event here, see comment near category */
+		conndb->event = event_create(event_get_parent(db->api.event));
+		event_add_category(conndb->event, &event_category_sql);
 	} else {
 		struct sql_settings set = {
 			.connect_string = host->connect_string,
+			.event_parent = event_get_parent(db->api.event),
 		};
 		ret = db->driver->v.init_full(&set, &conndb, &error);
 	}
@@ -489,6 +507,10 @@ int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db
 	db->driver = driver;
 	db->api = driver_sqlpool_db;
 	db->api.flags = driver->flags;
+	db->api.event = event_create(set->event_parent);
+	event_add_category(db->api.event, &event_category_sqlpool);
+	event_set_append_log_prefix(db->api.event,
+				    t_strdup_printf("sqlpool(%s): ", driver->name));
 	i_array_init(&db->hosts, 8);
 
 	T_BEGIN {
@@ -540,6 +562,7 @@ static void driver_sqlpool_deinit(struct sql_db *_db)
 	array_free(&db->hosts);
 	array_free(&db->all_connections);
 	array_free(&_db->module_contexts);
+	event_unref(&_db->event);
 	i_free(db);
 }
 
@@ -590,18 +613,33 @@ driver_sqlpool_escape_string(struct sql_db *_db, const char *string)
 
 static void driver_sqlpool_timeout(struct sqlpool_db *db)
 {
+	int duration;
+
 	while (db->requests_head != NULL) {
 		struct sqlpool_request *request = db->requests_head;
 
 		if (request->created + SQL_QUERY_TIMEOUT_SECS > ioloop_time)
 			break;
 
-		i_error("%s: Query timed out "
-			"(no free connections for %u secs): %s",
-			db->driver->name,
-			(unsigned int)(ioloop_time - request->created),
-			request->query != NULL ? request->query :
-			"<transaction>");
+
+		if (request->query != NULL) {
+			e_error(sql_query_finished_event(&db->api, request->event,
+							 request->query, TRUE,
+							 &duration)->
+					add_str("error", "Query timed out")->
+					event(),
+				SQL_QUERY_FINISHED_FMT": Query timed out "
+	                        "(no free connections for %u secs)",
+				request->query, duration,
+				(unsigned int)(ioloop_time - request->created));
+		} else {
+			e_error(event_create_passthrough(request->event)->
+					add_str("error", "Timed out")->
+					set_name(SQL_TRANSACTION_FINISHED)->event(),
+				"Transaction timed out "
+				"(no free connections for %u secs)",
+				(unsigned int)(ioloop_time - request->created));
+		}
 		sqlpool_request_abort(&request);
 	}
 
@@ -641,8 +679,8 @@ driver_sqlpool_query_callback(struct sql_result *result,
 
 	if (result->failed_try_retry &&
 	    request->retry_count < array_count(&db->hosts)) {
-		i_warning("%s: Query failed, retrying: %s",
-			  db->driver->name, sql_result_get_error(result));
+		e_warning(db->api.event, "Query failed, retrying: %s",
+			  sql_result_get_error(result));
 		request->retry_count++;
 		driver_sqlpool_prepend_request(db, request);
 
@@ -653,8 +691,8 @@ driver_sqlpool_query_callback(struct sql_result *result,
 		}
 	} else {
 		if (result->failed) {
-			i_error("%s: Query failed, aborting: %s",
-				db->driver->name, request->query);
+			e_error(db->api.event, "Query failed, aborting: %s",
+				request->query);
 		}
 		conndb = result->db;
 
