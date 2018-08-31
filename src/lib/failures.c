@@ -10,6 +10,7 @@
 #include "backtrace-string.h"
 #include "printf-format-fix.h"
 #include "write-full.h"
+#include "failures-private.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -59,13 +60,6 @@ static bool coredump_on_error = FALSE;
 static void log_prefix_add(const struct failure_context *ctx, string_t *str);
 static void i_failure_send_option(const char *key, const char *value);
 static int internal_send_split(string_t *full_str, size_t prefix_len);
-
-typedef int (*failure_write_to_file_t)(enum log_type type, string_t *data, size_t prefix_len);
-typedef string_t *(*failure_format_str_t)(const struct failure_context *ctx,
-				  size_t *prefix_len_r, const char *format,
-				  va_list args);
-typedef void (*failure_on_handler_failure_t)(const struct  failure_context *ctx);
-typedef void (*failure_post_handler_t)(const struct  failure_context *ctx);
 
 static string_t * ATTR_FORMAT(3, 0) default_format(const struct failure_context *ctx,
 						   size_t *prefix_len_r ATTR_UNUSED,
@@ -222,18 +216,6 @@ static void internal_on_handler_failure(const struct failure_context *ctx ATTR_U
 static void internal_post_handler(const struct failure_context *ctx ATTR_UNUSED)
 {
 }
-
-struct failure_handler_vfuncs {
-	failure_write_to_file_t write;
-	failure_format_str_t format;
-	failure_on_handler_failure_t on_handler_failure;
-	failure_post_handler_t post_handler;
-};
-
-struct failure_handler_config {
-	int fatal_err_reset;
-	struct failure_handler_vfuncs *v;
-};
 
 static struct failure_handler_vfuncs default_handler_vfuncs = {
 	.write = &default_write,

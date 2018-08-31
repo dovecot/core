@@ -188,6 +188,7 @@ headers = \
 	event-log.h \
 	execv-const.h \
 	failures.h \
+	failures-private.h \
 	fd-util.h \
 	fdatasync-path.h \
 	fdpass.h \
