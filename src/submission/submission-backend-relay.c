@@ -677,3 +677,41 @@ int cmd_quit_relay(struct client *client, struct smtp_server_cmd_ctx *cmd)
 		relay_cmd_quit_proxy(quit_cmd);
 	return 0;
 }
+
+/*
+ * Relay backend
+ */
+
+static void client_proxy_ready_cb(const struct smtp_reply *reply,
+				  void *context)
+{
+	struct client *client = context;
+	enum smtp_capability caps;
+
+	/* check proxy status */
+	if ((reply->status / 100) != 2) {
+		i_error("Failed to establish relay connection: %s",
+			smtp_reply_log(reply));
+		client_destroy(client,
+			"4.4.0", "Failed to establish relay connection");
+		return;
+	}
+
+	/* propagate capabilities */
+	caps = smtp_client_connection_get_capabilities(client->proxy_conn);
+	caps |= SMTP_CAPABILITY_AUTH | SMTP_CAPABILITY_PIPELINING |
+		SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES |
+		SMTP_CAPABILITY_CHUNKING | SMTP_CAPABILITY_BURL |
+		SMTP_CAPABILITY_VRFY;
+	caps &= SUBMISSION_SUPPORTED_SMTP_CAPABILITIES;
+	smtp_server_connection_set_capabilities(client->conn, caps);
+
+	/* now that we know our capabilities, commence server protocol dialog */
+	smtp_server_connection_resume(client->conn);
+}
+
+void client_proxy_start(struct client *client)
+{
+	smtp_client_connection_connect(client->proxy_conn,
+		client_proxy_ready_cb, client);
+}
