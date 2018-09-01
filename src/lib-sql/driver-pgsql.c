@@ -283,23 +283,29 @@ static void driver_pgsql_free(struct pgsql_db **_db)
 	i_free(db);
 }
 
-static struct sql_db *driver_pgsql_init_v(const char *connect_string)
+static int driver_pgsql_init_full_v(const struct sql_settings *set,
+				    struct sql_db **db_r, const char **error_r ATTR_UNUSED)
 {
 	struct pgsql_db *db;
 
 	db = i_new(struct pgsql_db, 1);
-	db->connect_string = i_strdup(connect_string);
+	db->connect_string = i_strdup(set->connect_string);
 	db->api = driver_pgsql_db;
 
+	/* NOTE: Connection string will be parsed by pgsql itself
+		 We only pick the host part here */
 	T_BEGIN {
-		const char *const *arg = t_strsplit(connect_string, " ");
+		const char *const *arg = t_strsplit(db->connect_string, " ");
 
 		for (; *arg != NULL; arg++) {
 			if (str_begins(*arg, "host="))
 				db->host = i_strdup(*arg + 5);
+
 		}
 	} T_END;
-	return &db->api;
+
+	*db_r = &db->api;
+	return 0;
 }
 
 static void driver_pgsql_deinit_v(struct sql_db *_db)
@@ -1177,7 +1183,7 @@ const struct sql_db driver_pgsql_db = {
 	.flags = SQL_DB_FLAG_POOLED,
 
 	.v = {
-		.init = driver_pgsql_init_v,
+		.init_full = driver_pgsql_init_full_v,
 		.deinit = driver_pgsql_deinit_v,
 		.connect = driver_pgsql_connect,
 		.disconnect = driver_pgsql_disconnect,
