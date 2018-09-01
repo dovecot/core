@@ -101,6 +101,12 @@ static void client_proxy_ready_cb(const struct smtp_reply *reply,
 	smtp_server_connection_resume(client->conn);
 }
 
+static void client_proxy_start(struct client *client)
+{
+	smtp_client_connection_connect(client->proxy_conn,
+		client_proxy_ready_cb, client);
+}
+
 static void client_proxy_create(struct client *client,
 				const struct submission_settings *set)
 {
@@ -155,8 +161,6 @@ static void client_proxy_create(struct client *client,
 	client->proxy_conn = smtp_client_connection_create(smtp_client,
 		SMTP_PROTOCOL_SMTP, set->submission_relay_host,
 		set->submission_relay_port, ssl_mode, &smtp_set);
-	smtp_client_connection_connect(client->proxy_conn,
-		client_proxy_ready_cb, client);
 }
 
 static void client_init_urlauth(struct client *client)
@@ -225,6 +229,7 @@ struct client *client_create(int fd_in, int fd_out,
 		FALSE, &smtp_set, &smtp_callbacks, client);
 
 	client_proxy_create(client, set);
+	client_proxy_start(client);
 
 	smtp_server_connection_login(client->conn,
 		client->user->username, helo,
