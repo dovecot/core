@@ -163,6 +163,12 @@ static void client_proxy_create(struct client *client,
 		set->submission_relay_port, ssl_mode, &smtp_set);
 }
 
+static void client_proxy_destroy(struct client *client)
+{
+	if (client->proxy_conn != NULL)
+		smtp_client_connection_close(&client->proxy_conn);
+}
+
 static void client_init_urlauth(struct client *client)
 {
 	static const char *access_apps[] = { "submit+", NULL };
@@ -281,8 +287,7 @@ void client_destroy(struct client *client, const char *prefix,
 	submission_client_count--;
 	DLLIST_REMOVE(&submission_clients, client);
 
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_close(&client->proxy_conn);
+	client_proxy_destroy(client);
 
 	if (client->anvil_sent) {
 		master_service_anvil_send(master_service, t_strconcat(
@@ -395,8 +400,7 @@ void client_disconnect(struct client *client, const char *enh_code,
 	client->disconnected = TRUE;
 
 	timeout_remove(&client->to_quit);
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_close(&client->proxy_conn);
+	client_proxy_destroy(client);
 
 	if (client->conn != NULL) {
 		const struct smtp_server_stats *stats =
