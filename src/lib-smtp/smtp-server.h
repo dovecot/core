@@ -201,6 +201,8 @@ struct smtp_server_callbacks {
 	void (*conn_cmd_input_post)(void *context);
 
 	/* Transaction events */
+	void (*conn_trans_start)(void *context,
+				 struct smtp_server_transaction *trans);
 	void (*conn_trans_free)(void *context,
 				struct smtp_server_transaction *trans);
 
