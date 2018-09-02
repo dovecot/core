@@ -82,12 +82,6 @@ static const char *client_remote_id(struct client *client)
 	return addr;
 }
 
-static void client_proxy_destroy(struct client *client)
-{
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_close(&client->proxy_conn);
-}
-
 static void client_init_urlauth(struct client *client)
 {
 	static const char *access_apps[] = { "submit+", NULL };

@@ -739,6 +739,12 @@ void client_proxy_create(struct client *client,
 		set->submission_relay_port, ssl_mode, &smtp_set);
 }
 
+void client_proxy_destroy(struct client *client)
+{
+	if (client->proxy_conn != NULL)
+		smtp_client_connection_close(&client->proxy_conn);
+}
+
 static void client_proxy_ready_cb(const struct smtp_reply *reply,
 				  void *context)
 {
