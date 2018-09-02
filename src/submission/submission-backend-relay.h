@@ -26,4 +26,6 @@ void client_proxy_start(struct client *client);
 void client_proxy_input_pre(struct client *client);
 void client_proxy_input_post(struct client *client);
 
+uoff_t client_proxy_get_max_mail_size(struct client *client);
+
 #endif

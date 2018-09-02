@@ -19,8 +19,6 @@
 #include "mail-storage-service.h"
 #include "raw-storage.h"
 #include "imap-urlauth.h"
-#include "smtp-client.h"
-#include "smtp-client-connection.h"
 
 #include "submission-backend-relay.h"
 #include "submission-commands.h"
@@ -323,12 +321,6 @@ void client_disconnect(struct client *client, const char *enh_code,
 		smtp_server_connection_terminate(&conn,
 			(enh_code == NULL ? "4.0.0" : enh_code), reason);
 	}
-}
-
-static uoff_t
-client_proxy_get_max_mail_size(struct client *client)
-{
-	return smtp_client_connection_get_size_capability(client->proxy_conn);
 }
 
 uoff_t client_get_max_mail_size(struct client *client)
