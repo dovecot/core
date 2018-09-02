@@ -790,3 +790,8 @@ void client_proxy_input_post(struct client *client)
 	if (client->proxy_conn != NULL)
 		smtp_client_connection_uncork(client->proxy_conn);
 }
+
+uoff_t client_proxy_get_max_mail_size(struct client *client)
+{
+	return smtp_client_connection_get_size_capability(client->proxy_conn);
+}
