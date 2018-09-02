@@ -791,22 +791,33 @@ static void driver_cassandra_free(struct cassandra_db **_db)
 	i_free(db);
 }
 
-static struct sql_db *driver_cassandra_init_v(const char *connect_string)
+static int driver_cassandra_init_full_v(const struct sql_settings *set,
+					struct sql_db **db_r, const char **error_r)
 {
 	struct cassandra_db *db;
-	const char *error;
-
-	driver_cassandra_init_log();
+	char *error = NULL;
+	int ret;
 
 	db = i_new(struct cassandra_db, 1);
 	db->api = driver_cassandra_db;
 	db->fd_pipe[0] = db->fd_pipe[1] = -1;
 
 	T_BEGIN {
-		if (driver_cassandra_parse_connect_string(db, connect_string, &error) < 0) {
-			i_fatal("cassandra: %s", error);
+		const char *tmp;
+		if ((ret = driver_cassandra_parse_connect_string(db, set->connect_string,
+								 &tmp)) < 0) {
+			error = i_strdup(tmp);
 		}
 	} T_END;
+
+	if (ret < 0) {
+		*error_r = t_strdup(error);
+		i_free(error);
+		driver_cassandra_free(&db);
+		return -1;
+	}
+
+	driver_cassandra_init_log();
 	cass_log_set_level(db->log_level);
 
 	if (db->protocol_version > 0 && db->protocol_version < 4) {
@@ -846,7 +857,8 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	i_array_init(&db->results, 16);
 	i_array_init(&db->callbacks, 16);
 	i_array_init(&db->pending_prepares, 16);
-	return &db->api;
+	*db_r = &db->api;
+	return 0;
 }
 
 static void driver_cassandra_deinit_v(struct sql_db *_db)
@@ -2186,7 +2198,7 @@ const struct sql_db driver_cassandra_db = {
 	.flags = SQL_DB_FLAG_PREP_STATEMENTS,
 
 	.v = {
-		.init = driver_cassandra_init_v,
+		.init_full = driver_cassandra_init_full_v,
 		.deinit = driver_cassandra_deinit_v,
 		.connect = driver_cassandra_connect,
 		.disconnect = driver_cassandra_disconnect,
