@@ -778,3 +778,15 @@ void client_proxy_start(struct client *client)
 	smtp_client_connection_connect(client->proxy_conn,
 		client_proxy_ready_cb, client);
 }
+
+/* try to proxy pipelined commands in a similarly pipelined fashion */
+void client_proxy_input_pre(struct client *client)
+{
+	if (client->proxy_conn != NULL)
+		smtp_client_connection_cork(client->proxy_conn);
+}
+void client_proxy_input_post(struct client *client)
+{
+	if (client->proxy_conn != NULL)
+		smtp_client_connection_uncork(client->proxy_conn);
+}

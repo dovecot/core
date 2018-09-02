@@ -23,4 +23,7 @@ void client_proxy_create(struct client *client,
 void client_proxy_destroy(struct client *client);
 void client_proxy_start(struct client *client);
 
+void client_proxy_input_pre(struct client *client);
+void client_proxy_input_post(struct client *client);
+
 #endif
