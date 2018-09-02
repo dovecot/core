@@ -47,19 +47,28 @@ unsigned int submission_client_count;
 static const struct smtp_server_callbacks smtp_callbacks;
 
 /* try to proxy pipelined commands in a similarly pipelined fashion */
+static void client_proxy_input_pre(struct client *client)
+{
+	if (client->proxy_conn != NULL)
+		smtp_client_connection_cork(client->proxy_conn);
+}
+static void client_proxy_input_post(struct client *client)
+{
+	if (client->proxy_conn != NULL)
+		smtp_client_connection_uncork(client->proxy_conn);
+}
+
 static void client_input_pre(void *context)
 {
 	struct client *client = context;
 
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_cork(client->proxy_conn);
+	client_proxy_input_pre(client);
 }
 static void client_input_post(void *context)
 {
 	struct client *client = context;
 
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_uncork(client->proxy_conn);
+	client_proxy_input_post(client);
 }
 
 static const char *client_remote_id(struct client *client)
