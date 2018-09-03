@@ -88,6 +88,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	      const struct dict_settings *set,
 	      struct dict **dict_r, const char **error_r)
 {
+	struct sql_settings sql_set;
 	struct sql_dict *dict;
 	pool_t pool;
 
@@ -101,12 +102,17 @@ sql_dict_init(struct dict *driver, const char *uri,
 		pool_unref(&pool);
 		return -1;
 	}
-
+	i_zero(&sql_set);
+	sql_set.driver = driver->name;
+	sql_set.connect_string = dict->set->connect;
 	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
 	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
 
-	dict->db = sql_db_cache_new(dict_sql_db_cache, driver->name,
-				    dict->set->connect);
+	if (sql_db_cache_new2(dict_sql_db_cache, &sql_set, &dict->db, error_r) < 0) {
+		pool_unref(&pool);
+		return -1;
+	}
+
 	if ((sql_get_flags(dict->db) & SQL_DB_FLAG_PREP_STATEMENTS) != 0) {
 		hash_table_create(&dict->prep_stmt_hash, dict->pool,
 				  0, str_hash, strcmp);
