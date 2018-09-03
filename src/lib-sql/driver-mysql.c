@@ -166,8 +166,9 @@ static void driver_mysql_disconnect(struct sql_db *_db ATTR_UNUSED)
 {
 }
 
-static void driver_mysql_parse_connect_string(struct mysql_db *db,
-					      const char *connect_string)
+static int driver_mysql_parse_connect_string(struct mysql_db *db,
+					     const char *connect_string,
+					     const char **error_r)
 {
 	const char *const *args, *name, *value;
 	const char **field;
@@ -182,8 +183,9 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 	for (; *args != NULL; args++) {
 		value = strchr(*args, '=');
 		if (value == NULL) {
-			i_fatal("mysql: Missing value in connect string: %s",
-				*args);
+			*error_r = t_strdup_printf("Missing value in connect string: %s",
+						   *args);
+			return -1;
 		}
 		name = t_strdup_until(*args, value);
 		value++;
@@ -199,20 +201,30 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 		else if (strcmp(name, "dbname") == 0)
 			field = &db->dbname;
 		else if (strcmp(name, "port") == 0) {
-			if (net_str2port(value, &db->port) < 0)
-				i_fatal("mysql: Invalid port number: %s", value);
+			if (net_str2port(value, &db->port) < 0) {
+				*error_r = t_strdup_printf("Invalid port number: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "client_flags") == 0) {
-			if (str_to_uint(value, &db->client_flags) < 0)
-				i_fatal("mysql: Invalid client flags: %s", value);
+			if (str_to_uint(value, &db->client_flags) < 0) {
+				*error_r = t_strdup_printf("Invalid client flags: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "connect_timeout") == 0) {
-			if (str_to_uint(value, &db->connect_timeout) < 0)
-				i_fatal("mysql: Invalid read_timeout: %s", value);
+			if (str_to_uint(value, &db->connect_timeout) < 0) {
+				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "read_timeout") == 0) {
-			if (str_to_uint(value, &db->read_timeout) < 0)
-				i_fatal("mysql: Invalid read_timeout: %s", value);
+			if (str_to_uint(value, &db->read_timeout) < 0) {
+				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "write_timeout") == 0) {
-			if (str_to_uint(value, &db->write_timeout) < 0)
-				i_fatal("mysql: Invalid read_timeout: %s", value);
+			if (str_to_uint(value, &db->write_timeout) < 0) {
+				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "ssl_cert") == 0)
 			field = &db->ssl_cert;
 		else if (strcmp(name, "ssl_key") == 0)
@@ -228,40 +240,49 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 				db->ssl_verify_server_cert = 1;
 			else if (strcmp(value, "no") == 0)
 				db->ssl_verify_server_cert = 0;
-			else
-				i_fatal("mysql: Invalid boolean: %s", value);
+			else {
+				*error_r = t_strdup_printf("Invalid boolean: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "option_file") == 0)
 			field = &db->option_file;
 		else if (strcmp(name, "option_group") == 0)
 			field = &db->option_group;
-		else
-			i_fatal("mysql: Unknown connect string: %s", name);
-
+		else {
+			*error_r = t_strdup_printf("Unknown connect string: %s", name);
+			return -1;
+		}
 		if (field != NULL)
 			*field = p_strdup(db->pool, value);
 	}
 
-	if (db->host == NULL && db->option_file == NULL)
-		i_fatal("mysql: No hosts given in connect string");
-
+	if (db->host == NULL && db->option_file == NULL) {
+		*error_r = "No hosts given in connect string";
+		return -1;
+	}
 	db->mysql = mysql_init(NULL);
 	if (db->mysql == NULL)
 		i_fatal("mysql_init() failed");
+	return 0;
 }
 
 static struct sql_db *driver_mysql_init_v(const char *connect_string)
 {
 	struct mysql_db *db;
+	const char *error = NULL;
 	pool_t pool;
+	int ret;
 
 	pool = pool_alloconly_create("mysql driver", 1024);
 	db = p_new(pool, struct mysql_db, 1);
 	db->pool = pool;
 	db->api = driver_mysql_db;
-
 	T_BEGIN {
-		driver_mysql_parse_connect_string(db, connect_string);
+		ret = driver_mysql_parse_connect_string(db, connect_string, &error);
+		if (ret < 0)
+			i_fatal("mysql: %s", error);
 	} T_END;
+
 	return &db->api;
 }
 
