@@ -199,7 +199,8 @@ static struct event *stats_event_get_merged(struct event *event)
 			res = event_dup(event);
 		event_unref(&res->parent);
 		res->parent = p;
-		event_ref(res->parent);
+		if (res->parent != NULL)
+			event_ref(res->parent);
 	}
 	return res;
 }
