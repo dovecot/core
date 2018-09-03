@@ -63,6 +63,7 @@ static const char *parse_setting(const char *key, const char *value,
 struct db_sql_connection *db_sql_init(const char *config_path, bool userdb)
 {
 	struct db_sql_connection *conn;
+	struct sql_settings set;
 	const char *error;
 	pool_t pool;
 
@@ -106,7 +107,12 @@ struct db_sql_connection *db_sql_init(const char *config_path, bool userdb)
 		i_fatal("sql: connect string not set in configuration file %s",
 			config_path);
 	}
-	conn->db = sql_init(conn->set.driver, conn->set.connect);
+	i_zero(&set);
+	set.driver = conn->set.driver;
+	set.connect_string = conn->set.connect;
+	if (sql_init_full(&set, &conn->db, &error) < 0) {
+		i_fatal("sql: %s", error);
+	}
 
 	conn->next = connections;
 	connections = conn;
