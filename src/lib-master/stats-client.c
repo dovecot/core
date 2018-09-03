@@ -195,10 +195,8 @@ static struct event *stats_event_get_merged(struct event *event)
 		   and have fields and/or categories
 		   use p as parent,
 		   because we do not want parent without fields and categoris */
-		if (use_original) {
+		if (use_original)
 			res = event_dup(event);
-			use_original = FALSE;
-		}
 		event_unref(&res->parent);
 		res->parent = p;
 		event_ref(res->parent);
