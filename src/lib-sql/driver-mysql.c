@@ -269,7 +269,8 @@ static int driver_mysql_parse_connect_string(struct mysql_db *db,
 	return 0;
 }
 
-static struct sql_db *driver_mysql_init_v(const char *connect_string)
+static int driver_mysql_init_full_v(const struct sql_settings *set,
+				    struct sql_db **db_r, const char **error_r)
 {
 	struct mysql_db *db;
 	const char *error = NULL;
@@ -281,12 +282,18 @@ static struct sql_db *driver_mysql_init_v(const char *connect_string)
 	db->pool = pool;
 	db->api = driver_mysql_db;
 	T_BEGIN {
-		ret = driver_mysql_parse_connect_string(db, connect_string, &error);
-		if (ret < 0)
-			i_fatal("mysql: %s", error);
+		ret = driver_mysql_parse_connect_string(db, set->connect_string, &error);
+		error = p_strdup(db->pool, error);
 	} T_END;
 
-	return &db->api;
+	if (ret < 0) {
+		*error_r = t_strdup(error);
+		pool_unref(&db->pool);
+		return ret;
+	}
+
+	*db_r = &db->api;
+	return 0;
 }
 
 static void driver_mysql_deinit_v(struct sql_db *_db)
@@ -687,7 +694,7 @@ const struct sql_db driver_mysql_db = {
 	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_POOLED,
 
 	.v = {
-		.init = driver_mysql_init_v,
+		.init_full = driver_mysql_init_full_v,
 		.deinit = driver_mysql_deinit_v,
 		.connect = driver_mysql_connect,
 		.disconnect = driver_mysql_disconnect,
