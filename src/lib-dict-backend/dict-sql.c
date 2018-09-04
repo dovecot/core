@@ -108,7 +108,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
 	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
 
-	if (sql_db_cache_new2(dict_sql_db_cache, &sql_set, &dict->db, error_r) < 0) {
+	if (sql_db_cache_new(dict_sql_db_cache, &sql_set, &dict->db, error_r) < 0) {
 		pool_unref(&pool);
 		return -1;
 	}

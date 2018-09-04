@@ -88,8 +88,8 @@ static void sql_db_cache_drop_oldest(struct sql_db_cache *cache)
 		sql_db_cache_free_tail(cache);
 }
 
-int sql_db_cache_new2(struct sql_db_cache *cache, const struct sql_settings *set,
-		      struct sql_db **db_r, const char **error_r)
+int sql_db_cache_new(struct sql_db_cache *cache, const struct sql_settings *set,
+		     struct sql_db **db_r, const char **error_r)
 {
 	struct sql_db_cache_context *ctx;
 	struct sql_db *db;
@@ -125,23 +125,6 @@ int sql_db_cache_new2(struct sql_db_cache *cache, const struct sql_settings *set
 	ctx->refcount++;
 	*db_r = db;
 	return 0;
-}
-
-struct sql_db *
-sql_db_cache_new(struct sql_db_cache *cache,
-		 const char *db_driver, const char *connect_string)
-{
-	const char *error;
-	struct sql_db *db;
-	struct sql_settings set = {
-		.driver = db_driver,
-		.connect_string = connect_string,
-	};
-
-	if (sql_db_cache_new2(cache, &set, &db, &error) < 0)
-		i_fatal("%s", error);
-
-	return db;
 }
 
 struct sql_db_cache *sql_db_cache_init(unsigned int max_unused_connections)
