@@ -730,6 +730,21 @@ static void driver_cassandra_metrics_write(struct cassandra_db *db)
 	i_close_fd(&fd);
 }
 
+static void driver_cassandra_free(struct cassandra_db **_db)
+{
+	struct cassandra_db *db = *_db;
+	*_db = NULL;
+
+	i_free(db->metrics_path);
+	i_free(db->hosts);
+	i_free(db->error);
+	i_free(db->keyspace);
+	i_free(db->user);
+	i_free(db->password);
+	array_free(&db->api.module_contexts);
+	i_free(db);
+}
+
 static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 {
 	struct cassandra_db *db;
@@ -802,14 +817,7 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 	cass_cluster_free(db->cluster);
 	cass_timestamp_gen_free(db->timestamp_gen);
 	timeout_remove(&db->to_metrics);
-	i_free(db->metrics_path);
-	i_free(db->hosts);
-	i_free(db->error);
-	i_free(db->keyspace);
-	i_free(db->user);
-	i_free(db->password);
-	array_free(&_db->module_contexts);
-	i_free(db);
+	driver_cassandra_free(&db);
 }
 
 static void driver_cassandra_result_unlink(struct cassandra_db *db,
