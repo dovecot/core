@@ -400,7 +400,12 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", commit_result.error)->event(),
 			"Transaction failed");
-		/* also does i_free(ctx) */
+		/* From SQLite manual: It is recommended that applications
+		   respond to the errors listed above by explicitly issuing a
+		   ROLLBACK command. If the transaction has already been rolled
+		   back automatically by the error response, then the ROLLBACK
+		   command will fail with an error, but no harm is caused by
+		   this. */
 		driver_sqlite_transaction_rollback(_ctx);
 	} else {
 		e_debug(sql_transaction_finished_event(_ctx)->event(),
