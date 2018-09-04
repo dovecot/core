@@ -272,6 +272,17 @@ static void driver_pgsql_disconnect(struct sql_db *_db)
 	_db->no_reconnect = FALSE;
 }
 
+static void driver_pgsql_free(struct pgsql_db **_db)
+{
+	struct pgsql_db *db = *_db;
+	*_db = NULL;
+
+	i_free(db->connect_string);
+	i_free(db->host);
+	array_free(&db->api.module_contexts);
+	i_free(db);
+}
+
 static struct sql_db *driver_pgsql_init_v(const char *connect_string)
 {
 	struct pgsql_db *db;
@@ -296,11 +307,7 @@ static void driver_pgsql_deinit_v(struct sql_db *_db)
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 
 	driver_pgsql_disconnect(_db);
-	i_free(db->host);
-	i_free(db->error);
-	i_free(db->connect_string);
-	array_free(&_db->module_contexts);
-	i_free(db);
+	driver_pgsql_free(&db);
 }
 
 static void driver_pgsql_set_idle(struct pgsql_db *db)
