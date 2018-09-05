@@ -99,8 +99,6 @@ int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
 	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0) {
 		if (driver->v.init_full == NULL) {
 			db = driver->v.init(set->connect_string);
-			db->event = event_create(set->event_parent);
-			event_add_category(db->event, &event_category_sql);
 		} else
 			ret = driver->v.init_full(set, &db, error_r);
 	} else
