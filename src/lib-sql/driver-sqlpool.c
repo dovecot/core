@@ -286,9 +286,6 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 
 	if (db->driver->v.init_full == NULL) {
 		conndb = db->driver->v.init(host->connect_string);
-		/* do not use sqlpool event here, see comment near category */
-		conndb->event = event_create(event_get_parent(db->api.event));
-		event_add_category(conndb->event, &event_category_sql);
 	} else {
 		struct sql_settings set = {
 			.connect_string = host->connect_string,
