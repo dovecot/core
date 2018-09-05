@@ -103,6 +103,7 @@ struct client {
 	bool anvil_sent:1;
 	bool message_uidls_save:1;
 	bool delete_success:1;
+	bool quit_seen:1;
 };
 
 struct pop3_module_register {
