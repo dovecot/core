@@ -515,8 +515,9 @@ int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db
 
 	T_BEGIN {
 		const char *tmp = NULL;
-		ret = driver_sqlpool_parse_hosts(db, set->connect_string, &tmp);
-		error = i_strdup(tmp);
+		if ((ret = driver_sqlpool_parse_hosts(db, set->connect_string,
+						      &tmp)) < 0)
+			error = i_strdup(tmp);
 	} T_END;
 
 	if (ret < 0) {
