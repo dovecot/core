@@ -268,7 +268,7 @@ bool client_update_mails(struct client *client)
 	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(ctx, &mail)) {
-		if (seq_range_exists(&deleted_msgs, mail->seq))
+		if (client->quit_seen && seq_range_exists(&deleted_msgs, mail->seq))
 			client_expunge(client, mail);
 		else if (seq_range_exists(&seen_msgs, mail->seq))
 			mail_update_flags(mail, MODIFY_ADD, MAIL_SEEN);
@@ -282,6 +282,7 @@ bool client_update_mails(struct client *client)
 
 static int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 {
+	client->quit_seen = TRUE;
 	if (client->deleted || client->seen_bitmask != NULL) {
 		if (!client_update_mails(client)) {
 			client_send_storage_error(client);

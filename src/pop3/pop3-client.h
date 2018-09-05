@@ -103,6 +103,7 @@ struct client {
 	unsigned int anvil_sent:1;
 	unsigned int message_uidls_save:1;
 	unsigned int delete_success:1;
+	unsigned int quit_seen:1;
 };
 
 struct pop3_module_register {
