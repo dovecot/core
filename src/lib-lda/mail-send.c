@@ -82,8 +82,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 		return 0;
 	}
 
-	if (!mail_user_set_get_postmaster_address(user->set, &postmaster_addr,
-						  &error)) {
+	if (!mail_user_get_postmaster_address(user, &postmaster_addr, &error)) {
 		i_error("msgid=%s: Invalid postmaster_address - can't send rejection: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80), error);
 		return -1;
