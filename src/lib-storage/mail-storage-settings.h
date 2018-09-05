@@ -60,8 +60,6 @@ struct mail_storage_settings {
 	const char *lock_method;
 	const char *pop3_uidl_format;
 
-	const char *postmaster_address;
-
 	const char *hostname;
 	const char *recipient_delimiter;
 
@@ -72,10 +70,6 @@ struct mail_storage_settings {
 
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
-	/* May be NULL - use mail_storage_get_postmaster_address() instead of
-	   directly accessing this. */
-	const struct message_address *_parsed_postmaster_address;
-	const struct smtp_address *_parsed_postmaster_address_smtp;
 
 	const char *const *parsed_mail_attachment_content_type_filter;
 	bool parsed_mail_attachment_exclude_inlined;
@@ -138,8 +132,16 @@ struct mail_user_settings {
 
 	const char *mail_log_prefix;
 
+	const char *hostname;
+	const char *postmaster_address;
+
 	ARRAY(struct mail_namespace_settings *) namespaces;
 	ARRAY(const char *) plugin_envs;
+
+	/* May be NULL - use mail_storage_get_postmaster_address() instead of
+	   directly accessing this. */
+	const struct message_address *_parsed_postmaster_address;
+	const struct smtp_address *_parsed_postmaster_address_smtp;
 };
 
 extern const struct setting_parser_info mail_user_setting_parser_info;
@@ -162,11 +164,11 @@ const void *mail_namespace_get_driver_settings(struct mail_namespace *ns,
 const struct dynamic_settings_parser *
 mail_storage_get_dynamic_parsers(pool_t pool);
 
-bool mail_storage_get_postmaster_address(const struct mail_storage_settings *set,
-					 const struct message_address **address_r,
-					 const char **error_r);
-bool mail_storage_get_postmaster_smtp(const struct mail_storage_settings *set,
-				      const struct smtp_address **address_r,
-				      const char **error_r);
+bool mail_user_set_get_postmaster_address(const struct mail_user_settings *set,
+					  const struct message_address **address_r,
+					  const char **error_r);
+bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
+				       const struct smtp_address **address_r,
+				       const char **error_r);
 
 #endif
