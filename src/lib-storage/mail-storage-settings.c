@@ -326,7 +326,7 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.mail_log_prefix = "%s(%u)<%{pid}><%{session}>: ",
 
 	.hostname = "",
-	.postmaster_address = "postmaster@%d",
+	.postmaster_address = "postmaster@%{if;%d;ne;;%d;%{hostname}}",
 
 	.namespaces = ARRAY_INIT,
 	.plugin_envs = ARRAY_INIT
