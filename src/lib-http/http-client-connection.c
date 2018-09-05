@@ -45,6 +45,25 @@ http_client_connection_unref_request(struct http_client_connection *conn,
 	return http_client_request_unref(_req);
 }
 
+static void
+http_client_connection_unlist_pending(struct http_client_connection *conn)
+{
+	struct http_client_peer_pool *ppool = conn->ppool;
+	ARRAY_TYPE(http_client_connection) *conn_arr;
+	struct http_client_connection *const *conn_idx;
+
+	/* remove from pending list */
+
+	conn_arr = &ppool->pending_conns;
+	array_foreach(conn_arr, conn_idx) {
+		if (*conn_idx == conn) {
+			array_delete(conn_arr,
+				     array_foreach_idx(conn_arr, conn_idx), 1);
+			break;
+		}
+	}
+}
+
 static inline void
 http_client_connection_failure(struct http_client_connection *conn,
 					 const char *reason)
@@ -1310,8 +1329,6 @@ http_client_connection_ready(struct http_client_connection *conn)
 	struct http_client_peer *peer = conn->peer;
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client_peer_shared *pshared = ppool->peer;
-	ARRAY_TYPE(http_client_connection) *conn_arr;
-	struct http_client_connection *const *conn_idx;
 	const struct http_client_settings *set = &peer->client->set;
 
 	e_debug(conn->event, "Ready for requests");
@@ -1321,17 +1338,9 @@ http_client_connection_ready(struct http_client_connection *conn)
 	conn->last_ioloop = current_ioloop;
 	timeout_remove(&conn->to_connect);
 
-	/* remove from pending list */
-	conn_arr = &ppool->pending_conns;
-	array_foreach(conn_arr, conn_idx) {
-		if (*conn_idx == conn) {
-			array_delete(conn_arr, array_foreach_idx(conn_arr, conn_idx), 1);
-			break;
-		}
-	}
-
 	/* indicate connection success */
 	conn->connect_succeeded = TRUE;
+	http_client_connection_unlist_pending(conn);
 	http_client_peer_connection_success(peer);
 
 	/* start raw log */
