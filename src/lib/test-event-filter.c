@@ -144,9 +144,43 @@ static void test_event_filter_inc_int(void)
 	test_end();
 }
 
+static void test_event_filter_parent_category_match(void)
+{
+	struct event_category parent_category = {
+		.name = "parent",
+	};
+	struct event_category child_category = {
+		.parent = &parent_category,
+		.name = "child",
+	};
+	struct event_filter *filter;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+	const char *query_categories[] = { "parent", NULL };
+	struct event_filter_query query = {
+		.categories = query_categories,
+	};
+
+	test_begin("event filter: parent category match");
+
+	struct event *e = event_create(NULL);
+	event_add_category(e, &child_category);
+
+	filter = event_filter_create();
+	event_filter_add(filter, &query);
+
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+
+	event_filter_unref(&filter);
+	event_unref(&e);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
 	test_event_filter_clear_parent_fields();
 	test_event_filter_inc_int();
+	test_event_filter_parent_category_match();
 }
