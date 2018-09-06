@@ -1204,6 +1204,14 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 	http_client_peer_trigger_request_handler(peer);
 }
 
+void http_client_peer_connection_failure(struct http_client_peer *peer,
+					 const char *reason)
+{
+	struct http_client_peer_pool *ppool = peer->ppool;
+
+	http_client_peer_pool_connection_failure(ppool, reason);
+}
+
 static void
 http_client_peer_connection_failed_any(struct http_client_peer *peer,
 					 const char *reason)
@@ -1221,14 +1229,6 @@ http_client_peer_connection_failed_any(struct http_client_peer *peer,
 	   if this was the only/last option. */
 	array_foreach(&peer->queues, queue)
 		http_client_queue_connection_failure(*queue, peer, reason);
-}
-
-void http_client_peer_connection_failure(struct http_client_peer *peer,
-					 const char *reason)
-{
-	struct http_client_peer_pool *ppool = peer->ppool;
-
-	http_client_peer_pool_connection_failure(ppool, reason);
 }
 
 void http_client_peer_connection_lost(struct http_client_peer *peer,
