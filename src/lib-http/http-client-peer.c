@@ -24,6 +24,8 @@ static void
 http_client_peer_shared_connection_failure(
 	struct http_client_peer_shared *pshared);
 static void
+http_client_peer_connection_succeeded_pool(struct http_client_peer *peer);
+static void
 http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 					const char *reason);
 
@@ -219,6 +221,25 @@ http_client_peer_pool_connection_success(
 		array_count(&ppool->conns));
 
 	http_client_peer_shared_connection_success(ppool->peer);
+
+	if (array_count(&ppool->pending_conns) > 0) {
+		/* if there are other connections attempting to connect, wait
+		   for them before notifying other peer objects about the
+		   success (which may be premature). */
+	} else {
+		struct http_client_peer *peer;
+
+		/* this was the only/last connection and connecting to it
+		   succeeded. notify all interested peers in this pool about the
+		   success */
+		peer = ppool->peer->peers_list;
+		while (peer != NULL) {
+			struct http_client_peer *peer_next = peer->shared_next;
+			if (peer->ppool == ppool)
+				http_client_peer_connection_succeeded_pool(peer);
+			peer = peer_next;
+		}
+	}
 }
 
 static void
@@ -1207,6 +1228,25 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 		array_count(&peer->conns));
 
 	http_client_peer_pool_connection_failure(ppool, reason);
+
+	peer->connect_failed = TRUE;
+}
+
+static void
+http_client_peer_connection_succeeded_pool(struct http_client_peer *peer)
+{
+	if (!peer->connect_failed)
+		return;
+	peer->connect_failed = FALSE;
+
+	e_debug(peer->event,
+		"A connection succeeded within our peer pool, "
+		"so this peer can retry connecting as well if needed "
+		"(%u connections exist)", array_count(&peer->conns));
+
+	/* if there are pending requests for this peer, try creating a new
+	   connection for them. if not, this peer will wind itself down. */
+	http_client_peer_trigger_request_handler(peer);
 }
 
 static void
@@ -1218,6 +1258,8 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 	e_debug(peer->event,
 		"Failed to establish any connection within our peer pool: %s ",
 		reason);
+
+	peer->connect_failed = TRUE;
 
 	/* failed to make any connection. a second connect will probably also
 	   fail, so just try another IP for the hosts(s) or abort all requests
