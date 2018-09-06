@@ -766,6 +766,7 @@ int main(int argc, char *argv[])
 	}
 	master_service = master_service_init(MASTER_SERVICE_NAME,
 				MASTER_SERVICE_FLAG_STANDALONE |
+				MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR |
 				MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 				&argc, &argv, "+Fanp");

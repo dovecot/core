@@ -108,7 +108,10 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	master_service = master_service_init("tcpwrap", 0,
+	const enum master_service_flags flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
+
+	master_service = master_service_init("tcpwrap", service_flags,
 					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;

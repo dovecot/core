@@ -420,8 +420,7 @@ int main(int argc, char *argv[])
 		NULL
 	};
 	struct master_login_settings login_set;
-	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_SEND_STATS;
+	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags =
 		/*
 		 * We include MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES so

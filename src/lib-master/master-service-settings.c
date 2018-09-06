@@ -768,7 +768,7 @@ int master_service_settings_read(struct master_service *service,
 		/* running standalone. we want to ignore plugin versions. */
 		service->version_string = NULL;
 	}
-	if ((service->flags & MASTER_SERVICE_FLAG_SEND_STATS) != 0 &&
+	if ((service->flags & MASTER_SERVICE_FLAG_DONT_SEND_STATS) == 0 &&
 	    (service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0) {
 		/* When running standalone (e.g. doveadm) try to connect to the
 		   stats socket, but don't log an error if it's not running.

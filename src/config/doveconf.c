@@ -862,6 +862,7 @@ static void failure_exit_callback(int *status)
 int main(int argc, char *argv[])
 {
 	enum master_service_flags master_service_flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
