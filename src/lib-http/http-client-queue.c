@@ -19,8 +19,8 @@
 #define TIMEOUT_CMP_MARGIN_USECS 2000
 
 static void
-http_client_queue_fail(struct http_client_queue *queue,
-	unsigned int status, const char *error);
+http_client_queue_fail_full(struct http_client_queue *queue,
+			    unsigned int status, const char *error, bool all);
 static void
 http_client_queue_set_delay_timer(struct http_client_queue *queue,
 	struct timeval time);
@@ -138,8 +138,8 @@ void http_client_queue_free(struct http_client_queue *queue)
 	array_free(&queue->pending_peers);
 
 	/* abort all requests */
-	http_client_queue_fail
-		(queue, HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborted");
+	http_client_queue_fail_full(queue, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+				    "Aborted", TRUE);
 	array_free(&queue->requests);
 	array_free(&queue->queued_requests);
 	array_free(&queue->queued_urgent_requests);
@@ -162,7 +162,7 @@ void http_client_queue_free(struct http_client_queue *queue)
 
 static void
 http_client_queue_fail_full(struct http_client_queue *queue,
-	unsigned int status, const char *error, bool queued_only)
+			    unsigned int status, const char *error, bool all)
 {
 	ARRAY_TYPE(http_client_request) *req_arr, treqs;
 	struct http_client_request **req_idx;
@@ -176,7 +176,7 @@ http_client_queue_fail_full(struct http_client_queue *queue,
 		struct http_client_request *req = *req_idx;
 
 		i_assert(req->state >= HTTP_REQUEST_STATE_QUEUED);
-		if (queued_only &&
+		if (!all &&
 			req->state != HTTP_REQUEST_STATE_QUEUED)
 			retained++;
 		else
@@ -437,9 +437,8 @@ http_client_queue_host_lookup_done(struct http_client_queue *queue)
 void http_client_queue_host_lookup_failure(
 	struct http_client_queue *queue, const char *error)
 {
-	http_client_queue_fail_full(queue,
-		HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED,
-		error, TRUE);
+	http_client_queue_fail(queue,
+		HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED, error);
 }
 
 void
