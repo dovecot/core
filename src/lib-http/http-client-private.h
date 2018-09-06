@@ -274,6 +274,8 @@ struct http_client_peer {
 
 	/* active connections to this peer */
 	ARRAY_TYPE(http_client_connection) conns;
+	/* pending connections (not ready connecting) */
+	ARRAY_TYPE(http_client_connection) pending_conns;
 
 	/* zero time-out for consolidating request handling */
 	struct timeout *to_req_handling;
