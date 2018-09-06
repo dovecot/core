@@ -166,7 +166,6 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 {
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 	struct sql_result result;
-	struct event *event;
 
 	i_zero(&result);
 	result.db = _db;
@@ -177,13 +176,12 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 	   it here. */
 	if (driver_sqlite_connect(_db) < 0) {
 		driver_sqlite_result_log(&result, query);
-		return;
+	} else {
+		db->rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
+		driver_sqlite_result_log(&result, query);
 	}
 
-	db->rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
-	driver_sqlite_result_log(&result, query);
-
-	event_unref(&event);
+	event_unref(&result.event);
 }
 
 static void driver_sqlite_query(struct sql_db *db, const char *query,
