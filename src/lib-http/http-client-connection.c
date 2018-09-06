@@ -71,6 +71,7 @@ http_client_connection_failure(struct http_client_connection *conn,
 	struct http_client_peer *peer = conn->peer;
 
 	conn->connect_failed = TRUE;
+	http_client_connection_unlist_pending(conn);
 	http_client_peer_connection_failure(peer, reason);
 }
 

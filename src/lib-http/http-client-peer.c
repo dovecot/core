@@ -246,20 +246,14 @@ static void
 http_client_peer_pool_connection_failure(
 	struct http_client_peer_pool *ppool, const char *reason)
 {
-	unsigned int pending;
-
-	/* count number of pending connections */
-	pending = array_count(&ppool->pending_conns);
-	i_assert(pending > 0);
-
 	e_debug(ppool->event,
 		"Failed to make connection "
 		"(connections=%u, connecting=%u)",
-		array_count(&ppool->conns), pending);
+		array_count(&ppool->conns), array_count(&ppool->pending_conns));
 
 	http_client_peer_shared_connection_failure(ppool->peer);
 
-	if (pending > 1) {
+	if (array_count(&ppool->pending_conns) > 0) {
 		/* if there are other connections attempting to connect, wait
 		   for them before failing the requests. remember that we had
 		   trouble with connecting so in future we don't try to create
@@ -507,7 +501,7 @@ http_client_peer_shared_connection_failure(
 	pshared->last_failure = ioloop_timeval;
 
 	/* manage backoff timer only when this was the only attempt */
-	if (pending == 1)
+	if (pending == 0)
 		http_client_peer_shared_increase_backoff_timer(pshared);
 }
 
