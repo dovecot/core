@@ -290,7 +290,8 @@ void index_mail_parse_header(struct message_part *part,
 
         data->parse_line_num++;
 
-	if (data->save_bodystructure_header) {
+	if (data->save_bodystructure_header &&
+	    !data->parsed_bodystructure_header) {
 		i_assert(part != NULL);
 		message_part_data_parse_from_header(mail->mail.data_pool, part, hdr);
 	}
