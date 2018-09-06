@@ -22,7 +22,7 @@ http_client_peer_shared_connection_success(
 	struct http_client_peer_shared *pshared);
 static void
 http_client_peer_shared_connection_failure(
-	struct http_client_peer_shared *pshared, unsigned int pending);
+	struct http_client_peer_shared *pshared);
 static void
 http_client_peer_connection_failed_any(struct http_client_peer *peer,
 					 const char *reason);
@@ -236,7 +236,7 @@ http_client_peer_pool_connection_failure(
 		"(connections=%u, connecting=%u)",
 		array_count(&ppool->conns), pending);
 
-	http_client_peer_shared_connection_failure(ppool->peer, pending);
+	http_client_peer_shared_connection_failure(ppool->peer);
 
 	if (pending > 1) {
 		/* if there are other connections attempting to connect, wait
@@ -471,8 +471,18 @@ http_client_peer_shared_connection_success(
 
 static void
 http_client_peer_shared_connection_failure(
-	struct http_client_peer_shared *pshared, unsigned int pending)
+	struct http_client_peer_shared *pshared)
 {
+	struct http_client_peer_pool *ppool;
+	unsigned int pending = 0;
+
+	/* determine the number of connections still pending */
+	ppool = pshared->pools_list;
+	while (ppool != NULL) {
+		pending += array_count(&ppool->pending_conns);
+		ppool = ppool->next;
+	}
+
 	pshared->last_failure = ioloop_timeval;
 
 	/* manage backoff timer only when this was the only attempt */
