@@ -503,6 +503,9 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	struct http_client_host *host = queue->host;
 	unsigned int ips_count = http_client_host_get_ips_count(host);
 	struct http_client_peer *const *peer_idx;
+	unsigned int num_requests =
+		array_count(&queue->queued_requests) +
+		array_count(&queue->queued_urgent_requests);
 
 	e_debug(queue->event,
 		"Failed to set up connection to %s%s: %s "
@@ -510,8 +513,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		http_client_peer_addr2str(addr),
 		(https_name == NULL ? "" :
 			t_strdup_printf(" (SSL=%s)", https_name)),
-		reason, array_count(&queue->pending_peers),
-		array_count(&queue->requests));
+		reason, array_count(&queue->pending_peers), num_requests);
 
 	if (array_count(&queue->pending_peers) == 0) {
 		i_assert(queue->cur_peer == peer);
