@@ -53,6 +53,7 @@ log_fdpass_input(void *context ATTR_UNUSED)
 int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_UPDATE_PROCTITLE;
 	const char *error;
 

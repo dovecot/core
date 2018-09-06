@@ -46,7 +46,6 @@ static void drop_privileges(void)
 int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_SEND_STATS |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |

@@ -239,12 +239,15 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
+	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 	ARRAY_TYPE(const_string) aenvs;
 	const char *binary;
 	const char *const *envs;
 	int c, i;
 
-	master_service = master_service_init("script", 0, &argc, &argv, "+e:");
+	master_service = master_service_init("script", service_flags,
+					     &argc, &argv, "+e:");
 
 	t_array_init(&aenvs, 16);
 	while ((c = master_getopt(master_service)) > 0) {

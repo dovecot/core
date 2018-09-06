@@ -193,7 +193,8 @@ static void script_execute_finish(void)
 
 int main(int argc, char *argv[])
 {
-	enum master_service_flags flags = 0;
+	enum master_service_flags flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 	int i, c;
 
 	if (getenv(MASTER_IS_PARENT_ENV) == NULL)

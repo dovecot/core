@@ -60,9 +60,12 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
+	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 	const char *error;
 
-	master_service = master_service_init("log", 0, &argc, &argv, "");
+	master_service = master_service_init("log", service_flags,
+					     &argc, &argv, "");
 
 	/* use log prefix and log to stderr until we've configured the real
 	   logging */
