@@ -785,8 +785,6 @@ http_client_peer_connect_backoff(struct http_client_peer *peer)
 static void
 http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 {
-	peer->connecting = TRUE;
-
 	if (http_client_peer_shared_start_backoff_timer(peer->shared)) {
 		peer->connect_backoff = TRUE;
 		return;
@@ -817,8 +815,6 @@ http_client_peer_cancel(struct http_client_peer *peer)
 	ARRAY_TYPE(http_client_connection) conns;
 
 	e_debug(peer->event, "Peer cancel");
-
-	peer->connecting = FALSE;
 
 	/* make a copy of the connection array; freed connections modify it */
 	t_array_init(&conns, array_count(&peer->conns));
@@ -1191,8 +1187,6 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 	struct http_client_peer_pool *ppool = peer->ppool;
 	struct http_client_queue *const *queue;
 
-	peer->connecting = FALSE;
-
 	http_client_peer_pool_connection_success(ppool);
 
 	e_debug(peer->event, "Successfully connected (connections=%u)",
@@ -1217,10 +1211,6 @@ http_client_peer_connection_failed_any(struct http_client_peer *peer,
 					 const char *reason)
 {
 	struct http_client_queue *const *queue;
-
-	if (!peer->connecting)
-		return;
-	peer->connecting = FALSE;
 
 	e_debug(peer->event, "Connection failed: %s", reason);
 
