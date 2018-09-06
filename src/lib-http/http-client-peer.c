@@ -24,8 +24,8 @@ static void
 http_client_peer_shared_connection_failure(
 	struct http_client_peer_shared *pshared);
 static void
-http_client_peer_connection_failed_any(struct http_client_peer *peer,
-					 const char *reason);
+http_client_peer_connection_failed_pool(struct http_client_peer *peer,
+					const char *reason);
 
 /*
  * Peer address
@@ -253,7 +253,7 @@ http_client_peer_pool_connection_failure(
 		while (peer != NULL) {
 			struct http_client_peer *peer_next = peer->shared_next;
 			if (peer->ppool == ppool)
-				http_client_peer_connection_failed_any(peer, reason);
+				http_client_peer_connection_failed_pool(peer, reason);
 			peer = peer_next;
 		}
 	}
@@ -1207,8 +1207,8 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 }
 
 static void
-http_client_peer_connection_failed_any(struct http_client_peer *peer,
-					 const char *reason)
+http_client_peer_connection_failed_pool(struct http_client_peer *peer,
+					const char *reason)
 {
 	struct http_client_queue *const *queue;
 
