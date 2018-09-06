@@ -569,6 +569,7 @@ http_client_peer_create(struct http_client *client,
 
 	i_array_init(&peer->queues, 16);
 	i_array_init(&peer->conns, 16);
+	i_array_init(&peer->pending_conns, 16);
 
 	DLLIST_PREPEND_FULL
 		(&client->peers_list, peer, client_prev, client_next);
@@ -624,6 +625,7 @@ http_client_peer_disconnect(struct http_client_peer *peer)
 	array_foreach_modifiable(&conns, conn)
 		http_client_connection_lost_peer(*conn);
 	i_assert(array_count(&peer->conns) == 0);
+	array_clear(&peer->pending_conns);
 
 	timeout_remove(&peer->to_req_handling);
 
@@ -661,6 +663,7 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 
 	event_unref(&peer->event);
 	array_free(&peer->conns);
+	array_free(&peer->pending_conns);
 	array_free(&peer->queues);
 	i_free(peer);
 
@@ -838,6 +841,7 @@ http_client_peer_cancel(struct http_client_peer *peer)
 		if (!http_client_connection_is_active(*conn))
 			http_client_connection_close(conn);
 	}
+	i_assert(array_count(&peer->pending_conns) == 0);
 }
 
 static unsigned int
@@ -926,7 +930,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		bool conn_lost = FALSE;
 
 		array_clear(&conns_avail);
-		connecting = closing = idle = 0;
+		closing = idle = 0;
 
 		/* gather connection statistics */
 		array_foreach(&peer->conns, conn_idx) {
@@ -962,8 +966,6 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 			/* count the number of connecting and closing connections */
 			if (conn->closing)
 				closing++;
-			else if (!conn->connected)
-				connecting++;
 		}
 
 		if (conn_lost) {
@@ -1020,6 +1022,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		return;
 
 	i_assert(idle == 0);
+	connecting = array_count(&peer->pending_conns);
 
 	/* determine how many new connections we can set up */
 	if (pshared->last_failure.tv_sec > 0 && working_conn_count > 0 &&
@@ -1315,16 +1318,7 @@ http_client_peer_active_connections(struct http_client_peer *peer)
 unsigned int
 http_client_peer_pending_connections(struct http_client_peer *peer)
 {
-	struct http_client_connection *const *conn_idx;
-	unsigned int pending = 0;
-
-	/* find idle connections */
-	array_foreach(&peer->conns, conn_idx) {
-		if (!(*conn_idx)->closing && !(*conn_idx)->connected)
-			pending++;
-	}
-
-	return pending;
+	return array_count(&peer->pending_conns);
 }
 
 void http_client_peer_switch_ioloop(struct http_client_peer *peer)
