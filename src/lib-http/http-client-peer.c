@@ -1212,7 +1212,9 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 {
 	struct http_client_queue *const *queue;
 
-	e_debug(peer->event, "Connection failed: %s", reason);
+	e_debug(peer->event,
+		"Failed to establish any connection within our peer pool: %s ",
+		reason);
 
 	/* failed to make any connection. a second connect will probably also
 	   fail, so just try another IP for the hosts(s) or abort all requests
