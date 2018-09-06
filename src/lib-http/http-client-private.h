@@ -278,7 +278,6 @@ struct http_client_peer {
 	/* zero time-out for consolidating request handling */
 	struct timeout *to_req_handling;
 
-	bool connecting:1;       /* peer is waiting to be connected */
 	bool connect_backoff:1;  /* peer is waiting for backoff timout*/
 	bool disconnected:1;     /* peer is already disconnected */
 	bool handling_requests:1;/* currently running request handler */
