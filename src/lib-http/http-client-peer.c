@@ -1187,10 +1187,10 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 	struct http_client_peer_pool *ppool = peer->ppool;
 	struct http_client_queue *const *queue;
 
-	http_client_peer_pool_connection_success(ppool);
-
 	e_debug(peer->event, "Successfully connected (connections=%u)",
 		array_count(&peer->conns));
+
+	http_client_peer_pool_connection_success(ppool);
 
 	array_foreach(&peer->queues, queue)
 		http_client_queue_connection_success(*queue, peer);
