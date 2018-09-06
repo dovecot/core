@@ -1203,6 +1203,9 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 {
 	struct http_client_peer_pool *ppool = peer->ppool;
 
+	e_debug(peer->event, "Connection failed (connections=%u)",
+		array_count(&peer->conns));
+
 	http_client_peer_pool_connection_failure(ppool, reason);
 }
 
