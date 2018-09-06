@@ -312,8 +312,7 @@ void index_mail_parse_header(struct message_part *part,
 			index_mail_parse_header_finish(mail);
 		} T_END;
 		if (data->save_bodystructure_header) {
-			i_assert(!data->save_bodystructure_body ||
-				 data->parser_ctx != NULL);
+			i_assert(data->parser_ctx != NULL);
 			data->parsed_bodystructure_header = TRUE;
 		}
 		return;
