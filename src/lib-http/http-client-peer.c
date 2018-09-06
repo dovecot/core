@@ -217,8 +217,9 @@ static void
 http_client_peer_pool_connection_success(
 	struct http_client_peer_pool *ppool)
 {
-	e_debug(ppool->event, "Successfully connected (connections=%u)",
-		array_count(&ppool->conns));
+	e_debug(ppool->event, "Successfully connected "
+		"(%u connections exist, %u pending)",
+		array_count(&ppool->conns), array_count(&ppool->pending_conns));
 
 	http_client_peer_shared_connection_success(ppool->peer);
 
@@ -248,7 +249,7 @@ http_client_peer_pool_connection_failure(
 {
 	e_debug(ppool->event,
 		"Failed to make connection "
-		"(connections=%u, connecting=%u)",
+		"(%u connections exist, %u pending)",
 		array_count(&ppool->conns), array_count(&ppool->pending_conns));
 
 	http_client_peer_shared_connection_failure(ppool->peer);
@@ -773,13 +774,19 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 		claimed_existing = TRUE;
 
 		e_debug(peer->event,
-			"Claimed idle connection (connections=%u)",
-			array_count(&peer->conns));
+			"Claimed idle connection "
+			"(%u connections exist, %u pending)",
+			array_count(&peer->conns),
+			array_count(&peer->pending_conns));
 	}
 
 	for (; i < count; i++) {
 		e_debug(peer->event,
-			"Making new connection %u of %u", i+1, count);
+			"Making new connection %u of %u "
+			"(%u connections exist, %u pending)",
+			i+1, count, array_count(&peer->conns),
+			array_count(&peer->pending_conns));
+
 		(void)http_client_connection_create(peer);
 	}
 
@@ -908,7 +915,10 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		}
 		e_debug(peer->event,
 			"Peer no longer used; will now cancel pending connections "
-			"(%u connections exist)", array_count(&peer->conns));
+			"(%u connections exist, %u pending)",
+			array_count(&peer->conns),
+			array_count(&peer->pending_conns));
+
 		http_client_peer_cancel(peer);
 		return;
 	}
@@ -918,7 +928,9 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	if (num_pending == 0) {
 		e_debug(peer->event,
 			"No requests to service for this peer "
-			"(%u connections exist)", array_count(&peer->conns));
+			"(%u connections exist, %u pending)",
+			array_count(&peer->conns),
+			array_count(&peer->pending_conns));
 		http_client_peer_check_idle(peer);
 		return;
 	}
@@ -1007,7 +1019,9 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		if (num_pending == 0) {
 			e_debug(peer->event,
 				"No more requests to service for this peer "
-				"(%u connections exist)", array_count(&peer->conns));
+				"(%u connections exist, %u pending)",
+				array_count(&peer->conns),
+				array_count(&peer->pending_conns));
 			http_client_peer_check_idle(peer);
 			break;
 		}
@@ -1116,7 +1130,10 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	}
 
 	/* still waiting for connections to finish */
-	e_debug(peer->event, "No request handled; waiting for new connections");
+	e_debug(peer->event, "No request handled; "
+		"waiting for pending connections "
+		"(%u connections exist, %u pending)",
+		array_count(&peer->conns), connecting);
 	return;
 }
 
@@ -1205,8 +1222,9 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 	struct http_client_peer_pool *ppool = peer->ppool;
 	struct http_client_queue *const *queue;
 
-	e_debug(peer->event, "Successfully connected (connections=%u)",
-		array_count(&peer->conns));
+	e_debug(peer->event, "Successfully connected "
+		"(%u connections exist, %u pending)",
+		array_count(&peer->conns), array_count(&peer->pending_conns));
 
 	http_client_peer_pool_connection_success(ppool);
 
@@ -1221,8 +1239,9 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 {
 	struct http_client_peer_pool *ppool = peer->ppool;
 
-	e_debug(peer->event, "Connection failed (connections=%u)",
-		array_count(&peer->conns));
+	e_debug(peer->event, "Connection failed "
+		"(%u connections exist, %u pending)",
+		array_count(&peer->conns), array_count(&peer->pending_conns));
 
 	http_client_peer_pool_connection_failure(ppool, reason);
 
@@ -1239,7 +1258,8 @@ http_client_peer_connection_succeeded_pool(struct http_client_peer *peer)
 	e_debug(peer->event,
 		"A connection succeeded within our peer pool, "
 		"so this peer can retry connecting as well if needed "
-		"(%u connections exist)", array_count(&peer->conns));
+		"(%u connections exist, %u pending)",
+		array_count(&peer->conns), array_count(&peer->pending_conns));
 
 	/* if there are pending requests for this peer, try creating a new
 	   connection for them. if not, this peer will wind itself down. */
@@ -1253,8 +1273,9 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 	struct http_client_queue *const *queue;
 
 	e_debug(peer->event,
-		"Failed to establish any connection within our peer pool: %s ",
-		reason);
+		"Failed to establish any connection within our peer pool: %s "
+		"(%u connections exist, %u pending)", reason,
+		array_count(&peer->conns), array_count(&peer->pending_conns));
 
 	peer->connect_failed = TRUE;
 
@@ -1282,11 +1303,13 @@ void http_client_peer_connection_lost(struct http_client_peer *peer,
 	num_pending = http_client_peer_requests_pending(peer, &num_urgent);
 
 	e_debug(peer->event,
-		"Lost a connection%s (%u queues linked, %u connections left, "
-			"%u requests pending, %u requests urgent)",
+		"Lost a connection%s "
+		"(%u queues linked, %u connections left, "
+		 "%u connections pending, %u requests pending, "
+		 "%u requests urgent)",
 		(premature ? " prematurely" : ""),
 		array_count(&peer->queues), array_count(&peer->conns),
-		num_pending, num_urgent);
+		array_count(&peer->pending_conns), num_pending, num_urgent);
 
 	if (peer->handling_requests) {
 		/* we got here from the request handler loop */
