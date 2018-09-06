@@ -22,8 +22,7 @@ http_client_peer_shared_connection_success(
 	struct http_client_peer_shared *pshared);
 static void
 http_client_peer_shared_connection_failure(
-	struct http_client_peer_shared *pshared, const char *reason,
-	unsigned int pending);
+	struct http_client_peer_shared *pshared, unsigned int pending);
 static void
 http_client_peer_connection_failed_any(struct http_client_peer *peer,
 					 const char *reason);
@@ -237,8 +236,27 @@ http_client_peer_pool_connection_failure(
 		"(connections=%u, connecting=%u)",
 		array_count(&ppool->conns), pending);
 
-	http_client_peer_shared_connection_failure(ppool->peer,
-		reason, pending);
+	http_client_peer_shared_connection_failure(ppool->peer, pending);
+
+	if (pending > 1) {
+		/* if there are other connections attempting to connect, wait
+		   for them before failing the requests. remember that we had
+		   trouble with connecting so in future we don't try to create
+		   more than one connection until connects work again. */
+	} else {
+		struct http_client_peer *peer;
+
+		/* this was the only/last connection and connecting to it
+		   failed. notify all interested peers in this pool about the
+		   failure */
+		peer = ppool->peer->peers_list;
+		while (peer != NULL) {
+			struct http_client_peer *peer_next = peer->shared_next;
+			if (peer->ppool == ppool)
+				http_client_peer_connection_failed_any(peer, reason);
+			peer = peer_next;
+		}
+	}
 }
 
 /*
@@ -453,32 +471,13 @@ http_client_peer_shared_connection_success(
 
 static void
 http_client_peer_shared_connection_failure(
-	struct http_client_peer_shared *pshared, const char *reason,
-	unsigned int pending)
+	struct http_client_peer_shared *pshared, unsigned int pending)
 {
 	pshared->last_failure = ioloop_timeval;
 
 	/* manage backoff timer only when this was the only attempt */
 	if (pending == 1)
 		http_client_peer_shared_increase_backoff_timer(pshared);
-
-	if (pending > 1) {
-		/* if there are other connections attempting to connect, wait
-		   for them before failing the requests. remember that we had
-		   trouble with connecting so in future we don't try to create
-		   more than one connection until connects work again. */
-	} else {
-		struct http_client_peer *peer;
-
-		/* this was the only/last connection and connecting to it
-		   failed. notify all interested peers about the failure */
-		peer = pshared->peers_list;
-		while (peer != NULL) {
-			struct http_client_peer *peer_next = peer->shared_next;
-			http_client_peer_connection_failed_any(peer, reason);
-			peer = peer_next;
-		}
-	}
 }
 
 static void
