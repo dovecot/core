@@ -1166,9 +1166,10 @@ static void doveadm_connections_continue_reset_cmds(void)
 	}
 }
 
-void doveadm_connections_ring_synced(void)
+void doveadm_connections_ring_synced(struct director *dir)
 {
-	while (doveadm_ring_sync_pending_connections != NULL) {
+	while (doveadm_ring_sync_pending_connections != NULL &&
+	       dir->ring_synced) {
 		struct doveadm_connection *conn =
 			doveadm_ring_sync_pending_connections;
 		doveadm_connection_ring_sync_callback_t *callback =
@@ -1180,5 +1181,6 @@ void doveadm_connections_ring_synced(void)
 		io_set_pending(conn->io);
 		callback(conn);
 	}
-	doveadm_connections_continue_reset_cmds();
+	if (dir->ring_synced)
+		doveadm_connections_continue_reset_cmds();
 }
