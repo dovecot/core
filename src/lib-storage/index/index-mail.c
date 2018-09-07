@@ -131,6 +131,9 @@ static bool get_cached_parts(struct index_mail *mail)
 {
 	struct message_part *part;
 
+	if (mail->data.parts != NULL)
+		return TRUE;
+
 	T_BEGIN {
 		part = get_unserialized_parts(mail);
 	} T_END;
