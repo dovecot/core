@@ -632,6 +632,8 @@ static bool mailbox_special_use_exists(const char *name)
 		return TRUE;
 	if (strcasecmp(name, "Flagged") == 0)
 		return TRUE;
+	if (strcasecmp(name, "Important") == 0)
+		return TRUE;
 	if (strcasecmp(name, "Junk") == 0)
 		return TRUE;
 	if (strcasecmp(name, "Sent") == 0)
