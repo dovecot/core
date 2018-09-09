@@ -35,8 +35,7 @@ submission_DEPENDENCIES = \
 
 cmds = \
 	cmd-noop.c \
-	cmd-quit.c \
-	cmd-vrfy.c
+	cmd-quit.c
 
 submission_SOURCES = \
 	$(cmds) \
