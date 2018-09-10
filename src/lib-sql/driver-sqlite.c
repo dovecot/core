@@ -163,6 +163,7 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 	struct sql_result result;
 
 	i_zero(&result);
+	result.db = _db;
 	result.event = event_create(_db->event);
 
 	/* Other drivers do not include time spent connecting
