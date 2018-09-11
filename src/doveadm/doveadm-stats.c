@@ -58,7 +58,7 @@ static void stats_dump(const char *path, const char *const *fields, bool reset)
 	net_set_nonblock(fd, FALSE);
 	str_append(cmd, "VERSION\tstats-reader-client\t2\t0\n");
 	str_append(cmd, reset ? "DUMP-RESET" : "DUMP");
-	i_zero(field_types);
+	i_zero(&field_types);
 	for (i = 0; i < fields_count; i++) {
 		str_append_c(cmd, '\t');
 		if (strcmp(fields[i], "stddev") == 0) {
