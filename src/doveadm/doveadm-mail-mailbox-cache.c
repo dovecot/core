@@ -321,13 +321,13 @@ static void cmd_mailbox_cache_remove_init(struct doveadm_mail_cmd_context *_ctx,
 	ctx->ctx.search_args = doveadm_mail_build_search_args(args);
 }
 
-static int cmd_mailbox_cache_compress_run_box(struct mailbox_cache_cmd_context *ctx,
-					      struct mailbox *box)
+static int cmd_mailbox_cache_purge_run_box(struct mailbox_cache_cmd_context *ctx,
+					   struct mailbox *box)
 {
 	struct mailbox_transaction_context *t =
 		mailbox_transaction_begin(box,
 					  MAILBOX_TRANSACTION_FLAG_EXTERNAL,
-					  "mailbox cache compress");
+					  "mailbox cache purge");
 	struct mail_cache *cache = t->box->cache;
 	struct mail_cache_compress_lock *lock;
 	int ret = 0;
@@ -357,8 +357,8 @@ static int cmd_mailbox_cache_compress_run_box(struct mailbox_cache_cmd_context *
 	return ret;
 }
 
-static int cmd_mailbox_cache_compress_run(struct doveadm_mail_cmd_context *_ctx,
-					  struct mail_user *user)
+static int cmd_mailbox_cache_purge_run(struct doveadm_mail_cmd_context *_ctx,
+				       struct mail_user *user)
 {
 	struct mailbox_cache_cmd_context *ctx =
 		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
@@ -372,15 +372,15 @@ static int cmd_mailbox_cache_compress_run(struct doveadm_mail_cmd_context *_ctx,
 		struct mailbox *box;
 		if ((ret = cmd_mailbox_cache_open_box(_ctx, user, *boxname, &box)) < 0)
 			break;
-		ret = cmd_mailbox_cache_compress_run_box(ctx, box);
+		ret = cmd_mailbox_cache_purge_run_box(ctx, box);
 		mailbox_free(&box);
 	}
 
 	return ret;
 }
 
-static void cmd_mailbox_cache_compress_init(struct doveadm_mail_cmd_context *_ctx,
-					    const char *const args[])
+static void cmd_mailbox_cache_purge_init(struct doveadm_mail_cmd_context *_ctx,
+					 const char *const args[])
 {
 	struct mailbox_cache_cmd_context *ctx =
 		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
@@ -412,12 +412,12 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_cache_remove_alloc(void)
 	return &ctx->ctx;
 }
 
-static struct doveadm_mail_cmd_context *cmd_mailbox_cache_compress_alloc(void)
+static struct doveadm_mail_cmd_context *cmd_mailbox_cache_purge_alloc(void)
 {
 	struct mailbox_cache_cmd_context *ctx =
 		doveadm_mail_cmd_alloc(struct mailbox_cache_cmd_context);
-	ctx->ctx.v.init = cmd_mailbox_cache_compress_init;
-	ctx->ctx.v.run = cmd_mailbox_cache_compress_run;
+	ctx->ctx.v.init = cmd_mailbox_cache_purge_init;
+	ctx->ctx.v.run = cmd_mailbox_cache_purge_run;
 	ctx->ctx.getopt_args = "";
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	return &ctx->ctx;
@@ -449,9 +449,9 @@ DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
-struct doveadm_cmd_ver2 doveadm_cmd_mailbox_cache_compress = {
-	.name = "mailbox cache compress",
-	.mail_cmd = cmd_mailbox_cache_compress_alloc,
+struct doveadm_cmd_ver2 doveadm_cmd_mailbox_cache_purge = {
+	.name = "mailbox cache purge",
+	.mail_cmd = cmd_mailbox_cache_purge_alloc,
 	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"<mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
