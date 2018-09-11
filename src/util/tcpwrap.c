@@ -108,7 +108,7 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	const enum master_service_flags flags =
+	const enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 
 	master_service = master_service_init("tcpwrap", service_flags,
