@@ -203,9 +203,14 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 {
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 	struct sqlite_result *result;
+	struct event *event;
 
 	result = i_new(struct sqlite_result, 1);
-	result->api.event = event_create(_db->event);
+	result->api.db = _db;
+	/* Temporarily store the event since result->api gets
+	 * overwritten later here and we need to reset it. */
+	event = event_create(_db->event);
+	result->api.event = event;
 
 	if (driver_sqlite_connect(_db) < 0) {
 		driver_sqlite_result_log(&result->api, query);
@@ -225,9 +230,10 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 			result->cols = 0;
 		}
 	}
+
 	result->api.db = _db;
 	result->api.refcount = 1;
-
+	result->api.event = event;
 	return &result->api;
 }
 
