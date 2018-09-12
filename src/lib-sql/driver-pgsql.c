@@ -422,11 +422,13 @@ static void result_finish(struct pgsql_result *result)
 
 	/* emit event */
 	if (result->api.failed) {
-		e_debug(sql_query_finished_event(&db->api, result->api.event,
-						 result->query, TRUE, &duration)->
-						 event(),
-			SQL_QUERY_FINISHED_FMT": %s", result->query,
-			duration, result->timeout ? "Timed out" : last_error(db));
+		const char *error = result->timeout ? "Timed out" : last_error(db);
+		struct event_passthrough *e =
+			sql_query_finished_event(&db->api, result->api.event,
+						 result->query, TRUE, &duration);
+		e->add_str("error", error);
+		e_debug(e->event(), SQL_QUERY_FINISHED_FMT": %s", result->query,
+			duration, error);
 	} else {
 		e_debug(sql_query_finished_event(&db->api, result->api.event,
 						 result->query, FALSE, &duration)->
