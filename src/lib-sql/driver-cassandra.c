@@ -937,9 +937,13 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 		    timeval_diff_usecs(&now, &result->finish_time),
 		    result->error != NULL ? result->error : "success");
 
-	struct event *event =
+	struct event_passthrough *e =
 		sql_query_finished_event(&db->api, result->api.event,
-					 result->query, FALSE, NULL)->event();
+					 result->query, FALSE, NULL);
+	if (result->error != NULL)
+		e->add_str("error", result->error);
+
+	struct event *event = e->event();
 	if (db->debug_queries)
 		event_set_forced_debug(event, TRUE);
 	if (reply_usecs/1000 >= db->warn_timeout_msecs) {
