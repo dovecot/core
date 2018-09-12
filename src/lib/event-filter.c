@@ -458,14 +458,16 @@ event_match_field(struct event *event, const struct event_field *wanted_field)
 	/* wanted_field has the value in all available formats */
 	while ((field = event_find_field(event, wanted_field->key)) == NULL) {
 		event = event_get_parent(event);
-		if (event == NULL)
-			return FALSE;
+		if (event == NULL) {
+			/* "field=" matches nonexistent field */
+			return wanted_field->value.str[0] == '\0';
+		}
 	}
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
 		if (field->value.str[0] == '\0') {
-			/* field was removed */
-			return FALSE;
+			/* field was removed, but it matches "field=" filter */
+			return wanted_field->value.str[0] == '\0';
 		}
 		return wildcard_match_icase(field->value.str, wanted_field->value.str);
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:

@@ -84,6 +84,7 @@ static void test_event_filter_clear_parent_fields(void)
 	event_field_clear(child, "int");
 
 	for (unsigned int i = 0; i < N_ELEMENTS(keys); i++) {
+		/* match any value */
 		filter_fields[0].key = keys[i];
 		filter = event_filter_create();
 		event_filter_add(filter, &query);
@@ -92,6 +93,26 @@ static void test_event_filter_clear_parent_fields(void)
 		test_assert_idx(!event_filter_match(filter, child, &failure_ctx), i);
 		event_filter_unref(&filter);
 	}
+
+	/* match empty field */
+	filter_fields[0].key = "str";
+	filter_fields[0].value = "";
+	filter = event_filter_create();
+	event_filter_add(filter, &query);
+
+	test_assert(!event_filter_match(filter, parent, &failure_ctx));
+	test_assert(event_filter_match(filter, child, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* match nonexistent field */
+	filter_fields[0].key = "nonexistent";
+	filter_fields[0].value = "";
+	filter = event_filter_create();
+	event_filter_add(filter, &query);
+
+	test_assert(event_filter_match(filter, parent, &failure_ctx));
+	test_assert(event_filter_match(filter, child, &failure_ctx));
+	event_filter_unref(&filter);
 
 	event_unref(&parent);
 	event_unref(&child);
