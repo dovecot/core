@@ -1072,6 +1072,8 @@ static void
 smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 				  const char *reason)
 {
+	struct smtp_server_command *cmd, *cmd_next;
+
 	if (conn->disconnected)
 		return;
 	conn->disconnected = TRUE;
@@ -1083,6 +1085,17 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 
 	/* preserve statistics */
 	smtp_server_connection_update_stats(conn);
+
+	/* drop transaction */
+	smtp_server_connection_reset_state(conn);
+
+	/* clear command queue */
+	cmd = conn->command_queue_head;
+	while (cmd != NULL) {
+		cmd_next = cmd->next;
+		smtp_server_command_abort(&cmd);
+		cmd = cmd_next;
+	}
 
 	smtp_server_connection_timeout_stop(conn);
 	if (conn->conn.output != NULL)
@@ -1114,7 +1127,6 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 {
 	struct smtp_server_connection *conn = *_conn;
-	struct smtp_server_command *cmd, *cmd_next;
 
 	*_conn = NULL;
 
@@ -1125,17 +1137,6 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 	smtp_server_connection_disconnect(conn, NULL);
 
 	smtp_server_connection_debug(conn, "Connection destroy");
-
-	/* drop transaction */
-	smtp_server_connection_reset_state(conn);
-
-	/* clear command queue */
-	cmd = conn->command_queue_head;
-	while (cmd != NULL) {
-		cmd_next = cmd->next;
-		smtp_server_command_abort(&cmd);
-		cmd = cmd_next;
-	}
 
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_destroy != NULL)
