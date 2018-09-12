@@ -144,17 +144,22 @@ static void driver_sqlite_result_log(const struct sql_result *result, const char
 	bool failed = !db->connected || (db->rc == SQLITE_OK);
 	int duration;
 	const char *suffix = "";
+	struct event_passthrough *e =
+		sql_query_finished_event(&db->api, result->event, query, failed,
+					 &duration);
 	io_loop_time_refresh();
 
 	if (!db->connected) {
 		suffix = ": Cannot connect to database";
+		e->add_str("error", "Cannot connect to database");
 	} else if (db->rc != SQLITE_OK) {
 		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
 					 db->rc);
+		e->add_str("error", sqlite3_errmsg(db->sqlite));
+		e->add_int("error_code", db->rc);
 	}
-	e_debug(sql_query_finished_event(&db->api, result->event, query,
-					 failed, &duration)->event(),
-		SQL_QUERY_FINISHED_FMT"%s", query, duration, suffix);
+
+	e_debug(e->event(), SQL_QUERY_FINISHED_FMT"%s", query, duration, suffix);
 }
 
 static void driver_sqlite_exec(struct sql_db *_db, const char *query)
