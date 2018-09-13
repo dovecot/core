@@ -347,7 +347,10 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 	struct sqlite_result *result = (struct sqlite_result *)_result;
 	struct sqlite_db *db = (struct sqlite_db *)result->api.db;
 
-	return sqlite3_errmsg(db->sqlite);
+	if (db->connected)
+		return sqlite3_errmsg(db->sqlite);
+	else
+		return "Cannot connect to database";
 }
 
 static struct sql_transaction_context *
