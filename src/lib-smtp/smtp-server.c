@@ -59,6 +59,14 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	server->set.command_limits = set->command_limits;
 	server->set.max_message_size = set->max_message_size;
 
+	if (set->mail_param_extensions != NULL) {
+		server->set.mail_param_extensions =
+			p_strarray_dup(pool, set->mail_param_extensions);
+	}
+	if (set->rcpt_param_extensions != NULL) {
+		server->set.rcpt_param_extensions =
+			p_strarray_dup(pool, set->rcpt_param_extensions);
+	}
 	if (set->xclient_extensions != NULL) {
 		server->set.xclient_extensions =
 			p_strarray_dup(pool, set->xclient_extensions);
@@ -70,7 +78,6 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	server->set.tls_required = set->tls_required;
 	server->set.auth_optional = set->auth_optional;
 	server->set.rcpt_domain_optional = set->rcpt_domain_optional;
-	server->set.param_extensions = set->param_extensions;
 	server->set.debug = set->debug;
 
 	server->conn_list = smtp_server_connection_list_init();

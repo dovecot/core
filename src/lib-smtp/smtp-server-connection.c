@@ -874,6 +874,14 @@ smtp_server_connection_alloc(struct smtp_server *server,
 					SMTP_SERVER_DEFAULT_MAX_SIZE_EXCESS_LIMIT;
 		}
 
+		if (set->mail_param_extensions != NULL) {
+			conn->set.mail_param_extensions =
+				p_strarray_dup(pool, set->mail_param_extensions);
+		}
+		if (set->rcpt_param_extensions != NULL) {
+			conn->set.rcpt_param_extensions =
+				p_strarray_dup(pool, set->rcpt_param_extensions);
+		}
 		if (set->xclient_extensions != NULL) {
 			server->set.xclient_extensions =
 				p_strarray_dup(pool, set->xclient_extensions);
@@ -895,8 +903,6 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		conn->set.rcpt_domain_optional =
 			conn->set.rcpt_domain_optional ||
 				set->rcpt_domain_optional;
-		conn->set.param_extensions =
-			conn->set.param_extensions || set->param_extensions;
 		conn->set.debug = conn->set.debug || set->debug;
 	}
 

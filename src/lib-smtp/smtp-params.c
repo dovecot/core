@@ -171,7 +171,7 @@ static int smtp_params_mail_parse_auth(
 
 static int smtp_params_mail_parse_body(
 	struct smtp_params_mail_parser *pmparser,
-	const char *value, bool extensions)
+	const char *value, const char *const *extensions)
 {
 	struct smtp_params_mail *params = pmparser->params;
 	enum smtp_capability caps = pmparser->caps;
@@ -206,7 +206,8 @@ static int smtp_params_mail_parse_body(
 			strcmp(value, "BINARYMIME") == 0) {
 		params->body.type = SMTP_PARAM_MAIL_BODY_TYPE_BINARYMIME;
 	/* =?? */
-	} else if (extensions) {
+	} else if (extensions != NULL &&
+		   str_array_icase_find(extensions, value)) {
 		params->body.type = SMTP_PARAM_MAIL_BODY_TYPE_EXTENSION;
 		params->body.ext = p_strdup(pmparser->pool, value);
 	} else {
@@ -333,10 +334,12 @@ smtp_params_mail_parse_size(
 }
 
 int smtp_params_mail_parse(pool_t pool, const char *args,
-	enum smtp_capability caps, bool extensions,
-	struct smtp_params_mail *params_r,
-	enum smtp_param_parse_error *error_code_r,
-	const char **error_r)
+			   enum smtp_capability caps,
+			   const char *const *extensions,
+			   const char *const *body_extensions,
+			   struct smtp_params_mail *params_r,
+			   enum smtp_param_parse_error *error_code_r,
+			   const char **error_r)
 {
 	struct smtp_params_mail_parser pmparser;
 	struct smtp_param param;
@@ -371,8 +374,8 @@ int smtp_params_mail_parse(pool_t pool, const char *args,
 				break;
 			}
 		} else if (strcmp(param.keyword, "BODY") == 0) {
-			if (smtp_params_mail_parse_body
-				(&pmparser, param.value, extensions) < 0) {
+			if (smtp_params_mail_parse_body(
+				&pmparser, param.value, body_extensions) < 0) {
 				ret = -1;
 				break;
 			}
@@ -397,7 +400,8 @@ int smtp_params_mail_parse(pool_t pool, const char *args,
 				ret = -1;
 				break;
 			}
-		} else if (extensions) {
+		} else if (extensions != NULL &&
+			   str_array_icase_find(extensions, param.keyword)) {
 			/* add the rest to ext_param for specific
 			   applications */
 			if (!array_is_created(&params_r->extra_params))
@@ -823,10 +827,11 @@ smtp_params_rcpt_parse_orcpt(struct smtp_params_rcpt_parser *prparser,
 }
 
 int smtp_params_rcpt_parse(pool_t pool, const char *args,
-	enum smtp_capability caps, bool extensions,
-	struct smtp_params_rcpt *params_r,
-	enum smtp_param_parse_error *error_code_r,
-	const char **error_r)
+			   enum smtp_capability caps,
+			   const char *const *extensions,
+			   struct smtp_params_rcpt *params_r,
+			   enum smtp_param_parse_error *error_code_r,
+			   const char **error_r)
 {
 	struct smtp_params_rcpt_parser prparser;
 	struct smtp_param param;
@@ -868,7 +873,8 @@ int smtp_params_rcpt_parse(pool_t pool, const char *args,
 				ret = -1;
 				break;
 			}
-		} else if (extensions) {
+		} else if (extensions != NULL &&
+			   str_array_icase_find(extensions, param.keyword)) {
 			/* add the rest to ext_param for specific applications
 			 */
 			if (!array_is_created(&params_r->extra_params))
