@@ -95,6 +95,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	struct smtp_server_command *command = cmd->cmd;
 	struct smtp_server_cmd_rcpt *rcpt_data;
 	enum smtp_address_parse_flags path_parse_flags;
+	const char *const *param_extensions = NULL;
 	struct smtp_address *path;
 	enum smtp_param_parse_error pperror;
 	const char *error;
@@ -155,8 +156,9 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	rcpt_data = p_new(cmd->pool, struct smtp_server_cmd_rcpt, 1);
 
 	/* [SP Rcpt-parameters] */
-	if (smtp_params_rcpt_parse(cmd->pool, params, caps,
-				   set->rcpt_param_extensions,
+	if (array_is_created(&conn->rcpt_param_extensions))
+		param_extensions = array_idx(&conn->rcpt_param_extensions, 0);
+	if (smtp_params_rcpt_parse(cmd->pool, params, caps, param_extensions,
 				   &rcpt_data->params, &pperror, &error) < 0) {
 		switch (pperror) {
 		case SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX:

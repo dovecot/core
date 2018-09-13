@@ -381,6 +381,11 @@ void smtp_server_connection_get_proxy_data(struct smtp_server_connection *conn,
 void smtp_server_connection_set_capabilities(
 	struct smtp_server_connection *conn, enum smtp_capability capabilities);
 
+void smtp_server_connection_register_mail_param(
+	struct smtp_server_connection *conn, const char *param);
+void smtp_server_connection_register_rcpt_param(
+	struct smtp_server_connection *conn, const char *param);
+
 bool smtp_server_connection_is_ssl_secured(struct smtp_server_connection *conn);
 bool smtp_server_connection_is_trusted(struct smtp_server_connection *conn);
 

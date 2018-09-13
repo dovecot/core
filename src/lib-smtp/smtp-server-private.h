@@ -125,6 +125,10 @@ struct smtp_server_connection {
 	unsigned int refcount;
 
 	struct smtp_server_settings set;
+
+	ARRAY_TYPE(const_string) mail_param_extensions; /* NULL-terminated */
+	ARRAY_TYPE(const_string) rcpt_param_extensions; /* NULL-terminated */
+
 	const struct smtp_server_callbacks *callbacks;
 	void *context;
 
