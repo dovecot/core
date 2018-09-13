@@ -301,7 +301,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	   with the first recv() call.
 	 */
 	i_zero(&buf);
-	i_zero(rbuf);
+	i_zero(&rbuf);
 
 	/* see if there is a HAPROXY protocol command waiting */
 	if ((ret = master_service_haproxy_recv(fd, &buf, sizeof(buf), MSG_PEEK))<=0) {
