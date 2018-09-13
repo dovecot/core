@@ -156,8 +156,8 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 
 	/* [SP Rcpt-parameters] */
 	if (smtp_params_rcpt_parse(cmd->pool, params, caps,
-				   set->param_extensions, &rcpt_data->params,
-				   &pperror, &error) < 0) {
+				   set->rcpt_param_extensions,
+				   &rcpt_data->params, &pperror, &error) < 0) {
 		switch (pperror) {
 		case SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX:
 			smtp_server_reply(cmd,

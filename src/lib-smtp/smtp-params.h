@@ -87,10 +87,12 @@ void smtp_param_write(string_t *out, const struct smtp_param *param);
  */
 
 int smtp_params_mail_parse(pool_t pool, const char *args,
-	enum smtp_capability caps, bool extensions,
-	struct smtp_params_mail *params_r,
-	enum smtp_param_parse_error *error_code_r,
-	const char **error_r);
+			   enum smtp_capability caps,
+			   const char *const *param_extensions,
+			   const char *const *body_param_extensions,
+			   struct smtp_params_mail *params_r,
+			   enum smtp_param_parse_error *error_code_r,
+			   const char **error_r) ATTR_NULL(4, 5);
 
 void smtp_params_mail_copy(pool_t pool,
 	struct smtp_params_mail *dst, const struct smtp_params_mail *src)
@@ -109,10 +111,11 @@ smtp_params_mail_get_extra(const struct smtp_params_mail *params,
  */
 
 int smtp_params_rcpt_parse(pool_t pool, const char *args,
-	enum smtp_capability caps, bool extensions,
-	struct smtp_params_rcpt *params_r,
-	enum smtp_param_parse_error *error_code_r,
-	const char **error_r);
+			   enum smtp_capability caps,
+			   const char *const *param_extensions,
+			   struct smtp_params_rcpt *params_r,
+			   enum smtp_param_parse_error *error_code_r,
+			   const char **error_r) ATTR_NULL(4);
 
 void smtp_params_rcpt_copy(pool_t pool,
 	struct smtp_params_rcpt *dst, const struct smtp_params_rcpt *src)

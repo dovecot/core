@@ -266,6 +266,10 @@ struct smtp_server_settings {
 	/* message size limit */
 	uoff_t max_message_size;
 
+	/* accept these additional custom MAIL parameters */
+	const char *const *mail_param_extensions;
+	/* accept these additional custom RCPT parameters */
+	const char *const *rcpt_param_extensions;
 	/* accept these additional custom XCLIENT fields */
 	const char *const *xclient_extensions;
 
@@ -279,7 +283,6 @@ struct smtp_server_settings {
 	bool auth_optional:1;
 	bool tls_required:1;
 	bool rcpt_domain_optional:1;
-	bool param_extensions:1;
 };
 
 struct smtp_server_stats {
