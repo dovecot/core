@@ -31,6 +31,18 @@ struct http_response {
 	bool connection_close:1;
 };
 
+static inline bool
+http_response_is_success(const struct http_response *resp)
+{
+	return ((resp->status / 100) == 2);
+}
+
+static inline bool
+http_response_is_internal_error(const struct http_response *resp)
+{
+	return (resp->status >= HTTP_RESPONSE_STATUS_INTERNAL);
+}
+
 void
 http_response_init(struct http_response *resp,
 	unsigned int status, const char *reason);
