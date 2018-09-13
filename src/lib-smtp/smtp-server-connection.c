@@ -906,6 +906,29 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		conn->set.debug = conn->set.debug || set->debug;
 	}
 
+	if (set != NULL && set->mail_param_extensions != NULL) {
+		const char *const *extp;
+
+		p_array_init(&conn->mail_param_extensions, pool,
+			     str_array_length(set->mail_param_extensions) + 8);
+		for (extp = set->mail_param_extensions; *extp != NULL; extp++) {
+			const char *ext = p_strdup(pool, *extp);
+			array_append(&conn->mail_param_extensions, &ext, 1);
+		}
+		array_append_zero(&conn->mail_param_extensions);
+	}
+	if (set != NULL && set->rcpt_param_extensions != NULL) {
+		const char *const *extp;
+
+		p_array_init(&conn->rcpt_param_extensions, pool,
+			     str_array_length(set->rcpt_param_extensions) + 8);
+		for (extp = set->rcpt_param_extensions; *extp != NULL; extp++) {
+			const char *ext = p_strdup(pool, *extp);
+			array_append(&conn->rcpt_param_extensions, &ext, 1);
+		}
+		array_append_zero(&conn->rcpt_param_extensions);
+	}
+
 	conn->remote_pid = (pid_t)-1;
 	conn->remote_uid = (uid_t)-1;
 	if (remote_ip != NULL && remote_ip->family != 0) {
@@ -1490,6 +1513,42 @@ void smtp_server_connection_set_proxy_data(struct smtp_server_connection *conn,
 		conn->callbacks->
 			conn_proxy_data_updated(conn->context, &full_data);
 	}
+}
+
+void smtp_server_connection_register_mail_param(
+	struct smtp_server_connection *conn, const char *param)
+{
+	param = p_strdup(conn->pool, param);
+
+	if (!array_is_created(&conn->mail_param_extensions)) {
+		p_array_init(&conn->mail_param_extensions, conn->pool, 8);
+		array_append(&conn->mail_param_extensions, &param, 1);
+	} else {
+		unsigned int count = array_count(&conn->mail_param_extensions);
+
+		i_assert(count > 0);
+		array_idx_set(&conn->mail_param_extensions,
+			      count - 1, &param);
+	}
+	array_append_zero(&conn->mail_param_extensions);
+}
+
+void smtp_server_connection_register_rcpt_param(
+	struct smtp_server_connection *conn, const char *param)
+{
+	param = p_strdup(conn->pool, param);
+
+	if (!array_is_created(&conn->rcpt_param_extensions)) {
+		p_array_init(&conn->rcpt_param_extensions, conn->pool, 8);
+		array_append(&conn->rcpt_param_extensions, &param, 1);
+	} else {
+		unsigned int count = array_count(&conn->rcpt_param_extensions);
+
+		i_assert(count > 0);
+		array_idx_set(&conn->rcpt_param_extensions,
+			      count - 1, &param);
+	}
+	array_append_zero(&conn->rcpt_param_extensions);
 }
 
 void smtp_server_connection_switch_ioloop(struct smtp_server_connection *conn)
