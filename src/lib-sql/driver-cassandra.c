@@ -939,7 +939,8 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 
 	struct event_passthrough *e =
 		sql_query_finished_event(&db->api, result->api.event,
-					 result->query, FALSE, NULL);
+					 result->query, result->error == NULL,
+					 NULL);
 	if (result->error != NULL)
 		e->add_str("error", result->error);
 

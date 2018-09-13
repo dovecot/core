@@ -141,11 +141,11 @@ driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 static void driver_sqlite_result_log(const struct sql_result *result, const char *query)
 {
 	struct sqlite_db *db = (struct sqlite_db *)result->db;
-	bool failed = !db->connected || (db->rc == SQLITE_OK);
+	bool success = db->connected && db->rc == SQLITE_OK;
 	int duration;
 	const char *suffix = "";
 	struct event_passthrough *e =
-		sql_query_finished_event(&db->api, result->event, query, failed,
+		sql_query_finished_event(&db->api, result->event, query, success,
 					 &duration);
 	io_loop_time_refresh();
 
