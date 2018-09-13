@@ -622,7 +622,7 @@ static void driver_sqlpool_timeout(struct sqlpool_db *db)
 
 		if (request->query != NULL) {
 			e_error(sql_query_finished_event(&db->api, request->event,
-							 request->query, TRUE,
+							 request->query, FALSE,
 							 &duration)->
 					add_str("error", "Query timed out")->
 					event(),
