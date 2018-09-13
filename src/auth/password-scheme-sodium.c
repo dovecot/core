@@ -38,7 +38,7 @@ generate_argon2id(const char *plaintext, const struct password_generate_params *
 	unsigned long long rounds = params->rounds;
 	size_t memlimit;
 	char result[crypto_pwhash_argon2id_STRBYTES];
-	i_zero(result);
+	i_zero(&result);
 
 	if (rounds == 0)
 		rounds = crypto_pwhash_argon2id_OPSLIMIT_INTERACTIVE;
