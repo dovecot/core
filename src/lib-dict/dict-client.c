@@ -419,6 +419,8 @@ static void client_dict_timeout(struct client_dict *dict)
 {
 	if (client_dict_is_finished(dict))
 		client_dict_disconnect(dict, "Idle disconnection");
+	else
+		timeout_remove(&dict->to_idle);
 }
 
 static bool client_dict_have_nonbackground_cmds(struct client_dict *dict)
