@@ -45,7 +45,8 @@ void submission_backend_started(struct submission_backend *backend,
 {
 	struct client *client = backend->client;
 
-	client_default_backend_started(client, caps);
+	if (backend == client->backend_default)
+		client_default_backend_started(client, caps);
 }
 
 void submission_backends_client_input_pre(struct client *client)

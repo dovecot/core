@@ -123,6 +123,14 @@ void client_default_backend_started(struct client *client,
 	}
 }
 
+static void
+client_create_backend_default(struct client *client,
+			      const struct submission_settings *set)
+{
+	client_proxy_create(client, set);
+	client->backend_default = &client->backend.backend;
+}
+
 static void client_init_urlauth(struct client *client)
 {
 	static const char *access_apps[] = { "submit+", NULL };
@@ -192,7 +200,7 @@ struct client *client_create(int fd_in, int fd_out,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
 
-	client_proxy_create(client, set);
+	client_create_backend_default(client, set);
 
 	smtp_server_connection_login(client->conn,
 		client->user->username, helo,
