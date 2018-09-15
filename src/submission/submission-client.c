@@ -125,8 +125,8 @@ static void
 client_create_backend_default(struct client *client,
 			      const struct submission_settings *set)
 {
-	client_proxy_create(client, set);
-	client->backend_default = &client->backend.backend;
+	client->backend_default =
+		submission_backend_relay_create(client, set);
 }
 
 static void client_init_urlauth(struct client *client)
