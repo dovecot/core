@@ -7,14 +7,6 @@ struct client;
 
 struct submission_settings;
 
-struct submission_backend_relay {
-	struct submission_backend backend;
-
-	struct smtp_client_connection *conn;
-
-	bool xclient_sent:1;
-};
-
 struct submission_backend *
 submission_backend_relay_create(struct client *client,
 				const struct submission_settings *set);
