@@ -865,9 +865,11 @@ backend_relay_client_input_post(struct submission_backend *_backend)
 		smtp_client_connection_uncork(backend->conn);
 }
 
-uoff_t client_proxy_get_max_mail_size(struct client *client)
+static uoff_t
+backend_relay_get_max_mail_size(struct submission_backend *_backend)
 {
-	struct submission_backend_relay *backend = &client->backend;
+	struct submission_backend_relay *backend =
+		(struct submission_backend_relay *)_backend;
 
 	return smtp_client_connection_get_size_capability(backend->conn);
 }
@@ -879,6 +881,8 @@ static struct submission_backend_vfuncs backend_relay_vfuncs = {
 
 	.client_input_pre = backend_relay_client_input_pre,
 	.client_input_post = backend_relay_client_input_post,
+
+	.get_max_mail_size = backend_relay_get_max_mail_size,
 
 	.cmd_helo = backend_relay_cmd_helo,
 
