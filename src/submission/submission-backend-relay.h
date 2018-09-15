@@ -18,9 +18,6 @@ struct submission_backend_relay {
 void client_proxy_create(struct client *client,
 			 const struct submission_settings *set);
 
-void client_proxy_input_pre(struct client *client);
-void client_proxy_input_post(struct client *client);
-
 uoff_t client_proxy_get_max_mail_size(struct client *client);
 
 #endif

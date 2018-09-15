@@ -49,14 +49,12 @@ static void client_input_pre(void *context)
 {
 	struct client *client = context;
 
-	client_proxy_input_pre(client);
 	submission_backends_client_input_pre(client);
 }
 static void client_input_post(void *context)
 {
 	struct client *client = context;
 
-	client_proxy_input_post(client);
 	submission_backends_client_input_post(client);
 }
 
