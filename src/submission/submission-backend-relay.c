@@ -171,8 +171,6 @@ backend_relay_cmd_helo(struct submission_backend *_backend,
 		(struct submission_backend_relay *)_backend;
 	struct relay_cmd_helo_context *helo;
 
-	client_proxy_start(_backend->client);
-
 	helo = p_new(cmd->pool, struct relay_cmd_helo_context, 1);
 	helo->backend = backend;
 	helo->cmd = cmd;
@@ -328,8 +326,6 @@ backend_relay_cmd_mail(struct submission_backend *_backend,
 		return -1;
 
 	relay_cmd_mail_update_xclient(backend);
-
-	client_proxy_start(_backend->client);
 
 	/* queue command (pipeline) */
 	mail_cmd = p_new(cmd->pool, struct relay_cmd_mail_context, 1);
@@ -819,11 +815,11 @@ static void backend_relay_destroy(struct submission_backend *_backend)
 		smtp_client_connection_close(&backend->conn);
 }
 
-static void client_proxy_ready_cb(const struct smtp_reply *reply,
-				  void *context)
+static void backend_relay_ready_cb(const struct smtp_reply *reply,
+				   void *context)
 {
-	struct client *client = context;
-	struct submission_backend_relay *backend = &client->backend;
+	struct submission_backend_relay *backend = context;
+	struct client *client = backend->backend.client;
 
 	/* check relay status */
 	if ((reply->status / 100) != 2) {
@@ -834,23 +830,19 @@ static void client_proxy_ready_cb(const struct smtp_reply *reply,
 		return;
 	}
 
-	/* notify the client about the fact that we're ready and propagate our
-	   capabilities */
-	client_default_backend_started(client,
+	/* notify the backend API about the fact that we're ready and propagate
+	   our capabilities */
+	submission_backend_started(&backend->backend,
 		smtp_client_connection_get_capabilities(backend->conn));
 }
 
-void client_proxy_start(struct client *client)
+static void backend_relay_start(struct submission_backend *_backend)
 {
-	struct submission_backend_relay *backend = &client->backend;
-
-	if (backend->started)
-		return;
+	struct submission_backend_relay *backend =
+		(struct submission_backend_relay *)_backend;
 
 	smtp_client_connection_connect(backend->conn,
-				       client_proxy_ready_cb, client);
-
-	backend->started = TRUE;
+				       backend_relay_ready_cb, backend);
 }
 
 /* try to proxy pipelined commands in a similarly pipelined fashion */
@@ -878,6 +870,8 @@ uoff_t client_proxy_get_max_mail_size(struct client *client)
 
 static struct submission_backend_vfuncs backend_relay_vfuncs = {
 	.destroy = backend_relay_destroy,
+
+	.start = backend_relay_start,
 
 	.cmd_helo = backend_relay_cmd_helo,
 

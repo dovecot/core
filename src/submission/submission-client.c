@@ -210,7 +210,7 @@ struct client *client_create(int fd_in, int fd_out,
 		client_apply_backend_capabilities(client);
 		smtp_server_connection_start(client->conn);
 	} else {
-		client_proxy_start(client);
+		submission_backend_start(client->backend_default);
 		smtp_server_connection_start_pending(client->conn);
 	}
 
