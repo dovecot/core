@@ -39,6 +39,7 @@ struct client {
 
 	enum smtp_capability backend_capabilities;
 	struct submission_backend_relay backend;
+	struct submission_backend *backend_default;
 	struct submission_backend *backends;
 	unsigned int backends_count;
 
