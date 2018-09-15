@@ -17,6 +17,7 @@ struct submission_backend_relay {
 	struct smtp_client_connection *conn;
 
 	bool xclient_sent:1;
+	bool trusted:1;
 };
 
 static struct submission_backend_vfuncs backend_relay_vfuncs;
@@ -103,10 +104,9 @@ static void
 relay_cmd_helo_update_xclient(struct submission_backend_relay *backend,
 			      struct smtp_server_cmd_helo *data)
 {
-	struct client *client = backend->backend.client;
 	struct smtp_proxy_data proxy_data;
 
-	if (!client->set->submission_relay_trusted)
+	if (!backend->trusted)
 		return;
 
 	i_zero(&proxy_data);
@@ -216,7 +216,7 @@ relay_cmd_mail_update_xclient(struct submission_backend_relay *backend)
 
 	if (backend->xclient_sent)
 		return;
-	if (!client->set->submission_relay_trusted)
+	if (!backend->trusted)
 		return;
 	if (helo_data->domain == NULL)
 		return;
@@ -754,14 +754,14 @@ backend_relay_cmd_quit(struct submission_backend *_backend,
  */
 
 struct submission_backend *
-submission_backend_relay_create(struct client *client,
-				const struct submission_settings *set)
+submission_backend_relay_create(
+	struct client *client,
+	const struct submision_backend_relay_settings *set)
 {
 	struct submission_backend_relay *backend;
 	struct mail_user *user = client->user;
 	struct ssl_iostream_settings ssl_set;
 	struct smtp_client_settings smtp_set;
-	enum smtp_client_connection_ssl_mode ssl_mode;
 
 	backend = i_new(struct submission_backend_relay, 1);
 	submission_backend_init(&backend->backend, client,
@@ -769,21 +769,24 @@ submission_backend_relay_create(struct client *client,
 
 	i_zero(&ssl_set);
 	mail_user_init_ssl_client_settings(user, &ssl_set);
-	if (set->submission_relay_ssl_verify)
+	if (set->ssl_verify)
 		ssl_set.verbose_invalid_cert = TRUE;
 	else
 		ssl_set.allow_invalid_cert = TRUE;
 
 	/* make relay connection */
 	i_zero(&smtp_set);
-	smtp_set.my_hostname = set->hostname;
+	smtp_set.my_hostname = set->my_hostname;
 	smtp_set.ssl = &ssl_set;
 	smtp_set.debug = user->mail_debug;
-	smtp_set.rawlog_dir =
-		mail_user_home_expand(user,
-				      set->submission_relay_rawlog_dir);
 
-	if (set->submission_relay_trusted) {
+	if (set->rawlog_dir != NULL) {
+		smtp_set.rawlog_dir =
+			mail_user_home_expand(user, set->rawlog_dir);
+	}
+
+	if (set->trusted) {
+		backend->trusted = TRUE;
 		smtp_set.peer_trusted = TRUE;
 
 		if (user->conn.remote_ip != NULL) {
@@ -795,24 +798,15 @@ submission_backend_relay_create(struct client *client,
 		smtp_set.proxy_data.login = user->username;
 	}
 
-	smtp_set.username = set->submission_relay_user;
-	smtp_set.master_user = set->submission_relay_master_user;
-	smtp_set.password = set->submission_relay_password;
-	smtp_set.connect_timeout_msecs =
-		set->submission_relay_connect_timeout;
-	smtp_set.command_timeout_msecs =
-		set->submission_relay_command_timeout;
-
-	if (strcmp(set->submission_relay_ssl, "smtps") == 0)
-		ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
-	else if (strcmp(set->submission_relay_ssl, "starttls") == 0)
-		ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
-	else
-		ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
+	smtp_set.username = set->user;
+	smtp_set.master_user = set->master_user;
+	smtp_set.password = set->password;
+	smtp_set.connect_timeout_msecs = set->connect_timeout_msecs;
+	smtp_set.command_timeout_msecs = set->command_timeout_msecs;
 
 	backend->conn = smtp_client_connection_create(
-		smtp_client, SMTP_PROTOCOL_SMTP, set->submission_relay_host,
-		set->submission_relay_port, ssl_mode, &smtp_set);
+		smtp_client, set->protocol, set->host, set->port,
+		set->ssl_mode, &smtp_set);
 
 	return &backend->backend;
 }
