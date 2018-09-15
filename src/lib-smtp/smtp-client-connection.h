@@ -10,6 +10,7 @@ enum smtp_capability;
 
 struct smtp_reply;
 struct smtp_client;
+struct smtp_client_settings;
 struct smtp_client_command;
 
 enum smtp_client_connection_ssl_mode {
