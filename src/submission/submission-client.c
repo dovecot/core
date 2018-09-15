@@ -19,6 +19,7 @@
 #include "mail-storage-service.h"
 #include "raw-storage.h"
 #include "imap-urlauth.h"
+#include "smtp-client-connection.h"
 
 #include "submission-backend-relay.h"
 #include "submission-recipient.h"
@@ -125,8 +126,32 @@ static void
 client_create_backend_default(struct client *client,
 			      const struct submission_settings *set)
 {
+	struct submision_backend_relay_settings relay_set;
+
+	i_zero(&relay_set);
+	relay_set.my_hostname = set->hostname;
+	relay_set.protocol = SMTP_PROTOCOL_SMTP;
+	relay_set.host = set->submission_relay_host;
+	relay_set.port = set->submission_relay_port;
+	relay_set.user = set->submission_relay_user;
+	relay_set.master_user = set->submission_relay_master_user;
+	relay_set.password = set->submission_relay_password;
+	relay_set.rawlog_dir = set->submission_relay_rawlog_dir;
+	relay_set.max_idle_time = set->submission_relay_max_idle_time;
+	relay_set.connect_timeout_msecs = set->submission_relay_connect_timeout;
+	relay_set.command_timeout_msecs = set->submission_relay_command_timeout;
+	relay_set.trusted = set->submission_relay_trusted;
+
+	if (strcmp(set->submission_relay_ssl, "smtps") == 0)
+		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
+	else if (strcmp(set->submission_relay_ssl, "starttls") == 0)
+		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
+	else
+		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
+	relay_set.ssl_verify = set->submission_relay_ssl_verify;
+
 	client->backend_default =
-		submission_backend_relay_create(client, set);
+		submission_backend_relay_create(client, &relay_set);
 }
 
 static void client_init_urlauth(struct client *client)
