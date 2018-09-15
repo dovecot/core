@@ -13,6 +13,11 @@ struct submission_backend_vfuncs {
 
 	uoff_t (*get_max_mail_size)(struct submission_backend *backend);
 
+	void (*trans_start)(struct submission_backend *backend,
+			    struct smtp_server_transaction *trans);
+	void (*trans_free)(struct submission_backend *backend,
+			   struct smtp_server_transaction *trans);
+
 	int (*cmd_helo)(struct submission_backend *backend,
 			struct smtp_server_cmd_ctx *cmd,
 			struct smtp_server_cmd_helo *data);
@@ -51,6 +56,7 @@ struct submission_backend {
 	uoff_t data_size;
 
 	bool started:1;
+	bool trans_started:1;
 };
 
 void submission_backend_init(struct submission_backend *backend,
@@ -67,7 +73,12 @@ void submission_backends_client_input_post(struct client *client);
 
 uoff_t submission_backend_get_max_mail_size(struct submission_backend *backend);
 
-void submission_backends_trans_free(struct client *client);
+void submission_backend_trans_start(struct submission_backend *backend,
+				    struct smtp_server_transaction *trans);
+void submission_backends_trans_start(struct client *client,
+				     struct smtp_server_transaction *trans);
+void submission_backends_trans_free(struct client *client,
+				     struct smtp_server_transaction *trans);
 
 void submission_backend_helo_reply_submit(struct submission_backend *backend,
 					  struct smtp_server_cmd_ctx *cmd,

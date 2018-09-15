@@ -89,7 +89,44 @@ uoff_t submission_backend_get_max_mail_size(struct submission_backend *backend)
 	return UOFF_T_MAX;
 }
 
-void submission_backends_trans_free(struct client *client)
+void submission_backend_trans_start(struct submission_backend *backend,
+				    struct smtp_server_transaction *trans)
+{
+	submission_backend_start(backend);
+
+	if (backend->trans_started)
+		return;
+	backend->trans_started = TRUE;
+
+	if (backend->v.trans_start != NULL)
+		backend->v.trans_start(backend, trans);
+}
+
+static void
+submission_backend_trans_free(struct submission_backend *backend,
+			      struct smtp_server_transaction *trans)
+{
+	i_stream_unref(&backend->data_input);
+	if (backend->v.trans_free != NULL)
+		backend->v.trans_free(backend, trans);
+}
+
+void submission_backends_trans_start(struct client *client,
+				     struct smtp_server_transaction *trans)
+{
+	struct submission_backend *const *bkp;
+
+	i_assert(client->state.backend != NULL);
+	submission_backend_trans_start(client->state.backend, trans);
+
+	array_foreach(&client->rcpt_backends, bkp) {
+		struct submission_backend *backend = *bkp;
+		submission_backend_trans_start(backend, trans);
+	}
+}
+
+void submission_backends_trans_free(struct client *client,
+				     struct smtp_server_transaction *trans)
 {
 	struct submission_backend *const *bkp;
 
@@ -98,8 +135,7 @@ void submission_backends_trans_free(struct client *client)
 
 	array_foreach(&client->rcpt_backends, bkp) {
 		struct submission_backend *backend = *bkp;
-
-		i_stream_unref(&backend->data_input);
+		submission_backend_trans_free(backend, trans);
 	}
 	array_clear(&client->rcpt_backends);
 	client->state.backend = NULL;

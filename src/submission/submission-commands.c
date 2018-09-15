@@ -136,6 +136,7 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_rcpt *data)
 {
 	struct client *client = conn_ctx;
+	struct smtp_server_transaction *trans;
 	struct submission_recipient *rcpt;
 
 	rcpt = submission_recipient_create(client, data->path);
@@ -145,6 +146,10 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	data->trans_context = rcpt;
 	data->hook_finished = submission_rcpt_finished;
+
+	trans = smtp_server_connection_get_transaction(cmd->conn);
+	if (trans != NULL)
+		submission_backend_trans_start(rcpt->backend, trans);
 
 	return submission_backend_cmd_rcpt(rcpt->backend, cmd, data);
 }
@@ -161,6 +166,8 @@ int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 	if (backend == NULL)
 		backend = client->backend_default;
 
+	/* all backends will also be notified through trans_free(), but that
+	   doesn't allow changing the RSET command response. */
 	return submission_backend_cmd_rset(backend, cmd);
 }
 
