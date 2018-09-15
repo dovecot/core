@@ -262,8 +262,6 @@ void client_destroy(struct client *client, const char *prefix,
 	submission_client_count--;
 	DLLIST_REMOVE(&submission_clients, client);
 
-	client_proxy_destroy(client);
-
 	if (client->anvil_sent) {
 		master_service_anvil_send(master_service, t_strconcat(
 			"DISCONNECT\t", my_pid, "\tsubmission/",
@@ -381,7 +379,6 @@ void client_disconnect(struct client *client, const char *enh_code,
 	client->disconnected = TRUE;
 
 	timeout_remove(&client->to_quit);
-	client_proxy_destroy(client);
 	submission_backends_destroy_all(client);
 
 	if (array_is_created(&client->rcpt_to)) {

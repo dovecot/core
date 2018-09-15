@@ -18,7 +18,6 @@ struct submission_backend_relay {
 
 void client_proxy_create(struct client *client,
 			 const struct submission_settings *set);
-void client_proxy_destroy(struct client *client);
 void client_proxy_start(struct client *client);
 
 void client_proxy_input_pre(struct client *client);

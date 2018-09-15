@@ -810,9 +810,10 @@ void client_proxy_create(struct client *client,
 		set->submission_relay_port, ssl_mode, &smtp_set);
 }
 
-void client_proxy_destroy(struct client *client)
+static void backend_relay_destroy(struct submission_backend *_backend)
 {
-	struct submission_backend_relay *backend = &client->backend;
+	struct submission_backend_relay *backend =
+		(struct submission_backend_relay *)_backend;
 
 	if (backend->conn != NULL)
 		smtp_client_connection_close(&backend->conn);
@@ -876,6 +877,8 @@ uoff_t client_proxy_get_max_mail_size(struct client *client)
 }
 
 static struct submission_backend_vfuncs backend_relay_vfuncs = {
+	.destroy = backend_relay_destroy,
+
 	.cmd_helo = backend_relay_cmd_helo,
 
 	.cmd_mail = backend_relay_cmd_mail,
