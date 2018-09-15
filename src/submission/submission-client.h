@@ -20,6 +20,27 @@ struct client_state {
 struct submission_client_vfuncs {
 	void (*destroy)(struct client *client, const char *prefix,
 			const char *reason);
+
+	int (*cmd_helo)(struct client *client, struct smtp_server_cmd_ctx *cmd,
+			struct smtp_server_cmd_helo *data);
+
+	int (*cmd_mail)(struct client *client, struct smtp_server_cmd_ctx *cmd,
+			struct smtp_server_cmd_mail *data);
+	int (*cmd_rcpt)(struct client *client,
+			struct submission_recipient *rcpt,
+			struct smtp_server_cmd_ctx *cmd,
+			struct smtp_server_cmd_rcpt *data);
+	int (*cmd_rset)(struct client *client, struct smtp_server_cmd_ctx *cmd);
+	int (*cmd_data)(struct client *client,
+			struct smtp_server_cmd_ctx *cmd,
+			struct smtp_server_transaction *trans,
+			struct istream *data_input, uoff_t data_size);
+
+	int (*cmd_vrfy)(struct client *client, struct smtp_server_cmd_ctx *cmd,
+			const char *param);
+
+	int (*cmd_noop)(struct client *client, struct smtp_server_cmd_ctx *cmd);
+	int (*cmd_quit)(struct client *client, struct smtp_server_cmd_ctx *cmd);
 };
 
 struct client {

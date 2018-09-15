@@ -520,4 +520,16 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 
 static const struct submission_client_vfuncs submission_client_vfuncs = {
 	client_default_destroy,
+
+	.cmd_helo = client_default_cmd_helo,
+
+	.cmd_mail = client_default_cmd_mail,
+	.cmd_rcpt = client_default_cmd_rcpt,
+	.cmd_rset = client_default_cmd_rset,
+	.cmd_data = client_default_cmd_data,
+
+	.cmd_vrfy = client_default_cmd_vrfy,
+
+	.cmd_noop = client_default_cmd_noop,
+	.cmd_quit = client_default_cmd_quit,
 };
