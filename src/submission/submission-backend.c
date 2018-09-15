@@ -2,6 +2,8 @@
 
 #include "submission-common.h"
 #include "llist.h"
+#include "istream.h"
+#include "istream-sized.h"
 
 #include "submission-client.h"
 #include "submission-commands.h"
@@ -22,6 +24,8 @@ static void submission_backend_destroy(struct submission_backend *backend)
 {
 	struct client *client = backend->client;
 
+	i_stream_unref(&backend->data_input);
+
 	DLLIST_REMOVE(&client->backends, backend);
 	backend->v.destroy(backend);
 }
@@ -30,6 +34,7 @@ void submission_backends_destroy_all(struct client *client)
 {
 	while (client->backends != NULL)
 		submission_backend_destroy(client->backends);
+	array_clear(&client->rcpt_backends);
 	client->state.backend = NULL;
 }
 
@@ -82,6 +87,22 @@ uoff_t submission_backend_get_max_mail_size(struct submission_backend *backend)
 	if (backend->v.get_max_mail_size != NULL)
 		return backend->v.get_max_mail_size(backend);
 	return UOFF_T_MAX;
+}
+
+void submission_backends_trans_free(struct client *client)
+{
+	struct submission_backend *const *bkp;
+
+	i_assert(client->state.backend != NULL ||
+		 array_count(&client->rcpt_backends) == 0);
+
+	array_foreach(&client->rcpt_backends, bkp) {
+		struct submission_backend *backend = *bkp;
+
+		i_stream_unref(&backend->data_input);
+	}
+	array_clear(&client->rcpt_backends);
+	client->state.backend = NULL;
 }
 
 int submission_backend_cmd_helo(struct submission_backend *backend,
@@ -140,12 +161,46 @@ int submission_backend_cmd_rset(struct submission_backend *backend,
 	return backend->v.cmd_rset(backend, cmd);
 }
 
-int submission_backend_cmd_data(struct submission_backend *backend,
-				struct smtp_server_cmd_ctx *cmd,
-				struct smtp_server_transaction *trans,
-				struct istream *data_input, uoff_t data_size)
+static int
+submission_backend_cmd_data(struct submission_backend *backend,
+			    struct smtp_server_cmd_ctx *cmd,
+			    struct smtp_server_transaction *trans)
 {
-	return backend->v.cmd_data(backend, cmd, trans, data_input, data_size);
+	return backend->v.cmd_data(backend, cmd, trans,
+				   backend->data_input, backend->data_size);
+}
+
+int submission_backends_cmd_data(struct client *client,
+				 struct smtp_server_cmd_ctx *cmd,
+				 struct smtp_server_transaction *trans,
+				 struct istream *data_input, uoff_t data_size)
+{
+	struct submission_backend *const *bkp;
+	int ret = 0;
+
+	i_assert(array_count(&client->rcpt_backends) > 0);
+
+	/* create the data_input streams first */
+	array_foreach_modifiable(&client->rcpt_backends, bkp) {
+		struct submission_backend *backend = *bkp;
+
+		backend->data_input =
+			i_stream_create_sized(data_input, data_size);
+		backend->data_size = data_size;
+	}
+
+	/* now that all the streams are created, start reading them
+	   (reading them earlier could have caused the data_input parent's
+	   offset to change) */
+	array_foreach_modifiable(&client->rcpt_backends, bkp) {
+		struct submission_backend *backend = *bkp;
+
+		ret = submission_backend_cmd_data(backend, cmd, trans);
+		if (ret < 0)
+			break;
+	}
+
+	return ret;
 }
 
 int submission_backend_cmd_vrfy(struct submission_backend *backend,

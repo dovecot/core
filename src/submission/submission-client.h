@@ -26,6 +26,7 @@ struct client {
 	enum smtp_server_state last_state;
 	struct client_state state;
 	ARRAY(struct submission_recipient *) rcpt_to;
+	ARRAY(struct submission_backend *) rcpt_backends;
 
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
