@@ -7,6 +7,7 @@
 struct smtp_reply;
 
 struct submission_recipient;
+struct submission_backend;
 struct client;
 
 struct client_state {
@@ -38,6 +39,8 @@ struct client {
 
 	enum smtp_capability backend_capabilities;
 	struct submission_backend_relay backend;
+	struct submission_backend *backends;
+	unsigned int backends_count;
 
 	bool standalone:1;
 	bool disconnected:1;

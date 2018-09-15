@@ -50,12 +50,14 @@ static void client_input_pre(void *context)
 	struct client *client = context;
 
 	client_proxy_input_pre(client);
+	submission_backends_client_input_pre(client);
 }
 static void client_input_post(void *context)
 {
 	struct client *client = context;
 
 	client_proxy_input_post(client);
+	submission_backends_client_input_post(client);
 }
 
 static const char *client_remote_id(struct client *client)
@@ -246,6 +248,7 @@ void client_destroy(struct client *client, const char *prefix,
 
 	client_disconnect(client, prefix, reason);
 
+	submission_backends_destroy_all(client);
 	array_free(&client->rcpt_to);
 
 	submission_client_count--;
@@ -371,6 +374,7 @@ void client_disconnect(struct client *client, const char *enh_code,
 
 	timeout_remove(&client->to_quit);
 	client_proxy_destroy(client);
+	submission_backends_destroy_all(client);
 
 	if (array_is_created(&client->rcpt_to)) {
 		array_foreach_modifiable(&client->rcpt_to, rcptp)
@@ -402,15 +406,26 @@ void client_disconnect(struct client *client, const char *enh_code,
 
 uoff_t client_get_max_mail_size(struct client *client)
 {
+	struct submission_backend *backend;
 	uoff_t max_size, limit;
 
-	/* Account for the backend server's SIZE limit and calculate our own
-	   relative to it. */
+	/* Account for backend SIZE limits and calculate our own relative to
+	   those. */
 	max_size = client->set->submission_max_mail_size;
 	if (max_size == 0)
 		max_size = UOFF_T_MAX;
 	limit = client_proxy_get_max_mail_size(client);
 	if (limit > SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE) {
+		limit -= SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE;
+		if (limit < max_size)
+			max_size = limit;
+	}
+	for (backend = client->backends; backend != NULL;
+	     backend = backend->next) {
+		limit = submission_backend_get_max_mail_size(backend);
+
+		if (limit <= SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE)
+			continue;
 		limit -= SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE;
 		if (limit < max_size)
 			max_size = limit;
