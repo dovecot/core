@@ -6,7 +6,6 @@
 struct smtp_reply;
 
 struct client;
-struct client_command_context;
 
 struct client_state {
 	struct istream *data_input;
