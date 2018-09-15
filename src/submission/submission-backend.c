@@ -30,6 +30,7 @@ void submission_backends_destroy_all(struct client *client)
 {
 	while (client->backends != NULL)
 		submission_backend_destroy(client->backends);
+	client->state.backend = NULL;
 }
 
 void submission_backend_start(struct submission_backend *backend)

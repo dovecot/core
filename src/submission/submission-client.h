@@ -10,6 +10,7 @@ struct submission_backend;
 struct client;
 
 struct client_state {
+	struct submission_backend *backend;
 	struct istream *data_input;
 	uoff_t data_size;
 };
