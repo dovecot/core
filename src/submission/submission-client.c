@@ -310,8 +310,17 @@ void client_destroy(struct client *client, const char *prefix,
 }
 
 static void
+client_connection_trans_start(void *context,
+			      struct smtp_server_transaction *trans)
+{
+	struct client *client = context;
+
+	submission_backends_trans_start(client, trans);
+}
+
+static void
 client_connection_trans_free(void *context,
-			     struct smtp_server_transaction *trans ATTR_UNUSED)
+			     struct smtp_server_transaction *trans)
 {
 	struct client *client = context;
 	struct submission_recipient **rcptp;
@@ -320,7 +329,7 @@ client_connection_trans_free(void *context,
 		submission_recipient_destroy(rcptp);
 	array_clear(&client->rcpt_to);
 
-	submission_backends_trans_free(client);
+	submission_backends_trans_free(client, trans);
 	client_state_reset(client);
 }
 
@@ -485,6 +494,7 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 	.conn_cmd_input_pre = client_input_pre,
 	.conn_cmd_input_post = client_input_post,
 
+	.conn_trans_start = client_connection_trans_start,
 	.conn_trans_free = client_connection_trans_free,
 
 	.conn_state_changed = client_connection_state_changed,
