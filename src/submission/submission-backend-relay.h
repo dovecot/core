@@ -13,12 +13,10 @@ struct submission_backend_relay {
 	struct smtp_client_connection *conn;
 
 	bool xclient_sent:1;
-	bool started:1;
 };
 
 void client_proxy_create(struct client *client,
 			 const struct submission_settings *set);
-void client_proxy_start(struct client *client);
 
 void client_proxy_input_pre(struct client *client);
 void client_proxy_input_post(struct client *client);
