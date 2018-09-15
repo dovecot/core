@@ -15,7 +15,8 @@ struct submission_backend_relay {
 	bool xclient_sent:1;
 };
 
-void client_proxy_create(struct client *client,
-			 const struct submission_settings *set);
+struct submission_backend *
+submission_backend_relay_create(struct client *client,
+				const struct submission_settings *set);
 
 #endif

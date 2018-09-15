@@ -745,8 +745,9 @@ backend_relay_cmd_quit(struct submission_backend *_backend,
  * Relay backend
  */
 
-void client_proxy_create(struct client *client,
-			 const struct submission_settings *set)
+struct submission_backend *
+submission_backend_relay_create(struct client *client,
+				const struct submission_settings *set)
 {
 	struct submission_backend_relay *backend;
 	struct mail_user *user = client->user;
@@ -754,7 +755,7 @@ void client_proxy_create(struct client *client,
 	struct smtp_client_settings smtp_set;
 	enum smtp_client_connection_ssl_mode ssl_mode;
 
-	backend = &client->backend;
+	backend = i_new(struct submission_backend_relay, 1);
 	submission_backend_init(&backend->backend, client,
 				&backend_relay_vfuncs);
 
@@ -804,6 +805,8 @@ void client_proxy_create(struct client *client,
 	backend->conn = smtp_client_connection_create(
 		smtp_client, SMTP_PROTOCOL_SMTP, set->submission_relay_host,
 		set->submission_relay_port, ssl_mode, &smtp_set);
+
+	return &backend->backend;
 }
 
 static void backend_relay_destroy(struct submission_backend *_backend)
@@ -813,6 +816,7 @@ static void backend_relay_destroy(struct submission_backend *_backend)
 
 	if (backend->conn != NULL)
 		smtp_client_connection_close(&backend->conn);
+	i_free(backend);
 }
 
 static void backend_relay_ready_cb(const struct smtp_reply *reply,

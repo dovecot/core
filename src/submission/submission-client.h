@@ -2,7 +2,6 @@
 #define CLIENT_H
 
 #include "net.h"
-#include "submission-backend-relay.h"
 
 struct smtp_reply;
 
@@ -38,7 +37,6 @@ struct client {
 	struct smtp_server_stats stats;
 
 	enum smtp_capability backend_capabilities;
-	struct submission_backend_relay backend;
 	struct submission_backend *backend_default;
 	struct submission_backend *backends;
 	unsigned int backends_count;
