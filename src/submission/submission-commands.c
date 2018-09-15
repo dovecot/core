@@ -101,7 +101,9 @@ int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 {
 	struct client *client = conn_ctx;
 
-	return submission_backend_cmd_mail(client->backend_default, cmd, data);
+	client->state.backend = client->backend_default;
+
+	return submission_backend_cmd_mail(client->state.backend, cmd, data);
 }
 
 /*
@@ -144,7 +146,7 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	data->trans_context = rcpt;
 	data->hook_finished = submission_rcpt_finished;
 
-	return submission_backend_cmd_rcpt(client->backend_default, cmd, data);
+	return submission_backend_cmd_rcpt(client->state.backend, cmd, data);
 }
 
 /*
@@ -154,8 +156,12 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 {
 	struct client *client = conn_ctx;
+	struct submission_backend *backend = client->state.backend;
 
-	return submission_backend_cmd_rset(client->backend_default, cmd);
+	if (backend == NULL)
+		backend = client->backend_default;
+
+	return submission_backend_cmd_rset(backend, cmd);
 }
 
 /*
@@ -208,7 +214,7 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	i_stream_unref(&inputs[0]);
 	i_stream_unref(&inputs[1]);
 
-	ret = submission_backend_cmd_data(client->backend_default, cmd,
+	ret = submission_backend_cmd_data(client->state.backend, cmd,
 					  trans, data_input, data_size);
 
 	i_stream_unref(&data_input);
