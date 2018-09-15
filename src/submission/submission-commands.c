@@ -82,8 +82,10 @@ int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	if (!data->first ||
 	    smtp_server_connection_get_state(client->conn)
-		>= SMTP_SERVER_STATE_READY)
-		return cmd_helo_relay(client, cmd, data);
+		>= SMTP_SERVER_STATE_READY) {
+		return submission_backend_cmd_helo(client->backend_default,
+						   cmd, data);
+	}
 
 	/* respond right away */
 	submission_helo_reply_submit(cmd, data);
@@ -99,7 +101,7 @@ int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 {
 	struct client *client = conn_ctx;
 
-	return cmd_mail_relay(client, cmd, data);
+	return submission_backend_cmd_mail(client->backend_default, cmd, data);
 }
 
 /*
@@ -142,7 +144,7 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	data->trans_context = rcpt;
 	data->hook_finished = submission_rcpt_finished;
 
-	return cmd_rcpt_relay(client, cmd, data);
+	return submission_backend_cmd_rcpt(client->backend_default, cmd, data);
 }
 
 /*
@@ -153,7 +155,7 @@ int cmd_rset(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 {
 	struct client *client = conn_ctx;
 
-	return cmd_rset_relay(client, cmd);
+	return submission_backend_cmd_rset(client->backend_default, cmd);
 }
 
 /*
@@ -204,7 +206,8 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	i_stream_unref(&inputs[0]);
 	i_stream_unref(&inputs[1]);
 
-	ret = cmd_data_relay(client, cmd, trans, data_input);
+	ret = submission_backend_cmd_data(client->backend_default, cmd,
+					  trans, data_input);
 
 	i_stream_unref(&data_input);
 	return ret;
@@ -454,7 +457,7 @@ int cmd_vrfy(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 {
 	struct client *client = conn_ctx;
 
-	return cmd_vrfy_relay(client, cmd, param);
+	return submission_backend_cmd_vrfy(client->backend_default, cmd, param);
 }
 
 /*
@@ -465,7 +468,7 @@ int cmd_noop(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 {
 	struct client *client = conn_ctx;
 
-	return cmd_noop_relay(client, cmd);
+	return submission_backend_cmd_noop(client->backend_default, cmd);
 }
 
 /*
@@ -510,6 +513,6 @@ int cmd_quit(void *conn_ctx, struct smtp_server_cmd_ctx *cmd)
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     cmd_quit_next, quit_cmd);
 
-	return cmd_quit_relay(client, cmd);
+	return submission_backend_cmd_quit(client->backend_default, cmd);
 }
 
