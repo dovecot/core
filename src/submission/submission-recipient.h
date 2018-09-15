@@ -1,10 +1,11 @@
 #ifndef SUBMISSION_RECIPIENT_H
 #define SUBMISSION_RECIPIENT_H
 
+struct submission_backend;
 struct client;
 
 struct submission_recipient {
-	struct client *client;
+	struct submission_backend *backend;
 
 	struct smtp_address *path;
 	unsigned int index;

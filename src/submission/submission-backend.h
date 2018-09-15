@@ -47,6 +47,9 @@ struct submission_backend {
 
 	struct submission_backend_vfuncs v;
 
+	struct istream *data_input;
+	uoff_t data_size;
+
 	bool started:1;
 };
 
@@ -64,6 +67,8 @@ void submission_backends_client_input_post(struct client *client);
 
 uoff_t submission_backend_get_max_mail_size(struct submission_backend *backend);
 
+void submission_backends_trans_free(struct client *client);
+
 void submission_backend_helo_reply_submit(struct submission_backend *backend,
 					  struct smtp_server_cmd_ctx *cmd,
 					  struct smtp_server_cmd_helo *data);
@@ -79,10 +84,10 @@ int submission_backend_cmd_rcpt(struct submission_backend *backend,
 				struct smtp_server_cmd_rcpt *data);
 int submission_backend_cmd_rset(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd);
-int submission_backend_cmd_data(struct submission_backend *backend,
-				struct smtp_server_cmd_ctx *cmd,
-				struct smtp_server_transaction *trans,
-				struct istream *data_input, uoff_t data_size);
+int submission_backends_cmd_data(struct client *client,
+				 struct smtp_server_cmd_ctx *cmd,
+				 struct smtp_server_transaction *trans,
+				 struct istream *data_input, uoff_t data_size);
 
 int submission_backend_cmd_vrfy(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
