@@ -14,6 +14,7 @@
 #include "smtp-client.h"
 #include "smtp-client-connection.h"
 
+#include "submission-recipient.h"
 #include "submission-commands.h"
 #include "submission-backend-relay.h"
 
@@ -109,10 +110,41 @@ int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
  * RCPT command
  */
 
+static void
+cmd_rcpt_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		 struct submission_recipient *rcpt)
+{
+	submission_recipient_destroy(&rcpt);
+}
+
+static void
+submission_rcpt_finished(struct smtp_server_cmd_ctx *cmd,
+			 struct smtp_server_transaction *trans ATTR_UNUSED,
+			 struct smtp_server_recipient *trcpt,
+			 unsigned int index)
+{
+	struct submission_recipient *rcpt = trcpt->context;
+
+	smtp_server_command_remove_hook(cmd->cmd,
+					SMTP_SERVER_COMMAND_HOOK_DESTROY,
+					cmd_rcpt_destroy);
+
+	submission_recipient_finished(rcpt, trcpt, index);
+}
+
 int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_rcpt *data)
 {
 	struct client *client = conn_ctx;
+	struct submission_recipient *rcpt;
+
+	rcpt = submission_recipient_create(client, data->path);
+
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     cmd_rcpt_destroy, rcpt);
+
+	data->trans_context = rcpt;
+	data->hook_finished = submission_rcpt_finished;
 
 	return cmd_rcpt_relay(client, cmd, data);
 }

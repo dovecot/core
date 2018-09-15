@@ -21,6 +21,7 @@
 #include "imap-urlauth.h"
 
 #include "submission-backend-relay.h"
+#include "submission-recipient.h"
 #include "submission-commands.h"
 #include "submission-settings.h"
 
@@ -111,6 +112,8 @@ struct client *client_create(int fd_in, int fd_out,
 	client->set = set;
 	client->session_id = i_strdup(session_id);
 
+	i_array_init(&client->rcpt_to, 8);
+
 	i_zero(&smtp_set);
 	smtp_set.hostname = set->hostname;
 	smtp_set.login_greeting = set->login_greeting;
@@ -183,6 +186,8 @@ void client_destroy(struct client *client, const char *prefix,
 
 	client_disconnect(client, prefix, reason);
 
+	array_free(&client->rcpt_to);
+
 	submission_client_count--;
 	DLLIST_REMOVE(&submission_clients, client);
 
@@ -215,6 +220,11 @@ client_connection_trans_free(void *context,
 			     struct smtp_server_transaction *trans ATTR_UNUSED)
 {
 	struct client *client = context;
+	struct submission_recipient **rcptp;
+
+	array_foreach_modifiable(&client->rcpt_to, rcptp)
+		submission_recipient_destroy(rcptp);
+	array_clear(&client->rcpt_to);
 
 	client_state_reset(client);
 }
@@ -293,6 +303,7 @@ void client_disconnect(struct client *client, const char *enh_code,
 		       const char *reason)
 {
 	struct smtp_server_connection *conn;
+	struct submission_recipient **rcptp;
 
 	if (client->disconnected)
 		return;
@@ -300,6 +311,12 @@ void client_disconnect(struct client *client, const char *enh_code,
 
 	timeout_remove(&client->to_quit);
 	client_proxy_destroy(client);
+
+	if (array_is_created(&client->rcpt_to)) {
+		array_foreach_modifiable(&client->rcpt_to, rcptp)
+			submission_recipient_destroy(rcptp);
+		array_clear(&client->rcpt_to);
+	}
 
 	if (client->conn != NULL) {
 		const struct smtp_server_stats *stats =

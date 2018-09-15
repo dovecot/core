@@ -36,6 +36,7 @@ submission_DEPENDENCIES = \
 submission_SOURCES = \
 	main.c \
 	submission-backend-relay.c \
+	submission-recipient.c \
 	submission-client.c \
 	submission-commands.c \
 	submission-settings.c
@@ -45,5 +46,6 @@ noinst_HEADERS = \
 	submission-backend.h \
 	submission-backend-relay.h \
 	submission-commands.h \
+	submission-recipient.h \
 	submission-client.h \
 	submission-settings.h
