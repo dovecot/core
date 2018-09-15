@@ -6,6 +6,7 @@
 
 struct smtp_reply;
 
+struct submission_recipient;
 struct client;
 
 struct client_state {
@@ -23,6 +24,7 @@ struct client {
 	struct smtp_server_connection *conn;
 	enum smtp_server_state last_state;
 	struct client_state state;
+	ARRAY(struct submission_recipient *) rcpt_to;
 
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
