@@ -11,6 +11,14 @@
 
 #include "submission-backend-relay.h"
 
+struct submission_backend_relay {
+	struct submission_backend backend;
+
+	struct smtp_client_connection *conn;
+
+	bool xclient_sent:1;
+};
+
 static struct submission_backend_vfuncs backend_relay_vfuncs;
 
 /*
