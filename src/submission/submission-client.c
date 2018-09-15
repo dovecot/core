@@ -342,18 +342,18 @@ void client_disconnect(struct client *client, const char *enh_code,
 
 uoff_t client_get_max_mail_size(struct client *client)
 {
-	uoff_t max_size;
+	uoff_t max_size, limit;
 
 	/* Account for the backend server's SIZE limit and calculate our own
 	   relative to it. */
-	max_size = client_proxy_get_max_mail_size(client);
-	if (max_size == 0 || max_size <= SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE) {
-		max_size = client->set->submission_max_mail_size;
-	} else {
-		max_size = max_size - SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE;
-		if (client->set->submission_max_mail_size > 0 &&
-			max_size > client->set->submission_max_mail_size)
-			max_size = client->set->submission_max_mail_size;
+	max_size = client->set->submission_max_mail_size;
+	if (max_size == 0)
+		max_size = UOFF_T_MAX;
+	limit = client_proxy_get_max_mail_size(client);
+	if (limit > SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE) {
+		limit -= SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE;
+		if (limit < max_size)
+			max_size = limit;
 	}
 
 	return max_size;
