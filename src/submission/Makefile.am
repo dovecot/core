@@ -35,6 +35,7 @@ submission_DEPENDENCIES = \
 
 submission_SOURCES = \
 	main.c \
+	submission-backend.c \
 	submission-backend-relay.c \
 	submission-recipient.c \
 	submission-client.c \
