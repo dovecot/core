@@ -846,16 +846,20 @@ static void backend_relay_start(struct submission_backend *_backend)
 }
 
 /* try to proxy pipelined commands in a similarly pipelined fashion */
-void client_proxy_input_pre(struct client *client)
+static void
+backend_relay_client_input_pre(struct submission_backend *_backend)
 {
-	struct submission_backend_relay *backend = &client->backend;
+	struct submission_backend_relay *backend =
+		(struct submission_backend_relay *)_backend;
 
 	if (backend->conn != NULL)
 		smtp_client_connection_cork(backend->conn);
 }
-void client_proxy_input_post(struct client *client)
+static void
+backend_relay_client_input_post(struct submission_backend *_backend)
 {
-	struct submission_backend_relay *backend = &client->backend;
+	struct submission_backend_relay *backend =
+		(struct submission_backend_relay *)_backend;
 
 	if (backend->conn != NULL)
 		smtp_client_connection_uncork(backend->conn);
@@ -872,6 +876,9 @@ static struct submission_backend_vfuncs backend_relay_vfuncs = {
 	.destroy = backend_relay_destroy,
 
 	.start = backend_relay_start,
+
+	.client_input_pre = backend_relay_client_input_pre,
+	.client_input_post = backend_relay_client_input_post,
 
 	.cmd_helo = backend_relay_cmd_helo,
 
