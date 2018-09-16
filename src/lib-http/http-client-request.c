@@ -1671,7 +1671,8 @@ void http_client_request_resubmit(struct http_client_request *req)
 void http_client_request_retry(struct http_client_request *req,
 	unsigned int status, const char *error)
 {
-	if (!http_client_request_try_retry(req))
+	if (req->client == NULL || req->client->set.no_auto_retry ||
+	    !http_client_request_try_retry(req))
 		http_client_request_error(&req, status, error);
 }
 
