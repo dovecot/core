@@ -1773,8 +1773,6 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 		conn->incoming_payload = NULL;
 	}
 
-	http_client_connection_abort_any_requests(conn);
-
 	if (conn->http_parser != NULL)
 		http_response_parser_deinit(&conn->http_parser);
 
@@ -1823,6 +1821,7 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 	e_debug(conn->event, "Connection destroy");
 
 	http_client_connection_disconnect(conn);
+	http_client_connection_abort_any_requests(conn);
 
 	i_assert(conn->io_req_payload == NULL);
 	i_assert(conn->to_requests == NULL);
@@ -1854,7 +1853,7 @@ void http_client_connection_close(struct http_client_connection **_conn)
 	e_debug(conn->event, "Connection close");
 
 	http_client_connection_disconnect(conn);
-
+	http_client_connection_abort_any_requests(conn);
 	http_client_connection_unref(_conn);
 }
 
