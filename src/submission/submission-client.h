@@ -21,6 +21,11 @@ struct submission_client_vfuncs {
 	void (*destroy)(struct client *client, const char *prefix,
 			const char *reason);
 
+	void (*trans_start)(struct client *client,
+			    struct smtp_server_transaction *trans);
+	void (*trans_free)(struct client *client,
+			   struct smtp_server_transaction *trans);
+
 	int (*cmd_helo)(struct client *client, struct smtp_server_cmd_ctx *cmd,
 			struct smtp_server_cmd_helo *data);
 
