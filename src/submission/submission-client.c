@@ -186,16 +186,19 @@ struct client *client_create(int fd_in, int fd_out,
 	struct smtp_server_settings smtp_set;
 	const char *ident;
 	struct client *client;
+	pool_t pool;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
 	net_set_nonblock(fd_out, TRUE);
 
-	client = i_new(struct client, 1);
+	pool = pool_alloconly_create("submission client", 2048);
+	client = p_new(pool, struct client, 1);
+	client->pool = pool;
 	client->user = user;
 	client->service_user = service_user;
 	client->set = set;
-	client->session_id = i_strdup(session_id);
+	client->session_id = p_strdup(pool, session_id);
 
 	i_array_init(&client->rcpt_to, 8);
 	i_array_init(&client->rcpt_backends, 8);
@@ -302,8 +305,7 @@ void client_destroy(struct client *client, const char *prefix,
 
 	client_state_reset(client);
 
-	i_free(client->session_id);
-	i_free(client);
+	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
 	submission_refresh_proctitle();
