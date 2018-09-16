@@ -470,6 +470,27 @@ void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
 	array_append(&params->extra_params, &param, 1);
 }
 
+bool smtp_params_mail_drop_extra(struct smtp_params_mail *params,
+				 const char *keyword, const char **value_r)
+{
+	const struct smtp_param *param;
+
+	if (!array_is_created(&params->extra_params))
+		return FALSE;
+
+	array_foreach(&params->extra_params, param) {
+		if (strcasecmp(param->keyword, keyword) == 0) {
+			if (value_r != NULL)
+				*value_r = param->value;
+			array_delete(&params->extra_params,
+				     array_foreach_idx(&params->extra_params,
+						       param), 1);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 /* write */
 
 static void
@@ -950,6 +971,27 @@ void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
 	param.keyword = p_strdup(pool, keyword);
 	param.value = p_strdup(pool, value);
 	array_append(&params->extra_params, &param, 1);
+}
+
+bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,
+				 const char *keyword, const char **value_r)
+{
+	const struct smtp_param *param;
+
+	if (!array_is_created(&params->extra_params))
+		return FALSE;
+
+	array_foreach(&params->extra_params, param) {
+		if (strcasecmp(param->keyword, keyword) == 0) {
+			if (value_r != NULL)
+				*value_r = param->value;
+			array_delete(&params->extra_params,
+				     array_foreach_idx(&params->extra_params,
+						       param), 1);
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 /* write */
