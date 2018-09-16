@@ -17,7 +17,9 @@ struct client_state {
 
 struct client {
 	struct client *prev, *next;
-	char *session_id;
+	pool_t pool;
+
+	const char *session_id;
 
 	const struct setting_parser_info *user_set_info;
 	const struct submission_settings *set;
