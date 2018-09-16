@@ -180,34 +180,35 @@ static void list_reply_append_ns_sep_param(string_t *str, char sep)
 }
 
 static void
-list_send_status(struct cmd_list_context *ctx, const char *name,
-		 const char *mutf7_name, enum mailbox_info_flags flags)
+list_send_status(struct cmd_list_context *ctx,
+		 const struct imap_list_return_flag_params *params)
 {
+	enum mailbox_info_flags mbox_flags = params->mbox_flags;
 	struct imap_status_result result;
 	struct mail_namespace *ns;
 
-	if ((flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
+	if ((mbox_flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
 		/* doesn't exist, don't even try to get STATUS */
 		return;
 	}
-	if ((flags & MAILBOX_SUBSCRIBED) == 0 &&
+	if ((mbox_flags & MAILBOX_SUBSCRIBED) == 0 &&
 	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* listing subscriptions, but only child is subscribed */
-		i_assert((flags & MAILBOX_CHILD_SUBSCRIBED) != 0);
+		i_assert((mbox_flags & MAILBOX_CHILD_SUBSCRIBED) != 0);
 		return;
 	}
 
 	/* if we're listing subscriptions and there are subscriptions=no
 	   namespaces, ctx->ns may not point to correct one */
-	ns = mail_namespace_find(ctx->user->namespaces, name);
-	if (imap_status_get(ctx->cmd, ns, name,
+	ns = mail_namespace_find(ctx->user->namespaces, params->name);
+	if (imap_status_get(ctx->cmd, ns, params->name,
 			    &ctx->status_items, &result) < 0) {
 		client_send_line(ctx->cmd->client,
 				 t_strconcat("* ", result.errstr, NULL));
 		return;
 	}
 
-	imap_status_send(ctx->cmd->client, mutf7_name,
+	imap_status_send(ctx->cmd->client, params->mutf7_name,
 			 &ctx->status_items, &result);
 }
 
@@ -253,10 +254,21 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 		imap_append_astring(str, str_c(mutf7_name));
 		mailbox_childinfo2str(ctx, str, flags);
 
+		/* send LIST/LSUB response */
 		ret = client_send_line_next(ctx->cmd->client, str_c(str));
-		if (ctx->used_status) T_BEGIN {
-			list_send_status(ctx, name, str_c(mutf7_name), flags);
-		} T_END;
+
+		/* send STATUS response */
+		if (ctx->used_status) {
+			struct imap_list_return_flag_params params = {
+				.name = name,
+				.mutf7_name = str_c(mutf7_name),
+				.mbox_flags = flags,
+			};
+
+			T_BEGIN {
+				list_send_status(ctx, &params);
+			} T_END;
+		}
 		if (ret == 0) {
 			/* buffer is full, continue later */
 			return FALSE;
