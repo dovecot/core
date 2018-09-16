@@ -330,6 +330,13 @@ client_connection_trans_start(void *context,
 	client->state.pool =
 		pool_alloconly_create("submission client state", 1024);
 
+	client->v.trans_start(client, trans);
+}
+
+static void
+client_default_trans_start(struct client *client,
+			   struct smtp_server_transaction *trans)
+{
 	submission_backends_trans_start(client, trans);
 }
 
@@ -338,6 +345,14 @@ client_connection_trans_free(void *context,
 			     struct smtp_server_transaction *trans)
 {
 	struct client *client = context;
+
+	client->v.trans_free(client, trans);
+}
+
+static void
+client_default_trans_free(struct client *client,
+			  struct smtp_server_transaction *trans)
+{
 	struct submission_recipient **rcptp;
 
 	array_foreach_modifiable(&client->rcpt_to, rcptp)
@@ -520,6 +535,9 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 
 static const struct submission_client_vfuncs submission_client_vfuncs = {
 	client_default_destroy,
+
+	.trans_start = client_default_trans_start,
+	.trans_free = client_default_trans_free,
 
 	.cmd_helo = client_default_cmd_helo,
 
