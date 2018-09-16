@@ -127,18 +127,12 @@ static void
 http_client_connection_retry_requests(struct http_client_connection *conn,
 	unsigned int status, const char *error)
 {
-	const struct http_client_settings *set =
-		http_client_connection_get_settings(conn);
 	struct http_client_request *req, **req_idx;
 
 	if (!array_is_created(&conn->request_wait_list))
 		return;
 
-	if (set->no_auto_retry) {
-		e_debug(conn->event, "Aborting pending requests with error");
-	} else {
-		e_debug(conn->event, "Retrying pending requests");
-	}
+	e_debug(conn->event, "Retrying pending requests");
 
 	array_foreach_modifiable(&conn->request_wait_list, req_idx) {
 		req = *req_idx;
@@ -146,12 +140,8 @@ http_client_connection_retry_requests(struct http_client_connection *conn,
 		if (!http_client_connection_unref_request(conn, req_idx))
 			continue;
 		/* retry the request, which may drop it */
-		if (req->state < HTTP_REQUEST_STATE_FINISHED) {
-			if (set->no_auto_retry)
-				http_client_request_error(&req, status, error);
-			else
-				http_client_request_retry(req, status, error);
-		}
+		if (req->state < HTTP_REQUEST_STATE_FINISHED)
+			http_client_request_retry(req, status, error);
 	}	
 	array_clear(&conn->request_wait_list);
 }
