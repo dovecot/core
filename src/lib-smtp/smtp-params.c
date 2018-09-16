@@ -100,10 +100,12 @@ static bool smtp_param_value_valid(const char *value)
 
 void smtp_param_write(string_t *out, const struct smtp_param *param)
 {
-	i_assert(smtp_param_value_valid(param->value));
 	str_append(out, t_str_ucase(param->keyword));
-	str_append_c(out, '=');
-	str_append(out, param->value);
+	if (param->value != NULL) {
+		i_assert(smtp_param_value_valid(param->value));
+		str_append_c(out, '=');
+		str_append(out, param->value);
+	}
 }
 
 /*
