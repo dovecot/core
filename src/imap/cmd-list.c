@@ -11,12 +11,19 @@
 #include "imap-commands.h"
 #include "imap-list.h"
 
+struct cmd_list_return_flag {
+	const struct imap_list_return_flag *flag;
+
+	void *context;
+};
+
 struct cmd_list_context {
 	struct client_command_context *cmd;
 	struct mail_user *user;
 
 	enum mailbox_list_iter_flags list_flags;
 	struct imap_status_items status_items;
+	ARRAY(struct cmd_list_return_flag) return_flags;
 
 	struct mailbox_list_iterate_context *list_iter;
 
@@ -121,6 +128,9 @@ parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 	enum mailbox_list_iter_flags list_flags = 0;
 	const struct imap_arg *list_args;
 	const char *str;
+	const struct imap_list_return_flag *flag;
+	void *flag_context;
+	int ret;
 
 	while (!IMAP_ARG_IS_EOL(args)) {
 		if (!imap_arg_get_atom(args, &str)) {
@@ -142,6 +152,19 @@ parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 				return FALSE;
 			ctx->used_status = TRUE;
 			args++;
+		} else if ((ret = imap_list_return_flag_parse(
+			ctx->cmd, str, &args, &flag, &flag_context)) > 0) {
+			struct cmd_list_return_flag *flag_data;
+
+			if (!array_is_created(&ctx->return_flags)) {
+				p_array_init(&ctx->return_flags,
+					     ctx->cmd->pool, 8);
+			}
+			flag_data = array_append_space(&ctx->return_flags);
+			flag_data->flag = flag;
+			flag_data->context = flag_context;
+		} else if (ret < 0) {
+			return FALSE;
 		} else {
 			/* skip also optional list value */
 			client_send_command_error(ctx->cmd,
@@ -208,6 +231,33 @@ list_send_status(struct cmd_list_context *ctx,
 			 &ctx->status_items, &result);
 }
 
+static bool
+list_has_options(struct cmd_list_context *ctx)
+{
+	if (ctx->used_status)
+		return TRUE;
+	return array_is_created(&ctx->return_flags);
+}
+
+static void
+list_send_options(struct cmd_list_context *ctx,
+		  const struct imap_list_return_flag_params *params)
+{
+	struct client_command_context *cmd = ctx->cmd;
+
+	if (ctx->used_status)
+		list_send_status(ctx, params);
+
+	if (array_is_created(&ctx->return_flags)) {
+		const struct cmd_list_return_flag *rflag;
+
+		array_foreach(&ctx->return_flags, rflag) {
+			imap_list_return_flag_send(cmd, rflag->flag,
+						   rflag->context, params);
+		}
+	}
+}
+
 static bool cmd_list_continue(struct client_command_context *cmd)
 {
         struct cmd_list_context *ctx = cmd->context;
@@ -255,8 +305,8 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 		if (ret < 0)
 			return TRUE;
 
-		/* send STATUS response */
-		if (ctx->used_status) {
+		/* send optional responses (if any) */
+		if (list_has_options(ctx)) {
 			struct imap_list_return_flag_params params = {
 				.name = name,
 				.mutf7_name = str_c(mutf7_name),
@@ -271,7 +321,7 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 							params.name);
 
 			T_BEGIN {
-				list_send_status(ctx, &params);
+				list_send_options(ctx, &params);
 			} T_END;
 		}
 		if (ret == 0) {

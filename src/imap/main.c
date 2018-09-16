@@ -25,6 +25,7 @@
 #include "imap-commands.h"
 #include "imap-feature.h"
 #include "imap-fetch.h"
+#include "imap-list.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -553,6 +554,7 @@ int main(int argc, char *argv[])
 	imap_features_init();
 	clients_init();
 	imap_master_clients_init();
+	imap_list_init();
 	/* this is needed before settings are read */
 	verbose_proctitle = !IS_STANDALONE() &&
 		getenv(MASTER_VERBOSE_PROCTITLE_ENV) != NULL;
@@ -599,6 +601,7 @@ int main(int argc, char *argv[])
 		login_server_deinit(&login_server);
 	mail_storage_service_deinit(&storage_service);
 
+	imap_list_deinit();
 	imap_fetch_handlers_deinit();
 	imap_features_deinit();
 
