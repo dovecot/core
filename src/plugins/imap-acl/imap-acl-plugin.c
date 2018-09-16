@@ -618,6 +618,32 @@ imap_acl_proxy_cmd(struct mailbox *box, const char *mailbox,
 	return TRUE;
 }
 
+static int
+imap_acl_send_myrights(struct client_command_context *cmd,
+		       struct mailbox *box, const char *mutf7_mailbox)
+{
+	const char *const *rights;
+	string_t *str;
+
+	if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
+				     pool_datastack_create(), &rights) < 0)
+		return -1;
+	/* Post right alone doesn't give permissions to see if the mailbox
+	   exists or not. Only mail deliveries care about that. */
+	if (*rights == NULL ||
+	    (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL))
+		return 0;
+
+	str = t_str_new(128);
+	str_append(str, "* MYRIGHTS ");
+	imap_append_astring(str, mutf7_mailbox);
+	str_append_c(str, ' ');
+	imap_acl_write_rights_list(str, rights);
+
+	client_send_line(cmd->client, str_c(str));
+	return 1;
+}
+
 static void imap_acl_cmd_getacl(struct mailbox *box, struct mail_namespace *ns,
 				const char *mailbox,
 				struct client_command_context *cmd)
@@ -698,31 +724,20 @@ static void
 imap_acl_cmd_myrights(struct mailbox *box, const char *mailbox,
 		      struct client_command_context *cmd)
 {
-	const char *const *rights;
-	string_t *str = t_str_new(128);
+	int ret;
 
-	if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
-				     pool_datastack_create(), &rights) < 0) {
+	ret = imap_acl_send_myrights(cmd, box, mailbox);
+	if (ret < 0) {
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
 		return;
 	}
-
-	/* Post right alone doesn't give permissions to see if the mailbox
-	   exists or not. Only mail deliveries care about that. */
-	if (*rights == NULL ||
-	    (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL)) {
+	if (ret == 0) {
 		client_send_tagline(cmd, t_strdup_printf(
 				    "NO ["IMAP_RESP_CODE_NONEXISTENT"] "
 				    MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
 		return;
 	}
 
-	str_append(str, "* MYRIGHTS ");
-	imap_append_astring(str, mailbox);
-	str_append_c(str, ' ');
-	imap_acl_write_rights_list(str, rights);
-
-	client_send_line(cmd->client, str_c(str));
 	client_send_tagline(cmd, "OK Myrights completed.");
 }
 
