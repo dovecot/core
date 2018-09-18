@@ -465,10 +465,11 @@ const char *imap_proxy_get_state(struct client *client)
 	string_t *str = t_str_new(128);
 
 	for (unsigned int i = 0; i < IMAP_PROXY_SENT_STATE_COUNT; i++) {
-		if (str_len(str) > 0)
-			str_append_c(str, '+');
-		if ((imap_client->proxy_sent_state & (1 << i)) != 0)
+		if ((imap_client->proxy_sent_state & (1 << i)) != 0) {
+			if (str_len(str) > 0)
+				str_append_c(str, '+');
 			str_append(str, imap_proxy_sent_state_names[i]);
+		}
 	}
 	str_append_c(str, '/');
 	str_append(str, imap_proxy_rcvd_state_names[imap_client->proxy_rcvd_state]);
