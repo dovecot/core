@@ -6,6 +6,7 @@ struct imap_list_return_flag_params {
 	const char *mutf7_name;
 
 	enum mailbox_info_flags mbox_flags;
+	struct mail_namespace *ns;
 };
 
 /* Returns TRUE if anything was added to the string. */

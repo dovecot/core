@@ -185,7 +185,6 @@ list_send_status(struct cmd_list_context *ctx,
 {
 	enum mailbox_info_flags mbox_flags = params->mbox_flags;
 	struct imap_status_result result;
-	struct mail_namespace *ns;
 
 	if ((mbox_flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
 		/* doesn't exist, don't even try to get STATUS */
@@ -198,10 +197,7 @@ list_send_status(struct cmd_list_context *ctx,
 		return;
 	}
 
-	/* if we're listing subscriptions and there are subscriptions=no
-	   namespaces, ctx->ns may not point to correct one */
-	ns = mail_namespace_find(ctx->user->namespaces, params->name);
-	if (imap_status_get(ctx->cmd, ns, params->name,
+	if (imap_status_get(ctx->cmd, params->ns, params->name,
 			    &ctx->status_items, &result) < 0) {
 		client_send_line(ctx->cmd->client,
 				 t_strconcat("* ", result.errstr, NULL));
@@ -264,6 +260,12 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 				.mutf7_name = str_c(mutf7_name),
 				.mbox_flags = flags,
 			};
+
+			/* if we're listing subscriptions and there are
+			   subscriptions=no namespaces, ctx->ns may not point to
+			   correct one */
+			params.ns = mail_namespace_find(ctx->user->namespaces,
+							params.name);
 
 			T_BEGIN {
 				list_send_status(ctx, &params);
