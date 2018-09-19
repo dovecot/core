@@ -488,6 +488,7 @@ int main(int argc, char **argv)
 
 	master_service = master_service_init("test-mail-key",
 					     MASTER_SERVICE_FLAG_STANDALONE |
+					     MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 					     MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS |
 					     MASTER_SERVICE_FLAG_NO_SSL_INIT |
 					     MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
