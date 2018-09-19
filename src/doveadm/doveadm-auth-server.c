@@ -182,8 +182,10 @@ cmd_user_list(struct auth_master_connection *conn,
 		if (users[i] != NULL)
 			printf("%s\n", username);
 	}
-	if (auth_master_user_list_deinit(&ctx) < 0)
-		i_fatal("user listing failed");
+	if (auth_master_user_list_deinit(&ctx) < 0) {
+		i_error("user listing failed");
+		doveadm_exit_code = EX_DATAERR;
+	}
 }
 
 static void cmd_auth_cache_flush(int argc, char *argv[])
