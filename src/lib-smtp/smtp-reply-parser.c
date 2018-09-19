@@ -582,6 +582,9 @@ int smtp_reply_parse_next(struct smtp_reply_parser *parser,
 		return ret;
 	}
 
+	i_assert(array_count(&parser->state.reply_lines) > 0);
+	array_append_zero(&parser->state.reply_lines);
+
 	parser->state.state = SMTP_REPLY_PARSE_STATE_INIT;
 	parser->state.reply->text_lines =
 		array_idx(&parser->state.reply_lines, 0);
@@ -622,6 +625,9 @@ int smtp_reply_parse_ehlo(struct smtp_reply_parser *parser,
 		*error_r = parser->error;
 		return ret;
 	}
+
+	i_assert(array_count(&parser->state.reply_lines) > 0);
+	array_append_zero(&parser->state.reply_lines);
 
 	parser->state.state = SMTP_REPLY_PARSE_STATE_INIT;
 	parser->state.reply->text_lines =
