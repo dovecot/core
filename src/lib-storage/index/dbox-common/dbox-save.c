@@ -121,6 +121,10 @@ void dbox_save_end(struct dbox_save_context *ctx)
 	index_mail_cache_parse_deinit(ctx->ctx.dest_mail,
 				      ctx->ctx.data.received_date,
 				      !ctx->failed);
+	if (!ctx->failed)
+		index_mail_cache_pop3_data(ctx->ctx.dest_mail,
+					   mdata->pop3_uidl,
+					   mdata->pop3_order);
 }
 
 void dbox_save_write_metadata(struct mail_save_context *_ctx,
