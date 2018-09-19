@@ -168,10 +168,14 @@ cmd_user_list(struct auth_master_connection *conn,
 {
 	struct auth_master_user_list_ctx *ctx;
 	const char *username, *user_mask = "*";
+	string_t *escaped = t_str_new(256);
+	bool first = TRUE;
 	unsigned int i;
 
 	if (users[0] != NULL && users[1] == NULL)
 		user_mask = users[0];
+
+	o_stream_nsend_str(doveadm_print_ostream, "{\"userList\":[");
 
 	ctx = auth_master_user_list_init(conn, user_mask, &input->info);
 	while ((username = auth_master_user_list_next(ctx)) != NULL) {
@@ -179,13 +183,24 @@ cmd_user_list(struct auth_master_connection *conn,
 			if (wildcard_match_icase(username, users[i]))
 				break;
 		}
-		if (users[i] != NULL)
-			printf("%s\n", username);
+		if (users[i] != NULL) {
+			if (first)
+				first = FALSE;
+			else
+				o_stream_nsend_str(doveadm_print_ostream, ",");
+			str_truncate(escaped, 0);
+			str_append_c(escaped, '"');
+			json_append_escaped(escaped, username);
+			str_append_c(escaped, '"');
+			o_stream_nsend(doveadm_print_ostream, escaped->data, escaped->used);
+		}
 	}
 	if (auth_master_user_list_deinit(&ctx) < 0) {
 		i_error("user listing failed");
 		doveadm_exit_code = EX_DATAERR;
 	}
+
+	o_stream_nsend_str(doveadm_print_ostream, "]}");
 }
 
 static void cmd_auth_cache_flush(int argc, char *argv[])
