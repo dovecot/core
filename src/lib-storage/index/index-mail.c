@@ -623,6 +623,20 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 	}
 }
 
+void index_mail_cache_pop3_data(struct mail *_mail,
+				const char *uidl, uint32_t order)
+{
+	struct index_mail *mail = INDEX_MAIL(_mail);
+
+	if (uidl != NULL)
+		index_mail_cache_add(mail, MAIL_CACHE_POP3_UIDL,
+				     uidl, strlen(uidl));
+
+	if (order != 0)
+		index_mail_cache_add(mail, MAIL_CACHE_POP3_ORDER,
+				     &order, sizeof(order));
+}
+
 static void parse_bodystructure_part_header(struct message_part *part,
 					    struct message_header_line *hdr,
 					    pool_t pool)
