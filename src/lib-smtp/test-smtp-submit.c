@@ -2143,6 +2143,9 @@ static void test_atexit(void)
 
 int main(int argc, char *argv[])
 {
+	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_STANDALONE |
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 	int c;
 	int ret;
 
@@ -2154,8 +2157,8 @@ int main(int argc, char *argv[])
 	(void)signal(SIGSEGV, test_signal_handler);
 	(void)signal(SIGABRT, test_signal_handler);
 
-	master_service = master_service_init("test-smtp-submit",
-		MASTER_SERVICE_FLAG_STANDALONE,	&argc, &argv, "D");
+	master_service = master_service_init("test-smtp-submit", service_flags,
+					     &argc, &argv, "D");
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
