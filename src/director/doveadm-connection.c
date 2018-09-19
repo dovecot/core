@@ -951,6 +951,7 @@ doveadm_connection_ring_sync_timeout(struct doveadm_connection *conn)
 	doveadm_connection_ring_sync_list_move(conn);
 	o_stream_nsend_str(conn->output, "Ring sync timed out\n");
 
+	i_assert(conn->io == NULL);
 	doveadm_connection_set_io(conn);
 	io_set_pending(conn->io);
 
@@ -1168,6 +1169,10 @@ static void doveadm_connections_continue_reset_cmds(void)
 
 void doveadm_connections_ring_synced(struct director *dir)
 {
+	/* Note that it's not possible for a single connection to be multiple
+	   times in doveadm_ring_sync_pending_connections. This is prevented
+	   by removing input IO from the connection whenever it's added to the
+	   list. */
 	while (doveadm_ring_sync_pending_connections != NULL &&
 	       dir->ring_synced) {
 		struct doveadm_connection *conn =
