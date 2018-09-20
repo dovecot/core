@@ -1,3 +1,146 @@
+v2.3.3 2018-09-xx  Timo Sirainen <tss@iki.fi>
+
+	* doveconf hides more secrets now in the default output.
+	* ssl_dh setting is no longer enforced at startup. If it's not set and
+	  non-ECC DH key exchange happens, error is logged and client is
+	  disconnected.
+
+	+ Added log_debug=<filter> setting.
+	+ Added log_core_filter=<log filter> setting.
+	+ quota-clone: Write to dict asynchronously
+	+ --enable-hardening attempts to use retpoline Spectre 2 mitigations
+	+ lmtp proxy: Support source_ip passdb extra field.
+	+ doveadm stats dump: Support more fields and output stddev by default.
+	+ push-notification: Add SSL support for OX backend.
+	- NUL bytes in mail headers can cause truncated replies when fetched.
+	- director: Conflicting host up/down state changes may in some rare
+	  situations ended up in a loop of two directors constantly overwriting
+	  each others' changes.
+	- virtual plugin: Some searches used 100% CPU for many seconds
+	- dsync assert-crashed with acl plugin in some situations.
+	- mail_attachment_detection_options=add-flags-on-save assert-crashed
+	  with some specific Sieve scripts.
+	- Mail snippet generation crashed with mails containing invalid
+	  Content-Type:multipart header.
+	- Log prefix ordering was different for some log lines.
+	- quota: With noenforcing option current quota usage wasn't updated.
+	- auth: Kerberos authentication against Samba assert-crashed.
+	- stats clients were unnecessarily chatty with the stats server.
+	- imapc: Fixed various assert-crashes when reconnecting to server.
+	- lmtp, submission: Fix potential crash if client disconnects while
+	  handling a command.
+	- quota: Fixed compiling with glibc-2.26 / support libtirpc.
+	- fts-solr: Empty search values resulted in 400 Bad Request errors
+	- fts-solr: default_ns parameter couldn't be used
+	- submission server crashed if relay server returned over 7 lines in
+	  a reply (e.g. to EHLO)
+
+v2.3.2.1 2018-07-09  Timo Sirainen <tss@iki.fi>
+
+	- SSL/TLS servers may have crashed during client disconnection
+	- lmtp: With lmtp_rcpt_check_quota=yes mail deliveries may have
+	  sometimes assert-crashed.
+	- v2.3.2: "make check" may have crashed with 32bit systems
+
+v2.3.2 2018-06-29  Timo Sirainen <tss@iki.fi>
+
+	* old-stats plugin: Don't temporarily enable PR_SET_DUMPABLE while
+	  opening /proc/self/io. This may still cause security problems if the
+	  process is ptrace()d at the same time. Instead, open it while still
+	  running as root.
+	+ doveadm: Added mailbox cache decision&remove commands. See
+	  doveadm-mailbox(1) man page for details.
+	+ doveadm: Added rebuild attachments command for rebuilding
+	  $HasAttachment or $HasNoAttachment flags for matching mails. See
+	  doveadm-rebuild(1) man page for details.
+	+ cassandra: Use fallback_consistency on more types of errors
+	+ lmtp proxy: Support outgoing SSL/TLS connections
+	+ lmtp: Add lmtp_rawlog_dir and lmtp_proxy_rawlog_dir settings.
+	+ submission: Add support for rawlog_dir
+	+ submission: Add submission_client_workarounds setting.
+	+ lua auth: Add password_verify() function and additional fields in
+	  auth request.
+	- doveadm-server: TCP connections are hanging when there is a lot of
+	  network output. This especially caused hangs in dsync-replication.
+	- Using multiple type=shared mdbox namespaces crashed
+	- mail_fsync setting was ignored. It was always set to "optimized".
+	- lua auth: Fix potential crash at deinit
+	- SSL/TLS servers may have crashed if client disconnected during
+	  handshake.
+	- SSL/TLS servers: Don't send extraneous certificates to client when
+	  alt certs are used.
+	- lda, lmtp: Return-Path header without '<' may have assert-crashed.
+	- lda, lmtp: Unencoded UTF-8 in email address headers may assert-crash
+	- lda: -f parameter didn't allow empty/null/domainless address
+	- lmtp, submission: Message size limit was hardcoded to 40 MB.
+	  Exceeding it caused the connection to get dropped during transfer.
+	- lmtp: Fix potential crash when delivery fails at DATA stage
+	- lmtp: login_greeting setting was ignored
+	- Fix to work with OpenSSL v1.0.2f
+	- systemd unit restrictions were too strict by default
+	- Fix potential crashes when a lot of log output was produced
+	- SMTP client may have assert-crashed when sending mail
+	- IMAP COMPRESS: Send "end of compression" marker when disconnecting.
+	- cassandra: Fix consistency=quorum to work
+	- dsync: Lock file generation failed if home directory didn't exist
+	- Snippet generation for HTML mails didn't ignore &entities inside
+	  blockquotes, producing strange looking snippets.
+	- imapc: Fix assert-crash if getting disconnected and after
+	  reconnection all mails in the selected mailbox are gone.
+	- pop3c: Handle unexpected server disconnections without assert-crash
+	- fts: Fixes to indexing mails via virtual mailboxes.
+	- fts: If mails contained NUL characters, the text around it wasn't
+	  indexed.
+	- Obsolete dovecot.index.cache offsets were sometimes used. Trying to
+	  fetch a field that was just added to cache file may not have always
+	  found it.
+
+v2.3.1 2018-02-29  Aki Tuomi <aki.tuomi@dovecot.fi>
+
+	* Submission server support improvements and bug fixes
+	  - Lots of bug fixes to submission server
+	* API CHANGE: array_idx_modifiable will no longer allocate space
+	  - Particularly affects how you should check MODULE_CONTEXT result, or
+	    use REQUIRE_MODULE_CONTEXT.
+
+	+ mail_attachment_detection_options setting controls when
+	  $HasAttachment and $HasNoAttachment keywords are set for mails.
+	+ imap: Support fetching body snippets using FETCH (SNIPPET) or
+	  (SNIPPET (LAZY=FUZZY))
+	+ fs-compress: Automatically detect whether input is compressed or not.
+	  Prefix the compression algorithm with "maybe-" to enable the
+	  detection, for example: "compress:maybe-gz:6:..."
+	+ Added settings to change dovecot.index* files' optimization behavior.
+	  See https://wiki2.dovecot.org/IndexFiles#Settings
+	+ Auth cache can now utilize auth workers to do password hash
+	  verification by setting auth_cache_verify_password_with_worker=yes.
+	+ Added charset_alias plugin. See
+	  https://wiki2.dovecot.org/Plugins/CharsetAlias
+	+ imap_logout_format and pop3_logout_format settings now support all of
+	  the generic variables (e.g. %{rip}, %{session}, etc.)
+	+ Added auth_policy_check_before_auth, auth_policy_check_after_auth
+	  and auth_policy_report_after_auth settings.
+	+ master: Support HAProxy PP2_TYPE_SSL command and set "secured"
+	  variable appropriately
+	- Invalid UCS4 escape in HTML can cause crashes
+	- imap: IMAP COMPRESS -enabled clietn crashes on disconnect
+	- lmtp: Fix crash when user is over quota
+	- lib-lda: Parsing Return-Path header address fails when it contains
+	  CFWS
+	- auth: SASL with Exim fails for AUTH commands without an initial
+	  response
+	- imap: SPECIAL-USE capability isn't automatically added
+	- auth: LDAP subqueries do not support standard auth variables in
+	  var-expand
+	- auth: SHA256-CRYPT and SHA512-CRYPT schemes do not work
+	- lib-index: mail_always/never_cache_fields are not used for existing
+	  cache files
+	- imap: Fetching headers leaks memory if search doesn't find any mails
+	- lmtp: ORCPT support in RCPT TO
+	- imap-login: Process sometimes ends up in infinite loop
+	- sdbox: Rolled back save/copy transaction doesn't delete temp files
+	- mail: lock_method=dotlock causes crashes
+
 v2.3.0.1 2018-02-28  Timo Sirainen <tss@iki.fi>
 
 	* CVE-2017-15130: TLS SNI config lookups may lead to excessive
