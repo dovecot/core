@@ -13,6 +13,7 @@ enum smtp_client_transaction_state {
 	SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM,
 	SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO,
 	SMTP_CLIENT_TRANSACTION_STATE_DATA,
+	SMTP_CLIENT_TRANSACTION_STATE_RESET,
 	SMTP_CLIENT_TRANSACTION_STATE_FINISHED,
 	SMTP_CLIENT_TRANSACTION_STATE_ABORTED
 };
@@ -107,6 +108,19 @@ void smtp_client_transaction_send(
 		CALLBACK_TYPECHECK(data_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(data_context))), \
 		(smtp_client_command_callback_t *)data_callback, data_context)
+
+/* Gracefully reset the transaction by sending the RSET command and waiting for
+   the response. This does not try to abort pending MAIL and RCPT commands,
+   allowing the transaction to be evaluated without proceeding with the DATA
+   command. */
+void smtp_client_transaction_reset(
+	struct smtp_client_transaction *trans,
+	smtp_client_command_callback_t *reset_callback, void *reset_context);
+#define smtp_client_transaction_reset(trans, reset_callback, reset_context) \
+	smtp_client_transaction_reset(trans, \
+		(smtp_client_command_callback_t *)reset_callback, \
+		reset_context + CALLBACK_TYPECHECK(reset_callback, void (*)( \
+			const struct smtp_reply *reply, typeof(reset_context))))
 
 /* Return transaction statistics. */
 const struct smtp_client_transaction_times *
