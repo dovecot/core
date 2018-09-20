@@ -49,9 +49,10 @@ static const char *test_inputs[] = {
 	"123456789012345678901234567890x'',"
 
 	/* \xe28099 = U+2019 is a smart quote, sometimes used as an apostrophe */
-	"\xE2\x80\x99 \xE2\x80\x99 \xE2\x80\x99\xE2\x80\x99 \xE2\x80\x99\xE2\x80\x99\xE2\x80\x99 \xE2\x80\x99quoted text\xE2\x80\x99\xE2\x80\x99word\xE2\x80\x99 \xE2\x80\x99hlo words\xE2\x80\x99 you\xE2\x80\x99re78901234567890123456789012 bad\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99word\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99pre post\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99",
+#define SQ "\xE2\x80\x99"
+	SQ " " SQ " " SQ SQ " " SQ SQ SQ " " SQ "quoted text" SQ SQ "word" SQ " " SQ "hlo words" SQ " you" SQ "re78901234567890123456789012 bad" SQ SQ SQ "word" SQ SQ SQ "pre post" SQ SQ SQ,
 
-	"you\xE2\x80\x99re\xE2\x80\x99xyz",
+	"you" SQ "re" SQ "xyz",
 
 	/* whitespace: with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
 	   U+205A(e2 81 9a) and U+205F(e2 81 9f) */
@@ -62,7 +63,7 @@ static const char *test_inputs[] = {
 	"hello world\xEF\xBC\x8E",
 
 	/* TR29 WB5a */
-	"l\xE2\x80\x99homme l\xE2\x80\x99humanit\xC3\xA9 d\xE2\x80\x99immixtions qu\xE2\x80\x99il aujourd'hui que'euq"
+	"l" SQ "homme l" SQ "humanit\xC3\xA9 d" SQ "immixtions qu" SQ "il aujourd'hui que'euq"
 };
 
 static void test_fts_tokenizer_find(void)
