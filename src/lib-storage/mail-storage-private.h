@@ -668,7 +668,7 @@ struct mail_save_data {
 
 	uint32_t uid, stub_seq;
 	char *guid, *pop3_uidl, *from_envelope;
-	unsigned int pop3_order;
+	uint32_t pop3_order;
 
 	struct ostream *output;
 	struct mail_save_attachment *attach;

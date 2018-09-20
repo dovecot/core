@@ -24,7 +24,7 @@ struct dsync_mail {
 	bool minimal_fields;
 
 	const char *pop3_uidl;
-	unsigned int pop3_order;
+	uint32_t pop3_order;
 	time_t received_date;
 	/* Input stream containing the message text, or NULL if all instances
 	   of the message were already expunged from this mailbox. */
