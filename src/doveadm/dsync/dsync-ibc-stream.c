@@ -1948,7 +1948,7 @@ dsync_ibc_stream_recv_mail(struct dsync_ibc *_ibc, struct dsync_mail **mail_r)
 	if (dsync_deserializer_decode_try(decoder, "pop3_uidl", &value))
 		mail->pop3_uidl = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "pop3_order", &value) &&
-	    str_to_uint(value, &mail->pop3_order) < 0) {
+	    str_to_uint32(value, &mail->pop3_order) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid pop3_order");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
