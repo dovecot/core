@@ -78,7 +78,7 @@ struct smtp_client_transaction {
 	struct smtp_params_mail mail_params;
 
 	enum smtp_client_transaction_state state;
-	struct smtp_client_command *cmd_mail_from, *cmd_data;
+	struct smtp_client_command *cmd_mail_from, *cmd_data, *cmd_rset;
 	struct smtp_client_command *cmd_plug, *cmd_last;
 	struct smtp_reply *failure;
 
@@ -93,6 +93,9 @@ struct smtp_client_transaction {
 	smtp_client_command_callback_t *data_callback;
 	void *data_context;
 
+	smtp_client_command_callback_t *reset_callback;
+	void *reset_context;
+
 	smtp_client_transaction_callback_t *callback;
 	void *context;
 
@@ -102,6 +105,7 @@ struct smtp_client_transaction {
 	struct timeout *to_finish, *to_send;
 
 	bool data_provided:1;
+	bool reset:1;
 	bool finished:1;
 	bool failing:1;
 	bool submitted_data:1;
