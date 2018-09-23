@@ -11,7 +11,7 @@ struct submision_backend_relay_settings {
 	const char *my_hostname;
 
 	enum smtp_protocol protocol;
-	const char *host;
+	const char *path, *host;
 	in_port_t port;
 
 	const char *user, *master_user;

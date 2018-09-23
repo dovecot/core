@@ -893,9 +893,14 @@ submission_backend_relay_create(
 	smtp_set.connect_timeout_msecs = set->connect_timeout_msecs;
 	smtp_set.command_timeout_msecs = set->command_timeout_msecs;
 
-	backend->conn = smtp_client_connection_create(
-		smtp_client, set->protocol, set->host, set->port,
-		set->ssl_mode, &smtp_set);
+	if (set->path == NULL) {
+		backend->conn = smtp_client_connection_create(
+			smtp_client, set->protocol, set->host, set->port,
+			set->ssl_mode, &smtp_set);
+	} else {
+		backend->conn = smtp_client_connection_create_unix(
+			smtp_client, set->protocol, set->path, &smtp_set);
+	}
 
 	return &backend->backend;
 }
