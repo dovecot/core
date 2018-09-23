@@ -64,8 +64,13 @@ const char *
 smpt_client_connection_label(struct smtp_client_connection *conn)
 {
 	if (conn->label == NULL) {
-		conn->label = i_strdup_printf("%s:%u [%u]",
-			conn->host, conn->port, conn->id);
+		if (conn->path == NULL) {
+			conn->label = i_strdup_printf("%s:%u [%u]",
+				conn->host, conn->port, conn->id);
+		} else {
+			conn->label = i_strdup_printf("unix:%s [%u]",
+				conn->path, conn->id);
+		}
 	}
 	return conn->label;
 }
@@ -1531,6 +1536,20 @@ smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn)
 }
 
 static void
+smtp_client_connection_connect_unix(struct smtp_client_connection *conn)
+{
+	timeout_remove(&conn->to_connect);
+
+	smtp_client_connection_debug(conn,
+		"Connecting to socket %s", conn->path);
+
+	connection_init_client_unix(conn->client->conn_list, &conn->conn,
+				    conn->path);
+
+	smtp_client_connection_do_connect(conn);
+}
+
+static void
 smtp_client_connection_delayed_host_lookup_failure(
 	struct smtp_client_connection *conn)
 {
@@ -1646,20 +1665,28 @@ void smtp_client_connection_connect(struct smtp_client_connection *conn,
 	smtp_client_connection_set_state(conn,
 		SMTP_CLIENT_CONNECTION_STATE_CONNECTING);
 
-	smtp_client_connection_lookup_ip(conn);
-	if (conn->ips_count == 0)
-		return;
+	if (conn->path == NULL) {
+		smtp_client_connection_lookup_ip(conn);
+		if (conn->ips_count == 0)
+			return;
 
-	/* always work asynchronously */
-	timeout_remove(&conn->to_connect);
-	conn->to_connect = timeout_add(0,
-		smtp_client_connection_connect_next_ip, conn);
+		/* always work asynchronously */
+		timeout_remove(&conn->to_connect);
+		conn->to_connect = timeout_add(0,
+			smtp_client_connection_connect_next_ip, conn);
+	} else {
+		/* always work asynchronously */
+		timeout_remove(&conn->to_connect);
+		conn->to_connect = timeout_add(0,
+			smtp_client_connection_connect_unix, conn);
+	}
 }
 
 static const struct connection_settings smtp_client_connection_set = {
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
-	.client = TRUE
+	.client = TRUE,
+	.delayed_unix_client_connected_callback = TRUE
 };
 
 static const struct connection_vfuncs smtp_client_connection_vfuncs = {
@@ -1810,8 +1837,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 
 	connection_init(conn->client->conn_list, &conn->conn);
 
-	smtp_client_connection_debug(conn, "Connection created");
-
 	return conn;
 }
 
@@ -1828,6 +1853,8 @@ smtp_client_connection_create(struct smtp_client *client,
 	conn->host = p_strdup(conn->pool, host);
 	conn->port = port;
 	conn->ssl_mode = ssl_mode;
+
+	smtp_client_connection_debug(conn, "Connection created");
 
 	return conn;
 }
@@ -1848,6 +1875,23 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 	conn->ips_count = 1;
 	conn->ips = i_new(struct ip_addr, conn->ips_count);
 	conn->ips[0] = *ip;
+	return conn;
+}
+
+struct smtp_client_connection *
+smtp_client_connection_create_unix(struct smtp_client *client,
+				   enum smtp_protocol protocol,
+				   const char *path,
+				   const struct smtp_client_settings *set)
+{
+	struct smtp_client_connection *conn;
+	const char *name = t_strconcat("unix:", path, NULL);
+
+	conn = smtp_client_connection_do_create(client, name, protocol, set);
+	conn->path = p_strdup(conn->pool, path);
+
+	smtp_client_connection_debug(conn, "Connection created");
+
 	return conn;
 }
 
