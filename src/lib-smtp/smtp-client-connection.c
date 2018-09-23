@@ -1720,11 +1720,10 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 	}
 }
 
-struct smtp_client_connection *
-smtp_client_connection_create(struct smtp_client *client,
-	enum smtp_protocol protocol, const char *host, in_port_t port,
-	enum smtp_client_connection_ssl_mode ssl_mode,
-	const struct smtp_client_settings *set)
+static struct smtp_client_connection *
+smtp_client_connection_do_create(struct smtp_client *client, const char *name,
+				 enum smtp_protocol protocol,
+				 const struct smtp_client_settings *set)
 {
 	static unsigned int id = 0;
 	struct smtp_client_connection *conn;
@@ -1738,10 +1737,7 @@ smtp_client_connection_create(struct smtp_client *client,
 	conn->client = client;
 	conn->id = id++;
 	conn->protocol = protocol;
-	conn->host = p_strdup(conn->pool, host);
-	conn->port = port;
-	conn->ssl_mode = ssl_mode;
-	conn->conn.name = i_strdup_printf("%s:%u", host, port);
+	conn->conn.name = i_strdup(name);
 
 	conn->set = client->set;
 	if (set != NULL) {
@@ -1815,6 +1811,23 @@ smtp_client_connection_create(struct smtp_client *client,
 	connection_init(conn->client->conn_list, &conn->conn);
 
 	smtp_client_connection_debug(conn, "Connection created");
+
+	return conn;
+}
+
+struct smtp_client_connection *
+smtp_client_connection_create(struct smtp_client *client,
+	enum smtp_protocol protocol, const char *host, in_port_t port,
+	enum smtp_client_connection_ssl_mode ssl_mode,
+	const struct smtp_client_settings *set)
+{
+	struct smtp_client_connection *conn;
+	const char *name = t_strdup_printf("%s:%u", host, port);
+
+	conn = smtp_client_connection_do_create(client, name, protocol, set);
+	conn->host = p_strdup(conn->pool, host);
+	conn->port = port;
+	conn->ssl_mode = ssl_mode;
 
 	return conn;
 }
