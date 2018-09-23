@@ -145,7 +145,7 @@ struct smtp_client_connection {
 	char *label;
 
 	enum smtp_protocol protocol;
-	const char *host;
+	const char *path, *host;
 	in_port_t port;
 	enum smtp_client_connection_ssl_mode ssl_mode;
 
