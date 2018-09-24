@@ -45,7 +45,7 @@ struct dlua_push_notification_context {
 };
 
 struct dlua_push_notification_txn_context {
-	void *ptr;
+	int tx_ref;
 };
 
 #define DLUA_DEFAULT_EVENTS (\
@@ -157,14 +157,8 @@ static bool push_notification_driver_lua_begin_txn
 	/* store the result */
 	struct dlua_push_notification_txn_context *tctx =
 		p_new(dtxn->ptxn->pool, struct dlua_push_notification_txn_context, 1);
-	/* this is just for storage */
-	tctx->ptr = tctx;
-	lua_pushlightuserdata(ctx->script->L, tctx->ptr);
-	/* move light userdata before the return value from pcall */
-	lua_insert(ctx->script->L, -2);
-	/* push this into LUA_REGISTRYINDEX */
-	lua_settable(ctx->script->L, LUA_REGISTRYINDEX);
 
+	tctx->tx_ref = luaL_ref(ctx->script->L, LUA_REGISTRYINDEX);
 	dtxn->context = tctx;
 
 	return TRUE;
@@ -349,7 +343,8 @@ push_notification_driver_lua_pushevent(const struct push_notification_txn_event 
 
 static void
 push_notification_driver_lua_call(struct dlua_push_notification_context *ctx,
-				  void *context, struct mail_user *user,
+				  struct dlua_push_notification_txn_context *tctx,
+				  struct mail_user *user,
 				  const struct push_notification_txn_event *event,
 				  const struct push_notification_txn_mbox *mbox,
 				  struct push_notification_txn_msg *msg)
@@ -368,8 +363,7 @@ push_notification_driver_lua_call(struct dlua_push_notification_context *ctx,
 	}
 
 	/* push context */
-	lua_pushlightuserdata(ctx->script->L, context);
-	lua_gettable(ctx->script->L, LUA_REGISTRYINDEX);
+	lua_rawgeti(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
 
 	/* push event + common fields */
 	if (mbox != NULL) {
@@ -417,7 +411,7 @@ push_notification_driver_lua_process_mbox(struct push_notification_driver_txn *d
 
 	if (array_is_created(&mbox->eventdata)) {
 		array_foreach(&mbox->eventdata, event) {
-			push_notification_driver_lua_call(ctx, tctx->ptr, user,
+			push_notification_driver_lua_call(ctx, tctx, user,
 							  (*event), mbox, NULL);
 		}
 	}
@@ -434,7 +428,7 @@ push_notification_driver_lua_process_msg(struct push_notification_driver_txn *dt
 
 	if (array_is_created(&msg->eventdata)) {
 		array_foreach(&msg->eventdata, event) {
-			push_notification_driver_lua_call(ctx, tctx->ptr, user,
+			push_notification_driver_lua_call(ctx, tctx, user,
 							  (*event), NULL, msg);
 		}
 	}
@@ -446,6 +440,7 @@ push_notification_driver_lua_end_txn(struct push_notification_driver_txn *dtxn,
 {
 	/* call end txn */
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
+	struct dlua_push_notification_txn_context *tctx = dtxn->context;
 	struct mail_user *user = dtxn->ptxn->muser;
 
 	lua_getglobal(ctx->script->L, DLUA_FN_END_TXN);
@@ -455,8 +450,7 @@ push_notification_driver_lua_end_txn(struct push_notification_driver_txn *dtxn,
 	} else {
 		push_notification_driver_debug(DLUA_LOG_LABEL, user,
 					       "Calling " DLUA_FN_END_TXN);
-		lua_pushlightuserdata(ctx->script->L, dtxn->context);
-		lua_gettable(ctx->script->L, LUA_REGISTRYINDEX);
+		lua_rawgeti(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
 		lua_pushboolean(ctx->script->L, success);
 		if (lua_pcall(ctx->script->L, 2, 0, 0) != 0) {
 			i_error("push_notification_lua: %s",
@@ -466,9 +460,7 @@ push_notification_driver_lua_end_txn(struct push_notification_driver_txn *dtxn,
 	}
 
 	/* release context */
-	lua_pushlightuserdata(ctx->script->L, dtxn->context);
-	lua_pushnil(ctx->script->L);
-	lua_settable(ctx->script->L, LUA_REGISTRYINDEX);
+	luaL_unref(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
 
 	mail_user_unref(&user);
 }
