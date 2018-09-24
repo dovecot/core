@@ -506,6 +506,6 @@ void push_notification_lua_plugin_deinit(void)
 	push_notification_driver_unregister(&push_notification_driver_lua);
 }
 
-const char *push_notification_driver_lua_plugin_version = DOVECOT_ABI_VERSION;
-const char *push_notification_driver_lua_plugin_dependencies[] =
+const char *push_notification_lua_plugin_version = DOVECOT_ABI_VERSION;
+const char *push_notification_lua_plugin_dependencies[] =
 	{ "push_notification", "mail_lua", NULL};
