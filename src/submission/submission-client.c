@@ -270,6 +270,7 @@ struct client *client_create(int fd_in, int fd_out,
 static void client_state_reset(struct client *client)
 {
 	i_stream_unref(&client->state.data_input);
+	pool_unref(&client->state.pool);
 
 	i_zero(&client->state);
 }
@@ -316,6 +317,9 @@ client_connection_trans_start(void *context,
 			      struct smtp_server_transaction *trans)
 {
 	struct client *client = context;
+
+	client->state.pool =
+		pool_alloconly_create("submission client state", 1024);
 
 	submission_backends_trans_start(client, trans);
 }
