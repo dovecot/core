@@ -119,8 +119,6 @@ static bool push_notification_driver_lua_begin_txn
 
 	int luaerr;
 
-	mail_user_ref(user);
-
 	config1 = p_new(dtxn->ptxn->pool,
 		       struct push_notification_event_messagenew_config, 1);
 	config1->flags = DLUA_DEFAULT_EVENTS;
@@ -160,6 +158,7 @@ static bool push_notification_driver_lua_begin_txn
 
 	tctx->tx_ref = luaL_ref(ctx->script->L, LUA_REGISTRYINDEX);
 	dtxn->context = tctx;
+	mail_user_ref(user);
 
 	return TRUE;
 }
