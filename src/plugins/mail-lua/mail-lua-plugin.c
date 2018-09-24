@@ -122,6 +122,17 @@ static void mail_lua_user_created(struct mail_user *user)
 	MODULE_CONTEXT_SET(user, mail_lua_user_module, luser);
 }
 
+bool mail_lua_plugin_get_script(struct mail_user *user,
+				struct dlua_script **script_r)
+{
+	struct mail_lua_user_context *luser = MAIL_LUA_USER_CONTEXT(user);
+	if (luser != NULL) {
+		*script_r = luser->script;
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static const struct mail_storage_hooks mail_lua_hooks = {
 	.mail_user_created = mail_lua_user_created,
 };
