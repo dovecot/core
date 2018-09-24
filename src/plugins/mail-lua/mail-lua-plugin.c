@@ -66,13 +66,14 @@ static void mail_lua_user_deinit(struct mail_user *user)
 	if (luser == NULL)
 		return;
 
+	luser->module_ctx.super.deinit(user);
+
 	if ((ret = mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_FN,
 				      &error)) < 0) {
 		e_error(user->event, "mail-lua: %s", error);
 	}
 
 	dlua_script_unref(&luser->script);
-	luser->module_ctx.super.deinit(user);
 }
 
 static void mail_lua_user_created(struct mail_user *user)
