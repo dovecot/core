@@ -365,8 +365,9 @@ push_notification_driver_lua_call(struct dlua_push_notification_context *ctx,
 	lua_rawgeti(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
 
 	/* push event + common fields */
+	push_notification_driver_lua_pushevent(event, ctx);
+
 	if (mbox != NULL) {
-		push_notification_driver_lua_pushevent(event, ctx);
 		lua_pushstring(ctx->script->L, mbox->mailbox);
 		lua_setfield(ctx->script->L, -2, "mailbox");
 		push_notification_driver_debug(DLUA_LOG_LABEL, user,
@@ -374,7 +375,6 @@ push_notification_driver_lua_call(struct dlua_push_notification_context *ctx,
 					       fn, event->event->event->name,
 					       mbox->mailbox);
 	} else if (msg != NULL) {
-		push_notification_driver_lua_pushevent(event, ctx);
 		lua_pushstring(ctx->script->L, msg->mailbox);
 		lua_setfield(ctx->script->L, -2, "mailbox");
 		lua_pushnumber(ctx->script->L, msg->uid);
