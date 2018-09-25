@@ -388,11 +388,8 @@ push_notification_driver_lua_call(struct dlua_push_notification_context *ctx,
 	} else
 		i_unreached();
 
-	/* finally push user too, makes everything easier */
-	dlua_push_mail_user(ctx->script, user);
-
 	/* perform call */
-	if ((luaerr = lua_pcall(ctx->script->L, 3, 0, 0)) != 0) {
+	if ((luaerr = lua_pcall(ctx->script->L, 2, 0, 0)) != 0) {
 		i_error("push_notification_lua: %s",
 			lua_tostring(ctx->script->L, -1));
 		lua_pop(ctx->script->L, 1);
