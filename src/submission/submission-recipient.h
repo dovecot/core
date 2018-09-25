@@ -5,6 +5,8 @@ struct submission_backend;
 struct client;
 
 struct submission_recipient {
+	pool_t pool;
+
 	struct submission_backend *backend;
 
 	struct smtp_address *path;

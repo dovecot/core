@@ -9,8 +9,11 @@ struct submission_recipient *
 submission_recipient_create(struct client *client, struct smtp_address *path)
 {
 	struct submission_recipient *rcpt;
+	pool_t pool;
 
-	rcpt = i_new(struct submission_recipient, 1);
+	pool = pool_alloconly_create("submission recipient", 512);
+	rcpt = p_new(pool, struct submission_recipient, 1);
+	rcpt->pool = pool;
 	rcpt->backend = client->state.backend;
 	rcpt->path = path;
 
@@ -23,7 +26,7 @@ void submission_recipient_destroy(struct submission_recipient **_rcpt)
 
 	*_rcpt = NULL;
 
-	i_free(rcpt);
+	pool_unref(&rcpt->pool);
 }
 
 void submission_recipient_finished(struct submission_recipient *rcpt,
