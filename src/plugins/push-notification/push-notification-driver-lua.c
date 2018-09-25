@@ -143,7 +143,7 @@ static bool push_notification_driver_lua_begin_txn
 	push_notification_driver_debug(DLUA_LOG_LABEL, user, "Calling "
 				       DLUA_FN_BEGIN_TXN "(%s)", user->username);
 
-	/* push username as argument */
+	/* push mail user as argument */
 	dlua_push_mail_user(ctx->script, user);
 	if ((luaerr = lua_pcall(ctx->script->L, 1, 1, 0)) != 0) {
 		i_error("push_notification_lua: %s",
