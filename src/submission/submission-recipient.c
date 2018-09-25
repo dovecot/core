@@ -5,6 +5,9 @@
 #include "submission-backend.h"
 #include "submission-recipient.h"
 
+struct submission_recipient_module_register
+submission_recipient_module_register = { 0 };
+
 struct submission_recipient *
 submission_recipient_create(struct client *client, struct smtp_address *path)
 {
@@ -16,6 +19,8 @@ submission_recipient_create(struct client *client, struct smtp_address *path)
 	rcpt->pool = pool;
 	rcpt->backend = client->state.backend;
 	rcpt->path = path;
+
+	p_array_init(&rcpt->module_contexts, rcpt->pool, 5);
 
 	return rcpt;
 }
