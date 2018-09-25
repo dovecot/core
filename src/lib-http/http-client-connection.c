@@ -979,8 +979,10 @@ static void http_client_connection_input(struct connection *_conn)
 			i_assert(ret == 0);
 			return;
 		}
+	}
 
-		/* ready for first request */
+	if (!conn->connect_succeeded) {
+		/* just got ready for first request */
 		http_client_connection_ready(conn);
 	}
 
@@ -1353,6 +1355,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 	const struct http_client_settings *set = &peer->client->set;
 
 	e_debug(conn->event, "Ready for requests");
+	i_assert(!conn->connect_succeeded);
 
 	/* connected */
 	conn->connected = TRUE;
