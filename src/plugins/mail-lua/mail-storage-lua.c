@@ -170,8 +170,8 @@ static int lua_storage_mail_user_unref(lua_State *L)
 	(void)lua_check_storage_mail_user(script, 1);
 
 	/* reset value to NULL */
-	lua_pushnil(script->L);
 	lua_pushliteral(script->L, "item");
+	lua_pushnil(script->L);
 	lua_rawset(script->L, 1);
 
 	return 0;
@@ -297,8 +297,8 @@ static int lua_storage_mailbox_gc(lua_State *L)
 	(void)lua_check_storage_mailbox(script, 1);
 
 	/* reset value to NULL */
-	lua_pushnil(script->L);
 	lua_pushliteral(script->L, "item");
+	lua_pushnil(script->L);
 	lua_rawset(script->L, 1);
 
 	return 0;
@@ -535,8 +535,8 @@ static int lua_storage_mail_gc(lua_State *L)
 	(void)lua_check_storage_mail(script, 1);
 
 	/* reset value to NULL */
-	lua_pushnil(script->L);
 	lua_pushliteral(script->L, "item");
+	lua_pushnil(script->L);
 	lua_rawset(script->L, 1);
 
 	return 0;
