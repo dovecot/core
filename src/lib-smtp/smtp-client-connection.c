@@ -874,7 +874,6 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 				    struct smtp_client_connection *conn)
 {
 	const char *const *lines;
-	unsigned int j;
 
 	smtp_client_connection_debug(conn, "Received handshake reply");
 
@@ -916,7 +915,7 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 
 	/* capability lines */
 	while (*lines != NULL) {
-		const struct smtp_capability_name *cap = NULL;
+		enum smtp_capability cap;
 		const char *const *params;
 		const char *cap_name, *error;
 
@@ -929,42 +928,31 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 			continue;
 		}
 
-		for (j = 0; smtp_capability_names[j].name != NULL; j++) {
-			cap = &smtp_capability_names[j];
-
-			if (strcasecmp(cap_name, cap->name) == 0)
+		cap = smtp_capability_find_by_name(cap_name);
+		switch (cap) {
+		case SMTP_CAPABILITY_AUTH:
+			conn->cap_auth_mechanisms =
+				p_strarray_dup(conn->cap_pool, params);
+			break;
+		case SMTP_CAPABILITY_SIZE:
+			if (params == NULL || *params == NULL)
 				break;
-			cap = NULL;
-		}
-
-		if (cap != NULL) {
-			switch (cap->capability) {
-			case SMTP_CAPABILITY_AUTH:
-				conn->cap_auth_mechanisms =
-					p_strarray_dup(conn->cap_pool, params);
-				break;
-			case SMTP_CAPABILITY_SIZE:
-				if (params == NULL || *params == NULL)
-					break;
-				if (str_to_uoff(*params, &conn->cap_size) < 0) {
-					smtp_client_connection_warning(conn,
-						"Received invalid SIZE capability "
-						"in EHLO response line");
-					cap = NULL;
-				}
-				break;
-			case SMTP_CAPABILITY_XCLIENT:
-				conn->cap_xclient_args =
-					p_strarray_dup(conn->cap_pool, params);
-				break;
-			default:
-				break;
+			if (str_to_uoff(*params, &conn->cap_size) < 0) {
+				smtp_client_connection_warning(conn,
+					"Received invalid SIZE capability "
+					"in EHLO response line");
+				cap = SMTP_CAPABILITY_NONE;
 			}
+			break;
+		case SMTP_CAPABILITY_XCLIENT:
+			conn->cap_xclient_args =
+				p_strarray_dup(conn->cap_pool, params);
+			break;
+		default:
+			break;
 		}
 
-		if (cap != NULL)
-			conn->capabilities |= cap->capability;
-
+		conn->capabilities |= cap;
 		lines++;
 	}
 
