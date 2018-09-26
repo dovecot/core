@@ -42,6 +42,8 @@ struct smtp_client_settings {
 	const char *my_hostname;
 	const char *temp_path_prefix;
 
+	/* Capabilities that are assumed to be enabled no matter whether the
+	   server indicates support. */
 	enum smtp_capability forced_capabilities;
 
 	struct dns_client *dns_client;
