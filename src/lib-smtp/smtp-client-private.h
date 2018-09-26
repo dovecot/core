@@ -166,6 +166,7 @@ struct smtp_client_connection {
 	bool authenticated:1;
 	bool initial_xclient_sent:1;
 	bool connect_failed:1;
+	bool connect_succeeded:1;
 	bool handshake_failed:1;
 	bool corked:1;
 	bool sent_quit:1;
