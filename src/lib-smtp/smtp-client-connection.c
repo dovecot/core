@@ -1003,8 +1003,10 @@ static void smtp_client_connection_input(struct connection *_conn)
 			i_assert(ret == 0);
 			return;
 		}
+	}
 
-		/* ready for SMTP handshake */
+	if (!conn->connect_succeeded) {
+		/* just got ready for SMTP handshake */
 		smtp_client_connection_established(conn);
 	}
 
@@ -1137,6 +1139,9 @@ static void smtp_client_connection_destroy(struct connection *_conn)
 static void
 smtp_client_connection_established(struct smtp_client_connection *conn)
 {
+	i_assert(!conn->connect_succeeded);
+	conn->connect_succeeded = TRUE;
+
 	if (conn->to_connect != NULL)
 		timeout_reset(conn->to_connect);
 
