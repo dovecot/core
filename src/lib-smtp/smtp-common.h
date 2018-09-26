@@ -29,6 +29,8 @@ smtp_protocol_name(enum smtp_protocol proto)
 /* SMTP capabilities */
 
 enum smtp_capability {
+	SMTP_CAPABILITY_NONE                = 0,
+
 	SMTP_CAPABILITY_AUTH                = BIT(0),
 	SMTP_CAPABILITY_STARTTLS            = BIT(1),
 	SMTP_CAPABILITY_PIPELINING          = BIT(2),
@@ -50,6 +52,8 @@ struct smtp_capability_name {
 	enum smtp_capability capability;
 };
 extern const struct smtp_capability_name smtp_capability_names[];
+
+enum smtp_capability smtp_capability_find_by_name(const char *cap_name);
 
 /*
  * SMTP proxy data
