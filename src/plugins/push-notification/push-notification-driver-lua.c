@@ -42,6 +42,11 @@
 struct dlua_push_notification_context {
 	struct dlua_script *script;
 	bool debug;
+
+	struct push_notification_event_messagenew_config config_mn;
+	struct push_notification_event_messageappend_config config_ma;
+	struct push_notification_event_flagsclear_config config_fc;
+	struct push_notification_event_flagsset_config config_fs;
 };
 
 struct dlua_push_notification_txn_context {
@@ -52,6 +57,8 @@ struct dlua_push_notification_txn_context {
 	PUSH_NOTIFICATION_MESSAGE_HDR_FROM | PUSH_NOTIFICATION_MESSAGE_HDR_TO | \
 	PUSH_NOTIFICATION_MESSAGE_HDR_SUBJECT | PUSH_NOTIFICATION_MESSAGE_HDR_DATE | \
 	PUSH_NOTIFICATION_MESSAGE_BODY_SNIPPET)
+
+static const char *push_notification_driver_lua_to_fn(const char *evname);
 
 static int
 push_notification_driver_lua_init(struct push_notification_driver_config *config,
@@ -109,34 +116,68 @@ push_notification_driver_lua_init(struct push_notification_driver_config *config
 	return 0;
 }
 
+static bool
+push_notification_driver_lua_init_events(struct push_notification_driver_txn *dtxn)
+{
+	struct mail_user *user = dtxn->ptxn->muser;
+	struct dlua_push_notification_context *ctx = dtxn->duser->context;
+	const struct push_notification_event *const *event;
+	ctx->config_mn.flags = DLUA_DEFAULT_EVENTS;
+	ctx->config_ma.flags = DLUA_DEFAULT_EVENTS;
+	ctx->config_fc.store_old = TRUE;
+	bool found_one = FALSE;
+
+	/* register *all* events that are present in Lua */
+	array_foreach(&push_notification_events, event) {
+		const char *name = (*event)->name;
+		const char *fn = push_notification_driver_lua_to_fn(name);
+		if (!dlua_script_has_function(ctx->script, fn))
+			continue;
+
+		found_one = TRUE;
+
+		push_notification_driver_debug(DLUA_LOG_LABEL, user,
+					       "Found %s, handling %s event",
+					       fn, name);
+
+		if (strcmp(name, "MessageNew") == 0) {
+			push_notification_event_init(dtxn, name, &ctx->config_mn);
+		} else if (strcmp(name, "MessageAppend") == 0) {
+			push_notification_event_init(dtxn, name, &ctx->config_ma);
+		} else if (strcmp(name, "FlagsSet") == 0) {
+			push_notification_event_init(dtxn, name, &ctx->config_fs);
+		} else if (strcmp(name, "FlagsClear") == 0) {
+			push_notification_event_init(dtxn, name, &ctx->config_fc);
+		} else if ((*event)->init.default_config != NULL) {
+			void *config = (*event)->init.default_config();
+			push_notification_event_init(dtxn, name, config);
+		} else {
+			push_notification_event_init(dtxn, name, NULL);
+		}
+	}
+
+	return found_one;
+}
+
 static bool push_notification_driver_lua_begin_txn
 (struct push_notification_driver_txn *dtxn)
 {
 	struct mail_user *user = dtxn->ptxn->muser;
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
-	struct push_notification_event_messagenew_config *config1;
-	struct push_notification_event_messageappend_config *config2;
 
 	int luaerr;
 
-	config1 = p_new(dtxn->ptxn->pool,
-		       struct push_notification_event_messagenew_config, 1);
-	config1->flags = DLUA_DEFAULT_EVENTS;
-	push_notification_event_init(dtxn, "MessageNew", config1);
-	push_notification_driver_debug(DLUA_LOG_LABEL, user,
-				   "Handling MessageNew event");
-
-	config2 = p_new(dtxn->ptxn->pool,
-		       struct push_notification_event_messageappend_config, 1);
-	config2->flags = DLUA_DEFAULT_EVENTS;
-	push_notification_event_init(dtxn, "MessageAppend", config2);
-	push_notification_driver_debug(DLUA_LOG_LABEL, user,
-				   "Handling MessageAppend event");
 	/* start txn and store whatever LUA gives us back, it's our txid */
 	lua_getglobal(ctx->script->L, DLUA_FN_BEGIN_TXN);
 	if (!lua_isfunction(ctx->script->L, -1)) {
 		i_error("push_notification_lua: "
 			"Missing function " DLUA_FN_BEGIN_TXN);
+		return FALSE;
+	}
+
+	if (!push_notification_driver_lua_init_events(dtxn)) {
+		push_notification_driver_debug(DLUA_LOG_LABEL, user,
+					       "No event handlers found in script");
 		return FALSE;
 	}
 
@@ -352,14 +393,9 @@ push_notification_driver_lua_call(struct dlua_push_notification_context *ctx,
 	const char *fn =
 		push_notification_driver_lua_to_fn(event->event->event->name);
 
-	push_notification_driver_debug(DLUA_LOG_LABEL, user, "Looking up %s", fn);
-
+	/* this has been assured already in init */
 	lua_getglobal(ctx->script->L, fn);
-	if (!lua_isfunction(ctx->script->L, -1)) {
-		push_notification_driver_debug(DLUA_LOG_LABEL, user, "Cannot find function %s",
-					       fn);
-		return;
-	}
+	i_assert(lua_isfunction(ctx->script->L, -1));
 
 	/* push context */
 	lua_rawgeti(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
