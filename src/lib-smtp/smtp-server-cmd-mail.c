@@ -19,15 +19,8 @@ static bool
 cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
-	struct smtp_server_command *command = cmd->cmd;
 
 	if (conn->state.trans != NULL) {
-		if (!smtp_server_command_is_replied(command)) {
-			conn->state.pending_mail_cmds--;
-			smtp_server_command_remove_hook(
-				command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
-				cmd_mail_replied);
-		}
 		smtp_server_reply(cmd, 503, "5.5.0", "MAIL already given");
 		return FALSE;
 	}
@@ -35,8 +28,8 @@ cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
 }
 
 static void
-cmd_mail_replied(struct smtp_server_cmd_ctx *cmd,
-		 struct smtp_server_cmd_mail *data)
+cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_cmd_mail *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
@@ -45,11 +38,8 @@ cmd_mail_replied(struct smtp_server_cmd_ctx *cmd,
 	conn->state.pending_mail_cmds--;
 
 	i_assert(smtp_server_command_is_replied(command));
-	if (!smtp_server_command_replied_success(command)) {
-		/* failure; substitute our own error if predictable */
-		(void)cmd_mail_check_state(cmd);
+	if (!smtp_server_command_replied_success(command))
 		return;
-	}
 
 	/* success */
 	conn->state.trans = smtp_server_transaction_create(conn,
@@ -59,6 +49,20 @@ cmd_mail_replied(struct smtp_server_cmd_ctx *cmd,
 		conn->callbacks->conn_trans_start != NULL) {
 		conn->callbacks->conn_trans_start(conn->context,
 						  conn->state.trans);
+	}
+}
+
+static void
+cmd_mail_replied(struct smtp_server_cmd_ctx *cmd,
+		 struct smtp_server_cmd_mail *data ATTR_UNUSED)
+{
+	struct smtp_server_command *command = cmd->cmd;
+
+	i_assert(smtp_server_command_is_replied(command));
+	if (!smtp_server_command_replied_success(command)) {
+		/* failure; substitute our own error if predictable */
+		(void)cmd_mail_check_state(cmd);
+		return;
 	}
 }
 
@@ -179,6 +183,8 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 				     cmd_mail_recheck, mail_data);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
 				     cmd_mail_replied, mail_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+				     cmd_mail_completed, mail_data);
 
 	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_MAIL_FROM);
 	conn->state.pending_mail_cmds++;
