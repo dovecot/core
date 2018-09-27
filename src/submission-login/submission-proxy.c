@@ -51,19 +51,19 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 	}
 
 	str = t_str_new(128);
-	str_append(str, "XCLIENT ");
+	str_append(str, "XCLIENT");
 	if (str_array_icase_find(client->proxy_xclient, "ADDR")) {
-		str_append(str, "ADDR=");
+		str_append(str, " ADDR=");
 		str_append(str, net_ip2addr(&client->common.ip));
 	}
 	if (str_array_icase_find(client->proxy_xclient, "PORT"))
-		str_printfa(str, "PORT=%u", client->common.remote_port);
+		str_printfa(str, " PORT=%u", client->common.remote_port);
 	if (str_array_icase_find(client->proxy_xclient, "SESSION")) {
-		str_append(str, "SESSION=");
+		str_append(str, " SESSION=");
 		str_append(str, client_get_session_id(&client->common));
 	}
 	if (str_array_icase_find(client->proxy_xclient, "TTL"))
-		str_printfa(str, "TTL=%u", client->common.proxy_ttl - 1);
+		str_printfa(str, " TTL=%u", client->common.proxy_ttl - 1);
 	if (str_array_icase_find(client->proxy_xclient, "FORWARD") &&
 		str_len(fwd) > 0) {
 		str_append(str, " FORWARD=");
