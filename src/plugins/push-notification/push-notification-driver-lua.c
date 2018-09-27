@@ -170,7 +170,7 @@ static bool push_notification_driver_lua_begin_txn
 	/* start txn and store whatever LUA gives us back, it's our txid */
 	lua_getglobal(ctx->script->L, DLUA_FN_BEGIN_TXN);
 	if (!lua_isfunction(ctx->script->L, -1)) {
-		i_error("push_notification_lua: "
+		i_error(DLUA_LOG_LABEL
 			"Missing function " DLUA_FN_BEGIN_TXN);
 		return FALSE;
 	}
@@ -426,7 +426,7 @@ push_notification_driver_lua_call(struct dlua_push_notification_context *ctx,
 
 	/* perform call */
 	if ((luaerr = lua_pcall(ctx->script->L, 2, 0, 0)) != 0) {
-		i_error("push_notification_lua: %s",
+		i_error(DLUA_LOG_LABEL "%s",
 			lua_tostring(ctx->script->L, -1));
 		lua_pop(ctx->script->L, 1);
 	}
@@ -477,7 +477,7 @@ push_notification_driver_lua_end_txn(struct push_notification_driver_txn *dtxn,
 
 	lua_getglobal(ctx->script->L, DLUA_FN_END_TXN);
 	if (!lua_isfunction(ctx->script->L, -1)) {
-		i_error("push_notification_lua: "
+		i_error(DLUA_LOG_LABEL
 			"Missing function " DLUA_FN_END_TXN);
 	} else {
 		push_notification_driver_debug(DLUA_LOG_LABEL, user,
@@ -485,7 +485,7 @@ push_notification_driver_lua_end_txn(struct push_notification_driver_txn *dtxn,
 		lua_rawgeti(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
 		lua_pushboolean(ctx->script->L, success);
 		if (lua_pcall(ctx->script->L, 2, 0, 0) != 0) {
-			i_error("push_notification_lua: %s",
+			i_error(DLUA_LOG_LABEL "%s",
 				lua_tostring(ctx->script->L, -1));
 			lua_pop(ctx->script->L, 1);
 		}
