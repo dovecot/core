@@ -68,6 +68,27 @@ void smtp_client_transaction_start(struct smtp_client_transaction *trans,
 		context + CALLBACK_TYPECHECK(mail_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))))
 
+/* Add an extra pipelined MAIL command to the transaction. The mail_callback is
+   called once the server replies to the MAIL command. This is usually only
+   useful for forwarding pipelined SMTP transactions, which can involve more
+   than a single MAIL command (e.g. to have an implicit fallback sender address
+   in the pipeline when the first one fails). Of course, only one MAIL command
+   will succeed and therefore error replies for the others will not abort the
+   transaction. */
+void smtp_client_transaction_add_mail(
+	struct smtp_client_transaction *trans,
+	const struct smtp_address *mail_from,
+	const struct smtp_params_mail *mail_params,
+	smtp_client_command_callback_t *mail_callback, void *context)
+	ATTR_NULL(3,5);
+#define smtp_client_transaction_add_mail(trans, \
+		mail_from, mail_params, mail_callback, context) \
+	smtp_client_transaction_add_mail(trans, mail_from + \
+		CALLBACK_TYPECHECK(mail_callback, void (*)( \
+			const struct smtp_reply *reply, typeof(context))), \
+		mail_params, \
+		(smtp_client_command_callback_t *)mail_callback, context)
+
 /* Add recipient to the transaction with a RCPT TO command. The
    rcpt_to_callback is called once the server replies to the RCPT TO command.
    If RCPT TO succeeded, the data_callback is called once the server replies

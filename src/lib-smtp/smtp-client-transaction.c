@@ -595,6 +595,29 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 	}
 }
 
+#undef smtp_client_transaction_add_mail
+void smtp_client_transaction_add_mail(
+	struct smtp_client_transaction *trans,
+	const struct smtp_address *mail_from,
+	const struct smtp_params_mail *mail_params,
+	smtp_client_command_callback_t *mail_callback, void *context)
+{
+	struct smtp_client_transaction_mail *mail;
+
+	smtp_client_transaction_debug(trans, "Add MAIL command");
+
+	i_assert(!trans->data_provided);
+	i_assert(!trans->reset);
+
+	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO);
+
+	mail = smtp_client_transaction_mail_new(trans, mail_from, mail_params);
+	mail->mail_callback = mail_callback;
+	mail->context = context;
+
+	smtp_client_transaction_submit(trans, FALSE);
+}
+
 static void smtp_client_transaction_connection_ready(
 	struct smtp_client_transaction *trans)
 {
