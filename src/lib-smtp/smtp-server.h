@@ -466,6 +466,7 @@ smtp_server_command_get_reply(struct smtp_server_command *cmd,
 bool smtp_server_command_reply_status_equals(struct smtp_server_command *cmd,
 					     unsigned int status);
 bool smtp_server_command_is_replied(struct smtp_server_command *cmd);
+bool smtp_server_command_reply_is_forwarded(struct smtp_server_command *cmd);
 bool smtp_server_command_replied_success(struct smtp_server_command *cmd);
 
 void smtp_server_command_input_lock(struct smtp_server_cmd_ctx *cmd);

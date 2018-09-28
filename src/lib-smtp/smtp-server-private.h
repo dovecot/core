@@ -71,6 +71,7 @@ struct smtp_server_reply {
 
 	bool submitted:1;
 	bool sent:1;
+	bool forwarded:1;
 };
 
 struct smtp_server_command_reg {

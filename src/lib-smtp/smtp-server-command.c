@@ -506,6 +506,25 @@ bool smtp_server_command_is_replied(struct smtp_server_command *cmd)
 	return TRUE;
 }
 
+bool smtp_server_command_reply_is_forwarded(struct smtp_server_command *cmd)
+{
+	unsigned int i;
+
+	if (!array_is_created(&cmd->replies))
+		return FALSE;
+
+	for (i = 0; i < cmd->replies_expected; i++) {
+		const struct smtp_server_reply *reply =
+			array_idx(&cmd->replies, i);
+		if (!reply->submitted)
+			return FALSE;
+		if (reply->forwarded)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
 struct smtp_server_reply *
 smtp_server_command_get_reply(struct smtp_server_command *cmd,
 	unsigned int idx)
