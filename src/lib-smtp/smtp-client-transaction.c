@@ -736,11 +736,13 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 
 	timeout_remove(&trans->to_send);
 
+	/* Check whether we already failed */
 	if (trans->failure != NULL) {
 		smtp_client_transaction_fail_reply(trans, trans->failure);
 		return;
 	}
 
+	/* Make sure transaction is started */
 	if (trans->state == SMTP_CLIENT_TRANSACTION_STATE_NEW) {
 		enum smtp_client_transaction_state state;
 		struct smtp_client_transaction *tmp_trans = trans;
@@ -756,6 +758,7 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 	if (trans->state <= SMTP_CLIENT_TRANSACTION_STATE_PENDING)
 		return;
 
+	/* RCPT */
 	rcpt = array_get_modifiable(&trans->rcpts_pending, &count);
 	if (trans->rcpts_next_send_idx < count) {
 		unsigned int i;
@@ -782,6 +785,7 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 		}
 	}
 
+	/* DATA */
 	if (trans->data_input != NULL)
 		smtp_client_transaction_send_data(trans);
 }
