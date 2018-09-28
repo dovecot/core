@@ -51,6 +51,23 @@ struct smtp_client_command {
 	bool aborting:1;
 };
 
+struct smtp_client_transaction_mail {
+	pool_t pool;
+	struct smtp_client_transaction *trans;
+
+	struct smtp_client_transaction_mail *prev, *next;
+
+	struct smtp_address *mail_from;
+	struct smtp_params_mail mail_params;
+
+	smtp_client_command_callback_t *mail_callback;
+	void *context;
+
+	struct smtp_client_command *cmd_mail_from;
+
+	bool failed:1;
+};
+
 struct smtp_client_transaction_rcpt {
 	pool_t pool;
 	struct smtp_client_transaction *trans;
@@ -77,16 +94,14 @@ struct smtp_client_transaction {
 	struct smtp_client_transaction *prev, *next;
 
 	struct smtp_client_connection *conn;
-	struct smtp_address *mail_from;
-	struct smtp_params_mail mail_params;
 
 	enum smtp_client_transaction_state state;
-	struct smtp_client_command *cmd_mail_from, *cmd_data, *cmd_rset;
+	struct smtp_client_command *cmd_data, *cmd_rset;
 	struct smtp_client_command *cmd_plug, *cmd_last;
-	struct smtp_reply *failure;
+	struct smtp_reply *failure, *mail_failure;
 
-	smtp_client_command_callback_t *mail_callback;
-	void *mail_context;
+	struct smtp_client_transaction_mail *mail_head, *mail_tail;
+	struct smtp_client_transaction_mail *mail_send;
 
 	struct smtp_client_transaction_rcpt *rcpts_queue_head, *rcpts_queue_tail;
 	struct smtp_client_transaction_rcpt *rcpts_send;
@@ -110,6 +125,7 @@ struct smtp_client_transaction {
 	unsigned int finish_timeout_msecs;
 	struct timeout *to_finish, *to_send;
 
+	bool sender_accepted:1;
 	bool data_provided:1;
 	bool reset:1;
 	bool finished:1;
