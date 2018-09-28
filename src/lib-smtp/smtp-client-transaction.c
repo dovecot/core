@@ -43,6 +43,46 @@ static void
 smtp_client_transaction_send_reset(struct smtp_client_transaction *trans);
 
 /*
+ * Sender
+ */
+
+static struct smtp_client_transaction_mail *
+smtp_client_transaction_mail_new(struct smtp_client_transaction *trans,
+				 const struct smtp_address *mail_from,
+				 const struct smtp_params_mail *mail_params)
+{
+	struct smtp_client_transaction_mail *mail;
+	pool_t pool;
+
+	pool = pool_alloconly_create("smtp transaction mail", 512);
+	mail = p_new(pool, struct smtp_client_transaction_mail, 1);
+	mail->pool = pool;
+	mail->trans = trans;
+	mail->mail_from = smtp_address_clone(pool, mail_from);
+	smtp_params_mail_copy(pool, &mail->mail_params, mail_params);
+
+	DLLIST2_APPEND(&trans->mail_head, &trans->mail_tail, mail);
+	if (trans->mail_send == NULL)
+		trans->mail_send = mail;
+
+	return mail;
+}
+
+static void
+smtp_client_transaction_mail_free(struct smtp_client_transaction_mail **_mail)
+{
+	struct smtp_client_transaction_mail *mail = *_mail;
+	struct smtp_client_transaction *trans = mail->trans;
+
+	*_mail = NULL;
+
+	if (mail->cmd_mail_from != NULL)
+		smtp_client_command_abort(&mail->cmd_mail_from);
+	DLLIST2_REMOVE(&trans->mail_head, &trans->mail_tail, mail);
+	pool_unref(&mail->pool);
+}
+
+/*
  * Recipient
  */
 
@@ -186,8 +226,7 @@ smtp_client_transaction_create(struct smtp_client_connection *conn,
 	trans->callback = callback;
 	trans->context = context;
 
-	trans->mail_from = smtp_address_clone(pool, mail_from);
-	smtp_params_mail_copy(pool, &trans->mail_params, mail_params);
+	(void)smtp_client_transaction_mail_new(trans, mail_from, mail_params);
 
 	trans->conn = conn;
 	smtp_client_connection_ref(conn);
@@ -243,8 +282,13 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 	trans->cmd_last = NULL;
 
 	/* abort any pending commands */
-	if (trans->cmd_mail_from != NULL)
-		smtp_client_command_abort(&trans->cmd_mail_from);
+	while (trans->mail_head != NULL) {
+		struct smtp_client_transaction_mail *mail = trans->mail_head;
+
+		if (mail->cmd_mail_from != NULL)
+			smtp_client_command_abort(&mail->cmd_mail_from);
+		smtp_client_transaction_mail_free(&mail);
+	}
 	while (trans->rcpts_queue_count > 0) {
 		struct smtp_client_transaction_rcpt *rcpt =
 			trans->rcpts_queue_head;
@@ -310,6 +354,7 @@ void smtp_client_transaction_unref(struct smtp_client_transaction **_trans)
 void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 {
 	struct smtp_client_transaction *trans = *_trans;
+	struct smtp_client_transaction_mail *mail;
 	struct smtp_client_transaction_rcpt *rcpt;
 
 	*_trans = NULL;
@@ -320,8 +365,10 @@ void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 	/* Make sure this transaction doesn't produce any more callbacks.
 	   We cannot fully abort (destroy) these commands, as this may be
 	   called from a callback. */
-	if (trans->cmd_mail_from != NULL)
-		smtp_client_command_drop_callback(trans->cmd_mail_from);
+	for (mail = trans->mail_head; mail != NULL; mail = mail->next) {
+		if (mail->cmd_mail_from != NULL)
+			smtp_client_command_drop_callback(mail->cmd_mail_from);
+	}
 	for (rcpt = trans->rcpts_queue_head; rcpt != NULL; rcpt = rcpt->next) {
 		if (rcpt->cmd_rcpt_to != NULL)
 			smtp_client_command_drop_callback(rcpt->cmd_rcpt_to);
@@ -366,17 +413,14 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 	timeout_remove(&trans->to_send);
 
 	/* MAIL */
-	if (trans->cmd_mail_from != NULL) {
-		smtp_client_command_abort(&trans->cmd_mail_from);
-		if (trans->mail_callback != NULL) {
-			trans->mail_callback(reply,
-						  trans->mail_context);
-		}
-	} else if (trans->state == SMTP_CLIENT_TRANSACTION_STATE_PENDING) {
-		if (trans->mail_callback != NULL) {
-			trans->mail_callback(reply,
-						  trans->mail_context);
-		}
+	while (trans->mail_head != NULL) {
+		struct smtp_client_transaction_mail *mail = trans->mail_head;
+
+		if (mail->cmd_mail_from != NULL)
+			smtp_client_command_abort(&mail->cmd_mail_from);
+		if (mail->mail_callback != NULL)
+			mail->mail_callback(reply, mail->context);
+		smtp_client_transaction_mail_free(&mail);
 	}
 
 	/* RCPT */
@@ -498,37 +542,57 @@ static void
 smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 				struct smtp_client_transaction *trans)
 {
+	struct smtp_client_transaction_mail *mail = trans->mail_head;
 	bool success = smtp_reply_is_success(reply);
 
 	smtp_client_transaction_debug(trans, "Got MAIL reply: %s",
 		smtp_reply_log(reply));
 
+	i_assert(mail != NULL);
+
+	if (success) {
+		if (trans->sender_accepted) {
+			smtp_client_transaction_fail(
+				trans, SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
+				"Server accepted more than a single MAIL command.");
+			return;
+		}
+		trans->mail_failure = NULL;
+		trans->sender_accepted = TRUE;
+	}
+
 	/* plug command line pipeline if no RCPT commands are yet issued */
-	if (trans->cmd_mail_from == trans->cmd_last) {
+	if (mail->next == NULL && mail->cmd_mail_from == trans->cmd_last) {
 		trans->cmd_plug = trans->cmd_last =
 			smtp_client_command_plug(trans->conn, trans->cmd_last);
 	}
-	trans->cmd_mail_from = NULL;
+	mail->cmd_mail_from = NULL;
 
 	if (trans->rcpts_queue_count > 0)
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO;
 	else if (trans->reset)
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RESET;
 
-	if (trans->mail_callback != NULL) {
+	if (mail->mail_callback != NULL) {
 		enum smtp_client_transaction_state state;
 		struct smtp_client_transaction *tmp_trans = trans;
 
 		smtp_client_transaction_ref(tmp_trans);
-		trans->mail_callback(reply, trans->mail_context);
+		mail->mail_callback(reply, mail->context);
 		state = trans->state;
 		smtp_client_transaction_unref(&tmp_trans);
 		if (state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
 			return;
 	}
 
-	if (!success)
-		smtp_client_transaction_fail_reply(trans, reply);
+	smtp_client_transaction_mail_free(&mail);
+
+	if (!success && !trans->sender_accepted) {
+		if (trans->state > SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM)
+			smtp_client_transaction_fail_reply(trans, reply);
+		else if (trans->mail_failure == NULL)
+			trans->mail_failure = smtp_reply_clone(trans->pool, reply);
+	}
 }
 
 static void smtp_client_transaction_connection_ready(
@@ -539,12 +603,6 @@ static void smtp_client_transaction_connection_ready(
 
 	smtp_client_transaction_debug(trans,
 		"Connecton is ready for transaction");
-
-	trans->cmd_mail_from = trans->cmd_last =
-		smtp_client_command_mail_submit(trans->conn, 0,
-			trans->mail_from, &trans->mail_params,
-			smtp_client_transaction_mail_cb, trans);
-	smtp_client_command_lock(trans->cmd_last);
 
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM;
 
@@ -557,6 +615,7 @@ void smtp_client_transaction_start(
 	smtp_client_command_callback_t *mail_callback, void *context)
 {
 	struct smtp_client_connection *conn = trans->conn;
+	struct smtp_client_transaction_mail *mail = trans->mail_head;
 
 	i_assert(trans->state == SMTP_CLIENT_TRANSACTION_STATE_NEW);
 
@@ -565,8 +624,11 @@ void smtp_client_transaction_start(
 	io_loop_time_refresh();
 	trans->times.started = ioloop_timeval;
 
-	trans->mail_callback = mail_callback;
-	trans->mail_context = context;
+	i_assert(mail != NULL);
+	i_assert(mail->mail_callback == NULL);
+
+	mail->mail_callback = mail_callback;
+	mail->context = context;
 
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_PENDING;
 
@@ -623,7 +685,7 @@ void smtp_client_transaction_add_rcpt(
 
 	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
 
-	if (trans->cmd_mail_from == NULL &&
+	if (trans->mail_head == NULL &&
 		trans->state == SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM)
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO;
 
@@ -822,6 +884,9 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 	timeout_remove(&trans->to_send);
 
 	/* Check whether we already failed */
+	if (trans->failure == NULL &&
+	    trans->state > SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM)
+		trans->failure = trans->mail_failure;
 	if (trans->failure != NULL) {
 		smtp_client_transaction_fail_reply(trans, trans->failure);
 		return;
@@ -842,6 +907,28 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 
 	if (trans->state <= SMTP_CLIENT_TRANSACTION_STATE_PENDING)
 		return;
+
+	/* MAIL */
+	if (trans->mail_send != NULL) {
+		smtp_client_transaction_debug(trans, "Sending MAIL command");
+
+		i_assert(trans->state == SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM);
+
+		if (trans->cmd_last != NULL)
+			smtp_client_command_unlock(trans->cmd_last);
+
+		while (trans->mail_send != NULL) {
+			struct smtp_client_transaction_mail *mail =
+				trans->mail_send;
+
+			trans->mail_send = trans->mail_send->next;
+			mail->cmd_mail_from = trans->cmd_last =
+				smtp_client_command_mail_submit(trans->conn, 0,
+					mail->mail_from, &mail->mail_params,
+					smtp_client_transaction_mail_cb, trans);
+		}
+		smtp_client_command_lock(trans->cmd_last);
+	}
 
 	/* RCPT */
 	if (trans->rcpts_send != NULL) {
