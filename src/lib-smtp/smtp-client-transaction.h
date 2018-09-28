@@ -30,12 +30,25 @@ struct smtp_client_transaction_times {
 typedef void
 smtp_client_transaction_callback_t(void *context);
 
+/* Create an empty transaction (i.e. even without the parameters for the
+   MAIL FROM command) */
+struct smtp_client_transaction *
+smtp_client_transaction_create_empty(
+	struct smtp_client_connection *conn, unsigned int flags,
+	smtp_client_transaction_callback_t *callback, void *context)
+	ATTR_NULL(4);
+#define smtp_client_transaction_create_empty(conn, callback, context) \
+	smtp_client_transaction_create_empty(conn, \
+		0 + CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		(smtp_client_transaction_callback_t *)callback, context)
+/* Create a new transaction, including the parameters for the MAIL FROM
+   command */
 struct smtp_client_transaction *
 smtp_client_transaction_create(struct smtp_client_connection *conn,
 		const struct smtp_address *mail_from,
 		const struct smtp_params_mail *mail_params, unsigned int flags,
 		smtp_client_transaction_callback_t *callback, void *context)
-		ATTR_NULL(2, 3, 5);
+		ATTR_NULL(2, 3, 6);
 #define smtp_client_transaction_create(conn, \
 		mail_from, mail_params, callback, context) \
 	smtp_client_transaction_create(conn, mail_from, mail_params, \
@@ -64,6 +77,25 @@ void smtp_client_transaction_start(struct smtp_client_transaction *trans,
 	smtp_client_command_callback_t *mail_callback, void *context);
 #define smtp_client_transaction_start(trans, mail_callback, context) \
 	smtp_client_transaction_start(trans, \
+		(smtp_client_command_callback_t *)mail_callback, \
+		context + CALLBACK_TYPECHECK(mail_callback, void (*)( \
+			const struct smtp_reply *reply, typeof(context))))
+/* Start the transaction with a MAIL command. This function allows providing the
+   parameters for the MAIL FROM command for when the transaction was created
+   empty. The mail_from_callback is called once the server replies to the MAIL
+   FROM command. Calling this function is not mandatory; it is called implicitly
+   by smtp_client_transaction_send() if the transaction wasn't already started.
+   In that case, the NULL sender ("<>") will be used when the transaction was
+   created empty.
+ */
+void smtp_client_transaction_start_empty(
+	struct smtp_client_transaction *trans,
+	const struct smtp_address *mail_from,
+	const struct smtp_params_mail *mail_params,
+	smtp_client_command_callback_t *mail_callback, void *context);
+#define smtp_client_transaction_start_empty(trans, mail_from, mail_params, \
+					    mail_callback, context) \
+	smtp_client_transaction_start_empty(trans, mail_from, mail_params, \
 		(smtp_client_command_callback_t *)mail_callback, \
 		context + CALLBACK_TYPECHECK(mail_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))))
