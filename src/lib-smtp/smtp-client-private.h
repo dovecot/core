@@ -85,8 +85,8 @@ struct smtp_client_transaction {
 	struct smtp_client_command *cmd_plug, *cmd_last;
 	struct smtp_reply *failure;
 
-	smtp_client_command_callback_t *mail_from_callback;
-	void *mail_from_context;
+	smtp_client_command_callback_t *mail_callback;
+	void *mail_context;
 
 	struct smtp_client_transaction_rcpt *rcpts_queue_head, *rcpts_queue_tail;
 	struct smtp_client_transaction_rcpt *rcpts_send;
