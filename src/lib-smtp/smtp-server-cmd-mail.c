@@ -11,10 +11,6 @@
 
 /* MAIL command */
 
-static void
-cmd_mail_replied(struct smtp_server_cmd_ctx *cmd,
-		 struct smtp_server_cmd_mail *data);
-
 static bool
 cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
 {
@@ -38,8 +34,12 @@ cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
 	conn->state.pending_mail_cmds--;
 
 	i_assert(smtp_server_command_is_replied(command));
-	if (!smtp_server_command_replied_success(command))
+	if (!smtp_server_command_replied_success(command)) {
+		/* failure; substitute our own error if predictable */
+		if (smtp_server_command_reply_is_forwarded(command))
+			(void)cmd_mail_check_state(cmd);
 		return;
+	}
 
 	/* success */
 	conn->state.trans = smtp_server_transaction_create(conn,
@@ -49,20 +49,6 @@ cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
 		conn->callbacks->conn_trans_start != NULL) {
 		conn->callbacks->conn_trans_start(conn->context,
 						  conn->state.trans);
-	}
-}
-
-static void
-cmd_mail_replied(struct smtp_server_cmd_ctx *cmd,
-		 struct smtp_server_cmd_mail *data ATTR_UNUSED)
-{
-	struct smtp_server_command *command = cmd->cmd;
-
-	i_assert(smtp_server_command_is_replied(command));
-	if (!smtp_server_command_replied_success(command)) {
-		/* failure; substitute our own error if predictable */
-		(void)cmd_mail_check_state(cmd);
-		return;
 	}
 }
 
@@ -181,8 +167,6 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     cmd_mail_recheck, mail_data);
-	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
-				     cmd_mail_replied, mail_data);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
 				     cmd_mail_completed, mail_data);
 
