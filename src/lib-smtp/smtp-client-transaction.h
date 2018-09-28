@@ -61,11 +61,11 @@ void smtp_client_transaction_set_timeout(struct smtp_client_transaction *trans,
    smtp_client_transaction_send() if the transaction wasn't already started.
  */
 void smtp_client_transaction_start(struct smtp_client_transaction *trans,
-	smtp_client_command_callback_t *mail_from_callback, void *context);
-#define smtp_client_transaction_start(trans, mail_from_callback, context) \
+	smtp_client_command_callback_t *mail_callback, void *context);
+#define smtp_client_transaction_start(trans, mail_callback, context) \
 	smtp_client_transaction_start(trans, \
-		(smtp_client_command_callback_t *)mail_from_callback, \
-		context + CALLBACK_TYPECHECK(mail_from_callback, void (*)( \
+		(smtp_client_command_callback_t *)mail_callback, \
+		context + CALLBACK_TYPECHECK(mail_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))))
 
 /* Add recipient to the transaction with a RCPT TO command. The

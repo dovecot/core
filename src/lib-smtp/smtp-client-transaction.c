@@ -368,14 +368,14 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 	/* MAIL */
 	if (trans->cmd_mail_from != NULL) {
 		smtp_client_command_abort(&trans->cmd_mail_from);
-		if (trans->mail_from_callback != NULL) {
-			trans->mail_from_callback(reply,
-						  trans->mail_from_context);
+		if (trans->mail_callback != NULL) {
+			trans->mail_callback(reply,
+						  trans->mail_context);
 		}
 	} else if (trans->state == SMTP_CLIENT_TRANSACTION_STATE_PENDING) {
-		if (trans->mail_from_callback != NULL) {
-			trans->mail_from_callback(reply,
-						  trans->mail_from_context);
+		if (trans->mail_callback != NULL) {
+			trans->mail_callback(reply,
+						  trans->mail_context);
 		}
 	}
 
@@ -515,12 +515,12 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 	else if (trans->reset)
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RESET;
 
-	if (trans->mail_from_callback != NULL) {
+	if (trans->mail_callback != NULL) {
 		enum smtp_client_transaction_state state;
 		struct smtp_client_transaction *tmp_trans = trans;
 
 		smtp_client_transaction_ref(tmp_trans);
-		trans->mail_from_callback(reply, trans->mail_from_context);
+		trans->mail_callback(reply, trans->mail_context);
 		state = trans->state;
 		smtp_client_transaction_unref(&tmp_trans);
 		if (state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
@@ -554,7 +554,7 @@ static void smtp_client_transaction_connection_ready(
 #undef smtp_client_transaction_start
 void smtp_client_transaction_start(
 	struct smtp_client_transaction *trans,
-	smtp_client_command_callback_t *mail_from_callback, void *context)
+	smtp_client_command_callback_t *mail_callback, void *context)
 {
 	struct smtp_client_connection *conn = trans->conn;
 
@@ -565,8 +565,8 @@ void smtp_client_transaction_start(
 	io_loop_time_refresh();
 	trans->times.started = ioloop_timeval;
 
-	trans->mail_from_callback = mail_from_callback;
-	trans->mail_from_context = context;
+	trans->mail_callback = mail_callback;
+	trans->mail_context = context;
 
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_PENDING;
 
