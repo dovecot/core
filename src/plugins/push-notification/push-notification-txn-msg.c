@@ -17,7 +17,7 @@ push_notification_txn_msg_create(struct push_notification_txn *txn,
 
     if (hash_table_is_created(txn->messages)) {
         msg = hash_table_lookup(txn->messages,
-                                POINTER_CAST(txn->t->save_count + 1));
+                                POINTER_CAST(mail->seq));
     } else {
         hash_table_create_direct(&txn->messages, txn->pool, 4);
     }
@@ -29,7 +29,7 @@ push_notification_txn_msg_create(struct push_notification_txn *txn,
         msg->seq = txn->t->save_count;
         msg->uid = mail->uid;
 
-        hash_table_insert(txn->messages, POINTER_CAST(txn->t->save_count + 1),
+        hash_table_insert(txn->messages, POINTER_CAST(mail->seq),
                           msg);
     }
 
