@@ -778,12 +778,10 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 		trans->rcpts_next_send_idx = i;
 
 		smtp_client_command_lock(trans->cmd_last);
-
-		if (trans->cmd_plug != NULL) {
-			i_assert(trans->cmd_last != trans->cmd_plug);
-			smtp_client_command_abort(&trans->cmd_plug);
-		}
 	}
+
+	if (trans->cmd_plug != NULL && trans->cmd_last != trans->cmd_plug)
+		smtp_client_command_abort(&trans->cmd_plug);
 
 	/* DATA */
 	if (trans->data_input != NULL)
