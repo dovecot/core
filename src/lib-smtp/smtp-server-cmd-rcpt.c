@@ -47,8 +47,12 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 	conn->state.pending_rcpt_cmds--;
 
 	i_assert(smtp_server_command_is_replied(command));
-	if (!smtp_server_command_replied_success(command))
+	if (!smtp_server_command_replied_success(command)) {
+		/* failure; substitute our own error if predictable */
+		if (smtp_server_command_reply_is_forwarded(command))
+			(void)cmd_rcpt_check_state(cmd);
 		return;
+	}
 
 	/* success */
 	rcpt = smtp_server_transaction_add_rcpt(trans, data->path,
@@ -59,20 +63,6 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 		data->hook_finished(cmd, trans, rcpt,
 				    array_count(&trans->rcpt_to) - 1);
 		data->hook_finished = NULL;
-	}
-}
-
-static void
-cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd,
-		 struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
-{
-	struct smtp_server_command *command = cmd->cmd;
-
-	i_assert(smtp_server_command_is_replied(command));
-	if (!smtp_server_command_replied_success(command)) {
-		/* failure; substitute our own error if predictable */
-		(void)cmd_rcpt_check_state(cmd);
-		return;
 	}
 }
 
@@ -187,8 +177,6 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     cmd_rcpt_recheck, rcpt_data);
-	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
-				     cmd_rcpt_replied, rcpt_data);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
 				     cmd_rcpt_completed, rcpt_data);
 
