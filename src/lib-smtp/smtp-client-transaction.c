@@ -28,7 +28,7 @@ const char *const smtp_client_transaction_state_names[] = {
 };
 
 static void
-smtp_client_transaction_send_rcpts(struct smtp_client_transaction *trans);
+smtp_client_transaction_submit_more(struct smtp_client_transaction *trans);
 static void
 smtp_client_transaction_try_complete(struct smtp_client_transaction *trans);
 
@@ -524,7 +524,7 @@ static void smtp_client_transaction_connection_ready(
 
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM;
 
-	smtp_client_transaction_send_rcpts(trans);
+	smtp_client_transaction_submit_more(trans);
 }
 
 #undef smtp_client_transaction_start
@@ -583,7 +583,7 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 }
 
 static void
-smtp_client_transaction_send_rcpts(struct smtp_client_transaction *trans)
+smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 {
 	struct smtp_client_transaction_rcpt *const *rcpt;
 	unsigned int count;
@@ -669,7 +669,7 @@ void smtp_client_transaction_add_rcpt(
 		(trans->state > SMTP_CLIENT_TRANSACTION_STATE_PENDING ||
 			trans->failure != NULL)) {
 		trans->to_send = timeout_add_short(0,
-			smtp_client_transaction_send_rcpts, trans);
+			smtp_client_transaction_submit_more, trans);
 	}
 }
 
@@ -776,7 +776,7 @@ void smtp_client_transaction_send(
 
 	if (trans->to_send == NULL) {
 		trans->to_send = timeout_add_short(0,
-			smtp_client_transaction_send_rcpts, trans);
+			smtp_client_transaction_submit_more, trans);
 	}
 	if (trans->finish_timeout_msecs > 0) {
 		i_assert(trans->to_finish == NULL);
