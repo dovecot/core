@@ -13,6 +13,9 @@ struct push_notification_event_messageappend_data {
     const char *to;
     const char *subject;
     const char *snippet;
+    /* PUSH_NOTIFICATION_MESSAGE_HDR_DATE */
+    time_t date;
+    int date_tz;
 };
 
 
