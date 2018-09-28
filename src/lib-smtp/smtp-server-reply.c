@@ -70,6 +70,7 @@ static void smtp_server_reply_clear(struct smtp_server_reply *reply)
 		reply->command->replies_submitted--;
 	}
 	reply->submitted = FALSE;
+	reply->forwarded = FALSE;
 }
 
 static struct smtp_server_reply *
@@ -156,6 +157,7 @@ smtp_server_reply_create_forward(struct smtp_server_command *cmd,
 	reply = smtp_server_reply_create_index(cmd, index,
 		from->status, smtp_reply_get_enh_code(from));
 	smtp_reply_write(reply->content->text, from);
+	reply->forwarded = TRUE;
 
 	return reply;
 }
