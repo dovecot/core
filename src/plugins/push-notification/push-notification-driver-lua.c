@@ -296,6 +296,12 @@ push_notification_lua_push_messageappend(const struct push_notification_txn_even
 {
 	struct push_notification_event_messageappend_data *data = event->data;
 
+	lua_pushnumber(script->L, data->date);
+	lua_setfield(script->L, -2, "date");
+
+	lua_pushnumber(script->L, data->date_tz);
+	lua_setfield(script->L, -2, "tz");
+
 	lua_pushstring(script->L, data->from);
 	lua_setfield(script->L, -2, "from");
 
