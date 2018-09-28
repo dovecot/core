@@ -208,11 +208,9 @@ smtp_client_transaction_debug(struct smtp_client_transaction *trans,
  *
  */
 
-#undef smtp_client_transaction_create
+#undef smtp_client_transaction_create_empty
 struct smtp_client_transaction *
-smtp_client_transaction_create(struct smtp_client_connection *conn,
-	const struct smtp_address *mail_from,
-	const struct smtp_params_mail *mail_params,
+smtp_client_transaction_create_empty(struct smtp_client_connection *conn,
 	unsigned int flags ATTR_UNUSED,
 	smtp_client_transaction_callback_t *callback, void *context)
 {
@@ -226,13 +224,27 @@ smtp_client_transaction_create(struct smtp_client_connection *conn,
 	trans->callback = callback;
 	trans->context = context;
 
-	(void)smtp_client_transaction_mail_new(trans, mail_from, mail_params);
-
 	trans->conn = conn;
 	smtp_client_connection_ref(conn);
 
 	smtp_client_transaction_debug(trans, "Created");
 
+	return trans;
+}
+
+#undef smtp_client_transaction_create
+struct smtp_client_transaction *
+smtp_client_transaction_create(struct smtp_client_connection *conn,
+	const struct smtp_address *mail_from,
+	const struct smtp_params_mail *mail_params,
+	unsigned int flags ATTR_UNUSED,
+	smtp_client_transaction_callback_t *callback, void *context)
+{
+	struct smtp_client_transaction *trans;
+
+	trans = smtp_client_transaction_create_empty(conn, flags,
+						     callback, context);
+	(void)smtp_client_transaction_mail_new(trans, mail_from, mail_params);
 	return trans;
 }
 
@@ -656,6 +668,20 @@ void smtp_client_transaction_start(
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_PENDING;
 
 	smtp_client_connection_add_transaction(conn, trans);
+}
+
+#undef smtp_client_transaction_start_empty
+void smtp_client_transaction_start_empty(
+	struct smtp_client_transaction *trans,
+	const struct smtp_address *mail_from,
+	const struct smtp_params_mail *mail_params,
+	smtp_client_command_callback_t *mail_callback, void *context)
+{
+	i_assert(trans->mail_head == NULL);
+
+	(void)smtp_client_transaction_mail_new(trans, mail_from, mail_params);
+	
+	smtp_client_transaction_start(trans, mail_callback, context);
 }
 
 static void
