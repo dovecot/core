@@ -4,7 +4,10 @@
 #include "array.h"
 #include "hash.h"
 #include "istream.h"
+#include "iso8601-date.h"
 #include "mail-storage.h"
+
+#include <time.h>
 
 #include "push-notification-drivers.h"
 #include "push-notification-events.h"
@@ -29,6 +32,13 @@ static void push_notification_event_messageappend_debug_msg
 (struct push_notification_txn_event *event)
 {
     struct push_notification_event_messageappend_data *data = event->data;
+    struct tm *tm;
+
+    if (data->date != -1) {
+        tm = gmtime(&data->date);
+        i_debug("%s: Date [%s]", EVENT_NAME,
+                iso8601_date_create_tm(tm, data->date_tz));
+    }
 
     if (data->from != NULL) {
         i_debug("%s: From [%s]", EVENT_NAME, data->from);
@@ -57,6 +67,8 @@ push_notification_event_messageappend_event(struct push_notification_txn *ptxn,
         (struct push_notification_event_messageappend_config *)ec->config;
     struct push_notification_event_messageappend_data *data;
     const char *value;
+    time_t date;
+    int tz;
 
     if (config->flags == 0) {
         return;
@@ -66,6 +78,7 @@ push_notification_event_messageappend_event(struct push_notification_txn *ptxn,
     if (data == NULL) {
         data = p_new(ptxn->pool,
                      struct push_notification_event_messageappend_data, 1);
+        data->date = -1;
         push_notification_txn_msg_set_eventdata(ptxn, msg, ec, data);
     }
 
@@ -93,6 +106,13 @@ push_notification_event_messageappend_event(struct push_notification_txn *ptxn,
         /* [0] contains the snippet algorithm, skip over it */
         i_assert(value[0] != '\0');
         data->snippet = p_strdup(ptxn->pool, value + 1);
+    }
+
+    if ((data->date == -1) &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_DATE) != 0 &&
+        (mail_get_date(mail, &date, &tz) >= 0)) {
+        data->date = date;
+        data->date_tz = tz;
     }
 }
 
