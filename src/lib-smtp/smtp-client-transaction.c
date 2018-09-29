@@ -216,8 +216,10 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 	struct smtp_client_transaction_rcpt **rcpts;
 	unsigned int i, count;
 
-	if (trans->failing)
+	if (trans->failing) {
+		smtp_client_transaction_debug(trans, "Abort (already failing)");
 		return;
+	}
 
 	smtp_client_transaction_debug(trans, "Abort");
 
