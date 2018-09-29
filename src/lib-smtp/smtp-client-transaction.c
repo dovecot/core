@@ -331,6 +331,8 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 	trans->cmd_last = NULL;
 
 	timeout_remove(&trans->to_send);
+
+	/* MAIL */
 	if (trans->cmd_mail_from != NULL) {
 		smtp_client_command_abort(&trans->cmd_mail_from);
 		if (trans->mail_from_callback != NULL) {
@@ -344,6 +346,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		}
 	}
 
+	/* RCPT */
 	rcpts = array_get_modifiable(&trans->rcpts_pending, &count);
 	for (i = 0; i < count; i++) {
 		struct smtp_client_command *cmd = rcpts[i]->cmd_rcpt_to;
@@ -365,6 +368,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		}
 	}
 
+	/* DATA */
 	if (!trans->data_provided) {
 		/* smtp_client_transaction_send() was not called yet
 		 */
@@ -388,6 +392,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		trans->data_callback = NULL;
 	}
 
+	/* plug */
 	if (trans->failure == NULL)
 		trans->failure = smtp_reply_clone(trans->pool, reply);
 	if (trans->cmd_plug != NULL &&
