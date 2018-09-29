@@ -331,19 +331,16 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 		struct smtp_client_transaction_rcpt *rcpt =
 			trans->rcpts_queue_head;
 
-		if (rcpt->cmd_rcpt_to != NULL &&
-			conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED)
+		if (rcpt->cmd_rcpt_to != NULL)
 			smtp_client_command_abort(&rcpt->cmd_rcpt_to);
 		smtp_client_transaction_rcpt_free(&rcpt);
 	}
-	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED) {
-		if (trans->cmd_data != NULL)
-			smtp_client_command_abort(&trans->cmd_data);
-		if (trans->cmd_rset != NULL)
-			smtp_client_command_abort(&trans->cmd_rset);
-		if (trans->cmd_plug != NULL)
-			smtp_client_command_abort(&trans->cmd_plug);
-	}
+	if (trans->cmd_data != NULL)
+		smtp_client_command_abort(&trans->cmd_data);
+	if (trans->cmd_rset != NULL)
+		smtp_client_command_abort(&trans->cmd_rset);
+	if (trans->cmd_plug != NULL)
+		smtp_client_command_abort(&trans->cmd_plug);
 	trans->cmd_data = NULL;
 	trans->cmd_rset = NULL;
 	trans->cmd_plug = NULL;
@@ -431,7 +428,6 @@ void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 	const struct smtp_reply *reply)
 {
-	struct smtp_client_connection *conn = trans->conn;
 	struct smtp_client_transaction_rcpt *rcpt, *rcpt_next;
 
 	if (reply == NULL)
@@ -520,8 +516,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 	/* plug */
 	if (trans->failure == NULL)
 		trans->failure = smtp_reply_clone(trans->pool, reply);
-	if (trans->cmd_plug != NULL &&
-		conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED)
+	if (trans->cmd_plug != NULL)
 		smtp_client_command_abort(&trans->cmd_plug);
 	trans->cmd_plug = NULL;
 
