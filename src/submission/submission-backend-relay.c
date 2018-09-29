@@ -7,6 +7,7 @@
 #include "iostream-ssl.h"
 #include "smtp-client.h"
 #include "smtp-client-connection.h"
+#include "smtp-client-transaction.h"
 #include "smtp-client-command.h"
 
 #include "submission-backend-relay.h"
@@ -15,8 +16,10 @@ struct submission_backend_relay {
 	struct submission_backend backend;
 
 	struct smtp_client_connection *conn;
+	struct smtp_client_transaction *trans;
 
 	bool xclient_sent:1;
+	bool trans_started:1;
 	bool trusted:1;
 };
 
@@ -85,6 +88,58 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 			SMTP_REPLY_ENH_CODE(reply->status / 100, 0, 0);
 	}
 	return TRUE;
+}
+
+/*
+ * Mail transaction
+ */
+
+static void
+backend_relay_trans_finished(struct submission_backend_relay *backend)
+{
+	backend->trans = NULL;
+}
+
+static void
+backend_relay_trans_start_callback(
+	const struct smtp_reply *relay_reply ATTR_UNUSED,
+	struct submission_backend_relay *backend ATTR_UNUSED)
+{
+	/* nothing to do */
+}
+
+static void
+backend_relay_trans_start(struct submission_backend *_backend,
+			  struct smtp_server_transaction *trans)
+{
+	struct submission_backend_relay *backend =
+		(struct submission_backend_relay *)_backend;
+
+	if (backend->trans == NULL) {
+		backend->trans = smtp_client_transaction_create(
+			backend->conn, trans->mail_from, &trans->params,
+			backend_relay_trans_finished, backend);
+		smtp_client_transaction_start(
+			backend->trans, backend_relay_trans_start_callback,
+			backend);
+	} else if (!backend->trans_started) {
+		smtp_client_transaction_start_empty(
+			backend->trans, trans->mail_from, &trans->params,
+			backend_relay_trans_start_callback, backend);
+	}
+}
+
+static void
+backend_relay_trans_free(struct submission_backend *_backend,
+			 struct smtp_server_transaction *trans ATTR_UNUSED)
+{
+	struct submission_backend_relay *backend =
+		(struct submission_backend_relay *)_backend;
+
+	if (backend->trans == NULL)
+		return;
+
+	smtp_client_transaction_destroy(&backend->trans);
 }
 
 /*
@@ -203,7 +258,7 @@ struct relay_cmd_mail_context {
 	struct smtp_server_cmd_ctx *cmd;
 	struct smtp_server_cmd_mail *data;
 
-	struct smtp_client_command *cmd_relayed;
+	struct smtp_client_transaction_mail *relay_mail;
 };
 
 static void
@@ -229,12 +284,13 @@ relay_cmd_mail_update_xclient(struct submission_backend_relay *backend)
 	backend->xclient_sent = TRUE;
 }
 
+
 static void
 relay_cmd_mail_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		       struct relay_cmd_mail_context *mail_cmd)
 {
-	if (mail_cmd->cmd_relayed != NULL)
-		smtp_client_command_abort(&mail_cmd->cmd_relayed);
+	if (mail_cmd->relay_mail != NULL)
+		smtp_client_transaction_mail_abort(&mail_cmd->relay_mail);
 }
 
 static void
@@ -247,7 +303,7 @@ relay_cmd_mail_callback(const struct smtp_reply *relay_reply,
 
 	/* finished relaying MAIL command to relay server */
 	i_assert(mail_cmd != NULL);
-	mail_cmd->cmd_relayed = NULL;
+	mail_cmd->relay_mail = NULL;
 
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
@@ -344,9 +400,22 @@ backend_relay_cmd_mail(struct submission_backend *_backend,
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED,
 				     relay_cmd_mail_replied, mail_cmd);
 
-	mail_cmd->cmd_relayed = smtp_client_command_mail_submit(
-		backend->conn, 0, data->path, &data->params,
-		relay_cmd_mail_callback, mail_cmd);
+	if (backend->trans == NULL) {
+		/* start client transaction */
+		backend->trans = smtp_client_transaction_create(
+			backend->conn, data->path, &data->params,
+			backend_relay_trans_finished, backend);
+		smtp_client_transaction_set_immediate(backend->trans, TRUE);
+		smtp_client_transaction_start(backend->trans,
+					      relay_cmd_mail_callback, mail_cmd);
+		backend->trans_started = TRUE;
+	} else {
+		/* forward pipelined MAIL command */
+		i_assert(backend->trans_started);
+		mail_cmd->relay_mail = smtp_client_transaction_add_mail(
+			backend->trans, data->path, &data->params,
+			relay_cmd_mail_callback, mail_cmd);
+	}
 	return 0;
 }
 
@@ -360,15 +429,23 @@ struct relay_cmd_rcpt_context {
 	struct smtp_server_cmd_ctx *cmd;
 	struct smtp_server_cmd_rcpt *data;
 
-	struct smtp_client_command *cmd_relayed;
+	struct smtp_client_transaction_rcpt *relay_rcpt;
 };
 
 static void
 relay_cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		       struct relay_cmd_rcpt_context *rcpt_cmd)
 {
-	if (rcpt_cmd->cmd_relayed != NULL)
-		smtp_client_command_abort(&rcpt_cmd->cmd_relayed);
+	if (rcpt_cmd->relay_rcpt != NULL)
+		smtp_client_transaction_rcpt_abort(&rcpt_cmd->relay_rcpt);
+}
+
+static void
+relay_cmd_rcpt_data_callback(
+	const struct smtp_reply *relay_reply ATTR_UNUSED,
+	struct relay_cmd_rcpt_context *rcpt_cmd ATTR_UNUSED)
+{
+	/* nothing to do here for normal submission */
 }
 
 static void
@@ -381,7 +458,7 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 
 	/* finished relaying MAIL command to relay server */
 	i_assert(rcpt_cmd != NULL);
-	rcpt_cmd->cmd_relayed = NULL;
+	rcpt_cmd->relay_rcpt = NULL;
 
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
@@ -414,9 +491,14 @@ backend_relay_cmd_rcpt(struct submission_backend *_backend,
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED,
 				     relay_cmd_rcpt_replied, rcpt_cmd);
 
-	rcpt_cmd->cmd_relayed = smtp_client_command_rcpt_submit(
-		backend->conn, 0, data->path, &data->params,
-		relay_cmd_rcpt_callback, rcpt_cmd);
+	if (backend->trans == NULL) {
+		backend->trans = smtp_client_transaction_create_empty(
+			backend->conn, backend_relay_trans_finished, backend);
+	}
+	rcpt_cmd->relay_rcpt = smtp_client_transaction_add_rcpt(
+		backend->trans, data->path,  &data->params,
+		relay_cmd_rcpt_callback, relay_cmd_rcpt_data_callback,
+		rcpt_cmd);
 	return 0;
 }
 
@@ -463,8 +545,16 @@ backend_relay_cmd_rset(struct submission_backend *_backend,
 	rset_cmd->backend = backend;
 	rset_cmd->cmd = cmd;
 
-	rset_cmd->cmd_relayed = smtp_client_command_rset_submit(
-		backend->conn, 0, relay_cmd_rset_callback, rset_cmd);
+	if (backend->trans != NULL) {
+		/* RSET pipelined after MAIL */
+		smtp_client_transaction_reset(backend->trans,
+					      relay_cmd_rset_callback,
+					      rset_cmd);
+	} else {
+		/* RSET alone */
+		rset_cmd->cmd_relayed = smtp_client_command_rset_submit(
+			backend->conn, 0, relay_cmd_rset_callback, rset_cmd);
+	}
 	return 0;
 }
 
@@ -477,8 +567,6 @@ struct relay_cmd_data_context {
 
 	struct smtp_server_cmd_ctx *cmd;
 	struct smtp_server_transaction *trans;
-
-	struct smtp_client_command *cmd_relayed;
 };
 
 static void
@@ -534,9 +622,9 @@ backend_relay_cmd_data(struct submission_backend *_backend,
 	data_ctx->trans = trans;
 	trans->context = (void*)data_ctx;
 
-	data_ctx->cmd_relayed = smtp_client_command_data_submit(
-		backend->conn, 0, data_input, relay_cmd_data_callback,
-		data_ctx);
+	i_assert(backend->trans != NULL);
+	smtp_client_transaction_send(backend->trans, data_input,
+				     relay_cmd_data_callback, data_ctx);
 	return 0;
 }
 
@@ -816,6 +904,8 @@ static void backend_relay_destroy(struct submission_backend *_backend)
 	struct submission_backend_relay *backend =
 		(struct submission_backend_relay *)_backend;
 
+	if (backend->trans != NULL)
+		smtp_client_transaction_destroy(&backend->trans);
 	if (backend->conn != NULL)
 		smtp_client_connection_close(&backend->conn);
 	i_free(backend);
@@ -889,6 +979,9 @@ static struct submission_backend_vfuncs backend_relay_vfuncs = {
 	.client_input_post = backend_relay_client_input_post,
 
 	.get_max_mail_size = backend_relay_get_max_mail_size,
+
+	.trans_start = backend_relay_trans_start,
+	.trans_free = backend_relay_trans_free,
 
 	.cmd_helo = backend_relay_cmd_helo,
 
