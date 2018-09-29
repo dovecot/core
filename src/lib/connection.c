@@ -229,7 +229,8 @@ void connection_init(struct connection_list *list,
 	conn->ioloop = current_ioloop;
 	conn->fd_in = -1;
 	conn->fd_out = -1;
-	conn->name = NULL;
+
+	i_free(conn->name);
 
 	if (conn->event == NULL)
 		conn->event = event_create(conn->event_parent);
