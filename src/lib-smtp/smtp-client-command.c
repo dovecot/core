@@ -522,7 +522,7 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 	i_unreached();
 }
 
-int smtp_client_command_send_more(struct smtp_client_connection *conn)
+static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 {
 	struct smtp_client_command *cmd;
 	const char *data;
@@ -619,6 +619,17 @@ int smtp_client_command_send_more(struct smtp_client_connection *conn)
 		smtp_client_command_sent(cmd);
 	}
 	return 0;
+}
+
+int smtp_client_command_send_more(struct smtp_client_connection *conn)
+{
+	int ret;
+
+	if ((ret=smtp_client_command_do_send_more(conn)) < 0)
+		return -1;
+
+	smtp_client_connection_update_cmd_timeout(conn);
+	return ret;
 }
 
 static void

@@ -228,7 +228,7 @@ void smtp_client_connection_start_cmd_timeout(
 {
 	unsigned int msecs = conn->set.command_timeout_msecs;
 
-	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_READY) {
+	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* pre-login uses connect timeout */
 		return;
 	}
@@ -237,8 +237,7 @@ void smtp_client_connection_start_cmd_timeout(
 		timeout_remove(&conn->to_commands);
 		return;
 	}
-	if (conn->cmd_wait_list_head == NULL &&
-		conn->cmd_send_queue_head == NULL) {
+	if (conn->cmd_wait_list_head == NULL && !conn->sending_command) {
 		/* no commands pending */
 		timeout_remove(&conn->to_commands);
 		return;
@@ -256,7 +255,7 @@ void smtp_client_connection_update_cmd_timeout(
 {
 	unsigned int msecs = conn->set.command_timeout_msecs;
 
-	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_READY) {
+	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* pre-login uses connect timeout */
 		return;
 	}
@@ -266,8 +265,7 @@ void smtp_client_connection_update_cmd_timeout(
 		return;
 	}
 
-	if (conn->cmd_wait_list_head == NULL &&
-		conn->cmd_send_queue_head == NULL) {
+	if (conn->cmd_wait_list_head == NULL && !conn->sending_command) {
 		if (conn->to_commands != NULL) {
 			smtp_client_connection_debug(conn,
 				"No commands pending; stop timeout");
