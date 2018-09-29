@@ -275,6 +275,12 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		smtp_client_connection_trigger_output(conn);
 }
 
+void smtp_client_command_drop_callback(struct smtp_client_command *cmd)
+{
+	cmd->callback = NULL;
+	cmd->context = NULL;
+}
+
 void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 				    const struct smtp_reply *reply)
 {
