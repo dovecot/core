@@ -6,6 +6,7 @@
 
 struct smtp_address;
 struct smtp_client_transaction;
+struct smtp_client_transaction_mail;
 
 enum smtp_client_transaction_state {
 	SMTP_CLIENT_TRANSACTION_STATE_NEW = 0,
@@ -106,13 +107,15 @@ void smtp_client_transaction_start_empty(
    than a single MAIL command (e.g. to have an implicit fallback sender address
    in the pipeline when the first one fails). Of course, only one MAIL command
    will succeed and therefore error replies for the others will not abort the
-   transaction. */
-void smtp_client_transaction_add_mail(
-	struct smtp_client_transaction *trans,
-	const struct smtp_address *mail_from,
-	const struct smtp_params_mail *mail_params,
-	smtp_client_command_callback_t *mail_callback, void *context)
-	ATTR_NULL(3,5);
+   transaction. This function returns struct that can be used to abort the
+   MAIL command prematurely (see below). */
+struct smtp_client_transaction_mail *
+smtp_client_transaction_add_mail(struct smtp_client_transaction *trans,
+				 const struct smtp_address *mail_from,
+				 const struct smtp_params_mail *mail_params,
+				 smtp_client_command_callback_t *mail_callback,
+				 void *context)
+	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(3,5);
 #define smtp_client_transaction_add_mail(trans, \
 		mail_from, mail_params, mail_callback, context) \
 	smtp_client_transaction_add_mail(trans, mail_from + \
@@ -120,6 +123,10 @@ void smtp_client_transaction_add_mail(
 			const struct smtp_reply *reply, typeof(context))), \
 		mail_params, \
 		(smtp_client_command_callback_t *)mail_callback, context)
+/* Abort the MAIL command prematurely. This function must not be called after
+   the mail_callback from smtp_client_transaction_add_mail() is called. */
+void smtp_client_transaction_mail_abort(
+	struct smtp_client_transaction_mail **_mail);
 
 /* Add recipient to the transaction with a RCPT TO command. The
    rcpt_to_callback is called once the server replies to the RCPT TO command.
