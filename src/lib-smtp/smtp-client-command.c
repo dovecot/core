@@ -211,6 +211,8 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 
 	*_cmd = NULL;
 
+	smtp_client_command_drop_callback(cmd);
+
 	if ((!disconnected && !cmd->plug && cmd->aborting) ||
 		state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
@@ -223,7 +225,6 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		i_assert(state < SMTP_CLIENT_COMMAND_STATE_FINISHED);
 		cmd->aborting = TRUE;
 	}
-	cmd->callback = NULL;
 	cmd->locked = FALSE;
 
 	i_assert(!cmd->plug || state <= SMTP_CLIENT_COMMAND_STATE_SUBMITTED);
@@ -826,6 +827,7 @@ smtp_client_command_input_reply(struct smtp_client_command *cmd,
 		cmd->callback(reply, cmd->context);
 
 	if (finished) {
+		smtp_client_command_drop_callback(cmd);
 		smtp_client_command_unref(&cmd);
 		smtp_client_connection_trigger_output(conn);
 	}
