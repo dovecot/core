@@ -299,6 +299,8 @@ void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 
 	if (trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED) {
 		struct smtp_client_transaction *trans_tmp = trans;
+
+		trans->state = SMTP_CLIENT_TRANSACTION_STATE_ABORTED;
 		smtp_client_transaction_unref(&trans_tmp);
 	}
 
