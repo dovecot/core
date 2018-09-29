@@ -82,6 +82,18 @@ smtp_client_transaction_mail_free(struct smtp_client_transaction_mail **_mail)
 	pool_unref(&mail->pool);
 }
 
+void smtp_client_transaction_mail_abort(
+	struct smtp_client_transaction_mail **_mail)
+{
+	struct smtp_client_transaction_mail *mail = *_mail;
+	struct smtp_client_transaction *trans = mail->trans;
+
+	i_assert(trans->state <= SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM ||
+		 trans->state == SMTP_CLIENT_TRANSACTION_STATE_ABORTED);
+
+	smtp_client_transaction_mail_free(_mail);
+}
+
 /*
  * Recipient
  */
@@ -608,11 +620,12 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 }
 
 #undef smtp_client_transaction_add_mail
-void smtp_client_transaction_add_mail(
-	struct smtp_client_transaction *trans,
-	const struct smtp_address *mail_from,
-	const struct smtp_params_mail *mail_params,
-	smtp_client_command_callback_t *mail_callback, void *context)
+struct smtp_client_transaction_mail *
+smtp_client_transaction_add_mail(struct smtp_client_transaction *trans,
+				 const struct smtp_address *mail_from,
+				 const struct smtp_params_mail *mail_params,
+				 smtp_client_command_callback_t *mail_callback,
+				 void *context)
 {
 	struct smtp_client_transaction_mail *mail;
 
@@ -628,6 +641,8 @@ void smtp_client_transaction_add_mail(
 	mail->context = context;
 
 	smtp_client_transaction_submit(trans, FALSE);
+
+	return mail;
 }
 
 static void smtp_client_transaction_connection_ready(
