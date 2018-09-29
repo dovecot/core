@@ -195,6 +195,20 @@ smtp_client_transaction_rcpt_denied(
 	smtp_client_transaction_rcpt_free(&prcpt);
 }
 
+void smtp_client_transaction_rcpt_abort(
+	struct smtp_client_transaction_rcpt **_rcpt)
+{
+	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
+	struct smtp_client_transaction *trans = rcpt->trans;
+
+	i_assert(rcpt->queued);
+
+	i_assert(trans->state <= SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO ||
+		 trans->state == SMTP_CLIENT_TRANSACTION_STATE_ABORTED);
+
+	smtp_client_transaction_rcpt_free(_rcpt);
+}
+
 /*
  * Transaction
  */
@@ -733,12 +747,13 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 }
 
 #undef smtp_client_transaction_add_rcpt
-void smtp_client_transaction_add_rcpt(
-	struct smtp_client_transaction *trans,
-	const struct smtp_address *rcpt_to,
-	const struct smtp_params_rcpt *rcpt_params,
-	smtp_client_command_callback_t *rcpt_callback,
-	smtp_client_command_callback_t *data_callback, void *context)
+struct smtp_client_transaction_rcpt *
+smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
+				 const struct smtp_address *rcpt_to,
+				 const struct smtp_params_rcpt *rcpt_params,
+				 smtp_client_command_callback_t *rcpt_callback,
+				 smtp_client_command_callback_t *data_callback,
+				 void *context)
 {
 	struct smtp_client_transaction_rcpt *rcpt;
 
@@ -759,6 +774,8 @@ void smtp_client_transaction_add_rcpt(
 	rcpt->context = context;
 
 	smtp_client_transaction_submit(trans, FALSE);
+
+	return rcpt;
 }
 
 static void
