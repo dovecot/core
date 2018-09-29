@@ -667,7 +667,8 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 	smtp_client_transaction_ref(trans);
 
 	rcpt = array_get_modifiable(&trans->rcpts, &count);
-	if (trans->cmd_data != NULL && /* NULL when failed early */
+	if (conn->protocol == SMTP_PROTOCOL_LMTP &&
+	    trans->cmd_data != NULL && /* NULL when failed early */
 	    trans->rcpt_next_data_idx == 0 && count > 0)
 		smtp_client_command_set_replies(trans->cmd_data, count);
 	for (i = trans->rcpt_next_data_idx; i < count; i++) {
@@ -698,6 +699,7 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 static void
 smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 {
+	struct smtp_client_connection *conn = trans->conn;
 	bool finished = FALSE;
 
 	i_assert(trans->data_input != NULL);
@@ -724,8 +726,11 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 
 		if (array_count(&trans->rcpts_pending) == 0) {
 			trans->state = SMTP_CLIENT_TRANSACTION_STATE_DATA;
-			smtp_client_command_set_replies(trans->cmd_data,
-			array_count(&trans->rcpts));
+			if (conn->protocol == SMTP_PROTOCOL_LMTP) {
+				smtp_client_command_set_replies(
+					trans->cmd_data,
+					array_count(&trans->rcpts));
+			}
 		}
 
 		/* Submitted our last command; the next transaction can submit
