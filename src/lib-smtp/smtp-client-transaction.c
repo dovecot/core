@@ -202,6 +202,7 @@ smtp_client_transaction_finish(struct smtp_client_transaction *trans)
 	i_assert(trans->to_send == NULL);
 
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_FINISHED;
+	i_assert(trans->callback != NULL);
 	trans->callback(trans->context);
 
 	if (!trans->submitted_data)
@@ -257,6 +258,7 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 		smtp_client_transaction_debug(trans, "Aborted");
 
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_ABORTED;
+		i_assert(trans->callback != NULL);
 		trans->callback(trans->context);
 
 		smtp_client_transaction_unref(&trans);
@@ -293,11 +295,28 @@ void smtp_client_transaction_unref(struct smtp_client_transaction **_trans)
 void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 {
 	struct smtp_client_transaction *trans = *_trans;
+	struct smtp_client_transaction_rcpt **rcpts;
+	unsigned int count, i;
 
 	*_trans = NULL;
 
 	smtp_client_transaction_ref(trans);
 	smtp_client_transaction_abort(trans);
+
+	/* Make sure this transaction doesn't produce any more callbacks.
+	   We cannot fully abort (destroy) these commands, as this may be
+	   called from a callback. */
+	if (trans->cmd_mail_from != NULL)
+		smtp_client_command_drop_callback(trans->cmd_mail_from);
+	rcpts = array_get_modifiable(&trans->rcpts_pending, &count);
+	for (i = 0; i < count; i++) {
+		if (rcpts[i]->cmd_rcpt_to != NULL)
+			smtp_client_command_drop_callback(rcpts[i]->cmd_rcpt_to);
+	}
+	if (trans->cmd_data != NULL)
+		smtp_client_command_drop_callback(trans->cmd_data);
+	if (trans->cmd_plug != NULL)
+		smtp_client_command_abort(&trans->cmd_plug);
 
 	if (trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED) {
 		struct smtp_client_transaction *trans_tmp = trans;
