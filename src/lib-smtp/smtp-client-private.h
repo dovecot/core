@@ -196,6 +196,8 @@ int smtp_client_command_send_more(struct smtp_client_connection *conn);
 int smtp_client_command_input_reply(struct smtp_client_command *cmd,
 				    const struct smtp_reply *reply);
 
+void smtp_client_command_drop_callback(struct smtp_client_command *cmd);
+
 void smtp_client_command_fail(struct smtp_client_command **_cmd,
 			      unsigned int status, const char *error);
 void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
