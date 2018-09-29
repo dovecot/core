@@ -198,6 +198,7 @@ struct smtp_client_connection {
 	bool sent_quit:1;
 	bool sending_command:1;
 	bool reset_needed:1;
+	bool failing:1;
 	bool destroying:1;
 	bool closed:1;
 };

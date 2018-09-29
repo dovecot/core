@@ -290,10 +290,10 @@ smtp_client_connection_fail_reply(struct smtp_client_connection *conn,
 		"Connection failed: %s", smtp_reply_log(reply));
 
 	smtp_client_connection_ref(conn);
+	conn->failing = TRUE;
 
-	smtp_client_connection_login_callback(conn, reply);
-	smtp_client_connection_commands_fail_reply(conn, reply);
 	smtp_client_connection_disconnect(conn);
+	smtp_client_connection_login_callback(conn, reply);
 
 	trans = conn->transactions_head;
 	while (trans != NULL) {
@@ -302,6 +302,9 @@ smtp_client_connection_fail_reply(struct smtp_client_connection *conn,
 		trans = trans_next;
 	}
 
+	smtp_client_connection_commands_fail_reply(conn, reply);
+
+	conn->failing = FALSE;
 	smtp_client_connection_unref(&conn);
 }
 
@@ -1706,12 +1709,15 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 
 	smtp_client_connection_set_state(conn,
 		SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED);
-	smtp_client_connection_login_fail(conn,
-		SMTP_CLIENT_COMMAND_ERROR_ABORTED,
-		"Disconnected from server");
-	smtp_client_connection_commands_fail(conn,
-		SMTP_CLIENT_COMMAND_ERROR_ABORTED,
-		"Disconnected from server");
+
+	if (!conn->failing) {
+		smtp_client_connection_login_fail(conn,
+			SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+			"Disconnected from server");
+		smtp_client_connection_commands_fail(conn,
+			SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+			"Disconnected from server");
+	}
 }
 
 struct smtp_client_connection *
@@ -1862,6 +1868,13 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 
 	if (conn->reply_parser != NULL)
 		smtp_reply_parser_deinit(&conn->reply_parser);
+
+	smtp_client_connection_login_fail(conn,
+		SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+		"Connection destroy");
+	smtp_client_connection_commands_fail(conn,
+		SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+		"Connection destroy");
 
 	connection_deinit(&conn->conn);
 
