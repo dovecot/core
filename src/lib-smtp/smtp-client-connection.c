@@ -1737,7 +1737,7 @@ smtp_client_connection_create(struct smtp_client *client,
 	conn->host = p_strdup(conn->pool, host);
 	conn->port = port;
 	conn->ssl_mode = ssl_mode;
-	conn->conn.name = p_strdup_printf(conn->pool, "%s:%u", host, port);
+	conn->conn.name = i_strdup_printf("%s:%u", host, port);
 
 	conn->set = client->set;
 	if (set != NULL) {
