@@ -7,6 +7,7 @@
 struct smtp_address;
 struct smtp_client_transaction;
 struct smtp_client_transaction_mail;
+struct smtp_client_transaction_rcpt;
 
 enum smtp_client_transaction_state {
 	SMTP_CLIENT_TRANSACTION_STATE_NEW = 0,
@@ -135,13 +136,14 @@ void smtp_client_transaction_mail_abort(
    smtp_client_transaction_send() is called for the transaction (see
    below). Until that time, any failure is remembered.
  */
-void smtp_client_transaction_add_rcpt(
-	struct smtp_client_transaction *trans,
-	const struct smtp_address *rcpt_to,
-	const struct smtp_params_rcpt *rcpt_params,
-	smtp_client_command_callback_t *rcpt_callback,
-	smtp_client_command_callback_t *data_callback, void *context)
-	ATTR_NULL(3,5,6);
+struct smtp_client_transaction_rcpt *
+smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
+				 const struct smtp_address *rcpt_to,
+				 const struct smtp_params_rcpt *rcpt_params,
+				 smtp_client_command_callback_t *rcpt_callback,
+				 smtp_client_command_callback_t *data_callback,
+				 void *context)
+	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(3,5,6);
 #define smtp_client_transaction_add_rcpt(trans, \
 		rcpt_to, rcpt_params, rcpt_callback, data_callback, context) \
 	smtp_client_transaction_add_rcpt(trans, rcpt_to + \
@@ -152,6 +154,10 @@ void smtp_client_transaction_add_rcpt(
 		rcpt_params, \
 		(smtp_client_command_callback_t *)rcpt_callback, \
 		(smtp_client_command_callback_t *)data_callback, context)
+/* Abort the RCPT command prematurely. This function must not be called after
+   the rcpt_callback from smtp_client_transaction_add_rcpt() is called. */
+void smtp_client_transaction_rcpt_abort(
+	struct smtp_client_transaction_rcpt **_rcpt);
 
 /* Start sending input stream as DATA. This completes the transaction, which
    means that any pending failures that got recorded before this function was
