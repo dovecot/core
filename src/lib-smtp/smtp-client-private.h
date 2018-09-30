@@ -55,6 +55,8 @@ struct smtp_client_transaction_rcpt {
 	pool_t pool;
 	struct smtp_client_transaction *trans;
 
+	struct smtp_client_transaction_rcpt *prev, *next;
+
 	struct smtp_address *rcpt_to;
 	struct smtp_params_rcpt rcpt_params;
 
@@ -64,6 +66,7 @@ struct smtp_client_transaction_rcpt {
 
 	struct smtp_client_command *cmd_rcpt_to;
 
+	bool queued:1;
 	bool failed:1;
 };
 
@@ -85,9 +88,12 @@ struct smtp_client_transaction {
 	smtp_client_command_callback_t *mail_from_callback;
 	void *mail_from_context;
 
-	ARRAY(struct smtp_client_transaction_rcpt *) rcpts, rcpts_pending;
-	unsigned int rcpts_next_send_idx;
-	unsigned int rcpt_next_data_idx;
+	struct smtp_client_transaction_rcpt *rcpts_queue_head, *rcpts_queue_tail;
+	struct smtp_client_transaction_rcpt *rcpts_send;
+	struct smtp_client_transaction_rcpt *rcpts_head, *rcpts_tail;
+	struct smtp_client_transaction_rcpt *rcpts_data;
+	unsigned int rcpts_queue_count;
+	unsigned int rcpts_count;
 
 	struct istream *data_input;
 	smtp_client_command_callback_t *data_callback;

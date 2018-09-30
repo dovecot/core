@@ -1,7 +1,7 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
+#include "llist.h"
 #include "ioloop.h"
 #include "net.h"
 #include "istream.h"
@@ -62,7 +62,12 @@ smtp_client_transaction_rcpt_new(
 	rcpt->rcpt_to = smtp_address_clone(pool, rcpt_to);
 	smtp_params_rcpt_copy(pool, &rcpt->rcpt_params, rcpt_params);
 
-	array_append(&trans->rcpts_pending, &rcpt, 1);
+	DLLIST2_APPEND(&trans->rcpts_queue_head, &trans->rcpts_queue_tail,
+		       rcpt);
+	trans->rcpts_queue_count++;
+	rcpt->queued = TRUE;
+	if (trans->rcpts_send == NULL)
+		trans->rcpts_send = rcpt;
 	return rcpt;
 }
 
@@ -71,36 +76,35 @@ smtp_client_transaction_rcpt_free(
 	struct smtp_client_transaction_rcpt **_rcpt)
 {
 	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
+	struct smtp_client_transaction *trans = rcpt->trans;
 
 	*_rcpt = NULL;
 
-	/* recipient failed */
-	i_assert(rcpt->pool != NULL);
-	pool_unref(&rcpt->pool);
-}
+	if (trans->rcpts_send == rcpt)
+		trans->rcpts_send = rcpt->next;
+	if (trans->rcpts_data == rcpt)
+		trans->rcpts_data = rcpt->next;
+	if (rcpt->queued) {
+		DLLIST2_REMOVE(&trans->rcpts_queue_head,
+			       &trans->rcpts_queue_tail, rcpt);
+		trans->rcpts_queue_count--;
+	} else {
+		DLLIST2_REMOVE(&trans->rcpts_head,
+			       &trans->rcpts_tail, rcpt);
+		trans->rcpts_count--;
+	}
 
-static void
-smtp_client_transaction_rcpt_drop_pending(
-	struct smtp_client_transaction_rcpt *prcpt)
-{
-	struct smtp_client_transaction *trans = prcpt->trans;
-	struct smtp_client_transaction_rcpt *const *rcpts;
-	unsigned int count;
-
-	rcpts = array_get(&trans->rcpts_pending, &count);
-	i_assert(count > 0);
-	i_assert(prcpt == rcpts[0]);
-	array_delete(&trans->rcpts_pending, 0, 1);
-
-	if (trans->rcpts_next_send_idx > 0)
-		trans->rcpts_next_send_idx--;
+	if (rcpt->queued) {
+		i_assert(rcpt->pool != NULL);
+		pool_unref(&rcpt->pool);
+	}
 }
 
 static void
 smtp_client_transaction_rcpt_approved(
-	struct smtp_client_transaction_rcpt **_prcpt)
+	struct smtp_client_transaction_rcpt **_rcpt)
 {
-	struct smtp_client_transaction_rcpt *prcpt = *_prcpt;
+	struct smtp_client_transaction_rcpt *prcpt = *_rcpt;
 	struct smtp_client_transaction *trans = prcpt->trans;
 	struct smtp_client_transaction_rcpt *rcpt;
 	pool_t pool;
@@ -115,25 +119,27 @@ smtp_client_transaction_rcpt_approved(
 	rcpt->context = prcpt->context;
 
 	/* recipient is approved */
-	array_append(&trans->rcpts, &rcpt, 1);
+	DLLIST2_APPEND(&trans->rcpts_head, &trans->rcpts_tail, rcpt);
+	trans->rcpts_count++;
+	if (trans->rcpts_data == NULL)
+		trans->rcpts_data = trans->rcpts_head;
+	rcpt->queued = FALSE;
 
 	/* not pending anymore */
-	smtp_client_transaction_rcpt_drop_pending(prcpt);
 	smtp_client_transaction_rcpt_free(&prcpt);
 
-	*_prcpt = rcpt;
+	*_rcpt = rcpt;
 }
 
 static void
 smtp_client_transaction_rcpt_denied(
-	struct smtp_client_transaction_rcpt **_prcpt)
+	struct smtp_client_transaction_rcpt **_rcpt)
 {
-	struct smtp_client_transaction_rcpt *prcpt = *_prcpt;
+	struct smtp_client_transaction_rcpt *prcpt = *_rcpt;
 
-	*_prcpt = NULL;
+	*_rcpt = NULL;
 
 	/* not pending anymore */
-	smtp_client_transaction_rcpt_drop_pending(prcpt);
 	smtp_client_transaction_rcpt_free(&prcpt);
 }
 
@@ -186,9 +192,6 @@ smtp_client_transaction_create(struct smtp_client_connection *conn,
 	trans->conn = conn;
 	smtp_client_connection_ref(conn);
 
-	p_array_init(&trans->rcpts_pending, pool, 16);
-	p_array_init(&trans->rcpts, pool, 16);
-
 	smtp_client_transaction_debug(trans, "Created");
 
 	return trans;
@@ -224,8 +227,6 @@ smtp_client_transaction_finish(struct smtp_client_transaction *trans)
 void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 {
 	struct smtp_client_connection *conn = trans->conn;
-	struct smtp_client_transaction_rcpt **rcpts;
-	unsigned int i, count;
 
 	if (trans->failing) {
 		smtp_client_transaction_debug(trans, "Abort (already failing)");
@@ -244,14 +245,15 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 	/* abort any pending commands */
 	if (trans->cmd_mail_from != NULL)
 		smtp_client_command_abort(&trans->cmd_mail_from);
-	rcpts = array_get_modifiable(&trans->rcpts_pending, &count);
-	for (i = 0; i < count; i++) {
-		if (rcpts[i]->cmd_rcpt_to != NULL &&
+	while (trans->rcpts_queue_count > 0) {
+		struct smtp_client_transaction_rcpt *rcpt =
+			trans->rcpts_queue_head;
+
+		if (rcpt->cmd_rcpt_to != NULL &&
 			conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED)
-			smtp_client_command_abort(&rcpts[i]->cmd_rcpt_to);
-		smtp_client_transaction_rcpt_free(&rcpts[i]);
+			smtp_client_command_abort(&rcpt->cmd_rcpt_to);
+		smtp_client_transaction_rcpt_free(&rcpt);
 	}
-	array_clear(&trans->rcpts_pending);
 	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED) {
 		if (trans->cmd_data != NULL)
 			smtp_client_command_abort(&trans->cmd_data);
@@ -308,8 +310,7 @@ void smtp_client_transaction_unref(struct smtp_client_transaction **_trans)
 void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 {
 	struct smtp_client_transaction *trans = *_trans;
-	struct smtp_client_transaction_rcpt **rcpts;
-	unsigned int count, i;
+	struct smtp_client_transaction_rcpt *rcpt;
 
 	*_trans = NULL;
 
@@ -321,10 +322,9 @@ void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 	   called from a callback. */
 	if (trans->cmd_mail_from != NULL)
 		smtp_client_command_drop_callback(trans->cmd_mail_from);
-	rcpts = array_get_modifiable(&trans->rcpts_pending, &count);
-	for (i = 0; i < count; i++) {
-		if (rcpts[i]->cmd_rcpt_to != NULL)
-			smtp_client_command_drop_callback(rcpts[i]->cmd_rcpt_to);
+	for (rcpt = trans->rcpts_queue_head; rcpt != NULL; rcpt = rcpt->next) {
+		if (rcpt->cmd_rcpt_to != NULL)
+			smtp_client_command_drop_callback(rcpt->cmd_rcpt_to);
 	}
 	if (trans->cmd_data != NULL)
 		smtp_client_command_drop_callback(trans->cmd_data);
@@ -347,8 +347,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 	const struct smtp_reply *reply)
 {
 	struct smtp_client_connection *conn = trans->conn;
-	struct smtp_client_transaction_rcpt **rcpts;
-	unsigned int i, count;
+	struct smtp_client_transaction_rcpt *rcpt, *rcpt_next;
 
 	if (reply == NULL)
 		reply = trans->failure;
@@ -381,25 +380,29 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 	}
 
 	/* RCPT */
-	rcpts = array_get_modifiable(&trans->rcpts_pending, &count);
-	for (i = 0; i < count; i++) {
-		struct smtp_client_command *cmd = rcpts[i]->cmd_rcpt_to;
+	rcpt = trans->rcpts_queue_head;
+	while (rcpt != NULL) {
+		struct smtp_client_command *cmd = rcpt->cmd_rcpt_to;
 
-		if (rcpts[i]->failed)
+		if (rcpt->failed) {
+			rcpt = rcpt->next;
 			continue;
+		}
+		rcpt_next = rcpt->next;
 
-		rcpts[i]->cmd_rcpt_to = NULL;
-		rcpts[i]->failed = TRUE;
+		rcpt->cmd_rcpt_to = NULL;
+		rcpt->failed = TRUE;
 
 		if (cmd != NULL) {
 			smtp_client_command_fail_reply(&cmd, reply);
 		} else {
-			if (rcpts[i]->rcpt_callback != NULL) {
-				rcpts[i]->rcpt_callback(reply,
-							rcpts[i]->context);
+			if (rcpt->rcpt_callback != NULL) {
+				rcpt->rcpt_callback(reply, rcpt->context);
 			}
-			rcpts[i]->rcpt_callback = NULL;
+			rcpt->rcpt_callback = NULL;
 		}
+
+		rcpt = rcpt_next;
 	}
 
 	/* DATA / RSET */
@@ -420,13 +423,12 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 
 		/* the DATA command was not sent yet; call all DATA callbacks
 		   for the recipients that were previously accepted. */
-		rcpts = array_get_modifiable(&trans->rcpts, &count);
-		for (i = trans->rcpt_next_data_idx; i < count; i++) {
-			if (rcpts[i]->data_callback != NULL) {
-				rcpts[i]->data_callback(reply,
-							rcpts[i]->context);
+		for (rcpt = trans->rcpts_data; rcpt != NULL;
+		     rcpt = rcpt->next) {
+			if (rcpt->data_callback != NULL) {
+				rcpt->data_callback(reply, rcpt->context);
 			}
-			rcpts[i]->data_callback = NULL;
+			rcpt->data_callback = NULL;
 		}
 		if (trans->data_callback != NULL)
 			trans->data_callback(reply, trans->data_context);
@@ -508,7 +510,7 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 	}
 	trans->cmd_mail_from = NULL;
 
-	if (array_count(&trans->rcpts_pending) > 0)
+	if (trans->rcpts_queue_count > 0)
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO;
 	else if (trans->reset)
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RESET;
@@ -638,27 +640,28 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 				struct smtp_client_transaction *trans)
 {
 	struct smtp_client_connection *conn = trans->conn;
-	struct smtp_client_transaction_rcpt *const *rcpt;
-	unsigned int i, count;
 
 	i_assert(!trans->reset);
 
 	smtp_client_transaction_ref(trans);
 
-	rcpt = array_get_modifiable(&trans->rcpts, &count);
 	if (conn->protocol == SMTP_PROTOCOL_LMTP &&
 	    trans->cmd_data != NULL && /* NULL when failed early */
-	    trans->rcpt_next_data_idx == 0 && count > 0)
-		smtp_client_command_set_replies(trans->cmd_data, count);
-	for (i = trans->rcpt_next_data_idx; i < count; i++) {
-		trans->rcpt_next_data_idx = i + 1;
-		if (rcpt[i]->data_callback != NULL)
-			rcpt[i]->data_callback(reply, rcpt[i]->context);
-		rcpt[i]->data_callback = NULL;
+	    trans->rcpts_data == NULL && trans->rcpts_count > 0) {
+		smtp_client_command_set_replies(trans->cmd_data,
+						trans->rcpts_count);
+	}
+	while (trans->rcpts_data != NULL) {
+		struct smtp_client_transaction_rcpt *rcpt = trans->rcpts_data;
+
+		trans->rcpts_data = trans->rcpts_data->next;
+		if (rcpt->data_callback != NULL)
+			rcpt->data_callback(reply, rcpt->context);
+		rcpt->data_callback = NULL;
 		if (conn->protocol == SMTP_PROTOCOL_LMTP)
 			break;
 	}
-	if (trans->rcpt_next_data_idx < count) {
+	if (trans->rcpts_data != NULL) {
 		smtp_client_transaction_unref(&trans);
 		return;
 	}
@@ -690,8 +693,7 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 	if (trans->failure != NULL) {
 		smtp_client_transaction_fail_reply(trans, trans->failure);
 		finished = TRUE;
-	} else if ((array_count(&trans->rcpts) +
-		array_count(&trans->rcpts_pending)) == 0) {
+	} else if ((trans->rcpts_count + trans->rcpts_queue_count) == 0) {
 		smtp_client_transaction_debug(trans, "No valid recipients");
 		finished = TRUE;
 	} else {
@@ -725,7 +727,7 @@ void smtp_client_transaction_send(
 	i_assert(!trans->data_provided);
 	i_assert(!trans->reset);
 
-	if (array_count(&trans->rcpts_pending) == 0)
+	if (trans->rcpts_queue_count == 0)
 		smtp_client_transaction_debug(trans, "Got all RCPT replies");
 
 	smtp_client_transaction_debug(trans, "Send");
@@ -817,9 +819,6 @@ void smtp_client_transaction_reset(
 static void
 smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 {
-	struct smtp_client_transaction_rcpt *const *rcpt;
-	unsigned int count;
-
 	timeout_remove(&trans->to_send);
 
 	/* Check whether we already failed */
@@ -845,24 +844,23 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 		return;
 
 	/* RCPT */
-	rcpt = array_get_modifiable(&trans->rcpts_pending, &count);
-	if (trans->rcpts_next_send_idx < count) {
-		unsigned int i;
-
+	if (trans->rcpts_send != NULL) {
 		smtp_client_transaction_debug(trans, "Sending recipients");
 
 		if (trans->cmd_last != NULL)
 			smtp_client_command_unlock(trans->cmd_last);
 
-		for (i = trans->rcpts_next_send_idx; i < count; i++) {
-			rcpt[i]->cmd_rcpt_to = trans->cmd_last =
+		while (trans->rcpts_send != NULL) {
+			struct smtp_client_transaction_rcpt *rcpt =
+				trans->rcpts_send;
+
+			trans->rcpts_send = trans->rcpts_send->next;
+			rcpt->cmd_rcpt_to = trans->cmd_last =
 				smtp_client_command_rcpt_submit_after(
 					trans->conn, 0,	trans->cmd_last,
-					rcpt[i]->rcpt_to, &rcpt[i]->rcpt_params,
-					smtp_client_transaction_rcpt_cb, rcpt[i]);
+					rcpt->rcpt_to, &rcpt->rcpt_params,
+					smtp_client_transaction_rcpt_cb, rcpt);
 		}
-		trans->rcpts_next_send_idx = i;
-
 		smtp_client_command_lock(trans->cmd_last);
 	}
 
@@ -900,13 +898,12 @@ smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 {
 	struct smtp_client_connection *conn = trans->conn;
 
-	if (array_count(&trans->rcpts_pending) > 0) {
+	if (trans->rcpts_queue_count > 0) {
 		/* Not all RCPT replies have come in yet */
 		smtp_client_transaction_debug(
 			trans, "RCPT replies are still pending (%u/%u)",
-			array_count(&trans->rcpts_pending),
-			(array_count(&trans->rcpts_pending) +
-			 array_count(&trans->rcpts)));
+			trans->rcpts_queue_count,
+			(trans->rcpts_queue_count + trans->rcpts_count));
 		return;
 	}
 	if (!trans->data_provided && !trans->reset) {
@@ -935,7 +932,7 @@ smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 		/* Entering data state */
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_DATA;
 
-		if (array_count(&trans->rcpts) == 0) {
+		if (trans->rcpts_count == 0) {
 			/* abort transaction if all recipients failed */
 			smtp_client_transaction_abort(trans);
 			return;
@@ -946,7 +943,7 @@ smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 
 		if (conn->protocol == SMTP_PROTOCOL_LMTP) {
 			smtp_client_command_set_replies(trans->cmd_data,
-							array_count(&trans->rcpts));
+							trans->rcpts_count);
 		}
 	}
 
