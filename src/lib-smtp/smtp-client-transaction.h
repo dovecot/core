@@ -188,6 +188,12 @@ void smtp_client_transaction_reset(
 		reset_context + CALLBACK_TYPECHECK(reset_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(reset_context))))
 
+/* Enables mode in which all commands are submitted immediately and (non-
+   transaction) commands can be interleaved. This is mainly important for
+   relaying SMTP in realtime. */
+void smtp_client_transaction_set_immediate(
+	struct smtp_client_transaction *trans, bool immediate);
+
 /* Return transaction statistics. */
 const struct smtp_client_transaction_times *
 smtp_client_transaction_get_times(struct smtp_client_transaction *trans);

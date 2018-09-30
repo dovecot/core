@@ -125,10 +125,12 @@ struct smtp_client_transaction {
 	unsigned int finish_timeout_msecs;
 	struct timeout *to_finish, *to_send;
 
+	bool immediate:1;
 	bool sender_accepted:1;
 	bool data_provided:1;
 	bool reset:1;
 	bool finished:1;
+	bool submitting:1;
 	bool failing:1;
 	bool submitted_data:1;
 };
