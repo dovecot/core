@@ -582,64 +582,6 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 	smtp_client_transaction_try_complete(trans);
 }
 
-static void
-smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
-{
-	struct smtp_client_transaction_rcpt *const *rcpt;
-	unsigned int count;
-
-	timeout_remove(&trans->to_send);
-
-	if (trans->failure != NULL) {
-		smtp_client_transaction_fail_reply(trans, trans->failure);
-		return;
-	}
-
-	if (trans->state == SMTP_CLIENT_TRANSACTION_STATE_NEW) {
-		enum smtp_client_transaction_state state;
-		struct smtp_client_transaction *tmp_trans = trans;
-
-		smtp_client_transaction_ref(tmp_trans);
-		smtp_client_transaction_start(tmp_trans, NULL, NULL);
-		state = trans->state;
-		smtp_client_transaction_unref(&tmp_trans);
-		if (state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
-			return;
-	}
-
-	if (trans->state <= SMTP_CLIENT_TRANSACTION_STATE_PENDING)
-		return;
-
-	rcpt = array_get_modifiable(&trans->rcpts_pending, &count);
-	if (trans->rcpts_next_send_idx < count) {
-		unsigned int i;
-
-		smtp_client_transaction_debug(trans, "Sending recipients");
-
-		if (trans->cmd_last != NULL)
-			smtp_client_command_unlock(trans->cmd_last);
-
-		for (i = trans->rcpts_next_send_idx; i < count; i++) {
-			rcpt[i]->cmd_rcpt_to = trans->cmd_last =
-				smtp_client_command_rcpt_submit_after(
-					trans->conn, 0,	trans->cmd_last,
-					rcpt[i]->rcpt_to, &rcpt[i]->rcpt_params,
-					smtp_client_transaction_rcpt_cb, rcpt[i]);
-		}
-		trans->rcpts_next_send_idx = i;
-
-		smtp_client_command_lock(trans->cmd_last);
-
-		if (trans->cmd_plug != NULL) {
-			i_assert(trans->cmd_last != trans->cmd_plug);
-			smtp_client_command_abort(&trans->cmd_plug);
-		}
-	}
-
-	if (trans->data_input != NULL)
-		smtp_client_transaction_send_data(trans);
-}
-
 #undef smtp_client_transaction_add_rcpt
 void smtp_client_transaction_add_rcpt(
 	struct smtp_client_transaction *trans,
@@ -784,6 +726,64 @@ void smtp_client_transaction_send(
 		trans->to_send = timeout_add_short(0,
 			smtp_client_transaction_submit_more, trans);
 	}
+}
+
+static void
+smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
+{
+	struct smtp_client_transaction_rcpt *const *rcpt;
+	unsigned int count;
+
+	timeout_remove(&trans->to_send);
+
+	if (trans->failure != NULL) {
+		smtp_client_transaction_fail_reply(trans, trans->failure);
+		return;
+	}
+
+	if (trans->state == SMTP_CLIENT_TRANSACTION_STATE_NEW) {
+		enum smtp_client_transaction_state state;
+		struct smtp_client_transaction *tmp_trans = trans;
+
+		smtp_client_transaction_ref(tmp_trans);
+		smtp_client_transaction_start(tmp_trans, NULL, NULL);
+		state = trans->state;
+		smtp_client_transaction_unref(&tmp_trans);
+		if (state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
+			return;
+	}
+
+	if (trans->state <= SMTP_CLIENT_TRANSACTION_STATE_PENDING)
+		return;
+
+	rcpt = array_get_modifiable(&trans->rcpts_pending, &count);
+	if (trans->rcpts_next_send_idx < count) {
+		unsigned int i;
+
+		smtp_client_transaction_debug(trans, "Sending recipients");
+
+		if (trans->cmd_last != NULL)
+			smtp_client_command_unlock(trans->cmd_last);
+
+		for (i = trans->rcpts_next_send_idx; i < count; i++) {
+			rcpt[i]->cmd_rcpt_to = trans->cmd_last =
+				smtp_client_command_rcpt_submit_after(
+					trans->conn, 0,	trans->cmd_last,
+					rcpt[i]->rcpt_to, &rcpt[i]->rcpt_params,
+					smtp_client_transaction_rcpt_cb, rcpt[i]);
+		}
+		trans->rcpts_next_send_idx = i;
+
+		smtp_client_command_lock(trans->cmd_last);
+
+		if (trans->cmd_plug != NULL) {
+			i_assert(trans->cmd_last != trans->cmd_plug);
+			smtp_client_command_abort(&trans->cmd_plug);
+		}
+	}
+
+	if (trans->data_input != NULL)
+		smtp_client_transaction_send_data(trans);
 }
 
 static void
