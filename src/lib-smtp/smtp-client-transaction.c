@@ -30,6 +30,10 @@ const char *const smtp_client_transaction_state_names[] = {
 static void
 smtp_client_transaction_submit_more(struct smtp_client_transaction *trans);
 static void
+smtp_client_transaction_submit(struct smtp_client_transaction *trans,
+			       bool start);
+
+static void
 smtp_client_transaction_try_complete(struct smtp_client_transaction *trans);
 
 static void
@@ -607,12 +611,7 @@ void smtp_client_transaction_add_rcpt(
 	rcpt->data_callback = data_callback;
 	rcpt->context = context;
 
-	if (trans->to_send == NULL &&
-		(trans->state > SMTP_CLIENT_TRANSACTION_STATE_PENDING ||
-			trans->failure != NULL)) {
-		trans->to_send = timeout_add_short(0,
-			smtp_client_transaction_submit_more, trans);
-	}
+	smtp_client_transaction_submit(trans, FALSE);
 }
 
 static void
@@ -722,10 +721,7 @@ void smtp_client_transaction_send(
 			smtp_client_transaction_timeout, trans);
 	}
 
-	if (trans->to_send == NULL) {
-		trans->to_send = timeout_add_short(0,
-			smtp_client_transaction_submit_more, trans);
-	}
+	smtp_client_transaction_submit(trans, TRUE);
 }
 
 static void
@@ -786,6 +782,24 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 	/* DATA */
 	if (trans->data_input != NULL)
 		smtp_client_transaction_send_data(trans);
+}
+
+static void
+smtp_client_transaction_submit(struct smtp_client_transaction *trans,
+			       bool start)
+{
+	if (trans->failure == NULL && !start &&
+	    trans->state <= SMTP_CLIENT_TRANSACTION_STATE_PENDING) {
+		/* Cannot submit commands at this time */
+		return;
+	}
+	if (trans->to_send != NULL) {
+		/* Already scheduled command submission */
+		return;
+	}
+
+	trans->to_send = timeout_add_short(0,
+		smtp_client_transaction_submit_more, trans);
 }
 
 static void
