@@ -595,7 +595,8 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 	}
 
 	/* plug command line pipeline if no RCPT commands are yet issued */
-	if (mail->next == NULL && mail->cmd_mail_from == trans->cmd_last) {
+	if (!trans->immediate && mail->next == NULL &&
+	    mail->cmd_mail_from == trans->cmd_last) {
 		trans->cmd_plug = trans->cmd_last =
 			smtp_client_command_plug(trans->conn, trans->cmd_last);
 	}
@@ -692,6 +693,13 @@ void smtp_client_transaction_start(
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_PENDING;
 
 	smtp_client_connection_add_transaction(conn, trans);
+
+	if (trans->immediate) {
+		trans->state = SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM;
+
+		if (!trans->submitting)
+			smtp_client_transaction_submit_more(trans);
+	}
 }
 
 #undef smtp_client_transaction_start_empty
@@ -724,8 +732,8 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 	rcpt->rcpt_callback = NULL;
 
 	/* plug command line pipeline if DATA command is not yet issued */
-	if (!trans->reset && rcpt->cmd_rcpt_to == trans->cmd_last &&
-		trans->cmd_data == NULL) {
+	if (!trans->immediate && !trans->reset &&
+	    rcpt->cmd_rcpt_to == trans->cmd_last && trans->cmd_data == NULL) {
 		trans->cmd_plug = trans->cmd_last =
 			smtp_client_command_plug(trans->conn, trans->cmd_last);
 	}
@@ -840,8 +848,8 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 			smtp_client_transaction_data_cb, trans);
 		trans->submitted_data = TRUE;
 
-		i_assert(trans->cmd_last != NULL);
-		smtp_client_command_unlock(trans->cmd_last);
+		if (trans->cmd_last != NULL)
+			smtp_client_command_unlock(trans->cmd_last);
 
 		smtp_client_transaction_try_complete(trans);
 	}
@@ -919,8 +927,8 @@ smtp_client_transaction_send_reset(struct smtp_client_transaction *trans)
 		trans->conn, 0, trans->cmd_last,
 		smtp_client_transaction_rset_cb, trans);
 
-	i_assert(trans->cmd_last != NULL);
-	smtp_client_command_unlock(trans->cmd_last);
+	if (trans->cmd_last != NULL)
+		smtp_client_command_unlock(trans->cmd_last);
 
 	smtp_client_transaction_try_complete(trans);
 
@@ -955,9 +963,12 @@ void smtp_client_transaction_reset(
 }
 
 static void
-smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
+smtp_client_transaction_do_submit_more(struct smtp_client_transaction *trans)
 {
 	timeout_remove(&trans->to_send);
+
+	if (trans->immediate)
+		trans->cmd_last = NULL;
 
 	/* Check whether we already failed */
 	if (trans->failure == NULL &&
@@ -1003,7 +1014,9 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 					mail->mail_from, &mail->mail_params,
 					smtp_client_transaction_mail_cb, trans);
 		}
-		smtp_client_command_lock(trans->cmd_last);
+
+		if (!trans->immediate)
+			smtp_client_command_lock(trans->cmd_last);
 	}
 
 	/* RCPT */
@@ -1024,10 +1037,12 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 					rcpt->rcpt_to, &rcpt->rcpt_params,
 					smtp_client_transaction_rcpt_cb, rcpt);
 		}
-		smtp_client_command_lock(trans->cmd_last);
+		if (!trans->immediate)
+			smtp_client_command_lock(trans->cmd_last);
 	}
 
-	if (trans->cmd_plug != NULL && trans->cmd_last != trans->cmd_plug)
+	if (trans->cmd_plug != NULL &&
+	    (trans->immediate || trans->cmd_last != trans->cmd_plug))
 		smtp_client_command_abort(&trans->cmd_plug);
 
 	/* DATA / RSET */
@@ -1039,6 +1054,16 @@ smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
 }
 
 static void
+smtp_client_transaction_submit_more(struct smtp_client_transaction *trans)
+{
+	smtp_client_transaction_ref(trans);
+	trans->submitting = TRUE;
+	smtp_client_transaction_do_submit_more(trans);
+	trans->submitting = FALSE;
+	smtp_client_transaction_unref(&trans);
+}
+
+static void
 smtp_client_transaction_submit(struct smtp_client_transaction *trans,
 			       bool start)
 {
@@ -1047,6 +1072,20 @@ smtp_client_transaction_submit(struct smtp_client_transaction *trans,
 		/* Cannot submit commands at this time */
 		return;
 	}
+
+	if (trans->immediate) {
+		/* Submit immediately if not failed already: avoid calling
+		   failure callbacks directly (which is the first thing
+		   smtp_client_transaction_submit_more() would do). */
+		if (trans->failure == NULL &&
+		    trans->state > SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM)
+			trans->failure = trans->mail_failure;
+		if (trans->failure == NULL) {
+			smtp_client_transaction_submit_more(trans);
+			return;
+		}
+	}
+
 	if (trans->to_send != NULL) {
 		/* Already scheduled command submission */
 		return;
@@ -1113,6 +1152,12 @@ smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 	/* Got replies for all recipients and submitted our last command;
 	   the next transaction can submit its commands now. */
 	smtp_client_connection_next_transaction(trans->conn, trans);
+}
+
+void smtp_client_transaction_set_immediate(
+	struct smtp_client_transaction *trans, bool immediate)
+{
+	trans->immediate = immediate;
 }
 
 void smtp_client_transaction_connection_result(
