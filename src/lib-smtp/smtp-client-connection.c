@@ -1957,6 +1957,8 @@ void smtp_client_connection_add_transaction(
 	struct smtp_client_connection *conn,
 	struct smtp_client_transaction *trans)
 {
+	smtp_client_connection_debug(conn, "Add transaction");
+
 	DLLIST2_APPEND(&conn->transactions_head,
 	       &conn->transactions_tail, trans);
 
@@ -1973,6 +1975,8 @@ void smtp_client_connection_abort_transaction(
 	struct smtp_client_transaction *trans)
 {
 	bool was_first = (trans == conn->transactions_head);
+
+	smtp_client_connection_debug(conn, "Abort transaction");
 
 	DLLIST2_REMOVE(&conn->transactions_head,
 		&conn->transactions_tail, trans);
@@ -1997,6 +2001,8 @@ void smtp_client_connection_next_transaction(
 	struct smtp_client_connection *conn,
 	struct smtp_client_transaction *trans)
 {
+	smtp_client_connection_debug(conn, "Initiate next transaction");
+
 	i_assert(trans == conn->transactions_head);
 
 	DLLIST2_REMOVE(&conn->transactions_head,
