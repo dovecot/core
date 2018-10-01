@@ -1,4 +1,4 @@
-v2.3.3 2018-09-xx  Timo Sirainen <tss@iki.fi>
+v2.3.3 2018-10-01  Timo Sirainen <tss@iki.fi>
 
 	* doveconf hides more secrets now in the default output.
 	* ssl_dh setting is no longer enforced at startup. If it's not set and
@@ -16,6 +16,9 @@ v2.3.3 2018-09-xx  Timo Sirainen <tss@iki.fi>
 	- director: Conflicting host up/down state changes may in some rare
 	  situations ended up in a loop of two directors constantly overwriting
 	  each others' changes.
+	- director: Fix hang/crash when multiple doveadm commands are being
+	  handled concurrently.
+	- director: Fix assert-crash if doveadm disconnects too early
 	- virtual plugin: Some searches used 100% CPU for many seconds
 	- dsync assert-crashed with acl plugin in some situations.
 	- mail_attachment_detection_options=add-flags-on-save assert-crashed
