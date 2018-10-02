@@ -585,10 +585,19 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 		if (array_count(&trans->rcpts) == 0) {
 			/* abort transaction if all recipients failed */
 			smtp_client_transaction_abort(trans);
-		} else if (conn->protocol == SMTP_PROTOCOL_LMTP &&
-			   trans->cmd_data != NULL) {
-			smtp_client_command_set_replies(trans->cmd_data,
-				array_count(&trans->rcpts));
+			return;
+		}
+
+		if (trans->cmd_data != NULL) {
+			if (conn->protocol == SMTP_PROTOCOL_LMTP) {
+				smtp_client_command_set_replies(trans->cmd_data,
+					array_count(&trans->rcpts));
+			}
+
+			/* Got replies for all recipients and submitted our last
+			   command; the next transaction can submit its commands
+			   now. */
+			smtp_client_connection_next_transaction(trans->conn, trans);
 		}
 	}
 }
@@ -753,17 +762,21 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 		smtp_client_command_unlock(trans->cmd_last);
 
 		if (array_count(&trans->rcpts_pending) == 0) {
+			smtp_client_transaction_debug(trans, "Got all RCPT replies");
+
 			trans->state = SMTP_CLIENT_TRANSACTION_STATE_DATA;
+
 			if (conn->protocol == SMTP_PROTOCOL_LMTP) {
 				smtp_client_command_set_replies(
 					trans->cmd_data,
 					array_count(&trans->rcpts));
 			}
-		}
 
-		/* Submitted our last command; the next transaction can submit
-		   its commands now. */
-		smtp_client_connection_next_transaction(trans->conn, trans);
+			/* Got replies for all recipients and submitted our last
+			   command; the next transaction can submit its commands
+			   now. */
+			smtp_client_connection_next_transaction(trans->conn, trans);
+		}
 	}
 
 	if (trans->cmd_plug != NULL)
@@ -782,9 +795,6 @@ void smtp_client_transaction_send(
 	smtp_client_command_callback_t *data_callback, void *data_context)
 {
 	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
-
-	if (array_count(&trans->rcpts_pending) == 0)
-		smtp_client_transaction_debug(trans, "Got all RCPT replies");
 
 	smtp_client_transaction_debug(trans, "Send");
 
