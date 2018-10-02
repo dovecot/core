@@ -73,10 +73,10 @@ static void ipc_client_input_line(struct ipc_client *client, const char *line)
 		else
 			client->aborted_cmds_count--;
 	}
-	if (cmd != NULL) {
+	if (cmd != NULL)
 		cmd->callback(state, line, cmd->context);
+	if (state != IPC_CLIENT_CMD_STATE_REPLY)
 		i_free(cmd);
-	}
 	if (disconnect)
 		ipc_client_disconnect(client);
 }
