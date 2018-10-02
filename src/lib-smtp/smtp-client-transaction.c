@@ -774,14 +774,15 @@ void smtp_client_transaction_send(
 	trans->data_callback = data_callback;
 	trans->data_context = data_context;
 
-	if (trans->to_send == NULL) {
-		trans->to_send = timeout_add_short(0,
-			smtp_client_transaction_submit_more, trans);
-	}
 	if (trans->finish_timeout_msecs > 0) {
 		i_assert(trans->to_finish == NULL);
 		trans->to_finish = timeout_add(trans->finish_timeout_msecs,
 			smtp_client_transaction_timeout, trans);
+	}
+
+	if (trans->to_send == NULL) {
+		trans->to_send = timeout_add_short(0,
+			smtp_client_transaction_submit_more, trans);
 	}
 }
 
