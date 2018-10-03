@@ -17,7 +17,7 @@ struct push_notification_txn_msg {
     ARRAY(struct push_notification_txn_event *) eventdata;
 
     /* Private */
-    unsigned int seq;
+    unsigned int save_idx;
 };
 
 
