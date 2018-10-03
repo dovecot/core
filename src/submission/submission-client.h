@@ -36,12 +36,14 @@ struct client {
 
 	struct smtp_server_stats stats;
 
+	enum smtp_capability backend_capabilities;
 	struct submission_backend_relay backend;
 
 	bool standalone:1;
 	bool disconnected:1;
 	bool destroyed:1;
 	bool anvil_sent:1;
+	bool backend_capabilities_configured:1;
 };
 
 extern struct client *submission_clients;
@@ -60,6 +62,10 @@ void client_disconnect(struct client *client, const char *prefix,
 		       const char *reason);
 
 typedef void (*client_input_callback_t)(struct client *context);
+
+void client_apply_backend_capabilities(struct client *client);
+void client_default_backend_started(struct client *client,
+				    enum smtp_capability caps);
 
 const char *client_state_get_name(struct client *client);
 

@@ -11,8 +11,6 @@
 #include "imap-msgpart-url.h"
 #include "imap-urlauth.h"
 #include "imap-urlauth-fetch.h"
-#include "smtp-client.h"
-#include "smtp-client-connection.h"
 
 #include "submission-recipient.h"
 #include "submission-commands.h"
@@ -26,9 +24,7 @@ void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 				  struct smtp_server_cmd_helo *data)
 {
 	struct client *client = smtp_server_connection_get_context(cmd->conn);
-	struct submission_backend_relay *backend = &client->backend;
-	enum smtp_capability proxy_caps =
-		smtp_client_connection_get_capabilities(backend->conn);
+	enum smtp_capability backend_caps = client->backend_capabilities;
 	struct smtp_server_reply *reply;
 	uoff_t cap_size;
 
@@ -51,16 +47,16 @@ void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 				    client->set->imap_urlauth_port);
 		}
 
-		if ((proxy_caps & SMTP_CAPABILITY_8BITMIME) != 0)
+		if ((backend_caps & SMTP_CAPABILITY_8BITMIME) != 0)
 			smtp_server_reply_ehlo_add(reply, "8BITMIME");
 		smtp_server_reply_ehlo_add(reply, "AUTH");
-		if ((proxy_caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
-			(proxy_caps & SMTP_CAPABILITY_CHUNKING) != 0)
+		if ((backend_caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
+		    (backend_caps & SMTP_CAPABILITY_CHUNKING) != 0)
 			smtp_server_reply_ehlo_add(reply, "BINARYMIME");
 		smtp_server_reply_ehlo_add_param(reply,
 			"BURL", "%s", str_c(burl_params));
 		smtp_server_reply_ehlo_add(reply, "CHUNKING");
-		if ((proxy_caps & SMTP_CAPABILITY_DSN) != 0)
+		if ((backend_caps & SMTP_CAPABILITY_DSN) != 0)
 			smtp_server_reply_ehlo_add(reply, "DSN");
 		smtp_server_reply_ehlo_add(reply,
 			"ENHANCEDSTATUSCODES");

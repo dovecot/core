@@ -25,6 +25,9 @@ struct submission_settings {
 	const char *submission_client_workarounds;
 	const char *submission_logout_format;
 
+	/* submission backend: */
+	const char *submission_backend_capabilities;
+
 	/* submission relay: */
 	const char *submission_relay_host;
 	in_port_t submission_relay_port;

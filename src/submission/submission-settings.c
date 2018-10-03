@@ -70,6 +70,8 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(SET_STR, submission_client_workarounds),
 	DEF(SET_STR, submission_logout_format),
 
+	DEF(SET_STR, submission_backend_capabilities),
+
 	DEF(SET_STR, submission_relay_host),
 	DEF(SET_IN_PORT, submission_relay_port),
 	DEF(SET_BOOL, submission_relay_trusted),
@@ -106,6 +108,8 @@ static const struct submission_settings submission_default_settings = {
 	.submission_max_recipients = 0,
 	.submission_client_workarounds = "",
 	.submission_logout_format = "in=%i out=%o",
+
+	.submission_backend_capabilities = NULL,
 
 	.submission_relay_host = "",
 	.submission_relay_port = 25,
