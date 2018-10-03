@@ -98,6 +98,11 @@ void smtp_params_mail_copy(pool_t pool,
 	struct smtp_params_mail *dst, const struct smtp_params_mail *src)
 	ATTR_NULL(3);
 
+void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
+				const char *keyword, const char *value);
+
+/* write */
+
 void smtp_params_mail_write(string_t *buffer,
 	enum smtp_capability caps,
 	const struct smtp_params_mail *params);
@@ -120,6 +125,11 @@ int smtp_params_rcpt_parse(pool_t pool, const char *args,
 void smtp_params_rcpt_copy(pool_t pool,
 	struct smtp_params_rcpt *dst, const struct smtp_params_rcpt *src)
 	ATTR_NULL(3);
+
+void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
+				const char *keyword, const char *value);
+
+/* write */
 
 void smtp_params_rcpt_write(string_t *buffer,
 	enum smtp_capability caps,

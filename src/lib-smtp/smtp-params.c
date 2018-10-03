@@ -404,11 +404,8 @@ int smtp_params_mail_parse(pool_t pool, const char *args,
 			   str_array_icase_find(extensions, param.keyword)) {
 			/* add the rest to ext_param for specific
 			   applications */
-			if (!array_is_created(&params_r->extra_params))
-				p_array_init(&params_r->extra_params, pool, 4);
-			param.keyword = p_strdup(pool, param.keyword);
-			param.value = p_strdup(pool, param.value);
-			array_append(&params_r->extra_params, &param, 1);
+			smtp_params_mail_add_extra(params_r, pool,
+						   param.keyword, param.value);
 		} else {
 			/* RFC 5321, Section 4.1.1.11:
 			   If the server SMTP does not recognize or cannot
@@ -457,6 +454,20 @@ void smtp_params_mail_copy(pool_t pool,
 			array_append(&dst->extra_params, &param_new, 1);
 		}
 	}
+}
+
+void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
+				const char *keyword, const char *value)
+{
+	struct smtp_param param;
+
+	if (!array_is_created(&params->extra_params))
+		p_array_init(&params->extra_params, pool, 4);
+
+	i_zero(&param);
+	param.keyword = p_strdup(pool, keyword);
+	param.value = p_strdup(pool, value);
+	array_append(&params->extra_params, &param, 1);
 }
 
 /* write */
@@ -877,11 +888,8 @@ int smtp_params_rcpt_parse(pool_t pool, const char *args,
 			   str_array_icase_find(extensions, param.keyword)) {
 			/* add the rest to ext_param for specific applications
 			 */
-			if (!array_is_created(&params_r->extra_params))
-				p_array_init(&params_r->extra_params, pool, 4);
-			param.keyword = p_strdup(pool, param.keyword);
-			param.value = p_strdup(pool, param.value);
-			array_append(&params_r->extra_params, &param, 1);
+			smtp_params_rcpt_add_extra(params_r, pool,
+						   param.keyword, param.value);
 		} else {
 			/* RFC 5321, Section 4.1.1.11:
 			   If the server SMTP does not recognize or cannot
@@ -928,6 +936,20 @@ void smtp_params_rcpt_copy(pool_t pool,
 			array_append(&dst->extra_params, &param_new, 1);
 		}
 	}
+}
+
+void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
+				const char *keyword, const char *value)
+{
+	struct smtp_param param;
+
+	if (!array_is_created(&params->extra_params))
+		p_array_init(&params->extra_params, pool, 4);
+
+	i_zero(&param);
+	param.keyword = p_strdup(pool, keyword);
+	param.value = p_strdup(pool, value);
+	array_append(&params->extra_params, &param, 1);
 }
 
 /* write */
