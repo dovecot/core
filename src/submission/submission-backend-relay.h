@@ -28,6 +28,7 @@ struct submission_backend_relay {
 	struct smtp_client_connection *conn;
 
 	bool xclient_sent:1;
+	bool started:1;
 };
 
 void client_proxy_create(struct client *client,

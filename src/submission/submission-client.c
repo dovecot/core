@@ -69,6 +69,58 @@ static const char *client_remote_id(struct client *client)
 	return addr;
 }
 
+static void client_parse_backend_capabilities(struct client *client)
+{
+	const struct submission_settings *set = client->set;
+	const char *const *str;
+
+	client->backend_capabilities = SMTP_CAPABILITY_NONE;
+	if (set->submission_backend_capabilities == NULL)
+		return;
+
+	str = t_strsplit_spaces(set->submission_backend_capabilities, " ,");
+	for (; *str != NULL; str++) {
+		enum smtp_capability cap = smtp_capability_find_by_name(*str);
+
+		if (cap == SMTP_CAPABILITY_NONE) {
+			i_warning("Unknown SMTP capability in submission_backend_capabilities: "
+				  "%s", *str);
+			continue;
+		}
+
+		client->backend_capabilities |= cap;
+	}
+
+	client->backend_capabilities_configured = TRUE;
+}
+
+void client_apply_backend_capabilities(struct client *client)
+{
+	enum smtp_capability caps = client->backend_capabilities;
+
+	/* propagate capabilities */
+	caps |= SMTP_CAPABILITY_AUTH | SMTP_CAPABILITY_PIPELINING |
+		SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES |
+		SMTP_CAPABILITY_CHUNKING | SMTP_CAPABILITY_BURL |
+		SMTP_CAPABILITY_VRFY;
+	caps &= SUBMISSION_SUPPORTED_SMTP_CAPABILITIES;
+	smtp_server_connection_set_capabilities(client->conn, caps);
+}
+
+void client_default_backend_started(struct client *client,
+				    enum smtp_capability caps)
+{
+	/* propagate capabilities from backend to frontend */
+	if (!client->backend_capabilities_configured) {
+		client->backend_capabilities = caps;
+		client_apply_backend_capabilities(client);
+
+		/* resume the server now that we have the backend
+		   capabilities */
+		smtp_server_connection_resume(client->conn);
+	}
+}
+
 static void client_init_urlauth(struct client *client)
 {
 	static const char *access_apps[] = { "submit+", NULL };
@@ -132,17 +184,25 @@ struct client *client_create(int fd_in, int fd_out,
 			SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH;
 	}
 
+	client_parse_backend_capabilities(client);
+
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
 
 	client_proxy_create(client, set);
-	client_proxy_start(client);
 
 	smtp_server_connection_login(client->conn,
 		client->user->username, helo,
 		pdata, pdata_len, user->conn.ssl_secured);
-	smtp_server_connection_start_pending(client->conn);
+
+	if (client->backend_capabilities_configured) {
+		client_apply_backend_capabilities(client);
+		smtp_server_connection_start(client->conn);
+	} else {
+		client_proxy_start(client);
+		smtp_server_connection_start_pending(client->conn);
+	}
 
 	mail_set = mail_user_set_get_storage_set(user);
 	if (*set->imap_urlauth_host != '\0' &&

@@ -166,6 +166,8 @@ int cmd_helo_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	struct submission_backend_relay *backend = &client->backend;
 	struct relay_cmd_helo_context *helo;
 
+	client_proxy_start(client);
+
 	helo = p_new(cmd->pool, struct relay_cmd_helo_context, 1);
 	helo->backend = backend;
 	helo->cmd = cmd;
@@ -318,6 +320,8 @@ int cmd_mail_relay(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		return -1;
 
 	relay_cmd_mail_update_xclient(backend);
+
+	client_proxy_start(client);
 
 	/* queue command (pipeline) */
 	mail_cmd = p_new(cmd->pool, struct relay_cmd_mail_context, 1);
@@ -793,7 +797,6 @@ static void client_proxy_ready_cb(const struct smtp_reply *reply,
 {
 	struct client *client = context;
 	struct submission_backend_relay *backend = &client->backend;
-	enum smtp_capability caps;
 
 	/* check relay status */
 	if ((reply->status / 100) != 2) {
@@ -804,25 +807,23 @@ static void client_proxy_ready_cb(const struct smtp_reply *reply,
 		return;
 	}
 
-	/* propagate capabilities */
-	caps = smtp_client_connection_get_capabilities(backend->conn);
-	caps |= SMTP_CAPABILITY_AUTH | SMTP_CAPABILITY_PIPELINING |
-		SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES |
-		SMTP_CAPABILITY_CHUNKING | SMTP_CAPABILITY_BURL |
-		SMTP_CAPABILITY_VRFY;
-	caps &= SUBMISSION_SUPPORTED_SMTP_CAPABILITIES;
-	smtp_server_connection_set_capabilities(client->conn, caps);
-
-	/* now that we know our capabilities, commence server protocol dialog */
-	smtp_server_connection_resume(client->conn);
+	/* notify the client about the fact that we're ready and propagate our
+	   capabilities */
+	client_default_backend_started(client,
+		smtp_client_connection_get_capabilities(backend->conn));
 }
 
 void client_proxy_start(struct client *client)
 {
 	struct submission_backend_relay *backend = &client->backend;
 
+	if (backend->started)
+		return;
+
 	smtp_client_connection_connect(backend->conn,
 				       client_proxy_ready_cb, client);
+
+	backend->started = TRUE;
 }
 
 /* try to proxy pipelined commands in a similarly pipelined fashion */
