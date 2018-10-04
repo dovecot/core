@@ -43,7 +43,8 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 	case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
 	case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
-		i_unreached();
+		client_destroy(client,
+			       "4.4.0", "Failed to connect to relay server");
 		return FALSE;
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
