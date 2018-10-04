@@ -165,6 +165,48 @@ int smtp_helo_domain_parse(const char *helo,
  * EHLO reply
  */
 
+bool smtp_ehlo_keyword_is_valid(const char *keyword)
+{
+	const char *p;
+
+	for (p = keyword; *p != '\0'; p++) {
+		if (!i_isalnum(*p))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+bool smtp_ehlo_param_is_valid(const char *param)
+{
+	const char *p;
+
+	for (p = param; *p != '\0'; p++) {
+		if (!smtp_char_is_ehlo_param(*p))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+bool smtp_ehlo_params_are_valid(const char *params)
+{
+	const char *p;
+	bool space = FALSE;
+
+	for (p = params; *p != '\0'; p++) {
+		if (*p == ' ') {
+			if (space)
+				return FALSE;
+			space = TRUE;
+			continue;
+		}
+		space = FALSE;
+
+		if (!smtp_char_is_ehlo_param(*p))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static int smtp_parse_ehlo_line(struct smtp_parser *parser,
 	const char **key_r, const char *const **params_r)
 {
