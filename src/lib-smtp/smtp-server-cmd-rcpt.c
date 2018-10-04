@@ -86,7 +86,7 @@ cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd,
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
-	/* All preceeding commands have finished and now the transaction state
+	/* All preceding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the transaction
 	   state and abort the pending proxied mail command if it is bound to
 	   fail */

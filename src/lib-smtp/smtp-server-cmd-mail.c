@@ -57,7 +57,7 @@ cmd_mail_recheck(struct smtp_server_cmd_ctx *cmd,
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
-	/* All preceeding commands have finished and now the transaction state
+	/* All preceding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the transaction
 	   state */
 	if (!cmd_mail_check_state(cmd))

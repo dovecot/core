@@ -1145,7 +1145,7 @@ static void test_data_disconnect(void)
 }
 
 /*
- * Data timout
+ * Data timeout
  */
 
 /* server */

@@ -535,7 +535,7 @@ enum smtp_server_command_flags {
 };
 
 enum smtp_server_command_hook_type {
-	/* next: command is next to reply but has not submittted all replies
+	/* next: command is next to reply but has not submitted all replies
 	   yet. */
 	SMTP_SERVER_COMMAND_HOOK_NEXT,
 	/* replied_one: command has submitted one reply. */
