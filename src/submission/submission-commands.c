@@ -20,6 +20,25 @@
  * EHLO, HELO commands
  */
 
+static void
+submission_helo_reply_add_extra(struct client *client,
+				struct smtp_server_reply *reply)
+{
+	const struct client_extra_capability *cap;
+
+	if (!array_is_created(&client->extra_capabilities))
+		return;
+
+	array_foreach(&client->extra_capabilities, cap) {
+		if (cap->params == NULL) {
+			smtp_server_reply_ehlo_add(reply, cap->capability);
+		} else {
+			smtp_server_reply_ehlo_add_param(reply, cap->capability,
+							 "%s", cap->params);
+		}
+	}
+}
+
 void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 				  struct smtp_server_cmd_helo *data)
 {
@@ -71,6 +90,8 @@ void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 			smtp_server_reply_ehlo_add(reply, "SIZE");
 		}
 		smtp_server_reply_ehlo_add(reply, "VRFY");
+
+		submission_helo_reply_add_extra(client, reply);
 	}
 	smtp_server_reply_submit(reply);
 }
