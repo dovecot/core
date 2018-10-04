@@ -142,9 +142,9 @@ int submission_backend_cmd_rset(struct submission_backend *backend,
 int submission_backend_cmd_data(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
 				struct smtp_server_transaction *trans,
-				struct istream *data_input)
+				struct istream *data_input, uoff_t data_size)
 {
-	return backend->v.cmd_data(backend, cmd, trans, data_input);
+	return backend->v.cmd_data(backend, cmd, trans, data_input, data_size);
 }
 
 int submission_backend_cmd_vrfy(struct submission_backend *backend,
