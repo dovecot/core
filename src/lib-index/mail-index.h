@@ -325,7 +325,7 @@ void mail_index_set_lock_method(struct mail_index *index,
    use the default. */
 void mail_index_set_optimization_settings(struct mail_index *index,
 	const struct mail_index_optimization_settings *set);
-/* When creating a new index file or reseting an existing one, add the given
+/* When creating a new index file or resetting an existing one, add the given
    extension header data immediately to it. */
 void mail_index_set_ext_init_data(struct mail_index *index, uint32_t ext_id,
 				  const void *data, size_t size);

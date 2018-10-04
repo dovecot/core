@@ -759,7 +759,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		return -1;
 
 	if (reset) {
-		/* don't reset modseqs. if we're reseting due to rebuilding
+		/* don't reset modseqs. if we're resetting due to rebuilding
 		   indexes we'll probably want to keep uidvalidity and in such
 		   cases we really don't want to shrink modseqs. */
 		file->hdr.prev_file_seq = 0;

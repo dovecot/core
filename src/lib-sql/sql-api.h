@@ -13,7 +13,7 @@ enum sql_db_flags {
 	SQL_DB_FLAG_POOLED		= 0x02,
 	/* Prepared statements are supported by the database. If they aren't,
 	   the functions can still be used, but they're just internally
-	   convered into regular statements. */
+	   converted into regular statements. */
 	SQL_DB_FLAG_PREP_STATEMENTS	= 0x04,
 };
 
@@ -163,7 +163,7 @@ int sql_result_next_row(struct sql_result *result);
 
 /* If sql_result_next_row() returned SQL_RESULT_NEXT_MORE, this can be called
    to continue returning more results. The result is freed with this call, so
-   it must not be accesed anymore until the callback is finished. */
+   it must not be accessed anymore until the callback is finished. */
 void sql_result_more(struct sql_result **result,
 		     sql_query_callback_t *callback, void *context);
 #define sql_result_more(result, callback, context) \

@@ -612,7 +612,7 @@ v2.2.26 2016-10-27  Timo Sirainen <tss@iki.fi>
 	- zlib, IMAP BINARY: Fixed internal caching when accessing multiple
 	  newly created mails. They all had UID=0 and the next mail could have
 	  wrongly used the previously cached mail.
-	- doveadm stats reset wasn't reseting all the stats.
+	- doveadm stats reset wasn't resetting all the stats.
 	- auth_stats=yes: Don't update num_logins, since it doubles them when
 	  using with mail stats.
 	- quota count: Fixed deadlocks when updating vsize header.
@@ -842,7 +842,7 @@ v2.2.19 2015-10-02  Timo Sirainen <tss@iki.fi>
 	+ Added a quota "count" backend, which uses the mailbox vsizes to get
 	  the current quota usage. It requires using the new quota_vsizes=yes
 	  setting, which tracks the messages' "virtual sizes" rather than
-	  "physical sizes". Their distiction is minor and mostly irrelevant
+	  "physical sizes". Their distinction is minor and mostly irrelevant
 	  nowadays (if mail sizes should be counted with LF or CRLF newlines).
 	+ "doveadm director up/down" commands added. The monitoring script
 	  should be using these commands instead of changing the vhost count.
@@ -2974,7 +2974,7 @@ v1.0.rc28 2007-03-23  Timo Sirainen <tss@iki.fi>
 	- Index view syncing fixes
 	- rc27 didn't compile with some non-GCC compilers
 	- vpopmail support didn't compile in rc27
-	- NFS check with chrooting broke home direcotry for the first login
+	- NFS check with chrooting broke home directory for the first login
 	- deliver: If user lookup returned "unknown user", it logged
 	  "BUG: Unexpected input"
 	- convert plugin didn't convert INBOX
@@ -3398,7 +3398,7 @@ v1.0.rc6 2006-08-07  Timo Sirainen <tss@iki.fi>
 	- Fixes to login process handling, especially with
 	  login_process_per_connection=no. 
 	- Back to the original SSL proxy code but with one small fix, which
-	  hopefully fixes the occational hangs with it
+	  hopefully fixes the occasional hangs with it
 	- Several fixes to handling LIST command more correctly.
 
 v1.0.rc5 2006-08-02  Timo Sirainen <tss@iki.fi>

@@ -199,7 +199,7 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 		if (match == IMAP_MATCH_YES && iter_subscriptions_ok(ctx)) {
 			/* If this is a) \NoSelect leaf, b) not LAYOUT=index
 			   and c) NO-NOSELECT is set, try to rmdir the leaf
-			   directores from filesystem. (With LAYOUT=index the
+			   directories from filesystem. (With LAYOUT=index the
 			   \NoSelect mailboxes aren't on the filesystem.) */
 			if (ilist->has_backing_store &&
 			    mailbox_list_iter_try_delete_noselect(_ctx, &ctx->info,

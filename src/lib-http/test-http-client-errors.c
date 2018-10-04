@@ -1506,7 +1506,7 @@ static void test_early_success(void)
 	test_client_defaults(&http_client_set);
 	http_client_set.socket_send_buffer_size = 4096;
 
-	test_begin("early succes");
+	test_begin("early success");
 	test_run_client_server(&http_client_set,
 		test_client_early_success,
 		test_server_early_success, 1,

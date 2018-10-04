@@ -208,7 +208,7 @@ static struct http_server *http_server;
 static struct io *io_listen;
 static struct client *clients;
 
-/* location: /succes */
+/* location: /success */
 
 static void
 client_handle_success_request(struct client_request *creq)

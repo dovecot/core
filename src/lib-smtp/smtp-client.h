@@ -63,7 +63,7 @@ struct smtp_client_settings {
 	   sent or received.
 	   (default = unlimited) */
 	unsigned int command_timeout_msecs;
-	/* Timeout for loggging in
+	/* Timeout for logging in
 		(default = cmd_timeout_msecs) */
 	unsigned int connect_timeout_msecs;
 

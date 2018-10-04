@@ -581,7 +581,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return TRUE;
 	}
 
-	/* Handle initial respose */
+	/* Handle initial response */
 	if (initial_resp == NULL) {
 		/* No initial response */
 		request->initial_response = NULL;

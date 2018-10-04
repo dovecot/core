@@ -14,7 +14,7 @@ void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
 {
 	char *new_str;
 
-	/* i_debug() may sometimes be overriden, making it write to this very
+	/* i_debug() may sometimes be overridden, making it write to this very
 	   same SSL stream, in which case the provided str may be invalidated
 	   before it is even used. Therefore, we duplicate it immediately. */
 	new_str = i_strdup(str);
@@ -784,7 +784,7 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 		}
 	}
 	X509_free(x509);
-	
+
 	return *name == '\0' ? NULL : name;
 }
 

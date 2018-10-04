@@ -307,7 +307,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 			i_fatal(MASTER_CLIENT_LIMIT_ENV" missing");
 		master_service_set_client_limit(service, count);
 
-		/* seve the process limit */
+		/* save the process limit */
 		value = getenv(MASTER_PROCESS_LIMIT_ENV);
 		if (value != NULL && str_to_uint(value, &count) == 0 &&
 		    count > 0)

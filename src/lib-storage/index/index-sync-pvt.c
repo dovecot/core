@@ -181,7 +181,7 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 	} else {
 		/* mailbox created/recreated */
 		reset = TRUE;
-		i_info("Mailbox %s UIDVALIDITY changed (%u -> %u), reseting private index",
+		i_info("Mailbox %s UIDVALIDITY changed (%u -> %u), resetting private index",
 		       ctx->box->vname, hdr_pvt->uid_validity,
 		       hdr_shared->uid_validity);
 	}
