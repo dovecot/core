@@ -188,9 +188,8 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	   local variable. */
 	client->state.data_input = NULL;
 
-	ret = i_stream_get_size(data_input, TRUE,
-				&client->state.data_size);
-	i_assert(ret > 0); // FIXME
+	/* Current data stream position is the data size */
+	client->state.data_size = data_input->v_offset;
 
 	/* prepend our own headers */
 	added_headers = t_str_new(200);
