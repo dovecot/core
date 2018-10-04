@@ -521,7 +521,7 @@ static int
 backend_relay_cmd_data(struct submission_backend *_backend,
 		       struct smtp_server_cmd_ctx *cmd,
 		       struct smtp_server_transaction *trans,
-		       struct istream *data_input)
+		       struct istream *data_input, uoff_t data_size ATTR_UNUSED)
 {
 	struct submission_backend_relay *backend =
 		(struct submission_backend_relay *)_backend;

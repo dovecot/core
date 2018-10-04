@@ -167,6 +167,7 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 {
 	struct client *client = conn_ctx;
 	struct istream *data_input = client->state.data_input;
+	uoff_t data_size;
 	struct istream *inputs[3];
 	string_t *added_headers;
 	const unsigned char *data;
@@ -202,11 +203,13 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	inputs[2] = NULL;
 
 	data_input = i_stream_create_concat(inputs);
+	data_size = client->state.data_size + str_len(added_headers);
+
 	i_stream_unref(&inputs[0]);
 	i_stream_unref(&inputs[1]);
 
 	ret = submission_backend_cmd_data(client->backend_default, cmd,
-					  trans, data_input);
+					  trans, data_input, data_size);
 
 	i_stream_unref(&data_input);
 	return ret;
