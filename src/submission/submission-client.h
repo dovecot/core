@@ -17,6 +17,11 @@ struct client_state {
 	uoff_t data_size;
 };
 
+struct client_extra_capability {
+	const char *capability;
+	const char *params;
+};
+
 struct submission_client_vfuncs {
 	void (*destroy)(struct client *client, const char *prefix,
 			const char *reason);
@@ -79,6 +84,9 @@ struct client {
 	struct submission_backend *backends;
 	unsigned int backends_count;
 
+	/* Extra (non-standard) capabilities */
+	ARRAY(struct client_extra_capability) extra_capabilities;
+
 	/* Module-specific contexts. */
 	ARRAY(union submission_module_context *) module_contexts;
 
@@ -123,6 +131,9 @@ void client_default_backend_started(struct client *client,
 const char *client_state_get_name(struct client *client);
 
 uoff_t client_get_max_mail_size(struct client *client);
+
+void client_add_extra_capability(struct client *client, const char *capability,
+				 const char *params) ATTR_NULL(2);
 
 int client_input_read(struct client *client);
 int client_handle_input(struct client *client);

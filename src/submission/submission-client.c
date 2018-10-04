@@ -19,6 +19,7 @@
 #include "mail-storage-service.h"
 #include "raw-storage.h"
 #include "imap-urlauth.h"
+#include "smtp-syntax.h"
 #include "smtp-client-connection.h"
 
 #include "submission-backend-relay.h"
@@ -500,6 +501,29 @@ uoff_t client_get_max_mail_size(struct client *client)
 	}
 
 	return max_size;
+}
+
+void client_add_extra_capability(struct client *client, const char *capability,
+				 const char *params)
+{
+	struct client_extra_capability cap;
+
+	/* Don't add capabilties handled by lib-smtp here */
+	i_assert(smtp_capability_find_by_name(capability)
+		 == SMTP_CAPABILITY_NONE);
+
+	/* Avoid committing protocol errors */
+	i_assert(smtp_ehlo_keyword_is_valid(capability));
+	i_assert(params == NULL || smtp_ehlo_params_are_valid(params));
+
+	i_zero(&cap);
+	cap.capability = p_strdup(client->pool, capability);
+	cap.params = p_strdup(client->pool, params);
+
+	if (!array_is_created(&client->extra_capabilities))
+		p_array_init(&client->extra_capabilities, client->pool, 5);
+
+	array_append(&client->extra_capabilities, &cap, 1);
 }
 
 void clients_destroy_all(void)
