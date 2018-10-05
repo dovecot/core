@@ -172,12 +172,16 @@ static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 		return;
 	}
 
+	/* reset errno since it might have been set when we got here */
 	errno = 0;
 	while ((pw = getpwent()) != NULL) {
 		if (passwd_iterate_want_pw(pw, set)) {
 			_ctx->callback(pw->pw_name, _ctx->context);
 			return;
 		}
+		/* getpwent might set errno to something even if it
+		   returns non-NULL. */
+		errno = 0;
 	}
 	if (errno != 0) {
 		i_error("getpwent() failed: %m");
