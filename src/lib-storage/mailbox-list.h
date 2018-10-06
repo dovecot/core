@@ -85,6 +85,8 @@ enum mailbox_list_path_type {
 	MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX,
 	/* Return control directory */
 	MAILBOX_LIST_PATH_TYPE_CONTROL,
+	/* Return volatile directory */
+	MAILBOX_LIST_PATH_TYPE_VOLATILEDIR,
 	/* Return index directory ("" for in-memory) */
 	MAILBOX_LIST_PATH_TYPE_INDEX,
 	/* Return the private index directory (NULL if none) */
