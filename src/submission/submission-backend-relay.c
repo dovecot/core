@@ -115,7 +115,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 
 	if (!result) {
 		const char *reason = t_strdup_printf("%s%s", msg, detail);
-
+		smtp_client_transaction_destroy(&backend->trans);
 		submission_backend_fail(&backend->backend, cmd,
 					enh_code, reason);
 		return FALSE;

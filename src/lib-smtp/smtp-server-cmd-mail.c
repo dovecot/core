@@ -43,7 +43,7 @@ cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
 
 	/* success */
 	conn->state.trans = smtp_server_transaction_create(conn,
-		data->path, &data->params, &data->timestamp);
+		data->flags, data->path, &data->params, &data->timestamp);
 
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_trans_start != NULL) {
@@ -138,6 +138,9 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 	}
 
 	mail_data = p_new(cmd->pool, struct smtp_server_cmd_mail, 1);
+
+	if (conn->set.protocol == SMTP_PROTOCOL_LMTP)
+		mail_data->flags |= SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT;
 
 	/* [SP Mail-parameters] */
 	if (array_is_created(&conn->mail_param_extensions))
