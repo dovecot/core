@@ -1454,6 +1454,10 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 		path = set->control_dir != NULL ?
 			set->control_dir : set->root_dir;
 		break;
+	case MAILBOX_LIST_PATH_TYPE_VOLATILEDIR:
+		path = set->volatile_dir != NULL ?
+			set->volatile_dir : set->root_dir;
+		break;
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		if (set->list_index_dir != NULL) {
 			if (set->list_index_dir[0] == '/') {
