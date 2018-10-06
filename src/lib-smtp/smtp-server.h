@@ -103,11 +103,17 @@ void smtp_server_recipient_remove_hook(
  * Transaction
  */
 
+enum smtp_server_transaction_flags {
+	SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT = BIT(0),
+};
+
 struct smtp_server_transaction {
 	pool_t pool;
 	struct smtp_server_connection *conn;
 	const char *id;
 	struct timeval timestamp;
+
+	enum smtp_server_transaction_flags flags;
 
 	struct smtp_address *mail_from;
 	struct smtp_params_mail params;
@@ -152,6 +158,8 @@ struct smtp_server_cmd_mail {
 	struct smtp_params_mail params;
 
 	struct timeval timestamp;
+
+	enum smtp_server_transaction_flags flags;
 };
 
 struct smtp_server_cmd_auth {

@@ -341,6 +341,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 	/* this command is next to send a reply */
 
 	i_assert(data_cmd != NULL);
+	i_assert(trans != NULL);
 	i_assert(conn->state.pending_mail_cmds == 0 &&
 		conn->state.pending_rcpt_cmds == 0);
 	i_assert(trans != NULL);
@@ -358,7 +359,8 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 
 		/* LMTP 'DATA' and 'BDAT LAST' commands need to send more than
 		   one reply per recipient */
-		if (conn->set.protocol == SMTP_PROTOCOL_LMTP) {
+		if (HAS_ALL_BITS(trans->flags,
+				 SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT)) {
 			smtp_server_command_set_reply_count(command,
 				array_count(&trans->rcpt_to));
 		}
