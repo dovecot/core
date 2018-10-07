@@ -446,10 +446,10 @@ lmtp_proxy_rcpt_cmd_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 static void
 lmtp_proxy_rcpt_finished(struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_transaction *trans ATTR_UNUSED,
-			 struct smtp_server_recipient *trcpt,
+			 struct smtp_server_recipient *rcpt,
 			 unsigned int index)
 {
-	struct lmtp_proxy_recipient *lprcpt = trcpt->context;
+	struct lmtp_proxy_recipient *lprcpt = rcpt->context;
 	struct client *client = lprcpt->rcpt.client;
 
 	if (lprcpt->rcpt.rcpt_cmd != NULL) {
@@ -465,7 +465,7 @@ lmtp_proxy_rcpt_finished(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
-	lmtp_recipient_finish(&lprcpt->rcpt, trcpt, index);
+	lmtp_recipient_finish(&lprcpt->rcpt, rcpt, index);
 
 	/* add to local recipients */
 	array_append(&client->proxy->rcpt_to, &lprcpt, 1);

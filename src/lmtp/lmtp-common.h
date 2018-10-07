@@ -29,7 +29,7 @@ void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 			 struct smtp_server_cmd_rcpt *data);
 
 void lmtp_recipient_finish(struct lmtp_recipient *lrcpt,
-			   struct smtp_server_recipient *trcpt,
+			   struct smtp_server_recipient *rcpt,
 			   unsigned int index);
 
 struct lmtp_recipient *
