@@ -157,7 +157,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
-	rcpt = smtp_server_recipient_create(conn, path);
+	rcpt = smtp_server_recipient_create(cmd, path);
 
 	rcpt_data = p_new(cmd->pool, struct smtp_server_cmd_rcpt, 1);
 	rcpt_data->rcpt = rcpt;

@@ -11,7 +11,7 @@ smtp_server_recipient_call_hooks(struct smtp_server_recipient *rcpt,
 				 enum smtp_server_recipient_hook_type type);
 
 struct smtp_server_recipient *
-smtp_server_recipient_create(struct smtp_server_connection *conn,
+smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 			     const struct smtp_address *rcpt_to)
 {
 	struct smtp_server_recipient_private *prcpt;
@@ -20,7 +20,8 @@ smtp_server_recipient_create(struct smtp_server_connection *conn,
 	pool = pool_alloconly_create("smtp server recipient", 512);
 	prcpt = p_new(pool, struct smtp_server_recipient_private, 1);
 	prcpt->rcpt.pool = pool;
-	prcpt->rcpt.conn = conn;
+	prcpt->rcpt.conn = cmd->conn;
+	prcpt->rcpt.cmd = cmd;
 	prcpt->rcpt.path = smtp_address_clone(pool, rcpt_to);
 
 	return &prcpt->rcpt;
@@ -47,10 +48,18 @@ void smtp_server_recipient_approved(struct smtp_server_recipient *rcpt)
 
 	i_assert(trans != NULL);
 
+	rcpt->cmd = NULL;
 	smtp_server_transaction_add_rcpt(trans, rcpt);
 
 	smtp_server_recipient_call_hooks(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED);
+}
+
+void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
+				     struct smtp_server_cmd_ctx *cmd)
+{
+	i_assert(rcpt->cmd == NULL);
+	rcpt->cmd = cmd;
 }
 
 #undef smtp_server_recipient_add_hook

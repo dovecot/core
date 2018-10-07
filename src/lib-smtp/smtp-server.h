@@ -69,6 +69,10 @@ struct smtp_server_recipient {
 	struct smtp_address *path;
 	struct smtp_params_rcpt params;
 
+	/* The associated RCPT or DATA command (whichever applies). This is NULL
+	   when no command is active. */
+	struct smtp_server_cmd_ctx *cmd;
+
 	/* The index in the list of approved recipients */
 	unsigned int index;
 
@@ -108,6 +112,11 @@ struct smtp_server_transaction {
 	struct smtp_address *mail_from;
 	struct smtp_params_mail params;
 	ARRAY_TYPE(smtp_server_recipient) rcpt_to;
+
+	/* The associated DATA command. This is NULL until the last DATA/BDAT
+	   command is issued.
+	 */
+	struct smtp_server_cmd_ctx *cmd;
 
 	void *context;
 };

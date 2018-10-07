@@ -103,6 +103,18 @@ smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans)
 	return array_count(&trans->rcpt_to);
 }
 
+void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
+				       struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_recipient *const *rcptp;
+
+	trans->cmd = cmd;
+
+	i_assert(array_is_created(&trans->rcpt_to));
+	array_foreach(&trans->rcpt_to, rcptp)
+		smtp_server_recipient_last_data(*rcptp, cmd);
+}
+
 void smtp_server_transaction_fail_data(struct smtp_server_transaction *trans,
 	struct smtp_server_cmd_ctx *data_cmd,
 	unsigned int status, const char *enh_code,

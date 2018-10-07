@@ -370,11 +370,13 @@ void smtp_server_connection_set_proxy_data(struct smtp_server_connection *conn,
  */
 
 struct smtp_server_recipient *
-smtp_server_recipient_create(struct smtp_server_connection *conn,
+smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 			     const struct smtp_address *rcpt_to);
 void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt);
 
 void smtp_server_recipient_approved(struct smtp_server_recipient *rcpt);
+void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
+				     struct smtp_server_cmd_ctx *cmd);
 
 /*
  * Transaction
@@ -392,6 +394,10 @@ void smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
 bool smtp_server_transaction_has_rcpt(struct smtp_server_transaction *trans);
 unsigned int
 smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans);
+
+
+void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
+				       struct smtp_server_cmd_ctx *cmd);
 
 /*
  * Server

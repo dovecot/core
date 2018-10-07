@@ -16,17 +16,12 @@ struct lmtp_recipient {
 	struct client *client;
 	struct smtp_server_recipient *rcpt;
 	enum lmtp_recipient_type type;
-
-	struct smtp_server_cmd_ctx *rcpt_cmd;
 };
 
 void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 			 struct client *client,
 			 enum lmtp_recipient_type type,
-			 struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_recipient *rcpt);
-
-void lmtp_recipient_finish(struct lmtp_recipient *lrcpt);
 
 struct lmtp_recipient *
 lmtp_recipient_find_duplicate(struct lmtp_recipient *lrcpt,

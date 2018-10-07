@@ -333,6 +333,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 	      struct cmd_data_context *data_cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_transaction *trans = conn->state.trans;
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	struct smtp_server_command *command = cmd->cmd;
 	int ret;
@@ -342,6 +343,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 	i_assert(data_cmd != NULL);
 	i_assert(conn->state.pending_mail_cmds == 0 &&
 		conn->state.pending_rcpt_cmds == 0);
+	i_assert(trans != NULL);
 
 	smtp_server_command_debug(cmd,
 		"Command is next to be replied");
@@ -350,12 +352,16 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 	if (!smtp_server_connection_data_check_state(cmd))
 		return;
 
-	/* LMTP 'DATA' and 'BDAT LAST' commands need to send one reply
-	   per recipient
-	 */
-	if (data_cmd->chunk_last && conn->set.protocol == SMTP_PROTOCOL_LMTP) {
-		smtp_server_command_set_reply_count(command,
-			array_count(&conn->state.trans->rcpt_to));
+	if (data_cmd->chunk_last) {
+		/* This is the last chunk */
+		smtp_server_transaction_last_data(trans, cmd);
+
+		/* LMTP 'DATA' and 'BDAT LAST' commands need to send more than
+		   one reply per recipient */
+		if (conn->set.protocol == SMTP_PROTOCOL_LMTP) {
+			smtp_server_command_set_reply_count(command,
+				array_count(&trans->rcpt_to));
+		}
 	}
 
 	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_DATA);
