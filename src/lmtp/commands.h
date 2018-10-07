@@ -8,7 +8,7 @@ struct smtp_server_cmd_helo;
 int cmd_mail(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_mail *data);
 int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
-	     struct smtp_server_cmd_rcpt *data);
+	     struct smtp_server_recipient *rcpt);
 int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		      struct smtp_server_transaction *trans);
 int cmd_data_begin(void *conn_ctx, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,

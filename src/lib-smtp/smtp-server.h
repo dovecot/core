@@ -145,19 +145,6 @@ struct smtp_server_cmd_mail {
 	struct timeval timestamp;
 };
 
-struct smtp_server_cmd_rcpt {
-	struct smtp_address *path;
-	struct smtp_params_rcpt params;
-
-	/* called once the recipient is definitively added to the transaction */
-	void (*hook_finished)(struct smtp_server_cmd_ctx *cmd,
-			      struct smtp_server_transaction *trans,
-			      struct smtp_server_recipient *rcpt,
-			      unsigned int index);
-
-	void *trans_context;
-};
-
 struct smtp_server_cmd_auth {
 	const char *sasl_mech;
 	const char *initial_response;
@@ -208,7 +195,7 @@ struct smtp_server_callbacks {
 	/* RCPT */
 	int (*conn_cmd_rcpt)(void *conn_ctx,
 		struct smtp_server_cmd_ctx *cmd,
-		struct smtp_server_cmd_rcpt *data);
+		struct smtp_server_recipient *rcpt);
 	/* RSET */
 	int (*conn_cmd_rset)(void *conn_ctx,
 		struct smtp_server_cmd_ctx *cmd);

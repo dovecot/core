@@ -44,7 +44,7 @@ int cmd_mail(void *conn_ctx,
  */
 
 int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
-	     struct smtp_server_cmd_rcpt *data)
+	     struct smtp_server_recipient *rcpt)
 {
 	struct client *client = (struct client *)conn_ctx;
 	const char *username, *detail;
@@ -53,17 +53,17 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	smtp_address_detail_parse_temp(
 		client->unexpanded_lda_set->recipient_delimiter,
-		data->path, &username, &delim, &detail);
+		rcpt->path, &username, &delim, &detail);
 	if (client->lmtp_set->lmtp_proxy) {
 		/* proxied? */
-		if ((ret=lmtp_proxy_rcpt(client, cmd, data,
+		if ((ret=lmtp_proxy_rcpt(client, cmd, rcpt,
 					 username, detail, delim)) != 0)
 			return (ret < 0 ? -1 : 0);
 		/* no */
 	}
 
 	/* local delivery */
-	return lmtp_local_rcpt(client, cmd, data, username, detail);
+	return lmtp_local_rcpt(client, cmd, rcpt, username, detail);
 }
 
 /*
