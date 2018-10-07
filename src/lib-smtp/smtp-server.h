@@ -17,6 +17,8 @@ struct smtp_server_cmd_mail;
 struct smtp_server_cmd_ctx;
 struct smtp_server_command;
 struct smtp_server_reply;
+struct smtp_server_recipient;
+struct smtp_server_transaction;
 
 struct smtp_server;
 
@@ -48,6 +50,17 @@ struct smtp_server_helo_data {
  * Recipient
  */
 
+enum smtp_server_recipient_hook_type {
+	/* approved: the server is about to approve this recipient by sending
+	   a success reply to the RCPT command. */
+	SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
+	/* destroy: recipient is about to be destroyed. */
+	SMTP_SERVER_RECIPIENT_HOOK_DESTROY
+};
+
+typedef void smtp_server_rcpt_func_t(struct smtp_server_recipient *rcpt,
+				     void *context);
+
 struct smtp_server_recipient {
 	pool_t pool;
 	struct smtp_server_connection *conn;
@@ -59,6 +72,25 @@ struct smtp_server_recipient {
 	void *context;
 };
 ARRAY_DEFINE_TYPE(smtp_server_recipient, struct smtp_server_recipient *);
+
+/* Hooks */
+
+void smtp_server_recipient_add_hook(struct smtp_server_recipient *rcpt,
+				  enum smtp_server_recipient_hook_type type,
+				  smtp_server_rcpt_func_t func,
+				  void *context);
+#define smtp_server_recipient_add_hook(_rcpt, _type, _func, _context) \
+	smtp_server_recipient_add_hook((_rcpt), (_type) + \
+		CALLBACK_TYPECHECK(_func, void (*)( \
+			struct smtp_server_recipient *, typeof(_context))), \
+		(smtp_server_rcpt_func_t *)(_func), (_context))
+void smtp_server_recipient_remove_hook(
+	struct smtp_server_recipient *rcpt,
+	enum smtp_server_recipient_hook_type type,
+	smtp_server_rcpt_func_t *func);
+#define smtp_server_recipient_remove_hook(_rcpt, _type, _func) \
+	smtp_server_recipient_remove_hook((_rcpt), (_type), \
+		(smtp_server_rcpt_func_t *)(_func));
 
 /*
  * Transaction

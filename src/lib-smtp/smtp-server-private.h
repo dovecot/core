@@ -54,6 +54,14 @@ struct smtp_server_command_hook {
 	void *context;
 };
 
+struct smtp_server_recipient_hook {
+	enum smtp_server_recipient_hook_type type;
+	struct smtp_server_recipient_hook *prev, *next;
+
+	smtp_server_rcpt_func_t *func;
+	void *context;
+};
+
 struct smtp_server_reply_content {
 	unsigned int status;
 	const char *status_prefix;
@@ -100,6 +108,12 @@ struct smtp_server_command {
 	bool input_locked:1;
 	bool input_captured:1;
 	bool reply_early:1;
+};
+
+struct smtp_server_recipient_private {
+	struct smtp_server_recipient rcpt;
+
+	struct smtp_server_recipient_hook *hooks_head, *hooks_tail;
 };
 
 struct smtp_server_state_data {
