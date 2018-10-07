@@ -18,7 +18,6 @@ void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 
 void lmtp_recipient_finish(struct lmtp_recipient *lrcpt)
 {
-	lrcpt->index = lrcpt->rcpt->index;
 	lrcpt->rcpt_cmd = NULL;
 }
 
