@@ -127,7 +127,8 @@ lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *llrcpt,
 				struct smtp_server_cmd_ctx *cmd,
 				const char *error)
 {
-	struct smtp_address *address = llrcpt->rcpt.path;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct smtp_address *address = rcpt->path;
 	unsigned int rcpt_idx = llrcpt->rcpt.index;
 	struct lda_settings *lda_set =
 		mail_storage_service_user_get_set(llrcpt->service_user)[2];
@@ -158,9 +159,11 @@ lmtp_local_rcpt_fail_all(struct lmtp_local *local,
 
 	llrcpts = array_get(&local->rcpt_to, &count);
 	for (i = 0; i < count; i++) {
+		struct smtp_server_recipient *rcpt = llrcpts[i]->rcpt.rcpt;
+
 		smtp_server_reply_index(cmd, llrcpts[i]->rcpt.index,
 			status, enh_code, "<%s> %s",
-			smtp_address_encode(llrcpts[i]->rcpt.rcpt->path), msg);
+			smtp_address_encode(rcpt->path), msg);
 	}
 }
 
@@ -172,8 +175,9 @@ static int
 lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 {
 	struct client *client = llrcpt->rcpt.client;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
 	struct smtp_server_cmd_ctx *cmd = llrcpt->rcpt.rcpt_cmd;
-	struct smtp_address *address = llrcpt->rcpt.path;
+	struct smtp_address *address = rcpt->path;
 	struct mail_user *user;
 	struct mail_namespace *ns;
 	struct mailbox *box;
@@ -269,7 +273,8 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 		(struct lmtp_local_recipient *)context;
 	struct smtp_server_cmd_ctx *cmd = llrcpt->rcpt.rcpt_cmd;
 	struct client *client = llrcpt->rcpt.client;
-	struct smtp_address *address = llrcpt->rcpt.path;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct smtp_address *address = rcpt->path;
 	const struct mail_storage_service_input *input;
 	unsigned int parallel_count = 0;
 

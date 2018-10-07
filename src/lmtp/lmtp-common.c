@@ -14,7 +14,6 @@ void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 	lrcpt->type = type;
 	lrcpt->rcpt_cmd = cmd;
 	lrcpt->rcpt = rcpt;
-	lrcpt->path = rcpt->path;
 }
 
 void lmtp_recipient_finish(struct lmtp_recipient *lrcpt)
