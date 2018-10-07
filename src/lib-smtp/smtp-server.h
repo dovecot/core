@@ -69,6 +69,9 @@ struct smtp_server_recipient {
 	struct smtp_address *path;
 	struct smtp_params_rcpt params;
 
+	/* The index in the list of approved recipients */
+	unsigned int index;
+
 	void *context;
 };
 ARRAY_DEFINE_TYPE(smtp_server_recipient, struct smtp_server_recipient *);
