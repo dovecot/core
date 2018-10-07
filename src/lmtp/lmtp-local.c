@@ -129,7 +129,7 @@ lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *llrcpt,
 {
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
 	struct smtp_address *address = rcpt->path;
-	unsigned int rcpt_idx = llrcpt->rcpt.index;
+	unsigned int rcpt_idx = rcpt->index;
 	struct lda_settings *lda_set =
 		mail_storage_service_user_get_set(llrcpt->service_user)[2];
 
@@ -161,7 +161,7 @@ lmtp_local_rcpt_fail_all(struct lmtp_local *local,
 	for (i = 0; i < count; i++) {
 		struct smtp_server_recipient *rcpt = llrcpts[i]->rcpt.rcpt;
 
-		smtp_server_reply_index(cmd, llrcpts[i]->rcpt.index,
+		smtp_server_reply_index(cmd, rcpt->index,
 			status, enh_code, "<%s> %s",
 			smtp_address_encode(rcpt->path), msg);
 	}
@@ -441,7 +441,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	struct client *client = local->client;
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
 	struct smtp_address *rcpt_to = rcpt->path;
-	unsigned int rcpt_idx = llrcpt->rcpt.index;
+	unsigned int rcpt_idx = rcpt->index;
 	struct mail_storage_service_user *service_user = llrcpt->service_user;
 	struct mail_deliver_context dctx;
 	struct mail_user *rcpt_user;
@@ -628,11 +628,14 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 	llrcpts = array_get(&local->rcpt_to, &count);
 	for (i = 0; i < count; i++) {
 		struct lmtp_local_recipient *llrcpt = llrcpts[i];
+		struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
 
 		if (llrcpt->duplicate != NULL) {
+			struct smtp_server_recipient *drcpt =
+				llrcpt->duplicate->rcpt.rcpt;
 			/* don't deliver more than once to the same recipient */
-			smtp_server_reply_submit_duplicate(cmd,
-			    llrcpt->rcpt.index, llrcpt->duplicate->rcpt.index);
+			smtp_server_reply_submit_duplicate(cmd, rcpt->index,
+							   drcpt->index);
 			continue;
 		}
 

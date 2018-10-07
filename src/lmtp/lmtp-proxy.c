@@ -594,13 +594,14 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 		   struct lmtp_proxy_recipient *lprcpt)
 {
 	struct lmtp_proxy_connection *conn = lprcpt->conn;
+	struct smtp_server_recipient *rcpt = lprcpt->rcpt.rcpt;
 	struct lmtp_proxy *proxy = conn->proxy;
 	struct smtp_server_cmd_ctx *cmd = proxy->pending_data_cmd;
 	struct smtp_server_transaction *trans = proxy->trans;
 	struct smtp_address *address = lprcpt->address;
 	const struct smtp_client_transaction_times *times =
 		smtp_client_transaction_get_times(conn->lmtp_trans);
-	unsigned int rcpt_index = lprcpt->rcpt.index;
+	unsigned int rcpt_index = rcpt->index;
 	struct smtp_reply reply;
 	string_t *msg;
 
