@@ -37,7 +37,7 @@ struct submission_client_vfuncs {
 	int (*cmd_mail)(struct client *client, struct smtp_server_cmd_ctx *cmd,
 			struct smtp_server_cmd_mail *data);
 	int (*cmd_rcpt)(struct client *client,
-			struct submission_recipient *rcpt,
+			struct submission_recipient *srcpt,
 			struct smtp_server_cmd_ctx *cmd,
 			struct smtp_server_cmd_rcpt *data);
 	int (*cmd_rset)(struct client *client, struct smtp_server_cmd_ctx *cmd);
