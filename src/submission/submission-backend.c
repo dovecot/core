@@ -177,14 +177,14 @@ int submission_backend_cmd_mail(struct submission_backend *backend,
 
 int submission_backend_cmd_rcpt(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
-				struct smtp_server_recipient *rcpt)
+				struct submission_recipient *srcpt)
 {
 	if (backend->v.cmd_rcpt == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
 	}
 
-	return backend->v.cmd_rcpt(backend, cmd, rcpt);
+	return backend->v.cmd_rcpt(backend, cmd, srcpt);
 }
 
 int submission_backend_cmd_rset(struct submission_backend *backend,

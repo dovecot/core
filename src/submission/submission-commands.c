@@ -144,43 +144,20 @@ int client_default_cmd_mail(struct client *client,
  * RCPT command
  */
 
-static void
-cmd_rcpt_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-		 struct submission_recipient *srcpt)
-{
-	submission_recipient_destroy(&srcpt);
-}
-
-static void
-cmd_rcpt_approved(struct smtp_server_recipient *rcpt,
-		  struct submission_recipient *srcpt)
-{
-	submission_recipient_finished(srcpt, rcpt, rcpt->index);
-}
-
 int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_recipient *rcpt)
 {
 	struct client *client = conn_ctx;
 	struct submission_recipient *srcpt;
 
-	srcpt = submission_recipient_create(client, rcpt->path);
+	srcpt = submission_recipient_create(client, rcpt);
 
-	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
-				     cmd_rcpt_destroy, srcpt);
-
-	smtp_server_recipient_add_hook(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
-		cmd_rcpt_approved, srcpt);
-	rcpt->context = srcpt;
-
-	return client->v.cmd_rcpt(client, srcpt, cmd, rcpt);
+	return client->v.cmd_rcpt(client, cmd, srcpt);
 }
 
 int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
-			    struct submission_recipient *srcpt,
 			    struct smtp_server_cmd_ctx *cmd,
-			    struct smtp_server_recipient *rcpt)
+			    struct submission_recipient *srcpt)
 {
 	struct smtp_server_transaction *trans;
 
@@ -188,7 +165,7 @@ int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
 	if (trans != NULL)
 		submission_backend_trans_start(srcpt->backend, trans);
 
-	return submission_backend_cmd_rcpt(srcpt->backend, cmd, rcpt);
+	return submission_backend_cmd_rcpt(srcpt->backend, cmd, srcpt);
 }
 
 /*

@@ -1,6 +1,7 @@
 #ifndef SUBMISSION_BACKEND_H
 #define SUBMISSION_BACKEND_H
 
+struct submission_recipient;
 struct submission_backend;
 
 struct submission_backend_vfuncs {
@@ -27,7 +28,7 @@ struct submission_backend_vfuncs {
 			struct smtp_server_cmd_mail *data);
 	int (*cmd_rcpt)(struct submission_backend *backend,
 			struct smtp_server_cmd_ctx *cmd,
-			struct smtp_server_recipient *rcpt);
+			struct submission_recipient *srcpt);
 	int (*cmd_rset)(struct submission_backend *backend,
 			struct smtp_server_cmd_ctx *cmd);
 	int (*cmd_data)(struct submission_backend *backend,
@@ -92,7 +93,7 @@ int submission_backend_cmd_mail(struct submission_backend *backend,
 				struct smtp_server_cmd_mail *data);
 int submission_backend_cmd_rcpt(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
-				struct smtp_server_recipient *rcpt);
+				struct submission_recipient *srcpt);
 int submission_backend_cmd_rset(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd);
 int submission_backends_cmd_data(struct client *client,

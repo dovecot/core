@@ -10,6 +10,7 @@
 #include "smtp-client-transaction.h"
 #include "smtp-client-command.h"
 
+#include "submission-recipient.h"
 #include "submission-backend-relay.h"
 
 struct submission_backend_relay {
@@ -425,9 +426,9 @@ backend_relay_cmd_mail(struct submission_backend *_backend,
 
 struct relay_cmd_rcpt_context {
 	struct submission_backend_relay *backend;
+	struct submission_recipient *rcpt;
 
 	struct smtp_server_cmd_ctx *cmd;
-	struct smtp_server_recipient *rcpt;
 
 	struct smtp_client_transaction_rcpt *relay_rcpt;
 };
@@ -476,7 +477,7 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 static int
 backend_relay_cmd_rcpt(struct submission_backend *_backend,
 		       struct smtp_server_cmd_ctx *cmd,
-		       struct smtp_server_recipient *rcpt)
+		       struct submission_recipient *srcpt)
 {
 	struct submission_backend_relay *backend =
 		(struct submission_backend_relay *)_backend;
@@ -486,7 +487,7 @@ backend_relay_cmd_rcpt(struct submission_backend *_backend,
 	rcpt_cmd = p_new(cmd->pool, struct relay_cmd_rcpt_context, 1);
 	rcpt_cmd->backend = backend;
 	rcpt_cmd->cmd = cmd;
-	rcpt_cmd->rcpt = rcpt;
+	rcpt_cmd->rcpt = srcpt;
 
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED,
 				     relay_cmd_rcpt_replied, rcpt_cmd);
@@ -496,7 +497,7 @@ backend_relay_cmd_rcpt(struct submission_backend *_backend,
 			backend->conn, backend_relay_trans_finished, backend);
 	}
 	rcpt_cmd->relay_rcpt = smtp_client_transaction_add_rcpt(
-		backend->trans, rcpt->path,  &rcpt->params,
+		backend->trans, srcpt->rcpt->path, &srcpt->rcpt->params,
 		relay_cmd_rcpt_callback, relay_cmd_rcpt_data_callback,
 		rcpt_cmd);
 	return 0;
