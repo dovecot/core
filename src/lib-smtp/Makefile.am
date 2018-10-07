@@ -41,6 +41,7 @@ libsmtp_la_SOURCES = \
 	$(smtp_server_cmds) \
 	smtp-server-reply.c \
 	smtp-server-command.c \
+	smtp-server-recipient.c \
 	smtp-server-transaction.c \
 	smtp-server-connection.c \
 	smtp-server.c \

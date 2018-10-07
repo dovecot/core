@@ -46,6 +46,12 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 {
 	struct smtp_server_transaction *trans = *_trans;
+	struct smtp_server_recipient **rcptp;
+
+	if (array_is_created(&trans->rcpt_to)) {
+		array_foreach_modifiable(&trans->rcpt_to, rcptp)
+			smtp_server_recipient_destroy(rcptp);
+	}
 
 	pool_unref(&trans->pool);
 	*_trans = NULL;
@@ -71,23 +77,15 @@ smtp_server_transaction_find_rcpt_duplicate(
 	return NULL;
 }
 
-struct smtp_server_recipient *
-smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
-				 const struct smtp_address *rcpt_to,
-				 const struct smtp_params_rcpt *params)
+void smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
+				      struct smtp_server_recipient *rcpt)
 {
-	struct smtp_server_recipient *rcpt;
-
-	rcpt = p_new(trans->pool, struct smtp_server_recipient, 1);
-	rcpt->path = smtp_address_clone(trans->pool, rcpt_to);
-	smtp_params_rcpt_copy(trans->pool, &rcpt->params, params);
-
 	if (!array_is_created(&trans->rcpt_to))
 		p_array_init(&trans->rcpt_to, trans->pool, 8);
 
-	array_append(&trans->rcpt_to, &rcpt, 1);
+	rcpt->trans = trans;
 
-	return rcpt;
+	array_append(&trans->rcpt_to, &rcpt, 1);
 }
 
 bool smtp_server_transaction_has_rcpt(struct smtp_server_transaction *trans)
