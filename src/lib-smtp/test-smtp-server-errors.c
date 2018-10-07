@@ -382,11 +382,11 @@ test_server_hanging_command_payload_trans_free(void *conn_ctx  ATTR_UNUSED,
 static int
 test_server_hanging_command_payload_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data)
+	struct smtp_server_recipient *rcpt)
 {
 	if (debug) {
 		i_debug("RCPT TO:%s",
-			smtp_address_encode(data->path));
+			smtp_address_encode(rcpt->path));
 	}
 
 	return 1;
@@ -526,7 +526,7 @@ test_server_bad_command_helo(void *conn_ctx ATTR_UNUSED,
 static int
 test_server_bad_command_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	return 1;
 }
@@ -620,7 +620,7 @@ test_server_long_command_helo(void *conn_ctx ATTR_UNUSED,
 static int
 test_server_long_command_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	return 1;
 }
@@ -718,11 +718,11 @@ test_server_big_data_trans_free(void *conn_ctx  ATTR_UNUSED,
 static int
 test_server_big_data_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data)
+	struct smtp_server_recipient *rcpt)
 {
 	if (debug) {
 		i_debug("RCPT TO:%s",
-			smtp_address_encode(data->path));
+			smtp_address_encode(rcpt->path));
 	}
 	return 1;
 }
@@ -869,7 +869,7 @@ test_server_bad_ehlo_helo(void *conn_ctx ATTR_UNUSED,
 static int
 test_server_bad_ehlo_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	return 1;
 }
@@ -1048,7 +1048,7 @@ test_server_bad_mail_disconnect(void *context ATTR_UNUSED, const char *reason)
 static int
 test_server_bad_mail_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	test_assert(FALSE);
 	return 1;
@@ -1228,7 +1228,7 @@ test_server_bad_rcpt_disconnect(void *context ATTR_UNUSED, const char *reason)
 static int
 test_server_bad_rcpt_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	return 1;
 }
@@ -1415,7 +1415,7 @@ test_server_mail_workarounds_disconnect(void *context ATTR_UNUSED,
 static int
 test_server_mail_workarounds_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	test_assert(FALSE);
 	return 1;
@@ -1609,7 +1609,7 @@ test_server_rcpt_workarounds_disconnect(void *context ATTR_UNUSED,
 static int
 test_server_rcpt_workarounds_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	return 1;
 }
@@ -1708,11 +1708,11 @@ test_server_too_many_recipients_trans_free(void *conn_ctx  ATTR_UNUSED,
 static int
 test_server_too_many_recipients_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data)
+	struct smtp_server_recipient *rcpt)
 {
 	if (debug) {
 		i_debug("RCPT TO:%s",
-			smtp_address_encode(data->path));
+			smtp_address_encode(rcpt->path));
 	}
 	return 1;
 }
@@ -1785,7 +1785,7 @@ static void test_client_data_no_mail(unsigned int index)
 static int
 test_server_data_no_mail_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	/* not supposed to get here */
 	i_assert(FALSE);
@@ -1877,7 +1877,7 @@ test_server_data_no_rcpt_trans_free(void *conn_ctx  ATTR_UNUSED,
 static int
 test_server_data_no_rcpt_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
 	/* not supposed to get here */
 	i_assert(FALSE);
@@ -1962,11 +1962,11 @@ test_server_data_binarymime_trans_free(void *conn_ctx  ATTR_UNUSED,
 static int
 test_server_data_binarymime_rcpt(void *conn_ctx ATTR_UNUSED,
 	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct smtp_server_cmd_rcpt *data)
+	struct smtp_server_recipient *rcpt)
 {
 	if (debug) {
 		i_debug("RCPT TO:%s",
-			smtp_address_encode(data->path));
+			smtp_address_encode(rcpt->path));
 	}
 	return 1;
 }

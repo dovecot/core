@@ -8,23 +8,18 @@ void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 			 struct client *client,
 			 enum lmtp_recipient_type type,
 			 struct smtp_server_cmd_ctx *cmd,
-			 struct smtp_server_cmd_rcpt *data)
+			 struct smtp_server_recipient *rcpt)
 {
 	lrcpt->client = client;
 	lrcpt->type = type;
 	lrcpt->rcpt_cmd = cmd;
-	lrcpt->path = data->path;
+	lrcpt->rcpt = rcpt;
+	lrcpt->path = rcpt->path;
 }
 
-void lmtp_recipient_finish(struct lmtp_recipient *lrcpt,
-			   struct smtp_server_recipient *rcpt,
-			   unsigned int index)
+void lmtp_recipient_finish(struct lmtp_recipient *lrcpt)
 {
-	rcpt->context = lrcpt;
-
-	lrcpt->path = rcpt->path;
-	lrcpt->rcpt = rcpt;
-	lrcpt->index = index;
+	lrcpt->index = lrcpt->rcpt->index;
 	lrcpt->rcpt_cmd = NULL;
 }
 

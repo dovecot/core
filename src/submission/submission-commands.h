@@ -31,12 +31,12 @@ int client_default_cmd_mail(struct client *client,
  */
 
 int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
-	     struct smtp_server_cmd_rcpt *data);
+	     struct smtp_server_recipient *rcpt);
 
 int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
 			    struct submission_recipient *srcpt,
 			    struct smtp_server_cmd_ctx *cmd,
-			    struct smtp_server_cmd_rcpt *data);
+			    struct smtp_server_recipient *rcpt);
 
 /*
  * RSET command
