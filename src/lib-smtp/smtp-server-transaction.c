@@ -84,6 +84,7 @@ void smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
 		p_array_init(&trans->rcpt_to, trans->pool, 8);
 
 	rcpt->trans = trans;
+	rcpt->index = array_count(&trans->rcpt_to);
 
 	array_append(&trans->rcpt_to, &rcpt, 1);
 }
