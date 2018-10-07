@@ -22,18 +22,18 @@ struct lmtp_recipient {
 	unsigned int index;
 };
 
-void lmtp_recipient_init(struct lmtp_recipient *rcpt,
+void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 			 struct client *client,
 			 enum lmtp_recipient_type type,
 			 struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_cmd_rcpt *data);
 
-void lmtp_recipient_finish(struct lmtp_recipient *rcpt,
+void lmtp_recipient_finish(struct lmtp_recipient *lrcpt,
 			   struct smtp_server_recipient *trcpt,
 			   unsigned int index);
 
 struct lmtp_recipient *
-lmtp_recipient_find_duplicate(struct lmtp_recipient *rcpt,
+lmtp_recipient_find_duplicate(struct lmtp_recipient *lrcpt,
 			      struct smtp_server_transaction *trans);
 
 #endif
