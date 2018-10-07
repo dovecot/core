@@ -17,13 +17,13 @@ void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 }
 
 void lmtp_recipient_finish(struct lmtp_recipient *lrcpt,
-			   struct smtp_server_recipient *trcpt,
+			   struct smtp_server_recipient *rcpt,
 			   unsigned int index)
 {
-	trcpt->context = lrcpt;
+	rcpt->context = lrcpt;
 
-	lrcpt->path = trcpt->path;
-	lrcpt->rcpt = trcpt;
+	lrcpt->path = rcpt->path;
+	lrcpt->rcpt = rcpt;
 	lrcpt->index = index;
 	lrcpt->rcpt_cmd = NULL;
 }

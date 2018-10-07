@@ -255,10 +255,10 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 static void lmtp_local_rcpt_finished(
 	struct smtp_server_cmd_ctx *cmd,
 	struct smtp_server_transaction *trans,
-	struct smtp_server_recipient *trcpt,
+	struct smtp_server_recipient *rcpt,
 	unsigned int index)
 {
-	struct lmtp_local_recipient *llrcpt = trcpt->context;
+	struct lmtp_local_recipient *llrcpt = rcpt->context;
 	struct client *client = llrcpt->rcpt.client;
 
 	smtp_server_command_remove_hook(
@@ -272,7 +272,7 @@ static void lmtp_local_rcpt_finished(
 		return;
 	}
 
-	lmtp_recipient_finish(&llrcpt->rcpt, trcpt, index);
+	lmtp_recipient_finish(&llrcpt->rcpt, rcpt, index);
 
 	/* resolve duplicate recipient */
 	llrcpt->duplicate = (struct lmtp_local_recipient *)
@@ -469,8 +469,8 @@ lmtp_local_deliver(struct lmtp_local *local,
 		   struct mail_deliver_session *session)
 {
 	struct client *client = local->client;
-	struct smtp_server_recipient *trcpt = llrcpt->rcpt.rcpt;
-	struct smtp_address *rcpt_to = trcpt->path;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct smtp_address *rcpt_to = rcpt->path;
 	unsigned int rcpt_idx = llrcpt->rcpt.index;
 	struct mail_storage_service_user *service_user = llrcpt->service_user;
 	struct mail_deliver_context dctx;
@@ -578,8 +578,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 
 	/* RCPT TO */
 	dctx.rcpt_user = rcpt_user;
-	smtp_params_rcpt_copy(dctx.pool,
-		&dctx.rcpt_params, &trcpt->params);
+	smtp_params_rcpt_copy(dctx.pool, &dctx.rcpt_params, &rcpt->params);
 	if (dctx.rcpt_params.orcpt.addr == NULL &&
 		*dctx.set->lda_original_recipient_header != '\0') {
 		dctx.rcpt_params.orcpt.addr =
