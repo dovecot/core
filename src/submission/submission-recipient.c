@@ -42,7 +42,6 @@ submission_recipient_approved(struct smtp_server_recipient *rcpt,
 	struct submission_backend *const *bknd_idx;
 	bool backend_found = FALSE;
 
-	srcpt->path = rcpt->path;
 	srcpt->index = rcpt->index;
 
 	array_append(&client->rcpt_to, &srcpt, 1);

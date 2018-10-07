@@ -9,7 +9,6 @@ struct submission_recipient {
 
 	struct submission_backend *backend;
 
-	struct smtp_address *path;
 	unsigned int index;
 
 	/* Module-specific contexts. */
