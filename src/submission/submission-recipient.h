@@ -5,7 +5,7 @@ struct submission_backend;
 struct client;
 
 struct submission_recipient {
-	pool_t pool;
+	struct smtp_server_recipient *rcpt;
 
 	struct submission_backend *backend;
 
@@ -27,10 +27,7 @@ extern struct submission_recipient_module_register
 submission_recipient_module_register;
 
 struct submission_recipient *
-submission_recipient_create(struct client *client, struct smtp_address *path);
-void submission_recipient_destroy(struct submission_recipient **_srcpt);
-void submission_recipient_finished(struct submission_recipient *srcpt,
-				   struct smtp_server_recipient *rcpt,
-				   unsigned int index);
+submission_recipient_create(struct client *client,
+			    struct smtp_server_recipient *rcpt);
 
 #endif

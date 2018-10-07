@@ -8,35 +8,34 @@
 struct submission_recipient_module_register
 submission_recipient_module_register = { 0 };
 
+static void
+submission_recipient_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
+			      struct submission_recipient *srcpt);
+
 struct submission_recipient *
-submission_recipient_create(struct client *client, struct smtp_address *path)
+submission_recipient_create(struct client *client,
+			    struct smtp_server_recipient *rcpt)
 {
 	struct submission_recipient *srcpt;
-	pool_t pool;
 
-	pool = pool_alloconly_create("submission recipient", 512);
-	srcpt = p_new(pool, struct submission_recipient, 1);
-	srcpt->pool = pool;
+	srcpt = p_new(rcpt->pool, struct submission_recipient, 1);
+	srcpt->rcpt = rcpt;
 	srcpt->backend = client->state.backend;
-	srcpt->path = path;
 
-	p_array_init(&srcpt->module_contexts, srcpt->pool, 5);
+	rcpt->context = srcpt;
+
+	p_array_init(&srcpt->module_contexts, rcpt->pool, 5);
+
+	smtp_server_recipient_add_hook(
+		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
+		submission_recipient_approved, srcpt);
 
 	return srcpt;
 }
 
-void submission_recipient_destroy(struct submission_recipient **_srcpt)
-{
-	struct submission_recipient *srcpt = *_srcpt;
-
-	*_srcpt = NULL;
-
-	pool_unref(&srcpt->pool);
-}
-
-void submission_recipient_finished(struct submission_recipient *srcpt,
-				   struct smtp_server_recipient *rcpt,
-				   unsigned int index)
+static void
+submission_recipient_approved(struct smtp_server_recipient *rcpt,
+			      struct submission_recipient *srcpt)
 {
 	struct submission_backend *backend = srcpt->backend;
 	struct client *client = backend->client;
@@ -44,7 +43,7 @@ void submission_recipient_finished(struct submission_recipient *srcpt,
 	bool backend_found = FALSE;
 
 	srcpt->path = rcpt->path;
-	srcpt->index = index;
+	srcpt->index = rcpt->index;
 
 	array_append(&client->rcpt_to, &srcpt, 1);
 

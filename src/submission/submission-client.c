@@ -358,10 +358,6 @@ static void
 client_default_trans_free(struct client *client,
 			  struct smtp_server_transaction *trans)
 {
-	struct submission_recipient **rcptp;
-
-	array_foreach_modifiable(&client->rcpt_to, rcptp)
-		submission_recipient_destroy(rcptp);
 	array_clear(&client->rcpt_to);
 
 	submission_backends_trans_free(client, trans);
@@ -442,7 +438,6 @@ void client_disconnect(struct client *client, const char *enh_code,
 		       const char *reason)
 {
 	struct smtp_server_connection *conn;
-	struct submission_recipient **rcptp;
 
 	if (client->disconnected)
 		return;
@@ -451,11 +446,8 @@ void client_disconnect(struct client *client, const char *enh_code,
 	timeout_remove(&client->to_quit);
 	submission_backends_destroy_all(client);
 
-	if (array_is_created(&client->rcpt_to)) {
-		array_foreach_modifiable(&client->rcpt_to, rcptp)
-			submission_recipient_destroy(rcptp);
+	if (array_is_created(&client->rcpt_to))
 		array_clear(&client->rcpt_to);
-	}
 
 	if (client->conn != NULL) {
 		const struct smtp_server_stats *stats =
