@@ -34,15 +34,13 @@ submission_recipient_create(struct client *client,
 }
 
 static void
-submission_recipient_approved(struct smtp_server_recipient *rcpt,
+submission_recipient_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 			      struct submission_recipient *srcpt)
 {
 	struct submission_backend *backend = srcpt->backend;
 	struct client *client = backend->client;
 	struct submission_backend *const *bknd_idx;
 	bool backend_found = FALSE;
-
-	srcpt->index = rcpt->index;
 
 	array_append(&client->rcpt_to, &srcpt, 1);
 

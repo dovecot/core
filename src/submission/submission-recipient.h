@@ -9,8 +9,6 @@ struct submission_recipient {
 
 	struct submission_backend *backend;
 
-	unsigned int index;
-
 	/* Module-specific contexts. */
 	ARRAY(union submission_recipient_module_context *) module_contexts;
 };
