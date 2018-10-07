@@ -11,42 +11,42 @@ submission_recipient_module_register = { 0 };
 struct submission_recipient *
 submission_recipient_create(struct client *client, struct smtp_address *path)
 {
-	struct submission_recipient *rcpt;
+	struct submission_recipient *srcpt;
 	pool_t pool;
 
 	pool = pool_alloconly_create("submission recipient", 512);
-	rcpt = p_new(pool, struct submission_recipient, 1);
-	rcpt->pool = pool;
-	rcpt->backend = client->state.backend;
-	rcpt->path = path;
+	srcpt = p_new(pool, struct submission_recipient, 1);
+	srcpt->pool = pool;
+	srcpt->backend = client->state.backend;
+	srcpt->path = path;
 
-	p_array_init(&rcpt->module_contexts, rcpt->pool, 5);
+	p_array_init(&srcpt->module_contexts, srcpt->pool, 5);
 
-	return rcpt;
+	return srcpt;
 }
 
-void submission_recipient_destroy(struct submission_recipient **_rcpt)
+void submission_recipient_destroy(struct submission_recipient **_srcpt)
 {
-	struct submission_recipient *rcpt = *_rcpt;
+	struct submission_recipient *srcpt = *_srcpt;
 
-	*_rcpt = NULL;
+	*_srcpt = NULL;
 
-	pool_unref(&rcpt->pool);
+	pool_unref(&srcpt->pool);
 }
 
-void submission_recipient_finished(struct submission_recipient *rcpt,
+void submission_recipient_finished(struct submission_recipient *srcpt,
 				   struct smtp_server_recipient *trcpt,
 				   unsigned int index)
 {
-	struct submission_backend *backend = rcpt->backend;
+	struct submission_backend *backend = srcpt->backend;
 	struct client *client = backend->client;
 	struct submission_backend *const *bknd_idx;
 	bool backend_found = FALSE;
 
-	rcpt->path = trcpt->path;
-	rcpt->index = index;
+	srcpt->path = trcpt->path;
+	srcpt->index = index;
 
-	array_append(&client->rcpt_to, &rcpt, 1);
+	array_append(&client->rcpt_to, &srcpt, 1);
 
 	array_foreach(&client->rcpt_backends, bknd_idx) {
 		if (*bknd_idx == backend) {

@@ -34,7 +34,7 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_rcpt *data);
 
 int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
-			    struct submission_recipient *rcpt,
+			    struct submission_recipient *srcpt,
 			    struct smtp_server_cmd_ctx *cmd,
 			    struct smtp_server_cmd_rcpt *data);
 

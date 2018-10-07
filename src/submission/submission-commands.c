@@ -146,9 +146,9 @@ int client_default_cmd_mail(struct client *client,
 
 static void
 cmd_rcpt_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-		 struct submission_recipient *rcpt)
+		 struct submission_recipient *srcpt)
 {
-	submission_recipient_destroy(&rcpt);
+	submission_recipient_destroy(&srcpt);
 }
 
 static void
@@ -157,34 +157,34 @@ submission_rcpt_finished(struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_recipient *trcpt,
 			 unsigned int index)
 {
-	struct submission_recipient *rcpt = trcpt->context;
+	struct submission_recipient *srcpt = trcpt->context;
 
 	smtp_server_command_remove_hook(cmd->cmd,
 					SMTP_SERVER_COMMAND_HOOK_DESTROY,
 					cmd_rcpt_destroy);
 
-	submission_recipient_finished(rcpt, trcpt, index);
+	submission_recipient_finished(srcpt, trcpt, index);
 }
 
 int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_rcpt *data)
 {
 	struct client *client = conn_ctx;
-	struct submission_recipient *rcpt;
+	struct submission_recipient *srcpt;
 
-	rcpt = submission_recipient_create(client, data->path);
+	srcpt = submission_recipient_create(client, data->path);
 
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
-				     cmd_rcpt_destroy, rcpt);
+				     cmd_rcpt_destroy, srcpt);
 
-	data->trans_context = rcpt;
+	data->trans_context = srcpt;
 	data->hook_finished = submission_rcpt_finished;
 
-	return client->v.cmd_rcpt(client, rcpt, cmd, data);
+	return client->v.cmd_rcpt(client, srcpt, cmd, data);
 }
 
 int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
-			    struct submission_recipient *rcpt,
+			    struct submission_recipient *srcpt,
 			    struct smtp_server_cmd_ctx *cmd,
 			    struct smtp_server_cmd_rcpt *data)
 {
@@ -192,9 +192,9 @@ int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
 
 	trans = smtp_server_connection_get_transaction(cmd->conn);
 	if (trans != NULL)
-		submission_backend_trans_start(rcpt->backend, trans);
+		submission_backend_trans_start(srcpt->backend, trans);
 
-	return submission_backend_cmd_rcpt(rcpt->backend, cmd, data);
+	return submission_backend_cmd_rcpt(srcpt->backend, cmd, data);
 }
 
 /*
