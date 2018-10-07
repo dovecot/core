@@ -45,16 +45,24 @@ struct smtp_server_helo_data {
 };
 
 /*
- * Transaction
+ * Recipient
  */
 
 struct smtp_server_recipient {
+	pool_t pool;
+	struct smtp_server_connection *conn;
+	struct smtp_server_transaction *trans;
+
 	struct smtp_address *path;
 	struct smtp_params_rcpt params;
 
 	void *context;
 };
 ARRAY_DEFINE_TYPE(smtp_server_recipient, struct smtp_server_recipient *);
+
+/*
+ * Transaction
+ */
 
 struct smtp_server_transaction {
 	pool_t pool;

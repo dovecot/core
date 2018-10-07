@@ -55,9 +55,11 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 	}
 
 	/* success */
-	rcpt = smtp_server_transaction_add_rcpt(trans, data->path,
-						&data->params);
+	rcpt = smtp_server_recipient_create(conn, data->path);
+	smtp_params_rcpt_copy(rcpt->pool, &rcpt->params, &data->params);
 	rcpt->context = data->trans_context;
+
+	smtp_server_recipient_approved(rcpt);
 
 	if (data->hook_finished != NULL) {
 		data->hook_finished(cmd, trans, rcpt,
