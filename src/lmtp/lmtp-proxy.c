@@ -56,6 +56,8 @@ struct lmtp_proxy_recipient {
 	struct lmtp_recipient rcpt;
 	struct lmtp_proxy_connection *conn;
 
+	struct smtp_address *address;
+
 	bool rcpt_to_failed:1;
 	bool data_reply_received:1;
 };
@@ -569,7 +571,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lmtp_recipient_init(&lprcpt->rcpt, client,
 			    LMTP_RECIPIENT_TYPE_PROXY, cmd, rcpt);
-	lprcpt->rcpt.path = smtp_address_clone(rcpt->pool, address);
+	lprcpt->address = smtp_address_clone(rcpt->pool, address);
 	lprcpt->conn = conn;
 
 	smtp_server_recipient_add_hook(
@@ -595,7 +597,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 	struct lmtp_proxy *proxy = conn->proxy;
 	struct smtp_server_cmd_ctx *cmd = proxy->pending_data_cmd;
 	struct smtp_server_transaction *trans = proxy->trans;
-	struct smtp_address *address = lprcpt->rcpt.path;
+	struct smtp_address *address = lprcpt->address;
 	const struct smtp_client_transaction_times *times =
 		smtp_client_transaction_get_times(conn->lmtp_trans);
 	unsigned int rcpt_index = lprcpt->rcpt.index;

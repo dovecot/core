@@ -17,7 +17,6 @@ struct lmtp_recipient {
 	struct smtp_server_recipient *rcpt;
 	enum lmtp_recipient_type type;
 
-	struct smtp_address *path;
 	struct smtp_server_cmd_ctx *rcpt_cmd;
 	unsigned int index;
 };
