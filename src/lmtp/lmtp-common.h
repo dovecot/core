@@ -14,11 +14,11 @@ enum lmtp_recipient_type {
 
 struct lmtp_recipient {
 	struct client *client;
+	struct smtp_server_recipient *rcpt;
 	enum lmtp_recipient_type type;
 
 	struct smtp_address *path;
 	struct smtp_server_cmd_ctx *rcpt_cmd;
-	struct smtp_server_recipient *rcpt;
 	unsigned int index;
 };
 

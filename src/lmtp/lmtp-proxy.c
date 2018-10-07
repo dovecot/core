@@ -136,12 +136,6 @@ lmtp_proxy_init(struct client *client,
 }
 
 static void
-lmtp_proxy_recipient_deinit(struct lmtp_proxy_recipient *lprcpt)
-{
-	i_free(lprcpt);
-}
-
-static void
 lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
 {
 	if (conn->lmtp_trans != NULL)
@@ -155,13 +149,9 @@ lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
 void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 {
 	struct lmtp_proxy *proxy = *_proxy;
-	struct lmtp_proxy_recipient *const *lprcpts;
 	struct lmtp_proxy_connection *const *conns;
 
 	*_proxy = NULL;
-
-	array_foreach(&proxy->rcpt_to, lprcpts)
-		lmtp_proxy_recipient_deinit(*lprcpts);
 
 	array_foreach(&proxy->connections, conns)
 		lmtp_proxy_connection_deinit(*conns);
@@ -437,28 +427,14 @@ lmtp_proxy_is_ourself(const struct client *client,
 }
 
 static void
-lmtp_proxy_rcpt_cmd_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-			    struct lmtp_proxy_recipient *lprcpt)
-{
-	lmtp_proxy_recipient_deinit(lprcpt);
-}
-
-static void
 lmtp_proxy_rcpt_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 			 struct lmtp_proxy_recipient *lprcpt)
 {
 	struct client *client = lprcpt->rcpt.client;
 
-	if (lprcpt->rcpt.rcpt_cmd != NULL) {
-		smtp_server_command_remove_hook(
-			lprcpt->rcpt.rcpt_cmd->cmd,
-			SMTP_SERVER_COMMAND_HOOK_DESTROY,
-			lmtp_proxy_rcpt_cmd_destroy);
-	}
-
 	lmtp_recipient_finish(&lprcpt->rcpt);
 
-	/* add to local recipients */
+	/* add to proxy recipients */
 	array_append(&client->proxy->rcpt_to, &lprcpt, 1);
 }
 
@@ -590,14 +566,11 @@ int lmtp_proxy_rcpt(struct client *client,
 	conn = lmtp_proxy_get_connection(client->proxy, &set);
 	pool_unref(&auth_pool);
 
-	lprcpt = i_new(struct lmtp_proxy_recipient, 1);
+	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lmtp_recipient_init(&lprcpt->rcpt, client,
 			    LMTP_RECIPIENT_TYPE_PROXY, cmd, rcpt);
 	lprcpt->rcpt.path = smtp_address_clone(rcpt->pool, address);
 	lprcpt->conn = conn;
-
-	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
-				     lmtp_proxy_rcpt_cmd_destroy, lprcpt);
 
 	smtp_server_recipient_add_hook(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
