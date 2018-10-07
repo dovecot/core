@@ -35,7 +35,7 @@ void submission_recipient_destroy(struct submission_recipient **_srcpt)
 }
 
 void submission_recipient_finished(struct submission_recipient *srcpt,
-				   struct smtp_server_recipient *trcpt,
+				   struct smtp_server_recipient *rcpt,
 				   unsigned int index)
 {
 	struct submission_backend *backend = srcpt->backend;
@@ -43,7 +43,7 @@ void submission_recipient_finished(struct submission_recipient *srcpt,
 	struct submission_backend *const *bknd_idx;
 	bool backend_found = FALSE;
 
-	srcpt->path = trcpt->path;
+	srcpt->path = rcpt->path;
 	srcpt->index = index;
 
 	array_append(&client->rcpt_to, &srcpt, 1);
