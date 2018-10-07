@@ -7,18 +7,11 @@
 void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 			 struct client *client,
 			 enum lmtp_recipient_type type,
-			 struct smtp_server_cmd_ctx *cmd,
 			 struct smtp_server_recipient *rcpt)
 {
 	lrcpt->client = client;
 	lrcpt->type = type;
-	lrcpt->rcpt_cmd = cmd;
 	lrcpt->rcpt = rcpt;
-}
-
-void lmtp_recipient_finish(struct lmtp_recipient *lrcpt)
-{
-	lrcpt->rcpt_cmd = NULL;
 }
 
 struct lmtp_recipient *

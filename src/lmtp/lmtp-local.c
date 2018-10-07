@@ -176,7 +176,7 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 {
 	struct client *client = llrcpt->rcpt.client;
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
-	struct smtp_server_cmd_ctx *cmd = llrcpt->rcpt.rcpt_cmd;
+	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_address *address = rcpt->path;
 	struct mail_user *user;
 	struct mail_namespace *ns;
@@ -241,8 +241,6 @@ lmtp_local_rcpt_approved(struct smtp_server_recipient *rcpt,
 {
 	struct client *client = llrcpt->rcpt.client;
 
-	lmtp_recipient_finish(&llrcpt->rcpt);
-
 	/* resolve duplicate recipient */
 	llrcpt->duplicate = (struct lmtp_local_recipient *)
 		lmtp_recipient_find_duplicate(&llrcpt->rcpt, rcpt->trans);
@@ -256,7 +254,8 @@ lmtp_local_rcpt_approved(struct smtp_server_recipient *rcpt,
 static bool
 lmtp_local_rcpt_anvil_finish(struct lmtp_local_recipient *llrcpt)
 {
-	struct smtp_server_cmd_ctx *cmd = llrcpt->rcpt.rcpt_cmd;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	int ret;
 
 	if ((ret = lmtp_local_rcpt_check_quota(llrcpt)) < 0)
@@ -271,9 +270,9 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 {
 	struct lmtp_local_recipient *llrcpt =
 		(struct lmtp_local_recipient *)context;
-	struct smtp_server_cmd_ctx *cmd = llrcpt->rcpt.rcpt_cmd;
 	struct client *client = llrcpt->rcpt.client;
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_address *address = rcpt->path;
 	const struct mail_storage_service_input *input;
 	unsigned int parallel_count = 0;
@@ -359,7 +358,7 @@ int lmtp_local_rcpt(struct client *client,
 
 	llrcpt = p_new(rcpt->pool, struct lmtp_local_recipient, 1);
 	lmtp_recipient_init(&llrcpt->rcpt, client,
-			    LMTP_RECIPIENT_TYPE_LOCAL, cmd, rcpt);
+			    LMTP_RECIPIENT_TYPE_LOCAL, rcpt);
 
 	llrcpt->detail = p_strdup(rcpt->pool, detail);
 	llrcpt->service_user = service_user;

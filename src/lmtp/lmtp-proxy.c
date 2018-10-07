@@ -434,8 +434,6 @@ lmtp_proxy_rcpt_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 {
 	struct client *client = lprcpt->rcpt.client;
 
-	lmtp_recipient_finish(&lprcpt->rcpt);
-
 	/* add to proxy recipients */
 	array_append(&client->proxy->rcpt_to, &lprcpt, 1);
 }
@@ -444,7 +442,8 @@ static void
 lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 		   struct lmtp_proxy_recipient *lprcpt)
 {
-	struct smtp_server_cmd_ctx *cmd = lprcpt->rcpt.rcpt_cmd;
+	struct smtp_server_recipient *rcpt = lprcpt->rcpt.rcpt;
+	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_reply reply;
 
 	if (!lmtp_proxy_handle_reply(cmd, proxy_reply, &reply))
@@ -570,7 +569,7 @@ int lmtp_proxy_rcpt(struct client *client,
 
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lmtp_recipient_init(&lprcpt->rcpt, client,
-			    LMTP_RECIPIENT_TYPE_PROXY, cmd, rcpt);
+			    LMTP_RECIPIENT_TYPE_PROXY, rcpt);
 	lprcpt->address = smtp_address_clone(rcpt->pool, address);
 	lprcpt->conn = conn;
 
