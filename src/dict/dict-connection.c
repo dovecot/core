@@ -62,15 +62,7 @@ static int dict_connection_parse_handshake(struct connection *_conn,
 		return -1;
 	conn->username = i_strdup_until(username, line - 1);
 
-	/* the rest is dict name. since we're looking it with getenv(),
-	   disallow all funny characters that might confuse it, just in case. */
-	name = line;
-	while (*line > ' ' && *line != '=') line++;
-
-	if (*line != '\0')
-		return -1;
-
-	conn->name = i_strdup(name);
+	conn->name = i_strdup(line);
 	if (dict_connection_dict_init(conn) < 0)
 		return -1;
 
