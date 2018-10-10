@@ -478,6 +478,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	const char *const *fields, *errstr, *orig_username = username;
 	struct smtp_proxy_data proxy_data;
 	struct smtp_address *user;
+	struct smtp_client_transaction_rcpt *relay_rcpt;
 	pool_t auth_pool;
 	int ret;
 
@@ -578,9 +579,11 @@ int lmtp_proxy_rcpt(struct client *client,
 		lmtp_proxy_rcpt_approved, lprcpt);
 	rcpt->context = lprcpt;
 
-	smtp_client_transaction_add_rcpt(conn->lmtp_trans,
-		address, &rcpt->params,
-		lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, lprcpt);
+	relay_rcpt = smtp_client_transaction_add_pool_rcpt(
+		conn->lmtp_trans, rcpt->pool, address, &rcpt->params,
+		lmtp_proxy_rcpt_cb, lprcpt);
+	smtp_client_transaction_rcpt_set_data_callback(
+		relay_rcpt, lmtp_proxy_data_cb, lprcpt);
 	return 1;
 }
 
