@@ -446,14 +446,6 @@ relay_cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 }
 
 static void
-relay_cmd_rcpt_data_callback(
-	const struct smtp_reply *relay_reply ATTR_UNUSED,
-	struct relay_cmd_rcpt_context *rcpt_cmd ATTR_UNUSED)
-{
-	/* nothing to do here for normal submission */
-}
-
-static void
 relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_rcpt_context *rcpt_cmd)
 {
@@ -485,6 +477,7 @@ backend_relay_cmd_rcpt(struct submission_backend *_backend,
 {
 	struct submission_backend_relay *backend =
 		(struct submission_backend_relay *)_backend;
+	struct smtp_server_recipient *rcpt = srcpt->rcpt;
 	struct relay_cmd_rcpt_context *rcpt_cmd;
 
 	/* queue command (pipeline) */
@@ -501,10 +494,9 @@ backend_relay_cmd_rcpt(struct submission_backend *_backend,
 			backend->conn, backend_relay_trans_finished, backend);
 		smtp_client_transaction_set_immediate(backend->trans, TRUE);
 	}
-	rcpt_cmd->relay_rcpt = smtp_client_transaction_add_rcpt(
-		backend->trans, srcpt->rcpt->path, &srcpt->rcpt->params,
-		relay_cmd_rcpt_callback, relay_cmd_rcpt_data_callback,
-		rcpt_cmd);
+	rcpt_cmd->relay_rcpt = smtp_client_transaction_add_pool_rcpt(
+		backend->trans, rcpt->pool, rcpt->path, &rcpt->params,
+		relay_cmd_rcpt_callback, rcpt_cmd);
 	return 0;
 }
 
