@@ -155,10 +155,46 @@ smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
 		rcpt_params, \
 		(smtp_client_command_callback_t *)rcpt_callback, \
 		(smtp_client_command_callback_t *)data_callback, context)
+/* Add recipient to the transaction with a RCPT TO command. The
+   rcpt_to_callback is called once the server replies to the RCPT TO command.
+   This function returns a struct that can be used to abort the RCPT command
+   prematurely (see below). This struct is allocated on the provided pool (the
+   pool is referenced) and remains valid until the destruction of the
+   transaction.
+ */
+struct smtp_client_transaction_rcpt *
+smtp_client_transaction_add_pool_rcpt(
+	struct smtp_client_transaction *trans, pool_t pool,
+	const struct smtp_address *rcpt_to,
+	const struct smtp_params_rcpt *rcpt_params,
+	smtp_client_command_callback_t *rcpt_callback, void *context)
+	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(4,6,7);
+#define smtp_client_transaction_add_pool_rcpt(trans, pool, \
+		rcpt_to, rcpt_params, rcpt_callback, context) \
+	smtp_client_transaction_add_pool_rcpt(trans, pool, rcpt_to + \
+		CALLBACK_TYPECHECK(rcpt_callback, void (*)( \
+			const struct smtp_reply *reply, typeof(context))), \
+		rcpt_params, \
+		(smtp_client_command_callback_t *)rcpt_callback, context)
 /* Abort the RCPT command prematurely. This function must not be called after
    the rcpt_callback from smtp_client_transaction_add_rcpt() is called. */
 void smtp_client_transaction_rcpt_abort(
 	struct smtp_client_transaction_rcpt **_rcpt);
+/* Set the DATA callback for this recipient. If RCPT TO succeeded, the callback
+   is called once the server replies to the DATA command. Until that time, any
+   failure is remembered. The callback will not be called until
+   smtp_client_transaction_send() is called for the transaction (see below). */
+void smtp_client_transaction_rcpt_set_data_callback(
+	struct smtp_client_transaction_rcpt *rcpt,
+	smtp_client_command_callback_t *callback, void *context)
+	ATTR_NULL(3);
+#define smtp_client_transaction_rcpt_set_data_callback(trans, \
+						       callback, context) \
+	smtp_client_transaction_rcpt_set_data_callback(trans, \
+		(smtp_client_command_callback_t *)callback, \
+		(TRUE ? context : \
+		 CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct smtp_reply *reply, typeof(context)))))
 
 /* Start sending input stream as DATA. This completes the transaction, which
    means that any pending failures that got recorded before this function was
