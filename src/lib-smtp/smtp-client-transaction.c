@@ -100,14 +100,14 @@ void smtp_client_transaction_mail_abort(
 
 static struct smtp_client_transaction_rcpt *
 smtp_client_transaction_rcpt_new(
-	struct smtp_client_transaction *trans,
+	struct smtp_client_transaction *trans, pool_t pool,
 	const struct smtp_address *rcpt_to,
 	const struct smtp_params_rcpt *rcpt_params)
 {
 	struct smtp_client_transaction_rcpt *rcpt;
-	pool_t pool;
 
-	pool = pool_alloconly_create("smtp transaction rcpt", 512);
+	pool_ref(pool);
+
 	rcpt = p_new(pool, struct smtp_client_transaction_rcpt, 1);
 	rcpt->pool = pool;
 	rcpt->trans = trans;
@@ -146,10 +146,31 @@ smtp_client_transaction_rcpt_free(
 		trans->rcpts_count--;
 	}
 
-	if (rcpt->queued) {
+	if (rcpt->queued || rcpt->external_pool) {
 		i_assert(rcpt->pool != NULL);
 		pool_unref(&rcpt->pool);
 	}
+}
+
+static void
+smtp_client_transaction_rcpt_drop_pending(
+	struct smtp_client_transaction_rcpt *rcpt)
+{
+	struct smtp_client_transaction *trans = rcpt->trans;
+
+	i_assert(rcpt->queued);
+
+	if (rcpt->external_pool) {
+		rcpt->queued = FALSE;
+		if (trans->rcpts_send == rcpt)
+			trans->rcpts_send = rcpt->next;
+		DLLIST2_REMOVE(&trans->rcpts_queue_head,
+			       &trans->rcpts_queue_tail, rcpt);
+		trans->rcpts_queue_count--;
+		return;
+	}
+
+	smtp_client_transaction_rcpt_free(&rcpt);
 }
 
 static void
@@ -161,24 +182,28 @@ smtp_client_transaction_rcpt_approved(
 	struct smtp_client_transaction_rcpt *rcpt;
 	pool_t pool;
 
-	/* move to transaction pool */
-	pool = trans->pool;
-	rcpt = p_new(pool, struct smtp_client_transaction_rcpt, 1);
-	rcpt->trans = trans;
-	rcpt->rcpt_to = smtp_address_clone(pool, prcpt->rcpt_to);
-	smtp_params_rcpt_copy(pool, &rcpt->rcpt_params, &prcpt->rcpt_params);
-	rcpt->data_callback = prcpt->data_callback;
-	rcpt->context = prcpt->context;
+	if (prcpt->external_pool)
+		rcpt = prcpt;
+	else {
+		/* move to transaction pool */
+		pool = trans->pool;
+		rcpt = p_new(pool, struct smtp_client_transaction_rcpt, 1);
+		rcpt->trans = trans;
+		rcpt->rcpt_to = smtp_address_clone(pool, prcpt->rcpt_to);
+		smtp_params_rcpt_copy(pool, &rcpt->rcpt_params,
+				      &prcpt->rcpt_params);
+		rcpt->data_callback = prcpt->data_callback;
+		rcpt->data_context = prcpt->data_context;
+	}
+
+	/* not pending anymore */
+	smtp_client_transaction_rcpt_drop_pending(prcpt);
 
 	/* recipient is approved */
 	DLLIST2_APPEND(&trans->rcpts_head, &trans->rcpts_tail, rcpt);
 	trans->rcpts_count++;
 	if (trans->rcpts_data == NULL)
 		trans->rcpts_data = trans->rcpts_head;
-	rcpt->queued = FALSE;
-
-	/* not pending anymore */
-	smtp_client_transaction_rcpt_free(&prcpt);
 
 	*_rcpt = rcpt;
 }
@@ -201,12 +226,21 @@ void smtp_client_transaction_rcpt_abort(
 	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
 	struct smtp_client_transaction *trans = rcpt->trans;
 
-	i_assert(rcpt->queued);
+	i_assert(rcpt->queued || rcpt->external_pool);
 
 	i_assert(trans->state <= SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO ||
 		 trans->state == SMTP_CLIENT_TRANSACTION_STATE_ABORTED);
 
 	smtp_client_transaction_rcpt_free(_rcpt);
+}
+
+#undef smtp_client_transaction_rcpt_set_data_callback
+void smtp_client_transaction_rcpt_set_data_callback(
+	struct smtp_client_transaction_rcpt *rcpt,
+	smtp_client_command_callback_t *callback, void *context)
+{
+	rcpt->data_callback = callback;
+	rcpt->data_context = context;
 }
 
 /*
@@ -380,6 +414,12 @@ void smtp_client_transaction_unref(struct smtp_client_transaction **_trans)
 	i_stream_unref(&trans->data_input);
 	smtp_client_transaction_abort(trans);
 
+	while (trans->rcpts_count > 0) {
+		struct smtp_client_transaction_rcpt *rcpt =
+			trans->rcpts_head;
+		smtp_client_transaction_rcpt_free(&rcpt);
+	}
+
 	i_assert(trans->state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
 	pool_unref(&trans->pool);
 
@@ -414,6 +454,13 @@ void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 		smtp_client_command_drop_callback(trans->cmd_rset);
 	if (trans->cmd_plug != NULL)
 		smtp_client_command_abort(&trans->cmd_plug);
+
+	/* Free any approved recipients early */
+	while (trans->rcpts_count > 0) {
+		struct smtp_client_transaction_rcpt *rcpt =
+			trans->rcpts_head;
+		smtp_client_transaction_rcpt_free(&rcpt);
+	}
 
 	if (trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED) {
 		struct smtp_client_transaction *trans_tmp = trans;
@@ -504,7 +551,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		for (rcpt = trans->rcpts_data; rcpt != NULL;
 		     rcpt = rcpt->next) {
 			if (rcpt->data_callback != NULL) {
-				rcpt->data_callback(reply, rcpt->context);
+				rcpt->data_callback(reply, rcpt->data_context);
 			}
 			rcpt->data_callback = NULL;
 		}
@@ -759,6 +806,7 @@ smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
 				 void *context)
 {
 	struct smtp_client_transaction_rcpt *rcpt;
+	pool_t pool;
 
 	smtp_client_transaction_debug(trans, "Add recipient");
 
@@ -771,10 +819,48 @@ smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
 		trans->state == SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM)
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO;
 
-	rcpt = smtp_client_transaction_rcpt_new(trans, rcpt_to, rcpt_params);
+	pool = pool_alloconly_create("smtp transaction rcpt", 512);
+	rcpt = smtp_client_transaction_rcpt_new(trans, pool,
+						rcpt_to, rcpt_params);
+	pool_unref(&pool);
+
 	rcpt->rcpt_callback = rcpt_callback;
-	rcpt->data_callback = data_callback;
 	rcpt->context = context;
+
+	rcpt->data_callback = data_callback;
+	rcpt->data_context = context;
+
+	smtp_client_transaction_submit(trans, FALSE);
+
+	return rcpt;
+}
+
+#undef smtp_client_transaction_add_pool_rcpt
+struct smtp_client_transaction_rcpt *
+smtp_client_transaction_add_pool_rcpt(
+	struct smtp_client_transaction *trans, pool_t pool,
+	const struct smtp_address *rcpt_to,
+	const struct smtp_params_rcpt *rcpt_params,
+	smtp_client_command_callback_t *rcpt_callback, void *context)
+{
+	struct smtp_client_transaction_rcpt *rcpt;
+
+	smtp_client_transaction_debug(trans, "Add recipient (external pool)");
+
+	i_assert(!trans->data_provided);
+	i_assert(!trans->reset);
+
+	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
+
+	if (trans->mail_head == NULL &&
+		trans->state == SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM)
+		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO;
+
+	rcpt = smtp_client_transaction_rcpt_new(trans, pool,
+						rcpt_to, rcpt_params);
+	rcpt->rcpt_callback = rcpt_callback;
+	rcpt->context = context;
+	rcpt->external_pool = TRUE;
 
 	smtp_client_transaction_submit(trans, FALSE);
 
@@ -802,7 +888,7 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 
 		trans->rcpts_data = trans->rcpts_data->next;
 		if (rcpt->data_callback != NULL)
-			rcpt->data_callback(reply, rcpt->context);
+			rcpt->data_callback(reply, rcpt->data_context);
 		rcpt->data_callback = NULL;
 		if (conn->protocol == SMTP_PROTOCOL_LMTP)
 			break;

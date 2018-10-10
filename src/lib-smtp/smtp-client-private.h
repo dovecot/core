@@ -76,11 +76,14 @@ struct smtp_client_transaction_rcpt {
 	struct smtp_params_rcpt rcpt_params;
 
 	smtp_client_command_callback_t *rcpt_callback;
-	smtp_client_command_callback_t *data_callback;
 	void *context;
+
+	smtp_client_command_callback_t *data_callback;
+	void *data_context;
 
 	struct smtp_client_command *cmd_rcpt_to;
 
+	bool external_pool:1;
 	bool queued:1;
 	bool failed:1;
 };
