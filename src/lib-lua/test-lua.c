@@ -8,6 +8,8 @@ static void test_lua(void)
 	static const char *luascript =
 "function script_init(req)\n"
 "  dovecot.i_debug(\"lua script init called\")\n"
+"  local e = dovecot.event()\n"
+"  e:log_debug(\"lua script init called from event\")\n"
 "  return 0\n"
 "end\n"
 "function lua_function()\n"
