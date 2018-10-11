@@ -6,12 +6,12 @@ struct dlua_script;
 /* Parse and load a lua script. Will reuse an existing script
    if found. */
 int dlua_script_create_string(const char *str, struct dlua_script **script_r,
-				  const char **error_r);
+			      struct event *event_parent, const char **error_r);
 int dlua_script_create_file(const char *file, struct dlua_script **script_r,
-				const char **error_r);
+			    struct event *event_parent, const char **error_r);
 /* Remember to set script name using i_stream_set_name */
 int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
-				  const char **error_r);
+			      struct event *event_parent, const char **error_r);
 
 /* run dlua_script_init function */
 int dlua_script_init(struct dlua_script *script, const char **error_r);

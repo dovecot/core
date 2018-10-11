@@ -106,7 +106,7 @@ static void mail_lua_user_created(struct mail_user *user)
 	if (script_fn == NULL)
 		return;
 
-	if (dlua_script_create_file(script_fn, &script, &error) < 0) {
+	if (dlua_script_create_file(script_fn, &script, user->event, &error) < 0) {
 		user->error = p_strdup_printf(user->pool, "dlua_script_create_file(%s) failed: %s",
 					      script_fn, error);
 		return;

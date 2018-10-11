@@ -41,6 +41,7 @@ struct dlua_script {
 
 	lua_State *L;
 
+	struct event *event;
 	const char *filename;
 	struct istream *in;
 	ssize_t last_read;
@@ -67,6 +68,8 @@ struct dlua_table_values {
 		bool b;
 	} v;
 };
+
+extern struct event_category event_category_lua;
 
 /* Get dlua_script from lua_State */
 struct dlua_script *dlua_script_from_state(lua_State *L);

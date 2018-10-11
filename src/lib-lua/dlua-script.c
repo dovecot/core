@@ -14,6 +14,10 @@
 #define LUA_SCRIPT_INIT_FN "script_init"
 #define LUA_SCRIPT_DEINIT_FN "script_deinit"
 
+struct event_category event_category_lua = {
+	.name = "lua",
+};
+
 static struct dlua_script *dlua_scripts = NULL;
 
 static const char *dlua_errstr(int err)
@@ -117,7 +121,8 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 	return ret;
 }
 
-static struct dlua_script *dlua_create_script(const char *name)
+static struct dlua_script *dlua_create_script(const char *name,
+					      struct event *event_parent)
 {
 	pool_t pool = pool_allocfree_create(t_strdup_printf("lua script %s", name));
 	struct dlua_script *script = p_new(pool, struct dlua_script, 1);
@@ -130,6 +135,8 @@ static struct dlua_script *dlua_create_script(const char *name)
 	i_assert(script->L != NULL);
 	script->ref = 1;
 	luaL_openlibs(script->L);
+	script->event = event_create(event_parent);
+	event_add_category(script->event, &event_category_lua);
 
 	return script;
 }
@@ -166,6 +173,7 @@ dlua_script_create_finish(struct dlua_script *script, struct dlua_script **scrip
 		return -1;
 	}
 
+	event_add_str(script->event, "script", script->filename);
 	DLLIST_PREPEND(&dlua_scripts, script);
 
 	*script_r = script;
@@ -174,7 +182,7 @@ dlua_script_create_finish(struct dlua_script *script, struct dlua_script **scrip
 }
 
 int dlua_script_create_string(const char *str, struct dlua_script **script_r,
-				  const char **error_r)
+			      struct event *event_parent, const char **error_r)
 {
 	struct dlua_script *script;
 	int err;
@@ -191,7 +199,7 @@ int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 		return 0;
 	}
 
-	script = dlua_create_script(fn);
+	script = dlua_create_script(fn, event_parent);
 	if ((err = luaL_loadstring(script->L, str)) != 0) {
 		*error_r = t_strdup_printf("lua_load(<string>) failed: %s",
 					   dlua_errstr(err));
@@ -203,7 +211,7 @@ int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 }
 
 int dlua_script_create_file(const char *file, struct dlua_script **script_r,
-				const char **error_r)
+			    struct event *event_parent, const char **error_r)
 {
 	struct dlua_script *script;
 	int err;
@@ -224,7 +232,7 @@ int dlua_script_create_file(const char *file, struct dlua_script **script_r,
 		return -1;
 	}
 
-	script = dlua_create_script(file);
+	script = dlua_create_script(file, event_parent);
 	if ((err = luaL_loadfile(script->L, file)) != 0) {
 		*error_r = t_strdup_printf("lua_load(%s) failed: %s",
 					   file, dlua_errstr(err));
@@ -236,7 +244,7 @@ int dlua_script_create_file(const char *file, struct dlua_script **script_r,
 }
 
 int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
-				  const char **error_r)
+			      struct event *event_parent, const char **error_r)
 {
 	struct dlua_script *script;
 	const char *filename = i_stream_get_name(is);
@@ -250,7 +258,7 @@ int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
 		return 0;
 	}
 
-	script = dlua_create_script(filename);
+	script = dlua_create_script(filename, event_parent);
 	script->in = is;
 	script->filename = p_strdup(script->pool, filename);
 	if ((err = lua_load(script->L, dlua_reader, script, filename, 0)) < 0) {
@@ -283,6 +291,7 @@ static void dlua_script_destroy(struct dlua_script *script)
 	/* remove from list */
 	DLLIST_REMOVE(&dlua_scripts, script);
 
+	event_unref(&script->event);
 	/* then just release memory */
 	pool_unref(&script->pool);
 }

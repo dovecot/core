@@ -93,7 +93,7 @@ push_notification_driver_lua_init(struct push_notification_driver_config *config
 
 	push_notification_driver_debug(DLUA_LOG_LABEL, user, "Loading %s", file);
 
-	if (dlua_script_create_file(file, &ctx->script, error_r) < 0) {
+	if (dlua_script_create_file(file, &ctx->script, NULL, error_r) < 0) {
 		/* there is a T_POP after this, which will break errors */
 		*error_r = p_strdup(pool, *error_r);
 		return -1;
