@@ -26,4 +26,10 @@ void dlua_script_unref(struct dlua_script **_script);
 /* see if particular function is registered */
 bool dlua_script_has_function(struct dlua_script *script, const char *fn);
 
+/* push event to top of stack */
+void dlua_push_event(struct dlua_script *script, struct event *event);
+
+/* get event from given stack position */
+struct event *dlua_check_event(struct dlua_script *script, int arg);
+
 #endif
