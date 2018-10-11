@@ -17,7 +17,7 @@ static void test_lua(void)
 
 	test_begin("lua script");
 
-	test_assert(dlua_script_create_string(luascript, &script, &error) == 0);
+	test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
 	dlua_dovecot_register(script);
 	test_assert(dlua_script_init(script, &error) == 0);
 	test_assert(dlua_script_has_function(script, "lua_function"));
