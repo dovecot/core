@@ -205,7 +205,7 @@ relay_cmd_helo_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if (smtp_reply_is_success(relay_reply)) {
+	if (smtp_reply_is_success(&reply)) {
 		relay_cmd_helo_reply(cmd, helo);
 	} else {
 		/* RFC 2034, Section 4:
@@ -460,9 +460,9 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if (smtp_reply_is_success(relay_reply)) {
+	if (smtp_reply_is_success(&reply)) {
 		/* the default 2.0.0 code won't do */
-		if (!smtp_reply_has_enhanced_code(relay_reply))
+		if (!smtp_reply_has_enhanced_code(&reply))
 			reply.enhanced_code = SMTP_REPLY_ENH_CODE(2, 1, 5);
 	}
 
@@ -583,21 +583,21 @@ relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if (smtp_reply_is_success(relay_reply)) {
+	if (smtp_reply_is_success(&reply)) {
 		i_info("Successfully relayed message: "
 		       "from=<%s>, size=%"PRIuUOFF_T", "
 		       "id=%s, nrcpt=%u, reply=`%s'",
 		       smtp_address_encode(trans->mail_from),
 		       client->state.data_size, trans->id,
 		       array_count(&trans->rcpt_to),
-		       str_sanitize(smtp_reply_log(relay_reply), 128));
+		       str_sanitize(smtp_reply_log(&reply), 128));
 
 	} else {
 		i_info("Failed to relay message: "
 		       "from=<%s>, size=%"PRIuUOFF_T", nrcpt=%u, reply=`%s'",
 		       smtp_address_encode(trans->mail_from),
 		       client->state.data_size, array_count(&trans->rcpt_to),
-		       str_sanitize(smtp_reply_log(relay_reply), 128));
+		       str_sanitize(smtp_reply_log(&reply), 128));
 	}
 
 	smtp_server_reply_forward(cmd, &reply);
@@ -649,7 +649,7 @@ relay_cmd_vrfy_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if (!smtp_reply_has_enhanced_code(relay_reply)) {
+	if (!smtp_reply_has_enhanced_code(&reply)) {
 		switch (relay_reply->status) {
 		case 250:
 		case 251:
@@ -704,7 +704,7 @@ relay_cmd_noop_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if (smtp_reply_is_success(relay_reply)) {
+	if (smtp_reply_is_success(&reply)) {
 		smtp_server_reply(cmd, 250, "2.0.0", "OK");
 	} else {
 		smtp_server_reply_forward(cmd, &reply);
