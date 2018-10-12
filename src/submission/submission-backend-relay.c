@@ -491,6 +491,8 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 {
 	struct smtp_server_cmd_ctx *cmd = rcpt_cmd->cmd;
 	struct submission_backend_relay *backend = rcpt_cmd->backend;
+	struct submission_recipient *rcpt = rcpt_cmd->rcpt;
+	struct smtp_client_transaction_rcpt *relay_rcpt = rcpt_cmd->relay_rcpt;
 	struct smtp_reply reply;
 
 	/* finished relaying RCPT command to relay server */
@@ -505,6 +507,9 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 		/* the default 2.0.0 code won't do */
 		if (!smtp_reply_has_enhanced_code(&reply))
 			reply.enhanced_code = SMTP_REPLY_ENH_CODE(2, 1, 5);
+
+		i_assert(relay_rcpt != NULL);
+		rcpt->backend_context = relay_rcpt;
 	}
 
 	/* forward reply */
@@ -610,6 +615,51 @@ struct relay_cmd_data_context {
 };
 
 static void
+relay_cmd_data_rcpt_callback(const struct smtp_reply *relay_reply,
+			     struct submission_recipient *srcpt)
+{
+	struct smtp_server_recipient *rcpt = srcpt->rcpt;
+	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
+	struct submission_backend_relay *backend =
+		(struct submission_backend_relay *)srcpt->backend;
+	struct client *client = srcpt->backend->client;
+	struct smtp_server_transaction *trans =
+		smtp_server_connection_get_transaction(client->conn);
+	struct smtp_reply reply;
+
+	i_assert(HAS_ALL_BITS(trans->flags,
+			      SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT));
+
+	/* check for fatal problems */
+	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
+					      &reply))
+		return;
+
+	if (smtp_reply_is_success(&reply)) {
+		i_info("Successfully relayed message: "
+		       "from=<%s>, to=<%s>, size=%"PRIuUOFF_T", "
+		       "id=%s, rcpt=%u/%u, reply=`%s'",
+		       smtp_address_encode(trans->mail_from),
+		       smtp_address_encode(rcpt->path),
+		       client->state.data_size, trans->id,
+		       rcpt->index, array_count(&trans->rcpt_to),
+		       str_sanitize(smtp_reply_log(&reply), 128));
+
+	} else {
+		i_info("Failed to relay message: "
+		       "from=<%s>, to=<%s>, size=%"PRIuUOFF_T", "
+		       "rcpt=%u/%u, reply=`%s'",
+		       smtp_address_encode(trans->mail_from),
+		       smtp_address_encode(rcpt->path),
+		       client->state.data_size, rcpt->index,
+		       array_count(&trans->rcpt_to),
+		       str_sanitize(smtp_reply_log(&reply), 128));
+	}
+
+	smtp_server_reply_index_forward(cmd, rcpt->index, &reply);
+}
+
+static void
 relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_data_context *data_ctx)
 {
@@ -620,6 +670,12 @@ relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 	struct smtp_reply reply;
 
 	/* finished relaying message to relay server */
+
+	if (HAS_ALL_BITS(trans->flags,
+			 SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT)) {
+		/* handled recipient replies individually */
+		return;
+	}
 
 	/* check for fatal problems */
 	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
@@ -646,6 +702,27 @@ relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 	smtp_server_reply_forward(cmd, &reply);
 }
 
+static void
+backend_relay_cmd_data_init_callbacks(struct submission_backend_relay *backend,
+				      struct smtp_server_transaction *trans)
+{
+	struct client *client = backend->backend.client;
+	struct submission_recipient *const *rcptp;
+
+	if (!HAS_ALL_BITS(trans->flags,
+			  SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT))
+		return;
+
+	array_foreach_modifiable(&client->rcpt_to, rcptp) {
+		struct submission_recipient *rcpt = *rcptp;
+		struct smtp_client_transaction_rcpt *relay_rcpt =
+			rcpt->backend_context;
+
+		smtp_client_transaction_rcpt_set_data_callback(
+			relay_rcpt, relay_cmd_data_rcpt_callback, rcpt);
+	}
+}
+
 static int
 backend_relay_cmd_data(struct submission_backend *_backend,
 		       struct smtp_server_cmd_ctx *cmd,
@@ -664,6 +741,9 @@ backend_relay_cmd_data(struct submission_backend *_backend,
 	trans->context = (void*)data_ctx;
 
 	i_assert(backend->trans != NULL);
+
+	backend_relay_cmd_data_init_callbacks(backend, trans);
+
 	smtp_client_transaction_send(backend->trans, data_input,
 				     relay_cmd_data_callback, data_ctx);
 	return 0;
