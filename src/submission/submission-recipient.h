@@ -8,6 +8,7 @@ struct submission_recipient {
 	struct smtp_server_recipient *rcpt;
 
 	struct submission_backend *backend;
+	void *backend_context;
 
 	/* Module-specific contexts. */
 	ARRAY(union submission_recipient_module_context *) module_contexts;
