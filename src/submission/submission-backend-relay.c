@@ -492,7 +492,7 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 	struct submission_backend_relay *backend = rcpt_cmd->backend;
 	struct smtp_reply reply;
 
-	/* finished relaying MAIL command to relay server */
+	/* finished relaying RCPT command to relay server */
 	i_assert(rcpt_cmd != NULL);
 	rcpt_cmd->relay_rcpt = NULL;
 
