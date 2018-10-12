@@ -64,8 +64,6 @@ struct smtp_client_transaction_mail {
 	void *context;
 
 	struct smtp_client_command *cmd_mail_from;
-
-	bool failed:1;
 };
 
 struct smtp_client_transaction_rcpt {
