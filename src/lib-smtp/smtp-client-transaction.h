@@ -108,7 +108,7 @@ void smtp_client_transaction_start_empty(
    than a single MAIL command (e.g. to have an implicit fallback sender address
    in the pipeline when the first one fails). Of course, only one MAIL command
    will succeed and therefore error replies for the others will not abort the
-   transaction. This function returns struct that can be used to abort the
+   transaction. This function returns a struct that can be used to abort the
    MAIL command prematurely (see below). */
 struct smtp_client_transaction_mail *
 smtp_client_transaction_add_mail(struct smtp_client_transaction *trans,
@@ -133,9 +133,10 @@ void smtp_client_transaction_mail_abort(
    rcpt_to_callback is called once the server replies to the RCPT TO command.
    If RCPT TO succeeded, the data_callback is called once the server replies
    to the DATA command. The data_callback will not be called until
-   smtp_client_transaction_send() is called for the transaction (see
-   below). Until that time, any failure is remembered.
- */
+   smtp_client_transaction_send() is called for the transaction (see below).
+   Until that time, any failure is remembered. This function returns a struct
+   that can be used to abort the RCPT command prematurely (see below). This
+   struct must not be used after the rcpt_callback is called. */
 struct smtp_client_transaction_rcpt *
 smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
 				 const struct smtp_address *rcpt_to,
