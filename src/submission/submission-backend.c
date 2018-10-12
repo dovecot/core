@@ -27,6 +27,9 @@ static void submission_backend_destroy(struct submission_backend *backend)
 
 	i_stream_unref(&backend->data_input);
 
+	i_free(backend->fail_enh_code);
+	i_free(backend->fail_reason);
+
 	DLLIST_REMOVE(&client->backends, backend);
 	backend->v.destroy(backend);
 }
@@ -43,6 +46,10 @@ void submission_backend_start(struct submission_backend *backend)
 {
 	if (backend->started)
 		return;
+	if (backend->fail_reason != NULL) {
+		/* Don't restart until failure is reset at transaction end */
+		return;
+	}
 	backend->v.start(backend);
 	backend->started = TRUE;
 }
@@ -54,6 +61,104 @@ void submission_backend_started(struct submission_backend *backend,
 
 	if (backend == client->backend_default)
 		client_default_backend_started(client, caps);
+}
+
+static void
+submission_backend_fail_rcpts(struct submission_backend *backend)
+{
+	struct client *client = backend->client;
+	struct submission_recipient *const *rcptp;
+	const char *enh_code = backend->fail_enh_code;
+	const char *reason = backend->fail_reason;
+
+	i_assert(array_count(&client->rcpt_to) > 0);
+
+	i_assert(reason != NULL);
+	if (enh_code == NULL)
+		enh_code = "4.0.0";
+
+	array_foreach_modifiable(&client->rcpt_to, rcptp) {
+		struct submission_recipient *rcpt = *rcptp;
+		struct smtp_server_cmd_ctx *cmd = rcpt->rcpt->cmd;
+		unsigned int index = 0;
+
+		if (rcpt->backend != backend)
+			continue;
+		if (cmd == NULL)
+			continue;
+
+		if (smtp_server_command_get_reply_count(cmd->cmd) > 1)
+			index = rcpt->rcpt->index;
+
+		smtp_server_reply_index(cmd, index, 451,
+					enh_code, "%s", reason);
+	}
+}
+
+static inline void
+submission_backend_reply_failure(struct submission_backend *backend,
+				 struct smtp_server_cmd_ctx *cmd)
+{
+	const char *enh_code = backend->fail_enh_code;
+	const char *reason = backend->fail_reason;
+
+	if (enh_code == NULL)
+		enh_code = "4.0.0";
+
+	i_assert(smtp_server_command_get_reply_count(cmd->cmd) == 1);
+	smtp_server_reply(cmd, 451, enh_code, "%s", reason);
+}
+
+static inline bool
+submission_backend_handle_failure(struct submission_backend *backend,
+				  struct smtp_server_cmd_ctx *cmd)
+{
+	if (backend->fail_reason == NULL)
+		return TRUE;
+
+	/* already failed */
+	submission_backend_reply_failure(backend, cmd);
+	return TRUE;
+}
+
+void submission_backend_fail(struct submission_backend *backend,
+			     struct smtp_server_cmd_ctx *cmd,
+			     const char *enh_code, const char *reason)
+{
+	struct client *client = backend->client;
+	bool failed_before = (backend->fail_reason != NULL);
+
+	/* Can be called several times */
+
+	if (backend == client->backend_default) {
+		/* default backend: fail the whole client */
+		client_destroy(client, enh_code, reason);
+		return;
+	}
+
+	/* Non-default backend for this transaction (maybe even for only
+	   some of the approved recipients): fail only the affected
+	   transaction and/or specific recipients. */
+
+	/* Remember the failure only once */
+	if (!failed_before) {
+		backend->fail_enh_code = i_strdup(enh_code);
+		backend->fail_reason = i_strdup(reason);
+	}
+	if (cmd == NULL) {
+		/* Called outside command context: just remember the failure */
+	} else if (smtp_server_command_get_reply_count(cmd->cmd) > 1) {
+		/* Fail DATA/BDAT/BURL command expecting several replies */
+		submission_backend_fail_rcpts(backend);
+	} else {
+		/* Single command */
+		submission_backend_reply_failure(backend, cmd);
+	}
+
+	/* Call the fail vfunc only once */
+	if (!failed_before && backend->v.fail != NULL)
+		backend->v.fail(backend, enh_code, reason);
+	backend->started = FALSE;
 }
 
 void submission_backends_client_input_pre(struct client *client)
@@ -110,6 +215,9 @@ submission_backend_trans_free(struct submission_backend *backend,
 	i_stream_unref(&backend->data_input);
 	if (backend->v.trans_free != NULL)
 		backend->v.trans_free(backend, trans);
+
+	i_free(backend->fail_enh_code);
+	i_free(backend->fail_reason);
 }
 
 void submission_backends_trans_start(struct client *client,
@@ -149,6 +257,9 @@ int submission_backend_cmd_helo(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
 				struct smtp_server_cmd_helo *data)
 {
+	/* failure on default backend closes the client connection */
+	i_assert(backend->fail_reason == NULL);
+
 	if (!backend->started || backend->v.cmd_helo == NULL) {
 		/* default backend is not interested, respond right away */
 		submission_helo_reply_submit(cmd, data);
@@ -169,6 +280,9 @@ int submission_backend_cmd_mail(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
 				struct smtp_server_cmd_mail *data)
 {
+	if (!submission_backend_handle_failure(backend, cmd))
+		return -1;
+
 	submission_backend_start(backend);
 
 	if (backend->v.cmd_mail == NULL) {
@@ -200,6 +314,9 @@ int submission_backend_cmd_rcpt(struct submission_backend *backend,
 {
 	struct smtp_server_transaction *trans;
 
+	if (!submission_backend_handle_failure(backend, cmd))
+		return -1;
+
 	if (backend->v.cmd_rcpt == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
@@ -217,6 +334,9 @@ int submission_backend_cmd_rcpt(struct submission_backend *backend,
 int submission_backend_cmd_rset(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd)
 {
+	if (!submission_backend_handle_failure(backend, cmd))
+		return -1;
+
 	if (backend->v.cmd_rset == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
@@ -229,6 +349,11 @@ submission_backend_cmd_data(struct submission_backend *backend,
 			    struct smtp_server_cmd_ctx *cmd,
 			    struct smtp_server_transaction *trans)
 {
+	if (backend->fail_reason != NULL) {
+		submission_backend_fail_rcpts(backend);
+		return 0;
+	}
+
 	return backend->v.cmd_data(backend, cmd, trans,
 				   backend->data_input, backend->data_size);
 }
@@ -270,6 +395,9 @@ int submission_backend_cmd_vrfy(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
 				const char *param)
 {
+	/* failure on default backend closes the client connection */
+	i_assert(backend->fail_reason == NULL);
+
 	if (backend->v.cmd_vrfy == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
@@ -280,6 +408,9 @@ int submission_backend_cmd_vrfy(struct submission_backend *backend,
 int submission_backend_cmd_noop(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd)
 {
+	/* failure on default backend closes the client connection */
+	i_assert(backend->fail_reason == NULL);
+
 	if (backend->v.cmd_noop == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
@@ -290,6 +421,9 @@ int submission_backend_cmd_noop(struct submission_backend *backend,
 int submission_backend_cmd_quit(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd)
 {
+	/* failure on default backend closes the client connection */
+	i_assert(backend->fail_reason == NULL);
+
 	if (backend->v.cmd_quit == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
