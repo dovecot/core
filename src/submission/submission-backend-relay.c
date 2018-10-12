@@ -205,7 +205,7 @@ relay_cmd_helo_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if ((relay_reply->status / 100) == 2) {
+	if (smtp_reply_is_success(relay_reply)) {
 		relay_cmd_helo_reply(cmd, helo);
 	} else {
 		/* RFC 2034, Section 4:
@@ -313,7 +313,7 @@ relay_cmd_mail_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if ((relay_reply->status / 100) == 2) {
+	if (smtp_reply_is_success(relay_reply)) {
 		/* if relay accepts it, we accept it too */
 
 		/* the default 2.0.0 code won't do */
@@ -460,7 +460,7 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if ((relay_reply->status / 100) == 2) {
+	if (smtp_reply_is_success(relay_reply)) {
 		/* the default 2.0.0 code won't do */
 		if (!smtp_reply_has_enhanced_code(relay_reply))
 			reply.enhanced_code = SMTP_REPLY_ENH_CODE(2, 1, 5);
@@ -583,7 +583,7 @@ relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if (relay_reply->status / 100 == 2) {
+	if (smtp_reply_is_success(relay_reply)) {
 		i_info("Successfully relayed message: "
 		       "from=<%s>, size=%"PRIuUOFF_T", "
 		       "id=%s, nrcpt=%u, reply=`%s'",
@@ -704,7 +704,7 @@ relay_cmd_noop_callback(const struct smtp_reply *relay_reply,
 	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
 		return;
 
-	if ((relay_reply->status / 100) == 2) {
+	if (smtp_reply_is_success(relay_reply)) {
 		smtp_server_reply(cmd, 250, "2.0.0", "OK");
 	} else {
 		smtp_server_reply_forward(cmd, &reply);
@@ -921,7 +921,7 @@ static void backend_relay_ready_cb(const struct smtp_reply *reply,
 	struct client *client = backend->backend.client;
 
 	/* check relay status */
-	if ((reply->status / 100) != 2) {
+	if (!smtp_reply_is_success(reply)) {
 		i_error("Failed to establish relay connection: %s",
 			smtp_reply_log(reply));
 		client_destroy(client,
