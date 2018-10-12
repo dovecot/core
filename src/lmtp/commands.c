@@ -103,6 +103,9 @@ cmd_data_finish(struct client *client,
 	struct istream *input_msg, *input_local, *input_proxy;
 	struct istream *inputs[3];
 
+	i_assert(HAS_ALL_BITS(trans->flags,
+			      SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT));
+
 	client->state.data_end_timeval = ioloop_timeval;
 
 	/* finish the message */
