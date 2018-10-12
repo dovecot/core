@@ -44,10 +44,12 @@ static struct submission_backend_vfuncs backend_relay_vfuncs;
 
 static bool
 backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
+				 struct smtp_server_cmd_ctx *cmd,
 				 const struct smtp_reply *reply,
 				 struct smtp_reply *reply_r)
 {
-	struct client *client = backend->backend.client;
+	const char *enh_code, *msg, *detail = "";
+	bool result = TRUE;
 
 	*reply_r = *reply;
 
@@ -57,16 +59,18 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 	case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
 	case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
-		client_destroy(client,
-			       "4.4.0", "Failed to connect to relay server");
-		return FALSE;
+		enh_code = "4.4.0";
+		msg = "Failed to connect to relay server";
+		result = FALSE;
+		break;
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
 	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
 	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
-		client_destroy(client,
-			       "4.4.0", "Lost connection to relay server");
-		return FALSE;
+		enh_code = "4.4.0";
+		msg = "Lost connection to relay server";
+		result = FALSE;
+		break;
 	/* RFC 4954, Section 6: 530 5.7.0 Authentication required
 
 	   This response SHOULD be returned by any command other than AUTH,
@@ -76,12 +80,45 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 	case 530:
 		i_error("Relay server requires authentication: %s",
 			smtp_reply_log(reply));
-		client_destroy(client, "4.3.5",
-			       "Internal error occurred. "
-			       "Refer to server log for more information.");
-		return FALSE;
+		enh_code = "4.3.5",
+		msg = "Internal error occurred. "
+		      "Refer to server log for more information.";
+		result = FALSE;
+		break;
 	default:
 		break;
+	}
+
+	switch (reply->status) {
+	case SMTP_CLIENT_COMMAND_ERROR_ABORTED:
+		i_unreached();
+	case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
+		detail = " (DNS lookup)";
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
+	case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
+		detail = " (connect)";
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
+	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
+		detail = " (connection lost)";
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
+		detail = " (bad reply)";
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
+		detail = " (timed out)";
+		break;
+	default:
+		break;
+	}
+
+	if (!result) {
+		const char *reason = t_strdup_printf("%s%s", msg, detail);
+
+		submission_backend_fail(&backend->backend, cmd,
+					enh_code, reason);
+		return FALSE;
 	}
 
 	if (!smtp_reply_has_enhanced_code(reply)) {
@@ -202,7 +239,8 @@ relay_cmd_helo_callback(const struct smtp_reply *relay_reply,
 	struct submission_backend_relay *backend = helo->backend;
 	struct smtp_reply reply;
 
-	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
+					      &reply))
 		return;
 
 	if (smtp_reply_is_success(&reply)) {
@@ -310,7 +348,8 @@ relay_cmd_mail_callback(const struct smtp_reply *relay_reply,
 	i_assert(mail_cmd != NULL);
 	mail_cmd->relay_mail = NULL;
 
-	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
+					      &reply))
 		return;
 
 	if (smtp_reply_is_success(relay_reply)) {
@@ -457,7 +496,8 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 	i_assert(rcpt_cmd != NULL);
 	rcpt_cmd->relay_rcpt = NULL;
 
-	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
+					      &reply))
 		return;
 
 	if (smtp_reply_is_success(&reply)) {
@@ -524,7 +564,8 @@ relay_cmd_rset_callback(const struct smtp_reply *relay_reply,
 	i_assert(rset_cmd != NULL);
 	rset_cmd->cmd_relayed = NULL;
 
-	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
+					      &reply))
 		return;
 
 	/* forward reply */
@@ -580,7 +621,8 @@ relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 	/* finished relaying message to relay server */
 
 	/* check for fatal problems */
-	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
+					      &reply))
 		return;
 
 	if (smtp_reply_is_success(&reply)) {
@@ -646,7 +688,8 @@ relay_cmd_vrfy_callback(const struct smtp_reply *relay_reply,
 	struct submission_backend_relay *backend = vrfy_cmd->backend;
 	struct smtp_reply reply;
 
-	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
+					      &reply))
 		return;
 
 	if (!smtp_reply_has_enhanced_code(&reply)) {
@@ -701,7 +744,8 @@ relay_cmd_noop_callback(const struct smtp_reply *relay_reply,
 	struct submission_backend_relay *backend = noop_cmd->backend;
 	struct smtp_reply reply;
 
-	if (!backend_relay_handle_relay_reply(backend, relay_reply, &reply))
+	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
+					      &reply))
 		return;
 
 	if (smtp_reply_is_success(&reply)) {
@@ -918,13 +962,12 @@ static void backend_relay_ready_cb(const struct smtp_reply *reply,
 				   void *context)
 {
 	struct submission_backend_relay *backend = context;
-	struct client *client = backend->backend.client;
 
 	/* check relay status */
 	if (!smtp_reply_is_success(reply)) {
 		i_error("Failed to establish relay connection: %s",
 			smtp_reply_log(reply));
-		client_destroy(client,
+		submission_backend_fail(&backend->backend, NULL,
 			"4.4.0", "Failed to establish relay connection");
 		return;
 	}

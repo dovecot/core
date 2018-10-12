@@ -9,6 +9,9 @@ struct submission_backend_vfuncs {
 
 	void (*start)(struct submission_backend *backend);
 
+	void (*fail)(struct submission_backend *backend, const char *enh_code,
+		     const char *reason);
+
 	void (*client_input_pre)(struct submission_backend *backend);
 	void (*client_input_post)(struct submission_backend *backend);
 
@@ -56,6 +59,9 @@ struct submission_backend {
 	struct istream *data_input;
 	uoff_t data_size;
 
+	char *fail_enh_code;
+	char *fail_reason;
+
 	bool started:1;
 	bool trans_started:1;
 };
@@ -68,6 +74,11 @@ void submission_backends_destroy_all(struct client *client);
 void submission_backend_start(struct submission_backend *backend);
 void submission_backend_started(struct submission_backend *backend,
 				enum smtp_capability caps);
+
+void submission_backend_fail(struct submission_backend *backend,
+			     struct smtp_server_cmd_ctx *cmd,
+			     const char *enh_code, const char *reason)
+	ATTR_NULL(2);
 
 void submission_backends_client_input_pre(struct client *client);
 void submission_backends_client_input_post(struct client *client);
