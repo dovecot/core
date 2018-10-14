@@ -120,6 +120,7 @@ backend_relay_trans_start(struct submission_backend *_backend,
 		backend->trans = smtp_client_transaction_create(
 			backend->conn, trans->mail_from, &trans->params,
 			backend_relay_trans_finished, backend);
+		smtp_client_transaction_set_immediate(backend->trans, TRUE);
 		smtp_client_transaction_start(
 			backend->trans, backend_relay_trans_start_callback,
 			backend);
@@ -495,6 +496,7 @@ backend_relay_cmd_rcpt(struct submission_backend *_backend,
 	if (backend->trans == NULL) {
 		backend->trans = smtp_client_transaction_create_empty(
 			backend->conn, backend_relay_trans_finished, backend);
+		smtp_client_transaction_set_immediate(backend->trans, TRUE);
 	}
 	rcpt_cmd->relay_rcpt = smtp_client_transaction_add_rcpt(
 		backend->trans, srcpt->rcpt->path, &srcpt->rcpt->params,
