@@ -120,10 +120,12 @@ void submission_backends_trans_start(struct client *client,
 	i_assert(client->state.backend != NULL);
 	submission_backend_trans_start(client->state.backend, trans);
 
-	array_foreach(&client->rcpt_backends, bkp) {
+	array_foreach(&client->pending_backends, bkp) {
 		struct submission_backend *backend = *bkp;
+
 		submission_backend_trans_start(backend, trans);
 	}
+	array_clear(&client->pending_backends);
 }
 
 void submission_backends_trans_free(struct client *client,
@@ -138,6 +140,7 @@ void submission_backends_trans_free(struct client *client,
 		struct submission_backend *backend = *bkp;
 		submission_backend_trans_free(backend, trans);
 	}
+	array_clear(&client->pending_backends);
 	array_clear(&client->rcpt_backends);
 	client->state.backend = NULL;
 }
@@ -176,6 +179,21 @@ int submission_backend_cmd_mail(struct submission_backend *backend,
 	return backend->v.cmd_mail(backend, cmd, data);
 }
 
+static void
+submission_backend_add_pending(struct submission_backend *backend)
+{
+	struct client *client = backend->client;
+
+	struct submission_backend *const *bkp;
+
+	array_foreach(&client->pending_backends, bkp) {
+		if (backend == *bkp)
+			return;
+	}
+
+	array_append(&client->pending_backends, &backend, 1);
+}
+
 int submission_backend_cmd_rcpt(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
 				struct submission_recipient *srcpt)
@@ -190,6 +208,8 @@ int submission_backend_cmd_rcpt(struct submission_backend *backend,
 	trans = smtp_server_connection_get_transaction(cmd->conn);
 	if (trans != NULL)
 		submission_backend_trans_start(srcpt->backend, trans);
+	else
+		submission_backend_add_pending(srcpt->backend);
 
 	return backend->v.cmd_rcpt(backend, cmd, srcpt);
 }
