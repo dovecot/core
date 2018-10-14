@@ -65,6 +65,7 @@ struct client {
 	struct smtp_server_connection *conn;
 	enum smtp_server_state last_state;
 	struct client_state state;
+	ARRAY(struct submission_backend *) pending_backends;
 	ARRAY(struct submission_recipient *) rcpt_to;
 	ARRAY(struct submission_backend *) rcpt_backends;
 

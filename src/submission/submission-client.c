@@ -205,6 +205,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client->set = set;
 	client->session_id = p_strdup(pool, session_id);
 
+	i_array_init(&client->pending_backends, 4);
 	i_array_init(&client->rcpt_to, 8);
 	i_array_init(&client->rcpt_backends, 8);
 
@@ -299,6 +300,7 @@ client_default_destroy(struct client *client, const char *prefix,
 	client_disconnect(client, prefix, reason);
 
 	submission_backends_destroy_all(client);
+	array_free(&client->pending_backends);
 	array_free(&client->rcpt_to);
 	array_free(&client->rcpt_backends);
 
