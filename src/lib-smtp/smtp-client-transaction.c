@@ -405,6 +405,9 @@ void smtp_client_transaction_unref(struct smtp_client_transaction **_trans)
 
 	*_trans = NULL;
 
+	if (trans == NULL)
+		return;
+
 	i_assert(trans->refcount > 0);
 	if (--trans->refcount > 0)
 		return;
