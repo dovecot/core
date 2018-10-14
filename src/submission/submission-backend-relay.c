@@ -117,6 +117,7 @@ backend_relay_trans_start(struct submission_backend *_backend,
 		(struct submission_backend_relay *)_backend;
 
 	if (backend->trans == NULL) {
+		backend->trans_started = TRUE;
 		backend->trans = smtp_client_transaction_create(
 			backend->conn, trans->mail_from, &trans->params,
 			backend_relay_trans_finished, backend);
@@ -125,6 +126,7 @@ backend_relay_trans_start(struct submission_backend *_backend,
 			backend->trans, backend_relay_trans_start_callback,
 			backend);
 	} else if (!backend->trans_started) {
+		backend->trans_started = TRUE;
 		smtp_client_transaction_start_empty(
 			backend->trans, trans->mail_from, &trans->params,
 			backend_relay_trans_start_callback, backend);
@@ -142,6 +144,7 @@ backend_relay_trans_free(struct submission_backend *_backend,
 		return;
 
 	smtp_client_transaction_destroy(&backend->trans);
+	backend->trans_started = FALSE;
 }
 
 /*
@@ -404,13 +407,13 @@ backend_relay_cmd_mail(struct submission_backend *_backend,
 
 	if (backend->trans == NULL) {
 		/* start client transaction */
+		backend->trans_started = TRUE;
 		backend->trans = smtp_client_transaction_create(
 			backend->conn, data->path, &data->params,
 			backend_relay_trans_finished, backend);
 		smtp_client_transaction_set_immediate(backend->trans, TRUE);
 		smtp_client_transaction_start(backend->trans,
 					      relay_cmd_mail_callback, mail_cmd);
-		backend->trans_started = TRUE;
 	} else {
 		/* forward pipelined MAIL command */
 		i_assert(backend->trans_started);
