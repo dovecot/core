@@ -434,6 +434,9 @@ void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 
 	*_trans = NULL;
 
+	if (trans == NULL)
+		return;
+
 	smtp_client_transaction_ref(trans);
 	smtp_client_transaction_abort(trans);
 
