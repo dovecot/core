@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "istream-sized.h"
 
+#include "submission-recipient.h"
 #include "submission-client.h"
 #include "submission-commands.h"
 #include "submission-backend.h"
@@ -179,10 +180,16 @@ int submission_backend_cmd_rcpt(struct submission_backend *backend,
 				struct smtp_server_cmd_ctx *cmd,
 				struct submission_recipient *srcpt)
 {
+	struct smtp_server_transaction *trans;
+
 	if (backend->v.cmd_rcpt == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
 	}
+
+	trans = smtp_server_connection_get_transaction(cmd->conn);
+	if (trans != NULL)
+		submission_backend_trans_start(srcpt->backend, trans);
 
 	return backend->v.cmd_rcpt(backend, cmd, srcpt);
 }

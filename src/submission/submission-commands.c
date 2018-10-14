@@ -159,12 +159,6 @@ int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
 			    struct smtp_server_cmd_ctx *cmd,
 			    struct submission_recipient *srcpt)
 {
-	struct smtp_server_transaction *trans;
-
-	trans = smtp_server_connection_get_transaction(cmd->conn);
-	if (trans != NULL)
-		submission_backend_trans_start(srcpt->backend, trans);
-
 	return submission_backend_cmd_rcpt(srcpt->backend, cmd, srcpt);
 }
 
