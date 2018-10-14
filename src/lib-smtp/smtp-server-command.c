@@ -387,6 +387,13 @@ void smtp_server_command_set_reply_count(struct smtp_server_command *cmd,
 	cmd->replies_expected = count;
 }
 
+unsigned int
+smtp_server_command_get_reply_count(struct smtp_server_command *cmd)
+{
+	i_assert(cmd->replies_expected > 0);
+	return cmd->replies_expected;
+}
+
 void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
 {
 	cmd->state = SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY;

@@ -502,6 +502,8 @@ void smtp_server_command_unregister(struct smtp_server *server,
 
 void smtp_server_command_set_reply_count(struct smtp_server_command *cmd,
 					 unsigned int count);
+unsigned int
+smtp_server_command_get_reply_count(struct smtp_server_command *cmd);
 
 void smtp_server_command_fail(struct smtp_server_command *cmd,
 			      unsigned int status, const char *enh_code,
