@@ -20,6 +20,7 @@
 
 #define PUSH_NOTIFICATION_CONFIG "push_notification_driver"
 #define PUSH_NOTIFICATION_CONFIG_OLD "push_notification_backend"
+#define PUSH_NOTIFICATION_EVENT_FINISHED "push_notification_finished"
 
 #define PUSH_NOTIFICATION_USER_CONTEXT(obj) \
         MODULE_CONTEXT_REQUIRE(obj, push_notification_user_module)
@@ -102,6 +103,10 @@ static void push_notification_transaction_end
         }
     }
 
+    struct event_passthrough *e = event_create_passthrough(ptxn->event)->
+        set_name(PUSH_NOTIFICATION_EVENT_FINISHED);
+    /* emit event */
+    e_debug(e->event(), "Push notification transaction completed");
     event_unref(&ptxn->event);
     pool_unref(&ptxn->pool);
 }
