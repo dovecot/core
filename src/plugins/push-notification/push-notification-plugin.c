@@ -81,7 +81,9 @@ push_notification_transaction_create(struct mailbox *box,
     ptxn->puser = PUSH_NOTIFICATION_USER_CONTEXT(ptxn->muser);
     ptxn->t = t;
     ptxn->trigger = PUSH_NOTIFICATION_EVENT_TRIGGER_NONE;
-
+    ptxn->event = event_create(ptxn->muser->event);
+    event_add_category(ptxn->event, &event_category_push_notification);
+    event_set_append_log_prefix(ptxn->event, "push-notification: ");
     p_array_init(&ptxn->drivers, pool, 4);
 
     return ptxn;
@@ -100,6 +102,7 @@ static void push_notification_transaction_end
         }
     }
 
+    event_unref(&ptxn->event);
     pool_unref(&ptxn->pool);
 }
 
