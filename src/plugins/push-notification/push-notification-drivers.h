@@ -95,6 +95,8 @@ struct push_notification_txn {
     ARRAY(struct push_notification_driver_txn *) drivers;
     ARRAY(struct push_notification_event_config *) events;
 
+    struct event *event;
+
     /* Used with mailbox events. */
     struct push_notification_txn_mbox *mbox_txn;
 
