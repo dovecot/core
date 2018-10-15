@@ -27,6 +27,10 @@ static MODULE_CONTEXT_DEFINE_INIT(push_notification_user_module,
                                   &mail_user_module_register);
 static struct ioloop *main_ioloop;
 
+struct event_category event_category_push_notification = {
+	.name = "push_notification",
+};
+
 static void
 push_notification_transaction_init(struct push_notification_txn *ptxn)
 {
