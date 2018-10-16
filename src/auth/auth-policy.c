@@ -17,6 +17,7 @@
 #include "auth-penalty.h"
 #include "auth-settings.h"
 #include "auth-policy.h"
+#include "auth-common.h"
 #include "iostream-ssl.h"
 
 #define AUTH_POLICY_DNS_SOCKET_PATH "dns-client"
@@ -50,6 +51,7 @@ struct policy_lookup_ctx {
 
 	struct istream *payload;
 	struct io *io;
+	struct event *event;
 
 	enum {
 		POLICY_RESULT = 0,
@@ -172,6 +174,7 @@ void auth_policy_init(void)
 						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
 						    &ssl_set);
 	http_client_set.ssl = &ssl_set;
+	http_client_set.event = auth_event;
 	http_client = http_client_init(&http_client_set);
 
 	/* prepare template */
@@ -245,6 +248,7 @@ void auth_policy_finish(struct policy_lookup_ctx *context)
 	http_client_request_abort(&context->http_request);
 	if (context->request != NULL)
 		auth_request_unref(&context->request);
+	event_unref(&context->event);
 	pool_unref(&context->pool);
 }
 
@@ -253,6 +257,10 @@ void auth_policy_callback(struct policy_lookup_ctx *context)
 {
 	if (context->callback != NULL)
 		context->callback(context->result, context->callback_context);
+	struct event_passthrough *e = event_create_passthrough(context->event)->
+		set_name("auth_policy_request_finished")->
+		add_int("policy_response", context->response);
+	e_debug(e->event(), "Policy request finished, result: %d", context->response);
 }
 
 static
@@ -295,19 +303,19 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 	io_remove(&context->io);
 
 	if (context->payload->stream_errno != 0) {
-		auth_request_log_error(context->request, "policy",
+		e_error(context->event,
 			"Error reading policy server result: %s",
 			i_stream_get_error(context->payload));
 	} else if (ret == 0 && context->payload->eof) {
-		auth_request_log_error(context->request, "policy",
+		e_error(context->event,
 			"Policy server result was too short");
 	} else if (ret == 1) {
-		auth_request_log_error(context->request, "policy",
+		e_error(context->event,
 			"Policy server response was malformed");
 	} else {
 		const char *error = "unknown";
 		if (json_parser_deinit(&context->parser, &error) != 0)
-			auth_request_log_error(context->request, "policy",
+			e_error(context->event,
 				"Policy server response JSON parse error: %s", error);
 		else if (context->parse_state == POLICY_RESULT)
 			context->parse_error = FALSE;
@@ -323,21 +331,21 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 	if (context->result < 0) {
 		if (context->message != NULL) {
 			/* set message here */
-			auth_request_log_debug(context->request, "policy",
+			e_debug(context->event,
 				"Policy response %d with message: %s",
 				context->result, context->message);
 			auth_request_set_field(context->request, "reason", context->message, NULL);
 		}
 		context->request->policy_refusal = TRUE;
 	} else {
-		auth_request_log_debug(context->request, "policy",
+		e_debug(context->event,
 			"Policy response %d", context->result);
 	}
 
 	if (context->request->policy_refusal == TRUE && context->set->verbose == TRUE) {
-		auth_request_log_info(context->request, "policy", "Authentication failure due to policy server refusal%s%s",
-			(context->message!=NULL?": ":""),
-			(context->message!=NULL?context->message:""));
+		e_info(context->event, "Authentication failure due to policy server refusal%s%s",
+		       (context->message!=NULL?": ":""),
+		       (context->message!=NULL?context->message:""));
 	}
 
 	auth_policy_callback(context);
@@ -352,7 +360,7 @@ void auth_policy_process_response(const struct http_response *response,
 	context->payload = response->payload;
 
 	if ((response->status / 10) != 20) {
-		auth_request_log_error(context->request, "policy",
+		e_error(context->event,
 			"Policy server HTTP error: %s",
 			http_response_get_message(response));
 		auth_policy_callback(context);
@@ -361,7 +369,7 @@ void auth_policy_process_response(const struct http_response *response,
 
 	if (response->payload == NULL) {
 		if (context->expect_result)
-			auth_request_log_error(context->request, "policy",
+			e_error(context->event,
 				"Policy server result was empty");
 		auth_policy_callback(context);
 		return;
@@ -373,7 +381,7 @@ void auth_policy_process_response(const struct http_response *response,
 		context->parser = json_parser_init(response->payload);
 		auth_policy_parse_response(ctx);
 	} else {
-		auth_request_log_debug(context->request, "policy",
+		e_debug(context->event,
 			"Policy response %d", context->result);
 		auth_policy_callback(context);
 	}
@@ -386,7 +394,7 @@ void auth_policy_send_request(struct policy_lookup_ctx *context)
 	struct http_url *url;
 	if (http_url_parse(context->url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
 			   context->pool, &url, &error) != 0) {
-		auth_request_log_error(context->request, "policy",
+		e_error(context->event,
 			"Could not parse url %s: %s", context->url, error);
 		auth_policy_finish(context);
 		return;
@@ -491,7 +499,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	if (auth_request_var_expand_with_table(context->json, auth_policy_json_template,
 					       context->request, var_table,
 					       auth_policy_escape_function, &error) <= 0) {
-		auth_request_log_error(context->request, "policy",
+		e_error(context->event,
 			"Failed to expand auth policy template: %s", error);
 	}
 	if (include_success) {
@@ -510,7 +518,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	else
 		str_append(context->json, "false");
 	str_append_c(context->json, '}');
-	auth_request_log_debug(context->request, "policy",
+	e_debug(context->event,
 		"Policy server request JSON: %s", str_c(context->json));
 }
 
@@ -524,6 +532,13 @@ void auth_policy_url(struct policy_lookup_ctx *context, const char *command)
 	else
 		context->url = p_strdup_printf(context->pool, "%s?command=%s",
 			context->set->policy_server_url, command);
+}
+
+static const char *auth_policy_get_prefix(struct auth_request *request)
+{
+	string_t *str = t_str_new(256);
+	auth_request_get_log_prefix(str, request, "policy");
+	return str_c(str);
 }
 
 void auth_policy_check(struct auth_request *request, const char *password,
@@ -541,10 +556,12 @@ void auth_policy_check(struct auth_request *request, const char *password,
 	ctx->callback = cb;
 	ctx->callback_context = context;
 	ctx->set = request->set;
-
+	ctx->event = event_create(request->event);
+	event_add_str(ctx->event, "mode", "allow");
+	event_set_append_log_prefix(ctx->event, auth_policy_get_prefix(request));
 	auth_policy_url(ctx, "allow");
 	ctx->result = (ctx->set->policy_reject_on_fail ? -1 : 0);
-	auth_request_log_debug(request, "policy", "Policy request %s", ctx->url);
+	e_debug(ctx->event, "Policy request %s", ctx->url);
 	T_BEGIN {
 		auth_policy_create_json(ctx, password, FALSE);
 	} T_END;
@@ -564,8 +581,11 @@ void auth_policy_report(struct auth_request *request)
 	ctx->request = request;
 	ctx->expect_result = FALSE;
 	ctx->set = request->set;
+	ctx->event = event_create(request->event);
+	event_add_str(ctx->event, "mode", "report");
+	event_set_append_log_prefix(ctx->event, auth_policy_get_prefix(request));
 	auth_policy_url(ctx, "report");
-	auth_request_log_debug(request, "policy", "Policy request %s", ctx->url);
+	e_debug(ctx->event, "Policy request %s", ctx->url);
 	T_BEGIN {
 		auth_policy_create_json(ctx, request->mech_password, TRUE);
 	} T_END;
