@@ -47,13 +47,13 @@ smtp_client_connection_start_transaction(struct smtp_client_connection *conn);
 enum smtp_capability
 smtp_client_connection_get_capabilities(struct smtp_client_connection *conn)
 {
-	return conn->capabilities;
+	return conn->caps.standard;
 }
 
 uoff_t smtp_client_connection_get_size_capability(
 	struct smtp_client_connection *conn)
 {
-	return conn->cap_size;
+	return conn->caps.size;
 }
 
 /*
@@ -470,7 +470,7 @@ smtp_client_connection_get_sasl_mech(struct smtp_client_connection *conn,
 	if (set->sasl_mech != NULL) {
 		const char *mech = dsasl_client_mech_get_name(set->sasl_mech);
 
-		if (!str_array_icase_find(conn->cap_auth_mechanisms, mech)) {
+		if (!str_array_icase_find(conn->caps.auth_mechanisms, mech)) {
 			*error_r = t_strdup_printf(
 				"Server doesn't support `%s' SASL mechanism",
 				mech);
@@ -488,7 +488,7 @@ smtp_client_connection_get_sasl_mech(struct smtp_client_connection *conn,
 	/* find one of the specified SASL mechanisms */
 	mechanisms = t_strsplit_spaces(set->sasl_mechanisms, ", ");
 	for (; *mechanisms != NULL; mechanisms++) {
-		if (str_array_icase_find(conn->cap_auth_mechanisms,
+		if (str_array_icase_find(conn->caps.auth_mechanisms,
 			*mechanisms)) {
 			*mech_r = dsasl_client_mech_find(*mechanisms);
 			if (*mech_r != NULL)
@@ -524,7 +524,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	if (set->username == NULL && set->sasl_mech == NULL)
 		return TRUE;
 
-	if ((conn->capabilities & SMTP_CAPABILITY_AUTH) == 0) {
+	if ((conn->caps.standard & SMTP_CAPABILITY_AUTH) == 0) {
 		smtp_client_connection_fail(conn,
 			SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
 			"Authentication not supported");
@@ -694,14 +694,14 @@ smtp_client_connection_xclient_addf(struct smtp_client_connection *conn,
 bool smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
 					 struct smtp_proxy_data *xclient)
 {
-	const char **xclient_args = conn->cap_xclient_args;
+	const char **xclient_args = conn->caps.xclient_args;
 	size_t offset;
 	string_t *str;
 
 	if (!conn->set.peer_trusted)
 		return TRUE;
-	if ((conn->capabilities & SMTP_CAPABILITY_XCLIENT) == 0 ||
-	    conn->cap_xclient_args == NULL)
+	if ((conn->caps.standard & SMTP_CAPABILITY_XCLIENT) == 0 ||
+	    conn->caps.xclient_args == NULL)
 		return TRUE;
 
 	i_assert(conn->xclient_replies_expected == 0);
@@ -849,7 +849,7 @@ smtp_client_connection_starttls(struct smtp_client_connection *conn)
 
 	if (conn->ssl_mode == SMTP_CLIENT_SSL_MODE_STARTTLS &&
 	    conn->ssl_iostream == NULL) {
-		if ((conn->capabilities & SMTP_CAPABILITY_STARTTLS) == 0) {
+		if ((conn->caps.standard & SMTP_CAPABILITY_STARTTLS) == 0) {
 			smtp_client_connection_error(conn,
 				"Requested STARTTLS, "
 				"but server doesn't support it");
@@ -900,10 +900,8 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 
 	/* reset capabilities */
 	p_clear(conn->cap_pool);
-	conn->capabilities = conn->set.forced_capabilities;
-	conn->cap_xclient_args = NULL;
-	conn->cap_auth_mechanisms = NULL;
-	conn->cap_size = 0;
+	i_zero(&conn->caps);
+	conn->caps.standard = conn->set.forced_capabilities;
 
 	lines = reply->text_lines;
 	if (*lines == NULL) {
@@ -934,13 +932,13 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 		cap = smtp_capability_find_by_name(cap_name);
 		switch (cap) {
 		case SMTP_CAPABILITY_AUTH:
-			conn->cap_auth_mechanisms =
+			conn->caps.auth_mechanisms =
 				p_strarray_dup(conn->cap_pool, params);
 			break;
 		case SMTP_CAPABILITY_SIZE:
 			if (params == NULL || *params == NULL)
 				break;
-			if (str_to_uoff(*params, &conn->cap_size) < 0) {
+			if (str_to_uoff(*params, &conn->caps.size) < 0) {
 				smtp_client_connection_warning(conn,
 					"Received invalid SIZE capability "
 					"in EHLO response line");
@@ -948,14 +946,14 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 			}
 			break;
 		case SMTP_CAPABILITY_XCLIENT:
-			conn->cap_xclient_args =
+			conn->caps.xclient_args =
 				p_strarray_dup(conn->cap_pool, params);
 			break;
 		default:
 			break;
 		}
 
-		conn->capabilities |= cap;
+		conn->caps.standard |= cap;
 		lines++;
 	}
 
@@ -1059,7 +1057,7 @@ static void smtp_client_connection_input(struct connection *_conn)
 {
 	struct smtp_client_connection *conn =
 		(struct smtp_client_connection *)_conn;
-	bool enhanced_codes = ((conn->capabilities &
+	bool enhanced_codes = ((conn->caps.standard &
 		SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0);
 	struct smtp_reply *reply;
 	const char *error = NULL;
@@ -1828,7 +1826,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	i_assert(conn->set.my_hostname != NULL &&
 		*conn->set.my_hostname != '\0');
 
-	conn->capabilities = conn->set.forced_capabilities;
+	conn->caps.standard = conn->set.forced_capabilities;
 	conn->cap_pool = pool_alloconly_create
 		("smtp client connection capabilities", 128);
 

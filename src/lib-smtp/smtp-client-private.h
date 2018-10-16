@@ -153,11 +153,13 @@ struct smtp_client_connection {
 	struct smtp_client_settings set;
 	char *password;
 
-	enum smtp_capability capabilities;
 	pool_t cap_pool;
-	const char **cap_auth_mechanisms;
-	const char **cap_xclient_args;
-	uoff_t cap_size;
+	struct {
+		enum smtp_capability standard;
+		const char **auth_mechanisms;
+		const char **xclient_args;
+		uoff_t size;
+	} caps;
 
 	struct smtp_reply_parser *reply_parser;
 	struct smtp_reply reply;
