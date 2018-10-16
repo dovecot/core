@@ -350,7 +350,13 @@ static int lua_storage_mailbox_status(lua_State *L)
 	const char *const *keyword;
 	struct dlua_script *script = dlua_script_from_state(L);
 	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
-	enum mailbox_status_items items = luaL_checknumber(script->L, 2);
+	/* get items as list of parameters */
+	enum mailbox_status_items items = 0;
+
+	if (lua_gettop(script->L) < 2)
+		return luaL_error(script->L, "expecting at least 1 parameter");
+	for(int i = 2; i <= lua_gettop(script->L); i++)
+		items |= (unsigned int)luaL_checkinteger(script->L, i);
 
 	i_zero(&status);
 	if (mailbox_get_status(mbox, items, &status) < 0) {
