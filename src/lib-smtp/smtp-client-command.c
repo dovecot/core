@@ -553,13 +553,13 @@ static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 
 		cmd = conn->cmd_wait_list_head;
 		if (cmd != NULL &&
-		    (conn->capabilities & SMTP_CAPABILITY_PIPELINING) == 0) {
+		    (conn->caps.standard & SMTP_CAPABILITY_PIPELINING) == 0) {
 			/* cannot pipeline; wait for reply */
 			smtp_client_command_debug(cmd, "Pipeline occupied");
 			return 0;
 		}
 		while (cmd != NULL) {
-			if ((conn->capabilities & SMTP_CAPABILITY_PIPELINING) == 0 ||
+			if ((conn->caps.standard & SMTP_CAPABILITY_PIPELINING) == 0 ||
 				(cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PIPELINE) == 0 ||
 				cmd->locked) {
 				/* cannot pipeline with previous command;
@@ -990,8 +990,7 @@ smtp_client_command_mail_submit_after(
 	if (params != NULL) {
 		size_t orig_len = str_len(cmd->data);
 		str_append_c(cmd->data, ' ');
-		smtp_params_mail_write
-			(cmd->data, conn->capabilities, params);
+		smtp_params_mail_write(cmd->data, conn->caps.standard, params);
 		if (str_len(cmd->data) == orig_len + 1)
 			str_truncate(cmd->data, orig_len);
 
@@ -1035,8 +1034,7 @@ smtp_client_command_rcpt_submit_after(
 	if (params != NULL) {
 		size_t orig_len = str_len(cmd->data);
 		str_append_c(cmd->data, ' ');
-		smtp_params_rcpt_write
-			(cmd->data, conn->capabilities, params);
+		smtp_params_rcpt_write(cmd->data, conn->caps.standard, params);
 		if (str_len(cmd->data) == orig_len + 1)
 			str_truncate(cmd->data, orig_len);
 	}
@@ -1343,7 +1341,7 @@ smtp_client_command_data_submit_after(
 	/* capture abort event with our context */
 	smtp_client_command_set_abort_callback(cmd, _cmd_data_abort_cb, ctx);
 
-	if ((conn->capabilities & SMTP_CAPABILITY_CHUNKING) == 0) {
+	if ((conn->caps.standard & SMTP_CAPABILITY_CHUNKING) == 0) {
 		/* DATA */
 		p_array_init(&ctx->cmds, ctx->pool, 1);
 
