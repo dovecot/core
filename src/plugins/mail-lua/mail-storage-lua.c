@@ -335,7 +335,10 @@ static int lua_storage_mailbox_sync(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
-	enum mailbox_sync_flags flags = luaL_checknumber(script->L, 2);
+	enum mailbox_sync_flags flags = 0;
+
+	if (lua_gettop(script->L) >= 2)
+		flags = luaL_checkinteger(script->L, 2);
 
 	if (mailbox_sync(mbox, flags) < 0) {
 		const char *error = mailbox_get_last_error(mbox, NULL);
