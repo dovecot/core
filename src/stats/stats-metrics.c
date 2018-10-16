@@ -144,13 +144,9 @@ stats_metrics_get_event_filter(struct stats_metrics *metrics)
 static void
 stats_metric_event(struct metric *metric, struct event *event)
 {
-	struct timeval tv_start, tv_end;
-	intmax_t duration = 0;
+	intmax_t duration;
 
-	if (event_get_last_send_time(event, &tv_end)) {
-		event_get_create_time(event, &tv_start);
-		duration = timeval_diff_usecs(&tv_end, &tv_start);
-	}
+	event_get_last_duration(event, &duration);
 	stats_dist_add(metric->duration_stats, duration);
 
 	for (unsigned int i = 0; i < metric->fields_count; i++) {
