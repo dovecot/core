@@ -153,7 +153,9 @@ static int lua_storage_mail_user_mailbox_alloc(lua_State *L)
 	struct dlua_script *script = dlua_script_from_state(L);
 	struct mail_user *user = lua_check_storage_mail_user(script, 1);
 	const char *mboxname = luaL_checkstring(script->L, 2);
-	enum mailbox_flags flags = luaL_checknumber(script->L, 3);
+	enum mailbox_flags flags = 0;
+	if (lua_gettop(script->L) >= 3)
+		flags = luaL_checkinteger(script->L, 3);
 	struct mail_namespace *ns = mail_namespace_find(user->namespaces, mboxname);
 	if (ns == NULL) {
 		return luaL_error(script->L, "No namespace found for mailbox %s",
