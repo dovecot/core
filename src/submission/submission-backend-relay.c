@@ -1005,6 +1005,7 @@ submission_backend_relay_create(
 	/* make relay connection */
 	i_zero(&smtp_set);
 	smtp_set.my_hostname = set->my_hostname;
+	smtp_set.extra_capabilities = set->extra_capabilities;
 	smtp_set.ssl = &ssl_set;
 	smtp_set.debug = user->mail_debug;
 

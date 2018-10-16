@@ -15,6 +15,8 @@ struct submision_backend_relay_settings {
 	const char *path, *host;
 	in_port_t port;
 
+	const char *const *extra_capabilities;
+
 	const char *user, *master_user;
 	const char *password;
 
