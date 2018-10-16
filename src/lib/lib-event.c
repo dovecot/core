@@ -127,7 +127,7 @@ struct event *event_create(struct event *parent, const char *source_filename,
 	event->refcount = 1;
 	event->id = ++event_id_counter;
 	event->pool = pool;
-	event->tv_created = ioloop_timeval;
+	event->tv_created_ioloop = ioloop_timeval;
 	event->source_filename = source_filename;
 	event->source_linenum = source_linenum;
 	if (parent != NULL) {
@@ -154,7 +154,7 @@ event_create_passthrough(struct event *parent, const char *source_filename,
 		event->passthrough = TRUE;
 		/* This event only intends to extend the parent event.
 		   Use the parent's creation timestamp. */
-		event->tv_created = parent->tv_created;
+		event->tv_created_ioloop = parent->tv_created_ioloop;
 		event_last_passthrough = &event->event_passthrough;
 	} else {
 		event_last_passthrough = &parent->event_passthrough;
@@ -541,7 +541,7 @@ struct event *event_get_parent(struct event *event)
 
 void event_get_create_time(struct event *event, struct timeval *tv_r)
 {
-	*tv_r = event->tv_created;
+	*tv_r = event->tv_created_ioloop;
 }
 
 bool event_get_last_send_time(struct event *event, struct timeval *tv_r)
@@ -630,8 +630,8 @@ void event_export(const struct event *event, string_t *dest)
 {
 	/* required fields: */
 	str_printfa(dest, "%"PRIdTIME_T"\t%u",
-		    event->tv_created.tv_sec,
-		    (unsigned int)event->tv_created.tv_usec);
+		    event->tv_created_ioloop.tv_sec,
+		    (unsigned int)event->tv_created_ioloop.tv_usec);
 
 	/* optional fields: */
 	if (event->source_filename != NULL) {
@@ -711,8 +711,8 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 		*error_r = "Missing required fields";
 		return FALSE;
 	}
-	if (!event_import_tv(args[0], args[1], &event->tv_created, &error)) {
-		*error_r = t_strdup_printf("Invalid tv_created: %s", error);
+	if (!event_import_tv(args[0], args[1], &event->tv_created_ioloop, &error)) {
+		*error_r = t_strdup_printf("Invalid tv_created_ioloop: %s", error);
 		return FALSE;
 	}
 	args += 2;
