@@ -128,7 +128,7 @@ struct event *event_create(struct event *parent, const char *source_filename,
 	event->id = ++event_id_counter;
 	event->pool = pool;
 	event->tv_created_ioloop = ioloop_timeval;
-	event->source_filename = source_filename;
+	event->source_filename = p_strdup(pool, source_filename);
 	event->source_linenum = source_linenum;
 	if (parent != NULL) {
 		event->parent = parent;
