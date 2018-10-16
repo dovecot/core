@@ -167,7 +167,7 @@ static struct event *stats_event_get_merged(struct event *event)
 
 	for (p = event->parent;
 	     p != NULL && !p->id_sent_to_stats &&
-		     timeval_cmp(&p->tv_created, &res->tv_created) == 0;
+		     timeval_cmp(&p->tv_created_ioloop, &res->tv_created_ioloop) == 0;
 	     p = p->parent) {
 		// Merge all parents with the same timestamp into result.
 		if (!event_has_all_categories(res, p) ||
