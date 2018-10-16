@@ -47,10 +47,17 @@ enum smtp_capability {
 
 	SMTP_CAPABILITY__ORCPT              = BIT(24),
 };
+
 struct smtp_capability_name {
 	const char *name;
 	enum smtp_capability capability;
 };
+
+struct smtp_capability_extra {
+	const char *name;
+	const char *const *params;
+};
+
 extern const struct smtp_capability_name smtp_capability_names[];
 
 enum smtp_capability smtp_capability_find_by_name(const char *cap_name);

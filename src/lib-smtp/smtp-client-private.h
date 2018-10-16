@@ -152,10 +152,12 @@ struct smtp_client_connection {
 
 	struct smtp_client_settings set;
 	char *password;
+	ARRAY_TYPE(const_string) extra_capabilities;
 
 	pool_t cap_pool;
 	struct {
 		enum smtp_capability standard;
+		ARRAY(struct smtp_capability_extra) extra;
 		const char **auth_mechanisms;
 		const char **xclient_args;
 		uoff_t size;
