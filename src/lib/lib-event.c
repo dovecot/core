@@ -5,6 +5,7 @@
 #include "event-filter.h"
 #include "array.h"
 #include "llist.h"
+#include "time-util.h"
 #include "str.h"
 #include "strescape.h"
 #include "ioloop.h"
@@ -128,6 +129,8 @@ struct event *event_create(struct event *parent, const char *source_filename,
 	event->id = ++event_id_counter;
 	event->pool = pool;
 	event->tv_created_ioloop = ioloop_timeval;
+	if (gettimeofday(&event->tv_created, NULL) < 0)
+		i_panic("gettimeofday() failed: %m");
 	event->source_filename = p_strdup(pool, source_filename);
 	event->source_linenum = source_linenum;
 	if (parent != NULL) {
@@ -155,6 +158,7 @@ event_create_passthrough(struct event *parent, const char *source_filename,
 		/* This event only intends to extend the parent event.
 		   Use the parent's creation timestamp. */
 		event->tv_created_ioloop = parent->tv_created_ioloop;
+		event->tv_created = parent->tv_created;
 		event_last_passthrough = &event->event_passthrough;
 	} else {
 		event_last_passthrough = &parent->event_passthrough;
@@ -541,13 +545,22 @@ struct event *event_get_parent(struct event *event)
 
 void event_get_create_time(struct event *event, struct timeval *tv_r)
 {
-	*tv_r = event->tv_created_ioloop;
+	*tv_r = event->tv_created;
 }
 
 bool event_get_last_send_time(struct event *event, struct timeval *tv_r)
 {
 	*tv_r = event->tv_last_sent;
 	return tv_r->tv_sec != 0;
+}
+
+void event_get_last_duration(struct event *event, intmax_t *duration_r)
+{
+	if (event->tv_last_sent.tv_sec == 0) {
+		*duration_r = 0;
+		return;
+	}
+	*duration_r = timeval_diff_usecs(&event->tv_last_sent, &event->tv_created);
 }
 
 const struct event_field *
@@ -583,7 +596,8 @@ void event_send(struct event *event, struct failure_context *ctx,
 void event_vsend(struct event *event, struct failure_context *ctx,
 		 const char *fmt, va_list args)
 {
-	event->tv_last_sent = ioloop_timeval;
+	if (gettimeofday(&event->tv_last_sent, NULL) < 0)
+		i_panic("gettimeofday() failed: %m");
 	if (event_send_callbacks(event, EVENT_CALLBACK_TYPE_EVENT,
 				 ctx, fmt, args)) {
 		if (ctx->type != LOG_TYPE_DEBUG ||
@@ -629,9 +643,11 @@ event_export_field_value(string_t *dest, const struct event_field *field)
 void event_export(const struct event *event, string_t *dest)
 {
 	/* required fields: */
-	str_printfa(dest, "%"PRIdTIME_T"\t%u",
+	str_printfa(dest, "%"PRIdTIME_T"\t%u\t%"PRIdTIME_T"\t%u",
 		    event->tv_created_ioloop.tv_sec,
-		    (unsigned int)event->tv_created_ioloop.tv_usec);
+		    (unsigned int)event->tv_created_ioloop.tv_usec,
+		    event->tv_created.tv_sec,
+		    (unsigned int)event->tv_created.tv_usec);
 
 	/* optional fields: */
 	if (event->source_filename != NULL) {
@@ -713,6 +729,11 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 	}
 	if (!event_import_tv(args[0], args[1], &event->tv_created_ioloop, &error)) {
 		*error_r = t_strdup_printf("Invalid tv_created_ioloop: %s", error);
+		return FALSE;
+	}
+	args += 2;
+	if (!event_import_tv(args[0], args[1], &event->tv_created, &error)) {
+		*error_r = t_strdup_printf("Invalid tv_created: %s", error);
 		return FALSE;
 	}
 	args += 2;
