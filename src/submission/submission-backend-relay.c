@@ -981,7 +981,7 @@ backend_relay_cmd_quit(struct submission_backend *_backend,
  * Relay backend
  */
 
-struct submission_backend *
+struct submission_backend_relay *
 submission_backend_relay_create(
 	struct client *client,
 	const struct submision_backend_relay_settings *set)
@@ -1041,7 +1041,27 @@ submission_backend_relay_create(
 			smtp_client, set->protocol, set->path, &smtp_set);
 	}
 
+	return backend;
+}
+
+struct submission_backend *
+submission_backend_relay_get(struct submission_backend_relay *backend)
+{
 	return &backend->backend;
+}
+
+struct smtp_client_connection *
+submission_backend_relay_get_connection(
+	struct submission_backend_relay *backend)
+{
+	return backend->conn;
+}
+
+struct smtp_client_transaction *
+submission_backend_relay_get_transaction(
+	struct submission_backend_relay *backend)
+{
+	return backend->trans;
 }
 
 static void backend_relay_destroy(struct submission_backend *_backend)

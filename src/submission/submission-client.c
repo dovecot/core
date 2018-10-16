@@ -160,8 +160,10 @@ client_create_backend_default(struct client *client,
 		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
 	relay_set.ssl_verify = set->submission_relay_ssl_verify;
 
-	client->backend_default =
+	client->backend_default_relay =
 		submission_backend_relay_create(client, &relay_set);
+	client->backend_default =
+		submission_backend_relay_get(client->backend_default_relay);
 }
 
 static void client_init_urlauth(struct client *client)
