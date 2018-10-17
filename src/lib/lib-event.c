@@ -113,6 +113,7 @@ struct event *event_dup(const struct event *source)
 	event_export(source, str);
 	if (!event_import(ret, str_c(str), &err))
 		i_panic("event_import(%s) failed: %s", str_c(str), err);
+	ret->tv_created_ioloop = source->tv_created_ioloop;
 	return ret;
 }
 
@@ -643,9 +644,7 @@ event_export_field_value(string_t *dest, const struct event_field *field)
 void event_export(const struct event *event, string_t *dest)
 {
 	/* required fields: */
-	str_printfa(dest, "%"PRIdTIME_T"\t%u\t%"PRIdTIME_T"\t%u",
-		    event->tv_created_ioloop.tv_sec,
-		    (unsigned int)event->tv_created_ioloop.tv_usec,
+	str_printfa(dest, "%"PRIdTIME_T"\t%u",
 		    event->tv_created.tv_sec,
 		    (unsigned int)event->tv_created.tv_usec);
 
@@ -727,11 +726,6 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 		*error_r = "Missing required fields";
 		return FALSE;
 	}
-	if (!event_import_tv(args[0], args[1], &event->tv_created_ioloop, &error)) {
-		*error_r = t_strdup_printf("Invalid tv_created_ioloop: %s", error);
-		return FALSE;
-	}
-	args += 2;
 	if (!event_import_tv(args[0], args[1], &event->tv_created, &error)) {
 		*error_r = t_strdup_printf("Invalid tv_created: %s", error);
 		return FALSE;
