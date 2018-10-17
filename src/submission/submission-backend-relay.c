@@ -48,7 +48,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 				 const struct smtp_reply *reply,
 				 struct smtp_reply *reply_r)
 {
-	const char *enh_code, *msg, *detail = "";
+	const char *enh_code, *msg, *log_msg = NULL, *detail = "";
 	bool result = TRUE;
 
 	*reply_r = *reply;
@@ -68,7 +68,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
 	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
 		enh_code = "4.4.0";
-		msg = "Lost connection to relay server";
+		log_msg = msg = "Lost connection to relay server";
 		result = FALSE;
 		break;
 	/* RFC 4954, Section 6: 530 5.7.0 Authentication required
@@ -78,8 +78,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 	   authentication in order to perform the requested action and
 	   authentication is not currently in force. */
 	case 530:
-		i_error("Relay server requires authentication: %s",
-			smtp_reply_log(reply));
+		log_msg = "Relay server requires authentication";
 		enh_code = "4.3.5",
 		msg = "Internal error occurred. "
 		      "Refer to server log for more information.";
@@ -116,6 +115,8 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 	if (!result) {
 		const char *reason = t_strdup_printf("%s%s", msg, detail);
 		smtp_client_transaction_destroy(&backend->trans);
+		if (log_msg != NULL)
+			i_error("%s: %s", log_msg, smtp_reply_log(reply));
 		submission_backend_fail(&backend->backend, cmd,
 					enh_code, reason);
 		return FALSE;
