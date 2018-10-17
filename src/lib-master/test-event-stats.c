@@ -240,6 +240,36 @@ static int launch_test_stats(void)
 	return run_tests();
 }
 
+static bool compare_test_stats_data_line(const char *reference, const char *actual)
+{
+	const char *const *ref_args = t_strsplit(reference, "\t");
+	const char *const *act_args = t_strsplit(actual, "\t");
+	unsigned int max = I_MIN(str_array_length(ref_args), str_array_length(act_args));
+
+	for(size_t i=0; i < max && *ref_args != NULL; i++) {
+		if (i > 1 && i < 6) continue;
+		if (*(ref_args[i]) == 'l') {
+			i++;
+			continue;
+		}
+		if (strcmp(ref_args[i], act_args[i]) != 0) {
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+static bool compare_test_stats_data_lines(const char *reference, const char *actual)
+{
+	const char *const *lines_ref = t_strsplit(reference, "\n");
+	const char *const *lines_act = t_strsplit(actual, "\n");
+	for(size_t i = 0; *lines_ref != NULL && *lines_act != NULL; i++, lines_ref++, lines_act++) {
+		if (!compare_test_stats_data_line(*lines_ref, *lines_act))
+			return FALSE;
+	}
+	return *lines_ref == *lines_act;
+}
+
 static bool compare_test_stats_to(const char *format, ...)
 {
 	bool res;
@@ -262,9 +292,8 @@ static bool compare_test_stats_to(const char *format, ...)
 		res = FALSE;
 	} else {
 		size_t size;
-		const void *data = i_stream_get_data(input, &size);
-		res = (size == str_len(reference)) &&
-			(memcmp(data, str_data(reference), size) == 0);
+		const unsigned char *data = i_stream_get_data(input, &size);
+		res = compare_test_stats_data_lines(t_strdup_until(data, data+size), str_c(reference));
 	}
 	i_stream_unref(&input);
 	i_unlink(stats_data_file);
@@ -309,7 +338,7 @@ static void test_no_merging1(void)
 		compare_test_stats_to(
 			"EVENT	0	1	0	0"
 			"	stest-event-stats.c	%d"
-			"	ctest1	Skey1	str1\n", l));
+			"	l0	0	ctest1	Skey1	str1\n", l));
 	test_end();
 }
 
@@ -333,7 +362,7 @@ static void test_no_merging2(void)
 		compare_test_stats_to(
 			"EVENT	%lu	1	0	0"
 			"	stest-event-stats.c	%d"
-			"	ctest2\n", id, l));
+			"	l0	0	ctest2\n", id, l));
 	test_end();
 }
 
@@ -388,7 +417,7 @@ static void test_merge_events1(void)
 	test_assert(
 		compare_test_stats_to(
 			"EVENT	0	1	0	0"
-			"	stest-event-stats.c	%d"
+			"	stest-event-stats.c	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
 			"	Skey1	str1\n", l));
@@ -423,7 +452,7 @@ static void test_merge_events2(void)
 	test_assert(
 		compare_test_stats_to(
 			"EVENT	%lu	1	0	0"
-			"	stest-event-stats.c	%d"
+			"	stest-event-stats.c	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
 			"	Skey1	str1\n", id, l));
