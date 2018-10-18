@@ -549,8 +549,8 @@ test_fts_tokenizer_explicit_prefix(void)
 				struct fts_tokenizer *tok;
 				const char *error;
 
-				fts_tokenizer_create(fts_tokenizer_generic, NULL, settings,
-						     &tok, &error);
+				test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, settings,
+								 &tok, &error) == 0);
 				test_tokenizer_inputs(
 					tok, &input, 1,
 					(search!=0) && (explicitprefix!=0)
