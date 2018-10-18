@@ -317,6 +317,8 @@ int submission_backend_cmd_rcpt(struct submission_backend *backend,
 	if (!submission_backend_handle_failure(backend, cmd))
 		return -1;
 
+	i_assert(backend->started);
+
 	if (backend->v.cmd_rcpt == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
@@ -337,6 +339,8 @@ int submission_backend_cmd_rset(struct submission_backend *backend,
 	if (!submission_backend_handle_failure(backend, cmd))
 		return -1;
 
+	submission_backend_start(backend);
+
 	if (backend->v.cmd_rset == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
@@ -353,6 +357,8 @@ submission_backend_cmd_data(struct submission_backend *backend,
 		submission_backend_fail_rcpts(backend);
 		return 0;
 	}
+
+	i_assert(backend->started);
 
 	return backend->v.cmd_data(backend, cmd, trans,
 				   backend->data_input, backend->data_size);
@@ -398,6 +404,8 @@ int submission_backend_cmd_vrfy(struct submission_backend *backend,
 	/* failure on default backend closes the client connection */
 	i_assert(backend->fail_reason == NULL);
 
+	submission_backend_start(backend);
+
 	if (backend->v.cmd_vrfy == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
@@ -410,6 +418,8 @@ int submission_backend_cmd_noop(struct submission_backend *backend,
 {
 	/* failure on default backend closes the client connection */
 	i_assert(backend->fail_reason == NULL);
+
+	submission_backend_start(backend);
 
 	if (backend->v.cmd_noop == NULL) {
 		/* backend is not interested, respond right away */
@@ -424,6 +434,10 @@ int submission_backend_cmd_quit(struct submission_backend *backend,
 	/* failure on default backend closes the client connection */
 	i_assert(backend->fail_reason == NULL);
 
+	if (!backend->started) {
+		/* quit before backend even started */
+		return 1;
+	}
 	if (backend->v.cmd_quit == NULL) {
 		/* backend is not interested, respond right away */
 		return 1;
