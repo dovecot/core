@@ -541,18 +541,25 @@ static int run_tests(void)
 	signal_process(exit_stats);
 	signal_process(test_done);
 	(void)waitpid(stats_pid, NULL, 0);
-	/* Just in case if something was put to file after tests */
-	i_unlink_if_exists(stats_data_file);
 	io_loop_destroy(&ioloop);
 	return ret;
 }
 
-static int launch_test_stats(void)
+static void cleanup_test_stats(void)
 {
-	/* Make sure files are not existing */
+	i_unlink_if_exists(SOCK_FULL);
+	i_unlink_if_exists(stats_data_file);
 	i_unlink_if_exists(test_done);
 	i_unlink_if_exists(exit_stats);
 	i_unlink_if_exists(stats_ready);
+}
+
+static int launch_test_stats(void)
+{
+	int ret;
+
+	/* Make sure files are not existing */
+	cleanup_test_stats();
 
 	if ((stats_pid = fork()) == (pid_t)-1)
 		i_fatal("fork() failed: %m");
@@ -561,7 +568,12 @@ static int launch_test_stats(void)
 		return 0;
 	}
 	wait_for_signal(stats_ready);
-	return run_tests();
+	ret = run_tests();
+
+	/* Make sure we don't leave anything behind */
+	cleanup_test_stats();
+
+	return ret;
 }
 
 int main(void)
