@@ -9,6 +9,10 @@ struct smtp_client_transaction;
 struct smtp_client_transaction_mail;
 struct smtp_client_transaction_rcpt;
 
+enum smtp_client_transaction_flags {
+	SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT = BIT(0),
+};
+
 enum smtp_client_transaction_state {
 	SMTP_CLIENT_TRANSACTION_STATE_NEW = 0,
 	SMTP_CLIENT_TRANSACTION_STATE_PENDING,
@@ -36,25 +40,27 @@ smtp_client_transaction_callback_t(void *context);
    MAIL FROM command) */
 struct smtp_client_transaction *
 smtp_client_transaction_create_empty(
-	struct smtp_client_connection *conn, unsigned int flags,
+	struct smtp_client_connection *conn,
+	enum smtp_client_transaction_flags flags,
 	smtp_client_transaction_callback_t *callback, void *context)
 	ATTR_NULL(4);
-#define smtp_client_transaction_create_empty(conn, callback, context) \
-	smtp_client_transaction_create_empty(conn, \
-		0 + CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+#define smtp_client_transaction_create_empty(conn, flags, callback, context) \
+	smtp_client_transaction_create_empty(conn, flags + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(smtp_client_transaction_callback_t *)callback, context)
 /* Create a new transaction, including the parameters for the MAIL FROM
    command */
 struct smtp_client_transaction *
 smtp_client_transaction_create(struct smtp_client_connection *conn,
 		const struct smtp_address *mail_from,
-		const struct smtp_params_mail *mail_params, unsigned int flags,
+		const struct smtp_params_mail *mail_params,
+		enum smtp_client_transaction_flags flags,
 		smtp_client_transaction_callback_t *callback, void *context)
 		ATTR_NULL(2, 3, 6);
 #define smtp_client_transaction_create(conn, \
-		mail_from, mail_params, callback, context) \
-	smtp_client_transaction_create(conn, mail_from, mail_params, \
-		0 + CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		mail_from, mail_params, flags, callback, context) \
+	smtp_client_transaction_create(conn, mail_from, mail_params, flags + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(smtp_client_transaction_callback_t *)callback, context)
 
 void smtp_client_transaction_ref(struct smtp_client_transaction *trans);
