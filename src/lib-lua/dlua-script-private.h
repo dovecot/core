@@ -35,6 +35,9 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 #define DLUA_TABLE_NULL(n, s) { .name = n, .type = DLUA_TABLE_VALUE_NULL }
 #define DLUA_TABLE_END { .name = NULL }
 
+#define DLUA_REQUIRE_ARGS_IN(s,x,y) if (lua_gettop((s)->L) < (x) || lua_gettop((s)->L) > (y)) { return luaL_error((s)->L, "expected %d to %d arguments, got %d", x, y, lua_gettop((s)->L)); }
+#define DLUA_REQUIRE_ARGS(s,x) if (lua_gettop((s)->L) != (x)) { return luaL_error((s)->L, "expected %d arguments, got %d", (x), lua_gettop((s)->L)); }
+
 struct dlua_script {
 	struct dlua_script *prev,*next;
 	pool_t pool;
