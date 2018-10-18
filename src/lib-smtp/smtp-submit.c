@@ -316,7 +316,7 @@ smtp_submit_send_host(struct smtp_submit *subm)
 		  SMTP_PROTOCOL_SMTP, host, port, ssl_mode, NULL);
 
 	smtp_trans = smtp_client_transaction_create(smtp_conn,
-		subm->mail_from, NULL, smtp_submit_send_host_finished, subm);
+		subm->mail_from, NULL, 0, smtp_submit_send_host_finished, subm);
 	smtp_client_connection_unref(&smtp_conn);
 
 	array_foreach(&subm->rcpt_to, rcptp) {

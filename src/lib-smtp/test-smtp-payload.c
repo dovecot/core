@@ -727,7 +727,8 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 
 		tctrans->trans = smtp_client_transaction_create(tctrans->conn,
 			SMTP_ADDRESS_LITERAL("user", "example.com"),
-			&mail_params, test_client_transaction_finish, tctrans);
+			&mail_params, 0,
+			test_client_transaction_finish, tctrans);
 		smtp_client_connection_unref(&tctrans->conn);
 
 		rcpts = tctrans->files_idx % 10 + 1;

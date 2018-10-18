@@ -95,6 +95,7 @@ struct smtp_client_transaction {
 	struct smtp_client_transaction *prev, *next;
 
 	struct smtp_client_connection *conn;
+	enum smtp_client_transaction_flags flags;
 
 	enum smtp_client_transaction_state state;
 	struct smtp_client_command *cmd_data, *cmd_rset;

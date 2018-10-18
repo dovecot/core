@@ -742,7 +742,7 @@ test_client_broken_payload(
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[0],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	strans = smtp_client_transaction_create(sconn,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL, 0,
 		test_client_broken_payload_finished, NULL);
 	smtp_client_connection_unref(&sconn);
 
@@ -801,7 +801,7 @@ test_client_broken_payload_later(
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[0],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	strans = smtp_client_transaction_create(sconn,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL, 0,
 		test_client_broken_payload_finished, NULL);
 	smtp_client_connection_unref(&sconn);
 
@@ -1025,7 +1025,7 @@ test_client_connection_lost_submit(struct _connection_lost *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	strans = smtp_client_transaction_create(sconn,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL, 0,
 		test_client_connection_lost_finished, pctx);
 	smtp_client_connection_unref(&sconn);
 
@@ -1360,7 +1360,7 @@ test_client_unexpected_reply_submit(struct _unexpected_reply *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	pctx->trans = smtp_client_transaction_create(pctx->conn,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL, 0,
 		test_client_unexpected_reply_finished, pctx);
 	smtp_client_connection_connect(pctx->conn,
 		test_client_unexpected_reply_login_cb, (void *)pctx);
@@ -2476,7 +2476,7 @@ test_client_authentication_failed_submit(struct _authentication_failed *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, &smtp_set);
 	pctx->trans = smtp_client_transaction_create(pctx->conn,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL, 0,
 		test_client_authentication_failed_finished, pctx);
 	smtp_client_connection_connect(pctx->conn,
 		test_client_authentication_failed_login_cb, (void *)pctx);
@@ -2749,7 +2749,7 @@ test_client_transaction_timeout_submit(struct _transaction_timeout *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	pctx->trans = smtp_client_transaction_create(pctx->conn,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL, 0,
 		test_client_transaction_timeout_finished, pctx);
 	smtp_client_transaction_set_timeout(pctx->trans, 1000);
 	smtp_client_transaction_start(pctx->trans,

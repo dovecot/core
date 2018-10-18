@@ -263,7 +263,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	smtp_client_connection_connect(lmtp_conn, NULL, NULL);
 
 	conn->lmtp_trans = smtp_client_transaction_create(lmtp_conn,
-		trans->mail_from, &trans->params,
+		trans->mail_from, &trans->params, 0,
 		lmtp_proxy_connection_finish, conn);
 	smtp_client_connection_unref(&lmtp_conn);
 

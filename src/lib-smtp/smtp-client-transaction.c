@@ -270,17 +270,22 @@ smtp_client_transaction_debug(struct smtp_client_transaction *trans,
 
 #undef smtp_client_transaction_create_empty
 struct smtp_client_transaction *
-smtp_client_transaction_create_empty(struct smtp_client_connection *conn,
-	unsigned int flags ATTR_UNUSED,
+smtp_client_transaction_create_empty(
+	struct smtp_client_connection *conn,
+	enum smtp_client_transaction_flags flags,
 	smtp_client_transaction_callback_t *callback, void *context)
 {
 	struct smtp_client_transaction *trans;
 	pool_t pool;
 
+	if (conn->protocol == SMTP_PROTOCOL_LMTP)
+		flags |= SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT;
+
 	pool = pool_alloconly_create("smtp transaction", 4096);
 	trans = p_new(pool, struct smtp_client_transaction, 1);
 	trans->refcount = 1;
 	trans->pool = pool;
+	trans->flags = flags;
 	trans->callback = callback;
 	trans->context = context;
 
@@ -297,7 +302,7 @@ struct smtp_client_transaction *
 smtp_client_transaction_create(struct smtp_client_connection *conn,
 	const struct smtp_address *mail_from,
 	const struct smtp_params_mail *mail_params,
-	unsigned int flags ATTR_UNUSED,
+	enum smtp_client_transaction_flags flags,
 	smtp_client_transaction_callback_t *callback, void *context)
 {
 	struct smtp_client_transaction *trans;
@@ -877,13 +882,12 @@ static void
 smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 				struct smtp_client_transaction *trans)
 {
-	struct smtp_client_connection *conn = trans->conn;
-
 	i_assert(!trans->reset);
 
 	smtp_client_transaction_ref(trans);
 
-	if (conn->protocol == SMTP_PROTOCOL_LMTP &&
+	if (HAS_ALL_BITS(trans->flags,
+			 SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT) &&
 	    trans->cmd_data != NULL && /* NULL when failed early */
 	    trans->rcpts_data == NULL && trans->rcpts_count > 0) {
 		smtp_client_command_set_replies(trans->cmd_data,
@@ -896,7 +900,8 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 		if (rcpt->data_callback != NULL)
 			rcpt->data_callback(reply, rcpt->data_context);
 		rcpt->data_callback = NULL;
-		if (conn->protocol == SMTP_PROTOCOL_LMTP)
+		if (HAS_ALL_BITS(trans->flags,
+				 SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT))
 			break;
 	}
 	if (trans->rcpts_data != NULL) {
@@ -1190,8 +1195,6 @@ smtp_client_transaction_submit(struct smtp_client_transaction *trans,
 static void
 smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 {
-	struct smtp_client_connection *conn = trans->conn;
-
 	if (trans->rcpts_queue_count > 0) {
 		/* Not all RCPT replies have come in yet */
 		smtp_client_transaction_debug(
@@ -1235,7 +1238,8 @@ smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 		if (trans->cmd_data == NULL)
 			return;
 
-		if (conn->protocol == SMTP_PROTOCOL_LMTP) {
+		if (HAS_ALL_BITS(trans->flags,
+				 SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT)) {
 			smtp_client_command_set_replies(trans->cmd_data,
 							trans->rcpts_count);
 		}
