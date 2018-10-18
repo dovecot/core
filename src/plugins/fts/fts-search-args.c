@@ -104,7 +104,7 @@ fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 				  const char *orig_token, const char **error_r)
 {
 	size_t orig_token_len = strlen(orig_token);
-	struct mail_search_arg *and_arg;
+	struct mail_search_arg *and_arg, *orig_or_args = or_arg->value.subargs;
 	const char *token, *error;
 	int ret;
 
@@ -113,7 +113,7 @@ fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 	   it */
 	and_arg = p_new(pool, struct mail_search_arg, 1);
 	and_arg->type = SEARCH_SUB;
-	and_arg->next = or_arg->value.subargs;
+	and_arg->next = orig_or_args;
 	or_arg->value.subargs = and_arg;
 
 	/* reset tokenizer between search args in case there's any state left
@@ -140,7 +140,7 @@ fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 	}
 	if (and_arg->value.subargs == NULL) {
 		/* nothing was actually expanded, remove the empty and_arg */
-		or_arg->value.subargs = NULL;
+		or_arg->value.subargs = orig_or_args;
 	}
 	return 0;
 }
