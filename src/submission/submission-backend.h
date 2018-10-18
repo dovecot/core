@@ -8,6 +8,8 @@ struct submission_backend_vfuncs {
 	void (*destroy)(struct submission_backend *backend);
 
 	void (*start)(struct submission_backend *backend);
+	void (*ready)(struct submission_backend *backend,
+		      enum smtp_capability caps);
 
 	void (*fail)(struct submission_backend *backend, const char *enh_code,
 		     const char *reason);
