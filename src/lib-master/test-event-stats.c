@@ -223,23 +223,6 @@ static void signal_process(const char *signal_file)
 	i_close_fd(&fd);
 }
 
-static int launch_test_stats(void)
-{
-	/* Make sure files are not existing */
-	i_unlink_if_exists(test_done);
-	i_unlink_if_exists(exit_stats);
-	i_unlink_if_exists(stats_ready);
-
-	if ((stats_pid = fork()) == (pid_t)-1)
-		i_fatal("fork() failed: %m");
-	if (stats_pid == 0) {
-		stats_proc();
-		return 0;
-	}
-	wait_for_signal(stats_ready);
-	return run_tests();
-}
-
 static bool compare_test_stats_data_line(const char *reference, const char *actual)
 {
 	const char *const *ref_args = t_strsplit(reference, "\t");
@@ -562,6 +545,23 @@ static int run_tests(void)
 	i_unlink_if_exists(stats_data_file);
 	io_loop_destroy(&ioloop);
 	return ret;
+}
+
+static int launch_test_stats(void)
+{
+	/* Make sure files are not existing */
+	i_unlink_if_exists(test_done);
+	i_unlink_if_exists(exit_stats);
+	i_unlink_if_exists(stats_ready);
+
+	if ((stats_pid = fork()) == (pid_t)-1)
+		i_fatal("fork() failed: %m");
+	if (stats_pid == 0) {
+		stats_proc();
+		return 0;
+	}
+	wait_for_signal(stats_ready);
+	return run_tests();
 }
 
 int main(void)
