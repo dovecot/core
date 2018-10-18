@@ -50,8 +50,8 @@ void submission_backend_start(struct submission_backend *backend)
 		/* Don't restart until failure is reset at transaction end */
 		return;
 	}
-	backend->v.start(backend);
 	backend->started = TRUE;
+	backend->v.start(backend);
 }
 
 void submission_backend_started(struct submission_backend *backend,
