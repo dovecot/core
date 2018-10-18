@@ -61,6 +61,8 @@ void submission_backend_started(struct submission_backend *backend,
 
 	if (backend == client->backend_default)
 		client_default_backend_started(client, caps);
+	if (backend->v.ready != NULL)
+		backend->v.ready(backend, caps);
 }
 
 static void
