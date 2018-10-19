@@ -543,6 +543,10 @@ void smtp_server_cmd_auth_success(struct smtp_server_cmd_ctx *cmd,
 
 bool smtp_server_cmd_data_check_size(struct smtp_server_cmd_ctx *cmd);
 
+/* VRFY */
+
+void smtp_server_cmd_vrfy_reply_default(struct smtp_server_cmd_ctx *cmd);
+
 /*
  * Reply
  */
