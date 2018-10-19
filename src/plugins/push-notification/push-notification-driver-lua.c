@@ -526,7 +526,8 @@ push_notification_driver_lua_end_txn(struct push_notification_driver_txn *dtxn,
 	event_unref(&event);
 	/* release context */
 	luaL_unref(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
-
+	/* call gc here */
+	(void)lua_gc(ctx->script->L, LUA_GCCOLLECT, 1);
 	mail_user_unref(&user);
 }
 
