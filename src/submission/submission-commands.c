@@ -89,7 +89,8 @@ void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 		} else {
 			smtp_server_reply_ehlo_add(reply, "SIZE");
 		}
-		smtp_server_reply_ehlo_add(reply, "VRFY");
+		if ((backend_caps & SMTP_CAPABILITY_VRFY) != 0)
+			smtp_server_reply_ehlo_add(reply, "VRFY");
 
 		submission_helo_reply_add_extra(client, reply);
 	}
