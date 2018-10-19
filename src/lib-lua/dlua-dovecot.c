@@ -226,6 +226,14 @@ static const luaL_Reg event_passthrough_methods[] ={
 	{ NULL, NULL }
 };
 
+static int dlua_event_gc(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct event **event = lua_touserdata(script->L, 1);
+	event_unref(event);
+	return 0;
+}
+
 struct event *
 dlua_check_event(struct dlua_script *script, int arg)
 {
@@ -236,9 +244,9 @@ dlua_check_event(struct dlua_script *script, int arg)
 	}
 	lua_pushliteral(script->L, "item");
 	lua_rawget(script->L, arg);
-	void *bp = (void*)lua_touserdata(script->L, -1);
+	struct event **bp = (void*)lua_touserdata(script->L, -1);
 	lua_pop(script->L, 1);
-	return (struct event*)bp;
+	return *bp;
 }
 
 void dlua_push_event(struct dlua_script *script, struct event *event)
@@ -247,7 +255,13 @@ void dlua_push_event(struct dlua_script *script, struct event *event)
 	lua_createtable(script->L, 0, 1);
 	luaL_setmetatable(script->L, DLUA_EVENT);
 
-	lua_pushlightuserdata(script->L, event);
+	/* we need to attach gc to userdata to support older lua*/
+	struct event **ptr = lua_newuserdata(script->L, sizeof(struct event**));
+	*ptr = event;
+	lua_createtable(script->L, 0, 1);
+	lua_pushcfunction(script->L, dlua_event_gc);
+	lua_setfield(script->L, -2, "__gc");
+	lua_setmetatable(script->L, -2);
 	lua_setfield(script->L, -2, "item");
 }
 
@@ -438,14 +452,6 @@ static int dlua_event_passthrough_event(lua_State *L)
 	return 1;
 }
 
-static int dlua_event_gc(lua_State *L)
-{
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct event *event = dlua_check_event(script, 1);
-	event_unref(&event);
-	return 0;
-}
-
 static int dlua_event_new(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
@@ -454,7 +460,7 @@ static int dlua_event_new(lua_State *L)
 	struct event *event, *parent = script->event;
 	if (lua_gettop(script->L) == 1)
 		parent = dlua_check_event(script, 1);
-        event = event_create(parent);
+	event = event_create(parent);
 	lua_getstack(script->L, 1, &ar);
 	lua_getinfo(script->L, "Sl", &ar);
 	event_set_source(event, ar.source, ar.currentline, TRUE);
@@ -476,7 +482,6 @@ static const luaL_Reg event_methods[] ={
 	{ "log_warning", dlua_event_log_warning },
 	{ "log_error", dlua_event_log_error },
 	{ "passthrough_event", dlua_event_passthrough_event },
-	{ "__gc", dlua_event_gc },
 	{ NULL, NULL }
 };
 
