@@ -348,7 +348,7 @@ static int lua_storage_mailbox_close(lua_State *L)
 static int lua_storage_mailbox_sync(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS_IN(script, 2, 3);
+	DLUA_REQUIRE_ARGS_IN(script, 1, 2);
 	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
 	enum mailbox_sync_flags flags = 0;
 
