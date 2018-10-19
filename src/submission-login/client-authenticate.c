@@ -63,6 +63,7 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 		if (client_is_tls_enabled(client) && !client->tls)
 			smtp_server_reply_ehlo_add(reply, "STARTTLS");
 		smtp_server_reply_ehlo_add(reply, "PIPELINING");
+		smtp_server_reply_ehlo_add(reply, "VRFY");
 		smtp_server_reply_ehlo_add_xclient(reply);
 	}
 	smtp_server_reply_submit(reply);
