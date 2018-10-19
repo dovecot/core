@@ -22,11 +22,13 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 			   struct smtp_server_cmd_helo *data)
 {
 	struct client *client = &subm_client->common;
+	enum smtp_capability backend_caps = subm_client->backend_capabilities;
 	struct smtp_server_reply *reply;
 
 	reply = smtp_server_reply_create_ehlo(cmd->cmd);
 	if (!data->helo.old_smtp) {
-		smtp_server_reply_ehlo_add(reply, "8BITMIME");
+		if ((backend_caps & SMTP_CAPABILITY_8BITMIME) != 0)
+			smtp_server_reply_ehlo_add(reply, "8BITMIME");
 
 		if (client->secured ||
 			strcmp(client->ssl_set->ssl, "required") != 0) {
@@ -45,10 +47,15 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 				"AUTH", "%s", str_c(param));
 		}
 
+		if ((backend_caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
+		    (backend_caps & SMTP_CAPABILITY_CHUNKING) != 0)
+			smtp_server_reply_ehlo_add(reply, "BINARYMIME");
 		smtp_server_reply_ehlo_add_param(reply,
 			"BURL", "imap");
 		smtp_server_reply_ehlo_add(reply,
 			"CHUNKING");
+		if ((backend_caps & SMTP_CAPABILITY_DSN) != 0)
+			smtp_server_reply_ehlo_add(reply, "DSN");
 		smtp_server_reply_ehlo_add(reply,
 			"ENHANCEDSTATUSCODES");
 
