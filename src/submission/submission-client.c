@@ -106,8 +106,7 @@ void client_apply_backend_capabilities(struct client *client)
 	/* propagate capabilities */
 	caps |= SMTP_CAPABILITY_AUTH | SMTP_CAPABILITY_PIPELINING |
 		SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES |
-		SMTP_CAPABILITY_CHUNKING | SMTP_CAPABILITY_BURL |
-		SMTP_CAPABILITY_VRFY;
+		SMTP_CAPABILITY_CHUNKING | SMTP_CAPABILITY_BURL;
 	caps &= SUBMISSION_SUPPORTED_SMTP_CAPABILITIES;
 	smtp_server_connection_set_capabilities(client->conn, caps);
 }
