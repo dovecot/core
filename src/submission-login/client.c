@@ -26,6 +26,32 @@ static const struct smtp_server_callbacks smtp_callbacks;
 
 static struct smtp_server *smtp_server = NULL;
 
+static void
+client_parse_backend_capabilities(struct submission_client *subm_client )
+{
+	const struct submission_login_settings *set = subm_client->set;
+	const char *const *str;
+
+	if (set->submission_backend_capabilities == NULL) {
+		subm_client->backend_capabilities = SMTP_CAPABILITY_8BITMIME;
+		return;
+	}
+
+	subm_client->backend_capabilities = SMTP_CAPABILITY_NONE;
+	str = t_strsplit_spaces(set->submission_backend_capabilities, " ,");
+	for (; *str != NULL; str++) {
+		enum smtp_capability cap = smtp_capability_find_by_name(*str);
+
+		if (cap == SMTP_CAPABILITY_NONE) {
+			i_warning("Unknown SMTP capability in submission_backend_capabilities: "
+				  "%s", *str);
+			continue;
+		}
+
+		subm_client->backend_capabilities |= cap;
+	}
+}
+
 static int submission_login_start_tls(void *conn_ctx,
 	struct istream **input, struct ostream **output)
 {
@@ -66,6 +92,7 @@ static void submission_client_create(struct client *client,
 	struct smtp_server_settings smtp_set;
 
 	subm_client->set = other_sets[0];
+	client_parse_backend_capabilities(subm_client);
 
 	i_zero(&smtp_set);
 	smtp_set.capabilities = SMTP_CAPABILITY_SIZE |
