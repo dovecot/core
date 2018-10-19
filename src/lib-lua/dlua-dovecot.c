@@ -2,11 +2,35 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "str.h"
 #include "dlua-script-private.h"
+
+#include <libgen.h>
 
 #define LUA_SCRIPT_DOVECOT "dovecot"
 #define DLUA_EVENT_PASSTHROUGH "struct event_passthrough"
 #define DLUA_EVENT "struct event"
+
+static void dlua_event_log(struct dlua_script *script, struct event *event,
+			   enum log_type log_type, const char *str);
+
+static void dlua_get_file_line(struct dlua_script *script, int arg,
+			       const char **file_r, unsigned int *line_r)
+{
+	const char *ptr;
+	lua_Debug ar;
+	lua_getstack(script->L, arg, &ar);
+	lua_getinfo(script->L, "Sl", &ar);
+	/* basename would be better, but basename needs memory
+	   allocation, since it might modify the buffer contents,
+	   so we use this which is good enough */
+	if ((ptr = strrchr(ar.short_src, '/')) == NULL)
+		ptr = ar.short_src;
+	else
+		ptr++;
+	*file_r = ptr;
+	*line_r = ar.currentline;
+}
 
 static struct event_passthrough *
 dlua_check_event_passthrough(struct dlua_script *script, int arg)
@@ -161,7 +185,7 @@ static int dlua_event_pt_log_debug(lua_State *L)
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	e_debug(event->event(), "%s", str);
+	dlua_event_log(script, event->event(), LOG_TYPE_DEBUG, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -175,7 +199,7 @@ static int dlua_event_pt_log_info(lua_State *L)
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	e_info(event->event(), "%s", str);
+	dlua_event_log(script, event->event(), LOG_TYPE_INFO, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -189,7 +213,7 @@ static int dlua_event_pt_log_warning(lua_State *L)
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	e_warning(event->event(), "%s", str);
+	dlua_event_log(script, event->event(), LOG_TYPE_WARNING, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -203,7 +227,7 @@ static int dlua_event_pt_log_error(lua_State *L)
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	e_error(event->event(), "%s", str);
+	dlua_event_log(script, event->event(), LOG_TYPE_ERROR, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -392,7 +416,7 @@ static int dlua_event_log_debug(lua_State *L)
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	e_debug(event, "%s", str);
+	dlua_event_log(script, event, LOG_TYPE_DEBUG, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -406,7 +430,7 @@ static int dlua_event_log_info(lua_State *L)
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	e_info(event, "%s", str);
+	dlua_event_log(script, event, LOG_TYPE_INFO, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -420,7 +444,7 @@ static int dlua_event_log_warning(lua_State *L)
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	e_warning(event, "%s", str);
+	dlua_event_log(script, event, LOG_TYPE_WARNING, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -434,19 +458,26 @@ static int dlua_event_log_error(lua_State *L)
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	e_error(event, "%s", str);
+	dlua_event_log(script, event, LOG_TYPE_ERROR, str);
 
 	lua_pushvalue(script->L, 1);
 
 	return 1;
 }
 
+#undef event_create_passthrough
+#undef event_create
 static int dlua_event_passthrough_event(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(script, 1);
 	struct event *event = dlua_check_event(script, 1);
-	struct event_passthrough *e = event_create_passthrough(event);
+	const char *file;
+	unsigned int line;
+
+	dlua_get_file_line(script, 1, &file, &line);
+	struct event_passthrough *e =
+		event_create_passthrough(event, file, line);
 	dlua_push_event_passthrough(script, e);
 
 	return 1;
@@ -456,14 +487,14 @@ static int dlua_event_new(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS_IN(script, 0, 1);
-	lua_Debug ar;
 	struct event *event, *parent = script->event;
+	const char *file;
+	unsigned int line;
+
 	if (lua_gettop(script->L) == 1)
 		parent = dlua_check_event(script, 1);
-	event = event_create(parent);
-	lua_getstack(script->L, 1, &ar);
-	lua_getinfo(script->L, "Sl", &ar);
-	event_set_source(event, ar.source, ar.currentline, TRUE);
+	dlua_get_file_line(script, 1, &file, &line);
+	event = event_create(parent, file, line);
 	dlua_push_event(script, event);
 	return 1;
 }
@@ -606,4 +637,20 @@ void dlua_dovecot_register(struct dlua_script *script)
 
 	/* register table as global */
 	lua_setglobal(script->L, LUA_SCRIPT_DOVECOT);
+}
+
+#undef event_want_debug
+static void dlua_event_log(struct dlua_script *script, struct event *event,
+			   enum log_type log_type, const char *str)
+{
+	struct event_log_params parms;
+	i_zero(&parms);
+	parms.log_type = log_type;
+	dlua_get_file_line(script, 1, &parms.source_filename, &parms.source_linenum);
+	if (log_type != LOG_TYPE_DEBUG ||
+	    event_want_debug(event, parms.source_filename, parms.source_linenum)) {
+		event_log(event, &parms, "%s", str);
+	} else {
+		event_send_abort(event);
+	}
 }
