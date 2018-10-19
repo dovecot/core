@@ -773,6 +773,23 @@ relay_cmd_vrfy_callback(const struct smtp_reply *relay_reply,
 					      &reply))
 		return;
 
+	/* RFC 5321, Section 3.5.3:
+
+	   A server MUST NOT return a 250 code in response to a VRFY or EXPN
+	   command unless it has actually verified the address. In particular,
+	   a server MUST NOT return 250 if all it has done is to verify that the
+	   syntax given is valid. In that case, 502 (Command not implemented)
+	   or 500 (Syntax error, command unrecognized) SHOULD be returned. As
+	   stated elsewhere, implementation (in the sense of actually validating
+	   addresses and returning information) of VRFY and EXPN are strongly
+	   recommended. Hence, implementations that return 500 or 502 for VRFY
+	   are not in full compliance with this specification.
+	 */
+	if (reply.status == 500 || reply.status == 502) {
+		smtp_server_cmd_vrfy_reply_default(cmd);
+		return;
+	}
+
 	if (!smtp_reply_has_enhanced_code(&reply)) {
 		switch (relay_reply->status) {
 		case 250:
