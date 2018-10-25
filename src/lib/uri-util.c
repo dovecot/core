@@ -102,6 +102,7 @@
 #define CHAR_MASK_PFCHAR ((1<<0)|(1<<1)|(1<<3)|(1<<5))
 #define CHAR_MASK_UCHAR ((1<<0)|(1<<1)|(1<<4))
 #define CHAR_MASK_QCHAR ((1<<0)|(1<<1)|(1<<3)|(1<<5)|(1<<6))
+#define CHAR_MASK_UNRESERVED_PATH ((1<<0)|(1<<5))
 
 static unsigned const char _uri_char_lookup[256] = {
 	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  // 00
@@ -1317,4 +1318,16 @@ void uri_append_fragment(string_t *out, const char *fragment)
 	str_append_c(out, '#');
 	if (*fragment != '\0')
 		uri_append_fragment_data(out, NULL, fragment);
+}
+
+void uri_append_unreserved(string_t *out, const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_UNRESERVED,
+			NULL, data);
+}
+
+void uri_append_unreserved_path(string_t *out, const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_UNRESERVED_PATH,
+			NULL, data);
 }
