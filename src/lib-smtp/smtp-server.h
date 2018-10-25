@@ -559,6 +559,10 @@ bool smtp_server_cmd_data_check_size(struct smtp_server_cmd_ctx *cmd);
 
 void smtp_server_cmd_vrfy_reply_default(struct smtp_server_cmd_ctx *cmd);
 
+/* NOOP */
+
+void smtp_server_cmd_noop_reply_success(struct smtp_server_cmd_ctx *cmd);
+
 /*
  * Reply
  */
