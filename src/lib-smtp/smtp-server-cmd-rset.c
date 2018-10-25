@@ -55,7 +55,14 @@ void smtp_server_cmd_rset(struct smtp_server_cmd_ctx *cmd,
 
 	if (!smtp_server_command_is_replied(command)) {
 		/* set generic RSET success reply if none is provided */
-		smtp_server_reply(cmd, 250, "2.0.0", "OK");
+		smtp_server_cmd_rset_reply_success(cmd);
 	}
 	smtp_server_command_unref(&command);;
+}
+
+void smtp_server_cmd_rset_reply_success(struct smtp_server_cmd_ctx *cmd)
+{
+	i_assert(cmd->cmd->reg->func == smtp_server_cmd_rset);
+
+	smtp_server_reply(cmd, 250, "2.0.0", "OK");
 }
