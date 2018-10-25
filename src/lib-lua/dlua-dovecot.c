@@ -24,8 +24,10 @@ static void dlua_get_file_line(struct dlua_script *script, int arg,
 	/* basename would be better, but basename needs memory
 	   allocation, since it might modify the buffer contents,
 	   so we use this which is good enough */
-	if ((ptr = strrchr(ar.short_src, '/')) == NULL)
-		ptr = ar.short_src;
+	if (ar.source[0] != '@')
+		ptr = "<non-file location>";
+	else if ((ptr = strrchr(ar.source, '/')) == NULL)
+		ptr = ar.source;
 	else
 		ptr++;
 	*file_r = ptr;
