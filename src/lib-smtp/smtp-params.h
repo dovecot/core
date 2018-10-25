@@ -103,7 +103,8 @@ void smtp_params_mail_copy(pool_t pool,
 	ATTR_NULL(3);
 
 void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
-				const char *keyword, const char *value);
+				const char *keyword, const char *value)
+				ATTR_NULL(4);
 bool smtp_params_mail_drop_extra(struct smtp_params_mail *params,
 				 const char *keyword, const char **value_r)
 				 ATTR_NULL(3);
@@ -140,7 +141,8 @@ void smtp_params_rcpt_copy(pool_t pool,
 	ATTR_NULL(3);
 
 void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
-				const char *keyword, const char *value);
+				const char *keyword, const char *value)
+				ATTR_NULL(4);
 bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,
 				 const char *keyword, const char **value_r)
 				 ATTR_NULL(3);
