@@ -547,6 +547,10 @@ void smtp_server_cmd_mail_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 void smtp_server_cmd_rcpt_reply_success(struct smtp_server_cmd_ctx *cmd);
 
+/* RSET */
+
+void smtp_server_cmd_rset_reply_success(struct smtp_server_cmd_ctx *cmd);
+
 /* DATA */
 
 bool smtp_server_cmd_data_check_size(struct smtp_server_cmd_ctx *cmd);
