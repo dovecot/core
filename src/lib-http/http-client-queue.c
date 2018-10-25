@@ -514,8 +514,11 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 			t_strdup_printf(" (SSL=%s)", https_name)),
 		reason, array_count(&queue->pending_peers), num_requests);
 
+	http_client_peer_unlink_queue(peer, queue);
+
 	if (array_count(&queue->pending_peers) == 0) {
-		i_assert(queue->cur_peer == peer);
+		i_assert(queue->cur_peer == NULL || queue->cur_peer == peer);
+		queue->cur_peer = NULL;
 	} else {
 		bool found = FALSE;
 
@@ -537,7 +540,6 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		if (array_count(&queue->pending_peers) > 0) {
 			e_debug(queue->event,
 				"Waiting for remaining pending peers.");
-			http_client_peer_unlink_queue(peer, queue);
 			return;
 		}
 
@@ -547,7 +549,6 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		timeout_remove(&queue->to_connect);
 
 		if (queue->addr.type == HTTP_CLIENT_PEER_ADDR_UNIX) {
-			http_client_peer_unlink_queue(peer, queue);
 			http_client_queue_fail(queue,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
 			return;
@@ -555,13 +556,19 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	}
 
 	if (http_client_queue_is_last_connect_ip(queue)) {
-		/* all IPs failed, but retry all of them again if we have more
-		   connect attempts left or on the next request. */
+		if (array_count(&queue->pending_peers) > 0) {
+			/* Other connection attempts still pending */
+			return;
+		}
+
+		/* All IPs failed up until here and we allow no more connect
+		   attempts, but try the next ones on the next request. */
 		queue->ips_connect_idx = queue->ips_connect_start_idx =
 			(queue->ips_connect_idx + 1) % ips_count;
 
-		if (queue->cur_peer == NULL && (set->max_connect_attempts == 0 ||
-			queue->connect_attempts >= set->max_connect_attempts)) {
+		if (set->max_connect_attempts == 0 ||
+		    queue->connect_attempts >= set->max_connect_attempts) {
+
 			e_debug(queue->event,
 				"Failed to set up any connection; failing all queued requests");
 			if (queue->connect_attempts > 1) {
@@ -572,7 +579,6 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 					total_msecs/1000, total_msecs%1000);
 			}
 			queue->connect_attempts = 0;
-			http_client_peer_unlink_queue(peer, queue);
 			http_client_queue_fail(queue,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
 			return;
@@ -581,10 +587,8 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		queue->ips_connect_idx = (queue->ips_connect_idx + 1) % ips_count;
 	}
 	
-	if (http_client_queue_connection_attempt(queue) != peer) {
+	if (http_client_queue_connection_attempt(queue) != peer)
 		http_client_peer_unlink_queue(peer, queue);
-		queue->cur_peer = NULL;
-	}
 	return;
 }
 
