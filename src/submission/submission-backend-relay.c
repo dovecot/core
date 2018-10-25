@@ -847,11 +847,10 @@ relay_cmd_noop_callback(const struct smtp_reply *relay_reply,
 					      &reply))
 		return;
 
-	if (smtp_reply_is_success(&reply)) {
-		smtp_server_reply(cmd, 250, "2.0.0", "OK");
-	} else {
+	if (smtp_reply_is_success(&reply))
+		smtp_server_cmd_noop_reply_success(cmd);
+	else
 		smtp_server_reply_forward(cmd, &reply);
-	}
 }
 
 static int
