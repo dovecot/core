@@ -290,4 +290,9 @@ void uri_append_fragment_data(string_t *out,
    produced. Characters are percent-encoded when necessary. */
 void uri_append_fragment(string_t *out, const char *fragment);
 
+/* append data to the out buffer and escape any reserved character */
+void uri_append_unreserved(string_t *out, const char *data);
+/* append data to the out buffer and escape any reserved character except '/' */
+void uri_append_unreserved_path(string_t *out, const char *data);
+
 #endif
