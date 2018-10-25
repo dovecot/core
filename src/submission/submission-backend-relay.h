@@ -2,6 +2,7 @@
 #define SUBMISSION_BACKEND_RELAY_H
 
 #include "smtp-client-connection.h"
+#include "smtp-client-transaction.h"
 
 #include "submission-backend.h"
 
@@ -50,5 +51,12 @@ submission_backend_relay_get_connection(
 struct smtp_client_transaction *
 submission_backend_relay_get_transaction(
 	struct submission_backend_relay *backend) ATTR_PURE;
+
+/* Initializes the client transaction manually, which allows providing
+   alternative transaction flags. */
+struct smtp_client_transaction *
+submission_backend_relay_init_transaction(
+	struct submission_backend_relay *backend,
+	enum smtp_client_transaction_flags flags);
 
 #endif

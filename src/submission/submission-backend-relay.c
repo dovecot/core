@@ -188,6 +188,21 @@ backend_relay_trans_free(struct submission_backend *_backend,
 	smtp_client_transaction_destroy(&backend->trans);
 }
 
+struct smtp_client_transaction *
+submission_backend_relay_init_transaction(
+	struct submission_backend_relay *backend,
+	enum smtp_client_transaction_flags flags)
+{
+	i_assert(backend->trans == NULL);
+
+	backend->trans = smtp_client_transaction_create_empty(
+		backend->conn, flags,
+		backend_relay_trans_finished, backend);
+	smtp_client_transaction_set_immediate(backend->trans, TRUE);
+
+	return backend->trans;
+}
+
 /*
  * EHLO, HELO commands
  */
@@ -538,12 +553,8 @@ backend_relay_cmd_rcpt(struct submission_backend *_backend,
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED,
 				     relay_cmd_rcpt_replied, rcpt_cmd);
 
-	if (backend->trans == NULL) {
-		backend->trans = smtp_client_transaction_create_empty(
-			backend->conn, 0,
-			backend_relay_trans_finished, backend);
-		smtp_client_transaction_set_immediate(backend->trans, TRUE);
-	}
+	if (backend->trans == NULL)
+		(void)submission_backend_relay_init_transaction(backend, 0);
 	rcpt_cmd->relay_rcpt = smtp_client_transaction_add_pool_rcpt(
 		backend->trans, rcpt->pool, rcpt->path, &rcpt->params,
 		relay_cmd_rcpt_callback, rcpt_cmd);
