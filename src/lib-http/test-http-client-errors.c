@@ -2931,6 +2931,182 @@ static void test_reconnect_failure(void)
 }
 
 /*
+ * Multi IP attempts
+ */
+
+/* dns */
+
+static void
+test_multi_ip_attempts_input(struct server_connection *conn)
+{
+	unsigned int count = 0;
+	const char *line;
+
+	if (!conn->version_sent) {
+		conn->version_sent = TRUE;
+		o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
+	}
+
+	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (str_begins(line, "VERSION"))
+			continue;
+		if (debug)
+			i_debug("DNS REQUEST %u: %s", count, line);
+
+		if (strcmp(line, "IP\ttest1.local") == 0) {
+			o_stream_nsend_str(conn->conn.output,
+				   "0\t127.0.0.4\t127.0.0.3\t"
+				   "127.0.0.2\t127.0.0.1\n");
+			continue;
+		}
+
+		o_stream_nsend_str(conn->conn.output,
+				   "0\t10.255.255.1\t192.168.0.0\t"
+				   "192.168.255.255\t127.0.0.1\n");
+	}
+}
+
+static void test_dns_multi_ip_attempts(void)
+{
+	test_server_input = test_multi_ip_attempts_input;
+	test_server_run(0);
+}
+
+/* server */
+
+static void
+test_server_multi_ip_attempts_input(struct server_connection *conn)
+{
+	string_t *resp;
+
+	resp = t_str_new(512);
+	str_printfa(resp,
+		"HTTP/1.1 200 OK\r\n"
+		"Connection: close\r\n"
+		"\r\n");
+	o_stream_nsend(conn->conn.output,
+		str_data(resp), str_len(resp));
+	server_connection_deinit(&conn);
+}
+
+static void test_server_multi_ip_attempts(unsigned int index)
+{
+	test_server_input = test_server_multi_ip_attempts_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _multi_ip_attempts {
+	unsigned int count;
+};
+
+static void
+test_client_multi_ip_attempts_response(
+	const struct http_response *resp,
+	struct _multi_ip_attempts *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == 200);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static bool
+test_client_multi_ip_attempts1(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _multi_ip_attempts *ctx;
+
+	ctx = i_new(struct _multi_ip_attempts, 1);
+	ctx->count = 2;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", "test1.local", "/multi-ip-attempts.txt",
+		test_client_multi_ip_attempts_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", "test1.local", "/multi-ip-attempts2.txt",
+		test_client_multi_ip_attempts_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+static bool
+test_client_multi_ip_attempts2(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _multi_ip_attempts *ctx;
+
+	ctx = i_new(struct _multi_ip_attempts, 1);
+	ctx->count = 2;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", "test2.local", "/multi-ip-attempts.txt",
+		test_client_multi_ip_attempts_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", "test2.local", "/multi-ip-attempts2.txt",
+		test_client_multi_ip_attempts_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_multi_ip_attempts(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.connect_timeout_msecs = 1000;
+	http_client_set.request_timeout_msecs = 1000;
+	http_client_set.dns_client_socket_path = "./dns-test";
+	http_client_set.max_connect_attempts = 4;
+
+	test_begin("multi IP attempts (connection refused)");
+	test_run_client_server(&http_client_set,
+		test_client_multi_ip_attempts1,
+		test_server_multi_ip_attempts, 1,
+		test_dns_multi_ip_attempts);
+	test_end();
+
+	test_begin("multi IP attempts (connect timeout)");
+	test_run_client_server(&http_client_set,
+		test_client_multi_ip_attempts2,
+		test_server_multi_ip_attempts, 1,
+		test_dns_multi_ip_attempts);
+	test_end();
+
+	http_client_set.soft_connect_timeout_msecs = 100;
+
+	test_begin("multi IP attempts (soft connect timeout)");
+	test_run_client_server(&http_client_set,
+		test_client_multi_ip_attempts2,
+		test_server_multi_ip_attempts, 1,
+		test_dns_multi_ip_attempts);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -2962,6 +3138,7 @@ static void (*const test_functions[])(void) = {
 	test_dns_lookup_ttl,
 	test_peer_reuse_failure,
 	test_reconnect_failure,
+	test_multi_ip_attempts,
 	NULL
 };
 
