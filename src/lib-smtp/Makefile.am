@@ -74,7 +74,7 @@ pkginc_lib_HEADERS = $(headers)
 test_programs = \
 	test-smtp-address \
 	test-smtp-params \
-	test-smtp-reply-parser \
+	test-smtp-reply \
 	test-smtp-command-parser \
 	test-smtp-payload \
 	test-smtp-submit \
@@ -131,10 +131,10 @@ test_smtp_params_LDFLAGS = -export-dynamic
 test_smtp_params_LDADD = $(test_libs)
 test_smtp_params_DEPENDENCIES = $(test_deps)
 
-test_smtp_reply_parser_SOURCES = test-smtp-reply-parser.c
-test_smtp_reply_parser_LDFLAGS = -export-dynamic
-test_smtp_reply_parser_LDADD = $(test_libs)
-test_smtp_reply_parser_DEPENDENCIES = $(test_deps)
+test_smtp_reply_SOURCES = test-smtp-reply.c
+test_smtp_reply_LDFLAGS = -export-dynamic
+test_smtp_reply_LDADD = $(test_libs)
+test_smtp_reply_DEPENDENCIES = $(test_deps)
 
 test_smtp_command_parser_SOURCES = test-smtp-command-parser.c
 test_smtp_command_parser_LDFLAGS = -export-dynamic
