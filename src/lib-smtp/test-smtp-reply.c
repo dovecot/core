@@ -13,7 +13,7 @@
 #include <time.h>
 
 struct smtp_reply_parse_valid_test {
-	const char *reply;
+	const char *input, *output;
 	unsigned int status;
 	bool ehlo;
 	size_t max_size;
@@ -28,24 +28,25 @@ struct smtp_reply_parse_valid_test {
 static const struct smtp_reply_parse_valid_test
 valid_reply_parse_tests[] = {
 	{
-		.reply = "220\r\n",
+		.input = "220\r\n",
+		.output = "220 \r\n",
 		.status = 220,
 		.text_lines = (const char *[]){ "", NULL }
 	},{
-		.reply = "220 \r\n",
+		.input = "220 \r\n",
 		.status = 220,
 		.text_lines = (const char *[]){ "", NULL }
 	},{
-		.reply = "220 OK\r\n",
+		.input = "220 OK\r\n",
 		.status = 220,
 		.text_lines = (const char *[]){ "OK", NULL }
 	},{
-		.reply = "550 Requested action not taken: mailbox unavailable\r\n",
+		.input = "550 Requested action not taken: mailbox unavailable\r\n",
 		.status = 550,
 		.text_lines = (const char *[])
 			{ "Requested action not taken: mailbox unavailable", NULL }
 	},{
-		.reply =
+		.input =
 			"250-smtp.example.com Hello client.example.org [10.0.0.1]\r\n"
 			"250-SIZE 52428800\r\n"
 			"250-PIPELINING\r\n"
@@ -62,8 +63,11 @@ valid_reply_parse_tests[] = {
 			NULL
 		}
 	},{
-		.reply =
+		.input =
 			"250-smtp.example.com We got some nice '\x03' and '\x04'\r\n"
+			"250 HELP\r\n",
+		.output =
+			"250-smtp.example.com We got some nice ' ' and ' '\r\n"
 			"250 HELP\r\n",
 		.ehlo = TRUE,
 		.status = 250,
@@ -73,8 +77,10 @@ valid_reply_parse_tests[] = {
 			NULL
 		}
 	},{
-		.reply =
+		.input =
 			"250 smtp.example.com We got some nice '\x08'\r\n",
+		.output =
+			"250 smtp.example.com We got some nice ' '\r\n",
 		.ehlo = TRUE,
 		.status = 250,
 		.text_lines = (const char *[]) {
@@ -82,14 +88,14 @@ valid_reply_parse_tests[] = {
 			NULL
 		}
 	},{
-		.reply = "250 2.1.0 Originator <frop@example.com> ok\r\n",
+		.input = "250 2.1.0 Originator <frop@example.com> ok\r\n",
 		.status = 250,
 		.enhanced_code = { 2, 1, 0 },
 		.text_lines = (const char *[]){
 			"Originator <frop@example.com> ok", NULL
 		}
 	},{
-		.reply =
+		.input =
 			"551-5.7.1 Forwarding to remote hosts disabled\r\n"
 			"551 5.7.1 Select another host to act as your forwarder\r\n",
 		.status = 551,
@@ -118,7 +124,8 @@ static void test_smtp_reply_parse_valid(void)
 		int ret;
 
 		test = &valid_reply_parse_tests[i];
-		input = i_stream_create_from_data(test->reply, strlen(test->reply));
+		input = i_stream_create_from_data(test->input,
+						  strlen(test->input));
 		parser = smtp_reply_parser_init(input, test->max_size);
 		i_stream_unref(&input);
 
@@ -137,6 +144,9 @@ static void test_smtp_reply_parse_valid(void)
 		test_out_reason("parse success", ret == 0, error);
 
 		if (ret == 0) {
+			const char *output;
+			string_t *encoded;
+
 			/* verify last response only */
 			test_out(t_strdup_printf("reply->status = %d", test->status),
 					reply->status == test->status);
@@ -169,6 +179,13 @@ static void test_smtp_reply_parse_valid(void)
 			} else {
 				test_out("reply->text_lines = NULL", reply->text_lines == NULL);
 			}
+
+			encoded = t_str_new(512);
+			smtp_reply_write(encoded, reply);
+
+			output = (test->output == NULL ? test->input : test->output);
+			test_out("write() = input",
+				strcmp(str_c(encoded), output) == 0);
 		}
 		test_end();
 		smtp_reply_parser_deinit(&parser);
