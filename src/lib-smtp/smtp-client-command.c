@@ -1315,6 +1315,7 @@ smtp_client_command_data_submit_after(
 	smtp_client_command_callback_t *callback,
 	void *context)
 {
+	const struct smtp_client_settings *set = &conn->set;
 	struct _cmd_data_context *ctx;
 	struct smtp_client_command *cmd, *cmd_data;
 
@@ -1367,6 +1368,15 @@ smtp_client_command_data_submit_after(
 		} else {
 			/* size is unknown */
 			ctx->data_left = 0;
+
+			/* Make sure we can send chunks of sufficient size by
+			   making the data stream buffer size limit at least
+			   equally large. */
+			if (i_stream_get_max_buffer_size(ctx->data) <
+				set->max_data_chunk_size) {
+				i_stream_set_max_buffer_size(
+					ctx->data, set->max_data_chunk_size);
+			}
 		}
 
 		/* Send the first BDAT command(s) */
