@@ -20,7 +20,9 @@ struct submission_backend_vfuncs {
 	uoff_t (*get_max_mail_size)(struct submission_backend *backend);
 
 	void (*trans_start)(struct submission_backend *backend,
-			    struct smtp_server_transaction *trans);
+			    struct smtp_server_transaction *trans,
+			    const struct smtp_address *path,
+			    const struct smtp_params_mail *params);
 	void (*trans_free)(struct submission_backend *backend,
 			   struct smtp_server_transaction *trans);
 

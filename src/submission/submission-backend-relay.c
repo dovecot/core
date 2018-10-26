@@ -149,7 +149,9 @@ backend_relay_trans_start_callback(
 
 static void
 backend_relay_trans_start(struct submission_backend *_backend,
-			  struct smtp_server_transaction *trans)
+			  struct smtp_server_transaction *trans ATTR_UNUSED,
+			  const struct smtp_address *path,
+			  const struct smtp_params_mail *params)
 {
 	struct submission_backend_relay *backend =
 		(struct submission_backend_relay *)_backend;
@@ -157,7 +159,7 @@ backend_relay_trans_start(struct submission_backend *_backend,
 	if (backend->trans == NULL) {
 		backend->trans_started = TRUE;
 		backend->trans = smtp_client_transaction_create(
-			backend->conn, trans->mail_from, &trans->params,
+			backend->conn, path, params,
 			backend_relay_trans_finished, backend);
 		smtp_client_transaction_set_immediate(backend->trans, TRUE);
 		smtp_client_transaction_start(
@@ -166,7 +168,7 @@ backend_relay_trans_start(struct submission_backend *_backend,
 	} else if (!backend->trans_started) {
 		backend->trans_started = TRUE;
 		smtp_client_transaction_start_empty(
-			backend->trans, trans->mail_from, &trans->params,
+			backend->trans, path, params,
 			backend_relay_trans_start_callback, backend);
 	}
 }
