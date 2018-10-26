@@ -91,6 +91,7 @@ struct submission_backend {
 	char *fail_reason;
 
 	bool started:1;
+	bool ready:1;
 	bool trans_started:1;
 };
 

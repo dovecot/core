@@ -61,6 +61,7 @@ void submission_backend_started(struct submission_backend *backend,
 
 	if (backend == client->backend_default)
 		client_default_backend_started(client, caps);
+	backend->ready = TRUE;
 	if (backend->v.ready != NULL)
 		backend->v.ready(backend, caps);
 }
@@ -161,6 +162,7 @@ void submission_backend_fail(struct submission_backend *backend,
 	if (!failed_before && backend->v.fail != NULL)
 		backend->v.fail(backend, enh_code, reason);
 	backend->started = FALSE;
+	backend->ready = FALSE;
 }
 
 void submission_backends_client_input_pre(struct client *client)
