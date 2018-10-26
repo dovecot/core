@@ -153,10 +153,36 @@ smtp_server_reply_create_forward(struct smtp_server_command *cmd,
 	unsigned int index, const struct smtp_reply *from)
 {
 	struct smtp_server_reply *reply;
+	string_t *textbuf;
+	char *text;
+	size_t last_line, i;
 
 	reply = smtp_server_reply_create_index(cmd, index,
 		from->status, smtp_reply_get_enh_code(from));
 	smtp_reply_write(reply->content->text, from);
+
+	i_assert(reply->content != NULL);
+	textbuf = reply->content->text;
+	text = str_c_modifiable(textbuf);
+
+	/* Find the last line */
+	reply->content->last_line = last_line = 0;
+	for (i = 0; i < str_len(textbuf); i++) {
+		if (text[i] == '\n') {
+			reply->content->last_line = last_line;
+			last_line = i + 1;
+		}
+	}
+
+	/* Make this reply suitable for further amendment with
+	   smtp_server_reply_add_text() */
+	if ((reply->content->last_line + 3) < str_len(textbuf)) {
+		i_assert(text[reply->content->last_line + 3] == ' ');
+		text[reply->content->last_line + 3] = '-';
+	} else {
+		str_append_c(textbuf, '-');
+	}
+
 	reply->forwarded = TRUE;
 
 	return reply;
