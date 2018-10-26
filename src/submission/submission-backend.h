@@ -22,6 +22,32 @@ struct submission_backend_vfuncs {
 	void (*trans_free)(struct submission_backend *backend,
 			   struct smtp_server_transaction *trans);
 
+	/* Command handlers:
+
+	   These implement the behavior of the various core SMTP commands.
+	   SMTP commands are handled asynchronously, which means that the
+	   command is not necessarily finished when these handlers end. A
+	   command is finished either when 1 is returned or a reply is submitted
+	   for it. When a handler returns 0, the command implementation is
+	   waiting for an external event and when it returns -1 an error
+	   occurred. When 1 is returned, a default success reply is submitted
+	   implicitly. Not submitting an error reply when -1 is returned causes
+	   an assert fail. See src/lib-smtp/smtp-server.h for details.
+
+	   When overriding these handler vfuncs, the base implementation should
+	   usually be called at some point. When it is called immediately, its
+	   result can be returned as normal. When the override returns 0, the
+	   base implementation would be called at a later time when some
+	   external state is achieved. Note that the overriding function then
+	   assumes the responsibility to submit the default reply when none is
+	   submitted and the base implementation returns 1.
+
+	   Also note that only the default backend actually triggers all of
+	   these command callbacks. Secondary backends only get called for
+	   transaction commands and only when that backend is tied to the
+	   transaction somehow; e.g., as the primary transaction backend or when
+	   it is tied to one of the approved recipients.
+	  */
 	int (*cmd_helo)(struct submission_backend *backend,
 			struct smtp_server_cmd_ctx *cmd,
 			struct smtp_server_cmd_helo *data);
