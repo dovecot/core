@@ -208,8 +208,10 @@ void submission_backend_trans_start(struct submission_backend *backend,
 		return;
 	backend->trans_started = TRUE;
 
-	if (backend->v.trans_start != NULL)
-		backend->v.trans_start(backend, trans);
+	if (backend->v.trans_start != NULL) {
+		backend->v.trans_start(backend, trans,
+				       trans->mail_from, &trans->params);
+	}
 }
 
 static void
