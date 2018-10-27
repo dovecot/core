@@ -3,6 +3,7 @@
 
 struct submission_recipient;
 struct submission_backend;
+union submission_backend_module_context;
 
 struct submission_backend_vfuncs {
 	void (*destroy)(struct submission_backend *backend);
@@ -93,10 +94,23 @@ struct submission_backend {
 	char *fail_enh_code;
 	char *fail_reason;
 
+	/* Module-specific contexts. */
+	ARRAY(union submission_backend_module_context *) module_contexts;
+
 	bool started:1;
 	bool ready:1;
 	bool trans_started:1;
 };
+
+struct submission_backend_module_register {
+	unsigned int id;
+};
+
+union submission_backend_module_context {
+	struct submission_backend_module_register *reg;
+};
+extern struct submission_backend_module_register
+submission_backend_module_register;
 
 void submission_backend_init(struct submission_backend *backend,
 			     pool_t pool, struct client *client,
