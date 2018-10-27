@@ -11,9 +11,10 @@
 #include "submission-backend.h"
 
 void submission_backend_init(struct submission_backend *backend,
-			     struct client *client,
+			     pool_t pool, struct client *client,
 			     const struct submission_backend_vfuncs *vfunc)
 {
+	backend->pool = pool;
 	backend->client = client;
 	backend->v = *vfunc;
 
@@ -32,6 +33,7 @@ static void submission_backend_destroy(struct submission_backend *backend)
 
 	DLLIST_REMOVE(&client->backends, backend);
 	backend->v.destroy(backend);
+	pool_unref(&backend->pool);
 }
 
 void submission_backends_destroy_all(struct client *client)
