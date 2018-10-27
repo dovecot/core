@@ -80,6 +80,7 @@ struct submission_backend_vfuncs {
 };
 
 struct submission_backend {
+	pool_t pool;
 	struct client *client;
 
 	struct submission_backend *prev, *next;
@@ -98,7 +99,7 @@ struct submission_backend {
 };
 
 void submission_backend_init(struct submission_backend *backend,
-			     struct client *client,
+			     pool_t pool, struct client *client,
 			     const struct submission_backend_vfuncs *vfunc);
 void submission_backends_destroy_all(struct client *client);
 

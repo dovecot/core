@@ -992,9 +992,11 @@ submission_backend_relay_create(
 	struct mail_user *user = client->user;
 	struct ssl_iostream_settings ssl_set;
 	struct smtp_client_settings smtp_set;
+	pool_t pool;
 
-	backend = i_new(struct submission_backend_relay, 1);
-	submission_backend_init(&backend->backend, client,
+	pool = pool_alloconly_create("submission relay backend", 1024);
+	backend = p_new(pool, struct submission_backend_relay, 1);
+	submission_backend_init(&backend->backend, pool, client,
 				&backend_relay_vfuncs);
 
 	i_zero(&ssl_set);
@@ -1076,7 +1078,6 @@ static void backend_relay_destroy(struct submission_backend *_backend)
 		smtp_client_transaction_destroy(&backend->trans);
 	if (backend->conn != NULL)
 		smtp_client_connection_close(&backend->conn);
-	i_free(backend);
 }
 
 static void backend_relay_ready_cb(const struct smtp_reply *reply,
