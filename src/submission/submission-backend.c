@@ -10,6 +10,9 @@
 #include "submission-commands.h"
 #include "submission-backend.h"
 
+struct submission_backend_module_register
+submission_backend_module_register = { 0 };
+
 void submission_backend_init(struct submission_backend *backend,
 			     pool_t pool, struct client *client,
 			     const struct submission_backend_vfuncs *vfunc)
@@ -17,6 +20,8 @@ void submission_backend_init(struct submission_backend *backend,
 	backend->pool = pool;
 	backend->client = client;
 	backend->v = *vfunc;
+
+	p_array_init(&backend->module_contexts, pool, 5);
 
 	client->backends_count++;
 	DLLIST_PREPEND(&client->backends, backend);
