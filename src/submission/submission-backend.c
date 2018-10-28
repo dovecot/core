@@ -215,6 +215,7 @@ submission_backend_trans_free(struct submission_backend *backend,
 	i_stream_unref(&backend->data_input);
 	if (backend->v.trans_free != NULL)
 		backend->v.trans_free(backend, trans);
+	backend->trans_started = FALSE;
 
 	i_free(backend->fail_enh_code);
 	i_free(backend->fail_reason);
