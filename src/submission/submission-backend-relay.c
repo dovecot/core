@@ -178,11 +178,12 @@ backend_relay_trans_free(struct submission_backend *_backend,
 	struct submission_backend_relay *backend =
 		(struct submission_backend_relay *)_backend;
 
+	backend->trans_started = FALSE;
+
 	if (backend->trans == NULL)
 		return;
 
 	smtp_client_transaction_destroy(&backend->trans);
-	backend->trans_started = FALSE;
 }
 
 /*
