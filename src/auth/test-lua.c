@@ -46,6 +46,45 @@ static void test_db_lua_auth_verify(void)
 	test_end();
 }
 
+static void test_db_lua_auth_lookup_numberish_value(void)
+{
+	const char *scheme,*pass;
+	struct auth_settings set;
+	i_zero(&set);
+	global_auth_settings = &set;
+
+	struct auth_request *req = auth_request_new_dummy();
+	req->passdb = passdb_mock();
+	req->debug = TRUE;
+	req->user = "testuser";
+
+	static const char *luascript =
+"function auth_passdb_lookup(req)\n"
+"  local fields = {}\n"
+"  fields[\"user\"] = \"01234\"\n"
+"  return dovecot.auth.PASSDB_RESULT_OK, fields\n"
+"end\n";
+	const char *error = NULL;
+	struct dlua_script *script = NULL;
+
+	test_begin("auth db lua passdb_lookup");
+
+	test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
+	if (script != NULL) {
+		test_assert(auth_lua_script_init(script, &error) == 0);
+		test_assert(auth_lua_call_passdb_lookup(script, req, &scheme, &pass, &error) == 1);
+		test_assert(strcmp(req->user, "01234") == 0);
+		dlua_script_unref(&script);
+	}
+	if (error != NULL) {
+		i_error("Test failed: %s", error);
+	}
+	i_free(req->passdb);
+	auth_request_unref(&req);
+
+	test_end();
+}
+
 static void test_db_lua_auth_lookup(void)
 {
 	const char *scheme,*pass;
@@ -85,6 +124,7 @@ static void test_db_lua_auth_lookup(void)
 
 void test_db_lua(void) {
 	test_db_lua_auth_lookup();
+	test_db_lua_auth_lookup_numberish_value();
 	test_db_lua_auth_verify();
 }
 
