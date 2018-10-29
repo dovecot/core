@@ -50,6 +50,13 @@ client_parse_backend_capabilities(struct submission_client *subm_client )
 
 		subm_client->backend_capabilities |= cap;
 	}
+
+	/* Make sure CHUNKING support is always enabled when BINARYMIME is
+	   enabled by explicit configuration. */
+	if (HAS_ALL_BITS(subm_client->backend_capabilities,
+			 SMTP_CAPABILITY_BINARYMIME)) {
+		subm_client->backend_capabilities |= SMTP_CAPABILITY_CHUNKING;
+	}
 }
 
 static int submission_login_start_tls(void *conn_ctx,
