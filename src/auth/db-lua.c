@@ -480,18 +480,24 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 	while (lua_next(script->L, -2) != 0) {
 		const char *key = t_strdup(lua_tostring(script->L, -2));
 		const char *value;
-		if (lua_isnumber(script->L, -1)) {
+		int type = lua_type(script->L, -1);
+		switch(type) {
+		case LUA_TNUMBER:
 			value = dec2str(lua_tointeger(script->L, -1));
-		} else if (lua_isboolean(script->L, -1)) {
+			break;
+		case LUA_TBOOLEAN:
 			value = lua_toboolean(script->L, -1) ? "yes" : "no";
-		} else if (lua_isstring(script->L, -1)) {
+			break;
+		case LUA_TSTRING:
 			value = t_strdup(lua_tostring(script->L, -1));
-		} else if (lua_isnil(script->L, -1)) {
+			break;
+		case LUA_TNIL:
 			value = "";
-		} else {
+			break;
+		default:
 			auth_request_log_warning(req, AUTH_SUBSYS_DB,
-						 "db-lua: '%s' has invalid value - ignoring",
-						 key);
+						 "db-lua: '%s' has invalid value type %s - ignoring",
+						 key, lua_typename(script->L, -1));
 			value = "";
 		}
 
