@@ -58,6 +58,8 @@ passdb_lua_lookup(struct auth_request *request,
 		} else {
 			if (*scheme_r == NULL)
 				*scheme_r = request->passdb->passdb->default_pass_scheme;
+			auth_request_set_field(request, "password",
+					       *password_r, *scheme_r);
 		}
 	} else if (*password_r != NULL && **password_r != '\0') {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
