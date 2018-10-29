@@ -96,6 +96,13 @@ static void client_parse_backend_capabilities(struct client *client)
 		client->backend_capabilities |= cap;
 	}
 
+	/* Make sure CHUNKING support is always enabled when BINARYMIME is
+	   enabled by explicit configuration. */
+	if (HAS_ALL_BITS(client->backend_capabilities,
+			 SMTP_CAPABILITY_BINARYMIME)) {
+		client->backend_capabilities |= SMTP_CAPABILITY_CHUNKING;
+	}
+
 	client->backend_capabilities_configured = TRUE;
 }
 
