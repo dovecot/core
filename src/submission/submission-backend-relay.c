@@ -91,6 +91,8 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 	if (!result) {
 		const char *detail = "", *reason;
 
+		i_assert(msg != NULL);
+
 		switch (reply->status) {
 		case SMTP_CLIENT_COMMAND_ERROR_ABORTED:
 			i_unreached();
