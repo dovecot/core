@@ -48,7 +48,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 				 const struct smtp_reply *reply,
 				 struct smtp_reply *reply_r)
 {
-	const char *enh_code, *msg, *log_msg = NULL, *detail = "";
+	const char *enh_code, *msg, *log_msg = NULL;
 	bool result = TRUE;
 
 	*reply_r = *reply;
@@ -88,32 +88,34 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 		break;
 	}
 
-	switch (reply->status) {
-	case SMTP_CLIENT_COMMAND_ERROR_ABORTED:
-		i_unreached();
-	case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
-		detail = " (DNS lookup)";
-		break;
-	case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
-	case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
-		detail = " (connect)";
-		break;
-	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
-	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
-		detail = " (connection lost)";
-		break;
-	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
-		detail = " (bad reply)";
-		break;
-	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
-		detail = " (timed out)";
-		break;
-	default:
-		break;
-	}
-
 	if (!result) {
-		const char *reason = t_strdup_printf("%s%s", msg, detail);
+		const char *detail = "", *reason;
+
+		switch (reply->status) {
+		case SMTP_CLIENT_COMMAND_ERROR_ABORTED:
+			i_unreached();
+		case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
+			detail = " (DNS lookup)";
+			break;
+		case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
+		case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
+			detail = " (connect)";
+			break;
+		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
+		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
+			detail = " (connection lost)";
+			break;
+		case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
+			detail = " (bad reply)";
+			break;
+		case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
+			detail = " (timed out)";
+			break;
+		default:
+			break;
+		}
+
+		reason = t_strdup_printf("%s%s", msg, detail);
 		smtp_client_transaction_destroy(&backend->trans);
 		if (log_msg != NULL)
 			i_error("%s: %s", log_msg, smtp_reply_log(reply));
