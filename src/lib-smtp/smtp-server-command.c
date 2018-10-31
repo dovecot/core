@@ -273,7 +273,9 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 	}
 
 	/* execute hooks */
-	smtp_server_command_call_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY);
+	if (!smtp_server_command_call_hooks(
+		&cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY))
+		i_unreached();
 
 	smtp_server_reply_free(cmd);
 	pool_unref(&cmd->context.pool);
@@ -348,10 +350,14 @@ void smtp_server_command_remove_hook(struct smtp_server_command *cmd,
 	i_assert(found);
 }
 
-void smtp_server_command_call_hooks(struct smtp_server_command *cmd,
+bool smtp_server_command_call_hooks(struct smtp_server_command **_cmd,
 				    enum smtp_server_command_hook_type type)
 {
+	struct smtp_server_command *cmd = *_cmd;
 	struct smtp_server_command_hook *hook;
+
+	if (type != SMTP_SERVER_COMMAND_HOOK_DESTROY)
+		smtp_server_command_ref(cmd);
 
 	hook = cmd->hooks_head;
 	while (hook != NULL) {
@@ -365,6 +371,14 @@ void smtp_server_command_call_hooks(struct smtp_server_command *cmd,
 
 		hook = hook_next;
 	}
+
+	if (type != SMTP_SERVER_COMMAND_HOOK_DESTROY) {
+		if (!smtp_server_command_unref(&cmd)) {
+			*_cmd = NULL;
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 void smtp_server_command_remove_hooks(struct smtp_server_command *cmd,
@@ -411,7 +425,7 @@ void smtp_server_command_next_to_reply(struct smtp_server_command *cmd)
 {
 	smtp_server_command_debug(&cmd->context, "Next to reply");
 
-	smtp_server_command_call_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
+	smtp_server_command_call_hooks(&cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
 }
 
 static void
@@ -422,7 +436,7 @@ smtp_server_command_replied(struct smtp_server_command *cmd)
 
 	smtp_server_command_debug(&cmd->context, "Replied");
 
-	smtp_server_command_call_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED);
+	smtp_server_command_call_hooks(&cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED);
 }
 
 void smtp_server_command_completed(struct smtp_server_command *cmd)
@@ -432,7 +446,7 @@ void smtp_server_command_completed(struct smtp_server_command *cmd)
 
 	smtp_server_command_debug(&cmd->context, "Completed");
 
-	smtp_server_command_call_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED);
+	smtp_server_command_call_hooks(&cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED);
 }
 
 void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
