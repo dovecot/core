@@ -421,32 +421,41 @@ void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
 	smtp_server_connection_trigger_output(cmd->context.conn);
 }
 
-void smtp_server_command_next_to_reply(struct smtp_server_command *cmd)
+bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd)
 {
+	struct smtp_server_command *cmd = *_cmd;
+
 	smtp_server_command_debug(&cmd->context, "Next to reply");
 
-	smtp_server_command_call_hooks(&cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
+	return smtp_server_command_call_hooks(
+		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
 }
 
-static void
-smtp_server_command_replied(struct smtp_server_command *cmd)
+static bool
+smtp_server_command_replied(struct smtp_server_command **_cmd)
 {
+	struct smtp_server_command *cmd = *_cmd;
+
 	if (cmd->replies_submitted < cmd->replies_expected)
-		return;
+		return TRUE;
 
 	smtp_server_command_debug(&cmd->context, "Replied");
 
-	smtp_server_command_call_hooks(&cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED);
+	return smtp_server_command_call_hooks(
+		_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED);
 }
 
-void smtp_server_command_completed(struct smtp_server_command *cmd)
+bool smtp_server_command_completed(struct smtp_server_command **_cmd)
 {
+	struct smtp_server_command *cmd = *_cmd;
+
 	if (cmd->replies_submitted < cmd->replies_expected)
-		return;
+		return TRUE;
 
 	smtp_server_command_debug(&cmd->context, "Completed");
 
-	smtp_server_command_call_hooks(&cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED);
+	return smtp_server_command_call_hooks(
+		_cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED);
 }
 
 static bool
@@ -456,7 +465,8 @@ smtp_server_command_handle_reply(struct smtp_server_command *cmd)
 
 	smtp_server_connection_ref(conn);
 
-	smtp_server_command_replied(cmd);
+	if (!smtp_server_command_replied(&cmd))
+		return smtp_server_connection_unref(&conn);
 
 	/* submit reply */
 	switch (cmd->state) {
