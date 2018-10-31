@@ -34,6 +34,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(SET_STR, ssl_cert_username_field),
 	DEF(SET_STR, ssl_crypto_device),
 	DEF(SET_BOOL, ssl_verify_client_cert),
+	DEF(SET_BOOL, ssl_client_require_valid_cert),
 	DEF(SET_BOOL, ssl_require_crl),
 	DEF(SET_BOOL, verbose_ssl),
 	DEF(SET_BOOL, ssl_prefer_server_ciphers),
@@ -65,6 +66,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_cert_username_field = "commonName",
 	.ssl_crypto_device = "",
 	.ssl_verify_client_cert = FALSE,
+	.ssl_client_require_valid_cert = TRUE,
 	.ssl_require_crl = TRUE,
 	.verbose_ssl = FALSE,
 	.ssl_prefer_server_ciphers = FALSE,
@@ -195,7 +197,8 @@ void master_service_ssl_settings_to_iostream_set(
 		set_r->ca_dir = p_strdup(pool, ssl_set->ssl_client_ca_dir);
 		set_r->cert.cert = p_strdup_empty(pool, ssl_set->ssl_client_cert);
 		set_r->cert.key = p_strdup_empty(pool, ssl_set->ssl_client_key);
-		set_r->verify_remote_cert = TRUE;
+		set_r->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
+		set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 		break;
 	}
 
