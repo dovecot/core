@@ -255,7 +255,7 @@ void smtp_server_command_ref(struct smtp_server_command *cmd);
 bool smtp_server_command_unref(struct smtp_server_command **_cmd);
 void smtp_server_command_abort(struct smtp_server_command **_cmd);
 
-void smtp_server_command_call_hooks(struct smtp_server_command *cmd,
+bool smtp_server_command_call_hooks(struct smtp_server_command **_cmd,
 				    enum smtp_server_command_hook_type type);
 void smtp_server_command_remove_hooks(struct smtp_server_command *cmd,
 				      enum smtp_server_command_hook_type type);
