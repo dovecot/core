@@ -449,6 +449,36 @@ void smtp_server_command_completed(struct smtp_server_command *cmd)
 	smtp_server_command_call_hooks(&cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED);
 }
 
+static bool
+smtp_server_command_handle_reply(struct smtp_server_command *cmd)
+{
+	struct smtp_server_connection *conn = cmd->context.conn;
+
+	smtp_server_command_replied(cmd);
+
+	/* submit reply */
+	smtp_server_connection_ref(conn);
+	switch (cmd->state) {
+	case SMTP_SERVER_COMMAND_STATE_NEW:
+	case SMTP_SERVER_COMMAND_STATE_PROCESSING:
+		if (!smtp_server_command_is_complete(cmd)) {
+			smtp_server_command_debug(&cmd->context,
+				"Not ready to reply");
+			cmd->state = SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY;
+			break;
+		}
+		smtp_server_command_ready_to_reply(cmd);
+		break;
+	case SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY:
+	case SMTP_SERVER_COMMAND_STATE_ABORTED:
+		break;
+	default:
+		i_unreached();
+	}
+
+	return smtp_server_connection_unref(&conn);
+}
+
 void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
 {
 	struct smtp_server_connection *conn = cmd->context.conn;
@@ -479,34 +509,13 @@ void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
 
 	smtp_server_command_remove_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
 
-	smtp_server_command_replied(cmd);
-
 	/* limit number of consecutive bad commands */
 	if (is_bad)
 		conn->bad_counter++;
 	else if (cmd->replies_submitted == cmd->replies_expected)
 		conn->bad_counter = 0;
 
-	/* submit reply */
-	smtp_server_connection_ref(conn);
-	switch (cmd->state) {
-	case SMTP_SERVER_COMMAND_STATE_NEW:
-	case SMTP_SERVER_COMMAND_STATE_PROCESSING:
-		if (!smtp_server_command_is_complete(cmd)) {
-			smtp_server_command_debug(&cmd->context,
-				"Not ready to reply");
-			cmd->state = SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY;
-			break;
-		}
-		smtp_server_command_ready_to_reply(cmd);
-		break;
-	case SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY:
-	case SMTP_SERVER_COMMAND_STATE_ABORTED:
-		break;
-	default:
-		i_unreached();
-	}
-	if (!smtp_server_connection_unref(&conn))
+	if (!smtp_server_command_handle_reply(cmd))
 		return;
 
 	if (conn != NULL && conn->bad_counter > conn->set.max_bad_commands) {
