@@ -108,6 +108,7 @@ struct smtp_server_command {
 	bool input_locked:1;
 	bool input_captured:1;
 	bool reply_early:1;
+	bool destroying:1;
 };
 
 struct smtp_server_recipient_private {

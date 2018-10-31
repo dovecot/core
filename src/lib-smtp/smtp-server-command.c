@@ -243,6 +243,8 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 
 void smtp_server_command_ref(struct smtp_server_command *cmd)
 {
+	if (cmd->destroying)
+		return;
 	cmd->refcount++;
 }
 
@@ -253,9 +255,13 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 
 	*_cmd = NULL;
 
+	if (cmd->destroying)
+		return FALSE;
+
 	i_assert(cmd->refcount > 0);
 	if (--cmd->refcount > 0)
 		return TRUE;
+	cmd->destroying = TRUE;
 
 	smtp_server_command_debug(&cmd->context, "Destroy");
 
