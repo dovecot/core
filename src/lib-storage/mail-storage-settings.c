@@ -80,9 +80,16 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_STR, hostname),
 	DEF(SET_STR, recipient_delimiter),
 
-	DEF(SET_STR, ssl_client_ca_dir),
 	DEF(SET_STR, ssl_client_ca_file),
+	DEF(SET_STR, ssl_client_ca_dir),
+	DEF(SET_STR, ssl_client_cert),
+	DEF(SET_STR, ssl_client_key),
+	DEF(SET_STR, ssl_cipher_list),
+	DEF(SET_STR, ssl_curve_list),
+	DEF(SET_STR, ssl_min_protocol),
 	DEF(SET_STR, ssl_crypto_device),
+	DEF(SET_BOOL, ssl_client_require_valid_cert),
+	DEF(SET_BOOL, verbose_ssl),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -139,9 +146,17 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.hostname = "",
 	.recipient_delimiter = "+",
 
-	.ssl_client_ca_dir = "",
+	/* Keep synced with master-service-ssl-settings */
 	.ssl_client_ca_file = "",
-	.ssl_crypto_device = ""
+	.ssl_client_ca_dir = "",
+	.ssl_client_cert = "",
+	.ssl_client_key = "",
+	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
+	.ssl_curve_list = "",
+	.ssl_min_protocol = "TLSv1",
+	.ssl_crypto_device = "",
+	.ssl_client_require_valid_cert = TRUE,
+	.verbose_ssl = FALSE,
 };
 
 const struct setting_parser_info mail_storage_setting_parser_info = {
