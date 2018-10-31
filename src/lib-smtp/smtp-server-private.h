@@ -116,6 +116,8 @@ struct smtp_server_recipient_private {
 	int refcount;
 
 	struct smtp_server_recipient_hook *hooks_head, *hooks_tail;
+
+	bool destroying:1;
 };
 
 struct smtp_server_state_data {
