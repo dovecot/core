@@ -33,6 +33,8 @@ void smtp_server_recipient_ref(struct smtp_server_recipient *rcpt)
 	struct smtp_server_recipient_private *prcpt =
 		(struct smtp_server_recipient_private *)rcpt;
 
+	if (prcpt->destroying)
+		return;
 	i_assert(prcpt->refcount > 0);
 	prcpt->refcount++;
 }
@@ -47,10 +49,13 @@ bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt)
 
 	if (rcpt == NULL)
 		return FALSE;
+	if (prcpt->destroying)
+		return FALSE;
 
 	i_assert(prcpt->refcount > 0);
 	if (--prcpt->refcount > 0)
 		return TRUE;
+	prcpt->destroying = TRUE;
 
 	smtp_server_recipient_call_hooks(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY);
