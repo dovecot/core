@@ -471,6 +471,11 @@ int fs_get_metadata(struct fs_file *file,
 	int ret;
 
 	if (file->fs->v.get_metadata == NULL) {
+		if (array_is_created(&file->metadata)) {
+			/* Return internal metadata. */
+			*metadata_r = &file->metadata;
+			return 0;
+		}
 		fs_set_error(file->fs, "Metadata not supported by backend");
 		return -1;
 	}
