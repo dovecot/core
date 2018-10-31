@@ -696,6 +696,17 @@ void mail_user_init_ssl_client_settings(struct mail_user *user,
 
 	ssl_set->ca_dir = mail_set->ssl_client_ca_dir;
 	ssl_set->ca_file = mail_set->ssl_client_ca_file;
+	if (*mail_set->ssl_client_cert != '\0')
+		ssl_set->cert.cert = mail_set->ssl_client_cert;
+	if (*mail_set->ssl_client_key != '\0')
+		ssl_set->cert.key = mail_set->ssl_client_key;
+	ssl_set->cipher_list = mail_set->ssl_cipher_list;
+	ssl_set->curve_list = mail_set->ssl_curve_list;
+	ssl_set->min_protocol = mail_set->ssl_min_protocol;
+	ssl_set->crypto_device = mail_set->ssl_crypto_device;
+	ssl_set->verify_remote_cert = mail_set->ssl_client_require_valid_cert;
+	ssl_set->allow_invalid_cert = !ssl_set->verify_remote_cert;
+	ssl_set->verbose = mail_set->verbose_ssl;
 }
 
 void mail_user_init_fs_settings(struct mail_user *user,
