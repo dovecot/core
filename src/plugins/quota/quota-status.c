@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str-sanitize.h"
 #include "ostream.h"
 #include "connection.h"
 #include "restrict-access.h"
@@ -169,8 +170,8 @@ static int client_input_line(struct connection *conn, const char *line)
 			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
 			&client->recipient, &error) < 0) {
 			i_error("quota-status: "
-				"Client sent invalid recipient address: %s",
-				error);
+				"Client sent invalid recipient address `%s': "
+				"%s", str_sanitize(line + 10, 256), error);
 			return 0;
 		}
 	} else if (str_begins(line, "size=")) {
