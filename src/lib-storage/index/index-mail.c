@@ -24,7 +24,7 @@
 #include <fcntl.h>
 
 #define BODY_SNIPPET_ALGO_V1 "1"
-#define BODY_SNIPPET_MAX_CHARS 100
+#define BODY_SNIPPET_MAX_CHARS 200
 
 struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ .name = "flags",
