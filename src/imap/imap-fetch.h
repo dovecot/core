@@ -100,6 +100,7 @@ struct imap_fetch_context {
 	bool flags_have_handler:1;
 	bool flags_update_seen:1;
 	bool flags_show_only_seen_changes:1;
+	bool preview_command:1;
 };
 
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
@@ -155,6 +156,7 @@ bool imap_fetch_uid_init(struct imap_fetch_init_context *ctx);
 bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx);
 bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx);
 bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx);
+bool imap_fetch_preview_init(struct imap_fetch_init_context *ctx);
 bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx);
 
 void imap_fetch_handlers_init(void);

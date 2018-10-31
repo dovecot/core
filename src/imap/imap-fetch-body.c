@@ -596,12 +596,14 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 	const bool lazy = context != NULL;
 	enum mail_lookup_abort temp_lookup_abort = lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE : mail->lookup_abort;
 	enum mail_lookup_abort orig_lookup_abort = mail->lookup_abort;
-	const char *snippet;
+	const char *resp, *snippet;
 	int ret;
 
 	mail->lookup_abort = temp_lookup_abort;
 	ret = mail_get_special(mail, MAIL_FETCH_BODY_SNIPPET, &snippet);
 	mail->lookup_abort = orig_lookup_abort;
+
+	resp = ctx->preview_command ? "PREVIEW" : "SNIPPET";
 
 	if (ret == 0) {
 		/* got it => nothing to do */
@@ -611,7 +613,8 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 		return -1;
 	} else if (lazy) {
 		/* not in cache && lazy => give up */
-		str_append(ctx->state.cur_str, "SNIPPET (FUZZY NIL)");
+		str_append(ctx->state.cur_str, resp);
+		str_append(ctx->state.cur_str, " (FUZZY NIL)");
 		return 1;
 	} else {
 		/*
@@ -623,15 +626,23 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 		 * sufficiently convoluted this else branch serves to
 		 * document it.
 		 */
-		str_append(ctx->state.cur_str, "SNIPPET (FUZZY NIL)");
+		str_append(ctx->state.cur_str, resp);
+		str_append(ctx->state.cur_str, " (FUZZY NIL)");
 		return 1;
 	}
 
-	str_append(ctx->state.cur_str, "SNIPPET (FUZZY ");
+	str_append(ctx->state.cur_str, resp);
+	str_append(ctx->state.cur_str, " (FUZZY ");
 	imap_append_string(ctx->state.cur_str, snippet);
 	str_append(ctx->state.cur_str, ") ");
 
 	return 1;
+}
+
+bool imap_fetch_preview_init(struct imap_fetch_init_context *ctx)
+{
+	ctx->fetch_ctx->preview_command = TRUE;
+	return imap_fetch_snippet_init(ctx);
 }
 
 bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
@@ -649,7 +660,7 @@ bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
 			const char *str;
 
 			if (!imap_arg_get_atom(&list_args[i], &str)) {
-				ctx->error = "Invalid SNIPPET algorithm/modifier";
+				ctx->error = "Invalid PREVIEW algorithm/modifier";
 				return FALSE;
 			}
 
@@ -660,7 +671,7 @@ bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
 				/* nothing to do */
 			} else {
 				ctx->error = t_strdup_printf("'%s' is not a "
-							     "supported SNIPPET algorithm/modifier",
+							     "supported PREVIEW algorithm/modifier",
 							     str);
 				return FALSE;
 			}
