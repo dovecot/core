@@ -333,7 +333,7 @@ smtp_server_connection_handle_command(struct smtp_server_connection *conn,
 	}
 
 	if (cmd != NULL && conn->command_queue_head == cmd)
-		smtp_server_command_next_to_reply(cmd);
+		(void)smtp_server_command_next_to_reply(&cmd);
 
 	smtp_server_connection_timeout_update(conn);
 	return (cmd == NULL || !cmd->input_locked);
@@ -668,14 +668,15 @@ smtp_server_connection_next_reply(struct smtp_server_connection *conn)
 	}
 
 	if (cmd->state < SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY) {
-		smtp_server_command_next_to_reply(cmd);
+		(void)smtp_server_command_next_to_reply(&cmd);
 		return FALSE;
 	}
 
 	i_assert(cmd->state == SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY &&
 		 array_is_created(&cmd->replies));
 
-	smtp_server_command_completed(cmd);
+	if (!smtp_server_command_completed(&cmd))
+		return TRUE;
 
 	/* send command replies */
 	// FIXME: handle LMTP DATA command with enormous number of recipients;
