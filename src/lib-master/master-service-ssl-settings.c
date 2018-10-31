@@ -49,6 +49,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 #else
 	.ssl = "no:yes:required",
 #endif
+	/* keep synced with mail-storage-settings */
 	.ssl_ca = "",
 	.ssl_cert = "",
 	.ssl_key = "",

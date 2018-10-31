@@ -63,9 +63,16 @@ struct mail_storage_settings {
 	const char *hostname;
 	const char *recipient_delimiter;
 
-	const char *ssl_client_ca_dir;
 	const char *ssl_client_ca_file;
+	const char *ssl_client_ca_dir;
+	const char *ssl_client_cert;
+	const char *ssl_client_key;
+	const char *ssl_cipher_list;
+	const char *ssl_curve_list;
+	const char *ssl_min_protocol;
 	const char *ssl_crypto_device;
+	bool ssl_client_require_valid_cert;
+	bool verbose_ssl;
 	const char *mail_attachment_detection_options;
 
 	enum file_lock_method parsed_lock_method;
