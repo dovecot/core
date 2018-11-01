@@ -454,10 +454,11 @@ smtp_server_command_handle_reply(struct smtp_server_command *cmd)
 {
 	struct smtp_server_connection *conn = cmd->context.conn;
 
+	smtp_server_connection_ref(conn);
+
 	smtp_server_command_replied(cmd);
 
 	/* submit reply */
-	smtp_server_connection_ref(conn);
 	switch (cmd->state) {
 	case SMTP_SERVER_COMMAND_STATE_NEW:
 	case SMTP_SERVER_COMMAND_STATE_PROCESSING:
