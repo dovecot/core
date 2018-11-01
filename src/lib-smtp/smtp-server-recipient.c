@@ -6,8 +6,8 @@
 
 #include "smtp-server-private.h"
 
-static void
-smtp_server_recipient_call_hooks(struct smtp_server_recipient *rcpt,
+static bool
+smtp_server_recipient_call_hooks(struct smtp_server_recipient **_rcpt,
 				 enum smtp_server_recipient_hook_type type);
 
 struct smtp_server_recipient *
@@ -57,8 +57,9 @@ bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt)
 		return TRUE;
 	prcpt->destroying = TRUE;
 
-	smtp_server_recipient_call_hooks(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY);
+	if (!smtp_server_recipient_call_hooks(
+		&rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY))
+		i_unreached();
 
 	pool_unref(&rcpt->pool);
 	return FALSE;
@@ -69,8 +70,9 @@ void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt)
 	smtp_server_recipient_unref(_rcpt);
 }
 
-void smtp_server_recipient_approved(struct smtp_server_recipient *rcpt)
+bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 {
+	struct smtp_server_recipient *rcpt = *_rcpt;
 	struct smtp_server_transaction *trans = rcpt->conn->state.trans;
 
 	i_assert(trans != NULL);
@@ -78,8 +80,8 @@ void smtp_server_recipient_approved(struct smtp_server_recipient *rcpt)
 	rcpt->cmd = NULL;
 	smtp_server_transaction_add_rcpt(trans, rcpt);
 
-	smtp_server_recipient_call_hooks(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED);
+	return smtp_server_recipient_call_hooks(
+		_rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED);
 }
 
 void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
@@ -143,13 +145,17 @@ void smtp_server_recipient_remove_hook(
 	i_assert(found);
 }
 
-static void
-smtp_server_recipient_call_hooks(struct smtp_server_recipient *rcpt,
+static bool
+smtp_server_recipient_call_hooks(struct smtp_server_recipient **_rcpt,
 				 enum smtp_server_recipient_hook_type type)
 {
+	struct smtp_server_recipient *rcpt = *_rcpt;
 	struct smtp_server_recipient_private *prcpt =
 		(struct smtp_server_recipient_private *)rcpt;
 	struct smtp_server_recipient_hook *hook;
+
+	if (type != SMTP_SERVER_RECIPIENT_HOOK_DESTROY)
+		smtp_server_recipient_ref(rcpt);
 
 	hook = prcpt->hooks_head;
 	while (hook != NULL) {
@@ -163,4 +169,12 @@ smtp_server_recipient_call_hooks(struct smtp_server_recipient *rcpt,
 
 		hook = hook_next;
 	}
+
+	if (type != SMTP_SERVER_RECIPIENT_HOOK_DESTROY) {
+		if (!smtp_server_recipient_unref(&rcpt)) {
+			*_rcpt = NULL;
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
