@@ -19,6 +19,7 @@ smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 
 	pool = pool_alloconly_create("smtp server recipient", 512);
 	prcpt = p_new(pool, struct smtp_server_recipient_private, 1);
+	prcpt->refcount = 1;
 	prcpt->rcpt.pool = pool;
 	prcpt->rcpt.conn = cmd->conn;
 	prcpt->rcpt.cmd = cmd;
@@ -27,19 +28,40 @@ smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 	return &prcpt->rcpt;
 }
 
-void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt)
+void smtp_server_recipient_ref(struct smtp_server_recipient *rcpt)
+{
+	struct smtp_server_recipient_private *prcpt =
+		(struct smtp_server_recipient_private *)rcpt;
+
+	i_assert(prcpt->refcount > 0);
+	prcpt->refcount++;
+}
+
+bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt)
 {
 	struct smtp_server_recipient *rcpt = *_rcpt;
+	struct smtp_server_recipient_private *prcpt =
+		(struct smtp_server_recipient_private *)rcpt;
 
 	*_rcpt = NULL;
 
 	if (rcpt == NULL)
-		return;
+		return FALSE;
+
+	i_assert(prcpt->refcount > 0);
+	if (--prcpt->refcount > 0)
+		return TRUE;
 
 	smtp_server_recipient_call_hooks(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY);
 
 	pool_unref(&rcpt->pool);
+	return FALSE;
+}
+
+void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt)
+{
+	smtp_server_recipient_unref(_rcpt);
 }
 
 void smtp_server_recipient_approved(struct smtp_server_recipient *rcpt)
