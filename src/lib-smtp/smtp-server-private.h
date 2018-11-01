@@ -381,7 +381,7 @@ void smtp_server_recipient_ref(struct smtp_server_recipient *rcpt);
 bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt);
 void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt);
 
-void smtp_server_recipient_approved(struct smtp_server_recipient *rcpt);
+bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt);
 void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
 				     struct smtp_server_cmd_ctx *cmd);
 

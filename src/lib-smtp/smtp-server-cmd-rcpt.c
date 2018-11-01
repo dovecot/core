@@ -66,7 +66,7 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 
 	/* success */
 	data->rcpt = NULL; /* clear to prevent destruction */
-	smtp_server_recipient_approved(rcpt);
+	(void)smtp_server_recipient_approved(&rcpt);
 }
 
 static void
