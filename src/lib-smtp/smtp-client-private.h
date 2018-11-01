@@ -15,7 +15,7 @@
 
 struct smtp_client_command {
 	pool_t pool;
-	unsigned int refcount;
+	int refcount;
 
 	struct smtp_client_command *prev, *next;
 

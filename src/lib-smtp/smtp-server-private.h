@@ -92,7 +92,7 @@ struct smtp_server_command {
 	struct smtp_server_cmd_ctx context;
 	const struct smtp_server_command_reg *reg;
 
-	unsigned int refcount;
+	int refcount;
 
 	enum smtp_server_command_state state;
 
@@ -136,7 +136,7 @@ struct smtp_server_connection {
 	struct connection conn;
 	struct smtp_server *server;
 	pool_t pool;
-	unsigned int refcount;
+	int refcount;
 
 	struct smtp_server_settings set;
 
