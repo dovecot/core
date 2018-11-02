@@ -6,6 +6,7 @@
 
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
+union lmtp_module_context;
 struct lmtp_recipient;
 struct client;
 
@@ -69,9 +70,22 @@ struct client {
 	struct lmtp_local *local;
 	struct lmtp_proxy *proxy;
 
+	/* Module-specific contexts. */
+	ARRAY(union lmtp_module_context *) module_contexts;
+
 	bool disconnected:1;
 	bool destroyed:1;
 };
+
+struct lmtp_module_register {
+	unsigned int id;
+};
+
+union lmtp_module_context {
+	struct lmtp_client_vfuncs super;
+	struct lmtp_module_register *reg;
+};
+extern struct lmtp_module_register lmtp_module_register;
 
 struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn);
