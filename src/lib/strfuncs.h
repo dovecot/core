@@ -45,6 +45,10 @@ const char *t_strconcat(const char *str1, ...)
 const char *t_strcut(const char *str, char cutchar);
 /* Replace all from->to chars in the string. */
 const char *t_str_replace(const char *str, char from, char to);
+/* Put the string on a single line by replacing all newlines with spaces and
+   dropping any carriage returns. Sequences of several newlines are merged into
+   one space and newlines at the beginning and end of the string are dropped. */
+const char *t_str_oneline(const char *str);
 
 /* Like strlcpy(), but return -1 if buffer was overflown, 0 if not. */
 int i_strocpy(char *dest, const char *src, size_t dstsize);
