@@ -41,6 +41,26 @@ smtp_reply_get_enh_code(const struct smtp_reply *reply)
 		reply->enhanced_code.x, reply->enhanced_code.y, reply->enhanced_code.z);
 }
 
+const char *const *
+smtp_reply_get_text_lines_omit_prefix(const struct smtp_reply *reply)
+{
+	unsigned int lines_count, i;
+	const char **lines;
+	const char *p;
+
+	if ((p=strchr(reply->text_lines[0], ' ')) == NULL)
+		return reply->text_lines;
+
+	lines_count = str_array_length(reply->text_lines);
+	lines = t_new(const char *, lines_count + 1);
+
+	lines[0] = p + 1;
+	for (i = 1; i < lines_count; i++)
+		lines[i] = reply->text_lines[i];
+
+	return lines;
+}
+
 void
 smtp_reply_write(string_t *out, const struct smtp_reply *reply)
 {
