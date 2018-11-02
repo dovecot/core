@@ -28,6 +28,11 @@ struct lmtp_client_vfuncs {
 	void (*destroy)(struct client *client, const char *enh_code,
 			const char *reason);
 
+	void (*trans_start)(struct client *client,
+			    struct smtp_server_transaction *trans);
+	void (*trans_free)(struct client *client,
+			   struct smtp_server_transaction *trans);
+
 	int (*cmd_mail)(struct client *client, struct smtp_server_cmd_ctx *cmd,
 			struct smtp_server_cmd_mail *data);
 	int (*cmd_rcpt)(struct client *client, struct smtp_server_cmd_ctx *cmd,
