@@ -348,4 +348,8 @@ static const struct smtp_server_callbacks lmtp_callbacks = {
 
 static const struct lmtp_client_vfuncs lmtp_client_vfuncs = {
 	.destroy = client_default_destroy,
+
+	.cmd_mail = client_default_cmd_mail,
+	.cmd_rcpt = client_default_cmd_rcpt,
+	.cmd_data = client_default_cmd_data,
 };

@@ -27,6 +27,15 @@ struct client_state {
 struct lmtp_client_vfuncs {
 	void (*destroy)(struct client *client, const char *enh_code,
 			const char *reason);
+
+	int (*cmd_mail)(struct client *client, struct smtp_server_cmd_ctx *cmd,
+			struct smtp_server_cmd_mail *data);
+	int (*cmd_rcpt)(struct client *client, struct smtp_server_cmd_ctx *cmd,
+			struct lmtp_recipient *lrcpt);
+	int (*cmd_data)(struct client *client,
+			struct smtp_server_cmd_ctx *cmd,
+			struct smtp_server_transaction *trans,
+			struct istream *data_input, uoff_t data_size);
 };
 
 struct client {
