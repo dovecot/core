@@ -49,6 +49,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 				 struct smtp_reply *reply_r)
 {
 	const char *enh_code, *msg, *log_msg = NULL;
+	const char *const *reply_lines;
 	bool result = TRUE;
 
 	*reply_r = *reply;
@@ -64,6 +65,13 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 		result = FALSE;
 		break;
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
+		enh_code = smtp_reply_get_enh_code(reply);
+		log_msg = "Lost connection to relay server";
+		reply_lines = smtp_reply_get_text_lines_omit_prefix(reply);
+		msg = t_strconcat("Lost connection to relay server:\n",
+				  t_strarray_join(reply_lines, "\n"), NULL);
+		result = FALSE;
+		break;
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
 	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
 	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
