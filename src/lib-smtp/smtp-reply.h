@@ -52,6 +52,8 @@ void smtp_reply_printf(struct smtp_reply *reply, unsigned int status,
 
 const char *
 smtp_reply_get_enh_code(const struct smtp_reply *reply);
+const char *const *
+smtp_reply_get_text_lines_omit_prefix(const struct smtp_reply *reply);
 
 /* Write the SMTP reply as a sequence of lines according to the SMTP syntax,
    each terminated by CRLF. */
