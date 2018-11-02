@@ -155,7 +155,7 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 {
 	struct client *client = (struct client *)conn_ctx;
 	struct client_state *state = &client->state;
-	struct istream *data_input = (struct istream *)trans->context;
+	struct istream *data_input = state->data_input;
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
@@ -193,7 +193,7 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 int cmd_data_begin(void *conn_ctx,
 		   struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-		   struct smtp_server_transaction *trans,
+		   struct smtp_server_transaction *trans ATTR_UNUSED,
 		   struct istream *data_input)
 {
 	struct client *client = (struct client *)conn_ctx;
@@ -206,6 +206,6 @@ int cmd_data_begin(void *conn_ctx,
 	client->state.mail_data_output = 
 		iostream_temp_create_named(str_c(path), 0, "(lmtp data)");
 
-	trans->context = (void*)data_input;
+	client->state.data_input = data_input;
 	return 0;
 }

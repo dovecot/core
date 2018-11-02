@@ -12,6 +12,8 @@ struct client_state {
 	const char *name;
 	unsigned int session_id_seq;
 
+	struct istream *data_input;
+
 	struct timeval data_end_timeval;
 
 	struct ostream *mail_data_output;
