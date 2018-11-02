@@ -28,6 +28,8 @@
 
 static const struct smtp_server_callbacks lmtp_callbacks;
 static const struct lmtp_client_vfuncs lmtp_client_vfuncs;
+	
+struct lmtp_module_register lmtp_module_register = { 0 };
 
 static struct client *clients = NULL;
 static unsigned int clients_count = 0;
@@ -139,6 +141,8 @@ struct client *client_create(int fd_in, int fd_out,
 
 	if (client->service_set->verbose_proctitle)
 		verbose_proctitle = TRUE;
+
+	p_array_init(&client->module_contexts, client->pool, 5);
 
 	i_zero(&lmtp_set);
 	lmtp_set.capabilities =
