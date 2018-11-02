@@ -1335,6 +1335,7 @@ void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 				      const char *enh_code, const char *reason)
 {
 	struct smtp_server_connection *conn = *_conn;
+	const char **reason_lines;
 
 	*_conn = NULL;
 
@@ -1343,10 +1344,17 @@ void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 
 	i_assert(enh_code[0] == '4' && enh_code[1] == '.');
 
-	smtp_server_connection_send_line(conn,
-		"421 %s %s %s", enh_code, conn->set.hostname, reason);
+	T_BEGIN {
+		/* Add hostname prefix */
+		reason_lines = t_strsplit_spaces(reason, "\r\n");
+		reason_lines[0] = t_strconcat(conn->set.hostname, " ",
+					      reason_lines[0], NULL);
 
-	smtp_server_connection_close(&conn, reason);
+		smtp_server_connection_reply_lines(conn, 421, enh_code,
+						   reason_lines);
+
+		smtp_server_connection_close(&conn, reason);
+	} T_END;
 }
 
 struct smtp_server_helo_data *
