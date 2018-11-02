@@ -26,12 +26,13 @@
 
 #define CLIENT_IDLE_TIMEOUT_MSECS (1000*60*5)
 
+static const struct smtp_server_callbacks lmtp_callbacks;
+static const struct lmtp_client_vfuncs lmtp_client_vfuncs;
+
 static struct client *clients = NULL;
 static unsigned int clients_count = 0;
 
 static bool verbose_proctitle = FALSE;
-
-static const struct smtp_server_callbacks lmtp_callbacks;
 
 static const char *client_remote_id(struct client *client)
 {
@@ -125,6 +126,7 @@ struct client *client_create(int fd_in, int fd_out,
 	pool = pool_alloconly_create("lmtp client", 2048);
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
+	client->v = lmtp_client_vfuncs;
 	client->remote_ip = conn->remote_ip;
 	client->remote_port = conn->remote_port;
 	client->local_ip = conn->local_ip;
@@ -189,6 +191,13 @@ void client_state_reset(struct client *client)
 
 void client_destroy(struct client *client, const char *enh_code,
 		    const char *reason)
+{
+	client->v.destroy(client, enh_code, reason);
+}
+
+static void
+client_default_destroy(struct client *client, const char *enh_code,
+		       const char *reason)
 {
 	if (client->destroyed)
 		return;
@@ -335,4 +344,8 @@ static const struct smtp_server_callbacks lmtp_callbacks = {
 	.conn_destroy = client_connection_destroy,
 
 	.conn_is_trusted = client_connection_is_trusted
+};
+
+static const struct lmtp_client_vfuncs lmtp_client_vfuncs = {
+	.destroy = client_default_destroy,
 };

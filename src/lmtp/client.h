@@ -6,6 +6,8 @@
 
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
+struct client;
+
 struct client_state {
 	const char *name;
 	unsigned int session_id_seq;
@@ -18,9 +20,16 @@ struct client_state {
 	const char *added_headers_proxy;
 };
 
+struct lmtp_client_vfuncs {
+	void (*destroy)(struct client *client, const char *enh_code,
+			const char *reason);
+};
+
 struct client {
 	struct client *prev, *next;
 	pool_t pool;
+
+	struct lmtp_client_vfuncs v;
 
 	const struct setting_parser_info *user_set_info;
 	const struct lda_settings *unexpanded_lda_set;
