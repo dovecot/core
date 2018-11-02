@@ -5,6 +5,10 @@
 
 struct smtp_reply_parser;
 
+bool smtp_reply_parse_enhanced_code(const char *text,
+				    struct smtp_reply_enhanced_code *enh_code_r,
+				    const char **pos_r) ATTR_NULL(3);
+
 struct smtp_reply_parser *
 smtp_reply_parser_init(struct istream *input, size_t max_reply_size);
 void smtp_reply_parser_deinit(struct smtp_reply_parser **_parser);
