@@ -13,6 +13,7 @@ struct client_state {
 	unsigned int session_id_seq;
 
 	struct istream *data_input;
+	uoff_t data_size;
 
 	struct timeval data_end_timeval;
 

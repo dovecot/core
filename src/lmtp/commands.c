@@ -187,6 +187,9 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		return -1;
 	}
 
+	/* Current data stream position is the data size */
+	client->state.data_size = data_input->v_offset;
+
 	/* the ending "." line was seen. finish delivery. */
 	return cmd_data_finish(client, cmd, trans);
 }
