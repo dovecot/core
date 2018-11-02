@@ -1188,11 +1188,15 @@ void smtp_server_connection_send_line(struct smtp_server_connection *conn,
 	va_list args;
 
 	va_start(args, fmt);
+
 	T_BEGIN {
 		string_t *str;
 
 		str = t_str_new(256);
 		str_vprintfa(str, fmt, args);
+
+		smtp_server_connection_debug(conn, "Sent: %s", str_c(str));
+
 		str_append(str, "\r\n");
 		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 	} T_END;
@@ -1212,6 +1216,9 @@ void smtp_server_connection_reply_immediate(
 		str = t_str_new(256);
 		str_printfa(str, "%03u ", status);
 		str_vprintfa(str, fmt, args);
+
+		smtp_server_connection_debug(conn, "Sent: %s", str_c(str));
+
 		str_append(str, "\r\n");
 		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 	} T_END;
