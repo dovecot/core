@@ -14,6 +14,7 @@
 #include "master-service.h"
 #include "master-service-ssl.h"
 
+#include "smtp-reply-parser.h"
 #include "smtp-command-parser.h"
 #include "smtp-server-private.h"
 
@@ -1201,6 +1202,33 @@ void smtp_server_connection_send_line(struct smtp_server_connection *conn,
 		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 	} T_END;
 	va_end(args);
+}
+
+void smtp_server_connection_reply_lines(struct smtp_server_connection *conn,
+				        unsigned int status,
+					const char *enh_code,
+					const char *const *text_lines)
+{
+	struct smtp_reply reply;
+
+	i_zero(&reply);
+	reply.status = status;
+	reply.text_lines = text_lines;
+
+	if (!smtp_reply_parse_enhanced_code(
+		enh_code, &reply.enhanced_code, NULL))
+		reply.enhanced_code = SMTP_REPLY_ENH_CODE(status / 100, 0, 0);
+
+	T_BEGIN {
+		string_t *str;
+
+		smtp_server_connection_debug(conn, "Sent: %s",
+					     smtp_reply_log(&reply));
+
+		str = t_str_new(256);
+		smtp_reply_write(str, &reply);
+		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
+	} T_END;
 }
 
 void smtp_server_connection_reply_immediate(

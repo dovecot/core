@@ -352,6 +352,10 @@ void smtp_server_connection_timeout_reset(struct smtp_server_connection *conn);
 
 void smtp_server_connection_send_line(struct smtp_server_connection *conn,
 	const char *fmt, ...) ATTR_FORMAT(2, 3);
+void smtp_server_connection_reply_lines(struct smtp_server_connection *conn,
+				        unsigned int status,
+					const char *enh_code,
+					const char *const *text_lines);
 void smtp_server_connection_reply_immediate(
 	struct smtp_server_connection *conn, unsigned int status,
 	const char *fmt, ...) ATTR_FORMAT(3, 4);
