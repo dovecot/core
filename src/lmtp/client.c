@@ -251,11 +251,34 @@ void client_disconnect(struct client *client, const char *enh_code,
 }
 
 static void
+client_connection_trans_start(void *context,
+			      struct smtp_server_transaction *trans)
+{
+	struct client *client = context;
+
+	client->v.trans_start(client, trans);
+}
+
+static void
+client_default_trans_start(struct client *client ATTR_UNUSED,
+			   struct smtp_server_transaction *trans ATTR_UNUSED)
+{
+	/* nothing */
+}
+
+static void
 client_connection_trans_free(void *context,
-			     struct smtp_server_transaction *trans ATTR_UNUSED)
+			     struct smtp_server_transaction *trans)
 {
 	struct client *client = (struct client *)context;
 
+	client->v.trans_free(client, trans);
+}
+
+static void
+client_default_trans_free(struct client *client,
+			  struct smtp_server_transaction *trans ATTR_UNUSED)
+{
 	client_state_reset(client);
 }
 
@@ -334,6 +357,7 @@ static const struct smtp_server_callbacks lmtp_callbacks = {
 	.conn_cmd_data_begin = cmd_data_begin,
 	.conn_cmd_data_continue = cmd_data_continue,
 
+	.conn_trans_start = client_connection_trans_start,
 	.conn_trans_free = client_connection_trans_free,
 
 	.conn_state_changed = client_connection_state_changed,
@@ -348,6 +372,9 @@ static const struct smtp_server_callbacks lmtp_callbacks = {
 
 static const struct lmtp_client_vfuncs lmtp_client_vfuncs = {
 	.destroy = client_default_destroy,
+
+	.trans_start = client_default_trans_start,
+	.trans_free = client_default_trans_free,
 
 	.cmd_mail = client_default_cmd_mail,
 	.cmd_rcpt = client_default_cmd_rcpt,
