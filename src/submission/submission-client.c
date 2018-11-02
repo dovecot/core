@@ -448,6 +448,7 @@ void client_disconnect(struct client *client, const char *enh_code,
 		       const char *reason)
 {
 	struct smtp_server_connection *conn;
+	const char *log_reason;
 
 	if (client->disconnected)
 		return;
@@ -466,10 +467,12 @@ void client_disconnect(struct client *client, const char *enh_code,
 	}
 
 	if (reason == NULL)
-		reason = "Connection closed";
+		log_reason = reason = "Connection closed";
+	else
+		log_reason = t_str_oneline(reason);
 	i_info("Disconnect from %s: %s %s (state=%s)",
 	       client_remote_id(client),
-	       reason, client_stats(client),
+	       log_reason, client_stats(client),
 	       client_state_get_name(client));
 
 	conn = client->conn;
