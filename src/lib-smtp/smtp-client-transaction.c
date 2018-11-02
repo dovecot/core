@@ -802,7 +802,18 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 	else
 		smtp_client_transaction_rcpt_denied(&rcpt);
 
-	rcpt_callback(reply, context);
+	/* call the callback */
+	{
+		enum smtp_client_transaction_state state;
+		struct smtp_client_transaction *tmp_trans = trans;
+
+		smtp_client_transaction_ref(tmp_trans);
+		rcpt_callback(reply, context);
+		state = trans->state;
+		smtp_client_transaction_unref(&tmp_trans);
+		if (state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
+			return;
+	}
 
 	smtp_client_transaction_try_complete(trans);
 }
