@@ -1111,6 +1111,8 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 
 	if (reason == NULL)
 		reason = smtp_server_connection_get_disconnect_reason(conn);
+	else
+		reason = t_str_oneline(reason);
 	smtp_server_connection_debug(conn, "Disconnected: %s", reason);
 	conn->disconnect_reason = i_strdup(reason);
 
