@@ -3,6 +3,7 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
+#include "str.h"
 #include "printf-format-fix.h"
 #include "strfuncs.h"
 #include "array.h"
@@ -318,6 +319,55 @@ const char *t_str_replace(const char *str, char from, char to)
 	}
 	out[i] = '\0';
 	return out;
+}
+
+const char *t_str_oneline(const char *str)
+{
+	string_t *out;
+	size_t len;
+	const char *p, *pend, *poff;
+	bool new_line;
+
+	if (strpbrk(str, "\r\n") == NULL)
+		return str;
+
+	len = strlen(str);
+	out = t_str_new(len + 1);
+	new_line = TRUE;
+	p = poff = str;
+	pend = str + len;
+	while (p < pend) {
+		switch (*p) {
+		case '\r':
+			if (p > poff)
+				str_append_data(out,  poff, p - poff);
+			/* just drop \r */
+			poff = p + 1;
+			break;
+		case '\n':
+			if (p > poff)
+				str_append_data(out,  poff, p - poff);
+			if (new_line) {
+				/* coalesce multiple \n into a single space */
+			} else {
+				/* first \n after text */
+				str_append_c(out, ' ');
+				new_line = TRUE;
+			}
+			poff = p + 1;
+			break;
+		default:
+			new_line = FALSE;
+			break;
+		}
+		p++;
+	}
+
+	if (new_line && str_len(out) > 0)
+		str_truncate(out, str_len(out) - 1);
+	else if (p > poff)
+		str_append_data(out,  poff, p - poff);
+	return str_c(out);
 }
 
 int i_strocpy(char *dest, const char *src, size_t dstsize)

@@ -175,6 +175,45 @@ static void test_t_str_replace(void)
 	test_end();
 }
 
+static void test_t_str_oneline(void)
+{
+	test_begin("t_str_oneline");
+	test_assert(strcmp(t_str_oneline("\n"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\r"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\n\n"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\r\r"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\r\n"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\r\n\r\n"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\n\r"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\n\r\n\r"), "") == 0);
+	test_assert(strcmp(t_str_oneline("foo"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("\nfoo"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\n"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("\nfoo\n"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\n\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("\nfoo\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\nbar\n"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\nbar\nbaz"), "foo bar baz") == 0);
+	test_assert(strcmp(t_str_oneline("\rfoo"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("\rfoo\r"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\rbar"), "foobar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\rbar"), "foobar") == 0);
+	test_assert(strcmp(t_str_oneline("\rfoo\rbar"), "foobar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\rbar\r"), "foobar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\rbar\rbaz"), "foobarbaz") == 0);
+	test_assert(strcmp(t_str_oneline("\r\nfoo\r\n"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\n"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("\r\nfoo"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\n\r\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("\r\nfoo\r\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\nbar\r\n"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\nbar\r\nbaz"), "foo bar baz") == 0);
+	test_end();
+}
+
 static void test_t_str_trim(void)
 {
 	test_begin("t_str_trim");
@@ -416,6 +455,7 @@ void test_strfuncs(void)
 	test_t_strsplit();
 	test_t_strsplit_spaces();
 	test_t_str_replace();
+	test_t_str_oneline();
 	test_t_str_trim();
 	test_t_str_ltrim();
 	test_t_str_rtrim();
