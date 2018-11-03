@@ -531,6 +531,12 @@ void smtp_server_command_input_unlock(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_command_input_capture(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_cmd_input_callback_t *callback);
 
+/* EHLO */
+
+struct smtp_server_reply *
+smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd);
+void smtp_server_cmd_ehlo_reply_default(struct smtp_server_cmd_ctx *cmd);
+
 /* AUTH */
 
 void smtp_server_cmd_auth_send_challenge(struct smtp_server_cmd_ctx *cmd,
