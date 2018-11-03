@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "array.h"
 #include "smtp-syntax.h"
 
 #include "smtp-server-private.h"
@@ -129,8 +130,29 @@ void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd,
 struct smtp_server_reply *
 smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
 {
+	static struct {
+		const char *name;
+		void (*add)(struct smtp_server_reply *reply);
+	} standard_caps[] = {
+		/* Sorted alphabetically */
+		{ "8BITMIME", smtp_server_reply_ehlo_add_8bitmime },
+		{ "BINARYMIME", smtp_server_reply_ehlo_add_binarymime },
+		{ "CHUNKING", smtp_server_reply_ehlo_add_chunking },
+		{ "DSN", smtp_server_reply_ehlo_add_dsn },
+		{ "ENHANCEDSTATUSCODES",
+		  smtp_server_reply_ehlo_add_enhancedstatuscodes },
+		{ "PIPELINING", smtp_server_reply_ehlo_add_pipelining },
+		{ "SIZE", smtp_server_reply_ehlo_add_size },
+		{ "STARTTLS", smtp_server_reply_ehlo_add_starttls },
+		{ "VRFY", smtp_server_reply_ehlo_add_vrfy },
+		{ "XCLIENT", smtp_server_reply_ehlo_add_xclient }
+	};
+	const unsigned int standard_caps_count = N_ELEMENTS(standard_caps);
+	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
 	struct smtp_server_cmd_helo *helo_data = command->data;
+	const struct smtp_capability_extra *extra_caps = NULL;
+	unsigned int extra_caps_count, i, j;
 	struct smtp_server_reply *reply;
 
 	i_assert(cmd->cmd->reg->func == smtp_server_cmd_ehlo);
@@ -139,17 +161,27 @@ smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
 	if (helo_data->helo.old_smtp)
 		return reply;
 
-	smtp_server_reply_ehlo_add_8bitmime(reply);
-	smtp_server_reply_ehlo_add_binarymime(reply);
-	smtp_server_reply_ehlo_add_chunking(reply);
-	smtp_server_reply_ehlo_add_dsn(reply);
-	smtp_server_reply_ehlo_add_enhancedstatuscodes(reply);
-	smtp_server_reply_ehlo_add_pipelining(reply);
-	smtp_server_reply_ehlo_add_size(reply);
-	smtp_server_reply_ehlo_add_starttls(reply);
-	smtp_server_reply_ehlo_add_vrfy(reply);
-	smtp_server_reply_ehlo_add_xclient(reply);
+	extra_caps_count = 0;
+	if (array_is_created(&conn->extra_capabilities)) {
+		extra_caps = array_get(&conn->extra_capabilities,
+				       &extra_caps_count);
+	}
 
+	i = j = 0;
+	while (i < standard_caps_count || j < extra_caps_count) {
+		if (i < standard_caps_count && 
+		    (j >= extra_caps_count ||
+		     strcasecmp(standard_caps[i].name,
+				extra_caps[j].name) < 0)) {
+			standard_caps[i].add(reply);
+			i++;
+		} else {
+			smtp_server_reply_ehlo_add_params(
+				reply, extra_caps[j].name,
+				extra_caps[j].params);
+			j++;
+		}
+	}
 	return reply;
 }
 

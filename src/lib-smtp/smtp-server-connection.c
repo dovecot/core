@@ -14,6 +14,7 @@
 #include "master-service.h"
 #include "master-service-ssl.h"
 
+#include "smtp-syntax.h"
 #include "smtp-reply-parser.h"
 #include "smtp-command-parser.h"
 #include "smtp-server-private.h"
@@ -1434,6 +1435,49 @@ void smtp_server_connection_set_capabilities(
 	struct smtp_server_connection *conn, enum smtp_capability capabilities)
 {
 	conn->set.capabilities = capabilities;
+}
+
+void smtp_server_connection_add_extra_capability(
+	struct smtp_server_connection *conn,
+	const struct smtp_capability_extra *cap)
+{
+	const struct smtp_capability_extra *cap_idx;
+	struct smtp_capability_extra cap_new;
+	unsigned int insert_idx;
+	pool_t pool = conn->pool;
+
+	/* Avoid committing protocol errors */
+	i_assert(smtp_ehlo_keyword_is_valid(cap->name));
+	i_assert(smtp_ehlo_params_are_valid(cap->params));
+
+	/* Cannot override standard capabiltiies */
+	i_assert(smtp_capability_find_by_name(cap->name)
+		 == SMTP_CAPABILITY_NONE);
+
+	if (!array_is_created(&conn->extra_capabilities))
+		p_array_init(&conn->extra_capabilities, pool, 4);
+
+	/* Keep array sorted */
+	insert_idx = array_count(&conn->extra_capabilities);
+	array_foreach(&conn->extra_capabilities, cap_idx) {
+		int cmp = strcasecmp(cap_idx->name, cap->name);
+
+		/* Prohibit duplicates */
+		i_assert(cmp != 0);
+
+		if (cmp > 0) {
+			insert_idx = array_foreach_idx(
+				&conn->extra_capabilities, cap_idx);
+			break;
+		}
+	}
+
+	i_zero(&cap_new);
+	cap_new.name = p_strdup(pool, cap->name);
+	if (cap->params != NULL)
+		cap_new.params = p_strarray_dup(pool, cap->params);
+
+	array_insert(&conn->extra_capabilities, insert_idx, &cap_new, 1);
 }
 
 void *smtp_server_connection_get_context(struct smtp_server_connection *conn)
