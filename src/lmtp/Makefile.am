@@ -40,7 +40,7 @@ lmtp_SOURCES = \
 	lmtp-settings.c
 
 noinst_HEADERS = \
-	main.h \
+	lmtp-common.h \
 	client.h \
 	commands.h \
 	lmtp-recipient.h \

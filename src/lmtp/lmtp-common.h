@@ -1,5 +1,5 @@
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef LMTP_COMMON_H
+#define LMTP_COMMON_H
 
 extern char *dns_client_socket_path, *base_dir;
 extern struct mail_storage_service_ctx *storage_service;
