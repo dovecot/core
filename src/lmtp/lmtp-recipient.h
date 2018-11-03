@@ -1,5 +1,5 @@
-#ifndef LMTP_COMMON_H
-#define LMTP_COMMON_H
+#ifndef LMTP_RECIPIENT_H
+#define LMTP_RECIPIENT_H
 
 struct smtp_address;
 struct smtp_server_cmd_ctx;

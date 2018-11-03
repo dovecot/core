@@ -24,8 +24,8 @@
 #include "lda-settings.h"
 #include "client.h"
 #include "main.h"
-#include "lmtp-common.h"
 #include "lmtp-settings.h"
+#include "lmtp-recipient.h"
 #include "lmtp-proxy.h"
 
 #define LMTP_MAX_REPLY_SIZE 4096
