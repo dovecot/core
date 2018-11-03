@@ -1,7 +1,6 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
-#include "array.h"
+#include "lmtp-common.h"
 #include "ioloop.h"
 #include "hostpid.h"
 #include "path-util.h"
@@ -14,9 +13,7 @@
 #include "mail-storage-service.h"
 #include "smtp-submit-settings.h"
 #include "lda-settings.h"
-#include "lmtp-settings.h"
 #include "client.h"
-#include "lmtp-common.h"
 
 #include <unistd.h>
 
