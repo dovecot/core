@@ -19,6 +19,4 @@ extern struct smtp_server *lmtp_server;
 
 void lmtp_anvil_init(void);
 
-void listener_client_destroyed(void);
-
 #endif
