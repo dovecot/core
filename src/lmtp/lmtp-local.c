@@ -26,7 +26,7 @@
 #include "lmtp-local.h"
 
 struct lmtp_local_recipient {
-	struct lmtp_recipient rcpt;
+	struct lmtp_recipient *rcpt;
 	char *session_id;
 
 	char *detail;
@@ -120,7 +120,7 @@ lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *llrcpt,
 				struct smtp_server_cmd_ctx *cmd,
 				const char *error)
 {
-	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 	struct smtp_address *address = rcpt->path;
 	unsigned int rcpt_idx = rcpt->index;
 	struct lda_settings *lda_set =
@@ -152,7 +152,7 @@ lmtp_local_rcpt_fail_all(struct lmtp_local *local,
 
 	llrcpts = array_get(&local->rcpt_to, &count);
 	for (i = 0; i < count; i++) {
-		struct smtp_server_recipient *rcpt = llrcpts[i]->rcpt.rcpt;
+		struct smtp_server_recipient *rcpt = llrcpts[i]->rcpt->rcpt;
 
 		smtp_server_reply_index(cmd, rcpt->index,
 			status, enh_code, "<%s> %s",
@@ -167,8 +167,8 @@ lmtp_local_rcpt_fail_all(struct lmtp_local *local,
 static int
 lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 {
-	struct client *client = llrcpt->rcpt.client;
-	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct client *client = llrcpt->rcpt->client;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_address *address = rcpt->path;
 	struct mail_user *user;
@@ -232,13 +232,16 @@ static void
 lmtp_local_rcpt_approved(struct smtp_server_recipient *rcpt,
 			 struct lmtp_local_recipient *llrcpt)
 {
-	struct client *client = llrcpt->rcpt.client;
+	struct client *client = llrcpt->rcpt->client;
+	struct lmtp_recipient *drcpt;
 
 	/* resolve duplicate recipient */
-	llrcpt->duplicate = (struct lmtp_local_recipient *)
-		lmtp_recipient_find_duplicate(&llrcpt->rcpt, rcpt->trans);
-	i_assert(llrcpt->duplicate == NULL ||
-		 llrcpt->duplicate->duplicate == NULL);
+	drcpt = lmtp_recipient_find_duplicate(llrcpt->rcpt, rcpt->trans);
+	if (drcpt != NULL) {
+		i_assert(drcpt->type == LMTP_RECIPIENT_TYPE_LOCAL);
+		llrcpt->duplicate = drcpt->backend_context;
+		i_assert(llrcpt->duplicate->duplicate == NULL);
+	}
 
 	/* add to local recipients */
 	array_append(&client->local->rcpt_to, &llrcpt, 1);
@@ -247,7 +250,7 @@ lmtp_local_rcpt_approved(struct smtp_server_recipient *rcpt,
 static bool
 lmtp_local_rcpt_anvil_finish(struct lmtp_local_recipient *llrcpt)
 {
-	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	int ret;
 
@@ -263,8 +266,8 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 {
 	struct lmtp_local_recipient *llrcpt =
 		(struct lmtp_local_recipient *)context;
-	struct client *client = llrcpt->rcpt.client;
-	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct client *client = llrcpt->rcpt->client;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_address *address = rcpt->path;
 	const struct mail_storage_service_input *input;
@@ -290,12 +293,12 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 	}
 }
 
-int lmtp_local_rcpt(struct client *client,
-	struct smtp_server_cmd_ctx *cmd,
-	struct smtp_server_recipient *rcpt,
-	const char *username, const char *detail)
+int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
+		    struct lmtp_recipient *lrcpt, const char *username,
+		    const char *detail)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	const struct smtp_address *address = rcpt->path;
 	struct smtp_server_transaction *trans;
 	struct lmtp_local_recipient *llrcpt;
@@ -350,12 +353,13 @@ int lmtp_local_rcpt(struct client *client,
 		client->local = lmtp_local_init(client);
 
 	llrcpt = p_new(rcpt->pool, struct lmtp_local_recipient, 1);
-	lmtp_recipient_init(&llrcpt->rcpt, client,
-			    LMTP_RECIPIENT_TYPE_LOCAL, rcpt);
-
+	llrcpt->rcpt = lrcpt;
 	llrcpt->detail = p_strdup(rcpt->pool, detail);
 	llrcpt->service_user = service_user;
 	llrcpt->session_id = p_strdup(rcpt->pool, session_id);
+
+	lrcpt->type = LMTP_RECIPIENT_TYPE_LOCAL;
+	lrcpt->backend_context = llrcpt;
 
 	smtp_server_recipient_add_hook(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY,
@@ -363,7 +367,6 @@ int lmtp_local_rcpt(struct client *client,
 	smtp_server_recipient_add_hook(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
 		lmtp_local_rcpt_approved, llrcpt);
-	rcpt->context = llrcpt;
 
 	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
 		(void)lmtp_local_rcpt_anvil_finish(llrcpt);
@@ -402,6 +405,8 @@ void lmtp_local_add_headers(struct lmtp_local *local,
 
 	llrcpts = array_get(&local->rcpt_to, &count);
 	if (count == 1) {
+		struct smtp_server_recipient *rcpt = llrcpts[0]->rcpt->rcpt;
+
 		sets = mail_storage_service_user_get_set(llrcpts[0]->service_user);
 		lmtp_set = sets[3];
 
@@ -409,10 +414,10 @@ void lmtp_local_add_headers(struct lmtp_local *local,
 		case LMTP_HDR_DELIVERY_ADDRESS_NONE:
 			break;
 		case LMTP_HDR_DELIVERY_ADDRESS_FINAL:
-			rcpt_to = llrcpts[0]->rcpt.rcpt->path;
+			rcpt_to = rcpt->path;
 			break;
 		case LMTP_HDR_DELIVERY_ADDRESS_ORIGINAL:
-			rcpt_to = llrcpts[0]->rcpt.rcpt->params.orcpt.addr;
+			rcpt_to = rcpt->params.orcpt.addr;
 			break;
 		}
 	}
@@ -431,7 +436,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 		   struct mail_deliver_session *session)
 {
 	struct client *client = local->client;
-	struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 	struct smtp_address *rcpt_to = rcpt->path;
 	unsigned int rcpt_idx = rcpt->index;
 	struct mail_storage_service_user *service_user = llrcpt->service_user;
@@ -620,11 +625,11 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 	llrcpts = array_get(&local->rcpt_to, &count);
 	for (i = 0; i < count; i++) {
 		struct lmtp_local_recipient *llrcpt = llrcpts[i];
-		struct smtp_server_recipient *rcpt = llrcpt->rcpt.rcpt;
+		struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 
 		if (llrcpt->duplicate != NULL) {
 			struct smtp_server_recipient *drcpt =
-				llrcpt->duplicate->rcpt.rcpt;
+				llrcpt->duplicate->rcpt->rcpt;
 			/* don't deliver more than once to the same recipient */
 			smtp_server_reply_submit_duplicate(cmd, rcpt->index,
 							   drcpt->index);

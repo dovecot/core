@@ -45,7 +45,7 @@ struct lmtp_proxy_rcpt_settings {
 };
 
 struct lmtp_proxy_recipient {
-	struct lmtp_recipient rcpt;
+	struct lmtp_recipient *rcpt;
 	struct lmtp_proxy_connection *conn;
 
 	struct smtp_address *address;
@@ -424,7 +424,7 @@ static void
 lmtp_proxy_rcpt_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 			 struct lmtp_proxy_recipient *lprcpt)
 {
-	struct client *client = lprcpt->rcpt.client;
+	struct client *client = lprcpt->rcpt->client;
 
 	/* add to proxy recipients */
 	array_append(&client->proxy->rcpt_to, &lprcpt, 1);
@@ -434,7 +434,7 @@ static void
 lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 		   struct lmtp_proxy_recipient *lprcpt)
 {
-	struct smtp_server_recipient *rcpt = lprcpt->rcpt.rcpt;
+	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
 	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_reply reply;
 
@@ -455,13 +455,14 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 
 int lmtp_proxy_rcpt(struct client *client,
 		    struct smtp_server_cmd_ctx *cmd,
-		    struct smtp_server_recipient *rcpt,
+		    struct lmtp_recipient *lrcpt,
 		    const char *username, const char *detail,
 		    char delim)
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
 	struct lmtp_proxy_connection *conn;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct lmtp_proxy_recipient *lprcpt;
 	struct smtp_server_transaction *trans;
 	struct smtp_address *address = rcpt->path;
@@ -561,15 +562,16 @@ int lmtp_proxy_rcpt(struct client *client,
 	pool_unref(&auth_pool);
 
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
-	lmtp_recipient_init(&lprcpt->rcpt, client,
-			    LMTP_RECIPIENT_TYPE_PROXY, rcpt);
+	lprcpt->rcpt = lrcpt;
 	lprcpt->address = smtp_address_clone(rcpt->pool, address);
 	lprcpt->conn = conn;
+
+	lrcpt->type = LMTP_RECIPIENT_TYPE_PROXY;
+	lrcpt->backend_context = lprcpt;
 
 	smtp_server_recipient_add_hook(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
 		lmtp_proxy_rcpt_approved, lprcpt);
-	rcpt->context = lprcpt;
 
 	relay_rcpt = smtp_client_transaction_add_pool_rcpt(
 		conn->lmtp_trans, rcpt->pool, address, &rcpt->params,
@@ -588,7 +590,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 		   struct lmtp_proxy_recipient *lprcpt)
 {
 	struct lmtp_proxy_connection *conn = lprcpt->conn;
-	struct smtp_server_recipient *rcpt = lprcpt->rcpt.rcpt;
+	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
 	struct lmtp_proxy *proxy = conn->proxy;
 	struct smtp_server_cmd_ctx *cmd = proxy->pending_data_cmd;
 	struct smtp_server_transaction *trans = proxy->trans;

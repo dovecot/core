@@ -11,6 +11,7 @@
 #include "lda-settings.h"
 #include "mail-user.h"
 #include "smtp-address.h"
+#include "lmtp-recipient.h"
 #include "lmtp-proxy.h"
 #include "lmtp-local.h"
 #include "mail-deliver.h"
@@ -42,23 +43,26 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_recipient *rcpt)
 {
 	struct client *client = (struct client *)conn_ctx;
+	struct lmtp_recipient *lrcpt;
 	const char *username, *detail;
 	char delim = '\0';
 	int ret;
+
+	lrcpt = lmtp_recipient_create(client, rcpt);
 
 	smtp_address_detail_parse_temp(
 		client->unexpanded_lda_set->recipient_delimiter,
 		rcpt->path, &username, &delim, &detail);
 	if (client->lmtp_set->lmtp_proxy) {
 		/* proxied? */
-		if ((ret=lmtp_proxy_rcpt(client, cmd, rcpt,
+		if ((ret=lmtp_proxy_rcpt(client, cmd, lrcpt,
 					 username, detail, delim)) != 0)
 			return (ret < 0 ? -1 : 0);
 		/* no */
 	}
 
 	/* local delivery */
-	return lmtp_local_rcpt(client, cmd, rcpt, username, detail);
+	return lmtp_local_rcpt(client, cmd, lrcpt, username, detail);
 }
 
 /*
