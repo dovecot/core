@@ -1,8 +1,12 @@
 /* Copyright (c) 2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "smtp-server.h"
 #include "lmtp-recipient.h"
+
+struct lmtp_recipient_module_register
+lmtp_recipient_module_register = { 0 };
 
 struct lmtp_recipient *
 lmtp_recipient_create(struct client *client,
@@ -15,6 +19,8 @@ lmtp_recipient_create(struct client *client,
 	lrcpt->client = client;
 
 	rcpt->context = lrcpt;
+
+	p_array_init(&lrcpt->module_contexts, rcpt->pool, 5);
 
 	return lrcpt;
 }
