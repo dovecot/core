@@ -20,6 +20,11 @@ void lmtp_local_add_headers(struct lmtp_local *local,
 			    struct smtp_server_transaction *trans,
 			    string_t *headers);
 
+int lmtp_local_default_deliver(struct client *client,
+			       struct lmtp_recipient *lrcpt,
+			       struct mail_deliver_context *dctx,
+			       struct mail_storage **storage_r);
+
 void lmtp_local_data(struct client *client,
 		     struct smtp_server_cmd_ctx *cmd,
 		     struct smtp_server_transaction *trans,

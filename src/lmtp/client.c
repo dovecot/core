@@ -383,4 +383,6 @@ static const struct lmtp_client_vfuncs lmtp_client_vfuncs = {
 	.cmd_mail = client_default_cmd_mail,
 	.cmd_rcpt = client_default_cmd_rcpt,
 	.cmd_data = client_default_cmd_data,
+
+	.local_deliver = lmtp_local_default_deliver,
 };

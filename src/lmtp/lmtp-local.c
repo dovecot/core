@@ -436,7 +436,8 @@ lmtp_local_deliver(struct lmtp_local *local,
 		   struct mail_deliver_session *session)
 {
 	struct client *client = local->client;
-	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
+	struct lmtp_recipient *lrcpt = llrcpt->rcpt;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct smtp_address *rcpt_to = rcpt->path;
 	unsigned int rcpt_idx = rcpt->index;
 	struct mail_storage_service_user *service_user = llrcpt->service_user;
@@ -572,7 +573,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 				   &trans->timestamp);
 	dctx.delivery_time_started = delivery_time_started;
 
-	if (mail_deliver(&dctx, &storage) == 0) {
+	if (client->v.local_deliver(client, lrcpt, &dctx, &storage) == 0) {
 		if (dctx.dest_mail != NULL) {
 			i_assert(local->first_saved_mail == NULL);
 			local->first_saved_mail = dctx.dest_mail;
@@ -607,6 +608,14 @@ lmtp_local_deliver(struct lmtp_local *local,
 	}
 	lmtp_local_rcpt_anvil_disconnect(llrcpt);
 	return ret;
+}
+
+int lmtp_local_default_deliver(struct client *client ATTR_UNUSED,
+			       struct lmtp_recipient *lrcpt ATTR_UNUSED,
+			       struct mail_deliver_context *dctx,
+			       struct mail_storage **storage_r)
+{
+	return mail_deliver(dctx, storage_r);
 }
 
 static uid_t

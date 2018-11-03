@@ -6,6 +6,8 @@
 
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
+struct mail_storage;
+struct mail_deliver_context;
 union lmtp_module_context;
 struct lmtp_recipient;
 struct client;
@@ -42,6 +44,11 @@ struct lmtp_client_vfuncs {
 			struct smtp_server_cmd_ctx *cmd,
 			struct smtp_server_transaction *trans,
 			struct istream *data_input, uoff_t data_size);
+
+	int (*local_deliver)(struct client *client,
+			     struct lmtp_recipient *lrcpt,
+			     struct mail_deliver_context *dctx,
+			     struct mail_storage **storage_r);
 };
 
 struct client {
