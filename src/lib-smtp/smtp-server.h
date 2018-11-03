@@ -427,6 +427,9 @@ void smtp_server_connection_get_proxy_data(struct smtp_server_connection *conn,
 
 void smtp_server_connection_set_capabilities(
 	struct smtp_server_connection *conn, enum smtp_capability capabilities);
+void smtp_server_connection_add_extra_capability(
+	struct smtp_server_connection *conn,
+	const struct smtp_capability_extra *cap);
 
 void smtp_server_connection_register_mail_param(
 	struct smtp_server_connection *conn, const char *param);

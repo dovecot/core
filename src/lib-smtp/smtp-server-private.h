@@ -144,6 +144,7 @@ struct smtp_server_connection {
 
 	struct smtp_server_settings set;
 
+	ARRAY(struct smtp_capability_extra) extra_capabilities;
 	ARRAY_TYPE(const_string) mail_param_extensions; /* NULL-terminated */
 	ARRAY_TYPE(const_string) rcpt_param_extensions; /* NULL-terminated */
 
