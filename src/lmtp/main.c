@@ -23,11 +23,22 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
+struct smtp_server *lmtp_server = NULL;
+
 char *dns_client_socket_path, *base_dir;
 struct mail_storage_service_ctx *storage_service;
 struct anvil_client *anvil;
 
-struct smtp_server *lmtp_server;
+lmtp_client_created_func_t *hook_client_created = NULL;
+
+lmtp_client_created_func_t *
+lmtp_client_created_hook_set(lmtp_client_created_func_t *new_hook)
+{
+	lmtp_client_created_func_t *old_hook = hook_client_created;
+
+	hook_client_created = new_hook;
+	return old_hook;
+}
 
 void lmtp_anvil_init(void)
 {
