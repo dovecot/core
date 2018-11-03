@@ -533,6 +533,29 @@ void smtp_server_reply_ehlo_add_param(struct smtp_server_reply *reply,
 	str_append(textbuf, "\r\n");
 }
 
+void smtp_server_reply_ehlo_add_params(struct smtp_server_reply *reply,
+				       const char *keyword,
+				       const char *const *params)
+{
+	string_t *textbuf;
+
+	i_assert(!reply->submitted);
+	i_assert(reply->content != NULL);
+	textbuf = reply->content->text;
+
+	reply->content->last_line = str_len(textbuf);
+	str_append(textbuf, reply->content->status_prefix);
+	str_append(textbuf, keyword);
+	if (params != NULL) {
+		while (*params != NULL) {
+			str_append_c(textbuf, ' ');
+			str_append(textbuf, *params);
+			params++;
+		}
+	}
+	str_append(textbuf, "\r\n");
+}
+
 void smtp_server_reply_ehlo_add_8bitmime(struct smtp_server_reply *reply)
 {
 	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
