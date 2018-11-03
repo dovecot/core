@@ -18,7 +18,7 @@
 #include "lmtp-local.h"
 #include "mail-deliver.h"
 #include "mail-error.h"
-#include "main.h"
+#include "lmtp-common.h"
 #include "client.h"
 #include "commands.h"
 

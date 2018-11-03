@@ -23,7 +23,7 @@
 #include "mail-storage-service.h"
 #include "lda-settings.h"
 #include "client.h"
-#include "main.h"
+#include "lmtp-common.h"
 #include "lmtp-settings.h"
 #include "lmtp-recipient.h"
 #include "lmtp-proxy.h"

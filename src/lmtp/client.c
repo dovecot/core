@@ -21,7 +21,7 @@
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "raw-storage.h"
-#include "main.h"
+#include "lmtp-common.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
 #include "lmtp-local.h"
