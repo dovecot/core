@@ -18,8 +18,8 @@ void lmtp_proxy_deinit(struct lmtp_proxy **proxy);
 
 int lmtp_proxy_rcpt(struct client *client,
 		    struct smtp_server_cmd_ctx *cmd,
-		    struct smtp_server_recipient *rcpt,
-		    const char *username, const char *detail, char delim);
+		    struct lmtp_recipient *rcpt, const char *username,
+		    const char *detail, char delim);
 
 void lmtp_proxy_data(struct client *client,
 		     struct smtp_server_cmd_ctx *cmd,

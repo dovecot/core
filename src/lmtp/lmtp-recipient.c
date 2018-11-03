@@ -4,14 +4,19 @@
 #include "smtp-server.h"
 #include "lmtp-recipient.h"
 
-void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
-			 struct client *client,
-			 enum lmtp_recipient_type type,
-			 struct smtp_server_recipient *rcpt)
+struct lmtp_recipient *
+lmtp_recipient_create(struct client *client,
+		      struct smtp_server_recipient *rcpt)
 {
+	struct lmtp_recipient *lrcpt;
+
+	lrcpt = p_new(rcpt->pool, struct lmtp_recipient, 1);
+	lrcpt->rcpt = rcpt;	
 	lrcpt->client = client;
-	lrcpt->type = type;
-	lrcpt->rcpt = rcpt;
+
+	rcpt->context = lrcpt;
+
+	return lrcpt;
 }
 
 struct lmtp_recipient *
