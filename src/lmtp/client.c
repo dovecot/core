@@ -163,8 +163,13 @@ struct client *client_create(int fd_in, int fd_out,
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
-	smtp_server_connection_start(client->conn);
 	i_info("Connect from %s", client_remote_id(client));
+
+	if (hook_client_created != NULL)
+		hook_client_created(&client);
+
+	smtp_server_connection_start(client->conn);
+
 	refresh_proctitle();
 	return client;
 }
