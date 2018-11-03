@@ -507,6 +507,108 @@ void smtp_server_reply_ehlo_add_param(struct smtp_server_reply *reply,
 	str_append(textbuf, "\r\n");
 }
 
+void smtp_server_reply_ehlo_add_8bitmime(struct smtp_server_reply *reply)
+{
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+
+	if ((caps & SMTP_CAPABILITY_8BITMIME) == 0)
+		return;
+	smtp_server_reply_ehlo_add(reply, "8BITMIME");
+}
+
+void smtp_server_reply_ehlo_add_binarymime(struct smtp_server_reply *reply)
+{
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+
+	if ((caps & SMTP_CAPABILITY_BINARYMIME) == 0 ||
+	    (caps & SMTP_CAPABILITY_CHUNKING) == 0)
+		return;
+	smtp_server_reply_ehlo_add(reply, "BINARYMIME");
+}
+
+void smtp_server_reply_ehlo_add_chunking(struct smtp_server_reply *reply)
+{
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+
+	if ((caps & SMTP_CAPABILITY_CHUNKING) == 0)
+		return;
+	smtp_server_reply_ehlo_add(reply, "CHUNKING");
+}
+
+void smtp_server_reply_ehlo_add_dsn(struct smtp_server_reply *reply)
+{
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+
+	if ((caps & SMTP_CAPABILITY_DSN) == 0)
+		return;
+	smtp_server_reply_ehlo_add(reply, "DSN");
+}
+
+void smtp_server_reply_ehlo_add_enhancedstatuscodes(
+	struct smtp_server_reply *reply)
+{
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+
+	if ((caps & SMTP_CAPABILITY_ENHANCEDSTATUSCODES) == 0)
+		return;
+	smtp_server_reply_ehlo_add(reply, "ENHANCEDSTATUSCODES");
+}
+
+void smtp_server_reply_ehlo_add_pipelining(struct smtp_server_reply *reply)
+{
+	smtp_server_reply_ehlo_add(reply, "PIPELINING");
+}
+
+void smtp_server_reply_ehlo_add_size(struct smtp_server_reply *reply)
+{
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+	uoff_t cap_size = conn->set.max_message_size;
+
+	if ((caps & SMTP_CAPABILITY_SIZE) == 0)
+		return;
+
+	if (cap_size > 0 && cap_size != (uoff_t)-1) {
+		smtp_server_reply_ehlo_add_param(reply,
+			"SIZE", "%"PRIuUOFF_T, cap_size);
+	} else {
+		smtp_server_reply_ehlo_add(reply, "SIZE");
+	}
+}
+
+void smtp_server_reply_ehlo_add_starttls(struct smtp_server_reply *reply)
+{
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+
+	if ((caps & SMTP_CAPABILITY_STARTTLS) == 0)
+		return;
+	smtp_server_reply_ehlo_add(reply, "STARTTLS");
+}
+
+void smtp_server_reply_ehlo_add_vrfy(struct smtp_server_reply *reply)
+{
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+
+	if ((caps & SMTP_CAPABILITY_VRFY) == 0)
+		return;
+	smtp_server_reply_ehlo_add(reply, "VRFY");
+}
+
 void smtp_server_reply_ehlo_add_xclient(struct smtp_server_reply *reply)
 {
 	static const char *base_fields =
