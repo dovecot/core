@@ -130,9 +130,7 @@ struct smtp_server_reply *
 smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_cmd_helo *helo_data = command->data;
-	enum smtp_capability caps = conn->set.capabilities;
 	struct smtp_server_reply *reply;
 
 	i_assert(cmd->cmd->reg->func == smtp_server_cmd_ehlo);
@@ -141,31 +139,15 @@ smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
 	if (helo_data->helo.old_smtp)
 		return reply;
 
-	if ((caps & SMTP_CAPABILITY_8BITMIME) != 0)
-		smtp_server_reply_ehlo_add(reply, "8BITMIME");
-	if ((caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
-		(caps & SMTP_CAPABILITY_CHUNKING) != 0)
-		smtp_server_reply_ehlo_add(reply, "BINARYMIME");
-	if ((caps & SMTP_CAPABILITY_CHUNKING) != 0)
-		smtp_server_reply_ehlo_add(reply, "CHUNKING");
-	if ((caps & SMTP_CAPABILITY_DSN) != 0)
-		smtp_server_reply_ehlo_add(reply, "DSN");
-	if ((caps & SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0) {
-		smtp_server_reply_ehlo_add(reply, "ENHANCEDSTATUSCODES");
-	}
-	smtp_server_reply_ehlo_add(reply, "PIPELINING");
-	if ((caps & SMTP_CAPABILITY_SIZE) != 0) {
-		uoff_t cap_size = conn->set.max_message_size;
-		if (cap_size > 0 && cap_size != (uoff_t)-1) {
-			smtp_server_reply_ehlo_add_param(reply,
-				"SIZE", "%"PRIuUOFF_T, cap_size);
-		} else {
-			smtp_server_reply_ehlo_add(reply, "SIZE");
-		}
-	}
-	if ((caps & SMTP_CAPABILITY_STARTTLS) != 0)
-		smtp_server_reply_ehlo_add(reply, "STARTTLS");
-	smtp_server_reply_ehlo_add(reply, "VRFY");
+	smtp_server_reply_ehlo_add_8bitmime(reply);
+	smtp_server_reply_ehlo_add_binarymime(reply);
+	smtp_server_reply_ehlo_add_chunking(reply);
+	smtp_server_reply_ehlo_add_dsn(reply);
+	smtp_server_reply_ehlo_add_enhancedstatuscodes(reply);
+	smtp_server_reply_ehlo_add_pipelining(reply);
+	smtp_server_reply_ehlo_add_size(reply);
+	smtp_server_reply_ehlo_add_starttls(reply);
+	smtp_server_reply_ehlo_add_vrfy(reply);
 	smtp_server_reply_ehlo_add_xclient(reply);
 
 	return reply;

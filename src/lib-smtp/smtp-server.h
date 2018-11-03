@@ -633,6 +633,17 @@ void smtp_server_reply_ehlo_add(struct smtp_server_reply *reply,
 				const char *keyword);
 void smtp_server_reply_ehlo_add_param(struct smtp_server_reply *reply,
 	const char *keyword, const char *param_fmt, ...) ATTR_FORMAT(3, 4);
+
+void smtp_server_reply_ehlo_add_8bitmime(struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_binarymime(struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_chunking(struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_dsn(struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_enhancedstatuscodes(
+	struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_pipelining(struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_size(struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_starttls(struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_vrfy(struct smtp_server_reply *reply);
 void smtp_server_reply_ehlo_add_xclient(struct smtp_server_reply *reply);
 
 #endif
