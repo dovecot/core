@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "smtp-server.h"
-#include "lmtp-common.h"
+#include "lmtp-recipient.h"
 
 void lmtp_recipient_init(struct lmtp_recipient *lrcpt,
 			 struct client *client,

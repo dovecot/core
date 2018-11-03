@@ -28,8 +28,8 @@
 #include "lmtp-settings.h"
 #include "client.h"
 #include "main.h"
-#include "lmtp-common.h"
 #include "lmtp-settings.h"
+#include "lmtp-recipient.h"
 #include "lmtp-local.h"
 
 struct lmtp_local_recipient {
