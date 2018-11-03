@@ -1,7 +1,6 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
-#include "array.h"
+#include "lmtp-common.h"
 #include "str.h"
 #include "istream.h"
 #include "istream-concat.h"
@@ -11,15 +10,11 @@
 #include "settings-parser.h"
 #include "lda-settings.h"
 #include "mail-user.h"
-#include "lmtp-settings.h"
 #include "smtp-address.h"
-#include "smtp-server.h"
 #include "lmtp-proxy.h"
 #include "lmtp-local.h"
 #include "mail-deliver.h"
 #include "mail-error.h"
-#include "lmtp-common.h"
-#include "client.h"
 #include "commands.h"
 
 /*

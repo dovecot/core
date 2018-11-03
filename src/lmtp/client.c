@@ -1,7 +1,6 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
-#include "array.h"
+#include "lmtp-common.h"
 #include "base64.h"
 #include "str.h"
 #include "llist.h"
@@ -11,9 +10,6 @@
 #include "hostpid.h"
 #include "process-title.h"
 #include "var-expand.h"
-#include "settings-parser.h"
-#include "smtp-server.h"
-#include "master-service.h"
 #include "master-service-ssl.h"
 #include "master-service-settings.h"
 #include "iostream-ssl.h"
@@ -21,13 +17,10 @@
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "raw-storage.h"
-#include "lmtp-common.h"
 #include "lda-settings.h"
-#include "lmtp-settings.h"
 #include "lmtp-local.h"
 #include "lmtp-proxy.h"
 #include "commands.h"
-#include "client.h"
 
 #include <unistd.h>
 
