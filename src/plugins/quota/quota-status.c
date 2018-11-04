@@ -206,7 +206,6 @@ static int client_input_line(struct connection *conn, const char *line)
 			e_error(client->event, "quota-status: "
 				"Client sent invalid recipient address `%s': "
 				"%s", str_sanitize(line + 10, 256), error);
-			return 0;
 		}
 	} else if (str_begins(line, "size=")) {
 		if (str_to_uoff(line+5, &client->size) < 0)
