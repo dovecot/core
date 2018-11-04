@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "str-sanitize.h"
 #include "ostream.h"
 #include "connection.h"
@@ -25,8 +26,14 @@ enum quota_protocol {
 struct quota_client {
 	struct connection conn;
 
+	struct event *event;
+
 	struct smtp_address *recipient;
 	uoff_t size;
+};
+
+static struct event_category event_category_quota_status = {
+	.name = "quota-status"
 };
 
 static struct quota_status_settings *quota_status_settings;
@@ -41,9 +48,15 @@ static void client_connected(struct master_service_connection *conn)
 	struct quota_client *client;
 
 	client = i_new(struct quota_client, 1);
+
+	client->event = event_create(NULL);
+	client->conn.event_parent = client->event;
+	event_add_category(client->event, &event_category_quota_status);
 	connection_init_server(clients, &client->conn,
 			       "quota-client", conn->fd, conn->fd);
 	master_service_client_connection_accept(conn);
+
+	e_debug(client->event, "Client connected");
 }
 
 static void client_reset(struct quota_client *client)
@@ -62,6 +75,7 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 
 	if (quser == NULL) {
 		/* no quota for user */
+		e_debug(user->event, "User has no quota");
 		return QUOTA_ALLOC_RESULT_OK;
 	}
 
@@ -73,7 +87,7 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 	const char *internal_error;
 	ret = quota_test_alloc(ctx, I_MAX(1, mail_size), &internal_error);
 	if (ret == QUOTA_ALLOC_RESULT_TEMPFAIL)
-		i_error("quota check failed: %s", internal_error);
+		e_error(user->event, "quota check failed: %s", internal_error);
 	*error_r = quota_alloc_result_errstr(ret, ctx);
 	quota_transaction_rollback(&ctx);
 
@@ -89,14 +103,17 @@ static void client_handle_request(struct quota_client *client)
 	const char *value = NULL, *error;
 	const char *detail ATTR_UNUSED;
 	char delim ATTR_UNUSED;
+	string_t *resp;
 	int ret;
 
 	if (client->recipient == NULL) {
+		e_debug(client->event, "Response: action=DUNNO");
 		o_stream_nsend_str(client->conn.output, "action=DUNNO\n\n");
 		return;
 	}
 
 	i_zero(&input);
+	input.parent_event = client->event;
 	smtp_address_detail_parse_temp(quota_status_settings->recipient_delimiter,
 				       client->recipient, &input.username, &delim,
 				       &detail);
@@ -104,10 +121,19 @@ static void client_handle_request(struct quota_client *client)
 					       &service_user, &user, &error);
 	restrict_access_allow_coredumps(TRUE);
 	if (ret == 0) {
+		e_debug(client->event, "User `%s' not found", input.username);
 		value = nouser_reply;
 	} else if (ret > 0) {
 		enum quota_alloc_result qret = quota_check(user, client->size,
 							   &error);
+		if (qret == QUOTA_ALLOC_RESULT_OK) {
+			e_debug(client->event,
+				"Message is acceptable");
+		} else {
+			e_debug(client->event,
+				"Quota check failed: %s", error);
+		}
+
 		switch (qret) {
 		case QUOTA_ALLOC_RESULT_OK: /* under quota */
 			value = mail_user_plugin_getenv(user,
@@ -137,24 +163,32 @@ static void client_handle_request(struct quota_client *client)
 		mail_user_deinit(&user);
 		mail_storage_service_user_unref(&service_user);
 	} else {
-		i_error("Failed to lookup user %s: %s", input.username, error);
+		e_error(client->event,
+			"Failed to lookup user %s: %s", input.username, error);
 		error = "Temporary internal error";
 	}
 
+	resp = t_str_new(256);
 	if (ret < 0) {
 		/* temporary failure */
-		o_stream_nsend_str(client->conn.output, t_strdup_printf(
-			"action=DEFER_IF_PERMIT %s\n\n", error));
+		str_append(resp, "action=DEFER_IF_PERMIT ");
+		str_append(resp, error);
 	} else {
-		o_stream_nsend_str(client->conn.output,
-				   t_strdup_printf("action=%s\n\n", value));
+		str_append(resp, "action=");
+		str_append(resp, value);
 	}
+
+	e_debug(client->event, "Response: %s", str_c(resp));
+	str_append(resp, "\n\n");
+	o_stream_nsend_str(client->conn.output, str_c(resp));
 }
 
 static int client_input_line(struct connection *conn, const char *line)
 {
 	struct quota_client *client = (struct quota_client *)conn;
 	const char *error;
+
+	e_debug(client->event, "Request: %s", str_sanitize(line, 1024));
 
 	if (*line == '\0') {
 		o_stream_cork(conn->output);
@@ -169,7 +203,7 @@ static int client_input_line(struct connection *conn, const char *line)
 			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
 			&client->recipient, &error) < 0) {
-			i_error("quota-status: "
+			e_error(client->event, "quota-status: "
 				"Client sent invalid recipient address `%s': "
 				"%s", str_sanitize(line + 10, 256), error);
 			return 0;
@@ -185,8 +219,11 @@ static void client_destroy(struct connection *conn)
 {
 	struct quota_client *client = (struct quota_client *)conn;
 
+	e_debug(client->event, "Client disconnected");
+
 	connection_deinit(&client->conn);
 	client_reset(client);
+	event_unref(&client->event);
 	i_free(client);
 
 	master_service_client_connection_destroyed(master_service);
