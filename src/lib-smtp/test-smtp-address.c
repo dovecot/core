@@ -349,6 +349,21 @@ valid_username_parse_tests[] = {
 		.output = "\"user@frop\"@domain.tld"
 	},
 	{
+		.input = "user frop@domain.tld",
+		.address = { .localpart = "user frop", .domain = "domain.tld" },
+		.output = "\"user frop\"@domain.tld"
+	},
+	{
+		.input = "user\"frop@domain.tld",
+		.address = { .localpart = "user\"frop", .domain = "domain.tld" },
+		.output = "\"user\\\"frop\"@domain.tld"
+	},
+	{
+		.input = "user\\frop@domain.tld",
+		.address = { .localpart = "user\\frop", .domain = "domain.tld" },
+		.output = "\"user\\\\frop\"@domain.tld"
+	},
+	{
 		.input = "user@127.0.0.1",
 		.address = { .localpart = "user", .domain = "127.0.0.1" },
 	},
@@ -870,11 +885,8 @@ invalid_username_parse_tests[] = {
 		.input = "frop@$%^$%^.tld",
 	},
 	{
-		.input = "fr	op@domain.tld",
-	},
-	{
-		.input = "f r o p@domain.tld",
-	},
+		.input = "fr\top@domain.tld",
+	}
 };
 
 unsigned int invalid_username_parse_test_count =

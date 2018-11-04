@@ -256,7 +256,8 @@ static int smtp_parse_username(struct smtp_address_parser *aparser)
 		/* check whether the resulting localpart could be encoded as
 		   quoted string */
 		for (p = parser->cur; p < dp; p++) {
-			if (!smtp_char_is_qtext(*p) || *p == ' ') {
+			if (!smtp_char_is_qtext(*p) &&
+			    !smtp_char_is_qpair(*p)) {
 				parser->error =
 					"Invalid character in user name";
 				return -1;
