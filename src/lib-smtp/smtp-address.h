@@ -7,13 +7,20 @@ struct message_address;
 
 enum smtp_address_parse_flags {
 	/* Strictly enforce the RFC 5321 syntax */
-	SMTP_ADDRESS_PARSE_FLAG_STRICT            = BIT(0),
+	SMTP_ADDRESS_PARSE_FLAG_STRICT              = BIT(0),
 	/* Allow an empty/NULL address */
-	SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY       = BIT(1),
+	SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY         = BIT(1),
 	/* Allow an address without a domain part */
-	SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART   = BIT(2),
+	SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART     = BIT(2),
 	/* Allow omission of the <...> brackets in a path */
-	SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL = BIT(3)
+	SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL   = BIT(3),
+	/* Allow localpart to have all kinds of bad unquoted characters by
+	   parsing the last '@' in the string directly as the localpart/domain
+	   separator. Addresses starting with `<' or `"' are parsed as normal.
+	   The address is rejected when the resulting localpart and domain
+	   cannot be used to construct a valid RFC 5321 address.
+	 */
+	SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART = BIT(4),
 };
 
 struct smtp_address {
