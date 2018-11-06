@@ -280,7 +280,7 @@ void dlua_push_event(struct dlua_script *script, struct event *event)
 	luaL_setmetatable(script->L, DLUA_EVENT);
 
 	/* we need to attach gc to userdata to support older lua*/
-	struct event **ptr = lua_newuserdata(script->L, sizeof(struct event**));
+	struct event **ptr = lua_newuserdata(script->L, sizeof(struct event*));
 	*ptr = event;
 	lua_createtable(script->L, 0, 1);
 	lua_pushcfunction(script->L, dlua_event_gc);
