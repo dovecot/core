@@ -83,7 +83,7 @@ static void stats_dump(const char *path, const char *const *fields, bool reset)
 	doveadm_print_header_simple("metric_name");
 	doveadm_print_header_simple("field");
 	for (i = 0; i < fields_count; i++)
-		doveadm_print_header_simple(fields[i]);
+		doveadm_print_header(fields[i], fields[i], DOVEADM_PRINT_HEADER_FLAG_NUMBER);
 
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (line[0] == '\0')
