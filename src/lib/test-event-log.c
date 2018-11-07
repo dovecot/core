@@ -5,6 +5,8 @@
 #include "str.h"
 #include "failures-private.h"
 
+#include <unistd.h>
+
 enum test_log_prefix_type {
 	TYPE_END,
 	TYPE_APPEND,
@@ -181,7 +183,21 @@ static void test_event_log_prefix(void)
 	test_end();
 }
 
+static void test_event_duration()
+{
+	intmax_t duration;
+	test_begin("event duration");
+	struct event *e = event_create(NULL);
+	usleep(10);
+	e_info(e, "Submit event");
+	event_get_last_duration(e, &duration);
+	test_assert(duration > 0);
+	event_unref(&e);
+	test_end();
+}
+
 void test_event_log(void)
 {
 	test_event_log_prefix();
+	test_event_duration();
 }
