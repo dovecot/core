@@ -20,6 +20,7 @@
 #include <openssl/engine.h>
 #include <openssl/hmac.h>
 #include <openssl/objects.h>
+#include <openssl/bn.h>
 #include "dcrypt.h"
 #include "dcrypt-private.h"
 

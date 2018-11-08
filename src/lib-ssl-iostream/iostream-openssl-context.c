@@ -6,6 +6,9 @@
 #include "dovecot-openssl-common.h"
 
 #include <openssl/crypto.h>
+#include <openssl/rsa.h>
+#include <openssl/dh.h>
+#include <openssl/bn.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
