@@ -42,7 +42,7 @@ submission_SOURCES = \
 	submission-commands.c \
 	submission-settings.c
 
-noinst_HEADERS = \
+headers = \
 	submission-common.h \
 	submission-backend.h \
 	submission-backend-relay.h \
@@ -50,3 +50,6 @@ noinst_HEADERS = \
 	submission-recipient.h \
 	submission-client.h \
 	submission-settings.h
+
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)
