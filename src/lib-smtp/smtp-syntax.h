@@ -40,6 +40,7 @@ int smtp_helo_domain_parse(const char *helo,
 
 bool smtp_ehlo_keyword_is_valid(const char *keyword);
 bool smtp_ehlo_param_is_valid(const char *param);
+bool smtp_ehlo_params_are_valid(const char *const *params) ATTR_NULL(1);
 bool smtp_ehlo_params_str_is_valid(const char *params);
 
 int smtp_ehlo_line_parse(const char *ehlo_line,
