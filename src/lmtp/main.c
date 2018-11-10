@@ -13,7 +13,6 @@
 #include "mail-storage-service.h"
 #include "smtp-submit-settings.h"
 #include "lda-settings.h"
-#include "client.h"
 
 #include <unistd.h>
 
