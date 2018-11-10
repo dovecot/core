@@ -187,7 +187,7 @@ bool smtp_ehlo_param_is_valid(const char *param)
 	return TRUE;
 }
 
-bool smtp_ehlo_params_are_valid(const char *params)
+bool smtp_ehlo_params_str_is_valid(const char *params)
 {
 	const char *p;
 	bool space = FALSE;
