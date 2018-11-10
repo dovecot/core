@@ -33,7 +33,7 @@ lmtp_DEPENDENCIES = \
 lmtp_SOURCES = \
 	main.c \
 	lmtp-client.c \
-	commands.c \
+	lmtp-commands.c \
 	lmtp-recipient.c \
 	lmtp-local.c \
 	lmtp-proxy.c \
@@ -42,7 +42,7 @@ lmtp_SOURCES = \
 noinst_HEADERS = \
 	lmtp-common.h \
 	lmtp-client.h \
-	commands.h \
+	lmtp-commands.h \
 	lmtp-recipient.h \
 	lmtp-local.h \
 	lmtp-proxy.h \

@@ -20,7 +20,7 @@
 #include "lda-settings.h"
 #include "lmtp-local.h"
 #include "lmtp-proxy.h"
-#include "commands.h"
+#include "lmtp-commands.h"
 
 #include <unistd.h>
 
