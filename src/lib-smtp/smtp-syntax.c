@@ -187,6 +187,20 @@ bool smtp_ehlo_param_is_valid(const char *param)
 	return TRUE;
 }
 
+bool smtp_ehlo_params_are_valid(const char *const *params)
+{
+	if (params == NULL)
+		return TRUE;
+
+	while (*params != NULL) {
+		if (!smtp_ehlo_param_is_valid(*params))
+			return FALSE;
+		params++;
+	}
+
+	return TRUE;
+}
+
 bool smtp_ehlo_params_str_is_valid(const char *params)
 {
 	const char *p;
