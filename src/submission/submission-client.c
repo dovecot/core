@@ -518,7 +518,7 @@ void client_add_extra_capability(struct client *client, const char *capability,
 
 	/* Avoid committing protocol errors */
 	i_assert(smtp_ehlo_keyword_is_valid(capability));
-	i_assert(params == NULL || smtp_ehlo_params_are_valid(params));
+	i_assert(params == NULL || smtp_ehlo_params_str_is_valid(params));
 
 	i_zero(&cap);
 	cap.capability = p_strdup(client->pool, capability);
