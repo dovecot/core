@@ -8,7 +8,7 @@
 #include "master-service.h"
 #include "smtp-reply.h"
 #include "smtp-server.h"
-#include "client.h"
+#include "lmtp-client.h"
 #include "lmtp-settings.h"
 
 typedef void lmtp_client_created_func_t(struct client **client);
