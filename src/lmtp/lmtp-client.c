@@ -10,6 +10,7 @@
 #include "hostpid.h"
 #include "process-title.h"
 #include "var-expand.h"
+#include "module-dir.h"
 #include "master-service-ssl.h"
 #include "master-service-settings.h"
 #include "iostream-ssl.h"
@@ -72,6 +73,24 @@ static void refresh_proctitle(void)
 	}
 	str_append_c(title, ']');
 	process_title_set(str_c(title));
+}
+
+static void client_load_modules(struct client *client)
+{
+        struct module_dir_load_settings mod_set;
+
+        i_zero(&mod_set);
+        mod_set.abi_version = DOVECOT_ABI_VERSION;
+        mod_set.require_init_funcs = TRUE;
+        mod_set.binary_name = "lmtp";
+
+        /* pre-load all configured mail plugins */
+        mail_storage_service_modules =
+                module_dir_load_missing(mail_storage_service_modules,
+                                        client->lmtp_set->mail_plugin_dir,
+                                        client->lmtp_set->mail_plugins,
+                                        &mod_set);
+	module_dir_init(mail_storage_service_modules);
 }
 
 static void client_raw_user_create(struct client *client)
@@ -137,6 +156,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client_read_settings(client, conn->ssl);
 	client_raw_user_create(client);
+	client_load_modules(client);
 	client->my_domain = client->unexpanded_lda_set->hostname;
 
 	if (client->service_set->verbose_proctitle)
