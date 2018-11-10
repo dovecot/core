@@ -40,10 +40,15 @@ lmtp_SOURCES = \
 	lmtp-settings.c
 
 noinst_HEADERS = \
+	lmtp-local.h \
+	lmtp-proxy.h
+
+headers = \
 	lmtp-common.h \
-	lmtp-client.h \
 	lmtp-commands.h \
 	lmtp-recipient.h \
-	lmtp-local.h \
-	lmtp-proxy.h \
+	lmtp-client.h \
 	lmtp-settings.h
+
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)
