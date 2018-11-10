@@ -11,12 +11,12 @@
 #include "lda-settings.h"
 #include "mail-user.h"
 #include "smtp-address.h"
+#include "mail-deliver.h"
+#include "mail-error.h"
 #include "lmtp-recipient.h"
 #include "lmtp-proxy.h"
 #include "lmtp-local.h"
-#include "mail-deliver.h"
-#include "mail-error.h"
-#include "commands.h"
+#include "lmtp-commands.h"
 
 /*
  * MAIL command
