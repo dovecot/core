@@ -24,6 +24,9 @@ struct lmtp_settings {
 	const char *login_greeting;
 	const char *login_trusted_networks;
 
+	const char *mail_plugins;
+	const char *mail_plugin_dir;
+
 	enum lmtp_hdr_delivery_address parsed_lmtp_hdr_delivery_address;
 };
 

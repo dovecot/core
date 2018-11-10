@@ -70,6 +70,9 @@ static const struct setting_define lmtp_setting_defines[] = {
 	DEF(SET_STR_VARS, login_greeting),
 	DEF(SET_STR, login_trusted_networks),
 
+	DEF(SET_STR, mail_plugins),
+	DEF(SET_STR, mail_plugin_dir),
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -83,7 +86,10 @@ static const struct lmtp_settings lmtp_default_settings = {
 	.lmtp_proxy_rawlog_dir = "",
 
 	.login_greeting = PACKAGE_NAME" ready.",
-	.login_trusted_networks = ""
+	.login_trusted_networks = "",
+
+	.mail_plugins = "",
+	.mail_plugin_dir = MODULEDIR,
 };
 
 static const struct setting_parser_info *lmtp_setting_dependencies[] = {
