@@ -448,6 +448,15 @@ smtp_client_command_finish_dot_stream(struct smtp_client_command *cmd)
 	return 1;
 }
 
+static void smtp_client_command_payload_input(struct smtp_client_command *cmd)
+{
+	struct smtp_client_connection *conn = cmd->conn;
+
+	io_remove(&conn->io_cmd_payload);
+
+	smtp_client_connection_trigger_output(conn);
+}
+
 static int
 smtp_client_command_send_stream(struct smtp_client_command *cmd)
 {
@@ -456,6 +465,8 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 	struct ostream *output = conn->conn.output;
 	enum ostream_send_istream_result res;
 	int ret;
+
+	io_remove(&conn->io_cmd_payload);
 
 	if (cmd->stream_finished) {
 		if ((ret=smtp_client_command_finish_dot_stream(cmd)) <= 0)
@@ -493,7 +504,12 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 		i_stream_unref(&cmd->stream);
 		return 1;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		/* input is blocking (client needs to act; disable timeout) */
+		conn->io_cmd_payload = io_add_istream(
+			stream, smtp_client_command_payload_input, cmd);
+		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		smtp_client_command_debug(cmd, "Partially sent payload");
 		i_assert(cmd->stream_size == 0 ||
 			stream->v_offset < cmd->stream_size);
 		return 0;
