@@ -1500,6 +1500,388 @@ static void test_partial_reply(void)
 }
 
 /*
+ * Premature reply
+ */
+
+/* server */
+
+static int
+test_premature_reply_init(struct server_connection *conn)
+{
+	if (server_index == 5) {
+		o_stream_nsend_str(conn->conn.output,
+			"220 testserver ESMTP Testfix (Debian/GNU)\r\n"
+			"250-testserver\r\n"
+			"250-PIPELINING\r\n"
+			"250-ENHANCEDSTATUSCODES\r\n"
+			"250 DSN\r\n");
+		sleep(4);
+		server_connection_deinit(&conn);
+		return 1;
+	}
+	return 0;
+}
+
+static int
+test_premature_reply_input_line(struct server_connection *conn, const char *line)
+{
+	if (debug)
+		i_debug("[%u] GOT LINE: %s", server_index, line);
+	switch (conn->state) {
+	case SERVER_CONNECTION_STATE_EHLO:
+		if (debug)
+			i_debug("[%u] EHLO", server_index);
+		if (server_index == 4) {
+			o_stream_nsend_str(conn->conn.output,
+				"250-testserver\r\n"
+				"250-PIPELINING\r\n"
+				"250-ENHANCEDSTATUSCODES\r\n"
+				"250 DSN\r\n"
+				"250 2.1.0 Ok\r\n");
+			conn->state = SERVER_CONNECTION_STATE_MAIL_FROM;
+			return 1;
+		}
+		break;
+	case SERVER_CONNECTION_STATE_MAIL_FROM:
+		if (server_index == 4) {
+			conn->state = SERVER_CONNECTION_STATE_RCPT_TO;
+			return 1;
+		}
+		if (server_index == 3) {
+			o_stream_nsend_str(conn->conn.output,
+				"250 2.1.0 Ok\r\n"
+				"250 2.1.5 Ok\r\n");
+			sleep(4);
+			server_connection_deinit(&conn);
+			return -1;
+		}
+		break;
+	case SERVER_CONNECTION_STATE_RCPT_TO:
+		if (server_index == 2) {
+			o_stream_nsend_str(conn->conn.output,
+				"250 2.1.5 Ok\r\n"
+				"354 End data with <CR><LF>.<CR><LF>\r\n");
+			sleep(4);
+			server_connection_deinit(&conn);
+			return -1;
+		}
+		break;
+	case SERVER_CONNECTION_STATE_DATA:
+		if (server_index == 1) {
+			o_stream_nsend_str(conn->conn.output,
+				"354 End data with <CR><LF>.<CR><LF>\r\n"
+				"250 2.0.0 Ok: queued as 35424ed4af24\r\n");
+			sleep(4);
+			server_connection_deinit(&conn);
+			return -1;
+		}
+		break;
+	case SERVER_CONNECTION_STATE_FINISH:
+		break;
+	}
+	return 0;
+}
+
+static void test_server_premature_reply(unsigned int index)
+{
+	test_server_init = test_premature_reply_init;
+	test_server_input_line = test_premature_reply_input_line;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _premature_reply {
+	unsigned int count;
+};
+
+struct _premature_reply_peer {
+	struct _premature_reply *context;
+	unsigned int index;
+
+	struct smtp_client_connection *conn;
+	struct smtp_client_transaction *trans;
+	struct timeout *to;
+
+	bool login_callback:1;
+	bool mail_from_callback:1;
+	bool rcpt_to_callback:1;
+	bool rcpt_data_callback:1;
+	bool data_callback:1;
+};
+
+static void
+test_client_premature_reply_login_cb(const struct smtp_reply *reply,
+	void *context)
+{
+	struct _premature_reply_peer *pctx =
+		(struct _premature_reply_peer *)context;
+
+	pctx->login_callback = TRUE;
+
+	if (debug) {
+		i_debug("LOGIN REPLY[%u]: %s", pctx->index,
+			smtp_reply_log(reply));
+	}
+
+	switch (pctx->index) {
+	case 0: case 1: case 2: case 3: case 4:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	case 5:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
+		/* Don't bother continueing with this test. Second try after
+		   smtp_client_transaction_start() will have the same result. */
+		smtp_client_transaction_abort(pctx->trans);
+		break;
+	}
+}
+
+static void
+test_client_premature_reply_mail_from_cb(const struct smtp_reply *reply,
+	struct _premature_reply_peer *pctx)
+{
+	if (debug) {
+		i_debug("MAIL FROM REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	pctx->mail_from_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0: case 1: case 2: case 3:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	case 4: case 5:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
+		break;
+	}
+}
+
+static void
+test_client_premature_reply_rcpt_to_cb(const struct smtp_reply *reply,
+	struct _premature_reply_peer *pctx)
+{
+	if (debug) {
+		i_debug("RCPT TO REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	pctx->rcpt_to_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0: case 1: case 2:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	case 3:  case 4: case 5:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
+		break;
+	}
+}
+
+static void
+test_client_premature_reply_rcpt_data_cb(const struct smtp_reply *reply,
+	struct _premature_reply_peer *pctx)
+{
+	if (debug) {
+		i_debug("RCPT DATA REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	pctx->rcpt_data_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	case 1: case 2:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
+		break;
+	case 3: case 4: case 5:
+		i_unreached();
+	}
+}
+
+static void
+test_client_premature_reply_data_cb(const struct smtp_reply *reply,
+	struct _premature_reply_peer *pctx)
+{
+	if (debug) {
+		i_debug("DATA REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	pctx->data_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	case 1: case 2: case 3: case 4: case 5:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
+		break;
+	}
+}
+
+static void
+test_client_premature_reply_finished(struct _premature_reply_peer *pctx)
+{
+	struct _premature_reply *ctx = pctx->context;
+
+	if (debug)
+		i_debug("FINISHED[%u]", pctx->index);
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+
+	switch (pctx->index) {
+	case 0: case 1: case 2:
+		test_assert(pctx->mail_from_callback);
+		test_assert(pctx->rcpt_to_callback);
+		test_assert(pctx->rcpt_data_callback);
+		test_assert(pctx->data_callback);
+		break;
+	case 3: case 4:
+		test_assert(pctx->mail_from_callback);
+		test_assert(pctx->rcpt_to_callback);
+		test_assert(!pctx->rcpt_data_callback);
+		test_assert(pctx->data_callback);
+		break;
+	case 5:
+		test_assert(!pctx->mail_from_callback);
+		test_assert(!pctx->rcpt_to_callback);
+		test_assert(!pctx->rcpt_data_callback);
+		test_assert(!pctx->data_callback);
+	}
+
+	pctx->trans = NULL;
+	timeout_remove(&pctx->to);
+	i_free(pctx);
+}
+
+static void
+test_client_premature_reply_submit3(struct _premature_reply_peer *pctx)
+{
+	struct smtp_client_transaction *strans = pctx->trans;
+	static const char *message =
+		"From: stephan@example.com\r\n"
+		"To: timo@example.com\r\n"
+		"Subject: Frop!\r\n"
+		"\r\n"
+		"Frop!\r\n";
+	struct istream *input;
+
+	timeout_remove(&pctx->to);
+
+	if (debug)
+		i_debug("SUBMIT3[%u]", pctx->index);
+
+	input = i_stream_create_from_data(message, strlen(message));
+	i_stream_set_name(input, "message");
+
+	smtp_client_transaction_send
+		(strans, input, test_client_premature_reply_data_cb, pctx);
+	i_stream_unref(&input);
+}
+
+static void
+test_client_premature_reply_submit2(struct _premature_reply_peer *pctx)
+{
+	timeout_remove(&pctx->to);
+
+	if (debug)
+		i_debug("SUBMIT2[%u]", pctx->index);
+
+	smtp_client_transaction_add_rcpt(pctx->trans,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"), NULL,
+		test_client_premature_reply_rcpt_to_cb,
+		test_client_premature_reply_rcpt_data_cb, pctx);
+
+	pctx->to = timeout_add_short(500,
+		test_client_premature_reply_submit3, pctx);
+}
+
+
+static void
+test_client_premature_reply_submit1(struct _premature_reply_peer *pctx)
+{
+	timeout_remove(&pctx->to);
+
+	if (debug)
+		i_debug("SUBMIT1[%u]", pctx->index);
+
+	smtp_client_transaction_start(pctx->trans,
+		test_client_premature_reply_mail_from_cb, pctx);
+
+	pctx->to = timeout_add_short(500,
+		test_client_premature_reply_submit2, pctx);
+}
+
+static void
+test_client_premature_reply_submit(struct _premature_reply *ctx,
+	unsigned int index)
+{
+	struct _premature_reply_peer *pctx;
+	struct smtp_client_connection *conn;
+
+	pctx = i_new(struct _premature_reply_peer, 1);
+	pctx->context = ctx;
+	pctx->index = index;
+
+	pctx->conn = conn = smtp_client_connection_create(smtp_client,
+		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
+		SMTP_CLIENT_SSL_MODE_NONE, NULL);
+	pctx->trans = smtp_client_transaction_create(conn,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL, 0,
+		test_client_premature_reply_finished, pctx);
+	smtp_client_connection_connect(conn,
+		test_client_premature_reply_login_cb, (void *)pctx);
+	smtp_client_connection_unref(&conn);
+
+	pctx->to = timeout_add_short(500,
+		test_client_premature_reply_submit1, pctx);
+}
+
+static bool
+test_client_premature_reply(
+	const struct smtp_client_settings *client_set)
+{
+	struct _premature_reply *ctx;
+	unsigned int i;
+
+	ctx = i_new(struct _premature_reply, 1);
+	ctx->count = 6;
+
+	smtp_client = smtp_client_init(client_set);
+
+	for (i = 0; i < ctx->count; i++)
+		test_client_premature_reply_submit(ctx, i);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_premature_reply(void)
+{
+	struct smtp_client_settings smtp_client_set;
+
+	test_client_defaults(&smtp_client_set);
+
+	test_begin("premature reply");
+	test_run_client_server(&smtp_client_set,
+		test_client_premature_reply,
+		test_server_premature_reply, 6, NULL);
+	test_end();
+}
+
+/*
  * Bad reply
  */
 
@@ -2807,6 +3189,7 @@ static void (*const test_functions[])(void) = {
 	test_broken_payload,
 	test_connection_lost,
 	test_unexpected_reply,
+	test_premature_reply,
 	test_partial_reply,
 	test_bad_reply,
 	test_bad_greeting,
