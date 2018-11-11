@@ -1882,6 +1882,299 @@ static void test_premature_reply(void)
 }
 
 /*
+ * Early data reply
+ */
+
+/* server */
+
+static int
+test_early_data_reply_input_line(struct server_connection *conn ATTR_UNUSED,
+				 const char *line)
+{
+	if (debug)
+		i_debug("[%u] GOT LINE: %s", server_index, line);
+
+	switch (conn->state) {
+	case SERVER_CONNECTION_STATE_DATA:
+		break;
+	default:
+		return 0;
+	}
+
+	if ((uintptr_t)conn->context == 0) {
+		if (debug)
+			i_debug("[%u] REPLIED 354", server_index);
+		o_stream_nsend_str(conn->conn.output,
+			"354 End data with <CR><LF>.<CR><LF>\r\n");
+		conn->context = (void*)1;
+		return 1;
+	}
+
+	if (server_index == 2 && strcmp(line, ".") == 0) {
+		if (debug)
+			i_debug("[%u] FINISHED TRANSACTION",
+				server_index);
+		o_stream_nsend_str(conn->conn.output,
+			"250 2.0.0 Ok: queued as 73BDE342129\r\n");
+		return 1;
+	}
+
+	if ((uintptr_t)conn->context == 5 && server_index < 2) {
+		if (debug)
+			i_debug("[%u] FINISHED TRANSACTION EARLY",
+				server_index);
+
+		if (server_index == 0) {
+			o_stream_nsend_str(conn->conn.output,
+				"250 2.0.0 Ok: queued as 73BDE342129\r\n");
+		} else {
+			o_stream_nsend_str(conn->conn.output,
+				"452 4.3.1 Mail system full\r\n");
+		}
+	}
+	conn->context = (void*)(((uintptr_t)conn->context) + 1);
+	return 1;
+}
+
+static void test_server_early_data_reply(unsigned int index)
+{
+	test_server_input_line = test_early_data_reply_input_line;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _early_data_reply {
+	unsigned int count;
+};
+
+struct _early_data_reply_peer {
+	struct _early_data_reply *context;
+	unsigned int index;
+
+	struct ostream *output;
+
+	struct smtp_client_connection *conn;
+	struct smtp_client_transaction *trans;
+	struct timeout *to;
+
+	bool data_callback:1;
+};
+
+static void
+test_client_early_data_reply_submit1(struct _early_data_reply_peer *pctx);
+
+static void
+test_client_early_data_reply_login_cb(const struct smtp_reply *reply,
+				      void *context)
+{
+	struct _early_data_reply_peer *pctx = context;
+
+	if (debug) {
+		i_debug("LOGIN REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	test_assert(smtp_reply_is_success(reply));
+}
+
+static void
+test_client_early_data_reply_mail_from_cb(const struct smtp_reply *reply,
+					  struct _early_data_reply_peer *pctx)
+{
+	if (debug) {
+		i_debug("MAIL FROM REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	test_assert(smtp_reply_is_success(reply));
+}
+
+static void
+test_client_early_data_reply_rcpt_to_cb(const struct smtp_reply *reply,
+					struct _early_data_reply_peer *pctx)
+{
+	if (debug) {
+		i_debug("RCPT TO REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	test_assert(smtp_reply_is_success(reply));
+
+	pctx->to = timeout_add_short(1000,
+		test_client_early_data_reply_submit1, pctx);
+}
+
+static void
+test_client_early_data_reply_rcpt_data_cb(const struct smtp_reply *reply,
+					  struct _early_data_reply_peer *pctx)
+{
+	if (debug) {
+		i_debug("RCPT DATA REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	switch (pctx->index) {
+	case 0:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
+		break;
+	case 1:
+		test_assert(reply->status == 452);
+		break;
+	case 2:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	}
+}
+
+static void
+test_client_early_data_reply_data_cb(const struct smtp_reply *reply,
+				     struct _early_data_reply_peer *pctx)
+{
+	if (debug) {
+		i_debug("DATA REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	pctx->data_callback = TRUE;
+
+	switch (pctx->index) {
+	case 0:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
+		break;
+	case 1:
+		test_assert(reply->status == 452);
+		break;
+	case 2:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	}
+}
+
+static void
+test_client_early_data_reply_finished(struct _early_data_reply_peer *pctx)
+{
+	struct _early_data_reply *ctx = pctx->context;
+
+	if (debug)
+		i_debug("FINISHED[%u]", pctx->index);
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+
+	test_assert(pctx->data_callback);
+
+	pctx->trans = NULL;
+	timeout_remove(&pctx->to);
+	o_stream_destroy(&pctx->output);
+	i_free(pctx);
+}
+
+static void
+test_client_early_data_reply_submit1(struct _early_data_reply_peer *pctx)
+{
+	if (debug)
+		i_debug("FINISH DATA WITH DOT[%u]", pctx->index);
+
+	timeout_remove(&pctx->to);
+
+	if (o_stream_finish(pctx->output) < 0) {
+		i_error("Failed to finish output: %s",
+			o_stream_get_error(pctx->output));
+	}
+	o_stream_destroy(&pctx->output);
+}
+
+static void
+test_client_early_data_reply_submit(struct _early_data_reply *ctx,
+				    unsigned int index)
+{
+	struct _early_data_reply_peer *pctx;
+	struct smtp_client_connection *conn;
+	static const char *message =
+		"From: stephan@example.com\r\n"
+		"To: timo@example.com\r\n"
+		"Subject: Frop!\r\n"
+		"\r\n"
+		"Frop!\r\n";
+	int pipefd[2];
+	struct istream *input;
+
+	pctx = i_new(struct _early_data_reply_peer, 1);
+	pctx->context = ctx;
+	pctx->index = index;
+
+	if (pipe(pipefd) < 0)
+		i_fatal("Failed to create pipe: %m");
+
+	fd_set_nonblock(pipefd[0], TRUE);
+	fd_set_nonblock(pipefd[1], TRUE);
+
+	input = i_stream_create_fd_autoclose(&pipefd[0], 1024);
+	pctx->output = o_stream_create_fd_autoclose(&pipefd[1], 1024);
+
+	pctx->conn = conn = smtp_client_connection_create(smtp_client,
+		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
+		SMTP_CLIENT_SSL_MODE_NONE, NULL);
+	smtp_client_connection_connect(conn,
+		test_client_early_data_reply_login_cb, (void *)pctx);
+
+	pctx->trans = smtp_client_transaction_create(conn,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"), NULL, 0,
+		test_client_early_data_reply_finished, pctx);
+	smtp_client_transaction_add_rcpt(pctx->trans,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"), NULL,
+		test_client_early_data_reply_rcpt_to_cb,
+		test_client_early_data_reply_rcpt_data_cb, pctx);
+	smtp_client_transaction_start(pctx->trans,
+		test_client_early_data_reply_mail_from_cb, pctx);
+
+	smtp_client_transaction_send(
+		pctx->trans, input, test_client_early_data_reply_data_cb, pctx);
+	i_stream_unref(&input);
+
+	smtp_client_connection_unref(&conn);
+
+	o_stream_nsend(pctx->output, message, strlen(message));
+}
+
+static bool
+test_client_early_data_reply(
+	const struct smtp_client_settings *client_set)
+{
+	struct _early_data_reply *ctx;
+	unsigned int i;
+
+	ctx = i_new(struct _early_data_reply, 1);
+	ctx->count = 3;
+
+	smtp_client = smtp_client_init(client_set);
+
+	for (i = 0; i < ctx->count; i++)
+		test_client_early_data_reply_submit(ctx, i);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_early_data_reply(void)
+{
+	struct smtp_client_settings smtp_client_set;
+
+	test_client_defaults(&smtp_client_set);
+
+	test_begin("early data reply");
+	test_run_client_server(&smtp_client_set,
+		test_client_early_data_reply,
+		test_server_early_data_reply, 3, NULL);
+	test_end();
+}
+
+/*
  * Bad reply
  */
 
@@ -3190,6 +3483,7 @@ static void (*const test_functions[])(void) = {
 	test_connection_lost,
 	test_unexpected_reply,
 	test_premature_reply,
+	test_early_data_reply,
 	test_partial_reply,
 	test_bad_reply,
 	test_bad_greeting,
@@ -3268,6 +3562,7 @@ server_connection_input(struct connection *_conn)
 {
 	struct server_connection *conn = (struct server_connection *)_conn;
 	const char *line;
+	int ret;
 
 	if (test_server_input != NULL) {
 		test_server_input(conn);
@@ -3315,8 +3610,10 @@ server_connection_input(struct connection *_conn)
 		}
 
 		if (test_server_input_line != NULL) {
-			if (test_server_input_line(conn, line) != 0)
+			if ((ret=test_server_input_line(conn, line)) < 0)
 				return;
+			if (ret > 0)
+				continue;
 		}
 
 		switch (conn->state) {
