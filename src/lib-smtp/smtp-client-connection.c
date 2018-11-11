@@ -1804,6 +1804,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 
 	if (conn->dns_lookup != NULL)
 		dns_lookup_abort(&conn->dns_lookup);
+	io_remove(&conn->io_cmd_payload);
 	timeout_remove(&conn->to_connect);
 	timeout_remove(&conn->to_trans);
 	timeout_remove(&conn->to_commands);
@@ -2067,6 +2068,8 @@ void smtp_client_connection_switch_ioloop(struct smtp_client_connection *conn)
 {
 	struct smtp_client_transaction *trans;
 
+	if (conn->io_cmd_payload != NULL)
+		conn->io_cmd_payload = io_loop_move_io(&conn->io_cmd_payload);
 	if (conn->to_connect != NULL)
 		conn->to_connect = io_loop_move_timeout(&conn->to_connect);
 	if (conn->to_trans != NULL)

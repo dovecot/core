@@ -171,6 +171,7 @@ struct smtp_client_connection {
 	struct dns_lookup *dns_lookup;
 	struct dsasl_client *sasl_client;
 	struct timeout *to_connect, *to_trans, *to_commands;
+	struct io *io_cmd_payload;
 
 	struct istream *raw_input;
 	struct ostream *raw_output, *dot_output;
