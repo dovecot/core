@@ -2078,7 +2078,7 @@ smtp_client_connection_reset(struct smtp_client_connection *conn)
 }
 
 static void
-smtp_client_connection_start_transaction(struct smtp_client_connection *conn)
+smtp_client_connection_do_start_transaction(struct smtp_client_connection *conn)
 {
 	struct smtp_reply reply;
 
@@ -2101,6 +2101,18 @@ smtp_client_connection_start_transaction(struct smtp_client_connection *conn)
 		conn->transactions_head, &reply);
 }
 
+static void
+smtp_client_connection_start_transaction(struct smtp_client_connection *conn)
+{
+	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_READY)
+		return;
+	if (conn->to_trans != NULL)
+		return;
+
+	conn->to_trans = timeout_add_short(0,
+		smtp_client_connection_do_start_transaction, conn);
+}
+
 void smtp_client_connection_add_transaction(
 	struct smtp_client_connection *conn,
 	struct smtp_client_transaction *trans)
@@ -2111,11 +2123,7 @@ void smtp_client_connection_add_transaction(
 	       &conn->transactions_tail, trans);
 
 	smtp_client_connection_connect(conn, NULL, NULL);
-
-	if (conn->state == SMTP_CLIENT_CONNECTION_STATE_READY) {
-		conn->to_trans = timeout_add_short(0,
-			smtp_client_connection_start_transaction, conn);
-	}
+	smtp_client_connection_start_transaction(conn);
 }
 
 void smtp_client_connection_abort_transaction(
@@ -2141,8 +2149,7 @@ void smtp_client_connection_abort_transaction(
 
 	smtp_client_connection_set_state(conn,
 		SMTP_CLIENT_CONNECTION_STATE_READY);
-	conn->to_trans = timeout_add_short(0,
-		smtp_client_connection_start_transaction, conn);
+	smtp_client_connection_start_transaction(conn);
 }
 
 void smtp_client_connection_next_transaction(
@@ -2162,6 +2169,5 @@ void smtp_client_connection_next_transaction(
 
 	smtp_client_connection_set_state(conn,
 		SMTP_CLIENT_CONNECTION_STATE_READY);
-	conn->to_trans = timeout_add_short(0,
-		smtp_client_connection_start_transaction, conn);
+	smtp_client_connection_start_transaction(conn);
 }
