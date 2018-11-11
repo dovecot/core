@@ -1549,8 +1549,9 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 {
 	unsigned int msecs;
 
-	conn->connect_failed = FALSE;
-	conn->handshake_failed = FALSE;
+	if (conn->closed || conn->failing)
+		return;
+
 	if (connection_client_connect(&conn->conn) < 0) {
 		smtp_client_connection_connected(&conn->conn, FALSE);
 		return;
@@ -1715,7 +1716,17 @@ void smtp_client_connection_connect(struct smtp_client_connection *conn,
 		return;
 	}
 
+	if (conn->closed || conn->failing)
+		return;
+
 	conn->xclient_replies_expected = 0;
+	conn->authenticated = FALSE;
+	conn->xclient_sent = FALSE;
+	conn->connect_failed = FALSE;
+	conn->connect_succeeded = FALSE;
+	conn->handshake_failed = FALSE;
+	conn->sent_quit = FALSE;
+	conn->reset_needed = FALSE;
 
 	i_assert(conn->login_callback == NULL);
 	conn->login_callback = login_callback;
