@@ -3005,6 +3005,14 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 	return 0;
 }
 
+int mailbox_save_begin_replace(struct mail_save_context **ctx,
+			       struct istream *input,
+			       struct mail *replaced)
+{
+	(*ctx)->expunged_mail = replaced;
+	return mailbox_save_begin(ctx, input);
+}
+
 int mailbox_save_continue(struct mail_save_context *ctx)
 {
 	int ret;
@@ -3079,6 +3087,8 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 		if (pvt_flags != 0)
 			mailbox_save_add_pvt_flags(t, pvt_flags);
 		t->save_count++;
+		if (ctx->expunged_mail != NULL)
+			mail_expunge(ctx->expunged_mail);
 	}
 
 	mailbox_save_context_reset(ctx, TRUE);
@@ -3178,6 +3188,7 @@ int mailbox_move(struct mail_save_context **_ctx, struct mail *mail)
 	i_assert(!ctx->moving);
 
 	ctx->moving = TRUE;
+	ctx->expunged_mail = mail;
 	T_BEGIN {
 		if ((ret = mailbox_copy_int(_ctx, mail)) == 0)
 			mail_expunge(mail);

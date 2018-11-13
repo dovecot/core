@@ -875,6 +875,13 @@ struct mail *mailbox_save_get_dest_mail(struct mail_save_context *ctx);
    i_stream_read() and calling mailbox_save_continue() as long as there's
    more input. */
 int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input);
+/* Begin saving the message that replaces the provided mail (which may reside
+   in another mailbox altogether). The replaced mail is expunged implicitly
+   when saving the message succeeds at mailbox_save_finish(). In all other
+   respects this function behaves the same as mailbox_save_begin(). */
+int mailbox_save_begin_replace(struct mail_save_context **ctx,
+			       struct istream *input,
+			       struct mail *replaced);
 int mailbox_save_continue(struct mail_save_context *ctx);
 int mailbox_save_finish(struct mail_save_context **ctx);
 void mailbox_save_cancel(struct mail_save_context **ctx);

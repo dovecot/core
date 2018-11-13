@@ -742,6 +742,11 @@ struct mail_save_context {
 	   implemented via save, and the save_*() methods want to access the
 	   source mail. */
 	struct mail *copy_src_mail;
+	/* Set during mailbox_move() and mailbox_save_begin_replace(). This
+	   is made available for the quota plugin to allow accounting for the
+	   size of the mail that is being expunged as part of the MOVE and
+	   REPLACE commands, respectively. */
+	struct mail *expunged_mail;
 
 	/* data that changes for each saved mail */
 	struct mail_save_data data;
