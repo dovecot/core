@@ -142,6 +142,7 @@ static const struct setting_keyvalue imap_default_settings_keyvalue[] = {
 	{ "service/imap/imap_capability/LIST-STATUS", "yes" },
 	{ "service/imap/imap_capability/BINARY", "yes" },
 	{ "service/imap/imap_capability/MOVE", "yes" },
+	{ "service/imap/imap_capability/REPLACE", "yes" },
 	{ "service/imap/imap_capability/SNIPPET=FUZZY", "yes" },
 	{ "service/imap/imap_capability/PREVIEW=FUZZY", "yes" },
 	{ "service/imap/imap_capability/PREVIEW", "yes" },

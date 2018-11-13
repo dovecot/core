@@ -123,6 +123,9 @@ bool cmd_genurlauth(struct client_command_context *cmd);
 bool cmd_resetkey(struct client_command_context *cmd);
 bool cmd_urlfetch(struct client_command_context *cmd);
 
+/* IMAP REPLACE (RFC8508): */
+bool cmd_replace(struct client_command_context *cmd);
+
 /* private: */
 bool cmd_list_full(struct client_command_context *cmd, bool lsub);
 bool cmd_select_full(struct client_command_context *cmd, bool readonly);
