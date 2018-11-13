@@ -246,56 +246,18 @@ void quota_mail_allocated(struct mail *_mail)
 	MODULE_CONTEXT_SET_SELF(mail, quota_mail_module, qmail);
 }
 
-static bool
-quota_move_requires_check(struct mailbox *dest_box, struct mailbox *src_box)
-{
-	struct mail_namespace *src_ns = src_box->list->ns;
-	struct mail_namespace *dest_ns = dest_box->list->ns;
-	struct quota_user *quser = QUOTA_USER_CONTEXT_REQUIRE(src_ns->user);
-	struct quota_root *const *rootp;
-
-	array_foreach(&quser->quota->all_roots, rootp) {
-		bool have_src_quota, have_dest_quota;
-
-		have_src_quota = array_lsearch_ptr(&(*rootp)->namespaces, src_ns) != NULL;
-		have_dest_quota = array_lsearch_ptr(&(*rootp)->namespaces, dest_ns) != NULL;
-		if (have_src_quota == have_dest_quota) {
-			/* Both/neither have this quota */
-		} else if (have_dest_quota) {
-			/* Destination mailbox has a quota that doesn't exist
-			   in source. We'll need to check if it's being
-			   exceeded. */
-			return TRUE;
-		} else {
-			/* Source mailbox has a quota root that doesn't exist
-			   in destination. We're not increasing the source
-			   quota, so ignore it. */
-		}
-	}
-	return FALSE;
-}
-
-static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
+static int quota_check(struct mail_save_context *ctx)
 {
 	struct mailbox_transaction_context *t = ctx->transaction;
 	struct quota_transaction_context *qt = QUOTA_CONTEXT_REQUIRE(t);
 	enum quota_alloc_result ret;
 
-	i_assert(!ctx->moving || src_box != NULL);
-
-	if (ctx->moving &&
-	     !quota_move_requires_check(ctx->transaction->box, src_box)) {
-		/* the mail is being moved. the quota won't increase (after
-		   the following expunge), so allow this even if user is
-		   currently over quota */
-		quota_alloc(qt, ctx->dest_mail);
+	if (qt->failed)
 		return 0;
-	} else if (qt->failed) {
-		return 0;
-	}
 
 	const char *error;
-	ret = quota_try_alloc(qt, ctx->dest_mail, NULL, NULL, &error);
+	ret = quota_try_alloc(qt, ctx->dest_mail, ctx->expunged_mail,
+			      NULL, &error);
 	switch (ret) {
 	case QUOTA_ALLOC_RESULT_OK:
 		return 0;
@@ -350,7 +312,7 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 		   quota */
 		return 0;
 	}
-	return quota_check(ctx, mail->box);
+	return quota_check(ctx);
 }
 
 static int
@@ -364,6 +326,9 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 
 	if (!ctx->moving && i_stream_get_size(input, TRUE, &size) > 0 &&
 	    !qt->failed) {
+		struct mailbox *expunged_box = NULL;
+		uoff_t expunged_size = 0;
+
 		/* Input size is known, check for quota immediately. This
 		   check isn't perfect, especially because input stream's
 		   linefeeds may contain CR+LFs while physical message would
@@ -374,8 +339,29 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 		   benefit of giving "out of quota" error before sending the
 		   full mail. */
 
+		if (ctx->expunged_mail != NULL) {
+			struct mail *expmail = ctx->expunged_mail;
+			if (quota_get_mail_size(qt, expmail,
+						&expunged_size) < 0) {
+				enum mail_error err;
+				error = mailbox_get_last_internal_error(
+					expmail->box, &err);
+
+				if (err != MAIL_ERROR_EXPUNGED) {
+					e_error(qt->quota->event,
+						"Failed to get size for expunged mail"
+						"(box=%s, uid=%u): %s",
+						expmail->box->vname,
+						expmail->uid, error);
+				}
+			} else {
+				expunged_box = expmail->box;
+			}
+		}
+
 		enum quota_alloc_result qret =
-			quota_test_alloc(qt, size, NULL, 0, NULL, &error);
+			quota_test_alloc(qt, size, expunged_box, expunged_size,
+					 NULL, &error);
 		switch (qret) {
 		case QUOTA_ALLOC_RESULT_OK:
 			/* Great, there is space. */
@@ -421,13 +407,11 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 static int quota_save_finish(struct mail_save_context *ctx)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT_REQUIRE(ctx->transaction->box);
-	struct mailbox *src_box;
 
 	if (qbox->module_ctx.super.save_finish(ctx) < 0)
 		return -1;
 
-	src_box = ctx->copy_src_mail == NULL ? NULL : ctx->copy_src_mail->box;
-	return quota_check(ctx, src_box);
+	return quota_check(ctx);
 }
 
 static void quota_mailbox_sync_cleanup(struct quota_mailbox *qbox)
