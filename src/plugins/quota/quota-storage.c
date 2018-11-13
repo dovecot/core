@@ -295,7 +295,7 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 	}
 
 	const char *error;
-	ret = quota_try_alloc(qt, ctx->dest_mail, NULL, &error);
+	ret = quota_try_alloc(qt, ctx->dest_mail, NULL, NULL, &error);
 	switch (ret) {
 	case QUOTA_ALLOC_RESULT_OK:
 		return 0;

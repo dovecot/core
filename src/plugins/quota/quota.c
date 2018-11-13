@@ -1117,10 +1117,13 @@ static void quota_alloc_with_size(struct quota_transaction_context *ctx,
 }
 
 enum quota_alloc_result
-quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
+quota_try_alloc(struct quota_transaction_context *ctx,
+		struct mail *mail, struct mail *expunged_mail,
 		const struct quota_overrun **overruns_r, const char **error_r)
 {
-	uoff_t size;
+	struct mailbox *expunged_box = (expunged_mail == NULL ? NULL :
+					expunged_mail->box);
+	uoff_t size, expunged_size = 0;
 	const char *error;
 	enum quota_get_result error_res;
 
@@ -1150,9 +1153,24 @@ quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
 			mail->box->vname, mail->uid, error);
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
+	if (expunged_mail != NULL &&
+	    quota_get_mail_size(ctx, expunged_mail, &expunged_size) < 0) {
+		enum mail_error err;
+		error = mailbox_get_last_internal_error(
+			expunged_mail->box, &err);
+
+		if (err != MAIL_ERROR_EXPUNGED) {
+			*error_r = t_strdup_printf(
+				"Failed to get mail size (box=%s, uid=%u): %s",
+				expunged_mail->box->vname,
+				expunged_mail->uid, error);
+			return QUOTA_ALLOC_RESULT_TEMPFAIL;
+		}
+	}
 
 	enum quota_alloc_result ret =
-		quota_test_alloc(ctx, size, NULL, 0, overruns_r, error_r);
+		quota_test_alloc(ctx, size, expunged_box, expunged_size,
+				 overruns_r, error_r);
 	if (ret != QUOTA_ALLOC_RESULT_OK)
 		return ret;
 	/* with quota_try_alloc() we want to keep track of how many bytes
@@ -1161,7 +1179,7 @@ quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
 	   quota_alloc() or quota_free_bytes() was already used within the same
 	   transaction, but that doesn't normally happen. */
 	ctx->auto_updating = FALSE;
-	quota_alloc_with_size(ctx, size, 0);
+	quota_alloc_with_size(ctx, size, expunged_size);
 	return QUOTA_ALLOC_RESULT_OK;
 }
 

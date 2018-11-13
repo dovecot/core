@@ -99,10 +99,12 @@ const char *trash_plugin_version = DOVECOT_ABI_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(trash_user_module,
 				  &mail_user_module_register);
-static enum quota_alloc_result(*trash_next_quota_test_alloc)(
-	struct quota_transaction_context *ctx, uoff_t size,
-	struct mailbox *expunged_box, uoff_t expunged_size,
-	const struct quota_overrun **overruns_r, const char **error_r);
+static enum quota_alloc_result
+(*trash_next_quota_test_alloc)(struct quota_transaction_context *ctx,
+			       uoff_t size, struct mailbox *expunged_box,
+			       uoff_t expunged_size,
+			       const struct quota_overrun **overruns_r,
+			       const char **error_r);
 
 static void
 trash_clean_init(struct trash_clean *tclean,

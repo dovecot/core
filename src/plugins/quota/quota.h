@@ -120,9 +120,9 @@ void quota_transaction_rollback(struct quota_transaction_context **ctx);
    quota_overrun which indicates which roots have overruns and how much is used.
  */
 enum quota_alloc_result
-quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
-		const struct quota_overrun **overruns_r, const char **error_r)
-	ATTR_NULL(3);
+quota_try_alloc(struct quota_transaction_context *ctx,
+		struct mail *mail, struct mail *expunged_mail,
+		const struct quota_overrun **overruns_r, const char **error_r);
 /* Like quota_try_alloc(), but don't actually allocate anything. */
 enum quota_alloc_result
 quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
