@@ -54,54 +54,47 @@ int quota_get_mail_size(struct quota_transaction_context *ctx,
 		return mail_get_physical_size(mail, size_r);
 }
 
-bool quota_transaction_is_over(struct quota_transaction_context *ctx,
-			       uoff_t size)
+static inline bool
+quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
 {
-	if (ctx->count_used < 0) {
-		/* we've deleted some messages. we should be ok, unless we
-		   were already over quota and still are after these
-		   deletions. */
-		const uint64_t count_deleted = (uint64_t)-ctx->count_used;
+	if (used < 0) {
+		const uint64_t deleted = (uint64_t)-used;
 
-		if (ctx->count_over > 0) {
-			if (count_deleted - 1 < ctx->count_over)
-				return TRUE;
-		}
-	} else {
-		if (ctx->count_ceil < 1 ||
-		    ctx->count_ceil - 1 < (uint64_t)ctx->count_used) {
-			/* count limit reached */
-			return TRUE;
-		}
-	}
-
-	if (ctx->bytes_used < 0) {
-		const uint64_t bytes_deleted = (uint64_t)-ctx->bytes_used;
-
-		/* we've deleted some messages. same logic as above. */
-		if (ctx->bytes_over > 0) {
-			if (ctx->bytes_over > bytes_deleted) {
+		/* we've deleted some messages. */
+		if (over > 0) {
+			if (over > deleted) {
 				/* even after deletions we're over quota */
 				return TRUE;
 			}
-			if (size > bytes_deleted - ctx->bytes_over)
+			if (alloc > (deleted - over))
 				return TRUE;
 		} else {
-			if (size > bytes_deleted &&
-			    size - bytes_deleted < ctx->bytes_ceil)
+			if (alloc > deleted && (alloc - deleted) < ceil)
 				return TRUE;
 		}
-	} else if (size == 0) {
+	} else if (alloc == 0) {
 		/* we need to explicitly test this case, since the generic
 		   check would fail if user is already over quota */
-		if (ctx->bytes_over > 0)
+		if (over > 0)
 			return TRUE;
 	} else {
-		if (ctx->bytes_ceil < size ||
-		    ctx->bytes_ceil - size < (uint64_t)ctx->bytes_used) {
-			/* bytes limit reached */
+		if (ceil < alloc || (ceil - alloc) < (uint64_t)used) {
+			/* limit reached */
 			return TRUE;
 		}
 	}
+
+	return FALSE;
+}
+
+bool quota_transaction_is_over(struct quota_transaction_context *ctx,
+			       uoff_t size)
+{
+	if (quota_is_over(1, ctx->count_used, ctx->count_ceil,
+			  ctx->count_over))
+		return TRUE;
+	if (quota_is_over(size, ctx->bytes_used, ctx->bytes_ceil,
+			  ctx->bytes_over))
+		return TRUE;
 	return FALSE;
 }
