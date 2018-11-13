@@ -99,11 +99,10 @@ const char *trash_plugin_version = DOVECOT_ABI_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(trash_user_module,
 				  &mail_user_module_register);
-static enum quota_alloc_result
-(*trash_next_quota_test_alloc)(struct quota_transaction_context *ctx,
-			       uoff_t size,
-			       const struct quota_overrun **overruns_r,
-			       const char **error_r);
+static enum quota_alloc_result(*trash_next_quota_test_alloc)(
+	struct quota_transaction_context *ctx, uoff_t size,
+	struct mailbox *expunged_box, uoff_t expunged_size,
+	const struct quota_overrun **overruns_r, const char **error_r);
 
 static void
 trash_clean_init(struct trash_clean *tclean,
@@ -514,6 +513,7 @@ trash_try_clean_mails(struct quota_transaction_context *ctx,
 
 static enum quota_alloc_result
 trash_quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+		       struct mailbox *expunged_box, uoff_t expunged_size,
 		       const struct quota_overrun **overruns_r,
 		       const char **error_r)
 {
@@ -522,8 +522,10 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 	for (i = 0; ; i++) {
 		const struct quota_overrun *overruns = NULL;
 		enum quota_alloc_result ret;
-		ret = trash_next_quota_test_alloc(ctx, size,
-						  &overruns, error_r);
+
+		ret = trash_next_quota_test_alloc(
+			ctx, size, expunged_box, expunged_size,
+			&overruns, error_r);
 		if (overruns_r != NULL)
 			*overruns_r = overruns;
 		if (ret != QUOTA_ALLOC_RESULT_OVER_QUOTA) {

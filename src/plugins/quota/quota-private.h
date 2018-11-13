@@ -25,6 +25,7 @@ struct quota {
 
 	enum quota_alloc_result (*test_alloc)(
 		struct quota_transaction_context *ctx, uoff_t size,
+		struct mailbox *expunged_box, uoff_t expunged_size,
 		const struct quota_overrun **overruns_r, const char **error_r);
 
 	bool vsizes:1;

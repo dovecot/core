@@ -126,6 +126,7 @@ quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
 /* Like quota_try_alloc(), but don't actually allocate anything. */
 enum quota_alloc_result
 quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+		 struct mailbox *expunged_box, uoff_t expunged_size,
 		 const struct quota_overrun **overruns_r, const char **error_r)
 	ATTR_NULL(3);
 /* Update quota by allocating/freeing space used by mail. */

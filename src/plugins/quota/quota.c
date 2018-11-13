@@ -51,6 +51,7 @@ static ARRAY(const struct quota_backend*) quota_backends;
 
 static enum quota_alloc_result
 quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+			 struct mailbox *expunged_box, uoff_t expunged_size,
 			 const struct quota_overrun **overruns_r,
 			 const char **error_r);
 static void quota_over_status_check_root(struct quota_root *root);
@@ -1151,7 +1152,7 @@ quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
 	}
 
 	enum quota_alloc_result ret =
-		quota_test_alloc(ctx, size, overruns_r, error_r);
+		quota_test_alloc(ctx, size, NULL, 0, overruns_r, error_r);
 	if (ret != QUOTA_ALLOC_RESULT_OK)
 		return ret;
 	/* with quota_try_alloc() we want to keep track of how many bytes
@@ -1166,6 +1167,7 @@ quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
 
 enum quota_alloc_result
 quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+		 struct mailbox *expunged_box, uoff_t expunged_size,
 		 const struct quota_overrun **overruns_r, const char **error_r)
 {
 	if (overruns_r != NULL)
@@ -1195,11 +1197,13 @@ quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 		return QUOTA_ALLOC_RESULT_OK;
 	/* this is a virtual function mainly for trash plugin and similar,
 	   which may automatically delete mails to stay under quota. */
-	return ctx->quota->test_alloc(ctx, size, overruns_r, error_r);
+	return ctx->quota->test_alloc(ctx, size, expunged_box,
+				      expunged_size, overruns_r, error_r);
 }
 
 static enum quota_alloc_result
 quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+			 struct mailbox *expunged_box, uoff_t expunged_size,
 			 const struct quota_overrun **overruns_r,
 			 const char **error_r)
 {
@@ -1211,8 +1215,11 @@ quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 	if (overruns_r != NULL)
 		*overruns_r = NULL;
 
-	if (!quota_transaction_is_over(ctx, size))
+	if (!quota_transaction_is_over(ctx, size)) {
+		/* Doesn't exceed quota for any root, even without expunging
+		   the (replaced or moved) mail. */
 		return QUOTA_ALLOC_RESULT_OK;
+	}
 
 	if (ctx->set->quota_mailbox_message_count != SET_UINT_UNLIMITED) {
 		struct mailbox_status status;
@@ -1222,18 +1229,23 @@ quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 			return QUOTA_ALLOC_RESULT_OVER_QUOTA_MAILBOX_LIMIT;
 	}
 
-	/* limit reached. */
+	/* Some limit is (almost) reached. Find out which one and check whether
+	   the expunged message prevents it from truly crossing the limit. */
 
 	t_array_init(&overruns, 4);
 
 	roots = array_get(&ctx->quota->all_roots, &count);
 	for (i = 0; i < count; i++) {
+		bool expunged = FALSE;
 		uint64_t bytes_limit, count_limit;
 		struct quota_overrun overrun;
 
 		if (!quota_root_is_visible(roots[i], ctx->box) ||
 		    !roots[i]->set->quota_enforce)
 			continue;
+		if (expunged_box != NULL &&
+		    quota_root_is_visible(roots[i], expunged_box))
+			expunged = TRUE;
 
 		if (quota_root_get_rule_limits(roots[i], ctx->box->event,
 					       &bytes_limit, &count_limit,
@@ -1251,7 +1263,9 @@ quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 		}
 
 		i_zero(&overrun);
-		if (quota_root_is_over(ctx, &ctx->roots[i], 1, size, 0, 0,
+		if (quota_root_is_over(ctx, &ctx->roots[i], 1, size,
+				       (expunged ? 1 : 0),
+				       (expunged ? expunged_size : 0),
 				       &overrun.resource.count,
 				       &overrun.resource.bytes)) {
 			overrun.root = roots[i];
@@ -1259,7 +1273,9 @@ quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 		}
 	}
 
-	i_assert(array_count(&overruns) > 0);
+	if (array_count(&overruns) == 0)
+		return QUOTA_ALLOC_RESULT_OK;
+
 	if (overruns_r != NULL) {
 		array_append_zero(&overruns);
 		*overruns_r = array_front(&overruns);
