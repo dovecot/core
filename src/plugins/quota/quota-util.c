@@ -55,7 +55,8 @@ int quota_get_mail_size(struct quota_transaction_context *ctx,
 }
 
 static inline bool
-quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
+quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over,
+	      uoff_t *overrun_r)
 {
 	/* The over parameter is the amount by which the resource usage exceeds
 	   the limit already. The ceil parameter is the amount by which the
@@ -73,12 +74,16 @@ quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
 			if (over > deleted) {
 				/* We are over quota, even after deletions and
 				   without the new allocation. */
+				if (overrun_r != NULL)
+					*overrun_r = (over - deleted) + alloc;
 				return TRUE;
 			}
 			if (alloc > (deleted - over)) {
 				/* We are under quota after deletions, but the
 				   the new allocation exceeds the quota once
 				   more. */
+				if (overrun_r != NULL)
+					*overrun_r = alloc - (deleted - over);
 				return TRUE;
 			}
 		} else {
@@ -87,6 +92,8 @@ quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
 			if (alloc > deleted && (alloc - deleted) > ceil) {
 				/* The new allocation exceeds the quota limit.
 				 */
+				if (overrun_r != NULL)
+					*overrun_r = (alloc - deleted) - ceil;
 				return TRUE;
 			}
 		}
@@ -94,15 +101,21 @@ quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
 		/* Resource usage increased in this transaction. */
 		if (over > 0) {
 			/* Resource usage is already over quota. */
+			if (overrun_r != NULL)
+				*overrun_r = over + (uoff_t)used + alloc;
 			return TRUE;
 		}
 		if (ceil < alloc || (ceil - alloc) < (uint64_t)used) {
 			/* Limit reached. */
+			if (overrun_r != NULL)
+				*overrun_r = (uoff_t)used + alloc - ceil;
 			return TRUE;
 		}
 	}
 
 	/* Not over quota. */
+	if (overrun_r != NULL)
+		*overrun_r = 0;
 	return FALSE;
 }
 
@@ -110,10 +123,26 @@ bool quota_transaction_is_over(struct quota_transaction_context *ctx,
 			       uoff_t size)
 {
 	if (quota_is_over(1, ctx->count_used, ctx->count_ceil,
-			  ctx->count_over))
+			  ctx->count_over, NULL))
 		return TRUE;
 	if (quota_is_over(size, ctx->bytes_used, ctx->bytes_ceil,
-			  ctx->bytes_over))
+			  ctx->bytes_over, NULL))
 		return TRUE;
 	return FALSE;
+}
+
+bool quota_root_is_over(struct quota_transaction_context *ctx,
+			struct quota_transaction_root_context *root,
+			uoff_t count_alloc, uoff_t bytes_alloc,
+			uoff_t *count_overrun_r, uoff_t *bytes_overrun_r)
+{
+	*count_overrun_r = 0;
+	*bytes_overrun_r = 0;
+
+	return (quota_is_over(count_alloc, ctx->count_used,
+			      root->count_ceil, root->count_over,
+			      count_overrun_r) ||
+		quota_is_over(bytes_alloc, ctx->bytes_used,
+			      root->bytes_ceil, root->bytes_over,
+			      bytes_overrun_r));
 }

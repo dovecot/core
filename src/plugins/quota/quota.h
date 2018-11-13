@@ -65,6 +65,15 @@ enum quota_get_result {
 	QUOTA_GET_RESULT_UNLIMITED,
 };
 
+struct quota_overrun {
+	struct quota_root *root;
+
+	struct {
+		uoff_t count;
+		uoff_t bytes;
+	} resource;
+};
+
 const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 		struct quota_transaction_context *qt);
 
@@ -106,12 +115,19 @@ int quota_transaction_commit(struct quota_transaction_context **ctx);
 void quota_transaction_rollback(struct quota_transaction_context **ctx);
 
 /* Allocate from quota if there's space. error_r is set when result is not
- * QUOTA_ALLOC_RESULT_OK. */
-enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
-					struct mail *mail, const char **error_r);
+   QUOTA_ALLOC_RESULT_OK. overruns_r (if not NULL) is set when result is
+   QUOTA_ALLOC_RESULT_OVER_QUOTA. This is a NULL-terminated array of struct
+   quota_overrun which indicates which roots have overruns and how much is used.
+ */
+enum quota_alloc_result
+quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
+		const struct quota_overrun **overruns_r, const char **error_r)
+	ATTR_NULL(3);
 /* Like quota_try_alloc(), but don't actually allocate anything. */
-enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
-					 uoff_t size, const char **error_r);
+enum quota_alloc_result
+quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+		 const struct quota_overrun **overruns_r, const char **error_r)
+	ATTR_NULL(3);
 /* Update quota by allocating/freeing space used by mail. */
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail);
 void quota_free_bytes(struct quota_transaction_context *ctx,

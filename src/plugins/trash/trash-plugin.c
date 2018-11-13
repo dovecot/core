@@ -89,9 +89,11 @@ const char *trash_plugin_version = DOVECOT_ABI_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(trash_user_module,
 				  &mail_user_module_register);
-static enum quota_alloc_result (*trash_next_quota_test_alloc)(
-		struct quota_transaction_context *, uoff_t,
-		const char **error_r);
+static enum quota_alloc_result
+(*trash_next_quota_test_alloc)(struct quota_transaction_context *ctx,
+			       uoff_t size,
+			       const struct quota_overrun **overruns_r,
+			       const char **error_r);
 
 static void
 trash_clean_init(struct trash_clean *tclean,
@@ -374,8 +376,9 @@ trash_try_clean_mails(struct quota_transaction_context *ctx,
 }
 
 static enum quota_alloc_result
-trash_quota_test_alloc(struct quota_transaction_context *ctx,
-		       uoff_t size, const char **error_r)
+trash_quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+		       const struct quota_overrun **overruns_r,
+		       const char **error_r)
 {
 	int i;
 	uint64_t size_needed = 0;
@@ -383,7 +386,8 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 
 	for (i = 0; ; i++) {
 		enum quota_alloc_result ret;
-		ret = trash_next_quota_test_alloc(ctx, size, error_r);
+		ret = trash_next_quota_test_alloc(ctx, size,
+						  overruns_r, error_r);
 		if (ret != QUOTA_ALLOC_RESULT_OVER_QUOTA) {
 			if (ret == QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT) {
 				e_debug(ctx->quota->user->event,

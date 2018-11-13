@@ -25,7 +25,8 @@ struct quota {
 
 	enum quota_alloc_result (*test_alloc)(
 		struct quota_transaction_context *ctx, uoff_t size,
-		const char **error_r);
+		const struct quota_overrun **overruns_r, const char **error_r);
+
 	bool vsizes:1;
 };
 
@@ -95,6 +96,21 @@ struct quota_root {
 	bool have_under_warnings:1;
 };
 
+struct quota_transaction_root_context {
+	/* how many bytes/mails can be saved until limit is reached.
+	   (set once, not updated by bytes_used/count_used).
+
+	   if last_mail_max_extra_bytes>0, the bytes_ceil is initially
+	   increased by that much, while bytes_ceil2 contains the real ceiling.
+	   after the first allocation is done, bytes_ceil is set to
+	   bytes_ceil2. */
+	uint64_t bytes_ceil, bytes_ceil2, count_ceil;
+	/* How many bytes/mails we are over quota. Like *_ceil, these are set
+	   only once and not updated by bytes_used/count_used. (Either *_ceil
+	   or *_over is always zero.) */
+	uint64_t bytes_over, count_over;
+};
+
 struct quota_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 
@@ -102,6 +118,8 @@ struct quota_transaction_context {
 	struct mailbox *box;
 
 	const struct quota_settings *set;
+
+	struct quota_transaction_root_context *roots;
 
 	int64_t bytes_used, count_used;
 	/* how many bytes/mails can be saved until limit is reached.
@@ -150,6 +168,10 @@ bool quota_warning_match(const struct quota_root_settings *w,
 int quota_get_mail_size(struct quota_transaction_context *ctx,
 			struct mail *mail, uoff_t *size_r);
 bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
+bool quota_root_is_over(struct quota_transaction_context *ctx,
+			struct quota_transaction_root_context *root,
+			uoff_t count_alloc, uoff_t bytes_alloc,
+			uoff_t *count_overrun_r, uoff_t *bytes_overrun_r);
 int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				 enum quota_get_result *error_result_r,
 				 const char **error_r);

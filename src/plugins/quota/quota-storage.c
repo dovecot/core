@@ -161,7 +161,8 @@ quota_get_status(struct mailbox *box, enum mailbox_status_items items,
 	if ((items & STATUS_CHECK_OVER_QUOTA) != 0) {
 		qt = quota_transaction_begin(box);
 		const char *error;
-		enum quota_alloc_result qret = quota_test_alloc(qt, 0, &error);
+		enum quota_alloc_result qret =
+			quota_test_alloc(qt, 0, NULL, &error);
 		if (qret != QUOTA_ALLOC_RESULT_OK) {
 			quota_set_storage_error(qt, box, qret, error);
 			ret = -1;
@@ -294,7 +295,7 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 	}
 
 	const char *error;
-	ret = quota_try_alloc(qt, ctx->dest_mail, &error);
+	ret = quota_try_alloc(qt, ctx->dest_mail, NULL, &error);
 	switch (ret) {
 	case QUOTA_ALLOC_RESULT_OK:
 		return 0;
@@ -373,7 +374,8 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 		   benefit of giving "out of quota" error before sending the
 		   full mail. */
 
-		enum quota_alloc_result qret = quota_test_alloc(qt, size, &error);
+		enum quota_alloc_result qret =
+			quota_test_alloc(qt, size, NULL, &error);
 		switch (qret) {
 		case QUOTA_ALLOC_RESULT_OK:
 			/* Great, there is space. */

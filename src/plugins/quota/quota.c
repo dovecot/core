@@ -49,9 +49,10 @@ static const struct quota_backend *quota_internal_backends[] = {
 
 static ARRAY(const struct quota_backend*) quota_backends;
 
-static enum quota_alloc_result quota_default_test_alloc(
-		struct quota_transaction_context *ctx, uoff_t size,
-		const char **error_r);
+static enum quota_alloc_result
+quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+			 const struct quota_overrun **overruns_r,
+			 const char **error_r);
 static void quota_over_status_check_root(struct quota_root *root);
 static struct quota_root *
 quota_root_find(struct quota *quota, const char *name);
@@ -666,6 +667,10 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	i_assert(ctx->quota != NULL);
 
 	roots = array_get(&ctx->quota->all_roots, &roots_count);
+	if (roots_count > 0) {
+		ctx->roots = i_new(struct quota_transaction_root_context,
+				   roots_count);
+	}
 
 	ctx->box = box;
 	ctx->bytes_ceil = (uint64_t)-1;
@@ -674,6 +679,10 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 
 	ctx->auto_updating = TRUE;
 	for (i = 0; i < roots_count; i++) {
+		ctx->roots[i].bytes_ceil = (uint64_t)-1;
+		ctx->roots[i].bytes_ceil2 = (uint64_t)-1;
+		ctx->roots[i].count_ceil = (uint64_t)-1;
+
 		if (!quota_root_is_visible(roots[i], ctx->box))
 			continue;
 
@@ -763,17 +772,22 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
+					ctx->roots[i].bytes_ceil = 0;
+					ctx->roots[i].bytes_ceil2 = 0;
 					ctx->bytes_ceil = 0;
 					ctx->bytes_ceil2 = 0;
 					diff = current - limit;
+					ctx->roots[i].bytes_over = diff;
 					if (ctx->bytes_over < diff)
 						ctx->bytes_over = diff;
 				} else {
 					diff = limit - current;
+					ctx->roots[i].bytes_ceil2 = diff;
 					if (ctx->bytes_ceil2 > diff)
 						ctx->bytes_ceil2 = diff;
 					diff += !use_grace ? 0 :
 						roots[i]->set->quota_storage_grace;
+					ctx->roots[i].bytes_ceil = diff;
 					if (ctx->bytes_ceil > diff)
 						ctx->bytes_ceil = diff;
 				}
@@ -795,12 +809,15 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
+					ctx->roots[i].count_ceil = 0;
 					ctx->count_ceil = 0;
 					diff = current - limit;
+					ctx->roots[i].count_over = diff;
 					if (ctx->count_over < diff)
 						ctx->count_over = diff;
 				} else {
 					diff = limit - current;
+					ctx->roots[i].count_ceil = diff;
 					if (ctx->count_ceil > diff)
 						ctx->count_ceil = diff;
 				}
@@ -973,6 +990,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 	} T_END;
 
 	settings_free(ctx->set);
+	i_free(ctx->roots);
 	i_free(ctx);
 	return ret;
 }
@@ -1077,23 +1095,32 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 
 	*_ctx = NULL;
 	settings_free(ctx->set);
+	i_free(ctx->roots);
 	i_free(ctx);
 }
 
 static void quota_alloc_with_size(struct quota_transaction_context *ctx,
 				  uoff_t size)
 {
+	unsigned int i;
+
 	ctx->bytes_used += size;
 	ctx->bytes_ceil = ctx->bytes_ceil2;
+	for (i = 0; i < array_count(&ctx->quota->all_roots); i++)
+		ctx->roots[i].bytes_ceil = ctx->roots[i].bytes_ceil2;
 	ctx->count_used++;
 }
 
-enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
-					struct mail *mail, const char **error_r)
+enum quota_alloc_result
+quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
+		const struct quota_overrun **overruns_r, const char **error_r)
 {
 	uoff_t size;
 	const char *error;
 	enum quota_get_result error_res;
+
+	if (overruns_r != NULL)
+		*overruns_r = NULL;
 
 	if (quota_transaction_set_limits(ctx, &error_res, error_r) < 0) {
 		if (error_res == QUOTA_GET_RESULT_BACKGROUND_CALC)
@@ -1119,7 +1146,8 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
-	enum quota_alloc_result ret = quota_test_alloc(ctx, size, error_r);
+	enum quota_alloc_result ret =
+		quota_test_alloc(ctx, size, overruns_r, error_r);
 	if (ret != QUOTA_ALLOC_RESULT_OK)
 		return ret;
 	/* with quota_try_alloc() we want to keep track of how many bytes
@@ -1132,9 +1160,13 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 	return QUOTA_ALLOC_RESULT_OK;
 }
 
-enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
-					 uoff_t size, const char **error_r)
+enum quota_alloc_result
+quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+		 const struct quota_overrun **overruns_r, const char **error_r)
 {
+	if (overruns_r != NULL)
+		*overruns_r = NULL;
+
 	if (ctx->failed) {
 		*error_r = "Quota transaction has failed earlier";
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
@@ -1159,16 +1191,21 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 		return QUOTA_ALLOC_RESULT_OK;
 	/* this is a virtual function mainly for trash plugin and similar,
 	   which may automatically delete mails to stay under quota. */
-	return ctx->quota->test_alloc(ctx, size, error_r);
+	return ctx->quota->test_alloc(ctx, size, overruns_r, error_r);
 }
 
-static enum quota_alloc_result quota_default_test_alloc(
-			struct quota_transaction_context *ctx, uoff_t size,
-			const char **error_r)
+static enum quota_alloc_result
+quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
+			 const struct quota_overrun **overruns_r,
+			 const char **error_r)
 {
 	struct quota_root *const *roots;
+	ARRAY(struct quota_overrun) overruns;
 	unsigned int i, count;
 	bool ignore;
+
+	if (overruns_r != NULL)
+		*overruns_r = NULL;
 
 	if (!quota_transaction_is_over(ctx, size))
 		return QUOTA_ALLOC_RESULT_OK;
@@ -1182,9 +1219,13 @@ static enum quota_alloc_result quota_default_test_alloc(
 	}
 
 	/* limit reached. */
+
+	t_array_init(&overruns, 4);
+
 	roots = array_get(&ctx->quota->all_roots, &count);
 	for (i = 0; i < count; i++) {
 		uint64_t bytes_limit, count_limit;
+		struct quota_overrun overrun;
 
 		if (!quota_root_is_visible(roots[i], ctx->box) ||
 		    !roots[i]->set->quota_enforce)
@@ -1204,7 +1245,22 @@ static enum quota_alloc_result quota_default_test_alloc(
 				size);
 			return QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT;
 		}
+
+		i_zero(&overrun);
+		if (quota_root_is_over(ctx, &ctx->roots[i], 1, size,
+				       &overrun.resource.count,
+				       &overrun.resource.bytes)) {
+			overrun.root = roots[i];
+			array_append(&overruns, &overrun, 1);
+		}
 	}
+
+	i_assert(array_count(&overruns) > 0);
+	if (overruns_r != NULL) {
+		array_append_zero(&overruns);
+		*overruns_r = array_front(&overruns);
+	}
+
 	*error_r = t_strdup_printf(
 		"Allocating %"PRIuUOFF_T" bytes would exceed quota", size);
 	return QUOTA_ALLOC_RESULT_OVER_QUOTA;
