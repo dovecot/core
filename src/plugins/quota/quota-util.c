@@ -163,6 +163,7 @@ bool quota_transaction_is_over(struct quota_transaction_context *ctx,
 bool quota_root_is_over(struct quota_transaction_context *ctx,
 			struct quota_transaction_root_context *root,
 			uoff_t count_alloc, uoff_t bytes_alloc,
+			uoff_t count_expunged, uoff_t bytes_expunged,
 			uoff_t *count_overrun_r, uoff_t *bytes_overrun_r)
 {
 	int64_t count_used = ctx->count_used;
@@ -173,6 +174,8 @@ bool quota_root_is_over(struct quota_transaction_context *ctx,
 
 	quota_used_apply_expunged(&count_used, root->count_expunged);
 	quota_used_apply_expunged(&bytes_used, root->bytes_expunged);
+	quota_used_apply_expunged(&count_used, count_expunged);
+	quota_used_apply_expunged(&bytes_used, bytes_expunged);
 
 	return (quota_is_over(count_alloc, count_used,
 			      root->count_ceil, root->count_over,

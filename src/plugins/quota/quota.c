@@ -1247,7 +1247,7 @@ quota_default_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 		}
 
 		i_zero(&overrun);
-		if (quota_root_is_over(ctx, &ctx->roots[i], 1, size,
+		if (quota_root_is_over(ctx, &ctx->roots[i], 1, size, 0, 0,
 				       &overrun.resource.count,
 				       &overrun.resource.bytes)) {
 			overrun.root = roots[i];

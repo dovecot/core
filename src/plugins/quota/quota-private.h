@@ -190,6 +190,7 @@ bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t siz
 bool quota_root_is_over(struct quota_transaction_context *ctx,
 			struct quota_transaction_root_context *root,
 			uoff_t count_alloc, uoff_t bytes_alloc,
+			uoff_t count_expunged, uoff_t bytes_expunged,
 			uoff_t *count_overrun_r, uoff_t *bytes_overrun_r);
 
 void quota_transaction_root_expunged(
