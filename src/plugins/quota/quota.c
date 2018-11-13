@@ -1078,15 +1078,6 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 	i_free(ctx);
 }
 
-static int quota_get_mail_size(struct quota_transaction_context *ctx,
-			       struct mail *mail, uoff_t *size_r)
-{
-	if (ctx->quota->vsizes)
-		return mail_get_virtual_size(mail, size_r);
-	else
-		return mail_get_physical_size(mail, size_r);
-}
-
 static void quota_alloc_with_size(struct quota_transaction_context *ctx,
 				  uoff_t size)
 {

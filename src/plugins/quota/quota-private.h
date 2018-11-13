@@ -144,6 +144,9 @@ bool quota_warning_match(const struct quota_root_settings *w,
 			 uint64_t bytes_before, uint64_t bytes_current,
 			 uint64_t count_before, uint64_t count_current,
 			 const char **reason_r);
+
+int quota_get_mail_size(struct quota_transaction_context *ctx,
+			struct mail *mail, uoff_t *size_r);
 bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
 int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				 enum quota_get_result *error_result_r,

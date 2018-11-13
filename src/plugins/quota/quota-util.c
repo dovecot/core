@@ -45,6 +45,15 @@ bool quota_warning_match(const struct quota_root_settings *w,
 	return FALSE;
 }
 
+int quota_get_mail_size(struct quota_transaction_context *ctx,
+			struct mail *mail, uoff_t *size_r)
+{
+	if (ctx->quota->vsizes)
+		return mail_get_virtual_size(mail, size_r);
+	else
+		return mail_get_physical_size(mail, size_r);
+}
+
 bool quota_transaction_is_over(struct quota_transaction_context *ctx,
 			       uoff_t size)
 {
