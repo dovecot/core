@@ -476,22 +476,62 @@ static void test_server_deinit(void)
  * Test client
  */
 
-struct test_client_transaction {
-	struct test_client_transaction *prev, *next;
+struct test_client_connection {
 	struct smtp_client_connection *conn;
 	struct smtp_client_transaction *trans;
+};
+
+struct test_client_transaction {
+	struct test_client_transaction *prev, *next;
+	struct test_client_connection *conn;
 
 	struct io *io;
 	struct istream *file;
 	unsigned int files_idx;
 };
 
+static struct test_client_connection test_conns[MAX_PARALLEL_PENDING];
 static struct smtp_client *smtp_client;
 static enum smtp_protocol client_protocol;
 static struct test_client_transaction *client_requests;
 static unsigned int client_files_first, client_files_last;
 static struct timeout *client_to = NULL;
 struct timeout *to_client_progress = NULL;
+
+static struct test_client_connection *
+test_client_connection_get(void)
+{
+	unsigned int i;
+	enum smtp_client_connection_ssl_mode ssl_mode;
+
+	for (i = 0; i < MAX_PARALLEL_PENDING; i++) {
+		if (test_conns[i].trans == NULL)
+			break;
+	}
+
+	i_assert(i < MAX_PARALLEL_PENDING);
+
+	switch (test_ssl_mode) {
+	case TEST_SSL_MODE_NONE:
+	default:
+		ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
+		break;
+	case TEST_SSL_MODE_IMMEDIATE:
+		ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
+		break;
+	case TEST_SSL_MODE_STARTTLS:
+		ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
+		break;
+	}
+
+	if (test_conns[i].conn == NULL) {
+		test_conns[i].conn = smtp_client_connection_create(
+			smtp_client, client_protocol,
+			net_ip2addr(&bind_ip), bind_port,
+			ssl_mode, NULL);
+	}
+	return &test_conns[i];
+}
 
 static struct test_client_transaction *
 test_client_transaction_new(void)
@@ -507,8 +547,7 @@ test_client_transaction_new(void)
 static void
 test_client_transaction_destroy(struct test_client_transaction *tctrans)
 {
-	if (tctrans->trans != NULL)
-		smtp_client_transaction_destroy(&tctrans->trans);
+	smtp_client_transaction_destroy(&tctrans->conn->trans);
 	io_remove(&tctrans->io);
 	i_stream_unref(&tctrans->file);
 
@@ -542,7 +581,7 @@ test_client_finished(unsigned int files_idx)
 static void
 test_client_transaction_finish(struct test_client_transaction *tctrans)
 {
-	tctrans->trans = NULL;
+	tctrans->conn->trans = NULL;
 	test_client_transaction_destroy(tctrans);
 }
 
@@ -686,7 +725,6 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 		struct istream *fstream, *payload;
 		const char *path = paths[client_files_last];
 		unsigned int r, rcpts;
-		enum smtp_client_connection_ssl_mode ssl_mode;
 
 		fstream = test_file_open(path);
 		if (fstream == NULL) {
@@ -709,36 +747,21 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 
 		tctrans = test_client_transaction_new();
 		tctrans->files_idx = client_files_last;
-
-		switch (test_ssl_mode) {
-		case TEST_SSL_MODE_NONE:
-		default:		
-			ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
-			break;
-		case TEST_SSL_MODE_IMMEDIATE:
-			ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
-			break;
-		case TEST_SSL_MODE_STARTTLS:
-			ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
-			break;
-		}
-
-		tctrans->conn = smtp_client_connection_create(smtp_client,
-			client_protocol, net_ip2addr(&bind_ip), bind_port,
-			ssl_mode, NULL);
+		tctrans->conn = test_client_connection_get();
 
 		i_zero(&mail_params);
 		mail_params.envid = path;
 
-		tctrans->trans = smtp_client_transaction_create(tctrans->conn,
+		tctrans->conn->trans = smtp_client_transaction_create(
+			tctrans->conn->conn,
 			SMTP_ADDRESS_LITERAL("user", "example.com"),
 			&mail_params, 0,
 			test_client_transaction_finish, tctrans);
-		smtp_client_connection_unref(&tctrans->conn);
 
 		rcpts = tctrans->files_idx % 10 + 1;
 		for (r = 1; r <= rcpts; r++) {
-			smtp_client_transaction_add_rcpt(tctrans->trans,
+			smtp_client_transaction_add_rcpt(
+				tctrans->conn->trans,
 				smtp_address_create_temp(
 					t_strdup_printf("rcpt%u", r), "example.com"), NULL,
 				test_client_transaction_rcpt,
@@ -764,8 +787,9 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 				raw_size, b64_size, path, client_files_last);
 		}
 
-		smtp_client_transaction_send(tctrans->trans, payload,
-			test_client_transaction_data, tctrans);
+		smtp_client_transaction_send(tctrans->conn->trans, payload,
+					     test_client_transaction_data,
+					     tctrans);
 
 		i_stream_unref(&payload);
 		i_stream_unref(&fstream);
@@ -800,13 +824,18 @@ test_client(enum smtp_protocol protocol,
 	test_client_continue(NULL);
 }
 
-/* cleanup */
+static void test_client_init(void)
+{
+	i_zero(&test_conns);
+}
 
 static void test_client_deinit(void)
 {
 	timeout_remove(&client_to);
 	timeout_remove(&to_client_progress);
 	smtp_client_deinit(&smtp_client);
+
+	i_zero(&test_conns);
 }
 
 /*
@@ -871,6 +900,7 @@ static void test_run_client_server(
 		i_close_fd(&fd_listen);
 		/* parent: client */
 		ioloop = io_loop_create();
+		test_client_init();
 		client_init(protocol, client_set);
 		io_loop_run(ioloop);
 		test_client_deinit();
