@@ -178,7 +178,7 @@ void master_service_ssl_settings_to_iostream_set(
 	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
 	/* NOTE: It's a bit questionable whether ssl_ca should be used for
 	   clients. But at least for now it's needed for login-proxy. */
-	set_r->ca = p_strdup(pool, ssl_set->ssl_ca);
+	set_r->ca = p_strdup_empty(pool, ssl_set->ssl_ca);
 
 	switch (type) {
 	case MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER:
@@ -194,8 +194,8 @@ void master_service_ssl_settings_to_iostream_set(
 		set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 		break;
 	case MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT:
-		set_r->ca_file = p_strdup(pool, ssl_set->ssl_client_ca_file);
-		set_r->ca_dir = p_strdup(pool, ssl_set->ssl_client_ca_dir);
+		set_r->ca_file = p_strdup_empty(pool, ssl_set->ssl_client_ca_file);
+		set_r->ca_dir = p_strdup_empty(pool, ssl_set->ssl_client_ca_dir);
 		set_r->cert.cert = p_strdup_empty(pool, ssl_set->ssl_client_cert);
 		set_r->cert.key = p_strdup_empty(pool, ssl_set->ssl_client_key);
 		set_r->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
