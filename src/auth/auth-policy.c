@@ -11,6 +11,8 @@
 #include "http-url.h"
 #include "http-client.h"
 #include "json-parser.h"
+#include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "auth-request.h"
 #include "auth-penalty.h"
 #include "auth-settings.h"
@@ -157,18 +159,18 @@ void auth_policy_open_and_close_to_key(const char *fromkey, const char *tokey, s
 
 void auth_policy_init(void)
 {
+	const struct master_service_ssl_settings *master_ssl_set =
+		master_service_ssl_settings_get(master_service);
 	struct ssl_iostream_settings ssl_set;
 	i_zero(&ssl_set);
 
 	http_client_set.request_absolute_timeout_msecs = global_auth_settings->policy_server_timeout_msecs;
 	if (global_auth_settings->debug)
 		http_client_set.debug = 1;
-	ssl_set.ca_dir = global_auth_settings->ssl_client_ca_dir;
-	ssl_set.ca_file = global_auth_settings->ssl_client_ca_file;
-	if (*ssl_set.ca_dir == '\0' &&
-	    *ssl_set.ca_file == '\0')
-		ssl_set.allow_invalid_cert = TRUE;
 
+	master_service_ssl_settings_to_iostream_set(master_ssl_set, pool_datastack_create(),
+						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
+						    &ssl_set);
 	http_client_set.ssl = &ssl_set;
 	http_client = http_client_init(&http_client_set);
 
