@@ -96,11 +96,8 @@ struct imapc_client_settings {
 	struct ssl_iostream_settings ssl_set;
 
 	enum imapc_client_ssl_mode ssl_mode;
-	const char *ssl_ca_dir, *ssl_ca_file;
-	bool ssl_verify;
 
 	const char *rawlog_dir;
-	const char *ssl_crypto_device;
 	bool debug;
 
 	/* Timeout for logging in. 0 = default. */
