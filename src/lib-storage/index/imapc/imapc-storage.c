@@ -339,16 +339,16 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	mail_user_set_get_temp_prefix(str, ns->user->set);
 	set.temp_path_prefix = str_c(str);
 
-	set.ssl_ca_dir = mail_set->ssl_client_ca_dir;
-	set.ssl_ca_file = mail_set->ssl_client_ca_file;
-	set.ssl_verify = imapc_set->imapc_ssl_verify;
+	mail_user_init_ssl_client_settings(ns->user, &set.ssl_set);
+	if (!imapc_set->imapc_ssl_verify)
+		set.ssl_set.allow_invalid_cert = TRUE;
+
 	if (strcmp(imapc_set->imapc_ssl, "imaps") == 0)
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
 	else if (strcmp(imapc_set->imapc_ssl, "starttls") == 0)
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
 	else
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
-	set.ssl_crypto_device = mail_set->ssl_crypto_device;
 
 	set.throttle_set.init_msecs = imapc_set->throttle_init_msecs;
 	set.throttle_set.max_msecs = imapc_set->throttle_max_msecs;
