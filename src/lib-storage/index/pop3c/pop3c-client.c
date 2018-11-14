@@ -115,17 +115,8 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 
 	if (set->ssl_mode != POP3C_CLIENT_SSL_MODE_NONE) {
-		client->set.ssl_mode = set->ssl_mode;
-		client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
-		client->set.ssl_ca_file = p_strdup(pool, set->ssl_ca_file);
-		client->set.ssl_verify = set->ssl_verify;
-
-		i_zero(&ssl_set);
-		ssl_set.ca_dir = set->ssl_ca_dir;
-		ssl_set.ca_file = set->ssl_ca_file;
-		ssl_set.allow_invalid_cert = !set->ssl_verify;
-		ssl_set.crypto_device = set->ssl_crypto_device;
-
+		ssl_iostream_settings_init_from(client->pool, &client->set.ssl_set, &set->ssl_set);
+		client->set.ssl_set.verbose_invalid_cert = !client->set.ssl_set.allow_invalid_cert;
 		if (ssl_iostream_client_context_cache_get(&ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {
@@ -544,7 +535,7 @@ static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 				client->set.host);
 		}
 		return 0;
-	} else if (!client->set.ssl_verify) {
+	} else if (client->set.ssl_set.allow_invalid_cert) {
 		if (client->set.debug) {
 			i_debug("pop3c(%s): SSL handshake successful, "
 				"ignoring invalid certificate: %s",
@@ -559,19 +550,11 @@ static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 
 static int pop3c_client_ssl_init(struct pop3c_client *client)
 {
-	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
 	if (client->ssl_ctx == NULL) {
 		i_error("pop3c(%s): No SSL context", client->set.host);
 		return -1;
-	}
-
-	i_zero(&ssl_set);
-	if (client->set.ssl_verify) {
-		ssl_set.verbose_invalid_cert = TRUE;
-	} else {
-		ssl_set.allow_invalid_cert = TRUE;
 	}
 
 	if (client->set.debug)
@@ -588,8 +571,8 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 	}
 
 	if (io_stream_create_ssl_client(client->ssl_ctx, client->set.host,
-					&ssl_set, &client->input, &client->output,
-					&client->ssl_iostream, &error) < 0) {
+					&client->set.ssl_set, &client->input,
+					&client->output, &client->ssl_iostream, &error) < 0) {
 		i_error("pop3c(%s): Couldn't initialize SSL client: %s",
 			client->set.host, error);
 		return -1;
