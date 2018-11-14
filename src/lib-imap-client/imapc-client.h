@@ -2,6 +2,7 @@
 #define IMAPC_CLIENT_H
 
 #include "net.h"
+#include "iostream-ssl.h"
 
 /* IMAP RFC defines this to be at least 30 minutes. */
 #define IMAPC_DEFAULT_MAX_IDLE_TIME (60*29)
@@ -92,6 +93,7 @@ struct imapc_client_settings {
 
 	const char *dns_client_socket_path;
 	const char *temp_path_prefix;
+	struct ssl_iostream_settings ssl_set;
 
 	enum imapc_client_ssl_mode ssl_mode;
 	const char *ssl_ca_dir, *ssl_ca_file;
