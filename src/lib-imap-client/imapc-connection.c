@@ -1624,7 +1624,7 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 				conn->name);
 		}
 		return 0;
-	} else if (!conn->client->set.ssl_verify) {
+	} else if (conn->client->set.ssl_set.allow_invalid_cert) {
 		if (conn->client->set.debug) {
 			i_debug("imapc(%s): SSL handshake successful, "
 				"ignoring invalid certificate: %s",
@@ -1639,19 +1639,11 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 
 static int imapc_connection_ssl_init(struct imapc_connection *conn)
 {
-	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
 	if (conn->client->ssl_ctx == NULL) {
 		i_error("imapc(%s): No SSL context", conn->name);
 		return -1;
-	}
-
-	i_zero(&ssl_set);
-	if (conn->client->set.ssl_verify) {
-		ssl_set.verbose_invalid_cert = TRUE;
-	} else {
-		ssl_set.allow_invalid_cert = TRUE;
 	}
 
 	if (conn->client->set.debug)
@@ -1670,7 +1662,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	io_remove(&conn->io);
 	if (io_stream_create_ssl_client(conn->client->ssl_ctx,
 					conn->client->set.host,
-					&ssl_set, &conn->input, &conn->output,
+					&conn->client->set.ssl_set,
+					&conn->input, &conn->output,
 					&conn->ssl_iostream, &error) < 0) {
 		i_error("imapc(%s): Couldn't initialize SSL client: %s",
 			conn->name, error);
