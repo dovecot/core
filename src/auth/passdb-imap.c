@@ -97,10 +97,10 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 			    DNS_CLIENT_SOCKET_NAME, NULL);
 	set.password = password;
 	set.max_idle_time = IMAPC_DEFAULT_MAX_IDLE_TIME;
-	if (set.ssl_ca_dir == NULL)
-		set.ssl_ca_dir = auth_request->set->ssl_client_ca_dir;
-	if (set.ssl_ca_file == NULL)
-		set.ssl_ca_file = auth_request->set->ssl_client_ca_file;
+	if (set.ssl_set.ca_dir == NULL)
+		set.ssl_set.ca_dir = auth_request->set->ssl_client_ca_dir;
+	if (set.ssl_set.ca_file == NULL)
+		set.ssl_set.ca_file = auth_request->set->ssl_client_ca_file;
 
 	if (module->set_have_vars) {
 		str = t_str_new(128);
@@ -152,7 +152,6 @@ passdb_imap_preinit(pool_t pool, const char *args)
 	module->set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
 	module->set.username = "%u";
 	module->set.rawlog_dir = "";
-	module->set.ssl_verify = TRUE;
 
 	for (tmp = p_strsplit(pool, args, " "); *tmp != NULL; tmp++) {
 		key = *tmp;
@@ -170,9 +169,9 @@ passdb_imap_preinit(pool_t pool, const char *args)
 		} else if (strcmp(key, "username") == 0)
 			module->set.username = value;
 		else if (strcmp(key, "ssl_ca_dir") == 0)
-			module->set.ssl_ca_dir = value;
+			module->set.ssl_set.ca_dir = value;
 		else if (strcmp(key, "ssl_ca_file") == 0)
-			module->set.ssl_ca_file = value;
+			module->set.ssl_set.ca_file = value;
 		else if (strcmp(key, "rawlog_dir") == 0)
 			module->set.rawlog_dir = value;
 		else if (strcmp(key, "ssl") == 0) {
@@ -190,9 +189,9 @@ passdb_imap_preinit(pool_t pool, const char *args)
 			}
 		} else if (strcmp(key, "allow_invalid_cert") == 0) {
 			if (strcmp(value, "yes") == 0) {
-				module->set.ssl_verify = FALSE;
+				module->set.ssl_set.allow_invalid_cert = TRUE;
 			} else if (strcmp(value, "no") == 0) {
-				module->set.ssl_verify = TRUE;
+				module->set.ssl_set.allow_invalid_cert = FALSE;
 			} else {
 				i_fatal("passdb imap: Invalid allow_invalid_cert value: %s",
 					value);
@@ -202,8 +201,8 @@ passdb_imap_preinit(pool_t pool, const char *args)
 		}
 	}
 
-	if (module->set.ssl_verify == TRUE && module->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE ) {
-		if (module->set.ssl_ca_dir == NULL && module->set.ssl_ca_file == NULL)
+	if (!module->set.ssl_set.allow_invalid_cert && module->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE) {
+		if (module->set.ssl_set.ca_dir == NULL && module->set.ssl_set.ca_file == NULL)
 			i_fatal("passdb imap: Cannot verify certificate without ssl_ca_dir or ssl_ca_file setting");
 	}
 
