@@ -373,8 +373,11 @@ static void auth_die(void)
 int main(int argc, char *argv[])
 {
 	int c;
+	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
+		MASTER_SERVICE_FLAG_NO_SSL_INIT;
 
-	master_service = master_service_init("auth", 0, &argc, &argv, "w");
+	master_service = master_service_init("auth", service_flags, &argc, &argv, "w");
 	master_service_init_log(master_service, "auth: ");
 
 	while ((c = master_getopt(master_service)) > 0) {
