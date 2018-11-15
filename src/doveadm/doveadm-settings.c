@@ -5,6 +5,9 @@
 #include "settings-parser.h"
 #include "service-settings.h"
 #include "mail-storage-settings.h"
+#include "master-service.h"
+#include "master-service-ssl-settings.h"
+#include "iostream-ssl.h"
 #include "doveadm-settings.h"
 
 static bool doveadm_settings_check(void *_set, pool_t pool, const char **error_r);
@@ -67,8 +70,6 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, doveadm_allowed_commands),
 	DEF(SET_STR, dsync_alt_char),
 	DEF(SET_STR, dsync_remote_cmd),
-	DEF(SET_STR, ssl_client_ca_dir),
-	DEF(SET_STR, ssl_client_ca_file),
 	DEF(SET_STR, director_username_hash),
 	DEF(SET_STR, doveadm_api_key),
 	DEF(SET_STR, dsync_features),
@@ -99,8 +100,6 @@ const struct doveadm_settings doveadm_default_settings = {
 	.dsync_features = "",
 	.dsync_hashed_headers = "Date Message-ID",
 	.dsync_commit_msgs_interval = 100,
-	.ssl_client_ca_dir = "",
-	.ssl_client_ca_file = "",
 	.director_username_hash = "%Lu",
 	.doveadm_api_key = "",
 	.doveadm_http_rawlog_dir = "",
@@ -196,3 +195,13 @@ static bool doveadm_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 /* </settings checks> */
+
+void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool)
+{
+	const struct master_service_ssl_settings *ssl_set =
+		master_service_ssl_settings_get(master_service);
+	i_zero(set_r);
+	master_service_ssl_settings_to_iostream_set(ssl_set, pool,
+						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
+						    set_r);
+}
