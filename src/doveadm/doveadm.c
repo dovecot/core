@@ -10,6 +10,7 @@
 #include "dict.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
+#include "master-service-ssl-settings.h"
 #include "settings-parser.h"
 #include "doveadm-print-private.h"
 #include "doveadm-dump.h"
@@ -247,6 +248,7 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 static void doveadm_read_settings(void)
 {
 	static const struct setting_parser_info *set_roots[] = {
+		&master_service_ssl_setting_parser_info,
 		&doveadm_setting_parser_info,
 		NULL
 	};
@@ -270,7 +272,7 @@ static void doveadm_read_settings(void)
 				   service_set, pool_datastack_create());
 	doveadm_verbose_proctitle = service_set->verbose_proctitle;
 
-	set = master_service_settings_get_others(master_service)[0];
+	set = master_service_settings_get_others(master_service)[1];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
 					pool_datastack_create());
 
@@ -291,6 +293,8 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
+		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
+		MASTER_SERVICE_FLAG_NO_SSL_INIT |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
 	struct doveadm_cmd_context cctx;
 	const char *cmd_name;
