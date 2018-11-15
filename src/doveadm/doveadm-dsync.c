@@ -794,10 +794,7 @@ static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
 	if (ctx->ssl_ctx != NULL)
 		return 0;
 
-	i_zero(&ssl_set);
-	ssl_set.ca_dir = mail_set->ssl_client_ca_dir;
-	ssl_set.ca_file = mail_set->ssl_client_ca_file;
-	ssl_set.crypto_device = mail_set->ssl_crypto_device;
+	mail_storage_settings_init_ssl_client_settings(mail_set, &ssl_set);
 
 	return ssl_iostream_client_context_cache_get(&ssl_set, &ctx->ssl_ctx, error_r);
 }
