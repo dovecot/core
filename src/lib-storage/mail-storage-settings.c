@@ -14,6 +14,7 @@
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "mail-storage-settings.h"
+#include "iostream-ssl.h"
 
 #include <stddef.h>
 
@@ -795,3 +796,23 @@ bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 	return FALSE;
 }
 
+void mail_storage_settings_init_ssl_client_settings(const struct mail_storage_settings *mail_set,
+		                                    struct ssl_iostream_settings *ssl_set_r)
+{
+	i_zero(ssl_set_r);
+	if (*mail_set->ssl_client_ca_dir != '\0')
+		ssl_set_r->ca_dir = mail_set->ssl_client_ca_dir;
+	if (*mail_set->ssl_client_ca_file != '\0')
+		ssl_set_r->ca_file = mail_set->ssl_client_ca_file;
+	if (*mail_set->ssl_client_cert != '\0')
+		ssl_set_r->cert.cert = mail_set->ssl_client_cert;
+	if (*mail_set->ssl_client_key != '\0')
+		ssl_set_r->cert.key = mail_set->ssl_client_key;
+	ssl_set_r->cipher_list = mail_set->ssl_cipher_list;
+	ssl_set_r->curve_list = mail_set->ssl_curve_list;
+	ssl_set_r->min_protocol = mail_set->ssl_min_protocol;
+	ssl_set_r->crypto_device = mail_set->ssl_crypto_device;
+	ssl_set_r->verify_remote_cert = mail_set->ssl_client_require_valid_cert;
+	ssl_set_r->allow_invalid_cert = !ssl_set_r->verify_remote_cert;
+	ssl_set_r->verbose = mail_set->verbose_ssl;
+}
