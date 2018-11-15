@@ -43,11 +43,8 @@ cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 			fs_cmd_help(cmd);
 	}
 
-	i_zero(&ssl_set);
-	ssl_set.ca_dir = doveadm_settings->ssl_client_ca_dir;
-	ssl_set.ca_file = doveadm_settings->ssl_client_ca_file;
+	doveadm_get_ssl_settings(&ssl_set, pool_datastack_create());
 	ssl_set.verbose = doveadm_debug;
-
 	i_zero(&fs_set);
 	fs_set.ssl_client_set = &ssl_set;
 	fs_set.temp_dir = "/tmp";

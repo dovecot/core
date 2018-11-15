@@ -509,8 +509,9 @@ static int server_connection_init_ssl(struct server_connection *conn)
 	if (conn->server->ssl_ctx == NULL)
 		return 0;
 
-	i_zero(&ssl_set);
-	ssl_set.verbose_invalid_cert = TRUE;
+	doveadm_get_ssl_settings(&ssl_set, conn->pool);
+	if (ssl_set.allow_invalid_cert)
+		ssl_set.verbose_invalid_cert = TRUE;
 
 	if (io_stream_create_ssl_client(conn->server->ssl_ctx,
 					conn->server->hostname, &ssl_set,
