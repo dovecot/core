@@ -157,6 +157,8 @@ extern const struct setting_parser_info mail_storage_setting_parser_info;
 extern const struct mail_namespace_settings mail_namespace_default_settings;
 extern const struct mailbox_settings mailbox_default_settings;
 
+struct ssl_iostream_settings;
+
 const void *
 mail_user_set_get_driver_settings(const struct setting_parser_info *info,
 				  const struct mail_user_settings *set,
@@ -177,5 +179,8 @@ bool mail_user_set_get_postmaster_address(const struct mail_user_settings *set,
 bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 				       const struct smtp_address **address_r,
 				       const char **error_r);
+
+void mail_storage_settings_init_ssl_client_settings(const struct mail_storage_settings *mail_set,
+						    struct ssl_iostream_settings *ssl_set_r);
 
 #endif
