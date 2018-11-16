@@ -26,12 +26,6 @@ struct trash_mailbox {
 	unsigned int priority; /* lower number = higher priority */
 
 	struct mail_namespace *ns;
-
-	/* temporarily set while cleaning: */
-	struct mailbox *box;
-	struct mailbox_transaction_context *trans;
-	struct mail_search_context *search_ctx;
-	struct mail *mail;
 };
 
 struct trash_user {
@@ -39,6 +33,25 @@ struct trash_user {
 
 	/* ordered by priority, highest first */
 	ARRAY(struct trash_mailbox) trash_boxes;
+};
+
+struct trash_clean_mailbox {
+	const struct trash_mailbox *trash;
+
+	struct mailbox *box;
+	struct mailbox_transaction_context *trans;
+	struct mail_search_context *search_ctx;
+	struct mail *mail;
+
+	bool finished:1;
+};
+
+struct trash_clean {
+	struct quota_transaction_context *ctx;
+	struct trash_user *user;
+	struct event *event;
+
+	ARRAY(struct trash_clean_mailbox) boxes;
 };
 
 struct trash_settings {
@@ -77,43 +90,64 @@ static enum quota_alloc_result (*trash_next_quota_test_alloc)(
 		struct quota_transaction_context *, uoff_t,
 		const char **error_r);
 
-static int trash_clean_mailbox_open(struct trash_mailbox *trash)
+static void
+trash_clean_init(struct trash_clean *tclean,
+		 struct quota_transaction_context *ctx)
 {
+	i_zero(tclean);
+	tclean->ctx = ctx;
+	tclean->user = TRASH_USER_CONTEXT_REQUIRE(ctx->quota->user);
+}
+
+static int trash_clean_mailbox_open(struct trash_clean_mailbox *tcbox)
+{
+	const struct trash_mailbox *trash = tcbox->trash;
 	struct mail_search_args *search_args;
 
-	trash->box = mailbox_alloc(trash->ns->list, trash->name, 0);
-	if (mailbox_open(trash->box) < 0) {
-		mailbox_free(&trash->box);
+	tcbox->box = mailbox_alloc(trash->ns->list, trash->name, 0);
+	if (mailbox_open(tcbox->box) < 0) {
+		mailbox_free(&tcbox->box);
 		return 0;
 	}
 
-	if (mailbox_sync(trash->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
+	if (mailbox_sync(tcbox->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
 
-	trash->trans = mailbox_transaction_begin(trash->box, 0, __func__);
+	tcbox->trans = mailbox_transaction_begin(tcbox->box, 0, __func__);
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	trash->search_ctx = mailbox_search_init(trash->trans,
+	tcbox->search_ctx = mailbox_search_init(tcbox->trans,
 						search_args, NULL,
 						MAIL_FETCH_PHYSICAL_SIZE |
 						MAIL_FETCH_RECEIVED_DATE, NULL);
 	mail_search_args_unref(&search_args);
 
-	return mailbox_search_next(trash->search_ctx, &trash->mail) ? 1 : 0;
+	return mailbox_search_next(tcbox->search_ctx, &tcbox->mail) ? 1 : 0;
 }
 
-static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
-					time_t *received_time_r)
+static void trash_clean_mailbox_close(struct trash_clean_mailbox *tcbox)
+{
+	if (tcbox->search_ctx != NULL)
+		(void)mailbox_search_deinit(&tcbox->search_ctx);
+	if (tcbox->trans != NULL)
+		mailbox_transaction_rollback(&tcbox->trans);
+	if (tcbox->box != NULL)
+		mailbox_free(&tcbox->box);
+}
+
+static int
+trash_clean_mailbox_get_next(struct trash_clean_mailbox *tcbox,
+			     time_t *received_time_r)
 {
 	int ret;
 
-	if (trash->mail == NULL) {
-		if (trash->box == NULL)
-			ret = trash_clean_mailbox_open(trash);
+	if (tcbox->mail == NULL) {
+		if (tcbox->box == NULL)
+			ret = trash_clean_mailbox_open(tcbox);
 		else {
-			ret = mailbox_search_next(trash->search_ctx,
-						  &trash->mail) ? 1 : 0;
+			ret = mailbox_search_next(tcbox->search_ctx,
+						  &tcbox->mail) ? 1 : 0;
 		}
 		if (ret <= 0) {
 			*received_time_r = 0;
@@ -121,40 +155,53 @@ static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
 		}
 	}
 
-	if (mail_get_received_date(trash->mail, received_time_r) < 0)
+	if (mail_get_received_date(tcbox->mail, received_time_r) < 0)
 		return -1;
 	return 1;
 }
 
-static int trash_try_clean_mails(struct quota_transaction_context *ctx,
-				 uint64_t size_needed,
-				 unsigned int count_needed)
+static int
+trash_clean_do_execute(struct trash_clean *tclean,
+		       uint64_t size_needed, unsigned int count_needed)
 {
-	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(ctx->quota->user);
-	struct trash_mailbox *trashes;
-	struct event_reason *reason;
-	unsigned int i, j, count, oldest_idx;
+	struct quota_transaction_context *ctx = tclean->ctx;
+	struct trash_user *tuser = tclean->user;
+	const struct trash_mailbox *trashes;
+	unsigned int i, j, trash_count, tcbox_count, oldest_idx;
+	struct trash_clean_mailbox *tcbox, *tcboxes;
 	time_t oldest, received = 0;
 	uint64_t size, size_expunged = 0;
 	unsigned int expunged_count = 0;
 	int ret = 0;
 
-	reason = event_reason_begin("trash:clean");
+	trashes = array_get(&tuser->trash_boxes, &trash_count);
 
-	trashes = array_get_modifiable(&tuser->trash_boxes, &count);
-	for (i = 0; i < count; ) {
+	/* Create trash clean contexts for each trash mailbox. */
+	t_array_init(&tclean->boxes, trash_count);
+	for (i = 0; i < trash_count; i++) {
+		const struct trash_mailbox *trash = &trashes[i];
+
+		tcbox = array_append_space(&tclean->boxes);
+		tcbox->trash = trash;
+	}
+
+	/* Expunge mails until the required resource usage reductions are
+	   achieved. */
+	tcboxes = array_get_modifiable(&tclean->boxes, &tcbox_count);
+	for (i = 0; i < tcbox_count; ) {
 		/* expunge oldest mails first in all trash boxes with
 		   same priority */
-		oldest_idx = count;
+		oldest_idx = tcbox_count;
 		oldest = (time_t)-1;
-		for (j = i; j < count; j++) {
-			if (trashes[j].priority != trashes[i].priority)
+		for (j = i; j < tcbox_count; j++) {
+			if (tcboxes[j].trash->priority !=
+			    tcboxes[i].trash->priority)
 				break;
 
-			ret = trash_clean_mailbox_get_next(&trashes[j],
+			ret = trash_clean_mailbox_get_next(&tcboxes[j],
 							   &received);
 			if (ret < 0)
-				goto err;
+				return -1;
 			if (ret > 0) {
 				if (oldest == (time_t)-1 || received < oldest) {
 					oldest = received;
@@ -163,50 +210,28 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 			}
 		}
 
-		if (oldest_idx < count) {
-			if (mail_get_physical_size(trashes[oldest_idx].mail,
+		if (oldest_idx < tcbox_count) {
+			if (mail_get_physical_size(tcboxes[oldest_idx].mail,
 						   &size) < 0) {
 				/* maybe expunged already? */
-				trashes[oldest_idx].mail = NULL;
+				tcboxes[oldest_idx].mail = NULL;
 				continue;
 			}
 
-			mail_expunge(trashes[oldest_idx].mail);
+			mail_expunge(tcboxes[oldest_idx].mail);
 			expunged_count++;
 			size_expunged += size;
 			if (size_expunged >= size_needed &&
 			    expunged_count >= count_needed)
 				break;
-			trashes[oldest_idx].mail = NULL;
+			tcboxes[oldest_idx].mail = NULL;
 		} else {
 			/* find more mails from next priority's mailbox */
 			i = j;
 		}
 	}
 
-err:
-	for (i = 0; i < count; i++) {
-		struct trash_mailbox *trash = &trashes[i];
-
-		if (trash->box == NULL)
-			continue;
-
-		trash->mail = NULL;
-		(void)mailbox_search_deinit(&trash->search_ctx);
-
-		if (size_expunged >= size_needed &&
-		    expunged_count >= count_needed) {
-			(void)mailbox_transaction_commit(&trash->trans);
-			(void)mailbox_sync(trash->box, 0);
-		} else {
-			/* couldn't get enough space, don't expunge anything */
-                        mailbox_transaction_rollback(&trash->trans);
-		}
-
-		mailbox_free(&trash->box);
-	}
-	event_reason_end(&reason);
-
+	/* Check whether the required reduction was achieved */
 	if (size_expunged < size_needed) {
 		e_debug(ctx->quota->user->event,
 			"trash plugin: Failed to remove enough messages "
@@ -222,6 +247,51 @@ err:
 		return 0;
 	}
 
+	return 1;
+}
+
+static int
+trash_clean_execute(struct trash_clean *tclean,
+		    uint64_t size_needed, unsigned int count_needed)
+{
+	struct quota_transaction_context *ctx = tclean->ctx;
+	struct event_reason *reason;
+	unsigned int i, tcbox_count;
+	struct trash_clean_mailbox *tcboxes;
+	uint64_t size_expunged = 0;
+	unsigned int expunged_count = 0;
+	int ret;
+
+	reason = event_reason_begin("trash:clean");
+
+	ret = trash_clean_do_execute(tclean, size_needed, count_needed);
+
+	/* Commit/rollback the cleanups */
+	tcboxes = array_get_modifiable(&tclean->boxes, &tcbox_count);
+	for (i = 0; i < tcbox_count; i++) {
+		struct trash_clean_mailbox *tcbox = &tcboxes[i];
+
+		if (tcbox->box == NULL)
+			continue;
+
+		(void)mailbox_search_deinit(&tcbox->search_ctx);
+
+		if (ret > 0) {
+			(void)mailbox_transaction_commit(&tcbox->trans);
+			(void)mailbox_sync(tcbox->box, 0);
+		} else {
+			/* couldn't get enough space, don't expunge anything */
+			mailbox_transaction_rollback(&tcbox->trans);
+		}
+		mailbox_free(&tcbox->box);
+	}
+
+	event_reason_end(&reason);
+
+	if (ret <= 0)
+		return ret;
+
+	/* Update the resource usage state */
 	if (ctx->bytes_over > 0) {
 		/* user is over quota. drop the over-bytes first. */
 		i_assert(ctx->bytes_over <= size_expunged);
@@ -246,6 +316,33 @@ err:
 		ctx->count_ceil += expunged_count;
 	}
 	return 1;
+}
+
+static void trash_clean_deinit(struct trash_clean *tclean)
+{
+	struct trash_clean_mailbox *tcbox;
+
+	if (array_is_created(&tclean->boxes)) {
+		array_foreach_modifiable(&tclean->boxes, tcbox)
+			trash_clean_mailbox_close(tcbox);
+	}
+}
+
+static int
+trash_try_clean_mails(struct quota_transaction_context *ctx,
+		      uint64_t size_needed, unsigned int count_needed)
+{
+	int ret;
+
+	T_BEGIN {
+		struct trash_clean tclean;
+
+		trash_clean_init(&tclean, ctx);
+		ret = trash_clean_execute(&tclean, size_needed, count_needed);
+		trash_clean_deinit(&tclean);
+	} T_END;
+
+	return ret;
 }
 
 static enum quota_alloc_result
