@@ -322,29 +322,16 @@ trash_clean_execute(struct trash_clean *tclean,
 		return ret;
 
 	/* Update the resource usage state */
-	if (ctx->bytes_over > 0) {
-		/* user is over quota. drop the over-bytes first. */
-		i_assert(ctx->bytes_over <= tclean->bytes_expunged);
-		tclean->bytes_expunged -= ctx->bytes_over;
-		ctx->bytes_over = 0;
-	}
-	if (ctx->count_over > 0) {
-		/* user is over quota. drop the over-count first. */
-		i_assert(ctx->count_over <= tclean->count_expunged);
-		tclean->count_expunged -= ctx->count_over;
-		ctx->count_over = 0;
-	}
+	if ((UINT64_MAX - tclean->count_expunged) < ctx->count_expunged)
+		ctx->count_expunged = UINT64_MAX;
+	else
+		ctx->count_expunged += tclean->count_expunged;
 
-	if (ctx->bytes_ceil > (UINT64_MAX - tclean->bytes_expunged)) {
-		ctx->bytes_ceil = UINT64_MAX;
-	} else {
-		ctx->bytes_ceil += tclean->bytes_expunged;
-	}
-	if (ctx->count_ceil < (UINT64_MAX - tclean->count_expunged)) {
-		ctx->count_ceil = UINT64_MAX;
-	} else {
-		ctx->count_ceil += tclean->count_expunged;
-	}
+	if ((UINT64_MAX - tclean->bytes_expunged) < ctx->bytes_expunged)
+		ctx->bytes_expunged = UINT64_MAX;
+	else
+		ctx->bytes_expunged += tclean->bytes_expunged;
+
 	return 1;
 }
 
