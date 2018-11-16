@@ -52,6 +52,9 @@ struct trash_clean {
 	struct event *event;
 
 	ARRAY(struct trash_clean_mailbox) boxes;
+
+	uint64_t bytes_needed, count_needed;
+	uint64_t bytes_expunged, count_expunged;
 };
 
 struct trash_settings {
@@ -160,17 +163,14 @@ trash_clean_mailbox_get_next(struct trash_clean_mailbox *tcbox,
 	return 1;
 }
 
-static int
-trash_clean_do_execute(struct trash_clean *tclean,
-		       uint64_t size_needed, unsigned int count_needed)
+static int trash_clean_do_execute(struct trash_clean *tclean)
 {
 	struct quota_transaction_context *ctx = tclean->ctx;
 	struct trash_user *tuser = tclean->user;
 	const struct trash_mailbox *trashes;
 	unsigned int i, j, trash_count, tcbox_count;
 	struct trash_clean_mailbox *tcbox, *tcboxes;
-	uint64_t size, size_expunged = 0;
-	unsigned int expunged_count = 0;
+	uint64_t size;
 	int ret = 0;
 
 	trashes = array_get(&tuser->trash_boxes, &trash_count);
@@ -221,10 +221,10 @@ trash_clean_do_execute(struct trash_clean *tclean,
 			}
 
 			mail_expunge(tcboxes[oldest_idx].mail);
-			expunged_count++;
-			size_expunged += size;
-			if (size_expunged >= size_needed &&
-			    expunged_count >= count_needed)
+			tclean->count_expunged++;
+			tclean->bytes_expunged += size;
+			if (tclean->bytes_expunged >= tclean->bytes_needed &&
+			    tclean->count_expunged >= tclean->count_needed)
 				break;
 			tcboxes[oldest_idx].mail = NULL;
 		} else {
@@ -234,18 +234,20 @@ trash_clean_do_execute(struct trash_clean *tclean,
 	}
 
 	/* Check whether the required reduction was achieved */
-	if (size_expunged < size_needed) {
+	if (tclean->bytes_expunged < tclean->bytes_needed) {
 		e_debug(ctx->quota->user->event,
 			"trash plugin: Failed to remove enough messages "
-			"(needed %"PRIu64" bytes, expunged only %"PRIu64" bytes)",
-			size_needed, size_expunged);
+			"(needed %"PRIu64" bytes, "
+			 "expunged only %"PRIu64" bytes)",
+			tclean->bytes_needed, tclean->bytes_expunged);
 		return 0;
 	}
-	if (expunged_count < count_needed) {
+	if (tclean->count_expunged < tclean->count_needed) {
 		e_debug(ctx->quota->user->event,
 			"trash plugin: Failed to remove enough messages "
-			"(needed %u messages, expunged only %u messages)",
-			count_needed, expunged_count);
+			"(needed %"PRIu64" messages, "
+			 "expunged only %"PRIu64" messages)",
+			tclean->count_needed, tclean->count_expunged);
 		return 0;
 	}
 
@@ -260,13 +262,14 @@ trash_clean_execute(struct trash_clean *tclean,
 	struct event_reason *reason;
 	unsigned int i, tcbox_count;
 	struct trash_clean_mailbox *tcboxes;
-	uint64_t size_expunged = 0;
-	unsigned int expunged_count = 0;
 	int ret;
 
 	reason = event_reason_begin("trash:clean");
 
-	ret = trash_clean_do_execute(tclean, size_needed, count_needed);
+	tclean->bytes_needed = size_needed;
+	tclean->count_needed = count_needed;
+
+	ret = trash_clean_do_execute(tclean);
 
 	/* Commit/rollback the cleanups */
 	tcboxes = array_get_modifiable(&tclean->boxes, &tcbox_count);
@@ -296,26 +299,26 @@ trash_clean_execute(struct trash_clean *tclean,
 	/* Update the resource usage state */
 	if (ctx->bytes_over > 0) {
 		/* user is over quota. drop the over-bytes first. */
-		i_assert(ctx->bytes_over <= size_expunged);
-		size_expunged -= ctx->bytes_over;
+		i_assert(ctx->bytes_over <= tclean->bytes_expunged);
+		tclean->bytes_expunged -= ctx->bytes_over;
 		ctx->bytes_over = 0;
 	}
 	if (ctx->count_over > 0) {
 		/* user is over quota. drop the over-count first. */
-		i_assert(ctx->count_over <= expunged_count);
-		expunged_count -= ctx->count_over;
+		i_assert(ctx->count_over <= tclean->count_expunged);
+		tclean->count_expunged -= ctx->count_over;
 		ctx->count_over = 0;
 	}
 
-	if (ctx->bytes_ceil > (UINT64_MAX - size_expunged)) {
+	if (ctx->bytes_ceil > (UINT64_MAX - tclean->bytes_expunged)) {
 		ctx->bytes_ceil = UINT64_MAX;
 	} else {
-		ctx->bytes_ceil += size_expunged;
+		ctx->bytes_ceil += tclean->bytes_expunged;
 	}
-	if (ctx->count_ceil < (UINT64_MAX - expunged_count)) {
+	if (ctx->count_ceil < (UINT64_MAX - tclean->count_expunged)) {
 		ctx->count_ceil = UINT64_MAX;
 	} else {
-		ctx->count_ceil += expunged_count;
+		ctx->count_ceil += tclean->count_expunged;
 	}
 	return 1;
 }
