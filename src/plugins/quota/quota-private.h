@@ -135,6 +135,8 @@ void quota_remove_user_namespace(struct mail_namespace *ns);
 
 struct quota *quota_get_mail_user_quota(struct mail_user *user);
 
+bool quota_root_is_visible(struct quota_root *root, struct mailbox *box);
+
 /* Returns 1 if values were returned successfully, 0 if we're recursing into
    the same function, -1 if error. */
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,

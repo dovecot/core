@@ -495,8 +495,7 @@ quota_root_iter_init(struct mailbox *box)
 	return iter;
 }
 
-static bool
-quota_root_is_visible(struct quota_root *root, struct mailbox *box)
+bool quota_root_is_visible(struct quota_root *root, struct mailbox *box)
 {
 	if (root->quota->user == box->storage->user) {
 		if (array_lsearch_ptr(&root->namespaces, box->list->ns) == NULL)
