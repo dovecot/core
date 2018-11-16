@@ -163,6 +163,14 @@ trash_clean_mailbox_get_next(struct trash_clean_mailbox *tcbox,
 	return 1;
 }
 
+static inline bool trash_clean_achieved(struct trash_clean *tclean)
+{
+	if (tclean->bytes_expunged < tclean->bytes_needed &&
+	    tclean->count_expunged < tclean->count_needed)
+		return FALSE;
+       return TRUE;
+}
+
 static int trash_clean_do_execute(struct trash_clean *tclean)
 {
 	struct quota_transaction_context *ctx = tclean->ctx;
@@ -223,8 +231,7 @@ static int trash_clean_do_execute(struct trash_clean *tclean)
 			mail_expunge(tcboxes[oldest_idx].mail);
 			tclean->count_expunged++;
 			tclean->bytes_expunged += size;
-			if (tclean->bytes_expunged >= tclean->bytes_needed &&
-			    tclean->count_expunged >= tclean->count_needed)
+			if (trash_clean_achieved(tclean))
 				break;
 			tcboxes[oldest_idx].mail = NULL;
 		} else {
