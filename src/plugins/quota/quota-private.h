@@ -191,6 +191,12 @@ bool quota_root_is_over(struct quota_transaction_context *ctx,
 			struct quota_transaction_root_context *root,
 			uoff_t count_alloc, uoff_t bytes_alloc,
 			uoff_t *count_overrun_r, uoff_t *bytes_overrun_r);
+
+void quota_transaction_root_expunged(
+	struct quota_transaction_root_context *rctx,
+	uint64_t count_expunged, uint64_t bytes_expunged);
+void quota_transaction_update_expunged(struct quota_transaction_context *ctx);
+
 int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				 enum quota_get_result *error_result_r,
 				 const char **error_r);

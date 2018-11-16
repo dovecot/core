@@ -181,3 +181,62 @@ bool quota_root_is_over(struct quota_transaction_context *ctx,
 			      root->bytes_ceil, root->bytes_over,
 			      bytes_overrun_r));
 }
+
+void quota_transaction_root_expunged(
+	struct quota_transaction_root_context *rctx,
+	uint64_t count_expunged, uint64_t bytes_expunged)
+{
+	if ((UINT64_MAX - count_expunged) < rctx->count_expunged)
+		rctx->count_expunged = UINT64_MAX;
+	else
+		rctx->count_expunged += count_expunged;
+	if ((UINT64_MAX - bytes_expunged) < rctx->bytes_expunged)
+		rctx->bytes_expunged = UINT64_MAX;
+	else
+		rctx->bytes_expunged += bytes_expunged;
+}
+
+void quota_transaction_update_expunged(struct quota_transaction_context *ctx)
+{
+	uint64_t count_ceil, bytes_ceil;
+	unsigned int i;
+
+	/* Calculate effective ceilings for the whole transaction based on
+	   per-root expunge values. */
+	count_ceil = bytes_ceil = 0;
+	for (i = 0; i < array_count(&ctx->quota->all_roots); i++) {
+		struct quota_transaction_root_context *rctx = &ctx->roots[i];
+		uint64_t ceil;
+
+		/* count */
+		ceil = rctx->count_ceil;
+		if ((UINT64_MAX - rctx->count_expunged) < ceil)
+			ceil = UINT64_MAX;
+		else
+			ceil += rctx->count_expunged;
+		if (rctx->count_over < ceil)
+			ceil -= rctx->count_over;
+		else
+			ceil = 0;
+		if (count_ceil == 0 || count_ceil > ceil)
+			count_ceil = ceil;
+		/* bytes */
+		ceil = rctx->bytes_ceil;
+		if ((UINT64_MAX - rctx->bytes_expunged) < ceil)
+			ceil = UINT64_MAX;
+		else
+			ceil += rctx->bytes_expunged;
+		if (rctx->bytes_over < ceil)
+			ceil -= rctx->bytes_over;
+		else
+			ceil = 0;
+		if (bytes_ceil == 0 || bytes_ceil > ceil)
+			bytes_ceil = ceil;
+	}
+	/* Use the difference between the real and effective ceilings to
+	   determine the updated effective expunge values */
+	i_assert(count_ceil >= ctx->count_ceil);
+	ctx->count_expunged = count_ceil - ctx->count_ceil;
+	i_assert(bytes_ceil >= ctx->bytes_ceil);
+	ctx->bytes_expunged = bytes_ceil - ctx->bytes_ceil;
+}

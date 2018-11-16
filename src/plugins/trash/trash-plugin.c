@@ -35,6 +35,16 @@ struct trash_user {
 	ARRAY(struct trash_mailbox) trash_boxes;
 };
 
+struct trash_clean_root {
+	struct quota_root *root;
+	struct quota_transaction_root_context *ctx;
+
+	unsigned int trash_count;
+
+	uoff_t count_needed, count_expunged;
+	uoff_t bytes_needed, bytes_expunged;
+};
+
 struct trash_clean_mailbox {
 	const struct trash_mailbox *trash;
 
@@ -42,6 +52,8 @@ struct trash_clean_mailbox {
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
+
+	ARRAY(struct trash_clean_root *) roots;
 
 	bool finished:1;
 };
@@ -52,9 +64,7 @@ struct trash_clean {
 	struct event *event;
 
 	ARRAY(struct trash_clean_mailbox) boxes;
-
-	uint64_t bytes_needed, count_needed;
-	uint64_t bytes_expunged, count_expunged;
+	ARRAY(struct trash_clean_root) roots;
 };
 
 struct trash_settings {
@@ -107,16 +117,58 @@ trash_clean_init(struct trash_clean *tclean,
 	event_set_append_log_prefix(tclean->event, "trash plugin: ");
 }
 
+static void
+trash_clean_root_no_trash(struct trash_clean *tclean,
+			  struct trash_clean_root *tcroot)
+{
+	if (tcroot->count_needed > 0) {
+		e_debug(tclean->event, "Quota root %s has no trash mailbox "
+			"(needed %"PRIu64" messages)",
+			quota_root_get_name(tcroot->root),
+			tcroot->count_needed);
+		return;
+	}
+	if (tcroot->bytes_needed > 0) {
+		e_debug(tclean->event, "Quota root %s has no trash mailbox "
+			"(needed %"PRIu64" bytes)",
+			quota_root_get_name(tcroot->root),
+			tcroot->bytes_needed);
+		return;
+	}
+	i_unreached();
+}
+
+static void
+trash_clean_root_insufficient(struct trash_clean *tclean,
+			      struct trash_clean_root *tcroot)
+{
+	if (tcroot->count_needed > tcroot->count_expunged) {
+		e_debug(tclean->event,
+			"Failed to remove enough messages from quota root %s "
+			"(needed %"PRIu64" messages, "
+			"expunged only %"PRIu64" messages)",
+			quota_root_get_name(tcroot->root),
+			tcroot->count_needed, tcroot->count_expunged);
+		return;
+	}
+	if (tcroot->bytes_needed > tcroot->bytes_expunged) {
+		e_debug(tclean->event,
+			"Failed to remove enough messages from quota root %s "
+			"(needed %"PRIu64" bytes, "
+			"expunged only %"PRIu64" bytes)",
+			quota_root_get_name(tcroot->root),
+			tcroot->bytes_needed, tcroot->bytes_expunged);
+		return;
+	}
+	i_unreached();
+}
+
 static int trash_clean_mailbox_open(struct trash_clean_mailbox *tcbox)
 {
-	const struct trash_mailbox *trash = tcbox->trash;
 	struct mail_search_args *search_args;
 
-	tcbox->box = mailbox_alloc(trash->ns->list, trash->name, 0);
-	if (mailbox_open(tcbox->box) < 0) {
-		mailbox_free(&tcbox->box);
+	if (tcbox->box == NULL || tcbox->finished)
 		return 0;
-	}
 
 	if (mailbox_sync(tcbox->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
@@ -150,8 +202,11 @@ trash_clean_mailbox_get_next(struct trash_clean_mailbox *tcbox,
 {
 	int ret;
 
+	if (tcbox->finished)
+		return 0;
+
 	if (tcbox->mail == NULL) {
-		if (tcbox->box == NULL)
+		if (tcbox->search_ctx == NULL)
 			ret = trash_clean_mailbox_open(tcbox);
 		else {
 			ret = mailbox_search_next(tcbox->search_ctx,
@@ -168,18 +223,30 @@ trash_clean_mailbox_get_next(struct trash_clean_mailbox *tcbox,
 	return 1;
 }
 
+static inline bool trash_clean_root_achieved(const struct trash_clean_root *tcroot)
+{
+	if (tcroot->count_expunged < tcroot->count_needed ||
+	    tcroot->bytes_expunged < tcroot->bytes_needed)
+		return FALSE;
+	return TRUE;
+}
+
 static inline bool trash_clean_achieved(struct trash_clean *tclean)
 {
-	if (tclean->bytes_expunged < tclean->bytes_needed &&
-	    tclean->count_expunged < tclean->count_needed)
-		return FALSE;
-       return TRUE;
+	const struct trash_clean_root *tcroot;
+
+	array_foreach(&tclean->roots, tcroot) {
+		if (!trash_clean_root_achieved(tcroot))
+			return FALSE;
+	}
+	return TRUE;
 }
 
 static int
-trash_clean_mailbox_expunge(struct trash_clean *tclean,
-			    struct trash_clean_mailbox *tcbox)
+trash_clean_mailbox_expunge(struct trash_clean_mailbox *tcbox)
 {
+	struct trash_clean_root *const *tcrootp;
+	bool all_roots_achieved;
 	uoff_t size;
 
 	if (mail_get_physical_size(tcbox->mail, &size) < 0) {
@@ -189,35 +256,130 @@ trash_clean_mailbox_expunge(struct trash_clean *tclean,
 	}
 
 	mail_expunge(tcbox->mail);
-	if (tclean->count_expunged < UINT64_MAX)
-		tclean->count_expunged++;
-	if (tclean->bytes_expunged < (UINT64_MAX - size))
-		tclean->bytes_expunged += size;
-	else
-		tclean->bytes_expunged = UINT64_MAX;
+
+	all_roots_achieved = TRUE;
+	array_foreach(&tcbox->roots, tcrootp) {
+		struct trash_clean_root *tcroot = *tcrootp;
+
+		if (tcroot->count_expunged < UINT64_MAX)
+			tcroot->count_expunged++;
+		if (tcroot->bytes_expunged < (UINT64_MAX - size))
+			tcroot->bytes_expunged += size;
+		else
+			tcroot->bytes_expunged = UINT64_MAX;
+
+		if (!trash_clean_root_achieved(tcroot))
+			all_roots_achieved = FALSE;
+	}
 
 	tcbox->mail = NULL;
-	return 0;
+
+	if (!all_roots_achieved)
+		return 0;
+
+	tcbox->finished = TRUE;
+	return 1;
 }
 
-static int trash_clean_do_execute(struct trash_clean *tclean)
+static int
+trash_clean_do_execute(struct trash_clean *tclean,
+		       const struct quota_overrun *overruns)
 {
 	struct quota_transaction_context *ctx = tclean->ctx;
 	struct trash_user *tuser = tclean->user;
+	struct quota_root *const *roots;
 	const struct trash_mailbox *trashes;
-	unsigned int i, j, trash_count, tcbox_count;
+	unsigned int root_count, trash_count, tcbox_count, i, j;
 	struct trash_clean_mailbox *tcbox, *tcboxes;
+	struct trash_clean_root *tcroot;
 	int ret = 0;
 
+	roots = array_get(&ctx->quota->all_roots, &root_count);
 	trashes = array_get(&tuser->trash_boxes, &trash_count);
 
-	/* Create trash clean contexts for each trash mailbox. */
+	/* Collect quota roots that need cleanup */
+	t_array_init(&tclean->roots, root_count);
+	for (i = 0; i < root_count; i++) {
+		const struct quota_overrun *ovrp = overruns;
+
+		tcroot = array_append_space(&tclean->roots);
+		tcroot->root = roots[i];
+		tcroot->ctx = &ctx->roots[i];
+
+		while (ovrp->root != NULL) {
+			if (ovrp->root == roots[i])
+				break;
+			ovrp++;
+		}
+		if (ovrp->root == NULL)
+			continue;
+
+		/* Need to reduce resource usage within this root by at least
+		   these amounts: */
+		tcroot->count_needed = ovrp->resource.count;
+		tcroot->bytes_needed = ovrp->resource.bytes;
+	}
+
+	/* Open trash mailboxes and determine which quota roots apply */
 	t_array_init(&tclean->boxes, trash_count);
 	for (i = 0; i < trash_count; i++) {
 		const struct trash_mailbox *trash = &trashes[i];
+		unsigned int visible;
 
 		tcbox = array_append_space(&tclean->boxes);
 		tcbox->trash = trash;
+
+		/* Check namespace visibility for all roots before opening the
+		   mailbox */
+		visible = 0;
+		array_foreach_modifiable(&tclean->roots, tcroot) {
+			if (tcroot->count_needed == 0 &&
+			    tcroot->bytes_needed == 0)
+				continue;
+			if (array_lsearch_ptr(&tcroot->root->namespaces,
+					      trash->ns) != NULL)
+				visible++;
+		}
+
+		if (visible == 0) {
+			/* This trash mailbox is not relevant to the roots that
+			   have quota overruns. */
+			continue;
+		}
+
+		tcbox->box = mailbox_alloc(trash->ns->list, trash->name, 0);
+		if (mailbox_open(tcbox->box) < 0)
+			return -1;
+
+		t_array_init(&tcbox->roots, visible);
+		array_foreach_modifiable(&tclean->roots, tcroot) {
+			if (tcroot->count_needed == 0 &&
+			    tcroot->bytes_needed == 0)
+				continue;
+			if (!quota_root_is_visible(tcroot->root, tcbox->box))
+				continue;
+			tcroot->trash_count++;
+			array_append(&tcbox->roots, &tcroot, 1);
+		}
+
+		if (array_count(&tcbox->roots) == 0) {
+			/* This trash mailbox is (after closer examination) not
+			   relevant to the roots that have quota overruns. */
+			mailbox_free(&tcbox->box);
+			continue;
+		}
+	}
+
+	/* Fail early when there are quota roots without a trash mailbox that
+	   can be cleaned. */
+	array_foreach_modifiable(&tclean->roots, tcroot) {
+		if (tcroot->count_needed == 0 &&
+		    tcroot->bytes_needed == 0)
+			continue;
+		if (tcroot->trash_count == 0) {
+			trash_clean_root_no_trash(tclean, tcroot);
+			return 0;
+		}
 	}
 
 	/* Expunge mails until the required resource usage reductions are
@@ -249,8 +411,7 @@ static int trash_clean_do_execute(struct trash_clean *tclean)
 		}
 
 		if (oldest_idx < tcbox_count) {
-			ret = trash_clean_mailbox_expunge(tclean,
-							  &tcboxes[oldest_idx]);
+			ret = trash_clean_mailbox_expunge(&tcboxes[oldest_idx]);
 			if (ret < 0)
 				continue;
 			if (trash_clean_achieved(tclean))
@@ -262,19 +423,11 @@ static int trash_clean_do_execute(struct trash_clean *tclean)
 	}
 
 	/* Check whether the required reduction was achieved */
-	if (tclean->bytes_expunged < tclean->bytes_needed) {
-		e_debug(tclean->event, "Failed to remove enough messages "
-			"(needed %"PRIu64" bytes, "
-			 "expunged only %"PRIu64" bytes)",
-			tclean->bytes_needed, tclean->bytes_expunged);
-		return 0;
-	}
-	if (tclean->count_expunged < tclean->count_needed) {
-		e_debug(tclean->event, "Failed to remove enough messages "
-			"(needed %"PRIu64" messages, "
-			 "expunged only %"PRIu64" messages)",
-			tclean->count_needed, tclean->count_expunged);
-		return 0;
+	array_foreach_modifiable(&tclean->roots, tcroot) {
+		if (!trash_clean_root_achieved(tcroot)) {
+			trash_clean_root_insufficient(tclean, tcroot);
+			return 0;
+		}
 	}
 
 	return 1;
@@ -282,29 +435,26 @@ static int trash_clean_do_execute(struct trash_clean *tclean)
 
 static int
 trash_clean_execute(struct trash_clean *tclean,
-		    uint64_t size_needed, unsigned int count_needed)
+		    const struct quota_overrun *overruns)
 {
 	struct quota_transaction_context *ctx = tclean->ctx;
 	struct event_reason *reason;
-	unsigned int i, tcbox_count;
+	unsigned int tcbox_count, i;
 	struct trash_clean_mailbox *tcboxes;
-	int ret;
+	struct trash_clean_root *tcroot;
+	int ret = 0;
 
 	reason = event_reason_begin("trash:clean");
 
-	tclean->bytes_needed = size_needed;
-	tclean->count_needed = count_needed;
-
-	ret = trash_clean_do_execute(tclean);
+	ret = trash_clean_do_execute(tclean, overruns);
 
 	/* Commit/rollback the cleanups */
 	tcboxes = array_get_modifiable(&tclean->boxes, &tcbox_count);
 	for (i = 0; i < tcbox_count; i++) {
 		struct trash_clean_mailbox *tcbox = &tcboxes[i];
 
-		if (tcbox->box == NULL)
+		if (tcbox->box == NULL || tcbox->trans == NULL)
 			continue;
-
 		(void)mailbox_search_deinit(&tcbox->search_ctx);
 
 		if (ret > 0) {
@@ -323,16 +473,12 @@ trash_clean_execute(struct trash_clean *tclean,
 		return ret;
 
 	/* Update the resource usage state */
-	if ((UINT64_MAX - tclean->count_expunged) < ctx->count_expunged)
-		ctx->count_expunged = UINT64_MAX;
-	else
-		ctx->count_expunged += tclean->count_expunged;
-
-	if ((UINT64_MAX - tclean->bytes_expunged) < ctx->bytes_expunged)
-		ctx->bytes_expunged = UINT64_MAX;
-	else
-		ctx->bytes_expunged += tclean->bytes_expunged;
-
+	array_foreach_modifiable(&tclean->roots, tcroot) {
+		quota_transaction_root_expunged(tcroot->ctx,
+						tcroot->count_expunged,
+						tcroot->bytes_expunged);
+	}
+	quota_transaction_update_expunged(ctx);
 	return 1;
 }
 
@@ -349,15 +495,17 @@ static void trash_clean_deinit(struct trash_clean *tclean)
 
 static int
 trash_try_clean_mails(struct quota_transaction_context *ctx,
-		      uint64_t size_needed, unsigned int count_needed)
+		      const struct quota_overrun *overruns)
 {
 	int ret;
+
+	i_assert(overruns != NULL);
 
 	T_BEGIN {
 		struct trash_clean tclean;
 
 		trash_clean_init(&tclean, ctx);
-		ret = trash_clean_execute(&tclean, size_needed, count_needed);
+		ret = trash_clean_execute(&tclean, overruns);
 		trash_clean_deinit(&tclean);
 	} T_END;
 
@@ -370,13 +518,14 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 		       const char **error_r)
 {
 	int i;
-	uint64_t size_needed = 0;
-	unsigned int count_needed = 0;
 
 	for (i = 0; ; i++) {
+		const struct quota_overrun *overruns = NULL;
 		enum quota_alloc_result ret;
 		ret = trash_next_quota_test_alloc(ctx, size,
-						  overruns_r, error_r);
+						  &overruns, error_r);
+		if (overruns_r != NULL)
+			*overruns_r = overruns;
 		if (ret != QUOTA_ALLOC_RESULT_OVER_QUOTA) {
 			if (ret == QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT) {
 				e_debug(ctx->quota->user->event,
@@ -394,15 +543,8 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 			break;
 		}
 
-		if (ctx->bytes_ceil != UINT64_MAX &&
-		    ctx->bytes_ceil < size + ctx->bytes_over)
-			size_needed = size + ctx->bytes_over - ctx->bytes_ceil;
-		if (ctx->count_ceil != UINT64_MAX &&
-		    ctx->count_ceil < 1 + ctx->count_over)
-			count_needed = 1 + ctx->count_over - ctx->count_ceil;
-
 		/* not enough space. try deleting some from mailbox. */
-		if (trash_try_clean_mails(ctx, size_needed, count_needed) <= 0) {
+		if (trash_try_clean_mails(ctx, overruns) <= 0) {
 			*error_r = t_strdup_printf(
 				"Allocating %"PRIuUOFF_T" bytes would exceed quota", size);
 			return QUOTA_ALLOC_RESULT_OVER_QUOTA;
