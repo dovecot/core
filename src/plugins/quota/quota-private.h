@@ -109,6 +109,14 @@ struct quota_transaction_root_context {
 	   only once and not updated by bytes_used/count_used. (Either *_ceil
 	   or *_over is always zero.) */
 	uint64_t bytes_over, count_over;
+
+	/* Quota resource usage reduction performed in separate transactions.
+	   Hence, these changes are already committed and must not be counted
+	   a second time in this transaction. These values are used in the
+	   limit calculations though, since the limits were recorded at the
+	   start of the transaction and these reductions were performed some
+	   time later. */
+	uint64_t bytes_expunged, count_expunged;
 };
 
 struct quota_transaction_context {
@@ -121,7 +129,17 @@ struct quota_transaction_context {
 
 	struct quota_transaction_root_context *roots;
 
+	/* Quota resource usage changes relative to the start of the
+	   transaction. */
 	int64_t bytes_used, count_used;
+	/* Quota resource usage reduction performed in separate transactions.
+	   Hence, these changes are already committed and must not be counted
+	   a second time in this transaction. These values are used in the
+	   limit calculations though, since the limits were recorded at the
+	   start of the transaction and these reductions were performed some
+	   time later. */
+	uint64_t bytes_expunged, count_expunged;
+
 	/* how many bytes/mails can be saved until limit is reached.
 	   (set once, not updated by bytes_used/count_used).
 
