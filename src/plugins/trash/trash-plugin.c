@@ -167,9 +167,8 @@ trash_clean_do_execute(struct trash_clean *tclean,
 	struct quota_transaction_context *ctx = tclean->ctx;
 	struct trash_user *tuser = tclean->user;
 	const struct trash_mailbox *trashes;
-	unsigned int i, j, trash_count, tcbox_count, oldest_idx;
+	unsigned int i, j, trash_count, tcbox_count;
 	struct trash_clean_mailbox *tcbox, *tcboxes;
-	time_t oldest, received = 0;
 	uint64_t size, size_expunged = 0;
 	unsigned int expunged_count = 0;
 	int ret = 0;
@@ -189,11 +188,14 @@ trash_clean_do_execute(struct trash_clean *tclean,
 	   achieved. */
 	tcboxes = array_get_modifiable(&tclean->boxes, &tcbox_count);
 	for (i = 0; i < tcbox_count; ) {
+		unsigned int oldest_idx = tcbox_count;
+		time_t oldest = (time_t)-1;
+
 		/* expunge oldest mails first in all trash boxes with
 		   same priority */
-		oldest_idx = tcbox_count;
-		oldest = (time_t)-1;
 		for (j = i; j < tcbox_count; j++) {
+			time_t received = 0;
+
 			if (tcboxes[j].trash->priority !=
 			    tcboxes[i].trash->priority)
 				break;
