@@ -171,6 +171,30 @@ static inline bool trash_clean_achieved(struct trash_clean *tclean)
        return TRUE;
 }
 
+static int
+trash_clean_mailbox_expunge(struct trash_clean *tclean,
+			    struct trash_clean_mailbox *tcbox)
+{
+	uoff_t size;
+
+	if (mail_get_physical_size(tcbox->mail, &size) < 0) {
+		/* maybe expunged already? */
+		tcbox->mail = NULL;
+		return -1;
+	}
+
+	mail_expunge(tcbox->mail);
+	if (tclean->count_expunged < UINT64_MAX)
+		tclean->count_expunged++;
+	if (tclean->bytes_expunged < (UINT64_MAX - size))
+		tclean->bytes_expunged += size;
+	else
+		tclean->bytes_expunged = UINT64_MAX;
+
+	tcbox->mail = NULL;
+	return 0;
+}
+
 static int trash_clean_do_execute(struct trash_clean *tclean)
 {
 	struct quota_transaction_context *ctx = tclean->ctx;
@@ -178,7 +202,6 @@ static int trash_clean_do_execute(struct trash_clean *tclean)
 	const struct trash_mailbox *trashes;
 	unsigned int i, j, trash_count, tcbox_count;
 	struct trash_clean_mailbox *tcbox, *tcboxes;
-	uint64_t size;
 	int ret = 0;
 
 	trashes = array_get(&tuser->trash_boxes, &trash_count);
@@ -221,19 +244,12 @@ static int trash_clean_do_execute(struct trash_clean *tclean)
 		}
 
 		if (oldest_idx < tcbox_count) {
-			if (mail_get_physical_size(tcboxes[oldest_idx].mail,
-						   &size) < 0) {
-				/* maybe expunged already? */
-				tcboxes[oldest_idx].mail = NULL;
+			ret = trash_clean_mailbox_expunge(tclean,
+							  &tcboxes[oldest_idx]);
+			if (ret < 0)
 				continue;
-			}
-
-			mail_expunge(tcboxes[oldest_idx].mail);
-			tclean->count_expunged++;
-			tclean->bytes_expunged += size;
 			if (trash_clean_achieved(tclean))
 				break;
-			tcboxes[oldest_idx].mail = NULL;
 		} else {
 			/* find more mails from next priority's mailbox */
 			i = j;
