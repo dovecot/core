@@ -87,6 +87,7 @@ struct connection {
 	struct istream *input;
 	struct ostream *output;
 
+	unsigned int input_idle_timeout_secs;
 	struct timeout *to;
 	time_t last_input;
 	struct timeval last_input_tv;
