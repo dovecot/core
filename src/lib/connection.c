@@ -174,9 +174,9 @@ static void connection_init_streams(struct connection *conn)
 		o_stream_switch_ioloop_to(conn->output, conn->ioloop);
 	}
 	connection_input_resume(conn);
-	if (set->input_idle_timeout_secs != 0) {
+	if (conn->input_idle_timeout_secs != 0) {
 		conn->to = timeout_add_to(conn->ioloop,
-					  set->input_idle_timeout_secs*1000,
+					  conn->input_idle_timeout_secs*1000,
 					  connection_idle_timeout, conn);
 	}
 	if (set->major_version != 0 && !set->dont_send_version) {
@@ -231,6 +231,10 @@ void connection_init(struct connection_list *list,
 	conn->fd_out = -1;
 
 	i_free(conn->name);
+
+	if (list->set.input_idle_timeout_secs != 0 &&
+	    conn->input_idle_timeout_secs == 0)
+		conn->input_idle_timeout_secs = list->set.input_idle_timeout_secs;
 
 	if (conn->event == NULL)
 		conn->event = event_create(conn->event_parent);
