@@ -314,7 +314,7 @@ static void worker_connected(struct master_service_connection *conn)
 	}
 
 	master_service_client_connection_accept(conn);
-	(void)auth_worker_client_create(auth_default_service(), conn->fd);
+	(void)auth_worker_client_create(auth_default_service(), conn);
 }
 
 static void client_connected(struct master_service_connection *conn)

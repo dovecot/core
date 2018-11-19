@@ -799,9 +799,11 @@ static int auth_worker_output(struct auth_worker_client *client)
 }
 
 struct auth_worker_client *
-auth_worker_client_create(struct auth *auth, int fd)
+auth_worker_client_create(struct auth *auth,
+			  const struct master_service_connection *master_conn)
 {
-        struct auth_worker_client *client;
+	struct auth_worker_client *client;
+	int fd = master_conn->fd;
 
 	client = i_new(struct auth_worker_client, 1);
 	client->refcount = 1;

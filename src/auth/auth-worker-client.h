@@ -5,9 +5,12 @@
 #define AUTH_WORKER_PROTOCOL_MINOR_VERSION 0
 #define AUTH_WORKER_MAX_LINE_LENGTH 8192
 
+struct master_service_connection;
 extern struct auth_worker_client *auth_worker_client;
 
-struct auth_worker_client *auth_worker_client_create(struct auth *auth, int fd);
+struct auth_worker_client *
+auth_worker_client_create(struct auth *auth,
+			  const struct master_service_connection *master_conn);
 bool auth_worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 				  const char *const *args, struct auth_request **request_r);
 void auth_worker_client_destroy(struct auth_worker_client **client);
