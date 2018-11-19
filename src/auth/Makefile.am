@@ -91,7 +91,6 @@ libauth_la_SOURCES = \
 	auth-client-connection.c \
 	auth-master-connection.c \
 	auth-policy.c \
-	auth-postfix-connection.c \
 	mech-otp-skey-common.c \
 	mech-plain-common.c \
 	auth-penalty.c \
@@ -163,7 +162,6 @@ headers = \
 	auth-client-connection.h \
 	auth-common.h \
 	auth-master-connection.h \
-	auth-postfix-connection.h \
 	mech-otp-skey-common.h \
 	mech-plain-common.h \
 	auth-penalty.h \

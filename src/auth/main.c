@@ -29,7 +29,6 @@
 #include "auth-worker-client.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
-#include "auth-postfix-connection.h"
 #include "auth-policy.h"
 
 #include <unistd.h>
@@ -278,7 +277,6 @@ static void main_deinit(void)
 
 	auth_client_connections_destroy_all();
 	auth_master_connections_destroy_all();
-	auth_postfix_connections_destroy_all();
 	auth_worker_connections_destroy_all();
 
 	auth_policy_deinit();
@@ -338,7 +336,7 @@ static void client_connected(struct master_service_connection *conn)
 						    l->path, &l->st, TRUE);
 		break;
 	case AUTH_SOCKET_POSTFIX:
-		(void)auth_postfix_connection_create(auth, conn->fd);
+		e_error(auth_event, "postfix socketmap is no longer supported");
 		break;
 	case AUTH_SOCKET_LOGIN_CLIENT:
 		auth_client_connection_create(auth, conn->fd, TRUE, FALSE);
