@@ -123,6 +123,7 @@ int connection_input_line_default(struct connection *conn, const char *line)
 void connection_input_halt(struct connection *conn)
 {
 	io_remove(&conn->io);
+	timeout_remove(&conn->to);
 }
 
 void connection_input_resume(struct connection *conn)
@@ -139,6 +140,11 @@ void connection_input_resume(struct connection *conn)
 	} else {
 		conn->io = io_add_to(conn->ioloop, conn->fd_in, IO_READ,
 				     *conn->list->v.input, conn);
+	}
+	if (conn->input_idle_timeout_secs != 0) {
+		conn->to = timeout_add_to(conn->ioloop,
+					  conn->input_idle_timeout_secs*1000,
+					  *conn->list->v.idle_timeout, conn);
 	}
 }
 
@@ -176,12 +182,9 @@ static void connection_init_streams(struct connection *conn)
 		o_stream_switch_ioloop_to(conn->output, conn->ioloop);
 	}
 	conn->disconnected = FALSE;
+	i_assert(conn->to == NULL);
 	connection_input_resume(conn);
-	if (conn->input_idle_timeout_secs != 0) {
-		conn->to = timeout_add_to(conn->ioloop,
-					  conn->input_idle_timeout_secs*1000,
-					  *conn->list->v.idle_timeout, conn);
-	}
+	i_assert(conn->to != NULL || conn->input_idle_timeout_secs == 0);
 	if (set->major_version != 0 && !set->dont_send_version) {
 		e_debug(conn->event, "Sending version handshake");
 		o_stream_nsend_str(conn->output, t_strdup_printf(
