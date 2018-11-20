@@ -29,6 +29,7 @@ struct auth_worker_client {
 	int refcount;
 
         struct auth *auth;
+	struct event *event;
 	time_t cmd_start;
 
 	bool error_sent:1;
@@ -49,6 +50,19 @@ static bool auth_worker_client_error = FALSE;
 static int auth_worker_output(struct auth_worker_client *client);
 static void auth_worker_client_destroy(struct connection *conn);
 static void auth_worker_client_unref(struct auth_worker_client **_client);
+
+static void auth_worker_log_finished(struct auth_worker_client *client,
+				     const char *error)
+{
+	struct event_passthrough *e = event_create_passthrough(client->event)->
+		set_name("auth_worker_request_finished");
+	if (error != NULL) {
+		e->add_str("error", error);
+		e_error(e->event(), "Finished: %s", error);
+	} else {
+		e_debug(e->event(), "Finished");
+	}
+}
 
 void auth_worker_refresh_proctitle(const char *state)
 {
@@ -126,7 +140,7 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 		p = i_strchr_to_next(str_c(str), '\t');
 		p = p == NULL ? "BUG" : t_strcut(p, '\t');
 
-		i_warning("Auth master disconnected us while handling "
+		e_warning(client->event, "Auth master disconnected us while handling "
 			  "request for %s for %ld secs (result=%s)",
 			  request->user, (long)cmd_duration, p);
 	}
@@ -183,6 +197,7 @@ static void verify_plain_callback(enum passdb_result result,
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, request, str);
 
+	auth_worker_log_finished(client, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -283,6 +298,7 @@ auth_worker_handle_passw(struct auth_worker_client *client,
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, request, str);
 
+	auth_worker_log_finished(client, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -325,6 +341,7 @@ lookup_credentials_callback(enum passdb_result result,
 	auth_worker_send_reply(client, request, str);
 
 	auth_request_unref(&request);
+	auth_worker_log_finished(client, NULL);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
 }
@@ -384,6 +401,7 @@ set_credentials_callback(bool success, struct auth_request *request)
 	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
 	auth_worker_send_reply(client, request, str);
 
+	auth_worker_log_finished(client, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -457,6 +475,7 @@ lookup_user_callback(enum userdb_result result,
 
 	auth_worker_send_reply(client, auth_request, str);
 
+	auth_worker_log_finished(client, NULL);
 	auth_request_unref(&auth_request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -534,6 +553,7 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	connection_input_resume(&client->conn);
 	o_stream_set_flush_callback(client->conn.output, auth_worker_output,
 				    client);
+	auth_worker_log_finished(client, NULL);
 	auth_request_unref(&ctx->auth_request);
 	auth_worker_client_unref(&client);
 	i_free(ctx);
@@ -701,8 +721,14 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	}
 
 	io_loop_time_refresh();
+	if (client->event == NULL)
+		client->event = event_create(client->conn.event);
+	event_add_str(client->event, "command", args[1]);
+	event_add_int(client->event, "id", id);
+	event_set_append_log_prefix(client->event, t_strdup_printf("auth-worker<%u>: ", id));
 	client->cmd_start = ioloop_time;
 	client->refcount++;
+	e_debug(client->event, "Handling %s request", args[1]);
 
 	auth_worker_refresh_proctitle(args[1]);
 	if (strcmp(args[1], "PASSV") == 0)
@@ -724,11 +750,11 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 
 	i_assert(ret || error != NULL);
 
-	if (!ret)
-		i_error("%s", error);
-
-	if (client->conn.io != NULL)
+	if (!ret) {
+		auth_worker_log_finished(client, error);
+	} else if (client->conn.io == NULL) {
 		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
+	}
 	auth_worker_client_unref(&client);
 	return ret ? 1 : -1;
 }
