@@ -43,6 +43,11 @@ struct connection_vfuncs {
 	void (*input)(struct connection *conn);
 	int (*input_line)(struct connection *conn, const char *line);
 	int (*input_args)(struct connection *conn, const char *const *args);
+
+	/* Called when input_idle_timeout_secs is reached, defaults to disconnect */
+	void (*idle_timeout)(struct connection *conn);
+	/* Called when client_connect_timeout_msecs is reached, defaults to disconnect */
+	void (*connect_timeout)(struct connection *conn);
 };
 
 struct connection_settings {

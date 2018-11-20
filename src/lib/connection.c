@@ -177,7 +177,7 @@ static void connection_init_streams(struct connection *conn)
 	if (conn->input_idle_timeout_secs != 0) {
 		conn->to = timeout_add_to(conn->ioloop,
 					  conn->input_idle_timeout_secs*1000,
-					  connection_idle_timeout, conn);
+					  *conn->list->v.idle_timeout, conn);
 	}
 	if (set->major_version != 0 && !set->dont_send_version) {
 		e_debug(conn->event, "Sending version handshake");
@@ -407,7 +407,7 @@ int connection_client_connect(struct connection *conn)
 		if (set->client_connect_timeout_msecs != 0) {
 			conn->to = timeout_add_to(conn->ioloop,
 						  set->client_connect_timeout_msecs,
-						  connection_connect_timeout, conn);
+						  *conn->list->v.connect_timeout, conn);
 		}
 	} else {
 		connection_client_connected(conn, TRUE);
@@ -580,7 +580,10 @@ connection_list_init(const struct connection_settings *set,
 		list->v.input = connection_input_default;
 	if (list->v.input_line == NULL)
 		list->v.input_line = connection_input_line_default;
-
+	if (list->v.idle_timeout == NULL)
+		list->v.idle_timeout = connection_idle_timeout;
+	if (list->v.connect_timeout == NULL)
+		list->v.connect_timeout = connection_connect_timeout;
 	return list;
 }
 
