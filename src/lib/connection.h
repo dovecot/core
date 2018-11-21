@@ -140,6 +140,8 @@ void connection_init_client_ip_from(struct connection_list *list,
 				    const struct ip_addr *my_ip) ATTR_NULL(5);
 void connection_init_client_unix(struct connection_list *list,
 				 struct connection *conn, const char *path);
+void connection_init_client_fd(struct connection_list *list,
+			       struct connection *conn, const char *name, int fd_int, int fd_out);
 void connection_init_from_streams(struct connection_list *list,
 			    struct connection *conn, const char *name,
 			    struct istream *input, struct ostream *output);

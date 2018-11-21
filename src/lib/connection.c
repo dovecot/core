@@ -280,6 +280,31 @@ void connection_init_server(struct connection_list *list,
 	connection_init_streams(conn);
 }
 
+void connection_init_client_fd(struct connection_list *list,
+			       struct connection *conn, const char *name,
+			       int fd_in, int fd_out)
+{
+	i_assert(name != NULL);
+	i_assert(list->set.client);
+
+	connection_init(list, conn);
+
+	conn->name = i_strdup(name);
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", conn->name));
+	conn->fd_in = fd_in;
+	conn->fd_out = fd_out;
+
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name("server_connection_connected");
+	/* fd_out differs from fd_in only for stdin/stdout. Keep the logging
+	   output nice and clean by logging only the fd_in. If it's 0, it'll
+	   also be obvious that fd_out=1. */
+	e_debug(e->event(), "Client connected (fd=%d)", fd_in);
+
+	connection_client_connected(conn, TRUE);
+}
+
 void connection_init_client_ip_from(struct connection_list *list,
 				    struct connection *conn,
 				    const struct ip_addr *ip, in_port_t port,
