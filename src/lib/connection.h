@@ -23,7 +23,9 @@ enum connection_disconnect_reason {
 	/* connect() timed out */
 	CONNECTION_DISCONNECT_CONNECT_TIMEOUT,
 	/* remote didn't send input */
-	CONNECTION_DISCONNECT_IDLE_TIMEOUT
+	CONNECTION_DISCONNECT_IDLE_TIMEOUT,
+	/* handshake failed */
+	CONNECTION_DISCONNECT_HANDSHAKE_FAILED,
 };
 
 struct connection_vfuncs {
@@ -43,6 +45,19 @@ struct connection_vfuncs {
 	void (*input)(struct connection *conn);
 	int (*input_line)(struct connection *conn, const char *line);
 	int (*input_args)(struct connection *conn, const char *const *args);
+
+	/* handshake functions. Defaults to version checking.
+	   must return 1 when handshake is completed, otherwise return 0.
+	   return -1 to indicate error and disconnect client.
+
+	   if you implement this, remember to call connection_verify_version
+	   yourself, otherwise you end up with assert crash.
+
+	   these will not be called if you implement `input` virtual function.
+	*/
+	int (*handshake)(struct connection *conn);
+	int (*handshake_line)(struct connection *conn, const char *line);
+	int (*handshake_args)(struct connection *conn, const char *const *args);
 
 	/* Called when input_idle_timeout_secs is reached, defaults to disconnect */
 	void (*idle_timeout)(struct connection *conn);
@@ -113,6 +128,7 @@ struct connection {
 	enum connection_disconnect_reason disconnect_reason;
 
 	bool version_received:1;
+	bool handshake_received:1;
 	bool unix_socket:1;
 	bool from_streams:1;
 	bool disconnected:1;
