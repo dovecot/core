@@ -125,6 +125,9 @@ struct connection {
 	/* received minor version */
 	unsigned int minor_version;
 
+	/* handlers */
+	struct connection_vfuncs v;
+
 	enum connection_disconnect_reason disconnect_reason;
 
 	bool version_received:1;
@@ -194,5 +197,9 @@ void connection_list_deinit(struct connection_list **list);
 
 void connection_input_default(struct connection *conn);
 int connection_input_line_default(struct connection *conn, const char *line);
+
+/* Change handlers */
+void connection_set_handlers(struct connection *conn, const struct connection_vfuncs *vfuncs);
+void connection_set_default_handlers(struct connection *conn);
 
 #endif
