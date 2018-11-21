@@ -19,13 +19,13 @@
 static void connection_idle_timeout(struct connection *conn)
 {
 	conn->disconnect_reason = CONNECTION_DISCONNECT_IDLE_TIMEOUT;
-	conn->list->v.destroy(conn);
+	conn->v.destroy(conn);
 }
 
 static void connection_connect_timeout(struct connection *conn)
 {
 	conn->disconnect_reason = CONNECTION_DISCONNECT_CONNECT_TIMEOUT;
-	conn->list->v.destroy(conn);
+	conn->v.destroy(conn);
 }
 
 void connection_input_default(struct connection *conn)
@@ -36,10 +36,10 @@ void connection_input_default(struct connection *conn)
 	int ret = 0;
 
 	if (!conn->handshake_received &&
-	    conn->list->v.handshake != NULL) {
-		if ((ret = conn->list->v.handshake(conn)) < 0) {
+	    conn->v.handshake != NULL) {
+		if ((ret = conn->v.handshake(conn)) < 0) {
 			conn->disconnect_reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
-			conn->list->v.destroy(conn);
+			conn->v.destroy(conn);
 			return;
 		} else if (ret == 0) {
 			return;
@@ -68,15 +68,15 @@ void connection_input_default(struct connection *conn)
 	while (!input->closed && (line = i_stream_next_line(input)) != NULL) {
 		T_BEGIN {
 			if (!conn->handshake_received &&
-			    conn->list->v.handshake_line != NULL) {
-				ret = conn->list->v.handshake_line(conn, line);
+			    conn->v.handshake_line != NULL) {
+				ret = conn->v.handshake_line(conn, line);
 				if (ret > 0)
 					conn->handshake_received = TRUE;
 				else if (ret == 0)
 					/* continue reading */
 					ret = 1;
 			} else {
-				ret = conn->list->v.input_line(conn, line);
+				ret = conn->v.input_line(conn, line);
 			}
 		} T_END;
 		if (ret <= 0)
@@ -91,7 +91,7 @@ void connection_input_default(struct connection *conn)
 			conn->disconnect_reason = CONNECTION_DISCONNECT_DEINIT;
 		else
 			conn->disconnect_reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
-		conn->list->v.destroy(conn);
+		conn->v.destroy(conn);
 	}
 	i_stream_unref(&input);
 }
@@ -143,10 +143,10 @@ int connection_input_line_default(struct connection *conn, const char *line)
 	}
 
 	if (!conn->handshake_received &&
-	    (conn->list->v.handshake_args != connection_verify_version ||
+	    (conn->v.handshake_args != connection_verify_version ||
 	     conn->list->set.major_version != 0)) {
 		int ret;
-		if ((ret = conn->list->v.handshake_args(conn, args)) == 0)
+		if ((ret = conn->v.handshake_args(conn, args)) == 0)
 			ret = 1; /* continue reading */
 		else if (ret > 0)
 			conn->handshake_received = TRUE;
@@ -159,7 +159,7 @@ int connection_input_line_default(struct connection *conn, const char *line)
 	/* version must be handled though, by something */
 	i_assert(conn->version_received);
 
-	return conn->list->v.input_args(conn, args);
+	return conn->v.input_args(conn, args);
 }
 
 void connection_input_halt(struct connection *conn)
@@ -176,15 +176,15 @@ void connection_input_resume(struct connection *conn)
 		/* do nothing */
 	} else if (conn->input != NULL) {
 		conn->io = io_add_istream_to(conn->ioloop, conn->input,
-					     *conn->list->v.input, conn);
+					     *conn->v.input, conn);
 	} else if (conn->fd_in != -1) {
 		conn->io = io_add_to(conn->ioloop, conn->fd_in, IO_READ,
-				     *conn->list->v.input, conn);
+				     *conn->v.input, conn);
 	}
 	if (conn->input_idle_timeout_secs != 0 && conn->to == NULL) {
 		conn->to = timeout_add_to(conn->ioloop,
 					  conn->input_idle_timeout_secs*1000,
-					  *conn->list->v.idle_timeout, conn);
+					  *conn->v.idle_timeout, conn);
 	}
 }
 
@@ -260,12 +260,12 @@ static void connection_client_connected(struct connection *conn, bool success)
 
 	if (success)
 		connection_init_streams(conn);
-	if (conn->list->v.client_connected != NULL)
-		conn->list->v.client_connected(conn, success);
+	if (conn->v.client_connected != NULL)
+		conn->v.client_connected(conn, success);
 	if (!success) {
 		conn->disconnect_reason =
 			CONNECTION_DISCONNECT_CONN_CLOSED;
-		conn->list->v.destroy(conn);
+		conn->v.destroy(conn);
 	}
 }
 
@@ -295,6 +295,7 @@ void connection_init(struct connection_list *list,
 		DLLIST_PREPEND(&list->connections, conn);
 		list->connections_count++;
 	}
+	connection_set_default_handlers(conn);
 }
 
 void connection_init_server(struct connection_list *list,
@@ -436,8 +437,8 @@ void connection_init_from_streams(struct connection_list *list,
 	conn->disconnected = FALSE;
 	connection_input_resume(conn);
 
-	if (list->v.client_connected != NULL)
-		list->v.client_connected(conn, TRUE);
+	if (conn->v.client_connected != NULL)
+		conn->v.client_connected(conn, TRUE);
 }
 
 static void connection_socket_connected(struct connection *conn)
@@ -481,7 +482,7 @@ int connection_client_connect(struct connection *conn)
 		if (set->client_connect_timeout_msecs != 0) {
 			conn->to = timeout_add_to(conn->ioloop,
 						  set->client_connect_timeout_msecs,
-						  *conn->list->v.connect_timeout, conn);
+						  *conn->v.connect_timeout, conn);
 		}
 	} else {
 		connection_client_connected(conn, TRUE);
@@ -551,7 +552,7 @@ int connection_input_read(struct connection *conn)
 		case CONNECTION_BEHAVIOR_DESTROY:
 			conn->disconnect_reason =
 				CONNECTION_DISCONNECT_BUFFER_FULL;
-			conn->list->v.destroy(conn);
+			conn->v.destroy(conn);
 			return -1;
 		case CONNECTION_BEHAVIOR_ALLOW:
 			return -2;
@@ -561,7 +562,7 @@ int connection_input_read(struct connection *conn)
 		/* disconnected */
 		conn->disconnect_reason =
 			CONNECTION_DISCONNECT_CONN_CLOSED;
-		conn->list->v.destroy(conn);
+		conn->v.destroy(conn);
 		return -1;
 	case 0:
 		/* nothing new read */
@@ -616,6 +617,30 @@ const char *connection_input_timeout_reason(struct connection *conn)
 	}
 }
 
+void connection_set_handlers(struct connection *conn,
+			     const struct connection_vfuncs *vfuncs)
+{
+	connection_input_halt(conn);
+	conn->v = *vfuncs;
+        if (conn->v.input == NULL)
+                conn->v.input = connection_input_default;
+        if (conn->v.input_line == NULL)
+                conn->v.input_line = connection_input_line_default;
+        if (conn->v.handshake_args == NULL)
+                conn->v.handshake_args = connection_verify_version;
+        if (conn->v.idle_timeout == NULL)
+                conn->v.idle_timeout = connection_idle_timeout;
+        if (conn->v.connect_timeout == NULL)
+                conn->v.connect_timeout = connection_connect_timeout;
+	if (!conn->disconnected)
+		connection_input_resume(conn);
+}
+
+void connection_set_default_handlers(struct connection *conn)
+{
+	connection_set_handlers(conn, &conn->list->v);
+}
+
 void connection_switch_ioloop_to(struct connection *conn,
 				 struct ioloop *ioloop)
 {
@@ -652,16 +677,6 @@ connection_list_init(const struct connection_settings *set,
 	list->set = *set;
 	list->v = *vfuncs;
 
-	if (list->v.input == NULL)
-		list->v.input = connection_input_default;
-	if (list->v.input_line == NULL)
-		list->v.input_line = connection_input_line_default;
-	if (list->v.handshake_args == NULL)
-		list->v.handshake_args = connection_verify_version;
-	if (list->v.idle_timeout == NULL)
-		list->v.idle_timeout = connection_idle_timeout;
-	if (list->v.connect_timeout == NULL)
-		list->v.connect_timeout = connection_connect_timeout;
 	return list;
 }
 
@@ -675,7 +690,7 @@ void connection_list_deinit(struct connection_list **_list)
 	while (list->connections != NULL) {
 		conn = list->connections;
 		conn->disconnect_reason = CONNECTION_DISCONNECT_DEINIT;
-		list->v.destroy(conn);
+		conn->v.destroy(conn);
 		i_assert(conn != list->connections);
 	}
 	i_free(list);
