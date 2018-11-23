@@ -16,16 +16,21 @@
 #include <unistd.h>
 #include <libgen.h>
 
+static void connection_closed(struct connection *conn,
+			      enum connection_disconnect_reason reason)
+{
+	conn->disconnect_reason = reason;
+	conn->v.destroy(conn);
+}
+
 static void connection_idle_timeout(struct connection *conn)
 {
-	conn->disconnect_reason = CONNECTION_DISCONNECT_IDLE_TIMEOUT;
-	conn->v.destroy(conn);
+	connection_closed(conn, CONNECTION_DISCONNECT_IDLE_TIMEOUT);
 }
 
 static void connection_connect_timeout(struct connection *conn)
 {
-	conn->disconnect_reason = CONNECTION_DISCONNECT_CONNECT_TIMEOUT;
-	conn->v.destroy(conn);
+	connection_closed(conn, CONNECTION_DISCONNECT_CONNECT_TIMEOUT);
 }
 
 void connection_input_default(struct connection *conn)
@@ -38,8 +43,7 @@ void connection_input_default(struct connection *conn)
 	if (!conn->handshake_received &&
 	    conn->v.handshake != NULL) {
 		if ((ret = conn->v.handshake(conn)) < 0) {
-			conn->disconnect_reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
-			conn->v.destroy(conn);
+			connection_closed(conn, CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
 			return;
 		} else if (ret == 0) {
 			return;
@@ -87,11 +91,12 @@ void connection_input_default(struct connection *conn)
 		o_stream_unref(&output);
 	}
 	if (ret < 0 && !input->closed) {
+		enum connection_disconnect_reason reason;
 		if (conn->handshake_received)
-			conn->disconnect_reason = CONNECTION_DISCONNECT_DEINIT;
+			reason = CONNECTION_DISCONNECT_DEINIT;
 		else
-			conn->disconnect_reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
-		conn->v.destroy(conn);
+			reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
+		connection_closed(conn, reason);
 	}
 	i_stream_unref(&input);
 }
@@ -263,9 +268,7 @@ static void connection_client_connected(struct connection *conn, bool success)
 	if (conn->v.client_connected != NULL)
 		conn->v.client_connected(conn, success);
 	if (!success) {
-		conn->disconnect_reason =
-			CONNECTION_DISCONNECT_CONN_CLOSED;
-		conn->v.destroy(conn);
+		connection_closed(conn, CONNECTION_DISCONNECT_CONN_CLOSED);
 	}
 }
 
@@ -550,9 +553,7 @@ int connection_input_read(struct connection *conn)
 		/* buffer full */
 		switch (conn->list->set.input_full_behavior) {
 		case CONNECTION_BEHAVIOR_DESTROY:
-			conn->disconnect_reason =
-				CONNECTION_DISCONNECT_BUFFER_FULL;
-			conn->v.destroy(conn);
+			connection_closed(conn, CONNECTION_DISCONNECT_BUFFER_FULL);
 			return -1;
 		case CONNECTION_BEHAVIOR_ALLOW:
 			return -2;
@@ -560,9 +561,7 @@ int connection_input_read(struct connection *conn)
 		i_unreached();
 	case -1:
 		/* disconnected */
-		conn->disconnect_reason =
-			CONNECTION_DISCONNECT_CONN_CLOSED;
-		conn->v.destroy(conn);
+		connection_closed(conn, CONNECTION_DISCONNECT_CONN_CLOSED);
 		return -1;
 	case 0:
 		/* nothing new read */
@@ -690,8 +689,7 @@ void connection_list_deinit(struct connection_list **_list)
 
 	while (list->connections != NULL) {
 		conn = list->connections;
-		conn->disconnect_reason = CONNECTION_DISCONNECT_DEINIT;
-		conn->v.destroy(conn);
+		connection_closed(conn, CONNECTION_DISCONNECT_DEINIT);
 		i_assert(conn != list->connections);
 	}
 	i_free(list);
