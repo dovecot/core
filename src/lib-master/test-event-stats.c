@@ -13,6 +13,7 @@
 #include "test-common.h"
 #include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
