@@ -128,20 +128,18 @@ void connection_input_halt(struct connection *conn)
 
 void connection_input_resume(struct connection *conn)
 {
-	const struct connection_settings *set = &conn->list->set;
-
 	i_assert(!conn->disconnected);
 
-	if (conn->io != NULL)
-		return;
-	if (conn->from_streams || set->input_max_size != 0) {
+	if (conn->io != NULL) {
+		/* do nothing */
+	} else if (conn->input != NULL) {
 		conn->io = io_add_istream_to(conn->ioloop, conn->input,
 					     *conn->list->v.input, conn);
-	} else {
+	} else if (conn->fd_in != -1) {
 		conn->io = io_add_to(conn->ioloop, conn->fd_in, IO_READ,
 				     *conn->list->v.input, conn);
 	}
-	if (conn->input_idle_timeout_secs != 0) {
+	if (conn->input_idle_timeout_secs != 0 && conn->to == NULL) {
 		conn->to = timeout_add_to(conn->ioloop,
 					  conn->input_idle_timeout_secs*1000,
 					  *conn->list->v.idle_timeout, conn);
