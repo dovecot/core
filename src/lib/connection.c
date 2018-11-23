@@ -621,6 +621,7 @@ void connection_set_handlers(struct connection *conn,
 			     const struct connection_vfuncs *vfuncs)
 {
 	connection_input_halt(conn);
+	i_assert(vfuncs->destroy != NULL);
 	conn->v = *vfuncs;
         if (conn->v.input == NULL)
                 conn->v.input = connection_input_default;
