@@ -115,6 +115,7 @@ struct connection {
 	bool version_received:1;
 	bool unix_socket:1;
 	bool from_streams:1;
+	bool disconnected:1;
 };
 
 struct connection_list {

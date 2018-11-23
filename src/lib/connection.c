@@ -129,6 +129,8 @@ void connection_input_resume(struct connection *conn)
 {
 	const struct connection_settings *set = &conn->list->set;
 
+	i_assert(!conn->disconnected);
+
 	if (conn->io != NULL)
 		return;
 	if (conn->from_streams || set->input_max_size != 0) {
@@ -173,6 +175,7 @@ static void connection_init_streams(struct connection *conn)
 		o_stream_set_name(conn->output, conn->name);
 		o_stream_switch_ioloop_to(conn->output, conn->ioloop);
 	}
+	conn->disconnected = FALSE;
 	connection_input_resume(conn);
 	if (conn->input_idle_timeout_secs != 0) {
 		conn->to = timeout_add_to(conn->ioloop,
@@ -229,6 +232,7 @@ void connection_init(struct connection_list *list,
 	conn->ioloop = current_ioloop;
 	conn->fd_in = -1;
 	conn->fd_out = -1;
+	conn->disconnected = TRUE;
 
 	i_free(conn->name);
 
@@ -361,6 +365,7 @@ void connection_init_from_streams(struct connection_list *list,
 	event_set_append_log_prefix(conn->event,
 				    t_strdup_printf("(%s): ", conn->name));
 
+	conn->disconnected = FALSE;
 	connection_input_resume(conn);
 
 	if (list->v.client_connected != NULL)
@@ -397,6 +402,7 @@ int connection_client_connect(struct connection *conn)
 		return -1;
 	conn->fd_in = conn->fd_out = fd;
 	conn->connect_started = ioloop_timeval;
+	conn->disconnected = FALSE;
 
 	if (conn->port != 0 ||
 	    conn->list->set.delayed_unix_client_connected_callback) {
@@ -425,20 +431,19 @@ static void connection_update_counters(struct connection *conn)
 
 void connection_disconnect(struct connection *conn)
 {
+	if (conn->disconnected)
+		return;
 	connection_update_counters(conn);
 	/* client connects to a Server, and Server gets connection from Client */
 	const char *ename = conn->list->set.client ?
 		"server_connection_disconnected" :
 		"client_connection_disconnected";
 
-	/* probably isn't connected anymore if it's 0 */
-	if (conn->fd_in > 0) {
-		struct event_passthrough *e = event_create_passthrough(conn->event)->
-			set_name(ename)->
-			add_str("reason", connection_disconnect_reason(conn));
-		e_debug(e->event(), "Disconnected: %s (fd=%u)",
-			connection_disconnect_reason(conn), conn->fd_in);
-	}
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name(ename)->
+		add_str("reason", connection_disconnect_reason(conn));
+	e_debug(e->event(), "Disconnected: %s (fd=%u)",
+		connection_disconnect_reason(conn), conn->fd_in);
 
 	conn->last_input = 0;
 	i_zero(&conn->last_input_tv);
@@ -449,6 +454,7 @@ void connection_disconnect(struct connection *conn)
 	o_stream_close(conn->output);
 	o_stream_destroy(&conn->output);
 	fd_close_maybe_stdio(&conn->fd_in, &conn->fd_out);
+	conn->disconnected = TRUE;
 }
 
 void connection_deinit(struct connection *conn)
