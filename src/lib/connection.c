@@ -256,8 +256,8 @@ void connection_init_server(struct connection_list *list,
 	connection_init(list, conn);
 
 	conn->name = i_strdup(name);
-	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
-				    conn->name));
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", conn->name));
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;
 
@@ -295,8 +295,8 @@ void connection_init_client_ip_from(struct connection_list *list,
 		event_add_str(conn->event, "client_ip", net_ip2addr(my_ip));
 	event_add_str(conn->event, "ip", net_ip2addr(ip));
 	event_add_str(conn->event, "port", dec2str(port));
-	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
-				    conn->name));
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", conn->name));
 }
 
 void connection_init_client_ip(struct connection_list *list,
@@ -322,8 +322,8 @@ void connection_init_client_unix(struct connection_list *list,
 	event_field_clear(conn->event, "client_ip");
 	event_field_clear(conn->event, "client_port");
 
-	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
-				    basename(conn->name)));
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", basename(conn->name)));
 }
 
 void connection_init_from_streams(struct connection_list *list,
@@ -354,8 +354,8 @@ void connection_init_from_streams(struct connection_list *list,
 	o_stream_ref(conn->output);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_set_name(conn->output, conn->name);
-	event_set_append_log_prefix(conn->event, t_strdup_printf("(%s): ",
-				    conn->name));
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", conn->name));
 
 	connection_input_resume(conn);
 
