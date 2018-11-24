@@ -304,6 +304,22 @@ AC_DEFUN([AX_SUBST_L],[
 	m4_foreach([__var__], [$@], [AC_SUBST(__var__)])
 ])
 
+AC_DEFUN([DC_DOVECOT_HARDENING],[
+        AC_ARG_ENABLE(hardening,
+        AS_HELP_STRING([--enable-hardening=yes], [Enable various hardenings (default: yes)]),
+                enable_hardening=$enableval,
+                enable_hardening=yes)
+
+        AC_MSG_CHECKING([Whether to enable hardening])
+        AC_MSG_RESULT([$enable_hardening])
+
+	AC_CC_PIE
+	AC_CC_F_STACK_PROTECTOR
+	AC_CC_D_FORTIFY_SOURCE
+	AC_CC_RETPOLINE
+	AC_LD_RELRO
+])
+
 AC_DEFUN([DC_DOVECOT],[
 	AC_ARG_WITH(dovecot,
 	  [  --with-dovecot=DIR      Dovecot base directory],
@@ -366,6 +382,7 @@ AC_DEFUN([DC_DOVECOT],[
 
 	AM_CONDITIONAL(DOVECOT_INSTALLED, test "$DOVECOT_INSTALLED" = "yes")
 
+	DC_DOVECOT_HARDERNING
 	DC_PLUGIN_DEPS
 	DC_DOVECOT_TEST_WRAPPER
 ])
