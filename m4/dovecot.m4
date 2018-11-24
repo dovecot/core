@@ -28,7 +28,7 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
 ])
 
 dnl * gcc specific options
-AC_DEFUN([DOVECOT_CFLAGS],[
+AC_DEFUN([DC_DOVECOT_CFLAGS],[
   if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
         dnl -Wcast-qual -Wcast-align -Wconversion -Wunreachable-code # too many warnings
         dnl -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
