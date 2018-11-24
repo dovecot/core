@@ -1,10 +1,10 @@
-# dovecot.m4 - Check presence of dovecot -*-Autoconf-*-
-#
-#   Copyright (C) 2010 Dennis Schridde
-#
-# This file is free software; the authors give
-# unlimited permission to copy and/or distribute it, with or without
-# modifications, as long as this notice is preserved.
+dnl dovecot.m4 - Check presence of dovecot -*-Autoconf-*-
+dnl
+dnl   Copyright (C) 2010 Dennis Schridded
+dnl
+dnl This file is free software; the authors give
+dnl unlimited permission to copy and/or distribute it, with or without
+dnl modifications, as long as this notice is preserved.
 
 # serial 25
 
@@ -30,9 +30,9 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
 dnl * gcc specific options
 AC_DEFUN([DOVECOT_CFLAGS],[
   if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
-        # -Wcast-qual -Wcast-align -Wconversion -Wunreachable-code # too many warnings
-        # -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
-        # -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
+        dnl -Wcast-qual -Wcast-align -Wconversion -Wunreachable-code # too many warnings
+        dnl -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
+        dnl -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
         CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 
         if test "$have_clang" = "yes"; then
@@ -41,11 +41,11 @@ AC_DEFUN([DOVECOT_CFLAGS],[
           #  error new clang
           #endif
           ],,,[
-            # clang 3.3+ unfortunately this gives warnings with hash.h
+            dnl clang 3.3+ unfortunately this gives warnings with hash.h
             CFLAGS="$CFLAGS -Wno-duplicate-decl-specifier"
           ])
         else
-          # This is simply to avoid warning when building strftime() wrappers..
+          dnl This is simply to avoid warning when building strftime() wrappers..
           CFLAGS="$CFLAGS -fno-builtin-strftime"
         fi
 
@@ -54,11 +54,11 @@ AC_DEFUN([DOVECOT_CFLAGS],[
         #  error old gcc
         #endif
         ],,[
-          # gcc4
+          dnl gcc4
           CFLAGS="$CFLAGS -Wstrict-aliasing=2"
         ])
 
-        # Use std=gnu99 if we have new enough gcc
+        dnl Use std=gnu99 if we have new enough gcc
         old_cflags=$CFLAGS
         CFLAGS="-std=gnu99"
         AC_TRY_COMPILE([
@@ -70,10 +70,10 @@ AC_DEFUN([DOVECOT_CFLAGS],[
 
   fi
   if test "$have_clang" = "yes"; then
-    # clang specific options
+    dnl clang specific options
     if test "$want_devel_checks" = "yes"; then
-      # FIXME: enable once md[45], sha[12] can be compiled without
-      #CFLAGS="$CFLAGS -fsanitize=integer,undefined -ftrapv"
+      dnl FIXME: enable once md[45], sha[12] can be compiled without
+      dnl CFLAGS="$CFLAGS -fsanitize=integer,undefined -ftrapv"
       :
     fi
   fi
@@ -247,7 +247,7 @@ AC_DEFUN([DC_PLUGIN_DEPS],[
 	AC_MSG_CHECKING([whether OS supports plugin dependencies])
 	case "$host_os" in
 	  darwin*)
-	    # OSX loads the plugins twice, which breaks stuff
+	    dnl OSX loads the plugins twice, which breaks stuff
 	    _plugin_deps=no
 	    ;;
 	esac
@@ -311,7 +311,7 @@ EOF
   AC_SUBST(RUN_TEST)
 ])
 
-# Substitute every var in the given comma separated list
+dnl Substitute every var in the given comma separated list
 AC_DEFUN([AX_SUBST_L],[
 	m4_foreach([__var__], [$@], [AC_SUBST(__var__)])
 ])
@@ -374,8 +374,8 @@ AC_DEFUN([DC_DOVECOT],[
 	dovecot_installed_moduledir="$dovecot_moduledir"
 
 	if test "$use_install_dirs" = "no"; then
-		# the main purpose of these is to fix make distcheck for plugins
-		# other than that, they don't really make much sense
+		dnl the main purpose of these is to fix make distcheck for plugins
+		dnl other than that, they don't really make much sense
 		dovecot_pkgincludedir='$(pkgincludedir)'
 		dovecot_pkglibdir='$(pkglibdir)'
 		dovecot_pkglibexecdir='$(libexecdir)/dovecot'
@@ -401,12 +401,12 @@ AC_DEFUN([DC_DOVECOT],[
 
 AC_DEFUN([DC_CC_WRAPPER],[
   if test "$want_shared_libs" != "yes"; then
-    # want_shared_libs=no is for internal use. the liblib.la check is for plugins
+    dnl want_shared_libs=no is for internal use. the liblib.la check is for plugins
     if test "$want_shared_libs" = "no" || echo "$LIBDOVECOT" | grep "/liblib.la" > /dev/null; then
       if test "$with_gnu_ld" = yes; then
-	# libtool can't handle using whole-archive flags, so we need to do this
-	# with a CC wrapper.. shouldn't be much of a problem, since most people
-	# are building with shared libs.
+	dnl libtool can't handle using whole-archive flags, so we need to do this
+	dnl with a CC wrapper.. shouldn't be much of a problem, since most people
+	dnl are building with shared libs.
 	cat > cc-wrapper.sh <<EOF
 #!/bin/sh
 
@@ -427,7 +427,7 @@ EOF
 AC_DEFUN([DC_PANDOC], [
   AC_ARG_VAR(PANDOC, [Path to pandoc program])
 
-  # Optional tool for making documentation
+  dnl Optional tool for making documentation
   AC_CHECK_PROGS(PANDOC, [pandoc], [true])
 
   if test "$PANDOC" = "true"; then
