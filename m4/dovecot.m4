@@ -14,7 +14,7 @@ dnl
 
 AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
     AC_REQUIRE([gl_UNKNOWN_WARNINGS_ARE_ERRORS])
-    if test $enable_hardening = yes; then
+    AS_IF([test "$enable_hardening" = yes], [
       case "$host" in
         *)
           gl_COMPILER_OPTION_IF([-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2], [
@@ -24,18 +24,18 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
             [AC_LANG_PROGRAM()]
           )
       esac
-    fi
+    ])
 ])
 
 dnl * gcc specific options
 AC_DEFUN([DC_DOVECOT_CFLAGS],[
-  if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
+  AS_IF([test "x$ac_cv_c_compiler_gnu" = "xyes"], [
         dnl -Wcast-qual -Wcast-align -Wconversion -Wunreachable-code # too many warnings
         dnl -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
         dnl -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
         CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 
-        if test "$have_clang" = "yes"; then
+        AS_IF([test "$have_clang" = "yes"], [
           AC_TRY_COMPILE([
           #if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 3)
           #  error new clang
@@ -44,10 +44,10 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
             dnl clang 3.3+ unfortunately this gives warnings with hash.h
             CFLAGS="$CFLAGS -Wno-duplicate-decl-specifier"
           ])
-        else
+        ], [
           dnl This is simply to avoid warning when building strftime() wrappers..
           CFLAGS="$CFLAGS -fno-builtin-strftime"
-        fi
+        ])
 
         AC_TRY_COMPILE([
         #if __GNUC__ < 4
@@ -68,15 +68,15 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
           CFLAGS="$old_cflags"
         ])
 
-  fi
-  if test "$have_clang" = "yes"; then
+  ])
+  AS_IF([test "$have_clang" = "yes"], [
     dnl clang specific options
-    if test "$want_devel_checks" = "yes"; then
+    AS_IF([test "$want_devel_checks" = "yes"], [
       dnl FIXME: enable once md[45], sha[12] can be compiled without
       dnl CFLAGS="$CFLAGS -fsanitize=integer,undefined -ftrapv"
       :
-    fi
-  fi
+    ])
+  ])
 ])
 
 AC_DEFUN([AC_LD_WHOLE_ARCHIVE], [
@@ -121,7 +121,7 @@ dnl
 
 AC_DEFUN([AC_LD_RELRO],[
     RELRO_LDFLAGS=
-    if test $enable_hardening = yes; then
+    AS_IF([test "$enable_hardening" = yes], [
       AC_MSG_CHECKING([for how to force completely read-only GOT table])
       ld_help=`$CC -Wl,-help 2>&1`
       case $ld_help in
@@ -134,7 +134,7 @@ AC_DEFUN([AC_LD_RELRO],[
         [AC_MSG_RESULT([$RELRO_LDFLAGS])],
         [AC_MSG_RESULT([unknown])]
       )
-   fi
+   ])
    AC_SUBST([RELRO_LDFLAGS])
 ])
 
@@ -163,7 +163,7 @@ AC_DEFUN([AC_CC_PIE],[
     PIE_CFLAGS=
     PIE_LDFLAGS=
 
-    if test $enable_hardening = yes; then
+    AS_IF([test "$enable_hardening" = yes], [
       OLD_CFLAGS=$CFLAGS
       case "$host" in
         *-*-mingw* | *-*-msvc* | *-*-cygwin* )
@@ -186,7 +186,7 @@ AC_DEFUN([AC_CC_PIE],[
           )
       esac
       CFLAGS=$OLD_CFLAGS
-    fi
+    ])
     AC_SUBST([PIE_CFLAGS])
     AC_SUBST([PIE_LDFLAGS])
 ])
@@ -197,7 +197,7 @@ dnl
 
 AC_DEFUN([AC_CC_RETPOLINE],[
     AC_REQUIRE([gl_UNKNOWN_WARNINGS_ARE_ERRORS])
-    if test $enable_hardening = yes; then
+    AS_IF([test "$enable_hardening" = yes], [
       case "$host" in
         *)
           gl_COMPILER_OPTION_IF([-mfunction-return=thunk -mindirect-branch=thunk], [
@@ -207,7 +207,7 @@ AC_DEFUN([AC_CC_RETPOLINE],[
             [AC_LANG_PROGRAM()]
           )
       esac
-    fi
+    ])
 ])
 
 dnl
@@ -216,7 +216,7 @@ dnl
 
 AC_DEFUN([AC_CC_F_STACK_PROTECTOR],[
     AC_REQUIRE([gl_UNKNOWN_WARNINGS_ARE_ERRORS])
-    if test $enable_hardening = yes; then
+    AS_IF([test "$enable_hardening" = yes], [
       case "$host" in
         *)
           gl_COMPILER_OPTION_IF([-fstack-protector-strong], [
@@ -230,7 +230,7 @@ AC_DEFUN([AC_CC_F_STACK_PROTECTOR],[
             [AC_LANG_PROGRAM()]
           )
       esac
-    fi
+    ])
 ])
 
 AC_DEFUN([DC_DOVECOT_MODULEDIR],[
@@ -258,7 +258,7 @@ AC_DEFUN([DC_PLUGIN_DEPS],[
 
 AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
   AC_CHECK_PROG(VALGRIND, valgrind, yes, no)
-  if test $VALGRIND = yes; then
+  AS_IF([test "$VALGRIND" = yes], [
     cat > run-test.sh <<EOF
 #!/bin/sh
 top_srcdir=\$[1]
@@ -305,9 +305,9 @@ fi
 exit \$ret
 EOF
     RUN_TEST='$(SHELL) $(top_builddir)/run-test.sh $(top_srcdir)'
-  else
+  ], [
     RUN_TEST=''
-  fi
+  ])
   AC_SUBST(RUN_TEST)
 ])
 
@@ -345,22 +345,22 @@ AC_DEFUN([DC_DOVECOT],[
 	AC_ARG_WITH(dovecot-install-dirs,
 		[AC_HELP_STRING([--with-dovecot-install-dirs],
 		[Use install directories configured for Dovecot (default)])],
-	if test x$withval = xno; then
+	AS_IF([test x$withval = xno], [
 		use_install_dirs=no
-	else
+	], [
 		use_install_dirs=yes
-	fi,
+	]),
 	use_install_dirs=yes)
 
 	AC_MSG_CHECKING([for "$dovecotdir/dovecot-config"])
-	if test -f "$dovecotdir/dovecot-config"; then
+	AS_IF([test -f "$dovecotdir/dovecot-config"], [
 		AC_MSG_RESULT([$dovecotdir/dovecot-config])
-	else
+	], [
 		AC_MSG_RESULT([not found])
 		AC_MSG_NOTICE([])
 		AC_MSG_NOTICE([Use --with-dovecot=DIR to provide the path to the dovecot-config file.])
 		AC_MSG_ERROR([dovecot-config not found])
-	fi
+	])
 
 	old=`pwd`
 	cd $dovecotdir
@@ -373,7 +373,7 @@ AC_DEFUN([DC_DOVECOT],[
 
 	dovecot_installed_moduledir="$dovecot_moduledir"
 
-	if test "$use_install_dirs" = "no"; then
+	AS_IF([test "$use_install_dirs" = "no"], [
 		dnl the main purpose of these is to fix make distcheck for plugins
 		dnl other than that, they don't really make much sense
 		dovecot_pkgincludedir='$(pkgincludedir)'
@@ -382,7 +382,7 @@ AC_DEFUN([DC_DOVECOT],[
 		dovecot_docdir='$(docdir)'
 		dovecot_moduledir='$(moduledir)'
 		dovecot_statedir='$(statedir)'
-	fi
+	])
 
 	DC_DOVECOT_CFLAGS
 	DC_DOVECOT_HARDENING
@@ -402,10 +402,10 @@ AC_DEFUN([DC_DOVECOT],[
 ])
 
 AC_DEFUN([DC_CC_WRAPPER],[
-  if test "$want_shared_libs" != "yes"; then
+  AS_IF([test "$want_shared_libs" != "yes"], [
     dnl want_shared_libs=no is for internal use. the liblib.la check is for plugins
-    if test "$want_shared_libs" = "no" || echo "$LIBDOVECOT" | grep "/liblib.la" > /dev/null; then
-      if test "$with_gnu_ld" = yes; then
+    AS_IF([test "$want_shared_libs" = "no" || echo "$LIBDOVECOT" | grep "/liblib.la" > /dev/null], [
+      AS_IF([test "$with_gnu_ld" = yes], [
 	dnl libtool can't handle using whole-archive flags, so we need to do this
 	dnl with a CC wrapper.. shouldn't be much of a problem, since most people
 	dnl are building with shared libs.
@@ -421,9 +421,9 @@ fi
 EOF
 	chmod +x cc-wrapper.sh
 	CC=`pwd`/cc-wrapper.sh
-      fi
-    fi
-  fi
+      ])
+    ])
+  ])
 ])
 
 AC_DEFUN([DC_PANDOC], [
@@ -432,11 +432,11 @@ AC_DEFUN([DC_PANDOC], [
   dnl Optional tool for making documentation
   AC_CHECK_PROGS(PANDOC, [pandoc], [true])
 
-  if test "$PANDOC" = "true"; then
-   if test ! -e README; then
+  AS_IF([test "$PANDOC" = "true"], [
+   AS_IF([test ! -e README], [
      AC_MSG_ERROR([Cannot produce documentation without pandoc - disable with PANDOC=false ./configure])
-   fi
-  fi
+   ])
+  ])
 ])
 # warnings.m4 serial 11
 dnl Copyright (C) 2008-2015 Free Software Foundation, Inc.
@@ -519,8 +519,9 @@ m4_ifval([$2],
 # End:
 dnl * clang check
 AC_DEFUN([CC_CLANG],[
-have_clang=no
-if $CC -dM -E -x c /dev/null | grep __clang__ > /dev/null 2>&1; then
-  have_clang=yes
-fi
+  AS_IF([$CC -dM -E -x c /dev/null | grep __clang__ > /dev/null 2>&1], [
+    have_clang=yes
+  ], [
+    have_clang=no
+  ])
 ])
