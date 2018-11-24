@@ -259,7 +259,7 @@ AC_DEFUN([DC_PLUGIN_DEPS],[
 AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
   AC_CHECK_PROG(VALGRIND, valgrind, yes, no)
   AS_IF([test "$VALGRIND" = yes], [
-    cat > run-test.sh <<EOF
+    cat > run-test.sh <<_DC_EOF
 #!/bin/sh
 top_srcdir=\$[1]
 shift
@@ -291,7 +291,7 @@ if test \$ret != 0; then
   echo "Failed to run: \$[*]" >&2
 fi
 exit \$ret
-EOF
+_DC_EOF
     RUN_TEST='$(SHELL) $(top_builddir)/run-test.sh $(top_srcdir)'
   ], [
     RUN_TEST=''
@@ -397,7 +397,7 @@ AC_DEFUN([DC_CC_WRAPPER],[
 	dnl libtool can't handle using whole-archive flags, so we need to do this
 	dnl with a CC wrapper.. shouldn't be much of a problem, since most people
 	dnl are building with shared libs.
-	cat > cc-wrapper.sh <<EOF
+	cat > cc-wrapper.sh <<_DC_EOF
 #!/bin/sh
 
 if echo "\$[*]" | grep -- -ldl > /dev/null; then
@@ -406,7 +406,7 @@ if echo "\$[*]" | grep -- -ldl > /dev/null; then
 else
   exec $CC \$[*]
 fi
-EOF
+_DC_EOF
 	chmod +x cc-wrapper.sh
 	CC=`pwd`/cc-wrapper.sh
       ])
