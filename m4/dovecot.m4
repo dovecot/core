@@ -368,8 +368,19 @@ AC_DEFUN([DC_DOVECOT],[
 	cd $old
 	DISTCHECK_CONFIGURE_FLAGS="--with-dovecot=$abs_dovecotdir --without-dovecot-install-dirs"
 
+	dnl Make sure dovecot-config doesn't accidentically override flags
+	ORIG_CFLAGS="$CFLAGS"
+	ORIG_LDFLAGS="$LDFLAGS"
+	ORIG_BINARY_CFLAGS="$BINARY_CFLAGS"
+	ORIG_BINARY_LDFLAGS="$BINARY_LDFLAGS"
+
 	eval `grep -i '^dovecot_[[a-z_]]*=' "$dovecotdir"/dovecot-config`
 	eval `grep '^LIBDOVECOT[[A-Z0-9_]]*=' "$dovecotdir"/dovecot-config`
+
+        CFLAGS="$ORIG_CFLAGS"
+        LDFLAGS="$ORIG_LDFLAGS"
+        BINARY_CFLAGS="$ORIG_BINARY_CFLAGS"
+        BINARY_LDFLAGS="$ORIG_BINARY_LDFLAGS"
 
 	dovecot_installed_moduledir="$dovecot_moduledir"
 
