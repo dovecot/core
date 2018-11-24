@@ -16,14 +16,6 @@ PKG_PROG_PKG_CONFIG
 ACLOCAL_AMFLAGS='-I $(top_srcdir)/m4'
 AC_SUBST(ACLOCAL_AMFLAGS)
 
-AC_ARG_ENABLE(hardening,
-AS_HELP_STRING([--enable-hardening=yes], [Enable various hardenings (default: yes)]),
-        enable_hardening=$enableval,
-        enable_hardening=yes)
-
-AC_MSG_CHECKING([Whether to enable hardening])
-AC_MSG_RESULT([$enable_hardening])
-
 AC_ARG_ENABLE(devel-checks,
 AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for developers]),
 	if test x$enableval = xyes; then
@@ -318,13 +310,8 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h \
   sys/utsname.h glob.h linux/falloc.h ucred.h sys/ucred.h crypt.h)
 
 CC_CLANG
-AC_CC_PIE
-AC_CC_F_STACK_PROTECTOR
-AC_CC_D_FORTIFY_SOURCE
-AC_CC_RETPOLINE
-AC_LD_RELRO
 AC_LD_WHOLE_ARCHIVE
-
+DC_DOVECOT_HARDENING
 DOVECOT_CFLAGS
 
 DOVECOT_NSL
