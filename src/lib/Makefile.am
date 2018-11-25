@@ -128,6 +128,7 @@ liblib_la_SOURCES = \
 	ostream-null.c \
 	ostream-rawlog.c \
 	ostream-unix.c \
+	ostream-wrapper.c \
 	path-util.c \
 	pkcs5.c \
 	primes.c \
@@ -281,6 +282,7 @@ headers = \
 	ostream-null.h \
 	ostream-rawlog.h \
 	ostream-unix.h \
+	ostream-wrapper.h \
 	path-util.h \
 	pkcs5.h \
 	primes.h \
