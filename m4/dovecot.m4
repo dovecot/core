@@ -383,6 +383,7 @@ AC_DEFUN([DC_DOVECOT],[
 		dovecot_statedir='$(statedir)'
 	])
 
+	CC_CLANG
 	DC_DOVECOT_CFLAGS
 	DC_DOVECOT_HARDENING
 
