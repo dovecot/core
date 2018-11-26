@@ -185,6 +185,78 @@ void auth_request_success(struct auth_request *request,
 	auth_policy_check(request, request->mech_password, auth_request_policy_check_callback, ctx);
 }
 
+struct event_passthrough *
+auth_request_finished_event(struct auth_request *request, struct event *event)
+{
+	struct event_passthrough *e = event_create_passthrough(event);
+
+	if (request->user != NULL)
+		e->add_str("user", request->user);
+	if (request->original_username != NULL)
+		e->add_str("original_username", request->original_username);
+	if (request->translated_username != NULL)
+		e->add_str("translated_username", request->translated_username);
+	if (request->master_user != NULL) {
+		e->add_str("login_user", request->requested_login_user);
+		e->add_str("master_user", request->master_user);
+	}
+	if (request->failed) {
+		if (request->internal_failure) {
+			e->add_str("error", "internal failure");
+		} else {
+			e->add_str("error", "authentication failed");
+		}
+	} else if (request->successful) {
+		e->add_str("success", "yes");
+	}
+	switch(request->secured) {
+	case AUTH_REQUEST_SECURED_NONE:
+		e->add_str("transport", "insecure");
+		break;
+	case AUTH_REQUEST_SECURED:
+		e->add_str("transport", "trusted");
+		break;
+	case AUTH_REQUEST_SECURED_TLS:
+		e->add_str("transport", "TLS");
+		break;
+	default:
+		i_unreached();
+	}
+	if (request->userdb_lookup) {
+		return e;
+	}
+	if (request->mech != NULL)
+		e->add_str("mechanism", request->mech->mech_name);
+	if (request->credentials_scheme != NULL)
+		e->add_str("credentials_scheme", request->credentials_scheme);
+	if (request->realm != NULL)
+		e->add_str("realm", request->realm);
+	if (request->policy_penalty > 0)
+		e->add_int("policy_penalty", request->policy_penalty);
+	if (request->policy_refusal) {
+		e->add_str("policy_result", "refused");
+	} else if (request->policy_processed && request->policy_penalty > 0) {
+		e->add_str("policy_result", "delayed");
+		e->add_int("policy_penalty", request->policy_penalty);
+	} else if (request->policy_processed) {
+		e->add_str("policy_result", "ok");
+	}
+	return e;
+}
+
+void auth_request_log_finished(struct auth_request *request)
+{
+	if (request->event_finished_sent)
+		return;
+	request->event_finished_sent = TRUE;
+	string_t *str = t_str_new(64);
+	auth_request_get_log_prefix(str, request, "auth");
+	struct event_passthrough *e =
+		auth_request_finished_event(request, request->event)->
+		set_name("auth_request_finished");
+	e_debug(e->event(), "%sAuth request finished", str_c(str));
+}
+
 static
 void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 {
@@ -199,6 +271,9 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		auth_request_fail(request);
 		return;
 	}
+
+	/* log before delay */
+	auth_request_log_finished(request);
 
 	if (request->delay_until > ioloop_time) {
 		unsigned int delay_secs = request->delay_until - ioloop_time;
@@ -239,6 +314,7 @@ void auth_request_fail(struct auth_request *request)
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
 	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE, "", 0);
+	auth_request_log_finished(request);
 }
 
 void auth_request_internal_failure(struct auth_request *request)
