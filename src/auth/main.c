@@ -279,9 +279,7 @@ static void main_deinit(void)
 	auth_client_connections_destroy_all();
 	auth_master_connections_destroy_all();
 	auth_postfix_connections_destroy_all();
-
-	if (auth_worker_client != NULL)
-		auth_worker_client_destroy(&auth_worker_client);
+	auth_worker_connections_destroy_all();
 
 	auth_policy_deinit();
 	mech_register_deinit(&mech_reg);
@@ -308,7 +306,7 @@ static void main_deinit(void)
 
 static void worker_connected(struct master_service_connection *conn)
 {
-	if (auth_worker_client != NULL) {
+	if (auth_worker_has_client()) {
 		i_error("Auth workers can handle only a single client");
 		return;
 	}

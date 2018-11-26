@@ -6,18 +6,18 @@
 #define AUTH_WORKER_MAX_LINE_LENGTH 8192
 
 struct master_service_connection;
-extern struct auth_worker_client *auth_worker_client;
 
 struct auth_worker_client *
 auth_worker_client_create(struct auth *auth,
 			  const struct master_service_connection *master_conn);
 bool auth_worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 				  const char *const *args, struct auth_request **request_r);
-void auth_worker_client_destroy(struct auth_worker_client **client);
-void auth_worker_client_unref(struct auth_worker_client **client);
 
+bool auth_worker_has_client(void);
 void auth_worker_client_send_error(void);
 void auth_worker_client_send_success(void);
 void auth_worker_client_send_shutdown(void);
+
+void auth_worker_connections_destroy_all(void);
 
 #endif

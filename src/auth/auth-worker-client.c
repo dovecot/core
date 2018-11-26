@@ -46,11 +46,13 @@ struct auth_worker_list_context {
 	bool sending, sent, done;
 };
 
-struct auth_worker_client *auth_worker_client;
+static struct auth_worker_client *auth_worker_client = NULL;
 static bool auth_worker_client_error = FALSE;
 
 static void auth_worker_input(struct auth_worker_client *client);
 static int auth_worker_output(struct auth_worker_client *client);
+static void auth_worker_client_destroy(struct auth_worker_client **_client);
+static void auth_worker_client_unref(struct auth_worker_client **_client);
 
 void auth_worker_refresh_proctitle(const char *state)
 {
@@ -824,7 +826,7 @@ auth_worker_client_create(struct auth *auth,
 	return client;
 }
 
-void auth_worker_client_destroy(struct auth_worker_client **_client)
+static void auth_worker_client_destroy(struct auth_worker_client **_client)
 {
 	struct auth_worker_client *client = *_client;
 
@@ -847,7 +849,7 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 	master_service_client_connection_destroyed(master_service);
 }
 
-void auth_worker_client_unref(struct auth_worker_client **_client)
+static void auth_worker_client_unref(struct auth_worker_client **_client)
 {
 	struct auth_worker_client *client = *_client;
 
@@ -890,4 +892,16 @@ void auth_worker_client_send_shutdown(void)
 	if (auth_worker_client != NULL)
 		o_stream_nsend_str(auth_worker_client->output, "SHUTDOWN\n");
 	auth_worker_refresh_proctitle(CLIENT_STATE_STOP);
+}
+
+void auth_worker_connections_destroy_all(void)
+{
+	if (auth_worker_client == NULL)
+		return;
+	auth_worker_client_destroy(&auth_worker_client);
+}
+
+bool auth_worker_has_client(void)
+{
+	return auth_worker_client != NULL;
 }
