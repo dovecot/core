@@ -519,9 +519,11 @@ m4_ifval([$2],
 # End:
 dnl * clang check
 AC_DEFUN([CC_CLANG],[
+  AC_MSG_CHECKING([whether $CC is clang 3.3+])
   AS_IF([$CC -dM -E -x c /dev/null | grep __clang__ > /dev/null 2>&1], [
-    have_clang=yes
+      AS_VAR_SET([have_clang], [yes])
   ], [
-    have_clang=no
+      AS_VAR_SET([have_clang], [no])
   ])
+  AC_MSG_RESULT([$have_clang])
 ])
