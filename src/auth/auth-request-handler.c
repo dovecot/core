@@ -207,6 +207,9 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 {
         struct auth_request_handler *handler = request->handler;
 
+	/* handle failure here */
+	auth_request_log_finished(request);
+
 	if (request->in_delayed_failure_queue) {
 		/* we came here from flush_failures() */
 		handler->callback(reply, handler->conn);
@@ -251,6 +254,8 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 {
         struct auth_request_handler *handler = request->handler;
 	string_t *str = t_str_new(128);
+
+	auth_request_log_finished(request);
 
 	if (request->last_penalty != 0 && auth_penalty != NULL) {
 		/* reset penalty */
