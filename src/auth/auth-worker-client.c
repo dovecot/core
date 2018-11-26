@@ -660,6 +660,24 @@ auth_worker_handle_list(struct auth_worker_client *client,
 	return TRUE;
 }
 
+static bool auth_worker_verify_db_hash(const char *line)
+{
+	string_t *str;
+	unsigned char passdb_md5[MD5_RESULTLEN];
+	unsigned char userdb_md5[MD5_RESULTLEN];
+
+	passdbs_generate_md5(passdb_md5);
+	userdbs_generate_md5(userdb_md5);
+
+	str = t_str_new(128);
+	str_append(str, "DBHASH\t");
+	binary_to_hex_append(str, passdb_md5, sizeof(passdb_md5));
+	str_append_c(str, '\t');
+	binary_to_hex_append(str, userdb_md5, sizeof(userdb_md5));
+
+	return strcmp(line, str_c(str)) == 0;
+}
+
 static bool
 auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 {
@@ -697,24 +715,6 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 	if (client->conn.io != NULL)
 		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
         return ret;
-}
-
-static bool auth_worker_verify_db_hash(const char *line)
-{
-	string_t *str;
-	unsigned char passdb_md5[MD5_RESULTLEN];
-	unsigned char userdb_md5[MD5_RESULTLEN];
-
-	passdbs_generate_md5(passdb_md5);
-	userdbs_generate_md5(userdb_md5);
-
-	str = t_str_new(128);
-	str_append(str, "DBHASH\t");
-	binary_to_hex_append(str, passdb_md5, sizeof(passdb_md5));
-	str_append_c(str, '\t');
-	binary_to_hex_append(str, userdb_md5, sizeof(userdb_md5));
-
-	return strcmp(line, str_c(str)) == 0;
 }
 
 static void auth_worker_input(struct auth_worker_client *client)
