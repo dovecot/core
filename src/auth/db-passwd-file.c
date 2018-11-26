@@ -40,9 +40,17 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 			pw->path, username);
 		return;
 	}
+	
+	if (hash_table_lookup(pw->aliases, username) != NULL) {
+		i_error("passwd-file %s: User %s already defined as an alias",
+				pw->path, username);
+		return;
+	}
 
 	pu = p_new(pw->pool, struct passwd_user, 1);
 	user = p_strdup(pw->pool, username);
+
+	pu->username = user;
 
 	len = pass == NULL ? 0 : strlen(pass);
 	if (len > 4 && pass[0] != '{' && pass[0] != '$' &&
@@ -145,7 +153,50 @@ passwd_file_add(struct passwd_file *pw, const char *username,
                         p_strsplit_spaces(pw->pool, extra_fields, " ");
         }
 
+	/* add user */
 	hash_table_insert(pw->users, user, pu);
+	
+	/* add aliases */
+	if (pu->extra_fields != NULL) {
+		unsigned int i, j;
+		
+		for (i = 0; pu->extra_fields[i] != NULL; i++) {
+			char *field = pu->extra_fields[i];
+			char **aliases_array;
+			
+			if (strncmp(field, "aliases=", 8) != 0)
+				continue;
+			
+			aliases_array = p_strsplit(pw->pool, field + 8, ",");
+			
+			for (j = 0; aliases_array[j] != NULL; j++) {
+				char *alias = aliases_array[j];
+				void *existing_user;
+				
+				existing_user = hash_table_lookup(pw->aliases, alias);
+				
+				if (existing_user != NULL) {
+					i_error("passwd-file %s: Alias %s for %s already used by user %s",
+							pw->path, alias, username, existing_user);
+					return;
+				}
+				
+				existing_user = hash_table_lookup(pw->users, alias);
+				
+				if (existing_user != NULL) {
+					i_error("passwd-file %s: Alias %s for %s already defined as an user",
+							pw->path, alias, username);
+					return;
+				}
+				
+				/* XXX What is the best ?
+				 - alias-username (string) -> real-username (string) ?
+				 - alias-username (string) -> real-user (struct passwd_user) ?
+				 */
+				hash_table_insert(pw->aliases, alias, user);
+			}
+		}
+	}
 }
 
 static struct passwd_file *
@@ -198,6 +249,7 @@ static int passwd_file_open(struct passwd_file *pw, bool startup,
 
 	pw->pool = pool_alloconly_create(MEMPOOL_GROWING"passwd_file", 10240);
 	hash_table_create(&pw->users, pw->pool, 0, str_hash, strcmp);
+	hash_table_create(&pw->aliases, pw->pool, 0, str_hash, strcmp);
 
 	start_time = time(NULL);
 	input = i_stream_create_fd(pw->fd, (size_t)-1);
@@ -238,6 +290,10 @@ static void passwd_file_close(struct passwd_file *pw)
 
 	if (hash_table_is_created(pw->users))
 		hash_table_destroy(&pw->users);
+	
+	if (hash_table_is_created(pw->aliases))
+		hash_table_destroy(&pw->aliases);
+	
 	pool_unref(&pw->pool);
 }
 
@@ -478,7 +534,18 @@ int db_passwd_file_lookup(struct db_passwd_file *db,
 			       "lookup: user=%s file=%s",
 			       str_c(username), pw->path);
 
+	/* try direct user */
 	*user_r = hash_table_lookup(pw->users, str_c(username));
+	
+	/* try alias user */
+	if (*user_r == NULL) {
+		char *real_username = hash_table_lookup(pw->aliases, str_c(username));
+		
+		if (real_username)
+			*user_r = hash_table_lookup(pw->users, real_username);
+	}
+
+	/* nobody found */
 	if (*user_r == NULL) {
 		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
 		return 0;

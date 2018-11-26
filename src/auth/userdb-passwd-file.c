@@ -91,6 +91,15 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	if (pu->home != NULL)
 		auth_request_set_userdb_field(auth_request, "home", pu->home);
 
+	/* XXX
+	 I’m not sure which function best fit the intend:
+	 - auth_request_set_userdb_field
+	 - auth_request_set_username
+	 - auth_request_set_login_username
+	 */
+	if (pu->username != NULL)
+		auth_request_set_userdb_field(auth_request, "username", pu->username);
+
 	if (pu->extra_fields != NULL &&
 	    passwd_file_add_extra_fields(auth_request, pu->extra_fields) < 0) {
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);

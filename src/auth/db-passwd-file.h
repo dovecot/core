@@ -10,6 +10,7 @@ struct passwd_user {
 	uid_t uid;
 	gid_t gid;
 
+	char *username;
 	char *home;
         char *password;
         char **extra_fields;
@@ -27,6 +28,7 @@ struct passwd_file {
 	int fd;
 
 	HASH_TABLE(char *, struct passwd_user *) users;
+	HASH_TABLE(char *, char *) aliases;
 };
 
 struct db_passwd_file {
