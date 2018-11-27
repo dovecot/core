@@ -415,7 +415,6 @@ void connection_init_from_streams(struct connection_list *list,
 	connection_init(list, conn);
 
 	conn->name = i_strdup(name);
-	conn->from_streams = TRUE;
 	conn->fd_in = i_stream_get_fd(input);
 	conn->fd_out = o_stream_get_fd(output);
 
