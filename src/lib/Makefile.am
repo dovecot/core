@@ -342,6 +342,7 @@ test_lib_SOURCES = \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
 	test-byteorder.c \
+	test-connection.c \
 	test-crc32.c \
 	test-data-stack.c \
 	test-event-log.c \
