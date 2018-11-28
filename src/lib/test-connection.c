@@ -443,6 +443,202 @@ static void test_connection_idle_kill(void)
 	test_end();
 }
 
+/* BEGIN HANDSHAKE FAILED TEST (version) */
+
+static void test_connection_handshake_failed_destroy(struct connection *conn)
+{
+	test_assert(conn->disconnect_reason == CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
+	test_connection_simple_destroy(conn);
+}
+
+static const struct connection_vfuncs handshake_failed_version_v =
+{
+	.client_connected = test_connection_simple_client_connected,
+	.input_args = test_connection_simple_input_args,
+	.destroy = test_connection_handshake_failed_destroy,
+};
+
+static void test_connection_handshake_failed_version(void)
+{
+	static const struct connection_settings client_sets[] = {
+	{
+		.service_name_in = "TEST-S",
+		.service_name_out = "TEST-S",
+		.major_version = 1,
+		.minor_version = 0,
+		.client = TRUE,
+		.input_max_size = (size_t)-1,
+		.output_max_size = (size_t)-1,
+	},
+	{
+		.service_name_in = "TEST-C",
+		.service_name_out = "TEST-C",
+		.major_version = 1,
+		.minor_version = 0,
+		.client = TRUE,
+		.input_max_size = (size_t)-1,
+		.output_max_size = (size_t)-1,
+	},
+	{
+		.service_name_in = "TEST-S",
+		.service_name_out = "TEST-C",
+		.major_version = 2,
+		.minor_version = 0,
+		.client = TRUE,
+		.input_max_size = (size_t)-1,
+		.output_max_size = (size_t)-1,
+	}
+	};
+
+	static const struct connection_settings client_set_minor = {
+		.service_name_in = "TEST-S",
+		.service_name_out = "TEST-C",
+		.major_version = 1,
+		.minor_version = 2,
+		.client = TRUE,
+		.input_max_size = (size_t)-1,
+		.output_max_size = (size_t)-1,
+	};
+
+	test_begin("connection handshake failed (version)");
+
+	test_expect_errors(N_ELEMENTS(client_sets));
+
+	/* this should stay FALSE during the version mismatch sets */
+	received_quit = FALSE;
+	for (size_t i = 0; i < N_ELEMENTS(client_sets); i++) {
+		test_connection_run(&server_set, &client_sets[i], &simple_v,
+				    &handshake_failed_version_v);
+		test_assert(!received_quit);
+	}
+
+	received_quit = FALSE;
+	test_connection_run(&server_set, &client_set_minor, &simple_v,
+			    &simple_v);
+	test_assert(received_quit);
+	received_quit = FALSE;
+
+	test_end();
+}
+
+/* BEGIN HANDSHAKE FAILED TEST (args) */
+
+static int test_connection_handshake_failed_1_args(struct connection *conn ATTR_UNUSED,
+						   const char *const *args ATTR_UNUSED)
+{
+	/* just fail */
+	return -1;
+}
+
+static const struct connection_vfuncs handshake_failed_1_v =
+{
+	.client_connected = test_connection_simple_client_connected,
+	.input_args = test_connection_simple_input_args,
+	.handshake_args = test_connection_handshake_failed_1_args,
+	.destroy = test_connection_handshake_failed_destroy,
+};
+
+static void test_connection_handshake_failed_args(void)
+{
+	test_begin("connection handshake failed (handshake_args)");
+
+	test_connection_run(&server_set, &client_set, &simple_v,
+			    &handshake_failed_1_v);
+
+	test_end();
+}
+
+/* BEGIN HANDSHAKE FAILED TEST (handshake_line) */
+
+static int test_connection_handshake_failed_2_line(struct connection *conn ATTR_UNUSED,
+						   const char *line ATTR_UNUSED)
+{
+	return -1;
+}
+
+static const struct connection_vfuncs handshake_failed_2_v =
+{
+	.client_connected = test_connection_simple_client_connected,
+	.input_args = test_connection_simple_input_args,
+	.handshake_line = test_connection_handshake_failed_2_line,
+	.destroy = test_connection_handshake_failed_destroy,
+};
+
+static void test_connection_handshake_failed_line(void)
+{
+	test_begin("connection handshake failed (handshake_line)");
+
+	test_connection_run(&server_set, &client_set, &simple_v,
+			    &handshake_failed_2_v);
+
+	test_end();
+}
+
+/* BEGIN HANDSHAKE FAILED TEST (handshake) */
+
+static int test_connection_handshake_failed_3(struct connection *conn ATTR_UNUSED)
+{
+	return -1;
+}
+
+static const struct connection_vfuncs handshake_failed_3_v =
+{
+	.client_connected = test_connection_simple_client_connected,
+	.input_args = test_connection_simple_input_args,
+	.handshake = test_connection_handshake_failed_3,
+	.destroy = test_connection_handshake_failed_destroy,
+};
+
+static void test_connection_handshake_failed_input(void)
+{
+	test_begin("connection handshake failed (handshake)");
+
+	test_connection_run(&server_set, &client_set, &simple_v,
+			    &handshake_failed_3_v);
+
+	test_end();
+}
+
+/* BEGIN CONNECTION ERRORED TEST (ensure correct error) */
+
+static void test_connection_errored_client_connected(struct connection *conn,
+						     bool success)
+{
+	test_assert(success);
+	o_stream_nsend_str(conn->output, "HELLO\n");
+}
+
+static void test_connection_errored_destroy(struct connection *conn)
+{
+	test_assert(conn->disconnect_reason == CONNECTION_DISCONNECT_DEINIT);
+	test_connection_simple_destroy(conn);
+}
+
+static int test_connection_errored_input_line(struct connection *conn ATTR_UNUSED,
+					      const char *line)
+{
+	if (str_begins(line, "VERSION"))
+		return 1;
+	return -1;
+}
+
+static const struct connection_vfuncs test_connection_errored_1_v =
+{
+	.client_connected = test_connection_errored_client_connected,
+	.input_line = test_connection_errored_input_line,
+	.destroy = test_connection_errored_destroy,
+};
+
+static void test_connection_input_error_reason(void)
+{
+	test_begin("connection input error (correct disconnect reason)");
+
+	test_connection_run(&server_set, &client_set, &test_connection_errored_1_v,
+			    &test_connection_errored_1_v);
+
+	test_end();
+}
+
 void test_connection(void)
 {
 	test_connection_simple();
@@ -452,4 +648,9 @@ void test_connection(void)
 	test_connection_input_full();
 	test_connection_resume();
 	test_connection_idle_kill();
+	test_connection_handshake_failed_version();
+	test_connection_handshake_failed_args();
+	test_connection_handshake_failed_line();
+	test_connection_handshake_failed_input();
+	test_connection_input_error_reason();
 }
