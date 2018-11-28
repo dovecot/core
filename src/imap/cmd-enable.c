@@ -22,7 +22,7 @@ bool cmd_enable(struct client_command_context *cmd)
 			return TRUE;
 		}
 		if (imap_feature_lookup(str, &feature_idx)) {
-			(void)client_enable(cmd->client, feature_idx);
+			client_enable(cmd->client, feature_idx);
 			str_append_c(reply, ' ');
 			str_append(reply, t_str_ucase(str));
 		}

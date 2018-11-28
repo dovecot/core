@@ -1447,7 +1447,7 @@ bool client_handle_search_save_ambiguity(struct client_command_context *cmd)
 	return TRUE;
 }
 
-int client_enable(struct client *client, unsigned int feature_idx)
+void client_enable(struct client *client, unsigned int feature_idx)
 {
 	enum mailbox_feature features = feature_idx;
 	struct mailbox_status status;
@@ -1458,11 +1458,11 @@ int client_enable(struct client *client, unsigned int feature_idx)
 		features |= imap_feature_condstore;
 
 	if ((client->enabled_features & features) == features)
-		return 0;
+		return;
 
 	client->enabled_features |= features;
 	if (client->mailbox == NULL)
-		return 0;
+		return;
 
 	ret = mailbox_enable(client->mailbox, features);
 	if (ret == 0 && !had_condstore &&
@@ -1481,7 +1481,6 @@ int client_enable(struct client *client, unsigned int feature_idx)
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));
 	}
-	return ret;
 }
 
 bool client_has_enabled(struct client *client, unsigned int feature_idx)

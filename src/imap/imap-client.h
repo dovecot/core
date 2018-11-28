@@ -305,7 +305,7 @@ bool client_read_string_args(struct client_command_context *cmd,
    have to wait for an existing SEARCH SAVE to finish. */
 bool client_handle_search_save_ambiguity(struct client_command_context *cmd);
 
-int client_enable(struct client *client, unsigned int feature_idx);
+void client_enable(struct client *client, unsigned int feature_idx);
 /* Returns TRUE if the given feature is enabled */
 bool client_has_enabled(struct client *client, unsigned int feature_idx);
 /* Returns mailbox features that are currently enabled. */

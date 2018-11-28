@@ -409,7 +409,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	if (ctx->condstore) {
 		/* Enable while no mailbox is opened to avoid sending
 		   HIGHESTMODSEQ for previously opened mailbox */
-		(void)client_enable(client, imap_feature_condstore);
+		client_enable(client, imap_feature_condstore);
 	}
 
 	ret = select_open(ctx, mailbox, readonly);
