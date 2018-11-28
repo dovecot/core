@@ -166,7 +166,7 @@ struct client {
         struct mailbox_keywords keywords;
 	unsigned int sync_counter;
 	uint32_t messages_count, recent_count, uidvalidity;
-	enum mailbox_feature enabled_features;
+	ARRAY(bool) enabled_features;
 
 	time_t last_input, last_output;
 	unsigned int bad_counter;
@@ -338,6 +338,7 @@ void client_input(struct client *client);
 bool client_handle_input(struct client *client);
 int client_output(struct client *client);
 
+void clients_init(void);
 void clients_destroy_all(void);
 
 #endif

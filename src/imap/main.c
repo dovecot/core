@@ -21,6 +21,7 @@
 #include "imap-master-client.h"
 #include "imap-resp-code.h"
 #include "imap-commands.h"
+#include "imap-feature.h"
 #include "imap-fetch.h"
 
 #include <stdio.h>
@@ -481,6 +482,8 @@ int main(int argc, char *argv[])
 	/* plugins may want to add commands, so this needs to be called early */
 	commands_init();
 	imap_fetch_handlers_init();
+	imap_features_init();
+	clients_init();
 	imap_master_clients_init();
 
 	const char *error;
@@ -525,6 +528,8 @@ int main(int argc, char *argv[])
 	mail_storage_service_deinit(&storage_service);
 
 	imap_fetch_handlers_deinit();
+	imap_features_deinit();
+
 	commands_deinit();
 	imap_master_clients_deinit();
 
