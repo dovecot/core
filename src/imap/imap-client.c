@@ -1580,8 +1580,7 @@ void clients_init(void)
 		imap_feature_register("CONDSTORE", MAILBOX_FEATURE_CONDSTORE,
 				      imap_client_enable_condstore);
 	imap_feature_qresync =
-		imap_feature_register("QRESYNC", MAILBOX_FEATURE_QRESYNC |
-				      MAILBOX_FEATURE_CONDSTORE,
+		imap_feature_register("QRESYNC", MAILBOX_FEATURE_CONDSTORE,
 				      imap_client_enable_qresync);
 }
 

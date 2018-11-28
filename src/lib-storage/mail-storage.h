@@ -78,8 +78,6 @@ enum mailbox_flags {
 enum mailbox_feature {
 	/* Enable tracking modsequences */
 	MAILBOX_FEATURE_CONDSTORE	= 0x01,
-	/* Enable tracking expunge modsequences */
-	MAILBOX_FEATURE_QRESYNC		= 0x02
 };
 
 enum mailbox_existence {
