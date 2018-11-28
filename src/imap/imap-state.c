@@ -238,7 +238,7 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
 	numpack_encode(dest, status.uidvalidity);
 	numpack_encode(dest, status.uidnext);
 	numpack_encode(dest, status.messages);
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0 &&
+	if ((client->enabled_features & imap_feature_qresync) != 0 &&
 	    !client->nonpermanent_modseqs)
 		numpack_encode(dest, client->sync_last_full_modseq);
 	else
@@ -284,12 +284,12 @@ int imap_state_export_base(struct client *client, bool internal,
 
 	/* IMAP features */
 	if (client->enabled_features != 0) {
-		i_assert((client->enabled_features & ~(MAILBOX_FEATURE_CONDSTORE |
-						       MAILBOX_FEATURE_QRESYNC)) == 0);
+		i_assert((client->enabled_features & ~(imap_feature_condstore |
+						       imap_feature_qresync)) == 0);
 		buffer_append_c(dest, IMAP_STATE_TYPE_ENABLED_FEATURES);
-		if ((client->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0)
+		if ((client->enabled_features & imap_feature_condstore) != 0)
 			buffer_append_c(dest, IMAP_STATE_FEATURE_CONDSTORE);
-		if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0)
+		if ((client->enabled_features & imap_feature_qresync) != 0)
 			buffer_append_c(dest, IMAP_STATE_FEATURE_QRESYNC);
 		buffer_append_c(dest, '\0');
 	}
@@ -427,7 +427,7 @@ import_send_expunges(struct client *client,
 		return -1;
 	}
 
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) == 0) {
+	if ((client->enabled_features & imap_feature_qresync) == 0) {
 		str = t_str_new(32);
 		for (i = expunge_count; i > 0; i--) {
 			str_truncate(str, 0);
@@ -475,7 +475,7 @@ import_send_flag_changes(struct client *client,
 	pool_unref(&pool);
 
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
+	if ((client->enabled_features & imap_feature_qresync) != 0) {
 		imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_uid_init);
 		imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_modseq_init);
 	}
@@ -678,7 +678,7 @@ import_state_mailbox_open(struct client *client,
 		*error_r = "Couldn't send flag changes";
 		return -1;
 	}
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0 &&
+	if ((client->enabled_features & imap_feature_qresync) != 0 &&
 	    !client->nonpermanent_modseqs &&
 	    status.highest_modseq != state->highest_modseq) {
 		client_send_line(client, t_strdup_printf(
@@ -730,10 +730,10 @@ import_state_enabled_features(struct client *client, const unsigned char *data,
 		feature = data[i];
 		switch (feature) {
 		case IMAP_STATE_FEATURE_CONDSTORE:
-			client->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
+			client->enabled_features |= imap_feature_condstore;
 			break;
 		case IMAP_STATE_FEATURE_QRESYNC:
-			client->enabled_features |= MAILBOX_FEATURE_QRESYNC;
+			client->enabled_features |= imap_feature_qresync;
 			break;
 		default:
 			*error_r = t_strdup_printf(

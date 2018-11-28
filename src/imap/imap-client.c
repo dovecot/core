@@ -39,6 +39,9 @@ struct imap_module_register imap_module_register = { 0 };
 struct client *imap_clients = NULL;
 unsigned int imap_client_count = 0;
 
+unsigned int imap_feature_condstore = MAILBOX_FEATURE_CONDSTORE;
+unsigned int imap_feature_qresync = MAILBOX_FEATURE_QRESYNC;
+
 static const char *client_command_state_names[CLIENT_COMMAND_STATE_DONE+1] = {
 	"wait-input",
 	"wait-output",
@@ -1457,7 +1460,7 @@ int client_enable(struct client *client, enum mailbox_feature features)
 		return 0;
 
 	ret = mailbox_enable(client->mailbox, features);
-	if ((features & MAILBOX_FEATURE_CONDSTORE) != 0 && ret == 0) {
+	if ((features & imap_feature_condstore) != 0 && ret == 0) {
 		/* CONDSTORE being enabled while mailbox is selected.
 		   Notify client of the latest HIGHESTMODSEQ. */
 		ret = mailbox_get_status(client->mailbox,

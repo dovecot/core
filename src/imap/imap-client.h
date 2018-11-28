@@ -250,6 +250,9 @@ extern struct imap_module_register imap_module_register;
 extern struct client *imap_clients;
 extern unsigned int imap_client_count;
 
+extern unsigned int imap_feature_condstore;
+extern unsigned int imap_feature_qresync;
+
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out, const char *session_id,

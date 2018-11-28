@@ -51,7 +51,7 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 	int ret = 1;
 
 	i_zero(&items);
-	if ((client->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0)
+	if ((client->enabled_features & imap_feature_condstore) != 0)
 		items.status |= STATUS_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(notify_ns->ns->list, rec->vname, 0);

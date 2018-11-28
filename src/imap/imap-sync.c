@@ -195,7 +195,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->messages_count = client->messages_count;
 	i_array_init(&ctx->tmp_keywords, client->keywords.announce_count + 8);
 
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
+	if ((client->enabled_features & imap_feature_qresync) != 0) {
 		i_array_init(&ctx->expunges, 128);
 		/* always send UIDs in FETCH replies */
 		ctx->imap_flags |= IMAP_SYNC_FLAG_SEND_UID;
@@ -345,7 +345,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx,
 	ret = imap_sync_finish(ctx, TRUE);
 	imap_client_notify_finished(ctx->client);
 
-	if ((ctx->client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0 &&
+	if ((ctx->client->enabled_features & imap_feature_qresync) != 0 &&
 	    !ctx->client->nonpermanent_modseqs)
 		imap_sync_send_highestmodseq(ctx, sync_cmd);
 
@@ -387,7 +387,7 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
 	str_printfa(str, "* %u FETCH (", ctx->seq);
 	if ((ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID) != 0)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
-	if ((ctx->client->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0 &&
+	if ((ctx->client->enabled_features & imap_feature_condstore) != 0 &&
 	    !ctx->client->nonpermanent_modseqs) {
 		imap_sync_add_modseq(ctx, str);
 		str_append_c(str, ' ');
@@ -557,7 +557,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			break;
 		case MAILBOX_SYNC_TYPE_MODSEQ:
 			if ((ctx->client->enabled_features &
-			     MAILBOX_FEATURE_CONDSTORE) == 0)
+			     imap_feature_condstore) == 0)
 				break;
 			if (!ctx->client->notify_flag_changes) {
 				/* NOTIFY: FlagChange not specified for
