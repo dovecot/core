@@ -79,6 +79,9 @@ void connection_input_default(struct connection *conn)
 				else if (ret == 0)
 					/* continue reading */
 					ret = 1;
+				else
+					conn->disconnect_reason =
+						CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
 			} else {
 				ret = conn->v.input_line(conn, line);
 			}
@@ -91,11 +94,10 @@ void connection_input_default(struct connection *conn)
 		o_stream_unref(&output);
 	}
 	if (ret < 0 && !input->closed) {
-		enum connection_disconnect_reason reason;
-		if (conn->handshake_received)
+		enum connection_disconnect_reason reason =
+			conn->disconnect_reason;
+		if (reason == CONNECTION_DISCONNECT_NOT)
 			reason = CONNECTION_DISCONNECT_DEINIT;
-		else
-			reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
 		connection_closed(conn, reason);
 	}
 	i_stream_unref(&input);
@@ -155,6 +157,8 @@ int connection_input_line_default(struct connection *conn, const char *line)
 			ret = 1; /* continue reading */
 		else if (ret > 0)
 			conn->handshake_received = TRUE;
+		else
+			conn->disconnect_reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
 		return ret;
 	} else if (!conn->handshake_received) {
 		/* we don't do handshakes */
