@@ -73,11 +73,16 @@ struct connection_settings {
 	unsigned int client_connect_timeout_msecs;
 	unsigned int input_idle_timeout_secs;
 
+	/* These need to be non-zero for corresponding stream to
+	   be created. */
 	size_t input_max_size;
 	size_t output_max_size;
 	enum connection_behavior input_full_behavior;
 
+	/* Set to TRUE if this is a client */
 	bool client;
+
+	/* Set to TRUE if version should not be sent */
 	bool dont_send_version;
 	/* By default when only input_args() is used, or when
 	   connection_input_line_default() is used, empty lines aren't allowed
@@ -166,11 +171,16 @@ void connection_init_from_streams(struct connection_list *list,
 
 int connection_client_connect(struct connection *conn);
 
+/* Disconnects a connection */
 void connection_disconnect(struct connection *conn);
+
+/* Deinitializes a connection, calls disconnect */
 void connection_deinit(struct connection *conn);
 
 void connection_input_halt(struct connection *conn);
 void connection_input_resume(struct connection *conn);
+
+/* This needs to be called if the input/output streams are changed */
 void connection_streams_changed(struct connection *conn);
 
 /* Returns -1 = disconnected, 0 = nothing new, 1 = something new.
@@ -197,7 +207,7 @@ void connection_list_deinit(struct connection_list **list);
 void connection_input_default(struct connection *conn);
 int connection_input_line_default(struct connection *conn, const char *line);
 
-/* Change handlers */
+/* Change handlers, calls connection_input_halt and connection_input_resume */
 void connection_set_handlers(struct connection *conn, const struct connection_vfuncs *vfuncs);
 void connection_set_default_handlers(struct connection *conn);
 
