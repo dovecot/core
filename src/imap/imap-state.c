@@ -586,8 +586,7 @@ import_state_mailbox_open(struct client *client,
 		return -1;
 	}
 
-	if (client->enabled_features != 0)
-		ret = mailbox_enable(box, client->enabled_features);
+	ret = mailbox_enable(box, client->enabled_features);
 	if (ret < 0 || mailbox_sync(box, 0) < 0) {
 		*error_r = t_strdup_printf("Couldn't sync mailbox: %s",
 			mailbox_get_last_internal_error(box, NULL));

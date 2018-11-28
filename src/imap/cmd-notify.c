@@ -437,8 +437,7 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
 	mailbox_set_reason(box, "NOTIFY send STATUS");
-	if (ctx->client->enabled_features != 0)
-		(void)mailbox_enable(box, ctx->client->enabled_features);
+	(void)mailbox_enable(box, ctx->client->enabled_features);
 
 	if (imap_status_get(cmd, info->ns, info->vname, &items, &result) < 0) {
 		if (result.error == MAIL_ERROR_PERM)
