@@ -108,8 +108,7 @@ select_parse_qresync(struct imap_select_context *ctx,
 	const char *str;
 	unsigned int count;
 
-	if ((ctx->cmd->client->enabled_features &
-	     imap_feature_qresync) == 0) {
+	if (!client_has_enabled(ctx->cmd->client, imap_feature_qresync)) {
 		*error_r = "QRESYNC not enabled";
 		return FALSE;
 	}

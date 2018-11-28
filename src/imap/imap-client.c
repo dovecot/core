@@ -1451,6 +1451,7 @@ int client_enable(struct client *client, unsigned int feature_idx)
 {
 	enum mailbox_feature features = feature_idx;
 	struct mailbox_status status;
+	bool had_condstore = client_has_enabled(client, imap_feature_condstore);
 	int ret;
 
 	if ((features & imap_feature_qresync) != 0)
@@ -1464,7 +1465,8 @@ int client_enable(struct client *client, unsigned int feature_idx)
 		return 0;
 
 	ret = mailbox_enable(client->mailbox, features);
-	if ((features & imap_feature_condstore) != 0 && ret == 0) {
+	if (ret == 0 && !had_condstore &&
+	    client_has_enabled(client, imap_feature_condstore)) {
 		/* CONDSTORE being enabled while mailbox is selected.
 		   Notify client of the latest HIGHESTMODSEQ. */
 		ret = mailbox_get_status(client->mailbox,
@@ -1480,6 +1482,13 @@ int client_enable(struct client *client, unsigned int feature_idx)
 			mailbox_get_storage(client->mailbox));
 	}
 	return ret;
+}
+
+bool client_has_enabled(struct client *client, unsigned int feature_idx)
+{
+	enum mailbox_feature features = feature_idx;
+
+	return (client->enabled_features & features) != 0;
 }
 
 struct imap_search_update *
