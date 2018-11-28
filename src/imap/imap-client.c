@@ -24,6 +24,7 @@
 #include "imap-search.h"
 #include "imap-notify.h"
 #include "imap-commands.h"
+#include "imap-feature.h"
 
 #include <unistd.h>
 
@@ -39,8 +40,8 @@ struct imap_module_register imap_module_register = { 0 };
 struct client *imap_clients = NULL;
 unsigned int imap_client_count = 0;
 
-unsigned int imap_feature_condstore = MAILBOX_FEATURE_CONDSTORE;
-unsigned int imap_feature_qresync = MAILBOX_FEATURE_QRESYNC;
+unsigned int imap_feature_condstore = UINT_MAX;
+unsigned int imap_feature_qresync = UINT_MAX;
 
 static const char *client_command_state_names[CLIENT_COMMAND_STATE_DONE+1] = {
 	"wait-input",
@@ -153,6 +154,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->user = user;
 	client->notify_count_changes = TRUE;
 	client->notify_flag_changes = TRUE;
+	p_array_init(&client->enabled_features, client->pool, 8);
 
 	if (set->rawlog_dir[0] != '\0') {
 		(void)iostream_rawlog_create(set->rawlog_dir, &client->input,
@@ -1449,24 +1451,39 @@ bool client_handle_search_save_ambiguity(struct client_command_context *cmd)
 
 void client_enable(struct client *client, unsigned int feature_idx)
 {
-	enum mailbox_feature features = feature_idx;
-	struct mailbox_status status;
-	bool had_condstore = client_has_enabled(client, imap_feature_condstore);
-	int ret;
-
-	if ((features & imap_feature_qresync) != 0)
-		features |= imap_feature_condstore;
-
-	if ((client->enabled_features & features) == features)
+	if (client_has_enabled(client, feature_idx))
 		return;
 
-	client->enabled_features |= features;
+	const struct imap_feature *feat = imap_feature_idx(feature_idx);
+	feat->callback(client);
+	/* set after the callback, so the callback can see what features were
+	   previously set */
+	bool value = TRUE;
+	array_idx_set(&client->enabled_features, feature_idx, &value);
+}
+
+bool client_has_enabled(struct client *client, unsigned int feature_idx)
+{
+	if (feature_idx >= array_count(&client->enabled_features))
+		return FALSE;
+	const bool *featurep =
+		array_idx(&client->enabled_features, feature_idx);
+	return *featurep;
+}
+
+static void imap_client_enable_condstore(struct client *client)
+{
+	struct mailbox_status status;
+	int ret;
+
 	if (client->mailbox == NULL)
 		return;
 
-	ret = mailbox_enable(client->mailbox, features);
-	if (ret == 0 && !had_condstore &&
-	    client_has_enabled(client, imap_feature_condstore)) {
+	if ((client_enabled_mailbox_features(client) & MAILBOX_FEATURE_CONDSTORE) != 0)
+		return;
+
+	ret = mailbox_enable(client->mailbox, MAILBOX_FEATURE_CONDSTORE);
+	if (ret == 0) {
 		/* CONDSTORE being enabled while mailbox is selected.
 		   Notify client of the latest HIGHESTMODSEQ. */
 		ret = mailbox_get_status(client->mailbox,
@@ -1483,31 +1500,46 @@ void client_enable(struct client *client, unsigned int feature_idx)
 	}
 }
 
-bool client_has_enabled(struct client *client, unsigned int feature_idx)
+static void imap_client_enable_qresync(struct client *client)
 {
-	enum mailbox_feature features = feature_idx;
-
-	return (client->enabled_features & features) != 0;
+	/* enable also CONDSTORE */
+	client_enable(client, imap_feature_condstore);
 }
 
 enum mailbox_feature client_enabled_mailbox_features(struct client *client)
 {
-	return client->enabled_features;
+	enum mailbox_feature mailbox_features = 0;
+	const struct imap_feature *feature;
+	const bool *client_enabled;
+	unsigned int count;
+
+	client_enabled = array_get(&client->enabled_features, &count);
+	for (unsigned int idx = 0; idx < count; idx++) {
+		if (client_enabled[idx]) {
+			feature = imap_feature_idx(idx);
+			mailbox_features |= feature->mailbox_features;
+		}
+	}
+	return mailbox_features;
 }
 
 const char *const *client_enabled_features(struct client *client)
 {
-	static const char *condstore_str = "CONDSTORE";
-	static const char *qresync_str = "QRESYNC";
-	ARRAY_TYPE(const_string) features;
-	t_array_init(&features, 8);
+	ARRAY_TYPE(const_string) feature_strings;
+	const struct imap_feature *feature;
+	const bool *client_enabled;
+	unsigned int count;
 
-	if ((client->enabled_features & imap_feature_condstore) != 0)
-		array_append(&features, &condstore_str, 1);
-	if ((client->enabled_features & imap_feature_qresync) != 0)
-		array_append(&features, &qresync_str, 1);
-	array_append_zero(&features);
-	return array_idx(&features, 0);
+	t_array_init(&feature_strings, 8);
+	client_enabled = array_get(&client->enabled_features, &count);
+	for (unsigned int idx = 0; idx < count; idx++) {
+		if (client_enabled[idx]) {
+			feature = imap_feature_idx(idx);
+			array_append(&feature_strings, &feature->feature, 1);
+		}
+	}
+	array_append_zero(&feature_strings);
+	return array_idx(&feature_strings, 0);
 }
 
 struct imap_search_update *
@@ -1540,6 +1572,17 @@ void client_search_updates_free(struct client *client)
 	array_foreach_modifiable(&client->search_updates, update)
 		imap_search_update_free(update);
 	array_clear(&client->search_updates);
+}
+
+void clients_init(void)
+{
+	imap_feature_condstore =
+		imap_feature_register("CONDSTORE", MAILBOX_FEATURE_CONDSTORE,
+				      imap_client_enable_condstore);
+	imap_feature_qresync =
+		imap_feature_register("QRESYNC", MAILBOX_FEATURE_QRESYNC |
+				      MAILBOX_FEATURE_CONDSTORE,
+				      imap_client_enable_qresync);
 }
 
 void clients_destroy_all(void)
