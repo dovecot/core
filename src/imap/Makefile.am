@@ -74,6 +74,7 @@ imap_SOURCES = \
 	imap-commands.c \
 	imap-commands-util.c \
 	imap-expunge.c \
+	imap-feature.c \
 	imap-fetch.c \
 	imap-fetch-body.c \
 	imap-list.c \
@@ -94,6 +95,7 @@ headers = \
 	imap-commands-util.h \
 	imap-common.h \
 	imap-expunge.h \
+	imap-feature.h \
 	imap-fetch.h \
 	imap-list.h \
 	imap-master-client.h \
