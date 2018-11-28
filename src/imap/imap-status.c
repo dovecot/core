@@ -75,7 +75,7 @@ int imap_status_get(struct client_command_context *cmd,
 		/* open the mailbox */
 		box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY);
 		mailbox_set_reason(box, "STATUS");
-		(void)mailbox_enable(box, client->enabled_features);
+		(void)mailbox_enable(box, client_enabled_mailbox_features(client));
 	}
 
 	if ((items->status & STATUS_HIGHESTMODSEQ) != 0)

@@ -1491,6 +1491,11 @@ bool client_has_enabled(struct client *client, unsigned int feature_idx)
 	return (client->enabled_features & features) != 0;
 }
 
+enum mailbox_feature client_enabled_mailbox_features(struct client *client)
+{
+	return client->enabled_features;
+}
+
 struct imap_search_update *
 client_search_update_lookup(struct client *client, const char *tag,
 			    unsigned int *idx_r)
