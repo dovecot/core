@@ -306,6 +306,8 @@ bool client_read_string_args(struct client_command_context *cmd,
 bool client_handle_search_save_ambiguity(struct client_command_context *cmd);
 
 int client_enable(struct client *client, unsigned int feature_idx);
+/* Returns TRUE if the given feature is enabled */
+bool client_has_enabled(struct client *client, unsigned int feature_idx);
 /* Send client processing to imap-idle process. If successful, returns TRUE
    and destroys the client. */
 bool imap_client_hibernate(struct client **client);
