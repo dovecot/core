@@ -109,7 +109,7 @@ select_parse_qresync(struct imap_select_context *ctx,
 	unsigned int count;
 
 	if ((ctx->cmd->client->enabled_features &
-	     MAILBOX_FEATURE_QRESYNC) == 0) {
+	     imap_feature_qresync) == 0) {
 		*error_r = "QRESYNC not enabled";
 		return FALSE;
 	}
@@ -411,7 +411,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	if (ctx->condstore) {
 		/* Enable while no mailbox is opened to avoid sending
 		   HIGHESTMODSEQ for previously opened mailbox */
-		(void)client_enable(client, MAILBOX_FEATURE_CONDSTORE);
+		(void)client_enable(client, imap_feature_condstore);
 	}
 
 	ret = select_open(ctx, mailbox, readonly);

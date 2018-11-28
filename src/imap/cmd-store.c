@@ -67,7 +67,7 @@ store_parse_modifiers(struct imap_store_context *ctx,
 				return FALSE;
 			}
 			(void)client_enable(ctx->cmd->client,
-					    MAILBOX_FEATURE_CONDSTORE);
+					    imap_feature_condstore);
 		} else {
 			client_send_command_error(ctx->cmd,
 						  "Unknown STORE modifier");
@@ -254,7 +254,7 @@ bool cmd_store(struct client_command_context *cmd)
 	   came externally, so we'll just send the UID for all flag
 	   changes that we see. */
 	if (cmd->uid && (!ctx.silent || (client->enabled_features &
-					 MAILBOX_FEATURE_CONDSTORE) != 0))
+					 imap_feature_condstore) != 0))
 		imap_sync_flags |= IMAP_SYNC_FLAG_SEND_UID;
 
 	return cmd_sync(cmd, (cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),

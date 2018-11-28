@@ -80,7 +80,7 @@ int imap_status_get(struct client_command_context *cmd,
 	}
 
 	if ((items->status & STATUS_HIGHESTMODSEQ) != 0)
-		(void)client_enable(client, MAILBOX_FEATURE_CONDSTORE);
+		(void)client_enable(client, imap_feature_condstore);
 
 	ret = mailbox_get_status(box, items->status, &result_r->status);
 	if (items->metadata != 0 && ret == 0) {
