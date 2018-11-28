@@ -290,7 +290,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 		return -1;
 	}
 
-	ret = mailbox_enable(ctx->box, client->enabled_features);
+	ret = mailbox_enable(ctx->box, client_enabled_mailbox_features(client));
 	if (ret < 0 ||
 	    mailbox_sync(ctx->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		client_send_box_error(ctx->cmd, ctx->box);
