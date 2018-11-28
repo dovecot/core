@@ -2,12 +2,14 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "imap-feature.h"
 
 bool cmd_enable(struct client_command_context *cmd)
 {
 	const struct imap_arg *args;
 	const char *str;
 	string_t *reply;
+	unsigned int feature_idx;
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
@@ -19,14 +21,10 @@ bool cmd_enable(struct client_command_context *cmd)
 			client_send_command_error(cmd, "Invalid arguments.");
 			return TRUE;
 		}
-		str = t_str_ucase(str);
-		if (strcmp(str, "CONDSTORE") == 0) {
-			if (client_enable(cmd->client,
-					  imap_feature_condstore) == 0)
-				str_append(reply, " CONDSTORE");
-		} else if (strcmp(str, "QRESYNC") == 0) {
-			if (client_enable(cmd->client, imap_feature_qresync) == 0)
-				str_append(reply, " QRESYNC");
+		if (imap_feature_lookup(str, &feature_idx)) {
+			(void)client_enable(cmd->client, feature_idx);
+			str_append_c(reply, ' ');
+			str_append(reply, t_str_ucase(str));
 		}
 	}
 	if (str_len(reply) > 9)
