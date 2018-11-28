@@ -513,7 +513,7 @@ void connection_disconnect(struct connection *conn)
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name(ename)->
 		add_str("reason", connection_disconnect_reason(conn));
-	e_debug(e->event(), "Disconnected: %s (fd=%u)",
+	e_debug(e->event(), "Disconnected: %s (fd=%d)",
 		connection_disconnect_reason(conn), conn->fd_in);
 
 	conn->last_input = 0;
