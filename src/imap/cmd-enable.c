@@ -25,8 +25,7 @@ bool cmd_enable(struct client_command_context *cmd)
 					  imap_feature_condstore) == 0)
 				str_append(reply, " CONDSTORE");
 		} else if (strcmp(str, "QRESYNC") == 0) {
-			if (client_enable(cmd->client, imap_feature_qresync |
-					  imap_feature_condstore) == 0)
+			if (client_enable(cmd->client, imap_feature_qresync) == 0)
 				str_append(reply, " QRESYNC");
 		}
 	}

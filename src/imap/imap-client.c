@@ -1447,10 +1447,14 @@ bool client_handle_search_save_ambiguity(struct client_command_context *cmd)
 	return TRUE;
 }
 
-int client_enable(struct client *client, enum mailbox_feature features)
+int client_enable(struct client *client, unsigned int feature_idx)
 {
+	enum mailbox_feature features = feature_idx;
 	struct mailbox_status status;
 	int ret;
+
+	if ((features & imap_feature_qresync) != 0)
+		features |= imap_feature_condstore;
 
 	if ((client->enabled_features & features) == features)
 		return 0;
