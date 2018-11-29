@@ -279,6 +279,8 @@ struct event *event_get_global(void)
 static struct event *
 event_set_log_prefix(struct event *event, const char *prefix, bool append)
 {
+	event->log_prefix_callback = NULL;
+	event->log_prefix_callback_context = NULL;
 	if (event->log_prefix == NULL) {
 		/* allocate the first log prefix from the pool */
 		event->log_prefix = p_strdup(event->pool, prefix);
@@ -304,6 +306,23 @@ event_set_append_log_prefix(struct event *event, const char *prefix)
 struct event *event_replace_log_prefix(struct event *event, const char *prefix)
 {
 	return event_set_log_prefix(event, prefix, FALSE);
+}
+
+#undef event_set_log_prefix_callback
+struct event *
+event_set_log_prefix_callback(struct event *event,
+			      bool replace,
+			      event_log_prefix_callback_t *callback,
+			      void *context)
+{
+	if (event->log_prefix_from_system_pool)
+		i_free(event->log_prefix);
+	else
+		event->log_prefix = NULL;
+	event->log_prefix_replace = replace;
+	event->log_prefix_callback = callback;
+	event->log_prefix_callback_context = context;
+	return event;
 }
 
 struct event *

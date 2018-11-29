@@ -77,6 +77,8 @@ struct event_passthrough {
 	struct event *(*event)(void);
 };
 
+typedef const char *event_log_prefix_callback_t(void *context);
+
 /* Returns TRUE if the event has all the categories that the "other" event has (and maybe more). */
 bool event_has_all_categories(struct event *event, const struct event *other);
 /* Returns TRUE if the event has all the fields that the "other" event has (and maybe more).
@@ -144,12 +146,28 @@ struct event *event_get_global(void);
 /* Set the appended log prefix string for this event. All the parent events'
    log prefixes will be concatenated together when logging. The log type
    text (e.g. "Info: ") will be inserted before appended log prefixes (but
-   after replaced log prefix). */
+   after replaced log prefix).
+
+   Clears log_prefix callback.
+ */
 struct event *
 event_set_append_log_prefix(struct event *event, const char *prefix);
 /* Replace the full log prefix string for this event. The parent events' log
-   prefixes won't be used. */
+   prefixes won't be used.
+
+   Clears log_prefix callback.
+*/
 struct event *event_replace_log_prefix(struct event *event, const char *prefix);
+
+
+/* Sets event prefix callback, sets log_prefix empty */
+struct event *event_set_log_prefix_callback(struct event *event,
+					    bool replace,
+					    event_log_prefix_callback_t *callback,
+					    void *context);
+#define event_set_log_prefix_callback(event, replace, callback, context) \
+	event_set_log_prefix_callback(event, replace, (event_log_prefix_callback_t*)callback, \
+		context + CALLBACK_TYPECHECK(callback, const char *(*)(typeof(context))))
 
 /* Set the event's name. The name is specific to a single sending of an event,
    and it'll be automatically cleared once the event is sent. This should

@@ -81,12 +81,16 @@ static bool event_get_log_prefix(struct event *event, string_t *log_prefix,
 				 bool *replace_prefix, unsigned int *type_pos)
 {
 	bool ret = FALSE;
+	const char *prefix = event->log_prefix;
+
+	if (event->log_prefix_callback != NULL)
+		prefix = event->log_prefix_callback(event->log_prefix_callback_context);
 
 	if (event->log_prefix_replace) {
 		/* this event replaces all parent log prefixes */
 		*replace_prefix = TRUE;
-		*type_pos = event->log_prefix == NULL ? 0 :
-			strlen(event->log_prefix);
+		*type_pos = prefix == NULL ? 0 :
+			strlen(prefix);
 	} else if (event->parent == NULL) {
 		/* append to default log prefix, don't replace it */
 	} else {
@@ -94,8 +98,8 @@ static bool event_get_log_prefix(struct event *event, string_t *log_prefix,
 					 replace_prefix, type_pos))
 			ret = TRUE;
 	}
-	if (event->log_prefix != NULL) {
-		str_append(log_prefix, event->log_prefix);
+	if (prefix != NULL) {
+		str_append(log_prefix, prefix);
 		ret = TRUE;
 	}
 	return ret;
