@@ -310,6 +310,8 @@ void client_enable(struct client *client, unsigned int feature_idx);
 bool client_has_enabled(struct client *client, unsigned int feature_idx);
 /* Returns mailbox features that are currently enabled. */
 enum mailbox_feature client_enabled_mailbox_features(struct client *client);
+/* Returns all enabled features as strings. */
+const char *const *client_enabled_features(struct client *client);
 
 /* Send client processing to imap-idle process. If successful, returns TRUE
    and destroys the client. */
