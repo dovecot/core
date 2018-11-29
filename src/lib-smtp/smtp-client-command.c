@@ -22,14 +22,11 @@ static inline void ATTR_FORMAT(2, 3)
 smtp_client_command_debug(struct smtp_client_command *cmd,
 	const char *format, ...)
 {
-	struct smtp_client_connection *conn = cmd->conn;
 	va_list args;
 
-	if (conn->set.debug) {
-		va_start(args, format);
-		e_debug(cmd->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(cmd->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 static inline void ATTR_FORMAT(2, 3)
