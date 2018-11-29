@@ -247,21 +247,6 @@ void smtp_client_transaction_rcpt_set_data_callback(
  * Transaction
  */
 
-static inline void ATTR_FORMAT(2, 3)
-smtp_client_transaction_debug(struct smtp_client_transaction *trans,
-	const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_debug(trans->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
- *
- */
-
 static void
 smtp_client_transaction_update_event(struct smtp_client_transaction *trans)
 {
@@ -295,7 +280,7 @@ smtp_client_transaction_create_empty(
 	trans->conn = conn;
 	smtp_client_connection_ref(conn);
 
-	smtp_client_transaction_debug(trans, "Created");
+	e_debug(trans->event, "Created");
 
 	return trans;
 }
@@ -326,7 +311,7 @@ smtp_client_transaction_finish(struct smtp_client_transaction *trans)
 
 	timeout_remove(&trans->to_finish);
 
-	smtp_client_transaction_debug(trans, "Finished");
+	e_debug(trans->event, "Finished");
 
 	io_loop_time_refresh();
 	trans->times.finished = ioloop_timeval;
@@ -348,11 +333,11 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 	struct smtp_client_connection *conn = trans->conn;
 
 	if (trans->failing) {
-		smtp_client_transaction_debug(trans, "Abort (already failing)");
+		e_debug(trans->event, "Abort (already failing)");
 		return;
 	}
 
-	smtp_client_transaction_debug(trans, "Abort");
+	e_debug(trans->event, "Abort");
 
 	/* clean up */
 	i_stream_unref(&trans->data_input);
@@ -391,7 +376,7 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 
 	/* abort if not finished */
 	if (trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED) {
-		smtp_client_transaction_debug(trans, "Aborted");
+		e_debug(trans->event, "Aborted");
 
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_ABORTED;
 		i_assert(trans->callback != NULL);
@@ -420,7 +405,7 @@ void smtp_client_transaction_unref(struct smtp_client_transaction **_trans)
 	if (--trans->refcount > 0)
 		return;
 
-	smtp_client_transaction_debug(trans, "Destroy");
+	e_debug(trans->event, "Destroy");
 
 	i_stream_unref(&trans->data_input);
 	smtp_client_transaction_abort(trans);
@@ -498,8 +483,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 
 	trans->failing = TRUE;
 
-	smtp_client_transaction_debug(trans,
-		"Returning failure: %s", smtp_reply_log(reply));
+	e_debug(trans->event, "Returning failure: %s", smtp_reply_log(reply));
 
 	/* hold a reference to prevent early destruction in a callback */
 	smtp_client_transaction_ref(trans);
@@ -649,8 +633,7 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 	struct smtp_client_transaction_mail *mail = trans->mail_head;
 	bool success = smtp_reply_is_success(reply);
 
-	smtp_client_transaction_debug(trans, "Got MAIL reply: %s",
-		smtp_reply_log(reply));
+	e_debug(trans->event, "Got MAIL reply: %s", smtp_reply_log(reply));
 
 	i_assert(mail != NULL);
 
@@ -710,7 +693,7 @@ smtp_client_transaction_add_mail(struct smtp_client_transaction *trans,
 {
 	struct smtp_client_transaction_mail *mail;
 
-	smtp_client_transaction_debug(trans, "Add MAIL command");
+	e_debug(trans->event, "Add MAIL command");
 
 	i_assert(!trans->data_provided);
 	i_assert(!trans->reset);
@@ -732,8 +715,7 @@ static void smtp_client_transaction_connection_ready(
 	if (trans->state != SMTP_CLIENT_TRANSACTION_STATE_PENDING)
 		return;
 
-	smtp_client_transaction_debug(trans,
-		"Connecton is ready for transaction");
+	e_debug(trans->event, "Connecton is ready for transaction");
 
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM;
 
@@ -750,7 +732,7 @@ void smtp_client_transaction_start(
 
 	i_assert(trans->state == SMTP_CLIENT_TRANSACTION_STATE_NEW);
 
-	smtp_client_transaction_debug(trans, "Start");
+	e_debug(trans->event, "Start");
 
 	io_loop_time_refresh();
 	trans->times.started = ioloop_timeval;
@@ -796,8 +778,7 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 	smtp_client_command_callback_t *rcpt_callback = rcpt->rcpt_callback;
 	void *context = rcpt->context;
 
-	smtp_client_transaction_debug(trans, "Got RCPT reply: %s",
-		smtp_reply_log(reply));
+	e_debug(trans->event, "Got RCPT reply: %s", smtp_reply_log(reply));
 
 	rcpt->failed = !success;
 	rcpt->rcpt_callback = NULL;
@@ -843,7 +824,7 @@ smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
 	struct smtp_client_transaction_rcpt *rcpt;
 	pool_t pool;
 
-	smtp_client_transaction_debug(trans, "Add recipient");
+	e_debug(trans->event, "Add recipient");
 
 	i_assert(!trans->data_provided);
 	i_assert(!trans->reset);
@@ -880,7 +861,7 @@ smtp_client_transaction_add_pool_rcpt(
 {
 	struct smtp_client_transaction_rcpt *rcpt;
 
-	smtp_client_transaction_debug(trans, "Add recipient (external pool)");
+	e_debug(trans->event, "Add recipient (external pool)");
 
 	i_assert(!trans->data_provided);
 	i_assert(!trans->reset);
@@ -953,7 +934,7 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 	i_assert(!trans->reset);
 	i_assert(trans->data_input != NULL);
 
-	smtp_client_transaction_debug(trans, "Sending data");
+	e_debug(trans->event, "Sending data");
 
 	timeout_remove(&trans->to_send);
 
@@ -961,7 +942,7 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 		smtp_client_transaction_fail_reply(trans, trans->failure);
 		finished = TRUE;
 	} else if ((trans->rcpts_count + trans->rcpts_queue_count) == 0) {
-		smtp_client_transaction_debug(trans, "No valid recipients");
+		e_debug(trans->event, "No valid recipients");
 		finished = TRUE;
 	} else {
 		trans->cmd_data = smtp_client_command_data_submit_after(
@@ -995,9 +976,9 @@ void smtp_client_transaction_send(
 	i_assert(!trans->reset);
 
 	if (trans->rcpts_queue_count == 0)
-		smtp_client_transaction_debug(trans, "Got all RCPT replies");
+		e_debug(trans->event, "Got all RCPT replies");
 
-	smtp_client_transaction_debug(trans, "Send");
+	e_debug(trans->event, "Send");
 
 	trans->data_provided = TRUE;
 
@@ -1040,7 +1021,7 @@ smtp_client_transaction_send_reset(struct smtp_client_transaction *trans)
 {
 	i_assert(trans->reset);
 
-	smtp_client_transaction_debug(trans, "Sending reset");
+	e_debug(trans->event, "Sending reset");
 
 	timeout_remove(&trans->to_send);
 
@@ -1067,7 +1048,7 @@ void smtp_client_transaction_reset(
 	i_assert(!trans->data_provided);
 	i_assert(!trans->reset);
 
-	smtp_client_transaction_debug(trans, "Reset");
+	e_debug(trans->event, "Reset");
 
 	trans->reset = TRUE;
 
@@ -1118,7 +1099,7 @@ smtp_client_transaction_do_submit_more(struct smtp_client_transaction *trans)
 
 	/* MAIL */
 	if (trans->mail_send != NULL) {
-		smtp_client_transaction_debug(trans, "Sending MAIL command");
+		e_debug(trans->event, "Sending MAIL command");
 
 		i_assert(trans->state == SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM);
 
@@ -1142,7 +1123,7 @@ smtp_client_transaction_do_submit_more(struct smtp_client_transaction *trans)
 
 	/* RCPT */
 	if (trans->rcpts_send != NULL) {
-		smtp_client_transaction_debug(trans, "Sending recipients");
+		e_debug(trans->event, "Sending recipients");
 
 		if (trans->cmd_last != NULL)
 			smtp_client_command_unlock(trans->cmd_last);
@@ -1221,8 +1202,7 @@ smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 {
 	if (trans->rcpts_queue_count > 0) {
 		/* Not all RCPT replies have come in yet */
-		smtp_client_transaction_debug(
-			trans, "RCPT replies are still pending (%u/%u)",
+		e_debug(trans->event,  "RCPT replies are still pending (%u/%u)",
 			trans->rcpts_queue_count,
 			(trans->rcpts_queue_count + trans->rcpts_count));
 		return;
@@ -1231,16 +1211,14 @@ smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 		/* Still waiting for application to issue either
 		   smtp_client_transaction_send() or
 		   smtp_client_transaction_reset() */
-		smtp_client_transaction_debug(
-			trans, "Transaction is not yet complete");
+		e_debug(trans->event, "Transaction is not yet complete");
 		return;
 	}
 
 	if (trans->state == SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO) {
 		/* Completed at this instance */
-		smtp_client_transaction_debug(
-			trans, "Got all RCPT replies and "
-			"transaction is complete");
+		e_debug(trans->event,
+			"Got all RCPT replies and transaction is complete");
 	}
 
 	if (trans->reset) {
@@ -1286,11 +1264,11 @@ void smtp_client_transaction_connection_result(
 {
 	if (!smtp_reply_is_success(reply)) {
 		if (trans->state <= SMTP_CLIENT_TRANSACTION_STATE_PENDING) {
-			smtp_client_transaction_debug(trans,
-				"Failed to connect: %s", smtp_reply_log(reply));
+			e_debug(trans->event, "Failed to connect: %s",
+				smtp_reply_log(reply));
 		} else {
-			smtp_client_transaction_debug(trans,
-				"Connection lost: %s", smtp_reply_log(reply));
+			e_debug(trans->event, "Connection lost: %s",
+				smtp_reply_log(reply));
 		}
 		smtp_client_transaction_fail_reply(trans, reply);
 		return;
