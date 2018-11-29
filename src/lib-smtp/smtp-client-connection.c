@@ -93,11 +93,9 @@ smtp_client_connection_debug(struct smtp_client_connection *conn,
 {
 	va_list args;
 
-	if (conn->set.debug) {
-		va_start(args, format);
-		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 static inline void ATTR_FORMAT(2, 3)
@@ -378,11 +376,9 @@ static void
 smtp_client_connection_xclient_cb(const struct smtp_reply *reply,
 				  struct smtp_client_connection *conn)
 {
-	if (conn->set.debug) {
-		smtp_client_connection_debug(conn,
-			"Received XCLIENT handshake reply: %s",
-			smtp_reply_log(reply));
-	}
+	smtp_client_connection_debug(conn,
+		"Received XCLIENT handshake reply: %s",
+		smtp_reply_log(reply));
 
 	i_assert(conn->xclient_replies_expected > 0);
 
@@ -656,10 +652,7 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 
 	smtp_client_connection_clear_password(conn);
 
-	if (conn->set.debug) {
-		smtp_client_connection_debug(conn,
-			"Authenticated successfully");
-	}
+	smtp_client_connection_debug(conn, "Authenticated successfully");
 	dsasl_client_free(&conn->sasl_client);
 
 	if (conn->to_connect != NULL)
@@ -747,18 +740,16 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		return FALSE;
 	}
 
-	if (conn->set.debug) {
-		if (set->master_user != NULL) {
-			smtp_client_connection_debug(conn,
-				"Authenticating as %s for user %s",
-				set->master_user, set->username);
-		} else if (set->username == NULL) {
-			smtp_client_connection_debug(conn,
-				"Authenticating");
-		} else {
-			smtp_client_connection_debug(conn,
-				"Authenticating as %s", set->username);
-		}
+	if (set->master_user != NULL) {
+		smtp_client_connection_debug(conn,
+			"Authenticating as %s for user %s",
+			set->master_user, set->username);
+	} else if (set->username == NULL) {
+		smtp_client_connection_debug(conn,
+			"Authenticating");
+	} else {
+		smtp_client_connection_debug(conn,
+			"Authenticating as %s", set->username);
 	}
 
 	if (smtp_client_connection_get_sasl_mech(conn,
@@ -824,11 +815,8 @@ smtp_client_connection_starttls_cb(const struct smtp_reply *reply,
 {
 	const char *error;
 
-	if (conn->set.debug) {
-		smtp_client_connection_debug(conn,
-			"Received STARTTLS reply: %s",
-			smtp_reply_log(reply));
-	}
+	smtp_client_connection_debug(conn, "Received STARTTLS reply: %s",
+				     smtp_reply_log(reply));
 
 	if ((reply->status / 100) != 2) {
 		smtp_client_connection_fail_reply(conn, reply);
@@ -1051,11 +1039,9 @@ smtp_client_connection_input_reply(struct smtp_client_connection *conn,
 
 	/* initial greeting? */
 	if (conn->state == SMTP_CLIENT_CONNECTION_STATE_CONNECTING) {
-		if (conn->set.debug) {
-			smtp_client_connection_debug(conn,
-				"Received greeting from server: %s",
-				smtp_reply_log(reply));
-		}
+		smtp_client_connection_debug(conn,
+			"Received greeting from server: %s",
+			smtp_reply_log(reply));
 		if (reply->status != 220) {
 			if (smtp_reply_is_success(reply)) {
 				smtp_client_connection_fail(conn,
@@ -1378,8 +1364,7 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 		return -1;
 	}
 
-	if (conn->set.debug)
-		smtp_client_connection_debug(conn, "Starting SSL handshake");
+	smtp_client_connection_debug(conn, "Starting SSL handshake");
 
 	if (conn->raw_input != conn->conn.input) {
 		/* recreate rawlog after STARTTLS */

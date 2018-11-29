@@ -251,14 +251,11 @@ static inline void ATTR_FORMAT(2, 3)
 smtp_client_transaction_debug(struct smtp_client_transaction *trans,
 	const char *format, ...)
 {
-	struct smtp_client_connection *conn = trans->conn;
 	va_list args;
 
-	if (conn->set.debug) {
-		va_start(args, format);
-		e_debug(trans->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(trans->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*
