@@ -11,6 +11,8 @@ enum test_log_prefix_type {
 	TYPE_END,
 	TYPE_APPEND,
 	TYPE_REPLACE,
+	TYPE_CALLBACK_APPEND,
+	TYPE_CALLBACK_REPLACE,
 	TYPE_SKIP,
 };
 
@@ -41,6 +43,12 @@ info_handler(const struct failure_context *ctx,
 							  format, args);
 		test_output = i_strdup(str_c(str));
 	} T_END;
+}
+
+static const char *
+test_event_log_prefix_cb(char *prefix)
+{
+	return t_strdup_printf("callback(%s)", prefix);
 }
 
 static void test_event_log_prefix(void)
@@ -131,6 +139,39 @@ static void test_event_log_prefix(void)
 			},
 			.result = "replaced4;Info: appended5-TEXT",
 		},
+		{
+			.prefixes = (const struct test_log_prefix []) {
+				{ TYPE_CALLBACK_APPEND, "appended1-" },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: callback(appended1-)TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_prefix []) {
+				{ TYPE_APPEND, "appended1," },
+				{ TYPE_REPLACE, "replaced1." },
+				{ TYPE_CALLBACK_REPLACE, "replaced2-" },
+				{ .type = TYPE_END }
+			},
+			.result = "callback(replaced2-)Info: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_prefix []) {
+				{ TYPE_CALLBACK_REPLACE, "replaced1." },
+				{ TYPE_APPEND, "appended1," },
+				{ .type = TYPE_END }
+			},
+			.result = "callback(replaced1.)Info: appended1,TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_prefix []) {
+				{ TYPE_CALLBACK_REPLACE, "replaced1." },
+				{ TYPE_REPLACE, "replaced2-" },
+				{ .type = TYPE_END }
+			},
+			.result = "replaced2-Info: TEXT",
+		},
 	};
 	const struct event_log_params params = {
 		.log_type = LOG_TYPE_INFO,
@@ -165,6 +206,16 @@ static void test_event_log_prefix(void)
 				break;
 			case TYPE_REPLACE:
 				event_replace_log_prefix(event, test->prefixes[j].str);
+				break;
+			case TYPE_CALLBACK_APPEND:
+				event_set_log_prefix_callback(event, FALSE,
+							      test_event_log_prefix_cb,
+							      (char*)test->prefixes[j].str);
+				break;
+			case TYPE_CALLBACK_REPLACE:
+				event_set_log_prefix_callback(event, TRUE,
+							      test_event_log_prefix_cb,
+							      (char*)test->prefixes[j].str);
 				break;
 			case TYPE_SKIP:
 				break;
