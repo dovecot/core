@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 25
+# serial 27
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
