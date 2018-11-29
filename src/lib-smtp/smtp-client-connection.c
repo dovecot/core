@@ -87,21 +87,6 @@ smtp_client_connection_get_extra_capability(struct smtp_client_connection *conn,
  * Logging
  */
 
-const char *
-smpt_client_connection_label(struct smtp_client_connection *conn)
-{
-	if (conn->label == NULL) {
-		if (conn->path == NULL) {
-			conn->label = i_strdup_printf("%s:%u [%u]",
-				conn->host, conn->port, conn->id);
-		} else {
-			conn->label = i_strdup_printf("unix:%s [%u]",
-				conn->path, conn->id);
-		}
-	}
-	return conn->label;
-}
-
 static inline void ATTR_FORMAT(2, 3)
 smtp_client_connection_debug(struct smtp_client_connection *conn,
 			     const char *format, ...)
@@ -110,10 +95,7 @@ smtp_client_connection_debug(struct smtp_client_connection *conn,
 
 	if (conn->set.debug) {
 		va_start(args, format);
-		i_debug("%s-client: conn %s: %s",
-			smtp_protocol_name(conn->protocol),
-			smpt_client_connection_label(conn),
-			t_strdup_vprintf(format, args));
+		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -125,11 +107,7 @@ smtp_client_connection_warning(struct smtp_client_connection *conn,
 	va_list args;
 
 	va_start(args, format);
-
-	i_warning("%s-client: conn %s: %s",
-		smtp_protocol_name(conn->protocol),
-		smpt_client_connection_label(conn),
-		t_strdup_vprintf(format, args));
+	e_warning(conn->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -140,10 +118,7 @@ smtp_client_connection_error(struct smtp_client_connection *conn,
 	va_list args;
 
 	va_start(args, format);
-	i_error("%s-client: conn %s: %s",
-		smtp_protocol_name(conn->protocol),
-		smpt_client_connection_label(conn),
-		t_strdup_vprintf(format, args));
+	e_error(conn->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -1933,6 +1908,18 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->cap_pool = pool_alloconly_create
 		("smtp client connection capabilities", 128);
 
+	if (set != NULL && set->event != NULL)
+		conn->event = event_create(set->event);
+	else
+		conn->event = event_create(client->event);
+	event_set_forced_debug(conn->event, (set != NULL && set->debug));
+
+	event_set_append_log_prefix(conn->event,
+		t_strdup_printf("%s-client: conn %s [%u]: ",
+				smtp_protocol_name(conn->protocol),
+				name, conn->id));
+
+	conn->conn.event_parent = conn->event;
 	connection_init(conn->client->conn_list, &conn->conn);
 
 	return conn;
@@ -2034,8 +2021,8 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 
 	connection_deinit(&conn->conn);
 
+	event_unref(&conn->event);
 	i_free(conn->ips);
-	i_free(conn->label);
 	pool_unref(&conn->cap_pool);
 	pool_unref(&conn->pool);
 }

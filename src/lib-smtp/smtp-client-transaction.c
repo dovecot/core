@@ -256,10 +256,7 @@ smtp_client_transaction_debug(struct smtp_client_transaction *trans,
 
 	if (conn->set.debug) {
 		va_start(args, format);
-		i_debug("%s-client: conn %s: transaction: %s",
-			smtp_protocol_name(conn->protocol),
-			smpt_client_connection_label(conn),
-			t_strdup_vprintf(format, args));
+		e_debug(trans->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -267,6 +264,12 @@ smtp_client_transaction_debug(struct smtp_client_transaction *trans,
 /*
  *
  */
+
+static void
+smtp_client_transaction_update_event(struct smtp_client_transaction *trans)
+{
+	event_set_append_log_prefix(trans->event, "transaction: ");
+}
 
 #undef smtp_client_transaction_create_empty
 struct smtp_client_transaction *
@@ -288,6 +291,9 @@ smtp_client_transaction_create_empty(
 	trans->flags = flags;
 	trans->callback = callback;
 	trans->context = context;
+
+	trans->event = event_create(conn->event);
+	smtp_client_transaction_update_event(trans);
 
 	trans->conn = conn;
 	smtp_client_connection_ref(conn);
@@ -429,6 +435,7 @@ void smtp_client_transaction_unref(struct smtp_client_transaction **_trans)
 	}
 
 	i_assert(trans->state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
+	event_unref(&trans->event);
 	pool_unref(&trans->pool);
 
 	smtp_client_connection_unref(&conn);
@@ -598,6 +605,15 @@ void smtp_client_transaction_fail(struct smtp_client_transaction *trans,
 
 	smtp_reply_init(&reply, status, error);
 	smtp_client_transaction_fail_reply(trans, &reply);
+}
+
+void smtp_client_transaction_set_event(struct smtp_client_transaction *trans,
+				       struct event *event)
+{
+	event_unref(&trans->event);
+	trans->event = event_create(event);
+	event_set_forced_debug(trans->event, trans->conn->set.debug);
+	smtp_client_transaction_update_event(trans);
 }
 
 static void

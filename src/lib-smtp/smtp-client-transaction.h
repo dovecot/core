@@ -73,6 +73,8 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 void smtp_client_transaction_fail(struct smtp_client_transaction *trans,
 	unsigned int status, const char *error);
 
+void smtp_client_transaction_set_event(struct smtp_client_transaction *trans,
+				       struct event *event);
 void smtp_client_transaction_set_timeout(struct smtp_client_transaction *trans,
 	unsigned int timeout_msecs);
 
