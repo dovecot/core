@@ -346,8 +346,7 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 	} else {
 		i_assert(ctx->log_prefix_type_pos <= strlen(ctx->log_prefix));
 		str_append_data(str, ctx->log_prefix, ctx->log_prefix_type_pos);
-		str_insert(str, ctx->log_prefix_type_pos,
-			   failure_log_type_prefixes[ctx->type]);
+		str_append(str, failure_log_type_prefixes[ctx->type]);
 		str_append(str, ctx->log_prefix + ctx->log_prefix_type_pos);
 	}
 }
