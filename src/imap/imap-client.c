@@ -1495,6 +1495,21 @@ enum mailbox_feature client_enabled_mailbox_features(struct client *client)
 	return client->enabled_features;
 }
 
+const char *const *client_enabled_features(struct client *client)
+{
+	static const char *condstore_str = "CONDSTORE";
+	static const char *qresync_str = "QRESYNC";
+	ARRAY_TYPE(const_string) features;
+	t_array_init(&features, 8);
+
+	if ((client->enabled_features & imap_feature_condstore) != 0)
+		array_append(&features, &condstore_str, 1);
+	if ((client->enabled_features & imap_feature_qresync) != 0)
+		array_append(&features, &qresync_str, 1);
+	array_append_zero(&features);
+	return array_idx(&features, 0);
+}
+
 struct imap_search_update *
 client_search_update_lookup(struct client *client, const char *tag,
 			    unsigned int *idx_r)
