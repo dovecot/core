@@ -14,9 +14,6 @@
 #include "smtp-params.h"
 #include "smtp-client-private.h"
 
-static const char *
-smtp_client_command_get_label(struct smtp_client_command *cmd);
-
 /*
  * Logging
  */
@@ -30,11 +27,7 @@ smtp_client_command_debug(struct smtp_client_command *cmd,
 
 	if (conn->set.debug) {
 		va_start(args, format);
-		i_debug("%s-client: conn %s: command %s: %s",
-			smtp_protocol_name(conn->protocol),
-			smpt_client_connection_label(conn),
-			smtp_client_command_get_label(cmd),
-			t_strdup_vprintf(format, args));
+		e_debug(cmd->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -43,15 +36,10 @@ static inline void ATTR_FORMAT(2, 3)
 smtp_client_command_error(struct smtp_client_command *cmd,
 	const char *format, ...)
 {
-	struct smtp_client_connection *conn = cmd->conn;
 	va_list args;
 
 	va_start(args, format);
-	i_error("%s-client: conn %s: command %s: %s",
-		smtp_protocol_name(conn->protocol),
-		smpt_client_connection_label(conn),
-		smtp_client_command_get_label(cmd),
-		t_strdup_vprintf(format, args));
+	e_error(cmd->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -96,6 +84,15 @@ smtp_client_command_get_label(struct smtp_client_command *cmd)
 	return smtp_client_command_get_name(cmd);
 }
 
+static void
+smtp_client_command_update_event(struct smtp_client_command *cmd)
+{
+	event_add_str(cmd->event, "name", smtp_client_command_get_name(cmd));
+	event_set_append_log_prefix(cmd->event,
+		t_strdup_printf("command %s: ",
+				smtp_client_command_get_label(cmd)));
+}
+
 static struct smtp_client_command *
 smtp_client_command_create(struct smtp_client_connection *conn,
 	enum smtp_client_command_flags flags,
@@ -113,6 +110,8 @@ smtp_client_command_create(struct smtp_client_connection *conn,
 	cmd->replies_expected = 1;
 	cmd->callback = callback;
 	cmd->context = context;
+	cmd->event = event_create(conn->event);
+	smtp_client_command_update_event(cmd);
 	return cmd;
 }
 
@@ -159,6 +158,7 @@ void smtp_client_command_unref(struct smtp_client_command **_cmd)
 	i_assert(cmd->state >= SMTP_CLIENT_COMMAND_STATE_FINISHED);
 
 	i_stream_unref(&cmd->stream);
+	event_unref(&cmd->event);
 	pool_unref(&cmd->pool);
 	*_cmd = NULL;
 }
@@ -802,6 +802,7 @@ smtp_client_command_submit_after(struct smtp_client_command *cmd,
 
 	i_assert(after == NULL || cmd->conn == after->conn);
 
+	smtp_client_command_update_event(cmd);
 	cmd->state = SMTP_CLIENT_COMMAND_STATE_SUBMITTED;
 
 	if (smtp_client_command_name_equals(cmd, "EHLO"))

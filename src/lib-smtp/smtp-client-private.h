@@ -16,6 +16,7 @@
 struct smtp_client_command {
 	pool_t pool;
 	int refcount;
+	struct event *event;
 
 	struct smtp_client_command *prev, *next;
 
@@ -95,6 +96,7 @@ struct smtp_client_transaction_rcpt {
 struct smtp_client_transaction {
 	pool_t pool;
 	int refcount;
+	struct event *event;
 
 	struct smtp_client_transaction *prev, *next;
 
@@ -145,10 +147,10 @@ struct smtp_client_connection {
 	struct connection conn;
 	pool_t pool;
 	int refcount;
+	struct event *event;
 
 	struct smtp_client *client;
 	unsigned int id;
-	char *label;
 
 	enum smtp_protocol protocol;
 	const char *path, *host;
@@ -225,6 +227,7 @@ struct smtp_client {
 
 	struct smtp_client_settings set;
 
+	struct event *event;
 	struct ioloop *ioloop;
 	struct ssl_iostream_context *ssl_ctx;
 
@@ -271,9 +274,6 @@ void smtp_client_transaction_switch_ioloop(
  */
 
 struct connection_list *smtp_client_connection_list_init(void);
-
-const char *
-smpt_client_connection_label(struct smtp_client_connection *conn);
 
 void smtp_client_connection_send_xclient(struct smtp_client_connection *conn);
 

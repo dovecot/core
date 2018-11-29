@@ -89,6 +89,10 @@ struct smtp_client_settings {
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
 
+	/* Event to use for the smtp client. For specific transactions this can
+	   be overridden with smtp_client_transaction_set_event(). */
+	struct event *event;
+
 	/* enable logging debug messages */
 	bool debug;
 	/* peer is trusted, so e.g. attempt sending XCLIENT data */
