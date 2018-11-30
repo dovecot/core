@@ -1833,6 +1833,8 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		t_strdup_printf("%s-client: conn %s [%u]: ",
 				smtp_protocol_name(conn->protocol),
 				name, conn->id));
+	event_add_str(conn->event, "protocol",
+		      smtp_protocol_name(conn->protocol));
 
 	conn->conn.event_parent = conn->event;
 	connection_init(conn->client->conn_list, &conn->conn);
@@ -1853,6 +1855,9 @@ smtp_client_connection_create(struct smtp_client *client,
 	conn->host = p_strdup(conn->pool, host);
 	conn->port = port;
 	conn->ssl_mode = ssl_mode;
+
+	event_add_str(conn->event, "host", host);
+	event_add_int(conn->event, "port", port);
 
 	e_debug(conn->event, "Connection created");
 
@@ -1889,6 +1894,8 @@ smtp_client_connection_create_unix(struct smtp_client *client,
 
 	conn = smtp_client_connection_do_create(client, name, protocol, set);
 	conn->path = p_strdup(conn->pool, path);
+
+	event_add_str(conn->event, "socket_path", path);
 
 	e_debug(conn->event, "Connection created");
 
