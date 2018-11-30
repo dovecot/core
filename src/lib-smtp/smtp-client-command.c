@@ -14,38 +14,8 @@
 #include "smtp-params.h"
 #include "smtp-client-private.h"
 
-/*
- *
- */
-
-static const char *smtp_client_command_label
-(struct smtp_client_command *cmd)
-{
-	const unsigned char *p, *pend;
-
-	if (cmd->plug)
-		return "[plug]";
-
-	if (cmd->name != NULL)
-		return cmd->name;
-
-	if (cmd->data == NULL || cmd->data->used == 0) {
-		if (!cmd->has_stream)
-			return "[empty]";
-		cmd->name = "[data]";
-		return cmd->name;
-	}
-
-	p = cmd->data->data;
-	pend = p + cmd->data->used;
-	for (;p < pend; p++) {
-		if (*p == ' ' || *p == '\r' || *p == '\n')
-			break;
-	}
-	cmd->name = p_strdup(cmd->pool,
-		t_str_ucase(t_strdup_until(cmd->data->data, p)));
-	return cmd->name;
-}
+static const char *
+smtp_client_command_get_label(struct smtp_client_command *cmd);
 
 /*
  * Logging
@@ -63,7 +33,7 @@ smtp_client_command_debug(struct smtp_client_command *cmd,
 		i_debug("%s-client: conn %s: command %s: %s",
 			smtp_protocol_name(conn->protocol),
 			smpt_client_connection_label(conn),
-			smtp_client_command_label(cmd),
+			smtp_client_command_get_label(cmd),
 			t_strdup_vprintf(format, args));
 		va_end(args);
 	}
@@ -80,7 +50,7 @@ smtp_client_command_error(struct smtp_client_command *cmd,
 	i_error("%s-client: conn %s: command %s: %s",
 		smtp_protocol_name(conn->protocol),
 		smpt_client_connection_label(conn),
-		smtp_client_command_label(cmd),
+		smtp_client_command_get_label(cmd),
 		t_strdup_vprintf(format, args));
 	va_end(args);
 }
@@ -88,6 +58,43 @@ smtp_client_command_error(struct smtp_client_command *cmd,
 /*
  *
  */
+
+static const char *
+smtp_client_command_get_name(struct smtp_client_command *cmd)
+{
+	const unsigned char *p, *pend;
+
+	if (cmd->name != NULL)
+		return cmd->name;
+
+	if (cmd->plug)
+		return NULL;
+	if (cmd->data == NULL || cmd->data->used == 0)
+		return NULL;
+
+	p = cmd->data->data;
+	pend = p + cmd->data->used;
+	for (;p < pend; p++) {
+		if (*p == ' ' || *p == '\r' || *p == '\n')
+			break;
+	}
+	cmd->name = p_strdup(cmd->pool,
+		t_str_ucase(t_strdup_until(cmd->data->data, p)));
+	return cmd->name;
+}
+
+static const char *
+smtp_client_command_get_label(struct smtp_client_command *cmd)
+{
+	if (cmd->plug)
+		return "[plug]";
+	if (cmd->data == NULL || cmd->data->used == 0) {
+		if (!cmd->has_stream)
+			return "[empty]";
+		return "[data]";
+	}
+	return smtp_client_command_get_name(cmd);
+}
 
 static struct smtp_client_command *
 smtp_client_command_create(struct smtp_client_connection *conn,
