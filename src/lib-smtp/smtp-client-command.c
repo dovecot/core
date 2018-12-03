@@ -981,6 +981,8 @@ smtp_client_command_mail_submit(
 {
 	struct smtp_client_command *cmd;
 
+	smtp_client_connection_send_xclient(conn);
+
 	cmd = smtp_client_command_new(conn,
 		flags | SMTP_CLIENT_COMMAND_FLAG_PIPELINE,
 		callback, context);
