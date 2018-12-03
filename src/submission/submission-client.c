@@ -242,12 +242,11 @@ struct client *client_create(int fd_in, int fd_out,
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
-
-	client_create_backend_default(client, set);
-
 	smtp_server_connection_login(client->conn,
 		client->user->username, helo,
 		pdata, pdata_len, user->conn.ssl_secured);
+
+	client_create_backend_default(client, set);
 
 	if (client->backend_capabilities_configured) {
 		client_apply_backend_capabilities(client);
