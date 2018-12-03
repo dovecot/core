@@ -747,6 +747,13 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	string_t *sasl_output_base64;
 	const char *init_resp, *error;
 
+	if (!conn->initial_xclient_sent) {
+		conn->initial_xclient_sent = TRUE;
+		smtp_client_connection_send_xclient(conn);
+		if (conn->xclient_replies_expected > 0)
+			return FALSE;
+	}
+
 	if (conn->authenticated)
 		return TRUE;
 	if (set->username == NULL && set->sasl_mech == NULL)
@@ -830,19 +837,6 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	return FALSE;
 }
 
-static bool
-smtp_client_connection_init_xclient(struct smtp_client_connection *conn)
-{
-	if (!conn->initial_xclient_sent) {
-		conn->initial_xclient_sent = TRUE;
-		smtp_client_connection_send_xclient(conn);
-		if (conn->xclient_replies_expected > 0)
-			return FALSE;
-	}
-
-	return smtp_client_connection_authenticate(conn);
-}
-
 static void
 smtp_client_connection_starttls_cb(const struct smtp_reply *reply,
 				   struct smtp_client_connection *conn)
@@ -897,7 +891,7 @@ smtp_client_connection_starttls(struct smtp_client_connection *conn)
 		return FALSE;
 	}
 
-	return smtp_client_connection_init_xclient(conn);
+	return smtp_client_connection_authenticate(conn);
 }
 
 static bool
