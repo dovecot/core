@@ -19,7 +19,6 @@ struct submission_backend_relay {
 	struct smtp_client_connection *conn;
 	struct smtp_client_transaction *trans;
 
-	bool xclient_sent:1;
 	bool trans_started:1;
 	bool trusted:1;
 };
@@ -240,9 +239,6 @@ relay_cmd_helo_update_xclient(struct submission_backend_relay *backend,
 	i_zero(&proxy_data);
 	proxy_data.helo = data->helo.domain;
 	smtp_client_connection_update_proxy_data(backend->conn, &proxy_data);
-
-	smtp_client_connection_send_xclient(backend->conn);
-	backend->xclient_sent = TRUE;
 }
 
 static void
@@ -251,7 +247,6 @@ relay_cmd_helo_reply(struct smtp_server_cmd_ctx *cmd,
 {
 	struct submission_backend_relay *backend = helo->backend;
 
-	/* relay an XCLIENT command */
 	if (helo->data->changed)
 		relay_cmd_helo_update_xclient(backend, helo->data);
 
@@ -293,7 +288,6 @@ relay_cmd_helo_start(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 {
 	struct submission_backend_relay *backend = helo->backend;
 
-	/* relay an XCLIENT command */
 	if (helo->data->changed)
 		relay_cmd_helo_update_xclient(backend, helo->data);
 }
@@ -333,31 +327,6 @@ struct relay_cmd_mail_context {
 
 	struct smtp_client_transaction_mail *relay_mail;
 };
-
-static void
-relay_cmd_mail_update_xclient(struct submission_backend_relay *backend)
-{
-	struct client *client = backend->backend.client;
-	struct smtp_proxy_data proxy_data;
-	struct smtp_server_helo_data *helo_data =
-		smtp_server_connection_get_helo_data(client->conn);
-
-	if (backend->xclient_sent)
-		return;
-	if (!backend->trusted)
-		return;
-	if (helo_data->domain == NULL)
-		return;
-
-	i_zero(&proxy_data);
-	proxy_data.helo = helo_data->domain;
-	proxy_data.proto = SMTP_PROXY_PROTOCOL_ESMTP;
-	smtp_client_connection_update_proxy_data(backend->conn, &proxy_data);
-	
-	smtp_client_connection_send_xclient(backend->conn);
-	backend->xclient_sent = TRUE;
-}
-
 
 static void
 relay_cmd_mail_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
@@ -463,8 +432,6 @@ backend_relay_cmd_mail(struct submission_backend *_backend,
 		return -1;
 	if (relay_cmd_mail_parameter_size(backend, cmd, relay_caps, data) < 0)
 		return -1;
-
-	relay_cmd_mail_update_xclient(backend);
 
 	/* queue command (pipeline) */
 	mail_cmd = p_new(cmd->pool, struct relay_cmd_mail_context, 1);
@@ -1059,6 +1026,7 @@ submission_backend_relay_create(
 				user->conn.remote_port;
 		}
 		smtp_set.proxy_data.login = user->username;
+		smtp_set.xclient_defer = TRUE;
 	}
 
 	smtp_set.username = set->user;

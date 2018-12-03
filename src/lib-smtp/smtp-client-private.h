@@ -198,7 +198,7 @@ struct smtp_client_connection {
 
 	bool old_smtp:1;
 	bool authenticated:1;
-	bool initial_xclient_sent:1;
+	bool xclient_sent:1;
 	bool connect_failed:1;
 	bool connect_succeeded:1;
 	bool handshake_failed:1;
@@ -262,6 +262,8 @@ struct connection_list *smtp_client_connection_list_init(void);
 
 const char *
 smpt_client_connection_label(struct smtp_client_connection *conn);
+
+void smtp_client_connection_send_xclient(struct smtp_client_connection *conn);
 
 void smtp_client_connection_fail(struct smtp_client_connection *conn,
 				 unsigned int status, const char *error);
