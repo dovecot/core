@@ -1045,8 +1045,14 @@ submission_backend_relay_create(
 	}
 
 	if (set->trusted) {
+		struct smtp_server_helo_data *helo_data =
+			smtp_server_connection_get_helo_data(client->conn);
+
 		backend->trusted = TRUE;
 		smtp_set.peer_trusted = TRUE;
+
+		smtp_set.proxy_data.helo = helo_data->domain;
+		smtp_set.proxy_data.proto = SMTP_PROXY_PROTOCOL_ESMTP;
 
 		if (user->conn.remote_ip != NULL) {
 			smtp_set.proxy_data.source_ip =
