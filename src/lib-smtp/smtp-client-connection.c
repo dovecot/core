@@ -650,12 +650,15 @@ smtp_client_connection_xclient_add(struct smtp_client_connection *conn,
 	size_t prev_offset = str_len(str);
 	const char *new_field;
 
+	i_assert(prev_offset >= offset);
+
 	str_append_c(str, ' ');
 	str_append(str, field);
 	str_append_c(str, '=');
 	smtp_xtext_encode_cstr(str, value);
 
-	if (str_len(str) <= SMTP_CLIENT_BASE_LINE_LENGTH_LIMIT)
+	if (prev_offset == offset ||
+	    str_len(str) <= SMTP_CLIENT_BASE_LINE_LENGTH_LIMIT)
 		return;
 		
 	/* preserve field we just added */
