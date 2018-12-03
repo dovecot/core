@@ -721,9 +721,9 @@ smtp_client_connection_xclient_addf(struct smtp_client_connection *conn,
 	va_end(args);
 }
 
-void smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
-					 struct smtp_proxy_data *xclient)
+void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 {
+	const struct smtp_proxy_data *xclient = &conn->set.proxy_data;
 	const char **xclient_args = conn->caps.xclient_args;
 	size_t offset;
 	string_t *str;
@@ -835,7 +835,7 @@ smtp_client_connection_init_xclient(struct smtp_client_connection *conn)
 {
 	if (!conn->initial_xclient_sent) {
 		conn->initial_xclient_sent = TRUE;
-		smtp_client_connection_send_xclient(conn, &conn->set.proxy_data);
+		smtp_client_connection_send_xclient(conn);
 		if (conn->xclient_replies_expected > 0)
 			return FALSE;
 	}
