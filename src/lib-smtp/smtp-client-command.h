@@ -184,22 +184,6 @@ smtp_client_command_rset_submit(
 
 /* send MAIL FROM:<address> <params...> */
 struct smtp_client_command *
-smtp_client_command_mail_submit_after(
-	struct smtp_client_connection *conn,
-	enum smtp_client_command_flags flags,
-	struct smtp_client_command *after,
-	const struct smtp_address *from,
-	const struct smtp_params_mail *params,
-	smtp_client_command_callback_t *callback,
-	void *context);
-#define smtp_client_command_mail_submit_after(conn, \
-		flags, after, address, params, callback, context) \
-	smtp_client_command_mail_submit_after(conn, flags + \
-		CALLBACK_TYPECHECK(callback, void (*)( \
-			const struct smtp_reply *reply, typeof(context))), \
-		after, address, params, \
-		(smtp_client_command_callback_t *)callback, context)
-struct smtp_client_command *
 smtp_client_command_mail_submit(
 	struct smtp_client_connection *conn,
 	enum smtp_client_command_flags flags,
