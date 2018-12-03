@@ -239,8 +239,6 @@ relay_cmd_helo_update_xclient(struct submission_backend_relay *backend,
 
 	i_zero(&proxy_data);
 	proxy_data.helo = data->helo.domain;
-	proxy_data.proto = (data->helo.old_smtp ?
-		SMTP_PROXY_PROTOCOL_SMTP : SMTP_PROXY_PROTOCOL_ESMTP);
 	smtp_client_connection_update_proxy_data(backend->conn, &proxy_data);
 
 	smtp_client_connection_send_xclient(backend->conn);
