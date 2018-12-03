@@ -2030,6 +2030,13 @@ void smtp_client_connection_close(struct smtp_client_connection **_conn)
 	smtp_client_connection_unref(&conn);
 }
 
+void smtp_client_connection_update_proxy_data(
+	struct smtp_client_connection *conn,
+	const struct smtp_proxy_data *proxy_data)
+{
+	smtp_proxy_data_merge(conn->pool, &conn->set.proxy_data, proxy_data);
+}
+
 void smtp_client_connection_switch_ioloop(struct smtp_client_connection *conn)
 {
 	struct smtp_client_transaction *trans;

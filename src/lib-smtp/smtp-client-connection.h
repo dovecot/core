@@ -58,6 +58,10 @@ void smtp_client_connection_ref(struct smtp_client_connection *conn);
 void smtp_client_connection_unref(struct smtp_client_connection **_conn);
 void smtp_client_connection_close(struct smtp_client_connection **_conn);
 
+void smtp_client_connection_update_proxy_data(
+	struct smtp_client_connection *conn,
+	const struct smtp_proxy_data *proxy_data);
+
 void smtp_client_connection_cork(struct smtp_client_connection *conn);
 void smtp_client_connection_uncork(struct smtp_client_connection *conn);
 
