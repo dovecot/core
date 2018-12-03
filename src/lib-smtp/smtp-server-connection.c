@@ -1178,7 +1178,6 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 	connection_deinit(&conn->conn);
 
 	i_free(conn->helo_domain);
-	i_free(conn->helo_login);
 	i_free(conn->username);
 	i_free(conn->disconnect_reason);
 	pool_unref(&conn->pool);
@@ -1268,10 +1267,15 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 {
 	i_assert(!conn->started);
 	i_assert(conn->username == NULL);
+	i_assert(conn->helo_domain == NULL);
 
 	conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
 	conn->username = i_strdup(username);
-	conn->helo_login = i_strdup(helo);
+	if (helo != NULL && *helo != '\0') {
+		conn->helo_domain = i_strdup(helo);
+		conn->helo.domain = conn->helo_domain;
+		conn->helo.domain_valid = TRUE;
+	}
 	conn->authenticated = TRUE;
 	conn->ssl_secured = ssl_secured;
 
@@ -1422,7 +1426,6 @@ void smtp_server_connection_clear(struct smtp_server_connection *conn)
 	smtp_server_connection_debug(conn, "Connection clear");
 
 	i_free(conn->helo_domain);
-	i_free(conn->helo_login);
 	i_zero(&conn->helo);
 	smtp_server_connection_reset_state(conn);
 }

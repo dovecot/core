@@ -128,15 +128,6 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
-	if (conn->pending_helo == NULL && conn->helo.domain == NULL &&
-	    conn->helo_login != NULL && *conn->helo_login != '\0') {
-		/* no EHLO executed post-login, use pre-login value instead */
-		conn->helo_domain = conn->helo_login;
-		conn->helo.domain = conn->helo_domain;
-		conn->helo.domain_valid = TRUE;
-		conn->helo_login = NULL;
-	}
-
 	mail_data = p_new(cmd->pool, struct smtp_server_cmd_mail, 1);
 
 	if (conn->set.protocol == SMTP_PROTOCOL_LMTP)
