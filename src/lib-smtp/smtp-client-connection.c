@@ -1885,6 +1885,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		conn->set.debug = conn->set.debug || set->debug;
 
 		if (set->proxy_data.source_ip.family != 0) {
+			conn->set.proxy_data.proto = set->proxy_data.proto;
 			conn->set.proxy_data.source_ip = set->proxy_data.source_ip;
 			conn->set.proxy_data.source_port = set->proxy_data.source_port;
 			conn->set.proxy_data.ttl_plus_1 = set->proxy_data.ttl_plus_1;
