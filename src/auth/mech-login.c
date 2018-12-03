@@ -24,7 +24,7 @@ mech_login_auth_continue(struct auth_request *request,
 		username = t_strndup(data, data_size);
 
 		if (!auth_request_set_username(request, username, &error)) {
-                        auth_request_log_info(request, AUTH_SUBSYS_MECH, "%s", error);
+                        e_info(request->mech_event, "%s", error);
 			auth_request_fail(request);
 			return;
 		}

@@ -177,7 +177,7 @@ do_auth_continue(struct auth_request *auth_request,
 	if (o_stream_send(request->winbind->out_pipe,
 			  str_data(str), str_len(str)) < 0 ||
 	    o_stream_flush(request->winbind->out_pipe) < 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
+		e_error(auth_request->mech_event,
 			"write(out_pipe) failed: %s",
 			o_stream_get_error(request->winbind->out_pipe));
 		return HR_RESTART;
@@ -190,12 +190,12 @@ do_auth_continue(struct auth_request *auth_request,
 	}
 	if (answer == NULL) {
 		if (in_pipe->stream_errno != 0) {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
-					       "read(in_pipe) failed: %m");
+			e_error(auth_request->mech_event,
+				"read(in_pipe) failed: %m");
 		} else {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
-					       "read(in_pipe) failed: "
-					       "unexpected end of file");
+			e_error(auth_request->mech_event,
+				"read(in_pipe) failed: "
+				"unexpected end of file");
 		}
 		return HR_RESTART;
 	}
@@ -204,8 +204,8 @@ do_auth_continue(struct auth_request *auth_request,
 	if (token[0] == NULL ||
 	    (token[1] == NULL && strcmp(token[0], "BH") != 0) ||
 	    (gss_spnego && (token[1] == NULL || token[2] == NULL))) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
-				       "Invalid input from helper: %s", answer);
+		e_error(auth_request->mech_event,
+			"Invalid input from helper: %s", answer);
 		return HR_RESTART;
 	}
 
@@ -239,8 +239,8 @@ do_auth_continue(struct auth_request *auth_request,
 	} else if (strcmp(token[0], "NA") == 0) {
 		const char *error = gss_spnego ? token[2] : token[1];
 
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-				      "user not authenticated: %s", error);
+		e_info(auth_request->mech_event,
+		       "user not authenticated: %s", error);
 		return HR_FAIL;
 	} else if (strcmp(token[0], "AF") == 0) {
 		const char *user, *p, *error;
@@ -257,8 +257,8 @@ do_auth_continue(struct auth_request *auth_request,
 		}
 
 		if (!auth_request_set_username(auth_request, user, &error)) {
-			auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-					      "%s", error);
+			e_info(auth_request->mech_event,
+			       "%s", error);
 			return HR_FAIL;
 		}
 
@@ -274,13 +274,13 @@ do_auth_continue(struct auth_request *auth_request,
 		}
 		return HR_OK;
 	} else if (strcmp(token[0], "BH") == 0) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-				      "ntlm_auth reports broken helper: %s",
-				      token[1] != NULL ? token[1] : "");
+		e_info(auth_request->mech_event,
+		       "ntlm_auth reports broken helper: %s",
+		       token[1] != NULL ? token[1] : "");
 		return HR_RESTART;
 	} else {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
-				       "Invalid input from helper: %s", answer);
+		e_error(auth_request->mech_event,
+			"Invalid input from helper: %s", answer);
 		return HR_RESTART;
 	}
 }

@@ -1195,10 +1195,10 @@ static bool auth_request_is_disabled_master_user(struct auth_request *request)
 		return FALSE;
 
 	/* no masterdbs, master logins not supported */
-	auth_request_log_info(request, AUTH_SUBSYS_MECH,
-			      "Attempted master login with no master passdbs "
-			      "(trying to log in as user: %s)",
-			      request->requested_login_user);
+	e_info(request->mech_event,
+	       "Attempted master login with no master passdbs "
+	       "(trying to log in as user: %s)",
+	       request->requested_login_user);
 	return TRUE;
 }
 
@@ -1752,7 +1752,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 			e_error(authdb_event(request),
 				"user not found from userdb");
 		} else {
-			auth_request_log_error(request, AUTH_SUBSYS_MECH,
+			e_error(request->mech_event,
 				"user not found from any userdbs");
 		}
 		result = USERDB_RESULT_USER_UNKNOWN;

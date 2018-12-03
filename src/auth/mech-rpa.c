@@ -424,8 +424,8 @@ static bool verify_credentials(struct rpa_auth_request *request,
 	unsigned char response[MD5_RESULTLEN];
 
 	if (size != sizeof(request->pwd_md5)) {
-                auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
-				       "invalid credentials length");
+                e_error(request->auth_request.mech_event,
+			"invalid credentials length");
 		return FALSE;
 	}
 
@@ -476,8 +476,8 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 	const char *service, *error;
 
 	if (!rpa_parse_token1(data, data_size, &error)) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-			"invalid token 1: %s", error);
+		e_info(auth_request->mech_event,
+		       "invalid token 1: %s", error);
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -502,8 +502,8 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 	const char *error;
 
 	if (!rpa_parse_token3(request, data, data_size, &error)) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-			"invalid token 3: %s", error);
+		e_info(auth_request->mech_event,
+		       "invalid token 3: %s", error);
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -520,8 +520,8 @@ mech_rpa_auth_phase3(struct auth_request *auth_request,
 
 	if ((data_size != sizeof(client_ack)) ||
 	    (memcmp(data, client_ack, sizeof(client_ack)) != 0)) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-			"invalid token 5 or client rejects us");
+		e_info(auth_request->mech_event,
+		       "invalid token 5 or client rejects us");
 		auth_request_fail(auth_request);
 	} else {
 		auth_request_success(auth_request, "", 0);
