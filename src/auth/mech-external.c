@@ -13,8 +13,8 @@ mech_external_auth_continue(struct auth_request *request,
 
 	authzid = t_strndup(data, data_size);
 	if (request->user == NULL) {
-		auth_request_log_info(request, AUTH_SUBSYS_MECH,
-				      "username not known");
+		e_info(request->mech_event,
+		       "username not known");
 		auth_request_fail(request);
 		return;
 	}
@@ -22,8 +22,8 @@ mech_external_auth_continue(struct auth_request *request,
 	/* this call is done simply to put the username through translation
 	   settings */
 	if (!auth_request_set_username(request, "", &error)) {
-		auth_request_log_info(request, AUTH_SUBSYS_MECH,
-				      "Invalid username");
+		e_info(request->mech_event,
+		       "Invalid username");
 		auth_request_fail(request);
 		return;
 	}
@@ -31,8 +31,8 @@ mech_external_auth_continue(struct auth_request *request,
 	if (*authzid != '\0' &&
 	    !auth_request_set_login_username(request, authzid, &error)) {
 		/* invalid login username */
-		auth_request_log_info(request, AUTH_SUBSYS_MECH,
-				      "login user: %s", error);
+		e_info(request->mech_event,
+		       "login user: %s", error);
 		auth_request_fail(request);
 	} else {
                 auth_request_verify_plain(request, "",

@@ -55,8 +55,8 @@ static bool verify_credentials(struct cram_auth_request *request,
 	const char *response_hex;
 
 	if (size != CRAM_MD5_CONTEXTLEN) {
-                auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
-				       "invalid credentials length");
+                e_error(request->auth_request.mech_event,
+		        "invalid credentials length");
 		return FALSE;
 	}
 
@@ -68,8 +68,8 @@ static bool verify_credentials(struct cram_auth_request *request,
 	response_hex = binary_to_hex(digest, sizeof(digest));
 
 	if (!mem_equals_timing_safe(response_hex, request->response, sizeof(digest)*2)) {
-		auth_request_log_info(&request->auth_request, AUTH_SUBSYS_MECH,
-				      AUTH_LOG_MSG_PASSWORD_MISMATCH);
+		e_info(request->auth_request.mech_event,
+		       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 		return FALSE;
 	}
 
@@ -150,7 +150,7 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 	if (error == NULL)
 		error = "authentication failed";
 
-        auth_request_log_info(auth_request, AUTH_SUBSYS_MECH, "%s", error);
+        e_info(auth_request->mech_event, "%s", error);
 	auth_request_fail(auth_request);
 }
 

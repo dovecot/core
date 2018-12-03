@@ -95,9 +95,9 @@ static void mech_gssapi_log_error(struct auth_request *request,
 					 status_type, GSS_C_NO_OID,
 					 &message_context, &status_string);
 
-		auth_request_log_info(request, AUTH_SUBSYS_MECH,
-			"While %s: %s", description,
-			str_sanitize(status_string.value, (size_t)-1));
+		e_info(request->mech_event,
+		       "While %s: %s", description,
+		       str_sanitize(status_string.value, (size_t)-1));
 
 		(void)gss_release_buffer(&minor_status, &status_string);
 	} while (message_context != 0);
@@ -148,8 +148,8 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 	}
 
 	if (strcmp(request->set->gssapi_hostname, "$ALL") == 0) {
-		auth_request_log_debug(request, AUTH_SUBSYS_MECH,
-				       "Using all keytab entries");
+		e_debug(request->mech_event,
+			"Using all keytab entries");
 		*ret_r = GSS_C_NO_CREDENTIAL;
 		return GSS_S_COMPLETE;
 	}
@@ -167,7 +167,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 	str_append_c(principal_name, '@');
 	str_append(principal_name, request->set->gssapi_hostname);
 
-	auth_request_log_debug(request, AUTH_SUBSYS_MECH,
+	e_debug(request->mech_event,
 		"Obtaining credentials for %s", str_c(principal_name));
 
 	inbuf.length = str_len(principal_name);
@@ -263,8 +263,8 @@ static int get_display_name(struct auth_request *auth_request, gss_name_t name,
 		return -1;
 	}
 	if (data_has_nuls(buf.value, buf.length)) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-				      "authn_name has NULs");
+		e_info(auth_request->mech_event,
+		       "authn_name has NULs");
 		return -1;
 	}
 	*display_name_r = t_strndup(buf.value, buf.length);
@@ -318,30 +318,30 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	switch (major_status) {
 	case GSS_S_COMPLETE:
 		if (!mech_gssapi_oid_cmp(mech_type, &mech_gssapi_krb5_oid)) {
-			auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-					      "GSSAPI mechanism not Kerberos5");
+			e_info(auth_request->mech_event,
+			       "GSSAPI mechanism not Kerberos5");
 			ret = -1;
 		} else if (get_display_name(auth_request, request->authn_name,
 					    &name_type, &username) < 0)
 			ret = -1;
 		else if (!auth_request_set_username(auth_request, username,
 						    &error)) {
-			auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-					      "authn_name: %s", error);
+			e_info(auth_request->mech_event,
+			       "authn_name: %s", error);
 			ret = -1;
 		} else {
 			request->sasl_gssapi_state = GSS_STATE_WRAP;
-			auth_request_log_debug(auth_request, AUTH_SUBSYS_MECH,
+			e_debug(auth_request->mech_event,
 				"security context state completed.");
 		}
 		break;
 	case GSS_S_CONTINUE_NEEDED:
-		auth_request_log_debug(auth_request, AUTH_SUBSYS_MECH,
-				       "Processed incoming packet correctly, "
-				       "waiting for another.");
+		e_debug(auth_request->mech_event,
+			"Processed incoming packet correctly, "
+			"waiting for another.");
 		break;
 	default:
-		auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
+		e_error(auth_request->mech_event,
 			"Received unexpected major status %d", major_status);
 		break;
 	}
@@ -392,8 +392,8 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		return -1;
 	} 
 
-	auth_request_log_debug(&request->auth_request, AUTH_SUBSYS_MECH,
-			       "Negotiated security layer");
+	e_debug(&request->auth_request->mech_event,
+		"Negotiated security layer");
 
 	auth_request_handler_reply_continue(&request->auth_request,
 					    outbuf.value, outbuf.length);
@@ -416,7 +416,7 @@ k5_principal_is_authorized(struct auth_request *request, const char *name)
 	authorized_names = t_strsplit_spaces(value, ",");
 	for (tmp = authorized_names; *tmp != NULL; tmp++) {
 		if (strcmp(*tmp, name) == 0) {
-			auth_request_log_debug(request, AUTH_SUBSYS_MECH,
+			e_debug(request->mech_event,
 				"authorized by k5principals field: %s", name);
 			return TRUE;
 		}
@@ -443,15 +443,15 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 
 	if (!mech_gssapi_oid_cmp(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
 	    check_name_type) {
-		auth_request_log_info(&request->auth_request, AUTH_SUBSYS_MECH,
-				      "OID not kerberos principal name");
+		e_info(&request->auth_request->mech_event,
+		       "OID not kerberos principal name");
 		return FALSE;
 	}
 
 	/* Init a krb5 context and parse the principal username */
 	krb5_err = krb5_init_context(&ctx);
 	if (krb5_err != 0) {
-		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
+		e_error(&request->auth_request->mech_event,
 			"krb5_init_context() failed: %d", (int)krb5_err);
 		return FALSE;
 	}
@@ -460,9 +460,9 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 		/* writing the error string would be better, but we probably
 		   rarely get here and there doesn't seem to be a standard
 		   way of getting it */
-		auth_request_log_info(&request->auth_request, AUTH_SUBSYS_MECH,
-				      "krb5_parse_name() failed: %d",
-				      (int)krb5_err);
+		e_info(&request->auth_request->mech_event,
+		       "krb5_parse_name() failed: %d",
+		       (int)krb5_err);
 	} else {
 		/* See if the principal is in the list of authorized
 		 * principals for the user */
@@ -519,24 +519,24 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 	} 
 
 	if (login_ok == 0) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-			"User not authorized to log in as %s", login_user);
+		e_info(auth_request->mech_event,
+		       "User not authorized to log in as %s", login_user);
 		return -1;
 	}
 	return 0;
 #elif defined(USE_KRB5_USEROK)
 	if (!mech_gssapi_krb5_userok(request, request->authn_name,
 				     login_user, TRUE)) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-			"User not authorized to log in as %s", login_user);
+		e_info(auth_request->mech_event,
+		       "User not authorized to log in as %s", login_user);
 		return -1;
 	}
 
 	return 0;
 #else
-	auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-			      "Cross-realm authentication not supported "
-			      "(authn_name=%s, authz_name=%s)", request->auth_request.original_username, login_user);
+	e_info(auth_request->mech_event,
+	       "Cross-realm authentication not supported "
+	       "(authn_name=%s, authz_name=%s)", request->auth_request.original_username, login_user);
 	return -1;
 #endif
 }
@@ -599,8 +599,8 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	/* outbuf[0] contains bitmask for selected security layer,
 	   outbuf[1..3] contains maximum output_message size */
 	if (outbuf.length < 4) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
-				       "Invalid response length");
+		e_error(auth_request->mech_event,
+			"Invalid response length");
 		return -1;
 	}
 
@@ -609,8 +609,8 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		name_len = outbuf.length - 4;
 
 		if (data_has_nuls(name, name_len)) {
-			auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-					      "authz_name has NULs");
+			e_info(auth_request->mech_event,
+			       "authz_name has NULs");
 			return -1;
 		}
 
@@ -625,8 +625,8 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	}
 
 	if (request->authz_name == GSS_C_NO_NAME) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-				      "no authz_name");
+		e_info(auth_request->mech_event,
+		       "no authz_name");
 		return -1;
 	}
 
@@ -636,8 +636,8 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	 * name, which may mean that future log messages should be adjusted
 	 * to log the right thing. */
 	if (!auth_request_set_username(auth_request, login_user, &error)) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-				      "authz_name: %s", error);
+		e_info(auth_request->mech_event,
+		       "authz_name: %s", error);
 		return -1;
 	}
 

@@ -109,8 +109,8 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 			   format does not contain anything to escape */
 			const char *username = (*ptr)+5;
 			if (!auth_request_set_username(request, username, &error)) {
-				auth_request_log_info(request, AUTH_SUBSYS_MECH,
-						      "%s", error);
+				e_info(request->mech_event,
+				       "%s", error);
 				auth_request_fail(request);
 				return;
 			}
@@ -121,8 +121,8 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 			    oauth2_valid_token(value+7)) {
 				token = value+7;
 			} else {
-				auth_request_log_info(request, AUTH_SUBSYS_MECH,
-						      "Invalid continued data");
+				e_info(request->mech_event,
+				       "Invalid continued data");
 				auth_request_fail(request);
 				return;
 			}
@@ -134,7 +134,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 		auth_request_verify_plain(request, token,
 					  xoauth2_verify_callback);
 	else {
-		auth_request_log_info(request, AUTH_SUBSYS_MECH, "Username or token missing");
+		e_info(request->mech_event, "Username or token missing");
 		auth_request_fail(request);
 	}
 }
@@ -165,8 +165,8 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	const char *token = NULL;
 	/* ensure initial field is OK */
 	if (*fields == NULL || *(fields[0]) == '\0') {
-		auth_request_log_info(request, AUTH_SUBSYS_MECH,
-				      "Invalid continued data");
+		e_info(request->mech_event,
+		       "Invalid continued data");
 		auth_request_fail(request);
 		return;
 	}
@@ -175,14 +175,14 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	for(ptr = t_strsplit_spaces(fields[0], ","); *ptr != NULL; ptr++) {
 		switch(*ptr[0]) {
 		case 'f':
-			auth_request_log_info(request, AUTH_SUBSYS_MECH,
-					      "Client requested non-standard mechanism");
+			e_info(request->mech_event,
+			       "Client requested non-standard mechanism");
 			auth_request_fail(request);
 			return;
 		case 'p':
 			/* channel binding is not supported */
-			auth_request_log_info(request, AUTH_SUBSYS_MECH,
-					      "Client requested and used channel-binding");
+			e_info(request->mech_event,
+			       "Client requested and used channel-binding");
 			auth_request_fail(request);
 			return;
 		case 'n':
@@ -192,20 +192,20 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		case 'a': /* authzid */
 			if ((*ptr)[1] != '=' ||
 			    !oauth2_unescape_username((*ptr)+2, &username)) {
-				 auth_request_log_info(request, AUTH_SUBSYS_MECH,
-						       "Invalid username escaping");
+				 e_info(request->mech_event,
+					"Invalid username escaping");
 				 auth_request_fail(request);
 				 return;
 			} else if (!auth_request_set_username(request, username, &error)) {
-				auth_request_log_info(request, AUTH_SUBSYS_MECH,
-						      "%s", error);
+				e_info(request->mech_event,
+				       "%s", error);
 			} else {
 				user_given = TRUE;
 			}
 			break;
 		default:
-			auth_request_log_info(request, AUTH_SUBSYS_MECH,
-					      "Invalid gs2-header in request");
+			e_info(request->mech_event,
+			       "Invalid gs2-header in request");
 			auth_request_fail(request);
 			return;
 		}
@@ -218,8 +218,8 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			    oauth2_valid_token(value+7)) {
 				token = value+7;
 			} else {
-				auth_request_log_info(request, AUTH_SUBSYS_MECH,
-						      "Invalid continued data");
+				e_info(request->mech_event,
+				       "Invalid continued data");
 				auth_request_fail(request);
 				return;
 			}
@@ -230,7 +230,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		auth_request_verify_plain(request, token,
 					  oauthbearer_verify_callback);
 	else {
-		auth_request_log_info(request, AUTH_SUBSYS_MECH, "Missing username or token");
+		e_info(request->mech_event, "Missing username or token");
 		auth_request_fail(request);
 	}
 }

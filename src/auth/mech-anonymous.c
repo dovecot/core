@@ -14,7 +14,7 @@ mech_anonymous_auth_continue(struct auth_request *request,
 		   so that the log message goes right */
 		request->user =
 			p_strndup(pool_datastack_create(), data, data_size);
-		auth_request_log_info(request, AUTH_SUBSYS_MECH, "login");
+		e_info(request->mech_event, "login");
 	}
 
 	request->user = p_strdup(request->pool,

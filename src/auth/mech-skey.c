@@ -25,30 +25,30 @@ skey_send_challenge(struct auth_request *auth_request,
 
 	if (otp_parse_dbentry(t_strndup(credentials, size),
 			      &request->state) != 0) {
-		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
-				       "invalid OTP data in passdb");
+		e_error(request->auth_request.mech_event,
+			"invalid OTP data in passdb");
 		auth_request_fail(auth_request);
 		return;
 	}
 
 	if (request->state.algo != OTP_HASH_MD4) {
-		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
-				       "md4 hash is needed");
+		e_error(request->auth_request.mech_event,
+			"md4 hash is needed");
 		auth_request_fail(auth_request);
 		return;
 	}
 
 	if (--request->state.seq < 1) {
-		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
-				       "sequence number < 1");
+		e_error(request->auth_request.mech_event,
+			"sequence number < 1");
 		auth_request_fail(auth_request);
 		return;
 	}
 
 	request->lock = otp_try_lock(auth_request);
 	if (!request->lock) {
-		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
-				       "user is locked, race attack?");
+		e_error(request->auth_request.mech_event,
+			"user is locked, race attack?");
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -107,8 +107,8 @@ mech_skey_auth_phase1(struct auth_request *auth_request,
 	username = t_strndup(data, data_size);
 
 	if (!auth_request_set_username(auth_request, username, &error)) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-				      "%s", error);
+		e_info(auth_request->mech_event,
+		       "%s", error);
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -134,8 +134,8 @@ mech_skey_auth_phase2(struct auth_request *auth_request,
 
 		ret = otp_parse_response(words, hash, FALSE);
 		if (ret < 0) {
-			auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
-					       "invalid response");
+			e_error(request->auth_request.mech_event,
+				"invalid response");
 			auth_request_fail(auth_request);
 			otp_unlock(auth_request);
 			return;
