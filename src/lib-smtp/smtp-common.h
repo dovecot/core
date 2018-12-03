@@ -101,4 +101,11 @@ struct smtp_proxy_data {
 	unsigned int extra_fields_count;
 };
 
+/*
+ * SMTP proxy data
+ */
+
+void smtp_proxy_data_merge(pool_t pool, struct smtp_proxy_data *dst,
+			   const struct smtp_proxy_data *src);
+
 #endif
