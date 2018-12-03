@@ -93,6 +93,9 @@ struct smtp_client_settings {
 	bool debug;
 	/* peer is trusted, so e.g. attempt sending XCLIENT data */
 	bool peer_trusted;
+	/* defer sending XCLIENT command until authentication or first mail
+	   transaction. */
+	bool xclient_defer;
 	/* don't clear password after first successful authentication */
 	bool remember_password;
 };
