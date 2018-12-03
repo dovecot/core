@@ -721,7 +721,7 @@ smtp_client_connection_xclient_addf(struct smtp_client_connection *conn,
 	va_end(args);
 }
 
-bool smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
+void smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
 					 struct smtp_proxy_data *xclient)
 {
 	const char **xclient_args = conn->caps.xclient_args;
@@ -729,10 +729,10 @@ bool smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
 	string_t *str;
 
 	if (!conn->set.peer_trusted)
-		return TRUE;
+		return;
 	if ((conn->caps.standard & SMTP_CAPABILITY_XCLIENT) == 0 ||
 	    conn->caps.xclient_args == NULL)
-		return TRUE;
+		return;
 
 	i_assert(conn->xclient_replies_expected == 0);
 
@@ -828,8 +828,6 @@ bool smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
 	/* final XCLIENT command */
 	if (str_len(str) > offset)
 		smtp_client_connection_xclient_submit(conn, str_c(str));
-
-	return (conn->xclient_replies_expected == 0);
 }
 
 static bool
@@ -837,8 +835,8 @@ smtp_client_connection_init_xclient(struct smtp_client_connection *conn)
 {
 	if (!conn->initial_xclient_sent) {
 		conn->initial_xclient_sent = TRUE;
-		if (!smtp_client_connection_send_xclient(conn,
-							 &conn->set.proxy_data))
+		smtp_client_connection_send_xclient(conn, &conn->set.proxy_data);
+		if (conn->xclient_replies_expected > 0)
 			return FALSE;
 	}
 
