@@ -970,12 +970,11 @@ smtp_client_command_rset_submit(
 
 /* MAIL FROM: */
 
-#undef smtp_client_command_mail_submit_after
+#undef smtp_client_command_mail_submit
 struct smtp_client_command *
-smtp_client_command_mail_submit_after(
+smtp_client_command_mail_submit(
 	struct smtp_client_connection *conn,
 	enum smtp_client_command_flags flags,
-	struct smtp_client_command *after,
 	const struct smtp_address *from,
 	const struct smtp_params_mail *params,
 	smtp_client_command_callback_t *callback, void *context)
@@ -995,21 +994,8 @@ smtp_client_command_mail_submit_after(
 			str_truncate(cmd->data, orig_len);
 
 	}
-	smtp_client_command_submit_after(cmd, after);
+	smtp_client_command_submit(cmd);
 	return cmd;
-}
-
-#undef smtp_client_command_mail_submit
-struct smtp_client_command *
-smtp_client_command_mail_submit(
-	struct smtp_client_connection *conn,
-	enum smtp_client_command_flags flags,
-	const struct smtp_address *from,
-	const struct smtp_params_mail *params,
-	smtp_client_command_callback_t *callback, void *context)
-{
-	return smtp_client_command_mail_submit_after
-		(conn, flags, NULL, from, params, callback, context);
 }
 
 /* RCPT TO: */
