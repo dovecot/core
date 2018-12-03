@@ -498,6 +498,8 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 
 	if (!conn->set.peer_trusted)
 		return;
+	if (conn->xclient_sent)
+		return;
 	if ((conn->caps.standard & SMTP_CAPABILITY_XCLIENT) == 0 ||
 	    conn->caps.xclient_args == NULL)
 		return;
@@ -748,20 +750,14 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	const char *init_resp, *error;
 
 	if (set->username == NULL && set->sasl_mech == NULL) {
-		if (!conn->initial_xclient_sent && !conn->set.xclient_defer) {
-			conn->initial_xclient_sent = TRUE;
+		if (!conn->set.xclient_defer)
 			smtp_client_connection_send_xclient(conn);
-		}
 		return (conn->xclient_replies_expected == 0);
 	}
 
-	if (!conn->initial_xclient_sent) {
-		conn->initial_xclient_sent = TRUE;
-		smtp_client_connection_send_xclient(conn);
-		if (conn->xclient_replies_expected > 0)
-			return FALSE;
-	}
-
+	smtp_client_connection_send_xclient(conn);
+	if (conn->xclient_replies_expected > 0)
+		return FALSE;
 	if (conn->authenticated)
 		return TRUE;
 
@@ -2035,6 +2031,9 @@ void smtp_client_connection_update_proxy_data(
 	struct smtp_client_connection *conn,
 	const struct smtp_proxy_data *proxy_data)
 {
+	if (conn->xclient_sent)
+		return;
+
 	smtp_proxy_data_merge(conn->pool, &conn->set.proxy_data, proxy_data);
 }
 
