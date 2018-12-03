@@ -126,7 +126,7 @@ static int auth_request_lua_log_debug(lua_State *L)
 		struct dlua_script *script = dlua_script_from_state(L);
 		struct auth_request *request = auth_lua_check_auth_request(script, 1);
 		const char *msg = luaL_checkstring(L, 2);
-		auth_request_log_debug(request, AUTH_SUBSYS_DB, "db-lua: %s", msg);
+		e_debug(authdb_event(request), "db-lua: %s", msg);
 	}
 	return 0;
 }
@@ -136,7 +136,7 @@ static int auth_request_lua_log_info(lua_State *L)
 	struct dlua_script *script = dlua_script_from_state(L);
 	struct auth_request *request = auth_lua_check_auth_request(script, 1);
 	const char *msg = luaL_checkstring(L, 2);
-	auth_request_log_info(request, AUTH_SUBSYS_DB, "db-lua: %s", msg);
+	e_info(authdb_event(request), "db-lua: %s", msg);
 	return 0;
 }
 
@@ -145,7 +145,7 @@ static int auth_request_lua_log_warning(lua_State *L)
 	struct dlua_script *script = dlua_script_from_state(L);
 	struct auth_request *request = auth_lua_check_auth_request(script, 1);
 	const char *msg = luaL_checkstring(L, 2);
-	auth_request_log_warning(request, AUTH_SUBSYS_DB, "db-lua: %s", msg);
+	e_warning(authdb_event(request), "db-lua: %s", msg);
 	return 0;
 }
 
@@ -154,7 +154,7 @@ static int auth_request_lua_log_error(lua_State *L)
 	struct dlua_script *script = dlua_script_from_state(L);
 	struct auth_request *request = auth_lua_check_auth_request(script, 1);
 	const char *msg = luaL_checkstring(L, 2);
-	auth_request_log_error(request, AUTH_SUBSYS_DB, "db-lua: %s", msg);
+	e_error(authdb_event(request), "db-lua: %s", msg);
 	return 0;
 }
 
@@ -413,7 +413,7 @@ static int auth_lua_call_lookup(struct dlua_script *script, const char *fn,
 	}
 
 	if (req->debug)
-		auth_request_log_debug(req, AUTH_SUBSYS_DB, "Calling %s", fn);
+		e_debug(authdb_event(req), "Calling %s", fn);
 
 	/* call with auth request as parameter */
 	auth_lua_push_auth_request(script, req);
@@ -495,9 +495,9 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 			value = "";
 			break;
 		default:
-			auth_request_log_warning(req, AUTH_SUBSYS_DB,
-						 "db-lua: '%s' has invalid value type %s - ignoring",
-						 key, lua_typename(script->L, -1));
+			e_warning(authdb_event(req),
+				  "db-lua: '%s' has invalid value type %s - ignoring",
+				  key, lua_typename(script->L, -1));
 			value = "";
 		}
 
@@ -593,7 +593,8 @@ auth_lua_call_password_verify(struct dlua_script *script,
 	}
 
 	if (req->debug)
-		auth_request_log_debug(req, AUTH_SUBSYS_DB, "Calling %s", AUTH_LUA_PASSWORD_VERIFY);
+		e_debug(authdb_event(req), "Calling %s",
+			AUTH_LUA_PASSWORD_VERIFY);
 
 	/* call with auth request, password as parameters */
 	auth_lua_push_auth_request(script, req);
@@ -689,18 +690,21 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 	}
 
 	if (req->debug)
-		auth_request_log_debug(req, AUTH_SUBSYS_DB, "Calling %s", AUTH_LUA_USERDB_ITERATE);
+		e_debug(authdb_event(req), "Calling %s",
+			AUTH_LUA_USERDB_ITERATE);
 
 	if ((ret = lua_pcall(script->L, 0, 1, 0)) != 0) {
-		auth_request_log_error(req, AUTH_SUBSYS_DB, "db-lua: " AUTH_LUA_USERDB_ITERATE " failed: %s",
-				       lua_tostring(script->L, -1));
+		e_error(authdb_event(req),
+			"db-lua: " AUTH_LUA_USERDB_ITERATE " failed: %s",
+			lua_tostring(script->L, -1));
 		actx->ctx.failed = TRUE;
 		lua_pop(script->L, 1);
 		return &actx->ctx;
 	}
 
 	if (!lua_istable(script->L, -1)) {
-		auth_request_log_error(req, AUTH_SUBSYS_DB, "db-lua: Cannot iterate, return value is not table");
+		e_error(authdb_event(req),
+			"db-lua: Cannot iterate, return value is not table");
 		actx->ctx.failed = TRUE;
 		lua_pop(script->L, 1);
 		lua_gc(script->L, LUA_GCCOLLECT, 0);
@@ -714,7 +718,8 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 	while (lua_next(script->L, -2) != 0) {
 		lua_pushvalue(script->L, -2);
 		if (!lua_isstring(script->L, -1)) {
-			auth_request_log_error(req, AUTH_SUBSYS_DB, "db-lua: Value is not string");
+			e_error(authdb_event(req),
+				"db-lua: Value is not string");
 			actx->ctx.failed = TRUE;
 			lua_pop(script->L, 1);
 			lua_gc(script->L, LUA_GCCOLLECT, 0);

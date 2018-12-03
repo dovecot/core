@@ -65,11 +65,11 @@ static void sql_query_callback(struct sql_result *sql_result,
 		db_sql_success(module->conn);
 	if (ret < 0) {
 		if (!module->conn->default_user_query) {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(auth_request),
 				"User query failed: %s",
 				sql_result_get_error(sql_result));
 		} else {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(auth_request),
 				"User query failed: %s "
 				"(using built-in default user_query: %s)",
 				sql_result_get_error(sql_result),
@@ -110,7 +110,7 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 	if (t_auth_request_var_expand(module->conn->set.user_query,
 				      auth_request, userdb_sql_escape,
 				      &query, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand user_query=%s: %s",
 			module->conn->set.user_query, error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
@@ -122,7 +122,7 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 	sql_request->callback = callback;
 	sql_request->auth_request = auth_request;
 
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "%s", query);
+	e_debug(authdb_event(auth_request), "%s", query);
 
 	sql_query(module->conn->db, query,
 		  sql_query_callback, sql_request);
@@ -153,7 +153,7 @@ userdb_sql_iterate_init(struct auth_request *auth_request,
 	if (t_auth_request_var_expand(module->conn->set.iterate_query,
 				      auth_request, userdb_sql_escape,
 				      &query, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand iterate_query=%s: %s",
 			module->conn->set.iterate_query, error);
 	}
@@ -166,7 +166,7 @@ userdb_sql_iterate_init(struct auth_request *auth_request,
 
 	sql_query(module->conn->db, query,
 		  sql_iter_query_callback, ctx);
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "%s", query);
+	e_debug(authdb_event(auth_request), "%s", query);
 	return &ctx->ctx;
 }
 

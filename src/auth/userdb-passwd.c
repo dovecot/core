@@ -87,7 +87,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 	const char *error;
 	int ret;
 
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "lookup");
+	e_debug(authdb_event(auth_request), "lookup");
 
 	if (gettimeofday(&start_tv, NULL) < 0)
 		start_tv.tv_sec = 0;
@@ -97,8 +97,8 @@ static void passwd_lookup(struct auth_request *auth_request,
 
 	switch (ret) {
 	case -1:
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
-				       "getpwnam() failed: %m");
+		e_error(authdb_event(auth_request),
+			"getpwnam() failed: %m");
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	case 0:
@@ -116,8 +116,8 @@ static void passwd_lookup(struct auth_request *auth_request,
 	auth_request_set_userdb_field(auth_request, "home", pw.pw_dir);
 
 	if (userdb_template_export(module->tmpl, auth_request, &error) < 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
-				       "Failed to expand template: %s", error);
+		e_error(authdb_event(auth_request),
+			"Failed to expand template: %s", error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 	}
 

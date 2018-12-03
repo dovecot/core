@@ -266,14 +266,14 @@ static int passwd_file_sync(struct auth_request *request,
 		int ret = -1;
 
 		if (errno == EACCES) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"%s", eacces_error_get("stat", pw->path));
 		} else if (errno == ENOENT) {
 			auth_request_log_info(request, "passwd-file",
 					      "missing passwd file: %s", pw->path);
 			ret = 0;
 		} else {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"stat(%s) failed: %m", pw->path);
 		}
 
@@ -285,7 +285,7 @@ static int passwd_file_sync(struct auth_request *request,
 	if (st.st_mtime != pw->stamp || st.st_size != pw->size) {
 		passwd_file_close(pw);
 		if (passwd_file_open(pw, FALSE, &error) < 0) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"%s", error);
 			return -1;
 		}
@@ -446,7 +446,7 @@ int db_passwd_file_lookup(struct db_passwd_file *db,
 		dest = t_str_new(256);
 		if (auth_request_var_expand(dest, db->path, request, path_fix,
 					    &error) <= 0) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"Failed to expand passwd-file path %s: %s",
 				db->path, error);
 			return -1;
@@ -467,15 +467,15 @@ int db_passwd_file_lookup(struct db_passwd_file *db,
 	username = t_str_new(256);
 	if (auth_request_var_expand(username, username_format, request,
 				    auth_request_str_escape, &error) <= 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand username_format=%s: %s",
 			username_format, error);
 		return -1;
 	}
 
-	auth_request_log_debug(request, AUTH_SUBSYS_DB,
-			       "lookup: user=%s file=%s",
-			       str_c(username), pw->path);
+	e_debug(authdb_event(request),
+		"lookup: user=%s file=%s",
+		str_c(username), pw->path);
 
 	*user_r = hash_table_lookup(pw->users, str_c(username));
 	if (*user_r == NULL) {

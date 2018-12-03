@@ -24,7 +24,7 @@ passdb_cache_log_hit(struct auth_request *request, const char *value)
 		p = strchr(value, '\t');
 		value = t_strconcat(PASSWORD_HIDDEN_STR, p, NULL);
 	}
-	auth_request_log_debug(request, AUTH_SUBSYS_DB, "cache hit: %s", value);
+	e_debug(authdb_event(request), "cache hit: %s", value);
 }
 
 static bool
@@ -41,9 +41,9 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 				  &expired, neg_expired_r);
 	if (value == NULL || (expired && !use_expired)) {
 		stats->auth_cache_miss_count++;
-		auth_request_log_debug(request, AUTH_SUBSYS_DB,
-				       value == NULL ? "cache miss" :
-				       "cache expired");
+		e_debug(authdb_event(request),
+			value == NULL ? "cache miss" :
+			"cache expired");
 		return FALSE;
 	}
 	stats->auth_cache_hit_count++;
@@ -93,8 +93,8 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	cached_pw = list[0];
 	if (*cached_pw == '\0') {
 		/* NULL password */
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-				      "Cached NULL password access");
+		e_info(authdb_event(request),
+		       "Cached NULL password access");
 		ret = 1;
 	} else if (request->set->cache_verify_password_with_worker) {
 		string_t *str;
@@ -107,8 +107,8 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		str_append_c(str, '\t');
 		auth_request_export(request, str);
 
-		auth_request_log_debug(request, AUTH_SUBSYS_DB, "cache: "
-				       "validating password on worker");
+		e_debug(authdb_event(request), "cache: "
+			"validating password on worker");
 		auth_request_ref(request);
 		auth_worker_call(request->pool, request->user, str_c(str),
 				 passdb_cache_verify_plain_callback, request);

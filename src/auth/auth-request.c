@@ -101,6 +101,7 @@ static void auth_request_post_alloc_init(struct auth_request *request, struct ev
 	request->extra_fields = auth_fields_init(request->pool);
 	request->event = event_create(parent_event);
 	request->mech_event = event_create(request->event);
+	p_array_init(&request->authdb_event, request->pool, 2);
 	event_set_log_prefix_callback(request->mech_event, FALSE, get_log_prefix_mech,
 				      request);
 	event_set_forced_debug(request->event, request->set->debug);
@@ -734,9 +735,9 @@ static void auth_request_master_lookup_finish(struct auth_request *request)
 		return;
 
 	/* master login successful. update user and master_user variables. */
-	auth_request_log_info(request, AUTH_SUBSYS_DB,
-			      "Master user logging in as %s",
-			      request->requested_login_user);
+	e_info(authdb_event(request),
+	       "Master user logging in as %s",
+	       request->requested_login_user);
 
 	request->master_user = request->user;
 	request->user = request->requested_login_user;
@@ -967,8 +968,8 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		   lookup returned that user doesn't exist in it. internal
 		   errors are fatal here. */
 		if (*result != PASSDB_RESULT_INTERNAL_FAILURE) {
-			auth_request_log_info(request, AUTH_SUBSYS_DB,
-					      "User found from deny passdb");
+			e_info(authdb_event(request),
+			       "User found from deny passdb");
 			*result = PASSDB_RESULT_USER_DISABLED;
 		}
 		return TRUE;
@@ -1000,7 +1001,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		result_rule = request->passdb->result_internalfail;
 		break;
 	case PASSDB_RESULT_NEXT:
-		auth_request_log_debug(request, AUTH_SUBSYS_DB,
+		e_debug(authdb_event(request),
 			"Not performing authentication (noauthenticate set)");
 		result_rule = AUTH_DB_RULE_CONTINUE;
 		break;
@@ -1097,7 +1098,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		return FALSE;
 	} else if (*result == PASSDB_RESULT_NEXT) {
 		/* admin forgot to put proper passdb last */
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Last passdb had noauthenticate field, cannot authenticate user");
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (request->passdb_success) {
@@ -1120,7 +1121,7 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 
 	if (passdb_template_export(request->passdb->override_fields_tmpl,
 				   request, &error) < 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand override_fields: %s", error);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
@@ -1161,8 +1162,8 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 		if (passdb_cache_verify_plain(request, cache_key,
 					      request->mech_password,
 					      &result, TRUE)) {
-			auth_request_log_info(request, AUTH_SUBSYS_DB,
-				"Falling back to expired data from cache");
+			e_info(authdb_event(request),
+			       "Falling back to expired data from cache");
 			return;
 		}
 	}
@@ -1305,8 +1306,8 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 	}
 
 	if (password_has_illegal_chars(password)) {
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"Attempted login with password having illegal chars");
+		e_info(authdb_event(request),
+		       "Attempted login with password having illegal chars");
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
@@ -1347,7 +1348,7 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 		passdb_blocking_verify_plain(request);
 	} else if (passdb_template_export(passdb->default_fields_tmpl,
 					  request, &error) < 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand default_fields: %s", error);
 		auth_request_verify_plain_callback(
 			PASSDB_RESULT_INTERNAL_FAILURE, request);
@@ -1367,7 +1368,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 
 	if (passdb_template_export(request->passdb->override_fields_tmpl,
 				   request, &error) < 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand override_fields: %s", error);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
@@ -1398,7 +1399,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 		}
 		if (request->set->debug_passwords &&
 		    result == PASSDB_RESULT_OK) {
-			auth_request_log_debug(request, AUTH_SUBSYS_DB,
+			e_debug(authdb_event(request),
 				"Credentials: %s",
 				binary_to_hex(credentials, size));
 		}
@@ -1442,8 +1443,8 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 		if (passdb_cache_lookup_credentials(request, cache_key,
 						    &cache_cred, &cache_scheme,
 						    &result, TRUE)) {
-			auth_request_log_info(request, AUTH_SUBSYS_DB,
-				"Falling back to expired data from cache");
+			e_info(authdb_event(request),
+			       "Falling back to expired data from cache");
 			passdb_handle_credentials(
 				result, cache_cred, cache_scheme,
 				auth_request_lookup_credentials_finish,
@@ -1525,7 +1526,7 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 
 	if (passdb->passdb->iface.lookup_credentials == NULL) {
 		/* this passdb doesn't support credentials */
-		auth_request_log_debug(request, AUTH_SUBSYS_DB,
+		e_debug(authdb_event(request),
 			"passdb doesn't support credential lookups");
 		auth_request_lookup_credentials_callback(
 					PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
@@ -1534,7 +1535,7 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 		passdb_blocking_lookup_credentials(request);
 	} else if (passdb_template_export(passdb->default_fields_tmpl,
 					  request, &error) < 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand default_fields: %s", error);
 		auth_request_lookup_credentials_callback(
 					PASSDB_RESULT_INTERNAL_FAILURE,
@@ -1620,14 +1621,14 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired)) {
 		stats->auth_cache_miss_count++;
-		auth_request_log_debug(request, AUTH_SUBSYS_DB,
-					value == NULL ? "userdb cache miss" :
-					"userdb cache expired");
+		e_debug(authdb_event(request),
+			value == NULL ? "userdb cache miss" :
+			"userdb cache expired");
 		return FALSE;
 	}
 	stats->auth_cache_hit_count++;
-	auth_request_log_debug(request, AUTH_SUBSYS_DB,
-				"userdb cache hit: %s", value);
+	e_debug(authdb_event(request),
+		"userdb cache hit: %s", value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
@@ -1710,7 +1711,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 			   fields */
 			if (userdb_template_export(userdb->override_fields_tmpl,
 						   request, &error) < 0) {
-				auth_request_log_error(request, AUTH_SUBSYS_DB,
+				e_error(authdb_event(request),
 					"Failed to expand override_fields: %s", error);
 				request->private_callback.userdb(
 					USERDB_RESULT_INTERNAL_FAILURE, request);
@@ -1733,7 +1734,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 	if (request->userdb_success) {
 		if (userdb_template_export(userdb->override_fields_tmpl,
 					   request, &error) < 0) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"Failed to expand override_fields: %s", error);
 			result = USERDB_RESULT_INTERNAL_FAILURE;
 		} else {
@@ -1748,7 +1749,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		/* this was an actual login attempt, the user should
 		   have been found. */
 		if (auth_request_get_auth(request)->userdbs->next == NULL) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"user not found from userdb");
 		} else {
 			auth_request_log_error(request, AUTH_SUBSYS_MECH,
@@ -1772,8 +1773,8 @@ void auth_request_userdb_callback(enum userdb_result result,
 
 		if (auth_request_lookup_user_cache(request, cache_key,
 						   &result, TRUE)) {
-			auth_request_log_info(request, AUTH_SUBSYS_DB,
-				"Falling back to expired data from cache");
+			e_info(authdb_event(request),
+			       "Falling back to expired data from cache");
 		}
 	}
 
@@ -1798,7 +1799,7 @@ void auth_request_lookup_user(struct auth_request *request,
 		   unwanted, ":protected" can be used). */
 		if (userdb_template_export(userdb->default_fields_tmpl,
 					   request, &error) < 0) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"Failed to expand default_fields: %s", error);
 			auth_request_userdb_callback(
 				USERDB_RESULT_INTERNAL_FAILURE, request);
@@ -1968,9 +1969,10 @@ bool auth_request_set_login_username(struct auth_request *request,
 	if (request->requested_login_user == NULL)
 		return FALSE;
 
-	auth_request_log_debug(request, AUTH_SUBSYS_DB,
-				"Master user lookup for login: %s",
-				request->requested_login_user);
+	e_debug(request->event,
+		"%sMaster user lookup for login: %s",
+		get_log_prefix_db(request),
+		request->requested_login_user);
 	return TRUE;
 }
 
@@ -1985,7 +1987,7 @@ auth_request_validate_networks(struct auth_request *request,
 	bool found = FALSE;
 
 	for (net = t_strsplit_spaces(networks, ", "); *net != NULL; net++) {
-		auth_request_log_debug(request, AUTH_SUBSYS_DB,
+		e_debug(authdb_event(request),
 			"%s: Matching for network %s", name, *net);
 
 		if (strcmp(*net, "local") == 0) {
@@ -1994,8 +1996,8 @@ auth_request_validate_networks(struct auth_request *request,
 				break;
 			}
 		} else if (net_parse_range(*net, &net_ip, &bits) < 0) {
-			auth_request_log_info(request, AUTH_SUBSYS_DB,
-				"%s: Invalid network '%s'", name, *net);
+			e_info(authdb_event(request),
+			       "%s: Invalid network '%s'", name, *net);
 		} else if (remote_ip->family != 0 &&
 			   net_is_in_network(remote_ip, &net_ip, bits)) {
 			found = TRUE;
@@ -2006,12 +2008,12 @@ auth_request_validate_networks(struct auth_request *request,
 	if (found)
 		;
 	else if (remote_ip->family == 0) {
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"%s check failed: Remote IP not known and 'local' missing", name);
+		e_info(authdb_event(request),
+		       "%s check failed: Remote IP not known and 'local' missing", name);
 	} else {
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"%s check failed: IP %s not in allowed networks",
-			name, net_ip2addr(remote_ip));
+		e_info(authdb_event(request),
+		       "%s check failed: IP %s not in allowed networks",
+		       name, net_ip2addr(remote_ip));
 	}
 	if (!found)
 		request->failed = TRUE;
@@ -2022,7 +2024,7 @@ auth_request_set_password(struct auth_request *request, const char *value,
 			  const char *default_scheme, bool noscheme)
 {
 	if (request->passdb_password != NULL) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Multiple password values not supported");
 		return;
 	}
@@ -2084,16 +2086,16 @@ auth_request_try_update_username(struct auth_request *request,
 	if (new_value == NULL)
 		return FALSE;
 	if (new_value[0] == '\0') {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"username attempted to be changed to empty");
 		request->failed = TRUE;
 		return TRUE;
 	}
 
 	if (strcmp(request->user, new_value) != 0) {
-		auth_request_log_debug(request, AUTH_SUBSYS_DB,
-					"username changed %s -> %s",
-					request->user, new_value);
+		e_debug(authdb_event(request),
+			"username changed %s -> %s",
+			request->user, new_value);
 		request->user = p_strdup(request->pool, new_value);
 		request->user_changed_by_lookup = TRUE;
 	}
@@ -2163,7 +2165,7 @@ void auth_request_set_field(struct auth_request *request,
 		if (p != NULL) {
 			value = t_strdup_until(value, p++);
 			if (str_to_uint(p, &extra_secs) < 0) {
-				auth_request_log_error(request, AUTH_SUBSYS_DB,
+				e_error(authdb_event(request),
 					"Invalid delay_until randomness number '%s'", p);
 				request->failed = TRUE;
 			} else {
@@ -2171,13 +2173,13 @@ void auth_request_set_field(struct auth_request *request,
 			}
 		}
 		if (str_to_time(value, &timestamp) < 0) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"Invalid delay_until timestamp '%s'", value);
 			request->failed = TRUE;
 		} else if (timestamp <= ioloop_time) {
 			/* no more delays */
 		} else if (timestamp - ioloop_time > AUTH_REQUEST_MAX_DELAY_SECS) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"delay_until timestamp %s is too much in the future, failing", value);
 			request->failed = TRUE;
 		} else {
@@ -2216,7 +2218,7 @@ void auth_request_set_field(struct auth_request *request,
 		    !auth_fields_exists(request->extra_fields, "noauthenticate")) {
 			(void)password_get_scheme(&password);
 			if (*password != '\0') {
-				auth_request_log_error(request, AUTH_SUBSYS_DB,
+				e_error(authdb_event(request),
 					"nopassword set but password is "
 					"non-empty");
 				return;
@@ -2286,7 +2288,7 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 	request->userdb_reply = auth_fields_init(request->pool);
 	if (userdb_template_export(request->userdb->default_fields_tmpl,
 				   request, &error) < 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand default_fields: %s", error);
 	}
 }
@@ -2301,12 +2303,12 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 	path = t_str_new(256);
 	if (auth_request_var_expand(path, path_template, request,
 				    NULL, &error) <= 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand uidgid_file=%s: %s", path_template, error);
 		request->userdb_lookup_tempfailed = TRUE;
 	} else if (stat(str_c(path), &st) < 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
-					"stat(%s) failed: %m", str_c(path));
+		e_error(authdb_event(request),
+			"stat(%s) failed: %m", str_c(path));
 		request->userdb_lookup_tempfailed = TRUE;
 	} else {
 		auth_fields_add(request->userdb_reply,
@@ -2423,9 +2425,9 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 	} else {
 		/* add only one */
 		if (values[1] != NULL) {
-			auth_request_log_warning(request, AUTH_SUBSYS_DB,
-				"Multiple values found for '%s', "
-				"using value '%s'", name, *values);
+			e_warning(authdb_event(request),
+				  "Multiple values found for '%s', "
+				  "using value '%s'", name, *values);
 		}
 		auth_request_set_userdb_field(request, name, *values);
 	}

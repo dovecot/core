@@ -22,9 +22,9 @@ static_save_fields(struct auth_request *request, const char **password_r,
 	*password_r = NULL;
 	*scheme_r = NULL;
 
-	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
+	e_debug(authdb_event(request), "lookup");
 	if (passdb_template_export(module->tmpl, request, &error) < 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand template: %s", error);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
@@ -32,7 +32,7 @@ static_save_fields(struct auth_request *request, const char **password_r,
 	if (module->static_password_tmpl != NULL) {
 		if (t_auth_request_var_expand(module->static_password_tmpl,
 				request, NULL, password_r, &error) <= 0) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"Failed to expand password=%s: %s",
 				module->static_password_tmpl, error);
 			return PASSDB_RESULT_INTERNAL_FAILURE;
@@ -40,8 +40,8 @@ static_save_fields(struct auth_request *request, const char **password_r,
 	} else if (auth_fields_exists(request->extra_fields, "nopassword")) {
 		*password_r = "";
 	} else {
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"No password returned (and no nopassword)");
+		e_info(authdb_event(request),
+		       "No password returned (and no nopassword)");
 		return PASSDB_RESULT_PASSWORD_MISMATCH;
 	}
 

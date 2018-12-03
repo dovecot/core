@@ -15,11 +15,11 @@ oauth2_verify_plain_continue(struct db_oauth2_request *req,
 			     struct auth_request *request)
 {
 	if (result == PASSDB_RESULT_INTERNAL_FAILURE)
-		auth_request_log_error(request, AUTH_SUBSYS_DB, "oauth2 failed: %s",
-				       error);
+		e_error(authdb_event(request), "oauth2 failed: %s",
+			error);
 	else if (result != PASSDB_RESULT_OK)
-		auth_request_log_info(request, AUTH_SUBSYS_DB, "oauth2 failed: %s",
-				      error);
+		e_info(authdb_event(request), "oauth2 failed: %s",
+		       error);
 	else {
 		auth_request_set_field(request, "token", req->token, "PLAIN");
 	}

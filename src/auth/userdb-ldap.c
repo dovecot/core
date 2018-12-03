@@ -69,7 +69,7 @@ userdb_ldap_lookup_finish(struct auth_request *auth_request,
 		result = USERDB_RESULT_USER_UNKNOWN;
 		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
 	} else if (urequest->entries > 1) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"user_filter matched multiple objects, aborting");
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 	} else {
@@ -120,7 +120,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	str = t_str_new(512);
 	if (auth_request_var_expand(str, conn->set.base, auth_request,
 				    ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand base=%s: %s", conn->set.base, error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
@@ -130,7 +130,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	str_truncate(str, 0);
 	if (auth_request_var_expand(str, conn->set.user_filter, auth_request,
 				    ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand user_filter=%s: %s",
 			conn->set.user_filter, error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
@@ -141,12 +141,12 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request->request.attr_map = &conn->user_attr_map;
 	request->request.attributes = conn->user_attr_names;
 
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "user search: "
-			       "base=%s scope=%s filter=%s fields=%s",
-			       request->request.base, conn->set.scope,
-			       request->request.filter,
-			       attr_names == NULL ? "(all)" :
-			       t_strarray_join(attr_names, ","));
+	e_debug(authdb_event(auth_request), "user search: "
+		"base=%s scope=%s filter=%s fields=%s",
+		request->request.base, conn->set.scope,
+		request->request.filter,
+		attr_names == NULL ? "(all)" :
+		t_strarray_join(attr_names, ","));
 
 	request->request.request.auth_request = auth_request;
 	request->request.request.callback = userdb_ldap_lookup_callback;
@@ -222,7 +222,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	str = t_str_new(512);
 	if (auth_request_var_expand(str, conn->set.base, auth_request,
 				    ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand base=%s: %s", conn->set.base, error);
 		ctx->ctx.failed = TRUE;
 	}
@@ -231,7 +231,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	str_truncate(str, 0);
 	if (auth_request_var_expand(str, conn->set.iterate_filter,
 				    auth_request, ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand iterate_filter=%s: %s",
 			conn->set.iterate_filter, error);
 		ctx->ctx.failed = TRUE;

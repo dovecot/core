@@ -68,7 +68,7 @@ passdb_blocking_auth_worker_reply_parse(struct auth_request *request, const char
 		}
 	}
 
-	auth_request_log_error(request, AUTH_SUBSYS_DB,
+	e_error(authdb_event(request),
 		"Received invalid reply from worker: %s", reply);
 	return PASSDB_RESULT_INTERNAL_FAILURE;
 }
@@ -111,7 +111,7 @@ static bool lookup_credentials_callback(const char *reply, void *context)
 		password = request->passdb_password;
 		scheme = password_get_scheme(&password);
 		if (scheme == NULL) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(request),
 				"Received reply from worker without "
 				"password scheme");
 			result = PASSDB_RESULT_INTERNAL_FAILURE;

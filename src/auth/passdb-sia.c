@@ -35,7 +35,7 @@ local_sia_verify_plain(struct auth_request *request, const char *password,
 {
 	char *argutility = "dovecot";
 
-	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
+	e_debug(authdb_event(request), "lookup");
 
 	/* check if the password is valid */
 	if (sia_validate_user(checkpw_collect, 1, &argutility, NULL,
