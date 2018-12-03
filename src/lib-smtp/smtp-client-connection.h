@@ -68,8 +68,7 @@ void smtp_client_connection_uncork(struct smtp_client_connection *conn);
 void smtp_client_connection_connect(struct smtp_client_connection *conn,
 	smtp_client_command_callback_t login_callback, void *login_context);
 void smtp_client_connection_disconnect(struct smtp_client_connection *conn);
-void smtp_client_connection_send_xclient(struct smtp_client_connection *conn,
-					 struct smtp_proxy_data *xclient);
+void smtp_client_connection_send_xclient(struct smtp_client_connection *conn);
 
 void smtp_client_connection_switch_ioloop(struct smtp_client_connection *conn);
 
