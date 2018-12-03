@@ -510,7 +510,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	}
 
 	path = t_strconcat(ctx->tmpdir, "/", ctx->file_last->tmp_name, NULL);
-	if (!ctx->failed && o_stream_finish(_ctx->data.output) < 0) {
+	if (o_stream_finish(_ctx->data.output) < 0) {
 		if (!mail_storage_set_error_from_errno(storage)) {
 			mail_set_critical(_ctx->dest_mail,
 				"write(%s) failed: %s", path,
