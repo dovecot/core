@@ -161,7 +161,7 @@ struct smtp_server_connection {
 	unsigned int proxy_timeout_secs;
 
 	struct smtp_server_helo_data helo, *pending_helo;
-	char *helo_domain, *helo_login, *username;
+	char *helo_domain, *username;
 	unsigned int id;
 
 	struct timeout *to_idle;
