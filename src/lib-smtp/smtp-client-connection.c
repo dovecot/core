@@ -1884,17 +1884,8 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 			conn->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 		conn->set.debug = conn->set.debug || set->debug;
 
-		if (set->proxy_data.source_ip.family != 0) {
-			conn->set.proxy_data.proto = set->proxy_data.proto;
-			conn->set.proxy_data.source_ip = set->proxy_data.source_ip;
-			conn->set.proxy_data.source_port = set->proxy_data.source_port;
-			conn->set.proxy_data.ttl_plus_1 = set->proxy_data.ttl_plus_1;
-			conn->set.proxy_data.timeout_secs = set->proxy_data.timeout_secs;
-			conn->set.proxy_data.helo =
-				p_strdup_empty(pool, set->proxy_data.helo);
-			conn->set.proxy_data.login =
-				p_strdup_empty(pool, set->proxy_data.login);
-		}
+		smtp_proxy_data_merge(conn->pool, &conn->set.proxy_data,
+				      &set->proxy_data);
 		conn->set.peer_trusted = set->peer_trusted;
 	}
 
