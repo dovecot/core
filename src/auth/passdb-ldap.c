@@ -53,9 +53,9 @@ ldap_query_save_result(struct ldap_connection *conn,
 			continue;
 		}
 		if (values[1] != NULL) {
-			auth_request_log_warning(auth_request, AUTH_SUBSYS_DB,
-				"Multiple values found for '%s', "
-				"using value '%s'", name, values[0]);
+			e_warning(authdb_event(auth_request),
+				  "Multiple values found for '%s', "
+				  "using value '%s'", name, values[0]);
 		}
 		auth_request_set_field(auth_request, name, values[0],
 				       conn->set.default_pass_scheme);
@@ -78,14 +78,14 @@ ldap_lookup_finish(struct auth_request *auth_request,
 		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
 		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
 	} else if (ldap_request->entries > 1) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"pass_filter matched multiple objects, aborting");
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (auth_request->passdb_password == NULL &&
 		   ldap_request->require_password &&
 		   !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
-		auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
-			"No password returned (and no nopassword)");
+		e_info(authdb_event(auth_request),
+		       "No password returned (and no nopassword)");
 		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	} else {
 		/* passdb_password may change on the way,
@@ -163,9 +163,9 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 			auth_request_log_unknown_user(auth_request,
 						      AUTH_SUBSYS_DB);
 		} else {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
-					       "ldap_bind() failed: %s",
-					       ldap_err2string(ret));
+			e_error(authdb_event(auth_request),
+				"ldap_bind() failed: %s",
+				ldap_err2string(ret));
 		}
 	}
 
@@ -185,8 +185,8 @@ static void ldap_auth_bind(struct ldap_connection *conn,
 		/* Assume that empty password fails. This is especially
 		   important with Windows 2003 AD, which always returns success
 		   with empty passwords. */
-		auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
-				      "Login attempt with empty password");
+		e_info(authdb_event(auth_request),
+		       "Login attempt with empty password");
 		passdb_ldap_request->callback.
 			verify_plain(PASSDB_RESULT_PASSWORD_MISMATCH,
 				     auth_request);
@@ -225,7 +225,7 @@ ldap_bind_lookup_dn_fail(struct auth_request *auth_request,
 		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
 	} else {
 		i_assert(request->entries > 1);
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"pass_filter matched multiple objects, aborting");
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
@@ -299,7 +299,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	str = t_str_new(512);
 	if (auth_request_var_expand(str, conn->set.base, auth_request,
 				    ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand base=%s: %s", conn->set.base, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
@@ -309,7 +309,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	str_truncate(str, 0);
 	if (auth_request_var_expand(str, conn->set.pass_filter,
 				    auth_request, ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand pass_filter=%s: %s",
 			conn->set.pass_filter, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
@@ -319,11 +319,11 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	srequest->attr_map = &conn->pass_attr_map;
 	srequest->attributes = conn->pass_attr_names;
 
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "pass search: "
-			       "base=%s scope=%s filter=%s fields=%s",
-			       srequest->base, conn->set.scope,
-			       srequest->filter, attr_names == NULL ? "(all)" :
-			       t_strarray_join(attr_names, ","));
+	e_debug(authdb_event(auth_request), "pass search: "
+		"base=%s scope=%s filter=%s fields=%s",
+		srequest->base, conn->set.scope,
+		srequest->filter, attr_names == NULL ? "(all)" :
+		t_strarray_join(attr_names, ","));
 
 	srequest->request.callback = ldap_lookup_pass_callback;
 	db_ldap_request(conn, &srequest->request);
@@ -345,7 +345,7 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 	str = t_str_new(512);
 	if (auth_request_var_expand(str, conn->set.base, auth_request,
 				    ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand base=%s: %s", conn->set.base, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
@@ -355,7 +355,7 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 	str_truncate(str, 0);
 	if (auth_request_var_expand(str, conn->set.pass_filter,
 				    auth_request, ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand pass_filter=%s: %s",
 			conn->set.pass_filter, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
@@ -369,9 +369,9 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 	srequest->attr_map = &conn->pass_attr_map;
 	srequest->attributes = conn->pass_attr_names;
 
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB,
-			       "bind search: base=%s filter=%s",
-			       srequest->base, srequest->filter);
+	e_debug(authdb_event(auth_request),
+		"bind search: base=%s filter=%s",
+		srequest->base, srequest->filter);
 
 	srequest->request.callback = ldap_bind_lookup_dn_callback;
         db_ldap_request(conn, &srequest->request);
@@ -394,7 +394,7 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 	dn = t_str_new(512);
 	if (auth_request_var_expand(dn, conn->set.auth_bind_userdn,
 				    auth_request, ldap_escape, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand auth_bind_userdn=%s: %s",
 			conn->set.auth_bind_userdn, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);

@@ -14,12 +14,12 @@
 static enum passdb_result
 passwd_lookup(struct auth_request *request, struct passwd *pw_r)
 {
-	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
+	e_debug(authdb_event(request), "lookup");
 
 	switch (i_getpwnam(request->user, pw_r)) {
 	case -1:
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
-				       "getpwnam() failed: %m");
+		e_error(authdb_event(request),
+			"getpwnam() failed: %m");
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	case 0:
 		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
@@ -27,8 +27,8 @@ passwd_lookup(struct auth_request *request, struct passwd *pw_r)
 	}
 
 	if (!IS_VALID_PASSWD(pw_r->pw_passwd)) {
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"invalid password field '%s'", pw_r->pw_passwd);
+		e_info(authdb_event(request),
+		       "invalid password field '%s'", pw_r->pw_passwd);
 		return PASSDB_RESULT_USER_DISABLED;
 	}
 

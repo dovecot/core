@@ -26,8 +26,8 @@ passdb_lua_verify_password(struct dlua_passdb_module *module,
 	if (result == PASSDB_RESULT_PASSWORD_MISMATCH) {
 		auth_request_log_password_mismatch(request, AUTH_SUBSYS_DB);
 	} else if (result == PASSDB_RESULT_INTERNAL_FAILURE && error != NULL) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB, "passdb-lua: %s",
-				       error);
+		e_error(authdb_event(request), "passdb-lua: %s",
+			error);
 	}
 	return result;
 }
@@ -47,13 +47,13 @@ passdb_lua_lookup(struct auth_request *request,
 					     password_r, &error);
 
 	if (result == PASSDB_RESULT_INTERNAL_FAILURE && error != NULL) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB, "db-lua: %s", error);
+		e_error(authdb_event(request), "db-lua: %s", error);
 	} else if (result != PASSDB_RESULT_OK) {
 		/* skip next bit */
 	} else if (!auth_fields_exists(request->extra_fields, "nopassword")) {
 		if (*password_r == NULL || **password_r == '\0') {
-			auth_request_log_info(request, AUTH_SUBSYS_DB,
-				"No password returned (and no nopassword)");
+			e_info(authdb_event(request),
+			       "No password returned (and no nopassword)");
 			result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		} else {
 			if (*scheme_r == NULL)
@@ -62,8 +62,8 @@ passdb_lua_lookup(struct auth_request *request,
 					       *password_r, *scheme_r);
 		}
 	} else if (*password_r != NULL && **password_r != '\0') {
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-				      "nopassword given and password is not empty");
+		e_info(authdb_event(request),
+		       "nopassword given and password is not empty");
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	}
 	return result;

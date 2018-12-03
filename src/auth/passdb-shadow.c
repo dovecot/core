@@ -15,7 +15,7 @@
 static enum passdb_result
 shadow_lookup(struct auth_request *request, struct spwd **spw_r)
 {
-	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
+	e_debug(authdb_event(request), "lookup");
 
 	*spw_r = getspnam(request->user);
 	if (*spw_r == NULL) {
@@ -24,8 +24,8 @@ shadow_lookup(struct auth_request *request, struct spwd **spw_r)
 	}
 
 	if (!IS_VALID_PASSWD((*spw_r)->sp_pwdp)) {
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-				      "invalid password field");
+		e_info(authdb_event(request),
+		       "invalid password field");
 		return PASSDB_RESULT_USER_DISABLED;
 	}
 

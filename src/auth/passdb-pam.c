@@ -72,10 +72,10 @@ pam_userpass_conv(int num_msg, pam_const struct pam_message **msg,
 		i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
 
 	for (i = 0; i < num_msg; i++) {
-		auth_request_log_debug(ctx->request, AUTH_SUBSYS_DB,
-				       "#%d/%d style=%d msg=%s", i+1, num_msg,
-				       msg[i]->msg_style,
-				       msg[i]->msg != NULL ? msg[i]->msg : "");
+		e_debug(authdb_event(ctx->request),
+			"#%d/%d style=%d msg=%s", i+1, num_msg,
+			msg[i]->msg_style,
+			msg[i]->msg != NULL ? msg[i]->msg : "");
 		switch (msg[i]->msg_style) {
 		case PAM_PROMPT_ECHO_ON:
 			/* Assume we're asking for user. We might not ever
@@ -169,7 +169,7 @@ static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 		if (path != NULL) {
 			/* log this as error, since it probably is */
 			str = t_strdup_printf("%s (%s missing?)", str, path);
-			auth_request_log_error(request, AUTH_SUBSYS_DB, "%s", str);
+			e_error(authdb_event(request), "%s", str);
 		} else if (status == PAM_AUTH_ERR) {
 			str = t_strconcat(str, " ("AUTH_LOG_MSG_PASSWORD_MISMATCH"?)", NULL);
 			if (request->set->debug_passwords) {
@@ -177,13 +177,13 @@ static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 						  request->mech_password,
 						  ")", NULL);
 			}
-			auth_request_log_info(request, AUTH_SUBSYS_DB, "%s", str);
+			e_info(authdb_event(request), "%s", str);
 		} else {
 			if (status == PAM_USER_UNKNOWN)
 				auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
 			else {
-				auth_request_log_info(request, AUTH_SUBSYS_DB,
-						      "%s", str);
+				e_info(authdb_event(request),
+				       "%s", str);
 			}
 		}
 		return status;
@@ -193,42 +193,42 @@ static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 	if (module->pam_setcred) {
 		if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) !=
 		    PAM_SUCCESS) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
-					       "pam_setcred() failed: %s",
-					       pam_strerror(pamh, status));
+			e_error(authdb_event(request),
+				"pam_setcred() failed: %s",
+				pam_strerror(pamh, status));
 			return status;
 		}
 	}
 #endif
 
 	if ((status = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
-				       "pam_acct_mgmt() failed: %s",
-				       pam_strerror(pamh, status));
+		e_error(authdb_event(request),
+			"pam_acct_mgmt() failed: %s",
+			pam_strerror(pamh, status));
 		return status;
 	}
 
 	if (module->pam_session) {
 	        if ((status = pam_open_session(pamh, 0)) != PAM_SUCCESS) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
-					       "pam_open_session() failed: %s",
-					       pam_strerror(pamh, status));
+			e_error(authdb_event(request),
+				"pam_open_session() failed: %s",
+				pam_strerror(pamh, status));
 	                return status;
 	        }
 
 	        if ((status = pam_close_session(pamh, 0)) != PAM_SUCCESS) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
-					       "pam_close_session() failed: %s",
-					       pam_strerror(pamh, status));
+			e_error(authdb_event(request),
+				"pam_close_session() failed: %s",
+				pam_strerror(pamh, status));
 			return status;
 	        }
 	}
 
 	status = pam_get_item(pamh, PAM_USER, &item);
 	if (status != PAM_SUCCESS) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
-				       "pam_get_item(PAM_USER) failed: %s",
-				       pam_strerror(pamh, status));
+		e_error(authdb_event(request),
+			"pam_get_item(PAM_USER) failed: %s",
+			pam_strerror(pamh, status));
 		return status;
 	}
 	auth_request_set_field(request, "user", item, NULL);
@@ -267,18 +267,18 @@ pam_verify_plain_call(struct auth_request *request, const char *service,
 
 	status = pam_start(service, request->user, &conv, &pamh);
 	if (status != PAM_SUCCESS) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
-				       "pam_start() failed: %s",
-				       pam_strerror(pamh, status));
+		e_error(authdb_event(request),
+			"pam_start() failed: %s",
+			pam_strerror(pamh, status));
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
 	set_pam_items(request, pamh);
 	status = try_pam_auth(request, pamh, service);
 	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
-				       "pam_end() failed: %s",
-				       pam_strerror(pamh, status2));
+		e_error(authdb_event(request),
+			"pam_end() failed: %s",
+			pam_strerror(pamh, status2));
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
@@ -321,15 +321,15 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 	if (t_auth_request_var_expand(module->service_name, request, NULL,
 				      &service, &error) <= 0) {
-		auth_request_log_debug(request, AUTH_SUBSYS_DB,
+		e_debug(authdb_event(request),
 			"Failed to expand service %s: %s",
 			module->service_name, error);
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
 
-	auth_request_log_debug(request, AUTH_SUBSYS_DB,
-			       "lookup service=%s", service);
+	e_debug(authdb_event(request),
+		"lookup service=%s", service);
 
 	result = pam_verify_plain_call(request, service, password);
 	callback(result, request);

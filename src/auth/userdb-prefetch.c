@@ -18,24 +18,24 @@ static void prefetch_lookup(struct auth_request *auth_request,
 		if (auth_request_get_auth(auth_request)->userdbs->next == NULL) {
 			/* no other userdbs */
 			if (auth_request->userdb_lookup) {
-				auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+				e_error(authdb_event(auth_request),
 					"userdb lookup not possible with only userdb prefetch");
 			} else {
-				auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+				e_error(authdb_event(auth_request),
 					"passdb didn't return userdb entries");
 			}
 			callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 			return;
 		}
 		/* more userdbs, they may know the user */
-		auth_request_log_debug(auth_request, AUTH_SUBSYS_DB,
-				       "passdb didn't return userdb entries, "
-				       "trying the next userdb");
+		e_debug(authdb_event(auth_request),
+			"passdb didn't return userdb entries, "
+			"trying the next userdb");
 		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}
 
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "success");
+	e_debug(authdb_event(auth_request), "success");
 	callback(USERDB_RESULT_OK, auth_request);
 }
 

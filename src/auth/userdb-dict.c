@@ -37,7 +37,7 @@ dict_query_save_results(struct auth_request *auth_request,
 			auth_request_set_userdb_field(auth_request, key, value);
 	}
 	if (db_dict_value_iter_deinit(&iter, &error) < 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB, "%s", error);
+		e_error(authdb_event(auth_request), "%s", error);
 		return -1;
 	}
 	return 0;
@@ -55,7 +55,7 @@ static void userdb_dict_lookup(struct auth_request *auth_request,
 
 	if (array_count(&module->conn->set.userdb_fields) == 0 &&
 	    array_count(&module->conn->set.parsed_userdb_objects) == 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"No userdb_objects or userdb_fields specified");
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
@@ -98,8 +98,8 @@ userdb_dict_iterate_init(struct auth_request *auth_request,
 
 	if (*module->conn->set.iterate_prefix == '\0') {
 		if (!module->conn->set.iterate_disable) {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
-					       "iterate: iterate_prefix not set");
+			e_error(authdb_event(auth_request),
+				"iterate: iterate_prefix not set");
 			ctx->ctx.failed = TRUE;
 		}
 		return &ctx->ctx;
@@ -109,7 +109,7 @@ userdb_dict_iterate_init(struct auth_request *auth_request,
 	str_append(path, DICT_PATH_SHARED);
 	if (auth_request_var_expand(path, module->conn->set.iterate_prefix,
 				    auth_request, NULL, &error) <= 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"Failed to expand iterate_prefix=%s: %s",
 			module->conn->set.iterate_prefix, error);
 		ctx->ctx.failed = TRUE;
@@ -119,8 +119,8 @@ userdb_dict_iterate_init(struct auth_request *auth_request,
 	ctx->key_prefix_len = strlen(ctx->key_prefix);
 
 	ctx->iter = dict_iterate_init(module->conn->dict, ctx->key_prefix, 0);
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB,
-			       "iterate: prefix=%s", ctx->key_prefix);
+	e_debug(authdb_event(auth_request),
+		"iterate: prefix=%s", ctx->key_prefix);
 	return &ctx->ctx;
 }
 

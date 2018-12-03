@@ -70,11 +70,11 @@ static void sql_query_callback(struct sql_result *result,
 		db_sql_success(module->conn);
 	if (ret < 0) {
 		if (!module->conn->default_password_query) {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
-					       "Password query failed: %s",
-					       sql_result_get_error(result));
+			e_error(authdb_event(auth_request),
+				"Password query failed: %s",
+				sql_result_get_error(result));
 		} else {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(auth_request),
 				"Password query failed: %s "
 				"(using built-in default password_query: %s)",
 				sql_result_get_error(result),
@@ -92,16 +92,16 @@ static void sql_query_callback(struct sql_result *result,
 		   password. */
 		if (sql_result_find_field(result, "password") < 0 &&
 		    sql_result_find_field(result, "password_noscheme") < 0) {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(auth_request),
 				"Password query must return a field named "
 				"'password'");
 		} else if (sql_result_next_row(result) > 0) {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(auth_request),
 				"Password query returned multiple matches");
 		} else if (auth_request->passdb_password == NULL &&
 			   !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
-			auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
-				"Empty password returned without nopassword");
+			e_info(authdb_event(auth_request),
+			       "Empty password returned without nopassword");
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		} else {
 			/* passdb_password may change on the way,
@@ -159,7 +159,7 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 	if (t_auth_request_var_expand(module->conn->set.password_query,
 				      sql_request->auth_request,
 				      passdb_sql_escape, &query, &error) <= 0) {
-		auth_request_log_debug(sql_request->auth_request, AUTH_SUBSYS_DB,
+		e_debug(authdb_event(sql_request->auth_request),
 			"Failed to expand password_query=%s: %s",
 			module->conn->set.password_query, error);
 		sql_request->callback.verify_plain(PASSDB_RESULT_INTERNAL_FAILURE,
@@ -167,8 +167,8 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 		return;
 	}
 
-	auth_request_log_debug(sql_request->auth_request, AUTH_SUBSYS_DB,
-			       "query: %s", query);
+	e_debug(authdb_event(sql_request->auth_request),
+		"query: %s", query);
 
 	auth_request_ref(sql_request->auth_request);
 	sql_query(module->conn->db, query,
@@ -241,7 +241,7 @@ static void sql_set_credentials(struct auth_request *request,
 	if (t_auth_request_var_expand(module->conn->set.update_query,
 				      request, passdb_sql_escape,
 				      &query, &error) <= 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(request),
 			"Failed to expand update_query=%s: %s",
 			module->conn->set.update_query, error);
 		callback(FALSE, request);

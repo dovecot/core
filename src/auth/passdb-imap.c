@@ -60,14 +60,14 @@ passdb_imap_login_callback(const struct imapc_command_reply *reply,
 		break;
 	case IMAPC_COMMAND_STATE_NO:
 		result = passdb_imap_get_failure_result(reply);
-		auth_request_log_info(request->auth_request, AUTH_SUBSYS_DB,
-				      "%s", reply->text_full);
+		e_info(authdb_event(request->auth_request),
+		       "%s", reply->text_full);
 		break;
 	case IMAPC_COMMAND_STATE_AUTH_FAILED:
 	case IMAPC_COMMAND_STATE_BAD:
 	case IMAPC_COMMAND_STATE_DISCONNECTED:
-		auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
-				       "%s", reply->text_full);
+		e_error(authdb_event(request->auth_request),
+			"%s", reply->text_full);
 		break;
 	}
 	request->verify_callback(result, request->auth_request);
@@ -106,7 +106,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		str = t_str_new(128);
 		if (auth_request_var_expand(str, set.username, auth_request,
 					    NULL, &error) <= 0) {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(auth_request),
 				"Failed to expand username=%s: %s",
 				set.username, error);
 			callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
@@ -117,7 +117,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		str_truncate(str, 0);
 		if (auth_request_var_expand(str, set.host, auth_request,
 					    NULL, &error) <= 0) {
-			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			e_error(authdb_event(auth_request),
 				"Failed to expand host=%s: %s",
 				set.host, error);
 			callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
@@ -125,8 +125,8 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		}
 		set.host = t_strdup(str_c(str));
 	}
-	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB,
-			       "lookup host=%s port=%d", set.host, set.port);
+	e_debug(authdb_event(auth_request),
+		"lookup host=%s port=%d", set.host, set.port);
 
 	request = p_new(auth_request->pool, struct imap_auth_request, 1);
 	request->client = imapc_client_init(&set);

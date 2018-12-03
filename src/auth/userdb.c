@@ -73,8 +73,8 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 		return (uid_t)-1;
 	case 0:
 		if (request != NULL) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
-					       "Invalid UID value '%s'", str);
+			e_error(authdb_event(request),
+				"Invalid UID value '%s'", str);
 		}
 		return (uid_t)-1;
 	default:
@@ -99,8 +99,8 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 		return (gid_t)-1;
 	case 0:
 		if (request != NULL) {
-			auth_request_log_error(request, AUTH_SUBSYS_DB,
-					       "Invalid GID value '%s'", str);
+			e_error(authdb_event(request),
+				"Invalid GID value '%s'", str);
 		}
 		return (gid_t)-1;
 	default:

@@ -30,8 +30,8 @@ static void static_lookup_real(struct auth_request *auth_request,
 	const char *error;
 
 	if (userdb_template_export(module->tmpl, auth_request, &error) < 0) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
-				       "Failed to expand template: %s", error);
+		e_error(authdb_event(auth_request),
+			"Failed to expand template: %s", error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 	}
 	callback(USERDB_RESULT_OK, auth_request);
@@ -61,7 +61,7 @@ static_credentials_callback(enum passdb_result result,
 		ctx->callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		break;
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
-		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+		e_error(authdb_event(auth_request),
 			"passdb doesn't support lookups, "
 			"can't verify user's existence");
 		/* fall through */

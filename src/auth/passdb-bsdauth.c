@@ -21,12 +21,12 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	const char *type;
 	int result;
 
-	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
+	e_debug(authdb_event(request), "lookup");
 
 	switch (i_getpwnam(request->user, &pw)) {
 	case -1:
-		auth_request_log_error(request, AUTH_SUBSYS_DB,
-				       "getpwnam() failed: %m");
+		e_error(authdb_event(request),
+			"getpwnam() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	case 0:
