@@ -1042,7 +1042,7 @@ void auth_request_policy_check_callback(int result, void *context)
 	else
 		auth_request_log_debug(ctx->request, "policy", "Policy check action is %s",
 				       action);
-	if (result == -1) {
+	if (result < 0) {
 		/* fail it right here and now */
 		auth_request_fail(ctx->request);
 	} else if (ctx->type != AUTH_POLICY_CHECK_TYPE_SUCCESS && result > 0 && !ctx->request->no_penalty) {
