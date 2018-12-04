@@ -222,6 +222,10 @@ void auth_policy_init(void)
 	auth_policy_open_and_close_to_key(prevkey, "", template);
 	str_truncate(template, str_len(template)-1);
 	auth_policy_json_template = i_strdup(str_c(template));
+
+	if (global_auth_settings->policy_log_only)
+		i_warning("auth-policy: Currently in log-only mode. Ignoring"
+			  "tarpit and disconnect instructions from policy server");
 }
 
 void auth_policy_deinit(void)

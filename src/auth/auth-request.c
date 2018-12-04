@@ -1036,6 +1036,12 @@ void auth_request_policy_check_callback(int result, void *context)
 		action = "continue";
 	else
 		action = t_strdup_printf("tarpit %d second(s)", result);
+	if (ctx->request->set->policy_log_only && result != 0) {
+		auth_request_log_info(ctx->request, "policy", "Policy check action '%s' ignored",
+				      action);
+		auth_request_policy_penalty_finish(context);
+		return;
+	}
 	if (result != 0)
 		auth_request_log_info(ctx->request, "policy", "Policy check action is %s",
 				      action);
