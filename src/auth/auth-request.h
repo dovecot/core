@@ -35,6 +35,7 @@ struct auth_request {
 	pool_t pool;
 
 	struct event *event;
+	struct event *mech_event;
         enum auth_request_state state;
         /* user contains the user who is being authenticated.
            When master user is logging in as someone else, it gets more

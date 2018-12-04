@@ -75,6 +75,13 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 static
 void auth_request_policy_check_callback(int result, void *context);
 
+static const char *get_log_prefix_mech(struct auth_request *auth_request)
+{
+	string_t *str = t_str_new(64);
+	auth_request_get_log_prefix(str, auth_request, AUTH_SUBSYS_MECH);
+	return str_c(str);
+}
+
 static void auth_request_post_alloc_init(struct auth_request *request, struct event *parent_event)
 {
 	request->state = AUTH_REQUEST_STATE_NEW;
@@ -86,6 +93,9 @@ static void auth_request_post_alloc_init(struct auth_request *request, struct ev
 	request->debug = request->set->debug;
 	request->extra_fields = auth_fields_init(request->pool);
 	request->event = event_create(parent_event);
+	request->mech_event = event_create(request->event);
+	event_set_log_prefix_callback(request->mech_event, FALSE, get_log_prefix_mech,
+				      request);
 	event_set_forced_debug(request->event, request->set->debug);
 	event_add_category(request->event, &event_category_auth);
 }
@@ -251,6 +261,7 @@ void auth_request_unref(struct auth_request **_request)
 	if (--request->refcount > 0)
 		return;
 
+	event_unref(&request->mech_event);
 	event_unref(&request->event);
 	auth_request_stats_send(request);
 	auth_request_state_count[request->state]--;
