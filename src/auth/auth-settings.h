@@ -66,6 +66,7 @@ struct auth_settings {
 	bool policy_check_before_auth;
 	bool policy_check_after_auth;
 	bool policy_report_after_auth;
+	bool policy_log_only;
 	unsigned int policy_hash_truncate;
 
 	bool stats;

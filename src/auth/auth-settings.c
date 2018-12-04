@@ -252,6 +252,7 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_BOOL, policy_check_before_auth),
 	DEF(SET_BOOL, policy_check_after_auth),
 	DEF(SET_BOOL, policy_report_after_auth),
+	DEF(SET_BOOL, policy_log_only),
 	DEF(SET_UINT, policy_hash_truncate),
 
 	DEF(SET_BOOL, stats),
@@ -310,6 +311,7 @@ static const struct auth_settings auth_default_settings = {
 	.policy_check_before_auth = TRUE,
 	.policy_check_after_auth = TRUE,
 	.policy_report_after_auth = TRUE,
+	.policy_log_only = FALSE,
 	.policy_hash_truncate = 12,
 
 	.stats = FALSE,
