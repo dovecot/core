@@ -940,8 +940,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 	for (i = 0; i < count; i++) {
 		/* make sure variables get initialized */
 		bytes_limit = count_limit = 0;
-		if (!quota_root_is_visible(roots[i], ctx->box) ||
-		    (roots[i]->no_enforcing && ctx->auto_updating))
+		if (!quota_root_is_visible(roots[i], ctx->box))
 			continue;
 		else if (roots[i]->no_enforcing) {
 			ignored = FALSE;
