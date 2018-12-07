@@ -1270,7 +1270,8 @@ static void
 http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 					const char *reason)
 {
-	struct http_client_queue *const *queue;
+	struct http_client_queue *const *queuep;
+	ARRAY_TYPE(http_client_queue) queues;
 
 	e_debug(peer->event,
 		"Failed to establish any connection within our peer pool: %s "
@@ -1279,11 +1280,17 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 
 	peer->connect_failed = TRUE;
 
+	/* make a copy of the queue array; queues get linked/unlinged while the
+	   connection failure is handled */
+	t_array_init(&queues, array_count(&peer->queues));
+	array_copy(&queues.arr, 0, &peer->queues.arr, 0,
+		   array_count(&peer->queues));
+
 	/* failed to make any connection. a second connect will probably also
 	   fail, so just try another IP for the hosts(s) or abort all requests
 	   if this was the only/last option. */
-	array_foreach(&peer->queues, queue)
-		http_client_queue_connection_failure(*queue, peer, reason);
+	array_foreach(&queues, queuep)
+		http_client_queue_connection_failure(*queuep, peer, reason);
 }
 
 void http_client_peer_connection_lost(struct http_client_peer *peer,
