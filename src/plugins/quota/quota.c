@@ -938,12 +938,12 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
+		/* make sure variables get initialized */
+		bytes_limit = count_limit = 0;
 		if (!quota_root_is_visible(roots[i], ctx->box) ||
 		    (roots[i]->no_enforcing && ctx->auto_updating))
 			continue;
 		else if (roots[i]->no_enforcing) {
-			bytes_limit = (uint64_t)-1;
-			count_limit = (uint64_t)-1;
 			ignored = FALSE;
 		} else if (quota_root_get_rule_limits(roots[i], mailbox_name,
 						      &bytes_limit, &count_limit,
@@ -962,10 +962,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			ret = quota_get_resource(roots[i], mailbox_name,
 						 QUOTA_NAME_STORAGE_BYTES,
 						 &current, &limit, &error);
-			if (roots[i]->no_enforcing) {
-				ctx->bytes_ceil = (uint64_t)-1;
-				ctx->bytes_ceil2 = (uint64_t)-1;
-			} else if (ret == QUOTA_GET_RESULT_LIMITED) {
+			if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
 					ctx->bytes_ceil = 0;
@@ -997,9 +994,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			ret = quota_get_resource(roots[i], mailbox_name,
 						 QUOTA_NAME_MESSAGES,
 						 &current, &limit, &error);
-			if (roots[i]->no_enforcing) {
-				ctx->count_ceil = (uint64_t)-1;
-			} else if (ret == QUOTA_GET_RESULT_LIMITED) {
+			if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
 					ctx->count_ceil = 0;
