@@ -17,8 +17,6 @@ oauth2_parse_json(struct oauth2_request *req)
 	const char *token, *error;
 	int ret;
 
-	req->field_name = NULL;
-
 	while((ret = json_parse_next(req->parser, &type, &token)) > 0) {
 		if (req->field_name == NULL) {
 			if (type != JSON_TYPE_OBJECT_KEY) break;

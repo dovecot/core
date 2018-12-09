@@ -82,6 +82,7 @@ oauth2_token_validate_response(const struct http_response *response,
 		req->parser = json_parser_init(req->is);
 		req->json_parsed_cb = oauth2_token_validate_continue;
 		req->io = io_add_istream(req->is, oauth2_parse_json, req);
+		req->field_name = NULL;
 		oauth2_parse_json(req);
 	}
 }
