@@ -26,7 +26,7 @@ oauth2_parse_json(struct oauth2_request *req)
 		} else if (type < JSON_TYPE_STRING) {
 			/* this should be last allocation */
 			p_free(req->pool, req->field_name);
-			json_parse_skip_next(req->parser);
+			json_parse_skip(req->parser);
 		} else {
 			if (!array_is_created(&req->fields))
 				p_array_init(&req->fields, req->pool, 4);
