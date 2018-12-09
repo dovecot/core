@@ -672,6 +672,24 @@ void json_parse_skip_next(struct json_parser *parser)
 		parser->state = JSON_STATE_ARRAY_NEXT_SKIP;
 }
 
+void json_parse_skip(struct json_parser *parser)
+{
+	i_assert(!parser->skipping);
+	i_assert(parser->strinput == NULL);
+	i_assert(parser->state == JSON_STATE_OBJECT_NEXT ||
+		 parser->state == JSON_STATE_OBJECT_OPEN ||
+		 parser->state == JSON_STATE_ARRAY_NEXT ||
+		 parser->state == JSON_STATE_ARRAY_OPEN);
+
+	if (parser->state == JSON_STATE_OBJECT_OPEN ||
+	    parser->state == JSON_STATE_ARRAY_OPEN)
+		parser->nested_skip_count++;
+
+	parser->skipping = TRUE;
+	if (parser->state == JSON_STATE_ARRAY_NEXT)
+		parser->state = JSON_STATE_ARRAY_NEXT_SKIP;
+}
+
 static void json_strinput_destroyed(struct json_parser *parser)
 {
 	i_assert(parser->strinput != NULL);

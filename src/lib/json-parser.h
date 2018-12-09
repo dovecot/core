@@ -42,6 +42,8 @@ int json_parse_next(struct json_parser *parser, enum json_type *type_r,
 /* Skip the next object value. If it's an object, its members are also
    skipped. */
 void json_parse_skip_next(struct json_parser *parser);
+/* Skip the remainder of the value parsed earlier by json_parse_next(). */
+void json_parse_skip(struct json_parser *parser);
 /* Return the following string as input stream. Returns 1 if ok, 0 if
    input stream is non-blocking and needs more input, -1 if the next token
    isn't a string (call json_parse_next()). */
