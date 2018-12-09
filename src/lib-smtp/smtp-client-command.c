@@ -641,51 +641,49 @@ static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 	struct smtp_client_command *cmd;
 	int ret;
 
-	for (;;) {
-		if (conn->cmd_streaming != NULL) {
-			cmd = conn->cmd_streaming;
-			i_assert(cmd->stream != NULL);
-		} else {
-			/* check whether we can send anything */
-			cmd = conn->cmd_send_queue_head;
-			if (cmd == NULL)
-				return 0;
-			if (!smtp_client_command_pipeline_is_open(conn))
-				return 0;
-
-			cmd->state = SMTP_CLIENT_COMMAND_STATE_SENDING;
-			conn->sending_command = TRUE;
-
-			if ((ret=smtp_client_command_send_line(cmd)) <= 0)
-				return ret;
-
-			/* command line sent. move command to wait list. */
-			smtp_cient_command_wait(cmd);
-			cmd->state = SMTP_CLIENT_COMMAND_STATE_WAITING;
-		}
-
-		if (cmd->stream != NULL &&
-			(ret=smtp_client_command_send_stream(cmd)) <= 0) {
-			if (ret < 0)
-				return -1;
-			smtp_client_command_debug(cmd,
-				"Blocked while sending payload");
-			conn->cmd_streaming = cmd;
+	if (conn->cmd_streaming != NULL) {
+		cmd = conn->cmd_streaming;
+		i_assert(cmd->stream != NULL);
+	} else {
+		/* check whether we can send anything */
+		cmd = conn->cmd_send_queue_head;
+		if (cmd == NULL)
 			return 0;
-		}
+		if (!smtp_client_command_pipeline_is_open(conn))
+			return 0;
 
-		conn->cmd_streaming = NULL;
-		conn->sending_command = FALSE;
-		smtp_client_command_sent(cmd);
+		cmd->state = SMTP_CLIENT_COMMAND_STATE_SENDING;
+		conn->sending_command = TRUE;
+
+		if ((ret=smtp_client_command_send_line(cmd)) <= 0)
+			return ret;
+
+		/* command line sent. move command to wait list. */
+		smtp_cient_command_wait(cmd);
+		cmd->state = SMTP_CLIENT_COMMAND_STATE_WAITING;
 	}
-	return 0;
+
+	if (cmd->stream != NULL &&
+	    (ret=smtp_client_command_send_stream(cmd)) <= 0) {
+		if (ret < 0)
+			return -1;
+		smtp_client_command_debug(cmd, "Blocked while sending payload");
+		conn->cmd_streaming = cmd;
+		return 0;
+	}
+
+	conn->cmd_streaming = NULL;
+	conn->sending_command = FALSE;
+	smtp_client_command_sent(cmd);
+	return 1;
 }
 
 int smtp_client_command_send_more(struct smtp_client_connection *conn)
 {
 	int ret;
 
-	if ((ret=smtp_client_command_do_send_more(conn)) < 0)
+	while ((ret=smtp_client_command_do_send_more(conn)) > 0);
+	if (ret < 0)
 		return -1;
 
 	smtp_client_connection_update_cmd_timeout(conn);
