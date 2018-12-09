@@ -195,6 +195,113 @@ static void test_json_parser_skip_array(void)
 	test_end();
 }
 
+static void test_json_parser_skip_object_fields(void)
+{
+	static const char *test_input =
+		"{\"access_token\":\"9a2dea3c-f8be-4271-b9c8-5b37da4f2f7e\","
+		 "\"grant_type\":\"authorization_code\","
+		 "\"openid\":\"\","
+		 "\"scope\":[\"openid\",\"profile\",\"email\"],"
+		 "\"profile\":\"\","
+		 "\"realm\":\"/employees\","
+		 "\"token_type\":\"Bearer\","
+		 "\"expires_in\":2377,"
+		 "\"client_id\":\"mosaic\","
+		 "\"email\":\"\","
+		 "\"extensions\":"
+		 "{\"algorithm\":\"cuttlefish\","
+		  "\"tentacles\":8"
+		 "}"
+		"}";
+	static const char *const keys[] = {
+		"access_token", "grant_type", "openid", "scope", "profile",
+		"realm", "token_type", "expires_in", "client_id", "email",
+		"extensions"
+	};
+	static const unsigned int keys_count = N_ELEMENTS(keys);
+	struct json_parser *parser;
+	struct istream *input;
+	enum json_type type;
+	const char *value, *error;
+	unsigned int i;
+	size_t pos;
+	int ret;
+
+	test_begin("json parser skip object fields (by key)");
+	input = test_istream_create_data(test_input, strlen(test_input));
+	parser = json_parser_init(input);
+	for (i = 0; i < keys_count; i++) {
+		ret = json_parse_next(parser, &type, &value);
+		if (ret < 0)
+			break;
+		test_assert(ret > 0 && type == JSON_TYPE_OBJECT_KEY);
+		test_assert(strcmp(value, keys[i]) == 0);
+		json_parse_skip_next(parser);
+	}
+	test_assert(json_parser_deinit(&parser, &error) == 0);
+	i_stream_unref(&input);
+
+	i = 0;
+	input = test_istream_create_data(test_input, strlen(test_input));
+	parser = json_parser_init(input);
+	for (pos = 0; pos <= strlen(test_input); pos +=2) {
+		test_istream_set_size(input, pos);
+		ret = json_parse_next(parser, &type, &value);
+		if (ret == 0)
+			continue;
+		if (ret < 0)
+			break;
+		i_assert(i < keys_count);
+		test_assert(ret > 0 && type == JSON_TYPE_OBJECT_KEY);
+		test_assert(strcmp(value, keys[i]) == 0);
+		json_parse_skip_next(parser);
+		i++;
+	}
+	test_assert(json_parser_deinit(&parser, &error) == 0);
+	i_stream_unref(&input);
+	test_end();
+
+	test_begin("json parser skip object fields (by value type)");
+	input = test_istream_create_data(test_input, strlen(test_input));
+	parser = json_parser_init(input);
+	for (i = 0; i < keys_count; i++) {
+		ret = json_parse_next(parser, &type, &value);
+		if (ret < 0)
+			break;
+		test_assert(ret > 0 && type == JSON_TYPE_OBJECT_KEY);
+		test_assert(strcmp(value, keys[i]) == 0);
+		ret = json_parse_next(parser, &type, &value);
+		test_assert(ret > 0 && type != JSON_TYPE_OBJECT_KEY);
+		json_parse_skip(parser);
+	}
+	test_assert(json_parser_deinit(&parser, &error) == 0);
+	i_stream_unref(&input);
+
+	i = 0;
+	input = test_istream_create_data(test_input, strlen(test_input));
+	parser = json_parser_init(input);
+	for (pos = 0; pos <= strlen(test_input); pos +=2) {
+		test_istream_set_size(input, pos);
+		ret = json_parse_next(parser, &type, &value);
+		if (ret < 0)
+			break;
+		if (ret == 0)
+			continue;
+		test_assert(ret > 0);
+		if (type == JSON_TYPE_OBJECT_KEY) {
+			i_assert(i < keys_count);
+			test_assert(strcmp(value, keys[i]) == 0);
+			i++;
+		} else {
+			json_parse_skip(parser);
+		}
+	}
+	test_assert(json_parser_deinit(&parser, &error) == 0);
+	i_stream_unref(&input);
+
+	test_end();
+}
+
 static int
 test_json_parse_input(const char *test_input, enum json_parser_flags flags)
 {
@@ -289,6 +396,7 @@ void test_json_parser(void)
 	test_json_parser_success(TRUE);
 	test_json_parser_success(FALSE);
 	test_json_parser_skip_array();
+	test_json_parser_skip_object_fields();
 	test_json_parser_primitive_values();
 	test_json_parser_errors();
 	test_json_append_escaped();
