@@ -604,6 +604,22 @@ smtp_client_command_pipeline_is_open(struct smtp_client_connection *conn)
 	return TRUE;
 }
 
+static void smtp_cient_command_wait(struct smtp_client_command *cmd)
+{
+	struct smtp_client_connection *conn = cmd->conn;
+
+	/* move command to wait list. */
+	i_assert(conn->cmd_send_queue_count > 0);
+	i_assert(conn->cmd_send_queue_count > 1 ||
+		(cmd->prev == NULL && cmd->next == NULL));
+	DLLIST2_REMOVE(&conn->cmd_send_queue_head,
+		       &conn->cmd_send_queue_tail, cmd);
+	conn->cmd_send_queue_count--;
+	DLLIST2_APPEND(&conn->cmd_wait_list_head,
+		       &conn->cmd_wait_list_tail, cmd);
+	conn->cmd_wait_list_count++;
+}
+
 static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 {
 	struct smtp_client_command *cmd;
@@ -633,19 +649,10 @@ static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 		}
 
 		/* everything sent. move command to wait list. */
-		i_assert(conn->cmd_send_queue_count > 0);
-		i_assert(conn->cmd_send_queue_count > 1 ||
-			(cmd->prev == NULL && cmd->next == NULL));
-		DLLIST2_REMOVE(&conn->cmd_send_queue_head,
-			&conn->cmd_send_queue_tail, cmd);
-		conn->cmd_send_queue_count--;
-		DLLIST2_APPEND(&conn->cmd_wait_list_head,
-			&conn->cmd_wait_list_tail, cmd);
+		smtp_cient_command_wait(cmd);
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_WAITING;
-		conn->cmd_wait_list_count++;
 
 		conn->sending_command = FALSE;
-		
 		smtp_client_command_sent(cmd);
 	}
 	return 0;
