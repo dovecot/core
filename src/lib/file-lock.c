@@ -524,6 +524,10 @@ void file_lock_wait_end(const char *lock_name)
 	if (gettimeofday(&now, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
 	long long diff = timeval_diff_usecs(&now, &lock_wait_start);
+	if (diff < 0) {
+		/* time moved backwards */
+		diff = 0;
+	}
 	if (diff > file_lock_slow_warning_usecs) {
 		if (file_lock_slow_warning_usecs < 0)
 			file_lock_wait_init_warning();
