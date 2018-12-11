@@ -602,8 +602,14 @@ static void io_loops_timeouts_update(long diff_secs)
 static void ioloop_add_wait_time(struct ioloop *ioloop)
 {
 	struct io_wait_timer *timer;
-	long long diff =
-		timeval_diff_usecs(&ioloop_timeval, &ioloop->wait_started);
+	long long diff;
+
+	diff = timeval_diff_usecs(&ioloop_timeval, &ioloop->wait_started);
+	if (diff < 0) {
+		/* time moved backwards */
+		diff = 0;
+	}
+
 	ioloop->ioloop_wait_usecs += diff;
 	ioloop_global_wait_usecs += diff;
 
