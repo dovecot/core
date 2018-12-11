@@ -44,6 +44,7 @@ static void event_copy_parent_defaults(struct event *event,
 {
 	event->always_log_source = parent->always_log_source;
 	event->passthrough = parent->passthrough;
+	event->min_log_level = parent->min_log_level;
 	event->forced_debug = parent->forced_debug;
 }
 
@@ -130,6 +131,7 @@ struct event *event_create(struct event *parent, const char *source_filename,
 	event->id = ++event_id_counter;
 	event->pool = pool;
 	event->tv_created_ioloop = ioloop_timeval;
+	event->min_log_level = LOG_TYPE_INFO;
 	if (gettimeofday(&event->tv_created, NULL) < 0)
 		i_panic("gettimeofday() failed: %m");
 	event->source_filename = p_strdup(pool, source_filename);
@@ -347,6 +349,17 @@ struct event *event_set_always_log_source(struct event *event)
 {
 	event->always_log_source = TRUE;
 	return event;
+}
+
+struct event *event_set_min_log_level(struct event *event, enum log_type level)
+{
+	event->min_log_level = level;
+	return event;
+}
+
+enum log_type event_get_min_log_level(const struct event *event)
+{
+	return event->min_log_level;
 }
 
 struct event_category *event_category_find_registered(const char *name)

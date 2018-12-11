@@ -185,6 +185,9 @@ event_set_source(struct event *event, const char *filename,
    it allow quickly finding which of the otherwise identical syscalls in the
    code generated the error. */
 struct event *event_set_always_log_source(struct event *event);
+/* Set minimum log level for the event */
+struct event *event_set_min_log_level(struct event *event, enum log_type level);
+enum log_type event_get_min_log_level(const struct event *event);
 
 /* Add NULL-terminated list of categories to the event. The categories pointer
    doesn't need to stay valid afterwards, but the event_category structs
