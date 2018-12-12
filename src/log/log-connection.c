@@ -138,7 +138,7 @@ client_log_ctx(struct log_connection *log,
 		i_zero(&err);
 		err.type = ctx->type;
 		err.timestamp = log_time->tv_sec;
-		err.prefix = prefix;
+		err.prefix = ctx->log_prefix != NULL ? ctx->log_prefix : prefix;
 		err.text = text;
 		log_error_buffer_add(log->errorbuf, &err);
 		break;
