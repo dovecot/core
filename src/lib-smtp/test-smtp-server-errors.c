@@ -8,6 +8,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "time-util.h"
+#include "sleep.h"
 #include "connection.h"
 #include "test-common.h"
 #include "smtp-address.h"
@@ -2301,7 +2302,8 @@ static void test_run_client_server(
 				if (debug)
 					i_debug("PID=%s", my_pid);
 				/* child: client */
-				usleep(100000); /* wait a little for server setup */
+				/* wait a little for server setup */
+				i_sleep_msecs(100);
 				i_close_fd(&fd_listen);
 				ioloop = io_loop_create();
 				client_test(i);

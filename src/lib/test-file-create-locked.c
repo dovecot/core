@@ -3,6 +3,7 @@
 #include "test-lib.h"
 #include "unlink-directory.h"
 #include "file-create-locked.h"
+#include "sleep.h"
 
 #include <fcntl.h>
 #include <signal.h>
@@ -32,7 +33,7 @@ static bool wait_for_file(pid_t pid, const char *path)
 				return FALSE;
 			i_fatal("kill(SIGSRCH) failed: %m");
 		}
-		usleep(10000);
+		i_sleep_msecs(10);
 	}
 	i_error("%s isn't being created", path);
 	return FALSE;

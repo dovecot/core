@@ -9,6 +9,7 @@
 #include "istream-chain.h"
 #include "ostream.h"
 #include "time-util.h"
+#include "sleep.h"
 #include "unlink-directory.h"
 #include "write-full.h"
 #include "connection.h"
@@ -2115,7 +2116,7 @@ static void test_run_client_server(
 
 	/* parent: client */
 
-	usleep(100000); /* wait a little for server setup */
+	i_sleep_msecs(100); /* wait a little for server setup */
 	server_port = 0;
 
 	ioloop = io_loop_create();

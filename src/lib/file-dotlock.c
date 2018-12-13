@@ -11,6 +11,7 @@
 #include "safe-mkstemp.h"
 #include "nfs-workarounds.h"
 #include "file-dotlock.h"
+#include "sleep.h"
 
 #include <stdio.h>
 #include <signal.h>
@@ -198,7 +199,7 @@ static int dotlock_override(struct lock_info *lock_info)
 	   otherwise another process might try to override it at the same time
 	   and unlink our newly created dotlock. */
 	if (lock_info->use_io_notify)
-		usleep(LOCK_RANDOM_USLEEP_TIME);
+		i_sleep_usecs(LOCK_RANDOM_USLEEP_TIME);
 	return 0;
 }
 
@@ -433,7 +434,7 @@ static void dotlock_wait(struct lock_info *lock_info)
 	struct timeout *to;
 
 	if (!lock_info->use_io_notify) {
-		usleep(lock_info->wait_usecs);
+		i_sleep_usecs(lock_info->wait_usecs);
 		return;
 	}
 
@@ -450,7 +451,7 @@ static void dotlock_wait(struct lock_info *lock_info)
 		/* listening for files not supported */
 		io_loop_destroy(&ioloop);
 		lock_info->use_io_notify = FALSE;
-		usleep(LOCK_RANDOM_USLEEP_TIME);
+		i_sleep_usecs(LOCK_RANDOM_USLEEP_TIME);
 		return;
 	}
 	/* timeout after a random time even when using notify, since it

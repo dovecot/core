@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "sleep.h"
 #include "ioloop-private.h"
 #include "ioloop-iolist.h"
 
@@ -186,7 +187,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 		/* no I/Os, but we should have some timeouts.
 		   just wait for them. */
 		i_assert(msecs >= 0);
-		usleep(msecs*1000);
+		i_sleep_intr_msecs(msecs);
 		ret = 0;
 	}
 

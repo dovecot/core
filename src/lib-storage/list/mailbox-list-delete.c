@@ -5,6 +5,7 @@
 #include "hex-binary.h"
 #include "hostpid.h"
 #include "randgen.h"
+#include "sleep.h"
 #include "unlink-directory.h"
 #include "mailbox-list-private.h"
 #include "mailbox-list-delete.h"
@@ -232,7 +233,7 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 			   lying around. In case it's .nfs* files, retry after
 			   waiting a bit. Hopefully all processes keeping those
 			   files open will have closed them by then. */
-			usleep(100000);
+			i_sleep_msecs(100);
 			ret = rmdir(path);
 		}
 		if (rmdir(path) == 0)
