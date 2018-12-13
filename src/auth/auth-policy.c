@@ -224,7 +224,7 @@ void auth_policy_init(void)
 	auth_policy_json_template = i_strdup(str_c(template));
 
 	if (global_auth_settings->policy_log_only)
-		i_warning("auth-policy: Currently in log-only mode. Ignoring"
+		i_warning("auth-policy: Currently in log-only mode. Ignoring "
 			  "tarpit and disconnect instructions from policy server");
 }
 
