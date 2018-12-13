@@ -15,6 +15,28 @@ long long timeval_diff_usecs(const struct timeval *tv1,
 			     const struct timeval *tv2);
 
 static inline void
+timeval_add_usecs(struct timeval *tv, long long usecs)
+{
+	tv->tv_sec += usecs / 1000000;
+	tv->tv_usec += (usecs % 1000000);
+	if (tv->tv_usec >= 1000000) {
+		tv->tv_sec++;
+		tv->tv_usec -= 1000000;
+	}
+}
+
+static inline void
+timeval_sub_usecs(struct timeval *tv, long long usecs)
+{
+	tv->tv_sec -= usecs / 1000000;
+	tv->tv_usec -= (usecs % 1000000);
+	if (tv->tv_usec < 0) {
+		tv->tv_sec--;
+		tv->tv_usec += 1000000;
+	}
+}
+
+static inline void
 timeval_add_msecs(struct timeval *tv, unsigned int msecs)
 {
 	tv->tv_sec += msecs / 1000;
