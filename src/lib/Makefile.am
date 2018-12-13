@@ -145,6 +145,7 @@ liblib_la_SOURCES = \
 	sha1.c \
 	sha2.c \
 	sha3.c \
+	sleep.c \
 	sort.c \
 	stats-dist.c \
 	str.c \
@@ -299,6 +300,7 @@ headers = \
 	sha1.h \
 	sha2.h \
 	sha3.h \
+	sleep.h \
 	sort.h \
 	stats-dist.h \
 	str.h \
