@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "ioloop.h"
 #include "unlink-directory.h"
+#include "sleep.h"
 #include "test-common.h"
 #include "imapc-client-private.h"
 
@@ -152,7 +153,7 @@ static void test_run_client_server(
 	}
 	/* parent: client */
 
-	usleep(100000); /* wait a little for server setup */
+	i_sleep_msecs(100); /* wait a little for server setup */
 
 	ioloop = io_loop_create();
 	imapc_client = imapc_client_init(&client_set_copy);

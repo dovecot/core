@@ -41,6 +41,7 @@
 #include "str.h"
 #include "read-full.h"
 #include "write-full.h"
+#include "sleep.h"
 #include "message-date.h"
 #include "istream-raw-mbox.h"
 #include "mbox-storage.h"
@@ -1490,7 +1491,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 		   performance problem and the consequences of being wrong are
 		   quite minimal (an extra logged error message). */
 		while (sync_ctx->orig_mtime == st->st_mtime) {
-			usleep(500000);
+			i_sleep_msecs(500);
 			if (utime(mailbox_get_path(&sync_ctx->mbox->box), NULL) < 0) {
 				mbox_set_syscall_error(sync_ctx->mbox,
 						       "utime()");

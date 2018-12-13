@@ -5,6 +5,7 @@
 #include "time-util.h"
 #include "lib-event-private.h"
 #include "str.h"
+#include "sleep.h"
 #include "ioloop.h"
 #include "connection.h"
 #include "ostream.h"
@@ -199,7 +200,7 @@ static void wait_for_signal(const char *signal_file)
 		i_fatal("gettimeofday() failed %m");
 	}
 	while (access(signal_file, F_OK) < 0) {
-		usleep(10000);
+		i_sleep_msecs(10);
 		if (gettimeofday(&now, NULL) < 0) {
 			kill_stats_child();
 			i_fatal("gettimeofday() failed %m");

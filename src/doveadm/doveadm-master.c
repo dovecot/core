@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "write-full.h"
 #include "master-service.h"
+#include "sleep.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 
@@ -68,14 +69,14 @@ void doveadm_master_send_signal(int signo)
 
 	if (signo == SIGTERM) {
 		/* wait for a while for the process to die */
-		usleep(1000);
+		i_sleep_msecs(1);
 		for (i = 0; i < 30; i++) {
 			if (kill(pid, 0) < 0) {
 				if (errno != ESRCH)
 					i_error("kill() failed: %m");
 				break;
 			}
-			usleep(100000);
+			i_sleep_msecs(100);
 		}
 	}
 }

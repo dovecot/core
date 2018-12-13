@@ -11,6 +11,7 @@
 #include "istream-failure-at.h"
 #include "ostream.h"
 #include "time-util.h"
+#include "sleep.h"
 #include "connection.h"
 #include "test-common.h"
 #include "smtp-client.h"
@@ -3877,7 +3878,7 @@ static void test_run_client_server(
 
 	/* parent: client */
 
-	usleep(100000); /* wait a little for server setup */
+	i_sleep_msecs(100); /* wait a little for server setup */
 
 	lib_signals_ignore(SIGPIPE, TRUE);
 	ioloop = io_loop_create();

@@ -9,6 +9,7 @@
 #ifdef IOLOOP_KQUEUE
 
 #include "array.h"
+#include "sleep.h"
 #include "ioloop-private.h"
 
 #include <unistd.h>
@@ -135,7 +136,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 		}
 	} else {
 		i_assert(msecs >= 0);
-		usleep(msecs * 1000);
+		i_sleep_intr_msecs(msecs);
 		ret = 0;
 	}
 

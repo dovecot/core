@@ -7,6 +7,7 @@
 #include "str.h"
 #include "safe-mkstemp.h"
 #include "time-util.h"
+#include "sleep.h"
 #include "master-client.h"
 #include "service.h"
 #include "service-process.h"
@@ -587,7 +588,7 @@ static void services_monitor_wait(struct service_list *service_list)
 		if (finished ||
 		    timeval_diff_msecs(&ioloop_timeval, &tv_start) > MAX_DIE_WAIT_MSECS)
 			break;
-		usleep(100000);
+		i_sleep_msecs(100);
 	}
 }
 
@@ -637,7 +638,7 @@ static void services_monitor_wait_and_kill(struct service_list *service_list)
 	if (service_list_processes_close_listeners(service_list)) {
 		/* SIGQUITs were sent. wait a little bit to make sure they're
 		   also processed before quitting. */
-		usleep(1000000);
+		i_sleep_msecs(1000);
 	}
 }
 
