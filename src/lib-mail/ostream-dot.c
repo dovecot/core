@@ -167,6 +167,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 					iovn.iov_len = chunk;
 					array_push_back(&iov_arr, &iovn);
 					data = p;
+					i_assert(max_bytes >= chunk);
 					max_bytes -= chunk;
 					sent += chunk;
 				}
@@ -175,6 +176,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 				iovn.iov_base = (add == '\r' ? "\r\n" : "..");
 				iovn.iov_len = 2;
 				array_push_back(&iov_arr, &iovn);
+				i_assert(max_bytes >= 2);
 				max_bytes -= 2;
 				added++;
 				sent++;
@@ -189,6 +191,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 			iovn.iov_base = data;
 			iovn.iov_len = chunk;
 			array_push_back(&iov_arr, &iovn);
+			i_assert(max_bytes >= chunk);
 			max_bytes -= chunk;
 			sent += chunk;
 		}
