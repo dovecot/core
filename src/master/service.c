@@ -210,7 +210,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	service = p_new(pool, struct service, 1);
 	service->list = service_list;
 	service->set = set;
-	service->throttle_secs = SERVICE_STARTUP_FAILURE_THROTTLE_MIN_SECS;
+	service->throttle_msecs = SERVICE_STARTUP_FAILURE_THROTTLE_MIN_MSECS;
 
 	service->client_limit = set->client_limit != 0 ? set->client_limit :
 		set->master_set->default_client_limit;
@@ -712,7 +712,7 @@ static void service_drop_listener_connections(struct service *service)
 	}
 }
 
-void service_throttle(struct service *service, unsigned int secs)
+void service_throttle(struct service *service, unsigned int msecs)
 {
 	if (service->to_throttle != NULL || service->list->destroyed)
 		return;
@@ -721,12 +721,12 @@ void service_throttle(struct service *service, unsigned int secs)
 		service_drop_listener_connections(service);
 
 	service_monitor_listen_stop(service);
-	service->to_throttle = timeout_add(secs * 1000,
-					   service_throttle_timeout, service);
+	service->to_throttle = timeout_add(msecs, service_throttle_timeout,
+					   service);
 }
 
 void services_throttle_time_sensitives(struct service_list *list,
-				       unsigned int secs)
+				       unsigned int msecs)
 {
 	struct service *const *services;
 
@@ -734,7 +734,7 @@ void services_throttle_time_sensitives(struct service_list *list,
 		struct service *service = *services;
 
 		if (service->type == SERVICE_TYPE_UNKNOWN)
-			service_throttle(service, secs);
+			service_throttle(service, msecs);
 	}
 }
 

@@ -8,8 +8,8 @@
    this many seconds, kill the process */
 #define SERVICE_FIRST_STATUS_TIMEOUT_SECS 30
 
-#define SERVICE_STARTUP_FAILURE_THROTTLE_MIN_SECS 2
-#define SERVICE_STARTUP_FAILURE_THROTTLE_MAX_SECS 60
+#define SERVICE_STARTUP_FAILURE_THROTTLE_MIN_MSECS (2*1000)
+#define SERVICE_STARTUP_FAILURE_THROTTLE_MAX_MSECS (60*1000)
 
 enum service_listener_type {
 	SERVICE_LISTENER_UNIX,
@@ -89,7 +89,7 @@ struct service {
 
 	int master_dead_pipe_fd[2];
 
-	unsigned int throttle_secs;
+	unsigned int throttle_msecs;
 	time_t exit_failure_last;
 	unsigned int exit_failures_in_sec;
 
@@ -186,10 +186,10 @@ unsigned int service_signal(struct service *service, int signo,
 void service_login_notify(struct service *service, bool all_processes_full);
 
 /* Prevent service from launching new processes for a while. */
-void service_throttle(struct service *service, unsigned int secs);
+void service_throttle(struct service *service, unsigned int msecs);
 /* Time moved backwards. Throttle services that care about time. */
 void services_throttle_time_sensitives(struct service_list *list,
-				       unsigned int secs);
+				       unsigned int msecs);
 
 /* Find service by name. */
 struct service *
