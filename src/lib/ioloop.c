@@ -550,11 +550,14 @@ static int timeout_cmp(const void *p1, const void *p2)
 	return timeval_cmp(&to1->next_run, &to2->next_run);
 }
 
-static void io_loop_default_time_moved(time_t old_time, time_t new_time)
+static void
+io_loop_default_time_moved(const struct timeval *old_time,
+			   const struct timeval *new_time)
 {
-	if (old_time > new_time) {
-		i_warning("Time moved backwards by %ld seconds.",
-			  (long)(old_time - new_time));
+	long long diff = timeval_diff_usecs(old_time, new_time);
+	if (diff > 0) {
+		i_warning("Time moved backwards by %lld.%06lld seconds.",
+			  diff / 1000000, diff % 1000000);
 	}
 }
 
@@ -634,10 +637,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 	if (unlikely(diff_usecs < 0)) {
 		/* time moved backwards */
 		io_loops_timeouts_update(diff_usecs);
-		if (unlikely(ioloop_time > ioloop_timeval.tv_sec)) {
-			ioloop->time_moved_callback(ioloop_time,
-						    ioloop_timeval.tv_sec);
-		}
+		ioloop->time_moved_callback(&tv_old, &ioloop_timeval);
 		i_assert(ioloop == current_ioloop);
 		/* the callback may have slept, so check the time again. */
 		if (gettimeofday(&ioloop_timeval, NULL) < 0)
@@ -648,12 +648,8 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		if (unlikely(diff_usecs < 0)) {
 			io_loops_timeouts_update(-diff_usecs);
 			/* time moved forwards */
-			if (unlikely(ioloop_timeval.tv_sec >
-				     ioloop->next_max_time.tv_sec)) {
-				ioloop->time_moved_callback(
-					ioloop->next_max_time.tv_sec,
-					ioloop_timeval.tv_sec);
-			}
+			ioloop->time_moved_callback(&ioloop->next_max_time,
+						    &ioloop_timeval);
 			i_assert(ioloop == current_ioloop);
 		}
 		ioloop_add_wait_time(ioloop);

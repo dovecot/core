@@ -32,7 +32,8 @@ enum io_notify_result {
 
 typedef void io_callback_t(void *context);
 typedef void timeout_callback_t(void *context);
-typedef void io_loop_time_moved_callback_t(time_t old_time, time_t new_time);
+typedef void io_loop_time_moved_callback_t(const struct timeval *old_time,
+					   const struct timeval *new_time);
 typedef void io_switch_callback_t(struct ioloop *prev_ioloop);
 
 /* Time when the I/O loop started calling handlers.

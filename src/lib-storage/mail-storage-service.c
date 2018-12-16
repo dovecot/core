@@ -900,9 +900,11 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 		i_set_failure_send_prefix(user->log_prefix);
 }
 
-static void mail_storage_service_time_moved(time_t old_time, time_t new_time)
+static void
+mail_storage_service_time_moved(const struct timeval *old_time,
+				const struct timeval *new_time)
 {
-	long diff = new_time - old_time;
+	long diff = new_time->tv_sec - old_time->tv_sec;
 
 	if (diff > 0) {
 		if (diff > MAX_NOWARN_FORWARD_SECS)
@@ -927,7 +929,7 @@ static void mail_storage_service_time_moved(time_t old_time, time_t new_time)
 			/* don't use sleep()'s return value, because
 			   it could get us to a long loop in case
 			   interrupts just keep coming */
-			diff = old_time - time(NULL) + 1;
+			diff = old_time->tv_sec - time(NULL) + 1;
 		}
 	}
 }
