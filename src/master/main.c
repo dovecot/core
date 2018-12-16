@@ -37,7 +37,7 @@
 #define MASTER_SERVICE_NAME "master"
 #define FATAL_FILENAME "master-fatal.lastlog"
 #define MASTER_PID_FILE_NAME "master.pid"
-#define SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS (60*3)
+#define SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_MSECS (60*3*1000)
 
 struct master_delayed_error {
 	enum log_type type;
@@ -592,22 +592,23 @@ static const char *get_full_config_path(struct service_list *list)
 
 static void
 master_time_moved(const struct timeval *old_time,
-		 const struct timeval *new_time)
+		  const struct timeval *new_time)
 {
-	time_t secs;
+	long long diff = timeval_diff_usecs(old_time, new_time);
+	unsigned int msecs;
 
-	if (new_time->tv_sec >= old_time->tv_sec)
+	if (diff < 0)
 		return;
+	msecs = (unsigned int)(diff/1000);
 
 	/* time moved backwards. disable launching new service processes
 	   until  */
-	secs = old_time->tv_sec - new_time->tv_sec + 1;
-	if (secs > SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS)
-		secs = SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS;
-	services_throttle_time_sensitives(services, secs * 1000);
-	i_warning("Time moved backwards by %"PRIdTIME_T" seconds, waiting for "
-		  "%"PRIdTIME_T" secs until new services are launched again.",
-		  old_time - new_time, secs);
+	if (msecs > SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_MSECS)
+		msecs = SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_MSECS;
+	services_throttle_time_sensitives(services, msecs);
+	i_warning("Time moved backwards by %lld.%06lld seconds, waiting for "
+		  "%u.%03u seconds until new services are launched again.",
+		  diff / 1000000, diff % 1000000, msecs / 1000, msecs % 1000);
 }
 
 static void daemonize(void)
