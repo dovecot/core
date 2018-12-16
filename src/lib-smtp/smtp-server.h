@@ -281,12 +281,19 @@ enum smtp_server_workarounds {
 };
 
 struct smtp_server_settings {
+	/* The protocol we are serving */
 	enum smtp_protocol protocol;
+	/* Standard capabilities supported by the server */
 	enum smtp_capability capabilities;
+	/* Enabled workarounds for client protocol deviations */
 	enum smtp_server_workarounds workarounds;
 
+	/* Our hostname as presented to the client */
 	const char *hostname;
+	/* The message sent in the SMTP server greeting */
 	const char *login_greeting;
+	/* The directory that - if it exists and is accessible - is used to
+	   write raw protocol logs for debugging */
 	const char *rawlog_dir;
 
 	/* SSL settings; if NULL, master_service_ssl_init() is used instead */
@@ -296,28 +303,28 @@ struct smtp_server_settings {
 	   before it is disconnected. */
 	unsigned int max_client_idle_time_msecs;
 
-	/* maximum number of commands in pipeline per connection (default = 1)
+	/* Maximum number of commands in pipeline per connection (default = 1)
 	 */
 	unsigned int max_pipelined_commands;
 
-	/* maximum number of sequential bad commands */
+	/* Maximum number of sequential bad commands */
 	unsigned int max_bad_commands;
 
-	/* maximum number of recipients in a transaction
+	/* Maximum number of recipients in a transaction
 	   (0 means unlimited, which is the default) */
 	unsigned int max_recipients;
 
-	/* command limits */
+	/* Command limits */
 	struct smtp_command_limits command_limits;
 
-	/* message size limit */
+	/* Message size limit */
 	uoff_t max_message_size;
 
-	/* accept these additional custom MAIL parameters */
+	/* Accept these additional custom MAIL parameters */
 	const char *const *mail_param_extensions;
-	/* accept these additional custom RCPT parameters */
+	/* Accept these additional custom RCPT parameters */
 	const char *const *rcpt_param_extensions;
-	/* accept these additional custom XCLIENT fields */
+	/* Accept these additional custom XCLIENT fields */
 	const char *const *xclient_extensions;
 
 	/* The kernel send/receive buffer sizes used for the connection sockets.
@@ -326,9 +333,14 @@ struct smtp_server_settings {
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
 
+	/* Enable logging debug messages */
 	bool debug:1;
+	/* Authentication is not required for this service */
 	bool auth_optional:1;
+	/* TLS security is required for this service */
 	bool tls_required:1;
+	/* The path provided to the RCPT command does not need to have the
+	   domain part. */
 	bool rcpt_domain_optional:1;
 };
 
