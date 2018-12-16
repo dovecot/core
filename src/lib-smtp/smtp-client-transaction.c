@@ -366,6 +366,28 @@ smtp_client_transaction_update_event(struct smtp_client_transaction *trans)
 	event_set_append_log_prefix(trans->event, "transaction: ");
 }
 
+static struct event_passthrough *
+smtp_client_transaction_result_event(struct smtp_client_transaction *trans,
+				     const struct smtp_reply *reply)
+{
+	struct event_passthrough *e;
+	unsigned int rcpts_aborted = trans->rcpts_aborted +
+				     trans->rcpts_queue_count;
+
+	e = event_create_passthrough(trans->event)->
+		set_name("smtp_client_transaction_finished")->
+		add_int("recipients", trans->rcpts_total)->
+		add_int("recipients_aborted", rcpts_aborted)->
+		add_int("recipients_denied", trans->rcpts_denied)->
+		add_int("recipients_failed", trans->rcpts_failed)->
+		add_int("recipients_succeeded", trans->rcpts_succeeded);
+
+	smtp_reply_add_to_event(reply, e);
+	if (trans->reset)
+		e->add_str("is_reset", "yes");
+	return e;
+}
+
 #undef smtp_client_transaction_create_empty
 struct smtp_client_transaction *
 smtp_client_transaction_create_empty(
@@ -416,7 +438,7 @@ smtp_client_transaction_create(struct smtp_client_connection *conn,
 
 static void
 smtp_client_transaction_finish(struct smtp_client_transaction *trans,
-			       const struct smtp_reply *final_reply ATTR_UNUSED)
+			       const struct smtp_reply *final_reply)
 {
 	struct smtp_client_connection *conn = trans->conn;
 
@@ -425,7 +447,9 @@ smtp_client_transaction_finish(struct smtp_client_transaction *trans,
 
 	timeout_remove(&trans->to_finish);
 
-	e_debug(trans->event, "Finished");
+	struct event_passthrough *e =
+		smtp_client_transaction_result_event(trans, final_reply);
+	e_debug(e->event(), "Finished");
 
 	io_loop_time_refresh();
 	trans->times.finished = ioloop_timeval;
@@ -490,7 +514,24 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 
 	/* abort if not finished */
 	if (trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED) {
-		e_debug(trans->event, "Aborted");
+		struct event_passthrough *e;
+
+		if (trans->failure != NULL) {
+			e = smtp_client_transaction_result_event(
+				trans, trans->failure);
+			e_debug(e->event(), "Failed");
+		} else {
+			struct smtp_reply failure;
+
+			smtp_reply_init(&failure,
+					SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+					"Aborted");
+			failure.enhanced_code = SMTP_REPLY_ENH_CODE(9, 0, 0);
+
+			e = smtp_client_transaction_result_event(
+				trans, &failure);
+			e_debug(e->event(), "Aborted");
+		}
 
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_ABORTED;
 		i_assert(trans->callback != NULL);
@@ -731,6 +772,7 @@ static void
 smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 				struct smtp_client_transaction *trans)
 {
+	struct smtp_client_connection *conn = trans->conn;
 	struct smtp_client_transaction_mail *mail = trans->mail_head;
 	bool success = smtp_reply_is_success(reply);
 
@@ -774,6 +816,16 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 		smtp_client_transaction_unref(&tmp_trans);
 		if (state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
 			return;
+	}
+
+	if (!trans->sender_accepted && trans->mail_head != NULL) {
+		/* Update transaction with next MAIL command candidate */
+		mail = trans->mail_head;
+		event_add_str(trans->event, "mail_from",
+			      smtp_address_encode(mail->mail_from));
+		smtp_params_mail_add_to_event(&mail->mail_params,
+					      conn->caps.standard,
+					      trans->event);
 	}
 
 	if (!success && !trans->sender_accepted) {
@@ -833,12 +885,21 @@ void smtp_client_transaction_start(
 
 	i_assert(trans->state == SMTP_CLIENT_TRANSACTION_STATE_NEW);
 
-	e_debug(trans->event, "Start");
+	i_assert(mail != NULL);
+	event_add_str(trans->event, "mail_from",
+		      smtp_address_encode(mail->mail_from));
+	smtp_params_mail_add_to_event(&mail->mail_params,
+				      conn->caps.standard,
+				      trans->event);
+
+	struct event_passthrough *e =
+		event_create_passthrough(trans->event)->
+		set_name("smtp_client_transaction_started");
+	e_debug(e->event(), "Start");
 
 	io_loop_time_refresh();
 	trans->times.started = ioloop_timeval;
 
-	i_assert(mail != NULL);
 	i_assert(mail->mail_callback == NULL);
 
 	mail->mail_callback = mail_callback;
