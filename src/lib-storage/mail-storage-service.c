@@ -10,6 +10,8 @@
 #include "eacces-error.h"
 #include "ipwd.h"
 #include "str.h"
+#include "time-util.h"
+#include "sleep.h"
 #include "var-expand.h"
 #include "dict.h"
 #include "settings-parser.h"
@@ -23,6 +25,7 @@
 #include "mail-storage-service.h"
 
 #include <sys/stat.h>
+#include <time.h>
 
 #ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
@@ -32,8 +35,8 @@
 #endif
 
 /* If time moves backwards more than this, kill ourself instead of sleeping. */
-#define MAX_TIME_BACKWARDS_SLEEP 5
-#define MAX_NOWARN_FORWARD_SECS 10
+#define MAX_TIME_BACKWARDS_SLEEP_MSECS  (5*1000)
+#define MAX_NOWARN_FORWARD_MSECS        (10*1000)
 
 #define ERRSTR_INVALID_USER_SETTINGS \
 	"Invalid user settings. Refer to server log for more information."
@@ -904,33 +907,29 @@ static void
 mail_storage_service_time_moved(const struct timeval *old_time,
 				const struct timeval *new_time)
 {
-	long diff = new_time->tv_sec - old_time->tv_sec;
+	long long diff = timeval_diff_usecs(new_time, old_time);
 
 	if (diff > 0) {
-		if (diff > MAX_NOWARN_FORWARD_SECS)
-			i_warning("Time jumped forwards %ld seconds", diff);
+		if ((diff / 1000) > MAX_NOWARN_FORWARD_MSECS)
+			i_warning("Time jumped forwards %lld.%06lld seconds",
+				  diff / 1000000, diff % 1000000);
 		return;
 	}
 	diff = -diff;
 
-	if (diff > MAX_TIME_BACKWARDS_SLEEP) {
-		i_fatal("Time just moved backwards by %ld seconds. "
+	if ((diff / 1000) > MAX_TIME_BACKWARDS_SLEEP_MSECS) {
+		i_fatal("Time just moved backwards by %lld.%06lld seconds. "
 			"This might cause a lot of problems, "
 			"so I'll just kill myself now. "
-			"http://wiki2.dovecot.org/TimeMovedBackwards", diff);
+			"http://wiki2.dovecot.org/TimeMovedBackwards",
+			diff / 1000000, diff % 1000000);
 	} else {
-		i_error("Time just moved backwards by %ld seconds. "
+		i_error("Time just moved backwards by %lld.%06lld seconds. "
 			"I'll sleep now until we're back in present. "
-			"http://wiki2.dovecot.org/TimeMovedBackwards", diff);
-		/* Sleep extra second to make sure usecs also grows. */
-		diff++;
+			"http://wiki2.dovecot.org/TimeMovedBackwards",
+			diff / 1000000, diff % 1000000);
 
-		while (diff > 0 && sleep(diff) != 0) {
-			/* don't use sleep()'s return value, because
-			   it could get us to a long loop in case
-			   interrupts just keep coming */
-			diff = old_time->tv_sec - time(NULL) + 1;
-		}
+		i_sleep_usecs(diff);
 	}
 }
 
