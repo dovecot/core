@@ -197,7 +197,6 @@ struct smtp_server {
 
 	struct smtp_server_settings set;
 
-	struct ioloop *ioloop;
 	struct ssl_iostream_context *ssl_ctx;
 
 	ARRAY(struct smtp_server_command_reg) commands_reg;
