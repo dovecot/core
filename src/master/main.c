@@ -10,6 +10,7 @@
 #include "path-util.h"
 #include "ipwd.h"
 #include "str.h"
+#include "time-util.h"
 #include "execv-const.h"
 #include "restrict-process-size.h"
 #include "master-instance.h"
@@ -603,7 +604,7 @@ master_time_moved(const struct timeval *old_time,
 	secs = old_time->tv_sec - new_time->tv_sec + 1;
 	if (secs > SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS)
 		secs = SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS;
-	services_throttle_time_sensitives(services, secs);
+	services_throttle_time_sensitives(services, secs * 1000);
 	i_warning("Time moved backwards by %"PRIdTIME_T" seconds, waiting for "
 		  "%"PRIdTIME_T" secs until new services are launched again.",
 		  old_time - new_time, secs);
