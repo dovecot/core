@@ -589,16 +589,18 @@ static const char *get_full_config_path(struct service_list *list)
 	return p_strdup(list->pool, abspath);
 }
 
-static void master_time_moved(time_t old_time, time_t new_time)
+static void
+master_time_moved(const struct timeval *old_time,
+		 const struct timeval *new_time)
 {
 	time_t secs;
 
-	if (new_time >= old_time)
+	if (new_time->tv_sec >= old_time->tv_sec)
 		return;
 
 	/* time moved backwards. disable launching new service processes
 	   until  */
-	secs = old_time - new_time + 1;
+	secs = old_time->tv_sec - new_time->tv_sec + 1;
 	if (secs > SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS)
 		secs = SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS;
 	services_throttle_time_sensitives(services, secs);
