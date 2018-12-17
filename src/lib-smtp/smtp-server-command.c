@@ -135,11 +135,7 @@ void smtp_server_command_debug(struct smtp_server_cmd_ctx *cmd,
 
 	if (set->debug) {
 		va_start(args, format);
-		i_debug("%s-server: conn %s: command %s: %s",
-			smtp_protocol_name(set->protocol),
-			smtp_server_connection_label(conn),
-			smtp_server_command_label(cmd->cmd),
-			t_strdup_vprintf(format, args));
+		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -147,6 +143,18 @@ void smtp_server_command_debug(struct smtp_server_cmd_ctx *cmd,
 /*
  *
  */
+
+static void
+smtp_server_command_update_event(struct smtp_server_command *cmd)
+{
+	struct event *event = cmd->context.event;
+	const char *label = (cmd->context.name == NULL ?
+			    "[INVALID]" : cmd->context.name);
+
+	event_add_str(event, "name", cmd->context.name);
+	event_set_append_log_prefix(event,
+				    t_strdup_printf("command %s: ", label));
+}
 
 static struct smtp_server_command *
 smtp_server_command_alloc(struct smtp_server_connection *conn)
@@ -158,6 +166,7 @@ smtp_server_command_alloc(struct smtp_server_connection *conn)
 	cmd = p_new(pool, struct smtp_server_command, 1);
 	cmd->context.pool = pool;
 	cmd->context.cmd = cmd;
+	cmd->context.event = event_create(conn->event);
 	cmd->refcount = 1;
 	cmd->context.conn = conn;
 	cmd->context.server = conn->server;
@@ -176,6 +185,7 @@ smtp_server_command_new_invalid(struct smtp_server_connection *conn)
 	struct smtp_server_command *cmd;
 
 	cmd = smtp_server_command_alloc(conn);
+	smtp_server_command_update_event(cmd);
 	return cmd;
 }
 
@@ -189,6 +199,7 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 
 	cmd = smtp_server_command_alloc(conn);
 	cmd->context.name = p_strdup(cmd->context.pool, name);
+	smtp_server_command_update_event(cmd);
 
 	if ((cmd_reg=smtp_server_command_find(server, name)) == NULL) {
 		/* RFC 5321, Section 4.2.4: Reply Code 502
@@ -287,6 +298,7 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 		i_unreached();
 
 	smtp_server_reply_free(cmd);
+	event_unref(&cmd->context.event);
 	pool_unref(&cmd->context.pool);
 	return FALSE;
 }

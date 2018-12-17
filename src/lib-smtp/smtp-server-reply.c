@@ -24,24 +24,7 @@ smtp_server_reply_debug(struct smtp_server_reply *reply,
 
 	if (set->debug) {
 		va_start(args, format);
-		if (command->replies_expected > 1) {
-			i_debug("%s-server: conn %s: "
-				"command %s; %u reply [%u/%u]: %s",
-				smtp_protocol_name(set->protocol),
-				smtp_server_connection_label(conn),
-				smtp_server_command_label(command),
-				reply->content->status,
-				reply->index+1, command->replies_expected,
-				t_strdup_vprintf(format, args));
-		} else {
-			i_debug("%s-server: conn %s: "
-				"command %s; %u reply: %s",
-				smtp_protocol_name(set->protocol),
-				smtp_server_connection_label(conn),
-				smtp_server_command_label(command),
-				reply->content->status,
-				t_strdup_vprintf(format, args));
-		}
+		e_debug(reply->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -55,7 +38,10 @@ static void smtp_server_reply_destroy(struct smtp_server_reply *reply)
 	if (reply->command == NULL)
 		return;
 
-	smtp_server_reply_debug(reply, "Destroy");
+	if (reply->event != NULL) {
+		smtp_server_reply_debug(reply, "Destroy");
+		event_unref(&reply->event);
+	}
 
 	if (reply->content == NULL)
 		return;
@@ -71,6 +57,26 @@ static void smtp_server_reply_clear(struct smtp_server_reply *reply)
 	}
 	reply->submitted = FALSE;
 	reply->forwarded = FALSE;
+}
+
+static void smtp_server_reply_update_event(struct smtp_server_reply *reply)
+{
+	struct smtp_server_command *command = reply->command;
+
+	event_add_int(reply->event, "index", reply->index);
+	event_add_int(reply->event, "status", reply->content->status);
+
+	if (command->replies_expected > 1) {
+		event_set_append_log_prefix(reply->event,
+			t_strdup_printf("%u reply [%u/%u]: ",
+					reply->content->status,
+					reply->index+1,
+					command->replies_expected));
+	} else {
+		event_set_append_log_prefix(reply->event,
+			t_strdup_printf("%u reply: ",
+					reply->content->status));
+	}
 }
 
 static struct smtp_server_reply *
@@ -89,6 +95,8 @@ smtp_server_reply_alloc(struct smtp_server_command *cmd, unsigned int index)
 		array_idx_clear(&cmd->replies, cmd->replies_expected - 1);
 		reply = array_idx_modifiable(&cmd->replies, index);
 	}
+	reply->event = event_create(cmd->context.event);
+
 	return reply;
 }
 
@@ -138,6 +146,9 @@ smtp_server_reply_create_index(struct smtp_server_command *cmd,
 			p_strdup_printf(pool, "%03u-%s ", status, enh_code);
 	}
 	reply->content->text = str_new(default_pool, 256);
+
+	smtp_server_reply_update_event(reply);
+
 	return reply;
 }
 
@@ -265,6 +276,7 @@ void smtp_server_reply_submit_duplicate(struct smtp_server_cmd_ctx *_cmd,
 	reply->index = index;
 	reply->command = cmd;
 	reply->content = from_reply->content;
+	smtp_server_reply_update_event(reply);
 
 	smtp_server_reply_submit(reply);
 }
