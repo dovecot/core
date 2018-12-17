@@ -32,20 +32,6 @@ const char *const smtp_server_state_names[] = {
 };
 
 /*
- * Logging
- */
-
-void smtp_server_connection_debug(struct smtp_server_connection *conn,
-				  const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
  * Connection
  */
 
@@ -205,7 +191,7 @@ smtp_server_connection_idle_timeout(struct smtp_server_connection *conn)
 void smtp_server_connection_timeout_stop(struct smtp_server_connection *conn)
 {
 	if (conn->to_idle != NULL) {
-		smtp_server_connection_debug(conn, "Timeout stop");
+		e_debug(conn->event, "Timeout stop");
 
 		timeout_remove(&conn->to_idle);
 	}
@@ -218,7 +204,7 @@ void smtp_server_connection_timeout_start(struct smtp_server_connection *conn)
 
 	if (conn->to_idle == NULL &&
 		conn->set.max_client_idle_time_msecs > 0) {
-		smtp_server_connection_debug(conn, "Timeout start");
+		e_debug(conn->event, "Timeout start");
 
 		conn->to_idle = timeout_add(
 			conn->set.max_client_idle_time_msecs,
@@ -359,7 +345,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 		return -1;
 	}
 
-	smtp_server_connection_debug(conn, "Starting SSL handshake");
+	e_debug(conn->event, "Starting SSL handshake");
 
 	if (conn->raw_input != conn->conn.input) {
 		/* recreate rawlog after STARTTLS */
@@ -436,8 +422,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 				pending_command = NULL;
 			}
 
-			smtp_server_connection_debug(conn,
-				"Received new command: %s %s",
+			e_debug(conn->event, "Received new command: %s %s",
 				cmd_name, cmd_params);
 
 			conn->stats.command_count++;
@@ -479,7 +464,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 				smtp_server_connection_close(&conn,
 					"Read failure");
 			} else {
-				smtp_server_connection_debug(conn,
+				e_debug(conn->event,
 					"Connection lost: Remote disconnected");
 
 				if (conn->command_queue_head == NULL) {
@@ -504,7 +489,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 		if (ret < 0) {
 			struct smtp_server_command *cmd;
 
-			smtp_server_connection_debug(conn,
+			e_debug(conn->event,
 				"Client sent invalid command: %s", error);
 
 			switch (error_code) {
@@ -626,8 +611,7 @@ void smtp_server_connection_handle_output_error(
 		smtp_server_connection_close(&conn,
 			"Write failure");
 	} else {
-		smtp_server_connection_debug(conn,
-			"Connection lost: Remote disconnected");
+		e_debug(conn->event, "Connection lost: Remote disconnected");
 		smtp_server_connection_close(&conn,
 			"Remote closed connection unexpectedly");
 	}
@@ -642,8 +626,7 @@ smtp_server_connection_next_reply(struct smtp_server_connection *conn)
 	cmd = conn->command_queue_head;
 	if (cmd == NULL) {
 		/* no commands pending */
-		smtp_server_connection_debug(conn,
-			"No more commands pending");
+		e_debug(conn->event, "No more commands pending");
 		return FALSE;
 	}
 
@@ -731,8 +714,7 @@ smtp_server_connection_output(struct smtp_server_connection *conn)
 {
 	int ret;
 
-	smtp_server_connection_debug(conn,
-		"Sending replies");
+	e_debug(conn->event, "Sending replies");
 
 	smtp_server_connection_ref(conn);
 	o_stream_cork(conn->conn.output);
@@ -752,8 +734,7 @@ void smtp_server_connection_trigger_output(
 	struct smtp_server_connection *conn)
 {
 	if (conn->conn.output != NULL) {
-		smtp_server_connection_debug(conn,
-			"Trigger output");
+		e_debug(conn->event, "Trigger output");
 		o_stream_set_flush_pending(conn->conn.output, TRUE);
 	}
 }
@@ -979,7 +960,7 @@ smtp_server_connection_create(struct smtp_server *server,
 	/* halt input until started */
 	smtp_server_connection_halt(conn);
 
-	smtp_server_connection_debug(conn, "Connection created");
+	e_debug(conn->event, "Connection created");
 
 	return conn;
 }
@@ -1017,7 +998,7 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 	/* halt input until started */
 	smtp_server_connection_halt(conn);
 
-	smtp_server_connection_debug(conn, "Connection created");
+	e_debug(conn->event, "Connection created");
 
 	return conn;
 }
@@ -1060,7 +1041,7 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 		reason = smtp_server_connection_get_disconnect_reason(conn);
 	else
 		reason = t_str_oneline(reason);
-	smtp_server_connection_debug(conn, "Disconnected: %s", reason);
+	e_debug(conn->event, "Disconnected: %s", reason);
 	conn->disconnect_reason = i_strdup(reason);
 
 	/* preserve statistics */
@@ -1116,7 +1097,7 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 
 	smtp_server_connection_disconnect(conn, NULL);
 
-	smtp_server_connection_debug(conn, "Connection destroy");
+	e_debug(conn->event, "Connection destroy");
 
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_destroy != NULL)
@@ -1144,7 +1125,7 @@ void smtp_server_connection_send_line(struct smtp_server_connection *conn,
 		str = t_str_new(256);
 		str_vprintfa(str, fmt, args);
 
-		smtp_server_connection_debug(conn, "Sent: %s", str_c(str));
+		e_debug(conn->event, "Sent: %s", str_c(str));
 
 		str_append(str, "\r\n");
 		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
@@ -1170,8 +1151,7 @@ void smtp_server_connection_reply_lines(struct smtp_server_connection *conn,
 	T_BEGIN {
 		string_t *str;
 
-		smtp_server_connection_debug(conn, "Sent: %s",
-					     smtp_reply_log(&reply));
+		e_debug(conn->event, "Sent: %s", smtp_reply_log(&reply));
 
 		str = t_str_new(256);
 		smtp_reply_write(str, &reply);
@@ -1193,7 +1173,7 @@ void smtp_server_connection_reply_immediate(
 		str_printfa(str, "%03u ", status);
 		str_vprintfa(str, fmt, args);
 
-		smtp_server_connection_debug(conn, "Sent: %s", str_c(str));
+		e_debug(conn->event, "Sent: %s", str_c(str));
 
 		str_append(str, "\r\n");
 		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
@@ -1343,7 +1323,7 @@ smtp_server_connection_get_security_string(struct smtp_server_connection *conn)
 
 void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 {
-	smtp_server_connection_debug(conn, "Connection state reset");
+	e_debug(conn->event, "Connection state reset");
 
 	if (conn->state.trans != NULL) {
 		if (conn->callbacks != NULL &&
@@ -1370,7 +1350,7 @@ void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 
 void smtp_server_connection_clear(struct smtp_server_connection *conn)
 {
-	smtp_server_connection_debug(conn, "Connection clear");
+	e_debug(conn->event, "Connection clear");
 
 	i_free(conn->helo_domain);
 	i_zero(&conn->helo);

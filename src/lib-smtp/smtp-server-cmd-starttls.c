@@ -16,7 +16,7 @@ static int cmd_starttls_start(struct smtp_server_connection *conn)
 {
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 
-	smtp_server_connection_debug(conn, "Starting TLS");
+	e_debug(conn->event, "Starting TLS");
 
 	if (callbacks != NULL && callbacks->conn_start_tls != NULL) {
 		struct smtp_server_connection *tmp_conn = conn;
