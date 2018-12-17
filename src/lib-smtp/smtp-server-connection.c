@@ -42,10 +42,7 @@ void smtp_server_connection_debug(struct smtp_server_connection *conn,
 
 	if (conn->set.debug) {
 		va_start(args, format);
-		i_debug("%s-server: conn %s: %s",
-			smtp_protocol_name(conn->set.protocol),
-			smtp_server_connection_label(conn),
-			t_strdup_vprintf(format, args));
+		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -56,10 +53,7 @@ void smtp_server_connection_error(struct smtp_server_connection *conn,
 	va_list args;
 
 	va_start(args, format);
-	i_error("%s-server: conn %s: %s",
-		smtp_protocol_name(conn->set.protocol),
-		smtp_server_connection_label(conn),
-		t_strdup_vprintf(format, args));
+	e_error(conn->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -804,6 +798,25 @@ smtp_server_connection_list_init(void)
 		&smtp_server_connection_vfuncs);
 }
 
+static struct event *
+smtp_server_connection_event_create(struct smtp_server *server,
+				    const struct smtp_server_settings *set)
+{
+	struct event *conn_event;
+
+	if (set != NULL && set->event != NULL)
+		conn_event = event_create(set->event);
+	else
+		conn_event = event_create(server->event);
+	event_set_append_log_prefix(
+		conn_event, t_strdup_printf(
+			"%s-server: ",
+			smtp_protocol_name(server->set.protocol)));
+	event_set_forced_debug(conn_event, (set != NULL && set->debug));
+
+	return conn_event;
+}
+
 static struct smtp_server_connection * ATTR_NULL(5, 6)
 smtp_server_connection_alloc(struct smtp_server *server,
 			     const struct smtp_server_settings *set,
@@ -962,11 +975,16 @@ smtp_server_connection_create(struct smtp_server *server,
 	const struct smtp_server_callbacks *callbacks, void *context)
 {
 	struct smtp_server_connection *conn;
+	struct event *conn_event;
 
 	conn = smtp_server_connection_alloc(server, set, fd_in, fd_out,
 					    callbacks, context);
+	conn_event = smtp_server_connection_event_create(server, set);
+	conn->conn.event_parent = conn_event;
 	connection_init_server_ip(server->conn_list, &conn->conn, NULL,
 				  fd_in, fd_out, remote_ip, remote_port);
+	conn->event = conn->conn.event;
+	event_unref(&conn_event);
 
 	conn->ssl_start = ssl_start;
 	if (ssl_start)
@@ -988,6 +1006,7 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 	const struct smtp_server_callbacks *callbacks, void *context)
 {
 	struct smtp_server_connection *conn;
+	struct event *conn_event;
 	int fd_in, fd_out;
 
 	fd_in = i_stream_get_fd(input);
@@ -1001,9 +1020,13 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 		conn->conn.remote_ip = *remote_ip;
 	if (remote_port != 0)
 		conn->conn.remote_port = remote_port;
-	connection_init_from_streams(server->conn_list, &conn->conn, NULL,
+	conn_event = smtp_server_connection_event_create(server, set);
+	conn->conn.event_parent = conn_event;
+	connection_init_from_streams(server->conn_list,	&conn->conn, NULL,
 				     input, output);
 	conn->created_from_streams = TRUE;
+	conn->event = conn->conn.event;
+	event_unref(&conn_event);
 
 	/* halt input until started */
 	smtp_server_connection_halt(conn);

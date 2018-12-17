@@ -10,6 +10,20 @@ static bool
 smtp_server_recipient_call_hooks(struct smtp_server_recipient **_rcpt,
 				 enum smtp_server_recipient_hook_type type);
 
+static void
+smtp_server_recipient_update_event(struct smtp_server_recipient_private *prcpt)
+{
+	struct smtp_server_connection *conn = prcpt->rcpt.conn;
+	struct event *event = prcpt->rcpt.event;
+	const char *path = smtp_address_encode(prcpt->rcpt.path);
+
+	event_add_str(event, "rcpt_to", path);
+	smtp_params_rcpt_add_to_event(&prcpt->rcpt.params,
+				      conn->set.capabilities, event);
+	event_set_append_log_prefix(event,
+				    t_strdup_printf("rcpt %s: ", path));
+}
+
 struct smtp_server_recipient *
 smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 			     const struct smtp_address *rcpt_to,
@@ -26,6 +40,9 @@ smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 	prcpt->rcpt.cmd = cmd;
 	prcpt->rcpt.path = smtp_address_clone(pool, rcpt_to);
 	smtp_params_rcpt_copy(pool, &prcpt->rcpt.params, params);
+
+	prcpt->rcpt.event = event_create(cmd->conn->event);
+	smtp_server_recipient_update_event(prcpt);
 
 	return &prcpt->rcpt;
 }
@@ -63,6 +80,7 @@ bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt)
 		&rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY))
 		i_unreached();
 
+	event_unref(&rcpt->event);
 	pool_unref(&rcpt->pool);
 	return FALSE;
 }

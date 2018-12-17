@@ -8,8 +8,24 @@
 #include "base64.h"
 #include "message-date.h"
 #include "smtp-address.h"
+#include "smtp-params.h"
 
 #include "smtp-server-private.h"
+
+static void
+smtp_server_transaction_update_event(struct smtp_server_transaction *trans)
+{
+	struct smtp_server_connection *conn = trans->conn;
+	struct event *event = trans->event;
+
+	event_add_str(event, "transaction_id", trans->id);
+	event_add_str(event, "mail_from",
+		      smtp_address_encode(trans->mail_from));
+	smtp_params_mail_add_to_event(&trans->params, conn->set.capabilities,
+				      event);
+	event_set_append_log_prefix(event,
+				    t_strdup_printf("trans %s: ", trans->id));
+}
 
 struct smtp_server_transaction *
 smtp_server_transaction_create(struct smtp_server_connection *conn,
@@ -42,6 +58,9 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	smtp_params_mail_copy(pool, &trans->params, params);
 	trans->timestamp = *timestamp;
 
+	trans->event = event_create(conn->event);
+	smtp_server_transaction_update_event(trans);
+
 	return trans;
 }
 
@@ -55,6 +74,7 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 			smtp_server_recipient_destroy(rcptp);
 	}
 
+	event_unref(&trans->event);
 	pool_unref(&trans->pool);
 	*_trans = NULL;
 }

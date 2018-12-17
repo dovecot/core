@@ -65,6 +65,7 @@ struct smtp_server_recipient {
 	pool_t pool;
 	struct smtp_server_connection *conn;
 	struct smtp_server_transaction *trans;
+	struct event *event;
 
 	struct smtp_address *path;
 	struct smtp_params_rcpt params;
@@ -110,6 +111,7 @@ enum smtp_server_transaction_flags {
 struct smtp_server_transaction {
 	pool_t pool;
 	struct smtp_server_connection *conn;
+	struct event *event;
 	const char *id;
 	struct timeval timestamp;
 
@@ -333,6 +335,9 @@ struct smtp_server_settings {
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
 
+	/* Event to use for the smtp server. */
+	struct event *event;
+
 	/* Enable logging debug messages */
 	bool debug:1;
 	/* Authentication is not required for this service */
@@ -486,6 +491,7 @@ typedef void smtp_server_cmd_func_t(struct smtp_server_cmd_ctx *cmd,
 
 struct smtp_server_cmd_ctx {
 	pool_t pool;
+	struct event *event;
 	const char *name;
 
 	struct smtp_server *server;

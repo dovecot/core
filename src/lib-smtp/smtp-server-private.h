@@ -73,6 +73,7 @@ struct smtp_server_reply_content {
 struct smtp_server_reply {
 	struct smtp_server_command *command;
 	unsigned int index;
+	struct event *event;
 
 	/* replies may share content */
 	struct smtp_server_reply_content *content;
@@ -91,7 +92,6 @@ struct smtp_server_command_reg {
 struct smtp_server_command {
 	struct smtp_server_cmd_ctx context;
 	const struct smtp_server_command_reg *reg;
-
 	int refcount;
 
 	enum smtp_server_command_state state;
@@ -141,6 +141,7 @@ struct smtp_server_connection {
 	struct smtp_server *server;
 	pool_t pool;
 	int refcount;
+	struct event *event;
 
 	struct smtp_server_settings set;
 
@@ -197,6 +198,7 @@ struct smtp_server {
 
 	struct smtp_server_settings set;
 
+	struct event *event;
 	struct ssl_iostream_context *ssl_ctx;
 
 	ARRAY(struct smtp_server_command_reg) commands_reg;
@@ -205,20 +207,6 @@ struct smtp_server {
 
 	bool commands_unsorted:1;
 };
-
-static inline const char *
-smtp_server_command_label(struct smtp_server_command *cmd)
-{
-	if (cmd->context.name == NULL)
-		return "[INVALID]";
-	return cmd->context.name;
-}
-
-static inline const char *
-smtp_server_connection_label(struct smtp_server_connection *conn)
-{
-	return conn->conn.label;
-}
 
 bool smtp_server_connection_pending_command_data(
 	struct smtp_server_connection *conn);
