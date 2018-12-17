@@ -130,14 +130,11 @@ void smtp_server_command_debug(struct smtp_server_cmd_ctx *cmd,
 			       const char *format, ...)
 {
 	struct smtp_server_connection *conn = cmd->conn;
-	const struct smtp_server_settings *set = &conn->set;
 	va_list args;
 
-	if (set->debug) {
-		va_start(args, format);
-		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*

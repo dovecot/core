@@ -17,16 +17,11 @@ static inline void ATTR_FORMAT(2, 3)
 smtp_server_reply_debug(struct smtp_server_reply *reply,
 			const char *format, ...)
 {
-	struct smtp_server_command *command = reply->command;
-	struct smtp_server_connection *conn = command->context.conn;
-	const struct smtp_server_settings *set = &conn->set;
 	va_list args;
 
-	if (set->debug) {
-		va_start(args, format);
-		e_debug(reply->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(reply->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 /*
@@ -443,7 +438,6 @@ static int smtp_server_reply_send_real(struct smtp_server_reply *reply)
 {
 	struct smtp_server_command *cmd = reply->command;
 	struct smtp_server_connection *conn = cmd->context.conn;
-	const struct smtp_server_settings *set = &conn->set;
 	struct ostream *output = conn->conn.output;
 	string_t *textbuf;
 	char *text;
@@ -466,10 +460,8 @@ static int smtp_server_reply_send_real(struct smtp_server_reply *reply)
 		return -1;
 	}
 
-	if (set->debug) {
-		smtp_server_reply_debug(reply, "Sent: %s",
-			smtp_server_reply_get_one_line(reply));
-	}
+	smtp_server_reply_debug(reply, "Sent: %s",
+				smtp_server_reply_get_one_line(reply));
 	return ret;
 }
 

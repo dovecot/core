@@ -40,11 +40,9 @@ void smtp_server_connection_debug(struct smtp_server_connection *conn,
 {
 	va_list args;
 
-	if (conn->set.debug) {
-		va_start(args, format);
-		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 void smtp_server_connection_error(struct smtp_server_connection *conn,
