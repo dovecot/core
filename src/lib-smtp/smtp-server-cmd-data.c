@@ -245,8 +245,7 @@ static void cmd_data_input_error(struct smtp_server_cmd_ctx *cmd)
 			i_stream_get_error(data_input));
 		smtp_server_connection_close(&conn, "Read failure");
 	} else {
-		smtp_server_connection_debug(conn,
-			"Connection lost during data transfer: "
+		e_debug(conn->event, "Connection lost during data transfer: "
 			"Remote disconnected");
 		smtp_server_connection_close(&conn,
 			"Remote closed connection unexpectedly");
@@ -271,19 +270,16 @@ static int cmd_data_do_handle_input(struct smtp_server_cmd_ctx *cmd)
 		if (!smtp_server_cmd_data_check_size(cmd)) {
 			return -1;
 		} else if (!i_stream_have_bytes_left(conn->state.data_input)) {
-			smtp_server_command_debug(cmd,
-				"End of data");
+			e_debug(cmd->event, "End of data");
 			smtp_server_command_input_lock(cmd);
 			smtp_server_connection_timeout_stop(conn);
 		} else if (!data_cmd->chunk_last &&
 			!i_stream_have_bytes_left(data_cmd->chunk_input)) {
-			smtp_server_command_debug(cmd,
-				"End of chunk");
+			e_debug(cmd->event, "End of chunk");
 			cmd_data_chunk_finish(cmd);
 		} else if (i_stream_get_data_size(
 			conn->state.data_input) > 0) {
-			smtp_server_command_debug(cmd,
-				"Not all client data read");			
+			e_debug(cmd->event, "Not all client data read");
 			smtp_server_connection_timeout_stop(cmd->conn);
 		} else {
 			smtp_server_connection_timeout_start(cmd->conn);
@@ -345,8 +341,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 		conn->state.pending_rcpt_cmds == 0);
 	i_assert(trans != NULL);
 
-	smtp_server_command_debug(cmd,
-		"Command is next to be replied");
+	e_debug(cmd->event, "Command is next to be replied");
 
 	/* check whether we have had successful mail and rcpt commands */
 	if (!smtp_server_connection_data_check_state(cmd))
@@ -373,8 +368,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 		i_stream_chain_append(conn->state.data_chain,
 				      data_cmd->chunk_input);
 		if (data_cmd->chunk_last) {
-			smtp_server_command_debug(cmd,
-				"Seen the last chunk");
+			e_debug(cmd->event, "Seen the last chunk");
 			i_stream_chain_append_eof(conn->state.data_chain);
 		}
 	}
@@ -382,8 +376,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 	if (data_cmd->chunk_first) {
 		struct smtp_server_command *cmd_temp = command;
 
-		smtp_server_command_debug(cmd,
-			"First chunk");
+		e_debug(cmd->event, "First chunk");
 
 		smtp_server_command_ref(cmd_temp);
 		i_assert(callbacks != NULL &&

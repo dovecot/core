@@ -123,21 +123,6 @@ void smtp_server_commands_init(struct smtp_server *server)
 }
 
 /*
- * Logging
- */
-
-void smtp_server_command_debug(struct smtp_server_cmd_ctx *cmd,
-			       const char *format, ...)
-{
-	struct smtp_server_connection *conn = cmd->conn;
-	va_list args;
-
-	va_start(args, format);
-	e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
  *
  */
 
@@ -280,7 +265,7 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 		return TRUE;
 	cmd->destroying = TRUE;
 
-	smtp_server_command_debug(&cmd->context, "Destroy");
+	e_debug(cmd->context.event, "Destroy");
 
 	if (cmd->state < SMTP_SERVER_COMMAND_STATE_FINISHED) {
 		cmd->state = SMTP_SERVER_COMMAND_STATE_ABORTED;
@@ -435,7 +420,7 @@ smtp_server_command_get_reply_count(struct smtp_server_command *cmd)
 void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
 {
 	cmd->state = SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY;
-	smtp_server_command_debug(&cmd->context, "Ready to reply");
+	e_debug(cmd->context.event, "Ready to reply");
 	smtp_server_connection_trigger_output(cmd->context.conn);
 }
 
@@ -443,7 +428,7 @@ bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd)
 {
 	struct smtp_server_command *cmd = *_cmd;
 
-	smtp_server_command_debug(&cmd->context, "Next to reply");
+	e_debug(cmd->context.event, "Next to reply");
 
 	return smtp_server_command_call_hooks(
 		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
@@ -457,7 +442,7 @@ smtp_server_command_replied(struct smtp_server_command **_cmd)
 	if (cmd->replies_submitted < cmd->replies_expected)
 		return TRUE;
 
-	smtp_server_command_debug(&cmd->context, "Replied");
+	e_debug(cmd->context.event, "Replied");
 
 	return smtp_server_command_call_hooks(
 		_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED);
@@ -470,7 +455,7 @@ bool smtp_server_command_completed(struct smtp_server_command **_cmd)
 	if (cmd->replies_submitted < cmd->replies_expected)
 		return TRUE;
 
-	smtp_server_command_debug(&cmd->context, "Completed");
+	e_debug(cmd->context.event, "Completed");
 
 	return smtp_server_command_call_hooks(
 		_cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED);
@@ -491,8 +476,7 @@ smtp_server_command_handle_reply(struct smtp_server_command *cmd)
 	case SMTP_SERVER_COMMAND_STATE_NEW:
 	case SMTP_SERVER_COMMAND_STATE_PROCESSING:
 		if (!smtp_server_command_is_complete(cmd)) {
-			smtp_server_command_debug(&cmd->context,
-				"Not ready to reply");
+			e_debug(cmd->context.event, "Not ready to reply");
 			cmd->state = SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY;
 			break;
 		}

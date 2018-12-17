@@ -96,7 +96,7 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 		}
 		/* handle syntax error */
 		if (ret < 0) {
-			smtp_server_connection_debug(conn,
+			e_debug(conn->event,
 				"Client sent invalid AUTH response: %s", error);
 
 			smtp_server_command_input_lock(cmd);
@@ -121,8 +121,7 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 		return;
 	}
 
-	smtp_server_connection_debug(conn,
-		"Received AUTH response: %s", auth_response);
+	e_debug(conn->event, "Received AUTH response: %s", auth_response);
 
 	smtp_server_command_input_lock(cmd);
 

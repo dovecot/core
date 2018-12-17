@@ -10,21 +10,6 @@
 #include "smtp-server-private.h"
 
 /*
- * Logging
- */
-
-static inline void ATTR_FORMAT(2, 3)
-smtp_server_reply_debug(struct smtp_server_reply *reply,
-			const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_debug(reply->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
  * Reply
  */
 
@@ -34,7 +19,7 @@ static void smtp_server_reply_destroy(struct smtp_server_reply *reply)
 		return;
 
 	if (reply->event != NULL) {
-		smtp_server_reply_debug(reply, "Destroy");
+		e_debug(reply->event, "Destroy");
 		event_unref(&reply->event);
 	}
 
@@ -244,7 +229,7 @@ void smtp_server_reply_submit(struct smtp_server_reply *reply)
 	i_assert(!reply->submitted);
 	i_assert(reply->content != NULL);
 	i_assert(str_len(reply->content->text) >= 5);
-	smtp_server_reply_debug(reply, "Submitted");
+	e_debug(reply->event, "Submitted");
 
 	reply->command->replies_submitted++;
 	reply->submitted = TRUE;
@@ -460,8 +445,8 @@ static int smtp_server_reply_send_real(struct smtp_server_reply *reply)
 		return -1;
 	}
 
-	smtp_server_reply_debug(reply, "Sent: %s",
-				smtp_server_reply_get_one_line(reply));
+	e_debug(reply->event, "Sent: %s",
+		smtp_server_reply_get_one_line(reply));
 	return ret;
 }
 
