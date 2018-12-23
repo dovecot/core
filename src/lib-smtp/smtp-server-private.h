@@ -243,7 +243,7 @@ void smtp_server_command_debug(struct smtp_server_cmd_ctx *cmd,
 	const char *format, ...) ATTR_FORMAT(2, 3);
 
 struct smtp_server_command *
-smtp_server_command_alloc(struct smtp_server_connection *conn);
+smtp_server_command_new_invalid(struct smtp_server_connection *conn);
 struct smtp_server_command *
 smtp_server_command_new(struct smtp_server_connection *conn,
 	const char *name, const char *params);

@@ -148,7 +148,7 @@ void smtp_server_command_debug(struct smtp_server_cmd_ctx *cmd,
  *
  */
 
-struct smtp_server_command *
+static struct smtp_server_command *
 smtp_server_command_alloc(struct smtp_server_connection *conn)
 {
 	struct smtp_server_command *cmd;
@@ -167,6 +167,15 @@ smtp_server_command_alloc(struct smtp_server_connection *conn)
 		       &conn->command_queue_tail, cmd);
 	conn->command_queue_count++;
 
+	return cmd;
+}
+
+struct smtp_server_command *
+smtp_server_command_new_invalid(struct smtp_server_connection *conn)
+{
+	struct smtp_server_command *cmd;
+
+	cmd = smtp_server_command_alloc(conn);
 	return cmd;
 }
 
