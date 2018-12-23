@@ -532,12 +532,12 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 				conn->input_broken = TRUE;
 				/* fall through */
 			case SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND:
-				cmd = smtp_server_command_alloc(conn);
+				cmd = smtp_server_command_new_invalid(conn);
 				smtp_server_command_fail(cmd,
 					500, "5.5.2", "Invalid command syntax");
 				break;
 			case SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG:
-				cmd = smtp_server_command_alloc(conn);
+				cmd = smtp_server_command_new_invalid(conn);
 				smtp_server_command_fail(cmd,
 					500, "5.5.2", "Line too long");
 				break;
