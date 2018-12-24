@@ -98,17 +98,6 @@ smtp_client_connection_debug(struct smtp_client_connection *conn,
 	va_end(args);
 }
 
-static inline void ATTR_FORMAT(2, 3)
-smtp_client_connection_warning(struct smtp_client_connection *conn,
-			       const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_warning(conn->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
 /*
  *
  */
@@ -930,9 +919,9 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 
 		if (smtp_ehlo_line_parse(*lines,
 			&cap_name, &params, &error) <= 0) {
-			smtp_client_connection_warning(conn,
-				"Received invalid EHLO response line: %s",
-				error);
+			e_warning(conn->event,
+				  "Received invalid EHLO response line: %s",
+				  error);
 			lines++;
 			continue;
 		}
@@ -947,9 +936,9 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 			if (params == NULL || *params == NULL)
 				break;
 			if (str_to_uoff(*params, &conn->caps.size) < 0) {
-				smtp_client_connection_warning(conn,
-					"Received invalid SIZE capability "
-					"in EHLO response line");
+				e_warning(conn->event,
+					  "Received invalid SIZE capability "
+					  "in EHLO response line");
 				cap = SMTP_CAPABILITY_NONE;
 			}
 			break;
