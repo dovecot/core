@@ -29,17 +29,6 @@ smtp_client_command_debug(struct smtp_client_command *cmd,
 	va_end(args);
 }
 
-static inline void ATTR_FORMAT(2, 3)
-smtp_client_command_error(struct smtp_client_command *cmd,
-	const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_error(cmd->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
 /*
  *
  */
@@ -591,9 +580,8 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 
 		/* the provided payload stream is broken;
 		   fail this command separately */
-		smtp_client_command_error(cmd, "read(%s) failed: %s",
-					  i_stream_get_name(stream),
-					  i_stream_get_error(stream));
+		e_error(cmd->event, "read(%s) failed: %s",
+			i_stream_get_name(stream), i_stream_get_error(stream));
 		smtp_client_command_fail(&cmd,
 			SMTP_CLIENT_COMMAND_ERROR_BROKEN_PAYLOAD,
 			"Broken payload stream");
@@ -917,8 +905,7 @@ smtp_client_command_set_stream(struct smtp_client_command *cmd,
 
 	if ((ret=i_stream_get_size(input, TRUE, &cmd->stream_size)) <= 0) {
 		if (ret < 0) {
-			smtp_client_command_error(cmd,
-				"i_stream_get_size(%s) failed: %s",
+			e_error(cmd->event, "i_stream_get_size(%s) failed: %s",
 				i_stream_get_name(input),
 				i_stream_get_error(input));
 		}
@@ -1298,7 +1285,7 @@ _cmd_bdat_read_data(struct _cmd_data_context *ctx, size_t *data_size_r)
 
 	if (ret < 0) {
 		if (ret != -2 && ctx->data->stream_errno != 0) {
-			smtp_client_command_error(ctx->cmd_data,
+			e_error(ctx->cmd_data->event,
 				"Failed to read DATA stream: %s",
 				i_stream_get_error(ctx->data));
 			smtp_client_command_fail(&ctx->cmd_data,
