@@ -302,8 +302,6 @@ typedef void smtp_server_input_callback_t(void *context);
 
 void smtp_server_connection_debug(struct smtp_server_connection *conn,
 	const char *format, ...) ATTR_FORMAT(2, 3);
-void smtp_server_connection_error(struct smtp_server_connection *conn,
-	const char *format, ...) ATTR_FORMAT(2, 3);
 
 struct connection_list *smtp_server_connection_list_init(void);
 

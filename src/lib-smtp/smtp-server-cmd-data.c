@@ -239,8 +239,7 @@ static void cmd_data_input_error(struct smtp_server_cmd_ctx *cmd)
 	}
 
 	if (stream_errno != EPIPE && stream_errno != ECONNRESET) {
-		smtp_server_connection_error(conn,
-			"Connection lost during data transfer: "
+		e_error(conn->event, "Connection lost during data transfer: "
 			"read(%s) failed: %s",
 			i_stream_get_name(data_input),
 			i_stream_get_error(data_input));

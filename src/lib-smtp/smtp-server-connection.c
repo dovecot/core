@@ -45,16 +45,6 @@ void smtp_server_connection_debug(struct smtp_server_connection *conn,
 	va_end(args);
 }
 
-void smtp_server_connection_error(struct smtp_server_connection *conn,
-				  const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_error(conn->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
 /*
  * Connection
  */
@@ -365,8 +355,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 	int ret;
 
 	if (smtp_server_connection_init_ssl_ctx(conn, &error) < 0) {
-		smtp_server_connection_error(conn,
-			"Couldn't initialize SSL: %s", error);
+		e_error(conn->event, "Couldn't initialize SSL: %s", error);
 		return -1;
 	}
 
@@ -393,7 +382,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 			&conn->ssl_iostream, &error);
 	}
 	if (ret < 0) {
-		smtp_server_connection_error(conn,
+		e_error(conn->event,
 			"Couldn't initialize SSL server for %s: %s",
 			conn->conn.name, error);
 		return -1;
@@ -401,8 +390,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 	smtp_server_connection_input_resume(conn);
 
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
-		smtp_server_connection_error(conn,
-			"SSL handshake failed: %s",
+		e_error(conn->event, "SSL handshake failed: %s",
 			ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
@@ -484,7 +472,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 			int stream_errno = conn->conn.input->stream_errno;
 			if (stream_errno != 0 && stream_errno != EPIPE &&
 				stream_errno != ECONNRESET) {
-				smtp_server_connection_error(conn,
+				e_error(conn->event,
 					"Connection lost: read(%s) failed: %s",
 					i_stream_get_name(conn->conn.input),
 					i_stream_get_error(conn->conn.input));
@@ -633,10 +621,8 @@ void smtp_server_connection_handle_output_error(
 
 	if (output->stream_errno != EPIPE &&
 	    output->stream_errno != ECONNRESET) {
-		smtp_server_connection_error(conn,
-			"Connection lost: write(%s) failed: %s",
-			o_stream_get_name(output),
-			o_stream_get_error(output));
+		e_error(conn->event, "Connection lost: write(%s) failed: %s",
+			o_stream_get_name(output), o_stream_get_error(output));
 		smtp_server_connection_close(&conn,
 			"Write failure");
 	} else {

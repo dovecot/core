@@ -84,7 +84,7 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 					"Remote closed connection unexpectedly during AUTH");
 				break;
 			default:
-				smtp_server_connection_error(conn,
+				e_error(conn->event,
 					"Connection lost during AUTH: "
 					"read(%s) failed: %s",
 					i_stream_get_name(conn->conn.input),
