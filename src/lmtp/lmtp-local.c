@@ -441,9 +441,8 @@ lmtp_local_deliver(struct lmtp_local *local,
 	struct smtp_address *rcpt_to = rcpt->path;
 	unsigned int rcpt_idx = rcpt->index;
 	struct mail_storage_service_user *service_user = llrcpt->service_user;
-	struct mail_deliver_context dctx;
+	struct lmtp_local_deliver_context lldctx;
 	struct mail_user *rcpt_user;
-	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
 	const struct mail_storage_settings *mail_set;
 	struct smtp_submit_settings *smtp_set;
@@ -452,11 +451,9 @@ lmtp_local_deliver(struct lmtp_local *local,
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
 	const struct var_expand_table *var_table;
-	struct timeval delivery_time_started;
 	void **sets;
 	const char *line, *error, *username;
 	string_t *str;
-	enum mail_error mail_error;
 	int ret;
 
 	input = mail_storage_service_user_get_input(service_user);
@@ -481,9 +478,14 @@ lmtp_local_deliver(struct lmtp_local *local,
 			i_unreached();
 	}
 
+	i_zero(&lldctx);
+	lldctx.session_id = llrcpt->session_id;
+	lldctx.src_mail = src_mail;
+	lldctx.session = session;
+
 	/* get the timestamp before user is created, since it starts the I/O */
 	io_loop_time_refresh();
-	delivery_time_started = ioloop_timeval;
+	lldctx.delivery_time_started = ioloop_timeval;
 
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, service_user,
@@ -531,13 +533,49 @@ lmtp_local_deliver(struct lmtp_local *local,
 	}
 	i_set_failure_prefix("%s", str_c(str));
 
+	lldctx.rcpt_user = rcpt_user;
+	lldctx.smtp_set = smtp_set;
+	lldctx.lda_set = lda_set;
+
+	if (*llrcpt->detail == '\0' ||
+	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
+		lldctx.rcpt_default_mailbox = "INBOX";
+	else {
+		ns = mail_namespace_find_inbox(rcpt_user->namespaces);
+		lldctx.rcpt_default_mailbox =
+			t_strconcat(ns->prefix, llrcpt->detail, NULL);
+	}
+
+	ret = client->v.local_deliver(client, lrcpt, cmd, trans, &lldctx);
+
+	lmtp_local_rcpt_anvil_disconnect(llrcpt);
+	return ret;
+}
+
+int lmtp_local_default_deliver(struct client *client,
+			       struct lmtp_recipient *lrcpt,
+			       struct smtp_server_cmd_ctx *cmd,
+			       struct smtp_server_transaction *trans,
+			       struct lmtp_local_deliver_context *lldctx)
+{
+	struct lmtp_local *local = client->local;
+	struct lmtp_local_recipient *llrcpt = lrcpt->backend_context;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
+	struct smtp_address *rcpt_to = rcpt->path;
+	unsigned int rcpt_idx = rcpt->index;
+	struct mail_deliver_context dctx;
+	struct mail_storage *storage;
+	enum mail_error mail_error;
+	const char *error;
+	int ret;
+
 	i_zero(&dctx);
-	dctx.session = session;
-	dctx.pool = session->pool;
-	dctx.set = lda_set;
-	dctx.smtp_set = smtp_set;
-	dctx.session_id = llrcpt->session_id;
-	dctx.src_mail = src_mail;
+	dctx.session = lldctx->session;
+	dctx.pool = lldctx->session->pool;
+	dctx.set = lldctx->lda_set;
+	dctx.smtp_set = lldctx->smtp_set;
+	dctx.session_id = lldctx->session_id;
+	dctx.src_mail = lldctx->src_mail;
 
 	/* MAIL FROM */
 	dctx.mail_from = trans->mail_from;
@@ -545,25 +583,18 @@ lmtp_local_deliver(struct lmtp_local *local,
 		&dctx.mail_params, &trans->params);
 
 	/* RCPT TO */
-	dctx.rcpt_user = rcpt_user;
+	dctx.rcpt_user = lldctx->rcpt_user;
 	smtp_params_rcpt_copy(dctx.pool, &dctx.rcpt_params, &rcpt->params);
 	if (dctx.rcpt_params.orcpt.addr == NULL &&
 		*dctx.set->lda_original_recipient_header != '\0') {
 		dctx.rcpt_params.orcpt.addr =
-			mail_deliver_get_address(src_mail,
+			mail_deliver_get_address(lldctx->src_mail,
 				dctx.set->lda_original_recipient_header);
 	}
 	if (dctx.rcpt_params.orcpt.addr == NULL)
 		dctx.rcpt_params.orcpt.addr = rcpt_to;
 	dctx.rcpt_to = rcpt_to;
-	if (*llrcpt->detail == '\0' ||
-	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
-		dctx.rcpt_default_mailbox = "INBOX";
-	else {
-		ns = mail_namespace_find_inbox(rcpt_user->namespaces);
-		dctx.rcpt_default_mailbox =
-			t_strconcat(ns->prefix, llrcpt->detail, NULL);
-	}
+	dctx.rcpt_default_mailbox = lldctx->rcpt_default_mailbox;
 
 	dctx.save_dest_mail = array_count(&trans->rcpt_to) > 1 &&
 		local->first_saved_mail == NULL;
@@ -571,16 +602,16 @@ lmtp_local_deliver(struct lmtp_local *local,
 	dctx.session_time_msecs =
 		timeval_diff_msecs(&client->state.data_end_timeval,
 				   &trans->timestamp);
-	dctx.delivery_time_started = delivery_time_started;
+	dctx.delivery_time_started = lldctx->delivery_time_started;
 
-	if (client->v.local_deliver(client, lrcpt, &dctx, &storage) == 0) {
+	if (mail_deliver(&dctx, &storage) == 0) {
 		if (dctx.dest_mail != NULL) {
 			i_assert(local->first_saved_mail == NULL);
 			local->first_saved_mail = dctx.dest_mail;
 		}
 		smtp_server_reply_index(cmd, rcpt_idx,
 			250, "2.0.0", "<%s> %s Saved",
-			smtp_address_encode(rcpt_to), llrcpt->session_id);
+			smtp_address_encode(rcpt_to), lldctx->session_id);
 		ret = 0;
 	} else if (dctx.tempfail_error != NULL) {
 		smtp_server_reply_index(cmd, rcpt_idx,
@@ -606,16 +637,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 			smtp_address_encode(rcpt_to));
 		ret = -1;
 	}
-	lmtp_local_rcpt_anvil_disconnect(llrcpt);
 	return ret;
-}
-
-int lmtp_local_default_deliver(struct client *client ATTR_UNUSED,
-			       struct lmtp_recipient *lrcpt ATTR_UNUSED,
-			       struct mail_deliver_context *dctx,
-			       struct mail_storage **storage_r)
-{
-	return mail_deliver(dctx, storage_r);
 }
 
 static uid_t

@@ -12,6 +12,21 @@ union lmtp_module_context;
 struct lmtp_recipient;
 struct client;
 
+struct lmtp_local_deliver_context {
+	struct mail *src_mail;
+	const char *session_id;
+	struct timeval delivery_time_started;
+
+	struct mail_user *rcpt_user;
+	const char *rcpt_default_mailbox;
+
+	const struct mail_storage_settings *mail_set;
+	const struct smtp_submit_settings *smtp_set;
+	const struct lda_settings *lda_set;
+
+	struct mail_deliver_session *session;
+};
+
 struct client_state {
 	const char *name;
 	unsigned int session_id_seq;
@@ -47,8 +62,9 @@ struct lmtp_client_vfuncs {
 
 	int (*local_deliver)(struct client *client,
 			     struct lmtp_recipient *lrcpt,
-			     struct mail_deliver_context *dctx,
-			     struct mail_storage **storage_r);
+			     struct smtp_server_cmd_ctx *cmd,
+			     struct smtp_server_transaction *trans,
+			     struct lmtp_local_deliver_context *lldctx);
 };
 
 struct client {
