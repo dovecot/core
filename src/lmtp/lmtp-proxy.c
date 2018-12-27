@@ -123,6 +123,7 @@ lmtp_proxy_init(struct client *client,
 		lmtp_set.proxy_data.ttl_plus_1 = LMTP_PROXY_DEFAULT_TTL + 1;
 	else
 		lmtp_set.proxy_data.ttl_plus_1--;
+	lmtp_set.event_parent = client->event;
 
 	proxy->lmtp_client = smtp_client_init(&lmtp_set);
 
