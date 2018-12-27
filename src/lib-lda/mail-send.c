@@ -54,6 +54,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	struct ssl_iostream_settings ssl_set;
 	struct mail *mail = ctx->src_mail;
 	struct istream *input;
+	struct smtp_submit_input smtp_input;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 	const struct message_address *postmaster_addr;
@@ -97,7 +98,9 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	i_zero(&ssl_set);
 	mail_user_init_ssl_client_settings(user, &ssl_set);
 
-	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, &ssl_set, NULL);
+	i_zero(&smtp_input);
+	smtp_input.ssl = &ssl_set;
+	smtp_submit = smtp_submit_init_simple(&smtp_input, ctx->smtp_set, NULL);
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
 
