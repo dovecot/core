@@ -2097,14 +2097,12 @@ smtp_client_connection_do_start_transaction(struct smtp_client_connection *conn)
 
 	if (conn->transactions_head == NULL)
 		return;
-	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_READY)
+	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_TRANSACTION)
 		return;
 
 	if (conn->reset_needed)
 		smtp_client_connection_reset(conn);
 
-	smtp_client_connection_set_state(conn,
-		SMTP_CLIENT_CONNECTION_STATE_TRANSACTION);
 	smtp_client_connection_debug(conn, "Start next transaction");
 
 	smtp_reply_init(&reply, 200, "Connection ready");
@@ -2120,6 +2118,8 @@ smtp_client_connection_start_transaction(struct smtp_client_connection *conn)
 	if (conn->to_trans != NULL)
 		return;
 
+	smtp_client_connection_set_state(conn,
+		SMTP_CLIENT_CONNECTION_STATE_TRANSACTION);
 	conn->to_trans = timeout_add_short(0,
 		smtp_client_connection_do_start_transaction, conn);
 }
