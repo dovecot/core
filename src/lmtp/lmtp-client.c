@@ -154,6 +154,9 @@ struct client *client_create(int fd_in, int fd_out,
 	client->local_port = conn->local_port;
 	client->state_pool = pool_alloconly_create("client state", 4096);
 
+	client->event = event_create(NULL);
+	event_add_category(client->event, &event_category_lmtp);
+
 	client_read_settings(client, conn->ssl);
 	client_raw_user_create(client);
 	client_load_modules(client);
@@ -180,6 +183,7 @@ struct client *client_create(int fd_in, int fd_out,
 	lmtp_set.rcpt_domain_optional = TRUE;
 	lmtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
 	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_rawlog_dir;
+	lmtp_set.event_parent = client->event;
 
 	client->conn = smtp_server_connection_create
 		(lmtp_server, fd_in, fd_out,
@@ -236,6 +240,7 @@ client_default_destroy(struct client *client, const char *enh_code,
 		mail_user_unref(&client->raw_mail_user);
 
 	client_state_reset(client);
+	event_unref(&client->event);
 	pool_unref(&client->state_pool);
 	pool_unref(&client->pool);
 

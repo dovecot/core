@@ -14,6 +14,7 @@
 typedef void lmtp_client_created_func_t(struct client **client);
 
 extern lmtp_client_created_func_t *hook_client_created;
+extern struct event_category event_category_lmtp;
 
 extern char *dns_client_socket_path, *base_dir;
 extern struct mail_storage_service_ctx *storage_service;

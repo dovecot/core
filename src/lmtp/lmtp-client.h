@@ -72,6 +72,7 @@ struct client {
 	pool_t pool;
 
 	struct lmtp_client_vfuncs v;
+	struct event *event;
 
 	const struct setting_parser_info *user_set_info;
 	const struct lda_settings *unexpanded_lda_set;
