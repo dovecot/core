@@ -22,16 +22,22 @@
 
 #define DEFAULT_SUBMISSION_PORT 25
 
+static struct event_category event_category_smtp_submit = {
+	.name = "smtp-submit"
+};
+
 struct smtp_submit_session {
 	pool_t pool;
 	struct smtp_submit_settings set;
 	struct ssl_iostream_settings ssl_set;
+	struct event *event;
 };
 
 struct smtp_submit {
 	pool_t pool;
 
 	struct smtp_submit_session *session;
+	struct event *event;
 
 	struct ostream *output;
 	struct istream *input;
@@ -79,6 +85,9 @@ smtp_submit_session_init(const struct smtp_submit_input *input,
 						input->ssl);
 	}
 
+	session->event = event_create(input->event);
+	event_add_category(session->event, &event_category_smtp_submit);
+
 	return session;
 }
 
@@ -88,6 +97,7 @@ void smtp_submit_session_deinit(struct smtp_submit_session **_session)
 
 	*_session = NULL;
 
+	event_unref(&session->event);
 	pool_unref(&session->pool);
 }
 
@@ -105,6 +115,9 @@ smtp_submit_init(struct smtp_submit_session *session,
 
 	subm->mail_from = smtp_address_clone(pool, mail_from);;
 	p_array_init(&subm->rcpt_to, pool, 2);
+
+	subm->event = event_create(session->event);
+
 	return subm;
 }
 
@@ -144,6 +157,7 @@ void smtp_submit_deinit(struct smtp_submit **_subm)
 
 	if (subm->simple)
 		 smtp_submit_session_deinit(&subm->session);
+	event_unref(&subm->event);
 	pool_unref(&subm->pool);
 }
 
@@ -303,6 +317,7 @@ smtp_submit_send_host(struct smtp_submit *subm)
 	smtp_set.command_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.debug = set->mail_debug;
 	smtp_set.ssl = &subm->session->ssl_set;
+	smtp_set.event = subm->event;
 
 	ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
 	if (set->submission_ssl != NULL) {
@@ -386,6 +401,7 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	pc_set.client_connect_timeout_msecs = set->submission_timeout * 1000;
 	pc_set.input_idle_timeout_msecs = set->submission_timeout * 1000;
 	pc_set.debug = set->mail_debug;
+	pc_set.event = subm->event;
 	restrict_access_init(&pc_set.restrict_set);
 
 	pc = program_client_local_create
