@@ -30,6 +30,10 @@ struct anvil_client *anvil;
 
 lmtp_client_created_func_t *hook_client_created = NULL;
 
+struct event_category event_category_lmtp = {
+	.name = "lmtp",
+};
+
 lmtp_client_created_func_t *
 lmtp_client_created_hook_set(lmtp_client_created_func_t *new_hook)
 {
