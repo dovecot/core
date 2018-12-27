@@ -1102,6 +1102,7 @@ submission_backend_relay_create(
 	smtp_set.extra_capabilities = set->extra_capabilities;
 	smtp_set.ssl = &ssl_set;
 	smtp_set.debug = user->mail_debug;
+	smtp_set.event_parent = rbackend->backend.event;
 
 	if (set->rawlog_dir != NULL) {
 		smtp_set.rawlog_dir =
