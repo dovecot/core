@@ -28,11 +28,7 @@ test_dns_util_CFLAGS = $(AM_CPPFLAGS) \
 
 check-local:
 	for bin in $(test_programs); do \
-	  if test "$$bin" = "test-program-client-local"; then \
-	    if ! env NOVALGRIND=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	  else \
-	    if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	  fi \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
 
 
