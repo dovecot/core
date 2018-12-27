@@ -333,6 +333,9 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	input.conn_secured = input.conn_ssl_secured ||
 		smtp_server_connection_is_trusted(client->conn);
 
+	event_add_str(rcpt->event, "session", session_id);
+	input.parent_event = rcpt->event;
+
 	ret = mail_storage_service_lookup(storage_service, &input,
 					  &service_user, &error);
 	if (ret < 0) {
