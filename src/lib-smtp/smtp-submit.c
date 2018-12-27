@@ -54,8 +54,8 @@ struct smtp_submit {
 };
 
 struct smtp_submit_session *
-smtp_submit_session_init(const struct smtp_submit_settings *set,
-			 const struct ssl_iostream_settings *ssl_set)
+smtp_submit_session_init(const struct smtp_submit_input *input,
+			 const struct smtp_submit_settings *set)
 {
 	struct smtp_submit_session *session;
 	pool_t pool;
@@ -74,8 +74,10 @@ smtp_submit_session_init(const struct smtp_submit_settings *set,
 	session->set.submission_ssl =
 		p_strdup_empty(pool, set->submission_ssl);
 
-	if (ssl_set != NULL)
-		ssl_iostream_settings_init_from(pool, &session->ssl_set, ssl_set);
+	if (input->ssl != NULL) {
+		ssl_iostream_settings_init_from(pool, &session->ssl_set,
+						input->ssl);
+	}
 
 	return session;
 }
@@ -107,14 +109,14 @@ smtp_submit_init(struct smtp_submit_session *session,
 }
 
 struct smtp_submit *
-smtp_submit_init_simple(const struct smtp_submit_settings *set,
-			const struct ssl_iostream_settings *ssl_set,
+smtp_submit_init_simple(const struct smtp_submit_input *input,
+			const struct smtp_submit_settings *set,
 			const struct smtp_address *mail_from)
 {
 	struct smtp_submit_session *session;
 	struct smtp_submit *subm;
 
-	session = smtp_submit_session_init(set, ssl_set);
+	session = smtp_submit_session_init(input, set);
 	subm = smtp_submit_init(session, mail_from);
 	subm->simple = TRUE;
 	return subm;
