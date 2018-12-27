@@ -12,6 +12,9 @@ struct smtp_submit;
 struct smtp_submit_input {
 	/* SSL settings */
 	const struct ssl_iostream_settings *ssl;
+
+	/* Event to use */
+	struct event *event;
 };
 
 struct smtp_submit_result {
