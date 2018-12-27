@@ -30,6 +30,7 @@ typedef void submission_client_created_func_t(struct client **client);
 
 extern submission_client_created_func_t *hook_client_created;
 extern bool submission_debug;
+extern struct event_category event_category_submission;
 
 extern struct smtp_server *smtp_server;
 extern struct smtp_client *smtp_client;

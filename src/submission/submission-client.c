@@ -175,7 +175,8 @@ static void client_init_urlauth(struct client *client)
 }
 
 struct client *
-client_create(int fd_in, int fd_out, struct mail_user *user,
+client_create(int fd_in, int fd_out, struct event *event,
+	      struct mail_user *user,
 	      struct mail_storage_service_user *service_user,
 	      const struct submission_settings *set, const char *helo,
 	      const struct smtp_proxy_data *proxy_data,
@@ -197,6 +198,8 @@ client_create(int fd_in, int fd_out, struct mail_user *user,
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
 	client->v = submission_client_vfuncs;
+	client->event = event;
+	event_ref(client->event);
 	client->user = user;
 	client->service_user = service_user;
 	client->set = set;
@@ -326,6 +329,7 @@ client_default_destroy(struct client *client)
 
 	client_state_reset(client);
 
+	event_unref(&client->event);
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);

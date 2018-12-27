@@ -47,6 +47,10 @@ static struct login_server *login_server = NULL;
 submission_client_created_func_t *hook_client_created = NULL;
 bool submission_debug = FALSE;
 
+struct event_category event_category_submission = {
+	.name = "submission",
+};
+
 submission_client_created_func_t *
 submission_client_created_hook_set(submission_client_created_func_t *new_hook)
 {
@@ -145,23 +149,47 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			 int fd_in, int fd_out, const buffer_t *input_buf,
 			 const char **error_r)
 {
+	struct mail_storage_service_input service_input;
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct submission_settings *set;
 	bool no_greeting = HAS_ALL_BITS(login_flags,
 					LOGIN_REQUEST_FLAG_IMPLICIT);
+	struct event *event;
 	const char *errstr;
 	const char *helo = NULL;
 	struct smtp_proxy_data proxy_data;
 	const unsigned char *data;
 	size_t data_len;
 
-	if (mail_storage_service_lookup_next(storage_service, input,
+	event = event_create(NULL);
+	event_add_category(event, &event_category_submission);
+	event_add_fields(event, (const struct event_add_field []){
+		{ .key = "user", .value = input->username },
+		{ .key = NULL }
+	});
+	if (input->local_ip.family != 0)
+		event_add_str(event, "local_ip", net_ip2addr(&input->local_ip));
+	if (input->local_port != 0)
+		event_add_int(event, "local_port", input->local_port);
+	if (input->remote_ip.family != 0)
+		event_add_str(event, "remote_ip", net_ip2addr(&input->remote_ip));
+	if (input->remote_port != 0)
+		event_add_int(event, "remote_port", input->remote_port);
+
+	service_input = *input;
+	service_input.event_parent = event;
+	if (mail_storage_service_lookup_next(storage_service, &service_input,
 					     &user, &mail_user, error_r) <= 0) {
 		send_error(fd_out, my_hostname,
 			"4.7.0", MAIL_ERRSTR_CRITICAL_MSG);
+		event_unref(&event);
 		return -1;
 	}
+	/* Add the session only after creating the user, because
+	   input->session_id may be NULL */
+	event_add_str(event, "session", mail_user->session_id);
+
 	restrict_access_allow_coredumps(TRUE);
 
 	set = mail_storage_service_user_get_set(user)[1];
@@ -176,6 +204,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			"4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
 		mail_user_deinit(&mail_user);
 		mail_storage_service_user_unref(&user);
+		event_unref(&event);
 		return -1;
 	}
 
@@ -187,6 +216,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			"4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
 		mail_user_deinit(&mail_user);
 		mail_storage_service_user_unref(&user);
+		event_unref(&event);
 		return -1;
 	}
 
@@ -209,9 +239,10 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		 */
 	}
 
-	(void)client_create(fd_in, fd_out, mail_user,
+	(void)client_create(fd_in, fd_out, event, mail_user,
 			    user, set, helo, &proxy_data, data, data_len,
 			    no_greeting);
+	event_unref(&event);
 	return 0;
 }
 
