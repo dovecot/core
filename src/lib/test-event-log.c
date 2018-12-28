@@ -45,6 +45,23 @@ info_handler(const struct failure_context *ctx,
 	} T_END;
 }
 
+static void ATTR_FORMAT(2, 0)
+error_handler(const struct failure_context *ctx,
+	     const char *format, va_list args)
+{
+	size_t prefix_len;
+
+	i_assert(ctx->type == LOG_TYPE_WARNING ||
+		 ctx->type == LOG_TYPE_ERROR);
+
+	i_free(test_output);
+	T_BEGIN {
+		string_t *str = failure_handler.v->format(ctx, &prefix_len,
+							  format, args);
+		test_output = i_strdup(str_c(str));
+	} T_END;
+}
+
 static const char *
 test_event_log_prefix_cb(char *prefix)
 {
@@ -247,8 +264,30 @@ static void test_event_duration()
 	test_end();
 }
 
+static void test_event_log_level(void)
+{
+	test_begin("event log level");
+	failure_callback_t *orig_fatal, *orig_error, *orig_info, *orig_debug;
+	i_get_failure_handlers(&orig_fatal, &orig_error, &orig_info, &orig_debug);
+	i_set_info_handler(info_handler);
+	i_set_error_handler(error_handler);
+
+	struct event *event = event_create(NULL);
+	event_set_min_log_level(event, LOG_TYPE_WARNING);
+	e_info(event, "Info event");
+	test_assert(test_output == NULL);
+	e_warning(event, "Warning event");
+	test_assert_strcmp(test_output, "Warning: Warning event");
+	event_unref(&event);
+	i_set_info_handler(orig_info);
+	i_set_error_handler(orig_error);
+	i_free(test_output);
+	test_end();
+}
+
 void test_event_log(void)
 {
 	test_event_log_prefix();
 	test_event_duration();
+	test_event_log_level();
 }
