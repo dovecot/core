@@ -388,6 +388,10 @@ int submission_backends_cmd_data(struct client *client,
 
 	i_assert(array_count(&client->rcpt_backends) > 0);
 
+	/* Make sure data input stream is at the beginning (plugins may have
+	   messed with it. */
+	i_stream_seek(data_input, 0);
+
 	/* create the data_input streams first */
 	array_foreach_modifiable(&client->rcpt_backends, bkp) {
 		struct submission_backend *backend = *bkp;
