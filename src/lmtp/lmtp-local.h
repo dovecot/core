@@ -3,17 +3,18 @@
 
 #include "net.h"
 
+struct mail_storage;
+struct mail_deliver_context;
 struct mail_deliver_session;
 struct smtp_server_cmd_ctx;
 struct smtp_server_cmd_rcpt;
 struct lmtp_local;
+struct lmtp_local_deliver_context;
 struct client;
 
 void lmtp_local_deinit(struct lmtp_local **_local);
 
-int lmtp_local_rcpt(struct client *client,
-		    struct smtp_server_cmd_ctx *cmd,
-		    struct lmtp_recipient *lrcpt);
+int lmtp_local_rcpt(struct lmtp_recipient *lrcpt);
 
 void lmtp_local_add_headers(struct lmtp_local *local,
 			    struct smtp_server_transaction *trans,

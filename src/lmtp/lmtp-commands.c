@@ -115,21 +115,11 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	return client->v.cmd_rcpt(client, cmd, lrcpt);
 }
 
-int client_default_cmd_rcpt(struct client *client,
-			    struct smtp_server_cmd_ctx *cmd,
+int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
+			    struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			    struct lmtp_recipient *lrcpt)
 {
-	int ret;
-
-	if (client->lmtp_set->lmtp_proxy) {
-		/* proxied? */
-		if ((ret = lmtp_proxy_rcpt(client, cmd, lrcpt)) != 0)
-			return (ret < 0 ? -1 : 0);
-		/* no */
-	}
-
-	/* local delivery */
-	return lmtp_local_rcpt(client, cmd, lrcpt);
+	return lmtp_rcpt_start(lrcpt);
 }
 
 /*

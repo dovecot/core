@@ -8,6 +8,12 @@ struct smtp_server_recipient;
 union lmtp_recipient_module_context;
 struct client;
 
+enum lmtp_recipient_state {
+	LMTP_RECIPIENT_STATE_ATTEMPT_PROXY = 0,
+	LMTP_RECIPIENT_STATE_ATTEMPT_LOCAL,
+	LMTP_RECIPIENT_STATE_LAST,
+};
+
 enum lmtp_recipient_type {
 	LMTP_RECIPIENT_TYPE_LOCAL,
 	LMTP_RECIPIENT_TYPE_PROXY,
@@ -21,6 +27,9 @@ struct lmtp_recipient {
 	char delim;
 
 	enum lmtp_recipient_type type;
+
+	enum lmtp_recipient_state state;
+	struct timeout *to_continue;
 	void *backend_context;
 
 	const char *session_id;
@@ -47,5 +56,8 @@ lmtp_recipient_create(struct client *client,
 struct lmtp_recipient *
 lmtp_recipient_find_duplicate(struct lmtp_recipient *lrcpt,
 			      struct smtp_server_transaction *trans);
+
+int lmtp_rcpt_start(struct lmtp_recipient *lrcpt);
+int lmtp_rcpt_continue(struct lmtp_recipient *lrcpt);
 
 #endif

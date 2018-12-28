@@ -887,10 +887,9 @@ lmtp_proxy_rcpt_handle_not_proxied(struct lmtp_proxy_recipient *lprcpt,
 	return -1;
 }
 
-int lmtp_proxy_rcpt(struct client *client,
-		    struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-		    struct lmtp_recipient *lrcpt)
+int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 {
+	struct client *client = lrcpt->client;
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
 	struct lmtp_proxy_connection *conn;
@@ -932,9 +931,9 @@ int lmtp_proxy_rcpt(struct client *client,
 						    errstr);
 			return -1;
 		} else {
-			/* User not found from passdb: revert to local delivery.
+			/* User not found from passdb. revert to local delivery
 			 */
-			return 0;
+			return lmtp_rcpt_continue(lrcpt);
 		}
 	}
 
@@ -956,7 +955,9 @@ int lmtp_proxy_rcpt(struct client *client,
 		/* Not proxying this user */
 		ret = lmtp_proxy_rcpt_handle_not_proxied(lprcpt, &set, username);
 		pool_unref(&auth_pool);
-		return ret;
+		if (ret < 0)
+			return ret;
+		return lmtp_rcpt_continue(lrcpt);
 	}
 
 	e_debug(rcpt->event, "Recipient maps to proxy user %s", username);
@@ -1012,7 +1013,7 @@ int lmtp_proxy_rcpt(struct client *client,
 
 	smtp_client_connection_connect(conn->lmtp_conn,
 				       lmtp_proxy_rcpt_login_cb, lprcpt);
-	return 1;
+	return 0;
 }
 
 /*

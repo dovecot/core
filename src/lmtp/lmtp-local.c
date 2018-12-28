@@ -294,10 +294,9 @@ lmtp_local_rcpt_anvil_cb(const struct anvil_reply *reply,
 	}
 }
 
-int lmtp_local_rcpt(struct client *client,
-		    struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-		    struct lmtp_recipient *lrcpt)
+int lmtp_local_rcpt(struct lmtp_recipient *lrcpt)
 {
+	struct client *client = lrcpt->client;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct lmtp_local_recipient *llrcpt;
 	struct mail_storage_service_input input;
@@ -330,12 +329,8 @@ int lmtp_local_rcpt(struct client *client,
 					    "Temporary internal error");
 		return -1;
 	}
-	if (ret == 0) {
-		smtp_server_recipient_reply(rcpt, 550, "5.1.1",
-					    "User doesn't exist: %s",
-					    username);
-		return -1;
-	}
+	if (ret == 0)
+		return lmtp_rcpt_continue(lrcpt);
 
 	if (client->local == NULL)
 		client->local = lmtp_local_init(client);
