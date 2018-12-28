@@ -232,6 +232,7 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	inputs[2] = NULL;
 
 	data_input = i_stream_create_concat(inputs);
+	i_stream_set_name(data_input, "<submission DATA>");
 	data_size = client->state.data_size + str_len(added_headers);
 
 	i_stream_unref(&inputs[0]);
