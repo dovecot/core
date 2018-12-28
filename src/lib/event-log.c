@@ -115,11 +115,15 @@ void event_log(struct event *event, const struct event_log_params *params,
 	va_end(args);
 }
 
-#undef event_want_debug_log
-bool event_want_debug_log(struct event *event, const char *source_filename,
-		     unsigned int source_linenum)
+#undef event_want_log_level
+bool event_want_log_level(struct event *event, enum log_type level,
+			  const char *source_filename,
+			  unsigned int source_linenum)
 {
 	struct failure_context ctx = { .type = LOG_TYPE_DEBUG };
+
+	if (event->min_log_level <= level)
+		return TRUE;
 
 	if (event->forced_debug)
 		event->sending_debug_log = TRUE;
@@ -137,12 +141,16 @@ bool event_want_debug_log(struct event *event, const char *source_filename,
 	return event->sending_debug_log;
 }
 
-#undef event_want_debug
-bool event_want_debug(struct event *event, const char *source_filename,
+#undef event_want_level
+bool event_want_level(struct event *event, enum log_type level,
+		      const char *source_filename,
 		      unsigned int source_linenum)
 {
-	(void)event_want_debug_log(event, source_filename, source_linenum);
+	(void)event_want_log_level(event, level, source_filename, source_linenum);
 	if (event->sending_debug_log)
+		return TRUE;
+
+	if (event->min_log_level <= level)
 		return TRUE;
 
 	/* see if debug send filtering matches */
