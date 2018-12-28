@@ -28,8 +28,6 @@
 struct lmtp_local_recipient {
 	struct lmtp_recipient *rcpt;
 
-	char *detail;
-
 	struct mail_storage_service_user *service_user;
 	struct anvil_query *anvil_query;
 
@@ -285,14 +283,13 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 
 int lmtp_local_rcpt(struct client *client,
 		    struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-		    struct lmtp_recipient *lrcpt, const char *username,
-		    const char *detail)
+		    struct lmtp_recipient *lrcpt)
 {
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct lmtp_local_recipient *llrcpt;
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *service_user;
-	const char *error = NULL;
+	const char *error = NULL, *username = lrcpt->username;
 	int ret = 0;
 
 	i_zero(&input);
@@ -331,7 +328,6 @@ int lmtp_local_rcpt(struct client *client,
 
 	llrcpt = p_new(rcpt->pool, struct lmtp_local_recipient, 1);
 	llrcpt->rcpt = lrcpt;
-	llrcpt->detail = p_strdup(rcpt->pool, detail);
 	llrcpt->service_user = service_user;
 
 	lrcpt->type = LMTP_RECIPIENT_TYPE_LOCAL;
@@ -497,13 +493,13 @@ lmtp_local_deliver(struct lmtp_local *local,
 	lldctx.smtp_set = smtp_set;
 	lldctx.lda_set = lda_set;
 
-	if (*llrcpt->detail == '\0' ||
+	if (*lrcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
 		lldctx.rcpt_default_mailbox = "INBOX";
 	else {
 		ns = mail_namespace_find_inbox(rcpt_user->namespaces);
 		lldctx.rcpt_default_mailbox =
-			t_strconcat(ns->prefix, llrcpt->detail, NULL);
+			t_strconcat(ns->prefix, lrcpt->detail, NULL);
 	}
 
 	ret = client->v.local_deliver(client, lrcpt, cmd, trans, &lldctx);

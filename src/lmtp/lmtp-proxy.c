@@ -569,9 +569,7 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 
 int lmtp_proxy_rcpt(struct client *client,
 		    struct smtp_server_cmd_ctx *cmd,
-		    struct lmtp_recipient *lrcpt,
-		    const char *username, const char *detail,
-		    char delim)
+		    struct lmtp_recipient *lrcpt)
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
@@ -582,7 +580,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	struct smtp_address *address = rcpt->path;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
-	const char *const *fields, *errstr, *orig_username = username;
+	const char *const *fields, *errstr, *username, *orig_username;
 	struct smtp_proxy_data proxy_data;
 	struct smtp_address *user;
 	string_t *fwfields;
@@ -609,6 +607,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	info.forward_fields = lrcpt->forward_fields;
 
 	// FIXME: make this async
+	username = orig_username = lrcpt->username;
 	auth_pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
 	ret = auth_master_pass_lookup(auth_conn, username, &info,
@@ -657,11 +656,11 @@ int lmtp_proxy_rcpt(struct client *client,
 			return -1;
 		}
 		/* Username changed. change the address as well */
-		if (*detail == '\0') {
+		if (*lrcpt->detail == '\0') {
 			address = user;
 		} else {
 			address = smtp_address_add_detail_temp(
-				user, detail, delim);
+				user, lrcpt->detail, lrcpt->delim);
 		}
 	} else if (lmtp_proxy_is_ourself(client, &set)) {
 		e_error(rcpt->event, "Proxying to <%s> loops to itself",

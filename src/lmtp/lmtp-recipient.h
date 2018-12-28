@@ -17,6 +17,9 @@ struct lmtp_recipient {
 	struct client *client;
 	struct smtp_server_recipient *rcpt;
 
+	char *username, *detail;
+	char delim;
+
 	enum lmtp_recipient_type type;
 	void *backend_context;
 
