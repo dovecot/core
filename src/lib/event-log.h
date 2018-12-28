@@ -38,13 +38,17 @@ void e_debug(struct event *event,
 	} STMT_END
 /* Returns TRUE if debug event should be sent (either logged or sent to
    stats). */
-bool event_want_debug_log(struct event *event, const char *source_filename,
+bool event_want_log_level(struct event *event, enum log_type level,
+			  const char *source_filename,
 			  unsigned int source_linenum);
-#define event_want_debug_log(_event) event_want_debug_log((_event), __FILE__, __LINE__)
+#define event_want_log_level(_event, level) event_want_log_level((_event), (level), __FILE__, __LINE__)
+#define event_want_debug_log(_event) event_want_log_level((_event), LOG_TYPE_DEBUG)
 
-bool event_want_debug(struct event *event, const char *source_filename,
+bool event_want_level(struct event *event, enum log_type level,
+		      const char *source_filename,
 		      unsigned int source_linenum);
-#define event_want_debug(_event) event_want_debug((_event), __FILE__, __LINE__)
+#define event_want_level(_event, level) event_want_level((_event), (level), __FILE__, __LINE__)
+#define event_want_debug(_event) event_want_level((_event), LOG_TYPE_DEBUG)
 
 void event_log(struct event *event, const struct event_log_params *params,
 	       const char *fmt, ...)

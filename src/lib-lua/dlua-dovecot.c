@@ -641,7 +641,7 @@ void dlua_dovecot_register(struct dlua_script *script)
 	lua_setglobal(script->L, LUA_SCRIPT_DOVECOT);
 }
 
-#undef event_want_debug
+#undef event_want_level
 static void dlua_event_log(struct dlua_script *script, struct event *event,
 			   enum log_type log_type, const char *str)
 {
@@ -650,7 +650,8 @@ static void dlua_event_log(struct dlua_script *script, struct event *event,
 	parms.log_type = log_type;
 	dlua_get_file_line(script, 1, &parms.source_filename, &parms.source_linenum);
 	if (log_type != LOG_TYPE_DEBUG ||
-	    event_want_debug(event, parms.source_filename, parms.source_linenum)) {
+	    event_want_level(event, LOG_TYPE_DEBUG, parms.source_filename,
+			     parms.source_linenum)) {
 		event_log(event, &parms, "%s", str);
 	} else {
 		event_send_abort(event);
