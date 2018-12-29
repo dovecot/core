@@ -187,7 +187,8 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 	int fd = -1, ret;
 
 	if (!conn->version_received) {
-		if (connection_verify_version(conn, t_strsplit_tabescaped(line)) < 0)
+		if (connection_handshake_args_default(
+			conn, t_strsplit_tabescaped(line)) < 0)
 			return -1;
 		conn->version_received = TRUE;
 		return 1;

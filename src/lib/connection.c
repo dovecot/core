@@ -103,8 +103,8 @@ void connection_input_default(struct connection *conn)
 	i_stream_unref(&input);
 }
 
-int connection_verify_version(struct connection *conn,
-			      const char *const *args)
+int connection_handshake_args_default(struct connection *conn,
+				      const char *const *args)
 {
 	unsigned int recv_major_version;
 
@@ -150,7 +150,7 @@ int connection_input_line_default(struct connection *conn, const char *line)
 	}
 
 	if (!conn->handshake_received &&
-	    (conn->v.handshake_args != connection_verify_version ||
+	    (conn->v.handshake_args != connection_handshake_args_default ||
 	     conn->list->set.major_version != 0)) {
 		int ret;
 		if ((ret = conn->v.handshake_args(conn, args)) == 0)
@@ -630,7 +630,7 @@ void connection_set_handlers(struct connection *conn,
         if (conn->v.input_line == NULL)
                 conn->v.input_line = connection_input_line_default;
         if (conn->v.handshake_args == NULL)
-                conn->v.handshake_args = connection_verify_version;
+                conn->v.handshake_args = connection_handshake_args_default;
         if (conn->v.idle_timeout == NULL)
                 conn->v.idle_timeout = connection_idle_timeout;
         if (conn->v.connect_timeout == NULL)

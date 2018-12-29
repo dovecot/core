@@ -187,7 +187,8 @@ void connection_streams_changed(struct connection *conn);
    If input_full_behavior is ALLOW, may return also -2 = buffer full. */
 int connection_input_read(struct connection *conn);
 /* Verify that VERSION input matches what we expect. */
-int connection_verify_version(struct connection *conn, const char *const *args);
+int connection_handshake_args_default(struct connection *conn,
+				      const char *const *args);
 
 /* Returns human-readable reason for why connection was disconnected. */
 const char *connection_disconnect_reason(struct connection *conn);

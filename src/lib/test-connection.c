@@ -149,7 +149,7 @@ test_connection_no_input_input(struct connection *conn)
 	while ((input = i_stream_read_next_line(is)) != NULL) {
 		const char *const *args = t_strsplit_tabescaped(input);
 		if (!conn->handshake_received) {
-			if (connection_verify_version(conn, args) > -1)
+			if (connection_handshake_args_default(conn, args) > -1)
 				conn->handshake_received = TRUE;
 			continue;
 		}
@@ -194,7 +194,7 @@ static int test_connection_custom_handshake_args(struct connection *conn,
 						 const char *const *args)
 {
 	if (!conn->version_received) {
-		if (connection_verify_version(conn, args) < 0)
+		if (connection_handshake_args_default(conn, args) < 0)
 			return -1;
 		return 0;
 	}
