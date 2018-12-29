@@ -665,7 +665,7 @@ static bool auth_worker_verify_db_hash(const char *passdb_hash, const char *user
 static int auth_worker_client_handshake_args(struct connection *conn, const char *const *args)
 {
 	if (!conn->version_received) {
-		if (connection_verify_version(conn, args) < 0)
+		if (connection_handshake_args_default(conn, args) < 0)
 			return -1;
 		return 0;
 	}
