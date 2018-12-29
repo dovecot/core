@@ -10,6 +10,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "connection.h"
 #include "master-interface.h"
 #include "auth-master.h"
 
@@ -26,14 +27,13 @@
 #define DEFAULT_USERDB_LOOKUP_PREFIX "userdb lookup"
 
 struct auth_master_connection {
+	struct connection conn;
+	struct connection_list *clist;
+
 	char *auth_socket_path;
 	enum auth_master_flags flags;
 
-	int fd;
 	struct ioloop *ioloop, *prev_ioloop;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
 	struct timeout *to;
 	const char *prefix;
 
@@ -45,8 +45,8 @@ struct auth_master_connection {
 
 	unsigned int timeout_msecs;
 
+	bool connected:1;
 	bool sent_handshake:1;
-	bool handshaked:1;
 	bool aborted:1;
 };
 
@@ -67,7 +67,33 @@ struct auth_master_user_list_ctx {
 	bool failed;
 };
 
-static void auth_input(struct auth_master_connection *conn);
+static void auth_master_connected(struct connection *_conn, bool success);
+static int
+auth_master_input_args(struct connection *_conn, const char *const *args);
+static int
+auth_master_handshake_line(struct connection *_conn, const char *line);
+static int auth_master_input_line(struct connection *_conn, const char *line);
+static void auth_master_destroy(struct connection *_conn);
+
+static const struct connection_vfuncs auth_master_vfuncs = {
+	.destroy = auth_master_destroy,
+	.handshake_line = auth_master_handshake_line,
+	.input_args = auth_master_input_args,
+	.input_line = auth_master_input_line,
+	.client_connected = auth_master_connected,
+};
+
+static const struct connection_settings auth_master_set = {
+	.dont_send_version = TRUE,
+	.service_name_in = "auth-master",
+	.service_name_out = "auth-master",
+	.major_version = AUTH_PROTOCOL_MAJOR,
+	.minor_version = AUTH_PROTOCOL_MINOR,
+	.unix_client_connect_msecs = 1000,
+	.input_max_size = MAX_INBUF_SIZE,
+	.output_max_size = MAX_OUTBUF_SIZE,
+	.client = TRUE,
+};
 
 struct auth_master_connection *
 auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
@@ -76,29 +102,37 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 
 	conn = i_new(struct auth_master_connection, 1);
 	conn->auth_socket_path = i_strdup(auth_socket_path);
-	conn->fd = -1;
 	conn->flags = flags;
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
-
 	conn->timeout_msecs = 1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
+	conn->clist = connection_list_init(&auth_master_set,
+					   &auth_master_vfuncs);
+	connection_init_client_unix(conn->clist, &conn->conn,
+				    conn->auth_socket_path);
+
 	return conn;
 }
 
 static void auth_connection_close(struct auth_master_connection *conn)
 {
+	conn->connected = FALSE;
+	connection_disconnect(&conn->conn);
+
 	timeout_remove(&conn->to);
-	i_close_fd_path(&conn->fd, conn->auth_socket_path);
 
 	conn->sent_handshake = FALSE;
-	conn->handshaked = FALSE;
 }
 
 void auth_master_deinit(struct auth_master_connection **_conn)
 {
 	struct auth_master_connection *conn = *_conn;
+	struct connection_list *clist = conn->clist;
 
 	*_conn = NULL;
+
 	auth_connection_close(conn);
+	connection_deinit(&conn->conn);
+	connection_list_deinit(&clist);
 	i_free(conn->auth_socket_path);
 	i_free(conn);
 }
@@ -120,26 +154,55 @@ static void auth_request_lookup_abort(struct auth_master_connection *conn)
 	conn->aborted = TRUE;
 }
 
-static int auth_input_handshake(struct auth_master_connection *conn)
+static void auth_master_destroy(struct connection *_conn)
 {
-	const char *line, *const *tmp;
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
 
-	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		tmp = t_strsplit_tabescaped(line);
-		if (strcmp(tmp[0], "VERSION") == 0 &&
-		    tmp[1] != NULL && tmp[2] != NULL) {
-			if (strcmp(tmp[1], dec2str(AUTH_PROTOCOL_MAJOR)) != 0) {
-				i_error("userdb lookup: "
-					"Auth protocol version mismatch "
-					"(%s vs %d)", tmp[1],
-					AUTH_PROTOCOL_MAJOR);
-				auth_request_lookup_abort(conn);
-				return -1;
-			}
-		} else if (strcmp(tmp[0], "SPID") == 0) {
-			conn->handshaked = TRUE;
-			break;
+	conn->connected = FALSE;
+
+	switch (_conn->disconnect_reason) {
+	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
+		break;
+	case CONNECTION_DISCONNECT_BUFFER_FULL:
+		i_error("%s: BUG: Received more than %d bytes",
+			conn->prefix, MAX_INBUF_SIZE);
+		break;
+	default:
+		if (!conn->aborted)
+			i_error("%s: Disconnected unexpectedly", conn->prefix);
+	}
+	auth_request_lookup_abort(conn);
+}
+
+static int
+auth_master_handshake_line(struct connection *_conn, const char *line)
+{
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
+	const char *const *tmp;
+	unsigned int major_version, minor_version;
+
+	tmp = t_strsplit_tabescaped(line);
+	if (strcmp(tmp[0], "VERSION") == 0 &&
+	    tmp[1] != NULL && tmp[2] != NULL) {
+		if (str_to_uint(tmp[1], &major_version) < 0 ||
+		    str_to_uint(tmp[2], &minor_version) < 0) {
+			i_error("userdb lookup: "
+				"Auth server sent invalid version line: %s",
+				line);
+			auth_request_lookup_abort(conn);
+			return -1;
 		}
+
+		if (connection_verify_version(_conn, "auth-master",
+					      major_version,
+					      minor_version) < 0) {
+			auth_request_lookup_abort(conn);
+			return -1;
+		}
+	} else if (strcmp(tmp[0], "SPID") == 0) {
+		return 1;
 	}
 	return 0;
 }
@@ -234,12 +297,14 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	return TRUE;
 }
 
-static bool
-auth_handle_line(struct auth_master_connection *conn, const char *line)
+static int
+auth_master_input_args(struct connection *_conn, const char *const *args)
 {
-	const char *cmd, *const *args, *id, *wanted_id;
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
+	const char *const *in_args = args;
+	const char *cmd, *id, *wanted_id;
 
-	args = t_strsplit_tabescaped(line);
 	cmd = *args; args++;
 	if (*args == NULL)
 		id = "";
@@ -249,84 +314,63 @@ auth_handle_line(struct auth_master_connection *conn, const char *line)
 	}
 
 	wanted_id = dec2str(conn->request_counter);
-	if (strcmp(id, wanted_id) == 0)
-		return conn->reply_callback(cmd, args, conn->reply_context);
+	if (strcmp(id, wanted_id) == 0) {
+		return (conn->reply_callback(cmd, args, conn->reply_context) ?
+			0 : 1);
+	}
 
 	if (strcmp(cmd, "CUID") == 0) {
 		i_error("%s: %s is an auth client socket. "
 			"It should be a master socket.",
 			conn->prefix, conn->auth_socket_path);
 	} else {
-		i_error("%s: BUG: Unexpected input: %s", conn->prefix, line);
+		i_error("%s: BUG: Unexpected input: %s", conn->prefix,
+			t_strarray_join(in_args, "\t"));
 	}
 	auth_request_lookup_abort(conn);
-	return FALSE;
+	return -1;
 }
 
-static void auth_input(struct auth_master_connection *conn)
+static int auth_master_input_line(struct connection *_conn, const char *line)
 {
-	const char *line;
-	bool ret;
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
+	int ret;
 
-	switch (i_stream_read(conn->input)) {
-	case 0:
-		return;
-	case -1:
-		/* disconnected */
-		i_error("%s: Disconnected unexpectedly",
-			conn->prefix);
-		auth_request_lookup_abort(conn);
-		return;
-	case -2:
-		/* buffer full */
-		i_error("%s: BUG: Received more than %d bytes",
-			conn->prefix, MAX_INBUF_SIZE);
-		auth_request_lookup_abort(conn);
-		return;
-	}
+	ret = connection_input_line_default(_conn, line);
+	return (io_loop_is_running(conn->ioloop) ? ret : 0);
+}
 
-	if (!conn->handshaked) {
-		if (auth_input_handshake(conn) < 0)
-			return;
-	}
+static void auth_master_connected(struct connection *_conn, bool success)
+{
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
 
-	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		T_BEGIN {
-			io_loop_set_current(conn->prev_ioloop);
-			ret = auth_handle_line(conn, line);
-			io_loop_set_current(conn->ioloop);
-		} T_END;
-		if (!ret)
-			return;
-	}
+	/* Cannot get here unless connect() was successful */
+	i_assert(success);
+
+	conn->connected = TRUE;
 }
 
 static int auth_master_connect(struct auth_master_connection *conn)
 {
-	int fd;
+	i_assert(!conn->connected);
 
-	i_assert(conn->fd == -1);
-
-	/* max. 1 second wait here. */
-	fd = net_connect_unix_with_retries(conn->auth_socket_path, 1000);
-	if (fd == -1) {
-		if (errno == EACCES) {
-			i_error("userdb lookup: %s",
-				eacces_error_get("connect",
-						 conn->auth_socket_path));
-		} else {
-			i_error("userdb lookup: connect(%s) failed: %m",
-				conn->auth_socket_path);
-		}
+	if (conn->ioloop != NULL)
+		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
+	if (connection_client_connect(&conn->conn) < 0) {
+		i_error("userdb lookup: connect(%s) failed: %m",
+			conn->auth_socket_path);
 		return -1;
 	}
-	conn->fd = fd;
+
+	connection_input_halt(&conn->conn);
 	return 0;
 }
 
 static void auth_request_timeout(struct auth_master_connection *conn)
 {
-	if (!conn->handshaked)
+	if (!conn->conn.handshake_received)
 		i_error("%s: Connecting timed out", conn->prefix);
 	else
 		i_error("%s: Request timed out", conn->prefix);
@@ -347,10 +391,11 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 
 	conn->prev_ioloop = current_ioloop;
 	conn->ioloop = io_loop_create();
-	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
-	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE);
-	conn->io = io_add(conn->fd, IO_READ, auth_input, conn);
-	conn->to = timeout_add(conn->timeout_msecs, auth_request_timeout, conn);
+	connection_switch_ioloop_to(&conn->conn, conn->ioloop);
+	connection_input_resume(&conn->conn);
+
+	conn->to = timeout_add_to(conn->ioloop, conn->timeout_msecs,
+				  auth_request_timeout, conn);
 }
 
 static void auth_master_unset_io(struct auth_master_connection *conn)
@@ -360,11 +405,9 @@ static void auth_master_unset_io(struct auth_master_connection *conn)
 	}
 	if (conn->ioloop != NULL) {
 		io_loop_set_current(conn->ioloop);
-
+		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
+		connection_input_halt(&conn->conn);
 		timeout_remove(&conn->to);
-		io_remove(&conn->io);
-		i_stream_unref(&conn->input);
-		o_stream_unref(&conn->output);
 		io_loop_destroy(&conn->ioloop);
 	}
 
@@ -395,29 +438,30 @@ static bool is_valid_string(const char *str)
 static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
 				   const char *cmd)
 {
-	const char *str;
-
-	if (conn->fd == -1) {
+	if (!conn->connected) {
 		if (auth_master_connect(conn) < 0)
 			return -1;
-		i_assert(conn->fd != -1);
+		i_assert(conn->connected);
 	}
 	auth_master_set_io(conn);
 
-	o_stream_cork(conn->output);
+	o_stream_cork(conn->conn.output);
 	if (!conn->sent_handshake) {
-		str = t_strdup_printf("VERSION\t%d\t%d\n",
-				      AUTH_PROTOCOL_MAJOR, AUTH_PROTOCOL_MINOR);
-		o_stream_nsend_str(conn->output, str);
+		const struct connection_settings *set = &conn->conn.list->set;
+
+		o_stream_nsend_str(conn->conn.output,
+			t_strdup_printf("VERSION\t%u\t%u\n",
+					set->major_version,
+					set->minor_version));
 		conn->sent_handshake = TRUE;
 	}
 
-	o_stream_nsend_str(conn->output, cmd);
-	o_stream_uncork(conn->output);
+	o_stream_nsend_str(conn->conn.output, cmd);
+	o_stream_uncork(conn->conn.output);
 
-	if (o_stream_flush(conn->output) < 0) {
+	if (o_stream_flush(conn->conn.output) < 0) {
 		i_error("write(auth socket) failed: %s",
-			o_stream_get_error(conn->output));
+			o_stream_get_error(conn->conn.output));
 		auth_master_unset_io(conn);
 		auth_connection_close(conn);
 		return -1;
@@ -652,7 +696,6 @@ auth_user_list_reply_callback(const char *cmd, const char *const *args,
 	struct auth_master_user_list_ctx *ctx = context;
 
 	timeout_reset(ctx->conn->to);
-	str_truncate(ctx->username, 0);
 	io_loop_stop(ctx->conn->ioloop);
 
 	if (strcmp(cmd, "DONE") == 0) {
@@ -710,25 +753,37 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 
 const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 {
+	struct auth_master_connection *conn = ctx->conn;
 	const char *line;
 
-	if (ctx->conn->input == NULL)
+	if (!conn->connected)
 		return NULL;
 
+	str_truncate(ctx->username, 0);
+
 	/* try to read already buffered input */
-	line = i_stream_next_line(ctx->conn->input);
+	line = i_stream_next_line(conn->conn.input);
 	if (line != NULL) {
 		T_BEGIN {
-			auth_handle_line(ctx->conn, line);
+			conn->conn.v.input_line(&conn->conn, line);
 		} T_END;
-	} else {
-		/* wait for more data */
-		io_loop_set_current(ctx->conn->ioloop);
-		io_loop_run(ctx->conn->ioloop);
-		io_loop_set_current(ctx->conn->prev_ioloop);
 	}
+	if (conn->aborted)
+		ctx->failed = TRUE;
+	if (ctx->finished || ctx->failed)
+		return NULL;
+	if (str_len(ctx->username) > 0)
+		return str_c(ctx->username);
 
-	if (ctx->finished || ctx->failed || ctx->conn->aborted)
+	/* wait for more data */
+	io_loop_set_current(conn->ioloop);
+	i_stream_set_input_pending(conn->conn.input, TRUE);
+	io_loop_run(conn->ioloop);
+	io_loop_set_current(conn->prev_ioloop);
+
+	if (conn->aborted)
+		ctx->failed = TRUE;
+	if (ctx->finished || ctx->failed)
 		return NULL;
 	return str_c(ctx->username);
 }
