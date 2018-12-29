@@ -103,10 +103,36 @@ void connection_input_default(struct connection *conn)
 	i_stream_unref(&input);
 }
 
+int connection_verify_version(struct connection *conn,
+			      const char *service_name,
+			      unsigned int major_version,
+			      unsigned int minor_version)
+{
+	i_assert(!conn->version_received);
+
+	if (strcmp(service_name, conn->list->set.service_name_in) != 0) {
+		e_error(conn->event, "Connected to wrong socket type. "
+			"We want '%s', but received '%s'",
+			conn->list->set.service_name_in, service_name);
+		return -1;
+	}
+
+	if (major_version != conn->list->set.major_version) {
+		e_error(conn->event, "Socket supports major version %u, "
+			"but we support only %u (mixed old and new binaries?)",
+			major_version, conn->list->set.major_version);
+		return -1;
+	}
+
+	conn->minor_version = minor_version;
+	conn->version_received = TRUE;
+	return 0;
+}
+
 int connection_handshake_args_default(struct connection *conn,
 				      const char *const *args)
 {
-	unsigned int recv_major_version;
+	unsigned int major_version, minor_version;
 
 	if (conn->version_received)
 		return 1;
@@ -114,28 +140,16 @@ int connection_handshake_args_default(struct connection *conn,
 	/* VERSION <tab> service_name <tab> major version <tab> minor version */
 	if (str_array_length(args) != 4 ||
 	    strcmp(args[0], "VERSION") != 0 ||
-	    str_to_uint(args[2], &recv_major_version) < 0 ||
-	    str_to_uint(args[3], &conn->minor_version) < 0) {
+	    str_to_uint(args[2], &major_version) < 0 ||
+	    str_to_uint(args[3], &minor_version) < 0) {
 		e_error(conn->event, "didn't reply with a valid VERSION line: %s",
 			t_strarray_join(args, "\t"));
 		return -1;
 	}
 
-	if (strcmp(args[1], conn->list->set.service_name_in) != 0) {
-		e_error(conn->event, "Connected to wrong socket type. "
-			"We want '%s', but received '%s'",
-			conn->list->set.service_name_in, args[1]);
+	if (connection_verify_version(conn, args[1],
+				      major_version, minor_version) < 0)
 		return -1;
-	}
-
-	if (recv_major_version != conn->list->set.major_version) {
-		e_error(conn->event, "Socket supports major version %u, "
-			"but we support only %u (mixed old and new binaries?)",
-			recv_major_version, conn->list->set.major_version);
-		return -1;
-	}
-
-	conn->version_received = TRUE;
 	return 1;
 }
 
