@@ -89,8 +89,20 @@ static const char *get_log_prefix_db(struct auth_request *auth_request)
 	return str_c(str);
 }
 
+static struct event *get_request_event(struct auth_request *request,
+				       const char *subsystem)
+{
+	if (subsystem == AUTH_SUBSYS_DB)
+		return authdb_event(request);
+	else if (subsystem == AUTH_SUBSYS_MECH)
+		return request->mech_event;
+	else
+		return request->event;
+}
+
 static void auth_request_post_alloc_init(struct auth_request *request, struct event *parent_event)
 {
+	enum log_type level;
 	request->state = AUTH_REQUEST_STATE_NEW;
 	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
 	request->refcount = 1;
@@ -101,6 +113,11 @@ static void auth_request_post_alloc_init(struct auth_request *request, struct ev
 	request->extra_fields = auth_fields_init(request->pool);
 	request->event = event_create(parent_event);
 	request->mech_event = event_create(request->event);
+
+	level = request->set->verbose ? LOG_TYPE_INFO : LOG_TYPE_WARNING;
+	event_set_min_log_level(request->event, level);
+	event_set_min_log_level(request->mech_event, level);
+
 	p_array_init(&request->authdb_event, request->pool, 2);
 	event_set_log_prefix_callback(request->mech_event, FALSE, get_log_prefix_mech,
 				      request);
@@ -2643,6 +2660,7 @@ static void log_password_failure(struct auth_request *request,
 				 const struct password_generate_params *params,
 				 const char *subsystem)
 {
+	struct event *event = get_request_event(request, subsystem);
 	static bool scheme_ok = FALSE;
 	string_t *str = t_str_new(256);
 	const char *working_scheme;
@@ -2661,7 +2679,7 @@ static void log_password_failure(struct auth_request *request,
 		}
 	}
 
-	auth_request_log_debug(request, subsystem, "%s", str_c(str));
+	e_debug(event, "%s", str_c(str));
 }
 
 static void
@@ -2712,14 +2730,19 @@ void auth_request_log_login_failure(struct auth_request *request,
 				    const char *subsystem,
 				    const char *message)
 {
+	struct event *event = get_request_event(request, subsystem);
 	string_t *str;
 
 	if (strcmp(request->set->verbose_passwords, "no") == 0) {
-		auth_request_log_info(request, subsystem, "%s", message);
+		e_info(event, "%s", message);
 		return;
 	}
+
+	/* make sure this gets logged */
+	enum log_type orig_level = event_get_min_log_level(event);
+	event_set_min_log_level(event, LOG_TYPE_INFO);
+
 	str = t_str_new(128);
-	auth_request_get_log_prefix(str, request, subsystem);
 	str_append(str, message);
 	str_append(str, " ");
 
@@ -2732,7 +2755,8 @@ void auth_request_log_login_failure(struct auth_request *request,
 		if (request->passdb->next != NULL)
 			str_append(str, " - trying the next passdb");
 	}
-	i_info("%s", str_c(str));
+	e_info(event, "%s", str_c(str));
+	event_set_min_log_level(event, orig_level);
 }
 
 int auth_request_password_verify(struct auth_request *request,
@@ -2855,33 +2879,24 @@ static void get_log_identifier(string_t *str, struct auth_request *auth_request)
 	        str_append_c(str, ',');
 	        str_append(str, ip);
 	}
-	if (auth_request->auth_requested_login_user != NULL)
+	if (auth_request->requested_login_user != NULL)
 	        str_append(str, ",master");
 	if (auth_request->session_id != NULL)
 	        str_printfa(str, ",<%s>", auth_request->session_id);
-}
-
-static const char * ATTR_FORMAT(3, 0)
-get_log_str(struct auth_request *auth_request, const char *subsystem,
-	    const char *format, va_list va)
-{
-	string_t *str;
-
-	str = t_str_new(128);
-	auth_request_get_log_prefix(str, auth_request, subsystem);
-	str_vprintfa(str, format, va);
-	return str_c(str);
 }
 
 void auth_request_log_debug(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...)
 {
+	struct event *event = get_request_event(auth_request, subsystem);
 	va_list va;
 
 	va_start(va, format);
 	T_BEGIN {
-		e_debug(auth_request->event, "%s", get_log_str(auth_request, subsystem, format, va));
+		string_t *str = t_str_new(128);
+		str_vprintfa(str, format, va);
+		e_debug(event, "%s", str_c(str));
 	} T_END;
 	va_end(va);
 }
@@ -2890,36 +2905,14 @@ void auth_request_log_info(struct auth_request *auth_request,
 			   const char *subsystem,
 			   const char *format, ...)
 {
+	struct event *event = get_request_event(auth_request, subsystem);
 	va_list va;
-
-	if (auth_request->set->debug) {
-		/* auth_debug=yes overrides auth_verbose settings */
-	} else {
-		const char *db_auth_verbose;
-
-		if (auth_request->userdb_lookup)
-			db_auth_verbose = auth_request->userdb->set->auth_verbose;
-		else if (auth_request->passdb != NULL)
-			db_auth_verbose = auth_request->passdb->set->auth_verbose;
-		else
-			db_auth_verbose = "d";
-		switch (db_auth_verbose[0]) {
-		case 'y':
-			break;
-		case 'n':
-			return;
-		case 'd':
-			if (!auth_request->set->verbose)
-				return;
-			break;
-		default:
-			i_unreached();
-		}
-	}
 
 	va_start(va, format);
 	T_BEGIN {
-		i_info("%s", get_log_str(auth_request, subsystem, format, va));
+		string_t *str = t_str_new(128);
+		str_vprintfa(str, format, va);
+		e_info(event, "%s", str_c(str));
 	} T_END;
 	va_end(va);
 }
@@ -2928,11 +2921,14 @@ void auth_request_log_warning(struct auth_request *auth_request,
 			      const char *subsystem,
 			      const char *format, ...)
 {
+	struct event *event = get_request_event(auth_request, subsystem);
 	va_list va;
 
 	va_start(va, format);
 	T_BEGIN {
-		i_warning("%s", get_log_str(auth_request, subsystem, format, va));
+		string_t *str = t_str_new(128);
+		str_vprintfa(str, format, va);
+		e_warning(event, "%s", str_c(str));
 	} T_END;
 	va_end(va);
 }
@@ -2941,11 +2937,14 @@ void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...)
 {
+	struct event *event = get_request_event(auth_request, subsystem);
 	va_list va;
 
 	va_start(va, format);
 	T_BEGIN {
-		i_error("%s", get_log_str(auth_request, subsystem, format, va));
+		string_t *str = t_str_new(128);
+		str_vprintfa(str, format, va);
+		e_error(event, "%s", str_c(str));
 	} T_END;
 	va_end(va);
 }
