@@ -45,6 +45,8 @@ struct lmtp_proxy_recipient {
 
 	struct smtp_address *address;
 
+	struct auth_master_request *auth_request;
+
 	const unsigned char *auth_forward_fields;
 	size_t auth_forward_fields_size;
 
@@ -371,6 +373,7 @@ lmtp_proxy_rcpt_destroy(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 			struct lmtp_proxy_recipient *lprcpt)
 {
 	array_free(&lprcpt->redirect_path);
+	auth_master_request_abort(&lprcpt->auth_request);
 }
 
 static int
@@ -901,6 +904,8 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 	struct smtp_address *user;
 	int ret;
 
+	lprcpt->auth_request = NULL;
+
 	if (result <= 0) {
 		errstr = (result < 0 && fields[0] != NULL ?
 			  t_strdup(fields[0]) :
@@ -978,9 +983,6 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 	lprcpt->address = smtp_address_clone(rcpt->pool, address);
 
 	smtp_server_recipient_add_hook(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY,
-		lmtp_proxy_rcpt_destroy, lprcpt);
-	smtp_server_recipient_add_hook(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
 		lmtp_proxy_rcpt_approved, lprcpt);
 
@@ -995,9 +997,6 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
-	const char *const *fields, *username;
-	pool_t auth_pool;
-	int result;
 
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lprcpt->rcpt = lrcpt;
@@ -1005,21 +1004,20 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	lrcpt->type = LMTP_RECIPIENT_TYPE_PROXY;
 	lrcpt->backend_context = lprcpt;
 
+	smtp_server_recipient_add_hook(
+		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY,
+		lmtp_proxy_rcpt_destroy, lprcpt);
+
 	i_zero(&input);
 	input.service = "lmtp";
 	mail_storage_service_init_settings(storage_service, &input);
 
 	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);
 
-	// FIXME: make this async
-	username = lrcpt->username;
-	auth_pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
-	result = auth_master_pass_lookup(auth_conn, username, &info,
-					 auth_pool, &fields);
-	lmtp_proxy_rcpt_user_lookup_cb(lprcpt, result, fields);
-	pool_unref(&auth_pool);
-
+	lprcpt->auth_request = auth_master_pass_lookup_async(
+		auth_conn, lrcpt->username, &info,
+		lmtp_proxy_rcpt_user_lookup_cb, lprcpt);
 	return 0;
 }
 
