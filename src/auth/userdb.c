@@ -211,6 +211,19 @@ void userdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
 	md5_final(&ctx, md5);
 }
 
+const char *userdb_result_to_string(enum userdb_result result)
+{
+	switch (result) {
+	case USERDB_RESULT_INTERNAL_FAILURE:
+		return "internal_failure";
+	case USERDB_RESULT_USER_UNKNOWN:
+		return "user_unknown";
+	case USERDB_RESULT_OK:
+		return "ok";
+	}
+	i_unreached();
+}
+
 extern struct userdb_module_interface userdb_prefetch;
 extern struct userdb_module_interface userdb_static;
 extern struct userdb_module_interface userdb_passwd;
