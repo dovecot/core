@@ -67,6 +67,8 @@ struct userdb_module_interface {
 	int (*iterate_deinit)(struct userdb_iterate_context *ctx);
 };
 
+const char *userdb_result_to_string(enum userdb_result result);
+
 uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 	ATTR_NULL(1);
 gid_t userdb_parse_gid(struct auth_request *request, const char *str)
