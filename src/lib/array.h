@@ -234,6 +234,16 @@ array_idx_i(const struct array *array, unsigned int idx)
 	i_assert(idx < array->buffer->used / array->element_size);
 	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
+
+#define array_first(array) array_idx(array, 0)
+#define array_first_modifiable(array) array_idx_modifiable(array, 0)
+#define array_last(array) array_idx(array, array_count(array)-1)
+#define array_last_modifiable(array) array_idx_modifiable(array, array_count(array)-1)
+#define array_pop_back(array) array_delete(array, array_count(array)-1, 1);
+#define array_push_back(array, item) array_append(array, (item), 1)
+#define array_pop_front(array) array_delete(array, 0, 1)
+#define array_push_front(array, item) array_insert(array, 0, (item), 1)
+
 #define array_idx(array, idx) \
 	ARRAY_TYPE_CAST_CONST(array)array_idx_i(&(array)->arr, idx)
 
