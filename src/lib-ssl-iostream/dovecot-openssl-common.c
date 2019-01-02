@@ -5,11 +5,14 @@
 #include "dovecot-openssl-common.h"
 
 #include <openssl/ssl.h>
-#include <openssl/engine.h>
 #include <openssl/rand.h>
+#ifndef OPENSSL_NO_ENGINE
+#include <openssl/engine.h>
+
+static ENGINE *dovecot_openssl_engine;
+#endif
 
 static int openssl_init_refcount = 0;
-static ENGINE *dovecot_openssl_engine;
 
 #ifdef HAVE_SSL_NEW_MEM_FUNCS
 static void *dovecot_openssl_malloc(size_t size, const char *u0 ATTR_UNUSED, int u1 ATTR_UNUSED)
@@ -75,17 +78,21 @@ bool dovecot_openssl_common_global_unref(void)
 	if (--openssl_init_refcount > 0)
 		return TRUE;
 
+#ifndef OPENSSL_NO_ENGINE
 	if (dovecot_openssl_engine != NULL) {
 		ENGINE_finish(dovecot_openssl_engine);
 		dovecot_openssl_engine = NULL;
 	}
+#endif
 	/* OBJ_cleanup() is called automatically by EVP_cleanup() in
 	   newer versions. Doesn't hurt to call it anyway. */
 	OBJ_cleanup();
 #ifdef HAVE_SSL_COMP_FREE_COMPRESSION_METHODS
 	SSL_COMP_free_compression_methods();
 #endif
+#ifndef OPENSSL_NO_ENGINE
 	ENGINE_cleanup();
+#endif
 	EVP_cleanup();
 	CRYPTO_cleanup_all_ex_data();
 #ifdef HAVE_OPENSSL_AUTO_THREAD_DEINIT
@@ -107,6 +114,7 @@ bool dovecot_openssl_common_global_unref(void)
 int dovecot_openssl_common_global_set_engine(const char *engine,
 					     const char **error_r)
 {
+#ifndef OPENSSL_NO_ENGINE
 	if (dovecot_openssl_engine != NULL)
 		return 1;
 
@@ -128,5 +136,6 @@ int dovecot_openssl_common_global_set_engine(const char *engine,
 		dovecot_openssl_engine = NULL;
 		return -1;
 	}
+#endif
 	return 1;
 }

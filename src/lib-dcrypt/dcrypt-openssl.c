@@ -17,10 +17,12 @@
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
-#include <openssl/engine.h>
 #include <openssl/hmac.h>
 #include <openssl/objects.h>
 #include <openssl/bn.h>
+#ifndef OPENSSL_NO_ENGINE
+#include <openssl/engine.h>
+#endif
 #include "dcrypt.h"
 #include "dcrypt-private.h"
 
@@ -179,11 +181,13 @@ static bool dcrypt_openssl_error(const char **error_r)
 static bool dcrypt_openssl_initialize(const struct dcrypt_settings *set,
 				      const char **error_r)
 {
+#ifndef OPENSSL_NO_ENGINE
 	if (set->crypto_device != NULL && set->crypto_device[0] != '\0') {
 		if (dovecot_openssl_common_global_set_engine(
 			set->crypto_device, error_r) <= 0)
 			return FALSE;
 	}
+#endif
 	return TRUE;
 }
 
