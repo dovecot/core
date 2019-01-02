@@ -286,6 +286,30 @@ void passdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
 	md5_final(&ctx, md5);
 }
 
+const char *
+passdb_result_to_string(enum passdb_result result)
+{
+	switch (result) {
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		return "internal_failure";
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+		return "scheme_not_available";
+	case PASSDB_RESULT_USER_UNKNOWN:
+		return "user_unknown";
+	case PASSDB_RESULT_USER_DISABLED:
+		return "user_disabled";
+	case PASSDB_RESULT_PASS_EXPIRED:
+		return "pass_expired";
+	case PASSDB_RESULT_NEXT:
+		return "next";
+	case PASSDB_RESULT_PASSWORD_MISMATCH:
+		return "password_mismatch";
+	case PASSDB_RESULT_OK:
+		return "ok";
+	}
+	i_unreached();
+}
+
 extern struct passdb_module_interface passdb_passwd;
 extern struct passdb_module_interface passdb_bsdauth;
 extern struct passdb_module_interface passdb_dict;

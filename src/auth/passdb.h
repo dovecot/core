@@ -82,6 +82,8 @@ struct passdb_module {
 	struct passdb_module_interface iface;
 };
 
+const char *passdb_result_to_string(enum passdb_result result);
+
 /* Try to get credentials in wanted scheme (request->credentials_scheme) from
    given input. Returns FALSE if this wasn't possible (unknown scheme,
    conversion not possible or invalid credentials).
