@@ -147,7 +147,7 @@ print "const struct setting_parser_info *all_default_roots[] = {\n";
 print "\t&master_service_setting_parser_info,\n";
 print "\t&master_service_ssl_setting_parser_info,\n";
 print "\t&smtp_submit_setting_parser_info,\n";
-foreach my $name (keys %parsers) {
+foreach my $name (sort(keys %parsers)) {
   my $module = $parsers{$name};
   next if (!$module);
 
