@@ -244,7 +244,7 @@ lmtp_local_rcpt_approved(struct smtp_server_recipient *rcpt,
 	}
 
 	/* add to local recipients */
-	array_append(&client->local->rcpt_to, &llrcpt, 1);
+	array_push_back(&client->local->rcpt_to, &llrcpt);
 }
 
 static bool

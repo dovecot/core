@@ -467,7 +467,7 @@ static void json_parser_object_open(struct json_parser *parser)
 {
 	parser->data++;
 	parser->state = JSON_STATE_OBJECT_OPEN;
-	array_append(&parser->nesting, &parser->state, 1);
+	array_push_back(&parser->nesting, &parser->state);
 	json_parser_update_input_pos(parser);
 }
 
@@ -504,7 +504,7 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		} else if (*parser->data == '[') {
 			parser->data++;
 			parser->state = JSON_STATE_ARRAY_OPEN;
-			array_append(&parser->nesting, &parser->state, 1);
+			array_push_back(&parser->nesting, &parser->state);
 			json_parser_update_input_pos(parser);
 
 			if (parser->skipping) {

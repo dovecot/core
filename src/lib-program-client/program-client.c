@@ -554,7 +554,7 @@ void program_client_set_env(struct program_client *pclient, const char *name,
 		p_array_init(&pclient->envs, pclient->pool, 16);
 
 	env = p_strdup_printf(pclient->pool, "%s=%s", name, value);
-	array_append(&pclient->envs, &env, 1);
+	array_push_back(&pclient->envs, &env);
 
 	e_debug(pclient->event, "Pass environment: %s",
 		str_sanitize(env, 256));

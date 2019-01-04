@@ -180,7 +180,7 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 	h.nil_reply = p_strdup(ctx->pool, nil_reply);
 
 	if (!h.buffered)
-		array_append(&ctx->fetch_ctx->handlers, &h, 1);
+		array_push_back(&ctx->fetch_ctx->handlers, &h);
 	else {
 		array_insert(&ctx->fetch_ctx->handlers,
 			     ctx->fetch_ctx->buffered_handlers_count, &h, 1);

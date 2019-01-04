@@ -461,7 +461,7 @@ driver_cassandra_set_callback(CassFuture *future, struct cassandra_db *db,
 	cb->callback = callback;
 	cb->context = context;
 	cb->db = db;
-	array_append(&db->callbacks, &cb, 1);
+	array_push_back(&db->callbacks, &cb);
 
 	cass_future_set_callback(future, driver_cassandra_future_callback, cb);
 }
@@ -1300,7 +1300,7 @@ driver_cassandra_query_init(struct cassandra_db *db, const char *query,
 	result->query = i_strdup(query);
 	result->is_prepared = is_prepared;
 	result->api.event = event_create(db->api.event);
-	array_append(&db->results, &result, 1);
+	array_push_back(&db->results, &result);
 	return result;
 }
 
@@ -1521,8 +1521,8 @@ static int driver_cassandra_result_next_row(struct sql_result *_result)
 			ret = -1;
 			break;
 		}
-		array_append(&result->fields, &str, 1);
-		array_append(&result->field_sizes, &size, 1);
+		array_push_back(&result->fields, &str);
+		array_push_back(&result->field_sizes, &size);
 	}
 	return ret;
 }
@@ -1977,7 +1977,7 @@ static void prepare_start(struct cassandra_sql_prepared_statement *prep_stmt)
 	if (!SQL_DB_IS_READY(&db->api)) {
 		if (!prep_stmt->pending) {
 			prep_stmt->pending = TRUE;
-			array_append(&db->pending_prepares, &prep_stmt, 1);
+			array_push_back(&db->pending_prepares, &prep_stmt);
 
 			if (sql_connect(&db->api) < 0)
 				i_unreached();
@@ -2065,7 +2065,7 @@ driver_cassandra_statement_init_prepared(struct sql_prepared_statement *_prep_st
 		if (prep_stmt->error != NULL)
 			prepare_start(prep_stmt);
 		/* need to wait until prepare is finished */
-		array_append(&prep_stmt->pending_statements, &stmt, 1);
+		array_push_back(&prep_stmt->pending_statements, &stmt);
 	}
 	return &stmt->stmt;
 }

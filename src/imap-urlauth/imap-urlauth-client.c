@@ -82,13 +82,13 @@ int client_create(const char *service, const char *username,
 		    strcmp(set->imap_urlauth_submit_user, username) == 0) {
 			e_debug(client->event, "User %s has URLAUTH submit access", username);
 			app = "submit+";
-			array_append(&client->access_apps, &app, 1);
+			array_push_back(&client->access_apps, &app);
 		}
 		if (set->imap_urlauth_stream_user != NULL &&
 		    strcmp(set->imap_urlauth_stream_user, username) == 0) {
 			e_debug(client->event, "User %s has URLAUTH stream access", username);
 			app = "stream";
-			array_append(&client->access_apps, &app, 1);
+			array_push_back(&client->access_apps, &app);
 		}
 	}
 

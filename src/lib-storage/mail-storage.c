@@ -98,7 +98,7 @@ void mail_storage_class_register(struct mail_storage *storage_class)
 	i_assert(mail_storage_find_class(storage_class->name) == NULL);
 
 	/* append it after the list, so the autodetection order is correct */
-	array_append(&mail_storage_classes, &storage_class, 1);
+	array_push_back(&mail_storage_classes, &storage_class);
 }
 
 void mail_storage_class_unregister(struct mail_storage *storage_class)

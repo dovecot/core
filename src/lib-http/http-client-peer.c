@@ -1172,7 +1172,7 @@ void http_client_peer_link_queue(struct http_client_peer *peer,
 			       struct http_client_queue *queue)
 {
 	if (!http_client_peer_have_queue(peer, queue)) {
-		array_append(&peer->queues, &queue, 1);
+		array_push_back(&peer->queues, &queue);
 
 		e_debug(peer->event, "Linked queue %s (%d queues linked)",
 			queue->name, array_count(&peer->queues));

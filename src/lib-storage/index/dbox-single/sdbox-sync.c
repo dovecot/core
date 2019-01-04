@@ -43,7 +43,7 @@ static void sdbox_sync_file(struct sdbox_sync_context *ctx,
 	case SDBOX_SYNC_ENTRY_TYPE_EXPUNGE:
 		if (!mail_index_transaction_is_expunged(ctx->trans, seq)) {
 			mail_index_expunge(ctx->trans, seq);
-			array_append(&ctx->expunged_uids, &uid, 1);
+			array_push_back(&ctx->expunged_uids, &uid);
 		}
 		break;
 	case SDBOX_SYNC_ENTRY_TYPE_MOVE_FROM_ALT:

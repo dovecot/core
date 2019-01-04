@@ -459,7 +459,7 @@ void mdbox_purge_alt_flag_change(struct mail *mail, bool move_to_alt)
 
 	if (!array_is_created(dest))
 		i_array_init(dest, 256);
-	array_append(dest, &map_uid, 1);
+	array_push_back(dest, &map_uid);
 }
 
 static struct mdbox_purge_context *

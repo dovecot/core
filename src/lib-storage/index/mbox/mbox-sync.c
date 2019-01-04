@@ -729,7 +729,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			i_assert(sync_ctx->space_diff < -mail_ctx->mail.space);
 
 			sync_ctx->need_space_seq--;
-			array_append(&sync_ctx->mails, &mail, 1);
+			array_push_back(&sync_ctx->mails, &mail);
 		}
 	}
 	return 0;

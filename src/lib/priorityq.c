@@ -109,7 +109,7 @@ static void heap_item_bubble_down(struct priorityq *pq, unsigned int idx)
 void priorityq_add(struct priorityq *pq, struct priorityq_item *item)
 {
 	item->idx = array_count(&pq->items);
-	array_append(&pq->items, &item, 1);
+	array_push_back(&pq->items, &item);
 	(void)heap_item_bubble_up(pq, item->idx);
 }
 

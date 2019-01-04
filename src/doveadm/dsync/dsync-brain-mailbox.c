@@ -358,7 +358,7 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 
 	i_assert(brain->box != NULL);
 
-	array_append(&brain->remote_mailbox_states, &brain->mailbox_state, 1);
+	array_push_back(&brain->remote_mailbox_states, &brain->mailbox_state);
 	if (brain->box_exporter != NULL) {
 		const char *errstr;
 

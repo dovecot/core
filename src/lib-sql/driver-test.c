@@ -502,7 +502,7 @@ void sql_driver_test_add_expected_result(struct sql_db *_db,
 					  const struct test_driver_result *result)
 {
 	struct test_sql_db *db = (struct test_sql_db*)_db;
-	array_append(&db->expected, result, 1);
+	array_push_back(&db->expected, result);
 }
 
 void sql_driver_test_clear_expected_results(struct sql_db *_db)

@@ -50,7 +50,7 @@ void mail_storage_hooks_add(struct module *module,
 	/* allow adding hooks before mail_storage_hooks_init() */
 	if (!array_is_created(&module_hooks))
 		i_array_init(&module_hooks, 32);
-	array_append(&module_hooks, &new_hook, 1);
+	array_push_back(&module_hooks, &new_hook);
 }
 
 void mail_storage_hooks_add_forced(struct module *module,
@@ -87,7 +87,7 @@ void mail_storage_hooks_add_internal(const struct mail_storage_hooks *hooks)
 	/* make sure we don't add duplicate hooks */
 	array_foreach(&internal_hooks, existing_hooksp)
 		i_assert(*existing_hooksp != hooks);
-	array_append(&internal_hooks, &hooks, 1);
+	array_push_back(&internal_hooks, &hooks);
 }
 
 void mail_storage_hooks_remove_internal(const struct mail_storage_hooks *hooks)

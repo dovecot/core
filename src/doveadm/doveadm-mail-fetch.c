@@ -548,13 +548,13 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 		doveadm_print_header_simple(name);
 		if ((field = fetch_field_find(name)) != NULL) {
 			ctx->wanted_fields |= field->wanted_fields;
-			array_append(&ctx->fields, field, 1);
+			array_push_back(&ctx->fields, field);
 		} else if (str_begins(name, "hdr.")) {
 			name += 4;
 			hdr_field.name = name;
-			array_append(&ctx->fields, &hdr_field, 1);
+			array_push_back(&ctx->fields, &hdr_field);
 			name = t_strcut(name, '.');
-			array_append(&ctx->header_fields, &name, 1);
+			array_push_back(&ctx->header_fields, &name);
 		} else if (str_begins(name, "body.") ||
 			   str_begins(name, "binary.")) {
 			bool binary = str_begins(name, "binary.");
@@ -565,7 +565,7 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 				print_fetch_fields();
 				i_fatal("Unknown fetch section: %s", name);
 			}
-			array_append(&ctx->fields, &body_field, 1);
+			array_push_back(&ctx->fields, &body_field);
 			ctx->wanted_fields |= imap_msgpart_get_fetch_data(msgpart);
 			imap_msgpart_free(&msgpart);
 		} else {

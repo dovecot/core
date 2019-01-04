@@ -205,7 +205,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 		array_foreach(&set->sync_namespaces, nsp) {
 			str_append(sync_ns_str, (*nsp)->prefix);
 			str_append_c(sync_ns_str, '\n');
-			array_append(&brain->sync_namespaces, nsp, 1);
+			array_push_back(&brain->sync_namespaces, nsp);
 		}
 		str_delete(sync_ns_str, str_len(sync_ns_str)-1, 1);
 	}
@@ -537,7 +537,7 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 				brain->failed = TRUE;
 				return FALSE;
 			}
-			array_append(&brain->sync_namespaces, &ns, 1);
+			array_push_back(&brain->sync_namespaces, &ns);
 		}
 	}
 	brain->sync_box = p_strdup(brain->pool, ibc_set->sync_box);

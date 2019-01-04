@@ -59,7 +59,7 @@ push_notification_transaction_init(struct push_notification_txn *ptxn)
 
         if ((dtxn->duser->driver->v.begin_txn == NULL) ||
             dtxn->duser->driver->v.begin_txn(dtxn)) {
-            array_append(&ptxn->drivers, &dtxn, 1);
+            array_push_back(&ptxn->drivers, &dtxn);
         }
     }
 }
@@ -260,7 +260,7 @@ push_notification_config_init(const char *config_name,
         }
 
         // Add driver.
-        array_append(&dlist->drivers, &duser, 1);
+        array_push_back(&dlist->drivers, &duser);
 
         str_truncate(root_name, strlen(config_name));
         str_printfa(root_name, "%d", i);

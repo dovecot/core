@@ -61,7 +61,7 @@ add_autobox(struct mail_user *user, const char *vname, bool subscriptions)
 		set->name = p_strdup(user->pool, vname);
 		set->autocreate = MAILBOX_SET_AUTO_NO;
 		set->special_use = "";
-		array_append(&tmp_ns_set.mailboxes, &set, 1);
+		array_push_back(&tmp_ns_set.mailboxes, &set);
 	}
 	if (subscriptions)
 		set->autocreate = MAILBOX_SET_AUTO_SUBSCRIBE;

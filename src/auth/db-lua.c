@@ -721,7 +721,7 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 			return &actx->ctx;
 		}
 		const char *str = p_strdup(pool, lua_tostring(script->L, -2));
-		array_append(&actx->users, &str, 1);
+		array_push_back(&actx->users, &str);
 		lua_pop(script->L, 2);
 	}
 

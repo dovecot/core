@@ -1615,7 +1615,7 @@ void smtp_server_connection_register_mail_param(
 
 	if (!array_is_created(&conn->mail_param_extensions)) {
 		p_array_init(&conn->mail_param_extensions, conn->pool, 8);
-		array_append(&conn->mail_param_extensions, &param, 1);
+		array_push_back(&conn->mail_param_extensions, &param);
 	} else {
 		unsigned int count = array_count(&conn->mail_param_extensions);
 
@@ -1633,7 +1633,7 @@ void smtp_server_connection_register_rcpt_param(
 
 	if (!array_is_created(&conn->rcpt_param_extensions)) {
 		p_array_init(&conn->rcpt_param_extensions, conn->pool, 8);
-		array_append(&conn->rcpt_param_extensions, &param, 1);
+		array_push_back(&conn->rcpt_param_extensions, &param);
 	} else {
 		unsigned int count = array_count(&conn->rcpt_param_extensions);
 

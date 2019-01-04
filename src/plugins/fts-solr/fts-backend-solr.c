@@ -334,7 +334,7 @@ fts_solr_field_get(struct solr_fts_backend_update_context *ctx, const char *key)
 	i_zero(&new_field);
 	new_field.key = str_lcase(i_strdup(key));
 	new_field.value = str_new(default_pool, 128);
-	array_append(&ctx->fields, &new_field, 1);
+	array_push_back(&ctx->fields, &new_field);
 	return new_field.value;
 }
 

@@ -374,7 +374,7 @@ static void smtp_reply_parser_finish_line(struct smtp_reply_parser *parser)
 	parser->state.line++;
 	parser->state.reply_size += str_len(parser->strbuf);
 	text = p_strdup(parser->reply_pool, text);
-	array_append(&parser->state.reply_lines, &text, 1);
+	array_push_back(&parser->state.reply_lines, &text);
 	str_truncate(parser->strbuf, 0);
 }
 

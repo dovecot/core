@@ -166,7 +166,7 @@ virtual_mail_set_backend_mail(struct mail *mail,
 
 	backend_pmail = (struct mail_private *)vmail->cur_backend_mail;
 	backend_pmail->vmail = mail;
-	array_append(&vmail->backend_mails, &vmail->cur_backend_mail, 1);
+	array_push_back(&vmail->backend_mails, &vmail->cur_backend_mail);
 	return vmail->cur_backend_mail;
 }
 

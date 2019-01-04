@@ -94,7 +94,7 @@ void sdbox_save_add_file(struct mail_save_context *_ctx, struct dbox_file *file)
 		   we'll close it here to avoid eating too many fds. */
 		dbox_file_close(files[count-1]);
 	}
-	array_append(&ctx->files, &file, 1);
+	array_push_back(&ctx->files, &file);
 }
 
 int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)

@@ -268,7 +268,7 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	rext.record_size = default_record_size;
 	rext.record_align = default_record_align;
 
-	array_append(&index->extensions, &rext, 1);
+	array_push_back(&index->extensions, &rext);
 	return rext.index_idx;
 }
 
@@ -333,7 +333,7 @@ void mail_index_unregister_expunge_handler(struct mail_index *index,
 void mail_index_register_sync_lost_handler(struct mail_index *index,
 					   mail_index_sync_lost_handler_t *cb)
 {
-	array_append(&index->sync_lost_handlers, &cb, 1);
+	array_push_back(&index->sync_lost_handlers, &cb);
 }
 
 void mail_index_unregister_sync_lost_handler(struct mail_index *index,
@@ -386,7 +386,7 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 
 	hash_table_insert(index->keywords_hash, keyword_dup,
 			  POINTER_CAST(*idx_r));
-	array_append(&index->keywords, &keyword, 1);
+	array_push_back(&index->keywords, &keyword);
 
 	/* keep the array NULL-terminated, but the NULL itself invisible */
 	array_append_zero(&index->keywords);

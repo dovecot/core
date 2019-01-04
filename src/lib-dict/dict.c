@@ -37,7 +37,7 @@ void dict_driver_register(struct dict *driver)
 		i_fatal("dict_driver_register(%s): Already registered",
 			driver->name);
 	}
-	array_append(&dict_drivers, &driver, 1);
+	array_push_back(&dict_drivers, &driver);
 }
 
 void dict_driver_unregister(struct dict *driver)

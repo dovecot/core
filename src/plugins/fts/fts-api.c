@@ -16,7 +16,7 @@ void fts_backend_register(const struct fts_backend *backend)
 {
 	if (!array_is_created(&backends))
 		i_array_init(&backends, 4);
-	array_append(&backends, &backend, 1);
+	array_push_back(&backends, &backend);
 }
 
 void fts_backend_unregister(const char *name)

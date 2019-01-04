@@ -138,7 +138,7 @@ static void push_notification_event_flagsset_keywords_event(
 
         if (*op == NULL) {
             k = p_strdup(ptxn->pool, *keywords);
-            array_append(&data->keywords_set, &k, 1);
+            array_push_back(&data->keywords_set, &k);
         }
     }
 }

@@ -245,7 +245,7 @@ struct event *event_push_global(struct event *event)
 	if (current_global_event != NULL) {
 		if (!array_is_created(&global_event_stack))
 			i_array_init(&global_event_stack, 4);
-		array_append(&global_event_stack, &current_global_event, 1);
+		array_push_back(&global_event_stack, &current_global_event);
 	}
 	current_global_event = event;
 	return event;
@@ -410,7 +410,7 @@ event_add_categories(struct event *event,
 	for (unsigned int i = 0; categories[i] != NULL; i++) {
 		event_category_register(categories[i]);
 		if (!event_find_category(event, categories[i]))
-			array_append(&event->categories, &categories[i], 1);
+			array_push_back(&event->categories, &categories[i]);
 	}
 	return event;
 }
@@ -770,7 +770,7 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 			}
 			if (!array_is_created(&event->categories))
 				p_array_init(&event->categories, event->pool, 4);
-			array_append(&event->categories, &category, 1);
+			array_push_back(&event->categories, &category);
 			break;
 		}
 		case EVENT_CODE_TV_LAST_SENT:
@@ -846,7 +846,7 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 
 void event_register_callback(event_callback_t *callback)
 {
-	array_append(&event_handlers, &callback, 1);
+	array_push_back(&event_handlers, &callback);
 }
 
 void event_unregister_callback(event_callback_t *callback)
@@ -865,7 +865,7 @@ void event_unregister_callback(event_callback_t *callback)
 
 void event_category_register_callback(event_category_callback_t *callback)
 {
-	array_append(&event_category_callbacks, &callback, 1);
+	array_push_back(&event_category_callbacks, &callback);
 }
 
 void event_category_unregister_callback(event_category_callback_t *callback)

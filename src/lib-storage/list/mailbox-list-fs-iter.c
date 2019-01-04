@@ -473,7 +473,7 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 			/* mailbox name */
 		}
 		root = p_strdup(ctx->ctx.pool, root);
-		array_append(&ctx->roots, &root, 1);
+		array_push_back(&ctx->roots, &root);
 	}
 	/* sort the root dirs so that /foo is before /foo/bar */
 	array_sort(&ctx->roots, i_strcmp_p);

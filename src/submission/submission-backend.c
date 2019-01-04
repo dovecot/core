@@ -319,7 +319,7 @@ submission_backend_add_pending(struct submission_backend *backend)
 			return;
 	}
 
-	array_append(&client->pending_backends, &backend, 1);
+	array_push_back(&client->pending_backends, &backend);
 }
 
 int submission_backend_cmd_rcpt(struct submission_backend *backend,

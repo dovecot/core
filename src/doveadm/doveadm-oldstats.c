@@ -185,7 +185,7 @@ static void stats_read(struct top_context *ctx)
 		old_line = hash_table_lookup(ctx->sessions, line->id);
 		if (old_line != NULL) {
 			stats_line_set_prev_values(ctx, old_line, line);
-			array_append(&ctx->lines, &line, 1);
+			array_push_back(&ctx->lines, &line);
 		}
 		hash_table_update(ctx->sessions, line->id, line);
 	}

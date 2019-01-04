@@ -540,7 +540,7 @@ void auth_user_fields_parse(const char *const *fields, pool_t pool,
 			reply_r->anonymous = TRUE;
 		else {
 			const char *field = p_strdup(pool, *fields);
-			array_append(&reply_r->extra_fields, &field, 1);
+			array_push_back(&reply_r->extra_fields, &field);
 		}
 	}
 }

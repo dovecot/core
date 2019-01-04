@@ -188,7 +188,7 @@ client_create_standalone(const char *access_user,
 		const char *const *apps = access_applications;
 		for (; *apps != NULL; apps++) {
 			char *app = i_strdup(*apps);
-			array_append(&client->access_apps, &app, 1);
+			array_push_back(&client->access_apps, &app);
 		}
 	}
 	client->debug = debug;
@@ -890,7 +890,7 @@ static void client_ctrl_input(struct client *client)
 			while (*apps != NULL) {
 				char *app = i_strdup(*apps);
 
-				array_append(&client->access_apps, &app, 1);
+				array_push_back(&client->access_apps, &app);
 				if (client->debug) {
 					i_debug("User %s has URLAUTH %s access",
 						client->access_user, app);

@@ -92,7 +92,7 @@ static void test_files_read_dir(const char *path)
 			if (S_ISREG(st.st_mode)) {
 				file += 2; /* skip "./" */
 				file = p_strdup(files_pool, file);
-				array_append(&files, &file, 1);
+				array_push_back(&files, &file);
 			} else {
 				test_files_read_dir(file);
 			}

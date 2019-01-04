@@ -99,7 +99,7 @@ get_dsync_client(struct replicator_brain *brain)
 
 	conn = dsync_client_init(brain->set->doveadm_socket_path,
 				 brain->set->replication_dsync_parameters);
-	array_append(&brain->dsync_clients, &conn, 1);
+	array_push_back(&brain->dsync_clients, &conn);
 	return conn;
 }
 

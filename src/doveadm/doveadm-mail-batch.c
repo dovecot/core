@@ -94,7 +94,7 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 	subctx->args = argv;
 	if (subctx->v.preinit != NULL)
 		subctx->v.preinit(subctx);
-	array_append(&batchctx->commands, &subctx, 1);
+	array_push_back(&batchctx->commands, &subctx);
 }
 
 static void

@@ -17,7 +17,7 @@ void mail_index_transaction_hook_register(hook_mail_index_transaction_created_t 
 {
 	if (!array_is_created(&hook_mail_index_transaction_created))
 		i_array_init(&hook_mail_index_transaction_created, 8);
-	array_append(&hook_mail_index_transaction_created, &hook, 1);
+	array_push_back(&hook_mail_index_transaction_created, &hook);
 }
 
 void mail_index_transaction_hook_unregister(hook_mail_index_transaction_created_t *hook)

@@ -293,7 +293,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 		i_assert(keyword_indexes[i] < names_count);
 
 		name = names[keyword_indexes[i]];
-		array_append(&data->keywords, &name, 1);
+		array_push_back(&data->keywords, &name);
 	}
 
 	/* end with NULL */

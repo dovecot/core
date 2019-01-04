@@ -140,10 +140,10 @@ static void who_aggregate_line(struct who_context *ctx,
 	user->connection_count += line->refcount;
 
 	if (line->ip.family != 0 && !who_user_has_ip(user, &line->ip))
-		array_append(&user->ips, &line->ip, 1);
+		array_push_back(&user->ips, &line->ip);
 
 	if (!who_user_has_pid(user, line->pid))
-		array_append(&user->pids, &line->pid, 1);
+		array_push_back(&user->pids, &line->pid);
 }
 
 int who_parse_args(struct who_context *ctx, const char *const *masks)

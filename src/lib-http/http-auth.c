@@ -453,7 +453,7 @@ void http_auth_basic_challenge_init(struct http_auth_challenge *chlng,
 		param.value = t_strdup(realm);
 
 		t_array_init(&chlng->params, 1);
-		array_append(&chlng->params, &param, 1);
+		array_push_back(&chlng->params, &param);
 	}
 }
 

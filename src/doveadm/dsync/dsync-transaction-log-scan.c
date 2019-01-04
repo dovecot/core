@@ -267,7 +267,7 @@ log_add_keyword_update(struct dsync_transaction_log_scan *ctx, const void *data,
 			} else {
 				keywords_change_remove(change, kw_name);
 			}
-			array_append(&change->keyword_changes, &change_str, 1);
+			array_push_back(&change->keyword_changes, &change_str);
 		}
 	}
 }

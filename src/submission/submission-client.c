@@ -527,7 +527,7 @@ void client_add_extra_capability(struct client *client, const char *capability,
 	if (!array_is_created(&client->extra_capabilities))
 		p_array_init(&client->extra_capabilities, client->pool, 5);
 
-	array_append(&client->extra_capabilities, &cap, 1);
+	array_push_back(&client->extra_capabilities, &cap);
 }
 
 void clients_destroy_all(void)

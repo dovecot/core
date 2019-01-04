@@ -233,7 +233,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.port = set->port;
 	conn->set.ssl_flags = set->ssl_flags;
 	conn->set.timeout_msecs = set->timeout_msecs;
-	array_append(&proxy->connections, &conn, 1);
+	array_push_back(&proxy->connections, &conn);
 
 	lmtp_proxy_connection_init_ssl(conn, &ssl_set, &ssl_mode);
 
@@ -427,7 +427,7 @@ lmtp_proxy_rcpt_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 	struct client *client = lprcpt->rcpt->client;
 
 	/* add to proxy recipients */
-	array_append(&client->proxy->rcpt_to, &lprcpt, 1);
+	array_push_back(&client->proxy->rcpt_to, &lprcpt);
 }
 
 static void

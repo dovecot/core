@@ -154,7 +154,7 @@ void smtp_submit_add_rcpt(struct smtp_submit *subm,
 	i_assert(!smtp_address_isnull(rcpt_to));
 
 	rcpt = smtp_address_clone(subm->pool, rcpt_to);
-	array_append(&subm->rcpt_to, &rcpt, 1);
+	array_push_back(&subm->rcpt_to, &rcpt);
 }
 
 struct ostream *smtp_submit_send(struct smtp_submit *subm)

@@ -626,7 +626,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 			ctx->ctx.exit_code = EX_USAGE;
 			return -1;
 		}
-		array_append(&set.sync_namespaces, &ns, 1);
+		array_push_back(&set.sync_namespaces, &ns);
 	}
 
 	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL)
@@ -1067,11 +1067,11 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		break;
 	case 'x':
 		str = optarg;
-		array_append(&ctx->exclude_mailboxes, &str, 1);
+		array_push_back(&ctx->exclude_mailboxes, &str);
 		break;
 	case 'n':
 		str = optarg;
-		array_append(&ctx->namespace_prefixes, &str, 1);
+		array_push_back(&ctx->namespace_prefixes, &str);
 		break;
 	case 'N':
 		ctx->sync_visible_namespaces = TRUE;

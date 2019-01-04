@@ -64,7 +64,7 @@ push_notification_event_init(struct push_notification_driver_txn *dtxn,
         ec->config = config;
         ec->event = event;
 
-        array_append(&dtxn->ptxn->events, &ec, 1);
+        array_push_back(&dtxn->ptxn->events, &ec);
     }
 }
 
@@ -82,7 +82,7 @@ void push_notification_event_register
                 event->name);
     }
 
-    array_append(&push_notification_events, &event, 1);
+    array_push_back(&push_notification_events, &event);
 }
 
 void push_notification_event_unregister

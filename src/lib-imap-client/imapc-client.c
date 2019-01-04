@@ -263,7 +263,7 @@ imapc_client_add_connection(struct imapc_client *client)
 	conn->client = client;
 	conn->conn = imapc_connection_init(client, imapc_client_login_callback,
 					   conn);
-	array_append(&client->conns, &conn, 1);
+	array_push_back(&client->conns, &conn);
 	return conn;
 }
 

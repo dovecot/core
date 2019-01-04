@@ -520,7 +520,7 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	array_clear(&bbox->uids);
 	while (mailbox_search_next(search_ctx, &mail)) {
 		uidmap.real_uid = mail->uid;
-		array_append(&bbox->uids, &uidmap, 1);
+		array_push_back(&bbox->uids, &uidmap);
 	}
 	ret = mailbox_search_deinit(&search_ctx);
 
@@ -720,7 +720,7 @@ virtual_sync_backend_add_vmsgs_results(struct virtual_sync_context *ctx,
 	i_zero(&uidmap);
 	uidmap.real_uid = real_uid;
 	uidmap.virtual_uid = vuid;
-	array_append(&bbox->uids, &uidmap, 1);
+	array_push_back(&bbox->uids, &uidmap);
 
 	if (result == NULL)
 		;
@@ -1324,7 +1324,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 			/* add the rest of the newly seen messages */
 			for (; j < uidmap_count; j++) {
 				add_rec.rec.real_uid = uidmap[j].real_uid;
-				array_append(&ctx->all_adds, &add_rec, 1);
+				array_push_back(&ctx->all_adds, &add_rec);
 			}
 			bbox = virtual_backend_box_lookup(ctx->mbox,
 							  vrec->mailbox_id);
@@ -1348,7 +1348,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 
 			/* newly seen message */
 			add_rec.rec.real_uid = uidmap[j].real_uid;
-			array_append(&ctx->all_adds, &add_rec, 1);
+			array_push_back(&ctx->all_adds, &add_rec);
 		}
 		if (j == uidmap_count || uidmap[j].real_uid != vrec->real_uid)
 			mail_index_expunge(ctx->trans, vseq);
@@ -1369,7 +1369,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 	/* finish adding messages to the last mailbox */
 	for (; j < uidmap_count; j++) {
 		add_rec.rec.real_uid = uidmap[j].real_uid;
-		array_append(&ctx->all_adds, &add_rec, 1);
+		array_push_back(&ctx->all_adds, &add_rec);
 	}
 }
 
@@ -1392,7 +1392,7 @@ static void virtual_sync_new_backend_boxes(struct virtual_sync_context *ctx)
 		uidmap = array_get_modifiable(&bboxes[i]->uids, &uidmap_count);
 		for (j = 0; j < uidmap_count; j++) {
 			add_rec.rec.real_uid = uidmap[j].real_uid;
-			array_append(&ctx->all_adds, &add_rec, 1);
+			array_push_back(&ctx->all_adds, &add_rec);
 		}
 	}
 }
@@ -1567,7 +1567,7 @@ virtual_sync_apply_existing_appends(struct virtual_sync_context *ctx)
 				continue;
 			}
 		}
-		array_append(&bbox->uids, &uidmap, 1);
+		array_push_back(&bbox->uids, &uidmap);
 		bbox->uids_nonsorted = TRUE;
 	}
 

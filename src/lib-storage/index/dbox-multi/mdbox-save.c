@@ -464,7 +464,7 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	/* remember the map_uid so we can later increase its refcount */
 	if (!array_is_created(&ctx->copy_map_uids))
 		i_array_init(&ctx->copy_map_uids, 32);
-	array_append(&ctx->copy_map_uids, &rec.map_uid, 1);
+	array_push_back(&ctx->copy_map_uids, &rec.map_uid);
 
 	/* add message to mailbox index */
 	dbox_save_add_to_index(&ctx->ctx);

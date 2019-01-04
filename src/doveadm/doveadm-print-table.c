@@ -201,7 +201,7 @@ static void doveadm_print_table_print(const char *value)
 			array_count(&ctx->headers);
 		if (line_count < MAX_BUFFER_LINES) {
 			value = p_strdup(ctx->pool, value);
-			array_append(&ctx->buffered_values, &value, 1);
+			array_push_back(&ctx->buffered_values, &value);
 			return;
 		}
 		doveadm_buffer_flush();

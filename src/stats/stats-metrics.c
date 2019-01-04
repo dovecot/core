@@ -67,7 +67,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 			metric->fields[i].stats = stats_dist_init();
 		}
 	}
-	array_append(&metrics->metrics, &metric, 1);
+	array_push_back(&metrics->metrics, &metric);
 
 	stats_metric_settings_to_query(set, &query);
 	query.context = metric;

@@ -266,7 +266,7 @@ static bool mail_deliver_check_duplicate(struct mail_deliver_session *session,
 		if (memcmp(metadata.guid, *guid, sizeof(metadata.guid)) == 0)
 			return TRUE;
 	}
-	array_append(&session->inbox_guids, &metadata.guid, 1);
+	array_push_back(&session->inbox_guids, &metadata.guid);
 	return FALSE;
 }
 

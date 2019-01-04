@@ -131,10 +131,10 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 						     ns, box_sets[i]);
 
 		/* autocreate mailbox belongs to listed namespace */
-		array_append(&actx->all_ns_box_sets, &set, 1);
+		array_push_back(&actx->all_ns_box_sets, &set);
 		if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
 		    strcmp(set->autocreate, MAILBOX_SET_AUTO_SUBSCRIBE) == 0) {
-			array_append(&actx->box_sets, &set, 1);
+			array_push_back(&actx->box_sets, &set);
 			autobox = array_append_space(&actx->boxes);
 			autobox->name = set->name;
 			autobox->set = set;

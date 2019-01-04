@@ -130,7 +130,7 @@ static void client_username_check(struct imap_client *client)
 		host->ip = local_ip;
 		host->vhost_count = 100;
 		hash_table_insert(hosts, &host->ip, host);
-		array_append(&hosts_array, &host, 1);
+		array_push_back(&hosts_array, &host);
 	}
 
 	user = hash_table_lookup(users, client->username);

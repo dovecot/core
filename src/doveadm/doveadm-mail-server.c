@@ -302,7 +302,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			doveadm_server_flush_one(server);
 
 		username_dup = i_strdup(user);
-		array_append(&server->queue, &username_dup, 1);
+		array_push_back(&server->queue, &username_dup);
 	}
 	*error_r = "doveadm server failure";
 	return DOVEADM_MAIL_SERVER_FAILED() ? -1 : 1;

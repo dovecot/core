@@ -70,7 +70,7 @@ ldap_search_callback(struct ldap_connection *conn,
 	while(res != NULL) {
 		struct ldap_entry *obj = p_new(req->pool, struct ldap_entry, 1);
 		ldap_entry_init(obj, &sctx->res, message);
-		array_append(&sctx->res.entries, obj, 1);
+		array_push_back(&sctx->res.entries, obj);
 		res = ldap_next_entry(conn->conn, res);
 	}
 

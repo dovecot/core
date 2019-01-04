@@ -451,7 +451,7 @@ void smtp_params_mail_copy(pool_t pool,
 		array_foreach(&src->extra_params, param) {
 			param_new.keyword = p_strdup(pool, param->keyword);
 			param_new.value = p_strdup(pool, param->value);
-			array_append(&dst->extra_params, &param_new, 1);
+			array_push_back(&dst->extra_params, &param_new);
 		}
 	}
 }
@@ -467,7 +467,7 @@ void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
 	i_zero(&param);
 	param.keyword = p_strdup(pool, keyword);
 	param.value = p_strdup(pool, value);
-	array_append(&params->extra_params, &param, 1);
+	array_push_back(&params->extra_params, &param);
 }
 
 bool smtp_params_mail_drop_extra(struct smtp_params_mail *params,
@@ -954,7 +954,7 @@ void smtp_params_rcpt_copy(pool_t pool,
 		array_foreach(&src->extra_params, param) {
 			param_new.keyword = p_strdup(pool, param->keyword);
 			param_new.value = p_strdup(pool, param->value);
-			array_append(&dst->extra_params, &param_new, 1);
+			array_push_back(&dst->extra_params, &param_new);
 		}
 	}
 }
@@ -970,7 +970,7 @@ void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
 	i_zero(&param);
 	param.keyword = p_strdup(pool, keyword);
 	param.value = p_strdup(pool, value);
-	array_append(&params->extra_params, &param, 1);
+	array_push_back(&params->extra_params, &param);
 }
 
 bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,

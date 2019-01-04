@@ -21,7 +21,7 @@ void smtp_server_command_register(struct smtp_server *server,
 	cmd.name = name;
 	cmd.func = func;
 	cmd.flags = flags;
-	array_append(&server->commands_reg, &cmd, 1);
+	array_push_back(&server->commands_reg, &cmd);
 
 	server->commands_unsorted = TRUE;
 }

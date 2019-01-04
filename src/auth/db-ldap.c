@@ -606,7 +606,7 @@ db_ldap_field_subquery_find(const char *data, void *context,
 		if (p != NULL && strcmp(p+1, ctx->name) == 0) {
 			ldap_attr = p_strdup_until(unsafe_data_stack_pool,
 						   data, p);
-			array_append(&ctx->attr_names, &ldap_attr, 1);
+			array_push_back(&ctx->attr_names, &ldap_attr);
 		}
 	}
 	*value_r = NULL;
@@ -1368,7 +1368,7 @@ db_ldap_field_find(const char *data, void *context,
 	if (*data != '\0') {
 		ldap_attr = p_strdup(ctx->pool, t_strcut(data, ':'));
 		if (strchr(ldap_attr, '@') == NULL)
-			array_append(&ctx->attr_names, &ldap_attr, 1);
+			array_push_back(&ctx->attr_names, &ldap_attr);
 	}
 	*value_r = NULL;
 	return 1;

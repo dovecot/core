@@ -529,7 +529,7 @@ memcached_ascii_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	key = memcached_ascii_dict_get_full_key(dict, key);
 	o_stream_nsend_str(dict->conn.conn.output,
 			   t_strdup_printf("get %s\r\n", key));
-	array_append(&dict->input_states, &state, 1);
+	array_push_back(&dict->input_states, &state);
 
 	reply = array_append_space(&dict->replies);
 	reply->reply_count = 1;
@@ -578,7 +578,7 @@ memcached_send_change(struct dict_memcached_ascii_commit_ctx *ctx,
 		if (change->value.diff > 0) {
 			str_printfa(ctx->str, "incr %s %lld\r\n",
 				    key, change->value.diff);
-			array_append(&ctx->dict->input_states, &state, 1);
+			array_push_back(&ctx->dict->input_states, &state);
 			/* same kludge as with append */
 			value = t_strdup_printf("%lld", change->value.diff);
 			str_printfa(ctx->str, "add %s 0 0 %u\r\n%s\r\n",
@@ -589,7 +589,7 @@ memcached_send_change(struct dict_memcached_ascii_commit_ctx *ctx,
 		}
 		break;
 	}
-	array_append(&ctx->dict->input_states, &state, 1);
+	array_push_back(&ctx->dict->input_states, &state);
 	o_stream_nsend(ctx->dict->conn.conn.output,
 		       str_data(ctx->str), str_len(ctx->str));
 }

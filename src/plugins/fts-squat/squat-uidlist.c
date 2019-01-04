@@ -812,8 +812,8 @@ void squat_uidlist_build_flush(struct squat_uidlist_build_context *ctx)
 
 		block_offset = ctx->output->offset;
 		block_end_idx = ctx->list_start_idx + i + max;
-		array_append(&ctx->block_offsets, &block_offset, 1);
-		array_append(&ctx->block_end_indexes, &block_end_idx, 1);
+		array_push_back(&ctx->block_offsets, &block_offset);
+		array_push_back(&ctx->block_end_indexes, &block_end_idx);
 
 		/* write the full size of the uidlists */
 		bufp = buf;
@@ -953,8 +953,8 @@ uidlist_rebuild_flush_block(struct squat_uidlist_rebuild_context *ctx)
 
 	block_offset = ctx->output->offset;
 	block_end_idx = ctx->new_count;
-	array_append(&ctx->new_block_offsets, &block_offset, 1);
-	array_append(&ctx->new_block_end_indexes, &block_end_idx, 1);
+	array_push_back(&ctx->new_block_offsets, &block_offset);
+	array_push_back(&ctx->new_block_end_indexes, &block_end_idx);
 
 	/* this block's contents started from cur_block_start_offset and
 	   ended to current offset. write the size of this area. */

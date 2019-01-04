@@ -72,7 +72,7 @@ int doveadm_str_to_exit_code(const char *reason)
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd)
 {
-	array_append(&doveadm_cmds, cmd, 1);
+	array_push_back(&doveadm_cmds, cmd);
 }
 
 void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd)
@@ -84,7 +84,7 @@ void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd)
 			cmd->cmd = doveadm_cmd_ver2_to_cmd_wrapper;
 		else i_unreached();
 	}
-	array_append(&doveadm_cmds_ver2, cmd, 1);
+	array_push_back(&doveadm_cmds_ver2, cmd);
 }
 
 const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name)
@@ -467,7 +467,7 @@ static void doveadm_fill_param(struct doveadm_cmd_param *param,
 		if (!array_is_created(&param->value.v_array))
 			p_array_init(&param->value.v_array, pool, 8);
 		const char *val = p_strdup(pool, value);
-		array_append(&param->value.v_array, &val, 1);
+		array_push_back(&param->value.v_array, &val);
 		break;
 	case CMD_PARAM_ISTREAM: {
 		struct istream *is;

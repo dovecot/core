@@ -82,7 +82,7 @@ static void server_set_print_pending(struct doveadm_server *server)
 		if (*serverp == server)
 			return;
 	}
-	array_append(&print_pending_servers, &server, 1);
+	array_push_back(&print_pending_servers, &server);
 }
 
 static void server_print_connection_released(struct doveadm_server *server)
@@ -551,7 +551,7 @@ int server_connection_create(struct doveadm_server *server,
 	i_stream_set_name(conn->input, server->name);
 	o_stream_set_name(conn->output, server->name);
 
-	array_append(&conn->server->connections, &conn, 1);
+	array_push_back(&conn->server->connections, &conn);
 
 	if (server_connection_read_settings(conn) < 0 ||
 	    server_connection_init_ssl(conn) < 0) {

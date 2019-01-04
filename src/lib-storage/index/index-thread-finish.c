@@ -334,7 +334,7 @@ static void mail_thread_root_thread_merge(struct thread_finish_context *ctx,
 		cur->ignore = TRUE;
 
 		/* append last, since it breaks root and cur pointers */
-		array_append(&ctx->roots, &new_root, 1);
+		array_push_back(&ctx->roots, &new_root);
 
 		/* make sure all shadow indexes are accessible directly */
 		(void)array_idx_modifiable(&ctx->shadow_nodes,
@@ -487,7 +487,7 @@ static void mail_thread_create_shadows(struct thread_finish_context *ctx,
 				root.dummy = FALSE;
 				root.node.uid = node->uid;
 			}
-			array_append(&ctx->roots, &root, 1);
+			array_push_back(&ctx->roots, &root);
 			continue;
 		}
 		i_assert(node->parent_idx < record_count);
@@ -585,7 +585,7 @@ mail_thread_iterate_fill_root(struct mail_thread_iterate_context *iter)
 		if (!roots[i].ignore) {
 			if (roots[i].dummy)
 				roots[i].node.uid = 0;
-			array_append(&iter->children, &roots[i].node, 1);
+			array_push_back(&iter->children, &roots[i].node);
 		}
 	}
 }

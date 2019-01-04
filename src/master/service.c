@@ -169,7 +169,7 @@ service_create_inet_listeners(struct service *service,
 		for (i = 0; i < ips_count; i++) {
 			l = service_create_one_inet_listener(service, set,
 							     address, &ips[i]);
-			array_append(&service->listeners, &l, 1);
+			array_push_back(&service->listeners, &l);
 		}
 		service->have_inet_listeners = TRUE;
 	}
@@ -330,7 +330,7 @@ service_create(pool_t pool, const struct service_settings *set,
 						 unix_listeners[i], error_r);
 		if (l == NULL)
 			return NULL;
-		array_append(&service->listeners, &l, 1);
+		array_push_back(&service->listeners, &l);
 	}
 	for (i = 0; i < fifo_count; i++) {
 		if (fifo_listeners[i]->mode == 0) {
@@ -342,7 +342,7 @@ service_create(pool_t pool, const struct service_settings *set,
 						 fifo_listeners[i], error_r);
 		if (l == NULL)
 			return NULL;
-		array_append(&service->listeners, &l, 1);
+		array_push_back(&service->listeners, &l);
 	}
 	for (i = 0; i < inet_count; i++) {
 		if (service_create_inet_listeners(service, inet_listeners[i],
@@ -468,7 +468,7 @@ services_create_real(const struct master_settings *set, pool_t pool,
 			break;
 		}
 
-		array_append(&service_list->services, &service, 1);
+		array_push_back(&service_list->services, &service);
 	}
 
 	if (service_list->log == NULL) {

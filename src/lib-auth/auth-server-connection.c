@@ -61,7 +61,7 @@ auth_server_input_mech(struct auth_server_connection *conn,
 		else if (strcmp(*args, "mutual-auth") == 0)
 			mech_desc.flags |= MECH_SEC_MUTUAL_AUTH;
 	}
-	array_append(&conn->available_auth_mechs, &mech_desc, 1);
+	array_push_back(&conn->available_auth_mechs, &mech_desc);
 	return 0;
 }
 

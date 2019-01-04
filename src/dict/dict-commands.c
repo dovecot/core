@@ -613,7 +613,7 @@ int dict_command_input(struct dict_connection *conn, const char *line)
 	cmd->conn = conn;
 	cmd->cmd = cmd_func;
 	cmd->start_timeval = ioloop_timeval;
-	array_append(&conn->cmds, &cmd, 1);
+	array_push_back(&conn->cmds, &cmd);
 	dict_connection_ref(conn);
 	if ((ret = cmd_func->func(cmd, line + 1)) <= 0) {
 		dict_connection_cmd_remove(cmd);

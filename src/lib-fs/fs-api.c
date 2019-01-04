@@ -57,7 +57,7 @@ void fs_class_register(const struct fs *fs_class)
 {
 	if (!array_is_created(&fs_classes))
 		fs_classes_init();
-	array_append(&fs_classes, &fs_class, 1);
+	array_push_back(&fs_classes, &fs_class);
 }
 
 static void fs_classes_deinit(void)

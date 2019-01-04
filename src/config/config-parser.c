@@ -209,7 +209,7 @@ config_add_new_parser(struct config_parser_context *ctx)
 	}
 	parser->parsers = cur_section->prev == NULL ? ctx->root_parsers :
 		config_module_parsers_init(ctx->pool);
-	array_append(&ctx->all_parsers, &parser, 1);
+	array_push_back(&ctx->all_parsers, &parser);
 
 	cur_section->parsers = parser->parsers;
 }

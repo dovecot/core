@@ -158,7 +158,7 @@ void director_request(struct director *dir, const char *username,
 			timeout_add(DIRECTOR_REQUEST_TIMEOUT_SECS * 1000,
 				    director_request_timeout, dir);
 	}
-	array_append(&dir->pending_requests, &request, 1);
+	array_push_back(&dir->pending_requests, &request);
 }
 
 static void ring_noconn_warning(struct director *dir)

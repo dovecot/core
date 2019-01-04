@@ -491,7 +491,7 @@ request_json_parse_param_value(struct client_request_http *req)
 			return -1;
 		}
 		tmp = p_strdup(req->pool, value);
-		array_append(&req->cmd_param->value.v_array, &tmp, 1);
+		array_push_back(&req->cmd_param->value.v_array, &tmp);
 
 		/* next: continue with the next parameter */
 		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
@@ -552,7 +552,7 @@ request_json_parse_param_array(struct client_request_http *req)
 
 	/* record entry */
 	value = p_strdup(req->pool, value);
-	array_append(&req->cmd_param->value.v_array, &value, 1);
+	array_push_back(&req->cmd_param->value.v_array, &value);
 
 	/* next: continue with the next array item */
 	return 1;

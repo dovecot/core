@@ -539,11 +539,13 @@ mailbox_list_index_notify_find_subscribes(struct mailbox_list_notify_index *inot
 			new_path = NULL;
 		} else if (ret > 0) {
 			new_path = p_strdup(pool, new_path);
-			array_append(&inotify->new_subscriptions, &new_path, 1);
+			array_push_back(&inotify->new_subscriptions,
+					&new_path);
 			new_path = NULL;
 		} else {
 			old_path = p_strdup(pool, old_path);
-			array_append(&inotify->new_unsubscriptions, &old_path, 1);
+			array_push_back(&inotify->new_unsubscriptions,
+					&old_path);
 			old_path = NULL;
 		}
 	}

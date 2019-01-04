@@ -72,7 +72,7 @@ static struct connection_list *redis_connections;
 static void
 redis_input_state_add(struct redis_dict *dict, enum redis_input_state state)
 {
-	array_append(&dict->input_states, &state, 1);
+	array_push_back(&dict->input_states, &state);
 }
 
 static void redis_input_state_remove(struct redis_dict *dict)

@@ -180,7 +180,7 @@ imapc_mail_delayed_send_or_merge(struct imapc_mail *mail, string_t *str)
 		i_assert(mbox->pending_fetch_cmd->used == 0);
 		str_append_str(mbox->pending_fetch_cmd, str);
 	}
-	array_append(&mbox->pending_fetch_request->mails, &mail, 1);
+	array_push_back(&mbox->pending_fetch_request->mails, &mail);
 
 	if (mbox->to_pending_fetch_send == NULL &&
 	    array_count(&mbox->pending_fetch_request->mails) >
@@ -507,7 +507,7 @@ void imapc_mail_fetch_flush(struct imapc_mailbox *mbox)
 				       imapc_mail_fetch_callback,
 				       mbox->pending_fetch_request);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
-	array_append(&mbox->fetch_requests, &mbox->pending_fetch_request, 1);
+	array_push_back(&mbox->fetch_requests, &mbox->pending_fetch_request);
 
 	imapc_command_send(cmd, str_c(mbox->pending_fetch_cmd));
 

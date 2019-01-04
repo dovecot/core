@@ -153,7 +153,7 @@ unsigned int acl_cache_right_lookup(struct acl_cache *cache, const char *right)
 		const_name = name = p_strdup(cache->right_names_pool, right);
 
 		idx = array_count(&cache->right_idx_name_map);
-		array_append(&cache->right_idx_name_map, &const_name, 1);
+		array_push_back(&cache->right_idx_name_map, &const_name);
 		hash_table_insert(cache->right_name_idx_map, name,
 				  POINTER_CAST(idx + 1));
 	} else {
