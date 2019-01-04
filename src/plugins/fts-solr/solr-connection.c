@@ -103,7 +103,14 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		http_set.ssl = ssl_client_set;
 		http_set.debug = solr_set->debug;
 		http_set.rawlog_dir = solr_set->rawlog_dir;
-		solr_http_client = http_client_init(&http_set);
+
+		/* FIXME: We should initialize a shared client instead. However,
+		          this is currently not possible due to an obscure bug
+		          in the blocking HTTP payload API, which causes
+		          conflicts with other HTTP applications like FTS Tika.
+		          Using a private client will provide a quick fix for
+		          now. */
+		solr_http_client = http_client_init_private(&http_set);
 	}
 
 	*conn_r = conn;
