@@ -1078,7 +1078,7 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 			if (!virtual_sync_find_seqs(bbox, &sync_rec,
 						    &idx1, &idx2))
 				break;
-			uidmap = array_idx(&bbox->uids, 0);
+			uidmap = array_first(&bbox->uids);
 			for (; idx1 <= idx2; idx1++) {
 				vuid = uidmap[idx1].virtual_uid;
 				if (vuid == 0) {

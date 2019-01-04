@@ -275,7 +275,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	   We're mapping the files in reverse order so that _log_file_map()
 	   can verify that prev_file_offset matches how far it actually managed
 	   to sync the file. */
-	files = array_idx(&view->file_refs, 0);
+	files = array_first(&view->file_refs);
 	for (i = array_count(&view->file_refs); i > 0; i--) {
 		file = files[i-1];
 		start_offset = file->hdr.file_seq == min_file_seq ?

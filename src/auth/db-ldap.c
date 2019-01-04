@@ -544,7 +544,7 @@ db_ldap_find_request(struct ldap_connection *conn, int msgid,
 	if (count == 0)
 		return NULL;
 
-	requests = array_idx(&conn->request_array, 0);
+	requests = array_first(&conn->request_array);
 	for (i = 0; i < count; i++) {
 		request = requests[aqueue_idx(conn->request_queue, i)];
 		if (request->msgid == msgid) {
@@ -1326,7 +1326,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	timeout_remove(&conn->to);
 
 	if (conn->pending_count != 0) {
-		requests = array_idx(&conn->request_array, 0);
+		requests = array_first(&conn->request_array);
 		for (i = 0; i < conn->pending_count; i++) {
 			request = requests[aqueue_idx(conn->request_queue, i)];
 

@@ -614,7 +614,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		t_strsplit_spaces(doveadm_settings->dsync_hashed_headers, " ,");
 	if (array_count(&ctx->exclude_mailboxes) > 0) {
 		/* array is NULL-terminated in init() */
-		set.exclude_mailboxes = array_idx(&ctx->exclude_mailboxes, 0);
+		set.exclude_mailboxes = array_first(&ctx->exclude_mailboxes);
 	}
 	doveadm_user_init_dsync(user);
 

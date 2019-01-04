@@ -248,7 +248,7 @@ static void driver_test_exec(struct sql_db *_db, const char *query)
 {
 	struct test_sql_db *db = (struct test_sql_db*)_db;
 	struct test_driver_result *result =
-		array_idx_modifiable(&db->expected, 0);
+		array_first_modifiable(&db->expected);
 	i_assert(result->cur < result->nqueries);
 
 /*	i_debug("DUMMY EXECUTE: %s", query);
@@ -278,7 +278,7 @@ driver_test_query_s(struct sql_db *_db, const char *query)
 {
 	struct test_sql_db *db = (struct test_sql_db*)_db;
 	struct test_driver_result *result =
-		array_idx_modifiable(&db->expected, 0);
+		array_first_modifiable(&db->expected);
 	struct test_sql_result *res = i_new(struct test_sql_result, 1);
 
 	driver_test_exec(_db, query);
@@ -353,7 +353,7 @@ driver_test_update(struct sql_transaction_context *ctx, const char *query,
 {
 	struct test_sql_db *db= (struct test_sql_db*)ctx->db;
 	struct test_driver_result *result =
-		array_idx_modifiable(&db->expected, 0);
+		array_first_modifiable(&db->expected);
 	driver_test_exec(ctx->db, query);
 
 	if (affected_rows != NULL)

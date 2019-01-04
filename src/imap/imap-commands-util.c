@@ -305,7 +305,7 @@ void client_send_mailbox_flags(struct client *client, bool selecting)
 				&status);
 
 	keywords = count == 0 ? NULL :
-		array_idx(client->keywords.names, 0);
+		array_first(client->keywords.names);
 	str = t_str_new(128);
 	str_append(str, "* FLAGS (");
 	imap_write_flags(str, status.flags, keywords);

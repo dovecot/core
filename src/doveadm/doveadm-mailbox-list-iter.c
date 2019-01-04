@@ -108,7 +108,7 @@ doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
 	iter->only_selectable = TRUE;
 	iter->iter_flags = iter_flags;
 	iter->iter = mailbox_list_iter_init_namespaces(user->namespaces,
-						       array_idx(&iter->patterns, 0),
+						       array_first(&iter->patterns),
 						       ns_mask, iter_flags);
 	return iter;
 }

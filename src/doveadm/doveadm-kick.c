@@ -71,7 +71,7 @@ kick_pid_want_kicked(struct kick_context *ctx, const struct kick_pid *k_pid,
 	const struct kick_user *user;
 
 	if (array_count(&k_pid->users) == 1) {
-		user = array_idx(&k_pid->users, 0);
+		user = array_first(&k_pid->users);
 		if (!user->kick_me)
 			return FALSE;
 	} else {

@@ -738,7 +738,7 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 
 	new_filter = config_filter_init(ctx->pool);
 	array_append_zero(&ctx->all_parsers);
-	config_filter_add_all(new_filter, array_idx(&ctx->all_parsers, 0));
+	config_filter_add_all(new_filter, array_first(&ctx->all_parsers));
 
 	if (ret < 0)
 		;

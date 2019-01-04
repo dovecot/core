@@ -257,7 +257,7 @@ imapc_quota_refresh_update(struct quota *quota,
 		return;
 	}
 	/* use the first quota root for everything */
-	refresh_root = array_idx(&refresh->roots, 0);
+	refresh_root = array_first(&refresh->roots);
 
 	array_foreach(&quota->roots, rootp) {
 		if ((*rootp)->backend.name == quota_backend_imapc.name) {
@@ -348,7 +348,7 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root,
 	   anything we didn't expect. */
 	while (array_count(&root->refresh.roots) > 0) {
 		const struct imapc_quota_refresh_root *refresh_root =
-			array_idx(&root->refresh.roots, 0);
+			array_first(&root->refresh.roots);
 		if (strcmp(refresh_root->name, root->root_name) == 0)
 			break;
 		array_delete(&root->refresh.roots, 0, 1);

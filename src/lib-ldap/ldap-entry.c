@@ -65,7 +65,7 @@ const char *const *ldap_entry_get_attribute(const struct ldap_entry *entry, cons
 	const struct ldap_attribute *attr;
 	array_foreach(&entry->attributes, attr) {
 		if (strcasecmp(attr->name, attribute) == 0) {
-			return array_idx(&attr->values, 0);
+			return array_first(&attr->values);
 		}
 	}
 	return NULL;
