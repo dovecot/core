@@ -179,7 +179,7 @@ static enum imapc_command_state test_imapc_cmd_last_reply_pop(void)
 	if (count == 0)
 		return IMAPC_COMMAND_STATE_INVALID;
 	reply = replies[0];
-	array_delete(&imapc_cmd_last_replies, 0, 1);
+	array_pop_front(&imapc_cmd_last_replies);
 	return reply;
 }
 

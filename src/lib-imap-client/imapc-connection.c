@@ -1453,7 +1453,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	cmds = array_get(&conn->cmd_send_queue, &count);
 	if (count > 0 && cmds[0]->tag == conn->cur_tag) {
 		cmd = cmds[0];
-		array_delete(&conn->cmd_send_queue, 0, 1);
+		array_pop_front(&conn->cmd_send_queue);
 	} else {
 		cmds = array_get(&conn->cmd_wait_list, &count);
 		for (i = 0; i < count; i++) {
@@ -2033,7 +2033,7 @@ static void imapc_command_send_finished(struct imapc_connection *conn,
 	/* everything sent. move command to wait list. */
 	cmdp = array_first(&conn->cmd_send_queue);
 	i_assert(*cmdp == cmd);
-	array_delete(&conn->cmd_send_queue, 0, 1);
+	array_pop_front(&conn->cmd_send_queue);
 	array_push_back(&conn->cmd_wait_list, &cmd);
 
 	/* send the next command in queue */
@@ -2090,7 +2090,7 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 
 	/* finished with the stream */
 	i_stream_unref(&stream->input);
-	array_delete(&cmd->streams, 0, 1);
+	array_pop_front(&cmd->streams);
 
 	i_assert(cmd->send_pos != cmd->data->used);
 	return 1;
@@ -2194,7 +2194,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		reply.text_without_resp = reply.text_full = "Mailbox not open";
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 
-		array_delete(&conn->cmd_send_queue, 0, 1);
+		array_pop_front(&conn->cmd_send_queue);
 		imapc_command_reply_free(cmd, &reply);
 		imapc_command_send_more(conn);
 		return;
@@ -2220,7 +2220,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		reply.text_without_resp = reply.text_full = "Mailbox not open";
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 
-		array_delete(&conn->cmd_send_queue, 0, 1);
+		array_pop_front(&conn->cmd_send_queue);
 		imapc_command_reply_free(cmd, &reply);
 		imapc_command_send_more(conn);
 		return;

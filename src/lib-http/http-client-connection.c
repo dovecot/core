@@ -1116,7 +1116,7 @@ static void http_client_connection_input(struct connection *_conn)
 		}
 
 		/* remove request from queue */
-		array_delete(&conn->request_wait_list, 0, 1);
+		array_pop_front(&conn->request_wait_list);
 		aborted = (req->state == HTTP_REQUEST_STATE_ABORTED);
 		req_ref = req;
 		if (!http_client_connection_unref_request(conn, &req_ref)) {

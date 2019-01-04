@@ -77,7 +77,7 @@ redis_input_state_add(struct redis_dict *dict, enum redis_input_state state)
 
 static void redis_input_state_remove(struct redis_dict *dict)
 {
-	array_delete(&dict->input_states, 0, 1);
+	array_pop_front(&dict->input_states);
 }
 
 static void redis_callback(struct redis_dict *dict,
@@ -266,7 +266,7 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 				DICT_COMMIT_RET_OK, NULL
 			};
 			redis_callback(dict, reply, &result);
-			array_delete(&dict->replies, 0, 1);
+			array_pop_front(&dict->replies);
 			/* if we're running in a dict-ioloop, we're handling a
 			   synchronous commit and need to stop now */
 			if (array_count(&dict->replies) == 0 &&

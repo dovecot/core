@@ -1264,7 +1264,7 @@ static void _cmd_bdat_cb(const struct smtp_reply *reply,
 	}
 
 	/* drop the command from the list */
-	array_delete(&ctx->cmds, 0, 1);
+	array_pop_front(&ctx->cmds);
 
 	/* send more BDAT commands if necessary */
 	(void)_cmd_bdat_send_chunks(ctx, NULL);

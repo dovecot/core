@@ -124,7 +124,7 @@ static void doveadm_cmd_callback(int exit_code, const char *error,
 
 		conn = doveadm_server_find_unused_conn(server);
 		if (conn != NULL) {
-			array_delete(&server->queue, 0, 1);
+			array_pop_front(&server->queue);
 			doveadm_mail_server_handle(conn, username);
 			i_free(username);
 		}
