@@ -199,7 +199,7 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 
 	dbox_save_end(&ctx->ctx);
 
-	mail = array_idx_modifiable(&ctx->mails, array_count(&ctx->mails) - 1);
+	mail = array_last_modifiable(&ctx->mails);
 	if (!ctx->ctx.failed) T_BEGIN {
 		if (mdbox_save_mail_write_metadata(ctx, mail) < 0)
 			ctx->ctx.failed = TRUE;

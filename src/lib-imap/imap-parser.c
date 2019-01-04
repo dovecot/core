@@ -554,7 +554,7 @@ static bool imap_parser_is_next_text(struct imap_parser *parser)
 	if (parser->cur_list != &parser->root_list)
 		return FALSE;
 
-	arg = array_idx(&parser->root_list, array_count(&parser->root_list)-1);
+	arg = array_last(&parser->root_list);
 	if (arg->type != IMAP_ARG_ATOM)
 		return FALSE;
 
