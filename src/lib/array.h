@@ -231,7 +231,7 @@ array_get_i(const struct array *array, unsigned int *count_r)
 static inline const void * ATTR_PURE
 array_idx_i(const struct array *array, unsigned int idx)
 {
-	i_assert(idx * array->element_size < array->buffer->used);
+	i_assert(idx < array->buffer->used / array->element_size);
 	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
 #define array_idx(array, idx) \
