@@ -207,20 +207,24 @@ auth_master_handshake_line(struct connection *_conn, const char *line)
 	return 0;
 }
 
-static int parse_reply(const char *cmd, const char *const *args,
-		       const char *expected_reply, const char *user, bool debug)
+static int
+parse_reply(struct auth_master_lookup_ctx *ctx, const char *cmd,
+	    const char *const *args)
 {
-	if (strcmp(cmd, expected_reply) == 0)
+	struct auth_master_connection *conn = ctx->conn;
+	bool debug = (conn->flags & AUTH_MASTER_FLAG_DEBUG) != 0;
+
+	if (strcmp(cmd, ctx->expected_reply) == 0)
 		return 1;
 	if (strcmp(cmd, "NOTFOUND") == 0)
 		return 0;
 	if (strcmp(cmd, "FAIL") == 0) {
 		if (*args == NULL) {
 			i_error("user %s: Auth %s lookup failed",
-				user, expected_reply);
+				ctx->user, ctx->expected_reply);
 		} else if (debug) {
 			i_debug("user %s: Auth %s lookup returned temporary failure: %s",
-				user, expected_reply, *args);
+				ctx->user, ctx->expected_reply, *args);
 		}
 		return -2;
 	}
@@ -270,8 +274,7 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 
 	io_loop_stop(ctx->conn->ioloop);
 
-	ctx->return_value =
-		parse_reply(cmd, args, ctx->expected_reply, ctx->user, debug);
+	ctx->return_value = parse_reply(ctx, cmd, args);
 
 	len = str_array_length(args);
 	if (ctx->return_value >= 0) {
