@@ -247,9 +247,10 @@ static void auth_master_connected(struct connection *_conn, bool success)
 	conn->connected = TRUE;
 }
 
-static int auth_master_connect(struct auth_master_connection *conn)
+int auth_master_connect(struct auth_master_connection *conn)
 {
-	i_assert(!conn->connected);
+	if (conn->connected)
+		return 0;
 
 	if (conn->ioloop != NULL)
 		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
