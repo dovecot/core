@@ -360,7 +360,7 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	array_clear(&db->pending_prepares);
 
 	while (array_count(&db->results) > 0) {
-		resultp = array_idx(&db->results, 0);
+		resultp = array_first(&db->results);
 		if ((*resultp)->error == NULL)
 			(*resultp)->error = i_strdup(error);
 		result_finish(*resultp);
@@ -1637,7 +1637,7 @@ driver_cassandra_result_get_values(struct sql_result *_result)
 {
 	struct cassandra_result *result = (struct cassandra_result *)_result;
 
-	return array_idx(&result->fields, 0);
+	return array_first(&result->fields);
 }
 
 static const char *driver_cassandra_result_get_error(struct sql_result *_result)

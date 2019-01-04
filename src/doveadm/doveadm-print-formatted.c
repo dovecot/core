@@ -64,7 +64,7 @@ static void doveadm_print_formatted_print(const char *value)
 	entry->value = value;
 
 	if (ctx.idx >= array_count(&ctx.headers)) {
-		if (var_expand(ctx.buf, ctx.format, array_idx(&ctx.headers,0), &error) <= 0) {
+		if (var_expand(ctx.buf, ctx.format, array_first(&ctx.headers), &error) <= 0) {
 			i_error("Failed to expand print format '%s': %s",
 				ctx.format, error);
 		}

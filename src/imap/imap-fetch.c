@@ -41,7 +41,7 @@ void imap_fetch_handler_unregister(const char *name)
 {
 	const struct imap_fetch_handler *handler, *first_handler;
 
-	first_handler = array_idx(&fetch_handlers, 0);
+	first_handler = array_first(&fetch_handlers);
 	handler = imap_fetch_handler_lookup(name);
 	i_assert(handler != NULL);
 	array_delete(&fetch_handlers, handler - first_handler, 1);
@@ -380,7 +380,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 				 MAIL_FETCH_STREAM_BODY)) == 0)) {
 		array_append_zero(&ctx->all_headers);
 
-		headers = array_idx(&ctx->all_headers, 0);
+		headers = array_first(&ctx->all_headers);
 		wanted_headers = mailbox_header_lookup_init(box, headers);
 		array_delete(&ctx->all_headers,
 			     array_count(&ctx->all_headers)-1, 1);

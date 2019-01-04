@@ -281,7 +281,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	unsigned int i, count, names_count;
 
 	if (array_is_created(&data->keywords))
-		return array_idx(&data->keywords, 0);
+		return array_first(&data->keywords);
 
 	(void)index_mail_get_keyword_indexes(_mail);
 
@@ -298,7 +298,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 
 	/* end with NULL */
 	array_append_zero(&data->keywords);
-	return array_idx(&data->keywords, 0);
+	return array_first(&data->keywords);
 }
 
 const ARRAY_TYPE(keyword_indexes) *

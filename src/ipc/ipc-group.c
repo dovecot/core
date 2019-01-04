@@ -148,7 +148,7 @@ void ipc_groups_deinit(void)
 	struct ipc_group *const *groupp, *group;
 
 	while (array_count(&ipc_groups) > 0) {
-		groupp = array_idx(&ipc_groups, 0);
+		groupp = array_first(&ipc_groups);
 		group = *groupp;
 
 		while ((*groupp)->connections != NULL) {

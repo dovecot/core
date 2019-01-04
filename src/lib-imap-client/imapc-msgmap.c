@@ -59,7 +59,7 @@ bool imapc_msgmap_uid_to_rseq(struct imapc_msgmap *msgmap,
 		return FALSE;
 	}
 
-	first = array_idx(&msgmap->uids, 0);
+	first = array_first(&msgmap->uids);
 	*rseq_r = (p - first) + 1;
 	return TRUE;
 }

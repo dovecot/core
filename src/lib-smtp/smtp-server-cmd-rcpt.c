@@ -164,7 +164,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 
 	/* [SP Rcpt-parameters] */
 	if (array_is_created(&conn->rcpt_param_extensions))
-		param_extensions = array_idx(&conn->rcpt_param_extensions, 0);
+		param_extensions = array_first(&conn->rcpt_param_extensions);
 	if (smtp_params_rcpt_parse(rcpt->pool, params, caps, param_extensions,
 				   &rcpt->params, &pperror, &error) < 0) {
 		switch (pperror) {

@@ -745,7 +745,7 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 		    array_count(&instances->seqs) == 0)
 			continue;
 
-		uids = array_idx(&instances->seqs, 0);
+		uids = array_first(&instances->seqs);
 		seq = uids[0].seq1;
 		if (!instances->searched) {
 			instances->searched = TRUE;
@@ -762,7 +762,7 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 					     &const_guid, 1);
 				continue;
 			}
-			uids = array_idx(&instances->seqs, 0);
+			uids = array_first(&instances->seqs);
 			seq = uids[0].seq1;
 			seq_range_array_add(&sarg->value.seqset, seq);
 		}

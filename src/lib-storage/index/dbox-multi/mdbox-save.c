@@ -331,7 +331,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		unsigned int highest_pop3_uidl_idx;
 		uint32_t uid;
 
-		mails = array_idx(&ctx->mails, 0);
+		mails = array_first(&ctx->mails);
 		highest_pop3_uidl_idx =
 			ctx->ctx.highest_pop3_uidl_seq - mails[0].seq;
 		i_assert(mails[highest_pop3_uidl_idx].seq == ctx->ctx.highest_pop3_uidl_seq);

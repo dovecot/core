@@ -1835,7 +1835,7 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	if (!index_sort_list_next(_ctx->sort_program, &seq))
 		return FALSE;
 
-	mailp = array_idx(&ctx->mails, 0);
+	mailp = array_first(&ctx->mails);
 	mail_set_seq(*mailp, seq);
 	index_mail_update_access_parts_pre(*mailp);
 	index_mail_update_access_parts_post(*mailp);

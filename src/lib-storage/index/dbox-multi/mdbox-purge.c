@@ -538,7 +538,7 @@ static int mdbox_purge_get_primary_files(struct mdbox_purge_context *ctx)
 	}
 	if (array_count(&ctx->primary_file_ids) > 0) {
 		const struct seq_range *range =
-			array_idx(&ctx->primary_file_ids, 0);
+			array_first(&ctx->primary_file_ids);
 		ctx->lowest_primary_file_id = range[0].seq1;
 	}
 	if (errno != 0) {
