@@ -2287,7 +2287,7 @@ static void imapc_connection_cmd_send(struct imapc_command *cmd)
 	if ((cmd->flags & IMAPC_COMMAND_FLAG_PRELOGIN) != 0 &&
 	    conn->state == IMAPC_CONNECTION_STATE_AUTHENTICATING) {
 		/* pre-login commands get inserted before everything else */
-		array_insert(&conn->cmd_send_queue, 0, &cmd, 1);
+		array_push_front(&conn->cmd_send_queue, &cmd);
 		imapc_command_send_more(conn);
 		return;
 	}
