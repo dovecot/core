@@ -495,8 +495,7 @@ static int virtual_mailbox_open(struct mailbox *box)
 	if (ret == 0) {
 		array_push_back(&mbox->storage->open_stack, &box->name);
 		ret = virtual_mailboxes_open(mbox, box->flags);
-		array_delete(&mbox->storage->open_stack,
-			     array_count(&mbox->storage->open_stack)-1, 1);
+		array_pop_back(&mbox->storage->open_stack);
 	}
 	if (ret < 0) {
 		virtual_mailbox_close_internal(mbox);

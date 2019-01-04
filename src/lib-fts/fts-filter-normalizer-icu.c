@@ -88,7 +88,7 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 
 	fts_icu_utf8_to_utf16(&np->utf16_token, *token);
 	array_append_zero(&np->utf16_token);
-	array_delete(&np->utf16_token, array_count(&np->utf16_token)-1, 1);
+	array_pop_back(&np->utf16_token);
 	array_clear(&np->trans_token);
 	if (fts_icu_translate(&np->trans_token, array_first(&np->utf16_token),
 			      array_count(&np->utf16_token),

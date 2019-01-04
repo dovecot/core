@@ -390,7 +390,7 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 
 	/* keep the array NULL-terminated, but the NULL itself invisible */
 	array_append_zero(&index->keywords);
-	array_delete(&index->keywords, array_count(&index->keywords)-1, 1);
+	array_pop_back(&index->keywords);
 }
 
 const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index)

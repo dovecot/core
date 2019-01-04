@@ -148,8 +148,7 @@ index_attachment_close_ostream(struct ostream *output, bool success,
 	fs_file_deinit(&attach->cur_file);
 
 	if (ret < 0) {
-		array_delete(&attach->extrefs,
-			     array_count(&attach->extrefs)-1, 1);
+		array_pop_back(&attach->extrefs);
 	}
 	return ret;
 }

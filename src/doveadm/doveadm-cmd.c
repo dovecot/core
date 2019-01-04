@@ -341,7 +341,7 @@ void doveadm_cmd_params_null_terminate_arrays(ARRAY_TYPE(doveadm_cmd_param_arr_t
 		if (param->type == CMD_PARAM_ARRAY &&
 		    array_is_created(&param->value.v_array)) {
 			array_append_zero(&param->value.v_array);
-			array_delete(&param->value.v_array, array_count(&param->value.v_array)-1, 1);
+			array_pop_back(&param->value.v_array);
 		}
 	}
 }
