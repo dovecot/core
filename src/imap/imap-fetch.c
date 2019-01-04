@@ -382,8 +382,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 
 		headers = array_first(&ctx->all_headers);
 		wanted_headers = mailbox_header_lookup_init(box, headers);
-		array_delete(&ctx->all_headers,
-			     array_count(&ctx->all_headers)-1, 1);
+		array_pop_back(&ctx->all_headers);
 	}
 
 	if (ctx->flags_update_seen) {

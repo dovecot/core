@@ -217,7 +217,7 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 	if (ctx->ctx.failed) {
 		index_storage_save_abort_last(&ctx->ctx.ctx, ctx->ctx.seq);
 		mdbox_map_append_abort(ctx->append_ctx);
-		array_delete(&ctx->mails, array_count(&ctx->mails) - 1, 1);
+		array_pop_back(&ctx->mails);
 		return -1;
 	}
 	return 0;

@@ -813,7 +813,7 @@ mail_index_strmap_zero_terminate(struct mail_index_strmap_view *view)
 {
 	/* zero-terminate the records array */
 	array_append_zero(&view->recs);
-	array_delete(&view->recs, array_count(&view->recs)-1, 1);
+	array_pop_back(&view->recs);
 }
 
 static void mail_index_strmap_view_renumber(struct mail_index_strmap_view *view)
@@ -1239,7 +1239,7 @@ void mail_index_strmap_view_sync_commit(struct mail_index_strmap_view_sync **_sy
 
 	/* zero-terminate the records array */
 	array_append_zero(&view->recs);
-	array_delete(&view->recs, array_count(&view->recs)-1, 1);
+	array_pop_back(&view->recs);
 }
 
 void mail_index_strmap_view_sync_rollback(struct mail_index_strmap_view_sync **_sync)

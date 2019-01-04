@@ -779,8 +779,7 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 
 	if (parser->args_added_extra_eol) {
 		/* delete EOL */
-		array_delete(&parser->root_list,
-			     array_count(&parser->root_list)-1, 1);
+		array_pop_back(&parser->root_list);
 		parser->args_added_extra_eol = FALSE;
 		parser->literal_size_return = FALSE;
 	}
@@ -871,11 +870,11 @@ void imap_parser_read_last_literal(struct imap_parser *parser)
 	i_assert(parser->literal_size == last_arg->_data.literal_size);
 
 	/* delete EOL */
-	array_delete(&parser->root_list, array_count(&parser->root_list)-1, 1);
+	array_pop_back(&parser->root_list);
 	parser->args_added_extra_eol = FALSE;
 
 	/* delete literal size */
-	array_delete(list, array_count(list)-1, 1);
+	array_pop_back(list);
 	parser->literal_size_return = FALSE;
 }
 

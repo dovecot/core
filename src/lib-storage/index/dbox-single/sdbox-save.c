@@ -199,7 +199,7 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 		dbox_file_append_rollback(&ctx->append_ctx);
 		dbox_file_unlink(*files);
 		dbox_file_unref(files);
-		array_delete(&ctx->files, array_count(&ctx->files) - 1, 1);
+		array_pop_back(&ctx->files);
 	} else {
 		dbox_file_append_checkpoint(ctx->append_ctx);
 		if (dbox_file_append_commit(&ctx->append_ctx) < 0)
