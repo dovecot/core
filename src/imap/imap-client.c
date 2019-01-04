@@ -231,7 +231,14 @@ int client_create_finish(struct client *client, const char **error_r)
 		return -1;
 	mail_namespaces_set_storage_callbacks(client->user->namespaces,
 					      &mail_storage_callbacks, client);
+
+	client->v.init(client);
 	return 0;
+}
+
+static void client_default_init(struct client *client ATTR_UNUSED)
+{
+	/* nothing */
 }
 
 void client_command_cancel(struct client_command_context **_cmd)
@@ -1594,6 +1601,7 @@ void clients_destroy_all(void)
 }
 
 struct imap_client_vfuncs imap_client_vfuncs = {
+	.init = client_default_init,
 	.destroy = client_default_destroy,
 
 	.send_tagline = client_default_send_tagline,
