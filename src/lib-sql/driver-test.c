@@ -297,7 +297,7 @@ driver_test_query_s(struct sql_db *_db, const char *query)
 
 	/* drop it from array if it's used up */
 	if (result->cur == result->nqueries)
-		array_delete(&db->expected, 0, 1);
+		array_pop_front(&db->expected);
 
 	return &res->api;
 }
@@ -361,7 +361,7 @@ driver_test_update(struct sql_transaction_context *ctx, const char *query,
 
 	/* drop it from array if it's used up */
 	if (result->cur == result->nqueries)
-		array_delete(&db->expected, 0, 1);
+		array_pop_front(&db->expected);
 }
 
 static const char *

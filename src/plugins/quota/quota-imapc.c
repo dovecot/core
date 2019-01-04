@@ -351,7 +351,7 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root,
 			array_first(&root->refresh.roots);
 		if (strcmp(refresh_root->name, root->root_name) == 0)
 			break;
-		array_delete(&root->refresh.roots, 0, 1);
+		array_pop_front(&root->refresh.roots);
 	}
 	imapc_quota_refresh_deinit(root->root.quota, &root->refresh,
 				   sctx.ret == 0);

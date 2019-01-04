@@ -213,14 +213,14 @@ static int memcached_ascii_input_reply(struct memcached_ascii_dict *dict,
 	if ((ret = memcached_ascii_input_reply_read(dict, error_r)) <= 0)
 		return ret;
 	/* finished a reply */
-	array_delete(&dict->input_states, 0, 1);
+	array_pop_front(&dict->input_states);
 
 	replies = array_get_modifiable(&dict->replies, &count);
 	i_assert(count > 0);
 	i_assert(replies[0].reply_count > 0);
 	if (--replies[0].reply_count == 0) {
 		memcached_ascii_callback(dict, &replies[0], &result);
-		array_delete(&dict->replies, 0, 1);
+		array_pop_front(&dict->replies);
 	}
 	return 1;
 }

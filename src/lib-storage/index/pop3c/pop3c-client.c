@@ -163,7 +163,7 @@ pop3c_client_async_callback(struct pop3c_client *client,
 		return;
 	}
 	cmd_copy = *cmd;
-	array_delete(&client->commands, 0, 1);
+	array_pop_front(&client->commands);
 
 	if (cmd_copy.input != NULL) {
 		i_stream_seek(cmd_copy.input, 0);

@@ -114,7 +114,7 @@ dsync_ibc_pipe_pop_item(struct dsync_ibc_pipe *pipe, enum item_type type)
 	item = array_first_modifiable(&pipe->item_queue);
 	i_assert(item->type == type);
 	pipe->pop_item = *item;
-	array_delete(&pipe->item_queue, 0, 1);
+	array_pop_front(&pipe->item_queue);
 	item = NULL;
 
 	pool_unref(&pipe->pop_pool);
@@ -133,7 +133,7 @@ static bool dsync_ibc_pipe_try_pop_eol(struct dsync_ibc_pipe *pipe)
 	if (item->type != ITEM_END_OF_LIST)
 		return FALSE;
 
-	array_delete(&pipe->item_queue, 0, 1);
+	array_pop_front(&pipe->item_queue);
 	return TRUE;
 }
 
