@@ -7,7 +7,7 @@
 void *
 array_idx_modifiable_i(const struct array *array, unsigned int idx)
 {
-	i_assert(idx * array->element_size < array->buffer->used);
+	i_assert(idx < array->buffer->used / array->element_size);
 	return PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
 

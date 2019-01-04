@@ -334,7 +334,7 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		test_begin("fatal_array");
 		t_array_init(&ad, 3);
 		/* allocation big enough, but memory not initialised */
-		test_expect_fatal_string("(array_idx_i): assertion failed: (idx * array->element_size < array->buffer->used)");
+		test_expect_fatal_string("(array_idx_i): assertion failed: (idx < array->buffer->used / array->element_size)");
 		useless_ptr = array_idx(&ad, 0);
 		return FATAL_TEST_FAILURE;
 	}
@@ -344,7 +344,7 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		t_array_init(&ad, 2);
 		array_append(&ad, tmpd, 2);
 		/* actual out of range address requested */
-		test_expect_fatal_string("(array_idx_i): assertion failed: (idx * array->element_size < array->buffer->used)");
+		test_expect_fatal_string("(array_idx_i): assertion failed: (idx < array->buffer->used / array->element_size)");
 		useless_ptr = array_idx(&ad, 2);
 		return FATAL_TEST_FAILURE;
 	}
