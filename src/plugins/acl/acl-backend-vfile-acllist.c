@@ -145,7 +145,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 			return -1;
 		}
 		acllist.name = p_strdup(backend->acllist_pool, p + 1);
-		array_append(&backend->acllist, &acllist, 1);
+		array_push_back(&backend->acllist, &acllist);
 	}
 	if (input->stream_errno != 0)
 		ret = -1;

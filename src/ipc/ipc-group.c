@@ -23,7 +23,7 @@ struct ipc_group *ipc_group_alloc(int listen_fd)
 
 	group = i_new(struct ipc_group, 1);
 	group->listen_fd = listen_fd;
-	array_append(&ipc_groups, &group, 1);
+	array_push_back(&ipc_groups, &group);
 	return group;
 }
 

@@ -80,7 +80,7 @@ void mailbox_list_register(const struct mailbox_list *list)
 			list->name);
 	}
 
-	array_append(&mailbox_list_drivers, &list, 1);
+	array_push_back(&mailbox_list_drivers, &list);
 }
 
 void mailbox_list_unregister(const struct mailbox_list *list)

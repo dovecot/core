@@ -60,7 +60,7 @@ kick_aggregate_line(struct who_context *_ctx, const struct who_line *line)
 	}
 	new_user.username = p_strdup(ctx->who.pool, line->username);
 	new_user.kick_me = user_match;
-	array_append(&k_pid->users, &new_user, 1);
+	array_push_back(&k_pid->users, &new_user);
 }
 
 static bool
@@ -85,8 +85,8 @@ kick_pid_want_kicked(struct kick_context *ctx, const struct kick_pid *k_pid,
 		    !ctx->force_kick) {
 			array_foreach(&k_pid->users, user) {
 				if (!user->kick_me) {
-					array_append(&ctx->kicked_users,
-						     &user->username, 1);
+					array_push_back(&ctx->kicked_users,
+							&user->username);
 				}
 			}
 			*show_warning = TRUE;
@@ -165,8 +165,8 @@ static void kick_users(struct kick_context *ctx)
 				dec2str(k_pid->pid));
 		} else {
 			array_foreach(&k_pid->users, user) {
-				array_append(&ctx->kicked_users,
-					     &user->username, 1);
+				array_push_back(&ctx->kicked_users,
+						&user->username);
 			}
 		}
 	}

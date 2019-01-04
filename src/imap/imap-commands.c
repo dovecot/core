@@ -99,7 +99,7 @@ void command_register(const char *name, command_func_t *func,
 	cmd.name = name;
 	cmd.func = func;
 	cmd.flags = flags;
-	array_append(&imap_commands, &cmd, 1);
+	array_push_back(&imap_commands, &cmd);
 
 	commands_unsorted = TRUE;
 }
@@ -141,7 +141,7 @@ void command_hook_register(command_hook_callback_t *pre,
 
 	hook.pre = pre;
 	hook.post = post;
-	array_append(&command_hooks, &hook, 1);
+	array_push_back(&command_hooks, &hook);
 }
 
 void command_hook_unregister(command_hook_callback_t *pre,

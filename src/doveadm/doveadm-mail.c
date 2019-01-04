@@ -825,7 +825,7 @@ bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[])
 void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd)
 {
 	/* for now we'll just assume that cmd will be permanently in memory */
-	array_append(&doveadm_mail_cmds, cmd, 1);
+	array_push_back(&doveadm_mail_cmds, cmd);
 }
 
 const struct doveadm_mail_cmd *doveadm_mail_cmd_find(const char *cmd_name)

@@ -1690,7 +1690,7 @@ struct mail *index_search_get_mail(struct index_search_context *ctx)
 	imail->search_mail = TRUE;
 	ctx->mail_ctx.transaction->stats_track = TRUE;
 
-	array_append(&ctx->mails, &mail, 1);
+	array_push_back(&ctx->mails, &mail);
 	return mail;
 }
 

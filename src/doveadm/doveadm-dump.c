@@ -14,7 +14,7 @@ static ARRAY(const struct doveadm_cmd_dump *) dumps;
 
 void doveadm_dump_register(const struct doveadm_cmd_dump *dump)
 {
-	array_append(&dumps, &dump, 1);
+	array_push_back(&dumps, &dump);
 }
 
 static const struct doveadm_cmd_dump *

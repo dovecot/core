@@ -805,7 +805,7 @@ mail_storage_service_io_deactivate_user_cb(struct mail_storage_service_user *use
 		i_assert(event != NULL);
 		if (!array_is_created(&user->event_stack))
 			i_array_init(&user->event_stack, 4);
-		array_append(&user->event_stack, &event, 1);
+		array_push_back(&user->event_stack, &event);
 		event_pop_global(event);
 	}
 	event_pop_global(user->event);

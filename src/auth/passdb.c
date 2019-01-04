@@ -38,7 +38,7 @@ void passdb_register_module(struct passdb_module_interface *iface)
 		i_panic("passdb_register_module(%s): Already registered",
 			iface->name);
 	}
-	array_append(&passdb_interfaces, &iface, 1);
+	array_push_back(&passdb_interfaces, &iface);
 }
 
 void passdb_unregister_module(struct passdb_module_interface *iface)
@@ -238,7 +238,7 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 	} else {
 		passdb->username_filter = (const char* const*)p_strsplit_spaces(pool, set->username_filter, " ,");
 	}
-	array_append(&passdb_modules, &passdb, 1);
+	array_push_back(&passdb_modules, &passdb);
 	return passdb;
 }
 

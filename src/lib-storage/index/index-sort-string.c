@@ -128,7 +128,7 @@ static void index_sort_generate_seqs(struct sort_string_context *ctx)
 		} else {
 			break;
 		}
-		array_append(&ctx->program->seqs, &seq, 1);
+		array_push_back(&ctx->program->seqs, &seq);
 	}
 }
 
@@ -223,9 +223,9 @@ static void index_sort_node_add(struct sort_string_context *ctx,
 	}
 
 	if (node->sort_id == 0)
-		array_append(&ctx->zero_nodes, node, 1);
+		array_push_back(&ctx->zero_nodes, node);
 	else
-		array_append(&ctx->nonzero_nodes, node, 1);
+		array_push_back(&ctx->nonzero_nodes, node);
 	if (ctx->last_seq < node->seq)
 		ctx->last_seq = node->seq;
 }
@@ -502,11 +502,11 @@ static void index_sort_merge(struct sort_string_context *ctx)
 					znodes[zpos].seq, nznodes[nzpos].seq);
 		}
 		if (ret <= 0) {
-			array_append(&ctx->sorted_nodes, &znodes[zpos], 1);
+			array_push_back(&ctx->sorted_nodes, &znodes[zpos]);
 			prev_str = zstr;
 			zpos++;
 		} else {
-			array_append(&ctx->sorted_nodes, &nznodes[nzpos], 1);
+			array_push_back(&ctx->sorted_nodes, &nznodes[nzpos]);
 			prev_str = nzstr;
 			nzpos++;
 
@@ -526,9 +526,9 @@ static void index_sort_merge(struct sort_string_context *ctx)
 	}
 	/* only one of zero_nodes and nonzero_nodes can be non-empty now */
 	for (; zpos < zcount; zpos++)
-		array_append(&ctx->sorted_nodes, &znodes[zpos], 1);
+		array_push_back(&ctx->sorted_nodes, &znodes[zpos]);
 	for (; nzpos < nzcount; nzpos++)
-		array_append(&ctx->sorted_nodes, &nznodes[nzpos], 1);
+		array_push_back(&ctx->sorted_nodes, &nznodes[nzpos]);
 
 	/* future index_sort_get_string() calls use ctx->nonzero_nodes, but we
 	   use only ctx->sorted_nodes. make them identical. */
@@ -871,7 +871,7 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 
 		for (i = 0; i < count; i++) {
 			seq = nodes[i].seq;
-			array_append(&program->seqs, &seq, 1);
+			array_push_back(&program->seqs, &seq);
 		}
 		array_free(&ctx->nonzero_nodes);
 	} else {
@@ -926,7 +926,7 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 		for (i = 0; i < count; i++) {
 			if (nodes[i].wanted) {
 				seq = nodes[i].seq;
-				array_append(&program->seqs, &seq, 1);
+				array_push_back(&program->seqs, &seq);
 			}
 		}
 		pool_unref(&ctx->sort_string_pool);

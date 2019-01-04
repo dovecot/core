@@ -2034,7 +2034,7 @@ static void imapc_command_send_finished(struct imapc_connection *conn,
 	cmdp = array_first(&conn->cmd_send_queue);
 	i_assert(*cmdp == cmd);
 	array_delete(&conn->cmd_send_queue, 0, 1);
-	array_append(&conn->cmd_wait_list, &cmd, 1);
+	array_push_back(&conn->cmd_wait_list, &cmd);
 
 	/* send the next command in queue */
 	imapc_command_send_more(conn);

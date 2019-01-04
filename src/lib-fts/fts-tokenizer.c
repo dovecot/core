@@ -29,7 +29,7 @@ void fts_tokenizer_register(const struct fts_tokenizer *tok_class)
 {
 	if (!array_is_created(&fts_tokenizer_classes))
 		i_array_init(&fts_tokenizer_classes, FTS_TOKENIZER_CLASSES_NR);
-	array_append(&fts_tokenizer_classes, &tok_class, 1);
+	array_push_back(&fts_tokenizer_classes, &tok_class);
 }
 
 /* private */

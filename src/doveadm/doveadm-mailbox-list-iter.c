@@ -92,7 +92,7 @@ doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
 			ns_mask |= MAIL_NAMESPACE_TYPE_SHARED |
 				MAIL_NAMESPACE_TYPE_PUBLIC;
 		}
-		array_append(&iter->patterns, &all_pattern, 1);
+		array_push_back(&iter->patterns, &all_pattern);
 	} else if (have_wildcards) {
 		iter_flags |= MAILBOX_LIST_ITER_STAR_WITHIN_NS;
 		ns_mask |= MAIL_NAMESPACE_TYPE_SHARED |

@@ -261,7 +261,7 @@ solr_result_get(struct solr_lookup_xml_context *ctx, const char *box_id)
 	p_array_init(&result->uids, ctx->result_pool, 32);
 	p_array_init(&result->scores, ctx->result_pool, 32);
 	hash_table_insert(ctx->mailboxes, box_id_dup, result);
-	array_append(&ctx->results, &result, 1);
+	array_push_back(&ctx->results, &result);
 	return result;
 }
 

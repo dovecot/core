@@ -56,7 +56,7 @@ exec_child(struct master_service_connection *conn,
 
 	for (; *args != NULL; args++) {
 		const char *arg = t_str_tabunescape(*args);
-		array_append(&exec_args, &arg, 1);
+		array_push_back(&exec_args, &arg);
 	}
 	array_append_zero(&exec_args);
 

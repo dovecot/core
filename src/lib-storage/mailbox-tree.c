@@ -197,7 +197,7 @@ mailbox_tree_iterate_set_next_node(struct mailbox_tree_iterate_context *ctx)
 	unsigned int i, count;
 
 	if (node->children != NULL) {
-		array_append(&ctx->node_path, &node, 1);
+		array_push_back(&ctx->node_path, &node);
 		ctx->parent_pos = str_len(ctx->path_str);
 		node = node->children;
 		ctx->first_child = TRUE;

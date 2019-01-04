@@ -493,7 +493,7 @@ static int virtual_mailbox_open(struct mailbox *box)
 	if (!array_is_created(&mbox->backend_boxes))
 		ret = virtual_config_read(mbox);
 	if (ret == 0) {
-		array_append(&mbox->storage->open_stack, &box->name, 1);
+		array_push_back(&mbox->storage->open_stack, &box->name);
 		ret = virtual_mailboxes_open(mbox, box->flags);
 		array_delete(&mbox->storage->open_stack,
 			     array_count(&mbox->storage->open_stack)-1, 1);

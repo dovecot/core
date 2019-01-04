@@ -106,7 +106,7 @@ int test_program_input_handle(struct test_client *client, const char *line)
 			return 0;
 		}
 		arg = p_strdup(client->pool, line);
-		array_append(&client->args, &arg, 1);
+		array_push_back(&client->args, &arg);
 		break;
 	case CLIENT_STATE_BODY:
 		client->os_body = iostream_temp_create_named(".dovecot.test.", 0, "test_program_input body");

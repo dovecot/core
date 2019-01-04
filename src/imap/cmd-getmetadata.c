@@ -98,7 +98,7 @@ imap_metadata_parse_entry_names(struct imap_getmetadata_context *ctx,
 
 		/* names are case-insensitive so we'll always lowercase them */
 		value = p_strdup(ctx->cmd->pool, t_str_lcase(value));
-		array_append(&ctx->entries, &value, 1);
+		array_push_back(&ctx->entries, &value);
 	}
 	return TRUE;
 }

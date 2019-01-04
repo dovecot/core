@@ -81,10 +81,10 @@ config_request_get_strings(const char *key, const char *value,
 		break;
 	case CONFIG_KEY_ERROR:
 		value = p_strdup(ctx->pool, value);
-		array_append(&ctx->errors, &value, 1);
+		array_push_back(&ctx->errors, &value);
 		return;
 	}
-	array_append(&ctx->strings, &value, 1);
+	array_push_back(&ctx->strings, &value);
 }
 
 static int config_string_cmp(const char *const *p1, const char *const *p2)

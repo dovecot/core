@@ -87,7 +87,7 @@ static const struct quota_backend *quota_backend_find(const char *name)
 void quota_backend_register(const struct quota_backend *backend)
 {
 	i_assert(quota_backend_find(backend->name) == NULL);
-	array_append(&quota_backends, &backend, 1);
+	array_push_back(&quota_backends, &backend);
 }
 
 void quota_backend_unregister(const struct quota_backend *backend)
@@ -245,7 +245,7 @@ quota_root_settings_init(struct quota_settings *quota_set, const char *root_def,
 
 	p_array_init(&root_set->rules, quota_set->pool, 4);
 	p_array_init(&root_set->warning_rules, quota_set->pool, 4);
-	array_append(&quota_set->root_sets, &root_set, 1);
+	array_push_back(&quota_set->root_sets, &root_set);
 	*set_r = root_set;
 	return 0;
 }
@@ -454,7 +454,7 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 			return -1;
 		}
 		if (ret > 0)
-			array_append(&quota->roots, &root, 1);
+			array_push_back(&quota->roots, &root);
 	}
 	*quota_r = quota;
 	return 0;
@@ -592,7 +592,7 @@ void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 	if (quota_is_duplicate_namespace(quota, ns))
 		return;
 
-	array_append(&quota->namespaces, &ns, 1);
+	array_push_back(&quota->namespaces, &ns);
 
 	roots = array_get(&quota->roots, &count);
 	/* @UNSAFE: get different backends into one array */

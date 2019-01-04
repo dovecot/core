@@ -42,7 +42,7 @@ submission_recipient_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 	struct submission_backend *const *bknd_idx;
 	bool backend_found = FALSE;
 
-	array_append(&client->rcpt_to, &srcpt, 1);
+	array_push_back(&client->rcpt_to, &srcpt);
 
 	array_foreach(&client->rcpt_backends, bknd_idx) {
 		if (*bknd_idx == backend) {
@@ -51,5 +51,5 @@ submission_recipient_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 		}
 	}
 	if (!backend_found)
-		array_append(&client->rcpt_backends, &backend, 1);
+		array_push_back(&client->rcpt_backends, &backend);
 }

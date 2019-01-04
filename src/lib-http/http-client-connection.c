@@ -462,7 +462,7 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 
 		conn->to_idle = timeout_add_to(conn->conn.ioloop, timeout,
 			http_client_connection_idle_timeout, conn);
-		array_append(&ppool->idle_conns, &conn, 1);
+		array_push_back(&ppool->idle_conns, &conn);
 	} else {
 		e_debug(conn->event, "Lost peer; already idle");
 	}
@@ -531,7 +531,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		conn->to_idle = timeout_add_to(conn->conn.ioloop, timeout,
 			http_client_connection_idle_timeout, conn);
 
-		array_append(&ppool->idle_conns, &conn, 1);
+		array_push_back(&ppool->idle_conns, &conn);
 	}
 }
 
@@ -566,7 +566,7 @@ void http_client_connection_claim_idle(struct http_client_connection *conn,
 
 		conn->peer = peer;
 		conn->debug = peer->client->set.debug;
-		array_append(&peer->conns, &conn, 1);
+		array_push_back(&peer->conns, &conn);
 	}
 }
 
@@ -672,7 +672,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 		req->payload_sync = FALSE;
 
 	/* add request to wait list and add a reference */
-	array_append(&conn->request_wait_list, &req, 1);
+	array_push_back(&conn->request_wait_list, &req);
 	http_client_connection_ref_request(conn, req);
 
 	e_debug(conn->event, "Claimed request %s",
@@ -1738,10 +1738,10 @@ http_client_connection_create(struct http_client_peer *peer)
 		http_client_connection_connect(conn, timeout_msecs);
 	}
 
-	array_append(&ppool->pending_conns, &conn, 1);
-	array_append(&ppool->conns, &conn, 1);
-	array_append(&peer->pending_conns, &conn, 1);
-	array_append(&peer->conns, &conn, 1);
+	array_push_back(&ppool->pending_conns, &conn);
+	array_push_back(&ppool->conns, &conn);
+	array_push_back(&peer->pending_conns, &conn);
+	array_push_back(&peer->conns, &conn);
 
 	http_client_peer_pool_ref(ppool);
 

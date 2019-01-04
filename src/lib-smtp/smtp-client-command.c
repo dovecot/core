@@ -1369,7 +1369,7 @@ _cmd_bdat_send_chunks(struct _cmd_data_context *ctx,
 		smtp_client_command_printf(cmd,
 			"BDAT %"PRIuUOFF_T, (uoff_t)size);
 		smtp_client_command_submit_after(cmd, cmd_prev);
-		array_append(&ctx->cmds, &cmd, 1);
+		array_push_back(&ctx->cmds, &cmd);
 
 		ctx->data_offset += size;
 		data_size -= size;
@@ -1469,7 +1469,7 @@ smtp_client_command_data_submit_after(
 			_cmd_data_abort_cb, ctx);
 		smtp_client_command_write(cmd, "DATA");
 		smtp_client_command_submit_after(cmd, after);
-		array_append(&ctx->cmds, &cmd, 1);
+		array_push_back(&ctx->cmds, &cmd);
 
 	} else {
 		/* BDAT */

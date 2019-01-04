@@ -50,7 +50,7 @@ void sql_driver_register(const struct sql_db *driver)
 		i_fatal("sql_driver_register(%s): Already registered",
 			driver->name);
 	}
-	array_append(&sql_drivers, &driver, 1);
+	array_push_back(&sql_drivers, &driver);
 }
 
 void sql_driver_unregister(const struct sql_db *driver)

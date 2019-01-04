@@ -35,7 +35,7 @@ void mail_namespace_add_storage(struct mail_namespace *ns,
 {
 	if (ns->storage == NULL)
 		ns->storage = storage;
-	array_append(&ns->all_storages, &storage, 1);
+	array_push_back(&ns->all_storages, &storage);
 
 	if (storage->v.add_list != NULL)
 		storage->v.add_list(storage, ns->list);

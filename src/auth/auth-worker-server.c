@@ -201,7 +201,7 @@ static struct auth_worker_connection *auth_worker_create(void)
 	auth_worker_send_handshake(conn);
 
 	idle_count++;
-	array_append(&connections, &conn, 1);
+	array_push_back(&connections, &conn);
 	return conn;
 }
 

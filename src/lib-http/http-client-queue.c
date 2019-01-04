@@ -96,7 +96,7 @@ http_client_queue_create(struct http_client_host *host,
 	i_array_init(&queue->queued_requests, 16);
 	i_array_init(&queue->queued_urgent_requests, 16);
 	i_array_init(&queue->delayed_requests, 4);
-	array_append(&host->queues, &queue, 1);
+	array_push_back(&host->queues, &queue);
 
 	return queue;
 }
@@ -399,7 +399,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 			e_debug(queue->event, "Started new connection to %s%s",
 				http_client_peer_addr2str(addr), ssl);
 
-			array_append(&queue->pending_peers, &peer, 1);
+			array_push_back(&queue->pending_peers, &peer);
 			if (queue->connect_attempts++ == 0)
 				queue->first_connect_time = ioloop_timeval;
 		}
@@ -816,7 +816,7 @@ static void http_client_queue_submit_now(struct http_client_queue *queue,
 	/* enqueue */
 	if (req->timeout_time.tv_sec == 0) {
 		/* no timeout; enqueue at end */
-		array_append(req_queue, &req, 1);
+		array_push_back(req_queue, &req);
 
 	} else if (timeval_diff_msecs(&req->timeout_time, &ioloop_timeval) <= 1) {
 		/* pretty much already timed out; don't bother */
@@ -924,7 +924,7 @@ void http_client_queue_submit_request(struct http_client_queue *queue,
 	/* add to main request list */
 	if (req->timeout_time.tv_sec == 0) {
 		/* no timeout; just append */
-		array_append(&queue->requests, &req, 1);
+		array_push_back(&queue->requests, &req);
 
 	} else {
 		unsigned int insert_idx;

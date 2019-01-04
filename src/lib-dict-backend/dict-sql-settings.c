@@ -113,8 +113,8 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 
 		/* mark this field as used */
 		fields[i].variable = NULL;
-		array_append(&ctx->cur_map.sql_fields,
-			     &fields[i].sql_field, 1);
+		array_push_back(&ctx->cur_map.sql_fields,
+				&fields[i].sql_field);
 	}
 
 	/* make sure there aren't any unused fields */
@@ -192,7 +192,7 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 		if (strchr(ctx->cur_map.pattern, '$') != NULL)
 			return "Missing fields for pattern variables";
 	}
-	array_append(&ctx->set->maps, &ctx->cur_map, 1);
+	array_push_back(&ctx->set->maps, &ctx->cur_map);
 	i_zero(&ctx->cur_map);
 	return NULL;
 }

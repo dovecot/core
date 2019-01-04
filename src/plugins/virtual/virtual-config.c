@@ -207,7 +207,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		ctx->have_mailbox_defines = TRUE;
 	}
 
-	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
+	array_push_back(&ctx->mbox->backend_boxes, &bbox);
 	return 0;
 }
 
@@ -235,7 +235,7 @@ virtual_mailbox_get_list_patterns(struct virtual_parse_context *ctx)
 			dest = &mbox->list_exclude_patterns;
 			pattern.pattern++;
 		}
-		array_append(dest, &pattern, 1);
+		array_push_back(dest, &pattern);
 	}
 }
 
@@ -286,7 +286,7 @@ static void virtual_config_copy_expanded(struct virtual_parse_context *ctx,
 	bbox->glob = NULL;
 	bbox->wildcard = TRUE;
 	mail_search_args_ref(bbox->search_args);
-	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
+	array_push_back(&ctx->mbox->backend_boxes, &bbox);
 }
 
 static bool virtual_ns_match(struct mail_namespace *config_ns,

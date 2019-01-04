@@ -33,8 +33,8 @@ struct passdb_template *passdb_template_build(pool_t pool, const char *args)
 
 		key = p_strdup(pool, key);
 		value = p_strdup(pool, value);
-		array_append(&tmpl->args, &key, 1);
-		array_append(&tmpl->args, &value, 1);
+		array_push_back(&tmpl->args, &key);
+		array_push_back(&tmpl->args, &value);
 	}
 	return tmpl;
 }

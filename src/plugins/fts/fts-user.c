@@ -254,7 +254,7 @@ static int fts_user_language_create(struct mail_user *user,
 
 	user_lang = p_new(user->pool, struct fts_user_language, 1);
 	user_lang->lang = lang;
-	array_append(&fuser->languages, &user_lang, 1);
+	array_push_back(&fuser->languages, &user_lang);
 
 	if (fts_user_language_init_tokenizers(user, user_lang, error_r) < 0)
 		return -1;
@@ -295,8 +295,8 @@ fts_user_init_data_language(struct mail_user *user, struct fts_user *fuser,
 	i_assert(user_lang->filter != NULL);
 
 	p_array_init(&fuser->data_languages, user->pool, 1);
-	array_append(&fuser->data_languages, &user_lang, 1);
-	array_append(&fuser->languages, &user_lang, 1);
+	array_push_back(&fuser->data_languages, &user_lang);
+	array_push_back(&fuser->languages, &user_lang);
 
 	fuser->data_lang = user_lang;
 	return 0;

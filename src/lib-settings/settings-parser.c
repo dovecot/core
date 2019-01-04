@@ -528,11 +528,11 @@ setting_link_init_set_struct(struct setting_parser_context *ctx,
 	if ((ctx->flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
 		link->change_struct =
 			p_malloc(ctx->set_pool, link->info->struct_size);
-		array_append(link->change_array, &link->change_struct, 1);
+		array_push_back(link->change_array, &link->change_struct);
 	}
 
 	setting_parser_copy_defaults(ctx, link->info, link);
-	array_append(link->array, &link->set_struct, 1);
+	array_push_back(link->array, &link->set_struct);
 
 	if (link->info->parent_offset != (size_t)-1 && link->parent != NULL) {
 		ptr = STRUCT_MEMBER_P(link->set_struct,
@@ -827,8 +827,8 @@ settings_parse_strlist(struct setting_parser_context *ctx,
 	}
 
 	vkey = p_strdup(ctx->set_pool, key);
-	array_append(link->array, &vkey, 1);
-	array_append(link->array, &vvalue, 1);
+	array_push_back(link->array, &vkey);
+	array_push_back(link->array, &vvalue);
 }
 
 int settings_parse_keyvalue(struct setting_parser_context *ctx,

@@ -227,7 +227,7 @@ static void imapc_command_callback(const struct imapc_command_reply *reply,
 			imapc_command_state_names[reply->state],
 			reply->text_full);
 	}
-	array_append(&imapc_cmd_last_replies, &reply->state, 1);
+	array_push_back(&imapc_cmd_last_replies, &reply->state);
 	imapc_client_stop(imapc_client);
 }
 

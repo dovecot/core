@@ -121,7 +121,7 @@ push_notification_txn_msg_set_eventdata(struct push_notification_txn *txn,
     mevent->data = data;
     mevent->event = event;
 
-    array_append(&msg->eventdata, &mevent, 1);
+    array_push_back(&msg->eventdata, &mevent);
 }
 
 void

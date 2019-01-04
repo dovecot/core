@@ -286,7 +286,7 @@ struct timeout *timeout_add_to(struct ioloop *ioloop, unsigned int msecs,
 
 	if (msecs > 0) {
 		/* start this timeout in the next run cycle */
-		array_append(&timeout->ioloop->timeouts_new, &timeout, 1);
+		array_push_back(&timeout->ioloop->timeouts_new, &timeout);
 	} else {
 		/* trigger zero timeouts as soon as possible */
 		timeout_update_next(timeout, timeout->ioloop->running ?
@@ -373,7 +373,7 @@ timeout_copy(const struct timeout *old_to, struct ioloop *ioloop)
 		priorityq_add(new_to->ioloop->timeouts, &new_to->item);
 	else if (!new_to->one_shot) {
 		i_assert(new_to->msecs > 0);
-		array_append(&new_to->ioloop->timeouts_new, &new_to, 1);
+		array_push_back(&new_to->ioloop->timeouts_new, &new_to);
 	}
 
 	return new_to;
@@ -938,7 +938,7 @@ void io_loop_add_switch_callback(io_switch_callback_t *callback)
 		i_array_init(&io_switch_callbacks, 4);
 		lib_atexit_priority(io_switch_callbacks_free, LIB_ATEXIT_PRIORITY_LOW);
 	}
-	array_append(&io_switch_callbacks, &callback, 1);
+	array_push_back(&io_switch_callbacks, &callback);
 }
 
 void io_loop_remove_switch_callback(io_switch_callback_t *callback)
@@ -1011,7 +1011,7 @@ void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 	cb.deactivate = deactivate;
 	cb.context = context;
 
-	array_append(&ctx->callbacks, &cb, 1);
+	array_push_back(&ctx->callbacks, &cb);
 }
 
 #undef io_loop_context_remove_callbacks

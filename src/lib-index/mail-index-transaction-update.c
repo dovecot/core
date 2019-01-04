@@ -620,7 +620,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 
 	if (!array_is_created(&t->updates)) {
 		i_array_init(&t->updates, 256);
-		array_append(&t->updates, &u, 1);
+		array_push_back(&t->updates, &u);
 		return;
 	}
 
@@ -646,7 +646,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	}
 
 	if (t->last_update_idx == count)
-		array_append(&t->updates, &u, 1);
+		array_push_back(&t->updates, &u);
 	else {
 		i_assert(t->last_update_idx < count);
 

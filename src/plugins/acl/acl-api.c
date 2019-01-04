@@ -825,11 +825,11 @@ void acl_object_remove_all_access(struct acl_object *aclobj)
 	i_zero(&rights);
 	rights.id_type = ACL_ID_ANYONE;
 	rights.rights = &null;
-	array_append(&aclobj->rights, &rights, 1);
+	array_push_back(&aclobj->rights, &rights);
 
 	rights.id_type = ACL_ID_OWNER;
 	rights.rights = &null;
-	array_append(&aclobj->rights, &rights, 1);
+	array_push_back(&aclobj->rights, &rights);
 }
 
 void acl_object_add_global_acls(struct acl_object *aclobj)

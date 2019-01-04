@@ -42,7 +42,7 @@ void dsasl_client_mech_register(const struct dsasl_client_mech *mech)
 		/* allow plugins to override the default mechanisms */
 		array_delete(&dsasl_mechanisms, idx, 1);
 	}
-	array_append(&dsasl_mechanisms, &mech, 1);
+	array_push_back(&dsasl_mechanisms, &mech);
 }
 
 void dsasl_client_mech_unregister(const struct dsasl_client_mech *mech)

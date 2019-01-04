@@ -538,7 +538,7 @@ bool master_service_parse_option(struct master_service *service,
 	case 'o':
 		if (!array_is_created(&service->config_overrides))
 			i_array_init(&service->config_overrides, 16);
-		array_append(&service->config_overrides, &arg, 1);
+		array_push_back(&service->config_overrides, &arg);
 		break;
 	case 'O':
 		service->flags |= MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS;

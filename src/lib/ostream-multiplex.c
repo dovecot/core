@@ -206,7 +206,7 @@ o_stream_add_channel_real(struct multiplex_ostream *mstream, uint8_t cid)
 	channel->ostream.iostream.close = o_stream_multiplex_ochannel_close;
 	channel->ostream.iostream.destroy = o_stream_multiplex_ochannel_destroy;
 	channel->ostream.fd = o_stream_get_fd(mstream->parent);
-	array_append(&channel->mstream->channels, &channel, 1);
+	array_push_back(&channel->mstream->channels, &channel);
 
 	return o_stream_create(&channel->ostream, mstream->parent,
 			       mstream->bufsize);

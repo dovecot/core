@@ -2269,7 +2269,7 @@ director_connection_init_common(struct director *dir, int fd)
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(conn->fd, dir->set->director_output_buffer_size);
 	o_stream_set_no_error_handling(conn->output, TRUE);
-	array_append(&dir->connections, &conn, 1);
+	array_push_back(&dir->connections, &conn);
 	return conn;
 }
 

@@ -285,7 +285,7 @@ static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 		i_assert(prefix_len < strlen(key));
 
 		key = p_strdup(iter->iter_value_pool, key + prefix_len);
-		array_append(&iter->iter_values, &key, 1);
+		array_push_back(&iter->iter_values, &key);
 	}
 	if (dict_iterate_deinit(&dict_iter, &error) < 0) {
 		i_error("%s", error);
@@ -311,9 +311,9 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 
 	p_array_init(&iter->iter_ids, pool, 16);
 	id = "anyone";
-	array_append(&iter->iter_ids, &id, 1);
+	array_push_back(&iter->iter_ids, &id);
 	id = p_strconcat(pool, "user/", dict->user->username, NULL);
-	array_append(&iter->iter_ids, &id, 1);
+	array_push_back(&iter->iter_ids, &id);
 
 	i_array_init(&iter->iter_values, 64);
 	iter->iter_value_pool =
@@ -324,7 +324,7 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 		for (i = 0; auser->groups[i] != NULL; i++) {
 			id = p_strconcat(pool, "group/", auser->groups[i],
 					 NULL);
-			array_append(&iter->iter_ids, &id, 1);
+			array_push_back(&iter->iter_ids, &id);
 		}
 	}
 

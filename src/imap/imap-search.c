@@ -385,7 +385,7 @@ search_update_mail(struct imap_search_context *ctx, struct mail *mail)
 			score = 0;
 		else
 			score = strtod(str, NULL);
-		array_append(&ctx->relevancy_scores, &score, 1);
+		array_push_back(&ctx->relevancy_scores, &score);
 		if (ctx->min_relevancy > score)
 			ctx->min_relevancy = score;
 		if (ctx->max_relevancy < score)

@@ -48,7 +48,7 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 		eh.sync_context = &contexts[idx_ext_id];
 		eh.record_offset = map_ext_id == (uint32_t)-1 ? 0 :
 			ext[map_ext_id].record_offset;
-		array_append(&ctx->expunge_handlers, &eh, 1);
+		array_push_back(&ctx->expunge_handlers, &eh);
 	}
 	ctx->expunge_handlers_set = TRUE;
 	ctx->expunge_handlers_used = TRUE;

@@ -1134,8 +1134,8 @@ int mdbox_map_append_next(struct mdbox_map_append_context *ctx,
 	if (!existing) {
 		i_assert(file_append->first_append_offset == 0);
 		file_append->first_append_offset = file_append->output->offset;
-		array_append(&ctx->file_appends, &file_append, 1);
-		array_append(&ctx->files, &file, 1);
+		array_push_back(&ctx->file_appends, &file_append);
+		array_push_back(&ctx->files, &file);
 	}
 	*file_append_ctx_r = file_append;
 	return 0;

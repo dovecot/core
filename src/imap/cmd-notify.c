@@ -195,7 +195,7 @@ cmd_notify_add_mailbox(struct imap_notify_context *ctx,
 		}
 	}
 	name = p_strdup(ctx->pool, name);
-	array_append(&notify_boxes->names, &name, 1);
+	array_push_back(&notify_boxes->names, &name);
 
 	ctx->global_max_mailbox_names =
 		I_MAX(ctx->global_max_mailbox_names,

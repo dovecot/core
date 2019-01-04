@@ -166,7 +166,7 @@ mdbox_file_init_full(struct mdbox_storage *storage,
 		file->file.cur_path = file->file.alt_path;
 
 	if (file_id != 0)
-		array_append(&storage->open_files, &file, 1);
+		array_push_back(&storage->open_files, &file);
 	else
 		(void)mdbox_file_create(file);
 	return &file->file;
@@ -214,7 +214,7 @@ int mdbox_file_assign_file_id(struct mdbox_file *file, uint32_t file_id)
 	mdbox_file_init_paths(file, new_fname,
 			      dbox_file_is_in_alt(&file->file));
 	file->file_id = file_id;
-	array_append(&file->storage->open_files, &file, 1);
+	array_push_back(&file->storage->open_files, &file);
 	return 0;
 }
 

@@ -405,7 +405,7 @@ void http_client_delay_request_error(struct http_client *client,
 			timeout_add_short_to(client->ioloop, 0,
 				http_client_handle_request_errors, client);
 	}
-	array_append(&client->delayed_failing_requests, &req, 1);
+	array_push_back(&client->delayed_failing_requests, &req);
 }
 
 void http_client_remove_request_error(struct http_client *client,

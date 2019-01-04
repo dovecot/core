@@ -147,8 +147,8 @@ search_update_flag_changes(struct dsync_mailbox_exporter *exporter,
 			const char *keyword_change =
 				p_strdup_printf(exporter->pool, "%c%s",
 						type, keywords[i]);
-			array_append(&change->keyword_changes,
-				     &keyword_change, 1);
+			array_push_back(&change->keyword_changes,
+					&keyword_change);
 		}
 	}
 }
@@ -454,7 +454,7 @@ dsync_mailbox_export_sort_changes(struct dsync_mailbox_exporter *exporter)
 
 	iter = hash_table_iterate_init(exporter->changes);
 	while (hash_table_iterate(iter, exporter->changes, &key, &change))
-		array_append(&exporter->sorted_changes, &change, 1);
+		array_push_back(&exporter->sorted_changes, &change);
 	hash_table_iterate_deinit(&iter);
 	array_sort(&exporter->sorted_changes, dsync_mail_change_p_uid_cmp);
 }
@@ -758,8 +758,8 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 			if (array_count(&instances->seqs) == 0) {
 				/* no instances left */
 				const_guid = guid;
-				array_append(&exporter->expunged_guids,
-					     &const_guid, 1);
+				array_push_back(&exporter->expunged_guids,
+						&const_guid);
 				continue;
 			}
 			uids = array_first(&instances->seqs);

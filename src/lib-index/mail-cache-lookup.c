@@ -486,7 +486,7 @@ static void header_lines_save(struct header_lookup_context *ctx,
 	for (i = 0; i < lines_count; i++) {
 		hdr_line.line_num = lines[i];
 		hdr_line.data = hdr_data;
-		array_append(&ctx->lines, &hdr_line, 1);
+		array_push_back(&ctx->lines, &hdr_line);
 	}
 }
 

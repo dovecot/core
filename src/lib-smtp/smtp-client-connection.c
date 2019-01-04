@@ -63,7 +63,7 @@ void smtp_client_connection_accept_extra_capability(
 
 	if (!array_is_created(&conn->extra_capabilities))
 		p_array_init(&conn->extra_capabilities, conn->pool, 8);
-	array_append(&conn->extra_capabilities, &cap_name, 1);
+	array_push_back(&conn->extra_capabilities, &cap_name);
 }
 
 const struct smtp_capability_extra *
@@ -931,7 +931,7 @@ smtp_client_connection_record_exta_capability(
 	cap_extra.name = p_strdup(pool, cap_name);
 	cap_extra.params = p_strarray_dup(pool, params);
 
-	array_append(&conn->caps.extra, &cap_extra, 1);
+	array_push_back(&conn->caps.extra, &cap_extra);
 }
 
 static void
@@ -1920,7 +1920,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 			     str_array_length(set->extra_capabilities) + 8);
 		for (extp = set->extra_capabilities; *extp != NULL; extp++) {
 			const char *ext = p_strdup(pool, *extp);
-			array_append(&conn->extra_capabilities, &ext, 1);
+			array_push_back(&conn->extra_capabilities, &ext);
 		}
 	}
 

@@ -1696,7 +1696,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 			    struct maildir_uidlist_rec, 1);
 		rec->uid = (uint32_t)-1;
 		rec->filename = p_strdup(uidlist->record_pool, filename);
-		array_append(&uidlist->records, &rec, 1);
+		array_push_back(&uidlist->records, &rec);
 		uidlist->change_counter++;
 
 		hash_table_insert(uidlist->files, rec->filename, rec);
@@ -1818,7 +1818,7 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 		rec->filename = p_strdup(ctx->record_pool, filename);
 		hash_table_insert(ctx->files, rec->filename, rec);
 
-		array_append(&ctx->records, &rec, 1);
+		array_push_back(&ctx->records, &rec);
 	}
 	if (uid != 0) {
 		rec->uid = uid;

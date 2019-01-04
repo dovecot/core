@@ -44,7 +44,7 @@ doveadm_print_formatted_header(const struct doveadm_print_header *hdr)
 	entry.key = '\0';
 	entry.long_key = p_strdup(ctx.pool, hdr->key);
 	entry.value = NULL;
-	array_append(&ctx.headers, &entry, 1);
+	array_push_back(&ctx.headers, &entry);
 }
 
 

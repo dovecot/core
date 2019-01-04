@@ -38,7 +38,7 @@ director_host_add(struct director *dir,
 	host->port = port;
 	host->name = i_strdup_printf("%s:%u", host->ip_str, port);
 
-	array_append(&dir->dir_hosts, &host, 1);
+	array_push_back(&dir->dir_hosts, &host);
 
 	/* there are few enough directors that sorting after each
 	   addition should be fine */

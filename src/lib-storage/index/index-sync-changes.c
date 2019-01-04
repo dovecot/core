@@ -102,7 +102,7 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 
 	while (uid >= sync_rec->uid1) {
 		if (uid <= sync_rec->uid2) {
-			array_append(&ctx->syncs, sync_rec, 1);
+			array_push_back(&ctx->syncs, sync_rec);
 
 			if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
 				*sync_expunge_r = TRUE;

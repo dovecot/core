@@ -275,7 +275,7 @@ static void cmd_mailbox_create_init(struct doveadm_mail_cmd_context *_ctx,
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
-		array_append(&ctx->mailboxes, &name, 1);
+		array_push_back(&ctx->mailboxes, &name);
 	}
 }
 
@@ -409,7 +409,7 @@ static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx,
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
-		array_append(&ctx->mailboxes, &name, 1);
+		array_push_back(&ctx->mailboxes, &name);
 	}
 	array_sort(&ctx->mailboxes, i_strcmp_reverse_p);
 }
@@ -562,7 +562,7 @@ static void cmd_mailbox_subscribe_init(struct doveadm_mail_cmd_context *_ctx,
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
-		array_append(&ctx->mailboxes, &name, 1);
+		array_push_back(&ctx->mailboxes, &name);
 	}
 }
 

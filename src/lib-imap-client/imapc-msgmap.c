@@ -71,7 +71,7 @@ void imapc_msgmap_append(struct imapc_msgmap *msgmap,
 	i_assert(uid >= msgmap->uid_next);
 
 	msgmap->uid_next = uid + 1;
-	array_append(&msgmap->uids, &uid, 1);
+	array_push_back(&msgmap->uids, &uid);
 }
 
 void imapc_msgmap_expunge(struct imapc_msgmap *msgmap, uint32_t rseq)

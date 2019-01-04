@@ -98,7 +98,7 @@ mail_index_map_register_ext(struct mail_index_map *map,
 	/* Update index ext_id -> map ext_id mapping. Fill non-used
 	   ext_ids with (uint32_t)-1 */
 	while (array_count(&map->ext_id_map) < ext->index_idx)
-		array_append(&map->ext_id_map, &empty_idx, 1);
+		array_push_back(&map->ext_id_map, &empty_idx);
 	array_idx_set(&map->ext_id_map, ext->index_idx, &idx);
 	return idx;
 }
@@ -371,7 +371,7 @@ mail_index_record_map_alloc(struct mail_index_map *map)
 
 	rec_map = i_new(struct mail_index_record_map, 1);
 	i_array_init(&rec_map->maps, 4);
-	array_append(&rec_map->maps, &map, 1);
+	array_push_back(&rec_map->maps, &map);
 	return rec_map;
 }
 
@@ -390,7 +390,7 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 			buffer_create_dynamic(default_pool, 1024);
 	} else {
 		mem_map->rec_map = map->rec_map;
-		array_append(&mem_map->rec_map->maps, &mem_map, 1);
+		array_push_back(&mem_map->rec_map->maps, &mem_map);
 	}
 
 	mail_index_map_copy_header(mem_map, map);

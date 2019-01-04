@@ -876,7 +876,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	/* NOTE: assumes save_change is allocated from importer pool */
 	newmail->change = save_change;
 
-	array_append(&importer->newmails, &newmail, 1);
+	array_push_back(&importer->newmails, &newmail);
 	newmail_link(importer, newmail,
 		     save_change == NULL ? 0 : save_change->uid);
 	return remote_saved;
@@ -1444,7 +1444,7 @@ dsync_mailbox_import_save(struct dsync_mailbox_importer *importer,
 		i_assert(change->uid > importer->last_common_uid);
 		i_assert(importer->cur_mail == NULL ||
 			 change->uid < importer->cur_mail->uid);
-		array_append(&importer->maybe_saves, &save, 1);
+		array_push_back(&importer->maybe_saves, &save);
 	}
 }
 
@@ -1927,7 +1927,7 @@ dsync_mailbox_import_saved_uid(struct dsync_mailbox_importer *importer,
 
 	if (importer->highest_wanted_uid < uid)
 		importer->highest_wanted_uid = uid;
-	array_append(&importer->wanted_uids, &uid, 1);
+	array_push_back(&importer->wanted_uids, &uid);
 }
 
 static void

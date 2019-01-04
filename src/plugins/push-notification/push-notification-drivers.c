@@ -169,7 +169,7 @@ void push_notification_driver_register
                 driver->name);
     }
 
-    array_append(&push_notification_drivers, &driver, 1);
+    array_push_back(&push_notification_drivers, &driver);
 }
 
 void push_notification_driver_unregister

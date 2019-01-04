@@ -1394,7 +1394,7 @@ parse_cache_field(struct dsync_ibc_stream *ibc, struct dsync_mailbox *box,
 		dsync_ibc_input_error(ibc, decoder, "Invalid last_used");
 		ret = -1;
 	}
-	array_append(&box->cache_fields, &field, 1);
+	array_push_back(&box->cache_fields, &field);
 
 	dsync_deserializer_decode_finish(&decoder);
 	return ret;
@@ -1792,7 +1792,7 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 		p_array_init(&change->keyword_changes, pool, count);
 		for (i = 0; i < count; i++) {
 			value = p_strdup(pool, changes[i]);
-			array_append(&change->keyword_changes, &value, 1);
+			array_push_back(&change->keyword_changes, &value);
 		}
 	}
 	if (dsync_deserializer_decode_try(decoder, "received_timestamp", &value)) {

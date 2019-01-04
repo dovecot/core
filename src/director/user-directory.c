@@ -302,7 +302,7 @@ user_directory_iter_init(struct user_directory *dir,
 	iter->dir = dir;
 	iter->pos = dir->head;
 	iter->stop_after_tail = iter_until_current_tail ? dir->tail : NULL;
-	array_append(&dir->iters, &iter, 1);
+	array_push_back(&dir->iters, &iter);
 	user_directory_drop_expired(dir);
 	return iter;
 }
