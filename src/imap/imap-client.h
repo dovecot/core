@@ -119,6 +119,11 @@ struct client_command_context {
 };
 
 struct imap_client_vfuncs {
+	/* Perform client initialization. This is called when client creation is
+	   finished completely. Particulary, at this point the namespaces are
+	   fully initialized, which is not the case for the client create hook.
+	 */
+	void (*init)(struct client *client);
 	/* Destroy the client.*/
 	void (*destroy)(struct client *client, const char *reason);
 
