@@ -1594,9 +1594,11 @@ void clients_destroy_all(void)
 }
 
 struct imap_client_vfuncs imap_client_vfuncs = {
-	imap_state_export_base,
-	imap_state_import_base,
-	client_default_destroy,
-	client_default_send_tagline,
-	client_default_sync_notify_more,
+	.destroy = client_default_destroy,
+
+	.send_tagline = client_default_send_tagline,
+	.sync_notify_more = client_default_sync_notify_more,
+
+	.state_export = imap_state_export_base,
+	.state_import = imap_state_import_base,
 };

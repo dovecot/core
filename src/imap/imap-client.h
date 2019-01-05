@@ -119,6 +119,17 @@ struct client_command_context {
 };
 
 struct imap_client_vfuncs {
+	/* Destroy the client.*/
+	void (*destroy)(struct client *client, const char *reason);
+
+	/* Send a tagged response line. */
+	void (*send_tagline)(struct client_command_context *cmd,
+			     const char *data);
+	/* Run "mailbox syncing". This can send any unsolicited untagged
+	   replies. Returns 1 = done, 0 = wait for more space in output buffer,
+	   -1 = failed. */
+	int (*sync_notify_more)(struct imap_sync_context *ctx);
+
 	/* Export client state into buffer. Returns 1 if ok, 0 if some state
 	   couldn't be preserved, -1 if temporary internal error occurred. */
 	int (*state_export)(struct client *client, bool internal,
@@ -130,14 +141,6 @@ struct imap_client_vfuncs {
 	ssize_t (*state_import)(struct client *client, bool internal,
 				const unsigned char *data, size_t size,
 				const char **error_r);
-	void (*destroy)(struct client *client, const char *reason);
-
-	void (*send_tagline)(struct client_command_context *cmd,
-			     const char *data);
-	/* Run "mailbox syncing". This can send any unsolicited untagged
-	   replies. Returns 1 = done, 0 = wait for more space in output buffer,
-	   -1 = failed. */
-	int (*sync_notify_more)(struct imap_sync_context *ctx);
 };
 
 struct client {
