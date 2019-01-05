@@ -13,9 +13,32 @@ void auth_request_lookup_abort(struct auth_master_connection *conn)
 	conn->aborted = TRUE;
 }
 
-int auth_master_run_cmd_pre(struct auth_master_connection *conn,
-			    const char *cmd)
+static void
+auth_master_request_send(struct auth_master_connection *conn,
+			 const char *cmd, unsigned int id,
+			 const unsigned char *args, size_t args_size)
 {
+	const char *id_str = dec2str(id);
+
+	const struct const_iovec iov[] = {
+		{ cmd, strlen(cmd), },
+		{ "\t", 1 },
+		{ id_str, strlen(id_str), },
+		{ "\t", args_size > 0 ? 1 : 0 },
+		{ args, args_size },
+		{ "\r\n", 2 },
+	};
+	unsigned int iovc = N_ELEMENTS(iov);
+
+	o_stream_nsendv(conn->conn.output, iov, iovc);
+}
+
+int auth_master_run_cmd_pre(struct auth_master_connection *conn,
+			    const char *cmd, const unsigned char *args,
+			    size_t args_size)
+{
+	unsigned int id;
+
 	auth_master_set_io(conn);
 
 	if (!conn->connected) {
@@ -38,7 +61,13 @@ int auth_master_run_cmd_pre(struct auth_master_connection *conn,
 		conn->sent_handshake = TRUE;
 	}
 
-	o_stream_nsend_str(conn->conn.output, cmd);
+	if (++conn->id_counter == 0) {
+		/* avoid zero */
+		conn->id_counter++;
+	}
+	id = conn->id_counter;
+
+	auth_master_request_send(conn, cmd, id, args, args_size);
 	o_stream_uncork(conn->conn.output);
 
 	if (o_stream_flush(conn->conn.output) < 0) {
@@ -70,22 +99,14 @@ static void auth_master_stop(struct auth_master_connection *conn)
 	}
 }
 
-int auth_master_run_cmd(struct auth_master_connection *conn, const char *cmd)
+int auth_master_run_cmd(struct auth_master_connection *conn, const char *cmd,
+		        const unsigned char *args, size_t args_size)
 {
-	if (auth_master_run_cmd_pre(conn, cmd) < 0)
+	if (auth_master_run_cmd_pre(conn, cmd, args, args_size) < 0)
 		return -1;
 	/* add stop handler */
 	struct timeout *to = timeout_add_short(100, auth_master_stop, conn);
 	io_loop_run(conn->ioloop);
 	timeout_remove(&to);
 	return auth_master_run_cmd_post(conn);
-}
-
-unsigned int auth_master_next_request_id(struct auth_master_connection *conn)
-{
-	if (++conn->id_counter == 0) {
-		/* avoid zero */
-		conn->id_counter++;
-	}
-	return conn->id_counter;
 }

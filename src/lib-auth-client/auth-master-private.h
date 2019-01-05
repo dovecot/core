@@ -45,11 +45,11 @@ struct auth_master_connection {
 void auth_request_lookup_abort(struct auth_master_connection *conn);
 
 int auth_master_run_cmd_pre(struct auth_master_connection *conn,
-			    const char *cmd);
+			    const char *cmd, const unsigned char *args,
+			    size_t args_size);
 int auth_master_run_cmd_post(struct auth_master_connection *conn);
-int auth_master_run_cmd(struct auth_master_connection *conn, const char *cmd);
-
-unsigned int auth_master_next_request_id(struct auth_master_connection *conn);
+int auth_master_run_cmd(struct auth_master_connection *conn, const char *cmd,
+		        const unsigned char *args, size_t args_size);
 
 /*
  * Connection

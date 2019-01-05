@@ -589,7 +589,7 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    pool_t pool, const char *const **fields_r)
 {
 	struct auth_master_lookup lookup;
-	string_t *str;
+	string_t *args;
 
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
 		/* non-allowed characters, the user can't exist */
@@ -607,11 +607,9 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	conn->reply_callback = auth_lookup_reply_callback;
 	conn->reply_context = &lookup;
 
-	str = t_str_new(128);
-	str_printfa(str, "PASS\t%u\t%s",
-		    auth_master_next_request_id(conn), user);
-	auth_user_info_export(str, info);
-	str_append_c(str, '\n');
+	args = t_str_new(128);
+	str_append(args, user);
+	auth_user_info_export(args, info);
 
 	lookup.event = auth_master_user_event_create(
 		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
@@ -622,7 +620,7 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 		set_name("auth_client_passdb_lookup_started");
 	e_debug(e->event(), "Started passdb lookup");
 
-	(void)auth_master_run_cmd(conn, str_c(str));
+	(void)auth_master_run_cmd(conn, "PASS", str_data(args), str_len(args));
 
 	*fields_r = lookup.fields != NULL ? lookup.fields :
 		p_new(pool, const char *, 1);
@@ -664,7 +662,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 			    const char *const **fields_r)
 {
 	struct auth_master_lookup lookup;
-	string_t *str;
+	string_t *args;
 
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
 		/* non-allowed characters, the user can't exist */
@@ -683,11 +681,9 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	conn->reply_callback = auth_lookup_reply_callback;
 	conn->reply_context = &lookup;
 
-	str = t_str_new(128);
-	str_printfa(str, "USER\t%u\t%s",
-		    auth_master_next_request_id(conn), user);
-	auth_user_info_export(str, info);
-	str_append_c(str, '\n');
+	args = t_str_new(128);
+	str_append(args, user);
+	auth_user_info_export(args, info);
 
 	lookup.event = auth_master_user_event_create(
 		conn, t_strdup_printf("userdb lookup(%s): ", user), info);
@@ -698,7 +694,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 		set_name("auth_client_userdb_lookup_started");
 	e_debug(e->event(), "Started userdb lookup");
 
-	(void)auth_master_run_cmd(conn, str_c(str));
+	(void)auth_master_run_cmd(conn, "USER", str_data(args), str_len(args));
 
 	if (lookup.return_value <= 0 || lookup.fields[0] == NULL) {
 		*username_r = NULL;
@@ -821,7 +817,7 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 			   const struct auth_user_info *info)
 {
 	struct auth_master_user_list_ctx *ctx;
-	string_t *str;
+	string_t *args;
 
 	ctx = i_new(struct auth_master_user_list_ctx, 1);
 	ctx->conn = conn;
@@ -830,14 +826,11 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	conn->reply_callback = auth_user_list_reply_callback;
 	conn->reply_context = ctx;
 
-	str = t_str_new(128);
-	str_printfa(str, "LIST\t%u",
-		    auth_master_next_request_id(conn));
+	args = t_str_new(128);
 	if (*user_mask != '\0')
-		str_printfa(str, "\tuser=%s", user_mask);
+		str_printfa(args, "\tuser=%s", user_mask);
 	if (info != NULL)
-		auth_user_info_export(str, info);
-	str_append_c(str, '\n');
+		auth_user_info_export(args, info);
 
 	ctx->event = auth_master_user_event_create(conn, "userdb list: ", info);
 	event_add_str(ctx->event," user_mask", user_mask);
@@ -847,7 +840,8 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 		set_name("auth_client_userdb_list_started");
 	e_debug(e->event(), "Started listing users (user_mask=%s)", user_mask);
 
-	if (auth_master_run_cmd_pre(conn, str_c(str)) < 0)
+	if (auth_master_run_cmd_pre(conn, "LIST",
+				    str_data(args), str_len(args)) < 0)
 		ctx->failed = TRUE;
 	if (conn->prev_ioloop != NULL)
 		io_loop_set_current(conn->prev_ioloop);
@@ -964,7 +958,7 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 			    const char *const *users, unsigned int *count_r)
 {
 	struct auth_master_cache_ctx ctx;
-	string_t *str;
+	string_t *args;
 
 	i_zero(&ctx);
 	ctx.conn = conn;
@@ -972,15 +966,14 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	conn->reply_callback = auth_cache_flush_reply_callback;
 	conn->reply_context = &ctx;
 
-	str = t_str_new(128);
-	str_printfa(str, "CACHE-FLUSH\t%u", auth_master_next_request_id(conn));
+	args = t_str_new(128);
 	if (users != NULL) {
 		for (; *users != NULL; users++) {
-			str_append_c(str, '\t');
-			str_append_tabescaped(str, *users);
+			if (str_len(args) > 0)
+				str_append_c(args, '\t');
+			str_append_tabescaped(args, *users);
 		}
 	}
-	str_append_c(str, '\n');
 
 	ctx.event = event_create(conn->conn.event);
 	event_drop_parent_log_prefixes(ctx.event, 1);
@@ -988,7 +981,8 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 
 	e_debug(ctx.event, "Started cache flush");
 
-	(void)auth_master_run_cmd(conn, str_c(str));
+	(void)auth_master_run_cmd(conn, "CACHE-FLUSH",
+				  str_data(args), str_len(args));
 
 	if (ctx.failed)
 		e_debug(ctx.event, "Cache flush failed");
