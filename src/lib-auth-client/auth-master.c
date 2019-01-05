@@ -184,7 +184,7 @@ auth_master_handle_input(struct auth_master_connection *conn,
 		args++;
 	}
 
-	wanted_id = dec2str(conn->request_counter);
+	wanted_id = dec2str(conn->id_counter);
 	if (strcmp(id, wanted_id) == 0) {
 		e_debug(conn->conn.event, "auth input: %s",
 			t_strarray_join(args, "\t"));

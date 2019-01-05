@@ -23,7 +23,7 @@ struct auth_master_connection {
 	struct ioloop *ioloop, *prev_ioloop;
 	struct timeout *to;
 
-	unsigned int request_counter;
+	unsigned int id_counter;
 
 	bool (*reply_callback)(const char *cmd, const char *const *args,
 			       void *context);

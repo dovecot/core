@@ -83,9 +83,9 @@ int auth_master_run_cmd(struct auth_master_connection *conn, const char *cmd)
 
 unsigned int auth_master_next_request_id(struct auth_master_connection *conn)
 {
-	if (++conn->request_counter == 0) {
+	if (++conn->id_counter == 0) {
 		/* avoid zero */
-		conn->request_counter++;
+		conn->id_counter++;
 	}
-	return conn->request_counter;
+	return conn->id_counter;
 }
