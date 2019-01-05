@@ -12,6 +12,7 @@ libauth_client_la_SOURCES = \
 	auth-client-request.c \
 	auth-client-connection.c \
 	auth-master.c \
+	auth-master-request.c \
 	auth-proxy.c
 
 headers = \

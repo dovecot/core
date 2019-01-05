@@ -36,4 +36,24 @@ struct auth_master_connection {
 	bool aborted:1;
 };
 
+/*
+ * Request
+ */
+
+void auth_request_lookup_abort(struct auth_master_connection *conn);
+
+int auth_master_run_cmd_pre(struct auth_master_connection *conn,
+			    const char *cmd);
+int auth_master_run_cmd_post(struct auth_master_connection *conn);
+int auth_master_run_cmd(struct auth_master_connection *conn, const char *cmd);
+
+unsigned int auth_master_next_request_id(struct auth_master_connection *conn);
+
+/*
+ * Connection
+ */
+
+void auth_master_set_io(struct auth_master_connection *conn);
+void auth_master_unset_io(struct auth_master_connection *conn);
+
 #endif
