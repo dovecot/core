@@ -367,6 +367,7 @@ void auth_master_unset_io(struct auth_master_connection *conn)
 
 struct auth_master_lookup {
 	struct auth_master_connection *conn;
+	struct event *event;
 	const char *user;
 	const char *expected_reply;
 	int return_value;
@@ -477,88 +478,77 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 	}
 }
 
-static void
+static struct event *
 auth_master_event_create(struct auth_master_connection *conn,
 			 const char *prefix)
 {
-	i_assert(conn->event == conn->event_parent);
-	conn->event = event_create(conn->event_parent);
-	event_set_append_log_prefix(conn->event, prefix);
+	struct event *event;
+
+	event = event_create(conn->event_parent);
+	event_set_append_log_prefix(event, prefix);
+
+	return event;
 }
 
-static void
+static struct event *
 auth_master_user_event_create(struct auth_master_connection *conn,
 			      const char *prefix,
 			      const struct auth_user_info *info)
 {
-	auth_master_event_create(conn, prefix);
+	struct event *event = auth_master_event_create(conn, prefix);
 
 	if (info != NULL) {
 		if (info->protocol != NULL)
-			event_add_str(conn->event, "protocol", info->protocol);
+			event_add_str(event, "protocol", info->protocol);
 		if (info->session_id != NULL)
-			event_add_str(conn->event, "session", info->session_id);
+			event_add_str(event, "session", info->session_id);
 		if (info->local_name != NULL)
-			event_add_str(conn->event, "local_name", info->local_name);
+			event_add_str(event, "local_name", info->local_name);
 		if (info->local_ip.family != 0)
-			event_add_ip(conn->event, "local_ip", &info->local_ip);
-		if (info->local_port != 0) {
-			event_add_int(conn->event, "local_port",
-				      info->local_port);
-		}
-		if (info->remote_ip.family != 0) {
-			event_add_ip(conn->event, "remote_ip",
-				     &info->remote_ip);
-		}
-		if (info->remote_port != 0) {
-			event_add_int(conn->event, "remote_port",
-				      info->remote_port);
-		}
+			event_add_ip(event, "local_ip", &info->local_ip);
+		if (info->local_port != 0)
+			event_add_int(event, "local_port", info->local_port);
+		if (info->remote_ip.family != 0)
+			event_add_ip(event, "remote_ip", &info->remote_ip);
+		if (info->remote_port != 0)
+			event_add_int(event, "remote_port", info->remote_port);
 		if (info->real_local_ip.family != 0)
-			event_add_ip(conn->event, "real_local_ip",
+			event_add_ip(event, "real_local_ip",
 				     &info->real_local_ip);
 		if (info->real_remote_ip.family != 0)
-			event_add_ip(conn->event, "real_remote_ip",
+			event_add_ip(event, "real_remote_ip",
 				     &info->real_remote_ip);
 		if (info->real_local_port != 0)
-			event_add_int(conn->event, "real_local_port",
+			event_add_int(event, "real_local_port",
 				      info->real_local_port);
 		if (info->real_remote_port != 0)
-			event_add_int(conn->event, "real_remote_port",
+			event_add_int(event, "real_remote_port",
 				      info->real_remote_port);
 	}
-}
 
-static void
-auth_master_event_finish(struct auth_master_connection *conn)
-{
-	i_assert(conn->event != conn->event_parent);
-	event_unref(&conn->event);
-	conn->event = conn->event_parent;
+	return event;
 }
 
 static int
 parse_reply(struct auth_master_lookup *lookup, const char *reply,
 	    const char *const *args)
 {
-	struct auth_master_connection *conn = lookup->conn;
-
 	if (strcmp(reply, lookup->expected_reply) == 0)
 		return 1;
 	if (strcmp(reply, "NOTFOUND") == 0)
 		return 0;
 	if (strcmp(reply, "FAIL") == 0) {
 		if (*args == NULL) {
-			e_error(conn->event, "Auth %s lookup failed",
+			e_error(lookup->event, "Auth %s lookup failed",
 				lookup->expected_reply);
 		} else {
-			e_debug(conn->event,
+			e_debug(lookup->event,
 				"Auth %s lookup returned temporary failure: %s",
 				lookup->expected_reply, *args);
 		}
 		return -2;
 	}
-	e_error(conn->event, "Unknown reply: %s", reply);
+	e_error(lookup->event, "Unknown reply: %s", reply);
 	return -1;
 }
 
@@ -590,7 +580,7 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply, void *context)
 		}
 	}
 	args = args_hide_passwords(args);
-	e_debug(lookup->conn->event, "auth %s input: %s",
+	e_debug(lookup->event, "auth %s input: %s",
 		lookup->expected_reply, t_strarray_join(args, " "));
 	return 1;
 }
@@ -630,23 +620,25 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	auth_user_info_export(str, info);
 	str_append_c(str, '\n');
 
-	auth_master_user_event_create(
+	lookup.event = auth_master_user_event_create(
 		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
-	event_add_str(conn->event, "user", user);
+	event_add_str(lookup.event, "user", user);
 
 	struct event_passthrough *e =
-		event_create_passthrough(conn->event)->
+		event_create_passthrough(lookup.event)->
 		set_name("auth_client_passdb_lookup_started");
 	e_debug(e->event(), "Started passdb lookup");
 
+	conn->event = lookup.event;
 	(void)auth_master_run_cmd(conn, str_c(str));
+	conn->event = conn->event_parent;
 
 	*fields_r = lookup.fields != NULL ? lookup.fields :
 		p_new(pool, const char *, 1);
 
 	if (lookup.return_value <= 0) {
 		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
+			event_create_passthrough(lookup.event)->
 			set_name("auth_client_passdb_lookup_finished");
 		if ((*fields_r)[0] == NULL) {
 			e->add_str("error", "Lookup failed");
@@ -658,12 +650,12 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 		}
 	} else {
 		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
+			event_create_passthrough(lookup.event)->
 			set_name("auth_client_passdb_lookup_finished");
 		e_debug(e->event(), "Finished passdb lookup (%s)",
 			t_strarray_join(*fields_r, " "));
 	}
-	auth_master_event_finish(conn);
+	event_unref(&lookup.event);
 
 	conn->reply_context = NULL;
 	return lookup.return_value;
@@ -706,16 +698,18 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	auth_user_info_export(str, info);
 	str_append_c(str, '\n');
 
-	auth_master_user_event_create(
+	lookup.event = auth_master_user_event_create(
 		conn, t_strdup_printf("userdb lookup(%s): ", user), info);
-	event_add_str(conn->event, "user", user);
+	event_add_str(lookup.event, "user", user);
 
 	struct event_passthrough *e =
-		event_create_passthrough(conn->event)->
+		event_create_passthrough(lookup.event)->
 		set_name("auth_client_userdb_lookup_started");
 	e_debug(e->event(), "Started userdb lookup");
 
+	conn->event = lookup.event;
 	(void)auth_master_run_cmd(conn, str_c(str));
+	conn->event = conn->event_parent;
 
 	if (lookup.return_value <= 0 || lookup.fields[0] == NULL) {
 		*username_r = NULL;
@@ -723,7 +717,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 			p_new(pool, const char *, 1);
 
 		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
+			event_create_passthrough(lookup.event)->
 			set_name("auth_client_userdb_lookup_finished");
 
 		if (lookup.return_value > 0) {
@@ -744,12 +738,12 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 		*fields_r = lookup.fields + 1;
 
 		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
+			event_create_passthrough(lookup.event)->
 			set_name("auth_client_userdb_lookup_finished");
 		e_debug(e->event(), "Finished userdb lookup (username=%s %s)",
 			*username_r, t_strarray_join(*fields_r, " "));
 	}
-	auth_master_event_finish(conn);
+	event_unref(&lookup.event);
 
 	conn->reply_context = NULL;
 	return lookup.return_value;
@@ -795,6 +789,7 @@ int auth_user_fields_parse(const char *const *fields, pool_t pool,
 
 struct auth_master_user_list_ctx {
 	struct auth_master_connection *conn;
+	struct event *event;
 	string_t *username;
 	bool finished;
 	bool failed;
@@ -805,21 +800,20 @@ auth_user_list_reply_callback(const struct auth_master_reply *reply,
 			      void *context)
 {
 	struct auth_master_user_list_ctx *ctx = context;
-	struct auth_master_connection *conn = ctx->conn;
 	const char *const *args = reply->args;
 
 	timeout_reset(ctx->conn->to);
 
 	if (strcmp(reply->reply, "DONE") == 0) {
 		if (args[0] != NULL && strcmp(args[0], "fail") == 0) {
-			e_error(conn->event, "User listing returned failure");
+			e_error(ctx->event, "User listing returned failure");
 			ctx->failed = TRUE;
 		}
 		ctx->finished = TRUE;
 		return 1;
 	}
 	if (strcmp(reply->reply, "LIST") != 0 || args[0] == NULL) {
-		e_error(conn->event, "User listing returned invalid input");
+		e_error(ctx->event, "User listing returned invalid input");
 		ctx->failed = TRUE;
 		return -1;
 	}
@@ -856,14 +850,15 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 		auth_user_info_export(str, info);
 	str_append_c(str, '\n');
 
-	auth_master_user_event_create(conn, "userdb list: ", info);
-	event_add_str(conn->event," user_mask", user_mask);
+	ctx->event = auth_master_user_event_create(conn, "userdb list: ", info);
+	event_add_str(ctx->event," user_mask", user_mask);
 
 	struct event_passthrough *e =
-		event_create_passthrough(conn->event)->
+		event_create_passthrough(ctx->event)->
 		set_name("auth_client_userdb_list_started");
 	e_debug(e->event(), "Started listing users (user_mask=%s)", user_mask);
 
+	conn->event = ctx->event;
 	if (auth_master_run_cmd_pre(conn, str_c(str)) < 0)
 		ctx->failed = TRUE;
 	if (conn->prev_ioloop != NULL)
@@ -931,22 +926,23 @@ int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 
 	*_ctx = NULL;
 	auth_master_run_cmd_post(ctx->conn);
+	conn->event = conn->event_parent;
 
 	if (ret < 0) {
 		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
+			event_create_passthrough(ctx->event)->
 			set_name("auth_client_userdb_list_finished");
 		e->add_str("error", "Listing users failed");
 		e_debug(e->event(), "Listing users failed");
 	} else {
 		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
+			event_create_passthrough(ctx->event)->
 			set_name("auth_client_userdb_list_finished");
 		e_debug(e->event(), "Finished listing users");
 	}
-	auth_master_event_finish(conn);
 
 	str_free(&ctx->username);
+	event_unref(&ctx->event);
 	i_free(ctx);
 	return ret;
 }
@@ -959,6 +955,7 @@ int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 
 struct auth_master_cache_ctx {
 	struct auth_master_connection *conn;
+	struct event *event;
 	unsigned int count;
 	bool failed;
 };
@@ -1000,17 +997,19 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	}
 	str_append_c(str, '\n');
 
-	auth_master_event_create(conn, "auth cache flush: ");
+	ctx.event = auth_master_event_create(conn, "auth cache flush: ");
 
-	e_debug(conn->event, "Started cache flush");
+	e_debug(ctx.event, "Started cache flush");
 
+	conn->event = ctx.event;
 	(void)auth_master_run_cmd(conn, str_c(str));
+	conn->event = conn->event_parent;
 
 	if (ctx.failed)
-		e_debug(conn->event, "Cache flush failed");
+		e_debug(ctx.event, "Cache flush failed");
 	else
-		e_debug(conn->event, "Finished cache flush");
-	auth_master_event_finish(conn);
+		e_debug(ctx.event, "Finished cache flush");
+	event_unref(&ctx.event);
 
 	conn->reply_context = NULL;
 	*count_r = ctx.count;
