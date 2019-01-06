@@ -48,18 +48,28 @@ static void hash_method_result_size(void *context, unsigned char *result_r)
 	result_r[7] = (*ctx & 0x00000000000000ffULL);
 }
 
-buffer_t *t_hash_data(const struct hash_method *meth,
-		      const void *data, size_t data_len)
+void hash_method_get_digest(const struct hash_method *meth,
+			    const void *data, size_t data_len,
+			    unsigned char *result_r)
 {
 	i_assert(meth != NULL);
 	i_assert(data_len == 0 || data != NULL);
 	unsigned char ctx[meth->context_size];
+
+	meth->init(ctx);
+	meth->loop(ctx, data == NULL ? "" : data, data_len);
+	meth->result(ctx, result_r);
+}
+
+buffer_t *t_hash_data(const struct hash_method *meth,
+		      const void *data, size_t data_len)
+{
+	i_assert(meth != NULL);
 	buffer_t *result = t_buffer_create(meth->digest_size);
 	unsigned char *resptr = buffer_append_space_unsafe(result,
 							   meth->digest_size);
-	meth->init(ctx);
-	meth->loop(ctx, data == NULL ? "" : data, data_len);
-	meth->result(ctx, resptr);
+
+	hash_method_get_digest(meth, data, data_len, resptr);
 	return result;
 }
 
