@@ -20,7 +20,7 @@ const struct hash_method *hash_method_lookup(const char *name);
 /* NULL-terminated list of all hash methods */
 extern const struct hash_method *hash_methods[];
 
-/** Simple helpers for digesting (hashing)
+/** Simple datastack helpers for digesting (hashing)
 
  * USAGE:
 
