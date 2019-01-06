@@ -164,6 +164,7 @@ headers = \
 	auth-master-connection.h \
 	mech-otp-skey-common.h \
 	mech-plain-common.h \
+	mech-scram.h \
 	auth-penalty.h \
 	auth-policy.h \
 	auth-request.h \

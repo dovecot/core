@@ -21,6 +21,7 @@
 #include "strnum.h"
 #include "password-scheme.h"
 #include "mech.h"
+#include "mech-scram.h"
 
 /* s-nonce length */
 #define SCRAM_SERVER_NONCE_LEN 64
@@ -29,6 +30,9 @@ struct scram_auth_request {
 	struct auth_request auth_request;
 
 	pool_t pool;
+
+	const struct hash_method *hash_method;
+	const char *password_scheme;
 
 	/* sent: */
 	const char *server_first_message;
@@ -42,8 +46,8 @@ struct scram_auth_request {
 	buffer_t *proof;
 
 	/* stored */
-	unsigned char stored_key[SHA1_RESULTLEN];
-	unsigned char server_key[SHA1_RESULTLEN];
+	unsigned char *stored_key;
+	unsigned char *server_key;
 };
 
 static const char *get_scram_server_first(struct scram_auth_request *request,
@@ -72,17 +76,17 @@ static const char *get_scram_server_first(struct scram_auth_request *request,
 
 static const char *get_scram_server_final(struct scram_auth_request *request)
 {
+	const struct hash_method *hmethod = request->hash_method;
 	struct hmac_context ctx;
 	const char *auth_message;
-	unsigned char server_signature[SHA1_RESULTLEN];
+	unsigned char server_signature[hmethod->digest_size];
 	string_t *str;
 
 	auth_message = t_strconcat(request->client_first_message_bare, ",",
 			request->server_first_message, ",",
 			request->client_final_message_without_proof, NULL);
 
-	hmac_init(&ctx, request->server_key, sizeof(request->server_key),
-		  &hash_method_sha1);
+	hmac_init(&ctx, request->server_key, hmethod->digest_size, hmethod);
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, server_signature);
 
@@ -222,19 +226,19 @@ static bool parse_scram_client_first(struct scram_auth_request *request,
 
 static bool verify_credentials(struct scram_auth_request *request)
 {
+	const struct hash_method *hmethod = request->hash_method;
 	struct hmac_context ctx;
 	const char *auth_message;
-	unsigned char client_key[SHA1_RESULTLEN];
-	unsigned char client_signature[SHA1_RESULTLEN];
-	unsigned char stored_key[SHA1_RESULTLEN];
+	unsigned char client_key[hmethod->digest_size];
+	unsigned char client_signature[hmethod->digest_size];
+	unsigned char stored_key[hmethod->digest_size];
 	size_t i;
 
 	auth_message = t_strconcat(request->client_first_message_bare, ",",
 			request->server_first_message, ",",
 			request->client_final_message_without_proof, NULL);
 
-	hmac_init(&ctx, request->stored_key, sizeof(request->stored_key),
-		  &hash_method_sha1);
+	hmac_init(&ctx, request->stored_key, hmethod->digest_size, hmethod);
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, client_signature);
 
@@ -242,7 +246,8 @@ static bool verify_credentials(struct scram_auth_request *request)
 		client_key[i] =
 			((char*)request->proof->data)[i] ^ client_signature[i];
 
-	sha1_get_digest(client_key, sizeof(client_key), stored_key);
+	hash_method_get_digest(hmethod, client_key, sizeof(client_key),
+			       stored_key);
 
 	safe_memset(client_key, 0, sizeof(client_key));
 	safe_memset(client_signature, 0, sizeof(client_signature));
@@ -261,7 +266,8 @@ static void credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (scram_scheme_parse(&hash_method_sha1, "SCRAM-SHA-1",
+		if (scram_scheme_parse(request->hash_method,
+				       request->password_scheme,
 				       credentials, size, &iter_count, &salt,
 				       request->stored_key, request->server_key,
 				       &error) < 0) {
@@ -291,6 +297,7 @@ static bool parse_scram_client_final(struct scram_auth_request *request,
 				     const unsigned char *data, size_t size,
 				     const char **error_r)
 {
+	const struct hash_method *hmethod = request->hash_method;
 	const char **fields, *cbind_input, *nonce_str;
 	unsigned int field_count;
 	string_t *str;
@@ -328,7 +335,7 @@ static bool parse_scram_client_final(struct scram_auth_request *request,
 			*error_r = "Invalid base64 encoding";
 			return FALSE;
 		}
-		if (request->proof->used != SHA1_RESULTLEN) {
+		if (request->proof->used != hmethod->digest_size) {
 			*error_r = "Invalid ClientProof length";
 			return FALSE;
 		}
@@ -344,9 +351,8 @@ static bool parse_scram_client_final(struct scram_auth_request *request,
 	return TRUE;
 }
 
-static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
-					  const unsigned char *data,
-					  size_t data_size)
+void mech_scram_auth_continue(struct auth_request *auth_request,
+			      const unsigned char *data, size_t data_size)
 {
 	struct scram_auth_request *request =
 		(struct scram_auth_request *)auth_request;
@@ -358,9 +364,10 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 		/* Received client-first-message */
 		if (parse_scram_client_first(request, data,
 					     data_size, &error)) {
-			auth_request_lookup_credentials(&request->auth_request,
-							"SCRAM-SHA-1",
-							credentials_callback);
+			auth_request_lookup_credentials(
+				&request->auth_request,
+				request->password_scheme,
+				credentials_callback);
 			return;
 		}
 	} else {
@@ -386,17 +393,30 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 	auth_request_fail(auth_request);
 }
 
-static struct auth_request *mech_scram_sha1_auth_new(void)
+struct auth_request *
+mech_scram_auth_new(const struct hash_method *hash_method,
+		    const char *password_scheme)
 {
 	struct scram_auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"scram_sha1_auth_request", 2048);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"scram_auth_request", 2048);
 	request = p_new(pool, struct scram_auth_request, 1);
 	request->pool = pool;
 
+	request->hash_method = hash_method;
+	request->password_scheme = password_scheme;
+
+	request->stored_key = p_malloc(pool, hash_method->digest_size);
+	request->server_key = p_malloc(pool, hash_method->digest_size);
+
 	request->auth_request.pool = pool;
 	return &request->auth_request;
+}
+
+static struct auth_request *mech_scram_sha1_auth_new(void)
+{
+	return mech_scram_auth_new(&hash_method_sha1, "SCRAM-SHA-1");
 }
 
 const struct mech_module mech_scram_sha1 = {
@@ -407,6 +427,6 @@ const struct mech_module mech_scram_sha1 = {
 
 	mech_scram_sha1_auth_new,
 	mech_generic_auth_initial,
-	mech_scram_sha1_auth_continue,
+	mech_scram_auth_continue,
 	mech_generic_auth_free
 };
