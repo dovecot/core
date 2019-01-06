@@ -598,6 +598,8 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 	/* final XCLIENT command */
 	if (str_len(str) > offset)
 		smtp_client_connection_xclient_submit(conn, str_c(str));
+
+	conn->xclient_sent = TRUE;
 }
 
 static void
