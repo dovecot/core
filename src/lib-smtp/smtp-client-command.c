@@ -485,7 +485,13 @@ void smtp_client_command_set_replies(struct smtp_client_command *cmd,
 static void
 smtp_client_command_sent(struct smtp_client_command *cmd)
 {
-	smtp_client_command_debug(cmd, "Sent");
+	if (cmd->data == NULL)
+		smtp_client_command_debug(cmd, "Sent");
+	else {
+		i_assert(str_len(cmd->data) > 2);
+		str_truncate(cmd->data, str_len(cmd->data)-2);
+		smtp_client_command_debug(cmd, "Sent: %s", str_c(cmd->data));
+	}
 
 	if (smtp_client_command_name_equals(cmd, "QUIT"))
 		cmd->conn->sent_quit = TRUE;
