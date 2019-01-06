@@ -1,3 +1,4 @@
+
 /*
  * SCRAM-SHA-1 SASL authentication, see RFC-5802
  *
@@ -260,9 +261,10 @@ static void credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (scram_sha1_scheme_parse(credentials, size, &iter_count,
-					    &salt, request->stored_key,
-					    request->server_key, &error) < 0) {
+		if (scram_scheme_parse(&hash_method_sha1, "SCRAM-SHA-1",
+				       credentials, size, &iter_count, &salt,
+				       request->stored_key, request->server_key,
+				       &error) < 0) {
 			e_info(auth_request->mech_event,
 			       "%s", error);
 			auth_request_fail(auth_request);

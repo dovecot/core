@@ -3,6 +3,8 @@
 
 #define AUTH_LOG_MSG_PASSWORD_MISMATCH "Password mismatch"
 
+struct hash_method;
+
 enum password_encoding {
 	PW_ENCODING_NONE,
 	PW_ENCODING_BASE64,
@@ -100,10 +102,17 @@ int crypt_verify(const char *plaintext,
 		 const unsigned char *raw_password, size_t size,
 		 const char **error_r);
 
-int scram_sha1_scheme_parse(const unsigned char *credentials, size_t size,
-			    unsigned int *iter_count_r, const char **salt_r,
-			    unsigned char stored_key_r[],
-			    unsigned char server_key_r[], const char **error_r);
+int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
+		       const unsigned char *credentials, size_t size,
+		       unsigned int *iter_count_r, const char **salt_r,
+		       unsigned char stored_key_r[],
+		       unsigned char server_key_r[], const char **error_r);
+int scram_verify(const struct hash_method *hmethod, const char *scheme_name,
+		 const char *plaintext, const unsigned char *raw_password,
+		 size_t size, const char **error_r);
+void scram_generate(const struct hash_method *hmethod, const char *plaintext,
+		    const unsigned char **raw_password_r, size_t *size_r);
+
 int scram_sha1_verify(const char *plaintext,
 		      const struct password_generate_params *params ATTR_UNUSED,
 		      const unsigned char *raw_password, size_t size,
