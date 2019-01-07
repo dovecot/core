@@ -314,7 +314,7 @@ static void
 push_notification_lua_push_flagsset(const struct push_notification_txn_event *event,
 				    struct dlua_script *script)
 {
-	/* push cleared flags */
+	/* push set flags */
 	unsigned int size = 0;
 	struct push_notification_event_flagsset_data *data = event->data;
 
