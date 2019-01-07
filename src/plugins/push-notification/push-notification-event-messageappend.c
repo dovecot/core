@@ -114,6 +114,25 @@ push_notification_event_messageappend_event(struct push_notification_txn *ptxn,
         data->date = date;
         data->date_tz = tz;
     }
+
+    if (!data->flags_set &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_FLAGS) != 0) {
+        data->flags = mail_get_flags(mail);
+        data->flags_set = TRUE;
+    }
+
+    if ((data->keywords == NULL) &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_KEYWORDS) != 0) {
+        const char *const *mail_kws = mail_get_keywords(mail);
+        ARRAY_TYPE(const_string) kws;
+        p_array_init(&kws, ptxn->pool, 2);
+        for (;*mail_kws != NULL; mail_kws++) {
+           value = p_strdup(ptxn->pool, *mail_kws);
+           array_append(&kws, &value, 1);
+        }
+        array_append_zero(&kws);
+        data->keywords = array_idx(&kws, 0);
+    }
 }
 
 
