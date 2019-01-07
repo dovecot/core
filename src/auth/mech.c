@@ -74,6 +74,7 @@ extern const struct mech_module mech_external;
 extern const struct mech_module mech_ntlm;
 extern const struct mech_module mech_otp;
 extern const struct mech_module mech_scram_sha1;
+extern const struct mech_module mech_scram_sha256;
 extern const struct mech_module mech_skey;
 extern const struct mech_module mech_rpa;
 extern const struct mech_module mech_anonymous;
@@ -211,6 +212,7 @@ void mech_init(const struct auth_settings *set)
 	}
 	mech_register_module(&mech_otp);
 	mech_register_module(&mech_scram_sha1);
+	mech_register_module(&mech_scram_sha256);
 	mech_register_module(&mech_skey);
 	mech_register_module(&mech_rpa);
 	mech_register_module(&mech_anonymous);
@@ -240,6 +242,7 @@ void mech_deinit(const struct auth_settings *set)
 	}
 	mech_unregister_module(&mech_otp);
 	mech_unregister_module(&mech_scram_sha1);
+	mech_unregister_module(&mech_scram_sha256);
 	mech_unregister_module(&mech_skey);
 	mech_unregister_module(&mech_rpa);
 	mech_unregister_module(&mech_anonymous);

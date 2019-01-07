@@ -14,6 +14,7 @@
 #include "buffer.h"
 #include "hmac.h"
 #include "sha1.h"
+#include "sha2.h"
 #include "randgen.h"
 #include "safe-memset.h"
 #include "str.h"
@@ -419,6 +420,11 @@ static struct auth_request *mech_scram_sha1_auth_new(void)
 	return mech_scram_auth_new(&hash_method_sha1, "SCRAM-SHA-1");
 }
 
+static struct auth_request *mech_scram_sha256_auth_new(void)
+{
+	return mech_scram_auth_new(&hash_method_sha256, "SCRAM-SHA-256");
+}
+
 const struct mech_module mech_scram_sha1 = {
 	"SCRAM-SHA-1",
 
@@ -426,6 +432,18 @@ const struct mech_module mech_scram_sha1 = {
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	mech_scram_sha1_auth_new,
+	mech_generic_auth_initial,
+	mech_scram_auth_continue,
+	mech_generic_auth_free
+};
+
+const struct mech_module mech_scram_sha256 = {
+	"SCRAM-SHA-256",
+
+	.flags = MECH_SEC_MUTUAL_AUTH,
+	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+
+	mech_scram_sha256_auth_new,
 	mech_generic_auth_initial,
 	mech_scram_auth_continue,
 	mech_generic_auth_free
