@@ -239,6 +239,38 @@ static const char *push_notification_driver_lua_to_fn(const char *evname)
 	return str_c(fn);
 }
 
+/* pushes lua list of flags */
+static void dlua_pushflags(struct dlua_script *script, enum mail_flags flags)
+{
+	lua_newtable(script->L);
+	int idx = 1;
+
+	if ((flags & MAIL_ANSWERED) != 0) {
+		lua_pushliteral(script->L, "\\Answered");
+		lua_rawseti(script->L, -2, idx++);
+	}
+	if ((flags & MAIL_FLAGGED) != 0) {
+		lua_pushliteral(script->L, "\\Flagged");
+		lua_rawseti(script->L, -2, idx++);
+	}
+	if ((flags & MAIL_DELETED) != 0) {
+		lua_pushliteral(script->L, "\\Deleted");
+		lua_rawseti(script->L, -2, idx++);
+	}
+	if ((flags & MAIL_SEEN) != 0) {
+		lua_pushliteral(script->L, "\\Seen");
+		lua_rawseti(script->L, -2, idx++);
+	}
+	if ((flags & MAIL_DRAFT) != 0) {
+		lua_pushliteral(script->L, "\\Draft");
+		lua_rawseti(script->L, -2, idx++);
+	}
+	if ((flags & MAIL_RECENT) != 0) {
+		lua_pushliteral(script->L, "\\Recent");
+		lua_rawseti(script->L, -2, idx++);
+	}
+}
+
 static void
 push_notification_lua_push_flagsclear(const struct push_notification_txn_event *event,
 				      struct dlua_script *script)
@@ -246,6 +278,11 @@ push_notification_lua_push_flagsclear(const struct push_notification_txn_event *
 	/* push cleared flags */
 	unsigned int size;
 	struct push_notification_event_flagsclear_data *data = event->data;
+
+	dlua_pushflags(script, data->flags_clear);
+	lua_setfield(script->L, -2, "flags");
+	dlua_pushflags(script, data->flags_old);
+	lua_setfield(script->L, -2, "flags_old");
 
 	if (array_is_created(&data->keywords_clear)) {
 		size = array_count(&data->keywords_clear);
@@ -280,7 +317,7 @@ push_notification_lua_push_flagsset(const struct push_notification_txn_event *ev
 	unsigned int size;
 	struct push_notification_event_flagsset_data *data = event->data;
 
-	lua_pushnumber(script->L, data->flags_set);
+	dlua_pushflags(script, data->flags_set);
 	lua_setfield(script->L, -2, "flags");
 
 	if (array_is_created(&data->keywords_set)) {
