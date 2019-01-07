@@ -70,10 +70,33 @@ static void test_ostream_dot(void)
 	}
 }
 
+static void test_ostream_dot_parent_almost_full(void)
+{
+	buffer_t *output_data;
+	struct ostream *test_output, *output;
+	ssize_t ret;
+
+	test_begin("dot ostream parent almost full");
+	output_data = t_buffer_create(1024);
+	test_output = test_ostream_create_nonblocking(output_data, 1);
+	test_ostream_set_max_output_size(test_output, 1);
+
+	output = o_stream_create_dot(test_output, FALSE);
+	ret = o_stream_send(output, "a", 1);
+	test_assert(ret == 0);
+	ret = o_stream_send(output, "bc", 2);
+	test_assert(ret == 0);
+	o_stream_unref(&output);
+
+	o_stream_unref(&test_output);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_ostream_dot,
+		test_ostream_dot_parent_almost_full,
 		NULL
 	};
 	return test_run(test_functions);
