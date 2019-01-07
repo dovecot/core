@@ -300,7 +300,7 @@ push_notification_lua_push_flagsclear(const struct push_notification_txn_event *
 	if (array_is_created(&data->keywords_clear)) {
 		const char *const *kw = array_get(&data->keywords_clear, &size);
 		dlua_pushkeywords(script, kw, size);
-		lua_setfield(script->L, -2, "keywords_clear");
+		lua_setfield(script->L, -2, "keywords");
 	}
 
 	if (array_is_created(&data->keywords_old)) {
@@ -324,7 +324,7 @@ push_notification_lua_push_flagsset(const struct push_notification_txn_event *ev
 	if (array_is_created(&data->keywords_set)) {
 		const char *const *kw = array_get(&data->keywords_set, &size);
 		dlua_pushkeywords(script, kw, size);
-		lua_setfield(script->L, -2, "keywords_set");
+		lua_setfield(script->L, -2, "keywords");
 	}
 }
 
