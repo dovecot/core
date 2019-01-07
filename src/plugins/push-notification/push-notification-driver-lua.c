@@ -386,6 +386,12 @@ push_notification_lua_push_messagenew(const struct push_notification_txn_event *
 
 	lua_pushstring(script->L, data->snippet);
 	lua_setfield(script->L, -2, "snippet");
+
+	dlua_pushflags(script, data->flags);
+	lua_setfield(script->L, -2, "flags");
+
+	dlua_pushkeywords(script, data->keywords, str_array_length(data->keywords));
+	lua_setfield(script->L, -2, "keywords");
 }
 
 /* events that need special treatment */
