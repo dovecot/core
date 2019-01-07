@@ -16,6 +16,11 @@ struct push_notification_event_messageappend_data {
     /* PUSH_NOTIFICATION_MESSAGE_HDR_DATE */
     time_t date;
     int date_tz;
+    /* PUSH_NOTIFICATION_MESSAGE_FLAGS */
+    bool flags_set;
+    enum mail_flags flags;
+    /* PUSH_NOTIFICATION_MESSAGE_KEYWORDS */
+    const char *const *keywords;
 };
 
 
