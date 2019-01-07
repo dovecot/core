@@ -121,6 +121,14 @@ void scram_sha1_generate(const char *plaintext,
 			 const struct password_generate_params *params ATTR_UNUSED,
 			 const unsigned char **raw_password_r, size_t *size_r);
 
+int scram_sha256_verify(const char *plaintext,
+			const struct password_generate_params *params ATTR_UNUSED,
+			const unsigned char *raw_password, size_t size,
+			const char **error_r);
+void scram_sha256_generate(const char *plaintext,
+			   const struct password_generate_params *params ATTR_UNUSED,
+			   const unsigned char **raw_password_r, size_t *size_r);
+
 void pbkdf2_generate(const char *plaintext,
 		     const struct password_generate_params *params ATTR_UNUSED,
 		     const unsigned char **raw_password_r, size_t *size_r);

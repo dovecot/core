@@ -15,6 +15,7 @@
 #include "randgen.h"
 #include "hash-method.h"
 #include "sha1.h"
+#include "sha2.h"
 #include "str.h"
 #include "password-scheme.h"
 
@@ -204,4 +205,20 @@ void scram_sha1_generate(const char *plaintext,
                          const unsigned char **raw_password_r, size_t *size_r)
 {
 	scram_generate(&hash_method_sha1, plaintext, raw_password_r, size_r);
+}
+
+int scram_sha256_verify(const char *plaintext,
+			const struct password_generate_params *params ATTR_UNUSED,
+			const unsigned char *raw_password, size_t size,
+			const char **error_r)
+{
+	return scram_verify(&hash_method_sha256, "SCRAM-SHA-256", plaintext,
+			    raw_password, size, error_r);
+}
+
+void scram_sha256_generate(const char *plaintext,
+			   const struct password_generate_params *params ATTR_UNUSED,
+			   const unsigned char **raw_password_r, size_t *size_r)
+{
+	scram_generate(&hash_method_sha256, plaintext, raw_password_r, size_r);
 }

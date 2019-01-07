@@ -116,6 +116,10 @@ static void test_password_schemes(void)
 	test_password_scheme("CRAM-MD5", "{CRAM-MD5}e02d374fde0dc75a17a557039a3a5338c7743304777dccd376f332bee68d2cf6", "test");
 	test_password_scheme("DIGEST-MD5", "{DIGEST-MD5}77c1a8c437c9b08ba2f460fe5d58db5d", "test");
 	test_password_scheme("SCRAM-SHA-1", "{SCRAM-SHA-1}4096,GetyLXdBuHzf1FWf8SLz2Q==,NA/OqmF4hhrsrB9KR7po+dliTGM=,QBiURvQaE6H6qYTmeghDHLANBFQ=", "test");
+	test_password_scheme("SCRAM-SHA-256", "{SCRAM-SHA-256}4096,LfNGSFqiFykEZ1xDAYlnKQ==,"
+					       "HACNf9CII7cMz3XjRy/Oh3Ae2LHApoDyNw74d3YtFws=,"
+					       "AQH0j7Hf8J12g8eNBadvzlNB2am3PxgNwFCFd3RxEaw=",
+			     "test");
 	test_password_scheme("BLF-CRYPT", "{BLF-CRYPT}$2y$05$11ipvo5dR6CwkzwmhwM26OXgzXwhV2PyPuLV.Qi31ILcRcThQpEiW", "test");
 #ifdef HAVE_LIBSODIUM
 	test_password_scheme("ARGON2I", "{ARGON2I}$argon2i$v=19$m=32768,t=4,p=1$f2iuP4aUeNMrgu34fhOkkg$1XSZZMWlIs0zmE+snlUIcLADO3GXbA2O/hsQmmc317k", "test");
