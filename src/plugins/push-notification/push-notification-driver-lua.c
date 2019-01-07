@@ -272,11 +272,24 @@ static void dlua_pushflags(struct dlua_script *script, enum mail_flags flags)
 }
 
 static void
+dlua_pushkeywords(struct dlua_script *script, const char *const *keywords,
+		  unsigned int count)
+{
+	lua_newtable(script->L);
+	if (keywords == NULL)
+		return;
+	for (unsigned int idx = 0; idx < count; idx++) {
+		lua_pushstring(script->L, keywords[idx]);
+		lua_rawseti(script->L, -2, idx+1);
+	}
+}
+
+static void
 push_notification_lua_push_flagsclear(const struct push_notification_txn_event *event,
 				      struct dlua_script *script)
 {
 	/* push cleared flags */
-	unsigned int size;
+	unsigned int size = 0;
 	struct push_notification_event_flagsclear_data *data = event->data;
 
 	dlua_pushflags(script, data->flags_clear);
@@ -285,26 +298,14 @@ push_notification_lua_push_flagsclear(const struct push_notification_txn_event *
 	lua_setfield(script->L, -2, "flags_old");
 
 	if (array_is_created(&data->keywords_clear)) {
-		size = array_count(&data->keywords_clear);
-		lua_createtable(script->L, size, 0);
-		for(unsigned int i=0; i<size; i++) {
-			const char *const *kw =
-				array_idx(&data->keywords_clear, i);
-			lua_pushstring(script->L, *kw);
-			lua_rawseti(script->L, -2, i+1);
-		}
+		const char *const *kw = array_get(&data->keywords_clear, &size);
+		dlua_pushkeywords(script, kw, size);
 		lua_setfield(script->L, -2, "keywords_clear");
 	}
 
 	if (array_is_created(&data->keywords_old)) {
-		size = array_count(&data->keywords_old);
-		lua_createtable(script->L, size, 0);
-		for(unsigned int i=0; i<size; i++) {
-			const char *const *kw =
-				array_idx(&data->keywords_old, i);
-			lua_pushstring(script->L, *kw);
-			lua_rawseti(script->L, -2, i+1);
-		}
+		const char *const *kw = array_get(&data->keywords_old, &size);
+		dlua_pushkeywords(script, kw, size);
 		lua_setfield(script->L, -2, "keywords_old");
 	}
 }
@@ -314,21 +315,15 @@ push_notification_lua_push_flagsset(const struct push_notification_txn_event *ev
 				    struct dlua_script *script)
 {
 	/* push cleared flags */
-	unsigned int size;
+	unsigned int size = 0;
 	struct push_notification_event_flagsset_data *data = event->data;
 
 	dlua_pushflags(script, data->flags_set);
 	lua_setfield(script->L, -2, "flags");
 
 	if (array_is_created(&data->keywords_set)) {
-		size = array_count(&data->keywords_set);
-		lua_createtable(script->L, size, 0);
-		for(unsigned int i=0; i<size; i++) {
-			const char *const *kw =
-				array_idx(&data->keywords_set, i);
-			lua_pushstring(script->L, *kw);
-			lua_rawseti(script->L, -2, i+1);
-		}
+		const char *const *kw = array_get(&data->keywords_set, &size);
+		dlua_pushkeywords(script, kw, size);
 		lua_setfield(script->L, -2, "keywords_set");
 	}
 }
