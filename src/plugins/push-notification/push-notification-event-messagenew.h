@@ -23,6 +23,11 @@ struct push_notification_event_messagenew_data {
     int date_tz;
     /* PUSH_NOTIFICATION_MESSAGE_BODY_SNIPPET */
     const char *snippet;
+    /* PUSH_NOTIFICATION_MESSAGE_FLAGS */
+    bool flags_set;
+    enum mail_flags flags;
+    /* PUSH_NOTIFICATION_MESSAGE_KEYWORDS */
+    const char *const *keywords;
 };
 
 
