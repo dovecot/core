@@ -43,6 +43,8 @@ struct auth_master_connection {
 			       void *context);
 	void *reply_context;
 
+	unsigned int timeout_msecs;
+
 	bool sent_handshake:1;
 	bool handshaked:1;
 	bool aborted:1;
@@ -77,6 +79,8 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 	conn->fd = -1;
 	conn->flags = flags;
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
+
+	conn->timeout_msecs = 1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
 	return conn;
 }
 
@@ -98,6 +102,12 @@ void auth_master_deinit(struct auth_master_connection **_conn)
 	i_free(conn->auth_socket_path);
 	i_free(conn);
 }
+
+void auth_master_set_timeout(struct auth_master_connection *conn,
+			     unsigned int msecs)
+{
+	conn->timeout_msecs = msecs;
+}			     
 
 const char *auth_master_get_socket_path(struct auth_master_connection *conn)
 {
@@ -340,8 +350,7 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE);
 	conn->io = io_add(conn->fd, IO_READ, auth_input, conn);
-	conn->to = timeout_add(1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS,
-			       auth_request_timeout, conn);
+	conn->to = timeout_add(conn->timeout_msecs, auth_request_timeout, conn);
 }
 
 static void auth_master_unset_io(struct auth_master_connection *conn)
