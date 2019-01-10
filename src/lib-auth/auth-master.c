@@ -185,7 +185,7 @@ static const char *const *args_hide_passwords(const char *const *args)
 		}
 	}
 	array_append_zero(&new_args);
-	return array_idx(&new_args, 0);
+	return array_first(&new_args);
 }
 
 static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,

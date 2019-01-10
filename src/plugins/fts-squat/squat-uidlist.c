@@ -766,12 +766,12 @@ uidlist_write_block_list_and_header(struct squat_uidlist_build_context *ctx,
 	/* write end indexes */
 	o_stream_nsend(output, uidlist->cur_block_end_indexes,
 		       old_block_count * sizeof(uint32_t));
-	o_stream_nsend(output, array_idx(block_end_indexes, 0),
+	o_stream_nsend(output, array_first(block_end_indexes),
 		       new_block_count * sizeof(uint32_t));
 	/* write offsets */
 	o_stream_nsend(output, uidlist->cur_block_offsets,
 		       old_block_count * sizeof(uint32_t));
-	o_stream_nsend(output, array_idx(block_offsets, 0),
+	o_stream_nsend(output, array_first(block_offsets),
 		       new_block_count * sizeof(uint32_t));
 	(void)o_stream_flush(output);
 
@@ -977,7 +977,7 @@ uint32_t squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
 	int ret;
 
 	T_BEGIN {
-		ret = uidlist_write_array(ctx->output, array_idx(uids, 0),
+		ret = uidlist_write_array(ctx->output, array_first(uids),
 					  array_count(uids), 0, 0, FALSE,
 					  &ctx->list_sizes[ctx->list_idx]);
 	} T_END;

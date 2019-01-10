@@ -230,7 +230,7 @@ static void gather_base_subjects(struct thread_finish_context *ctx)
 			/* find the oldest child */
 			thread_sort_children(ctx, roots[i].node.idx,
 					     &sorted_children);
-			children = array_idx(&sorted_children, 0);
+			children = array_first(&sorted_children);
 			idx = children[0].idx;
 		} else {
 			/* dummy without children */
@@ -370,7 +370,7 @@ static void sort_root_nodes(struct thread_finish_context *ctx)
 	unsigned int i, count, child_count;
 
 	i_array_init(&sorted_children, 64);
-	shadows = array_idx(&ctx->shadow_nodes, 0);
+	shadows = array_first(&ctx->shadow_nodes);
 	roots = array_get_modifiable(&ctx->roots, &count);
 	for (i = 0; i < count; i++) {
 		if (roots[i].ignore)

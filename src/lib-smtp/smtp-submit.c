@@ -387,7 +387,7 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	restrict_access_init(&pc_set.restrict_set);
 
 	pc = program_client_local_create
-		(sendmail_bin, array_idx(&args, 0), &pc_set);
+		(sendmail_bin, array_first(&args), &pc_set);
 
 	program_client_set_input(pc, subm->input);
 	i_stream_unref(&subm->input);

@@ -824,5 +824,5 @@ var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
 		entry->long_key = p_strdup(pool, b[i].long_key);
 	}
 	array_append_zero(&table);
-	return array_idx_modifiable(&table, 0);
+	return array_first_modifiable(&table);
 }

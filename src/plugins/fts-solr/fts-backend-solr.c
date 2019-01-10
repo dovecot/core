@@ -928,7 +928,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 		fts_result->scores_sorted = TRUE;
 	}
 	array_append_zero(&fts_results);
-	result->box_results = array_idx_modifiable(&fts_results, 0);
+	result->box_results = array_first_modifiable(&fts_results);
 	hash_table_destroy(&mailboxes);
 	return 0;
 }

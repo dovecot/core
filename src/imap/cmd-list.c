@@ -291,7 +291,7 @@ list_get_ref_patterns(struct cmd_list_context *ctx, const char *ref,
 		array_append(&full_patterns, &pattern, 1);
 	}
 	array_append_zero(&full_patterns); /* NULL-terminate */
-	return array_idx(&full_patterns, 0);
+	return array_first(&full_patterns);
 }
 
 static void cmd_list_init(struct cmd_list_context *ctx,
@@ -455,7 +455,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 	}
 
 	array_append_zero(&patterns); /* NULL-terminate */
-	patterns_strarr = array_idx(&patterns, 0);
+	patterns_strarr = array_first(&patterns);
 	if (!ctx->used_listext && !lsub && *patterns_strarr[0] == '\0') {
 		/* Only LIST ref "" gets us here */
 		cmd_list_ref_root(client, ref);

@@ -45,7 +45,7 @@ int ldap_entry_init(struct ldap_entry *obj, struct ldap_result *result,
 	ber_free(bptr, 0);
 
 	array_append_zero(&attr_names);
-	obj->attr_names = array_idx(&attr_names, 0);
+	obj->attr_names = array_first(&attr_names);
 
 	return 0;
 }

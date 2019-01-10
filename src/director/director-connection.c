@@ -942,7 +942,7 @@ director_cmd_host_hand_start(struct director_connection *conn,
 			  conn->name);
 		hosts = mail_hosts_get(conn->dir->mail_hosts);
 		while (array_count(hosts) > 0) {
-			hostp = array_idx(hosts, 0);
+			hostp = array_first(hosts);
 			director_remove_host(conn->dir, NULL, NULL, *hostp);
 		}
 	} else if (remote_ring_completed == 0 && conn->dir->ring_handshaked) {

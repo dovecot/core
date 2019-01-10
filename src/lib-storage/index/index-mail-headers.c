@@ -621,7 +621,7 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 	}
 
 	array_append_zero(&header_values);
-	return array_idx(&header_values, 0);
+	return array_first(&header_values);
 }
 
 static int
@@ -707,7 +707,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 	}
 
 	array_append_zero(&header_values);
-	*value_r = array_idx(&header_values, 0);
+	*value_r = array_first(&header_values);
 	return 0;
 }
 

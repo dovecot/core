@@ -103,7 +103,7 @@ static int config_connection_request(struct config_connection *conn,
 	}
 	array_append_zero(&modules);
 	wanted_modules = array_count(&modules) == 1 ? NULL :
-		array_idx(&modules, 0);
+		array_first(&modules);
 
 	if (is_master) {
 		/* master reads configuration only when reloading settings */

@@ -603,7 +603,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 
 		array_append_zero(&keywords);
 		kw = mail_index_keywords_create(mbox->box.index,
-						array_idx(&keywords, 0));
+						array_first(&keywords));
 		if (!keywords_are_equal(kw, &old_kws)) {
 			mail_index_update_keywords(mbox->delayed_sync_trans,
 						   lseq, MODIFY_REPLACE, kw);
