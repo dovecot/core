@@ -283,7 +283,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 		*keywords_r = NULL;
 	else {
 		array_append_zero(&keywords); /* NULL-terminate */
-		*keywords_r = array_idx(&keywords, 0);
+		*keywords_r = array_first(&keywords);
 	}
 	return TRUE;
 }
@@ -360,7 +360,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 	}
 
 	array_append_zero(dest);
-	return array_idx(dest, 0);
+	return array_first(dest);
 }
 
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)

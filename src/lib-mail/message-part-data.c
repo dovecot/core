@@ -399,7 +399,7 @@ parse_content_language(struct message_part_data *data,
 	if (array_count(&langs) > 0) {
 		array_append_zero(&langs);
 		data->content_language =
-			p_strarray_dup(pool, array_idx(&langs, 0));
+			p_strarray_dup(pool, array_first(&langs));
 	}
 }
 

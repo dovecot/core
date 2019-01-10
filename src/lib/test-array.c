@@ -144,7 +144,7 @@ static void test_array_reverse(void)
 		array_append(&intarr, input, i);
 		array_reverse(&intarr);
 
-		output = i == 0 ? NULL : array_idx(&intarr, 0);
+		output = i == 0 ? NULL : array_first(&intarr);
 		for (j = 0; j < i; j++)
 			test_assert(input[i-j-1] == output[j]);
 	}
@@ -305,7 +305,7 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		t_array_init(&ad, 3);
 		/* allocation big enough, but memory not initialised */
 		test_expect_fatal_string("(array_idx_i): assertion failed: (idx < array->buffer->used / array->element_size)");
-		useless_ptr = array_idx(&ad, 0);
+		useless_ptr = array_first(&ad);
 		return FATAL_TEST_FAILURE;
 	}
 

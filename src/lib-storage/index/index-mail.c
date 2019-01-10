@@ -2084,7 +2084,7 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 		array_append_zero(&names);
 		new_wanted_headers =
 			mailbox_header_lookup_init(_mail->box,
-						   array_idx(&names, 0));
+						   array_first(&names));
 		if (data->wanted_headers != NULL)
 			mailbox_header_lookup_unref(&data->wanted_headers);
 		data->wanted_headers = new_wanted_headers;

@@ -223,7 +223,7 @@ mirror_get_remote_cmd_line(const char *const *argv,
 	}
 	array_append(&cmd_args, &p, 1);
 	array_append_zero(&cmd_args);
-	*cmd_args_r = array_idx(&cmd_args, 0);
+	*cmd_args_r = array_first(&cmd_args);
 }
 
 static const char *const *
@@ -273,7 +273,7 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 		array_append(&cmd_args, &value, 1);
 	}
 	array_append_zero(&cmd_args);
-	return array_idx(&cmd_args, 0);
+	return array_first(&cmd_args);
 }
 
 static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,

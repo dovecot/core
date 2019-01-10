@@ -395,7 +395,7 @@ static const char *const *expire_get_patterns(struct mail_user *user)
 		str = mail_user_set_plugin_getenv(user->set, set_name);
 	}
 	array_append_zero(&patterns);
-	return array_idx(&patterns, 0);
+	return array_first(&patterns);
 }
 
 static void expire_mail_user_created(struct mail_user *user)

@@ -644,7 +644,7 @@ dsync_cache_fields_update(const struct dsync_mailbox *local_box,
 	if (array_count(&local_sorted) == 0) {
 		/* local has no cached fields. set them to same as remote. */
 		array_append_zero(&remote_sorted);
-		update->cache_updates = array_idx(&remote_sorted, 0);
+		update->cache_updates = array_first(&remote_sorted);
 		return;
 	}
 
@@ -689,7 +689,7 @@ dsync_cache_fields_update(const struct dsync_mailbox *local_box,
 	i_assert(li == local_count && ri == remote_count);
 	if (array_count(&changes) > 0) {
 		array_append_zero(&changes);
-		update->cache_updates = array_idx(&changes, 0);
+		update->cache_updates = array_first(&changes);
 	}
 }
 

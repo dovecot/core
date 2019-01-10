@@ -938,7 +938,7 @@ int main(int argc, char *argv[])
 	}
 	array_append_zero(&module_names);
 	wanted_modules = array_count(&module_names) == 1 ? NULL :
-		array_idx(&module_names, 0);
+		array_first(&module_names);
 
 	config_path = master_service_get_config_path(master_service);
 	/* use strcmp() instead of !=, because dovecot -n always gives us

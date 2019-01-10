@@ -274,7 +274,7 @@ static int smtp_parse_ehlo_line(struct smtp_parser *parser,
 		param = p_strdup_until(parser->pool, pbegin, parser->cur);
 		array_append(&params, &param, 1);
 		array_append_zero(&params);
-		*params_r = array_idx(&params, 0);
+		*params_r = array_first(&params);
 	}
 	return 1;
 }

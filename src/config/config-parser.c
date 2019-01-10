@@ -1108,7 +1108,7 @@ void config_parse_load_modules(void)
 		for (i = 0; all_roots[i] != NULL; i++)
 			array_append(&new_roots, &all_roots[i], 1);
 		array_append_zero(&new_roots);
-		all_roots = array_idx(&new_roots, 0);
+		all_roots = array_first(&new_roots);
 		roots_free_at_deinit = new_roots;
 	} else {
 		array_free(&new_roots);

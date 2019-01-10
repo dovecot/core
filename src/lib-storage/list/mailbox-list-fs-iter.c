@@ -390,7 +390,7 @@ fs_list_get_valid_patterns(struct fs_list_iterate_context *ctx,
 		}
 	}
 	array_append_zero(&valid_patterns); /* NULL-terminate */
-	ctx->valid_patterns = array_idx(&valid_patterns, 0);
+	ctx->valid_patterns = array_first(&valid_patterns);
 
 	return array_count(&valid_patterns) > 1;
 }

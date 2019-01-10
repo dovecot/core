@@ -561,7 +561,7 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 		}
 
 		array_append_zero(&content_types);
-		set->parsed_mail_attachment_content_type_filter = array_idx(&content_types, 0);
+		set->parsed_mail_attachment_content_type_filter = array_first(&content_types);
 	}
 
 	return TRUE;

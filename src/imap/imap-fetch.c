@@ -200,7 +200,7 @@ expunges_drop_known(struct mailbox *box,
 	unsigned int i, count;
 
 	seqs = array_get(qresync_args->qresync_sample_seqset, &count);
-	uids = array_idx(qresync_args->qresync_sample_uidset, 0);
+	uids = array_first(qresync_args->qresync_sample_uidset);
 	i_assert(array_count(qresync_args->qresync_sample_uidset) == count);
 	i_assert(count > 0);
 

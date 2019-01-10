@@ -380,7 +380,7 @@ auth_settings_set_self_ips(struct auth_settings *set, pool_t pool,
 		array_append(&ips_array, ips, ips_count);
 	}
 	array_append_zero(&ips_array);
-	set->proxy_self_ips = array_idx(&ips_array, 0);
+	set->proxy_self_ips = array_first(&ips_array);
 	return TRUE;
 }
 

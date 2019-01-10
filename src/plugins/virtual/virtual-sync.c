@@ -447,7 +447,7 @@ static int virtual_sync_index_changes(struct virtual_sync_context *ctx)
 
 	keywords = mail_index_get_keywords(ctx->index);
 	ctx->kw_all = array_count(keywords) == 0 ? NULL :
-		array_idx(keywords, 0);
+		array_first(keywords);
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
 		if (virtual_sync_index_rec(ctx, &sync_rec) < 0)
 			return -1;
