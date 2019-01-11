@@ -14,7 +14,6 @@ AC_DEFUN([DOVECOT_WANT_LZ4], [
       AC_CHECK_LIB(lz4, LZ4_compress_default, [
         AC_DEFINE(HAVE_LZ4_COMPRESS_DEFAULT,,
           [Define if you have LZ4_compress_default])
-      ], [
       ])
     ], [
       AS_IF([test "$want_lz4" = "yes"], [
