@@ -885,7 +885,8 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	return ctx;
 }
 
-const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
+static const char *
+auth_master_user_do_list_next(struct auth_master_user_list_ctx *ctx)
 {
 	struct auth_master_connection *conn = ctx->conn;
 	const char *line;
@@ -920,6 +921,19 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 	if (ctx->finished || ctx->failed)
 		return NULL;
 	return str_c(ctx->username);
+}
+
+const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
+{
+	struct auth_master_connection *conn = ctx->conn;
+	const char *username;
+
+	username = auth_master_user_do_list_next(ctx);
+	if (username == NULL)
+		return NULL;
+
+	e_debug(conn->event, "Returned username: %s", username);
+	return username;
 }
 
 int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
