@@ -788,8 +788,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 			sync_ctx->expunged_space = 0;
 		}
 		last_seq = sync_ctx->seq - 1;
-		array_delete(&sync_ctx->mails,
-			     array_count(&sync_ctx->mails) - 1, 1);
+		array_pop_back(&sync_ctx->mails);
 		end_offset = mail_ctx->mail.from_offset;
 	} else {
 		/* this message gave enough space from headers. rewriting stops
