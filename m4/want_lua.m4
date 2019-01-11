@@ -25,7 +25,7 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
   AS_IF([test "x$with_lua" = "xyes"], [
     AC_MSG_CHECKING([for chosen LUA])
     AS_IF([test "x$LUAPC" = "x"], [
-        AC_MSG_ERROR([cannot find lua]),
+        AC_MSG_ERROR([cannot find lua])
       ],[
         AC_MSG_RESULT([$LUAPC])
       ])
