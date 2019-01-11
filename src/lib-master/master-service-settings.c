@@ -155,7 +155,7 @@ static int parse_query(const char *str, struct event_filter_query *query_r,
 			str = strchr(str, ':');
 			i_assert(str != NULL);
 			str++;
-			array_append(&categories, &str, 1);
+			array_push_back(&categories, &str);
 		} else {
 			*error_r = t_strdup_printf("Unknown event '%s'", str);
 			return -1;
@@ -537,7 +537,7 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 				output_r->used_remote = TRUE;
 			else if (str_begins(*arg, "service=")) {
 				const char *name = p_strdup(pool, *arg + 8);
-				array_append(&services, &name, 1);
+				array_push_back(&services, &name);
 			 }
 		}
 		if (input->service == NULL) {
@@ -608,7 +608,7 @@ int master_service_settings_get_filters(struct master_service *service,
 				break;
 			if (str_begins(line, "FILTER\t")) {
 				line = t_strdup(line+7);
-				array_append(&filters_tmp, &line, 1);
+				array_push_back(&filters_tmp, &line);
 			}
 		}
 		i_stream_unref(&is);
@@ -673,14 +673,14 @@ int master_service_settings_read(struct master_service *service,
 
 	p_array_init(&all_roots, service->set_pool, 8);
 	tmp_root = &master_service_setting_parser_info;
-	array_append(&all_roots, &tmp_root, 1);
+	array_push_back(&all_roots, &tmp_root);
 	if (service->want_ssl_settings) {
 		tmp_root = &master_service_ssl_setting_parser_info;
-		array_append(&all_roots, &tmp_root, 1);
+		array_push_back(&all_roots, &tmp_root);
 	}
 	if (input->roots != NULL) {
 		for (i = 0; input->roots[i] != NULL; i++)
-			array_append(&all_roots, &input->roots[i], 1);
+			array_push_back(&all_roots, &input->roots[i]);
 	}
 
 	parser = settings_parser_init_list(service->set_pool,

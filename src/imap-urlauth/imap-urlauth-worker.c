@@ -981,7 +981,7 @@ int main(int argc, char *argv[])
 		case 'a': {
 			const char *app = t_strdup(optarg);
 
-			array_append(&access_apps, &app, 1);
+			array_push_back(&access_apps, &app);
 			break;
 		}
 		default:

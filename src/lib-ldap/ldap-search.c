@@ -154,7 +154,7 @@ void ldap_connection_search_start(struct ldap_connection *conn,
 		p_array_init(&arr, req->pool, 8);
 		for(const char **ptr = (const char**)input->attributes; *ptr != NULL; ptr++) {
 			const char *tmp = p_strdup(req->pool, *ptr);
-			array_append(&arr, &tmp, 1);
+			array_push_back(&arr, &tmp);
 		}
 		array_append_zero(&arr);
 		req->input.search.attributes = array_first_modifiable(&arr);

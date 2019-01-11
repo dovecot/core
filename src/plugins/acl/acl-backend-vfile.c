@@ -381,7 +381,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 				i_error("ACL file %s line %u: %s",
 					path, linenum, error);
 			} else {
-				array_append(&aclobj->rights, &rights, 1);
+				array_push_back(&aclobj->rights, &rights);
 			}
 		} T_END;
 		if (ret < 0)

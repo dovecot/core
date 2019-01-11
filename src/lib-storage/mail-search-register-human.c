@@ -193,7 +193,7 @@ mail_search_register_init_human(struct mail_search_register *imap_register)
 	for (i = j = 0; i < imap_count && j < human_count; ) {
 		ret = strcmp(imap_args[i].key, human_args[j].key);
 		if (ret < 0) {
-			array_append(&copy_args, &imap_args[i], 1);
+			array_push_back(&copy_args, &imap_args[i]);
 			i++;
 		} else if (ret > 0) {
 			j++;
@@ -202,7 +202,7 @@ mail_search_register_init_human(struct mail_search_register *imap_register)
 		}
 	}
 	for (; i < imap_count; i++)
-		array_append(&copy_args, &imap_args[i], 1);
+		array_push_back(&copy_args, &imap_args[i]);
 
 	imap_args = array_get(&copy_args, &imap_count);
 	mail_search_register_add(reg, imap_args, imap_count);

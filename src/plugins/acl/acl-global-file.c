@@ -173,7 +173,7 @@ static int acl_global_file_read(struct acl_global_file *file)
 			right->vpattern = pright->vpattern;
 			p_array_init(&right->rights, file->rights_pool, 4);
 		}
-		array_append(&right->rights, &pright->rights, 1);
+		array_push_back(&right->rights, &pright->rights);
 	}
 
 	array_free(&ctx.parse_rights);

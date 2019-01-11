@@ -237,7 +237,7 @@ sync_tree_sort_and_delete_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 			}
 		}
 		ctx->combined_mailboxes_count++;
-		array_append(&siblings, &node, 1);
+		array_push_back(&siblings, &node);
 	}
 	sort_siblings(&siblings);
 	dsync_mailbox_tree_bfs_iter_deinit(&iter);

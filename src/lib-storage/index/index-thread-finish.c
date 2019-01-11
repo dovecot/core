@@ -185,13 +185,13 @@ thread_sort_children(struct thread_finish_context *ctx, uint32_t parent_idx,
 		/* only child - don't bother setting sort date */
 		child.uid = thread_lookup_existing(ctx, child.idx);
 
-		array_append(sorted_children, &child, 1);
+		array_push_back(sorted_children, &child);
 		return;
 	}
 	while (child.idx != 0) {
 		thread_child_node_fill(ctx, &child);
 
-		array_append(sorted_children, &child, 1);
+		array_push_back(sorted_children, &child);
 		child.idx = shadows[child.idx].next_sibling_idx;
 	}
 

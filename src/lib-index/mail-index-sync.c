@@ -945,7 +945,7 @@ bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
 				return FALSE;
 		}
 
-		array_append(keywords, &idx, 1);
+		array_push_back(keywords, &idx);
 		return TRUE;
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		for (i = 0; i < count; i++) {

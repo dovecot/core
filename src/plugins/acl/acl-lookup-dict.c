@@ -134,7 +134,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 				str_append_c(id, '/');
 				str_append(id, ns->owner->username);
 				id_dup = t_strdup(str_c(id));
-				array_append(ids, &id_dup, 1);
+				array_push_back(ids, &id_dup);
 			}
 		}
 		if (acl_object_list_deinit(&iter) < 0) ret = -1;
@@ -175,7 +175,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 		p = strrchr(key, '/');
 		if (p != NULL && strcmp(p + 1, username) == 0) {
 			key = t_strdup_until(key, p);
-			array_append(&old_ids_arr, &key, 1);
+			array_push_back(&old_ids_arr, &key);
 		}
 	}
 	if (dict_iterate_deinit(&iter, &error) < 0) {

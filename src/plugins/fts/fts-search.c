@@ -177,13 +177,13 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 	t_array_init(&tmp_mailboxes, mailbox_count);
 	for (i = 0; i < mailbox_count; i = j) {
 		array_clear(&tmp_mailboxes);
-		array_append(&tmp_mailboxes, &mailboxes[i], 1);
+		array_push_back(&tmp_mailboxes, &mailboxes[i]);
 
 		backend = fts_mailbox_backend(mailboxes[i]);
 		for (j = i + 1; j < mailbox_count; j++) {
 			if (fts_mailbox_backend(mailboxes[j]) != backend)
 				break;
-			array_append(&tmp_mailboxes, &mailboxes[j], 1);
+			array_push_back(&tmp_mailboxes, &mailboxes[j]);
 		}
 		array_append_zero(&tmp_mailboxes);
 
@@ -270,18 +270,18 @@ fts_search_merge_scores_or(ARRAY_TYPE(fts_score_map) *dest,
 	for (srci = src2i = 0; srci < src_count || src2i < src2_count;) {
 		if (src2i == src2_count ||
 		    src_map[srci].uid < src2_map[src2i].uid) {
-			array_append(dest, &src_map[srci], 1);
+			array_push_back(dest, &src_map[srci]);
 			srci++;
 		} else if (srci == src_count ||
 			   src_map[srci].uid > src2_map[src2i].uid) {
-			array_append(dest, &src2_map[src2i], 1);
+			array_push_back(dest, &src2_map[src2i]);
 			src2i++;
 		} else {
 			i_assert(src_map[srci].uid == src2_map[src2i].uid);
 			if (src_map[srci].score > src2_map[src2i].score)
-				array_append(dest, &src_map[srci], 1);
+				array_push_back(dest, &src_map[srci]);
 			else
-				array_append(dest, &src2_map[src2i], 1);
+				array_push_back(dest, &src2_map[src2i]);
 			srci++; src2i++;
 		}
 	}

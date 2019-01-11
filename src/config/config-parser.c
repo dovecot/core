@@ -1087,7 +1087,7 @@ void config_parse_load_modules(void)
 			t_strdup_printf("%s_set_roots", m->name));
 		if (roots != NULL) {
 			for (i = 0; roots[i] != NULL; i++)
-				array_append(&new_roots, &roots[i], 1);
+				array_push_back(&new_roots, &roots[i]);
 		}
 
 		services = module_get_symbol_quiet(m,
@@ -1099,14 +1099,14 @@ void config_parse_load_modules(void)
 			service_set = module_get_symbol_quiet(m,
 				t_strdup_printf("%s_service_settings", m->name));
 			if (service_set != NULL)
-				array_append(&new_services, &service_set, 1);
+				array_push_back(&new_services, &service_set);
 		}
 	}
 	if (array_count(&new_roots) > 0) {
 		/* modules added new settings. add the defaults and start
 		   using the new list. */
 		for (i = 0; all_roots[i] != NULL; i++)
-			array_append(&new_roots, &all_roots[i], 1);
+			array_push_back(&new_roots, &all_roots[i]);
 		array_append_zero(&new_roots);
 		all_roots = array_first(&new_roots);
 		roots_free_at_deinit = new_roots;
@@ -1117,7 +1117,7 @@ void config_parse_load_modules(void)
 		/* module added new services. update the defaults. */
 		services = array_get(default_services, &count);
 		for (i = 0; i < count; i++)
-			array_append(&new_services, &services[i], 1);
+			array_push_back(&new_services, &services[i]);
 		*default_services = new_services;
 		services_free_at_deinit = new_services;
 	} else {

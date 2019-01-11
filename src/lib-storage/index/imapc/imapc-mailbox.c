@@ -489,7 +489,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 					flags |= imap_parse_system_flag(atom);
 				else {
 					/* keyword */
-					array_append(&keywords, &atom, 1);
+					array_push_back(&keywords, &atom);
 				}
 			}
 		} else if (strcasecmp(atom, "MODSEQ") == 0 &&
@@ -588,7 +588,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			   this can be used for "All Mail" mailbox migrations
 			   with dsync */
 			atom = "$GMailHaveLabels";
-			array_append(&keywords, &atom, 1);
+			array_push_back(&keywords, &atom);
 		}
 
 		array_append_zero(&keywords);
@@ -685,7 +685,7 @@ imapc_untagged_esearch_gmail_pop3(const struct imap_arg *args,
 		mbox->storage->set->pop3_deleted_flag, &pop3_deleted_kw_idx);
 
 	t_array_init(&keywords, 1);
-	array_append(&keywords, &pop3_deleted_kw_idx, 1);
+	array_push_back(&keywords, &pop3_deleted_kw_idx);
 	kw = mail_index_keywords_create_from_indexes(mbox->box.index, &keywords);
 
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);

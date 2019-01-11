@@ -230,14 +230,14 @@ void event_filter_merge(struct event_filter *dest,
 
 			t_array_init(&categories, int_query->categories_count);
 			for (i = 0; i < int_query->categories_count; i++) {
-				array_append(&categories,
-					     &int_query->categories[i].name, 1);
+				array_push_back(&categories,
+						&int_query->categories[i].name);
 			}
 			for (i = 0; i < N_ELEMENTS(event_filter_log_type_names); i++) {
 				if ((int_query->log_type_mask & (1 << i)) == 0)
 					continue;
-				array_append(&categories,
-					     &event_filter_log_type_names[i], 1);
+				array_push_back(&categories,
+						&event_filter_log_type_names[i]);
 			}
 			array_append_zero(&categories);
 			query.categories = array_first(&categories);
@@ -375,7 +375,7 @@ bool event_filter_import_unescaped(struct event_filter *filter,
 			}
 			break;
 		case EVENT_FILTER_CODE_CATEGORY:
-			array_append(&categories, &arg, 1);
+			array_push_back(&categories, &arg);
 			break;
 		case EVENT_FILTER_CODE_FIELD: {
 			struct event_filter_field *field;

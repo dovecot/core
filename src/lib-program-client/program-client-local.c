@@ -103,10 +103,10 @@ void exec_child(const char *bin_path, const char *const *args,
 	/* Compose argv */
 
 	t_array_init(&exec_args, 16);
-	array_append(&exec_args, &bin_path, 1);
+	array_push_back(&exec_args, &bin_path);
 	if (args != NULL) {
 		for(; *args != NULL; args++)
-			array_append(&exec_args, args, 1);
+			array_push_back(&exec_args, args);
 	}
 	(void) array_append_space(&exec_args);
 

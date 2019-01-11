@@ -381,7 +381,7 @@ static void event_category_register(struct event_category *category)
 	   Event filtering uses pointer comparisons for efficiency. */
 	i_assert(event_category_find_registered(category->name) == NULL);
 	category->registered = TRUE;
-	array_append(&event_registered_categories, &category, 1);
+	array_push_back(&event_registered_categories, &category);
 
 	array_foreach(&event_category_callbacks, callbackp) T_BEGIN {
 		(*callbackp)(category);

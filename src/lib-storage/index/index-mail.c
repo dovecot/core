@@ -2078,9 +2078,10 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 		/* merge headers */
 		t_array_init(&names, 32);
 		for (i = 0; i < data->wanted_headers->count; i++)
-			array_append(&names, &data->wanted_headers->name[i], 1);
+			array_push_back(&names,
+					&data->wanted_headers->name[i]);
 		for (i = 0; i < headers->count; i++)
-			array_append(&names, &headers->name[i], 1);
+			array_push_back(&names, &headers->name[i]);
 		array_append_zero(&names);
 		new_wanted_headers =
 			mailbox_header_lookup_init(_mail->box,

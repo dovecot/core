@@ -866,7 +866,7 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx)
 	   filenames within this transaction. */
 	t_array_init(&files, ctx->files_count);
 	for (mf = ctx->files; mf != NULL; mf = mf->next)
-		array_append(&files, &mf, 1);
+		array_push_back(&files, &mf);
 	array_sort(&files, maildir_filename_dest_basename_cmp);
 
 	new_changed = cur_changed = FALSE;

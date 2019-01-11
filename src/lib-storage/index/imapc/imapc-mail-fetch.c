@@ -125,14 +125,14 @@ headers_merge(pool_t pool, const char *const *h1, const char *const *h2)
 	if (h1 != NULL) {
 		for (i = 0; h1[i] != NULL; i++) {
 			value = p_strdup(pool, h1[i]);
-			array_append(&headers, &value, 1);
+			array_push_back(&headers, &value);
 		}
 	}
 	if (h2 != NULL) {
 		for (i = 0; h2[i] != NULL; i++) {
 			if (h1 == NULL || !str_array_icase_find(h1, h2[i])) {
 				value = p_strdup(pool, h2[i]);
-				array_append(&headers, &value, 1);
+				array_push_back(&headers, &value);
 			}
 		}
 	}
@@ -727,7 +727,7 @@ imapc_fetch_header_stream(struct imapc_mail *mail,
 	   (parse it even if it's not) */
 	t_array_init(&hdr_arr, 16);
 	while (imap_arg_get_astring(hdr_list, &value)) {
-		array_append(&hdr_arr, &value, 1);
+		array_push_back(&hdr_arr, &value);
 		hdr_list++;
 	}
 	if (hdr_list->type != IMAP_ARG_EOL)

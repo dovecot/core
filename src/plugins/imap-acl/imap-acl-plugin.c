@@ -399,8 +399,8 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 	for (; *letters != '\0'; letters++) {
 		for (i = 0; imap_acl_letter_map[i].name != NULL; i++) {
 			if (imap_acl_letter_map[i].letter == *letters) {
-				array_append(&rights,
-					     &imap_acl_letter_map[i].name, 1);
+				array_push_back(&rights,
+						&imap_acl_letter_map[i].name);
 				break;
 			}
 		}
@@ -409,12 +409,12 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 			   rights according to RFC 4314 */
 			switch (*letters) {
 			case 'c':
-				array_append(&rights, &acl_k, 1);
-				array_append(&rights, &acl_x, 1);
+				array_push_back(&rights, &acl_k);
+				array_push_back(&rights, &acl_x);
 				break;
 			case 'd':
-				array_append(&rights, &acl_e, 1);
-				array_append(&rights, &acl_t, 1);
+				array_push_back(&rights, &acl_e);
+				array_push_back(&rights, &acl_t);
 				break;
 			default:
 				*client_error_r = t_strdup_printf(
@@ -491,7 +491,7 @@ static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
 	for (i = 0; rights[i] != NULL; i++) {
 		if (strcmp(rights[i], MAIL_ACL_ADMIN) == 0)
 			break;
-		array_append(&new_rights, &rights[i], 1);
+		array_push_back(&new_rights, &rights[i]);
 	}
 
 	switch (update->modify_mode) {
@@ -502,10 +502,10 @@ static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
 		/* adding initial rights for a user. we need to add
 		   the defaults also. don't worry about duplicates. */
 		for (; rights[i] != NULL; i++)
-			array_append(&new_rights, &rights[i], 1);
+			array_push_back(&new_rights, &rights[i]);
 		default_rights = acl_object_get_default_rights(aclobj);
 		for (i = 0; default_rights[i] != NULL; i++)
-			array_append(&new_rights, &default_rights[i], 1);
+			array_push_back(&new_rights, &default_rights[i]);
 		break;
 	case ACL_MODIFY_MODE_REMOVE:
 		if (rights[i] == NULL)
@@ -513,14 +513,14 @@ static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
 
 		/* skip over the ADMIN removal and add the rest */
 		for (i++; rights[i] != NULL; i++)
-			array_append(&new_rights, &rights[i], 1);
+			array_push_back(&new_rights, &rights[i]);
 		break;
 	case ACL_MODIFY_MODE_REPLACE:
 		if (rights[i] != NULL)
 			return;
 
 		/* add the missing ADMIN right */
-		array_append(&new_rights, &acl_admin, 1);
+		array_push_back(&new_rights, &acl_admin);
 		break;
 	default:
 		return;

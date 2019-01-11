@@ -857,7 +857,7 @@ void password_schemes_get(ARRAY_TYPE(password_scheme_p) *schemes_r)
         const struct password_scheme *scheme;
         ctx = hash_table_iterate_init(password_schemes);
         while(hash_table_iterate(ctx, password_schemes, &key, &scheme)) {
-		array_append(schemes_r, &scheme, 1);
+		array_push_back(schemes_r, &scheme);
         }
 	hash_table_iterate_deinit(&ctx);
 }

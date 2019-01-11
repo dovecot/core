@@ -366,7 +366,7 @@ void fs_metadata_init_or_clear(struct fs_file *file)
 		array_foreach(&file->metadata, md) {
 			if (strncmp(md->key, FS_METADATA_INTERNAL_PREFIX,
 				    strlen(FS_METADATA_INTERNAL_PREFIX)) == 0)
-				array_append(&internal_metadata, md, 1);
+				array_push_back(&internal_metadata, md);
 		}
 		array_clear(&file->metadata);
 		array_append_array(&file->metadata, &internal_metadata);

@@ -351,7 +351,7 @@ void index_mail_parse_header(struct message_part *part,
 		str_append(mail->header_data, "\n");
 	if (!hdr->continues) {
 		data->parse_line.end_pos = str_len(mail->header_data);
-		array_append(&mail->header_lines, &data->parse_line, 1);
+		array_push_back(&mail->header_lines, &data->parse_line);
 	}
 }
 
@@ -616,7 +616,7 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 			value = message_header_strdup(mail->mail.data_pool,
 						      value_start,
 						      value_end - value_start);
-			array_append(&header_values, &value, 1);
+			array_push_back(&header_values, &value);
 		}
 	}
 
@@ -702,7 +702,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 						     data + i, len2);
 			i += len2 + 1;
 
-			array_append(&header_values, &value, 1);
+			array_push_back(&header_values, &value);
 		}
 	}
 

@@ -423,7 +423,7 @@ int mdbox_map_get_file_msgs(struct mdbox_map *map, uint32_t file_id,
 			msg.map_uid = rec.map_uid;
 			msg.offset = rec.rec.offset;
 			msg.refcount = rec.refcount;
-			array_append(recs, &msg, 1);
+			array_push_back(recs, &msg);
 		}
 	}
 	return 0;

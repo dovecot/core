@@ -45,9 +45,9 @@ static int select_qresync_get_uids(struct imap_select_context *ctx,
 	for (i = 0; i < uid_count; i++) {
 		if (!seq_range_array_iter_nth(&seq_iter, n++, &seq))
 			return -1;
-		array_append(&ctx->qresync_sample_uidset,
-			     &uid_range[i].seq1, 1);
-		array_append(&ctx->qresync_sample_seqset, &seq, 1);
+		array_push_back(&ctx->qresync_sample_uidset,
+				&uid_range[i].seq1);
+		array_push_back(&ctx->qresync_sample_seqset, &seq);
 
 		diff = uid_range[i].seq2 - uid_range[i].seq1;
 		if (diff > 0) {
@@ -55,9 +55,9 @@ static int select_qresync_get_uids(struct imap_select_context *ctx,
 			if (!seq_range_array_iter_nth(&seq_iter, n++, &seq))
 				return -1;
 
-			array_append(&ctx->qresync_sample_uidset,
-				     &uid_range[i].seq2, 1);
-			array_append(&ctx->qresync_sample_seqset, &seq, 1);
+			array_push_back(&ctx->qresync_sample_uidset,
+					&uid_range[i].seq2);
+			array_push_back(&ctx->qresync_sample_seqset, &seq);
 		}
 	}
 	if (seq_range_array_iter_nth(&seq_iter, n, &seq))

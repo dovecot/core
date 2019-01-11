@@ -431,7 +431,7 @@ module_dir_load_real(struct module **_modules,
 		} T_END;
 
 		name = p_strdup(pool, d->d_name);
-		array_append(&names, &name, 1);
+		array_push_back(&names, &name);
 	}
 	if (errno != 0)
 		*error_r = i_strdup_printf("readdir(%s) failed: %m", dir);

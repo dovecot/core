@@ -223,7 +223,7 @@ void user_directory_sort(struct user_directory *dir)
 	i_array_init(&users, users_count);
 	user = dir->head;
 	for (i = 0; i < users_count; i++, user = user->next)
-		array_append(&users, &user, 1);
+		array_push_back(&users, &user);
 	i_assert(user == NULL);
 	array_sort(&users, user_timestamp_cmp);
 

@@ -218,7 +218,7 @@ static int imap_thread_orderedsubject(struct client_command_context *cmd,
 			p_array_init(&cur_thread->msgs, pool, 4);
 		}
 		num = cmd->uid ? mail->uid : mail->seq;
-		array_append(&cur_thread->msgs, &num, 1);
+		array_push_back(&cur_thread->msgs, &num);
 	}
 	str_free(&prev_subject);
 	ret = mailbox_search_deinit(&search_ctx);

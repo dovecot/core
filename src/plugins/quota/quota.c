@@ -1168,7 +1168,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 				ret = -1;
 			}
 			else if (!ctx->sync_transaction)
-				array_append(&warn_roots, &roots[i], 1);
+				array_push_back(&warn_roots, &roots[i]);
 		}
 		/* execute quota warnings after all updates. this makes it
 		   work correctly regardless of whether backend.get_resource()

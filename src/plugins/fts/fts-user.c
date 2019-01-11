@@ -42,8 +42,8 @@ static const char *const *str_keyvalues_to_array(const char *str)
 			key = keyvalues[i];
 			value = "";
 		}
-		array_append(&arr, &key, 1);
-		array_append(&arr, &value, 1);
+		array_push_back(&arr, &key);
+		array_push_back(&arr, &value);
 	}
 	array_append_zero(&arr);
 	return array_first(&arr);

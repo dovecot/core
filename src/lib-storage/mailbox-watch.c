@@ -122,7 +122,7 @@ int mailbox_watch_extract_notify_fd(struct mailbox *box, const char **reason_r)
 	for (file = box->notify_files; file != NULL && !failed; file = file->next) {
 		switch (io_add_notify(file->path, notify_extract_callback, box, &io)) {
 		case IO_NOTIFY_ADDED:
-			array_append(&temp_ios, &io, 1);
+			array_push_back(&temp_ios, &io);
 			break;
 		case IO_NOTIFY_NOTFOUND:
 			*reason_r = t_strdup_printf(

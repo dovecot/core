@@ -354,7 +354,7 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 	int i;
 	const char * const * cptr;
 	i_assert(array_count(argv) == 0);
-	array_append(argv, &name, 1);
+	array_push_back(argv, &name);
 
 	ARRAY_TYPE(const_string) pargv;
 	t_array_init(&pargv, 8);
@@ -373,24 +373,25 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 					array_add_opt = TRUE;
 				} else {
 					optarg = t_strdup_printf("-%c", params[i].short_opt);
-					array_append(argv, &optarg, 1);
+					array_push_back(argv, &optarg);
 				}
 			}
 			/* CMD_PARAM_BOOL is implicitly handled above */
 			if (params[i].type == CMD_PARAM_STR) {
-				array_append(target, &params[i].value.v_string,1);
+				array_push_back(target,
+						&params[i].value.v_string);
 			} else if (params[i].type == CMD_PARAM_INT64) {
 				const char *tmp = t_strdup_printf("%lld",
 					(long long)params[i].value.v_int64);
-				array_append(target, &tmp, 1);
+				array_push_back(target, &tmp);
 			} else if (params[i].type == CMD_PARAM_IP) {
 				const char *tmp = net_ip2addr(&params[i].value.v_ip);
-				array_append(target, &tmp, 1);
+				array_push_back(target, &tmp);
 			} else if (params[i].type == CMD_PARAM_ARRAY) {
 				array_foreach(&params[i].value.v_array, cptr) {
 					if (array_add_opt)
-						array_append(argv, &optarg, 1);
-					array_append(target, cptr, 1);
+						array_push_back(argv, &optarg);
+					array_push_back(target, cptr);
 				}
 			}
 		}
@@ -398,7 +399,7 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 
 	if (array_count(&pargv) > 0) {
 		const char *dashdash = "--";
-		array_append(argv, &dashdash, 1);
+		array_push_back(argv, &dashdash);
 		array_append_array(argv, &pargv);
 	}
 	array_append_zero(argv);
@@ -438,7 +439,7 @@ doveadm_build_options(const struct doveadm_cmd_param par[],
 		}
 		if (par[i].type != CMD_PARAM_BOOL)
 			longopt.has_arg = 1;
-		array_append(longopts, &longopt, 1);
+		array_push_back(longopts, &longopt);
 	}
 	array_append_zero(longopts);
 }

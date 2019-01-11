@@ -640,7 +640,7 @@ static void master_service_import_environment_real(const char *import_environmen
 	/* preserve existing DOVECOT_PRESERVE_ENVS */
 	value = getenv(DOVECOT_PRESERVE_ENVS_ENV);
 	if (value != NULL)
-		array_append(&keys, &value, 1);
+		array_push_back(&keys, &value);
 	/* add new environments */
 	envs = t_strsplit_spaces(import_environment, " ");
 	for (; *envs != NULL; envs++) {
@@ -651,7 +651,7 @@ static void master_service_import_environment_real(const char *import_environmen
 			key = t_strdup_until(*envs, value);
 			env_put(*envs);
 		}
-		array_append(&keys, &key, 1);
+		array_push_back(&keys, &key);
 	}
 	array_append_zero(&keys);
 

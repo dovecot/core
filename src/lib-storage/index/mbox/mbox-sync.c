@@ -755,7 +755,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		array_append_array(&keywords_copy, &mail_ctx->mail.keywords);
 		mail_ctx->mail.keywords = keywords_copy;
 	}
-	array_append(&sync_ctx->mails, &mail_ctx->mail, 1);
+	array_push_back(&sync_ctx->mails, &mail_ctx->mail);
 
 	sync_ctx->space_diff += mail_ctx->mail.space;
 	if (sync_ctx->space_diff < 0) {

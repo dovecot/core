@@ -1252,12 +1252,12 @@ wanted_sort_fields_get(struct mailbox *box,
 			break;
 		}
 		if (header != NULL)
-			array_append(&headers, &header, 1);
+			array_push_back(&headers, &header);
 	}
 
 	if (wanted_headers != NULL) {
 		for (i = 0; wanted_headers->name[i] != NULL; i++)
-			array_append(&headers, &wanted_headers->name[i], 1);
+			array_push_back(&headers, &wanted_headers->name[i]);
 	}
 
 	if (array_count(&headers) > 0) {
@@ -1744,7 +1744,7 @@ static int search_more_with_prefetching(struct index_search_context *ctx,
 	*mail_r = mails[0];
 	if (--ctx->unused_mail_idx > 0) {
 		array_delete(&ctx->mails, 0, 1);
-		array_append(&ctx->mails, mail_r, 1);
+		array_push_back(&ctx->mails, mail_r);
 	}
 	index_mail_update_access_parts_post(*mail_r);
 	return 1;

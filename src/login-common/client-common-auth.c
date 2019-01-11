@@ -111,7 +111,7 @@ static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t poo
 	}
 	if (i == count) {
 		char *new_key = i_strdup(key);
-		array_append(&global_alt_usernames, &new_key, 1);
+		array_push_back(&global_alt_usernames, &new_key);
 	}
 
 	value = p_strdup(pool, value);
@@ -124,9 +124,9 @@ static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t poo
 	   the middle set them as "" */
 	while (array_count(alt_usernames) < i) {
 		const char *empty_str = "";
-		array_append(alt_usernames, &empty_str, 1);
+		array_push_back(alt_usernames, &empty_str);
 	}
-	array_append(alt_usernames, &value, 1);
+	array_push_back(alt_usernames, &value);
 }
 
 static void client_auth_parse_args(struct client *client, bool success,

@@ -190,7 +190,7 @@ imap_match_dup_real(pool_t pool, const struct imap_match_glob *glob)
 	for (p = glob->patterns; p->pattern != NULL; p++) {
 		if (p->inboxcase)
 			inboxcase = TRUE;
-		array_append(&patterns, &p->pattern, 1);
+		array_push_back(&patterns, &p->pattern);
 	}
 	array_append_zero(&patterns);
 	return imap_match_init_multiple_real(pool, array_first(&patterns),

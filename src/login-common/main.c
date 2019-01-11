@@ -343,7 +343,7 @@ parse_login_source_ips(const char *ips_str, unsigned int *count_r)
 		for (i = 0; i < tmp_ips_count; i++) {
 			if (skip_nonworking && net_try_bind(&tmp_ips[i]) < 0)
 				continue;
-			array_append(&ips, &tmp_ips[i], 1);
+			array_push_back(&ips, &tmp_ips[i]);
 		}
 	}
 	return array_get(&ips, count_r);

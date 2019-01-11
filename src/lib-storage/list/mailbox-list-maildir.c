@@ -348,7 +348,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 		if (strncmp(info->vname, old_vname, old_vnamelen) == 0 &&
 		    info->vname[old_vnamelen] == old_ns_sep) {
 			name = p_strdup(pool, info->vname + old_vnamelen);
-			array_append(&names_arr, &name, 1);
+			array_push_back(&names_arr, &name);
 		}
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {

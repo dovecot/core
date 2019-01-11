@@ -25,20 +25,20 @@ int ldap_entry_init(struct ldap_entry *obj, struct ldap_result *result,
 	while(tmp != NULL) {
 		struct ldap_attribute *attr = p_new(result->pool, struct ldap_attribute, 1);
 		attr->name = p_strdup(result->pool, tmp);
-		array_append(&attr_names, &attr->name, 1);
+		array_push_back(&attr_names, &attr->name);
 		values = ldap_get_values_len(result->conn->conn, message, tmp);
 		if (values != NULL) {
 			count = ldap_count_values_len(values);
 			p_array_init(&attr->values, result->pool, count);
 			for(int i = 0; i < count; i++) {
 				const char *ptr = p_strndup(result->pool, values[i]->bv_val, values[i]->bv_len);
-				array_append(&attr->values, &ptr, 1);
+				array_push_back(&attr->values, &ptr);
 			}
 			ldap_value_free_len(values);
 		}
 		array_append_zero(&attr->values);
 		ldap_memfree(tmp);
-		array_append(&obj->attributes, attr, 1);
+		array_push_back(&obj->attributes, attr);
 		tmp = ldap_next_attribute(result->conn->conn, message, bptr);
 	}
 

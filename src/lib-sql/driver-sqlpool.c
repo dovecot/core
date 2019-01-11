@@ -449,9 +449,9 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
 				return -1;
 			}
 		} else if (strcmp(key, "host") == 0) {
-			array_append(&hostnames, &value, 1);
+			array_push_back(&hostnames, &value);
 		} else {
-			array_append(&connect_args, args, 1);
+			array_push_back(&connect_args, args);
 		}
 	}
 

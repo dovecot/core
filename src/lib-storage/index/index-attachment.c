@@ -391,7 +391,7 @@ bool index_attachment_parse_extrefs(const char *line, pool_t pool,
 			(extref.start_offset - last_voffset);
 
 		extref.path = p_strdup(pool, path);
-		array_append(extrefs, &extref, 1);
+		array_push_back(extrefs, &extref);
 	}
 	return TRUE;
 }

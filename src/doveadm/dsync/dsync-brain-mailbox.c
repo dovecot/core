@@ -669,7 +669,7 @@ dsync_cache_fields_update(const struct dsync_mailbox *local_box,
 			     lf->decision > rf->decision)) {
 				/* use local decision and timestamp */
 			} else {
-				array_append(&changes, rf, 1);
+				array_push_back(&changes, rf);
 			}
 			li++; ri++;
 		} else if (ret < 0) {
@@ -681,7 +681,7 @@ dsync_cache_fields_update(const struct dsync_mailbox *local_box,
 				/* field hasn't be used for a long time, remote
 				   will probably drop this soon as well */
 			} else {
-				array_append(&changes, &remote_fields[ri], 1);
+				array_push_back(&changes, &remote_fields[ri]);
 			}
 			ri++;
 		}

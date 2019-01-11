@@ -288,7 +288,7 @@ list_get_ref_patterns(struct cmd_list_context *ctx, const char *ref,
 	t_array_init(&full_patterns, 16);
 	for (pat = patterns; *pat != NULL; pat++) {
 		pattern = mailbox_list_join_refpattern(ns->list, ref, *pat);
-		array_append(&full_patterns, &pattern, 1);
+		array_push_back(&full_patterns, &pattern);
 	}
 	array_append_zero(&full_patterns); /* NULL-terminate */
 	return array_first(&full_patterns);
@@ -398,7 +398,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 			}
 			if (imap_utf7_to_utf8(pattern, str) == 0)
 				pattern = p_strdup(cmd->pool, str_c(str));
-			array_append(&patterns, &pattern, 1);
+			array_push_back(&patterns, &pattern);
 			str_truncate(str, 0);
 		}
 		args += 2;
@@ -411,7 +411,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 			pattern = p_strdup(cmd->pool, str_c(str));
 
 		p_array_init(&patterns, cmd->pool, 1);
-		array_append(&patterns, &pattern, 1);
+		array_push_back(&patterns, &pattern);
 		args += 2;
 
 		if (lsub) {

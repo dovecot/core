@@ -312,7 +312,7 @@ imapc_connection_abort_commands_array(ARRAY_TYPE(imapc_command) *cmd_array,
 			i++;
 		} else {
 			array_delete(cmd_array, i, 1);
-			array_append(dest_array, &cmd, 1);
+			array_push_back(dest_array, &cmd);
 		}
 	}
 }

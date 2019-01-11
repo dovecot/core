@@ -103,7 +103,7 @@ static void cmd_flags_init(struct doveadm_mail_cmd_context *_ctx,
 			ctx->flags |= flag;
 		} else {
 			str = p_strdup(_ctx->pool, str);
-			array_append(&keywords, &str, 1);
+			array_push_back(&keywords, &str);
 		}
 	}
 	if (array_count(&keywords) > 0 || ctx->modify_type == MODIFY_REPLACE) {

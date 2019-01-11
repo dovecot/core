@@ -799,7 +799,7 @@ static const char *const *fts_exclude_get_patterns(struct mail_user *user)
 
 	t_array_init(&patterns, 16);
 	for (i = 2; str != NULL; i++) {
-		array_append(&patterns, &str, 1);
+		array_push_back(&patterns, &str);
 
 		if (i_snprintf(set_name, sizeof(set_name),
 			       "fts_autoindex_exclude%u", i) < 0)

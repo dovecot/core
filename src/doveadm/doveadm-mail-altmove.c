@@ -76,8 +76,8 @@ cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 			if (prev_storage != NULL) {
 				if (ns_purge(_ctx, prev_ns, prev_storage) < 0)
 					ret = -1;
-				array_append(&purged_storages,
-					     &prev_storage, 1);
+				array_push_back(&purged_storages,
+						&prev_storage);
 			}
 			prev_storage = ns_storage;
 			prev_ns = info->ns;
@@ -91,7 +91,7 @@ cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (prev_storage != NULL) {
 		if (ns_purge(_ctx, prev_ns, prev_storage) < 0)
 			ret = -1;
-		array_append(&purged_storages, &prev_storage, 1);
+		array_push_back(&purged_storages, &prev_storage);
 	}
 
 	/* make sure all private storages have been purged */
@@ -108,7 +108,7 @@ cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		if (i == count) {
 			if (ns_purge(_ctx, ns, ns_storage) < 0)
 				ret = -1;
-			array_append(&purged_storages, &ns_storage, 1);
+			array_push_back(&purged_storages, &ns_storage);
 			storages = array_get(&purged_storages, &count);
 		}
 	}

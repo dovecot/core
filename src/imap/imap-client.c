@@ -1536,7 +1536,7 @@ const char *const *client_enabled_features(struct client *client)
 	for (unsigned int idx = 0; idx < count; idx++) {
 		if (client_enabled[idx]) {
 			feature = imap_feature_idx(idx);
-			array_append(&feature_strings, &feature->feature, 1);
+			array_push_back(&feature_strings, &feature->feature);
 		}
 	}
 	array_append_zero(&feature_strings);

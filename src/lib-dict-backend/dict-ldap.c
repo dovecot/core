@@ -82,12 +82,13 @@ dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
 					pat--;
 					if (path[len-1] == '/') {
 						attribute = t_strndup(path, len-1);
-						array_append(values, &attribute, 1);
+						array_push_back(values,
+								&attribute);
 					} else {
-						array_append(values, &path, 1);
+						array_push_back(values, &path);
 					}
 				} else {
-					array_append(values, &path, 1);
+					array_push_back(values, &path);
 					path += len;
 				}
 				*path_len_r = path - path_start;
@@ -98,12 +99,12 @@ dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
 			p = strchr(path, '/');
 			if (p != NULL) {
 				attribute = t_strdup_until(path, p);
-				array_append(values, &attribute, 1);
+				array_push_back(values, &attribute);
 				path = p;
 			} else {
 				/* no '/' anymore, but it'll still match a
 				   partial */
-				array_append(values, &path, 1);
+				array_push_back(values, &path);
 				path += strlen(path);
 				pat++;
 			}
@@ -202,7 +203,7 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 	entry.key = '\0';
 	entry.value = ldap_escape(dict->username);
 	entry.long_key = "username";
-	array_append(&exp, &entry, 1);
+	array_push_back(&exp, &entry);
 
 	if (priv) {
 		template = t_strdup_printf("(&(%s=%s)%s)", map->username_attribute, "%{username}", map->filter);
@@ -217,7 +218,7 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 		entry.value = ldap_escape(*valuep);
 		entry.long_key = *long_keyp;
-		array_append(&exp, &entry, 1);
+		array_push_back(&exp, &entry);
 	}
 
 	array_append_zero(&exp);

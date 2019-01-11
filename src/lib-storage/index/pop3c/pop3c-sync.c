@@ -61,7 +61,7 @@ int pop3c_sync_get_uidls(struct pop3c_mailbox *mbox)
 		}
 
 		cline = p_strdup(mbox->uidl_pool, p);
-		array_append(&uidls, &cline, 1);
+		array_push_back(&uidls, &cline);
 	}
 	i_stream_destroy(&input);
 	if (line != NULL) {

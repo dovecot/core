@@ -1141,7 +1141,7 @@ keyword_update_remove_existing(struct mail_index_transaction *t, uint32_t seq)
 		   really care about performance that much here, */
 		keywords_count = array_count(&t->view->index->keywords);
 		for (i = 0; i < keywords_count; i++)
-			array_append(&keywords, &i, 1);
+			array_push_back(&keywords, &i);
 	} else {
 		mail_index_transaction_lookup_latest_keywords(t, seq, &keywords);
 	}

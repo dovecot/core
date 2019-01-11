@@ -349,9 +349,9 @@ int acl_rights_update_import(struct acl_rights_update *update,
 			if (*right == ':') {
 				/* non-standard right */
 				right++;
-				array_append(dest, &right, 1);
+				array_push_back(dest, &right);
 			} else if (is_standard_right(right)) {
-				array_append(dest, &right, 1);
+				array_push_back(dest, &right);
 			} else {
 				*error_r = t_strdup_printf("Invalid right '%s'",
 							   right);
@@ -359,7 +359,7 @@ int acl_rights_update_import(struct acl_rights_update *update,
 			}
 		} else {
 			for (j = 0; all_mailbox_rights[j] != NULL; j++)
-				array_append(dest, &all_mailbox_rights[j], 1);
+				array_push_back(dest, &all_mailbox_rights[j]);
 		}
 	}
 	if (array_count(&dest_rights) > 0) {
@@ -591,7 +591,7 @@ acl_right_names_parse(pool_t pool, const char *acl, const char **error_r)
 			return NULL;
 		}
 
-		array_append(&rights, &acl_letter_map[i].name, 1);
+		array_push_back(&rights, &acl_letter_map[i].name);
 		acl++;
 	}
 	while (*acl == ' ' || *acl == '\t') acl++;
@@ -606,7 +606,7 @@ acl_right_names_parse(pool_t pool, const char *acl, const char **error_r)
 		names = t_strsplit_spaces(acl + 1, ", \t");
 		for (; *names != NULL; names++) {
 			const char *name = p_strdup(pool, *names);
-			array_append(&rights, &name, 1);
+			array_push_back(&rights, &name);
 		}
 	}
 
@@ -652,11 +652,11 @@ void acl_right_names_merge(pool_t pool, const char *const **destp,
 	t_array_init(&rights, 64);
 	if (dest != NULL) {
 		for (i = 0; dest[i] != NULL; i++)
-			array_append(&rights, &dest[i], 1);
+			array_push_back(&rights, &dest[i]);
 	}
 	if (src != NULL) {
 		for (i = 0; src[i] != NULL; i++)
-			array_append(&rights, &src[i], 1);
+			array_push_back(&rights, &src[i]);
 	}
 
 	*destp = acl_right_names_alloc(pool, &rights, dup_strings);
@@ -691,7 +691,7 @@ bool acl_right_names_modify(pool_t pool,
 					break;
 			}
 			if (modify_rights[j] == NULL)
-				array_append(&rights, &old_rights[i], 1);
+				array_push_back(&rights, &old_rights[i]);
 		}
 		new_rights = &null;
 		modify_rights = array_count(&rights) == 0 ? NULL :

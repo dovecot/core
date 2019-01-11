@@ -657,7 +657,7 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 			   duplicates. */
 			i++;
 		} else {
-			array_append(&retry_cmds, cmdp, 1);
+			array_push_back(&retry_cmds, cmdp);
 			array_delete(&dict->cmds, i, 1);
 		}
 	}

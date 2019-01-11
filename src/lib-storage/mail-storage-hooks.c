@@ -140,7 +140,7 @@ static void mail_user_add_plugin_hooks(struct mail_user *user)
 			if (!str_array_find(plugins, name))
 				continue;
 		}
-		array_append(&tmp_hooks, module_hook, 1);
+		array_push_back(&tmp_hooks, module_hook);
 	}
 
 	/* next we have to sort them by the modules' priority (based on name) */
@@ -150,7 +150,7 @@ static void mail_user_add_plugin_hooks(struct mail_user *user)
 	p_array_init(&user->hooks, user->pool,
 		     array_count(&tmp_hooks) + array_count(&internal_hooks));
 	array_foreach(&tmp_hooks, module_hook)
-		array_append(&user->hooks, &module_hook->hooks, 1);
+		array_push_back(&user->hooks, &module_hook->hooks);
 	array_append_array(&user->hooks, &internal_hooks);
 }
 

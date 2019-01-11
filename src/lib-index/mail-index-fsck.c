@@ -192,7 +192,7 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 			/* duplicate */
 			name = "";
 		}
-		array_append(&names, &name, 1);
+		array_push_back(&names, &name);
 	}
 
 	/* give new names to invalid keywords */
@@ -311,7 +311,7 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 							 ext_hdr, offset,
 							 &next_offset);
 			}
-			array_append(&names, &name, 1);
+			array_push_back(&names, &name);
 			offset = next_offset;
 			continue;
 		}
