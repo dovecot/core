@@ -63,7 +63,7 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 			/* grow down first range */
 			data[0].seq1 = seq;
 		} else {
-			array_insert(array, 0, &value, 1);
+			array_push_front(array, &value);
 		}
 		return FALSE;
 	}
