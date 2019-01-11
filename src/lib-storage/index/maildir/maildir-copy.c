@@ -108,6 +108,9 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 			maildir_save_set_dest_basename(ctx, mf, guid);
 	}
 
+	/* finish copying keywords */
+	maildir_save_finish_keywords(ctx);
+
 	/* remember size/vsize if possible */
 	old_abort = mail->lookup_abort;
 	mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
