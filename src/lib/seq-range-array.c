@@ -245,7 +245,7 @@ bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 		if (data[0].seq1 != data[0].seq2)
 			data[0].seq1++;
 		else
-			array_delete(array, 0, 1);
+			array_pop_front(array);
 		return TRUE;
 	}
 

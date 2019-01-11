@@ -115,7 +115,7 @@ static void director_request_timeout(struct director *dir)
 		i_assert(dir->requests_delayed_count > 0);
 		dir->requests_delayed_count--;
 
-		array_delete(&dir->pending_requests, 0, 1);
+		array_pop_front(&dir->pending_requests);
 		T_BEGIN {
 			request->callback(NULL, NULL, errormsg, request->context);
 		} T_END;
