@@ -1743,7 +1743,7 @@ static int search_more_with_prefetching(struct index_search_context *ctx,
 	mails = array_get(&ctx->mails, &count);
 	*mail_r = mails[0];
 	if (--ctx->unused_mail_idx > 0) {
-		array_delete(&ctx->mails, 0, 1);
+		array_pop_front(&ctx->mails);
 		array_push_back(&ctx->mails, mail_r);
 	}
 	index_mail_update_access_parts_post(*mail_r);
