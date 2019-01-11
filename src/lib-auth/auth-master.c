@@ -605,22 +605,45 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 		conn, t_strdup_printf("userdb lookup(%s): ", user), info);
 	event_add_str(conn->event, "user", user);
 
+	struct event_passthrough *e =
+		event_create_passthrough(conn->event)->
+		set_name("auth_client_userdb_lookup_started");
+	e_debug(e->event(), "Started userdb lookup");
+
 	(void)auth_master_run_cmd(conn, str_c(str));
 
 	if (ctx.return_value <= 0 || ctx.fields[0] == NULL) {
 		*username_r = NULL;
 		*fields_r = ctx.fields != NULL ? ctx.fields :
 			p_new(pool, const char *, 1);
+
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_userdb_lookup_finished");
+
 		if (ctx.return_value > 0) {
-			e_error(conn->event,
+			e->add_str("error", "Lookup didn't return username");
+			e_error(e->event(), "Userdb lookup failed: "
 				"Lookup didn't return username");
 			ctx.return_value = -2;
+		} else if ((*fields_r)[0] == NULL) {
+			e->add_str("error", "Lookup failed");
+			e_debug(e->event(), "Userdb lookup failed");
+		} else {
+			e->add_str("error", (*fields_r)[0]);
+			e_debug(e->event(), "Userdb lookup failed: %s",
+				(*fields_r)[0]);
 		}
 	} else {
 		*username_r = ctx.fields[0];
 		*fields_r = ctx.fields + 1;
-	}
 
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_userdb_lookup_finished");
+		e_debug(e->event(), "Finished userdb lookup (username=%s %s)",
+			*username_r, t_strarray_join(*fields_r, " "));
+	}
 	auth_master_event_finish(conn);
 
 	conn->reply_context = NULL;
@@ -688,11 +711,35 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
 	event_add_str(conn->event, "user", user);
 
+	struct event_passthrough *e =
+		event_create_passthrough(conn->event)->
+		set_name("auth_client_passdb_lookup_started");
+	e_debug(e->event(), "Started passdb lookup");
+
 	(void)auth_master_run_cmd(conn, str_c(str));
 
 	*fields_r = ctx.fields != NULL ? ctx.fields :
 		p_new(pool, const char *, 1);
 
+	if (ctx.return_value <= 0) {
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_passdb_lookup_finished");
+		if ((*fields_r)[0] == NULL) {
+			e->add_str("error", "Lookup failed");
+			e_debug(e->event(), "Passdb lookup failed");
+		} else {
+			e->add_str("error", (*fields_r)[0]);
+			e_debug(e->event(), "Passdb lookup failed: %s",
+				(*fields_r)[0]);
+		}
+	} else {
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_passdb_lookup_finished");
+		e_debug(e->event(), "Finished passdb lookup (%s)",
+			t_strarray_join(*fields_r, " "));
+	}
 	auth_master_event_finish(conn);
 
 	conn->reply_context = NULL;
@@ -744,8 +791,25 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 
 	auth_master_event_create(conn, "auth cache flush: ");
 
+	struct event_passthrough *e =
+		event_create_passthrough(conn->event)->
+		set_name("auth_client_cache_flush_started");
+	e_debug(e->event(), "Started cache flush");
+
 	(void)auth_master_run_cmd(conn, str_c(str));
 
+	if (ctx.failed) {
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_cache_flush_finished");
+		e->add_str("error", "Cache flush failed");
+		e_debug(e->event(), "Cache flush failed");
+	} else {
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_cache_flush_finished");
+		e_debug(e->event(), "Finished cache flush");
+	}
 	auth_master_event_finish(conn);
 
 	conn->reply_context = NULL;
@@ -808,6 +872,11 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 
 	auth_master_user_event_create(conn, "userdb list: ", info);
 
+	struct event_passthrough *e =
+		event_create_passthrough(conn->event)->
+		set_name("auth_client_userdb_list_started");
+	e_debug(e->event(), "Started listing users (user_mask=%s)", user_mask);
+
 	if (auth_master_run_cmd_pre(conn, str_c(str)) < 0)
 		ctx->failed = TRUE;
 	if (conn->prev_ioloop != NULL)
@@ -861,7 +930,21 @@ int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 
 	*_ctx = NULL;
 	auth_master_run_cmd_post(ctx->conn);
+
+	if (ret < 0) {
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_userdb_list_finished");
+		e->add_str("error", "Listing users failed");
+		e_debug(e->event(), "Listing users failed");
+	} else {
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_userdb_list_finished");
+		e_debug(e->event(), "Finished listing users");
+	}
 	auth_master_event_finish(conn);
+
 	str_free(&ctx->username);
 	i_free(ctx);
 	return ret;
