@@ -118,6 +118,7 @@ struct mail_save_context *
 maildir_save_alloc(struct mailbox_transaction_context *_t);
 int maildir_save_begin(struct mail_save_context *ctx, struct istream *input);
 int maildir_save_continue(struct mail_save_context *ctx);
+void maildir_save_finish_keywords(struct mail_save_context *ctx);
 int maildir_save_finish(struct mail_save_context *ctx);
 void maildir_save_cancel(struct mail_save_context *ctx);
 
