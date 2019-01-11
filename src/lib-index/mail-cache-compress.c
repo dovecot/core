@@ -286,7 +286,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			record_count++;
 		}
 
-		array_append(ext_offsets, &ext_offset, 1);
+		array_push_back(ext_offsets, &ext_offset);
 	}
 	i_assert(orig_fields_count == cache->fields_count);
 

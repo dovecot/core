@@ -164,7 +164,7 @@ imap_msgpart_get_header_fields(pool_t pool, const char *header_list,
 			}
 
 			value = p_strdup(pool, t_str_ucase(value));
-			array_append(fields, &value, 1);
+			array_push_back(fields, &value);
 		}
 		/* istream-header-filter requires headers to be sorted */
 		array_sort(fields, i_strcasecmp_p);
@@ -360,7 +360,7 @@ void imap_msgpart_get_wanted_headers(struct imap_msgpart *msgpart,
 		return;
 
 	for (i = 0; msgpart->headers[i] != NULL; i++)
-		array_append(headers, &msgpart->headers[i], 1);
+		array_push_back(headers, &msgpart->headers[i]);
 }
 
 static int

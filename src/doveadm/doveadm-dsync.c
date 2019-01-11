@@ -211,7 +211,7 @@ mirror_get_remote_cmd_line(const char *const *argv,
 	t_array_init(&cmd_args, 16);
 	for (i = 0; argv[i] != NULL; i++) {
 		p = argv[i];
-		array_append(&cmd_args, &p, 1);
+		array_push_back(&cmd_args, &p);
 	}
 
 	if (legacy_dsync) {
@@ -221,7 +221,7 @@ mirror_get_remote_cmd_line(const char *const *argv,
 		/* we're executing doveadm */
 		p = "dsync-server";
 	}
-	array_append(&cmd_args, &p, 1);
+	array_push_back(&cmd_args, &p);
 	array_append_zero(&cmd_args);
 	*cmd_args_r = array_first(&cmd_args);
 }
@@ -270,7 +270,7 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 				continue;
 			value = t_strdup(str_c(str));
 		}
-		array_append(&cmd_args, &value, 1);
+		array_push_back(&cmd_args, &value);
 	}
 	array_append_zero(&cmd_args);
 	return array_first(&cmd_args);

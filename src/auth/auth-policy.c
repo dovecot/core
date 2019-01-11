@@ -192,7 +192,7 @@ void auth_policy_init(void)
 			pair.key = key;
 			pair.value = *ptr;
 			key = NULL;
-			array_append(&attribute_pairs, &pair, 1);
+			array_push_back(&attribute_pairs, &pair);
 		}
 	}
 	if (key != NULL) {

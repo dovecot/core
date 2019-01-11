@@ -226,7 +226,8 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 		if (!config_filter_match_service(mask, filter)) {
 			if (!str_array_contains(&service_names, mask->service) &&
 			    have_changed_settings(ctx->parsers[i], modules))
-				array_append(&service_names, &mask->service, 1);
+				array_push_back(&service_names,
+						&mask->service);
 			continue;
 		}
 
@@ -239,7 +240,7 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 				output_r->used_local = TRUE;
 			if (mask->remote_bits > 0)
 				output_r->used_remote = TRUE;
-			array_append(&matches, &ctx->parsers[i], 1);
+			array_push_back(&matches, &ctx->parsers[i]);
 		}
 	}
 	if (filter->service == NULL) {
@@ -260,7 +261,7 @@ config_filter_get_all(struct config_filter_context *ctx)
 
 	t_array_init(&filters, 8);
 	for (i = 0; ctx->parsers[i] != NULL; i++) {
-		array_append(&filters, &ctx->parsers[i], 1);
+		array_push_back(&filters, &ctx->parsers[i]);
 	}
 	array_sort(&filters, config_filter_parser_cmp_rev);
 	array_append_zero(&filters);
@@ -293,7 +294,7 @@ config_filter_find_subset(struct config_filter_context *ctx,
 			tmp_mask.remote_bits = 0;
 
 		if (config_filter_match_rest(&tmp_mask, filter))
-			array_append(&matches, &ctx->parsers[i], 1);
+			array_push_back(&matches, &ctx->parsers[i]);
 	}
 	array_sort(&matches, config_filter_parser_cmp_rev);
 	array_append_zero(&matches);

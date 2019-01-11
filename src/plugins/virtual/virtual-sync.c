@@ -638,7 +638,7 @@ virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 
 			if (ctx->mbox->uids_mapped) {
 				rec.rec.real_uid = add_uid;
-				array_append(&ctx->all_adds, &rec, 1);
+				array_push_back(&ctx->all_adds, &rec);
 			}
 		}
 	}

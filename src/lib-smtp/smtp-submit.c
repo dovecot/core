@@ -365,18 +365,18 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	i_assert(sendmail_args[0] != NULL);
 	sendmail_bin = sendmail_args[0];
 	for (i = 1; sendmail_args[i] != NULL; i++)
-		array_append(&args, &sendmail_args[i], 1);
+		array_push_back(&args, &sendmail_args[i]);
 
-	str = "-i"; array_append(&args, &str, 1); /* ignore dots */
-	str = "-f"; array_append(&args, &str, 1);
+	str = "-i"; array_push_back(&args, &str); /* ignore dots */
+	str = "-f"; array_push_back(&args, &str);
 	str = !smtp_address_isnull(subm->mail_from) ?
 		smtp_address_encode(subm->mail_from) : "<>";
-	array_append(&args, &str, 1);
+	array_push_back(&args, &str);
 
-	str = "--"; array_append(&args, &str, 1);
+	str = "--"; array_push_back(&args, &str);
 	array_foreach(&subm->rcpt_to, rcptp) {
 		const char *rcpt = smtp_address_encode(*rcptp);
-		array_append(&args, &rcpt, 1);
+		array_push_back(&args, &rcpt);
 	}
 	array_append_zero(&args);
 

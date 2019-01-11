@@ -273,7 +273,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 			}
 		} else {
 			/* keyword validity checks are done by lib-storage */
-			array_append(&keywords, &atom, 1);
+			array_push_back(&keywords, &atom);
 		}
 
 		args++;
@@ -356,7 +356,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 		unsigned int kw_index = *kw_indexes;
 
 		i_assert(kw_index < all_count);
-		array_append(dest, &all_names[kw_index], 1);
+		array_push_back(dest, &all_names[kw_index]);
 	}
 
 	array_append_zero(dest);

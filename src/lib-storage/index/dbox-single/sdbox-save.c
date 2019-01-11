@@ -164,7 +164,7 @@ static int dbox_save_mail_write_metadata(struct dbox_save_context *ctx,
 		for (i = 0; i < count; i++) {
 			const char *path = p_strdup(sfile->attachment_pool,
 						    extrefs[i].path);
-			array_append(&sfile->attachment_paths, &path, 1);
+			array_push_back(&sfile->attachment_paths, &path);
 		}
 	}
 	return 0;

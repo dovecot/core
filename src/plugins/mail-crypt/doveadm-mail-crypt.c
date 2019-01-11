@@ -145,7 +145,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 		if (ret == 1) {
 			ARRAY_TYPE(dcrypt_private_key) keys;
 			t_array_init(&keys, 1);
-			array_append(&keys, &key, 1);
+			array_push_back(&keys, &key);
 			ret = mail_crypt_box_share_private_keys(t, pkey,
 								dest_username,
 								&keys, error_r);

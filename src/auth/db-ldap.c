@@ -632,7 +632,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	t_array_init(&var_funcs_table, 8);
 
 	for(ptr = auth_request_var_funcs_table; ptr->key != NULL; ptr++) {
-		array_append(&var_funcs_table, ptr, 1);
+		array_push_back(&var_funcs_table, ptr);
 	}
 	ftable = array_append_space(&var_funcs_table);
 	ftable->key = "ldap";
@@ -664,7 +664,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 			    strcmp(p+1, named_res->field->name) == 0) {
 				name = p_strdup_until(unsafe_data_stack_pool,
 						      field->ldap_attr_name, p);
-				array_append(&ctx.attr_names, &name, 1);
+				array_push_back(&ctx.attr_names, &name);
 			}
 		}
 	}
@@ -1462,7 +1462,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			if (*ldap_attr != '\0' &&
 			    strchr(ldap_attr, '@') == NULL) {
 				/* root request's attribute */
-				array_append(&ctx.attr_names, &ldap_attr, 1);
+				array_push_back(&ctx.attr_names, &ldap_attr);
 			}
 		}
 	}

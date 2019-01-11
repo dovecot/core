@@ -134,8 +134,8 @@ msgnum_to_seq_map_add(ARRAY_TYPE(uint32_t) *msgnum_to_seq_map,
 	   a POP3 order defined */
 	seq = array_count(msgnum_to_seq_map) + 1;
 	for (; seq <= msgnum; seq++)
-		array_append(msgnum_to_seq_map, &seq, 1);
-	array_append(msgnum_to_seq_map, &mail->seq, 1);
+		array_push_back(msgnum_to_seq_map, &seq);
+	array_push_back(msgnum_to_seq_map, &mail->seq);
 }
 
 static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
@@ -198,7 +198,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 		if (client->highest_seq < mail->seq)
 			client->highest_seq = mail->seq;
 
-		array_append(&message_sizes, &size, 1);
+		array_push_back(&message_sizes, &size);
 		msgnum++;
 	}
 

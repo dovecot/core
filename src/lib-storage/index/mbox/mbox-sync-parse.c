@@ -302,7 +302,7 @@ static bool parse_x_keywords_real(struct mbox_sync_mail_context *ctx,
 		}
 
 		if (i == count)
-			array_append(&keyword_list, &idx, 1);
+			array_push_back(&keyword_list, &idx);
 	}
 
 	/* once we know how many keywords there are, we can allocate the array

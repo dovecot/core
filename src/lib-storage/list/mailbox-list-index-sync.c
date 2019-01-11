@@ -140,7 +140,7 @@ get_existing_name_ids(ARRAY_TYPE(uint32_t) *ids,
 	for (; node != NULL; node = node->next) {
 		if (node->children != NULL)
 			get_existing_name_ids(ids, node->children);
-		array_append(ids, &node->name_id, 1);
+		array_push_back(ids, &node->name_id);
 	}
 }
 

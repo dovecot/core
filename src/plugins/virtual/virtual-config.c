@@ -266,7 +266,7 @@ separate_wildcard_mailboxes(struct virtual_mailbox *mbox,
 		}
 
 		if (dest != NULL) {
-			array_append(dest, &bboxes[i], 1);
+			array_push_back(dest, &bboxes[i]);
 			array_delete(&mbox->backend_boxes, i, 1);
 			bboxes = array_get_modifiable(&mbox->backend_boxes,
 						      &count);

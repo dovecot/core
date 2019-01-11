@@ -354,14 +354,14 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			/* "strlist=" */
 			str = p_strdup_printf(ctx->pool, "%s/",
 					      t_strcut(strings[i]+1, '='));
-			array_append(&prefixes_arr, &str, 1);
+			array_push_back(&prefixes_arr, &str);
 		} else {
 			/* string is in format: "list=0 1 2" */
 			for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
 				str = p_strdup_printf(ctx->pool, "%s/%s/",
 						      t_strcut(strings[i]+1, '='),
 						      *args);
-				array_append(&prefixes_arr, &str, 1);
+				array_push_back(&prefixes_arr, &str);
 			}
 		}
 	} T_END;
@@ -421,7 +421,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					str_len(ctx->list_prefix);
 				prefix_idx = j;
 				prefix.prefix_idx = prefix_idx;
-				array_append(&prefix_stack, &prefix, 1);
+				array_push_back(&prefix_stack, &prefix);
 
 				str_append_max(ctx->list_prefix, indent_str, indent*2);
 				p = strchr(key2, '/');
@@ -912,7 +912,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'm':
 			module = t_strdup(optarg);
-			array_append(&module_names, &module, 1);
+			array_push_back(&module_names, &module);
 			break;
 		case 'n':
 			scope = CONFIG_DUMP_SCOPE_CHANGED;

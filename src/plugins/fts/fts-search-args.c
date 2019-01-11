@@ -67,9 +67,9 @@ fts_backend_dovecot_expand_tokens(struct fts_filter *filter,
 
 	t_array_init(&tokens, 4);
 	/* first add the word exactly as it without any tokenization */
-	array_append(&tokens, &orig_token, 1);
+	array_push_back(&tokens, &orig_token);
 	/* then add it tokenized, but without filtering */
-	array_append(&tokens, &token, 1);
+	array_push_back(&tokens, &token);
 
 	/* add the word filtered */
 	if (filter != NULL) {
@@ -77,7 +77,7 @@ fts_backend_dovecot_expand_tokens(struct fts_filter *filter,
 		ret = fts_filter_filter(filter, &token2, &error);
 		if (ret > 0) {
 			token2 = t_strdup(token2);
-			array_append(&tokens, &token2, 1);
+			array_push_back(&tokens, &token2);
 		} else if (ret < 0) {
 			*error_r = t_strdup_printf("Couldn't filter search token: %s", error);
 			return -1;

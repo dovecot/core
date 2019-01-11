@@ -501,7 +501,7 @@ static void admin_read_hosts(struct admin_connection *conn)
 			    str_to_uint(args[1], &host->vhost_count) < 0)
 				i_fatal("host list broken");
 			hash_table_insert(hosts, &host->ip, host);
-			array_append(&hosts_array, &host, 1);
+			array_push_back(&hosts_array, &host);
 		} T_END;
 	}
 	if (line == NULL)

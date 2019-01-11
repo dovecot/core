@@ -375,7 +375,7 @@ import_send_expunges(struct client *client,
 		while (seq_range_array_iter_nth(&iter, n, &expunged_uid) &&
 		       expunged_uid < mail->uid && seq < state->messages) {
 			seq++; n++;
-			array_append(&expunged_seqs, &seq, 1);
+			array_push_back(&expunged_seqs, &seq);
 			crc = crc32_data_more(crc, &expunged_uid,
 					      sizeof(expunged_uid));
 		}
@@ -388,7 +388,7 @@ import_send_expunges(struct client *client,
 	while (seq_range_array_iter_nth(&iter, n, &expunged_uid) &&
 	       seq < state->messages) {
 		seq++; n++;
-		array_append(&expunged_seqs, &seq, 1);
+		array_push_back(&expunged_seqs, &seq);
 		crc = crc32_data_more(crc, &expunged_uid,
 				      sizeof(expunged_uid));
 	}

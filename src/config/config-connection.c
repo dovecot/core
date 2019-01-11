@@ -84,7 +84,7 @@ static int config_connection_request(struct config_connection *conn,
 			module = *args + 7;
 			if (strcmp(module, "master") == 0)
 				is_master = TRUE;
-			array_append(&modules, &module, 1);
+			array_push_back(&modules, &module);
 		} else if (str_begins(*args, "lname="))
 			filter.local_name = *args + 6;
 		else if (str_begins(*args, "lip=")) {

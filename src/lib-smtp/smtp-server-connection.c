@@ -916,7 +916,7 @@ smtp_server_connection_alloc(struct smtp_server *server,
 			     str_array_length(set->mail_param_extensions) + 8);
 		for (extp = set->mail_param_extensions; *extp != NULL; extp++) {
 			const char *ext = p_strdup(pool, *extp);
-			array_append(&conn->mail_param_extensions, &ext, 1);
+			array_push_back(&conn->mail_param_extensions, &ext);
 		}
 		array_append_zero(&conn->mail_param_extensions);
 	}
@@ -927,7 +927,7 @@ smtp_server_connection_alloc(struct smtp_server *server,
 			     str_array_length(set->rcpt_param_extensions) + 8);
 		for (extp = set->rcpt_param_extensions; *extp != NULL; extp++) {
 			const char *ext = p_strdup(pool, *extp);
-			array_append(&conn->rcpt_param_extensions, &ext, 1);
+			array_push_back(&conn->rcpt_param_extensions, &ext);
 		}
 		array_append_zero(&conn->rcpt_param_extensions);
 	}

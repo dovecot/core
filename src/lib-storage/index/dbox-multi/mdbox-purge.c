@@ -371,7 +371,7 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file,
 			ret = mdbox_purge_save_msg(ctx, file, &msgs[i]);
 			if (ret <= 0)
 				break;
-			array_append(&copied_map_uids, &msgs[i].map_uid, 1);
+			array_push_back(&copied_map_uids, &msgs[i].map_uid);
 		}
 		offset = file->input->v_offset;
 	}

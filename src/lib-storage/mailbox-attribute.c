@@ -167,7 +167,7 @@ mailbox_internal_attributes_get(enum mail_attribute_type type,
 			}
 		}
 		if (have_dict || regs[i].rank == MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY)
-			array_append(attrs, &key, 1);
+			array_push_back(attrs, &key);
 	}
 }
 
@@ -407,7 +407,7 @@ mailbox_attribute_iter_init(struct mailbox *box,
 		    strncmp(*attr, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
 			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
 			continue;
-		array_append(&intiter->extra_attrs, attr, 1);
+		array_push_back(&intiter->extra_attrs, attr);
 	}
 	return &intiter->iter;
 }

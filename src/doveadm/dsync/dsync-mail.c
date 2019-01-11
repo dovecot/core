@@ -128,7 +128,7 @@ const_string_array_dup(pool_t pool, const ARRAY_TYPE(const_string) *src,
 	p_array_init(dest, pool, count);
 	for (i = 0; i < count; i++) {
 		str = p_strdup(pool, strings[i]);
-		array_append(dest, &str, 1);
+		array_push_back(dest, &str);
 	}
 }
 

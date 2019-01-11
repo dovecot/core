@@ -928,7 +928,7 @@ int uri_parse_path(struct uri_parser *parser,
 
 		if (segment != NULL) {
 			if (path_r != NULL)
-				array_append(&segments, &segment, 1);
+				array_push_back(&segments, &segment);
 			count++;
 		}
 
@@ -955,7 +955,7 @@ int uri_parse_path(struct uri_parser *parser,
 		/* special treatment for a trailing '..' or '.' */
 		if (segment == NULL) {
 			segment = "";
-			array_append(&segments, &segment, 1);
+			array_push_back(&segments, &segment);
 		}
 		array_append_zero(&segments);
 		*path_r = array_get(&segments, &count);

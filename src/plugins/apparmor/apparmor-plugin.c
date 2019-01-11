@@ -68,12 +68,12 @@ static void apparmor_mail_user_created(struct mail_user *user)
 		return;
 
 	t_array_init(&hats, 8);
-	array_append(&hats, &hat, 1);
+	array_push_back(&hats, &hat);
 	for(unsigned int i = 2;; i++) {
 		hat = mail_user_plugin_getenv(user, t_strdup_printf("%s%u",
 				APPARMOR_PLUGIN_SETTING_HAT_PREFIX, i));
 		if (hat == NULL) break;
-		array_append(&hats, &hat, 1);
+		array_push_back(&hats, &hat);
 	}
 	array_append_zero(&hats);
 

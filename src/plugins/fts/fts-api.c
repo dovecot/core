@@ -267,7 +267,7 @@ fts_merge_maybies(ARRAY_TYPE(seq_range) *dest_maybe,
 	/* create unwanted sequences list from both sources */
 	t_array_init(&src_unwanted, 128);
 	new_range.seq1 = 0; new_range.seq2 = (uint32_t)-1;
-	array_append(&src_unwanted, &new_range, 1);
+	array_push_back(&src_unwanted, &new_range);
 	seq_range_array_remove_seq_range(&src_unwanted, src_maybe);
 	seq_range_array_remove_seq_range(&src_unwanted, src_definite);
 

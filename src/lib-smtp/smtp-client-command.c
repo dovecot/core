@@ -344,7 +344,7 @@ void smtp_client_commands_list_abort(struct smtp_client_command *cmds_list,
 	t_array_init(&cmds_arr, cmds_list_count);
 	for (cmd = cmds_list; cmd != NULL; cmd = cmd->next) {
 		smtp_client_command_ref(cmd);
-		array_append(&cmds_arr, &cmd, 1);
+		array_push_back(&cmds_arr, &cmd);
 	}
 
 	cmds = array_get_modifiable(&cmds_arr, &count);
@@ -375,7 +375,7 @@ void smtp_client_commands_list_fail_reply(
 	t_array_init(&cmds_arr, cmds_list_count);
 	for (cmd = cmds_list; cmd != NULL; cmd = cmd->next) {
 		smtp_client_command_ref(cmd);
-		array_append(&cmds_arr, &cmd, 1);
+		array_push_back(&cmds_arr, &cmd);
 	}
 
 	cmds = array_get_modifiable(&cmds_arr, &count);

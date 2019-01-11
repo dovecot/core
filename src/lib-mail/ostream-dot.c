@@ -165,7 +165,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 					/* forward chunk to new iovec */
 					iovn.iov_base = data;
 					iovn.iov_len = chunk;
-					array_append(&iov_arr, &iovn, 1);
+					array_push_back(&iov_arr, &iovn);
 					data = p;
 					max_bytes -= chunk;
 					sent += chunk;
@@ -174,7 +174,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 				data++;
 				iovn.iov_base = (add == '\r' ? "\r\n" : "..");
 				iovn.iov_len = 2;
-				array_append(&iov_arr, &iovn, 1);
+				array_push_back(&iov_arr, &iovn);
 				max_bytes -= 2;
 				added++;
 				sent++;
@@ -188,7 +188,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 		if (chunk > 0) {
 			iovn.iov_base = data;
 			iovn.iov_len = chunk;
-			array_append(&iov_arr, &iovn, 1);
+			array_push_back(&iov_arr, &iovn);
 			max_bytes -= chunk;
 			sent += chunk;
 		}

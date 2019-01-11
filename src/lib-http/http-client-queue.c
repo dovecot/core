@@ -715,7 +715,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 				&ioloop_timeval, TIMEOUT_CMP_MARGIN_USECS) > 0) {
 			break;
 		}
-		array_append(&failed_requests, &reqs[i], 1);
+		array_push_back(&failed_requests, &reqs[i]);
 	}
 
 	/* update timeout */

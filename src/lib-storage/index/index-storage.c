@@ -497,7 +497,7 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 		field.decision = updates[i].decision;
 		if (updates[i].last_used != (time_t)-1)
 			field.last_used = updates[i].last_used;
-		array_append(&new_fields, &field, 1);
+		array_push_back(&new_fields, &field);
 	}
 	if (array_count(&new_fields) > 0) {
 		mail_cache_register_fields(box->cache,

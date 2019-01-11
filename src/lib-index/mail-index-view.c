@@ -329,7 +329,7 @@ mail_index_data_lookup_keywords(struct mail_index_map *map,
 			}
 
 			index_idx = keyword_idx_map[idx];
-			array_append(keyword_idx, &index_idx, 1);
+			array_push_back(keyword_idx, &index_idx);
 		}
 	}
 }

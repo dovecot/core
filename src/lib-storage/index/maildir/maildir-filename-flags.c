@@ -49,8 +49,8 @@ void maildir_filename_flags_get(struct maildir_keywords_sync_ctx *ctx,
 					break;
 				}
 
-				array_append(keywords_r,
-					     (unsigned int *)&idx, 1);
+				array_push_back(keywords_r,
+						(unsigned int *)&idx);
 				break;
 			}
 

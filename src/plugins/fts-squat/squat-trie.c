@@ -1139,7 +1139,7 @@ squat_trie_iterate_next(struct squat_trie_iterate_context *ctx,
 			return squat_trie_iterate_next(ctx, shifts_r);
 		}
 	}
-	array_append(&ctx->parents, &ctx->cur, 1);
+	array_push_back(&ctx->parents, &ctx->cur);
 	ctx->cur.node = &children[ctx->cur.idx-1];
 	ctx->cur.idx = 0;
 	if (shift_count != 0)
@@ -1865,12 +1865,12 @@ squat_trie_filter_type(enum squat_index_type type,
 			if (next_seq == new_range.seq2 + 1) {
 				/* we can continue the previous range */
 			} else {
-				array_append(dest, &new_range, 1);
+				array_push_back(dest, &new_range);
 				new_range.seq1 = src_range[i].seq1 / 2;
 			}
 			new_range.seq2 = src_range[i].seq2 / 2;
 		}
-		array_append(dest, &new_range, 1);
+		array_push_back(dest, &new_range);
 		return;
 	}
 
@@ -1951,7 +1951,7 @@ static void squat_trie_add_unknown(struct squat_trie *trie,
 	} else {
 		new_range.seq1 = last_uid + 1;
 		new_range.seq2 = (uint32_t)-1;
-		array_append(maybe_uids, &new_range, 1);
+		array_push_back(maybe_uids, &new_range);
 	}
 }
 

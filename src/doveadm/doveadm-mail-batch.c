@@ -116,7 +116,7 @@ cmd_batch_preinit(struct doveadm_mail_cmd_context *_ctx)
 	p_array_init(&sep_args, _ctx->pool, 16);
 	for (i = start = 0;; i++) {
 		if (args[i] != NULL && strcmp(args[i], sep) != 0) {
-			array_append(&sep_args, &args[i], 1);
+			array_push_back(&sep_args, &args[i]);
 			continue;
 		}
 		if (i > start) {

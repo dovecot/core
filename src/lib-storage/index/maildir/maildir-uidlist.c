@@ -563,7 +563,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 
 	rec->filename = p_strdup(uidlist->record_pool, line);
 	hash_table_update(uidlist->files, rec->filename, rec);
-	array_append(&uidlist->records, &rec, 1);
+	array_push_back(&uidlist->records, &rec);
 	return TRUE;
 }
 
@@ -1365,7 +1365,7 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 			   syncing it here. ignore this entry. */
 			seq++;
 		} else {
-			array_append(&new_records, &recs[i], 1);
+			array_push_back(&new_records, &recs[i]);
 			seq++; i++;
 		}
 	}
@@ -1378,7 +1378,7 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 	/* view might not be completely up-to-date, so preserve any
 	   messages left */
 	for (; i < count; i++)
-		array_append(&new_records, &recs[i], 1);
+		array_push_back(&new_records, &recs[i]);
 
 	array_free(&uidlist->records);
 	uidlist->records = new_records;

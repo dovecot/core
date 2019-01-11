@@ -1051,7 +1051,7 @@ static void keywords_append(ARRAY_TYPE(const_string) *dest,
 			continue;
 
 		namep = array_idx(keywords, start_idx+i);
-		array_append(dest, namep, 1);
+		array_push_back(dest, namep);
 	}
 }
 
@@ -1108,7 +1108,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 	for (i = 0; i < count; i++) {
 		name = changes[i]+1;
 		name_idx = array_count(&all_keywords);
-		array_append(&all_keywords, &name, 1);
+		array_push_back(&all_keywords, &name);
 
 		switch (changes[i][0]) {
 		case KEYWORD_CHANGE_ADD:
@@ -1138,7 +1138,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 		name = changes[i]+1;
 		if (!keyword_find(&all_keywords, name, &name_idx)) {
 			name_idx = array_count(&all_keywords);
-			array_append(&all_keywords, &name, 1);
+			array_push_back(&all_keywords, &name);
 		}
 
 		switch (changes[i][0]) {
@@ -1157,7 +1157,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 		name = local_keywords[i];
 		if (!keyword_find(&all_keywords, name, &name_idx)) {
 			name_idx = array_count(&all_keywords);
-			array_append(&all_keywords, &name, 1);
+			array_push_back(&all_keywords, &name);
 		}
 		local_final[name_idx/32] |= 1U << (name_idx%32);
 	}
@@ -1220,7 +1220,7 @@ dsync_mailbox_import_replace_flags(struct mail *mail,
 		case KEYWORD_CHANGE_FINAL:
 		case KEYWORD_CHANGE_ADD_AND_FINAL:
 			name = changes[i]+1;
-			array_append(&keywords, &name, 1);
+			array_push_back(&keywords, &name);
 			break;
 		case KEYWORD_CHANGE_REMOVE:
 			break;
@@ -2317,7 +2317,7 @@ dsync_mailbox_get_final_keywords(const struct dsync_mail_change *change)
 		    changes[i][0] == KEYWORD_CHANGE_ADD_AND_FINAL) {
 			const char *name = changes[i]+1;
 
-			array_append(&keywords, &name, 1);
+			array_push_back(&keywords, &name);
 		}
 	}
 	if (array_count(&keywords) == 0)
@@ -2769,7 +2769,7 @@ dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer, bool final)
 		} T_END;
 		seq_range_array_iter_init(&iter, &changes.saved_uids); n = 0;
 		while (seq_range_array_iter_nth(&iter, n++, &uid))
-			array_append(&importer->saved_uids, &uid, 1);
+			array_push_back(&importer->saved_uids, &uid);
 		pool_unref(&changes.pool);
 
 		/* commit flag changes and expunges */

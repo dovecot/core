@@ -198,7 +198,7 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 
 	if (ret > 0) {
 		acllist.name = p_strdup(backend->acllist_pool, name);
-		array_append(&backend->acllist, &acllist, 1);
+		array_push_back(&backend->acllist, &acllist);
 
 		T_BEGIN {
 			const char *line;

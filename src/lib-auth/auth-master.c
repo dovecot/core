@@ -179,9 +179,9 @@ static const char *const *args_hide_passwords(const char *const *args)
 		if (p != NULL && p < p2) {
 			p = t_strconcat(t_strdup_until(args[i], p2),
 					"=<hidden>", NULL);
-			array_append(&new_args, &p, 1);
+			array_push_back(&new_args, &p);
 		} else {
-			array_append(&new_args, &args[i], 1);
+			array_push_back(&new_args, &args[i]);
 		}
 	}
 	array_append_zero(&new_args);

@@ -54,7 +54,7 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 				array_clear(patterns);
 				return FALSE;
 			}
-			array_append(patterns, &args->value.str, 1);
+			array_push_back(patterns, &args->value.str);
 			break;
 		case SEARCH_MAILBOX_GUID:
 			*have_guid = TRUE;

@@ -120,7 +120,7 @@ int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output)
 		}
                 input += len;
 
-		array_append(output, &chr, 1);
+		array_push_back(output, &chr);
 	}
 	return 0;
 }
@@ -136,7 +136,7 @@ int uni_utf8_to_ucs4_n(const unsigned char *input, size_t size,
 			return -1; /* invalid input */
 		input += len; size -= len;
 
-		array_append(output, &chr, 1);
+		array_push_back(output, &chr);
 	}
 	return 0;
 }

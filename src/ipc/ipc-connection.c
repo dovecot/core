@@ -244,7 +244,7 @@ void ipc_connection_cmd(struct ipc_connection *conn, const char *cmd,
 	ipc_cmd->conn = conn;
 	ipc_cmd->callback = callback;
 	ipc_cmd->context = context;
-	array_append(&conn->cmds, &ipc_cmd, 1);
+	array_push_back(&conn->cmds, &ipc_cmd);
 
 	T_BEGIN {
 		o_stream_nsend_str(conn->output,

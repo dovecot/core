@@ -173,7 +173,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 			envname = t_strdup_until(*args+4, p);
 
 			if (str_array_find(accepted_envs, envname))
-				array_append(&envs, &env, 1);
+				array_push_back(&envs, &env);
 			args++;
 		}
 		if (strcmp(*args, "noreply") == 0) {
@@ -255,7 +255,7 @@ int main(int argc, char *argv[])
 		case 'e':
 			envs = t_strsplit_spaces(optarg,", \t");
 			while (*envs != NULL) {
-				array_append(&aenvs, envs, 1);
+				array_push_back(&aenvs, envs);
 				envs++;
 			}
 			break;
@@ -284,11 +284,11 @@ int main(int argc, char *argv[])
 		binary = t_strconcat(PKG_LIBEXECDIR"/", argv[0], NULL);
 
 	i_array_init(&exec_args, argc + 16);
-	array_append(&exec_args, &binary, 1);
+	array_push_back(&exec_args, &binary);
 	for (i = 1; i < argc; i++) {
 		const char *arg = argv[i];
 
-		array_append(&exec_args, &arg, 1);
+		array_push_back(&exec_args, &arg);
 	}
 
 	master_service_run(master_service, client_connected);

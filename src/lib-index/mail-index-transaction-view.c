@@ -270,7 +270,7 @@ static void keyword_index_add(ARRAY_TYPE(keyword_indexes) *keywords,
 		if (indexes[i] == idx)
 			return;
 	}
-	array_append(keywords, &idx, 1);
+	array_push_back(keywords, &idx);
 }
 
 static void keyword_index_remove(ARRAY_TYPE(keyword_indexes) *keywords,

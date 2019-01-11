@@ -177,7 +177,7 @@ static const char *const *doveadm_expire_get_patterns(void)
 	t_array_init(&patterns, 16);
 	str = doveadm_plugin_getenv("expire");
 	for (i = 2; str != NULL; i++) {
-		array_append(&patterns, &str, 1);
+		array_push_back(&patterns, &str);
 
 		if (i_snprintf(set_name, sizeof(set_name), "expire%u", i) < 0)
 			i_unreached();

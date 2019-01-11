@@ -489,7 +489,7 @@ void services_monitor_start(struct service_list *service_list)
 				       service_status_input, service);
 		}
 		service_monitor_listen_start(service);
-		array_append(&listener_services, &service, 1);
+		array_push_back(&listener_services, &service);
 	}
 
 	/* create processes only after adding all listeners */

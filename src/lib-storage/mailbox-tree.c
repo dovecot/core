@@ -314,7 +314,7 @@ static void mailbox_tree_sort_branch(struct mailbox_node **nodes,
 	/* first put the nodes into an array and sort it */
 	array_clear(tmparr);
 	for (node = *nodes; node != NULL; node = node->next)
-		array_append(tmparr, &node, 1);
+		array_push_back(tmparr, &node);
 	array_sort(tmparr, mailbox_node_name_cmp);
 
 	/* update the node pointers */

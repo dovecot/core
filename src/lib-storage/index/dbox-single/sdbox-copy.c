@@ -79,8 +79,8 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 				fs_last_error(dest_storage->attachment_fs));
 			ret = -1;
 		} else {
-			array_append(&dest_file->attachment_paths,
-				     &dest_relpath, 1);
+			array_push_back(&dest_file->attachment_paths,
+					&dest_relpath);
 		}
 		fs_file_deinit(&src_fsfile);
 		fs_file_deinit(&dest_fsfile);
