@@ -468,6 +468,9 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 	if (args != NULL)
 		pclient->args = p_strarray_dup(pool, args);
 	pclient->set = *set;
+	pclient->set.dns_client_socket_path =
+		p_strdup(pool, set->dns_client_socket_path);
+	pclient->set.home = p_strdup(pool, set->home);
 	pclient->debug = set->debug;
 	pclient->fd_in = -1;
 	pclient->fd_out = -1;
