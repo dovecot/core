@@ -603,12 +603,13 @@ void smtp_client_transaction_ref(struct smtp_client_transaction *trans)
 void smtp_client_transaction_unref(struct smtp_client_transaction **_trans)
 {
 	struct smtp_client_transaction *trans = *_trans;
-	struct smtp_client_connection *conn = trans->conn;
+	struct smtp_client_connection *conn;
 
 	*_trans = NULL;
 
 	if (trans == NULL)
 		return;
+	conn = trans->conn;
 
 	i_assert(trans->refcount > 0);
 	if (--trans->refcount > 0)
