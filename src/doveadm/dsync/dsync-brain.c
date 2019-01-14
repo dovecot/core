@@ -366,8 +366,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain, enum mail_error *error_r)
 		dsync_mailbox_tree_deinit(&brain->local_mailbox_tree);
 	if (brain->remote_mailbox_tree != NULL)
 		dsync_mailbox_tree_deinit(&brain->remote_mailbox_tree);
-	if (brain->mailbox_states_iter != NULL)
-		hash_table_iterate_deinit(&brain->mailbox_states_iter);
+	hash_table_iterate_deinit(&brain->mailbox_states_iter);
 	hash_table_destroy(&brain->mailbox_states);
 
 	pool_unref(&brain->dsync_box_pool);
