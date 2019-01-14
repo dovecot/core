@@ -38,7 +38,7 @@ mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 		return;
 	}
 	uids = t_new(struct seq_range, count);
-	memcpy(uids, array_first(&arg->value.seqset), sizeof(*uids) * count);
+	memcpy(uids, array_front(&arg->value.seqset), sizeof(*uids) * count);
 
 	/* put them back to the range as sequences */
 	array_clear(&arg->value.seqset);

@@ -245,12 +245,12 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 	}
 	if (filter->service == NULL) {
 		array_append_zero(&service_names);
-		output_r->specific_services = array_first(&service_names);
+		output_r->specific_services = array_front(&service_names);
 	}
 
 	array_sort(&matches, config_filter_parser_cmp);
 	array_append_zero(&matches);
-	return array_first(&matches);
+	return array_front(&matches);
 }
 
 struct config_filter_parser *const *
@@ -265,7 +265,7 @@ config_filter_get_all(struct config_filter_context *ctx)
 	}
 	array_sort(&filters, config_filter_parser_cmp_rev);
 	array_append_zero(&filters);
-	return array_first(&filters);
+	return array_front(&filters);
 }
 
 struct config_filter_parser *const *
@@ -298,7 +298,7 @@ config_filter_find_subset(struct config_filter_context *ctx,
 	}
 	array_sort(&matches, config_filter_parser_cmp_rev);
 	array_append_zero(&matches);
-	return array_first(&matches);
+	return array_front(&matches);
 }
 
 static bool

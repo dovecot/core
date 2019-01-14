@@ -188,7 +188,7 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 	}
 	dbox_save_end(&ctx->ctx);
 
-	files = array_last_modifiable(&ctx->files);
+	files = array_back_modifiable(&ctx->files);
 	if (!ctx->ctx.failed) T_BEGIN {
 		if (dbox_save_mail_write_metadata(&ctx->ctx, *files) < 0)
 			ctx->ctx.failed = TRUE;

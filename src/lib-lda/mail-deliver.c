@@ -396,7 +396,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 			   later on. */
 			i_assert(array_count(&changes.saved_uids) == 1);
 			const struct seq_range *range =
-				array_first(&changes.saved_uids);
+				array_front(&changes.saved_uids);
 			i_assert(range->seq1 == range->seq2);
 			ctx->dest_mail = mail_deliver_open_mail(box, range->seq1,
 				MAIL_FETCH_STREAM_BODY | MAIL_FETCH_GUID, &t);
@@ -653,7 +653,7 @@ mail_deliver_transaction_commit(struct mailbox_transaction_context *ctx,
 
 	if (array_count(&changes_r->saved_uids) > 0) {
 		const struct seq_range *range =
-			array_first(&changes_r->saved_uids);
+			array_front(&changes_r->saved_uids);
 
 		mail_deliver_cache_update_post_commit(box, range->seq1);
 	}

@@ -246,7 +246,7 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 		if (line[0] != '*' || str_to_uint(line+1, &num_replies) < 0)
 			break;
 
-		reply = array_first_modifiable(&dict->replies);
+		reply = array_front_modifiable(&dict->replies);
 		i_assert(reply->reply_count > 0);
 		if (reply->reply_count != num_replies) {
 			*error_r = t_strdup_printf(
@@ -259,7 +259,7 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 		if (*line != '+' && *line != ':')
 			break;
 		/* success, just ignore the actual reply */
-		reply = array_first_modifiable(&dict->replies);
+		reply = array_front_modifiable(&dict->replies);
 		i_assert(reply->reply_count > 0);
 		if (--reply->reply_count == 0) {
 			const struct dict_commit_result result = {

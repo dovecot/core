@@ -45,7 +45,7 @@ int ldap_entry_init(struct ldap_entry *obj, struct ldap_result *result,
 	ber_free(bptr, 0);
 
 	array_append_zero(&attr_names);
-	obj->attr_names = array_first(&attr_names);
+	obj->attr_names = array_front(&attr_names);
 
 	return 0;
 }
@@ -65,7 +65,7 @@ const char *const *ldap_entry_get_attribute(const struct ldap_entry *entry, cons
 	const struct ldap_attribute *attr;
 	array_foreach(&entry->attributes, attr) {
 		if (strcasecmp(attr->name, attribute) == 0) {
-			return array_first(&attr->values);
+			return array_front(&attr->values);
 		}
 	}
 	return NULL;

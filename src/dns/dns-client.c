@@ -71,9 +71,9 @@ static int dns_client_input_args(struct connection *client, const char *const *a
 			}
 			array_append_zero(&tmp);
 			e_debug(e->event(), "Resolve success: %s",
-				t_strarray_join(array_first(&tmp), ", "));
+				t_strarray_join(array_front(&tmp), ", "));
 			o_stream_nsend_str(client->output,
-					   t_strarray_join(array_first(&tmp), "\t"));
+					   t_strarray_join(array_front(&tmp), "\t"));
 			o_stream_nsend_str(client->output, "\n");
 		}
 	} else if (strcmp(args[0], "NAME") == 0) {

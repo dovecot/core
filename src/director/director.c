@@ -1465,7 +1465,7 @@ void director_deinit(struct director **_dir)
 	*_dir = NULL;
 
 	while (array_count(&dir->connections) > 0) {
-		connp = array_first(&dir->connections);
+		connp = array_front(&dir->connections);
 		conn = *connp;
 		director_connection_deinit(&conn, "Shutting down");
 	}
@@ -1481,7 +1481,7 @@ void director_deinit(struct director **_dir)
 	timeout_remove(&dir->to_remove_dirs);
 	timeout_remove(&dir->to_callback);
 	while (array_count(&dir->dir_hosts) > 0) {
-		hostp = array_first(&dir->dir_hosts);
+		hostp = array_front(&dir->dir_hosts);
 		host = *hostp;
 		director_host_free(&host);
 	}

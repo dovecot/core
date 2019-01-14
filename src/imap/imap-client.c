@@ -1540,7 +1540,7 @@ const char *const *client_enabled_features(struct client *client)
 		}
 	}
 	array_append_zero(&feature_strings);
-	return array_first(&feature_strings);
+	return array_front(&feature_strings);
 }
 
 struct imap_search_update *

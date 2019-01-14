@@ -523,7 +523,7 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 	}
 	i_assert(pargc == array_count(&opts)-1); /* opts is NULL-terminated */
 
-	while((c = getopt_long(argc, (char*const*)argv, str_c(optbuf), array_first(&opts), &li)) > -1) {
+	while((c = getopt_long(argc, (char*const*)argv, str_c(optbuf), array_front(&opts), &li)) > -1) {
 		switch(c) {
 		case 0:
 			for(unsigned int i = 0; i < array_count(&pargv); i++) {

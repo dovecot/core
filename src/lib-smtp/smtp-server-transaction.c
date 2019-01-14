@@ -144,7 +144,7 @@ void smtp_server_transaction_write_trace_record(string_t *str,
 
 	if (array_count(&trans->rcpt_to) == 1) {
 		struct smtp_server_recipient *const *rcpts =
-			array_first(&trans->rcpt_to);
+			array_front(&trans->rcpt_to);
 
 		rcpt_to = smtp_address_encode(rcpts[0]->path);
 	}

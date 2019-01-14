@@ -88,7 +88,7 @@ static void apparmor_mail_user_created(struct mail_user *user)
 	random_fill(&auser->token, sizeof(auser->token));
 
 	/* try change hat */
-	if (aa_change_hatv(array_first_modifiable(&hats), auser->token) < 0) {
+	if (aa_change_hatv(array_front_modifiable(&hats), auser->token) < 0) {
 		i_fatal("aa_change_hatv(%s) failed: %m",
 			t_array_const_string_join(&hats, ","));
 	}

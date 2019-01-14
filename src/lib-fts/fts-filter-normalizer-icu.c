@@ -90,7 +90,7 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 	array_append_zero(&np->utf16_token);
 	array_pop_back(&np->utf16_token);
 	array_clear(&np->trans_token);
-	if (fts_icu_translate(&np->trans_token, array_first(&np->utf16_token),
+	if (fts_icu_translate(&np->trans_token, array_front(&np->utf16_token),
 			      array_count(&np->utf16_token),
 			      np->transliterator, error_r) < 0)
 		return -1;
@@ -98,7 +98,7 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 	if (array_count(&np->trans_token) == 0)
 		return 0;
 
-	fts_icu_utf16_to_utf8(np->utf8_token, array_first(&np->trans_token),
+	fts_icu_utf16_to_utf8(np->utf8_token, array_front(&np->trans_token),
 			      array_count(&np->trans_token));
 	fts_filter_truncate_token(np->utf8_token, np->filter.max_length);
 	*token = str_c(np->utf8_token);

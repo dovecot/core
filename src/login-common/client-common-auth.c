@@ -224,7 +224,7 @@ static void client_auth_parse_args(struct client *client, bool success,
 
 		alt = p_new(client->pool, const char *,
 			    array_count(&alt_usernames) + 1);
-		memcpy(alt, array_first(&alt_usernames),
+		memcpy(alt, array_front(&alt_usernames),
 		       sizeof(*alt) * array_count(&alt_usernames));
 		client->alt_usernames = alt;
 	}

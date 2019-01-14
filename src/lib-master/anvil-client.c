@@ -254,7 +254,7 @@ void anvil_client_query_abort(struct anvil_client *client,
 	*_query = NULL;
 
 	count = aqueue_count(client->queries);
-	queries = array_first(&client->queries_arr);
+	queries = array_front(&client->queries_arr);
 	for (i = 0; i < count; i++) {
 		if (queries[aqueue_idx(client->queries, i)] == query) {
 			query->callback = NULL;

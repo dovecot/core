@@ -72,7 +72,7 @@ int pop3c_sync_get_uidls(struct pop3c_mailbox *mbox)
 		/* make msg_uidls non-NULL */
 		array_append_zero(&uidls);
 	}
-	mbox->msg_uidls = array_first(&uidls);
+	mbox->msg_uidls = array_front(&uidls);
 	mbox->msg_count = seq;
 	return 0;
 }

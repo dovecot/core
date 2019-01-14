@@ -323,7 +323,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 		ssize_t diff = (ssize_t)new_padded_hdr_size -
 			(ssize_t)old_padded_hdr_size;
 
-		ext = array_first_modifiable(&map->extensions);
+		ext = array_front_modifiable(&map->extensions);
 		for (i = ext_map_idx + 1; i < count; i++) {
 			ext[i].ext_offset += diff;
 			ext[i].hdr_offset += diff;

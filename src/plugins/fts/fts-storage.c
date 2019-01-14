@@ -807,7 +807,7 @@ static const char *const *fts_exclude_get_patterns(struct mail_user *user)
 		str = mail_user_plugin_getenv(user, set_name);
 	}
 	array_append_zero(&patterns);
-	return array_first(&patterns);
+	return array_front(&patterns);
 }
 
 static bool fts_autoindex_exclude_match(struct mailbox *box)

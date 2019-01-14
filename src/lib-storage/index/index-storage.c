@@ -501,7 +501,7 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 	}
 	if (array_count(&new_fields) > 0) {
 		mail_cache_register_fields(box->cache,
-					   array_first_modifiable(&new_fields),
+					   array_front_modifiable(&new_fields),
 					   array_count(&new_fields));
 	}
 }

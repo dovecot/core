@@ -176,7 +176,7 @@ mailbox_get_expunges_full(struct mailbox *box, uint64_t prev_modseq,
 	if (ret != 0)
 		return ret > 0;
 
-	range = array_first(uids_filter);
+	range = array_front(uids_filter);
 	min_uid = range->seq1;
 
 	/* first get UIDs of all actual expunges */

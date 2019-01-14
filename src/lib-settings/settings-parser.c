@@ -1558,7 +1558,7 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool,
 		i_assert(dest_count % 2 == 0);
 		for (i = 0; i < count; i += 2) {
 			if (dest_count > 0) {
-				dest_strings = array_first(dest_arr);
+				dest_strings = array_front(dest_arr);
 				for (j = 0; j < dest_count; j += 2) {
 					if (strcmp(strings[i], dest_strings[j]) == 0)
 						break;
@@ -1722,7 +1722,7 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 	}
 	new_defines = p_new(pool, struct setting_define,
 			    array_count(&defines) + 1);
-	memcpy(new_defines, array_first(&defines),
+	memcpy(new_defines, array_front(&defines),
 	       sizeof(*parent->defines) * array_count(&defines));
 	parent->defines = new_defines;
 
@@ -1756,7 +1756,7 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 	parent->dynamic_parsers =
 		p_new(pool, struct dynamic_settings_parser,
 		      array_count(&dynamic_parsers) + 1);
-	memcpy(parent->dynamic_parsers, array_first(&dynamic_parsers),
+	memcpy(parent->dynamic_parsers, array_front(&dynamic_parsers),
 	       sizeof(*parent->dynamic_parsers) *
 	       array_count(&dynamic_parsers));
 	parent->struct_size = new_struct_size;

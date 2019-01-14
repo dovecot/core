@@ -123,7 +123,7 @@ void exec_child(const char *bin_path, const char *const *args,
 
 	/* Execute */
 
-	args = array_first(&exec_args);
+	args = array_front(&exec_args);
 	execvp_const(args[0], args);
 }
 

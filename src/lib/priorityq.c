@@ -146,7 +146,7 @@ struct priorityq_item *priorityq_peek(struct priorityq *pq)
 	if (array_count(&pq->items) == 0)
 		return NULL;
 
-	items = array_first(&pq->items);
+	items = array_front(&pq->items);
 	return items[0];
 }
 
@@ -167,5 +167,5 @@ struct priorityq_item *const *priorityq_items(struct priorityq *pq)
 	if (array_count(&pq->items) == 0)
 		return NULL;
 
-	return array_first(&pq->items);
+	return array_front(&pq->items);
 }

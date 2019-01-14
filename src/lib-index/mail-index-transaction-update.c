@@ -124,7 +124,7 @@ void mail_index_update_day_headers(struct mail_index_transaction *t,
 	int i, days;
 
 	hdr = *mail_index_get_header(t->view);
-	rec = array_first(&t->appends);
+	rec = array_front(&t->appends);
 
 	stamp = time_to_local_day_start(day_stamp);
 	if ((time_t)hdr.day_stamp >= stamp)

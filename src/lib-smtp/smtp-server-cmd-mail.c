@@ -135,7 +135,7 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 
 	/* [SP Mail-parameters] */
 	if (array_is_created(&conn->mail_param_extensions))
-		param_extensions = array_first(&conn->mail_param_extensions);
+		param_extensions = array_front(&conn->mail_param_extensions);
 	if (smtp_params_mail_parse(cmd->pool, params, caps, param_extensions,
 				   NULL, &mail_data->params, &pperror,
 				   &error) < 0) {

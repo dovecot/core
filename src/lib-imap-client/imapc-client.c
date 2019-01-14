@@ -275,7 +275,7 @@ imapc_client_find_connection(struct imapc_client *client)
 	/* FIXME: stupid algorithm */
 	if (array_count(&client->conns) == 0)
 		return imapc_client_add_connection(client)->conn;
-	connp = array_first(&client->conns);
+	connp = array_front(&client->conns);
 	return (*connp)->conn;
 }
 

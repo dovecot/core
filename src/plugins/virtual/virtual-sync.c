@@ -447,7 +447,7 @@ static int virtual_sync_index_changes(struct virtual_sync_context *ctx)
 
 	keywords = mail_index_get_keywords(ctx->index);
 	ctx->kw_all = array_count(keywords) == 0 ? NULL :
-		array_first(keywords);
+		array_front(keywords);
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
 		if (virtual_sync_index_rec(ctx, &sync_rec) < 0)
 			return -1;
@@ -1078,7 +1078,7 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 			if (!virtual_sync_find_seqs(bbox, &sync_rec,
 						    &idx1, &idx2))
 				break;
-			uidmap = array_first(&bbox->uids);
+			uidmap = array_front(&bbox->uids);
 			for (; idx1 <= idx2; idx1++) {
 				vuid = uidmap[idx1].virtual_uid;
 				if (vuid == 0) {

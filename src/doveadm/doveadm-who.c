@@ -28,7 +28,7 @@ static void who_user_ip(const struct who_user *user, struct ip_addr *ip_r)
 	if (array_count(&user->ips) == 0)
 		i_zero(ip_r);
 	else {
-		const struct ip_addr *ip = array_first(&user->ips);
+		const struct ip_addr *ip = array_front(&user->ips);
 		*ip_r = *ip;
 	}
 }

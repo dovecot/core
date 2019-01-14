@@ -71,10 +71,10 @@ static void test_seq_range_array_remove_nth(void)
 	test_assert(array_count(&range) == 3);
 
 	seq_range_array_remove_nth(&range, 0, 2);
-	r = array_first(&range); test_assert(r->seq1 == 3 && r->seq2 == 5);
+	r = array_front(&range); test_assert(r->seq1 == 3 && r->seq2 == 5);
 
 	seq_range_array_remove_nth(&range, 1, 4);
-	r = array_first(&range); test_assert(r->seq1 == 3 && r->seq2 == 3);
+	r = array_front(&range); test_assert(r->seq1 == 3 && r->seq2 == 3);
 	r = array_idx(&range, 1); test_assert(r->seq1 == 11 && r->seq2 == 20);
 
 	seq_range_array_remove_nth(&range, 5, (uint32_t)-1);

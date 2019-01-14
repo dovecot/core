@@ -1015,7 +1015,7 @@ int main(int argc, char *argv[])
 			if (array_count(&access_apps) > 0) {
 				(void)array_append_space(&access_apps);
 				main_stdio_run(access_user,
-					       array_first(&access_apps));
+					       array_front(&access_apps));
 			} else {
 				main_stdio_run(access_user, NULL);
 			}

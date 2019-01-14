@@ -157,7 +157,7 @@ void ldap_connection_search_start(struct ldap_connection *conn,
 			array_push_back(&arr, &tmp);
 		}
 		array_append_zero(&arr);
-		req->input.search.attributes = array_first_modifiable(&arr);
+		req->input.search.attributes = array_front_modifiable(&arr);
 	}
 
 	req->send_request_cb = ldap_search_send;

@@ -338,7 +338,7 @@ const char *const *acl_cache_get_names(struct acl_cache *cache,
 				       unsigned int *count_r)
 {
 	*count_r = array_count(&cache->right_idx_name_map);
-	return array_first(&cache->right_idx_name_map);
+	return array_front(&cache->right_idx_name_map);
 }
 
 static void

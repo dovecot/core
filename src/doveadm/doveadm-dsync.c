@@ -223,7 +223,7 @@ mirror_get_remote_cmd_line(const char *const *argv,
 	}
 	array_push_back(&cmd_args, &p);
 	array_append_zero(&cmd_args);
-	*cmd_args_r = array_first(&cmd_args);
+	*cmd_args_r = array_front(&cmd_args);
 }
 
 static const char *const *
@@ -273,7 +273,7 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 		array_push_back(&cmd_args, &value);
 	}
 	array_append_zero(&cmd_args);
-	return array_first(&cmd_args);
+	return array_front(&cmd_args);
 }
 
 static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
@@ -614,7 +614,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		t_strsplit_spaces(doveadm_settings->dsync_hashed_headers, " ,");
 	if (array_count(&ctx->exclude_mailboxes) > 0) {
 		/* array is NULL-terminated in init() */
-		set.exclude_mailboxes = array_first(&ctx->exclude_mailboxes);
+		set.exclude_mailboxes = array_front(&ctx->exclude_mailboxes);
 	}
 	doveadm_user_init_dsync(user);
 

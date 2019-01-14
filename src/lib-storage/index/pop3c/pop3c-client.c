@@ -151,7 +151,7 @@ pop3c_client_async_callback(struct pop3c_client *client,
 	i_assert(reply != NULL);
 	i_assert(array_count(&client->commands) > 0);
 
-	cmd = array_first_modifiable(&client->commands);
+	cmd = array_front_modifiable(&client->commands);
 	if (cmd->input != NULL && state == POP3C_COMMAND_STATE_OK &&
 	    !cmd->reading_dot) {
 		/* read the full input into seekable-istream before calling

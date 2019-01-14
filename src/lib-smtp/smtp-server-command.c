@@ -633,7 +633,7 @@ void smtp_server_command_finished(struct smtp_server_command *cmd)
 	conn->stats.reply_count++;
 
 	i_assert(array_is_created(&cmd->replies));
-	reply = array_first_modifiable(&cmd->replies);
+	reply = array_front_modifiable(&cmd->replies);
 	i_assert(reply->content != NULL);
 
 	if (reply->content->status == 221 || reply->content->status == 421) {

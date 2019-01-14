@@ -119,7 +119,7 @@ static void doveadm_cmd_callback(int exit_code, const char *error,
 
 	if (array_count(&server->queue) > 0) {
 		struct server_connection *conn;
-		char *const *usernamep = array_first(&server->queue);
+		char *const *usernamep = array_front(&server->queue);
 		char *username = *usernamep;
 
 		conn = doveadm_server_find_unused_conn(server);
@@ -337,7 +337,7 @@ static void doveadm_servers_destroy_all_connections(void)
 		while (array_count(&server->connections) > 0) {
 			struct server_connection *const *connp, *conn;
 
-			connp = array_first(&server->connections);
+			connp = array_front(&server->connections);
 			conn = *connp;
 			server_connection_destroy(&conn);
 		}

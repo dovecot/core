@@ -861,6 +861,6 @@ char *p_array_const_string_join(pool_t pool, const ARRAY_TYPE(const_string) *arr
 {
 	if (array_count(arr) == 0)
 		return "";
-	return p_strarray_join_n(pool, array_first(arr), array_count(arr),
+	return p_strarray_join_n(pool, array_front(arr), array_count(arr),
 				 separator);
 }

@@ -2031,7 +2031,7 @@ static void imapc_command_send_finished(struct imapc_connection *conn,
 	cmd->sent = TRUE;
 
 	/* everything sent. move command to wait list. */
-	cmdp = array_first(&conn->cmd_send_queue);
+	cmdp = array_front(&conn->cmd_send_queue);
 	i_assert(*cmdp == cmd);
 	array_pop_front(&conn->cmd_send_queue);
 	array_push_back(&conn->cmd_wait_list, &cmd);
@@ -2048,7 +2048,7 @@ imapc_command_get_sending_stream(struct imapc_command *cmd)
 	if (!array_is_created(&cmd->streams) || array_count(&cmd->streams) == 0)
 		return NULL;
 
-	stream = array_first_modifiable(&cmd->streams);
+	stream = array_front_modifiable(&cmd->streams);
 	if (stream->pos != cmd->send_pos)
 		return NULL;
 	return stream;

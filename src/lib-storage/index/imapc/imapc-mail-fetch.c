@@ -137,7 +137,7 @@ headers_merge(pool_t pool, const char *const *h1, const char *const *h2)
 		}
 	}
 	array_append_zero(&headers);
-	return array_first(&headers);
+	return array_front(&headers);
 }
 
 static bool
@@ -734,7 +734,7 @@ imapc_fetch_header_stream(struct imapc_mail *mail,
 		return;
 	array_append_zero(&hdr_arr);
 
-	if (headers_have_subset(array_first(&hdr_arr), mail->fetching_headers))
+	if (headers_have_subset(array_front(&hdr_arr), mail->fetching_headers))
 		mail->header_list_fetched = TRUE;
 
 	if (args->type == IMAP_ARG_LITERAL_SIZE) {
@@ -752,7 +752,7 @@ imapc_fetch_header_stream(struct imapc_mail *mail,
 	}
 
 	headers_ctx = mailbox_header_lookup_init(mail->imail.mail.mail.box,
-						 array_first(&hdr_arr));
+						 array_front(&hdr_arr));
 	index_mail_parse_header_init(&mail->imail, headers_ctx);
 
 	parser = message_parse_header_init(input, NULL, hdr_parser_flags);

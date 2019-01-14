@@ -242,7 +242,7 @@ int var_expand_if(struct var_expand_context *ctx,
 	}
 
 	array_append_zero(&params);
-	parms = array_first(&params);
+	parms = array_front(&params);
 	t_array_init(&params, 6);
 
 	for(;*parms != NULL; parms++) {
@@ -260,7 +260,7 @@ int var_expand_if(struct var_expand_context *ctx,
 	i_assert(array_count(&params) == 5);
 
 	/* execute comparison */
-	const char *const *args = array_first(&params);
+	const char *const *args = array_front(&params);
 	if (var_expand_if_comp(args[0], args[1], args[2], &result, error_r)<0)
 		return -1;
 	*result_r = result ? args[3] : args[4];

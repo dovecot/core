@@ -230,7 +230,7 @@ static void gather_base_subjects(struct thread_finish_context *ctx)
 			/* find the oldest child */
 			thread_sort_children(ctx, roots[i].node.idx,
 					     &sorted_children);
-			children = array_first(&sorted_children);
+			children = array_front(&sorted_children);
 			idx = children[0].idx;
 		} else {
 			/* dummy without children */
@@ -286,7 +286,7 @@ static void mail_thread_root_thread_merge(struct thread_finish_context *ctx,
 	} while (root->parent_root_idx1 != 0);
 	i_assert(!root->ignore);
 
-	shadows = array_first_modifiable(&ctx->shadow_nodes);
+	shadows = array_front_modifiable(&ctx->shadow_nodes);
 	if (cur->dummy) {
 		/* If both messages are dummies, append the current
                    message's children to the children of the message in
@@ -353,7 +353,7 @@ static bool merge_subject_threads(struct thread_finish_context *ctx)
 		if (roots[i].parent_root_idx1 != 0 && !roots[i].ignore) {
 			mail_thread_root_thread_merge(ctx, &roots[i]);
 			/* more roots may have been added */
-			roots = array_first_modifiable(&ctx->roots);
+			roots = array_front_modifiable(&ctx->roots);
 			changed = TRUE;
 		}
 	}
@@ -370,7 +370,7 @@ static void sort_root_nodes(struct thread_finish_context *ctx)
 	unsigned int i, count, child_count;
 
 	i_array_init(&sorted_children, 64);
-	shadows = array_first(&ctx->shadow_nodes);
+	shadows = array_front(&ctx->shadow_nodes);
 	roots = array_get_modifiable(&ctx->roots, &count);
 	for (i = 0; i < count; i++) {
 		if (roots[i].ignore)
@@ -425,7 +425,7 @@ static void sort_root_nodes_ref2(struct thread_finish_context *ctx,
 	roots = array_get_modifiable(&ctx->roots, &root_count);
 
 	/* drop childless dummy nodes */
-	shadows = array_first(&ctx->shadow_nodes);
+	shadows = array_front(&ctx->shadow_nodes);
 	for (idx = 1; idx < root_count; idx++) {
 		if (roots[idx].dummy &&
 		    shadows[roots[idx].node.idx].first_child_idx == 0)

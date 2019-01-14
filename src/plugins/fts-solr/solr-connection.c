@@ -489,7 +489,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	hash_table_destroy(&solr_lookup_context.mailboxes);
 
 	array_append_zero(&solr_lookup_context.results);
-	*box_results_r = array_first_modifiable(&solr_lookup_context.results);
+	*box_results_r = array_front_modifiable(&solr_lookup_context.results);
 	return parse_ret;
 }
 

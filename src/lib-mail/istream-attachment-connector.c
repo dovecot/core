@@ -134,7 +134,7 @@ istream_attachment_connector_finish(struct istream_attachment_connector **_conn)
 	}
 	array_append_zero(&conn->streams);
 
-	inputs = array_first_modifiable(&conn->streams);
+	inputs = array_front_modifiable(&conn->streams);
 	input = i_stream_create_concat(inputs);
 
 	istream_attachment_connector_free(conn);

@@ -205,7 +205,7 @@ void ipc_connection_destroy(struct ipc_connection **_conn,
 	DLLIST_REMOVE(&conn->group->connections, conn);
 
 	while (array_count(&conn->cmds) > 0) {
-		cmdp = array_first(&conn->cmds);
+		cmdp = array_front(&conn->cmds);
 		cmd = *cmdp;
 
 		ipc_connection_cmd_free(&cmd, error);
