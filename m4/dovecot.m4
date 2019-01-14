@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 28
+# serial 29
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -236,8 +236,8 @@ AC_DEFUN([AC_CC_F_STACK_PROTECTOR],[
 AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_ARG_WITH(moduledir,
 	[  --with-moduledir=DIR    Base directory for dynamically loadable modules],
-		moduledir="$withval",
-		moduledir=$libdir/dovecot
+		[moduledir="$withval"],
+		[moduledir="$dovecot_moduledir"]
 	)
 	AC_SUBST(moduledir)
 ])

@@ -264,6 +264,7 @@ if test "$systemdsystemunitdir" != ""; then
 fi
 AM_CONDITIONAL(HAVE_SYSTEMD, test "$systemdsystemunitdir" != "")
 
+dovecot_moduledir="$libdir/dovecot"
 DC_DOVECOT_MODULEDIR
 
 AC_ARG_WITH(docs,
