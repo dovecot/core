@@ -133,6 +133,8 @@ void hash_table_destroy(struct hash_table **_table)
 {
 	struct hash_table *table = *_table;
 
+	if (table == NULL)
+		return;
 	*_table = NULL;
 
 	i_assert(table->frozen == 0);
