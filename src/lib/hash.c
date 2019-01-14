@@ -420,6 +420,9 @@ void hash_table_iterate_deinit(struct hash_iterate_context **_ctx)
 {
 	struct hash_iterate_context *ctx = *_ctx;
 
+	if (ctx == NULL)
+		return;
+
 	*_ctx = NULL;
 	hash_table_thaw(ctx->table);
 	i_free(ctx);
