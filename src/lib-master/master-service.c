@@ -656,7 +656,7 @@ static void master_service_import_environment_real(const char *import_environmen
 	}
 	array_append_zero(&keys);
 
-	value = t_strarray_join(array_first(&keys), " ");
+	value = t_strarray_join(array_front(&keys), " ");
 	env_put(t_strconcat(DOVECOT_PRESERVE_ENVS_ENV"=", value, NULL));
 }
 

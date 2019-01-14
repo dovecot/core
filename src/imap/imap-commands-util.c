@@ -283,7 +283,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 		*keywords_r = NULL;
 	else {
 		array_append_zero(&keywords); /* NULL-terminate */
-		*keywords_r = array_first(&keywords);
+		*keywords_r = array_front(&keywords);
 	}
 	return TRUE;
 }
@@ -305,7 +305,7 @@ void client_send_mailbox_flags(struct client *client, bool selecting)
 				&status);
 
 	keywords = count == 0 ? NULL :
-		array_first(client->keywords.names);
+		array_front(client->keywords.names);
 	str = t_str_new(128);
 	str_append(str, "* FLAGS (");
 	imap_write_flags(str, status.flags, keywords);
@@ -360,7 +360,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 	}
 
 	array_append_zero(dest);
-	return array_first(dest);
+	return array_front(dest);
 }
 
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)

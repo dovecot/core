@@ -199,7 +199,7 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 
 	dbox_save_end(&ctx->ctx);
 
-	mail = array_last_modifiable(&ctx->mails);
+	mail = array_back_modifiable(&ctx->mails);
 	if (!ctx->ctx.failed) T_BEGIN {
 		if (mdbox_save_mail_write_metadata(ctx, mail) < 0)
 			ctx->ctx.failed = TRUE;
@@ -331,7 +331,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		unsigned int highest_pop3_uidl_idx;
 		uint32_t uid;
 
-		mails = array_first(&ctx->mails);
+		mails = array_front(&ctx->mails);
 		highest_pop3_uidl_idx =
 			ctx->ctx.highest_pop3_uidl_seq - mails[0].seq;
 		i_assert(mails[highest_pop3_uidl_idx].seq == ctx->ctx.highest_pop3_uidl_seq);

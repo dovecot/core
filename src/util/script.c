@@ -66,7 +66,7 @@ exec_child(struct master_service_connection *conn,
 			env_put(*envs);
         }
 
-	args = array_first(&exec_args);
+	args = array_front(&exec_args);
 	execvp_const(args[0], args);
 }
 
@@ -187,7 +187,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 
 	if (noreply) {
 		/* no need to fork and check exit status */
-		exec_child(conn, args, array_first(&envs));
+		exec_child(conn, args, array_front(&envs));
 		i_unreached();
 	}
 
@@ -198,7 +198,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 
 	if (pid == 0) {
 		/* child */
-		exec_child(conn, args, array_first(&envs));
+		exec_child(conn, args, array_front(&envs));
 		i_unreached();
 	}
 
@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	array_append_zero(&aenvs);
-	accepted_envs = p_strarray_dup(default_pool, array_first(&aenvs));
+	accepted_envs = p_strarray_dup(default_pool, array_front(&aenvs));
 
 	master_service_init_log(master_service, "script: ");
 	if (argv[0] == NULL)

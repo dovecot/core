@@ -193,7 +193,7 @@ imap_match_dup_real(pool_t pool, const struct imap_match_glob *glob)
 		array_push_back(&patterns, &p->pattern);
 	}
 	array_append_zero(&patterns);
-	return imap_match_init_multiple_real(pool, array_first(&patterns),
+	return imap_match_init_multiple_real(pool, array_front(&patterns),
 					     inboxcase, glob->sep);
 }
 

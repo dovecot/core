@@ -196,7 +196,7 @@ fts_language_list_get_first(struct fts_language_list *list)
 {
 	const struct fts_language *const *langp;
 
-	langp = array_first(&list->languages);
+	langp = array_front(&list->languages);
 	return *langp;
 }
 
@@ -307,7 +307,7 @@ fts_language_detect(struct fts_language_list *list,
 	/* if there's only a single wanted language, return it always. */
 	if (array_count(&list->languages) == 1) {
 		const struct fts_language *const *langp =
-			array_first(&list->languages);
+			array_front(&list->languages);
 		*lang_r = *langp;
 		return FTS_LANGUAGE_RESULT_OK;
 	}

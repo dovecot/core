@@ -376,7 +376,7 @@ static void dump_keywords(struct mail_index *index)
 	if (count == 0)
 		return;
 
-	keywords = array_first(&index->keywords);
+	keywords = array_front(&index->keywords);
 	for (i = 0; i < count; i++)
 		printf("%3u = %s\n", i, keywords[kw_indexes[i]]);
 }

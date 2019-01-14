@@ -87,7 +87,7 @@ static UTransliterator *get_translit(const char *id)
 
 	t_array_init(&id_utf16, 8);
 	fts_icu_utf8_to_utf16(&id_utf16, id);
-	translit = utrans_openU(array_first(&id_utf16),
+	translit = utrans_openU(array_front(&id_utf16),
 				array_count(&id_utf16),
 				UTRANS_FORWARD, NULL, 0, &perr, &err);
 	test_assert(!U_FAILURE(err));
@@ -134,7 +134,7 @@ static void test_fts_icu_translate_resize(void)
 		fts_icu_utf8_to_utf16(&src_utf16, src_utf8);
 		t_array_init(&dest, i);
 		test_assert(buffer_get_writable_size(dest.arr.buffer) == i*2);
-		test_assert(fts_icu_translate(&dest, array_first(&src_utf16),
+		test_assert(fts_icu_translate(&dest, array_front(&src_utf16),
 					      array_count(&src_utf16),
 					      translit, &error) == 0);
 	}

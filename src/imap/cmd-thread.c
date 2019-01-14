@@ -116,8 +116,8 @@ static int orderedsubject_thread_cmp(const struct orderedsubject_thread *t1,
 	if (t1->timestamp > t2->timestamp)
 		return 1;
 
-	m1 = array_first(&t1->msgs);
-	m2 = array_first(&t2->msgs);
+	m1 = array_front(&t1->msgs);
+	m2 = array_front(&t2->msgs);
 	if (*m1 < *m2)
 		return -1;
 	if (*m1 > *m2)

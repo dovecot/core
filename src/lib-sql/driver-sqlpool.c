@@ -457,7 +457,7 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
 
 	/* build a new connect string without our settings or hosts */
 	array_append_zero(&connect_args);
-	connect_string = t_strarray_join(array_first(&connect_args), " ");
+	connect_string = t_strarray_join(array_front(&connect_args), " ");
 
 	if (array_count(&hostnames) == 0) {
 		/* no hosts specified. create a default one. */

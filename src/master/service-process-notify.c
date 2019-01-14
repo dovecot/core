@@ -40,7 +40,7 @@ static void service_process_notify_reset(struct service_process_notify *notify)
 	if (notify->io_write == NULL)
 		return;
 
-	processes = array_first_modifiable(&notify->processes);
+	processes = array_front_modifiable(&notify->processes);
 	count = aqueue_count(notify->process_queue);
 	for (i = 0; i < count; i++) {
 		process = processes[aqueue_idx(notify->process_queue, i)];
@@ -57,7 +57,7 @@ static void notify_flush(struct service_process_notify *notify)
 	struct service_process *const *processes, *process;
 
 	while (aqueue_count(notify->process_queue) > 0) {
-		processes = array_first_modifiable(&notify->processes);
+		processes = array_front_modifiable(&notify->processes);
 		process = processes[aqueue_idx(notify->process_queue, 0)];
 
 		if (notify->write_callback(notify->fd, process) < 0) {

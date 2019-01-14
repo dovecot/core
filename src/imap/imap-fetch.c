@@ -41,7 +41,7 @@ void imap_fetch_handler_unregister(const char *name)
 {
 	const struct imap_fetch_handler *handler, *first_handler;
 
-	first_handler = array_first(&fetch_handlers);
+	first_handler = array_front(&fetch_handlers);
 	handler = imap_fetch_handler_lookup(name);
 	i_assert(handler != NULL);
 	array_delete(&fetch_handlers, handler - first_handler, 1);
@@ -200,7 +200,7 @@ expunges_drop_known(struct mailbox *box,
 	unsigned int i, count;
 
 	seqs = array_get(qresync_args->qresync_sample_seqset, &count);
-	uids = array_first(qresync_args->qresync_sample_uidset);
+	uids = array_front(qresync_args->qresync_sample_uidset);
 	i_assert(array_count(qresync_args->qresync_sample_uidset) == count);
 	i_assert(count > 0);
 
@@ -380,7 +380,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 				 MAIL_FETCH_STREAM_BODY)) == 0)) {
 		array_append_zero(&ctx->all_headers);
 
-		headers = array_first(&ctx->all_headers);
+		headers = array_front(&ctx->all_headers);
 		wanted_headers = mailbox_header_lookup_init(box, headers);
 		array_pop_back(&ctx->all_headers);
 	}

@@ -822,7 +822,7 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 		fts_result->scores_sorted = TRUE;
 	}
 	array_append_zero(&fts_results);
-	result->box_results = array_first_modifiable(&fts_results);
+	result->box_results = array_front_modifiable(&fts_results);
 	hash_table_destroy(&mailboxes);
 	return 0;
 }

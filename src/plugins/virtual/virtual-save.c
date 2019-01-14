@@ -72,7 +72,7 @@ virtual_copy_keywords(struct mailbox *src_box,
 	}
 	array_append_zero(&kw_strings);
 	return mailbox_keywords_create_valid(dest_box,
-					     array_first(&kw_strings));
+					     array_front(&kw_strings));
 }
 
 int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)

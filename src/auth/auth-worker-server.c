@@ -500,7 +500,7 @@ void auth_worker_server_deinit(void)
 	struct auth_worker_connection **connp, *conn;
 
 	while (array_count(&connections) > 0) {
-		connp = array_first_modifiable(&connections);
+		connp = array_front_modifiable(&connections);
 		conn = *connp;
 		auth_worker_destroy(&conn, "Shutting down", FALSE);
 	}

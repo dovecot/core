@@ -281,7 +281,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	unsigned int i, count, names_count;
 
 	if (array_is_created(&data->keywords))
-		return array_first(&data->keywords);
+		return array_front(&data->keywords);
 
 	(void)index_mail_get_keyword_indexes(_mail);
 
@@ -298,7 +298,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 
 	/* end with NULL */
 	array_append_zero(&data->keywords);
-	return array_first(&data->keywords);
+	return array_front(&data->keywords);
 }
 
 const ARRAY_TYPE(keyword_indexes) *
@@ -2085,7 +2085,7 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 		array_append_zero(&names);
 		new_wanted_headers =
 			mailbox_header_lookup_init(_mail->box,
-						   array_first(&names));
+						   array_front(&names));
 		if (data->wanted_headers != NULL)
 			mailbox_header_lookup_unref(&data->wanted_headers);
 		data->wanted_headers = new_wanted_headers;

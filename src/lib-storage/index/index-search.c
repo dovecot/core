@@ -1263,7 +1263,7 @@ wanted_sort_fields_get(struct mailbox *box,
 	if (array_count(&headers) > 0) {
 		array_append_zero(&headers);
 		*headers_ctx_r = mailbox_header_lookup_init(box,
-							array_first(&headers));
+							array_front(&headers));
 	}
 }
 
@@ -1835,7 +1835,7 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	if (!index_sort_list_next(_ctx->sort_program, &seq))
 		return FALSE;
 
-	mailp = array_first(&ctx->mails);
+	mailp = array_front(&ctx->mails);
 	mail_set_seq(*mailp, seq);
 	index_mail_update_access_parts_pre(*mailp);
 	index_mail_update_access_parts_post(*mailp);

@@ -167,11 +167,11 @@ static int parse_query(const char *str, struct event_filter_query *query_r,
 
 	if (array_is_created(&categories)) {
 		array_append_zero(&categories);
-		query_r->categories = array_first(&categories);
+		query_r->categories = array_front(&categories);
 	}
 	if (array_is_created(&fields)) {
 		array_append_zero(&fields);
-		query_r->fields = array_first(&fields);
+		query_r->fields = array_front(&fields);
 	}
 	return 0;
 }
@@ -544,7 +544,7 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 		}
 		if (input->service == NULL) {
 			array_append_zero(&services);
-			output_r->specific_services = array_first(&services);
+			output_r->specific_services = array_front(&services);
 		}
 	} T_END;
 	return 0;
@@ -617,7 +617,7 @@ int master_service_settings_get_filters(struct master_service *service,
 	}
 
 	array_append_zero(&filters_tmp);
-	*filters = array_first(&filters_tmp);
+	*filters = array_front(&filters_tmp);
 	return 0;
 }
 
@@ -686,7 +686,7 @@ int master_service_settings_read(struct master_service *service,
 	}
 
 	parser = settings_parser_init_list(service->set_pool,
-			array_first(&all_roots), array_count(&all_roots),
+			array_front(&all_roots), array_count(&all_roots),
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
 	if (fd != -1) {

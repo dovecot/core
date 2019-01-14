@@ -89,7 +89,7 @@ static void director_request_timeout(struct director *dir)
 	string_t *str = t_str_new(128);
 
 	while (array_count(&dir->pending_requests) > 0) {
-		requestp = array_first_modifiable(&dir->pending_requests);
+		requestp = array_front_modifiable(&dir->pending_requests);
 		request = *requestp;
 
 		if (request->create_time +

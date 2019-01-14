@@ -46,7 +46,7 @@ static const char *const *str_keyvalues_to_array(const char *str)
 		array_push_back(&arr, &value);
 	}
 	array_append_zero(&arr);
-	return array_first(&arr);
+	return array_front(&arr);
 }
 
 static int

@@ -364,13 +364,13 @@ int acl_rights_update_import(struct acl_rights_update *update,
 	}
 	if (array_count(&dest_rights) > 0) {
 		array_append_zero(&dest_rights);
-		update->rights.rights = array_first(&dest_rights);
+		update->rights.rights = array_front(&dest_rights);
 	} else if (update->modify_mode == ACL_MODIFY_MODE_REPLACE) {
 		update->modify_mode = ACL_MODIFY_MODE_CLEAR;
 	}
 	if (array_count(&dest_neg_rights) > 0) {
 		array_append_zero(&dest_neg_rights);
-		update->rights.neg_rights = array_first(&dest_neg_rights);
+		update->rights.neg_rights = array_front(&dest_neg_rights);
 	} else if (update->neg_modify_mode == ACL_MODIFY_MODE_REPLACE) {
 		update->neg_modify_mode = ACL_MODIFY_MODE_CLEAR;
 	}
@@ -695,7 +695,7 @@ bool acl_right_names_modify(pool_t pool,
 		}
 		new_rights = &null;
 		modify_rights = array_count(&rights) == 0 ? NULL :
-			array_first(&rights);
+			array_front(&rights);
 		acl_right_names_merge(pool, &new_rights, modify_rights, TRUE);
 		break;
 	case ACL_MODIFY_MODE_ADD:

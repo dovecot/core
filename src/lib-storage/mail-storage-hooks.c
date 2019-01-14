@@ -59,7 +59,7 @@ void mail_storage_hooks_add_forced(struct module *module,
 	struct mail_storage_module_hooks *hook;
 
 	mail_storage_hooks_add(module, hooks);
-	hook = array_last_modifiable(&module_hooks);
+	hook = array_back_modifiable(&module_hooks);
 	hook->forced = TRUE;
 }
 

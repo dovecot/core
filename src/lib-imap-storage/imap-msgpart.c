@@ -192,7 +192,7 @@ imap_msgpart_parse_header_fields(struct imap_msgpart *msgpart,
 		return -1;
 
 	array_append_zero(&fields);
-	msgpart->headers = array_first(&fields);
+	msgpart->headers = array_front(&fields);
 	return 0;
 }
 

@@ -240,7 +240,7 @@ void event_filter_merge(struct event_filter *dest,
 						&event_filter_log_type_names[i]);
 			}
 			array_append_zero(&categories);
-			query.categories = array_first(&categories);
+			query.categories = array_front(&categories);
 		}
 		if (int_query->fields_count > 0) {
 			ARRAY(struct event_filter_field) fields;
@@ -253,7 +253,7 @@ void event_filter_merge(struct event_filter *dest,
 				field->value = p_strdup(dest->pool, int_query->fields[i].value.str);
 			}
 			array_append_zero(&fields);
-			query.fields = array_first(&fields);
+			query.fields = array_front(&fields);
 		}
 
 		event_filter_add(dest, &query);
@@ -340,11 +340,11 @@ bool event_filter_import_unescaped(struct event_filter *filter,
 			/* finish the query */
 			if (array_count(&categories) > 0) {
 				array_append_zero(&categories);
-				query.categories = array_first(&categories);
+				query.categories = array_front(&categories);
 			}
 			if (array_count(&fields) > 0) {
 				array_append_zero(&fields);
-				query.fields = array_first(&fields);
+				query.fields = array_front(&fields);
 			}
 			event_filter_add(filter, &query);
 

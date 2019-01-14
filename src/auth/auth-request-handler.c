@@ -859,7 +859,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 		return;
 	}
 
-	auth_requests = array_first_modifiable(&auth_failures_arr);
+	auth_requests = array_front_modifiable(&auth_failures_arr);
 	/* count the number of requests that we need to flush */
 	for (i = 0; i < count; i++) {
 		auth_request = auth_requests[aqueue_idx(auth_failures, i)];

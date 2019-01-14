@@ -544,7 +544,7 @@ db_ldap_find_request(struct ldap_connection *conn, int msgid,
 	if (count == 0)
 		return NULL;
 
-	requests = array_first(&conn->request_array);
+	requests = array_front(&conn->request_array);
 	for (i = 0; i < count; i++) {
 		request = requests[aqueue_idx(conn->request_queue, i)];
 		if (request->msgid == msgid) {
@@ -651,7 +651,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 		if (field->ldap_attr_name[0] == '\0') {
 			str_truncate(tmp_str, 0);
 			if (var_expand_with_funcs(tmp_str, field->value, table,
-						  array_first(&var_funcs_table), &ctx, &error) <= 0) {
+						  array_front(&var_funcs_table), &ctx, &error) <= 0) {
 				auth_request_log_error(auth_request,
 					AUTH_SUBSYS_DB,
 					"Failed to expand subquery %s: %s",
@@ -672,7 +672,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 
 	request->request.msgid =
 		ldap_search(conn->ld, named_res->dn, LDAP_SCOPE_BASE,
-			    NULL, array_first_modifiable(&ctx.attr_names), 0);
+			    NULL, array_front_modifiable(&ctx.attr_names), 0);
 	if (request->request.msgid == -1) {
 		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				       "ldap_search(dn=%s) failed: %s",
@@ -1326,7 +1326,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	timeout_remove(&conn->to);
 
 	if (conn->pending_count != 0) {
-		requests = array_first(&conn->request_array);
+		requests = array_front(&conn->request_array);
 		for (i = 0; i < conn->pending_count; i++) {
 			request = requests[aqueue_idx(conn->request_queue, i)];
 
@@ -1467,7 +1467,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		}
 	}
 	array_append_zero(&ctx.attr_names);
-	*attr_names_r = array_first_modifiable(&ctx.attr_names);
+	*attr_names_r = array_front_modifiable(&ctx.attr_names);
 }
 
 static const struct var_expand_table *

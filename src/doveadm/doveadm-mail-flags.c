@@ -108,7 +108,7 @@ static void cmd_flags_init(struct doveadm_mail_cmd_context *_ctx,
 	}
 	if (array_count(&keywords) > 0 || ctx->modify_type == MODIFY_REPLACE) {
 		array_append_zero(&keywords);
-		ctx->keywords = array_first(&keywords);
+		ctx->keywords = array_front(&keywords);
 	}
 
 	_ctx->search_args = doveadm_mail_build_search_args(args+1);

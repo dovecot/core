@@ -1321,7 +1321,7 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 	hdr = mail_index_get_header(ctx->atomic->sync_view);
 	t_array_init(&uids, 1);
 	mail_index_append_finish_uids(ctx->trans, hdr->next_uid, &uids);
-	range = array_first(&uids);
+	range = array_front(&uids);
 	i_assert(range[0].seq2 - range[0].seq1 + 1 == count);
 
 	if (hdr->uid_validity == 0) {

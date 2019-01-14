@@ -235,7 +235,7 @@ http_client_connection_get_timing_info(struct http_client_connection *conn)
 	string_t *str = t_str_new(64);
 
 	if (array_count(&conn->request_wait_list) > 0) {
-		requestp = array_first(&conn->request_wait_list);
+		requestp = array_front(&conn->request_wait_list);
 
 		str_append(str, "Request ");
 		http_client_request_append_stats_text(*requestp, str);
@@ -582,7 +582,7 @@ void http_client_connection_start_request_timeout(
 	i_assert(array_is_created(&conn->request_wait_list));
 	if (array_count(&conn->request_wait_list) > 0) {
 		struct http_client_request *const *requestp;
-		requestp = array_first(&conn->request_wait_list);
+		requestp = array_front(&conn->request_wait_list);
 		timeout_msecs = (*requestp)->attempt_timeout_msecs;
 	}
 

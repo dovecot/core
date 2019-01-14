@@ -189,7 +189,7 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 
 		mail_search_args_reset(args, TRUE);
 		if (fts_backend_lookup_multi(backend,
-					     array_first(&tmp_mailboxes),
+					     array_front(&tmp_mailboxes),
 					     args, flags, &result) < 0)
 			return -1;
 

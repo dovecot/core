@@ -1139,7 +1139,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	array_append_array(&full_args, &pargv);
 
 	mctx->args = array_idx(&full_args, args_pos);
-	mctx->full_args = array_first(&full_args);
+	mctx->full_args = array_front(&full_args);
 
 	doveadm_mail_cmd_exec(mctx, wildcard_user);
 	doveadm_mail_cmd_free(mctx);
