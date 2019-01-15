@@ -338,6 +338,43 @@ authenticate_callback(struct auth_client_request *request,
 	}
 }
 
+static bool get_cert_username(struct client *client, const char **username_r,
+			      const char **error_r)
+{
+	/* this was proxied connection, so we use the name here */
+	if (client->client_cert_common_name != NULL) {
+		*username_r = client->client_cert_common_name;
+		return TRUE;
+	}
+
+	/* no SSL */
+	if (client->ssl_iostream == NULL) {
+		*username_r = NULL;
+		return TRUE;
+	}
+
+	/* no client certificate */
+	if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream)) {
+		*username_r = NULL;
+		return TRUE;
+	}
+
+	/* get peer name */
+	const char *username = ssl_iostream_get_peer_name(client->ssl_iostream);
+
+	/* if we wanted peer name, but it was not there, fail */
+	if (client->set->auth_ssl_username_from_cert &&
+	    (username == NULL || *username == '\0')) {
+		if (client->set->auth_ssl_require_client_cert) {
+			*error_r = "Missing username in certificate";
+			return FALSE;
+		}
+	}
+
+	*username_r = username;
+	return TRUE;
+}
+
 void sasl_server_auth_begin(struct client *client,
 			    const char *service, const char *mech_name,
 			    const char *initial_resp_base64,
@@ -345,6 +382,7 @@ void sasl_server_auth_begin(struct client *client,
 {
 	struct auth_request_info info;
 	const struct auth_mech_desc *mech;
+	const char *error;
 
 	i_assert(auth_client_is_connected(auth_client));
 
@@ -376,9 +414,17 @@ void sasl_server_auth_begin(struct client *client,
 	info.mech = mech->name;
 	info.service = service;
 	info.session_id = client_get_session_id(client);
-	if (client->client_cert_common_name != NULL)
-		info.cert_username = client->client_cert_common_name;
-	else if (client->ssl_iostream != NULL) {
+
+	if (!get_cert_username(client, &info.cert_username, &error)) {
+		client_log_err(client, t_strdup_printf("Cannot get username "
+						       "from certificate: %s", error));
+		sasl_server_auth_failed(client,
+			"Unable to validate certificate",
+			AUTH_CLIENT_FAIL_CODE_AUTHZFAILED);
+		return;
+	}
+
+	if (client->ssl_iostream != NULL) {
 		info.cert_username = ssl_iostream_get_peer_name(client->ssl_iostream);
 		info.ssl_cipher = ssl_iostream_get_cipher(client->ssl_iostream,
 							 &info.ssl_cipher_bits);
