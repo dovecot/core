@@ -581,6 +581,14 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return TRUE;
 	}
 
+	 if (request->set->ssl_require_client_cert &&
+	     request->set->ssl_username_from_cert &&
+	     !request->cert_username) {
+		  auth_request_handler_auth_fail(handler, request,
+			 "SSL certificate didn't contain username");
+		 return TRUE;
+	 }
+
 	/* Handle initial respose */
 	if (initial_resp == NULL) {
 		/* No initial response */
