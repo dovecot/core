@@ -445,7 +445,7 @@ bool auth_request_import_auth(struct auth_request *request,
 	else if (strcmp(key, "valid-client-cert") == 0)
 		request->valid_client_cert = TRUE;
 	else if (strcmp(key, "cert_username") == 0) {
-		if (request->set->ssl_username_from_cert) {
+		if (request->set->ssl_username_from_cert && *value != '\0') {
 			/* get username from SSL certificate. it overrides
 			   the username given by the auth mechanism. */
 			request->user = p_strdup(request->pool, value);
