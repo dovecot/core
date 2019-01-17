@@ -188,10 +188,8 @@ void master_service_settings_cache_deinit(struct master_service_settings_cache *
 		settings_parser_deinit(&entry->parser);
 		pool_unref(&entry->pool);
 	}
-	if (hash_table_is_created(cache->local_name_hash))
-		hash_table_destroy(&cache->local_name_hash);
-	if (hash_table_is_created(cache->local_ip_hash))
-		hash_table_destroy(&cache->local_ip_hash);
+	hash_table_destroy(&cache->local_name_hash);
+	hash_table_destroy(&cache->local_ip_hash);
 	if (cache->global_parser != NULL)
 		settings_parser_deinit(&cache->global_parser);
 	pool_unref(&cache->pool);

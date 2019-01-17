@@ -236,8 +236,7 @@ static void passwd_file_close(struct passwd_file *pw)
 {
 	i_close_fd_path(&pw->fd, pw->path);
 
-	if (hash_table_is_created(pw->users))
-		hash_table_destroy(&pw->users);
+	hash_table_destroy(&pw->users);
 	pool_unref(&pw->pool);
 }
 

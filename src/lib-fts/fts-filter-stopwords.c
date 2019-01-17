@@ -61,8 +61,7 @@ static void fts_filter_stopwords_destroy(struct fts_filter *filter)
 {
 	struct fts_filter_stopwords *sp = (struct fts_filter_stopwords *)filter;
 
-	if (hash_table_is_created(sp->stopwords))
-		hash_table_destroy(&sp->stopwords);
+	hash_table_destroy(&sp->stopwords);
 	pool_unref(&sp->pool);
 }
 
