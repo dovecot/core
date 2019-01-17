@@ -105,9 +105,9 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 				       MAIL_ERRSTR_NO_QUOTA);
 		return -1;
 	} else {
-		mail_set_critical(ctx->ctx.dest_mail,
-				  "rename(%s, %s) failed: %m",
-				  tmp_path, new_path);
+		mailbox_set_critical(&ctx->mbox->box,
+				     "rename(%s, %s) failed: %m",
+				     tmp_path, new_path);
 		return -1;
 	}
 }
@@ -666,14 +666,14 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 
 	if (new_changed) {
 		if (fdatasync_path(ctx->newdir) < 0) {
-			mail_set_critical(ctx->ctx.dest_mail,
+			mailbox_set_critical(&ctx->mbox->box,
 				"fdatasync_path(%s) failed: %m", ctx->newdir);
 			return -1;
 		}
 	}
 	if (cur_changed) {
 		if (fdatasync_path(ctx->curdir) < 0) {
-			mail_set_critical(ctx->ctx.dest_mail,
+			mailbox_set_critical(&ctx->mbox->box,
 				"fdatasync_path(%s) failed: %m", ctx->curdir);
 			return -1;
 		}
