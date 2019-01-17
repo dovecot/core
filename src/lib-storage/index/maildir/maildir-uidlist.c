@@ -2054,8 +2054,7 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx,
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->uidlist);
 
-	if (hash_table_is_created(ctx->files))
-		hash_table_destroy(&ctx->files);
+	hash_table_destroy(&ctx->files);
 	pool_unref(&ctx->record_pool);
 	if (array_is_created(&ctx->records))
 		array_free(&ctx->records);
