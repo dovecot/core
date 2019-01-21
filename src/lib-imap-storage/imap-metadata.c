@@ -15,36 +15,37 @@ struct imap_metadata_transaction {
 	bool server:1;
 };
 
-bool imap_metadata_verify_entry_name(const char *name, const char **error_r)
+bool imap_metadata_verify_entry_name(const char *name,
+				     const char **client_error_r)
 {
 	unsigned int i;
 	bool ok;
 
 	if (name[0] != '/') {
-		*error_r = "Entry name must begin with '/'";
+		*client_error_r = "Entry name must begin with '/'";
 		return FALSE;
 	}
 	for (i = 0; name[i] != '\0'; i++) {
 		switch (name[i]) {
 		case '/':
 			if (i > 0 && name[i-1] == '/') {
-				*error_r = "Entry name can't contain consecutive '/'";
+				*client_error_r = "Entry name can't contain consecutive '/'";
 				return FALSE;
 			}
 			if (name[i+1] == '\0') {
-				*error_r = "Entry name can't end with '/'";
+				*client_error_r = "Entry name can't end with '/'";
 				return FALSE;
 			}
 			break;
 		case '*':
-			*error_r = "Entry name can't contain '*'";
+			*client_error_r = "Entry name can't contain '*'";
 			return FALSE;
 		case '%':
-			*error_r = "Entry name can't contain '%'";
+			*client_error_r = "Entry name can't contain '%'";
 			return FALSE;
 		default:
 			if (name[i] <= 0x19) {
-				*error_r = "Entry name can't contain control chars";
+				*client_error_r = "Entry name can't contain control chars";
 				return FALSE;
 			}
 			break;
@@ -58,7 +59,7 @@ bool imap_metadata_verify_entry_name(const char *name, const char **error_r)
 			strcasecmp(prefix, IMAP_METADATA_SHARED_PREFIX) == 0;
 	} T_END;
 	if (!ok) {
-		*error_r = "Entry name must begin with /private or /shared";
+		*client_error_r = "Entry name must begin with /private or /shared";
 		return FALSE;
 	}
 	return TRUE;
@@ -259,7 +260,7 @@ imap_metadata_transaction_finish(struct imap_metadata_transaction **_imtrans)
 
 int imap_metadata_transaction_commit(
 	struct imap_metadata_transaction **_imtrans,
-	enum mail_error *error_code_r, const char **error_r)
+	enum mail_error *error_code_r, const char **client_error_r)
 {
 	struct imap_metadata_transaction *imtrans = *_imtrans;
 	int ret = 0;
@@ -269,8 +270,8 @@ int imap_metadata_transaction_commit(
 		ret = mailbox_transaction_commit(&imtrans->trans);
 		if (ret < 0)
 			error = mailbox_get_last_error(imtrans->box, error_code_r);
-		if (error_r != NULL)
-			*error_r = error;
+		if (client_error_r != NULL)
+			*client_error_r = error;
 	}
 	imap_metadata_transaction_finish(_imtrans);
 	return ret;

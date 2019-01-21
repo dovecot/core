@@ -9,7 +9,7 @@ struct imap_metadata_transaction;
 
 /* Checks whether IMAP metadata entry name is valid */
 bool imap_metadata_verify_entry_name(
-	const char *name, const char **error_r);
+	const char *name, const char **client_error_r);
 
 /* Set IMAP metadata entry to value. */
 int imap_metadata_set(struct imap_metadata_transaction *imtrans,
@@ -46,7 +46,7 @@ imap_metadata_transaction_begin_server(struct mail_user *user);
 
 int imap_metadata_transaction_commit(
 	struct imap_metadata_transaction **_imtrans,
-	enum mail_error *error_code_r, const char **error_r);
+	enum mail_error *error_code_r, const char **client_error_r);
 void imap_metadata_transaction_rollback(
 	struct imap_metadata_transaction **_imtrans);
 const char *
