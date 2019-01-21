@@ -541,10 +541,11 @@ void client_disconnect(struct client *client, const char *reason)
 	client->to_idle = timeout_add(0, client_destroy_timeout, client);
 }
 
-void client_disconnect_with_error(struct client *client, const char *msg)
+void client_disconnect_with_error(struct client *client,
+				  const char *client_error)
 {
-	client_send_line(client, t_strconcat("* BYE ", msg, NULL));
-	client_disconnect(client, msg);
+	client_send_line(client, t_strconcat("* BYE ", client_error, NULL));
+	client_disconnect(client, client_error);
 }
 
 void client_add_capability(struct client *client, const char *capability)
@@ -660,19 +661,19 @@ client_default_sync_notify_more(struct imap_sync_context *ctx ATTR_UNUSED)
 }
 
 void client_send_command_error(struct client_command_context *cmd,
-			       const char *msg)
+			       const char *client_error)
 {
 	struct client *client = cmd->client;
 	const char *error, *cmd_name;
 	enum imap_parser_error parse_error;
 
-	if (msg == NULL) {
-		msg = imap_parser_get_error(cmd->parser, &parse_error);
+	if (client_error == NULL) {
+		client_error = imap_parser_get_error(cmd->parser, &parse_error);
 		switch (parse_error) {
 		case IMAP_PARSE_ERROR_NONE:
 			i_unreached();
 		case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
-			client_disconnect_with_error(client, msg);
+			client_disconnect_with_error(client, client_error);
 			return;
 		default:
 			break;
@@ -680,13 +681,13 @@ void client_send_command_error(struct client_command_context *cmd,
 	}
 
 	if (cmd->tag == NULL)
-		error = t_strconcat("BAD Error in IMAP tag: ", msg, NULL);
+		error = t_strconcat("BAD Error in IMAP tag: ", client_error, NULL);
 	else if (cmd->name == NULL)
-		error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
+		error = t_strconcat("BAD Error in IMAP command: ", client_error, NULL);
 	else {
 		cmd_name = t_str_ucase(cmd->name);
 		error = t_strconcat("BAD Error in IMAP command ",
-				    cmd_name, ": ", msg, NULL);
+				    cmd_name, ": ", client_error, NULL);
 	}
 
 	client_send_tagline(cmd, error);

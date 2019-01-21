@@ -368,7 +368,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	struct client *client = cmd->client;
 	struct imap_select_context *ctx;
 	const struct imap_arg *args, *list_args;
-	const char *mailbox, *error;
+	const char *mailbox, *client_error;
 	int ret;
 
 	/* <mailbox> [(optional parameters)] */
@@ -383,20 +383,20 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client_find_namespace_full(cmd->client, &mailbox, &error);
+	ctx->ns = client_find_namespace_full(cmd->client, &mailbox, &client_error);
 	if (ctx->ns == NULL) {
 		/* send * OK [CLOSED] before the tagged reply */
 		close_selected_mailbox(client);
-		client_send_tagline(cmd, error);
+		client_send_tagline(cmd, client_error);
 		return TRUE;
 	}
 
 	if (imap_arg_get_list(&args[1], &list_args)) {
-		if (!select_parse_options(ctx, list_args, &error)) {
+		if (!select_parse_options(ctx, list_args, &client_error)) {
 			select_context_free(ctx);
 			/* send * OK [CLOSED] before the tagged reply */
 			close_selected_mailbox(client);
-			client_send_command_error(ctx->cmd, error);
+			client_send_command_error(ctx->cmd, client_error);
 			return TRUE;
 		}
 	}

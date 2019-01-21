@@ -16,7 +16,7 @@
 
 struct mail_namespace *
 client_find_namespace_full(struct client *client,
-			   const char **mailbox, const char **error_r)
+			   const char **mailbox, const char **client_error_r)
 {
 	struct mail_namespace *namespaces = client->user->namespaces;
 	struct mail_namespace *ns;
@@ -24,7 +24,7 @@ client_find_namespace_full(struct client *client,
 
 	utf8_name = t_str_new(64);
 	if (imap_utf7_to_utf8(*mailbox, utf8_name) < 0) {
-		*error_r = "NO Mailbox name is not valid mUTF-7";
+		*client_error_r = "NO Mailbox name is not valid mUTF-7";
 		return NULL;
 	}
 
@@ -33,7 +33,7 @@ client_find_namespace_full(struct client *client,
 	    ns->prefix_len == 0) {
 		/* this matched only the autocreated prefix="" namespace.
 		   give a nice human-readable error message */
-		*error_r = t_strdup_printf(
+		*client_error_r = t_strdup_printf(
 			"NO Client tried to access nonexistent namespace. "
 			"(Mailbox name should probably be prefixed with: %s)",
 			mail_namespace_find_inbox(namespaces)->prefix);
@@ -56,11 +56,11 @@ struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 {
 	struct mail_namespace *ns;
-	const char *error;
+	const char *client_error;
 
-	ns = client_find_namespace_full(cmd->client, mailbox, &error);
+	ns = client_find_namespace_full(cmd->client, mailbox, &client_error);
 	if (ns == NULL)
-		client_send_tagline(cmd, error);
+		client_send_tagline(cmd, client_error);
 	return ns;
 }
 

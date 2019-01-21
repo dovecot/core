@@ -212,7 +212,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 	}
 
 	if (imap_fetch_end(ctx) < 0) {
-		const char *errstr;
+		const char *client_error;
 
 		if (cmd->client->output->closed) {
 			/* If we're canceling we need to finish this command
@@ -228,19 +228,19 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 		}
 
 		if (ctx->error == MAIL_ERROR_NONE)
-			errstr = mailbox_get_last_error(cmd->client->mailbox, &error);
+			client_error = mailbox_get_last_error(cmd->client->mailbox, &error);
 		else {
-			errstr = ctx->errstr;
+			client_error = ctx->errstr;
 			error = ctx->error;
 		}
 		if (error == MAIL_ERROR_CONVERSION) {
 			/* BINARY found unsupported Content-Transfer-Encoding */
 			tagged_reply = t_strdup_printf(
-				"NO ["IMAP_RESP_CODE_UNKNOWN_CTE"] %s", errstr);
+				"NO ["IMAP_RESP_CODE_UNKNOWN_CTE"] %s", client_error);
 		} else if (error == MAIL_ERROR_INVALIDDATA) {
 			/* Content was invalid */
 			tagged_reply = t_strdup_printf(
-				"NO ["IMAP_RESP_CODE_PARSE"] %s", errstr);
+				"NO ["IMAP_RESP_CODE_PARSE"] %s", client_error);
 		} else if (cmd->client->set->parsed_fetch_failure != IMAP_CLIENT_FETCH_FAILURE_NO_AFTER ||
 			   imap_fetch_is_failed_retry(ctx)) {
 			/* By default we never want to reply NO to FETCH
@@ -248,7 +248,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			   about what they should on NO. A disconnection causes
 			   less confusion. */
 			client_disconnect_with_error(cmd->client,
-				t_strconcat("FETCH failed: ", errstr, NULL));
+				t_strconcat("FETCH failed: ", client_error, NULL));
 			imap_fetch_free(&ctx);
 			return TRUE;
 		} else {
@@ -257,7 +257,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			   we avoid infinitely retries from client.) */
 			imap_fetch_add_failed_uids(ctx);
 			tagged_reply = t_strdup_printf(
-				"NO ["IMAP_RESP_CODE_SERVERBUG"] %s", errstr);
+				"NO ["IMAP_RESP_CODE_SERVERBUG"] %s", client_error);
 		}
 	}
 	imap_fetch_free(&ctx);
