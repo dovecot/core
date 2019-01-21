@@ -28,7 +28,8 @@ struct mail_search_args *mail_search_build_init(void);
    If charset is unknown, it's changed to NULL. */
 int mail_search_build(struct mail_search_register *reg,
 		      struct mail_search_parser *parser, const char **charset,
-		      struct mail_search_args **args_r, const char **error_r);
+		      struct mail_search_args **args_r,
+		      const char **client_error_r);
 
 /* Add new search arg with given type. */
 struct mail_search_arg *

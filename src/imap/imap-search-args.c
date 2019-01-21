@@ -41,7 +41,7 @@ int imap_search_args_build(struct client_command_context *cmd,
 {
 	struct mail_search_parser *parser;
 	struct mail_search_args *sargs;
-	const char *error;
+	const char *client_error;
 	int ret;
 
 	if (IMAP_ARG_IS_EOL(args)) {
@@ -51,14 +51,14 @@ int imap_search_args_build(struct client_command_context *cmd,
 
 	parser = mail_search_parser_init_imap(args);
 	ret = mail_search_build(mail_search_register_get_imap(),
-				parser, &charset, &sargs, &error);
+				parser, &charset, &sargs, &client_error);
 	mail_search_parser_deinit(&parser);
 	if (ret < 0) {
 		if (charset == NULL) {
 			client_send_tagline(cmd, t_strconcat(
-				"BAD [BADCHARSET] ", error, NULL));
+				"BAD [BADCHARSET] ", client_error, NULL));
 		} else {
-			client_send_command_error(cmd, error);
+			client_send_command_error(cmd, client_error);
 		}
 		return -1;
 	}
@@ -188,7 +188,7 @@ int imap_search_get_anyset(struct client_command_context *cmd,
 			   const char *set, bool uid,
 			   struct mail_search_args **search_args_r)
 {
-	const char *error = NULL;
+	const char *client_error = NULL;
 	int ret;
 
 	if (strcmp(set, "$") == 0) {
@@ -198,12 +198,13 @@ int imap_search_get_anyset(struct client_command_context *cmd,
 	}
 	if (!uid) {
 		ret = imap_search_get_msgset_arg(cmd, set, search_args_r,
-						 &error);
+						 &client_error);
 	} else {
-		ret = imap_search_get_uidset_arg(set, search_args_r, &error);
+		ret = imap_search_get_uidset_arg(set, search_args_r,
+						 &client_error);
 	}
 	if (ret < 0) {
-		client_send_command_error(cmd, error);
+		client_send_command_error(cmd, client_error);
 		return -1;
 	}
 	return 1;

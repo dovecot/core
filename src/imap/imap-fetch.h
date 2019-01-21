@@ -121,7 +121,7 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 			      const struct imap_arg *list,
 			      struct imap_fetch_context **fetch_ctx_r,
-			      const char **error_r);
+			      const char **client_error_r);
 
 struct imap_fetch_context *
 imap_fetch_alloc(struct client *client, pool_t pool, const char *reason);

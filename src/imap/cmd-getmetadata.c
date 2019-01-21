@@ -83,7 +83,7 @@ static bool
 imap_metadata_parse_entry_names(struct imap_getmetadata_context *ctx,
 				const struct imap_arg *entries)
 {
-	const char *value, *error;
+	const char *value, *client_error;
 
 	p_array_init(&ctx->entries, ctx->cmd->pool, 4);
 	for (; !IMAP_ARG_IS_EOL(entries); entries++) {
@@ -91,8 +91,8 @@ imap_metadata_parse_entry_names(struct imap_getmetadata_context *ctx,
 			client_send_command_error(ctx->cmd, "Entry isn't astring");
 			return FALSE;
 		}
-		if (!imap_metadata_verify_entry_name(value, &error)) {
-			client_send_command_error(ctx->cmd, error);
+		if (!imap_metadata_verify_entry_name(value, &client_error)) {
+			client_send_command_error(ctx->cmd, client_error);
 			return FALSE;
 		}
 

@@ -45,7 +45,7 @@ cmd_setmetadata_parse_entryvalue(struct imap_setmetadata_context *ctx,
 				 const struct imap_arg **value_r)
 {
 	const struct imap_arg *args;
-	const char *name, *error;
+	const char *name, *client_error;
 	enum imap_parser_error parse_error;
 	int ret;
 
@@ -72,15 +72,16 @@ cmd_setmetadata_parse_entryvalue(struct imap_setmetadata_context *ctx,
 	if (ret < 0) {
 		if (ret == -2)
 			return 0;
-		error = imap_parser_get_error(ctx->parser, &parse_error);
+		client_error = imap_parser_get_error(ctx->parser, &parse_error);
 		switch (parse_error) {
 		case IMAP_PARSE_ERROR_NONE:
 			i_unreached();
 		case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
-			client_disconnect_with_error(ctx->cmd->client, error);
+			client_disconnect_with_error(ctx->cmd->client,
+						     client_error);
 			break;
 		default:
-			client_send_command_error(ctx->cmd, error);
+			client_send_command_error(ctx->cmd, client_error);
 			break;
 		}
 		return -1;
@@ -94,8 +95,8 @@ cmd_setmetadata_parse_entryvalue(struct imap_setmetadata_context *ctx,
 		return -1;
 	}
 	if (!ctx->cmd_error_sent &&
-	    !imap_metadata_verify_entry_name(name, &error)) {
-		client_send_command_error(ctx->cmd, error);
+	    !imap_metadata_verify_entry_name(name, &client_error)) {
+		client_send_command_error(ctx->cmd, client_error);
 		ctx->cmd_error_sent = TRUE;
 	}
 	if (ctx->cmd_error_sent) {
@@ -214,7 +215,7 @@ cmd_setmetadata_entry(struct imap_setmetadata_context *ctx,
 static bool cmd_setmetadata_continue(struct client_command_context *cmd)
 {
 	struct imap_setmetadata_context *ctx = cmd->context;
-	const char *entry, *error_string;
+	const char *entry, *client_error;
 	enum mail_error error;
 	const struct imap_arg *value;
 	int ret;
@@ -249,16 +250,16 @@ static bool cmd_setmetadata_continue(struct client_command_context *cmd)
 	} else if (ctx->storage_failure) {
 		if (ctx->box == NULL)
 			client_disconnect_if_inconsistent(cmd->client);
-		error_string = imap_metadata_transaction_get_last_error
+		client_error = imap_metadata_transaction_get_last_error
 			(ctx->trans, &error);
 		client_send_tagline(cmd,
-			imap_get_error_string(cmd, error_string, error));
+			imap_get_error_string(cmd, client_error, error));
 	} else if (imap_metadata_transaction_commit(&ctx->trans, 
-						&error, &error_string) < 0) {
+						&error, &client_error) < 0) {
 		if (ctx->box == NULL)
 			client_disconnect_if_inconsistent(cmd->client);
 		client_send_tagline(cmd,
-			imap_get_error_string(cmd, error_string, error));
+			imap_get_error_string(cmd, client_error, error));
 	} else {
 		client_send_tagline(cmd, "OK Setmetadata completed.");
 	}

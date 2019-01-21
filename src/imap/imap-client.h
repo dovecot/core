@@ -274,7 +274,8 @@ void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */
 void client_disconnect(struct client *client, const char *reason);
-void client_disconnect_with_error(struct client *client, const char *msg);
+void client_disconnect_with_error(struct client *client,
+				  const char *client_error);
 
 /* Add the given capability to the CAPABILITY reply. If imap_capability setting
    has an explicit capability, nothing is changed. */
@@ -291,10 +292,10 @@ int client_send_line_next(struct client *client, const char *data);
 void client_send_tagline(struct client_command_context *cmd, const char *data);
 
 /* Send a BAD command reply to client via client_send_tagline(). If there have
-   been too many command errors, the client is disconnected. msg may be NULL,
-   in which case the error is looked up from imap_parser. */
+   been too many command errors, the client is disconnected. client_error may
+   be NULL, in which case the error is looked up from imap_parser. */
 void client_send_command_error(struct client_command_context *cmd,
-			       const char *msg);
+			       const char *client_error);
 
 /* Send a NO command reply with the default internal error message to client
    via client_send_tagline(). */

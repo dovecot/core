@@ -96,7 +96,7 @@ void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
 int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 			      const struct imap_arg *list,
 			      struct imap_fetch_context **fetch_ctx_r,
-			      const char **error_r)
+			      const char **client_error_r)
 {
 	struct imap_fetch_init_context init_ctx;
 	const char *str;
@@ -110,14 +110,14 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 		init_ctx.name = t_str_ucase(str);
 		init_ctx.args++;
 		if (!imap_fetch_init_handler(&init_ctx)) {
-			*error_r = t_strconcat("Invalid fetch-att list: ",
-					       init_ctx.error, NULL);
+			*client_error_r = t_strconcat("Invalid fetch-att list: ",
+						      init_ctx.error, NULL);
 			imap_fetch_free(&init_ctx.fetch_ctx);
 			return -1;
 		}
 	}
 	if (!IMAP_ARG_IS_EOL(init_ctx.args)) {
-		*error_r = "fetch-att list contains non-atoms.";
+		*client_error_r = "fetch-att list contains non-atoms.";
 		imap_fetch_free(&init_ctx.fetch_ctx);
 		return -1;
 	}

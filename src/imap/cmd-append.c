@@ -170,11 +170,11 @@ cmd_append_catenate_mpurl(struct client_command_context *cmd,
 	struct cmd_append_context *ctx = cmd->context;
 	struct imap_msgpart_open_result mpresult;
 	uoff_t newsize;
-	const char *error;
+	const char *client_error;
 	int ret;
 
 	/* catenate URL */
-	ret = imap_msgpart_url_read_part(mpurl, &mpresult, &error);
+	ret = imap_msgpart_url_read_part(mpurl, &mpresult, &client_error);
 	if (ret < 0) {
 		client_send_box_error(cmd, ctx->box);
 		return -1;
@@ -182,7 +182,8 @@ cmd_append_catenate_mpurl(struct client_command_context *cmd,
 	if (ret == 0) {
 		/* invalid url, abort */
 		client_send_tagline(cmd,
-			t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
+			t_strdup_printf("NO [BADURL %s] %s.",
+					caturl, client_error));
 		return -1;
 	}
 	if (mpresult.size == 0) {
@@ -231,14 +232,14 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 {
 	struct cmd_append_context *ctx = cmd->context;
 	struct imap_msgpart_url *mpurl;
-	const char *error;
+	const char *client_error;
 	int ret;
 
 	if (ctx->failed)
 		return -1;
 
 	ret = imap_msgpart_url_parse(cmd->client->user, cmd->client->mailbox,
-				     caturl, &mpurl, &error);
+				     caturl, &mpurl, &client_error);
 	if (ret < 0) {
 		client_send_box_error(cmd, ctx->box);
 		return -1;
@@ -246,7 +247,8 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	if (ret == 0) {
 		/* invalid url, abort */
 		client_send_tagline(cmd,
-			t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
+			t_strdup_printf("NO [BADURL %s] %s.",
+					caturl, client_error));
 		return -1;
 	}
 	ret = cmd_append_catenate_mpurl(cmd, caturl, mpurl);
@@ -385,7 +387,7 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
 	const struct imap_arg *args;
-	const char *msg;
+	const char *client_error;
 	enum imap_parser_error parse_error;
 	bool nonsync = FALSE;
 	int ret;
@@ -407,19 +409,20 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 					    IMAP_PARSE_FLAG_INSIDE_LIST, &args);
 	} while (ret > 0 && !catenate_args_can_stop(ctx, args));
 	if (ret == -1) {
-		msg = imap_parser_get_error(ctx->save_parser, &parse_error);
+		client_error = imap_parser_get_error(ctx->save_parser,
+						     &parse_error);
 		switch (parse_error) {
 		case IMAP_PARSE_ERROR_NONE:
 			i_unreached();
 		case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
 			client_send_line(client, t_strconcat("* BYE ",
 				(client->set->imap_literal_minus ? "[TOOBIG] " : ""),
-				msg, NULL));
-			client_disconnect(client, msg);
+				client_error, NULL));
+			client_disconnect(client, client_error);
 			break;
 		default:
 			if (!ctx->failed)
-				client_send_command_error(cmd, msg);
+				client_send_command_error(cmd, client_error);
 		}
 		client->input_skip_line = TRUE;
 		cmd_append_finish(ctx);
@@ -719,7 +722,7 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
 	const struct imap_arg *args;
-	const char *msg;
+	const char *client_error;
 	enum imap_parser_error parse_error;
 	unsigned int arg_min_count;
 	bool nonsync, last_literal;
@@ -755,18 +758,18 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 		 !cmd_append_args_can_stop(ctx, args, &last_literal));
 	if (ret == -1) {
 		if (!ctx->failed) {
-			msg = imap_parser_get_error(ctx->save_parser, &parse_error);
+			client_error = imap_parser_get_error(ctx->save_parser, &parse_error);
 			switch (parse_error) {
 			case IMAP_PARSE_ERROR_NONE:
 				i_unreached();
 			case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
 				client_send_line(client, t_strconcat("* BYE ",
 					(client->set->imap_literal_minus ? "[TOOBIG] " : ""),
-					msg, NULL));
-				client_disconnect(client, msg);
+					client_error, NULL));
+				client_disconnect(client, client_error);
 				break;
 			default:
-				client_send_command_error(cmd, msg);
+				client_send_command_error(cmd, client_error);
 			}
 		}
 		cmd_append_finish(ctx);

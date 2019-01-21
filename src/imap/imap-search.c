@@ -45,13 +45,14 @@ static bool
 search_parse_fetch_att(struct imap_search_context *ctx,
 		       const struct imap_arg *update_args)
 {
-	const char *error;
+	const char *client_error;
 
 	ctx->fetch_pool = pool_alloconly_create("search update fetch", 512);
 	if (imap_fetch_att_list_parse(ctx->cmd->client, ctx->fetch_pool,
-				      update_args, &ctx->fetch_ctx, &error) < 0) {
+				      update_args, &ctx->fetch_ctx,
+				      &client_error) < 0) {
 		client_send_command_error(ctx->cmd, t_strconcat(
-			"SEARCH UPDATE fetch-att: ", error, NULL));
+			"SEARCH UPDATE fetch-att: ", client_error, NULL));
 		pool_unref(&ctx->fetch_pool);
 		return FALSE;
 	}
