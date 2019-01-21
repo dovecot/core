@@ -192,7 +192,7 @@ static bool cmd_setquota(struct client_command_context *cmd)
 	struct quota_root *root;
 	struct mail_user *owner;
         const struct imap_arg *args, *list_args;
-	const char *root_name, *name, *value_str, *error;
+	const char *root_name, *name, *value_str, *client_error;
 	uint64_t value;
 
 	/* <quota root> <resource limits> */
@@ -223,8 +223,8 @@ static bool cmd_setquota(struct client_command_context *cmd)
 			return TRUE;
 		}
 
-		if (quota_set_resource(root, name, value, &error) < 0) {
-			client_send_command_error(cmd, error);
+		if (quota_set_resource(root, name, value, &client_error) < 0) {
+			client_send_command_error(cmd, client_error);
 			return TRUE;
 		}
 	}
