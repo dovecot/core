@@ -2095,10 +2095,13 @@ smtp_client_connection_do_start_transaction(struct smtp_client_connection *conn)
 
 	timeout_remove(&conn->to_trans);
 
-	if (conn->transactions_head == NULL)
-		return;
 	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_TRANSACTION)
 		return;
+	if (conn->transactions_head == NULL) {
+		smtp_client_connection_set_state(conn,
+			SMTP_CLIENT_CONNECTION_STATE_READY);
+		return;
+	}
 
 	if (conn->reset_needed)
 		smtp_client_connection_reset(conn);
@@ -2114,6 +2117,8 @@ static void
 smtp_client_connection_start_transaction(struct smtp_client_connection *conn)
 {
 	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_READY)
+		return;
+	if (conn->transactions_head == NULL)
 		return;
 	if (conn->to_trans != NULL)
 		return;
