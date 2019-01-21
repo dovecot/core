@@ -33,7 +33,7 @@ void imap_urlauth_deinit(struct imap_urlauth_context **_uctx);
 
 int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 			  const char *mechanism, const char *rumpurl,
-			  const char **urlauth_r, const char **error_r);
+			  const char **urlauth_r, const char **client_error_r);
 
 bool imap_urlauth_check(struct imap_urlauth_context *uctx,
 			struct imap_url *url, bool ignore_unknown_access,
