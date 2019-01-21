@@ -386,7 +386,7 @@ static bool cmd_listrights(struct client_command_context *cmd)
 
 static int
 imap_acl_letters_parse(const char *letters, const char *const **rights_r,
-		       const char **error_r)
+		       const char **client_error_r)
 {
 	static const char *acl_k = MAIL_ACL_CREATE;
 	static const char *acl_x = MAIL_ACL_DELETE;
@@ -417,7 +417,7 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 				array_append(&rights, &acl_t, 1);
 				break;
 			default:
-				*error_r = t_strdup_printf(
+				*client_error_r = t_strdup_printf(
 					"Invalid ACL right: %c", *letters);
 				return -1;
 			}
@@ -439,25 +439,25 @@ static bool acl_anyone_allow(struct mail_user *user)
 static int
 imap_acl_identifier_parse(struct client_command_context *cmd,
 			  const char *id, struct acl_rights *rights,
-			  bool check_anyone, const char **error_r)
+			  bool check_anyone, const char **client_error_r)
 {
 	struct mail_user *user = cmd->client->user;
 
 	if (str_begins(id, IMAP_ACL_GLOBAL_PREFIX)) {
-		*error_r = t_strdup_printf("Global ACLs can't be modified: %s",
+		*client_error_r = t_strdup_printf("Global ACLs can't be modified: %s",
 					   id);
 		return -1;
 	}
 
 	if (strcmp(id, IMAP_ACL_ANYONE) == 0) {
 		if (check_anyone && !acl_anyone_allow(user)) {
-			*error_r = "'anyone' identifier is disallowed";
+			*client_error_r = "'anyone' identifier is disallowed";
 			return -1;
 		}
 		rights->id_type = ACL_ID_ANYONE;
 	} else if (strcmp(id, IMAP_ACL_AUTHENTICATED) == 0) {
 		if (check_anyone && !acl_anyone_allow(user)) {
-			*error_r = "'authenticated' identifier is disallowed";
+			*client_error_r = "'authenticated' identifier is disallowed";
 			return -1;
 		}
 		rights->id_type = ACL_ID_AUTHENTICATED;
@@ -532,13 +532,13 @@ static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
 static int
 cmd_acl_mailbox_update(struct mailbox *box,
 		       const struct acl_rights_update *update,
-		       const char **error_r)
+		       const char **client_error_r)
 {
 	struct mailbox_transaction_context *t;
 	int ret;
 
 	if (mailbox_open(box) < 0) {
-		*error_r = mailbox_get_last_error(box, NULL);
+		*client_error_r = mailbox_get_last_error(box, NULL);
 		return -1;
 	}
 
@@ -547,7 +547,7 @@ cmd_acl_mailbox_update(struct mailbox *box,
 	ret = acl_mailbox_update_acl(t, update);
 	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
-	*error_r = MAIL_ERRSTR_CRITICAL_MSG;
+	*client_error_r = MAIL_ERRSTR_CRITICAL_MSG;
 	return ret;
 }
 
@@ -559,7 +559,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	struct acl_object *aclobj;
 	struct acl_rights_update update;
 	struct acl_rights *r;
-	const char *mailbox, *identifier, *rights, *error;
+	const char *mailbox, *identifier, *rights, *client_error;
 	bool negative = FALSE;
 
 	if (!client_read_string_args(cmd, 3, &mailbox, &identifier, &rights))
@@ -591,12 +591,12 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	}
 
 	if (imap_acl_identifier_parse(cmd, identifier, &update.rights,
-				      TRUE, &error) < 0) {
-		client_send_command_error(cmd, error);
+				      TRUE, &client_error) < 0) {
+		client_send_command_error(cmd, client_error);
 		return TRUE;
 	}
-	if (imap_acl_letters_parse(rights, &update.rights.rights, &error) < 0) {
-		client_send_command_error(cmd, error);
+	if (imap_acl_letters_parse(rights, &update.rights.rights, &client_error) < 0) {
+		client_send_command_error(cmd, client_error);
 		return TRUE;
 	}
 	r = &update.rights;
@@ -632,8 +632,8 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		imap_acl_update_ensure_keep_admins(backend, aclobj, &update);
 	}
 
-	if (cmd_acl_mailbox_update(box, &update, &error) < 0)
-		client_send_tagline(cmd, t_strdup_printf("NO %s", error));
+	if (cmd_acl_mailbox_update(box, &update, &client_error) < 0)
+		client_send_tagline(cmd, t_strdup_printf("NO %s", client_error));
 	else
 		client_send_tagline(cmd, "OK Setacl complete.");
 	mailbox_free(&box);
@@ -644,7 +644,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 {
 	struct mailbox *box;
 	struct acl_rights_update update;
-	const char *mailbox, *identifier, *error;
+	const char *mailbox, *identifier, *client_error;
 
 	if (!client_read_string_args(cmd, 2, &mailbox, &identifier))
 		return FALSE;
@@ -662,8 +662,8 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	}
 
 	if (imap_acl_identifier_parse(cmd, identifier, &update.rights,
-				      FALSE, &error) < 0) {
-		client_send_command_error(cmd, error);
+				      FALSE, &client_error) < 0) {
+		client_send_command_error(cmd, client_error);
 		return TRUE;
 	}
 
@@ -671,8 +671,8 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	if (box == NULL)
 		return TRUE;
 
-	if (cmd_acl_mailbox_update(box, &update, &error) < 0)
-		client_send_tagline(cmd, t_strdup_printf("NO %s", error));
+	if (cmd_acl_mailbox_update(box, &update, &client_error) < 0)
+		client_send_tagline(cmd, t_strdup_printf("NO %s", client_error));
 	else
 		client_send_tagline(cmd, "OK Deleteacl complete.");
 	mailbox_free(&box);
