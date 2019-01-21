@@ -321,6 +321,37 @@ authenticate_callback(struct auth_client_request *request,
 	}
 }
 
+static bool get_cert_username(struct client *client, const char **username_r,
+			      const char **error_r)
+{
+	/* no SSL */
+	if (client->ssl_proxy == NULL) {
+		*username_r = NULL;
+		return TRUE;
+	}
+
+	/* no client certificate */
+	if (!ssl_proxy_has_valid_client_cert(client->ssl_proxy)) {
+		*username_r = NULL;
+		return TRUE;
+	}
+
+	/* get peer name */
+	const char *username = ssl_proxy_get_peer_name(client->ssl_proxy);
+
+	/* if we wanted peer name, but it was not there, fail */
+	if (client->set->auth_ssl_username_from_cert &&
+	    (username == NULL || *username == '\0')) {
+		if (client->set->auth_ssl_require_client_cert) {
+			*error_r = "Missing username in certificate";
+			return FALSE;
+		}
+	}
+
+	*username_r = username;
+	return TRUE;
+}
+
 void sasl_server_auth_begin(struct client *client,
 			    const char *service, const char *mech_name,
 			    const char *initial_resp_base64,
@@ -359,8 +390,15 @@ void sasl_server_auth_begin(struct client *client,
 	info.mech = mech->name;
 	info.service = service;
 	info.session_id = client_get_session_id(client);
-	info.cert_username = client->ssl_proxy == NULL ? NULL :
-		ssl_proxy_get_peer_name(client->ssl_proxy);
+	if (client->set->auth_ssl_username_from_cert) {
+		const char *error;
+		if (!get_cert_username(client, &info.cert_username, &error)) {
+			client_log_err(client, t_strdup_printf("Cannot get username "
+							       "from certificate: %s", error));
+			sasl_server_auth_failed(client, "Unable to validate certificate");
+			return;
+		}
+	}
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;
