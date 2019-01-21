@@ -113,7 +113,7 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		   const char **error_r);
 /* Returns 0 if OK, -1 if error (eg. permission denied, invalid name). */
 int quota_set_resource(struct quota_root *root, const char *name,
-		       uint64_t value, const char **error_r);
+		       uint64_t value, const char **client_error_r);
 
 /* Start a new quota transaction. */
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box);

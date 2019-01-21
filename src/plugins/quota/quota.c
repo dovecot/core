@@ -816,13 +816,13 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 }
 
 int quota_set_resource(struct quota_root *root, const char *name,
-		       uint64_t value, const char **error_r)
+		       uint64_t value, const char **client_error_r)
 {
 	struct dict_transaction_context *trans;
 	const char *key, *error;
 
 	if (root->set->limit_set == NULL) {
-		*error_r = MAIL_ERRSTR_NO_PERMISSION;
+		*client_error_r = MAIL_ERRSTR_NO_PERMISSION;
 		return -1;
 	}
 	if (strcasecmp(name, QUOTA_NAME_STORAGE_KILOBYTES) == 0)
@@ -832,7 +832,8 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	else if (strcasecmp(name, QUOTA_NAME_MESSAGES) == 0)
 		key = "messages";
 	else {
-		*error_r = t_strdup_printf("Unsupported resource name: %s", name);
+		*client_error_r = t_strdup_printf(
+			"Unsupported resource name: %s", name);
 		return -1;
 	}
 
@@ -845,8 +846,11 @@ int quota_set_resource(struct quota_root *root, const char *name,
 		if (mail_user_get_home(root->quota->user, &set.home_dir) <= 0)
 			set.home_dir = NULL;
 		if (dict_init(root->set->limit_set, &set,
-			      &root->limit_set_dict, error_r) < 0)
+			      &root->limit_set_dict, &error) < 0) {
+			i_error("dict_init() failed: %s", error);
+			*client_error_r = "Internal quota limit update error";
 			return -1;
+		}
 	}
 
 	trans = dict_transaction_begin(root->limit_set_dict);
@@ -854,7 +858,7 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	dict_set(trans, key, dec2str(value));
 	if (dict_transaction_commit(&trans, &error) < 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
-		*error_r = "Internal quota limit update error";
+		*client_error_r = "Internal quota limit update error";
 		return -1;
 	}
 	return 0;
