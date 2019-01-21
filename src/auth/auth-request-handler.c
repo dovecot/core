@@ -560,6 +560,14 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return TRUE;
 	}
 
+	if (request->set->ssl_require_client_cert &&
+	    request->set->ssl_username_from_cert &&
+	    !request->cert_username) {
+		 auth_request_handler_auth_fail(handler, request,
+			"SSL certificate didn't contain username");
+		return TRUE;
+	}
+
 	/* Empty initial response is a "=" base64 string. Completely empty
 	   string shouldn't really be sent, but at least Exim does it,
 	   so just allow it for backwards compatibility.. */
