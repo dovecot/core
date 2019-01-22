@@ -970,6 +970,8 @@ void i_stream_unset_io(struct istream *stream, struct io *io)
 	stream = i_stream_get_root_io(stream);
 
 	i_assert(stream->real_stream->io == io);
+	if (io_is_pending(io))
+		stream->real_stream->io_pending = TRUE;
 	stream->real_stream->io = NULL;
 }
 
