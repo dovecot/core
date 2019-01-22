@@ -67,6 +67,7 @@ struct istream_private {
 	bool return_nolf_line:1;
 	bool stream_size_passthrough:1; /* stream is parent's size */
 	bool nonpersistent_buffers:1;
+	bool io_pending:1;
 };
 
 struct istream_snapshot {
