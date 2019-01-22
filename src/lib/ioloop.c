@@ -215,6 +215,11 @@ void io_set_pending(struct io *io)
 	}
 }
 
+bool io_is_pending(struct io *io)
+{
+	return io->pending;
+}
+
 void io_set_never_wait_alone(struct io *io, bool set)
 {
 	io->never_wait_alone = set;

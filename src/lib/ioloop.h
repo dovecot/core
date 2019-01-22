@@ -104,6 +104,9 @@ void io_remove_closed(struct io **io);
    if some of the input has already read into some internal buffer and the
    caller wants to handle it the same way as if the fd itself had input. */
 void io_set_pending(struct io *io);
+/* Returns TRUE if io_set_pending() has been called for the IO and its callback
+   hasn't been called yet. */
+bool io_is_pending(struct io *io);
 /* If set, this IO shouldn't be the only thing being waited on, because
    it would just result in infinite wait. In those situations rather just
    crash to indicate that there's a bug. */
