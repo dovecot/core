@@ -616,7 +616,6 @@ smtp_client_command_pipeline_is_open(struct smtp_client_connection *conn)
 		cmd = cmd->next;
 	}
 
-	cmd = conn->cmd_send_queue_head;
 	return TRUE;
 }
 
