@@ -931,6 +931,8 @@ void i_stream_set_input_pending(struct istream *stream, bool pending)
 	stream = i_stream_get_root_io(stream);
 	if (stream->real_stream->io != NULL)
 		io_set_pending(stream->real_stream->io);
+	else
+		stream->real_stream->io_pending = TRUE;
 }
 
 void i_stream_switch_ioloop_to(struct istream *stream, struct ioloop *ioloop)
@@ -957,6 +959,10 @@ void i_stream_set_io(struct istream *stream, struct io *io)
 
 	i_assert(stream->real_stream->io == NULL);
 	stream->real_stream->io = io;
+	if (stream->real_stream->io_pending) {
+		io_set_pending(io);
+		stream->real_stream->io_pending = FALSE;
+	}
 }
 
 void i_stream_unset_io(struct istream *stream, struct io *io)
