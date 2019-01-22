@@ -103,7 +103,7 @@ static void test_files_read_dir(const char *path)
 				file += 2; /* skip "./" */
 				file = p_strdup(files_pool, file);
 				array_push_back(&files, &file);
-			} else {
+			} else if (S_ISDIR(st.st_mode)) {
 				test_files_read_dir(file);
 			}
 		}
