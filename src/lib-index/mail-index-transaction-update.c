@@ -195,6 +195,14 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 				   uint32_t first_uid,
 				   ARRAY_TYPE(seq_range) *uids_r)
 {
+	return mail_index_append_finish_uids_full(t, first_uid, first_uid, uids_r);
+}
+
+void mail_index_append_finish_uids_full(struct mail_index_transaction *t,
+					uint32_t min_allowed_uid,
+					uint32_t first_new_uid,
+					ARRAY_TYPE(seq_range) *uids_r)
+{
 	struct mail_index_record *recs;
 	unsigned int i, count;
 	struct seq_range *range;
@@ -203,13 +211,14 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 	if (!array_is_created(&t->appends))
 		return;
 
-	i_assert(first_uid < (uint32_t)-1);
+	i_assert(min_allowed_uid <= first_new_uid);
+	i_assert(first_new_uid < (uint32_t)-1);
 
 	/* first find the highest assigned uid */
 	recs = array_get_modifiable(&t->appends, &count);
 	i_assert(count > 0);
 
-	next_uid = first_uid;
+	next_uid = first_new_uid;
 	for (i = 0; i < count; i++) {
 		if (next_uid <= recs[i].uid)
 			next_uid = recs[i].uid + 1;
@@ -218,7 +227,7 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 
 	/* assign missing uids */
 	for (i = 0; i < count; i++) {
-		if (recs[i].uid == 0 || recs[i].uid < first_uid) {
+		if (recs[i].uid == 0 || recs[i].uid < min_allowed_uid) {
 			i_assert(next_uid < (uint32_t)-1);
 			recs[i].uid = next_uid++;
 			if (t->highest_append_uid < recs[i].uid)
