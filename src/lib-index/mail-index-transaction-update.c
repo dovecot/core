@@ -224,8 +224,7 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 			if (t->highest_append_uid < recs[i].uid)
 				t->highest_append_uid = recs[i].uid;
 		} else {
-			if (next_uid != first_uid)
-				t->appends_nonsorted = TRUE;
+			t->appends_nonsorted = TRUE;
 		}
 	}
 
