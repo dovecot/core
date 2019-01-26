@@ -261,15 +261,15 @@ master_login_auth_lookup_request(struct master_login_auth *auth,
 }
 
 static bool
-master_login_auth_input_user(struct master_login_auth *auth, const char *args)
+master_login_auth_input_user(struct master_login_auth *auth,
+			     const char *const *args)
 {
 	struct master_login_auth_request *request;
-	const char *const *list;
+	const char *const *list = args;
 	unsigned int id;
 
 	/* <id> <userid> [..] */
 
-	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0) {
 		i_error("Auth server sent corrupted USER line");
@@ -286,12 +286,12 @@ master_login_auth_input_user(struct master_login_auth *auth, const char *args)
 
 static bool
 master_login_auth_input_notfound(struct master_login_auth *auth,
-				 const char *args)
+				 const char *const *args)
 {
 	struct master_login_auth_request *request;
 	unsigned int id;
 
-	if (str_to_uint(args, &id) < 0) {
+	if (str_to_uint(args[0], &id) < 0) {
 		i_error("Auth server sent corrupted NOTFOUND line");
 		return FALSE;
 	}
@@ -309,13 +309,12 @@ master_login_auth_input_notfound(struct master_login_auth *auth,
 
 static bool
 master_login_auth_input_fail(struct master_login_auth *auth,
-			     const char *args_line)
+			     const char *const *args)
 {
 	struct master_login_auth_request *request;
- 	const char *const *args, *error = NULL;
+ 	const char *error = NULL;
 	unsigned int i, id;
 
-	args = t_strsplit_tabescaped(args_line);
 	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
 		i_error("Auth server sent broken FAIL line");
 		return FALSE;
@@ -340,10 +339,34 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 	return TRUE;
 }
 
+static int
+master_login_auth_input_args(struct master_login_auth *auth,
+			     const char *const *args)
+{
+	bool ret;
+
+	auth->refcount++;
+	if (strcmp(args[0], "USER") == 0)
+		ret = master_login_auth_input_user(auth, &args[1]);
+	else if (strcmp(args[0], "NOTFOUND") == 0)
+		ret = master_login_auth_input_notfound(auth, &args[1]);
+	else if (strcmp(args[0], "FAIL") == 0)
+		ret = master_login_auth_input_fail(auth, &args[1]);
+	else
+		ret = TRUE;
+
+	if (!ret || auth->input == NULL) {
+		master_login_auth_disconnect(auth);
+		ret = FALSE;
+	}
+	master_login_auth_unref(&auth);
+
+	return (ret ? 0 : -1);
+}
+
 static void master_login_auth_input(struct master_login_auth *auth)
 {
 	const char *line;
-	bool ret;
 
 	switch (i_stream_read(auth->input)) {
 	case 0:
@@ -395,23 +418,15 @@ static void master_login_auth_input(struct master_login_auth *auth)
 		master_login_auth_check_spids(auth);
 	}
 
-	auth->refcount++;
 	while ((line = i_stream_next_line(auth->input)) != NULL) {
-		if (str_begins(line, "USER\t"))
-			ret = master_login_auth_input_user(auth, line + 5);
-		else if (str_begins(line, "NOTFOUND\t"))
-			ret = master_login_auth_input_notfound(auth, line + 9);
-		else if (str_begins(line, "FAIL\t"))
-			ret = master_login_auth_input_fail(auth, line + 5);
-		else
-			ret = TRUE;
+		const char *const *args;
+		int ret;
 
-		if (!ret || auth->input == NULL) {
-			master_login_auth_disconnect(auth);
+		args = t_strsplit_tabescaped(line);
+		ret = master_login_auth_input_args(auth, args);
+		if (ret < 0)
 			break;
-		}
 	}
-	master_login_auth_unref(&auth);
 }
 
 static int
