@@ -22,8 +22,13 @@
 
 #define AUTH_MAX_INBUF_SIZE 8192
 
+static struct event_category event_category_auth_master_client_login = {
+	.name = "auth-master-client-login"
+};
+
 struct master_login_auth_request {
 	struct master_login_auth_request *prev, *next;
+	struct event *event;
 
 	unsigned int id;
 	struct timeval create_stamp;
@@ -42,6 +47,7 @@ struct master_login_auth_request {
 struct master_login_auth {
 	struct connection conn;
 	struct connection_list *clist;
+	struct event *event;
 	pool_t pool;
 	int refcount;
 
@@ -110,6 +116,13 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 
 	auth->clist = connection_list_init(&master_login_auth_set,
 					   &master_login_auth_vfuncs);
+
+	auth->event = event_create(NULL);
+	event_add_category(auth->event,
+			   &event_category_auth_master_client_login);
+	event_set_append_log_prefix(auth->event, "auth-master: login: ");
+
+	auth->conn.event_parent = auth->event;
 	connection_init_client_unix(auth->clist, &auth->conn,
 				    auth->auth_socket_path);
 
@@ -133,7 +146,7 @@ static void request_failure(struct master_login_auth *auth,
 		    timeval_diff_msecs(&ioloop_timeval, &request->create_stamp),
 		    request->client_pid, request->auth_id);
 
-	i_error("%s (%s)", log_reason, str_c(str));
+	e_error(request->event, "%s (%s)", log_reason, str_c(str));
 	request->callback(NULL, client_reason, request->context);
 }
 
@@ -150,6 +163,8 @@ static void request_free(struct master_login_auth_request **_request)
 	struct master_login_auth_request *request = *_request;
 
 	*_request = NULL;
+
+	event_unref(&request->event);
 	i_free(request);
 }
 
@@ -199,6 +214,7 @@ static void master_login_auth_unref(struct master_login_auth **_auth)
 	hash_table_destroy(&auth->requests);
 	connection_deinit(&auth->conn);
 	connection_list_deinit(&clist);
+	event_unref(&auth->event);
 	pool_unref(&auth->pool);
 }
 
@@ -232,7 +248,7 @@ static void master_login_auth_destroy(struct connection *_conn)
 		break;
 	case CONNECTION_DISCONNECT_BUFFER_FULL:
 		/* buffer full */
-		i_error("Auth server sent us too long line");
+		e_error(auth->event, "Auth server sent us too long line");
 		master_login_auth_fail(auth, NULL);
 		break;
 	default:
@@ -305,7 +321,8 @@ master_login_auth_handshake_line(struct connection *_conn, const char *line)
 	    tmp[1] != NULL && tmp[2] != NULL) {
 		if (str_to_uint(tmp[1], &major_version) < 0 ||
 		    str_to_uint(tmp[2], &minor_version) < 0) {
-			i_error("Auth server sent invalid version line: %s",
+			e_error(auth->event,
+				"Auth server sent invalid version line: %s",
 				line);
 			return -1;
 		}
@@ -318,7 +335,8 @@ master_login_auth_handshake_line(struct connection *_conn, const char *line)
 	}
 	if (strcmp(tmp[0], "SPID") != 0 ||
 	    str_to_pid(tmp[1], &auth->auth_server_pid) < 0) {
-		i_error("Auth server did not send valid SPID: %s", line);
+		e_error(auth->event,
+			"Auth server did not send valid SPID: %s", line);
 		return -1;
 	}
 
@@ -351,7 +369,8 @@ master_login_auth_lookup_request(struct master_login_auth *auth,
 
 	request = hash_table_lookup(auth->requests, POINTER_CAST(id));
 	if (request == NULL) {
-		i_error("Auth server sent reply with unknown ID %u", id);
+		e_error(auth->event,
+			"Auth server sent reply with unknown ID %u", id);
 		return NULL;
 	}
 	master_login_auth_request_remove(auth, request);
@@ -432,7 +451,7 @@ master_login_auth_input_args(struct connection *_conn, const char *const *args)
 	unsigned int id;
 
 	if (args[0] != NULL && strcmp(args[0], "CUID") == 0) {
-		i_error("%s is an auth client socket. "
+		e_error(auth->event, "%s is an auth client socket. "
 			"It should be a master socket.",
 			auth->auth_socket_path);
 		return -1;
@@ -440,7 +459,7 @@ master_login_auth_input_args(struct connection *_conn, const char *const *args)
 
 	if (args[0] == NULL || args[1] == NULL ||
 	    str_to_uint(args[1], &id) < 0) {
-		i_error("BUG: Unexpected input: %s",
+		e_error(auth->event, "BUG: Unexpected input: %s",
 			t_strarray_join(args, "\t"));
 		return -1;
 	}
@@ -475,11 +494,11 @@ master_login_auth_connect(struct master_login_auth *auth)
 
 	if (connection_client_connect(&auth->conn) < 0) {
 		if (errno == EACCES) {
-			i_error("%s",
+			e_error(auth->event, "%s",
 				eacces_error_get("connect",
 						 auth->auth_socket_path));
 		} else {
-			i_error("connect(%s) failed: %m",
+			e_error(auth->event, "connect(%s) failed: %m",
 				auth->auth_socket_path);;
 		}
 		return -1;
@@ -496,7 +515,8 @@ auth_request_check_spid(struct master_login_auth *auth,
 	if (auth->auth_server_pid != req->auth_pid &&
 	    auth->conn.handshake_received) {
 		/* auth server was restarted. don't even attempt a login. */
-		i_warning("Auth server restarted (pid %u -> %u), aborting auth",
+		e_warning(auth->event,
+			  "Auth server restarted (pid %u -> %u), aborting auth",
 			  (unsigned int)req->auth_pid,
 			  (unsigned int)auth->auth_server_pid);
 		return FALSE;
@@ -580,6 +600,12 @@ void master_login_auth_request(struct master_login_auth *auth,
 	i_assert(hash_table_lookup(auth->requests, POINTER_CAST(id)) == NULL);
 	hash_table_insert(auth->requests, POINTER_CAST(id), login_req);
 	DLLIST2_APPEND(&auth->request_head, &auth->request_tail, login_req);
+
+	login_req->event = event_create(auth->event);
+	event_add_int(login_req->event, "id", login_req->id);
+	event_set_append_log_prefix(login_req->event,
+				    t_strdup_printf("request [%u]: ",
+						    login_req->id));
 
 	if (auth->to == NULL)
 		master_login_auth_update_timeout(auth);
