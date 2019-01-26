@@ -146,7 +146,13 @@ static void request_failure(struct master_login_auth *auth,
 		    timeval_diff_msecs(&ioloop_timeval, &request->create_stamp),
 		    request->client_pid, request->auth_id);
 
-	e_error(request->event, "%s (%s)", log_reason, str_c(str));
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("master_login_auth_finished");
+	e->add_str("error", log_reason);
+	e_error(e->event(), "Login auth request failed: %s (%s)",
+		log_reason, str_c(str));
+
 	request->callback(NULL, client_reason, request->context);
 }
 
@@ -392,6 +398,13 @@ master_login_auth_input_user(struct master_login_auth *auth, unsigned int id,
 	/* USER <id> <userid> [..] */
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
+		struct event_passthrough *e =
+			event_create_passthrough(request->event)->
+			set_name("auth_master_client_login_finished");
+		if (args[0] != NULL && *args[0] != '\0')
+			e->add_str("user", args[0]);
+		e_debug(e->event(), "Login auth request successful");
+
 		request->callback(args, NULL, request->context);
 		request_free(&request);
 	}
@@ -606,6 +619,28 @@ void master_login_auth_request(struct master_login_auth *auth,
 	event_set_append_log_prefix(login_req->event,
 				    t_strdup_printf("request [%u]: ",
 						    login_req->id));
+
+	if (req->local_ip.family != 0) {
+		event_add_str(login_req->event, "local_ip",
+			      net_ip2addr(&req->local_ip));
+	}
+	if (req->local_port != 0) {
+		event_add_int(login_req->event, "local_port",
+			      req->local_port);
+	}
+	if (req->remote_ip.family != 0) {
+		event_add_str(login_req->event, "remote_ip",
+			      net_ip2addr(&req->remote_ip));
+	}
+	if (req->remote_port != 0) {
+		event_add_int(login_req->event, "remote_port",
+			      req->remote_port);
+	}
+
+	struct event_passthrough *e =
+		event_create_passthrough(login_req->event)->
+		set_name("auth_master_client_login_started");
+	e_debug(e->event(), "Started login auth request");
 
 	if (auth->to == NULL)
 		master_login_auth_update_timeout(auth);
