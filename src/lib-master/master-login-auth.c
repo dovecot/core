@@ -145,6 +145,14 @@ request_internal_failure(struct master_login_auth *auth,
 	request_failure(auth, request, reason, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE);
 }
 
+static void request_free(struct master_login_auth_request **_request)
+{
+	struct master_login_auth_request *request = *_request;
+
+	*_request = NULL;
+	i_free(request);
+}
+
 static void
 master_login_auth_fail(struct master_login_auth *auth,
 		       const char *reason) ATTR_NULL(2)
@@ -162,7 +170,7 @@ master_login_auth_fail(struct master_login_auth *auth,
 			       &auth->request_tail, request);
 
 		request_internal_failure(auth, request, reason);
-		i_free(request);
+		request_free(&request);
 	}
 	hash_table_clear(auth->requests, FALSE);
 
@@ -268,7 +276,7 @@ static void master_login_auth_timeout(struct master_login_auth *auth)
 			"Auth server request timed out after %u.%03u secs",
 			msecs/1000, msecs%1000);
 		request_internal_failure(auth, request, reason);
-		i_free(request);
+		request_free(&request);
 	}
 	timeout_remove(&auth->to);
 	master_login_auth_update_timeout(auth);
@@ -350,7 +358,7 @@ master_login_auth_lookup_request(struct master_login_auth *auth,
 	if (request->aborted) {
 		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
 				  request->context);
-		i_free(request);
+		request_free(&request);
 		return NULL;
 	}
 	return request;
@@ -366,7 +374,7 @@ master_login_auth_input_user(struct master_login_auth *auth, unsigned int id,
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
 		request->callback(args, NULL, request->context);
-		i_free(request);
+		request_free(&request);
 	}
 }
 
@@ -384,7 +392,7 @@ master_login_auth_input_notfound(struct master_login_auth *auth,
 			"Authenticated user not found from userdb, "
 			"auth lookup id=%u", id);
 		request_internal_failure(auth, request, reason);
-		i_free(request);
+		request_free(&request);
 	}
 }
 
@@ -412,7 +420,7 @@ master_login_auth_input_fail(struct master_login_auth *auth, unsigned int id,
 				"Internal auth failure: %s", error);
 			request_failure(auth, request, log_reason, error);
 		}
-		i_free(request);
+		request_free(&request);
 	}
 }
 
