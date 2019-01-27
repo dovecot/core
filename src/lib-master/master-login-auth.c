@@ -62,7 +62,7 @@ struct master_login_auth {
 	bool spid_received:1;
 };
 
-static void master_login_auth_set_timeout(struct master_login_auth *auth);
+static void master_login_auth_update_timeout(struct master_login_auth *auth);
 static void master_login_auth_check_spids(struct master_login_auth *auth);
 
 struct master_login_auth *
@@ -192,10 +192,10 @@ static void master_login_auth_timeout(struct master_login_auth *auth)
 		i_free(request);
 	}
 	timeout_remove(&auth->to);
-	master_login_auth_set_timeout(auth);
+	master_login_auth_update_timeout(auth);
 }
 
-static void master_login_auth_set_timeout(struct master_login_auth *auth)
+static void master_login_auth_update_timeout(struct master_login_auth *auth)
 {
 	i_assert(auth->to == NULL);
 
@@ -218,7 +218,7 @@ master_login_auth_request_remove(struct master_login_auth *auth,
 
 	if (update_timeout) {
 		timeout_remove(&auth->to);
-		master_login_auth_set_timeout(auth);
+		master_login_auth_update_timeout(auth);
 	}
 }
 
@@ -512,7 +512,7 @@ void master_login_auth_request(struct master_login_auth *auth,
 	DLLIST2_APPEND(&auth->request_head, &auth->request_tail, login_req);
 
 	if (auth->to == NULL)
-		master_login_auth_set_timeout(auth);
+		master_login_auth_update_timeout(auth);
 
 	master_login_auth_send_request(auth, login_req);
 }
