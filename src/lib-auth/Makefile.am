@@ -14,7 +14,6 @@ headers = \
 	auth-client.h \
 	auth-client-interface.h \
 	auth-client-private.h \
-	auth-client-request.h \
 	auth-master.h
 
 pkginc_libdir=$(pkgincludedir)

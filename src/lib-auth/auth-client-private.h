@@ -48,6 +48,13 @@ struct auth_client {
 	bool debug:1;
 };
 
+bool auth_client_request_is_aborted(struct auth_client_request *request);
+time_t auth_client_request_get_create_time(struct auth_client_request *request);
+
+void auth_client_request_server_input(struct auth_client_request *request,
+				      enum auth_request_status status,
+				      const char *const *args);
+
 struct auth_server_connection *
 auth_server_connection_init(struct auth_client *client);
 void auth_server_connection_deinit(struct auth_server_connection **conn);
