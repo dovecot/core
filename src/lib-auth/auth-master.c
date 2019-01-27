@@ -370,8 +370,14 @@ static int auth_master_connect(struct auth_master_connection *conn)
 	if (conn->ioloop != NULL)
 		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
 	if (connection_client_connect(&conn->conn) < 0) {
-		e_error(conn->event, "connect(%s) failed: %m",
-			conn->auth_socket_path);
+		if (errno == EACCES) {
+			e_error(conn->event,
+				"%s", eacces_error_get("connect",
+						       conn->auth_socket_path));
+		} else {
+			e_error(conn->event, "connect(%s) failed: %m",
+				conn->auth_socket_path);
+		}
 		return -1;
 	}
 
