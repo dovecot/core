@@ -57,7 +57,8 @@ noinst_HEADERS = \
 	service.h
 
 test_programs = \
-	test-auth-master
+	test-auth-master \
+	test-master-login-auth
 
 test_nocheck_programs =
 
@@ -85,6 +86,11 @@ test_deps = \
 test_auth_master_SOURCES = test-auth-master.c
 test_auth_master_LDADD = $(test_libs)
 test_auth_master_DEPENDENCIES = $(test_deps)
+
+test_master_login_auth_SOURCES = test-master-login-auth.c
+test_master_login_auth_LDADD = $(test_libs)
+test_master_login_auth_DEPENDENCIES = $(test_deps)
+
 
 check-local:
 	for bin in $(test_programs); do \
