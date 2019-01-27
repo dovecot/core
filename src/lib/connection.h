@@ -59,6 +59,9 @@ struct connection_vfuncs {
 	int (*handshake_line)(struct connection *conn, const char *line);
 	int (*handshake_args)(struct connection *conn, const char *const *args);
 
+	/* Called when the connection handshake is ready. */
+	void (*handshake_ready)(struct connection *conn);
+
 	/* Called when input_idle_timeout_secs is reached, defaults to disconnect */
 	void (*idle_timeout)(struct connection *conn);
 	/* Called when client_connect_timeout_msecs is reached, defaults to disconnect */
