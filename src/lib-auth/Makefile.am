@@ -7,8 +7,8 @@ AM_CPPFLAGS = \
 libauth_la_SOURCES = \
 	auth-client.c \
 	auth-client-request.c \
-	auth-master.c \
-	auth-server-connection.c
+	auth-client-connection.c \
+	auth-master.c
 
 headers = \
 	auth-client.h \
