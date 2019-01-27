@@ -16,6 +16,13 @@
 #include <unistd.h>
 #include <libgen.h>
 
+static void connection_handshake_ready(struct connection *conn)
+{
+	conn->handshake_received = TRUE;
+	if (conn->v.handshake_ready != NULL)
+		conn->v.handshake_ready(conn);
+}
+
 static void connection_closed(struct connection *conn,
 			      enum connection_disconnect_reason reason)
 {
@@ -48,7 +55,7 @@ void connection_input_default(struct connection *conn)
 		} else if (ret == 0) {
 			return;
 		} else {
-			conn->handshake_received = TRUE;
+			connection_handshake_ready(conn);
 		}
 	}
 
@@ -75,7 +82,7 @@ void connection_input_default(struct connection *conn)
 			    conn->v.handshake_line != NULL) {
 				ret = conn->v.handshake_line(conn, line);
 				if (ret > 0)
-					conn->handshake_received = TRUE;
+					connection_handshake_ready(conn);
 				else if (ret == 0)
 					/* continue reading */
 					ret = 1;
@@ -170,13 +177,13 @@ int connection_input_line_default(struct connection *conn, const char *line)
 		if ((ret = conn->v.handshake_args(conn, args)) == 0)
 			ret = 1; /* continue reading */
 		else if (ret > 0)
-			conn->handshake_received = TRUE;
+			connection_handshake_ready(conn);
 		else
 			conn->disconnect_reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
 		return ret;
 	} else if (!conn->handshake_received) {
 		/* we don't do handshakes */
-		conn->handshake_received = TRUE;
+		connection_handshake_ready(conn);
 	}
 
 	/* version must be handled though, by something */
