@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "net.h"
 #include "ioloop.h"
+#include "eacces-error.h"
 #include "hostpid.h"
 #include "istream.h"
 #include "ostream.h"
@@ -465,8 +466,14 @@ master_login_auth_connect(struct master_login_auth *auth)
 	i_assert(!auth->connected);
 
 	if (connection_client_connect(&auth->conn) < 0) {
-		i_error("net_connect_unix(%s) failed: %m",
-			auth->auth_socket_path);
+		if (errno == EACCES) {
+			i_error("%s",
+				eacces_error_get("connect",
+						 auth->auth_socket_path));
+		} else {
+			i_error("connect(%s) failed: %m",
+				auth->auth_socket_path);;
+		}
 		return -1;
 	}
 	io_loop_time_refresh();
