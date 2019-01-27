@@ -1,6 +1,8 @@
 #ifndef AUTH_CLIENT_PRIVATE_H
 #define AUTH_CLIENT_PRIVATE_H
 
+#include "connection.h"
+
 #include "auth-client.h"
 
 #define AUTH_CONNECT_TIMEOUT_MSECS (30*1000)
@@ -17,16 +19,13 @@ struct auth_client_request {
 };
 
 struct auth_client_connection {
+	struct connection conn;
 	pool_t pool;
 
 	struct auth_client *client;
-	int fd;
 	time_t last_connect;
 
-	struct io *io;
 	struct timeout *to;
-	struct istream *input;
-	struct ostream *output;
 
 	unsigned int server_pid;
 	unsigned int connect_uid;
@@ -37,8 +36,6 @@ struct auth_client_connection {
 	/* id => request */
 	HASH_TABLE(void *, struct auth_client_request *) requests;
 
-	bool version_received:1;
-	bool handshake_received:1;
 	bool has_plain_mech:1;
 	bool connected:1;
 };
@@ -47,6 +44,7 @@ struct auth_client {
 	char *auth_socket_path;
 	unsigned int client_pid;
 
+	struct connection_list *clist;
 	struct auth_client_connection *conn;
 
 	auth_connect_notify_callback_t *connect_notify_callback;
@@ -65,6 +63,8 @@ time_t auth_client_request_get_create_time(struct auth_client_request *request);
 void auth_client_request_server_input(struct auth_client_request *request,
 				      enum auth_request_status status,
 				      const char *const *args);
+
+struct connection_list *auth_client_connection_list_init(void);
 
 struct auth_client_connection *
 auth_client_connection_init(struct auth_client *client);
