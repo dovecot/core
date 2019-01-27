@@ -11,7 +11,6 @@
 #include "strescape.h"
 #include "eacces-error.h"
 #include "auth-client-private.h"
-#include "auth-client-request.h"
 
 #include <unistd.h>
 

@@ -5,8 +5,6 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "auth-client-private.h"
-#include "auth-client-request.h"
-
 
 struct auth_client_request {
 	pool_t pool;
