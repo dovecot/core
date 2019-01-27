@@ -164,13 +164,16 @@ void master_login_auth_deinit(struct master_login_auth **_auth)
 	master_login_auth_unref(&auth);
 }
 
-static unsigned int auth_get_next_timeout_secs(struct master_login_auth *auth)
+static unsigned int auth_get_next_timeout_msecs(struct master_login_auth *auth)
 {
-	time_t expires;
+	struct timeval expires;
+	int diff;
 
-	expires = auth->request_head->create_stamp.tv_sec +
-		MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
-	return expires <= ioloop_time ? 0 : expires - ioloop_time;
+	expires = auth->request_head->create_stamp;
+	timeval_add_msecs(&expires, 1000 * MASTER_AUTH_LOOKUP_TIMEOUT_SECS);
+
+	diff = timeval_diff_msecs(&expires, &ioloop_timeval);
+	return (diff <= 0 ? 0 : (unsigned int)diff);
 }
 
 static void master_login_auth_timeout(struct master_login_auth *auth)
@@ -179,15 +182,19 @@ static void master_login_auth_timeout(struct master_login_auth *auth)
 	const char *reason;
 
 	while (auth->request_head != NULL &&
-	       auth_get_next_timeout_secs(auth) == 0) {
+	       auth_get_next_timeout_msecs(auth) == 0) {
+		int msecs;
+
 		request = auth->request_head;
 		DLLIST2_REMOVE(&auth->request_head,
 			       &auth->request_tail, request);
 		hash_table_remove(auth->requests, POINTER_CAST(request->id));
 
+		msecs = timeval_diff_msecs(&ioloop_timeval,
+					   &request->create_stamp);
 		reason = t_strdup_printf(
-			"Auth server request timed out after %u secs",
-			(unsigned int)(ioloop_time - request->create_stamp.tv_sec));
+			"Auth server request timed out after %u.%03u secs",
+			msecs/1000, msecs%1000);
 		request_internal_failure(auth, request, reason);
 		i_free(request);
 	}
@@ -200,7 +207,7 @@ static void master_login_auth_update_timeout(struct master_login_auth *auth)
 	i_assert(auth->to == NULL);
 
 	if (auth->request_head != NULL) {
-		auth->to = timeout_add(auth_get_next_timeout_secs(auth) * 1000,
+		auth->to = timeout_add(auth_get_next_timeout_msecs(auth),
 				       master_login_auth_timeout, auth);
 	}
 }
