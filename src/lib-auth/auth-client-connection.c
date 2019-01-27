@@ -12,7 +12,6 @@
 #include "eacces-error.h"
 #include "auth-client-private.h"
 #include "auth-client-request.h"
-#include "auth-server-connection.h"
 
 #include <unistd.h>
 

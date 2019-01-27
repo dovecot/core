@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "auth-client-private.h"
-#include "auth-server-connection.h"
 
 struct auth_client *
 auth_client_init(const char *auth_socket_path, unsigned int client_pid,

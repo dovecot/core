@@ -5,7 +5,6 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "auth-client-private.h"
-#include "auth-server-connection.h"
 #include "auth-client-request.h"
 
 
