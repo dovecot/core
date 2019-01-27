@@ -12,6 +12,10 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token);
 void master_login_auth_deinit(struct master_login_auth **auth);
 void master_login_auth_disconnect(struct master_login_auth *auth);
 
+/* Set timeout for requests. */
+void master_login_auth_set_timeout(struct master_login_auth *auth,
+				   unsigned int msecs);
+
 /* req has been sent by login process. this function finishes authentication
    by performing verifying from auth that req is valid and doing the userdb
    lookup. */

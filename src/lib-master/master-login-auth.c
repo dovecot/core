@@ -57,6 +57,8 @@ struct master_login_auth {
 
 	pid_t auth_server_pid;
 
+	unsigned int timeout_msecs;
+
 	bool request_auth_token:1;
 	bool version_received:1;
 	bool spid_received:1;
@@ -80,6 +82,8 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 	auth->fd = -1;
 	hash_table_create_direct(&auth->requests, pool, 0);
 	auth->id_counter = i_rand_limit(32767) * 131072U;
+
+	auth->timeout_msecs = 1000 * MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
 	return auth;
 }
 
@@ -164,13 +168,19 @@ void master_login_auth_deinit(struct master_login_auth **_auth)
 	master_login_auth_unref(&auth);
 }
 
+void master_login_auth_set_timeout(struct master_login_auth *auth,
+				   unsigned int msecs)
+{
+	auth->timeout_msecs = msecs;
+}
+
 static unsigned int auth_get_next_timeout_msecs(struct master_login_auth *auth)
 {
 	struct timeval expires;
 	int diff;
 
 	expires = auth->request_head->create_stamp;
-	timeval_add_msecs(&expires, 1000 * MASTER_AUTH_LOOKUP_TIMEOUT_SECS);
+	timeval_add_msecs(&expires, auth->timeout_msecs);
 
 	diff = timeval_diff_msecs(&expires, &ioloop_timeval);
 	return (diff <= 0 ? 0 : (unsigned int)diff);
