@@ -103,7 +103,7 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 	}
 	str_append_c(str, '\n');
 
-	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0)
+	if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0)
 		i_error("Error sending request to auth server: %m");
 }
 
@@ -147,7 +147,7 @@ void auth_client_request_continue(struct auth_client_request *request,
 	iov[2].iov_base = "\n";
 	iov[2].iov_len = 1;
 
-	if (o_stream_sendv(request->conn->output, iov, 3) < 0)
+	if (o_stream_sendv(request->conn->conn.output, iov, 3) < 0)
 		i_error("Error sending continue request to auth server: %m");
 }
 
@@ -251,6 +251,6 @@ void auth_client_send_cancel(struct auth_client *client, unsigned int id)
 {
 	const char *str = t_strdup_printf("CANCEL\t%u\n", id);
 
-	if (o_stream_send_str(client->conn->output, str) < 0)
+	if (o_stream_send_str(client->conn->conn.output, str) < 0)
 		i_error("Error sending request to auth server: %m");
 }

@@ -220,7 +220,7 @@ test_client_bad_version(void)
 static void test_bad_version(void)
 {
 	test_begin("bad version");
-	test_expect_error_string("Authentication server not compatible");
+	test_expect_error_string("Socket supports major version 666");
 	test_run_client_server(test_client_bad_version,
 			       test_server_bad_version);
 	test_end();
