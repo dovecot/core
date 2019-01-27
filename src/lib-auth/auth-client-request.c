@@ -6,7 +6,7 @@
 #include "ostream.h"
 #include "auth-client-private.h"
 
-static void auth_server_send_new_request(struct auth_server_connection *conn,
+static void auth_server_send_new_request(struct auth_client_connection *conn,
 					 struct auth_client_request *request,
 					 const struct auth_request_info *info)
 {
@@ -124,7 +124,7 @@ auth_client_request_new(struct auth_client *client,
 	request->context = context;
 
 	request->id =
-		auth_server_connection_add_request(request->conn, request);
+		auth_client_connection_add_request(request->conn, request);
 	request->created = ioloop_time;
 	T_BEGIN {
 		auth_server_send_new_request(request->conn, request, request_info);
@@ -173,7 +173,7 @@ void auth_client_request_abort(struct auth_client_request **_request)
 	auth_client_send_cancel(request->conn->client, request->id);
 	call_callback(request, AUTH_REQUEST_STATUS_ABORT, NULL, NULL);
 	/* remove the request */
-	auth_server_connection_remove_request(request->conn, request->id);
+	auth_client_connection_remove_request(request->conn, request->id);
 	pool_unref(&request->pool);
 }
 

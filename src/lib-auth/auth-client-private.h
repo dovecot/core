@@ -8,7 +8,7 @@
 struct auth_client_request {
 	pool_t pool;
 
-	struct auth_server_connection *conn;
+	struct auth_client_connection *conn;
 	unsigned int id;
 	time_t created;
 
@@ -16,7 +16,7 @@ struct auth_client_request {
 	void *context;
 };
 
-struct auth_server_connection {
+struct auth_client_connection {
 	pool_t pool;
 
 	struct auth_client *client;
@@ -47,7 +47,7 @@ struct auth_client {
 	char *auth_socket_path;
 	unsigned int client_pid;
 
-	struct auth_server_connection *conn;
+	struct auth_client_connection *conn;
 
 	auth_connect_notify_callback_t *connect_notify_callback;
 	void *connect_notify_context;
@@ -66,19 +66,19 @@ void auth_client_request_server_input(struct auth_client_request *request,
 				      enum auth_request_status status,
 				      const char *const *args);
 
-struct auth_server_connection *
-auth_server_connection_init(struct auth_client *client);
-void auth_server_connection_deinit(struct auth_server_connection **conn);
+struct auth_client_connection *
+auth_client_connection_init(struct auth_client *client);
+void auth_client_connection_deinit(struct auth_client_connection **conn);
 
-int auth_server_connection_connect(struct auth_server_connection *conn);
-void auth_server_connection_disconnect(struct auth_server_connection *conn,
+int auth_client_connection_connect(struct auth_client_connection *conn);
+void auth_client_connection_disconnect(struct auth_client_connection *conn,
 				       const char *reason);
 
 /* Queues a new request. Must not be called if connection is not connected. */
 unsigned int
-auth_server_connection_add_request(struct auth_server_connection *conn,
+auth_client_connection_add_request(struct auth_client_connection *conn,
 				   struct auth_client_request *request);
-void auth_server_connection_remove_request(struct auth_server_connection *conn,
+void auth_client_connection_remove_request(struct auth_client_connection *conn,
 					   unsigned int id);
 
 #endif
