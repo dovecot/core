@@ -6,17 +6,6 @@
 #include "ostream.h"
 #include "auth-client-private.h"
 
-struct auth_client_request {
-	pool_t pool;
-
-	struct auth_server_connection *conn;
-	unsigned int id;
-	time_t created;
-
-	auth_request_callback_t *callback;
-	void *context;
-};
-
 static void auth_server_send_new_request(struct auth_server_connection *conn,
 					 struct auth_client_request *request,
 					 const struct auth_request_info *info)

@@ -5,6 +5,17 @@
 
 #define AUTH_CONNECT_TIMEOUT_MSECS (30*1000)
 
+struct auth_client_request {
+	pool_t pool;
+
+	struct auth_server_connection *conn;
+	unsigned int id;
+	time_t created;
+
+	auth_request_callback_t *callback;
+	void *context;
+};
+
 struct auth_server_connection {
 	pool_t pool;
 
