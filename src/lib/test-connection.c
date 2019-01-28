@@ -40,7 +40,8 @@ static int received_count = 0;
 static void test_connection_run(const struct connection_settings *set_s,
 				const struct connection_settings *set_c,
 				const struct connection_vfuncs *v_s,
-				const struct connection_vfuncs *v_c)
+				const struct connection_vfuncs *v_c,
+				unsigned int iter_count)
 {
 	int fds[2];
 
@@ -50,17 +51,21 @@ static void test_connection_run(const struct connection_settings *set_s,
 	struct connection *conn_c = i_new(struct connection, 1);
 	struct connection *conn_s = i_new(struct connection, 1);
 
-	test_assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 	conn_s->ioloop = loop;
 	conn_c->ioloop = loop;
 
-	connection_init_server(servers, conn_s, "client", fds[1], fds[1]);
-	connection_init_client_fd(clients, conn_c, "server", fds[0], fds[0]);
+	for(unsigned int iters = 0; iters < iter_count; iters++) {
+		test_assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
-	io_loop_run(loop);
+		connection_init_server(servers, conn_s, "client", fds[1], fds[1]);
+		connection_init_client_fd(clients, conn_c, "server", fds[0], fds[0]);
 
-	connection_deinit(conn_c);
-	connection_deinit(conn_s);
+		io_loop_run(loop);
+
+		connection_deinit(conn_c);
+		connection_deinit(conn_s);
+	}
+
 	i_free(conn_c);
 	i_free(conn_s);
 
@@ -108,7 +113,7 @@ static void test_connection_simple(void)
 {
 	test_begin("connection simple");
 
-	test_connection_run(&server_set, &client_set, &simple_v, &simple_v);
+	test_connection_run(&server_set, &client_set, &simple_v, &simple_v, 10);
 
 	test_assert(received_quit);
 	received_quit = FALSE;
@@ -174,7 +179,7 @@ static void test_connection_no_input(void)
 	test_begin("connection no input stream");
 
 	test_connection_run(&no_input_server_set, &no_input_client_set,
-			    &no_input_v, &no_input_v);
+			    &no_input_v, &no_input_v, 1);
 
 	test_assert(received_quit);
 	received_quit = FALSE;
@@ -225,7 +230,7 @@ static void test_connection_custom_handshake(void)
 	test_begin("connection custom handshake");
 
 	test_connection_run(&server_set, &client_set, &custom_handshake_v,
-			    &custom_handshake_v);
+			    &custom_handshake_v, 10);
 
 	test_assert(received_quit);
 	received_quit = FALSE;
@@ -275,9 +280,9 @@ static void test_connection_ping_pong(void)
 	test_begin("connection ping pong");
 
 	test_connection_run(&server_set, &client_set, &ping_pong_v,
-			    &ping_pong_v);
+			    &ping_pong_v, 10);
 
-	test_assert(received_count == 10);
+	test_assert(received_count == 100);
 
 	test_end();
 }
@@ -323,7 +328,7 @@ static void test_connection_input_full(void)
 	test_begin("connection input full");
 
 	test_connection_run(&server_set, &input_full_client_set, &input_full_v,
-			    &simple_v);
+			    &simple_v, 10);
 	test_end();
 }
 
@@ -384,7 +389,7 @@ static void test_connection_resume(void)
 	test_begin("connection resume");
 
 	was_resumed = received_quit = FALSE;
-	test_connection_run(&server_set, &client_set, &resume_v, &resume_v);
+	test_connection_run(&server_set, &client_set, &resume_v, &resume_v, 1);
 
 	test_assert(was_resumed);
 	test_assert(received_quit);
@@ -434,7 +439,7 @@ static void test_connection_idle_kill(void)
 
 	was_idle_killed = received_quit = FALSE;
 	test_connection_run(&idle_kill_server_set, &client_set, &idle_kill_v,
-			    &idle_kill_v);
+			    &idle_kill_v, 1);
 
 	test_assert(received_quit);
 	test_assert(was_idle_killed);
@@ -508,13 +513,13 @@ static void test_connection_handshake_failed_version(void)
 	received_quit = FALSE;
 	for (size_t i = 0; i < N_ELEMENTS(client_sets); i++) {
 		test_connection_run(&server_set, &client_sets[i], &simple_v,
-				    &handshake_failed_version_v);
+				    &handshake_failed_version_v, 1);
 		test_assert(!received_quit);
 	}
 
 	received_quit = FALSE;
 	test_connection_run(&server_set, &client_set_minor, &simple_v,
-			    &simple_v);
+			    &simple_v, 1);
 	test_assert(received_quit);
 	received_quit = FALSE;
 
@@ -543,7 +548,7 @@ static void test_connection_handshake_failed_args(void)
 	test_begin("connection handshake failed (handshake_args)");
 
 	test_connection_run(&server_set, &client_set, &simple_v,
-			    &handshake_failed_1_v);
+			    &handshake_failed_1_v, 10);
 
 	test_end();
 }
@@ -569,7 +574,7 @@ static void test_connection_handshake_failed_line(void)
 	test_begin("connection handshake failed (handshake_line)");
 
 	test_connection_run(&server_set, &client_set, &simple_v,
-			    &handshake_failed_2_v);
+			    &handshake_failed_2_v, 10);
 
 	test_end();
 }
@@ -594,7 +599,7 @@ static void test_connection_handshake_failed_input(void)
 	test_begin("connection handshake failed (handshake)");
 
 	test_connection_run(&server_set, &client_set, &simple_v,
-			    &handshake_failed_3_v);
+			    &handshake_failed_3_v, 10);
 
 	test_end();
 }
@@ -634,7 +639,7 @@ static void test_connection_input_error_reason(void)
 	test_begin("connection input error (correct disconnect reason)");
 
 	test_connection_run(&server_set, &client_set, &test_connection_errored_1_v,
-			    &test_connection_errored_1_v);
+			    &test_connection_errored_1_v, 10);
 
 	test_end();
 }
@@ -667,7 +672,7 @@ static void test_connection_no_version(void)
         test_begin("connection no version sent");
 
         test_connection_run(&no_version_server_set, &no_version_client_set,
-			    &simple_v, &simple_v);
+			    &simple_v, &simple_v, 10);
 
         test_end();
 }
