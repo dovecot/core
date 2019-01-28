@@ -220,6 +220,7 @@ static void connection_init_streams(struct connection *conn)
 	i_assert(conn->output == NULL);
 	i_assert(conn->to == NULL);
 
+	conn->handshake_received = FALSE;
 	conn->version_received = set->major_version == 0;
 
 	if (set->input_max_size != 0) {
