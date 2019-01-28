@@ -639,6 +639,41 @@ static void test_connection_input_error_reason(void)
 	test_end();
 }
 
+/* END CONNECTION ERRORED TEST */
+
+/* BEGIN NO VERSION TEST */
+
+static const struct connection_settings no_version_client_set =
+{
+	.major_version = 0,
+	.minor_version = 0,
+	.client = TRUE,
+	.input_max_size = (size_t)-1,
+	.output_max_size = (size_t)-1,
+	.dont_send_version = TRUE,
+};
+
+static const struct connection_settings no_version_server_set =
+{
+	.major_version = 0,
+	.minor_version = 0,
+	.input_max_size = (size_t)-1,
+	.output_max_size = (size_t)-1,
+	.dont_send_version = TRUE,
+};
+
+static void test_connection_no_version(void)
+{
+        test_begin("connection no version sent");
+
+        test_connection_run(&no_version_server_set, &no_version_client_set,
+			    &simple_v, &simple_v);
+
+        test_end();
+}
+
+/* END NO VERSION TEST */
+
 void test_connection(void)
 {
 	test_connection_simple();
@@ -653,4 +688,5 @@ void test_connection(void)
 	test_connection_handshake_failed_line();
 	test_connection_handshake_failed_input();
 	test_connection_input_error_reason();
+	test_connection_no_version();
 }
