@@ -557,6 +557,7 @@ void connection_deinit(struct connection *conn)
 	connection_disconnect(conn);
 	i_free(conn->name);
 	event_unref(&conn->event);
+	conn->list = NULL;
 }
 
 int connection_input_read(struct connection *conn)
