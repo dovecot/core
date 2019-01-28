@@ -65,7 +65,8 @@ auth_server_input_mech(struct auth_client_connection *conn,
 	struct auth_mech_desc mech_desc;
 
 	if (args[0] == NULL) {
-		i_error("BUG: Authentication server sent broken MECH line");
+		e_error(conn->event,
+			"BUG: Authentication server sent broken MECH line");
 		return -1;
 	}
 
@@ -100,7 +101,8 @@ auth_server_input_spid(struct auth_client_connection *conn,
 		       const char *const *args)
 {
 	if (str_to_uint(args[0], &conn->server_pid) < 0) {
-		i_error("BUG: Authentication server sent invalid PID");
+		e_error(conn->event,
+			"BUG: Authentication server sent invalid PID");
 		return -1;
 	}
 	return 0;
@@ -112,7 +114,8 @@ auth_server_input_cuid(struct auth_client_connection *conn,
 {
 	if (args[0] == NULL ||
 	    str_to_uint(args[0], &conn->connect_uid) < 0) {
-		i_error("BUG: Authentication server sent broken CUID line");
+		e_error(conn->event,
+			"BUG: Authentication server sent broken CUID line");
 		return -1;
 	}
 	return 0;
@@ -123,7 +126,8 @@ auth_server_input_cookie(struct auth_client_connection *conn,
 			 const char *const *args)
 {
 	if (conn->cookie != NULL) {
-		i_error("BUG: Authentication server already sent cookie");
+		e_error(conn->event,
+			"BUG: Authentication server already sent cookie");
 		return -1;
 	}
 	conn->cookie = p_strdup(conn->pool, args[0]);
@@ -133,11 +137,13 @@ auth_server_input_cookie(struct auth_client_connection *conn,
 static int auth_server_input_done(struct auth_client_connection *conn)
 {
 	if (array_count(&conn->available_auth_mechs) == 0) {
-		i_error("BUG: Authentication server returned no mechanisms");
+		e_error(conn->event,
+			"BUG: Authentication server returned no mechanisms");
 		return -1;
 	}
 	if (conn->cookie == NULL) {
-		i_error("BUG: Authentication server didn't send a cookie");
+		e_error(conn->event,
+			"BUG: Authentication server didn't send a cookie");
 		return -1;
 	}
 	return 1;
@@ -157,7 +163,8 @@ auth_client_connection_handshake_line(struct connection *_conn,
 	    args[1] != NULL && args[2] != NULL) {
 		if (str_to_uint(args[1], &major_version) < 0 ||
 		    str_to_uint(args[2], &minor_version) < 0) {
-			i_error("Auth server sent invalid version line: %s",
+			e_error(conn->event,
+				"Auth server sent invalid version line: %s",
 				line);
 			return -1;
 		}
@@ -181,7 +188,7 @@ auth_client_connection_handshake_line(struct connection *_conn,
 		return auth_server_input_done(conn);
 	}
 
-	i_error("Auth server sent unknown handshake: %s", line);
+	e_error(conn->event, "Auth server sent unknown handshake: %s", line);
 	return -1;
 }
 
@@ -206,13 +213,15 @@ auth_server_lookup_request(struct auth_client_connection *conn,
 	unsigned int id;
 
 	if (id_arg == NULL || str_to_uint(id_arg, &id) < 0) {
-		i_error("BUG: Authentication server input missing ID");
+		e_error(conn->event,
+			"BUG: Authentication server input missing ID");
 		return -1;
 	}
 
 	request = hash_table_lookup(conn->requests, POINTER_CAST(id));
 	if (request == NULL) {
-		i_error("BUG: Authentication server sent unknown id %u", id);
+		e_error(conn->event,
+			"BUG: Authentication server sent unknown id %u", id);
 		return -1;
 	}
 	if (remove || auth_client_request_is_aborted(request))
@@ -241,7 +250,8 @@ static int auth_server_input_cont(struct auth_client_connection *conn,
 	struct auth_client_request *request;
 
 	if (str_array_length(args) < 2) {
-		i_error("BUG: Authentication server sent broken CONT line");
+		e_error(conn->event,
+			"BUG: Authentication server sent broken CONT line");
 		return -1;
 	}
 
@@ -270,12 +280,11 @@ auth_client_connection_handle_line(struct auth_client_connection *conn,
 {
 	const char *const *args;
 
-	if (conn->client->debug)
-		i_debug("auth input: %s", line);
+	e_debug(conn->event, "auth input: %s", line);
 
 	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL) {
-		i_error("Auth server sent empty line");
+		e_error(conn->event, "Auth server sent empty line");
 		return -1;
 	}
 	if (strcmp(args[0], "OK") == 0)
@@ -285,7 +294,8 @@ auth_client_connection_handle_line(struct auth_client_connection *conn,
 	else if (strcmp(args[0], "FAIL") == 0)
 		return auth_server_input_fail(conn, args + 1);
 	else {
-		i_error("Auth server sent unknown response: %s", args[0]);
+		e_error(conn->event,
+			"Auth server sent unknown response: %s", args[0]);
 		return -1;
 	}
 }
@@ -317,6 +327,11 @@ auth_client_connection_init(struct auth_client *client)
 	conn->pool = pool;
 
 	conn->client = client;
+
+	conn->event = client->event;
+	event_ref(conn->event);
+
+	conn->conn.event_parent = conn->event;
 	connection_init_client_unix(client->clist, &conn->conn,
 				    client->auth_socket_path);
 
@@ -356,7 +371,8 @@ auth_client_connection_remove_requests(struct auth_client_connection *conn,
 	hash_table_clear(conn->requests, FALSE);
 
 	if (request_count > 0) {
-		i_warning("Auth connection closed with %u pending requests "
+		e_warning(conn->event,
+			  "Auth connection closed with %u pending requests "
 			  "(max %u secs, pid=%s, %s)", request_count,
 			  (unsigned int)(ioloop_time - oldest),
 			  my_pid, disconnect_reason);
@@ -403,7 +419,8 @@ static void auth_client_connection_destroy(struct connection *_conn)
 		break;
 	case CONNECTION_DISCONNECT_BUFFER_FULL:
 		/* buffer full - can't happen unless auth is buggy */
-		i_error("BUG: Auth server sent us more than %d bytes of data",
+		e_error(conn->event,
+			"BUG: Auth server sent us more than %d bytes of data",
 			AUTH_SERVER_CONN_MAX_LINE_LENGTH);
 		auth_client_connection_disconnect(conn, "Buffer full");
 		break;
@@ -447,12 +464,13 @@ void auth_client_connection_deinit(struct auth_client_connection **_conn)
 	timeout_remove(&conn->to);
 	array_free(&conn->available_auth_mechs);
 	connection_deinit(&conn->conn);
+	event_unref(&conn->event);
 	pool_unref(&conn->pool);
 }
 
 static void auth_client_handshake_timeout(struct auth_client_connection *conn)
 {
-	i_error("Timeout waiting for handshake from auth server. "
+	e_error(conn->event, "Timeout waiting for handshake from auth server. "
 		"my pid=%u, input bytes=%"PRIuUOFF_T,
 		conn->client->client_pid, conn->conn.input->v_offset);
 	auth_client_connection_reconnect(conn, "auth server timeout");
@@ -482,11 +500,11 @@ int auth_client_connection_connect(struct auth_client_connection *conn)
 	/* max. 1 second wait here. */
 	if (connection_client_connect(&conn->conn) < 0) {
 		if (errno == EACCES) {
-			i_error("auth: %s",
+			e_error(conn->event, "%s",
 				eacces_error_get("connect",
 					conn->client->auth_socket_path));
 		} else {
-			i_error("auth: connect(%s) failed: %m",
+			e_error(conn->event, "connect(%s) failed: %m",
 				conn->client->auth_socket_path);
 		};
 		return -1;
@@ -497,7 +515,8 @@ int auth_client_connection_connect(struct auth_client_connection *conn)
                                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 				    conn->client->client_pid);
 	if (o_stream_send_str(conn->conn.output, handshake) < 0) {
-		i_warning("Error sending handshake to auth server: %s",
+		e_warning(conn->event,
+			  "Error sending handshake to auth server: %s",
 			  o_stream_get_error(conn->conn.output));
 		auth_client_connection_disconnect(conn,
 			o_stream_get_error(conn->conn.output));
