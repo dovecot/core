@@ -4,6 +4,10 @@
 #include "array.h"
 #include "auth-client-private.h"
 
+static struct event_category event_category_auth_client = {
+	.name = "auth-client"
+};
+
 struct auth_client *
 auth_client_init(const char *auth_socket_path, unsigned int client_pid,
 		 bool debug)
@@ -16,6 +20,12 @@ auth_client_init(const char *auth_socket_path, unsigned int client_pid,
 	client->debug = debug;
 	client->connect_timeout_msecs = AUTH_CONNECT_TIMEOUT_MSECS;
 	client->clist = auth_client_connection_list_init();
+
+	client->event = event_create(NULL);
+	event_add_category(client->event, &event_category_auth_client);
+	event_set_append_log_prefix(client->event, "auth-client: ");
+	event_set_forced_debug(client->event, client->debug);
+
 	client->conn = auth_client_connection_init(client);
 	return client;
 }
@@ -28,6 +38,7 @@ void auth_client_deinit(struct auth_client **_client)
 
 	auth_client_connection_deinit(&client->conn);
 	connection_list_deinit(&client->clist);
+	event_unref(&client->event);
 	i_free(client->auth_socket_path);
 	i_free(client);
 }

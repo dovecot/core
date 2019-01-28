@@ -9,6 +9,7 @@
 
 struct auth_client_request {
 	pool_t pool;
+	struct event *event;
 
 	struct auth_client_connection *conn;
 	unsigned int id;
@@ -21,6 +22,7 @@ struct auth_client_request {
 struct auth_client_connection {
 	struct connection conn;
 	pool_t pool;
+	struct event *event;
 
 	struct auth_client *client;
 	time_t last_connect;
@@ -43,6 +45,7 @@ struct auth_client_connection {
 struct auth_client {
 	char *auth_socket_path;
 	unsigned int client_pid;
+	struct event *event;
 
 	struct connection_list *clist;
 	struct auth_client_connection *conn;
