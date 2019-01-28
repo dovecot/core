@@ -164,6 +164,15 @@ call_callback(struct auth_client_request *request,
 	callback(request, status, data_base64, args, request->context);
 }
 
+static void auth_client_request_free(struct auth_client_request **_request)
+{
+	struct auth_client_request *request = *_request;
+
+	*_request = NULL;
+
+	pool_unref(&request->pool);
+}
+
 void auth_client_request_abort(struct auth_client_request **_request)
 {
 	struct auth_client_request *request = *_request;
@@ -174,7 +183,7 @@ void auth_client_request_abort(struct auth_client_request **_request)
 	call_callback(request, AUTH_REQUEST_STATUS_ABORT, NULL, NULL);
 	/* remove the request */
 	auth_client_connection_remove_request(request->conn, request->id);
-	pool_unref(&request->pool);
+	auth_client_request_free(&request);
 }
 
 unsigned int auth_client_request_get_id(struct auth_client_request *request)
@@ -235,7 +244,7 @@ void auth_client_request_server_input(struct auth_client_request *request,
 
 	call_callback(request, status, base64_data, args);
 	if (status != AUTH_REQUEST_STATUS_CONTINUE)
-		pool_unref(&request->pool);
+		auth_client_request_free(&request);
 }
 
 void auth_client_send_cancel(struct auth_client *client, unsigned int id)
