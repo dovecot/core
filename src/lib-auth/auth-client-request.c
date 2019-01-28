@@ -135,6 +135,11 @@ auth_client_request_new(struct auth_client *client,
 				    t_strdup_printf("request [%u]: ",
 						    request->id));
 
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("auth_client_request_started");
+	e_debug(e->event(), "Started request");
+
 	T_BEGIN {
 		auth_server_send_new_request(request->conn, request, request_info);
 	} T_END;
@@ -155,6 +160,11 @@ void auth_client_request_continue(struct auth_client_request *request,
 	iov[1].iov_len = strlen(data_base64);
 	iov[2].iov_base = "\n";
 	iov[2].iov_len = 1;
+
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("auth_client_request_continue");
+	e_debug(e->event(), "Continue request");
 
 	if (o_stream_sendv(request->conn->conn.output, iov, 3) < 0) {
 		e_error(request->event,
@@ -186,11 +196,17 @@ static void auth_client_request_free(struct auth_client_request **_request)
 }
 
 void auth_client_request_abort(struct auth_client_request **_request,
-			       const char *reason ATTR_UNUSED)
+			       const char *reason)
 {
 	struct auth_client_request *request = *_request;
 
 	*_request = NULL;
+
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("auth_client_request_finished");
+	e->add_str("error", reason);
+	e_debug(e->event(), "Aborted: %s", reason);
 
 	auth_client_send_cancel(request->conn->client, request->id);
 	call_callback(request, AUTH_REQUEST_STATUS_ABORT, NULL, NULL);
@@ -230,10 +246,22 @@ void auth_client_request_server_input(struct auth_client_request *request,
 				      const char *const *args)
 {
 	const char *const *tmp, *base64_data = NULL;
+	struct event_passthrough *e;
 
 	if (request->callback == NULL) {
 		/* aborted already */
 		return;
+	}
+
+	switch (status) {
+	case AUTH_REQUEST_STATUS_CONTINUE:
+		e = event_create_passthrough(request->event)->
+			set_name("auth_client_request_challenged");
+		break;
+	default:
+		e = event_create_passthrough(request->event)->
+			set_name("auth_client_request_finished");
+		break;
 	}
 
 	switch (status) {
@@ -244,15 +272,23 @@ void auth_client_request_server_input(struct auth_client_request *request,
 				break;
 			}
 		}
+		e_debug(e->event(), "Finished");
 		break;
 	case AUTH_REQUEST_STATUS_CONTINUE:
 		base64_data = args[0];
 		args = NULL;
+		e_debug(e->event(), "Got challenge");
 		break;
 	case AUTH_REQUEST_STATUS_FAIL:
-	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
-	case AUTH_REQUEST_STATUS_ABORT:
+		e->add_str("error", "Authentication failed");
+		e_debug(e->event(), "Finished");
 		break;
+	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
+		e->add_str("error", "Internal failure");
+		e_debug(e->event(), "Finished");
+		break;
+	case AUTH_REQUEST_STATUS_ABORT:
+		i_unreached();
 	}
 
 	call_callback(request, status, base64_data, args);
