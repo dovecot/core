@@ -347,7 +347,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 		   mailbox deletion not fully finishing due to .nfs* files and
 		   an IDLEing IMAP process creating the index back here). */
 		log->index->index_deleted = TRUE;
-		*reason_r = "Trasnaction log lost while it was open";
+		*reason_r = "Transaction log lost while it was open";
 		return -1;
 	} else if (log->head->st_ino == st.st_ino &&
 		   CMP_DEV_T(log->head->st_dev, st.st_dev)) {

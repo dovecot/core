@@ -169,7 +169,7 @@ cmd_auth_start(struct smtp_server_cmd_ctx *cmd,
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	int ret;
 
-	/* all preceeding commands have finished and now the transaction state
+	/* all preceding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the protocol
 	   state */
 	if (!cmd_auth_check_state(cmd))

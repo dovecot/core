@@ -23,14 +23,14 @@ The imap-urlauth service thus consists of three separate stages:
 
 - imap-urlauth:
   Once the client is authenticated, the connection gets passed to the
-  imap-urlauth service (as implemented here). The goal of this stage is 
+  imap-urlauth service (as implemented here). The goal of this stage is
   to prevent the need for re-authenticating to the imap-urlauth service when
   the clients wants to switch to a different target user. It normally runs as
   $default_internal_user and starts workers to perform the actual work. To start
   a worker, the imap-urlauth service establishes a control connection to the
   imap-urlauth-worker service. In the handshake phase of the control protocol,
   the connection of the client is passed to the worker. Once the worker
-  finishes, a new worker is started and the client connection is transfered to
+  finishes, a new worker is started and the client connection is transferred to
   it, unless the client is disconnected.
 
 - imap-urlauth-worker:
@@ -250,7 +250,7 @@ int main(int argc, char *argv[])
 		i_fatal("Error reading configuration: %s", error);
 
 	sets = master_service_settings_get_others(master_service);
-	imap_urlauth_settings = sets[0];	
+	imap_urlauth_settings = sets[0];
 
 	if (imap_urlauth_settings->verbose_proctitle)
 		verbose_proctitle = TRUE;

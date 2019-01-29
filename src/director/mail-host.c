@@ -443,7 +443,7 @@ unsigned int mail_hosts_hash(struct mail_host_list *list)
 {
 	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
-	/* don't retun 0 as hash, since we're using it as "doesn't exist" in
+	/* don't return 0 as hash, since we're using it as "doesn't exist" in
 	   some places. */
 	return list->hosts_hash == 0 ? 1 : list->hosts_hash;
 }

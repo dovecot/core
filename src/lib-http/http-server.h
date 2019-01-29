@@ -271,7 +271,7 @@ void http_server_request_set_destroy_callback(struct http_server_request *req,
 struct http_server_stats {
 	/* The number of requests received and responses sent */
 	unsigned int request_count, response_count;
-	/* Bytes sent and received accross the connection */
+	/* Bytes sent and received across the connection */
 	uoff_t input, output;
 };
 

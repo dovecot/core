@@ -281,7 +281,7 @@ struct http_client_peer {
 	struct timeout *to_req_handling;
 
 	bool connect_failed:1;   /* last connection attempt failed */
-	bool connect_backoff:1;  /* peer is waiting for backoff timout*/
+	bool connect_backoff:1;  /* peer is waiting for backoff timeout*/
 	bool disconnected:1;     /* peer is already disconnected */
 	bool handling_requests:1;/* currently running request handler */
 };

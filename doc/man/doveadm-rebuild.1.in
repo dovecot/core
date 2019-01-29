@@ -63,7 +63,7 @@ the given
 .PP
 In the fourth form, only matching mails of the given
 .IR user (s)
-will be rebuilded
+will be rebuilt
 .\"------------------------------------------------------------------------
 @INCLUDE:global-options-formatter@
 .\" --- command specific options --- "/.

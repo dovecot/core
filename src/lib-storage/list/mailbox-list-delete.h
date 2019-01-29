@@ -9,7 +9,7 @@
 
    Returns 1 if the rename() succeeded. Returns 0 if rename() fails with EXDEV,
    which means the source and destination are on different filesystems and
-   the rename can never succeeed.
+   the rename can never succeed.
 
    If the path didn't exist, returns -1 and sets the list error to
    MAIL_ERROR_NOTFOUND.
