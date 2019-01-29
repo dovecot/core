@@ -24,6 +24,7 @@ http_client_host_lookup_failure(struct http_client_host *host,
 	const char *error);
 static bool
 http_client_host_is_idle(struct http_client_host *host);
+static void http_client_host_free_shared(struct http_client_host **_host);
 
 /*
  * Host (shared)
@@ -281,7 +282,7 @@ void http_client_host_shared_free(struct http_client_host_shared **_hshared)
 	/* drop client sessions */
 	while (hshared->hosts_list != NULL) {
 		host = hshared->hosts_list;
-		http_client_host_free(&host);
+		http_client_host_free_shared(&host);
 	}
 
 	event_unref(&hshared->event);
@@ -347,14 +348,15 @@ http_client_host_get(struct http_client *client,
 	return host;
 }
 
-void http_client_host_free(
-	struct http_client_host **_host)
+static void http_client_host_free_shared(struct http_client_host **_host)
 {
 	struct http_client_host *host = *_host;
 	struct http_client *client = host->client;
 	struct http_client_host_shared *hshared = host->shared;
 	struct http_client_queue *const *queue_idx;
 	ARRAY_TYPE(http_client_queue) queues;
+
+	*_host = NULL;
 
 	e_debug(hshared->event, "Host session destroy");
 
@@ -374,9 +376,16 @@ void http_client_host_free(
 	array_free(&host->queues);
 
 	i_free(host);
+}
+
+void http_client_host_free(struct http_client_host **_host)
+{
+	struct http_client_host *host = *_host;
+	struct http_client_host_shared *hshared = host->shared;
+
+	http_client_host_free_shared(_host);
 
 	http_client_host_shared_check_idle(hshared);
-	*_host = NULL;
 }
 
 static void
