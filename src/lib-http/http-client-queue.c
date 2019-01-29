@@ -369,6 +369,11 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 			struct http_client_peer *const *peer_idx;
 
 			array_foreach(&queue->pending_peers, peer_idx) {
+				if (*peer_idx == peer) {
+					/* This can happen with shared clients
+					 */
+					continue;
+				}
 				i_assert(http_client_peer_addr_cmp
 					(&(*peer_idx)->shared->addr, addr) != 0);
 				http_client_peer_unlink_queue(*peer_idx, queue);
