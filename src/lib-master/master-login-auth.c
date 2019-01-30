@@ -422,6 +422,13 @@ master_login_auth_input_args(struct connection *_conn, const char *const *args)
 		container_of(_conn, struct master_login_auth, conn);
 	unsigned int id;
 
+	if (args[0] != NULL && strcmp(args[0], "CUID") == 0) {
+		i_error("%s is an auth client socket. "
+			"It should be a master socket.",
+			auth->auth_socket_path);
+		return -1;
+	}
+
 	if (args[0] == NULL || args[1] == NULL ||
 	    str_to_uint(args[1], &id) < 0) {
 		i_error("BUG: Unexpected input: %s",
