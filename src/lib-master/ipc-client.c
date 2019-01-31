@@ -128,7 +128,8 @@ static void ipc_client_abort_commands(struct ipc_client *client,
 
 static void ipc_client_disconnect(struct ipc_client *client)
 {
-	timeout_remove(&client->to_failed);
+	if (client->to_failed != NULL)
+		timeout_remove(&client->to_failed);
 	ipc_client_abort_commands(client, "Disconnected");
 
 	if (client->fd == -1)
@@ -167,7 +168,8 @@ void ipc_client_deinit(struct ipc_client **_client)
 static void ipc_client_cmd_connect_failed(struct ipc_client *client)
 {
 	ipc_client_abort_commands(client, "ipc connect failed");
-	timeout_remove(&client->to_failed);
+	if (client->to_failed != NULL)
+		timeout_remove(&client->to_failed);
 }
 
 struct ipc_client_cmd *
