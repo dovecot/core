@@ -57,15 +57,6 @@ oauth2_introspect_response(const struct http_response *response,
 	}
 }
 
-static void oauth2_introspection_delayed_error(struct oauth2_request *req)
-{
-	struct oauth2_introspection_result fail = {
-		.success = FALSE,
-		.error = req->delayed_error
-	};
-	oauth2_introspection_callback(req, &fail);
-}
-
 #undef oauth2_introspection_start
 struct oauth2_request*
 oauth2_introspection_start(const struct oauth2_settings *set,
@@ -78,8 +69,6 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 	pool_t pool = pool_alloconly_create_clean("oauth2 introspection", 1024);
 	struct oauth2_request *req =
 		p_new(pool, struct oauth2_request, 1);
-	struct http_url *url;
-	const char *error;
 
 	req->pool = pool;
 	req->set = set;
@@ -93,19 +82,10 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 		http_url_escape_param(enc, input->token);
 	}
 
-	if (http_url_parse(str_c(enc), NULL, HTTP_URL_ALLOW_USERINFO_PART, pool,
-			   &url, &error) < 0) {
-		req->delayed_error = p_strdup_printf(pool,
-			"http_url_parse(%s) failed: %s", str_c(enc), error);
-		req->to_delayed_error = timeout_add_short(0,
-			oauth2_introspection_delayed_error, req);
-		return req;
-	}
-
 	if (set->introspection_mode == INTROSPECTION_MODE_POST) {
-		req->req = http_client_request_url(req->set->client, "POST", url,
-						   oauth2_introspect_response,
-						   req);
+		req->req = http_client_request_url_str(req->set->client, "POST", str_c(enc),
+						       oauth2_introspect_response,
+						       req);
 		/* add token */
 		enc = t_str_new(strlen(input->token)+6);
 		str_append(enc, "token=");
@@ -114,14 +94,13 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 					       "application/x-www-form-urlencoded");
 		http_client_request_set_payload_data(req->req, enc->data, enc->used);
 	} else {
-		req->req = http_client_request_url(req->set->client, "GET", url,
-						   oauth2_introspect_response,
-						   req);
+		req->req = http_client_request_url_str(req->set->client, "GET", str_c(enc),
+						       oauth2_introspect_response,
+						       req);
 	}
 
-	if (url->user != NULL)
-		http_client_request_set_auth_simple(req->req, url->user, url->password);
-	else if (set->introspection_mode == INTROSPECTION_MODE_GET_AUTH)
+	if (http_client_request_get_origin_url(req->req)->user == NULL &&
+	    set->introspection_mode == INTROSPECTION_MODE_GET_AUTH)
 		http_client_request_add_header(req->req,
 					       "Authorization",
 					       t_strdup_printf("Bearer %s",

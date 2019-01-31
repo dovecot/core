@@ -86,15 +86,6 @@ oauth2_token_validate_response(const struct http_response *response,
 	}
 }
 
-static void oauth2_token_validation_delayed_error(struct oauth2_request *req)
-{
-	struct oauth2_token_validation_result fail = {
-		.success = FALSE,
-		.error = req->delayed_error
-	};
-	oauth2_token_validation_callback(req, &fail);
-}
-
 #undef oauth2_token_validation_start
 struct oauth2_request*
 oauth2_token_validation_start(const struct oauth2_settings *set,
@@ -103,9 +94,6 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 			      void *context)
 {
 	i_assert(oauth2_valid_token(input->token));
-
-	struct http_url *url;
-	const char *error;
 
 	pool_t pool = pool_alloconly_create_clean("oauth2 token_validation", 1024);
 	struct oauth2_request *req =
@@ -120,22 +108,12 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 	str_append(enc, req->set->tokeninfo_url);
 	http_url_escape_param(enc, input->token);
 
-	if (http_url_parse(str_c(enc), NULL, HTTP_URL_ALLOW_USERINFO_PART, pool,
-			   &url, &error) < 0) {
-		req->delayed_error = p_strdup_printf(pool,
-			"http_url_parse(%s) failed: %s", str_c(enc), error);
-		req->to_delayed_error = timeout_add_short(0,
-			oauth2_token_validation_delayed_error, req);
-		return req;
-	}
+	req->req = http_client_request_url_str(req->set->client, "GET", str_c(enc),
+					       oauth2_token_validate_response,
+					       req);
 
-	req->req = http_client_request_url(req->set->client, "GET", url,
-					   oauth2_token_validate_response,
-					   req);
-
-        if (url->user != NULL)
-                http_client_request_set_auth_simple(req->req, url->user, url->password);
-	else
+	if (http_client_request_get_origin_url(req->req)->user == NULL &&
+	    set->introspection_mode == INTROSPECTION_MODE_GET_AUTH)
 		http_client_request_add_header(req->req,
 					       "Authorization",
 					       t_strdup_printf("Bearer %s",
