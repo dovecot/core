@@ -643,6 +643,12 @@ http_client_request_get_target(const struct http_client_request *req)
 	return req->target;
 }
 
+const struct http_url *
+http_client_request_get_origin_url(const struct http_client_request *req)
+{
+	return &req->origin_url;
+}
+
 enum http_request_state
 http_client_request_get_state(const struct http_client_request *req)
 {
