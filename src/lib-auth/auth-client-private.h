@@ -3,6 +3,8 @@
 
 #include "auth-client.h"
 
+#define AUTH_CONNECT_TIMEOUT_MSECS (30*1000)
+
 struct auth_client {
 	char *auth_socket_path;
 	unsigned int client_pid;
@@ -13,6 +15,8 @@ struct auth_client {
 	void *connect_notify_context;
 
 	unsigned int request_id_counter;
+
+	unsigned int connect_timeout_msecs;
 
 	bool debug:1;
 };

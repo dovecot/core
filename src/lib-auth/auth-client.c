@@ -15,6 +15,7 @@ auth_client_init(const char *auth_socket_path, unsigned int client_pid,
 	client->client_pid = client_pid;
 	client->auth_socket_path = i_strdup(auth_socket_path);
 	client->debug = debug;
+	client->connect_timeout_msecs = AUTH_CONNECT_TIMEOUT_MSECS;
 	client->conn = auth_server_connection_init(client);
 	return client;
 }
@@ -49,6 +50,12 @@ bool auth_client_is_connected(struct auth_client *client)
 bool auth_client_is_disconnected(struct auth_client *client)
 {
 	return client->conn->fd == -1;
+}
+
+void auth_client_set_connect_timeout(struct auth_client *client,
+				     unsigned int msecs)
+{
+	client->connect_timeout_msecs = msecs;
 }
 
 void auth_client_set_connect_notify(struct auth_client *client,

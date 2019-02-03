@@ -17,7 +17,6 @@
 #include <unistd.h>
 
 #define AUTH_SERVER_CONN_MAX_LINE_LENGTH AUTH_CLIENT_MAX_LINE_LENGTH
-#define AUTH_HANDSHAKE_TIMEOUT (30*1000)
 #define AUTH_SERVER_RECONNECT_TIMEOUT_SECS 5
 
 static void
@@ -462,7 +461,7 @@ int auth_server_connection_connect(struct auth_server_connection *conn)
 		return -1;
 	}
 
-	conn->to = timeout_add(AUTH_HANDSHAKE_TIMEOUT,
+	conn->to = timeout_add(conn->client->connect_timeout_msecs,
 			       auth_client_handshake_timeout, conn);
 	return 0;
 }
