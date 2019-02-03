@@ -65,6 +65,10 @@ void smtp_reply_write_one_line(string_t *out, const struct smtp_reply *reply);
 /* Create a log line from the SMTP reply. This also properly handles internal
    client error replies (status_code >= 560). */
 const char *smtp_reply_log(const struct smtp_reply *reply);
+/* Returns the message of the reply as a single line without status codes and
+   without CRLF.
+ */
+const char *smtp_reply_get_message(const struct smtp_reply *reply);
 
 void smtp_reply_copy(pool_t pool, struct smtp_reply *dst,
 	const struct smtp_reply *src);

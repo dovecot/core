@@ -100,10 +100,23 @@ smtp_reply_write(string_t *out, const struct smtp_reply *reply)
 	}
 }
 
+static void
+smtp_reply_write_message_one_line(string_t *out, const struct smtp_reply *reply)
+{
+	const char *const *lines;
+
+	lines = reply->text_lines;
+	while (*lines != NULL) {
+		if (str_len(out) > 0)
+			str_append_c(out, ' ');
+		str_append(out, *lines);
+		lines++;
+	}
+}
+
 void smtp_reply_write_one_line(string_t *out, const struct smtp_reply *reply)
 {
 	const char *enh_code = smtp_reply_get_enh_code(reply);
-	const char *const *lines;
 
 	i_assert(reply->status < 560);
 	i_assert(reply->enhanced_code.x < 6);
@@ -114,17 +127,11 @@ void smtp_reply_write_one_line(string_t *out, const struct smtp_reply *reply)
 		str_append(out, enh_code);
 	}
 
-	lines = reply->text_lines;
-	while (*lines != NULL) {
-		str_append_c(out, ' ');
-		str_append(out, *lines);
-		lines++;
-	}
+	smtp_reply_write_message_one_line(out, reply);
 }
 
 const char *smtp_reply_log(const struct smtp_reply *reply)
 {
-	const char *const *lines;
 	string_t *msg = t_str_new(256);
 
 	if (smtp_reply_is_remote(reply)) {
@@ -137,13 +144,15 @@ const char *smtp_reply_log(const struct smtp_reply *reply)
 		}
 	}
 
-	lines = reply->text_lines;
-	while (*lines != NULL) {
-		if (str_len(msg) > 0)
-			str_append_c(msg, ' ');
-		str_append(msg, *lines);
-		lines++;
-	}
+	smtp_reply_write_message_one_line(msg, reply);
+	return str_c(msg);
+}
+
+const char *smtp_reply_get_message(const struct smtp_reply *reply)
+{
+	string_t *msg = t_str_new(256);
+
+	smtp_reply_write_message_one_line(msg, reply);
 	return str_c(msg);
 }
 
