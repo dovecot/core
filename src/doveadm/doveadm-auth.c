@@ -215,6 +215,7 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 	}
 
 	client = auth_client_init(auth_socket_path, getpid(), FALSE);
+	auth_client_connect(client);
 	auth_client_set_connect_notify(client, auth_connected, input);
 
 	if (!auth_client_is_disconnected(client))
@@ -437,6 +438,7 @@ static void cmd_auth_login(int argc, char *argv[])
 			i_fatal("Unexpected parameter: %s", argv[optind]);
 	/* authenticate */
 	auth_client = auth_client_init(auth_login_socket_path, getpid(), FALSE);
+	auth_client_connect(auth_client);
 	auth_client_set_connect_notify(auth_client, auth_connected, &input);
 	if (!auth_client_is_disconnected(auth_client))
 		io_loop_run(current_ioloop);

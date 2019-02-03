@@ -467,6 +467,7 @@ static void main_init(const char *login_socket)
 
 	auth_client = auth_client_init(login_socket, (unsigned int)getpid(),
 				       FALSE);
+	auth_client_connect(auth_client);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	master_auth = master_auth_init(master_service, post_login_socket);
 
