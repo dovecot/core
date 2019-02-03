@@ -107,7 +107,8 @@ auth_client_request_new(struct auth_client *client,
 void auth_client_request_continue(struct auth_client_request *request,
 				  const char *data_base64);
 /* Abort ongoing authentication request. */
-void auth_client_request_abort(struct auth_client_request **request);
+void auth_client_request_abort(struct auth_client_request **request,
+			       const char *reason) ATTR_NULL(2);
 /* Return ID of this request. */
 unsigned int auth_client_request_get_id(struct auth_client_request *request);
 /* Return the PID of the server that handled this request. */
