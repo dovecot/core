@@ -468,7 +468,7 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 
 	client->authenticating = FALSE;
 	if (client->auth_request != NULL)
-		auth_client_request_abort(&client->auth_request);
+		auth_client_request_abort(&client->auth_request, reason);
 
 	if (code != NULL) {
 		const char *args[2];

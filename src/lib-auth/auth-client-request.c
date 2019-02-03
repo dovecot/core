@@ -173,7 +173,8 @@ static void auth_client_request_free(struct auth_client_request **_request)
 	pool_unref(&request->pool);
 }
 
-void auth_client_request_abort(struct auth_client_request **_request)
+void auth_client_request_abort(struct auth_client_request **_request,
+			       const char *reason ATTR_UNUSED)
 {
 	struct auth_client_request *request = *_request;
 
