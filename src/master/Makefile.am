@@ -83,7 +83,6 @@ test_deps = \
 	../lib/liblib.la
 
 test_auth_master_SOURCES = test-auth-master.c
-test_auth_master_LDFLAGS = -export-dynamic
 test_auth_master_LDADD = $(test_libs)
 test_auth_master_DEPENDENCIES = $(test_deps)
 
