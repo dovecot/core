@@ -16,7 +16,6 @@ auth_client_init(const char *auth_socket_path, unsigned int client_pid,
 	client->auth_socket_path = i_strdup(auth_socket_path);
 	client->debug = debug;
 	client->conn = auth_server_connection_init(client);
-	(void)auth_server_connection_connect(client->conn);
 	return client;
 }
 
