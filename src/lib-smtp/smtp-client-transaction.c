@@ -415,7 +415,8 @@ smtp_client_transaction_create(struct smtp_client_connection *conn,
 }
 
 static void
-smtp_client_transaction_finish(struct smtp_client_transaction *trans)
+smtp_client_transaction_finish(struct smtp_client_transaction *trans,
+			       const struct smtp_reply *final_reply ATTR_UNUSED)
 {
 	struct smtp_client_connection *conn = trans->conn;
 
@@ -1015,7 +1016,9 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 	trans->data_callback = NULL;
 
 	/* finished */
-	smtp_client_transaction_finish(trans);
+	smtp_client_transaction_finish(
+		trans, (trans->data_failure == NULL ? reply :
+			trans->data_failure));
 
 	smtp_client_transaction_unref(&trans);
 }
@@ -1023,7 +1026,7 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 static void
 smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 {
-	bool finished = FALSE;
+	struct smtp_reply failure;
 
 	i_assert(!trans->reset);
 	i_assert(trans->data_input != NULL);
@@ -1032,12 +1035,20 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 
 	timeout_remove(&trans->to_send);
 
+	i_zero(&failure);
 	if (trans->failure != NULL) {
 		smtp_client_transaction_fail_reply(trans, trans->failure);
-		finished = TRUE;
+		failure = *trans->failure;
+		i_assert(failure.status != 0);
 	} else if ((trans->rcpts_count + trans->rcpts_queue_count) == 0) {
 		e_debug(trans->event, "No valid recipients");
-		finished = TRUE;
+		if (trans->failure != NULL)
+			failure = *trans->failure;
+		else {
+			smtp_reply_init(&failure, 554, "No valid recipients");
+			failure.enhanced_code = SMTP_REPLY_ENH_CODE(5, 5, 0);
+		}
+		i_assert(failure.status != 0);
 	} else {
 		trans->cmd_data = smtp_client_command_data_submit_after(
 			trans->conn, 0, trans->cmd_last, trans->data_input,
@@ -1054,8 +1065,8 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 		smtp_client_command_abort(&trans->cmd_plug);
 	trans->cmd_last = NULL;
 
-	if (finished)
-		smtp_client_transaction_finish(trans);
+	if (failure.status != 0)
+		smtp_client_transaction_finish(trans, &failure);
 
 	i_stream_unref(&trans->data_input);
 }
@@ -1105,7 +1116,7 @@ smtp_client_transaction_rset_cb(const struct smtp_reply *reply,
 	trans->reset_callback = NULL;
 
 	/* finished */
-	smtp_client_transaction_finish(trans);
+	smtp_client_transaction_finish(trans, reply);
 
 	smtp_client_transaction_unref(&trans);
 }
