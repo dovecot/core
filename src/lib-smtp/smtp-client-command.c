@@ -189,11 +189,29 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
 
+	if (!cmd->failed) {
+		struct smtp_reply failure;
+
+		smtp_reply_init(&failure,
+				SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+				"Aborted");
+		failure.enhanced_code = SMTP_REPLY_ENH_CODE(9, 0, 0);
+
+		struct event_passthrough *e =
+			event_create_passthrough(cmd->event)->
+			set_name("smtp_client_command_finished");
+		smtp_reply_add_to_event(&failure, e);
+
+		e_debug(e->event(), "Aborted%s",
+			(was_sent ? " (already sent)" : ""));
+	} else {
+		e_debug(cmd->event, "Aborted%s",
+			(was_sent ? " (already sent)" : ""));
+	}
+
 	if (!was_sent) {
-		e_debug(cmd->event, "Abort");
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_ABORTED;
 	} else {
-		e_debug(cmd->event, "Abort (already sent)");
 		i_assert(state < SMTP_CLIENT_COMMAND_STATE_FINISHED);
 		cmd->aborting = TRUE;
 	}
@@ -296,7 +314,14 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 	smtp_client_command_ref(cmd);
 
 	if (!cmd->aborting) {
-		e_debug(cmd->event, "Fail");
+		cmd->failed = TRUE;
+
+		struct event_passthrough *e =
+			event_create_passthrough(cmd->event)->
+			set_name("smtp_client_command_finished");
+		smtp_reply_add_to_event(reply, e);
+		e_debug(e->event(), "Failed: %s", smtp_reply_log(reply));
+
 		if (callback != NULL)
 			(void)callback(reply, cmd->context);
 	}
@@ -456,12 +481,17 @@ void smtp_client_command_set_replies(struct smtp_client_command *cmd,
 static void
 smtp_client_command_sent(struct smtp_client_command *cmd)
 {
+	struct event_passthrough *e;
+
+	e = event_create_passthrough(cmd->event)->
+		set_name("smtp_client_command_sent");
+
 	if (cmd->data == NULL)
-		e_debug(cmd->event, "Sent");
+		e_debug(e->event(), "Sent");
 	else {
 		i_assert(str_len(cmd->data) > 2);
 		str_truncate(cmd->data, str_len(cmd->data)-2);
-		e_debug(cmd->event, "Sent: %s", str_c(cmd->data));
+		e_debug(e->event(), "Sent: %s", str_c(cmd->data));
 	}
 
 	if (smtp_client_command_name_equals(cmd, "QUIT"))
@@ -764,10 +794,14 @@ smtp_client_command_submit_after(struct smtp_client_command *cmd,
 	struct smtp_client_command *after)
 {
 	struct smtp_client_connection *conn = cmd->conn;
+	struct event_passthrough *e;
 
 	i_assert(after == NULL || cmd->conn == after->conn);
 
 	smtp_client_command_update_event(cmd);
+	e = event_create_passthrough(cmd->event)->
+		set_name("smtp_client_command_started");
+
 	cmd->state = SMTP_CLIENT_COMMAND_STATE_SUBMITTED;
 
 	if (smtp_client_command_name_equals(cmd, "EHLO"))
@@ -783,7 +817,7 @@ smtp_client_command_submit_after(struct smtp_client_command *cmd,
 			conn->to_commands = timeout_add_short(0,
 				smtp_client_command_disconnected, conn);
 		}
-		e_debug(cmd->event, "Submitted, but disconnected");
+		e_debug(e->event(), "Submitted, but disconnected");
 		return;
 	}
 
@@ -797,7 +831,7 @@ smtp_client_command_submit_after(struct smtp_client_command *cmd,
 			SMTP_CLIENT_COMMAND_FLAG_PRELOGIN);
 		if (!conn->corked)
 			smtp_client_connection_trigger_output(conn);
-		e_debug(cmd->event, "Submitted with priority");
+		e_debug(e->event(), "Submitted with priority");
 		return;
 	}
 
@@ -829,7 +863,7 @@ smtp_client_command_submit_after(struct smtp_client_command *cmd,
 
 	if (!conn->corked)
 		smtp_client_connection_trigger_output(conn);
-	e_debug(cmd->event, "Submitted");
+	e_debug(e->event(), "Submitted");
 }
 
 void smtp_client_command_submit(struct smtp_client_command *cmd)

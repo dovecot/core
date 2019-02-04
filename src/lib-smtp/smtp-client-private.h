@@ -51,6 +51,7 @@ struct smtp_client_command {
 	bool ehlo:1;
 	bool locked:1;
 	bool plug:1;
+	bool failed:1;
 	bool aborting:1;
 	bool delay_failure:1;
 	bool delaying_failure:1;
