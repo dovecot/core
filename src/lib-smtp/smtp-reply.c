@@ -173,3 +173,14 @@ struct smtp_reply *smtp_reply_clone(pool_t pool,
 
 	return dst;
 }
+
+void smtp_reply_add_to_event(const struct smtp_reply *reply,
+			     struct event_passthrough *e)
+{
+	const char *enh_code = smtp_reply_get_enh_code(reply);
+
+	e->add_int("status_code", reply->status);
+	e->add_str("enhanced_code", enh_code);
+	if (!smtp_reply_is_success(reply))
+		e->add_str("error", smtp_reply_get_message(reply));
+}

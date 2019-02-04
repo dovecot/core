@@ -75,4 +75,8 @@ void smtp_reply_copy(pool_t pool, struct smtp_reply *dst,
 struct smtp_reply *smtp_reply_clone(pool_t pool,
 	const struct smtp_reply *src);
 
+/* Set standard reply fields in provided pass-through event */
+void smtp_reply_add_to_event(const struct smtp_reply *reply,
+			     struct event_passthrough *e);
+
 #endif
