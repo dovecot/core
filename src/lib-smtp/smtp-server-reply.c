@@ -384,10 +384,11 @@ void smtp_server_reply_quit(struct smtp_server_cmd_ctx *_cmd)
 	smtp_server_reply_submit(reply);
 }
 
-const char *
-smtp_server_reply_get_one_line(const struct smtp_server_reply *reply)
+static void
+smtp_server_reply_write_one_line(const struct smtp_server_reply *reply,
+				 string_t *str, bool skip_status)
 {
-	string_t *textbuf, *str;
+	string_t *textbuf;
 	const char *text, *p;
 	size_t text_len, prefix_len, line_len;
 
@@ -396,9 +397,14 @@ smtp_server_reply_get_one_line(const struct smtp_server_reply *reply)
 	i_assert(str_len(textbuf) > 0);
 
 	prefix_len = strlen(reply->content->status_prefix);
-	str = t_str_new(256);
 	text = str_c(textbuf);
 	text_len = str_len(textbuf);
+
+	if (skip_status) {
+		i_assert(text_len > prefix_len);
+		text_len -= prefix_len;
+		text += prefix_len;
+	}
 
 	for (;;) {
 		p = strchr(text, '\n');
@@ -416,7 +422,23 @@ smtp_server_reply_get_one_line(const struct smtp_server_reply *reply)
 		text += prefix_len;
 		str_append_c(str, ' ');
 	}
+}
 
+const char *
+smtp_server_reply_get_one_line(const struct smtp_server_reply *reply)
+{
+	string_t *str = t_str_new(256);
+
+	smtp_server_reply_write_one_line(reply, str, FALSE);
+	return str_c(str);
+}
+
+const char *
+smtp_server_reply_get_message(const struct smtp_server_reply *reply)
+{
+	string_t *str = t_str_new(256);
+
+	smtp_server_reply_write_one_line(reply, str, TRUE);
 	return str_c(str);
 }
 
