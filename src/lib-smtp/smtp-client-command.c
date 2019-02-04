@@ -174,7 +174,7 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 	enum smtp_client_command_state state = cmd->state;
 	bool disconnected =
 		(conn->state == SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED);
-	bool waslocked =
+	bool was_locked =
 		(state >= SMTP_CLIENT_COMMAND_STATE_SUBMITTED) &&
 		(cmd->locked || cmd->plug);
 
@@ -248,7 +248,7 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		smtp_client_command_unref(&cmd);
 	}
 
-	if (!disconnected && waslocked && !conn->corked)
+	if (!disconnected && was_locked && !conn->corked)
 		smtp_client_connection_trigger_output(conn);
 }
 
