@@ -177,6 +177,9 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 	bool was_locked =
 		(state >= SMTP_CLIENT_COMMAND_STATE_SUBMITTED) &&
 		(cmd->locked || cmd->plug);
+	bool was_sent =
+		(!disconnected && state > SMTP_CLIENT_COMMAND_STATE_SUBMITTED &&
+		 state < SMTP_CLIENT_COMMAND_STATE_FINISHED);
 
 	*_cmd = NULL;
 
@@ -186,7 +189,7 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
 
-	if (disconnected || state <= SMTP_CLIENT_COMMAND_STATE_SUBMITTED) {
+	if (!was_sent) {
 		e_debug(cmd->event, "Abort");
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_ABORTED;
 	} else {
