@@ -64,6 +64,7 @@ struct smtp_server_recipient_hook {
 
 struct smtp_server_reply_content {
 	unsigned int status;
+	const char *enhanced_code;
 	const char *status_prefix;
 
 	string_t *text;

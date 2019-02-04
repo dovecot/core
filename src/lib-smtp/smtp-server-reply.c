@@ -118,6 +118,7 @@ smtp_server_reply_create_index(struct smtp_server_command *cmd,
 	if (reply->content == NULL)
 		reply->content = p_new(pool, struct smtp_server_reply_content, 1);
 	reply->content->status = status;
+	reply->content->enhanced_code = p_strdup(pool, enh_code);
 	if (enh_code == NULL || *enh_code == '\0') {
 		reply->content->status_prefix =
 			p_strdup_printf(pool, "%03u-", status);
