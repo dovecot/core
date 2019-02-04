@@ -168,6 +168,12 @@ smtp_server_command_new_invalid(struct smtp_server_connection *conn)
 
 	cmd = smtp_server_command_alloc(conn);
 	smtp_server_command_update_event(cmd);
+
+	struct event_passthrough *e =
+		event_create_passthrough(cmd->context.event)->
+		set_name("smtp_server_command_started");
+	e_debug(e->event(), "Invalid command");
+
 	return cmd;
 }
 
@@ -182,6 +188,11 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 	cmd = smtp_server_command_alloc(conn);
 	cmd->context.name = p_strdup(cmd->context.pool, name);
 	smtp_server_command_update_event(cmd);
+
+	struct event_passthrough *e =
+		event_create_passthrough(cmd->context.event)->
+		set_name("smtp_server_command_started");
+	e_debug(e->event(), "New command");
 
 	if ((cmd_reg=smtp_server_command_find(server, name)) == NULL) {
 		/* RFC 5321, Section 4.2.4: Reply Code 502
@@ -265,9 +276,17 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 		return TRUE;
 	cmd->destroying = TRUE;
 
-	e_debug(cmd->context.event, "Destroy");
+	if (cmd->state >= SMTP_SERVER_COMMAND_STATE_FINISHED) {
+		e_debug(cmd->context.event, "Destroy");
+	} else {
+		struct event_passthrough *e =
+			event_create_passthrough(cmd->context.event)->
+			set_name("smtp_server_command_finished");
+		e->add_int("status_code", 9000);
+		e->add_str("enhanced_code", "9.0.0");
+		e->add_str("error", "Aborted");
+		e_debug(e->event(), "Destroy");
 
-	if (cmd->state < SMTP_SERVER_COMMAND_STATE_FINISHED) {
 		cmd->state = SMTP_SERVER_COMMAND_STATE_ABORTED;
 		DLLIST2_REMOVE(&conn->command_queue_head,
 			&conn->command_queue_tail, cmd);
@@ -292,7 +311,17 @@ void smtp_server_command_abort(struct smtp_server_command **_cmd)
 
 	/* preemptively remove command from queue (references may still exist)
 	 */
-	if (cmd->state < SMTP_SERVER_COMMAND_STATE_FINISHED) {
+	if (cmd->state >= SMTP_SERVER_COMMAND_STATE_FINISHED) {
+		e_debug(cmd->context.event, "Abort");
+	} else {
+		struct event_passthrough *e =
+			event_create_passthrough(cmd->context.event)->
+			set_name("smtp_server_command_finished");
+		e->add_int("status_code", 9000);
+		e->add_str("enhanced_code", "9.0.0");
+		e->add_str("error", "Aborted");
+		e_debug(e->event(), "Abort");
+
 		cmd->state = SMTP_SERVER_COMMAND_STATE_ABORTED;
 		DLLIST2_REMOVE(&conn->command_queue_head,
 			&conn->command_queue_tail, cmd);
@@ -636,6 +665,12 @@ void smtp_server_command_finished(struct smtp_server_command *cmd)
 	i_assert(array_is_created(&cmd->replies));
 	reply = array_front_modifiable(&cmd->replies);
 	i_assert(reply->content != NULL);
+
+	struct event_passthrough *e =
+		event_create_passthrough(cmd->context.event)->
+		set_name("smtp_server_command_finished");
+	smtp_server_reply_add_to_event(reply, e);
+	e_debug(e->event(), "Finished");
 
 	if (reply->content->status == 221 || reply->content->status == 421) {
 		i_assert(cmd->replies_expected == 1);
