@@ -21,6 +21,8 @@
 struct passdb_oauth2_settings {
 	/* tokeninfo endpoint, format https://endpoint/somewhere?token= */
 	const char *tokeninfo_url;
+	/* password grant endpoint, format https://endpoint/somewhere */
+	const char *grant_url;
 	/* introspection endpoint, format https://endpoint/somewhere */
 	const char *introspection_url;
 	/* expected scope, optional */
@@ -39,6 +41,8 @@ struct passdb_oauth2_settings {
 	const char *active_attribute;
 	/* expected active value for active attribute, optional */
 	const char *active_value;
+	/* client identificator for oauth2 server */
+	const char *client_id;
 	/* template to expand into passdb */
 	const char *pass_attrs;
 
@@ -64,6 +68,7 @@ struct passdb_oauth2_settings {
 	bool force_introspection;
 	/* Should we send service and local/remote endpoints as X-Dovecot-Auth headers */
 	bool send_auth_headers;
+	bool use_grant_password;
 };
 
 struct db_oauth2 {
@@ -94,6 +99,7 @@ static struct db_oauth2 *db_oauth2_head = NULL;
 
 static struct setting_def setting_defs[] = {
 	DEF_STR(tokeninfo_url),
+	DEF_STR(grant_url),
 	DEF_STR(introspection_url),
 	DEF_STR(scope),
 	DEF_BOOL(force_introspection),
@@ -103,11 +109,13 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(pass_attrs),
 	DEF_STR(active_attribute),
 	DEF_STR(active_value),
+	DEF_STR(client_id),
 	DEF_INT(timeout_msecs),
 	DEF_INT(max_idle_time_msecs),
 	DEF_INT(max_parallel_connections),
 	DEF_INT(max_pipelined_requests),
 	DEF_BOOL(send_auth_headers),
+	DEF_BOOL(use_grant_password),
 
 	DEF_STR(tls_ca_cert_file),
 	DEF_STR(tls_ca_cert_dir),
@@ -125,6 +133,7 @@ static struct setting_def setting_defs[] = {
 
 static struct passdb_oauth2_settings default_oauth2_settings = {
 	.tokeninfo_url = "",
+	.grant_url = "",
 	.introspection_url = "",
 	.scope = "",
 	.force_introspection = FALSE,
@@ -133,6 +142,7 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.username_attribute = "email",
 	.active_attribute = "",
 	.active_value = "",
+	.client_id = "",
 	.pass_attrs = "",
 	.rawlog_dir = "",
 	.timeout_msecs = 0,
@@ -146,6 +156,7 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.tls_cipher_suite = "HIGH:!SSLv2",
 	.tls_allow_invalid_cert = FALSE,
 	.send_auth_headers = FALSE,
+	.use_grant_password = FALSE,
 	.debug = FALSE,
 };
 
@@ -201,8 +212,10 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.dns_client_socket_path = "dns-client";
 	http_set.user_agent = "dovecot-oauth2-passdb/" DOVECOT_VERSION;
 
-	if (*db->set.tokeninfo_url == '\0' && *db->set.introspection_url == '\0')
-		i_fatal("oauth2: Tokeninfo or introspection URL must be given");
+	if (*db->set.tokeninfo_url == '\0' &&
+	    (*db->set.grant_url == '\0' || *db->set.client_id == '\0') &&
+	    *db->set.introspection_url == '\0')
+		i_fatal("oauth2: Password grant or Tokeninfo or introspection URL must be given");
 
 	if (*db->set.rawlog_dir != '\0')
 		http_set.rawlog_dir = db->set.rawlog_dir;
@@ -219,9 +232,12 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	i_zero(&db->oauth2_set);
 	db->oauth2_set.client = db->client;
 	db->oauth2_set.tokeninfo_url = db->set.tokeninfo_url,
+	db->oauth2_set.grant_url = db->set.grant_url,
 	db->oauth2_set.introspection_url = db->set.introspection_url;
+	db->oauth2_set.client_id = db->set.client_id;
 	db->oauth2_set.timeout_msecs = db->set.timeout_msecs;
 	db->oauth2_set.send_auth_headers = db->set.send_auth_headers;
+	db->oauth2_set.use_grant_password = db->set.use_grant_password;
 
 	if (*db->set.introspection_mode == '\0' ||
 	    strcmp(db->set.introspection_mode, "auth") == 0) {
@@ -579,6 +595,37 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 }
 
 static void
+db_oauth2_lookup_passwd_grant(struct oauth2_passwd_grant_result *result,
+			      struct db_oauth2_request *req)
+{
+	enum passdb_result passdb_result;
+	const char *error;
+
+	req->req = NULL;
+
+	if (!result->success) {
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+		error = result->error;
+	} else if (!result->valid) {
+		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+		error = "Invalid token";
+	} else {
+		db_oauth2_fields_merge(req, result->fields);
+		if (*req->db->set.introspection_url != '\0' &&
+		    (req->db->set.force_introspection ||
+		     !db_oauth2_have_all_fields(req))) {
+			auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+					       "oauth2: Introspection needed after token validation");
+			req->token = auth_fields_find(req->fields, "access_token");
+			db_oauth2_lookup_introspect(req);
+			return;
+		}
+		db_oauth2_process_fields(req, &passdb_result, &error);
+	}
+	db_oauth2_callback(req, passdb_result, error);
+}
+
+static void
 db_oauth2_lookup_continue(struct oauth2_token_validation_result *result,
 			  struct db_oauth2_request *req)
 {
@@ -633,7 +680,14 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	input.real_remote_port = req->auth_request->real_remote_port;
 	input.service = req->auth_request->service;
 
-	if (*db->oauth2_set.tokeninfo_url == '\0') {
+	if (db->oauth2_set.use_grant_password) {
+		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
+				       "oauth2: Making grant url request to %s",
+				       db->set.grant_url);
+		req->req = oauth2_passwd_grant_start(&db->oauth2_set, &input,
+						     request->user, request->mech_password,
+						     db_oauth2_lookup_passwd_grant, req);
+	} else if (*db->oauth2_set.tokeninfo_url == '\0') {
 		auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
 				       "oauth2: Making introspection request to %s",
 				       db->set.introspection_url);
