@@ -25,6 +25,7 @@ struct mail_index_sync_ctx {
 	uint32_t next_uid;
 
 	bool no_warning:1;
+	bool seen_external_expunges:1;
 	bool seen_nonexternal_transactions:1;
 	bool fully_synced:1;
 };
@@ -187,8 +188,12 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	while ((ret = mail_transaction_log_view_next(ctx->view->log_view,
 						     &ctx->hdr,
 						     &ctx->data)) > 0) {
-		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0)
+		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
+			if ((ctx->hdr->type & (MAIL_TRANSACTION_EXPUNGE |
+					       MAIL_TRANSACTION_EXPUNGE_GUID)) != 0)
+				ctx->seen_external_expunges = TRUE;
 			continue;
+		}
 
 		T_BEGIN {
 			if (mail_index_sync_add_transaction(ctx)) {
@@ -797,9 +802,12 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 	   avoid writing a new tail offset if all the transactions were
 	   external, because that wouldn't change effective the tail offset.
 	   except e.g. mdbox map requires this to happen, so do it
-	   optionally. */
+	   optionally. Also update the tail if we've been calling any expunge
+	   handlers, so they won't be called multiple times. That could cause
+	   at least cache file's [deleted_]record_count to shrink too much. */
 	if ((hdr->log_file_seq != seq || hdr->log_file_tail_offset < offset) &&
-	    (ctx->seen_nonexternal_transactions ||
+	    (ctx->seen_external_expunges ||
+	     ctx->seen_nonexternal_transactions ||
 	     (ctx->flags & MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET) != 0)) {
 		ctx->ext_trans->log_updates = TRUE;
 		ctx->ext_trans->tail_offset_changed = TRUE;
