@@ -425,7 +425,7 @@ bool fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r)
 		i_zero(hdr_r);
 		ret = FALSE;
 	} else {
-		memcpy(hdr_r, data, data_size);
+		memcpy(hdr_r, data, sizeof(*hdr_r));
 		ret = TRUE;
 	}
 	mail_index_view_close(&view);
