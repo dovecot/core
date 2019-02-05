@@ -37,7 +37,7 @@ bool index_pop3_uidl_can_exist(struct mail *mail)
 		/* this header isn't set yet */
 		return TRUE;
 	}
-	memcpy(&uidl, data, size);
+	memcpy(&uidl, data, sizeof(uidl));
 	return mail->uid <= uidl.max_uid_with_pop3_uidl;
 }
 
@@ -95,7 +95,7 @@ void index_pop3_uidl_update_exists_finish(struct mailbox_transaction_context *tr
 
 	/* check if we have already the same header */
 	if (size >= sizeof(uidl)) {
-		memcpy(&uidl, data, size);
+		memcpy(&uidl, data, sizeof(uidl));
 		if (trans->highest_pop3_uidl_uid == uidl.max_uid_with_pop3_uidl)
 			return;
 	}
