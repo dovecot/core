@@ -1,3 +1,16 @@
+v2.3.4.1 2019-02-05  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2019-3814: If imap/pop3/managesieve/submission client has
+	  trusted certificate with missing username field
+	  (ssl_cert_username_field), under some configurations Dovecot
+	  mistakenly trusts the username provided via authentication instead
+	  of failing.
+	* ssl_cert_username_field setting was ignored with external SMTP AUTH,
+	  because none of the MTAs (Postfix, Exim) currently send the
+	  cert_username field. This may have allowed users with trusted
+	  certificate to specify any username in the authentication. This bug
+	  didn't affect Dovecot's Submission service.
+
 v2.3.4 2018-11-23  Timo Sirainen <tss@iki.fi>
 
 	* The default postmaster_address is now "postmaster@<user domain or
