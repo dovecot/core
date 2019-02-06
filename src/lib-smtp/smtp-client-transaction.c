@@ -1102,6 +1102,12 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 
 	smtp_client_transaction_ref(trans);
 
+	if (trans->data_input != NULL) {
+		event_add_int(trans->event, "data_sent",
+			      trans->data_input->v_offset);
+		i_stream_unref(&trans->data_input);
+	}
+
 	if (reply_per_rcpt &&
 	    trans->cmd_data != NULL && /* NULL when failed early */
 	    trans->rcpts_data == NULL && trans->rcpts_count > 0) {
@@ -1184,8 +1190,6 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 
 	if (failure.status != 0)
 		smtp_client_transaction_finish(trans, &failure);
-
-	i_stream_unref(&trans->data_input);
 }
 
 #undef smtp_client_transaction_send
