@@ -1252,3 +1252,69 @@ bool smtp_params_rcpt_equals(const struct smtp_params_rcpt *params1,
 	}
 	return TRUE;
 }
+
+/* events */
+
+static void
+smtp_params_rcpt_add_notify_to_event(const struct smtp_params_rcpt *params,
+				     enum smtp_capability caps,
+				     struct event *event)
+{
+	/* NOTIFY: RFC 3461, Section 4.1 */
+	if ((caps & SMTP_CAPABILITY_DSN) == 0)
+		return;
+	if (params->notify == SMTP_PARAM_RCPT_NOTIFY_UNSPECIFIED)
+		return;
+	if ((params->notify & SMTP_PARAM_RCPT_NOTIFY_NEVER) != 0) {
+		i_assert(params->notify ==
+			 SMTP_PARAM_RCPT_NOTIFY_NEVER);
+		event_add_str(event, "rcpt_param_notify", "NEVER");
+	} else {
+		string_t *str = t_str_new(32);
+		if ((params->notify & SMTP_PARAM_RCPT_NOTIFY_SUCCESS) != 0)
+			str_append(str, "SUCCESS");
+		if ((params->notify & SMTP_PARAM_RCPT_NOTIFY_FAILURE) != 0) {
+			if (str_len(str) > 0)
+				str_append_c(str, ',');
+			str_append(str, "FAILURE");
+		}
+		if ((params->notify & SMTP_PARAM_RCPT_NOTIFY_DELAY) != 0) {
+			if (str_len(str) > 0)
+				str_append_c(str, ',');
+			str_append(str, "DELAY");
+		}
+		event_add_str(event, "rcpt_param_notify", str_c(str));
+	}
+}
+
+static void
+smtp_params_rcpt_add_orcpt_to_event(const struct smtp_params_rcpt *params,
+				    enum smtp_capability caps,
+				    struct event *event)
+{
+	/* ORCPT: RFC 3461, Section 4.2 */
+	if (params->orcpt.addr_type == NULL)
+		return;
+	if ((caps & SMTP_CAPABILITY_DSN) == 0 &&
+	    (caps & SMTP_CAPABILITY__ORCPT) == 0)
+		return;
+
+	event_add_str(event, "rcpt_param_orcpt_type",
+		      params->orcpt.addr_type);
+	if (strcasecmp(params->orcpt.addr_type, "rfc822") == 0) {
+		event_add_str(event, "rcpt_param_orcpt",
+			      smtp_address_encode(params->orcpt.addr));
+	} else {
+		i_assert(params->orcpt.addr_raw != NULL);
+		event_add_str(event, "rcpt_param_orcpt",
+			      params->orcpt.addr_raw);
+	}
+}
+
+void smtp_params_rcpt_add_to_event(const struct smtp_params_rcpt *params,
+				   enum smtp_capability caps,
+				   struct event *event)
+{
+	smtp_params_rcpt_add_notify_to_event(params, caps, event);
+	smtp_params_rcpt_add_orcpt_to_event(params, caps, event);
+}
