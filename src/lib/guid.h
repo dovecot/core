@@ -38,7 +38,7 @@ int guid_128_from_string(const char *str, guid_128_t guid_r);
 
 /* Returns GUID as a UUID hex string. */
 const char *guid_128_to_uuid_string(const guid_128_t guid, enum uuid_format format);
-/* Parse GUID from a UUID string. Returns 0 if ok, -1 if UIID isn't valid. */
+/* Parse GUID from a UUID string. Returns 0 if ok, -1 if UUID isn't valid. */
 int guid_128_from_uuid_string(const char *str, guid_128_t guid_r);
 
 /* guid_128 hash/cmp functions for hash.h */
