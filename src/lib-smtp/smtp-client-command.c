@@ -1402,7 +1402,7 @@ smtp_client_command_data_submit_after(
 
 	} else {
 		/* BDAT */
-		ctx->data = i_stream_create_crlf(data);
+		ctx->data = data = i_stream_create_crlf(data);
 
 		p_array_init(&ctx->cmds, ctx->pool,
 			conn->set.max_data_chunk_pipeline);
