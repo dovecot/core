@@ -169,16 +169,11 @@ bool smtp_client_command_name_equals(struct smtp_client_command *cmd,
 	data = cmd->data->data;
 	data_len = cmd->data->used;
 
-	if (cmd->state >= SMTP_CLIENT_COMMAND_STATE_SUBMITTED) {
-		/* ignore CRLF, which is added at command submission */
-		i_assert(data_len >= 2);
-		data_len -= 2;
-	}
-
 	if (data_len < name_len ||
 		i_memcasecmp(data, name, name_len) != 0)
 		return FALSE;
-	return (data_len == name_len || data[name_len] == ' ');
+	return (data_len == name_len ||
+		data[name_len] == ' ' || data[name_len] == '\r');
 }
 
 void smtp_client_command_lock(struct smtp_client_command *cmd)
