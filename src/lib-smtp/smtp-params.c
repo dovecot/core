@@ -652,6 +652,113 @@ smtp_params_mail_get_extra(const struct smtp_params_mail *params,
 	return NULL;
 }
 
+/* events */
+
+static void
+smtp_params_mail_add_auth_to_event(const struct smtp_params_mail *params,
+				   enum smtp_capability caps,
+				   struct event *event)
+{
+	/* AUTH: RFC 4954 */
+	if ((caps & SMTP_CAPABILITY_AUTH) == 0)
+		return;
+	if (params->auth == NULL)
+		return;
+
+	event_add_str(event, "mail_param_auth",
+		      smtp_address_encode(params->auth));
+}
+
+static void
+smtp_params_mail_add_body_to_event(const struct smtp_params_mail *params,
+				   enum smtp_capability caps,
+				   struct event *event)
+{
+	/* BODY: RFC 6152 */
+	switch (params->body.type) {
+	case SMTP_PARAM_MAIL_BODY_TYPE_UNSPECIFIED:
+		break;
+	case SMTP_PARAM_MAIL_BODY_TYPE_7BIT:
+		event_add_str(event, "mail_param_body", "7BIT");
+		break;
+	case SMTP_PARAM_MAIL_BODY_TYPE_8BITMIME:
+		i_assert((caps & SMTP_CAPABILITY_8BITMIME) != 0);
+		event_add_str(event, "mail_param_body", "8BITMIME");
+		break;
+	case SMTP_PARAM_MAIL_BODY_TYPE_BINARYMIME:
+		i_assert((caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
+			(caps & SMTP_CAPABILITY_CHUNKING) != 0);
+		event_add_str(event, "mail_param_body", "BINARYMIME");
+		break;
+	case SMTP_PARAM_MAIL_BODY_TYPE_EXTENSION:
+		event_add_str(event, "mail_param_body", params->body.ext);
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+static void
+smtp_params_mail_add_envid_to_event(const struct smtp_params_mail *params,
+				    enum smtp_capability caps,
+				    struct event *event)
+{
+	/* ENVID: RFC 3461, Section 4.4 */
+	if ((caps & SMTP_CAPABILITY_DSN) == 0)
+		return;
+	if (params->envid == NULL)
+		return;
+
+	event_add_str(event, "mail_param_envid", params->envid);
+}
+
+static void
+smtp_params_mail_add_ret_to_event(const struct smtp_params_mail *params,
+				  enum smtp_capability caps,
+				  struct event *event)
+{
+	/* RET: RFC 3461, Section 4.3 */
+	if ((caps & SMTP_CAPABILITY_DSN) == 0)
+		return;
+	switch (params->ret) {
+	case SMTP_PARAM_MAIL_RET_UNSPECIFIED:
+		break;
+	case SMTP_PARAM_MAIL_RET_HDRS:
+		event_add_str(event, "mail_param_ret", "HDRS");
+		break;
+	case SMTP_PARAM_MAIL_RET_FULL:
+		event_add_str(event, "mail_param_ret", "FULL");
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+static void
+smtp_params_mail_add_size_to_event(const struct smtp_params_mail *params,
+				   enum smtp_capability caps,
+				   struct event *event)
+{
+	/* SIZE: RFC 1870 */
+	if ((caps & SMTP_CAPABILITY_SIZE) == 0)
+		return;
+	if (params->size == 0)
+		return;
+
+	event_add_int(event, "mail_param_size", params->size);
+}
+
+void smtp_params_mail_add_to_event(const struct smtp_params_mail *params,
+				   enum smtp_capability caps,
+				   struct event *event)
+{
+	smtp_params_mail_add_auth_to_event(params, caps, event);
+	smtp_params_mail_add_body_to_event(params, caps, event);
+	smtp_params_mail_add_envid_to_event(params, caps, event);
+	smtp_params_mail_add_ret_to_event(params, caps, event);
+	smtp_params_mail_add_size_to_event(params, caps, event);
+}
+
 /*
  * RCPT parameters
  */

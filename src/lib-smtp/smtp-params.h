@@ -121,6 +121,12 @@ const struct smtp_param *
 smtp_params_mail_get_extra(const struct smtp_params_mail *params,
 			   const char *keyword);
 
+/* events */
+
+void smtp_params_mail_add_to_event(const struct smtp_params_mail *params,
+				   enum smtp_capability caps,
+				   struct event *event);
+
 /*
  * RCPT parameters
  */
