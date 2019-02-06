@@ -168,4 +168,10 @@ smtp_params_rcpt_get_extra(const struct smtp_params_rcpt *params,
 bool smtp_params_rcpt_equals(const struct smtp_params_rcpt *params1,
 			     const struct smtp_params_rcpt *params2);
 
+/* events */
+
+void smtp_params_rcpt_add_to_event(const struct smtp_params_rcpt *params,
+				   enum smtp_capability caps,
+				   struct event *event);
+
 #endif
