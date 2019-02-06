@@ -75,6 +75,7 @@ struct smtp_client_transaction_mail {
 struct smtp_client_transaction_rcpt {
 	pool_t pool;
 	struct smtp_client_transaction *trans;
+	struct event *event;
 
 	struct smtp_client_transaction_rcpt *prev, *next;
 

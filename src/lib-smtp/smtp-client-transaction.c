@@ -133,6 +133,20 @@ smtp_client_transaction_mail_fail_reply(
  * Recipient
  */
 
+static void
+smtp_client_transaction_rcpt_update_event(
+	struct smtp_client_transaction_rcpt *rcpt)
+{
+	struct smtp_client_connection *conn = rcpt->trans->conn;
+	const char *to = smtp_address_encode(rcpt->rcpt_to);
+
+	event_set_append_log_prefix(rcpt->event,
+				    t_strdup_printf("rcpt <%s>: ", to));
+	event_add_str(rcpt->event, "rcpt_to", to);
+	smtp_params_rcpt_add_to_event(&rcpt->rcpt_params, conn->caps.standard,
+				      rcpt->event);
+}
+
 static struct smtp_client_transaction_rcpt *
 smtp_client_transaction_rcpt_new(
 	struct smtp_client_transaction *trans, pool_t pool,
@@ -156,7 +170,11 @@ smtp_client_transaction_rcpt_new(
 	if (trans->rcpts_send == NULL)
 		trans->rcpts_send = rcpt;
 
+	rcpt->event = event_create(trans->event);
+	smtp_client_transaction_rcpt_update_event(rcpt);
+
 	trans->rcpts_total++;
+
 	return rcpt;
 }
 
@@ -184,8 +202,23 @@ smtp_client_transaction_rcpt_free(
 	}
 
 	if (!rcpt->finished) {
+		struct smtp_reply failure;
+
 		trans->rcpts_aborted++;
+
+		smtp_reply_init(&failure,
+				SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+				"Aborted");
+		failure.enhanced_code = SMTP_REPLY_ENH_CODE(9, 0, 0);
+
+		struct event_passthrough *e =
+			event_create_passthrough(rcpt->event)->
+			set_name("smtp_client_transaction_rcpt_finished");
+		smtp_reply_add_to_event(&failure, e);
+		e_debug(e->event(), "Aborted");
 	}
+
+	event_unref(&rcpt->event);
 
 	if (rcpt->queued || rcpt->external_pool) {
 		i_assert(rcpt->pool != NULL);
@@ -225,6 +258,9 @@ smtp_client_transaction_rcpt_approved(
 		rcpt->data_callback = prcpt->data_callback;
 		rcpt->data_context = prcpt->data_context;
 
+		rcpt->event = prcpt->event;
+		event_ref(rcpt->event);
+
 		/* free the old object, thereby removing it from the queue */
 		smtp_client_transaction_rcpt_free(&prcpt);
 	}
@@ -240,7 +276,8 @@ smtp_client_transaction_rcpt_approved(
 
 static void
 smtp_client_transaction_rcpt_denied(
-	struct smtp_client_transaction_rcpt **_rcpt)
+	struct smtp_client_transaction_rcpt **_rcpt,
+	const struct smtp_reply *reply)
 {
 	struct smtp_client_transaction_rcpt *prcpt = *_rcpt;
 	struct smtp_client_transaction *trans = prcpt->trans;
@@ -249,6 +286,12 @@ smtp_client_transaction_rcpt_denied(
 
 	trans->rcpts_denied++;
 	trans->rcpts_failed++;
+
+	struct event_passthrough *e =
+		event_create_passthrough(prcpt->event)->
+		set_name("smtp_client_transaction_rcpt_finished");
+	smtp_reply_add_to_event(reply, e);
+	e_debug(e->event(), "Denied");
 
 	/* not pending anymore */
 	smtp_client_transaction_rcpt_free(&prcpt);
@@ -273,7 +316,7 @@ smtp_client_transaction_rcpt_replied(
 	if (success)
 		smtp_client_transaction_rcpt_approved(_rcpt);
 	else
-		smtp_client_transaction_rcpt_denied(_rcpt);
+		smtp_client_transaction_rcpt_denied(_rcpt, reply);
 
 	/* call the callback */
 	if (rcpt_callback != NULL)
@@ -320,6 +363,12 @@ smtp_client_transaction_rcpt_fail_reply(
 	rcpt->rcpt_callback = NULL;
 	rcpt->data_callback = NULL;
 
+	struct event_passthrough *e =
+		event_create_passthrough(rcpt->event)->
+		set_name("smtp_client_transaction_rcpt_finished");
+	smtp_reply_add_to_event(reply, e);
+	e_debug(e->event(), "Failed");
+
 	if (callback != NULL)
 		callback(reply, context);
 
@@ -339,6 +388,12 @@ smtp_client_transaction_rcpt_finished(struct smtp_client_transaction_rcpt *rcpt,
 		trans->rcpts_succeeded++;
 	else
 		trans->rcpts_failed++;
+
+	struct event_passthrough *e =
+		event_create_passthrough(rcpt->event)->
+		set_name("smtp_client_transaction_rcpt_finished");
+	smtp_reply_add_to_event(reply, e);
+	e_debug(e->event(), "Finished");
 
 	if (rcpt->data_callback != NULL)
 		rcpt->data_callback(reply, rcpt->data_context);
