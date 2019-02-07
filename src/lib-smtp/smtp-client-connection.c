@@ -158,6 +158,7 @@ smtp_client_connection_commands_abort(struct smtp_client_connection *conn)
 					conn->cmd_wait_list_count);
 	smtp_client_commands_list_abort(conn->cmd_send_queue_head,
 					conn->cmd_send_queue_count);
+	smtp_client_commands_abort_delayed(conn);
 }
 
 static void
@@ -168,6 +169,7 @@ smtp_client_connection_commands_fail_reply(struct smtp_client_connection *conn,
 					     conn->cmd_wait_list_count, reply);
 	smtp_client_commands_list_fail_reply(conn->cmd_send_queue_head,
 					     conn->cmd_send_queue_count, reply);
+	smtp_client_commands_fail_delayed(conn);
 }
 
 static void
@@ -1806,6 +1808,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 	timeout_remove(&conn->to_connect);
 	timeout_remove(&conn->to_trans);
 	timeout_remove(&conn->to_commands);
+	timeout_remove(&conn->to_cmd_fail);
 
 	ssl_iostream_destroy(&conn->ssl_iostream);
 	if (conn->ssl_ctx != NULL)
@@ -2013,6 +2016,7 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 
 	/* could have been created while already disconnected */
 	timeout_remove(&conn->to_commands);
+	timeout_remove(&conn->to_cmd_fail);
 
 	smtp_client_connection_debug(conn, "Destroy");
 
@@ -2048,6 +2052,7 @@ void smtp_client_connection_close(struct smtp_client_connection **_conn)
 
 	/* could have been created while already disconnected */
 	timeout_remove(&conn->to_commands);
+	timeout_remove(&conn->to_cmd_fail);
 
 	smtp_client_connection_unref(&conn);
 }
@@ -2074,6 +2079,8 @@ void smtp_client_connection_switch_ioloop(struct smtp_client_connection *conn)
 		conn->to_trans = io_loop_move_timeout(&conn->to_trans);
 	if (conn->to_commands != NULL)
 		conn->to_commands = io_loop_move_timeout(&conn->to_commands);
+	if (conn->to_cmd_fail != NULL)
+		conn->to_cmd_fail = io_loop_move_timeout(&conn->to_cmd_fail);
 	connection_switch_ioloop(&conn->conn);
 
 	trans = conn->transactions_head;
