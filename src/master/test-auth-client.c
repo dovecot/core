@@ -495,8 +495,6 @@ test_auth_handshake_input(struct server_connection *conn)
 	const char *line;
 
 	for (;;) {
-		bool cont;
-
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
 			if (conn->conn.input->eof)
@@ -525,22 +523,22 @@ test_auth_handshake_input(struct server_connection *conn)
 				server_connection_deinit(&conn);
 				return;
 			}
-			cont = FALSE;
+
 			if (strcmp(args[0], "CPID") == 0) {
 				continue;
 			} else  if (strcmp(args[0], "AUTH") == 0) {
-				cont = test_auth_handshake_auth(conn, id,
-								args + 2);
+				if (test_auth_handshake_auth(conn, id,
+							     args + 2))
+					continue;
 			} else  if (strcmp(args[0], "CONT") == 0) {
-				cont = test_auth_handshake_cont(conn, id,
-								args + 2);
+				if (test_auth_handshake_cont(conn, id,
+							     args + 2))
+					continue;
 			} else {
 				i_error("Bad request: %s", args[0]);
 				server_connection_deinit(&conn);
 				return;
 			}
-			if (cont)
-				continue;
 			server_connection_deinit(&conn);
 			return;
 		}
