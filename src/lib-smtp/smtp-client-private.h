@@ -33,6 +33,8 @@ struct smtp_client_command {
 	struct istream *stream;
 	uoff_t stream_size;
 
+	struct smtp_reply *delayed_failure;
+
 	smtp_client_command_callback_t *callback;
 	void *context;
 
@@ -49,6 +51,8 @@ struct smtp_client_command {
 	bool locked:1;
 	bool plug:1;
 	bool aborting:1;
+	bool delay_failure:1;
+	bool delaying_failure:1;
 };
 
 struct smtp_client_transaction_mail {
@@ -170,7 +174,7 @@ struct smtp_client_connection {
 
 	struct dns_lookup *dns_lookup;
 	struct dsasl_client *sasl_client;
-	struct timeout *to_connect, *to_trans, *to_commands;
+	struct timeout *to_connect, *to_trans, *to_commands, *to_cmd_fail;
 	struct io *io_cmd_payload;
 
 	struct istream *raw_input;
@@ -190,6 +194,8 @@ struct smtp_client_connection {
 	/* commands that have been (mostly) sent, waiting for response */
 	struct smtp_client_command *cmd_wait_list_head, *cmd_wait_list_tail;
 	unsigned int cmd_wait_list_count;
+	/* commands that have failed before submission */
+	struct smtp_client_command *cmd_fail_list;
 	/* command sending data stream */
 	struct smtp_client_command *cmd_streaming;
 
@@ -246,6 +252,9 @@ void smtp_client_commands_list_abort(struct smtp_client_command *cmds_list,
 void smtp_client_commands_list_fail_reply(
 	struct smtp_client_command *cmds_list, unsigned int cmds_list_count,
 	const struct smtp_reply *reply);
+
+void smtp_client_commands_abort_delayed(struct smtp_client_connection *conn);
+void smtp_client_commands_fail_delayed(struct smtp_client_connection *conn);
 
 /*
  * Transaction

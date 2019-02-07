@@ -226,6 +226,13 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 	i_assert(!cmd->plug || state <= SMTP_CLIENT_COMMAND_STATE_SUBMITTED);
 
 	switch (state) {
+	case SMTP_CLIENT_COMMAND_STATE_NEW:
+		if (cmd->delaying_failure) {
+			DLLIST_REMOVE(&conn->cmd_fail_list, cmd);
+			if (conn->cmd_fail_list == NULL)
+				timeout_remove(&conn->to_cmd_fail);
+		}
+		break;
 	case SMTP_CLIENT_COMMAND_STATE_SENDING:
 		if (!disconnected) {
 			/* it is being sent; cannot truly abort it now */
@@ -291,6 +298,22 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 	if (state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
 
+	if (cmd->delay_failure) {
+		i_assert(cmd->delayed_failure == NULL);
+		i_assert(state < SMTP_CLIENT_COMMAND_STATE_SUBMITTED);
+
+		smtp_client_command_debug(cmd, "Fail (delay)");
+
+		cmd->delayed_failure = smtp_reply_clone(cmd->pool, reply);
+		cmd->delaying_failure = TRUE;
+		if (conn->to_cmd_fail == NULL) {
+			conn->to_cmd_fail = timeout_add_short(0,
+				smtp_client_commands_fail_delayed, conn);
+		}
+		DLLIST_PREPEND(&conn->cmd_fail_list, cmd);
+		return;
+	}
+
 	cmd->callback = NULL;
 
 	smtp_client_connection_ref(conn);
@@ -321,6 +344,18 @@ void smtp_client_command_fail(struct smtp_client_command **_cmd,
 	reply.enhanced_code.x = 9;
 
 	smtp_client_command_fail_reply(_cmd, &reply);
+}
+
+static void
+smtp_client_command_fail_delayed(struct smtp_client_command **_cmd)
+{
+	struct smtp_client_command *cmd = *_cmd;
+
+	smtp_client_command_debug(cmd, "Fail delayed");
+
+	i_assert(!cmd->delay_failure);
+	i_assert(cmd->state < SMTP_CLIENT_COMMAND_STATE_FINISHED);
+	smtp_client_command_fail_reply(_cmd, cmd->delayed_failure);
 }
 
 void smtp_client_commands_list_abort(struct smtp_client_command *cmds_list,
@@ -381,6 +416,40 @@ void smtp_client_commands_list_fail_reply(
 		smtp_client_command_fail_reply(&cmds[i], reply);
 		/* drop our reference */
 		smtp_client_command_unref(&cmd);
+	}
+}
+
+void smtp_client_commands_abort_delayed(struct smtp_client_connection *conn)
+{
+	struct smtp_client_command *cmd;
+
+	timeout_remove(&conn->to_cmd_fail);
+
+	cmd = conn->cmd_fail_list;
+	conn->cmd_fail_list = NULL;
+	while (cmd != NULL) {
+		struct smtp_client_command *cmd_next = cmd->next;
+
+		cmd->delaying_failure = FALSE;
+		smtp_client_command_abort(&cmd);
+		cmd = cmd_next;
+	}
+}
+
+void smtp_client_commands_fail_delayed(struct smtp_client_connection *conn)
+{
+	struct smtp_client_command *cmd;
+
+	timeout_remove(&conn->to_cmd_fail);
+
+	cmd = conn->cmd_fail_list;
+	conn->cmd_fail_list = NULL;
+	while (cmd != NULL) {
+		struct smtp_client_command *cmd_next = cmd->next;
+
+		cmd->delaying_failure = FALSE;
+		smtp_client_command_fail_delayed(&cmd);
+		cmd = cmd_next;
 	}
 }
 
@@ -1371,6 +1440,9 @@ smtp_client_command_data_submit_after(
 	cmd = cmd_data = smtp_client_command_create(conn,
 		flags, callback, context);
 
+	/* protect against race conditions */
+	cmd_data->delay_failure = TRUE;
+
 	/* create context in the final command's pool */
 	ctx = p_new(cmd->pool, struct _cmd_data_context, 1);
 	ctx->conn = conn;
@@ -1433,6 +1505,7 @@ smtp_client_command_data_submit_after(
 		_cmd_bdat_send_chunks(ctx, after);
 	}
 
+	cmd_data->delay_failure = FALSE;
 	return cmd_data;
 }
 
