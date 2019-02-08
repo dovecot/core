@@ -261,7 +261,7 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		conn->cmd_wait_list_count--;
 		break;
 	default:
-		break;
+		i_unreached();
 	}
 
 	if (cmd->abort_callback != NULL) {
