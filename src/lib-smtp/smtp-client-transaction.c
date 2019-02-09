@@ -188,27 +188,6 @@ smtp_client_transaction_rcpt_free(
 }
 
 static void
-smtp_client_transaction_rcpt_drop_pending(
-	struct smtp_client_transaction_rcpt *rcpt)
-{
-	struct smtp_client_transaction *trans = rcpt->trans;
-
-	i_assert(rcpt->queued);
-
-	if (rcpt->external_pool) {
-		rcpt->queued = FALSE;
-		if (trans->rcpts_send == rcpt)
-			trans->rcpts_send = rcpt->next;
-		DLLIST2_REMOVE(&trans->rcpts_queue_head,
-			       &trans->rcpts_queue_tail, rcpt);
-		trans->rcpts_queue_count--;
-		return;
-	}
-
-	smtp_client_transaction_rcpt_free(&rcpt);
-}
-
-static void
 smtp_client_transaction_rcpt_approved(
 	struct smtp_client_transaction_rcpt **_rcpt)
 {
@@ -217,9 +196,19 @@ smtp_client_transaction_rcpt_approved(
 	struct smtp_client_transaction_rcpt *rcpt;
 	pool_t pool;
 
-	if (prcpt->external_pool)
+	i_assert(prcpt->queued);
+
+	if (prcpt->external_pool) {
+		/* allocated externally; just remove it from the queue */
+		prcpt->queued = FALSE;
+		if (trans->rcpts_send == prcpt)
+			trans->rcpts_send = prcpt->next;
+		DLLIST2_REMOVE(&trans->rcpts_queue_head,
+			       &trans->rcpts_queue_tail, prcpt);
+		trans->rcpts_queue_count--;
+
 		rcpt = prcpt;
-	else {
+	} else {
 		/* move to transaction pool */
 		pool = trans->pool;
 		rcpt = p_new(pool, struct smtp_client_transaction_rcpt, 1);
@@ -229,10 +218,10 @@ smtp_client_transaction_rcpt_approved(
 				      &prcpt->rcpt_params);
 		rcpt->data_callback = prcpt->data_callback;
 		rcpt->data_context = prcpt->data_context;
-	}
 
-	/* not pending anymore */
-	smtp_client_transaction_rcpt_drop_pending(prcpt);
+		/* free the old object, thereby removing it from the queue */
+		smtp_client_transaction_rcpt_free(&prcpt);
+	}
 
 	/* recipient is approved */
 	DLLIST2_APPEND(&trans->rcpts_head, &trans->rcpts_tail, rcpt);
