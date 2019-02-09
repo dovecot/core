@@ -293,6 +293,30 @@ void smtp_client_transaction_rcpt_abort(
 }
 
 static void
+smtp_client_transaction_rcpt_fail_reply(
+	struct smtp_client_transaction_rcpt *rcpt,
+	const struct smtp_reply *reply)
+{
+	smtp_client_command_callback_t *callback;
+	void *context;
+
+	if (rcpt->queued) {
+		callback = rcpt->rcpt_callback;
+		context = rcpt->context;
+	} else {
+		callback = rcpt->data_callback;
+		context = rcpt->data_context;
+	}
+	rcpt->rcpt_callback = NULL;
+	rcpt->data_callback = NULL;
+
+	rcpt->failed = TRUE;
+
+	if (callback != NULL)
+		callback(reply, context);
+}
+
+static void
 smtp_client_transaction_rcpt_finished(struct smtp_client_transaction_rcpt *rcpt,
 				      const struct smtp_reply *reply)
 {
@@ -580,16 +604,10 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		rcpt_next = rcpt->next;
 
 		rcpt->cmd_rcpt_to = NULL;
-		rcpt->failed = TRUE;
-
-		if (cmd != NULL) {
+		if (cmd != NULL)
 			smtp_client_command_fail_reply(&cmd, reply);
-		} else {
-			if (rcpt->rcpt_callback != NULL) {
-				rcpt->rcpt_callback(reply, rcpt->context);
-			}
-			rcpt->rcpt_callback = NULL;
-		}
+		else
+			smtp_client_transaction_rcpt_fail_reply(rcpt, reply);
 
 		rcpt = rcpt_next;
 	}
@@ -614,10 +632,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		   for the recipients that were previously accepted. */
 		for (rcpt = trans->rcpts_data; rcpt != NULL;
 		     rcpt = rcpt->next) {
-			if (rcpt->data_callback != NULL) {
-				rcpt->data_callback(reply, rcpt->data_context);
-			}
-			rcpt->data_callback = NULL;
+			smtp_client_transaction_rcpt_fail_reply(rcpt, reply);
 		}
 		if (trans->data_callback != NULL)
 			trans->data_callback(reply, trans->data_context);
