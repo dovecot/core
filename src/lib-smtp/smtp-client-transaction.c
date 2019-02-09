@@ -977,12 +977,14 @@ static void
 smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 				struct smtp_client_transaction *trans)
 {
+	bool reply_per_rcpt = HAS_ALL_BITS(
+		trans->flags, SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT);
+
 	i_assert(!trans->reset);
 
 	smtp_client_transaction_ref(trans);
 
-	if (HAS_ALL_BITS(trans->flags,
-			 SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT) &&
+	if (reply_per_rcpt &&
 	    trans->cmd_data != NULL && /* NULL when failed early */
 	    trans->rcpts_data == NULL && trans->rcpts_count > 0) {
 		smtp_client_command_set_replies(trans->cmd_data,
@@ -997,6 +999,10 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 				 SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT))
 			break;
 	}
+
+	if (reply_per_rcpt && trans->rcpts_count > 1 &&
+	    !smtp_reply_is_success(reply) && trans->data_failure == NULL)
+		trans->data_failure = smtp_reply_clone(trans->pool, reply);
 	if (trans->rcpts_data != NULL) {
 		smtp_client_transaction_unref(&trans);
 		return;

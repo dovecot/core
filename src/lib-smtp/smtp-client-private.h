@@ -107,7 +107,7 @@ struct smtp_client_transaction {
 	enum smtp_client_transaction_state state;
 	struct smtp_client_command *cmd_data, *cmd_rset;
 	struct smtp_client_command *cmd_plug, *cmd_last;
-	struct smtp_reply *failure, *mail_failure;
+	struct smtp_reply *failure, *mail_failure, *data_failure;
 
 	struct smtp_client_transaction_mail *mail_head, *mail_tail;
 	struct smtp_client_transaction_mail *mail_send;
