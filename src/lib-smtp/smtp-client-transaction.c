@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "net.h"
 #include "istream.h"
+#include "istream-crlf.h"
 #include "ostream.h"
 #include "str.h"
 #include "dns-lookup.h"
@@ -1204,8 +1205,7 @@ void smtp_client_transaction_send(
 	trans->data_provided = TRUE;
 
 	i_assert(trans->data_input == NULL);
-	trans->data_input = data_input;
-	i_stream_ref(data_input);
+	trans->data_input = i_stream_create_crlf(data_input);
 
 	trans->data_callback = data_callback;
 	trans->data_context = data_context;

@@ -233,7 +233,8 @@ smtp_client_command_rcpt_submit(
 		(smtp_client_command_callback_t *)callback, context)
 
 /* Send message data using DATA or BDAT (preferred if supported).
-   This handles the DATA 354 response implicitly.
+   This handles the DATA 354 response implicitly. Making sure that the data has
+   CRLF line endings consistently is the responsibility of the caller.
  */
 struct smtp_client_command *
 smtp_client_command_data_submit_after(
