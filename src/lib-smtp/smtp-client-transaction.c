@@ -82,6 +82,24 @@ smtp_client_transaction_mail_free(struct smtp_client_transaction_mail **_mail)
 	pool_unref(&mail->pool);
 }
 
+static void
+smtp_client_transaction_mail_replied(
+	struct smtp_client_transaction_mail **_mail,
+	const struct smtp_reply *reply)
+{
+	struct smtp_client_transaction_mail *mail = *_mail;
+	smtp_client_command_callback_t *mail_callback = mail->mail_callback;
+	void *context = mail->context;
+
+	mail->mail_callback = NULL;
+
+	/* call the callback */
+	if (mail_callback != NULL)
+		mail_callback(reply, context);
+
+	smtp_client_transaction_mail_free(_mail);
+}
+
 void smtp_client_transaction_mail_abort(
 	struct smtp_client_transaction_mail **_mail)
 {
@@ -661,19 +679,19 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 	else if (trans->reset)
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_RESET;
 
-	if (mail->mail_callback != NULL) {
+	{
 		enum smtp_client_transaction_state state;
 		struct smtp_client_transaction *tmp_trans = trans;
 
 		smtp_client_transaction_ref(tmp_trans);
-		mail->mail_callback(reply, mail->context);
+
+		smtp_client_transaction_mail_replied(&mail, reply);
+
 		state = trans->state;
 		smtp_client_transaction_unref(&tmp_trans);
 		if (state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
 			return;
 	}
-
-	smtp_client_transaction_mail_free(&mail);
 
 	if (!success && !trans->sender_accepted) {
 		if (trans->state > SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM)
