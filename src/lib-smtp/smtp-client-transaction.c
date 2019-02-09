@@ -294,9 +294,10 @@ void smtp_client_transaction_rcpt_abort(
 
 static void
 smtp_client_transaction_rcpt_fail_reply(
-	struct smtp_client_transaction_rcpt *rcpt,
+	struct smtp_client_transaction_rcpt **_rcpt,
 	const struct smtp_reply *reply)
 {
+	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
 	smtp_client_command_callback_t *callback;
 	void *context;
 
@@ -314,6 +315,8 @@ smtp_client_transaction_rcpt_fail_reply(
 
 	if (callback != NULL)
 		callback(reply, context);
+
+	smtp_client_transaction_rcpt_free(_rcpt);
 }
 
 static void
@@ -607,7 +610,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		if (cmd != NULL)
 			smtp_client_command_fail_reply(&cmd, reply);
 		else
-			smtp_client_transaction_rcpt_fail_reply(rcpt, reply);
+			smtp_client_transaction_rcpt_fail_reply(&rcpt, reply);
 
 		rcpt = rcpt_next;
 	}
@@ -630,9 +633,11 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 
 		/* the DATA command was not sent yet; call all DATA callbacks
 		   for the recipients that were previously accepted. */
-		for (rcpt = trans->rcpts_data; rcpt != NULL;
-		     rcpt = rcpt->next) {
-			smtp_client_transaction_rcpt_fail_reply(rcpt, reply);
+		rcpt = trans->rcpts_data;
+		while (rcpt != NULL) {
+			rcpt_next = rcpt->next;
+			smtp_client_transaction_rcpt_fail_reply(&rcpt, reply);
+			rcpt = rcpt_next;
 		}
 		if (trans->data_callback != NULL)
 			trans->data_callback(reply, trans->data_context);
