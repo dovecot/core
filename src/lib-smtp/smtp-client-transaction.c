@@ -292,6 +292,15 @@ void smtp_client_transaction_rcpt_abort(
 	smtp_client_transaction_rcpt_free(_rcpt);
 }
 
+static void
+smtp_client_transaction_rcpt_finished(struct smtp_client_transaction_rcpt *rcpt,
+				      const struct smtp_reply *reply)
+{
+	if (rcpt->data_callback != NULL)
+		rcpt->data_callback(reply, rcpt->data_context);
+	rcpt->data_callback = NULL;
+}
+
 #undef smtp_client_transaction_rcpt_set_data_callback
 void smtp_client_transaction_rcpt_set_data_callback(
 	struct smtp_client_transaction_rcpt *rcpt,
@@ -948,9 +957,7 @@ smtp_client_transaction_data_cb(const struct smtp_reply *reply,
 		struct smtp_client_transaction_rcpt *rcpt = trans->rcpts_data;
 
 		trans->rcpts_data = trans->rcpts_data->next;
-		if (rcpt->data_callback != NULL)
-			rcpt->data_callback(reply, rcpt->data_context);
-		rcpt->data_callback = NULL;
+		smtp_client_transaction_rcpt_finished(rcpt, reply);
 		if (HAS_ALL_BITS(trans->flags,
 				 SMTP_CLIENT_TRANSACTION_FLAG_REPLY_PER_RCPT))
 			break;
