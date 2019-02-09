@@ -155,6 +155,8 @@ smtp_client_transaction_rcpt_new(
 	rcpt->queued = TRUE;
 	if (trans->rcpts_send == NULL)
 		trans->rcpts_send = rcpt;
+
+	trans->rcpts_total++;
 	return rcpt;
 }
 
@@ -179,6 +181,10 @@ smtp_client_transaction_rcpt_free(
 		DLLIST2_REMOVE(&trans->rcpts_head,
 			       &trans->rcpts_tail, rcpt);
 		trans->rcpts_count--;
+	}
+
+	if (!rcpt->finished) {
+		trans->rcpts_aborted++;
 	}
 
 	if (rcpt->queued || rcpt->external_pool) {
@@ -237,8 +243,12 @@ smtp_client_transaction_rcpt_denied(
 	struct smtp_client_transaction_rcpt **_rcpt)
 {
 	struct smtp_client_transaction_rcpt *prcpt = *_rcpt;
+	struct smtp_client_transaction *trans = prcpt->trans;
 
 	*_rcpt = NULL;
+
+	trans->rcpts_denied++;
+	trans->rcpts_failed++;
 
 	/* not pending anymore */
 	smtp_client_transaction_rcpt_free(&prcpt);
@@ -290,12 +300,15 @@ smtp_client_transaction_rcpt_fail_reply(
 	const struct smtp_reply *reply)
 {
 	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
+	struct smtp_client_transaction *trans = rcpt->trans;
 	smtp_client_command_callback_t *callback;
 	void *context;
 
 	if (rcpt->finished)
 		return;
 	rcpt->finished = TRUE;
+
+	trans->rcpts_failed++;
 
 	if (rcpt->queued) {
 		callback = rcpt->rcpt_callback;
@@ -317,8 +330,15 @@ static void
 smtp_client_transaction_rcpt_finished(struct smtp_client_transaction_rcpt *rcpt,
 				      const struct smtp_reply *reply)
 {
+	struct smtp_client_transaction *trans = rcpt->trans;
+
 	i_assert(!rcpt->finished);
 	rcpt->finished = TRUE;
+
+	if (smtp_reply_is_success(reply))
+		trans->rcpts_succeeded++;
+	else
+		trans->rcpts_failed++;
 
 	if (rcpt->data_callback != NULL)
 		rcpt->data_callback(reply, rcpt->data_context);
