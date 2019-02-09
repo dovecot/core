@@ -119,6 +119,12 @@ struct smtp_client_transaction {
 	unsigned int rcpts_queue_count;
 	unsigned int rcpts_count;
 
+	unsigned int rcpts_total;
+	unsigned int rcpts_aborted;
+	unsigned int rcpts_denied;
+	unsigned int rcpts_failed;
+	unsigned int rcpts_succeeded;
+
 	struct istream *data_input;
 	smtp_client_command_callback_t *data_callback;
 	void *data_context;
