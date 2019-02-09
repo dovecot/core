@@ -268,6 +268,10 @@ smtp_client_transaction_rcpt_replied(
 	rcpt->rcpt_callback = NULL;
 	rcpt->failed = !success;
 
+	if (rcpt->finished)
+		return;
+	rcpt->finished = rcpt->failed;
+
 	if (success)
 		smtp_client_transaction_rcpt_approved(_rcpt);
 	else
@@ -301,6 +305,10 @@ smtp_client_transaction_rcpt_fail_reply(
 	smtp_client_command_callback_t *callback;
 	void *context;
 
+	if (rcpt->finished)
+		return;
+	rcpt->finished = TRUE;
+
 	if (rcpt->queued) {
 		callback = rcpt->rcpt_callback;
 		context = rcpt->context;
@@ -323,6 +331,9 @@ static void
 smtp_client_transaction_rcpt_finished(struct smtp_client_transaction_rcpt *rcpt,
 				      const struct smtp_reply *reply)
 {
+	i_assert(!rcpt->finished);
+	rcpt->finished = TRUE;
+
 	if (rcpt->data_callback != NULL)
 		rcpt->data_callback(reply, rcpt->data_context);
 	rcpt->data_callback = NULL;
@@ -333,6 +344,8 @@ void smtp_client_transaction_rcpt_set_data_callback(
 	struct smtp_client_transaction_rcpt *rcpt,
 	smtp_client_command_callback_t *callback, void *context)
 {
+	i_assert(!rcpt->finished);
+
 	rcpt->data_callback = callback;
 	rcpt->data_context = context;
 }
