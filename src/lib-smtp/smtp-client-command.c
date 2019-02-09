@@ -6,7 +6,6 @@
 #include "str.h"
 #include "llist.h"
 #include "istream.h"
-#include "istream-crlf.h"
 #include "ostream.h"
 #include "ostream-dot.h"
 #include "smtp-common.h"
@@ -1457,11 +1456,11 @@ smtp_client_command_data_submit_after(
 	/* capture abort event with our context */
 	smtp_client_command_set_abort_callback(cmd, _cmd_data_abort_cb, ctx);
 
+	ctx->data = data;
+	i_stream_ref(data);
+
 	if ((conn->caps.standard & SMTP_CAPABILITY_CHUNKING) == 0) {
 		/* DATA */
-		ctx->data = data;
-		i_stream_ref(data);
-
 		p_array_init(&ctx->cmds, ctx->pool, 1);
 
 		/* Data stream is sent in one go in the second stage. Since the data
@@ -1479,8 +1478,6 @@ smtp_client_command_data_submit_after(
 
 	} else {
 		/* BDAT */
-		ctx->data = data = i_stream_create_crlf(data);
-
 		p_array_init(&ctx->cmds, ctx->pool,
 			conn->set.max_data_chunk_pipeline);
 
