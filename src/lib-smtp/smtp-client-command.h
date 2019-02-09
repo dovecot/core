@@ -98,7 +98,7 @@ smtp_client_command_get_state(struct smtp_client_command *cmd) ATTR_PURE;
  * Standard commands
  */
 
-/* send NOOP */
+/* Send NOOP */
 struct smtp_client_command *
 smtp_client_command_noop_submit_after(
 	struct smtp_client_connection *conn,
@@ -125,7 +125,7 @@ smtp_client_command_noop_submit(
 			const struct smtp_reply *reply, typeof(context))), \
 		(smtp_client_command_callback_t *)callback, context)
 
-/* send VRFY <param> */
+/* Send VRFY <param> */
 struct smtp_client_command *
 smtp_client_command_vrfy_submit_after(
 	struct smtp_client_connection *conn,
@@ -155,7 +155,7 @@ smtp_client_command_vrfy_submit(
 			const struct smtp_reply *reply, typeof(context))), \
 		param, (smtp_client_command_callback_t *)callback, context)
 
-/* send RSET */
+/* Send RSET */
 struct smtp_client_command *
 smtp_client_command_rset_submit_after(
 	struct smtp_client_connection *conn,
@@ -182,7 +182,7 @@ smtp_client_command_rset_submit(
 			const struct smtp_reply *reply, typeof(context))), \
 		(smtp_client_command_callback_t *)callback, context)
 
-/* send MAIL FROM:<address> <params...> */
+/* Send MAIL FROM:<address> <params...> */
 struct smtp_client_command *
 smtp_client_command_mail_submit(
 	struct smtp_client_connection *conn,
@@ -232,8 +232,8 @@ smtp_client_command_rcpt_submit(
 		to, params, \
 		(smtp_client_command_callback_t *)callback, context)
 
-/* send message data using DATA or BDAT (preferred if supported)
-	 handles DATA 354 response implicitly
+/* Send message data using DATA or BDAT (preferred if supported).
+   This handles the DATA 354 response implicitly.
  */
 struct smtp_client_command *
 smtp_client_command_data_submit_after(
