@@ -114,9 +114,10 @@ void smtp_client_transaction_mail_abort(
 
 static void
 smtp_client_transaction_mail_fail_reply(
-	struct smtp_client_transaction_mail *mail,
+	struct smtp_client_transaction_mail **_mail,
 	const struct smtp_reply *reply)
 {
+	struct smtp_client_transaction_mail *mail = *_mail;
 	smtp_client_command_callback_t *callback = mail->mail_callback;
 	void *context = mail->context;
 
@@ -124,6 +125,8 @@ smtp_client_transaction_mail_fail_reply(
 
 	if (callback != NULL)
 		callback(reply, context);
+
+	smtp_client_transaction_mail_free(_mail);
 }
 
 /*
@@ -530,8 +533,7 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 
 		if (mail->cmd_mail_from != NULL)
 			smtp_client_command_abort(&mail->cmd_mail_from);
-		smtp_client_transaction_mail_fail_reply(mail, reply);
-		smtp_client_transaction_mail_free(&mail);
+		smtp_client_transaction_mail_fail_reply(&mail, reply);
 	}
 
 	/* RCPT */
