@@ -255,6 +255,29 @@ smtp_client_transaction_rcpt_denied(
 	smtp_client_transaction_rcpt_free(&prcpt);
 }
 
+static void
+smtp_client_transaction_rcpt_replied(
+	struct smtp_client_transaction_rcpt **_rcpt,
+	const struct smtp_reply *reply)
+{
+	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
+	bool success = smtp_reply_is_success(reply);
+	smtp_client_command_callback_t *rcpt_callback = rcpt->rcpt_callback;
+	void *context = rcpt->context;
+
+	rcpt->rcpt_callback = NULL;
+	rcpt->failed = !success;
+
+	if (success)
+		smtp_client_transaction_rcpt_approved(_rcpt);
+	else
+		smtp_client_transaction_rcpt_denied(_rcpt);
+
+	/* call the callback */
+	if (rcpt_callback != NULL)
+		rcpt_callback(reply, context);
+}
+
 void smtp_client_transaction_rcpt_abort(
 	struct smtp_client_transaction_rcpt **_rcpt)
 {
@@ -807,14 +830,8 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 				struct smtp_client_transaction_rcpt *rcpt)
 {
 	struct smtp_client_transaction *trans = rcpt->trans;
-	bool success = smtp_reply_is_success(reply);
-	smtp_client_command_callback_t *rcpt_callback = rcpt->rcpt_callback;
-	void *context = rcpt->context;
 
 	e_debug(trans->event, "Got RCPT reply: %s", smtp_reply_log(reply));
-
-	rcpt->failed = !success;
-	rcpt->rcpt_callback = NULL;
 
 	/* plug command line pipeline if DATA command is not yet issued */
 	if (!trans->immediate && !trans->reset &&
@@ -824,18 +841,14 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 	}
 	rcpt->cmd_rcpt_to = NULL;
 
-	if (success)
-		smtp_client_transaction_rcpt_approved(&rcpt);
-	else
-		smtp_client_transaction_rcpt_denied(&rcpt);
-
-	/* call the callback */
 	{
 		enum smtp_client_transaction_state state;
 		struct smtp_client_transaction *tmp_trans = trans;
 
 		smtp_client_transaction_ref(tmp_trans);
-		rcpt_callback(reply, context);
+
+		smtp_client_transaction_rcpt_replied(&rcpt, reply);
+
 		state = trans->state;
 		smtp_client_transaction_unref(&tmp_trans);
 		if (state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
