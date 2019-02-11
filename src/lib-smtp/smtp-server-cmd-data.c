@@ -170,6 +170,9 @@ cmd_data_completed(struct smtp_server_cmd_ctx *cmd,
 	i_assert(data_cmd != NULL);
 	i_stream_unref(&data_cmd->chunk_input);
 
+	i_assert(conn->state.trans != NULL);
+	smtp_server_transaction_finished(conn->state.trans);
+
 	/* reset state */
 	smtp_server_connection_reset_state(conn);
 }

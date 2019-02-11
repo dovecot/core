@@ -127,6 +127,8 @@ struct smtp_server_transaction {
 	struct smtp_server_cmd_ctx *cmd;
 
 	void *context;
+
+	bool finished:1;
 };
 
 struct smtp_server_recipient *

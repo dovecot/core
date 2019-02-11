@@ -19,6 +19,8 @@ cmd_rset_completed(struct smtp_server_cmd_ctx *cmd, void *context ATTR_UNUSED)
 	}
 
 	/* success */
+	if (conn->state.trans != NULL)
+		smtp_server_transaction_reset(conn->state.trans);
 	smtp_server_connection_reset_state(conn);
 }
 
