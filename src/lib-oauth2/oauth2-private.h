@@ -22,20 +22,10 @@ struct oauth2_request {
 	ARRAY_TYPE(oauth2_field) fields;
 	char *field_name;
 
-	oauth2_token_validation_callback_t *tv_callback;
-	void *tv_context;
-
-	oauth2_passwd_grant_callback_t *pg_callback;
-	void *pg_context;
-
-	oauth2_introspection_callback_t *is_callback;
-	void *is_context;
-
-	oauth2_refresh_callback_t *re_callback;
-	void *re_context;
-
+	oauth2_request_callback_t *req_callback;
+	void *req_context;
 	/* indicates whether token is valid */
-	bool valid:1;
+	unsigned int response_status;
 };
 
 void oauth2_request_set_headers(struct oauth2_request *req,

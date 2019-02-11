@@ -15,10 +15,7 @@ noinst_HEADERS = \
 
 liboauth2_la_SOURCES = \
 	oauth2.c \
-	oauth2-token-validate.c \
-	oauth2-passwd-grant.c \
-	oauth2-introspect.c \
-	oauth2-refresh.c
+	oauth2-request.c
 
 test_programs = \
 	test-oauth2-json

@@ -40,34 +40,18 @@ struct oauth2_settings {
 	bool use_grant_password;
 };
 
-struct oauth2_passwd_grant_result {
+
+struct oauth2_request_result {
+	/* Oauth2 server response fields */
 	ARRAY_TYPE(oauth2_field) *fields;
+	/* Error message */
 	const char *error;
-	time_t expires_at;
+	/* Request handled successfully */
 	bool success:1;
+	/* timestamp token expires at */
+	time_t expires_at;
+	/* User authenticated successfully */
 	bool valid:1;
-};
-
-struct oauth2_token_validation_result {
-	ARRAY_TYPE(oauth2_field) *fields;
-	const char *error;
-	time_t expires_at;
-	bool success:1;
-	bool valid:1;
-};
-
-struct oauth2_introspection_result {
-	ARRAY_TYPE(oauth2_field) *fields;
-	const char *error;
-	bool success:1;
-};
-
-struct oauth2_refresh_result {
-	ARRAY_TYPE(oauth2_field) *fields;
-	const char *bearer_token;
-	const char *error;
-	time_t expires_at;
-	bool success:1;
 };
 
 struct oauth2_request_input {
@@ -78,16 +62,7 @@ struct oauth2_request_input {
 };
 
 typedef void
-oauth2_passwd_grant_callback_t(struct oauth2_passwd_grant_result*, void*);
-
-typedef void
-oauth2_token_validation_callback_t(struct oauth2_token_validation_result*, void*);
-
-typedef void
-oauth2_introspection_callback_t(struct oauth2_introspection_result*, void*);
-
-typedef void
-oauth2_refresh_callback_t(struct oauth2_refresh_result*, void*);
+oauth2_request_callback_t(struct oauth2_request_result*, void*);
 
 bool oauth2_valid_token(const char *token);
 
@@ -96,43 +71,43 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 			  const struct oauth2_request_input *input,
 			  const char *username,
 			  const char *password,
-			  oauth2_passwd_grant_callback_t *callback,
+			  oauth2_request_callback_t *callback,
 			  void *context);
 #define oauth2_passwd_grant_start(set, input, username, password, callback, context) \
 	oauth2_passwd_grant_start(set, input + \
-		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_passwd_grant_result*, typeof(context))), \
+		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
 		username, password, \
-		(oauth2_passwd_grant_callback_t*)callback, (void*)context);
+		(oauth2_request_callback_t*)callback, (void*)context);
 
 struct oauth2_request*
 oauth2_token_validation_start(const struct oauth2_settings *set,
 			      const struct oauth2_request_input *input,
-			      oauth2_token_validation_callback_t *callback,
+			      oauth2_request_callback_t *callback,
 			      void *context);
 #define oauth2_token_validation_start(set, input, callback, context) \
 	oauth2_token_validation_start(set, input + \
-		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_token_validation_result*, typeof(context))), \
-		(oauth2_token_validation_callback_t*)callback, (void*)context);
+		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
+		(oauth2_request_callback_t*)callback, (void*)context);
 
 struct oauth2_request*
 oauth2_introspection_start(const struct oauth2_settings *set,
 			   const struct oauth2_request_input *input,
-			   oauth2_introspection_callback_t *callback,
+			   oauth2_request_callback_t *callback,
 			   void *context);
 #define oauth2_introspection_start(set, input, callback, context) \
 	oauth2_introspection_start(set, input + \
-		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_introspection_result*, typeof(context))), \
-		(oauth2_introspection_callback_t*)callback, (void*)context);
+		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
+		(oauth2_request_callback_t*)callback, (void*)context);
 
 struct oauth2_request *
 oauth2_refresh_start(const struct oauth2_settings *set,
 		     const struct oauth2_request_input *input,
-		     oauth2_refresh_callback_t *callback,
+		     oauth2_request_callback_t *callback,
 		     void *context);
 #define oauth2_refresh_start(set, input, callback, context) \
 	oauth2_refresh_start(set, input + \
-		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_refresh_result*, typeof(context))), \
-		(oauth2_refresh_callback_t*)callback, (void*)context);
+		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
+		(oauth2_request_callback_t*)callback, (void*)context);
 
 /* abort without calling callback, use this to cancel the request */
 void oauth2_request_abort(struct oauth2_request **);
