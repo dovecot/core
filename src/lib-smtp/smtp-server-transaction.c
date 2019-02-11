@@ -61,13 +61,22 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	trans->event = event_create(conn->event);
 	smtp_server_transaction_update_event(trans);
 
+	if (conn->callbacks != NULL &&
+	    conn->callbacks->conn_trans_start != NULL)
+		conn->callbacks->conn_trans_start(conn->context, trans);
+
 	return trans;
 }
 
 void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 {
 	struct smtp_server_transaction *trans = *_trans;
+	struct smtp_server_connection *conn = trans->conn;
 	struct smtp_server_recipient **rcptp;
+
+	if (conn->callbacks != NULL &&
+	    conn->callbacks->conn_trans_free != NULL)
+		conn->callbacks->conn_trans_free(conn->context, trans);
 
 	if (array_is_created(&trans->rcpt_to)) {
 		array_foreach_modifiable(&trans->rcpt_to, rcptp)

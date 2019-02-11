@@ -1325,14 +1325,8 @@ void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 {
 	e_debug(conn->event, "Connection state reset");
 
-	if (conn->state.trans != NULL) {
-		if (conn->callbacks != NULL &&
-			conn->callbacks->conn_trans_free != NULL) {
-			conn->callbacks->conn_trans_free(conn->context,
-							 conn->state.trans);
-		}
+	if (conn->state.trans != NULL)
 		smtp_server_transaction_free(&conn->state.trans);
-	}
 
 	/* RFC 3030, Section 2:
 	   The RSET command, when issued after the first BDAT and before the
