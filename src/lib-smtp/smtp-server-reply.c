@@ -384,7 +384,8 @@ void smtp_server_reply_quit(struct smtp_server_cmd_ctx *_cmd)
 	smtp_server_reply_submit(reply);
 }
 
-const char *smtp_server_reply_get_one_line(struct smtp_server_reply *reply)
+const char *
+smtp_server_reply_get_one_line(const struct smtp_server_reply *reply)
 {
 	string_t *textbuf, *str;
 	const char *text, *p;
