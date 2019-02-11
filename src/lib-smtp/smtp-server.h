@@ -354,8 +354,14 @@ struct smtp_server_stats {
 	uoff_t input, output;
 };
 
+/*
+ * Server
+ */
+
 struct smtp_server *smtp_server_init(const struct smtp_server_settings *set);
 void smtp_server_deinit(struct smtp_server **_server);
+
+void smtp_server_switch_ioloop(struct smtp_server *server);
 
 /*
  * Connection
@@ -643,8 +649,6 @@ void smtp_server_reply_early(struct smtp_server_cmd_ctx *_cmd,
 
 /* Reply the command with a 221 bye message */
 void smtp_server_reply_quit(struct smtp_server_cmd_ctx *_cmd);
-
-void smtp_server_switch_ioloop(struct smtp_server *server);
 
 /* EHLO */
 
