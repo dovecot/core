@@ -398,6 +398,9 @@ smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans);
 void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
 				       struct smtp_server_cmd_ctx *cmd);
 
+void smtp_server_transaction_reset(struct smtp_server_transaction *trans);
+void smtp_server_transaction_finished(struct smtp_server_transaction *trans);
+
 /*
  * Server
  */

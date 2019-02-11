@@ -147,6 +147,18 @@ void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
 		smtp_server_recipient_last_data(*rcptp, cmd);
 }
 
+void smtp_server_transaction_reset(struct smtp_server_transaction *trans)
+{
+	i_assert(!trans->finished);
+	trans->finished = TRUE;
+}
+
+void smtp_server_transaction_finished(struct smtp_server_transaction *trans)
+{
+	i_assert(!trans->finished);
+	trans->finished = TRUE;
+}
+
 void smtp_server_transaction_fail_data(struct smtp_server_transaction *trans,
 	struct smtp_server_cmd_ctx *data_cmd,
 	unsigned int status, const char *enh_code,
