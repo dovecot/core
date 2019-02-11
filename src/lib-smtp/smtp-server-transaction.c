@@ -74,6 +74,8 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 	struct smtp_server_connection *conn = trans->conn;
 	struct smtp_server_recipient **rcptp;
 
+	*_trans = NULL;
+
 	if (conn->callbacks != NULL &&
 	    conn->callbacks->conn_trans_free != NULL)
 		conn->callbacks->conn_trans_free(conn->context, trans);
@@ -85,7 +87,6 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 
 	event_unref(&trans->event);
 	pool_unref(&trans->pool);
-	*_trans = NULL;
 }
 
 struct smtp_server_recipient *
