@@ -44,12 +44,6 @@ cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
 	/* success */
 	conn->state.trans = smtp_server_transaction_create(conn,
 		data->flags, data->path, &data->params, &data->timestamp);
-
-	if (conn->callbacks != NULL &&
-		conn->callbacks->conn_trans_start != NULL) {
-		conn->callbacks->conn_trans_start(conn->context,
-						  conn->state.trans);
-	}
 }
 
 static void
