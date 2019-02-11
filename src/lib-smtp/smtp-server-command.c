@@ -613,8 +613,7 @@ bool smtp_server_command_replied_success(struct smtp_server_command *cmd)
 			array_idx(&cmd->replies, i);
 		if (!reply->submitted)
 			return FALSE;
-		i_assert(reply->content != NULL);
-		if (reply->content->status / 100 == 2)
+		if (smtp_server_reply_is_success(reply))
 			success = TRUE;
 	}
 

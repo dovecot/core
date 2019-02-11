@@ -488,6 +488,12 @@ int smtp_server_reply_send(struct smtp_server_reply *reply)
 	return ret;
 }
 
+bool smtp_server_reply_is_success(const struct smtp_server_reply *reply)
+{
+	i_assert(reply->content != NULL);
+	return (reply->content->status / 100 == 2);
+}
+
 /*
  * EHLO reply
  */
