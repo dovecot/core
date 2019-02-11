@@ -495,6 +495,16 @@ bool smtp_server_reply_is_success(const struct smtp_server_reply *reply)
 	return (reply->content->status / 100 == 2);
 }
 
+void smtp_server_reply_add_to_event(const struct smtp_server_reply *reply,
+				    struct event_passthrough *e)
+{
+	i_assert(reply->content != NULL);
+	e->add_int("status_code", reply->content->status);
+	e->add_str("enhanced_code", reply->content->enhanced_code);
+	if (!smtp_server_reply_is_success(reply))
+		e->add_str("error", smtp_server_reply_get_message(reply));
+}
+
 /*
  * EHLO reply
  */

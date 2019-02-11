@@ -225,6 +225,9 @@ smtp_server_reply_get_one_line(const struct smtp_server_reply *reply);
 const char *
 smtp_server_reply_get_message(const struct smtp_server_reply *reply);
 
+void smtp_server_reply_add_to_event(const struct smtp_server_reply *reply,
+				    struct event_passthrough *e);
+
 /*
  * Command
  */
