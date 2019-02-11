@@ -650,6 +650,8 @@ void smtp_server_reply_early(struct smtp_server_cmd_ctx *_cmd,
 /* Reply the command with a 221 bye message */
 void smtp_server_reply_quit(struct smtp_server_cmd_ctx *_cmd);
 
+bool smtp_server_reply_is_success(const struct smtp_server_reply *reply);
+
 /* EHLO */
 
 struct smtp_server_reply *
