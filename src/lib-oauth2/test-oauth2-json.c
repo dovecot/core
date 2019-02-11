@@ -65,7 +65,6 @@ static void test_oauth2_json_valid(void)
 	pool = pool_alloconly_create_clean("oauth2 json test", 1024);
 	req = p_new(pool, struct oauth2_request, 1);
 	req->pool = pool;
-	req->valid = TRUE;
 	p_array_init(&req->fields, req->pool, 1);
 	req->is = test_istream_create_data(test_input, strlen(test_input));
 	req->parser = json_parser_init(req->is);

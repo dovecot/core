@@ -553,7 +553,7 @@ static void db_oauth2_process_fields(struct db_oauth2_request *req,
 }
 
 static void
-db_oauth2_introspect_continue(struct oauth2_introspection_result *result,
+db_oauth2_introspect_continue(struct oauth2_request_result *result,
 			      struct db_oauth2_request *req)
 {
 	enum passdb_result passdb_result;
@@ -600,7 +600,7 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 }
 
 static void
-db_oauth2_lookup_passwd_grant(struct oauth2_passwd_grant_result *result,
+db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 			      struct db_oauth2_request *req)
 {
 	enum passdb_result passdb_result;
@@ -650,7 +650,7 @@ db_oauth2_lookup_passwd_grant(struct oauth2_passwd_grant_result *result,
 }
 
 static void
-db_oauth2_lookup_continue(struct oauth2_token_validation_result *result,
+db_oauth2_lookup_continue(struct oauth2_request_result *result,
 			  struct db_oauth2_request *req)
 {
 	enum passdb_result passdb_result;
