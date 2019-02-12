@@ -58,6 +58,8 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 
 	i_assert(smtp_server_command_is_replied(command));
 	if (!smtp_server_command_replied_success(command)) {
+		conn->state.denied_rcpt_cmds++;
+
 		/* failure; substitute our own error if predictable */
 		if (smtp_server_command_reply_is_forwarded(command))
 			(void)cmd_rcpt_check_state(cmd);
