@@ -177,6 +177,12 @@ void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
 		smtp_server_recipient_last_data(*rcptp, cmd);
 }
 
+void smtp_server_transaction_received(struct smtp_server_transaction *trans,
+				      uoff_t data_size)
+{
+	event_add_int(trans->event, "data_size", data_size);
+}
+
 void smtp_server_transaction_reset(struct smtp_server_transaction *trans)
 {
 	struct smtp_server_connection *conn = trans->conn;

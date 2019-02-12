@@ -274,6 +274,9 @@ static int cmd_data_do_handle_input(struct smtp_server_cmd_ctx *cmd)
 			return -1;
 		} else if (!i_stream_have_bytes_left(conn->state.data_input)) {
 			e_debug(cmd->event, "End of data");
+			smtp_server_transaction_received(
+				conn->state.trans,
+				conn->state.data_input->v_offset);
 			smtp_server_command_input_lock(cmd);
 			smtp_server_connection_timeout_stop(conn);
 		} else if (!data_cmd->chunk_last &&
