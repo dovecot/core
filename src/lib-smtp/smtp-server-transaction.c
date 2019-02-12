@@ -61,6 +61,12 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	trans->event = event_create(conn->event);
 	smtp_server_transaction_update_event(trans);
 
+	struct event_passthrough *e =
+		event_create_passthrough(trans->event)->
+		set_name("smtp_server_transaction_started");
+
+	e_debug(e->event(), "Start");
+
 	if (conn->callbacks != NULL &&
 	    conn->callbacks->conn_trans_start != NULL)
 		conn->callbacks->conn_trans_start(conn->context, trans);
@@ -72,7 +78,9 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 {
 	struct smtp_server_transaction *trans = *_trans;
 	struct smtp_server_connection *conn = trans->conn;
-	struct smtp_server_recipient **rcptp;
+	struct smtp_server_recipient **rcpts;
+	unsigned int rcpts_total, rcpts_aborted, rcpts_failed;
+	unsigned int rcpts_count, i;
 
 	*_trans = NULL;
 
@@ -80,9 +88,31 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 	    conn->callbacks->conn_trans_free != NULL)
 		conn->callbacks->conn_trans_free(conn->context, trans);
 
-	if (array_is_created(&trans->rcpt_to)) {
-		array_foreach_modifiable(&trans->rcpt_to, rcptp)
-			smtp_server_recipient_destroy(rcptp);
+	rcpts_count = 0;
+	if (array_is_created(&trans->rcpt_to))
+		rcpts = array_get_modifiable(&trans->rcpt_to, &rcpts_count);
+
+	rcpts_aborted = rcpts_count + conn->state.pending_rcpt_cmds;
+	rcpts_failed =  conn->state.denied_rcpt_cmds;
+	rcpts_total = rcpts_aborted + rcpts_failed;
+
+	for (i = 0; i < rcpts_count; i++)
+		smtp_server_recipient_destroy(&rcpts[i]);
+
+	if (!trans->finished) {
+		struct event_passthrough *e =
+			e = event_create_passthrough(trans->event)->
+			set_name("smtp_server_transaction_finished")->
+			add_int("recipients", rcpts_total)->
+			add_int("recipients_denied", rcpts_failed)->
+			add_int("recipients_aborted", rcpts_aborted)->
+			add_int("recipients_failed", rcpts_failed)->
+			add_int("recipients_succeeded", 0);
+		e->add_int("status_code", 9000);
+		e->add_str("enhanced_code", "9.0.0");
+		e->add_str("error", "Aborted");
+
+		e_debug(e->event(), "Aborted");
 	}
 
 	event_unref(&trans->event);
@@ -149,7 +179,9 @@ void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
 
 void smtp_server_transaction_reset(struct smtp_server_transaction *trans)
 {
+	struct smtp_server_connection *conn = trans->conn;
 	struct smtp_server_recipient *const *rcpts = NULL;
+	unsigned int rcpts_total, rcpts_failed, rcpts_aborted;
 	unsigned int rcpts_count, i;
 
 	i_assert(!trans->finished);
@@ -159,14 +191,32 @@ void smtp_server_transaction_reset(struct smtp_server_transaction *trans)
 	if (array_is_created(&trans->rcpt_to))
 		rcpts = array_get(&trans->rcpt_to, &rcpts_count);
 
+	rcpts_aborted = rcpts_count + conn->state.pending_rcpt_cmds;
+	rcpts_failed = conn->state.denied_rcpt_cmds;
+	rcpts_total = rcpts_aborted + rcpts_failed;
+
 	for (i = 0; i < rcpts_count; i++)
 		smtp_server_recipient_reset(rcpts[i]);
+
+	struct event_passthrough *e =
+		event_create_passthrough(trans->event)->
+		set_name("smtp_server_transaction_finished")->
+		add_int("recipients", rcpts_total)->
+		add_int("recipients_denied", rcpts_failed)->
+		add_int("recipients_aborted", rcpts_aborted)->
+		add_int("recipients_failed", rcpts_failed)->
+		add_int("recipients_succeeded", 0)->
+		add_str("is_reset", "yes");
+	e_debug(e->event(), "Finished");
 }
 
-void smtp_server_transaction_finished(struct smtp_server_transaction *trans)
+void smtp_server_transaction_finished(struct smtp_server_transaction *trans,
+				      struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = trans->conn;
 	struct smtp_server_recipient *const *rcpts = NULL;
+	const struct smtp_server_reply *trans_reply = NULL;
+	unsigned int rcpts_total, rcpts_denied, rcpts_failed, rcpts_succeeded;
 	unsigned int rcpts_count, i;
 
 	i_assert(conn->state.pending_rcpt_cmds == 0);
@@ -177,8 +227,45 @@ void smtp_server_transaction_finished(struct smtp_server_transaction *trans)
 	if (array_is_created(&trans->rcpt_to))
 		rcpts = array_get(&trans->rcpt_to, &rcpts_count);
 
-	for (i = 0; i < rcpts_count; i++)
+	rcpts_succeeded = 0;
+	rcpts_denied = conn->state.denied_rcpt_cmds;
+	rcpts_failed = conn->state.denied_rcpt_cmds;
+	rcpts_total = rcpts_count + conn->state.denied_rcpt_cmds;
+	for (i = 0; i < rcpts_count; i++) {
+		struct smtp_server_reply *reply;
+
+		if ((trans->flags &
+		     SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT) != 0)
+			reply = smtp_server_command_get_reply(cmd->cmd, i);
+		else
+			reply = smtp_server_command_get_reply(cmd->cmd, 0);
 		smtp_server_recipient_finished(rcpts[i]);
+
+		if (smtp_server_reply_is_success(reply))
+			rcpts_succeeded++;
+		else {
+			rcpts_failed++;
+			if (trans_reply == NULL)
+				trans_reply = reply;
+		}
+	}
+
+	if (trans_reply == NULL) {
+		/* record first success reply in transaction */
+		trans_reply = smtp_server_command_get_reply(cmd->cmd, 0);
+	}
+
+	struct event_passthrough *e =
+		event_create_passthrough(trans->event)->
+		set_name("smtp_server_transaction_finished")->
+		add_int("recipients", rcpts_total)->
+		add_int("recipients_denied", rcpts_denied)->
+		add_int("recipients_aborted", 0)->
+		add_int("recipients_failed", rcpts_failed)->
+		add_int("recipients_succeeded", rcpts_succeeded);
+	smtp_server_reply_add_to_event(trans_reply, e);
+
+	e_debug(e->event(), "Finished");
 }
 
 void smtp_server_transaction_fail_data(struct smtp_server_transaction *trans,
