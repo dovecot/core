@@ -402,9 +402,11 @@ bool smtp_server_transaction_has_rcpt(struct smtp_server_transaction *trans);
 unsigned int
 smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans);
 
-
 void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
 				       struct smtp_server_cmd_ctx *cmd);
+
+void smtp_server_transaction_received(struct smtp_server_transaction *trans,
+				      uoff_t data_size);
 
 void smtp_server_transaction_reset(struct smtp_server_transaction *trans);
 void smtp_server_transaction_finished(struct smtp_server_transaction *trans,
