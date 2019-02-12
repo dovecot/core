@@ -149,14 +149,36 @@ void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
 
 void smtp_server_transaction_reset(struct smtp_server_transaction *trans)
 {
+	struct smtp_server_recipient *const *rcpts = NULL;
+	unsigned int rcpts_count, i;
+
 	i_assert(!trans->finished);
 	trans->finished = TRUE;
+
+	rcpts_count = 0;
+	if (array_is_created(&trans->rcpt_to))
+		rcpts = array_get(&trans->rcpt_to, &rcpts_count);
+
+	for (i = 0; i < rcpts_count; i++)
+		smtp_server_recipient_reset(rcpts[i]);
 }
 
 void smtp_server_transaction_finished(struct smtp_server_transaction *trans)
 {
+	struct smtp_server_connection *conn = trans->conn;
+	struct smtp_server_recipient *const *rcpts = NULL;
+	unsigned int rcpts_count, i;
+
+	i_assert(conn->state.pending_rcpt_cmds == 0);
 	i_assert(!trans->finished);
 	trans->finished = TRUE;
+
+	rcpts_count = 0;
+	if (array_is_created(&trans->rcpt_to))
+		rcpts = array_get(&trans->rcpt_to, &rcpts_count);
+
+	for (i = 0; i < rcpts_count; i++)
+		smtp_server_recipient_finished(rcpts[i]);
 }
 
 void smtp_server_transaction_fail_data(struct smtp_server_transaction *trans,

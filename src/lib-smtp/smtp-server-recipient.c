@@ -104,11 +104,29 @@ bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 		_rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED);
 }
 
+void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt)
+{
+	i_assert(!rcpt->finished);
+	rcpt->finished = TRUE;
+}
+
 void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
 				     struct smtp_server_cmd_ctx *cmd)
 {
 	i_assert(rcpt->cmd == NULL);
 	rcpt->cmd = cmd;
+}
+
+void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt)
+{
+	i_assert(!rcpt->finished);
+	rcpt->finished = TRUE;
+}
+
+void smtp_server_recipient_finished(struct smtp_server_recipient *rcpt)
+{
+	i_assert(!rcpt->finished);
+	rcpt->finished = TRUE;
 }
 
 #undef smtp_server_recipient_add_hook

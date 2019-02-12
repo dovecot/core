@@ -78,6 +78,8 @@ struct smtp_server_recipient {
 	unsigned int index;
 
 	void *context;
+
+	bool finished:1;
 };
 ARRAY_DEFINE_TYPE(smtp_server_recipient, struct smtp_server_recipient *);
 
