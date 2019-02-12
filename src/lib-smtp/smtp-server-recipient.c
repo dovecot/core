@@ -80,6 +80,17 @@ bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt)
 		&rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY))
 		i_unreached();
 
+	if (!rcpt->finished) {
+		struct event_passthrough *e =
+			e = event_create_passthrough(rcpt->event)->
+			set_name("smtp_server_transaction_rcpt_finished");
+		e->add_int("status_code", 9000);
+		e->add_str("enhanced_code", "9.0.0");
+		e->add_str("error", "Aborted");
+
+		e_debug(e->event(), "Aborted");
+	}
+
 	event_unref(&rcpt->event);
 	pool_unref(&rcpt->pool);
 	return FALSE;
@@ -97,6 +108,8 @@ bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 
 	i_assert(trans != NULL);
 
+	e_debug(rcpt->event, "Approved");
+
 	rcpt->cmd = NULL;
 	smtp_server_transaction_add_rcpt(trans, rcpt);
 
@@ -104,10 +117,18 @@ bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 		_rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED);
 }
 
-void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt)
+void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
+				  const struct smtp_server_reply *reply)
 {
 	i_assert(!rcpt->finished);
 	rcpt->finished = TRUE;
+
+	struct event_passthrough *e =
+		event_create_passthrough(rcpt->event)->
+		set_name("smtp_server_transaction_rcpt_finished");
+	smtp_server_reply_add_to_event(reply, e);
+
+	e_debug(e->event(), "Denied");
 }
 
 void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
@@ -121,12 +142,29 @@ void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt)
 {
 	i_assert(!rcpt->finished);
 	rcpt->finished = TRUE;
+
+	struct event_passthrough *e =
+		event_create_passthrough(rcpt->event)->
+		set_name("smtp_server_transaction_rcpt_finished");
+	e->add_int("status_code", 9000);
+	e->add_str("enhanced_code", "9.0.0");
+	e->add_str("error", "Reset");
+
+	e_debug(e->event(), "Reset");
 }
 
-void smtp_server_recipient_finished(struct smtp_server_recipient *rcpt)
+void smtp_server_recipient_finished(struct smtp_server_recipient *rcpt,
+				    const struct smtp_server_reply *reply)
 {
 	i_assert(!rcpt->finished);
 	rcpt->finished = TRUE;
+
+	struct event_passthrough *e =
+		event_create_passthrough(rcpt->event)->
+		set_name("smtp_server_transaction_rcpt_finished");
+	smtp_server_reply_add_to_event(reply, e);
+
+	e_debug(e->event(), "Finished");
 }
 
 #undef smtp_server_recipient_add_hook

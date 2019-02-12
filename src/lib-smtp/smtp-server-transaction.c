@@ -239,7 +239,7 @@ void smtp_server_transaction_finished(struct smtp_server_transaction *trans,
 			reply = smtp_server_command_get_reply(cmd->cmd, i);
 		else
 			reply = smtp_server_command_get_reply(cmd->cmd, 0);
-		smtp_server_recipient_finished(rcpts[i]);
+		smtp_server_recipient_finished(rcpts[i], reply);
 
 		if (smtp_server_reply_is_success(reply))
 			rcpts_succeeded++;

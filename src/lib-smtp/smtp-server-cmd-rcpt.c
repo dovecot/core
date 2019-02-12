@@ -64,7 +64,8 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 		if (smtp_server_command_reply_is_forwarded(command))
 			(void)cmd_rcpt_check_state(cmd);
 
-		smtp_server_recipient_denied(rcpt);
+		smtp_server_recipient_denied(
+			rcpt, smtp_server_command_get_reply(cmd->cmd, 0));
 		return;
 	}
 
