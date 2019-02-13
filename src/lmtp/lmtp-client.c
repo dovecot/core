@@ -362,7 +362,7 @@ static bool client_connection_is_trusted(void *context)
 	net = t_strsplit_spaces(client->lmtp_set->login_trusted_networks, ", ");
 	for (; *net != NULL; net++) {
 		if (net_parse_range(*net, &net_ip, &bits) < 0) {
-			i_error("login_trusted_networks: "
+			e_error(client->event, "login_trusted_networks: "
 				"Invalid network '%s'", *net);
 			break;
 		}

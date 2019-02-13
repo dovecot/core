@@ -320,9 +320,11 @@ lmtp_proxy_handle_reply(struct smtp_server_cmd_ctx *cmd,
  */
 
 static bool
-lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
+lmtp_proxy_rcpt_parse_fields(struct lmtp_recipient *lrcpt,
+			     struct lmtp_proxy_rcpt_settings *set,
 			     const char *const *args, const char **address)
 {
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	const char *p, *key, *value;
 	bool proxying = FALSE, port_set = FALSE;
 
@@ -342,23 +344,27 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 			set->host = value;
 		else if (strcmp(key, "hostip") == 0) {
 			if (net_addr2ip(value, &set->hostip) < 0) {
-				i_error("proxy: Invalid hostip %s", value);
+				e_error(rcpt->event,
+					"proxy: Invalid hostip %s", value);
 				return FALSE;
 			}
 		} else if (strcmp(key, "source_ip") == 0) {
 			if (net_addr2ip(value, &set->source_ip) < 0) {
-				i_error("proxy: Invalid source_ip %s", value);
+				e_error(rcpt->event,
+					"proxy: Invalid source_ip %s", value);
 				return FALSE;
 			}
 		} else if (strcmp(key, "port") == 0) {
 			if (net_str2port(value, &set->port) < 0) {
-				i_error("proxy: Invalid port number %s", value);
+				e_error(rcpt->event,
+					"proxy: Invalid port number %s", value);
 				return FALSE;
 			}
 			port_set = TRUE;
 		} else if (strcmp(key, "proxy_timeout") == 0) {
 			if (str_to_uint(value, &set->timeout_msecs) < 0) {
-				i_error("proxy: Invalid proxy_timeout value %s", value);
+				e_error(rcpt->event,"proxy: "
+					"Invalid proxy_timeout value %s", value);
 				return FALSE;
 			}
 			set->timeout_msecs *= 1000;
@@ -374,7 +380,8 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 				if (!port_set)
 					set->port = 25;
 			} else {
-				i_error("proxy: Unknown protocol %s", value);
+				e_error(rcpt->event,
+					"proxy: Unknown protocol %s", value);
 				return FALSE;
 			}
 		} else if (strcmp(key, "ssl") == 0) {
@@ -395,7 +402,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 		}
 	}
 	if (proxying && set->host == NULL) {
-		i_error("proxy: host not given");
+		e_error(rcpt->event, "proxy: host not given");
 		return FALSE;
 	}
 	return proxying;
@@ -514,7 +521,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	set.protocol = SMTP_PROTOCOL_LMTP;
 	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
 
-	if (!lmtp_proxy_rcpt_parse_fields(&set, fields, &username)) {
+	if (!lmtp_proxy_rcpt_parse_fields(lrcpt, &set, fields, &username)) {
 		/* not proxying this user */
 		pool_unref(&auth_pool);
 		return 0;
@@ -527,7 +534,8 @@ int lmtp_proxy_rcpt(struct client *client,
 
 		if (smtp_address_parse_username(pool_datastack_create(),
 						username, &user, &errstr) < 0) {
-			i_error("%s: Username `%s' returned by passdb lookup is not a valid SMTP address",
+			e_error(rcpt->event, "%s: "
+				"Username `%s' returned by passdb lookup is not a valid SMTP address",
 				orig_username, username);
 			smtp_server_reply(cmd, 550, "5.3.5", "<%s> "
 				"Internal user lookup failure",
@@ -542,7 +550,8 @@ int lmtp_proxy_rcpt(struct client *client,
 			address = smtp_address_add_detail_temp(user, detail, delim);
 		}
 	} else if (lmtp_proxy_is_ourself(client, &set)) {
-		i_error("Proxying to <%s> loops to itself", username);
+		e_error(rcpt->event, "Proxying to <%s> loops to itself",
+			username);
 		smtp_server_reply(cmd, 554, "5.4.6",
 			"<%s> Proxying loops to itself",
 			smtp_address_encode(address));
@@ -552,7 +561,8 @@ int lmtp_proxy_rcpt(struct client *client,
 
 	smtp_server_connection_get_proxy_data(cmd->conn, &proxy_data);
 	if (proxy_data.ttl_plus_1 == 1) {
-		i_error("Proxying to <%s> appears to be looping (TTL=0)",
+		e_error(rcpt->event,
+			"Proxying to <%s> appears to be looping (TTL=0)",
 			username);
 		smtp_server_reply(cmd, 554, "5.4.6",
 			"<%s> Proxying appears to be looping (TTL=0)",
@@ -642,7 +652,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 			   while for us this is just an info event */
 			i_info("%s", str_c(msg));
 		} else {
-			i_error("%s", str_c(msg));
+			e_error(rcpt->event, "%s", str_c(msg));
 		}
 
 		if (!lmtp_proxy_handle_reply(cmd, proxy_reply, &reply))
@@ -676,7 +686,8 @@ void lmtp_proxy_data(struct client *client,
 	proxy->data_input = data_input;
 	i_stream_ref(proxy->data_input);
 	if (i_stream_get_size(proxy->data_input, TRUE, &size) < 0) {
-		i_error("i_stream_get_size(data_input) failed: %s",
+		e_error(client->event,
+			"i_stream_get_size(data_input) failed: %s",
 			i_stream_get_error(proxy->data_input));
 		size = (uoff_t)-1;
 	}

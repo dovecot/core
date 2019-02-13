@@ -163,7 +163,7 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		data = i_stream_get_data(data_input, &size);
 		if (o_stream_send(state->mail_data_output,
 			data, size) != (ssize_t)size) {
-			i_error("write(%s) failed: %s",
+			e_error(client->event, "write(%s) failed: %s",
 				o_stream_get_name(state->mail_data_output),
 				o_stream_get_error(state->mail_data_output));
 			smtp_server_reply(cmd, 451, "4.3.0",
