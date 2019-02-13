@@ -99,4 +99,39 @@ static inline bool base64_is_valid_char(char c)
 	return base64_scheme_is_valid_char(&base64_scheme, c);
 }
 
+/*
+ * "base64url" encoding scheme (RFC 4648, Section 5)
+ */
+
+extern struct base64_scheme base64url_scheme;
+
+/* Translates binary data into base64url. See base64_scheme_encode(). */
+static inline void
+base64url_encode(const void *src, size_t src_size, buffer_t *dest)
+{
+	base64_scheme_encode(&base64url_scheme, src, src_size, dest);
+}
+
+/* Translates base64url data into binary and appends it to dest buffer. See
+   base64_scheme_decode(). */
+static inline int
+base64url_decode(const void *src, size_t src_size, size_t *src_pos_r,
+		 buffer_t *dest) ATTR_NULL(3)
+{
+	return base64_scheme_decode(&base64url_scheme, src, src_size,
+				    src_pos_r, dest);
+}
+
+/* Decode given string to a buffer allocated from data stack. */
+static inline buffer_t *t_base64url_decode_str(const char *str)
+{
+	return t_base64_scheme_decode_str(&base64url_scheme, str);
+}
+
+/* Returns TRUE if c is a valid base64url encoding character (excluding '=') */
+static inline bool base64url_is_valid_char(char c)
+{
+	return base64_scheme_is_valid_char(&base64url_scheme, c);
+}
+
 #endif
