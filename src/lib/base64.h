@@ -1,6 +1,13 @@
 #ifndef BASE64_H
 #define BASE64_H
 
+/* max. buffer size required for base64_encode() */
+#define MAX_BASE64_ENCODED_SIZE(size) \
+	((((size) + 2) / 3) * 4)
+/* max. buffer size required for base64_decode() */
+#define MAX_BASE64_DECODED_SIZE(size) \
+	(((size) + 3) / 4 * 3)
+
 /* Translates binary data into base64. The src must not point to dest buffer. */
 void base64_encode(const void *src, size_t src_size, buffer_t *dest);
 
@@ -23,10 +30,4 @@ buffer_t *t_base64_decode_str(const char *str);
 /* Returns TRUE if c is a valid base64 encoding character (excluding '=') */
 bool base64_is_valid_char(char c);
 
-/* max. buffer size required for base64_encode() */
-#define MAX_BASE64_ENCODED_SIZE(size) \
-	((((size) + 2) / 3) * 4)
-/* max. buffer size required for base64_decode() */
-#define MAX_BASE64_DECODED_SIZE(size) \
-	(((size) + 3) / 4 * 3)
 #endif
