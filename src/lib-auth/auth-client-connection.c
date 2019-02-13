@@ -312,8 +312,9 @@ auth_client_connection_input_line(struct connection *_conn,
 	if (ret < 0) {
 		auth_client_connection_disconnect(conn, t_strdup_printf(
 			"Received broken input: %s", line));
+		return -1;
 	}
-	return ret;
+	return 1;
 }
 
 struct auth_client_connection *
