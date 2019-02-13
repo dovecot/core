@@ -133,8 +133,16 @@ bool base64_is_valid_char(char c)
 	return b64dec[(uint8_t)c] != 0xff;
 }
 
-static const char b64enc[] =
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const char b64enc[64] = {
+       'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+       'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+       'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+       'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+       'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+       'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+       'w', 'x', 'y', 'z', '0', '1', '2', '3',
+       '4', '5', '6', '7', '8', '9', '+', '/',
+};
 
 static const unsigned char b64dec[256] = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, /* 0-7 */
