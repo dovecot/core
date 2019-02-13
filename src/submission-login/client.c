@@ -174,10 +174,12 @@ client_connection_cmd_xclient(void *context,
 
 	struct submission_client *client = context;
 
-	client->common.ip = data->source_ip;
-	client->common.remote_port = data->source_port;
-
-	client->common.proxy_ttl = data->ttl_plus_1;
+	if (data->source_ip.family != 0)
+		client->common.ip = data->source_ip;
+	if (data->source_port != 0)
+		client->common.remote_port = data->source_port;
+	if (data->ttl_plus_1 > 0)
+		client->common.proxy_ttl = data->ttl_plus_1 - 1;
 
 	for (i = 0; i < data->extra_fields_count; i++) {
 		const char *name = data->extra_fields[i].name;
