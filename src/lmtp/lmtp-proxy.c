@@ -519,6 +519,11 @@ int lmtp_proxy_rcpt(struct client *client,
 		return 0;
 	}
 	if (strcmp(username, orig_username) != 0) {
+		/* the existing "user" event field is overridden with the new
+		   user name, while old username is available as "orig_user" */
+		event_add_str(rcpt->event, "user", username);
+		event_add_str(rcpt->event, "orig_user", orig_username);
+
 		if (smtp_address_parse_username(pool_datastack_create(),
 						username, &user, &errstr) < 0) {
 			i_error("%s: Username `%s' returned by passdb lookup is not a valid SMTP address",
