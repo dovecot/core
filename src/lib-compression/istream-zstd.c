@@ -52,9 +52,7 @@ static void i_stream_zstd_close(struct iostream_private *stream,
 		zstream->dstream = NULL;
 	}
 	i_free(zstream->input.src);
-	zstream->input.src = NULL;
 	i_free(zstream->output.dst);
-	zstream->output.dst = NULL;
 	if (close_parent)
 		i_stream_close(zstream->istream.parent);
 }

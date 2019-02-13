@@ -118,6 +118,7 @@ static void o_stream_zstd_close(struct iostream_private *stream,
 		i_fatal("ZSTD_endStream():%s", ZSTD_getErrorName(ret));
 	}
 	o_stream_zstd_send_output(zstream);
+	i_free(zstream->ooutput.dst);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);
 }
@@ -128,7 +129,7 @@ static void o_stream_zstd_init(struct zstd_ostream *zstream, int level)
 	if (zstream->cstream == NULL)
 		i_fatal("ZSTD_createCStream(): failed to create cstream.");
 
-	zstream->output.dst = malloc(ZSTD_CStreamOutSize());
+	zstream->output.dst = i_malloc(ZSTD_CStreamOutSize());
 	zstream->output.size = ZSTD_CStreamOutSize();
 	zstream->output.pos = 0;
 	ZSTD_initCStream(zstream->cstream, level);
