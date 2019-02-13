@@ -105,8 +105,9 @@ sql_dict_init(struct dict *driver, const char *uri,
 	i_zero(&sql_set);
 	sql_set.driver = driver->name;
 	sql_set.connect_string = dict->set->connect;
-	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
-	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
+	/* mysql and pgsql support "ON DUPLICATE KEY" - not sqlite */
+	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0
+	  || strcmp(driver->name, "pgsql") == 0;
 
 	if (sql_db_cache_new(dict_sql_db_cache, &sql_set, &dict->db, error_r) < 0) {
 		pool_unref(&pool);
@@ -1113,23 +1114,53 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 		return 0;
 	}
 
-	str_append(prefix, " ON DUPLICATE KEY UPDATE ");
-	for (i = 0; i < field_count; i++) {
-		const char *first_value_field =
-			t_strcut(fields[i].map->value_field, ',');
-		if (i > 0)
-			str_append_c(prefix, ',');
-		str_append(prefix, first_value_field);
-		str_append_c(prefix, '=');
+	if ( dict->dict.name == "pgsql" ) {
+	  // pgsql variant
+	  // ... ON CONFLICT (key1, key2, ...) DO UPDATE SET xx=1, ...;
+	  bool first = TRUE;
 
-		enum dict_sql_type value_type =
-			fields[i].map->value_types[0];
-		str_append_c(prefix, '?');
-		if (sql_dict_value_get(fields[i].map,
-				       value_type, "value", fields[i].value,
-				       "", &params, error_r) < 0)
-			return -1;
+	  str_append ( prefix, " ON CONFLICT (" );
+
+	  if (build->key1 == DICT_PATH_PRIVATE[0]) {
+	    str_printfa(prefix, "%s", fields[0].map->username_field);
+	    first = FALSE;
+	  }
+
+	  sql_fields = array_get(&fields[0].map->sql_fields, &count);
+	  for (i = 0; i < count; i++) {
+	    if ( !first ) {
+	      str_append_c(prefix, ',');
+	    } else {
+	      first = FALSE;
+	    }
+
+	    str_printfa(prefix, "%s", sql_fields[i].name);
+	  }
+
+	  str_append ( prefix, ") DO UPDATE SET " );
+	} else {
+	  // mysql variant
+	  // ... ON DUPLICATE KEY UPDATE xx=1, ...;
+	  str_append(prefix, " ON DUPLICATE KEY UPDATE ");
 	}
+
+	for (i = 0; i < field_count; i++) {
+	  const char *first_value_field =
+	    t_strcut(fields[i].map->value_field, ',');
+	  if (i > 0)
+	    str_append_c(prefix, ',');
+	  str_append(prefix, first_value_field);
+	  str_append_c(prefix, '=');
+
+	  enum dict_sql_type value_type =
+	    fields[i].map->value_types[0];
+	  str_append_c(prefix, '?');
+	  if (sql_dict_value_get(fields[i].map,
+				 value_type, "value", fields[i].value,
+				 "", &params, error_r) < 0)
+	    return -1;
+	}
+	
 	*stmt_r = sql_dict_transaction_stmt_init(ctx, str_c(prefix), &params);
 	return 0;
 }
