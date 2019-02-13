@@ -195,7 +195,7 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 							    &user, &error);
 
 	if (ret < 0) {
-		i_error("Failed to initialize user %s: %s",
+		e_error(rcpt->event, "Failed to initialize user %s: %s",
 			smtp_address_encode(address), error);
 		ret = -1;
 	} else {
@@ -208,7 +208,8 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 			if (mail_error == MAIL_ERROR_NOQUOTA) {
 				lmtp_local_rcpt_reply_overquota(llrcpt, cmd, error);
 			} else {
-				i_error("mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
+				e_error(rcpt->event,
+					"mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
 					"failed: %s",
 					mailbox_get_vname(box),
 					mailbox_get_last_internal_error(box, NULL));
@@ -277,7 +278,7 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 	if (reply == NULL) {
 		/* lookup failed */
 	} else if (str_to_uint(reply, &parallel_count) < 0) {
-		i_error("Invalid reply from anvil: %s", reply);
+		e_error(rcpt->event, "Invalid reply from anvil: %s", reply);
 	}
 
 	if (parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {
@@ -339,7 +340,8 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	ret = mail_storage_service_lookup(storage_service, &input,
 					  &service_user, &error);
 	if (ret < 0) {
-		i_error("Failed to lookup user %s: %s", username, error);
+		e_error(rcpt->event, "Failed to lookup user %s: %s",
+			username, error);
 		smtp_server_reply(cmd, 451, "4.3.0",
 			"<%s> Temporary internal error",
 			smtp_address_encode(address));
@@ -493,7 +495,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, service_user,
 				      &rcpt_user, &error) < 0) {
-		i_error("Failed to initialize user: %s", error);
+		e_error(rcpt->event, "Failed to initialize user: %s", error);
 		smtp_server_reply_index(cmd, rcpt_idx, 451, "4.3.0",
 			"<%s> Temporary internal error",
 			smtp_address_encode(rcpt_to));
@@ -516,7 +518,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 			&error);
 	}
 	if (ret <= 0) {
-		i_error("Failed to expand settings: %s", error);
+		e_error(rcpt->event, "Failed to expand settings: %s", error);
 		smtp_server_reply_index(cmd, rcpt_idx, 451, "4.3.0",
 			"<%s> Temporary internal error",
 			smtp_address_encode(rcpt_to));
@@ -527,7 +529,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	if (var_expand_with_funcs(str, rcpt_user->set->mail_log_prefix,
 				  var_table, mail_user_var_expand_func_table,
 				  rcpt_user, &error) <= 0) {
-		i_error("Failed to expand mail_log_prefix=%s: %s",
+		e_error(rcpt->event, "Failed to expand mail_log_prefix=%s: %s",
 			rcpt_user->set->mail_log_prefix, error);
 		smtp_server_reply_index(cmd, rcpt_idx, 451, "4.3.0",
 			"<%s> Temporary internal error",
@@ -634,7 +636,7 @@ int lmtp_local_default_deliver(struct client *client,
 		ret = -1;
 	} else {
 		/* This shouldn't happen */
-		i_error("BUG: Saving failed to unknown storage");
+		e_error(rcpt->event, "BUG: Saving failed to unknown storage");
 		smtp_server_reply_index(cmd, rcpt_idx, 451, "4.3.0",
 			"<%s> Temporary internal error",
 			smtp_address_encode(rcpt_to));
@@ -716,7 +718,7 @@ lmtp_local_open_raw_mail(struct lmtp_local *local,
 	if (raw_mailbox_alloc_stream(client->raw_mail_user, input,
 				     (time_t)-1, smtp_address_encode(trans->mail_from),
 				     &box) < 0) {
-		i_error("Can't open delivery mail as raw: %s",
+		e_error(client->event, "Can't open delivery mail as raw: %s",
 			mailbox_get_last_internal_error(box, &error));
 		mailbox_free(&box);
 		lmtp_local_rcpt_fail_all(local, cmd,
@@ -781,7 +783,9 @@ void lmtp_local_data(struct client *client,
 		/* enable core dumping again. we need to chdir also to
 		   root-owned directory to get core dumps. */
 		restrict_access_allow_coredumps(TRUE);
-		if (chdir(base_dir) < 0)
-			i_error("chdir(%s) failed: %m", base_dir);
+		if (chdir(base_dir) < 0) {
+			e_error(client->event,
+				"chdir(%s) failed: %m", base_dir);
+		}
 	}
 }
