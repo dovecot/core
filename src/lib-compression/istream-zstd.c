@@ -11,14 +11,14 @@
 
 struct zstd_istream {
 	struct istream_private istream;
-	ZSTD_DStream* dstream;
+	ZSTD_DStream *dstream;
 
 	struct stat last_parent_statbuf;
 	ZSTD_inBuffer input;
 	ZSTD_outBuffer output;
 	size_t next_read;
 	ssize_t buffer_size;
-	bool marked:1;
+	bool marked : 1;
 };
 
 static void i_stream_zstd_init(struct zstd_istream *zstream)
@@ -32,22 +32,22 @@ static void i_stream_zstd_init(struct zstd_istream *zstream)
 	zstream->input.pos = ZSTD_DStreamInSize();
 
 	zstream->dstream = ZSTD_createDStream();
-	if(zstream->dstream==NULL)
-		i_fatal("zstd_stream_decore() failed to create stream");	
+	if (zstream->dstream == NULL)
+		i_fatal("ZSTD_createDStream(): failed to create dstream.");
 
 	zstream->next_read = ZSTD_initDStream(zstream->dstream);
 
-	if(ZSTD_isError(zstream->next_read))
-		i_fatal("zstd_stream_decode() failed to init stream with error: %s\n"
-				,ZSTD_getErrorName(zstream->next_read));
+	if (ZSTD_isError(zstream->next_read))
+		i_fatal("ZSTD_initDStream(): %s",
+			ZSTD_getErrorName(zstream->next_read));
 }
 
-static void 
-i_stream_zstd_close(struct iostream_private *stream, bool close_parent)
+static void i_stream_zstd_close(struct iostream_private *stream,
+				bool close_parent)
 {
 	struct zstd_istream *zstream = (struct zstd_istream *)stream;
-	
-	if(zstream->dstream) {
+
+	if (zstream->dstream) {
 		ZSTD_freeDStream(zstream->dstream);
 		zstream->dstream = NULL;
 	}
@@ -58,133 +58,141 @@ i_stream_zstd_close(struct iostream_private *stream, bool close_parent)
 	if (close_parent)
 		i_stream_close(zstream->istream.parent);
 }
-static void i_stream_zstd_decompress(struct zstd_istream *zstream) {
+
+static void i_stream_zstd_decompress(struct zstd_istream *zstream)
+{
 	struct istream_private *stream = (struct istream_private *)zstream;
 	const unsigned char *data;
 	size_t size;
-	if(zstream->next_read || !stream->istream.eof ) {
-		//move everything to back of buffer
+
+	if (zstream->next_read || !stream->istream.eof) {
+		// move everything to back of buffer
 		memmove(zstream->input.src,
-				zstream->input.src+zstream->input.pos,
-				zstream->input.size-zstream->input.pos);
+			zstream->input.src + zstream->input.pos,
+			zstream->input.size - zstream->input.pos);
 		// we have zstream->input.pos free bytes
-		while(zstream->input.pos) {
-			//lets fill input buffer
-			if(i_stream_read_more(stream->parent, &data, &size) < 0 ) {	
-				if(stream->parent->stream_errno != 0) {
-					stream->istream.stream_errno = stream->parent->stream_errno;
-				} else {	
+		while (zstream->input.pos) {
+			// lets fill input buffer
+			if (i_stream_read_more(stream->parent, &data, &size) <
+			    0) {
+				if (stream->parent->stream_errno != 0) {
+					stream->istream.stream_errno =
+						stream->parent->stream_errno;
+				}
+				else {
 					i_assert(stream->parent->eof);
-					zstream->input.size -= zstream->input.pos;
+					zstream->input.size -=
+						zstream->input.pos;
 					zstream->input.pos = 0;
 					continue;
-					//zstd_stream_end(zstream);
+					// zstd_stream_end(zstream);
 					stream->istream.eof = TRUE;
 				}
 				return -1;
 			}
-			if(size > zstream->input.pos) {
+			if (size > zstream->input.pos) {
 				size = zstream->input.pos;
 			}
-			memcpy(zstream->input.src+zstream->input.size-zstream->input.pos,
-					data,size);
+			memcpy(zstream->input.src + zstream->input.size -
+				       zstream->input.pos,
+			       data, size);
 			zstream->input.pos -= size;
-			i_stream_skip(stream->parent,size);
+			i_stream_skip(stream->parent, size);
 		}
 	}
 
+	auto to_read = ZSTD_decompressStream(zstream->dstream, &zstream->output,
+					     &zstream->input);
 
-//	printf("%d:%d->%d:%d\n",zstream->input.size,zstream->input.pos,zstream->output.size,zstream->output.pos);
-
-	auto to_read = ZSTD_decompressStream(zstream->dstream,&zstream->output,
-			&zstream->input);
-	if(ZSTD_isError(to_read)) {
-		if(to_read == -70) {
-			//well we need more space i guess
-		}
-		i_fatal("zstd_stream_read() failed to do stuff(%d): %s",to_read,
+	if (ZSTD_isError(to_read)) {
+		i_fatal("ZSTD_decompressStream(): %s",
 			ZSTD_getErrorName(to_read));
-	}	
-//	printf("%d:%d->%d:%d\n",zstream->input.size,zstream->input.pos,	zstream->output.size,zstream->output.pos);	
-		
+	}
 	zstream->next_read = to_read;
 }
 
-static ssize_t i_stream_zstd_read(struct istream_private *stream) {
+static ssize_t i_stream_zstd_read(struct istream_private *stream)
+{
 	struct zstd_istream *zstream = (struct zstd_istream *)stream;
 	ssize_t buffer_size = 1;
 
-
-	if(zstream->output.pos == 0) {	
+	if (zstream->output.pos == 0) {
 		i_stream_zstd_decompress(zstream);
-		if(zstream->output.pos == 0) {
+		if (zstream->output.pos == 0) {
 			stream->istream.eof = TRUE;
 			return -1;
 		}
 	}
 
-	if(!zstream->marked) {
-		if(!i_stream_try_alloc(stream,zstream->output.pos,&buffer_size)){
+	if (!zstream->marked) {
+		if (!i_stream_try_alloc(stream, zstream->output.pos,
+					&buffer_size)) {
+			// TODO: return or i_fatal
 			i_fatal("failed to allocate more space");
 			return -2;
 		}
-	} else {
-		if(!i_stream_try_alloc_avoid_compress(stream,
-					zstream->output.pos,&buffer_size)) {
-			i_fatal("failed to alloc more space without compression");
+	}
+	else {
+		if (!i_stream_try_alloc_avoid_compress(
+			    stream, zstream->output.pos, &buffer_size)) {
+			i_fatal("failed to alloc more space without "
+				"compression");
 			return -2;
 		}
 	}
 	// check if we need more data?
-	if(zstream->output.pos < buffer_size) {
+	if (zstream->output.pos < buffer_size) {
 		buffer_size = zstream->output.pos;
 	}
-	//copy that mem
-	memcpy(stream->w_buffer+stream->pos,zstream->output.dst
-			,buffer_size);
+	// copy that mem
+	memcpy(stream->w_buffer + stream->pos, zstream->output.dst,
+	       buffer_size);
 	stream->pos += buffer_size;
 
 	zstream->output.pos -= buffer_size;
-	memmove(zstream->output.dst,zstream->output.dst+buffer_size
-			,zstream->output.pos);
+	memmove(zstream->output.dst, zstream->output.dst + buffer_size,
+		zstream->output.pos);
 
 	return buffer_size;
 }
+
 static void i_stream_zstd_reset(struct zstd_istream *zstream)
 {
 	struct istream_private *stream = &zstream->istream;
-	i_stream_seek(stream->parent,stream->parent_start_offset);
+
+	i_stream_seek(stream->parent, stream->parent_start_offset);
 
 	stream->parent_expected_offset = stream->parent_start_offset;
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
 
-
 	i_stream_zstd_init(zstream);
 }
-static void 
-i_stream_zstd_seek(struct istream_private *stream,uoff_t v_offset, bool mark)
+
+static void i_stream_zstd_seek(struct istream_private *stream, uoff_t v_offset,
+			       bool mark)
 {
 	struct zstd_istream *zstream = (struct zstd_istream *)stream;
 
-	if(i_stream_nonseekable_try_seek(stream,v_offset))
+	if (i_stream_nonseekable_try_seek(stream, v_offset))
 		return 0;
 
 	i_stream_zstd_reset(zstream);
-	if(!i_stream_nonseekable_try_seek(stream,v_offset))
+	if (!i_stream_nonseekable_try_seek(stream, v_offset))
 		i_unreached();
 
-	if(mark)
+	if (mark)
 		zstream->marked = TRUE;
 }
 
-static void i_stream_zstd_sync(struct istream_private *stream){
+static void i_stream_zstd_sync(struct istream_private *stream)
+{
 	struct zstd_istream *zstream = (struct zstd_istream *)stream;
 	const struct stat *st;
 
 	if (i_stream_stat(stream->parent, FALSE, &st) < 0) {
-		if(memcmp(&zstream->last_parent_statbuf,
-					st, sizeof(*st)) == 0) {
+		if (memcmp(&zstream->last_parent_statbuf, st, sizeof(*st)) ==
+		    0) {
 			return;
 		}
 		zstream->last_parent_statbuf = *st;
@@ -205,14 +213,11 @@ struct istream *i_stream_create_zstd(struct istream *input, bool log_errors)
 	zstream->istream.seek = i_stream_zstd_seek;
 	zstream->istream.sync = i_stream_zstd_sync;
 
-
-	//TODO: why
 	zstream->istream.istream.readable_fd = FALSE;
-
 	zstream->istream.istream.blocking = input->blocking;
 	zstream->istream.istream.seekable = input->seekable;
 
-	return i_stream_create(&zstream->istream, input,
-			i_stream_get_fd(input),0);
+	return i_stream_create(&zstream->istream, input, i_stream_get_fd(input),
+			       0);
 }
 #endif
