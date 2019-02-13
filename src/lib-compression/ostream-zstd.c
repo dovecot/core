@@ -11,13 +11,11 @@ struct zstd_ostream {
 	struct ostream_private ostream;
 	ZSTD_CStream *cstream;
 	ZSTD_outBuffer output;
-	size_t used;
 
 	bool flushed:1;
 };
 static int o_stream_zstd_send_output(struct zstd_ostream *zstream) {
 	ssize_t ret;
-	size_t size;
 
 	if(zstream->output.pos == 0)
 		return 1;
@@ -28,9 +26,9 @@ static int o_stream_zstd_send_output(struct zstd_ostream *zstream) {
 		o_stream_copy_error_from_parent(&zstream->ostream);
 		return -1;
 	}
-	if(ret != zstream->output.pos) {
-		//TODO: handle erroros
-		i_panic("gg");
+	if(ret != (ssize_t)zstream->output.pos) {
+		i_panic("o_stream_send(): Wrote %d when expecting to write %d."
+				,ret,zstream->output.pos);
 		return 0;
 	}
 	zstream->output.pos = 0;
@@ -41,7 +39,7 @@ static ssize_t o_stream_zstd_sendv(struct ostream_private *stream,
 	struct zstd_ostream *zstream = (struct zstd_ostream *)stream;		
 	o_stream_zstd_send_output(zstream);
 	ssize_t bytes = -zstream->output.pos;
-	for(int i = 0; i < iov_count; i++) {
+	for(unsigned int i = 0; i < iov_count; i++) {
 		ZSTD_inBuffer input = {iov[i].iov_base,iov[i].iov_len,0};
 		while (input.pos < input.size) {
 			if(zstream->output.pos == zstream->output.size){
@@ -52,13 +50,11 @@ static ssize_t o_stream_zstd_sendv(struct ostream_private *stream,
 			size_t ret = ZSTD_compressStream(zstream->cstream,
 					&zstream->output,&input);
 			if(ZSTD_isError(ret)) {
-				//TODO: errors
-				i_panic("gg");
+				i_fatal("ZSTD_compressStream(): %s",
+						ZSTD_getErrorName(ret));
 			}
 		}
-
 		bytes += input.size;
-		//write iov[i].iov_base,iov[i].iov_len
 	}
 	zstream->flushed = FALSE;
 
@@ -77,13 +73,11 @@ static int o_stream_zstd_flush(struct ostream_private *stream){
 		return ret;
 	if((ret = o_stream_zstd_send_output(zstream)) <= 0)
 		return ret;
-	//TODO stuff
-	//ADDS TWO BYTES	
-	//size_t oret = ZSTD_flushStream(zstream->cstream, &zstream->output);
-	size_t oret = 0;
+	
+	size_t oret = ZSTD_flushStream(zstream->cstream, &zstream->output);
 	if(ZSTD_isError(oret)) {
-		i_panic("some err");
-		//TODO: stuff
+		i_fatal("ZSTD_flushStream():%s",
+				ZSTD_getErrorName(oret));
 	} else {
 		if((ret = o_stream_zstd_send_output(zstream)) <= 0)
 			return ret;
@@ -110,8 +104,8 @@ static void o_stream_zstd_close(struct iostream_private *stream,
 	struct zstd_ostream *zstream = (struct zstd_ostream *)stream;
 	size_t ret = ZSTD_endStream(zstream->cstream,&zstream->output);
 	if(ZSTD_isError(ret)) {
-		i_panic("some err");
-		//TODO: stuff
+		i_fatal("ZSTD_endStream():%s",
+				ZSTD_getErrorName(ret));
 	}
 	o_stream_zstd_send_output(zstream);
 	if (close_parent)
@@ -121,7 +115,7 @@ static void o_stream_zstd_close(struct iostream_private *stream,
 static void o_stream_zstd_init(struct zstd_ostream *zstream, int level) {
 	zstream->cstream = ZSTD_createCStream();
 	if(zstream->cstream==NULL)
-		i_fatal("zstd_streamcore() failed to create stream()");
+		i_fatal("ZSTD_createCStream(): failed to create cstream.");
 
 	zstream->output.dst = malloc(ZSTD_CStreamOutSize());
 	zstream->output.size = ZSTD_CStreamOutSize();

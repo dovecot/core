@@ -23,11 +23,11 @@ struct zstd_istream {
 
 static void i_stream_zstd_init(struct zstd_istream *zstream)
 {
-	zstream->output.dst = malloc(ZSTD_DStreamOutSize());
+	zstream->output.dst = i_malloc(ZSTD_DStreamOutSize());
 	zstream->output.size = ZSTD_DStreamOutSize();
 	zstream->output.pos = 0;
 
-	zstream->input.src = malloc(ZSTD_DStreamInSize());
+	zstream->input.src = i_malloc(ZSTD_DStreamInSize());
 	zstream->input.size = ZSTD_DStreamInSize();
 	zstream->input.pos = ZSTD_DStreamInSize();
 
@@ -48,11 +48,12 @@ i_stream_zstd_close(struct iostream_private *stream, bool close_parent)
 	struct zstd_istream *zstream = (struct zstd_istream *)stream;
 	
 	if(zstream->dstream) {
-		//ZSTD_freeDStream(zstream->dstream);
+		ZSTD_freeDStream(zstream->dstream);
+		zstream->dstream = NULL;
 	}
-	free(zstream->input.src);
+	i_free(zstream->input.src);
 	zstream->input.src = NULL;
-	free(zstream->output.dst);
+	i_free(zstream->output.dst);
 	zstream->output.dst = NULL;
 	if (close_parent)
 		i_stream_close(zstream->istream.parent);
