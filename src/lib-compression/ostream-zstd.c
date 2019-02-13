@@ -30,7 +30,7 @@ static int o_stream_zstd_send_output(struct zstd_ostream *zstream)
 		return -1;
 	}
 	if (ret != (ssize_t)zstream->output.pos) {
-		i_panic("o_stream_send(): Wrote %d when expecting to write %d.",
+		i_panic("o_stream_send(): Wrote %ld when expecting to write %ld.",
 			ret, zstream->output.pos);
 		return 0;
 	}
@@ -118,7 +118,7 @@ static void o_stream_zstd_close(struct iostream_private *stream,
 		i_fatal("ZSTD_endStream():%s", ZSTD_getErrorName(ret));
 	}
 	o_stream_zstd_send_output(zstream);
-	i_free(zstream->ooutput.dst);
+	i_free(zstream->output.dst);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);
 }
