@@ -634,7 +634,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 	/* handle reply */
 	if (smtp_reply_is_success(proxy_reply)) {
 		/* if backend accepts it, we accept it too */
-		i_info("%s", str_c(msg));
+		e_info(rcpt->event, "%s", str_c(msg));
 
 		/* substitute our own success message */
 		smtp_reply_printf(&reply, 250, "<%s> %s Saved",
@@ -650,7 +650,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 			/* The problem isn't with the proxy, it's with the
 			   remote side. so the remote side will log an error,
 			   while for us this is just an info event */
-			i_info("%s", str_c(msg));
+			e_info(rcpt->event, "%s", str_c(msg));
 		} else {
 			e_error(rcpt->event, "%s", str_c(msg));
 		}

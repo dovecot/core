@@ -193,7 +193,7 @@ struct client *client_create(int fd_in, int fd_out,
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
-	i_info("Connect from %s", client_remote_id(client));
+	e_info(client->event, "Connect from %s", client_remote_id(client));
 
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
@@ -269,8 +269,8 @@ void client_disconnect(struct client *client, const char *enh_code,
 
 	if (reason == NULL)
 		reason = "Connection closed";
-	i_info("Disconnect from %s: %s (state=%s)", client_remote_id(client),
-	       reason, client_state_get_name(client));
+	e_info(client->event, "Disconnect from %s: %s (state=%s)",
+	       client_remote_id(client), reason, client_state_get_name(client));
 
 	if (conn != NULL) {
 		client->last_state = smtp_server_connection_get_state(conn);
