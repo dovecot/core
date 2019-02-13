@@ -70,6 +70,18 @@ int client_default_cmd_rcpt(struct client *client,
 	smtp_address_detail_parse_temp(
 		client->unexpanded_lda_set->recipient_delimiter,
 		rcpt->path, &username, &delim, &detail);
+
+	/* Make user name and detail available in the recipient event. The
+	   mail_user event (for local delivery) also adds the user field, but
+	   adding it here makes it available to the recipient event in general.
+	   Additionally, the auth lookups performed for local and proxy delivery
+	   can further override the "user" recipient event when the auth service
+	   returns a different user name. In any case, we provide the initial
+	   value here.
+	 */
+	event_add_str(rcpt->event, "user", username);
+	event_add_str(rcpt->event, "detail", detail);
+
 	if (client->lmtp_set->lmtp_proxy) {
 		/* proxied? */
 		if ((ret=lmtp_proxy_rcpt(client, cmd, lrcpt,
