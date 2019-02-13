@@ -9,10 +9,12 @@ libcompression_la_SOURCES = \
 	istream-lzma.c \
 	istream-lz4.c \
 	istream-zlib.c \
+	istream-zstd.c \
 	istream-bzlib.c \
 	ostream-lzma.c \
 	ostream-lz4.c \
 	ostream-zlib.c \
+	ostream-zstd.c \
 	ostream-bzlib.c
 libcompression_la_LIBADD = \
 	$(COMPRESS_LIBS)

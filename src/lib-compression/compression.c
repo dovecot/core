@@ -25,6 +25,22 @@
 #  define i_stream_create_lz4 NULL
 #  define o_stream_create_lz4 NULL
 #endif
+#ifndef HAVE_ZSTD
+#  define i_stream_create_zstd NULL
+#  define o_stream_create_zstd NULL
+#endif
+
+static bool is_compressed_zstd(struct istream *input)
+{
+	const unsigned char *data;
+	size_t size;
+
+	if(i_stream_read_bytes(input, &data,&size,4) <=0)
+		return FALSE;
+	i_assert(size >= 4);
+
+	return memcmp(data,"\xFD\x2F\xB5\x28",4) == 0;
+}
 
 static bool is_compressed_zlib(struct istream *input)
 {
@@ -122,6 +138,8 @@ compression_lookup_handler_from_ext(const char *path)
 }
 
 const struct compression_handler compression_handlers[] = {
+	{ "zstd", ".zstd", is_compressed_zstd,
+	  i_stream_create_zstd, o_stream_create_zstd},
 	{ "gz", ".gz", is_compressed_zlib,
 	  i_stream_create_gz, o_stream_create_gz },
 	{ "bz2", ".bz2", is_compressed_bzlib,
