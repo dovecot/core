@@ -101,6 +101,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	enum smtp_address_parse_flags path_parse_flags;
 	const char *const *param_extensions = NULL;
 	struct smtp_address *path;
+	struct smtp_params_rcpt rcpt_params;
 	enum smtp_param_parse_error pperror;
 	const char *error;
 	int ret;
@@ -157,16 +158,12 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
-	rcpt = smtp_server_recipient_create(cmd, path);
-
-	rcpt_data = p_new(cmd->pool, struct smtp_server_cmd_rcpt, 1);
-	rcpt_data->rcpt = rcpt;
-
 	/* [SP Rcpt-parameters] */
 	if (array_is_created(&conn->rcpt_param_extensions))
 		param_extensions = array_front(&conn->rcpt_param_extensions);
-	if (smtp_params_rcpt_parse(rcpt->pool, params, caps, param_extensions,
-				   &rcpt->params, &pperror, &error) < 0) {
+	if (smtp_params_rcpt_parse(pool_datastack_create(), params, caps,
+				   param_extensions, &rcpt_params, &pperror,
+				   &error) < 0) {
 		switch (pperror) {
 		case SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX:
 			smtp_server_reply(cmd,
@@ -181,6 +178,11 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 		}
 		return;
 	}
+
+	rcpt = smtp_server_recipient_create(cmd, path, &rcpt_params);
+
+	rcpt_data = p_new(cmd->pool, struct smtp_server_cmd_rcpt, 1);
+	rcpt_data->rcpt = rcpt;
 
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     cmd_rcpt_recheck, rcpt_data);
