@@ -702,3 +702,8 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	}
 	DLLIST_PREPEND(&db->head, req);
 }
+
+bool db_oauth2_uses_password_grant(const struct db_oauth2 *db)
+{
+	return db->set.use_grant_password;
+}

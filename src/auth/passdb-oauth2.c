@@ -20,6 +20,9 @@ oauth2_verify_plain_continue(struct db_oauth2_request *req,
 	else if (result != PASSDB_RESULT_OK)
 		auth_request_log_info(request, AUTH_SUBSYS_DB, "oauth2 failed: %s",
 				      error);
+	else {
+		auth_request_set_field(request, "token", req->token, "PLAIN");
+	}
 	req->verify_callback(result, request);
 	auth_request_unref(&request);
 }
@@ -47,6 +50,14 @@ oauth2_preinit(pool_t pool, const char *args)
 
 	module = p_new(pool, struct oauth2_passdb_module, 1);
 	module->db = db_oauth2_init(args);
+	module->module.default_pass_scheme = "PLAIN";
+
+	if (db_oauth2_uses_password_grant(module->db)) {
+		module->module.default_cache_key = "%u";
+	} else {
+		module->module.default_cache_key = "%u%w";
+	}
+
 	return &module->module;
 }
 
