@@ -28,6 +28,7 @@
 #include <fcntl.h>
 
 #define TEST_SOCKET "./auth-client-test"
+#define CLIENT_PROGRESS_TIMEOUT     30
 
 /*
  * Types
@@ -685,6 +686,8 @@ static void (*const test_functions[])(void) = {
  * Test client
  */
 
+struct timeout *to_client_progress = NULL;
+
 static void test_client_deinit(void)
 {
 }
@@ -709,6 +712,9 @@ test_client_auth_callback(struct auth_client_request *request,
 	struct login_request *login_req = context;
 	string_t *resp_b64;
 	const char *errormsg = NULL;
+
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	switch (status) {
 	case AUTH_REQUEST_STATUS_ABORT:
@@ -751,12 +757,24 @@ test_client_auth_connected(struct auth_client *client ATTR_UNUSED,
 {
 	struct login_request *login_req = context;
 
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
+
 	if (login_req->status == 0 && !connected) {
 		i_assert(login_req->error == NULL);
 		login_req->error = i_strdup("Connection failed");
 		login_req->status = -1;
 	}
 	io_loop_stop(login_req->ioloop);
+}
+
+static void
+test_client_progress_timeout(void *context ATTR_UNUSED)
+{
+	/* Terminate test due to lack of progress */
+	test_assert(FALSE);
+	timeout_remove(&to_client_progress);
+	io_loop_stop(current_ioloop);
 }
 
 static int
@@ -810,6 +828,9 @@ test_client_auth_simple(const char *mech, const char *username,
 	login_req.username = username;
 	login_req.password = password;
 
+	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
+					 test_client_progress_timeout, NULL);
+
 	auth_client = auth_client_init(TEST_SOCKET, 2234, debug);
 	auth_client_set_connect_timeout(auth_client, 1000);
 	auth_client_connect(auth_client);
@@ -835,6 +856,7 @@ test_client_auth_simple(const char *mech, const char *username,
 	*error_r = t_strdup(login_req.error);
 
 	auth_client_deinit(&auth_client);
+	timeout_remove(&to_client_progress);
 	io_loop_destroy(&ioloop);
 	i_free(login_req.error);
 
