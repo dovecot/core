@@ -8,7 +8,6 @@
 #include "istream-private.h"
 #include "istream-zlib.h"
 #include <zstd.h>
-#include <zstd_error.h>
 
 struct zstd_istream {
 	struct istream_private istream;
@@ -21,6 +20,7 @@ struct zstd_istream {
 	size_t next_read;
 	ssize_t buffer_size;
 	bool marked : 1;
+	bool log_errors : 1;
 };
 
 static void i_stream_zstd_init(struct zstd_istream *zstream)
@@ -109,8 +109,8 @@ static size_t i_stream_zstd_decompress(struct zstd_istream *zstream)
 
 	if (ZSTD_isError(to_read)) {
 		return to_read;
-		i_fatal("ZSTD_decompressStream(): %s",
-			ZSTD_getErrorName(to_read));
+		// i_fatal("ZSTD_decompressStream():
+		// %s",ZSTD_getErrorName(to_read));
 	}
 	zstream->next_read = to_read;
 }
@@ -129,44 +129,44 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 				ZSTD_getErrorName(error_code),
 				i_stream_get_absolute_offset(
 					&zstream->istream.istream));
-			if (zstream->log_errors)
-				i_error("%s", zstream->istream.iostream.error)
+			if (zstream->log_errors) {
+				i_error("%s", zstream->istream.iostream.error);
+			}
+		}
+		if (zstream->output.pos == 0) {
+			stream->istream.eof = TRUE;
+			return -1;
 		}
 	}
-	if (zstream->output.pos == 0) {
-		stream->istream.eof = TRUE;
-		return -1;
-	}
-}
 
-if (!zstream->marked) {
-	if (!i_stream_try_alloc(stream, zstream->output.pos, &buffer_size)) {
-		// TODO: return or i_fatal
-		i_fatal("failed to allocate more space");
-		return -2;
+	if (!zstream->marked) {
+		if (!i_stream_try_alloc(stream, zstream->output.pos,
+					&buffer_size)) {
+			// TODO: return or i_fatal
+			return -2;
+		}
 	}
-}
-else {
-	if (!i_stream_try_alloc_avoid_compress(stream, zstream->output.pos,
-					       &buffer_size)) {
-		i_fatal("failed to alloc more space without "
-			"compression");
-		return -2;
+	else {
+		if (!i_stream_try_alloc_avoid_compress(
+			    stream, zstream->output.pos, &buffer_size)) {
+			return -2;
+		}
 	}
-}
-// check if we need more data?
-if (zstream->output.pos < buffer_size) {
-	buffer_size = zstream->output.pos;
-}
-// copy that mem
-memcpy(stream->w_buffer + stream->pos, zstream->output.dst, buffer_size);
-stream->pos += buffer_size;
+	// check if we need more data?
+	if (zstream->output.pos < buffer_size) {
+		buffer_size = zstream->output.pos;
+	}
+	// copy that mem
+	memcpy(stream->w_buffer + stream->pos, zstream->output.dst,
+	       buffer_size);
+	stream->pos += buffer_size;
 
-zstream->output.pos -= buffer_size;
-memmove(zstream->output.dst, (void *)((long)zstream->output.dst + buffer_size),
-	zstream->output.pos);
+	zstream->output.pos -= buffer_size;
+	memmove(zstream->output.dst,
+		(void *)((long)zstream->output.dst + buffer_size),
+		zstream->output.pos);
 
-return buffer_size;
+	return buffer_size;
 }
 
 static void i_stream_zstd_reset(struct zstd_istream *zstream)
@@ -221,14 +221,14 @@ static void i_stream_zstd_sync(struct istream_private *stream)
 	i_stream_zstd_reset(zstream);
 }
 
-struct istream *i_stream_create_zstd(struct istream *input,
-				     __attribute__((unused)) bool log_errors)
+struct istream *i_stream_create_zstd(struct istream *input, bool log_errors)
 {
 	struct zstd_istream *zstream;
 	zstream = i_new(struct zstd_istream, 1);
 
 	i_stream_zstd_init(zstream);
 
+	zstream->log_errors = log_errors;
 	zstream->istream.iostream.close = i_stream_zstd_close;
 	zstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	zstream->istream.read = i_stream_zstd_read;
