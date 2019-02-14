@@ -23,29 +23,6 @@ struct zstd_istream {
 	bool log_errors : 1;
 };
 
-static void i_stream_zstd_init(struct zstd_istream *zstream)
-{
-
-	zstream->output.size = ZSTD_DStreamOutSize();
-	zstream->output.dst = i_malloc(zstream->output.size);
-	zstream->output.pos = 0;
-
-	zstream->input.size = ZSTD_DStreamInSize();
-	zstream->input.src = i_malloc(zstream->input.size);
-	zstream->input.pos = zstream->input.size;
-	zstream->input_true_size = zstream->input.size;
-
-	zstream->dstream = ZSTD_createDStream();
-	if (zstream->dstream == NULL)
-		i_fatal("ZSTD_createDStream(): failed to create dstream.");
-
-	zstream->next_read = ZSTD_initDStream(zstream->dstream);
-
-	if (ZSTD_isError(zstream->next_read))
-		i_fatal("ZSTD_initDStream(): %s",
-			ZSTD_getErrorName(zstream->next_read));
-}
-
 static void i_stream_zstd_close(struct iostream_private *stream,
 				bool close_parent)
 {
@@ -226,8 +203,24 @@ struct istream *i_stream_create_zstd(struct istream *input, bool log_errors)
 	struct zstd_istream *zstream;
 	zstream = i_new(struct zstd_istream, 1);
 
-	i_stream_zstd_init(zstream);
+	zstream->output.size = ZSTD_DStreamOutSize();
+	zstream->output.dst = i_malloc(zstream->output.size);
+	zstream->output.pos = 0;
 
+	zstream->input.size = ZSTD_DStreamInSize();
+	zstream->input.src = i_malloc(zstream->input.size);
+	zstream->input.pos = zstream->input.size;
+	zstream->input_true_size = zstream->input.size;
+
+	zstream->dstream = ZSTD_createDStream();
+	if (zstream->dstream == NULL)
+		i_fatal("ZSTD_createDStream(): failed to create dstream.");
+
+	zstream->next_read = ZSTD_initDStream(zstream->dstream);
+
+	if (ZSTD_isError(zstream->next_read))
+		i_fatal("ZSTD_initDStream(): %s",
+			ZSTD_getErrorName(zstream->next_read));
 	zstream->log_errors = log_errors;
 	zstream->istream.iostream.close = i_stream_zstd_close;
 	zstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
