@@ -12,7 +12,8 @@ smtp_server_recipient_call_hooks(struct smtp_server_recipient **_rcpt,
 
 struct smtp_server_recipient *
 smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
-			     const struct smtp_address *rcpt_to)
+			     const struct smtp_address *rcpt_to,
+			     const struct smtp_params_rcpt *params)
 {
 	struct smtp_server_recipient_private *prcpt;
 	pool_t pool;
@@ -24,6 +25,7 @@ smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 	prcpt->rcpt.conn = cmd->conn;
 	prcpt->rcpt.cmd = cmd;
 	prcpt->rcpt.path = smtp_address_clone(pool, rcpt_to);
+	smtp_params_rcpt_copy(pool, &prcpt->rcpt.params, params);
 
 	return &prcpt->rcpt;
 }

@@ -373,7 +373,8 @@ void smtp_server_connection_set_proxy_data(struct smtp_server_connection *conn,
 
 struct smtp_server_recipient *
 smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
-			     const struct smtp_address *rcpt_to);
+			     const struct smtp_address *rcpt_to,
+			     const struct smtp_params_rcpt *params);
 void smtp_server_recipient_ref(struct smtp_server_recipient *rcpt);
 bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt);
 void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt);
