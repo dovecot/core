@@ -8,6 +8,7 @@
 #include "istream-private.h"
 #include "istream-zlib.h"
 #include <zstd.h>
+#include <zstd_error.h>
 
 struct zstd_istream {
 	struct istream_private istream;
@@ -28,7 +29,6 @@ static void i_stream_zstd_init(struct zstd_istream *zstream)
 	zstream->output.size = ZSTD_DStreamOutSize();
 	zstream->output.dst = i_malloc(zstream->output.size);
 	zstream->output.pos = 0;
-
 
 	zstream->input.size = ZSTD_DStreamInSize();
 	zstream->input.src = i_malloc(zstream->input.size);
@@ -60,7 +60,7 @@ static void i_stream_zstd_close(struct iostream_private *stream,
 		i_stream_close(zstream->istream.parent);
 }
 
-static void i_stream_zstd_decompress(struct zstd_istream *zstream)
+static size_t i_stream_zstd_decompress(struct zstd_istream *zstream)
 {
 	struct istream_private *stream = (struct istream_private *)zstream;
 	const unsigned char *data;
@@ -74,14 +74,16 @@ static void i_stream_zstd_decompress(struct zstd_istream *zstream)
 		// we have zstream->input.pos free bytes
 		while (zstream->input.pos) {
 			// lets fill input buffer
-			if (i_stream_read_more(stream->parent, &data, &size) < 0) {
+			if (i_stream_read_more(stream->parent, &data, &size) <
+			    0) {
 				if (stream->parent->stream_errno != 0) {
 					stream->istream.stream_errno =
 						stream->parent->stream_errno;
 				}
 				else {
 					i_assert(stream->parent->eof);
-					zstream->input.size -= zstream->input.pos;
+					zstream->input.size -=
+						zstream->input.pos;
 					zstream->input.pos = 0;
 					break;
 				}
@@ -106,6 +108,7 @@ static void i_stream_zstd_decompress(struct zstd_istream *zstream)
 		zstream->dstream, &zstream->output, &zstream->input);
 
 	if (ZSTD_isError(to_read)) {
+		return to_read;
 		i_fatal("ZSTD_decompressStream(): %s",
 			ZSTD_getErrorName(to_read));
 	}
@@ -115,47 +118,55 @@ static void i_stream_zstd_decompress(struct zstd_istream *zstream)
 static ssize_t i_stream_zstd_read(struct istream_private *stream)
 {
 	struct zstd_istream *zstream = (struct zstd_istream *)stream;
-	size_t buffer_size = 1;
+	size_t error_code, buffer_size = 1;
 
 	if (zstream->output.pos == 0) {
-		i_stream_zstd_decompress(zstream);
-		if (zstream->output.pos == 0) {
-			stream->istream.eof = TRUE;
-			return -1;
+		if ((error_code = i_stream_zstd_decompress(zstream)) != 0) {
+			io_stream_set_error(
+				&zstream->istream.iostream,
+				"zstd.read(%s): %s at %" PRIuUOFF_T,
+				i_stream_get_name(&zstream->istream.istream),
+				ZSTD_getErrorName(error_code),
+				i_stream_get_absolute_offset(
+					&zstream->istream.istream));
+			if (zstream->log_errors)
+				i_error("%s", zstream->istream.iostream.error)
 		}
 	}
-
-	if (!zstream->marked) {
-		if (!i_stream_try_alloc(stream, zstream->output.pos,
-					&buffer_size)) {
-			// TODO: return or i_fatal
-			i_fatal("failed to allocate more space");
-			return -2;
-		}
+	if (zstream->output.pos == 0) {
+		stream->istream.eof = TRUE;
+		return -1;
 	}
-	else {
-		if (!i_stream_try_alloc_avoid_compress(
-			    stream, zstream->output.pos, &buffer_size)) {
-			i_fatal("failed to alloc more space without "
-				"compression");
-			return -2;
-		}
-	}
-	// check if we need more data?
-	if (zstream->output.pos < buffer_size) {
-		buffer_size = zstream->output.pos;
-	}
-	// copy that mem
-	memcpy(stream->w_buffer + stream->pos, zstream->output.dst,
-	       buffer_size);
-	stream->pos += buffer_size;
+}
 
-	zstream->output.pos -= buffer_size;
-	memmove(zstream->output.dst,
-		(void *)((long)zstream->output.dst + buffer_size),
-		zstream->output.pos);
+if (!zstream->marked) {
+	if (!i_stream_try_alloc(stream, zstream->output.pos, &buffer_size)) {
+		// TODO: return or i_fatal
+		i_fatal("failed to allocate more space");
+		return -2;
+	}
+}
+else {
+	if (!i_stream_try_alloc_avoid_compress(stream, zstream->output.pos,
+					       &buffer_size)) {
+		i_fatal("failed to alloc more space without "
+			"compression");
+		return -2;
+	}
+}
+// check if we need more data?
+if (zstream->output.pos < buffer_size) {
+	buffer_size = zstream->output.pos;
+}
+// copy that mem
+memcpy(stream->w_buffer + stream->pos, zstream->output.dst, buffer_size);
+stream->pos += buffer_size;
 
-	return buffer_size;
+zstream->output.pos -= buffer_size;
+memmove(zstream->output.dst, (void *)((long)zstream->output.dst + buffer_size),
+	zstream->output.pos);
+
+return buffer_size;
 }
 
 static void i_stream_zstd_reset(struct zstd_istream *zstream)
