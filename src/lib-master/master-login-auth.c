@@ -486,7 +486,7 @@ master_login_auth_input_args(struct connection *_conn, const char *const *args)
 		master_login_auth_input_fail(auth, id, &args[2]);
 	master_login_auth_unref(&auth);
 
-	return 0;
+	return 1;
 }
 
 static void master_login_auth_connected(struct connection *_conn, bool success)
