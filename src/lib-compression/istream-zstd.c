@@ -74,19 +74,21 @@ static void i_stream_zstd_decompress(struct zstd_istream *zstream)
 		// we have zstream->input.pos free bytes
 		while (zstream->input.pos) {
 			// lets fill input buffer
-			if (i_stream_read_more(stream->parent, &data, &size) <
-			    0) {
+			if (i_stream_read_more(stream->parent, &data, &size) < 0) {
 				if (stream->parent->stream_errno != 0) {
 					stream->istream.stream_errno =
 						stream->parent->stream_errno;
 				}
 				else {
 					i_assert(stream->parent->eof);
-					zstream->input.size -=
-						zstream->input.pos;
+					zstream->input.size -= zstream->input.pos;
 					zstream->input.pos = 0;
-					continue;
+					break;
 				}
+				return -1;
+			}
+			if (size == 0) {
+				break;
 			}
 			if (size > zstream->input.pos) {
 				size = zstream->input.pos;
