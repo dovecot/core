@@ -203,7 +203,12 @@ struct ostream *o_stream_create_lz4(struct ostream *output, int level)
 	struct iostream_lz4_header *hdr;
 	struct lz4_ostream *zstream;
 
-	i_assert(level >= 1 && level <= 9);
+	/* Not really needed since lz4 does not use the level for some reason
+	 * but is porbebly good to have for future changes. */
+	if (level < 1 || level > 9) {
+		i_warning("lz4 compression level must be between 1..9");
+		level = 6;
+	}
 
 	zstream = i_new(struct lz4_ostream, 1);
 	zstream->ostream.sendv = o_stream_lz4_sendv;

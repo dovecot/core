@@ -210,7 +210,10 @@ struct ostream *o_stream_create_bz2(struct ostream *output, int level)
 	struct bzlib_ostream *zstream;
 	int ret;
 
-	i_assert(level >= 1 && level <= 9);
+	if (level < 1 || level > 9) {
+		i_warning("bzlib compression level must be between 1..9");
+		level = 6;
+	}
 
 	zstream = i_new(struct bzlib_ostream, 1);
 	zstream->ostream.sendv = o_stream_bzlib_sendv;

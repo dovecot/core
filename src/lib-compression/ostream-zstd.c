@@ -127,18 +127,6 @@ static void o_stream_zstd_close(struct iostream_private *stream,
 		o_stream_close(zstream->ostream.parent);
 }
 
-static void o_stream_zstd_init(struct zstd_ostream *zstream, int level)
-{
-	zstream->cstream = ZSTD_createCStream();
-	if (zstream->cstream == NULL)
-		i_fatal("ZSTD_createCStream(): failed to create cstream.");
-
-	zstream->output.dst = i_malloc(ZSTD_CStreamOutSize());
-	zstream->output.size = ZSTD_CStreamOutSize();
-	zstream->output.pos = 0;
-	ZSTD_initCStream(zstream->cstream, level);
-}
-
 struct ostream *o_stream_create_zstd(struct ostream *output, int level)
 {
 	struct zstd_ostream *zstream;
@@ -150,7 +138,22 @@ struct ostream *o_stream_create_zstd(struct ostream *output, int level)
 	zstream->ostream.get_buffer_avail_size =
 		o_stream_zstd_get_buffer_avail_size;
 	zstream->ostream.iostream.close = o_stream_zstd_close;
-	o_stream_zstd_init(zstream, level);
+	zstream->cstream = ZSTD_createCStream();
+	if (zstream->cstream == NULL)
+		i_fatal("ZSTD_createCStream(): failed to create cstream.");
+
+	zstream->output.dst = i_malloc(ZSTD_CStreamOutSize());
+	zstream->output.size = ZSTD_CStreamOutSize();
+	zstream->output.pos = 0;
+
+	if (level < 1 || level > ZSTD_maxCLevel()) {
+		i_warning("zstd compression level must be between 1..%d",
+			  ZSTD_maxCLevel());
+		// gracefull failure, and set it to the defualt 6
+		level = 6;
+	}
+
+	ZSTD_initCStream(zstream->cstream, level);
 	return o_stream_create(&zstream->ostream, output,
 			       o_stream_get_fd(output));
 }
