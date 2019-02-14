@@ -493,6 +493,8 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		i_assert(peer != NULL);
 		client = peer->client;
 
+		i_assert(conn->to_requests == NULL);
+
 		if (client->waiting)
 			io_loop_stop(client->ioloop);
 
@@ -570,21 +572,16 @@ http_client_connection_request_timeout(struct http_client_connection *conn)
 void http_client_connection_start_request_timeout(
 	struct http_client_connection *conn)
 {
-	struct http_client_peer *peer = conn->peer;
-	struct http_client *client = peer->client;
-	const struct http_client_settings *set = &client->set;
-	unsigned int timeout_msecs =
-		set->request_timeout_msecs;
+	struct http_client_request *const *requestp;
+	unsigned int timeout_msecs;
 
 	if (conn->pending_request != NULL)
 		return;
 
 	i_assert(array_is_created(&conn->request_wait_list));
-	if (array_count(&conn->request_wait_list) > 0) {
-		struct http_client_request *const *requestp;
-		requestp = array_idx(&conn->request_wait_list, 0);
-		timeout_msecs = (*requestp)->attempt_timeout_msecs;
-	}
+	i_assert(array_count(&conn->request_wait_list) > 0);
+	requestp = array_idx(&conn->request_wait_list, 0);
+	timeout_msecs = (*requestp)->attempt_timeout_msecs;
 
 	if (timeout_msecs == 0)
 		;
@@ -750,6 +747,8 @@ static void http_client_payload_finished(struct http_client_connection *conn)
 	connection_input_resume(&conn->conn);
 	if (array_count(&conn->request_wait_list) > 0)
 		http_client_connection_start_request_timeout(conn);
+	else
+		http_client_connection_stop_request_timeout(conn);
 }
 
 static void
@@ -1009,6 +1008,7 @@ static void http_client_connection_input(struct connection *_conn)
 	} else {
 		req = NULL;
 		payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
+		i_assert(conn->to_requests == NULL);
 	}
 
 	/* drop connection with broken output if last possible input was
@@ -1199,6 +1199,7 @@ static void http_client_connection_input(struct connection *_conn)
 			/* no more requests waiting for the connection */
 			req = NULL;
 			payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
+			http_client_connection_stop_request_timeout(conn);
 		}
 
 		/* drop connection with broken output if last possible input was
@@ -1251,6 +1252,7 @@ http_client_connection_continue_request(struct http_client_connection *conn)
 	int ret;
 
 	reqs = array_get(&conn->request_wait_list, &count);
+	i_assert(count > 0 || conn->to_requests == NULL);
 	if (count == 0 || !conn->output_locked)
 		return 0;
 
