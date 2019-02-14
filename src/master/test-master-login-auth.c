@@ -76,6 +76,9 @@ static void server_connection_deinit(struct server_connection **_conn);
 static void test_client_deinit(void);
 
 static int
+test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
+			     const char **error_r);
+static int
 test_client_request_simple(pid_t client_pid, const char **error_r);
 
 /* test*/
@@ -547,7 +550,6 @@ test_request_login_input(struct server_connection *conn)
 				server_connection_deinit(&conn);
 			return;
 		}
-
 		switch (ctx->state) {
 		case REQUEST_LOGIN_STATE_VERSION:
 			if (!str_begins(line, "VERSION\t")) {
@@ -569,8 +571,7 @@ test_request_login_input(struct server_connection *conn)
 			}
 			line = t_strdup_printf("USER\t%u\tfrop\n", id);
 			o_stream_nsend_str(conn->conn.output, line);
-			server_connection_deinit(&conn);
-			return;
+			continue;
 		}
 		i_unreached();
 	}
@@ -611,12 +612,29 @@ test_client_request_login(void)
 	return FALSE;
 }
 
+static bool
+test_client_request_login_parallel(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_request_parallel(2323, 4, &error);
+	test_out("run (ret == 0)", ret == 0);
+
+	return FALSE;
+}
+
 /* test */
 
 static void test_request_login(void)
 {
 	test_begin("request login");
 	test_run_client_server(test_client_request_login,
+			       test_server_request_login);
+	test_end();
+
+	test_begin("request login parallel");
+	test_run_client_server(test_client_request_login_parallel,
 			       test_server_request_login);
 	test_end();
 }
@@ -644,9 +662,12 @@ static void test_client_deinit(void)
 {
 }
 
-struct login_request {
+struct login_test {
 	char *error;
 	int status;
+
+	unsigned int pending_requests;
+
 	struct ioloop *ioloop;
 };
 
@@ -654,23 +675,26 @@ static void
 test_client_request_callback(const char *const *auth_args ATTR_UNUSED,
 			     const char *errormsg, void *context)
 {
-	struct login_request *login_request = context;
+	struct login_test *login_test = context;
 
 	if (errormsg != NULL) {
-		login_request->error = i_strdup(errormsg);
-		login_request->status = -1;
+		login_test->error = i_strdup(errormsg);
+		login_test->status = -1;
 	}
 
-	io_loop_stop(login_request->ioloop);
+	if (--login_test->pending_requests == 0)
+		io_loop_stop(login_test->ioloop);
 }
 
 static int
-test_client_request_simple(pid_t client_pid, const char **error_r)
+test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
+			     const char **error_r)
 {
 	struct master_login_auth *auth;
 	struct master_auth_request auth_req;
-	struct login_request login_req;
+	struct login_test login_test;
 	struct ioloop *ioloop;
+	unsigned int i;
 
 	i_zero(&auth_req);
 	auth_req.tag = 99033;
@@ -686,15 +710,20 @@ test_client_request_simple(pid_t client_pid, const char **error_r)
 
 	ioloop = io_loop_create();
 
-	i_zero(&login_req);
-	login_req.ioloop = ioloop;
+	i_zero(&login_test);
+	login_test.ioloop = ioloop;
 
 	io_loop_set_running(ioloop);
 
 	auth = master_login_auth_init(TEST_SOCKET, TRUE);
 	master_login_auth_set_timeout(auth, 1000);
-	master_login_auth_request(auth, &auth_req,
-				  test_client_request_callback, &login_req);
+
+	login_test.pending_requests = concurrency;
+	for (i = 0; i < concurrency; i++) {
+		master_login_auth_request(auth, &auth_req,
+					  test_client_request_callback,
+					  &login_test);
+	}
 
 	if (io_loop_is_running(ioloop))
 		io_loop_run(ioloop);
@@ -702,10 +731,16 @@ test_client_request_simple(pid_t client_pid, const char **error_r)
 	master_login_auth_deinit(&auth);
 	io_loop_destroy(&ioloop);
 
-	*error_r = t_strdup(login_req.error);
-	i_free(login_req.error);
+	*error_r = t_strdup(login_test.error);
+	i_free(login_test.error);
 
-	return login_req.status;
+	return login_test.status;
+}
+
+static int
+test_client_request_simple(pid_t client_pid, const char **error_r)
+{
+	return test_client_request_parallel(client_pid, 1, error_r);
 }
 
 /*
