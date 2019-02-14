@@ -248,6 +248,13 @@ void auth_policy_finish(struct policy_lookup_ctx *context)
 }
 
 static
+void auth_policy_callback(struct policy_lookup_ctx *context)
+{
+	if (context->callback != NULL)
+		context->callback(context->result, context->callback_context);
+}
+
+static
 void auth_policy_parse_response(struct policy_lookup_ctx *context)
 {
 	enum json_type type;
@@ -332,9 +339,7 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 			(context->message!=NULL?context->message:""));
 	}
 
-	if (context->callback != NULL) {
-		context->callback(context->result, context->callback_context);
-	}
+	auth_policy_callback(context);
 }
 
 static
@@ -349,8 +354,7 @@ void auth_policy_process_response(const struct http_response *response,
 		auth_request_log_error(context->request, "policy",
 			"Policy server HTTP error: %s",
 			http_response_get_message(response));
-		if (context->callback != NULL)
-			context->callback(context->result, context->callback_context);
+		auth_policy_callback(context);
 		return;
 	}
 
@@ -358,8 +362,7 @@ void auth_policy_process_response(const struct http_response *response,
 		if (context->expect_result)
 			auth_request_log_error(context->request, "policy",
 				"Policy server result was empty");
-		if (context->callback != NULL)
-			context->callback(context->result, context->callback_context);
+		auth_policy_callback(context);
 		return;
 	}
 
@@ -371,8 +374,7 @@ void auth_policy_process_response(const struct http_response *response,
 	} else {
 		auth_request_log_debug(context->request, "policy",
 			"Policy response %d", context->result);
-		if (context->callback != NULL)
-			context->callback(context->result, context->callback_context);
+		auth_policy_callback(context);
 	}
 }
 
