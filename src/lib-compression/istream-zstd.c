@@ -119,7 +119,6 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 	if (!zstream->marked) {
 		if (!i_stream_try_alloc(stream, zstream->output.pos,
 					&buffer_size)) {
-			// TODO: return or i_fatal
 			return -2;
 		}
 	}
