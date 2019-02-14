@@ -4,6 +4,7 @@
 #include "lib-signals.h"
 #include "str.h"
 #include "strescape.h"
+#include "llist.h"
 #include "base64.h"
 #include "hostpid.h"
 #include "ioloop.h"
@@ -75,6 +76,10 @@ static void server_connection_deinit(struct server_connection **_conn);
 /* client */
 static void test_client_deinit(void);
 
+static int
+test_client_auth_parallel(const char *mech, const char *username,
+			  const char *password, unsigned int concurrency,
+			  const char **error_r);
 static int
 test_client_auth_simple(const char *mech, const char *username,
 			const char *password, const char **error_r);
@@ -302,11 +307,19 @@ enum _auth_handshake_state {
 	AUTH_HANDSHAKE_STATE_CMD
 };
 
-struct _auth_handshake_server {
-	enum _auth_handshake_state state;
+struct _auth_handshake_request {
+	struct _auth_handshake_request *prev, *next;
+
+	unsigned int id;
 	const char *username;
 
 	unsigned int login_state;
+};
+
+struct _auth_handshake_server {
+	enum _auth_handshake_state state;
+
+	struct _auth_handshake_request *requests;
 };
 
 static bool
@@ -347,12 +360,12 @@ test_auth_handshake_auth_plain(struct server_connection *conn, unsigned int id,
 	if (strcmp(authenid, "harrie") == 0 && strcmp(pass, "frop") == 0) {
 		o_stream_nsend_str(conn->conn.output,
 			t_strdup_printf("OK\t%u\tuser=harrie\n", id));
-		return FALSE;
+		return TRUE;
 	}
 	o_stream_nsend_str(conn->conn.output,
 		t_strdup_printf("FAIL\t%u\tuser=%s\n", id, authenid));
 
-	return FALSE;
+	return TRUE;
 }
 
 static bool
@@ -361,6 +374,9 @@ test_auth_handshake_auth_login(struct server_connection *conn, unsigned int id,
 			       size_t data_size)
 {
 	static const char *prompt1 = "Username:";
+	struct _auth_handshake_server *ctx =
+		(struct _auth_handshake_server *)conn->context;
+	struct _auth_handshake_request *req;
 	string_t *chal_b64;
 
 	if (data_size != 0) {
@@ -370,6 +386,10 @@ test_auth_handshake_auth_login(struct server_connection *conn, unsigned int id,
 		return FALSE;
 	}
 
+	req = p_new(conn->pool, struct _auth_handshake_request, 1);
+	req->id = id;
+	DLLIST_PREPEND(&ctx->requests, req);
+
 	chal_b64 = t_str_new(64);
 	base64_encode(prompt1, strlen(prompt1), chal_b64);
 	o_stream_nsend_str(conn->conn.output,
@@ -378,7 +398,8 @@ test_auth_handshake_auth_login(struct server_connection *conn, unsigned int id,
 }
 
 static bool
-test_auth_handshake_cont_login(struct server_connection *conn, unsigned int id,
+test_auth_handshake_cont_login(struct server_connection *conn,
+			       struct _auth_handshake_request *req,
 			       const unsigned char *data, size_t data_size)
 {
 	static const char *prompt2 = "Password:";
@@ -387,31 +408,32 @@ test_auth_handshake_cont_login(struct server_connection *conn, unsigned int id,
 	const char *resp = t_strndup(data, data_size);
 	string_t *chal_b64;
 
-	if (++ctx->login_state == 1) {
-		ctx->username = p_strdup(conn->pool, resp);
+	if (++req->login_state == 1) {
+		req->username = p_strdup(conn->pool, resp);
 		if (strcmp(resp, "harrie") != 0) {
 			o_stream_nsend_str(conn->conn.output,
 				t_strdup_printf("FAIL\t%u\tuser=%s\n",
-						id, ctx->username));
-			return FALSE;
+						req->id, req->username));
+			return TRUE;
 		}
 	} else {
-		i_assert(ctx->login_state == 2);
+		i_assert(req->login_state == 2);
+		DLLIST_REMOVE(&ctx->requests, req);
 		if (strcmp(resp, "frop") != 0) {
 			o_stream_nsend_str(conn->conn.output,
 				t_strdup_printf("FAIL\t%u\tuser=%s\n",
-						id, ctx->username));
-			return FALSE;
+						req->id, req->username));
+			return TRUE;
 		}
 		o_stream_nsend_str(conn->conn.output,
-			t_strdup_printf("OK\t%u\tuser=harrie\n", id));
-		return FALSE;
+			t_strdup_printf("OK\t%u\tuser=harrie\n", req->id));
+		return TRUE;
 	}
 
 	chal_b64 = t_str_new(64);
 	base64_encode(prompt2, strlen(prompt2), chal_b64);
 	o_stream_nsend_str(conn->conn.output,
-		t_strdup_printf("CONT\t%u\t%s\n", id, str_c(chal_b64)));
+		t_strdup_printf("CONT\t%u\t%s\n", req->id, str_c(chal_b64)));
 	return TRUE;
 }
 
@@ -420,8 +442,6 @@ static bool
 test_auth_handshake_auth(struct server_connection *conn, unsigned int id,
 			 const char *const *args)
 {
-	struct _auth_handshake_server *ctx =
-		(struct _auth_handshake_server *)conn->context;
 	const char *mech, *resp;
 	unsigned int i;
 	buffer_t *data;
@@ -452,7 +472,6 @@ test_auth_handshake_auth(struct server_connection *conn, unsigned int id,
 		return test_auth_handshake_auth_plain(conn, id,
 						     data->data, data->used);
 	} else if (strcasecmp(mech, "LOGIN") == 0) {
-		ctx->login_state = 0;
 		return test_auth_handshake_auth_login(conn, id,
 						      data->data, data->used);
 	}
@@ -465,6 +484,9 @@ static bool
 test_auth_handshake_cont(struct server_connection *conn, unsigned int id,
 			 const char *const *args)
 {
+	struct _auth_handshake_server *ctx =
+		(struct _auth_handshake_server *)conn->context;
+	struct _auth_handshake_request *req;
 	const char *resp;
 	buffer_t *data;
 
@@ -483,7 +505,21 @@ test_auth_handshake_cont(struct server_connection *conn, unsigned int id,
 		}
 	}
 
-	return test_auth_handshake_cont_login(conn, id, data->data, data->used);
+	req = ctx->requests;
+	while (req != NULL) {
+		if (req->id == id)
+			break;
+		req = req->next;
+	}
+
+	if (req == NULL) {
+		i_error("Bad CONT request: Bad request ID");
+		server_connection_deinit(&conn);
+		return FALSE;
+	}
+
+	return test_auth_handshake_cont_login(conn, req,
+					      data->data, data->used);
 }
 
 static void
@@ -639,6 +675,71 @@ test_client_auth_login_success(void)
 	return FALSE;
 }
 
+static bool
+test_client_auth_plain_parallel_failure(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_auth_parallel("PLAIN", "henk", "frop", 4, &error);
+	test_out("run (ret < 0)", ret < 0);
+	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
+
+	return FALSE;
+}
+
+static bool
+test_client_auth_plain_parallel_success(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_auth_parallel("PLAIN", "harrie", "frop", 4, &error);
+	test_out("run (ret == 0)", ret == 0);
+	test_assert(error == NULL);
+
+	return FALSE;
+}
+
+static bool
+test_client_auth_login_parallel_failure1(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_auth_parallel("LOGIN", "henk", "frop", 4, &error);
+	test_out("run (ret < 0)", ret < 0);
+	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
+
+	return FALSE;
+}
+
+static bool
+test_client_auth_login_parallel_failure2(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_auth_parallel("LOGIN", "harrie", "friep", 4, &error);
+	test_out("run (ret < 0)", ret < 0);
+	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
+
+	return FALSE;
+}
+
+static bool
+test_client_auth_login_parallel_success(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_auth_parallel("LOGIN", "harrie", "frop", 4, &error);
+	test_out("run (ret == 0)", ret == 0);
+	test_assert(error == NULL);
+
+	return FALSE;
+}
+
 /* test */
 
 static void test_auth_handshake(void)
@@ -667,6 +768,31 @@ static void test_auth_handshake(void)
 	test_run_client_server(test_client_auth_login_success,
 			       test_server_auth_handshake);
 	test_end();
+
+	test_begin("auth PLAIN parallel failure");
+	test_run_client_server(test_client_auth_plain_parallel_failure,
+			       test_server_auth_handshake);
+	test_end();
+
+	test_begin("auth PLAIN parallel success");
+	test_run_client_server(test_client_auth_plain_parallel_success,
+			       test_server_auth_handshake);
+	test_end();
+
+	test_begin("auth LOGIN parallel failure 1");
+	test_run_client_server(test_client_auth_login_parallel_failure1,
+			       test_server_auth_handshake);
+	test_end();
+
+	test_begin("auth LOGIN parallel failure 2");
+	test_run_client_server(test_client_auth_login_parallel_failure2,
+			       test_server_auth_handshake);
+	test_end();
+
+	test_begin("auth LOGIN parallel success");
+	test_run_client_server(test_client_auth_login_parallel_success,
+			       test_server_auth_handshake);
+	test_end();
 }
 
 /*
@@ -693,12 +819,19 @@ static void test_client_deinit(void)
 }
 
 struct login_request {
+	struct login_test *test;
+
+	unsigned int state;
+};
+
+struct login_test {
 	char *error;
 	int status;
 
-	unsigned int state;
 	const char *username;
 	const char *password;
+
+	unsigned int requests_pending;
 
 	struct ioloop *ioloop;
 };
@@ -710,6 +843,7 @@ test_client_auth_callback(struct auth_client_request *request,
 			  const char *const *args ATTR_UNUSED, void *context)
 {
 	struct login_request *login_req = context;
+	struct login_test *login_test = login_req->test;
 	string_t *resp_b64;
 	const char *errormsg = NULL;
 
@@ -729,12 +863,12 @@ test_client_auth_callback(struct auth_client_request *request,
 	case AUTH_REQUEST_STATUS_CONTINUE:
 		resp_b64 = t_str_new(64);
 		if (++login_req->state == 1) {
-			base64_encode(login_req->username,
-				strlen(login_req->username), resp_b64);
+			base64_encode(login_test->username,
+				strlen(login_test->username), resp_b64);
 		} else {
 			test_assert(login_req->state == 2);
-			base64_encode(login_req->password,
-				strlen(login_req->password), resp_b64);
+			base64_encode(login_test->password,
+				strlen(login_test->password), resp_b64);
 		}
 		auth_client_request_continue(request, str_c(resp_b64));
 		return;
@@ -742,30 +876,31 @@ test_client_auth_callback(struct auth_client_request *request,
 		break;
 	}
 
-	if (login_req->status == 0 && errormsg != NULL) {
-		i_assert(login_req->error == NULL);
-		login_req->error = i_strdup(errormsg);
-		login_req->status = -1;
+	if (login_test->status == 0 && errormsg != NULL) {
+		i_assert(login_test->error == NULL);
+		login_test->error = i_strdup(errormsg);
+		login_test->status = -1;
 	}
 
-	io_loop_stop(login_req->ioloop);
+	if (--login_test->requests_pending == 0)
+		io_loop_stop(login_test->ioloop);
 }
 
 static void
 test_client_auth_connected(struct auth_client *client ATTR_UNUSED,
 			   bool connected, void *context)
 {
-	struct login_request *login_req = context;
+	struct login_test *login_test = context;
 
 	if (to_client_progress != NULL)
 		timeout_reset(to_client_progress);
 
-	if (login_req->status == 0 && !connected) {
-		i_assert(login_req->error == NULL);
-		login_req->error = i_strdup("Connection failed");
-		login_req->status = -1;
+	if (login_test->status == 0 && !connected) {
+		i_assert(login_test->error == NULL);
+		login_test->error = i_strdup("Connection failed");
+		login_test->status = -1;
 	}
-	io_loop_stop(login_req->ioloop);
+	io_loop_stop(login_test->ioloop);
 }
 
 static void
@@ -778,12 +913,15 @@ test_client_progress_timeout(void *context ATTR_UNUSED)
 }
 
 static int
-test_client_auth_simple(const char *mech, const char *username,
-			const char *password, const char **error_r)
+test_client_auth_parallel(const char *mech, const char *username,
+			  const char *password, unsigned int concurrency,
+			  const char **error_r)
 {
 	struct auth_client *auth_client;
 	struct auth_request_info info;
-	struct login_request login_req;
+	struct login_test login_test;
+	struct login_request *login_reqs;
+	unsigned int i;
 	struct ioloop *ioloop;
 	int ret;
 
@@ -823,10 +961,10 @@ test_client_auth_simple(const char *mech, const char *username,
 
 	ioloop = io_loop_create();
 
-	i_zero(&login_req);
-	login_req.ioloop = ioloop;
-	login_req.username = username;
-	login_req.password = password;
+	i_zero(&login_test);
+	login_test.ioloop = ioloop;
+	login_test.username = username;
+	login_test.password = password;
 
 	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
 					 test_client_progress_timeout, NULL);
@@ -834,33 +972,45 @@ test_client_auth_simple(const char *mech, const char *username,
 	auth_client = auth_client_init(TEST_SOCKET, 2234, debug);
 	auth_client_set_connect_timeout(auth_client, 1000);
 	auth_client_connect(auth_client);
-	if (login_req.status == 0 && auth_client_is_disconnected(auth_client)) {
-		login_req.error = i_strdup("Connection failed");
-		login_req.status = -1;
+	if (auth_client_is_disconnected(auth_client)) {
+		login_test.error = i_strdup("Connection failed");
+		login_test.status = -1;
 	} else {
 		auth_client_set_connect_notify(
-			auth_client, test_client_auth_connected, &login_req);
+			auth_client, test_client_auth_connected, &login_test);
 		io_loop_run(ioloop);
 	}
 
-	if (login_req.status >= 0) {
+	if (login_test.status >= 0) {
 		io_loop_set_running(ioloop);
-		(void)auth_client_request_new(auth_client, &info,
-					      test_client_auth_callback,
-					      &login_req);
+		login_test.requests_pending = concurrency;
+		login_reqs = t_new(struct login_request, concurrency);
+		for (i = 0; i < concurrency; i++) {
+			login_reqs[i].test = &login_test;
+			(void)auth_client_request_new(auth_client, &info,
+						      test_client_auth_callback,
+						      &login_reqs[i]);
+		}
 		if (io_loop_is_running(ioloop))
 			io_loop_run(ioloop);
 	}
 
-	ret = login_req.status;
-	*error_r = t_strdup(login_req.error);
+	ret = login_test.status;
+	*error_r = t_strdup(login_test.error);
 
 	auth_client_deinit(&auth_client);
 	timeout_remove(&to_client_progress);
 	io_loop_destroy(&ioloop);
-	i_free(login_req.error);
+	i_free(login_test.error);
 
 	return ret;
+}
+
+static int
+test_client_auth_simple(const char *mech, const char *username,
+			const char *password, const char **error_r)
+{
+	return test_client_auth_parallel(mech, username, password, 1, error_r);
 }
 
 /*
