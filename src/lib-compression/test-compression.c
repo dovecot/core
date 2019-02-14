@@ -63,6 +63,16 @@ static void test_compression_handler(const struct compression_handler *handler)
 		test_assert(o_stream_send(output, buf, sizeof(buf)) == sizeof(buf));
 	}
 
+	/* 4) write all two byte combinations */
+	for (i = 0; i <= 512; i++) {
+		for(int j = i; j <= 512; j++) {
+			sha1_loop(&sha1,&i,1);
+			test_assert(o_stream_send(output,&i,1) == 1);
+			sha1_loop(&sha1,&j,1);
+			test_assert(o_stream_send(output,&j,1) == 1);
+		}
+	}
+
 	test_assert(o_stream_finish(output) > 0);
 	uoff_t uncompressed_size = output->offset;
 	o_stream_destroy(&output);
@@ -79,6 +89,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 
 	test_assert(i_stream_get_size(input, TRUE, &stream_size) == 1);
 	test_assert(stream_size == uncompressed_size);
+	//printf("\t%s compression ratio   :%f.2\n",handler->name,uncompressed_size*1.0/compressed_size);
 
 	sha1_init(&sha1);
 	for (bool seeked = FALSE;;) {
@@ -96,6 +107,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 		seeked = TRUE;
 		i_stream_seek(input, 0);
 	}
+
 	i_stream_destroy(&input);
 	i_stream_destroy(&file_input);
 
@@ -115,27 +127,27 @@ static void test_compression(void)
 	}
 }
 
-static void test_gz(const char *str1, const char *str2)
+static void concat(const char *str1, const char *str2
+		,const struct compression_handler *handler)
 {
-	const struct compression_handler *gz = compression_lookup_handler("gz");
 	struct ostream *buf_output, *output;
 	struct istream *test_input, *input;
 	buffer_t *buf = t_buffer_create(512);
 
-	if (gz == NULL || gz->create_ostream == NULL)
-		return; /* not compiled in */
+//	if (gz == NULL || gz->create_ostream == NULL)
+//		return; /* not compiled in */
 
 	/* write concated output */
 	buf_output = o_stream_create_buffer(buf);
 	o_stream_set_finish_via_child(buf_output, FALSE);
 
-	output = gz->create_ostream(buf_output, 6);
+	output = handler->create_ostream(buf_output, 6);
 	o_stream_nsend_str(output, str1);
 	test_assert(o_stream_finish(output) > 0);
 	o_stream_destroy(&output);
 
 	if (str2[0] != '\0') {
-		output = gz->create_ostream(buf_output, 6);
+		output = handler->create_ostream(buf_output, 6);
 		o_stream_nsend_str(output, "world");
 		test_assert(o_stream_finish(output) > 0);
 		o_stream_destroy(&output);
@@ -148,7 +160,7 @@ static void test_gz(const char *str1, const char *str2)
 	size_t size;
 	test_input = test_istream_create_data(buf->data, buf->used);
 	test_istream_set_allow_eof(test_input, FALSE);
-	input = gz->create_istream(test_input, TRUE);
+	input = handler->create_istream(test_input, TRUE);
 	for (size_t i = 0; i <= buf->used; i++) {
 		test_istream_set_size(test_input, i);
 		test_assert(i_stream_read(input) >= 0);
@@ -165,18 +177,41 @@ static void test_gz(const char *str1, const char *str2)
 	i_stream_unref(&test_input);
 }
 
-static void test_gz_concat(void)
+
+
+static void test_concat(void)
 {
-	test_begin("gz concat");
-	test_gz("hello", "world");
-	test_end();
+	unsigned int i;
+
+	for (i = 0; compression_handlers[i].name != NULL; i++) {
+		if(!(compression_handlers[i].name[0] == 'g' ||
+				compression_handlers[i].name[0] == 'x')) {
+			continue;
+		}
+		if (compression_handlers[i].create_istream != NULL) {
+			test_begin(t_strdup_printf("concat %s",compression_handlers[i].name));
+			concat("hello","world",&compression_handlers[i]);
+			test_end();
+		}
+	}
 }
 
-static void test_gz_no_concat(void)
+static void test_no_concat(void)
 {
-	test_begin("gz no concat");
-	test_gz("hello", "");
-	test_end();
+	unsigned int i;
+
+	for (i = 0; compression_handlers[i].name != NULL; i++) {
+		if(!(compression_handlers[i].name[0] == 'g' ||
+				compression_handlers[i].name[0] == 'x')) {
+			continue;
+		}
+		if (compression_handlers[i].create_istream != NULL) {
+			test_begin(t_strdup_printf("no concat %s",compression_handlers[i].name));
+			concat("hello","",&compression_handlers[i]);
+			test_end();
+		}
+	}
+
 }
 
 static void test_gz_large_header(void)
@@ -310,8 +345,8 @@ int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
 		test_compression,
-		test_gz_concat,
-		test_gz_no_concat,
+		test_concat,
+		test_no_concat,
 		test_gz_large_header,
 		NULL
 	};
