@@ -71,24 +71,22 @@ static ssize_t o_stream_zstd_sendv(struct ostream_private *stream,
 static int o_stream_zstd_flush(struct ostream_private *stream)
 {
 	struct zstd_ostream *zstream = (struct zstd_ostream *)stream;
+	int ret;
+	size_t oret;
 	if (zstream->flushed)
 		return 0;
 
-	int ret;
 	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
 		return ret;
 	if ((ret = o_stream_zstd_send_output(zstream)) <= 0)
 		return ret;
 
-	size_t oret = ZSTD_flushStream(zstream->cstream, &zstream->output);
+	oret = ZSTD_flushStream(zstream->cstream, &zstream->output);
 	if (ZSTD_isError(oret)) {
 		i_fatal("ZSTD_flushStream():%s", ZSTD_getErrorName(oret));
 	}
 	else {
-		// TODO:return oret
-		if ((ret = o_stream_zstd_send_output(zstream)) <= 0)
-			return ret;
-		return ret;
+		return o_stream_zstd_send_output(zstream);
 	}
 	zstream->flushed = TRUE;
 
