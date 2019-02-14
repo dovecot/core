@@ -15,6 +15,7 @@ struct zstd_istream {
 
 	struct stat last_parent_statbuf;
 	ZSTD_inBuffer input;
+	size_t input_true_size;
 	ZSTD_outBuffer output;
 	size_t next_read;
 	ssize_t buffer_size;
@@ -23,13 +24,16 @@ struct zstd_istream {
 
 static void i_stream_zstd_init(struct zstd_istream *zstream)
 {
-	zstream->output.dst = i_malloc(ZSTD_DStreamOutSize());
+
 	zstream->output.size = ZSTD_DStreamOutSize();
+	zstream->output.dst = i_malloc(zstream->output.size);
 	zstream->output.pos = 0;
 
-	zstream->input.src = i_malloc(ZSTD_DStreamInSize());
+
 	zstream->input.size = ZSTD_DStreamInSize();
-	zstream->input.pos = ZSTD_DStreamInSize();
+	zstream->input.src = i_malloc(zstream->input.size);
+	zstream->input.pos = zstream->input.size;
+	zstream->input_true_size = zstream->input.size;
 
 	zstream->dstream = ZSTD_createDStream();
 	if (zstream->dstream == NULL)
@@ -47,13 +51,11 @@ static void i_stream_zstd_close(struct iostream_private *stream,
 {
 	struct zstd_istream *zstream = (struct zstd_istream *)stream;
 
-	if (zstream->dstream) {
-		ZSTD_freeDStream(zstream->dstream);
-		zstream->dstream = NULL;
-	}
-	// TODO: fix free const
-	// i_free(zstream->input.src);
-	// i_free(zstream->output.dst);
+	ZSTD_freeDStream(zstream->dstream);
+	zstream->dstream = NULL;
+
+	i_free(zstream->input.src);
+	i_free(zstream->output.dst);
 	if (close_parent)
 		i_stream_close(zstream->istream.parent);
 }
@@ -66,7 +68,7 @@ static void i_stream_zstd_decompress(struct zstd_istream *zstream)
 
 	if (zstream->next_read || !stream->istream.eof) {
 		// move everything to back of buffer
-		memmove((void *)zstream->input.src,
+		memmove(zstream->input.src,
 			(void *)((long)zstream->input.src + zstream->input.pos),
 			zstream->input.size - zstream->input.pos);
 		// we have zstream->input.pos free bytes
@@ -164,7 +166,15 @@ static void i_stream_zstd_reset(struct zstd_istream *zstream)
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
 
-	i_stream_zstd_init(zstream);
+	zstream->output.pos = 0;
+	zstream->input.size = zstream->input_true_size;
+	zstream->input.pos = zstream->input.size;
+
+	zstream->next_read = ZSTD_initDStream(zstream->dstream);
+
+	if (ZSTD_isError(zstream->next_read))
+		i_fatal("ZSTD_initDStream(): %s",
+			ZSTD_getErrorName(zstream->next_read));
 }
 
 static void i_stream_zstd_seek(struct istream_private *stream, uoff_t v_offset,

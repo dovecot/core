@@ -113,12 +113,16 @@ static void o_stream_zstd_close(struct iostream_private *stream,
 				bool close_parent)
 {
 	struct zstd_ostream *zstream = (struct zstd_ostream *)stream;
-	size_t ret = ZSTD_endStream(zstream->cstream, &zstream->output);
-	if (ZSTD_isError(ret)) {
-		i_fatal("ZSTD_endStream():%s", ZSTD_getErrorName(ret));
+	if(zstream->cstream) {
+		size_t ret = ZSTD_endStream(zstream->cstream, &zstream->output);
+		ZSTD_freeCStream(zstream->cstream);
+		zstream->cstream = 0;
+		if (ZSTD_isError(ret)) {
+			i_fatal("ZSTD_endStream():%s", ZSTD_getErrorName(ret));
+		}
+		o_stream_zstd_send_output(zstream);
+		i_free(zstream->output.dst);
 	}
-	o_stream_zstd_send_output(zstream);
-	i_free(zstream->output.dst);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);
 }
