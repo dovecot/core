@@ -1701,7 +1701,7 @@ http_client_connection_create(struct http_client_peer *peer)
 
 	conn->label = i_strdup_printf("%s [%d]",
 		http_client_peer_shared_label(pshared), conn->id);
-	conn->event = event_create(peer->client->event);
+	conn->event = event_create(ppool->peer->cctx->event);
 	conn->conn.event_parent = conn->event;
 	event_set_append_log_prefix(conn->event,
 		t_strdup_printf("conn %s: ", conn->label));
