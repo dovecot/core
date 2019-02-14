@@ -148,7 +148,7 @@ static void request_failure(struct master_login_auth *auth,
 
 	struct event_passthrough *e =
 		event_create_passthrough(request->event)->
-		set_name("master_login_auth_finished");
+		set_name("auth_master_client_login_finished");
 	e->add_str("error", log_reason);
 	e_error(e->event(), "Login auth request failed: %s (%s)",
 		log_reason, str_c(str));
