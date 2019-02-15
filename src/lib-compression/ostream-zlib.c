@@ -315,11 +315,7 @@ o_stream_create_zlib(struct ostream *output, int level, bool gz)
 	struct zlib_ostream *zstream;
 	int ret;
 
-	if (level < 1 || level > 9) {
-		i_warning("%s compression level must be between 1..9",
-			  gz ? "gz" : "deflate");
-		level = 6;
-	}
+	i_assert(level >= 1 && level <= 9);
 
 	zstream = i_new(struct zlib_ostream, 1);
 	zstream->ostream.sendv = o_stream_zlib_sendv;

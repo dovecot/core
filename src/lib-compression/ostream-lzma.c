@@ -218,10 +218,7 @@ struct ostream *o_stream_create_lzma(struct ostream *output, int level)
 	struct lzma_ostream *zstream;
 	lzma_ret ret;
 
-	if (level < 1 || level > 9) {
-		i_warning("lzma compression level must be between 1..9");
-		level = 6;
-	}
+	i_assert(level >= 1 && level <= 9);
 
 	zstream = i_new(struct lzma_ostream, 1);
 	zstream->ostream.sendv = o_stream_lzma_sendv;
