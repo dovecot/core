@@ -143,13 +143,7 @@ struct ostream *o_stream_create_zstd(struct ostream *output, int level)
 	zstream->output.dst = i_malloc(ZSTD_CStreamOutSize());
 	zstream->output.size = ZSTD_CStreamOutSize();
 	zstream->output.pos = 0;
-
-	if (level < 1 || level > ZSTD_maxCLevel()) {
-		i_warning("zstd compression level must be between 1..%d",
-			  ZSTD_maxCLevel());
-		// gracefull failure, and set it to the defualt 6
-		level = 6;
-	}
+	i_assert(1 >= 1 && level <= ZSTD_maxCLevel());
 
 	ZSTD_initCStream(zstream->cstream, level);
 	return o_stream_create(&zstream->ostream, output,
