@@ -47,6 +47,39 @@ static void lzma_read_error(struct lzma_istream *zstream, const char *error)
 		i_error("%s", zstream->istream.iostream.error);
 }
 
+static int lzma_handle_error(struct lzma_istream *zstream, lzma_ret lzma_err)
+{
+	struct istream_private *stream = &zstream->istream;
+	switch (lzma_err) {
+	case LZMA_OK:
+		break;
+	case LZMA_DATA_ERROR:
+	case LZMA_BUF_ERROR:
+		lzma_read_error(zstream, "corrupted data");
+		stream->istream.stream_errno = EINVAL;
+		return -1;
+	case LZMA_FORMAT_ERROR:
+		lzma_read_error(zstream, "wrong magic in header (not xz file?)");
+		stream->istream.stream_errno = EINVAL;
+		return -1;
+	case LZMA_OPTIONS_ERROR:
+		lzma_read_error(zstream, "Unsupported xz options");
+		stream->istream.stream_errno = EIO;
+		return -1;
+	case LZMA_MEM_ERROR:
+		i_fatal_status(FATAL_OUTOFMEM, "lzma.read(%s): Out of memory",
+			       i_stream_get_name(&stream->istream));
+	case LZMA_STREAM_END:
+		break;
+	default:
+		lzma_read_error(zstream, t_strdup_printf(
+			"lzma_code() failed with %d", lzma_err));
+		stream->istream.stream_errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
 static void lzma_stream_end(struct lzma_istream *zstream)
 {
 	zstream->eof_offset = zstream->istream.istream.v_offset +
@@ -83,7 +116,10 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 				stream->parent->stream_errno;
 		} else {
 			i_assert(stream->parent->eof);
-			lzma_stream_end(zstream);
+			ret = lzma_code(&zstream->strm, LZMA_FINISH);
+			if (ret != LZMA_STREAM_END)
+				if (lzma_handle_error(zstream, ret) == 0)
+					stream->istream.stream_errno = EPIPE;
 			stream->istream.eof = TRUE;
 		}
 		return -1;
@@ -106,37 +142,14 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 
 	i_stream_skip(stream->parent, size - zstream->strm.avail_in);
 
-	switch (ret) {
-	case LZMA_OK:
-		break;
-	case LZMA_DATA_ERROR:
-	case LZMA_BUF_ERROR:
-		lzma_read_error(zstream, "corrupted data");
-		stream->istream.stream_errno = EINVAL;
+	if (lzma_handle_error(zstream, ret) < 0) {
 		return -1;
-	case LZMA_FORMAT_ERROR:
-		lzma_read_error(zstream, "wrong magic in header (not xz file?)");
-		stream->istream.stream_errno = EINVAL;
-		return -1;
-	case LZMA_OPTIONS_ERROR:
-		lzma_read_error(zstream, "Unsupported xz options");
-		stream->istream.stream_errno = EIO;
-		return -1;
-	case LZMA_MEM_ERROR:
-		i_fatal_status(FATAL_OUTOFMEM, "lzma.read(%s): Out of memory",
-			       i_stream_get_name(&stream->istream));
-	case LZMA_STREAM_END:
+	} else if (ret == LZMA_STREAM_END) {
 		lzma_stream_end(zstream);
 		if (out_size == 0) {
 			stream->istream.eof = TRUE;
 			return -1;
 		}
-		break;
-	default:
-		lzma_read_error(zstream, t_strdup_printf(
-			"lzma_code() failed with %d", ret));
-		stream->istream.stream_errno = EIO;
-		return -1;
 	}
 	if (out_size == 0) {
 		/* read more input */
