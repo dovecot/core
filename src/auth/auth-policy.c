@@ -239,6 +239,33 @@ void auth_policy_deinit(void)
 }
 
 static
+void auth_policy_log_result(struct policy_lookup_ctx *context)
+{
+	const char *action;
+	if (!context->expect_result)
+		return;
+	int result = context->result;
+	struct event_passthrough *e = event_create_passthrough(context->event)->
+		set_name("auth_policy_request_finished")->
+		add_int("policy_response", context->result);
+	if (result < 0)
+		action = "drop connection";
+	else if (context->result == 0)
+		action = "continue";
+	else
+		action = t_strdup_printf("tarpit %d second(s)", context->result);
+	if (context->request->set->policy_log_only && result != 0)
+		e_info(e->event(), "Policy check action '%s' ignored",
+		       action);
+	else if (result != 0)
+		e_info(e->event(), "Policy check action is %s",
+		       action);
+	else
+		e_debug(e->event(), "Policy check action is %s",
+			action);
+}
+
+static
 void auth_policy_finish(struct policy_lookup_ctx *context)
 {
 	if (context->parser != NULL) {
@@ -257,10 +284,8 @@ void auth_policy_callback(struct policy_lookup_ctx *context)
 {
 	if (context->callback != NULL)
 		context->callback(context->result, context->callback_context);
-	struct event_passthrough *e = event_create_passthrough(context->event)->
-		set_name("auth_policy_request_finished")->
-		add_int("policy_response", context->response);
-	e_debug(e->event(), "Policy request finished, result: %d", context->response);
+	if (context->event != NULL)
+		auth_policy_log_result(context);
 }
 
 static
@@ -381,8 +406,6 @@ void auth_policy_process_response(const struct http_response *response,
 		context->parser = json_parser_init(response->payload);
 		auth_policy_parse_response(ctx);
 	} else {
-		e_debug(context->event,
-			"Policy response %d", context->result);
 		auth_policy_callback(context);
 	}
 }
