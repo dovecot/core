@@ -245,6 +245,7 @@ void auth_policy_finish(struct policy_lookup_ctx *context)
 	http_client_request_abort(&context->http_request);
 	if (context->request != NULL)
 		auth_request_unref(&context->request);
+	pool_unref(&context->pool);
 }
 
 static
@@ -532,8 +533,9 @@ void auth_policy_check(struct auth_request *request, const char *password,
 		cb(0, context);
 		return;
 	}
-	struct policy_lookup_ctx *ctx = p_new(request->pool, struct policy_lookup_ctx, 1);
-	ctx->pool = request->pool;
+	pool_t pool = pool_alloconly_create("auth policy", 512);
+	struct policy_lookup_ctx *ctx = p_new(pool, struct policy_lookup_ctx, 1);
+	ctx->pool = pool;
 	ctx->request = request;
 	ctx->expect_result = TRUE;
 	ctx->callback = cb;
@@ -556,8 +558,9 @@ void auth_policy_report(struct auth_request *request)
 
 	if (*(request->set->policy_server_url) == '\0')
 		return;
-	struct policy_lookup_ctx *ctx = p_new(request->pool, struct policy_lookup_ctx, 1);
-	ctx->pool = request->pool;
+	pool_t pool = pool_alloconly_create("auth policy", 512);
+	struct policy_lookup_ctx *ctx = p_new(pool, struct policy_lookup_ctx, 1);
+	ctx->pool = pool;
 	ctx->request = request;
 	ctx->expect_result = FALSE;
 	ctx->set = request->set;
