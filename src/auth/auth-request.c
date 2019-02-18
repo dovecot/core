@@ -1247,28 +1247,13 @@ static
 void auth_request_policy_check_callback(int result, void *context)
 {
 	struct auth_policy_check_ctx *ctx = context;
-	const char *action;
 
 	ctx->request->policy_processed = TRUE;
 
-	if (result < 0)
-		action = "drop connection";
-	else if (result == 0)
-		action = "continue";
-	else
-		action = t_strdup_printf("tarpit %d second(s)", result);
 	if (ctx->request->set->policy_log_only && result != 0) {
-		auth_request_log_info(ctx->request, "policy", "Policy check action '%s' ignored",
-				      action);
 		auth_request_policy_penalty_finish(context);
 		return;
 	}
-	if (result != 0)
-		auth_request_log_info(ctx->request, "policy", "Policy check action is %s",
-				      action);
-	else
-		auth_request_log_debug(ctx->request, "policy", "Policy check action is %s",
-				       action);
 	if (result < 0) {
 		/* fail it right here and now */
 		auth_request_fail(ctx->request);
