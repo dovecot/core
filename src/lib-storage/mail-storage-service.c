@@ -906,7 +906,7 @@ static void mail_storage_service_time_moved(time_t old_time, time_t new_time)
 
 	if (diff > 0) {
 		if (diff > MAX_NOWARN_FORWARD_SECS)
-			i_warning("Time jumped forwards %ld seconds", diff);
+			i_warning("Time jumped forward %ld seconds", diff);
 		return;
 	}
 	diff = -diff;
