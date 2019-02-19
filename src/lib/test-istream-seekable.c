@@ -40,6 +40,7 @@ static void test_istream_seekable_one(unsigned int buffer_size)
 	streams[i] = NULL;
 
 	input = i_stream_create_seekable(streams, buffer_size, fd_callback, NULL);
+	test_assert(!input->blocking);
 	for (i = 0; i/STREAM_BYTES < STREAM_COUNT; i++) {
 		test_istream_set_size(streams[i/STREAM_BYTES], (i%STREAM_BYTES) + 1);
 		if (i < buffer_size) {
@@ -57,7 +58,9 @@ static void test_istream_seekable_one(unsigned int buffer_size)
 			test_assert((char)data[j] == input_string[(input->v_offset + j) % STREAM_BYTES]);
 		}
 	}
+	test_assert(!input->blocking);
 	test_assert(i_stream_read(input) == -1);
+	test_assert(input->blocking);
 	for (i = 0; i < STREAM_COUNT; i++) {
 		test_assert(streams[i]->eof && streams[i]->stream_errno == 0);
 		i_stream_unref(&streams[i]);
@@ -89,12 +92,14 @@ static void test_istream_seekable_random(void)
 
 	buffer_size = i_rand_minmax(1, 100); size = 0;
 	input = i_stream_create_seekable(streams, buffer_size, fd_callback, NULL);
+	test_assert(!input->blocking);
 
 	/* first read it through */
 	while (i_stream_read(input) > 0) {
 		size = i_stream_get_data_size(input);
 		i_stream_skip(input, size);
 	}
+	test_assert(input->blocking);
 
 	i_stream_seek(input, 0);
 	for (i = 0; i < 100; i++) {
