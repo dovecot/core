@@ -39,7 +39,7 @@ static bool is_compressed_zstd(struct istream *input)
 		return FALSE;
 	i_assert(size >= 4);
 
-	return memcmp(data,"\xFD\x2F\xB5\x28",4) == 0;
+	return memcmp(data,"\x28\xB5\x2F\xFD",4) == 0;
 }
 
 static bool is_compressed_zlib(struct istream *input)
