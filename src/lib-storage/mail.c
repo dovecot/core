@@ -8,6 +8,7 @@
 #include "crc32.h"
 #include "sha1.h"
 #include "hostpid.h"
+#include "istream.h"
 #include "mail-cache.h"
 #include "mail-storage-private.h"
 #include "message-part-data.h"
@@ -276,6 +277,7 @@ int mail_get_stream_because(struct mail *mail, struct message_size *hdr_size,
 		ret = p->v.get_stream(mail, TRUE, hdr_size, body_size, stream_r);
 		p->get_stream_reason = "";
 	} T_END;
+	i_assert(ret < 0 || (*stream_r)->blocking);
 	return ret;
 }
 
@@ -301,6 +303,7 @@ int mail_get_hdr_stream_because(struct mail *mail,
 		ret = p->v.get_stream(mail, FALSE, hdr_size, NULL, stream_r);
 		p->get_stream_reason = "";
 	} T_END;
+	i_assert(ret < 0 || (*stream_r)->blocking);
 	return ret;
 }
 
@@ -319,6 +322,7 @@ int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
 		ret = p->v.get_binary_stream(mail, part, include_hdr,
 					     size_r, NULL, binary_r, stream_r);
 	} T_END;
+	i_assert(ret < 0 || (*stream_r)->blocking);
 	return ret;
 }
 
