@@ -31,7 +31,9 @@ static void i_stream_zstd_close(struct iostream_private *stream,
 	ZSTD_freeDStream(zstream->dstream);
 	zstream->dstream = NULL;
 
-	i_free(zstream->input.src);
+	void* tmp = PTR_OFFSET(zstream->input.src,0);
+	zstream->input.src = NULL;
+	i_free(tmp);
 	i_free(zstream->output.dst);
 	if (close_parent)
 		i_stream_close(zstream->istream.parent);
