@@ -540,7 +540,7 @@ mailboxes_get_guids(struct mailbox *const boxes[],
 	}
 
 	array_append_zero(&box_results);
-	result->box_results = array_idx_modifiable(&box_results, 0);
+	result->box_results = array_front_modifiable(&box_results);
 	return 0;
 }
 

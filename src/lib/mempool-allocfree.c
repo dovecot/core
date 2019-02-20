@@ -6,7 +6,87 @@
 #include "mempool.h"
 #include "llist.h"
 
-#define MAX_ALLOC_SIZE SSIZE_T_MAX
+/*
+ * As the name implies, allocfree pools support both allocating and freeing
+ * memory.
+ *
+ * Implementation
+ * ==============
+ *
+ * Each allocfree pool contains a pool structure (struct allocfree_pool) to
+ * keep track of allocfree-specific pool information and zero or more blocks
+ * (struct pool_block) that keep track of ranges of memory used to back the
+ * allocations.  The blocks are kept in a doubly-linked list used to keep
+ * track of all allocations that belong to the pool.
+ *
+ * +-----------+
+ * | allocfree |
+ * |    pool   |
+ * +-----+-----+
+ *       |
+ *       | blocks +------------+ next  +------------+ next
+ *       \------->| pool block |<=====>| pool block |<=====>...<====> NULL
+ *                +------------+  prev +------------+  prev
+ *                |   <data>   |       |   <data>   |
+ *                      .                    .
+ *                      .                    .
+ *                      .              |   <data>   |
+ *                      .              +------------+
+ *                |   <data>   |
+ *                +------------+
+ *
+ * Creation
+ * --------
+ *
+ * When an allocfree pool is created the linked list of allocated blocks is
+ * initialized to be empty.
+ *
+ * Allocation & Freeing
+ * --------------------
+ *
+ * Since each allocation (via p_malloc()) corresponds to one block,
+ * allocations are simply a matter of:
+ *
+ *  - allocating enough memory from the system heap (via calloc()) to hold
+ *    the block header and the requested number of bytes,
+ *  - making a note of the user-requested size in the block header,
+ *  - adding the new block to the pool's linked list of blocks, and
+ *  - returning a pointer to the payload area of the block to the caller.
+ *
+ * Freeing memory is simpler.  The passed in pointer is converted to a
+ * struct pool_block pointer.  Then the block is removed from the pool's
+ * linked list and free()d.
+ *
+ * If the pool was created via pool_allocfree_create_clean(), all blocks are
+ * safe_memset() to zero just before being free()d.
+ *
+ * Reallocation
+ * ------------
+ *
+ * Reallocation is done by calling realloc() with a new size that is large
+ * enough to cover the requested number of bytes plus the block header
+ * overhead.
+ *
+ * Clearing
+ * --------
+ *
+ * Clearing the pool is supposed to return the pool to the same state it was
+ * in when it was first created.  To that end, the allocfree pool frees all
+ * the blocks allocated since the pool's creation.  In other words, clearing
+ * is equivalent to (but faster than) calling p_free() for each allocation
+ * in the pool.
+ *
+ * Finally, if the pool was created via pool_allocfree_create_clean(), all
+ * blocks are safe_memset() to zero before being free()d.
+ *
+ * Destruction
+ * -----------
+ *
+ * Destroying a pool first clears it (see above) and then the pool structure
+ * itself is safe_memset() to zero (if pool_allocfree_create_clean() was
+ * used) and free()d.  (The clearing leaves the pool in a minimal state
+ * with no blocks allocated.)
+ */
 
 struct allocfree_pool {
 	struct pool pool;
@@ -66,6 +146,10 @@ static const struct pool static_allocfree_pool = {
 pool_t pool_allocfree_create(const char *name ATTR_UNUSED)
 {
 	struct allocfree_pool *pool;
+
+	if (SIZEOF_POOLBLOCK > (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE))
+		i_panic("POOL_MAX_ALLOC_SIZE is too large");
+
 	pool = calloc(1, SIZEOF_ALLOCFREE_POOL);
 	if (pool == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %"PRIuSIZE_T"): Out of memory",
@@ -171,9 +255,6 @@ static void *pool_allocfree_malloc(pool_t pool, size_t size)
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
 
-	if (unlikely(size == 0 || size > SSIZE_T_MAX - SIZEOF_POOLBLOCK))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
-
 	struct pool_block *block = calloc(1, SIZEOF_POOLBLOCK + size);
 	if (block == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %"PRIuSIZE_T"): Out of memory",
@@ -186,8 +267,6 @@ static void pool_allocfree_free(pool_t pool, void *mem)
 {
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
-	if (mem == NULL)
-		return;
 	struct pool_block *block = pool_block_detach(apool, mem);
 	if (apool->clean_frees)
 		safe_memset(block, 0, SIZEOF_POOLBLOCK+block->size);
@@ -200,12 +279,6 @@ static void *pool_allocfree_realloc(pool_t pool, void *mem,
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
 	unsigned char *new_mem;
-
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX - SIZEOF_POOLBLOCK))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
-
-	if (mem == NULL)
-		return pool_allocfree_malloc(pool, new_size);
 
 	struct pool_block *block = pool_block_detach(apool, mem);
 	if ((new_mem = realloc(block, SIZEOF_POOLBLOCK+new_size)) == NULL)

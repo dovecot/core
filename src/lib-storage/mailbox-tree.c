@@ -104,7 +104,7 @@ mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 			continue;
 
 		str_truncate(str, 0);
-		str_append_n(str, name, (size_t) (path - name));
+		str_append_data(str, name, (size_t) (path - name));
 		name = str_c(str);
 
 		/* find the node */
@@ -197,7 +197,7 @@ mailbox_tree_iterate_set_next_node(struct mailbox_tree_iterate_context *ctx)
 	unsigned int i, count;
 
 	if (node->children != NULL) {
-		array_append(&ctx->node_path, &node, 1);
+		array_push_back(&ctx->node_path, &node);
 		ctx->parent_pos = str_len(ctx->path_str);
 		node = node->children;
 		ctx->first_child = TRUE;
@@ -314,7 +314,7 @@ static void mailbox_tree_sort_branch(struct mailbox_node **nodes,
 	/* first put the nodes into an array and sort it */
 	array_clear(tmparr);
 	for (node = *nodes; node != NULL; node = node->next)
-		array_append(tmparr, &node, 1);
+		array_push_back(tmparr, &node);
 	array_sort(tmparr, mailbox_node_name_cmp);
 
 	/* update the node pointers */

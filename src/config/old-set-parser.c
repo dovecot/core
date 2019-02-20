@@ -50,7 +50,7 @@ obsolete(struct config_parser_context *ctx, const char *str, ...)
 
 	if (!seen_obsoletes) {
 		i_warning("NOTE: You can get a new clean config file with: "
-			  "doveconf -n > dovecot-new.conf");
+			  "doveconf -Pn > dovecot-new.conf");
 		seen_obsoletes = TRUE;
 	}
 
@@ -350,7 +350,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (ctx->old->auth_section == 1) {
-		if (strncmp(key, "auth_", 5) != 0)
+		if (!str_begins(key, "auth_"))
 			key = t_strconcat("auth_", key, NULL);
 		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
 					 key, value);
@@ -561,7 +561,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 	}
 
 	if (ctx->old->auth_section == 1) {
-		if (strncmp(key, "auth_", 5) != 0)
+		if (!str_begins(key, "auth_"))
 			key = t_strconcat("auth_", key, NULL);
 	}
 
@@ -673,7 +673,7 @@ static void socket_apply(struct config_parser_context *ctx)
 	}
 	path = set->path;
 	len = strlen(ctx->old->base_dir);
-	if (strncmp(path, ctx->old->base_dir, len) == 0 &&
+	if (str_begins(path, ctx->old->base_dir) &&
 	    path[len] == '/')
 		path += len + 1;
 

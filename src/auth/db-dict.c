@@ -122,7 +122,7 @@ parse_obsolete_setting(const char *key, const char *value,
 		ctx->cur_key->key = p_strdup(ctx->conn->pool, value);
 
 		dbkey = ctx->cur_key;
-		array_append(&ctx->conn->set.parsed_passdb_objects, &dbkey, 1);
+		array_push_back(&ctx->conn->set.parsed_passdb_objects, &dbkey);
 		return TRUE;
 	}
 	if (strcmp(key, "user_key") == 0) {
@@ -136,7 +136,7 @@ parse_obsolete_setting(const char *key, const char *value,
 		ctx->cur_key->key = p_strdup(ctx->conn->pool, value);
 
 		dbkey = ctx->cur_key;
-		array_append(&ctx->conn->set.parsed_userdb_objects, &dbkey, 1);
+		array_push_back(&ctx->conn->set.parsed_userdb_objects, &dbkey);
 		return TRUE;
 	}
 	if (strcmp(key, "value_format") == 0) {
@@ -249,7 +249,7 @@ db_dict_settings_parse(struct db_dict_settings *set)
 			i_fatal("dict: passdb_objects refers to key %s, "
 				"but it's in value-only format", *tmp);
 		}
-		array_append(&set->parsed_passdb_objects, &key, 1);
+		array_push_back(&set->parsed_passdb_objects, &key);
 	}
 
 	tmp = t_strsplit_spaces(set->userdb_objects, " ");
@@ -263,7 +263,7 @@ db_dict_settings_parse(struct db_dict_settings *set)
 			i_fatal("dict: userdb_objects refers to key %s, "
 				"but it's in value-only format", *tmp);
 		}
-		array_append(&set->parsed_userdb_objects, &key, 1);
+		array_push_back(&set->parsed_userdb_objects, &key);
 	}
 }
 

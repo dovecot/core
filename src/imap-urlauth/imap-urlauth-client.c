@@ -38,6 +38,10 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
+struct event_category event_category_urlauth = {
+	.name = "imap-urlauth",
+};
+
 struct client *imap_urlauth_clients;
 unsigned int imap_urlauth_client_count;
 
@@ -62,6 +66,10 @@ int client_create(const char *service, const char *username,
 	client->fd_ctrl = -1;
 	client->set = set;
 
+	client->event = event_create(NULL);
+	event_set_forced_debug(client->event, set->mail_debug);
+	event_add_category(client->event, &event_category_urlauth);
+
 	if (client_worker_connect(client) < 0) {
 		i_free(client);
 		return -1;
@@ -72,17 +80,15 @@ int client_create(const char *service, const char *username,
 	if (username != NULL) {
 		if (set->imap_urlauth_submit_user != NULL &&
 		    strcmp(set->imap_urlauth_submit_user, username) == 0) {
-			if (set->mail_debug)
-				i_debug("User %s has URLAUTH submit access", username);
+			e_debug(client->event, "User %s has URLAUTH submit access", username);
 			app = "submit+";
-			array_append(&client->access_apps, &app, 1);
+			array_push_back(&client->access_apps, &app);
 		}
 		if (set->imap_urlauth_stream_user != NULL &&
 		    strcmp(set->imap_urlauth_stream_user, username) == 0) {
-			if (set->mail_debug)
-				i_debug("User %s has URLAUTH stream access", username);
+			e_debug(client->event, "User %s has URLAUTH stream access", username);
 			app = "stream";
-			array_append(&client->access_apps, &app, 1);
+			array_push_back(&client->access_apps, &app);
 		}
 	}
 
@@ -134,8 +140,7 @@ static int client_worker_connect(struct client *client)
 	socket_path = t_strconcat(client->set->base_dir,
 				  "/"IMAP_URLAUTH_WORKER_SOCKET, NULL);
 
-	if (client->set->mail_debug)
-		i_debug("Connecting to worker socket %s", socket_path);
+	e_debug(client->event, "Connecting to worker socket %s", socket_path);
 
 	client->fd_ctrl = net_connect_unix_with_retries(socket_path, 1000);
 	if (client->fd_ctrl < 0) {
@@ -267,8 +272,7 @@ client_worker_input_line(struct client *client, const char *response)
 			return -1;
 		}
 
-		if (client->set->mail_debug)
-			i_debug("Worker finished successfully");
+		e_debug(client->event, "Worker finished successfully");
 
 		if (restart) {
 			/* connect to new worker for accessing different user */
@@ -339,6 +343,8 @@ void client_destroy(struct client *client, const char *reason)
 	o_stream_destroy(&client->output);
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
+
+	event_unref(&client->event);
 
 	i_free(client->username);
 	i_free(client->service);

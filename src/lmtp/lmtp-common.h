@@ -1,39 +1,31 @@
 #ifndef LMTP_COMMON_H
 #define LMTP_COMMON_H
 
-struct smtp_address;
-struct smtp_server_cmd_ctx;
-struct smtp_server_cmd_rcpt;
-struct smtp_server_recipient;
-struct client;
+#include "lib.h"
+#include "array.h"
+#include "ioloop.h"
+#include "settings-parser.h"
+#include "master-service.h"
+#include "smtp-reply.h"
+#include "smtp-server.h"
+#include "lmtp-client.h"
+#include "lmtp-settings.h"
 
-enum lmtp_recipient_type {
-	LMTP_RECIPIENT_TYPE_LOCAL,
-	LMTP_RECIPIENT_TYPE_PROXY,
-};
+typedef void lmtp_client_created_func_t(struct client **client);
 
-struct lmtp_recipient {
-	struct client *client;
-	enum lmtp_recipient_type type;
+extern lmtp_client_created_func_t *hook_client_created;
 
-	struct smtp_address *path;
-	struct smtp_server_cmd_ctx *rcpt_cmd;
-	struct smtp_server_recipient *rcpt;
-	unsigned int index;
-};
+extern char *dns_client_socket_path, *base_dir;
+extern struct mail_storage_service_ctx *storage_service;
+extern struct anvil_client *anvil;
 
-void lmtp_recipient_init(struct lmtp_recipient *rcpt,
-			 struct client *client,
-			 enum lmtp_recipient_type type,
-			 struct smtp_server_cmd_ctx *cmd,
-			 struct smtp_server_cmd_rcpt *data);
+extern struct smtp_server *lmtp_server;
 
-void lmtp_recipient_finish(struct lmtp_recipient *rcpt,
-			   struct smtp_server_recipient *trcpt,
-			   unsigned int index);
+/* Sets the hook_client_created and returns the previous hook,
+   which the new_hook should call if it's non-NULL. */
+lmtp_client_created_func_t *
+lmtp_client_created_hook_set(lmtp_client_created_func_t *new_hook);
 
-struct lmtp_recipient *
-lmtp_recipient_find_duplicate(struct lmtp_recipient *rcpt,
-			      struct smtp_server_transaction *trans);
+void lmtp_anvil_init(void);
 
 #endif

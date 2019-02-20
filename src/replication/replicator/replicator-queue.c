@@ -294,7 +294,7 @@ replicator_queue_handle_sync_lookups(struct replicator_queue *queue,
 			lookups[i].wait_for_next_push = FALSE;
 			i++;
 		} else {
-			array_append(&callbacks, &lookups[i], 1);
+			array_push_back(&callbacks, &lookups[i]);
 			array_delete(&queue->sync_lookups, i, 1);
 		}
 	}

@@ -39,9 +39,9 @@ userdb_lua_preinit(pool_t pool, const char *args)
 	module = p_new(pool, struct dlua_userdb_module, 1);
 	const char *const *fields = t_strsplit_spaces(args, " ");
 	while(*fields != NULL) {
-		if (strncmp(*fields, "file=", 5) == 0) {
+		if (str_begins(*fields, "file=")) {
 			 module->file = p_strdup(pool, (*fields)+5);
-		} else if (strncmp(*fields, "blocking=", 9) == 0) {
+		} else if (str_begins(*fields, "blocking=")) {
 			const char *value = (*fields)+9;
 			if (strcmp(value, "yes") == 0) {
 				blocking = TRUE;
@@ -52,7 +52,7 @@ userdb_lua_preinit(pool_t pool, const char *args)
 					"Field blocking must be yes or no",
 					value);
 			}
-		} else if (strncmp(*fields, "cache_key=", 10) == 0) {
+		} else if (str_begins(*fields, "cache_key=")) {
 			if (*((*fields)+10) != '\0')
 				cache_key = (*fields)+10;
 			else /* explicitly disable auth caching for lua */
@@ -80,7 +80,7 @@ static void userdb_lua_init(struct userdb_module *_module)
 		(struct dlua_userdb_module *)_module;
 	const char *error;
 
-	if (dlua_script_create_file(module->file, &module->script, &error) < 0 ||
+	if (dlua_script_create_file(module->file, &module->script, auth_event, &error) < 0 ||
 	    auth_lua_script_init(module->script, &error) < 0)
 		i_fatal("userdb-lua: initialization failed: %s", error);
 }

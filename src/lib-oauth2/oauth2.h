@@ -18,11 +18,15 @@ struct oauth2_settings {
 	/* GET tokeninfo from this URL, token is appended to URL
 	   http://some.host/path?access_token= */
 	const char *tokeninfo_url;
+	/* POST grant password here, needs user credentials and client_* settings */
+	const char *grant_url;
 	/* GET more information from this URL, uses Bearer authentication */
 	const char *introspection_url;
 	/* POST refresh here, needs refresh token and client_* settings */
 	const char *refresh_url;
+	/* client identificator for oauth2 server */
 	const char *client_id;
+	/* client secret for oauth2 server */
 	const char *client_secret;
 	enum {
 		INTROSPECTION_MODE_GET_AUTH,
@@ -32,6 +36,16 @@ struct oauth2_settings {
 	unsigned int timeout_msecs;
 	/* Should X-Dovecot-Auth-* headers be sent */
 	bool send_auth_headers;
+	/* Should use grant password mechanism for authentication */
+	bool use_grant_password;
+};
+
+struct oauth2_passwd_grant_result {
+	ARRAY_TYPE(oauth2_field) *fields;
+	const char *error;
+	time_t expires_at;
+	bool success:1;
+	bool valid:1;
 };
 
 struct oauth2_token_validation_result {
@@ -64,6 +78,9 @@ struct oauth2_request_input {
 };
 
 typedef void
+oauth2_passwd_grant_callback_t(struct oauth2_passwd_grant_result*, void*);
+
+typedef void
 oauth2_token_validation_callback_t(struct oauth2_token_validation_result*, void*);
 
 typedef void
@@ -73,6 +90,19 @@ typedef void
 oauth2_refresh_callback_t(struct oauth2_refresh_result*, void*);
 
 bool oauth2_valid_token(const char *token);
+
+struct oauth2_request*
+oauth2_passwd_grant_start(const struct oauth2_settings *set,
+			  const struct oauth2_request_input *input,
+			  const char *username,
+			  const char *password,
+			  oauth2_passwd_grant_callback_t *callback,
+			  void *context);
+#define oauth2_passwd_grant_start(set, input, username, password, callback, context) \
+	oauth2_passwd_grant_start(set, input + \
+		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_passwd_grant_result*, typeof(context))), \
+		username, password, \
+		(oauth2_passwd_grant_callback_t*)callback, (void*)context);
 
 struct oauth2_request*
 oauth2_token_validation_start(const struct oauth2_settings *set,
@@ -94,7 +124,7 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_introspection_result*, typeof(context))), \
 		(oauth2_introspection_callback_t*)callback, (void*)context);
 
-struct oauth2_request*
+struct oauth2_request *
 oauth2_refresh_start(const struct oauth2_settings *set,
 		     const struct oauth2_request_input *input,
 		     oauth2_refresh_callback_t *callback,

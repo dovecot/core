@@ -268,7 +268,7 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	rext.record_size = default_record_size;
 	rext.record_align = default_record_align;
 
-	array_append(&index->extensions, &rext, 1);
+	array_push_back(&index->extensions, &rext);
 	return rext.index_idx;
 }
 
@@ -330,35 +330,10 @@ void mail_index_unregister_expunge_handler(struct mail_index *index,
 	rext->expunge_handler = NULL;
 }
 
-void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
-				      mail_index_sync_handler_t *cb,
-				      enum mail_index_sync_handler_type type)
-{
-	struct mail_index_registered_ext *rext;
-
-	rext = array_idx_modifiable(&index->extensions, ext_id);
-	i_assert(rext->sync_handler.callback == NULL);
-
-	rext->sync_handler.callback = cb;
-	rext->sync_handler.type = type;
-}
-
-void mail_index_unregister_sync_handler(struct mail_index *index,
-					uint32_t ext_id)
-{
-	struct mail_index_registered_ext *rext;
-
-	rext = array_idx_modifiable(&index->extensions, ext_id);
-	i_assert(rext->sync_handler.callback != NULL);
-
-	rext->sync_handler.callback = NULL;
-	rext->sync_handler.type = 0;
-}
-
 void mail_index_register_sync_lost_handler(struct mail_index *index,
 					   mail_index_sync_lost_handler_t *cb)
 {
-	array_append(&index->sync_lost_handlers, &cb, 1);
+	array_push_back(&index->sync_lost_handlers, &cb);
 }
 
 void mail_index_unregister_sync_lost_handler(struct mail_index *index,
@@ -411,11 +386,11 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 
 	hash_table_insert(index->keywords_hash, keyword_dup,
 			  POINTER_CAST(*idx_r));
-	array_append(&index->keywords, &keyword, 1);
+	array_push_back(&index->keywords, &keyword);
 
 	/* keep the array NULL-terminated, but the NULL itself invisible */
 	array_append_zero(&index->keywords);
-	array_delete(&index->keywords, array_count(&index->keywords)-1, 1);
+	array_pop_back(&index->keywords);
 }
 
 const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index)
@@ -1092,7 +1067,7 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 	if (errno == EACCES) {
 		function = t_strcut(function, '(');
 		if (strcmp(function, "creat") == 0 ||
-		    strncmp(function, "file_dotlock_", 13) == 0)
+		    str_begins(function, "file_dotlock_"))
 			errstr = eacces_error_get_creating(function, filepath);
 		else
 			errstr = eacces_error_get(function, filepath);

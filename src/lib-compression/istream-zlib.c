@@ -25,8 +25,8 @@ struct zlib_istream {
 	struct istream_private istream;
 
 	z_stream zs;
-	uoff_t eof_offset, stream_size;
-	size_t prev_size, high_pos;
+	uoff_t eof_offset;
+	size_t prev_size;
 	uint32_t crc32;
 	struct stat last_parent_statbuf;
 
@@ -174,8 +174,6 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	if (zstream->eof_offset == high_offset) {
-		i_assert(zstream->high_pos == 0 ||
-			 zstream->high_pos == stream->pos);
 		if (!zstream->trailer_read) {
 			do {
 				ret = i_stream_zlib_read_trailer(zstream);
@@ -206,8 +204,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		}
 
 		/* gzip file with concatenated content */
+		stream->cached_stream_size = (uoff_t)-1;
 		zstream->eof_offset = (uoff_t)-1;
-		zstream->stream_size = (uoff_t)-1;
 		zstream->header_read = FALSE;
 		zstream->trailer_read = FALSE;
 		zstream->crc32 = 0;
@@ -225,21 +223,6 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			return ret;
 		zstream->header_read = TRUE;
 	}
-
-	if (stream->pos < zstream->high_pos) {
-		/* we're here because we seeked back within the read buffer. */
-		ret = zstream->high_pos - stream->pos;
-		stream->pos = zstream->high_pos;
-		zstream->high_pos = 0;
-		if (zstream->trailer_read) {
-			high_offset = stream->istream.v_offset +
-				(stream->pos - stream->skip);
-			i_assert(zstream->eof_offset == high_offset);
-			stream->istream.eof = TRUE;
-		}
-		return ret;
-	}
-	zstream->high_pos = 0;
 
 	if (!zstream->marked) {
 		if (!i_stream_try_alloc(stream, CHUNK_SIZE, &out_size))
@@ -299,7 +282,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	case Z_STREAM_END:
 		zstream->eof_offset = stream->istream.v_offset +
 			(stream->pos - stream->skip);
-		zstream->stream_size = zstream->eof_offset;
+		stream->cached_stream_size = zstream->eof_offset;
 		zstream->zs.avail_in = 0;
 
 		if (!zstream->trailer_read) {
@@ -354,7 +337,7 @@ static void i_stream_zlib_reset(struct zlib_istream *zstream)
 	stream->parent_expected_offset = stream->parent_start_offset;
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
-	zstream->high_pos = 0;
+	stream->high_pos = 0;
 	zstream->prev_size = 0;
 
 	(void)inflateEnd(&zstream->zs);
@@ -365,97 +348,17 @@ static void
 i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
-	uoff_t start_offset = stream->istream.v_offset - stream->skip;
 
-	if (v_offset < start_offset) {
-		/* have to seek backwards */
-		i_stream_zlib_reset(zstream);
-		start_offset = 0;
-	} else if (zstream->high_pos != 0) {
-		stream->pos = zstream->high_pos;
-		zstream->high_pos = 0;
-	}
+	if (i_stream_nonseekable_try_seek(stream, v_offset))
+		return;
 
-	if (v_offset <= start_offset + stream->pos) {
-		/* seeking backwards within what's already cached */
-		stream->skip = v_offset - start_offset;
-		stream->istream.v_offset = v_offset;
-		zstream->high_pos = stream->pos;
-		stream->pos = stream->skip;
-	} else {
-		/* read and cache forward */
-		ssize_t ret;
-
-		do {
-			size_t avail = stream->pos - stream->skip;
-
-			if (stream->istream.v_offset + avail >= v_offset) {
-				i_stream_skip(&stream->istream,
-					      v_offset -
-					      stream->istream.v_offset);
-				ret = -1;
-				break;
-			}
-
-			i_stream_skip(&stream->istream, avail);
-		} while ((ret = i_stream_read(&stream->istream)) > 0);
-		i_assert(ret == -1);
-
-		if (stream->istream.v_offset != v_offset) {
-			/* some failure, we've broken it */
-			if (stream->istream.stream_errno != 0) {
-				i_error("zlib_istream.seek(%s) failed: %s",
-					i_stream_get_name(&stream->istream),
-					strerror(stream->istream.stream_errno));
-				i_stream_close(&stream->istream);
-			} else {
-				/* unexpected EOF. allow it since we may just
-				   want to check if there's anything.. */
-				i_assert(stream->istream.eof);
-			}
-		}
-	}
+	/* have to seek backwards - reset state and retry */
+	i_stream_zlib_reset(zstream);
+	if (!i_stream_nonseekable_try_seek(stream, v_offset))
+		i_unreached();
 
 	if (mark)
 		zstream->marked = TRUE;
-}
-
-static int
-i_stream_zlib_stat(struct istream_private *stream, bool exact)
-{
-	struct zlib_istream *zstream = (struct zlib_istream *) stream;
-	const struct stat *st;
-	size_t size;
-
-	if (i_stream_stat(stream->parent, exact, &st) < 0) {
-		stream->istream.stream_errno = stream->parent->stream_errno;
-		return -1;
-	}
-	stream->statbuf = *st;
-
-	/* when exact=FALSE always return the parent stat's size, even if we
-	   know the exact value. this is necessary because otherwise e.g. mbox
-	   code can see two different values and think that a compressed mbox
-	   file keeps changing. */
-	if (!exact)
-		return 0;
-
-	if (zstream->stream_size == (uoff_t)-1) {
-		uoff_t old_offset = stream->istream.v_offset;
-		ssize_t ret;
-
-		do {
-			size = i_stream_get_data_size(&stream->istream);
-			i_stream_skip(&stream->istream, size);
-		} while ((ret = i_stream_read(&stream->istream)) > 0);
-		i_assert(ret == -1);
-
-		i_stream_seek(&stream->istream, old_offset);
-		if (zstream->stream_size == (uoff_t)-1)
-			return -1;
-	}
-	stream->statbuf.st_size = zstream->stream_size;
-	return 0;
 }
 
 static void i_stream_zlib_sync(struct istream_private *stream)
@@ -482,7 +385,6 @@ i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 
 	zstream = i_new(struct zlib_istream, 1);
 	zstream->eof_offset = (uoff_t)-1;
-	zstream->stream_size = (uoff_t)-1;
 	zstream->gz = gz;
 	zstream->log_errors = log_errors;
 
@@ -492,7 +394,6 @@ i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 	zstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	zstream->istream.read = i_stream_zlib_read;
 	zstream->istream.seek = i_stream_zlib_seek;
-	zstream->istream.stat = i_stream_zlib_stat;
 	zstream->istream.sync = i_stream_zlib_sync;
 
 	zstream->istream.istream.readable_fd = FALSE;

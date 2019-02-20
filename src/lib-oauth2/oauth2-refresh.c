@@ -97,15 +97,6 @@ oauth2_refresh_response(const struct http_response *response,
 	}
 }
 
-static void oauth2_refresh_delayed_error(struct oauth2_request *req)
-{
-	struct oauth2_refresh_result fail = {
-		.success = FALSE,
-		.error = req->delayed_error
-	};
-	oauth2_refresh_callback(req, &fail);
-}
-
 #undef oauth2_refresh_start
 struct oauth2_request*
 oauth2_refresh_start(const struct oauth2_settings *set,
@@ -118,27 +109,15 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 	pool_t pool = pool_alloconly_create_clean("oauth2 refresh", 1024);
 	struct oauth2_request *req =
 		p_new(pool, struct oauth2_request, 1);
-	struct http_url *url;
-	const char *error;
 
 	req->pool = pool;
 	req->set = set;
 	req->re_callback = callback;
 	req->re_context = context;
 
-
-	if (http_url_parse(req->set->refresh_url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
-			   pool, &url, &error) < 0) {
-		req->delayed_error = p_strdup_printf(pool,
-			"http_url_parse(%s) failed: %s",
-			req->set->refresh_url, error);
-		req->to_delayed_error = timeout_add_short(0,
-			oauth2_refresh_delayed_error, req);
-		return req;
-	}
-
-	req->req = http_client_request_url(req->set->client, "POST", url,
-					   oauth2_refresh_response,
+	req->req = http_client_request_url_str(req->set->client, "POST",
+					       req->set->refresh_url,
+					       oauth2_refresh_response,
 					       req);
 	string_t *payload = str_new(req->pool, 128);
 	str_append(payload, "client_secret=");
@@ -149,9 +128,6 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 	http_url_escape_param(payload, req->set->client_id);
 
 	struct istream *is = i_stream_create_from_string(payload);
-
-	if (url->user != NULL)
-		http_client_request_set_auth_simple(req->req, url->user, url->password);
 
 	http_client_request_add_header(req->req, "Content-Type",
 				       "application/x-www-form-urlencoded");

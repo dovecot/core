@@ -61,8 +61,7 @@ static void fs_sis_queue_deinit(struct fs *_fs)
 {
 	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
 
-	if (_fs->parent != NULL)
-		fs_deinit(&_fs->parent);
+	fs_deinit(&_fs->parent);
 	i_free(fs->queue_dir);
 	i_free(fs);
 }
@@ -93,8 +92,7 @@ static void fs_sis_queue_file_deinit(struct fs_file *_file)
 {
 	struct sis_queue_fs_file *file = (struct sis_queue_fs_file *)_file;
 
-	if (_file->parent != NULL)
-		fs_file_deinit(&_file->parent);
+	fs_file_deinit(&_file->parent);
 	i_free(file->file.path);
 	i_free(file);
 }

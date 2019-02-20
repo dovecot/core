@@ -88,15 +88,14 @@ static void sql_db_cache_drop_oldest(struct sql_db_cache *cache)
 		sql_db_cache_free_tail(cache);
 }
 
-struct sql_db *
-sql_db_cache_new(struct sql_db_cache *cache,
-		 const char *db_driver, const char *connect_string)
+int sql_db_cache_new(struct sql_db_cache *cache, const struct sql_settings *set,
+		     struct sql_db **db_r, const char **error_r)
 {
 	struct sql_db_cache_context *ctx;
 	struct sql_db *db;
 	char *key;
 
-	key = i_strdup_printf("%s\t%s", db_driver, connect_string);
+	key = i_strdup_printf("%s\t%s", set->driver, set->connect_string);
 	db = hash_table_lookup(cache->dbs, key);
 	if (db != NULL) {
 		ctx = SQL_DB_CACHE_CONTEXT(db);
@@ -108,11 +107,14 @@ sql_db_cache_new(struct sql_db_cache *cache,
 	} else {
 		sql_db_cache_drop_oldest(cache);
 
+		if (sql_init_full(set, &db, error_r) < 0) {
+			i_free(key);
+			return -1;
+		}
+
 		ctx = i_new(struct sql_db_cache_context, 1);
 		ctx->cache = cache;
 		ctx->key = key;
-
-		db = sql_init(db_driver, connect_string);
 		ctx->orig_deinit = db->v.deinit;
 		db->v.deinit = sql_db_cache_db_deinit;
 
@@ -121,7 +123,8 @@ sql_db_cache_new(struct sql_db_cache *cache,
 	}
 
 	ctx->refcount++;
-	return db;
+	*db_r = db;
+	return 0;
 }
 
 struct sql_db_cache *sql_db_cache_init(unsigned int max_unused_connections)

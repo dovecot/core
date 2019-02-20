@@ -83,8 +83,12 @@ void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 		} else {
 			buffer_set_used_size(parser->utf8_output, 0);
 		}
-		(void)uni_utf8_get_valid_data(block->data, block->size,
-					      parser->utf8_output);
+		if (uni_utf8_get_valid_data(block->data, block->size,
+					    parser->utf8_output)) {
+			/* valid UTF-8, but there were NULs */
+			buffer_append(parser->utf8_output, block->data,
+				      block->size);
+		}
 		replace_nul_bytes(parser->utf8_output);
 		block->data = parser->utf8_output->data;
 		block->size = parser->utf8_output->used;

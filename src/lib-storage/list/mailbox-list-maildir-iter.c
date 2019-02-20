@@ -177,7 +177,7 @@ maildir_get_type(const char *dir, const char *fname,
 		*type_r = MAILBOX_LIST_FILE_TYPE_DIR;
 		return TRUE;
 	} else {
-		if (strncmp(fname, ".nfs", 4) == 0)
+		if (str_begins(fname, ".nfs"))
 			*flags |= MAILBOX_NONEXISTENT;
 		else
 			*flags |= MAILBOX_NOSELECT;
@@ -202,7 +202,7 @@ int maildir_list_get_mailbox_flags(struct mailbox_list *list,
 		/* need to check with stat() to be sure */
 		if (!list->mail_set->maildir_stat_dirs && *fname != '\0' &&
 		    strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 &&
-		    strncmp(fname, ".nfs", 4) != 0) {
+		    !str_begins(fname, ".nfs")) {
 			/* just assume it's a valid mailbox */
 			return 1;
 		}
@@ -300,8 +300,9 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 		string_t *destvname = t_str_new(128);
 		string_t *dest = t_str_new(128);
 
-		(void)uni_utf8_get_valid_data((const void *)fname,
-					      strlen(fname), destvname);
+		if (uni_utf8_get_valid_data((const void *)fname,
+					    strlen(fname), destvname))
+			i_unreached(); /* already checked that it was invalid */
 
 		str_append(dest, ctx->dir);
 		str_append_c(dest, '/');

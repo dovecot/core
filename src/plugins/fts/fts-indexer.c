@@ -169,7 +169,7 @@ static int fts_indexer_input(struct fts_indexer_context *ctx)
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
 		/* initial reply: <tag> \t OK
 		   following: <tag> \t <percentage> */
-		if (strncmp(line, "1\t", 2) != 0) {
+		if (!str_begins(line, "1\t")) {
 			i_error("indexer sent invalid reply: %s", line);
 			return -1;
 		}

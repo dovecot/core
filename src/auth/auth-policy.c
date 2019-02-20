@@ -11,6 +11,8 @@
 #include "http-url.h"
 #include "http-client.h"
 #include "json-parser.h"
+#include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "auth-request.h"
 #include "auth-penalty.h"
 #include "auth-settings.h"
@@ -157,18 +159,18 @@ void auth_policy_open_and_close_to_key(const char *fromkey, const char *tokey, s
 
 void auth_policy_init(void)
 {
+	const struct master_service_ssl_settings *master_ssl_set =
+		master_service_ssl_settings_get(master_service);
 	struct ssl_iostream_settings ssl_set;
 	i_zero(&ssl_set);
 
 	http_client_set.request_absolute_timeout_msecs = global_auth_settings->policy_server_timeout_msecs;
 	if (global_auth_settings->debug)
 		http_client_set.debug = 1;
-	ssl_set.ca_dir = global_auth_settings->ssl_client_ca_dir;
-	ssl_set.ca_file = global_auth_settings->ssl_client_ca_file;
-	if (*ssl_set.ca_dir == '\0' &&
-	    *ssl_set.ca_file == '\0')
-		ssl_set.allow_invalid_cert = TRUE;
 
+	master_service_ssl_settings_to_iostream_set(master_ssl_set, pool_datastack_create(),
+						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
+						    &ssl_set);
 	http_client_set.ssl = &ssl_set;
 	http_client = http_client_init(&http_client_set);
 
@@ -190,7 +192,7 @@ void auth_policy_init(void)
 			pair.key = key;
 			pair.value = *ptr;
 			key = NULL;
-			array_append(&attribute_pairs, &pair, 1);
+			array_push_back(&attribute_pairs, &pair);
 		}
 	}
 	if (key != NULL) {
@@ -220,6 +222,10 @@ void auth_policy_init(void)
 	auth_policy_open_and_close_to_key(prevkey, "", template);
 	str_truncate(template, str_len(template)-1);
 	auth_policy_json_template = i_strdup(str_c(template));
+
+	if (global_auth_settings->policy_log_only)
+		i_warning("auth-policy: Currently in log-only mode. Ignoring "
+			  "tarpit and disconnect instructions from policy server");
 }
 
 void auth_policy_deinit(void)
@@ -236,8 +242,7 @@ void auth_policy_finish(struct policy_lookup_ctx *context)
 		const char *error ATTR_UNUSED;
 		(void)json_parser_deinit(&context->parser, &error);
 	}
-	if (context->http_request != NULL)
-		http_client_request_abort(&context->http_request);
+	http_client_request_abort(&context->http_request);
 	if (context->request != NULL)
 		auth_request_unref(&context->request);
 }

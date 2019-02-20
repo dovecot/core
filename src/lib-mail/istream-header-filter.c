@@ -251,8 +251,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			    !hdr->continued && !mstream->headers_edited) {
 				if (!array_is_created(&mstream->match_change_lines))
 					i_array_init(&mstream->match_change_lines, 8);
-				array_append(&mstream->match_change_lines,
-					     &mstream->cur_line, 1);
+				array_push_back(&mstream->match_change_lines,
+						&mstream->cur_line);
 			}
 		} else if (!hdr->continued) {
 			/* second time in this line. was it excluded by the

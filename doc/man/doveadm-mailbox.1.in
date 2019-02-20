@@ -302,6 +302,65 @@ This command is used to set UID validity, next UID, first recent UID and modific
 Usually this is only ever to be used during migration, or restoring mailbox after disaster.
 Settings these values is highly discouraged, and is not supported for all mail backends.
 .\"------------------------------------------------------------------------
+.SS mailbox cache purge
+.B doveadm mailbox cache purge
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
+[\fB\-S\fP \fIsocket_path\fP]
+.IR mailbox\ ...
+.PP
+Purge the dovecot.index.cache file. Most importantly this frees up disk space 
+from mails that were already deleted. Normally there i no need to run this 
+command manually, because the compression is also run automatically.
+.\"------------------------------------------------------------------------
+.SS mailbox cache decision
+.B doveadm mailbox cache decision
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
+[\fB\-S\fP \fIsocket_path\fP]
+[\fB\--all\fP]
+[\fB\--fields\fP \fIlist of fields\fP]
+[\fB\--last-used\fP \fIunix timestamp\fP]
+[\fB\--decision\fP \fIno|temp|yes\fP]
+.IR mailbox\ ...
+.PP
+This command is used to list or change caching decisions for field(s) in mailbox(es).
+You can list decisions by leaving out decision and last-used parameters.
+.PP
+.\"-------------------------------------
+.TP
+.B \--all
+List or change all fields.
+.\"-------------------------------------
+.TP
+.B \--fields
+List or change these comma/space separated fields.
+.\"-------------------------------------
+.TP
+.B \--decision
+Set field caching decision. Yes means it's always cached.
+Temp means it's provisionally cached.
+No means the field is not cached.
+.\"-------------------------------------
+.TP
+.B \--last-used
+Set field's last used timestamp.
+.\"-------------------------------------
+.RE
+.PP
+NOTE. This command cannot be used to add new fields to cache! \
+You need to first add them to configuration. \
+Setting caching to no will not immediately drop field from cache, \
+it will stop adding the field to cache.
+.\"------------------------------------------------------------------------
+.SS mailbox cache remove
+.B doveadm mailbox cache remove
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
+[\fB\-S\fP \fIsocket_path\fP]
+.IR search query
+.PP
+Remove any matching mail(s) from cache.
+.PP
+WARNING! This command can erase ALL cached data, causing system slowness.
+.\"------------------------------------------------------------------------
 .SH EXAMPLE
 List subscribed mailboxes, beginning with \(aqdovecot\(aq, of user bob.
 .sp
@@ -346,4 +405,5 @@ doveadm mailbox mutf7 ~peter/mail/台北/日本語
 .\"------------------------------------------------------------------------
 .SH SEE ALSO
 .BR doveadm (1)
+.BR doveadm-search-query (7)
 .BR doveadm-mailbox-cryptokey(1)

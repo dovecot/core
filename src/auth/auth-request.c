@@ -76,25 +76,30 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 static
 void auth_request_policy_check_callback(int result, void *context);
 
+static void auth_request_post_alloc_init(struct auth_request *request, struct event *parent_event)
+{
+	request->state = AUTH_REQUEST_STATE_NEW;
+	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
+	request->refcount = 1;
+	request->last_access = ioloop_time;
+	request->session_pid = (pid_t)-1;
+	request->set = global_auth_settings;
+	request->debug = request->set->debug;
+	request->extra_fields = auth_fields_init(request->pool);
+	request->event = event_create(parent_event);
+	event_set_forced_debug(request->event, request->set->debug);
+	event_add_category(request->event, &event_category_auth);
+}
+
 struct auth_request *
-auth_request_new(const struct mech_module *mech)
+auth_request_new(const struct mech_module *mech, struct event *parent_event)
 {
 	struct auth_request *request;
 
 	request = mech->auth_new();
-
-	request->state = AUTH_REQUEST_STATE_NEW;
-	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
-
-	request->refcount = 1;
-	request->last_access = ioloop_time;
-	request->session_pid = (pid_t)-1;
-
-	request->set = global_auth_settings;
-	request->debug = request->set->debug;
+	auth_request_post_alloc_init(request, parent_event);
 	request->mech = mech;
 	request->mech_name = mech->mech_name;
-	request->extra_fields = auth_fields_init(request->pool);
 	return request;
 }
 
@@ -107,15 +112,7 @@ struct auth_request *auth_request_new_dummy(void)
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
 
-	request->state = AUTH_REQUEST_STATE_NEW;
-	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
-
-	request->refcount = 1;
-	request->last_access = ioloop_time;
-	request->session_pid = (pid_t)-1;
-	request->set = global_auth_settings;
-	request->debug = request->set->debug;
-	request->extra_fields = auth_fields_init(request->pool);
+	auth_request_post_alloc_init(request, NULL);
 	return request;
 }
 
@@ -255,6 +252,7 @@ void auth_request_unref(struct auth_request **_request)
 	if (--request->refcount > 0)
 		return;
 
+	event_unref(&request->event);
 	auth_request_stats_send(request);
 	auth_request_state_count[request->state]--;
 	auth_refresh_proctitle();
@@ -416,9 +414,10 @@ bool auth_request_import_info(struct auth_request *request,
 		request->local_name = p_strdup(request->pool, value);
 	else if (strcmp(key, "session") == 0)
 		request->session_id = p_strdup(request->pool, value);
-	else if (strcmp(key, "debug") == 0)
+	else if (strcmp(key, "debug") == 0) {
 		request->debug = TRUE;
-	else if (strcmp(key, "client_id") == 0)
+		event_set_forced_debug(request->event, TRUE);
+	} else if (strcmp(key, "client_id") == 0)
 		request->client_id = p_strdup(request->pool, value);
 	else if (strcmp(key, "forward_fields") == 0) {
 		auth_fields_import_prefixed(request->extra_fields,
@@ -454,7 +453,7 @@ bool auth_request_import_auth(struct auth_request *request,
 	else if (strcmp(key, "valid-client-cert") == 0)
 		request->valid_client_cert = TRUE;
 	else if (strcmp(key, "cert_username") == 0) {
-		if (request->set->ssl_username_from_cert) {
+		if (request->set->ssl_username_from_cert && *value != '\0') {
 			/* get username from SSL certificate. it overrides
 			   the username given by the auth mechanism. */
 			request->user = p_strdup(request->pool, value);
@@ -513,9 +512,9 @@ bool auth_request_import(struct auth_request *request,
 		request->delayed_credentials_size = 1;
 	} else if (strcmp(key, "mech") == 0)
 		request->mech_name = p_strdup(request->pool, value);
-	else if (strncmp(key, "passdb_", 7) == 0)
+	else if (str_begins(key, "passdb_"))
 		auth_fields_add(request->extra_fields, key+7, value, 0);
-	else if (strncmp(key, "userdb_", 7) == 0) {
+	else if (str_begins(key, "userdb_")) {
 		if (request->userdb_reply == NULL)
 			request->userdb_reply = auth_fields_init(request->pool);
 		auth_fields_add(request->userdb_reply, key+7, value, 0);
@@ -1027,10 +1026,29 @@ static
 void auth_request_policy_check_callback(int result, void *context)
 {
 	struct auth_policy_check_ctx *ctx = context;
+	const char *action;
 
 	ctx->request->policy_processed = TRUE;
 
-	if (result == -1) {
+	if (result < 0)
+		action = "drop connection";
+	else if (result == 0)
+		action = "continue";
+	else
+		action = t_strdup_printf("tarpit %d second(s)", result);
+	if (ctx->request->set->policy_log_only && result != 0) {
+		auth_request_log_info(ctx->request, "policy", "Policy check action '%s' ignored",
+				      action);
+		auth_request_policy_penalty_finish(context);
+		return;
+	}
+	if (result != 0)
+		auth_request_log_info(ctx->request, "policy", "Policy check action is %s",
+				      action);
+	else
+		auth_request_log_debug(ctx->request, "policy", "Policy check action is %s",
+				       action);
+	if (result < 0) {
 		/* fail it right here and now */
 		auth_request_fail(ctx->request);
 	} else if (ctx->type != AUTH_POLICY_CHECK_TYPE_SUCCESS && result > 0 && !ctx->request->no_penalty) {
@@ -1962,7 +1980,7 @@ void auth_request_set_field(struct auth_request *request,
 		}
 	} else if (strcmp(name, "allow_real_nets") == 0) {
 		auth_request_validate_networks(request, name, value, &request->real_remote_ip);
-	} else if (strncmp(name, "userdb_", 7) == 0) {
+	} else if (str_begins(name, "userdb_")) {
 		/* for prefetch userdb */
 		request->userdb_prefetch_set = TRUE;
 		if (request->userdb_reply == NULL)
@@ -2017,7 +2035,7 @@ void auth_request_set_field(struct auth_request *request,
 
 void auth_request_set_null_field(struct auth_request *request, const char *name)
 {
-	if (strncmp(name, "userdb_", 7) == 0) {
+	if (str_begins(name, "userdb_")) {
 		/* make sure userdb prefetch is used even if all the fields
 		   were returned as NULL. */
 		request->userdb_prefetch_set = TRUE;
@@ -2646,12 +2664,9 @@ void auth_request_log_debug(struct auth_request *auth_request,
 {
 	va_list va;
 
-	if (!auth_request->debug)
-		return;
-
 	va_start(va, format);
 	T_BEGIN {
-		i_debug("%s", get_log_str(auth_request, subsystem, format, va));
+		e_debug(auth_request->event, "%s", get_log_str(auth_request, subsystem, format, va));
 	} T_END;
 	va_end(va);
 }

@@ -47,6 +47,17 @@ struct config_dump_human_context {
 
 static const char *indent_str = "                              !!!!";
 
+static const char *const secrets[] = {
+	"key",
+	"secret",
+	"pass",
+	"http://",
+	"https://",
+	"ftp://",
+	NULL
+};
+
+
 static void
 config_request_get_strings(const char *key, const char *value,
 			   enum config_key_type type, void *context)
@@ -70,10 +81,10 @@ config_request_get_strings(const char *key, const char *value,
 		break;
 	case CONFIG_KEY_ERROR:
 		value = p_strdup(ctx->pool, value);
-		array_append(&ctx->errors, &value, 1);
+		array_push_back(&ctx->errors, &value);
 		return;
 	}
-	array_append(&ctx->strings, &value, 1);
+	array_push_back(&ctx->strings, &value);
 }
 
 static int config_string_cmp(const char *const *p1, const char *const *p2)
@@ -168,23 +179,87 @@ static bool value_need_quote(const char *value)
 	return FALSE;
 }
 
+static const char *find_next_secret(const char *input, const char **secret_r)
+{
+	const char *const *secret;
+	const char *ptr = NULL;
+	*secret_r = NULL;
+	for(secret = secrets; *secret != NULL; secret++) {
+		const char *cptr;
+		if ((cptr = strstr(input, *secret)) != NULL) {
+			if (ptr == NULL || cptr < ptr) {
+				*secret_r = *secret;
+				ptr = cptr;
+			}
+		}
+	}
+	i_assert(*secret_r != NULL || ptr == NULL);
+	return ptr;
+}
+
+static bool
+hide_url_userpart_from_value(struct ostream *output, const char **_ptr,
+			     const char **optr, bool quote)
+{
+	const char *ptr = *_ptr;
+	const char *start_of_user = ptr;
+	const char *start_of_host = NULL;
+	string_t *quoted = NULL;
+
+	if (quote)
+		quoted = t_str_new(256);
+
+	/* it's a URL, see if there is a userpart */
+	while(*ptr != '\0' && !i_isspace(*ptr) && *ptr != '/') {
+		if (*ptr == '@') {
+			start_of_host = ptr;
+			break;
+		}
+		ptr++;
+	}
+
+	if (quote) {
+		str_truncate(quoted, 0);
+		str_append_escaped(quoted, *optr, start_of_user - (*optr));
+		o_stream_nsend(output, quoted->data, quoted->used);
+	} else {
+		o_stream_nsend(output, *optr, start_of_user - (*optr));
+	}
+
+	if (start_of_host != NULL && start_of_host != start_of_user) {
+		o_stream_nsend_str(output, "#hidden_use-P_to_show#");
+	} else if (quote) {
+		str_truncate(quoted, 0);
+		str_append_escaped(quoted, start_of_user, ptr - start_of_user);
+		o_stream_nsend(output, quoted->data, quoted->used);
+	} else {
+		o_stream_nsend(output, start_of_user, ptr - start_of_user);
+	}
+
+	*optr = ptr;
+	*_ptr = ptr;
+	return TRUE;
+}
+
+static inline bool key_ends_with(const char *key, const char *eptr,
+				 const char *suffix)
+{
+	/* take = into account */
+	size_t n = strlen(suffix)+1;
+	return (eptr-key > (ptrdiff_t)n && str_begins(eptr-n, suffix));
+}
+
 static bool
 hide_secrets_from_value(struct ostream *output, const char *key,
 			const char *value)
 {
 	bool ret = FALSE, quote = value_need_quote(value);
-	const char *ptr, *optr;
-	const char *const secrets[] = {
-		"key",
-		"secret",
-		"pass",
-		NULL
-	};
+	const char *ptr, *optr, *secret;
 	if (*value != '\0' &&
-	    ((value-key > 8 && strncmp(value-9, "_password", 8) == 0) ||
-	     (value-key > 7 && strncmp(value-8, "_api_key", 7) == 0) ||
-	     strncmp(key, "ssl_key",7) == 0 ||
-	     strncmp(key, "ssl_dh",6) == 0)) {
+	    (key_ends_with(key, value, "_password") ||
+	     key_ends_with(key, value, "_key") ||
+	     key_ends_with(key, value, "_nonce") ||
+	     str_begins(key, "ssl_dh"))) {
 		o_stream_nsend_str(output, "# hidden, use -P to show it");
 		return TRUE;
 	}
@@ -193,7 +268,12 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 	   secrets. It should match things like secret_api_key or pass or password,
 	   etc. but not something like nonsecret. */
 	optr = ptr = value;
-	while((ptr = i_strstr_arr(ptr, secrets)) != NULL) {
+	while((ptr = find_next_secret(ptr, &secret)) != NULL) {
+		if (strstr(secret, "://") != NULL) {
+			ptr += strlen(secret);
+			if ((ret = hide_url_userpart_from_value(output, &ptr, &optr, quote)))
+				continue;
+		}
 		/* we have found something that we hide, and will deal with output
 		   here. */
 		ret = TRUE;
@@ -209,8 +289,10 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 				ptr++;
 			len = (size_t)(ptr-optr);
 			if (quote) {
-				o_stream_nsend_str(output,
-						   str_nescape(optr, len));
+				string_t *quoted = t_str_new(len*2);
+				str_append_escaped(quoted, optr, len);
+				o_stream_nsend(output,
+					       quoted->data, quoted->used);
 			} else {
 				o_stream_nsend(output, optr, len);
 			}
@@ -222,12 +304,17 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 					ptr++;
 			}
 			optr = ptr;
+		} else {
+			/* "secret" is prefixed with alphanumeric character,
+			   e.g. "nopassword". So it's not really a secret.
+			   Skip forward to avoid infinite loop. */
+			ptr++;
 		}
-	}
+	};
 	/* if we are dealing with output, send rest here */
 	if (ret) {
 		if (quote)
-			o_stream_nsend_str(output, str_escape(ptr));
+			o_stream_nsend_str(output, str_escape(optr));
 		else
 			o_stream_nsend_str(output, optr);
 	}
@@ -267,14 +354,14 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			/* "strlist=" */
 			str = p_strdup_printf(ctx->pool, "%s/",
 					      t_strcut(strings[i]+1, '='));
-			array_append(&prefixes_arr, &str, 1);
+			array_push_back(&prefixes_arr, &str);
 		} else {
 			/* string is in format: "list=0 1 2" */
 			for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
 				str = p_strdup_printf(ctx->pool, "%s/%s/",
 						      t_strcut(strings[i]+1, '='),
 						      *args);
-				array_append(&prefixes_arr, &str, 1);
+				array_push_back(&prefixes_arr, &str);
 			}
 		}
 	} T_END;
@@ -334,12 +421,12 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					str_len(ctx->list_prefix);
 				prefix_idx = j;
 				prefix.prefix_idx = prefix_idx;
-				array_append(&prefix_stack, &prefix, 1);
+				array_push_back(&prefix_stack, &prefix);
 
-				str_append_n(ctx->list_prefix, indent_str, indent*2);
+				str_append_max(ctx->list_prefix, indent_str, indent*2);
 				p = strchr(key2, '/');
 				if (p != NULL)
-					str_append_n(ctx->list_prefix, key2, p - key2);
+					str_append_data(ctx->list_prefix, key2, p - key2);
 				else
 					str_append(ctx->list_prefix, key2);
 				if (unique_key && *value != '\0') {
@@ -427,13 +514,13 @@ config_dump_filter_begin(string_t *str,
 	}
 
 	if (filter->local_name != NULL) {
-		str_append_n(str, indent_str, indent*2);
+		str_append_max(str, indent_str, indent*2);
 		str_printfa(str, "local_name %s {\n", filter->local_name);
 		indent++;
 	}
 
 	if (filter->remote_bits > 0) {
-		str_append_n(str, indent_str, indent*2);
+		str_append_max(str, indent_str, indent*2);
 		str_printfa(str, "remote %s", net_ip2addr(&filter->remote_net));
 
 		if (IPADDR_IS_V4(&filter->remote_net)) {
@@ -447,7 +534,7 @@ config_dump_filter_begin(string_t *str,
 		indent++;
 	}
 	if (filter->service != NULL) {
-		str_append_n(str, indent_str, indent*2);
+		str_append_max(str, indent_str, indent*2);
 		str_printfa(str, "protocol %s {\n", filter->service);
 		indent++;
 	}
@@ -775,6 +862,7 @@ static void failure_exit_callback(int *status)
 int main(int argc, char *argv[])
 {
 	enum master_service_flags master_service_flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
@@ -824,7 +912,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'm':
 			module = t_strdup(optarg);
-			array_append(&module_names, &module, 1);
+			array_push_back(&module_names, &module);
 			break;
 		case 'n':
 			scope = CONFIG_DUMP_SCOPE_CHANGED;
@@ -850,7 +938,7 @@ int main(int argc, char *argv[])
 	}
 	array_append_zero(&module_names);
 	wanted_modules = array_count(&module_names) == 1 ? NULL :
-		array_idx(&module_names, 0);
+		array_front(&module_names);
 
 	config_path = master_service_get_config_path(master_service);
 	/* use strcmp() instead of !=, because dovecot -n always gives us

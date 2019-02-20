@@ -40,6 +40,11 @@ static void client_connected(struct master_service_connection *conn)
 	master_service_client_connection_accept(conn);
 }
 
+static void stats_die(void)
+{
+	/* just wait for existing stats clients to disconnect from us */
+}
+
 static void main_preinit(void)
 {
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
@@ -72,6 +77,7 @@ int main(int argc, char *argv[])
 		NULL
 	};
 	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_NO_IDLE_DIE |
 		MASTER_SERVICE_FLAG_UPDATE_PROCTITLE;
 	const char *error;
@@ -84,6 +90,7 @@ int main(int argc, char *argv[])
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service, "stats: ");
+	master_service_set_die_callback(master_service, stats_die);
 
 	main_preinit();
 

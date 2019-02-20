@@ -8,6 +8,7 @@
 #include "module-dir.h"
 #include "home-expand.h"
 #include "file-create-locked.h"
+#include "mkdir-parents.h"
 #include "safe-mkstemp.h"
 #include "str.h"
 #include "strescape.h"
@@ -310,6 +311,7 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
+		{ '\0', user->set->hostname, "hostname" },
 		/* NOTE: keep this synced with imap-hibernate's
 		   imap_client_var_expand_table() */
 		{ '\0', NULL, NULL }
@@ -692,8 +694,7 @@ void mail_user_init_ssl_client_settings(struct mail_user *user,
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
 
-	ssl_set->ca_dir = mail_set->ssl_client_ca_dir;
-	ssl_set->ca_file = mail_set->ssl_client_ca_file;
+	mail_storage_settings_init_ssl_client_settings(mail_set, ssl_set);
 }
 
 void mail_user_init_fs_settings(struct mail_user *user,
@@ -714,6 +715,66 @@ void mail_user_init_fs_settings(struct mail_user *user,
 void mail_user_stats_fill(struct mail_user *user, struct stats *stats)
 {
 	user->v.stats_fill(user, stats);
+}
+
+static int
+mail_user_home_mkdir_try_ns(struct mail_namespace *ns, const char *home)
+{
+	const enum mailbox_list_path_type types[] = {
+		MAILBOX_LIST_PATH_TYPE_DIR,
+		MAILBOX_LIST_PATH_TYPE_ALT_DIR,
+		MAILBOX_LIST_PATH_TYPE_CONTROL,
+		MAILBOX_LIST_PATH_TYPE_INDEX,
+		MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE,
+		MAILBOX_LIST_PATH_TYPE_INDEX_CACHE,
+		MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
+	};
+	size_t home_len = strlen(home);
+	const char *path;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(types); i++) {
+		if (!mailbox_list_get_root_path(ns->list, types[i], &path))
+			continue;
+		if (strncmp(path, home, home_len) == 0 &&
+		    (path[home_len] == '\0' || path[home_len] == '/')) {
+			return mailbox_list_mkdir_root(ns->list, path,
+						       types[i]) < 0 ? -1 : 1;
+		}
+	}
+	return 0;
+}
+
+int mail_user_home_mkdir(struct mail_user *user)
+{
+	struct mail_namespace *ns;
+	const char *home;
+	int ret;
+
+	if (mail_user_get_home(user, &home) < 0)
+		return -1;
+
+	/* Try to create the home directory by creating the root directory for
+	   a namespace that exists under the home. This way we end up in the
+	   special mkdir() code in mailbox_list_try_mkdir_root_parent().
+	   Start from INBOX, since that's usually the correct place. */
+	ns = mail_namespace_find_inbox(user->namespaces);
+	if ((ret = mail_user_home_mkdir_try_ns(ns, home)) != 0)
+		return ret < 0 ? -1 : 0;
+	/* try other namespaces */
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+			/* already tried the INBOX namespace */
+			continue;
+		}
+		if ((ret = mail_user_home_mkdir_try_ns(ns, home)) != 0)
+			return ret < 0 ? -1 : 0;
+	}
+	/* fallback to a safe mkdir() with 0700 mode */
+	if (mkdir_parents(home, 0700) < 0 && errno != EEXIST) {
+		i_error("mkdir_parents(%s) failed: %m", home);
+		return -1;
+	}
+	return 0;
 }
 
 static const struct var_expand_func_table mail_user_var_expand_func_table_arr[] = {

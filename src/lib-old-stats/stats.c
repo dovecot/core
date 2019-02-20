@@ -26,7 +26,7 @@ struct stats_item *stats_register(const struct stats_vfuncs *vfuncs)
 	item = i_new(struct stats_item, 1);
 	item->v = *vfuncs;
 	item->pos = stats_total_size;
-	array_append(&stats_items, &item, 1);
+	array_push_back(&stats_items, &item);
 
 	stats_total_size += vfuncs->alloc_size();
 	return item;

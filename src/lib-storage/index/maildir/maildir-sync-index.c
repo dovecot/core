@@ -204,7 +204,7 @@ static int maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 
 	i_warning("Maildir %s: Expunged message reappeared, giving a new UID "
 		  "(old uid=%u, file=%s)%s", mailbox_get_path(&ctx->mbox->box),
-		  uid, filename, strncmp(filename, "msg.", 4) != 0 ? "" :
+		  uid, filename, !str_begins(filename, "msg.") ? "" :
 		  " (Your MDA is saving MH files into Maildir?)");
 	return 0;
 }

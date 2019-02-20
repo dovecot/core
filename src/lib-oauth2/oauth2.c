@@ -71,8 +71,7 @@ oauth2_request_abort(struct oauth2_request **_req)
 	struct oauth2_request *req = *_req;
 	*_req = NULL;
 
-	if (req->req != NULL)
-		http_client_request_abort(&req->req);
+	http_client_request_abort(&req->req);
 	oauth2_request_free_internal(req);
 }
 

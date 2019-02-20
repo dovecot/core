@@ -175,7 +175,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	i_assert(ctx != NULL);
 
         /* get the time left for next timeout task */
-	msecs = io_loop_get_wait_time(ioloop, &tv);
+	msecs = io_loop_run_get_wait_time(ioloop, &tv);
 
 	events = array_get_modifiable(&ctx->events, &events_count);
 	if (ioloop->io_files != NULL && events_count > ctx->deleted_count) {
@@ -185,8 +185,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	} else {
 		/* no I/Os, but we should have some timeouts.
 		   just wait for them. */
-		if (msecs < 0)
-			i_panic("BUG: No IOs or timeouts set. Not waiting for infinity.");
+		i_assert(msecs >= 0);
 		usleep(msecs*1000);
 		ret = 0;
 	}
@@ -218,8 +217,11 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 			else if ((io->io.condition & IO_ERROR) != 0)
 				call = (event->events & IO_EPOLL_ERROR) != 0;
 
-			if (call)
+			if (call) {
 				io_loop_call_io(&io->io);
+				if (!ioloop->running)
+					return;
+			}
 		}
 	}
 }

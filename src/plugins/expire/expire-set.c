@@ -25,7 +25,7 @@ struct expire_set *expire_set_init(const char *const *patterns)
 
 	for (pattern = patterns; *pattern != NULL; pattern++) {
 		glob = imap_match_init(set->pool, *pattern, TRUE, '/');
-		array_append(&set->globs, &glob, 1);
+		array_push_back(&set->globs, &glob);
 	}
 	return set;
 }

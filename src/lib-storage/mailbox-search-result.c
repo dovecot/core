@@ -50,7 +50,7 @@ mailbox_search_result_alloc(struct mailbox *box, struct mail_search_args *args,
 		mailbox_search_result_analyze_args(result, args->args);
 	}
 
-	array_append(&result->box->search_results, &result, 1);
+	array_push_back(&result->box->search_results, &result);
 	return result;
 }
 
@@ -91,7 +91,7 @@ mailbox_search_result_save(struct mail_search_context *ctx,
 
 	result = mailbox_search_result_alloc(ctx->transaction->box,
 					     ctx->args, flags);
-	array_append(&ctx->results, &result, 1);
+	array_push_back(&ctx->results, &result);
 	return result;
 }
 

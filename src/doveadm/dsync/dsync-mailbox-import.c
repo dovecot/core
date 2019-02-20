@@ -876,7 +876,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	/* NOTE: assumes save_change is allocated from importer pool */
 	newmail->change = save_change;
 
-	array_append(&importer->newmails, &newmail, 1);
+	array_push_back(&importer->newmails, &newmail);
 	newmail_link(importer, newmail,
 		     save_change == NULL ? 0 : save_change->uid);
 	return remote_saved;
@@ -1051,7 +1051,7 @@ static void keywords_append(ARRAY_TYPE(const_string) *dest,
 			continue;
 
 		namep = array_idx(keywords, start_idx+i);
-		array_append(dest, namep, 1);
+		array_push_back(dest, namep);
 	}
 }
 
@@ -1108,7 +1108,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 	for (i = 0; i < count; i++) {
 		name = changes[i]+1;
 		name_idx = array_count(&all_keywords);
-		array_append(&all_keywords, &name, 1);
+		array_push_back(&all_keywords, &name);
 
 		switch (changes[i][0]) {
 		case KEYWORD_CHANGE_ADD:
@@ -1138,7 +1138,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 		name = changes[i]+1;
 		if (!keyword_find(&all_keywords, name, &name_idx)) {
 			name_idx = array_count(&all_keywords);
-			array_append(&all_keywords, &name, 1);
+			array_push_back(&all_keywords, &name);
 		}
 
 		switch (changes[i][0]) {
@@ -1157,7 +1157,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 		name = local_keywords[i];
 		if (!keyword_find(&all_keywords, name, &name_idx)) {
 			name_idx = array_count(&all_keywords);
-			array_append(&all_keywords, &name, 1);
+			array_push_back(&all_keywords, &name);
 		}
 		local_final[name_idx/32] |= 1U << (name_idx%32);
 	}
@@ -1185,14 +1185,14 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 	if (array_count(&add_keywords) > 0) {
 		array_append_zero(&add_keywords);
 		kw = mailbox_keywords_create_valid(mail->box,
-			array_idx(&add_keywords, 0));
+			array_front(&add_keywords));
 		mail_update_keywords(mail, MODIFY_ADD, kw);
 		mailbox_keywords_unref(&kw);
 	}
 	if (array_count(&remove_keywords) > 0) {
 		array_append_zero(&remove_keywords);
 		kw = mailbox_keywords_create_valid(mail->box,
-			array_idx(&remove_keywords, 0));
+			array_front(&remove_keywords));
 		mail_update_keywords(mail, MODIFY_REMOVE, kw);
 		mailbox_keywords_unref(&kw);
 	}
@@ -1220,7 +1220,7 @@ dsync_mailbox_import_replace_flags(struct mail *mail,
 		case KEYWORD_CHANGE_FINAL:
 		case KEYWORD_CHANGE_ADD_AND_FINAL:
 			name = changes[i]+1;
-			array_append(&keywords, &name, 1);
+			array_push_back(&keywords, &name);
 			break;
 		case KEYWORD_CHANGE_REMOVE:
 			break;
@@ -1228,7 +1228,7 @@ dsync_mailbox_import_replace_flags(struct mail *mail,
 	}
 	array_append_zero(&keywords);
 
-	kw = mailbox_keywords_create_valid(mail->box, array_idx(&keywords, 0));
+	kw = mailbox_keywords_create_valid(mail->box, array_front(&keywords));
 	mail_update_keywords(mail, MODIFY_REPLACE, kw);
 	mailbox_keywords_unref(&kw);
 
@@ -1444,7 +1444,7 @@ dsync_mailbox_import_save(struct dsync_mailbox_importer *importer,
 		i_assert(change->uid > importer->last_common_uid);
 		i_assert(importer->cur_mail == NULL ||
 			 change->uid < importer->cur_mail->uid);
-		array_append(&importer->maybe_saves, &save, 1);
+		array_push_back(&importer->maybe_saves, &save);
 	}
 }
 
@@ -1927,7 +1927,7 @@ dsync_mailbox_import_saved_uid(struct dsync_mailbox_importer *importer,
 
 	if (importer->highest_wanted_uid < uid)
 		importer->highest_wanted_uid = uid;
-	array_append(&importer->wanted_uids, &uid, 1);
+	array_push_back(&importer->wanted_uids, &uid);
 }
 
 static void
@@ -2317,14 +2317,14 @@ dsync_mailbox_get_final_keywords(const struct dsync_mail_change *change)
 		    changes[i][0] == KEYWORD_CHANGE_ADD_AND_FINAL) {
 			const char *name = changes[i]+1;
 
-			array_append(&keywords, &name, 1);
+			array_push_back(&keywords, &name);
 		}
 	}
 	if (array_count(&keywords) == 0)
 		return NULL;
 
 	array_append_zero(&keywords);
-	return array_idx(&keywords, 0);
+	return array_front(&keywords);
 }
 
 static void
@@ -2769,7 +2769,7 @@ dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer, bool final)
 		} T_END;
 		seq_range_array_iter_init(&iter, &changes.saved_uids); n = 0;
 		while (seq_range_array_iter_nth(&iter, n++, &uid))
-			array_append(&importer->saved_uids, &uid, 1);
+			array_push_back(&importer->saved_uids, &uid);
 		pool_unref(&changes.pool);
 
 		/* commit flag changes and expunges */

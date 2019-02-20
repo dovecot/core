@@ -16,7 +16,7 @@
 
 struct mail_namespace *
 client_find_namespace_full(struct client *client,
-			   const char **mailbox, const char **error_r)
+			   const char **mailbox, const char **client_error_r)
 {
 	struct mail_namespace *namespaces = client->user->namespaces;
 	struct mail_namespace *ns;
@@ -24,7 +24,7 @@ client_find_namespace_full(struct client *client,
 
 	utf8_name = t_str_new(64);
 	if (imap_utf7_to_utf8(*mailbox, utf8_name) < 0) {
-		*error_r = "NO Mailbox name is not valid mUTF-7";
+		*client_error_r = "NO Mailbox name is not valid mUTF-7";
 		return NULL;
 	}
 
@@ -33,7 +33,7 @@ client_find_namespace_full(struct client *client,
 	    ns->prefix_len == 0) {
 		/* this matched only the autocreated prefix="" namespace.
 		   give a nice human-readable error message */
-		*error_r = t_strdup_printf(
+		*client_error_r = t_strdup_printf(
 			"NO Client tried to access nonexistent namespace. "
 			"(Mailbox name should probably be prefixed with: %s)",
 			mail_namespace_find_inbox(namespaces)->prefix);
@@ -56,11 +56,11 @@ struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 {
 	struct mail_namespace *ns;
-	const char *error;
+	const char *client_error;
 
-	ns = client_find_namespace_full(cmd->client, mailbox, &error);
+	ns = client_find_namespace_full(cmd->client, mailbox, &client_error);
 	if (ns == NULL)
-		client_send_tagline(cmd, error);
+		client_send_tagline(cmd, client_error);
 	return ns;
 }
 
@@ -121,12 +121,10 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 		mailbox_free(&box);
 		return -1;
 	}
-	if (cmd->client->enabled_features != 0) {
-		if (mailbox_enable(box, cmd->client->enabled_features) < 0) {
-			client_send_box_error(cmd, box);
-			mailbox_free(&box);
-			return -1;
-		}
+	if (mailbox_enable(box, client_enabled_mailbox_features(cmd->client)) < 0) {
+		client_send_box_error(cmd, box);
+		mailbox_free(&box);
+		return -1;
 	}
 	*destbox_r = box;
 	return 0;
@@ -275,7 +273,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 			}
 		} else {
 			/* keyword validity checks are done by lib-storage */
-			array_append(&keywords, &atom, 1);
+			array_push_back(&keywords, &atom);
 		}
 
 		args++;
@@ -285,7 +283,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 		*keywords_r = NULL;
 	else {
 		array_append_zero(&keywords); /* NULL-terminate */
-		*keywords_r = array_idx(&keywords, 0);
+		*keywords_r = array_front(&keywords);
 	}
 	return TRUE;
 }
@@ -307,7 +305,7 @@ void client_send_mailbox_flags(struct client *client, bool selecting)
 				&status);
 
 	keywords = count == 0 ? NULL :
-		array_idx(client->keywords.names, 0);
+		array_front(client->keywords.names);
 	str = t_str_new(128);
 	str_append(str, "* FLAGS (");
 	imap_write_flags(str, status.flags, keywords);
@@ -358,11 +356,11 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 		unsigned int kw_index = *kw_indexes;
 
 		i_assert(kw_index < all_count);
-		array_append(dest, &all_names[kw_index], 1);
+		array_push_back(dest, &all_names[kw_index]);
 	}
 
 	array_append_zero(dest);
-	return array_idx(dest, 0);
+	return array_front(dest);
 }
 
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)

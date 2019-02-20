@@ -39,11 +39,13 @@ master_service_settings_check(void *_set, pool_t pool, const char **error_r);
 static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, base_dir),
 	DEF(SET_STR, state_dir),
+	DEF(SET_STR, instance_name),
 	DEF(SET_STR, log_path),
 	DEF(SET_STR, info_log_path),
 	DEF(SET_STR, debug_log_path),
 	DEF(SET_STR, log_timestamp),
 	DEF(SET_STR, log_debug),
+	DEF(SET_STR, log_core_filter),
 	DEF(SET_STR, syslog_facility),
 	DEF(SET_STR, import_environment),
 	DEF(SET_STR, stats_writer_socket_path),
@@ -74,11 +76,13 @@ static const struct setting_define master_service_setting_defines[] = {
 static const struct master_service_settings master_service_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.state_dir = PKG_STATEDIR,
+	.instance_name = PACKAGE,
 	.log_path = "syslog",
 	.info_log_path = "",
 	.debug_log_path = "",
 	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
 	.log_debug = "",
+	.log_core_filter = "",
 	.syslog_facility = "mail",
 	.import_environment = "TZ CORE_OUTOFMEM CORE_ERROR" ENV_SYSTEMD ENV_GDB,
 	.stats_writer_socket_path = "stats-writer",
@@ -104,22 +108,133 @@ const struct setting_parser_info master_service_setting_parser_info = {
 };
 
 /* <settings checks> */
-int master_service_log_debug_parse(struct event_filter *filter, const char *str,
-				   const char **error_r)
+static int parse_query(const char *str, struct event_filter_query *query_r,
+		       const char **error_r)
 {
-	const char *categories[2] = { NULL, NULL };
-	struct event_filter_query query = {
-		.categories = categories
-	};
+	ARRAY_TYPE(const_string) categories = ARRAY_INIT;
+	ARRAY(struct event_filter_field) fields = ARRAY_INIT;
 
-	/* FIXME: we should support more complicated filters */
-	const char *const *args = t_strsplit_spaces(str, " ");
-	for (unsigned int i = 0; args[i] != NULL; i++) {
-		categories[0] = args[i];
+	i_zero(query_r);
+	do {
+		while (*str == ' ')
+			str++;
+		const char *p = strchr(str, ' ');
+		if (p != NULL)
+			str = t_strdup_until(str, p++);
+
+		if (strncmp(str, "event:", 6) == 0) {
+			query_r->name = str+6;
+		} else if (strncmp(str, "source:", 7) == 0) {
+			const char *linep = strchr(str+7, ':');
+			if (linep == NULL) {
+				/* filename only - match to all line numbers */
+				query_r->source_filename = str+7;
+			} else {
+				query_r->source_filename = t_strdup_until(str+7, linep);
+				if (str_to_uint(linep+1, &query_r->source_linenum) < 0) {
+					*error_r = t_strdup_printf(
+						"Invalid line number in '%s'", str);
+					return -1;
+				}
+			}
+		} else if (strncmp(str, "field:", 6) == 0) {
+			const char *value = strchr(str+6, '=');
+			if (value == NULL) {
+				*error_r = t_strdup_printf(
+					"Missing '=' in '%s'", str);
+				return -1;
+			}
+			if (!array_is_created(&fields))
+				t_array_init(&fields, 4);
+			struct event_filter_field *field =
+				array_append_space(&fields);
+			field->key = t_strdup_until(str+6, value);
+			field->value = value+1;
+		} else if (strncmp(str, "cat:", 4) == 0 ||
+			   strncmp(str, "category:", 9) == 0) {
+			if (!array_is_created(&categories))
+				t_array_init(&categories, 4);
+			str = strchr(str, ':');
+			i_assert(str != NULL);
+			str++;
+			array_push_back(&categories, &str);
+		} else {
+			*error_r = t_strdup_printf("Unknown event '%s'", str);
+			return -1;
+		}
+		str = p;
+	} while (str != NULL);
+
+	if (array_is_created(&categories)) {
+		array_append_zero(&categories);
+		query_r->categories = array_front(&categories);
+	}
+	if (array_is_created(&fields)) {
+		array_append_zero(&fields);
+		query_r->fields = array_front(&fields);
+	}
+	return 0;
+}
+
+int master_service_log_filter_parse(struct event_filter *filter, const char *str,
+				    const char **error_r)
+{
+	struct event_filter_query query;
+	const char *p;
+
+	while (*str != '\0') {
+		if (*str == ' ') {
+			str++;
+			continue;
+		}
+
+		if (*str == '(') {
+			/* everything inside (...) is a single query */
+			str++;
+			p = strchr(str, ')');
+			if (p == NULL) {
+				*error_r = "Missing ')'";
+				return -1;
+			}
+			if (parse_query(t_strdup_until(str, p), &query, error_r) < 0)
+				return -1;
+			str = p+1;
+		} else if ((p = strchr(str, ' ')) != NULL) {
+			/* parse a single-word query in the middle */
+			if (parse_query(t_strdup_until(str, p), &query, error_r) < 0)
+				return -1;
+			str = p+1;
+		} else {
+			/* single-word last query */
+			if (parse_query(str, &query, error_r) < 0)
+				return -1;
+			str = "";
+		}
 		event_filter_add(filter, &query);
 	}
+
 	*error_r = NULL;
 	return 0;
+}
+
+static bool
+log_filter_parse(const char *set_name, const char *set_value,
+		 struct event_filter **filter_r, const char **error_r)
+{
+	const char *error;
+
+	if (set_value[0] == '\0') {
+		*filter_r = NULL;
+		return TRUE;
+	}
+
+	*filter_r = event_filter_create();
+	if (master_service_log_filter_parse(*filter_r, set_value, &error) < 0) {
+		*error_r = t_strdup_printf("Invalid %s: %s", set_name, error);
+		event_filter_unref(filter_r);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static bool
@@ -138,17 +253,26 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					   set->syslog_facility);
 		return FALSE;
 	}
-	struct event_filter *filter = event_filter_create();
-	const char *error;
-	if (master_service_log_debug_parse(filter, set->log_debug, &error) < 0) {
-		*error_r = t_strdup_printf("Invalid log_debug: %s", error);
-		event_filter_unref(&filter);
+
+	struct event_filter *filter;
+	if (!log_filter_parse("log_debug", set->log_debug, &filter, error_r))
 		return FALSE;
-	}
+	if (filter != NULL) {
 #ifndef CONFIG_BINARY
-	event_set_global_debug_log_filter(filter);
+		event_set_global_debug_log_filter(filter);
 #endif
-	event_filter_unref(&filter);
+		event_filter_unref(&filter);
+	}
+
+	if (!log_filter_parse("log_core_filter", set->log_core_filter,
+			      &filter, error_r))
+		return FALSE;
+	if (filter != NULL) {
+#ifndef CONFIG_BINARY
+		event_set_global_core_log_filter(filter);
+#endif
+		event_filter_unref(&filter);
+	}
 	return TRUE;
 }
 /* </settings checks> */
@@ -413,14 +537,14 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 				output_r->used_local = TRUE;
 			else if (strcmp(*arg, "used-remote") == 0)
 				output_r->used_remote = TRUE;
-			else if (strncmp(*arg, "service=", 8) == 0) {
+			else if (str_begins(*arg, "service=")) {
 				const char *name = p_strdup(pool, *arg + 8);
-				array_append(&services, &name, 1);
+				array_push_back(&services, &name);
 			 }
 		}
 		if (input->service == NULL) {
 			array_append_zero(&services);
-			output_r->specific_services = array_idx(&services, 0);
+			output_r->specific_services = array_front(&services);
 		}
 	} T_END;
 	return 0;
@@ -484,16 +608,16 @@ int master_service_settings_get_filters(struct master_service *service,
 		while((line = i_stream_read_next_line(is)) != NULL) {
 			if (*line == '\0')
 				break;
-			if (strncmp(line, "FILTER\t", 7) == 0) {
+			if (str_begins(line, "FILTER\t")) {
 				line = t_strdup(line+7);
-				array_append(&filters_tmp, &line, 1);
+				array_push_back(&filters_tmp, &line);
 			}
 		}
 		i_stream_unref(&is);
 	}
 
 	array_append_zero(&filters_tmp);
-	*filters = array_idx(&filters_tmp, 0);
+	*filters = array_front(&filters_tmp);
 	return 0;
 }
 
@@ -551,18 +675,18 @@ int master_service_settings_read(struct master_service *service,
 
 	p_array_init(&all_roots, service->set_pool, 8);
 	tmp_root = &master_service_setting_parser_info;
-	array_append(&all_roots, &tmp_root, 1);
+	array_push_back(&all_roots, &tmp_root);
 	if (service->want_ssl_settings) {
 		tmp_root = &master_service_ssl_setting_parser_info;
-		array_append(&all_roots, &tmp_root, 1);
+		array_push_back(&all_roots, &tmp_root);
 	}
 	if (input->roots != NULL) {
 		for (i = 0; input->roots[i] != NULL; i++)
-			array_append(&all_roots, &input->roots[i], 1);
+			array_push_back(&all_roots, &input->roots[i]);
 	}
 
 	parser = settings_parser_init_list(service->set_pool,
-			array_idx(&all_roots, 0), array_count(&all_roots),
+			array_front(&all_roots), array_count(&all_roots),
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
 	if (fd != -1) {
@@ -644,13 +768,13 @@ int master_service_settings_read(struct master_service *service,
 		/* running standalone. we want to ignore plugin versions. */
 		service->version_string = NULL;
 	}
-	if ((service->flags & MASTER_SERVICE_FLAG_SEND_STATS) != 0) {
+	if ((service->flags & MASTER_SERVICE_FLAG_DONT_SEND_STATS) == 0 &&
+	    (service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0) {
 		/* When running standalone (e.g. doveadm) try to connect to the
 		   stats socket, but don't log an error if it's not running.
-		   It may be intentional. */
-		bool silent_notfound_errors =
-			(service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0;
-		master_service_init_stats_client(service, silent_notfound_errors);
+		   It may be intentional. Non-standalone stats-client
+		   initialization was already done earlier. */
+		master_service_init_stats_client(service, TRUE);
 	}
 
 	if (service->set->shutdown_clients)

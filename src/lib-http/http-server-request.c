@@ -190,8 +190,9 @@ void http_server_request_abort(struct http_server_request **_req,
 						"Content-Length: 0\r\n"
 						"\r\n";
 
-					(void)o_stream_send(conn->conn.output,
+					o_stream_nsend(conn->conn.output,
 						response, strlen(response));
+					(void)o_stream_flush(conn->conn.output);
 				}
 
 				/* close the connection */
@@ -296,6 +297,7 @@ void http_server_request_submit_response(struct http_server_request *req)
 	case HTTP_SERVER_REQUEST_STATE_QUEUED:
 	case HTTP_SERVER_REQUEST_STATE_PAYLOAD_IN:
 	case HTTP_SERVER_REQUEST_STATE_PROCESSING:
+	case HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE:
 		if (!http_server_request_is_complete(req)) {
 			http_server_request_debug(req, "Not ready to respond");
 			req->state = HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE;

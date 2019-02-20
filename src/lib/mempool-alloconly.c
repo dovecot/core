@@ -5,6 +5,114 @@
 #include "safe-memset.h"
 #include "mempool.h"
 
+/*
+ * As the name implies, alloconly pools support only allocating memory.
+ * Memory freeing is not supported, except as a special case - the pool's
+ * last allocation can be freed.  Additionally, p_realloc() also tries to
+ * grow an existing allocation if and only if it is the last allocation,
+ * otherwise it just allocates a new memory area and copies the data there.
+ *
+ * Alloconly pools are commonly used for an object that builds its state
+ * from many memory allocations, but doesn't change (much of) its state.
+ * It is simpler to free such an object by destroying the entire memory
+ * pool.
+ *
+ * Implementation
+ * ==============
+ *
+ * Each alloconly pool contains a pool structure (struct alloconly_pool) to
+ * keep track of alloconly-specific pool information and one or more blocks
+ * (struct pool_block) that keep track of ranges of memory used to back the
+ * allocations.  The blocks are kept in a linked list implementing a stack.
+ * The block size decreases the further down the stack one goes.
+ *
+ * +-----------+
+ * | alloconly |
+ * |    pool   |
+ * +-----+-----+
+ *       |
+ *       | block  +------------+ next  +------------+ next
+ *       \------->| pool block |------>| pool block |------>...
+ *                +------------+       +------------+
+ *                |   <data>   |       |   <data>   |
+ *                      .                    .
+ *                      .                    .
+ *                      .              |   <data>   |
+ *                      .              +------------+
+ *                |   <data>   |
+ *                +------------+
+ *
+ * Creation
+ * --------
+ *
+ * When an alloconly pool is created, one block is allocated.  This block is
+ * large enough to hold the necessary internal structures (struct
+ * alloconly_pool and struct pool_block) and still have enough space to
+ * satisfy allocations for at least the amount of space requested by the
+ * consumer via the size argument to pool_alloconly_create().
+ *
+ * Allocation
+ * ----------
+ *
+ * Each allocation (via p_malloc()) checks the top-most block to see whether
+ * or not it has enough space to satisfy the allocation.  If there is not
+ * enough space, it allocates a new block (via block_alloc()) to serve as
+ * the new top-most block.  This newly-allocated block is guaranteed to have
+ * enough space for the allocation.  Then, regardless of whether or not a
+ * new block was allocated, the allocation code reserves enough space in the
+ * top-most block for the allocation and returns a pointer to it to the
+ * caller.
+ *
+ * The free space tracking within each block is very simple.  In addition to
+ * keeping track of the size of the block, the block header contains a
+ * "pointer" to the beginning of free space.  A new allocation simply moves
+ * this pointer by the number of bytes allocated.
+ *
+ * Reallocation
+ * ------------
+ *
+ * If the passed in allocation is the last allocation in a block and there
+ * is enough space after it, the allocation is resized.  Otherwise, a new
+ * buffer is allocated (see Allocation above) and the contents are copied
+ * over.
+ *
+ * Freeing
+ * -------
+ *
+ * Freeing of the last allocation moves the "pointer" to free space back by
+ * the size of the last allocation.
+ *
+ * Freeing of any other allocation is a no-op.
+ *
+ * Clearing
+ * --------
+ *
+ * Clearing the pool is supposed to return the pool to the same state it was
+ * in when it was first created.  To that end, the alloconly pool frees all
+ * the blocks allocated since the pool's creation.  The remaining block
+ * (allocated during creation) is reset to consider all the space for
+ * allocations as available.
+ *
+ * In other words, the per-block free space tracking variables are set to
+ * indicate that the full block is available and that there have been no
+ * allocations.
+ *
+ * Finally, if the pool was created via pool_alloconly_create_clean(), all
+ * blocks are safe_memset()/memset() to zero before being free()d.
+ *
+ * Destruction
+ * -----------
+ *
+ * Destroying a pool first clears it (see above).  The clearing leaves the
+ * pool in a minimal state with only one block allocated.  This remaining
+ * block may be safe_memset() to zero if the pool was created with
+ * pool_alloconly_create_clean().
+ *
+ * Since the pool structure itself is allocated from the first block, this
+ * final call to free() will release the memory allocated for struct
+ * alloconly_pool and struct pool.
+ */
+
 #ifndef DEBUG
 #  define POOL_ALLOCONLY_MAX_EXTRA MEM_ALIGN(1)
 #else
@@ -123,6 +231,9 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	size_t min_alloc = SIZEOF_POOLBLOCK +
 		MEM_ALIGN(sizeof(struct alloconly_pool) + SENTRY_COUNT);
 
+	if (POOL_ALLOCONLY_MAX_EXTRA > (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE))
+		i_panic("POOL_MAX_ALLOC_SIZE is too large");
+
 #ifdef DEBUG
 	min_alloc += MEM_ALIGN(strlen(name) + 1 + SENTRY_COUNT) +
 		sizeof(size_t)*2;
@@ -141,7 +252,7 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	new_apool = p_new(&apool.pool, struct alloconly_pool, 1);
 	*new_apool = apool;
 #ifdef DEBUG
-	if (strncmp(name, MEMPOOL_GROWING, strlen(MEMPOOL_GROWING)) == 0 ||
+	if (str_begins(name, MEMPOOL_GROWING) ||
 	    getenv("DEBUG_SILENT") != NULL) {
 		name += strlen(MEMPOOL_GROWING);
 		new_apool->disable_warning = TRUE;
@@ -164,7 +275,7 @@ pool_t pool_alloconly_create_clean(const char *name, size_t size)
 	pool_t pool;
 
 	pool = pool_alloconly_create(name, size);
-	apool = (struct alloconly_pool *)pool;
+	apool = container_of(pool, struct alloconly_pool, pool);
 	apool->clean_frees = TRUE;
 	return pool;
 }
@@ -193,7 +304,8 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 static const char *pool_alloconly_get_name(pool_t pool ATTR_UNUSED)
 {
 #ifdef DEBUG
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 
 	return apool->name;
 #else
@@ -203,14 +315,16 @@ static const char *pool_alloconly_get_name(pool_t pool ATTR_UNUSED)
 
 static void pool_alloconly_ref(pool_t pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 
 	apool->refcount++;
 }
 
 static void pool_alloconly_unref(pool_t *pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)*pool;
+	struct alloconly_pool *apool =
+		container_of(*pool, struct alloconly_pool, pool);
 
 	/* erase the pointer before freeing anything, as the pointer may
 	   exist inside the pool's memory area */
@@ -265,12 +379,10 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 
 static void *pool_alloconly_malloc(pool_t pool, size_t size)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 	void *mem;
 	size_t alloc_size;
-
-	if (unlikely(size == 0 || size > SSIZE_T_MAX - POOL_ALLOCONLY_MAX_EXTRA))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 #ifndef DEBUG
 	alloc_size = MEM_ALIGN(size);
@@ -300,7 +412,8 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 
 static void pool_alloconly_free(pool_t pool, void *mem)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 
 	/* we can free only the last allocation */
 	if (POOL_BLOCK_DATA(apool->block) +
@@ -312,7 +425,7 @@ static void pool_alloconly_free(pool_t pool, void *mem)
 	}
 }
 
-static bool pool_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
+static bool pool_alloconly_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
 {
 	/* see if we want to grow the memory we allocated last */
 	if (POOL_BLOCK_DATA(apool->block) +
@@ -334,14 +447,9 @@ static bool pool_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
 static void *pool_alloconly_realloc(pool_t pool, void *mem,
 				    size_t old_size, size_t new_size)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 	unsigned char *new_mem;
-
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX - POOL_ALLOCONLY_MAX_EXTRA))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
-
-	if (mem == NULL)
-		return pool_alloconly_malloc(pool, new_size);
 
 	if (new_size <= old_size)
 		return mem;
@@ -349,7 +457,7 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 	new_size = MEM_ALIGN(new_size);
 
 	/* see if we can directly grow it */
-	if (!pool_try_grow(apool, mem, new_size)) {
+	if (!pool_alloconly_try_grow(apool, mem, new_size)) {
 		/* slow way - allocate + copy */
 		new_mem = pool_alloconly_malloc(pool, new_size);
 		memcpy(new_mem, mem, old_size);
@@ -361,7 +469,8 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 
 static void pool_alloconly_clear(pool_t pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 	struct pool_block *block;
 	size_t base_size, avail_size;
 
@@ -401,14 +510,16 @@ static void pool_alloconly_clear(pool_t pool)
 
 static size_t pool_alloconly_get_max_easy_alloc_size(pool_t pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 
 	return apool->block->left;
 }
 
 size_t pool_alloconly_get_total_used_size(pool_t pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 	struct pool_block *block;
 	size_t size = 0;
 
@@ -421,7 +532,8 @@ size_t pool_alloconly_get_total_used_size(pool_t pool)
 
 size_t pool_alloconly_get_total_alloc_size(pool_t pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct alloconly_pool *apool =
+		container_of(pool, struct alloconly_pool, pool);
 	struct pool_block *block;
 	size_t size = 0;
 

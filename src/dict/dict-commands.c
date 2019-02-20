@@ -80,7 +80,7 @@ static void dict_connection_cmds_flush(struct dict_connection *conn)
 
 	dict_connection_ref(conn);
 	while (array_count(&conn->cmds) > 0) {
-		first_cmdp = array_idx(&conn->cmds, 0);
+		first_cmdp = array_front(&conn->cmds);
 		cmd = *first_cmdp;
 
 		i_assert(cmd->async_reply_id == 0);
@@ -613,7 +613,7 @@ int dict_command_input(struct dict_connection *conn, const char *line)
 	cmd->conn = conn;
 	cmd->cmd = cmd_func;
 	cmd->start_timeval = ioloop_timeval;
-	array_append(&conn->cmds, &cmd, 1);
+	array_push_back(&conn->cmds, &cmd);
 	dict_connection_ref(conn);
 	if ((ret = cmd_func->func(cmd, line + 1)) <= 0) {
 		dict_connection_cmd_remove(cmd);
@@ -659,7 +659,7 @@ static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd)
 	struct dict_connection_cmd *const *first_cmdp;
 
 	if (cmd->conn->minor_version < DICT_CLIENT_PROTOCOL_TIMINGS_MIN_VERSION) {
-		first_cmdp = array_idx(&cmd->conn->cmds, 0);
+		first_cmdp = array_front(&cmd->conn->cmds);
 		if (*first_cmdp != cmd)
 			return;
 	}

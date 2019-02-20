@@ -60,6 +60,7 @@ static const struct setting_define submission_login_setting_defines[] = {
 	DEF(SET_STR, hostname),
 
 	DEF(SET_SIZE, submission_max_mail_size),
+	DEF(SET_STR, submission_backend_capabilities),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -68,6 +69,7 @@ static const struct submission_login_settings submission_login_default_settings 
 	.hostname = "",
 
 	.submission_max_mail_size = 0,
+	.submission_backend_capabilities = NULL
 };
 
 static const struct setting_parser_info *submission_login_setting_dependencies[] = {

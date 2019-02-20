@@ -124,7 +124,7 @@ void mail_index_update_day_headers(struct mail_index_transaction *t,
 	int i, days;
 
 	hdr = *mail_index_get_header(t->view);
-	rec = array_idx(&t->appends, 0);
+	rec = array_front(&t->appends);
 
 	stamp = time_to_local_day_start(day_stamp);
 	if ((time_t)hdr.day_stamp >= stamp)
@@ -195,6 +195,14 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 				   uint32_t first_uid,
 				   ARRAY_TYPE(seq_range) *uids_r)
 {
+	return mail_index_append_finish_uids_full(t, first_uid, first_uid, uids_r);
+}
+
+void mail_index_append_finish_uids_full(struct mail_index_transaction *t,
+					uint32_t min_allowed_uid,
+					uint32_t first_new_uid,
+					ARRAY_TYPE(seq_range) *uids_r)
+{
 	struct mail_index_record *recs;
 	unsigned int i, count;
 	struct seq_range *range;
@@ -203,13 +211,14 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 	if (!array_is_created(&t->appends))
 		return;
 
-	i_assert(first_uid < (uint32_t)-1);
+	i_assert(min_allowed_uid <= first_new_uid);
+	i_assert(first_new_uid < (uint32_t)-1);
 
 	/* first find the highest assigned uid */
 	recs = array_get_modifiable(&t->appends, &count);
 	i_assert(count > 0);
 
-	next_uid = first_uid;
+	next_uid = first_new_uid;
 	for (i = 0; i < count; i++) {
 		if (next_uid <= recs[i].uid)
 			next_uid = recs[i].uid + 1;
@@ -218,14 +227,13 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 
 	/* assign missing uids */
 	for (i = 0; i < count; i++) {
-		if (recs[i].uid == 0 || recs[i].uid < first_uid) {
+		if (recs[i].uid == 0 || recs[i].uid < min_allowed_uid) {
 			i_assert(next_uid < (uint32_t)-1);
 			recs[i].uid = next_uid++;
 			if (t->highest_append_uid < recs[i].uid)
 				t->highest_append_uid = recs[i].uid;
 		} else {
-			if (next_uid != first_uid)
-				t->appends_nonsorted = TRUE;
+			t->appends_nonsorted = TRUE;
 		}
 	}
 
@@ -612,7 +620,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 
 	if (!array_is_created(&t->updates)) {
 		i_array_init(&t->updates, 256);
-		array_append(&t->updates, &u, 1);
+		array_push_back(&t->updates, &u);
 		return;
 	}
 
@@ -638,7 +646,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	}
 
 	if (t->last_update_idx == count)
-		array_append(&t->updates, &u, 1);
+		array_push_back(&t->updates, &u);
 	else {
 		i_assert(t->last_update_idx < count);
 
@@ -1133,7 +1141,7 @@ keyword_update_remove_existing(struct mail_index_transaction *t, uint32_t seq)
 		   really care about performance that much here, */
 		keywords_count = array_count(&t->view->index->keywords);
 		for (i = 0; i < keywords_count; i++)
-			array_append(&keywords, &i, 1);
+			array_push_back(&keywords, &i);
 	} else {
 		mail_index_transaction_lookup_latest_keywords(t, seq, &keywords);
 	}

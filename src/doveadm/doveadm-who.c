@@ -28,7 +28,7 @@ static void who_user_ip(const struct who_user *user, struct ip_addr *ip_r)
 	if (array_count(&user->ips) == 0)
 		i_zero(ip_r);
 	else {
-		const struct ip_addr *ip = array_idx(&user->ips, 0);
+		const struct ip_addr *ip = array_front(&user->ips);
 		*ip_r = *ip;
 	}
 }
@@ -140,10 +140,10 @@ static void who_aggregate_line(struct who_context *ctx,
 	user->connection_count += line->refcount;
 
 	if (line->ip.family != 0 && !who_user_has_ip(user, &line->ip))
-		array_append(&user->ips, &line->ip, 1);
+		array_push_back(&user->ips, &line->ip);
 
 	if (!who_user_has_pid(user, line->pid))
-		array_append(&user->pids, &line->pid, 1);
+		array_push_back(&user->pids, &line->pid);
 }
 
 int who_parse_args(struct who_context *ctx, const char *const *masks)
@@ -256,6 +256,8 @@ static void who_print_user(const struct who_user *user)
 		str_truncate(str, str_len(str)-1);
 	str_append_c(str, ')');
 	doveadm_print(str_c(str));
+
+	doveadm_print_flush();
 }
 
 static void who_print(struct who_context *ctx)

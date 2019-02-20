@@ -133,6 +133,8 @@ void hash_table_destroy(struct hash_table **_table)
 {
 	struct hash_table *table = *_table;
 
+	if (table == NULL)
+		return;
 	*_table = NULL;
 
 	i_assert(table->frozen == 0);
@@ -417,6 +419,9 @@ bool hash_table_iterate(struct hash_iterate_context *ctx,
 void hash_table_iterate_deinit(struct hash_iterate_context **_ctx)
 {
 	struct hash_iterate_context *ctx = *_ctx;
+
+	if (ctx == NULL)
+		return;
 
 	*_ctx = NULL;
 	hash_table_thaw(ctx->table);

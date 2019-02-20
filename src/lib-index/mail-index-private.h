@@ -45,9 +45,6 @@ struct mail_index_sync_map_ctx;
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 uint32_t seq, const void *data,
 					 void **sync_context, void *context);
-typedef int mail_index_sync_handler_t(struct mail_index_sync_map_ctx *ctx,
-				      uint32_t seq, void *old_data,
-				      const void *new_data, void **context);
 typedef void mail_index_sync_lost_handler_t(struct mail_index *index);
 
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
@@ -93,11 +90,6 @@ enum mail_index_sync_handler_type {
 	MAIL_INDEX_SYNC_HANDLER_VIEW	= 0x04
 };
 
-struct mail_index_sync_handler {
-	mail_index_sync_handler_t *callback;
-        enum mail_index_sync_handler_type type;
-};
-
 struct mail_index_registered_ext {
 	const char *name;
 	uint32_t index_idx; /* index ext_id */
@@ -105,7 +97,6 @@ struct mail_index_registered_ext {
 	uint16_t record_size;
 	uint16_t record_align;
 
-	struct mail_index_sync_handler sync_handler;
 	mail_index_expunge_handler_t *expunge_handler;
 
 	void *expunge_context;
@@ -245,11 +236,6 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 					 void *context);
 void mail_index_unregister_expunge_handler(struct mail_index *index,
 					   uint32_t ext_id);
-void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
-				      mail_index_sync_handler_t *cb,
-				      enum mail_index_sync_handler_type type);
-void mail_index_unregister_sync_handler(struct mail_index *index,
-					uint32_t ext_id);
 void mail_index_register_sync_lost_handler(struct mail_index *index,
 					   mail_index_sync_lost_handler_t *cb);
 void mail_index_unregister_sync_lost_handler(struct mail_index *index,

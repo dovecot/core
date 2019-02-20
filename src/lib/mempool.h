@@ -10,6 +10,11 @@
    pools to disable the warning. */
 #define MEMPOOL_GROWING "GROWING-"
 
+/* The maximum allocation size that's allowed.  Anything larger than that
+   will panic.  No pool ever should need more than 4kB of overhead per
+   allocation. */
+#define POOL_MAX_ALLOC_SIZE	(SSIZE_T_MAX - 4096)
+
 /* Memory allocated and reallocated (the new data in it) in pools is always
    zeroed, it will cost only a few CPU cycles and may well save some debug
    time. */
@@ -96,12 +101,22 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 static inline void * ATTR_MALLOC ATTR_RETURNS_NONNULL
 p_malloc(pool_t pool, size_t size)
 {
+	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
+		i_panic("Trying to allocate %" PRIuSIZE_T " bytes", size);
+
 	return pool->v->malloc(pool, size);
 }
 
 static inline void * ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL
 p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 {
+	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
+		i_panic("Trying to reallocate %" PRIuSIZE_T " -> %" PRIuSIZE_T " bytes",
+			old_size, new_size);
+
+	if (mem == NULL)
+		return pool->v->malloc(pool, new_size);
+
 	return pool->v->realloc(pool, mem, old_size, new_size);
 }
 
@@ -116,7 +131,8 @@ p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 
 static inline void p_free_internal(pool_t pool, void *mem)
 {
-	pool->v->free(pool, mem);
+	if (mem != NULL)
+		pool->v->free(pool, mem);
 }
 
 static inline void p_clear(pool_t pool)

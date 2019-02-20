@@ -220,7 +220,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	}
 
 	keyword_updates = keyword_count == 0 ? NULL :
-		array_idx(&sync_trans->keyword_updates, 0);
+		array_front(&sync_trans->keyword_updates);
 	for (i = 0; i < keyword_count; i++) {
 		if (array_is_created(&keyword_updates[i].add_seq)) {
 			synclist = array_append_space(&ctx->sync_list);
@@ -850,6 +850,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		   (ctx->flags & MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX) == 0) {
 		/* another process just marked the index deleted.
 		   finish the sync, but return error. */
+		mail_index_set_error_nolog(index, "Index is marked deleted");
 		ret = -1;
 	}
 
@@ -944,7 +945,7 @@ bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
 				return FALSE;
 		}
 
-		array_append(keywords, &idx, 1);
+		array_push_back(keywords, &idx);
 		return TRUE;
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		for (i = 0; i < count; i++) {

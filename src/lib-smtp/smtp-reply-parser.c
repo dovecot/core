@@ -89,6 +89,59 @@ struct smtp_reply_parser {
 	bool ehlo:1;
 };
 
+bool smtp_reply_parse_enhanced_code(const char *text,
+				    struct smtp_reply_enhanced_code *enh_code_r,
+				    const char **pos_r)
+{
+	const char *p = text;
+	unsigned int digits, x, y, z;
+
+	i_zero(enh_code_r);
+
+	/* status-code ::= class "." subject "." detail
+	   class       ::= "2" / "4" / "5"
+	   subject     ::= 1*3digit
+	   detail      ::= 1*3digit
+	*/
+
+	/* class */
+	if (p[1] != '.' || (p[0] != '2' && p[0] != '4' && p[0] != '5'))
+		return FALSE;
+	x = p[0] - '0';
+	p += 2;
+
+	/* subject */
+	digits = 0;
+	y = 0;
+	while (*p != '\0' && i_isdigit(*p) && digits++ < 3) {
+		y = y*10 + (*p - '0');
+		p++;
+	}
+	if (digits == 0 || *p != '.')
+		return FALSE;
+	p++;
+
+	/* detail */
+	digits = 0;
+	z = 0;
+	while (*p != '\0' && i_isdigit(*p) && digits++ < 3) {
+		z = z*10 + (*p - '0');
+		p++;
+	}
+	if (digits == 0 || (pos_r == NULL && *p != '\0'))
+		return FALSE;
+
+	if (pos_r != NULL) {
+		/* code is syntactically valid; strip code from textstring */
+		*pos_r = p;
+	}
+
+	enh_code_r->x = x;
+	enh_code_r->y = y;
+	enh_code_r->z = z;
+	return TRUE;
+}
+
 static inline void ATTR_FORMAT(2, 3)
 smtp_reply_parser_error(struct smtp_reply_parser *parser,
 			const char *format, ...)
@@ -146,7 +199,7 @@ smtp_reply_parser_restart(struct smtp_reply_parser *parser)
 	pool_unref(&parser->reply_pool);
 	i_zero(&parser->state);
 
-	parser->reply_pool = pool_alloconly_create("smtp_reply", 256);
+	parser->reply_pool = pool_alloconly_create("smtp_reply", 1024);
 	parser->state.reply = p_new(parser->reply_pool, struct smtp_reply, 1);
 	p_array_init(&parser->state.reply_lines, parser->reply_pool, 8);
 
@@ -166,7 +219,7 @@ static int smtp_reply_parse_code
 	if (str_len(parser->strbuf) + (parser->cur-first) > 3)
 		return -1;
 
-	str_append_n(parser->strbuf, first, parser->cur - first);
+	str_append_data(parser->strbuf, first, parser->cur - first);
 	if (parser->cur == parser->end)
 		return 0;
 	if (str_len(parser->strbuf) != 3)
@@ -195,7 +248,7 @@ static int smtp_reply_parse_textstring(struct smtp_reply_parser *parser)
 		return -1;
 	}
 
-	str_append_n(parser->strbuf, first, parser->cur - first);
+	str_append_data(parser->strbuf, first, parser->cur - first);
 	if (parser->cur == parser->end)
 		return 0;
 	return 1;
@@ -217,7 +270,7 @@ static int smtp_reply_parse_ehlo_domain(struct smtp_reply_parser *parser)
 			"Reply exceeds size limit");
 		return -1;
 	}
-	str_append_n(parser->strbuf, first, parser->cur - first);
+	str_append_data(parser->strbuf, first, parser->cur - first);
 	if (parser->cur == parser->end)
 		return 0;
 	return 1;
@@ -249,7 +302,7 @@ static int smtp_reply_parse_ehlo_greet(struct smtp_reply_parser *parser)
 			}
 
 			/* sanitize bad characters */
-			str_append_n(parser->strbuf,
+			str_append_data(parser->strbuf,
 				first, parser->cur - first);
 
 			if (parser->cur == parser->end)
@@ -272,89 +325,56 @@ static inline const char *_chr_sanitize(unsigned char c)
 }
 
 static void
-smtp_reply_parse_enhanced_code(struct smtp_reply_parser *parser,
-	const char **pos)
+smtp_reply_parser_parse_enhanced_code(const char *text,
+				      struct smtp_reply_parser *parser,
+				      const char **pos_r)
 {
-	const char *p = *pos;
-	unsigned int digits, x, y, z;
-	unsigned int prevx = parser->state.reply->enhanced_code.x,
-		prevy = parser->state.reply->enhanced_code.y,
-		prevz = parser->state.reply->enhanced_code.z;
+	struct smtp_reply_enhanced_code code;
+	struct smtp_reply_enhanced_code *cur_code =
+		&parser->state.reply->enhanced_code;
 
-	if (prevx == 9)
+	if (cur_code->x == 9)
 		return; /* failed on earlier line */
 
-	parser->state.reply->enhanced_code.x = 9;
-	parser->state.reply->enhanced_code.y = 0;
-	parser->state.reply->enhanced_code.z = 0;
-
-	/* status-code ::= class "." subject "." detail
-	   class       ::= "2" / "4" / "5"
-	   subject     ::= 1*3digit
-	   detail      ::= 1*3digit
-	*/
-
-	/* class */
-	if (p[1] != '.' || (p[0] != '2' && p[0] != '4' && p[0] != '5'))
+	if (!smtp_reply_parse_enhanced_code(text, &code, pos_r)) {
+		/* failed to parse an enhanced code */
+		i_zero(cur_code);
+		cur_code->x = 9;
 		return;
-	x = p[0] - '0';
-	p += 2;
-
-	/* subject */
-	digits = 0;
-	y = 0;
-	while (*p != '\0' && i_isdigit(*p) && digits++ < 3) {
-		y = y*10 + (*p - '0');
-		p++;
 	}
-	if (digits == 0 || *p != '.')
-		return;
-	p++;
 
-	/* detail */
-	digits = 0;
-	z = 0;
-	while (*p != '\0' && i_isdigit(*p) && digits++ < 3) {
-		z = z*10 + (*p - '0');
-		p++;
-	}
-	if (digits == 0 || (*p != ' ' && *p != '\r' && *p != '\n'))
+	if (**pos_r != ' ' && **pos_r != '\r' && **pos_r != '\n')
 		return;
-	p++;
-
-	/* code is syntactically valid; strip code from textstring */
-	*pos = p;
+	(*pos_r)++;
 
 	/* check for match with status */
-	if (x != parser->state.reply->status / 100) {
+	if (code.x != parser->state.reply->status / 100) {
 		/* ignore code */
 		return;
 	}
 
 	/* check for code consistency */
 	if (parser->state.line > 0 &&
-		(prevx != x || prevy != y || prevz != z)) {
+	    (cur_code->x != code.x || cur_code->y != code.y ||
+	     cur_code->z != code.z)) {
 		/* ignore code */
 		return;
 	}
 
-	parser->state.reply->enhanced_code.x = x;
-	parser->state.reply->enhanced_code.y = y;
-	parser->state.reply->enhanced_code.z = z;
+	*cur_code = code;
 }
 
 static void smtp_reply_parser_finish_line(struct smtp_reply_parser *parser)
 {
 	const char *text = str_c(parser->strbuf);
 
-	if (parser->enhanced_codes && str_len(parser->strbuf) > 5) {
-		smtp_reply_parse_enhanced_code(parser, &text);
-	}
+	if (parser->enhanced_codes && str_len(parser->strbuf) > 5)
+		smtp_reply_parser_parse_enhanced_code(text, parser, &text);
 
 	parser->state.line++;
 	parser->state.reply_size += str_len(parser->strbuf);
 	text = p_strdup(parser->reply_pool, text);
-	array_append(&parser->state.reply_lines, &text, 1);
+	array_push_back(&parser->state.reply_lines, &text);
 	str_truncate(parser->strbuf, 0);
 }
 
@@ -582,9 +602,12 @@ int smtp_reply_parse_next(struct smtp_reply_parser *parser,
 		return ret;
 	}
 
+	i_assert(array_count(&parser->state.reply_lines) > 0);
+	array_append_zero(&parser->state.reply_lines);
+
 	parser->state.state = SMTP_REPLY_PARSE_STATE_INIT;
 	parser->state.reply->text_lines =
-		array_idx(&parser->state.reply_lines, 0);
+		array_front(&parser->state.reply_lines);
 	*reply_r = parser->state.reply;
 	return 1;
 }
@@ -623,9 +646,12 @@ int smtp_reply_parse_ehlo(struct smtp_reply_parser *parser,
 		return ret;
 	}
 
+	i_assert(array_count(&parser->state.reply_lines) > 0);
+	array_append_zero(&parser->state.reply_lines);
+
 	parser->state.state = SMTP_REPLY_PARSE_STATE_INIT;
 	parser->state.reply->text_lines =
-		array_idx(&parser->state.reply_lines, 0);
+		array_front(&parser->state.reply_lines);
 	*reply_r = parser->state.reply;
 	return 1;
 }

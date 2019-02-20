@@ -212,7 +212,7 @@ int var_expand_if(struct var_expand_context *ctx,
 			depth--;
 		} else if (depth == 0 && *par_end == ';') {
 			const char *par = str_c(parbuf);
-			array_append(&params, &par, 1);
+			array_push_back(&params, &par);
 			parbuf = t_str_new(64);
 			continue;
 		/* if there is a unescaped : at top level it means
@@ -227,13 +227,13 @@ int var_expand_if(struct var_expand_context *ctx,
 
 	if (str_len(parbuf) > 0) {
 		const char *par = str_c(parbuf);
-		array_append(&params, &par, 1);
+		array_push_back(&params, &par);
 	}
 
 	if (array_count(&params) != 5) {
 		if (array_count(&params) == 4) {
 			const char *empty = "";
-			array_append(&params, &empty, 1);
+			array_push_back(&params, &empty);
 		} else {
 			*error_r = t_strdup_printf("if: requires four or five parameters, got %u",
 						   array_count(&params));
@@ -242,7 +242,7 @@ int var_expand_if(struct var_expand_context *ctx,
 	}
 
 	array_append_zero(&params);
-	parms = array_idx(&params, 0);
+	parms = array_front(&params);
 	t_array_init(&params, 6);
 
 	for(;*parms != NULL; parms++) {
@@ -254,13 +254,13 @@ int var_expand_if(struct var_expand_context *ctx,
 			return ret;
 		}
 		const char *p = str_c(param);
-		array_append(&params, &p, 1);
+		array_push_back(&params, &p);
 	}
 
 	i_assert(array_count(&params) == 5);
 
 	/* execute comparison */
-	const char *const *args = array_idx(&params, 0);
+	const char *const *args = array_front(&params);
 	if (var_expand_if_comp(args[0], args[1], args[2], &result, error_r)<0)
 		return -1;
 	*result_r = result ? args[3] : args[4];

@@ -27,7 +27,7 @@ static void push_notification_event_mailboxunsubscribe_event(
 
     data = p_new(ptxn->pool,
                  struct push_notification_event_mailboxunsubscribe_data, 1);
-    data->subscribe = TRUE;
+    data->subscribe = FALSE;
 
     push_notification_txn_mbox_set_eventdata(ptxn, mbox, ec, data);
 }

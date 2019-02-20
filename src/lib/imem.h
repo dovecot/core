@@ -28,6 +28,7 @@ void *i_realloc(void *mem, size_t old_size, size_t new_size)
 
 /* string functions */
 char *i_strdup(const char *str) ATTR_MALLOC;
+void *i_memdup(const void *data, size_t size) ATTR_MALLOC;
 /* like i_strdup(), but if str == "", return NULL */
 char *i_strdup_empty(const char *str) ATTR_MALLOC;
 /* *end isn't included */

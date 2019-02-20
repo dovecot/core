@@ -5,6 +5,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/plugins/notify
 
 NOPLUGIN_LDFLAGS =
@@ -13,9 +14,11 @@ lib20_push_notification_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = lib20_push_notification_plugin.la
 
 if DOVECOT_PLUGIN_DEPS
-lib20_push_notification_plugin_la_LIBADD = \
-        ../notify/lib15_notify_plugin.la
+notify_deps = ../notify/lib15_notify_plugin.la
 endif
+
+lib20_push_notification_plugin_la_LIBADD = \
+	$(notify_deps)
 
 lib20_push_notification_plugin_la_SOURCES = \
 	push-notification-driver-dlog.c \
@@ -64,3 +67,16 @@ headers = \
 
 pkginc_libdir = $(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+if HAVE_LUA
+lib22_push_notification_lua_plugin_la_CFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/src/lib-lua \
+	-I$(top_srcdir)/src/plugins/mail-lua \
+	$(LUA_CFLAGS)
+lib22_push_notification_lua_plugin_la_LDFLAGS = module -avoid-version
+module_LTLIBRARIES += \
+	lib22_push_notification_lua_plugin.la
+lib22_push_notification_lua_plugin_la_LIBADD = $(notify_deps) $(LUA_LIBS)
+lib22_push_notification_lua_plugin_la_SOURCES = \
+	push-notification-driver-lua.c
+endif

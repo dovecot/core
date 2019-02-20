@@ -6,8 +6,15 @@
 #define MASTER_POSTLOGIN_TIMEOUT_DEFAULT 60
 
 struct master_login_client {
+	/* parent connection */
 	struct master_login_connection *conn;
+	/* linked list of all clients within the connection */
+	struct master_login_client *prev, *next;
+	/* non-NULL while running postlogin script */
+	struct master_login_postlogin *postlogin_client;
+
 	int fd;
+	struct timeval create_time;
 
 	struct master_auth_request auth_req;
 	char *session_id;

@@ -33,13 +33,11 @@ void apparmor_plugin_deinit(void);
 static void apparmor_log_current_context(struct mail_user *user)
 {
 	char *con, *mode;
-	if (!user->mail_debug)
-		return;
 
 	if (aa_getcon(&con, &mode) < 0) {
-		i_debug("aa_getcon() failed: %m");
+		e_debug(user->event, "aa_getcon() failed: %m");
 	} else {
-		i_debug("apparmor: Current context=%s, mode=%s",
+		e_debug(user->event, "apparmor: Current context=%s, mode=%s",
 			con, mode);
 		free(con);
 	}
@@ -70,12 +68,12 @@ static void apparmor_mail_user_created(struct mail_user *user)
 		return;
 
 	t_array_init(&hats, 8);
-	array_append(&hats, &hat, 1);
+	array_push_back(&hats, &hat);
 	for(unsigned int i = 2;; i++) {
 		hat = mail_user_plugin_getenv(user, t_strdup_printf("%s%u",
 				APPARMOR_PLUGIN_SETTING_HAT_PREFIX, i));
 		if (hat == NULL) break;
-		array_append(&hats, &hat, 1);
+		array_push_back(&hats, &hat);
 	}
 	array_append_zero(&hats);
 
@@ -90,7 +88,7 @@ static void apparmor_mail_user_created(struct mail_user *user)
 	random_fill(&auser->token, sizeof(auser->token));
 
 	/* try change hat */
-	if (aa_change_hatv(array_idx_modifiable(&hats, 0), auser->token) < 0) {
+	if (aa_change_hatv(array_front_modifiable(&hats), auser->token) < 0) {
 		i_fatal("aa_change_hatv(%s) failed: %m",
 			t_array_const_string_join(&hats, ","));
 	}

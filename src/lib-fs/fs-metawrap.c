@@ -75,8 +75,7 @@ static void fs_metawrap_deinit(struct fs *_fs)
 {
 	struct metawrap_fs *fs = (struct metawrap_fs *)_fs;
 
-	if (_fs->parent != NULL)
-		fs_deinit(&_fs->parent);
+	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 
@@ -133,7 +132,7 @@ static void fs_metawrap_file_deinit(struct fs_file *_file)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
-	if (file->super_read != _file->parent && file->super_read != NULL)
+	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
 	str_free(&file->metadata_header);
 	fs_file_deinit(&_file->parent);
@@ -146,10 +145,8 @@ static void fs_metawrap_file_close(struct fs_file *_file)
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
 	i_stream_unref(&file->input);
-	if (file->super_read != NULL)
-		fs_file_close(file->super_read);
-	if (_file->parent != NULL)
-		fs_file_close(_file->parent);
+	fs_file_close(file->super_read);
+	fs_file_close(_file->parent);
 }
 
 static void
@@ -158,7 +155,8 @@ fs_metawrap_set_metadata(struct fs_file *_file, const char *key,
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
-	if (!file->fs->wrap_metadata)
+	if (!file->fs->wrap_metadata ||
+	    strcmp(key, FS_METADATA_WRITE_FNAME) == 0)
 		fs_set_metadata(_file->parent, key, value);
 	else {
 		fs_default_set_metadata(_file, key, value);
@@ -276,8 +274,7 @@ fs_metawrap_append_metadata(struct metawrap_fs_file *file, string_t *str)
 	const struct fs_metadata *metadata;
 
 	array_foreach(&file->file.metadata, metadata) {
-		if (strncmp(metadata->key, FS_METADATA_INTERNAL_PREFIX,
-			    strlen(FS_METADATA_INTERNAL_PREFIX)) == 0)
+		if (str_begins(metadata->key, FS_METADATA_INTERNAL_PREFIX))
 			continue;
 
 		str_append_tabescaped(str, metadata->key);

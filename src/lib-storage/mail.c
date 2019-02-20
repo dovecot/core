@@ -8,9 +8,11 @@
 #include "crc32.h"
 #include "sha1.h"
 #include "hostpid.h"
+#include "istream.h"
 #include "mail-cache.h"
 #include "mail-storage-private.h"
 #include "message-part-data.h"
+#include "imap-bodystructure.h"
 
 #include <time.h>
 
@@ -275,6 +277,7 @@ int mail_get_stream_because(struct mail *mail, struct message_size *hdr_size,
 		ret = p->v.get_stream(mail, TRUE, hdr_size, body_size, stream_r);
 		p->get_stream_reason = "";
 	} T_END;
+	i_assert(ret < 0 || (*stream_r)->blocking);
 	return ret;
 }
 
@@ -300,6 +303,7 @@ int mail_get_hdr_stream_because(struct mail *mail,
 		ret = p->v.get_stream(mail, FALSE, hdr_size, NULL, stream_r);
 		p->get_stream_reason = "";
 	} T_END;
+	i_assert(ret < 0 || (*stream_r)->blocking);
 	return ret;
 }
 
@@ -318,6 +322,7 @@ int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
 		ret = p->v.get_binary_stream(mail, part, include_hdr,
 					     size_r, NULL, binary_r, stream_r);
 	} T_END;
+	i_assert(ret < 0 || (*stream_r)->blocking);
 	return ret;
 }
 
@@ -471,8 +476,26 @@ bool mail_has_attachment_keywords(struct mail *mail)
 		str_array_icase_find(kw, MAIL_KEYWORD_HAS_NO_ATTACHMENT));
 }
 
-void mail_set_attachment_keywords(struct mail *mail)
+static int mail_parse_parts(struct mail *mail, struct message_part **parts_r)
 {
+	const char *structure, *error;
+	struct mail_private *pmail = (struct mail_private*)mail;
+
+	/* need to get bodystructure first */
+	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE, &structure) < 0)
+		return -1;
+	if (imap_bodystructure_parse_full(structure, pmail->data_pool, parts_r,
+					  &error) < 0) {
+		mail_set_critical(mail, "imap_bodystructure_parse() failed: %s",
+				  error);
+		return -1;
+	}
+	return 0;
+}
+
+int mail_set_attachment_keywords(struct mail *mail)
+{
+	int ret;
 	const struct mail_storage_settings *mail_set =
 		mail_storage_get_settings(mailbox_get_storage(mail->box));
 
@@ -498,24 +521,30 @@ void mail_set_attachment_keywords(struct mail *mail)
 		mail_set_critical(mail, "Failed to add attachment keywords: "
 				  "mail_get_parts() failed: %s",
 				  mail_storage_get_last_internal_error(mail->box->storage, NULL));
-		return;
+		ret = -1;
+	} else if (parts->data == NULL &&
+		   mail_parse_parts(mail, &parts) < 0) {
+		ret = -1;
 	} else if (mailbox_keywords_create(mail->box, keyword_has_attachment, &kw_has) < 0 ||
 		   mailbox_keywords_create(mail->box, keyword_has_no_attachment, &kw_has_not) < 0) {
-		if (mail_set->mail_debug) {
-			i_debug("Failed to add attachment keywords: mailbox_keyword_create(%s) failed: %s",
-				mailbox_get_vname(mail->box),
-				mail_storage_get_last_error(mail->box->storage, NULL));
-		}
+		mail_set_critical(mail, "Failed to add attachment keywords: "
+				  "mailbox_keywords_create(%s) failed: %s",
+				  mailbox_get_vname(mail->box),
+				  mail_storage_get_last_internal_error(mail->box->storage, NULL));
+		ret = -1;
 	} else {
 		bool has_attachment = mail_message_has_attachment(parts, &set);
 
 		/* make sure only one of the keywords gets set */
 		mail_update_keywords(mail, MODIFY_REMOVE, has_attachment ? kw_has_not : kw_has);
 		mail_update_keywords(mail, MODIFY_ADD, has_attachment ? kw_has : kw_has_not);
+		ret = has_attachment ? 1 : 0;
 	}
 
 	if (kw_has != NULL)
 		mailbox_keywords_unref(&kw_has);
 	if (kw_has_not != NULL)
 		mailbox_keywords_unref(&kw_has_not);
+
+	return ret;
 }

@@ -1,9 +1,17 @@
 #ifndef RFC822_PARSER_H
 #define RFC822_PARSER_H
 
+#include "unichar.h"
+
+/* This can be used as a common NUL replacement character */
+#define RFC822_NUL_REPLACEMENT_STR UNICODE_REPLACEMENT_CHAR_UTF8
+
 struct rfc822_parser_context {
 	const unsigned char *data, *end;
 	string_t *last_comment;
+
+	/* Replace NUL characters with this string */
+	const char *nul_replacement_str;
 };
 
 #define IS_ATEXT(c) \
@@ -54,9 +62,10 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str);
 /* Parse Content-Type header's type/subtype. */
 int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str);
 /* For Content-Type style parameter parsing. Expect ";" key "=" value.
-   value is unescaped if needed. The returned strings are allocated from data
-   stack. Returns 1 = key/value set, 0 = no more data, -1 = invalid input. */
+   value is unescaped if needed. The returned key is allocated from data
+   stack. The value string is truncated for each call. Returns 1 = key/value
+   set, 0 = no more data, -1 = invalid input. */
 int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
-			       const char **key_r, const char **value_r);
+			       const char **key_r, string_t *value);
 
 #endif

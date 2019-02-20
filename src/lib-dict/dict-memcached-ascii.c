@@ -122,7 +122,7 @@ static bool memcached_ascii_input_value(struct memcached_ascii_connection *conn)
 		size = conn->reply_bytes_left;
 	conn->reply_bytes_left -= size;
 
-	str_append_n(conn->reply_str, data, size);
+	str_append_data(conn->reply_str, data, size);
 	i_stream_skip(conn->conn.input, size);
 	if (conn->reply_bytes_left > 0)
 		return FALSE;
@@ -168,7 +168,7 @@ static int memcached_ascii_input_reply_read(struct memcached_ascii_dict *dict,
 	case MEMCACHED_INPUT_STATE_GET:
 		/* VALUE <key> <flags> <bytes>
 		   END */
-		if (strncmp(line, "VALUE ", 6) == 0) {
+		if (str_begins(line, "VALUE ")) {
 			p = strrchr(line, ' ');
 			if (str_to_uint(p+1, &conn->reply_bytes_left) < 0)
 				break;
@@ -213,14 +213,14 @@ static int memcached_ascii_input_reply(struct memcached_ascii_dict *dict,
 	if ((ret = memcached_ascii_input_reply_read(dict, error_r)) <= 0)
 		return ret;
 	/* finished a reply */
-	array_delete(&dict->input_states, 0, 1);
+	array_pop_front(&dict->input_states);
 
 	replies = array_get_modifiable(&dict->replies, &count);
 	i_assert(count > 0);
 	i_assert(replies[0].reply_count > 0);
 	if (--replies[0].reply_count == 0) {
 		memcached_ascii_callback(dict, &replies[0], &result);
-		array_delete(&dict->replies, 0, 1);
+		array_pop_front(&dict->replies);
 	}
 	return 1;
 }
@@ -398,22 +398,22 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 
 	args = t_strsplit(uri, ":");
 	for (; *args != NULL; args++) {
-		if (strncmp(*args, "host=", 5) == 0) {
+		if (str_begins(*args, "host=")) {
 			if (net_addr2ip(*args+5, &dict->ip) < 0) {
 				*error_r = t_strdup_printf("Invalid IP: %s",
 							   *args+5);
 				ret = -1;
 			}
-		} else if (strncmp(*args, "port=", 5) == 0) {
+		} else if (str_begins(*args, "port=")) {
 			if (net_str2port(*args+5, &dict->port) < 0) {
 				*error_r = t_strdup_printf("Invalid port: %s",
 							   *args+5);
 				ret = -1;
 			}
-		} else if (strncmp(*args, "prefix=", 7) == 0) {
+		} else if (str_begins(*args, "prefix=")) {
 			i_free(dict->key_prefix);
 			dict->key_prefix = i_strdup(*args + 7);
-		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
+		} else if (str_begins(*args, "timeout_msecs=")) {
 			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid timeout_msecs: %s", *args+14);
@@ -501,9 +501,9 @@ static const char *
 memcached_ascii_dict_get_full_key(struct memcached_ascii_dict *dict,
 				  const char *key)
 {
-	if (strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0)
+	if (str_begins(key, DICT_PATH_SHARED))
 		key += strlen(DICT_PATH_SHARED);
-	else if (strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0) {
+	else if (str_begins(key, DICT_PATH_PRIVATE)) {
 		key = t_strdup_printf("%s%c%s", dict->username,
 				      DICT_USERNAME_SEPARATOR,
 				      key + strlen(DICT_PATH_PRIVATE));
@@ -529,7 +529,7 @@ memcached_ascii_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	key = memcached_ascii_dict_get_full_key(dict, key);
 	o_stream_nsend_str(dict->conn.conn.output,
 			   t_strdup_printf("get %s\r\n", key));
-	array_append(&dict->input_states, &state, 1);
+	array_push_back(&dict->input_states, &state);
 
 	reply = array_append_space(&dict->replies);
 	reply->reply_count = 1;
@@ -578,7 +578,7 @@ memcached_send_change(struct dict_memcached_ascii_commit_ctx *ctx,
 		if (change->value.diff > 0) {
 			str_printfa(ctx->str, "incr %s %lld\r\n",
 				    key, change->value.diff);
-			array_append(&ctx->dict->input_states, &state, 1);
+			array_push_back(&ctx->dict->input_states, &state);
 			/* same kludge as with append */
 			value = t_strdup_printf("%lld", change->value.diff);
 			str_printfa(ctx->str, "add %s 0 0 %u\r\n%s\r\n",
@@ -589,7 +589,7 @@ memcached_send_change(struct dict_memcached_ascii_commit_ctx *ctx,
 		}
 		break;
 	}
-	array_append(&ctx->dict->input_states, &state, 1);
+	array_push_back(&ctx->dict->input_states, &state);
 	o_stream_nsend(ctx->dict->conn.conn.output,
 		       str_data(ctx->str), str_len(ctx->str));
 }

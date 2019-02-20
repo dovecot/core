@@ -106,7 +106,7 @@ test_program_input_handle(struct test_client *client, const char *line)
 			return 0;
 		}
 		arg = p_strdup(client->pool, line);
-		array_append(&client->args, &arg, 1);
+		array_push_back(&client->args, &arg);
 		break;
 	case CLIENT_STATE_BODY:
 		if (client->os_body == NULL) {
@@ -151,7 +151,7 @@ static void test_program_run(struct test_client *client)
 		o_stream_nsend_str(client->out, t_strdup_printf("%s %s\n+\n",
 				   args[1], args[2]));
 	} else if (strcmp(args[0], "test_program_io")==0) {
-		o_stream_send_istream(client->out, client->body);
+		o_stream_nsend_istream(client->out, client->body);
 		o_stream_nsend_str(client->out, "+\n");
 	} else if (strcmp(args[0], "test_program_failure")==0) {
 		o_stream_nsend_str(client->out, "-\n");

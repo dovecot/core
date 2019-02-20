@@ -215,6 +215,16 @@ void io_set_pending(struct io *io)
 	}
 }
 
+bool io_is_pending(struct io *io)
+{
+	return io->pending;
+}
+
+void io_set_never_wait_alone(struct io *io, bool set)
+{
+	io->never_wait_alone = set;
+}
+
 static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 {
 	if (tv_now == NULL) {
@@ -276,7 +286,7 @@ struct timeout *timeout_add_to(struct ioloop *ioloop, unsigned int msecs,
 
 	if (msecs > 0) {
 		/* start this timeout in the next run cycle */
-		array_append(&timeout->ioloop->timeouts_new, &timeout, 1);
+		array_push_back(&timeout->ioloop->timeouts_new, &timeout);
 	} else {
 		/* trigger zero timeouts as soon as possible */
 		timeout_update_next(timeout, timeout->ioloop->running ?
@@ -363,7 +373,7 @@ timeout_copy(const struct timeout *old_to, struct ioloop *ioloop)
 		priorityq_add(new_to->ioloop->timeouts, &new_to->item);
 	else if (!new_to->one_shot) {
 		i_assert(new_to->msecs > 0);
-		array_append(&new_to->ioloop->timeouts_new, &new_to, 1);
+		array_push_back(&new_to->ioloop->timeouts_new, &new_to);
 	}
 
 	return new_to;
@@ -470,7 +480,7 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 	return ret;
 }
 
-int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
+static int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 {
 	struct timeval tv_now;
 	struct priorityq_item *item;
@@ -509,6 +519,25 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	   ioloop and after that we update ioloop_timeval immediately again. */
 	ioloop_timeval = tv_now;
 	ioloop_time = tv_now.tv_sec;
+	return msecs;
+}
+
+static bool io_loop_have_waitable_io_files(struct ioloop *ioloop)
+{
+	struct io_file *io;
+
+	for (io = ioloop->io_files; io != NULL; io = io->next) {
+		if (io->io.callback != NULL && !io->io.never_wait_alone)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+int io_loop_run_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
+{
+	int msecs = io_loop_get_wait_time(ioloop, tv_r);
+	if (msecs < 0 && !io_loop_have_waitable_io_files(ioloop))
+		i_panic("BUG: No IOs or timeouts set. Not waiting for infinity.");
 	return msecs;
 }
 
@@ -618,7 +647,8 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 	ioloop_time = ioloop_timeval.tv_sec;
 	tv_call = ioloop_timeval;
 
-	while ((item = priorityq_peek(ioloop->timeouts)) != NULL) {
+	while (ioloop->running &&
+	       (item = priorityq_peek(ioloop->timeouts)) != NULL) {
 		struct timeout *timeout = (struct timeout *)item;
 
 		/* use tv_call to make sure we don't get to infinite loop in
@@ -909,7 +939,7 @@ void io_loop_add_switch_callback(io_switch_callback_t *callback)
 		i_array_init(&io_switch_callbacks, 4);
 		lib_atexit_priority(io_switch_callbacks_free, LIB_ATEXIT_PRIORITY_LOW);
 	}
-	array_append(&io_switch_callbacks, &callback, 1);
+	array_push_back(&io_switch_callbacks, &callback);
 }
 
 void io_loop_remove_switch_callback(io_switch_callback_t *callback)
@@ -982,7 +1012,7 @@ void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 	cb.deactivate = deactivate;
 	cb.context = context;
 
-	array_append(&ctx->callbacks, &cb, 1);
+	array_push_back(&ctx->callbacks, &cb);
 }
 
 #undef io_loop_context_remove_callbacks
@@ -1070,6 +1100,9 @@ struct io *io_loop_move_io_to(struct ioloop *ioloop, struct io **_io)
 	struct io *old_io = *_io;
 	struct io_file *old_io_file, *new_io_file;
 
+	if (old_io == NULL)
+		return NULL;
+
 	i_assert((old_io->condition & IO_NOTIFY) == 0);
 
 	if (old_io->ioloop == ioloop)
@@ -1105,7 +1138,7 @@ struct timeout *io_loop_move_timeout_to(struct ioloop *ioloop,
 {
 	struct timeout *new_to, *old_to = *_timeout;
 
-	if (old_to->ioloop == ioloop)
+	if (old_to == NULL || old_to->ioloop == ioloop)
 		return old_to;
 
 	new_to = timeout_copy(old_to, ioloop);

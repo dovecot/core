@@ -20,6 +20,7 @@ enum submission_proxy_state {
 struct submission_client {
 	struct client common;
 	const struct submission_login_settings *set;
+	enum smtp_capability backend_capabilities;
 
 	struct smtp_server_connection *conn;
 	struct smtp_server_cmd_ctx *pending_auth, *pending_starttls;

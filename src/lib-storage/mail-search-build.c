@@ -134,7 +134,8 @@ static int mail_search_build_list(struct mail_search_build_context *ctx,
 
 int mail_search_build(struct mail_search_register *reg,
 		      struct mail_search_parser *parser, const char **charset,
-		      struct mail_search_args **args_r, const char **error_r)
+		      struct mail_search_args **args_r,
+		      const char **client_error_r)
 {
         struct mail_search_build_context ctx;
 	struct mail_search_args *args;
@@ -143,7 +144,7 @@ int mail_search_build(struct mail_search_register *reg,
 	int ret;
 
 	*args_r = NULL;
-	*error_r = NULL;
+	*client_error_r = NULL;
 
 	i_zero(&ctx);
 	ctx.args = args = mail_search_build_init();
@@ -158,7 +159,7 @@ int mail_search_build(struct mail_search_register *reg,
 		ret = mail_search_build_get_utf8(&ctx, "", &str);
 	}
 	if (ret < 0) {
-		*error_r = ctx._error != NULL ? t_strdup(ctx._error) :
+		*client_error_r = ctx._error != NULL ? t_strdup(ctx._error) :
 			t_strdup(mail_search_parser_get_error(parser));
 		if (ctx.unknown_charset)
 			*charset = NULL;

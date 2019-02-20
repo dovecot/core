@@ -2,18 +2,19 @@
 
 #include "lib.h"
 #include "str.h"
+#include "array.h"
 #include "smtp-syntax.h"
 
 #include "smtp-server-private.h"
 
 /* EHLO, HELO commands */
 
-static void cmd_helo_completed(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_helo_completed(struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_cmd_helo *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_cmd_helo *data =
-		(struct smtp_server_cmd_helo *)command->data;
 
 	i_assert(smtp_server_command_is_replied(command));
 	if (!smtp_server_command_replied_success(command)) {
@@ -34,12 +35,11 @@ static void cmd_helo_completed(struct smtp_server_cmd_ctx *cmd)
 	conn->helo.old_smtp = data->helo.old_smtp;
 }
 
-static void cmd_helo_next(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_helo_next(struct smtp_server_cmd_ctx *cmd,
+	      struct smtp_server_cmd_helo *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
-	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_cmd_helo *data =
-		(struct smtp_server_cmd_helo *)command->data;
 
 	if (conn->helo.domain == NULL ||
 		strcmp(conn->helo.domain, data->helo.domain) != 0 ||
@@ -52,11 +52,9 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 			 bool old_smtp)
 {
 	struct smtp_server_connection *conn = cmd->conn;
-	enum smtp_capability caps = conn->set.capabilities;
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	struct smtp_server_cmd_helo *helo_data;
 	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_reply *reply;
 	bool first = (conn->pending_helo == NULL && conn->helo.domain == NULL);
 	const char *domain = NULL;
 	int ret;
@@ -78,6 +76,7 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	helo_data->helo.domain_valid = ( ret >= 0 );
 	helo_data->helo.old_smtp = old_smtp;
 	helo_data->first = first;
+	command->data = helo_data;
 
 	if (conn->helo.domain == NULL ||
 		strcmp(conn->helo.domain, domain) != 0 ||
@@ -87,9 +86,10 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	if (conn->pending_helo == NULL)
 		conn->pending_helo = &helo_data->helo;
 
-	command->data = helo_data;
-	command->hook_next = cmd_helo_next;
-	command->hook_completed = cmd_helo_completed;
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     cmd_helo_next, helo_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+				     cmd_helo_completed, helo_data);
 
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_helo != NULL) {
@@ -105,29 +105,8 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	}
 
 	if (!smtp_server_command_is_replied(command)) {
-		/* set generic EHLO reply if none is provided */
-		reply = smtp_server_reply_create_ehlo(cmd->cmd);
-		if (!old_smtp) {
-			if ((caps & SMTP_CAPABILITY_8BITMIME) != 0)
-				smtp_server_reply_ehlo_add(reply, "8BITMIME");
-			if ((caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
-				(caps & SMTP_CAPABILITY_CHUNKING) != 0)
-				smtp_server_reply_ehlo_add(reply, "BINARYMIME");
-			if ((caps & SMTP_CAPABILITY_CHUNKING) != 0)
-				smtp_server_reply_ehlo_add(reply, "CHUNKING");
-			if ((caps & SMTP_CAPABILITY_DSN) != 0)
-				smtp_server_reply_ehlo_add(reply, "DSN");
-			if ((caps & SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0) {
-				smtp_server_reply_ehlo_add(reply,
-					"ENHANCEDSTATUSCODES");
-			}
-			smtp_server_reply_ehlo_add(reply, "PIPELINING");
-			if ((caps & SMTP_CAPABILITY_STARTTLS) != 0)
-				smtp_server_reply_ehlo_add(reply, "STARTTLS");
-			smtp_server_reply_ehlo_add(reply, "VRFY");
-			smtp_server_reply_ehlo_add_xclient(reply);
-		}
-		smtp_server_reply_submit(reply);
+		/* submit default EHLO reply if none is provided */
+		smtp_server_cmd_ehlo_reply_default(cmd);
 	}
 	smtp_server_command_unref(&command);
 }
@@ -146,4 +125,70 @@ void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd,
 	/* helo = "HELO" SP Domain CRLF */
 
 	smtp_server_cmd_helo_run(cmd, params, TRUE);
+}
+
+struct smtp_server_reply *
+smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
+{
+	static struct {
+		const char *name;
+		void (*add)(struct smtp_server_reply *reply);
+	} standard_caps[] = {
+		/* Sorted alphabetically */
+		{ "8BITMIME", smtp_server_reply_ehlo_add_8bitmime },
+		{ "BINARYMIME", smtp_server_reply_ehlo_add_binarymime },
+		{ "CHUNKING", smtp_server_reply_ehlo_add_chunking },
+		{ "DSN", smtp_server_reply_ehlo_add_dsn },
+		{ "ENHANCEDSTATUSCODES",
+		  smtp_server_reply_ehlo_add_enhancedstatuscodes },
+		{ "PIPELINING", smtp_server_reply_ehlo_add_pipelining },
+		{ "SIZE", smtp_server_reply_ehlo_add_size },
+		{ "STARTTLS", smtp_server_reply_ehlo_add_starttls },
+		{ "VRFY", smtp_server_reply_ehlo_add_vrfy },
+		{ "XCLIENT", smtp_server_reply_ehlo_add_xclient }
+	};
+	const unsigned int standard_caps_count = N_ELEMENTS(standard_caps);
+	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_command *command = cmd->cmd;
+	struct smtp_server_cmd_helo *helo_data = command->data;
+	const struct smtp_capability_extra *extra_caps = NULL;
+	unsigned int extra_caps_count, i, j;
+	struct smtp_server_reply *reply;
+
+	i_assert(cmd->cmd->reg->func == smtp_server_cmd_ehlo);
+	reply = smtp_server_reply_create_ehlo(cmd->cmd);
+
+	if (helo_data->helo.old_smtp)
+		return reply;
+
+	extra_caps_count = 0;
+	if (array_is_created(&conn->extra_capabilities)) {
+		extra_caps = array_get(&conn->extra_capabilities,
+				       &extra_caps_count);
+	}
+
+	i = j = 0;
+	while (i < standard_caps_count || j < extra_caps_count) {
+		if (i < standard_caps_count && 
+		    (j >= extra_caps_count ||
+		     strcasecmp(standard_caps[i].name,
+				extra_caps[j].name) < 0)) {
+			standard_caps[i].add(reply);
+			i++;
+		} else {
+			smtp_server_reply_ehlo_add_params(
+				reply, extra_caps[j].name,
+				extra_caps[j].params);
+			j++;
+		}
+	}
+	return reply;
+}
+
+void smtp_server_cmd_ehlo_reply_default(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_reply *reply;
+
+	reply = smtp_server_cmd_ehlo_reply_create(cmd);
+	smtp_server_reply_submit(reply);
 }

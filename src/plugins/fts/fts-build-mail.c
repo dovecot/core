@@ -91,15 +91,13 @@ fts_build_unstructured_header(struct fts_mail_build_context *ctx,
 
 	/* @UNSAFE: if there are any NULs, replace them with spaces */
 	for (i = 0; i < hdr->full_value_len; i++) {
-		if (data[i] == '\0') {
+		if (hdr->full_value[i] == '\0') {
 			if (buf == NULL) {
-				buf = i_malloc(hdr->full_value_len);
-				memcpy(buf, data, i);
+				buf = i_memdup(hdr->full_value,
+					       hdr->full_value_len);
 				data = buf;
 			}
 			buf[i] = ' ';
-		} else if (buf != NULL) {
-			buf[i] = data[i];
 		}
 	}
 	ret = fts_build_data(ctx, data, hdr->full_value_len, TRUE);
@@ -187,7 +185,7 @@ static int fts_build_mail_header(struct fts_mail_build_context *ctx,
 		addr = message_address_parse(pool_datastack_create(),
 					     hdr->full_value,
 					     hdr->full_value_len,
-					     UINT_MAX, FALSE);
+					     UINT_MAX, 0);
 		str = t_str_new(hdr->full_value_len);
 		message_address_write(str, addr);
 
@@ -230,7 +228,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	i_zero(&parser_context);
 	parser_context.content_type = ctx->content_type != NULL ?
 		ctx->content_type : "text/plain";
-	if (strncmp(parser_context.content_type, "multipart/", 10) == 0) {
+	if (str_begins(parser_context.content_type, "multipart/")) {
 		/* multiparts are never indexed, only their contents */
 		return FALSE;
 	}
@@ -243,8 +241,8 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 		/* extract text using the the returned parser */
 		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
-	} else if (strncmp(parser_context.content_type, "text/", 5) == 0 ||
-		   strncmp(parser_context.content_type, "message/", 8) == 0) {
+	} else if (str_begins(parser_context.content_type, "text/") ||
+		   str_begins(parser_context.content_type, "message/")) {
 		/* text body parts */
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
 		ctx->body_parser = fts_parser_text_init();

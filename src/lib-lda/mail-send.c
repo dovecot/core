@@ -51,8 +51,6 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 			const char *reason)
 {
 	struct mail_user *user = ctx->rcpt_user;
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(user);
 	struct ssl_iostream_settings ssl_set;
 	struct mail *mail = ctx->src_mail;
 	struct istream *input;
@@ -84,18 +82,15 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 		return 0;
 	}
 
-	if (!mail_storage_get_postmaster_address(mail_set, &postmaster_addr,
-						 &error)) {
+	if (!mail_user_get_postmaster_address(user, &postmaster_addr, &error)) {
 		i_error("msgid=%s: Invalid postmaster_address - can't send rejection: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80), error);
 		return -1;
 	}
 
-	if (mailbox_get_settings(mail->box)->mail_debug) {
-		i_debug("Sending a rejection to <%s>: %s",
-			smtp_address_encode(return_addr),
-			str_sanitize(reason, 512));
-	}
+	e_debug(mail->event, "Sending a rejection to <%s>: %s",
+		smtp_address_encode(return_addr),
+		str_sanitize(reason, 512));
 
 	vtable = get_var_expand_table(mail, recipient, reason);
 
@@ -107,7 +102,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	output = smtp_submit_send(smtp_submit);
 
 	msgid = mail_deliver_get_new_message_id(ctx);
-	boundary = t_strdup_printf("%s/%s", my_pid, mail_set->hostname);
+	boundary = t_strdup_printf("%s/%s", my_pid, user->set->hostname);
 
 	str = t_str_new(512);
 	str_printfa(str, "Message-ID: %s\r\n", msgid);
@@ -153,7 +148,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 		str_printfa(str, "--%s\r\n"
 			"Content-Type: message/delivery-status\r\n\r\n",
 			boundary);
-		str_printfa(str, "Reporting-MTA: dns; %s\r\n", mail_set->hostname);
+		str_printfa(str, "Reporting-MTA: dns; %s\r\n", user->set->hostname);
 		if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 			str_printfa(str, "Original-Recipient: rfc822; %s\r\n", hdr);
 		str_printfa(str, "Final-Recipient: rfc822; %s\r\n",
@@ -166,7 +161,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 			"Content-Type: message/disposition-notification\r\n\r\n",
 			boundary);
 		str_printfa(str, "Reporting-UA: %s; Dovecot Mail Delivery Agent\r\n",
-			mail_set->hostname);
+			user->set->hostname);
 		if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 			str_printfa(str, "Original-Recipient: rfc822; %s\r\n", hdr);
 		str_printfa(str, "Final-Recipient: rfc822; %s\r\n",

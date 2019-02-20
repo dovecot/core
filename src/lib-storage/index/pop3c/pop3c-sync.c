@@ -61,7 +61,7 @@ int pop3c_sync_get_uidls(struct pop3c_mailbox *mbox)
 		}
 
 		cline = p_strdup(mbox->uidl_pool, p);
-		array_append(&uidls, &cline, 1);
+		array_push_back(&uidls, &cline);
 	}
 	i_stream_destroy(&input);
 	if (line != NULL) {
@@ -72,7 +72,7 @@ int pop3c_sync_get_uidls(struct pop3c_mailbox *mbox)
 		/* make msg_uidls non-NULL */
 		array_append_zero(&uidls);
 	}
-	mbox->msg_uidls = array_idx(&uidls, 0);
+	mbox->msg_uidls = array_front(&uidls);
 	mbox->msg_count = seq;
 	return 0;
 }
@@ -248,7 +248,7 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 			mail_index_append(sync_trans, next_uid++, &lseq);
 			mail_cache_add(cache_trans, lseq, cache_idx,
 				       rmsg[ridx].uidl,
-				       strlen(rmsg[ridx].uidl)+1);
+				       strlen(rmsg[ridx].uidl));
 			ridx++;
 		} else {
 			/* UIDL matched */

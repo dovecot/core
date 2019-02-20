@@ -73,8 +73,7 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 	uint32_t uid;
 	int ret;
 
-	if (strncmp(fname, SDBOX_MAIL_FILE_PREFIX,
-		    strlen(SDBOX_MAIL_FILE_PREFIX)) != 0)
+	if (!str_begins(fname, SDBOX_MAIL_FILE_PREFIX))
 		return 0;
 	fname += strlen(SDBOX_MAIL_FILE_PREFIX);
 

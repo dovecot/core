@@ -79,7 +79,7 @@ static void test_try_load_keys(void)
 		test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), pubid1) == 0);
 
 		const struct mail_crypt_global_private_key *key =
-			array_idx(&keys.private_keys, 0);
+			array_front(&keys.private_keys);
 
 		buffer_set_used_size(key_id, 0);
 		test_assert(dcrypt_key_id_private(key->key, MAIL_CRYPT_KEY_ID_ALGORITHM, key_id, &error) == TRUE);

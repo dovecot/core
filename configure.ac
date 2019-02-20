@@ -16,14 +16,6 @@ PKG_PROG_PKG_CONFIG
 ACLOCAL_AMFLAGS='-I $(top_srcdir)/m4'
 AC_SUBST(ACLOCAL_AMFLAGS)
 
-AC_ARG_ENABLE(hardening,
-AS_HELP_STRING([--enable-hardening=yes], [Enable various hardenings (default: yes)]),
-        enable_hardening=$enableval,
-        enable_hardening=yes)
-
-AC_MSG_CHECKING([Whether to enable hardening])
-AC_MSG_RESULT([$enable_hardening])
-
 AC_ARG_ENABLE(devel-checks,
 AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for developers]),
 	if test x$enableval = xyes; then
@@ -272,6 +264,7 @@ if test "$systemdsystemunitdir" != ""; then
 fi
 AM_CONDITIONAL(HAVE_SYSTEMD, test "$systemdsystemunitdir" != "")
 
+dovecot_moduledir="$libdir/dovecot"
 DC_DOVECOT_MODULEDIR
 
 AC_ARG_WITH(docs,
@@ -315,17 +308,12 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h \
   quota.h sys/fs/quota_common.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
   xfs/xqm.h execinfo.h ucontext.h malloc_np.h sys/utsname.h sys/vmount.h \
-  sys/utsname.h glob.h linux/falloc.h ucred.h sys/ucred.h)
+  sys/utsname.h glob.h linux/falloc.h ucred.h sys/ucred.h crypt.h)
 
 CC_CLANG
-AC_CC_PIE
-AC_CC_F_STACK_PROTECTOR
-AC_CC_D_FORTIFY_SOURCE
-AC_CC_RETPOLINE
-AC_LD_RELRO
 AC_LD_WHOLE_ARCHIVE
-
-DOVECOT_CFLAGS
+DC_DOVECOT_HARDENING
+DC_DOVECOT_CFLAGS
 
 DOVECOT_NSL
 DOVECOT_FDATASYNC
@@ -391,6 +379,7 @@ AC_TYPEOF(off_t, long int long-long)
 case "$typeof_off_t" in
   int)
     offt_max=INT_MAX
+    uofft_max=UINT_MAX
     uofft_fmt="u"
     if test "$have_uoff_t" != "yes"; then
       AC_DEFINE(UOFF_T_INT,, [Define if off_t is int])
@@ -399,6 +388,7 @@ case "$typeof_off_t" in
     ;;
   long)
     offt_max=LONG_MAX
+    uofft_max=ULONG_MAX
     uofft_fmt="lu"
     if test "$have_uoff_t" != "yes"; then
       AC_DEFINE(UOFF_T_LONG,, [Define if off_t is long])
@@ -407,6 +397,7 @@ case "$typeof_off_t" in
     ;;
   "long long")
     offt_max=LLONG_MAX
+    uofft_max=ULLONG_MAX
     uofft_fmt="llu"
     if test "$have_uoff_t" != "yes"; then
       AC_DEFINE(UOFF_T_LONG_LONG,, [Define if off_t is long long])
@@ -420,6 +411,7 @@ esac
 
 DOVECOT_DIRENT_DTYPE
 DOVECOT_OFF_T_MAX
+DOVECOT_UOFF_T_MAX
 
 AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", [printf() format for uoff_t])
 
@@ -914,6 +906,7 @@ src/plugins/lazy-expunge/Makefile
 src/plugins/listescape/Makefile
 src/plugins/mail-filter/Makefile
 src/plugins/mail-log/Makefile
+src/plugins/mail-lua/Makefile
 src/plugins/mailbox-alias/Makefile
 src/plugins/notify/Makefile
 src/plugins/notify-status/Makefile

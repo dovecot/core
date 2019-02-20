@@ -101,13 +101,13 @@ int master_service_settings_cache_init_filter(struct master_service_settings_cac
 		struct config_filter *filter =
 			p_new(cache->pool, struct config_filter, 1);
 		while(*keys != NULL) {
-			if (strncmp(*keys, "local-net=", 10) == 0) {
+			if (str_begins(*keys, "local-net=")) {
 				(void)net_parse_range((*keys)+10,
 					&filter->local_ip, &filter->local_bits);
-			} else if (strncmp(*keys, "remote-net=", 11) == 0) {
+			} else if (str_begins(*keys, "remote-net=")) {
 				(void)net_parse_range((*keys)+11,
 					&filter->remote_ip, &filter->remote_bits);
-			} else if (strncmp(*keys, "local-name=", 11) == 0) {
+			} else if (str_begins(*keys, "local-name=")) {
 				filter->local_name = p_strdup(cache->pool, (*keys)+11);
 			}
 			keys++;
@@ -125,11 +125,11 @@ match_local_name(const char *local_name,
 	/* Handle multiple names separated by spaces in local_name
 	   * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
 	const char *ptr;
-	while((ptr = strchr(local_name, ' ')) != NULL) {
-		if (dns_match_wildcard(filter_local_name,
-		    t_strdup_until(local_name, ptr)) == 0)
+	while((ptr = strchr(filter_local_name, ' ')) != NULL) {
+		if (dns_match_wildcard(local_name,
+		    t_strdup_until(filter_local_name, ptr)) == 0)
 			return TRUE;
-		local_name = ptr+1;
+		filter_local_name = ptr+1;
 	}
 	return dns_match_wildcard(local_name, filter_local_name) == 0;
 }
@@ -188,10 +188,8 @@ void master_service_settings_cache_deinit(struct master_service_settings_cache *
 		settings_parser_deinit(&entry->parser);
 		pool_unref(&entry->pool);
 	}
-	if (hash_table_is_created(cache->local_name_hash))
-		hash_table_destroy(&cache->local_name_hash);
-	if (hash_table_is_created(cache->local_ip_hash))
-		hash_table_destroy(&cache->local_ip_hash);
+	hash_table_destroy(&cache->local_name_hash);
+	hash_table_destroy(&cache->local_ip_hash);
 	if (cache->global_parser != NULL)
 		settings_parser_deinit(&cache->global_parser);
 	pool_unref(&cache->pool);

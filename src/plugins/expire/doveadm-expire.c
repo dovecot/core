@@ -177,14 +177,14 @@ static const char *const *doveadm_expire_get_patterns(void)
 	t_array_init(&patterns, 16);
 	str = doveadm_plugin_getenv("expire");
 	for (i = 2; str != NULL; i++) {
-		array_append(&patterns, &str, 1);
+		array_push_back(&patterns, &str);
 
 		if (i_snprintf(set_name, sizeof(set_name), "expire%u", i) < 0)
 			i_unreached();
 		str = doveadm_plugin_getenv(set_name);
 	}
 	array_append_zero(&patterns);
-	return array_idx(&patterns, 0);
+	return array_front(&patterns);
 }
 
 static bool
@@ -208,7 +208,7 @@ doveadm_expire_get_or_mailboxes(struct doveadm_mail_cmd_context *ctx,
 		case SEARCH_MAILBOX:
 			/* require mailbox to be in expire patterns */
 			query.mailbox = p_strdup(ctx->pool, arg->value.str);
-			array_append(&ectx->queries, &query, 1);
+			array_push_back(&ectx->queries, &query);
 			break;
 		default:
 			/* there are something else besides mailboxes,
@@ -267,7 +267,7 @@ doveadm_expire_analyze_and_query(struct doveadm_mail_cmd_context *ctx,
 
 	if (query.mailbox != NULL) {
 		/* one mailbox */
-		array_append(&ectx->queries, &query, 1);
+		array_push_back(&ectx->queries, &query);
 		return TRUE;
 	}
 

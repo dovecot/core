@@ -99,7 +99,12 @@ static void
 fs_test_set_metadata(struct fs_file *_file, const char *key,
 		     const char *value)
 {
-	fs_default_set_metadata(_file, key, value);
+	if (strcmp(key, FS_METADATA_WRITE_FNAME) == 0) {
+		i_free(_file->path);
+		_file->path = i_strdup(value);
+	} else {
+		fs_default_set_metadata(_file, key, value);
+	}
 }
 
 static int

@@ -111,10 +111,10 @@ dsync_ibc_pipe_pop_item(struct dsync_ibc_pipe *pipe, enum item_type type)
 	if (array_count(&pipe->item_queue) == 0)
 		return NULL;
 
-	item = array_idx_modifiable(&pipe->item_queue, 0);
+	item = array_front_modifiable(&pipe->item_queue);
 	i_assert(item->type == type);
 	pipe->pop_item = *item;
-	array_delete(&pipe->item_queue, 0, 1);
+	array_pop_front(&pipe->item_queue);
 	item = NULL;
 
 	pool_unref(&pipe->pop_pool);
@@ -129,11 +129,11 @@ static bool dsync_ibc_pipe_try_pop_eol(struct dsync_ibc_pipe *pipe)
 	if (array_count(&pipe->item_queue) == 0)
 		return FALSE;
 
-	item = array_idx(&pipe->item_queue, 0);
+	item = array_front(&pipe->item_queue);
 	if (item->type != ITEM_END_OF_LIST)
 		return FALSE;
 
-	array_delete(&pipe->item_queue, 0, 1);
+	array_pop_front(&pipe->item_queue);
 	return TRUE;
 }
 
@@ -526,7 +526,7 @@ static void pipe_close_mail_streams(struct dsync_ibc_pipe *pipe)
 	struct item *item;
 
 	if (array_count(&pipe->item_queue) > 0) {
-		item = array_idx_modifiable(&pipe->item_queue, 0);
+		item = array_front_modifiable(&pipe->item_queue);
 		if (item->type == ITEM_MAIL &&
 		    item->u.mail.input != NULL)
 			i_stream_unref(&item->u.mail.input);

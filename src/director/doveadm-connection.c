@@ -951,6 +951,7 @@ doveadm_connection_ring_sync_timeout(struct doveadm_connection *conn)
 	doveadm_connection_ring_sync_list_move(conn);
 	o_stream_nsend_str(conn->output, "Ring sync timed out\n");
 
+	i_assert(conn->io == NULL);
 	doveadm_connection_set_io(conn);
 	io_set_pending(conn->io);
 
@@ -1068,8 +1069,11 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 			ret = doveadm_connection_cmd(conn, line);
 		} T_END;
 	}
-	if (conn->input->eof || conn->input->stream_errno != 0 ||
-	    ret == DOVEADM_DIRECTOR_CMD_RET_FAIL)
+	/* Delay deinit if io was removed, even if the client
+	   already disconnected. */
+	if (conn->io != NULL &&
+	    (conn->input->eof || conn->input->stream_errno != 0 ||
+	     ret == DOVEADM_DIRECTOR_CMD_RET_FAIL))
 		doveadm_connection_deinit(&conn);
 }
 
@@ -1166,9 +1170,14 @@ static void doveadm_connections_continue_reset_cmds(void)
 	}
 }
 
-void doveadm_connections_ring_synced(void)
+void doveadm_connections_ring_synced(struct director *dir)
 {
-	while (doveadm_ring_sync_pending_connections != NULL) {
+	/* Note that it's not possible for a single connection to be multiple
+	   times in doveadm_ring_sync_pending_connections. This is prevented
+	   by removing input IO from the connection whenever it's added to the
+	   list. */
+	while (doveadm_ring_sync_pending_connections != NULL &&
+	       dir->ring_synced) {
 		struct doveadm_connection *conn =
 			doveadm_ring_sync_pending_connections;
 		doveadm_connection_ring_sync_callback_t *callback =
@@ -1180,5 +1189,6 @@ void doveadm_connections_ring_synced(void)
 		io_set_pending(conn->io);
 		callback(conn);
 	}
-	doveadm_connections_continue_reset_cmds();
+	if (dir->ring_synced)
+		doveadm_connections_continue_reset_cmds();
 }

@@ -210,4 +210,33 @@ void mail_user_init_fs_settings(struct mail_user *user,
    plugin must be loaded to have anything filled. */
 void mail_user_stats_fill(struct mail_user *user, struct stats *stats);
 
+/* Try to mkdir() user's home directory. Ideally this should be called only
+   after the caller tries to create a file to the home directory, but it fails
+   with ENOENT. This way it avoids unnecessary disk IO to the home. */
+int mail_user_home_mkdir(struct mail_user *user);
+
+/* Obtain the postmaster address to be used for this user as an RFC 5322 (IMF)
+   address. Returns false if the configured postmaster address is invalid in
+   which case error_r contains the error message. */
+static inline bool
+mail_user_get_postmaster_address(struct mail_user *user,
+				 const struct message_address **address_r,
+				 const char **error_r)
+{
+	return mail_user_set_get_postmaster_address(user->set, address_r,
+						    error_r);
+}
+
+/* Obtain the postmaster address to be used for this user as an RFC 5321 (SMTP)
+   address. Returns false if the configured postmaster address is invalid in
+   which case error_r contains the error message. */
+static inline bool
+mail_user_get_postmaster_smtp(struct mail_user *user,
+			      const struct smtp_address **address_r,
+			      const char **error_r)
+{
+	return mail_user_set_get_postmaster_smtp(user->set, address_r,
+						 error_r);
+}
+
 #endif

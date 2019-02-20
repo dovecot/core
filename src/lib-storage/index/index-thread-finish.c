@@ -185,13 +185,13 @@ thread_sort_children(struct thread_finish_context *ctx, uint32_t parent_idx,
 		/* only child - don't bother setting sort date */
 		child.uid = thread_lookup_existing(ctx, child.idx);
 
-		array_append(sorted_children, &child, 1);
+		array_push_back(sorted_children, &child);
 		return;
 	}
 	while (child.idx != 0) {
 		thread_child_node_fill(ctx, &child);
 
-		array_append(sorted_children, &child, 1);
+		array_push_back(sorted_children, &child);
 		child.idx = shadows[child.idx].next_sibling_idx;
 	}
 
@@ -230,7 +230,7 @@ static void gather_base_subjects(struct thread_finish_context *ctx)
 			/* find the oldest child */
 			thread_sort_children(ctx, roots[i].node.idx,
 					     &sorted_children);
-			children = array_idx(&sorted_children, 0);
+			children = array_front(&sorted_children);
 			idx = children[0].idx;
 		} else {
 			/* dummy without children */
@@ -286,7 +286,7 @@ static void mail_thread_root_thread_merge(struct thread_finish_context *ctx,
 	} while (root->parent_root_idx1 != 0);
 	i_assert(!root->ignore);
 
-	shadows = array_idx_modifiable(&ctx->shadow_nodes, 0);
+	shadows = array_front_modifiable(&ctx->shadow_nodes);
 	if (cur->dummy) {
 		/* If both messages are dummies, append the current
                    message's children to the children of the message in
@@ -334,7 +334,7 @@ static void mail_thread_root_thread_merge(struct thread_finish_context *ctx,
 		cur->ignore = TRUE;
 
 		/* append last, since it breaks root and cur pointers */
-		array_append(&ctx->roots, &new_root, 1);
+		array_push_back(&ctx->roots, &new_root);
 
 		/* make sure all shadow indexes are accessible directly */
 		(void)array_idx_modifiable(&ctx->shadow_nodes,
@@ -353,7 +353,7 @@ static bool merge_subject_threads(struct thread_finish_context *ctx)
 		if (roots[i].parent_root_idx1 != 0 && !roots[i].ignore) {
 			mail_thread_root_thread_merge(ctx, &roots[i]);
 			/* more roots may have been added */
-			roots = array_idx_modifiable(&ctx->roots, 0);
+			roots = array_front_modifiable(&ctx->roots);
 			changed = TRUE;
 		}
 	}
@@ -370,7 +370,7 @@ static void sort_root_nodes(struct thread_finish_context *ctx)
 	unsigned int i, count, child_count;
 
 	i_array_init(&sorted_children, 64);
-	shadows = array_idx(&ctx->shadow_nodes, 0);
+	shadows = array_front(&ctx->shadow_nodes);
 	roots = array_get_modifiable(&ctx->roots, &count);
 	for (i = 0; i < count; i++) {
 		if (roots[i].ignore)
@@ -425,7 +425,7 @@ static void sort_root_nodes_ref2(struct thread_finish_context *ctx,
 	roots = array_get_modifiable(&ctx->roots, &root_count);
 
 	/* drop childless dummy nodes */
-	shadows = array_idx(&ctx->shadow_nodes, 0);
+	shadows = array_front(&ctx->shadow_nodes);
 	for (idx = 1; idx < root_count; idx++) {
 		if (roots[idx].dummy &&
 		    shadows[roots[idx].node.idx].first_child_idx == 0)
@@ -487,7 +487,7 @@ static void mail_thread_create_shadows(struct thread_finish_context *ctx,
 				root.dummy = FALSE;
 				root.node.uid = node->uid;
 			}
-			array_append(&ctx->roots, &root, 1);
+			array_push_back(&ctx->roots, &root);
 			continue;
 		}
 		i_assert(node->parent_idx < record_count);
@@ -585,7 +585,7 @@ mail_thread_iterate_fill_root(struct mail_thread_iterate_context *iter)
 		if (!roots[i].ignore) {
 			if (roots[i].dummy)
 				roots[i].node.uid = 0;
-			array_append(&iter->children, &roots[i].node, 1);
+			array_push_back(&iter->children, &roots[i].node);
 		}
 	}
 }

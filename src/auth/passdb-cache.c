@@ -186,11 +186,11 @@ void passdb_cache_init(const struct auth_settings *set)
 		return;
 
 	if (restrict_get_process_size(&limit) == 0 &&
-	    set->cache_size > limit) {
+	    set->cache_size > (uoff_t)limit) {
 		i_warning("auth_cache_size (%"PRIuUOFF_T"M) is higher than "
-			  "process VSZ limit (%luM)",
+			  "process VSZ limit (%"PRIuUOFF_T"M)",
 			  set->cache_size/1024/1024,
-			  (unsigned long)(limit/1024/1024));
+			  (uoff_t)(limit/1024/1024));
 	}
 	passdb_cache = auth_cache_new(set->cache_size, set->cache_ttl,
 				      set->cache_negative_ttl);

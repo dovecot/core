@@ -16,6 +16,11 @@
 extern struct mail_storage pop3c_storage;
 extern struct mailbox pop3c_mailbox;
 
+static struct event_category event_category_pop3c = {
+	.name = "pop3c",
+	.parent = &event_category_storage,
+};
+
 static struct mail_storage *pop3c_storage_alloc(void)
 {
 	struct pop3c_storage *storage;
@@ -73,32 +78,30 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 	client_set.rawlog_dir =
 		mail_user_home_expand(storage->user, set->pop3c_rawlog_dir);
 
-	client_set.ssl_ca_dir = storage->set->ssl_client_ca_dir;
-	client_set.ssl_ca_file = storage->set->ssl_client_ca_file;
-	client_set.ssl_verify = set->pop3c_ssl_verify;
+	mail_user_init_ssl_client_settings(storage->user, &client_set.ssl_set);
+
+	if (!set->pop3c_ssl_verify)
+		client_set.ssl_set.allow_invalid_cert = TRUE;
+
 	if (strcmp(set->pop3c_ssl, "pop3s") == 0)
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_IMMEDIATE;
 	else if (strcmp(set->pop3c_ssl, "starttls") == 0)
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_STARTTLS;
 	else
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_NONE;
-	client_set.ssl_crypto_device = storage->set->ssl_crypto_device;
 	return pop3c_client_init(&client_set);
 }
 
 static void
-pop3c_storage_get_list_settings(const struct mail_namespace *ns,
+pop3c_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 				struct mailbox_list_settings *set)
 {
 	set->layout = MAILBOX_LIST_NAME_FS;
 	if (set->root_dir != NULL && *set->root_dir != '\0' &&
 	    set->index_dir == NULL) {
-		/* we don't really care about root_dir, but we
-		   just need to get index_dir autocreated.
-		   it happens when index_dir differs from root_dir. */
+	       /* we don't really care about root_dir, but we
+		  just need to get index_dir autocreated. */
 		set->index_dir = set->root_dir;
-		set->root_dir = p_strconcat(ns->user->pool,
-					    set->root_dir, "/.", NULL);
 	}
 }
 
@@ -115,6 +118,7 @@ pop3c_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.pool = pool;
 	mbox->box.storage = storage;
 	mbox->box.list = list;
+	mbox->box.list->props |= MAILBOX_LIST_PROP_AUTOCREATE_DIRS;
 	mbox->box.mail_vfuncs = &pop3c_mail_vfuncs;
 	mbox->storage = POP3C_STORAGE(storage);
 
@@ -143,7 +147,7 @@ static void pop3c_login_callback(enum pop3c_command_state state,
 		mbox->logged_in = TRUE;
 		break;
 	case POP3C_COMMAND_STATE_ERR:
-		if (strncmp(reply, "[IN-USE] ", 9) == 0) {
+		if (str_begins(reply, "[IN-USE] ")) {
 			mail_storage_set_error(mbox->box.storage,
 					       MAIL_ERROR_INUSE, reply + 9);
 		} else {
@@ -297,6 +301,7 @@ struct mail_storage pop3c_storage = {
 	.name = POP3C_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
+	.event_category = &event_category_pop3c,
 
 	.v = {
 		pop3c_get_setting_parser_info,

@@ -111,7 +111,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	int ret;
 
 	/* get the time left for next timeout task */
-	io_loop_get_wait_time(ioloop, &tv);
+	io_loop_run_get_wait_time(ioloop, &tv);
 
 	memcpy(&ctx->tmp_read_fds, &ctx->read_fds, sizeof(fd_set));
 	memcpy(&ctx->tmp_write_fds, &ctx->write_fds, sizeof(fd_set));
@@ -134,9 +134,13 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	for (; io != NULL && ret > 0; io = ioloop->next_io_file) {
                 ioloop->next_io_file = io->next;
 
-		if (io_check_condition(ctx, io->fd, io->io.condition)) {
+		if (io->fd == -1) {
+			/* io_add_istream() without fd */
+		} else if (io_check_condition(ctx, io->fd, io->io.condition)) {
 			ret--;
 			io_loop_call_io(&io->io);
+			if (!ioloop->running)
+				break;
 		}
 	}
 }

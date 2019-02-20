@@ -270,7 +270,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 			}
 
 			if (url != NULL && pend > pbegin)
-				str_append_n(fullpath, pbegin, pend-pbegin);
+				str_append_data(fullpath, pbegin, pend-pbegin);
 		}
 
 		/* append relative path */
@@ -352,43 +352,57 @@ int http_url_parse(const char *url, struct http_url *base,
 }
 
 int http_url_request_target_parse(const char *request_target,
-	const char *host_header, pool_t pool, struct http_request_target *target,
-	const char **error_r)
+				  const char *host_header,
+				  const struct http_url *default_base,
+				  pool_t pool,
+				  struct http_request_target *target,
+				  const char **error_r)
 {
 	struct http_url_parser url_parser;
-	struct uri_parser *parser;
 	struct uri_authority auth;
 	struct http_url base;
 
-	i_zero(&url_parser);
-	parser = &url_parser.parser;
-	uri_parser_init(parser, pool, host_header);
+	i_zero(&base);
+	if (host_header != NULL && *host_header != '\0') {
+		struct uri_parser *parser;
+		
+		i_zero(&url_parser);
+		parser = &url_parser.parser;
+		uri_parser_init(parser, pool, host_header);
 
-	if (uri_parse_host_authority(parser, &auth) <= 0) {
-		*error_r = t_strdup_printf("Invalid Host header: %s", parser->error);
-		return -1;
-	}
+		if (uri_parse_host_authority(parser, &auth) <= 0) {
+			*error_r = t_strdup_printf("Invalid Host header: %s",
+						   parser->error);
+			return -1;
+		}
 
-	if (parser->cur != parser->end || auth.enc_userinfo != NULL) {
-		*error_r = "Invalid Host header: Contains invalid character";
+		if (parser->cur != parser->end || auth.enc_userinfo != NULL) {
+			*error_r = "Invalid Host header: "
+				   "Contains invalid character";
+			return -1;
+		}
+
+		base.host = auth.host;
+		base.port = auth.port;
+	} else if (default_base == NULL) {
+		*error_r = "Empty Host header";
 		return -1;
+	} else {
+		i_assert(default_base != NULL);
+		base = *default_base;
 	}
 
 	if (request_target[0] == '*' && request_target[1] == '\0') {
 		struct http_url *url = p_new(pool, struct http_url, 1);
-		uri_host_copy(pool, &url->host, &auth.host);
-		url->port = auth.port;
+		uri_host_copy(pool, &url->host, &base.host);
+		url->port = base.port;
 		target->url = url;
 		target->format = HTTP_REQUEST_TARGET_FORMAT_ASTERISK;
 		return 0;
 	}
 
-	i_zero(&base);
-	base.host = auth.host;
-	base.port = auth.port;
-
-	i_zero(parser);
-	uri_parser_init(parser, pool, request_target);
+	i_zero(&url_parser);
+	uri_parser_init(&url_parser.parser, pool, request_target);
 
 	url_parser.url = p_new(pool, struct http_url, 1);
 	url_parser.request_target = TRUE;

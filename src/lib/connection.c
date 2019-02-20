@@ -14,17 +14,30 @@
 #include "connection.h"
 
 #include <unistd.h>
+#include <libgen.h>
+
+static void connection_handshake_ready(struct connection *conn)
+{
+	conn->handshake_received = TRUE;
+	if (conn->v.handshake_ready != NULL)
+		conn->v.handshake_ready(conn);
+}
+
+static void connection_closed(struct connection *conn,
+			      enum connection_disconnect_reason reason)
+{
+	conn->disconnect_reason = reason;
+	conn->v.destroy(conn);
+}
 
 static void connection_idle_timeout(struct connection *conn)
 {
-	conn->disconnect_reason = CONNECTION_DISCONNECT_IDLE_TIMEOUT;
-	conn->list->v.destroy(conn);
+	connection_closed(conn, CONNECTION_DISCONNECT_IDLE_TIMEOUT);
 }
 
 static void connection_connect_timeout(struct connection *conn)
 {
-	conn->disconnect_reason = CONNECTION_DISCONNECT_CONNECT_TIMEOUT;
-	conn->list->v.destroy(conn);
+	connection_closed(conn, CONNECTION_DISCONNECT_CONNECT_TIMEOUT);
 }
 
 void connection_input_default(struct connection *conn)
@@ -33,6 +46,18 @@ void connection_input_default(struct connection *conn)
 	struct istream *input;
 	struct ostream *output;
 	int ret = 0;
+
+	if (!conn->handshake_received &&
+	    conn->v.handshake != NULL) {
+		if ((ret = conn->v.handshake(conn)) < 0) {
+			connection_closed(conn, CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
+			return;
+		} else if (ret == 0) {
+			return;
+		} else {
+			connection_handshake_ready(conn);
+		}
+	}
 
 	switch (connection_input_read(conn)) {
 	case -1:
@@ -53,7 +78,20 @@ void connection_input_default(struct connection *conn)
 	}
 	while (!input->closed && (line = i_stream_next_line(input)) != NULL) {
 		T_BEGIN {
-			ret = conn->list->v.input_line(conn, line);
+			if (!conn->handshake_received &&
+			    conn->v.handshake_line != NULL) {
+				ret = conn->v.handshake_line(conn, line);
+				if (ret > 0)
+					connection_handshake_ready(conn);
+				else if (ret == 0)
+					/* continue reading */
+					ret = 1;
+				else
+					conn->disconnect_reason =
+						CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
+			} else {
+				ret = conn->v.input_line(conn, line);
+			}
 		} T_END;
 		if (ret <= 0)
 			break;
@@ -63,42 +101,63 @@ void connection_input_default(struct connection *conn)
 		o_stream_unref(&output);
 	}
 	if (ret < 0 && !input->closed) {
-		conn->disconnect_reason = CONNECTION_DISCONNECT_DEINIT;
-		conn->list->v.destroy(conn);
+		enum connection_disconnect_reason reason =
+			conn->disconnect_reason;
+		if (reason == CONNECTION_DISCONNECT_NOT)
+			reason = CONNECTION_DISCONNECT_DEINIT;
+		connection_closed(conn, reason);
 	}
 	i_stream_unref(&input);
 }
 
 int connection_verify_version(struct connection *conn,
-			      const char *const *args)
+			      const char *service_name,
+			      unsigned int major_version,
+			      unsigned int minor_version)
 {
-	unsigned int recv_major_version;
+	i_assert(!conn->version_received);
+
+	if (strcmp(service_name, conn->list->set.service_name_in) != 0) {
+		e_error(conn->event, "Connected to wrong socket type. "
+			"We want '%s', but received '%s'",
+			conn->list->set.service_name_in, service_name);
+		return -1;
+	}
+
+	if (major_version != conn->list->set.major_version) {
+		e_error(conn->event, "Socket supports major version %u, "
+			"but we support only %u (mixed old and new binaries?)",
+			major_version, conn->list->set.major_version);
+		return -1;
+	}
+
+	conn->minor_version = minor_version;
+	conn->version_received = TRUE;
+	return 0;
+}
+
+int connection_handshake_args_default(struct connection *conn,
+				      const char *const *args)
+{
+	unsigned int major_version, minor_version;
+
+	if (conn->version_received)
+		return 1;
 
 	/* VERSION <tab> service_name <tab> major version <tab> minor version */
 	if (str_array_length(args) != 4 ||
 	    strcmp(args[0], "VERSION") != 0 ||
-	    str_to_uint(args[2], &recv_major_version) < 0 ||
-	    str_to_uint(args[3], &conn->minor_version) < 0) {
-		i_error("%s didn't reply with a valid VERSION line: %s",
-			conn->name, t_strarray_join(args, "\t"));
+	    str_to_uint(args[2], &major_version) < 0 ||
+	    str_to_uint(args[3], &minor_version) < 0) {
+		e_error(conn->event, "didn't reply with a valid VERSION line: %s",
+			t_strarray_join(args, "\t"));
 		return -1;
 	}
 
-	if (strcmp(args[1], conn->list->set.service_name_in) != 0) {
-		i_error("%s: Connected to wrong socket type. "
-			"We want '%s', but received '%s'", conn->name,
-			conn->list->set.service_name_in, args[1]);
+	if (connection_verify_version(conn, args[1],
+				      major_version, minor_version) < 0)
 		return -1;
-	}
-
-	if (recv_major_version != conn->list->set.major_version) {
-		i_error("%s: Socket supports major version %u, "
-			"but we support only %u (mixed old and new binaries?)",
-			conn->name, recv_major_version,
-			conn->list->set.major_version);
-		return -1;
-	}
-	return 0;
+	return 1;
 }
 
 int connection_input_line_default(struct connection *conn, const char *line)
@@ -106,37 +165,56 @@ int connection_input_line_default(struct connection *conn, const char *line)
 	const char *const *args;
 
 	args = t_strsplit_tabescaped(line);
-	if (!conn->version_received) {
-		if (connection_verify_version(conn, args) < 0)
-			return -1;
-		conn->version_received = TRUE;
-		return 1;
-	}
 	if (args[0] == NULL && !conn->list->set.allow_empty_args_input) {
-		i_error("%s: Unexpectedly received empty line", conn->name);
+		e_error(conn->event, "Unexpectedly received empty line");
 		return -1;
 	}
 
-	return conn->list->v.input_args(conn, args);
+	if (!conn->handshake_received &&
+	    (conn->v.handshake_args != connection_handshake_args_default ||
+	     conn->list->set.major_version != 0)) {
+		int ret;
+		if ((ret = conn->v.handshake_args(conn, args)) == 0)
+			ret = 1; /* continue reading */
+		else if (ret > 0)
+			connection_handshake_ready(conn);
+		else
+			conn->disconnect_reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
+		return ret;
+	} else if (!conn->handshake_received) {
+		/* we don't do handshakes */
+		connection_handshake_ready(conn);
+	}
+
+	/* version must be handled though, by something */
+	i_assert(conn->version_received);
+
+	return conn->v.input_args(conn, args);
 }
 
 void connection_input_halt(struct connection *conn)
 {
 	io_remove(&conn->io);
+	timeout_remove(&conn->to);
 }
 
 void connection_input_resume(struct connection *conn)
 {
-	const struct connection_settings *set = &conn->list->set;
+	i_assert(!conn->disconnected);
 
-	if (conn->io != NULL)
-		return;
-	if (conn->from_streams || set->input_max_size != 0) {
+	if (conn->io != NULL) {
+		/* do nothing */
+	} else if (conn->input != NULL) {
 		conn->io = io_add_istream_to(conn->ioloop, conn->input,
-					     *conn->list->v.input, conn);
-	} else {
+					     *conn->v.input, conn);
+	} else if (conn->fd_in != -1) {
 		conn->io = io_add_to(conn->ioloop, conn->fd_in, IO_READ,
-				     *conn->list->v.input, conn);
+				     *conn->v.input, conn);
+	}
+	if (conn->input_idle_timeout_secs != 0 && conn->to == NULL) {
+		conn->to = timeout_add_to(conn->ioloop,
+					  conn->input_idle_timeout_secs*1000,
+					  *conn->v.idle_timeout, conn);
 	}
 }
 
@@ -149,6 +227,7 @@ static void connection_init_streams(struct connection *conn)
 	i_assert(conn->output == NULL);
 	i_assert(conn->to == NULL);
 
+	conn->handshake_received = FALSE;
 	conn->version_received = set->major_version == 0;
 
 	if (set->input_max_size != 0) {
@@ -173,13 +252,12 @@ static void connection_init_streams(struct connection *conn)
 		o_stream_set_name(conn->output, conn->name);
 		o_stream_switch_ioloop_to(conn->output, conn->ioloop);
 	}
+	conn->disconnected = FALSE;
+	i_assert(conn->to == NULL);
 	connection_input_resume(conn);
-	if (set->input_idle_timeout_secs != 0) {
-		conn->to = timeout_add_to(conn->ioloop,
-					  set->input_idle_timeout_secs*1000,
-					  connection_idle_timeout, conn);
-	}
+	i_assert(conn->to != NULL || conn->input_idle_timeout_secs == 0);
 	if (set->major_version != 0 && !set->dont_send_version) {
+		e_debug(conn->event, "Sending version handshake");
 		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"VERSION\t%s\t%u\t%u\n", set->service_name_out,
 			set->major_version, set->minor_version));
@@ -198,17 +276,25 @@ void connection_streams_changed(struct connection *conn)
 
 static void connection_client_connected(struct connection *conn, bool success)
 {
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name("server_connection_connected");
+
 	i_assert(conn->list->set.client);
 
 	conn->connect_finished = ioloop_timeval;
+	event_add_timeval(conn->event, "connect_finished_time", &ioloop_timeval);
+
+	if (success)
+		e_debug(e->event(), "Client connected (fd=%d)", conn->fd_in);
+	else
+		e_debug(e->event(), "Client connection failed (fd=%d)", conn->fd_in);
+
 	if (success)
 		connection_init_streams(conn);
-	if (conn->list->v.client_connected != NULL)
-		conn->list->v.client_connected(conn, success);
+	if (conn->v.client_connected != NULL)
+		conn->v.client_connected(conn, success);
 	if (!success) {
-		conn->disconnect_reason =
-			CONNECTION_DISCONNECT_CONN_CLOSED;
-		conn->list->v.destroy(conn);
+		connection_closed(conn, CONNECTION_DISCONNECT_CONN_CLOSED);
 	}
 }
 
@@ -218,7 +304,18 @@ void connection_init(struct connection_list *list,
 	conn->ioloop = current_ioloop;
 	conn->fd_in = -1;
 	conn->fd_out = -1;
-	conn->name = NULL;
+	conn->disconnected = TRUE;
+
+	i_free(conn->name);
+
+	if (list->set.input_idle_timeout_secs != 0 &&
+	    conn->input_idle_timeout_secs == 0)
+		conn->input_idle_timeout_secs = list->set.input_idle_timeout_secs;
+
+	if (conn->event == NULL)
+		conn->event = event_create(conn->event_parent);
+	if (list->set.debug)
+		event_set_forced_debug(conn->event, TRUE);
 
 	if (conn->list != NULL) {
 		i_assert(conn->list == list);
@@ -227,6 +324,7 @@ void connection_init(struct connection_list *list,
 		DLLIST_PREPEND(&list->connections, conn);
 		list->connections_count++;
 	}
+	connection_set_default_handlers(conn);
 }
 
 void connection_init_server(struct connection_list *list,
@@ -239,9 +337,44 @@ void connection_init_server(struct connection_list *list,
 	connection_init(list, conn);
 
 	conn->name = i_strdup(name);
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", conn->name));
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;
+
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name("client_connection_connected");
+	/* fd_out differs from fd_in only for stdin/stdout. Keep the logging
+	   output nice and clean by logging only the fd_in. If it's 0, it'll
+	   also be obvious that fd_out=1. */
+	e_debug(e->event(), "Server accepted connection (fd=%d)", fd_in);
+
 	connection_init_streams(conn);
+}
+
+void connection_init_client_fd(struct connection_list *list,
+			       struct connection *conn, const char *name,
+			       int fd_in, int fd_out)
+{
+	i_assert(name != NULL);
+	i_assert(list->set.client);
+
+	connection_init(list, conn);
+
+	conn->name = i_strdup(name);
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", conn->name));
+	conn->fd_in = fd_in;
+	conn->fd_out = fd_out;
+
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name("server_connection_connected");
+	/* fd_out differs from fd_in only for stdin/stdout. Keep the logging
+	   output nice and clean by logging only the fd_in. If it's 0, it'll
+	   also be obvious that fd_out=1. */
+	e_debug(e->event(), "Client connected (fd=%d)", fd_in);
+
+	connection_client_connected(conn, TRUE);
 }
 
 void connection_init_client_ip_from(struct connection_list *list,
@@ -263,6 +396,13 @@ void connection_init_client_ip_from(struct connection_list *list,
 		conn->my_ip = *my_ip;
 	else
 		i_zero(&conn->my_ip);
+
+	if (my_ip != NULL)
+		event_add_str(conn->event, "client_ip", net_ip2addr(my_ip));
+	event_add_str(conn->event, "ip", net_ip2addr(ip));
+	event_add_str(conn->event, "port", dec2str(port));
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", conn->name));
 }
 
 void connection_init_client_ip(struct connection_list *list,
@@ -282,6 +422,14 @@ void connection_init_client_unix(struct connection_list *list,
 	conn->fd_in = conn->fd_out = -1;
 	conn->name = i_strdup(path);
 	conn->unix_socket = TRUE;
+
+	event_field_clear(conn->event, "ip");
+	event_field_clear(conn->event, "port");
+	event_field_clear(conn->event, "client_ip");
+	event_field_clear(conn->event, "client_port");
+
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", basename(conn->name)));
 }
 
 void connection_init_from_streams(struct connection_list *list,
@@ -293,7 +441,6 @@ void connection_init_from_streams(struct connection_list *list,
 	connection_init(list, conn);
 
 	conn->name = i_strdup(name);
-	conn->from_streams = TRUE;
 	conn->fd_in = i_stream_get_fd(input);
 	conn->fd_out = o_stream_get_fd(output);
 
@@ -312,11 +459,14 @@ void connection_init_from_streams(struct connection_list *list,
 	o_stream_ref(conn->output);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_set_name(conn->output, conn->name);
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("(%s): ", conn->name));
 
+	conn->disconnected = FALSE;
 	connection_input_resume(conn);
 
-	if (list->v.client_connected != NULL)
-		list->v.client_connected(conn, TRUE);
+	if (conn->v.client_connected != NULL)
+		conn->v.client_connected(conn, TRUE);
 }
 
 static void connection_socket_connected(struct connection *conn)
@@ -336,6 +486,8 @@ int connection_client_connect(struct connection *conn)
 	i_assert(conn->list->set.client);
 	i_assert(conn->fd_in == -1);
 
+	e_debug(conn->event, "Connecting");
+
 	if (conn->port != 0) {
 		fd = net_connect_ip(&conn->ip, conn->port,
 			(conn->my_ip.family != 0 ? &conn->my_ip : NULL));
@@ -347,15 +499,18 @@ int connection_client_connect(struct connection *conn)
 		return -1;
 	conn->fd_in = conn->fd_out = fd;
 	conn->connect_started = ioloop_timeval;
+	conn->disconnected = FALSE;
 
 	if (conn->port != 0 ||
 	    conn->list->set.delayed_unix_client_connected_callback) {
 		conn->io = io_add_to(conn->ioloop, conn->fd_out, IO_WRITE,
 				     connection_socket_connected, conn);
+		e_debug(conn->event, "Waiting for connect (fd=%d) to finish for max %u msecs",
+			fd, set->client_connect_timeout_msecs);
 		if (set->client_connect_timeout_msecs != 0) {
 			conn->to = timeout_add_to(conn->ioloop,
 						  set->client_connect_timeout_msecs,
-						  connection_connect_timeout, conn);
+						  *conn->v.connect_timeout, conn);
 		}
 	} else {
 		connection_client_connected(conn, TRUE);
@@ -363,8 +518,30 @@ int connection_client_connect(struct connection *conn)
 	return 0;
 }
 
+static void connection_update_counters(struct connection *conn)
+{
+	if (conn->input != NULL)
+		event_add_int(conn->event, "bytes_in", conn->input->v_offset);
+	if (conn->output != NULL)
+		event_add_int(conn->event, "bytes_out", conn->output->offset);
+}
+
 void connection_disconnect(struct connection *conn)
 {
+	if (conn->disconnected)
+		return;
+	connection_update_counters(conn);
+	/* client connects to a Server, and Server gets connection from Client */
+	const char *ename = conn->list->set.client ?
+		"server_connection_disconnected" :
+		"client_connection_disconnected";
+
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name(ename)->
+		add_str("reason", connection_disconnect_reason(conn));
+	e_debug(e->event(), "Disconnected: %s (fd=%d)",
+		connection_disconnect_reason(conn), conn->fd_in);
+
 	conn->last_input = 0;
 	i_zero(&conn->last_input_tv);
 	timeout_remove(&conn->to);
@@ -374,6 +551,7 @@ void connection_disconnect(struct connection *conn)
 	o_stream_close(conn->output);
 	o_stream_destroy(&conn->output);
 	fd_close_maybe_stdio(&conn->fd_in, &conn->fd_out);
+	conn->disconnected = TRUE;
 }
 
 void connection_deinit(struct connection *conn)
@@ -385,6 +563,8 @@ void connection_deinit(struct connection *conn)
 
 	connection_disconnect(conn);
 	i_free(conn->name);
+	event_unref(&conn->event);
+	conn->list = NULL;
 }
 
 int connection_input_read(struct connection *conn)
@@ -399,9 +579,7 @@ int connection_input_read(struct connection *conn)
 		/* buffer full */
 		switch (conn->list->set.input_full_behavior) {
 		case CONNECTION_BEHAVIOR_DESTROY:
-			conn->disconnect_reason =
-				CONNECTION_DISCONNECT_BUFFER_FULL;
-			conn->list->v.destroy(conn);
+			connection_closed(conn, CONNECTION_DISCONNECT_BUFFER_FULL);
 			return -1;
 		case CONNECTION_BEHAVIOR_ALLOW:
 			return -2;
@@ -409,9 +587,7 @@ int connection_input_read(struct connection *conn)
 		i_unreached();
 	case -1:
 		/* disconnected */
-		conn->disconnect_reason =
-			CONNECTION_DISCONNECT_CONN_CLOSED;
-		conn->list->v.destroy(conn);
+		connection_closed(conn, CONNECTION_DISCONNECT_CONN_CLOSED);
 		return -1;
 	case 0:
 		/* nothing new read */
@@ -442,6 +618,8 @@ const char *connection_disconnect_reason(struct connection *conn)
 	case CONNECTION_DISCONNECT_NOT:
 	case CONNECTION_DISCONNECT_BUFFER_FULL:
 		return io_stream_get_disconnect_reason(conn->input, conn->output);
+	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
+		return "Handshake failed";
 	}
 	i_unreached();
 }
@@ -462,6 +640,31 @@ const char *connection_input_timeout_reason(struct connection *conn)
 		return t_strdup_printf("connect() timed out after %u.%03u secs",
 				       diff/1000, diff%1000);
 	}
+}
+
+void connection_set_handlers(struct connection *conn,
+			     const struct connection_vfuncs *vfuncs)
+{
+	connection_input_halt(conn);
+	i_assert(vfuncs->destroy != NULL);
+	conn->v = *vfuncs;
+        if (conn->v.input == NULL)
+                conn->v.input = connection_input_default;
+        if (conn->v.input_line == NULL)
+                conn->v.input_line = connection_input_line_default;
+        if (conn->v.handshake_args == NULL)
+                conn->v.handshake_args = connection_handshake_args_default;
+        if (conn->v.idle_timeout == NULL)
+                conn->v.idle_timeout = connection_idle_timeout;
+        if (conn->v.connect_timeout == NULL)
+                conn->v.connect_timeout = connection_connect_timeout;
+	if (!conn->disconnected)
+		connection_input_resume(conn);
+}
+
+void connection_set_default_handlers(struct connection *conn)
+{
+	connection_set_handlers(conn, &conn->list->v);
 }
 
 void connection_switch_ioloop_to(struct connection *conn,
@@ -500,11 +703,6 @@ connection_list_init(const struct connection_settings *set,
 	list->set = *set;
 	list->v = *vfuncs;
 
-	if (list->v.input == NULL)
-		list->v.input = connection_input_default;
-	if (list->v.input_line == NULL)
-		list->v.input_line = connection_input_line_default;
-
 	return list;
 }
 
@@ -517,8 +715,7 @@ void connection_list_deinit(struct connection_list **_list)
 
 	while (list->connections != NULL) {
 		conn = list->connections;
-		conn->disconnect_reason = CONNECTION_DISCONNECT_DEINIT;
-		list->v.destroy(conn);
+		connection_closed(conn, CONNECTION_DISCONNECT_DEINIT);
 		i_assert(conn != list->connections);
 	}
 	i_free(list);

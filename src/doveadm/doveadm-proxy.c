@@ -62,7 +62,7 @@ static void cmd_proxy_list_header(const char *const *args)
 		const char *arg = args[i];
 
 		if (strcmp(arg, "username") == 0 ||
-		    strncmp(arg, "user_", 5) == 0) {
+		    str_begins(arg, "user_")) {
 			doveadm_print_header(arg, arg,
 					     DOVEADM_PRINT_HEADER_FLAG_EXPAND);
 			continue;

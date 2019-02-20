@@ -8,49 +8,35 @@ typedef char uint32max_array_t[4294967295];
 typedef char uint32max_array_t[65535];
 #endif
 
+#define BIG_MAX			POOL_MAX_ALLOC_SIZE
+
+#if defined(_LP64)
+#define LITTLE_MAX		((unsigned long long) INT32_MAX)
+#else
+#define LITTLE_MAX		((unsigned long long) INT16_MAX)
+#endif
+
 extern struct pool test_pool;
+
+/* Checks allocations & reallocations for a given type. */
+#define CHECK_OVERFLOW(type, nelem, _maxsize)					\
+	do {									\
+		const size_t maxsize = (_maxsize);				\
+		test_begin("mempool overflow - " #type);			\
+		type *ptr = p_new(&test_pool, type, (nelem));			\
+		test_assert(ptr == POINTER_CAST(maxsize));			\
+		/* grow: */							\
+		test_assert(p_realloc_type(&test_pool, ptr, type, (nelem) - 1, (nelem)) == POINTER_CAST(maxsize)); \
+		/* shrink: */							\
+		test_assert(p_realloc_type(&test_pool, ptr, type, (nelem), (nelem) - 1) == POINTER_CAST(maxsize - sizeof(type))); \
+		test_end();							\
+	} while (0)
 
 static void test_mempool_overflow(void)
 {
-	test_begin("mempool overflow");
-#if SIZEOF_VOID_P == 8
-	uint32max_array_t *m1 = p_new(&test_pool, uint32max_array_t, 4294967297ULL);
-	test_assert(m1 == POINTER_CAST(18446744073709551615ULL));
-	char *m2 = p_new(&test_pool, char, 18446744073709551615ULL);
-	test_assert(m2 == POINTER_CAST(18446744073709551615ULL));
-	uint32_t *m3 = p_new(&test_pool, uint32_t, 4611686018427387903ULL);
-	test_assert(m3 == POINTER_CAST(18446744073709551612ULL));
-
-	/* grow */
-	test_assert(p_realloc_type(&test_pool, m1, uint32max_array_t, 4294967296ULL, 4294967297ULL) == POINTER_CAST(18446744073709551615ULL));
-	test_assert(p_realloc_type(&test_pool, m2, char, 18446744073709551614ULL, 18446744073709551615ULL) == POINTER_CAST(18446744073709551615ULL));
-	test_assert(p_realloc_type(&test_pool, m3, uint32_t, 4611686018427387902ULL, 4611686018427387903ULL) == POINTER_CAST(18446744073709551612ULL));
-
-	/* shrink */
-	test_assert(p_realloc_type(&test_pool, m1, uint32max_array_t, 4294967297ULL, 4294967296ULL) == POINTER_CAST(18446744069414584320ULL));
-	test_assert(p_realloc_type(&test_pool, m2, char, 18446744073709551615ULL, 18446744073709551614ULL) == POINTER_CAST(18446744073709551614ULL));
-	test_assert(p_realloc_type(&test_pool, m3, uint32_t, 4611686018427387903ULL, 4611686018427387902ULL) == POINTER_CAST(18446744073709551608ULL));
-#elif SIZEOF_VOID_P == 4
-	uint32max_array_t *m1 = p_new(&test_pool, uint32max_array_t, 65537);
-	test_assert(m1 == POINTER_CAST(4294967295U));
-	char *m2 = p_new(&test_pool, char, 4294967295U);
-	test_assert(m2 == POINTER_CAST(4294967295U));
-	uint32_t *m3 = p_new(&test_pool, uint32_t, 1073741823U);
-	test_assert(m3 == POINTER_CAST(4294967292U));
-
-	/* grow */
-	test_assert(p_realloc_type(&test_pool, m1, uint32max_array_t, 65536, 65537) == POINTER_CAST(4294967295U));
-	test_assert(p_realloc_type(&test_pool, m2, char, 4294967294U, 4294967295U) == POINTER_CAST(4294967295U));
-	test_assert(p_realloc_type(&test_pool, m3, uint32_t, 1073741822U, 1073741823U) == POINTER_CAST(4294967292U));
-
-	/* shrink */
-	test_assert(p_realloc_type(&test_pool, m1, uint32max_array_t, 65537, 65536) == POINTER_CAST(4294901760U));
-	test_assert(p_realloc_type(&test_pool, m2, char, 4294967295U, 4294967294U) == POINTER_CAST(4294967294U));
-	test_assert(p_realloc_type(&test_pool, m3, uint32_t, 1073741823U, 1073741822U) == POINTER_CAST(4294967288U));
-#else
-#  error unsupported pointer size
-#endif
-	test_end();
+	CHECK_OVERFLOW(uint32max_array_t, LITTLE_MAX, sizeof(uint32max_array_t) * LITTLE_MAX);
+	CHECK_OVERFLOW(char, BIG_MAX, BIG_MAX);
+	CHECK_OVERFLOW(uint32_t, BIG_MAX / sizeof(uint32_t), BIG_MAX - 3);
 }
 
 enum fatal_test_state fatal_mempool(unsigned int stage)
@@ -58,54 +44,39 @@ enum fatal_test_state fatal_mempool(unsigned int stage)
 	static uint32max_array_t *m1;
 	static uint32_t *m2;
 
-	test_expect_fatal_string("memory allocation overflow");
-#if SIZEOF_VOID_P == 8
 	switch(stage) {
 	case 0:
+		test_expect_fatal_string("Trying to allocate");
 		test_begin("fatal mempool overflow");
-		m1 = p_new(&test_pool, uint32max_array_t, 4294967298ULL);
+		m1 = p_new(&test_pool, uint32max_array_t, LITTLE_MAX + 3);
 		return FATAL_TEST_FAILURE;
 	case 1:
-		m2 = p_new(&test_pool, uint32_t, 4611686018427387904ULL);
+		test_expect_fatal_string("Trying to allocate");
+		m2 = p_new(&test_pool, uint32_t, BIG_MAX / sizeof(uint32_t) + 1);
 		return FATAL_TEST_FAILURE;
 	case 2: /* grow */
-		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t, 4294967297ULL, 4294967298ULL);
+		test_expect_fatal_string("Trying to reallocate");
+		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t,
+				    LITTLE_MAX + 2, LITTLE_MAX + 3);
 		return FATAL_TEST_FAILURE;
 	case 3:
-		m2 = p_realloc_type(&test_pool, m2, uint32_t, 4611686018427387903ULL, 4611686018427387904ULL);
+		test_expect_fatal_string("Trying to reallocate");
+		m2 = p_realloc_type(&test_pool, m2, uint32_t,
+				    BIG_MAX / sizeof(uint32_t),
+				    BIG_MAX / sizeof(uint32_t) + 1);
 		return FATAL_TEST_FAILURE;
 	case 4: /* shrink */
-		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t, 4294967298ULL, 4294967297ULL);
+		test_expect_fatal_string("Trying to reallocate");
+		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t,
+				    LITTLE_MAX + 3, LITTLE_MAX + 2);
 		return FATAL_TEST_FAILURE;
 	case 5:
-		m2 = p_realloc_type(&test_pool, m2, uint32_t, 4611686018427387904ULL, 4611686018427387903ULL);
+		test_expect_fatal_string("Trying to reallocate");
+		m2 = p_realloc_type(&test_pool, m2, uint32_t,
+				    BIG_MAX / sizeof(uint32_t) + 2,
+				    BIG_MAX / sizeof(uint32_t) + 1);
 		return FATAL_TEST_FAILURE;
 	}
-#elif SIZEOF_VOID_P == 4
-	switch(stage) {
-	case 0:
-		test_begin("fatal mempool overflow");
-		m1 = p_new(&test_pool, uint32max_array_t, 65538);
-		return FATAL_TEST_FAILURE;
-	case 1:
-		m2 = p_new(&test_pool, uint32_t, 1073741824U);
-		return FATAL_TEST_FAILURE;
-	case 2: /* grow */
-		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t, 65537, 65538);
-		return FATAL_TEST_FAILURE;
-	case 3:
-		m2 = p_realloc_type(&test_pool, m2, uint32_t, 1073741823U, 1073741824U);
-		return FATAL_TEST_FAILURE;
-	case 4: /* shrink */
-		m1 = p_realloc_type(&test_pool, m1, uint32max_array_t, 65538, 65537);
-		return FATAL_TEST_FAILURE;
-	case 5:
-		m2 = p_realloc_type(&test_pool, m2, uint32_t, 1073741824U, 1073741823U);
-		return FATAL_TEST_FAILURE;
-	}
-#else
-#  error unsupported pointer size
-#endif
 	test_expect_fatal_string(NULL);
 	test_end();
 	return FATAL_TEST_FINISHED;

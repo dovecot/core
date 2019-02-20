@@ -25,6 +25,9 @@ struct oauth2_request {
 	oauth2_token_validation_callback_t *tv_callback;
 	void *tv_context;
 
+	oauth2_passwd_grant_callback_t *pg_callback;
+	void *pg_context;
+
 	oauth2_introspection_callback_t *is_callback;
 	void *is_context;
 

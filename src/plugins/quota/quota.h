@@ -89,6 +89,7 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 void quota_deinit(struct quota **quota);
 
 /* List all visible quota roots. They don't need to be freed. */
+struct quota_root_iter *quota_root_iter_init_user(struct mail_user *user);
 struct quota_root_iter *quota_root_iter_init(struct mailbox *box);
 struct quota_root *quota_root_iter_next(struct quota_root_iter *iter);
 void quota_root_iter_deinit(struct quota_root_iter **iter);
@@ -112,7 +113,7 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		   const char **error_r);
 /* Returns 0 if OK, -1 if error (eg. permission denied, invalid name). */
 int quota_set_resource(struct quota_root *root, const char *name,
-		       uint64_t value, const char **error_r);
+		       uint64_t value, const char **client_error_r);
 
 /* Start a new quota transaction. */
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box);

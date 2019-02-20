@@ -100,8 +100,8 @@ static void quota_mail_expunge(struct mail *_mail)
 			i_array_init(&qbox->expunge_uids, 64);
 			i_array_init(&qbox->expunge_sizes, 64);
 		}
-		array_append(&qbox->expunge_uids, &_mail->uid, 1);
-		array_append(&qbox->expunge_sizes, &size, 1);
+		array_push_back(&qbox->expunge_uids, &_mail->uid);
+		array_push_back(&qbox->expunge_sizes, &size);
 		if ((_mail->transaction->flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0) {
 			/* we're running dsync. if this brings the quota below
 			   a negative quota warning, don't execute it, because
@@ -652,8 +652,8 @@ void quota_mail_user_created(struct mail_user *user)
 		quser->quota = quota;
 
 		MODULE_CONTEXT_SET(user, quota_user_module, quser);
-	} else if (user->mail_debug) {
-		i_debug("quota: No quota setting - plugin disabled");
+	} else {
+		e_debug(user->event, "quota: No quota setting - plugin disabled");
 	}
 }
 

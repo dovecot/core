@@ -8,6 +8,8 @@
 #include "smtp-address.h"
 #include "smtp-params.h"
 
+static const char *test_extensions[] = { "FROP", "FRUP", NULL };
+
 static struct smtp_address test_address1 =
 	{ .localpart = NULL, .domain = NULL };
 static struct smtp_address test_address2 =
@@ -38,7 +40,8 @@ struct valid_mail_params_parse_test {
 	const char *input, *output;
 
 	enum smtp_capability caps;
-	bool extensions;
+	const char *const *extensions;
+	const char *const *body_extensions;
 
 	struct smtp_params_mail params;
 };
@@ -104,7 +107,7 @@ valid_mail_params_parse_tests[] = {
 		.caps = SMTP_CAPABILITY_8BITMIME |
 			SMTP_CAPABILITY_BINARYMIME |
 			SMTP_CAPABILITY_CHUNKING,
-		.extensions = TRUE,
+		.body_extensions = test_extensions,
 		.params = {
 			.body = {
 				.type = SMTP_PARAM_MAIL_BODY_TYPE_EXTENSION,
@@ -172,7 +175,7 @@ valid_mail_params_parse_tests[] = {
 	},{
 		.input = "FROP=friep",
 		.caps = SMTP_CAPABILITY_SIZE,
-		.extensions = TRUE,
+		.extensions = test_extensions,
 		.params = {
 			.extra_params = {
 				.arr = {
@@ -183,7 +186,7 @@ valid_mail_params_parse_tests[] = {
 		}
 	},{
 		.input = "FROP=friep FRUP=frml",
-		.extensions = TRUE,
+		.extensions = test_extensions,
 		.params = {
 			.extra_params = {
 				.arr = {
@@ -365,8 +368,8 @@ static void test_smtp_mail_params_parse_valid(void)
 
 		test = &valid_mail_params_parse_tests[i];
 		ret = smtp_params_mail_parse(pool_datastack_create(),
-			test->input, test->caps, test->extensions, &params,
-			&error_code, &error);
+			test->input, test->caps, test->extensions,
+			test->body_extensions, &params, &error_code, &error);
 
 		test_begin(t_strdup_printf("smtp mail params valid [%d]", i));
 		test_out_reason(t_strdup_printf("parse(\"%s\")",
@@ -392,7 +395,7 @@ static void test_smtp_mail_params_parse_valid(void)
 			if ((test->caps & SMTP_CAPABILITY_SIZE) != 0)
 				test_smtp_mail_params_size(&test->params, &params);
 			/* <extensions> */
-			if (test->extensions)
+			if (test->extensions != NULL)
 				test_smtp_mail_params_extensions(&test->params, &params);
 
 			encoded = t_str_new(256);
@@ -413,7 +416,7 @@ struct invalid_mail_params_parse_test {
 	const char *input;
 
 	enum smtp_capability caps;
-	bool extensions;
+	const char *const *extensions;
 };
 
 static const struct invalid_mail_params_parse_test
@@ -474,8 +477,8 @@ static void test_smtp_mail_params_parse_invalid(void)
 
 		test = &invalid_mail_params_parse_tests[i];
 		ret = smtp_params_mail_parse(pool_datastack_create(),
-			test->input, test->caps, test->extensions, &params,
-			&error_code, &error);
+			test->input, test->caps, test->extensions, NULL,
+			&params, &error_code, &error);
 
 		test_begin(t_strdup_printf("smtp mail params invalid [%d]", i));
 		test_out_reason(t_strdup_printf("parse(\"%s\")",
@@ -490,7 +493,7 @@ struct valid_rcpt_params_parse_test {
 	const char *input, *output;
 
 	enum smtp_capability caps;
-	bool extensions;
+	const char *const *extensions;
 
 	struct smtp_params_rcpt params;
 };
@@ -560,7 +563,7 @@ valid_rcpt_params_parse_tests[] = {
 	},{
 		.input = "FROP=friep",
 		.caps = SMTP_CAPABILITY_SIZE,
-		.extensions = TRUE,
+		.extensions = test_extensions,
 		.params = {
 			.extra_params = {
 				.arr = {
@@ -571,7 +574,7 @@ valid_rcpt_params_parse_tests[] = {
 		}
 	},{
 		.input = "FROP=friep FRUP=frml",
-		.extensions = TRUE,
+		.extensions = test_extensions,
 		.params = {
 			.extra_params = {
 				.arr = {
@@ -714,8 +717,8 @@ static void test_smtp_rcpt_params_parse_valid(void)
 
 		test = &valid_rcpt_params_parse_tests[i];
 		ret = smtp_params_rcpt_parse(pool_datastack_create(),
-			test->input, test->caps, test->extensions, &params,
-			&error_code, &error);
+			test->input, test->caps, test->extensions,
+			&params, &error_code, &error);
 
 		test_begin(t_strdup_printf("smtp rcpt params valid [%d]", i));
 		test_out_reason(t_strdup_printf("parse(\"%s\")",
@@ -731,7 +734,7 @@ static void test_smtp_rcpt_params_parse_valid(void)
 			if ((test->caps & SMTP_CAPABILITY_DSN) != 0)
 				test_smtp_rcpt_params_notify(&test->params, &params);
 			/* <extensions> */
-			if (test->extensions)
+			if (test->extensions != NULL)
 				test_smtp_rcpt_params_extensions(&test->params, &params);
 
 			encoded = t_str_new(256);
@@ -752,7 +755,7 @@ struct invalid_rcpt_params_parse_test {
 	const char *input;
 
 	enum smtp_capability caps;
-	bool extensions;
+	const char *const *extensions;
 };
 
 static const struct invalid_rcpt_params_parse_test
@@ -793,8 +796,8 @@ static void test_smtp_rcpt_params_parse_invalid(void)
 
 		test = &invalid_rcpt_params_parse_tests[i];
 		ret = smtp_params_rcpt_parse(pool_datastack_create(),
-			test->input, test->caps, test->extensions, &params,
-			&error_code, &error);
+			test->input, test->caps, test->extensions,
+			&params, &error_code, &error);
 
 		test_begin(t_strdup_printf("smtp rcpt params invalid [%d]", i));
 		test_out_reason(t_strdup_printf("parse(\"%s\")",

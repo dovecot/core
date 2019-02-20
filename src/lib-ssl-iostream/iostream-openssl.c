@@ -130,8 +130,11 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		certname[sizeof(certname)-1] = '\0'; /* just in case.. */
 	if (preverify_ok == 0) {
 		openssl_iostream_set_error(ssl_io, t_strdup_printf(
-			"Received invalid SSL certificate: %s: %s",
-			X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)), certname));
+			"Received invalid SSL certificate: %s: %s (check %s)",
+			X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)), certname,
+			ssl_io->ctx->client_ctx ?
+				"ssl_client_ca_* settings?" :
+				"ssl_ca setting?"));
 		if (ssl_io->verbose_invalid_cert)
 			i_info("%s", ssl_io->last_error);
 	} else if (ssl_io->verbose) {
@@ -343,9 +346,16 @@ static void openssl_iostream_unref(struct ssl_iostream *ssl_io)
 	openssl_iostream_free(ssl_io);
 }
 
-static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
+void openssl_iostream_shutdown(struct ssl_iostream *ssl_io)
 {
-	if (SSL_shutdown(ssl_io->ssl) != 1) {
+	if (ssl_io->destroyed)
+		return;
+
+	i_assert(ssl_io->ssl_input != NULL);
+	i_assert(ssl_io->ssl_output != NULL);
+
+	ssl_io->destroyed = TRUE;
+	if (ssl_io->handshaked && SSL_shutdown(ssl_io->ssl) != 1) {
 		/* if bidirectional shutdown fails we need to clear
 		   the error queue */
 		openssl_iostream_clear_errors();
@@ -356,7 +366,11 @@ static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 	   but we may still keep this ssl-iostream referenced until later. */
 	i_stream_close(ssl_io->plain_input);
 	o_stream_close(ssl_io->plain_output);
+}
 
+static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
+{
+	openssl_iostream_shutdown(ssl_io);
 	ssl_iostream_unref(&ssl_io);
 }
 
@@ -614,8 +628,6 @@ static bool
 openssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 				 const char *verify_name, const char **reason_r)
 {
-	if (ssl_io->allow_invalid_cert)
-		return TRUE;
 	if (!ssl_iostream_has_valid_client_cert(ssl_io)) {
 		*reason_r = "Invalid certificate";
 		return FALSE;
@@ -630,6 +642,10 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	int ret;
 
 	i_assert(!ssl_io->handshaked);
+
+	/* we are being destroyed, so do not do any more handshaking */
+	if (ssl_io->destroyed)
+		return 0;
 
 	if (ssl_io->ctx->client_ctx) {
 		while ((ret = SSL_connect(ssl_io->ssl)) <= 0) {
@@ -655,7 +671,8 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			openssl_iostream_set_error(ssl_io, error);
 			ssl_io->handshake_failed = TRUE;
 		}
-	} else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed) {
+       } else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed &&
+		  !ssl_io->allow_invalid_cert) {
 		if (!ssl_iostream_cert_match_name(ssl_io, ssl_io->connected_host, &reason)) {
 			openssl_iostream_set_error(ssl_io, t_strdup_printf(
 				"SSL certificate doesn't match expected host name %s: %s",

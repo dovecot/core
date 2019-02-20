@@ -76,7 +76,7 @@ static void request_add_context(struct indexer_request *request, void *context)
 
 	if (!array_is_created(&request->contexts))
 		i_array_init(&request->contexts, 2);
-	array_append(&request->contexts, &context, 1);
+	array_push_back(&request->contexts, &context);
 }
 
 static struct indexer_request *

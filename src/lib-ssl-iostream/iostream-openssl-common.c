@@ -174,8 +174,15 @@ bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 	/* verify against CommonName only when there wasn't any DNS
 	   SubjectAltNames */
 	if (dns_names) {
-		i_assert(*reason_r != NULL);
-		ret = i < count;
+		i_assert(*reason_r != NULL || i == count);
+		if (i == count) {
+			*reason_r = t_strdup_printf(
+				"No match to %u SubjectAltNames",
+				count);
+			ret = FALSE;
+		} else {
+			ret = TRUE;
+		}
 	} else {
 		const char *cname = get_cname(cert);
 

@@ -942,7 +942,7 @@ director_cmd_host_hand_start(struct director_connection *conn,
 			  conn->name);
 		hosts = mail_hosts_get(conn->dir->mail_hosts);
 		while (array_count(hosts) > 0) {
-			hostp = array_idx(hosts, 0);
+			hostp = array_front(hosts);
 			director_remove_host(conn->dir, NULL, NULL, *hostp);
 		}
 	} else if (remote_ring_completed == 0 && conn->dir->ring_handshaked) {
@@ -1169,8 +1169,6 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			str_append(str, ") - ");
 
 			vhost_count = I_MIN(vhost_count, host->vhost_count);
-			last_updown_change = I_MAX(last_updown_change,
-						   host->last_updown_change);
 			str_printfa(str, "setting to state=%s vhosts=%u",
 				    down ? "down" : "up", vhost_count);
 			i_warning("%s", str_c(str));
@@ -1178,6 +1176,13 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			   reaches the full ring */
 			dir_host = NULL;
 			src_host = conn->dir->self_host;
+		}
+		if (update) {
+			/* Make sure the host's timestamp never shrinks.
+			   Otherwise we might get into a loop where the up/down
+			   state keeps switching. */
+			last_updown_change = I_MAX(last_updown_change,
+						   host->last_updown_change);
 		}
 	}
 
@@ -2264,7 +2269,7 @@ director_connection_init_common(struct director *dir, int fd)
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(conn->fd, dir->set->director_output_buffer_size);
 	o_stream_set_no_error_handling(conn->output, TRUE);
-	array_append(&dir->connections, &conn, 1);
+	array_push_back(&dir->connections, &conn);
 	return conn;
 }
 
@@ -2406,7 +2411,7 @@ void director_connection_deinit(struct director_connection **_conn,
 	}
 	if (*remote_reason != '\0' &&
 	    conn->minor_version >= DIRECTOR_VERSION_QUIT) {
-		o_stream_send_str(conn->output, t_strdup_printf(
+		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"QUIT\t%s\n", remote_reason));
 	}
 

@@ -140,6 +140,14 @@ array_free_i(struct array *array)
 #define array_free(array) \
 	array_free_i(&(array)->arr)
 
+static inline void * ATTR_WARN_UNUSED_RESULT
+array_free_without_data_i(struct array *array)
+{
+	return buffer_free_without_data(&array->buffer);
+}
+#define array_free_without_data(array) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array)array_free_without_data_i(&(array)->arr)
+
 static inline bool
 array_is_created_i(const struct array *array)
 {
@@ -231,9 +239,19 @@ array_get_i(const struct array *array, unsigned int *count_r)
 static inline const void * ATTR_PURE
 array_idx_i(const struct array *array, unsigned int idx)
 {
-	i_assert(idx * array->element_size < array->buffer->used);
+	i_assert(idx < array->buffer->used / array->element_size);
 	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
+
+#define array_front(array) array_idx(array, 0)
+#define array_front_modifiable(array) array_idx_modifiable(array, 0)
+#define array_back(array) array_idx(array, array_count(array)-1)
+#define array_back_modifiable(array) array_idx_modifiable(array, array_count(array)-1)
+#define array_pop_back(array) array_delete(array, array_count(array)-1, 1);
+#define array_push_back(array, item) array_append(array, (item), 1)
+#define array_pop_front(array) array_delete(array, 0, 1)
+#define array_push_front(array, item) array_insert(array, 0, (item), 1)
+
 #define array_idx(array, idx) \
 	ARRAY_TYPE_CAST_CONST(array)array_idx_i(&(array)->arr, idx)
 

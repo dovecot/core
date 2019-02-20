@@ -88,7 +88,7 @@ static void virtual_search_get_records(struct mail_search_context *ctx,
 			srec.mailbox_id = vrec->mailbox_id;
 			srec.real_uid = vrec->real_uid;
 			srec.virtual_seq = ctx->seq;
-			array_append(&vctx->records, &srec, 1);
+			array_push_back(&vctx->records, &srec);
 		}
 		mail_search_args_reset(ctx->args->args, FALSE);
 	}

@@ -201,7 +201,7 @@ static void doveadm_print_table_print(const char *value)
 			array_count(&ctx->headers);
 		if (line_count < MAX_BUFFER_LINES) {
 			value = p_strdup(ctx->pool, value);
-			array_append(&ctx->buffered_values, &value, 1);
+			array_push_back(&ctx->buffered_values, &value);
 			return;
 		}
 		doveadm_buffer_flush();
@@ -216,7 +216,7 @@ doveadm_print_table_print_stream(const unsigned char *value, size_t size)
 		i_fatal("table formatter doesn't support multi-line values");
 
 	if (size != 0)
-		str_append_n(ctx->stream, value, size);
+		str_append_data(ctx->stream, value, size);
 	else {
 		doveadm_print_table_print(str_c(ctx->stream));
 		str_truncate(ctx->stream, 0);

@@ -104,10 +104,10 @@ cmd_mailbox_metadata_parse_key(const char *arg,
 {
 	arg = t_str_lcase(arg);
 
-	if (strncmp(arg, "/private/", 9) == 0) {
+	if (str_begins(arg, "/private/")) {
 		*type_r = MAIL_ATTRIBUTE_TYPE_PRIVATE;
 		*key_r = arg + 9;
-	} else if (strncmp(arg, "/shared/", 8) == 0) {
+	} else if (str_begins(arg, "/shared/")) {
 		*type_r = MAIL_ATTRIBUTE_TYPE_SHARED;
 		*key_r = arg + 8;
 	} else if (strcmp(arg, "/private") == 0) {

@@ -9,7 +9,6 @@
 #include "net.h"
 #include "istream.h"
 #include "ostream.h"
-#include "iostream-ssl.h"
 #include "hostpid.h"
 #include "var-expand.h"
 #include "settings-parser.h"
@@ -20,9 +19,11 @@
 #include "mail-storage-service.h"
 #include "raw-storage.h"
 #include "imap-urlauth.h"
-#include "smtp-client.h"
+#include "smtp-syntax.h"
 #include "smtp-client-connection.h"
 
+#include "submission-backend-relay.h"
+#include "submission-recipient.h"
 #include "submission-commands.h"
 #include "submission-settings.h"
 
@@ -41,25 +42,25 @@
 /* Disconnect client after idling this many milliseconds */
 #define CLIENT_IDLE_TIMEOUT_MSECS (10*60*1000)
 
+static const struct smtp_server_callbacks smtp_callbacks;
+static const struct submission_client_vfuncs submission_client_vfuncs;
+
+struct submission_module_register submission_module_register = { 0 };
+
 struct client *submission_clients;
 unsigned int submission_client_count;
 
-static const struct smtp_server_callbacks smtp_callbacks;
-
-/* try to proxy pipelined commands in a similarly pipelined fashion */
 static void client_input_pre(void *context)
 {
 	struct client *client = context;
 
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_cork(client->proxy_conn);
+	submission_backends_client_input_pre(client);
 }
 static void client_input_post(void *context)
 {
 	struct client *client = context;
 
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_uncork(client->proxy_conn);
+	submission_backends_client_input_post(client);
 }
 
 static const char *client_remote_id(struct client *client)
@@ -73,90 +74,96 @@ static const char *client_remote_id(struct client *client)
 	return addr;
 }
 
-static void client_proxy_ready_cb(const struct smtp_reply *reply,
-				  void *context)
+static void client_parse_backend_capabilities(struct client *client)
 {
-	struct client *client = context;
-	enum smtp_capability caps;
+	const struct submission_settings *set = client->set;
+	const char *const *str;
 
-	/* check proxy status */
-	if ((reply->status / 100) != 2) {
-		i_error("Failed to establish relay connection: %s",
-			smtp_reply_log(reply));
-		client_destroy(client,
-			"4.4.0", "Failed to establish relay connection");
+	client->backend_capabilities = SMTP_CAPABILITY_NONE;
+	if (set->submission_backend_capabilities == NULL)
 		return;
+
+	str = t_strsplit_spaces(set->submission_backend_capabilities, " ,");
+	for (; *str != NULL; str++) {
+		enum smtp_capability cap = smtp_capability_find_by_name(*str);
+
+		if (cap == SMTP_CAPABILITY_NONE) {
+			i_warning("Unknown SMTP capability in submission_backend_capabilities: "
+				  "%s", *str);
+			continue;
+		}
+
+		client->backend_capabilities |= cap;
 	}
 
-	/* propagate capabilities */
-	caps = smtp_client_connection_get_capabilities(client->proxy_conn);
-	caps |= SMTP_CAPABILITY_AUTH | SMTP_CAPABILITY_PIPELINING |
-		SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES |
-		SMTP_CAPABILITY_CHUNKING | SMTP_CAPABILITY_BURL |
-		SMTP_CAPABILITY_VRFY;
-	caps &= SUBMISSION_SUPPORTED_SMTP_CAPABILITIES;
-	smtp_server_connection_set_capabilities(client->conn, caps);
+	/* Make sure CHUNKING support is always enabled when BINARYMIME is
+	   enabled by explicit configuration. */
+	if (HAS_ALL_BITS(client->backend_capabilities,
+			 SMTP_CAPABILITY_BINARYMIME)) {
+		client->backend_capabilities |= SMTP_CAPABILITY_CHUNKING;
+	}
 
-	/* now that we know our capabilities, commence server protocol dialog */
-	smtp_server_connection_resume(client->conn);
+	client->backend_capabilities_configured = TRUE;
 }
 
-static void client_proxy_create(struct client *client,
-				const struct submission_settings *set)
+void client_apply_backend_capabilities(struct client *client)
 {
-	struct mail_user *user = client->user;
-	struct ssl_iostream_settings ssl_set;
-	struct smtp_client_settings smtp_set;
-	enum smtp_client_connection_ssl_mode ssl_mode;
+	enum smtp_capability caps = client->backend_capabilities;
 
-	i_zero(&ssl_set);
-	mail_user_init_ssl_client_settings(user, &ssl_set);
-	if (set->submission_relay_ssl_verify)
-		ssl_set.verbose_invalid_cert = TRUE;
-	else
-		ssl_set.allow_invalid_cert = TRUE;
+	/* propagate capabilities */
+	caps |= SMTP_CAPABILITY_AUTH | SMTP_CAPABILITY_PIPELINING |
+		SMTP_CAPABILITY_SIZE | SMTP_CAPABILITY_ENHANCEDSTATUSCODES |
+		SMTP_CAPABILITY_CHUNKING | SMTP_CAPABILITY_BURL;
+	caps &= SUBMISSION_SUPPORTED_SMTP_CAPABILITIES;
+	smtp_server_connection_set_capabilities(client->conn, caps);
+}
 
-	/* make proxy connection */
-	i_zero(&smtp_set);
-	smtp_set.my_hostname = set->hostname;
-	smtp_set.ssl = &ssl_set;
-	smtp_set.debug = user->mail_debug;
-	smtp_set.rawlog_dir =
-		mail_user_home_expand(user,
-				      set->submission_relay_rawlog_dir);
+void client_default_backend_started(struct client *client,
+				    enum smtp_capability caps)
+{
+	/* propagate capabilities from backend to frontend */
+	if (!client->backend_capabilities_configured) {
+		client->backend_capabilities = caps;
+		client_apply_backend_capabilities(client);
 
-	if (set->submission_relay_trusted) {
-		smtp_set.peer_trusted = TRUE;
-
-		if (user->conn.remote_ip != NULL) {
-			smtp_set.proxy_data.source_ip =
-				*user->conn.remote_ip;
-			smtp_set.proxy_data.source_port =
-				user->conn.remote_port;
-		}
-		smtp_set.proxy_data.login = user->username;
+		/* resume the server now that we have the backend
+		   capabilities */
+		smtp_server_connection_resume(client->conn);
 	}
+}
 
-	smtp_set.username = set->submission_relay_user;
-	smtp_set.master_user = set->submission_relay_master_user;
-	smtp_set.password = set->submission_relay_password;
-	smtp_set.connect_timeout_msecs =
-		set->submission_relay_connect_timeout;
-	smtp_set.command_timeout_msecs =
-		set->submission_relay_command_timeout;
+static void
+client_create_backend_default(struct client *client,
+			      const struct submission_settings *set)
+{
+	struct submision_backend_relay_settings relay_set;
+
+	i_zero(&relay_set);
+	relay_set.my_hostname = set->hostname;
+	relay_set.protocol = SMTP_PROTOCOL_SMTP;
+	relay_set.host = set->submission_relay_host;
+	relay_set.port = set->submission_relay_port;
+	relay_set.user = set->submission_relay_user;
+	relay_set.master_user = set->submission_relay_master_user;
+	relay_set.password = set->submission_relay_password;
+	relay_set.rawlog_dir = set->submission_relay_rawlog_dir;
+	relay_set.max_idle_time = set->submission_relay_max_idle_time;
+	relay_set.connect_timeout_msecs = set->submission_relay_connect_timeout;
+	relay_set.command_timeout_msecs = set->submission_relay_command_timeout;
+	relay_set.trusted = set->submission_relay_trusted;
 
 	if (strcmp(set->submission_relay_ssl, "smtps") == 0)
-		ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
+		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
 	else if (strcmp(set->submission_relay_ssl, "starttls") == 0)
-		ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
+		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
 	else
-		ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
+		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
+	relay_set.ssl_verify = set->submission_relay_ssl_verify;
 
-	client->proxy_conn = smtp_client_connection_create(smtp_client,
-		SMTP_PROTOCOL_SMTP, set->submission_relay_host,
-		set->submission_relay_port, ssl_mode, &smtp_set);
-	smtp_client_connection_connect(client->proxy_conn,
-		client_proxy_ready_cb, client);
+	client->backend_default_relay =
+		submission_backend_relay_create(client, &relay_set);
+	client->backend_default =
+		submission_backend_relay_get(client->backend_default_relay);
 }
 
 static void client_init_urlauth(struct client *client)
@@ -185,38 +192,69 @@ struct client *client_create(int fd_in, int fd_out,
 			     const char *helo,
 			     const unsigned char *pdata, unsigned int pdata_len)
 {
+	enum submission_client_workarounds workarounds =
+		set->parsed_workarounds;
 	const struct mail_storage_settings *mail_set;
 	struct smtp_server_settings smtp_set;
 	const char *ident;
 	struct client *client;
+	pool_t pool;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
 	net_set_nonblock(fd_out, TRUE);
 
-	client = i_new(struct client, 1);
+	pool = pool_alloconly_create("submission client", 2048);
+	client = p_new(pool, struct client, 1);
+	client->pool = pool;
+	client->v = submission_client_vfuncs;
 	client->user = user;
 	client->service_user = service_user;
 	client->set = set;
-	client->session_id = i_strdup(session_id);
+	client->session_id = p_strdup(pool, session_id);
+
+	i_array_init(&client->pending_backends, 4);
+	i_array_init(&client->rcpt_to, 8);
+	i_array_init(&client->rcpt_backends, 8);
 
 	i_zero(&smtp_set);
 	smtp_set.hostname = set->hostname;
 	smtp_set.login_greeting = set->login_greeting;
 	smtp_set.max_recipients = set->submission_max_recipients;
 	smtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
+	smtp_set.max_message_size = set->submission_max_mail_size;
+	smtp_set.rawlog_dir = set->rawlog_dir;
 	smtp_set.debug = user->mail_debug;
+
+	if ((workarounds & WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
+		smtp_set.workarounds |=
+			SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH;
+	}
+	if ((workarounds & WORKAROUND_MAILBOX_FOR_PATH) != 0) {
+		smtp_set.workarounds |=
+			SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH;
+	}
+
+	client_parse_backend_capabilities(client);
+
+	p_array_init(&client->module_contexts, client->pool, 5);
 
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
-
-	client_proxy_create(client, set);
-
 	smtp_server_connection_login(client->conn,
 		client->user->username, helo,
 		pdata, pdata_len, user->conn.ssl_secured);
-	smtp_server_connection_start_pending(client->conn);
+
+	client_create_backend_default(client, set);
+
+	if (client->backend_capabilities_configured) {
+		client_apply_backend_capabilities(client);
+		smtp_server_connection_start(client->conn);
+	} else {
+		submission_backend_start(client->backend_default);
+		smtp_server_connection_start_pending(client->conn);
+	}
 
 	mail_set = mail_user_set_get_storage_set(user);
 	if (*set->imap_urlauth_host != '\0' &&
@@ -247,6 +285,7 @@ struct client *client_create(int fd_in, int fd_out,
 static void client_state_reset(struct client *client)
 {
 	i_stream_unref(&client->state.data_input);
+	pool_unref(&client->state.pool);
 
 	i_zero(&client->state);
 }
@@ -254,17 +293,26 @@ static void client_state_reset(struct client *client)
 void client_destroy(struct client *client, const char *prefix,
 		    const char *reason)
 {
+	client->v.destroy(client, prefix, reason);
+}
+
+static void
+client_default_destroy(struct client *client, const char *prefix,
+		       const char *reason)
+{
 	if (client->destroyed)
 		return;
 	client->destroyed = TRUE;
 
 	client_disconnect(client, prefix, reason);
 
+	submission_backends_destroy_all(client);
+	array_free(&client->pending_backends);
+	array_free(&client->rcpt_to);
+	array_free(&client->rcpt_backends);
+
 	submission_client_count--;
 	DLLIST_REMOVE(&submission_clients, client);
-
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_close(&client->proxy_conn);
 
 	if (client->anvil_sent) {
 		master_service_anvil_send(master_service, t_strconcat(
@@ -281,19 +329,47 @@ void client_destroy(struct client *client, const char *prefix,
 
 	client_state_reset(client);
 
-	i_free(client->session_id);
-	i_free(client);
+	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
 	submission_refresh_proctitle();
 }
 
 static void
-client_connection_trans_free(void *context,
-			     struct smtp_server_transaction *trans ATTR_UNUSED)
+client_connection_trans_start(void *context,
+			      struct smtp_server_transaction *trans)
 {
 	struct client *client = context;
 
+	client->state.pool =
+		pool_alloconly_create("submission client state", 1024);
+
+	client->v.trans_start(client, trans);
+}
+
+static void
+client_default_trans_start(struct client *client,
+			   struct smtp_server_transaction *trans)
+{
+	submission_backends_trans_start(client, trans);
+}
+
+static void
+client_connection_trans_free(void *context,
+			     struct smtp_server_transaction *trans)
+{
+	struct client *client = context;
+
+	client->v.trans_free(client, trans);
+}
+
+static void
+client_default_trans_free(struct client *client,
+			  struct smtp_server_transaction *trans)
+{
+	array_clear(&client->rcpt_to);
+
+	submission_backends_trans_free(client, trans);
 	client_state_reset(client);
 }
 
@@ -371,14 +447,17 @@ void client_disconnect(struct client *client, const char *enh_code,
 		       const char *reason)
 {
 	struct smtp_server_connection *conn;
+	const char *log_reason;
 
 	if (client->disconnected)
 		return;
 	client->disconnected = TRUE;
 
 	timeout_remove(&client->to_quit);
-	if (client->proxy_conn != NULL)
-		smtp_client_connection_close(&client->proxy_conn);
+	submission_backends_destroy_all(client);
+
+	if (array_is_created(&client->rcpt_to))
+		array_clear(&client->rcpt_to);
 
 	if (client->conn != NULL) {
 		const struct smtp_server_stats *stats =
@@ -387,10 +466,12 @@ void client_disconnect(struct client *client, const char *enh_code,
 	}
 
 	if (reason == NULL)
-		reason = "Connection closed";
-	i_info("Disconnect from %s: %s %s (state = %s)",
+		log_reason = reason = "Connection closed";
+	else
+		log_reason = t_str_oneline(reason);
+	i_info("Disconnect from %s: %s %s (state=%s)",
 	       client_remote_id(client),
-	       reason, client_stats(client),
+	       log_reason, client_stats(client),
 	       client_state_get_name(client));
 
 	conn = client->conn;
@@ -402,35 +483,51 @@ void client_disconnect(struct client *client, const char *enh_code,
 	}
 }
 
-bool client_proxy_is_ready(struct client *client)
-{
-	return (smtp_client_connection_get_state(client->proxy_conn) ==
-		SMTP_CLIENT_CONNECTION_STATE_READY);
-}
-
-bool client_proxy_is_disconnected(struct client *client)
-{
-	return (smtp_client_connection_get_state(client->proxy_conn) ==
-		SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED);
-}
-
 uoff_t client_get_max_mail_size(struct client *client)
 {
-	uoff_t max_size;
+	struct submission_backend *backend;
+	uoff_t max_size, limit;
 
-	/* Account for the backend server's SIZE limit and calculate our own
-	   relative to it. */
-	max_size = smtp_client_connection_get_size_capability(client->proxy_conn);
-	if (max_size == 0 || max_size <= SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE) {
-		max_size = client->set->submission_max_mail_size;
-	} else {
-		max_size = max_size - SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE;
-		if (client->set->submission_max_mail_size > 0 &&
-			max_size > client->set->submission_max_mail_size)
-			max_size = client->set->submission_max_mail_size;
+	/* Account for backend SIZE limits and calculate our own relative to
+	   those. */
+	max_size = client->set->submission_max_mail_size;
+	if (max_size == 0)
+		max_size = UOFF_T_MAX;
+	for (backend = client->backends; backend != NULL;
+	     backend = backend->next) {
+		limit = submission_backend_get_max_mail_size(backend);
+
+		if (limit <= SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE)
+			continue;
+		limit -= SUBMISSION_MAX_ADDITIONAL_MAIL_SIZE;
+		if (limit < max_size)
+			max_size = limit;
 	}
 
 	return max_size;
+}
+
+void client_add_extra_capability(struct client *client, const char *capability,
+				 const char *params)
+{
+	struct client_extra_capability cap;
+
+	/* Don't add capabilties handled by lib-smtp here */
+	i_assert(smtp_capability_find_by_name(capability)
+		 == SMTP_CAPABILITY_NONE);
+
+	/* Avoid committing protocol errors */
+	i_assert(smtp_ehlo_keyword_is_valid(capability));
+	i_assert(params == NULL || smtp_ehlo_params_str_is_valid(params));
+
+	i_zero(&cap);
+	cap.capability = p_strdup(client->pool, capability);
+	cap.params = p_strdup(client->pool, params);
+
+	if (!array_is_created(&client->extra_capabilities))
+		p_array_init(&client->extra_capabilities, client->pool, 5);
+
+	array_push_back(&client->extra_capabilities, &cap);
 }
 
 void clients_destroy_all(void)
@@ -459,10 +556,30 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 	.conn_cmd_input_pre = client_input_pre,
 	.conn_cmd_input_post = client_input_post,
 
+	.conn_trans_start = client_connection_trans_start,
 	.conn_trans_free = client_connection_trans_free,
 
 	.conn_state_changed = client_connection_state_changed,
 
 	.conn_disconnect = client_connection_disconnect,
 	.conn_destroy = client_connection_destroy,
+};
+
+static const struct submission_client_vfuncs submission_client_vfuncs = {
+	client_default_destroy,
+
+	.trans_start = client_default_trans_start,
+	.trans_free = client_default_trans_free,
+
+	.cmd_helo = client_default_cmd_helo,
+
+	.cmd_mail = client_default_cmd_mail,
+	.cmd_rcpt = client_default_cmd_rcpt,
+	.cmd_rset = client_default_cmd_rset,
+	.cmd_data = client_default_cmd_data,
+
+	.cmd_vrfy = client_default_cmd_vrfy,
+
+	.cmd_noop = client_default_cmd_noop,
+	.cmd_quit = client_default_cmd_quit,
 };

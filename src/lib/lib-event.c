@@ -5,6 +5,7 @@
 #include "event-filter.h"
 #include "array.h"
 #include "llist.h"
+#include "time-util.h"
 #include "str.h"
 #include "strescape.h"
 #include "ioloop.h"
@@ -43,7 +44,78 @@ static void event_copy_parent_defaults(struct event *event,
 {
 	event->always_log_source = parent->always_log_source;
 	event->passthrough = parent->passthrough;
+	event->min_log_level = parent->min_log_level;
 	event->forced_debug = parent->forced_debug;
+}
+
+static bool
+event_find_category(struct event *event, const struct event_category *category);
+
+static struct event_field *
+event_find_field_int(struct event *event, const char *key);
+
+void event_copy_categories_fields(struct event *to, struct event *from)
+{
+	unsigned int cat_count;
+	struct event_category *const *categories = event_get_categories(from, &cat_count);
+	while (cat_count-- > 0)
+		event_add_category(to, categories[cat_count]);
+	const struct event_field *fld;
+	if (!array_is_created(&from->fields))
+		return;
+	array_foreach(&from->fields, fld) {
+		switch (fld->value_type) {
+		case EVENT_FIELD_VALUE_TYPE_STR:
+			event_add_str(to, fld->key, fld->value.str);
+			break;
+		case EVENT_FIELD_VALUE_TYPE_INTMAX:
+			event_add_int(to, fld->key, fld->value.intmax);
+			break;
+		case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+			event_add_timeval(to, fld->key, &fld->value.timeval);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+bool event_has_all_categories(struct event *event, const struct event *other)
+{
+	struct event_category **cat;
+	if (!array_is_created(&other->categories))
+		return TRUE;
+	if (!array_is_created(&event->categories))
+		return FALSE;
+	array_foreach_modifiable(&other->categories, cat) {
+		if (!event_find_category(event, *cat))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+bool event_has_all_fields(struct event *event, const struct event *other)
+{
+	struct event_field *fld;
+	if (!array_is_created(&other->fields))
+		return TRUE;
+	array_foreach_modifiable(&other->fields, fld) {
+		if (event_find_field_int(event, fld->key) == NULL)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+struct event *event_dup(const struct event *source)
+{
+	struct event *ret = event_create(source->parent);
+	string_t *str = t_str_new(256);
+	const char *err;
+	event_export(source, str);
+	if (!event_import(ret, str_c(str), &err))
+		i_panic("event_import(%s) failed: %s", str_c(str), err);
+	ret->tv_created_ioloop = source->tv_created_ioloop;
+	return ret;
 }
 
 #undef event_create
@@ -58,8 +130,11 @@ struct event *event_create(struct event *parent, const char *source_filename,
 	event->refcount = 1;
 	event->id = ++event_id_counter;
 	event->pool = pool;
-	event->tv_created = ioloop_timeval;
-	event->source_filename = source_filename;
+	event->tv_created_ioloop = ioloop_timeval;
+	event->min_log_level = LOG_TYPE_INFO;
+	if (gettimeofday(&event->tv_created, NULL) < 0)
+		i_panic("gettimeofday() failed: %m");
+	event->source_filename = p_strdup(pool, source_filename);
 	event->source_linenum = source_linenum;
 	if (parent != NULL) {
 		event->parent = parent;
@@ -85,6 +160,7 @@ event_create_passthrough(struct event *parent, const char *source_filename,
 		event->passthrough = TRUE;
 		/* This event only intends to extend the parent event.
 		   Use the parent's creation timestamp. */
+		event->tv_created_ioloop = parent->tv_created_ioloop;
 		event->tv_created = parent->tv_created;
 		event_last_passthrough = &event->event_passthrough;
 	} else {
@@ -171,7 +247,7 @@ struct event *event_push_global(struct event *event)
 	if (current_global_event != NULL) {
 		if (!array_is_created(&global_event_stack))
 			i_array_init(&global_event_stack, 4);
-		array_append(&global_event_stack, &current_global_event, 1);
+		array_push_back(&global_event_stack, &current_global_event);
 	}
 	current_global_event = event;
 	return event;
@@ -205,6 +281,8 @@ struct event *event_get_global(void)
 static struct event *
 event_set_log_prefix(struct event *event, const char *prefix, bool append)
 {
+	event->log_prefix_callback = NULL;
+	event->log_prefix_callback_context = NULL;
 	if (event->log_prefix == NULL) {
 		/* allocate the first log prefix from the pool */
 		event->log_prefix = p_strdup(event->pool, prefix);
@@ -232,6 +310,23 @@ struct event *event_replace_log_prefix(struct event *event, const char *prefix)
 	return event_set_log_prefix(event, prefix, FALSE);
 }
 
+#undef event_set_log_prefix_callback
+struct event *
+event_set_log_prefix_callback(struct event *event,
+			      bool replace,
+			      event_log_prefix_callback_t *callback,
+			      void *context)
+{
+	if (event->log_prefix_from_system_pool)
+		i_free(event->log_prefix);
+	else
+		event->log_prefix = NULL;
+	event->log_prefix_replace = replace;
+	event->log_prefix_callback = callback;
+	event->log_prefix_callback_context = context;
+	return event;
+}
+
 struct event *
 event_set_name(struct event *event, const char *name)
 {
@@ -254,6 +349,17 @@ struct event *event_set_always_log_source(struct event *event)
 {
 	event->always_log_source = TRUE;
 	return event;
+}
+
+struct event *event_set_min_log_level(struct event *event, enum log_type level)
+{
+	event->min_log_level = level;
+	return event;
+}
+
+enum log_type event_get_min_log_level(const struct event *event)
+{
+	return event->min_log_level;
 }
 
 struct event_category *event_category_find_registered(const char *name)
@@ -284,8 +390,11 @@ static void event_category_register(struct event_category *category)
 	if (category->parent != NULL)
 		event_category_register(category->parent);
 
+	/* Don't allow duplicate category structs with the same name.
+	   Event filtering uses pointer comparisons for efficiency. */
+	i_assert(event_category_find_registered(category->name) == NULL);
 	category->registered = TRUE;
-	array_append(&event_registered_categories, &category, 1);
+	array_push_back(&event_registered_categories, &category);
 
 	array_foreach(&event_category_callbacks, callbackp) T_BEGIN {
 		(*callbackp)(category);
@@ -314,7 +423,7 @@ event_add_categories(struct event *event,
 	for (unsigned int i = 0; categories[i] != NULL; i++) {
 		event_category_register(categories[i]);
 		if (!event_find_category(event, categories[i]))
-			array_append(&event->categories, &categories[i], 1);
+			array_push_back(&event->categories, &categories[i]);
 	}
 	return event;
 }
@@ -392,6 +501,11 @@ event_add_str(struct event *event, const char *key, const char *value)
 {
 	struct event_field *field;
 
+	if (value == NULL) {
+		/* silently ignoring is perhaps better than assert-crashing? */
+		return event;
+	}
+
 	field = event_get_field(event, key);
 	field->value_type = EVENT_FIELD_VALUE_TYPE_STR;
 	i_zero(&field->value);
@@ -408,6 +522,19 @@ event_add_int(struct event *event, const char *key, intmax_t num)
 	field->value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
 	i_zero(&field->value);
 	field->value.intmax = num;
+	return event;
+}
+
+struct event *
+event_inc_int(struct event *event, const char *key, intmax_t num)
+{
+	struct event_field *field;
+
+	field = event_find_field_int(event, key);
+	if (field == NULL || field->value_type != EVENT_FIELD_VALUE_TYPE_INTMAX)
+		return event_add_int(event, key, num);
+
+	field->value.intmax += num;
 	return event;
 }
 
@@ -439,6 +566,11 @@ event_add_fields(struct event *event,
 	return event;
 }
 
+void event_field_clear(struct event *event, const char *key)
+{
+	event_add_str(event, key, "");
+}
+
 struct event *event_get_parent(struct event *event)
 {
 	return event->parent;
@@ -453,6 +585,15 @@ bool event_get_last_send_time(struct event *event, struct timeval *tv_r)
 {
 	*tv_r = event->tv_last_sent;
 	return tv_r->tv_sec != 0;
+}
+
+void event_get_last_duration(struct event *event, intmax_t *duration_r)
+{
+	if (event->tv_last_sent.tv_sec == 0) {
+		*duration_r = 0;
+		return;
+	}
+	*duration_r = timeval_diff_usecs(&event->tv_last_sent, &event->tv_created);
 }
 
 const struct event_field *
@@ -488,7 +629,8 @@ void event_send(struct event *event, struct failure_context *ctx,
 void event_vsend(struct event *event, struct failure_context *ctx,
 		 const char *fmt, va_list args)
 {
-	event->tv_last_sent = ioloop_timeval;
+	if (gettimeofday(&event->tv_last_sent, NULL) < 0)
+		i_panic("gettimeofday() failed: %m");
 	if (event_send_callbacks(event, EVENT_CALLBACK_TYPE_EVENT,
 				 ctx, fmt, args)) {
 		if (ctx->type != LOG_TYPE_DEBUG ||
@@ -641,7 +783,7 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 			}
 			if (!array_is_created(&event->categories))
 				p_array_init(&event->categories, event->pool, 4);
-			array_append(&event->categories, &category, 1);
+			array_push_back(&event->categories, &category);
 			break;
 		}
 		case EVENT_CODE_TV_LAST_SENT:
@@ -717,7 +859,7 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 
 void event_register_callback(event_callback_t *callback)
 {
-	array_append(&event_handlers, &callback, 1);
+	array_push_back(&event_handlers, &callback);
 }
 
 void event_unregister_callback(event_callback_t *callback)
@@ -736,7 +878,7 @@ void event_unregister_callback(event_callback_t *callback)
 
 void event_category_register_callback(event_category_callback_t *callback)
 {
-	array_append(&event_category_callbacks, &callback, 1);
+	array_push_back(&event_category_callbacks, &callback);
 }
 
 void event_category_unregister_callback(event_category_callback_t *callback)
@@ -863,6 +1005,13 @@ event_passthrough_add_timeval(const char *key, const struct timeval *tv)
 	return event_last_passthrough;
 }
 
+static struct event_passthrough *
+event_passthrough_inc_int(const char *key, intmax_t num)
+{
+	event_inc_int(last_passthrough_event(), key, num);
+	return event_last_passthrough;
+}
+
 static struct event *event_passthrough_event(void)
 {
 	struct event *event = last_passthrough_event();
@@ -882,6 +1031,7 @@ const struct event_passthrough event_passthrough_vfuncs = {
 	event_passthrough_add_str,
 	event_passthrough_add_int,
 	event_passthrough_add_timeval,
+	event_passthrough_inc_int,
 	event_passthrough_event,
 };
 
@@ -896,6 +1046,7 @@ void lib_event_deinit(void)
 {
 	event_unset_global_debug_log_filter();
 	event_unset_global_debug_send_filter();
+	event_unset_global_core_log_filter();
 	for (struct event *event = events; event != NULL; event = event->next) {
 		i_warning("Event %p leaked (parent=%p): %s:%u",
 			  event, event->parent,
@@ -904,4 +1055,5 @@ void lib_event_deinit(void)
 	array_free(&event_handlers);
 	array_free(&event_category_callbacks);
 	array_free(&event_registered_categories);
+	array_free(&global_event_stack);
 }

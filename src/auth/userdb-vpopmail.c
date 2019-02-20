@@ -162,10 +162,10 @@ vpopmail_preinit(pool_t pool, const char *args)
 	module->module.blocking = TRUE;
 
 	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "cache_key=", 10) == 0)
+		if (str_begins(*tmp, "cache_key="))
 			module->module.default_cache_key =
 				p_strdup(pool, *tmp + 10);
-		else if (strncmp(*tmp, "quota_template=", 15) == 0) {
+		else if (str_begins(*tmp, "quota_template=")) {
 			p = strchr(*tmp + 15, '=');
 			if (p == NULL) {
 				i_fatal("vpopmail userdb: "

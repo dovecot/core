@@ -6,12 +6,12 @@ struct dlua_script;
 /* Parse and load a lua script. Will reuse an existing script
    if found. */
 int dlua_script_create_string(const char *str, struct dlua_script **script_r,
-				  const char **error_r);
+			      struct event *event_parent, const char **error_r);
 int dlua_script_create_file(const char *file, struct dlua_script **script_r,
-				const char **error_r);
+			    struct event *event_parent, const char **error_r);
 /* Remember to set script name using i_stream_set_name */
 int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
-				  const char **error_r);
+			      struct event *event_parent, const char **error_r);
 
 /* run dlua_script_init function */
 int dlua_script_init(struct dlua_script *script, const char **error_r);
@@ -25,5 +25,11 @@ void dlua_script_unref(struct dlua_script **_script);
 
 /* see if particular function is registered */
 bool dlua_script_has_function(struct dlua_script *script, const char *fn);
+
+/* push event to top of stack */
+void dlua_push_event(struct dlua_script *script, struct event *event);
+
+/* get event from given stack position */
+struct event *dlua_check_event(struct dlua_script *script, int arg);
 
 #endif

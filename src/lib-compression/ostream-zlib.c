@@ -161,8 +161,7 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 
 	zstream->crc = crc32_data_more(zstream->crc, data, size);
 	zstream->bytes32 += size;
-	zstream->flushed = flush == Z_SYNC_FLUSH && zs->avail_in == 0 &&
-		zs->avail_out == sizeof(zstream->outbuf);
+	zstream->flushed = FALSE;
 	return size;
 }
 
@@ -189,8 +188,8 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
 		return ret;
 
-	flush = !zstream->gz ? Z_SYNC_FLUSH :
-		(final ? Z_FINISH : Z_NO_FLUSH);
+	flush = final ? Z_FINISH :
+		(!zstream->gz ? Z_SYNC_FLUSH : Z_NO_FLUSH);
 
 	i_assert(zstream->outbuf_used == 0);
 	do {
@@ -222,7 +221,7 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 		if (o_stream_zlib_send_gz_trailer(zstream) < 0)
 			return -1;
 	}
-	if (final || flush != Z_NO_FLUSH)
+	if (final)
 		zstream->flushed = TRUE;
 	return 0;
 }

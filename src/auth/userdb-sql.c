@@ -13,7 +13,7 @@
 struct sql_userdb_module {
 	struct userdb_module module;
 
-	struct sql_connection *conn;
+	struct db_sql_connection *conn;
 };
 
 struct userdb_sql_request {

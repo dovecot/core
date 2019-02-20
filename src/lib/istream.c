@@ -303,7 +303,15 @@ ssize_t i_stream_read_memarea(struct istream *stream)
 		i_stream_seek(_stream->parent, _stream->parent_expected_offset);
 
 	old_size = _stream->pos - _stream->skip;
-	ret = _stream->read(_stream);
+	if (_stream->pos < _stream->high_pos) {
+		/* we're here because we seeked back within the read buffer. */
+		ret = _stream->high_pos - _stream->pos;
+		_stream->pos = _stream->high_pos;
+		_stream->high_pos = 0;
+	} else {
+		_stream->high_pos = 0;
+		ret = _stream->read(_stream);
+	}
 	i_assert(old_size <= _stream->pos - _stream->skip);
 	switch (ret) {
 	case -2:
@@ -569,8 +577,8 @@ static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 		if (stream->line_str == NULL)
 			stream->line_str = str_new(default_pool, 256);
 		str_truncate(stream->line_str, 0);
-		str_append_n(stream->line_str, stream->buffer + stream->skip,
-			     end - stream->skip);
+		str_append_data(stream->line_str, stream->buffer + stream->skip,
+				end - stream->skip);
 		ret = str_c_modifiable(stream->line_str);
 	}
 
@@ -923,6 +931,8 @@ void i_stream_set_input_pending(struct istream *stream, bool pending)
 	stream = i_stream_get_root_io(stream);
 	if (stream->real_stream->io != NULL)
 		io_set_pending(stream->real_stream->io);
+	else
+		stream->real_stream->io_pending = TRUE;
 }
 
 void i_stream_switch_ioloop_to(struct istream *stream, struct ioloop *ioloop)
@@ -949,6 +959,10 @@ void i_stream_set_io(struct istream *stream, struct io *io)
 
 	i_assert(stream->real_stream->io == NULL);
 	stream->real_stream->io = io;
+	if (stream->real_stream->io_pending) {
+		io_set_pending(io);
+		stream->real_stream->io_pending = FALSE;
+	}
 }
 
 void i_stream_unset_io(struct istream *stream, struct io *io)
@@ -956,6 +970,8 @@ void i_stream_unset_io(struct istream *stream, struct io *io)
 	stream = i_stream_get_root_io(stream);
 
 	i_assert(stream->real_stream->io == io);
+	if (io_is_pending(io))
+		stream->real_stream->io_pending = TRUE;
 	stream->real_stream->io = NULL;
 }
 
@@ -1030,6 +1046,56 @@ void i_stream_default_seek_nonseekable(struct istream_private *stream,
 	}
 }
 
+bool i_stream_nonseekable_try_seek(struct istream_private *stream,
+				   uoff_t v_offset)
+{
+	uoff_t start_offset = stream->istream.v_offset - stream->skip;
+
+	if (v_offset < start_offset) {
+		/* have to seek backwards */
+		i_stream_seek(stream->parent, stream->parent_start_offset);
+		stream->parent_expected_offset = stream->parent_start_offset;
+		stream->skip = stream->pos = 0;
+		stream->istream.v_offset = 0;
+		stream->high_pos = 0;
+		return FALSE;
+	}
+
+	if (v_offset <= start_offset + stream->pos) {
+		/* seeking backwards within what's already cached */
+		stream->skip = v_offset - start_offset;
+		stream->istream.v_offset = v_offset;
+		stream->high_pos = stream->pos;
+		stream->pos = stream->skip;
+	} else {
+		/* read forward */
+		i_stream_default_seek_nonseekable(stream, v_offset, FALSE);
+	}
+	return TRUE;
+}
+
+static int
+seekable_i_stream_get_size(struct istream_private *stream)
+{
+	if (stream->cached_stream_size == (uoff_t)-1) {
+		uoff_t old_offset = stream->istream.v_offset;
+		ssize_t ret;
+
+		do {
+			i_stream_skip(&stream->istream,
+				i_stream_get_data_size(&stream->istream));
+		} while ((ret = i_stream_read(&stream->istream)) > 0);
+		i_assert(ret == -1);
+		if (stream->istream.stream_errno != 0)
+			return -1;
+
+		stream->cached_stream_size = stream->istream.v_offset;
+		i_stream_seek(&stream->istream, old_offset);
+	}
+	stream->statbuf.st_size = stream->cached_stream_size;
+	return 0;
+}
+
 static int
 i_stream_default_stat(struct istream_private *stream, bool exact)
 {
@@ -1046,6 +1112,15 @@ i_stream_default_stat(struct istream_private *stream, bool exact)
 	if (exact && !stream->stream_size_passthrough) {
 		/* exact size is not known, even if parent returned something */
 		stream->statbuf.st_size = -1;
+		if (stream->istream.seekable) {
+			if (seekable_i_stream_get_size(stream) < 0)
+				return -1;
+		}
+	} else {
+		/* When exact=FALSE always return the parent stat's size, even
+		   if we know the exact value. This is necessary because
+		   otherwise e.g. mbox code can see two different values and
+		   think that the mbox file keeps changing. */
 	}
 	return 0;
 }
@@ -1123,6 +1198,7 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd,
 	_stream->statbuf.st_atime =
 		_stream->statbuf.st_mtime =
 		_stream->statbuf.st_ctime = ioloop_time;
+	_stream->cached_stream_size = (uoff_t)-1;
 
 	io_stream_init(&_stream->iostream);
 

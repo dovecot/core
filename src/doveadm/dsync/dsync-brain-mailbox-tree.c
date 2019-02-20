@@ -135,7 +135,7 @@ dsync_namespace_match_parts(struct mail_namespace *ns,
 		part = *name_parts;
 		part_len = strlen(part);
 
-		if (strncmp(prefix, part, part_len) != 0)
+		if (!str_begins(prefix, part))
 			return FALSE;
 		if (prefix[part_len] != ns_sep)
 			return FALSE;

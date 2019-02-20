@@ -8,19 +8,21 @@
 #include "hostpid.h"
 #include "settings-parser.h"
 #include "message-address.h"
+#include "smtp-address.h"
 #include "mail-index.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "mail-storage-settings.h"
+#include "iostream-ssl.h"
 
 #include <stddef.h>
 
 static bool mail_storage_settings_check(void *_set, pool_t pool, const char **error_r);
-static bool mail_storage_settings_expand_check(void *_set, pool_t pool ATTR_UNUSED, const char **error_r);
 static bool namespace_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool mail_user_settings_expand_check(void *_set, pool_t pool ATTR_UNUSED, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
@@ -76,13 +78,19 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_ENUM, lock_method),
 	DEF(SET_STR, pop3_uidl_format),
 
-	DEF(SET_STR_VARS, postmaster_address),
 	DEF(SET_STR, hostname),
 	DEF(SET_STR, recipient_delimiter),
 
-	DEF(SET_STR, ssl_client_ca_dir),
 	DEF(SET_STR, ssl_client_ca_file),
+	DEF(SET_STR, ssl_client_ca_dir),
+	DEF(SET_STR, ssl_client_cert),
+	DEF(SET_STR, ssl_client_key),
+	DEF(SET_STR, ssl_cipher_list),
+	DEF(SET_STR, ssl_curve_list),
+	DEF(SET_STR, ssl_min_protocol),
 	DEF(SET_STR, ssl_crypto_device),
+	DEF(SET_BOOL, ssl_client_require_valid_cert),
+	DEF(SET_BOOL, verbose_ssl),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -136,13 +144,20 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.lock_method = "fcntl:flock:dotlock",
 	.pop3_uidl_format = "%08Xu%08Xv",
 
-	.postmaster_address = "postmaster@%d",
 	.hostname = "",
 	.recipient_delimiter = "+",
 
-	.ssl_client_ca_dir = "",
+	/* Keep synced with master-service-ssl-settings */
 	.ssl_client_ca_file = "",
-	.ssl_crypto_device = ""
+	.ssl_client_ca_dir = "",
+	.ssl_client_cert = "",
+	.ssl_client_key = "",
+	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
+	.ssl_curve_list = "",
+	.ssl_min_protocol = "TLSv1",
+	.ssl_crypto_device = "",
+	.ssl_client_require_valid_cert = TRUE,
+	.verbose_ssl = FALSE,
 };
 
 const struct setting_parser_info mail_storage_setting_parser_info = {
@@ -157,9 +172,6 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 	.parent = &mail_user_setting_parser_info,
 
 	.check_func = mail_storage_settings_check,
-#ifndef CONFIG_BINARY
-	.expand_check_func = mail_storage_settings_expand_check,
-#endif
 };
 
 #undef DEF
@@ -297,6 +309,9 @@ static const struct setting_define mail_user_setting_defines[] = {
 
 	DEF(SET_STR, mail_log_prefix),
 
+	DEF(SET_STR, hostname),
+	DEF(SET_STR_VARS, postmaster_address),
+
 	DEFLIST_UNIQUE(namespaces, "namespace", &mail_namespace_setting_parser_info),
 	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },
 
@@ -326,6 +341,9 @@ static const struct mail_user_settings mail_user_default_settings = {
 
 	.mail_log_prefix = "%s(%u)<%{pid}><%{session}>: ",
 
+	.hostname = "",
+	.postmaster_address = "postmaster@%{if;%d;ne;;%d;%{hostname}}",
+
 	.namespaces = ARRAY_INIT,
 	.plugin_envs = ARRAY_INIT
 };
@@ -340,7 +358,10 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 
 	.parent_offset = (size_t)-1,
 
-	.check_func = mail_user_settings_check
+	.check_func = mail_user_settings_check,
+#ifndef CONFIG_BINARY
+	.expand_check_func = mail_user_settings_expand_check,
+#endif
 };
 
 const void *
@@ -511,17 +532,6 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 #ifndef CONFIG_BINARY
 	if (*set->hostname == '\0')
 		set->hostname = p_strdup(pool, my_hostdomain());
-	if (set->postmaster_address[0] == SETTING_STRVAR_UNEXPANDED[0] &&
-	    set->postmaster_address[1] == '\0') {
-		/* check for valid looking fqdn in hostname */
-		if (strchr(set->hostname, '.') == NULL) {
-			*error_r = "postmaster_address setting not given";
-			return FALSE;
-		}
-		set->postmaster_address =
-			p_strconcat(pool, SETTING_STRVAR_UNEXPANDED,
-				    "postmaster@", set->hostname, NULL);
-	}
 #endif
 
 	/* parse mail_attachment_indicator_options */
@@ -537,64 +547,25 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 
 			if (strcmp(opt, "add-flags-on-save") == 0) {
 				set->parsed_mail_attachment_detection_add_flags_on_save = TRUE;
-			} else if (strcmp(opt, "add-flags-on-fetch") == 0) {
-				set->parsed_mail_attachment_detection_add_flags_on_fetch = TRUE;
 			} else if (strcmp(opt, "exclude-inlined") == 0) {
 				set->parsed_mail_attachment_exclude_inlined = TRUE;
-			} else if (strncmp(opt, "content-type=", 13) == 0) {
+			} else if (str_begins(opt, "content-type=")) {
 				const char *value = p_strdup(pool, opt+13);
-				array_append(&content_types, &value, 1);
+				array_push_back(&content_types, &value);
+			} else {
+				*error_r = t_strdup_printf("mail_attachment_detection_options: "
+					"Unknown option: %s", opt);
+				return FALSE;
 			}
 			options++;
 		}
 
 		array_append_zero(&content_types);
-		set->parsed_mail_attachment_content_type_filter = array_idx(&content_types, 0);
+		set->parsed_mail_attachment_content_type_filter = array_front(&content_types);
 	}
 
 	return TRUE;
 }
-
-#ifndef CONFIG_BINARY
-static bool parse_postmaster_address(const char *address, pool_t pool,
-				     const struct message_address **addr_r,
-				     const char **error_r)
-{
-	struct message_address *addr;
-
-	addr = message_address_parse(pool,
-		(const unsigned char *)address,
-		strlen(address), 2, FALSE);
-	if (addr == NULL || addr->domain == NULL || addr->invalid_syntax) {
-		*error_r = t_strdup_printf(
-			"invalid address `%s' specified for the "
-			"postmaster_address setting", address);
-		return FALSE;
-	}
-	if (addr->next != NULL) {
-		*error_r = "more than one address specified for the "
-			"postmaster_address setting";
-		return FALSE;
-	}
-	if (addr->name == NULL || *addr->name == '\0')
-		addr->name = "Postmaster";
-	*addr_r = addr;
-	return TRUE;
-}
-
-static bool mail_storage_settings_expand_check(void *_set,
-	pool_t pool, const char **error_r ATTR_UNUSED)
-{
-	struct mail_storage_settings *set = _set;
-	const char *error;
-
-	/* Parse if possible. Perform error handling later. */
-	(void)parse_postmaster_address(set->postmaster_address, pool,
-				       &set->_parsed_postmaster_address,
-				       &error);
-	return TRUE;
-}
-#endif
 
 static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				     const char **error_r)
@@ -717,6 +688,20 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 #ifndef CONFIG_BINARY
 	fix_base_path(set, pool, &set->auth_socket_path);
+
+	if (*set->hostname == '\0')
+		set->hostname = p_strdup(pool, my_hostdomain());
+	if (set->postmaster_address[0] == SETTING_STRVAR_UNEXPANDED[0] &&
+	    set->postmaster_address[1] == '\0') {
+		/* check for valid looking fqdn in hostname */
+		if (strchr(set->hostname, '.') == NULL) {
+			*error_r = "postmaster_address setting not given";
+			return FALSE;
+		}
+		set->postmaster_address =
+			p_strconcat(pool, SETTING_STRVAR_UNEXPANDED,
+				    "postmaster@", set->hostname, NULL);
+	}
 #else
 	if (*set->mail_plugins != '\0' &&
 	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
@@ -728,21 +713,106 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 #endif
 	return TRUE;
 }
+
+#ifndef CONFIG_BINARY
+static bool parse_postmaster_address(const char *address, pool_t pool,
+				     struct mail_user_settings *set,
+				     const char **error_r) ATTR_NULL(3)
+{
+	struct message_address *addr;
+	struct smtp_address *smtp_addr;
+
+	addr = message_address_parse(pool,
+		(const unsigned char *)address,
+		strlen(address), 2, 0);
+	if (addr == NULL || addr->domain == NULL || addr->invalid_syntax ||
+	    smtp_address_create_from_msg(pool, addr, &smtp_addr) < 0) {
+		*error_r = t_strdup_printf(
+			"invalid address `%s' specified for the "
+			"postmaster_address setting", address);
+		return FALSE;
+	}
+	if (addr->next != NULL) {
+		*error_r = "more than one address specified for the "
+			"postmaster_address setting";
+		return FALSE;
+	}
+	if (addr->name == NULL || *addr->name == '\0')
+		addr->name = "Postmaster";
+	if (set != NULL) {
+		set->_parsed_postmaster_address = addr;
+		set->_parsed_postmaster_address_smtp = smtp_addr;
+	}
+	return TRUE;
+}
+
+static bool
+mail_user_settings_expand_check(void *_set, pool_t pool,
+				const char **error_r ATTR_UNUSED)
+{
+	struct mail_user_settings *set = _set;
+	const char *error;
+
+	/* Parse if possible. Perform error handling later. */
+	(void)parse_postmaster_address(set->postmaster_address, pool,
+				       set, &error);
+	return TRUE;
+}
+#endif
+
 /* </settings checks> */
 
-bool mail_storage_get_postmaster_address(const struct mail_storage_settings *set,
-					 const struct message_address **address_r,
-					 const char **error_r)
+static void
+get_postmaster_address_error(const struct mail_user_settings *set,
+			     const char **error_r)
+{
+	if (parse_postmaster_address(set->postmaster_address,
+				     pool_datastack_create(), NULL, error_r))
+		i_panic("postmaster_address='%s' parsing succeeded unexpectedly after it had already failed",
+			set->postmaster_address);
+}
+
+bool mail_user_set_get_postmaster_address(const struct mail_user_settings *set,
+					  const struct message_address **address_r,
+					  const char **error_r)
 {
 	*address_r = set->_parsed_postmaster_address;
 	if (*address_r != NULL)
 		return TRUE;
-
 	/* parsing failed - do it again to get the error */
-	const struct message_address *addr;
-	if (parse_postmaster_address(set->postmaster_address,
-				     pool_datastack_create(), &addr, error_r))
-		i_panic("postmaster_address='%s' parsing succeeded unexpectedly after it had already failed",
-			set->postmaster_address);
+	get_postmaster_address_error(set, error_r);
 	return FALSE;
+}
+
+bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
+				       const struct smtp_address **address_r,
+				       const char **error_r)
+{
+	*address_r = set->_parsed_postmaster_address_smtp;
+	if (*address_r != NULL)
+		return TRUE;
+	/* parsing failed - do it again to get the error */
+	get_postmaster_address_error(set, error_r);
+	return FALSE;
+}
+
+void mail_storage_settings_init_ssl_client_settings(const struct mail_storage_settings *mail_set,
+		                                    struct ssl_iostream_settings *ssl_set_r)
+{
+	i_zero(ssl_set_r);
+	if (*mail_set->ssl_client_ca_dir != '\0')
+		ssl_set_r->ca_dir = mail_set->ssl_client_ca_dir;
+	if (*mail_set->ssl_client_ca_file != '\0')
+		ssl_set_r->ca_file = mail_set->ssl_client_ca_file;
+	if (*mail_set->ssl_client_cert != '\0')
+		ssl_set_r->cert.cert = mail_set->ssl_client_cert;
+	if (*mail_set->ssl_client_key != '\0')
+		ssl_set_r->cert.key = mail_set->ssl_client_key;
+	ssl_set_r->cipher_list = mail_set->ssl_cipher_list;
+	ssl_set_r->curve_list = mail_set->ssl_curve_list;
+	ssl_set_r->min_protocol = mail_set->ssl_min_protocol;
+	ssl_set_r->crypto_device = mail_set->ssl_crypto_device;
+	ssl_set_r->verify_remote_cert = mail_set->ssl_client_require_valid_cert;
+	ssl_set_r->allow_invalid_cert = !ssl_set_r->verify_remote_cert;
+	ssl_set_r->verbose = mail_set->verbose_ssl;
 }

@@ -472,8 +472,7 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 	pclient->fd_out = -1;
 
 	pclient->event = event_create(set->event);
-	if ((set != NULL && set->debug))
-		event_set_forced_debug(pclient->event, TRUE);
+	event_set_forced_debug(pclient->event, (set != NULL && set->debug));
 	program_client_set_label(pclient, initial_label);
 
 	e_debug(pclient->event, "Created");
@@ -555,7 +554,7 @@ void program_client_set_env(struct program_client *pclient, const char *name,
 		p_array_init(&pclient->envs, pclient->pool, 16);
 
 	env = p_strdup_printf(pclient->pool, "%s=%s", name, value);
-	array_append(&pclient->envs, &env, 1);
+	array_push_back(&pclient->envs, &env);
 
 	e_debug(pclient->event, "Pass environment: %s",
 		str_sanitize(env, 256));
@@ -658,13 +657,13 @@ int program_client_create(const char *uri, const char *const *args,
 			  bool noreply, struct program_client **pc_r,
 			  const char **error_r)
 {
-	if (strncmp(uri, "exec:", 5) == 0) {
+	if (str_begins(uri, "exec:")) {
 		*pc_r = program_client_local_create(uri+5, args, set);
 		return 0;
-	} else if (strncmp(uri, "unix:", 5) == 0) {
+	} else if (str_begins(uri, "unix:")) {
 		*pc_r = program_client_unix_create(uri+5, args, set, noreply);
 		return 0;
-	} else if (strncmp(uri, "tcp:", 4) == 0) {
+	} else if (str_begins(uri, "tcp:")) {
 		const char *host;
 		in_port_t port;
 

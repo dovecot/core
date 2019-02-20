@@ -102,6 +102,7 @@
 #define CHAR_MASK_PFCHAR ((1<<0)|(1<<1)|(1<<3)|(1<<5))
 #define CHAR_MASK_UCHAR ((1<<0)|(1<<1)|(1<<4))
 #define CHAR_MASK_QCHAR ((1<<0)|(1<<1)|(1<<3)|(1<<5)|(1<<6))
+#define CHAR_MASK_UNRESERVED_PATH ((1<<0)|(1<<5))
 
 static unsigned const char _uri_char_lookup[256] = {
 	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  // 00
@@ -518,7 +519,7 @@ static int uri_do_parse_host_name(struct uri_parser *parser,
 						break;
 					if (host_name != NULL) {
 						if (offset > part)
-							str_append_n(host_name, part, offset - part);
+							str_append_data(host_name, part, offset - part);
 						str_append_c(host_name, ch);
 					}
 					part = parser->cur;
@@ -538,7 +539,7 @@ static int uri_do_parse_host_name(struct uri_parser *parser,
 		}
 
 		if (host_name != NULL && parser->cur > part)
-			str_append_n(host_name, part, parser->cur - part);
+			str_append_data(host_name, part, parser->cur - part);
 
 		/* "." */
 		if (parser->cur >= parser->end || ch != '.')
@@ -609,7 +610,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 	}
 
 	if (literal != NULL)
-		str_append_n(literal, parser->cur, p-parser->cur+1);
+		str_append_data(literal, parser->cur, p-parser->cur+1);
 	address = t_strdup_until(parser->cur+1, p);
 	parser->cur = p + 1;	
 
@@ -927,7 +928,7 @@ int uri_parse_path(struct uri_parser *parser,
 
 		if (segment != NULL) {
 			if (path_r != NULL)
-				array_append(&segments, &segment, 1);
+				array_push_back(&segments, &segment);
 			count++;
 		}
 
@@ -954,7 +955,7 @@ int uri_parse_path(struct uri_parser *parser,
 		/* special treatment for a trailing '..' or '.' */
 		if (segment == NULL) {
 			segment = "";
-			array_append(&segments, &segment, 1);
+			array_push_back(&segments, &segment);
 		}
 		array_append_zero(&segments);
 		*path_r = array_get(&segments, &count);
@@ -1196,7 +1197,7 @@ void uri_data_encode(string_t *out,
 		if ((*p & 0x80) != 0 || (esc_table[*p] & esc_mask) == 0 ||
 			(esc_extra != NULL && strchr(esc_extra, (char)*p) != NULL)) {
 			if ((p - pbegin) > 0)
-				str_append_n(out, pbegin, p - pbegin);
+				str_append_data(out, pbegin, p - pbegin);
 			str_printfa(out, "%%%02x", *p);
 			p++;
 			pbegin = p;
@@ -1205,7 +1206,7 @@ void uri_data_encode(string_t *out,
 		}
 	}
 	if ((p - pbegin) > 0)
-		str_append_n(out, pbegin, p - pbegin);
+		str_append_data(out, pbegin, p - pbegin);
 }
 
 void uri_append_scheme(string_t *out, const char *scheme)
@@ -1317,4 +1318,16 @@ void uri_append_fragment(string_t *out, const char *fragment)
 	str_append_c(out, '#');
 	if (*fragment != '\0')
 		uri_append_fragment_data(out, NULL, fragment);
+}
+
+void uri_append_unreserved(string_t *out, const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_UNRESERVED,
+			NULL, data);
+}
+
+void uri_append_unreserved_path(string_t *out, const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_UNRESERVED_PATH,
+			NULL, data);
 }

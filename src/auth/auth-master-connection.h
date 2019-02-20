@@ -9,6 +9,8 @@ struct auth_master_connection {
 	struct auth *auth;
 	int refcount;
 
+	struct timeval create_time, handshake_time;
+
 	int fd;
 	char *path;
 	struct istream *input;
@@ -24,6 +26,9 @@ struct auth_master_connection {
 	bool destroyed:1;
 	bool userdb_only:1;
 };
+
+void auth_master_log_error(struct auth_master_connection *conn,
+			   const char *fmt, ...) ATTR_FORMAT(2, 3);
 
 struct auth_master_connection *
 auth_master_connection_create(struct auth *auth, int fd,

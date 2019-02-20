@@ -205,7 +205,7 @@ void ipc_connection_destroy(struct ipc_connection **_conn,
 	DLLIST_REMOVE(&conn->group->connections, conn);
 
 	while (array_count(&conn->cmds) > 0) {
-		cmdp = array_idx(&conn->cmds, 0);
+		cmdp = array_front(&conn->cmds);
 		cmd = *cmdp;
 
 		ipc_connection_cmd_free(&cmd, error);
@@ -244,7 +244,7 @@ void ipc_connection_cmd(struct ipc_connection *conn, const char *cmd,
 	ipc_cmd->conn = conn;
 	ipc_cmd->callback = callback;
 	ipc_cmd->context = context;
-	array_append(&conn->cmds, &ipc_cmd, 1);
+	array_push_back(&conn->cmds, &ipc_cmd);
 
 	T_BEGIN {
 		o_stream_nsend_str(conn->output,

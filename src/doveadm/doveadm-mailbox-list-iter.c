@@ -54,7 +54,7 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 				array_clear(patterns);
 				return FALSE;
 			}
-			array_append(patterns, &args->value.str, 1);
+			array_push_back(patterns, &args->value.str);
 			break;
 		case SEARCH_MAILBOX_GUID:
 			*have_guid = TRUE;
@@ -92,7 +92,7 @@ doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
 			ns_mask |= MAIL_NAMESPACE_TYPE_SHARED |
 				MAIL_NAMESPACE_TYPE_PUBLIC;
 		}
-		array_append(&iter->patterns, &all_pattern, 1);
+		array_push_back(&iter->patterns, &all_pattern);
 	} else if (have_wildcards) {
 		iter_flags |= MAILBOX_LIST_ITER_STAR_WITHIN_NS;
 		ns_mask |= MAIL_NAMESPACE_TYPE_SHARED |
@@ -108,7 +108,7 @@ doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
 	iter->only_selectable = TRUE;
 	iter->iter_flags = iter_flags;
 	iter->iter = mailbox_list_iter_init_namespaces(user->namespaces,
-						       array_idx(&iter->patterns, 0),
+						       array_front(&iter->patterns),
 						       ns_mask, iter_flags);
 	return iter;
 }

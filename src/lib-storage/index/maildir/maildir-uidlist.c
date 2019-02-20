@@ -563,7 +563,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 
 	rec->filename = p_strdup(uidlist->record_pool, line);
 	hash_table_update(uidlist->files, rec->filename, rec);
-	array_append(&uidlist->records, &rec, 1);
+	array_push_back(&uidlist->records, &rec);
 	return TRUE;
 }
 
@@ -1291,7 +1291,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 				i_assert(MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(*p));
 				len = strlen((const char *)p);
 				str_append_c(str, ' ');
-				str_append_n(str, p, len);
+				str_append_data(str, p, len);
 				p += len + 1;
 			}
 		}
@@ -1300,7 +1300,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		if (strp == NULL)
 			str_append(str, rec->filename);
 		else
-			str_append_n(str, rec->filename, strp - rec->filename);
+			str_append_data(str, rec->filename, strp - rec->filename);
 		str_append_c(str, '\n');
 		o_stream_nsend(output, str_data(str), str_len(str));
 	}
@@ -1365,7 +1365,7 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 			   syncing it here. ignore this entry. */
 			seq++;
 		} else {
-			array_append(&new_records, &recs[i], 1);
+			array_push_back(&new_records, &recs[i]);
 			seq++; i++;
 		}
 	}
@@ -1378,7 +1378,7 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 	/* view might not be completely up-to-date, so preserve any
 	   messages left */
 	for (; i < count; i++)
-		array_append(&new_records, &recs[i], 1);
+		array_push_back(&new_records, &recs[i]);
 
 	array_free(&uidlist->records);
 	uidlist->records = new_records;
@@ -1696,7 +1696,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 			    struct maildir_uidlist_rec, 1);
 		rec->uid = (uint32_t)-1;
 		rec->filename = p_strdup(uidlist->record_pool, filename);
-		array_append(&uidlist->records, &rec, 1);
+		array_push_back(&uidlist->records, &rec);
 		uidlist->change_counter++;
 
 		hash_table_insert(uidlist->files, rec->filename, rec);
@@ -1818,7 +1818,7 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 		rec->filename = p_strdup(ctx->record_pool, filename);
 		hash_table_insert(ctx->files, rec->filename, rec);
 
-		array_append(&ctx->records, &rec, 1);
+		array_push_back(&ctx->records, &rec);
 	}
 	if (uid != 0) {
 		rec->uid = uid;
@@ -2054,8 +2054,7 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx,
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->uidlist);
 
-	if (hash_table_is_created(ctx->files))
-		hash_table_destroy(&ctx->files);
+	hash_table_destroy(&ctx->files);
 	pool_unref(&ctx->record_pool);
 	if (array_is_created(&ctx->records))
 		array_free(&ctx->records);

@@ -55,6 +55,11 @@ passdb_lua_lookup(struct auth_request *request,
 			auth_request_log_info(request, AUTH_SUBSYS_DB,
 				"No password returned (and no nopassword)");
 			result = PASSDB_RESULT_PASSWORD_MISMATCH;
+		} else {
+			if (*scheme_r == NULL)
+				*scheme_r = request->passdb->passdb->default_pass_scheme;
+			auth_request_set_field(request, "password",
+					       *password_r, *scheme_r);
 		}
 	} else if (*password_r != NULL && **password_r != '\0') {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
@@ -111,9 +116,9 @@ passdb_lua_preinit(pool_t pool, const char *args)
 	module = p_new(pool, struct dlua_passdb_module, 1);
 	const char *const *fields = t_strsplit_spaces(args, " ");
 	while(*fields != NULL) {
-		if (strncmp(*fields, "file=", 5) == 0) {
+		if (str_begins(*fields, "file=")) {
 			 module->file = p_strdup(pool, (*fields)+5);
-		} else if (strncmp(*fields, "blocking=", 9) == 0) {
+		} else if (str_begins(*fields, "blocking=")) {
 			const char *value = (*fields)+9;
 			if (strcmp(value, "yes") == 0) {
 				blocking = TRUE;
@@ -124,12 +129,12 @@ passdb_lua_preinit(pool_t pool, const char *args)
 					"Field blocking must be yes or no",
 					value);
 			}
-                } else if (strncmp(*fields, "cache_key=", 10) == 0) {
+                } else if (str_begins(*fields, "cache_key=")) {
                         if (*((*fields)+10) != '\0')
                                 cache_key = (*fields)+10;
                         else /* explicitly disable auth caching for lua */
                                 cache_key = NULL;
-		} else if (strncmp(*fields, "scheme=", 7) == 0) {
+		} else if (str_begins(*fields, "scheme=")) {
 			scheme = p_strdup(pool, (*fields)+7);
 		} else {
 			i_fatal("Unsupported parameter %s", *fields);
@@ -153,7 +158,7 @@ static void passdb_lua_init(struct passdb_module *_module)
 		(struct dlua_passdb_module *)_module;
 	const char *error;
 
-	if (dlua_script_create_file(module->file, &module->script, &error) < 0 ||
+	if (dlua_script_create_file(module->file, &module->script, auth_event, &error) < 0 ||
 	    auth_lua_script_init(module->script, &error) < 0)
 		i_fatal("passdb-lua: initialization failed: %s", error);
 	module->has_password_verify =

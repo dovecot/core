@@ -114,7 +114,7 @@ tview_apply_flag_updates(struct mail_index_view_transaction *tview,
 					   tview->view.map->hdr.record_size);
 		tview->recs = i_malloc(MALLOC_MULTIPLY(tview->record_size,
 						       tview->recs_count));
-		array_append(&tview->all_recs, &tview->recs, 1);
+		array_push_back(&tview->all_recs, &tview->recs);
 	}
 	i_assert(tview->recs_count == t->first_new_seq);
 	i_assert(seq > 0 && seq <= tview->recs_count);
@@ -270,7 +270,7 @@ static void keyword_index_add(ARRAY_TYPE(keyword_indexes) *keywords,
 		if (indexes[i] == idx)
 			return;
 	}
-	array_append(keywords, &idx, 1);
+	array_push_back(keywords, &idx);
 }
 
 static void keyword_index_remove(ARRAY_TYPE(keyword_indexes) *keywords,

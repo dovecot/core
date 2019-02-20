@@ -490,7 +490,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	/* <id> <mechanism> [...] */
 	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || list[1] == NULL ||
-	    str_to_uint(list[0], &id) < 0) {
+	    str_to_uint(list[0], &id) < 0 || id == 0) {
 		i_error("BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
 		return FALSE;
@@ -517,7 +517,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		}
 	}
 
-	request = auth_request_new(mech);
+	request = auth_request_new(mech, handler->conn->event);
 	request->handler = handler;
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;
@@ -580,6 +580,14 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			"Client didn't present valid SSL certificate");
 		return TRUE;
 	}
+
+	 if (request->set->ssl_require_client_cert &&
+	     request->set->ssl_username_from_cert &&
+	     !request->cert_username) {
+		  auth_request_handler_auth_fail(handler, request,
+			 "SSL certificate didn't contain username");
+		 return TRUE;
+	 }
 
 	/* Handle initial respose */
 	if (initial_resp == NULL) {
@@ -777,7 +785,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request == NULL) {
-		i_error("Master request %u.%u not found",
+		auth_master_log_error(master, "Master request %u.%u not found",
 			handler->client_pid, client_id);
 		return auth_master_request_failed(handler, master, id);
 	}
@@ -803,7 +811,8 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 	if (request->session_pid != (pid_t)-1 &&
 	    net_getunixcred(master->fd, &cred) == 0 &&
 	    cred.pid != (pid_t)-1 && request->session_pid != cred.pid) {
-		i_error("Session pid %ld provided by master for request %u.%u "
+		auth_master_log_error(master,
+			"Session pid %ld provided by master for request %u.%u "
 			"did not match peer credentials (pid=%ld, uid=%ld)",
 			(long)request->session_pid,
 			handler->client_pid, client_id,
@@ -813,7 +822,8 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	if (request->state != AUTH_REQUEST_STATE_FINISHED ||
 	    !request->successful) {
-		i_error("Master requested unfinished authentication request "
+		auth_master_log_error(master,
+			"Master requested unfinished authentication request "
 			"%u.%u", handler->client_pid, client_id);
 		handler->master_callback(t_strdup_printf("FAIL\t%u", id),
 					 master);
@@ -857,7 +867,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 		return;
 	}
 
-	auth_requests = array_idx_modifiable(&auth_failures_arr, 0);
+	auth_requests = array_front_modifiable(&auth_failures_arr);
 	/* count the number of requests that we need to flush */
 	for (i = 0; i < count; i++) {
 		auth_request = auth_requests[aqueue_idx(auth_failures, i)];

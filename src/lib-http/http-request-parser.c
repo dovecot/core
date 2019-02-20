@@ -24,7 +24,11 @@ enum http_request_parser_state {
 
 struct http_request_parser {
 	struct http_message_parser parser;
+	pool_t pool;
+	
 	enum http_request_parser_state state;
+
+	struct http_url *default_base_url;
 
 	uoff_t max_target_length;
 
@@ -38,15 +42,25 @@ struct http_request_parser {
 
 struct http_request_parser *
 http_request_parser_init(struct istream *input,
-	const struct http_request_limits *limits,
-	enum http_request_parse_flags flags)
+			 const struct http_url *default_base_url,
+			 const struct http_request_limits *limits,
+			 enum http_request_parse_flags flags)
 {
 	struct http_request_parser *parser;
+	pool_t pool;
 	struct http_header_limits hdr_limits;
 	uoff_t max_payload_size;
 	enum http_message_parse_flags msg_flags = 0;
 
-	parser = i_new(struct http_request_parser, 1);
+	pool = pool_alloconly_create("http request parser", 1024);
+	parser = p_new(pool, struct http_request_parser, 1);
+	parser->pool = pool;
+
+	if (default_base_url != NULL) {
+		parser->default_base_url =
+			http_url_clone_authority(pool, default_base_url);
+	}
+
 	if (limits != NULL) {
 		hdr_limits = limits->header;
 		max_payload_size = limits->max_payload_size;
@@ -81,7 +95,7 @@ void http_request_parser_deinit(struct http_request_parser **_parser)
 	*_parser = NULL;
 
 	http_message_parser_deinit(&parser->parser);
-	i_free(parser);
+	pool_unref(&parser->pool);
 }
 
 static void
@@ -515,7 +529,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 			    enum http_request_parse_error *error_code_r, const char **error_r)
 {
 	const struct http_header_field *hdr;
-	const char *error;
+	const char *host_hdr, *error;
 	int ret;
 
 	/* initialize and get rid of any payload of previous request */
@@ -570,21 +584,27 @@ int http_request_parse_next(struct http_request_parser *parser,
 	   request message that contains more than one Host header field or a
 	   Host header field with an invalid field-value.
 	 */
-	if ((ret=http_header_field_find_unique
-		(parser->parser.msg.header, "Host", &hdr)) <= 0) {
-		*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
-		if (ret == 0)
-			*error_r = "Missing Host header";
-		else
-			*error_r = "Duplicate Host header";
-		return -1;
+	host_hdr = NULL;
+	if (parser->parser.msg.version_major == 1 &&
+	    parser->parser.msg.version_minor > 0) {
+		if ((ret=http_header_field_find_unique(
+			parser->parser.msg.header, "Host", &hdr)) <= 0) {
+			*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
+			if (ret == 0)
+				*error_r = "Missing Host header";
+			else
+				*error_r = "Duplicate Host header";
+			return -1;
+		}
+
+		host_hdr = hdr->value;
 	}
 
 	i_zero(request);
 
 	pool = http_message_parser_get_pool(&parser->parser);
-	if (http_url_request_target_parse(parser->request_target, hdr->value,
-		pool, &request->target, &error) < 0) {
+	if (http_url_request_target_parse(parser->request_target, host_hdr,
+		parser->default_base_url, pool, &request->target, &error) < 0) {
 		*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
 		*error_r = t_strdup_printf("Bad request target `%s': %s",
 			parser->request_target, error);

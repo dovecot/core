@@ -44,7 +44,7 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 
 	data = array_get_modifiable(array, &count);
 	if (count == 0) {
-		array_append(array, &value, 1);
+		array_push_back(array, &value);
 		return FALSE;
 	}
 
@@ -54,7 +54,7 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 			/* grow last range */
 			data[count-1].seq2 = seq;
 		} else {
-			array_append(array, &value, 1);
+			array_push_back(array, &value);
 		}
 		return FALSE;
 	}
@@ -63,7 +63,7 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 			/* grow down first range */
 			data[0].seq1 = seq;
 		} else {
-			array_insert(array, 0, &value, 1);
+			array_push_front(array, &value);
 		}
 		return FALSE;
 	}
@@ -245,7 +245,7 @@ bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 		if (data[0].seq1 != data[0].seq2)
 			data[0].seq1++;
 		else
-			array_delete(array, 0, 1);
+			array_pop_front(array);
 		return TRUE;
 	}
 
@@ -441,7 +441,7 @@ void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
 			i_array_init(array, 4);
 		value.seq1 = min_seq;
 		value.seq2 = max_seq;
-		array_append(array, &value, 1);
+		array_push_back(array, &value);
 		return;
 	}
 	i_assert(range[0].seq1 >= min_seq);
@@ -477,7 +477,7 @@ void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
 	if (min_seq <= max_seq) {
 		value.seq1 = min_seq;
 		value.seq2 = max_seq;
-		array_append(array, &value, 1);
+		array_push_back(array, &value);
 	}
 }
 

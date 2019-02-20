@@ -201,7 +201,7 @@ static struct auth_worker_connection *auth_worker_create(void)
 	auth_worker_send_handshake(conn);
 
 	idle_count++;
-	array_append(&connections, &conn, 1);
+	array_push_back(&connections, &conn);
 	return conn;
 }
 
@@ -277,7 +277,7 @@ static bool auth_worker_request_handle(struct auth_worker_connection *conn,
 				       struct auth_worker_request *request,
 				       const char *line)
 {
-	if (strncmp(line, "*\t", 2) == 0) {
+	if (str_begins(line, "*\t")) {
 		/* multi-line reply, not finished yet */
 		if (conn->resuming)
 			timeout_reset(conn->to);
@@ -500,7 +500,7 @@ void auth_worker_server_deinit(void)
 	struct auth_worker_connection **connp, *conn;
 
 	while (array_count(&connections) > 0) {
-		connp = array_idx_modifiable(&connections, 0);
+		connp = array_front_modifiable(&connections);
 		conn = *connp;
 		auth_worker_destroy(&conn, "Shutting down", FALSE);
 	}

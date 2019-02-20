@@ -82,7 +82,7 @@ sort_appends_seq_range(ARRAY_TYPE(seq_range) *array, uint32_t first_new_seq,
 	if (range[i].seq1 < first_new_seq) {
 		temp_range.seq1 = first_new_seq;
 		temp_range.seq2 = range[i].seq2;
-		array_append(&old_seqs, &temp_range, 1);
+		array_push_back(&old_seqs, &temp_range);
 		range[i].seq2 = first_new_seq - 1;
 		i++;
 	}

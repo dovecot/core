@@ -90,8 +90,7 @@ auth_token_read_secret(const char *path,
 	if (close(fd) < 0)
 		i_error("close(%s) failed: %m", path);
 
-	if (global_auth_settings->debug)
-		i_debug("Read auth token secret from %s", path);
+	e_debug(auth_event, "Read auth token secret from %s", path);
 	return ret;
 }
 
@@ -133,8 +132,7 @@ auth_token_write_secret(const char *path,
 		return -1;
 	}
 
-	if (global_auth_settings->debug)
-		i_debug("Wrote new auth token secret to %s", path);
+	e_debug(auth_event, "Wrote new auth token secret to %s", path);
 	return 0;
 }
 

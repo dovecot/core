@@ -748,7 +748,7 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 		return -1;
 	}
 
-	if (strncmp(oldname, newname, oldname_len) == 0 &&
+	if (str_begins(newname, oldname) &&
 	   newname[oldname_len] == mailbox_list_get_hierarchy_sep(_newlist)) {
 		mailbox_list_set_error(_oldlist, MAIL_ERROR_NOTPOSSIBLE,
 			"Can't rename mailbox under itself.");

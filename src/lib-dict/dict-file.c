@@ -492,7 +492,9 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 						     dict->path);
 	}
 
+	*lock_r = NULL;
 	do {
+		file_lock_free(lock_r);
 		if (file_wait_lock(dict->fd, dict->path, F_WRLCK,
 				   dict->lock_method,
 				   file_dict_dotlock_settings.timeout,
@@ -594,7 +596,12 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		*error_r = t_strdup_printf("write(%s) failed: %s", temp_path,
 					   o_stream_get_error(output));
 		o_stream_destroy(&output);
-		i_close_fd(&fd);
+		if (dotlock != NULL)
+			file_dotlock_delete(&dotlock);
+		else {
+			i_close_fd(&fd);
+			file_unlock(&lock);
+		}
 		return -1;
 	}
 	o_stream_destroy(&output);
@@ -614,6 +621,8 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 			i_close_fd(&fd);
 			return -1;
 		}
+		/* dict->fd is locked, not the new fd. We're closing dict->fd
+		   so we can just free the lock struct. */
 		file_lock_free(&lock);
 	}
 

@@ -102,11 +102,9 @@ fts_tika_parser_response(const struct http_response *response,
 	case 204: /* empty response */
 	case 415: /* Unsupported Media Type */
 	case 422: /* Unprocessable Entity */
-		if (parser->user->mail_debug) {
-			i_debug("fts_tika: PUT %s failed: %s",
-				mail_user_plugin_getenv(parser->user, "fts_tika"),
-				http_response_get_message(response));
-		}
+		e_debug(parser->user->event, "fts_tika: PUT %s failed: %s",
+			mail_user_plugin_getenv(parser->user, "fts_tika"),
+			http_response_get_message(response));
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
 	default:
@@ -250,8 +248,7 @@ static int fts_parser_tika_deinit(struct fts_parser *_parser, const char **retri
 	   timeout to ioloop unnecessarily */
 	i_stream_unref(&parser->payload);
 	io_remove(&parser->io);
-	if (parser->http_req != NULL)
-		http_client_request_abort(&parser->http_req);
+	http_client_request_abort(&parser->http_req);
 	if (parser->ioloop != NULL) {
 		io_loop_set_current(parser->ioloop);
 		io_loop_destroy(&parser->ioloop);

@@ -1,8 +1,11 @@
 # This file is part of Dovecot
 #
-# If you want to pass additionally command line options to the dovecot
-# binary, create the file:
-# 	`/etc/systemd/system/dovecot.service.d/service.conf'.
+# DO NOT CUSTOMIZE THIS FILE, INSTEAD
+# create the file:
+#	`/etc/systemd/system/dovecot.service.d/service.conf'.
+# or copy this as
+#	`/etc/systemd/system/dovecot.service` and edit then
+# and put your changes there
 
 [Unit]
 Description=Dovecot IMAP/POP3 email server
@@ -19,15 +22,13 @@ ExecStop=@bindir@/doveadm stop
 PrivateTmp=true
 NonBlocking=yes
 ProtectSystem=full
+ProtectHome=no
 PrivateDevices=true
-# disable this if you want to use apparmor plugin
-NoNewPrivileges=true
-CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_IPC_LOCK CAP_KILL CAP_NET_BIND_SERVICE CAP_SETGID CAP_SETUID CAP_SYS_CHROOT CAP_SYS_RESOURCE
 
 # You can add environment variables with e.g.:
 #Environment='CORE_OUTOFMEM=1'
-# If you have trouble with `Too many open files' you may set:
-#LimitNOFILE=8192
+# If you have trouble with `Too many open files', increase
+LimitNOFILE=65535
 # If you want to allow the Dovecot services to produce core dumps, use:
 #LimitCORE=infinity
 

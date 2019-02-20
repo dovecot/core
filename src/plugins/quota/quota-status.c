@@ -91,7 +91,7 @@ static void client_handle_request(struct quota_client *client)
 	int ret;
 
 	if (client->recipient == NULL) {
-		o_stream_send_str(client->conn.output, "action=DUNNO\n\n");
+		o_stream_nsend_str(client->conn.output, "action=DUNNO\n\n");
 		return;
 	}
 
@@ -142,11 +142,11 @@ static void client_handle_request(struct quota_client *client)
 
 	if (ret < 0) {
 		/* temporary failure */
-		o_stream_send_str(client->conn.output, t_strdup_printf(
+		o_stream_nsend_str(client->conn.output, t_strdup_printf(
 			"action=DEFER_IF_PERMIT %s\n\n", error));
 	} else {
-		o_stream_send_str(client->conn.output,
-				  t_strdup_printf("action=%s\n\n", value));
+		o_stream_nsend_str(client->conn.output,
+				   t_strdup_printf("action=%s\n\n", value));
 	}
 }
 
@@ -163,7 +163,7 @@ static int client_input_line(struct connection *conn, const char *line)
 		return 1;
 	}
 	if (client->recipient == NULL &&
-	    strncmp(line, "recipient=", 10) == 0) {
+	    str_begins(line, "recipient=")) {
 		if (smtp_address_parse_path(default_pool, line + 10,
 			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
@@ -173,7 +173,7 @@ static int client_input_line(struct connection *conn, const char *line)
 				error);
 			return 0;
 		}
-	} else if (strncmp(line, "size=", 5) == 0) {
+	} else if (str_begins(line, "size=")) {
 		if (str_to_uoff(line+5, &client->size) < 0)
 			client->size = 0;
 	}

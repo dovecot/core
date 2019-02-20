@@ -284,8 +284,8 @@ static bool parse_x_keywords_real(struct mbox_sync_mail_context *ctx,
 		}
 
 		str_truncate(keyword, 0);
-		str_append_n(keyword, hdr->full_value + keyword_start,
-			     pos - keyword_start);
+		str_append_data(keyword, hdr->full_value + keyword_start,
+				pos - keyword_start);
 		if (!mail_index_keyword_lookup(box->index, str_c(keyword),
 					       &idx)) {
 			/* keyword wasn't found. that means the sent mail
@@ -302,7 +302,7 @@ static bool parse_x_keywords_real(struct mbox_sync_mail_context *ctx,
 		}
 
 		if (i == count)
-			array_append(&keyword_list, &idx, 1);
+			array_push_back(&keyword_list, &idx);
 	}
 
 	/* once we know how many keywords there are, we can allocate the array
@@ -488,7 +488,7 @@ int mbox_sync_parse_next_mail(struct istream *input,
 		if (!hdr->continued) {
 			line_start_pos = str_len(ctx->header);
 			str_append(ctx->header, hdr->name);
-			str_append_n(ctx->header, hdr->middle, hdr->middle_len);
+			str_append_data(ctx->header, hdr->middle, hdr->middle_len);
 		}
 
 		func = bsearch(hdr->name, header_funcs,

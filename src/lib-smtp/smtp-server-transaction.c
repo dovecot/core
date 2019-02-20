@@ -13,6 +13,7 @@
 
 struct smtp_server_transaction *
 smtp_server_transaction_create(struct smtp_server_connection *conn,
+			       enum smtp_server_transaction_flags flags,
 			       const struct smtp_address *mail_from,
 			       const struct smtp_params_mail *params,
 			       const struct timeval *timestamp)
@@ -23,7 +24,7 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	string_t *id;
 
 	/* create new transaction */
-	pool = pool_alloconly_create("smtp server transaction", 512);
+	pool = pool_alloconly_create("smtp server transaction", 4096);
 	trans = p_new(pool, struct smtp_server_transaction, 1);
 	trans->pool = pool;
 	trans->conn = conn;
@@ -36,6 +37,7 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	str_truncate(id, str_len(id)-2); /* drop trailing "==" */
 	trans->id = p_strdup(pool, str_c(id));
 
+	trans->flags = flags;
 	trans->mail_from = smtp_address_clone(trans->pool, mail_from);
 	smtp_params_mail_copy(pool, &trans->params, params);
 	trans->timestamp = *timestamp;
@@ -46,6 +48,12 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 {
 	struct smtp_server_transaction *trans = *_trans;
+	struct smtp_server_recipient **rcptp;
+
+	if (array_is_created(&trans->rcpt_to)) {
+		array_foreach_modifiable(&trans->rcpt_to, rcptp)
+			smtp_server_recipient_destroy(rcptp);
+	}
 
 	pool_unref(&trans->pool);
 	*_trans = NULL;
@@ -71,23 +79,16 @@ smtp_server_transaction_find_rcpt_duplicate(
 	return NULL;
 }
 
-struct smtp_server_recipient *
-smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
-				 const struct smtp_address *rcpt_to,
-				 const struct smtp_params_rcpt *params)
+void smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,
+				      struct smtp_server_recipient *rcpt)
 {
-	struct smtp_server_recipient *rcpt;
-
-	rcpt = p_new(trans->pool, struct smtp_server_recipient, 1);
-	rcpt->path = smtp_address_clone(trans->pool, rcpt_to);
-	smtp_params_rcpt_copy(trans->pool, &rcpt->params, params);
-
 	if (!array_is_created(&trans->rcpt_to))
 		p_array_init(&trans->rcpt_to, trans->pool, 8);
 
-	array_append(&trans->rcpt_to, &rcpt, 1);
+	rcpt->trans = trans;
+	rcpt->index = array_count(&trans->rcpt_to);
 
-	return rcpt;
+	array_push_back(&trans->rcpt_to, &rcpt);
 }
 
 bool smtp_server_transaction_has_rcpt(struct smtp_server_transaction *trans)
@@ -102,6 +103,18 @@ smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans)
 	if (!array_is_created(&trans->rcpt_to))
 		return 0;
 	return array_count(&trans->rcpt_to);
+}
+
+void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
+				       struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_recipient *const *rcptp;
+
+	trans->cmd = cmd;
+
+	i_assert(array_is_created(&trans->rcpt_to));
+	array_foreach(&trans->rcpt_to, rcptp)
+		smtp_server_recipient_last_data(*rcptp, cmd);
 }
 
 void smtp_server_transaction_fail_data(struct smtp_server_transaction *trans,
@@ -131,7 +144,7 @@ void smtp_server_transaction_write_trace_record(string_t *str,
 
 	if (array_count(&trans->rcpt_to) == 1) {
 		struct smtp_server_recipient *const *rcpts =
-			array_idx(&trans->rcpt_to, 0);
+			array_front(&trans->rcpt_to);
 
 		rcpt_to = smtp_address_encode(rcpts[0]->path);
 	}

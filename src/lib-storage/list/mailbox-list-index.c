@@ -959,7 +959,7 @@ mailbox_list_index_sync_init(struct mailbox *box,
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 
 	mailbox_list_index_status_sync_init(box);
-	if (ibox->have_backend)
+	if (!ibox->have_backend)
 		mailbox_list_index_backend_sync_init(box, flags);
 	return ibox->module_ctx.super.sync_init(box, flags);
 }

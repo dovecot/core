@@ -119,12 +119,12 @@ static void doveadm_cmd_callback(int exit_code, const char *error,
 
 	if (array_count(&server->queue) > 0) {
 		struct server_connection *conn;
-		char *const *usernamep = array_idx(&server->queue, 0);
+		char *const *usernamep = array_front(&server->queue);
 		char *username = *usernamep;
 
 		conn = doveadm_server_find_unused_conn(server);
 		if (conn != NULL) {
-			array_delete(&server->queue, 0, 1);
+			array_pop_front(&server->queue);
 			doveadm_mail_server_handle(conn, username);
 			i_free(username);
 		}
@@ -224,18 +224,18 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 		proxy_host = NULL; proxy_hostip = NULL; proxying = FALSE;
 		proxy_port = ctx->set->doveadm_port;
 		for (i = 0; fields[i] != NULL; i++) {
-			if (strncmp(fields[i], "proxy", 5) == 0 &&
+			if (str_begins(fields[i], "proxy") &&
 			    (fields[i][5] == '\0' || fields[i][5] == '='))
 				proxying = TRUE;
-			else if (strncmp(fields[i], "host=", 5) == 0)
+			else if (str_begins(fields[i], "host="))
 				proxy_host = fields[i]+5;
-			else if (strncmp(fields[i], "hostip=", 7) == 0)
+			else if (str_begins(fields[i], "hostip="))
 				proxy_hostip = fields[i]+7;
-			else if (strncmp(fields[i], "user=", 5) == 0)
+			else if (str_begins(fields[i], "user="))
 				*user_r = t_strdup(fields[i]+5);
-			else if (strncmp(fields[i], "destuser=", 9) == 0)
+			else if (str_begins(fields[i], "destuser="))
 				*user_r = t_strdup(fields[i]+9);
-			else if (strncmp(fields[i], "port=", 5) == 0) {
+			else if (str_begins(fields[i], "port=")) {
 				if (net_str2port(fields[i]+5, &proxy_port) < 0)
 					proxy_port = 0;
 			}
@@ -302,7 +302,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			doveadm_server_flush_one(server);
 
 		username_dup = i_strdup(user);
-		array_append(&server->queue, &username_dup, 1);
+		array_push_back(&server->queue, &username_dup);
 	}
 	*error_r = "doveadm server failure";
 	return DOVEADM_MAIL_SERVER_FAILED() ? -1 : 1;
@@ -337,7 +337,7 @@ static void doveadm_servers_destroy_all_connections(void)
 		while (array_count(&server->connections) > 0) {
 			struct server_connection *const *connp, *conn;
 
-			connp = array_idx(&server->connections, 0);
+			connp = array_front(&server->connections);
 			conn = *connp;
 			server_connection_destroy(&conn);
 		}

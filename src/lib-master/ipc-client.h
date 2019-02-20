@@ -14,8 +14,11 @@ struct ipc_client *
 ipc_client_init(const char *ipc_socket_path);
 void ipc_client_deinit(struct ipc_client **client);
 
-void ipc_client_cmd(struct ipc_client *client, const char *cmd,
-		    ipc_client_callback_t *callback, void *context)
+struct ipc_client_cmd *
+ipc_client_cmd(struct ipc_client *client, const char *cmd,
+	       ipc_client_callback_t *callback, void *context)
 	ATTR_NULL(4);
+void ipc_client_cmd_abort(struct ipc_client *client,
+			  struct ipc_client_cmd **cmd);
 
 #endif

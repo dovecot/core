@@ -119,7 +119,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	int ret, i, msecs;
 
 	/* get the time left for next timeout task */
-	msecs = io_loop_get_wait_time(ioloop, &tv);
+	msecs = io_loop_run_get_wait_time(ioloop, &tv);
 	ts.tv_sec = tv.tv_sec;
 	ts.tv_nsec = tv.tv_usec * 1000;
 
@@ -134,8 +134,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 				(unsigned int)ts.tv_nsec);
 		}
 	} else {
-		if (msecs < 0)
-			i_panic("BUG: No IOs or timeouts set. Not waiting for infinity.");
+		i_assert(msecs >= 0);
 		usleep(msecs * 1000);
 		ret = 0;
 	}
@@ -150,6 +149,9 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	/* execute timeout handlers */
 	io_loop_handle_timeouts(ioloop);
 
+	if (!ioloop->running)
+		return;
+
 	for (i = 0; i < ret; i++) {
 		/* io_loop_handle_add() may cause events array reallocation,
 		   so we have use array_idx() */
@@ -157,8 +159,11 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 		io = (void *)event->udata;
 
 		/* callback is NULL if io_remove() was already called */
-		if (io->io.callback != NULL)
+		if (io->io.callback != NULL) {
 			io_loop_call_io(&io->io);
+			if (!ioloop->running)
+				break;
+		}
 
 		i_assert(io->refcount > 0);
 		if (--io->refcount == 0)

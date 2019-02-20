@@ -101,7 +101,7 @@ http_parse_auth_params(struct http_parser *parser,
 		(parser, &param.name, &param.value)) > 0) {
 		if (!array_is_created(params))
 			t_array_init(params, 4);
-		array_append(params, &param, 1);
+		array_push_back(params, &param);
 		count++;
 
 		last = parser->cur;
@@ -175,7 +175,7 @@ int http_auth_parse_challenges(const unsigned char *data, size_t size,
 
 		if (!array_is_created(chlngs))
 			t_array_init(chlngs, 4);
-		array_append(chlngs, &chlng, 1);
+		array_push_back(chlngs, &chlng);
 
 		/* OWS "," OWS 
 		   --> also allow empty elements
@@ -255,13 +255,13 @@ http_auth_create_param(string_t *out, const struct http_auth_param *param)
 		p = first = param->value;
 		while (*p != '\0') {
 			if (*p == '\\' || *p == '"') {
-				str_append_n(out, first, p-first);
+				str_append_data(out, first, p-first);
 				str_append_c(out, '\\');
 				first = p;
 			}
 			p++;
 		}
-		str_append_n(out, first, p-first);
+		str_append_data(out, first, p-first);
 		str_append_c(out, '"');
 	} else {
 		str_append(out, param->value);
@@ -386,7 +386,7 @@ http_auth_params_clone(pool_t pool,
 		nparam.name = p_strdup(pool, sparam->name);
 		nparam.value = p_strdup(pool, sparam->value);
 
-		array_append(dst, &nparam, 1);
+		array_push_back(dst, &nparam);
 	}
 }
 
@@ -453,7 +453,7 @@ void http_auth_basic_challenge_init(struct http_auth_challenge *chlng,
 		param.value = t_strdup(realm);
 
 		t_array_init(&chlng->params, 1);
-		array_append(&chlng->params, &param, 1);
+		array_push_back(&chlng->params, &param);
 	}
 }
 

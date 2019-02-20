@@ -35,6 +35,13 @@ void smtp_server_cmd_noop(struct smtp_server_cmd_ctx *cmd,
 		}
 	}
 	if (!smtp_server_command_is_replied(command))
-		smtp_server_reply(cmd, 250, "2.0.0", "OK");
+		smtp_server_cmd_noop_reply_success(cmd);
 	smtp_server_command_unref(&command);
+}
+
+void smtp_server_cmd_noop_reply_success(struct smtp_server_cmd_ctx *cmd)
+{
+       i_assert(cmd->cmd->reg->func == smtp_server_cmd_noop);
+
+       smtp_server_reply(cmd, 250, "2.0.0", "OK");
 }

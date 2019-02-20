@@ -13,6 +13,8 @@ void test_db_dict_parse_cache_key(void);
 void test_username_filter(void);
 void test_db_lua(void);
 struct auth_passdb *passdb_mock(void);
+void passdb_mock_mod_init(void);
+void passdb_mock_mod_deinit(void);
 
 #endif
 

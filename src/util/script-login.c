@@ -44,7 +44,7 @@ static void client_connected(struct master_service_connection *conn)
 	instr = t_str_new(1024);
 	ret = fd_read(conn->fd, buf, sizeof(buf), &fd);
 	while (ret > 0) {
-		str_append_n(instr, buf, ret);
+		str_append_data(instr, buf, ret);
 		if (buf[ret-1] == '\n' &&
 		    strchr(str_c(instr), '\n')[1] != '\0') {
 			str_truncate(instr, str_len(instr)-1);
@@ -193,7 +193,8 @@ static void script_execute_finish(void)
 
 int main(int argc, char *argv[])
 {
-	enum master_service_flags flags = 0;
+	enum master_service_flags flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 	int i, c;
 
 	if (getenv(MASTER_IS_PARENT_ENV) == NULL)

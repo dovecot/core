@@ -404,8 +404,7 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 		mailbox_transaction_rollback(&lt->dest_trans);
 	if (lt->dest_box != NULL)
 		mailbox_free(&lt->dest_box);
-	if (hash_table_is_created(lt->guids))
-		hash_table_destroy(&lt->guids);
+	hash_table_destroy(&lt->guids);
 	pool_unref(&lt->pool);
 	i_free(lt->delayed_errstr);
 	i_free(lt->delayed_internal_errstr);
@@ -596,8 +595,8 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 			mail_user_plugin_getenv_bool(user, "lazy_expunge_only_last_instance");
 
 		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
-	} else if (user->mail_debug) {
-		i_debug("lazy_expunge: No lazy_expunge setting - "
+	} else {
+		e_debug(user->event, "lazy_expunge: No lazy_expunge setting - "
 			"plugin disabled");
 	}
 }

@@ -101,6 +101,20 @@ static int solr_xml_parse(struct solr_connection *conn,
 	return 0;
 }
 
+/* Regardless of the specified URL, make sure path ends in '/' */
+static char *solr_connection_create_http_base_url(struct http_url *http_url)
+{
+	if (http_url->path == NULL)
+		return i_strconcat("/", http_url->enc_query, NULL);
+	size_t len = strlen(http_url->path);
+	if (len > 0 && http_url->path[len-1] != '/')
+		return i_strconcat(http_url->path, "/",
+				   http_url->enc_query, NULL);
+	/* http_url->path is NULL on empty path, so this is impossible. */
+	i_assert(len != 0);
+	return i_strconcat(http_url->path, http_url->enc_query, NULL);
+}
+
 int solr_connection_init(const char *url,
 			 const struct ssl_iostream_settings *ssl_client_set,
 			 bool debug, struct solr_connection **conn_r,
@@ -121,7 +135,7 @@ int solr_connection_init(const char *url,
 	conn = i_new(struct solr_connection, 1);
 	conn->http_host = i_strdup(http_url->host.name);
 	conn->http_port = http_url->port;
-	conn->http_base_url = i_strconcat(http_url->path, http_url->enc_query, NULL);
+	conn->http_base_url = solr_connection_create_http_base_url(http_url);
 	conn->http_ssl = http_url->have_ssl;
 	if (http_url->user != NULL) {
 		conn->http_user = i_strdup(http_url->user);
@@ -247,7 +261,7 @@ solr_result_get(struct solr_lookup_xml_context *ctx, const char *box_id)
 	p_array_init(&result->uids, ctx->result_pool, 32);
 	p_array_init(&result->scores, ctx->result_pool, 32);
 	hash_table_insert(ctx->mailboxes, box_id_dup, result);
-	array_append(&ctx->results, &result, 1);
+	array_push_back(&ctx->results, &result);
 	return result;
 }
 
@@ -475,7 +489,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	hash_table_destroy(&solr_lookup_context.mailboxes);
 
 	array_append_zero(&solr_lookup_context.results);
-	*box_results_r = array_idx_modifiable(&solr_lookup_context.results, 0);
+	*box_results_r = array_front_modifiable(&solr_lookup_context.results);
 	return parse_ret;
 }
 
@@ -556,8 +570,7 @@ int solr_connection_post_end(struct solr_connection_post **_post)
 			ret = -1;
 		}
 	} else {
-		if (post->http_req != NULL)
-			http_client_request_abort(&post->http_req);
+		http_client_request_abort(&post->http_req);
 	}
 	i_free(post);
 

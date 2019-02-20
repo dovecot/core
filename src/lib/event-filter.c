@@ -24,6 +24,28 @@ struct event_filter_category {
 	struct event_category *category;
 };
 
+enum event_filter_log_type {
+	EVENT_FILTER_LOG_TYPE_DEBUG	= BIT(0),
+	EVENT_FILTER_LOG_TYPE_INFO	= BIT(1),
+	EVENT_FILTER_LOG_TYPE_WARNING	= BIT(2),
+	EVENT_FILTER_LOG_TYPE_ERROR	= BIT(3),
+	EVENT_FILTER_LOG_TYPE_FATAL	= BIT(4),
+	EVENT_FILTER_LOG_TYPE_PANIC	= BIT(5),
+
+	EVENT_FILTER_LOG_TYPE_ALL	= 0xff,
+};
+static const char *event_filter_log_type_names[] = {
+	"debug", "info", "warning", "error", "fatal", "panic",
+};
+static enum event_filter_log_type event_filter_log_types[] = {
+	EVENT_FILTER_LOG_TYPE_DEBUG,
+	EVENT_FILTER_LOG_TYPE_INFO,
+	EVENT_FILTER_LOG_TYPE_WARNING,
+	EVENT_FILTER_LOG_TYPE_ERROR,
+	EVENT_FILTER_LOG_TYPE_FATAL,
+	EVENT_FILTER_LOG_TYPE_PANIC,
+};
+
 struct event_filter_query_internal {
 	unsigned int categories_count;
 	unsigned int fields_count;
@@ -31,6 +53,7 @@ struct event_filter_query_internal {
 	bool has_unregistered_categories;
 	struct event_filter_category *categories;
 	const struct event_field *fields;
+	enum event_filter_log_type log_type_mask;
 
 	const char *name;
 	const char *source_filename;
@@ -54,7 +77,7 @@ static struct event_filter *event_filters = NULL;
 struct event_filter *event_filter_create(void)
 {
 	struct event_filter *filter;
-	pool_t pool = pool_alloconly_create("event filter", 256);
+	pool_t pool = pool_alloconly_create("event filter", 2048);
 
 	filter = p_new(pool, struct event_filter, 1);
 	filter->pool = pool;
@@ -87,6 +110,21 @@ void event_filter_unref(struct event_filter **_filter)
 	pool_unref(&filter->pool);
 }
 
+static bool
+event_filter_category_to_log_type(const char *name,
+				  enum event_filter_log_type *log_type_r)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(event_filter_log_type_names); i++) {
+		if (strcmp(name, event_filter_log_type_names[i]) == 0) {
+			*log_type_r = 1 << i;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static void
 event_filter_add_categories(struct event_filter *filter,
 			    struct event_filter_query_internal *int_query,
@@ -94,7 +132,8 @@ event_filter_add_categories(struct event_filter *filter,
 {
 	unsigned int categories_count = str_array_length(categories);
 	struct event_filter_category *cat;
-	unsigned int i;
+	enum event_filter_log_type log_type;
+	unsigned int i, j;
 
 	if (categories_count == 0)
 		return;
@@ -102,13 +141,18 @@ event_filter_add_categories(struct event_filter *filter,
 	/* copy strings */
 	cat = p_new(filter->pool, struct event_filter_category,
 		    categories_count);
-	for (i = 0; i < categories_count; i++) {
-		cat[i].name = p_strdup(filter->pool, categories[i]);
-		cat[i].category = event_category_find_registered(categories[i]);
-		if (cat[i].category == NULL)
+	for (i = j = 0; i < categories_count; i++) {
+		if (event_filter_category_to_log_type(categories[i], &log_type)) {
+			int_query->log_type_mask |= log_type;
+			continue;
+		}
+		cat[j].name = p_strdup(filter->pool, categories[i]);
+		cat[j].category = event_category_find_registered(categories[i]);
+		if (cat[j].category == NULL)
 			int_query->has_unregistered_categories = TRUE;
+		j++;
 	}
-	int_query->categories_count = categories_count;
+	int_query->categories_count = j;
 	int_query->categories = cat;
 }
 
@@ -159,6 +203,11 @@ void event_filter_add(struct event_filter *filter,
 		event_filter_add_categories(filter, int_query, query->categories);
 	if (query->fields != NULL)
 		event_filter_add_fields(filter, int_query, query->fields);
+
+	if (int_query->log_type_mask == 0) {
+		/* no explicit log types given. default to all. */
+		int_query->log_type_mask = EVENT_FILTER_LOG_TYPE_ALL;
+	}
 }
 
 void event_filter_merge(struct event_filter *dest,
@@ -175,16 +224,23 @@ void event_filter_merge(struct event_filter *dest,
 		query.source_filename = int_query->source_filename;
 		query.source_linenum = int_query->source_linenum;
 
-		if (int_query->categories_count > 0) {
+		if (int_query->categories_count > 0 ||
+		    int_query->log_type_mask != EVENT_FILTER_LOG_TYPE_ALL) {
 			ARRAY_TYPE(const_string) categories;
 
 			t_array_init(&categories, int_query->categories_count);
 			for (i = 0; i < int_query->categories_count; i++) {
-				array_append(&categories,
-					     &int_query->categories[i].name, 1);
+				array_push_back(&categories,
+						&int_query->categories[i].name);
+			}
+			for (i = 0; i < N_ELEMENTS(event_filter_log_type_names); i++) {
+				if ((int_query->log_type_mask & (1 << i)) == 0)
+					continue;
+				array_push_back(&categories,
+						&event_filter_log_type_names[i]);
 			}
 			array_append_zero(&categories);
-			query.categories = array_idx(&categories, 0);
+			query.categories = array_front(&categories);
 		}
 		if (int_query->fields_count > 0) {
 			ARRAY(struct event_filter_field) fields;
@@ -197,7 +253,7 @@ void event_filter_merge(struct event_filter *dest,
 				field->value = p_strdup(dest->pool, int_query->fields[i].value.str);
 			}
 			array_append_zero(&fields);
-			query.fields = array_idx(&fields, 0);
+			query.fields = array_front(&fields);
 		}
 
 		event_filter_add(dest, &query);
@@ -225,6 +281,16 @@ event_filter_export_query(const struct event_filter_query_internal *query,
 		str_append_tabescaped(dest, query->categories[i].name);
 		str_append_c(dest, '\t');
 	}
+	if (query->log_type_mask != EVENT_FILTER_LOG_TYPE_ALL) {
+		for (i = 0; i < N_ELEMENTS(event_filter_log_type_names); i++) {
+			if ((query->log_type_mask & (1 << i)) == 0)
+				continue;
+			str_append_c(dest, EVENT_FILTER_CODE_CATEGORY);
+			str_append_tabescaped(dest, event_filter_log_type_names[i]);
+			str_append_c(dest, '\t');
+		}
+	}
+
 	for (i = 0; i < query->fields_count; i++) {
 		str_append_c(dest, EVENT_FILTER_CODE_FIELD);
 		str_append_tabescaped(dest, query->fields[i].key);
@@ -274,11 +340,11 @@ bool event_filter_import_unescaped(struct event_filter *filter,
 			/* finish the query */
 			if (array_count(&categories) > 0) {
 				array_append_zero(&categories);
-				query.categories = array_idx(&categories, 0);
+				query.categories = array_front(&categories);
 			}
 			if (array_count(&fields) > 0) {
 				array_append_zero(&fields);
-				query.fields = array_idx(&fields, 0);
+				query.fields = array_front(&fields);
 			}
 			event_filter_add(filter, &query);
 
@@ -309,7 +375,7 @@ bool event_filter_import_unescaped(struct event_filter *filter,
 			}
 			break;
 		case EVENT_FILTER_CODE_CATEGORY:
-			array_append(&categories, &arg, 1);
+			array_push_back(&categories, &arg);
 			break;
 		case EVENT_FILTER_CODE_FIELD: {
 			struct event_filter_field *field;
@@ -335,6 +401,17 @@ bool event_filter_import_unescaped(struct event_filter *filter,
 }
 
 static bool
+event_category_match(const struct event_category *category,
+		     const struct event_category *wanted_category)
+{
+	for (; category != NULL; category = category->parent) {
+		if (category == wanted_category)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
 event_has_category(struct event *event, struct event_category *wanted_category)
 {
 	struct event_category *const *catp;
@@ -344,7 +421,7 @@ event_has_category(struct event *event, struct event_category *wanted_category)
 	while (event != NULL) {
 		if (array_is_created(&event->categories)) {
 			array_foreach(&event->categories, catp) {
-				if (*catp == wanted_category)
+				if (event_category_match(*catp, wanted_category))
 					return TRUE;
 			}
 		}
@@ -384,6 +461,10 @@ event_match_field(struct event *event, const struct event_field *wanted_field)
 	}
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
+		if (field->value.str[0] == '\0') {
+			/* field was removed */
+			return FALSE;
+		}
 		return wildcard_match_icase(field->value.str, wanted_field->value.str);
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		return field->value.intmax == wanted_field->value.intmax;
@@ -408,15 +489,21 @@ event_filter_query_match_fields(const struct event_filter_query_internal *query,
 static bool
 event_filter_query_match(const struct event_filter_query_internal *query,
 			 struct event *event, const char *source_filename,
-			 unsigned int source_linenum)
+			 unsigned int source_linenum,
+			 const struct failure_context *ctx)
 {
+	i_assert(ctx->type < N_ELEMENTS(event_filter_log_types));
+	if ((query->log_type_mask & event_filter_log_types[ctx->type]) == 0)
+		return FALSE;
+
 	if (query->name != NULL) {
 		if (event->sending_name == NULL ||
-		    strcmp(event->sending_name, query->name) != 0)
+		    !wildcard_match(event->sending_name, query->name))
 			return FALSE;
 	}
 	if (query->source_filename != NULL) {
-		if (source_linenum != query->source_linenum ||
+		if ((source_linenum != query->source_linenum &&
+		     query->source_linenum != 0) ||
 		    source_filename == NULL ||
 		    strcmp(event->source_filename, query->source_filename) != 0)
 			return FALSE;
@@ -440,15 +527,17 @@ event_filter_match_fastpath(struct event_filter *filter, struct event *event)
 	return TRUE;
 }
 
-bool event_filter_match(struct event_filter *filter, struct event *event)
+bool event_filter_match(struct event_filter *filter, struct event *event,
+			const struct failure_context *ctx)
 {
 	return event_filter_match_source(filter, event, event->source_filename,
-					 event->source_linenum);
+					 event->source_linenum, ctx);
 }
 
 bool event_filter_match_source(struct event_filter *filter, struct event *event,
 			       const char *source_filename,
-			       unsigned int source_linenum)
+			       unsigned int source_linenum,
+			       const struct failure_context *ctx)
 {
 	const struct event_filter_query_internal *query;
 
@@ -457,7 +546,7 @@ bool event_filter_match_source(struct event_filter *filter, struct event *event,
 
 	array_foreach(&filter->queries, query) {
 		if (event_filter_query_match(query, event, source_filename,
-					     source_linenum))
+					     source_linenum, ctx))
 			return TRUE;
 	}
 	return FALSE;
@@ -466,17 +555,20 @@ bool event_filter_match_source(struct event_filter *filter, struct event *event,
 struct event_filter_match_iter {
 	struct event_filter *filter;
 	struct event *event;
+	const struct failure_context *failure_ctx;
 	unsigned int idx;
 };
 
 struct event_filter_match_iter *
-event_filter_match_iter_init(struct event_filter *filter, struct event *event)
+event_filter_match_iter_init(struct event_filter *filter, struct event *event,
+			     const struct failure_context *ctx)
 {
 	struct event_filter_match_iter *iter;
 
 	iter = i_new(struct event_filter_match_iter, 1);
 	iter->filter = filter;
 	iter->event = event;
+	iter->failure_ctx = ctx;
 	if (!event_filter_match_fastpath(filter, event))
 		iter->idx = UINT_MAX;
 	return iter;
@@ -496,7 +588,8 @@ void *event_filter_match_iter_next(struct event_filter_match_iter *iter)
 		if (query->context != NULL &&
 		    event_filter_query_match(query, iter->event,
 					     iter->event->source_filename,
-					     iter->event->source_linenum))
+					     iter->event->source_linenum,
+					     iter->failure_ctx))
 			return query->context;
 	}
 	return NULL;

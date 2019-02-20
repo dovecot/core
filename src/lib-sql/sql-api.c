@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "str.h"
+#include "time-util.h"
 #include "sql-api-private.h"
 
 #include <time.h>
@@ -11,6 +12,10 @@
 struct default_sql_prepared_statement {
 	struct sql_prepared_statement prep_stmt;
 	char *query_template;
+};
+
+struct event_category event_category_sql = {
+	.name = "sql",
 };
 
 struct sql_db_module_register sql_db_module_register = { 0 };
@@ -45,7 +50,7 @@ void sql_driver_register(const struct sql_db *driver)
 		i_fatal("sql_driver_register(%s): Already registered",
 			driver->name);
 	}
-	array_append(&sql_drivers, &driver, 1);
+	array_push_back(&sql_drivers, &driver);
 }
 
 void sql_driver_unregister(const struct sql_db *driver)
@@ -64,21 +69,47 @@ void sql_driver_unregister(const struct sql_db *driver)
 
 struct sql_db *sql_init(const char *db_driver, const char *connect_string)
 {
+	const char *error;
+	struct sql_db *db;
+	struct sql_settings set = {
+		.driver = db_driver,
+		.connect_string = connect_string,
+	};
+
+	if (sql_init_full(&set, &db, &error) < 0)
+		i_fatal("%s", error);
+	return db;
+}
+
+int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
+		  const char **error_r)
+{
 	const struct sql_db *driver;
 	struct sql_db *db;
+	int ret = 0;
 
-	i_assert(connect_string != NULL);
+	i_assert(set->connect_string != NULL);
 
-	driver = sql_driver_lookup(db_driver);
-	if (driver == NULL)
-		i_fatal("Unknown database driver '%s'", db_driver);
+	driver = sql_driver_lookup(set->driver);
+	if (driver == NULL) {
+		*error_r = t_strdup_printf("Unknown database driver '%s'", set->driver);
+		return -1;
+	}
 
-	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0)
-		db = driver->v.init(connect_string);
-	else
-		db = driver_sqlpool_init(connect_string, driver);
+	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0) {
+		if (driver->v.init_full == NULL) {
+			db = driver->v.init(set->connect_string);
+		} else
+			ret = driver->v.init_full(set, &db, error_r);
+	} else
+		ret = driver_sqlpool_init_full(set, driver, &db, error_r);
+
+	if (ret < 0)
+		return -1;
+
 	i_array_init(&db->module_contexts, 5);
-	return db;
+	*db_r = db;
+	return 0;
 }
 
 void sql_deinit(struct sql_db **_db)
@@ -691,6 +722,51 @@ void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 	else
 		ctx->tail->next = tquery;
 	ctx->tail = tquery;
+}
+
+void sql_connection_log_finished(struct sql_db *db)
+{
+	struct event_passthrough *e = event_create_passthrough(db->event)->
+		set_name(SQL_CONNECTION_FINISHED);
+	e_debug(e->event(),
+		"Connection finished (queries=%"PRIu64", slow queries=%"PRIu64")",
+		db->succeeded_queries + db->failed_queries,
+		db->slow_queries);
+}
+
+struct event_passthrough *
+sql_query_finished_event(struct sql_db *db, struct event *event, const char *query,
+			 bool success, int *duration_r)
+{
+	int diff;
+	struct timeval tv;
+	event_get_create_time(event, &tv);
+	struct event_passthrough *e = event_create_passthrough(event)->
+			set_name(SQL_QUERY_FINISHED)->
+			add_str("query_first_word", t_strcut(query, ' '));
+	diff = timeval_diff_msecs(&ioloop_timeval, &tv);
+
+	if (!success) {
+		db->failed_queries++;
+	} else {
+		db->succeeded_queries++;
+	}
+
+	if (diff >= SQL_SLOW_QUERY_MSEC) {
+		e->add_str("slow_query", "y");
+		db->slow_queries++;
+	}
+
+	if (duration_r != NULL)
+		*duration_r = diff;
+
+	return e;
+}
+
+struct event_passthrough *sql_transaction_finished_event(struct sql_transaction_context *ctx)
+{
+	return event_create_passthrough(ctx->event)->
+		set_name(SQL_TRANSACTION_FINISHED);
 }
 
 struct sql_result sql_not_connected_result = {

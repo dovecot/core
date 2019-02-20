@@ -441,6 +441,7 @@ static int service_login_create_notify_fd(struct service *service)
 
 void services_monitor_start(struct service_list *service_list)
 {
+	ARRAY(struct service *) listener_services;
 	struct service *const *services;
 
 	if (services_log_init(service_list) < 0)
@@ -454,6 +455,7 @@ void services_monitor_start(struct service_list *service_list)
 			       master_client_connected, service_list);
 	}
 
+	t_array_init(&listener_services, array_count(&service_list->services));
 	array_foreach(&service_list->services, services) {
 		struct service *service = *services;
 
@@ -486,9 +488,13 @@ void services_monitor_start(struct service_list *service_list)
 				io_add(service->status_fd[0], IO_READ,
 				       service_status_input, service);
 		}
-		service_monitor_start_extra_avail(service);
 		service_monitor_listen_start(service);
+		array_push_back(&listener_services, &service);
 	}
+
+	/* create processes only after adding all listeners */
+	array_foreach(&listener_services, services)
+		service_monitor_start_extra_avail(*services);
 
 	if (service_list->log->status_fd[0] != -1) {
 		if (service_process_create(service_list->log) != NULL)
@@ -631,7 +637,7 @@ static void services_monitor_wait_and_kill(struct service_list *service_list)
 	if (service_list_processes_close_listeners(service_list)) {
 		/* SIGQUITs were sent. wait a little bit to make sure they're
 		   also processed before quitting. */
-		usleep(100000);
+		usleep(1000000);
 	}
 }
 
@@ -646,7 +652,6 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 		services_monitor_wait_and_kill(service_list);
 
 	io_remove(&service_list->io_master);
-	i_close_fd(&service_list->master_fd);
 
 	array_foreach(&service_list->services, services)
 		service_monitor_stop(*services);

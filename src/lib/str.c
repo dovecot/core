@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "printf-format-fix.h"
+#include "unichar.h"
 #include "str.h"
 
 #include <stdio.h>
@@ -84,7 +85,7 @@ bool str_equals(const string_t *str1, const string_t *str2)
 	return memcmp(str1->data, str2->data, str1->used) == 0;
 }
 
-void str_append_n(string_t *str, const void *cstr, size_t max_len)
+void str_append_max(string_t *str, const char *cstr, size_t max_len)
 {
 	const char *p;
 	size_t len;
@@ -145,4 +146,13 @@ void str_vprintfa(string_t *str, const char *fmt, va_list args)
 
 	/* drop the unused data, including terminating NUL */
 	buffer_set_used_size(str, pos + ret);
+}
+
+void str_truncate_utf8(string_t *str, size_t len)
+{
+	size_t size = str_len(str);
+
+	if (size <= len)
+		return;
+	str_truncate(str, uni_utf8_data_truncate(str_data(str), size, len));
 }

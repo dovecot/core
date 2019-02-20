@@ -358,7 +358,7 @@ pam_preinit(pool_t pool, const char *args)
 			module->pam_session = TRUE;
 		else if (strcmp(t_args[i], "setcred=yes") == 0)
 			module->pam_setcred = TRUE;
-		else if (strncmp(t_args[i], "cache_key=", 10) == 0) {
+		else if (str_begins(t_args[i], "cache_key=")) {
 			module->module.default_cache_key =
 				auth_cache_parse_key(pool, t_args[i] + 10);
 		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
@@ -368,7 +368,7 @@ pam_preinit(pool_t pool, const char *args)
 		} else if (strcmp(t_args[i], "*") == 0) {
 			/* for backwards compatibility */
 			module->service_name = "%Ls";
-		} else if (strncmp(t_args[i], "max_requests=", 13) == 0) {
+		} else if (str_begins(t_args[i], "max_requests=")) {
 			if (str_to_uint(t_args[i] + 13,
 					&module->requests_left) < 0) {
 				i_error("pam: Invalid requests_left value: %s",

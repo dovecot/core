@@ -69,7 +69,7 @@ int istream_attachment_connector_add(struct istream_attachment_connector *conn,
 			conn->base_input_offset, base_prefix_size);
 		i_stream_set_name(input, t_strdup_printf("%s middle",
 			i_stream_get_name(conn->base_input)));
-		array_append(&conn->streams, &input, 1);
+		array_push_back(&conn->streams, &input);
 		conn->base_input_offset += base_prefix_size;
 		conn->encoded_offset += base_prefix_size;
 	}
@@ -88,7 +88,7 @@ int istream_attachment_connector_add(struct istream_attachment_connector *conn,
 				  base64_have_crlf ? ",crlf" : ""));
 	}
 	input2 = i_stream_create_sized(input, encoded_size);
-	array_append(&conn->streams, &input2, 1);
+	array_push_back(&conn->streams, &input2);
 	i_stream_unref(&input);
 	return 0;
 }
@@ -130,11 +130,11 @@ istream_attachment_connector_finish(struct istream_attachment_connector **_conn)
 						      conn->base_input_offset,
 						      (uoff_t)-1);
 		}
-		array_append(&conn->streams, &input, 1);
+		array_push_back(&conn->streams, &input);
 	}
 	array_append_zero(&conn->streams);
 
-	inputs = array_idx_modifiable(&conn->streams, 0);
+	inputs = array_front_modifiable(&conn->streams);
 	input = i_stream_create_concat(inputs);
 
 	istream_attachment_connector_free(conn);

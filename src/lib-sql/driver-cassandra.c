@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hostpid.h"
 #include "hex-binary.h"
 #include "str.h"
 #include "ioloop.h"
@@ -13,6 +14,7 @@
 #include "sql-api-private.h"
 
 #ifdef BUILD_CASSANDRA
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cassandra.h>
@@ -166,7 +168,7 @@ struct cassandra_sql_arg {
 	unsigned int column_idx;
 
 	char *value_str;
-	unsigned char *value_binary;
+	const unsigned char *value_binary;
 	size_t value_binary_size;
 	int64_t value_int64;
 };
@@ -209,7 +211,7 @@ static struct {
 	{ CASS_CONSISTENCY_ONE, "one" },
 	{ CASS_CONSISTENCY_TWO, "two" },
 	{ CASS_CONSISTENCY_THREE, "three" },
-	{ CASS_CONSISTENCY_QUORUM, "" },
+	{ CASS_CONSISTENCY_QUORUM, "quorum" },
 	{ CASS_CONSISTENCY_ALL, "all" },
 	{ CASS_CONSISTENCY_LOCAL_QUORUM, "local-quorum" },
 	{ CASS_CONSISTENCY_EACH_QUORUM, "each-quorum" },
@@ -230,12 +232,76 @@ static struct {
 	{ CASS_LOG_TRACE, "trace" }
 };
 
+static struct event_category event_category_cassandra = {
+	.parent = &event_category_sql,
+	.name = "cassandra"
+};
+
 static void driver_cassandra_prepare_pending(struct cassandra_db *db);
 static void
 prepare_finish_pending_statements(struct cassandra_sql_prepared_statement *prep_stmt);
 static void driver_cassandra_result_send_query(struct cassandra_result *result);
 static void driver_cassandra_send_queries(struct cassandra_db *db);
 static void result_finish(struct cassandra_result *result);
+
+static void
+driver_cassandra_log_handler(const CassLogMessage* message,
+			     void *data ATTR_UNUSED)
+{
+	enum log_type log_type = LOG_TYPE_ERROR;
+	const char *log_level_str = "";
+
+	switch (message->severity) {
+	case CASS_LOG_DISABLED:
+	case CASS_LOG_LAST_ENTRY:
+		i_unreached();
+	case CASS_LOG_CRITICAL:
+		log_type = LOG_TYPE_PANIC;
+		break;
+	case CASS_LOG_ERROR:
+		log_type = LOG_TYPE_ERROR;
+		break;
+	case CASS_LOG_WARN:
+		log_type = LOG_TYPE_WARNING;
+		break;
+	case CASS_LOG_INFO:
+		log_type = LOG_TYPE_INFO;
+		break;
+	case CASS_LOG_TRACE:
+		log_level_str = "[TRACE] ";
+		/* fall through */
+	case CASS_LOG_DEBUG:
+		log_type = LOG_TYPE_DEBUG;
+		break;
+	}
+
+	/* NOTE: We may not be in the main thread. We can't use the
+	   standard Dovecot functions that may use data stack. That's why
+	   we can't use i_log_type() in here, but have to re-implement the
+	   internal logging protocol. Otherwise preserve Cassandra's own
+	   logging format. */
+	fprintf(stderr, "\001%c%s %u.%03u %s(%s:%d:%s): %s\n",
+		log_type+1, my_pid,
+		(unsigned int)(message->time_ms / 1000),
+		(unsigned int)(message->time_ms % 1000),
+		log_level_str,
+		message->file, message->line, message->function,
+		message->message);
+}
+
+static void driver_cassandra_init_log(void)
+{
+	failure_callback_t *fatal_callback, *error_callback;
+	failure_callback_t *info_callback, *debug_callback;
+
+	i_get_failure_handlers(&fatal_callback, &error_callback,
+			       &info_callback, &debug_callback);
+	if (i_failure_handler_is_internal(debug_callback)) {
+		/* Using internal logging protocol. Use it ourself to set log
+		   levels correctly. */
+		cass_log_set_callback(driver_cassandra_log_handler, NULL);
+	}
+}
 
 static int consistency_parse(const char *str, CassConsistency *consistency_r)
 {
@@ -294,7 +360,7 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	array_clear(&db->pending_prepares);
 
 	while (array_count(&db->results) > 0) {
-		resultp = array_idx(&db->results, 0);
+		resultp = array_front(&db->results);
 		if ((*resultp)->error == NULL)
 			(*resultp)->error = i_strdup(error);
 		result_finish(*resultp);
@@ -306,13 +372,14 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	}
 }
 
-static void driver_cassandra_log_error(CassFuture *future, const char *str)
+static void driver_cassandra_log_error(struct cassandra_db *db,
+				       CassFuture *future, const char *str)
 {
 	const char *message;
 	size_t size;
 
 	cass_future_error_message(future, &message, &size);
-	i_error("cassandra: %s: %.*s", str, (int)size, message);
+	e_error(db->api.event, "%s: %.*s", str, (int)size, message);
 }
 
 static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
@@ -365,11 +432,11 @@ static void driver_cassandra_input(struct cassandra_db *db)
 
 	ret = read(db->fd_pipe[0], ids, sizeof(ids));
 	if (ret < 0)
-		i_error("cassandra: read(pipe) failed: %m");
+		e_error(db->api.event, "read(pipe) failed: %m");
 	else if (ret == 0)
-		i_error("cassandra: read(pipe) failed: EOF");
+		e_error(db->api.event, "read(pipe) failed: EOF");
 	else if (ret % sizeof(ids[0]) != 0)
-		i_error("cassandra: read(pipe) returned wrong amount of data");
+		e_error(db->api.event, "read(pipe) returned wrong amount of data");
 	else {
 		/* success */
 		unsigned int i, count = ret / sizeof(ids[0]);
@@ -394,7 +461,7 @@ driver_cassandra_set_callback(CassFuture *future, struct cassandra_db *db,
 	cb->callback = callback;
 	cb->context = context;
 	cb->db = db;
-	array_append(&db->callbacks, &cb, 1);
+	array_push_back(&db->callbacks, &cb);
 
 	cass_future_set_callback(future, driver_cassandra_future_callback, cb);
 }
@@ -405,7 +472,7 @@ static void connect_callback(CassFuture *future, void *context)
 	CassError rc;
 
 	if ((rc = cass_future_error_code(future)) != CASS_OK) {
-		driver_cassandra_log_error(future,
+		driver_cassandra_log_error(db, future,
 					   "Couldn't connect to Cassandra");
 		driver_cassandra_close(db, "Couldn't connect to Cassandra");
 		return;
@@ -428,7 +495,7 @@ static int driver_cassandra_connect(struct sql_db *_db)
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
 
 	if (pipe(db->fd_pipe) < 0) {
-		i_error("pipe() failed: %m");
+		e_error(_db->event, "pipe() failed: %m");
 		return -1;
 	}
 	db->io_pipe = io_add(db->fd_pipe[0], IO_READ,
@@ -465,8 +532,9 @@ driver_cassandra_escape_string(struct sql_db *db ATTR_UNUSED,
 	return str_c(escaped);
 }
 
-static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
-						  const char *connect_string)
+static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
+						 const char *connect_string,
+						 const char **error_r)
 {
 	const char *const *args, *key, *value, *error;
 	string_t *hosts = t_str_new(64);
@@ -484,8 +552,9 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 	for (; *args != NULL; args++) {
 		value = strchr(*args, '=');
 		if (value == NULL) {
-			i_fatal("cassandra: Missing value in connect string: %s",
-				*args);
+			*error_r = t_strdup_printf("Missing value in connect string: %s",
+						   *args);
+			return -1;
 		}
 		key = t_strdup_until(*args, value++);
 
@@ -494,8 +563,10 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 				str_append_c(hosts, ',');
 			str_append(hosts, value);
 		} else if (strcmp(key, "port") == 0) {
-			if (net_str2port(value, &db->port) < 0)
-				i_fatal("cassandra: Invalid port: %s", value);
+			if (net_str2port(value, &db->port) < 0) {
+				*error_r = t_strdup_printf("Invalid port: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "dbname") == 0 ||
 			   strcmp(key, "keyspace") == 0) {
 			i_free(db->keyspace);
@@ -507,74 +578,111 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 			i_free(db->password);
 			db->password = i_strdup(value);
 		} else if (strcmp(key, "read_consistency") == 0) {
-			if (consistency_parse(value, &db->read_consistency) < 0)
-				i_fatal("cassandra: Unknown read_consistency: %s", value);
+			if (consistency_parse(value, &db->read_consistency) < 0) {
+				*error_r = t_strdup_printf("Unknown read_consistency: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "read_fallback_consistency") == 0) {
-			if (consistency_parse(value, &db->read_fallback_consistency) < 0)
-				i_fatal("cassandra: Unknown read_fallback_consistency: %s", value);
+			if (consistency_parse(value, &db->read_fallback_consistency) < 0) {
+				*error_r = t_strdup_printf("Unknown read_fallback_consistency: %s", value);
+				return -1;
+			}
 			read_fallback_set = TRUE;
 		} else if (strcmp(key, "write_consistency") == 0) {
-			if (consistency_parse(value, &db->write_consistency) < 0)
-				i_fatal("cassandra: Unknown write_consistency: %s", value);
+			if (consistency_parse(value, &db->write_consistency) < 0) {
+				*error_r = t_strdup_printf("Unknown write_consistency: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "write_fallback_consistency") == 0) {
-			if (consistency_parse(value, &db->write_fallback_consistency) < 0)
-				i_fatal("cassandra: Unknown write_fallback_consistency: %s", value);
+			if (consistency_parse(value, &db->write_fallback_consistency) < 0) {
+				*error_r = t_strdup_printf("Unknown write_fallback_consistency: %s", value);
+				return -1;
+			}
 			write_fallback_set = TRUE;
 		} else if (strcmp(key, "delete_consistency") == 0) {
-			if (consistency_parse(value, &db->delete_consistency) < 0)
-				i_fatal("cassandra: Unknown delete_consistency: %s", value);
+			if (consistency_parse(value, &db->delete_consistency) < 0) {
+				*error_r = t_strdup_printf("Unknown delete_consistency: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "delete_fallback_consistency") == 0) {
-			if (consistency_parse(value, &db->delete_fallback_consistency) < 0)
-				i_fatal("cassandra: Unknown delete_fallback_consistency: %s", value);
+			if (consistency_parse(value, &db->delete_fallback_consistency) < 0) {
+				*error_r = t_strdup_printf("Unknown delete_fallback_consistency: %s", value);
+				return -1;
+			}
 			delete_fallback_set = TRUE;
 		} else if (strcmp(key, "log_level") == 0) {
-			if (log_level_parse(value, &db->log_level) < 0)
-				i_fatal("cassandra: Unknown log_level: %s", value);
+			if (log_level_parse(value, &db->log_level) < 0) {
+				*error_r = t_strdup_printf("Unknown log_level: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "debug_queries") == 0) {
 			db->debug_queries = TRUE;
 		} else if (strcmp(key, "latency_aware_routing") == 0) {
 			db->latency_aware_routing = TRUE;
 		} else if (strcmp(key, "version") == 0) {
-			if (str_to_uint(value, &db->protocol_version) < 0)
-				i_fatal("cassandra: Invalid version: %s", value);
+			if (str_to_uint(value, &db->protocol_version) < 0) {
+				*error_r = t_strdup_printf("Invalid version: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "num_threads") == 0) {
-			if (str_to_uint(value, &db->num_threads) < 0)
-				i_fatal("cassandra: Invalid num_threads: %s", value);
+			if (str_to_uint(value, &db->num_threads) < 0) {
+				*error_r = t_strdup_printf("Invalid num_threads: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "heartbeat_interval") == 0) {
-			if (settings_get_time(value, &db->heartbeat_interval_secs, &error) < 0)
-				i_fatal("cassandra: Invalid heartbeat_interval '%s': %s", value, error);
+			if (settings_get_time(value, &db->heartbeat_interval_secs, &error) < 0) {
+				*error_r = t_strdup_printf("Invalid heartbeat_interval '%s': %s", value, error);
+				return -1;
+			}
 		} else if (strcmp(key, "idle_timeout") == 0) {
-			if (settings_get_time(value, &db->idle_timeout_secs, &error) < 0)
-				i_fatal("cassandra: Invalid idle_timeout '%s': %s", value, error);
+			if (settings_get_time(value, &db->idle_timeout_secs, &error) < 0) {
+				*error_r = t_strdup_printf("Invalid idle_timeout '%s': %s", value, error);
+				return -1;
+			}
 		} else if (strcmp(key, "connect_timeout") == 0) {
-			if (settings_get_time_msecs(value, &db->connect_timeout_msecs, &error) < 0)
-				i_fatal("cassandra: Invalid connect_timeout '%s': %s", value, error);
+			if (settings_get_time_msecs(value, &db->connect_timeout_msecs, &error) < 0) {
+				*error_r = t_strdup_printf("Invalid connect_timeout '%s': %s", value, error);
+				return -1;
+			}
 		} else if (strcmp(key, "request_timeout") == 0) {
-			if (settings_get_time_msecs(value, &db->request_timeout_msecs, &error) < 0)
-				i_fatal("cassandra: Invalid request_timeout '%s': %s", value, error);
+			if (settings_get_time_msecs(value, &db->request_timeout_msecs, &error) < 0) {
+				*error_r = t_strdup_printf("Invalid request_timeout '%s': %s", value, error);
+				return -1;
+			}
 		} else if (strcmp(key, "warn_timeout") == 0) {
-			if (settings_get_time_msecs(value, &db->warn_timeout_msecs, &error) < 0)
-				i_fatal("cassandra: Invalid warn_timeout '%s': %s", value, error);
+			if (settings_get_time_msecs(value, &db->warn_timeout_msecs, &error) < 0) {
+				*error_r = t_strdup_printf("Invalid warn_timeout '%s': %s", value, error);
+				return -1;
+			}
 		} else if (strcmp(key, "metrics") == 0) {
 			i_free(db->metrics_path);
 			db->metrics_path = i_strdup(value);
 		} else if (strcmp(key, "execution_retry_interval") == 0) {
-			if (settings_get_time_msecs(value, &db->execution_retry_interval_msecs, &error) < 0)
-				i_fatal("cassandra: Invalid execution_retry_interval '%s': %s", value, error);
+			if (settings_get_time_msecs(value, &db->execution_retry_interval_msecs, &error) < 0) {
+				*error_r = t_strdup_printf("Invalid execution_retry_interval '%s': %s", value, error);
+				return -1;
+			}
 #ifndef HAVE_CASSANDRA_SPECULATIVE_POLICY
-			i_fatal("cassandra: This cassandra version does not support execution_retry_interval");
+			*error_r = t_strdup_printf("This cassandra version does not support execution_retry_interval");
+			return -1;
 #endif
 		} else if (strcmp(key, "execution_retry_times") == 0) {
-			if (str_to_uint(value, &db->execution_retry_times) < 0)
-				i_fatal("cassandra: Invalid execution_retry_times %s", value);
+			if (str_to_uint(value, &db->execution_retry_times) < 0) {
+				*error_r = t_strdup_printf("Invalid execution_retry_times %s", value);
+				return -1;
+			}
 #ifndef HAVE_CASSANDRA_SPECULATIVE_POLICY
-			i_fatal("cassandra: This cassandra version does not support execution_retry_times");
+			*error_r = t_strdup_printf("This cassandra version does not support execution_retry_times");
+			return -1;
 #endif
 		} else if (strcmp(key, "page_size") == 0) {
-			if (str_to_uint(value, &db->page_size) < 0)
-				i_fatal("cassandra: Invalid page_size: %s", value);
+			if (str_to_uint(value, &db->page_size) < 0) {
+				*error_r = t_strdup_printf("Invalid page_size: %s", value);
+				return -1;
+			}
 		} else {
-			i_fatal("cassandra: Unknown connect string: %s", key);
+			*error_r = t_strdup_printf("Unknown connect string: %s", key);
+			return -1;
 		}
 	}
 
@@ -585,11 +693,16 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 	if (!delete_fallback_set)
 		db->delete_fallback_consistency = db->delete_consistency;
 
-	if (str_len(hosts) == 0)
-		i_fatal("cassandra: No hosts given in connect string");
-	if (db->keyspace == NULL)
-		i_fatal("cassandra: No dbname given in connect string");
+	if (str_len(hosts) == 0) {
+		*error_r = t_strdup_printf("No hosts given in connect string");
+		return -1;
+	}
+	if (db->keyspace == NULL) {
+		*error_r = t_strdup_printf("No dbname given in connect string");
+		return -1;
+	}
 	db->hosts = i_strdup(str_c(hosts));
+	return 0;
 }
 
 static void
@@ -652,35 +765,72 @@ static void driver_cassandra_metrics_write(struct cassandra_db *db)
 	int fd;
 
 	if (var_expand(path, db->metrics_path, tab, &error) <= 0) {
-		i_error("cassandra: Failed to expand metrics_path=%s: %s",
+		e_error(db->api.event, "Failed to expand metrics_path=%s: %s",
 			db->metrics_path, error);
 		return;
 	}
 
 	fd = open(str_c(path), O_WRONLY | O_CREAT | O_TRUNC | O_NONBLOCK, 0600);
 	if (fd == -1) {
-		i_error("creat(%s) failed: %m", str_c(path));
+		e_error(db->api.event, "creat(%s) failed: %m", str_c(path));
 		return;
 	}
 	data = t_str_new(1024);
 	driver_cassandra_get_metrics_json(db, data);
 	if (write_full(fd, str_data(data), str_len(data)) < 0)
-		i_error("write(%s) failed: %m", str_c(path));
+		e_error(db->api.event, "write(%s) failed: %m", str_c(path));
 	i_close_fd(&fd);
 }
 
-static struct sql_db *driver_cassandra_init_v(const char *connect_string)
+static void driver_cassandra_free(struct cassandra_db **_db)
+{
+	struct cassandra_db *db = *_db;
+	*_db = NULL;
+
+	event_unref(&db->api.event);
+	i_free(db->metrics_path);
+	i_free(db->hosts);
+	i_free(db->error);
+	i_free(db->keyspace);
+	i_free(db->user);
+	i_free(db->password);
+	array_free(&db->api.module_contexts);
+	i_free(db);
+}
+
+static int driver_cassandra_init_full_v(const struct sql_settings *set,
+					struct sql_db **db_r, const char **error_r)
 {
 	struct cassandra_db *db;
+	char *error = NULL;
+	int ret;
 
 	db = i_new(struct cassandra_db, 1);
 	db->api = driver_cassandra_db;
 	db->fd_pipe[0] = db->fd_pipe[1] = -1;
+	db->api.event = event_create(set->event_parent);
+	event_add_category(db->api.event, &event_category_cassandra);
+	event_set_append_log_prefix(db->api.event, "cassandra: ");
 
 	T_BEGIN {
-		driver_cassandra_parse_connect_string(db, connect_string);
+		const char *tmp;
+		if ((ret = driver_cassandra_parse_connect_string(db, set->connect_string,
+								 &tmp)) < 0) {
+			error = i_strdup(tmp);
+		}
 	} T_END;
+
+	if (ret < 0) {
+		*error_r = t_strdup(error);
+		i_free(error);
+		driver_cassandra_free(&db);
+		return -1;
+	}
+
+	driver_cassandra_init_log();
 	cass_log_set_level(db->log_level);
+	if (db->log_level >= CASS_LOG_DEBUG)
+		event_set_forced_debug(db->api.event, TRUE);
 
 	if (db->protocol_version > 0 && db->protocol_version < 4) {
 		/* binding with column indexes requires v4 */
@@ -719,7 +869,8 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	i_array_init(&db->results, 16);
 	i_array_init(&db->callbacks, 16);
 	i_array_init(&db->pending_prepares, 16);
-	return &db->api;
+	*db_r = &db->api;
+	return 0;
 }
 
 static void driver_cassandra_deinit_v(struct sql_db *_db)
@@ -739,14 +890,8 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 	cass_cluster_free(db->cluster);
 	cass_timestamp_gen_free(db->timestamp_gen);
 	timeout_remove(&db->to_metrics);
-	i_free(db->metrics_path);
-	i_free(db->hosts);
-	i_free(db->error);
-	i_free(db->keyspace);
-	i_free(db->user);
-	i_free(db->password);
-	array_free(&_db->module_contexts);
-	i_free(db);
+	sql_connection_log_finished(_db);
+	driver_cassandra_free(&db);
 }
 
 static void driver_cassandra_result_unlink(struct cassandra_db *db,
@@ -772,15 +917,11 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 	struct timeval now;
 	unsigned int row_count;
 
-	if (db->log_level < CASS_LOG_DEBUG && !db->debug_queries &&
-	    reply_usecs/1000 < db->warn_timeout_msecs)
-		return;
-
 	if (gettimeofday(&now, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+		i_fatal("cassandra: gettimeofday() failed: %m");
 
 	string_t *str = t_str_new(128);
-	str_printfa(str, "cassandra: Finished %squery '%s' (",
+	str_printfa(str, "Finished %squery '%s' (",
 		    result->is_prepared ? "prepared " : "", result->query);
 	if (result->timestamp != 0)
 		str_printfa(str, "timestamp=%"PRId64", ", result->timestamp);
@@ -796,11 +937,21 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 		    timeval_diff_usecs(&now, &result->finish_time),
 		    result->error != NULL ? result->error : "success");
 
+	struct event_passthrough *e =
+		sql_query_finished_event(&db->api, result->api.event,
+					 result->query, result->error == NULL,
+					 NULL);
+	if (result->error != NULL)
+		e->add_str("error", result->error);
+
+	struct event *event = e->event();
+	if (db->debug_queries)
+		event_set_forced_debug(event, TRUE);
 	if (reply_usecs/1000 >= db->warn_timeout_msecs) {
 		db->counters[CASSANDRA_COUNTER_TYPE_QUERY_SLOW]++;
-		i_warning("%s", str_c(str));
+		e_warning(event, "%s", str_c(str));
 	} else {
-		i_debug("%s", str_c(str));
+		e_debug(event, "%s", str_c(str));
 	}
 }
 
@@ -834,6 +985,7 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 	if (result->statement != NULL)
 		cass_statement_free(result->statement);
 	pool_unref(&result->row_pool);
+	event_unref(&result->api.event);
 	i_free(result->query);
 	i_free(result->error);
 	i_free(result);
@@ -873,7 +1025,7 @@ static void query_resend_with_fallback(struct cassandra_result *result)
 		ioloop_time - db->last_fallback_warning[result->query_type];
 
 	if (last_warning >= CASSANDRA_FALLBACK_WARN_INTERVAL_SECS) {
-		i_warning("%s - retrying future %s queries with consistency %s (instead of %s)",
+		e_warning(db->api.event, "%s - retrying future %s queries with consistency %s (instead of %s)",
 			  result->error, cassandra_query_type_names[result->query_type],
 			  cass_consistency_string(result->fallback_consistency),
 			  cass_consistency_string(result->consistency));
@@ -910,6 +1062,45 @@ static void counters_inc_error(struct cassandra_db *db, CassError error)
 	}
 }
 
+static bool query_error_want_fallback(CassError error)
+{
+	switch (error) {
+	case CASS_ERROR_LIB_WRITE_ERROR:
+	case CASS_ERROR_LIB_REQUEST_TIMED_OUT:
+		/* Communication problems on client side. Maybe it will work
+		   with fallback consistency? */
+		return TRUE;
+	case CASS_ERROR_LIB_NO_HOSTS_AVAILABLE:
+		/* The client library couldn't connect to enough Cassandra
+		   nodes. The error message text is the same as for
+		   CASS_ERROR_SERVER_UNAVAILABLE. */
+		return TRUE;
+	case CASS_ERROR_SERVER_SERVER_ERROR:
+	case CASS_ERROR_SERVER_OVERLOADED:
+	case CASS_ERROR_SERVER_IS_BOOTSTRAPPING:
+	case CASS_ERROR_SERVER_READ_TIMEOUT:
+	case CASS_ERROR_SERVER_READ_FAILURE:
+	case CASS_ERROR_SERVER_WRITE_FAILURE:
+		/* Servers are having trouble. Maybe with fallback consistency
+		   we can reach non-troubled servers? */
+		return TRUE;
+	case CASS_ERROR_SERVER_UNAVAILABLE:
+		/* Cassandra server knows that there aren't enough nodes
+		   available. "All hosts in current policy attempted and were
+		   either unavailable or failed". */
+		return TRUE;
+	case CASS_ERROR_SERVER_WRITE_TIMEOUT:
+		/* Cassandra server couldn't reach all the needed nodes.
+		   This may be because it hasn't yet detected that the servers
+		   are down, or because the servers are just too busy. We'll
+		   try the fallback consistency to avoid unnecessary temporary
+		   errors. */
+		return TRUE;
+	default:
+		return FALSE;
+	}
+}
+
 static void query_callback(CassFuture *future, void *context)
 {
 	struct cassandra_result *result = context;
@@ -938,22 +1129,7 @@ static void query_callback(CassFuture *future, void *context)
 			result->query, (int)errsize, errmsg, msecs/1000, msecs%1000,
 			result->page_num == 0 ? "" : t_strdup_printf(", page %u", result->page_num));
 
-		/* unavailable = cassandra server knows that there aren't
-		   enough nodes available. "All hosts in current policy
-		   attempted and were either unavailable or failed"
-
-		   no hosts available = The client library couldn't connect to
-		   enough cassanra nodes. Error message is the same as for
-		   "unavailable".
-
-		   write timeout = cassandra server couldn't reach all the
-		   needed nodes. this may be because it hasn't yet detected
-		   that the servers are down, or because the servers are just
-		   too busy. we'll try the fallback consistency to avoid
-		   unnecessary temporary errors. */
-		if ((error == CASS_ERROR_SERVER_UNAVAILABLE ||
-		     error == CASS_ERROR_LIB_NO_HOSTS_AVAILABLE ||
-		     error == CASS_ERROR_SERVER_WRITE_TIMEOUT) &&
+		if (query_error_want_fallback(error) &&
 		    result->fallback_consistency != result->consistency) {
 			/* retry with fallback consistency */
 			query_resend_with_fallback(result);
@@ -1123,7 +1299,8 @@ driver_cassandra_query_init(struct cassandra_db *db, const char *query,
 	result->query_type = query_type;
 	result->query = i_strdup(query);
 	result->is_prepared = is_prepared;
-	array_append(&db->results, &result, 1);
+	result->api.event = event_create(db->api.event);
+	array_push_back(&db->results, &result);
 	return result;
 }
 
@@ -1344,8 +1521,8 @@ static int driver_cassandra_result_next_row(struct sql_result *_result)
 			ret = -1;
 			break;
 		}
-		array_append(&result->fields, &str, 1);
-		array_append(&result->field_sizes, &size, 1);
+		array_push_back(&result->fields, &str);
+		array_push_back(&result->field_sizes, &size);
 	}
 	return ret;
 }
@@ -1460,7 +1637,7 @@ driver_cassandra_result_get_values(struct sql_result *_result)
 {
 	struct cassandra_result *result = (struct cassandra_result *)_result;
 
-	return array_idx(&result->fields, 0);
+	return array_front(&result->fields);
 }
 
 static const char *driver_cassandra_result_get_error(struct sql_result *_result)
@@ -1479,6 +1656,7 @@ driver_cassandra_transaction_begin(struct sql_db *db)
 
 	ctx = i_new(struct cassandra_transaction_context, 1);
 	ctx->ctx.db = db;
+	ctx->ctx.event = event_create(db->event);
 	ctx->refcount = 1;
 	return &ctx->ctx;
 }
@@ -1493,6 +1671,7 @@ driver_cassandra_transaction_unref(struct cassandra_transaction_context **_ctx)
 	if (--ctx->refcount > 0)
 		return;
 
+	event_unref(&ctx->ctx.event);
 	i_free(ctx->query);
 	i_free(ctx->error);
 	i_free(ctx);
@@ -1521,6 +1700,12 @@ transaction_commit_callback(struct sql_result *result, void *context)
 	if (sql_result_next_row(result) < 0) {
 		commit_result.error = sql_result_get_error(result);
 		commit_result.error_type = sql_result_get_error_type(result);
+		e_debug(sql_transaction_finished_event(&ctx->ctx)->
+			add_str("error", commit_result.error)->event(),
+			"Transaction failed");
+	} else {
+		e_debug(sql_transaction_finished_event(&ctx->ctx)->event(),
+			"Transaction committed");
 	}
 	ctx->callback(&commit_result, ctx->context);
 	driver_cassandra_transaction_unref(&ctx);
@@ -1544,6 +1729,9 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 		if (ctx->failed)
 			result.error = ctx->error;
 
+		e_debug(sql_transaction_finished_event(_ctx)->
+			add_str("error", "Rolled back")->event(),
+			"Transaction rolled back");
 		callback(&result, context);
 		driver_cassandra_transaction_unref(&ctx);
 		return;
@@ -1716,7 +1904,7 @@ static void prepare_finish_arg(struct cassandra_sql_statement *stmt,
 					       arg->value_int64);
 	}
 	if (rc != CASS_OK) {
-		i_error("cassandra: Statement '%s': Failed to bind column %u: %s",
+		e_error(stmt->stmt.db->event, "Statement '%s': Failed to bind column %u: %s",
 			stmt->stmt.query_template, arg->column_idx,
 			cass_error_desc(rc));
 	}
@@ -1789,7 +1977,7 @@ static void prepare_start(struct cassandra_sql_prepared_statement *prep_stmt)
 	if (!SQL_DB_IS_READY(&db->api)) {
 		if (!prep_stmt->pending) {
 			prep_stmt->pending = TRUE;
-			array_append(&db->pending_prepares, &prep_stmt, 1);
+			array_push_back(&db->pending_prepares, &prep_stmt);
 
 			if (sql_connect(&db->api) < 0)
 				i_unreached();
@@ -1877,7 +2065,7 @@ driver_cassandra_statement_init_prepared(struct sql_prepared_statement *_prep_st
 		if (prep_stmt->error != NULL)
 			prepare_start(prep_stmt);
 		/* need to wait until prepare is finished */
-		array_append(&prep_stmt->pending_statements, &stmt, 1);
+		array_push_back(&prep_stmt->pending_statements, &stmt);
 	}
 	return &stmt->stmt;
 }
@@ -1952,7 +2140,8 @@ driver_cassandra_statement_bind_binary(struct sql_statement *_stmt,
 	} else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
 			driver_cassandra_add_pending_arg(stmt, column_idx);
-		arg->value_binary = p_memdup(_stmt->pool, value, value_size);
+		arg->value_binary = value_size == 0 ? &uchar_nul :
+			p_memdup(_stmt->pool, value, value_size);
 		arg->value_binary_size = value_size;
 	}
 }
@@ -2041,7 +2230,7 @@ const struct sql_db driver_cassandra_db = {
 	.flags = SQL_DB_FLAG_PREP_STATEMENTS,
 
 	.v = {
-		.init = driver_cassandra_init_v,
+		.init_full = driver_cassandra_init_full_v,
 		.deinit = driver_cassandra_deinit_v,
 		.connect = driver_cassandra_connect,
 		.disconnect = driver_cassandra_disconnect,

@@ -135,12 +135,12 @@ static void push_notification_event_flagsclear_keywords_event(
 
         if (*kp == NULL) {
             ok = p_strdup(ptxn->pool, *old_keywords);
-            array_append(&data->keywords_clear, &ok, 1);
+            array_push_back(&data->keywords_clear, &ok);
         }
 
         if (config->store_old == TRUE) {
             ok = p_strdup(ptxn->pool, *old_keywords);
-            array_append(&data->keywords_old, &ok, 1);
+            array_push_back(&data->keywords_old, &ok);
         }
     }
 }

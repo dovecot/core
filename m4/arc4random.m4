@@ -1,13 +1,3 @@
-AC_ARG_WITH(
-  [libbsd],
-  AS_HELP_STRING(
-    [--with-libbsd],
-    [Use libbsd (default is no)]
-  ),
-  [want_libbsd=yes],
-  [want_libbsd=no]
-)
-
 AC_DEFUN([DOVECOT_ARC4RANDOM], [
   AC_ARG_WITH([libbsd], AS_HELP_STRING(
      [--with-libbsd],

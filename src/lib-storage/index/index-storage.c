@@ -161,7 +161,7 @@ index_mailbox_alloc_index(struct mailbox *box, struct mail_index **index_r)
 	    mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
 				&index_dir) <= 0)
 		index_dir = NULL;
-	*index_r = mail_index_alloc_cache_get(box->storage->user->event,
+	*index_r = mail_index_alloc_cache_get(box->storage->event,
 					      mailbox_path, index_dir,
 					      box->index_prefix);
 	return 0;
@@ -332,6 +332,12 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 			return -1;
 		}
 	}
+	if ((box->flags & MAILBOX_FLAG_FSCK) != 0) {
+		if (mail_index_fsck(box->index) < 0) {
+			mailbox_set_index_error(box);
+			return -1;
+		}
+	}
 
 	box->cache = mail_index_get_cache(box->index);
 	index_cache_register_defaults(box);
@@ -379,7 +385,7 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 			     mailbox_list_get_storage_name(box->list, vname));
 	box->flags = flags;
 	box->index_prefix = p_strdup(box->pool, index_prefix);
-	box->event = event_create(box->storage->user->event);
+	box->event = event_create(box->storage->event);
 	event_add_category(box->event, &event_category_mailbox);
 	event_add_str(box->event, "name", box->vname);
 	event_set_append_log_prefix(box->event,
@@ -395,7 +401,7 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 		mail_storage_settings_to_index_flags(box->storage->set);
 	if ((box->flags & MAILBOX_FLAG_SAVEONLY) != 0)
 		ibox->index_flags |= MAIL_INDEX_OPEN_FLAG_SAVEONLY;
-	if (box->storage->user->mail_debug)
+	if (event_want_debug(box->event))
 		ibox->index_flags |= MAIL_INDEX_OPEN_FLAG_DEBUG;
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	MODULE_CONTEXT_SET(box, index_storage_module, ibox);
@@ -478,7 +484,7 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 		}
 		if (j != old_count) {
 			field = old_fields[j];
-		} else if (strncmp(updates[i].name, "hdr.", 4) == 0) {
+		} else if (str_begins(updates[i].name, "hdr.")) {
 			/* new header */
 			i_zero(&field);
 			field.name = updates[i].name;
@@ -491,11 +497,11 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 		field.decision = updates[i].decision;
 		if (updates[i].last_used != (time_t)-1)
 			field.last_used = updates[i].last_used;
-		array_append(&new_fields, &field, 1);
+		array_push_back(&new_fields, &field);
 	}
 	if (array_count(&new_fields) > 0) {
 		mail_cache_register_fields(box->cache,
-					   array_idx_modifiable(&new_fields, 0),
+					   array_front_modifiable(&new_fields),
 					   array_count(&new_fields));
 	}
 }
@@ -715,8 +721,7 @@ mailbox_delete_all_attributes(struct mailbox_transaction_context *t,
 	iter = mailbox_attribute_iter_init(t->box, type, "");
 	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
 		if (inbox &&
-		    strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
-			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
+		    str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER))
 			continue;
 
 		if (mailbox_attribute_unset(t, type, key) < 0) {
@@ -1079,7 +1084,7 @@ int index_storage_set_subscribed(struct mailbox *box, bool set)
 		   subscription name */
 		subs_name = t_strconcat(list->ns->prefix, box->name, NULL);
 		/* drop the common prefix (typically there isn't one) */
-		i_assert(strncmp(ns->prefix, subs_name, strlen(ns->prefix)) == 0);
+		i_assert(str_begins(subs_name, ns->prefix));
 		subs_name += strlen(ns->prefix);
 
 		list = ns->list;

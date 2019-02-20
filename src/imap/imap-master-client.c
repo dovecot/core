@@ -258,13 +258,15 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		master_input.state_import_bad_idle_done;
 	imap_client->state_import_idle_continue =
 		master_input.state_import_idle_continue;
-	if (imap_client->user->mail_debug) {
-		if (imap_client->state_import_bad_idle_done)
-			i_debug("imap-master: Unhibernated because IDLE was stopped with BAD command");
-		else if (imap_client->state_import_idle_continue)
-			i_debug("imap-master: Unhibernated to send mailbox changes");
-		else
-			i_debug("imap-master: Unhibernated because IDLE was stopped with DONE");
+	if (imap_client->state_import_bad_idle_done) {
+		e_debug(imap_client->event,
+			"imap-master: Unhibernated because IDLE was stopped with BAD command");
+	} else if (imap_client->state_import_idle_continue) {
+		e_debug(imap_client->event,
+			"imap-master: Unhibernated to send mailbox changes");
+	} else {
+		e_debug(imap_client->event,
+			"imap-master: Unhibernated because IDLE was stopped with DONE");
 	}
 
 	ret = imap_state_import_internal(imap_client, master_input.state->data,
@@ -281,10 +283,9 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	/* make sure all pending input gets handled */
 	i_assert(imap_client->to_delayed_input == NULL);
 	if (master_input.client_input->used > 0) {
-		if (imap_client->user->mail_debug) {
-			i_debug("imap-master: Pending client input: '%s'",
-				str_sanitize(str_c(master_input.client_input), 128));
-		}
+		e_debug(imap_client->event,
+			"imap-master: Pending client input: '%s'",
+			str_sanitize(str_c(master_input.client_input), 128));
 		imap_client->to_delayed_input =
 			timeout_add(0, client_input, imap_client);
 	}
@@ -302,7 +303,7 @@ imap_master_client_input_line(struct connection *conn, const char *line)
 	int fd_client, ret;
 
 	if (!conn->version_received) {
-		if (connection_verify_version(conn, t_strsplit_tabescaped(line)) < 0)
+		if (connection_handshake_args_default(conn, t_strsplit_tabescaped(line)) < 0)
 			return -1;
 		conn->version_received = TRUE;
 		return 1;

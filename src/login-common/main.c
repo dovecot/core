@@ -34,6 +34,11 @@ struct login_access_lookup {
 	struct access_lookup *access;
 };
 
+struct event *event_auth;
+static struct event_category event_category_auth = {
+	.name = "auth",
+};
+
 const struct login_binary *login_binary;
 struct auth_client *auth_client;
 struct master_auth *master_auth;
@@ -338,7 +343,7 @@ parse_login_source_ips(const char *ips_str, unsigned int *count_r)
 		for (i = 0; i < tmp_ips_count; i++) {
 			if (skip_nonworking && net_try_bind(&tmp_ips[i]) < 0)
 				continue;
-			array_append(&ips, &tmp_ips[i], 1);
+			array_push_back(&ips, &tmp_ips[i]);
 		}
 	}
 	return array_get(&ips, count_r);
@@ -451,6 +456,10 @@ static void main_init(const char *login_socket)
 	/* make sure we can't fork() */
 	restrict_process_count(1);
 
+	event_auth = event_create(NULL);
+	event_set_forced_debug(event_auth, global_login_settings->auth_debug);
+	event_add_category(event_auth, &event_category_auth);
+
 	i_array_init(&global_alt_usernames, 4);
 	master_service_set_avail_overflow_callback(master_service,
 						   client_destroy_oldest);
@@ -458,6 +467,7 @@ static void main_init(const char *login_socket)
 
 	auth_client = auth_client_init(login_socket, (unsigned int)getpid(),
 				       FALSE);
+	auth_client_connect(auth_client);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	master_auth = master_auth_init(master_service, post_login_socket);
 
@@ -488,6 +498,7 @@ static void main_deinit(void)
 	client_common_deinit();
 	dsasl_clients_deinit();
 	login_settings_deinit();
+	event_unref(&event_auth);
 }
 
 int login_binary_run(const struct login_binary *binary,

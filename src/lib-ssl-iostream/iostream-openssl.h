@@ -22,7 +22,6 @@ struct ssl_iostream_context {
 	pool_t pool;
 	struct ssl_iostream_settings set;
 
-	DH *dh_512, *dh_default;
 	int username_nid;
 
 	bool client_ctx:1;
@@ -66,6 +65,7 @@ struct ssl_iostream {
 	bool want_read:1;
 	bool ostream_flush_waiting_input:1;
 	bool closed:1;
+	bool destroyed:1;
 };
 
 extern int dovecot_ssl_extdata_index;
@@ -114,6 +114,9 @@ int openssl_iostream_more(struct ssl_iostream *ssl_io,
 int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 				  enum openssl_iostream_sync_type type,
 				  const char *func_name);
+
+/* Perform clean shutdown for the connection. */
+void openssl_iostream_shutdown(struct ssl_iostream *ssl_io);
 
 void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str);
 const char *openssl_iostream_error(void);

@@ -120,10 +120,10 @@ xml_encode_data_max(string_t *dest, const unsigned char *data, size_t len,
 				unsigned int char_len =
 					uni_utf8_get_char_n(data + i, len - i, &chr);
 				if (char_len > 0 && is_valid_xml_char(chr))
-					str_append_n(dest, data + i, char_len);
+					str_append_data(dest, data + i, char_len);
 				else {
-					str_append_n(dest, utf8_replacement_char,
-						     UTF8_REPLACEMENT_CHAR_LEN);
+					str_append_data(dest, utf8_replacement_char,
+							UTF8_REPLACEMENT_CHAR_LEN);
 				}
 				i += char_len - 1;
 			} else {
@@ -165,7 +165,7 @@ static void solr_quote_http(string_t *dest, const char *str)
 	if (str[0] != '\0')
 		http_url_escape_param(dest, solr_escape(str));
 	else
-		str_append(dest, "\"\"");
+		str_append(dest, "%22%22");
 }
 
 static struct fts_backend *fts_backend_solr_alloc(void)
@@ -334,7 +334,7 @@ fts_solr_field_get(struct solr_fts_backend_update_context *ctx, const char *key)
 	i_zero(&new_field);
 	new_field.key = str_lcase(i_strdup(key));
 	new_field.value = str_new(default_pool, 128);
-	array_append(&ctx->fields, &new_field, 1);
+	array_push_back(&ctx->fields, &new_field);
 	return new_field.value;
 }
 
@@ -928,7 +928,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 		fts_result->scores_sorted = TRUE;
 	}
 	array_append_zero(&fts_results);
-	result->box_results = array_idx_modifiable(&fts_results, 0);
+	result->box_results = array_front_modifiable(&fts_results);
 	hash_table_destroy(&mailboxes);
 	return 0;
 }

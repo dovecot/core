@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "ostream.h"
 #include "fs-api.h"
 #include "safe-mkdir.h"
 #include "safe-mkstemp.h"
@@ -92,6 +93,34 @@ static void test_fs_posix(void)
 	test_assert(fs_stat(file, &st) == 0);
 	test_assert(st.st_size == 1);
 	test_assert(fs_delete(file) == 0);
+	fs_file_deinit(&file);
+	test_end();
+
+	test_begin("test-fs-posix file write fname rename");
+	file = fs_file_init(fs, "subdir/badfname", FS_OPEN_MODE_REPLACE);
+	struct ostream *output = fs_write_stream(file);
+	o_stream_nsend_str(output, "hello");
+	fs_set_metadata(file, FS_METADATA_WRITE_FNAME, "subdir/rename1");
+	test_assert(fs_write_stream_finish(file, &output) == 1);
+	test_assert(strcmp(fs_file_path(file), "subdir/rename1") == 0);
+	fs_file_deinit(&file);
+	file = fs_file_init(fs, "subdir/rename1", FS_OPEN_MODE_READONLY);
+	test_assert(fs_stat(file, &st) == 0);
+	test_assert(st.st_size == 5);
+	fs_file_deinit(&file);
+	test_end();
+
+	test_begin("test-fs-posix file copy fname rename");
+	struct fs_file *src = fs_file_init(fs, "subdir/rename1", FS_OPEN_MODE_READONLY);
+	struct fs_file *dest = fs_file_init(fs, "subdir/badfname", FS_OPEN_MODE_REPLACE);
+	fs_set_metadata(dest, FS_METADATA_WRITE_FNAME, "subdir/rename2");
+	test_assert(fs_copy(src, dest) == 0);
+	test_assert(strcmp(fs_file_path(dest), "subdir/rename2") == 0);
+	fs_file_deinit(&src);
+	fs_file_deinit(&dest);
+	file = fs_file_init(fs, "subdir/rename2", FS_OPEN_MODE_READONLY);
+	test_assert(fs_stat(file, &st) == 0);
+	test_assert(st.st_size == 5);
 	fs_file_deinit(&file);
 	test_end();
 

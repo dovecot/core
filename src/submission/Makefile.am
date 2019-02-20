@@ -33,25 +33,23 @@ submission_DEPENDENCIES = \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
-cmds = \
-	cmd-helo.c \
-	cmd-mail.c \
-	cmd-rcpt.c \
-	cmd-data.c \
-	cmd-rset.c \
-	cmd-noop.c \
-	cmd-quit.c \
-	cmd-vrfy.c
-
 submission_SOURCES = \
-	$(cmds) \
 	main.c \
+	submission-backend.c \
+	submission-backend-relay.c \
+	submission-recipient.c \
 	submission-client.c \
 	submission-commands.c \
 	submission-settings.c
 
-noinst_HEADERS = \
+headers = \
 	submission-common.h \
+	submission-backend.h \
+	submission-backend-relay.h \
 	submission-commands.h \
+	submission-recipient.h \
 	submission-client.h \
 	submission-settings.h
+
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)

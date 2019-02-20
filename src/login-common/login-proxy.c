@@ -414,6 +414,7 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 	io_remove(&proxy->client_wait_io);
 	i_stream_destroy(&proxy->client_input);
 	o_stream_destroy(&proxy->client_output);
+	client_unref(&proxy->client);
 	i_free(proxy->host);
 	i_free(proxy);
 }
@@ -517,6 +518,8 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 		if (proxy->callback != NULL)
 			proxy->callback(proxy->client);
 	}
+	client->login_proxy = NULL;
+
 	if (delay_ms == 0)
 		login_proxy_free_final(proxy);
 	else {
@@ -524,9 +527,6 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 		proxy->client_wait_io = io_add_istream(proxy->client_input,
 			proxy_client_disconnected_input, proxy);
 	}
-
-	client->login_proxy = NULL;
-	client_unref(&client);
 }
 
 static void ATTR_NULL(2)
@@ -773,6 +773,8 @@ want_kick_alt_username(struct client *client, const char *const *args,
 		if (client->alt_usernames[i] == NULL)
 			return FALSE;
 	}
+	if (client->alt_usernames[i] == NULL)
+		return FALSE;
 	return str_array_find(args, client->alt_usernames[i]);
 }
 
@@ -801,7 +803,7 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 		next = proxy->next;
 
 		if (want_kick(proxy->client, args, key_idx)) {
-			client_destroy(proxy->client, "Connection kicked");
+			client_destroy(proxy->client, KILLED_BY_ADMIN_REASON);
 			count++;
 		}
 	}
@@ -893,7 +895,7 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 		if (director_username_hash(proxy->client, &proxy_hash) &&
 		    proxy_hash == hash &&
 		    !net_ip_compare(&proxy->ip, &except_ip)) {
-			client_destroy(proxy->client, "Connection kicked");
+			client_destroy(proxy->client, KILLED_BY_DIRECTOR_REASON);
 			count++;
 		}
 	}

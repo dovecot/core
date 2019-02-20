@@ -692,8 +692,8 @@ mail_index_strmap_view_sync_block(struct mail_index_strmap_read_context *ctx)
 		ctx->view->last_added_uid = ctx->rec.uid;
 
 		/* add the record to records array */
-		array_append(&ctx->view->recs, &ctx->rec, 1);
-		array_append(&ctx->view->recs_crc32, &crc32, 1);
+		array_push_back(&ctx->view->recs, &ctx->rec);
+		array_push_back(&ctx->view->recs_crc32, &crc32);
 
 		/* add a separate copy of the record to hash */
 		hash_rec = hash2_insert_hash(ctx->view->hash, crc32);
@@ -780,8 +780,8 @@ void mail_index_strmap_view_sync_add(struct mail_index_strmap_view_sync *sync,
 	rec->uid = uid;
 	rec->ref_index = ref_index;
 	rec->str_idx = str_idx;
-	array_append(&view->recs, rec, 1);
-	array_append(&view->recs_crc32, &hash_key.crc32, 1);
+	array_push_back(&view->recs, rec);
+	array_push_back(&view->recs_crc32, &hash_key.crc32);
 
 	view->last_added_uid = uid;
 	view->last_ref_index = ref_index;
@@ -801,7 +801,7 @@ void mail_index_strmap_view_sync_add_unique(struct mail_index_strmap_view_sync *
 	rec.uid = uid;
 	rec.ref_index = ref_index;
 	rec.str_idx = view->next_str_idx++;
-	array_append(&view->recs, &rec, 1);
+	array_push_back(&view->recs, &rec);
 	array_append_zero(&view->recs_crc32);
 
 	view->last_added_uid = uid;
@@ -813,7 +813,7 @@ mail_index_strmap_zero_terminate(struct mail_index_strmap_view *view)
 {
 	/* zero-terminate the records array */
 	array_append_zero(&view->recs);
-	array_delete(&view->recs, array_count(&view->recs)-1, 1);
+	array_pop_back(&view->recs);
 }
 
 static void mail_index_strmap_view_renumber(struct mail_index_strmap_view *view)
@@ -1239,7 +1239,7 @@ void mail_index_strmap_view_sync_commit(struct mail_index_strmap_view_sync **_sy
 
 	/* zero-terminate the records array */
 	array_append_zero(&view->recs);
-	array_delete(&view->recs, array_count(&view->recs)-1, 1);
+	array_pop_back(&view->recs);
 }
 
 void mail_index_strmap_view_sync_rollback(struct mail_index_strmap_view_sync **_sync)

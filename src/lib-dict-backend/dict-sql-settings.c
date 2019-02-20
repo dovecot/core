@@ -113,8 +113,8 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 
 		/* mark this field as used */
 		fields[i].variable = NULL;
-		array_append(&ctx->cur_map.sql_fields,
-			     &fields[i].sql_field, 1);
+		array_push_back(&ctx->cur_map.sql_fields,
+				&fields[i].sql_field);
 	}
 
 	/* make sure there aren't any unused fields */
@@ -192,7 +192,7 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 		if (strchr(ctx->cur_map.pattern, '$') != NULL)
 			return "Missing fields for pattern variables";
 	}
-	array_append(&ctx->set->maps, &ctx->cur_map, 1);
+	array_push_back(&ctx->set->maps, &ctx->cur_map);
 	i_zero(&ctx->cur_map);
 	return NULL;
 }
@@ -223,17 +223,17 @@ parse_setting(const char *key, const char *value,
 		field = array_append_space(&ctx->cur_fields);
 		field->sql_field.name = p_strdup(ctx->pool, key);
 		value_len = strlen(value);
-		if (strncmp(value, "${hexblob:", 10) == 0 &&
+		if (str_begins(value, "${hexblob:") &&
 		    value[value_len-1] == '}') {
 			field->variable = p_strndup(ctx->pool, value + 10,
 						    value_len-10-1);
 			field->sql_field.value_type = DICT_SQL_TYPE_HEXBLOB;
-		} else if (strncmp(value, "${int:", 6) == 0 &&
+		} else if (str_begins(value, "${int:") &&
 			   value[value_len-1] == '}') {
 			field->variable = p_strndup(ctx->pool, value + 6,
 						    value_len-6-1);
 			field->sql_field.value_type = DICT_SQL_TYPE_INT;
-		} else if (strncmp(value, "${uint:", 7) == 0 &&
+		} else if (str_begins(value, "${uint:") &&
 			   value[value_len-1] == '}') {
 			field->variable = p_strndup(ctx->pool, value + 7,
 						    value_len-7-1);

@@ -88,6 +88,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	      const struct dict_settings *set,
 	      struct dict **dict_r, const char **error_r)
 {
+	struct sql_settings sql_set;
 	struct sql_dict *dict;
 	pool_t pool;
 
@@ -101,12 +102,17 @@ sql_dict_init(struct dict *driver, const char *uri,
 		pool_unref(&pool);
 		return -1;
 	}
-
+	i_zero(&sql_set);
+	sql_set.driver = driver->name;
+	sql_set.connect_string = dict->set->connect;
 	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
 	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
 
-	dict->db = sql_db_cache_new(dict_sql_db_cache, driver->name,
-				    dict->set->connect);
+	if (sql_db_cache_new(dict_sql_db_cache, &sql_set, &dict->db, error_r) < 0) {
+		pool_unref(&pool);
+		return -1;
+	}
+
 	if ((sql_get_flags(dict->db) & SQL_DB_FLAG_PREP_STATEMENTS) != 0) {
 		hash_table_create(&dict->prep_stmt_hash, dict->pool,
 				  0, str_hash, strcmp);
@@ -172,12 +178,13 @@ dict_sql_map_match(const struct dict_sql_map *map, const char *path,
 					pat--;
 					if (path[len-1] == '/') {
 						field = t_strndup(path, len-1);
-						array_append(values, &field, 1);
+						array_push_back(values,
+								&field);
 					} else {
-						array_append(values, &path, 1);
+						array_push_back(values, &path);
 					}
 				} else {
-					array_append(values, &path, 1);
+					array_push_back(values, &path);
 					path += len;
 				}
 				*path_len_r = path - path_start;
@@ -188,12 +195,12 @@ dict_sql_map_match(const struct dict_sql_map *map, const char *path,
 			p = strchr(path, '/');
 			if (p != NULL) {
 				field = t_strdup_until(path, p);
-				array_append(values, &field, 1);
+				array_push_back(values, &field);
 				path = p;
 			} else {
 				/* no '/' anymore, but it'll still match a
 				   partial */
-				array_append(values, &path, 1);
+				array_push_back(values, &path);
 				path += strlen(path);
 				pat++;
 			}
@@ -1188,7 +1195,7 @@ static void sql_dict_set_real(struct dict_transaction_context *_ctx,
 	i_zero(&build);
 	build.dict = dict;
 	t_array_init(&build.fields, 1);
-	array_append(&build.fields, &field, 1);
+	array_push_back(&build.fields, &field);
 	build.extra_values = &values;
 	build.key1 = key[0];
 
@@ -1280,7 +1287,7 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	i_zero(&build);
 	build.dict = dict;
 	t_array_init(&build.fields, 1);
-	array_append(&build.fields, &field, 1);
+	array_push_back(&build.fields, &field);
 	build.extra_values = &values;
 	build.key1 = key[0];
 

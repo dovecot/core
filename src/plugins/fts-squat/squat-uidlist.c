@@ -766,12 +766,12 @@ uidlist_write_block_list_and_header(struct squat_uidlist_build_context *ctx,
 	/* write end indexes */
 	o_stream_nsend(output, uidlist->cur_block_end_indexes,
 		       old_block_count * sizeof(uint32_t));
-	o_stream_nsend(output, array_idx(block_end_indexes, 0),
+	o_stream_nsend(output, array_front(block_end_indexes),
 		       new_block_count * sizeof(uint32_t));
 	/* write offsets */
 	o_stream_nsend(output, uidlist->cur_block_offsets,
 		       old_block_count * sizeof(uint32_t));
-	o_stream_nsend(output, array_idx(block_offsets, 0),
+	o_stream_nsend(output, array_front(block_offsets),
 		       new_block_count * sizeof(uint32_t));
 	(void)o_stream_flush(output);
 
@@ -812,8 +812,8 @@ void squat_uidlist_build_flush(struct squat_uidlist_build_context *ctx)
 
 		block_offset = ctx->output->offset;
 		block_end_idx = ctx->list_start_idx + i + max;
-		array_append(&ctx->block_offsets, &block_offset, 1);
-		array_append(&ctx->block_end_indexes, &block_end_idx, 1);
+		array_push_back(&ctx->block_offsets, &block_offset);
+		array_push_back(&ctx->block_end_indexes, &block_end_idx);
 
 		/* write the full size of the uidlists */
 		bufp = buf;
@@ -953,8 +953,8 @@ uidlist_rebuild_flush_block(struct squat_uidlist_rebuild_context *ctx)
 
 	block_offset = ctx->output->offset;
 	block_end_idx = ctx->new_count;
-	array_append(&ctx->new_block_offsets, &block_offset, 1);
-	array_append(&ctx->new_block_end_indexes, &block_end_idx, 1);
+	array_push_back(&ctx->new_block_offsets, &block_offset);
+	array_push_back(&ctx->new_block_end_indexes, &block_end_idx);
 
 	/* this block's contents started from cur_block_start_offset and
 	   ended to current offset. write the size of this area. */
@@ -977,7 +977,7 @@ uint32_t squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
 	int ret;
 
 	T_BEGIN {
-		ret = uidlist_write_array(ctx->output, array_idx(uids, 0),
+		ret = uidlist_write_array(ctx->output, array_front(uids),
 					  array_count(uids), 0, 0, FALSE,
 					  &ctx->list_sizes[ctx->list_idx]);
 	} T_END;
@@ -1022,11 +1022,11 @@ uint32_t squat_uidlist_rebuild_nextu(struct squat_uidlist_rebuild_context *ctx,
 	i_array_init(&tmp_uids, 128);
 	for (i = 0; i < count; i++) {
 		if (range[i].seq1 == range[i].seq2)
-			array_append(&tmp_uids, &range[i].seq1, 1);
+			array_push_back(&tmp_uids, &range[i].seq1);
 		else {
 			uid1 = range[i].seq1 | UID_LIST_MASK_RANGE;
-			array_append(&tmp_uids, &uid1, 1);
-			array_append(&tmp_uids, &range[i].seq2, 1);
+			array_push_back(&tmp_uids, &uid1);
+			array_push_back(&tmp_uids, &range[i].seq2);
 		}
 	}
 	ret = squat_uidlist_rebuild_next(ctx, &tmp_uids);
@@ -1241,7 +1241,7 @@ static void uidlist_array_append(ARRAY_TYPE(uint32_t) *uids, uint32_t uid)
 
 	uidlist = array_get_modifiable(uids, &count);
 	if (count == 0) {
-		array_append(uids, &uid, 1);
+		array_push_back(uids, &uid);
 		return;
 	}
 	if (uidlist[count-1] + 1 == uid) {
@@ -1252,7 +1252,7 @@ static void uidlist_array_append(ARRAY_TYPE(uint32_t) *uids, uint32_t uid)
 		}
 		uidlist[count-1] |= UID_LIST_MASK_RANGE;
 	}
-	array_append(uids, &uid, 1);
+	array_push_back(uids, &uid);
 }
 
 static void uidlist_array_append_range(ARRAY_TYPE(uint32_t) *uids,
@@ -1266,8 +1266,8 @@ static void uidlist_array_append_range(ARRAY_TYPE(uint32_t) *uids,
 	uidlist = array_get_modifiable(uids, &count);
 	if (count == 0) {
 		uid1 |= UID_LIST_MASK_RANGE;
-		array_append(uids, &uid1, 1);
-		array_append(uids, &uid2, 1);
+		array_push_back(uids, &uid1);
+		array_push_back(uids, &uid2);
 		return;
 	}
 	if (uidlist[count-1] + 1 == uid1) {
@@ -1279,9 +1279,9 @@ static void uidlist_array_append_range(ARRAY_TYPE(uint32_t) *uids,
 		uidlist[count-1] |= UID_LIST_MASK_RANGE;
 	} else {
 		uid1 |= UID_LIST_MASK_RANGE;
-		array_append(uids, &uid1, 1);
+		array_push_back(uids, &uid1);
 	}
-	array_append(uids, &uid2, 1);
+	array_push_back(uids, &uid2);
 }
 
 static int
@@ -1516,7 +1516,7 @@ int squat_uidlist_get_seqrange(struct squat_uidlist *uidlist,
 				range.seq1 = tmp_uids[i] & ~UID_LIST_MASK_RANGE;
 				range.seq2 = tmp_uids[++i];
 			}
-			array_append(seq_range_arr, &range, 1);
+			array_push_back(seq_range_arr, &range);
 		}
 	}
 	array_free(&tmp_uid_arr);

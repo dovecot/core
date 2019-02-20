@@ -3,6 +3,7 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
+#include "str.h"
 #include "printf-format-fix.h"
 #include "strfuncs.h"
 #include "array.h"
@@ -320,6 +321,55 @@ const char *t_str_replace(const char *str, char from, char to)
 	return out;
 }
 
+const char *t_str_oneline(const char *str)
+{
+	string_t *out;
+	size_t len;
+	const char *p, *pend, *poff;
+	bool new_line;
+
+	if (strpbrk(str, "\r\n") == NULL)
+		return str;
+
+	len = strlen(str);
+	out = t_str_new(len + 1);
+	new_line = TRUE;
+	p = poff = str;
+	pend = str + len;
+	while (p < pend) {
+		switch (*p) {
+		case '\r':
+			if (p > poff)
+				str_append_data(out,  poff, p - poff);
+			/* just drop \r */
+			poff = p + 1;
+			break;
+		case '\n':
+			if (p > poff)
+				str_append_data(out,  poff, p - poff);
+			if (new_line) {
+				/* coalesce multiple \n into a single space */
+			} else {
+				/* first \n after text */
+				str_append_c(out, ' ');
+				new_line = TRUE;
+			}
+			poff = p + 1;
+			break;
+		default:
+			new_line = FALSE;
+			break;
+		}
+		p++;
+	}
+
+	if (new_line && str_len(out) > 0)
+		str_truncate(out, str_len(out) - 1);
+	else if (p > poff)
+		str_append_data(out,  poff, p - poff);
+	return str_c(out);
+}
+
 int i_strocpy(char *dest, const char *src, size_t dstsize)
 {
 	if (dstsize == 0)
@@ -531,6 +581,17 @@ bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size)
 	   above loop early. */
 	timing_safety_unoptimization = ret;
 	return ret == 0;
+}
+
+size_t
+str_match(const char *p1, const char *p2)
+{
+	size_t i = 0;
+
+	while(p1[i] != '\0' && p1[i] == p2[i])
+		i++;
+
+	return i;
 }
 
 static char **
@@ -800,5 +861,6 @@ char *p_array_const_string_join(pool_t pool, const ARRAY_TYPE(const_string) *arr
 {
 	if (array_count(arr) == 0)
 		return "";
-	return p_strarray_join_n(pool, array_idx(arr, 0), array_count(arr), separator);
+	return p_strarray_join_n(pool, array_front(arr), array_count(arr),
+				 separator);
 }

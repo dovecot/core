@@ -33,7 +33,7 @@ static const char version2_header[] = "V\t2\n\n";
 static void subsread_set_syscall_error(struct mailbox_list *list,
 				       const char *function, const char *path)
 {
-	if (errno == EACCES && !list->mail_set->mail_debug) {
+	if (errno == EACCES && !event_want_debug_log(list->ns->user->event)) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
 				       "No permission to read subscriptions");
 	} else {
@@ -46,7 +46,7 @@ static void subsread_set_syscall_error(struct mailbox_list *list,
 static void subswrite_set_syscall_error(struct mailbox_list *list,
 					const char *function, const char *path)
 {
-	if (errno == EACCES && !list->mail_set->mail_debug) {
+	if (errno == EACCES && !event_want_debug_log(list->ns->user->event)) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
 				       "No permission to modify subscriptions");
 	} else {
@@ -188,7 +188,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 	o_stream_cork(output);
 	if (version >= 2)
-		o_stream_send_str(output, version2_header);
+		o_stream_nsend_str(output, version2_header);
 	if (version < 2 || name[0] == '\0')
 		escaped_name = name;
 	else {

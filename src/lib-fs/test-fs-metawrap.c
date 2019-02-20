@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "istream.h"
+#include "ostream.h"
 #include "fs-test.h"
 #include "test-common.h"
 
@@ -68,12 +69,32 @@ static void test_fs_metawrap_write_empty(void)
 	test_end();
 }
 
+static void test_fs_metawrap_write_fname_rename(void)
+{
+	struct fs *fs;
+	const char *error;
+
+	test_begin("fs metawrap write fname rename");
+	if (fs_init("metawrap", "test", &fs_set, &fs, &error) < 0)
+		i_fatal("fs_init() failed: %s", error);
+	struct fs_file *file = fs_file_init(fs, "foo", FS_OPEN_MODE_REPLACE);
+	struct ostream *output = fs_write_stream(file);
+	o_stream_nsend_str(output, "test");
+	fs_set_metadata(file, FS_METADATA_WRITE_FNAME, "renamed");
+	test_assert(fs_write_stream_finish(file, &output) > 0);
+	test_assert(strcmp(fs_file_path(file), "renamed") == 0);
+	fs_file_deinit(&file);
+	fs_deinit(&fs);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_fs_metawrap_stat,
 		test_fs_metawrap_async,
 		test_fs_metawrap_write_empty,
+		test_fs_metawrap_write_fname_rename,
 		NULL
 	};
 	return test_run(test_functions);

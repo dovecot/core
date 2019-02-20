@@ -89,7 +89,7 @@ static void director_request_timeout(struct director *dir)
 	string_t *str = t_str_new(128);
 
 	while (array_count(&dir->pending_requests) > 0) {
-		requestp = array_idx_modifiable(&dir->pending_requests, 0);
+		requestp = array_front_modifiable(&dir->pending_requests);
 		request = *requestp;
 
 		if (request->create_time +
@@ -115,7 +115,7 @@ static void director_request_timeout(struct director *dir)
 		i_assert(dir->requests_delayed_count > 0);
 		dir->requests_delayed_count--;
 
-		array_delete(&dir->pending_requests, 0, 1);
+		array_pop_front(&dir->pending_requests);
 		T_BEGIN {
 			request->callback(NULL, NULL, errormsg, request->context);
 		} T_END;
@@ -158,7 +158,7 @@ void director_request(struct director *dir, const char *username,
 			timeout_add(DIRECTOR_REQUEST_TIMEOUT_SECS * 1000,
 				    director_request_timeout, dir);
 	}
-	array_append(&dir->pending_requests, &request, 1);
+	array_push_back(&dir->pending_requests, &request);
 }
 
 static void ring_noconn_warning(struct director *dir)

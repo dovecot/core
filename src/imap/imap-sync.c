@@ -195,7 +195,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->messages_count = client->messages_count;
 	i_array_init(&ctx->tmp_keywords, client->keywords.announce_count + 8);
 
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
+	if (client_has_enabled(client, imap_feature_qresync)) {
 		i_array_init(&ctx->expunges, 128);
 		/* always send UIDs in FETCH replies */
 		ctx->imap_flags |= IMAP_SYNC_FLAG_SEND_UID;
@@ -237,7 +237,7 @@ imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
 		/* no sending */
 	} else if (sync_cmd->sync != NULL && /* IDLE doesn't have ->sync */
 		   sync_cmd->sync->tagline != NULL && /* NOTIFY doesn't have tagline */
-		   strncmp(sync_cmd->sync->tagline, "OK ", 3) == 0 &&
+		   str_begins(sync_cmd->sync->tagline, "OK ") &&
 		   sync_cmd->sync->tagline[3] != '[') {
 		/* modify the tagged reply directly */
 		sync_cmd->sync->tagline = p_strdup_printf(sync_cmd->pool,
@@ -345,7 +345,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx,
 	ret = imap_sync_finish(ctx, TRUE);
 	imap_client_notify_finished(ctx->client);
 
-	if ((ctx->client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0 &&
+	if (client_has_enabled(ctx->client, imap_feature_qresync) &&
 	    !ctx->client->nonpermanent_modseqs)
 		imap_sync_send_highestmodseq(ctx, sync_cmd);
 
@@ -387,7 +387,7 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
 	str_printfa(str, "* %u FETCH (", ctx->seq);
 	if ((ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID) != 0)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
-	if ((ctx->client->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0 &&
+	if (client_has_enabled(ctx->client, imap_feature_condstore) &&
 	    !ctx->client->nonpermanent_modseqs) {
 		imap_sync_add_modseq(ctx, str);
 		str_append_c(str, ' ');
@@ -556,8 +556,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			}
 			break;
 		case MAILBOX_SYNC_TYPE_MODSEQ:
-			if ((ctx->client->enabled_features &
-			     MAILBOX_FEATURE_CONDSTORE) == 0)
+			if (!client_has_enabled(ctx->client, imap_feature_condstore))
 				break;
 			if (!ctx->client->notify_flag_changes) {
 				/* NOTIFY: FlagChange not specified for

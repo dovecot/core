@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "istream.h"
 #include "str.h"
+#include "unichar.h"
 #include "message-size.h"
 #include "message-header-parser.h"
 
@@ -318,7 +319,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		   with use_full_value */
 		line->middle = msg + colon_pos;
 		line->middle_len = (size_t)(line->value - line->middle);
-		str_append_n(ctx->name, line->middle, line->middle_len);
+		str_append_data(ctx->name, line->middle, line->middle_len);
 
 		line->name = str_c(ctx->name);
 		line->name_len = colon_pos;
@@ -410,4 +411,26 @@ void message_header_line_write(buffer_t *output,
 			buffer_append_c(output, '\r');
 		buffer_append_c(output, '\n');
 	}
+}
+
+const char *
+message_header_strdup(pool_t pool, const unsigned char *data, size_t size)
+{
+	if (memchr(data, '\0', size) == NULL) {
+		/* fast path */
+		char *dest = p_malloc(pool, size+1);
+		memcpy(dest, data, size);
+		return dest;
+	}
+
+	/* slow path - this could be made faster, but it should be
+	   rare so keep it simple */
+	string_t *str = str_new(pool, size+2);
+	for (size_t i = 0; i < size; i++) {
+		if (data[i] != '\0')
+			str_append_c(str, data[i]);
+		else
+			str_append(str, UNICODE_REPLACEMENT_CHAR_UTF8);
+	}
+	return str_c(str);
 }

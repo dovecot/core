@@ -16,6 +16,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/raw \
+	-DMODULEDIR=\""$(moduledir)"\" \
 	$(BINARY_CFLAGS)
 
 lmtp_LDFLAGS = -export-dynamic \
@@ -32,18 +33,23 @@ lmtp_DEPENDENCIES = \
 
 lmtp_SOURCES = \
 	main.c \
-	client.c \
-	commands.c \
-	lmtp-common.c \
+	lmtp-client.c \
+	lmtp-commands.c \
+	lmtp-recipient.c \
 	lmtp-local.c \
 	lmtp-proxy.c \
 	lmtp-settings.c
 
 noinst_HEADERS = \
-	main.h \
-	client.h \
-	commands.h \
-	lmtp-common.h \
 	lmtp-local.h \
-	lmtp-proxy.h \
+	lmtp-proxy.h
+
+headers = \
+	lmtp-common.h \
+	lmtp-commands.h \
+	lmtp-recipient.h \
+	lmtp-client.h \
 	lmtp-settings.h
+
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)

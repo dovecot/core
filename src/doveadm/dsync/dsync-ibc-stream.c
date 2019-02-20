@@ -1394,7 +1394,7 @@ parse_cache_field(struct dsync_ibc_stream *ibc, struct dsync_mailbox *box,
 		dsync_ibc_input_error(ibc, decoder, "Invalid last_used");
 		ret = -1;
 	}
-	array_append(&box->cache_fields, &field, 1);
+	array_push_back(&box->cache_fields, &field);
 
 	dsync_deserializer_decode_finish(&decoder);
 	return ret;
@@ -1792,7 +1792,7 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 		p_array_init(&change->keyword_changes, pool, count);
 		for (i = 0; i < count; i++) {
 			value = p_strdup(pool, changes[i]);
-			array_append(&change->keyword_changes, &value, 1);
+			array_push_back(&change->keyword_changes, &value);
 		}
 	}
 	if (dsync_deserializer_decode_try(decoder, "received_timestamp", &value)) {
@@ -1948,7 +1948,7 @@ dsync_ibc_stream_recv_mail(struct dsync_ibc *_ibc, struct dsync_mail **mail_r)
 	if (dsync_deserializer_decode_try(decoder, "pop3_uidl", &value))
 		mail->pop3_uidl = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "pop3_order", &value) &&
-	    str_to_uint(value, &mail->pop3_order) < 0) {
+	    str_to_uint32(value, &mail->pop3_order) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid pop3_order");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
@@ -2110,6 +2110,8 @@ dsync_ibc_init_stream(struct istream *input, struct ostream *output,
 	ibc->ibc.v = dsync_ibc_stream_vfuncs;
 	ibc->input = input;
 	ibc->output = output;
+	i_stream_ref(ibc->input);
+	o_stream_ref(ibc->output);
 	ibc->name = i_strdup(name);
 	ibc->temp_path_prefix = i_strdup(temp_path_prefix);
 	ibc->timeout_secs = timeout_secs;

@@ -23,7 +23,7 @@ struct ipc_group *ipc_group_alloc(int listen_fd)
 
 	group = i_new(struct ipc_group, 1);
 	group->listen_fd = listen_fd;
-	array_append(&ipc_groups, &group, 1);
+	array_push_back(&ipc_groups, &group);
 	return group;
 }
 
@@ -148,7 +148,7 @@ void ipc_groups_deinit(void)
 	struct ipc_group *const *groupp, *group;
 
 	while (array_count(&ipc_groups) > 0) {
-		groupp = array_idx(&ipc_groups, 0);
+		groupp = array_front(&ipc_groups);
 		group = *groupp;
 
 		while ((*groupp)->connections != NULL) {

@@ -87,7 +87,7 @@ static const struct quota_backend *quota_backend_find(const char *name)
 void quota_backend_register(const struct quota_backend *backend)
 {
 	i_assert(quota_backend_find(backend->name) == NULL);
-	array_append(&quota_backends, &backend, 1);
+	array_push_back(&quota_backends, &backend);
 }
 
 void quota_backend_unregister(const struct quota_backend *backend)
@@ -184,7 +184,7 @@ quota_root_parse_set(struct mail_user *user, const char *root_name,
 	if (value == NULL)
 		return 0;
 
-	if (strncmp(value, "dict:", 5) != 0) {
+	if (!str_begins(value, "dict:")) {
 		*error_r = t_strdup_printf("%s supports only dict backend", name);
 		return -1;
 	}
@@ -245,7 +245,7 @@ quota_root_settings_init(struct quota_settings *quota_set, const char *root_def,
 
 	p_array_init(&root_set->rules, quota_set->pool, 4);
 	p_array_init(&root_set->warning_rules, quota_set->pool, 4);
-	array_append(&quota_set->root_sets, &root_set, 1);
+	array_push_back(&quota_set->root_sets, &root_set);
 	*set_r = root_set;
 	return 0;
 }
@@ -454,7 +454,7 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 			return -1;
 		}
 		if (ret > 0)
-			array_append(&quota->roots, &root, 1);
+			array_push_back(&quota->roots, &root);
 	}
 	*quota_r = quota;
 	return 0;
@@ -592,7 +592,7 @@ void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 	if (quota_is_duplicate_namespace(quota, ns))
 		return;
 
-	array_append(&quota->namespaces, &ns, 1);
+	array_push_back(&quota->namespaces, &ns);
 
 	roots = array_get(&quota->roots, &count);
 	/* @UNSAFE: get different backends into one array */
@@ -636,14 +636,24 @@ void quota_remove_user_namespace(struct mail_namespace *ns)
 }
 
 struct quota_root_iter *
-quota_root_iter_init(struct mailbox *box)
+quota_root_iter_init_user(struct mail_user *user)
 {
 	struct quota_root_iter *iter;
 
 	iter = i_new(struct quota_root_iter, 1);
-	iter->quota = box->list->ns->owner != NULL ?
-		quota_get_mail_user_quota(box->list->ns->owner) :
-		quota_get_mail_user_quota(box->list->ns->user);
+	iter->quota = quota_get_mail_user_quota(user);
+	return iter;
+}
+
+struct quota_root_iter *
+quota_root_iter_init(struct mailbox *box)
+{
+	struct quota_root_iter *iter;
+	struct mail_user *user;
+
+	user = box->list->ns->owner != NULL ?
+		box->list->ns->owner : box->list->ns->user;
+	iter = quota_root_iter_init_user(user);
 	iter->box = box;
 	return iter;
 }
@@ -672,13 +682,8 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 }
 
 static bool
-quota_root_is_visible(struct quota_root *root, struct mailbox *box,
-		      bool enforce)
+quota_root_is_visible(struct quota_root *root, struct mailbox *box)
 {
-	if (root->no_enforcing && enforce) {
-		/* we don't want to include this root in quota enforcing */
-		return FALSE;
-	}
 	if (!quota_root_is_namespace_visible(root, box->list->ns))
 		return FALSE;
 	if (array_count(&root->quota->roots) == 1) {
@@ -702,7 +707,8 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 		return NULL;
 
 	for (; iter->i < count; iter->i++) {
-		if (!quota_root_is_visible(roots[iter->i], iter->box, FALSE))
+		if (iter->box != NULL &&
+		    !quota_root_is_visible(roots[iter->i], iter->box))
 			continue;
 
 		root = roots[iter->i];
@@ -810,13 +816,13 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 }
 
 int quota_set_resource(struct quota_root *root, const char *name,
-		       uint64_t value, const char **error_r)
+		       uint64_t value, const char **client_error_r)
 {
 	struct dict_transaction_context *trans;
 	const char *key, *error;
 
 	if (root->set->limit_set == NULL) {
-		*error_r = MAIL_ERRSTR_NO_PERMISSION;
+		*client_error_r = MAIL_ERRSTR_NO_PERMISSION;
 		return -1;
 	}
 	if (strcasecmp(name, QUOTA_NAME_STORAGE_KILOBYTES) == 0)
@@ -826,7 +832,8 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	else if (strcasecmp(name, QUOTA_NAME_MESSAGES) == 0)
 		key = "messages";
 	else {
-		*error_r = t_strdup_printf("Unsupported resource name: %s", name);
+		*client_error_r = t_strdup_printf(
+			"Unsupported resource name: %s", name);
 		return -1;
 	}
 
@@ -839,8 +846,11 @@ int quota_set_resource(struct quota_root *root, const char *name,
 		if (mail_user_get_home(root->quota->user, &set.home_dir) <= 0)
 			set.home_dir = NULL;
 		if (dict_init(root->set->limit_set, &set,
-			      &root->limit_set_dict, error_r) < 0)
+			      &root->limit_set_dict, &error) < 0) {
+			i_error("dict_init() failed: %s", error);
+			*client_error_r = "Internal quota limit update error";
 			return -1;
+		}
 	}
 
 	trans = dict_transaction_begin(root->limit_set_dict);
@@ -848,7 +858,7 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	dict_set(trans, key, dec2str(value));
 	if (dict_transaction_commit(&trans, &error) < 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
-		*error_r = "Internal quota limit update error";
+		*client_error_r = "Internal quota limit update error";
 		return -1;
 	}
 	return 0;
@@ -878,7 +888,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 
 	ctx->auto_updating = TRUE;
 	array_foreach(&ctx->quota->roots, rootp) {
-		if (!quota_root_is_visible(*rootp, ctx->box, FALSE))
+		if (!quota_root_is_visible(*rootp, ctx->box))
 			continue;
 
 		rule = quota_root_rule_find((*rootp)->set, mailbox_name);
@@ -928,12 +938,16 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
+		if (!quota_root_is_visible(roots[i], ctx->box) ||
+		    (roots[i]->no_enforcing && ctx->auto_updating))
 			continue;
-
-		if (quota_root_get_rule_limits(roots[i], mailbox_name,
-					       &bytes_limit, &count_limit,
-					       &ignored, &error) < 0) {
+		else if (roots[i]->no_enforcing) {
+			bytes_limit = (uint64_t)-1;
+			count_limit = (uint64_t)-1;
+			ignored = FALSE;
+		} else if (quota_root_get_rule_limits(roots[i], mailbox_name,
+						      &bytes_limit, &count_limit,
+						      &ignored, &error) < 0) {
 			ctx->failed = TRUE;
 			*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 			*error_r = t_strdup_printf(
@@ -948,7 +962,10 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			ret = quota_get_resource(roots[i], mailbox_name,
 						 QUOTA_NAME_STORAGE_BYTES,
 						 &current, &limit, &error);
-			if (ret == QUOTA_GET_RESULT_LIMITED) {
+			if (roots[i]->no_enforcing) {
+				ctx->bytes_ceil = (uint64_t)-1;
+				ctx->bytes_ceil2 = (uint64_t)-1;
+			} else if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
 					ctx->bytes_ceil = 0;
@@ -980,7 +997,9 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			ret = quota_get_resource(roots[i], mailbox_name,
 						 QUOTA_NAME_MESSAGES,
 						 &current, &limit, &error);
-			if (ret == QUOTA_GET_RESULT_LIMITED) {
+			if (roots[i]->no_enforcing) {
+				ctx->count_ceil = (uint64_t)-1;
+			} else if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
 					ctx->count_ceil = 0;
@@ -1132,7 +1151,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		roots = array_get(&ctx->quota->roots, &count);
 		t_array_init(&warn_roots, count);
 		for (i = 0; i < count; i++) {
-			if (!quota_root_is_visible(roots[i], ctx->box, FALSE))
+			if (!quota_root_is_visible(roots[i], ctx->box))
 				continue;
 
 			rule = quota_root_rule_find(roots[i]->set,
@@ -1149,7 +1168,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 				ret = -1;
 			}
 			else if (!ctx->sync_transaction)
-				array_append(&warn_roots, &roots[i], 1);
+				array_push_back(&warn_roots, &roots[i]);
 		}
 		/* execute quota warnings after all updates. this makes it
 		   work correctly regardless of whether backend.get_resource()
@@ -1392,7 +1411,8 @@ static enum quota_alloc_result quota_default_test_alloc(
 	for (i = 0; i < count; i++) {
 		uint64_t bytes_limit, count_limit;
 
-		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
+		if (!quota_root_is_visible(roots[i], ctx->box) ||
+		    roots[i]->no_enforcing)
 			continue;
 
 		const char *error;

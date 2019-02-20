@@ -94,7 +94,7 @@ static int imapc_mailbox_commit_delayed_expunges(struct imapc_mailbox *mbox)
 }
 
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
-				       bool *changes_r)
+				       bool force, bool *changes_r)
 {
 	int ret = 0;
 
@@ -104,7 +104,7 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 		mail_index_view_close(&mbox->delayed_sync_view);
 	if (mbox->delayed_sync_trans == NULL)
 		;
-	else if (!mbox->selected) {
+	else if (!mbox->selected && !force) {
 		/* ignore any changes done during SELECT */
 		mail_index_transaction_rollback(&mbox->delayed_sync_trans);
 	} else {
@@ -158,6 +158,26 @@ static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
 }
 
 static void
+imapc_mailbox_index_expunge(struct imapc_mailbox *mbox, uint32_t uid)
+{
+	uint32_t lseq;
+
+	if (mail_index_lookup_seq(mbox->sync_view, uid, &lseq))
+		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+	else if (mail_index_lookup_seq(mbox->delayed_sync_view, uid, &lseq)) {
+		/* this message exists only in this transaction. lib-index
+		   can't currently handle expunging anything except the last
+		   appended message in a transaction, and fixing it would be
+		   quite a lot of trouble. so instead we'll just delay doing
+		   this expunge until after the current transaction has been
+		   committed. */
+		seq_range_array_add(&mbox->delayed_expunged_uids, uid);
+	} else {
+		/* already expunged by another session */
+	}
+}
+
+static void
 imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox)
 {
 	uint32_t lseq, uid, msg_count;
@@ -179,7 +199,7 @@ imapc_mailbox_fetch_state_finish(struct imapc_mailbox *mbox)
 			   that our IMAP connection hasn't seen yet */
 			break;
 		}
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+		imapc_mailbox_index_expunge(mbox, uid);
 	}
 
 	mbox->sync_next_lseq = 0;
@@ -214,6 +234,17 @@ imapc_mailbox_fetch_state_callback(const struct imapc_command_reply *reply,
 	}
 }
 
+void imap_mailbox_select_finish(struct imapc_mailbox *mbox)
+{
+	if (mbox->exists_count == 0) {
+		/* no mails. expunge everything. */
+		mbox->sync_next_lseq = 1;
+		imapc_mailbox_init_delayed_trans(mbox);
+		imapc_mailbox_fetch_state_finish(mbox);
+	}
+	mbox->selected = TRUE;
+}
+
 static void
 imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 {
@@ -221,10 +252,9 @@ imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 
 	if (mbox->exists_count == 0) {
 		/* empty mailbox - no point in fetching anything.
-		   just make sure everything is expunged in local index. */
-		mbox->sync_next_lseq = 1;
-		imapc_mailbox_init_delayed_trans(mbox);
-		imapc_mailbox_fetch_state_finish(mbox);
+		   just make sure everything is expunged in local index.
+		   Delay calling imapc_mailbox_fetch_state_finish() until
+		   SELECT finishes, so we see the updated UIDNEXT. */
 		return;
 	}
 	if (mbox->state_fetching_uid1) {
@@ -372,6 +402,14 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 
 		if (imapc_msgmap_uid_to_rseq(msgmap, fetch_uid, &fixed_rseq))
 			rseq = fixed_rseq;
+		else if (fetch_uid >= imapc_msgmap_uidnext(msgmap) &&
+			 rseq <= msg_count) {
+			/* The current rseq is wrong. Lets hope that the
+			   correct rseq is the next new one. This happens
+			   especially with no-msn-updates when mails have been
+			   expunged and new mails arrive in the same session. */
+			rseq = msg_count+1;
+		}
 	}
 
 	if (rseq <= msg_count) {
@@ -461,7 +499,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 					flags |= imap_parse_system_flag(atom);
 				else {
 					/* keyword */
-					array_append(&keywords, &atom, 1);
+					array_push_back(&keywords, &atom);
 				}
 			}
 		} else if (strcasecmp(atom, "MODSEQ") == 0 &&
@@ -532,8 +570,9 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		/* we're doing the initial full sync of mails. expunge any
 		   mails that no longer exist. */
 		while (mbox->sync_next_lseq < lseq) {
-			mail_index_expunge(mbox->delayed_sync_trans,
-					   mbox->sync_next_lseq);
+			mail_index_lookup_uid(mbox->delayed_sync_view,
+					      mbox->sync_next_lseq, &uid);
+			imapc_mailbox_index_expunge(mbox, uid);
 			mbox->sync_next_lseq++;
 		}
 		i_assert(lseq == mbox->sync_next_lseq);
@@ -559,12 +598,12 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			   this can be used for "All Mail" mailbox migrations
 			   with dsync */
 			atom = "$GMailHaveLabels";
-			array_append(&keywords, &atom, 1);
+			array_push_back(&keywords, &atom);
 		}
 
 		array_append_zero(&keywords);
 		kw = mail_index_keywords_create(mbox->box.index,
-						array_idx(&keywords, 0));
+						array_front(&keywords));
 		if (!keywords_are_equal(kw, &old_kws)) {
 			mail_index_update_keywords(mbox->delayed_sync_trans,
 						   lseq, MODIFY_REPLACE, kw);
@@ -584,7 +623,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		if (mail_cache_field_can_add(mbox->delayed_sync_cache_trans,
 					     lseq, guid_cache_idx)) {
 			mail_cache_add(mbox->delayed_sync_cache_trans, lseq,
-				       guid_cache_idx, guid, strlen(guid)+1);
+				       guid_cache_idx, guid, strlen(guid));
 		}
 	}
 	imapc_mailbox_idle_notify(mbox);
@@ -594,7 +633,7 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 				   struct imapc_mailbox *mbox)
 {
 	struct imapc_msgmap *msgmap;
-	uint32_t lseq, uid, rseq = reply->num;
+	uint32_t uid, rseq = reply->num;
 	
 	if (mbox == NULL || rseq == 0 ||
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
@@ -621,19 +660,7 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 		array_delete(&mbox->rseq_modseqs, rseq-1, 1);
 
 	imapc_mailbox_init_delayed_trans(mbox);
-	if (mail_index_lookup_seq(mbox->sync_view, uid, &lseq))
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
-	else if (mail_index_lookup_seq(mbox->delayed_sync_view, uid, &lseq)) {
-		/* this message exists only in this transaction. lib-index
-		   can't currently handle expunging anything except the last
-		   appended message in a transaction, and fixing it would be
-		   quite a lot of trouble. so instead we'll just delay doing
-		   this expunge until after the current transaction has been
-		   committed. */
-		seq_range_array_add(&mbox->delayed_expunged_uids, uid);
-	} else {
-		/* already expunged by another session */
-	}
+	imapc_mailbox_index_expunge(mbox, uid);
 	imapc_mailbox_idle_notify(mbox);
 }
 
@@ -668,7 +695,7 @@ imapc_untagged_esearch_gmail_pop3(const struct imap_arg *args,
 		mbox->storage->set->pop3_deleted_flag, &pop3_deleted_kw_idx);
 
 	t_array_init(&keywords, 1);
-	array_append(&keywords, &pop3_deleted_kw_idx, 1);
+	array_push_back(&keywords, &pop3_deleted_kw_idx);
 	kw = mail_index_keywords_create_from_indexes(mbox->box.index, &keywords);
 
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
@@ -736,7 +763,7 @@ static void imapc_sync_uid_validity(struct imapc_mailbox *mbox)
 			/* The reset needs to be committed before FETCH 1:*
 			   results are received. */
 			bool changes;
-			if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
+			if (imapc_mailbox_commit_delayed_trans(mbox, TRUE, &changes) < 0)
 				mail_index_mark_corrupted(mbox->box.index);
 			imapc_mailbox_init_delayed_trans(mbox);
 		}

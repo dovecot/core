@@ -1,0 +1,112 @@
+.\" Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-REBUILD 1 "2015-05-09" "Dovecot v2.3" "Dovecot"
+.SH NAME
+doveadm\-rebuild - Commands related to rebuilding various aspects of mails matching
+given search query.
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BR rebuild \ <command> " [" \-S
+.IR socket_path "] " search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BR rebuild \ <command> " [" \-S
+.IR socket_path ]
+.BI \-A \ search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BR rebuild \ <command> " [" \-S
+.IR socket_path ]
+.BI \-F " file search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BR rebuild \ <command> " [" \-S
+.IR socket_path ]
+.BI \-u " user search_query"
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B rebuild attachments
+command is used to rebuilds attachment presence.
+.BR doveadm (1)
+will print the message\(aqs uid for each match.
+.br
+When used with the
+.B \-A
+or
+.BI \-u \ wildcard
+options,
+.BR doveadm (1)
+will print the fields
+.BR username \ and
+.B uid
+for each matching message.
+.PP
+In the first form,
+.BR doveadm (1)
+will execute the
+.B rebuild
+action with the environment of the logged in system user.
+.PP
+In the second form, the command will be performed for all users.
+.PP
+In the third form, the command will be performed for all users listed in
+the given
+.IR file .
+.PP
+In the fourth form, only matching mails of the given
+.IR user (s)
+will be rebuilded
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\" --- command specific options --- "/.
+.PP
+This command uses by default the output formatter
+.B flow
+(without the
+.IR key =
+prefix).
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I search_query
+Resets attachment indicator for messages matching this search query.
+See
+.BR doveadm\-search\-query (7)
+for details.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example demonstrates how to rebuild user bob\(aqs attachment status.
+.PP
+.nf
+.ft B
+doveadm rebuild attachments \-u bob ALL
+.ft P
+1
+2
+3
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-search\-query (7)

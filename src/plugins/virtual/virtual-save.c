@@ -68,11 +68,11 @@ virtual_copy_keywords(struct mailbox *src_box,
 
 	for (i = 0; i < src_keywords->count; i++) {
 		kwp = array_idx(status.keywords, src_keywords->idx[i]);
-		array_append(&kw_strings, kwp, 1);
+		array_push_back(&kw_strings, kwp);
 	}
 	array_append_zero(&kw_strings);
 	return mailbox_keywords_create_valid(dest_box,
-					     array_idx(&kw_strings, 0));
+					     array_front(&kw_strings));
 }
 
 int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)

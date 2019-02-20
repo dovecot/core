@@ -81,7 +81,7 @@ void process_exec(const char *cmd)
 	/* prefix with dovecot/ */
 	argv[0] = t_strdup_printf("%s/%s", services->set->instance_name,
 				  argv[0]);
-	if (strncmp(argv[0], PACKAGE, strlen(PACKAGE)) != 0)
+	if (!str_begins(argv[0], PACKAGE))
 		argv[0] = t_strconcat(PACKAGE"-", argv[0], NULL);
 	execv_const(executable, argv);
 }
@@ -755,7 +755,7 @@ int main(int argc, char *argv[])
 	/* drop -- prefix from all --args. ugly, but the only way that it
 	   works with standard getopt() in all OSes.. */
 	for (i = 1; i < argc; i++) {
-		if (strncmp(argv[i], "--", 2) == 0) {
+		if (str_begins(argv[i], "--")) {
 			if (argv[i][2] == '\0')
 				break;
 			argv[i] += 2;
@@ -766,6 +766,7 @@ int main(int argc, char *argv[])
 	}
 	master_service = master_service_init(MASTER_SERVICE_NAME,
 				MASTER_SERVICE_FLAG_STANDALONE |
+				MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR |
 				MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 				&argc, &argv, "+Fanp");

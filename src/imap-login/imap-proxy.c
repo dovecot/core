@@ -174,7 +174,7 @@ static int proxy_input_banner(struct imap_client *client,
 	string_t *str;
 	int ret;
 
-	if (strncmp(line, "* OK ", 5) != 0) {
+	if (!str_begins(line, "* OK ")) {
 		client_log_err(&client->common, t_strdup_printf(
 			"proxy: Remote returned invalid banner: %s",
 			str_sanitize(line, 160)));
@@ -182,7 +182,7 @@ static int proxy_input_banner(struct imap_client *client,
 	}
 
 	str = t_str_new(128);
-	if (strncmp(line + 5, "[CAPABILITY ", 12) == 0) {
+	if (str_begins(line + 5, "[CAPABILITY ")) {
 		capabilities = t_strsplit(t_strcut(line + 5 + 12, ']'), " ");
 		if (str_array_icase_find(capabilities, "SASL-IR"))
 			client->proxy_sasl_ir = TRUE;
@@ -310,11 +310,11 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_AUTH_CONTINUE;
 		o_stream_nsend(output, str_data(str), str_len(str));
 		return 0;
-	} else if (strncmp(line, "S ", 2) == 0) {
+	} else if (str_begins(line, "S ")) {
 		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_STARTTLS;
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_STARTTLS;
 
-		if (strncmp(line, "S OK ", 5) != 0) {
+		if (!str_begins(line, "S OK ")) {
 			/* STARTTLS failed */
 			client_log_err(client, t_strdup_printf(
 				"proxy: Remote STARTTLS failed: %s",
@@ -336,7 +336,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		}
 		o_stream_nsend(output, str_data(str), str_len(str));
 		return 1;
-	} else if (strncmp(line, "L OK ", 5) == 0) {
+	} else if (str_begins(line, "L OK ")) {
 		/* Login successful. Send this line to client. */
 		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_LOGIN;
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
@@ -346,7 +346,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 
 		client_proxy_finish_destroy_client(client);
 		return 1;
-	} else if (strncmp(line, "L ", 2) == 0) {
+	} else if (str_begins(line, "L ")) {
 		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_LOGIN;
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
 
@@ -359,8 +359,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			client_proxy_log_failure(client, log_line);
 		}
 #define STR_NO_IMAP_RESP_CODE_AUTHFAILED "NO ["IMAP_RESP_CODE_AUTHFAILED"]"
-		if (strncmp(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED,
-			    strlen(STR_NO_IMAP_RESP_CODE_AUTHFAILED)) == 0) {
+		if (str_begins(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED)) {
 			/* the remote sent a generic "authentication failed"
 			   error. replace it with our one, so that in case
 			   the remote is sending a different error message
@@ -369,7 +368,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			client_send_reply_code(client, IMAP_CMD_REPLY_NO,
 					       IMAP_RESP_CODE_AUTHFAILED,
 					       AUTH_FAILED_MSG);
-		} else if (strncmp(line, "NO [", 4) == 0) {
+		} else if (str_begins(line, "NO [")) {
 			/* remote sent some other resp-code. forward it. */
 			client_send_raw(client, t_strconcat(
 				imap_client->cmd_tag, " ", line, "\r\n", NULL));
@@ -393,11 +392,11 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		i_free(imap_client->proxy_backend_capability);
 		imap_client->proxy_backend_capability = i_strdup(line + 13);
 		return 0;
-	} else if (strncmp(line, "C ", 2) == 0) {
+	} else if (str_begins(line, "C ")) {
 		/* Reply to CAPABILITY command we sent */
 		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_CAPABILITY;
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_CAPABILITY;
-		if (strncmp(line, "C OK ", 5) == 0 &&
+		if (str_begins(line, "C OK ") &&
 		    client->proxy_password != NULL) {
 			/* pipelining was disabled, send the login now. */
 			str = t_str_new(128);
@@ -429,7 +428,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	} else if (strncasecmp(line, "* ID ", 5) == 0) {
 		/* Reply to ID command we sent, ignore it */
 		return 0;
-	} else if (strncmp(line, "* ", 2) == 0) {
+	} else if (str_begins(line, "* ")) {
 		/* untagged reply. just forward it. */
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 		return 0;
@@ -466,10 +465,11 @@ const char *imap_proxy_get_state(struct client *client)
 	string_t *str = t_str_new(128);
 
 	for (unsigned int i = 0; i < IMAP_PROXY_SENT_STATE_COUNT; i++) {
-		if (str_len(str) > 0)
-			str_append_c(str, '+');
-		if ((imap_client->proxy_sent_state & (1 << i)) != 0)
+		if ((imap_client->proxy_sent_state & (1 << i)) != 0) {
+			if (str_len(str) > 0)
+				str_append_c(str, '+');
 			str_append(str, imap_proxy_sent_state_names[i]);
+		}
 	}
 	str_append_c(str, '/');
 	str_append(str, imap_proxy_rcvd_state_names[imap_client->proxy_rcvd_state]);

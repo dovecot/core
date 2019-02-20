@@ -72,8 +72,7 @@ static void fs_sis_deinit(struct fs *_fs)
 {
 	struct sis_fs *fs = (struct sis_fs *)_fs;
 
-	if (_fs->parent != NULL)
-		fs_deinit(&_fs->parent);
+	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 
@@ -209,8 +208,8 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 	if (hash_fname == NULL)
 		hash_fname = file->hash_path;
 	else {
-		str_append_n(temp_path, file->hash_path,
-			     (hash_fname-file->hash_path) + 1);
+		str_append_data(temp_path, file->hash_path,
+				(hash_fname-file->hash_path) + 1);
 		hash_fname++;
 	}
 	str_printfa(temp_path, "%s%s.tmp",

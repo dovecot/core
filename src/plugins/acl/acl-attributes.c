@@ -60,7 +60,7 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 	struct acl_object_list_iter *iter;
 	struct acl_rights rights, wanted_rights;
 	const char *id;
-	int ret;
+	int ret = 0;
 
 	i_zero(value_r);
 
@@ -88,11 +88,17 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 		    rights.id_type == wanted_rights.id_type &&
 		    null_strcmp(rights.identifier, wanted_rights.identifier) == 0) {
 			value_r->value = acl_rights_export(&rights);
+			ret = 1;
 			break;
 		}
 	}
-	if ((ret = acl_object_list_deinit(&iter)) < 0)
+	/* the return value here cannot be used, because this function
+	   needs to return whether it actually matched something
+	   or not */
+	if (acl_object_list_deinit(&iter) < 0) {
 		mail_storage_set_internal_error(box->storage);
+		ret = -1;
+	}
 	return ret;
 }
 
@@ -142,8 +148,7 @@ int acl_attribute_set(struct mailbox_transaction_context *t,
 
 	if (acl_have_attribute_rights(t->box) < 0)
 		return -1;
-	if (strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_ACL,
-		    strlen(MAILBOX_ATTRIBUTE_PREFIX_ACL)) == 0)
+	if (str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_ACL))
 		return acl_attribute_update_acl(t, key, value);
 	return abox->module_ctx.super.attribute_set(t, type, key, value);
 }
@@ -156,8 +161,7 @@ int acl_attribute_get(struct mailbox *box,
 
 	if (acl_have_attribute_rights(box) < 0)
 		return -1;
-	if (strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_ACL,
-		    strlen(MAILBOX_ATTRIBUTE_PREFIX_ACL)) == 0)
+	if (str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_ACL))
 		return acl_attribute_get_acl(box, key, value_r);
 	return abox->module_ctx.super.attribute_get(box, type, key, value_r);
 }
@@ -178,8 +182,7 @@ acl_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
 			attribute_iter_init(box, type, prefix);
 		if (box->storage->user->dsyncing &&
 		    type == MAIL_ATTRIBUTE_TYPE_SHARED &&
-		    strncmp(prefix, MAILBOX_ATTRIBUTE_PREFIX_ACL,
-			    strlen(prefix)) == 0) {
+		    str_begins(MAILBOX_ATTRIBUTE_PREFIX_ACL, prefix)) {
 			aiter->acl_iter = acl_object_list_init(abox->aclobj);
 			aiter->acl_name = str_new(default_pool, 128);
 			str_append(aiter->acl_name, MAILBOX_ATTRIBUTE_PREFIX_ACL);

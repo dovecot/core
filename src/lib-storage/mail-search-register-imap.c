@@ -355,7 +355,7 @@ arg_modseq_set_ext(struct mail_search_build_context *ctx,
 	const char *value;
 
 	name = t_str_lcase(name);
-	if (strncmp(name, "/flags/", 7) != 0)
+	if (!str_begins(name, "/flags/"))
 		return 0;
 	name += 7;
 

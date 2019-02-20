@@ -79,11 +79,9 @@ static void auth_client_send(struct auth_client_connection *conn,
 		io_remove(&conn->io);
 	}
 
-	if (conn->auth->set->debug) {
-		i_debug("client passdb out: %s",
-			conn->auth->set->debug_passwords ?
-			cmd : reply_line_hide_pass(cmd));
-	}
+	e_debug(conn->event, "client passdb out: %s",
+		conn->auth->set->debug_passwords ?
+		cmd : reply_line_hide_pass(cmd));
 }
 
 static void auth_callback(const char *reply,
@@ -145,8 +143,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	auth_request_handler_set(conn->request_handler, conn->connect_uid, pid);
 
 	conn->pid = pid;
-	if (conn->auth->set->debug)
-		i_debug("auth client connected (pid=%u)", conn->pid);
+	e_debug(conn->event, "auth client connected (pid=%u)", conn->pid);
 	return TRUE;
 }
 
@@ -215,25 +212,25 @@ auth_client_cancel(struct auth_client_connection *conn, const char *line)
 static bool
 auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 {
-	if (strncmp(line, "AUTH\t", 5) == 0) {
+	if (str_begins(line, "AUTH\t")) {
 		if (conn->auth->set->debug) {
-			i_debug("client in: %s",
+			e_debug(conn->event, "client in: %s",
 				auth_line_hide_pass(conn, line));
 		}
 		return auth_request_handler_auth_begin(conn->request_handler,
 						       line + 5);
 	}
-	if (strncmp(line, "CONT\t", 5) == 0) {
+	if (str_begins(line, "CONT\t")) {
 		if (conn->auth->set->debug) {
-			i_debug("client in: %s",
+			e_debug(conn->event, "client in: %s",
 				cont_line_hide_pass(conn, line));
 		}
 		return auth_request_handler_auth_continue(conn->request_handler,
 							  line + 5);
 	}
-	if (strncmp(line, "CANCEL\t", 7) == 0) {
+	if (str_begins(line, "CANCEL\t")) {
 		if (conn->auth->set->debug)
-			i_debug("client in: %s", line);
+			e_debug(conn->event, "client in: %s", line);
 		return auth_client_cancel(conn, line + 7);
 	}
 
@@ -273,7 +270,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 			const char *p;
 
 			/* split the version line */
-			if (strncmp(line, "VERSION\t", 8) != 0 ||
+			if (!str_begins(line, "VERSION\t") ||
 			    str_parse_uint(line + 8, &vmajor, &p) < 0 ||
 			    *(p++) != '\t' || str_to_uint(p, &vminor) < 0) {
 				i_error("Authentication client "
@@ -294,7 +291,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 			continue;
 		}
 
-		if (strncmp(line, "CPID\t", 5) == 0) {
+		if (str_begins(line, "CPID\t")) {
 			if (!auth_client_input_cpid(conn, line + 5)) {
 				auth_client_connection_destroy(&conn);
 				return;
@@ -338,6 +335,9 @@ void auth_client_connection_create(struct auth *auth, int fd,
 	conn->connect_uid = ++connect_uid_counter;
 	conn->login_requests = login_requests;
 	conn->token_auth = token_auth;
+	conn->event = event_create(NULL);
+	event_set_forced_debug(conn->event, auth->set->debug);
+	event_add_category(conn->event, &event_category_auth);
 	random_fill(conn->cookie, sizeof(conn->cookie));
 
 	conn->fd = fd;
@@ -428,6 +428,7 @@ static void auth_client_connection_unref(struct auth_client_connection **_conn)
 	if (--conn->refcount > 0)
 		return;
 
+	event_unref(&conn->event);
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
 	i_free(conn);

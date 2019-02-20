@@ -50,8 +50,11 @@ int http_url_parse(const char *url, struct http_url *base,
 		   struct http_url **url_r, const char **error_r);
 
 int http_url_request_target_parse(const char *request_target,
-	const char *host_header, pool_t pool,
-	struct http_request_target *target, const char **error_r);
+				  const char *host_header,
+				  const struct http_url *default_base,
+				  pool_t pool,
+				  struct http_request_target *target,
+				  const char **error_r) ATTR_NULL(3);
 
 /*
  * HTTP URL evaluation

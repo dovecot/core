@@ -3,6 +3,9 @@
 #include "test-lib.h"
 #include "stats-dist.h"
 #include "sort.h"
+#include "math.h"
+
+#define DBL_EQ(a, b) (fabs((a)-(b)) < 0.001)
 
 static void
 test_stats_dist_verify(const struct stats_dist *t, const int64_t *input,
@@ -31,7 +34,8 @@ test_stats_dist_verify(const struct stats_dist *t, const int64_t *input,
 	test_assert_idx(stats_dist_get_sum(t) == sum, input_size);
 	test_assert_idx(stats_dist_get_min(t)  == min, input_size);
 	test_assert_idx(stats_dist_get_max(t) == max, input_size);
-	test_assert_idx(stats_dist_get_avg(t) == (sum + input_size/2)/input_size, input_size);
+	test_assert_idx(DBL_EQ(stats_dist_get_avg(t), (double)sum/input_size),
+			input_size);
 
 	/* these aren't always fully accurate: */
 	test_assert_idx(stats_dist_get_median(t) >= copy[(input_size-1)/2] &&
@@ -42,6 +46,37 @@ test_stats_dist_verify(const struct stats_dist *t, const int64_t *input,
 			input_size);
 
 	i_free(copy);
+}
+
+static void test_stats_dist_get_variance(void)
+{
+	static const struct {
+		int64_t in[10];
+		double out;
+	} tests[] = {
+		{ .in = { 2, 2, 2, -1 }, .out = 0.0 },
+		{ .in = { -1 }, .out = 0.0 },
+		{ .in = { 1, 2, 3, 4, 5, 6, 7, 8, -1 }, .out = 5.25 },
+	};
+
+	struct stats_dist *t;
+	unsigned int i, j;
+
+	test_begin("stats_dists_get_variance");
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		t = stats_dist_init();
+		for (j = 0; tests[i].in[j] >= 0; j++) {
+			stats_dist_add(t, tests[i].in[j]);
+			test_stats_dist_verify(t, tests[i].in, j+1);
+		}
+		test_assert_idx(DBL_EQ(stats_dist_get_variance(t),
+				       tests[i].out), i);
+
+		stats_dist_deinit(&t);
+	}
+
+	test_end();
 }
 
 void test_stats_dist(void)
@@ -86,10 +121,12 @@ void test_stats_dist(void)
 	test_assert(stats_dist_get_sum(t) == (i-1)*i/2);
 	test_assert(stats_dist_get_min(t) == 0);
 	test_assert(stats_dist_get_max(t) == i-1);
-	test_assert(stats_dist_get_avg(t) == i/2);
+	test_assert(DBL_EQ(stats_dist_get_avg(t), 4999.500000));
 	/* just test that these work: */
 	test_assert(stats_dist_get_median(t) > 0 && stats_dist_get_median(t) < i-1);
 	test_assert(stats_dist_get_95th(t) > 0 && stats_dist_get_95th(t) < i-1);
 	stats_dist_deinit(&t);
 	test_end();
+
+	test_stats_dist_get_variance();
 }

@@ -28,7 +28,7 @@ void imap_login_commands_register(const struct imap_login_command *commands,
 		cmd = p_new(imap_login_commands_pool, struct imap_login_command, 1);
 		cmd->name = p_strdup(imap_login_commands_pool, commands[i].name);
 		cmd->func = commands[i].func;
-		array_append(&imap_login_commands, &cmd, 1);
+		array_push_back(&imap_login_commands, &cmd);
 	}
 }
 

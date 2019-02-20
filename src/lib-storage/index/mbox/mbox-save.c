@@ -263,7 +263,7 @@ mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 	}
 
 	memset(space, ' ', sizeof(space));
-	str_append_n(ctx->headers, space, sizeof(space));
+	str_append_data(ctx->headers, space, sizeof(space));
 	ctx->space_end_idx = str_len(ctx->headers);
 	str_append_c(ctx->headers, '\n');
 }
@@ -328,7 +328,7 @@ save_header_callback(struct header_filter_istream *input ATTR_UNUSED,
 		     bool *matched, struct mbox_save_context *ctx)
 {
 	if (hdr != NULL) {
-		if (strncmp(hdr->name, "From ", 5) == 0) {
+		if (str_begins(hdr->name, "From ")) {
 			/* we can't allow From_-lines in headers. there's no
 			   legitimate reason for allowing them in any case,
 			   so just drop them. */

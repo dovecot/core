@@ -922,6 +922,8 @@ static void director_user_move_free(struct user *user)
 	dir_debug("User %u move finished at state=%s", user->username_hash,
 		  user_kill_state_names[kill_ctx->kill_state]);
 
+	if (kill_ctx->ipc_cmd != NULL)
+		ipc_client_cmd_abort(dir->ipc_proxy, &kill_ctx->ipc_cmd);
 	timeout_remove(&kill_ctx->to_move);
 	i_free(kill_ctx->socket_path);
 	i_free(kill_ctx);
@@ -999,6 +1001,9 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	struct director_kill_context *ctx = context;
 	struct user *user;
 
+	/* don't try to abort the IPC command anymore */
+	ctx->ipc_cmd = NULL;
+
 	/* this is an asynchronous notification about user being killed.
 	   there are no guarantees about what might have happened to the user
 	   in the mean time. */
@@ -1022,9 +1027,6 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	ctx->dir->users_kicking_count--;
 	if (ctx->dir->kick_callback != NULL)
 		ctx->dir->kick_callback(ctx->dir);
-
-
-	ctx->callback_pending = FALSE;
 
 	user = user_directory_lookup(ctx->tag->users, ctx->username_hash);
 	if (!DIRECTOR_KILL_CONTEXT_IS_VALID(user, ctx)) {
@@ -1101,10 +1103,9 @@ void director_kill_user(struct director *dir, struct director_host *src,
 	if ((old_host != NULL && old_host != user->host) || forced_kick) {
 		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
 				      user->username_hash);
-		ctx->callback_pending = TRUE;
 		dir->users_kicking_count++;
-		ipc_client_cmd(dir->ipc_proxy, cmd,
-			       director_kill_user_callback, ctx);
+		ctx->ipc_cmd = ipc_client_cmd(dir->ipc_proxy, cmd,
+					      director_kill_user_callback, ctx);
 	} else {
 		/* a) we didn't even know about the user before now.
 		   don't bother performing a local kick, since it wouldn't
@@ -1464,7 +1465,7 @@ void director_deinit(struct director **_dir)
 	*_dir = NULL;
 
 	while (array_count(&dir->connections) > 0) {
-		connp = array_idx(&dir->connections, 0);
+		connp = array_front(&dir->connections);
 		conn = *connp;
 		director_connection_deinit(&conn, "Shutting down");
 	}
@@ -1480,7 +1481,7 @@ void director_deinit(struct director **_dir)
 	timeout_remove(&dir->to_remove_dirs);
 	timeout_remove(&dir->to_callback);
 	while (array_count(&dir->dir_hosts) > 0) {
-		hostp = array_idx(&dir->dir_hosts, 0);
+		hostp = array_front(&dir->dir_hosts);
 		host = *hostp;
 		director_host_free(&host);
 	}

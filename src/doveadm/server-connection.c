@@ -82,7 +82,7 @@ static void server_set_print_pending(struct doveadm_server *server)
 		if (*serverp == server)
 			return;
 	}
-	array_append(&print_pending_servers, &server, 1);
+	array_push_back(&print_pending_servers, &server);
 }
 
 static void server_print_connection_released(struct doveadm_server *server)
@@ -366,7 +366,7 @@ static void server_connection_input(struct server_connection *conn)
 		   because v2.2.33 sent the version after and newer
 		   versions send before. */
 		if (!conn->version_received &&
-		    strncmp(line, "VERSION\t", 8) == 0) {
+		    str_begins(line, "VERSION\t")) {
 			if (!version_string_verify_full(line, "doveadm-client",
 							DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
 							&conn->minor)) {
@@ -509,8 +509,9 @@ static int server_connection_init_ssl(struct server_connection *conn)
 	if (conn->server->ssl_ctx == NULL)
 		return 0;
 
-	i_zero(&ssl_set);
-	ssl_set.verbose_invalid_cert = TRUE;
+	doveadm_get_ssl_settings(&ssl_set, conn->pool);
+	if (ssl_set.allow_invalid_cert)
+		ssl_set.verbose_invalid_cert = TRUE;
 
 	if (io_stream_create_ssl_client(conn->server->ssl_ctx,
 					conn->server->hostname, &ssl_set,
@@ -551,7 +552,7 @@ int server_connection_create(struct doveadm_server *server,
 	i_stream_set_name(conn->input, server->name);
 	o_stream_set_name(conn->output, server->name);
 
-	array_append(&conn->server->connections, &conn, 1);
+	array_push_back(&conn->server->connections, &conn);
 
 	if (server_connection_read_settings(conn) < 0 ||
 	    server_connection_init_ssl(conn) < 0) {
@@ -603,8 +604,7 @@ void server_connection_destroy(struct server_connection **_conn)
 	i_stream_destroy(&conn->cmd_input);
 	/* close cmd_output after its parent, so the "." isn't sent */
 	o_stream_destroy(&conn->cmd_output);
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_unref(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	io_remove(&conn->io_log);
 	/* make sure all logs got consumed */
 	if (conn->log_input != NULL)

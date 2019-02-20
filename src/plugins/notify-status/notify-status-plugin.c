@@ -130,9 +130,7 @@ static void notify_update_mailbox_status(struct mailbox *box)
 	struct dict_transaction_context *t;
 	struct mailbox_status status;
 
-	if (user->mail_debug)
-		i_debug("notify-status: Updating mailbox %s status",
-			mailbox_get_vname(box));
+	e_debug(box->event, "notify-status: Updating mailbox status");
 
 	box = mailbox_alloc(mailbox_get_namespace(box)->list,
 			   mailbox_get_vname(box), MAILBOX_FLAG_READONLY);
@@ -194,9 +192,7 @@ static void notify_remove_mailbox_status(struct mailbox *box)
 	i_assert(nuser != NULL);
 	struct dict_transaction_context *t;
 
-	if (user->mail_debug)
-		i_debug("notify-status: Removing mailbox %s status",
-			mailbox_get_vname(box));
+	e_debug(box->event, "notify-status: Removing mailbox status");
 
 	const char *key =
 		t_strdup_printf(NOTIFY_STATUS_KEY, mailbox_get_vname(box));
@@ -313,9 +309,8 @@ static void notify_status_mail_user_created(struct mail_user *user)
 		return;
 
 	if (uri == NULL || *uri == '\0') {
-		if (user->mail_debug)
-			i_debug("notify-status: Disabled - Missing plugin/"
-				NOTIFY_STATUS_SETTING_DICT_URI" setting");
+		e_debug(user->event, "notify-status: Disabled - Missing plugin/"
+			NOTIFY_STATUS_SETTING_DICT_URI" setting");
 		return;
 	}
 

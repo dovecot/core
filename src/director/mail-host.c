@@ -143,7 +143,7 @@ mail_tag_get(struct mail_host_list *list, const char *tag_name)
 		i_array_init(&tag->vhosts, 16*VHOST_MULTIPLIER);
 		tag->users = user_directory_init(list->user_expire_secs,
 						 list->user_free_hook);
-		array_append(&list->tags, &tag, 1);
+		array_push_back(&list->tags, &tag);
 	}
 	return tag;
 }
@@ -170,7 +170,7 @@ mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip,
 	host->ip = *ip;
 	host->ip_str = i_strdup(net_ip2addr(ip));
 	host->tag = mail_tag_get(list, tag_name);
-	array_append(&list->hosts, &host, 1);
+	array_push_back(&list->hosts, &host);
 
 	list->vhosts_unsorted = TRUE;
 	return host;
@@ -534,7 +534,7 @@ struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src)
 	dest = mail_hosts_init(src->user_expire_secs, src->user_free_hook);
 	array_foreach(&src->hosts, hostp) {
 		dest_host = mail_host_dup(dest, *hostp);
-		array_append(&dest->hosts, &dest_host, 1);
+		array_push_back(&dest->hosts, &dest_host);
 	}
 	mail_hosts_sort(dest);
 	return dest;

@@ -286,7 +286,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			record_count++;
 		}
 
-		array_append(ext_offsets, &ext_offset, 1);
+		array_push_back(ext_offsets, &ext_offset);
 	}
 	i_assert(orig_fields_count == cache->fields_count);
 
@@ -432,7 +432,7 @@ static int mail_cache_compress_dotlock(struct mail_cache *cache,
 	return 0;
 }
 
-static int mail_cache_compress_locked(struct mail_cache *cache,
+static int mail_cache_compress_locked(struct mail_cache *cache, bool forced,
 				      struct mail_index_transaction *trans,
 				      bool *unlock, struct dotlock **dotlock_r)
 {
@@ -451,7 +451,8 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return -1;
 	/* we've locked the cache compression now. if somebody else had just
 	   recreated the cache, reopen the cache and return success. */
-	if ((ret = mail_cache_compress_has_file_changed(cache)) != 0) {
+	if (!forced &&
+	    (ret = mail_cache_compress_has_file_changed(cache)) != 0) {
 		if (ret < 0)
 			return -1;
 
@@ -493,9 +494,10 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	return 0;
 }
 
-int mail_cache_compress(struct mail_cache *cache,
-			struct mail_index_transaction *trans,
-			struct mail_cache_compress_lock **lock_r)
+static int
+mail_cache_compress_full(struct mail_cache *cache, bool forced,
+			 struct mail_index_transaction *trans,
+			 struct mail_cache_compress_lock **lock_r)
 {
 	struct dotlock *dotlock = NULL;
 	bool unlock = FALSE;
@@ -542,7 +544,7 @@ int mail_cache_compress(struct mail_cache *cache,
 		}
 	}
 	cache->compressing = TRUE;
-	ret = mail_cache_compress_locked(cache, trans, &unlock, &dotlock);
+	ret = mail_cache_compress_locked(cache, forced, trans, &unlock, &dotlock);
 	cache->compressing = FALSE;
 	if (unlock) {
 		if (mail_cache_unlock(cache) < 0)
@@ -559,6 +561,20 @@ int mail_cache_compress(struct mail_cache *cache,
 		(*lock_r)->dotlock = dotlock;
 	}
 	return ret;
+}
+
+int mail_cache_compress(struct mail_cache *cache,
+			struct mail_index_transaction *trans,
+			struct mail_cache_compress_lock **lock_r)
+{
+	return mail_cache_compress_full(cache, FALSE, trans, lock_r);
+}
+
+int mail_cache_compress_forced(struct mail_cache *cache,
+			       struct mail_index_transaction *trans,
+			       struct mail_cache_compress_lock **lock_r)
+{
+	return mail_cache_compress_full(cache, TRUE, trans, lock_r);
 }
 
 void mail_cache_compress_unlock(struct mail_cache_compress_lock **_lock)

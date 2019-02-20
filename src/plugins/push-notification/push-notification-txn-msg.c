@@ -17,7 +17,7 @@ push_notification_txn_msg_create(struct push_notification_txn *txn,
 
     if (hash_table_is_created(txn->messages)) {
         msg = hash_table_lookup(txn->messages,
-                                POINTER_CAST(txn->t->save_count + 1));
+                                POINTER_CAST(mail->seq));
     } else {
         hash_table_create_direct(&txn->messages, txn->pool, 4);
     }
@@ -26,10 +26,13 @@ push_notification_txn_msg_create(struct push_notification_txn *txn,
         msg = p_new(txn->pool, struct push_notification_txn_msg, 1);
         msg->mailbox = mailbox_get_vname(mail->box);
         /* Save sequence number - used to determine UID later. */
-        msg->seq = txn->t->save_count;
+	if (mail->uid == 0)
+		msg->save_idx = txn->t->save_count;
+	else
+		msg->save_idx = UINT_MAX;
         msg->uid = mail->uid;
 
-        hash_table_insert(txn->messages, POINTER_CAST(txn->t->save_count + 1),
+        hash_table_insert(txn->messages, POINTER_CAST(mail->seq),
                           msg);
     }
 
@@ -65,10 +68,11 @@ push_notification_txn_msg_end(struct push_notification_txn *ptxn,
 
     while (hash_table_iterate(hiter, ptxn->messages, &key, &value)) {
         if (value->uid == 0) {
-            if (seq_range_array_iter_nth(&siter, value->seq, &uid)) {
+            if (seq_range_array_iter_nth(&siter, value->save_idx, &uid)) {
                 value->uid = uid;
             }
-        }
+        } else
+		i_assert(value->save_idx == UINT_MAX);
         value->uid_validity = uid_validity;
 
         array_foreach_modifiable(&ptxn->drivers, dtxn) {
@@ -117,7 +121,7 @@ push_notification_txn_msg_set_eventdata(struct push_notification_txn *txn,
     mevent->data = data;
     mevent->event = event;
 
-    array_append(&msg->eventdata, &mevent, 1);
+    array_push_back(&msg->eventdata, &mevent);
 }
 
 void

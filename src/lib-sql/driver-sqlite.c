@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "ioloop.h"
 #include "str.h"
 #include "hex-binary.h"
 #include "sql-api-private.h"
@@ -38,21 +39,26 @@ extern const struct sql_db driver_sqlite_db;
 extern const struct sql_result driver_sqlite_result;
 extern const struct sql_result driver_sqlite_error_result;
 
+static struct event_category event_category_sqlite = {
+	.parent = &event_category_sql,
+	.name = "sqlite"
+};
+
 static int driver_sqlite_connect(struct sql_db *_db)
 {
  	struct sqlite_db *db = (struct sqlite_db *)_db;
-  
+
 	if (db->connected)
 		return 1;
 
 	db->rc = sqlite3_open(db->dbfile, &db->sqlite);
-	
+
 	if (db->rc == SQLITE_OK) {
 		db->connected = TRUE;
 		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
 		return 1;
 	} else {
-		i_error("sqlite: open(%s) failed: %s", db->dbfile,
+		e_error(_db->event, "open(%s) failed: %s", db->dbfile,
 			sqlite3_errmsg(db->sqlite));
 		sqlite3_close(db->sqlite);
 		db->sqlite = NULL;
@@ -68,21 +74,24 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 	db->sqlite = NULL;
 }
 
-static struct sql_db *driver_sqlite_init_v(const char *connect_string)
+static int driver_sqlite_init_full_v(const struct sql_settings *set, struct sql_db **db_r,
+				     const char **error_r ATTR_UNUSED)
 {
 	struct sqlite_db *db;
 	pool_t pool;
-
-	i_assert(connect_string != NULL);
 
 	pool = pool_alloconly_create("sqlite driver", 512);
 	db = p_new(pool, struct sqlite_db, 1);
 	db->pool = pool;
 	db->api = driver_sqlite_db;
-	db->dbfile = p_strdup(db->pool, connect_string);
+	db->dbfile = p_strdup(db->pool, set->connect_string);
 	db->connected = FALSE;
+	db->api.event = event_create(set->event_parent);
+	event_add_category(db->api.event, &event_category_sqlite);
+	event_set_append_log_prefix(db->api.event, "sqlite: ");
 
-	return &db->api;
+	*db_r = &db->api;
+	return 0;
 }
 
 static void driver_sqlite_deinit_v(struct sql_db *_db)
@@ -93,6 +102,8 @@ static void driver_sqlite_deinit_v(struct sql_db *_db)
 	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
 
 	sqlite3_close(db->sqlite);
+	sql_connection_log_finished(_db);
+	event_unref(&_db->event);
 	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);
 }
@@ -127,18 +138,50 @@ driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 	return destbegin;
 }
 
+static void driver_sqlite_result_log(const struct sql_result *result, const char *query)
+{
+	struct sqlite_db *db = (struct sqlite_db *)result->db;
+	bool success = db->connected && db->rc == SQLITE_OK;
+	int duration;
+	const char *suffix = "";
+	struct event_passthrough *e =
+		sql_query_finished_event(&db->api, result->event, query, success,
+					 &duration);
+	io_loop_time_refresh();
+
+	if (!db->connected) {
+		suffix = ": Cannot connect to database";
+		e->add_str("error", "Cannot connect to database");
+	} else if (db->rc != SQLITE_OK) {
+		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
+					 db->rc);
+		e->add_str("error", sqlite3_errmsg(db->sqlite));
+		e->add_int("error_code", db->rc);
+	}
+
+	e_debug(e->event(), SQL_QUERY_FINISHED_FMT"%s", query, duration, suffix);
+}
+
 static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 {
 	struct sqlite_db *db = (struct sqlite_db *)_db;
+	struct sql_result result;
 
-	if (driver_sqlite_connect(_db) < 0)
-		return;
+	i_zero(&result);
+	result.db = _db;
+	result.event = event_create(_db->event);
 
-	db->rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
-	if (db->rc != SQLITE_OK) {
-		i_error("sqlite: exec(%s) failed: %s (%d)",
-			query, sqlite3_errmsg(db->sqlite), db->rc);
+	/* Other drivers do not include time spent connecting
+	   but this simplifies error logging, so we include
+	   it here. */
+	if (driver_sqlite_connect(_db) < 0) {
+		driver_sqlite_result_log(&result, query);
+	} else {
+		db->rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
+		driver_sqlite_result_log(&result, query);
 	}
+
+	event_unref(&result.event);
 }
 
 static void driver_sqlite_query(struct sql_db *db, const char *query,
@@ -158,17 +201,24 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 {
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 	struct sqlite_result *result;
-	int rc;
+	struct event *event;
 
 	result = i_new(struct sqlite_result, 1);
+	result->api.db = _db;
+	/* Temporarily store the event since result->api gets
+	 * overwritten later here and we need to reset it. */
+	event = event_create(_db->event);
+	result->api.event = event;
 
 	if (driver_sqlite_connect(_db) < 0) {
+		driver_sqlite_result_log(&result->api, query);
 		result->api = driver_sqlite_error_result;
 		result->stmt = NULL;
 		result->cols = 0;
 	} else {
-		rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
-		if (rc == SQLITE_OK) {
+		db->rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
+		driver_sqlite_result_log(&result->api, query);
+		if (db->rc == SQLITE_OK) {
 			result->api = driver_sqlite_result;
 			result->cols = sqlite3_column_count(result->stmt);
 			result->row = i_new(const char *, result->cols);
@@ -178,9 +228,10 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 			result->cols = 0;
 		}
 	}
+
 	result->api.db = _db;
 	result->api.refcount = 1;
-
+	result->api.event = event;
 	return &result->api;
 }
 
@@ -195,11 +246,12 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 
 	if (result->stmt != NULL) {
 		if ((rc = sqlite3_finalize(result->stmt)) != SQLITE_OK) {
-			i_warning("sqlite: finalize failed: %s (%d)",
+			e_warning(_result->event, "finalize failed: %s (%d)",
 				  sqlite3_errmsg(db->sqlite), rc);
 		}
 		i_free(result->row);
 	}
+	event_unref(&result->api.event);
 	i_free(result);
 }
 
@@ -246,7 +298,7 @@ static int driver_sqlite_result_find_field(struct sql_result *_result,
 		if (strcmp(col, field_name) == 0)
 			return i;
 	}
-	
+
 	return -1;
 }
 
@@ -300,7 +352,10 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 	struct sqlite_result *result = (struct sqlite_result *)_result;
 	struct sqlite_db *db = (struct sqlite_db *)result->api.db;
 
-	return sqlite3_errmsg(db->sqlite);
+	if (db->connected)
+		return sqlite3_errmsg(db->sqlite);
+	else
+		return "Cannot connect to database";
 }
 
 static struct sql_transaction_context *
@@ -311,6 +366,7 @@ driver_sqlite_transaction_begin(struct sql_db *_db)
 
 	ctx = i_new(struct sqlite_transaction_context, 1);
 	ctx->ctx.db = _db;
+	ctx->ctx.event = event_create(_db->event);
 
 	sql_exec(_db, "BEGIN TRANSACTION");
 	if (db->rc != SQLITE_OK)
@@ -325,7 +381,13 @@ driver_sqlite_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct sqlite_transaction_context *ctx =
 		(struct sqlite_transaction_context *)_ctx;
 
+	if (!ctx->failed) {
+		e_debug(sql_transaction_finished_event(_ctx)->
+			add_str("error", "Rolled back")->event(),
+			"Transaction rolled back");
+	}
 	sql_exec(_ctx->db, "ROLLBACK");
+	event_unref(&_ctx->event);
 	i_free(ctx);
 }
 
@@ -348,10 +410,21 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 	if (ctx->failed) {
 		commit_result.error = sqlite3_errmsg(db->sqlite);
 		callback(&commit_result, context);
-                /* also does i_free(ctx) */
+		e_debug(sql_transaction_finished_event(_ctx)->
+			add_str("error", commit_result.error)->event(),
+			"Transaction failed");
+		/* From SQLite manual: It is recommended that applications
+		   respond to the errors listed above by explicitly issuing a
+		   ROLLBACK command. If the transaction has already been rolled
+		   back automatically by the error response, then the ROLLBACK
+		   command will fail with an error, but no harm is caused by
+		   this. */
 		driver_sqlite_transaction_rollback(_ctx);
 	} else {
+		e_debug(sql_transaction_finished_event(_ctx)->event(),
+			"Transaction committed");
 		callback(&commit_result, context);
+		event_unref(&_ctx->event);
 		i_free(ctx);
 	}
 }
@@ -365,7 +438,7 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 	struct sqlite_db *db = (struct sqlite_db *) ctx->ctx.db;
 
 	if (ctx->failed) {
-                /* also does i_free(ctx) */
+		/* also does i_free(ctx) */
 		driver_sqlite_transaction_rollback(_ctx);
 		return -1;
 	}
@@ -411,7 +484,7 @@ const struct sql_db driver_sqlite_db = {
 	.flags = SQL_DB_FLAG_BLOCKING,
 
 	.v = {
-		.init = driver_sqlite_init_v,
+		.init_full = driver_sqlite_init_full_v,
 		.deinit = driver_sqlite_deinit_v,
 		.connect = driver_sqlite_connect,
 		.disconnect = driver_sqlite_disconnect,

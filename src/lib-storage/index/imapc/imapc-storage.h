@@ -180,6 +180,7 @@ void imapc_mailbox_run(struct imapc_mailbox *mbox);
 void imapc_mailbox_run_nofetch(struct imapc_mailbox *mbox);
 void imapc_mail_cache_free(struct imapc_mail_cache *cache);
 int imapc_mailbox_select(struct imapc_mailbox *mbox);
+void imap_mailbox_select_finish(struct imapc_mailbox *mbox);
 
 bool imapc_mailbox_has_modseqs(struct imapc_mailbox *mbox);
 bool imap_resp_text_code_parse(const char *str, enum mail_error *error_r);
@@ -188,11 +189,12 @@ void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 const struct imapc_command_reply *reply);
 void imapc_simple_context_init(struct imapc_simple_context *sctx,
 			       struct imapc_storage_client *client);
-void imapc_simple_run(struct imapc_simple_context *sctx);
+void imapc_simple_run(struct imapc_simple_context *sctx,
+		      struct imapc_command **cmd);
 void imapc_simple_callback(const struct imapc_command_reply *reply,
 			   void *context);
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
-				       bool *changes_r);
+				       bool force, bool *changes_r);
 void imapc_mailbox_noop(struct imapc_mailbox *mbox);
 void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 				 const char *reason, ...) ATTR_FORMAT(2, 3);

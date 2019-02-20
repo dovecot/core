@@ -94,7 +94,7 @@ void sdbox_save_add_file(struct mail_save_context *_ctx, struct dbox_file *file)
 		   we'll close it here to avoid eating too many fds. */
 		dbox_file_close(files[count-1]);
 	}
-	array_append(&ctx->files, &file, 1);
+	array_push_back(&ctx->files, &file);
 }
 
 int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
@@ -164,7 +164,7 @@ static int dbox_save_mail_write_metadata(struct dbox_save_context *ctx,
 		for (i = 0; i < count; i++) {
 			const char *path = p_strdup(sfile->attachment_pool,
 						    extrefs[i].path);
-			array_append(&sfile->attachment_paths, &path, 1);
+			array_push_back(&sfile->attachment_paths, &path);
 		}
 	}
 	return 0;
@@ -188,7 +188,7 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 	}
 	dbox_save_end(&ctx->ctx);
 
-	files = array_idx_modifiable(&ctx->files, array_count(&ctx->files) - 1);
+	files = array_back_modifiable(&ctx->files);
 	if (!ctx->ctx.failed) T_BEGIN {
 		if (dbox_save_mail_write_metadata(&ctx->ctx, *files) < 0)
 			ctx->ctx.failed = TRUE;
@@ -199,7 +199,7 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 		dbox_file_append_rollback(&ctx->append_ctx);
 		dbox_file_unlink(*files);
 		dbox_file_unref(files);
-		array_delete(&ctx->files, array_count(&ctx->files) - 1, 1);
+		array_pop_back(&ctx->files);
 	} else {
 		dbox_file_append_checkpoint(ctx->append_ctx);
 		if (dbox_file_append_commit(&ctx->append_ctx) < 0)

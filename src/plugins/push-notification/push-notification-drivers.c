@@ -148,9 +148,9 @@ push_notification_driver_debug(const char *label, struct mail_user *user,
 {
     va_list args;
 
-    if (user->mail_debug) T_BEGIN {
+    T_BEGIN {
         va_start(args, fmt);
-        i_debug("%s%s", label, t_strdup_vprintf(fmt, args));
+        e_debug(user->event, "%s%s", label, t_strdup_vprintf(fmt, args));
         va_end(args);
     } T_END;
 }
@@ -169,7 +169,7 @@ void push_notification_driver_register
                 driver->name);
     }
 
-    array_append(&push_notification_drivers, &driver, 1);
+    array_push_back(&push_notification_drivers, &driver);
 }
 
 void push_notification_driver_unregister

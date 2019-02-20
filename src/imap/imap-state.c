@@ -12,24 +12,20 @@
 #include "mail-storage-private.h"
 #include "mailbox-recent-flags.h"
 #include "imap-client.h"
+#include "imap-feature.h"
 #include "imap-fetch.h"
 #include "imap-search-args.h"
 #include "imap-state.h"
 
 enum imap_state_type_public {
 	IMAP_STATE_TYPE_MAILBOX			= 'B',
-	IMAP_STATE_TYPE_ENABLED_FEATURES	= 'F',
+	IMAP_STATE_TYPE_ENABLED_FEATURE		= 'F',
 	IMAP_STATE_TYPE_SEARCHRES		= '1',
 };
 
 enum imap_state_type_internal {
 	IMAP_STATE_TYPE_ID_LOGGED		= 'I',
 	IMAP_STATE_TYPE_TLS_COMPRESSION		= 'C',
-};
-
-enum imap_state_feature {
-	IMAP_STATE_FEATURE_CONDSTORE	= 'C',
-	IMAP_STATE_FEATURE_QRESYNC	= 'Q'
 };
 
 struct mailbox_import_state {
@@ -238,7 +234,7 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
 	numpack_encode(dest, status.uidvalidity);
 	numpack_encode(dest, status.uidnext);
 	numpack_encode(dest, status.messages);
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0 &&
+	if (client_has_enabled(client, imap_feature_qresync) &&
 	    !client->nonpermanent_modseqs)
 		numpack_encode(dest, client->sync_last_full_modseq);
 	else
@@ -283,15 +279,12 @@ int imap_state_export_base(struct client *client, bool internal,
 	}
 
 	/* IMAP features */
-	if (client->enabled_features != 0) {
-		i_assert((client->enabled_features & ~(MAILBOX_FEATURE_CONDSTORE |
-						       MAILBOX_FEATURE_QRESYNC)) == 0);
-		buffer_append_c(dest, IMAP_STATE_TYPE_ENABLED_FEATURES);
-		if ((client->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0)
-			buffer_append_c(dest, IMAP_STATE_FEATURE_CONDSTORE);
-		if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0)
-			buffer_append_c(dest, IMAP_STATE_FEATURE_QRESYNC);
-		buffer_append_c(dest, '\0');
+	const char *const *features = client_enabled_features(client);
+	if (features != NULL) {
+		for (unsigned int i = 0; features[i] != NULL; i++) {
+			buffer_append_c(dest, IMAP_STATE_TYPE_ENABLED_FEATURE);
+			buffer_append(dest, features[i], strlen(features[i])+1);
+		}
 	}
 	if (internal) {
 		if (client->id_logged)
@@ -382,7 +375,7 @@ import_send_expunges(struct client *client,
 		while (seq_range_array_iter_nth(&iter, n, &expunged_uid) &&
 		       expunged_uid < mail->uid && seq < state->messages) {
 			seq++; n++;
-			array_append(&expunged_seqs, &seq, 1);
+			array_push_back(&expunged_seqs, &seq);
 			crc = crc32_data_more(crc, &expunged_uid,
 					      sizeof(expunged_uid));
 		}
@@ -395,7 +388,7 @@ import_send_expunges(struct client *client,
 	while (seq_range_array_iter_nth(&iter, n, &expunged_uid) &&
 	       seq < state->messages) {
 		seq++; n++;
-		array_append(&expunged_seqs, &seq, 1);
+		array_push_back(&expunged_seqs, &seq);
 		crc = crc32_data_more(crc, &expunged_uid,
 				      sizeof(expunged_uid));
 	}
@@ -427,7 +420,7 @@ import_send_expunges(struct client *client,
 		return -1;
 	}
 
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) == 0) {
+	if (!client_has_enabled(client, imap_feature_qresync)) {
 		str = t_str_new(32);
 		for (i = expunge_count; i > 0; i--) {
 			str_truncate(str, 0);
@@ -475,7 +468,7 @@ import_send_flag_changes(struct client *client,
 	pool_unref(&pool);
 
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
+	if (client_has_enabled(client, imap_feature_qresync)) {
 		imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_uid_init);
 		imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_modseq_init);
 	}
@@ -586,8 +579,7 @@ import_state_mailbox_open(struct client *client,
 		return -1;
 	}
 
-	if (client->enabled_features != 0)
-		ret = mailbox_enable(box, client->enabled_features);
+	ret = mailbox_enable(box, client_enabled_mailbox_features(client));
 	if (ret < 0 || mailbox_sync(box, 0) < 0) {
 		*error_r = t_strdup_printf("Couldn't sync mailbox: %s",
 			mailbox_get_last_internal_error(box, NULL));
@@ -678,7 +670,7 @@ import_state_mailbox_open(struct client *client,
 		*error_r = "Couldn't send flag changes";
 		return -1;
 	}
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0 &&
+	if (client_has_enabled(client, imap_feature_qresync) &&
 	    !client->nonpermanent_modseqs &&
 	    status.highest_modseq != state->highest_modseq) {
 		client_send_line(client, t_strdup_printf(
@@ -686,7 +678,8 @@ import_state_mailbox_open(struct client *client,
 			status.highest_modseq));
 		client->sync_last_full_modseq = status.highest_modseq;
 	}
-	i_debug("Unhibernation sync: %u expunges, %u new messages, %u flag changes, %"PRIu64" modseq changes",
+	e_debug(client->event,
+		"Unhibernation sync: %u expunges, %u new messages, %u flag changes, %"PRIu64" modseq changes",
 		expunge_count, new_mails_count, flag_change_count,
 		status.highest_modseq - state->highest_modseq);
 	return 0;
@@ -717,32 +710,23 @@ import_state_mailbox(struct client *client, const unsigned char *data,
 }
 
 static ssize_t
-import_state_enabled_features(struct client *client, const unsigned char *data,
-			      size_t size, const char **error_r)
+import_state_enabled_feature(struct client *client, const unsigned char *data,
+			     size_t size, const char **error_r)
 {
-	enum imap_state_feature feature;
-	size_t i = 0;
+	const unsigned char *p = data, *end = data + size;
+	const char *name;
+	unsigned int feature_idx;
 
-	for (i = 0; i < size; i++) {
-		if (data[i] == '\0')
-			return i+1;
-		feature = data[i];
-		switch (feature) {
-		case IMAP_STATE_FEATURE_CONDSTORE:
-			client->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
-			break;
-		case IMAP_STATE_FEATURE_QRESYNC:
-			client->enabled_features |= MAILBOX_FEATURE_QRESYNC;
-			break;
-		default:
-			*error_r = t_strdup_printf(
-				"Unknown feature '%c'", feature);
-			return 0;
-		}
-
+	if (import_string(&p, end, &name) < 0) {
+		*error_r = "Mailbox state truncated at name";
+		return 0;
 	}
-	*error_r = "Non-terminated features list";
-	return 0;
+	if (!imap_feature_lookup(name, &feature_idx)) {
+		*error_r = t_strdup_printf("Unknown feature '%s'", name);
+		return 0;
+	}
+	client_enable(client, feature_idx);
+	return p - data;
 }
 
 static ssize_t
@@ -819,7 +803,7 @@ static struct {
 			  size_t size, const char **error_r);
 } imap_states_public[] = {
 	{ IMAP_STATE_TYPE_MAILBOX, import_state_mailbox },
-	{ IMAP_STATE_TYPE_ENABLED_FEATURES, import_state_enabled_features },
+	{ IMAP_STATE_TYPE_ENABLED_FEATURE, import_state_enabled_feature },
 	{ IMAP_STATE_TYPE_SEARCHRES, import_state_searchres }
 };
 

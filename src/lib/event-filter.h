@@ -14,7 +14,7 @@ struct event_filter_query {
 	/* key=NULL-terminated list of key=value fields */
 	const struct event_filter_field *fields;
 
-	/* event name */
+	/* event name. Supports '*' and '?' wildcards. */
 	const char *name;
 	/* source filename:line */
 	const char *source_filename;
@@ -55,16 +55,19 @@ bool event_filter_import_unescaped(struct event_filter *filter,
 				   const char **error_r);
 
 /* Returns TRUE if the event matches the event filter. */
-bool event_filter_match(struct event_filter *filter, struct event *event);
+bool event_filter_match(struct event_filter *filter, struct event *event,
+			const struct failure_context *ctx);
 /* Same as event_filter_match(), but use the given source filename:linenum
    instead of taking it from the event. */
 bool event_filter_match_source(struct event_filter *filter, struct event *event,
 			       const char *source_filename,
-			       unsigned int source_linenum);
+			       unsigned int source_linenum,
+			       const struct failure_context *ctx);
 
 /* Iterate through all queries that match the event. */
 struct event_filter_match_iter *
-event_filter_match_iter_init(struct event_filter *filter, struct event *event);
+event_filter_match_iter_init(struct event_filter *filter, struct event *event,
+			     const struct failure_context *ctx);
 /* Return context for the query that matched, or NULL when there are no more
    matches. */
 void *event_filter_match_iter_next(struct event_filter_match_iter *iter);

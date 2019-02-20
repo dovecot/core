@@ -170,7 +170,7 @@ iostream_rawlog_try_create_tcp(const char *path,
 	int ret, fd;
 
 	/* tcp:host:port */
-	if (strncmp(path, "tcp:", 4) != 0)
+	if (!str_begins(path, "tcp:"))
 		return 0;
 	path += 4;
 

@@ -111,7 +111,7 @@ static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t poo
 	}
 	if (i == count) {
 		char *new_key = i_strdup(key);
-		array_append(&global_alt_usernames, &new_key, 1);
+		array_push_back(&global_alt_usernames, &new_key);
 	}
 
 	value = p_strdup(pool, value);
@@ -124,9 +124,9 @@ static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t poo
 	   the middle set them as "" */
 	while (array_count(alt_usernames) < i) {
 		const char *empty_str = "";
-		array_append(alt_usernames, &empty_str, 1);
+		array_push_back(alt_usernames, &empty_str);
 	}
-	array_append(alt_usernames, &value, 1);
+	array_push_back(alt_usernames, &value);
 }
 
 static void client_auth_parse_args(struct client *client, bool success,
@@ -209,22 +209,22 @@ static void client_auth_parse_args(struct client *client, bool success,
 		} else if (strcmp(key, "user") == 0 ||
 			   strcmp(key, "postlogin_socket") == 0) {
 			/* already handled in sasl-server.c */
-		} else if (strncmp(key, "user_", 5) == 0) {
+		} else if (str_begins(key, "user_")) {
 			if (success) {
 				alt_username_set(&alt_usernames, client->pool,
 						 key, value);
 			}
-		} else if (strncmp(key, "forward_", 8) == 0) {
+		} else if (str_begins(key, "forward_")) {
 			/* these are passed to upstream */
-		} else if (client->set->auth_debug)
-			i_debug("Ignoring unknown passdb extra field: %s", key);
+		} else
+			e_debug(event_auth, "Ignoring unknown passdb extra field: %s", key);
 	}
 	if (array_count(&alt_usernames) > 0) {
 		const char **alt;
 
 		alt = p_new(client->pool, const char *,
 			    array_count(&alt_usernames) + 1);
-		memcpy(alt, array_idx(&alt_usernames, 0),
+		memcpy(alt, array_front(&alt_usernames),
 		       sizeof(*alt) * array_count(&alt_usernames));
 		client->alt_usernames = alt;
 	}
@@ -617,7 +617,7 @@ int client_auth_read_line(struct client *client)
 		client_destroy(client, "Authentication response too large");
 		return -1;
 	}
-	str_append_n(client->auth_response, data, i);
+	str_append_data(client->auth_response, data, i);
 	i_stream_skip(client->input, i == size ? size : i+1);
 
 	/* drop trailing \r */

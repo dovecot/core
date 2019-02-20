@@ -78,6 +78,9 @@ void auth_client_connect(struct auth_client *client);
 void auth_client_disconnect(struct auth_client *client, const char *reason);
 bool auth_client_is_connected(struct auth_client *client);
 bool auth_client_is_disconnected(struct auth_client *client);
+
+void auth_client_set_connect_timeout(struct auth_client *client,
+				     unsigned int msecs);
 void auth_client_set_connect_notify(struct auth_client *client,
 				    auth_connect_notify_callback_t *callback,
 				    void *context) ATTR_NULL(2, 3);
@@ -104,7 +107,8 @@ auth_client_request_new(struct auth_client *client,
 void auth_client_request_continue(struct auth_client_request *request,
 				  const char *data_base64);
 /* Abort ongoing authentication request. */
-void auth_client_request_abort(struct auth_client_request **request);
+void auth_client_request_abort(struct auth_client_request **request,
+			       const char *reason) ATTR_NULL(2);
 /* Return ID of this request. */
 unsigned int auth_client_request_get_id(struct auth_client_request *request);
 /* Return the PID of the server that handled this request. */

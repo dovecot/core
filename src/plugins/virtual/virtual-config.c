@@ -207,7 +207,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		ctx->have_mailbox_defines = TRUE;
 	}
 
-	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
+	array_push_back(&ctx->mbox->backend_boxes, &bbox);
 	return 0;
 }
 
@@ -235,7 +235,7 @@ virtual_mailbox_get_list_patterns(struct virtual_parse_context *ctx)
 			dest = &mbox->list_exclude_patterns;
 			pattern.pattern++;
 		}
-		array_append(dest, &pattern, 1);
+		array_push_back(dest, &pattern);
 	}
 }
 
@@ -266,7 +266,7 @@ separate_wildcard_mailboxes(struct virtual_mailbox *mbox,
 		}
 
 		if (dest != NULL) {
-			array_append(dest, &bboxes[i], 1);
+			array_push_back(dest, &bboxes[i]);
 			array_delete(&mbox->backend_boxes, i, 1);
 			bboxes = array_get_modifiable(&mbox->backend_boxes,
 						      &count);
@@ -286,7 +286,7 @@ static void virtual_config_copy_expanded(struct virtual_parse_context *ctx,
 	bbox->glob = NULL;
 	bbox->wildcard = TRUE;
 	mail_search_args_ref(bbox->search_args);
-	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
+	array_push_back(&ctx->mbox->backend_boxes, &bbox);
 }
 
 static bool virtual_ns_match(struct mail_namespace *config_ns,
@@ -392,7 +392,7 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
 	struct mail_user *user = ctx->mbox->storage->storage.user;
 	ARRAY_TYPE(virtual_backend_box) wildcard_boxes, neg_boxes, metadata_boxes;
 	struct mailbox_list_iterate_context *iter;
-	struct virtual_backend_box *const *wboxes;
+	struct virtual_backend_box *const *wboxes, *const *boxp;
 	const char **patterns;
 	const struct mailbox_info *info;
 	unsigned int i, j, count;
@@ -440,6 +440,10 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
 	}
 	for (i = 0; i < count; i++)
 		mail_search_args_unref(&wboxes[i]->search_args);
+	array_foreach(&neg_boxes, boxp)
+		mail_search_args_unref(&(*boxp)->search_args);
+	array_foreach(&metadata_boxes, boxp)
+		mail_search_args_unref(&(*boxp)->search_args);
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		*error_r = mailbox_list_get_last_internal_error(user->namespaces->list, NULL);
 		return -1;

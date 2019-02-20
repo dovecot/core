@@ -56,6 +56,8 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	struct mail_storage *storage = mailbox_get_storage(box);
 	const char *username = mail_storage_get_user(storage)->username;
 	const char *box_vname = mailbox_get_vname(box);
+	const char *errstr;
+	enum mail_error error;
 	struct mailbox_status status;
 	struct mailbox_transaction_context *trans;
 	struct mail_search_args *search_args;
@@ -122,11 +124,11 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	const char *uids = first_uid == 0 ? "" :
 		t_strdup_printf(" (UIDs %u..%u)", first_uid, last_uid);
 	if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Mailbox %s: Transaction commit failed: %s"
-			" (attempted to index %u messages%s)",
-			mailbox_get_vname(box),
-			mailbox_get_last_internal_error(box, NULL),
-			counter, uids);
+		errstr = mailbox_get_last_internal_error(box, &error);
+		if (error != MAIL_ERROR_NOTFOUND)
+			i_error("Mailbox %s: Transaction commit failed: %s"
+				" (attempted to index %u messages%s)",
+				mailbox_get_vname(box), errstr, counter, uids);
 		ret = -1;
 	} else {
 		i_info("Indexed %u messages in %s%s",
@@ -153,8 +155,10 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	mailbox_set_reason(box, "indexing");
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
 	if (ret < 0) {
-		i_error("Getting path to mailbox %s failed: %s",
-			mailbox, mailbox_get_last_internal_error(box, NULL));
+		errstr = mailbox_get_last_internal_error(box, &error);
+		if (error != MAIL_ERROR_NOTFOUND)
+			i_error("Getting path to mailbox %s failed: %s",
+				mailbox, errstr);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -170,8 +174,10 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		   don't bother syncing the mailbox, that alone can take a
 		   while with large maildirs. */
 		if (mailbox_open(box) < 0) {
-			i_error("Opening mailbox %s failed: %s", mailbox,
-				mailbox_get_last_internal_error(box, NULL));
+			errstr = mailbox_get_last_internal_error(box, &error);
+			if (error != MAIL_ERROR_NOTFOUND)
+				i_error("Opening mailbox %s failed: %s",
+					mailbox, errstr);
 			ret = -1;
 		} else {
 			mailbox_get_open_status(box, STATUS_RECENT, &status);
@@ -190,8 +196,8 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		if (error != MAIL_ERROR_NOTFOUND) {
 			i_error("Syncing mailbox %s failed: %s",
 				mailbox, errstr);
-		} else if (user->mail_debug) {
-			i_debug("Syncing mailbox %s failed: %s",
+		} else {
+			e_debug(user->event, "Syncing mailbox %s failed: %s",
 				mailbox, errstr);
 		}
 		ret = -1;

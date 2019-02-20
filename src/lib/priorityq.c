@@ -109,7 +109,7 @@ static void heap_item_bubble_down(struct priorityq *pq, unsigned int idx)
 void priorityq_add(struct priorityq *pq, struct priorityq_item *item)
 {
 	item->idx = array_count(&pq->items);
-	array_append(&pq->items, &item, 1);
+	array_push_back(&pq->items, &item);
 	(void)heap_item_bubble_up(pq, item->idx);
 }
 
@@ -146,7 +146,7 @@ struct priorityq_item *priorityq_peek(struct priorityq *pq)
 	if (array_count(&pq->items) == 0)
 		return NULL;
 
-	items = array_idx(&pq->items, 0);
+	items = array_front(&pq->items);
 	return items[0];
 }
 
@@ -167,5 +167,5 @@ struct priorityq_item *const *priorityq_items(struct priorityq *pq)
 	if (array_count(&pq->items) == 0)
 		return NULL;
 
-	return array_idx(&pq->items, 0);
+	return array_front(&pq->items);
 }

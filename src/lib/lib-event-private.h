@@ -12,6 +12,9 @@ struct event {
 	uint64_t id;
 
 	char *log_prefix;
+	event_log_prefix_callback_t *log_prefix_callback;
+	void *log_prefix_callback_context;
+	enum log_type min_log_level;
 	bool log_prefix_from_system_pool:1;
 	bool log_prefix_replace:1;
 	bool passthrough:1;
@@ -23,6 +26,7 @@ struct event {
 	bool call_free:1;
 
 /* Fields that are exported & imported: */
+	struct timeval tv_created_ioloop;
 	struct timeval tv_created;
 	struct timeval tv_last_sent;
 

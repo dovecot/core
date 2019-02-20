@@ -101,7 +101,7 @@ int dsync_mail_fill_nonminimal(struct mail *mail, struct dsync_mail *dmail_r,
 		return -1;
 	}
 	if (*str != '\0') {
-		if (str_to_uint(str, &dmail_r->pop3_order) < 0)
+		if (str_to_uint32(str, &dmail_r->pop3_order) < 0)
 			i_unreached();
 	}
 	if (mail_get_received_date(mail, &dmail_r->received_date) < 0) {
@@ -128,7 +128,7 @@ const_string_array_dup(pool_t pool, const ARRAY_TYPE(const_string) *src,
 	p_array_init(dest, pool, count);
 	for (i = 0; i < count; i++) {
 		str = p_strdup(pool, strings[i]);
-		array_append(dest, &str, 1);
+		array_push_back(dest, &str);
 	}
 }
 

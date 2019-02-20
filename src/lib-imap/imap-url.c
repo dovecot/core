@@ -499,7 +499,7 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 				if (p[-1] == '/') section_endslash = TRUE;
 				if (section == NULL)
 					section = t_str_new(256);
-				str_append_n(section, base->section, p-base->section);
+				str_append_data(section, base->section, p-base->section);
 			}
 		}
 		/* /;UID= */
@@ -524,8 +524,8 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 			if (--rel <= 0 && p > base->mailbox) {
 				if (p[-1] == '/')
 					mailbox_endslash = TRUE;
-				str_append_n(mailbox, base->mailbox,
-					     p - base->mailbox);
+				str_append_data(mailbox, base->mailbox,
+						p - base->mailbox);
 			}
 		}
 	}

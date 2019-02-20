@@ -36,7 +36,7 @@
 #define I_MAX(a, b)  (((a) > (b)) ? (a) : (b))
 
 /* make it easier to cast from/to pointers. assumes that
-   sizeof(size_t) == sizeof(void *) and they're both the largest datatypes
+   sizeof(uintptr_t) == sizeof(void *) and they're both the largest datatypes
    that are allowed to be used. so, long long isn't safe with these. */
 #define POINTER_CAST(i) \
 	((void *) (((uintptr_t)NULL) + (i)))
@@ -150,6 +150,11 @@
 #else
 #  define ATTR_RETURNS_NONNULL
 #endif
+#ifdef HAVE_ATTR_DEPRECATED
+#  define ATTR_DEPRECATED(str) __attribute__((deprecated(str)))
+#else
+#  define ATTR_DEPRECATED(str)
+#endif
 
 /* Macros to provide type safety for callback functions' context parameters */
 #ifdef HAVE_TYPE_CHECKS
@@ -230,8 +235,10 @@
 #endif
 
 /* Convenience wrappers for initializing a struct */
-#define i_zero(p) memset(p, 0, sizeof(*(p)))
-#define i_zero_safe(p) safe_memset(p, 0, sizeof(*(p)))
+#define i_zero(p) \
+	memset(p, 0 +  + COMPILE_ERROR_IF_TRUE(sizeof(p) > sizeof(void *)), sizeof(*(p)))
+#define i_zero_safe(p) \
+	safe_memset(p, 0 +  + COMPILE_ERROR_IF_TRUE(sizeof(p) > sizeof(void *)), sizeof(*(p)))
 
 #define ST_CHANGED(st_a, st_b) \
 	((st_a).st_mtime != (st_b).st_mtime || \

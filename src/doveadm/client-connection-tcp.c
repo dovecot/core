@@ -311,7 +311,7 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	struct ioloop *prev_ioloop = current_ioloop;
 	const struct doveadm_cmd *cmd = NULL;
 	const struct doveadm_mail_cmd *mail_cmd;
-	struct doveadm_mail_cmd_context *mctx;
+	struct doveadm_mail_cmd_context *mctx = NULL;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
 
 	if ((cmd_ver2 = doveadm_cmd_find_with_args_ver2(cmd_name, &argc, &argv)) == NULL) {
@@ -336,19 +336,22 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	   running one and we can't call the original one recursively, so
 	   create a new ioloop. */
 	conn->ioloop = io_loop_create();
+	o_stream_switch_ioloop(conn->output);
+	if (conn->log_out != NULL)
+		o_stream_switch_ioloop(conn->log_out);
 
 	if (cmd_ver2 != NULL)
 		doveadm_cmd_server_run_ver2(conn, argc, argv, cctx);
 	else if (cmd != NULL)
 		doveadm_cmd_server_run(conn, argc, argv, cmd);
-	else
+	else {
+		i_assert(mctx != NULL);
 		doveadm_mail_cmd_server_run(conn, mctx);
+	}
 
-	io_loop_set_current(prev_ioloop);
-	o_stream_switch_ioloop(conn->output);
+	o_stream_switch_ioloop_to(conn->output, prev_ioloop);
 	if (conn->log_out != NULL)
-		o_stream_switch_ioloop(conn->log_out);
-	io_loop_set_current(conn->ioloop);
+		o_stream_switch_ioloop_to(conn->log_out, prev_ioloop);
 	io_loop_destroy(&conn->ioloop);
 
 	/* clear all headers */
@@ -447,7 +450,7 @@ client_connection_tcp_authenticate(struct client_connection_tcp *conn)
 
 	/* FIXME: some day we should probably let auth process do this and
 	   support all kinds of authentication */
-	if (strncmp(line, "PLAIN\t", 6) != 0) {
+	if (!str_begins(line, "PLAIN\t")) {
 		i_error("doveadm client attempted non-PLAIN authentication: %s", line);
 		return -1;
 	}

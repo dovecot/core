@@ -14,12 +14,14 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-imap-client \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/imapc \
 	-I$(top_srcdir)/src/lib-storage/index/maildir \
 	-I$(top_srcdir)/src/lib-program-client \
-	-I$(top_srcdir)/src/doveadm
+	-I$(top_srcdir)/src/doveadm \
+	$(LIBTIRPC_CFLAGS)
 
 NOPLUGIN_LDFLAGS =
 lib10_doveadm_quota_plugin_la_LDFLAGS = -module -avoid-version

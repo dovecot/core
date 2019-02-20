@@ -136,6 +136,7 @@ struct mail_storage {
 	   MAIL_FETCH_IMAP_BODYSTRUCTURE from the remote server. Adding fields
 	   here avoids adding them to index_mail_data.access_part. */
 	enum mail_fetch_field nonbody_access_fields;
+	struct event_category *event_category;
 
         struct mail_storage_vfuncs v, *vlast;
 
@@ -160,6 +161,7 @@ struct mail_storage {
 	char *error_string;
 	enum mail_error error;
 	ARRAY(struct mail_storage_error) error_stack;
+	struct event *event;
 
         const struct mail_storage *storage_class;
 	struct mail_user *user;
@@ -666,7 +668,7 @@ struct mail_save_data {
 
 	uint32_t uid, stub_seq;
 	char *guid, *pop3_uidl, *from_envelope;
-	unsigned int pop3_order;
+	uint32_t pop3_order;
 
 	struct ostream *output;
 	struct mail_save_attachment *attach;
@@ -780,8 +782,9 @@ void mail_set_seq_saving(struct mail *mail, uint32_t seq);
 /* Returns true IF and only IF the mail has EITHER one of the
    attachment keywords set. If it has both, or none, it will return FALSE. */
 bool mail_has_attachment_keywords(struct mail *mail);
-/* Sets attachment keywords. */
-void mail_set_attachment_keywords(struct mail *mail);
+/* Sets attachment keywords. Returns -1 on error, 0 when no attachment(s) found,
+   and 1 if attachment was found. */
+int mail_set_attachment_keywords(struct mail *mail);
 
 void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);

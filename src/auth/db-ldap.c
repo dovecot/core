@@ -544,7 +544,7 @@ db_ldap_find_request(struct ldap_connection *conn, int msgid,
 	if (count == 0)
 		return NULL;
 
-	requests = array_idx(&conn->request_array, 0);
+	requests = array_front(&conn->request_array);
 	for (i = 0; i < count; i++) {
 		request = requests[aqueue_idx(conn->request_queue, i)];
 		if (request->msgid == msgid) {
@@ -606,7 +606,7 @@ db_ldap_field_subquery_find(const char *data, void *context,
 		if (p != NULL && strcmp(p+1, ctx->name) == 0) {
 			ldap_attr = p_strdup_until(unsafe_data_stack_pool,
 						   data, p);
-			array_append(&ctx->attr_names, &ldap_attr, 1);
+			array_push_back(&ctx->attr_names, &ldap_attr);
 		}
 	}
 	*value_r = NULL;
@@ -632,7 +632,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	t_array_init(&var_funcs_table, 8);
 
 	for(ptr = auth_request_var_funcs_table; ptr->key != NULL; ptr++) {
-		array_append(&var_funcs_table, ptr, 1);
+		array_push_back(&var_funcs_table, ptr);
 	}
 	ftable = array_append_space(&var_funcs_table);
 	ftable->key = "ldap";
@@ -651,7 +651,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 		if (field->ldap_attr_name[0] == '\0') {
 			str_truncate(tmp_str, 0);
 			if (var_expand_with_funcs(tmp_str, field->value, table,
-						  array_idx(&var_funcs_table, 0), &ctx, &error) <= 0) {
+						  array_front(&var_funcs_table), &ctx, &error) <= 0) {
 				auth_request_log_error(auth_request,
 					AUTH_SUBSYS_DB,
 					"Failed to expand subquery %s: %s",
@@ -664,7 +664,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 			    strcmp(p+1, named_res->field->name) == 0) {
 				name = p_strdup_until(unsafe_data_stack_pool,
 						      field->ldap_attr_name, p);
-				array_append(&ctx.attr_names, &name, 1);
+				array_push_back(&ctx.attr_names, &name);
 			}
 		}
 	}
@@ -672,7 +672,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 
 	request->request.msgid =
 		ldap_search(conn->ld, named_res->dn, LDAP_SCOPE_BASE,
-			    NULL, array_idx_modifiable(&ctx.attr_names, 0), 0);
+			    NULL, array_front_modifiable(&ctx.attr_names), 0);
 	if (request->request.msgid == -1) {
 		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				       "ldap_search(dn=%s) failed: %s",
@@ -1246,7 +1246,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 		if (ret != LDAP_SUCCESS) {
 			if (ret == LDAP_OPERATIONS_ERROR &&
 			    conn->set.uris != NULL &&
-			    strncmp(conn->set.uris, "ldaps:", 6) == 0) {
+			    str_begins(conn->set.uris, "ldaps:")) {
 				i_fatal("LDAP %s: Don't use both tls=yes "
 					"and ldaps URI", conn->config_path);
 			}
@@ -1326,7 +1326,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	timeout_remove(&conn->to);
 
 	if (conn->pending_count != 0) {
-		requests = array_idx(&conn->request_array, 0);
+		requests = array_front(&conn->request_array);
 		for (i = 0; i < conn->pending_count; i++) {
 			request = requests[aqueue_idx(conn->request_queue, i)];
 
@@ -1368,7 +1368,7 @@ db_ldap_field_find(const char *data, void *context,
 	if (*data != '\0') {
 		ldap_attr = p_strdup(ctx->pool, t_strcut(data, ':'));
 		if (strchr(ldap_attr, '@') == NULL)
-			array_append(&ctx->attr_names, &ldap_attr, 1);
+			array_push_back(&ctx->attr_names, &ldap_attr);
 	}
 	*value_r = NULL;
 	return 1;
@@ -1462,12 +1462,12 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			if (*ldap_attr != '\0' &&
 			    strchr(ldap_attr, '@') == NULL) {
 				/* root request's attribute */
-				array_append(&ctx.attr_names, &ldap_attr, 1);
+				array_push_back(&ctx.attr_names, &ldap_attr);
 			}
 		}
 	}
 	array_append_zero(&ctx.attr_names);
-	*attr_names_r = array_idx_modifiable(&ctx.attr_names, 0);
+	*attr_names_r = array_front_modifiable(&ctx.attr_names);
 }
 
 static const struct var_expand_table *
@@ -1496,7 +1496,7 @@ const char *ldap_escape(const char *str,
 		if (IS_LDAP_ESCAPED_CHAR(*p)) {
 			if (ret == NULL) {
 				ret = t_str_new((size_t) (p - str) + 64);
-				str_append_n(ret, str, (size_t) (p - str));
+				str_append_data(ret, str, (size_t) (p - str));
 			}
 			str_printfa(ret, "\\%02X", (unsigned char)*p);
 		} else if (ret != NULL)

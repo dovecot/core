@@ -451,7 +451,7 @@ int http_message_parse_body(struct http_message_parser *parser, bool request)
 					&& array_is_created(&coding->parameters)
 					&& array_count(&coding->parameters) > 0) {
 					const struct http_transfer_param *param =
-						array_idx(&coding->parameters, 0);
+						array_front(&coding->parameters);
 
 					parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BAD_MESSAGE;
 					parser->error = t_strdup_printf(

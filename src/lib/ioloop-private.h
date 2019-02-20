@@ -42,6 +42,9 @@ struct io {
 	/* trigger I/O callback even if OS doesn't think there is input
 	   pending */
 	bool pending;
+	/* This IO event shouldn't be the only thing being waited on, because
+	   it would just result in infinite wait. */
+	bool never_wait_alone;
 
 	io_callback_t *callback;
         void *context;
@@ -102,7 +105,7 @@ struct ioloop_context {
 	ARRAY(struct ioloop_context_callback) callbacks;
 };
 
-int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);
+int io_loop_run_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);
 void io_loop_handle_timeouts(struct ioloop *ioloop);
 void io_loop_call_io(struct io *io);
 

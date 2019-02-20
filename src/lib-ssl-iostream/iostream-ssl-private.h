@@ -59,4 +59,6 @@ bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
    are left. */
 void ssl_iostream_settings_drop_stream_only(struct ssl_iostream_settings *set);
 
+void ssl_iostream_unref(struct ssl_iostream **ssl_io);
+
 #endif

@@ -245,7 +245,7 @@ static void director_state_changed(struct director *dir)
 		if (!ret) {
 			/* a) request for a user being killed
 			   b) user is weak */
-			array_append(&new_requests, requestp, 1);
+			array_push_back(&new_requests, requestp);
 		}
 	}
 	array_clear(&dir->pending_requests);
@@ -253,7 +253,7 @@ static void director_state_changed(struct director *dir)
 
 	if (dir->to_request != NULL && array_count(&new_requests) == 0)
 		timeout_remove(&dir->to_request);
-	doveadm_connections_ring_synced();
+	doveadm_connections_ring_synced(dir);
 }
 
 static void main_preinit(void)

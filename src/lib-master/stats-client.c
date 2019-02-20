@@ -34,6 +34,10 @@ client_handshake_filter(const char *const *args, struct event_filter **filter_r,
 		*error_r = "Expected FILTER";
 		return -1;
 	}
+	if (args[1] == NULL || args[1][0] == '\0') {
+		*filter_r = NULL;
+		return 0;
+	}
 
 	*filter_r = event_filter_create();
 	if (!event_filter_import_unescaped(*filter_r, args+1, error_r)) {
@@ -58,6 +62,10 @@ stats_client_handshake(struct stats_client *client, const char *const *args)
 	client->handshake_received_at_least_once = TRUE;
 	if (client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
+	if (filter == NULL) {
+		/* stats process wants nothing to be sent to it */
+		return 1;
+	}
 
 	if (client->filter != NULL) {
 		/* Filter is already set. It becomes a bit complicated to
@@ -137,7 +145,7 @@ static void stats_client_destroy(struct connection *conn)
 static const struct connection_settings stats_client_set = {
 	.service_name_in = "stats-server",
 	.service_name_out = "stats-client",
-	.major_version = 2,
+	.major_version = 3,
 	.minor_version = 0,
 
 	.input_max_size = (size_t)-1,
@@ -150,35 +158,63 @@ static const struct connection_vfuncs stats_client_vfuncs = {
 	.input_args = stats_client_input_args,
 };
 
-static struct event *stats_event_get_parent(struct event *event)
+static struct event *stats_event_get_merged(struct event *event)
 {
-	struct event *parent = event->parent;
-	unsigned int count;
+	struct event *res = event;
+	struct event *p;
+	unsigned int cat_count, field_count;
+	bool use_original = TRUE;
 
-	if (parent == NULL || parent->id_sent_to_stats)
-		return parent;
-	/* avoid sending unnecessary events that don't add anything */
-	(void)event_get_fields(parent, &count);
-	if (count > 0)
-		return parent;
-	(void)event_get_categories(parent, &count);
-	if (count > 0)
-		return parent;
-	return stats_event_get_parent(parent);
+	for (p = event->parent;
+	     p != NULL && !p->id_sent_to_stats &&
+		     timeval_cmp(&p->tv_created_ioloop, &res->tv_created_ioloop) == 0;
+	     p = p->parent) {
+		// Merge all parents with the same timestamp into result.
+		if (!event_has_all_categories(res, p) ||
+		    !event_has_all_fields(res, p)) {
+			if (use_original) {
+				res = event_dup(event);
+				use_original = FALSE;
+			}
+			event_copy_categories_fields(res, p);
+		}
+	}
+
+	for (; p != NULL && !p->id_sent_to_stats; p = p->parent) {
+		// Now skip parents with empty fields and categories.
+		(void)event_get_fields(p, &field_count);
+		(void)event_get_categories(p, &cat_count);
+		if (field_count > 0 || cat_count > 0)
+			break;
+	}
+
+	if (res->parent != p) {
+		/* p is NULL or
+		   p sent to stats or
+		   p is the first parent that has different timestamp from event
+		   and have fields and/or categories
+		   use p as parent,
+		   because we do not want parent without fields and categoris */
+		if (use_original)
+			res = event_dup(event);
+		event_unref(&res->parent);
+		res->parent = p;
+		if (res->parent != NULL)
+			event_ref(res->parent);
+	}
+	return res;
 }
 
-static void stats_event_write(struct event *event, string_t *str, bool begin)
+static void
+stats_event_write(struct event *event, const struct failure_context *ctx,
+		  string_t *str, bool begin)
 {
-	struct event *parent_event =
-		begin ? event->parent : stats_event_get_parent(event);
+	struct event *merged_event = begin? event: stats_event_get_merged(event);
+	struct event *parent_event = merged_event->parent;
 
-	/* FIXME: we could use create-timestamp of the events to figure out
-	   whether to use BEGIN or to just merge the categories and fields
-	   to the same EVENT. If the parent's timestamp is the same as ours,
-	   don't bother using BEGIN for parent. */
 	if (parent_event != NULL) {
 		if (!parent_event->id_sent_to_stats)
-			stats_event_write(parent_event, str, TRUE);
+			stats_event_write(parent_event, ctx, str, TRUE);
 	}
 	if (begin) {
 		str_printfa(str, "BEGIN\t%"PRIu64"\t", event->id);
@@ -187,20 +223,25 @@ static void stats_event_write(struct event *event, string_t *str, bool begin)
 	} else {
 		str_append(str, "EVENT\t");
 	}
-	str_printfa(str, "%"PRIu64"\t",
-		    parent_event == NULL ? 0 : parent_event->id);
-	event_export(event, str);
+	str_printfa(str, "%"PRIu64"\t%u\t",
+		    parent_event == NULL ? 0 : parent_event->id,
+		    ctx->type);
+	event_export(merged_event, str);
 	str_append_c(str, '\n');
+	if (merged_event != event)
+		event_unref(&merged_event);
 }
 
 static void
-stats_client_send_event(struct stats_client *client, struct event *event)
+stats_client_send_event(struct stats_client *client, struct event *event,
+			const struct failure_context *ctx)
 {
-	if (!client->handshaked || !event_filter_match(client->filter, event))
+	if (!client->handshaked || client->filter == NULL ||
+	    !event_filter_match(client->filter, event, ctx))
 		return;
 
 	string_t *str = t_str_new(256);
-	stats_event_write(event, str, FALSE);
+	stats_event_write(event, ctx, str, FALSE);
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 }
 
@@ -215,7 +256,7 @@ stats_client_free_event(struct stats_client *client, struct event *event)
 
 static bool
 stats_event_callback(struct event *event, enum event_callback_type type,
-		     struct failure_context *ctx ATTR_UNUSED,
+		     struct failure_context *ctx,
 		     const char *fmt ATTR_UNUSED, va_list args ATTR_UNUSED)
 {
 	if (stats_clients->connections == NULL)
@@ -227,7 +268,7 @@ stats_event_callback(struct event *event, enum event_callback_type type,
 
 	switch (type) {
 	case EVENT_CALLBACK_TYPE_EVENT:
-		stats_client_send_event(client, event);
+		stats_client_send_event(client, event, ctx);
 		break;
 	case EVENT_CALLBACK_TYPE_FREE:
 		stats_client_free_event(client, event);

@@ -15,7 +15,7 @@
 static int
 imap_urlauth_backend_trans_set_mailbox_key(struct mailbox *box,
 					   unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
-					   const char **error_r,
+					   const char **client_error_r,
 					   enum mail_error *error_code_r)
 {
 	struct mail_attribute_value urlauth_key;
@@ -23,7 +23,7 @@ imap_urlauth_backend_trans_set_mailbox_key(struct mailbox *box,
 	int ret;
 
 	if (mailbox_open(box) < 0) {
-		*error_r = mailbox_get_last_error(box, error_code_r);
+		*client_error_r = mailbox_get_last_error(box, error_code_r);
 		return -1;
 	}
 
@@ -42,7 +42,7 @@ imap_urlauth_backend_trans_set_mailbox_key(struct mailbox *box,
 				    IMAP_URLAUTH_KEY, &urlauth_key);
 
 	if (mailbox_transaction_commit(&t) < 0) {
-		*error_r = mailbox_get_last_error(box, error_code_r);
+		*client_error_r = mailbox_get_last_error(box, error_code_r);
 		ret = -1;
 	}
 
@@ -53,7 +53,7 @@ static int
 imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 					   bool create,
 					   unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
-					   const char **error_r,
+					   const char **client_error_r,
 					   enum mail_error *error_code_r)
 {
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
@@ -62,7 +62,7 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 	buffer_t key_buf;
 	int ret;
 
-	*error_r = "Internal server error";
+	*client_error_r = "Internal server error";
 	*error_code_r = MAIL_ERROR_TEMP;
 
 	ret = mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
@@ -70,10 +70,8 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 	if (ret < 0)
 		return -1;
 
-	if (user->mail_debug) {
-		i_debug("imap-urlauth: %skey found for mailbox %s",
-			(ret > 0 ? "" : "no "), mailbox_get_vname(box));
-	}
+	e_debug(user->event, "imap-urlauth: %skey found for mailbox %s",
+		(ret > 0 ? "" : "no "), mailbox_get_vname(box));
 
 	if (ret == 0) {
 		if (!create)
@@ -81,15 +79,13 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 
 		ret = imap_urlauth_backend_trans_set_mailbox_key(box,
 								 mailbox_key_r,
-								 error_r,
+								 client_error_r,
 								 error_code_r);
 
 		if (ret < 0)
 			return -1;
-		if (user->mail_debug) {
-			i_debug("imap-urlauth: created key for mailbox %s",
-				mailbox_get_vname(box));
-		}
+		e_debug(user->event, "imap-urlauth: created key for mailbox %s",
+			mailbox_get_vname(box));
 	} else {
 		/* read existing key */
 		buffer_create_from_data(&key_buf, mailbox_key_r,
@@ -108,12 +104,15 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 
 int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 					 unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
-					 const char **error_r,
+					 const char **client_error_r,
 					 enum mail_error *error_code_r)
 {
 	int ret;
 
-	ret = imap_urlauth_backend_trans_get_mailbox_key(box, create, mailbox_key_r, error_r, error_code_r);
+	ret = imap_urlauth_backend_trans_get_mailbox_key(box, create,
+							 mailbox_key_r,
+							 client_error_r,
+							 error_code_r);
 	return ret;
 }
 

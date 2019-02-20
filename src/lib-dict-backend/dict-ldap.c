@@ -82,12 +82,13 @@ dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
 					pat--;
 					if (path[len-1] == '/') {
 						attribute = t_strndup(path, len-1);
-						array_append(values, &attribute, 1);
+						array_push_back(values,
+								&attribute);
 					} else {
-						array_append(values, &path, 1);
+						array_push_back(values, &path);
 					}
 				} else {
-					array_append(values, &path, 1);
+					array_push_back(values, &path);
 					path += len;
 				}
 				*path_len_r = path - path_start;
@@ -98,12 +99,12 @@ dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
 			p = strchr(path, '/');
 			if (p != NULL) {
 				attribute = t_strdup_until(path, p);
-				array_append(values, &attribute, 1);
+				array_push_back(values, &attribute);
 				path = p;
 			} else {
 				/* no '/' anymore, but it'll still match a
 				   partial */
-				array_append(values, &path, 1);
+				array_push_back(values, &path);
 				path += strlen(path);
 				pat++;
 			}
@@ -179,7 +180,7 @@ static const char *ldap_escape(const char *str)
 		if (IS_LDAP_ESCAPED_CHAR(*p)) {
 			if (ret == NULL) {
 				ret = t_str_new((size_t) (p - str) + 64);
-				str_append_n(ret, str, (size_t) (p - str));
+				str_append_data(ret, str, (size_t) (p - str));
 			}
 			str_printfa(ret, "\\%02X", (unsigned char)*p);
 		} else if (ret != NULL)
@@ -202,7 +203,7 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 	entry.key = '\0';
 	entry.value = ldap_escape(dict->username);
 	entry.long_key = "username";
-	array_append(&exp, &entry, 1);
+	array_push_back(&exp, &entry);
 
 	if (priv) {
 		template = t_strdup_printf("(&(%s=%s)%s)", map->username_attribute, "%{username}", map->filter);
@@ -217,12 +218,12 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 		entry.value = ldap_escape(*valuep);
 		entry.long_key = *long_keyp;
-		array_append(&exp, &entry, 1);
+		array_push_back(&exp, &entry);
 	}
 
 	array_append_zero(&exp);
 
-	if (var_expand(query_r, template, array_idx(&exp, 0), &error) <= 0) {
+	if (var_expand(query_r, template, array_front(&exp), &error) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand %s: %s", template, error);
 		return FALSE;
 	}

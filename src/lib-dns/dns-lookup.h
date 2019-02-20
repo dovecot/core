@@ -14,6 +14,7 @@ struct dns_lookup_settings {
 
 	/* ioloop to run the lookup on (defaults to current_ioloop) */
 	struct ioloop *ioloop;
+	struct event *event_parent;
 };
 
 struct dns_lookup_result {

@@ -34,6 +34,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(SET_STR, ssl_cert_username_field),
 	DEF(SET_STR, ssl_crypto_device),
 	DEF(SET_BOOL, ssl_verify_client_cert),
+	DEF(SET_BOOL, ssl_client_require_valid_cert),
 	DEF(SET_BOOL, ssl_require_crl),
 	DEF(SET_BOOL, verbose_ssl),
 	DEF(SET_BOOL, ssl_prefer_server_ciphers),
@@ -48,6 +49,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 #else
 	.ssl = "no:yes:required",
 #endif
+	/* keep synced with mail-storage-settings */
 	.ssl_ca = "",
 	.ssl_cert = "",
 	.ssl_key = "",
@@ -65,6 +67,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_cert_username_field = "commonName",
 	.ssl_crypto_device = "",
 	.ssl_verify_client_cert = FALSE,
+	.ssl_client_require_valid_cert = TRUE,
 	.ssl_require_crl = TRUE,
 	.verbose_ssl = FALSE,
 	.ssl_prefer_server_ciphers = FALSE,
@@ -110,10 +113,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 	if (*set->ssl_key == '\0') {
 		*error_r = "ssl enabled, but ssl_key not set";
-		return FALSE;
-	}
-	if (*set->ssl_dh == '\0') {
-		*error_r = "ssl enabled, but ssl_dh not set";
 		return FALSE;
 	}
 #endif
@@ -179,7 +178,7 @@ void master_service_ssl_settings_to_iostream_set(
 	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
 	/* NOTE: It's a bit questionable whether ssl_ca should be used for
 	   clients. But at least for now it's needed for login-proxy. */
-	set_r->ca = p_strdup(pool, ssl_set->ssl_ca);
+	set_r->ca = p_strdup_empty(pool, ssl_set->ssl_ca);
 
 	switch (type) {
 	case MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER:
@@ -195,11 +194,12 @@ void master_service_ssl_settings_to_iostream_set(
 		set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 		break;
 	case MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT:
-		set_r->ca_file = p_strdup(pool, ssl_set->ssl_client_ca_file);
-		set_r->ca_dir = p_strdup(pool, ssl_set->ssl_client_ca_dir);
+		set_r->ca_file = p_strdup_empty(pool, ssl_set->ssl_client_ca_file);
+		set_r->ca_dir = p_strdup_empty(pool, ssl_set->ssl_client_ca_dir);
 		set_r->cert.cert = p_strdup_empty(pool, ssl_set->ssl_client_cert);
 		set_r->cert.key = p_strdup_empty(pool, ssl_set->ssl_client_key);
-		set_r->verify_remote_cert = TRUE;
+		set_r->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
+		set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 		break;
 	}
 
@@ -213,4 +213,5 @@ void master_service_ssl_settings_to_iostream_set(
 	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
 	set_r->compression = ssl_set->parsed_opts.compression;
 	set_r->tickets = ssl_set->parsed_opts.tickets;
+	set_r->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
 }

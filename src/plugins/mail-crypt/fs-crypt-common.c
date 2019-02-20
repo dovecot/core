@@ -122,8 +122,7 @@ static void fs_crypt_deinit(struct fs *_fs)
 	struct crypt_fs *fs = (struct crypt_fs *)_fs;
 
 	mail_crypt_global_keys_free(&fs->keys);
-	if (_fs->parent != NULL)
-		fs_deinit(&_fs->parent);
+	fs_deinit(&_fs->parent);
 	i_free(fs->enc_algo);
 	i_free(fs->set_prefix);
 	i_free(fs->public_key_path);
@@ -168,7 +167,7 @@ static void fs_crypt_file_deinit(struct fs_file *_file)
 {
 	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
 
-	if (file->super_read != _file->parent && file->super_read != NULL)
+	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
 	fs_file_deinit(&_file->parent);
 	i_free(file->file.path);
@@ -180,10 +179,8 @@ static void fs_crypt_file_close(struct fs_file *_file)
 	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
 
 	i_stream_unref(&file->input);
-	if (file->super_read != NULL)
-		fs_file_close(file->super_read);
-	if (_file->parent != NULL)
-		fs_file_close(_file->parent);
+	fs_file_close(file->super_read);
+	fs_file_close(_file->parent);
 }
 
 static int fs_crypt_read_file(const char *set_name, const char *path,
@@ -255,7 +252,10 @@ fs_crypt_istream_get_key(const char *pubkey_digest,
 		return -1;
 
 	*priv_key_r = mail_crypt_global_key_find(&file->fs->keys, pubkey_digest);
-	return *priv_key_r == NULL ? 0 : 1;
+	if (*priv_key_r == NULL)
+		return 0;
+	dcrypt_key_ref_private(*priv_key_r);
+	return 1;
 }
 
 static struct istream *

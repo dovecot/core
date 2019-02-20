@@ -2046,24 +2046,24 @@ dcrypt_openssl_key_string_get_info(
 	i_assert(key_data != NULL);
 
 	/* is it PEM key */
-	if (strncmp(key_data, "-----BEGIN ", 11) == 0) {
+	if (str_begins(key_data, "-----BEGIN ")) {
 		format = DCRYPT_FORMAT_PEM;
 		version = DCRYPT_KEY_VERSION_NA;
 		key_data += 11;
-		if (strncmp(key_data, "RSA ", 4) == 0) {
+		if (str_begins(key_data, "RSA ")) {
 			if (error_r != NULL)
 				*error_r = "RSA private key format not "
 					"supported, convert it to PKEY format "
 					"with openssl pkey";
 			return FALSE;
 		}
-		if (strncmp(key_data, "ENCRYPTED ", 10) == 0) {
+		if (str_begins(key_data, "ENCRYPTED ")) {
 			encryption_type = DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD;
 			key_data += 10;
 		}
-		if (strncmp(key_data, "PRIVATE KEY-----", 16) == 0)
+		if (str_begins(key_data, "PRIVATE KEY-----"))
 			kind = DCRYPT_KEY_KIND_PRIVATE;
-		else if (strncmp(key_data, "PUBLIC KEY-----", 15) == 0)
+		else if (str_begins(key_data, "PUBLIC KEY-----"))
 			kind = DCRYPT_KEY_KIND_PUBLIC;
 		else {
 			if (error_r != NULL)
@@ -2071,12 +2071,12 @@ dcrypt_openssl_key_string_get_info(
 			return FALSE;
 		}
 	} else {
-		if (strncmp(key_data, "1:", 2) == 0) {
+		if (str_begins(key_data, "1:")) {
 			if (error_r != NULL)
 				*error_r = "Dovecot v1 key format "
 					"uses tab to separate fields";
 			return FALSE;
-		} else if (strncmp(key_data, "2\t", 2) == 0) {
+		} else if (str_begins(key_data, "2\t")) {
 			if (error_r != NULL)
 				*error_r = "Dovecot v2 key format uses "
 					"colon to separate fields";

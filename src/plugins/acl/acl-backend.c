@@ -40,15 +40,13 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	struct acl_backend *backend;
 	unsigned int i, group_count;
 
-	if (user->mail_debug) {
-		i_debug("acl: initializing backend with data: %s", data);
-		i_debug("acl: acl username = %s", acl_username);
-		i_debug("acl: owner = %d", owner ? 1 : 0);
-	}
+	e_debug(user->event, "acl: initializing backend with data: %s", data);
+	e_debug(user->event, "acl: acl username = %s", acl_username);
+	e_debug(user->event, "acl: owner = %d", owner ? 1 : 0);
 
 	group_count = str_array_length(groups);
 
-	if (strncmp(data, "vfile:", 6) == 0)
+	if (str_begins(data, "vfile:"))
 		data += 6;
 	else if (strcmp(data, "vfile") == 0)
 		data = "";
@@ -70,8 +68,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 			p_new(backend->pool, const char *, group_count);
 		for (i = 0; i < group_count; i++) {
 			backend->groups[i] = p_strdup(backend->pool, groups[i]);
-			if (user->mail_debug)
-				i_debug("acl: group added: %s", groups[i]);
+			e_debug(user->event, "acl: group added: %s", groups[i]);
 		}
 		i_qsort(backend->groups, group_count, sizeof(const char *),
 			i_strcmp_p);

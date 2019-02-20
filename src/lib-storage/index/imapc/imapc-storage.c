@@ -30,6 +30,11 @@ struct imapc_resp_code_map {
 extern struct mail_storage imapc_storage;
 extern struct mailbox imapc_mailbox;
 
+static struct event_category event_category_imapc = {
+	.name = "imapc",
+	.parent = &event_category_storage,
+};
+
 static struct imapc_resp_code_map imapc_resp_code_map[] = {
 	{ IMAP_RESP_CODE_UNAVAILABLE, MAIL_ERROR_TEMP },
 	{ IMAP_RESP_CODE_AUTHFAILED, MAIL_ERROR_PERM },
@@ -117,12 +122,15 @@ void imapc_simple_context_init(struct imapc_simple_context *sctx,
 	sctx->ret = -2;
 }
 
-void imapc_simple_run(struct imapc_simple_context *sctx)
+void imapc_simple_run(struct imapc_simple_context *sctx,
+		      struct imapc_command **cmd)
 {
 	if (imapc_storage_client_handle_auth_failure(sctx->client)) {
+		imapc_command_abort(cmd);
 		imapc_client_logout(sctx->client->client);
 		sctx->ret = -1;
 	}
+	*cmd = NULL;
 	while (sctx->ret == -2)
 		imapc_client_run(sctx->client->client);
 }
@@ -179,7 +187,7 @@ void imapc_mailbox_noop(struct imapc_mailbox *mbox)
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_simple_callback, &sctx);
 	imapc_command_send(cmd, "NOOP");
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 }
 
 static void
@@ -331,16 +339,16 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	mail_user_set_get_temp_prefix(str, ns->user->set);
 	set.temp_path_prefix = str_c(str);
 
-	set.ssl_ca_dir = mail_set->ssl_client_ca_dir;
-	set.ssl_ca_file = mail_set->ssl_client_ca_file;
-	set.ssl_verify = imapc_set->imapc_ssl_verify;
+	mail_user_init_ssl_client_settings(ns->user, &set.ssl_set);
+	if (!imapc_set->imapc_ssl_verify)
+		set.ssl_set.allow_invalid_cert = TRUE;
+
 	if (strcmp(imapc_set->imapc_ssl, "imaps") == 0)
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
 	else if (strcmp(imapc_set->imapc_ssl, "starttls") == 0)
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
 	else
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
-	set.ssl_crypto_device = mail_set->ssl_crypto_device;
 
 	set.throttle_set.init_msecs = imapc_set->throttle_init_msecs;
 	set.throttle_set.max_msecs = imapc_set->throttle_max_msecs;
@@ -581,8 +589,8 @@ imapc_mailbox_reopen_callback(const struct imapc_command_reply *reply,
 	if (reply->state != IMAPC_COMMAND_STATE_OK)
 		errmsg = reply->text_full;
 	else if (imapc_mailbox_verify_select(mbox, &errmsg)) {
+		imap_mailbox_select_finish(mbox);
 		errmsg = NULL;
-		mbox->selected = TRUE;
 	}
 
 	if (errmsg != NULL) {
@@ -611,7 +619,16 @@ static void imapc_mailbox_reopen(void *context)
 		i_assert(!mbox->initial_sync_done);
 		return;
 	}
+	if (!mbox->initial_sync_done) {
+		/* Initial FETCH 1:* didn't fully succeed. We're reconnecting
+		   and lib-imap-client is automatically resending it. But we
+		   need to reset the sync_next_* state so that if any of the
+		   mails are now expunged we won't get confused and crash. */
+		mbox->sync_next_lseq = 1;
+		mbox->sync_next_rseq = 1;
+	}
 
+	mbox->state_fetched_success = FALSE;
 	mbox->initial_sync_done = FALSE;
 	mbox->selecting = TRUE;
 	mbox->selected = FALSE;
@@ -644,7 +661,7 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 				"imapc: Opening mailbox failed: %s", error);
 			ctx->ret = -1;
 		} else {
-			ctx->mbox->selected = TRUE;
+			imap_mailbox_select_finish(ctx->mbox);
 			ctx->ret = 0;
 		}
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
@@ -788,7 +805,7 @@ static void imapc_mailbox_close(struct mailbox *box)
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	bool changes;
 
-	(void)imapc_mailbox_commit_delayed_trans(mbox, &changes);
+	(void)imapc_mailbox_commit_delayed_trans(mbox, FALSE, &changes);
 	imapc_mail_fetch_flush(mbox);
 	if (mbox->client_box != NULL)
 		imapc_client_mailbox_close(&mbox->client_box);
@@ -826,7 +843,7 @@ imapc_mailbox_create(struct mailbox *box,
 	cmd = imapc_client_cmd(mbox->storage->client->client,
 			       imapc_simple_callback, &sctx);
 	imapc_command_sendf(cmd, "CREATE %s", name);
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 	return sctx.ret;
 }
 
@@ -996,7 +1013,7 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "STATUS %s (%1s)",
 			    imapc_mailbox_get_remote_name(mbox), str_c(str)+1);
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 	mbox->storage->cur_status_box = NULL;
 	mbox->storage->cur_status = NULL;
 	return sctx.ret;
@@ -1056,7 +1073,7 @@ static int imapc_mailbox_get_namespaces(struct imapc_mailbox *mbox)
 			       imapc_simple_callback, &sctx);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, "NAMESPACE");
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 
 	if (sctx.ret < 0)
 		return -1;
@@ -1072,7 +1089,7 @@ imapc_namespace_find_mailbox(struct imapc_storage *storage, const char *name)
 
 	array_foreach(&storage->remote_namespaces, ns) {
 		len = strlen(ns->prefix);
-		if (strncmp(ns->prefix, name, len) == 0) {
+		if (str_begins(name, ns->prefix)) {
 			if (best_len > len) {
 				best_ns = ns;
 				best_len = len;
@@ -1196,6 +1213,7 @@ struct mail_storage imapc_storage = {
 	.name = IMAPC_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
 		       MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT,
+	.event_category = &event_category_imapc,
 
 	.v = {
 		imapc_get_setting_parser_info,

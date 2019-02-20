@@ -72,12 +72,12 @@ static struct connection_list *redis_connections;
 static void
 redis_input_state_add(struct redis_dict *dict, enum redis_input_state state)
 {
-	array_append(&dict->input_states, &state, 1);
+	array_push_back(&dict->input_states, &state);
 }
 
 static void redis_input_state_remove(struct redis_dict *dict)
 {
-	array_delete(&dict->input_states, 0, 1);
+	array_pop_front(&dict->input_states);
 }
 
 static void redis_callback(struct redis_dict *dict,
@@ -186,7 +186,7 @@ static int redis_input_get(struct redis_connection *conn, const char **error_r)
 	data = i_stream_get_data(conn->conn.input, &size);
 	if (size > conn->bytes_left)
 		size = conn->bytes_left;
-	str_append_n(conn->last_reply, data, size);
+	str_append_data(conn->last_reply, data, size);
 
 	conn->bytes_left -= size;
 	i_stream_skip(conn->conn.input, size);
@@ -246,7 +246,7 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 		if (line[0] != '*' || str_to_uint(line+1, &num_replies) < 0)
 			break;
 
-		reply = array_idx_modifiable(&dict->replies, 0);
+		reply = array_front_modifiable(&dict->replies);
 		i_assert(reply->reply_count > 0);
 		if (reply->reply_count != num_replies) {
 			*error_r = t_strdup_printf(
@@ -259,14 +259,14 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 		if (*line != '+' && *line != ':')
 			break;
 		/* success, just ignore the actual reply */
-		reply = array_idx_modifiable(&dict->replies, 0);
+		reply = array_front_modifiable(&dict->replies);
 		i_assert(reply->reply_count > 0);
 		if (--reply->reply_count == 0) {
 			const struct dict_commit_result result = {
 				DICT_COMMIT_RET_OK, NULL
 			};
 			redis_callback(dict, reply, &result);
-			array_delete(&dict->replies, 0, 1);
+			array_pop_front(&dict->replies);
 			/* if we're running in a dict-ioloop, we're handling a
 			   synchronous commit and need to stop now */
 			if (array_count(&dict->replies) == 0 &&
@@ -376,30 +376,30 @@ redis_dict_init(struct dict *driver, const char *uri,
 
 	args = t_strsplit(uri, ":");
 	for (; *args != NULL; args++) {
-		if (strncmp(*args, "path=", 5) == 0) {
+		if (str_begins(*args, "path=")) {
 			unix_path = *args + 5;
-		} else if (strncmp(*args, "host=", 5) == 0) {
+		} else if (str_begins(*args, "host=")) {
 			if (net_addr2ip(*args+5, &ip) < 0) {
 				*error_r = t_strdup_printf("Invalid IP: %s",
 							   *args+5);
 				ret = -1;
 			}
-		} else if (strncmp(*args, "port=", 5) == 0) {
+		} else if (str_begins(*args, "port=")) {
 			if (net_str2port(*args+5, &port) < 0) {
 				*error_r = t_strdup_printf("Invalid port: %s",
 							   *args+5);
 				ret = -1;
 			}
-		} else if (strncmp(*args, "prefix=", 7) == 0) {
+		} else if (str_begins(*args, "prefix=")) {
 			i_free(dict->key_prefix);
 			dict->key_prefix = i_strdup(*args + 7);
-		} else if (strncmp(*args, "db=", 3) == 0) {
+		} else if (str_begins(*args, "db=")) {
 			if (str_to_uint(*args+3, &dict->db_id) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid db number: %s", *args+3);
 				ret = -1;
 			}
-		} else if (strncmp(*args, "expire_secs=", 12) == 0) {
+		} else if (str_begins(*args, "expire_secs=")) {
 			const char *value = *args + 12;
 
 			if (str_to_uint(value, &secs) < 0 || secs == 0) {
@@ -409,13 +409,13 @@ redis_dict_init(struct dict *driver, const char *uri,
 			}
 			i_free(dict->expire_value);
 			dict->expire_value = i_strdup(value);
-		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
+		} else if (str_begins(*args, "timeout_msecs=")) {
 			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid timeout_msecs: %s", *args+14);
 				ret = -1;
 			}
-		} else if (strncmp(*args, "password=", 9) == 0) {
+		} else if (str_begins(*args, "password=")) {
 			i_free(dict->password);
 			dict->password = i_strdup(*args + 9);
 		} else {
@@ -487,9 +487,9 @@ static void redis_dict_lookup_timeout(struct redis_dict *dict)
 static const char *
 redis_dict_get_full_key(struct redis_dict *dict, const char *key)
 {
-	if (strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0)
+	if (str_begins(key, DICT_PATH_SHARED))
 		key += strlen(DICT_PATH_SHARED);
-	else if (strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0) {
+	else if (str_begins(key, DICT_PATH_PRIVATE)) {
 		key = t_strdup_printf("%s%c%s", dict->username,
 				      DICT_USERNAME_SEPARATOR,
 				      key + strlen(DICT_PATH_PRIVATE));

@@ -555,11 +555,17 @@ void mail_index_lookup_first(struct mail_index_view *view,
 /* Append a new record to index. */
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 		       uint32_t *seq_r);
-/* Assign UIDs for mails with uid=0 or uid<first_uid. All the assigned UIDs
-   are higher than the highest unassigned UID (i.e. it doesn't try to fill UID
-   gaps). Assumes that mailbox is locked in a way that UIDs can be safely
-   assigned. Returns UIDs for all assigned messages, in their sequence order
-   (so UIDs are not necessary ascending). */
+/* Assign new UIDs for mails with uid=0 or uid<min_allowed_uid. All the new
+   UIDs are >= first_new_uid, an also higher than the highest seen uid (i.e. it
+   doesn't try to fill UID gaps). Assumes that mailbox is locked in a way that
+   UIDs can be safely assigned. Returns UIDs for all assigned messages, in
+   their sequence order (so UIDs are not necessary ascending). */
+void mail_index_append_finish_uids_full(struct mail_index_transaction *t,
+					uint32_t min_allowed_uid,
+					uint32_t first_new_uid,
+					ARRAY_TYPE(seq_range) *uids_r);
+/* Call mail_index_append_finish_uids_full() with first_uid used for both
+   min_allowed_uid and first_new_uid. */
 void mail_index_append_finish_uids(struct mail_index_transaction *t,
 				   uint32_t first_uid,
 				   ARRAY_TYPE(seq_range) *uids_r);

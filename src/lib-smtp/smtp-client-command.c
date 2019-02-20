@@ -6,6 +6,7 @@
 #include "str.h"
 #include "llist.h"
 #include "istream.h"
+#include "istream-crlf.h"
 #include "ostream.h"
 #include "ostream-dot.h"
 #include "smtp-common.h"
@@ -168,16 +169,11 @@ bool smtp_client_command_name_equals(struct smtp_client_command *cmd,
 	data = cmd->data->data;
 	data_len = cmd->data->used;
 
-	if (cmd->state >= SMTP_CLIENT_COMMAND_STATE_SUBMITTED) {
-		/* ignore CRLF, which is added at command submission */
-		i_assert(data_len >= 2);
-		data_len -= 2;
-	}
-
 	if (data_len < name_len ||
 		i_memcasecmp(data, name, name_len) != 0)
 		return FALSE;
-	return (data_len == name_len || data[name_len] == ' ');
+	return (data_len == name_len ||
+		data[name_len] == ' ' || data[name_len] == '\r');
 }
 
 void smtp_client_command_lock(struct smtp_client_command *cmd)
@@ -211,6 +207,8 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 
 	*_cmd = NULL;
 
+	smtp_client_command_drop_callback(cmd);
+
 	if ((!disconnected && !cmd->plug && cmd->aborting) ||
 		state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
@@ -223,12 +221,18 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		i_assert(state < SMTP_CLIENT_COMMAND_STATE_FINISHED);
 		cmd->aborting = TRUE;
 	}
-	cmd->callback = NULL;
 	cmd->locked = FALSE;
 
 	i_assert(!cmd->plug || state <= SMTP_CLIENT_COMMAND_STATE_SUBMITTED);
 
 	switch (state) {
+	case SMTP_CLIENT_COMMAND_STATE_NEW:
+		if (cmd->delaying_failure) {
+			DLLIST_REMOVE(&conn->cmd_fail_list, cmd);
+			if (conn->cmd_fail_list == NULL)
+				timeout_remove(&conn->to_cmd_fail);
+		}
+		break;
 	case SMTP_CLIENT_COMMAND_STATE_SENDING:
 		if (!disconnected) {
 			/* it is being sent; cannot truly abort it now */
@@ -257,7 +261,7 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		conn->cmd_wait_list_count--;
 		break;
 	default:
-		break;
+		i_unreached();
 	}
 
 	if (cmd->abort_callback != NULL) {
@@ -275,6 +279,12 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		smtp_client_connection_trigger_output(conn);
 }
 
+void smtp_client_command_drop_callback(struct smtp_client_command *cmd)
+{
+	cmd->callback = NULL;
+	cmd->context = NULL;
+}
+
 void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 				    const struct smtp_reply *reply)
 {
@@ -287,6 +297,22 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 
 	if (state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
+
+	if (cmd->delay_failure) {
+		i_assert(cmd->delayed_failure == NULL);
+		i_assert(state < SMTP_CLIENT_COMMAND_STATE_SUBMITTED);
+
+		smtp_client_command_debug(cmd, "Fail (delay)");
+
+		cmd->delayed_failure = smtp_reply_clone(cmd->pool, reply);
+		cmd->delaying_failure = TRUE;
+		if (conn->to_cmd_fail == NULL) {
+			conn->to_cmd_fail = timeout_add_short(0,
+				smtp_client_commands_fail_delayed, conn);
+		}
+		DLLIST_PREPEND(&conn->cmd_fail_list, cmd);
+		return;
+	}
 
 	cmd->callback = NULL;
 
@@ -320,6 +346,18 @@ void smtp_client_command_fail(struct smtp_client_command **_cmd,
 	smtp_client_command_fail_reply(_cmd, &reply);
 }
 
+static void
+smtp_client_command_fail_delayed(struct smtp_client_command **_cmd)
+{
+	struct smtp_client_command *cmd = *_cmd;
+
+	smtp_client_command_debug(cmd, "Fail delayed");
+
+	i_assert(!cmd->delay_failure);
+	i_assert(cmd->state < SMTP_CLIENT_COMMAND_STATE_FINISHED);
+	smtp_client_command_fail_reply(_cmd, cmd->delayed_failure);
+}
+
 void smtp_client_commands_list_abort(struct smtp_client_command *cmds_list,
 				     unsigned int cmds_list_count)
 {
@@ -337,7 +375,7 @@ void smtp_client_commands_list_abort(struct smtp_client_command *cmds_list,
 	t_array_init(&cmds_arr, cmds_list_count);
 	for (cmd = cmds_list; cmd != NULL; cmd = cmd->next) {
 		smtp_client_command_ref(cmd);
-		array_append(&cmds_arr, &cmd, 1);
+		array_push_back(&cmds_arr, &cmd);
 	}
 
 	cmds = array_get_modifiable(&cmds_arr, &count);
@@ -368,7 +406,7 @@ void smtp_client_commands_list_fail_reply(
 	t_array_init(&cmds_arr, cmds_list_count);
 	for (cmd = cmds_list; cmd != NULL; cmd = cmd->next) {
 		smtp_client_command_ref(cmd);
-		array_append(&cmds_arr, &cmd, 1);
+		array_push_back(&cmds_arr, &cmd);
 	}
 
 	cmds = array_get_modifiable(&cmds_arr, &count);
@@ -378,6 +416,40 @@ void smtp_client_commands_list_fail_reply(
 		smtp_client_command_fail_reply(&cmds[i], reply);
 		/* drop our reference */
 		smtp_client_command_unref(&cmd);
+	}
+}
+
+void smtp_client_commands_abort_delayed(struct smtp_client_connection *conn)
+{
+	struct smtp_client_command *cmd;
+
+	timeout_remove(&conn->to_cmd_fail);
+
+	cmd = conn->cmd_fail_list;
+	conn->cmd_fail_list = NULL;
+	while (cmd != NULL) {
+		struct smtp_client_command *cmd_next = cmd->next;
+
+		cmd->delaying_failure = FALSE;
+		smtp_client_command_abort(&cmd);
+		cmd = cmd_next;
+	}
+}
+
+void smtp_client_commands_fail_delayed(struct smtp_client_connection *conn)
+{
+	struct smtp_client_command *cmd;
+
+	timeout_remove(&conn->to_cmd_fail);
+
+	cmd = conn->cmd_fail_list;
+	conn->cmd_fail_list = NULL;
+	while (cmd != NULL) {
+		struct smtp_client_command *cmd_next = cmd->next;
+
+		cmd->delaying_failure = FALSE;
+		smtp_client_command_fail_delayed(&cmd);
+		cmd = cmd_next;
 	}
 }
 
@@ -408,7 +480,13 @@ void smtp_client_command_set_replies(struct smtp_client_command *cmd,
 static void
 smtp_client_command_sent(struct smtp_client_command *cmd)
 {
-	smtp_client_command_debug(cmd, "Sent");
+	if (cmd->data == NULL)
+		smtp_client_command_debug(cmd, "Sent");
+	else {
+		i_assert(str_len(cmd->data) > 2);
+		str_truncate(cmd->data, str_len(cmd->data)-2);
+		smtp_client_command_debug(cmd, "Sent: %s", str_c(cmd->data));
+	}
 
 	if (smtp_client_command_name_equals(cmd, "QUIT"))
 		cmd->conn->sent_quit = TRUE;
@@ -420,6 +498,36 @@ smtp_client_command_sent(struct smtp_client_command *cmd)
 }
 
 static int
+smtp_client_command_finish_dot_stream(struct smtp_client_command *cmd)
+{
+	struct smtp_client_connection *conn = cmd->conn;
+	int ret;
+
+	i_assert(cmd->stream_dot);
+	i_assert(conn->dot_output != NULL);
+
+	/* this concludes the dot stream with CRLF.CRLF */
+	if ((ret=o_stream_finish(conn->dot_output)) < 0) {
+		o_stream_unref(&conn->dot_output);
+		smtp_client_connection_handle_output_error(conn);
+		return -1;
+	}
+	if (ret == 0)
+		return 0;
+	o_stream_unref(&conn->dot_output);
+	return 1;
+}
+
+static void smtp_client_command_payload_input(struct smtp_client_command *cmd)
+{
+	struct smtp_client_connection *conn = cmd->conn;
+
+	io_remove(&conn->io_cmd_payload);
+
+	smtp_client_connection_trigger_output(conn);
+}
+
+static int
 smtp_client_command_send_stream(struct smtp_client_command *cmd)
 {
 	struct smtp_client_connection *conn = cmd->conn;
@@ -428,6 +536,16 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 	enum ostream_send_istream_result res;
 	int ret;
 
+	io_remove(&conn->io_cmd_payload);
+
+	if (cmd->stream_finished) {
+		if ((ret=smtp_client_command_finish_dot_stream(cmd)) <= 0)
+			return ret;
+		/* done sending payload */
+		smtp_client_command_debug(cmd, "Finished sending payload");
+		i_stream_unref(&cmd->stream);
+		return 1;
+	}
 	if (cmd->stream_dot) {
 		if (conn->dot_output == NULL)
 			conn->dot_output = o_stream_create_dot(output, FALSE);
@@ -446,23 +564,22 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 		/* finished with the stream */
 		smtp_client_command_debug(cmd,
 			"Finished reading payload stream");
-		if (conn->dot_output != NULL) {
-			/* this concludes the dot stream with CRLF.CRLF */
-			if ((ret=o_stream_finish(conn->dot_output)) < 0) {
-				o_stream_unref(&conn->dot_output);
-				smtp_client_connection_handle_output_error(conn);
-				return -1;
-			}
-			if (ret == 0)
-				return 0;
-			o_stream_unref(&conn->dot_output);
+		cmd->stream_finished = TRUE;
+		if (cmd->stream_dot) {
+			if ((ret=smtp_client_command_finish_dot_stream(cmd)) <= 0)
+				return ret;
 		}
 		/* done sending payload */
 		smtp_client_command_debug(cmd, "Finished sending payload");
 		i_stream_unref(&cmd->stream);
 		return 1;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		/* input is blocking (client needs to act; disable timeout) */
+		conn->io_cmd_payload = io_add_istream(
+			stream, smtp_client_command_payload_input, cmd);
+		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		smtp_client_command_debug(cmd, "Partially sent payload");
 		i_assert(cmd->stream_size == 0 ||
 			stream->v_offset < cmd->stream_size);
 		return 0;
@@ -492,103 +609,148 @@ smtp_client_command_send_stream(struct smtp_client_command *cmd)
 	i_unreached();
 }
 
-int smtp_client_command_send_more(struct smtp_client_connection *conn)
+static int
+smtp_client_command_send_line(struct smtp_client_command *cmd)
 {
-	struct smtp_client_command *cmd;
+	struct smtp_client_connection *conn = cmd->conn;
 	const char *data;
 	size_t size;
 	ssize_t sent;
+
+	if (cmd->data == NULL)
+		return 1;
+
+	while (cmd->send_pos < cmd->data->used) {
+		data = CONST_PTR_OFFSET(cmd->data->data, cmd->send_pos);
+		size = cmd->data->used - cmd->send_pos;
+		if ((sent=o_stream_send(conn->conn.output, data, size)) <= 0) {
+			if (sent < 0) {
+				smtp_client_connection_handle_output_error(conn);
+				return -1;
+			}
+			smtp_client_command_debug(cmd,
+				"Blocked while sending");
+			return 0;
+		}
+		cmd->send_pos += sent;
+	}
+
+	i_assert(cmd->send_pos == cmd->data->used);
+	return 1;
+}
+
+static bool
+smtp_client_command_pipeline_is_open(struct smtp_client_connection *conn)
+{
+	struct smtp_client_command *cmd = conn->cmd_send_queue_head;
+
+	if (cmd == NULL)
+		return TRUE;
+
+	if (cmd->plug) {
+		smtp_client_command_debug(cmd, "Pipeline is plugged");
+		return FALSE;
+	}
+
+	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY &&
+	    (cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PRELOGIN) == 0) {
+		/* wait until we're fully connected */
+		smtp_client_command_debug(cmd,
+			"Connection not ready [state=%s]",
+			smtp_client_connection_state_names[conn->state]);
+		return FALSE;
+	}
+
+	cmd = conn->cmd_wait_list_head;
+	if (cmd != NULL &&
+	    (conn->caps.standard & SMTP_CAPABILITY_PIPELINING) == 0) {
+		/* cannot pipeline; wait for reply */
+		smtp_client_command_debug(cmd, "Pipeline occupied");
+		return FALSE;
+	}
+	while (cmd != NULL) {
+		if ((conn->caps.standard & SMTP_CAPABILITY_PIPELINING) == 0 ||
+		    (cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PIPELINE) == 0 ||
+		    cmd->locked) {
+			/* cannot pipeline with previous command;
+			   wait for reply */
+			smtp_client_command_debug(cmd, "Pipeline blocked");
+			return FALSE;
+		}
+		cmd = cmd->next;
+	}
+
+	return TRUE;
+}
+
+static void smtp_cient_command_wait(struct smtp_client_command *cmd)
+{
+	struct smtp_client_connection *conn = cmd->conn;
+
+	/* move command to wait list. */
+	i_assert(conn->cmd_send_queue_count > 0);
+	i_assert(conn->cmd_send_queue_count > 1 ||
+		(cmd->prev == NULL && cmd->next == NULL));
+	DLLIST2_REMOVE(&conn->cmd_send_queue_head,
+		       &conn->cmd_send_queue_tail, cmd);
+	conn->cmd_send_queue_count--;
+	DLLIST2_APPEND(&conn->cmd_wait_list_head,
+		       &conn->cmd_wait_list_tail, cmd);
+	conn->cmd_wait_list_count++;
+}
+
+static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
+{
+	struct smtp_client_command *cmd;
 	int ret;
 
-	for (;;) {
+	if (conn->cmd_streaming != NULL) {
+		cmd = conn->cmd_streaming;
+		i_assert(cmd->stream != NULL);
+	} else {
 		/* check whether we can send anything */
-
 		cmd = conn->cmd_send_queue_head;
 		if (cmd == NULL)
 			return 0;
-
-		if (cmd->plug) {
-			smtp_client_command_debug(cmd, "Pipeline is plugged");
+		if (!smtp_client_command_pipeline_is_open(conn))
 			return 0;
-		}
 
-		if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY &&
-		    (cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PRELOGIN) == 0) {
-			/* wait until we're fully connected */
-			smtp_client_command_debug(cmd,
-				"Connection not ready [state=%s]",
-				smtp_client_connection_state_names[conn->state]);
-			return 0;
-		}
-
-		cmd = conn->cmd_wait_list_head;
-		if (cmd != NULL &&
-		    (conn->capabilities & SMTP_CAPABILITY_PIPELINING) == 0) {
-			/* cannot pipeline; wait for reply */
-			smtp_client_command_debug(cmd, "Pipeline occupied");
-			return 0;
-		}
-		while (cmd != NULL) {
-			if ((conn->capabilities & SMTP_CAPABILITY_PIPELINING) == 0 ||
-				(cmd->flags & SMTP_CLIENT_COMMAND_FLAG_PIPELINE) == 0 ||
-				cmd->locked) {
-				/* cannot pipeline with previous command;
-				   wait for reply */
-				smtp_client_command_debug(cmd,
-					"Pipeline blocked");
-				return 0;
-			}
-			cmd = cmd->next;
-		}
-
-		cmd = conn->cmd_send_queue_head;
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_SENDING;
 		conn->sending_command = TRUE;
-		if (cmd->data != NULL) {
-			while (cmd->send_pos < cmd->data->used) {
-				data = CONST_PTR_OFFSET(cmd->data->data, cmd->send_pos);
-				size = cmd->data->used - cmd->send_pos;
-				if ((sent=o_stream_send(conn->conn.output, data, size)) <= 0) {
-					if (sent < 0) {
-						smtp_client_connection_handle_output_error(conn);
-						return -1;
-					}
-					smtp_client_command_debug(cmd,
-						"Blocked while sending");
-					return 0;
-				}
-				cmd->send_pos += sent;
-			}
 
-			i_assert(cmd->send_pos == cmd->data->used);
-		}
+		if ((ret=smtp_client_command_send_line(cmd)) <= 0)
+			return ret;
 
-		if (cmd->stream != NULL &&
-			(ret=smtp_client_command_send_stream(cmd)) <= 0) {
-			if (ret < 0)
-				return -1;
-			smtp_client_command_debug(cmd,
-				"Blocked while sending payload");
-			return 0;
-		}
-
-		/* everything sent. move command to wait list. */
-		i_assert(conn->cmd_send_queue_count > 0);
-		i_assert(conn->cmd_send_queue_count > 1 ||
-			(cmd->prev == NULL && cmd->next == NULL));
-		DLLIST2_REMOVE(&conn->cmd_send_queue_head,
-			&conn->cmd_send_queue_tail, cmd);
-		conn->cmd_send_queue_count--;
-		DLLIST2_APPEND(&conn->cmd_wait_list_head,
-			&conn->cmd_wait_list_tail, cmd);
+		/* command line sent. move command to wait list. */
+		smtp_cient_command_wait(cmd);
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_WAITING;
-		conn->cmd_wait_list_count++;
-
-		conn->sending_command = FALSE;
-		
-		smtp_client_command_sent(cmd);
 	}
-	return 0;
+
+	if (cmd->stream != NULL &&
+	    (ret=smtp_client_command_send_stream(cmd)) <= 0) {
+		if (ret < 0)
+			return -1;
+		smtp_client_command_debug(cmd, "Blocked while sending payload");
+		conn->cmd_streaming = cmd;
+		return 0;
+	}
+
+	conn->cmd_streaming = NULL;
+	conn->sending_command = FALSE;
+	smtp_client_command_sent(cmd);
+	return 1;
+}
+
+int smtp_client_command_send_more(struct smtp_client_connection *conn)
+{
+	int ret;
+
+	while ((ret=smtp_client_command_do_send_more(conn)) > 0);
+	if (ret < 0)
+		return -1;
+
+	smtp_client_connection_update_cmd_timeout(conn);
+	return ret;
 }
 
 static void
@@ -797,6 +959,7 @@ smtp_client_command_input_reply(struct smtp_client_command *cmd,
 		cmd->callback(reply, cmd->context);
 
 	if (finished) {
+		smtp_client_command_drop_callback(cmd);
 		smtp_client_command_unref(&cmd);
 		smtp_client_connection_trigger_output(conn);
 	}
@@ -928,36 +1091,6 @@ smtp_client_command_rset_submit(
 
 /* MAIL FROM: */
 
-#undef smtp_client_command_mail_submit_after
-struct smtp_client_command *
-smtp_client_command_mail_submit_after(
-	struct smtp_client_connection *conn,
-	enum smtp_client_command_flags flags,
-	struct smtp_client_command *after,
-	const struct smtp_address *from,
-	const struct smtp_params_mail *params,
-	smtp_client_command_callback_t *callback, void *context)
-{
-	struct smtp_client_command *cmd;
-
-	cmd = smtp_client_command_new(conn,
-		flags | SMTP_CLIENT_COMMAND_FLAG_PIPELINE,
-		callback, context);
-	smtp_client_command_printf(cmd, "MAIL FROM:<%s>",
-		smtp_address_encode(from));
-	if (params != NULL) {
-		size_t orig_len = str_len(cmd->data);
-		str_append_c(cmd->data, ' ');
-		smtp_params_mail_write
-			(cmd->data, conn->capabilities, params);
-		if (str_len(cmd->data) == orig_len + 1)
-			str_truncate(cmd->data, orig_len);
-
-	}
-	smtp_client_command_submit_after(cmd, after);
-	return cmd;
-}
-
 #undef smtp_client_command_mail_submit
 struct smtp_client_command *
 smtp_client_command_mail_submit(
@@ -967,8 +1100,25 @@ smtp_client_command_mail_submit(
 	const struct smtp_params_mail *params,
 	smtp_client_command_callback_t *callback, void *context)
 {
-	return smtp_client_command_mail_submit_after
-		(conn, flags, NULL, from, params, callback, context);
+	struct smtp_client_command *cmd;
+
+	smtp_client_connection_send_xclient(conn);
+
+	cmd = smtp_client_command_new(conn,
+		flags | SMTP_CLIENT_COMMAND_FLAG_PIPELINE,
+		callback, context);
+	smtp_client_command_printf(cmd, "MAIL FROM:<%s>",
+		smtp_address_encode(from));
+	if (params != NULL) {
+		size_t orig_len = str_len(cmd->data);
+		str_append_c(cmd->data, ' ');
+		smtp_params_mail_write(cmd->data, conn->caps.standard, params);
+		if (str_len(cmd->data) == orig_len + 1)
+			str_truncate(cmd->data, orig_len);
+
+	}
+	smtp_client_command_submit(cmd);
+	return cmd;
 }
 
 /* RCPT TO: */
@@ -993,8 +1143,7 @@ smtp_client_command_rcpt_submit_after(
 	if (params != NULL) {
 		size_t orig_len = str_len(cmd->data);
 		str_append_c(cmd->data, ' ');
-		smtp_params_rcpt_write
-			(cmd->data, conn->capabilities, params);
+		smtp_params_rcpt_write(cmd->data, conn->caps.standard, params);
 		if (str_len(cmd->data) == orig_len + 1)
 			str_truncate(cmd->data, orig_len);
 	}
@@ -1116,7 +1265,7 @@ static void _cmd_bdat_cb(const struct smtp_reply *reply,
 	}
 
 	/* drop the command from the list */
-	array_delete(&ctx->cmds, 0, 1);
+	array_pop_front(&ctx->cmds);
 
 	/* send more BDAT commands if necessary */
 	(void)_cmd_bdat_send_chunks(ctx, NULL);
@@ -1221,7 +1370,7 @@ _cmd_bdat_send_chunks(struct _cmd_data_context *ctx,
 		smtp_client_command_printf(cmd,
 			"BDAT %"PRIuUOFF_T, (uoff_t)size);
 		smtp_client_command_submit_after(cmd, cmd_prev);
-		array_append(&ctx->cmds, &cmd, 1);
+		array_push_back(&ctx->cmds, &cmd);
 
 		ctx->data_offset += size;
 		data_size -= size;
@@ -1281,6 +1430,7 @@ smtp_client_command_data_submit_after(
 	smtp_client_command_callback_t *callback,
 	void *context)
 {
+	const struct smtp_client_settings *set = &conn->set;
 	struct _cmd_data_context *ctx;
 	struct smtp_client_command *cmd, *cmd_data;
 
@@ -1290,19 +1440,23 @@ smtp_client_command_data_submit_after(
 	cmd = cmd_data = smtp_client_command_create(conn,
 		flags, callback, context);
 
+	/* protect against race conditions */
+	cmd_data->delay_failure = TRUE;
+
 	/* create context in the final command's pool */
 	ctx = p_new(cmd->pool, struct _cmd_data_context, 1);
 	ctx->conn = conn;
 	ctx->pool = cmd->pool;
 	ctx->cmd_data = cmd;
-	ctx->data = data;
-	i_stream_ref(data);
 
 	/* capture abort event with our context */
 	smtp_client_command_set_abort_callback(cmd, _cmd_data_abort_cb, ctx);
 
-	if ((conn->capabilities & SMTP_CAPABILITY_CHUNKING) == 0) {
+	if ((conn->caps.standard & SMTP_CAPABILITY_CHUNKING) == 0) {
 		/* DATA */
+		ctx->data = data;
+		i_stream_ref(data);
+
 		p_array_init(&ctx->cmds, ctx->pool, 1);
 
 		/* Data stream is sent in one go in the second stage. Since the data
@@ -1316,10 +1470,12 @@ smtp_client_command_data_submit_after(
 			_cmd_data_abort_cb, ctx);
 		smtp_client_command_write(cmd, "DATA");
 		smtp_client_command_submit_after(cmd, after);
-		array_append(&ctx->cmds, &cmd, 1);
+		array_push_back(&ctx->cmds, &cmd);
 
 	} else {
 		/* BDAT */
+		ctx->data = data = i_stream_create_crlf(data);
+
 		p_array_init(&ctx->cmds, ctx->pool,
 			conn->set.max_data_chunk_pipeline);
 
@@ -1333,6 +1489,15 @@ smtp_client_command_data_submit_after(
 		} else {
 			/* size is unknown */
 			ctx->data_left = 0;
+
+			/* Make sure we can send chunks of sufficient size by
+			   making the data stream buffer size limit at least
+			   equally large. */
+			if (i_stream_get_max_buffer_size(ctx->data) <
+				set->max_data_chunk_size) {
+				i_stream_set_max_buffer_size(
+					ctx->data, set->max_data_chunk_size);
+			}
 		}
 
 		/* Send the first BDAT command(s) */
@@ -1340,6 +1505,7 @@ smtp_client_command_data_submit_after(
 		_cmd_bdat_send_chunks(ctx, after);
 	}
 
+	cmd_data->delay_failure = FALSE;
 	return cmd_data;
 }
 

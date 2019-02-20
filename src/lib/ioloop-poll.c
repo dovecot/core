@@ -151,7 +151,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	bool call;
 
         /* get the time left for next timeout task */
-	msecs = io_loop_get_wait_time(ioloop, &tv);
+	msecs = io_loop_run_get_wait_time(ioloop, &tv);
 #ifdef _AIX
 	if (msecs > 1000) {
 		/* AIX seems to check IO_POLL_ERRORs only at the beginning of
@@ -177,6 +177,10 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	for (; io != NULL && ret > 0; io = ioloop->next_io_file) {
 		ioloop->next_io_file = io->next;
 
+		if (io->fd == -1) {
+			/* io_add_istream() without fd */
+			continue;
+		}
 		pollfd = &ctx->fds[ctx->fd_index[io->fd]];
 		if (pollfd->revents != 0) {
 			if (pollfd->revents & POLLNVAL) {
@@ -205,8 +209,11 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 			if (pollfd->revents == 0)
 				ret--;
 
-			if (call)
+			if (call) {
 				io_loop_call_io(&io->io);
+				if (!ioloop->running)
+					return;
+			}
 		}
 	}
 }

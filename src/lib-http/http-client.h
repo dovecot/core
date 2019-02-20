@@ -26,6 +26,8 @@ struct http_client_settings {
 	   c) Otherwise, blocking gethostbyname() lookups are used. */
 	struct dns_client *dns_client;
 	const char *dns_client_socket_path;
+	/* How long to cache DNS records internally
+	   (default = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS) */
 	unsigned int dns_ttl_msecs;
 
 	const struct ssl_iostream_settings *ssl;
@@ -84,9 +86,11 @@ struct http_client_settings {
 	 */
 	unsigned int max_connect_attempts;
 
-	/* Initial backoff time; doubled at each connection failure */
+	/* Initial backoff time; doubled at each connection failure
+	   (default = HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS) */
 	unsigned int connect_backoff_time_msecs;
-	/* Maximum backoff time */
+	/* Maximum backoff time
+	   (default = HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS) */
 	unsigned int connect_backoff_max_time_msecs;
 
 	/* response header limits */
@@ -99,7 +103,7 @@ struct http_client_settings {
 	 */
 	unsigned int request_absolute_timeout_msecs;
 	/* max time to wait for HTTP request to finish before retrying
-	   (default = unlimited) */
+	   (default = HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS) */
 	unsigned int request_timeout_msecs;
 	/* max time to wait for connect() (and SSL handshake) to finish before
 	   retrying (default = request_timeout_msecs) */
@@ -377,6 +381,10 @@ http_client_request_get_target(const struct http_client_request *req)
 /* return the request state */
 enum http_request_state
 http_client_request_get_state(const struct http_client_request *req)
+	ATTR_PURE;
+/* return origin_url */
+const struct http_url *
+http_client_request_get_origin_url(const struct http_client_request *req)
 	ATTR_PURE;
 
 /* get statistics for the request */

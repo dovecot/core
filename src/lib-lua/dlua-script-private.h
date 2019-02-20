@@ -25,6 +25,7 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 #define lua_isstring(L, n) (lua_isstring(L, n) == 1)
 #define lua_isnumber(L, n) (lua_isnumber(L, n) == 1)
 #define lua_toboolean(L, n) (lua_toboolean(L, n) == 1)
+#define lua_pushboolean(L, b) lua_pushboolean((L), (b) ? 1 : 0)
 
 #define DLUA_TABLE_STRING(n, s) { .name = n, .type = DLUA_TABLE_VALUE_STRING, .v.s = s }
 #define DLUA_TABLE_INTEGER(n, i) { .name = n, .type = DLUA_TABLE_VALUE_INTEGER, .v.i = i }
@@ -34,12 +35,16 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 #define DLUA_TABLE_NULL(n, s) { .name = n, .type = DLUA_TABLE_VALUE_NULL }
 #define DLUA_TABLE_END { .name = NULL }
 
+#define DLUA_REQUIRE_ARGS_IN(s,x,y) if (lua_gettop((s)->L) < (x) || lua_gettop((s)->L) > (y)) { return luaL_error((s)->L, "expected %d to %d arguments, got %d", x, y, lua_gettop((s)->L)); }
+#define DLUA_REQUIRE_ARGS(s,x) if (lua_gettop((s)->L) != (x)) { return luaL_error((s)->L, "expected %d arguments, got %d", (x), lua_gettop((s)->L)); }
+
 struct dlua_script {
 	struct dlua_script *prev,*next;
 	pool_t pool;
 
 	lua_State *L;
 
+	struct event *event;
 	const char *filename;
 	struct istream *in;
 	ssize_t last_read;
@@ -66,6 +71,8 @@ struct dlua_table_values {
 		bool b;
 	} v;
 };
+
+extern struct event_category event_category_lua;
 
 /* Get dlua_script from lua_State */
 struct dlua_script *dlua_script_from_state(lua_State *L);

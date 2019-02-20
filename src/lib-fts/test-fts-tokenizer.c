@@ -49,9 +49,10 @@ static const char *test_inputs[] = {
 	"123456789012345678901234567890x'',"
 
 	/* \xe28099 = U+2019 is a smart quote, sometimes used as an apostrophe */
-	"\xE2\x80\x99 \xE2\x80\x99 \xE2\x80\x99\xE2\x80\x99 \xE2\x80\x99\xE2\x80\x99\xE2\x80\x99 \xE2\x80\x99quoted text\xE2\x80\x99\xE2\x80\x99word\xE2\x80\x99 \xE2\x80\x99hlo words\xE2\x80\x99 you\xE2\x80\x99re78901234567890123456789012 bad\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99word\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99pre post\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99",
+#define SQ "\xE2\x80\x99"
+	SQ " " SQ " " SQ SQ " " SQ SQ SQ " " SQ "quoted text" SQ SQ "word" SQ " " SQ "hlo words" SQ " you" SQ "re78901234567890123456789012 bad" SQ SQ SQ "word" SQ SQ SQ "pre post" SQ SQ SQ,
 
-	"you\xE2\x80\x99re\xE2\x80\x99xyz",
+	"you" SQ "re" SQ "xyz",
 
 	/* whitespace: with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
 	   U+205A(e2 81 9a) and U+205F(e2 81 9f) */
@@ -62,7 +63,7 @@ static const char *test_inputs[] = {
 	"hello world\xEF\xBC\x8E",
 
 	/* TR29 WB5a */
-	"l\xE2\x80\x99homme l\xE2\x80\x99humanit\xC3\xA9 d\xE2\x80\x99immixtions qu\xE2\x80\x99il aujourd'hui que'euq"
+	"l" SQ "homme l" SQ "humanit\xC3\xA9 d" SQ "immixtions qu" SQ "il aujourd'hui que'euq"
 };
 
 static void test_fts_tokenizer_find(void)
@@ -132,12 +133,13 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 
 static void
 test_tokenizer_inputs(struct fts_tokenizer *tok,
+		      const char *const *inputs, unsigned int count,
 		      const char *const *expected_output)
 {
 	unsigned int i, outi = 0;
 
-	for (i = 0; i < N_ELEMENTS(test_inputs); i++) {
-		outi = test_tokenizer_inputoutput(tok, test_inputs[i],
+	for (i = 0; i < count; i++) {
+		outi = test_tokenizer_inputoutput(tok, inputs[i],
 						  expected_output, outi);
 	}
 	test_assert_idx(expected_output[outi] == NULL, outi);
@@ -193,7 +195,7 @@ static void test_fts_tokenizer_generic_only(void)
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &tok, &error) == 0);
 	test_assert(((struct generic_fts_tokenizer *) tok)->algorithm == BOUNDARY_ALGORITHM_SIMPLE);
 
-	test_tokenizer_inputs(tok, expected_output);
+	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
@@ -249,7 +251,7 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 
 	test_begin("fts tokenizer generic TR29");
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
-	test_tokenizer_inputs(tok, expected_output);
+	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
@@ -306,7 +308,7 @@ static void test_fts_tokenizer_generic_tr29_wb5a(void)
 
 	test_begin("fts tokenizer generic TR29 with WB5a");
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings_wb5a, &tok, &error) == 0);
-	test_tokenizer_inputs(tok, expected_output);
+	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
@@ -490,7 +492,8 @@ static void test_fts_tokenizer_random(void)
 		for (unsigned int j = 0; j < sizeof(addr); j++)
 			addr[j] = test_chars[i_rand() % N_ELEMENTS(test_chars)];
 		str_truncate(str, 0);
-		(void)uni_utf8_get_valid_data(addr, sizeof(addr), str);
+		if (uni_utf8_get_valid_data(addr, sizeof(addr), str))
+			str_append_data(str, addr, sizeof(addr));
 		while (fts_tokenizer_next(tok, str_data(str), str_len(str),
 					  &token, &error) > 0) ;
 		while (fts_tokenizer_final(tok, &token, &error) > 0) ;
@@ -498,6 +501,66 @@ static void test_fts_tokenizer_random(void)
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
 	test_end();
+}
+
+
+static void
+test_fts_tokenizer_explicit_prefix(void)
+{
+	const char *input = "* ** "
+		"*pre *both* post* "
+		"mid*dle *mid*dle* "
+		"**twopre **twoboth** twopost**";
+	const char *const expected_star[] = { "pre", "both*", "post*",
+					      "mid*", "dle", "mid*", "dle*",
+					      "twopre", "twoboth*", "twopost*",
+					      NULL, NULL };
+	const char *const expected_nostar[] = { "pre", "both", "post",
+						"mid", "dle", "mid", "dle",
+						"twopre", "twoboth", "twopost",
+						NULL, NULL };
+
+	const char *settings[9] = { "algorithm", "tr29", "wb5a", "yes" };
+	const char **setptr;
+
+	const char *algos[] = { ALGORITHM_SIMPLE_NAME,
+				ALGORITHM_TR29_NAME,
+				ALGORITHM_TR29_NAME "+wb5a" };
+	const char *searches[] = { "indexing", "searching" };
+	const char *prefixes[] = { "fixed", "prefix" };
+
+	for (int algo = 2; algo >= 0; algo--) { /* We overwrite the settings over time */
+		setptr = &settings[algo*2]; /* 4, 2, or 0 settings strings preserved */
+
+		for (int search = 0; search < 2; search++) {
+			const char **setptr2 = setptr;
+			if (search > 0) { *setptr2++ = "search"; *setptr2++ = "yes"; }
+
+			for (int explicitprefix = 0; explicitprefix < 2; explicitprefix++) {
+				const char **setptr3 = setptr2;
+				if (explicitprefix > 0) { *setptr3++ = "explicitprefix"; *setptr3++ = "y"; }
+
+				*setptr3++ = NULL;
+
+				test_begin(t_strdup_printf("prefix search %s:%s:%s",
+							   algos[algo],
+							   searches[search],
+							   prefixes[explicitprefix]));
+				struct fts_tokenizer *tok;
+				const char *error;
+
+				test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, settings,
+								 &tok, &error) == 0);
+				test_tokenizer_inputs(
+					tok, &input, 1,
+					(search!=0) && (explicitprefix!=0)
+					? expected_star : expected_nostar);
+
+				fts_tokenizer_unref(&tok);
+				test_end();
+			}
+		}
+	}
 }
 
 int main(void)
@@ -514,6 +577,7 @@ int main(void)
 		test_fts_tokenizer_address_search,
 		test_fts_tokenizer_delete_trailing_partial_char,
 		test_fts_tokenizer_random,
+		test_fts_tokenizer_explicit_prefix,
 		NULL
 	};
 	int ret;

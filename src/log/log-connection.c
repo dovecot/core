@@ -110,9 +110,9 @@ static void log_parse_option(struct log_connection *log,
 	struct log_client *client;
 
 	client = log_client_get(log, failure->pid);
-	if (strncmp(failure->text, "ip=", 3) == 0)
+	if (str_begins(failure->text, "ip="))
 		(void)net_addr2ip(failure->text + 3, &client->ip);
-	else if (strncmp(failure->text, "prefix=", 7) == 0) {
+	else if (str_begins(failure->text, "prefix=")) {
 		i_free(client->prefix);
 		client->prefix = i_strdup(failure->text + 7);
 	}
@@ -138,16 +138,20 @@ client_log_ctx(struct log_connection *log,
 		i_zero(&err);
 		err.type = ctx->type;
 		err.timestamp = log_time->tv_sec;
-		err.prefix = prefix;
+		err.prefix = ctx->log_prefix != NULL ? ctx->log_prefix : prefix;
 		err.text = text;
 		log_error_buffer_add(log->errorbuf, &err);
 		break;
 	case LOG_TYPE_COUNT:
 		i_unreached();
 	}
-	i_set_failure_prefix("%s", prefix);
+	/* log_prefix overrides the global prefix. Don't bother changing the
+	   global prefix in that case. */
+	if (ctx->log_prefix == NULL)
+		i_set_failure_prefix("%s", prefix);
 	i_log_type(ctx, "%s", text);
-	i_set_failure_prefix("%s", global_log_prefix);
+	if (ctx->log_prefix == NULL)
+		i_set_failure_prefix("%s", global_log_prefix);
 }
 
 static void
@@ -220,9 +224,9 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 			return;
 		}
 		log_client_free(log, client, pid);
-	} else if (strncmp(cmd, "FATAL ", 6) == 0) {
+	} else if (str_begins(cmd, "FATAL ")) {
 		client_log_fatal(log, client, cmd + 6, log_time, tm);
-	} else if (strncmp(cmd, "DEFAULT-FATAL ", 14) == 0) {
+	} else if (str_begins(cmd, "DEFAULT-FATAL ")) {
 		/* If the client has logged a fatal/panic, don't log this
 		   message. */
 		if (client == NULL || !client->fatal_logged)
@@ -239,12 +243,10 @@ log_it(struct log_connection *log, const char *line,
 	struct failure_line failure;
 	struct failure_context failure_ctx;
 	struct log_client *client = NULL;
-	const char *prefix;
+	const char *prefix = "";
 
 	if (log->master) {
-		T_BEGIN {
-			log_parse_master_line(line, log_time, tm);
-		} T_END;
+		log_parse_master_line(line, log_time, tm);
 		return;
 	}
 
@@ -272,11 +274,16 @@ log_it(struct log_connection *log, const char *line,
 	failure_ctx.type = failure.log_type;
 	failure_ctx.timestamp = tm;
 	failure_ctx.timestamp_usecs = log_time->tv_usec;
-	if (failure.disable_log_prefix)
+	if (failure.log_prefix_len != 0) {
+		failure_ctx.log_prefix =
+			t_strndup(failure.text, failure.log_prefix_len);
+		failure.text += failure.log_prefix_len;
+	} else if (failure.disable_log_prefix) {
 		failure_ctx.log_prefix = "";
-
-	prefix = client != NULL && client->prefix != NULL ?
-		client->prefix : log->default_prefix;
+	} else {
+		prefix = client != NULL && client->prefix != NULL ?
+			client->prefix : log->default_prefix;
+	}
 	client_log_ctx(log, &failure_ctx, log_time, prefix, failure.text);
 }
 
@@ -356,8 +363,9 @@ static void log_connection_input(struct log_connection *log)
 		now = ioloop_timeval;
 		tm = *localtime(&now.tv_sec);
 
-		while ((line = i_stream_next_line(log->input)) != NULL)
+		while ((line = i_stream_next_line(log->input)) != NULL) T_BEGIN {
 			log_it(log, line, &now, &tm);
+		} T_END;
 		io_loop_time_refresh();
 		if (timeval_diff_msecs(&ioloop_timeval, &start_timeval) > MAX_MSECS_PER_CONNECTION) {
 			too_much = TRUE;
@@ -406,7 +414,7 @@ void log_connection_create(struct log_error_buffer *errorbuf,
 	log->listen_fd = listen_fd;
 	log->io = io_add(fd, IO_READ, log_connection_input, log);
 	log->input = i_stream_create_fd(fd, PIPE_BUF);
-	log->default_prefix = i_strdup_printf("listen_fd %d", listen_fd);
+	log->default_prefix = i_strdup_printf("listen_fd(%d): ", listen_fd);
 	hash_table_create_direct(&log->clients, default_pool, 0);
 	array_idx_set(&logs_by_fd, listen_fd, &log);
 

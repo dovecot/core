@@ -24,6 +24,7 @@
 #include "imap-search.h"
 #include "imap-notify.h"
 #include "imap-commands.h"
+#include "imap-feature.h"
 
 #include <unistd.h>
 
@@ -38,6 +39,9 @@ struct imap_module_register imap_module_register = { 0 };
 
 struct client *imap_clients = NULL;
 unsigned int imap_client_count = 0;
+
+unsigned int imap_feature_condstore = UINT_MAX;
+unsigned int imap_feature_qresync = UINT_MAX;
 
 static const char *client_command_state_names[CLIENT_COMMAND_STATE_DONE+1] = {
 	"wait-input",
@@ -150,6 +154,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->user = user;
 	client->notify_count_changes = TRUE;
 	client->notify_flag_changes = TRUE;
+	p_array_init(&client->enabled_features, client->pool, 8);
 
 	if (set->rawlog_dir[0] != '\0') {
 		(void)iostream_rawlog_create(set->rawlog_dir, &client->input,
@@ -226,7 +231,14 @@ int client_create_finish(struct client *client, const char **error_r)
 		return -1;
 	mail_namespaces_set_storage_callbacks(client->user->namespaces,
 					      &mail_storage_callbacks, client);
+
+	client->v.init(client);
 	return 0;
+}
+
+static void client_default_init(struct client *client ATTR_UNUSED)
+{
+	/* nothing */
 }
 
 void client_command_cancel(struct client_command_context **_cmd)
@@ -525,6 +537,8 @@ void client_disconnect(struct client *client, const char *reason)
 
 	client->disconnected = TRUE;
 	client->disconnect_reason = p_strdup(client->pool, reason);
+	/* Finish the ostream. With IMAP COMPRESS this sends the EOF marker. */
+	(void)o_stream_finish(client->output);
 	o_stream_uncork(client->output);
 
 	i_stream_close(client->input);
@@ -534,10 +548,11 @@ void client_disconnect(struct client *client, const char *reason)
 	client->to_idle = timeout_add(0, client_destroy_timeout, client);
 }
 
-void client_disconnect_with_error(struct client *client, const char *msg)
+void client_disconnect_with_error(struct client *client,
+				  const char *client_error)
 {
-	client_send_line(client, t_strconcat("* BYE ", msg, NULL));
-	client_disconnect(client, msg);
+	client_send_line(client, t_strconcat("* BYE ", client_error, NULL));
+	client_disconnect(client, client_error);
 }
 
 void client_add_capability(struct client *client, const char *capability)
@@ -653,19 +668,19 @@ client_default_sync_notify_more(struct imap_sync_context *ctx ATTR_UNUSED)
 }
 
 void client_send_command_error(struct client_command_context *cmd,
-			       const char *msg)
+			       const char *client_error)
 {
 	struct client *client = cmd->client;
 	const char *error, *cmd_name;
 	enum imap_parser_error parse_error;
 
-	if (msg == NULL) {
-		msg = imap_parser_get_error(cmd->parser, &parse_error);
+	if (client_error == NULL) {
+		client_error = imap_parser_get_error(cmd->parser, &parse_error);
 		switch (parse_error) {
 		case IMAP_PARSE_ERROR_NONE:
 			i_unreached();
 		case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
-			client_disconnect_with_error(client, msg);
+			client_disconnect_with_error(client, client_error);
 			return;
 		default:
 			break;
@@ -673,13 +688,13 @@ void client_send_command_error(struct client_command_context *cmd,
 	}
 
 	if (cmd->tag == NULL)
-		error = t_strconcat("BAD Error in IMAP tag: ", msg, NULL);
+		error = t_strconcat("BAD Error in IMAP tag: ", client_error, NULL);
 	else if (cmd->name == NULL)
-		error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
+		error = t_strconcat("BAD Error in IMAP command: ", client_error, NULL);
 	else {
 		cmd_name = t_str_ucase(cmd->name);
 		error = t_strconcat("BAD Error in IMAP command ",
-				    cmd_name, ": ", msg, NULL);
+				    cmd_name, ": ", client_error, NULL);
 	}
 
 	client_send_tagline(cmd, error);
@@ -783,7 +798,13 @@ client_command_find_with_flags(struct client_command_context *new_cmd,
 
 	cmd = new_cmd->client->command_queue;
 	for (; cmd != NULL; cmd = cmd->next) {
-		if (cmd->state <= max_state &&
+		/* The tagline_sent check is a bit kludgy here. Plugins may
+		   hook into sync_notify_more() and send the tagline before
+		   finishing the command. During this stage the state was been
+		   dropped from _WAIT_SYNC to _WAIT_OUTPUT, so the <= max_state
+		   check doesn't work correctly here. (Perhaps we should add
+		   a new _WAIT_SYNC_OUTPUT?) */
+		if (cmd->state <= max_state && !cmd->tagline_sent &&
 		    cmd != new_cmd && (cmd->cmd_flags & flags) != 0)
 			return cmd;
 	}
@@ -1436,20 +1457,41 @@ bool client_handle_search_save_ambiguity(struct client_command_context *cmd)
 	return TRUE;
 }
 
-int client_enable(struct client *client, enum mailbox_feature features)
+void client_enable(struct client *client, unsigned int feature_idx)
+{
+	if (client_has_enabled(client, feature_idx))
+		return;
+
+	const struct imap_feature *feat = imap_feature_idx(feature_idx);
+	feat->callback(client);
+	/* set after the callback, so the callback can see what features were
+	   previously set */
+	bool value = TRUE;
+	array_idx_set(&client->enabled_features, feature_idx, &value);
+}
+
+bool client_has_enabled(struct client *client, unsigned int feature_idx)
+{
+	if (feature_idx >= array_count(&client->enabled_features))
+		return FALSE;
+	const bool *featurep =
+		array_idx(&client->enabled_features, feature_idx);
+	return *featurep;
+}
+
+static void imap_client_enable_condstore(struct client *client)
 {
 	struct mailbox_status status;
 	int ret;
 
-	if ((client->enabled_features & features) == features)
-		return 0;
-
-	client->enabled_features |= features;
 	if (client->mailbox == NULL)
-		return 0;
+		return;
 
-	ret = mailbox_enable(client->mailbox, features);
-	if ((features & MAILBOX_FEATURE_CONDSTORE) != 0 && ret == 0) {
+	if ((client_enabled_mailbox_features(client) & MAILBOX_FEATURE_CONDSTORE) != 0)
+		return;
+
+	ret = mailbox_enable(client->mailbox, MAILBOX_FEATURE_CONDSTORE);
+	if (ret == 0) {
 		/* CONDSTORE being enabled while mailbox is selected.
 		   Notify client of the latest HIGHESTMODSEQ. */
 		ret = mailbox_get_status(client->mailbox,
@@ -1464,7 +1506,48 @@ int client_enable(struct client *client, enum mailbox_feature features)
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));
 	}
-	return ret;
+}
+
+static void imap_client_enable_qresync(struct client *client)
+{
+	/* enable also CONDSTORE */
+	client_enable(client, imap_feature_condstore);
+}
+
+enum mailbox_feature client_enabled_mailbox_features(struct client *client)
+{
+	enum mailbox_feature mailbox_features = 0;
+	const struct imap_feature *feature;
+	const bool *client_enabled;
+	unsigned int count;
+
+	client_enabled = array_get(&client->enabled_features, &count);
+	for (unsigned int idx = 0; idx < count; idx++) {
+		if (client_enabled[idx]) {
+			feature = imap_feature_idx(idx);
+			mailbox_features |= feature->mailbox_features;
+		}
+	}
+	return mailbox_features;
+}
+
+const char *const *client_enabled_features(struct client *client)
+{
+	ARRAY_TYPE(const_string) feature_strings;
+	const struct imap_feature *feature;
+	const bool *client_enabled;
+	unsigned int count;
+
+	t_array_init(&feature_strings, 8);
+	client_enabled = array_get(&client->enabled_features, &count);
+	for (unsigned int idx = 0; idx < count; idx++) {
+		if (client_enabled[idx]) {
+			feature = imap_feature_idx(idx);
+			array_push_back(&feature_strings, &feature->feature);
+		}
+	}
+	array_append_zero(&feature_strings);
+	return array_front(&feature_strings);
 }
 
 struct imap_search_update *
@@ -1499,6 +1582,16 @@ void client_search_updates_free(struct client *client)
 	array_clear(&client->search_updates);
 }
 
+void clients_init(void)
+{
+	imap_feature_condstore =
+		imap_feature_register("CONDSTORE", MAILBOX_FEATURE_CONDSTORE,
+				      imap_client_enable_condstore);
+	imap_feature_qresync =
+		imap_feature_register("QRESYNC", MAILBOX_FEATURE_CONDSTORE,
+				      imap_client_enable_qresync);
+}
+
 void clients_destroy_all(void)
 {
 	while (imap_clients != NULL) {
@@ -1509,9 +1602,12 @@ void clients_destroy_all(void)
 }
 
 struct imap_client_vfuncs imap_client_vfuncs = {
-	imap_state_export_base,
-	imap_state_import_base,
-	client_default_destroy,
-	client_default_send_tagline,
-	client_default_sync_notify_more,
+	.init = client_default_init,
+	.destroy = client_default_destroy,
+
+	.send_tagline = client_default_send_tagline,
+	.sync_notify_more = client_default_sync_notify_more,
+
+	.state_export = imap_state_export_base,
+	.state_import = imap_state_import_base,
 };

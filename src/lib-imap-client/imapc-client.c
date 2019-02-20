@@ -50,7 +50,6 @@ struct imapc_client *
 imapc_client_init(const struct imapc_client_settings *set)
 {
 	struct imapc_client *client;
-	struct ssl_iostream_settings ssl_set;
 	const char *error;
 	pool_t pool;
 
@@ -97,17 +96,9 @@ imapc_client_init(const struct imapc_client_settings *set)
 
 	if (set->ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE) {
 		client->set.ssl_mode = set->ssl_mode;
-		client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
-		client->set.ssl_ca_file = p_strdup(pool, set->ssl_ca_file);
-		client->set.ssl_verify = set->ssl_verify;
-
-		i_zero(&ssl_set);
-		ssl_set.ca_dir = set->ssl_ca_dir;
-		ssl_set.ca_file = set->ssl_ca_file;
-		ssl_set.allow_invalid_cert = !set->ssl_verify;
-		ssl_set.crypto_device = set->ssl_crypto_device;
-
-		if (ssl_iostream_client_context_cache_get(&ssl_set,
+		ssl_iostream_settings_init_from(pool, &client->set.ssl_set, &set->ssl_set);
+		client->set.ssl_set.verbose_invalid_cert = !client->set.ssl_set.allow_invalid_cert;
+		if (ssl_iostream_client_context_cache_get(&client->set.ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {
 			i_error("imapc(%s:%u): Couldn't initialize SSL context: %s",
@@ -272,7 +263,7 @@ imapc_client_add_connection(struct imapc_client *client)
 	conn->client = client;
 	conn->conn = imapc_connection_init(client, imapc_client_login_callback,
 					   conn);
-	array_append(&client->conns, &conn, 1);
+	array_push_back(&client->conns, &conn);
 	return conn;
 }
 
@@ -284,7 +275,7 @@ imapc_client_find_connection(struct imapc_client *client)
 	/* FIXME: stupid algorithm */
 	if (array_count(&client->conns) == 0)
 		return imapc_client_add_connection(client)->conn;
-	connp = array_idx(&client->conns, 0);
+	connp = array_front(&client->conns);
 	return (*connp)->conn;
 }
 
@@ -410,8 +401,6 @@ bool imapc_client_mailbox_can_reconnect(struct imapc_client_mailbox *box)
 void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box,
 				    const char *errmsg)
 {
-	i_assert(!box->reconnecting);
-
 	imapc_connection_try_reconnect(box->conn, errmsg, 0, FALSE);
 }
 

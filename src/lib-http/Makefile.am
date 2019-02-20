@@ -60,14 +60,14 @@ test_programs = \
 	test-http-transfer \
 	test-http-auth \
 	test-http-response-parser \
-	test-http-request-parser
+	test-http-request-parser \
+	test-http-payload \
+	test-http-client-errors \
+	test-http-server-errors
 
 test_nocheck_programs = \
-	test-http-payload \
 	test-http-client \
-	test-http-client-errors \
-	test-http-server \
-	test-http-server-errors
+	test-http-server
 
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
@@ -157,7 +157,8 @@ endif
 test_http_payload_SOURCES = test-http-payload.c
 test_http_payload_LDFLAGS = -export-dynamic
 test_http_payload_LDADD = \
-	$(test_http_libs)
+	$(test_http_libs) \
+	$(test_http_libs_ssl)
 test_http_payload_DEPENDENCIES = \
 	$(test_http_deps)
 

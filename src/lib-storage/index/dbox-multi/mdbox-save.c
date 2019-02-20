@@ -199,7 +199,7 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 
 	dbox_save_end(&ctx->ctx);
 
-	mail = array_idx_modifiable(&ctx->mails, array_count(&ctx->mails) - 1);
+	mail = array_back_modifiable(&ctx->mails);
 	if (!ctx->ctx.failed) T_BEGIN {
 		if (mdbox_save_mail_write_metadata(ctx, mail) < 0)
 			ctx->ctx.failed = TRUE;
@@ -217,7 +217,7 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 	if (ctx->ctx.failed) {
 		index_storage_save_abort_last(&ctx->ctx.ctx, ctx->ctx.seq);
 		mdbox_map_append_abort(ctx->append_ctx);
-		array_delete(&ctx->mails, array_count(&ctx->mails) - 1, 1);
+		array_pop_back(&ctx->mails);
 		return -1;
 	}
 	return 0;
@@ -331,7 +331,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		unsigned int highest_pop3_uidl_idx;
 		uint32_t uid;
 
-		mails = array_idx(&ctx->mails, 0);
+		mails = array_front(&ctx->mails);
 		highest_pop3_uidl_idx =
 			ctx->ctx.highest_pop3_uidl_seq - mails[0].seq;
 		i_assert(mails[highest_pop3_uidl_idx].seq == ctx->ctx.highest_pop3_uidl_seq);
@@ -464,7 +464,7 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	/* remember the map_uid so we can later increase its refcount */
 	if (!array_is_created(&ctx->copy_map_uids))
 		i_array_init(&ctx->copy_map_uids, 32);
-	array_append(&ctx->copy_map_uids, &rec.map_uid, 1);
+	array_push_back(&ctx->copy_map_uids, &rec.map_uid);
 
 	/* add message to mailbox index */
 	dbox_save_add_to_index(&ctx->ctx);

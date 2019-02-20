@@ -120,7 +120,7 @@ int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output)
 		}
                 input += len;
 
-		array_append(output, &chr, 1);
+		array_push_back(output, &chr);
 	}
 	return 0;
 }
@@ -136,7 +136,7 @@ int uni_utf8_to_ucs4_n(const unsigned char *input, size_t size,
 			return -1; /* invalid input */
 		input += len; size -= len;
 
-		array_append(output, &chr, 1);
+		array_push_back(output, &chr);
 	}
 	return 0;
 }
@@ -427,4 +427,21 @@ bool uni_utf8_data_is_valid(const unsigned char *data, size_t size)
 	size_t i;
 
 	return uni_utf8_find_invalid_pos(data, size, &i) == 0;
+}
+
+size_t uni_utf8_data_truncate(const unsigned char *data, size_t old_size,
+			      size_t max_new_size)
+{
+	if (max_new_size >= old_size)
+		return old_size;
+	if (max_new_size == 0)
+		return 0;
+
+	if ((data[max_new_size] & 0x80) == 0)
+		return max_new_size;
+	while (max_new_size > 0 && (data[max_new_size-1] & 0xc0) == 0x80)
+		max_new_size--;
+	if (max_new_size > 0 && (data[max_new_size-1] & 0xc0) == 0xc0)
+		max_new_size--;
+	return max_new_size;
 }

@@ -175,6 +175,45 @@ static void test_t_str_replace(void)
 	test_end();
 }
 
+static void test_t_str_oneline(void)
+{
+	test_begin("t_str_oneline");
+	test_assert(strcmp(t_str_oneline("\n"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\r"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\n\n"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\r\r"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\r\n"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\r\n\r\n"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\n\r"), "") == 0);
+	test_assert(strcmp(t_str_oneline("\n\r\n\r"), "") == 0);
+	test_assert(strcmp(t_str_oneline("foo"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("\nfoo"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\n"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("\nfoo\n"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\n\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("\nfoo\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\nbar\n"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\nbar\nbaz"), "foo bar baz") == 0);
+	test_assert(strcmp(t_str_oneline("\rfoo"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("\rfoo\r"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\rbar"), "foobar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\rbar"), "foobar") == 0);
+	test_assert(strcmp(t_str_oneline("\rfoo\rbar"), "foobar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\rbar\r"), "foobar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\rbar\rbaz"), "foobarbaz") == 0);
+	test_assert(strcmp(t_str_oneline("\r\nfoo\r\n"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\n"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("\r\nfoo"), "foo") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\n\r\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("\r\nfoo\r\nbar"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\nbar\r\n"), "foo bar") == 0);
+	test_assert(strcmp(t_str_oneline("foo\r\nbar\r\nbaz"), "foo bar baz") == 0);
+	test_end();
+}
+
 static void test_t_str_trim(void)
 {
 	test_begin("t_str_trim");
@@ -368,6 +407,45 @@ static void test_dec2str_buf(void)
 	test_end();
 }
 
+static void
+test_str_match(void)
+{
+	static const struct {
+		const char*s1, *s2; size_t match;
+	} tests[] = {
+#define MATCH_TEST(common, left, right) { common left, common right, sizeof(common)-1 }
+		MATCH_TEST("", "", ""),
+		MATCH_TEST("", "x", ""),
+		MATCH_TEST("", "", "x"),
+		MATCH_TEST("", "foo", "bar"),
+		MATCH_TEST("x", "", ""),
+		MATCH_TEST("x", "y", "z"),
+		MATCH_TEST("blahblahblah", "", ""),
+		MATCH_TEST("blahblahblah", "", "bar"),
+		MATCH_TEST("blahblahblah", "foo", ""),
+		MATCH_TEST("blahblahblah", "foo", "bar"),
+#undef MATCH_TEST
+	};
+
+	unsigned int i;
+
+	test_begin("str_match");
+	for (i = 0; i < N_ELEMENTS(tests); i++)
+		test_assert_idx(str_match(tests[i].s1, tests[i].s2) == tests[i].match, i);
+	test_end();
+
+	test_begin("str_begins");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		/* This is just 2 ways of wording the same test, but that also
+		   sanity tests the match values above. */
+		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
+				(str_begins(tests[i].s1, tests[i].s2)), i);
+		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
+				(strlen(tests[i].s2) == tests[i].match), i);
+	}
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strdup();
@@ -377,6 +455,7 @@ void test_strfuncs(void)
 	test_t_strsplit();
 	test_t_strsplit_spaces();
 	test_t_str_replace();
+	test_t_str_oneline();
 	test_t_str_trim();
 	test_t_str_ltrim();
 	test_t_str_rtrim();
@@ -384,4 +463,5 @@ void test_strfuncs(void)
 	test_p_array_const_string_join();
 	test_mem_equals_timing_safe();
 	test_dec2str_buf();
+	test_str_match();
 }

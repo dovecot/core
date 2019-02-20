@@ -87,12 +87,12 @@ uint64_t stats_dist_get_max(const struct stats_dist *stats)
 	return stats->max;
 }
 
-uint64_t stats_dist_get_avg(const struct stats_dist *stats)
+double stats_dist_get_avg(const struct stats_dist *stats)
 {
 	if (stats->count == 0)
 		return 0;
 
-	return (stats->sum + stats->count/2) / stats->count;
+	return (double)stats->sum / stats->count;
 }
 
 static void stats_dist_ensure_sorted(struct stats_dist *stats)
@@ -119,6 +119,24 @@ uint64_t stats_dist_get_median(const struct stats_dist *stats)
 		: stats->sample_count;
 	unsigned int idx1 = (count-1)/2, idx2 = count/2;
 	return (stats->samples[idx1] + stats->samples[idx2]) / 2;
+}
+
+double stats_dist_get_variance(const struct stats_dist *stats)
+{
+	double sum = 0;
+	if (stats->count == 0)
+		return 0;
+
+	double avg = stats_dist_get_avg(stats);
+	double count = (stats->count < stats->sample_count)
+		? stats->count
+		: stats->sample_count;
+
+	for(unsigned int i = 0; i < count; i++) {
+		sum += (stats->samples[i] - avg)*(stats->samples[i] - avg);
+	}
+
+	return sum / count;
 }
 
 /* This is independent of the stats framework, useful for any selection task */
@@ -154,4 +172,13 @@ uint64_t stats_dist_get_percentile(const struct stats_dist *stats, double fracti
 		: stats->sample_count;
 	unsigned int idx = stats_dist_get_index(count, fraction);
 	return stats->samples[idx];
+}
+
+const uint64_t *stats_dist_get_samples(const struct stats_dist *stats,
+				       unsigned int *count_r)
+{
+	*count_r = (stats->count < stats->sample_count)
+		? stats->count
+		: stats->sample_count;
+	return stats->samples;
 }

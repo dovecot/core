@@ -20,6 +20,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 	unsigned char buf[IO_BLOCK_SIZE];
 	const unsigned char *data;
 	size_t size;
+	uoff_t stream_size;
 	struct sha1_ctxt sha1;
 	unsigned char output_sha1[SHA1_RESULTLEN], input_sha1[SHA1_RESULTLEN];
 	unsigned int i;
@@ -63,24 +64,41 @@ static void test_compression_handler(const struct compression_handler *handler)
 	}
 
 	test_assert(o_stream_finish(output) > 0);
+	uoff_t uncompressed_size = output->offset;
 	o_stream_destroy(&output);
+	uoff_t compressed_size = file_output->offset;
 	o_stream_destroy(&file_output);
 	sha1_result(&sha1, output_sha1);
 
 	/* read and uncompress the data */
-	sha1_init(&sha1);
 	file_input = i_stream_create_fd(fd, IO_BLOCK_SIZE);
 	input = handler->create_istream(file_input, FALSE);
-	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
-		sha1_loop(&sha1, data, size);
-		i_stream_skip(input, size);
+
+	test_assert(i_stream_get_size(input, FALSE, &stream_size) == 1);
+	test_assert(stream_size == compressed_size);
+
+	test_assert(i_stream_get_size(input, TRUE, &stream_size) == 1);
+	test_assert(stream_size == uncompressed_size);
+
+	sha1_init(&sha1);
+	for (bool seeked = FALSE;;) {
+		sha1_init(&sha1);
+		while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
+			sha1_loop(&sha1, data, size);
+			i_stream_skip(input, size);
+		}
+		test_assert(ret == -1);
+		test_assert(input->stream_errno == 0);
+		sha1_result(&sha1, input_sha1);
+		test_assert(memcmp(input_sha1, output_sha1, sizeof(input_sha1)) == 0);
+		if (seeked)
+			break;
+		seeked = TRUE;
+		i_stream_seek(input, 0);
 	}
-	test_assert(ret == -1);
 	i_stream_destroy(&input);
 	i_stream_destroy(&file_input);
-	sha1_result(&sha1, input_sha1);
 
-	test_assert(memcmp(input_sha1, output_sha1, sizeof(input_sha1)) == 0);
 	i_unlink(path);
 	i_close_fd(&fd);
 

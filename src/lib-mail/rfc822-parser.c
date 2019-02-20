@@ -64,6 +64,7 @@ void rfc822_parser_init(struct rfc822_parser_context *ctx,
 int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 {
 	const unsigned char *start;
+	size_t len;
 	int level = 1;
 
 	i_assert(*ctx->data == '(');
@@ -74,29 +75,57 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 	start = ++ctx->data;
 	for (; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
+		case '\0':
+			if (ctx->last_comment != NULL &&
+			    ctx->nul_replacement_str != NULL) {
+				str_append_data(ctx->last_comment, start,
+						ctx->data - start);
+				str_append(ctx->last_comment,
+					   ctx->nul_replacement_str);
+				start = ctx->data + 1;
+			}
+			break;
 		case '(':
 			level++;
 			break;
 		case ')':
 			if (--level == 0) {
 				if (ctx->last_comment != NULL) {
-					str_append_n(ctx->last_comment, start,
-						     ctx->data - start);
+					str_append_data(ctx->last_comment, start,
+							ctx->data - start);
 				}
 				ctx->data++;
 				return ctx->data < ctx->end ? 1 : 0;
 			}
 			break;
-		case '\\':
-			if (ctx->last_comment != NULL) {
-				str_append_n(ctx->last_comment, start,
-					     ctx->data - start);
-			}
+		case '\n':
+			/* folding whitespace, remove the (CR)LF */
+			if (ctx->last_comment == NULL)
+				break;
+			len = ctx->data - start;
+			if (len > 0 && start[len-1] == '\r')
+				len--;
+			str_append_data(ctx->last_comment, start, len);
 			start = ctx->data + 1;
-
+			break;
+		case '\\':
 			ctx->data++;
 			if (ctx->data >= ctx->end)
 				return -1;
+
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				ctx->data--;
+				break;
+			}
+			if (ctx->last_comment != NULL) {
+				str_append_data(ctx->last_comment, start,
+						ctx->data - start - 1);
+			}
+			start = ctx->data;
 			break;
 		}
 	}
@@ -139,11 +168,11 @@ int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)
 		if (IS_ATEXT(*ctx->data))
 			continue;
 
-		str_append_n(str, start, ctx->data - start);
+		str_append_data(str, start, ctx->data - start);
 		return rfc822_skip_lwsp(ctx);
 	}
 
-	str_append_n(str, start, ctx->data - start);
+	str_append_data(str, start, ctx->data - start);
 	return 0;
 }
 
@@ -170,7 +199,9 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 			continue;
 		}
 
-		str_append_n(str, start, ctx->data - start);
+		if (start == ctx->data)
+			return -1;
+		str_append_data(str, start, ctx->data - start);
 
 		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
 			return ret;
@@ -182,11 +213,12 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 		str_append_c(str, '.');
 
 		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
-			return ret;
+			return -1;
 		start = ctx->data;
 	}
 
-	str_append_n(str, start, ctx->data - start);
+	i_assert(start != ctx->data);
+	str_append_data(str, start, ctx->data - start);
 	return 0;
 }
 
@@ -198,11 +230,11 @@ int rfc822_parse_mime_token(struct rfc822_parser_context *ctx, string_t *str)
 		if (IS_ATEXT_NON_TSPECIAL(*ctx->data) || *ctx->data == '.')
 			continue;
 
-		str_append_n(str, start, ctx->data - start);
+		str_append_data(str, start, ctx->data - start);
 		return rfc822_skip_lwsp(ctx);
 	}
 
-	str_append_n(str, start, ctx->data - start);
+	str_append_data(str, start, ctx->data - start);
 	return 0;
 }
 
@@ -217,8 +249,15 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 
 	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
+		case '\0':
+			if (ctx->nul_replacement_str != NULL) {
+				str_append_data(str, start, ctx->data - start);
+				str_append(str, ctx->nul_replacement_str);
+				start = ctx->data + 1;
+			}
+			break;
 		case '"':
-			str_append_n(str, start, ctx->data - start);
+			str_append_data(str, start, ctx->data - start);
 			ctx->data++;
 			return rfc822_skip_lwsp(ctx);
 		case '\n':
@@ -226,7 +265,7 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 			len = ctx->data - start;
 			if (len > 0 && start[len-1] == '\r')
 				len--;
-			str_append_n(str, start, len);
+			str_append_data(str, start, len);
 			start = ctx->data + 1;
 			break;
 		case '\\':
@@ -234,7 +273,15 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 			if (ctx->data >= ctx->end)
 				return -1;
 
-			str_append_n(str, start, ctx->data - start - 1);
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				ctx->data--;
+				break;
+			}
+			str_append_data(str, start, ctx->data - start - 1);
 			start = ctx->data;
 			break;
 		}
@@ -261,11 +308,11 @@ rfc822_parse_atom_or_dot(struct rfc822_parser_context *ctx, string_t *str)
 		if (IS_ATEXT(*ctx->data) || *ctx->data == '.')
 			continue;
 
-		str_append_n(str, start, ctx->data - start);
+		str_append_data(str, start, ctx->data - start);
 		return rfc822_skip_lwsp(ctx);
 	}
 
-	str_append_n(str, start, ctx->data - start);
+	str_append_data(str, start, ctx->data - start);
 	return 0;
 }
 
@@ -305,6 +352,7 @@ static int
 rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
+	size_t len;
 
 	/*
 	   domain-literal  = [CFWS] "[" *([FWS] dcontent) [FWS] "]" [CFWS]
@@ -317,15 +365,46 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '[');
 
-	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
-		if (*ctx->data == '\\') {
+	for (start = ctx->data++; ctx->data < ctx->end; ctx->data++) {
+		switch (*ctx->data) {
+		case '\0':
+			if (ctx->nul_replacement_str != NULL) {
+				str_append_data(str, start, ctx->data - start);
+				str_append(str, ctx->nul_replacement_str);
+				start = ctx->data + 1;
+			}
+			break;
+		case '[':
+			/* not allowed */
+			return -1;
+		case ']':
+			str_append_data(str, start, ctx->data - start + 1);
+			ctx->data++;
+			return rfc822_skip_lwsp(ctx);
+		case '\n':
+			/* folding whitespace, remove the (CR)LF */
+			len = ctx->data - start;
+			if (len > 0 && start[len-1] == '\r')
+				len--;
+			str_append_data(str, start, len);
+			start = ctx->data + 1;
+			break;
+		case '\\':
+			/* note: the '\' is preserved in the output */
 			ctx->data++;
 			if (ctx->data >= ctx->end)
+				return -1;
+
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				str_append_data(str, start, ctx->data - start);
+				start = ctx->data;
+				ctx->data--;
 				break;
-		} else if (*ctx->data == ']') {
-			ctx->data++;
-			str_append_n(str, start, ctx->data - start);
-			return rfc822_skip_lwsp(ctx);
+			}
 		}
 	}
 
@@ -375,10 +454,9 @@ int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str)
 }
 
 int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
-			       const char **key_r, const char **value_r)
+			       const char **key_r, string_t *value)
 {
-	string_t *tmp;
-	size_t value_pos;
+	string_t *key;
 	int ret;
 
 	/* .. := *(";" parameter)
@@ -387,7 +465,7 @@ int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
 	   value := token / quoted-string
 	*/
 	*key_r = NULL;
-	*value_r = NULL;
+	str_truncate(value, 0);
 
 	if (ctx->data >= ctx->end)
 		return 0;
@@ -398,11 +476,9 @@ int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
 	if (rfc822_skip_lwsp(ctx) <= 0)
 		return -1;
 
-	tmp = t_str_new(64);
-	if (rfc822_parse_mime_token(ctx, tmp) <= 0)
+	key = t_str_new(64);
+	if (rfc822_parse_mime_token(ctx, key) <= 0)
 		return -1;
-	str_append_c(tmp, '\0');
-	value_pos = str_len(tmp);
 
 	if (*ctx->data != '=')
 		return -1;
@@ -411,21 +487,20 @@ int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
 	if ((ret = rfc822_skip_lwsp(ctx)) <= 0) {
 		/* broken / no value */
 	} else if (*ctx->data == '"') {
-		ret = rfc822_parse_quoted_string(ctx, tmp);
+		ret = rfc822_parse_quoted_string(ctx, value);
 	} else if (ctx->data < ctx->end && *ctx->data == '=') {
 		/* workaround for broken input:
 		   name==?utf-8?b?...?= */
 		while (ctx->data < ctx->end && *ctx->data != ';' &&
 		       *ctx->data != ' ' && *ctx->data != '\t' &&
 		       *ctx->data != '\r' && *ctx->data != '\n') {
-			str_append_c(tmp, *ctx->data);
+			str_append_c(value, *ctx->data);
 			ctx->data++;
 		}
 	} else {
-		ret = rfc822_parse_mime_token(ctx, tmp);
+		ret = rfc822_parse_mime_token(ctx, value);
 	}
 
-	*key_r = str_c(tmp);
-	*value_r = *key_r + value_pos;
+	*key_r = str_c(key);
 	return ret < 0 ? -1 : 1;
 }

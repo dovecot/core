@@ -3,7 +3,10 @@
 #include "lib.h"
 #include "array.h"
 #include "auth-client-private.h"
-#include "auth-server-connection.h"
+
+static struct event_category event_category_auth_client = {
+	.name = "auth-client"
+};
 
 struct auth_client *
 auth_client_init(const char *auth_socket_path, unsigned int client_pid,
@@ -15,8 +18,15 @@ auth_client_init(const char *auth_socket_path, unsigned int client_pid,
 	client->client_pid = client_pid;
 	client->auth_socket_path = i_strdup(auth_socket_path);
 	client->debug = debug;
-	client->conn = auth_server_connection_init(client);
-	(void)auth_server_connection_connect(client->conn);
+	client->connect_timeout_msecs = AUTH_CONNECT_TIMEOUT_MSECS;
+	client->clist = auth_client_connection_list_init();
+
+	client->event = event_create(NULL);
+	event_add_category(client->event, &event_category_auth_client);
+	event_set_append_log_prefix(client->event, "auth-client: ");
+	event_set_forced_debug(client->event, client->debug);
+
+	client->conn = auth_client_connection_init(client);
 	return client;
 }
 
@@ -26,30 +36,38 @@ void auth_client_deinit(struct auth_client **_client)
 
 	*_client = NULL;
 
-	auth_server_connection_deinit(&client->conn);
+	auth_client_connection_deinit(&client->conn);
+	connection_list_deinit(&client->clist);
+	event_unref(&client->event);
 	i_free(client->auth_socket_path);
 	i_free(client);
 }
 
 void auth_client_connect(struct auth_client *client)
 {
-	if (client->conn->fd == -1)
-		(void)auth_server_connection_connect(client->conn);
+	if (!client->conn->connected)
+		(void)auth_client_connection_connect(client->conn);
 }
 
 void auth_client_disconnect(struct auth_client *client, const char *reason)
 {
-	auth_server_connection_disconnect(client->conn, reason);
+	auth_client_connection_disconnect(client->conn, reason);
 }
 
 bool auth_client_is_connected(struct auth_client *client)
 {
-	return client->conn->handshake_received;
+	return client->conn->conn.handshake_received;
 }
 
 bool auth_client_is_disconnected(struct auth_client *client)
 {
-	return client->conn->fd == -1;
+	return !client->conn->connected;
+}
+
+void auth_client_set_connect_timeout(struct auth_client *client,
+				     unsigned int msecs)
+{
+	client->connect_timeout_msecs = msecs;
 }
 
 void auth_client_set_connect_notify(struct auth_client *client,

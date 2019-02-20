@@ -15,7 +15,8 @@ struct hash_method;
 #define FS_METADATA_OBJECTID FS_METADATA_INTERNAL_PREFIX"ObjectID"
 /* Calling this before fs_write_stream_finish() allows renaming the filename.
    This can be useful if you don't know the final filename before writing it
-   (e.g. filename contains the file size). */
+   (e.g. filename contains the file size). The given filename must include the
+   full path also. */
 #define FS_METADATA_WRITE_FNAME FS_METADATA_INTERNAL_PREFIX"WriteFilename"
 /* Original path of the file. The path that's eventually visible to a fs
    backend may be something different, e.g. object ID. This allows the backend

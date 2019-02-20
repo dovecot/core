@@ -1,3 +1,133 @@
+v2.3.4 2018-11-23  Timo Sirainen <tss@iki.fi>
+
+	* The default postmaster_address is now "postmaster@<user domain or
+	  server hostname>". If username contains the @domain part, that's
+	  used. If not, then the server's hostname is used.
+	* "doveadm stats dump" now returns two decimals for the "avg" field.
+
+	+ Added push notification driver that uses a Lua script
+	+ Added new SQL, DNS and connection events.
+	  See https://wiki2.dovecot.org/Events
+	+ Added "doveadm mailbox cache purge" command.
+	+ Added events API support for Lua scripts
+	+ doveadm force-resync -f parameter performs "index fsck" while opening
+	  the index. This may be useful to fix some types of broken index files.
+	  This may become the default behavior in a later version.
+	- director: Kicking a user crashes if login process is very slow
+	- pop3_no_flag_updates=no: Don't expunge DELEted and RETRed messages
+	  unless QUIT is sent.
+	- auth: Fix crypt() segfault with glibc-2.28+
+	- imap: Running UID FILTER script with errors assert-crashes
+	- dsync, pop3-migration: POP3 UIDLs weren't added to
+	  dovecot.index.cache while mails were saved.
+	- dict clients may have been using 100% CPU while waiting for dict
+	  server to finish commands.
+	- doveadm user: Fixed user listing via HTTP API
+	- All levels of Cassandra log messages were logged as Dovecot errors.
+	- http/smtp client may have crashed after SSL handshake
+	- Lua auth converted strings that looked like numbers into numbers.
+
+
+v2.3.3 2018-10-01  Timo Sirainen <tss@iki.fi>
+
+	* doveconf hides more secrets now in the default output.
+	* ssl_dh setting is no longer enforced at startup. If it's not set and
+	  non-ECC DH key exchange happens, error is logged and client is
+	  disconnected.
+
+	+ Added log_debug=<filter> setting.
+	+ Added log_core_filter=<log filter> setting.
+	+ quota-clone: Write to dict asynchronously
+	+ --enable-hardening attempts to use retpoline Spectre 2 mitigations
+	+ lmtp proxy: Support source_ip passdb extra field.
+	+ doveadm stats dump: Support more fields and output stddev by default.
+	+ push-notification: Add SSL support for OX backend.
+	- NUL bytes in mail headers can cause truncated replies when fetched.
+	- director: Conflicting host up/down state changes may in some rare
+	  situations ended up in a loop of two directors constantly overwriting
+	  each others' changes.
+	- director: Fix hang/crash when multiple doveadm commands are being
+	  handled concurrently.
+	- director: Fix assert-crash if doveadm disconnects too early
+	- virtual plugin: Some searches used 100% CPU for many seconds
+	- dsync assert-crashed with acl plugin in some situations.
+	- mail_attachment_detection_options=add-flags-on-save assert-crashed
+	  with some specific Sieve scripts.
+	- Mail snippet generation crashed with mails containing invalid
+	  Content-Type:multipart header.
+	- Log prefix ordering was different for some log lines.
+	- quota: With noenforcing option current quota usage wasn't updated.
+	- auth: Kerberos authentication against Samba assert-crashed.
+	- stats clients were unnecessarily chatty with the stats server.
+	- imapc: Fixed various assert-crashes when reconnecting to server.
+	- lmtp, submission: Fix potential crash if client disconnects while
+	  handling a command.
+	- quota: Fixed compiling with glibc-2.26 / support libtirpc.
+	- fts-solr: Empty search values resulted in 400 Bad Request errors
+	- fts-solr: default_ns parameter couldn't be used
+	- submission server crashed if relay server returned over 7 lines in
+	  a reply (e.g. to EHLO)
+
+v2.3.2.1 2018-07-09  Timo Sirainen <tss@iki.fi>
+
+	- SSL/TLS servers may have crashed during client disconnection
+	- lmtp: With lmtp_rcpt_check_quota=yes mail deliveries may have
+	  sometimes assert-crashed.
+	- v2.3.2: "make check" may have crashed with 32bit systems
+
+v2.3.2 2018-06-29  Timo Sirainen <tss@iki.fi>
+
+	* old-stats plugin: Don't temporarily enable PR_SET_DUMPABLE while
+	  opening /proc/self/io. This may still cause security problems if the
+	  process is ptrace()d at the same time. Instead, open it while still
+	  running as root.
+	+ doveadm: Added mailbox cache decision&remove commands. See
+	  doveadm-mailbox(1) man page for details.
+	+ doveadm: Added rebuild attachments command for rebuilding
+	  $HasAttachment or $HasNoAttachment flags for matching mails. See
+	  doveadm-rebuild(1) man page for details.
+	+ cassandra: Use fallback_consistency on more types of errors
+	+ lmtp proxy: Support outgoing SSL/TLS connections
+	+ lmtp: Add lmtp_rawlog_dir and lmtp_proxy_rawlog_dir settings.
+	+ submission: Add support for rawlog_dir
+	+ submission: Add submission_client_workarounds setting.
+	+ lua auth: Add password_verify() function and additional fields in
+	  auth request.
+	- doveadm-server: TCP connections are hanging when there is a lot of
+	  network output. This especially caused hangs in dsync-replication.
+	- Using multiple type=shared mdbox namespaces crashed
+	- mail_fsync setting was ignored. It was always set to "optimized".
+	- lua auth: Fix potential crash at deinit
+	- SSL/TLS servers may have crashed if client disconnected during
+	  handshake.
+	- SSL/TLS servers: Don't send extraneous certificates to client when
+	  alt certs are used.
+	- lda, lmtp: Return-Path header without '<' may have assert-crashed.
+	- lda, lmtp: Unencoded UTF-8 in email address headers may assert-crash
+	- lda: -f parameter didn't allow empty/null/domainless address
+	- lmtp, submission: Message size limit was hardcoded to 40 MB.
+	  Exceeding it caused the connection to get dropped during transfer.
+	- lmtp: Fix potential crash when delivery fails at DATA stage
+	- lmtp: login_greeting setting was ignored
+	- Fix to work with OpenSSL v1.0.2f
+	- systemd unit restrictions were too strict by default
+	- Fix potential crashes when a lot of log output was produced
+	- SMTP client may have assert-crashed when sending mail
+	- IMAP COMPRESS: Send "end of compression" marker when disconnecting.
+	- cassandra: Fix consistency=quorum to work
+	- dsync: Lock file generation failed if home directory didn't exist
+	- Snippet generation for HTML mails didn't ignore &entities inside
+	  blockquotes, producing strange looking snippets.
+	- imapc: Fix assert-crash if getting disconnected and after
+	  reconnection all mails in the selected mailbox are gone.
+	- pop3c: Handle unexpected server disconnections without assert-crash
+	- fts: Fixes to indexing mails via virtual mailboxes.
+	- fts: If mails contained NUL characters, the text around it wasn't
+	  indexed.
+	- Obsolete dovecot.index.cache offsets were sometimes used. Trying to
+	  fetch a field that was just added to cache file may not have always
+	  found it.
+
 v2.3.1 2018-02-29  Aki Tuomi <aki.tuomi@dovecot.fi>
 
 	* Submission server support improvements and bug fixes
@@ -110,6 +240,120 @@ v2.3.0 2017-12-22  Timo Sirainen <tss@iki.fi>
 	- doveadm proxy: Reading commands' output from v2.2.33+ servers could
 	  have caused the output to be corrupted or caused a crash.
 	- Many other smaller fixes
+
+v2.2.36 2018-05-23  Timo Sirainen <tss@iki.fi>
+
+	* login-proxy: If ssl_require_crl=no, allow revoked certificates.
+	  Also don't do CRL checks for incoming client certificates.
+	* stats plugin: Don't temporarily enable PR_SET_DUMPABLE while opening
+	  /proc/self/io. This may still cause security problems if the process
+	  is ptrace()d at the same time. Instead, open it while still running
+	  as root.
+
+	+ doveadm: Added mailbox cache decision&remove commands. See
+	  doveadm-mailbox(1) man page for details.
+	+ doveadm: Added rebuild attachments command for rebuilding
+	  $HasAttachment or $HasNoAttachment flags for matching mails. See
+	  doveadm-rebuild(1) man page for details.
+	+ cassandra: Use fallback_consistency on more types of errors
+	- cassandra: Fix consistency=quorum to work
+	- dsync: Lock file generation failed if home directory didn't exist
+	- In some configs if namespace root directory didn't yet exist, Dovecot
+	  failed to create mailboxes.lock when trying to create mailboxes
+	- Snippet generation for HTML mails didn't ignore &entities inside
+	  blockquotes, producing strange looking snippets.
+	- imapc: Fix assert-crash if getting disconnected and after
+	  reconnection all mails in the selected mailbox are gone.
+	- pop3c: Handle unexpected server disconnections without assert-crash
+	- fts: Fixes to indexing mails via virtual mailboxes.
+	- fts: If mails contained NUL characters, the text around it wasn't
+	  indexed.
+	- Obsolete dovecot.index.cache offsets were sometimes used. Trying to
+	  fetch a field that was just added to cache file may not have always
+	  found it.
+	- dict-sql: Fix crash when reading NULL value from database
+
+v2.2.35 2018-03-19  Aki Tuomi <aki.tuomi@dovecot.fi>
+
+	- charset_alias: compile fails with Solaris Studio, reported by
+	  John Woods.
+	- Fix local name handling in v2.2.34 SNI code, bug found by cPanel.
+	- imapc: Don't try to add mails to index if they already exist there.
+	- imapc: If email is modified in istream_opened hook, mail size isn't
+	  updated.
+	- lib-dcrypt: When reading encrypted data, more data would not be
+	  read if buffer was not consumed causing panic or hang.
+	- notify: When notify plugin is used and transaction commit fails in
+	  dsync, crash occurs.
+	- sdbox: When delivering to a mailbox that is over quota, temp files
+	  are not cleaned up when saving or copying fails.
+
+v2.2.34 2018-02-28  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2017-15130: TLS SNI config lookups may lead to excessive
+	  memory usage, causing imap-login/pop3-login VSZ limit to be reached
+	  and the process restarted. This happens only if Dovecot config has
+	  local_name { } or local { } configuration blocks and attacker uses
+	  randomly generated SNI servernames.
+	* CVE-2017-14461: Parsing invalid email addresses may cause a crash or
+	  leak memory contents to attacker. For example, these memory contents
+	  might contain parts of an email from another user if the same imap
+	  process is reused for multiple users. First discovered by Aleksandar
+	  Nikolic of Cisco Talos. Independently also discovered by "flxflndy"
+	  via HackerOne.
+	* CVE-2017-15132: Aborted SASL authentication leaks memory in login
+	  process.
+	* Linux: Core dumping is no longer enabled by default via
+	  PR_SET_DUMPABLE, because this may allow attackers to bypass
+	  chroot/group restrictions. Found by cPanel Security Team. Nowadays
+	  core dumps can be safely enabled by using "sysctl -w
+	  fs.suid_dumpable=2". If the old behaviour is wanted, it can still be
+	  enabled by setting:
+	  import_environment=$import_environment PR_SET_DUMPABLE=1
+	* doveconf output now includes the hostname.
+
+	+ mail_attachment_detection_options setting controls when
+	  $HasAttachment and $HasNoAttachment keywords are set for mails.
+	+ imap: Support fetching body snippets using FETCH (SNIPPET) or
+	  (SNIPPET (LAZY=FUZZY))
+	+ fs-compress: Automatically detect whether input is compressed or not.
+	  Prefix the compression algorithm with "maybe-" to enable the
+	  detection, for example: "compress:maybe-gz:6:..."
+	+ Added settings to change dovecot.index* files' optimization behavior.
+	  See https://wiki2.dovecot.org/IndexFiles#Settings
+	+ Auth cache can now utilize auth workers to do password hash
+	  verification by setting auth_cache_verify_password_with_worker=yes.
+	+ Added charset_alias plugin. See
+	  https://wiki2.dovecot.org/Plugins/CharsetAlias
+	+ imap_logout_format and pop3_logout_format settings now support all of
+	  the generic variables (e.g. %{rip}, %{session}, etc.)
+	+ Added auth_policy_check_before_auth, auth_policy_check_after_auth
+	  and auth_policy_report_after_auth settings.
+	- v2.2.33: doveadm-server: Various fixes related to log handling.
+	- v2.2.33: doveadm failed when trying to access UNIX socket that didn't
+	  require authentication.
+	- v2.2.33: doveadm log reopen stopped working
+	- v2.2.30+: IMAP stopped advertising SPECIAL-USE capability
+	- v2.2.30+: IMAP stopped sending untagged OK/NO storage notifications
+	- replication: dsync sends unnecessary replication notification for
+	  changes it does internally. NOTE: Folder creates, renames, deletes
+	  and subscribes still trigger unnecessary replication notifications,
+	  but these should be rather rare.
+	- mail_always/never_cache_fields setting changes weren't applied for
+	  existing dovecot.index.cache files.
+	- Fix compiling and other problems with OpenSSL v1.1
+	- auth policy: With master user logins, lookup using login username.
+	- FTS reindexed all mails unnecessarily after loss of
+	  dovecot.index.cache file
+	- mdbox rebuild repeatedly fails with "missing map extension"
+	- SSL connections may have been hanging with imapc or doveadm client.
+	- cassandra: Using protocol v3 (Cassandra v2.1) caused memory leaks and
+	  also timestamps weren't set to queries.
+	- fs-crypt silently ignored public/private keys specified in
+	  configuration (mail_crypt_global_public/private_key) and just
+	  emitted plaintext output.
+	- lock_method=dotlock caused crashes
+	- imapc: Reconnection may cause crashes and other errors
 
 v2.2.33.2 2017-10-20  Timo Sirainen <tss@iki.fi>
 

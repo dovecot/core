@@ -5,6 +5,7 @@
 #include "process-title.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "master-service-ssl-settings.h"
 #include "settings-parser.h"
 #include "dict.h"
 #include "doveadm.h"
@@ -72,7 +73,7 @@ static void main_init(void)
 {
 	doveadm_server = TRUE;
 	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
-	doveadm_settings = master_service_settings_get_others(master_service)[0];
+	doveadm_settings = master_service_settings_get_others(master_service)[1];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info,
 					doveadm_settings, doveadm_settings_pool);
 	doveadm_verbose_proctitle =
@@ -104,12 +105,13 @@ static void main_deinit(void)
 int main(int argc, char *argv[])
 {
 	const struct setting_parser_info *set_roots[] = {
+		&master_service_ssl_setting_parser_info,
 		&doveadm_setting_parser_info,
 		NULL
 	};
 	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_SEND_STATS |
-		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
+		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
+		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS;
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 	const char *error;

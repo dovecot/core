@@ -27,6 +27,8 @@ bool doveadm_print_is_initialized(void);
 void doveadm_print_header(const char *key, const char *title,
 			  enum doveadm_print_header_flags flags);
 void doveadm_print_header_simple(const char *key_title);
+unsigned int doveadm_print_get_headers_count(void);
+
 void doveadm_print(const char *value);
 void doveadm_print_num(uintmax_t value);
 /* Stream for same field continues until len=0 */

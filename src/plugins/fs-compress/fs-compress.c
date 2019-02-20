@@ -48,7 +48,7 @@ fs_compress_init(struct fs *_fs, const char *args, const
 	const char *parent_name, *parent_args;
 
 	/* get compression handler name */
-	if (strncmp(args, "maybe-", 6) == 0) {
+	if (str_begins(args, "maybe-")) {
 		fs->try_plain = TRUE;
 		args += 6;
 	}
@@ -101,8 +101,7 @@ static void fs_compress_deinit(struct fs *_fs)
 {
 	struct compress_fs *fs = (struct compress_fs *)_fs;
 
-	if (_fs->parent != NULL)
-		fs_deinit(&_fs->parent);
+	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 
@@ -142,7 +141,7 @@ static void fs_compress_file_deinit(struct fs_file *_file)
 {
 	struct compress_fs_file *file = (struct compress_fs_file *)_file;
 
-	if (file->super_read != _file->parent && file->super_read != NULL)
+	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
 	fs_file_deinit(&_file->parent);
 	i_free(file->file.path);
@@ -154,10 +153,8 @@ static void fs_compress_file_close(struct fs_file *_file)
 	struct compress_fs_file *file = (struct compress_fs_file *)_file;
 
 	i_stream_unref(&file->input);
-	if (file->super_read != NULL)
-		fs_file_close(file->super_read);
-	if (_file->parent != NULL)
-		fs_file_close(_file->parent);
+	fs_file_close(file->super_read);
+	fs_file_close(_file->parent);
 }
 
 static struct istream *

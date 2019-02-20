@@ -70,7 +70,7 @@ push_notification_txn_mbox_set_eventdata(struct push_notification_txn *txn,
     mevent->data = data;
     mevent->event = event;
 
-    array_append(&mbox->eventdata, &mevent, 1);
+    array_push_back(&mbox->eventdata, &mevent);
 }
 
 void

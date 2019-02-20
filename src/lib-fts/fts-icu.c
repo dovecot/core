@@ -184,9 +184,9 @@ int fts_icu_transliterator_create(const char *id,
 
 	t_array_init(&id_utf16, strlen(id));
 	fts_icu_utf8_to_utf16(&id_utf16, id);
-	*transliterator_r = utrans_openU(array_idx(&id_utf16, 0),
-	                                array_count(&id_utf16),
-					UTRANS_FORWARD, NULL, 0, &perr, &err);
+	*transliterator_r = utrans_openU(array_front(&id_utf16),
+					 array_count(&id_utf16),
+					 UTRANS_FORWARD, NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
 		string_t *str = t_str_new(128);
 

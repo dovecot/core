@@ -376,7 +376,7 @@ static void dump_keywords(struct mail_index *index)
 	if (count == 0)
 		return;
 
-	keywords = array_idx(&index->keywords, 0);
+	keywords = array_front(&index->keywords);
 	for (i = 0; i < count; i++)
 		printf("%3u = %s\n", i, keywords[kw_indexes[i]]);
 }
@@ -510,12 +510,22 @@ dump_cache_mime_parts(string_t *str, const void *data, unsigned int size)
 }
 
 static void
+dump_cache_append_string(string_t *str, const unsigned char *data,
+			 unsigned int size)
+{
+	/* cached strings end with NUL */
+	if (size > 0 && data[size-1] == '\0')
+		size--;
+	str_append_data(str, data, size);
+}
+
+static void
 dump_cache_snippet(string_t *str, const unsigned char *data, unsigned int size)
 {
 	if (size == 0)
 		return;
 	str_printfa(str, " (version=%u: ", data[0]);
-	str_append_n(str, data+1, size-1);
+	dump_cache_append_string(str, data+1, size-1);
 	str_append_c(str, ')');
 }
 
@@ -567,8 +577,7 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 				dump_cache_snippet(str, data, size);
 			break;
 		case MAIL_CACHE_FIELD_STRING:
-			if (size > 0)
-				str_printfa(str, "%.*s", (int)size, (const char *)data);
+			dump_cache_append_string(str, data, size);
 			break;
 		case MAIL_CACHE_FIELD_HEADER: {
 			const uint32_t *lines = data;
@@ -608,7 +617,8 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 			break;
 		}
 
-		printf("%s\n", str_c(str));
+		fwrite(str_data(str), 1, str_len(str), stdout);
+		putchar('\n');
 	}
 	if (ret < 0)
 		printf(" - broken cache\n");
@@ -715,7 +725,10 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			printf("                   : unseen   = %u\n", lrec->unseen);
 			printf("                   : recent   = %u\n", lrec->recent);
 			printf("                   : uidnext  = %u\n", lrec->uidnext);
-		} else if (strcmp(ext[i].name, "vsize") == 0) {
+		} else if (strcmp(ext[i].name, "vsize") == 0 &&
+			   ext[i].record_size >= sizeof(struct mailbox_index_vsize)) {
+			/* this is "vsize" in dovecot.list.index, not the
+			   32bit "vsize" in dovecot.index */
 			const struct mailbox_index_vsize *vrec = data;
 			printf("                   : vsize         = %"PRIu64"\n", vrec->vsize);
 			printf("                   : highest_uid   = %u\n", vrec->highest_uid);

@@ -19,8 +19,8 @@
 #define TIMEOUT_CMP_MARGIN_USECS 2000
 
 static void
-http_client_queue_fail(struct http_client_queue *queue,
-	unsigned int status, const char *error);
+http_client_queue_fail_full(struct http_client_queue *queue,
+			    unsigned int status, const char *error, bool all);
 static void
 http_client_queue_set_delay_timer(struct http_client_queue *queue,
 	struct timeval time);
@@ -96,7 +96,7 @@ http_client_queue_create(struct http_client_host *host,
 	i_array_init(&queue->queued_requests, 16);
 	i_array_init(&queue->queued_urgent_requests, 16);
 	i_array_init(&queue->delayed_requests, 4);
-	array_append(&host->queues, &queue, 1);
+	array_push_back(&host->queues, &queue);
 
 	return queue;
 }
@@ -138,8 +138,8 @@ void http_client_queue_free(struct http_client_queue *queue)
 	array_free(&queue->pending_peers);
 
 	/* abort all requests */
-	http_client_queue_fail
-		(queue, HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborted");
+	http_client_queue_fail_full(queue, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+				    "Aborted", TRUE);
 	array_free(&queue->requests);
 	array_free(&queue->queued_requests);
 	array_free(&queue->queued_urgent_requests);
@@ -162,7 +162,7 @@ void http_client_queue_free(struct http_client_queue *queue)
 
 static void
 http_client_queue_fail_full(struct http_client_queue *queue,
-	unsigned int status, const char *error, bool queued_only)
+			    unsigned int status, const char *error, bool all)
 {
 	ARRAY_TYPE(http_client_request) *req_arr, treqs;
 	struct http_client_request **req_idx;
@@ -176,7 +176,7 @@ http_client_queue_fail_full(struct http_client_queue *queue,
 		struct http_client_request *req = *req_idx;
 
 		i_assert(req->state >= HTTP_REQUEST_STATE_QUEUED);
-		if (queued_only &&
+		if (!all &&
 			req->state != HTTP_REQUEST_STATE_QUEUED)
 			retained++;
 		else
@@ -399,7 +399,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 			e_debug(queue->event, "Started new connection to %s%s",
 				http_client_peer_addr2str(addr), ssl);
 
-			array_append(&queue->pending_peers, &peer, 1);
+			array_push_back(&queue->pending_peers, &peer);
 			if (queue->connect_attempts++ == 0)
 				queue->first_connect_time = ioloop_timeval;
 		}
@@ -437,9 +437,8 @@ http_client_queue_host_lookup_done(struct http_client_queue *queue)
 void http_client_queue_host_lookup_failure(
 	struct http_client_queue *queue, const char *error)
 {
-	http_client_queue_fail_full(queue,
-		HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED,
-		error, TRUE);
+	http_client_queue_fail(queue,
+		HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED, error);
 }
 
 void
@@ -503,6 +502,9 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	struct http_client_host *host = queue->host;
 	unsigned int ips_count = http_client_host_get_ips_count(host);
 	struct http_client_peer *const *peer_idx;
+	unsigned int num_requests =
+		array_count(&queue->queued_requests) +
+		array_count(&queue->queued_urgent_requests);
 
 	e_debug(queue->event,
 		"Failed to set up connection to %s%s: %s "
@@ -510,11 +512,13 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		http_client_peer_addr2str(addr),
 		(https_name == NULL ? "" :
 			t_strdup_printf(" (SSL=%s)", https_name)),
-		reason, array_count(&queue->pending_peers),
-		array_count(&queue->requests));
+		reason, array_count(&queue->pending_peers), num_requests);
+
+	http_client_peer_unlink_queue(peer, queue);
 
 	if (array_count(&queue->pending_peers) == 0) {
-		i_assert(queue->cur_peer == peer);
+		i_assert(queue->cur_peer == NULL || queue->cur_peer == peer);
+		queue->cur_peer = NULL;
 	} else {
 		bool found = FALSE;
 
@@ -536,7 +540,6 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		if (array_count(&queue->pending_peers) > 0) {
 			e_debug(queue->event,
 				"Waiting for remaining pending peers.");
-			http_client_peer_unlink_queue(peer, queue);
 			return;
 		}
 
@@ -546,7 +549,6 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		timeout_remove(&queue->to_connect);
 
 		if (queue->addr.type == HTTP_CLIENT_PEER_ADDR_UNIX) {
-			http_client_peer_unlink_queue(peer, queue);
 			http_client_queue_fail(queue,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
 			return;
@@ -554,13 +556,19 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	}
 
 	if (http_client_queue_is_last_connect_ip(queue)) {
-		/* all IPs failed, but retry all of them again if we have more
-		   connect attempts left or on the next request. */
+		if (array_count(&queue->pending_peers) > 0) {
+			/* Other connection attempts still pending */
+			return;
+		}
+
+		/* All IPs failed up until here and we allow no more connect
+		   attempts, but try the next ones on the next request. */
 		queue->ips_connect_idx = queue->ips_connect_start_idx =
 			(queue->ips_connect_idx + 1) % ips_count;
 
-		if (queue->cur_peer == NULL && (set->max_connect_attempts == 0 ||
-			queue->connect_attempts >= set->max_connect_attempts)) {
+		if (set->max_connect_attempts == 0 ||
+		    queue->connect_attempts >= set->max_connect_attempts) {
+
 			e_debug(queue->event,
 				"Failed to set up any connection; failing all queued requests");
 			if (queue->connect_attempts > 1) {
@@ -571,7 +579,6 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 					total_msecs/1000, total_msecs%1000);
 			}
 			queue->connect_attempts = 0;
-			http_client_peer_unlink_queue(peer, queue);
 			http_client_queue_fail(queue,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
 			return;
@@ -580,10 +587,8 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		queue->ips_connect_idx = (queue->ips_connect_idx + 1) % ips_count;
 	}
 	
-	if (http_client_queue_connection_attempt(queue) != peer) {
+	if (http_client_queue_connection_attempt(queue) != peer)
 		http_client_peer_unlink_queue(peer, queue);
-		queue->cur_peer = NULL;
-	}
 	return;
 }
 
@@ -710,7 +715,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 				&ioloop_timeval, TIMEOUT_CMP_MARGIN_USECS) > 0) {
 			break;
 		}
-		array_append(&failed_requests, &reqs[i], 1);
+		array_push_back(&failed_requests, &reqs[i]);
 	}
 
 	/* update timeout */
@@ -811,7 +816,7 @@ static void http_client_queue_submit_now(struct http_client_queue *queue,
 	/* enqueue */
 	if (req->timeout_time.tv_sec == 0) {
 		/* no timeout; enqueue at end */
-		array_append(req_queue, &req, 1);
+		array_push_back(req_queue, &req);
 
 	} else if (timeval_diff_msecs(&req->timeout_time, &ioloop_timeval) <= 1) {
 		/* pretty much already timed out; don't bother */
@@ -919,7 +924,7 @@ void http_client_queue_submit_request(struct http_client_queue *queue,
 	/* add to main request list */
 	if (req->timeout_time.tv_sec == 0) {
 		/* no timeout; just append */
-		array_append(&queue->requests, &req, 1);
+		array_push_back(&queue->requests, &req);
 
 	} else {
 		unsigned int insert_idx;

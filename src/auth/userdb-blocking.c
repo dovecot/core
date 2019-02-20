@@ -20,13 +20,13 @@ static bool user_callback(const char *reply, void *context)
 	enum userdb_result result;
 	const char *username, *args;
 
-	if (strncmp(reply, "FAIL\t", 5) == 0) {
+	if (str_begins(reply, "FAIL\t")) {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 		args = reply + 5;
-	} else if (strncmp(reply, "NOTFOUND\t", 9) == 0) {
+	} else if (str_begins(reply, "NOTFOUND\t")) {
 		result = USERDB_RESULT_USER_UNKNOWN;
 		args = reply + 9;
-	} else if (strncmp(reply, "OK\t", 3) == 0) {
+	} else if (str_begins(reply, "OK\t")) {
 		result = USERDB_RESULT_OK;
 		username = reply + 3;
 		args = strchr(username, '\t');
@@ -70,7 +70,7 @@ static bool iter_callback(const char *reply, void *context)
 {
 	struct blocking_userdb_iterate_context *ctx = context;
 
-	if (strncmp(reply, "*\t", 2) == 0) {
+	if (str_begins(reply, "*\t")) {
 		if (ctx->destroyed)
 			return TRUE;
 		ctx->next = FALSE;

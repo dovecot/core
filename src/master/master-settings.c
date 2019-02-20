@@ -307,7 +307,7 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 				  "unix_listener: %s", set->path);
 		}
 		if (set->mode != 0)
-			array_append(all_listeners, &set->path, 1);
+			array_push_back(all_listeners, &set->path);
 	}
 	return TRUE;
 }
@@ -326,7 +326,7 @@ static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
 
 		if (set->port != 0) {
 			str = t_strdup_printf("%u:%s", set->port, set->address);
-			array_append(all_listeners, &str, 1);
+			array_push_back(all_listeners, &str);
 		}
 	}
 }

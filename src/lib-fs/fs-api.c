@@ -57,7 +57,7 @@ void fs_class_register(const struct fs *fs_class)
 {
 	if (!array_is_created(&fs_classes))
 		fs_classes_init();
-	array_append(&fs_classes, &fs_class, 1);
+	array_push_back(&fs_classes, &fs_class);
 }
 
 static void fs_classes_deinit(void)
@@ -197,9 +197,15 @@ void fs_ref(struct fs *fs)
 void fs_unref(struct fs **_fs)
 {
 	struct fs *fs = *_fs;
-	string_t *last_error = fs->last_error;
-	struct array module_contexts_arr = fs->module_contexts.arr;
+	string_t *last_error;
+	struct array module_contexts_arr;
 	unsigned int i;
+
+	if (fs == NULL)
+		return;
+
+	last_error = fs->last_error;
+	module_contexts_arr = fs->module_contexts.arr;
 
 	i_assert(fs->refcount > 0);
 
@@ -279,8 +285,14 @@ struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
 void fs_file_deinit(struct fs_file **_file)
 {
 	struct fs_file *file = *_file;
-	struct event *event = file->event;
-	pool_t metadata_pool = file->metadata_pool;
+	struct event *event;
+	pool_t metadata_pool;
+
+	if (file == NULL)
+		return;
+
+	event = file->event;
+	metadata_pool = file->metadata_pool;
 
 	i_assert(file->fs->files_open_count > 0);
 
@@ -301,6 +313,9 @@ void fs_file_deinit(struct fs_file **_file)
 
 void fs_file_close(struct fs_file *file)
 {
+	if (file == NULL)
+		return;
+
 	i_assert(!file->writing_stream);
 	i_assert(file->output == NULL);
 
@@ -351,7 +366,7 @@ void fs_metadata_init_or_clear(struct fs_file *file)
 		array_foreach(&file->metadata, md) {
 			if (strncmp(md->key, FS_METADATA_INTERNAL_PREFIX,
 				    strlen(FS_METADATA_INTERNAL_PREFIX)) == 0)
-				array_append(&internal_metadata, md, 1);
+				array_push_back(&internal_metadata, md);
 		}
 		array_clear(&file->metadata);
 		array_append_array(&file->metadata, &internal_metadata);
@@ -456,6 +471,11 @@ int fs_get_metadata(struct fs_file *file,
 	int ret;
 
 	if (file->fs->v.get_metadata == NULL) {
+		if (array_is_created(&file->metadata)) {
+			/* Return internal metadata. */
+			*metadata_r = &file->metadata;
+			return 0;
+		}
 		fs_set_error(file->fs, "Metadata not supported by backend");
 		return -1;
 	}
@@ -882,6 +902,9 @@ void fs_unlock(struct fs_lock **_lock)
 {
 	struct fs_lock *lock = *_lock;
 
+	if (lock == NULL)
+		return;
+
 	*_lock = NULL;
 	T_BEGIN {
 		lock->file->fs->v.unlock(lock);
@@ -1126,8 +1149,13 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 int fs_iter_deinit(struct fs_iter **_iter)
 {
 	struct fs_iter *iter = *_iter;
-	struct event *event = iter->event;
+	struct event *event;
 	int ret;
+
+	if (iter == NULL)
+		return 0;
+
+	event = iter->event;
 
 	*_iter = NULL;
 	DLLIST_REMOVE(&iter->fs->iters, iter);

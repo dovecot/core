@@ -1073,7 +1073,7 @@ int mail_crypt_box_get_pvt_digests(struct mailbox *box, pool_t pool,
 					   BOX_CRYPT_PREFIX PRIVKEYS_PREFIX);
 	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
 		key = p_strdup(pool, key);
-		array_append(digests, &key, 1);
+		array_push_back(digests, &key);
 	}
 	ret = mailbox_attribute_iter_deinit(&iter);
 	if (ret < 0)
@@ -1098,7 +1098,7 @@ int mail_crypt_box_get_private_keys(struct mailbox *box,
 			(void)mailbox_attribute_iter_deinit(&iter);
 			return -1;
 		} else if (ret > 0)
-			array_append(keys_r, &key, 1);
+			array_push_back(keys_r, &key);
 	}
 
 	ret = mailbox_attribute_iter_deinit(&iter);

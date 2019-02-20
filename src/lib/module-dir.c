@@ -188,6 +188,7 @@ module_load(const char *path, const char *name,
 	void *handle;
 	struct module *module;
 	const char *const *module_version;
+	void (*preinit)(void);
 
 	*module_r = NULL;
 	*error_r = NULL;
@@ -244,6 +245,11 @@ module_load(const char *path, const char *name,
 	module->deinit = (void (*)(void))
 		get_symbol(module, t_strconcat(name, "_deinit", NULL),
 			   !set->require_init_funcs);
+	preinit = (void (*)(void))
+		get_symbol(module, t_strconcat(name, "_preinit", NULL),
+			   TRUE);
+	if (preinit != NULL)
+		preinit();
 
 	if ((module->init == NULL || module->deinit == NULL) &&
 	    set->require_init_funcs) {
@@ -273,9 +279,9 @@ static int module_name_cmp(const char *const *n1, const char *const *n2)
 {
 	const char *s1 = *n1, *s2 = *n2;
 
-	if (strncmp(s1, "lib", 3) == 0)
+	if (str_begins(s1, "lib"))
 		s1 += 3;
-	if (strncmp(s2, "lib", 3) == 0)
+	if (str_begins(s2, "lib"))
 		s2 += 3;
 
 	return strcmp(s1, s2);
@@ -425,7 +431,7 @@ module_dir_load_real(struct module **_modules,
 		} T_END;
 
 		name = p_strdup(pool, d->d_name);
-		array_append(&names, &name, 1);
+		array_push_back(&names, &name);
 	}
 	if (errno != 0)
 		*error_r = i_strdup_printf("readdir(%s) failed: %m", dir);
@@ -656,7 +662,7 @@ const char *module_file_get_name(const char *fname)
 	const char *p;
 
 	/* [lib][nn_]name(.so) */
-	if (strncmp(fname, "lib", 3) == 0)
+	if (str_begins(fname, "lib"))
 		fname += 3;
 
 	for (p = fname; *p != '\0'; p++) {

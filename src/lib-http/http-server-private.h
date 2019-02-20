@@ -129,6 +129,8 @@ struct http_server_connection {
 	const struct http_server_callbacks *callbacks;
 	void *context;
 
+	struct ip_addr ip;
+	in_port_t port;
 	unsigned int id; // DEBUG
 
 	struct timeout *to_input, *to_idle;
@@ -275,5 +277,11 @@ int http_server_connection_discard_payload(
 	struct http_server_connection *conn);
 bool http_server_connection_pending_payload(
 	struct http_server_connection *conn);
+
+/*
+ * Server
+ */
+
+int http_server_init_ssl_ctx(struct http_server *server, const char **error_r);
 
 #endif

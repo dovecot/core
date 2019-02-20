@@ -47,17 +47,11 @@ static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 }
 
 static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
-			       int is_export, int keylength)
+			       int is_export ATTR_UNUSED, int keylength ATTR_UNUSED)
 {
-	struct ssl_iostream *ssl_io;
-
-	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
-	/* Well, I'm not exactly sure why the logic in here is this.
-	   It's the same as in Postfix, so it can't be too wrong. */
-	if (is_export != 0 && keylength == 512 && ssl_io->ctx->dh_512 != NULL)
-		return ssl_io->ctx->dh_512;
-	else
-		return ssl_io->ctx->dh_default;
+	i_error("Diffie-Hellman key exchange requested, "
+		"but no DH parameters provided. Set ssh_dh=</path/to/dh.pem");
+	return NULL;
 }
 
 static int
@@ -168,7 +162,9 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 {
 	DH *dh;
 	int ret = 0;
-
+	if (*set->dh == '\0') {
+		return 0;
+	}
 	if (openssl_iostream_load_dh(set, &dh, error_r) < 0)
 		return -1;
 	if (SSL_CTX_set_tmp_dh(ctx->ssl_ctx, dh) == 0) {
@@ -358,11 +354,15 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 		}
 		have_ca = TRUE;
 	}
-
-	if (!have_ca && !set->allow_invalid_cert) {
-		*error_r = !ctx->client_ctx ?
-			"Can't verify remote client certs without CA (ssl_ca setting)" :
-			"Can't verify remote server certs without trusted CAs (ssl_client_ca_* settings)";
+	if (!have_ca && ctx->client_ctx) {
+		if (SSL_CTX_set_default_verify_paths(ctx->ssl_ctx) != 1) {
+			*error_r = t_strdup_printf(
+				"Can't load default CA locations: %s (ssl_client_ca_* settings missing)",
+				openssl_iostream_error());
+			return -1;
+		}
+	} else if (!have_ca) {
+		*error_r = "Can't verify remote client certs without CA (ssl_ca setting)";
 		return -1;
 	}
 	return 0;
@@ -506,7 +506,7 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 
 static int
 ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
-				const struct ssl_iostream_settings *set ATTR_UNUSED,
+				const struct ssl_iostream_settings *set,
 				const char **error_r ATTR_UNUSED)
 {
 #if defined(HAVE_ECDH) && !defined(SSL_CTX_set_ecdh_auto)
@@ -516,7 +516,8 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 #endif
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx) != 0)
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
-	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
+	if (set->dh == NULL || *set->dh == '\0')
+		SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
 #ifdef HAVE_ECDH
 	/* In the non-recommended situation where ECDH cipher suites are being
 	   used instead of ECDHE, do not reuse the same ECDH key pair for
@@ -524,8 +525,9 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
 #ifdef SSL_CTX_set_ecdh_auto
 	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
-	   selection. */
-	if (SSL_CTX_set_ecdh_auto(ssl_ctx, 1) == 0) {
+	   selection. The return value of this function changes is changed to
+	   bool in OpenSSL 1.1 and is int in OpenSSL 1.0.2+ */
+	if ((long)(SSL_CTX_set_ecdh_auto(ssl_ctx, 1)) == 0) {
 		/* shouldn't happen */
 		*error_r = t_strdup_printf("SSL_CTX_set_ecdh_auto() failed: %s",
 					   openssl_iostream_error());
@@ -559,6 +561,11 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	}
 #endif
 #endif
+#ifdef SSL_OP_SINGLE_DH_USE
+	/* Improves forward secrecy with DH parameters, especially if the
+	   parameters used aren't strong primes. See OpenSSL manual. */
+	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_DH_USE);
+#endif
 	return 0;
 }
 
@@ -585,6 +592,12 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 	SSL_CTX_set_options(ctx->ssl_ctx, ssl_ops);
 #ifdef SSL_MODE_RELEASE_BUFFERS
 	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
+#endif
+#ifdef SSL_MODE_ENABLE_PARTIAL_WRITE
+	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
+#endif
+#ifdef SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
+	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 #endif
 	if (ssl_proxy_ctx_set_crypto_params(ctx->ssl_ctx, set, error_r) < 0)
 		return -1;

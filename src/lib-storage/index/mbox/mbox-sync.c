@@ -729,7 +729,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			i_assert(sync_ctx->space_diff < -mail_ctx->mail.space);
 
 			sync_ctx->need_space_seq--;
-			array_append(&sync_ctx->mails, &mail, 1);
+			array_push_back(&sync_ctx->mails, &mail);
 		}
 	}
 	return 0;
@@ -755,7 +755,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		array_append_array(&keywords_copy, &mail_ctx->mail.keywords);
 		mail_ctx->mail.keywords = keywords_copy;
 	}
-	array_append(&sync_ctx->mails, &mail_ctx->mail, 1);
+	array_push_back(&sync_ctx->mails, &mail_ctx->mail);
 
 	sync_ctx->space_diff += mail_ctx->mail.space;
 	if (sync_ctx->space_diff < 0) {
@@ -788,8 +788,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 			sync_ctx->expunged_space = 0;
 		}
 		last_seq = sync_ctx->seq - 1;
-		array_delete(&sync_ctx->mails,
-			     array_count(&sync_ctx->mails) - 1, 1);
+		array_pop_back(&sync_ctx->mails);
 		end_offset = mail_ctx->mail.from_offset;
 	} else {
 		/* this message gave enough space from headers. rewriting stops

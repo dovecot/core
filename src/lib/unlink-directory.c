@@ -201,7 +201,7 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 				   (flags & UNLINK_DIRECTORY_FLAG_FILES_ONLY) != 0) {
 				/* skip directory */
 			} else if (old_errno == EBUSY &&
-				   strncmp(d->d_name, ".nfs", 4) == 0) {
+				   str_begins(d->d_name, ".nfs")) {
 				/* can't delete NFS files that are still
 				   in use. let the caller decide if this error
 				   is worth logging about */
@@ -266,7 +266,7 @@ int unlink_directory(const char *dir, enum unlink_directory_flags flags,
 
 	if (ret < 0) {
 		errno = old_errno;
-		return errno == ENOENT ? 0 : 1;
+		return errno == ENOENT ? 0 : -1;
 	}
 
 	if ((flags & UNLINK_DIRECTORY_FLAG_RMDIR) != 0) {

@@ -29,6 +29,10 @@ enum log_type {
 struct failure_line {
 	pid_t pid;
 	enum log_type log_type;
+	/* If non-zero, the first log_prefix_len bytes in text indicate
+	   the log prefix. This implies disable_log_prefix=TRUE. */
+	unsigned int log_prefix_len;
+	/* Disable the global log prefix. */
 	bool disable_log_prefix;
 	const char *text;
 };
@@ -39,6 +43,9 @@ struct failure_context {
 	const struct tm *timestamp; /* NULL = use time() + localtime() */
 	unsigned int timestamp_usecs;
 	const char *log_prefix; /* override the default log prefix */
+	/* If non-0, insert the log type text (e.g. "Info: ") at this position
+	   in the log_prefix instead of appending it. */
+	unsigned int log_prefix_type_pos;
 };
 
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
@@ -103,6 +110,9 @@ void i_set_failure_file(const char *path, const char *prefix);
 
 /* Send errors to stderr using internal error protocol. */
 void i_set_failure_internal(void);
+/* Returns TRUE if the given callback handler was set via
+   i_set_failure_internal(). */
+bool i_failure_handler_is_internal(failure_callback_t *const callback);
 /* If writing to log fails, ignore it instead of existing with
    FATAL_LOGWRITE or FATAL_LOGERROR. */
 void i_set_failure_ignore_errors(bool ignore);

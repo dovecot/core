@@ -44,7 +44,7 @@ doveadm_print_formatted_header(const struct doveadm_print_header *hdr)
 	entry.key = '\0';
 	entry.long_key = p_strdup(ctx.pool, hdr->key);
 	entry.value = NULL;
-	array_append(&ctx.headers, &entry, 1);
+	array_push_back(&ctx.headers, &entry);
 }
 
 
@@ -64,7 +64,7 @@ static void doveadm_print_formatted_print(const char *value)
 	entry->value = value;
 
 	if (ctx.idx >= array_count(&ctx.headers)) {
-		if (var_expand(ctx.buf, ctx.format, array_idx(&ctx.headers,0), &error) <= 0) {
+		if (var_expand(ctx.buf, ctx.format, array_front(&ctx.headers), &error) <= 0) {
 			i_error("Failed to expand print format '%s': %s",
 				ctx.format, error);
 		}

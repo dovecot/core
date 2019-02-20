@@ -65,6 +65,11 @@ unsigned int mbox_save_drop_headers_count = N_ELEMENTS(mbox_save_drop_headers);
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
 
+static struct event_category event_category_mbox = {
+	.name = "mbox",
+	.parent = &event_category_storage,
+};
+
 static MODULE_CONTEXT_DEFINE_INIT(mbox_mailbox_list_module,
 				  &mailbox_list_module_register);
 
@@ -186,8 +191,7 @@ static void mbox_storage_get_list_settings(const struct mail_namespace *ns,
 	if (set->inbox_path == NULL &&
 	    strcasecmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) {
 		set->inbox_path = t_strconcat(set->root_dir, "/inbox", NULL);
-		if (ns->mail_set->mail_debug)
-			i_debug("mbox: INBOX defaulted to %s", set->inbox_path);
+		e_debug(ns->user->event, "mbox: INBOX defaulted to %s", set->inbox_path);
 	}
 }
 
@@ -438,7 +442,7 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 		   /var/mail and we want to allow privileged dotlocking */
 		rootdir = mailbox_list_get_root_forced(box->list,
 						       MAILBOX_LIST_PATH_TYPE_DIR);
-		if (strncmp(box_path, rootdir, strlen(rootdir)) != 0)
+		if (!str_begins(box_path, rootdir))
 			mbox->mbox_privileged_locking = TRUE;
 	}
 	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {
@@ -816,6 +820,7 @@ struct mail_storage mbox_storage = {
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
 		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
+	.event_category = &event_category_mbox,
 
 	.v = {
                 mbox_get_setting_parser_info,

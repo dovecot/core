@@ -77,7 +77,7 @@ static int config_add_type(struct setting_parser_context *parser,
 
 	str = t_str_new(256);
 	p = strchr(line, '=');
-	str_append_n(str, line, p-line);
+	str_append_data(str, line, p-line);
 	str_append_c(str, SETTINGS_SEPARATOR);
 	str_append(str, p+1);
 	if (info != NULL) {
@@ -209,7 +209,7 @@ config_add_new_parser(struct config_parser_context *ctx)
 	}
 	parser->parsers = cur_section->prev == NULL ? ctx->root_parsers :
 		config_module_parsers_init(ctx->pool);
-	array_append(&ctx->all_parsers, &parser, 1);
+	array_push_back(&ctx->all_parsers, &parser);
 
 	cur_section->parsers = parser->parsers;
 }
@@ -479,7 +479,7 @@ str_append_file(string_t *str, const char *key, const char *path,
 		return -1;
 	}
 	while ((ret = read(fd, buf, sizeof(buf))) > 0)
-		str_append_n(str, buf, ret);
+		str_append_data(str, buf, ret);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("%s: read(%s) failed: %m",
 					   key, path);
@@ -631,7 +631,7 @@ config_parse_line(struct config_parser_context *ctx,
 			len--;
 		}
 		if(len >= 1) {
-			str_append_n(full_line, line, len);
+			str_append_data(full_line, line, len);
 			str_append_c(full_line, ' ');
 		}
 		return CONFIG_LINE_TYPE_CONTINUE;
@@ -738,7 +738,7 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 
 	new_filter = config_filter_init(ctx->pool);
 	array_append_zero(&ctx->all_parsers);
-	config_filter_add_all(new_filter, array_idx(&ctx->all_parsers, 0));
+	config_filter_add_all(new_filter, array_front(&ctx->all_parsers));
 
 	if (ret < 0)
 		;
@@ -1087,7 +1087,7 @@ void config_parse_load_modules(void)
 			t_strdup_printf("%s_set_roots", m->name));
 		if (roots != NULL) {
 			for (i = 0; roots[i] != NULL; i++)
-				array_append(&new_roots, &roots[i], 1);
+				array_push_back(&new_roots, &roots[i]);
 		}
 
 		services = module_get_symbol_quiet(m,
@@ -1099,16 +1099,16 @@ void config_parse_load_modules(void)
 			service_set = module_get_symbol_quiet(m,
 				t_strdup_printf("%s_service_settings", m->name));
 			if (service_set != NULL)
-				array_append(&new_services, &service_set, 1);
+				array_push_back(&new_services, &service_set);
 		}
 	}
 	if (array_count(&new_roots) > 0) {
 		/* modules added new settings. add the defaults and start
 		   using the new list. */
 		for (i = 0; all_roots[i] != NULL; i++)
-			array_append(&new_roots, &all_roots[i], 1);
+			array_push_back(&new_roots, &all_roots[i]);
 		array_append_zero(&new_roots);
-		all_roots = array_idx(&new_roots, 0);
+		all_roots = array_front(&new_roots);
 		roots_free_at_deinit = new_roots;
 	} else {
 		array_free(&new_roots);
@@ -1117,7 +1117,7 @@ void config_parse_load_modules(void)
 		/* module added new services. update the defaults. */
 		services = array_get(default_services, &count);
 		for (i = 0; i < count; i++)
-			array_append(&new_services, &services[i], 1);
+			array_push_back(&new_services, &services[i]);
 		*default_services = new_services;
 		services_free_at_deinit = new_services;
 	} else {

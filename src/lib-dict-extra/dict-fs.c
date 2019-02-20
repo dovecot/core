@@ -69,9 +69,9 @@ static void fs_dict_deinit(struct dict *_dict)
 
 static const char *fs_dict_get_full_key(struct fs_dict *dict, const char *key)
 {
-	if (strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0)
+	if (str_begins(key, DICT_PATH_SHARED))
 		return key + strlen(DICT_PATH_SHARED);
-	else if (strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0) {
+	else if (str_begins(key, DICT_PATH_PRIVATE)) {
 		return t_strdup_printf("%s/%s", dict->username,
 				       key + strlen(DICT_PATH_PRIVATE));
 	} else {
@@ -98,7 +98,7 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 
 	str = str_new(pool, i_stream_get_data_size(input)+1);
 	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
-		str_append_n(str, data, size);
+		str_append_data(str, data, size);
 		i_stream_skip(input, size);
 	}
 	i_assert(ret == -1);
@@ -195,10 +195,9 @@ static int fs_dict_iterate_deinit(struct dict_iterate_context *ctx,
 	struct fs_dict *dict = (struct fs_dict *)ctx->dict;
 	int ret;
 
-	if (iter->fs_iter != NULL) {
-		if (fs_iter_deinit(&iter->fs_iter) < 0 && iter->error == NULL)
-			iter->error = i_strdup(fs_last_error(dict->fs));
-	}
+	if (fs_iter_deinit(&iter->fs_iter) < 0 && iter->error == NULL)
+		iter->error = i_strdup(fs_last_error(dict->fs));
+
 	ret = iter->error != NULL ? -1 : 0;
 	*error_r = t_strdup(iter->error);
 

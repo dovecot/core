@@ -697,7 +697,7 @@ dbox_file_metadata_read_at(struct dbox_file *file, uoff_t metadata_offset)
 			break;
 		}
 		line = p_strdup(file->metadata_pool, line);
-		array_append(&file->metadata, &line, 1);
+		array_push_back(&file->metadata, &line);
 	}
 	i_stream_set_max_buffer_size(file->input, buf_size);
 	if (ret == 0)

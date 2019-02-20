@@ -199,7 +199,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		rec->mail_size = dbox_file_get_plaintext_size(file);
 		mail_generate_guid_128_hash(guid, rec->guid_128);
 		i_assert(!guid_128_is_empty(rec->guid_128));
-		array_append(&ctx->msgs, &rec, 1);
+		array_push_back(&ctx->msgs, &rec);
 
 		guid_p = rec->guid_128;
 		old_rec = hash_table_lookup(ctx->guid_hash, guid_p);

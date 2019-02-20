@@ -112,7 +112,7 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 	mail_domain_login(session->user->domain);
 
 	for (i = 3; args[i] != NULL; i++) {
-		if (strncmp(args[i], "rip=", 4) == 0 &&
+		if (str_begins(args[i], "rip=") &&
 		    net_addr2ip(args[i] + 4, &ip) == 0)
 			session->ip = mail_ip_login(&ip);
 	}

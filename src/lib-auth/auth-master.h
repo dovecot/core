@@ -29,6 +29,10 @@ struct auth_master_connection *
 auth_master_init(const char *auth_socket_path, enum auth_master_flags flags);
 void auth_master_deinit(struct auth_master_connection **conn);
 
+/* Set timeout for lookups. */
+void auth_master_set_timeout(struct auth_master_connection *conn,
+			     unsigned int msecs);
+
 /* Returns the auth_socket_path */
 const char *auth_master_get_socket_path(struct auth_master_connection *conn);
 

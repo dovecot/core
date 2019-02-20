@@ -101,6 +101,7 @@ test_dict_sql_SOURCES = \
 	test-dict-sql.c
 test_dict_sql_LDADD = \
 	$(noinst_LTLIBRARIES) \
+	$(DICT_LIBS) \
 	../lib-sql/libdriver_test.la \
 	../lib-sql/libsql.la \
 	../lib-dovecot/libdovecot.la

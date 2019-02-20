@@ -45,9 +45,9 @@ static int select_qresync_get_uids(struct imap_select_context *ctx,
 	for (i = 0; i < uid_count; i++) {
 		if (!seq_range_array_iter_nth(&seq_iter, n++, &seq))
 			return -1;
-		array_append(&ctx->qresync_sample_uidset,
-			     &uid_range[i].seq1, 1);
-		array_append(&ctx->qresync_sample_seqset, &seq, 1);
+		array_push_back(&ctx->qresync_sample_uidset,
+				&uid_range[i].seq1);
+		array_push_back(&ctx->qresync_sample_seqset, &seq);
 
 		diff = uid_range[i].seq2 - uid_range[i].seq1;
 		if (diff > 0) {
@@ -55,9 +55,9 @@ static int select_qresync_get_uids(struct imap_select_context *ctx,
 			if (!seq_range_array_iter_nth(&seq_iter, n++, &seq))
 				return -1;
 
-			array_append(&ctx->qresync_sample_uidset,
-				     &uid_range[i].seq2, 1);
-			array_append(&ctx->qresync_sample_seqset, &seq, 1);
+			array_push_back(&ctx->qresync_sample_uidset,
+					&uid_range[i].seq2);
+			array_push_back(&ctx->qresync_sample_seqset, &seq);
 		}
 	}
 	if (seq_range_array_iter_nth(&seq_iter, n, &seq))
@@ -108,8 +108,7 @@ select_parse_qresync(struct imap_select_context *ctx,
 	const char *str;
 	unsigned int count;
 
-	if ((ctx->cmd->client->enabled_features &
-	     MAILBOX_FEATURE_QRESYNC) == 0) {
+	if (!client_has_enabled(ctx->cmd->client, imap_feature_qresync)) {
 		*error_r = "QRESYNC not enabled";
 		return FALSE;
 	}
@@ -291,8 +290,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 		return -1;
 	}
 
-	if (client->enabled_features != 0)
-		ret = mailbox_enable(ctx->box, client->enabled_features);
+	ret = mailbox_enable(ctx->box, client_enabled_mailbox_features(client));
 	if (ret < 0 ||
 	    mailbox_sync(ctx->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		client_send_box_error(ctx->cmd, ctx->box);
@@ -370,7 +368,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	struct client *client = cmd->client;
 	struct imap_select_context *ctx;
 	const struct imap_arg *args, *list_args;
-	const char *mailbox, *error;
+	const char *mailbox, *client_error;
 	int ret;
 
 	/* <mailbox> [(optional parameters)] */
@@ -385,20 +383,20 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client_find_namespace_full(cmd->client, &mailbox, &error);
+	ctx->ns = client_find_namespace_full(cmd->client, &mailbox, &client_error);
 	if (ctx->ns == NULL) {
 		/* send * OK [CLOSED] before the tagged reply */
 		close_selected_mailbox(client);
-		client_send_tagline(cmd, error);
+		client_send_tagline(cmd, client_error);
 		return TRUE;
 	}
 
 	if (imap_arg_get_list(&args[1], &list_args)) {
-		if (!select_parse_options(ctx, list_args, &error)) {
+		if (!select_parse_options(ctx, list_args, &client_error)) {
 			select_context_free(ctx);
 			/* send * OK [CLOSED] before the tagged reply */
 			close_selected_mailbox(client);
-			client_send_command_error(ctx->cmd, error);
+			client_send_command_error(ctx->cmd, client_error);
 			return TRUE;
 		}
 	}
@@ -411,7 +409,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	if (ctx->condstore) {
 		/* Enable while no mailbox is opened to avoid sending
 		   HIGHESTMODSEQ for previously opened mailbox */
-		(void)client_enable(client, MAILBOX_FEATURE_CONDSTORE);
+		client_enable(client, imap_feature_condstore);
 	}
 
 	ret = select_open(ctx, mailbox, readonly);

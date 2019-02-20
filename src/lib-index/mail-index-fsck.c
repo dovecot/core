@@ -29,6 +29,7 @@ static void
 mail_index_fsck_log_pos(struct mail_index *index, struct mail_index_map *map,
 			struct mail_index_header *hdr)
 {
+	unsigned int hdr_size = index->log->head->hdr.hdr_size;
 	uint32_t file_seq;
 	uoff_t file_offset;
 
@@ -42,13 +43,14 @@ mail_index_fsck_log_pos(struct mail_index *index, struct mail_index_map *map,
 		   offsets are valid. */
 		if (hdr->log_file_head_offset > file_offset)
 			hdr->log_file_head_offset = file_offset;
-		else if (hdr->log_file_head_offset < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE)
-			hdr->log_file_head_offset = MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE;
+		else if (hdr->log_file_head_offset < hdr_size)
+			hdr->log_file_head_offset = hdr_size;
 
 		if (hdr->log_file_tail_offset > hdr->log_file_head_offset)
 			hdr->log_file_tail_offset = hdr->log_file_head_offset;
-		else if (hdr->log_file_tail_offset < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE)
-			hdr->log_file_tail_offset = MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE;
+		else if (hdr->log_file_tail_offset != 0 &&
+			 hdr->log_file_tail_offset < hdr_size)
+			hdr->log_file_tail_offset = hdr_size;
 	} else {
 		/* index's log_file_seq is newer than exists. move it to
 		   end of the current log head. */
@@ -190,12 +192,12 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 			/* duplicate */
 			name = "";
 		}
-		array_append(&names, &name, 1);
+		array_push_back(&names, &name);
 	}
 
 	/* give new names to invalid keywords */
 	changed_count = 0;
-	name_array = array_idx_modifiable(&names, 0);
+	name_array = array_front_modifiable(&names);
 	for (i = j = 0; i < keywords_count; i++) {
 		while (name_array[i][0] == '\0') {
 			name = t_strdup_printf("unknown-%d", j++);
@@ -309,7 +311,7 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 							 ext_hdr, offset,
 							 &next_offset);
 			}
-			array_append(&names, &name, 1);
+			array_push_back(&names, &name);
 			offset = next_offset;
 			continue;
 		}

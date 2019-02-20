@@ -125,19 +125,19 @@ headers_merge(pool_t pool, const char *const *h1, const char *const *h2)
 	if (h1 != NULL) {
 		for (i = 0; h1[i] != NULL; i++) {
 			value = p_strdup(pool, h1[i]);
-			array_append(&headers, &value, 1);
+			array_push_back(&headers, &value);
 		}
 	}
 	if (h2 != NULL) {
 		for (i = 0; h2[i] != NULL; i++) {
 			if (h1 == NULL || !str_array_icase_find(h1, h2[i])) {
 				value = p_strdup(pool, h2[i]);
-				array_append(&headers, &value, 1);
+				array_push_back(&headers, &value);
 			}
 		}
 	}
 	array_append_zero(&headers);
-	return array_idx(&headers, 0);
+	return array_front(&headers);
 }
 
 static bool
@@ -147,8 +147,8 @@ imapc_mail_try_merge_fetch(struct imapc_mailbox *mbox, string_t *str)
 	const char *s2 = str_c(mbox->pending_fetch_cmd);
 	const char *p1, *p2;
 
-	i_assert(strncmp(s1, "UID FETCH ", 10) == 0);
-	i_assert(strncmp(s2, "UID FETCH ", 10) == 0);
+	i_assert(str_begins(s1, "UID FETCH "));
+	i_assert(str_begins(s2, "UID FETCH "));
 
 	/* skip over UID range */
 	p1 = strchr(s1+10, ' ');
@@ -180,7 +180,7 @@ imapc_mail_delayed_send_or_merge(struct imapc_mail *mail, string_t *str)
 		i_assert(mbox->pending_fetch_cmd->used == 0);
 		str_append_str(mbox->pending_fetch_cmd, str);
 	}
-	array_append(&mbox->pending_fetch_request->mails, &mail, 1);
+	array_push_back(&mbox->pending_fetch_request->mails, &mail);
 
 	if (mbox->to_pending_fetch_send == NULL &&
 	    array_count(&mbox->pending_fetch_request->mails) >
@@ -507,7 +507,7 @@ void imapc_mail_fetch_flush(struct imapc_mailbox *mbox)
 				       imapc_mail_fetch_callback,
 				       mbox->pending_fetch_request);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
-	array_append(&mbox->fetch_requests, &mbox->pending_fetch_request, 1);
+	array_push_back(&mbox->fetch_requests, &mbox->pending_fetch_request);
 
 	imapc_command_send(cmd, str_c(mbox->pending_fetch_cmd));
 
@@ -589,10 +589,15 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 	   smaller than the fetched message header. In this case change the
 	   size as well, otherwise reading via istream-mail will fail. */
 	if (mail->body_fetched || imail->data.physical_size < size) {
+		if (mail->body_fetched) {
+			imail->data.inexact_total_sizes = FALSE;
+			/* Don't trust any existing virtual_size. Also don't
+			   set it to size, because there's no guarantees about
+			   the content having proper CRLF newlines, especially
+			   not if istream_opened() has changed the stream. */
+			imail->data.virtual_size = (uoff_t)-1;
+		}
 		imail->data.physical_size = size;
-		/* we'll assume that the remote server is working properly and
-		   sending CRLF linefeeds */
-		imail->data.virtual_size = size;
 	}
 
 	imail->data.stream_has_only_header = !mail->body_fetched;
@@ -722,14 +727,14 @@ imapc_fetch_header_stream(struct imapc_mail *mail,
 	   (parse it even if it's not) */
 	t_array_init(&hdr_arr, 16);
 	while (imap_arg_get_astring(hdr_list, &value)) {
-		array_append(&hdr_arr, &value, 1);
+		array_push_back(&hdr_arr, &value);
 		hdr_list++;
 	}
 	if (hdr_list->type != IMAP_ARG_EOL)
 		return;
 	array_append_zero(&hdr_arr);
 
-	if (headers_have_subset(array_idx(&hdr_arr, 0), mail->fetching_headers))
+	if (headers_have_subset(array_front(&hdr_arr), mail->fetching_headers))
 		mail->header_list_fetched = TRUE;
 
 	if (args->type == IMAP_ARG_LITERAL_SIZE) {
@@ -747,7 +752,7 @@ imapc_fetch_header_stream(struct imapc_mail *mail,
 	}
 
 	headers_ctx = mailbox_header_lookup_init(mail->imail.mail.mail.box,
-						 array_idx(&hdr_arr, 0));
+						 array_front(&hdr_arr));
 	index_mail_parse_header_init(&mail->imail, headers_ctx);
 
 	parser = message_parse_header_init(input, NULL, hdr_parser_flags);
@@ -839,8 +844,11 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 		} else if (strcasecmp(key, "RFC822.SIZE") == 0) {
 			if (imap_arg_get_atom(&args[i+1], &value) &&
 			    str_to_uoff(value, &size) == 0 &&
-			    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
+			    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE)) {
 				mail->imail.data.physical_size = size;
+				mail->imail.data.virtual_size = size;
+				mail->imail.data.inexact_total_sizes = TRUE;
+			}
 			match = TRUE;
 		} else if (strcasecmp(key, "X-GM-MSGID") == 0 ||
 			   strcasecmp(key, "X-GUID") == 0) {

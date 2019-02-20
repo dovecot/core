@@ -181,7 +181,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 	data_stack_frame_t datastack_frame_id = 0;
 	unsigned int count;
 	const char *value;
-	const char *error;
 
 	i_assert(name != NULL);
 
@@ -261,9 +260,15 @@ master_service_init(const char *name, enum master_service_flags flags,
 		master_service_init_socket_listeners(service);
 	} T_END;
 
+#ifdef HAVE_SSL
 	/* load SSL module if necessary */
-	if (service->want_ssl_settings && ssl_module_load(&error) < 0)
-		i_fatal("Cannot load SSL module: %s", error);
+	if (service->want_ssl_settings) {
+		const char *error;
+		if (ssl_module_load(&error) < 0)
+			i_fatal("Cannot load SSL module: %s", error);
+		service->ssl_module_loaded = TRUE;
+	}
+#endif
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
@@ -279,7 +284,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	if (value != NULL) {
 		struct event_filter *filter = event_filter_create();
 		const char *error;
-		if (master_service_log_debug_parse(filter, value, &error) < 0) {
+		if (master_service_log_filter_parse(filter, value, &error) < 0) {
 			i_error("Invalid "DOVECOT_LOG_DEBUG_ENV" - ignoring: %s",
 				error);
 		}
@@ -332,6 +337,12 @@ master_service_init(const char *name, enum master_service_flags flags,
 		   open it now so we can read settings even after privileges
 		   are dropped. */
 		master_service_config_socket_try_open(service);
+	}
+	if ((flags & MASTER_SERVICE_FLAG_DONT_SEND_STATS) == 0) {
+		/* Initialize stats-client early so it can see all events. */
+		value = getenv(DOVECOT_STATS_WRITER_SOCKET_PATH);
+		if (value != NULL)
+			service->stats_client = stats_client_init(value, FALSE);
 	}
 
 	master_service_verify_version_string(service);
@@ -412,7 +423,8 @@ master_service_try_init_log(struct master_service *service,
 		if (!syslog_facility_find(service->set->syslog_facility,
 					  &facility))
 			facility = LOG_MAIL;
-		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
+		i_set_failure_syslog(service->set->instance_name, LOG_NDELAY,
+		                     facility);
 		i_set_failure_prefix("%s", prefix);
 
 		if (strcmp(service->set->log_path, "syslog") != 0) {
@@ -527,7 +539,7 @@ bool master_service_parse_option(struct master_service *service,
 	case 'o':
 		if (!array_is_created(&service->config_overrides))
 			i_array_init(&service->config_overrides, 16);
-		array_append(&service->config_overrides, &arg, 1);
+		array_push_back(&service->config_overrides, &arg);
 		break;
 	case 'O':
 		service->flags |= MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS;
@@ -576,6 +588,9 @@ void master_service_init_finish(struct master_service *service)
 {
 	enum libsig_flags sigint_flags = LIBSIG_FLAG_DELAYED;
 	struct stat st;
+
+	i_assert(!service->init_finished);
+	service->init_finished = TRUE;
 
 	/* set default signal handlers */
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0)
@@ -626,7 +641,7 @@ static void master_service_import_environment_real(const char *import_environmen
 	/* preserve existing DOVECOT_PRESERVE_ENVS */
 	value = getenv(DOVECOT_PRESERVE_ENVS_ENV);
 	if (value != NULL)
-		array_append(&keys, &value, 1);
+		array_push_back(&keys, &value);
 	/* add new environments */
 	envs = t_strsplit_spaces(import_environment, " ");
 	for (; *envs != NULL; envs++) {
@@ -637,11 +652,11 @@ static void master_service_import_environment_real(const char *import_environmen
 			key = t_strdup_until(*envs, value);
 			env_put(*envs);
 		}
-		array_append(&keys, &key, 1);
+		array_push_back(&keys, &key);
 	}
 	array_append_zero(&keys);
 
-	value = t_strarray_join(array_idx(&keys, 0), " ");
+	value = t_strarray_join(array_front(&keys), " ");
 	env_put(t_strconcat(DOVECOT_PRESERVE_ENVS_ENV"=", value, NULL));
 }
 
@@ -990,6 +1005,11 @@ void master_service_deinit(struct master_service **_service)
 
 	*_service = NULL;
 
+	if (!service->init_finished &&
+	    (service->flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0) {
+		if (!t_pop(&service->datastack_frame_id))
+			i_panic("Leaked t_pop() call");
+	}
 	master_service_haproxy_abort(service);
 
 	master_service_io_listeners_remove(service);
@@ -1248,7 +1268,7 @@ bool version_string_verify_full(const char *line, const char *service_name,
 	size_t service_name_len = strlen(service_name);
 	bool ret;
 
-	if (strncmp(line, "VERSION\t", 8) != 0)
+	if (!str_begins(line, "VERSION\t"))
 		return FALSE;
 	line += 8;
 
@@ -1275,5 +1295,5 @@ bool version_string_verify_full(const char *line, const char *service_name,
 bool master_service_is_ssl_module_loaded(struct master_service *service)
 {
 	/* if this is TRUE, then ssl module is loaded by init */
-	return service->want_ssl_settings;
+	return service->ssl_module_loaded;
 }

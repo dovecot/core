@@ -37,7 +37,7 @@ void dict_driver_register(struct dict *driver)
 		i_fatal("dict_driver_register(%s): Already registered",
 			driver->name);
 	}
-	array_append(&dict_drivers, &driver, 1);
+	array_push_back(&dict_drivers, &driver);
 }
 
 void dict_driver_unregister(struct dict *driver)
@@ -117,8 +117,8 @@ bool dict_switch_ioloop(struct dict *dict)
 
 static bool dict_key_prefix_is_valid(const char *key)
 {
-	return strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0 ||
-		strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0;
+	return str_begins(key, DICT_PATH_SHARED) ||
+		str_begins(key, DICT_PATH_PRIVATE);
 }
 
 int dict_lookup(struct dict *dict, pool_t pool, const char *key,
@@ -370,7 +370,7 @@ const char *dict_escape_string(const char *str)
 
 	/* escape */
 	ret = t_str_new((size_t) (p - str) + 128);
-	str_append_n(ret, str, (size_t) (p - str));
+	str_append_data(ret, str, (size_t) (p - str));
 
 	for (; *p != '\0'; p++) {
 		switch (*p) {
@@ -406,7 +406,7 @@ const char *dict_unescape_string(const char *str)
 
 	/* unescape */
 	ret = t_str_new((size_t) (p - str) + strlen(p) + 1);
-	str_append_n(ret, str, (size_t) (p - str));
+	str_append_data(ret, str, (size_t) (p - str));
 
 	for (; *p != '\0'; p++) {
 		if (*p != '\\')

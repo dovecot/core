@@ -48,8 +48,8 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 		dict_set.base_dir = user->set->base_dir;
 		if (dict_init(uri, &dict_set, &dict->dict, &error) < 0)
 			i_error("acl: dict_init(%s) failed: %s", uri, error);
-	} else if (user->mail_debug) {
-		i_debug("acl: No acl_shared_dict setting - "
+	} else {
+		e_debug(user->event, "acl: No acl_shared_dict setting - "
 			"shared mailbox listing is disabled");
 	}
 	return dict;
@@ -134,7 +134,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 				str_append_c(id, '/');
 				str_append(id, ns->owner->username);
 				id_dup = t_strdup(str_c(id));
-				array_append(ids, &id_dup, 1);
+				array_push_back(ids, &id_dup);
 			}
 		}
 		if (acl_object_list_deinit(&iter) < 0) ret = -1;
@@ -175,7 +175,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 		p = strrchr(key, '/');
 		if (p != NULL && strcmp(p + 1, username) == 0) {
 			key = t_strdup_until(key, p);
-			array_append(&old_ids_arr, &key, 1);
+			array_push_back(&old_ids_arr, &key);
 		}
 	}
 	if (dict_iterate_deinit(&iter, &error) < 0) {
@@ -285,7 +285,7 @@ static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 		i_assert(prefix_len < strlen(key));
 
 		key = p_strdup(iter->iter_value_pool, key + prefix_len);
-		array_append(&iter->iter_values, &key, 1);
+		array_push_back(&iter->iter_values, &key);
 	}
 	if (dict_iterate_deinit(&dict_iter, &error) < 0) {
 		i_error("%s", error);
@@ -311,9 +311,9 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 
 	p_array_init(&iter->iter_ids, pool, 16);
 	id = "anyone";
-	array_append(&iter->iter_ids, &id, 1);
+	array_push_back(&iter->iter_ids, &id);
 	id = p_strconcat(pool, "user/", dict->user->username, NULL);
-	array_append(&iter->iter_ids, &id, 1);
+	array_push_back(&iter->iter_ids, &id);
 
 	i_array_init(&iter->iter_values, 64);
 	iter->iter_value_pool =
@@ -324,7 +324,7 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 		for (i = 0; auser->groups[i] != NULL; i++) {
 			id = p_strconcat(pool, "group/", auser->groups[i],
 					 NULL);
-			array_append(&iter->iter_ids, &id, 1);
+			array_push_back(&iter->iter_ids, &id);
 		}
 	}
 

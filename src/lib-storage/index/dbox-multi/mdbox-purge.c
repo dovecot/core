@@ -371,7 +371,7 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file,
 			ret = mdbox_purge_save_msg(ctx, file, &msgs[i]);
 			if (ret <= 0)
 				break;
-			array_append(&copied_map_uids, &msgs[i].map_uid, 1);
+			array_push_back(&copied_map_uids, &msgs[i].map_uid);
 		}
 		offset = file->input->v_offset;
 	}
@@ -459,7 +459,7 @@ void mdbox_purge_alt_flag_change(struct mail *mail, bool move_to_alt)
 
 	if (!array_is_created(dest))
 		i_array_init(dest, 256);
-	array_append(dest, &map_uid, 1);
+	array_push_back(dest, &map_uid);
 }
 
 static struct mdbox_purge_context *
@@ -526,8 +526,7 @@ static int mdbox_purge_get_primary_files(struct mdbox_purge_context *ctx)
 	dir_len = str_len(path);
 
 	for (errno = 0; (d = readdir(dir)) != NULL; errno = 0) {
-		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX,
-			    strlen(MDBOX_MAIL_FILE_PREFIX)) != 0)
+		if (!str_begins(d->d_name, MDBOX_MAIL_FILE_PREFIX))
 			continue;
 		if (str_to_uint32(d->d_name + strlen(MDBOX_MAIL_FILE_PREFIX),
 				  &file_id) < 0)
@@ -539,7 +538,7 @@ static int mdbox_purge_get_primary_files(struct mdbox_purge_context *ctx)
 	}
 	if (array_count(&ctx->primary_file_ids) > 0) {
 		const struct seq_range *range =
-			array_idx(&ctx->primary_file_ids, 0);
+			array_front(&ctx->primary_file_ids);
 		ctx->lowest_primary_file_id = range[0].seq1;
 	}
 	if (errno != 0) {

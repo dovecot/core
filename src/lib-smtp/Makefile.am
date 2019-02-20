@@ -41,6 +41,7 @@ libsmtp_la_SOURCES = \
 	$(smtp_server_cmds) \
 	smtp-server-reply.c \
 	smtp-server-command.c \
+	smtp-server-recipient.c \
 	smtp-server-transaction.c \
 	smtp-server-connection.c \
 	smtp-server.c \
@@ -73,16 +74,20 @@ pkginc_lib_HEADERS = $(headers)
 test_programs = \
 	test-smtp-address \
 	test-smtp-params \
-	test-smtp-reply-parser \
-	test-smtp-command-parser
-
-test_nocheck_programs = \
+	test-smtp-reply \
+	test-smtp-command-parser \
 	test-smtp-payload \
 	test-smtp-submit \
 	test-smtp-client-errors \
 	test-smtp-server-errors
 
+test_nocheck_programs =
+
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
+
+EXTRA_DIST = \
+	test-bin/sendmail-exit-1.sh \
+	test-bin/sendmail-success.sh
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
@@ -111,6 +116,11 @@ test_deps = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
+test_libs_ssl=
+if BUILD_OPENSSL
+test_libs_ssl += ../lib-ssl-iostream/libssl_iostream_openssl.la
+endif
+
 test_smtp_address_SOURCES = test-smtp-address.c
 test_smtp_address_LDFLAGS = -export-dynamic
 test_smtp_address_LDADD = $(test_libs)
@@ -121,10 +131,10 @@ test_smtp_params_LDFLAGS = -export-dynamic
 test_smtp_params_LDADD = $(test_libs)
 test_smtp_params_DEPENDENCIES = $(test_deps)
 
-test_smtp_reply_parser_SOURCES = test-smtp-reply-parser.c
-test_smtp_reply_parser_LDFLAGS = -export-dynamic
-test_smtp_reply_parser_LDADD = $(test_libs)
-test_smtp_reply_parser_DEPENDENCIES = $(test_deps)
+test_smtp_reply_SOURCES = test-smtp-reply.c
+test_smtp_reply_LDFLAGS = -export-dynamic
+test_smtp_reply_LDADD = $(test_libs)
+test_smtp_reply_DEPENDENCIES = $(test_deps)
 
 test_smtp_command_parser_SOURCES = test-smtp-command-parser.c
 test_smtp_command_parser_LDFLAGS = -export-dynamic
@@ -133,7 +143,7 @@ test_smtp_command_parser_DEPENDENCIES = $(test_deps)
 
 test_smtp_payload_SOURCES = test-smtp-payload.c
 test_smtp_payload_LDFLAGS = -export-dynamic
-test_smtp_payload_LDADD = $(test_libs)
+test_smtp_payload_LDADD = $(test_libs) $(test_libs_ssl)
 test_smtp_payload_DEPENDENCIES = $(test_deps)
 
 test_smtp_submit_SOURCES = test-smtp-submit.c
@@ -153,6 +163,9 @@ test_smtp_server_errors_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	  if test "$$bin" = "test-smtp-submit"; then \
+	    if ! env NOCHILDREN=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \
+          else \
+	    if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	  fi \
 	done
-

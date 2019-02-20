@@ -226,9 +226,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	cctx.cmd->cmd(&cctx);
 	client_connection_set_proctitle(&conn->conn, "");
 
-	io_loop_set_current(prev_ioloop);
-	o_stream_switch_ioloop(req->output);
-	io_loop_set_current(ioloop);
+	o_stream_switch_ioloop_to(req->output, prev_ioloop);
 	io_loop_destroy(&ioloop);
 
 	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
@@ -493,7 +491,7 @@ request_json_parse_param_value(struct client_request_http *req)
 			return -1;
 		}
 		tmp = p_strdup(req->pool, value);
-		array_append(&req->cmd_param->value.v_array, &tmp, 1);
+		array_push_back(&req->cmd_param->value.v_array, &tmp);
 
 		/* next: continue with the next parameter */
 		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
@@ -554,7 +552,7 @@ request_json_parse_param_array(struct client_request_http *req)
 
 	/* record entry */
 	value = p_strdup(req->pool, value);
-	array_append(&req->cmd_param->value.v_array, &value, 1);
+	array_push_back(&req->cmd_param->value.v_array, &value);
 
 	/* next: continue with the next array item */
 	return 1;

@@ -80,9 +80,9 @@ test_mail_index_transaction_finish_flag_updates(unsigned int n_so_far)
 	/* test fast path: all changed */
 	t_array_init(&t->updates, 10);
 	u.uid1 = 1; u.uid2 = 2;
-	array_append(&t->updates, &u, 1);
+	array_push_back(&t->updates, &u);
 	u.uid1 = 4; u.uid2 = 5;
-	array_append(&t->updates, &u, 1);
+	array_push_back(&t->updates, &u);
 	MAIL_INDEX_TRANSACTION_FINISH(t, n_so_far);
 
 	updates = array_get(&t->updates, &count);
@@ -95,9 +95,9 @@ test_mail_index_transaction_finish_flag_updates(unsigned int n_so_far)
 	/* nothing changed */
 	t_array_init(&t->updates, 10);
 	u.uid1 = 1; u.uid2 = 2;
-	array_append(&t->updates, &u, 1);
+	array_push_back(&t->updates, &u);
 	u.uid1 = 4; u.uid2 = 5;
-	array_append(&t->updates, &u, 1);
+	array_push_back(&t->updates, &u);
 	recs[1].flags = MAIL_SEEN;
 	recs[2].flags = MAIL_SEEN;
 	recs[4].flags = MAIL_SEEN;
@@ -108,9 +108,9 @@ test_mail_index_transaction_finish_flag_updates(unsigned int n_so_far)
 	/* some changes */
 	t_array_init(&t->updates, 10);
 	u.uid1 = 2; u.uid2 = 3;
-	array_append(&t->updates, &u, 1);
+	array_push_back(&t->updates, &u);
 	u.uid1 = 5; u.uid2 = 6;
-	array_append(&t->updates, &u, 1);
+	array_push_back(&t->updates, &u);
 	MAIL_INDEX_TRANSACTION_FINISH(t, n_so_far);
 
 	updates = array_get(&t->updates, &count);
@@ -178,16 +178,16 @@ test_mail_index_transaction_finish_modseq_updates(unsigned int n_so_far)
 	t_array_init(&t->modseq_updates, 10);
 	u.modseq_low32 = 1234567890;
 	u.modseq_high32 = 987654321;
-	u.uid = 1; array_append(&t->modseq_updates, &u, 1);
+	u.uid = 1; array_push_back(&t->modseq_updates, &u);
 	u.modseq_low32++;
 	u.modseq_high32++;
-	u.uid = 2; array_append(&t->modseq_updates, &u, 1);
+	u.uid = 2; array_push_back(&t->modseq_updates, &u);
 	u.modseq_low32++;
 	u.modseq_high32++;
-	u.uid = 5; array_append(&t->modseq_updates, &u, 1);
+	u.uid = 5; array_push_back(&t->modseq_updates, &u);
 	u.modseq_low32 = 1234;
 	u.modseq_high32 = 0;
-	u.uid = 2; array_append(&t->modseq_updates, &u, 1);
+	u.uid = 2; array_push_back(&t->modseq_updates, &u);
 
 	MAIL_INDEX_TRANSACTION_FINISH(t, n_so_far);
 
@@ -236,16 +236,16 @@ test_mail_index_transaction_finish_expunges(unsigned int n_so_far)
 	t_array_init(&t->expunges, 3);
 	expunge.uid = 2;
 	memcpy(expunge.guid_128, guid2, sizeof(expunge.guid_128));
-	array_append(&t->expunges, &expunge, 1);
-	array_append(&t->expunges, &expunge, 1);
+	array_push_back(&t->expunges, &expunge);
+	array_push_back(&t->expunges, &expunge);
 	expunge.uid = 1;
 	memcpy(expunge.guid_128, guid1, sizeof(expunge.guid_128));
-	array_append(&t->expunges, &expunge, 1);
-	array_append(&t->expunges, &expunge, 1);
+	array_push_back(&t->expunges, &expunge);
+	array_push_back(&t->expunges, &expunge);
 	expunge.uid = 3;
 	memcpy(expunge.guid_128, guid3, sizeof(expunge.guid_128));
-	array_append(&t->expunges, &expunge, 1);
-	array_append(&t->expunges, &expunge, 1);
+	array_push_back(&t->expunges, &expunge);
+	array_push_back(&t->expunges, &expunge);
 
 	MAIL_INDEX_TRANSACTION_FINISH(t, n_so_far);
 

@@ -171,12 +171,7 @@ static int auth_request_lua_passdb(lua_State *L)
 		return 1;
 	}
 
-	const char *value = auth_fields_find(request->extra_fields, key);
-
-	if (value == NULL)
-		lua_pushnil(L);
-	else
-		lua_pushstring(L, value);
+	lua_pushstring(L, auth_fields_find(request->extra_fields, key));
 	return 1;
 }
 
@@ -192,13 +187,49 @@ static int auth_request_lua_userdb(lua_State *L)
 		return 1;
 	}
 
-	const char *value = auth_fields_find(request->userdb_reply, key);
-	if (value == NULL)
-		lua_pushnil(L);
-	else
-		lua_pushstring(L, value);
+	lua_pushstring(L, auth_fields_find(request->userdb_reply, key));
 	return 1;
 }
+
+static int auth_request_lua_password_verify(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	const char *crypted_password = lua_tostring(L, 2);
+	const char *scheme;
+	const char *plain_password = lua_tostring(L, 3);
+	const char *error = NULL;
+	const unsigned char *raw_password = NULL;
+	size_t raw_password_size;
+	int ret;
+	struct password_generate_params gen_params = {.user = request->original_username,
+						      .rounds = 0};
+	scheme = password_get_scheme(&crypted_password);
+	if (scheme == NULL)
+		scheme = "PLAIN";
+	ret = password_decode(crypted_password, scheme,
+			      &raw_password, &raw_password_size, &error);
+	if (ret <= 0) {
+		if (ret < 0) {
+			error = t_strdup_printf("Password data is not valid for scheme %s: %s",
+						scheme, error);
+		} else {
+			error = t_strdup_printf("Unknown scheme %s", scheme);
+		}
+	} else {
+		/* Use original_username since it may be important for some
+		   password schemes (eg. digest-md5).
+		*/
+		ret = password_verify(plain_password, &gen_params,
+				      scheme, raw_password, raw_password_size, &error);
+	}
+
+	lua_pushnumber(script->L, ret);
+	lua_pushstring(script->L, error);
+
+	return 2;
+}
+
 
 /* put all methods here */
 static const luaL_Reg auth_request_methods[] ={
@@ -207,7 +238,8 @@ static const luaL_Reg auth_request_methods[] ={
 	{ "log_debug", auth_request_lua_log_debug },
 	{ "log_info", auth_request_lua_log_info },
 	{ "log_warning", auth_request_lua_log_warning },
-	{" log_error", auth_request_lua_log_error },
+	{ "log_error", auth_request_lua_log_error },
+	{ "password_verify", auth_request_lua_password_verify },
 	{ NULL, NULL }
 };
 
@@ -225,10 +257,7 @@ static int auth_request_lua_index(lua_State *L)
 	/* check if it's variable */
 	for(unsigned int i = 0; i < AUTH_REQUEST_VAR_TAB_COUNT; i++) {
 		if (null_strcmp(table[i].long_key, key) == 0) {
-			if (table[i].value != NULL)
-				lua_pushstring(L, table[i].value);
-			else
-				lua_pushnil(L);
+			lua_pushstring(L, table[i].value);
 			return 1;
 		}
 	}
@@ -270,6 +299,16 @@ static void auth_lua_push_auth_request(struct dlua_script *script, struct auth_r
 	lua_setfield(script->L, -2, "item");
 	luaL_setmetatable(script->L, "userdb_"AUTH_LUA_AUTH_REQUEST);
 	lua_setfield(script->L, -2, "userdb");
+
+#undef LUA_TABLE_SETBOOL
+#define LUA_TABLE_SETBOOL(field) \
+	lua_pushboolean(script->L, req->field); \
+	lua_setfield(script->L, -2, #field);
+
+	LUA_TABLE_SETBOOL(skip_password_check);
+	LUA_TABLE_SETBOOL(passdbs_seen_user_unknown);
+	LUA_TABLE_SETBOOL(passdbs_seen_internal_failure);
+	LUA_TABLE_SETBOOL(userdbs_seen_internal_failure);
 }
 
 static struct auth_request *
@@ -441,18 +480,24 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 	while (lua_next(script->L, -2) != 0) {
 		const char *key = t_strdup(lua_tostring(script->L, -2));
 		const char *value;
-		if (lua_isnumber(script->L, -1)) {
+		int type = lua_type(script->L, -1);
+		switch(type) {
+		case LUA_TNUMBER:
 			value = dec2str(lua_tointeger(script->L, -1));
-		} else if (lua_isboolean(script->L, -1)) {
+			break;
+		case LUA_TBOOLEAN:
 			value = lua_toboolean(script->L, -1) ? "yes" : "no";
-		} else if (lua_isstring(script->L, -1)) {
+			break;
+		case LUA_TSTRING:
 			value = t_strdup(lua_tostring(script->L, -1));
-		} else if (lua_isnil(script->L, -1)) {
+			break;
+		case LUA_TNIL:
 			value = "";
-		} else {
+			break;
+		default:
 			auth_request_log_warning(req, AUTH_SUBSYS_DB,
-						 "db-lua: '%s' has invalid value - ignoring",
-						 key);
+						 "db-lua: '%s' has invalid value type %s - ignoring",
+						 key, lua_typename(script->L, -1));
 			value = "";
 		}
 
@@ -676,7 +721,7 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 			return &actx->ctx;
 		}
 		const char *str = p_strdup(pool, lua_tostring(script->L, -2));
-		array_append(&actx->users, &str, 1);
+		array_push_back(&actx->users, &str);
 		lua_pop(script->L, 2);
 	}
 

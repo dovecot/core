@@ -51,19 +51,19 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 	}
 
 	str = t_str_new(128);
-	str_append(str, "XCLIENT ");
+	str_append(str, "XCLIENT");
 	if (str_array_icase_find(client->proxy_xclient, "ADDR")) {
-		str_append(str, "ADDR=");
+		str_append(str, " ADDR=");
 		str_append(str, net_ip2addr(&client->common.ip));
 	}
 	if (str_array_icase_find(client->proxy_xclient, "PORT"))
-		str_printfa(str, "PORT=%u", client->common.remote_port);
+		str_printfa(str, " PORT=%u", client->common.remote_port);
 	if (str_array_icase_find(client->proxy_xclient, "SESSION")) {
-		str_append(str, "SESSION=");
+		str_append(str, " SESSION=");
 		str_append(str, client_get_session_id(&client->common));
 	}
 	if (str_array_icase_find(client->proxy_xclient, "TTL"))
-		str_printfa(str, "TTL=%u", client->common.proxy_ttl - 1);
+		str_printfa(str, " TTL=%u", client->common.proxy_ttl - 1);
 	if (str_array_icase_find(client->proxy_xclient, "FORWARD") &&
 		str_len(fwd) > 0) {
 		str_append(str, " FORWARD=");
@@ -206,10 +206,10 @@ strip_enhanced_code(const char *text, const char **enh_code_r)
 }
 
 static void
-submission_proxy_success_reply_sent(struct smtp_server_cmd_ctx *cmd)
+submission_proxy_success_reply_sent(
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct submission_client *subm_client)
 {
-	struct submission_client *subm_client = cmd->context;
-
 	client_proxy_finish_destroy_client(&subm_client->common);
 }
 
@@ -388,8 +388,11 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			break;
 
 		smtp_server_connection_input_lock(cmd->conn);
-		cmd->context = subm_client;
-		cmd->hook_destroy = submission_proxy_success_reply_sent;
+
+		smtp_server_command_add_hook(
+			command, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+			submission_proxy_success_reply_sent, subm_client);
+
 		subm_client->pending_auth = NULL;
 
 		/* Login successful. Send this reply to client. */

@@ -50,7 +50,7 @@ void mail_storage_hooks_add(struct module *module,
 	/* allow adding hooks before mail_storage_hooks_init() */
 	if (!array_is_created(&module_hooks))
 		i_array_init(&module_hooks, 32);
-	array_append(&module_hooks, &new_hook, 1);
+	array_push_back(&module_hooks, &new_hook);
 }
 
 void mail_storage_hooks_add_forced(struct module *module,
@@ -59,8 +59,7 @@ void mail_storage_hooks_add_forced(struct module *module,
 	struct mail_storage_module_hooks *hook;
 
 	mail_storage_hooks_add(module, hooks);
-	hook = array_idx_modifiable(&module_hooks,
-				    array_count(&module_hooks)-1);
+	hook = array_back_modifiable(&module_hooks);
 	hook->forced = TRUE;
 }
 
@@ -87,7 +86,7 @@ void mail_storage_hooks_add_internal(const struct mail_storage_hooks *hooks)
 	/* make sure we don't add duplicate hooks */
 	array_foreach(&internal_hooks, existing_hooksp)
 		i_assert(*existing_hooksp != hooks);
-	array_append(&internal_hooks, &hooks, 1);
+	array_push_back(&internal_hooks, &hooks);
 }
 
 void mail_storage_hooks_remove_internal(const struct mail_storage_hooks *hooks)
@@ -118,9 +117,9 @@ mail_storage_module_hooks_cmp(const struct mail_storage_module_hooks *h1,
 	p = strrchr(s2, '/');
 	if (p != NULL) s2 = p+1;
 
-	if (strncmp(s1, "lib", 3) == 0)
+	if (str_begins(s1, "lib"))
 		s1 += 3;
-	if (strncmp(s2, "lib", 3) == 0)
+	if (str_begins(s2, "lib"))
 		s2 += 3;
 
 	return strcmp(s1, s2);
@@ -141,7 +140,7 @@ static void mail_user_add_plugin_hooks(struct mail_user *user)
 			if (!str_array_find(plugins, name))
 				continue;
 		}
-		array_append(&tmp_hooks, module_hook, 1);
+		array_push_back(&tmp_hooks, module_hook);
 	}
 
 	/* next we have to sort them by the modules' priority (based on name) */
@@ -151,7 +150,7 @@ static void mail_user_add_plugin_hooks(struct mail_user *user)
 	p_array_init(&user->hooks, user->pool,
 		     array_count(&tmp_hooks) + array_count(&internal_hooks));
 	array_foreach(&tmp_hooks, module_hook)
-		array_append(&user->hooks, &module_hook->hooks, 1);
+		array_push_back(&user->hooks, &module_hook->hooks);
 	array_append_array(&user->hooks, &internal_hooks);
 }
 

@@ -34,6 +34,10 @@ struct http_request_valid_parse_test {
 	enum http_request_parse_flags flags;
 };
 
+static const struct http_url default_base_url = {
+	.host = { .name = "example.org" },
+};
+
 static const struct http_request_valid_parse_test
 valid_request_parse_tests[] = {
 	{ .request =
@@ -48,7 +52,29 @@ valid_request_parse_tests[] = {
 		},
 		.version_major = 1, .version_minor = 1,
 	},{ .request =
-			"OPTIONS * HTTP/1.0\r\n"
+			"GET / HTTP/1.1\r\n"
+			"Host: \r\n"
+			"\r\n",
+		.method = "GET",
+		.target_raw = "/",
+		.target = {
+			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
+			.url = { .host = { .name = "example.org" } }
+		},
+		.version_major = 1, .version_minor = 1,
+	},{ .request =
+			"GET / HTTP/1.0\r\n"
+			"\r\n",
+		.method = "GET",
+		.target_raw = "/",
+		.target = {
+			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
+			.url = { .host = { .name = "example.org" } }
+		},
+		.version_major = 1, .version_minor = 0,
+		.connection_close = TRUE,
+	},{ .request =
+			"OPTIONS * HTTP/1.1\r\n"
 			"Host: example.com\r\n"
 			"Connection: Keep-Alive\r\n"
 			"\r\n",
@@ -57,6 +83,17 @@ valid_request_parse_tests[] = {
 		.target = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ASTERISK,
 			.url = { .host = { .name = "example.com" } }
+		},
+		.version_major = 1, .version_minor = 1,
+	},{ .request =
+			"OPTIONS * HTTP/1.0\r\n"
+			"Connection: Keep-Alive\r\n"
+			"\r\n",
+		.method = "OPTIONS",
+		.target_raw = "*",
+		.target = {
+			.format = HTTP_REQUEST_TARGET_FORMAT_ASTERISK,
+			.url = { .host = { .name = "example.org" } }
 		},
 		.version_major = 1, .version_minor = 0,
 	},{ .request =
@@ -209,7 +246,8 @@ static void test_http_request_parse_valid(void)
 		request_text = test->request;
 		request_text_len = strlen(request_text);
 		input = test_istream_create_data(request_text, request_text_len);
-		parser = http_request_parser_init(input, NULL, test->flags);
+		parser = http_request_parser_init(input, &default_base_url,
+						  NULL, test->flags);
 
 		test_begin(t_strdup_printf("http request valid [%d]", i));
 
@@ -448,7 +486,8 @@ static void test_http_request_parse_invalid(void)
 		test = &invalid_request_parse_tests[i];
 		request_text = test->request;
 		input = i_stream_create_from_data(request_text, strlen(request_text));
-		parser = http_request_parser_init(input, NULL, test->flags);
+		parser = http_request_parser_init(input, &default_base_url,
+						  NULL, test->flags);
 		i_stream_unref(&input);
 
 		test_begin(t_strdup_printf("http request invalid [%d]", i));
@@ -490,8 +529,8 @@ static void test_http_request_parse_bad(void)
 	test_begin("http request with NULs (strict)");
 	input = i_stream_create_from_data(bad_request_with_nuls,
 					  sizeof(bad_request_with_nuls)-1);
-	parser = http_request_parser_init(input, NULL,
-		HTTP_REQUEST_PARSE_FLAG_STRICT);
+	parser = http_request_parser_init(input, &default_base_url, NULL,
+					  HTTP_REQUEST_PARSE_FLAG_STRICT);
 	i_stream_unref(&input);
 
 	while ((ret=http_request_parse_next
@@ -504,7 +543,7 @@ static void test_http_request_parse_bad(void)
 	test_begin("http request with NULs (lenient)");
 	input = i_stream_create_from_data(bad_request_with_nuls,
 					  sizeof(bad_request_with_nuls)-1);
-	parser = http_request_parser_init(input, NULL, 0);
+	parser = http_request_parser_init(input, &default_base_url, NULL, 0);
 	i_stream_unref(&input);
 
 	ret = http_request_parse_next

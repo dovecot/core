@@ -41,7 +41,7 @@ void imap_fetch_handler_unregister(const char *name)
 {
 	const struct imap_fetch_handler *handler, *first_handler;
 
-	first_handler = array_idx(&fetch_handlers, 0);
+	first_handler = array_front(&fetch_handlers);
 	handler = imap_fetch_handler_lookup(name);
 	i_assert(handler != NULL);
 	array_delete(&fetch_handlers, handler - first_handler, 1);
@@ -96,7 +96,7 @@ void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
 int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 			      const struct imap_arg *list,
 			      struct imap_fetch_context **fetch_ctx_r,
-			      const char **error_r)
+			      const char **client_error_r)
 {
 	struct imap_fetch_init_context init_ctx;
 	const char *str;
@@ -110,14 +110,14 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 		init_ctx.name = t_str_ucase(str);
 		init_ctx.args++;
 		if (!imap_fetch_init_handler(&init_ctx)) {
-			*error_r = t_strconcat("Invalid fetch-att list: ",
-					       init_ctx.error, NULL);
+			*client_error_r = t_strconcat("Invalid fetch-att list: ",
+						      init_ctx.error, NULL);
 			imap_fetch_free(&init_ctx.fetch_ctx);
 			return -1;
 		}
 	}
 	if (!IMAP_ARG_IS_EOL(init_ctx.args)) {
-		*error_r = "fetch-att list contains non-atoms.";
+		*client_error_r = "fetch-att list contains non-atoms.";
 		imap_fetch_free(&init_ctx.fetch_ctx);
 		return -1;
 	}
@@ -180,7 +180,7 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 	h.nil_reply = p_strdup(ctx->pool, nil_reply);
 
 	if (!h.buffered)
-		array_append(&ctx->fetch_ctx->handlers, &h, 1);
+		array_push_back(&ctx->fetch_ctx->handlers, &h);
 	else {
 		array_insert(&ctx->fetch_ctx->handlers,
 			     ctx->fetch_ctx->buffered_handlers_count, &h, 1);
@@ -200,7 +200,7 @@ expunges_drop_known(struct mailbox *box,
 	unsigned int i, count;
 
 	seqs = array_get(qresync_args->qresync_sample_seqset, &count);
-	uids = array_idx(qresync_args->qresync_sample_uidset, 0);
+	uids = array_front(qresync_args->qresync_sample_uidset);
 	i_assert(array_count(qresync_args->qresync_sample_uidset) == count);
 	i_assert(count > 0);
 
@@ -380,10 +380,9 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 				 MAIL_FETCH_STREAM_BODY)) == 0)) {
 		array_append_zero(&ctx->all_headers);
 
-		headers = array_idx(&ctx->all_headers, 0);
+		headers = array_front(&ctx->all_headers);
 		wanted_headers = mailbox_header_lookup_init(box, headers);
-		array_delete(&ctx->all_headers,
-			     array_count(&ctx->all_headers)-1, 1);
+		array_pop_back(&ctx->all_headers);
 	}
 
 	if (ctx->flags_update_seen) {
@@ -870,7 +869,7 @@ bool imap_fetch_modseq_init(struct imap_fetch_init_context *ctx)
 		ctx->error = "FETCH MODSEQ can't be used with non-permanent modseqs";
 		return FALSE;
 	}
-	(void)client_enable(ctx->fetch_ctx->client, MAILBOX_FEATURE_CONDSTORE);
+	client_enable(ctx->fetch_ctx->client, imap_feature_condstore);
 	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
 			       NULL, fetch_modseq, NULL);
 	return TRUE;

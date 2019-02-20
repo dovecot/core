@@ -64,7 +64,7 @@ bool doveadm_has_unloaded_plugin(const char *name)
 
 	while ((d = readdir(dir)) != NULL) {
 		plugin_name = module_file_get_name(d->d_name);
-		if (strncmp(plugin_name, "doveadm_", 8) == 0)
+		if (str_begins(plugin_name, "doveadm_"))
 			plugin_name += 8;
 
 		if (strncmp(plugin_name, name, name_len) == 0 &&

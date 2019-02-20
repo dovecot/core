@@ -262,7 +262,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 		return 0;
 	}
 
-	if (strncmp(p, "backend=", 8) == 0) {
+	if (str_begins(p, "backend=")) {
 		if (root_set->backend->v.parse_rule == NULL) {
 			*error_r = "backend rule not supported";
 			ret = -1;

@@ -130,7 +130,7 @@ static void mail_index_view_ref_map(struct mail_index_view *view,
 	/* reference the given mapping. the reference is dropped when the view
 	   is synchronized or closed. */
 	map->refcount++;
-	array_append(&view->map_refs, &map, 1);
+	array_push_back(&view->map_refs, &map);
 }
 
 void mail_index_view_unref_maps(struct mail_index_view *view)
@@ -329,7 +329,7 @@ mail_index_data_lookup_keywords(struct mail_index_map *map,
 			}
 
 			index_idx = keyword_idx_map[idx];
-			array_append(keyword_idx, &index_idx, 1);
+			array_push_back(keyword_idx, &index_idx);
 		}
 	}
 }

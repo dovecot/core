@@ -372,12 +372,14 @@ static void rawlog_open(enum rawlog_flags flags)
 
 int main(int argc, char *argv[])
 {
+	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 	char *executable, *p;
 	enum rawlog_flags flags =
 		RAWLOG_FLAG_LOG_INPUT | RAWLOG_FLAG_LOG_OUTPUT;
 	int c;
 
-	master_service = master_service_init("rawlog", 0,
+	master_service = master_service_init("rawlog", service_flags,
 					     &argc, &argv, "+f:bIt");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {

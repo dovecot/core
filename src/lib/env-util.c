@@ -86,7 +86,7 @@ static void env_clean_except_real(const char *const preserve_envs[])
 		value = getenv(key);
 		if (value != NULL) {
 			value = t_strconcat(key, "=", value, NULL);
-			array_append(&copy, &value, 1);
+			array_push_back(&copy, &value);
 		}
 	}
 

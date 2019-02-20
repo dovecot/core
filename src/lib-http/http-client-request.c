@@ -235,8 +235,7 @@ void http_client_request_set_event(struct http_client_request *req,
 {
 	event_unref(&req->event);
 	req->event = event_create(event);
-	if (req->client->set.debug)
-		event_set_forced_debug(req->event, TRUE);
+	event_set_forced_debug(req->event, req->client->set.debug);
 	http_client_request_update_event(req);
 }
 
@@ -642,6 +641,12 @@ const char *
 http_client_request_get_target(const struct http_client_request *req)
 {
 	return req->target;
+}
+
+const struct http_url *
+http_client_request_get_origin_url(const struct http_client_request *req)
+{
+	return &req->origin_url;
 }
 
 enum http_request_state
@@ -1481,7 +1486,12 @@ void http_client_request_error(struct http_client_request **_req,
 void http_client_request_abort(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
-	bool sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
+	bool sending;
+
+	if (req == NULL)
+		return;
+
+	sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
 
 	*_req = NULL;
 

@@ -112,7 +112,7 @@ imap_client_parse_userdb_fields(struct imap_client *client,
 
 	field = t_strsplit_tabescaped(client->state.userdb_fields);
 	for (i = 0; field[i] != NULL; i++) {
-		if (strncmp(field[i], "auth_user=", 10) == 0)
+		if (str_begins(field[i], "auth_user="))
 			*auth_user_r = field[i] + 10;
 	}
 }
@@ -223,6 +223,7 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		return TRUE;
 	} else if (ret < 0) {
 		/* failed to connect to the imap-master socket */
+		i_error("Failed to unhibernate client: %s", error);
 		imap_client_destroy(&client, error);
 		return TRUE;
 	}
@@ -490,7 +491,7 @@ imap_client_var_expand_func_userdb(const char *data, void *context,
 	const char *value = NULL;
 
 	for(;*fields != NULL; fields++) {
-		if (strncmp(*fields, field_name, strlen(field_name)) == 0) {
+		if (str_begins(*fields, field_name)) {
 			value = *fields+strlen(field_name);
 			break;
 		}

@@ -104,7 +104,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 
 		p = data;
 		pend = CONST_PTR_OFFSET(data, size);
-		for (; p < pend && (size_t)(p-data) < (max_bytes-2); p++) {
+		for (; p < pend && (size_t)(p-data)+2 < max_bytes; p++) {
 			char add = 0;
 
 			switch (dstream->state) {
@@ -165,8 +165,9 @@ o_stream_dot_sendv(struct ostream_private *stream,
 					/* forward chunk to new iovec */
 					iovn.iov_base = data;
 					iovn.iov_len = chunk;
-					array_append(&iov_arr, &iovn, 1);
+					array_push_back(&iov_arr, &iovn);
 					data = p;
+					i_assert(max_bytes >= chunk);
 					max_bytes -= chunk;
 					sent += chunk;
 				}
@@ -174,7 +175,8 @@ o_stream_dot_sendv(struct ostream_private *stream,
 				data++;
 				iovn.iov_base = (add == '\r' ? "\r\n" : "..");
 				iovn.iov_len = 2;
-				array_append(&iov_arr, &iovn, 1);
+				array_push_back(&iov_arr, &iovn);
+				i_assert(max_bytes >= 2);
 				max_bytes -= 2;
 				added++;
 				sent++;
@@ -183,12 +185,13 @@ o_stream_dot_sendv(struct ostream_private *stream,
 
 		if (max_bytes == 0)
 			break;
-		chunk = ((size_t)(p-data) >= (max_bytes-2) ?
-				max_bytes - 2 : (size_t)(p - data));	
+		chunk = ((size_t)(p-data) >= max_bytes ?
+				max_bytes : (size_t)(p - data));
 		if (chunk > 0) {
 			iovn.iov_base = data;
 			iovn.iov_len = chunk;
-			array_append(&iov_arr, &iovn, 1);
+			array_push_back(&iov_arr, &iovn);
+			i_assert(max_bytes >= chunk);
 			max_bytes -= chunk;
 			sent += chunk;
 		}

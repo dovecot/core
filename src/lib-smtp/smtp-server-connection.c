@@ -14,6 +14,8 @@
 #include "master-service.h"
 #include "master-service-ssl.h"
 
+#include "smtp-syntax.h"
+#include "smtp-reply-parser.h"
 #include "smtp-command-parser.h"
 #include "smtp-server-private.h"
 
@@ -288,7 +290,7 @@ smtp_server_connection_ready(struct smtp_server_connection *conn)
 	smtp_server_connection_update_rawlog(conn);
 
 	conn->smtp_parser = smtp_command_parser_init(conn->conn.input,
-		&conn->server->set.command_limits);
+		&conn->set.command_limits);
 	o_stream_set_flush_callback(conn->conn.output,
 		smtp_server_connection_output, conn);
 
@@ -333,15 +335,48 @@ smtp_server_connection_handle_command(struct smtp_server_connection *conn,
 	}
 
 	if (cmd != NULL && conn->command_queue_head == cmd)
-		smtp_server_command_next_to_reply(cmd);
+		(void)smtp_server_command_next_to_reply(&cmd);
 
 	smtp_server_connection_timeout_update(conn);
 	return (cmd == NULL || !cmd->input_locked);
 }
 
+static int
+smtp_server_connection_init_ssl_ctx(struct smtp_server_connection *conn,
+				    const char **error_r)
+{
+	struct smtp_server *server = conn->server;
+	const char *error;
+
+	if (conn->ssl_ctx != NULL || conn->set.ssl == NULL)
+		return 0;
+	if (conn->set.ssl == server->set.ssl) {
+		if (smtp_server_init_ssl_ctx(server, error_r) < 0)
+			return -1;
+		conn->ssl_ctx = server->ssl_ctx;
+		ssl_iostream_context_ref(conn->ssl_ctx);
+		return 0;
+	}
+
+	if (ssl_iostream_server_context_cache_get(conn->set.ssl,
+		&conn->ssl_ctx, &error) < 0) {
+		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
+					   error);
+		return -1;
+	}
+	return 0;
+}
+
 int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 {
 	const char *error;
+	int ret;
+
+	if (smtp_server_connection_init_ssl_ctx(conn, &error) < 0) {
+		smtp_server_connection_error(conn,
+			"Couldn't initialize SSL: %s", error);
+		return -1;
+	}
 
 	smtp_server_connection_debug(conn, "Starting SSL handshake");
 
@@ -356,9 +391,16 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 	}
 
 	smtp_server_connection_input_halt(conn);
-	if (master_service_ssl_init(master_service,
-				&conn->conn.input, &conn->conn.output,
-				&conn->ssl_iostream, &error) < 0) {
+	if (conn->ssl_ctx == NULL) {
+		ret = master_service_ssl_init(master_service,
+			&conn->conn.input, &conn->conn.output,
+			&conn->ssl_iostream, &error);
+	} else {
+		ret = io_stream_create_ssl_server(conn->ssl_ctx,
+			conn->set.ssl, &conn->conn.input, &conn->conn.output,
+			&conn->ssl_iostream, &error);
+	}
+	if (ret < 0) {
 		smtp_server_connection_error(conn,
 			"Couldn't initialize SSL server for %s: %s",
 			conn->conn.name, error);
@@ -628,14 +670,15 @@ smtp_server_connection_next_reply(struct smtp_server_connection *conn)
 	}
 
 	if (cmd->state < SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY) {
-		smtp_server_command_next_to_reply(cmd);
+		(void)smtp_server_command_next_to_reply(&cmd);
 		return FALSE;
 	}
 
 	i_assert(cmd->state == SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY &&
 		 array_is_created(&cmd->replies));
 
-	smtp_server_command_completed(cmd);
+	if (!smtp_server_command_completed(&cmd))
+		return TRUE;
 
 	/* send command replies */
 	// FIXME: handle LMTP DATA command with enormous number of recipients;
@@ -770,7 +813,7 @@ smtp_server_connection_alloc(struct smtp_server *server,
 	struct smtp_server_connection *conn;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp server", 512);
+	pool = pool_alloconly_create("smtp server", 1024);
 	conn = p_new(pool, struct smtp_server_connection, 1);
 	conn->pool = pool;
 	conn->refcount = 1;
@@ -785,6 +828,10 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		conn->set.protocol = server->set.protocol;
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 			conn->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
+
+		if (set->ssl != NULL)
+			conn->set.ssl = ssl_iostream_settings_dup(pool, set->ssl);
+
 		if (set->hostname != NULL && *set->hostname != '\0')
 			conn->set.hostname = p_strdup(pool, set->hostname);
 		if (set->login_greeting != NULL &&
@@ -794,6 +841,8 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		}
 		if (set->capabilities != 0)
 			conn->set.capabilities = set->capabilities;
+		conn->set.workarounds |= set->workarounds;
+
 		if (set->max_client_idle_time_msecs > 0) {
 			conn->set.max_client_idle_time_msecs =
 				set->max_client_idle_time_msecs;
@@ -810,6 +859,32 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		smtp_command_limits_merge(&conn->set.command_limits,
 					  &set->command_limits);
 
+		conn->set.max_message_size = set->max_message_size;
+		if (set->max_message_size == 0 ||
+		    set->max_message_size == (uoff_t)-1) {
+			conn->set.command_limits.max_data_size = UOFF_T_MAX;
+		} else if (conn->set.command_limits.max_data_size != 0) {
+			/* explicit limit given */
+		} else if (set->max_message_size >
+			(UOFF_T_MAX - SMTP_SERVER_DEFAULT_MAX_SIZE_EXCESS_LIMIT)) {
+			/* very high limit */
+			conn->set.command_limits.max_data_size = UOFF_T_MAX;
+		} else {
+			/* absolute maximum before connection is closed in DATA
+			   command */
+			conn->set.command_limits.max_data_size =
+				set->max_message_size +
+					SMTP_SERVER_DEFAULT_MAX_SIZE_EXCESS_LIMIT;
+		}
+
+		if (set->mail_param_extensions != NULL) {
+			conn->set.mail_param_extensions =
+				p_strarray_dup(pool, set->mail_param_extensions);
+		}
+		if (set->rcpt_param_extensions != NULL) {
+			conn->set.rcpt_param_extensions =
+				p_strarray_dup(pool, set->rcpt_param_extensions);
+		}
 		if (set->xclient_extensions != NULL) {
 			server->set.xclient_extensions =
 				p_strarray_dup(pool, set->xclient_extensions);
@@ -831,9 +906,30 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		conn->set.rcpt_domain_optional =
 			conn->set.rcpt_domain_optional ||
 				set->rcpt_domain_optional;
-		conn->set.param_extensions =
-			conn->set.param_extensions || set->param_extensions;
 		conn->set.debug = conn->set.debug || set->debug;
+	}
+
+	if (set != NULL && set->mail_param_extensions != NULL) {
+		const char *const *extp;
+
+		p_array_init(&conn->mail_param_extensions, pool,
+			     str_array_length(set->mail_param_extensions) + 8);
+		for (extp = set->mail_param_extensions; *extp != NULL; extp++) {
+			const char *ext = p_strdup(pool, *extp);
+			array_push_back(&conn->mail_param_extensions, &ext);
+		}
+		array_append_zero(&conn->mail_param_extensions);
+	}
+	if (set != NULL && set->rcpt_param_extensions != NULL) {
+		const char *const *extp;
+
+		p_array_init(&conn->rcpt_param_extensions, pool,
+			     str_array_length(set->rcpt_param_extensions) + 8);
+		for (extp = set->rcpt_param_extensions; *extp != NULL; extp++) {
+			const char *ext = p_strdup(pool, *extp);
+			array_push_back(&conn->rcpt_param_extensions, &ext);
+		}
+		array_append_zero(&conn->rcpt_param_extensions);
 	}
 
 	conn->remote_pid = (pid_t)-1;
@@ -1008,17 +1104,32 @@ static void
 smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 				  const char *reason)
 {
+	struct smtp_server_command *cmd, *cmd_next;
+
 	if (conn->disconnected)
 		return;
 	conn->disconnected = TRUE;
 
 	if (reason == NULL)
 		reason = smtp_server_connection_get_disconnect_reason(conn);
+	else
+		reason = t_str_oneline(reason);
 	smtp_server_connection_debug(conn, "Disconnected: %s", reason);
 	conn->disconnect_reason = i_strdup(reason);
 
 	/* preserve statistics */
 	smtp_server_connection_update_stats(conn);
+
+	/* drop transaction */
+	smtp_server_connection_reset_state(conn);
+
+	/* clear command queue */
+	cmd = conn->command_queue_head;
+	while (cmd != NULL) {
+		cmd_next = cmd->next;
+		smtp_server_command_abort(&cmd);
+		cmd = cmd_next;
+	}
 
 	smtp_server_connection_timeout_stop(conn);
 	if (conn->conn.output != NULL)
@@ -1026,6 +1137,8 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 	if (conn->smtp_parser != NULL)
 		smtp_command_parser_deinit(&conn->smtp_parser);
 	ssl_iostream_destroy(&conn->ssl_iostream);
+	if (conn->ssl_ctx != NULL)
+		ssl_iostream_context_unref(&conn->ssl_ctx);
 
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_disconnect != NULL) {
@@ -1048,7 +1161,6 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 {
 	struct smtp_server_connection *conn = *_conn;
-	struct smtp_server_command *cmd, *cmd_next;
 
 	*_conn = NULL;
 
@@ -1060,17 +1172,6 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 
 	smtp_server_connection_debug(conn, "Connection destroy");
 
-	/* drop transaction */
-	smtp_server_connection_reset_state(conn);
-
-	/* clear command queue */
-	cmd = conn->command_queue_head;
-	while (cmd != NULL) {
-		cmd_next = cmd->next;
-		smtp_server_command_abort(&cmd);
-		cmd = cmd_next;
-	}
-
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_destroy != NULL)
 		conn->callbacks->conn_destroy(conn->context);
@@ -1078,7 +1179,6 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 	connection_deinit(&conn->conn);
 
 	i_free(conn->helo_domain);
-	i_free(conn->helo_login);
 	i_free(conn->username);
 	i_free(conn->disconnect_reason);
 	pool_unref(&conn->pool);
@@ -1091,15 +1191,46 @@ void smtp_server_connection_send_line(struct smtp_server_connection *conn,
 	va_list args;
 
 	va_start(args, fmt);
+
 	T_BEGIN {
 		string_t *str;
 
 		str = t_str_new(256);
 		str_vprintfa(str, fmt, args);
+
+		smtp_server_connection_debug(conn, "Sent: %s", str_c(str));
+
 		str_append(str, "\r\n");
 		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 	} T_END;
 	va_end(args);
+}
+
+void smtp_server_connection_reply_lines(struct smtp_server_connection *conn,
+				        unsigned int status,
+					const char *enh_code,
+					const char *const *text_lines)
+{
+	struct smtp_reply reply;
+
+	i_zero(&reply);
+	reply.status = status;
+	reply.text_lines = text_lines;
+
+	if (!smtp_reply_parse_enhanced_code(
+		enh_code, &reply.enhanced_code, NULL))
+		reply.enhanced_code = SMTP_REPLY_ENH_CODE(status / 100, 0, 0);
+
+	T_BEGIN {
+		string_t *str;
+
+		smtp_server_connection_debug(conn, "Sent: %s",
+					     smtp_reply_log(&reply));
+
+		str = t_str_new(256);
+		smtp_reply_write(str, &reply);
+		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
+	} T_END;
 }
 
 void smtp_server_connection_reply_immediate(
@@ -1115,6 +1246,9 @@ void smtp_server_connection_reply_immediate(
 		str = t_str_new(256);
 		str_printfa(str, "%03u ", status);
 		str_vprintfa(str, fmt, args);
+
+		smtp_server_connection_debug(conn, "Sent: %s", str_c(str));
+
 		str_append(str, "\r\n");
 		o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 	} T_END;
@@ -1134,10 +1268,15 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 {
 	i_assert(!conn->started);
 	i_assert(conn->username == NULL);
+	i_assert(conn->helo_domain == NULL);
 
 	conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
 	conn->username = i_strdup(username);
-	conn->helo_login = i_strdup(helo);
+	if (helo != NULL && *helo != '\0') {
+		conn->helo_domain = i_strdup(helo);
+		conn->helo.domain = conn->helo_domain;
+		conn->helo.domain_valid = TRUE;
+	}
 	conn->authenticated = TRUE;
 	conn->ssl_secured = ssl_secured;
 
@@ -1201,6 +1340,7 @@ void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 				      const char *enh_code, const char *reason)
 {
 	struct smtp_server_connection *conn = *_conn;
+	const char **reason_lines;
 
 	*_conn = NULL;
 
@@ -1209,10 +1349,17 @@ void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 
 	i_assert(enh_code[0] == '4' && enh_code[1] == '.');
 
-	smtp_server_connection_send_line(conn,
-		"421 %s %s %s", enh_code, conn->set.hostname, reason);
+	T_BEGIN {
+		/* Add hostname prefix */
+		reason_lines = t_strsplit_spaces(reason, "\r\n");
+		reason_lines[0] = t_strconcat(conn->set.hostname, " ",
+					      reason_lines[0], NULL);
 
-	smtp_server_connection_close(&conn, reason);
+		smtp_server_connection_reply_lines(conn, 421, enh_code,
+						   reason_lines);
+
+		smtp_server_connection_close(&conn, reason);
+	} T_END;
 }
 
 struct smtp_server_helo_data *
@@ -1266,8 +1413,8 @@ void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 	   BDAT LAST, clears all segments sent during that transaction and resets
 	   the session.
 	 */
-	if (conn->state.data_input != NULL)
-		i_stream_destroy(&conn->state.data_input);
+	i_stream_destroy(&conn->state.data_input);
+	i_stream_destroy(&conn->state.data_chain_input);
 	conn->state.data_chain = NULL;
 
 	/* reset state */
@@ -1280,7 +1427,6 @@ void smtp_server_connection_clear(struct smtp_server_connection *conn)
 	smtp_server_connection_debug(conn, "Connection clear");
 
 	i_free(conn->helo_domain);
-	i_free(conn->helo_login);
 	i_zero(&conn->helo);
 	smtp_server_connection_reset_state(conn);
 }
@@ -1289,6 +1435,49 @@ void smtp_server_connection_set_capabilities(
 	struct smtp_server_connection *conn, enum smtp_capability capabilities)
 {
 	conn->set.capabilities = capabilities;
+}
+
+void smtp_server_connection_add_extra_capability(
+	struct smtp_server_connection *conn,
+	const struct smtp_capability_extra *cap)
+{
+	const struct smtp_capability_extra *cap_idx;
+	struct smtp_capability_extra cap_new;
+	unsigned int insert_idx;
+	pool_t pool = conn->pool;
+
+	/* Avoid committing protocol errors */
+	i_assert(smtp_ehlo_keyword_is_valid(cap->name));
+	i_assert(smtp_ehlo_params_are_valid(cap->params));
+
+	/* Cannot override standard capabiltiies */
+	i_assert(smtp_capability_find_by_name(cap->name)
+		 == SMTP_CAPABILITY_NONE);
+
+	if (!array_is_created(&conn->extra_capabilities))
+		p_array_init(&conn->extra_capabilities, pool, 4);
+
+	/* Keep array sorted */
+	insert_idx = array_count(&conn->extra_capabilities);
+	array_foreach(&conn->extra_capabilities, cap_idx) {
+		int cmp = strcasecmp(cap_idx->name, cap->name);
+
+		/* Prohibit duplicates */
+		i_assert(cmp != 0);
+
+		if (cmp > 0) {
+			insert_idx = array_foreach_idx(
+				&conn->extra_capabilities, cap_idx);
+			break;
+		}
+	}
+
+	i_zero(&cap_new);
+	cap_new.name = p_strdup(pool, cap->name);
+	if (cap->params != NULL)
+		cap_new.params = p_strarray_dup(pool, cap->params);
+
+	array_insert(&conn->extra_capabilities, insert_idx, &cap_new, 1);
 }
 
 void *smtp_server_connection_get_context(struct smtp_server_connection *conn)
@@ -1403,9 +1592,56 @@ void smtp_server_connection_set_proxy_data(struct smtp_server_connection *conn,
 
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_proxy_data_updated != NULL) {
+		struct smtp_proxy_data full_data;
+
+		i_zero(&full_data);
+		full_data.source_ip = conn->remote_ip;
+		full_data.source_port = conn->remote_port;
+		full_data.helo = conn->helo.domain;
+		full_data.login = conn->username;
+		full_data.proto = conn->proxy_proto;
+		full_data.ttl_plus_1 = conn->proxy_ttl_plus_1;
+		full_data.timeout_secs = conn->proxy_timeout_secs;
+
 		conn->callbacks->
-			conn_proxy_data_updated(conn->context, proxy_data);
+			conn_proxy_data_updated(conn->context, &full_data);
 	}
+}
+
+void smtp_server_connection_register_mail_param(
+	struct smtp_server_connection *conn, const char *param)
+{
+	param = p_strdup(conn->pool, param);
+
+	if (!array_is_created(&conn->mail_param_extensions)) {
+		p_array_init(&conn->mail_param_extensions, conn->pool, 8);
+		array_push_back(&conn->mail_param_extensions, &param);
+	} else {
+		unsigned int count = array_count(&conn->mail_param_extensions);
+
+		i_assert(count > 0);
+		array_idx_set(&conn->mail_param_extensions,
+			      count - 1, &param);
+	}
+	array_append_zero(&conn->mail_param_extensions);
+}
+
+void smtp_server_connection_register_rcpt_param(
+	struct smtp_server_connection *conn, const char *param)
+{
+	param = p_strdup(conn->pool, param);
+
+	if (!array_is_created(&conn->rcpt_param_extensions)) {
+		p_array_init(&conn->rcpt_param_extensions, conn->pool, 8);
+		array_push_back(&conn->rcpt_param_extensions, &param);
+	} else {
+		unsigned int count = array_count(&conn->rcpt_param_extensions);
+
+		i_assert(count > 0);
+		array_idx_set(&conn->rcpt_param_extensions,
+			      count - 1, &param);
+	}
+	array_append_zero(&conn->rcpt_param_extensions);
 }
 
 void smtp_server_connection_switch_ioloop(struct smtp_server_connection *conn)

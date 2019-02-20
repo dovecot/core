@@ -57,7 +57,7 @@ auth_cache_key_add_var(string_t *str, const char *data, unsigned int len)
 		str_append_c(str, data[0]);
 	else {
 		str_append_c(str, '{');
-		str_append_n(str, data, len);
+		str_append_data(str, data, len);
 		str_append_c(str, '}');
 	}
 }
@@ -295,7 +295,7 @@ static bool auth_cache_node_is_user(struct auth_cache_node *node,
 	data++;
 
 	username_len = strlen(username);
-	return strncmp(data, username, username_len) == 0 &&
+	return str_begins(data, username) &&
 		(data[username_len] == '\t' || data[username_len] == '\0');
 }
 

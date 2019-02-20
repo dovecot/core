@@ -94,7 +94,7 @@ test_slow_request_input(struct client_connection *conn ATTR_UNUSED)
 static void
 test_slow_request_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"GET / HTTP/1.1\r\n"
 		"Host: example.com\r\n"
 		"\r\n");
@@ -194,7 +194,7 @@ static void test_slow_request(void)
 static void
 test_hanging_request_payload_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"GET / HTTP/1.1\r\n"
 		"Host: example.com\r\n"
 		"Content-Length: 1000\r\n"
@@ -329,7 +329,7 @@ static void test_hanging_request_payload(void)
 static void
 test_hanging_response_payload_connected(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"GET / HTTP/1.1\r\n"
 		"Host: example.com\r\n"
 		"Content-Length: 18\r\n"
@@ -432,7 +432,7 @@ static void test_hanging_response_payload(void)
 static void
 test_excessive_payload_length_connected1(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"GET / HTTP/1.1\r\n"
 		"Host: example.com\r\n"
 		"Content-Length: 150\r\n"
@@ -452,7 +452,7 @@ test_client_excessive_payload_length1(unsigned int index)
 static void
 test_excessive_payload_length_connected2(struct client_connection *conn)
 {
-	(void)o_stream_send_str(conn->conn.output,
+	o_stream_nsend_str(conn->conn.output,
 		"GET / HTTP/1.1\r\n"
 		"Host: example.com\r\n"
 		"Transfer-Encoding: chunked\r\n"
@@ -613,7 +613,7 @@ client_connection_init(const struct ip_addr *ip, in_port_t port)
 	struct client_connection *conn;
 	pool_t pool;
 
-	pool = pool_alloconly_create("client connection", 256);
+	pool = pool_alloconly_create("client connection", 512);
 	conn = p_new(pool, struct client_connection, 1);
 	conn->pool = pool;
 
@@ -892,5 +892,5 @@ int main(int argc, char *argv[])
 	bind_ip.family = AF_INET;
 	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);	
 
-	test_run(test_functions);
+	return test_run(test_functions);
 }

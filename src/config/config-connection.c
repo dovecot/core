@@ -78,22 +78,22 @@ static int config_connection_request(struct config_connection *conn,
 	t_array_init(&modules, 4);
 	i_zero(&filter);
 	for (; *args != NULL; args++) {
-		if (strncmp(*args, "service=", 8) == 0)
+		if (str_begins(*args, "service="))
 			filter.service = *args + 8;
-		else if (strncmp(*args, "module=", 7) == 0) {
+		else if (str_begins(*args, "module=")) {
 			module = *args + 7;
 			if (strcmp(module, "master") == 0)
 				is_master = TRUE;
-			array_append(&modules, &module, 1);
-		} else if (strncmp(*args, "lname=", 6) == 0)
+			array_push_back(&modules, &module);
+		} else if (str_begins(*args, "lname="))
 			filter.local_name = *args + 6;
-		else if (strncmp(*args, "lip=", 4) == 0) {
+		else if (str_begins(*args, "lip=")) {
 			if (net_addr2ip(*args + 4, &filter.local_net) == 0) {
 				filter.local_bits =
 					IPADDR_IS_V4(&filter.local_net) ?
 					32 : 128;
 			}
-		} else if (strncmp(*args, "rip=", 4) == 0) {
+		} else if (str_begins(*args, "rip=")) {
 			if (net_addr2ip(*args + 4, &filter.remote_net) == 0) {
 				filter.remote_bits =
 					IPADDR_IS_V4(&filter.remote_net) ?
@@ -103,7 +103,7 @@ static int config_connection_request(struct config_connection *conn,
 	}
 	array_append_zero(&modules);
 	wanted_modules = array_count(&modules) == 1 ? NULL :
-		array_idx(&modules, 0);
+		array_front(&modules);
 
 	if (is_master) {
 		/* master reads configuration only when reloading settings */

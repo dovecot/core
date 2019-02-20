@@ -18,7 +18,6 @@ liblib_la_SOURCES = \
 	base32.c \
 	base64.c \
 	bits.c \
-	bloomfilter.c \
 	bsearch-insert-pos.c \
 	buffer.c \
 	child-wait.c \
@@ -113,7 +112,6 @@ liblib_la_SOURCES = \
 	mmap-util.c \
 	module-dir.c \
 	mountpoint.c \
-	murmurhash3.c \
 	net.c \
 	nfs-workarounds.c \
 	numpack.c \
@@ -176,7 +174,6 @@ headers = \
 	base32.h \
 	base64.h \
 	bits.h \
-	bloomfilter.h \
 	bsearch-insert-pos.h \
 	buffer.h \
 	byteorder.h \
@@ -191,6 +188,7 @@ headers = \
 	event-log.h \
 	execv-const.h \
 	failures.h \
+	failures-private.h \
 	fd-util.h \
 	fdatasync-path.h \
 	fdpass.h \
@@ -266,7 +264,6 @@ headers = \
 	module-context.h \
 	module-dir.h \
 	mountpoint.h \
-	murmurhash3.h \
 	net.h \
 	nfs-workarounds.h \
 	numpack.h \
@@ -337,12 +334,14 @@ test_lib_SOURCES = \
 	test-base32.c \
 	test-base64.c \
 	test-bits.c \
-	test-bloomfilter.c \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
 	test-byteorder.c \
+	test-connection.c \
 	test-crc32.c \
 	test-data-stack.c \
+	test-event-filter.c \
+	test-event-log.c \
 	test-failures.c \
 	test-file-create-locked.c \
 	test-guid.c \
@@ -381,7 +380,6 @@ test_lib_SOURCES = \
 	test-mempool.c \
 	test-mempool-allocfree.c \
 	test-mempool-alloconly.c \
-	test-murmurhash3.c \
 	test-pkcs5.c \
 	test-net.c \
 	test-numpack.c \
@@ -394,6 +392,7 @@ test_lib_SOURCES = \
 	test-primes.c \
 	test-printf-format-fix.c \
 	test-priorityq.c \
+	test-random.c \
 	test-seq-range-array.c \
 	test-stats-dist.c \
 	test-str.c \
@@ -414,7 +413,7 @@ test_headers = \
 	test-lib.h \
 	test-lib.inc
 
-test_lib_LDADD = $(test_libs)
+test_lib_LDADD = $(test_libs) -lm
 test_lib_DEPENDENCIES = $(test_libs)
 
 check-local:

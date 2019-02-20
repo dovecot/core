@@ -103,7 +103,7 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt)
 	/* Now make the output string */
 	passwd = t_str_new(sl + 64);
 	str_append(passwd, magic);
-	str_append_n(passwd, sp, sl);
+	str_append_data(passwd, sp, sl);
 	str_append_c(passwd, '$');
 
 	md5_final(&ctx,final);

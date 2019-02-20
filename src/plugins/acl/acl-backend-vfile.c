@@ -43,7 +43,7 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	if (*tmp != NULL)
 		tmp++;
 	for (; *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "cache_secs=", 11) == 0) {
+		if (str_begins(*tmp, "cache_secs=")) {
 			if (str_to_uint(*tmp + 11, &backend->cache_secs) < 0) {
 				i_error("acl vfile: Invalid cache_secs value: %s",
 					*tmp + 11);
@@ -381,7 +381,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 				i_error("ACL file %s line %u: %s",
 					path, linenum, error);
 			} else {
-				array_append(&aclobj->rights, &rights, 1);
+				array_push_back(&aclobj->rights, &rights);
 			}
 		} T_END;
 		if (ret < 0)

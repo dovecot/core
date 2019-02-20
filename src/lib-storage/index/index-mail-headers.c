@@ -290,7 +290,8 @@ void index_mail_parse_header(struct message_part *part,
 
         data->parse_line_num++;
 
-	if (data->save_bodystructure_header) {
+	if (data->save_bodystructure_header &&
+	    !data->parsed_bodystructure_header) {
 		i_assert(part != NULL);
 		message_part_data_parse_from_header(mail->mail.data_pool, part, hdr);
 	}
@@ -311,9 +312,8 @@ void index_mail_parse_header(struct message_part *part,
 			index_mail_parse_header_finish(mail);
 		} T_END;
 		if (data->save_bodystructure_header) {
-			i_assert(!data->save_bodystructure_body ||
-				 data->parser_ctx != NULL);
-			data->save_bodystructure_header = FALSE;
+			i_assert(data->parser_ctx != NULL);
+			data->parsed_bodystructure_header = TRUE;
 		}
 		return;
 	}
@@ -340,18 +340,18 @@ void index_mail_parse_header(struct message_part *part,
 		data->parse_line.start_pos = str_len(mail->header_data);
 		data->parse_line.line_num = data->parse_line_num;
 		str_append(mail->header_data, hdr->name);
-		str_append_n(mail->header_data, hdr->middle, hdr->middle_len);
+		str_append_data(mail->header_data, hdr->middle, hdr->middle_len);
 
 		/* remember that we saw this header so we don't add it to
 		   cache as nonexistent. */
 		match[field_idx] |= HEADER_MATCH_FLAG_FOUND;
 	}
-	str_append_n(mail->header_data, hdr->value, hdr->value_len);
+	str_append_data(mail->header_data, hdr->value, hdr->value_len);
 	if (!hdr->no_newline)
 		str_append(mail->header_data, "\n");
 	if (!hdr->continues) {
 		data->parse_line.end_pos = str_len(mail->header_data);
-		array_append(&mail->header_lines, &data->parse_line, 1);
+		array_push_back(&mail->header_lines, &data->parse_line);
 	}
 }
 
@@ -413,6 +413,12 @@ static void index_mail_init_parser(struct index_mail *mail)
 		if (message_parser_deinit_from_parts(&data->parser_ctx, &parts, &error) < 0) {
 			index_mail_set_message_parts_corrupted(&mail->mail.mail, error);
 			data->parts = NULL;
+		}
+		if (data->parts == NULL) {
+			/* The previous parsing didn't finish, so we're
+			   re-parsing the header. The new parts don't have data
+			   filled anymore. */
+			data->parsed_bodystructure_header = FALSE;
 		}
 	}
 
@@ -607,14 +613,15 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 		if (skip_header(&value_start, value_end - value_start)) {
 			if (value_start != value_end && value_end[-1] == '\n')
 				value_end--;
-			value = p_strndup(mail->mail.data_pool, value_start,
-					  value_end - value_start);
-			array_append(&header_values, &value, 1);
+			value = message_header_strdup(mail->mail.data_pool,
+						      value_start,
+						      value_end - value_start);
+			array_push_back(&header_values, &value);
 		}
 	}
 
 	array_append_zero(&header_values);
-	return array_idx(&header_values, 0);
+	return array_front(&header_values);
 }
 
 static int
@@ -624,7 +631,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 	struct mail *_mail = &mail->mail.mail;
 	const char *headers[2], *value;
 	struct mailbox_header_lookup_ctx *headers_ctx;
-	unsigned char *data;
+	const unsigned char *data;
 	unsigned int field_idx;
 	string_t *dest;
 	size_t i, len, len2;
@@ -636,7 +643,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 	field_idx = get_header_field_idx(_mail->box, field,
 					 MAIL_CACHE_DECISION_TEMP);
 
-	dest = str_new(mail->mail.data_pool, 128);
+	dest = t_str_new(128);
 	if (mail_cache_lookup_headers(_mail->transaction->cache_view, dest,
 				      _mail->seq, &field_idx, 1) <= 0) {
 		/* not in cache / error - first see if it's already parsed */
@@ -673,7 +680,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 		return 0;
 	}
 	_mail->transaction->stats.cache_hit_count++;
-	data = buffer_get_modifiable_data(dest, &len);
+	data = buffer_get_data(dest, &len);
 
 	if (len == 0) {
 		/* cached as nonexistent. */
@@ -691,16 +698,16 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 
 			/* @UNSAFE */
 			len2 = get_header_size(dest, i);
-			data[i + len2] = '\0';
-			value = (const char *)data + i;
+			value = message_header_strdup(mail->mail.data_pool,
+						     data + i, len2);
 			i += len2 + 1;
 
-			array_append(&header_values, &value, 1);
+			array_push_back(&header_values, &value);
 		}
 	}
 
 	array_append_zero(&header_values);
-	*value_r = array_idx(&header_values, 0);
+	*value_r = array_front(&header_values);
 	return 0;
 }
 

@@ -287,6 +287,12 @@ static void run_tests(struct http_client *http_client)
 	http_client_request_set_payload(http_req, post_payload, TRUE);
 	i_stream_unref(&post_payload);
 	http_client_request_submit(http_req);
+
+	test_req = i_new(struct http_test_request, 1);
+	http_req = http_client_request_url_str(http_client,
+		"GET", "https://invalid.dovecot.org/",
+		got_request_response, test_req);
+	http_client_request_submit(http_req);
 }
 
 static void
@@ -350,6 +356,7 @@ int main(int argc, char *argv[])
 	struct http_client_context *http_cctx;
 	struct http_client *http_client1, *http_client2, *http_client3, *http_client4;
 	struct ssl_iostream_settings ssl_set;
+	struct stat st;
 	const char *error;
 
 	lib_init();
@@ -379,8 +386,10 @@ int main(int argc, char *argv[])
 	}
 	i_zero(&ssl_set);
 	ssl_set.allow_invalid_cert = TRUE;
-	ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
-	ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
+	if (stat("/etc/ssl/certs", &st) == 0 && S_ISDIR(st.st_mode))
+		ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
+	if (stat("/etc/ssl/certs", &st) == 0 && S_ISREG(st.st_mode))
+		ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
 
 	i_zero(&http_set);
 	http_set.ssl = &ssl_set;

@@ -16,6 +16,7 @@ static void test_init_storage(struct mail_storage *storage_r)
 	i_zero(storage_r);
 	storage_r->user = t_new(struct mail_user, 1);
 	storage_r->user->event = event_create(NULL);
+	storage_r->event = event_create(storage_r->user->event);
 }
 
 static void test_deinit_storage(struct mail_storage *storage)
@@ -26,6 +27,7 @@ static void test_deinit_storage(struct mail_storage *storage)
 		i_assert(array_count(&storage->error_stack) == 0);
 		array_free(&storage->error_stack);
 	}
+	event_unref(&storage->event);
 	event_unref(&storage->user->event);
 }
 
@@ -120,7 +122,7 @@ static void test_mail_storage_errors(void)
 	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	errstr = mail_storage_get_last_internal_error(&storage, &mail_error);
-	test_assert(strncmp(errstr, "critical3: ", 11) == 0);
+	test_assert(str_begins(errstr, "critical3: "));
 	test_assert(strstr(errstr+11, MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
@@ -293,11 +295,11 @@ static int test_mail_init_user(const char *user, const char *driver,
 	array_append(&opts, default_input, N_ELEMENTS(default_input));
 	if (extra_input != NULL)
 		while(*extra_input != NULL)
-			array_append(&opts, extra_input++, 1);
+			array_push_back(&opts, extra_input++);
 
 	array_append_zero(&opts);
 	struct mail_storage_service_input input = {
-		.userdb_fields = array_idx(&opts, 0),
+		.userdb_fields = array_front(&opts),
 		.username = user,
 		.no_userdb_lookup = TRUE,
 		.debug = FALSE,
@@ -672,6 +674,7 @@ int main(int argc, char **argv)
 
 	master_service = master_service_init("test-mail-storage",
 					     MASTER_SERVICE_FLAG_STANDALONE |
+					     MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 					     MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS |
 					     MASTER_SERVICE_FLAG_NO_SSL_INIT |
 					     MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,

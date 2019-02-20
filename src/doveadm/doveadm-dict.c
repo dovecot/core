@@ -15,7 +15,7 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 {
 	struct dict_settings dict_set;
 	struct dict *dict;
-	bool set;
+	bool set = FALSE;
 	const char *dict_uri, *error, *key, *username = "";
 
 	if (doveadm_cmd_param_bool(cctx, "exact", &set) && set)
@@ -36,17 +36,15 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 	    !doveadm_cmd_param_str(cctx, "key", &key))
 		key = "";
 
-	i_debug("key = %s", key);
-
-	if (strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) != 0 &&
-	    strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) != 0) {
+	if (!str_begins(key, DICT_PATH_PRIVATE) &&
+	    !str_begins(key, DICT_PATH_SHARED)) {
 		i_error("Key must begin with '"DICT_PATH_PRIVATE
 			"' or '"DICT_PATH_SHARED"': %s", key);
 		doveadm_exit_code = EX_USAGE;
 		return -1;
 	}
 	if (username[0] == '\0' &&
-	    strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0) {
+	    str_begins(key, DICT_PATH_PRIVATE)) {
 		i_error("-u must be specified for "DICT_PATH_PRIVATE" keys");
 		doveadm_exit_code = EX_USAGE;
 		return -1;

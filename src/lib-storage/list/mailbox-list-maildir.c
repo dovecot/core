@@ -68,7 +68,7 @@ maildir_list_get_dirname_path(struct mailbox_list *list, const char *dir,
 {
 	if (*name == '\0')
 		return dir;
-	else if (list->name == imapdir_mailbox_list.name)
+	else if (strcmp(list->name, imapdir_mailbox_list.name) == 0)
 		return t_strdup_printf("%s/%s", dir, name);
 
 	return t_strdup_printf("%s/%c%s", dir,
@@ -348,7 +348,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 		if (strncmp(info->vname, old_vname, old_vnamelen) == 0 &&
 		    info->vname[old_vnamelen] == old_ns_sep) {
 			name = p_strdup(pool, info->vname + old_vnamelen);
-			array_append(&names_arr, &name, 1);
+			array_push_back(&names_arr, &name);
 		}
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {

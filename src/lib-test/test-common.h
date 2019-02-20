@@ -52,12 +52,12 @@ void test_out_quiet(const char *name, bool success); /* only prints failures */
 void test_out_reason(const char *name, bool success, const char *reason)
 	ATTR_NULL(3);
 
-int test_run(void (*const test_functions[])(void));
+int test_run(void (*const test_functions[])(void)) ATTR_WARN_UNUSED_RESULT;
 struct named_test {
 	const char *name;
 	void (*func)(void);
 };
-int test_run_named(const struct named_test tests[], const char *match);
+int test_run_named(const struct named_test tests[], const char *match) ATTR_WARN_UNUSED_RESULT;
 
 #define TEST_DECL(x) void x(void);
 #define TEST_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */

@@ -21,7 +21,7 @@ void smtp_server_command_register(struct smtp_server *server,
 	cmd.name = name;
 	cmd.func = func;
 	cmd.flags = flags;
-	array_append(&server->commands_reg, &cmd, 1);
+	array_push_back(&server->commands_reg, &cmd);
 
 	server->commands_unsorted = TRUE;
 }
@@ -154,7 +154,7 @@ smtp_server_command_alloc(struct smtp_server_connection *conn)
 	struct smtp_server_command *cmd;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp_server_command", 256);
+	pool = pool_alloconly_create("smtp_server_command", 1024);
 	cmd = p_new(pool, struct smtp_server_command, 1);
 	cmd->context.pool = pool;
 	cmd->context.cmd = cmd;
@@ -243,6 +243,8 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 
 void smtp_server_command_ref(struct smtp_server_command *cmd)
 {
+	if (cmd->destroying)
+		return;
 	cmd->refcount++;
 }
 
@@ -253,9 +255,13 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 
 	*_cmd = NULL;
 
+	if (cmd->destroying)
+		return FALSE;
+
 	i_assert(cmd->refcount > 0);
 	if (--cmd->refcount > 0)
 		return TRUE;
+	cmd->destroying = TRUE;
 
 	smtp_server_command_debug(&cmd->context, "Destroy");
 
@@ -267,10 +273,9 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 	}
 
 	/* execute hooks */
-	if (cmd->context.hook_destroy != NULL)
-		cmd->context.hook_destroy(&cmd->context);
-	if (cmd->hook_destroy != NULL)
-		cmd->hook_destroy(&cmd->context);
+	if (!smtp_server_command_call_hooks(
+		&cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY))
+		i_unreached();
 
 	smtp_server_reply_free(cmd);
 	pool_unref(&cmd->context.pool);
@@ -295,12 +300,118 @@ void smtp_server_command_abort(struct smtp_server_command **_cmd)
 	smtp_server_command_unref(_cmd);
 }
 
+#undef smtp_server_command_add_hook
+void smtp_server_command_add_hook(struct smtp_server_command *cmd,
+				  enum smtp_server_command_hook_type type,
+				  smtp_server_cmd_func_t func,
+				  void *context)
+{
+	struct smtp_server_command_hook *hook;
+
+	i_assert(func != NULL);
+
+	hook = cmd->hooks_head;
+	while (hook != NULL) {
+		/* no double registrations */
+		i_assert(hook->type != type || hook->func != func);
+
+		hook = hook->next;
+	}
+
+	hook = p_new(cmd->context.pool, struct smtp_server_command_hook, 1);
+	hook->type = type;
+	hook->func = func;
+	hook->context = context;
+
+	DLLIST2_APPEND(&cmd->hooks_head, &cmd->hooks_tail, hook);
+}
+
+#undef smtp_server_command_remove_hook
+void smtp_server_command_remove_hook(struct smtp_server_command *cmd,
+				     enum smtp_server_command_hook_type type,
+				     smtp_server_cmd_func_t *func)
+{
+	struct smtp_server_command_hook *hook;
+	bool found = FALSE;
+
+	hook = cmd->hooks_head;
+	while (hook != NULL) {
+		struct smtp_server_command_hook *hook_next = hook->next;
+
+		if (hook->type == type && hook->func == func) {
+			DLLIST2_REMOVE(&cmd->hooks_head, &cmd->hooks_tail,
+				       hook);
+			found = TRUE;
+			break;
+		}
+
+		hook = hook_next;
+	}
+	i_assert(found);
+}
+
+bool smtp_server_command_call_hooks(struct smtp_server_command **_cmd,
+				    enum smtp_server_command_hook_type type)
+{
+	struct smtp_server_command *cmd = *_cmd;
+	struct smtp_server_command_hook *hook;
+
+	if (type != SMTP_SERVER_COMMAND_HOOK_DESTROY)
+		smtp_server_command_ref(cmd);
+
+	hook = cmd->hooks_head;
+	while (hook != NULL) {
+		struct smtp_server_command_hook *hook_next = hook->next;
+
+		if (hook->type == type) {
+			DLLIST2_REMOVE(&cmd->hooks_head, &cmd->hooks_tail,
+				       hook);
+			hook->func(&cmd->context, hook->context);
+		}
+
+		hook = hook_next;
+	}
+
+	if (type != SMTP_SERVER_COMMAND_HOOK_DESTROY) {
+		if (!smtp_server_command_unref(&cmd)) {
+			*_cmd = NULL;
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+void smtp_server_command_remove_hooks(struct smtp_server_command *cmd,
+				      enum smtp_server_command_hook_type type)
+{
+	struct smtp_server_command_hook *hook;
+
+	hook = cmd->hooks_head;
+	while (hook != NULL) {
+		struct smtp_server_command_hook *hook_next = hook->next;
+
+		if (hook->type == type) {
+			DLLIST2_REMOVE(&cmd->hooks_head, &cmd->hooks_tail,
+				       hook);
+		}
+
+		hook = hook_next;
+	}
+}
+
 void smtp_server_command_set_reply_count(struct smtp_server_command *cmd,
 	unsigned int count)
 {
 	i_assert(count > 0);
 	i_assert(!array_is_created(&cmd->replies));
 	cmd->replies_expected = count;
+}
+
+unsigned int
+smtp_server_command_get_reply_count(struct smtp_server_command *cmd)
+{
+	i_assert(cmd->replies_expected > 0);
+	return cmd->replies_expected;
 }
 
 void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
@@ -310,85 +421,73 @@ void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
 	smtp_server_connection_trigger_output(cmd->context.conn);
 }
 
-void smtp_server_command_next_to_reply(struct smtp_server_command *cmd)
+bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd)
 {
-	if (cmd->hook_next == NULL && cmd->context.hook_next == NULL)
-		return;
+	struct smtp_server_command *cmd = *_cmd;
 
 	smtp_server_command_debug(&cmd->context, "Next to reply");
 
-	/* execute private hook_next */
-	if (cmd->hook_next != NULL) {
-		smtp_server_cmd_func_t *hook_next = cmd->hook_next;
-
-		cmd->hook_next = NULL;
-		hook_next(&cmd->context);
-	}
-
-	/* execute public hook_next */
-	if (cmd->context.hook_next != NULL) {
-		smtp_server_cmd_func_t *hook_next = cmd->context.hook_next;
-
-		cmd->context.hook_next = NULL;
-		hook_next(&cmd->context);
-	}
+	return smtp_server_command_call_hooks(
+		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
 }
 
-static void
-smtp_server_command_replied(struct smtp_server_command *cmd)
+static bool
+smtp_server_command_replied(struct smtp_server_command **_cmd)
 {
-	if (cmd->hook_replied == NULL && cmd->context.hook_replied == NULL)
-		return;
+	struct smtp_server_command *cmd = *_cmd;
 
-	if (cmd->replies_submitted == cmd->replies_expected) {
-		smtp_server_command_debug(&cmd->context, "Replied");
+	if (cmd->replies_submitted < cmd->replies_expected)
+		return TRUE;
 
-		/* execute private hook_replied */
-		if (cmd->hook_replied != NULL) {
-			smtp_server_cmd_func_t *hook_replied =
-				cmd->hook_replied;
+	smtp_server_command_debug(&cmd->context, "Replied");
 
-			cmd->hook_replied = NULL;
-			hook_replied(&cmd->context);
-		}
-
-		/* execute public hook_replied */
-		if (cmd->context.hook_replied != NULL) {
-			smtp_server_cmd_func_t *hook_replied =
-				cmd->context.hook_replied;
-
-			cmd->context.hook_replied = NULL;
-			hook_replied(&cmd->context);
-		}
-	}
+	return smtp_server_command_call_hooks(
+		_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED);
 }
 
-void smtp_server_command_completed(struct smtp_server_command *cmd)
+bool smtp_server_command_completed(struct smtp_server_command **_cmd)
 {
-	if (cmd->hook_completed == NULL && cmd->context.hook_completed == NULL)
-		return;
+	struct smtp_server_command *cmd = *_cmd;
 
-	if (cmd->replies_submitted == cmd->replies_expected) {
-		smtp_server_command_debug(&cmd->context, "Completed");
+	if (cmd->replies_submitted < cmd->replies_expected)
+		return TRUE;
 
-		/* execute private hook_completed */
-		if (cmd->hook_completed != NULL) {
-			smtp_server_cmd_func_t *hook_completed =
-				cmd->hook_completed;
+	smtp_server_command_debug(&cmd->context, "Completed");
 
-			cmd->hook_completed = NULL;
-			hook_completed(&cmd->context);
+	return smtp_server_command_call_hooks(
+		_cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED);
+}
+
+static bool
+smtp_server_command_handle_reply(struct smtp_server_command *cmd)
+{
+	struct smtp_server_connection *conn = cmd->context.conn;
+
+	smtp_server_connection_ref(conn);
+
+	if (!smtp_server_command_replied(&cmd))
+		return smtp_server_connection_unref(&conn);
+
+	/* submit reply */
+	switch (cmd->state) {
+	case SMTP_SERVER_COMMAND_STATE_NEW:
+	case SMTP_SERVER_COMMAND_STATE_PROCESSING:
+		if (!smtp_server_command_is_complete(cmd)) {
+			smtp_server_command_debug(&cmd->context,
+				"Not ready to reply");
+			cmd->state = SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY;
+			break;
 		}
-
-		/* execute public hook_completed */
-		if (cmd->context.hook_completed != NULL) {
-			smtp_server_cmd_func_t *hook_completed =
-				cmd->context.hook_completed;
-
-			cmd->context.hook_completed = NULL;
-			hook_completed(&cmd->context);
-		}
+		smtp_server_command_ready_to_reply(cmd);
+		break;
+	case SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY:
+	case SMTP_SERVER_COMMAND_STATE_ABORTED:
+		break;
+	default:
+		i_unreached();
 	}
+
+	return smtp_server_connection_unref(&conn);
 }
 
 void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
@@ -419,10 +518,7 @@ void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
 
 	i_assert(submitted == cmd->replies_submitted);
 
-	cmd->hook_next = NULL;
-	cmd->context.hook_next = NULL;
-
-	smtp_server_command_replied(cmd);
+	smtp_server_command_remove_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
 
 	/* limit number of consecutive bad commands */
 	if (is_bad)
@@ -430,26 +526,7 @@ void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
 	else if (cmd->replies_submitted == cmd->replies_expected)
 		conn->bad_counter = 0;
 
-	/* submit reply */
-	smtp_server_connection_ref(conn);
-	switch (cmd->state) {
-	case SMTP_SERVER_COMMAND_STATE_NEW:
-	case SMTP_SERVER_COMMAND_STATE_PROCESSING:
-		if (!smtp_server_command_is_complete(cmd)) {
-			smtp_server_command_debug(&cmd->context,
-				"Not ready to reply");
-			cmd->state = SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY;
-			break;
-		}
-		smtp_server_command_ready_to_reply(cmd);
-		break;
-	case SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY:
-	case SMTP_SERVER_COMMAND_STATE_ABORTED:
-		break;
-	default:
-		i_unreached();
-	}
-	if (!smtp_server_connection_unref(&conn))
+	if (!smtp_server_command_handle_reply(cmd))
 		return;
 
 	if (conn != NULL && conn->bad_counter > conn->set.max_bad_commands) {
@@ -474,6 +551,25 @@ bool smtp_server_command_is_replied(struct smtp_server_command *cmd)
 	}
 
 	return TRUE;
+}
+
+bool smtp_server_command_reply_is_forwarded(struct smtp_server_command *cmd)
+{
+	unsigned int i;
+
+	if (!array_is_created(&cmd->replies))
+		return FALSE;
+
+	for (i = 0; i < cmd->replies_expected; i++) {
+		const struct smtp_server_reply *reply =
+			array_idx(&cmd->replies, i);
+		if (!reply->submitted)
+			return FALSE;
+		if (reply->forwarded)
+			return TRUE;
+	}
+
+	return FALSE;
 }
 
 struct smtp_server_reply *
@@ -537,7 +633,7 @@ void smtp_server_command_finished(struct smtp_server_command *cmd)
 	conn->stats.reply_count++;
 
 	i_assert(array_is_created(&cmd->replies));
-	reply = array_idx_modifiable(&cmd->replies, 0);
+	reply = array_front_modifiable(&cmd->replies);
 	i_assert(reply->content != NULL);
 
 	if (reply->content->status == 221 || reply->content->status == 421) {

@@ -67,7 +67,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 			metric->fields[i].stats = stats_dist_init();
 		}
 	}
-	array_append(&metrics->metrics, &metric, 1);
+	array_push_back(&metrics->metrics, &metric);
 
 	stats_metric_settings_to_query(set, &query);
 	query.context = metric;
@@ -144,13 +144,9 @@ stats_metrics_get_event_filter(struct stats_metrics *metrics)
 static void
 stats_metric_event(struct metric *metric, struct event *event)
 {
-	struct timeval tv_start, tv_end;
-	intmax_t duration = 0;
+	intmax_t duration;
 
-	if (event_get_last_send_time(event, &tv_end)) {
-		event_get_create_time(event, &tv_start);
-		duration = timeval_diff_usecs(&tv_end, &tv_start);
-	}
+	event_get_last_duration(event, &duration);
 	stats_dist_add(metric->duration_stats, duration);
 
 	for (unsigned int i = 0; i < metric->fields_count; i++) {
@@ -175,12 +171,13 @@ stats_metric_event(struct metric *metric, struct event *event)
 	}
 }
 
-void stats_metrics_event(struct stats_metrics *metrics, struct event *event)
+void stats_metrics_event(struct stats_metrics *metrics, struct event *event,
+			 const struct failure_context *ctx)
 {
 	struct event_filter_match_iter *iter;
 	struct metric *metric;
 
-	iter = event_filter_match_iter_init(metrics->filter, event);
+	iter = event_filter_match_iter_init(metrics->filter, event, ctx);
 	while ((metric = event_filter_match_iter_next(iter)) != NULL)
 		stats_metric_event(metric, event);
 	event_filter_match_iter_deinit(&iter);

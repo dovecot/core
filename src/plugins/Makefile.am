@@ -14,6 +14,10 @@ if HAVE_APPARMOR
 APPARMOR = apparmor
 endif
 
+if HAVE_LUA
+MAIL_LUA = mail-lua
+endif
+
 SUBDIRS = \
 	acl \
 	imap-acl \
@@ -29,6 +33,7 @@ SUBDIRS = \
 	push-notification \
 	mail-filter \
 	mail-log \
+	$(MAIL_LUA) \
 	mailbox-alias \
 	quota \
 	quota-clone \

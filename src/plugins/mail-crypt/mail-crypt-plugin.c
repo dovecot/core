@@ -127,17 +127,22 @@ static int mail_crypt_istream_get_private_key(const char *pubkey_digest,
 
 	*priv_key_r = mail_crypt_global_key_find(&muser->global_keys,
 						 pubkey_digest);
-	if (*priv_key_r != NULL) return 1;
+	if (*priv_key_r != NULL) {
+		dcrypt_key_ref_private(*priv_key_r);
+		return 1;
+	}
 
 	struct mail_namespace *ns = mailbox_get_namespace(_mail->box);
 
 	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED) {
 		ret = mail_crypt_box_get_shared_key(_mail->box, pubkey_digest,
 						    priv_key_r, error_r);
+		/* priv_key_r is already referenced */
 	} else if (ns->type != MAIL_NAMESPACE_TYPE_PUBLIC) {
 		ret = mail_crypt_get_private_key(_mail->box, pubkey_digest,
 						 FALSE, FALSE, priv_key_r,
 						 error_r);
+		/* priv_key_r is already referenced */
 	} else {
 		*error_r = "Public emails cannot have keys";
 		ret = -1;
@@ -405,10 +410,8 @@ static void mail_crypt_mail_user_created(struct mail_user *user)
 	const char *curve = mail_user_plugin_getenv(user, "mail_crypt_curve");
 	buffer_t *tmp = t_str_new(64);
 	if (curve == NULL || *curve == '\0') {
-		if (user->mail_debug) {
-			i_debug("mail_crypt_plugin: mail_crypt_curve setting "
-				"missing - generating EC keys disabled");
-		}
+		e_debug(user->event, "mail_crypt_plugin: mail_crypt_curve setting "
+			"missing - generating EC keys disabled");
 	} else if (!dcrypt_name2oid(curve, tmp, &error)) {
 		user->error = p_strdup_printf(user->pool,
 			"mail_crypt_plugin: "

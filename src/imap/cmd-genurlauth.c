@@ -23,7 +23,7 @@ bool cmd_genurlauth(struct client_command_context *cmd)
 	response = t_str_new(1024);
 	str_append(response, "* GENURLAUTH");
 	for (;;) {
-		const char *url_rump, *mechanism, *url, *error;
+		const char *url_rump, *mechanism, *url, *client_error;
 
 		if (IMAP_ARG_IS_EOL(args))
 			break;
@@ -34,12 +34,13 @@ bool cmd_genurlauth(struct client_command_context *cmd)
 		}
 
 		ret = imap_urlauth_generate(cmd->client->urlauth_ctx,
-					    mechanism, url_rump, &url, &error);
+					    mechanism, url_rump, &url,
+					    &client_error);
 		if (ret <= 0) {
 			if (ret < 0)
 				client_send_internal_error(cmd);
 			else
-				client_send_command_error(cmd, error);
+				client_send_command_error(cmd, client_error);
 			return TRUE;
 		}
 

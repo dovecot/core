@@ -14,7 +14,6 @@
 #include "master-service-settings.h"
 #include "auth-client.h"
 #include "auth-master.h"
-#include "auth-server-connection.h"
 #include "master-auth.h"
 #include "master-login-auth.h"
 #include "mail-storage-service.h"
@@ -24,6 +23,10 @@
 
 #include <stdio.h>
 #include <unistd.h>
+
+static struct event_category event_category_auth = {
+	.name = "auth",
+};
 
 struct authtest_input {
 	pool_t pool;
@@ -108,6 +111,7 @@ cmd_user_input(struct auth_master_connection *conn,
 			}
 		}
 	}
+	pool_unref(&pool);
 	return ret;
 }
 
@@ -159,12 +163,15 @@ auth_callback(struct auth_client_request *request ATTR_UNUSED,
 static void auth_connected(struct auth_client *client,
 			   bool connected, void *context)
 {
+	struct event *event_auth;
 	struct authtest_input *input = context;
 	struct auth_request_info info;
 	string_t *init_resp, *base64_resp;
 
 	if (!connected)
 		i_fatal("Couldn't connect to auth socket");
+	event_auth = event_create(NULL);
+	event_add_category(event_auth, &event_category_auth);
 
 	init_resp = t_str_new(128);
 	str_append(init_resp, input->username);
@@ -187,11 +194,13 @@ static void auth_connected(struct auth_client *client,
 	info.remote_ip = input->info.remote_ip;
 	info.remote_port = input->info.remote_port;
 	info.initial_resp_base64 = str_c(base64_resp);
-	if (doveadm_settings->auth_debug)
+	if (doveadm_settings->auth_debug ||
+	    event_want_debug_log(event_auth))
 		info.flags |= AUTH_REQUEST_FLAG_DEBUG;
 
 	input->request = auth_client_request_new(client, &info,
 						 auth_callback, input);
+	event_unref(&event_auth);
 }
 
 static void
@@ -205,6 +214,7 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 	}
 
 	client = auth_client_init(auth_socket_path, getpid(), FALSE);
+	auth_client_connect(client);
 	auth_client_set_connect_notify(client, auth_connected, input);
 
 	if (!auth_client_is_disconnected(client))
@@ -216,18 +226,18 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 
 static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 {
-	if (strncmp(arg, "service=", 8) == 0)
+	if (str_begins(arg, "service="))
 		info->service = arg + 8;
-	else if (strncmp(arg, "lip=", 4) == 0) {
+	else if (str_begins(arg, "lip=")) {
 		if (net_addr2ip(arg + 4, &info->local_ip) < 0)
 			i_fatal("lip: Invalid ip");
-	} else if (strncmp(arg, "rip=", 4) == 0) {
+	} else if (str_begins(arg, "rip=")) {
 		if (net_addr2ip(arg + 4, &info->remote_ip) < 0)
 			i_fatal("rip: Invalid ip");
-	} else if (strncmp(arg, "lport=", 6) == 0) {
+	} else if (str_begins(arg, "lport=")) {
 		if (net_str2port(arg + 6, &info->local_port) < 0)
 			i_fatal("lport: Invalid port number");
-	} else if (strncmp(arg, "rport=", 6) == 0) {
+	} else if (str_begins(arg, "rport=")) {
 		if (net_str2port(arg + 6, &info->remote_port) < 0)
 			i_fatal("rport: Invalid port number");
 	} else {
@@ -427,6 +437,7 @@ static void cmd_auth_login(int argc, char *argv[])
 			i_fatal("Unexpected parameter: %s", argv[optind]);
 	/* authenticate */
 	auth_client = auth_client_init(auth_login_socket_path, getpid(), FALSE);
+	auth_client_connect(auth_client);
 	auth_client_set_connect_notify(auth_client, auth_connected, &input);
 	if (!auth_client_is_disconnected(auth_client))
 		io_loop_run(current_ioloop);

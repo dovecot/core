@@ -257,7 +257,7 @@ imapc_quota_refresh_update(struct quota *quota,
 		return;
 	}
 	/* use the first quota root for everything */
-	refresh_root = array_idx(&refresh->roots, 0);
+	refresh_root = array_front(&refresh->roots);
 
 	array_foreach(&quota->roots, rootp) {
 		if ((*rootp)->backend.name == quota_backend_imapc.name) {
@@ -310,7 +310,7 @@ static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root,
 	cmd = imapc_client_cmd(root->client->client,
 			       imapc_simple_callback, &sctx);
 	imapc_command_sendf(cmd, "GETQUOTAROOT %s", root->box_name);
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 
 	/* if there are multiple quota roots, use the first one returned by
 	   the QUOTAROOT */
@@ -342,16 +342,16 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root,
 	cmd = imapc_client_cmd(root->client->client,
 			       imapc_simple_callback, &sctx);
 	imapc_command_sendf(cmd, "GETQUOTA %s", root->root_name);
-	imapc_simple_run(&sctx);
+	imapc_simple_run(&sctx, &cmd);
 
 	/* there shouldn't be more than one QUOTA reply, but ignore anyway
 	   anything we didn't expect. */
 	while (array_count(&root->refresh.roots) > 0) {
 		const struct imapc_quota_refresh_root *refresh_root =
-			array_idx(&root->refresh.roots, 0);
+			array_front(&root->refresh.roots);
 		if (strcmp(refresh_root->name, root->root_name) == 0)
 			break;
-		array_delete(&root->refresh.roots, 0, 1);
+		array_pop_front(&root->refresh.roots);
 	}
 	imapc_quota_refresh_deinit(root->root.quota, &root->refresh,
 				   sctx.ret == 0);

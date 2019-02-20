@@ -2,6 +2,7 @@
 
 #include "test-lib.h"
 #include "test-common.h"
+#include "str.h"
 #include "str-sanitize.h"
 #include "uri-util.h"
 
@@ -624,9 +625,183 @@ static void test_uri_rfc(void)
 	test_end();
 }
 
+static void test_uri_escape(void)
+{
+	string_t *str = t_str_new(256);
+
+	test_begin("uri escape - userinfo");
+	uri_append_user_data(str, NULL, "abcdefghijklmnopqrstuvwxyz");
+	test_assert(strcmp(str_c(str), "abcdefghijklmnopqrstuvwxyz") == 0);
+	str_truncate(str, 0);
+	uri_append_user_data(str, NULL, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	test_assert(strcmp(str_c(str), "ABCDEFGHIJKLMNOPQRSTUVWXYZ") == 0);
+	str_truncate(str, 0);
+	uri_append_user_data(str, NULL, "0123456789");
+	test_assert(strcmp(str_c(str), "0123456789") == 0);
+	str_truncate(str, 0);
+	uri_append_user_data(str, NULL, "-._~!$&'()*+,;=");
+	test_assert(strcmp(str_c(str), "-._~!$&'()*+,;=") == 0);
+	str_truncate(str, 0);
+	uri_append_user_data(str, NULL, "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a%40b%2fc%2fd:e") == 0);
+	str_truncate(str, 0);
+	uri_append_user_data(str, NULL, "[yes]what?oh#13");
+	test_assert(strcmp(str_c(str), "%5byes%5dwhat%3foh%2313") == 0);
+	str_truncate(str, 0);
+	uri_append_user_data(str, ":", "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a%40b%2fc%2fd%3ae") == 0);
+	str_truncate(str, 0);
+	test_end();
+
+	test_begin("uri escape - path segment");
+	uri_append_path_segment_data(str, NULL, "abcdefghijklmnopqrstuvwxyz");
+	test_assert(strcmp(str_c(str), "abcdefghijklmnopqrstuvwxyz") == 0);
+	str_truncate(str, 0);
+	uri_append_path_segment_data(str, NULL, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	test_assert(strcmp(str_c(str), "ABCDEFGHIJKLMNOPQRSTUVWXYZ") == 0);
+	str_truncate(str, 0);
+	uri_append_path_segment_data(str, NULL, "0123456789");
+	test_assert(strcmp(str_c(str), "0123456789") == 0);
+	str_truncate(str, 0);
+	uri_append_path_segment_data(str, NULL, "-._~!$&'()*+,;=");
+	test_assert(strcmp(str_c(str), "-._~!$&'()*+,;=") == 0);
+	str_truncate(str, 0);
+	uri_append_path_segment_data(str, NULL, "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a@b%2fc%2fd:e") == 0);
+	str_truncate(str, 0);
+	uri_append_path_segment_data(str, NULL, "[yes]what?oh#13");
+	test_assert(strcmp(str_c(str), "%5byes%5dwhat%3foh%2313") == 0);
+	str_truncate(str, 0);
+	uri_append_path_segment_data(str, "@", "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a%40b%2fc%2fd:e") == 0);
+	str_truncate(str, 0);
+	test_end();
+
+	test_begin("uri escape - path");
+	uri_append_path_data(str, NULL, "abcdefghijklmnopqrstuvwxyz");
+	test_assert(strcmp(str_c(str), "abcdefghijklmnopqrstuvwxyz") == 0);
+	str_truncate(str, 0);
+	uri_append_path_data(str, NULL, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	test_assert(strcmp(str_c(str), "ABCDEFGHIJKLMNOPQRSTUVWXYZ") == 0);
+	str_truncate(str, 0);
+	uri_append_path_data(str, NULL, "0123456789");
+	test_assert(strcmp(str_c(str), "0123456789") == 0);
+	str_truncate(str, 0);
+	uri_append_path_data(str, NULL, "-._~!$&'()*+,;=");
+	test_assert(strcmp(str_c(str), "-._~!$&'()*+,;=") == 0);
+	str_truncate(str, 0);
+	uri_append_path_data(str, NULL, "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a@b/c/d:e") == 0);
+	str_truncate(str, 0);
+	uri_append_path_data(str, NULL, "[yes]what?oh#13");
+	test_assert(strcmp(str_c(str), "%5byes%5dwhat%3foh%2313") == 0);
+	str_truncate(str, 0);
+	uri_append_path_data(str, "@", "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a%40b/c/d:e") == 0);
+	str_truncate(str, 0);
+	test_end();
+
+	test_begin("uri escape - query");
+	uri_append_query_data(str, NULL, "abcdefghijklmnopqrstuvwxyz");
+	test_assert(strcmp(str_c(str), "abcdefghijklmnopqrstuvwxyz") == 0);
+	str_truncate(str, 0);
+	uri_append_query_data(str, NULL, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	test_assert(strcmp(str_c(str), "ABCDEFGHIJKLMNOPQRSTUVWXYZ") == 0);
+	str_truncate(str, 0);
+	uri_append_query_data(str, NULL, "0123456789");
+	test_assert(strcmp(str_c(str), "0123456789") == 0);
+	str_truncate(str, 0);
+	uri_append_query_data(str, NULL, "-._~!$&'()*+,;=");
+	test_assert(strcmp(str_c(str), "-._~!$&'()*+,;=") == 0);
+	str_truncate(str, 0);
+	uri_append_query_data(str, NULL, "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a@b/c/d:e") == 0);
+	str_truncate(str, 0);
+	uri_append_query_data(str, NULL, "[yes]what?oh#13");
+	test_assert(strcmp(str_c(str), "%5byes%5dwhat?oh%2313") == 0);
+	str_truncate(str, 0);
+	uri_append_query_data(str, "@", "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a%40b/c/d:e") == 0);
+	str_truncate(str, 0);
+	test_end();
+
+	test_begin("uri escape - fragment");
+	uri_append_fragment_data(str, NULL, "abcdefghijklmnopqrstuvwxyz");
+	test_assert(strcmp(str_c(str), "abcdefghijklmnopqrstuvwxyz") == 0);
+	str_truncate(str, 0);
+	uri_append_fragment_data(str, NULL, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	test_assert(strcmp(str_c(str), "ABCDEFGHIJKLMNOPQRSTUVWXYZ") == 0);
+	str_truncate(str, 0);
+	uri_append_fragment_data(str, NULL, "0123456789");
+	test_assert(strcmp(str_c(str), "0123456789") == 0);
+	str_truncate(str, 0);
+	uri_append_fragment_data(str, NULL, "-._~!$&'()*+,;=");
+	test_assert(strcmp(str_c(str), "-._~!$&'()*+,;=") == 0);
+	str_truncate(str, 0);
+	uri_append_fragment_data(str, NULL, "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a@b/c/d:e") == 0);
+	str_truncate(str, 0);
+	uri_append_fragment_data(str, NULL, "[yes]what?oh#13");
+	test_assert(strcmp(str_c(str), "%5byes%5dwhat?oh%2313") == 0);
+	str_truncate(str, 0);
+	uri_append_fragment_data(str, "@", "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a%40b/c/d:e") == 0);
+	str_truncate(str, 0);
+	test_end();
+
+	test_begin("uri escape - unreserved");
+	uri_append_unreserved(str, "abcdefghijklmnopqrstuvwxyz");
+	test_assert(strcmp(str_c(str), "abcdefghijklmnopqrstuvwxyz") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved(str, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	test_assert(strcmp(str_c(str), "ABCDEFGHIJKLMNOPQRSTUVWXYZ") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved(str, "0123456789");
+	test_assert(strcmp(str_c(str), "0123456789") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved(str, "-._~");
+	test_assert(strcmp(str_c(str), "-._~") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved(str, "!$&'()*+,;=");
+	test_assert(strcmp(str_c(str), "%21%24%26%27%28%29%2a%2b%2c%3b%3d") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved(str, "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a%40b%2fc%2fd%3ae") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved(str, "[yes]what?oh#13");
+	test_assert(strcmp(str_c(str), "%5byes%5dwhat%3foh%2313") == 0);
+	str_truncate(str, 0);
+	test_end();
+
+	test_begin("uri escape - unreserved");
+	uri_append_unreserved_path(str, "abcdefghijklmnopqrstuvwxyz");
+	test_assert(strcmp(str_c(str), "abcdefghijklmnopqrstuvwxyz") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved_path(str, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	test_assert(strcmp(str_c(str), "ABCDEFGHIJKLMNOPQRSTUVWXYZ") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved_path(str, "0123456789");
+	test_assert(strcmp(str_c(str), "0123456789") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved_path(str, "-._~");
+	test_assert(strcmp(str_c(str), "-._~") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved_path(str, "!$&'()*+,;=");
+	test_assert(strcmp(str_c(str), "%21%24%26%27%28%29%2a%2b%2c%3b%3d") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved_path(str, "a@b/c/d:e");
+	test_assert(strcmp(str_c(str), "a%40b/c/d%3ae") == 0);
+	str_truncate(str, 0);
+	uri_append_unreserved_path(str, "[yes]what?oh#13");
+	test_assert(strcmp(str_c(str), "%5byes%5dwhat%3foh%2313") == 0);
+	str_truncate(str, 0);
+	test_end();
+}
+
 void test_uri(void)
 {
 	test_uri_valid();
 	test_uri_invalid();
 	test_uri_rfc();
+	test_uri_escape();
 }

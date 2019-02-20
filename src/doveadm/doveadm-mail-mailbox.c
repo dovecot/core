@@ -275,7 +275,7 @@ static void cmd_mailbox_create_init(struct doveadm_mail_cmd_context *_ctx,
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
-		array_append(&ctx->mailboxes, &name, 1);
+		array_push_back(&ctx->mailboxes, &name);
 	}
 }
 
@@ -332,7 +332,7 @@ get_child_mailboxes(struct mail_user *user, ARRAY_TYPE(const_string) *mailboxes,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		child_name = t_strdup(info->vname);
-		array_append(mailboxes, &child_name, 1);
+		array_push_back(mailboxes, &child_name);
 	}
 	return mailbox_list_iter_deinit(&iter);
 }
@@ -362,7 +362,7 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 				ret = -1;
 			}
 			if ((*namep)[0] != '\0')
-				array_append(&recursive_mailboxes, namep, 1);
+				array_push_back(&recursive_mailboxes, namep);
 		}
 		array_sort(&recursive_mailboxes, i_strcmp_reverse_p);
 		mailboxes = &recursive_mailboxes;
@@ -409,7 +409,7 @@ static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx,
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
-		array_append(&ctx->mailboxes, &name, 1);
+		array_push_back(&ctx->mailboxes, &name);
 	}
 	array_sort(&ctx->mailboxes, i_strcmp_reverse_p);
 }
@@ -562,7 +562,7 @@ static void cmd_mailbox_subscribe_init(struct doveadm_mail_cmd_context *_ctx,
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
-		array_append(&ctx->mailboxes, &name, 1);
+		array_push_back(&ctx->mailboxes, &name);
 	}
 }
 

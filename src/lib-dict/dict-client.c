@@ -356,7 +356,7 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 				timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS,
 					    client_dict_input_timeout, dict);
 		}
-		array_append(&dict->cmds, &cmd, 1);
+		array_push_back(&dict->cmds, &cmd);
 		return TRUE;
 	}
 }
@@ -419,6 +419,8 @@ static void client_dict_timeout(struct client_dict *dict)
 {
 	if (client_dict_is_finished(dict))
 		client_dict_disconnect(dict, "Idle disconnection");
+	else
+		timeout_remove(&dict->to_idle);
 }
 
 static bool client_dict_have_nonbackground_cmds(struct client_dict *dict)
@@ -655,7 +657,7 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 			   duplicates. */
 			i++;
 		} else {
-			array_append(&retry_cmds, cmdp, 1);
+			array_push_back(&retry_cmds, cmdp);
 			array_delete(&dict->cmds, i, 1);
 		}
 	}
@@ -721,7 +723,7 @@ client_dict_init(struct dict *driver, const char *uri,
 
 	/* uri = [idle_msecs=<n>:] [warn_slow_msecs=<n>:] [<path>] ":" <uri> */
 	for (;;) {
-		if (strncmp(uri, "idle_msecs=", 11) == 0) {
+		if (str_begins(uri, "idle_msecs=")) {
 			p = strchr(uri+11, ':');
 			if (p == NULL) {
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);
@@ -732,7 +734,7 @@ client_dict_init(struct dict *driver, const char *uri,
 				return -1;
 			}
 			uri = p+1;
-		} else if (strncmp(uri, "warn_slow_msecs=", 16) == 0) {
+		} else if (str_begins(uri, "warn_slow_msecs=")) {
 			p = strchr(uri+11, ':');
 			if (p == NULL) {
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);

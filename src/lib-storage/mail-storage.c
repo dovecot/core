@@ -98,7 +98,7 @@ void mail_storage_class_register(struct mail_storage *storage_class)
 	i_assert(mail_storage_find_class(storage_class->name) == NULL);
 
 	/* append it after the list, so the autodetection order is correct */
-	array_append(&mail_storage_classes, &storage_class, 1);
+	array_push_back(&mail_storage_classes, &storage_class);
 }
 
 void mail_storage_class_unregister(struct mail_storage *storage_class)
@@ -225,7 +225,7 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	if (ns->set->location == NULL || *ns->set->location == '\0') {
 		*error_r = t_strdup_printf(
 			"Mail storage autodetection failed with home=%s", home);
-	} else if (strncmp(ns->set->location, "auto:", 5) == 0) {
+	} else if (str_begins(ns->set->location, "auto:")) {
 		*error_r = t_strdup_printf(
 			"Autodetection failed for %s (home=%s)",
 			ns->set->location, home);
@@ -285,13 +285,14 @@ mail_storage_create_root(struct mailbox_list *list,
 	}
 
 	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOVERIFY) != 0) {
-		if (!list->mail_set->mail_debug)
+		if (!event_want_debug_log(list->ns->user->event))
 			return 0;
 
 		/* we don't need to verify, but since debugging is
 		   enabled, check and log if the root doesn't exist */
 		if (mail_storage_verify_root(root_dir, type_name, &error) < 0) {
-			i_debug("Namespace %s: Creating storage despite: %s",
+			e_debug(list->ns->user->event,
+				"Namespace %s: Creating storage despite: %s",
 				list->ns->prefix, error);
 		}
 		return 0;
@@ -421,11 +422,15 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 	storage->user = ns->user;
 	storage->set = ns->mail_set;
 	storage->flags = flags;
+	storage->event = event_create(ns->user->event);
+	if (storage_class->event_category != NULL)
+		event_add_category(storage->event, storage_class->event_category);
 	p_array_init(&storage->module_contexts, storage->pool, 5);
 
 	if (storage->v.create != NULL &&
 	    storage->v.create(storage, ns, error_r) < 0) {
 		*error_r = t_strdup_printf("%s: %s", storage->name, *error_r);
+		event_unref(&storage->event);
 		pool_unref(&storage->pool);
 		return -1;
 	}
@@ -480,6 +485,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 		i_assert(array_count(&storage->error_stack) == 0);
 		array_free(&storage->error_stack);
 	}
+	event_unref(&storage->event);
 
 	*_storage = NULL;
 	pool_unref(&storage->pool);
@@ -539,6 +545,7 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	/* this function doesn't set last_internal_error, so
 	   last_error_is_internal can't be TRUE. */
 	storage->last_error_is_internal = FALSE;
+	i_free(storage->last_internal_error);
 }
 
 void mail_storage_set_critical(struct mail_storage *storage,
@@ -559,7 +566,7 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	storage->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
 	storage->last_error_is_internal = TRUE;
-	e_error(storage->user->event, "%s", storage->last_internal_error);
+	e_error(storage->event, "%s", storage->last_internal_error);
 
 	/* free the old_error and old_internal_error only after the new error
 	   is generated, because they may be one of the parameters. */
@@ -769,7 +776,7 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 
 	if (!mail_error_from_errno(&error, &error_string))
 		return FALSE;
-	if (storage->set->mail_debug && error != MAIL_ERROR_NOTFOUND) {
+	if (event_want_debug_log(storage->event) && error != MAIL_ERROR_NOTFOUND) {
 		/* debugging is enabled - admin may be debugging a
 		   (permission) problem, so return FALSE to get the caller to
 		   log the full error message. */
@@ -816,7 +823,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	i_assert(uni_utf8_str_is_valid(vname));
 
 	if (strncasecmp(vname, "INBOX", 5) == 0 &&
-	    strncmp(vname, "INBOX", 5) != 0) {
+	    !str_begins(vname, "INBOX")) {
 		/* make sure INBOX shows up in uppercase everywhere. do this
 		   regardless of whether we're in inbox=yes namespace, because
 		   clients expect INBOX to be case insensitive regardless of
@@ -826,7 +833,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		else if (vname[5] != mail_namespace_get_sep(list->ns))
 			/* not INBOX prefix */ ;
 		else if (strncasecmp(list->ns->prefix, vname, 6) == 0 &&
-			 strncmp(list->ns->prefix, "INBOX", 5) != 0) {
+			 !str_begins(list->ns->prefix, "INBOX")) {
 			mailbox_list_set_critical(list,
 				"Invalid server configuration: "
 				"Namespace prefix=%s must be uppercase INBOX",
@@ -1280,9 +1287,10 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	if (box->opened)
 		return 0;
 
-	if (box->storage->set->mail_debug && box->reason != NULL) {
-		i_debug("%s: Mailbox opened because: %s",
-			box->vname, box->reason);
+	if (box->reason != NULL) {
+		e_debug(box->event,
+			"Mailbox opened because: %s",
+			box->reason);
 	}
 
 	switch (box->open_error) {
@@ -1407,7 +1415,7 @@ static int mailbox_alloc_index_pvt(struct mailbox *box)
 	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE) < 0)
 		return -1;
 
-	box->index_pvt = mail_index_alloc_cache_get(box->storage->user->event,
+	box->index_pvt = mail_index_alloc_cache_get(box->storage->event,
 		NULL, index_dir, t_strconcat(box->index_prefix, ".pvt", NULL));
 	mail_index_set_fsync_mode(box->index_pvt,
 				  box->storage->set->parsed_fsync_mode, 0);
@@ -1838,10 +1846,9 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 					     dest->storage, &error) ||
 	    !mailbox_lists_rename_compatible(src->list,
 					     dest->list, &error)) {
-		if (src->storage->set->mail_debug) {
-			i_debug("Can't rename '%s' to '%s': %s",
-				src->vname, dest->vname, error);
-		}
+		e_debug(src->event,
+			"Can't rename '%s' to '%s': %s",
+			src->vname, dest->vname, error);
 		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Can't rename mailboxes across specified storages.");
 		return -1;
@@ -2511,8 +2518,6 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
 	struct mailbox_transaction_context *t = ctx->transaction;
-	const struct mail_storage_settings *mail_set =
-		mailbox_get_settings(t->box);
 	/* we need to keep a copy of this because save_finish implementations
 	   will likely zero the data structure during cleanup */
 	struct mail_keywords *keywords = ctx->data.keywords;
@@ -2542,10 +2547,6 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 			mailbox_save_add_pvt_flags(t, pvt_flags);
 		t->save_count++;
 	}
-
-	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
-	    !mail_has_attachment_keywords(ctx->dest_mail))
-		mail_set_attachment_keywords(ctx->dest_mail);
 
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);

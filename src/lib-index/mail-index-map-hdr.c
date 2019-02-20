@@ -25,7 +25,7 @@ int mail_index_map_parse_extensions(struct mail_index_map *map)
 
 	ext_id = (uint32_t)-1;
 	for (i = 0; i < old_count; i++)
-		array_append(&map->ext_id_map, &ext_id, 1);
+		array_push_back(&map->ext_id_map, &ext_id);
 
 	for (i = 0; offset < map->hdr.header_size; i++) {
 		ext_offset = offset;
@@ -160,7 +160,7 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 			return -1;
 		}
 		mail_index_keyword_lookup_or_create(index, keyword, &kw_idx);
-		array_append(&map->keyword_idx_map, &kw_idx, 1);
+		array_push_back(&map->keyword_idx_map, &kw_idx);
 	}
 	return 0;
 }

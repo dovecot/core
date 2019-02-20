@@ -45,6 +45,10 @@ const char *t_strconcat(const char *str1, ...)
 const char *t_strcut(const char *str, char cutchar);
 /* Replace all from->to chars in the string. */
 const char *t_str_replace(const char *str, char from, char to);
+/* Put the string on a single line by replacing all newlines with spaces and
+   dropping any carriage returns. Sequences of several newlines are merged into
+   one space and newlines at the beginning and end of the string are dropped. */
+const char *t_str_oneline(const char *str);
 
 /* Like strlcpy(), but return -1 if buffer was overflown, 0 if not. */
 int i_strocpy(char *dest, const char *src, size_t dstsize);
@@ -74,6 +78,17 @@ int i_strcasecmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 /* Returns TRUE if the two memory areas are equal. This function is safe
    against timing attacks, so it compares all the bytes every time. */
 bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size);
+
+size_t str_match(const char *p1, const char *p2) ATTR_PURE;
+static inline ATTR_PURE bool str_begins(const char *haystack, const char *needle)
+{
+	return needle[str_match(haystack, needle)] == '\0';
+}
+#if defined(__GNUC__) && (__GNUC__ >= 2)
+/* GCC (and Clang) are known to have a compile-time strlen("literal") shortcut, and
+   an optimised strncmp(), so use that by default. Macro is multi-evaluation safe. */
+# define str_begins(h, n) (__builtin_constant_p(n) ? strncmp((h), (n), strlen(n))==0 : (str_begins)((h), (n)))
+#endif
 
 static inline char *i_strchr_to_next(const char *str, char chr)
 {

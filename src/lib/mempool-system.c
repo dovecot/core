@@ -6,6 +6,39 @@
 #include "safe-memset.h"
 #include "mempool.h"
 
+/*
+ * The system pool is a thin wrapper around calloc() and free().  It exists
+ * to allow direct heap usage via the pool API.
+ *
+ * Implementation
+ * ==============
+ *
+ * Creation
+ * --------
+ *
+ * The system pool is created statically and therefore is available at any
+ * time.
+ *
+ * Allocation, Reallocation & Freeing
+ * ----------------------------------
+ *
+ * The p_malloc(), p_realloc(), and p_free() calls get directed to calloc(),
+ * realloc(), and free().  There is no additional per-allocation information
+ * to track.
+ *
+ * Clearing
+ * --------
+ *
+ * Not supported.  Attempting to clear the system pool will result in a
+ * panic.
+ *
+ * Destruction
+ * -----------
+ *
+ * It is not possible to destroy the system pool.  Any attempt to unref the
+ * pool is a no-op.
+ */
+
 #ifndef HAVE_MALLOC_USABLE_SIZE
 /* no extra includes needed */
 #elif defined (HAVE_MALLOC_NP_H)
@@ -69,9 +102,6 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 	int old_errno = errno;
 #endif
 
-	if (unlikely(size == 0 || size > SSIZE_T_MAX))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
-
 	mem = calloc(size, 1);
 	if (unlikely(mem == NULL)) {
 		i_fatal_status(FATAL_OUTOFMEM, "pool_system_malloc(%"PRIuSIZE_T
@@ -102,13 +132,6 @@ void pool_system_free(pool_t pool ATTR_UNUSED, void *mem ATTR_UNUSED)
 static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 				 size_t old_size, size_t new_size)
 {
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
-
-	if (mem == NULL) {
-		i_assert(old_size == 0);
-		return pool_system_malloc(pool, new_size);
-	}
 #if defined(HAVE_MALLOC_USABLE_SIZE)
 	i_assert(old_size == (size_t)-1 || mem == NULL ||
 		 old_size <= malloc_usable_size(mem));

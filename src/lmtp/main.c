@@ -1,7 +1,6 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
-#include "array.h"
+#include "lmtp-common.h"
 #include "ioloop.h"
 #include "hostpid.h"
 #include "path-util.h"
@@ -14,9 +13,6 @@
 #include "mail-storage-service.h"
 #include "smtp-submit-settings.h"
 #include "lda-settings.h"
-#include "lmtp-settings.h"
-#include "client.h"
-#include "main.h"
 
 #include <unistd.h>
 
@@ -26,11 +22,22 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
+struct smtp_server *lmtp_server = NULL;
+
 char *dns_client_socket_path, *base_dir;
 struct mail_storage_service_ctx *storage_service;
 struct anvil_client *anvil;
 
-struct smtp_server *lmtp_server;
+lmtp_client_created_func_t *hook_client_created = NULL;
+
+lmtp_client_created_func_t *
+lmtp_client_created_hook_set(lmtp_client_created_func_t *new_hook)
+{
+	lmtp_client_created_func_t *old_hook = hook_client_created;
+
+	hook_client_created = new_hook;
+	return old_hook;
+}
 
 void lmtp_anvil_init(void)
 {
@@ -110,7 +117,6 @@ int main(int argc, char *argv[])
 		NULL
 	};
 	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_SEND_STATS |
 		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |

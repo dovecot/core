@@ -30,6 +30,12 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	server->pool = pool;
 	server->set.protocol = set->protocol;
 	server->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
+
+	if (set->ssl != NULL) {
+		server->set.ssl =
+			ssl_iostream_settings_dup(server->pool, set->ssl);
+	}
+
 	if (set->hostname != NULL && *set->hostname != '\0')
 		server->set.hostname = p_strdup(pool, set->hostname);
 	else
@@ -43,6 +49,7 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	} else  {
 		server->set.capabilities = set->capabilities;
 	}
+	server->set.workarounds = set->workarounds;
 	server->set.max_client_idle_time_msecs = set->max_client_idle_time_msecs;
 	server->set.max_pipelined_commands = (set->max_pipelined_commands > 0 ?
 		set->max_pipelined_commands : 1);
@@ -50,7 +57,16 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 		set->max_bad_commands : SMTP_SERVER_DEFAULT_MAX_BAD_COMMANDS);
 	server->set.max_recipients = set->max_recipients;
 	server->set.command_limits = set->command_limits;
+	server->set.max_message_size = set->max_message_size;
 
+	if (set->mail_param_extensions != NULL) {
+		server->set.mail_param_extensions =
+			p_strarray_dup(pool, set->mail_param_extensions);
+	}
+	if (set->rcpt_param_extensions != NULL) {
+		server->set.rcpt_param_extensions =
+			p_strarray_dup(pool, set->rcpt_param_extensions);
+	}
 	if (set->xclient_extensions != NULL) {
 		server->set.xclient_extensions =
 			p_strarray_dup(pool, set->xclient_extensions);
@@ -62,7 +78,6 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	server->set.tls_required = set->tls_required;
 	server->set.auth_optional = set->auth_optional;
 	server->set.rcpt_domain_optional = set->rcpt_domain_optional;
-	server->set.param_extensions = set->param_extensions;
 	server->set.debug = set->debug;
 
 	server->conn_list = smtp_server_connection_list_init();
@@ -76,6 +91,8 @@ void smtp_server_deinit(struct smtp_server **_server)
 
 	connection_list_deinit(&server->conn_list);
 
+	if (server->ssl_ctx != NULL)
+		ssl_iostream_context_unref(&server->ssl_ctx);
 	pool_unref(&server->pool);
 	*_server = NULL;
 }
@@ -94,4 +111,20 @@ void smtp_server_switch_ioloop(struct smtp_server *server)
 
 		smtp_server_connection_switch_ioloop(conn);
 	}
+}
+
+int smtp_server_init_ssl_ctx(struct smtp_server *server, const char **error_r)
+{
+	const char *error;
+
+	if (server->ssl_ctx != NULL || server->set.ssl == NULL)
+		return 0;
+
+	if (ssl_iostream_server_context_cache_get(server->set.ssl,
+		&server->ssl_ctx, &error) < 0) {
+		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
+					   error);
+		return -1;
+	}
+	return 0;
 }

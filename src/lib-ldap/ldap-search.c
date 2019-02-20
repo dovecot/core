@@ -70,7 +70,7 @@ ldap_search_callback(struct ldap_connection *conn,
 	while(res != NULL) {
 		struct ldap_entry *obj = p_new(req->pool, struct ldap_entry, 1);
 		ldap_entry_init(obj, &sctx->res, message);
-		array_append(&sctx->res.entries, obj, 1);
+		array_push_back(&sctx->res.entries, obj);
 		res = ldap_next_entry(conn->conn, res);
 	}
 
@@ -154,10 +154,10 @@ void ldap_connection_search_start(struct ldap_connection *conn,
 		p_array_init(&arr, req->pool, 8);
 		for(const char **ptr = (const char**)input->attributes; *ptr != NULL; ptr++) {
 			const char *tmp = p_strdup(req->pool, *ptr);
-			array_append(&arr, &tmp, 1);
+			array_push_back(&arr, &tmp);
 		}
 		array_append_zero(&arr);
-		req->input.search.attributes = array_idx_modifiable(&arr, 0);
+		req->input.search.attributes = array_front_modifiable(&arr);
 	}
 
 	req->send_request_cb = ldap_search_send;

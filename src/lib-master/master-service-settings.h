@@ -10,11 +10,13 @@ struct master_service;
 struct master_service_settings {
 	const char *base_dir;
 	const char *state_dir;
+	const char *instance_name;
 	const char *log_path;
 	const char *info_log_path;
 	const char *debug_log_path;
 	const char *log_timestamp;
 	const char *log_debug;
+	const char *log_core_filter;
 	const char *syslog_facility;
 	const char *import_environment;
 	const char *stats_writer_socket_path;
@@ -99,8 +101,8 @@ int master_service_set(struct master_service *service, const char *line);
 bool master_service_set_has_config_override(struct master_service *service,
 					    const char *key);
 
-/* Parse log_debug setting into an event filter. */
-int master_service_log_debug_parse(struct event_filter *filter, const char *str,
-				   const char **error_r);
+/* Parse log filter setting into an event filter. */
+int master_service_log_filter_parse(struct event_filter *filter, const char *str,
+				    const char **error_r);
 
 #endif

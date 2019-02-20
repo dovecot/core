@@ -54,6 +54,7 @@ extern MODULE_CONTEXT_DEFINE(stats_user_module, &mail_user_module_register);
 extern MODULE_CONTEXT_DEFINE(stats_storage_module, &mail_storage_module_register);
 
 void old_stats_plugin_init(struct module *module);
+void old_stats_plugin_preinit(void);
 void old_stats_plugin_deinit(void);
 
 #endif

@@ -11,7 +11,6 @@
 #include "master-service-settings.h"
 #include "auth-client.h"
 #include "auth-master.h"
-#include "auth-server-connection.h"
 #include "master-auth.h"
 #include "master-login-auth.h"
 #include "mail-storage-service.h"
@@ -142,18 +141,18 @@ cmd_user_input(struct auth_master_connection *conn,
 
 static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 {
-	if (strncmp(arg, "service=", 8) == 0)
+	if (str_begins(arg, "service="))
 		info->service = arg + 8;
-	else if (strncmp(arg, "lip=", 4) == 0) {
+	else if (str_begins(arg, "lip=")) {
 		if (net_addr2ip(arg + 4, &info->local_ip) < 0)
 			i_fatal("lip: Invalid ip");
-	} else if (strncmp(arg, "rip=", 4) == 0) {
+	} else if (str_begins(arg, "rip=")) {
 		if (net_addr2ip(arg + 4, &info->remote_ip) < 0)
 			i_fatal("rip: Invalid ip");
-	} else if (strncmp(arg, "lport=", 6) == 0) {
+	} else if (str_begins(arg, "lport=")) {
 		if (net_str2port(arg + 6, &info->local_port) < 0)
 			i_fatal("lport: Invalid port number");
-	} else if (strncmp(arg, "rport=", 6) == 0) {
+	} else if (str_begins(arg, "rport=")) {
 		if (net_str2port(arg + 6, &info->remote_port) < 0)
 			i_fatal("rport: Invalid port number");
 	} else {
@@ -168,10 +167,14 @@ cmd_user_list(struct auth_master_connection *conn,
 {
 	struct auth_master_user_list_ctx *ctx;
 	const char *username, *user_mask = "*";
+	string_t *escaped = t_str_new(256);
+	bool first = TRUE;
 	unsigned int i;
 
 	if (users[0] != NULL && users[1] == NULL)
 		user_mask = users[0];
+
+	o_stream_nsend_str(doveadm_print_ostream, "{\"userList\":[");
 
 	ctx = auth_master_user_list_init(conn, user_mask, &input->info);
 	while ((username = auth_master_user_list_next(ctx)) != NULL) {
@@ -179,11 +182,24 @@ cmd_user_list(struct auth_master_connection *conn,
 			if (wildcard_match_icase(username, users[i]))
 				break;
 		}
-		if (users[i] != NULL)
-			printf("%s\n", username);
+		if (users[i] != NULL) {
+			if (first)
+				first = FALSE;
+			else
+				o_stream_nsend_str(doveadm_print_ostream, ",");
+			str_truncate(escaped, 0);
+			str_append_c(escaped, '"');
+			json_append_escaped(escaped, username);
+			str_append_c(escaped, '"');
+			o_stream_nsend(doveadm_print_ostream, escaped->data, escaped->used);
+		}
 	}
-	if (auth_master_user_list_deinit(&ctx) < 0)
-		i_fatal("user listing failed");
+	if (auth_master_user_list_deinit(&ctx) < 0) {
+		i_error("user listing failed");
+		doveadm_exit_code = EX_DATAERR;
+	}
+
+	o_stream_nsend_str(doveadm_print_ostream, "]}");
 }
 
 static void cmd_auth_cache_flush(int argc, char *argv[])

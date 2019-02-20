@@ -154,7 +154,7 @@ void smtp_submit_add_rcpt(struct smtp_submit *subm,
 	i_assert(!smtp_address_isnull(rcpt_to));
 
 	rcpt = smtp_address_clone(subm->pool, rcpt_to);
-	array_append(&subm->rcpt_to, &rcpt, 1);
+	array_push_back(&subm->rcpt_to, &rcpt);
 }
 
 struct ostream *smtp_submit_send(struct smtp_submit *subm)
@@ -316,7 +316,7 @@ smtp_submit_send_host(struct smtp_submit *subm)
 		  SMTP_PROTOCOL_SMTP, host, port, ssl_mode, NULL);
 
 	smtp_trans = smtp_client_transaction_create(smtp_conn,
-		subm->mail_from, NULL, smtp_submit_send_host_finished, subm);
+		subm->mail_from, NULL, 0, smtp_submit_send_host_finished, subm);
 	smtp_client_connection_unref(&smtp_conn);
 
 	array_foreach(&subm->rcpt_to, rcptp) {
@@ -365,18 +365,18 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	i_assert(sendmail_args[0] != NULL);
 	sendmail_bin = sendmail_args[0];
 	for (i = 1; sendmail_args[i] != NULL; i++)
-		array_append(&args, &sendmail_args[i], 1);
+		array_push_back(&args, &sendmail_args[i]);
 
-	str = "-i"; array_append(&args, &str, 1); /* ignore dots */
-	str = "-f"; array_append(&args, &str, 1);
+	str = "-i"; array_push_back(&args, &str); /* ignore dots */
+	str = "-f"; array_push_back(&args, &str);
 	str = !smtp_address_isnull(subm->mail_from) ?
 		smtp_address_encode(subm->mail_from) : "<>";
-	array_append(&args, &str, 1);
+	array_push_back(&args, &str);
 
-	str = "--"; array_append(&args, &str, 1);
+	str = "--"; array_push_back(&args, &str);
 	array_foreach(&subm->rcpt_to, rcptp) {
 		const char *rcpt = smtp_address_encode(*rcptp);
-		array_append(&args, &rcpt, 1);
+		array_push_back(&args, &rcpt);
 	}
 	array_append_zero(&args);
 
@@ -387,7 +387,7 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	restrict_access_init(&pc_set.restrict_set);
 
 	pc = program_client_local_create
-		(sendmail_bin, array_idx(&args, 0), &pc_set);
+		(sendmail_bin, array_front(&args), &pc_set);
 
 	program_client_set_input(pc, subm->input);
 	i_stream_unref(&subm->input);

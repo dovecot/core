@@ -103,7 +103,7 @@ const char *password_get_scheme(const char **password)
 	if (*password == NULL)
 		return NULL;
 
-	if (strncmp(*password, "$1$", 3) == 0) {
+	if (str_begins(*password, "$1$")) {
 		/* $1$<salt>$<password>[$<ignored>] */
 		p = strchr(*password + 3, '$');
 		if (p != NULL) {
@@ -342,7 +342,7 @@ md5_verify(const char *plaintext, const struct password_generate_params *params,
 	size_t md5_size;
 
 	password = t_strndup(raw_password, size);
-	if (strncmp(password, "$1$", 3) == 0) {
+	if (str_begins(password, "$1$")) {
 		/* MD5-CRYPT */
 		str = password_generate_md5_crypt(plaintext, password);
 		return strcmp(str, password) == 0 ? 1 : 0;
@@ -857,7 +857,7 @@ void password_schemes_get(ARRAY_TYPE(password_scheme_p) *schemes_r)
         const struct password_scheme *scheme;
         ctx = hash_table_iterate_init(password_schemes);
         while(hash_table_iterate(ctx, password_schemes, &key, &scheme)) {
-		array_append(schemes_r, &scheme, 1);
+		array_push_back(schemes_r, &scheme);
         }
 	hash_table_iterate_deinit(&ctx);
 }

@@ -6,6 +6,7 @@
 #include "hex-binary.h"
 #include "str.h"
 #include "net.h"
+#include "time-util.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_MYSQL
@@ -64,17 +65,17 @@ struct mysql_transaction_context {
 	const char *error;
 
 	bool failed:1;
+	bool committed:1;
 };
 
 extern const struct sql_db driver_mysql_db;
 extern const struct sql_result driver_mysql_result;
 extern const struct sql_result driver_mysql_error_result;
 
-static const char *mysql_prefix(struct mysql_db *db)
-{
-	return db->host == NULL ? "mysql" :
-		t_strdup_printf("mysql(%s)", db->host);
-}
+static struct event_category event_category_mysql = {
+	.parent = &event_category_sql,
+	.name = "mysql"
+};
 
 static int driver_mysql_connect(struct sql_db *_db)
 {
@@ -88,6 +89,9 @@ static int driver_mysql_connect(struct sql_db *_db)
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
 
 	sql_db_set_state(&db->api, SQL_DB_STATE_CONNECTING);
+
+	if (mysql_init(db->mysql) == NULL)
+		i_fatal("mysql_init() failed");
 
 	if (db->host == NULL) {
 		/* assume option_file overrides the host, or if not we'll just
@@ -106,6 +110,11 @@ static int driver_mysql_connect(struct sql_db *_db)
 		mysql_options(db->mysql, MYSQL_READ_DEFAULT_FILE,
 			      db->option_file);
 	}
+
+	if (db->host != NULL)
+		event_set_append_log_prefix(_db->event, t_strdup_printf("mysql(%s): ", db->host));
+
+	e_debug(_db->event, "Connecting");
 
 	mysql_options(db->mysql, MYSQL_OPT_CONNECT_TIMEOUT, &db->connect_timeout);
 	mysql_options(db->mysql, MYSQL_OPT_READ_TIMEOUT, &db->read_timeout);
@@ -150,10 +159,9 @@ static int driver_mysql_connect(struct sql_db *_db)
 		if (db->api.connect_delay < secs_used)
 			db->api.connect_delay = secs_used;
 		sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
-		i_error("%s: Connect failed to database (%s): %s - "
+		e_error(_db->event, "Connect failed to database (%s): %s - "
 			"waiting for %u seconds before retry",
-			mysql_prefix(db), db->dbname,
-			mysql_error(db->mysql), db->api.connect_delay);
+			db->dbname, mysql_error(db->mysql), db->api.connect_delay);
 		return -1;
 	} else {
 		db->last_success = ioloop_time;
@@ -162,12 +170,17 @@ static int driver_mysql_connect(struct sql_db *_db)
 	}
 }
 
-static void driver_mysql_disconnect(struct sql_db *_db ATTR_UNUSED)
+static void driver_mysql_disconnect(struct sql_db *_db)
 {
+	struct mysql_db *db = (struct mysql_db *)_db;
+	if (db->mysql != NULL)
+		mysql_close(db->mysql);
+	db->mysql = NULL;
 }
 
-static void driver_mysql_parse_connect_string(struct mysql_db *db,
-					      const char *connect_string)
+static int driver_mysql_parse_connect_string(struct mysql_db *db,
+					     const char *connect_string,
+					     const char **error_r)
 {
 	const char *const *args, *name, *value;
 	const char **field;
@@ -182,8 +195,9 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 	for (; *args != NULL; args++) {
 		value = strchr(*args, '=');
 		if (value == NULL) {
-			i_fatal("mysql: Missing value in connect string: %s",
-				*args);
+			*error_r = t_strdup_printf("Missing value in connect string: %s",
+						   *args);
+			return -1;
 		}
 		name = t_strdup_until(*args, value);
 		value++;
@@ -199,20 +213,30 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 		else if (strcmp(name, "dbname") == 0)
 			field = &db->dbname;
 		else if (strcmp(name, "port") == 0) {
-			if (net_str2port(value, &db->port) < 0)
-				i_fatal("mysql: Invalid port number: %s", value);
+			if (net_str2port(value, &db->port) < 0) {
+				*error_r = t_strdup_printf("Invalid port number: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "client_flags") == 0) {
-			if (str_to_uint(value, &db->client_flags) < 0)
-				i_fatal("mysql: Invalid client flags: %s", value);
+			if (str_to_uint(value, &db->client_flags) < 0) {
+				*error_r = t_strdup_printf("Invalid client flags: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "connect_timeout") == 0) {
-			if (str_to_uint(value, &db->connect_timeout) < 0)
-				i_fatal("mysql: Invalid read_timeout: %s", value);
+			if (str_to_uint(value, &db->connect_timeout) < 0) {
+				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "read_timeout") == 0) {
-			if (str_to_uint(value, &db->read_timeout) < 0)
-				i_fatal("mysql: Invalid read_timeout: %s", value);
+			if (str_to_uint(value, &db->read_timeout) < 0) {
+				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "write_timeout") == 0) {
-			if (str_to_uint(value, &db->write_timeout) < 0)
-				i_fatal("mysql: Invalid read_timeout: %s", value);
+			if (str_to_uint(value, &db->write_timeout) < 0) {
+				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "ssl_cert") == 0)
 			field = &db->ssl_cert;
 		else if (strcmp(name, "ssl_key") == 0)
@@ -228,41 +252,58 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 				db->ssl_verify_server_cert = 1;
 			else if (strcmp(value, "no") == 0)
 				db->ssl_verify_server_cert = 0;
-			else
-				i_fatal("mysql: Invalid boolean: %s", value);
+			else {
+				*error_r = t_strdup_printf("Invalid boolean: %s", value);
+				return -1;
+			}
 		} else if (strcmp(name, "option_file") == 0)
 			field = &db->option_file;
 		else if (strcmp(name, "option_group") == 0)
 			field = &db->option_group;
-		else
-			i_fatal("mysql: Unknown connect string: %s", name);
-
+		else {
+			*error_r = t_strdup_printf("Unknown connect string: %s", name);
+			return -1;
+		}
 		if (field != NULL)
 			*field = p_strdup(db->pool, value);
 	}
 
-	if (db->host == NULL && db->option_file == NULL)
-		i_fatal("mysql: No hosts given in connect string");
-
-	db->mysql = mysql_init(NULL);
-	if (db->mysql == NULL)
-		i_fatal("mysql_init() failed");
+	if (db->host == NULL && db->option_file == NULL) {
+		*error_r = "No hosts given in connect string";
+		return -1;
+	}
+	db->mysql = p_new(db->pool, MYSQL, 1);
+	return 0;
 }
 
-static struct sql_db *driver_mysql_init_v(const char *connect_string)
+static int driver_mysql_init_full_v(const struct sql_settings *set,
+				    struct sql_db **db_r, const char **error_r)
 {
 	struct mysql_db *db;
+	const char *error = NULL;
 	pool_t pool;
+	int ret;
 
 	pool = pool_alloconly_create("mysql driver", 1024);
 	db = p_new(pool, struct mysql_db, 1);
 	db->pool = pool;
 	db->api = driver_mysql_db;
-
+	db->api.event = event_create(set->event_parent);
+	event_add_category(db->api.event, &event_category_mysql);
+	event_set_append_log_prefix(db->api.event, "mysql: ");
 	T_BEGIN {
-		driver_mysql_parse_connect_string(db, connect_string);
+		ret = driver_mysql_parse_connect_string(db, set->connect_string, &error);
+		error = p_strdup(db->pool, error);
 	} T_END;
-	return &db->api;
+
+	if (ret < 0) {
+		*error_r = t_strdup(error);
+		pool_unref(&db->pool);
+		return ret;
+	}
+
+	*db_r = &db->api;
+	return 0;
 }
 
 static void driver_mysql_deinit_v(struct sql_db *_db)
@@ -272,14 +313,35 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 	_db->no_reconnect = TRUE;
 	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
 
-	mysql_close(db->mysql);
+	if (db->mysql != NULL)
+		mysql_close(db->mysql);
+	db->mysql = NULL;
+
+	sql_connection_log_finished(_db);
+	event_unref(&_db->event);
 	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);
 }
 
-static int driver_mysql_do_query(struct mysql_db *db, const char *query)
+static int driver_mysql_do_query(struct mysql_db *db, const char *query,
+				 struct event *event)
 {
-	if (mysql_query(db->mysql, query) == 0)
+	int ret, diff;
+	struct event_passthrough *e;
+
+	ret = mysql_query(db->mysql, query);
+	io_loop_time_refresh();
+	e = sql_query_finished_event(&db->api, event, query, ret == 0, &diff);
+
+	if (ret != 0) {
+		e->add_int("error_code", mysql_errno(db->mysql));
+		e->add_str("error", mysql_error(db->mysql));
+		e_debug(e->event(), SQL_QUERY_FINISHED_FMT": %s", query,
+			diff, mysql_error(db->mysql));
+	} else
+		e_debug(e->event(), SQL_QUERY_FINISHED_FMT, query, diff);
+
+	if (ret == 0)
 		return 0;
 
 	/* failed */
@@ -328,11 +390,11 @@ driver_mysql_escape_string(struct sql_db *_db, const char *string)
 static void driver_mysql_exec(struct sql_db *_db, const char *query)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
+	struct event *event = event_create(_db->event);
 
-	if (driver_mysql_do_query(db, query) < 0) {
-		i_error("%s: Query '%s' failed: %s",
-			mysql_prefix(db), query, mysql_error(db->mysql));
-	}
+	(void)driver_mysql_do_query(db, query, event);
+
+	event_unref(&event);
 }
 
 static void driver_mysql_query(struct sql_db *db, const char *query,
@@ -352,12 +414,14 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_result *result;
+	struct event *event;
 	int ret;
 
 	result = i_new(struct mysql_result, 1);
 	result->api = driver_mysql_result;
+	event = event_create(_db->event);
 
-	if (driver_mysql_do_query(db, query) < 0)
+	if (driver_mysql_do_query(db, query, event) < 0)
 		result->api = driver_mysql_error_result;
 	else {
 		/* query ok */
@@ -385,6 +449,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 
 	result->api.db = _db;
 	result->api.refcount = 1;
+	result->api.event = event;
 	return &result->api;
 }
 
@@ -398,6 +463,7 @@ static void driver_mysql_result_free(struct sql_result *_result)
 
 	if (result->result != NULL)
 		mysql_free_result(result->result);
+	event_unref(&_result->event);
 	i_free(result);
 }
 
@@ -534,6 +600,7 @@ driver_mysql_transaction_begin(struct sql_db *db)
 	ctx = i_new(struct mysql_transaction_context, 1);
 	ctx->ctx.db = db;
 	ctx->query_pool = pool_alloconly_create("mysql transaction", 1024);
+	ctx->ctx.event = event_create(db->event);
 	return &ctx->ctx;
 }
 
@@ -613,14 +680,18 @@ driver_mysql_transaction_commit_s(struct sql_transaction_context *_ctx,
 		ret = driver_mysql_try_commit_s(ctx);
 		*error_r = t_strdup(ctx->error);
 		if (ret == 0) {
-			i_info("%s: Disconnected from database, "
-			       "retrying commit", db->dbname);
+			e_info(db->api.event, "Disconnected from database, "
+			       "retrying commit");
 			if (sql_connect(_ctx->db) >= 0) {
 				ctx->failed = FALSE;
 				ret = driver_mysql_try_commit_s(ctx);
 			}
 		}
 	}
+
+	if (ret > 0)
+		ctx->committed = TRUE;
+
 	sql_transaction_rollback(&_ctx);
 	return ret <= 0 ? -1 : 0;
 }
@@ -631,6 +702,19 @@ driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
 
+	if (ctx->failed)
+		e_debug(sql_transaction_finished_event(_ctx)->
+			add_str("error", ctx->error)->event(),
+			"Transaction failed: %s", ctx->error);
+	else if (ctx->committed)
+		e_debug(sql_transaction_finished_event(_ctx)->event(),
+			"Transaction committed");
+	else
+		e_debug(sql_transaction_finished_event(_ctx)->
+			add_str("error", "Rolled back")->event(),
+			 "Transaction rolled back");
+
+	event_unref(&ctx->ctx.event);
 	pool_unref(&ctx->query_pool);
 	i_free(ctx);
 }
@@ -663,7 +747,7 @@ const struct sql_db driver_mysql_db = {
 	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_POOLED,
 
 	.v = {
-		.init = driver_mysql_init_v,
+		.init_full = driver_mysql_init_full_v,
 		.deinit = driver_mysql_deinit_v,
 		.connect = driver_mysql_connect,
 		.disconnect = driver_mysql_disconnect,

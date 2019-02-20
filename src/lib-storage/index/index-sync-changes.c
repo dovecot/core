@@ -76,7 +76,7 @@ index_sync_changes_have_expunges(struct index_sync_changes_context *ctx,
 	const struct mail_index_sync_rec *syncs;
 	unsigned int i;
 
-	syncs = array_idx(&ctx->syncs, 0);
+	syncs = array_front(&ctx->syncs);
 	for (i = 0; i < count; i++) {
 		if (syncs[i].type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
 			memcpy(expunged_guid_128_r, syncs[i].guid_128,
@@ -102,7 +102,7 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 
 	while (uid >= sync_rec->uid1) {
 		if (uid <= sync_rec->uid2) {
-			array_append(&ctx->syncs, sync_rec, 1);
+			array_push_back(&ctx->syncs, sync_rec);
 
 			if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
 				*sync_expunge_r = TRUE;

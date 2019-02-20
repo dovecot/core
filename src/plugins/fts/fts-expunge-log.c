@@ -278,7 +278,7 @@ fts_expunge_log_export(struct fts_expunge_log_append_ctx *ctx,
 		memcpy(rec->guid, mailbox->guid, sizeof(rec->guid));
 
 		/* uint32_t expunge_uid_ranges[]; */
-		buffer_append(output, array_idx(&mailbox->uids, 0),
+		buffer_append(output, array_front(&mailbox->uids),
 			      array_count(&mailbox->uids) *
 			      sizeof(struct seq_range));
 		/* uint32_t expunge_count; */

@@ -75,7 +75,7 @@ mail_deliver_get_message_address(struct mail *mail, const char *header)
 		return NULL;
 	addr = message_address_parse(pool_datastack_create(),
 				     (const unsigned char *)str,
-				     strlen(str), 1, FALSE);
+				     strlen(str), 1, 0);
 	if (addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
 	    *addr->mailbox == '\0' || *addr->domain == '\0')
 		return NULL;
@@ -86,11 +86,13 @@ const struct smtp_address *
 mail_deliver_get_address(struct mail *mail, const char *header)
 {
 	struct message_address *addr;
+	struct smtp_address *smtp_addr;
 
 	addr = mail_deliver_get_message_address(mail, header);
-	if (addr == NULL)
+	if (addr == NULL ||
+	    smtp_address_create_from_msg_temp(addr, &smtp_addr) < 0)
 		return NULL;
-	return smtp_address_create_from_msg_temp(addr);
+	return smtp_addr;
 }
 
 static void update_cache(pool_t pool, const char **old_str, const char *new_str)
@@ -264,7 +266,7 @@ static bool mail_deliver_check_duplicate(struct mail_deliver_session *session,
 		if (memcmp(metadata.guid, *guid, sizeof(metadata.guid)) == 0)
 			return TRUE;
 	}
-	array_append(&session->inbox_guids, &metadata.guid, 1);
+	array_push_back(&session->inbox_guids, &metadata.guid);
 	return FALSE;
 }
 
@@ -394,7 +396,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 			   later on. */
 			i_assert(array_count(&changes.saved_uids) == 1);
 			const struct seq_range *range =
-				array_idx(&changes.saved_uids, 0);
+				array_front(&changes.saved_uids);
 			i_assert(range->seq1 == range->seq2);
 			ctx->dest_mail = mail_deliver_open_mail(box, range->seq1,
 				MAIL_FETCH_STREAM_BODY | MAIL_FETCH_GUID, &t);
@@ -421,6 +423,7 @@ const struct smtp_address *
 mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 {
 	struct message_address *addr;
+	struct smtp_address *smtp_addr;
 	const char *path;
 	int ret;
 
@@ -438,12 +441,12 @@ mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 	}
 	if (message_address_parse_path(pool_datastack_create(),
 				       (const unsigned char *)path,
-				       strlen(path), &addr) < 0) {
+				       strlen(path), &addr) < 0 ||
+	    smtp_address_create_from_msg(ctx->pool, addr, &smtp_addr) < 0) {
 		i_warning("Failed to parse return-path header");
 		return NULL;
 	}
-
-	return smtp_address_create_from_msg(ctx->pool, addr);
+	return smtp_addr;
 }
 
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx)
@@ -650,7 +653,7 @@ mail_deliver_transaction_commit(struct mailbox_transaction_context *ctx,
 
 	if (array_count(&changes_r->saved_uids) > 0) {
 		const struct seq_range *range =
-			array_idx(&changes_r->saved_uids, 0);
+			array_front(&changes_r->saved_uids);
 
 		mail_deliver_cache_update_post_commit(box, range->seq1);
 	}

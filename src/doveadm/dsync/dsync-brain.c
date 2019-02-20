@@ -205,7 +205,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 		array_foreach(&set->sync_namespaces, nsp) {
 			str_append(sync_ns_str, (*nsp)->prefix);
 			str_append_c(sync_ns_str, '\n');
-			array_append(&brain->sync_namespaces, nsp, 1);
+			array_push_back(&brain->sync_namespaces, nsp);
 		}
 		str_delete(sync_ns_str, str_len(sync_ns_str)-1, 1);
 	}
@@ -366,8 +366,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain, enum mail_error *error_r)
 		dsync_mailbox_tree_deinit(&brain->local_mailbox_tree);
 	if (brain->remote_mailbox_tree != NULL)
 		dsync_mailbox_tree_deinit(&brain->remote_mailbox_tree);
-	if (brain->mailbox_states_iter != NULL)
-		hash_table_iterate_deinit(&brain->mailbox_states_iter);
+	hash_table_iterate_deinit(&brain->mailbox_states_iter);
 	hash_table_destroy(&brain->mailbox_states);
 
 	pool_unref(&brain->dsync_box_pool);
@@ -441,6 +440,13 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 				       "/"DSYNC_LOCK_FILENAME, NULL);
 	brain->lock_fd = file_create_locked(brain->lock_path, &lock_set,
 					    &brain->lock, &created, &error);
+	if (brain->lock_fd == -1 && errno == ENOENT) {
+		/* home directory not created */
+		if (mail_user_home_mkdir(brain->user) < 0)
+			return -1;
+		brain->lock_fd = file_create_locked(brain->lock_path, &lock_set,
+			&brain->lock, &created, &error);
+	}
 	if (brain->lock_fd == -1)
 		i_error("Couldn't lock %s: %s", brain->lock_path, error);
 	else if (brain->debug) {
@@ -530,7 +536,7 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 				brain->failed = TRUE;
 				return FALSE;
 			}
-			array_append(&brain->sync_namespaces, &ns, 1);
+			array_push_back(&brain->sync_namespaces, &ns);
 		}
 	}
 	brain->sync_box = p_strdup(brain->pool, ibc_set->sync_box);

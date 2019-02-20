@@ -295,7 +295,7 @@ static int view_sync_update_keywords(struct mail_index_view_sync_ctx *ctx,
 	kw_idx = array_get(&ctx->lost_new_kw, &count);
 	if (count == 0)
 		return 0;
-	kw_names = array_idx(&ctx->view->index->keywords, 0);
+	kw_names = array_front(&ctx->view->index->keywords);
 
 	i_zero(&thdr);
 	thdr.type = MAIL_TRANSACTION_KEYWORD_UPDATE | MAIL_TRANSACTION_EXTERNAL;

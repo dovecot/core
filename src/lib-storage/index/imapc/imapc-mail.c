@@ -169,7 +169,9 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE) &&
 	    data->stream == NULL) {
-		/* trust RFC822.SIZE to be correct */
+		/* Trust RFC822.SIZE to be correct enough to present to the
+		   IMAP client. However, it can be wrong in some implementation
+		   so try not to trust it too much. */
 		if (imapc_mail_fetch(_mail, MAIL_FETCH_PHYSICAL_SIZE, NULL) < 0)
 			return -1;
 		if (data->physical_size == (uoff_t)-1) {
@@ -406,8 +408,14 @@ static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct imapc_mail *imail = IMAPC_MAIL(_mail);
 	struct index_mail *mail = &imail->imail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 
 	index_mail_set_seq(_mail, seq, saving);
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE)) {
+		/* RFC822.SIZE may be read from vsize record or cache. It may
+		   not be exactly correct. */
+		mail->data.inexact_total_sizes = TRUE;
+	}
 
 	/* searching code handles prefetching internally,
 	   elsewhere we want to do it immediately */
@@ -501,7 +509,7 @@ static bool imapc_mail_get_cached_guid(struct mail *_mail)
 					     _mail->seq, cache_idx)) {
 			/* GUID was prefetched - add to cache */
 			index_mail_cache_add_idx(imail, cache_idx,
-				imail->data.guid, strlen(imail->data.guid)+1);
+				imail->data.guid, strlen(imail->data.guid));
 		}
 		return TRUE;
 	}
@@ -542,7 +550,7 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 	}
 
 	index_mail_cache_add_idx(imail, cache_idx,
-				 imail->data.guid, strlen(imail->data.guid)+1);
+				 imail->data.guid, strlen(imail->data.guid));
 	*value_r = imail->data.guid;
 	return 0;
 }

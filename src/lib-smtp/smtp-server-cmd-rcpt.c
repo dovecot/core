@@ -12,6 +12,17 @@
 
 /* RCPT command */
 
+struct smtp_server_cmd_rcpt {
+	struct smtp_server_recipient *rcpt;
+};
+
+static void
+cmd_rcpt_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		 struct smtp_server_cmd_rcpt *data)
+{
+	smtp_server_recipient_destroy(&data->rcpt);
+}
+
 static bool
 cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd)
 {
@@ -34,47 +45,33 @@ cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd)
 	return TRUE;
 }
 
-static void cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
+		   struct smtp_server_cmd_rcpt *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
-	struct smtp_server_cmd_rcpt *data =
-		(struct smtp_server_cmd_rcpt *)command->data;
-	struct smtp_server_transaction *trans = conn->state.trans;
-	struct smtp_server_recipient *rcpt;
+	struct smtp_server_recipient *rcpt = data->rcpt;
 
 	i_assert(conn->state.pending_rcpt_cmds > 0);
 	conn->state.pending_rcpt_cmds--;
 
 	i_assert(smtp_server_command_is_replied(command));
-	if (!smtp_server_command_replied_success(command))
-		return;
-
-	/* success */
-	rcpt = smtp_server_transaction_add_rcpt(trans, data->path,
-						&data->params);
-	rcpt->context = data->trans_context;
-
-	if (data->hook_finished != NULL) {
-		data->hook_finished(cmd, trans, rcpt,
-				    array_count(&trans->rcpt_to) - 1);
-		data->hook_finished = NULL;
-	}
-}
-
-static void cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd)
-{
-	struct smtp_server_command *command = cmd->cmd;
-
-	i_assert(smtp_server_command_is_replied(command));
 	if (!smtp_server_command_replied_success(command)) {
 		/* failure; substitute our own error if predictable */
-		(void)cmd_rcpt_check_state(cmd);
+		if (smtp_server_command_reply_is_forwarded(command))
+			(void)cmd_rcpt_check_state(cmd);
 		return;
 	}
+
+	/* success */
+	data->rcpt = NULL; /* clear to prevent destruction */
+	(void)smtp_server_recipient_approved(&rcpt);
 }
 
-static void cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd)
+static void
+cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd,
+		 struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
@@ -100,6 +97,9 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	struct smtp_server_command *command = cmd->cmd;
 	struct smtp_server_cmd_rcpt *rcpt_data;
+	struct smtp_server_recipient *rcpt;
+	enum smtp_address_parse_flags path_parse_flags;
+	const char *const *param_extensions = NULL;
 	struct smtp_address *path;
 	enum smtp_param_parse_error pperror;
 	const char *error;
@@ -120,9 +120,25 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 			501, "5.5.4", "Invalid parameters");
 		return;
 	}
-	if (smtp_address_parse_path_full(pool_datastack_create(), params + 3,
-					 SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART,
-					 &path, &error, &params) < 0) {
+	if (params[3] != ' ' && params[3] != '\t') {
+		params += 3;
+	} else if ((set->workarounds &
+		    SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
+		params += 3;
+		while (*params == ' ' || *params == '\t')
+			params++;
+	} else {
+		smtp_server_reply(cmd, 501, "5.5.4",
+				  "Invalid TO: "
+				  "Unexpected whitespace before path");
+		return;
+	}
+	path_parse_flags = SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART;
+	if ((set->workarounds & SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH) != 0)
+		path_parse_flags |= SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL;
+	if (smtp_address_parse_path_full(pool_datastack_create(), params,
+					 path_parse_flags, &path, &error,
+					 &params) < 0) {
 		smtp_server_reply(cmd,
 			501, "5.5.4", "Invalid TO: %s", error);
 		return;
@@ -141,12 +157,16 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
+	rcpt = smtp_server_recipient_create(cmd, path);
+
 	rcpt_data = p_new(cmd->pool, struct smtp_server_cmd_rcpt, 1);
+	rcpt_data->rcpt = rcpt;
 
 	/* [SP Rcpt-parameters] */
-	if (smtp_params_rcpt_parse(cmd->pool, params, caps,
-				   set->param_extensions, &rcpt_data->params,
-				   &pperror, &error) < 0) {
+	if (array_is_created(&conn->rcpt_param_extensions))
+		param_extensions = array_front(&conn->rcpt_param_extensions);
+	if (smtp_params_rcpt_parse(rcpt->pool, params, caps, param_extensions,
+				   &rcpt->params, &pperror, &error) < 0) {
 		switch (pperror) {
 		case SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX:
 			smtp_server_reply(cmd,
@@ -162,18 +182,18 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
-	rcpt_data->path = smtp_address_clone(cmd->pool, path);
-
-	command->data = rcpt_data;
-	command->hook_next = cmd_rcpt_recheck;
-	command->hook_replied = cmd_rcpt_replied;
-	command->hook_completed = cmd_rcpt_completed;
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     cmd_rcpt_recheck, rcpt_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+				     cmd_rcpt_completed, rcpt_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     cmd_rcpt_destroy, rcpt_data);
+	
 	conn->state.pending_rcpt_cmds++;
 
 	smtp_server_command_ref(command);
 	i_assert(callbacks != NULL && callbacks->conn_cmd_rcpt != NULL);
-	if ((ret=callbacks->conn_cmd_rcpt(conn->context,
-		cmd, rcpt_data)) <= 0) {
+	if ((ret=callbacks->conn_cmd_rcpt(conn->context, cmd, rcpt)) <= 0) {
 		i_assert(ret == 0 || smtp_server_command_is_replied(command));
 		/* command is waiting for external event or it failed */
 		smtp_server_command_unref(&command);
@@ -181,8 +201,14 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	}
 	if (!smtp_server_command_is_replied(command)) {
 		/* set generic RCPT success reply if none is provided */
-		smtp_server_reply(cmd,
-			250, "2.1.5", "OK");
+		smtp_server_cmd_rcpt_reply_success(cmd);
 	}
 	smtp_server_command_unref(&command);
+}
+
+void smtp_server_cmd_rcpt_reply_success(struct smtp_server_cmd_ctx *cmd)
+{
+	i_assert(cmd->cmd->reg->func == smtp_server_cmd_rcpt);
+
+	smtp_server_reply(cmd, 250, "2.1.5", "OK");
 }

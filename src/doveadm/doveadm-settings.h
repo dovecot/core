@@ -24,8 +24,6 @@ struct doveadm_settings {
 	const char *doveadm_allowed_commands;
 	const char *dsync_alt_char;
 	const char *dsync_remote_cmd;
-	const char *ssl_client_ca_dir;
-	const char *ssl_client_ca_file;
 	const char *director_username_hash;
 	const char *doveadm_api_key;
 	const char *dsync_features;
@@ -39,5 +37,8 @@ struct doveadm_settings {
 extern const struct setting_parser_info doveadm_setting_parser_info;
 extern struct doveadm_settings *doveadm_settings;
 extern const struct master_service_settings *service_set;
+struct ssl_iostream_settings;
+
+void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool);
 
 #endif

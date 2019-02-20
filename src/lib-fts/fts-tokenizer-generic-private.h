@@ -26,6 +26,7 @@ enum letter_type {
 	LETTER_TYPE_SOT,
 	LETTER_TYPE_EOT,
 	LETTER_TYPE_APOSTROPHE, /* Own modification to TR29 */
+	LETTER_TYPE_PREFIXSPLAT, /* Dovecot '*' for glob-like explicit prefix searching */
 	LETTER_TYPE_OTHER /* WB14 "any" */
 };
 
@@ -40,14 +41,15 @@ enum boundary_algorithm {
 struct generic_fts_tokenizer {
 	struct fts_tokenizer tokenizer;
 	unsigned int max_length;
+	bool prefixsplat; /* for search strings, accept a trailing '*' for explicit prefix */
 	bool wb5a; /* TR29 rule for prefix separation
 	              in e.g. French or Italian. */
 	bool seen_wb5a;
-	unichar_t prev_letter_c;
-	unichar_t letter_c;
+	unichar_t prev_letter;
+	unichar_t letter;
 	enum boundary_algorithm algorithm;
-	enum letter_type prev_letter;
-	enum letter_type prev_prev_letter;
+	enum letter_type prev_type;
+	enum letter_type prev_prev_type;
 	size_t untruncated_length;
 	buffer_t *token;
 };

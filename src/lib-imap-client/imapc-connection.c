@@ -312,7 +312,7 @@ imapc_connection_abort_commands_array(ARRAY_TYPE(imapc_command) *cmd_array,
 			i++;
 		} else {
 			array_delete(cmd_array, i, 1);
-			array_append(dest_array, &cmd, 1);
+			array_push_back(dest_array, &cmd);
 		}
 	}
 }
@@ -461,8 +461,7 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 	if (conn->parser != NULL)
 		imap_parser_unref(&conn->parser);
 	io_remove(&conn->io);
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_unref(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	if (conn->fd != -1) {
 		i_stream_destroy(&conn->input);
 		o_stream_destroy(&conn->output);
@@ -1454,7 +1453,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	cmds = array_get(&conn->cmd_send_queue, &count);
 	if (count > 0 && cmds[0]->tag == conn->cur_tag) {
 		cmd = cmds[0];
-		array_delete(&conn->cmd_send_queue, 0, 1);
+		array_pop_front(&conn->cmd_send_queue);
 	} else {
 		cmds = array_get(&conn->cmd_wait_list, &count);
 		for (i = 0; i < count; i++) {
@@ -1625,7 +1624,7 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 				conn->name);
 		}
 		return 0;
-	} else if (!conn->client->set.ssl_verify) {
+	} else if (conn->client->set.ssl_set.allow_invalid_cert) {
 		if (conn->client->set.debug) {
 			i_debug("imapc(%s): SSL handshake successful, "
 				"ignoring invalid certificate: %s",
@@ -1640,19 +1639,11 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 
 static int imapc_connection_ssl_init(struct imapc_connection *conn)
 {
-	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
 	if (conn->client->ssl_ctx == NULL) {
 		i_error("imapc(%s): No SSL context", conn->name);
 		return -1;
-	}
-
-	i_zero(&ssl_set);
-	if (conn->client->set.ssl_verify) {
-		ssl_set.verbose_invalid_cert = TRUE;
-	} else {
-		ssl_set.allow_invalid_cert = TRUE;
 	}
 
 	if (conn->client->set.debug)
@@ -1671,7 +1662,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	io_remove(&conn->io);
 	if (io_stream_create_ssl_client(conn->client->ssl_ctx,
 					conn->client->set.host,
-					&ssl_set, &conn->input, &conn->output,
+					&conn->client->set.ssl_set,
+					&conn->input, &conn->output,
 					&conn->ssl_iostream, &error) < 0) {
 		i_error("imapc(%s): Couldn't initialize SSL client: %s",
 			conn->name, error);
@@ -1696,13 +1688,14 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	return 0;
 }
 
-static void imapc_connection_connected(struct imapc_connection *conn)
+static int imapc_connection_connected(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip = &conn->ips[conn->prev_connect_idx];
 	struct ip_addr local_ip;
 	in_port_t local_port;
 	int err;
-	io_remove(&conn->io);
+
+	i_assert(conn->io == NULL);
 
 	err = net_geterror(conn->fd);
 	if (err != 0) {
@@ -1710,7 +1703,7 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 			"connect(%s, %u) failed: %s",
 			net_ip2addr(ip), conn->client->set.port,
 			strerror(err)), conn->client->set.connect_retry_interval_msecs, TRUE);
-		return;
+		return -1;
 	}
 	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0)
 		local_port = 0;
@@ -1718,11 +1711,14 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 	       net_ip2addr(ip), conn->client->set.port,
 	       net_ip2addr(&local_ip), local_port);
 	conn->io = io_add(conn->fd, IO_READ, imapc_connection_input, conn);
+	o_stream_set_flush_callback(conn->output, imapc_connection_output,
+				    conn);
 
 	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
 		if (imapc_connection_ssl_init(conn) < 0)
 			imapc_connection_disconnect(conn);
 	}
+	return imapc_connection_output(conn);
 }
 
 static void imapc_connection_timeout(struct imapc_connection *conn)
@@ -1819,9 +1815,9 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 				       &conn->input, &conn->output);
 	}
 
-	o_stream_set_flush_callback(conn->output, imapc_connection_output,
+	o_stream_set_flush_pending(conn->output, TRUE);
+	o_stream_set_flush_callback(conn->output, imapc_connection_connected,
 				    conn);
-	conn->io = io_add(fd, IO_WRITE, imapc_connection_connected, conn);
 	conn->parser = imap_parser_create(conn->input, NULL,
 					  conn->client->set.max_line_length);
 	conn->to = timeout_add(conn->client->set.connect_timeout_msecs,
@@ -2035,10 +2031,10 @@ static void imapc_command_send_finished(struct imapc_connection *conn,
 	cmd->sent = TRUE;
 
 	/* everything sent. move command to wait list. */
-	cmdp = array_idx(&conn->cmd_send_queue, 0);
+	cmdp = array_front(&conn->cmd_send_queue);
 	i_assert(*cmdp == cmd);
-	array_delete(&conn->cmd_send_queue, 0, 1);
-	array_append(&conn->cmd_wait_list, &cmd, 1);
+	array_pop_front(&conn->cmd_send_queue);
+	array_push_back(&conn->cmd_wait_list, &cmd);
 
 	/* send the next command in queue */
 	imapc_command_send_more(conn);
@@ -2052,7 +2048,7 @@ imapc_command_get_sending_stream(struct imapc_command *cmd)
 	if (!array_is_created(&cmd->streams) || array_count(&cmd->streams) == 0)
 		return NULL;
 
-	stream = array_idx_modifiable(&cmd->streams, 0);
+	stream = array_front_modifiable(&cmd->streams);
 	if (stream->pos != cmd->send_pos)
 		return NULL;
 	return stream;
@@ -2094,7 +2090,7 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 
 	/* finished with the stream */
 	i_stream_unref(&stream->input);
-	array_delete(&cmd->streams, 0, 1);
+	array_pop_front(&cmd->streams);
 
 	i_assert(cmd->send_pos != cmd->data->used);
 	return 1;
@@ -2198,7 +2194,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		reply.text_without_resp = reply.text_full = "Mailbox not open";
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 
-		array_delete(&conn->cmd_send_queue, 0, 1);
+		array_pop_front(&conn->cmd_send_queue);
 		imapc_command_reply_free(cmd, &reply);
 		imapc_command_send_more(conn);
 		return;
@@ -2224,7 +2220,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		reply.text_without_resp = reply.text_full = "Mailbox not open";
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 
-		array_delete(&conn->cmd_send_queue, 0, 1);
+		array_pop_front(&conn->cmd_send_queue);
 		imapc_command_reply_free(cmd, &reply);
 		imapc_command_send_more(conn);
 		return;
@@ -2291,7 +2287,7 @@ static void imapc_connection_cmd_send(struct imapc_command *cmd)
 	if ((cmd->flags & IMAPC_COMMAND_FLAG_PRELOGIN) != 0 &&
 	    conn->state == IMAPC_CONNECTION_STATE_AUTHENTICATING) {
 		/* pre-login commands get inserted before everything else */
-		array_insert(&conn->cmd_send_queue, 0, &cmd, 1);
+		array_push_front(&conn->cmd_send_queue, &cmd);
 		imapc_command_send_more(conn);
 		return;
 	}

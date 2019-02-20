@@ -335,6 +335,9 @@ static int services_listen_master(struct service_list *service_list)
 	const char *path;
 	mode_t old_umask;
 
+	if (service_list->master_fd != -1)
+		return 1;
+
 	path = t_strdup_printf("%s/master", service_list->set->base_dir);
 	old_umask = umask(0600 ^ 0777);
 	service_list->master_fd = net_listen_unix(path, 16);
@@ -412,6 +415,10 @@ int services_listen_using(struct service_list *new_service_list,
 	struct service_listener *const *new_listeners, *const *old_listeners;
 	unsigned int i, j, count, new_count, old_count;
 
+	/* copy master listener */
+	new_service_list->master_fd = old_service_list->master_fd;
+	old_service_list->master_fd = -1;
+
 	/* rescue anvil's UNIX socket listener */
 	new_service = service_lookup_type(new_service_list, SERVICE_TYPE_ANVIL);
 	old_service = service_lookup_type(old_service_list, SERVICE_TYPE_ANVIL);
@@ -464,8 +471,7 @@ int services_listen_using(struct service_list *new_service_list,
 		if (old_listeners[j]->fd == -1)
 			continue;
 
-		if (close(old_listeners[j]->fd) < 0)
-			i_error("close(listener) failed: %m");
+		i_close_fd(&old_listeners[j]->fd);
 		switch (old_listeners[j]->type) {
 		case SERVICE_LISTENER_UNIX:
 		case SERVICE_LISTENER_FIFO: {

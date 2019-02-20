@@ -1,6 +1,7 @@
 /* Copyright (c) 2012-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "unichar.h"
 #include "str.h"
 
 static void test_str_append(void)
@@ -84,26 +85,26 @@ static void test_str_delete(void)
 	test_end();
 }
 
-static void test_str_append_n(void)
+static void test_str_append_max(void)
 {
 	string_t *str = t_str_new(32);
 
-	test_begin("str_append_n()");
-	str_append_n(str, "foo", 0);
+	test_begin("str_append_max()");
+	str_append_max(str, "foo", 0);
 	test_assert(str->used == 0);
 
-	str_append_n(str, "\0foo", 4);
+	str_append_max(str, "\0foo", 4);
 	test_assert(str->used == 0);
 
-	str_append_n(str, "foo", 3);
+	str_append_max(str, "foo", 3);
 	test_assert(str->used == 3 && memcmp(str_data(str), "foo", 3) == 0);
 	str_truncate(str, 0);
 
-	str_append_n(str, "foo", 2);
+	str_append_max(str, "foo", 2);
 	test_assert(str->used == 2 && memcmp(str_data(str), "fo", 2) == 0);
 	str_truncate(str, 0);
 
-	str_append_n(str, "foo\0bar", 7);
+	str_append_max(str, "foo\0bar", 7);
 	test_assert(str->used == 3 && memcmp(str_data(str), "foo", 3) == 0);
 	str_truncate(str, 0);
 	test_end();
@@ -127,12 +128,55 @@ static void test_str_truncate(void)
 	test_end();
 }
 
+static void test_str_truncate_utf8(void)
+{
+	string_t *str = t_str_new(8);
+	int i;
+
+	test_begin("str_truncate_utf8()");
+	str_append(str, "123456");
+	for (i = 100; i >= 6; i--) {
+		str_truncate_utf8(str, i);
+		test_assert_idx(str_len(str) == 6, i);
+	}
+	for (; i >= 0; i--) {
+		str_truncate_utf8(str, i);
+		test_assert_idx(str_len(str) == (unsigned int)i, i);
+	}
+
+	str_append(str, "\xE4\xB8\x80\xE4\xBa\x8C\xE4\xB8\x89"
+			"\xE5\x9b\x9b\xE4\xBa\x94\xE5\x85\xAD");
+	for (i = 100; i >= 18; i--) {
+		str_truncate_utf8(str, i);
+		test_assert_idx(str_len(str) == 18, i);
+	}
+	for (; i >= 0; i--) {
+		str_truncate_utf8(str, i);
+		test_assert_idx(str_len(str) % 3 == 0, i);
+		test_assert_idx((str_len(str) / 3) == ((unsigned int)i / 3), i);
+	}
+
+	str_append(str, "\xE4\xB8\x80""1""\xE4\xBa\x8C""2""\xE4\xB8\x89""3"
+			"\xE5\x9b\x9b""4""\xE4\xBa\x94""5""\xE5\x85\xAD""6");
+	for (i = 100; i >= 24; i--) {
+		str_truncate_utf8(str, i);
+		test_assert_idx(str_len(str) == 24, i);
+	}
+	for (; i >= 0; i--) {
+		str_truncate_utf8(str, i);
+		test_assert_idx(uni_utf8_data_is_valid(str_data(str),
+						       str_len(str)), i);
+	}
+	test_end();
+}
+
 void test_str(void)
 {
 	test_str_append();
 	test_str_c();
 	test_str_insert();
 	test_str_delete();
-	test_str_append_n();
+	test_str_append_max();
 	test_str_truncate();
+	test_str_truncate_utf8();
 }

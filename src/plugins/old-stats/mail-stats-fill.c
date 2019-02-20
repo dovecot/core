@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "time-util.h"
-#include "restrict-access.h"
 #include "stats-plugin.h"
 #include "mail-stats.h"
 
@@ -20,16 +19,16 @@ process_io_buffer_parse(const char *buf, struct mail_stats *stats)
 
 	tmp = t_strsplit(buf, "\n");
 	for (; *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "rchar: ", 7) == 0) {
+		if (str_begins(*tmp, "rchar: ")) {
 			if (str_to_uint64(*tmp + 7, &stats->read_bytes) < 0)
 				return -1;
-		} else if (strncmp(*tmp, "wchar: ", 7) == 0) {
+		} else if (str_begins(*tmp, "wchar: ")) {
 			if (str_to_uint64(*tmp + 7, &stats->write_bytes) < 0)
 				return -1;
-		} else if (strncmp(*tmp, "syscr: ", 7) == 0) {
+		} else if (str_begins(*tmp, "syscr: ")) {
 			if (str_to_uint32(*tmp + 7, &stats->read_count) < 0)
 				return -1;
-		} else if (strncmp(*tmp, "syscw: ", 7) == 0) {
+		} else if (str_begins(*tmp, "syscw: ")) {
 			if (str_to_uint32(*tmp + 7, &stats->write_count) < 0)
 				return -1;
 		}
@@ -47,9 +46,6 @@ static int process_io_open(void)
 	if (proc_io_disabled)
 		return -1;
 
-	bool dumpable = restrict_access_get_dumpable();
-	if (!dumpable)
-		restrict_access_set_dumpable(TRUE);
 	proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
 	if (proc_io_fd == -1 && errno == EACCES) {
 		/* kludge: if we're running with permissions temporarily
@@ -65,8 +61,6 @@ static int process_io_open(void)
 		}
 		errno = EACCES;
 	}
-	if (!dumpable)
-		restrict_access_set_dumpable(FALSE);
 	if (proc_io_fd == -1) {
 		/* ignore access errors too, certain security options can
 		   prevent root access to this file when not owned by root */
@@ -149,6 +143,11 @@ void mail_stats_fill(struct stats_user *suser, struct mail_stats *stats_r)
 	(void)gettimeofday(&stats_r->clock_time, NULL);
 	process_read_io_stats(stats_r);
 	user_trans_stats_get(suser, stats_r);
+}
+
+void mail_stats_global_preinit(void)
+{
+	(void)process_io_open();
 }
 
 void mail_stats_fill_global_deinit(void)

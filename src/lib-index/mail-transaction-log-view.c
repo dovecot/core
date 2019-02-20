@@ -20,7 +20,7 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 	view->head = view->tail = view->log->head;
 	view->head->refcount++;
 	i_array_init(&view->file_refs, 8);
-	array_append(&view->file_refs, &view->head, 1);
+	array_push_back(&view->file_refs, &view->head);
 
 	view->next = log->views;
 	log->views = view;
@@ -256,7 +256,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	/* Reference all used files. */
 	for (file = view->tail;; file = file->next) {
-		array_append(&view->file_refs, &file, 1);
+		array_push_back(&view->file_refs, &file);
 		file->refcount++;
 
 		if (file == view->head)
@@ -275,7 +275,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	   We're mapping the files in reverse order so that _log_file_map()
 	   can verify that prev_file_offset matches how far it actually managed
 	   to sync the file. */
-	files = array_idx(&view->file_refs, 0);
+	files = array_front(&view->file_refs);
 	for (i = array_count(&view->file_refs); i > 0; i--) {
 		file = files[i-1];
 		start_offset = file->hdr.file_seq == min_file_seq ?
@@ -381,7 +381,7 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 
 	mail_transaction_log_view_unref_all(view);
 	for (file = first; file != NULL; file = file->next) {
-		array_append(&view->file_refs, &file, 1);
+		array_push_back(&view->file_refs, &file);
 		file->refcount++;
 	}
 
@@ -419,7 +419,7 @@ void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 	    mail_transaction_log_find_file(view->log, oldest_file_seq, FALSE,
 					   &file, &reason) > 0) {
 		for (; file != NULL; file = file->next) {
-			array_append(&view->file_refs, &file, 1);
+			array_push_back(&view->file_refs, &file);
 			file->refcount++;
 		}
 	}

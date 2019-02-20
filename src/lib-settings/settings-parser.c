@@ -116,12 +116,12 @@ copy_unique_defaults(struct setting_parser_context *ctx,
 
 	for (i = 0; i < count; i++) T_BEGIN {
 		new_set = p_malloc(ctx->set_pool, info.struct_size);
-		array_append(arr, &new_set, 1);
+		array_push_back(arr, &new_set);
 
 		if (link->change_struct != NULL) {
 			i_assert(carr != NULL);
 			new_changes = p_malloc(ctx->set_pool, info.struct_size);
-			array_append(carr, &new_changes, 1);
+			array_push_back(carr, &new_changes);
 		}
 
 		keyp = CONST_PTR_OFFSET(children[i], info.type_offset);
@@ -528,11 +528,11 @@ setting_link_init_set_struct(struct setting_parser_context *ctx,
 	if ((ctx->flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
 		link->change_struct =
 			p_malloc(ctx->set_pool, link->info->struct_size);
-		array_append(link->change_array, &link->change_struct, 1);
+		array_push_back(link->change_array, &link->change_struct);
 	}
 
 	setting_parser_copy_defaults(ctx, link->info, link);
-	array_append(link->array, &link->set_struct, 1);
+	array_push_back(link->array, &link->set_struct);
 
 	if (link->info->parent_offset != (size_t)-1 && link->parent != NULL) {
 		ptr = STRUCT_MEMBER_P(link->set_struct,
@@ -827,8 +827,8 @@ settings_parse_strlist(struct setting_parser_context *ctx,
 	}
 
 	vkey = p_strdup(ctx->set_pool, key);
-	array_append(link->array, &vkey, 1);
-	array_append(link->array, &vvalue, 1);
+	array_push_back(link->array, &vkey);
+	array_push_back(link->array, &vvalue);
 }
 
 int settings_parse_keyvalue(struct setting_parser_context *ctx,
@@ -982,7 +982,7 @@ int settings_parse_stream(struct setting_parser_context *ctx,
 			return 0;
 		}
 		ctx->linenum++;
-		if (ctx->linenum == 1 && strncmp(line, "ERROR ", 6) == 0) {
+		if (ctx->linenum == 1 && str_begins(line, "ERROR ")) {
 			ctx->error = p_strdup(ctx->parser_pool, line + 6);
 			return -1;
 		}
@@ -1091,7 +1091,7 @@ int settings_parse_environ(struct setting_parser_context *ctx)
 	   in environ[] */
 	i_array_init(&sorted_envs_arr, 128);
 	for (i = 0; environ[i] != NULL; i++)
-		array_append(&sorted_envs_arr, &environ[i], 1);
+		array_push_back(&sorted_envs_arr, &environ[i]);
 	array_sort(&sorted_envs_arr, environ_cmp);
 	sorted_envs = array_get(&sorted_envs_arr, &count);
 
@@ -1558,7 +1558,7 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool,
 		i_assert(dest_count % 2 == 0);
 		for (i = 0; i < count; i += 2) {
 			if (dest_count > 0) {
-				dest_strings = array_idx(dest_arr, 0);
+				dest_strings = array_front(dest_arr);
 				for (j = 0; j < dest_count; j += 2) {
 					if (strcmp(strings[i], dest_strings[j]) == 0)
 						break;
@@ -1567,9 +1567,9 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool,
 					continue;
 			}
 			dup = keep_values ? strings[i] : p_strdup(pool, strings[i]);
-			array_append(dest_arr, &dup, 1);
+			array_push_back(dest_arr, &dup);
 			dup = keep_values ? strings[i+1] : p_strdup(pool, strings[i+1]);
-			array_append(dest_arr, &dup, 1);
+			array_push_back(dest_arr, &dup);
 		}
 		break;
 	}
@@ -1611,7 +1611,7 @@ static void *settings_dup_full(const struct setting_parser_info *info,
 				child_set = settings_dup_full(def->list_info,
 							      children[i], pool,
 							      keep_values);
-				array_append(dest_arr, &child_set, 1);
+				array_push_back(dest_arr, &child_set);
 				settings_set_parent(def->list_info, child_set,
 						    dest_set);
 			}
@@ -1678,7 +1678,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 				child_set = settings_changes_dup(def->list_info,
 								 children[i],
 								 pool);
-				array_append(dest_arr, &child_set, 1);
+				array_push_back(dest_arr, &child_set);
 			}
 			break;
 		}
@@ -1706,7 +1706,7 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 	t_array_init(&defines, 128);
 	/* add existing defines */
 	for (j = 0; parent->defines[j].key != NULL; j++)
-		array_append(&defines, &parent->defines[j], 1);
+		array_push_back(&defines, &parent->defines[j]);
 	new_struct_size = MEM_ALIGN(parent->struct_size);
 
 	/* add new dynamic defines */
@@ -1716,13 +1716,13 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 		for (j = 0; cur_defines[j].key != NULL; j++) {
 			new_define = cur_defines[j];
 			new_define.offset += new_struct_size;
-			array_append(&defines, &new_define, 1);
+			array_push_back(&defines, &new_define);
 		}
 		new_struct_size += MEM_ALIGN(parsers[i].info->struct_size);
 	}
 	new_defines = p_new(pool, struct setting_define,
 			    array_count(&defines) + 1);
-	memcpy(new_defines, array_idx(&defines, 0),
+	memcpy(new_defines, array_front(&defines),
 	       sizeof(*parent->defines) * array_count(&defines));
 	parent->defines = new_defines;
 
@@ -1741,8 +1741,8 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 	t_array_init(&dynamic_parsers, 32);
 	if (parent->dynamic_parsers != NULL) {
 		for (i = 0; parent->dynamic_parsers[i].name != NULL; i++) {
-			array_append(&dynamic_parsers,
-				     &parent->dynamic_parsers[i], 1);
+			array_push_back(&dynamic_parsers,
+					&parent->dynamic_parsers[i]);
 		}
 	}
 	offset = MEM_ALIGN(parent->struct_size);
@@ -1750,13 +1750,13 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 		new_parser = parsers[i];
 		new_parser.name = p_strdup(pool, new_parser.name);
 		new_parser.struct_offset = offset;
-		array_append(&dynamic_parsers, &new_parser, 1);
+		array_push_back(&dynamic_parsers, &new_parser);
 		offset += MEM_ALIGN(parsers[i].info->struct_size);
 	}
 	parent->dynamic_parsers =
 		p_new(pool, struct dynamic_settings_parser,
 		      array_count(&dynamic_parsers) + 1);
-	memcpy(parent->dynamic_parsers, array_idx(&dynamic_parsers, 0),
+	memcpy(parent->dynamic_parsers, array_front(&dynamic_parsers),
 	       sizeof(*parent->dynamic_parsers) *
 	       array_count(&dynamic_parsers));
 	parent->struct_size = new_struct_size;
@@ -1996,7 +1996,7 @@ settings_changes_init(const struct setting_parser_info *info,
 			for (i = 0; i < count; i++) {
 				set = settings_changes_init(def->list_info,
 							    children[i], pool);
-				array_append(dest_arr, &set, 1);
+				array_push_back(dest_arr, &set);
 			}
 		}
 	}
@@ -2024,7 +2024,7 @@ static void settings_copy_deflist(const struct setting_define *def,
 		p_array_init(dest_arr, pool, count);
 	for (i = 0; i < count; i++) {
 		child_set = settings_dup(def->list_info, children[i], pool);
-		array_append(dest_arr, &child_set, 1);
+		array_push_back(dest_arr, &child_set);
 		settings_set_parent(def->list_info, child_set,
 				    dest_link->set_struct);
 	}
@@ -2036,7 +2036,7 @@ static void settings_copy_deflist(const struct setting_define *def,
 	for (i = 0; i < count; i++) {
 		child_set = settings_changes_init(def->list_info,
 						  children[i], pool);
-		array_append(dest_arr, &child_set, 1);
+		array_push_back(dest_arr, &child_set);
 	}
 }
 
@@ -2103,14 +2103,14 @@ settings_copy_deflist_unique(const struct setting_define *def,
 			/* append */
 			child_set = settings_dup(def->list_info,
 						 src_children[i], pool);
-			array_append(dest_arr, &child_set, 1);
+			array_push_back(dest_arr, &child_set);
 			settings_set_parent(def->list_info, child_set,
 					    dest_link->set_struct);
 
 			child_set = settings_changes_init(def->list_info,
 							  src_cchildren[i],
 							  pool);
-			array_append(dest_carr, &child_set, 1);
+			array_push_back(dest_carr, &child_set);
 		}
 	}
 	return 0;
@@ -2200,7 +2200,7 @@ const char *settings_section_escape(const char *name)
 		return name;
 
 	str = t_str_new(i + strlen(name+i) + 8);
-	str_append_n(str, name, i);
+	str_append_data(str, name, i);
 	for (; name[i] != '\0'; i++) {
 		switch (name[i]) {
 		case '=':

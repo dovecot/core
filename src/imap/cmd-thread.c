@@ -116,8 +116,8 @@ static int orderedsubject_thread_cmp(const struct orderedsubject_thread *t1,
 	if (t1->timestamp > t2->timestamp)
 		return 1;
 
-	m1 = array_idx(&t1->msgs, 0);
-	m2 = array_idx(&t2->msgs, 0);
+	m1 = array_front(&t1->msgs);
+	m2 = array_front(&t2->msgs);
 	if (*m1 < *m2)
 		return -1;
 	if (*m1 > *m2)
@@ -218,7 +218,7 @@ static int imap_thread_orderedsubject(struct client_command_context *cmd,
 			p_array_init(&cur_thread->msgs, pool, 4);
 		}
 		num = cmd->uid ? mail->uid : mail->seq;
-		array_append(&cur_thread->msgs, &num, 1);
+		array_push_back(&cur_thread->msgs, &num);
 	}
 	str_free(&prev_subject);
 	ret = mailbox_search_deinit(&search_ctx);

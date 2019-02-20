@@ -195,6 +195,10 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_copy_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_move_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_update_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_path_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_cache_decision;
+extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_cache_remove;
+extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_cache_purge;
+extern struct doveadm_cmd_ver2 doveadm_cmd_rebuild_attachments;
 
 #define DOVEADM_CMD_MAIL_COMMON \
 DOVEADM_CMD_PARAM('A', "all-users", CMD_PARAM_BOOL, 0) \

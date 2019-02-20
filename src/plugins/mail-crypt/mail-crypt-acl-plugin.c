@@ -221,6 +221,8 @@ mail_crypt_acl_update_private_key(struct mailbox *src_box,
 					      dest_user->username,
 					      &keys, error_r) < 0)
 		ret = -1;
+	if (key != NULL)
+		dcrypt_key_unref_public(&key);
 
 	if (ret >= 0) {
 		array_foreach_modifiable(&keys, keyp) {

@@ -47,7 +47,7 @@ list_is_maildir_mailbox(struct mailbox_list *list, const char *dir,
 		}
 	}
 	if (!S_ISDIR(st.st_mode)) {
-		if (strncmp(fname, ".nfs", 4) == 0) {
+		if (str_begins(fname, ".nfs")) {
 			/* temporary NFS file */
 			*flags_r |= MAILBOX_NONEXISTENT;
 		} else {
@@ -186,7 +186,7 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 	}
 
 	if (!S_ISDIR(st.st_mode)) {
-		if (strncmp(fname, ".nfs", 4) == 0) {
+		if (str_begins(fname, ".nfs")) {
 			/* temporary NFS file */
 			*flags_r |= MAILBOX_NONEXISTENT;
 			return 0;

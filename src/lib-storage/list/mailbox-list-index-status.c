@@ -44,8 +44,10 @@ index_list_open_view(struct mailbox *box, bool status_check,
 
 	if (MAILBOX_IS_NEVER_IN_INDEX(box) && status_check)
 		return 0;
-	if (mailbox_list_index_refresh(box->list) < 0)
+	if (mailbox_list_index_refresh(box->list) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
+	}
 
 	node = mailbox_list_index_lookup(box->list, box->name);
 	if (node == NULL) {

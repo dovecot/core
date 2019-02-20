@@ -15,7 +15,7 @@ void dup2_append(ARRAY_TYPE(dup2) *dups, int fd_src, int fd_dest)
 
 	d.fd_src = fd_src;
 	d.fd_dest = fd_dest;
-	array_append(dups, &d, 1);
+	array_push_back(dups, &d);
 }
 
 int dup2_array(ARRAY_TYPE(dup2) *dups_arr)

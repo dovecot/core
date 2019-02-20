@@ -164,7 +164,7 @@ imap_msgpart_get_header_fields(pool_t pool, const char *header_list,
 			}
 
 			value = p_strdup(pool, t_str_ucase(value));
-			array_append(fields, &value, 1);
+			array_push_back(fields, &value);
 		}
 		/* istream-header-filter requires headers to be sorted */
 		array_sort(fields, i_strcasecmp_p);
@@ -192,7 +192,7 @@ imap_msgpart_parse_header_fields(struct imap_msgpart *msgpart,
 		return -1;
 
 	array_append_zero(&fields);
-	msgpart->headers = array_idx(&fields, 0);
+	msgpart->headers = array_front(&fields);
 	return 0;
 }
 
@@ -264,16 +264,16 @@ int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r)
 		/* body (for root or for message/rfc822) */
 		msgpart->fetch_type = FETCH_BODY;
 		msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
-	} else if (strncmp(section, "HEADER", 6) == 0) {
+	} else if (str_begins(section, "HEADER")) {
 		/* header (for root or for message/rfc822) */
 		if (section[6] == '\0') {
 			msgpart->fetch_type = FETCH_HEADER;
 			ret = 0;
-		} else if (strncmp(section, "HEADER.FIELDS.NOT", 17) == 0) {
+		} else if (str_begins(section, "HEADER.FIELDS.NOT")) {
 			msgpart->fetch_type = FETCH_HEADER_FIELDS_NOT;
 			ret = imap_msgpart_parse_header_fields(msgpart,
 							       section+17);
-		} else if (strncmp(section, "HEADER.FIELDS", 13) == 0) {
+		} else if (str_begins(section, "HEADER.FIELDS")) {
 			msgpart->fetch_type = FETCH_HEADER_FIELDS;
 			ret = imap_msgpart_parse_header_fields(msgpart,
 							       section+13);
@@ -360,7 +360,7 @@ void imap_msgpart_get_wanted_headers(struct imap_msgpart *msgpart,
 		return;
 
 	for (i = 0; msgpart->headers[i] != NULL; i++)
-		array_append(headers, &msgpart->headers[i], 1);
+		array_push_back(headers, &msgpart->headers[i]);
 }
 
 static int

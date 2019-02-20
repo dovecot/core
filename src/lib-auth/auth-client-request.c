@@ -5,22 +5,8 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "auth-client-private.h"
-#include "auth-server-connection.h"
-#include "auth-client-request.h"
 
-
-struct auth_client_request {
-	pool_t pool;
-
-	struct auth_server_connection *conn;
-	unsigned int id;
-	time_t created;
-
-	auth_request_callback_t *callback;
-	void *context;
-};
-
-static void auth_server_send_new_request(struct auth_server_connection *conn,
+static void auth_server_send_new_request(struct auth_client_connection *conn,
 					 struct auth_client_request *request,
 					 const struct auth_request_info *info)
 {
@@ -117,8 +103,10 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 	}
 	str_append_c(str, '\n');
 
-	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0)
-		i_error("Error sending request to auth server: %m");
+	if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0) {
+		e_error(request->event,
+			"Error sending request to auth server: %m");
+	}
 }
 
 struct auth_client_request *
@@ -138,8 +126,20 @@ auth_client_request_new(struct auth_client *client,
 	request->context = context;
 
 	request->id =
-		auth_server_connection_add_request(request->conn, request);
+		auth_client_connection_add_request(request->conn, request);
 	request->created = ioloop_time;
+
+	request->event = event_create(client->event);
+	event_add_int(request->event, "id", request->id);
+	event_set_append_log_prefix(request->event,
+				    t_strdup_printf("request [%u]: ",
+						    request->id));
+
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("auth_client_request_started");
+	e_debug(e->event(), "Started request");
+
 	T_BEGIN {
 		auth_server_send_new_request(request->conn, request, request_info);
 	} T_END;
@@ -161,8 +161,15 @@ void auth_client_request_continue(struct auth_client_request *request,
 	iov[2].iov_base = "\n";
 	iov[2].iov_len = 1;
 
-	if (o_stream_sendv(request->conn->output, iov, 3) < 0)
-		i_error("Error sending continue request to auth server: %m");
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("auth_client_request_continue");
+	e_debug(e->event(), "Continue request");
+
+	if (o_stream_sendv(request->conn->conn.output, iov, 3) < 0) {
+		e_error(request->event,
+			"Error sending continue request to auth server: %m");
+	}
 }
 
 static void ATTR_NULL(3, 4)
@@ -178,17 +185,34 @@ call_callback(struct auth_client_request *request,
 	callback(request, status, data_base64, args, request->context);
 }
 
-void auth_client_request_abort(struct auth_client_request **_request)
+static void auth_client_request_free(struct auth_client_request **_request)
 {
 	struct auth_client_request *request = *_request;
 
 	*_request = NULL;
 
+	event_unref(&request->event);
+	pool_unref(&request->pool);
+}
+
+void auth_client_request_abort(struct auth_client_request **_request,
+			       const char *reason)
+{
+	struct auth_client_request *request = *_request;
+
+	*_request = NULL;
+
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("auth_client_request_finished");
+	e->add_str("error", reason);
+	e_debug(e->event(), "Aborted: %s", reason);
+
 	auth_client_send_cancel(request->conn->client, request->id);
 	call_callback(request, AUTH_REQUEST_STATUS_ABORT, NULL, NULL);
 	/* remove the request */
-	auth_server_connection_remove_request(request->conn, request->id);
-	pool_unref(&request->pool);
+	auth_client_connection_remove_request(request->conn, request->id);
+	auth_client_request_free(&request);
 }
 
 unsigned int auth_client_request_get_id(struct auth_client_request *request)
@@ -222,6 +246,7 @@ void auth_client_request_server_input(struct auth_client_request *request,
 				      const char *const *args)
 {
 	const char *const *tmp, *base64_data = NULL;
+	struct event_passthrough *e;
 
 	if (request->callback == NULL) {
 		/* aborted already */
@@ -229,33 +254,54 @@ void auth_client_request_server_input(struct auth_client_request *request,
 	}
 
 	switch (status) {
+	case AUTH_REQUEST_STATUS_CONTINUE:
+		e = event_create_passthrough(request->event)->
+			set_name("auth_client_request_challenged");
+		break;
+	default:
+		e = event_create_passthrough(request->event)->
+			set_name("auth_client_request_finished");
+		break;
+	}
+
+	switch (status) {
 	case AUTH_REQUEST_STATUS_OK:
 		for (tmp = args; *tmp != NULL; tmp++) {
-			if (strncmp(*tmp, "resp=", 5) == 0) {
+			if (str_begins(*tmp, "resp=")) {
 				base64_data = *tmp + 5;
 				break;
 			}
 		}
+		e_debug(e->event(), "Finished");
 		break;
 	case AUTH_REQUEST_STATUS_CONTINUE:
 		base64_data = args[0];
 		args = NULL;
+		e_debug(e->event(), "Got challenge");
 		break;
 	case AUTH_REQUEST_STATUS_FAIL:
-	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
-	case AUTH_REQUEST_STATUS_ABORT:
+		e->add_str("error", "Authentication failed");
+		e_debug(e->event(), "Finished");
 		break;
+	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
+		e->add_str("error", "Internal failure");
+		e_debug(e->event(), "Finished");
+		break;
+	case AUTH_REQUEST_STATUS_ABORT:
+		i_unreached();
 	}
 
 	call_callback(request, status, base64_data, args);
 	if (status != AUTH_REQUEST_STATUS_CONTINUE)
-		pool_unref(&request->pool);
+		auth_client_request_free(&request);
 }
 
 void auth_client_send_cancel(struct auth_client *client, unsigned int id)
 {
 	const char *str = t_strdup_printf("CANCEL\t%u\n", id);
 
-	if (o_stream_send_str(client->conn->output, str) < 0)
-		i_error("Error sending request to auth server: %m");
+	if (o_stream_send_str(client->conn->conn.output, str) < 0) {
+		e_error(client->conn->event,
+			"Error sending request to auth server: %m");
+	}
 }

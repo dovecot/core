@@ -248,7 +248,7 @@ static void driver_test_exec(struct sql_db *_db, const char *query)
 {
 	struct test_sql_db *db = (struct test_sql_db*)_db;
 	struct test_driver_result *result =
-		array_idx_modifiable(&db->expected, 0);
+		array_front_modifiable(&db->expected);
 	i_assert(result->cur < result->nqueries);
 
 /*	i_debug("DUMMY EXECUTE: %s", query);
@@ -278,7 +278,7 @@ driver_test_query_s(struct sql_db *_db, const char *query)
 {
 	struct test_sql_db *db = (struct test_sql_db*)_db;
 	struct test_driver_result *result =
-		array_idx_modifiable(&db->expected, 0);
+		array_front_modifiable(&db->expected);
 	struct test_sql_result *res = i_new(struct test_sql_result, 1);
 
 	driver_test_exec(_db, query);
@@ -297,7 +297,7 @@ driver_test_query_s(struct sql_db *_db, const char *query)
 
 	/* drop it from array if it's used up */
 	if (result->cur == result->nqueries)
-		array_delete(&db->expected, 0, 1);
+		array_pop_front(&db->expected);
 
 	return &res->api;
 }
@@ -353,7 +353,7 @@ driver_test_update(struct sql_transaction_context *ctx, const char *query,
 {
 	struct test_sql_db *db= (struct test_sql_db*)ctx->db;
 	struct test_driver_result *result =
-		array_idx_modifiable(&db->expected, 0);
+		array_front_modifiable(&db->expected);
 	driver_test_exec(ctx->db, query);
 
 	if (affected_rows != NULL)
@@ -361,7 +361,7 @@ driver_test_update(struct sql_transaction_context *ctx, const char *query,
 
 	/* drop it from array if it's used up */
 	if (result->cur == result->nqueries)
-		array_delete(&db->expected, 0, 1);
+		array_pop_front(&db->expected);
 }
 
 static const char *
@@ -502,7 +502,7 @@ void sql_driver_test_add_expected_result(struct sql_db *_db,
 					  const struct test_driver_result *result)
 {
 	struct test_sql_db *db = (struct test_sql_db*)_db;
-	array_append(&db->expected, result, 1);
+	array_push_back(&db->expected, result);
 }
 
 void sql_driver_test_clear_expected_results(struct sql_db *_db)
