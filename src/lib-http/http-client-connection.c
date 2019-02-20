@@ -25,6 +25,14 @@
 static void http_client_connection_ready(struct http_client_connection *conn);
 static void http_client_connection_input(struct connection *_conn);
 
+static inline const struct http_client_settings *
+http_client_connection_get_settings(struct http_client_connection *conn)
+{
+	if (conn->peer != NULL)
+		return &conn->peer->client->set;
+	return &conn->ppool->peer->cctx->set;
+}
+
 static inline void
 http_client_connection_ref_request(struct http_client_connection *conn,
 	struct http_client_request *req)
@@ -119,7 +127,8 @@ static void
 http_client_connection_retry_requests(struct http_client_connection *conn,
 	unsigned int status, const char *error)
 {
-	const struct http_client_settings *set = &conn->peer->client->set;
+	const struct http_client_settings *set =
+		http_client_connection_get_settings(conn);
 	struct http_client_request *req, **req_idx;
 
 	if (!array_is_created(&conn->request_wait_list))
@@ -321,7 +330,8 @@ void http_client_connection_handle_output_error(
 
 int http_client_connection_check_ready(struct http_client_connection *conn)
 {
-	const struct http_client_settings *set = &conn->peer->client->set;
+	const struct http_client_settings *set =
+		http_client_connection_get_settings(conn);
 	int ret;
 
 	if (conn->in_req_callback) {
@@ -415,9 +425,8 @@ http_client_connection_idle_timeout(struct http_client_connection *conn)
 
 void http_client_connection_lost_peer(struct http_client_connection *conn)
 {
-	struct http_client_peer *peer = conn->peer;
-	struct http_client *client = peer->client;
-	const struct http_client_settings *set = &client->set;
+	const struct http_client_settings *set =
+		http_client_connection_get_settings(conn);
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client_peer_shared *pshared = ppool->peer;
 	unsigned int timeout, count;
@@ -1354,7 +1363,8 @@ http_client_connection_ready(struct http_client_connection *conn)
 	struct http_client_peer *peer = conn->peer;
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client_peer_shared *pshared = ppool->peer;
-	const struct http_client_settings *set = &peer->client->set;
+	const struct http_client_settings *set =
+		http_client_connection_get_settings(conn);
 
 	e_debug(conn->event, "Ready for requests");
 	i_assert(!conn->connect_succeeded);
@@ -1412,9 +1422,9 @@ static int
 http_client_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct http_client_connection *conn = context;
-	struct http_client_peer *peer = conn->peer;
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
-	const struct http_client_settings *set = &peer->client->set;
+	const struct http_client_settings *set =
+		http_client_connection_get_settings(conn);
 	const char *error, *host = pshared->addr.a.tcp.https_name;
 
 	if (ssl_iostream_check_cert_validity(conn->ssl_iostream, host, &error) == 0)
@@ -1433,10 +1443,10 @@ static int
 http_client_connection_ssl_init(struct http_client_connection *conn,
 				const char **error_r)
 {
-	struct http_client_peer *peer = conn->peer;
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client_peer_shared *pshared = ppool->peer;
-	const struct http_client_settings *set = &peer->client->set;
+	const struct http_client_settings *set =
+		http_client_connection_get_settings(conn);
 	struct ssl_iostream_settings ssl_set;
 	struct ssl_iostream_context *ssl_ctx = ppool->ssl_ctx;
 	const char *error;
@@ -1485,9 +1495,9 @@ http_client_connection_connected(struct connection *_conn, bool success)
 {
 	struct http_client_connection *conn =
 		(struct http_client_connection *)_conn;
-	struct http_client_peer *peer = conn->peer;
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
-	const struct http_client_settings *set = &peer->client->set;
+	const struct http_client_settings *set =
+		http_client_connection_get_settings(conn);
 	const char *error;
 
 	if (!success) {
