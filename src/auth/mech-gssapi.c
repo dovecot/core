@@ -392,7 +392,7 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		return -1;
 	} 
 
-	e_debug(&request->auth_request->mech_event,
+	e_debug(request->auth_request.mech_event,
 		"Negotiated security layer");
 
 	auth_request_handler_reply_continue(&request->auth_request,
@@ -443,7 +443,7 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 
 	if (!mech_gssapi_oid_cmp(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
 	    check_name_type) {
-		e_info(&request->auth_request->mech_event,
+		e_info(request->auth_request.mech_event,
 		       "OID not kerberos principal name");
 		return FALSE;
 	}
@@ -451,7 +451,7 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 	/* Init a krb5 context and parse the principal username */
 	krb5_err = krb5_init_context(&ctx);
 	if (krb5_err != 0) {
-		e_error(&request->auth_request->mech_event,
+		e_error(request->auth_request.mech_event,
 			"krb5_init_context() failed: %d", (int)krb5_err);
 		return FALSE;
 	}
@@ -460,7 +460,7 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 		/* writing the error string would be better, but we probably
 		   rarely get here and there doesn't seem to be a standard
 		   way of getting it */
-		e_info(&request->auth_request->mech_event,
+		e_info(request->auth_request.mech_event,
 		       "krb5_parse_name() failed: %d",
 		       (int)krb5_err);
 	} else {
