@@ -48,6 +48,13 @@ void lib_signals_unset_handler(int signo,
 			       signal_handler_t *handler, void *context)
 	ATTR_NULL(3);
 
+/* Indicate whether signals are expected for the indicated delayed handler. When
+   signals are expected, the io for delayed handlers will be allowed to wait
+   alone on the ioloop.  */
+void lib_signals_set_expected(int signo, bool expected,
+			      signal_handler_t *handler, void *context);
+	ATTR_NULL(4);
+
 /* Switch ioloop for a specific signal handler created with
    LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE. */
 void lib_signals_switch_ioloop(int signo,

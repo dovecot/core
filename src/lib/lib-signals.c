@@ -29,6 +29,7 @@ struct signal_handler {
 	struct signal_handler *next;
 	struct ioloop *current_ioloop;
 
+	bool expected:1;
 	bool shadowed:1;
 };
 
@@ -41,6 +42,7 @@ static struct signal_handler *signal_handlers[MAX_SIGNAL_VALUE+1] = { NULL, };
 static int sig_pipe_fd[2] = { -1, -1 };
 
 static bool signals_initialized = FALSE;
+static unsigned int signals_expected = 0;
 static struct io *io_sig = NULL;
 
 static siginfo_t pending_signals[MAX_SIGNAL_VALUE+1];
@@ -299,12 +301,24 @@ static void ATTR_NULL(1) signal_read(void *context ATTR_UNUSED)
 	}
 }
 
+static void lib_signals_update_expected_signals(bool expected)
+{
+	if (expected)
+		signals_expected++;
+	else {
+		i_assert(signals_expected > 0);
+		signals_expected--;
+	}
+	if (io_sig != NULL)
+		io_set_never_wait_alone(io_sig, signals_expected == 0);
+}
+
 static void lib_signals_enable_delayed_hander(void)
 {
 	if (current_ioloop != NULL && sig_pipe_fd[0] > 0) {
 		io_sig = io_add(sig_pipe_fd[0], IO_READ,
 			signal_read, NULL);
-		io_set_never_wait_alone(io_sig, TRUE);
+		io_set_never_wait_alone(io_sig, signals_expected == 0);
 	}
 }
 
@@ -462,6 +476,8 @@ void lib_signals_clear_handlers(int signo)
 	while (h != NULL) {
 		struct signal_handler *h_next = h->next;
 
+		if (h->expected)
+			signals_expected--;
 		i_free(h);
 		h = h_next;
 	}
@@ -481,12 +497,33 @@ void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 			}
 			h = *p;
 			*p = h->next;
+			if (h->expected)
+				lib_signals_update_expected_signals(FALSE);
 			i_free(h);
 			return;
 		}
 	}
 
 	i_panic("lib_signals_unset_handler(%d, %p, %p): handler not found",
+		signo, (void *)handler, context);
+}
+
+void lib_signals_set_expected(int signo, bool expected,
+			      signal_handler_t *handler, void *context)
+{
+	struct signal_handler *h;
+
+	for (signo = 0; signo < MAX_SIGNAL_VALUE; signo++) {
+		for (h = signal_handlers[signo]; h != NULL; h = h->next) {
+			if (h->expected == expected)
+				return;
+			h->expected = expected;
+			lib_signals_update_expected_signals(expected);
+			return;
+		}
+	}
+
+	i_panic("lib_signals_set_expected(%d, %p, %p): handler not found",
 		signo, (void *)handler, context);
 }
 
@@ -556,6 +593,7 @@ void lib_signals_deinit(void)
 		if (signal_handlers[i] != NULL)
 			lib_signals_clear_handlers(i);
 	}
+	i_assert(signals_expected == 0);
 
 	lib_signals_ioloop_detach();
 
