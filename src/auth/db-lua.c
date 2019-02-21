@@ -230,6 +230,15 @@ static int auth_request_lua_password_verify(lua_State *L)
 	return 2;
 }
 
+static int auth_request_lua_event(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	struct event *event = event_create(authdb_event(request));
+
+	dlua_push_event(script, event);
+	return 1;
+}
 
 /* put all methods here */
 static const luaL_Reg auth_request_methods[] ={
@@ -240,6 +249,7 @@ static const luaL_Reg auth_request_methods[] ={
 	{ "log_warning", auth_request_lua_log_warning },
 	{ "log_error", auth_request_lua_log_error },
 	{ "password_verify", auth_request_lua_password_verify },
+	{ "event", auth_request_lua_event },
 	{ NULL, NULL }
 };
 
