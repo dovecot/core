@@ -481,26 +481,28 @@ program_client_local_disconnect(struct program_client *pclient, bool force)
 
 	/* Calculate timeout */
 	runtime = timeval_diff_msecs(&ioloop_timeval, &pclient->start_time);
-	if (!force && pclient->set.input_idle_timeout_msecs > 0 &&
-	    runtime < pclient->set.input_idle_timeout_msecs)
+	if (force || (pclient->set.input_idle_timeout_msecs > 0 &&
+		      runtime >= pclient->set.input_idle_timeout_msecs)) {
+		e_debug(pclient->event,
+			"Terminating program immediately");
+
+		program_client_local_kill(plclient);
+		return;
+	}
+
+	if (runtime < pclient->set.input_idle_timeout_msecs)
 		timeout = pclient->set.input_idle_timeout_msecs - runtime;
 
 	e_debug(pclient->event,
-		"Waiting for program to finish after %lu msecs", runtime);
+		"Waiting for program to finish after %lu msecs "
+		"(timeout = %lu msecs)", runtime, timeout);
 
-	force = force ||
-		(timeout == 0 && pclient->set.input_idle_timeout_msecs > 0);
+	if (timeout == 0)
+		return;
 
-	if (!force) {
-		if (timeout > 0) {
-			plclient->to_kill =
-				timeout_add_short(timeout,
-						  program_client_local_kill,
-						  plclient);
-		}
-	} else {
-		program_client_local_kill(plclient);
-	}
+	plclient->to_kill = timeout_add_short(timeout,
+					      program_client_local_kill,
+					      plclient);
 }
 
 static void
