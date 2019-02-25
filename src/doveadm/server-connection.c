@@ -488,19 +488,6 @@ static int server_connection_read_settings(struct server_connection *conn)
 	return 0;
 }
 
-static int server_connection_ssl_handshaked(const char **error_r, void *context)
-{
-	struct server_connection *conn = context;
-
-	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
-					     conn->server->hostname,
-					     error_r) < 0)
-		return -1;
-	if (doveadm_debug)
-		i_debug("%s: SSL handshake successful", conn->server->name);
-	return 0;
-}
-
 static int server_connection_init_ssl(struct server_connection *conn)
 {
 	struct ssl_iostream_settings ssl_set;
@@ -520,9 +507,6 @@ static int server_connection_init_ssl(struct server_connection *conn)
 		i_error("Couldn't initialize SSL client: %s", error);
 		return -1;
 	}
-	ssl_iostream_set_handshake_callback(conn->ssl_iostream,
-					    server_connection_ssl_handshaked,
-					    conn);
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
 		i_error("SSL handshake failed: %s",
 			ssl_iostream_get_last_error(conn->ssl_iostream));
