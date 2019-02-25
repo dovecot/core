@@ -275,7 +275,9 @@ static void doveadm_read_settings(void)
 	set = master_service_settings_get_others(master_service)[1];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
 					pool_datastack_create());
-
+	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
+				       master_service_ssl_settings_get(master_service),
+				       pool_datastack_create());
 	doveadm_settings->parsed_features = set->parsed_features; /* copy this value by hand */
 }
 
