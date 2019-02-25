@@ -5,6 +5,7 @@
 #include "fts-api.h"
 
 struct solr_connection;
+struct fts_solr_settings;
 
 struct solr_result {
 	const char *box_id;
@@ -13,9 +14,9 @@ struct solr_result {
 	ARRAY_TYPE(fts_score_map) scores;
 };
 
-int solr_connection_init(const char *url,
+int solr_connection_init(const struct fts_solr_settings *solr_set,
 			 const struct ssl_iostream_settings *ssl_client_set,
-			 bool debug, struct solr_connection **conn_r,
+			 struct solr_connection **conn_r,
 			 const char **error_r);
 void solr_connection_deinit(struct solr_connection **conn);
 
