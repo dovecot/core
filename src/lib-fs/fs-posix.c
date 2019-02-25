@@ -444,12 +444,18 @@ fs_posix_read_stream(struct fs_file *_file, size_t max_buffer_size)
 {
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 	struct istream *input;
+	int fd_dup;
 
 	if (fs_posix_open_for_read(file) < 0)
 		input = i_stream_create_error_str(errno, "%s", fs_last_error(_file->fs));
+	else if ((fd_dup = dup(file->fd)) == -1)
+		input = i_stream_create_error_str(errno, "dup() failed: %m");
 	else {
-		/* the stream could live even after the fs_file */
-		input = i_stream_create_fd_autoclose(&file->fd, max_buffer_size);
+		/* The stream could live even after the fs_file.
+		   Don't use file->fd directly, because the fd may still be
+		   used for other purposes. It's especially important for files
+		   that were just created. */
+		input = i_stream_create_fd_autoclose(&fd_dup, max_buffer_size);
 	}
 	i_stream_set_name(input, file->full_path);
 	return input;
