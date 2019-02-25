@@ -197,9 +197,8 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 	i_zero(&ssl_set);
 	mail_user_init_ssl_client_settings(_backend->ns->user, &ssl_set);
 
-	return solr_connection_init(fuser->set.url, &ssl_set,
-				    fuser->set.debug, &backend->solr_conn,
-				    error_r);
+	return solr_connection_init(&fuser->set, &ssl_set,
+				    &backend->solr_conn, error_r);
 }
 
 static void fts_backend_solr_deinit(struct fts_backend *_backend)
