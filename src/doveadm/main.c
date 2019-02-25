@@ -76,6 +76,9 @@ static void main_init(void)
 	doveadm_settings = master_service_settings_get_others(master_service)[1];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info,
 					doveadm_settings, doveadm_settings_pool);
+	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
+				       master_service_ssl_settings_get(master_service),
+				       doveadm_settings_pool);
 	doveadm_verbose_proctitle =
 		master_service_settings_get(master_service)->verbose_proctitle;
 	if (doveadm_verbose_proctitle)

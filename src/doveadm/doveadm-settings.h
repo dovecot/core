@@ -37,6 +37,7 @@ struct doveadm_settings {
 extern const struct setting_parser_info doveadm_setting_parser_info;
 extern struct doveadm_settings *doveadm_settings;
 extern const struct master_service_settings *service_set;
+extern const struct master_service_ssl_settings *doveadm_ssl_set;
 struct ssl_iostream_settings;
 
 void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool);
