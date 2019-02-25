@@ -76,7 +76,12 @@ int ssl_iostream_handshake(struct ssl_iostream *ssl_io);
 /* Call the given callback when SSL handshake finishes. The callback must
    verify whether the certificate and its hostname is valid. If there is no
    callback, the default is to use ssl_iostream_check_cert_validity() with the
-   same host as given to io_stream_create_ssl_client() */
+   same host as given to io_stream_create_ssl_client()
+
+   Before the callback is called, certificate is only checked for issuer
+   and validity period. You should call ssl_iostream_check_cert_validity()
+   in your callback.
+*/
 void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
 					 ssl_iostream_handshake_callback_t *callback,
 					 void *context);
