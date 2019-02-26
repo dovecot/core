@@ -305,8 +305,8 @@ static void connection_client_connected(struct connection *conn, bool success)
 	}
 }
 
-void connection_init(struct connection_list *list,
-		     struct connection *conn)
+void connection_init(struct connection_list *list, struct connection *conn,
+		     const char *name)
 {
 	conn->ioloop = current_ioloop;
 	conn->fd_in = -1;
@@ -314,6 +314,7 @@ void connection_init(struct connection_list *list,
 	conn->disconnected = TRUE;
 
 	i_free(conn->name);
+	conn->name = i_strdup(name);
 
 	if (list->set.input_idle_timeout_secs != 0 &&
 	    conn->input_idle_timeout_secs == 0) {
@@ -343,9 +344,8 @@ void connection_init_server(struct connection_list *list,
 	i_assert(name != NULL);
 	i_assert(!list->set.client);
 
-	connection_init(list, conn);
+	connection_init(list, conn, name);
 
-	conn->name = i_strdup(name);
 	event_set_append_log_prefix(conn->event,
 				    t_strdup_printf("(%s): ", conn->name));
 	conn->fd_in = fd_in;
@@ -368,9 +368,8 @@ void connection_init_client_fd(struct connection_list *list,
 	i_assert(name != NULL);
 	i_assert(list->set.client);
 
-	connection_init(list, conn);
+	connection_init(list, conn, name);
 
-	conn->name = i_strdup(name);
 	event_set_append_log_prefix(conn->event,
 				    t_strdup_printf("(%s): ", conn->name));
 	conn->fd_in = fd_in;
@@ -393,10 +392,10 @@ void connection_init_client_ip_from(struct connection_list *list,
 {
 	i_assert(list->set.client);
 
-	connection_init(list, conn);
+	connection_init(list, conn,
+			t_strdup_printf("%s:%u", net_ip2addr(ip), port));
 
 	conn->fd_in = conn->fd_out = -1;
-	conn->name = i_strdup_printf("%s:%u", net_ip2addr(ip), port);
 
 	conn->ip = *ip;
 	conn->port = port;
@@ -426,10 +425,9 @@ void connection_init_client_unix(struct connection_list *list,
 {
 	i_assert(list->set.client);
 
-	connection_init(list, conn);
+	connection_init(list, conn, path);
 
 	conn->fd_in = conn->fd_out = -1;
-	conn->name = i_strdup(path);
 	conn->unix_socket = TRUE;
 
 	event_field_clear(conn->event, "ip");
@@ -448,9 +446,8 @@ void connection_init_from_streams(struct connection_list *list,
 {
 	i_assert(name != NULL);
 
-	connection_init(list, conn);
+	connection_init(list, conn, name);
 
-	conn->name = i_strdup(name);
 	conn->fd_in = i_stream_get_fd(input);
 	conn->fd_out = o_stream_get_fd(output);
 

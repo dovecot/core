@@ -1743,7 +1743,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->client = client;
 	conn->id = id++;
 	conn->protocol = protocol;
-	conn->conn.name = i_strdup(name);
 
 	conn->set = client->set;
 	if (set != NULL) {
@@ -1837,7 +1836,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		      smtp_protocol_name(conn->protocol));
 
 	conn->conn.event_parent = conn->event;
-	connection_init(conn->client->conn_list, &conn->conn);
+	connection_init(conn->client->conn_list, &conn->conn, name);
 
 	return conn;
 }
