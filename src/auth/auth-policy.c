@@ -242,12 +242,14 @@ static
 void auth_policy_log_result(struct policy_lookup_ctx *context)
 {
 	const char *action;
-	if (!context->expect_result)
-		return;
-	int result = context->result;
 	struct event_passthrough *e = event_create_passthrough(context->event)->
-		set_name("auth_policy_request_finished")->
-		add_int("policy_response", context->result);
+		set_name("auth_policy_request_finished");
+	if (!context->expect_result) {
+		e_debug(e->event(), "Policy report action finished");
+		return;
+	}
+	int result = context->result;
+	e->add_int("policy_response", context->result);
 	if (result < 0)
 		action = "drop connection";
 	else if (context->result == 0)
