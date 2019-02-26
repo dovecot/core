@@ -37,6 +37,8 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 		} else if (str_begins(*tmp, "default_ns=")) {
 			set->default_ns_prefix =
 				p_strdup(user->pool, *tmp + 11);
+		} else if (str_begins(*tmp, "rawlog_dir=")) {
+			set->rawlog_dir = p_strdup(user->pool, *tmp + 11);
 		} else {
 			i_error("fts_solr: Invalid setting: %s", *tmp);
 			return -1;
