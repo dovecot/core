@@ -1638,7 +1638,6 @@ http_client_connection_tunnel_response(const struct http_response *response,
 	connection_switch_ioloop_to(&conn->conn, cctx->ioloop);
 	i_stream_unref(&tunnel.input);
 	o_stream_unref(&tunnel.output);
-	conn->connect_initialized = TRUE;
 }
 
 static void
@@ -1714,9 +1713,11 @@ http_client_connection_create(struct http_client_peer *peer)
 	conn->label = i_strdup_printf("%s [%d]",
 		http_client_peer_shared_label(pshared), conn->id);
 	conn->event = event_create(ppool->peer->cctx->event);
-	conn->conn.event_parent = conn->event;
 	event_set_append_log_prefix(conn->event,
 		t_strdup_printf("conn %s: ", conn->label));
+
+	conn->conn.event_parent = conn->event;
+	connection_init(cctx->conn_list, &conn->conn, NULL);
 
 	switch (pshared->addr.type) {
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
@@ -1727,14 +1728,12 @@ http_client_connection_create(struct http_client_peer *peer)
 		connection_init_client_unix(cctx->conn_list, &conn->conn,
 			addr->a.un.path);
 		connection_switch_ioloop_to(&conn->conn, cctx->ioloop);
-		conn->connect_initialized = TRUE;
 		http_client_connection_connect(conn, timeout_msecs);
 		break;
 	default:
 		connection_init_client_ip(cctx->conn_list, &conn->conn, NULL,
 					  &addr->a.tcp.ip, addr->a.tcp.port);
 		connection_switch_ioloop_to(&conn->conn, cctx->ioloop);
-		conn->connect_initialized = TRUE;
 		http_client_connection_connect(conn, timeout_msecs);
 	}
 
@@ -1788,8 +1787,7 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 	if (conn->http_parser != NULL)
 		http_response_parser_deinit(&conn->http_parser);
 
-	if (conn->connect_initialized)
-		connection_disconnect(&conn->conn);
+	connection_disconnect(&conn->conn);
 
 	io_remove(&conn->io_req_payload);
 	timeout_remove(&conn->to_requests);
@@ -1845,8 +1843,7 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 		array_free(&conn->request_wait_list);
 
 	ssl_iostream_destroy(&conn->ssl_iostream);
-	if (conn->connect_initialized)
-		connection_deinit(&conn->conn);
+	connection_deinit(&conn->conn);
 	io_wait_timer_remove(&conn->io_wait_timer);
 	
 	event_unref(&conn->event);
@@ -1874,8 +1871,7 @@ void http_client_connection_switch_ioloop(struct http_client_connection *conn)
 	struct http_client_context *cctx = pshared->cctx;
 	struct ioloop *ioloop = cctx->ioloop;
 
-	if (conn->connect_initialized)
-		connection_switch_ioloop_to(&conn->conn, ioloop);
+	connection_switch_ioloop_to(&conn->conn, ioloop);
 	if (conn->io_req_payload != NULL) {
 		conn->io_req_payload =
 			io_loop_move_io_to(ioloop, &conn->io_req_payload);
