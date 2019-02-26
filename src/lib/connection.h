@@ -152,8 +152,8 @@ struct connection_list {
 	struct connection_vfuncs v;
 };
 
-void connection_init(struct connection_list *list,
-		     struct connection *conn);
+void connection_init(struct connection_list *list, struct connection *conn,
+		     const char *name) ATTR_NULL(3);
 void connection_init_server(struct connection_list *list,
 			    struct connection *conn, const char *name,
 			    int fd_in, int fd_out);
