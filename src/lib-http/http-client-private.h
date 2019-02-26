@@ -193,7 +193,6 @@ struct http_client_connection {
 	bool connected:1;           /* connection is connected */
 	bool tunneling:1;           /* last sent request turns this
 	                               connection into tunnel */
-	bool connect_initialized:1; /* connection was initialized */
 	bool connect_succeeded:1;   /* connection succeeded including SSL */
 	bool connect_failed:1;      /* connection failed */
 	bool lost_prematurely:1;    /* lost connection before receiving any data */
