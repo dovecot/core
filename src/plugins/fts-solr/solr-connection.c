@@ -155,6 +155,7 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		http_set.request_timeout_msecs = 60*1000;
 		http_set.ssl = ssl_client_set;
 		http_set.debug = solr_set->debug;
+		http_set.rawlog_dir = solr_set->rawlog_dir;
 		solr_http_client = http_client_init(&http_set);
 	}
 
