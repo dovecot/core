@@ -305,12 +305,13 @@ static void connection_client_connected(struct connection *conn, bool success)
 	}
 }
 
-void connection_init(struct connection_list *list, struct connection *conn,
-		     const char *name)
+static void
+connection_init_full(struct connection_list *list, struct connection *conn,
+		     const char *name, int fd_in, int fd_out)
 {
 	conn->ioloop = current_ioloop;
-	conn->fd_in = -1;
-	conn->fd_out = -1;
+	conn->fd_in = fd_in;
+	conn->fd_out = fd_out;
 	conn->disconnected = TRUE;
 
 	i_free(conn->name);
@@ -337,6 +338,12 @@ void connection_init(struct connection_list *list, struct connection *conn,
 	connection_set_default_handlers(conn);
 }
 
+void connection_init(struct connection_list *list, struct connection *conn,
+		     const char *name)
+{
+	connection_init_full(list, conn, name, -1, -1);
+}
+
 void connection_init_server(struct connection_list *list,
 			    struct connection *conn, const char *name,
 			    int fd_in, int fd_out)
@@ -344,12 +351,10 @@ void connection_init_server(struct connection_list *list,
 	i_assert(name != NULL);
 	i_assert(!list->set.client);
 
-	connection_init(list, conn, name);
+	connection_init_full(list, conn, name, fd_in, fd_out);
 
 	event_set_append_log_prefix(conn->event,
 				    t_strdup_printf("(%s): ", conn->name));
-	conn->fd_in = fd_in;
-	conn->fd_out = fd_out;
 
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name("client_connection_connected");
@@ -368,12 +373,10 @@ void connection_init_client_fd(struct connection_list *list,
 	i_assert(name != NULL);
 	i_assert(list->set.client);
 
-	connection_init(list, conn, name);
+	connection_init_full(list, conn, name, fd_in, fd_out);
 
 	event_set_append_log_prefix(conn->event,
 				    t_strdup_printf("(%s): ", conn->name));
-	conn->fd_in = fd_in;
-	conn->fd_out = fd_out;
 
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name("server_connection_connected");
@@ -396,8 +399,6 @@ void connection_init_client_ip_from(struct connection_list *list,
 		name = t_strdup_printf("%s:%u", net_ip2addr(ip), port);
 
 	connection_init(list, conn, name);
-
-	conn->fd_in = conn->fd_out = -1;
 
 	conn->remote_ip = *ip;
 	conn->remote_port = port;
@@ -429,7 +430,6 @@ void connection_init_client_unix(struct connection_list *list,
 
 	connection_init(list, conn, path);
 
-	conn->fd_in = conn->fd_out = -1;
 	conn->unix_socket = TRUE;
 
 	event_field_clear(conn->event, "ip");
@@ -448,10 +448,8 @@ void connection_init_from_streams(struct connection_list *list,
 {
 	i_assert(name != NULL);
 
-	connection_init(list, conn, name);
-
-	conn->fd_in = i_stream_get_fd(input);
-	conn->fd_out = o_stream_get_fd(output);
+	connection_init_full(list, conn, name,
+			     i_stream_get_fd(input), o_stream_get_fd(output));
 
 	i_assert(conn->fd_in >= 0);
 	i_assert(conn->fd_out >= 0);
