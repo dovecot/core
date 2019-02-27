@@ -1079,7 +1079,6 @@ http_server_connection_create(struct http_server *server,
 	const struct http_server_settings *set = &server->set;
 	struct http_server_connection *conn;
 	static unsigned int id = 0;
-	const char *name;
 
 	i_assert(!server->shutting_down);
 
@@ -1109,34 +1108,8 @@ http_server_connection_create(struct http_server *server,
 				set->socket_recv_buffer_size);
 	}
 
-	/* get a name for this connection */
-	if (fd_in != fd_out || net_getpeername(fd_in, &conn->ip, &conn->port) < 0) {
-		name = t_strdup_printf("[%u]", id);
-	} else {
-		if (conn->ip.family == 0) {
-			struct net_unix_cred cred;
-
-			if (net_getunixcred(fd_in, &cred) < 0) {
-				name = t_strdup_printf("[%u]", id);
-			} else if (cred.pid == (pid_t)-1) {
-				name = t_strdup_printf("unix:uid=%ld [%u]", (long)cred.uid, id);
-			} else {
-				name = t_strdup_printf
-					("unix:pid=%ld,uid=%ld [%u]", (long)cred.pid, (long)cred.uid, id);
-			}
-		} else if (conn->ip.family == AF_INET6) {
-			name = t_strdup_printf("[%s]:%u [%u]",
-					       net_ip2addr(&conn->ip),
-					       conn->port, id);
-		} else {
-			name = t_strdup_printf("%s:%u [%u]",
-					       net_ip2addr(&conn->ip),
-					       conn->port, id);
-		}
-	}
-
-	connection_init_server
-		(server->conn_list, &conn->conn, name, fd_in, fd_out);
+	connection_init_server(server->conn_list, &conn->conn, NULL,
+			       fd_in, fd_out);
 
 	if (!ssl)
 		http_server_connection_ready(conn);
