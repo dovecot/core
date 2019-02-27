@@ -313,7 +313,7 @@ void doveadm_connection_create(struct replicator_brain *brain, int fd)
 	client = i_new(struct doveadm_connection, 1);
 	client->brain = brain;
 	connection_init_server(doveadm_connections, &client->conn,
-			       "(doveadm client)", fd, fd);
+			       "doveadm-client", fd, fd);
 }
 
 static struct connection_settings doveadm_conn_set = {
