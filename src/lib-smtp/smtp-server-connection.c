@@ -811,7 +811,6 @@ smtp_server_connection_alloc(struct smtp_server *server,
 			     const struct smtp_server_callbacks *callbacks,
 			     void *context)
 {
-	static unsigned int id = 0;
 	struct smtp_server_connection *conn;
 	pool_t pool;
 
@@ -819,7 +818,6 @@ smtp_server_connection_alloc(struct smtp_server *server,
 	conn = p_new(pool, struct smtp_server_connection, 1);
 	conn->pool = pool;
 	conn->refcount = 1;
-	conn->id = id++;
 	conn->server = server;
 	conn->callbacks = callbacks;
 	conn->context = context;
