@@ -160,6 +160,11 @@ void connection_init(struct connection_list *list, struct connection *conn,
 void connection_init_server(struct connection_list *list,
 			    struct connection *conn, const char *name,
 			    int fd_in, int fd_out);
+void connection_init_server_ip(struct connection_list *list,
+			       struct connection *conn, const char *name,
+			       int fd_in, int fd_out,
+			       const struct ip_addr *remote_ip,
+			       in_port_t remote_port) ATTR_NULL(6);
 void connection_init_client_ip(struct connection_list *list,
 			       struct connection *conn, const char *name,
 			       const struct ip_addr *ip, in_port_t port)
