@@ -221,6 +221,38 @@ void connection_input_resume(struct connection *conn)
 	}
 }
 
+static void
+connection_update_properties(struct connection *conn)
+{
+	int fd = (conn->fd_in < 0 ? conn->fd_out : conn->fd_in);
+	struct net_unix_cred cred;
+
+	if (conn->remote_ip.family != 0)
+		i_assert(conn->remote_port != 0);
+	else if (conn->fd_in != conn->fd_out || fd < 0 ||
+		 net_getpeername(fd, &conn->remote_ip,
+				 &conn->remote_port) < 0 ||
+		 conn->remote_ip.family == 0) {
+		conn->remote_ip.family = 0;
+		conn->remote_port = 0;
+
+		if (conn->unix_peer_known) {
+			/* already known */
+		} else if (fd < 0 || errno == ENOTSOCK ||
+		      net_getunixcred(fd, &cred) < 0) {
+			conn->remote_uid = (uid_t)-1;
+			conn->remote_pid = (pid_t)-1;
+		} else {
+			conn->remote_pid = cred.pid;
+			conn->remote_uid = cred.uid;
+		}
+		conn->unix_peer_known = TRUE;
+	} else {
+		conn->remote_uid = (uid_t)-1;
+		conn->remote_pid = (pid_t)-1;
+	}
+}
+
 static void connection_init_streams(struct connection *conn)
 {
 	const struct connection_settings *set = &conn->list->set;
@@ -284,6 +316,8 @@ static void connection_client_connected(struct connection *conn, bool success)
 
 	i_assert(conn->list->set.client);
 
+	connection_update_properties(conn);
+
 	conn->connect_finished = ioloop_timeval;
 	event_add_timeval(conn->event, "connect_finished_time",
 			  &ioloop_timeval);
@@ -335,6 +369,8 @@ connection_init_full(struct connection_list *list, struct connection *conn,
 		DLLIST_PREPEND(&list->connections, conn);
 		list->connections_count++;
 	}
+
+	connection_update_properties(conn);
 	connection_set_default_handlers(conn);
 }
 
@@ -398,8 +434,6 @@ void connection_init_client_ip_from(struct connection_list *list,
 	if (name == NULL)
 		name = t_strdup_printf("%s:%u", net_ip2addr(ip), port);
 
-	connection_init(list, conn, name);
-
 	conn->remote_ip = *ip;
 	conn->remote_port = port;
 
@@ -407,6 +441,8 @@ void connection_init_client_ip_from(struct connection_list *list,
 		conn->local_ip = *my_ip;
 	else
 		i_zero(&conn->local_ip);
+
+	connection_init(list, conn, name);
 
 	if (my_ip != NULL)
 		event_add_str(conn->event, "client_ip", net_ip2addr(my_ip));
@@ -428,9 +464,9 @@ void connection_init_client_unix(struct connection_list *list,
 {
 	i_assert(list->set.client);
 
-	connection_init(list, conn, path);
-
 	conn->unix_socket = TRUE;
+
+	connection_init(list, conn, path);
 
 	event_field_clear(conn->event, "ip");
 	event_field_clear(conn->event, "port");
@@ -513,6 +549,7 @@ int connection_client_connect(struct connection *conn)
 
 	if (conn->remote_port != 0 ||
 	    conn->list->set.delayed_unix_client_connected_callback) {
+		connection_update_properties(conn);
 		conn->io = io_add_to(conn->ioloop, conn->fd_out, IO_WRITE,
 				     connection_socket_connected, conn);
 		e_debug(conn->event,
