@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "istream-unix.h"
@@ -222,6 +223,73 @@ void connection_input_resume(struct connection *conn)
 }
 
 static void
+connection_update_property_label(struct connection *conn)
+{
+	const char *label;
+
+	if (conn->remote_ip.family == 0) {
+		if (conn->remote_uid == (uid_t)-1)
+			label = NULL;
+		else if (conn->remote_pid != (pid_t)-1) {
+			label = t_strdup_printf("pid=%ld,uid=%ld",
+						(long)conn->remote_pid,
+						(long)conn->remote_uid);
+		} else {
+			label = t_strdup_printf("uid=%ld",
+						(long)conn->remote_uid);
+		}
+	} else if (conn->remote_ip.family == AF_INET6) {
+		label = t_strdup_printf("[%s]:%u",
+					net_ip2addr(&conn->remote_ip),
+					conn->remote_port);
+	} else {
+		label = t_strdup_printf("%s:%u",
+					net_ip2addr(&conn->remote_ip),
+					conn->remote_port);
+	}
+
+	i_free(conn->property_label);
+	conn->property_label = i_strdup(label);
+}
+
+static void
+connection_update_label(struct connection *conn)
+{
+	bool unix_socket = conn->unix_socket ||
+		(conn->remote_ip.family == 0 && conn->remote_uid != (uid_t)-1);
+	string_t *label;
+
+	label = t_str_new(64);
+	if (conn->name != NULL)
+		str_append(label, conn->name);
+	if (conn->property_label != NULL) {
+		if (str_len(label) == 0)
+			str_append(label, conn->property_label);
+		else {
+			str_append(label, " (");
+			str_append(label, conn->property_label);
+			str_append(label, ")");
+		}
+	}
+	if (str_len(label) == 0) {
+		if (conn->fd_in >= 0 &&
+		    (conn->fd_in == conn->fd_out || conn->fd_out < 0))
+			str_printfa(label, "fd=%d", conn->fd_in);
+		else if (conn->fd_in < 0 && conn->fd_out >= 0)
+			str_printfa(label, "fd=%d", conn->fd_out);
+		else if (conn->fd_in >= 0 && conn->fd_out >= 0) {
+			str_printfa(label, "fd_in=%d,fd_out=%d",
+				    conn->fd_in, conn->fd_out);
+		}
+	}
+	if (unix_socket && str_len(label) > 0)
+		str_insert(label, 0, "unix:");
+
+	i_free(conn->label);
+	conn->label = i_strdup(str_c(label));
+}
+
+static void
 connection_update_properties(struct connection *conn)
 {
 	int fd = (conn->fd_in < 0 ? conn->fd_out : conn->fd_in);
@@ -251,6 +319,9 @@ connection_update_properties(struct connection *conn)
 		conn->remote_uid = (uid_t)-1;
 		conn->remote_pid = (pid_t)-1;
 	}
+
+	connection_update_property_label(conn);
+	connection_update_label(conn);
 }
 
 static void connection_init_streams(struct connection *conn)
@@ -626,6 +697,8 @@ void connection_deinit(struct connection *conn)
 
 	connection_disconnect(conn);
 	i_free(conn->name);
+	i_free(conn->label);
+	i_free(conn->property_label);
 	event_unref(&conn->event);
 	conn->list = NULL;
 }

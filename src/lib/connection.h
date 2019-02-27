@@ -109,6 +109,9 @@ struct connection {
 	struct connection_list *list;
 
 	char *name;
+	char *label;
+	char *property_label;
+
 	int fd_in, fd_out;
 	struct ioloop *ioloop;
 	struct io *io;
