@@ -1078,13 +1078,11 @@ http_server_connection_create(struct http_server *server,
 {
 	const struct http_server_settings *set = &server->set;
 	struct http_server_connection *conn;
-	static unsigned int id = 0;
 
 	i_assert(!server->shutting_down);
 
 	conn = i_new(struct http_server_connection, 1);
 	conn->refcount = 1;
-	conn->id = id++;
 	conn->server = server;
 	conn->ssl = ssl;
 	conn->callbacks = callbacks;
