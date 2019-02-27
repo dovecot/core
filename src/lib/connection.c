@@ -515,9 +515,6 @@ void connection_init_server(struct connection_list *list,
 
 	connection_init_full(list, conn, name, fd_in, fd_out);
 
-	event_set_append_log_prefix(conn->event,
-				    t_strdup_printf("(%s): ", conn->name));
-
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name("client_connection_connected");
 	/* fd_out differs from fd_in only for stdin/stdout. Keep the logging
@@ -549,9 +546,6 @@ void connection_init_client_fd(struct connection_list *list,
 	i_assert(list->set.client);
 
 	connection_init_full(list, conn, name, fd_in, fd_out);
-
-	event_set_append_log_prefix(conn->event,
-				    t_strdup_printf("(%s): ", conn->name));
 
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name("server_connection_connected");
@@ -587,8 +581,6 @@ void connection_init_client_ip_from(struct connection_list *list,
 		event_add_str(conn->event, "client_ip", net_ip2addr(my_ip));
 	event_add_str(conn->event, "ip", net_ip2addr(ip));
 	event_add_str(conn->event, "port", dec2str(port));
-	event_set_append_log_prefix(conn->event,
-				    t_strdup_printf("(%s): ", conn->name));
 }
 
 void connection_init_client_ip(struct connection_list *list,
@@ -611,10 +603,6 @@ void connection_init_client_unix(struct connection_list *list,
 	event_field_clear(conn->event, "port");
 	event_field_clear(conn->event, "client_ip");
 	event_field_clear(conn->event, "client_port");
-
-	event_set_append_log_prefix(conn->event,
-				    t_strdup_printf("(%s): ",
-						    basename(conn->name)));
 }
 
 void connection_init_from_streams(struct connection_list *list,
@@ -640,9 +628,6 @@ void connection_init_from_streams(struct connection_list *list,
 
 	connection_update_stream_names(conn);
 	
-	event_set_append_log_prefix(conn->event,
-				    t_strdup_printf("(%s): ", conn->name));
-
 	conn->disconnected = FALSE;
 	connection_input_resume(conn);
 
