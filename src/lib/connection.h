@@ -167,12 +167,12 @@ void connection_init(struct connection_list *list, struct connection *conn,
 		     const char *name) ATTR_NULL(3);
 void connection_init_server(struct connection_list *list,
 			    struct connection *conn, const char *name,
-			    int fd_in, int fd_out);
+			    int fd_in, int fd_out) ATTR_NULL(3);
 void connection_init_server_ip(struct connection_list *list,
 			       struct connection *conn, const char *name,
 			       int fd_in, int fd_out,
 			       const struct ip_addr *remote_ip,
-			       in_port_t remote_port) ATTR_NULL(6);
+			       in_port_t remote_port) ATTR_NULL(3, 6);
 void connection_init_client_ip(struct connection_list *list,
 			       struct connection *conn, const char *name,
 			       const struct ip_addr *ip, in_port_t port)
@@ -184,10 +184,12 @@ void connection_init_client_ip_from(struct connection_list *list,
 void connection_init_client_unix(struct connection_list *list,
 				 struct connection *conn, const char *path);
 void connection_init_client_fd(struct connection_list *list,
-			       struct connection *conn, const char *name, int fd_int, int fd_out);
+			       struct connection *conn, const char *name,
+			       int fd_int, int fd_out) ATTR_NULL(3);
 void connection_init_from_streams(struct connection_list *list,
-			    struct connection *conn, const char *name,
-			    struct istream *input, struct ostream *output);
+				  struct connection *conn, const char *name,
+				  struct istream *input,
+				  struct ostream *output) ATTR_NULL(3);
 
 int connection_client_connect(struct connection *conn);
 

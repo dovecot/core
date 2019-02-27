@@ -512,7 +512,6 @@ void connection_init_server(struct connection_list *list,
 			    struct connection *conn, const char *name,
 			    int fd_in, int fd_out)
 {
-	i_assert(name != NULL);
 	i_assert(!list->set.client);
 
 	connection_init_full(list, conn, name, fd_in, fd_out);
@@ -548,7 +547,6 @@ void connection_init_client_fd(struct connection_list *list,
 			       struct connection *conn, const char *name,
 			       int fd_in, int fd_out)
 {
-	i_assert(name != NULL);
 	i_assert(list->set.client);
 
 	connection_init_full(list, conn, name, fd_in, fd_out);
@@ -624,8 +622,6 @@ void connection_init_from_streams(struct connection_list *list,
 				  struct connection *conn, const char *name,
 				  struct istream *input, struct ostream *output)
 {
-	i_assert(name != NULL);
-
 	connection_init_full(list, conn, name,
 			     i_stream_get_fd(input), o_stream_get_fd(output));
 
