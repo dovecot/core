@@ -175,11 +175,8 @@ static void http_server_connection_ready(struct http_server_connection *conn)
 	i_zero(&base_url);
 	if (set->default_host != NULL)
 		base_url.host.name = set->default_host;
-	else if (conn->ip.family != 0)
-		base_url.host.ip = conn->ip;
 	else
 		base_url.host.name = my_hostname;
-	base_url.port = conn->port;
 	base_url.have_ssl = conn->ssl;
 
 	conn->http_parser = http_request_parser_init(
