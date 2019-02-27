@@ -41,7 +41,7 @@ static void client_connected(struct master_service_connection *conn)
 
 	client = i_new(struct quota_client, 1);
 	connection_init_server(clients, &client->conn,
-			       "(quota client)", conn->fd, conn->fd);
+			       "quota-client", conn->fd, conn->fd);
 	master_service_client_connection_accept(conn);
 }
 
