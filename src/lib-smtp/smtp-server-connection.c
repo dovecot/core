@@ -980,42 +980,6 @@ smtp_server_connection_alloc(struct smtp_server *server,
 	return conn;
 }
 
-static const char *
-smtp_server_connection_get_name(struct smtp_server_connection *conn)
-{
-	const char *name;
-
-	/* get a name for this connection */
-	switch (conn->socket_family) {
-	case 0:
-		name = t_strdup_printf("[%u]", conn->id);
-		break;
-	case AF_UNIX:
-		if (conn->remote_uid == (uid_t)-1) {
-			name = t_strdup_printf("unix [%u]", conn->id);
-		} else if (conn->remote_pid == (pid_t)-1) {
-			name = t_strdup_printf("unix:uid=%u [%u]",
-				conn->remote_uid, conn->id);
-		} else {
-			name = t_strdup_printf("unix:pid=%u,uid=%u [%u]",
-				conn->remote_pid, conn->remote_uid, conn->id);
-		}
-		break;
-	case AF_INET6:
-		name = t_strdup_printf("[%s]:%u [%u]",
-			net_ip2addr(&conn->remote_ip), conn->remote_port, conn->id);
-		break;
-	case AF_INET:
-		name = t_strdup_printf("%s:%u [%u]",
-			net_ip2addr(&conn->remote_ip), conn->remote_port, conn->id);
-		break;
-	default:
-		i_unreached();
-	}
-
-	return name;
-}
-
 struct smtp_server_connection *
 smtp_server_connection_create(struct smtp_server *server,
 	int fd_in, int fd_out,
@@ -1024,15 +988,12 @@ smtp_server_connection_create(struct smtp_server *server,
 	const struct smtp_server_callbacks *callbacks, void *context)
 {
 	struct smtp_server_connection *conn;
-	const char *name;
 
 	conn = smtp_server_connection_alloc(server,
 		set, fd_in, fd_out, remote_ip, remote_port,
 		callbacks, context);
-	name = smtp_server_connection_get_name(conn);
-	connection_init_server_ip(server->conn_list,
-				  &conn->conn, name, fd_in, fd_out,
-				  remote_ip, remote_port);
+	connection_init_server_ip(server->conn_list, &conn->conn, NULL,
+				  fd_in, fd_out, remote_ip, remote_port);
 
 	conn->ssl_start = ssl_start;
 	if (ssl_start)
@@ -1054,7 +1015,6 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 	const struct smtp_server_callbacks *callbacks, void *context)
 {
 	struct smtp_server_connection *conn;
-	const char *name;
 	int fd_in, fd_out;
 
 	fd_in = i_stream_get_fd(input);
@@ -1065,13 +1025,12 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 	conn = smtp_server_connection_alloc(server, set,
 		fd_in, fd_out, remote_ip, remote_port,
 		callbacks, context);
-	name = smtp_server_connection_get_name(conn);
 	if (remote_ip != NULL && remote_ip->family != 0)
 		conn->conn.remote_ip = *remote_ip;
 	if (remote_port != 0)
 		conn->conn.remote_port = remote_port;
-	connection_init_from_streams(server->conn_list,
-		&conn->conn, name, input, output);
+	connection_init_from_streams(server->conn_list, &conn->conn, NULL,
+				     input, output);
 	conn->created_from_streams = TRUE;
 
 	/* halt input until started */
