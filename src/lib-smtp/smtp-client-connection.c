@@ -1502,8 +1502,8 @@ smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn)
 			net_ip2addr(ip), conn->port);
 	}
 
-	connection_init_client_ip_from(conn->client->conn_list,
-				       &conn->conn, ip, conn->port, my_ip);
+	connection_init_client_ip_from(conn->client->conn_list, &conn->conn,
+				       NULL, ip, conn->port, my_ip);
 
 	smtp_client_connection_do_connect(conn);
 }

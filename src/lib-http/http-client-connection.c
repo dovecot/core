@@ -1724,8 +1724,8 @@ http_client_connection_create(struct http_client_peer *peer)
 		http_client_connection_connect(conn, timeout_msecs);
 		break;
 	default:
-		connection_init_client_ip(cctx->conn_list, &conn->conn,
-			&addr->a.tcp.ip, addr->a.tcp.port);
+		connection_init_client_ip(cctx->conn_list, &conn->conn, NULL,
+					  &addr->a.tcp.ip, addr->a.tcp.port);
 		connection_switch_ioloop_to(&conn->conn, cctx->ioloop);
 		conn->connect_initialized = TRUE;
 		http_client_connection_connect(conn, timeout_msecs);

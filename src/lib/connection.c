@@ -386,14 +386,16 @@ void connection_init_client_fd(struct connection_list *list,
 }
 
 void connection_init_client_ip_from(struct connection_list *list,
-				    struct connection *conn,
+				    struct connection *conn, const char *name,
 				    const struct ip_addr *ip, in_port_t port,
 				    const struct ip_addr *my_ip)
 {
 	i_assert(list->set.client);
 
-	connection_init(list, conn,
-			t_strdup_printf("%s:%u", net_ip2addr(ip), port));
+	if (name == NULL)
+		name = t_strdup_printf("%s:%u", net_ip2addr(ip), port);
+
+	connection_init(list, conn, name);
 
 	conn->fd_in = conn->fd_out = -1;
 
@@ -414,10 +416,10 @@ void connection_init_client_ip_from(struct connection_list *list,
 }
 
 void connection_init_client_ip(struct connection_list *list,
-			       struct connection *conn,
+			       struct connection *conn, const char *name,
 			       const struct ip_addr *ip, in_port_t port)
 {
-	connection_init_client_ip_from(list, conn, ip, port, NULL);
+	connection_init_client_ip_from(list, conn, name, ip, port, NULL);
 }
 
 void connection_init_client_unix(struct connection_list *list,

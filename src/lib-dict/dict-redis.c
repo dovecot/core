@@ -435,7 +435,7 @@ redis_dict_init(struct dict *driver, const char *uri,
 					    unix_path);
 	} else {
 		connection_init_client_ip(redis_connections, &dict->conn.conn,
-					  &ip, port);
+					  NULL, &ip, port);
 	}
 	dict->dict = *driver;
 	dict->conn.last_reply = str_new(default_pool, 256);

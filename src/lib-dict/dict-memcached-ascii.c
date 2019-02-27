@@ -432,7 +432,7 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 	}
 
 	connection_init_client_ip(memcached_ascii_connections, &dict->conn.conn,
-				  &dict->ip, dict->port);
+				  NULL, &dict->ip, dict->port);
 	dict->dict = *driver;
 	dict->conn.reply_str = str_new(default_pool, 256);
 	dict->conn.dict = dict;

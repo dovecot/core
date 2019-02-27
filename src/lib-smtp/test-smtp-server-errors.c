@@ -2073,8 +2073,8 @@ client_connection_init(const struct ip_addr *ip, in_port_t port)
 	conn = p_new(pool, struct client_connection, 1);
 	conn->pool = pool;
 
-	connection_init_client_ip(client_conn_list,
-		&conn->conn, ip, port);
+	connection_init_client_ip(client_conn_list, &conn->conn, NULL,
+				  ip, port);
 	(void)connection_client_connect(&conn->conn);
 }
 

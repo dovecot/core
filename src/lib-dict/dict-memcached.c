@@ -225,7 +225,7 @@ memcached_dict_init(struct dict *driver, const char *uri,
 	}
 
 	connection_init_client_ip(memcached_connections, &dict->conn.conn,
-				  &dict->ip, dict->port);
+				  NULL, &dict->ip, dict->port);
 	dict->dict = *driver;
 	dict->conn.cmd = buffer_create_dynamic(default_pool, 256);
 	dict->conn.dict = dict;
