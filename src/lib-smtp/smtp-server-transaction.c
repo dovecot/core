@@ -156,8 +156,8 @@ void smtp_server_transaction_write_trace_record(string_t *str,
 	else
 		str_append(str, "unknown");
 	host = "";
-	if (conn->remote_ip.family != 0)
-		host = net_ip2addr(&conn->remote_ip);
+	if (conn->conn.remote_ip.family != 0)
+		host = net_ip2addr(&conn->conn.remote_ip);
 	if (host[0] != '\0') {
 		str_append(str, " ([");
 		str_append(str, host);
