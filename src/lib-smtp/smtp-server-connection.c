@@ -1030,8 +1030,9 @@ smtp_server_connection_create(struct smtp_server *server,
 		set, fd_in, fd_out, remote_ip, remote_port,
 		callbacks, context);
 	name = smtp_server_connection_get_name(conn);
-	connection_init_server(server->conn_list,
-		&conn->conn, name, fd_in, fd_out);
+	connection_init_server_ip(server->conn_list,
+				  &conn->conn, name, fd_in, fd_out,
+				  remote_ip, remote_port);
 
 	conn->ssl_start = ssl_start;
 	if (ssl_start)
@@ -1065,6 +1066,10 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 		fd_in, fd_out, remote_ip, remote_port,
 		callbacks, context);
 	name = smtp_server_connection_get_name(conn);
+	if (remote_ip != NULL && remote_ip->family != 0)
+		conn->conn.remote_ip = *remote_ip;
+	if (remote_port != 0)
+		conn->conn.remote_port = remote_port;
 	connection_init_from_streams(server->conn_list,
 		&conn->conn, name, input, output);
 	conn->created_from_streams = TRUE;
@@ -1547,8 +1552,8 @@ void smtp_server_connection_get_proxy_data(struct smtp_server_connection *conn,
 					   struct smtp_proxy_data *proxy_data)
 {
 	i_zero(proxy_data);
-	proxy_data->source_ip = conn->remote_ip;
-	proxy_data->source_port = conn->remote_port;
+	proxy_data->source_ip = conn->conn.remote_ip;
+	proxy_data->source_port = conn->conn.remote_port;
 	if (conn->helo.domain_valid)
 		proxy_data->helo = conn->helo.domain;
 	proxy_data->login = conn->username;
@@ -1570,9 +1575,9 @@ void smtp_server_connection_set_proxy_data(struct smtp_server_connection *conn,
 	const struct smtp_proxy_data *proxy_data)
 {
 	if (proxy_data->source_ip.family != 0)
-		conn->remote_ip = proxy_data->source_ip;
+		conn->conn.remote_ip = proxy_data->source_ip;
 	if (proxy_data->source_port != 0)
-		conn->remote_port = proxy_data->source_port;
+		conn->conn.remote_port = proxy_data->source_port;
 	if (proxy_data->helo != NULL) {
 		i_free(conn->helo_domain);
 		conn->helo_domain = i_strdup(proxy_data->helo);
@@ -1596,8 +1601,8 @@ void smtp_server_connection_set_proxy_data(struct smtp_server_connection *conn,
 		struct smtp_proxy_data full_data;
 
 		i_zero(&full_data);
-		full_data.source_ip = conn->remote_ip;
-		full_data.source_port = conn->remote_port;
+		full_data.source_ip = conn->conn.remote_ip;
+		full_data.source_port = conn->conn.remote_port;
 		full_data.helo = conn->helo.domain;
 		full_data.login = conn->username;
 		full_data.proto = conn->proxy_proto;
