@@ -788,7 +788,8 @@ void smtp_server_connection_trigger_output(
 static struct connection_settings smtp_server_connection_set = {
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
-	.client = FALSE
+	.client = FALSE,
+	.log_connection_id = TRUE,
 };
 
 static const struct connection_vfuncs smtp_server_connection_vfuncs = {
