@@ -284,6 +284,11 @@ connection_update_label(struct connection *conn)
 	}
 	if (unix_socket && str_len(label) > 0)
 		str_insert(label, 0, "unix:");
+	if (conn->list->set.log_connection_id) {
+		if (str_len(label) > 0)
+			str_append_c(label, ' ');
+		str_printfa(label, "[%u]", conn->id);
+	}
 
 	i_free(conn->label);
 	conn->label = i_strdup(str_c(label));
@@ -414,6 +419,12 @@ static void
 connection_init_full(struct connection_list *list, struct connection *conn,
 		     const char *name, int fd_in, int fd_out)
 {
+	if (conn->id == 0) {
+		if (list->id_counter == 0)
+			list->id_counter++;
+		conn->id = list->id_counter++;
+	}
+
 	conn->ioloop = current_ioloop;
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;

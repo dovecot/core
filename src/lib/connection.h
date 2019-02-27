@@ -97,6 +97,8 @@ struct connection_settings {
 	   to make the functionality identical with inet sockets, which may
 	   simplify the calling code. */
 	bool delayed_unix_client_connected_callback;
+	/* Put the connection id in the log prefix */
+	bool log_connection_id;
 	/* If connect() to UNIX socket fails with EAGAIN, retry for this many
 	   milliseconds before giving up (0 = try once) */
 	unsigned int unix_client_connect_msecs;
@@ -111,6 +113,7 @@ struct connection {
 	char *name;
 	char *label;
 	char *property_label;
+	unsigned int id;
 
 	int fd_in, fd_out;
 	struct ioloop *ioloop;
@@ -153,6 +156,8 @@ struct connection {
 struct connection_list {
 	struct connection *connections;
 	unsigned int connections_count;
+
+	unsigned int id_counter;
 
 	struct connection_settings set;
 	struct connection_vfuncs v;
