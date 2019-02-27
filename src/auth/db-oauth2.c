@@ -603,12 +603,18 @@ db_oauth2_lookup_passwd_grant(struct oauth2_passwd_grant_result *result,
 
 	req->req = NULL;
 
-	if (!result->success) {
+	if (!result->valid) {
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-		error = result->error;
-	} else if (!result->valid) {
-		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-		error = "Invalid token";
+		if (result->success) {
+			error = auth_fields_find(req->fields, "error");
+			if (error != NULL &&
+			    strcmp("invalid_grant", error) == 0) {
+				passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+			}
+			if (error == NULL)
+				error = "Internal error";
+		} else
+			error = result->error;
 	} else {
 		db_oauth2_fields_merge(req, result->fields);
 		if (*req->db->set.introspection_url != '\0' &&
@@ -617,7 +623,13 @@ db_oauth2_lookup_passwd_grant(struct oauth2_passwd_grant_result *result,
 			auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
 					       "oauth2: Introspection needed after token validation");
 			req->token = auth_fields_find(req->fields, "access_token");
-			db_oauth2_lookup_introspect(req);
+			if (req->token != NULL)
+				db_oauth2_lookup_introspect(req);
+			else {
+				passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+				error = "Internal error";
+				db_oauth2_callback(req, passdb_result, error);
+			}
 			return;
 		}
 		db_oauth2_process_fields(req, &passdb_result, &error);
