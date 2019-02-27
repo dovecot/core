@@ -151,12 +151,6 @@ struct smtp_server_connection {
 	const struct smtp_server_callbacks *callbacks;
 	void *context;
 
-	unsigned int socket_family;
-	struct ip_addr remote_ip;
-	in_port_t remote_port;
-	pid_t remote_pid;
-	uid_t remote_uid;
-
 	enum smtp_proxy_protocol proxy_proto;
 	unsigned int proxy_ttl_plus_1;
 	unsigned int proxy_timeout_secs;

@@ -806,9 +806,10 @@ smtp_server_connection_list_init(void)
 
 static struct smtp_server_connection * ATTR_NULL(5, 6)
 smtp_server_connection_alloc(struct smtp_server *server,
-	const struct smtp_server_settings *set, int fd_in, int fd_out,
-	const struct ip_addr *remote_ip, in_port_t remote_port,
-	const struct smtp_server_callbacks *callbacks, void *context)
+			     const struct smtp_server_settings *set,
+			     int fd_in, int fd_out,
+			     const struct smtp_server_callbacks *callbacks,
+			     void *context)
 {
 	static unsigned int id = 0;
 	struct smtp_server_connection *conn;
@@ -933,31 +934,6 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		array_append_zero(&conn->rcpt_param_extensions);
 	}
 
-	conn->remote_pid = (pid_t)-1;
-	conn->remote_uid = (uid_t)-1;
-	if (remote_ip != NULL && remote_ip->family != 0) {
-		conn->remote_ip = *remote_ip;
-		conn->remote_port = remote_port;
-		conn->socket_family = conn->remote_ip.family;
-	} else if (fd_in != fd_out || net_getpeername(fd_in,
-		&conn->remote_ip, &conn->remote_port) < 0) {
-		/* tty connection probably */
-	} else {
-		if (conn->remote_ip.family == 0) {
-			struct net_unix_cred cred;
-
-			/* unix */
-			conn->socket_family = AF_UNIX;
-			if (net_getunixcred(fd_in, &cred) >= 0) {
-				conn->remote_pid = cred.pid;
-				conn->remote_uid = cred.uid;
-			}
-		} else {
-			/* ip / ip6 */
-			conn->socket_family = conn->remote_ip.family;
-		}
-	}
-
 	net_set_nonblock(fd_in, TRUE);
 	if (fd_in != fd_out)
 		net_set_nonblock(fd_out, TRUE);
@@ -989,9 +965,8 @@ smtp_server_connection_create(struct smtp_server *server,
 {
 	struct smtp_server_connection *conn;
 
-	conn = smtp_server_connection_alloc(server,
-		set, fd_in, fd_out, remote_ip, remote_port,
-		callbacks, context);
+	conn = smtp_server_connection_alloc(server, set, fd_in, fd_out,
+					    callbacks, context);
 	connection_init_server_ip(server->conn_list, &conn->conn, NULL,
 				  fd_in, fd_out, remote_ip, remote_port);
 
@@ -1022,9 +997,8 @@ smtp_server_connection_create_from_streams(struct smtp_server *server,
 	i_assert(fd_in >= 0);
 	i_assert(fd_out >= 0);
 
-	conn = smtp_server_connection_alloc(server, set,
-		fd_in, fd_out, remote_ip, remote_port,
-		callbacks, context);
+	conn = smtp_server_connection_alloc(server, set, fd_in, fd_out,
+					    callbacks, context);
 	if (remote_ip != NULL && remote_ip->family != 0)
 		conn->conn.remote_ip = *remote_ip;
 	if (remote_port != 0)
