@@ -402,6 +402,20 @@ void connection_init_server(struct connection_list *list,
 	connection_init_streams(conn);
 }
 
+void connection_init_server_ip(struct connection_list *list,
+			       struct connection *conn, const char *name,
+			       int fd_in, int fd_out,
+			       const struct ip_addr *remote_ip,
+			       in_port_t remote_port)
+{
+	if (remote_ip != NULL && remote_ip->family != 0)
+		conn->remote_ip = *remote_ip;
+	if (remote_port != 0)
+		conn->remote_port = remote_port;
+
+	connection_init_server(list, conn, name, fd_in, fd_out);
+}
+
 void connection_init_client_fd(struct connection_list *list,
 			       struct connection *conn, const char *name,
 			       int fd_in, int fd_out)
