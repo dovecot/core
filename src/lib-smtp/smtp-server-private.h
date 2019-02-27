@@ -225,7 +225,7 @@ smtp_server_command_label(struct smtp_server_command *cmd)
 static inline const char *
 smtp_server_connection_label(struct smtp_server_connection *conn)
 {
-	return conn->conn.name;
+	return conn->conn.label;
 }
 
 bool smtp_server_connection_pending_command_data(
