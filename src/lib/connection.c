@@ -433,9 +433,6 @@ void connection_streams_changed(struct connection *conn)
 
 static void connection_client_connected(struct connection *conn, bool success)
 {
-	struct event_passthrough *e = event_create_passthrough(conn->event)->
-		set_name("server_connection_connected");
-
 	i_assert(conn->list->set.client);
 
 	connection_update_properties(conn);
@@ -444,6 +441,8 @@ static void connection_client_connected(struct connection *conn, bool success)
 	event_add_timeval(conn->event, "connect_finished_time",
 			  &ioloop_timeval);
 
+	struct event_passthrough *e = event_create_passthrough(conn->event)->
+		set_name("server_connection_connected");
 	if (success) {
 		e_debug(e->event(), "Client connected (fd=%d)",
 			conn->fd_in);
