@@ -238,7 +238,7 @@ void http_server_payload_handler_switch_ioloop(
 static inline const char *
 http_server_connection_label(struct http_server_connection *conn)
 {
-	return conn->conn.name;
+	return conn->conn.label;
 }
 
 static inline void

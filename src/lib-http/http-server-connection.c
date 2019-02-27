@@ -1055,7 +1055,8 @@ http_server_connection_pending_payload(struct http_server_connection *conn)
 static struct connection_settings http_server_connection_set = {
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
-	.client = FALSE
+	.client = FALSE,
+	.log_connection_id = TRUE,
 };
 
 static const struct connection_vfuncs http_server_connection_vfuncs = {
