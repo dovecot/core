@@ -93,7 +93,6 @@ struct pop3c_client *
 pop3c_client_init(const struct pop3c_client_settings *set)
 {
 	struct pop3c_client *client;
-	struct ssl_iostream_settings ssl_set;
 	const char *error;
 	pool_t pool;
 
@@ -113,11 +112,12 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 		p_strdup(pool, set->dns_client_socket_path);
 	client->set.temp_path_prefix = p_strdup(pool, set->temp_path_prefix);
 	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
+	client->set.ssl_mode = set->ssl_mode;
 
 	if (set->ssl_mode != POP3C_CLIENT_SSL_MODE_NONE) {
 		ssl_iostream_settings_init_from(client->pool, &client->set.ssl_set, &set->ssl_set);
 		client->set.ssl_set.verbose_invalid_cert = !client->set.ssl_set.allow_invalid_cert;
-		if (ssl_iostream_client_context_cache_get(&ssl_set,
+		if (ssl_iostream_client_context_cache_get(&set->ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {
 			i_error("pop3c(%s:%u): Couldn't initialize SSL context: %s",
