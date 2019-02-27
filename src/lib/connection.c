@@ -399,13 +399,13 @@ void connection_init_client_ip_from(struct connection_list *list,
 
 	conn->fd_in = conn->fd_out = -1;
 
-	conn->ip = *ip;
-	conn->port = port;
+	conn->remote_ip = *ip;
+	conn->remote_port = port;
 
 	if (my_ip != NULL)
-		conn->my_ip = *my_ip;
+		conn->local_ip = *my_ip;
 	else
-		i_zero(&conn->my_ip);
+		i_zero(&conn->local_ip);
 
 	if (my_ip != NULL)
 		event_add_str(conn->event, "client_ip", net_ip2addr(my_ip));
@@ -497,9 +497,10 @@ int connection_client_connect(struct connection *conn)
 
 	e_debug(conn->event, "Connecting");
 
-	if (conn->port != 0) {
-		fd = net_connect_ip(&conn->ip, conn->port,
-			(conn->my_ip.family != 0 ? &conn->my_ip : NULL));
+	if (conn->remote_port != 0) {
+		fd = net_connect_ip(&conn->remote_ip, conn->remote_port,
+				    (conn->local_ip.family != 0 ?
+				     &conn->local_ip : NULL));
 	} else if (conn->list->set.unix_client_connect_msecs == 0) {
 		fd = net_connect_unix(conn->name);
 	} else {
@@ -512,7 +513,7 @@ int connection_client_connect(struct connection *conn)
 	conn->connect_started = ioloop_timeval;
 	conn->disconnected = FALSE;
 
-	if (conn->port != 0 ||
+	if (conn->remote_port != 0 ||
 	    conn->list->set.delayed_unix_client_connected_callback) {
 		conn->io = io_add_to(conn->ioloop, conn->fd_out, IO_WRITE,
 				     connection_socket_connected, conn);

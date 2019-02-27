@@ -127,8 +127,8 @@ struct connection {
 	struct event *event;
 
 	/* for IP client: */
-	struct ip_addr ip, my_ip;
-	in_port_t port;
+	struct ip_addr local_ip, remote_ip;
+	in_port_t remote_port;
 
 	/* received minor version */
 	unsigned int minor_version;
