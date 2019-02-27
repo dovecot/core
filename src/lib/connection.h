@@ -126,9 +126,11 @@ struct connection {
 	struct event *event_parent;
 	struct event *event;
 
-	/* for IP client: */
+	/* connection properties */
 	struct ip_addr local_ip, remote_ip;
 	in_port_t remote_port;
+	pid_t remote_pid;
+	uid_t remote_uid;
 
 	/* received minor version */
 	unsigned int minor_version;
@@ -141,6 +143,7 @@ struct connection {
 	bool version_received:1;
 	bool handshake_received:1;
 	bool unix_socket:1;
+	bool unix_peer_known:1;
 	bool disconnected:1;
 };
 
