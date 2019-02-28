@@ -1674,7 +1674,6 @@ http_client_connection_create(struct http_client_peer *peer)
 	struct http_client *client = peer->client;
 	const struct http_client_settings *set = &client->set;
 	struct http_client_connection *conn;
-	static unsigned int id = 0;
 	const struct http_client_peer_addr *addr = &pshared->addr;
 	const char *conn_type = "UNKNOWN";
 	unsigned int timeout_msecs;
@@ -1703,7 +1702,6 @@ http_client_connection_create(struct http_client_peer *peer)
 
 	conn = i_new(struct http_client_connection, 1);
 	conn->refcount = 1;
-	conn->id = id++;
 	conn->ppool = ppool;
 	conn->peer = peer;
 	conn->debug = client->set.debug;
