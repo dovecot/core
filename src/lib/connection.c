@@ -339,6 +339,20 @@ static void connection_update_stream_names(struct connection *conn)
 	}
 }
 
+void connection_update_event(struct connection *conn)
+{
+	string_t *prefix;
+
+	prefix = t_str_new(64);
+	str_append(prefix, "conn");
+	if (strlen(conn->label) > 0) {
+		str_append_c(prefix, ' ');
+		str_append(prefix, conn->label);
+	}
+	str_append(prefix, ": ");
+	event_set_append_log_prefix(conn->event, str_c(prefix));
+}
+
 static void
 connection_update_properties(struct connection *conn)
 {
@@ -373,6 +387,7 @@ connection_update_properties(struct connection *conn)
 	connection_update_property_label(conn);
 	connection_update_label(conn);
 	connection_update_stream_names(conn);
+	connection_update_event(conn);
 }
 
 static void connection_init_streams(struct connection *conn)
@@ -563,9 +578,6 @@ void connection_init_client_ip_from(struct connection_list *list,
 				    const struct ip_addr *my_ip)
 {
 	i_assert(list->set.client);
-
-	if (name == NULL)
-		name = t_strdup_printf("%s:%u", net_ip2addr(ip), port);
 
 	conn->remote_ip = *ip;
 	conn->remote_port = port;

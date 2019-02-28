@@ -1838,14 +1838,10 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		      smtp_protocol_name(conn->protocol));
 	event_set_forced_debug(conn_event, (set != NULL && set->debug));
 
-	conn->event = event_create(conn_event);
-
-	conn->conn.event_parent = conn->event;
+	conn->conn.event_parent = conn_event;
 	connection_init(conn->client->conn_list, &conn->conn, name);
+	conn->event = conn->conn.event;
 	event_unref(&conn_event);
-
-	event_set_append_log_prefix(
-		conn->event, t_strdup_printf("conn %s: ", conn->conn.label));
 
 	return conn;
 }
@@ -1865,7 +1861,6 @@ smtp_client_connection_create(struct smtp_client *client,
 	conn->ssl_mode = ssl_mode;
 
 	event_add_str(conn->event, "host", host);
-	event_add_int(conn->event, "port", port);
 
 	e_debug(conn->event, "Connection created");
 
@@ -1906,8 +1901,6 @@ smtp_client_connection_create_unix(struct smtp_client *client,
 
 	conn = smtp_client_connection_do_create(client, name, protocol, set);
 	conn->path = p_strdup(conn->pool, path);
-
-	event_add_str(conn->event, "socket_path", path);
 
 	e_debug(conn->event, "Connection created");
 
@@ -1955,7 +1948,6 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 
 	connection_deinit(&conn->conn);
 
-	event_unref(&conn->event);
 	i_free(conn->ips);
 	pool_unref(&conn->cap_pool);
 	pool_unref(&conn->pool);
