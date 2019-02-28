@@ -23,10 +23,6 @@ struct index_search_context {
 	struct index_mail *cur_imail;
 	struct mail_thread_context *thread_ctx;
 
-	ARRAY(struct mail *) mails;
-	unsigned int unused_mail_idx;
-	unsigned int max_mails;
-
 	struct timeval search_start_time, last_notify;
 	struct timeval last_nonblock_timeval;
 	unsigned long long cost, next_time_check_cost;
