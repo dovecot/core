@@ -1662,7 +1662,8 @@ static const struct connection_settings smtp_client_connection_set = {
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
 	.client = TRUE,
-	.delayed_unix_client_connected_callback = TRUE
+	.delayed_unix_client_connected_callback = TRUE,
+	.log_connection_id = TRUE,
 };
 
 static const struct connection_vfuncs smtp_client_connection_vfuncs = {
@@ -1827,16 +1828,17 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	else
 		conn->event = event_create(client->event);
 	event_set_forced_debug(conn->event, (set != NULL && set->debug));
-
-	event_set_append_log_prefix(conn->event,
-		t_strdup_printf("%s-client: conn %s [%u]: ",
-				smtp_protocol_name(conn->protocol),
-				name, conn->id));
 	event_add_str(conn->event, "protocol",
 		      smtp_protocol_name(conn->protocol));
 
 	conn->conn.event_parent = conn->event;
 	connection_init(conn->client->conn_list, &conn->conn, name);
+
+	event_set_append_log_prefix(
+		conn->event,
+		t_strdup_printf("%s-client: conn %s: ",
+				smtp_protocol_name(conn->protocol),
+				conn->conn.label));
 
 	return conn;
 }
