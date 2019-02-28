@@ -1709,13 +1709,10 @@ http_client_connection_create(struct http_client_peer *peer)
 		i_array_init(&conn->request_wait_list, 16);
 	conn->io_wait_timer = io_wait_timer_add_to(cctx->ioloop);
 
-	conn->event = event_create(ppool->peer->cctx->event);
-
-	conn->conn.event_parent = conn->event;
-	connection_init(cctx->conn_list, &conn->conn, NULL);
-
-	event_set_append_log_prefix(
-		conn->event, t_strdup_printf("conn %s: ", conn->conn.label));
+	conn->conn.event_parent = ppool->peer->cctx->event;
+	connection_init(cctx->conn_list, &conn->conn,
+			http_client_peer_shared_label(pshared));
+	conn->event = conn->conn.event;
 
 	switch (pshared->addr.type) {
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
@@ -1844,7 +1841,6 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 	connection_deinit(&conn->conn);
 	io_wait_timer_remove(&conn->io_wait_timer);
 	
-	event_unref(&conn->event);
 	i_free(conn);
 
 	http_client_peer_pool_unref(&ppool);

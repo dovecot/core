@@ -329,12 +329,10 @@ auth_client_connection_init(struct auth_client *client)
 
 	conn->client = client;
 
-	conn->event = client->event;
-	event_ref(conn->event);
-
-	conn->conn.event_parent = conn->event;
+	conn->conn.event_parent = client->event;
 	connection_init_client_unix(client->clist, &conn->conn,
 				    client->auth_socket_path);
+	conn->event = conn->conn.event;
 
 	hash_table_create_direct(&conn->requests, pool, 100);
 	i_array_init(&conn->available_auth_mechs, 8);
@@ -465,7 +463,6 @@ void auth_client_connection_deinit(struct auth_client_connection **_conn)
 	timeout_remove(&conn->to);
 	array_free(&conn->available_auth_mechs);
 	connection_deinit(&conn->conn);
-	event_unref(&conn->event);
 	pool_unref(&conn->pool);
 }
 
