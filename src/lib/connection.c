@@ -351,6 +351,23 @@ void connection_update_event(struct connection *conn)
 	}
 	str_append(prefix, ": ");
 	event_set_append_log_prefix(conn->event, str_c(prefix));
+
+	if (conn->local_ip.family > 0) {
+		event_add_str(conn->event, "local_ip",
+			      net_ip2addr(&conn->local_ip));
+	}
+
+	if (conn->remote_ip.family > 0) {
+		event_add_str(conn->event, "remote_ip",
+			      net_ip2addr(&conn->remote_ip));
+	}
+	if (conn->remote_port > 0)
+		event_add_int(conn->event, "remote_port", conn->remote_port);
+
+	if (conn->remote_pid != (pid_t)-1)
+		event_add_int(conn->event, "remote_pid", conn->remote_pid);
+	if (conn->remote_uid != (uid_t)-1)
+		event_add_int(conn->event, "remote_uid", conn->remote_uid);
 }
 
 static void
