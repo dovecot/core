@@ -419,7 +419,7 @@ static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 
 	/* searching code handles prefetching internally,
 	   elsewhere we want to do it immediately */
-	if (!mail->search_mail && !_mail->saving)
+	if (!mail->mail.search_mail && !_mail->saving)
 		(void)imapc_mail_prefetch(_mail);
 }
 

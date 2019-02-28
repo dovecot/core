@@ -558,6 +558,8 @@ struct mail_private {
 	const char *get_stream_reason;
 
 	bool autoexpunged:1;
+	/* mail created by mailbox_search_*() */
+	bool search_mail:1;
 };
 
 struct mailbox_list_context {

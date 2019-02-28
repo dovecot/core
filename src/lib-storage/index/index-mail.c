@@ -2008,7 +2008,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 		return;
 	}
 
-	if (!mail->search_mail) {
+	if (!mail->mail.search_mail) {
 		index_mail_update_access_parts_pre(_mail);
 		index_mail_update_access_parts_post(_mail);
 	} else {
@@ -2121,10 +2121,6 @@ void index_mail_set_uid_cache_updates(struct mail *_mail, bool set)
 void index_mail_free(struct mail *_mail)
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
-
-	/* make sure mailbox_search_*() users don't try to free the mail
-	   directly */
-	i_assert(!mail->search_mail);
 
 	mail->freeing = TRUE;
 	mail->mail.v.close(_mail);
