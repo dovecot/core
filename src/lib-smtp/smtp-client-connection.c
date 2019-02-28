@@ -1732,7 +1732,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 				 enum smtp_protocol protocol,
 				 const struct smtp_client_settings *set)
 {
-	static unsigned int id = 0;
 	struct smtp_client_connection *conn;
 	pool_t pool;
 
@@ -1742,7 +1741,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->pool = pool;
 
 	conn->client = client;
-	conn->id = id++;
 	conn->protocol = protocol;
 
 	conn->set = client->set;
