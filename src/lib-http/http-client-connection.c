@@ -1537,7 +1537,8 @@ static const struct connection_settings http_client_connection_set = {
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
 	.client = TRUE,
-	.delayed_unix_client_connected_callback = TRUE
+	.delayed_unix_client_connected_callback = TRUE,
+	.log_connection_id = TRUE,
 };
 
 static const struct connection_vfuncs http_client_connection_vfuncs = {
@@ -1710,14 +1711,13 @@ http_client_connection_create(struct http_client_peer *peer)
 		i_array_init(&conn->request_wait_list, 16);
 	conn->io_wait_timer = io_wait_timer_add_to(cctx->ioloop);
 
-	conn->label = i_strdup_printf("%s [%d]",
-		http_client_peer_shared_label(pshared), conn->id);
 	conn->event = event_create(ppool->peer->cctx->event);
-	event_set_append_log_prefix(conn->event,
-		t_strdup_printf("conn %s: ", conn->label));
 
 	conn->conn.event_parent = conn->event;
 	connection_init(cctx->conn_list, &conn->conn, NULL);
+
+	event_set_append_log_prefix(
+		conn->event, t_strdup_printf("conn %s: ", conn->conn.label));
 
 	switch (pshared->addr.type) {
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
@@ -1847,7 +1847,6 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 	io_wait_timer_remove(&conn->io_wait_timer);
 	
 	event_unref(&conn->event);
-	i_free(conn->label);
 	i_free(conn);
 
 	http_client_peer_pool_unref(&ppool);

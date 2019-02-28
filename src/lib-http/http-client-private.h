@@ -168,7 +168,6 @@ struct http_client_connection {
 	struct http_client_peer_pool *ppool;
 	struct http_client_peer *peer;
 
-	char *label;
 	unsigned int id; // DEBUG: identify parallel connections
 
 	int connect_errno;
