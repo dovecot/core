@@ -155,8 +155,6 @@ struct index_mail {
 	uint8_t header_match_value;
 
 	bool pop3_state_set:1;
-	/* mail created by mailbox_search_*() */
-	bool search_mail:1;
 	/* close() is being called from mail_free() */
 	bool freeing:1;
 };

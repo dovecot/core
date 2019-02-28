@@ -36,6 +36,10 @@ void mail_free(struct mail **mail)
 {
 	struct mail_private *p = (struct mail_private *)*mail;
 
+	/* make sure mailbox_search_*() users don't try to free the mail
+	   directly */
+	i_assert(!p->search_mail);
+
 	p->v.free(*mail);
 	*mail = NULL;
 }
