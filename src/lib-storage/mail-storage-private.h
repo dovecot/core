@@ -653,6 +653,10 @@ struct mail_search_context {
 	uint32_t seq;
 	uint32_t progress_cur, progress_max;
 
+	ARRAY(struct mail *) mails;
+	unsigned int unused_mail_idx;
+	unsigned int max_mails;
+
 	ARRAY(union mail_search_module_context *) module_contexts;
 
 	bool seen_lost_data:1;
