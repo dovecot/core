@@ -1367,7 +1367,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	array_foreach_modifiable(&ctx->mails, mailp) {
 		struct index_mail *imail = INDEX_MAIL(*mailp);
 
-		imail->search_mail = FALSE;
+		imail->mail.search_mail = FALSE;
 		mail_free(mailp);
 	}
 
@@ -1686,7 +1686,7 @@ struct mail *index_search_get_mail(struct index_search_context *ctx)
 			  ctx->mail_ctx.wanted_fields,
 			  ctx->mail_ctx.wanted_headers);
 	imail = INDEX_MAIL(mail);
-	imail->search_mail = TRUE;
+	imail->mail.search_mail = TRUE;
 	ctx->mail_ctx.transaction->stats_track = TRUE;
 
 	array_push_back(&ctx->mails, &mail);
