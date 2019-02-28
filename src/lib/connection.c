@@ -50,7 +50,8 @@ void connection_input_default(struct connection *conn)
 	if (!conn->handshake_received &&
 	    conn->v.handshake != NULL) {
 		if ((ret = conn->v.handshake(conn)) < 0) {
-			connection_closed(conn, CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
+			connection_closed(
+				conn, CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
 			return;
 		} else if (ret == 0) {
 			return;
@@ -178,8 +179,10 @@ int connection_input_line_default(struct connection *conn, const char *line)
 			ret = 1; /* continue reading */
 		else if (ret > 0)
 			connection_handshake_ready(conn);
-		else
-			conn->disconnect_reason = CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
+		else {
+			conn->disconnect_reason =
+				CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
+		}
 		return ret;
 	} else if (!conn->handshake_received) {
 		/* we don't do handshakes */
@@ -282,12 +285,16 @@ static void connection_client_connected(struct connection *conn, bool success)
 	i_assert(conn->list->set.client);
 
 	conn->connect_finished = ioloop_timeval;
-	event_add_timeval(conn->event, "connect_finished_time", &ioloop_timeval);
+	event_add_timeval(conn->event, "connect_finished_time",
+			  &ioloop_timeval);
 
-	if (success)
-		e_debug(e->event(), "Client connected (fd=%d)", conn->fd_in);
-	else
-		e_debug(e->event(), "Client connection failed (fd=%d)", conn->fd_in);
+	if (success) {
+		e_debug(e->event(), "Client connected (fd=%d)",
+			conn->fd_in);
+	} else {
+		e_debug(e->event(), "Client connection failed (fd=%d)",
+			conn->fd_in);
+	}
 
 	if (success)
 		connection_init_streams(conn);
@@ -309,8 +316,10 @@ void connection_init(struct connection_list *list,
 	i_free(conn->name);
 
 	if (list->set.input_idle_timeout_secs != 0 &&
-	    conn->input_idle_timeout_secs == 0)
-		conn->input_idle_timeout_secs = list->set.input_idle_timeout_secs;
+	    conn->input_idle_timeout_secs == 0) {
+		conn->input_idle_timeout_secs =
+			list->set.input_idle_timeout_secs;
+	}
 
 	if (conn->event == NULL)
 		conn->event = event_create(conn->event_parent);
@@ -429,12 +438,13 @@ void connection_init_client_unix(struct connection_list *list,
 	event_field_clear(conn->event, "client_port");
 
 	event_set_append_log_prefix(conn->event,
-				    t_strdup_printf("(%s): ", basename(conn->name)));
+				    t_strdup_printf("(%s): ",
+						    basename(conn->name)));
 }
 
 void connection_init_from_streams(struct connection_list *list,
-			    struct connection *conn, const char *name,
-			    struct istream *input, struct ostream *output)
+				  struct connection *conn, const char *name,
+				  struct istream *input, struct ostream *output)
 {
 	i_assert(name != NULL);
 
@@ -491,10 +501,12 @@ int connection_client_connect(struct connection *conn)
 	if (conn->port != 0) {
 		fd = net_connect_ip(&conn->ip, conn->port,
 			(conn->my_ip.family != 0 ? &conn->my_ip : NULL));
-	} else if (conn->list->set.unix_client_connect_msecs == 0)
+	} else if (conn->list->set.unix_client_connect_msecs == 0) {
 		fd = net_connect_unix(conn->name);
-	else
-		fd = net_connect_unix_with_retries(conn->name, conn->list->set.unix_client_connect_msecs);
+	} else {
+		fd = net_connect_unix_with_retries(
+			conn->name, conn->list->set.unix_client_connect_msecs);
+	}
 	if (fd == -1)
 		return -1;
 	conn->fd_in = conn->fd_out = fd;
@@ -505,7 +517,8 @@ int connection_client_connect(struct connection *conn)
 	    conn->list->set.delayed_unix_client_connected_callback) {
 		conn->io = io_add_to(conn->ioloop, conn->fd_out, IO_WRITE,
 				     connection_socket_connected, conn);
-		e_debug(conn->event, "Waiting for connect (fd=%d) to finish for max %u msecs",
+		e_debug(conn->event,
+			"Waiting for connect (fd=%d) to finish for max %u msecs",
 			fd, set->client_connect_timeout_msecs);
 		if (set->client_connect_timeout_msecs != 0) {
 			conn->to = timeout_add_to(conn->ioloop,
@@ -531,7 +544,8 @@ void connection_disconnect(struct connection *conn)
 	if (conn->disconnected)
 		return;
 	connection_update_counters(conn);
-	/* client connects to a Server, and Server gets connection from Client */
+	/* client connects to a Server, and Server gets connection from Client
+	 */
 	const char *ename = conn->list->set.client ?
 		"server_connection_disconnected" :
 		"client_connection_disconnected";
@@ -579,7 +593,8 @@ int connection_input_read(struct connection *conn)
 		/* buffer full */
 		switch (conn->list->set.input_full_behavior) {
 		case CONNECTION_BEHAVIOR_DESTROY:
-			connection_closed(conn, CONNECTION_DISCONNECT_BUFFER_FULL);
+			connection_closed(conn,
+					  CONNECTION_DISCONNECT_BUFFER_FULL);
 			return -1;
 		case CONNECTION_BEHAVIOR_ALLOW:
 			return -2;
@@ -627,16 +642,19 @@ const char *connection_disconnect_reason(struct connection *conn)
 const char *connection_input_timeout_reason(struct connection *conn)
 {
 	if (conn->last_input_tv.tv_sec != 0) {
-		int diff = timeval_diff_msecs(&ioloop_timeval, &conn->last_input_tv);
+		int diff = timeval_diff_msecs(&ioloop_timeval,
+					      &conn->last_input_tv);
 		return t_strdup_printf("No input for %u.%03u secs",
 				       diff/1000, diff%1000);
 	} else if (conn->connect_finished.tv_sec != 0) {
-		int diff = timeval_diff_msecs(&ioloop_timeval, &conn->connect_finished);
+		int diff = timeval_diff_msecs(&ioloop_timeval,
+					      &conn->connect_finished);
 		return t_strdup_printf(
 			"No input since connected %u.%03u secs ago",
 			diff/1000, diff%1000);
 	} else {
-		int diff = timeval_diff_msecs(&ioloop_timeval, &conn->connect_started);
+		int diff = timeval_diff_msecs(&ioloop_timeval,
+					      &conn->connect_started);
 		return t_strdup_printf("connect() timed out after %u.%03u secs",
 				       diff/1000, diff%1000);
 	}
