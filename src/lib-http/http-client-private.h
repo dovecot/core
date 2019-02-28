@@ -168,8 +168,6 @@ struct http_client_connection {
 	struct http_client_peer_pool *ppool;
 	struct http_client_peer *peer;
 
-	unsigned int id; // DEBUG: identify parallel connections
-
 	int connect_errno;
 	struct timeval connect_start_timestamp;
 	struct timeval connected_timestamp;
