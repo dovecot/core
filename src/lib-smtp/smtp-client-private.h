@@ -158,7 +158,6 @@ struct smtp_client_connection {
 	struct event *event;
 
 	struct smtp_client *client;
-	unsigned int id;
 
 	enum smtp_protocol protocol;
 	const char *path, *host;
