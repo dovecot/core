@@ -2182,6 +2182,24 @@ bool mailbox_search_seen_lost_data(struct mail_search_context *ctx)
 	return ctx->seen_lost_data;
 }
 
+void mailbox_search_mail_detach(struct mail_search_context *ctx,
+				struct mail *mail)
+{
+	struct mail_private *pmail =
+		container_of(mail, struct mail_private, mail);
+	struct mail *const *mailp;
+
+	array_foreach(&ctx->mails, mailp) {
+		if (*mailp == mail) {
+			pmail->search_mail = FALSE;
+			array_delete(&ctx->mails,
+				     array_foreach_idx(&ctx->mails, mailp), 1);
+			return;
+		}
+	}
+	i_unreached();
+}
+
 int mailbox_search_result_build(struct mailbox_transaction_context *t,
 				struct mail_search_args *args,
 				enum mailbox_search_result_flags flags,

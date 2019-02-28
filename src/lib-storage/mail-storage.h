@@ -724,6 +724,10 @@ bool mailbox_search_next_nonblock(struct mail_search_context *ctx,
    determine correctly if those messages should have been returned in this
    search. */
 bool mailbox_search_seen_lost_data(struct mail_search_context *ctx);
+/* Detach the given mail from the search context. This allows the mail to live
+   even after mail_search_context has been freed. */
+void mailbox_search_mail_detach(struct mail_search_context *ctx,
+				struct mail *mail);
 
 /* Remember the search result for future use. This must be called before the
    first mailbox_search_next*() call. */
