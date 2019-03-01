@@ -600,13 +600,20 @@ db_oauth2_lookup_passwd_grant(struct oauth2_passwd_grant_result *result,
 {
 	enum passdb_result passdb_result;
 	const char *error;
+	const struct oauth2_field *f;
 
 	req->req = NULL;
 
 	if (!result->valid) {
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 		if (result->success) {
-			error = auth_fields_find(req->fields, "error");
+			error = NULL;
+			array_foreach(result->fields, f) {
+				if (strcmp(f->name, "error") == 0) {
+					error = f->value;
+					break;
+				}
+			}
 			if (error != NULL &&
 			    strcmp("invalid_grant", error) == 0) {
 				passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
