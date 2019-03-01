@@ -1579,6 +1579,7 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 		conn->ips_count = 1;
 		conn->ips = i_new(struct ip_addr, conn->ips_count);
 		conn->ips[0] = ip;
+		conn->host_is_ip = TRUE;
 	} else if (conn->set.dns_client != NULL) {
 		e_debug(conn->event, "Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(conn->set.dns_client, conn->host,
@@ -1870,15 +1871,19 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 	const struct smtp_client_settings *set)
 {
 	struct smtp_client_connection *conn;
+	bool host_is_ip = FALSE;
 
-	if (hostname == NULL)
+	if (hostname == NULL) {
 		hostname = net_ip2addr(ip);
+		host_is_ip = TRUE;
+	}
 
 	conn = smtp_client_connection_create(client, protocol, hostname, port,
 					     ssl_mode, set);
 	conn->ips_count = 1;
 	conn->ips = i_new(struct ip_addr, conn->ips_count);
 	conn->ips[0] = *ip;
+	conn->host_is_ip = host_is_ip;
 	return conn;
 }
 

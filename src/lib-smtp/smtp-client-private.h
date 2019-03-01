@@ -214,6 +214,7 @@ struct smtp_client_connection {
 	unsigned int ips_count, prev_connect_idx;
 	struct ip_addr *ips;
 
+	bool host_is_ip:1;
 	bool old_smtp:1;
 	bool authenticated:1;
 	bool xclient_sent:1;
