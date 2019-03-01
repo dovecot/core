@@ -294,6 +294,51 @@ connection_update_label(struct connection *conn)
 	conn->label = i_strdup(str_c(label));
 }
 
+static const char *
+connection_create_stream_name(struct connection *conn, int fd)
+{
+	string_t *name;
+
+	name = t_str_new(64);
+	str_append(name, "(conn");
+	if (conn->unix_socket ||
+	    (conn->remote_ip.family == 0 && conn->remote_uid != (uid_t)-1))
+		str_append(name, ":unix");
+	if (conn->name != NULL) {
+		str_append_c(name, ':');
+		str_append(name, conn->name);
+	} else if (conn->property_label != NULL) {
+		str_append_c(name, ':');
+		str_append(name, conn->property_label);
+	} else if (fd >= 0) {
+		str_printfa(name, ":fd=%d", fd);
+	}
+	if (conn->list->set.log_connection_id) {
+		if (str_len(name) == 5)
+			str_append_c(name, ':');
+		else
+			str_append_c(name, ',');
+		str_printfa(name, "id=%u", conn->id);
+	}
+	str_append_c(name, ')');
+
+	return str_c(name);
+}
+
+static void connection_update_stream_names(struct connection *conn)
+{
+	if (conn->input != NULL) {
+		i_stream_set_name(
+			conn->input,
+			connection_create_stream_name(conn, conn->fd_in));
+	}
+	if (conn->output != NULL) {
+		o_stream_set_name(
+			conn->output,
+			connection_create_stream_name(conn, conn->fd_out));
+	}
+}
+
 static void
 connection_update_properties(struct connection *conn)
 {
@@ -327,6 +372,7 @@ connection_update_properties(struct connection *conn)
 
 	connection_update_property_label(conn);
 	connection_update_label(conn);
+	connection_update_stream_names(conn);
 }
 
 static void connection_init_streams(struct connection *conn)
@@ -348,7 +394,6 @@ static void connection_init_streams(struct connection *conn)
 		else
 			conn->input = i_stream_create_fd(conn->fd_in,
 							 set->input_max_size);
-		i_stream_set_name(conn->input, conn->name);
 		i_stream_switch_ioloop_to(conn->input, conn->ioloop);
 	}
 	if (set->output_max_size != 0) {
@@ -360,9 +405,10 @@ static void connection_init_streams(struct connection *conn)
 							  set->output_max_size);
 		o_stream_set_no_error_handling(conn->output, TRUE);
 		o_stream_set_finish_via_child(conn->output, FALSE);
-		o_stream_set_name(conn->output, conn->name);
 		o_stream_switch_ioloop_to(conn->output, conn->ioloop);
 	}
+	connection_update_stream_names(conn);
+
 	conn->disconnected = FALSE;
 	i_assert(conn->to == NULL);
 	connection_input_resume(conn);
@@ -592,12 +638,13 @@ void connection_init_from_streams(struct connection_list *list,
 
 	conn->input = input;
 	i_stream_ref(conn->input);
-	i_stream_set_name(conn->input, conn->name);
 
 	conn->output = output;
 	o_stream_ref(conn->output);
 	o_stream_set_no_error_handling(conn->output, TRUE);
-	o_stream_set_name(conn->output, conn->name);
+
+	connection_update_stream_names(conn);
+	
 	event_set_append_log_prefix(conn->event,
 				    t_strdup_printf("(%s): ", conn->name));
 
