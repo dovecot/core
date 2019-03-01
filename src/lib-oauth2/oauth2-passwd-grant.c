@@ -118,6 +118,10 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 	http_url_escape_param(payload, password);
 	str_append(payload, "&client_id=");
 	http_url_escape_param(payload, req->set->client_id);
+	if (*req->set->client_secret != '\0') {
+		str_append(payload, "&client_secret=");
+		http_url_escape_param(payload, req->set->client_secret);
+	}
 	http_client_request_add_header(req->req, "Content-Type",
 				       "application/x-www-form-urlencoded");
 	http_client_request_set_payload_data(req->req, payload->data, payload->used);
