@@ -1737,6 +1737,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 				 const struct smtp_client_settings *set)
 {
 	struct smtp_client_connection *conn;
+	struct event *conn_event;
 	pool_t pool;
 
 	pool = pool_alloconly_create("smtp client connection", 2048);
@@ -1826,21 +1827,25 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		("smtp client connection capabilities", 128);
 
 	if (set != NULL && set->event != NULL)
-		conn->event = event_create(set->event);
+		conn_event = event_create(set->event);
 	else
-		conn->event = event_create(client->event);
-	event_set_forced_debug(conn->event, (set != NULL && set->debug));
-	event_add_str(conn->event, "protocol",
+		conn_event = event_create(client->event);
+	event_set_append_log_prefix(
+		conn_event,
+		t_strdup_printf("%s-client: ",
+				smtp_protocol_name(conn->protocol)));
+	event_add_str(conn_event, "protocol",
 		      smtp_protocol_name(conn->protocol));
+	event_set_forced_debug(conn_event, (set != NULL && set->debug));
+
+	conn->event = event_create(conn_event);
 
 	conn->conn.event_parent = conn->event;
 	connection_init(conn->client->conn_list, &conn->conn, name);
+	event_unref(&conn_event);
 
 	event_set_append_log_prefix(
-		conn->event,
-		t_strdup_printf("%s-client: conn %s: ",
-				smtp_protocol_name(conn->protocol),
-				conn->conn.label));
+		conn->event, t_strdup_printf("conn %s: ", conn->conn.label));
 
 	return conn;
 }
