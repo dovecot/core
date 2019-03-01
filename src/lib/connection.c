@@ -577,6 +577,8 @@ void connection_init_client_ip_from(struct connection_list *list,
 
 	connection_init(list, conn, name);
 
+	event_field_clear(conn->event, "socket_path");
+
 	if (my_ip != NULL)
 		event_add_str(conn->event, "client_ip", net_ip2addr(my_ip));
 	event_add_str(conn->event, "ip", net_ip2addr(ip));
@@ -603,6 +605,8 @@ void connection_init_client_unix(struct connection_list *list,
 	event_field_clear(conn->event, "port");
 	event_field_clear(conn->event, "client_ip");
 	event_field_clear(conn->event, "client_port");
+
+	event_add_str(conn->event, "socket_path", path);
 }
 
 void connection_init_from_streams(struct connection_list *list,
