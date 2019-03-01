@@ -108,7 +108,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 		dns_lookup_free(&lookup);
 		lookup = next;
 	}
-	e_debug(client->event, "Disconnect: %s", error);
+	e_debug(client->conn.event, "Disconnect: %s", error);
 }
 
 static void dns_client_destroy(struct connection *conn)
