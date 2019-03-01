@@ -43,6 +43,8 @@ struct passdb_oauth2_settings {
 	const char *active_value;
 	/* client identificator for oauth2 server */
 	const char *client_id;
+	/* not really used, but have to present by oauth2 specs */
+	const char *client_secret;
 	/* template to expand into passdb */
 	const char *pass_attrs;
 
@@ -110,6 +112,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(active_attribute),
 	DEF_STR(active_value),
 	DEF_STR(client_id),
+	DEF_STR(client_secret),
 	DEF_INT(timeout_msecs),
 	DEF_INT(max_idle_time_msecs),
 	DEF_INT(max_parallel_connections),
@@ -143,6 +146,7 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.active_attribute = "",
 	.active_value = "",
 	.client_id = "",
+	.client_secret = "",
 	.pass_attrs = "",
 	.rawlog_dir = "",
 	.timeout_msecs = 0,
@@ -235,6 +239,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	db->oauth2_set.grant_url = db->set.grant_url,
 	db->oauth2_set.introspection_url = db->set.introspection_url;
 	db->oauth2_set.client_id = db->set.client_id;
+	db->oauth2_set.client_secret = db->set.client_secret;
 	db->oauth2_set.timeout_msecs = db->set.timeout_msecs;
 	db->oauth2_set.send_auth_headers = db->set.send_auth_headers;
 	db->oauth2_set.use_grant_password = db->set.use_grant_password;
