@@ -55,6 +55,7 @@ struct smtp_client_command {
 	bool aborting:1;
 	bool delay_failure:1;
 	bool delaying_failure:1;
+	bool event_finished:1;
 };
 
 struct smtp_client_transaction_mail {

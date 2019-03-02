@@ -188,7 +188,8 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
 
-	if (!cmd->failed) {
+	struct event_passthrough *e = event_create_passthrough(cmd->event);
+	if (!cmd->event_finished) {
 		struct smtp_reply failure;
 
 		smtp_reply_init(&failure,
@@ -196,17 +197,12 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 				"Aborted");
 		failure.enhanced_code = SMTP_REPLY_ENH_CODE(9, 0, 0);
 
-		struct event_passthrough *e =
-			event_create_passthrough(cmd->event)->
-			set_name("smtp_client_command_finished");
+		e->set_name("smtp_client_command_finished");
 		smtp_reply_add_to_event(&failure, e);
-
-		e_debug(e->event(), "Aborted%s",
-			(was_sent ? " (already sent)" : ""));
-	} else {
-		e_debug(cmd->event, "Aborted%s",
-			(was_sent ? " (already sent)" : ""));
+		cmd->event_finished = TRUE;
 	}
+	e_debug(e->event(), "Aborted%s",
+		(was_sent ? " (already sent)" : ""));
 
 	if (!was_sent) {
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_ABORTED;
@@ -316,9 +312,12 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 		cmd->failed = TRUE;
 
 		struct event_passthrough *e =
-			event_create_passthrough(cmd->event)->
-			set_name("smtp_client_command_finished");
-		smtp_reply_add_to_event(reply, e);
+			event_create_passthrough(cmd->event);
+		if (!cmd->event_finished) {
+			e->set_name("smtp_client_command_finished");
+			smtp_reply_add_to_event(reply, e);
+			cmd->event_finished = TRUE;
+		}
 		e_debug(e->event(), "Failed: %s", smtp_reply_log(reply));
 
 		if (callback != NULL)
