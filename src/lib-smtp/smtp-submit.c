@@ -117,6 +117,8 @@ smtp_submit_init(struct smtp_submit_session *session,
 	p_array_init(&subm->rcpt_to, pool, 2);
 
 	subm->event = event_create(session->event);
+	event_add_str(subm->event, "mail_from",
+		      smtp_address_encode(subm->mail_from));
 
 	return subm;
 }
@@ -178,6 +180,8 @@ struct ostream *smtp_submit_send(struct smtp_submit *subm)
 	i_assert(subm->output == NULL);
 	i_assert(array_count(&subm->rcpt_to) > 0);
 
+	event_add_int(subm->event, "recipients", array_count(&subm->rcpt_to));
+
 	subm->output = iostream_temp_create
 		(t_strconcat("/tmp/dovecot.",
 			master_service_get_name(master_service), NULL), 0);
@@ -193,6 +197,16 @@ smtp_submit_callback(struct smtp_submit *subm, int status,
 	smtp_submit_callback_t *callback;
 
 	timeout_remove(&subm->to_error);
+
+	struct event_passthrough *e =
+		event_create_passthrough(subm->event)->
+		set_name("smtp_submit_finished");
+	if (status > 0)
+		e_debug(e->event(), "Sent message successfully");
+	else {
+		e->add_str("error", error);
+		e_debug(e->event(), "Failed to send message: %s", error);
+	}
 
 	i_zero(&result);
 	result.status = status;
@@ -462,6 +476,7 @@ void smtp_submit_run_async(struct smtp_submit *subm,
 			   smtp_submit_callback_t *callback, void *context)
 {
 	const struct smtp_submit_settings *set = &subm->session->set;
+	uoff_t data_size;
 
 	subm->callback = callback;
 	subm->context = context;
@@ -469,6 +484,14 @@ void smtp_submit_run_async(struct smtp_submit *subm,
 	/* the mail has been written to a file. now actually send it. */
 	subm->input = iostream_temp_finish
 		(&subm->output, IO_BLOCK_SIZE);
+
+	if (i_stream_get_size(subm->input, TRUE, &data_size) > 0)
+		event_add_int(subm->event, "data_size", data_size);
+
+	struct event_passthrough *e =
+		event_create_passthrough(subm->event)->
+		set_name("smtp_submit_started");
+	e_debug(e->event(), "Started sending message");
 
 	if (set->submission_host != NULL) {
 		smtp_submit_send_host(subm);
