@@ -939,7 +939,15 @@ smtp_client_command_input_reply(struct smtp_client_command *cmd,
 	i_assert(cmd->replies_seen < cmd->replies_expected);
 	finished = (++cmd->replies_seen == cmd->replies_expected);
 
-	e_debug(cmd->event, "Got reply (%u/%u): %s "
+	/* Finish command event at final reply or first failure */
+	struct event_passthrough *e = event_create_passthrough(cmd->event);
+	if (!cmd->event_finished &&
+	    (finished || !smtp_reply_is_success(reply))) {
+		e->set_name("smtp_client_command_finished");
+		smtp_reply_add_to_event(reply, e);
+		cmd->event_finished = TRUE;
+	}
+	e_debug(e->event(), "Got reply (%u/%u): %s "
 		"(%u commands pending, %u commands queued)",
 		cmd->replies_seen, cmd->replies_expected,
 		smtp_reply_log(reply), conn->cmd_wait_list_count,
