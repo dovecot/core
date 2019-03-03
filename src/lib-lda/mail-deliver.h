@@ -24,6 +24,7 @@ struct mail_deliver_input {
 	const struct lda_settings *set;
 	const struct smtp_submit_settings *smtp_set;
 	struct mail_deliver_session *session;
+	struct event *event_parent;
 
 	unsigned int session_time_msecs;
 	struct timeval delivery_time_started;
@@ -56,6 +57,7 @@ struct mail_deliver_context {
 	const struct lda_settings *set;
 	const struct smtp_submit_settings *smtp_set;
 	struct mail_deliver_session *session;
+	struct event *event;
 
 	unsigned int session_time_msecs;
 	struct timeval delivery_time_started;

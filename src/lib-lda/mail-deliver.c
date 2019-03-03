@@ -24,6 +24,10 @@
 #define MAIL_DELIVER_STORAGE_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, mail_deliver_storage_module)
 
+struct event_category event_category_mail_delivery = {
+	.name = "local-delivery",
+};
+
 struct mail_deliver_user {
 	union mail_user_module_context module_ctx;
 	struct mail_deliver_context *deliver_ctx;
@@ -317,10 +321,20 @@ void mail_deliver_init(struct mail_deliver_context *ctx,
 	ctx->rcpt_user = input->rcpt_user;
 	ctx->rcpt_default_mailbox = p_strdup(ctx->pool,
 					     input->rcpt_default_mailbox);
+
+	ctx->event = event_create(input->event_parent);
+	event_add_category(ctx->event, &event_category_mail_delivery);
+
+	if (ctx->rcpt_to != NULL) {
+		event_add_str(ctx->event, "rcpt_to",
+			      smtp_address_encode(ctx->rcpt_to));
+	}
+	smtp_params_rcpt_add_to_event(&ctx->rcpt_params, ctx->event);
 }
 
 void mail_deliver_deinit(struct mail_deliver_context *ctx)
 {
+	event_unref(&ctx->event);
 	pool_unref(&ctx->pool);
 }
 
