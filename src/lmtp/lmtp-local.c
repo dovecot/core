@@ -558,6 +558,7 @@ int lmtp_local_default_deliver(struct client *client,
 	dinput.set = lldctx->lda_set;
 	dinput.smtp_set = lldctx->smtp_set;
 	dinput.session_id = lldctx->session_id;
+	dinput.event_parent = rcpt->event;
 	dinput.src_mail = lldctx->src_mail;
 
 	/* MAIL FROM */
