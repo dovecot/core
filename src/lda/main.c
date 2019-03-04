@@ -39,6 +39,10 @@
    where to read the mail. */
 #define MAIL_MAX_MEMORY_BUFFER (1024*128)
 
+struct event_category event_category_lda = {
+	.name = "lda",
+};
+
 static const char *wanted_headers[] = {
 	"From", "To", "Message-ID", "Subject", "Return-Path",
 	NULL
@@ -360,6 +364,7 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
+	struct event *event;
 	const char *user_source = "", *rcpt_to_source = "";
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
@@ -390,6 +395,9 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 		&argc, &argv, "a:d:ef:m:p:r:");
+
+	event = event_create(NULL);
+	event_add_category(event, &event_category_lda);
 
 	i_zero(&dinput);
 	dinput.session = mail_deliver_session_init();
@@ -506,6 +514,17 @@ int main(int argc, char *argv[])
 	dinput.mail_from = mail_from;
 	dinput.rcpt_to = final_rcpt_to;
 
+	event_add_str(event, "user", user);
+	if (mail_from != NULL) {
+		event_add_str(event, "mail_from",
+			      smtp_address_encode(mail_from));
+	}
+	if (final_rcpt_to != NULL) {
+		event_add_str(event, "rcpt_to",
+			      smtp_address_encode(final_rcpt_to));
+	}
+	dinput.event_parent = event;
+
 	i_zero(&service_input);
 	service_input.module = "lda";
 	service_input.service = "lda";
@@ -553,6 +572,8 @@ int main(int argc, char *argv[])
 
 	mail_deliver_session_deinit(&dinput.session);
 	mail_storage_service_deinit(&storage_service);
+
+	event_unref(&event);
 	master_service_deinit(&master_service);
         return ret;
 }
