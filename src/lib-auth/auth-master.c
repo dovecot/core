@@ -411,7 +411,8 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 	conn->prev_ioloop = current_ioloop;
 	conn->ioloop = io_loop_create();
 	connection_switch_ioloop_to(&conn->conn, conn->ioloop);
-	connection_input_resume(&conn->conn);
+	if (conn->connected)
+		connection_input_resume(&conn->conn);
 
 	conn->to = timeout_add_to(conn->ioloop, conn->timeout_msecs,
 				  auth_request_timeout, conn);
@@ -457,12 +458,16 @@ static bool is_valid_string(const char *str)
 static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
 				   const char *cmd)
 {
-	if (!conn->connected) {
-		if (auth_master_connect(conn) < 0)
-			return -1;
-		i_assert(conn->connected);
-	}
 	auth_master_set_io(conn);
+
+	if (!conn->connected) {
+		if (auth_master_connect(conn) < 0) {
+			auth_master_unset_io(conn);
+			return -1;
+		}
+		i_assert(conn->connected);
+		connection_input_resume(&conn->conn);
+	}
 
 	o_stream_cork(conn->conn.output);
 	if (!conn->sent_handshake) {
