@@ -476,19 +476,12 @@ static bool mail_deliver_is_tempfailed(struct mail_deliver_context *ctx,
 	return FALSE;
 }
 
-int mail_deliver(struct mail_deliver_context *ctx,
-		 struct mail_storage **storage_r)
+static int
+mail_do_deliver(struct mail_deliver_context *ctx,
+		struct mail_storage **storage_r)
 {
-	struct mail_deliver_user *muser =
-		MAIL_DELIVER_USER_CONTEXT(ctx->rcpt_user);
 	int ret;
 
-	i_assert(muser->deliver_ctx == NULL);
-
-	muser->want_storage_id =
-		var_has_key(ctx->set->deliver_log_format, '\0', "storage_id");
-
-	muser->deliver_ctx = ctx;
 	*storage_r = NULL;
 	if (deliver_mail == NULL)
 		ret = -1;
@@ -504,27 +497,43 @@ int mail_deliver(struct mail_deliver_context *ctx,
 			ret = 0;
 		}
 		mail_duplicate_db_deinit(&ctx->dup_db);
-		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r)) {
-			muser->deliver_ctx = NULL;
+		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r))
 			return -1;
-		}
 	}
 
 	if (ret < 0 && !ctx->tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
 		ret = mail_deliver_save(ctx, ctx->rcpt_default_mailbox, 0, NULL,
 					storage_r);
-		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r)) {
-			muser->deliver_ctx = NULL;
+		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r))
 			return -1;
-		}
 	}
 	if (ret < 0 && strcasecmp(ctx->rcpt_default_mailbox, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
 		ret = mail_deliver_save(ctx, "INBOX", 0, NULL, storage_r);
 	}
+	return ret;
+}
+
+int mail_deliver(struct mail_deliver_context *ctx,
+		 struct mail_storage **storage_r)
+{
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(ctx->rcpt_user);
+	int ret;
+
+	i_assert(muser->deliver_ctx == NULL);
+
+	muser->want_storage_id =
+		var_has_key(ctx->set->deliver_log_format, '\0', "storage_id");
+
+	muser->deliver_ctx = ctx;
+
+	ret = mail_do_deliver(ctx, storage_r);
+
 	muser->deliver_ctx = NULL;
+
 	return ret;
 }
 
