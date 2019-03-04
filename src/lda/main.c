@@ -503,6 +503,9 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_finish(master_service);
 
+	dinput.mail_from = mail_from;
+	dinput.rcpt_to = final_rcpt_to;
+
 	i_zero(&service_input);
 	service_input.module = "lda";
 	service_input.service = "lda";
@@ -532,8 +535,6 @@ int main(int argc, char *argv[])
 				"userdb lookup skipped, username taken from %s",
 				user_source);
 		}
-		dinput.mail_from = mail_from;
-		dinput.rcpt_to = final_rcpt_to;
 
 		ret = lda_deliver(&dinput, service_user, user, path,
 				  rcpt_to, rcpt_to_source, stderr_rejection);
