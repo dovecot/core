@@ -183,6 +183,8 @@ master_login_auth_fail(struct master_login_auth *auth,
 	if (reason == NULL)
 		reason = "Disconnected from auth server, aborting";
 
+	if (auth->connected)
+		connection_disconnect(&auth->conn);
 	auth->connected = FALSE;
 
 	while (auth->request_head != NULL) {
@@ -202,7 +204,6 @@ master_login_auth_fail(struct master_login_auth *auth,
 
 void master_login_auth_disconnect(struct master_login_auth *auth)
 {
-	connection_disconnect(&auth->conn);
 	master_login_auth_fail(auth, NULL);
 }
 
@@ -244,8 +245,6 @@ static void master_login_auth_destroy(struct connection *_conn)
 {
 	struct master_login_auth *auth =
 		container_of(_conn, struct master_login_auth, conn);
-
-	auth->connected = FALSE;
 
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
