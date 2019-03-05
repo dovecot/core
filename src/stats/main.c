@@ -34,9 +34,9 @@ static bool client_is_writer(const char *path)
 static void client_connected(struct master_service_connection *conn)
 {
 	if (client_is_writer(conn->name))
-		(void)client_writer_create(conn->fd, metrics);
+		client_writer_create(conn->fd, metrics);
 	else
-		(void)client_reader_create(conn->fd, metrics);
+		client_reader_create(conn->fd, metrics);
 	master_service_client_connection_accept(conn);
 }
 
