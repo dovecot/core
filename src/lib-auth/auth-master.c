@@ -169,6 +169,8 @@ static void auth_master_destroy(struct connection *_conn)
 	struct auth_master_connection *conn =
 		container_of(_conn, struct auth_master_connection, conn);
 
+	if (conn->connected)
+		connection_disconnect(&conn->conn);
 	conn->connected = FALSE;
 	conn->sent_handshake = FALSE;
 
