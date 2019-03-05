@@ -409,8 +409,6 @@ static void auth_client_connection_destroy(struct connection *_conn)
 	struct auth_client_connection *conn =
 		container_of(_conn, struct auth_client_connection, conn);
 
-	conn->connected = FALSE;
-
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
 		auth_client_connection_disconnect(
