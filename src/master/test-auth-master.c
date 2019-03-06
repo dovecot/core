@@ -74,7 +74,8 @@ static void server_connection_deinit(struct server_connection **_conn);
 static void test_client_deinit(void);
 
 static int
-test_client_passdb_lookup_simple(const char *user, const char **error_r);
+test_client_passdb_lookup_simple(const char *user, bool retry,
+				 const char **error_r);
 static int
 test_client_userdb_lookup_simple(const char *user, const char **error_r);
 static int test_client_user_list_simple(void);
@@ -104,7 +105,7 @@ test_client_connection_refused(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_passdb_lookup_simple("harrie", &error);
+	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
 
 	return FALSE;
@@ -152,7 +153,7 @@ test_client_connection_timed_out(void)
 	io_loop_time_refresh();
 	time = ioloop_time;
 
-	ret = test_client_passdb_lookup_simple("harrie", &error);
+	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
 
 	io_loop_time_refresh();
@@ -207,7 +208,7 @@ test_client_bad_version(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_passdb_lookup_simple("harrie", &error);
+	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
 	return FALSE;
 }
@@ -267,7 +268,7 @@ test_client_disconnect_version(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_passdb_lookup_simple("harrie", &error);
+	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
 	return FALSE;
 }
@@ -381,7 +382,7 @@ test_client_passdb_fail(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_passdb_lookup_simple("harrie", &error);
+	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out("run (ret == -2)", ret == -2);
 	test_assert(error != NULL &&
 		    strcmp(error, "You shall not pass!!") == 0);
@@ -395,7 +396,7 @@ test_client_passdb_notfound(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_passdb_lookup_simple("henk", &error);
+	ret = test_client_passdb_lookup_simple("henk", FALSE, &error);
 	test_out("run (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
@@ -408,7 +409,7 @@ test_client_passdb_timeout(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_passdb_lookup_simple("holger", &error);
+	ret = test_client_passdb_lookup_simple("holger", FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error == NULL);
 
@@ -779,7 +780,7 @@ test_client_passdb_lookup(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_passdb_lookup_simple("harrie", &error);
+	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out("run (ret > 0)", ret > 0);
 
 	return FALSE;
@@ -1035,7 +1036,8 @@ static void test_client_deinit(void)
 }
 
 static int
-test_client_passdb_lookup_simple(const char *username, const char **error_r)
+test_client_passdb_lookup_simple(const char *username, bool retry,
+				 const char **error_r)
 {
 	struct auth_master_connection *auth_conn;
 	enum auth_master_flags flags = 0;
@@ -1057,6 +1059,10 @@ test_client_passdb_lookup_simple(const char *username, const char **error_r)
 	auth_master_set_timeout(auth_conn, 1000);
 	ret = auth_master_pass_lookup(auth_conn, username, &info,
 				      pool, &fields);
+	if (ret < 0 && retry) {
+		ret = auth_master_pass_lookup(auth_conn, username, &info,
+					      pool, &fields);
+	}
 	auth_master_deinit(&auth_conn);
 
 	*error_r = (ret < 0 ? t_strdup(fields[0]) : NULL);
