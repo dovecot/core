@@ -341,6 +341,9 @@ test_passdb_fail_input(struct server_connection *conn)
 				sleep(5);
 				server_connection_deinit(&conn);
 				return;
+			} else if (strcmp(args[2], "hendrik") == 0) {
+				server_connection_deinit(&conn);
+				return;
 			} else {
 				line = t_strdup_printf("FAIL\t%u\t"
 					"reason=You shall not pass!!\n", id);
@@ -416,6 +419,19 @@ test_client_passdb_timeout(void)
 	return FALSE;
 }
 
+static bool
+test_client_passdb_disconnect(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_passdb_lookup_simple("hendrik", FALSE, &error);
+	test_out("run (ret == -1)", ret == -1);
+	test_assert(error == NULL);
+
+	return FALSE;
+}
+
 /* test */
 
 static void test_passdb_fail(void)
@@ -433,6 +449,12 @@ static void test_passdb_fail(void)
 	test_begin("passdb timeout");
 	test_expect_error_string("Request timed out");
 	test_run_client_server(test_client_passdb_timeout,
+			       test_server_passdb_fail);
+	test_end();
+
+	test_begin("passdb disconnect");
+	test_expect_error_string("Disconnected unexpectedly");
+	test_run_client_server(test_client_passdb_disconnect,
 			       test_server_passdb_fail);
 	test_end();
 }
