@@ -627,6 +627,19 @@ test_client_userdb_disconnect(void)
 	return FALSE;
 }
 
+static bool
+test_client_userdb_reconnect(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_userdb_lookup_simple("hendrik", TRUE, &error);
+	test_out("run (ret == -1)", ret == -1);
+	test_assert(error == NULL);
+
+	return FALSE;
+}
+
 /* test */
 
 static void test_userdb_fail(void)
@@ -650,6 +663,12 @@ static void test_userdb_fail(void)
 	test_begin("userdb disconnect");
 	test_expect_error_string("Disconnected unexpectedly");
 	test_run_client_server(test_client_userdb_disconnect,
+			       test_server_userdb_fail);
+	test_end();
+
+	test_begin("userdb reconnect");
+	test_expect_errors(2);
+	test_run_client_server(test_client_userdb_reconnect,
 			       test_server_userdb_fail);
 	test_end();
 }
