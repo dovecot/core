@@ -905,15 +905,62 @@ test_client_progress_timeout(void *context ATTR_UNUSED)
 }
 
 static int
+test_client_auth_run(struct auth_client *auth_client, struct ioloop *ioloop,
+		     struct auth_request_info *info,
+		     const char *username, const char *password,
+		     unsigned int concurrency, const char **error_r)
+{
+	struct login_test login_test;
+	struct login_request *login_reqs;
+	unsigned int i;
+	int ret;
+
+	i_zero(&login_test);
+	login_test.ioloop = ioloop;
+	login_test.username = username;
+	login_test.password = password;
+
+	auth_client_set_connect_timeout(auth_client, 1000);
+	auth_client_connect(auth_client);
+	if (auth_client_is_disconnected(auth_client)) {
+		login_test.error = i_strdup("Connection failed");
+		login_test.status = -1;
+	} else {
+		auth_client_set_connect_notify(
+			auth_client, test_client_auth_connected, &login_test);
+		io_loop_run(ioloop);
+	}
+
+	if (login_test.status >= 0) {
+		io_loop_set_running(ioloop);
+		login_test.requests_pending = concurrency;
+		login_reqs = t_new(struct login_request, concurrency);
+		for (i = 0; i < concurrency; i++) {
+			login_reqs[i].test = &login_test;
+			(void)auth_client_request_new(auth_client, info,
+						      test_client_auth_callback,
+						      &login_reqs[i]);
+		}
+		if (io_loop_is_running(ioloop))
+			io_loop_run(ioloop);
+	}
+
+	ret = login_test.status;
+	*error_r = t_strdup(login_test.error);
+
+	i_free(login_test.error);
+	auth_client_set_connect_notify(auth_client, NULL, NULL);
+
+	return ret;
+}
+
+static int
 test_client_auth_parallel(const char *mech, const char *username,
 			  const char *password, unsigned int concurrency,
 			  const char **error_r)
 {
 	struct auth_client *auth_client;
 	struct auth_request_info info;
-	struct login_test login_test;
-	struct login_request *login_reqs;
-	unsigned int i;
 	struct ioloop *ioloop;
 	int ret;
 
@@ -952,48 +999,17 @@ test_client_auth_parallel(const char *mech, const char *username,
 	}
 
 	ioloop = io_loop_create();
-
-	i_zero(&login_test);
-	login_test.ioloop = ioloop;
-	login_test.username = username;
-	login_test.password = password;
-
 	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
 					 test_client_progress_timeout, NULL);
 
 	auth_client = auth_client_init(TEST_SOCKET, 2234, debug);
-	auth_client_set_connect_timeout(auth_client, 1000);
-	auth_client_connect(auth_client);
-	if (auth_client_is_disconnected(auth_client)) {
-		login_test.error = i_strdup("Connection failed");
-		login_test.status = -1;
-	} else {
-		auth_client_set_connect_notify(
-			auth_client, test_client_auth_connected, &login_test);
-		io_loop_run(ioloop);
-	}
-
-	if (login_test.status >= 0) {
-		io_loop_set_running(ioloop);
-		login_test.requests_pending = concurrency;
-		login_reqs = t_new(struct login_request, concurrency);
-		for (i = 0; i < concurrency; i++) {
-			login_reqs[i].test = &login_test;
-			(void)auth_client_request_new(auth_client, &info,
-						      test_client_auth_callback,
-						      &login_reqs[i]);
-		}
-		if (io_loop_is_running(ioloop))
-			io_loop_run(ioloop);
-	}
-
-	ret = login_test.status;
-	*error_r = t_strdup(login_test.error);
-
+	ret = test_client_auth_run(auth_client, ioloop, &info,
+				   username, password, concurrency,
+				   error_r);
 	auth_client_deinit(&auth_client);
+
 	timeout_remove(&to_client_progress);
 	io_loop_destroy(&ioloop);
-	i_free(login_test.error);
 
 	return ret;
 }
