@@ -79,10 +79,10 @@ static void test_client_deinit(void);
 static int
 test_client_auth_parallel(const char *mech, const char *username,
 			  const char *password, unsigned int concurrency,
-			  const char **error_r);
+			  bool retry, const char **error_r);
 static int
 test_client_auth_simple(const char *mech, const char *username,
-			const char *password, const char **error_r);
+			const char *password, bool retry, const char **error_r);
 
 /* test*/
 static void
@@ -109,7 +109,7 @@ test_client_connection_refused(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_simple("PLAIN", "harrie", "frop", &error);
+	ret = test_client_auth_simple("PLAIN", "harrie", "frop", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
 
 	return FALSE;
@@ -157,7 +157,7 @@ test_client_connection_timed_out(void)
 	io_loop_time_refresh();
 	time = ioloop_time;
 
-	ret = test_client_auth_simple("PLAIN", "harrie", "frop", &error);
+	ret = test_client_auth_simple("PLAIN", "harrie", "frop", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
 
 	io_loop_time_refresh();
@@ -216,7 +216,7 @@ test_client_bad_version(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_simple("PLAIN", "harrie", "frop", &error);
+	ret = test_client_auth_simple("PLAIN", "harrie", "frop", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
 	return FALSE;
 }
@@ -280,7 +280,7 @@ test_client_disconnect_version(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_simple("PLAIN", "harrie", "frop", &error);
+	ret = test_client_auth_simple("PLAIN", "harrie", "frop", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
 	return FALSE;
 }
@@ -608,7 +608,7 @@ test_client_auth_plain_failure(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_simple("PLAIN", "henk", "frop", &error);
+	ret = test_client_auth_simple("PLAIN", "henk", "frop", FALSE, &error);
 	test_out("run (ret < 0)", ret < 0);
 	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
 
@@ -621,7 +621,7 @@ test_client_auth_plain_success(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_simple("PLAIN", "harrie", "frop", &error);
+	ret = test_client_auth_simple("PLAIN", "harrie", "frop", FALSE, &error);
 	test_out("run (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
@@ -634,7 +634,7 @@ test_client_auth_login_failure1(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_simple("LOGIN", "henk", "frop", &error);
+	ret = test_client_auth_simple("LOGIN", "henk", "frop", FALSE, &error);
 	test_out("run (ret < 0)", ret < 0);
 	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
 
@@ -647,7 +647,8 @@ test_client_auth_login_failure2(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_simple("LOGIN", "harrie", "friep", &error);
+	ret = test_client_auth_simple("LOGIN", "harrie", "friep", FALSE,
+				      &error);
 	test_out("run (ret < 0)", ret < 0);
 	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
 
@@ -660,7 +661,7 @@ test_client_auth_login_success(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_simple("LOGIN", "harrie", "frop", &error);
+	ret = test_client_auth_simple("LOGIN", "harrie", "frop", FALSE, &error);
 	test_out("run (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
@@ -673,7 +674,8 @@ test_client_auth_plain_parallel_failure(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_parallel("PLAIN", "henk", "frop", 4, &error);
+	ret = test_client_auth_parallel("PLAIN", "henk", "frop", 4, FALSE,
+					&error);
 	test_out("run (ret < 0)", ret < 0);
 	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
 
@@ -686,7 +688,8 @@ test_client_auth_plain_parallel_success(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_parallel("PLAIN", "harrie", "frop", 4, &error);
+	ret = test_client_auth_parallel("PLAIN", "harrie", "frop", 4, FALSE,
+					&error);
 	test_out("run (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
@@ -699,7 +702,8 @@ test_client_auth_login_parallel_failure1(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_parallel("LOGIN", "henk", "frop", 4, &error);
+	ret = test_client_auth_parallel("LOGIN", "henk", "frop", 4, FALSE,
+					&error);
 	test_out("run (ret < 0)", ret < 0);
 	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
 
@@ -712,7 +716,8 @@ test_client_auth_login_parallel_failure2(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_parallel("LOGIN", "harrie", "friep", 4, &error);
+	ret = test_client_auth_parallel("LOGIN", "harrie", "friep", 4, FALSE,
+					&error);
 	test_out("run (ret < 0)", ret < 0);
 	test_assert(error != NULL && strstr(error, "Login failure") != NULL);
 
@@ -725,7 +730,8 @@ test_client_auth_login_parallel_success(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_auth_parallel("LOGIN", "harrie", "frop", 4, &error);
+	ret = test_client_auth_parallel("LOGIN", "harrie", "frop", 4, FALSE,
+					&error);
 	test_out("run (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
@@ -957,7 +963,7 @@ test_client_auth_run(struct auth_client *auth_client, struct ioloop *ioloop,
 static int
 test_client_auth_parallel(const char *mech, const char *username,
 			  const char *password, unsigned int concurrency,
-			  const char **error_r)
+			  bool retry, const char **error_r)
 {
 	struct auth_client *auth_client;
 	struct auth_request_info info;
@@ -1006,6 +1012,11 @@ test_client_auth_parallel(const char *mech, const char *username,
 	ret = test_client_auth_run(auth_client, ioloop, &info,
 				   username, password, concurrency,
 				   error_r);
+	if (ret < 0 && retry) {
+		ret = test_client_auth_run(auth_client, ioloop, &info,
+					   username, password, concurrency,
+					   error_r);
+	}
 	auth_client_deinit(&auth_client);
 
 	timeout_remove(&to_client_progress);
@@ -1016,9 +1027,10 @@ test_client_auth_parallel(const char *mech, const char *username,
 
 static int
 test_client_auth_simple(const char *mech, const char *username,
-			const char *password, const char **error_r)
+			const char *password, bool retry, const char **error_r)
 {
-	return test_client_auth_parallel(mech, username, password, 1, error_r);
+	return test_client_auth_parallel(mech, username, password, 1, retry,
+					 error_r);
 }
 
 /*
