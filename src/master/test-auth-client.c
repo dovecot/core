@@ -361,6 +361,8 @@ test_auth_handshake_auth_plain(struct server_connection *conn, unsigned int id,
 			t_strdup_printf("OK\t%u\tuser=harrie\n", id));
 		return TRUE;
 	}
+	if (strcmp(authenid, "hendrik") == 0)
+		return FALSE;
 	o_stream_nsend_str(conn->conn.output,
 		t_strdup_printf("FAIL\t%u\tuser=%s\n", id, authenid));
 
@@ -603,6 +605,20 @@ static void test_server_auth_handshake(void)
 /* client */
 
 static bool
+test_client_auth_plain_disconnect(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_auth_simple("PLAIN", "hendrik", "frop", FALSE,
+				      &error);
+	test_out("run (ret < 0)", ret < 0);
+	test_assert(error != NULL && strstr(error, "Internal failure") != NULL);
+
+	return FALSE;
+}
+
+static bool
 test_client_auth_plain_failure(void)
 {
 	const char *error;
@@ -742,6 +758,12 @@ test_client_auth_login_parallel_success(void)
 
 static void test_auth_handshake(void)
 {
+	test_begin("auth PLAIN disconnect");
+	test_expect_errors(1);
+	test_run_client_server(test_client_auth_plain_disconnect,
+			       test_server_auth_handshake);
+	test_end();
+
 	test_begin("auth PLAIN failure");
 	test_run_client_server(test_client_auth_plain_failure,
 			       test_server_auth_handshake);
