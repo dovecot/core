@@ -1488,9 +1488,6 @@ static void
 smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn)
 {
 	const struct ip_addr *ip, *my_ip = &conn->set.my_ip;
-	const char *conn_name = (conn->host_is_ip ? NULL :
-				 t_strdup_printf("%s:%u", conn->host,
-						 conn->port));
 
 	timeout_remove(&conn->to_connect);
 
@@ -1506,7 +1503,8 @@ smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn)
 	}
 
 	connection_init_client_ip_from(conn->client->conn_list, &conn->conn,
-				       conn_name, ip, conn->port, my_ip);
+				       (conn->host_is_ip ? NULL : conn->host),
+				       ip, conn->port, my_ip);
 
 	smtp_client_connection_do_connect(conn);
 }

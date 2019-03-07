@@ -590,10 +590,16 @@ void connection_init_client_fd(struct connection_list *list,
 }
 
 void connection_init_client_ip_from(struct connection_list *list,
-				    struct connection *conn, const char *name,
+				    struct connection *conn,
+				    const char *hostname,
 				    const struct ip_addr *ip, in_port_t port,
 				    const struct ip_addr *my_ip)
 {
+	const char *name = NULL;
+
+	if (hostname != NULL)
+		name = t_strdup_printf("%s:%u", hostname, port);
+
 	i_assert(list->set.client);
 
 	conn->remote_ip = *ip;
@@ -615,10 +621,10 @@ void connection_init_client_ip_from(struct connection_list *list,
 }
 
 void connection_init_client_ip(struct connection_list *list,
-			       struct connection *conn, const char *name,
+			       struct connection *conn, const char *hostname,
 			       const struct ip_addr *ip, in_port_t port)
 {
-	connection_init_client_ip_from(list, conn, name, ip, port, NULL);
+	connection_init_client_ip_from(list, conn, hostname, ip, port, NULL);
 }
 
 void connection_init_client_unix(struct connection_list *list,

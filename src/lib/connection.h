@@ -174,11 +174,12 @@ void connection_init_server_ip(struct connection_list *list,
 			       const struct ip_addr *remote_ip,
 			       in_port_t remote_port) ATTR_NULL(3, 6);
 void connection_init_client_ip(struct connection_list *list,
-			       struct connection *conn, const char *name,
+			       struct connection *conn, const char *hostname,
 			       const struct ip_addr *ip, in_port_t port)
 			       ATTR_NULL(3);
 void connection_init_client_ip_from(struct connection_list *list,
-				    struct connection *conn, const char *name,
+				    struct connection *conn,
+				    const char *hostname,
 				    const struct ip_addr *ip, in_port_t port,
 				    const struct ip_addr *my_ip) ATTR_NULL(3,6);
 void connection_init_client_unix(struct connection_list *list,
