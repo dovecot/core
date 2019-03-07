@@ -10,7 +10,7 @@
 
 struct stats_metrics {
 	pool_t pool;
-	struct event_filter *filter;
+	struct event_filter *stats_filter;
 	ARRAY(struct metric *) metrics;
 };
 
@@ -71,7 +71,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 
 	stats_metric_settings_to_query(set, &query);
 	query.context = metric;
-	event_filter_add(metrics->filter, &query);
+	event_filter_add(metrics->stats_filter, &query);
 }
 
 static void
@@ -99,7 +99,7 @@ struct stats_metrics *stats_metrics_init(const struct stats_settings *set)
 
 	metrics = p_new(pool, struct stats_metrics, 1);
 	metrics->pool = pool;
-	metrics->filter = event_filter_create();
+	metrics->stats_filter = event_filter_create();
 	stats_metrics_add_from_settings(metrics, set);
 	return metrics;
 }
@@ -120,7 +120,7 @@ void stats_metrics_deinit(struct stats_metrics **_metrics)
 
 	array_foreach(&metrics->metrics, metricp)
 		stats_metric_free(*metricp);
-	event_filter_unref(&metrics->filter);
+	event_filter_unref(&metrics->stats_filter);
 	pool_unref(&metrics->pool);
 }
 
@@ -138,7 +138,7 @@ void stats_metrics_reset(struct stats_metrics *metrics)
 struct event_filter *
 stats_metrics_get_event_filter(struct stats_metrics *metrics)
 {
-	return metrics->filter;
+	return metrics->stats_filter;
 }
 
 static void
@@ -177,7 +177,7 @@ void stats_metrics_event(struct stats_metrics *metrics, struct event *event,
 	struct event_filter_match_iter *iter;
 	struct metric *metric;
 
-	iter = event_filter_match_iter_init(metrics->filter, event, ctx);
+	iter = event_filter_match_iter_init(metrics->stats_filter, event, ctx);
 	while ((metric = event_filter_match_iter_next(iter)) != NULL)
 		stats_metric_event(metric, event);
 	event_filter_match_iter_deinit(&iter);
