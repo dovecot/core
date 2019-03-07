@@ -619,6 +619,20 @@ test_client_auth_plain_disconnect(void)
 }
 
 static bool
+test_client_auth_plain_reconnect(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_auth_simple("PLAIN", "hendrik", "frop", TRUE,
+				      &error);
+	test_out("run (ret < 0)", ret < 0);
+	test_assert(error != NULL && strstr(error, "Internal failure") != NULL);
+
+	return FALSE;
+}
+
+static bool
 test_client_auth_plain_failure(void)
 {
 	const char *error;
@@ -761,6 +775,12 @@ static void test_auth_handshake(void)
 	test_begin("auth PLAIN disconnect");
 	test_expect_errors(1);
 	test_run_client_server(test_client_auth_plain_disconnect,
+			       test_server_auth_handshake);
+	test_end();
+
+	test_begin("auth PLAIN reconnect");
+	test_expect_errors(2);
+	test_run_client_server(test_client_auth_plain_reconnect,
 			       test_server_auth_handshake);
 	test_end();
 
