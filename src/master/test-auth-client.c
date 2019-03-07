@@ -351,7 +351,6 @@ test_auth_handshake_auth_plain(struct server_connection *conn, unsigned int id,
 
 	if (count != 2) {
 		i_error("Bad AUTH PLAIN request: Bad data");
-		server_connection_deinit(&conn);
 		return FALSE;
 	}
 
@@ -382,7 +381,6 @@ test_auth_handshake_auth_login(struct server_connection *conn, unsigned int id,
 	if (data_size != 0) {
 		i_error("Bad AUTH PLAIN request: "
 			"Not expecting initial response");
-		server_connection_deinit(&conn);
 		return FALSE;
 	}
 
@@ -448,7 +446,6 @@ test_auth_handshake_auth(struct server_connection *conn, unsigned int id,
 
 	if (args[0] == NULL) {
 		i_error("Bad AUTH request");
-		server_connection_deinit(&conn);
 		return FALSE;
 	}
 	mech = args[0];
@@ -463,7 +460,6 @@ test_auth_handshake_auth(struct server_connection *conn, unsigned int id,
 	if (resp != NULL) {
 		if (base64_decode(resp, strlen(resp), NULL, data) < 0) {
 			i_error("Bad AUTH request: Bad base64");
-			server_connection_deinit(&conn);
 			return FALSE;
 		}
 	}
@@ -476,7 +472,6 @@ test_auth_handshake_auth(struct server_connection *conn, unsigned int id,
 						      data->data, data->used);
 	}
 	i_error("Bad AUTH request: Unknown mechanism");
-	server_connection_deinit(&conn);
 	return FALSE;
 }
 
@@ -492,7 +487,6 @@ test_auth_handshake_cont(struct server_connection *conn, unsigned int id,
 
 	if (args[0] == NULL) {
 		i_error("Bad CONT request");
-		server_connection_deinit(&conn);
 		return FALSE;
 	}
 	resp = args[0];
@@ -500,7 +494,6 @@ test_auth_handshake_cont(struct server_connection *conn, unsigned int id,
 	if (resp != NULL) {
 		if (base64_decode(resp, strlen(resp), NULL, data) < 0) {
 			i_error("Bad CONT request: Bad base64");
-			server_connection_deinit(&conn);
 			return FALSE;
 		}
 	}
@@ -514,7 +507,6 @@ test_auth_handshake_cont(struct server_connection *conn, unsigned int id,
 
 	if (req == NULL) {
 		i_error("Bad CONT request: Bad request ID");
-		server_connection_deinit(&conn);
 		return FALSE;
 	}
 
