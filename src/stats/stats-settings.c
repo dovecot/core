@@ -61,7 +61,7 @@ static const struct setting_define stats_metric_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-const struct stats_metric_settings stats_metric_default_settings = {
+static const struct stats_metric_settings stats_metric_default_settings = {
 	.name = "",
 	.event_name = "",
 	.source_location = "",
