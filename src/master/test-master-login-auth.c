@@ -77,9 +77,9 @@ static void test_client_deinit(void);
 
 static int
 test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
-			     const char **error_r);
+			     bool retry, const char **error_r);
 static int
-test_client_request_simple(pid_t client_pid, const char **error_r);
+test_client_request_simple(pid_t client_pid, bool retry, const char **error_r);
 
 /* test*/
 static void
@@ -106,7 +106,7 @@ test_client_connection_refused(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_simple(2323, &error);
+	ret = test_client_request_simple(2323, FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    strstr(error, "Internal error occurred.") != NULL);
@@ -156,7 +156,7 @@ test_client_connection_timed_out(void)
 	io_loop_time_refresh();
 	time = ioloop_time;
 
-	ret = test_client_request_simple(2323, &error);
+	ret = test_client_request_simple(2323, FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    strstr(error, "Internal error occurred.") != NULL);
@@ -213,7 +213,7 @@ test_client_bad_version(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_simple(2323, &error);
+	ret = test_client_request_simple(2323, FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    strstr(error, "Internal error occurred.") != NULL);
@@ -276,7 +276,7 @@ test_client_disconnect_version(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_simple(2323, &error);
+	ret = test_client_request_simple(2323, FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    strstr(error, "Internal error occurred.") != NULL);
@@ -339,7 +339,7 @@ test_client_changed_spid(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_simple(2323, &error);
+	ret = test_client_request_simple(2323, FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    strstr(error, "Internal error occurred.") != NULL);
@@ -459,7 +459,7 @@ test_client_request_fail(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_simple(2323, &error);
+	ret = test_client_request_simple(2323, FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    strcmp(error, "REQUEST DENIED") == 0);
@@ -473,7 +473,7 @@ test_client_request_notfound(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_simple(2324, &error);
+	ret = test_client_request_simple(2324, FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    strstr(error, "Internal error occurred.") != NULL);
@@ -487,7 +487,7 @@ test_client_request_timeout(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_simple(2325, &error);
+	ret = test_client_request_simple(2325, FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    strstr(error, "Internal error occurred.") != NULL);
@@ -606,7 +606,7 @@ test_client_request_login(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_simple(2323, &error);
+	ret = test_client_request_simple(2323, FALSE, &error);
 	test_out("run (ret == 0)", ret == 0);
 
 	return FALSE;
@@ -618,7 +618,7 @@ test_client_request_login_parallel(void)
 	const char *error;
 	int ret;
 
-	ret = test_client_request_parallel(2323, 4, &error);
+	ret = test_client_request_parallel(2323, 4, FALSE, &error);
 	test_out("run (ret == 0)", ret == 0);
 
 	return FALSE;
@@ -719,7 +719,7 @@ test_client_request_run(struct master_login_auth *auth, struct ioloop *ioloop,
 
 static int
 test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
-			     const char **error_r)
+			     bool retry, const char **error_r)
 {
 	struct master_login_auth *auth;
 	struct master_auth_request auth_req;
@@ -743,6 +743,10 @@ test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
 	auth = master_login_auth_init(TEST_SOCKET, TRUE);
 	ret = test_client_request_run(auth, ioloop, &auth_req, concurrency,
 				      error_r);
+	if (ret < 0 && retry) {
+		ret = test_client_request_run(auth, ioloop, &auth_req,
+					      concurrency, error_r);
+	}
 	master_login_auth_deinit(&auth);
 
 	io_loop_destroy(&ioloop);
@@ -751,9 +755,9 @@ test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
 }
 
 static int
-test_client_request_simple(pid_t client_pid, const char **error_r)
+test_client_request_simple(pid_t client_pid, bool retry, const char **error_r)
 {
-	return test_client_request_parallel(client_pid, 1, error_r);
+	return test_client_request_parallel(client_pid, 1, retry, error_r);
 }
 
 /*
