@@ -512,6 +512,20 @@ test_client_request_disconnect(void)
 	return FALSE;
 }
 
+static bool
+test_client_request_reconnect(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_request_simple(2326, TRUE, &error);
+	test_out("run (ret == -1)", ret == -1);
+	test_assert(error != NULL &&
+		    strstr(error, "Internal error occurred.") != NULL);
+
+	return FALSE;
+}
+
 /* test */
 
 static void test_request_fail(void)
@@ -540,6 +554,11 @@ static void test_request_fail(void)
 			       test_server_request_fail);
 	test_end();
 
+	test_begin("request reconnect");
+	test_expect_errors(2);
+	test_run_client_server(test_client_request_reconnect,
+			       test_server_request_fail);
+	test_end();
 }
 
 /*
