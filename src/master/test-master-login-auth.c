@@ -418,6 +418,9 @@ test_request_fail_input(struct server_connection *conn)
 				sleep(5);
 				server_connection_deinit(&conn);
 				return;
+			} else if (client_pid == 2326) {
+				server_connection_deinit(&conn);
+				return;
 			} else {
 				line = t_strdup_printf("FAIL\t%u\t"
 					"reason=REQUEST DENIED\n", id);
@@ -495,6 +498,20 @@ test_client_request_timeout(void)
 	return FALSE;
 }
 
+static bool
+test_client_request_disconnect(void)
+{
+	const char *error;
+	int ret;
+
+	ret = test_client_request_simple(2326, FALSE, &error);
+	test_out("run (ret == -1)", ret == -1);
+	test_assert(error != NULL &&
+		    strstr(error, "Internal error occurred.") != NULL);
+
+	return FALSE;
+}
+
 /* test */
 
 static void test_request_fail(void)
@@ -516,6 +533,13 @@ static void test_request_fail(void)
 	test_run_client_server(test_client_request_timeout,
 			       test_server_request_fail);
 	test_end();
+
+	test_begin("request disconnect");
+	test_expect_error_string("Disconnected from auth server");
+	test_run_client_server(test_client_request_disconnect,
+			       test_server_request_fail);
+	test_end();
+
 }
 
 /*
