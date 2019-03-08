@@ -1117,8 +1117,9 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		return FALSE;
 	} else if (*result == PASSDB_RESULT_NEXT) {
 		/* admin forgot to put proper passdb last */
-		e_error(authdb_event(request),
-			"Last passdb had noauthenticate field, cannot authenticate user");
+		e_error(request->event,
+			"%sLast passdb had noauthenticate field, cannot authenticate user",
+			get_log_prefix_db(request));
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (request->passdb_success) {
 		/* either this or a previous passdb lookup succeeded. */
@@ -1625,14 +1626,16 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired)) {
 		stats->auth_cache_miss_count++;
-		e_debug(authdb_event(request),
-			value == NULL ? "userdb cache miss" :
-			"userdb cache expired");
+		e_debug(request->event,
+			value == NULL ? "%suserdb cache miss" :
+			"userdb cache expired",
+			get_log_prefix_db(request));
 		return FALSE;
 	}
 	stats->auth_cache_hit_count++;
-	e_debug(authdb_event(request),
-		"userdb cache hit: %s", value);
+	e_debug(request->event,
+		"%suserdb cache hit: %s",
+		get_log_prefix_db(request), value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
@@ -1715,8 +1718,9 @@ void auth_request_userdb_callback(enum userdb_result result,
 			   fields */
 			if (userdb_template_export(userdb->override_fields_tmpl,
 						   request, &error) < 0) {
-				e_error(authdb_event(request),
-					"Failed to expand override_fields: %s", error);
+				e_error(request->event,
+					"%sFailed to expand override_fields: %s",
+					get_log_prefix_db(request), error);
 				request->private_callback.userdb(
 					USERDB_RESULT_INTERNAL_FAILURE, request);
 				return;
@@ -1738,8 +1742,9 @@ void auth_request_userdb_callback(enum userdb_result result,
 	if (request->userdb_success) {
 		if (userdb_template_export(userdb->override_fields_tmpl,
 					   request, &error) < 0) {
-			e_error(authdb_event(request),
-				"Failed to expand override_fields: %s", error);
+			e_error(request->event,
+				"%sFailed to expand override_fields: %s",
+				get_log_prefix_db(request), error);
 			result = USERDB_RESULT_INTERNAL_FAILURE;
 		} else {
 			result = USERDB_RESULT_OK;
@@ -1753,8 +1758,9 @@ void auth_request_userdb_callback(enum userdb_result result,
 		/* this was an actual login attempt, the user should
 		   have been found. */
 		if (auth_request_get_auth(request)->userdbs->next == NULL) {
-			e_error(authdb_event(request),
-				"user not found from userdb");
+			e_error(request->event,
+				"%suser not found from userdb",
+				get_log_prefix_db(request));
 		} else {
 			e_error(request->mech_event,
 				"user not found from any userdbs");
@@ -1777,8 +1783,9 @@ void auth_request_userdb_callback(enum userdb_result result,
 
 		if (auth_request_lookup_user_cache(request, cache_key,
 						   &result, TRUE)) {
-			e_info(authdb_event(request),
-			       "Falling back to expired data from cache");
+			e_info(request->event,
+			       "%sFalling back to expired data from cache",
+				get_log_prefix_db(request));
 		}
 	}
 
