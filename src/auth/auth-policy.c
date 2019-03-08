@@ -174,7 +174,7 @@ void auth_policy_init(void)
 						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
 						    &ssl_set);
 	http_client_set.ssl = &ssl_set;
-	http_client_set.event = auth_event;
+	http_client_set.event_parent = auth_event;
 	http_client = http_client_init(&http_client_set);
 
 	/* prepare template */
