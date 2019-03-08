@@ -913,6 +913,7 @@ auth_request_lookup_end_common(struct auth_request *request,
 void auth_request_passdb_lookup_end(struct auth_request *request,
 				    enum passdb_result result)
 {
+	i_assert(array_count(&request->authdb_event) > 0);
 	struct event *event = authdb_event(request);
 	struct event_passthrough *e =
 		auth_request_lookup_end_common(request, event)->
@@ -956,6 +957,7 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 void auth_request_userdb_lookup_end(struct auth_request *request,
 				    enum userdb_result result)
 {
+	i_assert(array_count(&request->authdb_event) > 0);
 	struct event *event = authdb_event(request);
 	struct event_passthrough *e =
 		auth_request_lookup_end_common(request, event)->

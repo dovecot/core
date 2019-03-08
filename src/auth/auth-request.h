@@ -315,6 +315,8 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
    which will be returned here. */
 static inline struct event *authdb_event(struct auth_request *request)
 {
+	if (array_count(&request->authdb_event) == 0)
+		return request->event;
 	struct event **e = array_back_modifiable(&request->authdb_event);
 	return *e;
 }
