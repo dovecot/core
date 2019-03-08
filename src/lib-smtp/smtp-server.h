@@ -340,7 +340,7 @@ struct smtp_server_settings {
 	size_t socket_recv_buffer_size;
 
 	/* Event to use for the smtp server. */
-	struct event *event;
+	struct event *event_parent;
 
 	/* Enable logging debug messages */
 	bool debug:1;

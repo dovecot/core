@@ -86,7 +86,7 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 
 	/* There is no event log prefix added here, since the server itself does
 	   not log anything. */
-	server->event = event_create(set->event);
+	server->event = event_create(set->event_parent);
 	event_add_category(server->event, &event_category_smtp_server);
 	event_add_str(server->event, "protocol",
 		      smtp_protocol_name(server->set.protocol));
