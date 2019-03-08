@@ -125,9 +125,10 @@ struct http_client_settings {
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
 
-	/* Event to use for the http client. For specific requests this can be
-	   overridden with http_client_request_set_event(). */
-	struct event *event;
+	/* Event to use as parent for the http client event. For specific
+	   requests this can be overridden with http_client_request_set_event().
+	 */
+	struct event *event_parent;
 
 	/* enable logging debug messages */
 	bool debug;

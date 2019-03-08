@@ -127,8 +127,8 @@ http_client_init_shared(struct http_client_context *cctx,
 	}
 
 	struct event *parent_event;
-	if (set != NULL && set->event != NULL)
-		parent_event = set->event;
+	if (set != NULL && set->event_parent != NULL)
+		parent_event = set->event_parent;
 	else if (cctx->event == NULL)
 		parent_event = NULL;
 	else {
@@ -441,7 +441,7 @@ http_client_context_create(const struct http_client_settings *set)
 	cctx->refcount = 1;
 	cctx->ioloop = current_ioloop;
 
-	cctx->event = event_create(set->event);
+	cctx->event = event_create(set->event_parent);
 	event_set_forced_debug(cctx->event, set->debug);
 	event_set_append_log_prefix(cctx->event, "http-client: ");
 
