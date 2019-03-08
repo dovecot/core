@@ -90,7 +90,7 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 
 	/* There is no event log prefix added here, since the client itself does
 	   not log anything and the prefix is protocol-dependent. */
-	client->event = event_create(set->event);
+	client->event = event_create(set->event_parent);
 	event_add_category(client->event, &event_category_smtp_client);
 	event_set_forced_debug(client->event, set->debug);
 
