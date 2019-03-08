@@ -2314,6 +2314,7 @@ dsync_mailbox_get_final_keywords(const struct dsync_mail_change *change)
 	t_array_init(&keywords, count);
 	for (i = 0; i < count; i++) {
 		if (changes[i][0] == KEYWORD_CHANGE_ADD ||
+		    changes[i][0] == KEYWORD_CHANGE_FINAL ||
 		    changes[i][0] == KEYWORD_CHANGE_ADD_AND_FINAL) {
 			const char *name = changes[i]+1;
 
