@@ -7,7 +7,56 @@
 #define MAX_STACK_SIZE 30
 #define STACK_SKIP_COUNT 2
 
-#if defined(HAVE_BACKTRACE_SYMBOLS) && defined(HAVE_EXECINFO_H)
+#if defined(HAVE_LIBUNWIND)
+
+#include <libunwind.h>
+
+int backtrace_append(string_t *str)
+{
+	char proc_name[256];
+	int ret;
+	unsigned int fp = 0;
+	unw_cursor_t c;
+	unw_context_t ctx;
+	unw_proc_info_t pip;
+
+	if ((ret = unw_getcontext(&ctx)) != 0) {
+		str_printfa(str, "unw_getcontext() failed: %d", ret);
+		return -1;
+	}
+	if ((ret = unw_init_local(&c, &ctx)) != 0) {
+		str_printfa(str, "unw_init_local() failed: %d", ret);
+		return -1;
+	}
+
+	do {
+		if (fp < STACK_SKIP_COUNT) {
+			fp++;
+			continue;
+		}
+		str_printfa(str, "#%d ", fp - STACK_SKIP_COUNT);
+		if ((ret = unw_get_proc_info(&c, &pip)) != 0) {
+			str_printfa(str, "[unw_get_proc_info_failed(): %d]", ret);
+		} else if (pip.start_ip == 0 || pip.end_ip == 0) {
+			str_append(str, "[no start/end information]");
+		} else if ((ret = unw_get_proc_name(&c, proc_name, sizeof(proc_name), 0)) != 0 &&
+			   ret != UNW_ENOMEM) {
+			str_printfa(str, "[unw_get_proc_name() failed: %d]", ret);
+		} else {
+			str_append_max(str, proc_name, sizeof(proc_name));
+			str_printfa(str, "[0x%08lx]", pip.start_ip);
+		}
+		str_append(str, " -> ");
+		fp++;
+	} while ((ret = unw_step(&c)) > 0);
+
+	/* remove ' -> ' */
+	if (str->used > 4)
+		str_truncate(str, str->used - 4);
+	return ret == 0 ? 0 : -1;
+}
+
+#elif defined(HAVE_BACKTRACE_SYMBOLS) && defined(HAVE_EXECINFO_H)
 /* Linux */
 #include <execinfo.h>
 

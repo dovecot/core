@@ -91,6 +91,11 @@ AS_HELP_STRING([--with-ldap=yes|plugin], [Build with LDAP support]),
   TEST_WITH(ldap, $withval, plugin),
   want_ldap=no)
 
+AC_ARG_WITH(libunwind,
+AS_HELP_STRING([--with-libunwind], [Build with libunwind support (auto)]),
+  TEST_WITH(libunwind, $withval),
+  want_libunwind=auto)
+
 AC_ARG_WITH(vpopmail,
 AS_HELP_STRING([--with-vpopmail], [Build with vpopmail support (auto)]),
 	if test x$withval = xno; then
@@ -520,6 +525,7 @@ DOVECOT_MNTCTL
 
 DOVECOT_SSL
 
+DOVECOT_WANT_UNWIND
 
 dnl **
 dnl ** userdb and passdb checks

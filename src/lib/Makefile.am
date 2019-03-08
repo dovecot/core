@@ -1,3 +1,6 @@
+AM_CPPFLAGS = \
+	$(LIBUNWIND_CFLAGS)
+
 noinst_LTLIBRARIES = liblib.la
 
 BUILT_SOURCES = $(srcdir)/unicodemap.c
@@ -10,6 +13,7 @@ $(srcdir)/UnicodeData.txt:
 $(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(srcdir)/UnicodeData.txt
 	perl $(srcdir)/unicodemap.pl < $(srcdir)/UnicodeData.txt > $@
 
+liblib_la_LIBADD = $(LIBUNWIND_LIBS)
 liblib_la_SOURCES = \
 	array.c \
 	aqueue.c \
