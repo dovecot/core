@@ -85,7 +85,7 @@ smtp_submit_session_init(const struct smtp_submit_input *input,
 						input->ssl);
 	}
 
-	session->event = event_create(input->event);
+	session->event = event_create(input->event_parent);
 	event_add_category(session->event, &event_category_smtp_submit);
 
 	return session;
