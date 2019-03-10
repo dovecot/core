@@ -485,8 +485,9 @@ mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 				       "Return-Path", &path)) <= 0) {
 		if (ret < 0) {
 			struct mailbox *box = ctx->src_mail->box;
-			i_warning("Failed read return-path header: %s",
-				mailbox_get_last_internal_error(box, NULL));
+			e_warning(ctx->event,
+				  "Failed read return-path header: %s",
+				  mailbox_get_last_internal_error(box, NULL));
 		}
 		return NULL;
 	}
@@ -494,7 +495,7 @@ mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 				       (const unsigned char *)path,
 				       strlen(path), &addr) < 0 ||
 	    smtp_address_create_from_msg(ctx->pool, addr, &smtp_addr) < 0) {
-		i_warning("Failed to parse return-path header");
+		e_warning(ctx->event, "Failed to parse return-path header");
 		return NULL;
 	}
 	return smtp_addr;
