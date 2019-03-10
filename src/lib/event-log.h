@@ -51,6 +51,18 @@ void e_debug(struct event *event,
 	else \
 		event_send_abort(_tmp_event); \
 	} STMT_END
+
+void e_log(struct event *event, enum log_type level,
+	   const char *source_filename, unsigned int source_linenum,
+	   const char *fmt, ...) ATTR_FORMAT(5, 6);
+#define e_log(_event, level, ...) STMT_START { \
+	struct event *_tmp_event = (_event); \
+	if (event_want_level(_tmp_event, level)) \
+		e_log(_tmp_event, level, __FILE__, __LINE__, __VA_ARGS__); \
+	else \
+		event_send_abort(_tmp_event); \
+	} STMT_END
+
 /* Returns TRUE if debug event should be sent (either logged or sent to
    stats). */
 bool event_want_log_level(struct event *event, enum log_type level,

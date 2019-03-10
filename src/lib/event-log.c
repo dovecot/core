@@ -77,6 +77,23 @@ void e_debug(struct event *event,
 	va_end(args);
 }
 
+#undef e_log
+void e_log(struct event *event, enum log_type level,
+	   const char *source_filename, unsigned int source_linenum,
+	   const char *fmt, ...)
+{
+	struct event_log_params params = {
+		.log_type = level,
+		.source_filename = source_filename,
+		.source_linenum = source_linenum,
+	};
+	va_list args;
+
+	va_start(args, fmt);
+	event_logv(event, &params, fmt, args);
+	va_end(args);
+}
+
 static bool event_get_log_prefix(struct event *event, string_t *log_prefix,
 				 bool *replace_prefix, unsigned int *type_pos)
 {
