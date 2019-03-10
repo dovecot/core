@@ -52,6 +52,18 @@ struct mail_deliver_input {
 	bool save_dest_mail:1;
 };
 
+struct mail_deliver_fields {
+	const char *message_id;
+	const char *subject;
+	const char *from;
+	const char *from_envelope;
+	const char *storage_id;
+
+	uoff_t psize, vsize;
+
+	bool filled:1;
+};
+
 struct mail_deliver_context {
 	pool_t pool;
 	const struct lda_settings *set;
@@ -89,8 +101,8 @@ struct mail_deliver_context {
 	   the mailbox. */
 	struct mail *dest_mail;
 
-	/* mail_deliver_log() caches the var expand table values here */
-	struct mail_deliver_cache *cache;
+	/* Recorded field values for the transaction */
+	struct mail_deliver_fields fields;
 
 	/* Error message for a temporary failure. This is necessary only when
 	   there is no storage where to get the error message from. */
