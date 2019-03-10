@@ -199,7 +199,7 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 			ctx->set->deliver_log_format, error);
 	}
 
-	i_info("%s", str_c(str));
+	e_info(ctx->event, "%s", str_c(str));
 	va_end(args);
 }
 
