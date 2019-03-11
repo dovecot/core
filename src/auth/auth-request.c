@@ -1628,7 +1628,7 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 		stats->auth_cache_miss_count++;
 		e_debug(request->event,
 			value == NULL ? "%suserdb cache miss" :
-			"userdb cache expired",
+			"%suserdb cache expired",
 			get_log_prefix_db(request));
 		return FALSE;
 	}
