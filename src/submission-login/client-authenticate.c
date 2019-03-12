@@ -98,6 +98,9 @@ void submission_client_auth_result(struct client *client,
 		container_of(client, struct submission_client, common);
 	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
 
+	if (subm_client->conn == NULL)
+		return;
+
 	subm_client->pending_auth = NULL;
 	i_assert(cmd != NULL);
 
