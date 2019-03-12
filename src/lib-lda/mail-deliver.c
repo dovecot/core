@@ -573,6 +573,7 @@ int mail_deliver(struct mail_deliver_context *ctx,
 {
 	struct mail_deliver_user *muser =
 		MAIL_DELIVER_USER_CONTEXT(ctx->rcpt_user);
+	struct event_passthrough *e;
 	int ret;
 
 	i_assert(muser->deliver_ctx == NULL);
@@ -585,7 +586,15 @@ int mail_deliver(struct mail_deliver_context *ctx,
 
 	muser->deliver_ctx = ctx;
 
+	e = event_create_passthrough(ctx->event)->
+		set_name("mail_delivery_started");
+	e_debug(e->event(), "Local delivery started");
+
 	ret = mail_do_deliver(ctx, storage_r);
+
+	e = event_create_passthrough(ctx->event)->
+		set_name("mail_delivery_finished");
+	e_debug(e->event(), "Local delivery finished");
 
 	muser->deliver_ctx = NULL;
 
