@@ -136,6 +136,34 @@ void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
 	rcpt->cmd = cmd;
 }
 
+void smtp_server_recipient_replyv(struct smtp_server_recipient *rcpt,
+				  unsigned int status, const char *enh_code,
+				  const char *fmt, va_list args)
+{
+	i_assert(rcpt->cmd != NULL);
+
+	if (smtp_server_command_is_rcpt(rcpt->cmd) && (status / 100) == 2) {
+		smtp_server_reply_indexv(rcpt->cmd, rcpt->index,
+					 status, enh_code, fmt, args);
+		return;
+	}
+		
+	smtp_server_reply_index(rcpt->cmd, rcpt->index, status, enh_code,
+				"<%s> %s", smtp_address_encode(rcpt->path),
+				t_strdup_vprintf(fmt, args));
+}
+
+void smtp_server_recipient_reply(struct smtp_server_recipient *rcpt,
+				 unsigned int status, const char *enh_code,
+				 const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	smtp_server_recipient_replyv(rcpt, status, enh_code, fmt, args);
+	va_end(args);
+}
+
 void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt)
 {
 	i_assert(!rcpt->finished);

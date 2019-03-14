@@ -83,6 +83,14 @@ struct smtp_server_recipient {
 };
 ARRAY_DEFINE_TYPE(smtp_server_recipient, struct smtp_server_recipient *);
 
+void smtp_server_recipient_replyv(struct smtp_server_recipient *rcpt,
+				  unsigned int status, const char *enh_code,
+				  const char *fmt, va_list args)
+				  ATTR_FORMAT(4, 0);
+void smtp_server_recipient_reply(struct smtp_server_recipient *rcpt,
+				 unsigned int status, const char *enh_code,
+				 const char *fmt, ...) ATTR_FORMAT(4, 5);
+
 /* Hooks */
 
 void smtp_server_recipient_add_hook(struct smtp_server_recipient *rcpt,
