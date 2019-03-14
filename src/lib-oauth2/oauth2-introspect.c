@@ -81,6 +81,10 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 
 	if (set->introspection_mode == INTROSPECTION_MODE_GET) {
 		http_url_escape_param(enc, input->token);
+		str_append(enc, "&client_id=");
+		http_url_escape_param(enc, set->client_id);
+		str_append(enc, "&client_secret=");
+		http_url_escape_param(enc, set->client_secret);
 	}
 
 	if (set->introspection_mode == INTROSPECTION_MODE_POST) {
@@ -91,6 +95,10 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 		enc = t_str_new(strlen(input->token)+6);
 		str_append(enc, "token=");
 		http_url_escape_param(enc, input->token);
+		str_append(enc, "&client_id=");
+		http_url_escape_param(enc, set->client_id);
+		str_append(enc, "&client_secret=");
+		http_url_escape_param(enc, set->client_secret);
 		http_client_request_add_header(req->req, "Content-Type",
 					       "application/x-www-form-urlencoded");
 		http_client_request_set_payload_data(req->req, enc->data, enc->used);
