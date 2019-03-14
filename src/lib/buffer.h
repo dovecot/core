@@ -60,6 +60,11 @@ void buffer_insert(buffer_t *buf, size_t pos,
    deleted block may cross the current buffer size boundary, which is ignored.
  */
 void buffer_delete(buffer_t *buf, size_t pos, size_t size);
+/* Replace the data in the buffer with the indicated size at position pos with
+   the provided data. This is a more optimized version of
+   buffer_delete(buf, pos, size); buffer_insert(buf, pos, data, data_size); */
+void buffer_replace(buffer_t *buf, size_t pos, size_t size,
+		    const void *data, size_t data_size);
 
 /* Fill buffer with zero bytes. */
 void buffer_write_zero(buffer_t *buf, size_t pos, size_t data_size);
