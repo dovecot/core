@@ -10,7 +10,7 @@ static void test_buffer_random(void)
 	buffer_t *buf;
 	unsigned char *p, testdata[BUF_TEST_SIZE], shadowbuf[BUF_TEST_SIZE];
 	unsigned int i, shadowbuf_size;
-	size_t pos, pos2, size;
+	size_t pos, pos2, size, size2;
 	int test = -1;
 	bool zero;
 
@@ -29,7 +29,7 @@ static void test_buffer_random(void)
 			i_assert(buf->used < BUF_TEST_SIZE);
 		}
 
-		test = i_rand_limit(6);
+		test = i_rand_limit(7);
 		zero = i_rand_limit(10) == 0;
 		switch (test) {
 		case 0:
@@ -95,6 +95,32 @@ static void test_buffer_random(void)
 			}
 			break;
 		case 4:
+			pos = i_rand_limit(BUF_TEST_SIZE - 1);
+			size = i_rand_limit(BUF_TEST_SIZE - pos);
+			size2 = i_rand_limit(BUF_TEST_SIZE -
+					     I_MAX(buf->used, pos));
+			buffer_replace(buf, pos, size, testdata, size2);
+			if (pos < shadowbuf_size) {
+				if (pos + size > shadowbuf_size)
+					size = shadowbuf_size - pos;
+				memmove(shadowbuf + pos,
+					shadowbuf + pos + size,
+					BUF_TEST_SIZE - (pos + size));
+
+				shadowbuf_size -= size;
+				memset(shadowbuf + shadowbuf_size, 0,
+				       BUF_TEST_SIZE - shadowbuf_size);
+			}
+			memmove(shadowbuf + pos + size2,
+				shadowbuf + pos,
+				BUF_TEST_SIZE - (pos + size2));
+			memcpy(shadowbuf + pos, testdata, size2);
+			if (pos < shadowbuf_size)
+				shadowbuf_size += size2;
+			else
+				shadowbuf_size = pos + size2;
+			break;
+		case 5:
 			if (shadowbuf_size <= 1)
 				break;
 			pos = i_rand_limit(shadowbuf_size - 1); /* dest */
@@ -106,7 +132,7 @@ static void test_buffer_random(void)
 			if (pos > pos2 && pos + size > shadowbuf_size)
 				shadowbuf_size = pos + size;
 			break;
-		case 5:
+		case 6:
 			pos = i_rand_limit(BUF_TEST_SIZE - 1);
 			size = i_rand_limit(BUF_TEST_SIZE - pos);
 			p = buffer_get_space_unsafe(buf, pos, size);
@@ -271,10 +297,41 @@ static void test_buffer_truncate_bits(void)
 	test_end();
 }
 
+static void test_buffer_replace(void)
+{
+	const char orig_input[] = "123456789";
+	const char data[] = "abcdefghij";
+	buffer_t *buf, *buf2;
+	unsigned int init_size, pos, size, data_size;
+
+	test_begin("buffer_replace()");
+	for (init_size = 0; init_size <= sizeof(orig_input)-1; init_size++) {
+		for (pos = 0; pos < sizeof(orig_input)+1; pos++) {
+			for (size = 0; size < sizeof(orig_input)+1; size++) {
+				for (data_size = 0; data_size <= sizeof(data)-1; data_size++) T_BEGIN {
+					buf = buffer_create_dynamic(pool_datastack_create(), 4);
+					buf2 = buffer_create_dynamic(pool_datastack_create(), 4);
+					buffer_append(buf, orig_input, init_size);
+					buffer_append(buf2, orig_input, init_size);
+
+					buffer_replace(buf, pos, size, data, data_size);
+					buffer_delete(buf2, pos, size);
+					buffer_insert(buf2, pos, data, data_size);
+					test_assert(buf->used == buf2->used &&
+						    memcmp(buf->data, buf2->data, buf->used) == 0);
+				} T_END;
+			}
+		}
+	}
+
+	test_end();
+}
+
 void test_buffer(void)
 {
 	test_buffer_random();
 	test_buffer_write();
 	test_buffer_set_used_size();
 	test_buffer_truncate_bits();
+	test_buffer_replace();
 }
