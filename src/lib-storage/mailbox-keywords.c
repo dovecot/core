@@ -84,6 +84,21 @@ mailbox_keywords_create_from_indexes(struct mailbox *box,
 	return mail_index_keywords_create_from_indexes(box->index, idx);
 }
 
+struct mail_keywords *mailbox_keywords_merge(struct mail_keywords *keywords1,
+					     struct mail_keywords *keywords2)
+{
+	ARRAY_TYPE(keyword_indexes) keywords_merged;
+
+	i_assert(keywords1->index == keywords2->index);
+
+	t_array_init(&keywords_merged, keywords1->count + keywords2->count);
+	/* duplicates are dropped by mail_index_keywords_create() */
+	array_append(&keywords_merged, keywords1->idx, keywords1->count);
+	array_append(&keywords_merged, keywords2->idx, keywords2->count);
+	return mail_index_keywords_create_from_indexes(keywords1->index,
+						       &keywords_merged);
+}
+
 void mailbox_keywords_ref(struct mail_keywords *keywords)
 {
 	mail_index_keywords_ref(keywords);
