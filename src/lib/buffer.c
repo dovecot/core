@@ -234,6 +234,40 @@ void buffer_delete(buffer_t *_buf, size_t pos, size_t size)
 	buffer_set_used_size(_buf, pos + end_size);
 }
 
+void buffer_replace(buffer_t *_buf, size_t pos, size_t size,
+		    const void *data, size_t data_size)
+{
+	struct real_buffer *buf = (struct real_buffer *)_buf;
+	size_t end_size;
+
+	if (pos >= buf->used) {
+		buffer_write(_buf, pos, data, data_size);
+		return;
+	}
+	end_size = buf->used - pos;
+
+	if (size < end_size) {
+		end_size -= size;
+		if (data_size == 0) {
+			/* delete from between */
+			memmove(buf->w_buffer + pos,
+				buf->w_buffer + pos + size, end_size);
+		} else {
+			/* insert */
+			buffer_copy(_buf, pos + data_size, _buf, pos + size,
+				    (size_t)-1);
+			memcpy(buf->w_buffer + pos, data, data_size);
+		}
+	} else {
+		/* overwrite the end */
+		end_size = 0;
+		buffer_write(_buf, pos, data, data_size);
+	}
+
+	buffer_set_used_size(_buf, pos + data_size + end_size);
+}
+
+
 void buffer_write_zero(buffer_t *_buf, size_t pos, size_t data_size)
 {
 	struct real_buffer *buf = (struct real_buffer *)_buf;
