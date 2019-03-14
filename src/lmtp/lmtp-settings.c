@@ -137,6 +137,7 @@ static bool lmtp_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 void lmtp_settings_dup(const struct setting_parser_context *set_parser,
 		       pool_t pool,
+		       struct mail_user_settings **user_set_r,
 		       struct lmtp_settings **lmtp_set_r,
 		       struct lda_settings **lda_set_r)
 {
@@ -144,6 +145,7 @@ void lmtp_settings_dup(const struct setting_parser_context *set_parser,
 
 	sets = master_service_settings_parser_get_others(master_service,
 							 set_parser);
+	*user_set_r = settings_dup(&mail_user_setting_parser_info, sets[0], pool);
 	*lda_set_r = settings_dup(&lda_setting_parser_info, sets[2], pool);
 	*lmtp_set_r = settings_dup(&lmtp_setting_parser_info, sets[3], pool);
 }
