@@ -772,6 +772,10 @@ mailbox_keywords_create_valid(struct mailbox *box,
 struct mail_keywords *
 mailbox_keywords_create_from_indexes(struct mailbox *box,
 				     const ARRAY_TYPE(keyword_indexes) *idx);
+/* Return union of two mail_keywords. They must be created in the same
+   mailbox. */
+struct mail_keywords *mailbox_keywords_merge(struct mail_keywords *keywords1,
+					     struct mail_keywords *keywords2);
 void mailbox_keywords_ref(struct mail_keywords *keywords);
 void mailbox_keywords_unref(struct mail_keywords **keywords);
 /* Returns TRUE if keyword is valid, FALSE and error if not. */
