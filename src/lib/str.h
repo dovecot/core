@@ -64,6 +64,12 @@ static inline void str_delete(string_t *str, size_t pos, size_t len)
 	buffer_delete(str, pos, len);
 }
 
+static inline void str_replace(string_t *str, size_t pos, size_t len,
+			       const char *cstr)
+{
+	buffer_replace(str, pos, len, cstr, strlen(cstr));
+}
+
 /* Truncate the string to specified length. If it's already smaller,
    do nothing. */
 static inline void str_truncate(string_t *str, size_t len)
