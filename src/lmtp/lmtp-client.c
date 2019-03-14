@@ -106,6 +106,7 @@ static void client_read_settings(struct client *client, bool ssl)
 {
 	struct mail_storage_service_input input;
 	const struct setting_parser_context *set_parser;
+	struct mail_user_settings *user_set;
 	struct lmtp_settings *lmtp_set;
 	struct lda_settings *lda_set;
 	const char *error;
@@ -126,13 +127,15 @@ static void client_read_settings(struct client *client, bool ssl)
 					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
 
-	lmtp_settings_dup(set_parser, client->pool, &lmtp_set, &lda_set);
+	lmtp_settings_dup(set_parser, client->pool,
+			  &user_set, &lmtp_set, &lda_set);
 	const struct var_expand_table *tab =
 		mail_storage_service_get_var_expand_table(storage_service, &input);
 	if (settings_var_expand(&lmtp_setting_parser_info, lmtp_set,
 				client->pool, tab, &error) <= 0)
 		i_fatal("Failed to expand settings: %s", error);
 	client->service_set = master_service_settings_get(master_service);
+	client->user_set = user_set;
 	client->lmtp_set = lmtp_set;
 	client->unexpanded_lda_set = lda_set;
 }
