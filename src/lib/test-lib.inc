@@ -5,6 +5,7 @@
 TEST(test_aqueue)
 TEST(test_array)
 FATAL(fatal_array)
+TEST(test_backtrace)
 TEST(test_base32)
 TEST(test_base64)
 TEST(test_bits)

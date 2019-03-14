@@ -335,6 +335,7 @@ test_lib_SOURCES = \
 	test-lib.c \
 	test-array.c \
 	test-aqueue.c \
+	test-backtrace.c \
 	test-base32.c \
 	test-base64.c \
 	test-bits.c \
