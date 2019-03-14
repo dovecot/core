@@ -249,8 +249,7 @@ struct event_filter *event_get_global_debug_log_filter(void)
 
 void event_unset_global_debug_log_filter(void)
 {
-	if (global_debug_log_filter != NULL)
-		event_filter_unref(&global_debug_log_filter);
+	event_filter_unref(&global_debug_log_filter);
 }
 
 void event_set_global_debug_send_filter(struct event_filter *filter)
@@ -267,8 +266,7 @@ struct event_filter *event_get_global_debug_send_filter(void)
 
 void event_unset_global_debug_send_filter(void)
 {
-	if (global_debug_send_filter != NULL)
-		event_filter_unref(&global_debug_send_filter);
+	event_filter_unref(&global_debug_send_filter);
 }
 
 void event_set_global_core_log_filter(struct event_filter *filter)
@@ -285,6 +283,5 @@ struct event_filter *event_get_global_core_log_filter(void)
 
 void event_unset_global_core_log_filter(void)
 {
-	if (global_core_log_filter != NULL)
-		event_filter_unref(&global_core_log_filter);
+	event_filter_unref(&global_core_log_filter);
 }
