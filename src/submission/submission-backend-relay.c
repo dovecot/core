@@ -488,7 +488,8 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 {
 	struct smtp_server_cmd_ctx *cmd = rcpt_cmd->cmd;
 	struct submission_backend_relay *backend = rcpt_cmd->backend;
-	struct submission_recipient *rcpt = rcpt_cmd->rcpt;
+	struct submission_recipient *srcpt = rcpt_cmd->rcpt;
+	struct smtp_server_recipient *rcpt = srcpt->rcpt;
 	struct smtp_client_transaction_rcpt *relay_rcpt = rcpt_cmd->relay_rcpt;
 	struct smtp_reply reply;
 
@@ -506,11 +507,11 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 			reply.enhanced_code = SMTP_REPLY_ENH_CODE(2, 1, 5);
 
 		i_assert(relay_rcpt != NULL);
-		rcpt->backend_context = relay_rcpt;
+		srcpt->backend_context = relay_rcpt;
 	}
 
 	/* forward reply */
-	smtp_server_reply_forward(cmd, &reply);
+	smtp_server_recipient_reply_forward(rcpt, &reply);
 }
 
 static int
@@ -650,7 +651,7 @@ relay_cmd_data_rcpt_callback(const struct smtp_reply *relay_reply,
 		       str_sanitize(smtp_reply_log(&reply), 128));
 	}
 
-	smtp_server_reply_index_forward(cmd, rcpt->index, &reply);
+	smtp_server_recipient_reply_forward(rcpt, &reply);
 }
 
 static void

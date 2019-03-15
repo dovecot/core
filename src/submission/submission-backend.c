@@ -88,20 +88,15 @@ submission_backend_fail_rcpts(struct submission_backend *backend)
 		enh_code = "4.0.0";
 
 	array_foreach_modifiable(&client->rcpt_to, rcptp) {
-		struct submission_recipient *rcpt = *rcptp;
-		struct smtp_server_cmd_ctx *cmd = rcpt->rcpt->cmd;
-		unsigned int index = 0;
+		struct submission_recipient *srcpt = *rcptp;
+		struct smtp_server_recipient *rcpt = srcpt->rcpt;
 
-		if (rcpt->backend != backend)
+		if (srcpt->backend != backend)
 			continue;
-		if (cmd == NULL)
+		if (rcpt->cmd == NULL)
 			continue;
 
-		if (smtp_server_command_get_reply_count(cmd->cmd) > 1)
-			index = rcpt->rcpt->index;
-
-		smtp_server_reply_index(cmd, index, 451,
-					enh_code, "%s", reason);
+		smtp_server_recipient_reply(rcpt, 451, enh_code, "%s", reason);
 	}
 }
 
