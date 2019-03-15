@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "llist.h"
 #include "smtp-address.h"
+#include "smtp-reply.h"
 
 #include "smtp-server-private.h"
 
@@ -194,7 +195,14 @@ void smtp_server_recipient_reply(struct smtp_server_recipient *rcpt,
 void smtp_server_recipient_reply_forward(struct smtp_server_recipient *rcpt,
 					 const struct smtp_reply *from)
 {
-	smtp_server_reply_index_forward(rcpt->cmd, rcpt->index, from);
+	bool add_path = (!smtp_server_command_is_rcpt(rcpt->cmd) ||
+			 !smtp_reply_is_success(from));
+	struct smtp_server_reply *reply;
+
+	reply = smtp_server_reply_create_forward(rcpt->cmd->cmd, rcpt->index,
+						 from);
+	smtp_server_reply_replace_path(reply, rcpt->path, add_path);
+	smtp_server_reply_submit(reply);
 }
 
 void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt)
