@@ -345,8 +345,9 @@ test_lib_SOURCES = \
 	test-connection.c \
 	test-crc32.c \
 	test-data-stack.c \
-	test-event-log.c \
 	test-event-filter.c \
+	test-event-flatten.c \
+	test-event-log.c \
 	test-failures.c \
 	test-fd-util.c \
 	test-file-create-locked.c \
