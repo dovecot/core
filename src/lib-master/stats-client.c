@@ -237,7 +237,10 @@ static void
 stats_client_send_event(struct stats_client *client, struct event *event,
 			const struct failure_context *ctx)
 {
-	if (!client->handshaked || client->filter == NULL ||
+	if (!client->handshaked)
+		return;
+
+	if (client->filter == NULL ||
 	    !event_filter_match(client->filter, event, ctx))
 		return;
 
