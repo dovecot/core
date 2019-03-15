@@ -173,6 +173,12 @@ void smtp_server_recipient_reply(struct smtp_server_recipient *rcpt,
 	va_end(args);
 }
 
+void smtp_server_recipient_reply_forward(struct smtp_server_recipient *rcpt,
+					 const struct smtp_reply *from)
+{
+	smtp_server_reply_index_forward(rcpt->cmd, rcpt->index, from);
+}
+
 void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt)
 {
 	i_assert(!rcpt->finished);
