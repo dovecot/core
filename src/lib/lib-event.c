@@ -54,12 +54,16 @@ event_find_category(struct event *event, const struct event_category *category);
 static struct event_field *
 event_find_field_int(struct event *event, const char *key);
 
-void event_copy_categories_fields(struct event *to, struct event *from)
+void event_copy_categories(struct event *to, struct event *from)
 {
 	unsigned int cat_count;
 	struct event_category *const *categories = event_get_categories(from, &cat_count);
 	while (cat_count-- > 0)
 		event_add_category(to, categories[cat_count]);
+}
+
+void event_copy_fields(struct event *to, struct event *from)
+{
 	const struct event_field *fld;
 	if (!array_is_created(&from->fields))
 		return;

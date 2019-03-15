@@ -87,10 +87,14 @@ bool event_has_all_fields(struct event *event, const struct event *other);
 
 /* Returns the source event duplicated into a new event. */
 struct event *event_dup(const struct event *source);
-/* Copy all categories and fields from source to dest.
-   Only the fields and categories in source event itself are copied.
-   Parent events' fields and categories aren't copied. */
-void event_copy_categories_fields(struct event *dest, struct event *source);
+/* Copy all categories from source to dest.
+   Only the categories in source event itself are copied.
+   Parent events' categories aren't copied. */
+void event_copy_categories(struct event *to, struct event *from);
+/* Copy all fields from source to dest.
+   Only the fields in source event itself are copied.
+   Parent events' fields aren't copied. */
+void event_copy_fields(struct event *to, struct event *from);
 
 /* Create a new empty event under the parent event, or NULL for root event. */
 struct event *event_create(struct event *parent, const char *source_filename,
