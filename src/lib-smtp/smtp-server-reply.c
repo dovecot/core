@@ -5,6 +5,7 @@
 #include "array.h"
 #include "istream.h"
 #include "ostream.h"
+#include "smtp-address.h"
 #include "smtp-reply.h"
 
 #include "smtp-server-private.h"
@@ -361,6 +362,30 @@ void smtp_server_reply_prepend_text(struct smtp_server_reply *reply,
 
 	if (reply->content->last_line > 0)
 		reply->content->last_line += strlen(text_prefix);
+}
+
+void smtp_server_reply_replace_path(struct smtp_server_reply *reply,
+				    struct smtp_address *path, bool add)
+{
+	size_t prefix_len, path_len;
+	const char *path_text;
+
+	i_assert(!reply->sent);
+	i_assert(reply->content != NULL);
+	i_assert(reply->content->text != NULL);
+
+	prefix_len = strlen(reply->content->status_prefix);
+	path_len = smtp_server_reply_get_path_len(reply);
+
+	if (path_len > 0) {
+		path_text = smtp_address_encode_path(path);
+		str_replace(reply->content->text, prefix_len, path_len,
+			    path_text);
+	} else if (add) {
+		path_text = t_strdup_printf(
+			"<%s> ", smtp_address_encode(path));
+		str_insert(reply->content->text, prefix_len, path_text);
+	}
 }
 
 void smtp_server_reply_submit(struct smtp_server_reply *reply)
