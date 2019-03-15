@@ -176,7 +176,8 @@ static struct event *stats_event_get_merged(struct event *event)
 				res = event_dup(event);
 				use_original = FALSE;
 			}
-			event_copy_categories_fields(res, p);
+			event_copy_categories(res, p);
+			event_copy_fields(res, p);
 		}
 	}
 
