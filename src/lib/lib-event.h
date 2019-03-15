@@ -87,6 +87,11 @@ bool event_has_all_fields(struct event *event, const struct event *other);
 
 /* Returns the source event duplicated into a new event. */
 struct event *event_dup(const struct event *source);
+/* Returns a flattened version of the source event.
+   Both categories and fields will be flattened.
+   A new reference to the source event is returned if no flattening was
+   needed. */
+struct event *event_flatten(struct event *src);
 /* Copy all categories from source to dest.
    Only the categories in source event itself are copied.
    Parent events' categories aren't copied. */

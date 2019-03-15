@@ -122,6 +122,46 @@ struct event *event_dup(const struct event *source)
 	return ret;
 }
 
+/*
+ * Copy the source's categories and fields recursively.
+ *
+ * We recurse to the parent before copying this event's data because we may
+ * be overriding a field.
+ */
+static void event_flatten_recurse(struct event *dst, struct event *src,
+				  struct event *limit)
+{
+	if (src->parent != limit)
+		event_flatten_recurse(dst, src->parent, limit);
+
+	event_copy_categories(dst, src);
+	event_copy_fields(dst, src);
+}
+
+struct event *event_flatten(struct event *src)
+{
+	struct event *dst;
+
+	/* If we don't have a parent, we have nothing to flatten. */
+	if (src->parent == NULL)
+		return event_ref(src);
+
+	/* We have to flatten the event. */
+
+	dst = event_create(NULL);
+	dst = event_set_name(dst, src->sending_name);
+	dst = event_set_source(dst, src->source_filename, src->source_linenum,
+			       FALSE);
+
+	event_flatten_recurse(dst, src, NULL);
+
+	dst->tv_created_ioloop = src->tv_created_ioloop;
+	dst->tv_created = src->tv_created;
+	dst->tv_last_sent = src->tv_last_sent;
+
+	return dst;
+}
+
 #undef event_create
 struct event *event_create(struct event *parent, const char *source_filename,
 			   unsigned int source_linenum)
