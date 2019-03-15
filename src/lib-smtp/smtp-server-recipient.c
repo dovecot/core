@@ -138,6 +138,13 @@ void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
 	rcpt->cmd = cmd;
 }
 
+bool smtp_server_recipient_is_replied(struct smtp_server_recipient *rcpt)
+{
+	i_assert(rcpt->cmd != NULL);
+
+	return smtp_server_command_is_replied(rcpt->cmd->cmd);
+}
+
 void smtp_server_recipient_replyv(struct smtp_server_recipient *rcpt,
 				  unsigned int status, const char *enh_code,
 				  const char *fmt, va_list args)
