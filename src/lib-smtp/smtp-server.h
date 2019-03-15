@@ -91,6 +91,8 @@ void smtp_server_recipient_replyv(struct smtp_server_recipient *rcpt,
 void smtp_server_recipient_reply(struct smtp_server_recipient *rcpt,
 				 unsigned int status, const char *enh_code,
 				 const char *fmt, ...) ATTR_FORMAT(4, 5);
+void smtp_server_recipient_reply_forward(struct smtp_server_recipient *rcpt,
+					 const struct smtp_reply *from);
 
 /* Hooks */
 
