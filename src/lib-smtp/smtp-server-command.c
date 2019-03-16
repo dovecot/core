@@ -295,7 +295,7 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 
 	/* execute hooks */
 	if (!smtp_server_command_call_hooks(
-		&cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY))
+		&cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY, TRUE))
 		i_unreached();
 
 	smtp_server_reply_free(cmd);
@@ -383,7 +383,8 @@ void smtp_server_command_remove_hook(struct smtp_server_command *cmd,
 }
 
 bool smtp_server_command_call_hooks(struct smtp_server_command **_cmd,
-				    enum smtp_server_command_hook_type type)
+				    enum smtp_server_command_hook_type type,
+				    bool remove)
 {
 	struct smtp_server_command *cmd = *_cmd;
 	struct smtp_server_command_hook *hook;
@@ -396,8 +397,10 @@ bool smtp_server_command_call_hooks(struct smtp_server_command **_cmd,
 		struct smtp_server_command_hook *hook_next = hook->next;
 
 		if (hook->type == type) {
-			DLLIST2_REMOVE(&cmd->hooks_head, &cmd->hooks_tail,
-				       hook);
+			if (remove) {
+				DLLIST2_REMOVE(&cmd->hooks_head,
+					       &cmd->hooks_tail, hook);
+			}
 			hook->func(&cmd->context, hook->context);
 		}
 
@@ -460,7 +463,7 @@ bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd)
 	e_debug(cmd->context.event, "Next to reply");
 
 	return smtp_server_command_call_hooks(
-		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
+		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT, TRUE);
 }
 
 static bool
@@ -474,7 +477,7 @@ smtp_server_command_replied(struct smtp_server_command **_cmd)
 	e_debug(cmd->context.event, "Replied");
 
 	return smtp_server_command_call_hooks(
-		_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED);
+		_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED, TRUE);
 }
 
 bool smtp_server_command_completed(struct smtp_server_command **_cmd)
@@ -487,7 +490,7 @@ bool smtp_server_command_completed(struct smtp_server_command **_cmd)
 	e_debug(cmd->context.event, "Completed");
 
 	return smtp_server_command_call_hooks(
-		_cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED);
+		_cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED, TRUE);
 }
 
 static bool
