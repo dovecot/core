@@ -6,10 +6,6 @@
 
 #include "smtp-server-private.h"
 
-static bool
-smtp_server_recipient_call_hooks(struct smtp_server_recipient **_rcpt,
-				 enum smtp_server_recipient_hook_type type);
-
 static void
 smtp_server_recipient_update_event(struct smtp_server_recipient_private *prcpt)
 {
@@ -260,9 +256,9 @@ void smtp_server_recipient_remove_hook(
 	i_assert(found);
 }
 
-static bool
-smtp_server_recipient_call_hooks(struct smtp_server_recipient **_rcpt,
-				 enum smtp_server_recipient_hook_type type)
+bool smtp_server_recipient_call_hooks(
+	struct smtp_server_recipient **_rcpt,
+	enum smtp_server_recipient_hook_type type)
 {
 	struct smtp_server_recipient *rcpt = *_rcpt;
 	struct smtp_server_recipient_private *prcpt =
