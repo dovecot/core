@@ -86,6 +86,8 @@ struct smtp_server_recipient {
 };
 ARRAY_DEFINE_TYPE(smtp_server_recipient, struct smtp_server_recipient *);
 
+struct smtp_server_reply *
+smtp_server_recipient_get_reply(struct smtp_server_recipient *rcpt);
 bool smtp_server_recipient_is_replied(struct smtp_server_recipient *rcpt);
 void smtp_server_recipient_replyv(struct smtp_server_recipient *rcpt,
 				  unsigned int status, const char *enh_code,
