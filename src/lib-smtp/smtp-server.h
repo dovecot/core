@@ -637,6 +637,8 @@ smtp_server_reply_create_forward(struct smtp_server_command *cmd,
 void smtp_server_reply_set_status(struct smtp_server_reply *reply,
 				  unsigned int status, const char *enh_code)
 				  ATTR_NULL(3);
+unsigned int smtp_server_reply_get_status(struct smtp_server_reply *reply,
+					  const char **enh_code_r) ATTR_NULL(3);
 
 void smtp_server_reply_add_text(struct smtp_server_reply *reply,
 	const char *line);

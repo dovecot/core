@@ -174,6 +174,14 @@ void smtp_server_reply_set_status(struct smtp_server_reply *reply,
 	reply->content->enhanced_code = p_strdup(pool, enh_code);
 }
 
+unsigned int smtp_server_reply_get_status(struct smtp_server_reply *reply,
+					  const char **enh_code_r)
+{
+	if (enh_code_r != NULL)
+		*enh_code_r = reply->content->enhanced_code;
+	return reply->content->status;
+}
+
 struct smtp_server_reply *
 smtp_server_reply_create_index(struct smtp_server_command *cmd,
 			       unsigned int index, unsigned int status,
