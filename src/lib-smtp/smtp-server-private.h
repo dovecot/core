@@ -385,6 +385,10 @@ void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt);
 void smtp_server_recipient_finished(struct smtp_server_recipient *rcpt,
 				    const struct smtp_server_reply *reply);
 
+bool smtp_server_recipient_call_hooks(
+	struct smtp_server_recipient **_rcpt,
+	enum smtp_server_recipient_hook_type type);
+
 /*
  * Transaction
  */
