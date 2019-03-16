@@ -135,11 +135,10 @@ lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *llrcpt,
 	}
 }
 
-static void ATTR_FORMAT(5,6)
+static void ATTR_FORMAT(4,5)
 lmtp_local_rcpt_fail_all(struct lmtp_local *local,
-	struct smtp_server_cmd_ctx *cmd,
-	unsigned int status, const char *enh_code,
-	const char *fmt, ...)
+			 unsigned int status, const char *enh_code,
+			 const char *fmt, ...)
 {
 	struct lmtp_local_recipient *const *llrcpts;
 	const char *msg;
@@ -153,6 +152,7 @@ lmtp_local_rcpt_fail_all(struct lmtp_local *local,
 	llrcpts = array_get(&local->rcpt_to, &count);
 	for (i = 0; i < count; i++) {
 		struct smtp_server_recipient *rcpt = llrcpts[i]->rcpt->rcpt;
+		struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 
 		smtp_server_reply_index(cmd, rcpt->index,
 			status, enh_code, "<%s> %s",
@@ -701,7 +701,7 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 
 static int
 lmtp_local_open_raw_mail(struct lmtp_local *local,
-			 struct smtp_server_cmd_ctx *cmd,
+			 struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			 struct smtp_server_transaction *trans,
 			 struct istream *input)
 {
@@ -721,8 +721,8 @@ lmtp_local_open_raw_mail(struct lmtp_local *local,
 		e_error(client->event, "Can't open delivery mail as raw: %s",
 			mailbox_get_last_internal_error(box, &error));
 		mailbox_free(&box);
-		lmtp_local_rcpt_fail_all(local, cmd,
-			451, "4.3.0", "Temporary internal error");
+		lmtp_local_rcpt_fail_all(local,	451, "4.3.0",
+					 "Temporary internal error");
 		return -1;
 	}
 
