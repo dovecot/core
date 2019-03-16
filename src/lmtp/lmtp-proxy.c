@@ -83,8 +83,6 @@ struct lmtp_proxy {
 
 	unsigned int max_timeout_msecs;
 
-	struct smtp_server_cmd_ctx *pending_data_cmd;
-
 	bool finished:1;
 };
 
@@ -611,7 +609,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 	struct lmtp_proxy_connection *conn = lprcpt->conn;
 	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
 	struct lmtp_proxy *proxy = conn->proxy;
-	struct smtp_server_cmd_ctx *cmd = proxy->pending_data_cmd;
+	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_server_transaction *trans = proxy->trans;
 	struct smtp_address *address = lprcpt->address;
 	const struct smtp_client_transaction_times *times =
@@ -674,7 +672,7 @@ lmtp_proxy_data_dummy_cb(const struct smtp_reply *proxy_reply ATTR_UNUSED,
 }
 
 void lmtp_proxy_data(struct client *client,
-		     struct smtp_server_cmd_ctx *cmd,
+		     struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		     struct smtp_server_transaction *trans ATTR_UNUSED,
 		     struct istream *data_input)
 {
@@ -685,7 +683,6 @@ void lmtp_proxy_data(struct client *client,
 	i_assert(data_input->seekable);
 	i_assert(proxy->data_input == NULL);
 
-	proxy->pending_data_cmd = cmd;
 	proxy->data_input = data_input;
 	i_stream_ref(proxy->data_input);
 	if (i_stream_get_size(proxy->data_input, TRUE, &size) < 0) {
