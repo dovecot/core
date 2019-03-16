@@ -134,6 +134,24 @@ void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
 	rcpt->cmd = cmd;
 }
 
+void smtp_server_recipient_data_replied(struct smtp_server_recipient *rcpt)
+{
+	unsigned int reply_index = 0;
+
+	if (rcpt->replied)
+		return;
+	if (HAS_ALL_BITS(rcpt->trans->flags,
+			 SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT))
+		reply_index = rcpt->index;
+	if (smtp_server_command_get_reply(rcpt->cmd->cmd, reply_index) == NULL)
+		return;
+	rcpt->replied = TRUE;
+	if (!smtp_server_recipient_call_hooks(
+		&rcpt, SMTP_SERVER_RECIPIENT_HOOK_DATA_REPLIED)) {
+		/* nothing to do */
+	}
+}
+
 bool smtp_server_recipient_is_replied(struct smtp_server_recipient *rcpt)
 {
 	i_assert(rcpt->cmd != NULL);

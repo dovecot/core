@@ -54,6 +54,8 @@ enum smtp_server_recipient_hook_type {
 	/* approved: the server is about to approve this recipient by sending
 	   a success reply to the RCPT command. */
 	SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
+	/* data_replied: the DATA command is replied for this recipient */
+	SMTP_SERVER_RECIPIENT_HOOK_DATA_REPLIED,
 	/* destroy: recipient is about to be destroyed. */
 	SMTP_SERVER_RECIPIENT_HOOK_DESTROY
 };
@@ -79,6 +81,7 @@ struct smtp_server_recipient {
 
 	void *context;
 
+	bool replied:1;
 	bool finished:1;
 };
 ARRAY_DEFINE_TYPE(smtp_server_recipient, struct smtp_server_recipient *);
