@@ -81,8 +81,67 @@ smtp_server_reply_alloc(struct smtp_server_command *cmd, unsigned int index)
 }
 
 static void
-smtp_server_reply_set_status(struct smtp_server_reply *reply,
-			     unsigned int status, const char *enh_code)
+smtp_server_reply_update_prefix(struct smtp_server_reply *reply,
+				unsigned int status, const char *enh_code)
+{
+	pool_t pool = reply->command->context.pool;
+	string_t *textbuf, *new_text;
+	const char *new_prefix, *text, *p;
+	size_t text_len, prefix_len, line_len;
+
+	if (enh_code == NULL || *enh_code == '\0') {
+		new_prefix = p_strdup_printf(pool, "%03u-", status);
+	} else {
+		new_prefix = p_strdup_printf(pool, "%03u-%s ",
+					     status, enh_code);
+	}
+
+	i_assert(reply->content != NULL);
+	textbuf = reply->content->text;
+
+	if (textbuf == NULL || str_len(textbuf) == 0) {
+		reply->content->status_prefix = new_prefix;
+		return;
+	}
+	new_text = str_new(default_pool, 256);
+
+	prefix_len = strlen(reply->content->status_prefix);
+	text = str_c(textbuf);
+	text_len = str_len(textbuf);
+
+	i_assert(text_len > prefix_len);
+	text_len -= prefix_len;
+	text += prefix_len;
+
+	for (;;) {
+		reply->content->last_line = str_len(new_text);
+
+		p = strchr(text, '\n');
+		i_assert(p != NULL && p > text && *(p-1) == '\r');
+		p++;
+
+		str_append(new_text, new_prefix);
+		str_append_data(new_text, text, p - text);
+
+		line_len = (size_t)(p - text);
+		i_assert(text_len >= line_len);
+		text_len -= line_len;
+		text = p;
+
+		if (text_len <= prefix_len)
+			break;
+
+		text_len -= prefix_len;
+		text += prefix_len;
+	}
+
+	str_free(&textbuf);
+	reply->content->text = new_text;
+	reply->content->status_prefix = new_prefix;
+}
+
+void smtp_server_reply_set_status(struct smtp_server_reply *reply,
+				  unsigned int status, const char *enh_code)
 {
 	pool_t pool = reply->command->context.pool;
 
@@ -106,15 +165,13 @@ smtp_server_reply_set_status(struct smtp_server_reply *reply,
 		((unsigned int)(enh_code[0] - '0') == (status / 100)
 			&& enh_code[1] == '.'));
 
+	if (reply->content->status == status &&
+	    null_strcmp(reply->content->enhanced_code, enh_code) == 0)
+		return;
+
+	smtp_server_reply_update_prefix(reply, status, enh_code);
 	reply->content->status = status;
 	reply->content->enhanced_code = p_strdup(pool, enh_code);
-	if (enh_code == NULL || *enh_code == '\0') {
-		reply->content->status_prefix =
-			p_strdup_printf(pool, "%03u-", status);
-	} else {
-		reply->content->status_prefix =
-			p_strdup_printf(pool, "%03u-%s ", status, enh_code);
-	}
 }
 
 struct smtp_server_reply *
