@@ -254,6 +254,103 @@ static void test_base64url_random(void)
 	test_end();
 }
 
+struct test_base64_encode_lowlevel {
+	const struct base64_scheme *scheme;
+	const char *input;
+	const char *output;
+};
+
+static const struct test_base64_encode_lowlevel
+tests_base64_encode_lowlevel[] = {
+	{
+		.scheme = &base64_scheme,
+		.input = "hello world",
+		.output = "aGVsbG8gd29ybGQ=",
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "hello world",
+		.output = "aGVsbG8gd29ybGQ=",
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "foo barits",
+		.output = "Zm9vIGJhcml0cw==",
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "foo barits",
+		.output = "Zm9vIGJhcml0cw==",
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "just niin",
+		.output = "anVzdCBuaWlu",
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "just niin",
+		.output = "anVzdCBuaWlu",
+	},
+	{
+		.scheme = &base64_scheme,
+		.input =
+			"\xe7\x8c\xbf\xe3\x82\x82\xe6\x9c\xa8\xe3\x81\x8b"
+			"\xe3\x82\x89\xe8\x90\xbd\xe3\x81\xa1\xe3\x82\x8b",
+		.output = "54y/44KC5pyo44GL44KJ6JC944Gh44KL",
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input =
+			"\xe7\x8c\xbf\xe3\x82\x82\xe6\x9c\xa8\xe3\x81\x8b"
+			"\xe3\x82\x89\xe8\x90\xbd\xe3\x81\xa1\xe3\x82\x8b",
+		.output = "54y_44KC5pyo44GL44KJ6JC944Gh44KL",
+	},
+	{
+		.scheme = &base64_scheme,
+		.input =
+			"\xe8\xa7\x92\xe3\x82\x92\xe7\x9f\xaf\xe3\x82\x81\xe3"
+			"\x81\xa6\xe7\x89\x9b\xe3\x82\x92\xe6\xae\xba\xe3\x81"
+			"\x99",
+		.output = "6KeS44KS55+v44KB44Gm54mb44KS5q6644GZ",
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input =
+			"\xe8\xa7\x92\xe3\x82\x92\xe7\x9f\xaf\xe3\x82\x81\xe3"
+			"\x81\xa6\xe7\x89\x9b\xe3\x82\x92\xe6\xae\xba\xe3\x81"
+			"\x99",
+		.output = "6KeS44KS55-v44KB44Gm54mb44KS5q6644GZ",
+	},
+};
+
+static void test_base64_encode_lowlevel(void)
+{
+	string_t *str;
+	unsigned int i;
+
+	test_begin("base64 encode low-level");
+	str = t_str_new(256);
+	for (i = 0; i < N_ELEMENTS(tests_base64_encode_lowlevel); i++) {
+		const struct test_base64_encode_lowlevel *test =
+			&tests_base64_encode_lowlevel[i];
+		struct base64_encoder enc;
+
+		str_truncate(str, 0);
+
+		base64_encode_init(&enc, test->scheme);
+		base64_encode_more(&enc, test->input, strlen(test->input),
+				   NULL, str);
+		base64_encode_finish(&enc, str);
+
+		test_assert_idx(strcmp(test->output, str_c(str)) == 0, i);
+		test_assert_idx(
+			str_len(str) == MAX_BASE64_ENCODED_SIZE(
+				strlen(test->input)), i);
+	}
+	test_end();
+}
+
 void test_base64(void)
 {
 	test_base64_encode();
@@ -262,4 +359,5 @@ void test_base64(void)
 	test_base64url_encode();
 	test_base64url_decode();
 	test_base64url_random();
+	test_base64_encode_lowlevel();
 }
