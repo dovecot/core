@@ -380,6 +380,7 @@ void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
 
 void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
 				     struct smtp_server_cmd_ctx *cmd);
+void smtp_server_recipient_data_replied(struct smtp_server_recipient *rcpt);
 
 void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt);
 void smtp_server_recipient_finished(struct smtp_server_recipient *rcpt,
