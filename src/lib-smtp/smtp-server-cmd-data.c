@@ -456,11 +456,16 @@ cmd_data_start(struct smtp_server_cmd_ctx *cmd,
 	       struct cmd_data_context *data_cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_transaction *trans = conn->state.trans;
 	struct istream *dot_input;
 
 	/* called when all previous commands were finished */
 	i_assert(conn->state.pending_mail_cmds == 0 &&
 		conn->state.pending_rcpt_cmds == 0);
+
+	/* this is the one and only data command */
+	if (trans != NULL)
+		smtp_server_transaction_last_data(trans, cmd);
 
 	/* check whether we have had successful mail and rcpt commands */
 	if (!smtp_server_connection_data_check_state(cmd))
