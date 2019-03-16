@@ -471,13 +471,19 @@ smtp_server_command_replied(struct smtp_server_command **_cmd)
 {
 	struct smtp_server_command *cmd = *_cmd;
 
-	if (cmd->replies_submitted < cmd->replies_expected)
-		return TRUE;
+	if (cmd->replies_submitted < cmd->replies_expected) {
+		e_debug(cmd->context.event, "Replied (one)");
+
+		return smtp_server_command_call_hooks(
+			_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED_ONE, FALSE);
+	}
 
 	e_debug(cmd->context.event, "Replied");
 
-	return smtp_server_command_call_hooks(
-		_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED, TRUE);
+	return (smtp_server_command_call_hooks(
+			_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED_ONE, TRUE) &&
+		smtp_server_command_call_hooks(
+			_cmd, SMTP_SERVER_COMMAND_HOOK_REPLIED, TRUE));
 }
 
 bool smtp_server_command_completed(struct smtp_server_command **_cmd)
