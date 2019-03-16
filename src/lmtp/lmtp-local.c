@@ -701,7 +701,6 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 
 static int
 lmtp_local_open_raw_mail(struct lmtp_local *local,
-			 struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			 struct smtp_server_transaction *trans,
 			 struct istream *input)
 {
@@ -744,7 +743,7 @@ void lmtp_local_data(struct client *client,
 	struct mail_deliver_session *session;
 	uid_t old_uid, first_uid;
 
-	if (lmtp_local_open_raw_mail(local, cmd, trans, input) < 0)
+	if (lmtp_local_open_raw_mail(local, trans, input) < 0)
 		return;
 
 	session = mail_deliver_session_init();
