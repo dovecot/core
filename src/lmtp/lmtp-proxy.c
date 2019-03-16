@@ -269,10 +269,13 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 }
 
 static bool
-lmtp_proxy_handle_reply(struct smtp_server_cmd_ctx *cmd,
+lmtp_proxy_handle_reply(struct lmtp_proxy_recipient *lprcpt,
 			const struct smtp_reply *reply,
 			struct smtp_reply *reply_r)
 {
+	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
+	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
+
 	*reply_r = *reply;
 
 	if (!smtp_reply_is_remote(reply) ||
@@ -446,7 +449,7 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_reply reply;
 
-	if (!lmtp_proxy_handle_reply(cmd, proxy_reply, &reply))
+	if (!lmtp_proxy_handle_reply(lprcpt, proxy_reply, &reply))
 		return;
 
 	if (smtp_reply_is_success(proxy_reply)) {
@@ -655,7 +658,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 			e_error(rcpt->event, "%s", str_c(msg));
 		}
 
-		if (!lmtp_proxy_handle_reply(cmd, proxy_reply, &reply))
+		if (!lmtp_proxy_handle_reply(lprcpt, proxy_reply, &reply))
 			return;
 	}
 
