@@ -609,10 +609,12 @@ smtp_server_command_get_reply(struct smtp_server_command *cmd,
 {
 	struct smtp_server_reply *reply;
 
+	i_assert(idx < cmd->replies_expected);
+
 	if (!array_is_created(&cmd->replies))
 		return NULL;
 
-	reply = array_idx_modifiable(&cmd->replies, idx);
+	reply = array_idx_get_space(&cmd->replies, idx);
 	if (!reply->submitted)
 		return NULL;
 	return reply;
