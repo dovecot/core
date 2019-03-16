@@ -172,7 +172,8 @@ void smtp_server_transaction_last_data(struct smtp_server_transaction *trans,
 
 	trans->cmd = cmd;
 
-	i_assert(array_is_created(&trans->rcpt_to));
+	if (!array_is_created(&trans->rcpt_to))
+		return;
 	array_foreach(&trans->rcpt_to, rcptp)
 		smtp_server_recipient_last_data(*rcptp, cmd);
 }
