@@ -299,6 +299,70 @@ void smtp_server_reply_add_text(struct smtp_server_reply *reply,
 	} while (text != NULL && *text != '\0');
 }
 
+static size_t
+smtp_server_reply_get_path_len(struct smtp_server_reply *reply)
+{
+	size_t prefix_len = strlen(reply->content->status_prefix);
+	size_t text_len = str_len(reply->content->text), line_len, path_len;
+	const char *text = str_c(reply->content->text);
+	const char *text_end = text + text_len, *line_end, *path_end;
+
+	i_assert(prefix_len <= text_len);
+
+	line_end = strchr(text, '\r');
+	if (line_end == NULL) {
+		line_end = text_end;
+		line_len = text_len;
+	} else {
+		i_assert(line_end + 1 < text_end);
+		i_assert(*(line_end + 1) == '\n');
+		line_len = line_end - text;
+	}
+
+	if (prefix_len == line_len || text[prefix_len] != '<') {
+		path_end = &text[prefix_len];
+		path_len = 0;
+	} else {
+		const char *path_begin = &text[prefix_len];
+
+		path_end = strchr(path_begin, '>');
+		if (path_end == NULL || path_end > line_end)
+			path_len = 0;
+		else {
+			i_assert(path_end < line_end);
+			path_end++;
+			path_len = path_end - path_begin;
+			if (path_end < line_end && *path_end != ' ')
+				path_len = 0;
+		}
+	}
+
+	i_assert(prefix_len + path_len <= text_len);
+	return path_len;
+}
+
+void smtp_server_reply_prepend_text(struct smtp_server_reply *reply,
+				    const char *text_prefix)
+{
+	const char *text = str_c(reply->content->text);
+	size_t tlen = str_len(reply->content->text), offset;
+
+	i_assert(!reply->sent);
+	i_assert(reply->content != NULL);
+	i_assert(reply->content->text != NULL);
+
+	offset = strlen(reply->content->status_prefix) +
+		smtp_server_reply_get_path_len(reply);
+	i_assert(offset < tlen);
+	if (text[offset] == ' ')
+		offset++;
+
+	str_insert(reply->content->text, offset, text_prefix);
+
+	if (reply->content->last_line > 0)
+		reply->content->last_line += strlen(text_prefix);
+}
+
 void smtp_server_reply_submit(struct smtp_server_reply *reply)
 {
 	i_assert(!reply->submitted);

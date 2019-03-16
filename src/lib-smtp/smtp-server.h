@@ -642,6 +642,9 @@ unsigned int smtp_server_reply_get_status(struct smtp_server_reply *reply,
 
 void smtp_server_reply_add_text(struct smtp_server_reply *reply,
 	const char *line);
+void smtp_server_reply_prepend_text(struct smtp_server_reply *reply,
+				    const char *text_prefix);
+
 void smtp_server_reply_submit(struct smtp_server_reply *reply);
 void smtp_server_reply_submit_duplicate(struct smtp_server_cmd_ctx *_cmd,
 					unsigned int index,
