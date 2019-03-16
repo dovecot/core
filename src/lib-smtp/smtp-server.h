@@ -490,6 +490,8 @@ enum smtp_server_command_hook_type {
 	/* next: command is next to reply but has not submittted all replies
 	   yet. */
 	SMTP_SERVER_COMMAND_HOOK_NEXT,
+	/* replied_one: command has submitted one reply. */
+	SMTP_SERVER_COMMAND_HOOK_REPLIED_ONE,
 	/* replied: command has submitted all replies. */
 	SMTP_SERVER_COMMAND_HOOK_REPLIED,
 	/* completed: server is about to send last replies for this command. */
