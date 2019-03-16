@@ -18,6 +18,72 @@ struct base64_scheme {
 };
 
 /*
+ * Low-level Base64 encoder
+ */
+
+struct base64_encoder {
+	const struct base64_scheme *b64;
+
+	/* state */
+	unsigned int sub_pos;
+	unsigned char buf;
+
+	unsigned char w_buf[4];
+	unsigned int w_buf_len;
+
+	bool finished:1;
+};
+
+/* Returns TRUE when base64_encode_finish() was called on this encoder. */
+static inline bool
+base64_encode_is_finished(struct base64_encoder *enc)
+{
+	return enc->finished;
+}
+
+/* Initialize the Base64 encoder. The b64 parameter is the definition of the
+   particular Base64 encoding scheme that is used.
+ */
+static inline void
+base64_encode_init(struct base64_encoder *enc,
+		   const struct base64_scheme *b64)
+{
+	i_zero(enc);
+	enc->b64 = b64;
+}
+
+/* Reset the Base64 encoder to its initial state. */
+static inline void
+base64_encode_reset(struct base64_encoder *enc)
+{
+	const struct base64_scheme *b64 = enc->b64;
+
+	base64_encode_init(enc, b64);
+}
+
+/* Translate the size of the next input to the size of the output once encoded.
+   This yields the amount of data appended to the dest buffer by
+   base64_encode_more() with the indicated src_size. */
+size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size);
+
+/* Translates binary data into some form of Base64. The src must not point to
+   dest buffer. Returns TRUE when all the provided data is encoded. Returns
+   FALSE when the space in the provided buffer is insufficient. The return value
+   may be ignored. If src_pos_r is non-NULL, it's updated to first
+   non-translated character in src.
+ */
+bool ATTR_NOWARN_UNUSED_RESULT
+base64_encode_more(struct base64_encoder *enc, const void *src, size_t src_size,
+		   size_t *src_pos_r, buffer_t *dest) ATTR_NULL(4);
+
+/* Finishes Base64 encoding. Returns TRUE when all the provided data is encoded.
+   Returns FALSE when the space in the provided buffer is insufficient. The
+   return value may be ignored.
+ */
+bool ATTR_NOWARN_UNUSED_RESULT
+base64_encode_finish(struct base64_encoder *enc, buffer_t *dest) ATTR_NULL(2);
+
+/*
  * Generic Base64 API
  */
 
@@ -27,9 +93,16 @@ struct base64_scheme {
    The b64 parameter is the definition of the particular Base 64 encoding scheme
    that is used. See below for specific functions.
  */
-void base64_scheme_encode(const struct base64_scheme *b64,
-			  const void *src, size_t src_size,
-			  buffer_t *dest);
+static inline void
+base64_scheme_encode(const struct base64_scheme *b64,
+		     const void *src, size_t src_size, buffer_t *dest)
+{
+	struct base64_encoder enc;
+
+	base64_encode_init(&enc, b64);
+	base64_encode_more(&enc, src, src_size, NULL, dest);
+	base64_encode_finish(&enc, dest);
+}
 
 /* Translates some variant of Base64 data into binary and appends it to dest
    buffer. dest may point to same buffer as src. Returns 1 if all ok, 0 if end

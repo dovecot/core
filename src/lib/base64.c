@@ -5,21 +5,172 @@
 #include "buffer.h"
 
 /*
- * Common Base 64
+ * Low-level Base64 encoder
  */
 
-void base64_scheme_encode(const struct base64_scheme *b64,
-			  const void *src, size_t src_size,
-			  buffer_t *dest)
+static size_t
+base64_encode_get_out_size(struct base64_encoder *enc, size_t src_size)
 {
+	size_t res_size = enc->w_buf_len;
+
+	i_assert(enc->w_buf_len <= 4);
+
+	if (src_size == 0)
+		return res_size;
+
+	/* Handle sub-position */
+	switch (enc->sub_pos) {
+	case 0:
+		break;
+	case 1:
+		res_size++;
+		src_size--;
+		if (src_size == 0)
+			return res_size;
+		/* fall through */
+	case 2:
+		res_size += 2;
+		src_size--;
+		break;
+	default:
+		i_unreached();
+	}
+
+	/* We're now at a 3-byte boundary */
+	if (src_size == 0)
+		return res_size;
+
+	/* Calculate size we can append to the output from remaining input */
+	res_size += ((src_size) / 3) * 4;
+	switch (src_size % 3) {
+	case 0:
+		break;
+	case 1:
+		res_size += 1;
+		break;
+	case 2:
+		res_size += 2;
+		break;
+	}
+	return res_size;
+}
+
+size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size)
+{
+	size_t out_size = base64_encode_get_out_size(enc, src_size);
+
+	if (src_size == 0) {
+		/* last block */
+		switch (enc->sub_pos) {
+		case 0:
+			break;
+		case 1:
+			out_size += 3;
+			break;
+		case 2:
+			out_size += 2;
+			break;
+		default:
+			i_unreached();
+		}
+	}
+
+	return out_size;
+}
+
+static void
+base64_encode_more_data(struct base64_encoder *enc,
+			const unsigned char *src_c, size_t src_size,
+			size_t *src_pos_r, size_t dst_avail, buffer_t *dest)
+{
+	const struct base64_scheme *b64 = enc->b64;
 	const char *b64enc = b64->encmap;
-	const size_t res_size = MAX_BASE64_ENCODED_SIZE(src_size);
-	unsigned char *start = buffer_append_space_unsafe(dest, res_size);
-	unsigned char *ptr = start;
-	const unsigned char *src_c = src;
+	size_t res_size;
+	unsigned char *start, *ptr, *end;
 	size_t src_pos;
 
-	for (src_pos = 0; src_size - src_pos > 2; src_pos += 3, ptr += 4) {
+	/* determine how much we can write in destination buffer */
+	if (dst_avail == 0) {
+		*src_pos_r = 0;
+		return;
+	}
+
+	/* pre-allocate space in the destination buffer */
+	res_size = base64_encode_get_out_size(enc, src_size);
+	if (res_size > dst_avail)
+		res_size = dst_avail;
+
+	start = buffer_append_space_unsafe(dest, res_size);
+	end = start + res_size;
+	ptr = start;
+
+	/* write bytes not written in previous call */
+	i_assert(enc->w_buf_len <= 4);
+	if (enc->w_buf_len > res_size) {
+		memcpy(ptr, enc->w_buf, res_size);
+		ptr += res_size;
+		enc->w_buf_len -= res_size;
+		memmove(enc->w_buf, enc->w_buf + res_size, enc->w_buf_len);
+	} else if (enc->w_buf_len > 0) {
+		memcpy(ptr, enc->w_buf, enc->w_buf_len);
+		ptr += enc->w_buf_len;
+		enc->w_buf_len = 0;
+	}
+	if (ptr == end) {
+		*src_pos_r = 0;
+		return;
+	}
+	i_assert(enc->w_buf_len == 0);
+	i_assert(src_size != 0);
+
+	/* Handle sub-position */
+	src_pos = 0;
+	switch (enc->sub_pos) {
+	case 0:
+		break;
+	case 1:
+		i_assert(ptr < end);
+		ptr[0] = b64enc[enc->buf | (src_c[src_pos] >> 4)];
+		ptr++;
+		enc->buf = (src_c[src_pos] & 0x0f) << 2;
+		src_pos++;
+		if (src_pos == src_size || ptr == end) {
+			enc->sub_pos = 2;
+			*src_pos_r = src_pos;
+			return;
+		}
+		/* fall through */
+	case 2:
+		ptr[0] = b64enc[enc->buf | ((src_c[src_pos] & 0xc0) >> 6)];
+		enc->w_buf[0] = b64enc[src_c[src_pos] & 0x3f];
+		ptr++;
+		src_pos++;
+		if (ptr < end) {
+			ptr[0] = enc->w_buf[0];
+			ptr++;
+			enc->w_buf_len = 0;
+		} else {
+			enc->sub_pos = 0;
+			enc->w_buf_len = 1;
+			*src_pos_r = src_pos;
+			return;
+		}
+		break;
+	default:
+		i_unreached();
+	}
+	enc->sub_pos = 0;
+
+	/* We're now at a 3-byte boundary */
+	if (src_pos == src_size) {
+		i_assert(ptr == end);
+		*src_pos_r = src_pos;
+		return;
+	}
+
+	/* Convert the bulk */
+	for (; src_size - src_pos > 2 && &ptr[3] < end;
+	     src_pos += 3, ptr += 4) {
 		ptr[0] = b64enc[src_c[src_pos] >> 2];
 		ptr[1] = b64enc[((src_c[src_pos] & 0x03) << 4) |
 				(src_c[src_pos+1] >> 4)];
@@ -28,28 +179,146 @@ void base64_scheme_encode(const struct base64_scheme *b64,
 		ptr[3] = b64enc[src_c[src_pos+2] & 0x3f];
 	}
 
-	i_assert(ptr <= start + res_size);
-
+	/* Convert the bytes beyond the last 3-byte boundary and update state
+	   for next call */
 	switch (src_size - src_pos) {
+	case 0:
+		enc->sub_pos = 0;
+		enc->buf = 0;
+		break;
+	case 1:
+		enc->sub_pos = 1;
+		enc->w_buf[0] = b64enc[src_c[src_pos] >> 2];
+		enc->w_buf_len = 1;
+		enc->buf = (src_c[src_pos] & 0x03) << 4;
+		src_pos++;
+		break;
+	case 2:
+		enc->sub_pos = 2;
+		enc->w_buf[0] = b64enc[src_c[src_pos] >> 2];
+		enc->w_buf[1] = b64enc[((src_c[src_pos] & 0x03) << 4) |
+				       (src_c[src_pos+1] >> 4)];
+		enc->w_buf_len = 2;
+		enc->buf = (src_c[src_pos+1] & 0x0f) << 2;
+		src_pos += 2;
+		res_size = end - ptr;
+		break;
+	default:
+		/* hit the end of the destination buffer */
+		enc->sub_pos = 0;
+		enc->w_buf[0] = b64enc[src_c[src_pos] >> 2];
+		enc->w_buf[1] = b64enc[((src_c[src_pos] & 0x03) << 4) |
+				       (src_c[src_pos+1] >> 4)];
+		enc->w_buf[2] = b64enc[((src_c[src_pos+1] & 0x0f) << 2) |
+				       ((src_c[src_pos+2] & 0xc0) >> 6)];
+		enc->w_buf[3] = b64enc[src_c[src_pos+2] & 0x3f];
+		enc->w_buf_len = 4;
+		enc->buf = 0;
+		src_pos += 3;
+	}
+
+	/* fill the remaining allocated space */
+	i_assert(ptr <= end);
+	res_size = end - ptr;
+	i_assert(enc->w_buf_len <= 4);
+	if (enc->w_buf_len > res_size) {
+		memcpy(ptr, enc->w_buf, res_size);
+		ptr += res_size;
+		enc->w_buf_len -= res_size;
+		memmove(enc->w_buf, enc->w_buf + res_size, enc->w_buf_len);
+	} else if (enc->w_buf_len > 0) {
+		memcpy(ptr, enc->w_buf, enc->w_buf_len);
+		ptr += enc->w_buf_len;
+		enc->w_buf_len = 0;
+	}
+
+	i_assert(ptr == end);
+	*src_pos_r = src_pos;
+}
+
+bool base64_encode_more(struct base64_encoder *enc,
+			const void *src, size_t src_size, size_t *src_pos_r,
+			buffer_t *dest)
+{
+	const unsigned char *src_c = src;
+	size_t src_pos, dst_avail;
+
+	i_assert(!enc->finished);
+
+	/* determine how much we can write in destination buffer */
+	dst_avail = buffer_get_avail_size(dest);
+	if (dst_avail == 0) {
+		i_assert(src_pos_r != NULL);
+		*src_pos_r = 0;
+		return FALSE;
+	}
+
+	base64_encode_more_data(enc, src_c, src_size, &src_pos,
+				dst_avail, dest);
+
+	if (src_pos_r != NULL)
+		*src_pos_r = src_pos;
+	return (src_pos == src_size);
+}
+
+bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
+{
+	const struct base64_scheme *b64 = enc->b64;
+	const char *b64enc = b64->encmap;
+	size_t dst_avail;
+	unsigned char w_buf[7];
+	unsigned int w_buf_len = 0;
+
+	dst_avail = 0;
+	if (dest != NULL)
+		dst_avail = buffer_get_avail_size(dest);
+
+	i_assert(!enc->finished);
+
+	if (enc->w_buf_len > 0) {
+		if (dst_avail == 0)
+			return FALSE;
+		i_assert(enc->w_buf_len <= 4);
+		memcpy(w_buf, enc->w_buf, enc->w_buf_len);
+		w_buf_len += enc->w_buf_len;
+	}
+
+	switch (enc->sub_pos) {
 	case 0:
 		break;
 	case 1:
-		ptr[0] = b64enc[src_c[src_pos] >> 2];
-		ptr[1] = b64enc[(src_c[src_pos] & 0x03) << 4];
-		ptr[2] = '=';
-		ptr[3] = '=';
+		w_buf[w_buf_len + 0] = b64enc[enc->buf];
+		w_buf[w_buf_len + 1] =  '=';
+		w_buf[w_buf_len + 2] =  '=';
+		w_buf_len += 3;
 		break;
 	case 2:
-		ptr[0] = b64enc[src_c[src_pos] >> 2];
-		ptr[1] = b64enc[((src_c[src_pos] & 0x03) << 4) |
-				(src_c[src_pos+1] >> 4)];
-		ptr[2] = b64enc[((src_c[src_pos+1] & 0x0f) << 2)];
-		ptr[3] = '=';
+		w_buf[w_buf_len + 0] = b64enc[enc->buf];
+		w_buf[w_buf_len + 1] =  '=';
+		w_buf_len += 2;
 		break;
 	default:
 		i_unreached();
 	}
+	enc->sub_pos = 0;
+
+	if (w_buf_len == 0) {
+		enc->finished = TRUE;
+		return TRUE;
+	}
+
+	i_assert(dest != NULL);
+	if (dst_avail < w_buf_len)
+		return FALSE;
+
+	buffer_append(dest, w_buf, w_buf_len);
+	enc->finished = TRUE;
+	return TRUE;
 }
+
+/*
+ * Generic Base64 API
+ */
 
 #define IS_EMPTY(c) \
 	((c) == '\n' || (c) == '\r' || (c) == ' ' || (c) == '\t')
