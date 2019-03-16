@@ -80,16 +80,11 @@ smtp_server_reply_alloc(struct smtp_server_command *cmd, unsigned int index)
 	return reply;
 }
 
-struct smtp_server_reply *
-smtp_server_reply_create_index(struct smtp_server_command *cmd,
-			       unsigned int index, unsigned int status,
-			       const char *enh_code)
+static void
+smtp_server_reply_set_status(struct smtp_server_reply *reply,
+			     unsigned int status, const char *enh_code)
 {
-	struct smtp_server_reply *reply;
-	pool_t pool = cmd->context.pool;
-
-	i_assert(cmd->replies_expected > 0);
-	i_assert(index < cmd->replies_expected);
+	pool_t pool = reply->command->context.pool;
 
 	/* RFC 5321, Section 4.2:
 
@@ -111,12 +106,6 @@ smtp_server_reply_create_index(struct smtp_server_command *cmd,
 		((unsigned int)(enh_code[0] - '0') == (status / 100)
 			&& enh_code[1] == '.'));
 
-	reply = smtp_server_reply_alloc(cmd, index);
-	reply->index = index;
-	reply->command = cmd;
-
-	if (reply->content == NULL)
-		reply->content = p_new(pool, struct smtp_server_reply_content, 1);
 	reply->content->status = status;
 	reply->content->enhanced_code = p_strdup(pool, enh_code);
 	if (enh_code == NULL || *enh_code == '\0') {
@@ -126,6 +115,26 @@ smtp_server_reply_create_index(struct smtp_server_command *cmd,
 		reply->content->status_prefix =
 			p_strdup_printf(pool, "%03u-%s ", status, enh_code);
 	}
+}
+
+struct smtp_server_reply *
+smtp_server_reply_create_index(struct smtp_server_command *cmd,
+			       unsigned int index, unsigned int status,
+			       const char *enh_code)
+{
+	struct smtp_server_reply *reply;
+	pool_t pool = cmd->context.pool;
+
+	i_assert(cmd->replies_expected > 0);
+	i_assert(index < cmd->replies_expected);
+
+	reply = smtp_server_reply_alloc(cmd, index);
+	reply->index = index;
+	reply->command = cmd;
+
+	if (reply->content == NULL)
+		reply->content = p_new(pool, struct smtp_server_reply_content, 1);
+	smtp_server_reply_set_status(reply, status, enh_code);
 	reply->content->text = str_new(default_pool, 256);
 
 	smtp_server_reply_update_event(reply);
