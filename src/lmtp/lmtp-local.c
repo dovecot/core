@@ -117,10 +117,10 @@ lmtp_local_rcpt_destroy(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 
 static void
 lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *llrcpt,
-				struct smtp_server_cmd_ctx *cmd,
 				const char *error)
 {
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
+	struct smtp_server_cmd_ctx *cmd = rcpt->cmd;
 	struct smtp_address *address = rcpt->path;
 	unsigned int rcpt_idx = rcpt->index;
 	struct lda_settings *lda_set =
@@ -206,7 +206,7 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 		if (ret < 0) {
 			error = mailbox_get_last_error(box, &mail_error);
 			if (mail_error == MAIL_ERROR_NOQUOTA) {
-				lmtp_local_rcpt_reply_overquota(llrcpt, cmd, error);
+				lmtp_local_rcpt_reply_overquota(llrcpt, error);
 			} else {
 				e_error(rcpt->event,
 					"mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
@@ -627,7 +627,7 @@ int lmtp_local_default_deliver(struct client *client,
 	} else if (storage != NULL) {
 		error = mail_storage_get_last_error(storage, &mail_error);
 		if (mail_error == MAIL_ERROR_NOQUOTA) {
-			lmtp_local_rcpt_reply_overquota(llrcpt, cmd, error);
+			lmtp_local_rcpt_reply_overquota(llrcpt, error);
 		} else {
 			smtp_server_reply_index(cmd, rcpt_idx,
 				451, "4.2.0", "<%s> %s",
