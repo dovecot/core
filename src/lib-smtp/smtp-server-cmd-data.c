@@ -147,6 +147,21 @@ cmd_data_destroy(struct smtp_server_cmd_ctx *cmd,
 }
 
 static void
+cmd_data_replied_one(struct smtp_server_cmd_ctx *cmd,
+		     struct cmd_data_context *data_cmd ATTR_UNUSED)
+{
+	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_transaction *trans = conn->state.trans;
+	struct smtp_server_recipient **rcptp;
+
+	if (trans == NULL || !array_is_created(&trans->rcpt_to))
+		return;
+
+	array_foreach_modifiable(&trans->rcpt_to, rcptp)
+		smtp_server_recipient_data_replied(*rcptp);
+}
+
+static void
 cmd_data_replied(struct smtp_server_cmd_ctx *cmd,
 		 struct cmd_data_context *data_cmd ATTR_UNUSED)
 {
@@ -513,6 +528,8 @@ void smtp_server_cmd_data(struct smtp_server_cmd_ctx *cmd,
 
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     cmd_data_start, data_cmd);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_REPLIED_ONE,
+				     cmd_data_replied_one, data_cmd);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
 				     cmd_data_replied, data_cmd);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_DESTROY,
