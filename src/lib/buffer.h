@@ -52,10 +52,13 @@ void buffer_append(buffer_t *buf, const void *data, size_t data_size);
 /* Append character to buffer. */
 void buffer_append_c(buffer_t *buf, unsigned char chr);
 
-/* Insert data to buffer. */
+/* Insert the provided data into the buffer at position pos. If pos points past
+   the current buffer size, the gap is zero-filled. */
 void buffer_insert(buffer_t *buf, size_t pos,
 		   const void *data, size_t data_size);
-/* Delete data from buffer. */
+/* Delete data with the indicated size from the buffer at position pos. The
+   deleted block may cross the current buffer size boundary, which is ignored.
+ */
 void buffer_delete(buffer_t *buf, size_t pos, size_t size);
 
 /* Fill buffer with zero bytes. */
