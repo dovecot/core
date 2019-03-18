@@ -1,3 +1,10 @@
+v2.2.36.3 2019-03-28  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-7524: Missing input buffer size validation leads into
+	  arbitrary buffer overflow when reading fts or pop3 uidl header
+	  from Dovecot index. Exploiting this requires direct write access to
+	  the index files.
+
 v2.2.36.1 2019-02-05  Timo Sirainen <tss@iki.fi>
 
 	* CVE-2019-3814: If imap/pop3/managesieve/submission client has
