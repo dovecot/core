@@ -211,7 +211,6 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			}
 
 			if (matched) {
-				mstream->seen_eoh = FALSE;
 				mstream->eoh_not_matched = TRUE;
 				continue;
 			}
