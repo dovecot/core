@@ -274,7 +274,7 @@ void db_oauth2_unref(struct db_oauth2 **_db)
 
 	if (--db->refcount > 0) return;
 
-	for(ptr = db_oauth2_head; ptr != NULL; ptr = db->next) {
+	for(ptr = db_oauth2_head; ptr != NULL; ptr = ptr->next) {
 		if (ptr == db) {
 			DLLIST_REMOVE(&db_oauth2_head, ptr);
 			break;
