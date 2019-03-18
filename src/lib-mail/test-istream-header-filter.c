@@ -527,19 +527,30 @@ static void test_istream_add_missing_eoh(void)
 
 static void test_istream_add_missing_eoh_and_edit(void)
 {
-	const char *input = "From: foo\nTo: bar\n";
-	const char *output = "From: foo\nTo: 123\nAdded: header\n\n";
+	static const struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "From: foo\nTo: bar\n",
+		  "From: foo\nTo: 123\nAdded: header\n\n" },
+		{ "From: foo\nTo: bar\n\n",
+		  "From: foo\nTo: 123\nAdded: header\n\n" },
+		{ "From: foo\nTo: bar\n\nbody\n",
+		  "From: foo\nTo: 123\nAdded: header\n\nbody\n" },
+	};
 	struct istream *istream;
+	unsigned int i;
 
 	test_begin("i_stream_create_header_filter: add missing EOH and edit headers");
-	istream = test_istream_create(input);
-	test_istream_run(istream, strlen(input), output,
-			 HEADER_FILTER_EXCLUDE |
-			 HEADER_FILTER_ADD_MISSING_EOH |
-			 HEADER_FILTER_NO_CR,
-			 edit_callback);
-	i_stream_unref(&istream);
-
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		istream = test_istream_create(tests[i].input);
+		test_istream_run(istream, strlen(tests[i].input), tests[i].output,
+				 HEADER_FILTER_EXCLUDE |
+				 HEADER_FILTER_ADD_MISSING_EOH |
+				 HEADER_FILTER_NO_CR,
+				 edit_callback);
+		i_stream_unref(&istream);
+	}
 	test_end();
 }
 
