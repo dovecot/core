@@ -188,6 +188,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		set->index_control_use_maildir_name;
 	list->set.iter_from_index_dir = set->iter_from_index_dir;
 	list->set.no_noselect = set->no_noselect;
+	list->set.no_fs_validation = set->no_fs_validation;
 
 	if (*set->mailbox_dir_name == '\0')
 		list->set.mailbox_dir_name = "";
