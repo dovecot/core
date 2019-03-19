@@ -188,6 +188,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 
 	rcpt_data = p_new(cmd->pool, struct smtp_server_cmd_rcpt, 1);
 	rcpt_data->rcpt = rcpt;
+	command->data = rcpt_data;
 
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     cmd_rcpt_recheck, rcpt_data);
@@ -220,7 +221,9 @@ bool smtp_server_command_is_rcpt(struct smtp_server_cmd_ctx *cmd)
 
 void smtp_server_cmd_rcpt_reply_success(struct smtp_server_cmd_ctx *cmd)
 {
+	struct smtp_server_cmd_rcpt *rcpt_data = cmd->cmd->data;
+
 	i_assert(smtp_server_command_is_rcpt(cmd));
 
-	smtp_server_reply(cmd, 250, "2.1.5", "OK");
+	smtp_server_recipient_reply(rcpt_data->rcpt, 250, "2.1.5", "OK");
 }
