@@ -213,9 +213,14 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_command_unref(&command);
 }
 
+bool smtp_server_command_is_rcpt(struct smtp_server_cmd_ctx *cmd)
+{
+	return (cmd->cmd->reg->func == smtp_server_cmd_rcpt);
+}
+
 void smtp_server_cmd_rcpt_reply_success(struct smtp_server_cmd_ctx *cmd)
 {
-	i_assert(cmd->cmd->reg->func == smtp_server_cmd_rcpt);
+	i_assert(smtp_server_command_is_rcpt(cmd));
 
 	smtp_server_reply(cmd, 250, "2.1.5", "OK");
 }
