@@ -582,6 +582,7 @@ void smtp_server_cmd_mail_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 /* RCPT */
 
+bool smtp_server_command_is_rcpt(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_cmd_rcpt_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 /* RSET */
