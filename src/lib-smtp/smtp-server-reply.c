@@ -306,7 +306,7 @@ smtp_server_reply_get_path_len(struct smtp_server_reply *reply)
 	size_t prefix_len = strlen(reply->content->status_prefix);
 	size_t text_len = str_len(reply->content->text), line_len, path_len;
 	const char *text = str_c(reply->content->text);
-	const char *text_end = text + text_len, *line_end, *path_end;
+	const char *text_end = text + text_len, *line_end;
 
 	i_assert(prefix_len <= text_len);
 
@@ -321,10 +321,9 @@ smtp_server_reply_get_path_len(struct smtp_server_reply *reply)
 	}
 
 	if (prefix_len == line_len || text[prefix_len] != '<') {
-		path_end = &text[prefix_len];
 		path_len = 0;
 	} else {
-		const char *path_begin = &text[prefix_len];
+		const char *path_begin = &text[prefix_len], *path_end;
 
 		path_end = strchr(path_begin, '>');
 		if (path_end == NULL || path_end > line_end)
