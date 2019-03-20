@@ -381,8 +381,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		case SEARCH_SINCE:
 			return date >= arg->value.time ? 1 : 0;
 		default:
-			/* unreachable */
-			break;
+			i_unreached();
 		}
 
 	/* sizes */
