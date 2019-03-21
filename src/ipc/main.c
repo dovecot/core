@@ -31,6 +31,12 @@ static void client_connected(struct master_service_connection *conn)
 		(void)ipc_connection_create(conn->listen_fd, conn->fd);
 }
 
+static void ipc_die(void)
+{
+	clients_destroy_all();
+	ipc_groups_disconnect_all();
+}
+
 int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
@@ -45,6 +51,8 @@ int main(int argc, char *argv[])
 						NULL, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service, "ipc: ");
+	master_service_set_die_with_master(master_service, TRUE);
+	master_service_set_die_callback(master_service, ipc_die);
 
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
