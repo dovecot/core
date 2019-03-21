@@ -143,7 +143,7 @@ void ipc_groups_init(void)
 	i_array_init(&ipc_groups, 16);
 }
 
-void ipc_groups_deinit(void)
+void ipc_groups_disconnect_all(void)
 {
 	struct ipc_group *const *groupp, *group;
 
@@ -157,5 +157,10 @@ void ipc_groups_deinit(void)
 		}
 		ipc_group_free(&group);
 	}
+}
+
+void ipc_groups_deinit(void)
+{
+	ipc_groups_disconnect_all();
 	array_free(&ipc_groups);
 }

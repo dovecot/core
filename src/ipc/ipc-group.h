@@ -40,5 +40,6 @@ bool ipc_group_cmd(struct ipc_group *group, const char *cmd,
 
 void ipc_groups_init(void);
 void ipc_groups_deinit(void);
+void ipc_groups_disconnect_all(void);
 
 #endif
