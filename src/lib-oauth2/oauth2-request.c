@@ -81,6 +81,13 @@ static void
 oauth2_request_response(const struct http_response *response,
 			struct oauth2_request *req)
 {
+	if (response->payload == NULL) {
+		struct oauth2_request_result res;
+		i_zero(&res);
+		res.error = http_response_get_message(response);
+		oauth2_request_callback(req, &res);
+		return;
+	}
 	req->response_status = response->status;
 	p_array_init(&req->fields, req->pool, 1);
 	req->is = response->payload;
