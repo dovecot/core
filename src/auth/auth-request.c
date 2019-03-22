@@ -981,6 +981,8 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			    strlen(request->passdb_password));
 	}
 
+	auth_request_passdb_lookup_end(request, *result);
+
 	if (request->passdb->set->deny &&
 	    *result != PASSDB_RESULT_USER_UNKNOWN) {
 		/* deny passdb. we can get through this step only if the
@@ -1075,8 +1077,6 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	} else {
 		next_passdb = request->passdb->next;
 	}
-
-	auth_request_passdb_lookup_end(request, *result);
 
 	while (next_passdb != NULL &&
 		auth_request_want_skip_passdb(request, next_passdb))
