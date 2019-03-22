@@ -443,8 +443,8 @@ static void db_oauth2_callback(struct db_oauth2_request *req,
 	i_assert(result == PASSDB_RESULT_OK || error != NULL);
 
 	e_debug(authdb_event(req->auth_request),
-		"oauth2: callback(%d, %s)",
-		result, error);
+		"oauth2: callback(result: %s, error: %s)",
+		passdb_result_to_string(result), error);
 
 	if (callback != NULL) {
 		DLLIST_REMOVE(&req->db->head, req);
