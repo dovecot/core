@@ -483,6 +483,7 @@ static const struct fetch_field fetch_fields[] = {
 	{ "modseq",        0,                        fetch_modseq },
 	{ "hdr",           MAIL_FETCH_STREAM_HEADER, fetch_hdr },
 	{ "body",          MAIL_FETCH_STREAM_BODY,   fetch_body },
+	{ "body.preview",  MAIL_FETCH_BODY_SNIPPET,  fetch_body_snippet },
 	{ "body.snippet",  MAIL_FETCH_BODY_SNIPPET,  fetch_body_snippet },
 	{ "text",          MAIL_FETCH_STREAM_HEADER |
 	                   MAIL_FETCH_STREAM_BODY,   fetch_text },
