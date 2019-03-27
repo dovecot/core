@@ -20,6 +20,37 @@ struct mail_deliver_session {
 	ARRAY(guid_128_t) inbox_guids;
 };
 
+struct mail_deliver_input {
+	const struct lda_settings *set;
+	const struct smtp_submit_settings *smtp_set;
+	struct mail_deliver_session *session;
+
+	unsigned int session_time_msecs;
+	struct timeval delivery_time_started;
+
+	/* Session ID, used as log line prefix if non-NULL. */
+	const char *session_id;
+	/* Mail to save */
+	struct mail *src_mail;
+
+	/* Envelope sender, if known. */
+	const struct smtp_address *mail_from;
+	/* MAIL parameters */
+	struct smtp_params_mail mail_params;
+
+	/* Envelope recipient (final recipient) */
+	const struct smtp_address *rcpt_to;
+	/* RCPT parameters (can contain original recipient) */
+	struct smtp_params_rcpt rcpt_params;
+	/* Destination user */
+	struct mail_user *rcpt_user;
+	/* Mailbox where mail should be saved, unless e.g. Sieve does
+	   something to it. */
+	const char *rcpt_default_mailbox;
+
+	bool save_dest_mail:1;
+};
+
 struct mail_deliver_context {
 	pool_t pool;
 	const struct lda_settings *set;
@@ -97,6 +128,10 @@ const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx);
 
 struct mail_deliver_session *mail_deliver_session_init(void);
 void mail_deliver_session_deinit(struct mail_deliver_session **session);
+
+void mail_deliver_init(struct mail_deliver_context *ctx,
+		       struct mail_deliver_input *input);
+void mail_deliver_deinit(struct mail_deliver_context *ctx);
 
 /* Try to open mailbox for saving. Returns 0 if ok, -1 if error. The box may
    be returned even with -1, and the caller must free it then. */

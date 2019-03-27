@@ -291,6 +291,39 @@ void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *sessio
 	}
 }
 
+void mail_deliver_init(struct mail_deliver_context *ctx,
+		       struct mail_deliver_input *input)
+{
+	i_zero(ctx);
+	ctx->set = input->set;
+	ctx->smtp_set = input->smtp_set;
+
+	ctx->session = input->session;
+	ctx->pool = input->session->pool;
+	pool_ref(ctx->pool);
+
+	ctx->session_time_msecs = input->session_time_msecs;
+	ctx->delivery_time_started = input->delivery_time_started;
+	ctx->session_id = p_strdup(ctx->pool, input->session_id);
+	ctx->src_mail = input->src_mail;
+	ctx->save_dest_mail = input->save_dest_mail;
+
+	ctx->mail_from = smtp_address_clone(ctx->pool, input->mail_from);
+	smtp_params_mail_copy(ctx->pool, &ctx->mail_params,
+			      &input->mail_params);
+	ctx->rcpt_to = smtp_address_clone(ctx->pool, input->rcpt_to);
+	smtp_params_rcpt_copy(ctx->pool, &ctx->rcpt_params,
+			      &input->rcpt_params);
+	ctx->rcpt_user = input->rcpt_user;
+	ctx->rcpt_default_mailbox = p_strdup(ctx->pool,
+					     input->rcpt_default_mailbox);
+}
+
+void mail_deliver_deinit(struct mail_deliver_context *ctx)
+{
+	pool_unref(&ctx->pool);
+}
+
 static struct mail *
 mail_deliver_open_mail(struct mailbox *box, uint32_t uid,
 		       enum mail_fetch_field wanted_fields,
