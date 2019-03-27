@@ -568,47 +568,48 @@ int lmtp_local_default_deliver(struct client *client,
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct smtp_address *rcpt_to = rcpt->path;
 	unsigned int rcpt_idx = rcpt->index;
+	struct mail_deliver_input dinput;
 	struct mail_deliver_context dctx;
 	struct mail_storage *storage;
 	enum mail_error mail_error;
 	const char *error;
 	int ret;
 
-	i_zero(&dctx);
-	dctx.session = lldctx->session;
-	dctx.pool = lldctx->session->pool;
-	dctx.set = lldctx->lda_set;
-	dctx.smtp_set = lldctx->smtp_set;
-	dctx.session_id = lldctx->session_id;
-	dctx.src_mail = lldctx->src_mail;
+	i_zero(&dinput);
+	dinput.session = lldctx->session;
+	dinput.set = lldctx->lda_set;
+	dinput.smtp_set = lldctx->smtp_set;
+	dinput.session_id = lldctx->session_id;
+	dinput.src_mail = lldctx->src_mail;
 
 	/* MAIL FROM */
-	dctx.mail_from = trans->mail_from;
-	smtp_params_mail_copy(dctx.pool,
-		&dctx.mail_params, &trans->params);
+	dinput.mail_from = trans->mail_from;
+	dinput.mail_params = trans->params;
 
 	/* RCPT TO */
-	dctx.rcpt_user = lldctx->rcpt_user;
-	smtp_params_rcpt_copy(dctx.pool, &dctx.rcpt_params, &rcpt->params);
-	if (dctx.rcpt_params.orcpt.addr == NULL &&
-		*dctx.set->lda_original_recipient_header != '\0') {
-		dctx.rcpt_params.orcpt.addr =
-			mail_deliver_get_address(lldctx->src_mail,
-				dctx.set->lda_original_recipient_header);
+	dinput.rcpt_user = lldctx->rcpt_user;
+	dinput.rcpt_params = rcpt->params;
+	if (dinput.rcpt_params.orcpt.addr == NULL &&
+	    *dinput.set->lda_original_recipient_header != '\0') {
+		dinput.rcpt_params.orcpt.addr =
+			mail_deliver_get_address(
+				lldctx->src_mail,
+				dinput.set->lda_original_recipient_header);
 	}
-	if (dctx.rcpt_params.orcpt.addr == NULL)
-		dctx.rcpt_params.orcpt.addr = rcpt_to;
-	dctx.rcpt_to = rcpt_to;
-	dctx.rcpt_default_mailbox = lldctx->rcpt_default_mailbox;
+	if (dinput.rcpt_params.orcpt.addr == NULL)
+		dinput.rcpt_params.orcpt.addr = rcpt_to;
+	dinput.rcpt_to = rcpt_to;
+	dinput.rcpt_default_mailbox = lldctx->rcpt_default_mailbox;
 
-	dctx.save_dest_mail = array_count(&trans->rcpt_to) > 1 &&
+	dinput.save_dest_mail = array_count(&trans->rcpt_to) > 1 &&
 		local->first_saved_mail == NULL;
 
-	dctx.session_time_msecs =
+	dinput.session_time_msecs =
 		timeval_diff_msecs(&client->state.data_end_timeval,
 				   &trans->timestamp);
-	dctx.delivery_time_started = lldctx->delivery_time_started;
+	dinput.delivery_time_started = lldctx->delivery_time_started;
 
+	mail_deliver_init(&dctx, &dinput);
 	if (mail_deliver(&dctx, &storage) == 0) {
 		if (dctx.dest_mail != NULL) {
 			i_assert(local->first_saved_mail == NULL);
@@ -642,6 +643,8 @@ int lmtp_local_default_deliver(struct client *client,
 			smtp_address_encode(rcpt_to));
 		ret = -1;
 	}
+	mail_deliver_deinit(&dctx);
+
 	return ret;
 }
 
