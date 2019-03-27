@@ -439,6 +439,7 @@ struct mail_storage sdbox_storage = {
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA |
 		MAIL_STORAGE_CLASS_FLAG_STUBS,
+	.event_category = &event_category_sdbox,
 
 	.v = {
                 NULL,
