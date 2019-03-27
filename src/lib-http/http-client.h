@@ -227,7 +227,7 @@ http_client_request(struct http_client *client,
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)
 
-/* create net HTTP request using provided URL. This implicitly sets
+/* create new HTTP request using provided URL. This implicitly sets
    port, ssl, and username:password if provided. */
 struct http_client_request *
 http_client_request_url(struct http_client *client,
