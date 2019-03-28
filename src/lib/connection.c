@@ -260,8 +260,8 @@ connection_update_label(struct connection *conn)
 	string_t *label;
 
 	label = t_str_new(64);
-	if (conn->name != NULL)
-		str_append(label, conn->name);
+	if (conn->base_name != NULL)
+		str_append(label, conn->base_name);
 	if (conn->property_label != NULL) {
 		if (str_len(label) == 0)
 			str_append(label, conn->property_label);
@@ -304,9 +304,9 @@ connection_create_stream_name(struct connection *conn, int fd)
 	if (conn->unix_socket ||
 	    (conn->remote_ip.family == 0 && conn->remote_uid != (uid_t)-1))
 		str_append(name, ":unix");
-	if (conn->name != NULL) {
+	if (conn->base_name != NULL) {
 		str_append_c(name, ':');
-		str_append(name, conn->name);
+		str_append(name, conn->base_name);
 	} else if (conn->property_label != NULL) {
 		str_append_c(name, ':');
 		str_append(name, conn->property_label);
@@ -405,6 +405,9 @@ connection_update_properties(struct connection *conn)
 	connection_update_label(conn);
 	connection_update_stream_names(conn);
 	connection_update_event(conn);
+
+	conn->name = (conn->base_name != NULL ?
+		      conn->base_name : conn->property_label);
 }
 
 static void connection_init_streams(struct connection *conn)
@@ -507,8 +510,8 @@ connection_init_full(struct connection_list *list, struct connection *conn,
 	conn->fd_out = fd_out;
 	conn->disconnected = TRUE;
 
-	i_free(conn->name);
-	conn->name = i_strdup(name);
+	i_free(conn->base_name);
+	conn->base_name = i_strdup(name);
 
 	if (list->set.input_idle_timeout_secs != 0 &&
 	    conn->input_idle_timeout_secs == 0) {
@@ -698,10 +701,11 @@ int connection_client_connect(struct connection *conn)
 				    (conn->local_ip.family != 0 ?
 				     &conn->local_ip : NULL));
 	} else if (conn->list->set.unix_client_connect_msecs == 0) {
-		fd = net_connect_unix(conn->name);
+		fd = net_connect_unix(conn->base_name);
 	} else {
 		fd = net_connect_unix_with_retries(
-			conn->name, conn->list->set.unix_client_connect_msecs);
+			conn->base_name,
+			conn->list->set.unix_client_connect_msecs);
 	}
 	if (fd == -1)
 		return -1;
@@ -773,7 +777,7 @@ void connection_deinit(struct connection *conn)
 	DLLIST_REMOVE(&conn->list->connections, conn);
 
 	connection_disconnect(conn);
-	i_free(conn->name);
+	i_free(conn->base_name);
 	i_free(conn->label);
 	i_free(conn->property_label);
 	event_unref(&conn->event);

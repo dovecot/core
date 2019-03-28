@@ -110,7 +110,15 @@ struct connection {
 	struct connection *prev, *next;
 	struct connection_list *list;
 
-	char *name;
+	/* The name for the connection provided by the application. This is
+	   usually a host name or a unix socket path. This may be NULL if the
+	   application provides none. */
+	char *base_name;
+	/* The name of the connection determined by the connection API. It is
+	   equal to base_name when that is available and otherwise it is
+	   composed from the connection properties; e.g., "ip:port". */
+	const char *name;
+
 	char *label;
 	char *property_label;
 	unsigned int id;
