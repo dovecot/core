@@ -26,6 +26,9 @@ static void test_base64_encode(void)
 		str_truncate(str, 0);
 		base64_encode(input[i], strlen(input[i]), str);
 		test_assert(strcmp(output[i], str_c(str)) == 0);
+		test_assert(
+			str_len(str) == MAX_BASE64_ENCODED_SIZE(
+				strlen(input[i])));
 	}
 	test_end();
 }
@@ -72,6 +75,12 @@ static void test_base64_decode(void)
 			    (src_pos == output[i].src_pos ||
 			     (output[i].src_pos == UINT_MAX &&
 			      src_pos == strlen(input[i]))));
+
+		if (ret >= 0) {
+			test_assert(
+				str_len(str) <= MAX_BASE64_DECODED_SIZE(
+					strlen(input[i])));
+		}
 	}
 	test_end();
 }
