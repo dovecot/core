@@ -351,6 +351,410 @@ static void test_base64_encode_lowlevel(void)
 	test_end();
 }
 
+struct test_base64_decode_lowlevel {
+	const struct base64_scheme *scheme;
+	enum base64_decode_flags flags;
+
+	const char *input;
+	const char *output;
+	int ret;
+	unsigned int src_pos;
+};
+
+static const struct test_base64_decode_lowlevel
+tests_base64_decode_lowlevel[] = {
+	{
+		.scheme = &base64_scheme,
+		.input = "\taGVsbG8gd29ybGQ=",
+		.output = "hello world",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "\taGVsbG8gd29ybGQ=",
+		.output = "hello world",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "\taGVsbG8gd29ybGQ=\t",
+		.output = "hello world",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "aGVsbG8gd29ybGQ=:frop",
+		.output = "hello world",
+		.ret = 0,
+		.src_pos = 16,
+		.flags = BASE64_DECODE_FLAG_EXPECT_BOUNDARY,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "\taGVsbG8gd29ybGQ=\t:frop",
+		.output = "hello world",
+		.ret = 0,
+		.src_pos = 18,
+		.flags = BASE64_DECODE_FLAG_EXPECT_BOUNDARY,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "\nZm9v\n \tIGJh  \t\ncml0cw==",
+		.output = "foo barits",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "\nZm9v\n \tIGJh  \t\ncml0cw==",
+		.output = "foo barits",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "\nZm9v\n \tIGJh  \t\ncml0cw==\n  ",
+		.output = "foo barits",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "\nZm9v\n \tIGJh  \t\ncml0cw= =\n  ",
+		.output = "foo barits",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "\nZm9v\n \tIGJh  \t\ncml0cw\n= =\n  ",
+		.output = "foo barits",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "  anVzdCBuaWlu  \n",
+		.output = "just niin",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "  anVzdCBuaWlu  \n",
+		.output = "just niin",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "aGVsb",
+		.output = "hel",
+		.ret = -1,
+		.src_pos = 5,
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "aGVsb",
+		.output = "hel",
+		.ret = -1,
+		.src_pos = 5,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "aGVsb!!!!!",
+		.output = "hel",
+		.ret = -1,
+		.src_pos = 5,
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "aGVsb!!!!!",
+		.output = "hel",
+		.ret = -1,
+		.src_pos = 5,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "aGVs!!!!!",
+		.output = "hel",
+		.ret = -1,
+		.src_pos = 4,
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input = "aGVs!!!!!",
+		.output = "hel",
+		.ret = -1,
+		.src_pos = 4,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input =
+			"0JPQvtCy0L7RgNGPzIHRgiwg0YfRgt"
+			"C+INC60YPRgCDQtNC+0Y/MgdGCLg==",
+		.output =
+			"\xd0\x93\xd0\xbe\xd0\xb2\xd0\xbe\xd1\x80\xd1\x8f\xcc"
+			"\x81\xd1\x82\x2c\x20\xd1\x87\xd1\x82\xd0\xbe\x20\xd0"
+			"\xba\xd1\x83\xd1\x80\x20\xd0\xb4\xd0\xbe\xd1\x8f\xcc"
+			"\x81\xd1\x82\x2e",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64url_scheme,
+		.input =
+			"0JPQvtCy0L7RgNGPzIHRgiwg0YfRgt"
+			"C-INC60YPRgCDQtNC-0Y_MgdGCLg==",
+		.output =
+			"\xd0\x93\xd0\xbe\xd0\xb2\xd0\xbe\xd1\x80\xd1\x8f\xcc"
+			"\x81\xd1\x82\x2c\x20\xd1\x87\xd1\x82\xd0\xbe\x20\xd0"
+			"\xba\xd1\x83\xd1\x80\x20\xd0\xb4\xd0\xbe\xd1\x8f\xcc"
+			"\x81\xd1\x82\x2e",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+};
+
+static void test_base64_decode_lowlevel(void)
+{
+	string_t *str;
+	buffer_t buf;
+	unsigned int i;
+
+	test_begin("base64 decode low-level");
+	for (i = 0; i < N_ELEMENTS(tests_base64_decode_lowlevel); i++) {
+		const struct test_base64_decode_lowlevel *test =
+			&tests_base64_decode_lowlevel[i];
+		struct base64_decoder dec;
+		size_t src_pos;
+		int ret;
+
+		/* Some of the base64_decode() callers use fixed size buffers.
+		   Use a fixed size buffer here as well to test that
+		   base64_decode() can't allocate any extra space even
+		   temporarily. */
+		size_t max_decoded_size =
+			MAX_BASE64_DECODED_SIZE(strlen(test->input));
+
+		buffer_create_from_data(&buf, t_malloc0(max_decoded_size),
+					max_decoded_size);
+		str = &buf;
+		base64_decode_init(&dec, test->scheme, test->flags);
+		ret = base64_decode_more(&dec, test->input, strlen(test->input),
+					 &src_pos, str);
+		if (ret >= 0)
+			ret = base64_decode_finish(&dec);
+
+		test_assert_idx(ret == test->ret, i);
+		test_assert_idx(strlen(test->output) == str_len(str) &&
+				memcmp(test->output, str_data(str),
+				       str_len(str)) == 0, i);
+		test_assert_idx(src_pos == test->src_pos ||
+				(test->src_pos == UINT_MAX &&
+				src_pos == strlen(test->input)), i);
+		if (ret >= 0) {
+			test_assert_idx(
+				str_len(str) <= MAX_BASE64_DECODED_SIZE(
+					strlen(test->input)), i);
+		}
+	}
+	test_end();
+}
+
+static void
+test_base64_random_lowlevel_one_block(const struct base64_scheme *b64,
+				      enum base64_decode_flags dec_flags,
+				      unsigned int test_idx,
+				      const unsigned char *in_buf,
+				      size_t in_buf_size,
+				      buffer_t *buf1, buffer_t *buf2)
+{
+	struct base64_encoder enc;
+	struct base64_decoder dec;
+	int ret;
+
+	buffer_set_used_size(buf1, 0);
+	buffer_set_used_size(buf2, 0);
+
+	base64_encode_init(&enc, b64);
+	base64_encode_more(&enc, in_buf, in_buf_size, NULL, buf1);
+	base64_encode_finish(&enc, buf1);
+
+	base64_decode_init(&dec, b64, dec_flags);
+	ret = base64_decode_more(&dec, buf1->data, buf1->used,
+				 NULL, buf2);
+	if (ret >= 0)
+		ret = base64_decode_finish(&dec);
+
+	test_assert_idx(ret >= 0, test_idx);
+	test_assert_idx(buf2->used == in_buf_size &&
+			memcmp(in_buf, buf2->data, in_buf_size) == 0, test_idx);
+}
+
+static void
+test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
+				   enum base64_decode_flags dec_flags,
+				   unsigned int test_idx,
+				   const unsigned char *in_buf,
+				   size_t in_buf_size,
+				   buffer_t *buf1, buffer_t *buf2,
+				   size_t chunk_size)
+{
+	struct base64_encoder enc;
+	struct base64_decoder dec;
+	const unsigned char *buf_p, *buf_begin, *buf_end;
+	int ret;
+	size_t out_space;
+	void *out_data;
+	buffer_t out;
+
+	buf_begin = in_buf;
+	buf_end = buf_begin + in_buf_size;
+
+	buffer_set_used_size(buf1, 0);
+	buffer_set_used_size(buf2, 0);
+
+	base64_encode_init(&enc, b64);
+	out_space = 0;
+	for (buf_p = buf_begin; buf_p < buf_end; ) {
+		size_t buf_ch, out_ch;
+		size_t left = (buf_end - buf_p);
+		size_t used = buf1->used;
+		size_t src_pos;
+
+		if (chunk_size == 0) {
+			buf_ch = i_rand_limit(32);
+			out_ch = i_rand_limit(32);
+		} else {
+			buf_ch = chunk_size;
+			out_ch = chunk_size;
+		}
+
+		out_space += out_ch;
+		out_data = buffer_append_space_unsafe(buf1, out_space);
+		buffer_create_from_data(&out, out_data, out_space);
+
+		if (buf_ch > left)
+			buf_ch = left;
+
+		base64_encode_more(&enc, buf_p, buf_ch, &src_pos, &out);
+		buf_p += src_pos;
+		i_assert(out_space >= out.used);
+		out_space -= out.used;
+		buffer_set_used_size(buf1, used + out.used);
+	}
+	base64_encode_finish(&enc, buf1);
+
+	buf_begin = buf1->data;
+	buf_end = buf_begin + buf1->used;
+
+	base64_decode_init(&dec, b64, dec_flags);
+	ret = 1;
+	out_space = 0;
+	for (buf_p = buf_begin; buf_p < buf_end; ) {
+		size_t buf_ch, out_ch;
+		size_t left = (buf_end - buf_p);
+		size_t used = buf2->used;
+		size_t src_pos;
+
+		if (chunk_size == 0) {
+			buf_ch = i_rand_limit(32);
+			out_ch = i_rand_limit(32);
+		} else {
+			buf_ch = chunk_size;
+			out_ch = chunk_size;
+		}
+
+		out_space += out_ch;
+		out_data = buffer_append_space_unsafe(buf2, out_space);
+		buffer_create_from_data(&out, out_data, out_space);
+
+		if (buf_ch > left)
+			buf_ch = left;
+		ret = base64_decode_more(&dec, buf_p, buf_ch,
+					 &src_pos, &out);
+		test_assert_idx(ret >= 0, test_idx);
+		if (ret < 0) {
+			break;
+		}
+		buf_p += src_pos;
+		i_assert(out_space >= out.used);
+		out_space -= out.used;
+		buffer_set_used_size(buf2, used + out.used);
+	}
+	test_assert_idx(ret >= 0, test_idx);
+
+	if (ret > 0) {
+		ret = base64_decode_finish(&dec);
+		test_assert_idx(ret == 0, test_idx);
+		test_assert_idx(buf2->used == in_buf_size &&
+				memcmp(in_buf, buf2->data, in_buf_size) == 0,
+				test_idx);
+	}
+}
+
+static void
+test_base64_random_lowlevel_case(const struct base64_scheme *b64,
+				 enum base64_decode_flags dec_flags)
+{
+	unsigned char in_buf[512];
+	size_t in_buf_size;
+	buffer_t *buf1, *buf2;
+	unsigned int i, j;
+
+	buf1 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(sizeof(in_buf)));
+	buf2 = t_buffer_create(sizeof(in_buf));
+
+	/* one block */
+	for (i = 0; i < 1000; i++) {
+		in_buf_size = i_rand_limit(sizeof(in_buf));
+		for (j = 0; j < in_buf_size; j++)
+			in_buf[j] = i_rand();
+
+		test_base64_random_lowlevel_one_block(b64, dec_flags, i,
+						      in_buf, in_buf_size,
+						      buf1, buf2);
+	}
+
+	/* streaming; single-byte trickle */
+	for (i = 0; i < 1000; i++) {
+		in_buf_size = i_rand_limit(sizeof(in_buf));
+		for (j = 0; j < in_buf_size; j++)
+			in_buf[j] = i_rand();
+
+		test_base64_random_lowlevel_stream(b64, dec_flags, i,
+						   in_buf, in_buf_size,
+						   buf1, buf2, 1);
+	}
+
+	/* streaming; random chunks */
+	for (i = 0; i < 1000; i++) {
+		in_buf_size = i_rand_limit(sizeof(in_buf));
+		for (j = 0; j < in_buf_size; j++)
+			in_buf[j] = i_rand();
+
+		test_base64_random_lowlevel_stream(b64, dec_flags, i,
+						   in_buf, in_buf_size,
+						   buf1, buf2, 0);
+	}
+}
+
+static void
+test_base64_random_lowlevel(void)
+{
+	test_begin("base64 encode/decode low-level with random input");
+	test_base64_random_lowlevel_case(&base64_scheme, 0);
+	test_base64_random_lowlevel_case(&base64url_scheme, 0);
+	test_base64_random_lowlevel_case(&base64_scheme,
+					 BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
+	test_base64_random_lowlevel_case(&base64url_scheme,
+					 BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
+	test_end();
+}
 void test_base64(void)
 {
 	test_base64_encode();
@@ -360,4 +764,6 @@ void test_base64(void)
 	test_base64url_decode();
 	test_base64url_random();
 	test_base64_encode_lowlevel();
+	test_base64_decode_lowlevel();
+	test_base64_random_lowlevel();
 }

@@ -84,6 +84,82 @@ bool ATTR_NOWARN_UNUSED_RESULT
 base64_encode_finish(struct base64_encoder *enc, buffer_t *dest) ATTR_NULL(2);
 
 /*
+ * Low-level Base64 decoder
+ */
+
+enum base64_decode_flags {
+	/* Decode input until a boundary is reached. This boundary is a
+	   non-Base64 input sequence that would normally trigger a decode error;
+	   e.g., Base64 data followed by a ':'. With this flag, it is possible
+	   to decode such a Base64 prefix. The base64_decode_finish() function
+	   will still check that the Base64 data ends properly (padding). */
+	BASE64_DECODE_FLAG_EXPECT_BOUNDARY = BIT(0),
+};
+
+struct base64_decoder {
+	const struct base64_scheme *b64;
+	enum base64_decode_flags flags;
+
+	/* state */
+	unsigned int sub_pos;
+	unsigned char buf;
+
+	bool seen_padding:1;
+	bool seen_end:1;
+	bool seen_boundary:1;
+	bool finished:1;
+	bool failed:1;
+};
+
+/* Returns TRUE when base64_decode_finish() was called on this decoder. */
+static inline bool
+base64_decode_is_finished(struct base64_decoder *dec)
+{
+	return dec->finished;
+}
+
+/* Initialize the Base64 decoder. The b64 parameter is the definition of the
+   particular Base64 encoding scheme that is expected.
+ */
+static inline void
+base64_decode_init(struct base64_decoder *dec,
+		   const struct base64_scheme *b64,
+		   enum base64_decode_flags flags)
+{
+	i_zero(dec);
+	dec->b64 = b64;
+	dec->flags = flags;
+}
+
+/* Reset the Base64 decoder to its initial state. */
+static inline void
+base64_decode_reset(struct base64_decoder *dec)
+{
+	const struct base64_scheme *b64 = dec->b64;
+	enum base64_decode_flags flags = dec->flags;
+
+	base64_decode_init(dec, b64, flags);
+}
+
+/* Translates some form of Base64 data into binary and appends it to dest
+   buffer. dest may point to same buffer as src. Returns 1 if all ok, 0 if end
+   of base64 data found, -1 if data is invalid.
+
+   Any CR, LF characters are ignored, as well as whitespace at beginning or end
+   of line.
+
+   If src_pos is non-NULL, it's updated to first non-translated character in
+   src.
+ */
+int base64_decode_more(struct base64_decoder *dec,
+		       const void *src, size_t src_size, size_t *src_pos_r,
+		       buffer_t *dest) ATTR_NULL(4);
+/* Finishes Base64 decoding. This function checks whether the encoded data ends
+   in the proper padding. Returns 0 if all ok, and -1 if data is invalid.
+ */
+int base64_decode_finish(struct base64_decoder *dec);
+
+/*
  * Generic Base64 API
  */
 
