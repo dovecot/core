@@ -25,14 +25,14 @@ static const struct base64_istream_test base64_tests[] = {
 	{ "\n", "", 0 },
 	{ "\r\n", "", 0 },
 	{ "  ", "", 0 },
-	{ "foo", "", EPIPE },
-	{ "foo ", "", EINVAL },
+	{ "foo", "\x7e\x8a", EPIPE },
+	{ "foo ","\x7e\x8a", EPIPE },
 	{ "Zm9vC", "foo", EPIPE },
 	{ "Zm9v!", "foo", EINVAL },
-	{ "Zm9!v", "", EINVAL },
-	{ "Zm9 v", "", EINVAL },
-	{ "Zm 9v", "", EINVAL },
-	{ "Z m9v", "", EINVAL },
+	{ "Zm9!v", "fo", EINVAL },
+	{ "Zm9 v", "foo", 0 },
+	{ "Zm 9v", "foo", 0 },
+	{ "Z m9v", "foo", 0 },
 };
 
 static const struct base64_istream_test base64url_tests[] = {
@@ -49,14 +49,14 @@ static const struct base64_istream_test base64url_tests[] = {
 	{ "\n", "", 0 },
 	{ "\r\n", "", 0 },
 	{ "  ", "", 0 },
-	{ "foo", "", EPIPE },
-	{ "foo ", "", EINVAL },
+	{ "foo", "\x7e\x8a", EPIPE },
+	{ "foo ","\x7e\x8a", EPIPE },
 	{ "Zm9vC", "foo", EPIPE },
 	{ "Zm9v!", "foo", EINVAL },
-	{ "Zm9!v", "", EINVAL },
-	{ "Zm9 v", "", EINVAL },
-	{ "Zm 9v", "", EINVAL },
-	{ "Z m9v", "", EINVAL },
+	{ "Zm9!v", "fo", EINVAL },
+	{ "Zm9 v", "foo", 0 },
+	{ "Zm 9v", "foo", 0 },
+	{ "Z m9v", "foo", 0 },
 };
 
 static void
