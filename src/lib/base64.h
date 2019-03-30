@@ -94,6 +94,8 @@ enum base64_decode_flags {
 	   to decode such a Base64 prefix. The base64_decode_finish() function
 	   will still check that the Base64 data ends properly (padding). */
 	BASE64_DECODE_FLAG_EXPECT_BOUNDARY = BIT(0),
+	/* Prohibit whitespace in the input. */
+	BASE64_DECODE_FLAG_NO_WHITESPACE   = BIT(1),
 };
 
 struct base64_decoder {
@@ -145,8 +147,8 @@ base64_decode_reset(struct base64_decoder *dec)
    buffer. dest may point to same buffer as src. Returns 1 if all ok, 0 if end
    of base64 data found, -1 if data is invalid.
 
-   Any CR, LF characters are ignored, as well as whitespace at beginning or end
-   of line.
+   By default, any CR, LF characters are ignored, as well as any whitespace.
+   This can be overridden using the BASE64_DECODE_FLAG_NO_WHITESPACE flag.
 
    If src_pos is non-NULL, it's updated to first non-translated character in
    src.
