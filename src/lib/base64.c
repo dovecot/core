@@ -317,11 +317,211 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 }
 
 /*
- * Generic Base64 API
+ * Low-level Base64 decoder
  */
 
 #define IS_EMPTY(c) \
 	((c) == '\n' || (c) == '\r' || (c) == ' ' || (c) == '\t')
+
+static inline void
+base64_skip_whitespace(struct base64_decoder *dec ATTR_UNUSED,
+		       const unsigned char *src_c,
+		       size_t src_size, size_t *src_pos)
+{
+	/* skip any whitespace in the padding */
+	while ((*src_pos) < src_size && IS_EMPTY(src_c[(*src_pos)]))
+		(*src_pos)++;
+}
+
+int base64_decode_more(struct base64_decoder *dec,
+		       const void *src, size_t src_size, size_t *src_pos_r,
+		       buffer_t *dest)
+{
+	const struct base64_scheme *b64 = dec->b64;
+	const unsigned char *src_c = src;
+	bool expect_boundary = HAS_ALL_BITS(dec->flags,
+					    BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
+	size_t src_pos, dst_avail;
+	int ret = 1;
+
+	i_assert(!dec->finished);
+	i_assert(!dec->failed);
+
+	if (dec->seen_boundary) {
+		/* already seen the boundary/end of base64 data */
+		if (src_pos_r != NULL)
+			*src_pos_r = 0;
+		dec->failed = TRUE;
+		return -1;
+	}
+
+	src_pos = 0;
+	if (dec->seen_end) {
+		/* skip any whitespace at the end */
+		base64_skip_whitespace(dec, src_c, src_size, &src_pos);
+		if (src_pos_r != NULL)
+			*src_pos_r = src_pos;
+		if (src_pos < src_size) {
+			if (!expect_boundary) {
+				dec->failed = TRUE;
+				return -1;
+			}
+			dec->seen_boundary = TRUE;
+			return 0;
+		}
+		/* more whitespace may follow */
+		return 1;
+	}
+
+	if (src_size == 0) {
+		if (src_pos_r != NULL)
+			*src_pos_r = 0;
+		return 1;
+	}
+
+	dst_avail = buffer_get_avail_size(dest);
+	if (dst_avail == 0) {
+		i_assert(src_pos_r != NULL);
+		*src_pos_r = 0;
+		return 1;
+	}
+
+	for (; !dec->seen_padding && src_pos < src_size; src_pos++) {
+		unsigned char in = src_c[src_pos];
+		unsigned char dm = b64->decmap[in];
+
+		if (dm == 0xff) {
+			if (unlikely(!IS_EMPTY(in))) {
+				ret = -1;
+				break;
+			}
+			continue;
+		}
+
+		switch (dec->sub_pos) {
+		case 0:
+			dec->buf = dm;
+			dec->sub_pos++;
+			break;
+		case 1:
+			dec->buf = (dec->buf << 2) | (dm >> 4);
+			buffer_append_c(dest, dec->buf);
+			dst_avail--;
+			dec->buf = dm;
+			dec->sub_pos++;
+			break;
+		case 2:
+			dec->buf = (dec->buf << 4) | (dm >> 2);
+			buffer_append_c(dest, dec->buf);
+			dst_avail--;
+			dec->buf = dm;
+			dec->sub_pos++;
+			break;
+		case 3:
+			dec->buf = ((dec->buf << 6) & 0xc0) | dm;
+			buffer_append_c(dest, dec->buf);
+			dst_avail--;
+			dec->buf = 0;
+			dec->sub_pos = 0;
+			break;
+		default:
+			i_unreached();
+		}
+		if (dst_avail == 0) {
+			i_assert(src_pos_r != NULL);
+			*src_pos_r = src_pos + 1;
+			return 1;
+		}
+	}
+
+	if (dec->seen_padding) {
+		/* skip any whitespace in or after the padding */
+		base64_skip_whitespace(dec, src_c, src_size, &src_pos);
+		if (src_pos == src_size) {
+			if (src_pos_r != NULL)
+				*src_pos_r = src_pos;
+			return 1;
+		}
+	}
+
+	if (dec->seen_padding || ret < 0) {
+		/* try to parse the end (padding) of the base64 input */
+		i_assert(src_pos < src_size);
+
+		switch (dec->sub_pos) {
+		case 0:
+		case 1:
+			/* no padding expected */
+			ret = -1;
+			break;
+		case 2:
+			if (unlikely(src_c[src_pos] != '=')) {
+				/* invalid character */
+				ret = -1;
+				break;
+			}
+			dec->seen_padding = TRUE;
+			dec->sub_pos++;
+			src_pos++;
+			if (src_pos == src_size) {
+				ret = 1;
+				break;
+			}
+			/* skip any whitespace in the padding */
+			base64_skip_whitespace(dec, src_c, src_size,
+					       &src_pos);
+			if (src_pos == src_size) {
+				ret = 1;
+				break;
+			}
+			/* fall through */
+		case 3:
+			if (unlikely(src_c[src_pos] != '=')) {
+				/* invalid character */
+				ret = -1;
+				break;
+			}
+			dec->seen_padding = TRUE;
+			dec->seen_end = TRUE;
+			dec->sub_pos = 0;
+			src_pos++;
+			/* skip any trailing whitespace */
+			base64_skip_whitespace(dec, src_c, src_size,
+					       &src_pos);
+			if (src_pos < src_size) {
+				ret = -1;
+				break;
+			}
+			/* more whitespace may follow */
+			ret = 1;
+			break;
+		}
+	}
+
+	if (ret < 0) {
+		if (!expect_boundary) {
+			dec->failed = TRUE;
+		} else {
+			dec->seen_boundary = TRUE;
+			ret = 0;
+		}
+	}
+	if (src_pos_r != NULL)
+		*src_pos_r = src_pos;
+	return ret;
+}
+
+int base64_decode_finish(struct base64_decoder *dec)
+{
+	i_assert(!dec->finished);
+	dec->finished = TRUE;
+
+	return (!dec->failed && dec->sub_pos == 0 ? 0 : -1);
+}
+
+/*
+ * Generic Base64 API
+ */
 
 int base64_scheme_decode(const struct base64_scheme *b64,
 			 const void *src, size_t src_size, size_t *src_pos_r,
