@@ -367,6 +367,13 @@ tests_base64_decode_lowlevel[] = {
 	},
 	{
 		.scheme = &base64_scheme,
+		.input = "aGVsbG8gd29ybGQ=\t",
+		.output = "hello world",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
 		.input = "\taGVsbG8gd29ybGQ=\t",
 		.output = "hello world",
 		.ret = 0,
@@ -387,6 +394,22 @@ tests_base64_decode_lowlevel[] = {
 		.ret = 0,
 		.src_pos = 18,
 		.flags = BASE64_DECODE_FLAG_EXPECT_BOUNDARY,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "aGVsbG8gd29ybGQ=\t",
+		.output = "hello world",
+		.ret = -1,
+		.src_pos = 16,
+		.flags = BASE64_DECODE_FLAG_NO_WHITESPACE,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "\taGVsbG8gd29ybGQ=\t",
+		.output = "",
+		.ret = -1,
+		.src_pos = 0,
+		.flags = BASE64_DECODE_FLAG_NO_WHITESPACE,
 	},
 	{
 		.scheme = &base64_scheme,
@@ -741,8 +764,13 @@ test_base64_random_lowlevel(void)
 					 BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
 	test_base64_random_lowlevel_case(&base64url_scheme,
 					 BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
+	test_base64_random_lowlevel_case(&base64_scheme,
+					 BASE64_DECODE_FLAG_NO_WHITESPACE);
+	test_base64_random_lowlevel_case(&base64url_scheme, 
+					 BASE64_DECODE_FLAG_NO_WHITESPACE);
 	test_end();
 }
+
 void test_base64(void)
 {
 	test_base64_encode();

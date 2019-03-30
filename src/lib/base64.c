@@ -324,10 +324,12 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	((c) == '\n' || (c) == '\r' || (c) == ' ' || (c) == '\t')
 
 static inline void
-base64_skip_whitespace(struct base64_decoder *dec ATTR_UNUSED,
-		       const unsigned char *src_c,
+base64_skip_whitespace(struct base64_decoder *dec, const unsigned char *src_c,
 		       size_t src_size, size_t *src_pos)
 {
+	if (HAS_ALL_BITS(dec->flags, BASE64_DECODE_FLAG_NO_WHITESPACE))
+		return;
+
 	/* skip any whitespace in the padding */
 	while ((*src_pos) < src_size && IS_EMPTY(src_c[(*src_pos)]))
 		(*src_pos)++;
@@ -341,6 +343,8 @@ int base64_decode_more(struct base64_decoder *dec,
 	const unsigned char *src_c = src;
 	bool expect_boundary = HAS_ALL_BITS(dec->flags,
 					    BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
+	bool no_whitespace = HAS_ALL_BITS(dec->flags,
+					  BASE64_DECODE_FLAG_NO_WHITESPACE);
 	size_t src_pos, dst_avail;
 	int ret = 1;
 
@@ -369,6 +373,10 @@ int base64_decode_more(struct base64_decoder *dec,
 			dec->seen_boundary = TRUE;
 			return 0;
 		}
+		if (no_whitespace) {
+			dec->seen_boundary = TRUE;
+			return 0;
+		}
 		/* more whitespace may follow */
 		return 1;
 	}
@@ -391,6 +399,10 @@ int base64_decode_more(struct base64_decoder *dec,
 		unsigned char dm = b64->decmap[in];
 
 		if (dm == 0xff) {
+			if (no_whitespace) {
+				ret = -1;
+				break;
+			}
 			if (unlikely(!IS_EMPTY(in))) {
 				ret = -1;
 				break;
@@ -492,8 +504,13 @@ int base64_decode_more(struct base64_decoder *dec,
 				ret = -1;
 				break;
 			}
-			/* more whitespace may follow */
-			ret = 1;
+			if (no_whitespace) {
+				dec->seen_boundary = TRUE;
+				ret = 0;
+			} else {
+				/* more whitespace may follow */
+				ret = 1;
+			}
 			break;
 		}
 	}
