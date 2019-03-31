@@ -111,6 +111,7 @@ static void main_init(void)
 	   which we'll need to register. */
 	dict_drivers_register_all();
 	dict_commands_init();
+	dict_connections_init();
 }
 
 static void main_deinit(void)

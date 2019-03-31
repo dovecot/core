@@ -16,12 +16,15 @@
 
 #define DICT_CONN_MAX_PENDING_COMMANDS 1000
 
-static struct dict_connection *dict_connections;
-static unsigned int dict_connections_count = 0;
+static int dict_connection_dict_init(struct dict_connection *conn);
+static void dict_connection_destroy(struct connection *_conn);
+struct connection_list *dict_connections = NULL;
 
-static int dict_connection_parse_handshake(struct dict_connection *conn,
+static int dict_connection_parse_handshake(struct connection *_conn,
 					   const char *line)
 {
+	struct dict_connection *conn =
+		container_of(_conn, struct dict_connection, conn);
 	const char *username, *name, *value_type;
 	unsigned int value_type_num;
 
@@ -68,7 +71,10 @@ static int dict_connection_parse_handshake(struct dict_connection *conn,
 		return -1;
 
 	conn->name = i_strdup(name);
-	return 0;
+	if (dict_connection_dict_init(conn) < 0)
+		return -1;
+
+	return 1;
 }
 
 static int dict_connection_dict_init(struct dict_connection *conn)
@@ -108,86 +114,13 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	return 0;
 }
 
-static void dict_connection_input_more(struct connection *_conn)
-{
-	struct dict_connection *conn = container_of(_conn, struct dict_connection, conn);
-	const char *line;
-	int ret;
-
-	timeout_remove(&conn->to_input);
-
-	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
-		T_BEGIN {
-			ret = dict_command_input(conn, line);
-		} T_END;
-		if (ret < 0) {
-			dict_connection_destroy(conn);
-			break;
-		}
-		if (array_count(&conn->cmds) >= DICT_CONN_MAX_PENDING_COMMANDS) {
-			io_remove(&conn->conn.io);
-			timeout_remove(&conn->to_input);
-			break;
-		}
-	}
-}
-
-static void dict_connection_input(struct connection *_conn)
-{
-	struct dict_connection *conn = container_of(_conn, struct dict_connection, conn);
-	const char *line;
-
-	switch (i_stream_read(conn->conn.input)) {
-	case 0:
-		return;
-	case -1:
-		/* disconnected */
-		dict_connection_destroy(conn);
-		return;
-	case -2:
-		/* buffer full */
-		i_error("dict client: Sent us more than %d bytes",
-			(int)DICT_CLIENT_MAX_LINE_LENGTH);
-		dict_connection_destroy(conn);
-		return;
-	}
-
-	if (conn->username == NULL) {
-		/* handshake not received yet */
-		if ((line = i_stream_next_line(conn->conn.input)) == NULL)
-			return;
-
-		if (dict_connection_parse_handshake(conn, line) < 0) {
-			i_error("dict client: Broken handshake");
-			dict_connection_destroy(conn);
-			return;
-		}
-		if (dict_connection_dict_init(conn) < 0) {
-			dict_connection_destroy(conn);
-			return;
-		}
-	}
-
-	dict_connection_input_more(&conn->conn);
-}
-
-void dict_connection_continue_input(struct dict_connection *conn)
-{
-	if (conn->conn.io != NULL || conn->destroyed)
-		return;
-
-	conn->conn.io = io_add(conn->conn.fd_in, IO_READ, dict_connection_input, &conn->conn);
-	if (conn->to_input == NULL)
-		conn->to_input = timeout_add_short(0, dict_connection_input_more, &conn->conn);
-}
-
 static int dict_connection_output(struct connection *_conn)
 {
 	struct dict_connection *conn = container_of(_conn, struct dict_connection, conn);
 	int ret;
 
 	if ((ret = o_stream_flush(conn->conn.output)) < 0) {
-		dict_connection_destroy(conn);
+		dict_connection_destroy(&conn->conn);
 		return 1;
 	}
 	if (ret > 0)
@@ -202,16 +135,15 @@ dict_connection_create(struct master_service_connection *master_conn)
 
 	conn = i_new(struct dict_connection, 1);
 	conn->refcount = 1;
-	conn->conn.fd_in = conn->conn.fd_out = master_conn->fd;
-	conn->conn.input = i_stream_create_fd(conn->conn.fd_in, DICT_CLIENT_MAX_LINE_LENGTH);
-	conn->conn.output = o_stream_create_fd(conn->conn.fd_out, 128*1024);
-	o_stream_set_no_error_handling(conn->conn.output, TRUE);
-	o_stream_set_flush_callback(conn->conn.output, dict_connection_output, &conn->conn);
-	conn->conn.io = io_add(conn->conn.fd_in, IO_READ, dict_connection_input, &conn->conn);
+
+	connection_init_server(dict_connections, &conn->conn, master_conn->name,
+			       master_conn->fd, master_conn->fd);
+
+	o_stream_set_flush_callback(conn->conn.output, dict_connection_output,
+				    &conn->conn);
+
 	i_array_init(&conn->cmds, DICT_CONN_MAX_PENDING_COMMANDS);
 
-	dict_connections_count++;
-	DLLIST_PREPEND(&dict_connections, conn);
 	return conn;
 }
 
@@ -246,16 +178,34 @@ bool dict_connection_unref(struct dict_connection *conn)
 	if (array_is_created(&conn->transactions))
 		array_free(&conn->transactions);
 
-	i_stream_destroy(&conn->conn.input);
-	o_stream_destroy(&conn->conn.output);
-
 	array_free(&conn->cmds);
+
+	connection_deinit(&conn->conn);
+
 	i_free(conn->name);
 	i_free(conn->username);
 	i_free(conn);
 
 	master_service_client_connection_destroyed(master_service);
 	return FALSE;
+}
+
+static int dict_connection_input_line(struct connection *_conn, const char *line)
+{
+	struct dict_connection *conn =
+		container_of(_conn, struct dict_connection, conn);
+
+	i_assert(conn->dict != NULL);
+
+	if (dict_command_input(conn, line) < 0)
+		return -1;
+
+	if (array_count(&conn->cmds) >= DICT_CONN_MAX_PENDING_COMMANDS) {
+		connection_input_halt(_conn);
+		return 0;
+	}
+
+	return 1;
 }
 
 static void dict_connection_unref_safe_callback(struct dict_connection *conn)
@@ -279,24 +229,9 @@ void dict_connection_unref_safe(struct dict_connection *conn)
 	}
 }
 
-void dict_connection_destroy(struct dict_connection *conn)
+static void dict_connection_destroy(struct connection *_conn)
 {
-	i_assert(!conn->destroyed);
-	i_assert(conn->to_unref == NULL);
-
-	i_assert(dict_connections_count > 0);
-	dict_connections_count--;
-
-	conn->destroyed = TRUE;
-	DLLIST_REMOVE(&dict_connections, conn);
-
-	timeout_remove(&conn->to_input);
-	io_remove(&conn->conn.io);
-	i_stream_close(conn->conn.input);
-	o_stream_close(conn->conn.output);
-	i_close_fd(&conn->conn.fd_in);
-	conn->conn.fd_out = -1;
-
+	struct dict_connection *conn = container_of(_conn, struct dict_connection, conn);
 	/* the connection is closed, but there may still be commands left
 	   running. finish them, even if the calling client can't be notified
 	   about whether they succeeded (clients may not even care).
@@ -304,17 +239,33 @@ void dict_connection_destroy(struct dict_connection *conn)
 	   flush the command output here in case we were waiting on iteration
 	   output. */
 	dict_connection_cmds_output_more(conn);
-
-	dict_connection_unref(conn);
+	dict_connection_unref_safe(conn);
 }
 
 unsigned int dict_connections_current_count(void)
 {
-	return dict_connections_count;
+	return dict_connections->connections_count;
 }
 
 void dict_connections_destroy_all(void)
 {
-	while (dict_connections != NULL)
-		dict_connection_destroy(dict_connections);
+	connection_list_deinit(&dict_connections);
+}
+
+static struct connection_settings dict_connections_set = {
+	.dont_send_version = TRUE,
+	.input_max_size = DICT_CLIENT_MAX_LINE_LENGTH,
+	.output_max_size = 128*1024,
+};
+
+static struct connection_vfuncs dict_connections_vfuncs = {
+	.destroy = dict_connection_destroy,
+	.handshake_line = dict_connection_parse_handshake,
+	.input_line = dict_connection_input_line,
+};
+
+void dict_connections_init(void)
+{
+	dict_connections = connection_list_init(&dict_connections_set,
+						&dict_connections_vfuncs);
 }
