@@ -99,6 +99,9 @@ size_t buffer_get_size(const buffer_t *buf) ATTR_PURE;
    With dynamic buffers this is buffer_get_size()-1, because the extra 1 byte
    is reserved for str_c()'s NUL. */
 size_t buffer_get_writable_size(const buffer_t *buf) ATTR_PURE;
+/* Returns the maximum number of bytes we can append to the buffer. If the
+   buffer is dynamic, this is always near SIZE_MAX. */
+size_t buffer_get_avail_size(const buffer_t *buf) ATTR_PURE;
 
 /* Returns TRUE if buffer contents are identical. */
 bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2);

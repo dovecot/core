@@ -345,6 +345,14 @@ size_t buffer_get_writable_size(const buffer_t *_buf)
 	return buf->alloc-1;
 }
 
+size_t buffer_get_avail_size(const buffer_t *_buf)
+{
+	const struct real_buffer *buf = (const struct real_buffer *)_buf;
+
+	i_assert(buf->alloc >= buf->used);
+	return ((buf->dynamic ? SIZE_MAX : buf->alloc) - buf->used);
+}
+
 bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2)
 {
 	if (buf1->used != buf2->used)
