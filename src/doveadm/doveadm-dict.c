@@ -139,6 +139,7 @@ static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 	(void)doveadm_cmd_param_str(cctx, "key", &key);
 	if (!doveadm_cmd_param_str(cctx, "value", &value)) {
 		i_error("dict set: Missing value");
+		dict_deinit(&dict);
 		return;
 	}
 
