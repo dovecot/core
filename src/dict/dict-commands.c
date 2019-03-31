@@ -52,7 +52,7 @@ static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 	i_free(cmd->reply);
 
 	if (dict_connection_unref(cmd->conn))
-		dict_connection_continue_input(cmd->conn);
+		connection_input_resume(&cmd->conn->conn);
 	i_free(cmd);
 }
 
@@ -282,9 +282,7 @@ static void cmd_iterate_callback(void *context)
 	struct dict_connection *conn = cmd->conn;
 
 	dict_connection_ref(conn);
-	o_stream_cork(conn->conn.output);
 	dict_connection_cmd_output_more(cmd);
-	o_stream_uncork(conn->conn.output);
 	dict_connection_unref_safe(conn);
 }
 
