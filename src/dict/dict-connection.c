@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
+#include "strescape.h"
 #include "master-service.h"
 #include "dict-client.h"
 #include "dict-settings.h"
@@ -20,53 +21,45 @@ static int dict_connection_dict_init(struct dict_connection *conn);
 static void dict_connection_destroy(struct connection *_conn);
 struct connection_list *dict_connections = NULL;
 
-static int dict_connection_parse_handshake(struct connection *_conn,
-					   const char *line)
+static int dict_connection_handshake_args(struct connection *_conn,
+					  const char *const *args)
 {
+	unsigned int major, value_type_num;
 	struct dict_connection *conn =
 		container_of(_conn, struct dict_connection, conn);
-	const char *username, *name, *value_type;
-	unsigned int value_type_num;
 
-	if (*line++ != DICT_PROTOCOL_CMD_HELLO)
-		return -1;
-
-	/* check major version */
-	if (*line++ - '0' != DICT_CLIENT_PROTOCOL_MAJOR_VERSION ||
-	    *line++ != '\t')
+	/* protocol handshake is Hmajor minor value_type */
+	if (str_array_length(args) < 5 || **args != 'H')
 		return -1;
 
-	/* read minor version */
-	if (str_parse_uint(line, &conn->conn.minor_version, &line) < 0)
-		return -1;
-	if (*line++ != '\t')
+	/* check major version which comes right after 'H' in the
+	   first parameter, store minor version. */
+	if (str_to_uint(args[0]+1, &major) < 0 ||
+	    str_to_uint(args[1], &conn->conn.minor_version) < 0 ||
+	    major != DICT_CLIENT_PROTOCOL_MAJOR_VERSION)
 		return -1;
 
-	/* get value type */
-	value_type = line;
-	while (*line != '\t' && *line != '\0') line++;
+	/* check value type */
+	if (str_to_uint(args[2], &value_type_num) < 0 ||
+	    value_type_num >= DICT_DATA_TYPE_LAST)
+		return -1;
 
-	if (*line++ != '\t')
-		return -1;
-	if (str_to_uint(t_strdup_until(value_type, line - 1), &value_type_num) < 0)
-		return -1;
-	if (value_type_num >= DICT_DATA_TYPE_LAST)
-		return -1;
 	conn->value_type = (enum dict_data_type)value_type_num;
+	conn->username = i_strdup(args[3]);
+	conn->name = i_strdup(args[4]);
 
-	/* get username */
-	username = line;
-	while (*line != '\t' && *line != '\0') line++;
-
-	if (*line++ != '\t')
-		return -1;
-	conn->username = i_strdup_until(username, line - 1);
-
-	conn->name = i_strdup(line);
+	/* try initialize the given dict */
 	if (dict_connection_dict_init(conn) < 0)
 		return -1;
 
 	return 1;
+}
+
+static int dict_connection_handshake_line(struct connection *conn,
+					  const char *line)
+{
+	const char *const *args = t_strsplit_tabescaped(line);
+	return dict_connection_handshake_args(conn, args);
 }
 
 static int dict_connection_dict_init(struct dict_connection *conn)
@@ -252,7 +245,7 @@ static struct connection_settings dict_connections_set = {
 
 static struct connection_vfuncs dict_connections_vfuncs = {
 	.destroy = dict_connection_destroy,
-	.handshake_line = dict_connection_parse_handshake,
+	.handshake_line = dict_connection_handshake_line,
 	.input_line = dict_connection_input_line,
 };
 
