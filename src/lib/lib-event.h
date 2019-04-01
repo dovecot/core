@@ -92,6 +92,13 @@ struct event *event_dup(const struct event *source);
    A new reference to the source event is returned if no flattening was
    needed. */
 struct event *event_flatten(struct event *src);
+/* Returns a minimized version of the source event.
+   Remove parents with no fields or categories, attempt to flatten fields
+   and categories to avoid sending one-off parent events.  (There is a more
+   detailed description in a comment above the function implementation.)
+   A new reference to the source event is returned if no simplification
+   occured. */
+struct event *event_minimize(struct event *src);
 /* Copy all categories from source to dest.
    Only the categories in source event itself are copied.
    Parent events' categories aren't copied. */
