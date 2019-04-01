@@ -34,7 +34,7 @@ static int dict_connection_parse_handshake(struct dict_connection *conn,
 		return -1;
 
 	/* read minor version */
-	if (str_parse_uint(line, &conn->minor_version, &line) < 0)
+	if (str_parse_uint(line, &conn->conn.minor_version, &line) < 0)
 		return -1;
 	if (*line++ != '\t')
 		return -1;
@@ -108,14 +108,15 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	return 0;
 }
 
-static void dict_connection_input_more(struct dict_connection *conn)
+static void dict_connection_input_more(struct connection *_conn)
 {
+	struct dict_connection *conn = container_of(_conn, struct dict_connection, conn);
 	const char *line;
 	int ret;
 
 	timeout_remove(&conn->to_input);
 
-	while ((line = i_stream_next_line(conn->input)) != NULL) {
+	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
 		T_BEGIN {
 			ret = dict_command_input(conn, line);
 		} T_END;
@@ -124,18 +125,19 @@ static void dict_connection_input_more(struct dict_connection *conn)
 			break;
 		}
 		if (array_count(&conn->cmds) >= DICT_CONN_MAX_PENDING_COMMANDS) {
-			io_remove(&conn->io);
+			io_remove(&conn->conn.io);
 			timeout_remove(&conn->to_input);
 			break;
 		}
 	}
 }
 
-static void dict_connection_input(struct dict_connection *conn)
+static void dict_connection_input(struct connection *_conn)
 {
+	struct dict_connection *conn = container_of(_conn, struct dict_connection, conn);
 	const char *line;
 
-	switch (i_stream_read(conn->input)) {
+	switch (i_stream_read(conn->conn.input)) {
 	case 0:
 		return;
 	case -1:
@@ -152,7 +154,7 @@ static void dict_connection_input(struct dict_connection *conn)
 
 	if (conn->username == NULL) {
 		/* handshake not received yet */
-		if ((line = i_stream_next_line(conn->input)) == NULL)
+		if ((line = i_stream_next_line(conn->conn.input)) == NULL)
 			return;
 
 		if (dict_connection_parse_handshake(conn, line) < 0) {
@@ -166,24 +168,25 @@ static void dict_connection_input(struct dict_connection *conn)
 		}
 	}
 
-	dict_connection_input_more(conn);
+	dict_connection_input_more(&conn->conn);
 }
 
 void dict_connection_continue_input(struct dict_connection *conn)
 {
-	if (conn->io != NULL || conn->destroyed)
+	if (conn->conn.io != NULL || conn->destroyed)
 		return;
 
-	conn->io = io_add(conn->fd, IO_READ, dict_connection_input, conn);
+	conn->conn.io = io_add(conn->conn.fd_in, IO_READ, dict_connection_input, &conn->conn);
 	if (conn->to_input == NULL)
-		conn->to_input = timeout_add_short(0, dict_connection_input_more, conn);
+		conn->to_input = timeout_add_short(0, dict_connection_input_more, &conn->conn);
 }
 
-static int dict_connection_output(struct dict_connection *conn)
+static int dict_connection_output(struct connection *_conn)
 {
+	struct dict_connection *conn = container_of(_conn, struct dict_connection, conn);
 	int ret;
 
-	if ((ret = o_stream_flush(conn->output)) < 0) {
+	if ((ret = o_stream_flush(conn->conn.output)) < 0) {
 		dict_connection_destroy(conn);
 		return 1;
 	}
@@ -199,12 +202,12 @@ dict_connection_create(struct master_service_connection *master_conn)
 
 	conn = i_new(struct dict_connection, 1);
 	conn->refcount = 1;
-	conn->fd = master_conn->fd;
-	conn->input = i_stream_create_fd(master_conn->fd, DICT_CLIENT_MAX_LINE_LENGTH);
-	conn->output = o_stream_create_fd(master_conn->fd, 128*1024);
-	o_stream_set_no_error_handling(conn->output, TRUE);
-	o_stream_set_flush_callback(conn->output, dict_connection_output, conn);
-	conn->io = io_add(master_conn->fd, IO_READ, dict_connection_input, conn);
+	conn->conn.fd_in = conn->conn.fd_out = master_conn->fd;
+	conn->conn.input = i_stream_create_fd(conn->conn.fd_in, DICT_CLIENT_MAX_LINE_LENGTH);
+	conn->conn.output = o_stream_create_fd(conn->conn.fd_out, 128*1024);
+	o_stream_set_no_error_handling(conn->conn.output, TRUE);
+	o_stream_set_flush_callback(conn->conn.output, dict_connection_output, &conn->conn);
+	conn->conn.io = io_add(conn->conn.fd_in, IO_READ, dict_connection_input, &conn->conn);
 	i_array_init(&conn->cmds, DICT_CONN_MAX_PENDING_COMMANDS);
 
 	dict_connections_count++;
@@ -243,8 +246,8 @@ bool dict_connection_unref(struct dict_connection *conn)
 	if (array_is_created(&conn->transactions))
 		array_free(&conn->transactions);
 
-	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
+	i_stream_destroy(&conn->conn.input);
+	o_stream_destroy(&conn->conn.output);
 
 	array_free(&conn->cmds);
 	i_free(conn->name);
@@ -288,12 +291,11 @@ void dict_connection_destroy(struct dict_connection *conn)
 	DLLIST_REMOVE(&dict_connections, conn);
 
 	timeout_remove(&conn->to_input);
-	io_remove(&conn->io);
-	i_stream_close(conn->input);
-	o_stream_close(conn->output);
-	if (close(conn->fd) < 0)
-		i_error("close(dict client) failed: %m");
-	conn->fd = -1;
+	io_remove(&conn->conn.io);
+	i_stream_close(conn->conn.input);
+	o_stream_close(conn->conn.output);
+	i_close_fd(&conn->conn.fd_in);
+	conn->conn.fd_out = -1;
 
 	/* the connection is closed, but there may still be commands left
 	   running. finish them, even if the calling client can't be notified
