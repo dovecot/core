@@ -36,7 +36,10 @@ struct dict_connection {
 	bool destroyed:1;
 };
 
-struct dict_connection *dict_connection_create(int fd);
+struct master_service_connection;
+
+struct dict_connection *
+dict_connection_create(struct master_service_connection *master_conn);
 void dict_connection_destroy(struct dict_connection *conn);
 
 void dict_connection_ref(struct dict_connection *conn);

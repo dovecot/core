@@ -70,7 +70,7 @@ static void dict_die(void)
 static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);
-	(void)dict_connection_create(conn->fd);
+	(void)dict_connection_create(conn);
 }
 
 static void main_preinit(void)
