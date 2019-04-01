@@ -244,6 +244,9 @@ static void test_base64url_random(void)
 
 struct test_base64_encode_lowlevel {
 	const struct base64_scheme *scheme;
+	enum base64_encode_flags flags;
+	size_t max_line_len;
+
 	const char *input;
 	const char *output;
 };
@@ -310,6 +313,87 @@ tests_base64_encode_lowlevel[] = {
 			"\x99",
 		.output = "6KeS44KS55-v44KB44Gm54mb44KS5q6644GZ",
 	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_ENCODE_FLAG_CRLF,
+		.input = "just niin",
+		.output = "anVzdCBuaWlu",
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_ENCODE_FLAG_CRLF,
+		.max_line_len = 80,
+		.input = "just niin",
+		.output = "anVzdCBuaWlu",
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_ENCODE_FLAG_CRLF,
+		.max_line_len = 48,
+		.input =
+			"Passer, deliciae meae puellae,\n"
+			"quicum ludere, quem in sinu tenere,\n"
+			"cui primum digitum dare appetenti\n"
+			"et acris solet incitare morsus,\n"
+			"cum desiderio meo nitenti\n"
+			"carum nescio quid lubet iocari,\n"
+			"credo ut, cum gravis acquiescet ardor,\n"
+			"sit solaciolum sui doloris,\n"
+			"tecum ludere sicut ipsa possem\n"
+			"et tristis animi levare curas!\n",
+		.output =
+			"UGFzc2VyLCBkZWxpY2lhZSBtZWFlIHB1ZWxsYWUsCnF1aWN1\r\n"
+			"bSBsdWRlcmUsIHF1ZW0gaW4gc2ludSB0ZW5lcmUsCmN1aSBw\r\n"
+			"cmltdW0gZGlnaXR1bSBkYXJlIGFwcGV0ZW50aQpldCBhY3Jp\r\n"
+			"cyBzb2xldCBpbmNpdGFyZSBtb3JzdXMsCmN1bSBkZXNpZGVy\r\n"
+			"aW8gbWVvIG5pdGVudGkKY2FydW0gbmVzY2lvIHF1aWQgbHVi\r\n"
+			"ZXQgaW9jYXJpLApjcmVkbyB1dCwgY3VtIGdyYXZpcyBhY3F1\r\n"
+			"aWVzY2V0IGFyZG9yLApzaXQgc29sYWNpb2x1bSBzdWkgZG9s\r\n"
+			"b3JpcywKdGVjdW0gbHVkZXJlIHNpY3V0IGlwc2EgcG9zc2Vt\r\n"
+			"CmV0IHRyaXN0aXMgYW5pbWkgbGV2YXJlIGN1cmFzIQo=",
+	},
+	{
+		.scheme = &base64_scheme,
+		.max_line_len = 48,
+		.input =
+			"Lugete, o Veneres Cupidinesque,\n"
+			"et quantum est hominum venustiorum:\n"
+			"passer mortuus est meae puellae, \n"
+			"passer, deliciae meae puellae\n"
+			"quem plus amat illa oculis suis amabat.\n"
+			"Nam mellitus erat suamque norat\n"
+			"ipsam tam bene quam puella matrem,\n"
+			"nec sese a gremio illius movebat,\n"
+			"sed circumsiliens modo huc modo illuc\n"
+			"ad solam dominam usque pipiabat;\n"
+			"qui nunc it per iter tenebricosum\n"
+			"illuc, unde negant redire quemquam.\n"
+			"At vobis male sint, malae tenebrae\n"
+			"Orci, quae omnia bella devoratis:\n"
+			"tam bellum mihi passerem abstulistis.\n"
+			"O factum male! O miselle passer!\n"
+			"Tua nunc opera meae puellae\n"
+			"flendo turgiduli rubent ocelli.\n",
+		.output =
+			"THVnZXRlLCBvIFZlbmVyZXMgQ3VwaWRpbmVzcXVlLApldCBx\n"
+			"dWFudHVtIGVzdCBob21pbnVtIHZlbnVzdGlvcnVtOgpwYXNz\n"
+			"ZXIgbW9ydHV1cyBlc3QgbWVhZSBwdWVsbGFlLCAKcGFzc2Vy\n"
+			"LCBkZWxpY2lhZSBtZWFlIHB1ZWxsYWUKcXVlbSBwbHVzIGFt\n"
+			"YXQgaWxsYSBvY3VsaXMgc3VpcyBhbWFiYXQuCk5hbSBtZWxs\n"
+			"aXR1cyBlcmF0IHN1YW1xdWUgbm9yYXQKaXBzYW0gdGFtIGJl\n"
+			"bmUgcXVhbSBwdWVsbGEgbWF0cmVtLApuZWMgc2VzZSBhIGdy\n"
+			"ZW1pbyBpbGxpdXMgbW92ZWJhdCwKc2VkIGNpcmN1bXNpbGll\n"
+			"bnMgbW9kbyBodWMgbW9kbyBpbGx1YwphZCBzb2xhbSBkb21p\n"
+			"bmFtIHVzcXVlIHBpcGlhYmF0OwpxdWkgbnVuYyBpdCBwZXIg\n"
+			"aXRlciB0ZW5lYnJpY29zdW0KaWxsdWMsIHVuZGUgbmVnYW50\n"
+			"IHJlZGlyZSBxdWVtcXVhbS4KQXQgdm9iaXMgbWFsZSBzaW50\n"
+			"LCBtYWxhZSB0ZW5lYnJhZQpPcmNpLCBxdWFlIG9tbmlhIGJl\n"
+			"bGxhIGRldm9yYXRpczoKdGFtIGJlbGx1bSBtaWhpIHBhc3Nl\n"
+			"cmVtIGFic3R1bGlzdGlzLgpPIGZhY3R1bSBtYWxlISBPIG1p\n"
+			"c2VsbGUgcGFzc2VyIQpUdWEgbnVuYyBvcGVyYSBtZWFlIHB1\n"
+			"ZWxsYWUKZmxlbmRvIHR1cmdpZHVsaSBydWJlbnQgb2NlbGxp\n"
+			"Lgo=",
+	},
 };
 
 static void test_base64_encode_lowlevel(void)
@@ -323,18 +407,23 @@ static void test_base64_encode_lowlevel(void)
 		const struct test_base64_encode_lowlevel *test =
 			&tests_base64_encode_lowlevel[i];
 		struct base64_encoder enc;
+		uoff_t out_size;
 
 		str_truncate(str, 0);
 
-		base64_encode_init(&enc, test->scheme);
+		base64_encode_init(&enc, test->scheme, test->flags,
+				   test->max_line_len);
+		out_size = base64_get_full_encoded_size(
+			&enc, strlen(test->input));
 		base64_encode_more(&enc, test->input, strlen(test->input),
 				   NULL, str);
 		base64_encode_finish(&enc, str);
 
 		test_assert_idx(strcmp(test->output, str_c(str)) == 0, i);
-		test_assert_idx(
+		test_assert_idx(test->flags != 0 || test->max_line_len != 0 ||
 			str_len(str) == MAX_BASE64_ENCODED_SIZE(
 				strlen(test->input)), i);
+		test_assert_idx(str_len(str) == out_size, i);
 	}
 	test_end();
 }
@@ -578,7 +667,9 @@ static void test_base64_decode_lowlevel(void)
 
 static void
 test_base64_random_lowlevel_one_block(const struct base64_scheme *b64,
+				      enum base64_encode_flags enc_flags,
 				      enum base64_decode_flags dec_flags,
+				      size_t max_line_len,
 				      unsigned int test_idx,
 				      const unsigned char *in_buf,
 				      size_t in_buf_size,
@@ -591,7 +682,7 @@ test_base64_random_lowlevel_one_block(const struct base64_scheme *b64,
 	buffer_set_used_size(buf1, 0);
 	buffer_set_used_size(buf2, 0);
 
-	base64_encode_init(&enc, b64);
+	base64_encode_init(&enc, b64, enc_flags, max_line_len);
 	base64_encode_more(&enc, in_buf, in_buf_size, NULL, buf1);
 	base64_encode_finish(&enc, buf1);
 
@@ -608,8 +699,9 @@ test_base64_random_lowlevel_one_block(const struct base64_scheme *b64,
 
 static void
 test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
+				   enum base64_encode_flags enc_flags,
 				   enum base64_decode_flags dec_flags,
-				   unsigned int test_idx,
+				   size_t max_line_len, unsigned int test_idx,
 				   const unsigned char *in_buf,
 				   size_t in_buf_size,
 				   buffer_t *buf1, buffer_t *buf2,
@@ -629,7 +721,7 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 	buffer_set_used_size(buf1, 0);
 	buffer_set_used_size(buf2, 0);
 
-	base64_encode_init(&enc, b64);
+	base64_encode_init(&enc, b64, enc_flags, max_line_len);
 	out_space = 0;
 	for (buf_p = buf_begin; buf_p < buf_end; ) {
 		size_t buf_ch, out_ch;
@@ -710,7 +802,9 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 
 static void
 test_base64_random_lowlevel_case(const struct base64_scheme *b64,
-				 enum base64_decode_flags dec_flags)
+				 enum base64_encode_flags enc_flags,
+				 enum base64_decode_flags dec_flags,
+				 size_t max_line_len)
 {
 	unsigned char in_buf[512];
 	size_t in_buf_size;
@@ -726,7 +820,8 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 		for (j = 0; j < in_buf_size; j++)
 			in_buf[j] = i_rand();
 
-		test_base64_random_lowlevel_one_block(b64, dec_flags, i,
+		test_base64_random_lowlevel_one_block(b64, enc_flags, dec_flags,
+						      max_line_len, i,
 						      in_buf, in_buf_size,
 						      buf1, buf2);
 	}
@@ -737,7 +832,8 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 		for (j = 0; j < in_buf_size; j++)
 			in_buf[j] = i_rand();
 
-		test_base64_random_lowlevel_stream(b64, dec_flags, i,
+		test_base64_random_lowlevel_stream(b64, enc_flags, dec_flags,
+						   max_line_len, i,
 						   in_buf, in_buf_size,
 						   buf1, buf2, 1);
 	}
@@ -748,7 +844,8 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 		for (j = 0; j < in_buf_size; j++)
 			in_buf[j] = i_rand();
 
-		test_base64_random_lowlevel_stream(b64, dec_flags, i,
+		test_base64_random_lowlevel_stream(b64, enc_flags, dec_flags,
+						   max_line_len, i,
 						   in_buf, in_buf_size,
 						   buf1, buf2, 0);
 	}
@@ -758,16 +855,115 @@ static void
 test_base64_random_lowlevel(void)
 {
 	test_begin("base64 encode/decode low-level with random input");
-	test_base64_random_lowlevel_case(&base64_scheme, 0);
-	test_base64_random_lowlevel_case(&base64url_scheme, 0);
+	test_base64_random_lowlevel_case(&base64_scheme, 0, 0, 0);
+	test_base64_random_lowlevel_case(&base64url_scheme, 0, 0, 0);
+	test_base64_random_lowlevel_case(&base64_scheme, 0,
+					 BASE64_DECODE_FLAG_EXPECT_BOUNDARY, 0);
+	test_base64_random_lowlevel_case(&base64url_scheme, 0,
+					 BASE64_DECODE_FLAG_EXPECT_BOUNDARY, 0);
+	test_base64_random_lowlevel_case(&base64_scheme, 0,
+					 BASE64_DECODE_FLAG_NO_WHITESPACE, 0);
+	test_base64_random_lowlevel_case(&base64url_scheme, 0,
+					 BASE64_DECODE_FLAG_NO_WHITESPACE, 0);
+	test_base64_random_lowlevel_case(&base64_scheme, 0, 0, 10);
+	test_base64_random_lowlevel_case(&base64url_scheme, 0, 0, 10);
 	test_base64_random_lowlevel_case(&base64_scheme,
-					 BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
+					 BASE64_ENCODE_FLAG_CRLF, 0, 10);
 	test_base64_random_lowlevel_case(&base64url_scheme,
-					 BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
-	test_base64_random_lowlevel_case(&base64_scheme,
-					 BASE64_DECODE_FLAG_NO_WHITESPACE);
-	test_base64_random_lowlevel_case(&base64url_scheme, 
-					 BASE64_DECODE_FLAG_NO_WHITESPACE);
+					 BASE64_ENCODE_FLAG_CRLF, 0, 10);
+	test_end();
+}
+
+static void
+_add_lines(const char *in, size_t max_line_len, bool crlf, string_t *out)
+{
+	size_t in_len = strlen(in);
+
+	while (max_line_len > 0 && in_len > max_line_len) {
+		str_append_data(out, in, max_line_len);
+		if (crlf)
+			str_append(out, "\r\n");
+		else
+			str_append_c(out, '\n');
+		in += max_line_len;
+		in_len -= max_line_len;
+	}
+
+	str_append_data(out, in, in_len);
+}
+
+static void test_base64_encode_lines(void)
+{
+	static const char *input[] = {
+		"Passer, deliciae meae puellae,\n"
+		"quicum ludere, quem in sinu tenere,\n"
+		"cui primum digitum dare appetenti\n"
+		"et acris solet incitare morsus,\n"
+		"cum desiderio meo nitenti\n"
+		"carum nescio quid lubet iocari,\n"
+		"credo ut, cum gravis acquiescet ardor,\n"
+		"sit solaciolum sui doloris,\n"
+		"tecum ludere sicut ipsa possem\n"
+		"et tristis animi levare curas!\n"
+	};
+	static const char *output[] = {
+		"UGFzc2VyLCBkZWxpY2lhZSBtZWFlIHB1ZWxsYWUsCnF1aWN1"
+		"bSBsdWRlcmUsIHF1ZW0gaW4gc2ludSB0ZW5lcmUsCmN1aSBw"
+		"cmltdW0gZGlnaXR1bSBkYXJlIGFwcGV0ZW50aQpldCBhY3Jp"
+		"cyBzb2xldCBpbmNpdGFyZSBtb3JzdXMsCmN1bSBkZXNpZGVy"
+		"aW8gbWVvIG5pdGVudGkKY2FydW0gbmVzY2lvIHF1aWQgbHVi"
+		"ZXQgaW9jYXJpLApjcmVkbyB1dCwgY3VtIGdyYXZpcyBhY3F1"
+		"aWVzY2V0IGFyZG9yLApzaXQgc29sYWNpb2x1bSBzdWkgZG9s"
+		"b3JpcywKdGVjdW0gbHVkZXJlIHNpY3V0IGlwc2EgcG9zc2Vt"
+		"CmV0IHRyaXN0aXMgYW5pbWkgbGV2YXJlIGN1cmFzIQo=",
+	};
+	string_t *out_test, *out_ref;
+	unsigned int i, n;
+
+	out_test = t_str_new(256);
+	out_ref = t_str_new(256);
+
+	test_begin("base64 encode lines (LF)");
+	for (i = 0; i < N_ELEMENTS(input); i++) {
+		struct base64_encoder b64enc;
+
+		for (n = 0; n <= 80; n++) {
+			str_truncate(out_test, 0);
+			base64_encode_init(&b64enc, &base64_scheme, 0, n);
+			base64_encode_more(&b64enc, input[i], strlen(input[i]),
+					   NULL, out_test);
+			base64_encode_finish(&b64enc, out_test);
+
+			str_truncate(out_ref, 0);
+			_add_lines(output[i], n, FALSE, out_ref);
+
+			test_assert(strcmp(str_c(out_ref),
+					   str_c(out_test)) == 0);
+
+		}
+	}
+	test_end();
+
+	test_begin("base64 encode lines (CRLF)");
+	for (i = 0; i < N_ELEMENTS(input); i++) {
+		struct base64_encoder b64enc;
+
+		for (n = 0; n <= 80; n++) {
+			str_truncate(out_test, 0);
+			base64_encode_init(&b64enc, &base64_scheme,
+					   BASE64_ENCODE_FLAG_CRLF, n);
+			base64_encode_more(&b64enc, input[i], strlen(input[i]),
+					   NULL, out_test);
+			base64_encode_finish(&b64enc, out_test);
+
+			str_truncate(out_ref, 0);
+			_add_lines(output[i], n, TRUE, out_ref);
+
+			test_assert(strcmp(str_c(out_ref),
+					   str_c(out_test)) == 0);
+
+		}
+	}
 	test_end();
 }
 
@@ -782,4 +978,5 @@ void test_base64(void)
 	test_base64_encode_lowlevel();
 	test_base64_decode_lowlevel();
 	test_base64_random_lowlevel();
+	test_base64_encode_lines();
 }
