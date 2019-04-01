@@ -2,6 +2,7 @@
 #define DICT_CONNECTION_H
 
 #include "dict.h"
+#include "connection.h"
 
 struct dict_connection_transaction {
 	unsigned int id;
@@ -10,6 +11,7 @@ struct dict_connection_transaction {
 };
 
 struct dict_connection {
+	struct connection conn;
 	struct dict_connection *prev, *next;
 	struct dict_server *server;
 	int refcount;
@@ -18,12 +20,7 @@ struct dict_connection {
 	char *name;
 	struct dict *dict;
 	enum dict_data_type value_type;
-	unsigned int minor_version;
 
-	int fd;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
 	struct timeout *to_input;
 	struct timeout *to_unref;
 
