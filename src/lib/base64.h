@@ -21,12 +21,20 @@ struct base64_scheme {
  * Low-level Base64 encoder
  */
 
+enum base64_encode_flags {
+	/* Use CRLF instead of the default LF as line ending. */
+	BASE64_ENCODE_FLAG_CRLF                 = BIT(0),
+};
+
 struct base64_encoder {
 	const struct base64_scheme *b64;
+	enum base64_encode_flags flags;
+	size_t max_line_len;
 
 	/* state */
 	unsigned int sub_pos;
 	unsigned char buf;
+	size_t cur_line_len;
 
 	unsigned char w_buf[4];
 	unsigned int w_buf_len;
@@ -46,10 +54,14 @@ base64_encode_is_finished(struct base64_encoder *enc)
  */
 static inline void
 base64_encode_init(struct base64_encoder *enc,
-		   const struct base64_scheme *b64)
+		   const struct base64_scheme *b64,
+		   enum base64_encode_flags flags,
+		   size_t max_line_len)
 {
 	i_zero(enc);
 	enc->b64 = b64;
+	enc->flags = flags;
+	enc->max_line_len = (max_line_len == 0 ? SIZE_MAX : max_line_len);
 }
 
 /* Reset the Base64 encoder to its initial state. */
@@ -57,8 +69,10 @@ static inline void
 base64_encode_reset(struct base64_encoder *enc)
 {
 	const struct base64_scheme *b64 = enc->b64;
+	enum base64_encode_flags flags = enc->flags;
+	size_t max_line_len = enc->max_line_len;
 
-	base64_encode_init(enc, b64);
+	base64_encode_init(enc, b64, flags, max_line_len);
 }
 
 /* Translate the size of the full encoder input to the size of the encoder
@@ -181,7 +195,7 @@ base64_scheme_encode(const struct base64_scheme *b64,
 {
 	struct base64_encoder enc;
 
-	base64_encode_init(&enc, b64);
+	base64_encode_init(&enc, b64, 0, 0);
 	base64_encode_more(&enc, src, src_size, NULL, dest);
 	base64_encode_finish(&enc, dest);
 }

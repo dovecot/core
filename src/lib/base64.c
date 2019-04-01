@@ -8,13 +8,24 @@
  * Low-level Base64 encoder
  */
 
-off_t base64_get_full_encoded_size(struct base64_encoder *enc ATTR_UNUSED,
-				   off_t src_size)
+off_t base64_get_full_encoded_size(struct base64_encoder *enc, off_t src_size)
 {
+	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
 	off_t out_size;
+	off_t newlines;
 
 	/* calculate size of encoded data */
 	out_size = MAX_BASE64_ENCODED_SIZE(src_size);
+
+	/* newline between each full line */
+	newlines = (out_size / enc->max_line_len) - 1;
+	/* an extra newline to separate the partial last line from the previous
+	  full line */
+	if ((out_size % enc->max_line_len) != 0)
+		newlines++;
+
+	/* update size with added newlines */
+	out_size += newlines * (crlf ? 2 : 1);
 
 	return out_size;
 }
@@ -68,7 +79,9 @@ base64_encode_get_out_size(struct base64_encoder *enc, size_t src_size)
 
 size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size)
 {
+	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
 	size_t out_size = base64_encode_get_out_size(enc, src_size);
+	size_t line_part, lines;
 
 	if (src_size == 0) {
 		/* last block */
@@ -86,6 +99,16 @@ size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size)
 		}
 	}
 
+	if (enc->max_line_len == SIZE_MAX)
+		return out_size;
+
+	/* Calculate how many line endings must be added */
+	lines = out_size / enc->max_line_len;
+	line_part = out_size % enc->max_line_len;
+	if (enc->cur_line_len > (enc->max_line_len - line_part))
+		lines++;
+
+	out_size += lines * (crlf ? 2 : 1);
 	return out_size;
 }
 
@@ -251,22 +274,59 @@ bool base64_encode_more(struct base64_encoder *enc,
 			const void *src, size_t src_size, size_t *src_pos_r,
 			buffer_t *dest)
 {
-	const unsigned char *src_c = src;
-	size_t src_pos, dst_avail;
+	const unsigned char *src_c, *src_p;
+	size_t src_pos;
 
 	i_assert(!enc->finished);
 
-	/* determine how much we can write in destination buffer */
-	dst_avail = buffer_get_avail_size(dest);
-	if (dst_avail == 0) {
-		i_assert(src_pos_r != NULL);
-		*src_pos_r = 0;
-		return FALSE;
+	src_p = src_c = src;
+	while (src_size > 0) {
+		size_t dst_avail, dst_pos, line_avail, written;
+
+		/* determine how much we can write in destination buffer */
+		dst_avail = buffer_get_avail_size(dest);
+		if (dst_avail == 0)
+			break;
+
+		i_assert(enc->max_line_len > 0);
+		i_assert(enc->cur_line_len <= enc->max_line_len);
+		line_avail = I_MIN(enc->max_line_len - enc->cur_line_len,
+				   dst_avail);
+
+		if (line_avail > 0) {
+			dst_pos = dest->used;
+			base64_encode_more_data(enc, src_p, src_size, &src_pos,
+						line_avail, dest);
+			i_assert(src_pos <= src_size);
+			src_p += src_pos;
+			src_size -= src_pos;
+			i_assert(dest->used >= dst_pos);
+			written = dest->used - dst_pos;
+
+			i_assert(written <= line_avail);
+			i_assert(written <= enc->max_line_len);
+			i_assert(enc->cur_line_len <=
+				 (enc->max_line_len - written));
+			enc->cur_line_len += written;
+			dst_avail -= written;
+		}
+
+		if (src_size > 0 && enc->cur_line_len == enc->max_line_len) {
+			if (HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF)) {
+				if (dst_avail < 2)
+					break;
+				buffer_append(dest, "\r\n", 2);
+			} else {
+				if (dst_avail < 1)
+					break;
+				buffer_append_c(dest, '\n');
+			}
+			enc->cur_line_len = 0;
+		}
 	}
 
-	base64_encode_more_data(enc, src_c, src_size, &src_pos,
-				dst_avail, dest);
-
+	i_assert(src_p >= src_c);
+	src_pos = (src_p - src_c);
 	if (src_pos_r != NULL)
 		*src_pos_r = src_pos;
 	return (src_pos == src_size);
@@ -276,9 +336,11 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 {
 	const struct base64_scheme *b64 = enc->b64;
 	const char *b64enc = b64->encmap;
-	size_t dst_avail;
-	unsigned char w_buf[7];
-	unsigned int w_buf_len = 0;
+	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
+	unsigned char *ptr, *end;
+	size_t dst_avail, line_avail, write;
+	unsigned char w_buf[9];
+	unsigned int w_buf_len = 0, w_buf_pos = 0;
 
 	dst_avail = 0;
 	if (dest != NULL)
@@ -293,6 +355,10 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 		memcpy(w_buf, enc->w_buf, enc->w_buf_len);
 		w_buf_len += enc->w_buf_len;
 	}
+
+	i_assert(enc->max_line_len > 0);
+	i_assert(enc->cur_line_len <= enc->max_line_len);
+	line_avail = enc->max_line_len - enc->cur_line_len;
 
 	switch (enc->sub_pos) {
 	case 0:
@@ -313,16 +379,46 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	}
 	enc->sub_pos = 0;
 
-	if (w_buf_len == 0) {
+	write = w_buf_len;
+	if (enc->max_line_len < SIZE_MAX && line_avail < write) {
+		unsigned int lines;
+
+		lines = I_MAX((write - line_avail) / enc->max_line_len, 1);
+		write += lines * (crlf ? 2 : 1);
+	} else {
+		line_avail = write;
+	}
+
+	if (write == 0) {
 		enc->finished = TRUE;
 		return TRUE;
 	}
 
 	i_assert(dest != NULL);
-	if (dst_avail < w_buf_len)
+	if (dst_avail < write)
 		return FALSE;
 
-	buffer_append(dest, w_buf, w_buf_len);
+	ptr = buffer_append_space_unsafe(dest, write);
+	end = ptr + write;
+	if (line_avail > 0) {
+		memcpy(ptr, w_buf, line_avail);
+		ptr += line_avail;
+		w_buf_pos += line_avail;
+	}
+	while (w_buf_pos < w_buf_len) {
+		if (crlf) {
+			ptr[0] = '\r';
+			ptr++;
+		}
+		ptr[0] = '\n';
+		ptr++;
+
+		write = I_MIN(w_buf_len - w_buf_pos, enc->max_line_len);
+		memcpy(ptr, &w_buf[w_buf_pos], write);
+		ptr += write;
+		w_buf_pos += write;
+	}
+	i_assert(ptr == end);
 	enc->finished = TRUE;
 	return TRUE;
 }
