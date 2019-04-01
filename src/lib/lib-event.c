@@ -162,6 +162,120 @@ struct event *event_flatten(struct event *src)
 	return dst;
 }
 
+static inline void replace_parent_ref(struct event *event, struct event *new)
+{
+	if (event->parent == new)
+		return; /* no-op */
+
+	if (new != NULL)
+		event_ref(new);
+
+	event_unref(&event->parent);
+
+	event->parent = new;
+}
+
+/*
+ * Minimize the event and its ancestry.
+ *
+ * In general, the chain of parents starting from this event can be divided
+ * up into four consecutive ranges:
+ *
+ *  1. the event itself
+ *  2. a range of events that should be flattened into the event itself
+ *  3. a range of trivial (i.e., no categories or fields) events that should
+ *     be skipped
+ *  4. the rest of the chain
+ *
+ * Except for the first range, the event itself, the remaining ranges can
+ * have zero events.
+ *
+ * As the names of these ranges imply, we want to flatten certain parts of
+ * the ancestry, skip other parts of the ancestry and leave the remainder
+ * untouched.
+ *
+ * For example, suppose that we have an event (A) with ancestors forming the
+ * following graph:
+ *
+ *	A -> B -> C -> D -> E -> F
+ *
+ * Further, suppose that B, C, and F contain some categories or fields but
+ * have not yet been sent to an external process that knows how to reference
+ * previously encountered events, and D contains no fields or categories of
+ * its own (but it inherits some from E and F).
+ *
+ * We can define the 4 ranges:
+ *
+ *	A:     the event
+ *	B-C:   flattening
+ *	D:     skipping
+ *	E-end: the rest
+ *
+ * The output would therefore be:
+ *
+ *	G -> E -> F
+ *
+ * where G contains the fields and categories of A, B, and C (and trivially
+ * D beacuse D was empty).
+ *
+ * Note that even though F has not yet been sent out, we send it now because
+ * it is part of the "rest" range.
+ *
+ * TODO: We could likely apply this function recursively on the "rest"
+ * range, but further investigation is required to determine whether it is
+ * worth it.
+ */
+struct event *event_minimize(struct event *event)
+{
+	struct event *flatten_bound;
+	struct event *skip_bound;
+	struct event *new_event;
+	struct event *cur;
+
+	if (event->parent == NULL)
+		return event_ref(event);
+
+	/* find the bound for field/category flattening */
+	flatten_bound = NULL;
+	for (cur = event->parent; cur != NULL; cur = cur->parent) {
+		if (!cur->id_sent_to_stats &&
+		    timeval_cmp(&cur->tv_created_ioloop,
+				&event->tv_created_ioloop) == 0)
+			continue;
+
+		flatten_bound = cur;
+		break;
+	}
+
+	/* continue to find the bound for empty event skipping */
+	skip_bound = NULL;
+	for (; cur != NULL; cur = cur->parent) {
+		if (!cur->id_sent_to_stats &&
+		    (!array_is_created(&cur->fields) || array_is_empty(&cur->fields)) &&
+		    (!array_is_created(&cur->categories) || array_is_empty(&cur->categories)))
+			continue;
+
+		skip_bound = cur;
+		break;
+	}
+
+	/* fast path - no flattening and no skipping to do */
+	if ((event->parent == flatten_bound) &&
+	    (event->parent == skip_bound))
+		return event_ref(event);
+
+	new_event = event_dup(event);
+
+	/* flatten */
+	event_flatten_recurse(new_event, event, flatten_bound);
+	replace_parent_ref(new_event, flatten_bound);
+
+	/* skip */
+	replace_parent_ref(new_event, skip_bound);
+
+	return new_event;
+}
+
 #undef event_create
 struct event *event_create(struct event *parent, const char *source_filename,
 			   unsigned int source_linenum)
