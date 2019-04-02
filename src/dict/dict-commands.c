@@ -115,7 +115,6 @@ static void dict_connection_cmd_try_flush(struct dict_connection_cmd **_cmd)
 	o_stream_nsend_str(cmd->conn->conn.output, t_strdup_printf("%c%u\t%s",
 		DICT_PROTOCOL_REPLY_ASYNC_REPLY,
 		cmd->async_reply_id, cmd->reply));
-	o_stream_flush(cmd->conn->conn.output);
 	dict_connection_cmd_remove(cmd);
 }
 
