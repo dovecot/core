@@ -9,13 +9,7 @@
 struct base64_encoder_istream {
 	struct istream_private istream;
 
-	const struct base64_scheme *b64;
-
-	/* current encoded line length. */
-	size_t cur_line_len;
-
-	unsigned int chars_per_line;
-	bool crlf;
+	struct base64_encoder encoder;
 };
 
 static int i_stream_read_parent(struct istream_private *stream)
@@ -32,7 +26,6 @@ static int i_stream_read_parent(struct istream_private *stream)
 	ret = i_stream_read_memarea(stream->parent);
 	if (ret <= 0) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
-		stream->istream.eof = stream->parent->eof;
 		return ret;
 	}
 	size = i_stream_get_data_size(stream->parent);
@@ -41,58 +34,57 @@ static int i_stream_read_parent(struct istream_private *stream)
 }
 
 static int
-i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
+i_stream_base64_try_encode(struct base64_encoder_istream *bstream)
 {
 	struct istream_private *stream = &bstream->istream;
+	struct base64_encoder *b64enc = &bstream->encoder;
 	const unsigned char *data;
-	size_t size, avail, buffer_avail;
+	size_t size, pos, out_size, buffer_avail;
 	buffer_t buf;
 
 	data = i_stream_get_data(stream->parent, &size);
 	if (size == 0 || (size < 3 && !stream->parent->eof))
 		return 0;
 
-	if (bstream->cur_line_len == bstream->chars_per_line) {
-		/* @UNSAFE: end of line, add newline */
-		if (!i_stream_try_alloc(stream, bstream->crlf ? 2 : 1, &avail))
-			return -2;
-
-		if (bstream->crlf)
-			stream->w_buffer[stream->pos++] = '\r';
-		stream->w_buffer[stream->pos++] = '\n';
-		bstream->cur_line_len = 0;
-	}
-
-	i_stream_try_alloc(stream, (size+2)/3*4, &avail);
-	buffer_avail = stream->buffer_size - stream->pos;
-
-	if ((size + 2) / 3 * 4 > buffer_avail) {
-		/* can't fit everything to destination buffer.
-		   write as much as we can. */
-		size = (buffer_avail / 4) * 3;
-		if (size == 0)
-			return -2;
-	} else if (!stream->parent->eof && size % 3 != 0) {
-		/* encode 3 chars at a time, so base64_encode() doesn't
-		   add '=' characters in the middle of the stream */
-		size -= (size % 3);
-	}
-	i_assert(size != 0);
-
-	if (bstream->cur_line_len + (size+2)/3*4 > bstream->chars_per_line) {
-		size = (bstream->chars_per_line - bstream->cur_line_len)/4 * 3;
-		i_assert(size != 0);
-	}
+	out_size = base64_encode_get_size(b64enc, size);
+	i_stream_try_alloc(stream, out_size, &buffer_avail);
+	if (buffer_avail == 0)
+		return -2;
 
 	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
 				buffer_avail);
-	base64_scheme_encode(bstream->b64, data, size, &buf);
+	base64_encode_more(b64enc, data, size, &pos, &buf);
 	i_assert(buf.used > 0);
 
-	bstream->cur_line_len += buf.used;
-	i_assert(bstream->cur_line_len <= bstream->chars_per_line);
 	stream->pos += buf.used;
-	i_stream_skip(stream->parent, size);
+	i_stream_skip(stream->parent, pos);
+	return 1;
+}
+
+static int
+i_stream_base64_finish_encode(struct base64_encoder_istream *bstream)
+{
+	struct istream_private *stream = &bstream->istream;
+	struct base64_encoder *b64enc = &bstream->encoder;
+	size_t out_size, buffer_avail;
+	buffer_t buf;
+
+	out_size = base64_encode_get_size(b64enc, 0);
+	if (out_size == 0) {
+		if (base64_encode_finish(b64enc, NULL))
+			stream->istream.eof = TRUE;
+		return 1;
+	}
+
+	i_stream_try_alloc(stream, out_size, &buffer_avail);
+	if (buffer_avail == 0)
+		return -2;
+
+	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
+				buffer_avail);
+	if (base64_encode_finish(b64enc, &buf))
+		stream->istream.eof = TRUE;
+	stream->pos += buf.used;
 	return 1;
 }
 
@@ -103,24 +95,41 @@ static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 	size_t pre_count, post_count;
 	int ret;
 
+	if (base64_encode_is_finished(&bstream->encoder)) {
+		stream->istream.eof = TRUE;
+		return -1;
+	}
+
+	pre_count = post_count = 0;
 	do {
 		ret = i_stream_read_parent(stream);
 		if (ret == 0)
 			return 0;
 		if (ret < 0) {
 			if (i_stream_get_data_size(stream->parent) == 0)
-				return -1;
+				break;
 			/* add the final partial block */
 		}
 
 		/* encode as many lines as fits into destination buffer */
 		pre_count = stream->pos - stream->skip;
-		while ((ret = i_stream_base64_try_encode_line(bstream)) > 0) ;
+		while ((ret = i_stream_base64_try_encode(bstream)) > 0) ;
 		post_count = stream->pos - stream->skip;
 	} while (ret == 0 && pre_count == post_count);
 
-	if (ret < 0 && pre_count == post_count)
-		return ret;
+	if (ret < 0) {
+		if (ret == -2)
+			return ret;
+		if (i_stream_get_data_size(stream->parent) == 0) {
+			pre_count = stream->pos - stream->skip;
+			ret = i_stream_base64_finish_encode(bstream);
+			post_count = stream->pos - stream->skip;
+			if (ret <= 0)
+				return ret;
+		}
+		if (pre_count == post_count)
+			return -1;
+	}
 
 	i_assert(post_count > pre_count);
 	return post_count - pre_count;
@@ -139,8 +148,9 @@ i_stream_base64_encoder_seek(struct istream_private *stream,
 		stream->parent_expected_offset = stream->parent_start_offset;
 		stream->skip = stream->pos = 0;
 		stream->istream.v_offset = 0;
-		bstream->cur_line_len = 0;
 		i_stream_seek(stream->parent, 0);
+
+		base64_encode_reset(&bstream->encoder);
 	}
 	i_stream_default_seek_nonseekable(stream, v_offset, mark);
 }
@@ -152,7 +162,6 @@ i_stream_base64_encoder_stat(struct istream_private *stream,
 	struct base64_encoder_istream *bstream =
 		(struct base64_encoder_istream *)stream;
 	const struct stat *st;
-	off_t newlines, size;
 
 	if (i_stream_stat(stream->parent, exact, &st) < 0) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
@@ -162,17 +171,9 @@ i_stream_base64_encoder_stat(struct istream_private *stream,
 	stream->statbuf = *st;
 	if (st->st_size == 0)
 		return 0;
-	
-	/* calculate size of encoded data */
-	size = (st->st_size / 3) * 4 +
-		((st->st_size % 3) == 0 ? 0 : 4);
 
-	/* update size with added newlines */
-	newlines = (size / bstream->chars_per_line - 1) +
-		((size % bstream->chars_per_line) == 0 ? 0 : 1);
-	size += newlines * (bstream->crlf ? 2 : 1);
-
-	stream->statbuf.st_size = size;
+	stream->statbuf.st_size =
+		base64_get_full_encoded_size(&bstream->encoder, st->st_size);
 	return 0;
 }
 
@@ -182,13 +183,11 @@ i_stream_create_base64_encoder_common(const struct base64_scheme *b64,
 				      unsigned int chars_per_line, bool crlf)
 {
 	struct base64_encoder_istream *bstream;
+	enum base64_encode_flags b64_flags = 0;
 
 	i_assert(chars_per_line % 4 == 0);
 
 	bstream = i_new(struct base64_encoder_istream, 1);
-	bstream->b64 = b64;
-	bstream->chars_per_line = chars_per_line;
-	bstream->crlf = crlf;
 	bstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	bstream->istream.read = i_stream_base64_encoder_read;
@@ -198,6 +197,11 @@ i_stream_create_base64_encoder_common(const struct base64_scheme *b64,
 	bstream->istream.istream.readable_fd = FALSE;
 	bstream->istream.istream.blocking = input->blocking;
 	bstream->istream.istream.seekable = input->seekable;
+
+	if (crlf)
+		b64_flags |= BASE64_ENCODE_FLAG_CRLF;
+	base64_encode_init(&bstream->encoder, b64, b64_flags, chars_per_line);
+
 	return i_stream_create(&bstream->istream, input,
 			       i_stream_get_fd(input), 0);
 }
