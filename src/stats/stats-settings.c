@@ -251,6 +251,7 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "Exporter transport name can't be empty";
 		return FALSE;
 	} else if (strcmp(set->transport, "drop") == 0 ||
+		   strcmp(set->transport, "http-post") == 0 ||
 		   strcmp(set->transport, "log") == 0) {
 		/* no-op */
 	} else {

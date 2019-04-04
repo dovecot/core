@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-http \
 	$(BINARY_CFLAGS)
 
 stats_LDADD = $(LIBDOVECOT) \
@@ -20,6 +21,7 @@ stats_SOURCES = \
 	event-exporter-fmt-json.c \
 	event-exporter-fmt-none.c \
 	event-exporter-transport-drop.c \
+	event-exporter-transport-http-post.c \
 	event-exporter-transport-log.c \
 	main.c \
 	stats-event-category.c \
