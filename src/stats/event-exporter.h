@@ -6,6 +6,7 @@
 /* fmt functions */
 void event_export_fmt_json(const struct metric *metric, struct event *event, buffer_t *dest);
 void event_export_fmt_none(const struct metric *metric, struct event *event, buffer_t *dest);
+void event_export_fmt_tabescaped_text(const struct metric *metric, struct event *event, buffer_t *dest);
 
 /* transport functions */
 void event_export_transport_drop(const struct exporter *exporter, const buffer_t *buf);
