@@ -4,6 +4,7 @@
 #include "stats-metrics.h"
 
 /* fmt functions */
+void event_export_fmt_json(const struct metric *metric, struct event *event, buffer_t *dest);
 void event_export_fmt_none(const struct metric *metric, struct event *event, buffer_t *dest);
 
 /* transport functions */
