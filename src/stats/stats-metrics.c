@@ -70,6 +70,9 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 	} else if (strcmp(set->format, "json") == 0) {
 		exporter->format = event_export_fmt_json;
 		exporter->format_mime_type = "application/json";
+	} else if (strcmp(set->format, "tab-text") == 0) {
+		exporter->format = event_export_fmt_tabescaped_text;
+		exporter->format_mime_type = "text/plain";
 	} else {
 		i_unreached();
 	}

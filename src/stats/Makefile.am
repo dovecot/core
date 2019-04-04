@@ -20,6 +20,7 @@ stats_SOURCES = \
 	event-exporter-fmt.c \
 	event-exporter-fmt-json.c \
 	event-exporter-fmt-none.c \
+	event-exporter-fmt-tab-text.c \
 	event-exporter-transport-drop.c \
 	event-exporter-transport-http-post.c \
 	event-exporter-transport-log.c \

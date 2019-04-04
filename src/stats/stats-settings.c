@@ -236,6 +236,8 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		time_fmt_required = FALSE;
 	} else if (strcmp(set->format, "json") == 0) {
 		time_fmt_required = TRUE;
+	} else if (strcmp(set->format, "tab-text") == 0) {
+		time_fmt_required = TRUE;
 	} else {
 		*error_r = t_strdup_printf("Unknown exporter format '%s'",
 					   set->format);
