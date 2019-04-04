@@ -67,6 +67,9 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 	if (strcmp(set->format, "none") == 0) {
 		exporter->format = event_export_fmt_none;
 		exporter->format_mime_type = "application/octet-stream";
+	} else if (strcmp(set->format, "json") == 0) {
+		exporter->format = event_export_fmt_json;
+		exporter->format_mime_type = "application/json";
 	} else {
 		i_unreached();
 	}

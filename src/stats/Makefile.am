@@ -17,6 +17,7 @@ stats_SOURCES = \
 	client-reader.c \
 	client-writer.c \
 	event-exporter-fmt.c \
+	event-exporter-fmt-json.c \
 	event-exporter-fmt-none.c \
 	event-exporter-transport-drop.c \
 	main.c \
