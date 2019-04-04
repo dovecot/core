@@ -81,6 +81,8 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 	 */
 	if (strcmp(set->transport, "drop") == 0) {
 		exporter->transport = event_export_transport_drop;
+	} else if (strcmp(set->transport, "log") == 0) {
+		exporter->transport = event_export_transport_log;
 	} else {
 		i_unreached();
 	}
@@ -216,6 +218,7 @@ static void stats_metric_free(struct metric *metric)
 static void stats_export_deinit(void)
 {
 	/* no need for event_export_transport_drop_deinit() - no-op */
+	/* no need for event_export_transport_log_deinit() - no-op */
 }
 
 void stats_metrics_deinit(struct stats_metrics **_metrics)

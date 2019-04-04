@@ -250,7 +250,8 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	if (set->transport[0] == '\0') {
 		*error_r = "Exporter transport name can't be empty";
 		return FALSE;
-	} else if (strcmp(set->transport, "drop") == 0) {
+	} else if (strcmp(set->transport, "drop") == 0 ||
+		   strcmp(set->transport, "log") == 0) {
 		/* no-op */
 	} else {
 		*error_r = t_strdup_printf("Unknown transport type '%s'",

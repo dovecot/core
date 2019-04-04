@@ -9,6 +9,7 @@ void event_export_fmt_none(const struct metric *metric, struct event *event, buf
 
 /* transport functions */
 void event_export_transport_drop(const struct exporter *exporter, const buffer_t *buf);
+void event_export_transport_log(const struct exporter *exporter, const buffer_t *buf);
 
 /* append a microsecond resolution RFC3339 UTC timestamp */
 void event_export_helper_fmt_rfc3339_time(string_t *dest, const struct timeval *time);
