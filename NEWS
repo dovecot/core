@@ -1,3 +1,11 @@
+v2.3.5.2 2019-04-18  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-10691: Trying to login with 8bit username containing
+	  invalid UTF8 input causes auth process to crash if auth policy is
+	  enabled. This could be used rather easily to cause a DoS. Similar
+	  crash also happens during mail delivery when using invalid UTF8 in
+	  From or Subject header when OX push notification driver is used.
+
 v2.3.5.1 2019-03-28  Timo Sirainen <tss@iki.fi>
 
 	* CVE-2019-7524: Missing input buffer size validation leads into
