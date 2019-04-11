@@ -243,7 +243,7 @@ static bool compare_test_stats_data_line(const char *reference, const char *actu
 	return TRUE;
 }
 
-static bool compare_test_stats_data_lines(const char *reference, const char *actual)
+static bool compare_test_stats_data_lines(const char *actual, const char *reference)
 {
 	const char *const *lines_ref = t_strsplit(reference, "\n");
 	const char *const *lines_act = t_strsplit(actual, "\n");
