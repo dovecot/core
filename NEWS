@@ -1,3 +1,18 @@
+v2.3.5.2 2019-04-18  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-10691: Trying to login with 8bit username containing
+	  invalid UTF8 input causes auth process to crash if auth policy is
+	  enabled. This could be used rather easily to cause a DoS. Similar
+	  crash also happens during mail delivery when using invalid UTF8 in
+	  From or Subject header when OX push notification driver is used.
+
+v2.3.5.1 2019-03-28  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-7524: Missing input buffer size validation leads into
+	  arbitrary buffer overflow when reading fts or pop3 uidl header
+	  from Dovecot index. Exploiting this requires direct write access to
+	  the index files.
+
 v2.3.5 2019-03-05  Timo Sirainen <tss@iki.fi>
 
 	+ Lua push notification driver: mail keywords and flags are provided
@@ -264,6 +279,80 @@ v2.3.0 2017-12-22  Timo Sirainen <tss@iki.fi>
 	- doveadm proxy: Reading commands' output from v2.2.33+ servers could
 	  have caused the output to be corrupted or caused a crash.
 	- Many other smaller fixes
+
+v2.2.36.3 2019-03-28  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-7524: Missing input buffer size validation leads into
+	  arbitrary buffer overflow when reading fts or pop3 uidl header
+	  from Dovecot index. Exploiting this requires direct write access to
+	  the index files.
+
+v2.2.36.1 2019-02-05  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-3814: If imap/pop3/managesieve/submission client has
+	  trusted certificate with missing username field
+	  (ssl_cert_username_field), under some configurations Dovecot
+	  mistakenly trusts the username provided via authentication instead
+	  of failing.
+	* ssl_cert_username_field setting was ignored with external SMTP AUTH,
+	  because none of the MTAs (Postfix, Exim) currently send the
+	  cert_username field. This may have allowed users with trusted
+	  certificate to specify any username in the authentication. This bug
+	  didn't affect Dovecot's Submission service.
+
+	- pop3_no_flag_updates=no: Don't expunge RETRed messages without QUIT
+	- director: Kicking a user assert-crashes if login process is very slow
+	- lda/lmtp: Fix assert-crash with some Sieve scripts when
+	  mail_attachment_detection_options=add-flags-on-save
+	- fs-compress: Using maybe-gz assert-crashed when reading 0 sized file
+	- Snippet generation crashed with invalid Content-Type:multipart
+
+v2.2.36 2018-05-23  Timo Sirainen <tss@iki.fi>
+
+	* login-proxy: If ssl_require_crl=no, allow revoked certificates.
+	  Also don't do CRL checks for incoming client certificates.
+	* stats plugin: Don't temporarily enable PR_SET_DUMPABLE while opening
+	  /proc/self/io. This may still cause security problems if the process
+	  is ptrace()d at the same time. Instead, open it while still running
+	  as root.
+
+	+ doveadm: Added mailbox cache decision&remove commands. See
+	  doveadm-mailbox(1) man page for details.
+	+ doveadm: Added rebuild attachments command for rebuilding
+	  $HasAttachment or $HasNoAttachment flags for matching mails. See
+	  doveadm-rebuild(1) man page for details.
+	+ cassandra: Use fallback_consistency on more types of errors
+	- cassandra: Fix consistency=quorum to work
+	- dsync: Lock file generation failed if home directory didn't exist
+	- In some configs if namespace root directory didn't yet exist, Dovecot
+	  failed to create mailboxes.lock when trying to create mailboxes
+	- Snippet generation for HTML mails didn't ignore &entities inside
+	  blockquotes, producing strange looking snippets.
+	- imapc: Fix assert-crash if getting disconnected and after
+	  reconnection all mails in the selected mailbox are gone.
+	- pop3c: Handle unexpected server disconnections without assert-crash
+	- fts: Fixes to indexing mails via virtual mailboxes.
+	- fts: If mails contained NUL characters, the text around it wasn't
+	  indexed.
+	- Obsolete dovecot.index.cache offsets were sometimes used. Trying to
+	  fetch a field that was just added to cache file may not have always
+	  found it.
+	- dict-sql: Fix crash when reading NULL value from database
+
+v2.2.35 2018-03-19  Aki Tuomi <aki.tuomi@dovecot.fi>
+
+	- charset_alias: compile fails with Solaris Studio, reported by
+	  John Woods.
+	- Fix local name handling in v2.2.34 SNI code, bug found by cPanel.
+	- imapc: Don't try to add mails to index if they already exist there.
+	- imapc: If email is modified in istream_opened hook, mail size isn't
+	  updated.
+	- lib-dcrypt: When reading encrypted data, more data would not be
+	  read if buffer was not consumed causing panic or hang.
+	- notify: When notify plugin is used and transaction commit fails in
+	  dsync, crash occurs.
+	- sdbox: When delivering to a mailbox that is over quota, temp files
+	  are not cleaned up when saving or copying fails.
 
 v2.2.34 2018-02-28  Timo Sirainen <tss@iki.fi>
 
