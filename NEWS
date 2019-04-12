@@ -1,3 +1,18 @@
+v2.3.5.2 2019-04-18  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-10691: Trying to login with 8bit username containing
+	  invalid UTF8 input causes auth process to crash if auth policy is
+	  enabled. This could be used rather easily to cause a DoS. Similar
+	  crash also happens during mail delivery when using invalid UTF8 in
+	  From or Subject header when OX push notification driver is used.
+
+v2.3.5.1 2019-03-28  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-7524: Missing input buffer size validation leads into
+	  arbitrary buffer overflow when reading fts or pop3 uidl header
+	  from Dovecot index. Exploiting this requires direct write access to
+	  the index files.
+
 v2.3.5 2019-03-05  Timo Sirainen <tss@iki.fi>
 
 	+ Lua push notification driver: mail keywords and flags are provided
@@ -264,6 +279,33 @@ v2.3.0 2017-12-22  Timo Sirainen <tss@iki.fi>
 	- doveadm proxy: Reading commands' output from v2.2.33+ servers could
 	  have caused the output to be corrupted or caused a crash.
 	- Many other smaller fixes
+
+v2.2.36.3 2019-03-28  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-7524: Missing input buffer size validation leads into
+	  arbitrary buffer overflow when reading fts or pop3 uidl header
+	  from Dovecot index. Exploiting this requires direct write access to
+	  the index files.
+
+v2.2.36.1 2019-02-05  Timo Sirainen <tss@iki.fi>
+
+	* CVE-2019-3814: If imap/pop3/managesieve/submission client has
+	  trusted certificate with missing username field
+	  (ssl_cert_username_field), under some configurations Dovecot
+	  mistakenly trusts the username provided via authentication instead
+	  of failing.
+	* ssl_cert_username_field setting was ignored with external SMTP AUTH,
+	  because none of the MTAs (Postfix, Exim) currently send the
+	  cert_username field. This may have allowed users with trusted
+	  certificate to specify any username in the authentication. This bug
+	  didn't affect Dovecot's Submission service.
+
+	- pop3_no_flag_updates=no: Don't expunge RETRed messages without QUIT
+	- director: Kicking a user assert-crashes if login process is very slow
+	- lda/lmtp: Fix assert-crash with some Sieve scripts when
+	  mail_attachment_detection_options=add-flags-on-save
+	- fs-compress: Using maybe-gz assert-crashed when reading 0 sized file
+	- Snippet generation crashed with invalid Content-Type:multipart
 
 v2.2.36 2018-05-23  Timo Sirainen <tss@iki.fi>
 
