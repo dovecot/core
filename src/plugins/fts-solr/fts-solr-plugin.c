@@ -9,6 +9,7 @@
 #include "fts-user.h"
 #include "fts-solr-plugin.h"
 
+#define DEFAULT_SOLR_BATCH_SIZE 1000
 
 const char *fts_solr_plugin_version = DOVECOT_ABI_VERSION;
 struct http_client *solr_http_client = NULL;
@@ -37,6 +38,10 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 				p_strdup(user->pool, *tmp + 11);
 		} else if (str_begins(*tmp, "rawlog_dir=")) {
 			set->rawlog_dir = p_strdup(user->pool, *tmp + 11);
+		} else if (str_begins(*tmp, "batch_size=")) {
+			set->batch_size = atoi(*tmp + 11);
+		} else if (str_begins(*tmp, "no_soft_commit")) {
+			set->no_soft_commit = TRUE;
 		} else {
 			i_error("fts_solr: Invalid setting: %s", *tmp);
 			return -1;
@@ -46,6 +51,7 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 		i_error("fts_solr: url setting missing");
 		return -1;
 	}
+	if (set->batch_size <= 0) set->batch_size = DEFAULT_SOLR_BATCH_SIZE;
 	return 0;
 }
 

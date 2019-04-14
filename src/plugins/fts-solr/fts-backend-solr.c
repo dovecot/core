@@ -28,8 +28,6 @@
 #define SOLR_HEADER_LINE_MAX_TRUNC_SIZE 1024
 
 #define SOLR_QUERY_MAX_MAILBOX_COUNT 10
-/* How often to flush indexing request to Solr before beginning a new one. */
-#define SOLR_MAIL_FLUSH_INTERVAL 1000
 
 struct solr_fts_backend {
 	struct fts_backend backend;
@@ -391,6 +389,9 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 		(struct solr_fts_backend_update_context *)_ctx;
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)_ctx->backend;
+	struct fts_backend *_backend =
+		(struct solr_fts_backend *)_ctx->backend;
+	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(_backend->ns->user);
 	struct solr_fts_field *field;
 	const char *str;
 	int ret = _ctx->failed ? -1 : 0;
@@ -403,10 +404,12 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 		   visible to the following search */
 		if (ctx->expunges)
 			fts_backend_solr_expunge_flush(ctx);
-		str = t_strdup_printf("<commit softCommit=\"true\" waitSearcher=\"%s\"/>",
+		if(!fuser->set.no_soft_commit) {
+			str = t_strdup_printf("<commit softCommit=\"true\" waitSearcher=\"%s\"/>",
 				      ctx->documents_added ? "true" : "false");
-		if (solr_connection_post(backend->solr_conn, str) < 0)
-			ret = -1;
+			if (solr_connection_post(backend->solr_conn, str) < 0)
+				ret = -1;
+		}
 	}
 
 	str_free(&ctx->cmd);
@@ -493,10 +496,14 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 {
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)ctx->ctx.backend;
+	struct fts_backend *_backend =
+		(struct solr_fts_backend *)ctx->ctx.backend;
+	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(_backend->ns->user);
 
-	if (ctx->mails_since_flush++ >= SOLR_MAIL_FLUSH_INTERVAL) {
+	if (ctx->mails_since_flush++ >= fuser->set.batch_size) {
 		if (fts_backed_solr_build_flush(ctx) < 0)
 			ctx->ctx.failed = TRUE;
+		ctx->mails_since_flush++;
 	}
 	if (ctx->post == NULL) {
 		if (ctx->cmd == NULL)
