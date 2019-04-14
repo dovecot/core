@@ -100,11 +100,22 @@ const char *doveadm_plugin_getenv(const char *name)
 }
 
 static int
-doveadm_tcp_connect_port(const char *host, in_port_t port)
+doveadm_tcp_connect_port(const char *host, in_port_t port, const char * my_ip)
 {
 	struct ip_addr *ips;
 	unsigned int ips_count;
 	int ret, fd;
+
+	struct ip_addr my_net_ip;
+	bool use_my_ip = FALSE;
+	if (strcmp(my_ip,"") == 0) {
+		i_info("No doveadm_source_ip setting, source ip supplied by operating system");
+	}
+	if (net_addr2ip(my_ip, &my_net_ip)) {
+		i_error("error using doveadm_source_ip setting %s",my_ip);
+	} else {
+		use_my_ip = TRUE;
+	}
 
 	alarm(DOVEADM_TCP_CONNECT_TIMEOUT_SECS);
 	ret = net_gethostbyname(host, &ips, &ips_count);
@@ -112,7 +123,7 @@ doveadm_tcp_connect_port(const char *host, in_port_t port)
 		i_fatal("Lookup of host %s failed: %s",
 			host, net_gethosterror(ret));
 	}
-	fd = net_connect_ip_blocking(&ips[0], port, NULL);
+	fd = net_connect_ip_blocking(&ips[0], port, use_my_ip ? &my_net_ip : NULL);
 	if (fd == -1) {
 		i_fatal("connect(%s:%u) failed: %m",
 			net_ip2addr(&ips[0]), port);
@@ -121,7 +132,7 @@ doveadm_tcp_connect_port(const char *host, in_port_t port)
 	return fd;
 }
 
-int doveadm_tcp_connect(const char *target, in_port_t default_port)
+int doveadm_tcp_connect(const char *target, in_port_t default_port, const char * my_ip)
 {
 	const char *host;
 	in_port_t port;
@@ -130,18 +141,18 @@ int doveadm_tcp_connect(const char *target, in_port_t default_port)
 		i_fatal("Port not known for %s. Either set proxy_port "
 			"or use %s:port", target, target);
 	}
-	return doveadm_tcp_connect_port(host, port);
+	return doveadm_tcp_connect_port(host, port, my_ip);
 }
 
 int doveadm_connect_with_default_port(const char *path,
-				      in_port_t default_port)
+				      in_port_t default_port, const char * my_ip)
 {
 	int fd;
 
 	/* we'll assume UNIX sockets typically have an absolute path,
 	   or at the very least '/' somewhere. */
 	if (strchr(path, '/') == NULL)
-		fd = doveadm_tcp_connect(path, default_port);
+		fd = doveadm_tcp_connect(path, default_port, my_ip);
 	else {
 		fd = net_connect_unix(path);
 		if (fd == -1)
@@ -152,7 +163,7 @@ int doveadm_connect_with_default_port(const char *path,
 
 int doveadm_connect(const char *path)
 {
-	return doveadm_connect_with_default_port(path, 0);
+	return doveadm_connect_with_default_port(path, 0, "");
 }
 
 int i_strccdascmp(const char *a, const char *b)
