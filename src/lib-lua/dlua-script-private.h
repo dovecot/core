@@ -27,12 +27,12 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 #define lua_toboolean(L, n) (lua_toboolean(L, n) == 1)
 #define lua_pushboolean(L, b) lua_pushboolean((L), (b) ? 1 : 0)
 
-#define DLUA_TABLE_STRING(n, s) { .name = n, .type = DLUA_TABLE_VALUE_STRING, .v.s = s }
-#define DLUA_TABLE_INTEGER(n, i) { .name = n, .type = DLUA_TABLE_VALUE_INTEGER, .v.i = i }
+#define DLUA_TABLE_STRING(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_STRING, .v.s = (val) }
+#define DLUA_TABLE_INTEGER(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_INTEGER, .v.i = (val) }
 #define DLUA_TABLE_ENUM(n) { .name = #n, .type = DLUA_TABLE_VALUE_INTEGER, .v.i = n }
-#define DLUA_TABLE_DOUBLE(n, d) { .name = n, .type = DLUA_TABLE_VALUE_DOUBLE, .v.d = d }
-#define DLUA_TABLE_BOOLEAN(n, b) { .name = n, .type = DLUA_TABLE_VALUE_BOOLEAN, .v.b = b }
-#define DLUA_TABLE_NULL(n, s) { .name = n, .type = DLUA_TABLE_VALUE_NULL }
+#define DLUA_TABLE_DOUBLE(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_DOUBLE, .v.d = (val) }
+#define DLUA_TABLE_BOOLEAN(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_BOOLEAN, .v.b = val) }
+#define DLUA_TABLE_NULL(n, s) { .name = (n), .type = DLUA_TABLE_VALUE_NULL }
 #define DLUA_TABLE_END { .name = NULL }
 
 #define DLUA_REQUIRE_ARGS_IN(s,x,y) if (lua_gettop((s)->L) < (x) || lua_gettop((s)->L) > (y)) { return luaL_error((s)->L, "expected %d to %d arguments, got %d", x, y, lua_gettop((s)->L)); }
