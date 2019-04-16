@@ -146,10 +146,10 @@ static void test_event_filter_inc_int(void)
 
 static void test_event_filter_parent_category_match(void)
 {
-	struct event_category parent_category = {
+	static struct event_category parent_category = {
 		.name = "parent",
 	};
-	struct event_category child_category = {
+	static struct event_category child_category = {
 		.parent = &parent_category,
 		.name = "child",
 	};
