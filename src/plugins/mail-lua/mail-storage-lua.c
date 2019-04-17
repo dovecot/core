@@ -18,6 +18,8 @@
 /** MAIL USER
  */
 
+static int lua_storage_mail_user_unref(lua_State *L);
+
 void dlua_push_mail_user(struct dlua_script *script, struct mail_user *user)
 {
 	luaL_checkstack(script->L, 20, "out of memory");
@@ -25,7 +27,13 @@ void dlua_push_mail_user(struct dlua_script *script, struct mail_user *user)
 	lua_createtable(script->L, 0, 20);
 	luaL_setmetatable(script->L, LUA_STORAGE_MAIL_USER);
 
-	lua_pushlightuserdata(script->L, user);
+	mail_user_ref(user);
+	struct mail_user **ptr = lua_newuserdata(script->L, sizeof(struct mail_user*));
+	*ptr = user;
+	lua_createtable(script->L, 0, 1);
+	lua_pushcfunction(script->L, lua_storage_mail_user_unref);
+	lua_setfield(script->L, -2, "__gc");
+	lua_setmetatable(script->L, -2);
 	lua_setfield(script->L, -2, "item");
 
 #undef LUA_TABLE_SETNUMBER
@@ -74,9 +82,9 @@ lua_check_storage_mail_user(struct dlua_script *script, int arg)
 	}
 	lua_pushliteral(script->L, "item");
 	lua_rawget(script->L, arg);
-	void *bp = (void*)lua_touserdata(script->L, -1);
+	struct mail_user **bp = lua_touserdata(script->L, -1);
 	lua_pop(script->L, 1);
-	return (struct mail_user*)bp;
+	return *bp;
 }
 
 static int lua_storage_mail_user_tostring(lua_State *L)
@@ -176,13 +184,10 @@ static int lua_storage_mail_user_mailbox_alloc(lua_State *L)
 static int lua_storage_mail_user_unref(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	(void)lua_check_storage_mail_user(script, 1);
-
-	/* reset value to NULL */
-	lua_pushliteral(script->L, "item");
-	lua_pushnil(script->L);
-	lua_rawset(script->L, 1);
-
+	struct mail_user **ptr = lua_touserdata(script->L, 1);
+	if (*ptr != NULL)
+		mail_user_unref(ptr);
+	*ptr = NULL;
 	return 0;
 }
 
@@ -191,7 +196,6 @@ static luaL_Reg lua_storage_mail_user_methods[] = {
 	{ "__eq", lua_storage_mail_user_eq },
 	{ "__lt", lua_storage_mail_user_lt },
 	{ "__le", lua_storage_mail_user_le },
-	{ "__gc", lua_storage_mail_user_unref },
 	{ "plugin_getenv", lua_storage_mail_user_plugin_getenv },
 	{ "var_expand", lua_storage_mail_user_var_expand },
 	{ "mailbox", lua_storage_mail_user_mailbox_alloc },
