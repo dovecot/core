@@ -216,6 +216,8 @@ static void lua_storage_mail_user_register(struct dlua_script *script)
 #define DLUA_MAILBOX_EQUALS(a, b) mailbox_equals((a), mailbox_get_namespace(b), \
 						 mailbox_get_vname(b))
 
+static int lua_storage_mailbox_gc(lua_State *L);
+
 void dlua_push_mailbox(struct dlua_script *script, struct mailbox *box)
 {
 	luaL_checkstack(script->L, 4, "out of memory");
@@ -223,7 +225,12 @@ void dlua_push_mailbox(struct dlua_script *script, struct mailbox *box)
 	lua_createtable(script->L, 0, 0);
 	luaL_setmetatable(script->L, LUA_STORAGE_MAILBOX);
 
-	lua_pushlightuserdata(script->L, box);
+	struct mailbox **ptr = lua_newuserdata(script->L, sizeof(struct mailbox*));
+	*ptr = box;
+	lua_createtable(script->L, 0, 1);
+	lua_pushcfunction(script->L, lua_storage_mailbox_gc);
+	lua_setfield(script->L, -2, "__gc");
+	lua_setmetatable(script->L, -2);
 	lua_setfield(script->L, -2, "item");
 
 	luaL_checkstack(script->L, 2, "out of memory");
@@ -244,9 +251,9 @@ lua_check_storage_mailbox(struct dlua_script *script, int arg)
 	}
 	lua_pushliteral(script->L, "item");
 	lua_rawget(script->L, arg);
-	void *bp = (void*)lua_touserdata(script->L, -1);
+	struct mailbox **bp = lua_touserdata(script->L, -1);
 	lua_pop(script->L, 1);
-	return (struct mailbox*)bp;
+	return *bp;
 }
 
 static int lua_storage_mailbox_tostring(lua_State *L)
@@ -294,26 +301,24 @@ static int lua_storage_mailbox_unref(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(script, 1);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
-
-	if (mbox != NULL)
-		mailbox_free(&mbox);
-
-	lua_pushlightuserdata(script->L, mbox);
+	/* fetch item from table */
 	lua_pushliteral(script->L, "item");
-	lua_rawset(script->L, 1);
+	lua_rawget(script->L, 1);
+	struct mailbox **mbox = lua_touserdata(script->L, -1);
+	if (*mbox != NULL)
+		mailbox_free(mbox);
+	*mbox = NULL;
+	lua_pop(script->L, 1);
 	return 0;
 }
 
 static int lua_storage_mailbox_gc(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	(void)lua_check_storage_mailbox(script, 1);
+	struct mailbox **mbox = lua_touserdata(script->L, 1);
 
-	/* reset value to NULL */
-	lua_pushliteral(script->L, "item");
-	lua_pushnil(script->L);
-	lua_rawset(script->L, 1);
+	if (*mbox != NULL)
+		mailbox_free(mbox);
 
 	return 0;
 }
@@ -438,7 +443,6 @@ static luaL_Reg lua_storage_mailbox_methods[] = {
 	{ "__eq", lua_storage_mailbox_eq },
 	{ "__lt", lua_storage_mailbox_lt },
 	{ "__le", lua_storage_mailbox_le },
-	{ "__gc", lua_storage_mailbox_gc },
 	{ "free", lua_storage_mailbox_unref },
 	{ "status", lua_storage_mailbox_status },
 	{ "open", lua_storage_mailbox_open },
