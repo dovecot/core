@@ -244,6 +244,8 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 	    !event_filter_match(client->filter, event, ctx))
 		return;
 
+	/* Need to send the event for stats and/or export */
+
 	string_t *str = t_str_new(256);
 	stats_event_write(event, ctx, str, FALSE);
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
