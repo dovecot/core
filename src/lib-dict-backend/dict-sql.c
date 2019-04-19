@@ -432,10 +432,12 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		break;
 	}
 	if (priv) {
+		struct sql_dict_param *param = array_append_space(params);
 		if (count2 > 0)
 			str_append(query, " AND");
-		str_printfa(query, " %s = '%s'", map->username_field,
-			    sql_escape_string(dict->db, dict->username));
+		str_printfa(query, " %s = ?", map->username_field);
+		param->value_type = DICT_SQL_TYPE_STRING;
+		param->value_str = dict->username;
 	}
 	return 0;
 }
@@ -1088,9 +1090,11 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 			return -1;
 	}
 	if (build->key1 == DICT_PATH_PRIVATE[0]) {
+		struct sql_dict_param *param = array_append_space(&params);
 		str_printfa(prefix, ",%s", fields[0].map->username_field);
-		str_printfa(suffix, ",'%s'",
-			    sql_escape_string(dict->db, dict->username));
+		str_append(suffix, ",?");
+		param->value_type = DICT_SQL_TYPE_STRING;
+		param->value_str = dict->username;
 	}
 
 	/* add the other fields from the key */
