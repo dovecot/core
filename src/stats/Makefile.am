@@ -16,6 +16,9 @@ stats_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 stats_SOURCES = \
 	client-reader.c \
 	client-writer.c \
+	event-exporter-fmt.c \
+	event-exporter-fmt-none.c \
+	event-exporter-transport-drop.c \
 	main.c \
 	stats-event-category.c \
 	stats-metrics.c \
@@ -24,6 +27,7 @@ stats_SOURCES = \
 noinst_HEADERS = \
 	client-reader.h \
 	client-writer.h \
+	event-exporter.h \
 	stats-event-category.h \
 	stats-metrics.h \
 	stats-settings.h
