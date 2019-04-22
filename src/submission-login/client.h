@@ -23,7 +23,7 @@ struct submission_client {
 	enum smtp_capability backend_capabilities;
 
 	struct smtp_server_connection *conn;
-	struct smtp_server_cmd_ctx *pending_auth, *pending_starttls;
+	struct smtp_server_cmd_ctx *pending_auth;
 
 	enum submission_proxy_state proxy_state;
 	enum smtp_capability proxy_capability;
