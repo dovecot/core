@@ -40,8 +40,13 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 			set->rawlog_dir = p_strdup(user->pool, *tmp + 11);
 		} else if (str_begins(*tmp, "batch_size=")) {
 			set->batch_size = atoi(*tmp + 11);
-		} else if (str_begins(*tmp, "no_soft_commit")) {
-			set->no_soft_commit = TRUE;
+		} else if (str_begins(*tmp, "soft_commit")) {
+			if (strcasecmp(*tmp + 12,"yes")==0) { 
+				set->soft_commit = TRUE;
+			} else if (strcasecmp(*tmp + 12,"no")!=0) {
+				i_error("fts_solr: Invalid setting for soft_commit: %s", *tmp+12);
+				return -1;
+			}
 		} else {
 			i_error("fts_solr: Invalid setting: %s", *tmp);
 			return -1;
