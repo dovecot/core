@@ -9,6 +9,7 @@
 #include "fts-user.h"
 #include "fts-solr-plugin.h"
 
+#define DEFAULT_SOLR_BATCH_SIZE 1000
 
 const char *fts_solr_plugin_version = DOVECOT_ABI_VERSION;
 struct http_client *solr_http_client = NULL;
@@ -25,6 +26,8 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 	if (str == NULL)
 		str = "";
 
+	set->batch_size = DEFAULT_SOLR_BATCH_SIZE;
+
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
 		if (str_begins(*tmp, "url=")) {
 			set->url = p_strdup(user->pool, *tmp + 4);
@@ -37,6 +40,12 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 				p_strdup(user->pool, *tmp + 11);
 		} else if (str_begins(*tmp, "rawlog_dir=")) {
 			set->rawlog_dir = p_strdup(user->pool, *tmp + 11);
+		} else if (str_begins(*tmp, "batch_size=")) {
+			if (str_to_uint(*tmp+11, &set->batch_size) < 0 ||
+			    set->batch_size == 0) {
+				i_error("fts_solr: batch_size must be a positive integer");
+					return -1;
+			}
 		} else {
 			i_error("fts_solr: Invalid setting: %s", *tmp);
 			return -1;
