@@ -29,9 +29,9 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 
 #define DLUA_TABLE_STRING(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_STRING, .v.s = (val) }
 #define DLUA_TABLE_INTEGER(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_INTEGER, .v.i = (val) }
-#define DLUA_TABLE_ENUM(n) { .name = #n, .type = DLUA_TABLE_VALUE_INTEGER, .v.i = n }
+#define DLUA_TABLE_ENUM(n) { .name = #n, .type = DLUA_TABLE_VALUE_INTEGER, .v.i = (n) }
 #define DLUA_TABLE_DOUBLE(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_DOUBLE, .v.d = (val) }
-#define DLUA_TABLE_BOOLEAN(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_BOOLEAN, .v.b = val) }
+#define DLUA_TABLE_BOOLEAN(n, val) { .name = (n), .type = DLUA_TABLE_VALUE_BOOLEAN, .v.b = (val) }
 #define DLUA_TABLE_NULL(n, s) { .name = (n), .type = DLUA_TABLE_VALUE_NULL }
 #define DLUA_TABLE_END { .name = NULL }
 
