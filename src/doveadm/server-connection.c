@@ -526,7 +526,7 @@ int server_connection_create(struct doveadm_server *server,
 	conn->pool = pool;
 	conn->server = server;
 	conn->fd = doveadm_connect_with_default_port(server->name,
-			     doveadm_settings->doveadm_port,doveadm_settings->doveadm_source_ip);
+						     doveadm_settings->doveadm_port);
 	net_set_nonblock(conn->fd, TRUE);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);

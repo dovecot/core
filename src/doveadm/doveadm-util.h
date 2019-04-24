@@ -13,9 +13,9 @@ extern bool doveadm_verbose, doveadm_debug, doveadm_server;
 const char *unixdate2str(time_t timestamp);
 const char *doveadm_plugin_getenv(const char *name);
 int doveadm_connect(const char *path);
-int doveadm_tcp_connect(const char *target, in_port_t default_port, const char * my_ip);
+int doveadm_tcp_connect(const char *target, in_port_t default_port);
 int doveadm_connect_with_default_port(const char *path,
-				      in_port_t default_port, const char * my_ip);
+				      in_port_t default_port);
 
 void doveadm_load_modules(void);
 void doveadm_unload_modules(void);
