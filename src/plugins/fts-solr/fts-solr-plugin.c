@@ -26,6 +26,8 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 	if (str == NULL)
 		str = "";
 
+	set->soft_commit = TRUE;
+
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
 		if (str_begins(*tmp, "url=")) {
 			set->url = p_strdup(user->pool, *tmp + 4);
