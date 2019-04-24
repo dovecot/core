@@ -15,6 +15,7 @@ struct fts_solr_settings {
 	unsigned int batch_size;
 	bool use_libfts;
 	bool debug;
+	bool soft_commit;
 };
 
 struct fts_solr_user {

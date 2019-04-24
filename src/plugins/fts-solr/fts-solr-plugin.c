@@ -27,6 +27,7 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 		str = "";
 
 	set->batch_size = DEFAULT_SOLR_BATCH_SIZE;
+	set->soft_commit = TRUE;
 
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
 		if (str_begins(*tmp, "url=")) {
@@ -45,6 +46,15 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 			    set->batch_size == 0) {
 				i_error("fts_solr: batch_size must be a positive integer");
 					return -1;
+			}
+		} else if (str_begins(*tmp, "soft_commit=")) {
+			if (strcmp(*tmp + 12, "yes") == 0) {
+				set->soft_commit = TRUE;
+			} else if (strcmp(*tmp + 12, "no") == 0) {
+				set->soft_commit = FALSE;
+			} else {
+				i_error("fts_solr: Invalid setting for soft_commit: %s", *tmp+12);
+				return -1;
 			}
 		} else {
 			i_error("fts_solr: Invalid setting: %s", *tmp);
