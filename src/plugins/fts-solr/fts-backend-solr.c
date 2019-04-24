@@ -402,10 +402,12 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 		   visible to the following search */
 		if (ctx->expunges)
 			fts_backend_solr_expunge_flush(ctx);
-		str = t_strdup_printf("<commit softCommit=\"true\" waitSearcher=\"%s\"/>",
-				      ctx->documents_added ? "true" : "false");
-		if (solr_connection_post(backend->solr_conn, str) < 0)
-			ret = -1;
+		if (fuser->set.soft_commit) {
+			str = t_strdup_printf("<commit softCommit=\"true\" waitSearcher=\"%s\"/>",
+					      ctx->documents_added ? "true" : "false");
+			if (solr_connection_post(backend->solr_conn, str) < 0)
+				ret = -1;
+		}
 	}
 
 	str_free(&ctx->cmd);
