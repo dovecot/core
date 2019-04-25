@@ -124,8 +124,8 @@ static int lua_storage_mailbox_attribute_set(struct mailbox *box, const char *ke
 	if (ret < 0) {
 		*error_r = mailbox_get_last_error(box, NULL);
 		mailbox_transaction_rollback(&t);
-	} else {
-		mailbox_transaction_commit(&t);
+	} else if ((ret = mailbox_transaction_commit(&t)) < 0) {
+		*error_r = mailbox_get_last_error(box, NULL);
 	}
 
 	if (attr_value.value_stream != NULL)
