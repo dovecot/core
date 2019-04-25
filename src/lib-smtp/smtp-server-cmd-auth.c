@@ -99,6 +99,7 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 			e_debug(conn->event,
 				"Client sent invalid AUTH response: %s", error);
 
+			smtp_server_command_input_lock(cmd);
 			switch (error_code) {
 			case SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND:
 				conn->input_broken = TRUE;
