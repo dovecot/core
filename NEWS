@@ -1,3 +1,30 @@
+v2.3.6 2019-04-30  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2019-11494: Submission-login crashed with signal 11 due to null
+	  pointer access when authentication was aborted by disconnecting.
+	* CVE-2019-11499: Submission-login crashed when authentication was
+	  started over TLS secured channel and invalid authentication message
+	  was sent.
+	* auth: Support password grant with passdb oauth2.
+	+ Use system default CAs for outbound TLS connections.
+	+ Simplify array handling with new helper macros.
+	+ fts_solr: Enable configuring batch_size and soft_commit features.
+	- lmtp/submission: Fixed various bugs in XCLIENT handling, including a
+	  hang when XCLIENT commands were sent infinitely to the remote server.
+	- lmtp/submission: Forwarded multi-line replies were erroneously sent
+	  as two replies to the client.
+	- lib-smtp: client: Message was not guaranteed to contain CRLF
+	  consistently when CHUNKING was used.
+	- fts_solr: Plugin was no longer compatible with Solr 7.
+	- Make it possible to disable certificate checking without
+	  setting ssl_client_ca_* settings.
+	- pop3c: SSL support was broken.
+	- mysql: Closing connection twice lead to crash on some systems.
+	- auth: Multiple oauth2 passdbs crashed auth process on deinit.
+	- HTTP client connection errors infrequently triggered a segmentation
+	  fault when the connection was idle and not used for a particular
+	  client instance.
+
 v2.3.5.2 2019-04-18  Timo Sirainen <tss@iki.fi>
 
 	* CVE-2019-10691: Trying to login with 8bit username containing
