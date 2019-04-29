@@ -28,7 +28,8 @@ dist_stopwords_DATA = \
 	stopwords/stopwords_pt.txt \
 	stopwords/stopwords_ro.txt \
 	stopwords/stopwords_ru.txt \
-	stopwords/stopwords_sv.txt
+	stopwords/stopwords_sv.txt \
+	stopwords/stopwords_tr.txt
 
 BUILT_SOURCES = $(srcdir)/word-boundary-data.c \
 		$(srcdir)/word-break-data.c
