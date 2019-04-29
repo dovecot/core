@@ -494,10 +494,11 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)ctx->ctx.backend;
 
-	if (ctx->mails_since_flush++ >= SOLR_MAIL_FLUSH_INTERVAL) {
+	if (ctx->mails_since_flush >= SOLR_MAIL_FLUSH_INTERVAL) {
 		if (fts_backed_solr_build_flush(ctx) < 0)
 			ctx->ctx.failed = TRUE;
 	}
+	ctx->mails_since_flush++;
 	if (ctx->post == NULL) {
 		if (ctx->cmd == NULL)
 			ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
