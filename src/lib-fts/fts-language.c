@@ -46,7 +46,8 @@ const struct fts_language fts_languages_builtin [] = {
 	{ "pt" }, /* Portuguese */
 	{ "ro" }, /* Romanian */
 	{ "ru" }, /* Russian */
-	{ "sv" } /* Swedish */
+	{ "sv" }, /* Swedish */
+	{ "tr" }, /* Turkish */
 };
 
 const struct fts_language fts_language_data = {
