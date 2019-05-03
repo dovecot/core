@@ -132,7 +132,8 @@ void str_append_tabescaped_n(string_t *dest, const unsigned char *src, size_t sr
 	}
 }
 
-void str_append_tabescaped(string_t *dest, const char *src) {
+void str_append_tabescaped(string_t *dest, const char *src)
+{
 	str_append_tabescaped_n(dest, (const unsigned char*)src, strlen(src));
 }
 
