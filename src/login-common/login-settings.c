@@ -117,6 +117,8 @@ login_set_var_expand_table(const struct master_service_settings_input *input)
 		{ 'p', my_pid, "pid" },
 		{ 's', input->service, "service" },
 		{ '\0', input->local_name, "local_name" },
+		/* NOTE: Make sure login_log_format_elements_split has all these
+		   variables (in client-common.c:get_var_expand_table()). */
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
