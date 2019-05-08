@@ -1026,6 +1026,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	struct program_client_settings set = {
 		.client_connect_timeout_msecs = 1000,
+		.debug = root->quota->user->mail_debug,
 	};
 	struct program_client *pc;
 
