@@ -129,9 +129,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		return -1;
 	}
 
-	*client_r = client_create(fd_in, fd_out, input->session_id,
-				  mail_user, user, set);
-
+	*client_r = client_create(fd_in, fd_out, mail_user, user, set);
 	return 0;
 }
 

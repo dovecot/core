@@ -375,7 +375,7 @@ int pop3_lock_session(struct client *client)
 	return ret;
 }
 
-struct client *client_create(int fd_in, int fd_out, const char *session_id,
+struct client *client_create(int fd_in, int fd_out,
 			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set)
@@ -393,7 +393,6 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->service_user = service_user;
 	client->v = pop3_client_vfuncs;
 	client->set = set;
-	client->session_id = p_strdup(pool, session_id);
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE);

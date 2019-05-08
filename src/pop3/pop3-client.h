@@ -34,7 +34,6 @@ struct client {
 	struct client *prev, *next;
 
 	struct pop3_client_vfuncs v;
-	const char *session_id;
 
 	int fd_in, fd_out;
 	struct io *io;
@@ -121,7 +120,7 @@ extern unsigned int pop3_client_count;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out, const char *session_id,
+struct client *client_create(int fd_in, int fd_out,
 			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set);
