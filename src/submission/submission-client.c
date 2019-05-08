@@ -422,7 +422,6 @@ static const char *client_stats(struct client *client)
 		{ 'o', dec2str(client->stats.output), "output" },
 		{ '\0', dec2str(client->stats.command_count), "command_count" },
 		{ '\0', dec2str(client->stats.reply_count), "reply_count" },
-		{ '\0', client->session_id, "session" },
 		{ '\0', trans_id, "transaction_id" },
 		{ '\0', NULL, NULL }
 	};
