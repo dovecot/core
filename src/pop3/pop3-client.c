@@ -536,7 +536,6 @@ static const char *client_stats(struct client *client)
 		{ 'i', dec2str(client->input->v_offset), "input" },
 		{ 'o', dec2str(client->output->offset), "output" },
 		{ 'u', uidl_change, "uidl_change" },
-		{ '\0', client->session_id, "session" },
 		{ '\0', !client->delete_success ? "0" :
 		        dec2str(client->deleted_size), "deleted_bytes" },
 		{ '\0', NULL, NULL }
