@@ -537,8 +537,8 @@ static const char *client_stats(struct client *client)
 		{ 'o', dec2str(client->output->offset), "output" },
 		{ 'u', uidl_change, "uidl_change" },
 		{ '\0', client->session_id, "session" },
-		{ 'd', !client->delete_success ? "0" :
-		       dec2str(client->deleted_size), "deleted_bytes" },
+		{ '\0', !client->delete_success ? "0" :
+		        dec2str(client->deleted_size), "deleted_bytes" },
 		{ '\0', NULL, NULL }
 	};
 	const struct var_expand_table *user_tab =
