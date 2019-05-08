@@ -179,7 +179,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		}
 	}
 
-	(void)client_create(fd_in, fd_out, input->session_id, mail_user,
+	(void)client_create(fd_in, fd_out, mail_user,
 			    user, set, helo, data, data_len);
 	return 0;
 }

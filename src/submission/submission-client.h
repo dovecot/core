@@ -78,7 +78,6 @@ struct client {
 	pool_t pool;
 
 	struct submission_client_vfuncs v;
-	char *session_id;
 
 	const struct setting_parser_info *user_set_info;
 	const struct submission_settings *set;
@@ -133,7 +132,7 @@ extern struct client *submission_clients;
 extern unsigned int submission_client_count;
 
 struct client *client_create(int fd_in, int fd_out,
-			     const char *session_id, struct mail_user *user,
+			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct submission_settings *set,
 			     const char *helo,

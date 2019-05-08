@@ -176,7 +176,7 @@ static void client_init_urlauth(struct client *client)
 	config.url_port = client->set->imap_urlauth_port;
 	config.socket_path = t_strconcat(client->user->set->base_dir,
 					 "/"IMAP_URLAUTH_SOCKET_NAME, NULL);
-	config.session_id = client->session_id;
+	config.session_id = client->user->session_id;
 	config.access_anonymous = client->user->anonymous;
 	config.access_user = client->user->username;
 	config.access_service = "submission";
@@ -186,7 +186,7 @@ static void client_init_urlauth(struct client *client)
 }
 
 struct client *client_create(int fd_in, int fd_out,
-			     const char *session_id, struct mail_user *user,
+			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct submission_settings *set,
 			     const char *helo,
@@ -211,7 +211,6 @@ struct client *client_create(int fd_in, int fd_out,
 	client->user = user;
 	client->service_user = service_user;
 	client->set = set;
-	client->session_id = p_strdup(pool, session_id);
 
 	i_array_init(&client->pending_backends, 4);
 	i_array_init(&client->rcpt_to, 8);
