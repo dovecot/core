@@ -575,6 +575,7 @@ int net_accept(int fd, struct ip_addr *addr_r, in_port_t *port_r)
 
 	i_assert(fd >= 0);
 
+	i_zero(&so);
 	addrlen = sizeof(so);
 	ret = accept(fd, &so.sa, &addrlen);
 
@@ -695,6 +696,7 @@ int net_getsockname(int fd, struct ip_addr *addr, in_port_t *port)
 
 	i_assert(fd >= 0);
 
+	i_zero(&so);
 	addrlen = sizeof(so);
 	if (getsockname(fd, &so.sa, &addrlen) == -1)
 		return -1;
@@ -716,6 +718,7 @@ int net_getpeername(int fd, struct ip_addr *addr, in_port_t *port)
 
 	i_assert(fd >= 0);
 
+	i_zero(&so);
 	addrlen = sizeof(so);
 	if (getpeername(fd, &so.sa, &addrlen) == -1)
 		return -1;
@@ -735,6 +738,7 @@ int net_getunixname(int fd, const char **name_r)
 	union sockaddr_union_unix so;
 	socklen_t addrlen = sizeof(so);
 
+	i_zero(&so);
 	if (getsockname(fd, &so.sa, &addrlen) < 0)
 		return -1;
 	if (so.un.sun_family != AF_UNIX) {
@@ -1030,6 +1034,7 @@ int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 	if (memcmp(src->u.ip6.s6_addr, v4_prefix, sizeof(v4_prefix)) != 0)
 		return -1;
 
+	i_zero(dest);
 	dest->family = AF_INET;
 	memcpy(&dest->u.ip6, &src->u.ip6.s6_addr[3*4], 4);
 	return 0;
