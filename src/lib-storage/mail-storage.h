@@ -650,7 +650,7 @@ void mailbox_notify_changes(struct mailbox *box,
 	ATTR_NULL(3);
 #define mailbox_notify_changes(box, callback, context) \
 	  mailbox_notify_changes(box, (mailbox_notify_callback_t *)callback, \
-		(void *)((char *)context + CALLBACK_TYPECHECK(callback, \
+		(void *)((char *)context - CALLBACK_TYPECHECK(callback, \
 			void (*)(struct mailbox *, typeof(context)))))
 void mailbox_notify_changes_stop(struct mailbox *box);
 

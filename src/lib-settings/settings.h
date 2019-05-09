@@ -46,16 +46,16 @@ bool settings_read_i(const char *path, const char *section,
 		     const char **error_r)
 	ATTR_NULL(2, 4, 5);
 #define settings_read(path, section, callback, sect_callback, context, error_r) \
-	  settings_read_i(path + \
+	  settings_read_i(path - \
 		CALLBACK_TYPECHECK(callback, const char *(*)( \
-			const char *, const char *, typeof(context))) + \
+			const char *, const char *, typeof(context))) - \
 		CALLBACK_TYPECHECK(sect_callback, bool (*)( \
 			const char *, const char *, typeof(context), \
 			const char **)), \
 		section, (settings_callback_t *)callback, \
 		(settings_section_callback_t *)sect_callback, context, error_r)
 #define settings_read_nosection(path, callback, context, error_r) \
-	  settings_read_i(path + \
+	  settings_read_i(path - \
 		CALLBACK_TYPECHECK(callback, const char *(*)( \
 			const char *, const char *, typeof(context))), \
 		NULL, (settings_callback_t *)callback, NULL, context, error_r)

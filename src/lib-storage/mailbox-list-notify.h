@@ -59,7 +59,7 @@ int mailbox_list_notify_next(struct mailbox_list_notify *notify,
 void mailbox_list_notify_wait(struct mailbox_list_notify *notify,
 			      mailbox_list_notify_callback_t *callback, void *context);
 #define mailbox_list_notify_wait(notify, callback, context) \
-	mailbox_list_notify_wait(notify + CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+	mailbox_list_notify_wait(notify - CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 				(mailbox_list_notify_callback_t*)callback, context);
 /* Flush any delayed notifications now. */
 void mailbox_list_notify_flush(struct mailbox_list_notify *notify);

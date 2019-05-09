@@ -92,7 +92,7 @@ void o_stream_add_destroy_callback(struct ostream *stream,
 				   ostream_callback_t *callback, void *context)
 	ATTR_NULL(3);
 #define o_stream_add_destroy_callback(stream, callback, context) \
-	o_stream_add_destroy_callback(stream + \
+	o_stream_add_destroy_callback(stream - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(ostream_callback_t *)callback, context)
 /* Remove the destroy callback. */
@@ -115,7 +115,7 @@ void o_stream_set_flush_callback(struct ostream *stream,
 				 stream_flush_callback_t *callback,
 				 void *context) ATTR_NULL(3);
 #define o_stream_set_flush_callback(stream, callback, context) \
-	o_stream_set_flush_callback(stream + \
+	o_stream_set_flush_callback(stream - \
 		CALLBACK_TYPECHECK(callback, int (*)(typeof(context))), \
 		(stream_flush_callback_t *)callback, context)
 void o_stream_unset_flush_callback(struct ostream *stream);

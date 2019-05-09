@@ -39,7 +39,7 @@ i_stream_create_header_filter(struct istream *input,
 	ATTR_NULL(6);
 #define i_stream_create_header_filter(input, flags, headers, headers_count, \
 				        callback, context) \
-	  i_stream_create_header_filter(input, flags, headers, headers_count + \
+	  i_stream_create_header_filter(input, flags, headers, headers_count - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			struct header_filter_istream *, \
 			struct message_header_line *, bool *, typeof(context))), \

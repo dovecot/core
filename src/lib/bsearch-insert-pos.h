@@ -34,7 +34,7 @@ bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
 		   size_t size, int (*cmp)(const void *, const void *),
 		   unsigned int *idx_r);
 #define bsearch_insert_pos(key, base, nmemb, size, cmp, idx_r) \
-	bsearch_insert_pos(key, base, nmemb, size + \
+	bsearch_insert_pos(key, base, nmemb, size - \
 		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
 						typeof(const typeof(*base) *))), \
 		(int (*)(const void *, const void *))cmp, idx_r)
@@ -44,7 +44,7 @@ array_bsearch_insert_pos_i(const struct array *array, const void *key,
 			   int (*cmp)(const void *, const void *),
 			   unsigned int *idx_r);
 #define array_bsearch_insert_pos(array, key, cmp, idx_r) \
-	array_bsearch_insert_pos_i(&(array)->arr + \
+	array_bsearch_insert_pos_i(&(array)->arr - \
 		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
 						typeof(*(array)->v))), \
 		(const void *)key, (int (*)(const void *, const void *))cmp, idx_r)

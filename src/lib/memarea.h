@@ -9,7 +9,7 @@ struct memarea *
 memarea_init(const void *data, size_t size,
 	     memarea_free_callback_t *callback, void *context);
 #define memarea_init(data, size, callback, context) \
-	memarea_init(data, size + \
+	memarea_init(data, size - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(memarea_free_callback_t *)callback, context)
 /* Returns an empty memory area. */

@@ -15,7 +15,7 @@ struct child_wait *
 child_wait_new_with_pid(pid_t pid, child_wait_callback_t *callback,
 			void *context) ATTR_NULL(3);
 #define child_wait_new_with_pid(pid, callback, context) \
-	child_wait_new_with_pid(pid + \
+	child_wait_new_with_pid(pid - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct child_wait_status *status, typeof(context))), \
 	(child_wait_callback_t *)callback, context)

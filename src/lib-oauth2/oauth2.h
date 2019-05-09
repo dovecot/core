@@ -74,7 +74,7 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 			  oauth2_request_callback_t *callback,
 			  void *context);
 #define oauth2_passwd_grant_start(set, input, username, password, callback, context) \
-	oauth2_passwd_grant_start(set, input + \
+	oauth2_passwd_grant_start(set, input - \
 		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
 		username, password, \
 		(oauth2_request_callback_t*)callback, (void*)context);
@@ -85,7 +85,7 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 			      oauth2_request_callback_t *callback,
 			      void *context);
 #define oauth2_token_validation_start(set, input, callback, context) \
-	oauth2_token_validation_start(set, input + \
+	oauth2_token_validation_start(set, input - \
 		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
 		(oauth2_request_callback_t*)callback, (void*)context);
 
@@ -95,7 +95,7 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 			   oauth2_request_callback_t *callback,
 			   void *context);
 #define oauth2_introspection_start(set, input, callback, context) \
-	oauth2_introspection_start(set, input + \
+	oauth2_introspection_start(set, input - \
 		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
 		(oauth2_request_callback_t*)callback, (void*)context);
 
@@ -105,7 +105,7 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 		     oauth2_request_callback_t *callback,
 		     void *context);
 #define oauth2_refresh_start(set, input, callback, context) \
-	oauth2_refresh_start(set, input + \
+	oauth2_refresh_start(set, input - \
 		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
 		(oauth2_request_callback_t*)callback, (void*)context);
 

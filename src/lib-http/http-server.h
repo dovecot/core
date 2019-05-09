@@ -189,7 +189,7 @@ void http_server_request_forward_payload(struct http_server_request *req,
 #define http_server_request_forward_payload(req, \
 		output, max_size, callback, context) \
 	http_server_request_forward_payload(req, output, max_size, \
-		(void(*)(void*))callback, context + \
+		(void(*)(void*))callback, context - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 /* Forward the incoming request payload to the provided buffer in the
    background. Behaves identical to http_server_request_forward_payload()
@@ -200,7 +200,7 @@ void http_server_request_buffer_payload(struct http_server_request *req,
 #define http_server_request_buffer_payload(req, \
 		buffer, max_size, callback, context) \
 	http_server_request_buffer_payload(req, buffer, max_size, \
-		(void(*)(void*))callback, context + \
+		(void(*)(void*))callback, context - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 /* Handle the incoming request payload by calling the callback each time
    more data is available. Payload reading automatically finishes when the
@@ -211,7 +211,7 @@ void http_server_request_handle_payload(struct http_server_request *req,
 	void (*callback)(void *context), void *context);
 #define http_server_request_handle_payload(req, callback, context) \
 	http_server_request_handle_payload(req,\
-		(void(*)(void*))callback, context + \
+		(void(*)(void*))callback, context - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 
 /* Get the authentication credentials provided in this request. Returns 0 if
@@ -260,7 +260,7 @@ void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context);
 #define http_server_request_set_destroy_callback(req, callback, context) \
-	http_server_request_set_destroy_callback(req, (void(*)(void*))callback, context + \
+	http_server_request_set_destroy_callback(req, (void(*)(void*))callback, context - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 
 /*

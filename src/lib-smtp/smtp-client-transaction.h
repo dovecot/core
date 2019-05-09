@@ -45,7 +45,7 @@ smtp_client_transaction_create_empty(
 	smtp_client_transaction_callback_t *callback, void *context)
 	ATTR_NULL(4);
 #define smtp_client_transaction_create_empty(conn, flags, callback, context) \
-	smtp_client_transaction_create_empty(conn, flags + \
+	smtp_client_transaction_create_empty(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(smtp_client_transaction_callback_t *)callback, context)
 /* Create a new transaction, including the parameters for the MAIL FROM
@@ -59,7 +59,7 @@ smtp_client_transaction_create(struct smtp_client_connection *conn,
 		ATTR_NULL(2, 3, 6);
 #define smtp_client_transaction_create(conn, \
 		mail_from, mail_params, flags, callback, context) \
-	smtp_client_transaction_create(conn, mail_from, mail_params, flags + \
+	smtp_client_transaction_create(conn, mail_from, mail_params, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(smtp_client_transaction_callback_t *)callback, context)
 
@@ -86,7 +86,7 @@ void smtp_client_transaction_start(struct smtp_client_transaction *trans,
 #define smtp_client_transaction_start(trans, mail_callback, context) \
 	smtp_client_transaction_start(trans, \
 		(smtp_client_command_callback_t *)mail_callback, \
-		context + CALLBACK_TYPECHECK(mail_callback, void (*)( \
+		context - CALLBACK_TYPECHECK(mail_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))))
 /* Start the transaction with a MAIL command. This function allows providing the
    parameters for the MAIL FROM command for when the transaction was created
@@ -105,7 +105,7 @@ void smtp_client_transaction_start_empty(
 					    mail_callback, context) \
 	smtp_client_transaction_start_empty(trans, mail_from, mail_params, \
 		(smtp_client_command_callback_t *)mail_callback, \
-		context + CALLBACK_TYPECHECK(mail_callback, void (*)( \
+		context - CALLBACK_TYPECHECK(mail_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))))
 
 /* Add an extra pipelined MAIL command to the transaction. The mail_callback is
@@ -125,7 +125,7 @@ smtp_client_transaction_add_mail(struct smtp_client_transaction *trans,
 	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(3,5);
 #define smtp_client_transaction_add_mail(trans, \
 		mail_from, mail_params, mail_callback, context) \
-	smtp_client_transaction_add_mail(trans, mail_from + \
+	smtp_client_transaction_add_mail(trans, mail_from - \
 		CALLBACK_TYPECHECK(mail_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		mail_params, \
@@ -153,9 +153,9 @@ smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
 	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(3,5,6);
 #define smtp_client_transaction_add_rcpt(trans, \
 		rcpt_to, rcpt_params, rcpt_callback, data_callback, context) \
-	smtp_client_transaction_add_rcpt(trans, rcpt_to + \
+	smtp_client_transaction_add_rcpt(trans, rcpt_to - \
 		CALLBACK_TYPECHECK(rcpt_callback, void (*)( \
-			const struct smtp_reply *reply, typeof(context))) + \
+			const struct smtp_reply *reply, typeof(context))) - \
 		CALLBACK_TYPECHECK(data_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		rcpt_params, \
@@ -177,7 +177,7 @@ smtp_client_transaction_add_pool_rcpt(
 	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(4,6,7);
 #define smtp_client_transaction_add_pool_rcpt(trans, pool, \
 		rcpt_to, rcpt_params, rcpt_callback, context) \
-	smtp_client_transaction_add_pool_rcpt(trans, pool, rcpt_to + \
+	smtp_client_transaction_add_pool_rcpt(trans, pool, rcpt_to - \
 		CALLBACK_TYPECHECK(rcpt_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		rcpt_params, \
@@ -213,7 +213,7 @@ void smtp_client_transaction_send(
 	smtp_client_command_callback_t *data_callback, void *data_context);
 #define smtp_client_transaction_send(trans, \
 		data_input, data_callback, data_context) \
-	smtp_client_transaction_send(trans, data_input + \
+	smtp_client_transaction_send(trans, data_input - \
 		CALLBACK_TYPECHECK(data_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(data_context))), \
 		(smtp_client_command_callback_t *)data_callback, data_context)
@@ -228,7 +228,7 @@ void smtp_client_transaction_reset(
 #define smtp_client_transaction_reset(trans, reset_callback, reset_context) \
 	smtp_client_transaction_reset(trans, \
 		(smtp_client_command_callback_t *)reset_callback, \
-		reset_context + CALLBACK_TYPECHECK(reset_callback, void (*)( \
+		reset_context - CALLBACK_TYPECHECK(reset_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(reset_context))))
 
 /* Enables mode in which all commands are submitted immediately and (non-

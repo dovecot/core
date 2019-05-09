@@ -64,7 +64,7 @@ void message_parse_header(struct istream *input, struct message_size *hdr_size,
 			  message_header_callback_t *callback, void *context)
 	ATTR_NULL(2);
 #define message_parse_header(input, hdr_size, flags, callback, context) \
-	  message_parse_header(input, hdr_size, flags + \
+	  message_parse_header(input, hdr_size, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			struct message_header_line *hdr, typeof(context))), \
  		(message_header_callback_t *)callback, context)

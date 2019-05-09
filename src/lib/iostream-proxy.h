@@ -75,7 +75,7 @@ bool iostream_proxy_is_waiting_output(struct iostream_proxy *proxy,
 void iostream_proxy_set_completion_callback(struct iostream_proxy *proxy,
 				       iostream_proxy_callback_t *callback, void *context);
 #define iostream_proxy_set_completion_callback(proxy, callback, context) \
-	iostream_proxy_set_completion_callback(proxy, (iostream_proxy_callback_t *)callback, context + \
+	iostream_proxy_set_completion_callback(proxy, (iostream_proxy_callback_t *)callback, context - \
 		CALLBACK_TYPECHECK(callback, void (*)(enum iostream_proxy_side side, enum iostream_proxy_status, typeof(context))))
 
 void iostream_proxy_ref(struct iostream_proxy *proxy);

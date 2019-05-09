@@ -39,7 +39,7 @@ smtp_client_command_new(struct smtp_client_connection *conn,
 	enum smtp_client_command_flags flags,
 	smtp_client_command_callback_t *callback, void *context);
 #define smtp_client_command_new(conn, flags, callback, context) \
-	smtp_client_command_new(conn, flags + \
+	smtp_client_command_new(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		(smtp_client_command_callback_t *)callback, context)
@@ -108,7 +108,7 @@ smtp_client_command_noop_submit_after(
 	void *context);
 #define smtp_client_command_noop_submit_after(conn, \
 	flags, after, callback, context) \
-	smtp_client_command_noop_submit_after(conn, flags + \
+	smtp_client_command_noop_submit_after(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), after, \
 		(smtp_client_command_callback_t *)callback, context)
@@ -120,7 +120,7 @@ smtp_client_command_noop_submit(
 	void *context);
 #define smtp_client_command_noop_submit(conn, \
 		flags, callback, context) \
-	smtp_client_command_noop_submit(conn, flags + \
+	smtp_client_command_noop_submit(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		(smtp_client_command_callback_t *)callback, context)
@@ -136,7 +136,7 @@ smtp_client_command_vrfy_submit_after(
 	void *context);
 #define smtp_client_command_vrfy_submit_after(conn, \
 		flags, after, param, callback, context) \
-	smtp_client_command_vrfy_submit_after(conn, flags + \
+	smtp_client_command_vrfy_submit_after(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		after, param, \
@@ -150,7 +150,7 @@ smtp_client_command_vrfy_submit(
 			  void *context);
 #define smtp_client_command_vrfy_submit(conn, \
 		flags, param, callback, context) \
-	smtp_client_command_vrfy_submit(conn, flags + \
+	smtp_client_command_vrfy_submit(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		param, (smtp_client_command_callback_t *)callback, context)
@@ -165,7 +165,7 @@ smtp_client_command_rset_submit_after(
 	void *context);
 #define smtp_client_command_rset_submit_after(conn, \
 		flags, after, callback, context) \
-	smtp_client_command_rset_submit_after(conn, flags + \
+	smtp_client_command_rset_submit_after(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		after, (smtp_client_command_callback_t *)callback, context)
@@ -177,7 +177,7 @@ smtp_client_command_rset_submit(
 	void *context);
 #define smtp_client_command_rset_submit(conn, \
 		flags, callback, context) \
-	smtp_client_command_rset_submit(conn, flags + \
+	smtp_client_command_rset_submit(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		(smtp_client_command_callback_t *)callback, context)
@@ -193,7 +193,7 @@ smtp_client_command_mail_submit(
 	void *context);
 #define smtp_client_command_mail_submit(conn, \
 		flags, address, params, callback, context) \
-	smtp_client_command_mail_submit(conn, flags + \
+	smtp_client_command_mail_submit(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		address, params, \
@@ -211,7 +211,7 @@ smtp_client_command_rcpt_submit_after(
 	void *context);
 #define smtp_client_command_rcpt_submit_after(conn, \
 		flags, after, to, params, callback, context) \
-	smtp_client_command_rcpt_submit_after(conn, flags + \
+	smtp_client_command_rcpt_submit_after(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		after, to, params, \
@@ -226,7 +226,7 @@ smtp_client_command_rcpt_submit(
 	void *context);
 #define smtp_client_command_rcpt_submit(conn, \
 		flags, to, params, callback, context) \
-	smtp_client_command_rcpt_submit(conn, flags + \
+	smtp_client_command_rcpt_submit(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		to, params, \
@@ -245,7 +245,7 @@ smtp_client_command_data_submit_after(
 	void *context);
 #define smtp_client_command_data_submit_after(conn, \
 		flags, after, data, callback, context) \
-	smtp_client_command_data_submit_after(conn, flags + \
+	smtp_client_command_data_submit_after(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		after, data, (smtp_client_command_callback_t *)callback, context)
@@ -258,7 +258,7 @@ smtp_client_command_data_submit(
 	void *context);
 #define smtp_client_command_data_submit(conn, \
 		flags, data, callback, context) \
-	smtp_client_command_data_submit(conn, flags + \
+	smtp_client_command_data_submit(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))), \
 		data, (smtp_client_command_callback_t *)callback, context)
