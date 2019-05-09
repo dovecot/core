@@ -68,6 +68,7 @@ static ssize_t i_stream_crlf_read_crlf(struct istream_private *stream)
 	}
 
 	while (dest < dest_end) {
+		i_assert(src <= src_end);
 		ptr = memchr(src, '\n', src_end - src);
 		if (ptr == NULL)
 			ptr = src_end;

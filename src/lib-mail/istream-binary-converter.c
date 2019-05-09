@@ -43,6 +43,8 @@ stream_finish_convert_decision(struct binary_converter_istream *bstream)
 	buffer_t *buf = bstream->hdr_buf;
 	const unsigned char *data;
 
+	i_assert(bstream->convert_part != NULL);
+
 	bstream->hdr_buf = NULL;
 	if (!part_can_convert(bstream->convert_part)) {
 		bstream->convert_part = NULL;

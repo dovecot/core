@@ -289,6 +289,7 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	ctx->return_value = parse_reply(ctx, cmd, args);
 
 	len = str_array_length(args);
+	i_assert(*args != NULL || len == 0); /* for static analyzer */
 	if (ctx->return_value >= 0) {
 		ctx->fields = p_new(ctx->pool, const char *, len + 1);
 		for (i = 0; i < len; i++)
