@@ -1177,8 +1177,10 @@ lucene_get_query_str(struct lucene_index *index,
 
 	wvalue = t_lucene_utf8_to_tchar(index, str);
 	analyzer = guess_analyzer(index, str, strlen(str));
-	if (analyzer == NULL)
+	if (analyzer == NULL) {
 		analyzer = index->default_analyzer;
+		i_assert(analyzer != NULL);
+	}
 
 	return getFieldQuery(analyzer, key, wvalue, fuzzy);
 }

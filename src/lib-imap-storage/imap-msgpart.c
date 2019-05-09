@@ -579,6 +579,8 @@ imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 
 	if (*msgpart->section_number != '\0') {
 		/* find the MIME part */
+		i_assert(part != NULL);
+
 		if (mail_get_stream_because(mail, NULL, NULL, "MIME part", &input) < 0)
 			return -1;
 
