@@ -750,8 +750,10 @@ int mail_user_home_mkdir(struct mail_user *user)
 	const char *home;
 	int ret;
 
-	if (mail_user_get_home(user, &home) < 0)
-		return -1;
+	if ((ret = mail_user_get_home(user, &home)) <= 0) {
+		/* If user has no home directory, just return success. */
+		return ret;
+	}
 
 	/* Try to create the home directory by creating the root directory for
 	   a namespace that exists under the home. This way we end up in the
