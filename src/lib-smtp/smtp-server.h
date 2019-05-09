@@ -106,7 +106,7 @@ void smtp_server_recipient_add_hook(struct smtp_server_recipient *rcpt,
 				  smtp_server_rcpt_func_t func,
 				  void *context);
 #define smtp_server_recipient_add_hook(_rcpt, _type, _func, _context) \
-	smtp_server_recipient_add_hook((_rcpt), (_type) + \
+	smtp_server_recipient_add_hook((_rcpt), (_type) - \
 		CALLBACK_TYPECHECK(_func, void (*)( \
 			struct smtp_server_recipient *, typeof(_context))), \
 		(smtp_server_rcpt_func_t *)(_func), (_context))
@@ -536,7 +536,7 @@ void smtp_server_command_add_hook(struct smtp_server_command *cmd,
 				  smtp_server_cmd_func_t func,
 				  void *context);
 #define smtp_server_command_add_hook(_cmd, _type, _func, _context) \
-	smtp_server_command_add_hook((_cmd), (_type) + \
+	smtp_server_command_add_hook((_cmd), (_type) - \
 		CALLBACK_TYPECHECK(_func, void (*)( \
 			struct smtp_server_cmd_ctx *, typeof(_context))), \
 		(smtp_server_cmd_func_t *)(_func), (_context))

@@ -113,7 +113,7 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 			    imap_fetch_handler_t *handler, void *context)
 	ATTR_NULL(3, 5);
 #define imap_fetch_add_handler(ctx, flags, nil_reply, handler, context) \
-	  imap_fetch_add_handler(ctx, flags, nil_reply + \
+	  imap_fetch_add_handler(ctx, flags, nil_reply - \
 		CALLBACK_TYPECHECK(handler, int (*)( \
 			struct imap_fetch_context *, struct mail *, \
 			typeof(context))), \

@@ -126,7 +126,7 @@ int mail_search_mime_args_foreach(struct mail_search_mime_arg *args,
 			     mail_search_mime_foreach_callback_t *callback,
 			     void *context) ATTR_NULL(3);
 #define mail_search_mime_args_foreach(args, callback, context) \
-	  mail_search_mime_args_foreach(args + \
+	  mail_search_mime_args_foreach(args - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			struct mail_search_mime_arg *, typeof(context))), \
 		(mail_search_mime_foreach_callback_t *)callback, context)

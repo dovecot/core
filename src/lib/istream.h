@@ -91,7 +91,7 @@ void i_stream_add_destroy_callback(struct istream *stream,
 				   istream_callback_t *callback, void *context)
 	ATTR_NULL(3);
 #define i_stream_add_destroy_callback(stream, callback, context) \
-	i_stream_add_destroy_callback(stream + \
+	i_stream_add_destroy_callback(stream - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(istream_callback_t *)callback, context)
 /* Remove the destroy callback. */

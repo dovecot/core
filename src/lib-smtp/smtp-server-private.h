@@ -330,7 +330,7 @@ void smtp_server_connection_input_capture(
 	struct smtp_server_connection *conn,
 	smtp_server_input_callback_t *callback, void *context);
 #define smtp_server_connection_input_capture(conn, callback, context) \
-	smtp_server_connection_input_capture(conn + \
+	smtp_server_connection_input_capture(conn - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(smtp_server_input_callback_t *)callback, context)
 

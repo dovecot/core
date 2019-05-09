@@ -44,7 +44,7 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 	       dns_lookup_callback_t *callback, void *context,
 	       struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_lookup(host, set, callback, context, lookup_r) \
-	dns_lookup(host + \
+	dns_lookup(host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
 		set, (dns_lookup_callback_t *)callback, context, lookup_r)
@@ -53,7 +53,7 @@ int dns_lookup_ptr(const struct ip_addr *ip,
 		   dns_lookup_callback_t *callback, void *context,
 		   struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_lookup_ptr(host, set, callback, context, lookup_r) \
-	dns_lookup_ptr(host + \
+	dns_lookup_ptr(host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
 		set, (dns_lookup_callback_t *)callback, context, lookup_r)
@@ -72,7 +72,7 @@ int dns_client_lookup(struct dns_client *client, const char *host,
 		      dns_lookup_callback_t *callback, void *context,
 		      struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_client_lookup(client, host, callback, context, lookup_r) \
-	dns_client_lookup(client, host + \
+	dns_client_lookup(client, host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
 		(dns_lookup_callback_t *)callback, context, lookup_r)
@@ -80,7 +80,7 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 			  dns_lookup_callback_t *callback, void *context,
 			  struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_client_lookup_ptr(client, host, callback, context, lookup_r) \
-	dns_client_lookup_ptr(client, host + \
+	dns_client_lookup_ptr(client, host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
 		(dns_lookup_callback_t *)callback, context, lookup_r)

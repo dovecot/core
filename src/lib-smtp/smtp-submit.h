@@ -60,7 +60,7 @@ void smtp_submit_run_async(struct smtp_submit *subm,
 #define smtp_submit_run_async(subm, callback, context) \
 	smtp_submit_run_async(subm, \
 		(smtp_submit_callback_t*)callback, \
-		(char*)context + CALLBACK_TYPECHECK(callback, \
+		(char*)context - CALLBACK_TYPECHECK(callback, \
 			void (*)(const struct smtp_submit_result *result, typeof(context))))
 
 /* Returns 1 on success, 0 on permanent failure (e.g. invalid destination),

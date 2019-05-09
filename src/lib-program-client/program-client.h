@@ -70,7 +70,7 @@ void program_client_switch_ioloop(struct program_client *pclient);
 void program_client_set_extra_fd(struct program_client *pclient, int fd,
 	 program_client_fd_callback_t * callback, void *context);
 #define program_client_set_extra_fd(pclient, fd, callback, context) \
-	program_client_set_extra_fd(pclient, fd + \
+	program_client_set_extra_fd(pclient, fd - \
 		CALLBACK_TYPECHECK(callback, \
 			void (*)(typeof(context), struct istream *input)), \
 		(program_client_fd_callback_t *)callback, context)
@@ -85,7 +85,7 @@ void program_client_run_async(struct program_client *pclient,
 			      program_client_callback_t *, void*);
 #define program_client_run_async(pclient, callback, context) \
 	program_client_run_async(pclient, (program_client_callback_t*)callback, \
-		(char*)context + CALLBACK_TYPECHECK(callback, \
+		(char*)context - CALLBACK_TYPECHECK(callback, \
 			void (*)(int, typeof(context))))
 
 #endif

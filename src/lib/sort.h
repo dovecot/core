@@ -16,13 +16,13 @@ INTEGER_CMP(uint64_cmp, uint64_t)
 INTEGER_CMP(uint32_cmp, uint32_t)
 
 #define i_qsort(base, nmemb, size, cmp) \
-	qsort(base, nmemb, size +					\
+	qsort(base, nmemb, size -					\
 	      CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*base) *), \
 					      typeof(const typeof(*base) *))), \
 	      (int (*)(const void *, const void *))cmp)
 
 #define i_bsearch(key, base, nmemb, size, cmp) \
-	bsearch(key, base, nmemb, size + \
+	bsearch(key, base, nmemb, size - \
 		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
 						typeof(const typeof(*base) *))), \
 		(int (*)(const void *, const void *))cmp)

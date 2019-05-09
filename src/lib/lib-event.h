@@ -167,7 +167,7 @@ struct event *event_set_log_prefix_callback(struct event *event,
 					    void *context);
 #define event_set_log_prefix_callback(event, replace, callback, context) \
 	event_set_log_prefix_callback(event, replace, (event_log_prefix_callback_t*)callback, \
-		context + CALLBACK_TYPECHECK(callback, const char *(*)(typeof(context))))
+		context - CALLBACK_TYPECHECK(callback, const char *(*)(typeof(context))))
 
 /* Set the event's name. The name is specific to a single sending of an event,
    and it'll be automatically cleared once the event is sent. This should

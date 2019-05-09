@@ -70,7 +70,7 @@ void ldap_search_start(struct ldap_client *client,
 		       ldap_result_callback_t *callback,
 		       void *context);
 #define ldap_search_start(client, input, callback, context) \
-	ldap_search_start(client, input + \
+	ldap_search_start(client, input - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			struct ldap_result *, typeof(context))), \
 		(ldap_result_callback_t *)callback, context)
@@ -88,7 +88,7 @@ void ldap_compare_start(struct ldap_client *client,
 			const struct ldap_compare_input *input,
 			ldap_result_callback_t *callback, void *context);
 #define ldap_compare_start(client, input, callback, context) \
-	ldap_compare_start(client, input + \
+	ldap_compare_start(client, input - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			struct ldap_result *, typeof(context))), \
 		(ldap_result_callback_t *)callback, context)

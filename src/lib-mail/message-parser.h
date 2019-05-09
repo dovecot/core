@@ -77,7 +77,7 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
 				 message_part_header_callback_t *callback,
 				 void *context) ATTR_NULL(4);
 #define message_parser_parse_header(ctx, hdr_size, callback, context) \
-	  message_parser_parse_header(ctx, hdr_size + \
+	  message_parser_parse_header(ctx, hdr_size - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			struct message_part *, \
 			struct message_header_line *, typeof(context))), \
@@ -92,7 +92,7 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 #define message_parser_parse_body(ctx, callback, context) \
 	  message_parser_parse_body(ctx, \
 		(message_part_header_callback_t *)callback, \
-		(void *)((uintptr_t)context + CALLBACK_TYPECHECK(callback, \
+		(void *)((uintptr_t)context - CALLBACK_TYPECHECK(callback, \
 			void (*)(struct message_part *, \
 				struct message_header_line *, typeof(context)))))
 

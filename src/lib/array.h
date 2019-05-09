@@ -344,9 +344,9 @@ bool array_equal_fn_i(const struct array *array1,
 		      const struct array *array2,
 		      int (*cmp)(const void*, const void *)) ATTR_PURE;
 #define array_equal_fn(array1, array2, cmp)				\
-	array_equal_fn_i(&(array1)->arr +					\
+	array_equal_fn_i(&(array1)->arr -					\
 		       ARRAY_TYPES_CHECK(array1, array2),		\
-		       &(array2)->arr +					\
+		       &(array2)->arr -					\
 		       CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array1)->v), \
 						       typeof(*(array2)->v))), \
 		       (int (*)(const void *, const void *))cmp)
@@ -359,9 +359,9 @@ bool array_equal_fn_ctx_i(const struct array *array1,
    so ``const typeof(*context)*'' is required instead, and that requires a
    complete type. */
 #define array_equal_fn_ctx(array1, array2, cmp, ctx)			\
-	array_equal_fn_ctx_i(&(array1)->arr +				\
+	array_equal_fn_ctx_i(&(array1)->arr -				\
 			     ARRAY_TYPES_CHECK(array1, array2),		\
-			     &(array2)->arr +				\
+			     &(array2)->arr -				\
 			     CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array1)->v), \
 							     typeof(*(array2)->v), \
 							     const typeof(*ctx)*)), \
@@ -374,7 +374,7 @@ void array_reverse_i(struct array *array);
 
 void array_sort_i(struct array *array, int (*cmp)(const void *, const void *));
 #define array_sort(array, cmp) \
-	array_sort_i(&(array)->arr + \
+	array_sort_i(&(array)->arr - \
 		CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array)->v), \
 						typeof(*(array)->v))), \
 		(int (*)(const void *, const void *))cmp)
@@ -382,7 +382,7 @@ void array_sort_i(struct array *array, int (*cmp)(const void *, const void *));
 void *array_bsearch_i(struct array *array, const void *key,
 		      int (*cmp)(const void *, const void *));
 #define array_bsearch(array, key, cmp) \
-	ARRAY_TYPE_CAST_MODIFIABLE(array)array_bsearch_i(&(array)->arr + \
+	ARRAY_TYPE_CAST_MODIFIABLE(array)array_bsearch_i(&(array)->arr - \
 		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
 						typeof(*(array)->v))), \
 		(const void *)key, (int (*)(const void *, const void *))cmp)
@@ -397,7 +397,7 @@ static inline void *array_lsearch_modifiable_i(struct array *array, const void *
 }
 #define ARRAY_LSEARCH_CALL(modifiable, array, key, cmp)			\
 	array_lsearch##modifiable##i(					\
-		&(array)->arr +						\
+		&(array)->arr -						\
 		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
 						typeof(*(array)->v))),	\
 		(const void *)key,					\

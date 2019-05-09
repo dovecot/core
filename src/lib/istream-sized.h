@@ -33,7 +33,7 @@ i_stream_create_sized_with_callback(struct istream *input, uoff_t size,
 				    istream_sized_callback_t *error_callback,
 				    void *context);
 #define i_stream_create_sized_with_callback(input, size, error_callback, context) \
-	i_stream_create_sized_with_callback(input, size + \
+	i_stream_create_sized_with_callback(input, size - \
 		CALLBACK_TYPECHECK(error_callback, \
 			const char *(*)(const struct istream_sized_error_data *, typeof(context))), \
 		(istream_sized_callback_t *)error_callback, context)

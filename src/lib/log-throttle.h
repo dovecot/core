@@ -19,7 +19,7 @@ struct log_throttle *
 log_throttle_init(const struct log_throttle_settings *set,
 		  log_throttle_callback_t *callback, void *context);
 #define log_throttle_init(set, callback, context) \
-	log_throttle_init(set + \
+	log_throttle_init(set - \
 		CALLBACK_TYPECHECK(callback, void (*)(unsigned int, typeof(context))), \
 		(log_throttle_callback_t *)callback, context)
 void log_throttle_deinit(struct log_throttle **throttle);
