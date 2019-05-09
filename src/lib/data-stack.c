@@ -33,13 +33,13 @@ struct stack_block {
 	/* NULL or a poison value, just in case something accesses
 	   the memory in front of an allocated area */
 	void *canary;
-	/* unsigned char data[]; */
+	unsigned char data[FLEXIBLE_ARRAY_MEMBER];
 };
 
 #define SIZEOF_MEMBLOCK MEM_ALIGN(sizeof(struct stack_block))
 
 #define STACK_BLOCK_DATA(block) \
-	((unsigned char *) (block) + SIZEOF_MEMBLOCK)
+	(block->data + (SIZEOF_MEMBLOCK - sizeof(struct stack_block)))
 
 /* current_frame_block contains last t_push()ed frames. After that new
    stack_frame_block is created and it's ->prev is set to
