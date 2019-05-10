@@ -217,6 +217,14 @@ void dict_connection_unref_safe(struct dict_connection *conn)
 static void dict_connection_destroy(struct connection *_conn)
 {
 	struct dict_connection *conn = container_of(_conn, struct dict_connection, conn);
+
+	/* If there are commands still running, we delay disconnecting can may
+	   come back here. Track this so we unreference the connection only
+	   once. */
+	if (conn->destroyed)
+		return;
+	conn->destroyed = TRUE;
+
 	/* the connection is closed, but there may still be commands left
 	   running. finish them, even if the calling client can't be notified
 	   about whether they succeeded (clients may not even care).
