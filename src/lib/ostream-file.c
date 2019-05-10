@@ -359,6 +359,13 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 				fstream->no_socket_cork = TRUE;
 			fstream->socket_cork_set = FALSE;
 		}
+		if (set) {
+			/* Uncorking - send all the pending data immediately.
+			   Remove nodelay immediately afterwards, so if any
+			   output is sent outside corking it may get delayed. */
+			net_set_tcp_nodelay(fstream->fd, TRUE);
+			net_set_tcp_nodelay(fstream->fd, FALSE);
+		}
 		stream->corked = set;
 	}
 }
