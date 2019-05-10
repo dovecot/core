@@ -799,16 +799,37 @@ static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
 	return ssl_iostream_client_context_cache_get(&ssl_set, &ctx->ssl_ctx, error_r);
 }
 
+static void dsync_server_run_command(struct dsync_cmd_context *ctx,
+				     struct server_connection *conn)
+{
+	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
+	/* <flags> <username> <command> [<args>] */
+	string_t *cmd = t_str_new(256);
+	if (doveadm_debug)
+		str_append_c(cmd, 'D');
+	str_append_c(cmd, '\t');
+	str_append_tabescaped(cmd, cctx->username);
+	str_append(cmd, "\tdsync-server\t-u");
+	str_append_tabescaped(cmd, cctx->username);
+	if (ctx->replicator_notify)
+		str_append(cmd, "\t-U");
+	str_append_c(cmd, '\n');
+
+	ctx->tcp_conn = conn;
+	server_connection_cmd(conn, str_c(cmd), NULL,
+			      dsync_connected_callback, ctx);
+	io_loop_run(current_ioloop);
+	ctx->tcp_conn = NULL;
+}
+
 static int
 dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		  const struct mail_storage_settings *mail_set,
 		  const char *target, bool ssl, const char **error_r)
 {
-	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
 	struct doveadm_server *server;
 	struct server_connection *conn;
 	struct ioloop *prev_ioloop, *ioloop;
-	string_t *cmd;
 	const char *p, *error;
 
 	server = p_new(ctx->ctx.pool, struct doveadm_server, 1);
@@ -840,28 +861,12 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		return -1;
 	}
 
-	/* <flags> <username> <command> [<args>] */
-	cmd = t_str_new(256);
-	if (doveadm_debug)
-		str_append_c(cmd, 'D');
-	str_append_c(cmd, '\t');
-	str_append_tabescaped(cmd, cctx->username);
-	str_append(cmd, "\tdsync-server\t-u");
-	str_append_tabescaped(cmd, cctx->username);
-	if (ctx->replicator_notify)
-		str_append(cmd, "\t-U");
-	str_append_c(cmd, '\n');
-
 	if (doveadm_verbose_proctitle) {
 		process_title_set(t_strdup_printf(
 			"[dsync - running dsync-server on %s]", server->name));
 	}
 
-	ctx->tcp_conn = conn;
-	server_connection_cmd(conn, str_c(cmd), NULL,
-			      dsync_connected_callback, ctx);
-	io_loop_run(ioloop);
-	ctx->tcp_conn = NULL;
+	dsync_server_run_command(ctx, conn);
 
 	if (array_count(&server->connections) > 0)
 		server_connection_destroy(&conn);
