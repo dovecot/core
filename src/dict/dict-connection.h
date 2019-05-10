@@ -28,6 +28,8 @@ struct dict_connection {
 	ARRAY(struct dict_connection_transaction) transactions;
 	ARRAY(struct dict_connection_cmd *) cmds;
 	unsigned int async_id_counter;
+
+	bool destroyed;
 };
 
 struct master_service_connection;
