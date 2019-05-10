@@ -231,7 +231,10 @@ static void dict_connection_destroy(struct connection *_conn)
 
 	   flush the command output here in case we were waiting on iteration
 	   output. */
+	i_stream_close(conn->conn.input);
+	o_stream_close(conn->conn.output);
 	dict_connection_cmds_output_more(conn);
+
 	dict_connection_unref_safe(conn);
 }
 

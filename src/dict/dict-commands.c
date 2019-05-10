@@ -51,7 +51,7 @@ static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 	}
 	i_free(cmd->reply);
 
-	if (dict_connection_unref(cmd->conn))
+	if (dict_connection_unref(cmd->conn) && !cmd->conn->destroyed)
 		connection_input_resume(&cmd->conn->conn);
 	i_free(cmd);
 }
