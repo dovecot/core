@@ -857,16 +857,15 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 			"[dsync - connecting to %s]", server->name));
 	}
 	if (server_connection_create(server, &conn) < 0) {
-		*error_r = "Couldn't create server connection";
-		return -1;
-	}
+		ctx->error = "Couldn't create server connection";
+	} else {
+		if (doveadm_verbose_proctitle) {
+			process_title_set(t_strdup_printf(
+				"[dsync - running dsync-server on %s]", server->name));
+		}
 
-	if (doveadm_verbose_proctitle) {
-		process_title_set(t_strdup_printf(
-			"[dsync - running dsync-server on %s]", server->name));
+		dsync_server_run_command(ctx, conn);
 	}
-
-	dsync_server_run_command(ctx, conn);
 
 	if (array_count(&server->connections) > 0)
 		server_connection_destroy(&conn);
