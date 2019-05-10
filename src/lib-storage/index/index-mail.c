@@ -1903,10 +1903,6 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 			data->save_sent_date = TRUE;
 		}
 	}
-	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save) {
-		data->save_bodystructure_header = TRUE;
-		data->save_bodystructure_body = TRUE;
-	}
 	if ((data->wanted_fields & MAIL_FETCH_BODY_SNIPPET) != 0 &&
 	    (storage->nonbody_access_fields & MAIL_FETCH_BODY_SNIPPET) == 0) {
 		const unsigned int cache_field =
@@ -1924,6 +1920,19 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 			data->access_part |= READ_HDR;
 		if ((data->wanted_fields & MAIL_FETCH_STREAM_BODY) != 0)
 			data->access_part |= READ_BODY;
+	}
+
+	/* NOTE: Keep this attachment detection the last, so that the
+	   access_part check works correctly.
+
+	   The attachment flag detection is done while parsing BODYSTRUCTURE.
+	   We want to do this for mails that are being saved, but also when
+	   we need to open the mail body anyway. */
+	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+	    (_mail->saving || data->access_part != 0) &&
+	    !mail_has_attachment_keywords(&mail->mail.mail)) {
+		data->save_bodystructure_header = TRUE;
+		data->save_bodystructure_body = TRUE;
 	}
 }
 
