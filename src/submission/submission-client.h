@@ -16,6 +16,8 @@ struct client_state {
 	struct submission_backend *backend;
 	struct istream *data_input;
 	uoff_t data_size;
+
+	bool anonymous_allowed:1;
 };
 
 struct client_extra_capability {
