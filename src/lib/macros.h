@@ -234,7 +234,14 @@
 #  define STATIC_ARRAY
 #endif
 
-/* Convenience wrappers for initializing a struct */
+/* Convenience wrappers for initializing a struct with zeros, although it can
+   be used for replacing other memset()s also.
+
+   // NOTE: This is the correct way to zero the whole array
+   char arr[5]; i_zero(&arr);
+   // This will give compiler error (or zero only the first element):
+   char arr[5]; i_zero(arr);
+*/
 #define i_zero(p) \
 	memset(p, 0 + COMPILE_ERROR_IF_TRUE(sizeof(p) > sizeof(void *)), sizeof(*(p)))
 #define i_zero_safe(p) \
