@@ -856,8 +856,9 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		process_title_set(t_strdup_printf(
 			"[dsync - connecting to %s]", server->name));
 	}
-	if (server_connection_create(server, &conn) < 0) {
-		ctx->error = "Couldn't create server connection";
+	if (server_connection_create(server, &conn, &error) < 0) {
+		ctx->error = p_strdup_printf(ctx->ctx.pool,
+			"Couldn't create server connection: %s", error);
 	} else {
 		if (doveadm_verbose_proctitle) {
 			process_title_set(t_strdup_printf(

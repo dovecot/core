@@ -11,7 +11,8 @@ typedef void server_cmd_callback_t(int exit_code, const char *error,
 				   void *context);
 
 int server_connection_create(struct doveadm_server *server,
-			     struct server_connection **conn_r);
+			     struct server_connection **conn_r,
+			     const char **error_r);
 void server_connection_destroy(struct server_connection **conn);
 
 /* Return the server given to create() */

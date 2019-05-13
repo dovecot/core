@@ -459,7 +459,8 @@ static bool server_connection_input_one(struct server_connection *conn)
 	i_unreached();
 }
 
-static int server_connection_read_settings(struct server_connection *conn)
+static int server_connection_read_settings(struct server_connection *conn,
+					   const char **error_r)
 {
 	const struct setting_parser_info *set_roots[] = {
 		&doveadm_setting_parser_info,
@@ -480,7 +481,8 @@ static int server_connection_read_settings(struct server_connection *conn)
 
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0) {
-		i_error("Error reading configuration: %s", error);
+		*error_r = t_strdup_printf(
+			"Error reading configuration: %s", error);
 		return -1;
 	}
 	set = master_service_settings_get_others(master_service)[0];
@@ -488,7 +490,8 @@ static int server_connection_read_settings(struct server_connection *conn)
 	return 0;
 }
 
-static int server_connection_init_ssl(struct server_connection *conn)
+static int server_connection_init_ssl(struct server_connection *conn,
+				      const char **error_r)
 {
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
@@ -504,11 +507,13 @@ static int server_connection_init_ssl(struct server_connection *conn)
 					conn->server->hostname, &ssl_set,
 					&conn->input, &conn->output,
 					&conn->ssl_iostream, &error) < 0) {
-		i_error("Couldn't initialize SSL client: %s", error);
+		*error_r = t_strdup_printf(
+			"Couldn't initialize SSL client: %s", error);
 		return -1;
 	}
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
-		i_error("SSL handshake failed: %s",
+		*error_r = t_strdup_printf(
+			"SSL handshake failed: %s",
 			ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
@@ -516,7 +521,8 @@ static int server_connection_init_ssl(struct server_connection *conn)
 }
 
 int server_connection_create(struct doveadm_server *server,
-			     struct server_connection **conn_r)
+			     struct server_connection **conn_r,
+			     const char **error_r)
 {
 	struct server_connection *conn;
 	pool_t pool;
@@ -538,8 +544,8 @@ int server_connection_create(struct doveadm_server *server,
 
 	array_push_back(&conn->server->connections, &conn);
 
-	if (server_connection_read_settings(conn) < 0 ||
-	    server_connection_init_ssl(conn) < 0) {
+	if (server_connection_read_settings(conn, error_r) < 0 ||
+	    server_connection_init_ssl(conn, error_r) < 0) {
 		server_connection_destroy(&conn);
 		return -1;
 	}
