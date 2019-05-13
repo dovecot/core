@@ -293,10 +293,12 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		doveadm_mail_server_handle(conn, user);
 	else if (array_count(&server->connections) <
 		 	I_MAX(ctx->set->doveadm_worker_count, 1)) {
-		if (server_connection_create(server, &conn) < 0)
+		if (server_connection_create(server, &conn, error_r) < 0) {
 			internal_failure = TRUE;
-		else
+			return -1;
+		} else {
 			doveadm_mail_server_handle(conn, user);
+		}
 	} else {
 		if (array_count(&server->queue) >= DOVEADM_SERVER_QUEUE_MAX)
 			doveadm_server_flush_one(server);
