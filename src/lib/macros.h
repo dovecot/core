@@ -236,9 +236,9 @@
 
 /* Convenience wrappers for initializing a struct */
 #define i_zero(p) \
-	memset(p, 0 +  + COMPILE_ERROR_IF_TRUE(sizeof(p) > sizeof(void *)), sizeof(*(p)))
+	memset(p, 0 + COMPILE_ERROR_IF_TRUE(sizeof(p) > sizeof(void *)), sizeof(*(p)))
 #define i_zero_safe(p) \
-	safe_memset(p, 0 +  + COMPILE_ERROR_IF_TRUE(sizeof(p) > sizeof(void *)), sizeof(*(p)))
+	safe_memset(p, 0 + COMPILE_ERROR_IF_TRUE(sizeof(p) > sizeof(void *)), sizeof(*(p)))
 
 #define ST_CHANGED(st_a, st_b) \
 	((st_a).st_mtime != (st_b).st_mtime || \
