@@ -24,6 +24,7 @@ struct file_ostream {
 	bool flush_pending:1;
 	bool socket_cork_set:1;
 	bool no_socket_cork:1;
+	bool no_socket_nodelay:1;
 	bool no_sendfile:1;
 	bool autoclose_fd:1;
 };
