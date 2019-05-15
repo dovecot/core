@@ -8,6 +8,17 @@
  * Low-level Base64 encoder
  */
 
+off_t base64_get_full_encoded_size(struct base64_encoder *enc ATTR_UNUSED,
+				   off_t src_size)
+{
+	off_t out_size;
+
+	/* calculate size of encoded data */
+	out_size = MAX_BASE64_ENCODED_SIZE(src_size);
+
+	return out_size;
+}
+
 static size_t
 base64_encode_get_out_size(struct base64_encoder *enc, size_t src_size)
 {
