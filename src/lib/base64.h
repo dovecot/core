@@ -24,6 +24,8 @@ struct base64_scheme {
 enum base64_encode_flags {
 	/* Use CRLF instead of the default LF as line ending. */
 	BASE64_ENCODE_FLAG_CRLF                 = BIT(0),
+	/* Encode no padding at the end of the data. */
+	BASE64_ENCODE_FLAG_NO_PADDING           = BIT(1),
 };
 
 struct base64_encoder {
