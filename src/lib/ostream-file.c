@@ -330,6 +330,23 @@ static int buffer_flush(struct file_ostream *fstream)
 	return IS_STREAM_EMPTY(fstream) ? 1 : 0;
 }
 
+static void o_stream_tcp_flush_via_nodelay(struct file_ostream *fstream)
+{
+	if (net_set_tcp_nodelay(fstream->fd, TRUE) < 0) {
+		if (errno != ENOTSUP && errno != ENOTSOCK) {
+			i_error("file_ostream.net_set_tcp_nodelay(%s, TRUE) failed: %m",
+				o_stream_get_name(&fstream->ostream.ostream));
+		}
+		fstream->no_socket_nodelay = TRUE;
+	} else if (net_set_tcp_nodelay(fstream->fd, FALSE) < 0) {
+		/* We already successfully enabled TCP_NODELAY, so we're really
+		   not expecting any errors here. */
+		i_error("file_ostream.net_set_tcp_nodelay(%s, FALSE) failed: %m",
+			o_stream_get_name(&fstream->ostream.ostream));
+		fstream->no_socket_nodelay = TRUE;
+	}
+}
+
 static void o_stream_file_cork(struct ostream_private *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
@@ -359,12 +376,11 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 				fstream->no_socket_cork = TRUE;
 			fstream->socket_cork_set = FALSE;
 		}
-		if (set) {
+		if (set && !fstream->no_socket_nodelay) {
 			/* Uncorking - send all the pending data immediately.
 			   Remove nodelay immediately afterwards, so if any
 			   output is sent outside corking it may get delayed. */
-			net_set_tcp_nodelay(fstream->fd, TRUE);
-			net_set_tcp_nodelay(fstream->fd, FALSE);
+			o_stream_tcp_flush_via_nodelay(fstream);
 		}
 		stream->corked = set;
 	}
@@ -1004,6 +1020,7 @@ static void fstream_init_file(struct file_ostream *fstream)
 
 	if (S_ISREG(st.st_mode)) {
 		fstream->no_socket_cork = TRUE;
+		fstream->no_socket_nodelay = TRUE;
 		fstream->file = TRUE;
 	}
 }
@@ -1030,6 +1047,7 @@ struct ostream * o_stream_create_fd_common(int fd, size_t max_buffer_size,
 		if (net_getsockname(fd, NULL, NULL) < 0) {
 			fstream->no_sendfile = TRUE;
 			fstream->no_socket_cork = TRUE;
+			fstream->no_socket_nodelay = TRUE;
 		}
 	}
 
