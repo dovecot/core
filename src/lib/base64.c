@@ -11,11 +11,25 @@
 off_t base64_get_full_encoded_size(struct base64_encoder *enc, off_t src_size)
 {
 	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
+	bool no_padding = HAS_ALL_BITS(enc->flags,
+				       BASE64_ENCODE_FLAG_NO_PADDING);
 	off_t out_size;
 	off_t newlines;
 
 	/* calculate size of encoded data */
 	out_size = MAX_BASE64_ENCODED_SIZE(src_size);
+	if (no_padding) {
+		switch (src_size % 3) {
+		case 0:
+			break;
+		case 1:
+			out_size -= 2;
+			break;
+		case 2:
+			out_size -= 1;
+			break;
+		}
+	}
 
 	/* newline between each full line */
 	newlines = (out_size / enc->max_line_len) - 1;
@@ -337,6 +351,7 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	const struct base64_scheme *b64 = enc->b64;
 	const char *b64enc = b64->encmap;
 	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
+	bool padding = HAS_NO_BITS(enc->flags, BASE64_ENCODE_FLAG_NO_PADDING);
 	unsigned char *ptr, *end;
 	size_t dst_avail, line_avail, write;
 	unsigned char w_buf[9];
@@ -364,15 +379,21 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	case 0:
 		break;
 	case 1:
-		w_buf[w_buf_len + 0] = b64enc[enc->buf];
-		w_buf[w_buf_len + 1] =  '=';
-		w_buf[w_buf_len + 2] =  '=';
-		w_buf_len += 3;
+		w_buf[w_buf_len] = b64enc[enc->buf];
+		w_buf_len ++;
+		if (padding) {
+			w_buf[w_buf_len + 0] =  '=';
+			w_buf[w_buf_len + 1] =  '=';
+			w_buf_len += 2;
+		}
 		break;
 	case 2:
-		w_buf[w_buf_len + 0] = b64enc[enc->buf];
-		w_buf[w_buf_len + 1] =  '=';
-		w_buf_len += 2;
+		w_buf[w_buf_len] = b64enc[enc->buf];
+		w_buf_len++;
+		if (padding) {
+			w_buf[w_buf_len + 0] =  '=';
+			w_buf_len++;
+		}
 		break;
 	default:
 		i_unreached();

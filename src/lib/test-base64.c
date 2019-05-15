@@ -265,6 +265,12 @@ tests_base64_encode_lowlevel[] = {
 	},
 	{
 		.scheme = &base64_scheme,
+		.flags = BASE64_ENCODE_FLAG_NO_PADDING,
+		.input = "hello world",
+		.output = "aGVsbG8gd29ybGQ",
+	},
+	{
+		.scheme = &base64_scheme,
 		.input = "foo barits",
 		.output = "Zm9vIGJhcml0cw==",
 	},
@@ -275,11 +281,23 @@ tests_base64_encode_lowlevel[] = {
 	},
 	{
 		.scheme = &base64_scheme,
+		.flags = BASE64_ENCODE_FLAG_NO_PADDING,
+		.input = "foo barits",
+		.output = "Zm9vIGJhcml0cw",
+	},
+	{
+		.scheme = &base64_scheme,
 		.input = "just niin",
 		.output = "anVzdCBuaWlu",
 	},
 	{
 		.scheme = &base64url_scheme,
+		.input = "just niin",
+		.output = "anVzdCBuaWlu",
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_ENCODE_FLAG_NO_PADDING,
 		.input = "just niin",
 		.output = "anVzdCBuaWlu",
 	},
