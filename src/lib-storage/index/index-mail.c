@@ -1145,9 +1145,9 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_cache_sizes(mail);
 	index_mail_cache_dates(mail);
 	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+	    mail->data.parsed_bodystructure &&
 	    !mail_has_attachment_keywords(&mail->mail.mail)) {
 		i_assert(mail->data.parts != NULL);
-		i_assert(mail->data.parsed_bodystructure);
 		(void)mail_set_attachment_keywords(&mail->mail.mail);
 	}
 	return 0;
