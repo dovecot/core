@@ -1,12 +1,20 @@
 #ifndef BASE64_H
 #define BASE64_H
 
+/*
+ * Common Base64
+ */
+
 /* max. buffer size required for base64_encode() */
 #define MAX_BASE64_ENCODED_SIZE(size) \
 	((((size) + 2) / 3) * 4)
 /* max. buffer size required for base64_decode() */
 #define MAX_BASE64_DECODED_SIZE(size) \
 	(((size) + 3) / 4 * 3)
+
+/*
+ * "base64" encoding (RFC 4648, Section 4)
+ */
 
 /* Translates binary data into base64. The src must not point to dest buffer. */
 void base64_encode(const void *src, size_t src_size, buffer_t *dest);
