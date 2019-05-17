@@ -116,6 +116,8 @@ enum base64_decode_flags {
 	BASE64_DECODE_FLAG_EXPECT_BOUNDARY = BIT(0),
 	/* Prohibit whitespace in the input. */
 	BASE64_DECODE_FLAG_NO_WHITESPACE   = BIT(1),
+	/* Require absence of padding at the end of the input. */
+	BASE64_DECODE_FLAG_NO_PADDING      = BIT(2),
 };
 
 struct base64_decoder {
