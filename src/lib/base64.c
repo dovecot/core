@@ -4,6 +4,10 @@
 #include "base64.h"
 #include "buffer.h"
 
+/*
+ * "base64" encoding (RFC 4648, Section 4)
+ */
+
 static const char b64enc[];
 static const unsigned char b64dec[256];
 
