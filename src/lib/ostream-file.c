@@ -1044,8 +1044,15 @@ struct ostream * o_stream_create_fd_common(int fd, size_t max_buffer_size,
 		fstream->buffer_offset = offset;
 		fstream_init_file(fstream);
 	} else {
-		if (net_getsockname(fd, NULL, NULL) < 0) {
+		struct ip_addr local_ip;
+
+		if (net_getsockname(fd, &local_ip, NULL) < 0) {
+			/* not a socket */
 			fstream->no_sendfile = TRUE;
+			fstream->no_socket_cork = TRUE;
+			fstream->no_socket_nodelay = TRUE;
+		} else if (local_ip.family == 0) {
+			/* UNIX domain socket */
 			fstream->no_socket_cork = TRUE;
 			fstream->no_socket_nodelay = TRUE;
 		}
