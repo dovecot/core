@@ -588,58 +588,65 @@ int base64_decode_more(struct base64_decoder *dec,
 		/* try to parse the end (padding) of the base64 input */
 		i_assert(src_pos < src_size);
 
-		switch (dec->sub_pos) {
-		case 0:
-		case 1:
-			/* no padding expected */
+		if (HAS_ALL_BITS(dec->flags,
+				 BASE64_DECODE_FLAG_NO_PADDING)) {
+			/* no padding allowed */
+			i_assert(!dec->seen_padding);
 			ret = -1;
-			break;
-		case 2:
-			if (unlikely(src_c[src_pos] != '=')) {
-				/* invalid character */
+		} else {
+			switch (dec->sub_pos) {
+			case 0:
+			case 1:
+				/* no padding expected */
 				ret = -1;
 				break;
-			}
-			dec->seen_padding = TRUE;
-			dec->sub_pos++;
-			src_pos++;
-			if (src_pos == src_size) {
-				ret = 1;
+			case 2:
+				if (unlikely(src_c[src_pos] != '=')) {
+					/* invalid character */
+					ret = -1;
+					break;
+				}
+				dec->seen_padding = TRUE;
+				dec->sub_pos++;
+				src_pos++;
+				if (src_pos == src_size) {
+					ret = 1;
+					break;
+				}
+				/* skip any whitespace in the padding */
+				base64_skip_whitespace(dec, src_c, src_size,
+						       &src_pos);
+				if (src_pos == src_size) {
+					ret = 1;
+					break;
+				}
+				/* fall through */
+			case 3:
+				if (unlikely(src_c[src_pos] != '=')) {
+					/* invalid character */
+					ret = -1;
+					break;
+				}
+				dec->seen_padding = TRUE;
+				dec->seen_end = TRUE;
+				dec->sub_pos = 0;
+				src_pos++;
+				/* skip any trailing whitespace */
+				base64_skip_whitespace(dec, src_c, src_size,
+						       &src_pos);
+				if (src_pos < src_size) {
+					ret = -1;
+					break;
+				}
+				if (no_whitespace) {
+					dec->seen_boundary = TRUE;
+					ret = 0;
+				} else {
+					/* more whitespace may follow */
+					ret = 1;
+				}
 				break;
 			}
-			/* skip any whitespace in the padding */
-			base64_skip_whitespace(dec, src_c, src_size,
-					       &src_pos);
-			if (src_pos == src_size) {
-				ret = 1;
-				break;
-			}
-			/* fall through */
-		case 3:
-			if (unlikely(src_c[src_pos] != '=')) {
-				/* invalid character */
-				ret = -1;
-				break;
-			}
-			dec->seen_padding = TRUE;
-			dec->seen_end = TRUE;
-			dec->sub_pos = 0;
-			src_pos++;
-			/* skip any trailing whitespace */
-			base64_skip_whitespace(dec, src_c, src_size,
-					       &src_pos);
-			if (src_pos < src_size) {
-				ret = -1;
-				break;
-			}
-			if (no_whitespace) {
-				dec->seen_boundary = TRUE;
-				ret = 0;
-			} else {
-				/* more whitespace may follow */
-				ret = 1;
-			}
-			break;
 		}
 	}
 
@@ -661,7 +668,13 @@ int base64_decode_finish(struct base64_decoder *dec)
 	i_assert(!dec->finished);
 	dec->finished = TRUE;
 
-	return (!dec->failed && dec->sub_pos == 0 ? 0 : -1);
+	if (dec->failed)
+		return -1;
+
+	if (HAS_ALL_BITS(dec->flags,
+			 BASE64_DECODE_FLAG_NO_PADDING))
+		return 0;
+	return (dec->sub_pos == 0 ? 0 : -1);
 }
 
 /*
