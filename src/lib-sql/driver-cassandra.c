@@ -71,6 +71,7 @@ static const char *cassandra_query_type_names[CASSANDRA_QUERY_TYPE_COUNT] = {
 
 struct cassandra_callback {
 	unsigned int id;
+	struct timeout *to;
 	CassFuture *future;
 	struct cassandra_db *db;
 	driver_cassandra_callback_t *callback;
@@ -384,6 +385,7 @@ static void driver_cassandra_log_error(struct cassandra_db *db,
 
 static void cassandra_callback_run(struct cassandra_callback *cb)
 {
+	timeout_remove(&cb->to);
 	cb->callback(cb->future, cb->context);
 	cass_future_free(cb->future);
 	i_free(cb);
@@ -393,6 +395,12 @@ static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 					     void *context)
 {
 	struct cassandra_callback *cb = context;
+
+	if (cb->id == 0) {
+		/* called immediately from the main thread. */
+		cb->to = timeout_add_short(0, cassandra_callback_run, cb);
+		return;
+	}
 
 	/* this isn't the main thread - communicate with main thread by
 	   writing the callback id to the pipe. note that we must not use
@@ -455,15 +463,25 @@ driver_cassandra_set_callback(CassFuture *future, struct cassandra_db *db,
 {
 	struct cassandra_callback *cb;
 
+	i_assert(callback != NULL);
+
 	cb = i_new(struct cassandra_callback, 1);
-	cb->id = ++db->callback_ids;
 	cb->future = future;
 	cb->callback = callback;
 	cb->context = context;
 	cb->db = db;
-	array_push_back(&db->callbacks, &cb);
 
+	/* NOTE: The callback may be called immediately. This is checked by
+	   seeing whether cb->id==0, so set it only after this call. */
 	cass_future_set_callback(future, driver_cassandra_future_callback, cb);
+
+	if (cb->to == NULL) {
+		/* callback will be called later */
+		array_push_back(&db->callbacks, &cb);
+		cb->id = ++db->callback_ids;
+		if (cb->id == 0)
+			cb->id = ++db->callback_ids;
+	}
 }
 
 static void connect_callback(CassFuture *future, void *context)
