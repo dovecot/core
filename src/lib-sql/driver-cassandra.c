@@ -382,6 +382,13 @@ static void driver_cassandra_log_error(struct cassandra_db *db,
 	e_error(db->api.event, "%s: %.*s", str, (int)size, message);
 }
 
+static void cassandra_callback_run(struct cassandra_callback *cb)
+{
+	cb->callback(cb->future, cb->context);
+	cass_future_free(cb->future);
+	i_free(cb);
+}
+
 static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 					     void *context)
 {
@@ -398,13 +405,6 @@ static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 			strerror(errno));
 		(void)write_full(STDERR_FILENO, str, strlen(str));
 	}
-}
-
-static void cassandra_callback_run(struct cassandra_callback *cb)
-{
-	cb->callback(cb->future, cb->context);
-	cass_future_free(cb->future);
-	i_free(cb);
 }
 
 static void driver_cassandra_input_id(struct cassandra_db *db, unsigned int id)
