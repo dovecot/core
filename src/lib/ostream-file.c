@@ -370,6 +370,10 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 					stream_send_io, fstream);
 			}
 		}
+		if (stream->ostream.closed) {
+			/* flushing may have closed the stream already */
+			return;
+		}
 
 		if (fstream->socket_cork_set) {
 			i_assert(!set);
