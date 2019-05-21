@@ -31,6 +31,8 @@ static void test_ostream_multiplex_simple(void)
 
 	o_stream_unref(&os3);
 	o_stream_unref(&os2);
+
+	test_assert(o_stream_finish(os) == 1);
 	o_stream_unref(&os);
 
 	test_assert(sizeof(expected) == result->used);
@@ -91,10 +93,17 @@ static void test_ostream_multiplex_stream_write(struct ostream *channel ATTR_UNU
 {
 	size_t rounds = 1 + i_rand() % 10;
 	for(size_t i = 0; i < rounds; i++) {
-		if ((i_rand() % 2) != 0)
-			o_stream_nsend_str(chan1, msgs[i_rand() % N_ELEMENTS(msgs)]);
-		else
+		if ((i_rand() % 2) != 0) {
+			o_stream_cork(chan1);
+			/* send one byte at a time */
+			for(const char *p = msgs[i_rand() % N_ELEMENTS(msgs)];
+			    *p != '\0'; p++) {
+				o_stream_nsend(chan1, p, 1);
+			}
+			o_stream_uncork(chan1);
+		} else {
 			o_stream_nsend_str(chan0, msgs[i_rand() % N_ELEMENTS(msgs)]);
+		}
 	}
 }
 
@@ -141,8 +150,40 @@ static void test_ostream_multiplex_stream(void)
 	test_end();
 }
 
+static void test_ostream_multiplex_cork(void)
+{
+	test_begin("ostream multiplex (corking)");
+	buffer_t *output = t_buffer_create(128);
+	struct ostream *os = test_ostream_create(output);
+	struct ostream *chan0 = o_stream_create_multiplex(os, (size_t)-1);
+
+	const struct const_iovec iov[] = {
+		{ "hello", 5 },
+		{ " ", 1 },
+		{ "world", 5 },
+		{ "!", 1 }
+	};
+
+	/* send data in parts, expect to see single blob */
+	o_stream_cork(chan0);
+	o_stream_nsendv(chan0, iov, N_ELEMENTS(iov));
+	o_stream_uncork(chan0);
+	o_stream_flush(os);
+
+	/* check output */
+	test_assert(memcmp(output->data, "\0\0\0\0\f", 5) == 0);
+	test_assert(strcmp(str_c(output)+5, "hello world!") == 0);
+
+	test_assert(o_stream_finish(chan0) > 0);
+	o_stream_unref(&chan0);
+	o_stream_unref(&os);
+
+	test_end();
+}
+
 void test_ostream_multiplex(void)
 {
 	test_ostream_multiplex_simple();
 	test_ostream_multiplex_stream();
+	test_ostream_multiplex_cork();
 }
