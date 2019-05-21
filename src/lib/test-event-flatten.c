@@ -146,17 +146,23 @@ static void test_event_flatten_one_parent(void)
 		.key = "abc",
 		.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX,
 		.value.intmax = 42,
+		.value.str = NULL,
+		.value.timeval = {0},
 	};
 	static struct event_field exp_2int[2] = {
 		{
 			.key = "abc",
 			.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX,
 			.value.intmax = 42,
+			.value.str = NULL,
+			.value.timeval = {0},
 		},
 		{
 			.key = "def",
 			.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX,
 			.value.intmax = 49,
+			.value.str = NULL,
+			.value.timeval = {0},
 		},
 	};
 	static struct event_field exp_1str1int[2] = {
@@ -164,11 +170,15 @@ static void test_event_flatten_one_parent(void)
 			.key = "abc",
 			.value_type = EVENT_FIELD_VALUE_TYPE_STR,
 			.value.str = "foo",
+			.value.intmax = 0,
+			.value.timeval = {0},
 		},
 		{
 			.key = "def",
 			.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX,
 			.value.intmax = 49,
+			.value.str = NULL,
+			.value.timeval = {0},
 		},
 	};
 	struct event *parent;
@@ -209,22 +219,30 @@ static void test_event_flatten_override_parent_field(void)
 		.key = "abc",
 		.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX,
 		.value.intmax = 42,
+		.value.str = NULL,
+		.value.timeval = {0},
 	};
 	static struct event_field exp_str = {
 		.key = "abc",
 		.value_type = EVENT_FIELD_VALUE_TYPE_STR,
 		.value.str = "def",
+		.value.intmax = 0,
+		.value.timeval = {0},
 	};
 	static struct event_field exp_2str[2] = {
 		{
 			.key = "abc",
 			.value_type = EVENT_FIELD_VALUE_TYPE_STR,
 			.value.str = "def",
+			.value.intmax = 0,
+			.value.timeval = {0},
 		},
 		{
 			.key = "foo",
 			.value_type = EVENT_FIELD_VALUE_TYPE_STR,
 			.value.str = "bar",
+			.value.intmax = 0,
+			.value.timeval = {0},
 		},
 	};
 	struct event *parent;
