@@ -37,3 +37,24 @@ headers = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+test_libs = \
+	$(module_LTLIBRARIES) \
+	$(noinst_LTLIBRARIES) \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_iostream_ssl_SOURCES = test-iostream-ssl.c
+test_iostream_ssl_LDFLAGS = -static
+test_iostream_ssl_LDADD = $(test_libs) $(SSL_LIBS) $(DLLIB)
+test_iostream_ssl_DEPENDENCIES = $(test_libs)
+
+test_programs = \
+	test-iostream-ssl
+
+noinst_PROGRAMS = $(test_programs)
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
