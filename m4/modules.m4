@@ -11,4 +11,6 @@ AC_DEFUN([DOVECOT_MODULES], [
       DLLIB=-ldl
     ])
   ])
+  AC_SUBST(MODULE_LIBS)
+  AC_SUBST(DLLIB)
 ])
