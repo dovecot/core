@@ -23,6 +23,7 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
             [],
             [AC_LANG_PROGRAM()]
           )
+        ;;
       esac
     ])
 ])
