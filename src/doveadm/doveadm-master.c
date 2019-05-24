@@ -5,6 +5,7 @@
 #include "strescape.h"
 #include "istream.h"
 #include "write-full.h"
+#include "master-service.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 
@@ -91,7 +92,8 @@ static void cmd_reload(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 
 static struct istream *master_service_send_cmd(const char *cmd)
 {
-	const char *path;
+	struct istream *input;
+	const char *path, *line;
 
 	path = t_strconcat(doveadm_settings->base_dir, "/master", NULL);
 	int fd = net_connect_unix(path);
@@ -102,8 +104,18 @@ static struct istream *master_service_send_cmd(const char *cmd)
 	const char *str =
 		t_strdup_printf("VERSION\tmaster-client\t1\t0\n%s\n", cmd);
 	if (write_full(fd, str, strlen(str)) < 0)
-		i_error("write(%s) failed: %m", path);
-	return i_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
+		i_fatal("write(%s) failed: %m", path);
+
+	input = i_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
+	alarm(5);
+	if ((line = i_stream_read_next_line(input)) == NULL)
+		i_fatal("read(%s) failed: %m", path);
+	if (!version_string_verify(line, "master-server", 1)) {
+		i_fatal_status(EX_PROTOCOL,
+			"%s is not a compatible master socket", path);
+	}
+	alarm(0);
+	return input;
 }
 
 static struct istream *
