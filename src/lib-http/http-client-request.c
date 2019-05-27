@@ -399,6 +399,9 @@ http_client_request_lookup_header_pos(struct http_client_request *req,
 	size_t size, line_len;
 	size_t key_len = strlen(key);
 
+	if (req->headers == NULL)
+		return FALSE;
+
 	data = str_data(req->headers);
 	size = str_len(req->headers);
 	while ((p = memchr(data, '\n', size)) != NULL) {
