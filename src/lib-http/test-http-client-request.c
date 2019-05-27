@@ -74,6 +74,12 @@ static void test_http_client_request_headers(void)
 	test_assert(http_client_request_lookup_header(req, "xyz") == NULL);
 	test_assert_strcmp(str_c(req->headers), "");
 
+	/* test _add_missing_header() */
+	http_client_request_add_missing_header(req, "foo", "bar");
+	test_assert_strcmp(str_c(req->headers), "foo: bar\r\n");
+	http_client_request_add_missing_header(req, "foo", "123");
+	test_assert_strcmp(str_c(req->headers), "foo: bar\r\n");
+
 	http_client_request_abort(&req);
 	http_client_deinit(&client);
 	test_end();
