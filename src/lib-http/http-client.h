@@ -288,6 +288,9 @@ void http_client_request_add_header(struct http_client_request *req,
    headers. */
 void http_client_request_remove_header(struct http_client_request *req,
 				       const char *key);
+/* lookup the value for a header added earlier. Returns NULL if not found. */
+const char *http_client_request_lookup_header(struct http_client_request *req,
+					      const char *key);
 
 /* set the value of the "Date" header for the request using a time_t value.
    Use this instead of setting it directly using
