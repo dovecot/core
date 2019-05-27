@@ -297,6 +297,9 @@ void http_client_request_set_preserve_exact_reason(struct http_client_request *r
    the value is replaced. */
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value);
+/* add a custom header to the request. Do nothing if it was already added. */
+void http_client_request_add_missing_header(struct http_client_request *req,
+					    const char *key, const char *value);
 /* remove a header added earlier. This has no influence on implicitly created
    headers. */
 void http_client_request_remove_header(struct http_client_request *req,
