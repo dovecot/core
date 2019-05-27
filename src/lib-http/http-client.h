@@ -280,7 +280,8 @@ void http_client_request_set_urgent(struct http_client_request *req);
 void http_client_request_set_preserve_exact_reason(struct http_client_request *req);
 
 /* add a custom header to the request. This can override headers that are
-   otherwise created implicitly. */
+   otherwise created implicitly. If the same header key was already added,
+   the value is replaced. */
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value);
 /* remove a header added earlier. This has no influence on implicitly created

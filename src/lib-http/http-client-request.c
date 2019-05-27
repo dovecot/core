@@ -364,6 +364,8 @@ http_client_request_lookup_header_pos(struct http_client_request *req,
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value)
 {
+	size_t key_pos, value_pos, next_pos;
+
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
 		 /* allow calling for retries */
 		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
@@ -410,7 +412,14 @@ void http_client_request_add_header(struct http_client_request *req,
 	}
 	if (req->headers == NULL)
 		req->headers = str_new(default_pool, 256);
-	str_printfa(req->headers, "%s: %s\r\n", key, value);
+	if (!http_client_request_lookup_header_pos(req, key, &key_pos,
+						   &value_pos, &next_pos))
+		str_printfa(req->headers, "%s: %s\r\n", key, value);
+	else {
+		/* don't delete CRLF */
+		size_t old_value_len = next_pos - value_pos - 2;
+		str_replace(req->headers, value_pos, old_value_len, value);
+	}
 }
 
 void http_client_request_remove_header(struct http_client_request *req,
