@@ -23,39 +23,55 @@ static void test_http_client_request_headers(void)
 	req = http_client_request(client, "GET", "host", "target",
 				  test_http_client_request_callback, NULL);
 
+	test_assert(http_client_request_lookup_header(req, "qwe") == NULL);
+
 	/* add the first */
 	http_client_request_add_header(req, "qwe", "value1");
+	test_assert_strcmp(http_client_request_lookup_header(req, "qwe"), "value1");
 	test_assert_strcmp(str_c(req->headers), "qwe: value1\r\n");
 
 	/* replace the first with the same length */
 	http_client_request_add_header(req, "qwe", "234567");
+	test_assert_strcmp(http_client_request_lookup_header(req, "qwe"), "234567");
 	test_assert_strcmp(str_c(req->headers), "qwe: 234567\r\n");
 
 	/* replace the first with smaller length */
 	http_client_request_add_header(req, "qwe", "xyz");
+	test_assert_strcmp(http_client_request_lookup_header(req, "qwe"), "xyz");
 	test_assert_strcmp(str_c(req->headers), "qwe: xyz\r\n");
 
 	/* replace the first with longer length */
 	http_client_request_add_header(req, "qwe", "abcdefg");
+	test_assert_strcmp(http_client_request_lookup_header(req, "qwe"), "abcdefg");
 	test_assert_strcmp(str_c(req->headers), "qwe: abcdefg\r\n");
 
 	/* add the second */
 	http_client_request_add_header(req, "xyz", "1234");
+	test_assert_strcmp(http_client_request_lookup_header(req, "qwe"), "abcdefg");
+	test_assert_strcmp(http_client_request_lookup_header(req, "xyz"), "1234");
 	test_assert_strcmp(str_c(req->headers), "qwe: abcdefg\r\nxyz: 1234\r\n");
 
 	/* replace second */
 	http_client_request_add_header(req, "xyz", "yuiop");
+	test_assert_strcmp(http_client_request_lookup_header(req, "qwe"), "abcdefg");
+	test_assert_strcmp(http_client_request_lookup_header(req, "xyz"), "yuiop");
 	test_assert_strcmp(str_c(req->headers), "qwe: abcdefg\r\nxyz: yuiop\r\n");
 
 	/* replace the first again */
 	http_client_request_add_header(req, "qwe", "1234");
+	test_assert_strcmp(http_client_request_lookup_header(req, "qwe"), "1234");
+	test_assert_strcmp(http_client_request_lookup_header(req, "xyz"), "yuiop");
 	test_assert_strcmp(str_c(req->headers), "qwe: 1234\r\nxyz: yuiop\r\n");
 
 	/* remove the headers */
 	http_client_request_remove_header(req, "qwe");
+	test_assert(http_client_request_lookup_header(req, "qwe") == NULL);
+	test_assert_strcmp(http_client_request_lookup_header(req, "xyz"), "yuiop");
 	test_assert_strcmp(str_c(req->headers), "xyz: yuiop\r\n");
 
 	http_client_request_remove_header(req, "xyz");
+	test_assert(http_client_request_lookup_header(req, "qwe") == NULL);
+	test_assert(http_client_request_lookup_header(req, "xyz") == NULL);
 	test_assert_strcmp(str_c(req->headers), "");
 
 	http_client_request_abort(&req);
