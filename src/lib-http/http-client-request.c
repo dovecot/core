@@ -333,6 +333,34 @@ void http_client_request_set_preserve_exact_reason(struct http_client_request *r
 	req->preserve_exact_reason = TRUE;
 }
 
+static bool
+http_client_request_lookup_header_pos(struct http_client_request *req,
+				      const char *key,
+				      size_t *key_pos_r, size_t *value_pos_r,
+				      size_t *next_pos_r)
+{
+	const unsigned char *data, *p;
+	size_t size, line_len;
+	size_t key_len = strlen(key);
+
+	data = str_data(req->headers);
+	size = str_len(req->headers);
+	while ((p = memchr(data, '\n', size)) != NULL) {
+		line_len = (p+1) - data;
+		if (size > key_len && i_memcasecmp(data, key, key_len) == 0 &&
+		    data[key_len] == ':' && data[key_len+1] == ' ') {
+			/* key was found from header, replace its value */
+			*key_pos_r = str_len(req->headers) - size;
+			*value_pos_r = *key_pos_r + key_len + 2;
+			*next_pos_r = *key_pos_r + line_len;
+			return TRUE;
+		}
+		size -= line_len;
+		data += line_len;
+	}
+	return FALSE;
+}
+
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value)
 {
@@ -388,29 +416,16 @@ void http_client_request_add_header(struct http_client_request *req,
 void http_client_request_remove_header(struct http_client_request *req,
 				       const char *key)
 {
-	const unsigned char *data, *p;
-	size_t size, line_len, line_start_pos;
-	size_t key_len = strlen(key);
+	size_t key_pos, value_pos, next_pos;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
 		 /* allow calling for retries */
 		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
 		 req->state == HTTP_REQUEST_STATE_ABORTED);
 
-	data = str_data(req->headers);
-	size = str_len(req->headers);
-	while ((p = memchr(data, '\n', size)) != NULL) {
-		line_len = (p+1) - data;
-		if (size > key_len && i_memcasecmp(data, key, key_len) == 0 &&
-		    data[key_len] == ':' && data[key_len+1] == ' ') {
-			/* key was found from header, replace its value */
-			line_start_pos = str_len(req->headers) - size;
-			str_delete(req->headers, line_start_pos, line_len);
-			break;
-		}
-		size -= line_len;
-		data += line_len;
-	}
+	if (http_client_request_lookup_header_pos(req, key, &key_pos,
+						  &value_pos, &next_pos))
+		str_delete(req->headers, key_pos, next_pos - key_pos);
 }
 
 void http_client_request_set_date(struct http_client_request *req,
