@@ -496,6 +496,20 @@ void http_client_request_remove_header(struct http_client_request *req,
 		str_delete(req->headers, key_pos, next_pos - key_pos);
 }
 
+const char *http_client_request_lookup_header(struct http_client_request *req,
+					      const char *key)
+{
+	size_t key_pos, value_pos, next_pos;
+
+	if (!http_client_request_lookup_header_pos(req, key, &key_pos,
+						   &value_pos, &next_pos))
+		return NULL;
+
+	/* don't return CRLF */
+	return t_strndup(str_data(req->headers) + value_pos,
+			 next_pos - value_pos - 2);
+}
+
 void http_client_request_set_date(struct http_client_request *req,
 				    time_t date)
 {
