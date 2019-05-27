@@ -99,6 +99,8 @@ void fd_set_nonblock(int fd, bool nonblock)
 {
 	int flags;
 
+	i_assert(fd > -1);
+
 	flags = fcntl(fd, F_GETFL, 0);
 	if (flags < 0)
 		i_fatal("fcntl(%d, F_GETFL) failed: %m", fd);
