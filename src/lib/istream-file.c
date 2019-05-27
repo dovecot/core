@@ -221,6 +221,7 @@ i_stream_create_file_common(struct file_istream *fstream,
 		fstream->istream.istream.blocking = TRUE;
 		fstream->istream.istream.seekable = TRUE;
 	} else if ((flags = fcntl(fd, F_GETFL, 0)) < 0) {
+		i_assert(fd > -1);
 		/* shouldn't happen */
 		fstream->istream.istream.stream_errno = errno;
 		io_stream_set_error(&fstream->istream.iostream,
