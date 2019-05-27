@@ -63,6 +63,7 @@ test_programs = \
 	test-http-request-parser \
 	test-http-payload \
 	test-http-client-errors \
+	test-http-client-request \
 	test-http-server-errors
 
 test_nocheck_programs = \
@@ -176,6 +177,13 @@ test_http_client_errors_LDFLAGS = -export-dynamic
 test_http_client_errors_LDADD = \
 	$(test_http_libs)
 test_http_client_errors_DEPENDENCIES = \
+	$(test_http_deps)
+
+test_http_client_request_SOURCES = test-http-client-request.c
+test_http_client_request_LDFLAGS = -export-dynamic
+test_http_client_request_LDADD = \
+	$(test_http_libs)
+test_http_client_request_DEPENDENCIES = \
 	$(test_http_deps)
 
 test_http_server_SOURCES = test-http-server.c
