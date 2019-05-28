@@ -1181,6 +1181,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	enum mail_error mail_error;
 
 	if (!cli) {
+		/* replicator_notify indicates here automated attempt,
+		   we still want to allow manual sync/backup */
 		if (ctx->replicator_notify &&
 		    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
 			_ctx->exit_code = DOVEADM_EX_NOREPLICATE;
