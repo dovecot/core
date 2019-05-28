@@ -55,21 +55,31 @@ static void test_base64_decode(void)
 		  "hel", -1, 4 },
 	};
 	string_t *str;
+	buffer_t buf;
 	unsigned int i;
 	size_t src_pos;
 	int ret;
 
 	test_begin("base64_decode()");
-	str = t_str_new(256);
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
-		str_truncate(str, 0);
+		/* Some of the base64_decode() callers use fixed size buffers.
+		   Use a fixed size buffer here as well to test that
+		   base64_decode() can't allocate any extra space even
+		   temporarily. */
+		size_t max_decoded_size =
+			MAX_BASE64_DECODED_SIZE(strlen(tests[i].input));
 
+		buffer_create_from_data(&buf, t_malloc0(max_decoded_size),
+					max_decoded_size);
+		str = &buf;
 		src_pos = 0;
 		ret = base64_decode(tests[i].input, strlen(tests[i].input),
 				    &src_pos, str);
 
 		test_assert_idx(tests[i].ret == ret, i);
-		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+		test_assert_idx(strlen(tests[i].output) == str_len(str) &&
+				memcmp(tests[i].output, str_data(str),
+				       str_len(str)) == 0, i);
 		test_assert_idx(src_pos == tests[i].src_pos ||
 				(tests[i].src_pos == UINT_MAX &&
 				 src_pos == strlen(tests[i].input)), i);
