@@ -578,9 +578,18 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	enum dsync_brain_flags brain_flags;
 	enum mail_error mail_error = 0, mail_error2;
 	bool remote_errors_logged = FALSE;
+	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	const char *changes_during_sync, *changes_during_sync2 = NULL;
 	bool remote_only_changes;
 	int ret = 0;
+
+	/* replicator_notify indicates here automated attempt,
+	   we still want to allow manual sync/backup */
+	if (!cli && ctx->replicator_notify &&
+	    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
+		ctx->ctx.exit_code = DOVEADM_EX_NOREPLICATE;
+		return -1;
+	}
 
 	i_zero(&set);
 	if (cctx->remote_ip.family != 0) {
