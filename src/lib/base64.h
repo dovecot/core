@@ -28,5 +28,5 @@ bool base64_is_valid_char(char c);
 	((((size) + 2) / 3) * 4)
 /* max. buffer size required for base64_decode() */
 #define MAX_BASE64_DECODED_SIZE(size) \
-	((size) / 4 * 3 + 3)
+	(((size) + 3) / 4 * 3)
 #endif
