@@ -1170,7 +1170,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	if (!cli) {
 		if (ctx->replicator_notify &&
 		    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
-			return DOVEADM_EX_NOREPLICATE;
+			_ctx->exit_code = DOVEADM_EX_NOREPLICATE;
+			return -1;
 		}
 
 		/* doveadm-server connection. start with a success reply.
