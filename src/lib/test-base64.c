@@ -23,10 +23,10 @@ static void test_base64_encode(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
 		base64_encode(tests[i].input, strlen(tests[i].input), str);
-		test_assert(strcmp(tests[i].output, str_c(str)) == 0);
-		test_assert(
-			str_len(str) == MAX_BASE64_ENCODED_SIZE(
-				strlen(tests[i].input)));
+		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+		test_assert_idx(
+			str_len(str) ==	MAX_BASE64_ENCODED_SIZE(
+				strlen(tests[i].input)), i);
 	}
 	test_end();
 }
@@ -68,15 +68,15 @@ static void test_base64_decode(void)
 		ret = base64_decode(tests[i].input, strlen(tests[i].input),
 				    &src_pos, str);
 
-		test_assert(tests[i].ret == ret &&
-			    strcmp(tests[i].output, str_c(str)) == 0 &&
-			    (src_pos == tests[i].src_pos ||
-			     (tests[i].src_pos == UINT_MAX &&
-			      src_pos == strlen(tests[i].input))));
+		test_assert_idx(tests[i].ret == ret, i);
+		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+		test_assert_idx(src_pos == tests[i].src_pos ||
+				(tests[i].src_pos == UINT_MAX &&
+				 src_pos == strlen(tests[i].input)), i);
 		if (ret >= 0) {
-			test_assert(
+			test_assert_idx(
 				str_len(str) <= MAX_BASE64_DECODED_SIZE(
-					strlen(tests[i].input)));
+					strlen(tests[i].input)), i);
 		}
 	}
 	test_end();
@@ -100,9 +100,10 @@ static void test_base64_random(void)
 		str_truncate(str, 0);
 		str_truncate(dest, 0);
 		base64_encode(buf, max, str);
-		test_assert(base64_decode(str_data(str), str_len(str), NULL, dest) >= 0);
-		test_assert(str_len(dest) == max &&
-			    memcmp(buf, str_data(dest), max) == 0);
+		test_assert_idx(base64_decode(str_data(str), str_len(str),
+					      NULL, dest) >= 0, i);
+		test_assert_idx(str_len(dest) == max &&
+				memcmp(buf, str_data(dest), max) == 0, i);
 	}
 	test_end();
 }
