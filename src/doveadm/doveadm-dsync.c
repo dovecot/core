@@ -784,6 +784,10 @@ static void dsync_connected_callback(int exit_code, const char *error,
 	case EX_NOUSER:
 		ctx->error = "Unknown user in remote";
 		break;
+	case DOVEADM_EX_NOREPLICATE:
+		if (doveadm_debug)
+			i_debug("user is disabled for replication");
+		break;
 	default:
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
 			"Failed to start remote dsync-server command: "
