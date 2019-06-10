@@ -65,6 +65,8 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(SET_STR, login_greeting),
 	DEF(SET_STR, login_trusted_networks),
 
+	DEF(SET_STR, recipient_delimiter),
+
 	DEF(SET_SIZE, submission_max_mail_size),
 	DEF(SET_UINT, submission_max_recipients),
 	DEF(SET_STR, submission_client_workarounds),
@@ -103,6 +105,8 @@ static const struct submission_settings submission_default_settings = {
 
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_trusted_networks = "",
+
+	.recipient_delimiter = "+",
 
 	.submission_max_mail_size = 40*1024*1024,
 	.submission_max_recipients = 0,

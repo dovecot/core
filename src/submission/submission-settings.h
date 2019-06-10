@@ -19,6 +19,8 @@ struct submission_settings {
 	const char *login_greeting;
 	const char *login_trusted_networks;
 
+	const char *recipient_delimiter;
+
 	/* submission: */
 	size_t submission_max_mail_size;
 	unsigned int submission_max_recipients;
