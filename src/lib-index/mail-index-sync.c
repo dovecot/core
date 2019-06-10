@@ -789,9 +789,27 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 		   tail offset. */
 		return;
 	}
-	/* synced everything, but we might also have committed new
-	   transactions. include them also here. */
-	mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
+	/* All changes were synced. During the syncing other transactions may
+	   have been created and committed as well. They're expected to be
+	   external transactions. These could be at least:
+	    - mdbox finishing expunges
+	    - mdbox writing to dovecot.map.index (requires tail offset updates)
+	    - sdbox appending messages
+
+	   If any expunges were committed, tail_offset must not be updated
+	   before mail_index_map(MAIL_INDEX_SYNC_HANDLER_FILE) is called.
+	   Otherwise expunge handlers won't be called for them.
+
+	   We'll require MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET flag for the
+	   few places that actually require tail_offset to include the
+	   externally committed transactions. Otherwise tail_offset is updated
+	   only up to what was just synced. */
+	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET) != 0)
+		mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
+	else {
+		mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
+						       &seq, &offset);
+	}
 	mail_transaction_log_set_mailbox_sync_pos(ctx->index->log, seq, offset);
 
 	/* If tail offset has changed, make sure it gets written to
