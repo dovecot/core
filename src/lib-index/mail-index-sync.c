@@ -787,8 +787,6 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 		/* Everything wasn't synced. This usually means that syncing
 		   was used for locking and nothing was synced. Don't update
 		   tail offset. */
-		mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
-						       &seq, &offset);
 		return;
 	}
 	/* synced everything, but we might also have committed new
