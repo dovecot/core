@@ -136,6 +136,9 @@ void mail_storage_service_all_init_mask(struct mail_storage_service_ctx *ctx,
 int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,
 				  const char **username_r);
 void mail_storage_service_deinit(struct mail_storage_service_ctx **ctx);
+/* Returns the first created service context. If it gets freed, NULL is
+   returned until the next time mail_storage_service_init() is called. */
+struct mail_storage_service_ctx *mail_storage_service_get_global(void);
 
 /* Activate user context. Normally this is called automatically by the ioloop,
    but e.g. during loops at deinit where all users are being destroyed, it's

@@ -94,6 +94,7 @@ struct mail_storage_service_user {
 };
 
 struct module *mail_storage_service_modules = NULL;
+static struct mail_storage_service_ctx *storage_service_global = NULL;
 
 static int
 mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
@@ -991,6 +992,8 @@ mail_storage_service_init(struct master_service *service,
 		master_service_init_log(service, ctx->default_log_prefix);
 	}
 	dict_drivers_register_builtin();
+	if (storage_service_global == NULL)
+		storage_service_global = ctx;
 	return ctx;
 }
 
@@ -1725,11 +1728,19 @@ void mail_storage_service_deinit(struct mail_storage_service_ctx **_ctx)
 	}
 	if (ctx->set_cache != NULL)
 		master_service_settings_cache_deinit(&ctx->set_cache);
+
+	if (storage_service_global == ctx)
+		storage_service_global = NULL;
 	pool_unref(&ctx->pool);
 
 	module_dir_unload(&mail_storage_service_modules);
 	mail_storage_deinit();
 	dict_drivers_unregister_builtin();
+}
+
+struct mail_storage_service_ctx *mail_storage_service_get_global(void)
+{
+	return storage_service_global;
 }
 
 void **mail_storage_service_user_get_set(struct mail_storage_service_user *user)
