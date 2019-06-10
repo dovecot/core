@@ -879,13 +879,6 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	}
 
 	mail_index_sync_update_mailbox_offset(ctx);
-	if (mail_cache_need_compress(index->cache)) {
-		/* if cache compression fails, we don't really care.
-		   the cache offsets are updated only if the compression was
-		   successful. */
-		(void)mail_cache_compress(index->cache, ctx->ext_trans,
-					  &cache_lock);
-	}
 
 	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0) {
 		next_uid = mail_index_transaction_get_next_uid(ctx->ext_trans);
@@ -906,8 +899,6 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	}
 
 	ret2 = mail_index_transaction_commit(&ctx->ext_trans);
-	if (cache_lock != NULL)
-		mail_cache_compress_unlock(&cache_lock);
 	if (ret2 < 0) {
 		mail_index_sync_end(&ctx);
 		return -1;
@@ -927,6 +918,27 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE) <= 0)
 		ret = -1;
 	index->sync_commit_result = NULL;
+
+	/* The previously called expunged handlers will update cache's
+	   record_count and deleted_record_count. That also has a side effect
+	   of updating whether cache needs to be compressed. */
+	if (ret == 0 && mail_cache_need_compress(index->cache)) {
+		struct mail_index_transaction *cache_trans;
+		enum mail_index_transaction_flags trans_flags;
+
+		trans_flags = MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
+		if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_FSYNC) != 0)
+			trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
+		cache_trans = mail_index_transaction_begin(ctx->view, trans_flags);
+		if (mail_cache_compress(index->cache, cache_trans,
+					&cache_lock) < 0)
+			mail_index_transaction_rollback(&cache_trans);
+		else {
+			/* can't really do anything if index commit fails */
+			(void)mail_index_transaction_commit(&cache_trans);
+			mail_cache_compress_unlock(&cache_lock);
+		}
+	}
 
 	want_rotate = mail_transaction_log_want_rotate(index->log);
 	if (ret == 0 &&
