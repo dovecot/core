@@ -27,6 +27,7 @@ struct exporter {
 	 * the "how do we get the event to the external location" knobs
 	 */
 	const char *transport_args;
+	unsigned int transport_timeout;
 
 	/* function to send the event */
 	void (*transport)(const struct exporter *, const buffer_t *);
