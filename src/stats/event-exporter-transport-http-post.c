@@ -6,8 +6,6 @@
 #include "event-exporter.h"
 #include "http-client.h"
 
-#define EXPORT_HTTP_TIMEOUT	250 /* msec */
-
 /* the http client used to export all events with exporter=http-post */
 static struct http_client *exporter_http_client;
 
@@ -56,6 +54,6 @@ void event_export_transport_http_post(const struct exporter *exporter,
 	http_client_request_add_header(req, "Content-Type", exporter->format_mime_type);
 	http_client_request_set_payload_data(req, buf->data, buf->used);
 
-	http_client_request_set_timeout_msecs(req, EXPORT_HTTP_TIMEOUT);
+	http_client_request_set_timeout_msecs(req, exporter->transport_timeout);
 	http_client_request_submit(req);
 }
