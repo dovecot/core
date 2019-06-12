@@ -1,6 +1,16 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+/*
+ * Note:
+ *
+ * The definitions in this file are used for parsing of external config
+ * files and *not* for parsing of dovecot.conf.  Unfortunately, the types
+ * here (e.g., enum settings_type) collide with those in settings-parser.h.
+ *
+ * We should remove the need for this file in v3.0.
+ */
+
 enum setting_type {
 	SET_STR,
 	SET_INT,
