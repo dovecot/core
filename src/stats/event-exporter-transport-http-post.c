@@ -6,7 +6,7 @@
 #include "event-exporter.h"
 #include "http-client.h"
 
-#define EXPORT_HTTP_TIMEOUT	50 /* msec */
+#define EXPORT_HTTP_TIMEOUT	250 /* msec */
 
 /* the http client used to export all events with exporter=http-post */
 static struct http_client *exporter_http_client;
