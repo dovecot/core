@@ -1062,6 +1062,33 @@ const char *net_gethosterror(int error)
 	return gai_strerror(error);
 }
 
+enum net_hosterror_type net_get_hosterror_type(int error)
+{
+	const struct {
+		int error;
+		enum net_hosterror_type type;
+	} error_map[] = {
+		{ EAI_ADDRFAMILY, NET_HOSTERROR_TYPE_NOT_FOUND },
+		{ EAI_AGAIN, NET_HOSTERROR_TYPE_NAMESERVER },
+		{ EAI_BADFLAGS, NET_HOSTERROR_TYPE_INTERNAL_ERROR },
+		{ EAI_FAIL, NET_HOSTERROR_TYPE_NAMESERVER },
+		{ EAI_FAMILY, NET_HOSTERROR_TYPE_INTERNAL_ERROR },
+		{ EAI_MEMORY, NET_HOSTERROR_TYPE_INTERNAL_ERROR },
+		{ EAI_NODATA, NET_HOSTERROR_TYPE_NOT_FOUND },
+		{ EAI_NONAME, NET_HOSTERROR_TYPE_NOT_FOUND },
+		{ EAI_SERVICE, NET_HOSTERROR_TYPE_INTERNAL_ERROR },
+		{ EAI_SOCKTYPE, NET_HOSTERROR_TYPE_INTERNAL_ERROR },
+		{ EAI_SYSTEM, NET_HOSTERROR_TYPE_INTERNAL_ERROR },
+	};
+	for (unsigned int i = 0; i < N_ELEMENTS(error_map); i++) {
+		if (error_map[i].error == error)
+			return error_map[i].type;
+	}
+
+	/* shouldn't happen? assume internal error */
+	return NET_HOSTERROR_TYPE_INTERNAL_ERROR;
+}
+
 int net_hosterror_notfound(int error)
 {
 #ifdef EAI_NODATA /* NODATA is depricated */
