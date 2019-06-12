@@ -61,6 +61,7 @@ struct stats_exporter_settings {
 	const char *name;
 	const char *transport;
 	const char *transport_args;
+	unsigned int transport_timeout;
 	const char *format;
 	const char *format_args;
 

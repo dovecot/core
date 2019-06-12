@@ -57,6 +57,7 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 	exporter = p_new(metrics->pool, struct exporter, 1);
 	exporter->name = p_strdup(metrics->pool, set->name);
 	exporter->transport_args = p_strdup(metrics->pool, set->transport_args);
+	exporter->transport_timeout = set->transport_timeout;
 	exporter->time_format = set->parsed_time_format;
 
 	/* TODO: The following should be plugable.

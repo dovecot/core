@@ -62,6 +62,7 @@ static const struct setting_define stats_exporter_setting_defines[] = {
 	DEF(SET_STR, name),
 	DEF(SET_STR, transport),
 	DEF(SET_STR, transport_args),
+	DEF(SET_TIME_MSECS, transport_timeout),
 	DEF(SET_STR, format),
 	DEF(SET_STR, format_args),
 	SETTING_DEFINE_LIST_END
@@ -71,6 +72,7 @@ static const struct stats_exporter_settings stats_exporter_default_settings = {
 	.name = "",
 	.transport = "",
 	.transport_args = "",
+	.transport_timeout = 250, /* ms */
 	.format = "",
 	.format_args = "",
 };
