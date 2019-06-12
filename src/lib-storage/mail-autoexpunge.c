@@ -124,8 +124,11 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 	mail_free(&mail);
 	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
-	else
+	else if (count > 0) {
+		if (mailbox_sync(box, 0) < 0)
+			ret = -1;
 		*expunged_count += count;
+	}
 	return ret;
 }
 
