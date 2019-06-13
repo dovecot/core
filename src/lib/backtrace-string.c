@@ -11,7 +11,7 @@
 
 #include <libunwind.h>
 
-int backtrace_append(string_t *str)
+static int backtrace_append_unwind(string_t *str)
 {
 	size_t str_orig_size = str_len(str);
 	char proc_name[256];
@@ -57,12 +57,13 @@ int backtrace_append(string_t *str)
 		str_truncate(str, str->used - 4);
 	return ret == 0 && success ? 0 : -1;
 }
+#endif
 
-#elif defined(HAVE_BACKTRACE_SYMBOLS) && defined(HAVE_EXECINFO_H)
+#if defined(HAVE_BACKTRACE_SYMBOLS) && defined(HAVE_EXECINFO_H)
 /* Linux */
 #include <execinfo.h>
 
-int backtrace_append(string_t *str)
+static int backtrace_append_libc(string_t *str)
 {
 	size_t str_orig_size = str_len(str);
 	void *stack[MAX_STACK_SIZE];
@@ -109,7 +110,7 @@ static int walk_callback(uintptr_t ptr, int signo ATTR_UNUSED,
 	return 0;
 }
 
-int backtrace_append(string_t *str)
+static int backtrace_append_libc(string_t *str)
 {
 	ucontext_t uc;
 	struct walk_context ctx;
@@ -123,11 +124,24 @@ int backtrace_append(string_t *str)
 	return 0;
 }
 #else
-int backtrace_append(string_t *str ATTR_UNUSED)
+static int backtrace_append_libc(string_t *str ATTR_UNUSED)
 {
 	return -1;
 }
 #endif
+
+int backtrace_append(string_t *str)
+{
+#if defined(HAVE_LIBUNWIND)
+	size_t orig_len = str_len(str);
+	if (backtrace_append_unwind(str) == 0)
+		return 0;
+	/* failed to get useful backtrace. libc's own method is likely
+	   better. */
+	str_truncate(str, orig_len);
+#endif
+	return backtrace_append_libc(str);
+}
 
 int backtrace_get(const char **backtrace_r)
 {
