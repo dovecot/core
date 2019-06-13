@@ -152,6 +152,10 @@ struct client *client_create(int fd_in, int fd_out,
 	client->remote_port = conn->remote_port;
 	client->local_ip = conn->local_ip;
 	client->local_port = conn->local_port;
+	client->real_local_ip = conn->real_local_ip;
+	client->real_local_port = conn->real_local_port;
+	client->real_remote_ip = conn->real_remote_ip;
+	client->real_remote_port = conn->real_remote_port;
 	client->state_pool = pool_alloconly_create("client state", 4096);
 
 	client->event = event_create(NULL);

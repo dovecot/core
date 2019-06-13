@@ -493,9 +493,13 @@ int lmtp_proxy_rcpt(struct client *client,
 	i_zero(&info);
 	info.service = master_service_get_name(master_service);
 	info.local_ip = client->local_ip;
+	info.real_local_ip = client->real_local_ip;
 	info.remote_ip = client->remote_ip;
+	info.real_remote_ip = client->real_remote_ip;
 	info.local_port = client->local_port;
+	info.real_local_port = client->real_local_port;
 	info.remote_port = client->remote_port;
+	info.real_remote_port = client->real_remote_port;
 
 	// FIXME: make this async
 	auth_pool = pool_alloconly_create("auth lookup", 1024);
