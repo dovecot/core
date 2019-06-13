@@ -83,8 +83,8 @@ struct client {
 	struct smtp_server_connection *conn;
 	enum smtp_server_state last_state;
 
-	struct ip_addr remote_ip, local_ip;
-	in_port_t remote_port, local_port;
+	struct ip_addr remote_ip, local_ip, real_local_ip, real_remote_ip;
+	in_port_t remote_port, local_port, real_local_port, real_remote_port;
 
 	struct mail_user *raw_mail_user;
 	const char *my_domain;
