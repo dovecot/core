@@ -19,6 +19,7 @@ int backtrace_append(string_t *str)
 	unw_cursor_t c;
 	unw_context_t ctx;
 	unw_proc_info_t pip;
+	bool success = FALSE;
 
 	if ((ret = unw_getcontext(&ctx)) != 0) {
 		str_printfa(str, "unw_getcontext() failed: %d", ret);
@@ -45,6 +46,7 @@ int backtrace_append(string_t *str)
 		} else {
 			str_append_max(str, proc_name, sizeof(proc_name));
 			str_printfa(str, "[0x%08lx]", pip.start_ip);
+			success = TRUE;
 		}
 		str_append(str, " -> ");
 		fp++;
@@ -53,7 +55,7 @@ int backtrace_append(string_t *str)
 	/* remove ' -> ' */
 	if (str->used > 4)
 		str_truncate(str, str->used - 4);
-	return ret == 0 ? 0 : -1;
+	return ret == 0 && success ? 0 : -1;
 }
 
 #elif defined(HAVE_BACKTRACE_SYMBOLS) && defined(HAVE_EXECINFO_H)
