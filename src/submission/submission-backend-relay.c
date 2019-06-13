@@ -1033,6 +1033,7 @@ submission_backend_relay_create(
 	smtp_set.username = set->user;
 	smtp_set.master_user = set->master_user;
 	smtp_set.password = set->password;
+	smtp_set.sasl_mech = set->sasl_mech;
 	smtp_set.connect_timeout_msecs = set->connect_timeout_msecs;
 	smtp_set.command_timeout_msecs = set->command_timeout_msecs;
 

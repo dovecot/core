@@ -21,6 +21,7 @@ struct submision_backend_relay_settings {
 
 	const char *user, *master_user;
 	const char *password;
+	const struct dsasl_client_mech *sasl_mech;
 
 	enum smtp_client_connection_ssl_mode ssl_mode;
 
