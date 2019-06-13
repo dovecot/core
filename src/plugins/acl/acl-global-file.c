@@ -130,6 +130,7 @@ static int acl_global_file_read(struct acl_global_file *file)
 	i_array_init(&ctx.parse_rights, 32);
 
 	input = i_stream_create_file(file->path, (size_t)-1);
+	i_stream_set_return_partial_line(input, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		linenum++;
 		if (line[0] == '\0' || line[0] == '#')
