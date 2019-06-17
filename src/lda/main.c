@@ -32,8 +32,9 @@
 #include <stdio.h>
 #include <sysexits.h>
 
-#define DEFAULT_ENVELOPE_SENDER \
-	SMTP_ADDRESS_LITERAL("MAILER-DAEMON", NULL)
+const struct smtp_address default_envelope_sender = {
+	"MAILER-DAEMON", NULL
+};
 
 /* After buffer grows larger than this, create a temporary file to /tmp
    where to read the mail. */
@@ -157,7 +158,7 @@ lda_raw_mail_open(struct mail_deliver_input *dinput, const char *path)
 						    sets[0]);
 
 	mail_from = (dinput->mail_from != NULL ?
-		     dinput->mail_from : DEFAULT_ENVELOPE_SENDER);
+		     dinput->mail_from : &default_envelope_sender);
 	if (path == NULL) {
 		input = create_raw_stream(dinput, 0, &mtime);
 		i_stream_set_name(input, "stdin");
