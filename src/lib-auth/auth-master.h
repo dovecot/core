@@ -67,4 +67,6 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx);
 /* Returns -1 if anything failed, 0 if ok */
 int auth_master_user_list_deinit(struct auth_master_user_list_ctx **ctx);
 
+/* INTERNAL: */
+void auth_user_info_export(string_t *str, const struct auth_user_info *info);
 #endif
