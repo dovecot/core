@@ -760,12 +760,12 @@ test_client_denied_second_rcpt(const struct smtp_submit_settings *submit_set)
 
 	i_zero(&smtp_input);
 	smtp_submit = smtp_submit_init_simple(&smtp_input, &smtp_submit_set,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"));
+		&((struct smtp_address){"sender", "example.com"}));
 
 	smtp_submit_add_rcpt(smtp_submit,
-		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+		&((struct smtp_address){"rcpt", "example.com"}));
 	smtp_submit_add_rcpt(smtp_submit,
-		SMTP_ADDRESS_LITERAL("rcpt2", "example.com"));
+		&((struct smtp_address){"rcpt2", "example.com"}));
 	output = smtp_submit_send(smtp_submit);
 	o_stream_nsend_str(output, test_message1);
 
@@ -1475,10 +1475,10 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u",  bind_ports[0]);
 	smtp_submit1 = smtp_submit_init_simple(&smtp_input, &smtp_submit_set,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"));
+		&((struct smtp_address){"sender", "example.com"}));
 
 	smtp_submit_add_rcpt(smtp_submit1,
-		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+		&((struct smtp_address){"rcpt", "example.com"}));
 	output = smtp_submit_send(smtp_submit1);
 	o_stream_nsend_str(output, test_message1);
 
@@ -1490,10 +1490,10 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u",  bind_ports[1]);
 	smtp_submit2 = smtp_submit_init_simple(&smtp_input, &smtp_submit_set,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"));
+		&((struct smtp_address){"sender", "example.com"}));
 
 	smtp_submit_add_rcpt(smtp_submit2,
-		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+		&((struct smtp_address){"rcpt", "example.com"}));
 	output = smtp_submit_send(smtp_submit2);
 	o_stream_nsend_str(output, test_message2);
 
@@ -1566,10 +1566,10 @@ test_client_failed_sendmail(const struct smtp_submit_settings *submit_set)
 
 	i_zero(&smtp_input);
 	smtp_submit = smtp_submit_init_simple(&smtp_input, &smtp_submit_set,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"));
+		&((struct smtp_address){"sender", "example.com"}));
 
 	smtp_submit_add_rcpt(smtp_submit,
-		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+		&((struct smtp_address){"rcpt", "example.com"}));
 	output = smtp_submit_send(smtp_submit);
 	o_stream_nsend_str(output, test_message1);
 
@@ -1623,10 +1623,10 @@ test_client_successful_sendmail(const struct smtp_submit_settings *submit_set)
 
 	i_zero(&smtp_input);
 	smtp_submit = smtp_submit_init_simple(&smtp_input, &smtp_submit_set,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"));
+		&((struct smtp_address){"sender", "example.com"}));
 
 	smtp_submit_add_rcpt(smtp_submit,
-		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+		&((struct smtp_address){"rcpt", "example.com"}));
 	output = smtp_submit_send(smtp_submit);
 	o_stream_nsend_str(output, test_message1);
 
@@ -1709,10 +1709,10 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 	i_zero(&smtp_input);
 	smtp_submit_set.sendmail_path = sendmail_path1;
 	smtp_submit1 = smtp_submit_init_simple(&smtp_input, &smtp_submit_set,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"));
+		&((struct smtp_address){"sender", "example.com"}));
 
 	smtp_submit_add_rcpt(smtp_submit1,
-		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+		&((struct smtp_address){"rcpt", "example.com"}));
 	output = smtp_submit_send(smtp_submit1);
 	o_stream_nsend_str(output, test_message1);
 
@@ -1723,10 +1723,10 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 	i_zero(&smtp_input);
 	smtp_submit_set.sendmail_path = sendmail_path2;
 	smtp_submit2 = smtp_submit_init_simple(&smtp_input, &smtp_submit_set,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"));
+		&((struct smtp_address){"sender", "example.com"}));
 
 	smtp_submit_add_rcpt(smtp_submit2,
-		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+		&((struct smtp_address){"rcpt", "example.com"}));
 	output = smtp_submit_send(smtp_submit2);
 	o_stream_nsend_str(output, test_message2);
 
@@ -1823,10 +1823,10 @@ test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 
 	i_zero(&smtp_input);
 	smtp_submit = smtp_submit_init_simple(&smtp_input, &smtp_submit_set,
-		SMTP_ADDRESS_LITERAL("sender", "example.com"));
+		&((struct smtp_address){"sender", "example.com"}));
 
 	smtp_submit_add_rcpt(smtp_submit,
-		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+		&((struct smtp_address){"rcpt", "example.com"}));
 	output = smtp_submit_send(smtp_submit);
 	o_stream_nsend_str(output, message);
 

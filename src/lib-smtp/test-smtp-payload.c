@@ -754,7 +754,7 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 
 		tctrans->conn->trans = smtp_client_transaction_create(
 			tctrans->conn->conn,
-			SMTP_ADDRESS_LITERAL("user", "example.com"),
+			&((struct smtp_address){"user", "example.com"}),
 			&mail_params, 0,
 			test_client_transaction_finish, tctrans);
 
