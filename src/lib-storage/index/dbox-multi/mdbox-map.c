@@ -1468,7 +1468,8 @@ static int mdbox_map_generate_uid_validity(struct mdbox_map *map)
 
 	/* do this inside syncing, so that we're locked and there are no
 	   race conditions */
-	ret = mail_index_sync_begin(map->index, &sync_ctx, &view, &trans, 0);
+	ret = mail_index_sync_begin(map->index, &sync_ctx, &view, &trans,
+				    MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET);
 	if (ret <= 0) {
 		i_assert(ret != 0);
 		return -1;
