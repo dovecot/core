@@ -24,10 +24,6 @@ struct smtp_address {
 ARRAY_DEFINE_TYPE(smtp_address, struct smtp_address *);
 ARRAY_DEFINE_TYPE(smtp_address_const, const struct smtp_address *);
 
-/* Not const! Never return this as a result directly! */
-#define SMTP_ADDRESS_LITERAL(localpart, domain) \
-	&((struct smtp_address){ (localpart), (domain) })
-
 /*
  * SMTP address parsing
  */
