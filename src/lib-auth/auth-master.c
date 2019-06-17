@@ -524,8 +524,7 @@ auth_master_next_request_id(struct auth_master_connection *conn)
 	return conn->request_counter;
 }
 
-static void
-auth_user_info_export(string_t *str, const struct auth_user_info *info)
+void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 {
 	if (info->service != NULL) {
 		str_append(str, "\tservice=");
