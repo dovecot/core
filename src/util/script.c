@@ -21,6 +21,7 @@
 
 static ARRAY_TYPE(const_string) exec_args;
 static const char **accepted_envs;
+static bool passthrough = FALSE;
 
 static void script_verify_version(const char *line)
 {
@@ -54,7 +55,7 @@ exec_child(struct master_service_connection *conn,
 	if (close(conn->fd) < 0)
 		i_error("close(conn->fd) failed: %m");
 
-	for (; *args != NULL; args++) {
+	for (; args != NULL && *args != NULL; args++) {
 		const char *arg = t_str_tabunescape(*args);
 		array_push_back(&exec_args, &arg);
 	}
@@ -195,10 +196,11 @@ static bool client_exec_script(struct master_service_connection *conn)
 
 	net_set_nonblock(conn->fd, FALSE);
 
-	if (parse_input(&envs, &args, conn, &ret)) {
+	if (!passthrough && parse_input(&envs, &args, conn, &ret)) {
 		/* parse_input returns TRUE if noreply is set in the input.
 		 * In that case there is no need to fork and check exit
-		 * status */
+		 * status. Parsing the input must only happen if passthrough
+		 * is not enabled. */
 		exec_child(conn, args, array_front(&envs));
 		i_unreached();
 	}
@@ -210,7 +212,10 @@ static bool client_exec_script(struct master_service_connection *conn)
 
 	if (pid == 0) {
 		/* child */
-		exec_child(conn, args, array_front(&envs));
+		if (!passthrough)
+			exec_child(conn, args, array_front(&envs));
+		else
+			exec_child(conn, NULL, NULL);
 		i_unreached();
 	}
 
@@ -241,12 +246,16 @@ static bool client_exec_script(struct master_service_connection *conn)
 
 static void client_connected(struct master_service_connection *conn)
 {
-	char response[2];
+	if (!passthrough) {
+		char response[2];
 
-	response[0] = client_exec_script(conn) ? '+' : '-';
-	response[1] = '\n';
-	if (write_full(conn->fd, &response, 2) < 0)
-		i_error("write(response) failed: %m");
+		response[0] = client_exec_script(conn) ? '+' : '-';
+		response[1] = '\n';
+		if (write_full(conn->fd, &response, 2) < 0)
+			i_error("write(response) failed: %m");
+	} else {
+		client_exec_script(conn);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -259,7 +268,7 @@ int main(int argc, char *argv[])
 	int c, i;
 
 	master_service = master_service_init("script", service_flags,
-					     &argc, &argv, "+e:");
+					     &argc, &argv, "+e:p");
 
 	t_array_init(&aenvs, 16);
 	while ((c = master_getopt(master_service)) > 0) {
@@ -270,6 +279,9 @@ int main(int argc, char *argv[])
 				array_push_back(&aenvs, envs);
 				envs++;
 			}
+			break;
+		case 'p':
+			passthrough = TRUE;
 			break;
 		default:
 			return FATAL_DEFAULT;
