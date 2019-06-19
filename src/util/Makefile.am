@@ -45,7 +45,8 @@ script_LDADD = $(LIBDOVECOT) \
 	$(BINARY_LDFLAGS)
 script_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 script_SOURCES = \
-	script.c
+	script.c \
+	health-check-settings.c
 
 if TCPWRAPPERS
 TCPWRAP_BIN = tcpwrap
@@ -71,3 +72,6 @@ maildirlock_LDADD = $(LIBDOVECOT) \
 maildirlock_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 maildirlock_SOURCES = \
 	maildirlock.c
+
+pkglibexec_SCRIPTS = health-check.sh
+EXTRA_DIST = $(pkglibexec_SCRIPTS)
