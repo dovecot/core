@@ -18,10 +18,10 @@ static void test_auth_user_info_export(void)
 	/* Setup info for auth_user_info_export call where the
 	 * resulting auth request string should contain all
 	 * real_ variables. */
-	net_addr2ip("192.168.1.1", &info.local_ip);
-	net_addr2ip("192.23.42.9", &info.real_local_ip);
-	net_addr2ip("10.42.3.223", &info.remote_ip);
-	net_addr2ip("192.168.1.2", &info.real_remote_ip);
+	test_assert(net_addr2ip("192.168.1.1", &info.local_ip) == 0);
+	test_assert(net_addr2ip("192.23.42.9", &info.real_local_ip) == 0);
+	test_assert(net_addr2ip("10.42.3.223", &info.remote_ip) == 0);
+	test_assert(net_addr2ip("192.168.1.2", &info.real_remote_ip) == 0);
 	info.local_port = 57035;
 	info.remote_port = 53075;
 	info.real_remote_port = 64385;
@@ -42,8 +42,8 @@ static void test_auth_user_info_export(void)
 	/* Setup info for auth_user_info_export call where the
 	 * resulting auth request string should not contain any
 	 * real_ variables. */
-	net_addr2ip("10.42.3.223", &info.real_remote_ip);
-	net_addr2ip("192.168.1.1", &info.real_local_ip);
+	test_assert(net_addr2ip("10.42.3.223", &info.real_remote_ip) == 0);
+	test_assert(net_addr2ip("192.168.1.1", &info.real_local_ip) == 0);
 	info.real_remote_port = 53075;
 	info.real_local_port = 57035;
 
