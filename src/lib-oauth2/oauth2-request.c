@@ -253,6 +253,10 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 	http_url_escape_param(payload, set->client_id);
 	str_append(payload, "&client_secret=");
 	http_url_escape_param(payload, set->client_secret);
+	if (set->scope[0] != '\0') {
+		str_append(payload, "&scope=");
+		http_url_escape_param(payload, set->scope);
+	}
 
 	return oauth2_request_start(set, input, callback, context,
 				    pool, "POST", set->grant_url,
