@@ -28,6 +28,8 @@ struct oauth2_settings {
 	const char *client_id;
 	/* client secret for oauth2 server */
 	const char *client_secret;
+	/* access request scope for oauth2 server (optional) */
+	const char *scope;
 	enum {
 		INTROSPECTION_MODE_GET_AUTH,
 		INTROSPECTION_MODE_GET,
