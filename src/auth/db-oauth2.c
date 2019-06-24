@@ -243,6 +243,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	db->oauth2_set.timeout_msecs = db->set.timeout_msecs;
 	db->oauth2_set.send_auth_headers = db->set.send_auth_headers;
 	db->oauth2_set.use_grant_password = db->set.use_grant_password;
+	db->oauth2_set.scope = db->set.scope;
 
 	if (*db->set.introspection_mode == '\0' ||
 	    strcmp(db->set.introspection_mode, "auth") == 0) {
