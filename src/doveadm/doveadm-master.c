@@ -145,8 +145,7 @@ static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 		master_service_send_cmd_with_args("STOP", services);
 
 	alarm(5);
-	if (i_stream_read_next_line(input) == NULL ||
-	    (line = i_stream_read_next_line(input)) == NULL) {
+	if ((line = i_stream_read_next_line(input)) == NULL) {
 		i_error("read(%s) failed: %s", i_stream_get_name(input),
 			i_stream_get_error(input));
 		doveadm_exit_code = EX_TEMPFAIL;
