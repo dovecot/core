@@ -5,6 +5,7 @@
 #include <sys/time.h>
 
 struct event;
+struct event_log_params;
 
 /* Hierarchical category of events. Each event can belong to multiple
    categories. For example [ lib-storage/maildir, syscall/io ]. The categories

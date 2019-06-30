@@ -9,6 +9,22 @@ struct event_log_params {
 	enum log_type log_type;
 	const char *source_filename;
 	unsigned int source_linenum;
+
+	/* Base event used as a reference for base_* parameters (see below) */
+	struct event *base_event;
+
+	/* Append the event message to base_str_out in addition to emitting the
+	   event as normal. The message appended to the string buffer includes
+	   prefixes and message callback modifications by parent events up until
+	   the base_event. The event is otherwise sent as normal with the full
+	   prefixes and all modifications up to the root event (unless
+	   no_send=TRUE). This is primarily useful to mimic (part of) event
+	   logging in parallel logs that are visible to users. */
+	string_t *base_str_out;
+
+	/* Don't actually send the event; only append to the provided string
+	   buffer (base_str_out must not be NULL). */
+	bool no_send:1;
 };
 
 void e_error(struct event *event,
