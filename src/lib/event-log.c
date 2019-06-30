@@ -95,8 +95,8 @@ void e_log(struct event *event, enum log_type level,
 }
 
 static bool
-event_get_log_prefix(struct event *event, string_t *log_prefix,
-		     bool *replace_prefix, unsigned int *type_pos)
+event_get_log_message(struct event *event, string_t *log_prefix,
+		      bool *replace_prefix, unsigned int *type_pos)
 {
 	const char *prefix = event->log_prefix;
 	bool ret = FALSE;
@@ -117,8 +117,8 @@ event_get_log_prefix(struct event *event, string_t *log_prefix,
 	} else if (event->parent == NULL) {
 		/* append to default log prefix, don't replace it */
 	} else {
-		if (event_get_log_prefix(event->parent, log_prefix,
-					 replace_prefix, type_pos))
+		if (event_get_log_message(event->parent, log_prefix,
+					  replace_prefix, type_pos))
 			ret = TRUE;
 	}
 	return ret;
@@ -204,7 +204,7 @@ event_logv_type(struct event *event, enum log_type log_type,
 				      event->source_linenum, &ctx))
 		abort_after_event = TRUE;
 
-	if (!event_get_log_prefix(event, log_prefix_str,
+	if (!event_get_log_message(event, log_prefix_str,
 				  &replace_prefix, &type_pos)) {
 		/* keep log prefix as it is */
 		event_vsend(event, &ctx, fmt, args);
