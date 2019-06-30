@@ -94,9 +94,15 @@ void e_log(struct event *event, enum log_type level,
 	va_end(args);
 }
 
+struct event_get_log_message_context {
+	string_t *log_prefix;
+	bool replace_prefix;
+	unsigned int type_pos;
+};
+
 static bool
-event_get_log_message(struct event *event, string_t *log_prefix,
-		      bool *replace_prefix, unsigned int *type_pos)
+event_get_log_message(struct event *event,
+		      struct event_get_log_message_context *glmctx)
 {
 	const char *prefix = event->log_prefix;
 	bool ret = FALSE;
@@ -106,19 +112,18 @@ event_get_log_message(struct event *event, string_t *log_prefix,
 			event->log_prefix_callback_context);
 	}
 	if (prefix != NULL) {
-		str_insert(log_prefix, 0, prefix);
+		str_insert(glmctx->log_prefix, 0, prefix);
 		ret = TRUE;
 	}
 
 	if (event->log_prefix_replace) {
 		/* this event replaces all parent log prefixes */
-		*replace_prefix = TRUE;
-		*type_pos = (prefix == NULL ? 0 : strlen(prefix));
+		glmctx->replace_prefix = TRUE;
+		glmctx->type_pos = (prefix == NULL ? 0 : strlen(prefix));
 	} else if (event->parent == NULL) {
 		/* append to default log prefix, don't replace it */
 	} else {
-		if (event_get_log_message(event->parent, log_prefix,
-					  replace_prefix, type_pos))
+		if (event_get_log_message(event->parent, glmctx))
 			ret = TRUE;
 	}
 	return ret;
@@ -188,9 +193,7 @@ static void ATTR_FORMAT(3, 0)
 event_logv_type(struct event *event, enum log_type log_type,
 		const char *fmt, va_list args)
 {
-	string_t *log_prefix_str = t_str_new(64);
-	bool replace_prefix = FALSE;
-	unsigned int type_pos = 0;
+	struct event_get_log_message_context glmctx;
 
 	struct failure_context ctx = {
 		.type = log_type,
@@ -204,19 +207,20 @@ event_logv_type(struct event *event, enum log_type log_type,
 				      event->source_linenum, &ctx))
 		abort_after_event = TRUE;
 
-	if (!event_get_log_message(event, log_prefix_str,
-				  &replace_prefix, &type_pos)) {
+	i_zero(&glmctx);
+	glmctx.log_prefix = t_str_new(64);
+	if (!event_get_log_message(event, &glmctx)) {
 		/* keep log prefix as it is */
 		event_vsend(event, &ctx, fmt, args);
-	} else if (replace_prefix) {
+	} else if (glmctx.replace_prefix) {
 		/* event overrides the log prefix (even if it's "") */
-		ctx.log_prefix = str_c(log_prefix_str);
-		ctx.log_prefix_type_pos = type_pos;
+		ctx.log_prefix = str_c(glmctx.log_prefix);
+		ctx.log_prefix_type_pos = glmctx.type_pos;
 		event_vsend(event, &ctx, fmt, args);
 	} else {
 		/* append to log prefix, but don't fully replace it */
-		str_vprintfa(log_prefix_str, fmt, args);
-		event_send(event, &ctx, "%s", str_c(log_prefix_str));
+		str_vprintfa(glmctx.log_prefix, fmt, args);
+		event_send(event, &ctx, "%s", str_c(glmctx.log_prefix));
 	}
 	if (abort_after_event)
 		abort();
