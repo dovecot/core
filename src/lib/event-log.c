@@ -94,20 +94,22 @@ void e_log(struct event *event, enum log_type level,
 	va_end(args);
 }
 
-static bool event_get_log_prefix(struct event *event, string_t *log_prefix,
-				 bool *replace_prefix, unsigned int *type_pos)
+static bool
+event_get_log_prefix(struct event *event, string_t *log_prefix,
+		     bool *replace_prefix, unsigned int *type_pos)
 {
-	bool ret = FALSE;
 	const char *prefix = event->log_prefix;
+	bool ret = FALSE;
 
-	if (event->log_prefix_callback != NULL)
-		prefix = event->log_prefix_callback(event->log_prefix_callback_context);
+	if (event->log_prefix_callback != NULL) {
+		prefix = event->log_prefix_callback(
+			event->log_prefix_callback_context);
+	}
 
 	if (event->log_prefix_replace) {
 		/* this event replaces all parent log prefixes */
 		*replace_prefix = TRUE;
-		*type_pos = prefix == NULL ? 0 :
-			strlen(prefix);
+		*type_pos = (prefix == NULL ? 0 : strlen(prefix));
 	} else if (event->parent == NULL) {
 		/* append to default log prefix, don't replace it */
 	} else {
