@@ -14,6 +14,8 @@ struct event {
 	char *log_prefix;
 	event_log_prefix_callback_t *log_prefix_callback;
 	void *log_prefix_callback_context;
+	event_log_message_callback_t *log_message_callback;
+	void *log_message_callback_context;
 	enum log_type min_log_level;
 	bool log_prefix_from_system_pool:1;
 	bool log_prefix_replace:1;
