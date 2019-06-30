@@ -105,6 +105,10 @@ event_get_log_prefix(struct event *event, string_t *log_prefix,
 		prefix = event->log_prefix_callback(
 			event->log_prefix_callback_context);
 	}
+	if (prefix != NULL) {
+		str_insert(log_prefix, 0, prefix);
+		ret = TRUE;
+	}
 
 	if (event->log_prefix_replace) {
 		/* this event replaces all parent log prefixes */
@@ -116,10 +120,6 @@ event_get_log_prefix(struct event *event, string_t *log_prefix,
 		if (event_get_log_prefix(event->parent, log_prefix,
 					 replace_prefix, type_pos))
 			ret = TRUE;
-	}
-	if (prefix != NULL) {
-		str_append(log_prefix, prefix);
-		ret = TRUE;
 	}
 	return ret;
 }
