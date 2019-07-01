@@ -344,6 +344,7 @@ struct http_client_host_shared {
 	/* timeouts */
 	struct timeout *to_idle;
 
+	bool destroyed:1;	/* shared host object is being destroyed */
 	bool unix_local:1;
 	bool explicit_ip:1;
 };
