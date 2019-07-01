@@ -44,6 +44,8 @@ http_client_host_shared_check_idle(
 	struct http_client_host *host;
 	int timeout = 0;
 
+	if (hshared->destroyed)
+		return;
 	if (hshared->to_idle != NULL)
 		return;
 
@@ -265,6 +267,10 @@ void http_client_host_shared_free(struct http_client_host_shared **_hshared)
 	struct http_client_context *cctx = hshared->cctx;
 	struct http_client_host *host;
 	const char *hostname = hshared->name;
+
+	if (hshared->destroyed)
+		return;
+	hshared->destroyed = TRUE;
 
 	e_debug(hshared->event, "Host destroy");
 
