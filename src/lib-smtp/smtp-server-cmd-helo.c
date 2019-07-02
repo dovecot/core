@@ -79,8 +79,8 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	command->data = helo_data;
 
 	if (conn->helo.domain == NULL ||
-		strcmp(conn->helo.domain, domain) != 0 ||
-		conn->helo.old_smtp != old_smtp)
+	    (domain != NULL && strcmp(conn->helo.domain, domain) != 0) ||
+	    conn->helo.old_smtp != old_smtp)
 		helo_data->changed = TRUE; /* preliminary assessment */
 
 	if (conn->pending_helo == NULL)
