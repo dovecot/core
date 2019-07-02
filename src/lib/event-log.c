@@ -119,6 +119,8 @@ event_get_log_message_str_out(struct event_get_log_message_context *glmctx,
 		return;
 
 	/* append the current log prefix to the string buffer */
+	if (params->base_str_prefix != NULL && !glmctx->replace_prefix)
+		str_append(str_out, params->base_str_prefix);
 	str_append_str(str_out, glmctx->log_prefix);
 
 	if (glmctx->message != NULL) {
@@ -150,6 +152,12 @@ event_get_log_message(struct event *event,
 	if (event == params->base_event) {
 		/* Append the message to the provided string buffer. */
 		event_get_log_message_str_out(glmctx, fmt, args);
+		/* Insert the base send prefix */
+		if (params->base_send_prefix != NULL) {
+			str_insert(glmctx->log_prefix, 0,
+				   params->base_send_prefix);
+			ret = TRUE;
+		}
 	}
 
 	/* Call the message amendment callback for this event if there is one.
@@ -196,6 +204,13 @@ event_get_log_message(struct event *event,
 	}
 	if (event->parent == NULL) {
 		event_get_log_message_str_out(glmctx, fmt, args);
+		if (params->base_event == NULL &&
+		    params->base_send_prefix != NULL &&
+		    !glmctx->replace_prefix) {
+			str_insert(glmctx->log_prefix, 0,
+				   params->base_send_prefix);
+			ret = TRUE;
+		}
 	} else if (!event->log_prefix_replace &&
 		   (!params->no_send || !glmctx->str_out_done)) {
 		if (event_get_log_message(event->parent, glmctx, fmt, args))

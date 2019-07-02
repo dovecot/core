@@ -22,6 +22,12 @@ struct event_log_params {
 	   logging in parallel logs that are visible to users. */
 	string_t *base_str_out;
 
+	/* Prefix inserted at the base_event for the sent log message. */
+	const char *base_send_prefix;
+	/* Prefix inserted at the base_event for the log message appended to the
+	   string buffer. */
+	const char *base_str_prefix;
+
 	/* Don't actually send the event; only append to the provided string
 	   buffer (base_str_out must not be NULL). */
 	bool no_send:1;
