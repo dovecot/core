@@ -60,7 +60,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	}
 
 	if (array_is_created(&t->pvt_saves)) {
-		if (index_mailbox_sync_pvt_init(t->box, TRUE, &pvt_sync_ctx) < 0)
+		if (index_mailbox_sync_pvt_init(t->box, TRUE, 0, &pvt_sync_ctx) < 0)
 			ret = -1;
 	}
 
