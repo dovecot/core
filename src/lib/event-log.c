@@ -190,13 +190,13 @@ bool event_want_level(struct event *event, enum log_type level,
 }
 
 static void ATTR_FORMAT(3, 0)
-event_logv_type(struct event *event, enum log_type log_type,
-		const char *fmt, va_list args)
+event_logv_params(struct event *event, const struct event_log_params *params,
+		  const char *fmt, va_list args)
 {
 	struct event_get_log_message_context glmctx;
 
 	struct failure_context ctx = {
-		.type = log_type,
+		.type = params->log_type,
 	};
 	bool abort_after_event = FALSE;
 	int old_errno = errno;
@@ -239,7 +239,7 @@ void event_logv(struct event *event, const struct event_log_params *params,
 	}
 
 	event_ref(event);
-	event_logv_type(event, params->log_type, fmt, args);
+	event_logv_params(event, params, fmt, args);
 	event_set_source(event, orig_source_filename,
 			 orig_source_linenum, TRUE);
 	event_unref(&event);
