@@ -854,7 +854,7 @@ test_denied_data_input(struct server_connection *conn)
 			continue;
 		case DENIED_DATA_STATE_DATA:
 			o_stream_nsend_str(conn->conn.output,
-				"500 5.0.0 Unacceptabe recipients\r\n");
+				"500 5.0.0 Unacceptable recipients\r\n");
 			server_connection_deinit(&conn);
 			return;
 		}
