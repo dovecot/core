@@ -21,6 +21,10 @@ enum test_log_event_flag {
 	FLAG_BASE_EVENT = BIT(0),
 };
 
+enum test_log_flag {
+	FLAG_NO_SEND = BIT(0),
+};
+
 struct test_log_event {
 	enum test_log_event_type type;
 	const char *str;
@@ -32,9 +36,10 @@ struct test_log {
 	const char *global_log_prefix;
 	const char *result;
 	const char *result_str_out;
+	enum test_log_flag flags;
 };
 
-static char *test_output;
+static char *test_output = NULL;
 
 static void ATTR_FORMAT(2, 0)
 info_handler(const struct failure_context *ctx,
@@ -1130,6 +1135,34 @@ static void test_event_log_message(void)
 			.result = "replaced2,Info: [amended2-TEXT]",
 			.result_str_out = "TEXT",
 		},
+		/* Tests involving params->no_send */
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = NULL,
+			.result_str_out = "appended3.TEXT",
+			.flags = FLAG_NO_SEND,
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.result = NULL,
+			.result_str_out = "[amended2-appended2-TEXT]",
+			.flags = FLAG_NO_SEND,
+		},
 	};
 
 	test_begin("event log message");
@@ -1141,8 +1174,10 @@ static void test_event_log_message(void)
 		const struct test_log *test = &tests[i];
 		struct event_log_params params = {
 			.log_type = LOG_TYPE_INFO,
+			.no_send = ((test->flags & FLAG_NO_SEND) != 0),
 		};
 
+		i_free(test_output);
 		if (test->global_log_prefix != NULL)
 			i_set_failure_prefix("%s", test->global_log_prefix);
 		else
