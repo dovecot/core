@@ -7,22 +7,22 @@
 
 #include <unistd.h>
 
-enum test_log_prefix_type {
+enum test_log_event_type {
 	TYPE_END,
-	TYPE_APPEND,
-	TYPE_REPLACE,
-	TYPE_CALLBACK_APPEND,
-	TYPE_CALLBACK_REPLACE,
+	TYPE_PREFIX_APPEND,
+	TYPE_PREFIX_REPLACE,
+	TYPE_PREFIX_APPEND_CB,
+	TYPE_PREFIX_REPLACE_CB,
 	TYPE_SKIP,
 };
 
-struct test_log_prefix {
-	enum test_log_prefix_type type;
+struct test_log_event {
+	enum test_log_event_type type;
 	const char *str;
 };
 
 struct test_log {
-	const struct test_log_prefix *prefixes;
+	const struct test_log_event *prefixes;
 	const char *global_log_prefix;
 	const char *result;
 };
@@ -68,123 +68,123 @@ test_event_log_prefix_cb(char *prefix)
 	return t_strdup_printf("callback(%s)", prefix);
 }
 
-static void test_event_log_prefix(void)
+static void test_event_log_message(void)
 {
 	struct test_log tests[] = {
 		{
-			.prefixes = (const struct test_log_prefix []) {
+			.prefixes = (const struct test_log_event []) {
 				{ .type = TYPE_END }
 			},
 			.global_log_prefix = "global1.",
 			.result = "global1.Info: TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_REPLACE, "replaced1," },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1," },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced1,Info: TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_REPLACE, "replaced1," },
-				{ TYPE_REPLACE, "replaced2." },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1," },
+				{ TYPE_PREFIX_REPLACE, "replaced2." },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced2.Info: TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_REPLACE, "replaced1," },
-				{ TYPE_APPEND, "appended2." },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1," },
+				{ TYPE_PREFIX_APPEND, "appended2." },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced1,Info: appended2.TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_APPEND, "appended1," },
-				{ TYPE_REPLACE, "replaced1," },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1," },
+				{ TYPE_PREFIX_REPLACE, "replaced1," },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced1,Info: TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_APPEND, "appended1," },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1," },
 				{ .type = TYPE_END }
 			},
 			.global_log_prefix = "global2.",
 			.result = "global2.Info: appended1,TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_APPEND, "appended1," },
-				{ TYPE_APPEND, "appended2." },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1," },
+				{ TYPE_PREFIX_APPEND, "appended2." },
 				{ .type = TYPE_END }
 			},
 			.global_log_prefix = "global3.",
 			.result = "global3.Info: appended1,appended2.TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_APPEND, "appended1," },
-				{ TYPE_REPLACE, "replaced2." },
-				{ TYPE_APPEND, "appended3#" },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1," },
+				{ TYPE_PREFIX_REPLACE, "replaced2." },
+				{ TYPE_PREFIX_APPEND, "appended3#" },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced2.Info: appended3#TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_APPEND, "appended1," },
-				{ TYPE_REPLACE, "replaced2." },
-				{ TYPE_APPEND, "appended3#" },
-				{ TYPE_REPLACE, "replaced4;" },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1," },
+				{ TYPE_PREFIX_REPLACE, "replaced2." },
+				{ TYPE_PREFIX_APPEND, "appended3#" },
+				{ TYPE_PREFIX_REPLACE, "replaced4;" },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced4;Info: TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_APPEND, "appended1," },
-				{ TYPE_REPLACE, "replaced2." },
-				{ TYPE_APPEND, "appended3#" },
-				{ TYPE_REPLACE, "replaced4;" },
-				{ TYPE_APPEND, "appended5-" },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1," },
+				{ TYPE_PREFIX_REPLACE, "replaced2." },
+				{ TYPE_PREFIX_APPEND, "appended3#" },
+				{ TYPE_PREFIX_REPLACE, "replaced4;" },
+				{ TYPE_PREFIX_APPEND, "appended5-" },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced4;Info: appended5-TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_CALLBACK_APPEND, "appended1-" },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND_CB, "appended1-" },
 				{ .type = TYPE_END }
 			},
 			.global_log_prefix = "global3.",
 			.result = "global3.Info: callback(appended1-)TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_APPEND, "appended1," },
-				{ TYPE_REPLACE, "replaced1." },
-				{ TYPE_CALLBACK_REPLACE, "replaced2-" },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1," },
+				{ TYPE_PREFIX_REPLACE, "replaced1." },
+				{ TYPE_PREFIX_REPLACE_CB, "replaced2-" },
 				{ .type = TYPE_END }
 			},
 			.result = "callback(replaced2-)Info: TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_CALLBACK_REPLACE, "replaced1." },
-				{ TYPE_APPEND, "appended1," },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE_CB, "replaced1." },
+				{ TYPE_PREFIX_APPEND, "appended1," },
 				{ .type = TYPE_END }
 			},
 			.result = "callback(replaced1.)Info: appended1,TEXT",
 		},
 		{
-			.prefixes = (const struct test_log_prefix []) {
-				{ TYPE_CALLBACK_REPLACE, "replaced1." },
-				{ TYPE_REPLACE, "replaced2-" },
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE_CB, "replaced1." },
+				{ TYPE_PREFIX_REPLACE, "replaced2-" },
 				{ .type = TYPE_END }
 			},
 			.result = "replaced2-Info: TEXT",
@@ -194,7 +194,7 @@ static void test_event_log_prefix(void)
 		.log_type = LOG_TYPE_INFO,
 	};
 
-	test_begin("event log prefixes");
+	test_begin("event log message");
 
 	failure_callback_t *orig_fatal, *orig_error, *orig_info, *orig_debug;
 	i_get_failure_handlers(&orig_fatal, &orig_error, &orig_info, &orig_debug);
@@ -218,18 +218,18 @@ static void test_event_log_prefix(void)
 			switch (test->prefixes[j].type) {
 			case TYPE_END:
 				i_unreached();
-			case TYPE_APPEND:
+			case TYPE_PREFIX_APPEND:
 				event_set_append_log_prefix(event, test->prefixes[j].str);
 				break;
-			case TYPE_REPLACE:
+			case TYPE_PREFIX_REPLACE:
 				event_replace_log_prefix(event, test->prefixes[j].str);
 				break;
-			case TYPE_CALLBACK_APPEND:
+			case TYPE_PREFIX_APPEND_CB:
 				event_set_log_prefix_callback(event, FALSE,
 							      test_event_log_prefix_cb,
 							      (char*)test->prefixes[j].str);
 				break;
-			case TYPE_CALLBACK_REPLACE:
+			case TYPE_PREFIX_REPLACE_CB:
 				event_set_log_prefix_callback(event, TRUE,
 							      test_event_log_prefix_cb,
 							      (char*)test->prefixes[j].str);
@@ -287,7 +287,7 @@ static void test_event_log_level(void)
 
 void test_event_log(void)
 {
-	test_event_log_prefix();
+	test_event_log_message();
 	test_event_duration();
 	test_event_log_level();
 }
