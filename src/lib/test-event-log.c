@@ -34,6 +34,8 @@ struct test_log_event {
 struct test_log {
 	const struct test_log_event *prefixes;
 	const char *global_log_prefix;
+	const char *base_send_prefix;
+	const char *base_str_prefix;
 	const char *result;
 	const char *result_str_out;
 	enum test_log_flag flags;
@@ -1163,6 +1165,1024 @@ static void test_event_log_message(void)
 			.result_str_out = "[amended2-appended2-TEXT]",
 			.flags = FLAG_NO_SEND,
 		},
+		/* Tests with params->base_*_prefix assigned */
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global1.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global1.Info: PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+
+			.result = "replaced1,Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2.Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2.Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2.Info: PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: appended2.TEXT",
+			.result_str_out = "appended2.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: PREFIX: appended2.TEXT",
+			.result_str_out = "STR_PREFIX: appended2.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: appended2.PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced1,",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global2.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global2.Info: PREFIX: appended1,TEXT",
+			.result_str_out = "STR_PREFIX: appended1,TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global2.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global2.Info: appended1,PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: PREFIX: "
+				"appended1,appended2.TEXT",
+			.result_str_out = "STR_PREFIX: "
+				"appended1,appended2.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: appended1,PREFIX: "
+				"appended2.TEXT",
+			.result_str_out = "STR_PREFIX: appended2.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: appended1,appended2."
+				"PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: PREFIX: "
+				"appended1,appended2.appended3.TEXT",
+			.result_str_out = "STR_PREFIX: "
+				"appended1,appended2.appended3.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: appended1,PREFIX: "
+				"appended2.appended3.TEXT",
+			.result_str_out = "STR_PREFIX: "
+				"appended2.appended3.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: appended1,appended2.PREFIX: "
+				"appended3.TEXT",
+			.result_str_out = "STR_PREFIX: appended3.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: "
+				"appended1,appended2.appended3.PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2.Info: appended3#TEXT",
+			.result_str_out = "appended3#TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2.Info: appended3#TEXT",
+			.result_str_out = "appended3#TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2.Info: PREFIX: appended3#TEXT",
+			.result_str_out = "STR_PREFIX: appended3#TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2.Info: appended3#PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: appended5-TEXT",
+			.result_str_out = "appended5-TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: appended5-TEXT",
+			.result_str_out = "appended5-TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: appended5-TEXT",
+			.result_str_out = "appended5-TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: appended5-TEXT",
+			.result_str_out = "appended5-TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended5-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: PREFIX: appended5-TEXT",
+			.result_str_out = "STR_PREFIX: appended5-TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3#", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced4;", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced4;Info: appended5-PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND_CB, "appended1-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: PREFIX: "
+				"callback(appended1-)TEXT",
+			.result_str_out = "STR_PREFIX: "
+				"callback(appended1-)TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND_CB, "appended1-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global3.Info: callback(appended1-)PREFIX: "
+				"TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced1.", 0 },
+				{ TYPE_PREFIX_REPLACE_CB, "replaced2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "callback(replaced2-)Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced1.", 0 },
+				{ TYPE_PREFIX_REPLACE_CB, "replaced2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "callback(replaced2-)Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced1.",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE_CB, "replaced2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "callback(replaced2-)Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced1.", 0 },
+				{ TYPE_PREFIX_REPLACE_CB, "replaced2-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "callback(replaced2-)Info: PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE_CB, "replaced1.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "callback(replaced1.)Info: appended1,TEXT",
+			.result_str_out = "appended1,TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE_CB, "replaced1.",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "callback(replaced1.)Info: PREFIX: "
+				"appended1,TEXT",
+			.result_str_out = "STR_PREFIX: appended1,TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE_CB, "replaced1.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "callback(replaced1.)Info: appended1,PREFIX: "
+				"TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE_CB, "replaced1.", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2-Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE_CB, "replaced1.",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2-Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE_CB, "replaced1.", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2-Info: PREFIX: TEXT",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-" , 0},
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: PREFIX: [amended1-TEXT]",
+			.result_str_out = "STR_PREFIX: [amended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-" ,
+				  FLAG_BASE_EVENT},
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-PREFIX: TEXT]",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: PREFIX: "
+				"[amended1-[amended2-TEXT]]",
+			.result_str_out = "STR_PREFIX: "
+				"[amended1-[amended2-TEXT]]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-PREFIX: "
+				"[amended2-TEXT]]",
+			.result_str_out = "STR_PREFIX: [amended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-[amended2-PREFIX: "
+				"TEXT]]",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: PREFIX: "
+				"[amended1-appended1-TEXT]",
+			.result_str_out = "STR_PREFIX: "
+				"[amended1-appended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-PREFIX: "
+				"appended1-TEXT]",
+			.result_str_out = "STR_PREFIX: appended1-TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-appended1-PREFIX: "
+				"TEXT]",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: PREFIX: "
+				"appended1-[amended1-TEXT]",
+			.result_str_out = "STR_PREFIX: "
+				"appended1-[amended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: appended1-PREFIX: "
+				"[amended1-TEXT]",
+			.result_str_out = "STR_PREFIX: [amended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: appended1-[amended1-PREFIX: "
+				"TEXT]",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: PREFIX: "
+				"appended1-[amended1-appended2-TEXT]",
+			.result_str_out = "STR_PREFIX: "
+				"appended1-[amended1-appended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: appended1-PREFIX: "
+				"[amended1-appended2-TEXT]",
+			.result_str_out = "STR_PREFIX: "
+				"[amended1-appended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: appended1-[amended1-PREFIX: "
+				"appended2-TEXT]",
+			.result_str_out = "STR_PREFIX: appended2-TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: "
+				"appended1-[amended1-appended2-PREFIX: TEXT]",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: PREFIX: [amended1-appended1-"
+				"[amended2-appended2-TEXT]]",
+			.result_str_out = "STR_PREFIX: [amended1-appended1-"
+				"[amended2-appended2-TEXT]]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-PREFIX: appended1-"
+				"[amended2-appended2-TEXT]]",
+			.result_str_out = "STR_PREFIX: "
+				"appended1-[amended2-appended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-appended1-PREFIX: "
+				"[amended2-appended2-TEXT]]",
+			.result_str_out = "STR_PREFIX: "
+				"[amended2-appended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_APPEND, "appended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-appended1-"
+				"[amended2-PREFIX: appended2-TEXT]]",
+			.result_str_out = "STR_PREFIX: appended2-TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended1-", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "global4.Info: [amended1-appended1-"
+				"[amended2-appended2-PREFIX: TEXT]]",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: [amended1-TEXT]",
+			.result_str_out = "[amended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: PREFIX: [amended1-TEXT]",
+			.result_str_out = "STR_PREFIX: [amended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced1,Info: [amended1-PREFIX: TEXT]",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2,Info: [amended2-TEXT]",
+			.result_str_out = "[amended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2,Info: [amended2-TEXT]",
+			.result_str_out = "[amended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-",
+				  FLAG_BASE_EVENT },
+				{ TYPE_PREFIX_REPLACE, "replaced2,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2,Info: [amended2-TEXT]",
+			.result_str_out = "[amended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2,",
+				  FLAG_BASE_EVENT },
+				{ TYPE_MESSAGE_AMEND, "amended2-", 0 },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2,Info: PREFIX: [amended2-TEXT]",
+			.result_str_out = "STR_PREFIX: [amended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended1-", 0 },
+				{ TYPE_PREFIX_REPLACE, "replaced2,", 0 },
+				{ TYPE_MESSAGE_AMEND, "amended2-",
+				  FLAG_BASE_EVENT },
+				{ .type = TYPE_END }
+			},
+			.base_send_prefix = "PREFIX: ",
+			.base_str_prefix = "STR_PREFIX: ",
+			.result = "replaced2,Info: [amended2-PREFIX: TEXT]",
+			.result_str_out = "STR_PREFIX: TEXT",
+		},
 	};
 
 	test_begin("event log message");
@@ -1174,6 +2194,8 @@ static void test_event_log_message(void)
 		const struct test_log *test = &tests[i];
 		struct event_log_params params = {
 			.log_type = LOG_TYPE_INFO,
+			.base_send_prefix = test->base_send_prefix,
+			.base_str_prefix = test->base_str_prefix,
 			.no_send = ((test->flags & FLAG_NO_SEND) != 0),
 		};
 
