@@ -13,6 +13,7 @@ enum test_log_event_type {
 	TYPE_PREFIX_REPLACE,
 	TYPE_PREFIX_APPEND_CB,
 	TYPE_PREFIX_REPLACE_CB,
+	TYPE_MESSAGE_AMEND,
 	TYPE_SKIP,
 };
 
@@ -66,6 +67,14 @@ static const char *
 test_event_log_prefix_cb(char *prefix)
 {
 	return t_strdup_printf("callback(%s)", prefix);
+}
+
+static const char *
+test_event_log_message_cb(char *prefix,
+			  enum log_type log_type ATTR_UNUSED,
+			  const char *message)
+{
+	return t_strdup_printf("[%s%s]", prefix, message);
 }
 
 static void test_event_log_message(void)
@@ -189,6 +198,83 @@ static void test_event_log_message(void)
 			},
 			.result = "replaced2-Info: TEXT",
 		},
+		/* Tests involving event_set_log_message_callback() */
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-" },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.result = "global4.Info: [amended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-" },
+				{ TYPE_MESSAGE_AMEND, "amended2-" },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.result = "global4.Info: [amended1-[amended2-TEXT]]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-" },
+				{ TYPE_PREFIX_APPEND, "appended1-" },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.result = "global4.Info: [amended1-appended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-" },
+				{ TYPE_MESSAGE_AMEND, "amended1-" },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.result = "global4.Info: appended1-[amended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1-" },
+				{ TYPE_MESSAGE_AMEND, "amended1-" },
+				{ TYPE_PREFIX_APPEND, "appended2-" },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.result = "global4.Info: "
+				"appended1-[amended1-appended2-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_MESSAGE_AMEND, "amended1-" },
+				{ TYPE_PREFIX_APPEND, "appended1-" },
+				{ TYPE_MESSAGE_AMEND, "amended2-" },
+				{ TYPE_PREFIX_APPEND, "appended2-" },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global4.",
+			.result = "global4.Info: [amended1-appended1-"
+				"[amended2-appended2-TEXT]]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1," },
+				{ TYPE_MESSAGE_AMEND, "amended1-" },
+				{ .type = TYPE_END }
+			},
+			.result = "replaced1,Info: [amended1-TEXT]",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_REPLACE, "replaced1," },
+				{ TYPE_MESSAGE_AMEND, "amended1-" },
+				{ TYPE_PREFIX_REPLACE, "replaced2," },
+				{ TYPE_MESSAGE_AMEND, "amended2-" },
+				{ .type = TYPE_END }
+			},
+			.result = "replaced2,Info: [amended2-TEXT]",
+		},
 	};
 	const struct event_log_params params = {
 		.log_type = LOG_TYPE_INFO,
@@ -233,6 +319,11 @@ static void test_event_log_message(void)
 				event_set_log_prefix_callback(event, TRUE,
 							      test_event_log_prefix_cb,
 							      (char*)test->prefixes[j].str);
+				break;
+			case TYPE_MESSAGE_AMEND:
+				event_set_log_message_callback(event,
+							       test_event_log_message_cb,
+							       (char*)test->prefixes[j].str);
 				break;
 			case TYPE_SKIP:
 				break;
