@@ -56,7 +56,14 @@ void test_assert_failed_strcmp(const char *code, const char *file, unsigned int 
 				const char * src, const char * dst)
 {
 	printf("%s: Assert(#%u) failed: %s\n", file, line, code);
-	printf("        \"%s\" != \"%s\"\n", src, dst);
+	if (src != NULL)
+		printf("        \"%s\" != ", src);
+	else
+		printf("        NULL != ");
+	if (dst != NULL)
+		printf("\"%s\"\n", dst);
+	else
+		printf("NULL\n");
 	fflush(stdout);
 	test_success = FALSE;
 }

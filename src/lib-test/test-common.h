@@ -29,7 +29,7 @@ void test_begin(const char *name);
  * in strcmp().
  */
 #define test_assert_strcmp(s1, s2) STMT_START { \
-		if ((strcmp(s1,s2) != 0)) test_assert_failed_strcmp("strcmp(" #s1 ","  #s2 ")", __FILE__, __LINE__, s1, s2); \
+		if ((null_strcmp(s1,s2) != 0)) test_assert_failed_strcmp("strcmp(" #s1 ","  #s2 ")", __FILE__, __LINE__, s1, s2); \
 	} STMT_END
 
 void test_assert_failed(const char *code, const char *file, unsigned int line);
