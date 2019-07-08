@@ -118,8 +118,7 @@ static int mail_index_recreate(struct mail_index *index)
 
 void mail_index_write(struct mail_index *index, bool want_rotate)
 {
-	struct mail_index_map *map = index->map;
-	struct mail_index_header *hdr = &map->hdr;
+	struct mail_index_header *hdr = &index->map->hdr;
 
 	i_assert(index->log_sync_locked);
 
@@ -134,6 +133,12 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 		if (mail_transaction_log_rotate(index->log, FALSE) == 0) {
 			struct mail_transaction_log_file *file =
 				index->log->head;
+			/* Log rotation refreshes the index, which may cause the
+			   map to change. Because we're locked, it's not
+			   supposed to happen and will likely lead to an
+			   assert-crash below, but we still need to make sure
+			   we're using the latest map to do the checks. */
+			hdr = &index->map->hdr;
 			i_assert(file->hdr.prev_file_seq == hdr->log_file_seq);
 			i_assert(file->hdr.prev_file_offset == hdr->log_file_head_offset);
 			hdr->log_file_seq = file->hdr.file_seq;
