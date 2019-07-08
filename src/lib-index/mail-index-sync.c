@@ -937,6 +937,15 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 			/* can't really do anything if index commit fails */
 			(void)mail_index_transaction_commit(&cache_trans);
 			mail_cache_compress_unlock(&cache_lock);
+			/* Make sure the newly committed cache record offsets
+			   are updated to the current index. This is important
+			   if the dovecot.index gets recreated below, because
+			   rotation of dovecot.index.log also re-maps the index
+			   to make sure everything is up-to-date. But if it
+			   wasn't, mail_index_write() will just assert-crash
+			   because log_file_head_offset changed. */
+			if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE) <= 0)
+				ret = -1;
 		}
 	}
 
