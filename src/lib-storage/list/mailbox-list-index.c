@@ -657,6 +657,17 @@ int mailbox_list_index_set_uncorrupted(struct mailbox_list *list)
 	return mailbox_list_index_sync_end(&sync_ctx, TRUE);
 }
 
+bool mailbox_list_index_get_index(struct mailbox_list *list,
+				  struct mail_index **index_r)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+
+	if (ilist == NULL)
+		return FALSE;
+	*index_r = ilist->index;
+	return TRUE;
+}
+
 int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 				 struct mail_index_view **view_r,
 				 uint32_t *seq_r)

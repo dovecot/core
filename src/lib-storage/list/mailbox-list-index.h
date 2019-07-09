@@ -173,6 +173,9 @@ void mailbox_list_index_refresh_later(struct mailbox_list *list);
 int mailbox_list_index_handle_corruption(struct mailbox_list *list);
 int mailbox_list_index_set_uncorrupted(struct mailbox_list *list);
 
+/* Returns TRUE and index_r if mailbox list index exists, FALSE if not. */
+bool mailbox_list_index_get_index(struct mailbox_list *list,
+				  struct mail_index **index_r);
 /* Open mailbox list index's view and get the given mailbox's sequence number
    in it. If require_refreshed is TRUE, the mailbox must have up-to-date
    information in the mailbox list index. Returns 1 if ok, 0 if mailbox wasn't
