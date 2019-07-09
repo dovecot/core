@@ -28,7 +28,7 @@ struct index_list_storage_module index_list_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
 static int
-index_list_open_view(struct mailbox *box, bool status_check,
+index_list_open_view(struct mailbox *box, bool require_refreshed,
 		     struct mail_index_view **view_r, uint32_t *seq_r)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
@@ -37,8 +37,12 @@ index_list_open_view(struct mailbox *box, bool status_check,
 	uint32_t seq;
 	int ret;
 
-	if (MAILBOX_IS_NEVER_IN_INDEX(box) && status_check)
+	if (MAILBOX_IS_NEVER_IN_INDEX(box) && require_refreshed) {
+		/* Optimization: Caller wants the list index to be up-to-date
+		   for this mailbox, but this mailbox isn't updated to the list
+		   index at all. */
 		return 0;
+	}
 	if (mailbox_list_index_refresh(box->list) < 0) {
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
@@ -58,7 +62,7 @@ index_list_open_view(struct mailbox *box, bool status_check,
 	} else if (!mail_index_lookup_seq(view, node->uid, &seq)) {
 		/* our in-memory tree is out of sync */
 		ret = 1;
-	} else if (!status_check) {
+	} else if (!require_refreshed) {
 		/* this operation doesn't need the index to be up-to-date */
 		ret = 0;
 	} else T_BEGIN {
