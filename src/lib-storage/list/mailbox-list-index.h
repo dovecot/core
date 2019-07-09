@@ -173,6 +173,15 @@ void mailbox_list_index_refresh_later(struct mailbox_list *list);
 int mailbox_list_index_handle_corruption(struct mailbox_list *list);
 int mailbox_list_index_set_uncorrupted(struct mailbox_list *list);
 
+/* Open mailbox list index's view and get the given mailbox's sequence number
+   in it. If require_refreshed is TRUE, the mailbox must have up-to-date
+   information in the mailbox list index. Returns 1 if ok, 0 if mailbox wasn't
+   found or it wasn't up-to-date as requested, -1 if there was an error. The
+   error is stored to the mailbox storage. */
+int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
+				 struct mail_index_view **view_r,
+				 uint32_t *seq_r);
+
 struct mailbox_list_index_node *
 mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
 				     const char *name);

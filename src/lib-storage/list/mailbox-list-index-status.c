@@ -27,9 +27,9 @@ struct index_list_changes {
 struct index_list_storage_module index_list_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
-static int
-mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
-			     struct mail_index_view **view_r, uint32_t *seq_r)
+int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
+				 struct mail_index_view **view_r,
+				 uint32_t *seq_r)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
 	struct mailbox_list_index_node *node;
