@@ -99,6 +99,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 	i_zero(&result);
 	result.ret = EAI_FAIL;
 	result.error = error;
+	e_debug(client->conn.event, "Disconnect: %s", error);
 
 	lookup = client->head;
 	client->head = NULL;
@@ -108,7 +109,6 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 		dns_lookup_free(&lookup);
 		lookup = next;
 	}
-	e_debug(client->conn.event, "Disconnect: %s", error);
 }
 
 static void dns_client_destroy(struct connection *conn)
