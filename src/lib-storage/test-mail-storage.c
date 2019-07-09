@@ -295,11 +295,11 @@ static int test_mail_init_user(const char *user, const char *driver,
 	array_append(&opts, default_input, N_ELEMENTS(default_input));
 	if (extra_input != NULL)
 		while(*extra_input != NULL)
-			array_append(&opts, extra_input++, 1);
+			array_push_back(&opts, extra_input++);
 
 	array_append_zero(&opts);
 	struct mail_storage_service_input input = {
-		.userdb_fields = array_idx(&opts, 0),
+		.userdb_fields = array_front(&opts),
 		.username = user,
 		.no_userdb_lookup = TRUE,
 		.debug = FALSE,
