@@ -661,12 +661,16 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 				 struct mail_index_view **view_r,
 				 uint32_t *seq_r)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mailbox_list_index_node *node;
 	struct mail_index_view *view;
 	uint32_t seq;
 	int ret;
 
+	if (ilist == NULL) {
+		/* mailbox list indexes aren't enabled */
+		return 0;
+	}
 	if (MAILBOX_IS_NEVER_IN_INDEX(box) && require_refreshed) {
 		/* Optimization: Caller wants the list index to be up-to-date
 		   for this mailbox, but this mailbox isn't updated to the list
