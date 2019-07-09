@@ -36,6 +36,11 @@
 #define INDEX_LIST_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, mailbox_list_index_module)
 
+/* Should the STATUS information for this mailbox not be written to the
+   mailbox list index? */
+#define MAILBOX_IS_NEVER_IN_INDEX(box) \
+	((box)->inbox_any && !(box)->storage->set->mailbox_list_index_include_inbox)
+
 struct mail_index_view;
 struct mailbox_index_vsize;
 struct mailbox_vfuncs;

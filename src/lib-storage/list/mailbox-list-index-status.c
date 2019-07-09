@@ -27,11 +27,6 @@ struct index_list_changes {
 struct index_list_storage_module index_list_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
-/* Should the STATUS information for this mailbox not be written to the
-   mailbox list index? */
-#define MAILBOX_IS_NEVER_IN_INDEX(box) \
-	((box)->inbox_any && !(box)->storage->set->mailbox_list_index_include_inbox)
-
 static int
 index_list_open_view(struct mailbox *box, bool status_check,
 		     struct mail_index_view **view_r, uint32_t *seq_r)
