@@ -1,3 +1,58 @@
+v2.3.7 2019-07-12  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* fts-solr: Removed break-imap-search parameter
+	+ Added more events for the new statistics, see
+	  https://doc.dovecot.org/admin_manual/list_of_events/
+	+ mail-lua: Add IMAP metadata accessors, see
+	  https://doc.dovecot.org/admin_manual/lua/
+	+ Add event exporters that allow exporting raw events to log files and
+	  external systems, see
+	  https://doc.dovecot.org/configuration_manual/event_export/
+	+ SNIPPET is now PREVIEW and size has been increased to 200 characters.
+	+ Add body option to fts_enforced. This triggers building FTS index only
+	  on body search, and an error using FTS index fails the search rather
+	  than reads through all the mails.
+	- Submission/LMTP: Fixed crash when domain argument is invalid in a
+	  second EHLO/LHLO command.
+	- Copying/moving mails using Maildir format loses IMAP keywords in the
+	  destination if the mail also has no system flags.
+	- mail_attachment_detection_options=add-flags-on-save caused email body
+	  to be unnecessarily opened when FETCHing mail headers that were
+	  already cached.
+	- mail attachment detection keywords not saved with maildir.
+	- dovecot.index.cache may have grown excessively large in some
+	  situations. This happened especially when using autoexpunging with
+	  lazy_expunge folders. Also with mdbox format in general the cache file
+	  wasn't recreated as often as it should have.
+	- Autoexpunged mails weren't immediately deleted from the disk. Instead,
+	  the deletion from disk happened the next time the folder was opened.
+	  This could have caused unnecessary delays if the opening was done by
+	  an interactive IMAP session.
+	- Dovecot's TCP connections sometimes add extra 40ms latency due to not
+	  enabling TCP_NODELAY. HTTP and SMTP/LMTP connections weren't
+	  affected, but everything else was. This delay wasn't always visible -
+	  only in some situations with some message/packet sizes.
+	- imapc: Fix various crash conditions
+	- Dovecot builds were not always reproducible.
+	- login-proxy: With shutdown_clients=no after config reload the
+	  existing connections could no longer be listed or kicked with doveadm.
+	- "doveadm proxy kick" with -f parameter caused a crash in some
+	  situations.
+	- Auth policy can cause segmentation fault crash during auth process
+	  shutdown if all auth requests have not been finished.
+	- Fix various minor bugs leading into incorrect behaviour in mailbox
+	  list index handling. These rarely caused noticeable problems.
+	- LDAP auth: Iteration accesses freed memory, possibly crashing
+	  auth-worker
+	- local_name { .. } filter in dovecot.conf does not correctly support
+	  multiple names and wildcards were matched incorrectly.
+	- replicator: dsync assert-crashes if it can't connect to remote TCP
+	  server.
+	- config: Memory leak in config process when ssl_dh setting wasn't
+	  set and there was no ssl-parameters.dat file.
+	  This caused config process to die once in a while
+	  with "out of memory".
+
 v2.3.6 2019-04-30  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2019-11494: Submission-login crashed with signal 11 due to null
