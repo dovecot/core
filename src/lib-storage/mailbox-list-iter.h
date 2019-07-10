@@ -64,7 +64,7 @@ struct mailbox_list_iterate_context *
 mailbox_list_iter_init_multiple(struct mailbox_list *list,
 				const char *const *patterns,
 				enum mailbox_list_iter_flags flags);
-/* List mailbox_list_iter_init_multiple(), but list mailboxes from all the
+/* Like mailbox_list_iter_init_multiple(), but list mailboxes from all the
    specified namespaces. If it fails, the error message is set to the first
    namespaces->list. */
 struct mailbox_list_iterate_context *
