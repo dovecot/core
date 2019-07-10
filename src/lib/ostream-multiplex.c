@@ -108,7 +108,7 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 	if (channel->mstream->bufsize <= channel->buf->used)
 		return -2;
 
-	for(unsigned int i=0; i < iov_count; i++) {
+	for (unsigned int i = 0; i < iov_count; i++) {
 		/* copy data to buffer */
 		size_t tmp = channel->mstream->bufsize - channel->buf->used;
 		if (tmp == 0)
