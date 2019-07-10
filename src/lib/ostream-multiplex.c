@@ -15,7 +15,7 @@ struct multiplex_ochannel {
 	struct multiplex_ostream *mstream;
 	uint8_t cid;
 	buffer_t *buf;
-	time_t last_sent;
+	uint64_t last_sent_counter;
 	bool closed:1;
 	bool corked:1;
 };
@@ -27,6 +27,7 @@ struct multiplex_ostream {
 	uint8_t cur_channel;
 	unsigned int remain;
 	size_t bufsize;
+	uint64_t send_counter;
 	ARRAY(struct multiplex_ochannel *) channels;
 
 	bool destroyed:1;
@@ -54,13 +55,18 @@ static void propagate_error(struct multiplex_ostream *mstream, int stream_errno)
 
 static struct multiplex_ochannel *get_next_channel(struct multiplex_ostream *mstream)
 {
-	time_t oldest = ioloop_time;
 	struct multiplex_ochannel *channel = NULL;
 	struct multiplex_ochannel **channelp;
-	array_foreach_modifiable(&mstream->channels, channelp)
-		if (*channelp != NULL && (*channelp)->last_sent <= oldest &&
-		    (*channelp)->buf->used > 0)
+	uint64_t last_counter = mstream->send_counter;
+
+	array_foreach_modifiable(&mstream->channels, channelp) {
+		if (*channelp != NULL &&
+		   (*channelp)->last_sent_counter <= last_counter &&
+		    (*channelp)->buf->used > 0) {
+			last_counter = (*channelp)->last_sent_counter;
 			channel = *channelp;
+		}
+	}
 	return channel;
 }
 
@@ -97,7 +103,7 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 			break;
 		}
 		buffer_delete(channel->buf, 0, amt);
-		channel->last_sent = ioloop_time;
+		channel->last_sent_counter = ++mstream->send_counter;
 	}
 	if (o_stream_is_corked(mstream->parent))
 		o_stream_uncork(mstream->parent);
