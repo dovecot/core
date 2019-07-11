@@ -116,6 +116,9 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
+	/* FIXME: we're not able to do a clean deinit currently without
+	   larger changes. */
+	exit(0);
 	timeout_remove(&to_proctitle);
 
 	dict_connections_destroy_all();
