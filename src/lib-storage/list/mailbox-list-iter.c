@@ -518,6 +518,7 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 
 static void inbox_set_children_flags(struct ns_list_iterate_context *ctx)
 {
+	struct mail_namespace *ns;
 	const char *prefix;
 	int ret;
 
@@ -527,7 +528,8 @@ static void inbox_set_children_flags(struct ns_list_iterate_context *ctx)
 				      MAILBOX_NOCHILDREN)) != 0)
 		return;
 
-	if (mail_namespace_find_prefix(ctx->namespaces, "") == NULL) {
+	ns = mail_namespace_find_prefix(ctx->namespaces, "");
+	if (ns == NULL || (ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
 		/* prefix="" namespace doesn't exist, and neither does
 		   anything beginning with prefix=INBOX/ (we checked this
 		   earlier). there's no way to create children for INBOX. */
