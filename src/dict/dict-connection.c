@@ -240,7 +240,7 @@ static void dict_connection_destroy(struct connection *_conn)
 	dict_connection_cmds_output_more(conn);
 
 	io_remove(&conn->conn.io);
-	dict_connection_unref_safe(conn);
+	dict_connection_unref(conn);
 }
 
 unsigned int dict_connections_current_count(void)
