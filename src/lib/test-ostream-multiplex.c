@@ -168,7 +168,7 @@ static void test_ostream_multiplex_cork(void)
 	o_stream_cork(chan0);
 	o_stream_nsendv(chan0, iov, N_ELEMENTS(iov));
 	o_stream_uncork(chan0);
-	o_stream_flush(os);
+	test_assert(o_stream_flush(os) == 1);
 
 	/* check output */
 	test_assert(memcmp(output->data, "\0\0\0\0\f", 5) == 0);
