@@ -90,9 +90,11 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 		 */
 		/* check moved to correct place from here */
 		*value = NULL;
+		i_stream_unref(&is);
 		return TRUE;
 	} else if (is->stream_errno != 0) {
 		*error_r = t_strdup(i_stream_get_error(is));
+		i_stream_unref(&is);
 		return FALSE;
 	}
 
@@ -135,9 +137,11 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 	} else if (is->stream_errno == ENOENT) {
 		/* check for empty ssl_dh elsewhere */
 		*value = NULL;
+		i_stream_unref(&is);
 		return TRUE;
 	} else {
 		*error_r = "ssl enabled, but ssl_dh not set";
+		i_stream_unref(&is);
 		return FALSE;
 	}
 	i_stream_unref(&is);
