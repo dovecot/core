@@ -42,6 +42,9 @@ static const struct config_filter managesieve_filter = {
 	.service = "sieve"
 };
 
+static char *ssl_dh_value = NULL;
+static bool ssl_dh_loaded = FALSE;
+
 static void ATTR_FORMAT(2, 3)
 obsolete(struct config_parser_context *ctx, const char *str, ...)
 {
@@ -68,7 +71,7 @@ static void set_rename(struct config_parser_context *ctx,
 	config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
 }
 
-bool old_settings_ssl_dh_load(const char **value, const char **error_r)
+static bool old_settings_ssl_dh_read(const char **value, const char **error_r)
 {
 
 	if (ssl_dh_parameters != NULL) *value = ssl_dh_parameters;
@@ -146,6 +149,19 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 	}
 	i_stream_unref(&is);
 
+	return TRUE;
+}
+
+bool old_settings_ssl_dh_load(const char **value, const char **error_r)
+{
+	if (ssl_dh_loaded) {
+		*value = ssl_dh_value;
+		return TRUE;
+	}
+	if (!old_settings_ssl_dh_read(value, error_r))
+		return FALSE;
+	ssl_dh_value = i_strdup(*value);
+	ssl_dh_loaded = TRUE;
 	return TRUE;
 }
 
@@ -774,4 +790,9 @@ void old_settings_init(struct config_parser_context *ctx)
 {
 	ctx->old = p_new(ctx->pool, struct old_set_parser, 1);
 	ctx->old->base_dir = PKG_RUNDIR;
+}
+
+void old_settings_deinit_global(void)
+{
+	i_free(ssl_dh_value);
 }
