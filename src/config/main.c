@@ -4,6 +4,7 @@
 #include "module-dir.h"
 #include "restrict-access.h"
 #include "master-service.h"
+#include "old-set-parser.h"
 #include "config-connection.h"
 #include "config-parser.h"
 #include "config-request.h"
@@ -44,6 +45,7 @@ int main(int argc, char *argv[])
 	config_connections_destroy_all();
 
 	config_filter_deinit(&config_filter);
+	old_settings_deinit_global();
 	module_dir_unload(&modules);
 	config_parser_deinit();
 	master_service_deinit(&master_service);
