@@ -10,13 +10,11 @@
 static void
 smtp_server_recipient_update_event(struct smtp_server_recipient_private *prcpt)
 {
-	struct smtp_server_connection *conn = prcpt->rcpt.conn;
 	struct event *event = prcpt->rcpt.event;
 	const char *path = smtp_address_encode(prcpt->rcpt.path);
 
 	event_add_str(event, "rcpt_to", path);
-	smtp_params_rcpt_add_to_event(&prcpt->rcpt.params,
-				      conn->set.capabilities, event);
+	smtp_params_rcpt_add_to_event(&prcpt->rcpt.params, event);
 	event_set_append_log_prefix(event,
 				    t_strdup_printf("rcpt %s: ", path));
 }

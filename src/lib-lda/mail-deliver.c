@@ -332,8 +332,7 @@ void mail_deliver_init(struct mail_deliver_context *ctx,
 		event_add_str(ctx->event, "rcpt_to",
 			      smtp_address_encode(ctx->rcpt_to));
 	}
-	smtp_params_rcpt_add_to_event(&ctx->rcpt_params,
-				      SMTP_CAPABILITY__ORCPT, ctx->event);
+	smtp_params_rcpt_add_to_event(&ctx->rcpt_params, ctx->event);
 }
 
 void mail_deliver_deinit(struct mail_deliver_context *ctx)

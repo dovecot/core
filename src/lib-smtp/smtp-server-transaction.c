@@ -15,14 +15,12 @@
 static void
 smtp_server_transaction_update_event(struct smtp_server_transaction *trans)
 {
-	struct smtp_server_connection *conn = trans->conn;
 	struct event *event = trans->event;
 
 	event_add_str(event, "transaction_id", trans->id);
 	event_add_str(event, "mail_from",
 		      smtp_address_encode(trans->mail_from));
-	smtp_params_mail_add_to_event(&trans->params, conn->set.capabilities,
-				      event);
+	smtp_params_mail_add_to_event(&trans->params, event);
 	event_set_append_log_prefix(event,
 				    t_strdup_printf("trans %s: ", trans->id));
 }
