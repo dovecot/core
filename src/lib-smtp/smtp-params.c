@@ -656,12 +656,9 @@ smtp_params_mail_get_extra(const struct smtp_params_mail *params,
 
 static void
 smtp_params_mail_add_auth_to_event(const struct smtp_params_mail *params,
-				   enum smtp_capability caps,
 				   struct event *event)
 {
 	/* AUTH: RFC 4954 */
-	if ((caps & SMTP_CAPABILITY_AUTH) == 0)
-		return;
 	if (params->auth == NULL)
 		return;
 
@@ -671,7 +668,6 @@ smtp_params_mail_add_auth_to_event(const struct smtp_params_mail *params,
 
 static void
 smtp_params_mail_add_body_to_event(const struct smtp_params_mail *params,
-				   enum smtp_capability caps,
 				   struct event *event)
 {
 	/* BODY: RFC 6152 */
@@ -682,12 +678,9 @@ smtp_params_mail_add_body_to_event(const struct smtp_params_mail *params,
 		event_add_str(event, "mail_param_body", "7BIT");
 		break;
 	case SMTP_PARAM_MAIL_BODY_TYPE_8BITMIME:
-		i_assert((caps & SMTP_CAPABILITY_8BITMIME) != 0);
 		event_add_str(event, "mail_param_body", "8BITMIME");
 		break;
 	case SMTP_PARAM_MAIL_BODY_TYPE_BINARYMIME:
-		i_assert((caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
-			(caps & SMTP_CAPABILITY_CHUNKING) != 0);
 		event_add_str(event, "mail_param_body", "BINARYMIME");
 		break;
 	case SMTP_PARAM_MAIL_BODY_TYPE_EXTENSION:
@@ -700,12 +693,9 @@ smtp_params_mail_add_body_to_event(const struct smtp_params_mail *params,
 
 static void
 smtp_params_mail_add_envid_to_event(const struct smtp_params_mail *params,
-				    enum smtp_capability caps,
 				    struct event *event)
 {
 	/* ENVID: RFC 3461, Section 4.4 */
-	if ((caps & SMTP_CAPABILITY_DSN) == 0)
-		return;
 	if (params->envid == NULL)
 		return;
 
@@ -714,12 +704,9 @@ smtp_params_mail_add_envid_to_event(const struct smtp_params_mail *params,
 
 static void
 smtp_params_mail_add_ret_to_event(const struct smtp_params_mail *params,
-				  enum smtp_capability caps,
 				  struct event *event)
 {
 	/* RET: RFC 3461, Section 4.3 */
-	if ((caps & SMTP_CAPABILITY_DSN) == 0)
-		return;
 	switch (params->ret) {
 	case SMTP_PARAM_MAIL_RET_UNSPECIFIED:
 		break;
@@ -736,12 +723,9 @@ smtp_params_mail_add_ret_to_event(const struct smtp_params_mail *params,
 
 static void
 smtp_params_mail_add_size_to_event(const struct smtp_params_mail *params,
-				   enum smtp_capability caps,
 				   struct event *event)
 {
 	/* SIZE: RFC 1870 */
-	if ((caps & SMTP_CAPABILITY_SIZE) == 0)
-		return;
 	if (params->size == 0)
 		return;
 
@@ -749,14 +733,13 @@ smtp_params_mail_add_size_to_event(const struct smtp_params_mail *params,
 }
 
 void smtp_params_mail_add_to_event(const struct smtp_params_mail *params,
-				   enum smtp_capability caps,
 				   struct event *event)
 {
-	smtp_params_mail_add_auth_to_event(params, caps, event);
-	smtp_params_mail_add_body_to_event(params, caps, event);
-	smtp_params_mail_add_envid_to_event(params, caps, event);
-	smtp_params_mail_add_ret_to_event(params, caps, event);
-	smtp_params_mail_add_size_to_event(params, caps, event);
+	smtp_params_mail_add_auth_to_event(params, event);
+	smtp_params_mail_add_body_to_event(params, event);
+	smtp_params_mail_add_envid_to_event(params, event);
+	smtp_params_mail_add_ret_to_event(params, event);
+	smtp_params_mail_add_size_to_event(params, event);
 }
 
 /*
@@ -1257,12 +1240,9 @@ bool smtp_params_rcpt_equals(const struct smtp_params_rcpt *params1,
 
 static void
 smtp_params_rcpt_add_notify_to_event(const struct smtp_params_rcpt *params,
-				     enum smtp_capability caps,
 				     struct event *event)
 {
 	/* NOTIFY: RFC 3461, Section 4.1 */
-	if ((caps & SMTP_CAPABILITY_DSN) == 0)
-		return;
 	if (params->notify == SMTP_PARAM_RCPT_NOTIFY_UNSPECIFIED)
 		return;
 	if ((params->notify & SMTP_PARAM_RCPT_NOTIFY_NEVER) != 0) {
@@ -1289,14 +1269,10 @@ smtp_params_rcpt_add_notify_to_event(const struct smtp_params_rcpt *params,
 
 static void
 smtp_params_rcpt_add_orcpt_to_event(const struct smtp_params_rcpt *params,
-				    enum smtp_capability caps,
 				    struct event *event)
 {
 	/* ORCPT: RFC 3461, Section 4.2 */
 	if (params->orcpt.addr_type == NULL)
-		return;
-	if ((caps & SMTP_CAPABILITY_DSN) == 0 &&
-	    (caps & SMTP_CAPABILITY__ORCPT) == 0)
 		return;
 
 	event_add_str(event, "rcpt_param_orcpt_type",
@@ -1312,9 +1288,8 @@ smtp_params_rcpt_add_orcpt_to_event(const struct smtp_params_rcpt *params,
 }
 
 void smtp_params_rcpt_add_to_event(const struct smtp_params_rcpt *params,
-				   enum smtp_capability caps,
 				   struct event *event)
 {
-	smtp_params_rcpt_add_notify_to_event(params, caps, event);
-	smtp_params_rcpt_add_orcpt_to_event(params, caps, event);
+	smtp_params_rcpt_add_notify_to_event(params, event);
+	smtp_params_rcpt_add_orcpt_to_event(params, event);
 }

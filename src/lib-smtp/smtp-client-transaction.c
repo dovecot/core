@@ -138,14 +138,12 @@ static void
 smtp_client_transaction_rcpt_update_event(
 	struct smtp_client_transaction_rcpt *rcpt)
 {
-	struct smtp_client_connection *conn = rcpt->trans->conn;
 	const char *to = smtp_address_encode(rcpt->rcpt_to);
 
 	event_set_append_log_prefix(rcpt->event,
 				    t_strdup_printf("rcpt <%s>: ", to));
 	event_add_str(rcpt->event, "rcpt_to", to);
-	smtp_params_rcpt_add_to_event(&rcpt->rcpt_params, conn->caps.standard,
-				      rcpt->event);
+	smtp_params_rcpt_add_to_event(&rcpt->rcpt_params, rcpt->event);
 }
 
 static struct smtp_client_transaction_rcpt *
@@ -828,7 +826,6 @@ static void
 smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 				struct smtp_client_transaction *trans)
 {
-	struct smtp_client_connection *conn = trans->conn;
 	struct smtp_client_transaction_mail *mail = trans->mail_head;
 	bool success = smtp_reply_is_success(reply);
 
@@ -880,7 +877,6 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 		event_add_str(trans->event, "mail_from",
 			      smtp_address_encode(mail->mail_from));
 		smtp_params_mail_add_to_event(&mail->mail_params,
-					      conn->caps.standard,
 					      trans->event);
 	}
 
@@ -945,7 +941,6 @@ void smtp_client_transaction_start(
 	event_add_str(trans->event, "mail_from",
 		      smtp_address_encode(mail->mail_from));
 	smtp_params_mail_add_to_event(&mail->mail_params,
-				      conn->caps.standard,
 				      trans->event);
 
 	struct event_passthrough *e =
