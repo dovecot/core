@@ -1338,7 +1338,8 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 		return -1;
 	}
 
-	if (ssl_iostream_is_handshaked(conn->ssl_iostream)) {
+	if (ssl_iostream_is_handshaked(conn->ssl_iostream) &&
+	    !conn->connect_succeeded) {
 		smtp_client_connection_established(conn);
 	} else {
 		/* wait for handshake to complete; connection input handler
