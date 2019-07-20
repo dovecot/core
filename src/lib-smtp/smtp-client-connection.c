@@ -1076,6 +1076,9 @@ static void smtp_client_connection_input(struct connection *_conn)
 			i_assert(ret == 0);
 			return;
 		}
+
+		if (conn->to_connect != NULL)
+			timeout_reset(conn->to_connect);
 	}
 
 	if (!conn->connect_succeeded) {
