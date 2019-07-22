@@ -38,6 +38,7 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
+if BUILD_OPENSSL
 test_libs = \
 	$(module_LTLIBRARIES) \
 	$(noinst_LTLIBRARIES) \
@@ -58,3 +59,4 @@ check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
+endif
