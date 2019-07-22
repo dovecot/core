@@ -22,7 +22,7 @@ struct submission_settings {
 	const char *recipient_delimiter;
 
 	/* submission: */
-	size_t submission_max_mail_size;
+	uoff_t submission_max_mail_size;
 	unsigned int submission_max_recipients;
 	const char *submission_client_workarounds;
 	const char *submission_logout_format;
