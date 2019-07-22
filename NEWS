@@ -1,3 +1,9 @@
+v2.3.7.1 2019-07-23  Timo Sirainen <timo.sirainen@open-xchange.com>
+
+	- Fix TCP_NODELAY errors being logged on non-Linux OSes
+	- lmtp proxy: Fix assert-crash when client uses BODY=8BITMIME
+	- Remove wrongly added checks in namespace prefix checking
+
 v2.3.7 2019-07-12  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* fts-solr: Removed break-imap-search parameter
