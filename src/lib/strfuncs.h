@@ -1,6 +1,8 @@
 #ifndef STRFUNC_H
 #define STRFUNC_H
 
+/* Maximum number of bytes needed for the largest uintmax_t or the lowest
+   intmax_t number in base 10. This value includes the trailing \0. */
 #define MAX_INT_STRLEN ((sizeof(uintmax_t) * CHAR_BIT + 2) / 3 + 1)
 
 extern const unsigned char uchar_nul; /* (const unsigned char *)"" */
