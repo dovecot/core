@@ -78,9 +78,10 @@ index_storage_get_user_dict(struct mail_storage *err_storage,
 }
 
 static int
-index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type,
+index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type_flags,
 		       struct dict **dict_r, const char **mailbox_prefix_r)
 {
+	enum mail_attribute_type type = type_flags & MAIL_ATTRIBUTE_TYPE_MASK;
 	struct mail_storage *storage = box->storage;
 	struct mail_namespace *ns;
 	struct mailbox_metadata metadata;
@@ -139,9 +140,11 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type,
 }
 
 static const char *
-key_get_prefixed(enum mail_attribute_type type, const char *mailbox_prefix,
+key_get_prefixed(enum mail_attribute_type type_flags, const char *mailbox_prefix,
 		 const char *key)
 {
+	enum mail_attribute_type type = type_flags & MAIL_ATTRIBUTE_TYPE_MASK;
+
 	switch (type) {
 	case MAIL_ATTRIBUTE_TYPE_PRIVATE:
 		return t_strconcat(DICT_PATH_PRIVATE, mailbox_prefix, "/",
@@ -155,10 +158,11 @@ key_get_prefixed(enum mail_attribute_type type, const char *mailbox_prefix,
 
 static int
 index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
-				       enum mail_attribute_type type,
+				       enum mail_attribute_type type_flags,
 				       struct dict_transaction_context **dtrans_r,
 				       const char **mailbox_prefix_r)
 {
+	enum mail_attribute_type type = type_flags & MAIL_ATTRIBUTE_TYPE_MASK;
 	struct dict_transaction_context **dtransp = NULL;
 	struct dict *dict;
 	struct mailbox_metadata metadata;
@@ -183,29 +187,31 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 		return 0;
 	}
 
-	if (index_storage_get_dict(t->box, type, &dict, mailbox_prefix_r) < 0)
+	if (index_storage_get_dict(t->box, type_flags, &dict, mailbox_prefix_r) < 0)
 		return -1;
 	*dtransp = *dtrans_r = dict_transaction_begin(dict);
 	return 0;
 }
 
 int index_storage_attribute_set(struct mailbox_transaction_context *t,
-				enum mail_attribute_type type, const char *key,
+				enum mail_attribute_type type_flags,
+				const char *key,
 				const struct mail_attribute_value *value)
 {
+	enum mail_attribute_type type = type_flags & MAIL_ATTRIBUTE_TYPE_MASK;
 	struct dict_transaction_context *dtrans;
 	const char *mailbox_prefix;
 	bool pvt = type == MAIL_ATTRIBUTE_TYPE_PRIVATE;
 	time_t ts = value->last_change != 0 ? value->last_change : ioloop_time;
 	int ret = 0;
 
-	if (index_storage_attribute_get_dict_trans(t, type, &dtrans,
+	if (index_storage_attribute_get_dict_trans(t, type_flags, &dtrans,
 						   &mailbox_prefix) < 0)
 		return -1;
 
 	T_BEGIN {
 		const char *prefixed_key =
-			key_get_prefixed(type, mailbox_prefix, key);
+			key_get_prefixed(type_flags, mailbox_prefix, key);
 		const char *value_str;
 
 		if (mailbox_attribute_value_to_string(t->box->storage, value,
@@ -224,7 +230,8 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 }
 
 int index_storage_attribute_get(struct mailbox *box,
-				enum mail_attribute_type type, const char *key,
+				enum mail_attribute_type type_flags,
+				const char *key,
 				struct mail_attribute_value *value_r)
 {
 	struct dict *dict;
@@ -233,11 +240,11 @@ int index_storage_attribute_get(struct mailbox *box,
 
 	i_zero(value_r);
 
-	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0)
+	if (index_storage_get_dict(box, type_flags, &dict, &mailbox_prefix) < 0)
 		return -1;
 
 	ret = dict_lookup(dict, pool_datastack_create(),
-			  key_get_prefixed(type, mailbox_prefix, key),
+			  key_get_prefixed(type_flags, mailbox_prefix, key),
 			  &value_r->value, &error);
 	if (ret < 0) {
 		mailbox_set_critical(box,
@@ -249,7 +256,7 @@ int index_storage_attribute_get(struct mailbox *box,
 
 struct mailbox_attribute_iter *
 index_storage_attribute_iter_init(struct mailbox *box,
-				  enum mail_attribute_type type,
+				  enum mail_attribute_type type_flags,
 				  const char *prefix)
 {
 	struct index_storage_attribute_iter *iter;
@@ -258,11 +265,11 @@ index_storage_attribute_iter_init(struct mailbox *box,
 
 	iter = i_new(struct index_storage_attribute_iter, 1);
 	iter->iter.box = box;
-	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0) {
+	if (index_storage_get_dict(box, type_flags, &dict, &mailbox_prefix) < 0) {
 		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTPOSSIBLE)
 			iter->dict_disabled = TRUE;
 	} else {
-		iter->prefix = i_strdup(key_get_prefixed(type, mailbox_prefix,
+		iter->prefix = i_strdup(key_get_prefixed(type_flags, mailbox_prefix,
 							 prefix));
 		iter->prefix_len = strlen(iter->prefix);
 		iter->diter = dict_iterate_init(dict, iter->prefix,

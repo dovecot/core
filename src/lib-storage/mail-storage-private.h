@@ -234,14 +234,16 @@ struct mailbox_vfuncs {
 	int (*set_subscribed)(struct mailbox *box, bool set);
 
 	int (*attribute_set)(struct mailbox_transaction_context *t,
-			     enum mail_attribute_type type, const char *key,
+			     enum mail_attribute_type type_flags,
+			     const char *key,
 			     const struct mail_attribute_value *value);
 	int (*attribute_get)(struct mailbox *box,
-			     enum mail_attribute_type type, const char *key,
+			     enum mail_attribute_type type_flags,
+			     const char *key,
 			     struct mail_attribute_value *value_r);
 	struct mailbox_attribute_iter *
 		(*attribute_iter_init)(struct mailbox *box,
-				       enum mail_attribute_type type,
+				       enum mail_attribute_type type_flags,
 				       const char *prefix);
 	const char *(*attribute_iter_next)(struct mailbox_attribute_iter *iter);
 	int (*attribute_iter_deinit)(struct mailbox_attribute_iter *iter);

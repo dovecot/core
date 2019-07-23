@@ -88,7 +88,7 @@ void mailbox_attribute_unregister_internals(
 }
 
 static const struct mailbox_attribute_internal *
-mailbox_internal_attribute_get(enum mail_attribute_type type,
+mailbox_internal_attribute_get(enum mail_attribute_type type_flags,
 			       const char *key)
 {
 	const struct mailbox_attribute_internal *iattr;
@@ -96,7 +96,7 @@ mailbox_internal_attribute_get(enum mail_attribute_type type,
 	unsigned int insert_idx;
 
 	i_zero(&dreg);
-	dreg.type = type;	
+	dreg.type = type_flags & MAIL_ATTRIBUTE_TYPE_MASK;
 	dreg.key = key;
 
 	if (array_bsearch_insert_pos(&mailbox_internal_attributes,
@@ -122,7 +122,7 @@ mailbox_internal_attribute_get(enum mail_attribute_type type,
 }
 
 static void
-mailbox_internal_attributes_get(enum mail_attribute_type type,
+mailbox_internal_attributes_get(enum mail_attribute_type type_flags,
 	const char *prefix, bool have_dict, ARRAY_TYPE(const_string) *attrs)
 {
 	const struct mailbox_attribute_internal *regs;
@@ -139,7 +139,7 @@ mailbox_internal_attributes_get(enum mail_attribute_type type,
 	}
 
 	i_zero(&dreg);
-	dreg.type = type;	
+	dreg.type = type_flags & MAIL_ATTRIBUTE_TYPE_MASK;
 	dreg.key = bare_prefix;
 
 	(void)array_bsearch_insert_pos(&mailbox_internal_attributes,
@@ -149,7 +149,7 @@ mailbox_internal_attributes_get(enum mail_attribute_type type,
 	for (; i < count; i++) {
 		const char *key = regs[i].key;
 
-		if (regs[i].type != type)
+		if (regs[i].type != dreg.type)
 			return;
 		if (plen > 0) {
 			if (strncmp(key, bare_prefix, plen) != 0)
@@ -177,13 +177,16 @@ mailbox_internal_attributes_get(enum mail_attribute_type type,
 
 static int
 mailbox_attribute_set_common(struct mailbox_transaction_context *t,
-			     enum mail_attribute_type type, const char *key,
+			     enum mail_attribute_type type_flags,
+			     const char *key,
 			     const struct mail_attribute_value *value)
 {
+	enum mail_attribute_type type =
+		type_flags & MAIL_ATTRIBUTE_TYPE_MASK;
 	const struct mailbox_attribute_internal *iattr;
 	int ret;
 
-	iattr = mailbox_internal_attribute_get(type, key);
+	iattr = mailbox_internal_attribute_get(type_flags, key);
 
 	/* allow internal server attribute only for inbox */
 	if (iattr != NULL && !t->box->inbox_any &&
@@ -213,24 +216,24 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 		}
 	}
 
-	ret = t->box->v.attribute_set(t, type, key, value);
+	ret = t->box->v.attribute_set(t, type_flags, key, value);
 	return ret;
 }
 
 int mailbox_attribute_set(struct mailbox_transaction_context *t,
-			  enum mail_attribute_type type, const char *key,
+			  enum mail_attribute_type type_flags, const char *key,
 			  const struct mail_attribute_value *value)
 {
-	return mailbox_attribute_set_common(t, type, key, value);
+	return mailbox_attribute_set_common(t, type_flags, key, value);
 }
 
 int mailbox_attribute_unset(struct mailbox_transaction_context *t,
-			    enum mail_attribute_type type, const char *key)
+			    enum mail_attribute_type type_flags, const char *key)
 {
 	struct mail_attribute_value value;
 
 	i_zero(&value);
-	return mailbox_attribute_set_common(t, type, key, &value);
+	return mailbox_attribute_set_common(t, type_flags, key, &value);
 }
 
 int mailbox_attribute_value_to_string(struct mail_storage *storage,
@@ -269,13 +272,14 @@ int mailbox_attribute_value_to_string(struct mail_storage *storage,
 
 static int
 mailbox_attribute_get_common(struct mailbox *box,
-			     enum mail_attribute_type type, const char *key,
+			     enum mail_attribute_type type_flags,
+			     const char *key,
 			     struct mail_attribute_value *value_r)
 {
 	const struct mailbox_attribute_internal *iattr;
 	int ret;
 
-	iattr = mailbox_internal_attribute_get(type, key);
+	iattr = mailbox_internal_attribute_get(type_flags, key);
 
 	/* allow internal server attributes only for the inbox */
 	if (iattr != NULL && !box->inbox_user &&
@@ -305,7 +309,7 @@ mailbox_attribute_get_common(struct mailbox *box,
 		}
 	}
 
-	ret = box->v.attribute_get(box, type, key, value_r);
+	ret = box->v.attribute_get(box, type_flags, key, value_r);
 	if (ret != 0)
 		return ret;
 
@@ -334,12 +338,12 @@ mailbox_attribute_get_common(struct mailbox *box,
 }
 
 int mailbox_attribute_get(struct mailbox *box,
-			  enum mail_attribute_type type, const char *key,
+			  enum mail_attribute_type type_flags, const char *key,
 			  struct mail_attribute_value *value_r)
 {
 	int ret;
 	i_zero(value_r);
-	if ((ret = mailbox_attribute_get_common(box, type, key,
+	if ((ret = mailbox_attribute_get_common(box, type_flags, key,
 				value_r)) <= 0)
 		return ret;
 	i_assert(value_r->value != NULL);
@@ -347,14 +351,15 @@ int mailbox_attribute_get(struct mailbox *box,
 }
 
 int mailbox_attribute_get_stream(struct mailbox *box,
-				 enum mail_attribute_type type, const char *key,
+				 enum mail_attribute_type type_flags,
+				 const char *key,
 				 struct mail_attribute_value *value_r)
 {
 	int ret;
 
 	i_zero(value_r);
 	value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_INT_STREAMS;
-	if ((ret = mailbox_attribute_get_common(box, type, key,
+	if ((ret = mailbox_attribute_get_common(box, type_flags, key,
 				value_r)) <= 0)
 		return ret;
 	i_assert(value_r->value != NULL || value_r->value_stream != NULL);
@@ -372,7 +377,8 @@ struct mailbox_attribute_internal_iter {
 
 struct mailbox_attribute_iter *
 mailbox_attribute_iter_init(struct mailbox *box,
-			    enum mail_attribute_type type, const char *prefix)
+			    enum mail_attribute_type type_flags,
+			    const char *prefix)
 {
 	struct mailbox_attribute_internal_iter *intiter;
 	struct mailbox_attribute_iter *iter;
@@ -380,14 +386,15 @@ mailbox_attribute_iter_init(struct mailbox *box,
 	const char *const *attr;
 	bool have_dict;
 
-	iter = box->v.attribute_iter_init(box, type, prefix);
+	iter = box->v.attribute_iter_init(box, type_flags, prefix);
 	i_assert(iter->box != NULL);
 	box->attribute_iter_count++;
 
 	/* check which internal attributes may apply */
 	t_array_init(&extra_attrs, 4);
 	have_dict = box->storage->set->mail_attribute_dict[0] != '\0';
-	mailbox_internal_attributes_get(type, prefix, have_dict, &extra_attrs);
+	mailbox_internal_attributes_get(type_flags, prefix,
+					have_dict, &extra_attrs);
 
 	/* any extra internal attributes to add? */
 	if (array_count(&extra_attrs) == 0) {

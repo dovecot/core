@@ -182,6 +182,8 @@ enum mail_attribute_type {
 	MAIL_ATTRIBUTE_TYPE_PRIVATE,
 	MAIL_ATTRIBUTE_TYPE_SHARED
 };
+#define MAIL_ATTRIBUTE_TYPE_MASK		0x0f
+
 enum mail_attribute_value_flags {
 	MAIL_ATTRIBUTE_VALUE_FLAG_READONLY	= 0x01,
 	MAIL_ATTRIBUTE_VALUE_FLAG_INT_STREAMS	= 0x02
@@ -267,27 +269,29 @@ void mailbox_attribute_unregister_internals(
    IMAP METADATA, so for Dovecot-specific keys use
    MAILBOX_ATTRIBUTE_PREFIX_DOVECOT. */
 int mailbox_attribute_set(struct mailbox_transaction_context *t,
-			  enum mail_attribute_type type, const char *key,
+			  enum mail_attribute_type type_flags, const char *key,
 			  const struct mail_attribute_value *value);
 /* Delete mailbox attribute key. This is just a wrapper to
    mailbox_attribute_set() with value->value=NULL. */
 int mailbox_attribute_unset(struct mailbox_transaction_context *t,
-			    enum mail_attribute_type type, const char *key);
+			    enum mail_attribute_type type_flags, const char *key);
 /* Returns value for mailbox attribute key. Returns 1 if value was returned,
    0 if value wasn't found (set to NULL), -1 if error */
 int mailbox_attribute_get(struct mailbox *box,
-			  enum mail_attribute_type type, const char *key,
+			  enum mail_attribute_type type_flags, const char *key,
 			  struct mail_attribute_value *value_r);
 /* Same as mailbox_attribute_get(), but the returned value may be either an
    input stream or a string. */
 int mailbox_attribute_get_stream(struct mailbox *box,
-				 enum mail_attribute_type type, const char *key,
+				 enum mail_attribute_type type_flags,
+				 const char *key,
 				 struct mail_attribute_value *value_r);
 
 /* Iterate through mailbox attributes of the given type. The prefix can be used
    to restrict what attributes are returned. */
 struct mailbox_attribute_iter *
-mailbox_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
+mailbox_attribute_iter_init(struct mailbox *box,
+			    enum mail_attribute_type type_flags,
 			    const char *prefix);
 /* Returns the attribute key or NULL if there are no more attributes. */
 const char *mailbox_attribute_iter_next(struct mailbox_attribute_iter *iter);
