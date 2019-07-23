@@ -302,7 +302,7 @@ int quota_user_read_settings(struct mail_user *user,
 			     const char **error_r)
 {
 	struct quota_settings *quota_set;
-	char root_name[5 + MAX_INT_STRLEN + 1];
+	char root_name[5 + MAX_INT_STRLEN];
 	const char *env, *error;
 	unsigned int i;
 	pool_t pool;

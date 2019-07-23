@@ -74,7 +74,7 @@ read_autobox_settings(struct mail_user *user, const char *env_name_base,
 		      bool subscriptions)
 {
 	const char *value;
-	char env_name[13+MAX_INT_STRLEN+1];
+	char env_name[strlen(env_name_base) + MAX_INT_STRLEN];
 	unsigned int i = 1;
 
 	value = mail_user_plugin_getenv(user, env_name_base);

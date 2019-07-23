@@ -802,7 +802,7 @@ static const char *const *fts_exclude_get_patterns(struct mail_user *user)
 {
 	ARRAY_TYPE(const_string) patterns;
 	const char *str;
-	char set_name[21+MAX_INT_STRLEN+1];
+	char set_name[21 + MAX_INT_STRLEN];
 	unsigned int i;
 
 	str = mail_user_plugin_getenv(user, "fts_autoindex_exclude");

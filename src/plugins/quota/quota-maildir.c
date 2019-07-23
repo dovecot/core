@@ -724,7 +724,7 @@ maildirquota_refresh(struct maildir_quota_root *root, bool *recalculated_r,
 static int maildirsize_update(struct maildir_quota_root *root,
 			      int count_diff, int64_t bytes_diff)
 {
-	char str[MAX_INT_STRLEN*2 + 2 + 1];
+	char str[MAX_INT_STRLEN * 2 + 2];
 	int ret = 0;
 
 	if (count_diff == 0 && bytes_diff == 0)

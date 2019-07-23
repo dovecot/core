@@ -97,7 +97,7 @@ file_lock_find_proc_locks(int lock_fd ATTR_UNUSED)
 #ifdef __linux__
 	static bool have_proc_locks = TRUE;
 	struct stat st;
-	char node_buf[MAX_INT_STRLEN*3 + 2 + 1];
+	char node_buf[MAX_INT_STRLEN * 3 + 2];
 	struct istream *input;
 	const char *line, *lock_type = "";
 	pid_t pid = 0;

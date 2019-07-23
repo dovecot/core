@@ -171,7 +171,7 @@ static const char *const *doveadm_expire_get_patterns(void)
 {
 	ARRAY_TYPE(const_string) patterns;
 	const char *str;
-	char set_name[6+MAX_INT_STRLEN+1];
+	char set_name[6 + MAX_INT_STRLEN];
 	unsigned int i;
 
 	t_array_init(&patterns, 16);

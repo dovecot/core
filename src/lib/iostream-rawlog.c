@@ -24,7 +24,7 @@
 static void
 rawlog_write_timestamp(struct rawlog_iostream *rstream, bool line_ends)
 {
-	unsigned char data[MAX_INT_STRLEN + 6 + 1 + 3];
+	unsigned char data[MAX_INT_STRLEN + 1 + 6 + 1 + 3];
 	buffer_t buf;
 
 	if ((rstream->flags & IOSTREAM_RAWLOG_FLAG_TIMESTAMP) == 0)
