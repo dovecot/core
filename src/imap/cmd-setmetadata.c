@@ -273,6 +273,8 @@ cmd_setmetadata_start(struct imap_setmetadata_context *ctx)
 	struct client_command_context *cmd = ctx->cmd;
 	struct client *client = cmd->client;
 
+	imap_metadata_transaction_validated_only(ctx->trans,
+		!cmd->client->set->imap_metadata);
 	/* we support large literals, so read the values from client
 	   asynchronously the same way as APPEND does. */
 	client->input_lock = cmd;
@@ -340,11 +342,6 @@ bool cmd_setmetadata(struct client_command_context *cmd)
 	if (!imap_arg_get_astring(&args[0], &mailbox) ||
 	    args[1].type != IMAP_ARG_LIST) {
 		client_send_command_error(cmd, "Invalid arguments.");
-		return TRUE;
-	}
-
-	if (!cmd->client->imap_metadata_enabled) {
-		client_send_command_error(cmd, "METADATA disabled.");
 		return TRUE;
 	}
 

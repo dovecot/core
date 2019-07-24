@@ -199,10 +199,8 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		client_add_capability(client, "URLAUTH");
 		client_add_capability(client, "URLAUTH=BINARY");
 	}
-	if (set->imap_metadata && *mail_set->mail_attribute_dict != '\0') {
-		client->imap_metadata_enabled = TRUE;
+	if (set->imap_metadata && *mail_set->mail_attribute_dict != '\0')
 		client_add_capability(client, "METADATA");
-	}
 	if (user_has_special_use_mailboxes(user)) {
 		/* Advertise SPECIAL-USE only if there are actually some
 		   SPECIAL-USE flags in mailbox configuration. */

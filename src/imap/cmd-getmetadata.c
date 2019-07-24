@@ -381,6 +381,8 @@ cmd_getmetadata_start(struct imap_getmetadata_context *ctx)
 
 	if (ctx->depth > 0)
 		ctx->iter_entry_prefix = str_new(cmd->pool, 128);
+	imap_metadata_transaction_validated_only(ctx->trans,
+		!cmd->client->set->imap_metadata);
 
 	if (!cmd_getmetadata_continue(cmd)) {
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
@@ -463,11 +465,6 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
-
-	if (!cmd->client->imap_metadata_enabled) {
-		client_send_command_error(cmd, "METADATA disabled.");
-		return TRUE;
-	}
 
 	ctx = p_new(cmd->pool, struct imap_getmetadata_context, 1);
 	ctx->cmd = cmd;

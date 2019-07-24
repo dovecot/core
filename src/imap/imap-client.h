@@ -239,7 +239,6 @@ struct client {
 	bool notify_immediate_expunges:1;
 	bool notify_count_changes:1;
 	bool notify_flag_changes:1;
-	bool imap_metadata_enabled:1;
 	bool nonpermanent_modseqs:1;
 	bool state_import_bad_idle_done:1;
 	bool state_import_idle_continue:1;
