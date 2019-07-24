@@ -183,6 +183,9 @@ enum mail_attribute_type {
 	MAIL_ATTRIBUTE_TYPE_SHARED
 };
 #define MAIL_ATTRIBUTE_TYPE_MASK		0x0f
+/* Allow accessing only attributes with
+   MAIL_ATTRIBUTE_INTERNAL_FLAG_VALIDATED. */
+#define MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED	0x80
 
 enum mail_attribute_value_flags {
 	MAIL_ATTRIBUTE_VALUE_FLAG_READONLY	= 0x01,
@@ -234,7 +237,11 @@ enum mail_attribute_internal_rank {
 
 enum mail_attribute_internal_flags {
 	/* Apply this attribute to the given key and its children. */
-	MAIL_ATTRIBUTE_INTERNAL_FLAG_CHILDREN	= 0x01
+	MAIL_ATTRIBUTE_INTERNAL_FLAG_CHILDREN	= 0x01,
+	/* This attribute can be set/get even without generic METADATA support.
+	   These attributes don't count towards any quotas either, so the set()
+	   callback should validate that the value isn't excessively large. */
+	MAIL_ATTRIBUTE_INTERNAL_FLAG_VALIDATED	= 0x02,
 };
 
 struct mailbox_attribute_internal {
