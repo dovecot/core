@@ -146,6 +146,15 @@ cmd_getmetadata_send_nil_reply(struct imap_getmetadata_context *ctx,
 	o_stream_nsend(ctx->cmd->client->output, str_data(str), str_len(str));
 }
 
+static void
+cmd_getmetadata_handle_error_str(struct imap_getmetadata_context *ctx,
+				 const char *error_string,
+				 enum mail_error error)
+{
+	str_printfa(ctx->delayed_errors, "* NO %s\r\n", error_string);
+	ctx->last_error = error;
+}
+
 static bool
 cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx,
 			     bool entry_error)
@@ -160,8 +169,7 @@ cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx,
 		return FALSE;
 	}
 
-	str_printfa(ctx->delayed_errors, "* NO %s\r\n", error_string);
-	ctx->last_error = error;
+	cmd_getmetadata_handle_error_str(ctx, error_string, error);
 	return TRUE;
 }
 
@@ -186,7 +194,8 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 				i_stream_get_name(value.value_stream),
 				i_stream_get_error(value.value_stream));
 			i_stream_unref(&value.value_stream);
-			ctx->last_error = MAIL_ERROR_TEMP;
+			cmd_getmetadata_handle_error_str(ctx,
+				MAIL_ERRSTR_CRITICAL_MSG, MAIL_ERROR_TEMP);
 			return;
 		}
 	} else {
