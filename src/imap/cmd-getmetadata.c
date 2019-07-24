@@ -146,25 +146,36 @@ cmd_getmetadata_send_nil_reply(struct imap_getmetadata_context *ctx,
 	o_stream_nsend(ctx->cmd->client->output, str_data(str), str_len(str));
 }
 
+static bool
+cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx,
+			     bool entry_error)
+{
+	const char *error_string;
+	enum mail_error error;
+
+	error_string = imap_metadata_transaction_get_last_error(ctx->trans, &error);
+	if ((error == MAIL_ERROR_NOTFOUND || error == MAIL_ERROR_PERM) &&
+	    entry_error) {
+		/* don't treat this as an error */
+		return FALSE;
+	}
+
+	str_printfa(ctx->delayed_errors, "* NO %s\r\n", error_string);
+	ctx->last_error = error;
+	return TRUE;
+}
+
 static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 				       const char *entry, bool require_reply)
 {
 	struct client *client = ctx->cmd->client;
 	struct mail_attribute_value value;
-	const char *error_string;
-	enum mail_error error;
 	uoff_t value_len;
 	string_t *str;
 
 	if (imap_metadata_get_stream(ctx->trans, entry, &value) < 0) {
-		error_string = imap_metadata_transaction_get_last_error(
-			ctx->trans, &error);
-		if (error != MAIL_ERROR_NOTFOUND && error != MAIL_ERROR_PERM) {
-			str_printfa(ctx->delayed_errors, "* NO %s\r\n",
-				    error_string);
-			ctx->last_error = error;
+		if (cmd_getmetadata_handle_error(ctx, TRUE))
 			return;
-		}
 	}
 
 	if (value.value != NULL)
@@ -260,8 +271,8 @@ cmd_getmetadata_send_entry_tree(struct imap_getmetadata_context *ctx,
 			if (subentry == NULL) {
 				/* iteration finished, get to the next entry */
 				if (imap_metadata_iter_deinit(&ctx->iter) < 0) {
-					str_printfa(ctx->delayed_errors, "* NO %s\r\n",
-						imap_metadata_transaction_get_last_error(ctx->trans, &ctx->last_error));
+					if (!cmd_getmetadata_handle_error(ctx, FALSE))
+						i_unreached();
 				}
 				return -1;
 			}
