@@ -47,6 +47,13 @@ void mailbox_attribute_register_internal(
 	struct mailbox_attribute_internal ireg;
 	unsigned int insert_idx;
 
+	/* Validated attributes must have a set() callback that validates the
+	   provided values. Also read-only _RANK_AUTHORITY attributes don't
+	   need validation. */
+	i_assert((iattr->flags & MAIL_ATTRIBUTE_INTERNAL_FLAG_VALIDATED) == 0 ||
+		 iattr->set != NULL ||
+		 iattr->rank == MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY);
+
 	(void)array_bsearch_insert_pos(&mailbox_internal_attributes,
 		iattr, mailbox_attribute_internal_cmp, &insert_idx);
 
@@ -88,8 +95,8 @@ void mailbox_attribute_unregister_internals(
 }
 
 static const struct mailbox_attribute_internal *
-mailbox_internal_attribute_get(enum mail_attribute_type type_flags,
-			       const char *key)
+mailbox_internal_attribute_get_int(enum mail_attribute_type type_flags,
+				   const char *key)
 {
 	const struct mailbox_attribute_internal *iattr;
 	struct mailbox_attribute_internal dreg;
@@ -119,6 +126,22 @@ mailbox_internal_attribute_get(enum mail_attribute_type type_flags,
 	} else {
 		return NULL;
 	}
+}
+
+static const struct mailbox_attribute_internal *
+mailbox_internal_attribute_get(enum mail_attribute_type type_flags,
+			       const char *key)
+{
+	const struct mailbox_attribute_internal *iattr;
+
+	iattr = mailbox_internal_attribute_get_int(type_flags, key);
+	if ((type_flags & MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED) != 0 &&
+	    iattr != NULL &&
+	    (iattr->flags & MAIL_ATTRIBUTE_INTERNAL_FLAG_VALIDATED) == 0) {
+		/* only validated attributes can be accessed */
+		iattr = NULL;
+	}
+	return iattr;
 }
 
 static void
@@ -151,6 +174,10 @@ mailbox_internal_attributes_get(enum mail_attribute_type type_flags,
 
 		if (regs[i].type != dreg.type)
 			return;
+		if ((type_flags & MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED) != 0 &&
+		    (regs[i].flags & MAIL_ATTRIBUTE_INTERNAL_FLAG_VALIDATED) == 0)
+			continue;
+
 		if (plen > 0) {
 			if (strncmp(key, bare_prefix, plen) != 0)
 				return;
@@ -214,6 +241,8 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 		default:
 			i_unreached();
 		}
+		/* the value was validated. */
+		type_flags &= ~MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED;
 	}
 
 	ret = t->box->v.attribute_set(t, type_flags, key, value);
@@ -290,6 +319,12 @@ mailbox_attribute_get_common(struct mailbox *box,
 	if (iattr != NULL) {
 		switch (iattr->rank) {
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
+			/* we already checked that this attribute has
+			   validated-flag */
+			type_flags &= ~MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED;
+
+			if (iattr->get == NULL)
+				break;
 			if ((ret = iattr->get(box, key, value_r)) != 0) {
 				if (ret < 0)
 					return -1;

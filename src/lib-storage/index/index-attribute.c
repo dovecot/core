@@ -88,6 +88,14 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type_flags,
 	struct dict_settings set;
 	const char *error;
 
+	if ((type_flags & MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED) != 0) {
+		/* IMAP METADATA support isn't enabled, so don't allow using
+		   mail_attribute_dict. */
+		mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Generic mailbox attributes not enabled");
+		return -1;
+	}
+
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
 		return -1;
 	*mailbox_prefix_r = guid_128_to_string(metadata.guid);
@@ -177,8 +185,11 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 	}
 	i_assert(dtransp != NULL);
 
-	if (*dtransp != NULL) {
-		/* transaction already created */
+	if (*dtransp != NULL &&
+	    (type_flags & MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED) == 0) {
+		/* Transaction already created. Even if it was, don't use it
+		   if _FLAG_VALIDATED is being used. It'll be handled below by
+		   returning failure. */
 		if (mailbox_get_metadata(t->box, MAILBOX_METADATA_GUID,
 					 &metadata) < 0)
 			return -1;
@@ -189,6 +200,7 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 
 	if (index_storage_get_dict(t->box, type_flags, &dict, mailbox_prefix_r) < 0)
 		return -1;
+	i_assert(*dtransp == NULL);
 	*dtransp = *dtrans_r = dict_transaction_begin(dict);
 	return 0;
 }
