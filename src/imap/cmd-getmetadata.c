@@ -28,6 +28,7 @@ struct imap_getmetadata_context {
 	string_t *iter_entry_prefix;
 
 	string_t *delayed_errors;
+	string_t *last_error_str;
 	enum mail_error last_error;
 
 	unsigned int entry_idx;
@@ -151,7 +152,13 @@ cmd_getmetadata_handle_error_str(struct imap_getmetadata_context *ctx,
 				 const char *error_string,
 				 enum mail_error error)
 {
-	str_printfa(ctx->delayed_errors, "* NO %s\r\n", error_string);
+	if (str_len(ctx->last_error_str) > 0) {
+		str_append(ctx->delayed_errors, "* NO ");
+		str_append_str(ctx->delayed_errors, ctx->last_error_str);
+		str_append(ctx->delayed_errors, "\r\n");
+		str_truncate(ctx->last_error_str, 0);
+	}
+	str_append(ctx->last_error_str, error_string);
 	ctx->last_error = error;
 }
 
@@ -336,7 +343,11 @@ static void cmd_getmetadata_deinit(struct imap_getmetadata_context *ctx)
 	    mailbox_list_iter_deinit(&ctx->list_iter) < 0)
 		client_send_list_error(cmd, cmd->client->user->namespaces->list);
 	else if (ctx->last_error != 0) {
-		client_send_tagline(cmd, "NO Getmetadata failed to send some entries");
+		i_assert(str_len(ctx->last_error_str) > 0);
+		const char *tagline =
+			imap_get_error_string(cmd, str_c(ctx->last_error_str),
+					      ctx->last_error);
+		client_send_tagline(cmd, tagline);
 	} else if (ctx->largest_seen_size != 0) {
 		client_send_tagline(cmd, t_strdup_printf(
 			"OK [METADATA LONGENTRIES %"PRIuUOFF_T"] "
@@ -488,6 +499,7 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 	ctx->maxsize = (uint32_t)-1;
 	ctx->cmd->context = ctx;
 	ctx->delayed_errors = str_new(cmd->pool, 128);
+	ctx->last_error_str = str_new(cmd->pool, 128);
 
 	if (imap_arg_get_list(&args[0], &options)) {
 		if (!cmd_getmetadata_parse_options(ctx, options))
