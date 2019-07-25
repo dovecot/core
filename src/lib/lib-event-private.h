@@ -12,6 +12,7 @@ struct event {
 	uint64_t id;
 
 	char *log_prefix;
+	unsigned int log_prefixes_dropped;
 	event_log_prefix_callback_t *log_prefix_callback;
 	void *log_prefix_callback_context;
 	event_log_message_callback_t *log_message_callback;

@@ -19,6 +19,9 @@ enum test_log_event_type {
 
 enum test_log_event_flag {
 	FLAG_BASE_EVENT = BIT(0),
+	FLAG_DROP_PREFIXES_1 = BIT(1),
+	FLAG_DROP_PREFIXES_2 = BIT(2),
+	FLAG_DROP_PREFIXES_4 = BIT(3),
 };
 
 enum test_log_flag {
@@ -2183,6 +2186,189 @@ static void test_event_log_message(void)
 			.result = "replaced2,Info: [amended2-PREFIX: TEXT]",
 			.result_str_out = "STR_PREFIX: TEXT",
 		},
+		/* Tests in which parent log prefixes are dropped by an event
+		   lower in the hierarchy. */
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.", 0 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: "
+				"appended1,appended2.appended3."
+				"appended4.appended5.TEXT",
+			.result_str_out = "appended1,appended2.appended3."
+				"appended4.appended5.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: "
+				"appended1,appended2.appended3."
+				"appended5.TEXT",
+			.result_str_out = "appended1,appended2.appended3."
+				"appended5.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.", 0 },
+				{ TYPE_SKIP, NULL, FLAG_DROP_PREFIXES_1 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: "
+				"appended1,appended2.appended3."
+				"appended4.TEXT",
+			.result_str_out = "appended1,appended2.appended3."
+				"appended4.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  FLAG_DROP_PREFIXES_2 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: "
+				"appended1,appended2.appended5.TEXT",
+			.result_str_out = "appended1,appended2.appended5.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  (FLAG_DROP_PREFIXES_1 |
+				   FLAG_DROP_PREFIXES_2) },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: appended1,appended5.TEXT",
+			.result_str_out = "appended1,appended5.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  FLAG_DROP_PREFIXES_4 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: appended5.TEXT",
+			.result_str_out = "appended5.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  (FLAG_DROP_PREFIXES_1 |
+				   FLAG_DROP_PREFIXES_2 |
+				   FLAG_DROP_PREFIXES_4) },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: appended5.TEXT",
+			.result_str_out = "appended5.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.", 0 },
+				{ TYPE_SKIP, NULL, (FLAG_DROP_PREFIXES_1 |
+						    FLAG_DROP_PREFIXES_2 |
+						    FLAG_DROP_PREFIXES_4) },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: TEXT",
+			.result_str_out = "TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: "
+				"appended2.appended3.appended5.TEXT",
+			.result_str_out = "appended2.appended3.appended5.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,",
+				  FLAG_DROP_PREFIXES_1 },
+				{ TYPE_PREFIX_APPEND, "appended2.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ TYPE_PREFIX_APPEND, "appended3.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ TYPE_PREFIX_APPEND, "appended4.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: appended5.TEXT",
+			.result_str_out = "appended5.TEXT",
+		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ .type = TYPE_SKIP },
+				{ TYPE_PREFIX_APPEND, "appended2.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ .type = TYPE_SKIP },
+				{ TYPE_PREFIX_APPEND, "appended3.", 0 },
+				{ .type = TYPE_SKIP },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ .type = TYPE_SKIP },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ .type = TYPE_SKIP },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: "
+				"appended2.appended3.appended5.TEXT",
+			.result_str_out = "appended2.appended3.appended5.TEXT",
+		},
 	};
 
 	test_begin("event log message");
@@ -2208,6 +2394,8 @@ static void test_event_log_message(void)
 		struct event *event, *parent;
 		event = parent = event_create(NULL);
 		for (unsigned int j = 0; test->prefixes[j].type != TYPE_END; j++) {
+			unsigned int drop_prefixes = 0;
+
 			if (event == NULL) {
 				struct event *child = event_create(parent);
 				event_unref(&parent);
@@ -2217,6 +2405,17 @@ static void test_event_log_message(void)
 				i_assert(params.base_event == NULL);
 				params.base_event = event;
 			}
+			if ((test->prefixes[j].flags &
+			     FLAG_DROP_PREFIXES_1) != 0)
+				drop_prefixes += 1;
+			if ((test->prefixes[j].flags &
+			     FLAG_DROP_PREFIXES_2) != 0)
+				drop_prefixes += 2;
+			if ((test->prefixes[j].flags &
+			     FLAG_DROP_PREFIXES_4) != 0)
+				drop_prefixes += 4;
+			event_drop_parent_log_prefixes(event, drop_prefixes);
+
 			switch (test->prefixes[j].type) {
 			case TYPE_END:
 				i_unreached();

@@ -139,9 +139,10 @@ event_get_log_message_str_out(struct event_get_log_message_context *glmctx,
 	glmctx->str_out_done = TRUE;
 }
 
-static bool ATTR_FORMAT(3, 0)
+static bool ATTR_FORMAT(4, 0)
 event_get_log_message(struct event *event,
 		      struct event_get_log_message_context *glmctx,
+		      unsigned int prefixes_dropped,
 		      const char *fmt, va_list args)
 {
 	const struct event_log_params *params = glmctx->params;
@@ -199,8 +200,12 @@ event_get_log_message(struct event *event,
 		event_get_log_message_str_out(glmctx, fmt, args);
 	}
 	if (prefix != NULL) {
-		str_insert(glmctx->log_prefix, 0, prefix);
-		ret = TRUE;
+		if (event->log_prefix_replace || prefixes_dropped == 0) {
+			str_insert(glmctx->log_prefix, 0, prefix);
+			ret = TRUE;
+		} else if (prefixes_dropped > 0) {
+			prefixes_dropped--;
+		}
 	}
 	if (event->parent == NULL) {
 		event_get_log_message_str_out(glmctx, fmt, args);
@@ -213,7 +218,10 @@ event_get_log_message(struct event *event,
 		}
 	} else if (!event->log_prefix_replace &&
 		   (!params->no_send || !glmctx->str_out_done)) {
-		if (event_get_log_message(event->parent, glmctx, fmt, args))
+		if (event->log_prefixes_dropped > prefixes_dropped)
+			prefixes_dropped = event->log_prefixes_dropped;
+		if (event_get_log_message(event->parent, glmctx,
+					  prefixes_dropped, fmt, args))
 			ret = TRUE;
 	}
 	return ret;
@@ -302,7 +310,7 @@ event_logv_params(struct event *event, const struct event_log_params *params,
 	i_zero(&glmctx);
 	glmctx.params = params;
 	glmctx.log_prefix = t_str_new(64);
-	if (!event_get_log_message(event, &glmctx, fmt, args)) {
+	if (!event_get_log_message(event, &glmctx, 0, fmt, args)) {
 		/* keep log prefix as it is */
 		if (params->base_str_out != NULL && !glmctx.str_out_done) {
 			va_list args_copy;

@@ -468,6 +468,13 @@ struct event *event_replace_log_prefix(struct event *event, const char *prefix)
 	return event_set_log_prefix(event, prefix, FALSE);
 }
 
+struct event *
+event_drop_parent_log_prefixes(struct event *event, unsigned int count)
+{
+	event->log_prefixes_dropped = count;
+	return event;
+}
+
 #undef event_set_log_prefix_callback
 struct event *
 event_set_log_prefix_callback(struct event *event,
