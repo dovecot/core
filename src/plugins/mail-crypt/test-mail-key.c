@@ -449,12 +449,12 @@ static void test_setup(void)
 	struct dcrypt_settings set = {
 		.module_dir = top_builddir "/src/lib-dcrypt/.libs"
 	};
-	test_pool = pool_alloconly_create(MEMPOOL_GROWING "mcp test pool", 128);
-	test_ioloop = io_loop_create();
 	if (!dcrypt_initialize(NULL, &set, NULL)) {
 		i_info("No functional dcrypt backend found - skipping tests");
 		test_exit(0);
 	}
+	test_pool = pool_alloconly_create(MEMPOOL_GROWING "mcp test pool", 128);
+	test_ioloop = io_loop_create();
 	/* allocate a user */
 	if (init_test_mail_user() < 0) {
 		test_exit(1);
