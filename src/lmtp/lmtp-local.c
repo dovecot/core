@@ -549,16 +549,20 @@ int lmtp_local_default_deliver(struct client *client,
 	struct mail_deliver_input dinput;
 	struct mail_deliver_context dctx;
 	struct mail_storage *storage;
+	struct event *event;
 	enum mail_error mail_error;
 	const char *error;
 	int ret;
+
+	event = event_create(rcpt->event);
+	event_drop_parent_log_prefixes(event, 3);
 
 	i_zero(&dinput);
 	dinput.session = lldctx->session;
 	dinput.set = lldctx->lda_set;
 	dinput.smtp_set = lldctx->smtp_set;
 	dinput.session_id = lldctx->session_id;
-	dinput.event_parent = rcpt->event;
+	dinput.event_parent = event;
 	dinput.src_mail = lldctx->src_mail;
 
 	/* MAIL FROM */
@@ -618,6 +622,7 @@ int lmtp_local_default_deliver(struct client *client,
 		ret = -1;
 	}
 	mail_deliver_deinit(&dctx);
+	event_unref(&event);
 
 	return ret;
 }
