@@ -224,6 +224,12 @@ void mail_user_unref(struct mail_user **_user)
 	pool_unref(&user->pool);
 }
 
+void mail_user_deinit(struct mail_user **user)
+{
+	i_assert((*user)->refcount == 1);
+	mail_user_unref(user);
+}
+
 struct mail_user *mail_user_find(struct mail_user *user, const char *name)
 {
 	struct mail_namespace *ns;
