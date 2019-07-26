@@ -1000,6 +1000,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 
 	test_out_reason("unknown payload size", (failure == NULL), failure);
 
+#ifdef HAVE_OPENSSL
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
 	test_max_pending = MAX_PARALLEL_PENDING;
@@ -1027,6 +1028,7 @@ static void test_run_scenarios(enum smtp_protocol protocol,
 
 	test_out_reason("parallel pipelining startls",
 			(failure == NULL), failure);
+#endif
 }
 
 static void test_smtp_normal(void)
