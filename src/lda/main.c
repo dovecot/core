@@ -568,7 +568,7 @@ int main(int argc, char *argv[])
 		mailbox_transaction_rollback(&t);
 		mailbox_free(&box);
 
-		mail_user_unref(&dinput.rcpt_user);
+		mail_user_deinit(&dinput.rcpt_user);
 		mail_storage_service_user_unref(&service_user);
 	}
 

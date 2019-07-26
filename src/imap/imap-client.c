@@ -498,7 +498,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 		client->autoexpunged_count = mail_user_autoexpunge(client->user);
 		client_log_disconnect(client, reason);
 	}
-	mail_user_unref(&client->user);
+	mail_user_deinit(&client->user);
 
 	/* free the i/ostreams after mail_user_unref(), which could trigger
 	   mail_storage_callbacks notifications that write to the ostream. */

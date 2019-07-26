@@ -244,7 +244,7 @@ client_default_destroy(struct client *client, const char *enh_code,
 	DLLIST_REMOVE(&clients, client);
 
 	if (client->raw_mail_user != NULL)
-		mail_user_unref(&client->raw_mail_user);
+		mail_user_deinit(&client->raw_mail_user);
 
 	client_state_reset(client);
 	event_unref(&client->event);

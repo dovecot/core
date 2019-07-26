@@ -367,7 +367,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 
 	}
 
-	mail_user_unref(&user);
+	mail_user_deinit(&user);
 	mail_storage_service_user_unref(&service_user);
 	pool_unref(&pool);
 	return 1;

@@ -224,7 +224,7 @@ static void cmd_import_deinit(struct doveadm_mail_cmd_context *_ctx)
 	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
 
 	if (ctx->src_user != NULL)
-		mail_user_unref(&ctx->src_user);
+		mail_user_deinit(&ctx->src_user);
 }
 
 static bool cmd_import_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)

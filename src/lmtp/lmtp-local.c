@@ -207,7 +207,7 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 			ret = -1;
 		}
 		mailbox_free(&box);
-		mail_user_unref(&user);
+		mail_user_deinit(&user);
 	}
 
 	if (ret < 0 && !smtp_server_recipient_is_replied(rcpt)) {
@@ -666,7 +666,7 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 		    (ret != 0 && local->rcpt_user != NULL)) {
 			if (i == (count - 1))
 				mail_user_autoexpunge(local->rcpt_user);
-			mail_user_unref(&local->rcpt_user);
+			mail_user_deinit(&local->rcpt_user);
 		} else if (ret == 0) {
 			/* use the first saved message to save it elsewhere too.
 			   this might allow hard linking the files.
@@ -752,7 +752,7 @@ void lmtp_local_data(struct client *client,
 		mailbox_transaction_rollback(&trans);
 		mailbox_free(&box);
 		mail_user_autoexpunge(user);
-		mail_user_unref(&user);
+		mail_user_deinit(&user);
 	}
 
 	if (old_uid == 0) {

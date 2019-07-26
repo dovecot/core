@@ -391,7 +391,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 			"virtual mailbox hierarchy separator "
 			"(specify separator for the default namespace)");
 		ctx->ctx.exit_code = EX_CONFIG;
-		mail_user_unref(&user2);
+		mail_user_deinit(&user2);
 		return -1;
 	}
 	if (paths_are_equal(user, user2, MAILBOX_LIST_PATH_TYPE_MAILBOX) &&
@@ -401,7 +401,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 			mailbox_list_get_root_forced(user->namespaces->list,
 						     MAILBOX_LIST_PATH_TYPE_MAILBOX));
 		ctx->ctx.exit_code = EX_CONFIG;
-		mail_user_unref(&user2);
+		mail_user_deinit(&user2);
 		return -1;
 	}
 

@@ -237,7 +237,7 @@ static void client_destroy(struct client *client)
 		imap_urlauth_deinit(&client->urlauth_ctx);
 
 	if (client->mail_user != NULL)
-		mail_user_unref(&client->mail_user);
+		mail_user_deinit(&client->mail_user);
 
 	io_remove(&client->io);
 	io_remove(&client->ctrl_io);

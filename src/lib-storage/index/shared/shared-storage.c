@@ -260,7 +260,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 			mailbox_list_set_critical(list,
 				"Couldn't create namespace '%s' for user %s: %s",
 				ns->prefix, userdomain, error);
-			mail_user_unref(&owner);
+			mail_user_deinit(&owner);
 			return -1;
 		}
 		ret = 0;
@@ -272,7 +272,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 			mailbox_list_set_critical(list, "Namespace '%s': "
 				"Could not lookup home for user %s",
 				ns->prefix, userdomain);
-			mail_user_unref(&owner);
+			mail_user_deinit(&owner);
 			return -1;
 		}
 	}

@@ -760,7 +760,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	}
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES) == 0) {
 		if (mail_namespaces_init(mail_user, error_r) < 0) {
-			mail_user_unref(&mail_user);
+			mail_user_deinit(&mail_user);
 			return -1;
 		}
 	}

@@ -327,7 +327,7 @@ client_default_destroy(struct client *client, const char *prefix,
 	if (client->urlauth_ctx != NULL)
 		imap_urlauth_deinit(&client->urlauth_ctx);
 
-	mail_user_unref(&client->user);
+	mail_user_deinit(&client->user);
 	mail_storage_service_user_unref(&client->service_user);
 
 	client_state_reset(client);

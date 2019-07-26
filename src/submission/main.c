@@ -137,7 +137,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
 		send_error(fd_out, set->hostname,
 			"4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
-		mail_user_unref(&mail_user);
+		mail_user_deinit(&mail_user);
 		mail_storage_service_user_unref(&user);
 		return -1;
 	}
@@ -148,7 +148,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			"(submission_relay_host is unset)";
 		send_error(fd_out, set->hostname,
 			"4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
-		mail_user_unref(&mail_user);
+		mail_user_deinit(&mail_user);
 		mail_storage_service_user_unref(&user);
 		return -1;
 	}

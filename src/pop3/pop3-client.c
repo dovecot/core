@@ -631,7 +631,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	   as an active POP3 session for the user. */
 	pop3_refresh_proctitle();
 	mail_user_autoexpunge(client->user);
-	mail_user_unref(&client->user);
+	mail_user_deinit(&client->user);
 	mail_storage_service_user_unref(&client->service_user);
 
 	pop3_client_count--;

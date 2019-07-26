@@ -319,7 +319,7 @@ static int test_mail_init_user(const char *user, const char *driver,
 #define test_mail_init_maildir_user(user) test_mail_init_user(user,"maildir","",NULL)
 static void test_mail_deinit_user(struct test_mail_storage_ctx *ctx)
 {
-	mail_user_unref(&ctx->user);
+	mail_user_deinit(&ctx->user);
 	mail_storage_service_user_unref(&ctx->service_user);
 }
 

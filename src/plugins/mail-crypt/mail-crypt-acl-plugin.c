@@ -319,7 +319,7 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 		);
 		mail_storage_service_io_activate_user(dest_service_user);
 
-		mail_user_unref(&dest_user);
+		mail_user_deinit(&dest_user);
 		mail_storage_service_user_unref(&dest_service_user);
 
 		if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
