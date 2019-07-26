@@ -1864,6 +1864,7 @@ static void test_echo_client_shared(void)
 	test_end();
 }
 
+#ifdef HAVE_OPENSSL
 static void test_echo_ssl(void)
 {
 	test_begin("http payload echo (ssl)");
@@ -1892,6 +1893,7 @@ static void test_echo_ssl(void)
 	test_run_parallel(test_client_echo);
 	test_end();
 }
+#endif
 
 static void (*const test_functions[])(void) = {
 	test_download_server_nonblocking,
@@ -1905,7 +1907,9 @@ static void (*const test_functions[])(void) = {
 	test_download_client_partial,
 	test_download_client_nested_ioloop,
 	test_echo_client_shared,
+#ifdef HAVE_OPENSSL
 	test_echo_ssl,
+#endif
 	NULL
 };
 
