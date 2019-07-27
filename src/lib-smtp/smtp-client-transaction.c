@@ -962,7 +962,8 @@ void smtp_client_transaction_start(
 
 	smtp_client_connection_add_transaction(conn, trans);
 
-	if (trans->immediate) {
+	if (trans->immediate &&
+	    conn->state == SMTP_CLIENT_CONNECTION_STATE_READY) {
 		trans->state = SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM;
 
 		if (!trans->submitting)
