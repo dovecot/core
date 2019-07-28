@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "json-parser.h"
+#include "json-generator.h"
 #include "str.h"
 #include "var-expand.h"
 #include "mail-user.h"
