@@ -6,7 +6,7 @@
 #include "istream.h"
 #include "str.h"
 #include "str-sanitize.h"
-#include "json-parser.h"
+#include "json-istream.h"
 #include "settings.h"
 #include "dict.h"
 #include "auth-request.h"
@@ -46,7 +46,7 @@ struct db_dict_value_iter {
 	unsigned int field_idx;
 	unsigned int object_idx;
 
-	struct json_parser *json_parser;
+	struct json_istream *json_input;
 	string_t *tmpstr;
 	const char *error;
 };
@@ -448,35 +448,31 @@ int db_dict_value_iter_init(struct dict_connection *conn,
 
 static bool
 db_dict_value_iter_json_next(struct db_dict_value_iter *iter,
-			     string_t *tmpstr,
 			     const char **key_r, const char **value_r)
 {
-	enum json_type type;
-	const char *value;
+	struct json_node jnode;
+	int ret;
 
-	if (json_parse_next(iter->json_parser, &type, &value) < 0)
+	ret = json_istream_read(iter->json_input, &jnode);
+	i_assert(ret != 0);
+	if (ret < 0)
 		return FALSE;
-	if (type != JSON_TYPE_OBJECT_KEY) {
-		iter->error = "Object expected";
-		return FALSE;
-	}
-	if (*value == '\0') {
+	i_assert(jnode.name != NULL);
+	if (*jnode.name == '\0') {
 		iter->error = "Empty object key";
 		return FALSE;
 	}
-	str_truncate(tmpstr, 0);
-	str_append(tmpstr, value);
+	if (!json_node_is_singular(&jnode)) {
+		iter->error = "Nested objects/arrays not supported";
+		return FALSE;
+	}
 
-	if (json_parse_next(iter->json_parser, &type, &value) < 0) {
-		iter->error = "Missing value";
-		return FALSE;
-	}
-	if (type == JSON_TYPE_OBJECT) {
-		iter->error = "Nested objects not supported";
-		return FALSE;
-	}
-	*key_r = str_c(tmpstr);
-	*value_r = value;
+	json_istream_skip(iter->json_input);
+	*key_r = jnode.name;
+	if (json_node_is_null(&jnode))
+		*value_r = NULL;
+	else
+		*value_r = json_node_get_str(&jnode);
 	return TRUE;
 }
 
@@ -485,10 +481,11 @@ db_dict_value_iter_json_init(struct db_dict_value_iter *iter, const char *data)
 {
 	struct istream *input;
 
-	i_assert(iter->json_parser == NULL);
+	i_assert(iter->json_input == NULL);
 
 	input = i_stream_create_from_data(data, strlen(data));
-	iter->json_parser = json_parser_init(input);
+	iter->json_input = json_istream_create_object(
+		input, NULL, JSON_PARSER_FLAG_NUMBERS_AS_STRING);
 	i_stream_unref(&input);
 }
 
@@ -499,8 +496,8 @@ db_dict_value_iter_object_next(struct db_dict_value_iter *iter,
 	const struct db_dict_key *dict_key;
 	struct db_dict_iter_key *key;
 
-	if (iter->json_parser != NULL)
-		return db_dict_value_iter_json_next(iter, iter->tmpstr, key_r, value_r);
+	if (iter->json_input != NULL)
+		return db_dict_value_iter_json_next(iter, key_r, value_r);
 	if (iter->object_idx == array_count(iter->objects))
 		return FALSE;
 
@@ -513,7 +510,7 @@ db_dict_value_iter_object_next(struct db_dict_value_iter *iter,
 		i_unreached();
 	case DB_DICT_VALUE_FORMAT_JSON:
 		db_dict_value_iter_json_init(iter, key->value);
-		return db_dict_value_iter_json_next(iter, iter->tmpstr, key_r, value_r);
+		return db_dict_value_iter_json_next(iter, key_r, value_r);
 	}
 	i_unreached();
 }
@@ -525,8 +522,8 @@ db_dict_field_find(const char *data, void *context,
 {
 	struct db_dict_value_iter *iter = context;
 	struct db_dict_iter_key *key;
-	const char *name, *value, *dotname = strchr(data, '.');
-	string_t *tmpstr;
+	const char *name, *value, *dotname = strchr(data, '.'), *error;
+	int ret;
 
 	*value_r = NULL;
 
@@ -546,14 +543,16 @@ db_dict_field_find(const char *data, void *context,
 			return 1;
 		db_dict_value_iter_json_init(iter, key->value);
 		*value_r = "";
-		tmpstr = t_str_new(64);
-		while (db_dict_value_iter_json_next(iter, tmpstr, &name, &value)) {
+		while (db_dict_value_iter_json_next(iter, &name, &value)) {
 			if (strcmp(name, dotname) == 0) {
 				*value_r = t_strdup(value);
 				break;
 			}
 		}
-		(void)json_parser_deinit(&iter->json_parser, &iter->error);
+		ret = json_istream_finish(&iter->json_input, &error);
+		i_assert(ret != 0);
+		if (ret < 0)
+			iter->error = p_strdup(iter->pool, error);
 		return 1;
 	}
 	i_unreached();
@@ -595,10 +594,14 @@ int db_dict_value_iter_deinit(struct db_dict_value_iter **_iter,
 	*_iter = NULL;
 
 	*error_r = iter->error;
-	if (iter->json_parser != NULL) {
-		if (json_parser_deinit(&iter->json_parser, &iter->error) < 0 &&
-		    *error_r == NULL)
-			*error_r = iter->error;
+	if (iter->json_input != NULL) {
+		const char *error;
+		int ret;
+
+		ret = json_istream_finish(&iter->json_input, &error);
+		i_assert(ret != 0);
+		if (ret < 0 && *error_r == NULL)
+			*error_r = iter->error = error;
 	}
 
 	pool_unref(&iter->pool);
