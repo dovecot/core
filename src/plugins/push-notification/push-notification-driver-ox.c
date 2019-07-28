@@ -6,7 +6,8 @@
 #include "http-url.h"
 #include "ioloop.h"
 #include "istream.h"
-#include "json-parser.h"
+#include "settings-parser.h"
+#include "json-ostream.h"
 #include "mailbox-attribute.h"
 #include "mail-storage-private.h"
 #include "str.h"
@@ -366,6 +367,7 @@ push_notification_driver_ox_process_msg(
 	struct push_notification_event_messagenew_data *messagenew;
 	struct istream *payload;
 	string_t *str;
+	struct json_ostream *json_output;
 	struct push_notification_driver_ox_txn *txn =
 		(struct push_notification_driver_ox_txn *)dtxn->context;
 	struct mail_user *user = dtxn->ptxn->muser;
@@ -391,32 +393,34 @@ push_notification_driver_ox_process_msg(
 				       "application/json; charset=utf-8");
 
 	str = str_new(default_pool, 256);
-	str_append(str, "{\"user\":\"");
-	json_append_escaped(str, dconfig->use_unsafe_username ?
-			    txn->unsafe_user : user->username);
-	str_append(str, "\",\"event\":\"messageNew\",\"folder\":\"");
-	json_append_escaped(str, msg->mailbox);
-	str_printfa(str, "\",\"imap-uidvalidity\":%u,\"imap-uid\":%u",
-		    msg->uid_validity, msg->uid);
+	json_output = json_ostream_create_str(str, 0);
+	json_ostream_ndescend_object(json_output, NULL);
+	json_ostream_nwrite_string(
+		json_output, "user", (dconfig->use_unsafe_username ?
+				      txn->unsafe_user : user->username));
+	json_ostream_nwrite_string(json_output, "event", "messageNew");
+	json_ostream_nwrite_string(json_output, "folder", msg->mailbox);
+	json_ostream_nwrite_number(json_output, "imap-uidvalidity",
+				   msg->uid_validity);
+	json_ostream_nwrite_number(json_output, "imap-uid", msg->uid);
 	if (messagenew->from != NULL) {
-		str_append(str, ",\"from\":\"");
-		json_append_escaped(str, messagenew->from);
-		str_append(str, "\"");
+		json_ostream_nwrite_string(json_output, "from",
+					   messagenew->from);
 	}
 	if (messagenew->subject != NULL) {
-		str_append(str, ",\"subject\":\"");
-		json_append_escaped(str, messagenew->subject);
-		str_append(str, "\"");
+		json_ostream_nwrite_string(json_output, "subject",
+					   messagenew->subject);
 	}
 	if (messagenew->snippet != NULL) {
-		str_append(str, ",\"snippet\":\"");
-		json_append_escaped(str, messagenew->snippet);
-		str_append(str, "\"");
+		json_ostream_nwrite_string(json_output, "snippet",
+					   messagenew->snippet);
 	}
 	if (status_success) {
-		str_printfa(str, ",\"unseen\":%u", box_status.unseen);
+		json_ostream_nwrite_number(json_output, "unseen",
+					   box_status.unseen);
 	}
-	str_append(str, "}");
+	json_ostream_nascend_object(json_output);
+	json_ostream_nfinish_destroy(&json_output);
 
 	e_debug(dconfig->event, "Sending notification: %s", str_c(str));
 
