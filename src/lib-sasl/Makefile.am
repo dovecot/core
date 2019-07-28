@@ -3,7 +3,8 @@ noinst_LTLIBRARIES = libsasl.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-I$(top_srcdir)/src/lib-auth
+	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-json
 
 libsasl_la_SOURCES = \
 	mech-external.c \
@@ -13,7 +14,8 @@ libsasl_la_SOURCES = \
 	mech-scram.c \
 	dsasl-client.c
 libsasl_la_DEPENDENCIES = \
-	../lib-auth/libauth.la
+	../lib-auth/libauth.la \
+	../lib-json/libjson.la
 
 headers = \
 	dsasl-client.h \
@@ -30,6 +32,7 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	$(noinst_LTLIBRARIES) \
 	../lib-auth/libauth.la \
+	../lib-json/libjson.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 

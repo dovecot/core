@@ -113,6 +113,7 @@ test_libs = \
 	../lib-sasl/libsasl.la \
 	../lib-auth/libauth.la \
 	../lib-otp/libotp.la \
+	../lib-json/libjson.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
@@ -129,6 +130,7 @@ test_deps = \
 	../lib-settings/libsettings.la \
 	../lib-sasl/libsasl.la \
 	../lib-auth/libauth.la \
+	../lib-json/libjson.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 

@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "net.h"
-#include "json-parser.h"
+#include "json-istream.h"
 #include "istream.h"
 #include "dsasl-client-private.h"
 
@@ -38,40 +38,50 @@ mech_oauthbearer_input(struct dsasl_client *_client,
 		   we are only interested in extracting status if possible
 		   so we don't really need to much error handling. */
 		struct istream *is = i_stream_create_from_data(input, input_len);
-		const char *status = NULL, *value;
-		const char *error = NULL;
-		enum json_type jtype;
-		bool found_status = FALSE;
-		struct json_parser *parser = json_parser_init(is);
-		while (json_parse_next(parser, &jtype, &value)>0) {
-			if (found_status && status == NULL) {
-				if (jtype == JSON_TYPE_STRING ||
-				    jtype == JSON_TYPE_NUMBER)
-					status = t_strdup(value);
-				break;
-			} else if (jtype == JSON_TYPE_OBJECT_KEY &&
-				   strcmp(value, "status") == 0) {
-				found_status = TRUE;
-			} else json_parse_skip_next(parser);
-		}
+		struct json_node jnode;
+		struct json_istream *jis = json_istream_create_object(
+			is, NULL, JSON_PARSER_FLAG_NUMBERS_AS_STRING);
+		const char *error;
+		int ret;
 
-		/* deinitialize json parser */
-		int ret = json_parser_deinit(&parser, &error);
 		i_stream_unref(&is);
 
-		if (status != NULL)
-			client->status = p_strdup(_client->pool, status);
-		else {
-			ret = -1;
-			if (error == NULL)
-				error = "Status value missing";
+		ret = 1;
+		while (ret > 0) {
+			ret = json_istream_read(jis, &jnode);
+			i_assert(ret != 0);
+			if (ret < 0)
+				break;
+			i_assert(jnode.name != NULL);
+			if (strcmp(jnode.name, "status") == 0) {
+				if (!json_node_is_string(&jnode) &&
+				    !json_node_is_number(&jnode)) {
+					*error_r = "Status field in response is not a string or a number.";
+					return -1;
+				}
+				client->status = p_strdup(
+					_client->pool,
+					json_node_get_str(&jnode));
+			}
+			json_istream_skip(jis);
 		}
-		if (ret < 0)
-			*error_r = t_strdup_printf("Error parsing JSON reply: %s",
-						   error);
-		else
-			*error_r = t_strdup_printf("Failed to authenticate: %s",
-						   client->status);
+
+		ret = json_istream_finish(&jis, &error);
+		i_assert(ret != 0);
+		if (ret < 0) {
+			*error_r = t_strdup_printf(
+				"Error parsing JSON reply: %s", error);
+			return -1;
+		}
+
+		if (client->status == NULL) {
+			*error_r = "Error parsing JSON reply: "
+				"Status value missing";
+			return -1;
+		}
+
+		*error_r = t_strdup_printf("Failed to authenticate: %s",
+					   client->status);
 		return -1;
 	}
 	return 0;

@@ -38,6 +38,7 @@ test_deps = \
 	../lib-dns/libdns.la \
 	../lib-auth/libauth.la \
 	../lib-otp/libotp.la \
+	../lib-json/libjson.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
