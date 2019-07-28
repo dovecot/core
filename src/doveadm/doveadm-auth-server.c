@@ -15,7 +15,7 @@
 #include "mail-storage-service.h"
 #include "mail-user.h"
 #include "ostream.h"
-#include "json-parser.h"
+#include "json-ostream.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 
@@ -51,6 +51,7 @@ doveadm_get_auth_master_conn(const char *auth_socket_path)
 static int
 cmd_user_input(struct auth_master_connection *conn,
 	       const struct authtest_input *input,
+	       struct json_ostream *json_output,
 	       const char *show_field, bool userdb)
 {
 	const char *lookup_name = userdb ? "userdb lookup" : "passdb lookup";
@@ -68,69 +69,46 @@ cmd_user_input(struct auth_master_connection *conn,
 					      pool, &fields);
 	}
 	if (ret < 0) {
-		const char *msg;
 		if (fields[0] == NULL) {
-			msg = t_strdup_printf("\"error\":\"%s failed\"",
-					      lookup_name);
+			json_ostream_nwritef_string(json_output,
+				"error", "%s failed", lookup_name);
 		} else {
-			msg = t_strdup_printf("\"error\":\"%s failed: %s\"",
-					      lookup_name,
-					      fields[0]);
+			json_ostream_nwritef_string(json_output,
+				"error", "%s failed: %s",
+				lookup_name, fields[0]);
 		}
-		o_stream_nsend_str(doveadm_print_ostream, msg);
 		ret = -1;
 	} else if (ret == 0) {
-		o_stream_nsend_str(doveadm_print_ostream,
-			t_strdup_printf("\"error\":\"%s: user doesn't exist\"",
-				lookup_name));
+		json_ostream_nwritef_string(json_output,
+			"error", "%s: user doesn't exist", lookup_name);
 	} else if (show_field != NULL) {
 		size_t show_field_len = strlen(show_field);
-		string_t *json_field = t_str_new(show_field_len+1);
-		json_append_escaped(json_field, show_field);
-		o_stream_nsend_str(doveadm_print_ostream, t_strdup_printf("\"%s\":", str_c(json_field)));
 		for (; *fields != NULL; fields++) {
 			if (strncmp(*fields, show_field, show_field_len) == 0 &&
 			    (*fields)[show_field_len] == '=') {
-				string_t *jsonval = t_str_new(32);
-				json_append_escaped(jsonval, *fields + show_field_len + 1);
-				o_stream_nsend_str(doveadm_print_ostream, "\"");
-				o_stream_nsend_str(doveadm_print_ostream, str_c(jsonval));
-				o_stream_nsend_str(doveadm_print_ostream, "\"");
+				json_ostream_nwrite_string(
+					json_output, show_field,
+					*fields + show_field_len + 1);
 			}
 		}
 	} else {
-		string_t *jsonval = t_str_new(64);
-		o_stream_nsend_str(doveadm_print_ostream, "\"source\":\"");
-		o_stream_nsend_str(doveadm_print_ostream, userdb ? "userdb\"" : "passdb\"");
+		json_ostream_nwrite_string(json_output,
+			"source", (userdb ? "userdb" : "passdb"));
 
 		if (updated_username != NULL) {
-			o_stream_nsend_str(doveadm_print_ostream, ",\"updated_username\":\"");
-			str_truncate(jsonval, 0);
-			json_append_escaped(jsonval, updated_username);
-			o_stream_nsend_str(doveadm_print_ostream, str_c(jsonval));
-			o_stream_nsend_str(doveadm_print_ostream, "\"");
+			json_ostream_nwrite_string(json_output,
+				"updated_username", updated_username);
 		}
 		for (; *fields != NULL; fields++) {
 			const char *field = *fields;
 			if (*field == '\0') continue;
 			p = strchr(*fields, '=');
-			str_truncate(jsonval, 0);
 			if (p != NULL) {
-				field = t_strcut(*fields, '=');
-			}
-			str_truncate(jsonval, 0);
-			json_append_escaped(jsonval, field);
-			o_stream_nsend_str(doveadm_print_ostream, ",\"");
-			o_stream_nsend_str(doveadm_print_ostream, str_c(jsonval));
-			o_stream_nsend_str(doveadm_print_ostream, "\":");
-			if (p != NULL) {
-				str_truncate(jsonval, 0);
-				json_append_escaped(jsonval, p+1);
-				o_stream_nsend_str(doveadm_print_ostream, "\"");
-				o_stream_nsend_str(doveadm_print_ostream, str_c(jsonval));
-				o_stream_nsend_str(doveadm_print_ostream, "\"");
+				field = t_strdup_until(*fields, p);
+				json_ostream_nwrite_string(json_output,
+							   field, p+1);
 			} else {
-				o_stream_nsend_str(doveadm_print_ostream, "true");
+				json_ostream_nwrite_true(json_output, field);
 			}
 		}
 	}
@@ -164,18 +142,17 @@ static void
 cmd_user_list(struct doveadm_cmd_context *cctx,
 	      struct auth_master_connection *conn,
 	      const struct authtest_input *input,
+	      struct json_ostream *json_output,
 	      char *const *users)
 {
 	struct auth_master_user_list_ctx *ctx;
 	const char *username, *user_mask = "*";
-	string_t *escaped = t_str_new(256);
-	bool first = TRUE;
 	unsigned int i;
 
 	if (users[0] != NULL && users[1] == NULL)
 		user_mask = users[0];
 
-	o_stream_nsend_str(doveadm_print_ostream, "{\"userList\":[");
+	json_ostream_ndescend_array(json_output, "userList");
 
 	ctx = auth_master_user_list_init(conn, user_mask, &input->info);
 	while ((username = auth_master_user_list_next(ctx)) != NULL) {
@@ -184,15 +161,8 @@ cmd_user_list(struct doveadm_cmd_context *cctx,
 				break;
 		}
 		if (users[i] != NULL) {
-			if (first)
-				first = FALSE;
-			else
-				o_stream_nsend_str(doveadm_print_ostream, ",");
-			str_truncate(escaped, 0);
-			str_append_c(escaped, '"');
-			json_append_escaped(escaped, username);
-			str_append_c(escaped, '"');
-			o_stream_nsend(doveadm_print_ostream, escaped->data, escaped->used);
+			json_ostream_nwrite_string(json_output, NULL,
+						   username);
 		}
 	}
 	if (auth_master_user_list_deinit(&ctx) < 0) {
@@ -200,7 +170,7 @@ cmd_user_list(struct doveadm_cmd_context *cctx,
 		doveadm_exit_code = EX_DATAERR;
 	}
 
-	o_stream_nsend_str(doveadm_print_ostream, "]}");
+	json_ostream_nascend_array(json_output);
 }
 
 static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
@@ -229,46 +199,40 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 	auth_master_deinit(&conn);
 }
 
-static void cmd_user_mail_input_field(const char *key, const char *value,
-				      const char *show_field, bool *first)
+static void cmd_user_mail_input_field(struct json_ostream *json_output,
+				      const char *key, const char *value,
+				      const char *show_field)
 {
-	string_t *jvalue = t_str_new(128);
 	if (show_field != NULL && strcmp(show_field, key) != 0) return;
-	/* do not emit comma on first field. we need to keep track
-	   of when the first field actually gets printed as it
-	   might change due to show_field */
-	if (!*first)
-		o_stream_nsend_str(doveadm_print_ostream, ",");
-	*first = FALSE;
-	json_append_escaped(jvalue, key);
-	o_stream_nsend_str(doveadm_print_ostream, "\"");
-	o_stream_nsend_str(doveadm_print_ostream, str_c(jvalue));
-	o_stream_nsend_str(doveadm_print_ostream, "\":\"");
-	str_truncate(jvalue, 0);
-	json_append_escaped(jvalue, value);
-	o_stream_nsend_str(doveadm_print_ostream, str_c(jvalue));
-	o_stream_nsend_str(doveadm_print_ostream, "\"");
+
+	json_ostream_nwrite_string(json_output, key, value);
 }
 
 static void
 cmd_user_mail_print_fields(const struct authtest_input *input,
 			   struct mail_user *user,
+			   struct json_ostream *json_output,
 			   const char *const *userdb_fields,
 			   const char *show_field)
 {
 	const struct mail_storage_settings *mail_set;
 	const char *key, *value;
 	unsigned int i;
-	bool first = TRUE;
 
-	if (strcmp(input->username, user->username) != 0)
-		cmd_user_mail_input_field("user", user->username, show_field, &first);
-	cmd_user_mail_input_field("uid", user->set->mail_uid, show_field, &first);
-	cmd_user_mail_input_field("gid", user->set->mail_gid, show_field, &first);
-	cmd_user_mail_input_field("home", user->set->mail_home, show_field, &first);
+	if (strcmp(input->username, user->username) != 0) {
+		cmd_user_mail_input_field(json_output, "user",
+			user->username, show_field);
+	}
+	cmd_user_mail_input_field(json_output, "uid",
+				  user->set->mail_uid, show_field);
+	cmd_user_mail_input_field(json_output, "gid",
+				  user->set->mail_gid, show_field);
+	cmd_user_mail_input_field(json_output, "home",
+				  user->set->mail_home, show_field);
 
 	mail_set = mail_user_set_get_storage_set(user);
-	cmd_user_mail_input_field("mail", mail_set->mail_location, show_field, &first);
+	cmd_user_mail_input_field(json_output, "mail",
+				  mail_set->mail_location, show_field);
 
 	if (userdb_fields != NULL) {
 		for (i = 0; userdb_fields[i] != NULL; i++) {
@@ -284,7 +248,8 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 			    strcmp(key, "home") != 0 &&
 			    strcmp(key, "mail") != 0 &&
 			    *key != '\0') {
-				cmd_user_mail_input_field(key, value, show_field, &first);
+				cmd_user_mail_input_field(json_output,
+					key, value, show_field);
 			}
 		}
 	}
@@ -293,6 +258,7 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 static int
 cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		    const struct authtest_input *input,
+		    struct json_ostream *json_output,
 		    const char *show_field, const char *expand_field)
 {
 	struct mail_storage_service_input service_input;
@@ -319,39 +285,27 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		pool_unref(&pool);
 		if (ret < 0)
 			return -1;
-		string_t *username = t_str_new(32);
-		json_append_escaped(username, input->username);
-		o_stream_nsend_str(doveadm_print_ostream,
-			t_strdup_printf("\"error\":\"userdb lookup: user %s doesn't exist\"", str_c(username))
-		);
+		json_ostream_nwritef_string(json_output, "error",
+			"userdb lookup: user %s doesn't exist",
+			input->username);
 		return 0;
 	}
 
-	if (expand_field == NULL)
-		cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
-	else {
+	if (expand_field == NULL) {
+		cmd_user_mail_print_fields(input, user,
+			json_output, userdb_fields, show_field);
+	} else {
 		string_t *str = t_str_new(128);
 		if (var_expand_with_funcs(str, expand_field,
 					  mail_user_var_expand_table(user),
 					  mail_user_var_expand_func_table, user,
 					  &error) <= 0) {
-			string_t *str = t_str_new(128);
-			str_printfa(str, "\"error\":\"Failed to expand field: ");
-			json_append_escaped(str, error);
-			str_append_c(str, '"');
-			o_stream_nsend(doveadm_print_ostream, str_data(str), str_len(str));
+			json_ostream_nwritef_string(json_output,
+				"error", "Failed to expand field: %s", error);
 		} else {
-			string_t *value = t_str_new(128);
-			json_append_escaped(value, expand_field);
-			o_stream_nsend_str(doveadm_print_ostream, "\"");
-			o_stream_nsend_str(doveadm_print_ostream, str_c(value));
-			o_stream_nsend_str(doveadm_print_ostream, "\":\"");
-			str_truncate(value, 0);
-			json_append_escaped(value, str_c(str));
-			o_stream_nsend_str(doveadm_print_ostream, str_c(value));
-			o_stream_nsend_str(doveadm_print_ostream, "\"");
+			json_ostream_nwrite_string(json_output,
+				expand_field, str_c(str));
 		}
-
 	}
 
 	mail_user_deinit(&user);
@@ -368,7 +322,8 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 	struct authtest_input input;
 	const char *show_field = NULL, *expand_field = NULL;
 	struct mail_storage_service_ctx *storage_service = NULL;
-	bool have_wildcards, userdb_only = FALSE, first = TRUE;
+	bool have_wildcards, userdb_only = FALSE;
+	struct json_ostream *json_output;
 	int ret;
 
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &auth_socket_path))
@@ -412,8 +367,16 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 		}
 	}
 
+	json_output = json_ostream_create(doveadm_print_ostream, 0);
+	json_ostream_set_no_error_handling(json_output, TRUE);
+	json_ostream_ndescend_object(json_output, NULL);
+
 	if (have_wildcards) {
-		cmd_user_list(cctx, conn, &input, (char*const*)optval);
+		cmd_user_list(cctx, conn, &input, json_output,
+			      (char*const*)optval);
+
+		json_ostream_nascend_object(json_output);
+		json_ostream_destroy(&json_output);
 		auth_master_deinit(&conn);
 		return;
 	}
@@ -430,34 +393,25 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 		conn = NULL;
 	}
 
-	string_t *json = t_str_new(64);
-	o_stream_nsend_str(doveadm_print_ostream, "{");
-
 	input.info.local_ip = cctx->local_ip;
 	input.info.local_port = cctx->local_port;
 	input.info.remote_ip = cctx->remote_ip;
 	input.info.remote_port = cctx->remote_port;
 
 	for(const char *const *val = optval; *val != NULL; val++) {
-		str_truncate(json, 0);
-		json_append_escaped(json, *val);
-
 		input.username = *val;
-		if (first)
-			first = FALSE;
-		else
-			o_stream_nsend_str(doveadm_print_ostream, ",");
 
-		o_stream_nsend_str(doveadm_print_ostream, "\"");
-		o_stream_nsend_str(doveadm_print_ostream, str_c(json));
-		o_stream_nsend_str(doveadm_print_ostream, "\"");
-		o_stream_nsend_str(doveadm_print_ostream, ":{");
+		json_ostream_ndescend_object(json_output, *val);
 
-		ret = !userdb_only ?
-			cmd_user_mail_input(storage_service, &input, show_field, expand_field) :
-			cmd_user_input(conn, &input, show_field, TRUE);
+		if (!userdb_only) {
+			ret = cmd_user_mail_input(storage_service, &input,
+				json_output, show_field, expand_field);
+		} else {
+			ret = cmd_user_input(conn, &input,
+				json_output, show_field, TRUE);
+		}
 
-		o_stream_nsend_str(doveadm_print_ostream, "}");
+		json_ostream_nascend_object(json_output);
 
 		switch (ret) {
 		case -1:
@@ -469,7 +423,8 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 		}
 	}
 
-	o_stream_nsend_str(doveadm_print_ostream,"}");
+	json_ostream_nascend_object(json_output);
+	json_ostream_destroy(&json_output);
 
 	if (storage_service != NULL)
 		mail_storage_service_deinit(&storage_service);

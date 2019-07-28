@@ -5,7 +5,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "ostream.h"
-#include "json-parser.h"
+#include "json-ostream.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 #include "doveadm-print-private.h"
@@ -13,9 +13,9 @@
 
 struct doveadm_print_json_context {
 	unsigned int header_idx, header_count;
-	bool first_row;
-	bool in_stream;
 	bool flushed;
+	struct json_ostream *json_output;
+	struct ostream *str_stream;
 	ARRAY(struct doveadm_print_header) headers;
 	pool_t pool;
 	string_t *str;
@@ -23,16 +23,22 @@ struct doveadm_print_json_context {
 
 static struct doveadm_print_json_context ctx;
 
-static void doveadm_print_json_flush_internal(void);
-
 static void doveadm_print_json_init(void)
 {
 	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create("doveadm json print", 1024);
-	ctx.str = str_new(ctx.pool, 256);
+
 	p_array_init(&ctx.headers, ctx.pool, 1);
-	ctx.first_row = TRUE;
-	ctx.in_stream = FALSE;
+}
+
+static void doveadm_print_json_init_output(void)
+{
+	if (ctx.json_output != NULL)
+		return;
+
+	ctx.json_output = json_ostream_create(doveadm_print_ostream, 0);
+	json_ostream_set_no_error_handling(ctx.json_output, TRUE);
+	json_ostream_ndescend_array(ctx.json_output, NULL);
 }
 
 static void
@@ -46,33 +52,19 @@ doveadm_print_json_header(const struct doveadm_print_header *hdr)
 }
 
 static void
-doveadm_print_json_value_header(const struct doveadm_print_header *hdr)
+doveadm_print_json_value_header(void)
 {
-	// get header name
-	if (ctx.header_idx == 0) {
-		if (ctx.first_row == TRUE) {
-			ctx.first_row = FALSE;
-			str_append_c(ctx.str, '[');
-		} else {
-			str_append_c(ctx.str, ',');
-		}
-		str_append_c(ctx.str, '{');
-	} else {
-		str_append_c(ctx.str, ',');
-	}
+	doveadm_print_json_init_output();
 
-	str_append_c(ctx.str, '"');
-	json_append_escaped(ctx.str, hdr->key);
-	str_append_c(ctx.str, '"');
-	str_append_c(ctx.str, ':');
+	if (ctx.header_idx == 0)
+		json_ostream_ndescend_object(ctx.json_output, NULL);
 }
 
 static void
 doveadm_print_json_value_footer(void) {
 	if (++ctx.header_idx == ctx.header_count) {
 		ctx.header_idx = 0;
-		str_append_c(ctx.str, '}');
-		doveadm_print_json_flush_internal();
+		json_ostream_nascend_object(ctx.json_output);
 	}
 }
 
@@ -80,17 +72,16 @@ static void doveadm_print_json_print(const char *value)
 {
 	const struct doveadm_print_header *hdr = array_idx(&ctx.headers, ctx.header_idx);
 
-	doveadm_print_json_value_header(hdr);
+	doveadm_print_json_value_header();
 
 	if (value == NULL) {
-		str_append(ctx.str, "null");
+		json_ostream_nwrite_null(ctx.json_output, hdr->key);
 	} else if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_NUMBER) != 0) {
 		i_assert(str_is_float(value, '\0'));
-		str_append(ctx.str, value);
+		json_ostream_nwrite_number_raw(ctx.json_output,
+					       hdr->key, value);
 	} else {
-		str_append_c(ctx.str, '"');
-		json_append_escaped(ctx.str, value);
-		str_append_c(ctx.str, '"');
+		json_ostream_nwrite_string(ctx.json_output, hdr->key, value);
 	}
 
 	doveadm_print_json_value_footer();
@@ -99,32 +90,23 @@ static void doveadm_print_json_print(const char *value)
 static void
 doveadm_print_json_print_stream(const unsigned char *value, size_t size)
 {
-	if (!ctx.in_stream) {
+	if (ctx.str_stream == NULL) {
 		const struct doveadm_print_header *hdr =
 			array_idx(&ctx.headers, ctx.header_idx);
-		doveadm_print_json_value_header(hdr);
+		doveadm_print_json_value_header();
 		i_assert((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_NUMBER) == 0);
-		str_append_c(ctx.str, '"');
-		ctx.in_stream = TRUE;
+		ctx.str_stream = json_ostream_nopen_string_stream(
+			ctx.json_output, hdr->key);
+		o_stream_set_no_error_handling(ctx.str_stream, TRUE);
 	}
 
 	if (size == 0) {
-		str_append_c(ctx.str, '"');
+		o_stream_destroy(&ctx.str_stream);
 		doveadm_print_json_value_footer();
-		ctx.in_stream = FALSE;
 		return;
 	}
 
-	json_append_escaped_data(ctx.str, value, size);
-
-	if (str_len(ctx.str) >= IO_BLOCK_SIZE)
-		doveadm_print_json_flush_internal();
-}
-
-static void doveadm_print_json_flush_internal(void)
-{
-	o_stream_nsend(doveadm_print_ostream, str_data(ctx.str), str_len(ctx.str));
-	str_truncate(ctx.str, 0);
+	o_stream_nsend(ctx.str_stream, value, size);
 }
 
 static void doveadm_print_json_flush(void)
@@ -133,17 +115,15 @@ static void doveadm_print_json_flush(void)
 		return;
 	ctx.flushed = TRUE;
 
-	if (ctx.first_row == FALSE)
-		str_append_c(ctx.str,']');
-	else {
-		str_append_c(ctx.str,'[');
-		str_append_c(ctx.str,']');
-	}
-	doveadm_print_json_flush_internal();
+	if (ctx.json_output == NULL)
+		doveadm_print_json_init_output();
+	json_ostream_nascend_array(ctx.json_output);
+	json_ostream_nflush(ctx.json_output);
 }
 
 static void doveadm_print_json_deinit(void)
 {
+	json_ostream_destroy(&ctx.json_output);
 	pool_unref(&ctx.pool);
 }
 
