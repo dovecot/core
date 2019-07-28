@@ -11,7 +11,9 @@
 #include "hash-method.h"
 #include "http-url.h"
 #include "http-client.h"
-#include "json-parser.h"
+#include "json-generator.h"
+#include "json-istream.h"
+#include "json-ostream.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
@@ -42,7 +44,7 @@ struct policy_lookup_ctx {
 	string_t *json;
 	struct auth_request *request;
 	struct http_client_request *http_request;
-	struct json_parser *parser;
+	struct json_istream *json_input;
 	const struct auth_settings *set;
 	const char *url;
 	bool expect_result;
@@ -54,12 +56,6 @@ struct policy_lookup_ctx {
 	struct istream *payload;
 	struct io *io;
 	struct event *event;
-
-	enum {
-		POLICY_RESULT = 0,
-		POLICY_RESULT_VALUE_STATUS,
-		POLICY_RESULT_VALUE_MESSAGE
-	} parse_state;
 
 	bool parse_error;
 };
@@ -84,31 +80,30 @@ auth_policy_strptrcmp(const char *a0, const char *a1,
 	return memcmp(a0, b0, I_MIN((a1-a0),(b1-b0)));
 }
 
-static void auth_policy_open_key(const char *key, string_t *template)
+static void
+auth_policy_open_key(struct json_ostream *json_output, const char *key)
 {
 	const char *ptr;
 
 	while((ptr = strchr(key, '/')) != NULL) {
-		str_append_c(template,'"');
-		json_append_escaped(template, t_strndup(key, (ptr-key)));
-		str_append_c(template,'"');
-		str_append_c(template,':');
-		str_append_c(template,'{');
+		json_ostream_ndescend_object(json_output,
+					     t_strdup_until(key, ptr));
 		key = ptr+1;
 	}
 }
 
-static void auth_policy_close_key(const char *key, string_t *template)
+static void
+auth_policy_close_key(struct json_ostream *json_output, const char *key)
 {
 	while ((key = strchr(key, '/')) != NULL) {
-		str_append_c(template,'}');
+		json_ostream_nascend_object(json_output);
 		key++;
 	}
 }
 
 static void
-auth_policy_open_and_close_to_key(const char *fromkey, const char *tokey,
-				  string_t *template)
+auth_policy_open_and_close_to_key(struct json_ostream *json_output,
+				  const char *fromkey, const char *tokey)
 {
 	const char *fptr,*tptr,*fdash,*tdash;
 
@@ -118,15 +113,12 @@ auth_policy_open_and_close_to_key(const char *fromkey, const char *tokey,
 	if (fptr == NULL && tptr == NULL) return; /* nothing to do */
 
 	if (fptr == NULL && tptr != NULL) {
-		auth_policy_open_key(tokey, template);
+		auth_policy_open_key(json_output, tokey);
 		return;
 	}
 
 	if (fptr != NULL && tptr == NULL) {
-		str_truncate(template, str_len(template)-1);
-
-		auth_policy_close_key(fromkey, template);
-		str_append_c(template, ',');
+		auth_policy_close_key(json_output, fromkey);
 		return;
 	}
 
@@ -143,20 +135,16 @@ auth_policy_open_and_close_to_key(const char *fromkey, const char *tokey,
 		tdash = strchr(tptr, '/');
 
 		if (fdash == NULL) {
-			auth_policy_open_key(tptr, template);
+			auth_policy_open_key(json_output, tptr);
 			break;
 		}
 		if (tdash == NULL) {
-			str_truncate(template, str_len(template)-1);
-			auth_policy_close_key(fptr, template);
-			str_append_c(template, ',');
+			auth_policy_close_key(json_output, fptr);
 			break;
 		}
 		if (auth_policy_strptrcmp(fptr, fdash, tptr, tdash) != 0) {
-			str_truncate(template, str_len(template)-1);
-			auth_policy_close_key(fptr, template);
-			str_append_c(template, ',');
-			auth_policy_open_key(tptr, template);
+			auth_policy_close_key(json_output, fptr);
+			auth_policy_open_key(json_output, tptr);
 			break;
 		}
 		fptr = fdash+1;
@@ -188,6 +176,7 @@ void auth_policy_init(void)
 	ARRAY(struct policy_template_keyvalue) attribute_pairs;
 	const struct policy_template_keyvalue *kvptr;
 	string_t *template = t_str_new(64);
+	struct json_ostream *json_output;
 	const char **ptr;
 	const char *key = NULL;
 	const char **list = t_strsplit_spaces(
@@ -215,23 +204,22 @@ void auth_policy_init(void)
 	/* and build a template string */
 	const char *prevkey = "";
 
+	json_output = json_ostream_create_str(template,
+					      JSON_GENERATOR_FLAG_HIDE_ROOT);
+	json_ostream_ndescend_object(json_output, NULL);
 	array_foreach(&attribute_pairs, kvptr) {
 		const char *kptr = strchr(kvptr->key, '/');
-
-		auth_policy_open_and_close_to_key(prevkey, kvptr->key, template);
-		str_append_c(template,'"');
-		json_append_escaped(template, (kptr != NULL?kptr+1:kvptr->key));
-		str_append_c(template,'"');
-		str_append_c(template,':');
-		str_append_c(template,'"');
-		str_append(template,kvptr->value);
-		str_append_c(template,'"');
-		str_append_c(template,',');
+		auth_policy_open_and_close_to_key(json_output,
+						  prevkey, kvptr->key);
+		json_ostream_nwrite_string(
+			json_output, (kptr != NULL ? kptr + 1 : kvptr->key),
+			kvptr->value);
 		prevkey = kvptr->key;
 	}
+	auth_policy_open_and_close_to_key(json_output, prevkey, "");
+	json_ostream_nascend_object(json_output);
+	json_ostream_nfinish_destroy(&json_output);
 
-	auth_policy_open_and_close_to_key(prevkey, "", template);
-	str_truncate(template, str_len(template)-1);
 	auth_policy_json_template = i_strdup(str_c(template));
 
 	if (global_auth_settings->policy_log_only) {
@@ -279,10 +267,7 @@ static void auth_policy_log_result(struct policy_lookup_ctx *context)
 
 static void auth_policy_finish(struct policy_lookup_ctx *context)
 {
-	if (context->parser != NULL) {
-		const char *error ATTR_UNUSED;
-		(void)json_parser_deinit(&context->parser, &error);
-	}
+	json_istream_destroy(&context->json_input);
 	http_client_request_abort(&context->http_request);
 	if (context->request != NULL)
 		auth_request_unref(&context->request);
@@ -300,37 +285,31 @@ static void auth_policy_callback(struct policy_lookup_ctx *context)
 
 static void auth_policy_parse_response(struct policy_lookup_ctx *context)
 {
-	enum json_type type;
+	struct json_node jnode;
 	const char *value;
 	int ret;
 
-	while((ret = json_parse_next(context->parser, &type, &value)) == 1) {
-		if (context->parse_state == POLICY_RESULT) {
-			if (type != JSON_TYPE_OBJECT_KEY)
-				continue;
-			else if (strcmp(value, "status") == 0)
-				context->parse_state = POLICY_RESULT_VALUE_STATUS;
-			else if (strcmp(value, "msg") == 0)
-				context->parse_state = POLICY_RESULT_VALUE_MESSAGE;
-			else
-				continue;
-		} else if (context->parse_state == POLICY_RESULT_VALUE_STATUS) {
-			if (type != JSON_TYPE_NUMBER ||
-			    str_to_int(value, &context->result) != 0)
+	ret = 1;
+	while (ret > 0) {
+		ret = json_istream_read(context->json_input, &jnode);
+		if (ret <= 0)
+			break;
+		i_assert(jnode.name != NULL);
+
+		if (strcmp(jnode.name, "status") == 0) {
+			if (json_node_get_int(&jnode, &context->result) != 0)
 				break;
-			context->parse_state = POLICY_RESULT;
-		} else if (context->parse_state == POLICY_RESULT_VALUE_MESSAGE) {
-			if (type != JSON_TYPE_STRING)
+		} else if (strcmp(jnode.name, "msg") == 0) {
+			if (!json_node_is_string(&jnode))
 				break;
+			value = json_node_get_str(&jnode);
 			if (*value != '\0')
 				context->message = p_strdup(context->pool, value);
-			context->parse_state = POLICY_RESULT;
-		} else {
-			break;
 		}
+		json_istream_skip(context->json_input);
 	}
 
-	if (ret == 0 && !context->payload->eof)
+	if (ret == 0)
 		return;
 
 	context->parse_error = TRUE;
@@ -341,22 +320,23 @@ static void auth_policy_parse_response(struct policy_lookup_ctx *context)
 		e_error(context->event,
 			"Error reading policy server result: %s",
 			i_stream_get_error(context->payload));
-	} else if (ret == 0 && context->payload->eof) {
-		e_error(context->event,
-			"Policy server result was too short");
-	} else if (ret == 1) {
+	} else if (ret > 0) {
 		e_error(context->event,
 			"Policy server response was malformed");
 	} else {
-		const char *error = "unknown";
-		if (json_parser_deinit(&context->parser, &error) != 0) {
+		const char *error;
+
+		ret = json_istream_finish(&context->json_input, &error);
+		i_assert(ret != 0);
+		if (ret > 0)
+			context->parse_error = FALSE;
+		else {
 			e_error(context->event,
 				"Policy server response JSON parse error: %s",
 				error);
-		} else if (context->parse_state == POLICY_RESULT) {
-			context->parse_error = FALSE;
 		}
 	}
+	json_istream_destroy(&context->json_input);
 
 	if (context->parse_error) {
 		context->result = (context->set->policy_reject_on_fail ?
@@ -418,7 +398,8 @@ auth_policy_process_response(const struct http_response *response, void *ctx)
 		i_stream_ref(response->payload);
 		context->io = io_add_istream(
 			response->payload, auth_policy_parse_response, context);
-		context->parser = json_parser_init(response->payload);
+		context->json_input = json_istream_create_object(
+			response->payload, NULL, 0);
 		auth_policy_parse_response(ctx);
 	} else {
 		auth_policy_callback(context);
@@ -583,8 +564,13 @@ auth_policy_create_json(struct policy_lookup_ctx *context,
 	}
 
 	const char *hashed_password = binary_to_hex(buffer->data, buffer->used);
+	struct json_ostream *json_output;
 	const char *error;
-	str_append_c(context->json, '{');
+
+	json_output = json_ostream_create_str(context->json, 0);
+	json_ostream_ndescend_object(json_output, NULL);
+
+	json_ostream_nopen_space(json_output, NULL);
 	var_table = policy_get_var_expand_table(
 		context->request, hashed_password, requested_username);
 	if (auth_request_var_expand_with_table(context->json,
@@ -595,25 +581,30 @@ auth_policy_create_json(struct policy_lookup_ctx *context,
 		e_error(context->event,
 			"Failed to expand auth policy template: %s", error);
 	}
+
+	json_ostream_close_space(json_output);
+
 	if (include_success) {
-		str_append(context->json, ",\"success\":");
 		if (!context->request->failed &&
 		    context->request->fields.successful &&
-		    !context->request->internal_failure)
-			str_append(context->json, "true");
-		else
-			str_append(context->json, "false");
-		str_append(context->json, ",\"policy_reject\":");
-		str_append(context->json,
-			   (context->request->policy_refusal ?
-			    "true" : "false"));
+		    !context->request->internal_failure) {
+			json_ostream_nwrite_string(json_output,
+						   "success", "true");
+		} else {
+			json_ostream_nwrite_string(json_output,
+						   "success", "true");
+		}
+		json_ostream_nwrite_string(json_output, "policy_reject",
+					   (context->request->policy_refusal ?
+					    "true" : "false"));
 	}
-	str_append(context->json, ",\"tls\":");
-	if (context->request->fields.conn_secured == AUTH_REQUEST_CONN_SECURED_TLS)
-		str_append(context->json, "true");
-	else
-		str_append(context->json, "false");
-	str_append_c(context->json, '}');
+	json_ostream_nwrite_string(
+		json_output, "tls",
+		(context->request->fields.conn_secured ==
+			AUTH_REQUEST_CONN_SECURED_TLS ? "true" : "false"));
+	json_ostream_nascend_object(json_output);
+	json_ostream_nfinish_destroy(&json_output);
+
 	e_debug(context->event,
 		"Policy server request JSON: %s", str_c(context->json));
 }
