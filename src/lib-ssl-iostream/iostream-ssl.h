@@ -16,6 +16,7 @@ struct ssl_iostream_settings {
 	   ssl_iostream_settings_drop_stream_only() */
 	const char *min_protocol; /* both */
 	const char *cipher_list; /* both */
+	const char *ciphersuites; /* both, TLSv1.3 only */
 	const char *curve_list; /* both */
 	const char *ca, *ca_file, *ca_dir; /* context-only */
 	/* alternative cert is for providing certificate using

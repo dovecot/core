@@ -388,6 +388,14 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		return -1;
 	}
 #endif
+#ifdef HAVE_SSL_CTX_SET_CIPHERSUITES
+	if (set->ciphersuites != NULL &&
+	    SSL_CTX_set_ciphersuites(ctx->ssl_ctx, set->ciphersuites) == 0) {
+		*error_r = t_strdup_printf("Can't set ciphersuites to '%s': %s",
+			set->cipher_list, openssl_iostream_error());
+		return -1;
+	}
+#endif
 	if (set->prefer_server_ciphers) {
 		SSL_CTX_set_options(ctx->ssl_ctx,
 				    SSL_OP_CIPHER_SERVER_PREFERENCE);

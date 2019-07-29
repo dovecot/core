@@ -181,6 +181,17 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		}
 	}
 #endif
+#ifdef HAVE_SSL_CTX_SET_CIPHERSUITES
+        if (set->ciphersuites != NULL &&
+	    strcmp(ctx_set->ciphersuites, set->ciphersuites) != 0) {
+		if (SSL_set_ciphersuites(ssl_io->ssl, set->ciphersuites) == 0) {
+			*error_r = t_strdup_printf(
+				"Can't set ciphersuites to '%s': %s",
+				set->ciphersuites, openssl_iostream_error());
+			return -1;
+		}
+	}
+#endif
 	if (set->prefer_server_ciphers)
 		SSL_set_options(ssl_io->ssl, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	if (set->min_protocol != NULL) {
