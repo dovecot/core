@@ -170,7 +170,7 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	if (ssl_iostream_context_init_server(server->set, &server->ctx,
 					     &error) < 0) {
 		i_error("server: %s", error);
-		return 1;
+		return -1;
 	}
 	if (ssl_iostream_context_init_client(client->set, &client->ctx,
 					     &error) < 0) {
@@ -178,38 +178,48 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 		return -1;
 	}
 
-	ret += io_stream_create_ssl_server(server->ctx, server->set,
-					   &server->input, &server->output,
-					   &server->iostream, &error);
-	ret += io_stream_create_ssl_client(client->ctx, client->hostname, client->set,
-					   &client->input, &client->output,
-					   &client->iostream, &error);
+	if (io_stream_create_ssl_server(server->ctx, server->set,
+					&server->input, &server->output,
+					&server->iostream, &error) != 0) {
+		ret = -1;
+	}
+
+	if (io_stream_create_ssl_client(client->ctx, client->hostname, client->set,
+					&client->input, &client->output,
+					&client->iostream, &error) != 0) {
+		ret = -1;
+	}
 
 	client->io = io_add_istream(client->input, handshake_input_callback, client);
 	server->io = io_add_istream(server->input, handshake_input_callback, server);
 
 	if (ssl_iostream_handshake(client->iostream) < 0)
-		return 1;
+		return -1;
 
 	io_loop_run(current_ioloop);
 
 	if (client->failed || server->failed)
-		ret++;
+		ret = -1;
 
-	if (ssl_iostream_has_handshake_failed(client->iostream))
+	if (ssl_iostream_has_handshake_failed(client->iostream)) {
 		i_error("client: %s", ssl_iostream_get_last_error(client->iostream));
-	else if (ssl_iostream_has_handshake_failed(server->iostream))
+		ret = -1;
+	} else if (ssl_iostream_has_handshake_failed(server->iostream)) {
 		i_error("server: %s", ssl_iostream_get_last_error(server->iostream));
+		ret = -1;
 	/* check hostname */
-	else if (client->hostname != NULL &&
+	} else if (client->hostname != NULL &&
 	    !client->set->allow_invalid_cert &&
 	    ssl_iostream_check_cert_validity(client->iostream, client->hostname,
-					     &error) != 0)
+					     &error) != 0) {
 		i_error("client(%s): %s", client->hostname, error);
+		ret = -1;
 	/* client cert */
-	else if (server->set->verify_remote_cert &&
-	    ssl_iostream_check_cert_validity(server->iostream, NULL, &error) != 0)
+	} else if (server->set->verify_remote_cert &&
+	    ssl_iostream_check_cert_validity(server->iostream, NULL, &error) != 0) {
 		i_error("server: %s", error);
+		ret = -1;
+	}
 
 	i_stream_unref(&server->input);
 	o_stream_unref(&server->output);
@@ -263,7 +273,7 @@ static void test_iostream_ssl_handshake(void)
 	test_expect_error_string("client(failhost): SSL certificate doesn't "
 				 "match expected host name failhost");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "failhost") == 0, idx);
+							 "failhost") != 0, idx);
 	idx++;
 
 	/* verify remote cert, missing CA */
@@ -273,7 +283,7 @@ static void test_iostream_ssl_handshake(void)
 	client_set.ca = NULL;
 	test_expect_error_string("client: Received invalid SSL certificate");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") == 0, idx);
+							 "127.0.0.1") != 0, idx);
 	idx++;
 
 	/* verify remote cert, require CRL */
@@ -283,7 +293,7 @@ static void test_iostream_ssl_handshake(void)
 	client_set.skip_crl_check = FALSE;
 	test_expect_error_string("client: Received invalid SSL certificate");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") == 0, idx);
+							 "127.0.0.1") != 0, idx);
 	idx++;
 
 	/* missing server credentials */
@@ -334,7 +344,7 @@ static void test_iostream_ssl_handshake(void)
 	server_set.ca = client_set.ca;
 	test_expect_error_string("server: SSL certificate not received");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") == 0, idx);
+							 "127.0.0.1") != 0, idx);
 	idx++;
 
 	/* invalid client credentials: incorrect extended usage */
