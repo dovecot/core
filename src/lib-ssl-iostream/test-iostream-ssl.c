@@ -144,7 +144,8 @@ static void destroy_test_endpoint(struct test_endpoint **_ep)
 	o_stream_unref(&ep->output);
 	ssl_iostream_destroy(&ep->iostream);
 	i_close_fd(&ep->fd);
-	ssl_iostream_context_unref(&ep->ctx);
+	if (ep->ctx != NULL)
+		ssl_iostream_context_unref(&ep->ctx);
 	pool_unref(&ep->pool);
 }
 
@@ -170,11 +171,15 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	if (ssl_iostream_context_init_server(server->set, &server->ctx,
 					     &error) < 0) {
 		i_error("server: %s", error);
+		destroy_test_endpoint(&client);
+		destroy_test_endpoint(&server);
 		return -1;
 	}
 	if (ssl_iostream_context_init_client(client->set, &client->ctx,
 					     &error) < 0) {
 		i_error("client: %s", error);
+		destroy_test_endpoint(&client);
+		destroy_test_endpoint(&server);
 		return -1;
 	}
 
