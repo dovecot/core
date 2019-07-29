@@ -237,21 +237,24 @@ static void test_iostream_ssl_handshake(void)
 	ssl_iostream_test_settings_client(&client_set);
 	client_set.allow_invalid_cert = TRUE;
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "localhost") == 0, idx++);
+							 "localhost") == 0, idx);
+	idx++;
 
 	/* allow invalid cert, connect to failhost */
 	ssl_iostream_test_settings_server(&server_set);
 	ssl_iostream_test_settings_client(&client_set);
 	client_set.allow_invalid_cert = TRUE;
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "failhost") == 0, idx++);
+							 "failhost") == 0, idx);
+	idx++;
 
 	/* verify remote cert */
 	ssl_iostream_test_settings_server(&server_set);
 	ssl_iostream_test_settings_client(&client_set);
 	client_set.verify_remote_cert = TRUE;
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") == 0, idx++);
+							 "127.0.0.1") == 0, idx);
+	idx++;
 
 	/* verify remote cert, missing hostname */
 	ssl_iostream_test_settings_server(&server_set);
@@ -260,7 +263,8 @@ static void test_iostream_ssl_handshake(void)
 	test_expect_error_string("client(failhost): SSL certificate doesn't "
 				 "match expected host name failhost");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "failhost") == 0, idx++);
+							 "failhost") == 0, idx);
+	idx++;
 
 	/* verify remote cert, missing CA */
 	ssl_iostream_test_settings_server(&server_set);
@@ -269,7 +273,8 @@ static void test_iostream_ssl_handshake(void)
 	client_set.ca = NULL;
 	test_expect_error_string("client: Received invalid SSL certificate");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") == 0, idx++);
+							 "127.0.0.1") == 0, idx);
+	idx++;
 
 	/* verify remote cert, require CRL */
 	ssl_iostream_test_settings_server(&server_set);
@@ -278,7 +283,8 @@ static void test_iostream_ssl_handshake(void)
 	client_set.skip_crl_check = FALSE;
 	test_expect_error_string("client: Received invalid SSL certificate");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") == 0, idx++);
+							 "127.0.0.1") == 0, idx);
+	idx++;
 
 	/* missing server credentials */
 	ssl_iostream_test_settings_server(&server_set);
@@ -287,14 +293,16 @@ static void test_iostream_ssl_handshake(void)
 	client_set.verify_remote_cert = TRUE;
 	test_expect_error_string("client(failhost): SSL certificate not received");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "failhost") != 0, idx++);
+							 "failhost") != 0, idx);
+	idx++;
 	ssl_iostream_test_settings_server(&server_set);
 	server_set.cert.cert = NULL;
 	ssl_iostream_test_settings_client(&client_set);
 	client_set.verify_remote_cert = TRUE;
 	test_expect_error_string("client(failhost): SSL certificate not received");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "failhost") != 0, idx++);
+							 "failhost") != 0, idx);
+	idx++;
 
 	/* mismatch in cipher list */
 	ssl_iostream_test_settings_server(&server_set);
@@ -305,7 +313,8 @@ static void test_iostream_ssl_handshake(void)
 	client_set.verify_remote_cert = TRUE;
 	test_expect_error_string("client(127.0.0.1): SSL certificate not received");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") != 0, idx++);
+							 "127.0.0.1") != 0, idx);
+	idx++;
 
 	/* unsupported cipher list */
 	ssl_iostream_test_settings_server(&server_set);
@@ -314,7 +323,8 @@ static void test_iostream_ssl_handshake(void)
 	client_set.prefer_server_ciphers = TRUE;
 	test_expect_error_string("server: Can't set cipher list to 'NONEXISTENT'");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") != 0, idx++);
+							 "127.0.0.1") != 0, idx);
+	idx++;
 
 	/* invalid client credentials: missing credentials */
 	ssl_iostream_test_settings_server(&server_set);
@@ -324,7 +334,8 @@ static void test_iostream_ssl_handshake(void)
 	server_set.ca = client_set.ca;
 	test_expect_error_string("server: SSL certificate not received");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") == 0, idx++);
+							 "127.0.0.1") == 0, idx);
+	idx++;
 
 	/* invalid client credentials: incorrect extended usage */
 	ssl_iostream_test_settings_server(&server_set);
@@ -335,7 +346,8 @@ static void test_iostream_ssl_handshake(void)
 	client_set.cert = server_set.cert;
 	test_expect_error_string("server: SSL_accept() failed: error:");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") != 0, idx++);
+							 "127.0.0.1") != 0, idx);
+	idx++;
 
 	io_loop_destroy(&ioloop);
 
