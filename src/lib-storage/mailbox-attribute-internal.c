@@ -29,6 +29,7 @@ iattr_mbox_prv_special_use = {
 	.type = MAIL_ATTRIBUTE_TYPE_PRIVATE,
 	.key = MAILBOX_ATTRIBUTE_SPECIALUSE,
 	.rank = MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY,
+	.flags = MAIL_ATTRIBUTE_INTERNAL_FLAG_VALIDATED,
 
 	.get = mailbox_attribute_specialuse_get
 };
