@@ -7,12 +7,16 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-http \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	$(BINARY_CFLAGS)
 
 stats_LDADD = $(LIBDOVECOT) \
+	$(DOVECOT_SSL_LIBS) \
 	$(BINARY_LDFLAGS)
 
-stats_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+stats_DEPENDENCIES = \
+	$(DOVECOT_SSL_LIBS) \
+	$(LIBDOVECOT_DEPS)
 
 stats_SOURCES = \
 	client-reader.c \
