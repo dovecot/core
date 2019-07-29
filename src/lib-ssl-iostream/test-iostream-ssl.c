@@ -61,7 +61,8 @@ static void handshake_input_callback(struct test_endpoint *ep)
 	if (ep->failed)
 		return;
 	if (ssl_iostream_is_handshaked(ep->iostream)) {
-		io_loop_stop(current_ioloop);
+		if (ssl_iostream_is_handshaked(ep->other->iostream))
+			io_loop_stop(current_ioloop);
 		return;
 	}
 	if (ssl_iostream_handshake(ep->iostream) < 0) {
@@ -167,6 +168,8 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	client->hostname = hostname;
 	client->client = TRUE;
 
+	server->other = client;
+	client->other = server;
 
 	if (ssl_iostream_context_init_server(server->set, &server->ctx,
 					     &error) < 0) {
@@ -275,7 +278,7 @@ static void test_iostream_ssl_handshake(void)
 	ssl_iostream_test_settings_server(&server_set);
 	ssl_iostream_test_settings_client(&client_set);
 	client_set.verify_remote_cert = TRUE;
-	test_expect_error_string("client(failhost): SSL certificate doesn't "
+	test_expect_error_string("client: SSL certificate doesn't "
 				 "match expected host name failhost");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
 							 "failhost") != 0, idx);
