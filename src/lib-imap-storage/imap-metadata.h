@@ -44,6 +44,10 @@ imap_metadata_transaction_begin_mailbox(struct mail_user *user,
 struct imap_metadata_transaction *
 imap_metadata_transaction_begin_server(struct mail_user *user);
 
+/* Allow access only to validated attributes within this transaction. */
+void imap_metadata_transaction_validated_only(struct imap_metadata_transaction *imtrans,
+					      bool set);
+
 int imap_metadata_transaction_commit(
 	struct imap_metadata_transaction **_imtrans,
 	enum mail_error *error_code_r, const char **client_error_r);
