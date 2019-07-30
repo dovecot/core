@@ -94,6 +94,10 @@ valid_mailbox_parse_tests[] = {
 		.input = "Abc..123@example.com",
 		.output = "\"Abc..123\"@example.com",
 		.address = { .localpart = "Abc..123", .domain = "example.com" },
+	}, {
+		.input = "Abc..@example.com",
+		.output = "\"Abc..\"@example.com",
+		.address = { .localpart = "Abc..", .domain = "example.com" },
 	}
 };
 

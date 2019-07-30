@@ -540,7 +540,7 @@ void smtp_address_write(string_t *out,
 		pblock = p;
 	}
 
-	if (p == pblock) {
+	if (p == pblock && !quoted) {
 		quoted = TRUE;
 		str_insert(out, begin, "\"");
 	}
