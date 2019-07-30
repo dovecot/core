@@ -13,6 +13,7 @@ struct imap_metadata_transaction {
 	char *error_string;
 
 	bool server:1;
+	bool validated_only:1;
 };
 
 bool imap_metadata_verify_entry_name(const char *name,
@@ -99,6 +100,10 @@ imap_metadata_entry2key(struct imap_metadata_transaction *imtrans,
 		i_assert((*key_r)[0] == '/');
 		*key_r += 1;
 	}
+
+	if (imtrans->validated_only)
+		*type_r |= MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED;
+
 	if (str_begins(*key_r, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) {
 		/* Dovecot's internal attribute (mailbox or server).
 		   don't allow accessing this. */
@@ -243,6 +248,12 @@ imap_metadata_transaction_begin_server(struct mail_user *user)
 	imtrans = imap_metadata_transaction_begin(box);
 	imtrans->server = TRUE;
 	return imtrans;
+}
+
+void imap_metadata_transaction_validated_only(struct imap_metadata_transaction *imtrans,
+					      bool set)
+{
+	imtrans->validated_only = set;
 }
 
 static void
