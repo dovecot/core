@@ -143,7 +143,7 @@ int imap_metadata_set(struct imap_metadata_transaction *imtrans,
 
 	if (imap_metadata_get_mailbox_transaction(imtrans) < 0)
 		return -1;
-	return (value->value == NULL ?
+	return (value->value == NULL && value->value_stream == NULL ?
 		mailbox_attribute_unset(imtrans->trans, type, key) :
 		mailbox_attribute_set(imtrans->trans, type, key, value));
 }
