@@ -11,7 +11,12 @@
 
 /* <settings checks> */
 static struct file_listener_settings imap_urlauth_unix_listeners_array[] = {
-	{ "token-login/imap-urlauth", 0666, "", "" }
+	{
+		.path = "token-login/imap-urlauth",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *imap_urlauth_unix_listeners[] = {
 	&imap_urlauth_unix_listeners_array[0]

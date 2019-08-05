@@ -16,8 +16,18 @@ static bool submission_settings_verify(void *_set, pool_t pool,
 
 /* <settings checks> */
 static struct file_listener_settings submission_unix_listeners_array[] = {
-	{ "login/submission", 0666, "", "" },
-	{ "srv.submission/%{pid}", 0600, "", "" },
+	{
+		.path = "login/submission",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "srv.submission/%{pid}",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *submission_unix_listeners[] = {
 	&submission_unix_listeners_array[0],

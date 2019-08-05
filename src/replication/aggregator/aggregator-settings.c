@@ -8,7 +8,12 @@
 
 /* <settings checks> */
 static struct file_listener_settings aggregator_unix_listeners_array[] = {
-	{ "replication-notify", 0600, "", "" }
+	{
+		.path = "replication-notify",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *aggregator_unix_listeners[] = {
 	&aggregator_unix_listeners_array[0]
@@ -18,7 +23,12 @@ static buffer_t aggregator_unix_listeners_buf = {
 };
 
 static struct file_listener_settings aggregator_fifo_listeners_array[] = {
-	{ "replication-notify-fifo", 0600, "", "" }
+	{
+		.path = "replication-notify-fifo",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *aggregator_fifo_listeners[] = {
 	&aggregator_fifo_listeners_array[0]

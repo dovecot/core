@@ -10,8 +10,18 @@
 
 /* <settings checks> */
 static struct file_listener_settings imap_hibernate_unix_listeners_array[] = {
-	{ "imap-hibernate", 0660, "", "$default_internal_group" },
-	{ "srv.imap-hibernate/%{pid}", 0600, "", "" },
+	{
+		.path = "imap-hibernate",
+		.mode = 0660,
+		.user = "",
+		.group = "$default_internal_group",
+	},
+	{
+		.path = "srv.imap-hibernate/%{pid}",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *imap_hibernate_unix_listeners[] = {
 	&imap_hibernate_unix_listeners_array[0],

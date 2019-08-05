@@ -12,8 +12,18 @@ struct event_category event_category_replication = {
 
 /* <settings checks> */
 static struct file_listener_settings replicator_unix_listeners_array[] = {
-	{ "replicator", 0600, "$default_internal_user", "" },
-	{ "replicator-doveadm", 0, "$default_internal_user", "" }
+	{
+		.path = "replicator",
+		.mode = 0600,
+		.user = "$default_internal_user",
+		.group = "",
+	},
+	{
+		.path = "replicator-doveadm",
+		.mode = 0,
+		.user = "$default_internal_user",
+		.group = "",
+	},
 };
 static struct file_listener_settings *replicator_unix_listeners[] = {
 	&replicator_unix_listeners_array[0],

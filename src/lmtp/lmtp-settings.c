@@ -18,7 +18,12 @@ static bool lmtp_settings_check(void *_set, pool_t pool, const char **error_r);
 
 /* <settings checks> */
 static struct file_listener_settings lmtp_unix_listeners_array[] = {
-	{ "lmtp", 0666, "", "" }
+	{
+		.path = "lmtp",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *lmtp_unix_listeners[] = {
 	&lmtp_unix_listeners_array[0]

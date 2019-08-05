@@ -17,12 +17,42 @@ static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **err
 
 /* <settings checks> */
 static struct file_listener_settings auth_unix_listeners_array[] = {
-	{ "login/login", 0666, "", "" },
-	{ "token-login/tokenlogin", 0666, "", "" },
-	{ "auth-login", 0600, "$default_internal_user", "" },
-	{ "auth-client", 0600, "$default_internal_user", "" },
-	{ "auth-userdb", 0666, "$default_internal_user", "" },
-	{ "auth-master", 0600, "", "" }
+	{
+		.path = "login/login",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "token-login/tokenlogin",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "auth-login",
+		.mode = 0600,
+		.user = "$default_internal_user",
+		.group = "",
+	},
+	{
+		.path = "auth-client",
+		.mode = 0600,
+		.user = "$default_internal_user",
+		.group = "",
+	},
+	{
+		.path = "auth-userdb",
+		.mode = 0666,
+		.user = "$default_internal_user",
+		.group = "",
+	},
+	{
+		.path = "auth-master",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *auth_unix_listeners[] = {
 	&auth_unix_listeners_array[0],
@@ -67,7 +97,12 @@ struct service_settings auth_service_settings = {
 
 /* <settings checks> */
 static struct file_listener_settings auth_worker_unix_listeners_array[] = {
-	{ "auth-worker", 0600, "$default_internal_user", "" }
+	{
+		.path = "auth-worker",
+		.mode = 0600,
+		.user = "$default_internal_user",
+		.group = "",
+	},
 };
 static struct file_listener_settings *auth_worker_unix_listeners[] = {
 	&auth_worker_unix_listeners_array[0]

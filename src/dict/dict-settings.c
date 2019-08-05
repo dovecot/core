@@ -8,7 +8,12 @@
 
 /* <settings checks> */
 static struct file_listener_settings dict_unix_listeners_array[] = {
-	{ "dict", 0660, "", "$default_internal_group" }
+	{
+		.path = "dict",
+		.mode = 0660,
+		.user = "",
+		.group = "$default_internal_group",
+	},
 };
 static struct file_listener_settings *dict_unix_listeners[] = {
 	&dict_unix_listeners_array[0]
@@ -18,7 +23,12 @@ static buffer_t dict_unix_listeners_buf = {
 };
 
 static struct file_listener_settings dict_async_unix_listeners_array[] = {
-	{ "dict-async", 0660, "", "$default_internal_group" }
+	{
+		.path = "dict-async",
+		.mode = 0660,
+		.user = "",
+		.group = "$default_internal_group",
+	},
 };
 static struct file_listener_settings *dict_async_unix_listeners[] = {
 	&dict_async_unix_listeners_array[0]

@@ -9,7 +9,12 @@
 
 /* <settings checks> */
 static struct file_listener_settings config_unix_listeners_array[] = {
-	{ "config", 0600, "", "" }
+	{
+		.path = "config",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *config_unix_listeners[] = {
 	&config_unix_listeners_array[0]

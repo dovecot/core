@@ -9,8 +9,18 @@
 
 /* <settings checks> */
 static struct file_listener_settings anvil_unix_listeners_array[] = {
-	{ "anvil", 0600, "", "" },
-	{ "anvil-auth-penalty", 0600, "", "" }
+	{
+		.path = "anvil",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "anvil-auth-penalty",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *anvil_unix_listeners[] = {
 	&anvil_unix_listeners_array[0],

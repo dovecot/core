@@ -11,7 +11,12 @@ extern const struct setting_parser_info service_setting_parser_info;
 
 /* <settings checks> */
 static struct file_listener_settings indexer_unix_listeners_array[] = {
-	{ "indexer", 0666, "", "" }
+	{
+		.path = "indexer",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *indexer_unix_listeners[] = {
 	&indexer_unix_listeners_array[0]

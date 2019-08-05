@@ -12,7 +12,12 @@
 
 /* <settings checks> */
 static struct file_listener_settings imap_urlauth_worker_unix_listeners_array[] = {
-	{ "imap-urlauth-worker", 0600, "$default_internal_user", "" }
+	{
+		.path = "imap-urlauth-worker",
+		.mode = 0600,
+		.user = "$default_internal_user",
+		.group = "",
+	},
 };
 static struct file_listener_settings *imap_urlauth_worker_unix_listeners[] = {
 	&imap_urlauth_worker_unix_listeners_array[0]

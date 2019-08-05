@@ -9,7 +9,12 @@
 
 /* <settings checks> */
 static struct file_listener_settings log_unix_listeners_array[] = {
-	{ "log-errors", 0600, "", "" }
+	{
+		.path = "log-errors",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *log_unix_listeners[] = {
 	&log_unix_listeners_array[0]

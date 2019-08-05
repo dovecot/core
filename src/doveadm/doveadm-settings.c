@@ -21,7 +21,12 @@ static bool doveadm_settings_check(void *_set, pool_t pool, const char **error_r
 
 /* <settings checks> */
 static struct file_listener_settings doveadm_unix_listeners_array[] = {
-	{ "doveadm-server", 0600, "", "" }
+	{
+		.path = "doveadm-server",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *doveadm_unix_listeners[] = {
 	&doveadm_unix_listeners_array[0]

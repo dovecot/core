@@ -18,9 +18,24 @@ static bool stats_settings_check(void *_set, pool_t pool, const char **error_r);
 
 /* <settings checks> */
 static struct file_listener_settings stats_unix_listeners_array[] = {
-	{ "stats-reader", 0600, "", "" },
-	{ "stats-writer", 0660, "", "$default_internal_group" },
-	{ "login/stats-writer", 0600, "$default_login_user", "" },
+	{
+		.path = "stats-reader",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "stats-writer",
+		.mode = 0660,
+		.user = "",
+		.group = "$default_internal_group",
+	},
+	{
+		.path = "login/stats-writer",
+		.mode = 0600,
+		.user = "$default_login_user",
+		.group = "",
+	},
 };
 static struct file_listener_settings *stats_unix_listeners[] = {
 	&stats_unix_listeners_array[0],

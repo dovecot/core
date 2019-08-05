@@ -15,8 +15,18 @@ static bool pop3_settings_verify(void *_set, pool_t pool,
 
 /* <settings checks> */
 static struct file_listener_settings pop3_unix_listeners_array[] = {
-	{ "login/pop3", 0666, "", "" },
-	{ "srv.pop3/%{pid}", 0600, "", "" },
+	{
+		.path = "login/pop3",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "srv.pop3/%{pid}",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *pop3_unix_listeners[] = {
 	&pop3_unix_listeners_array[0],

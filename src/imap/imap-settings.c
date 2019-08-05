@@ -17,9 +17,24 @@ static bool imap_settings_verify(void *_set, pool_t pool,
 
 /* <settings checks> */
 static struct file_listener_settings imap_unix_listeners_array[] = {
-	{ "login/imap", 0666, "", "" },
-	{ "imap-master", 0600, "", "" },
-	{ "srv.imap/%{pid}", 0600, "", "" },
+	{
+		.path = "login/imap",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "imap-master",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "srv.imap/%{pid}",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *imap_unix_listeners[] = {
 	&imap_unix_listeners_array[0],

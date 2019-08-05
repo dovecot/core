@@ -9,8 +9,18 @@
 
 /* <settings checks> */
 static struct file_listener_settings dns_client_unix_listeners_array[] = {
-	{ "dns-client", 0666, "", "" },
-	{ "login/dns-client", 0666, "", "" },
+	{
+		.path = "dns-client",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
+	{
+		.path = "login/dns-client",
+		.mode = 0666,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *dns_client_unix_listeners[] = {
 	&dns_client_unix_listeners_array[0],

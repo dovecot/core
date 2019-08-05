@@ -9,8 +9,18 @@
 
 /* <settings checks> */
 static struct file_listener_settings indexer_worker_unix_listeners_array[] = {
-	{ "indexer-worker", 0600, "$default_internal_user", "" },
-	{ "srv.indexer-worker/%{pid}", 0600, "", "" },
+	{
+		.path = "indexer-worker",
+		.mode = 0600,
+		.user = "$default_internal_user",
+		.group = "",
+	},
+	{
+		.path = "srv.indexer-worker/%{pid}",
+		.mode = 0600,
+		.user = "",
+		.group = "",
+	},
 };
 static struct file_listener_settings *indexer_worker_unix_listeners[] = {
 	&indexer_worker_unix_listeners_array[0],
