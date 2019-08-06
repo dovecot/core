@@ -709,6 +709,7 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 		auth_str_add_keyvalue(dest, "master_user",
 				      request->master_user);
 	}
+	auth_str_add_keyvalue(dest, "auth_mech", request->mech->mech_name);
 	if (*request->set->anonymous_username != '\0' &&
 	    strcmp(request->user, request->set->anonymous_username) == 0) {
 		/* this is an anonymous login, either via ANONYMOUS
