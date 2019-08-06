@@ -46,7 +46,7 @@ struct mail_user {
 	const char *service;
 	const char *session_id;
 	struct mail_user_connection_data conn;
-	const char *auth_token, *auth_user;
+	const char *auth_mech, *auth_token, *auth_user;
 	const char *const *userdb_fields;
 	/* Timestamp when this session was initially created. Most importantly
 	   this stays the same after IMAP client is hibernated and restored. */

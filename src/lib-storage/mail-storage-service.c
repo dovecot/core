@@ -684,6 +684,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
 	mail_user->anonymous = user->anonymous;
 	mail_user->admin = user->admin;
+	mail_user->auth_mech = p_strdup(mail_user->pool, user->auth_mech);
 	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
 	mail_user->auth_user = p_strdup(mail_user->pool, user->auth_user);
 	if (user->input.session_create_time != 0) {

@@ -679,6 +679,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	user2->gid = user->gid;
 	user2->anonymous = user->anonymous;
 	user2->admin = user->admin;
+	user2->auth_mech = p_strdup(user2->pool, user->auth_mech);
 	user2->auth_token = p_strdup(user2->pool, user->auth_token);
 	user2->auth_user = p_strdup(user2->pool, user->auth_user);
 	user2->session_id = p_strdup(user2->pool, user->session_id);
