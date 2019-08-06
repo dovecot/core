@@ -82,7 +82,7 @@ struct mail_storage_service_user {
 	struct event *event;
 	ARRAY(struct event *) event_stack;
 	struct ioloop_context *ioloop_ctx;
-	const char *log_prefix, *auth_token, *auth_user;
+	const char *log_prefix, *auth_mech, *auth_token, *auth_user;
 
 	const char *system_groups_user, *uid_source, *gid_source;
 	const char *chdir_path;
@@ -290,6 +290,8 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 					i_error("setpriority(%d) failed: %m", n);
 			}
 #endif
+		} else if (str_begins(line, "auth_mech=")) {
+			user->auth_mech = p_strdup(user->pool, line+10);
 		} else if (str_begins(line, "auth_token=")) {
 			user->auth_token = p_strdup(user->pool, line+11);
 		} else if (str_begins(line, "auth_user=")) {
