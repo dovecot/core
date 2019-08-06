@@ -347,7 +347,6 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 		else if (context->parse_state == POLICY_RESULT)
 			context->parse_error = FALSE;
 	}
-	i_stream_unref(&context->payload);
 
 	if (context->parse_error) {
 		context->result = (context->set->policy_reject_on_fail ? -1 : 0);
@@ -376,6 +375,7 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 	}
 
 	auth_policy_callback(context);
+	i_stream_unref(&context->payload);
 }
 
 static
