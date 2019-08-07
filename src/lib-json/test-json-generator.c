@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "istream.h"
 #include "ostream.h"
 #include "unichar.h"
 #include "test-common.h"
@@ -16,6 +17,8 @@ static void test_json_generate_buffer(void)
 {
 	string_t *buffer;
 	struct ostream *output;
+	struct istream *input;
+	const char *data;
 	struct json_generator *generator;
 	unsigned int state, pos;
 	ssize_t sret;
@@ -227,6 +230,22 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"fropfropfrop\"", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* string - input stream */
+	test_begin("json write string - input stream");
+	generator = json_generator_init(output, 0);
+	data = "ABC\tDEF\nGHI\tJKL\nMNO\x19PQR\nSTU\tVWX\nYZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	ret = json_generate_string_stream(generator, input);
+	test_assert(ret > 0);
+	i_stream_unref(&input);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("\"ABC\\tDEF\\nGHI\\tJKL\\nMNO\\u0019PQR\\nSTU\\tVWX\\nYZ\"", str_c(buffer)) == 0);
 	test_end();
 	str_truncate(buffer, 0);
 	output->offset = 0;
@@ -647,6 +666,50 @@ static void test_json_generate_buffer(void)
 	str_truncate(buffer, 0);
 	output->offset = 0;
 
+	/* array - string input stream nested */
+	test_begin("json write array - string input stream nested");
+	generator = json_generator_init(output, 0);
+	data = "ABC\tDEF\nGHI\tJKL\nMNO\x19PQR\nSTU\tVWX\nYZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	json_generate_array_open(generator);
+	ret = json_generate_string_stream(generator, input);
+	test_assert(ret > 0);
+	i_stream_unref(&input);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp(
+		"[\"ABC\\tDEF\\nGHI\\tJKL\\nMNO\\u0019PQR\\nSTU\\tVWX\\nYZ\"]",
+		str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* array - string input stream nested, second */
+	test_begin("json write array - string input stream nested, second");
+	generator = json_generator_init(output, 0);
+	data = "ABC\tDEF\nGHI\tJKL\nMNO\x19PQR\nSTU\tVWX\nYZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	json_generate_array_open(generator);
+	ret = json_generate_string(generator, "frop");
+	test_assert(ret > 0);
+	ret = json_generate_string_stream(generator, input);
+	test_assert(ret > 0);
+	i_stream_unref(&input);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp(
+		"[\"frop\",\"ABC\\tDEF\\nGHI\\tJKL\\nMNO\\u0019PQR\\nSTU\\tVWX\\nYZ\"]",
+		str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
 	/* { } */
 	test_begin("json write object - { }");
 	generator = json_generator_init(output, 0);
@@ -947,6 +1010,27 @@ static void test_json_generate_buffer(void)
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"frop\":[1],\"friep\":[true],\"frml\":[\"a\"]",
 			   str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* object - string input stream nested */
+	test_begin("json write object - string input stream nested");
+	generator = json_generator_init(output, 0);
+	data = "ABC\tDEF\nGHI\tJKL\nMNO\x19PQR\nSTU\tVWX\nYZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	json_generate_object_open(generator);
+	ret = json_generate_object_member(generator, "a");
+	test_assert(ret > 0);
+	ret = json_generate_string_stream(generator, input);
+	test_assert(ret > 0);
+	i_stream_unref(&input);
+	ret = json_generate_object_close(generator);
+	test_assert(ret > 0);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("{\"a\":\"ABC\\tDEF\\nGHI\\tJKL\\nMNO\\u0019PQR\\nSTU\\tVWX\\nYZ\"}", str_c(buffer)) == 0);
 	test_end();
 	str_truncate(buffer, 0);
 	output->offset = 0;
@@ -1373,6 +1457,134 @@ static void test_json_generate_buffer(void)
 			   "\"bbbbbb\":[{\"eeeeee\":[1,2,3,4,5,6,7]}],"
 			   "\"cccccc\":[{\"ffffff\":\"1234567\"}]}",
 			   str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* trickle [4] */
+	test_begin("json write object - trickle[4]");
+	o_stream_set_max_buffer_size(output, 0);
+	generator = json_generator_init(output, 0);
+	json_generate_object_open(generator);
+	state = 0;
+	for (pos = 0; pos < 65535 && state <= 15; pos++) {
+		o_stream_set_max_buffer_size(output, pos);
+		switch (state) {
+		case 0:
+			ret = json_generate_object_member(generator, "aaaaaa");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_array_open(generator);
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 1:
+			ret = json_generate_object_member(generator, "dddddd");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 2:
+			data = "AAAAA";
+			input = i_stream_create_from_data(data, strlen(data));
+			ret = json_generate_string_stream(generator, input);
+			test_assert(ret > 0);
+			i_stream_unref(&input);
+			state++;
+			continue;
+		case 3:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 4:
+			ret = json_generate_array_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 5:
+			ret = json_generate_object_member(generator, "bbbbbb");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_array_open(generator);
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 6:
+			ret = json_generate_object_member(generator, "eeeeee");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 7:
+			data = "BBBBB";
+			input = i_stream_create_from_data(data, strlen(data));
+			ret = json_generate_string_stream(generator, input);
+			test_assert(ret > 0);
+			i_stream_unref(&input);
+			state++;
+			continue;
+		case 8:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 9:
+			ret = json_generate_array_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 10:
+			ret = json_generate_object_member(generator, "cccccc");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_array_open(generator);
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 11:
+			ret = json_generate_object_member(generator, "ffffff");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 12:
+			data = "CCCCC";
+			input = i_stream_create_from_data(data, strlen(data));
+			ret = json_generate_string_stream(generator, input);
+			test_assert(ret > 0);
+			i_stream_unref(&input);
+			state++;
+			continue;
+		case 13:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 14:
+			ret = json_generate_array_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 15:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		}
+	}
+	json_generator_deinit(&generator);
+	test_assert(state == 16);
+	test_assert(strcmp("{\"aaaaaa\":[{\"dddddd\":\"AAAAA\"}],"
+		"\"bbbbbb\":[{\"eeeeee\":\"BBBBB\"}],"
+		"\"cccccc\":[{\"ffffff\":\"CCCCC\"}]}", str_c(buffer)) == 0);
 	test_end();
 	str_truncate(buffer, 0);
 	output->offset = 0;

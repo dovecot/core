@@ -46,6 +46,9 @@ int json_generate_string_data(struct json_generator *generator,
 			      const void *data, size_t size);
 int json_generate_string(struct json_generator *generator, const char *str);
 
+int json_generate_string_stream(struct json_generator *generator,
+				struct istream *input);
+
 /* null */
 
 int json_generate_null(struct json_generator *generator);
