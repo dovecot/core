@@ -483,7 +483,10 @@ static int str_float_to_intmax(const char *str, intmax_t *num_r)
 	} else {
 		if (un > (uintmax_t)INTMAX_MAX + 1)
 			return -1;
-		*num_r = -(intmax_t)un;
+		if (un == (uintmax_t)INTMAX_MAX + 1)
+			*num_r = -(intmax_t)(un - 1) - 1;
+		else
+			*num_r = -(intmax_t)un;
 	}
 	return 0;
 }
