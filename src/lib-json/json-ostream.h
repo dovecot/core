@@ -4,6 +4,7 @@
 #include "lib.h"
 
 #include "json-types.h"
+#include "json-tree.new.h"
 #include "json-generator.h"
 
 struct json_ostream;
@@ -265,6 +266,18 @@ int json_ostream_write_text_stream(struct json_ostream *stream,
                                    const char *name, struct istream *input);
 void json_ostream_nwrite_text_stream(struct json_ostream *stream,
                                      const char *name, struct istream *input);
+
+/* Write a JSON-text tree object to the stream. Returns 1 on success,
+   0 if the stream buffer is full, or -1 upon error. Success does not mean
+   that the tree is already (fully) sent. It just means that the stream was
+   able to accept/buffer the tree object immediately. While the tree is still
+   being sent, the stream holds a reference to it. Sending an incompletely sent
+   tree continues once one of the write(), descend(), acsend(), or flush()
+   functions is called. */
+int json_ostream_write_tree(struct json_ostream *stream, const char *name,
+                            struct json_tree *jtree);
+void json_ostream_nwrite_tree(struct json_ostream *stream, const char *name,
+                              const struct json_tree *jtree);
 
 /*
  * String output stream

@@ -25,6 +25,10 @@ struct json_ostream {
 	enum json_ostream_node_state node_state;
 	unsigned int write_node_level;
 
+	struct json_tree_walker *tree_walker;
+	struct json_tree *tree;
+	struct json_node tree_node;
+
 	struct json_data node_data;
 	string_t *buffer;
 
@@ -40,7 +44,12 @@ struct json_ostream {
 	bool closed:1;
 };
 
+static int json_ostream_write_tree_more(struct json_ostream *stream);
 static int json_ostream_write_node_more(struct json_ostream *stream);
+static int
+json_ostream_do_write_node(struct json_ostream *stream,
+			   const struct json_node *node, bool flush,
+			   bool persist);
 
 struct json_ostream *
 json_ostream_create(struct ostream *output,
@@ -99,6 +108,9 @@ void json_ostream_unref(struct json_ostream **_stream)
 	json_generator_deinit(&stream->generator);
 	o_stream_unref(&stream->output);
 	str_free(&stream->buffer);
+
+	json_tree_walker_free(&stream->tree_walker);
+	json_tree_unref(&stream->tree);
 
 	i_free(stream->error);
 	i_free(stream);
@@ -349,6 +361,16 @@ int json_ostream_flush(struct json_ostream *stream)
 		ret = json_ostream_write_node_more(stream);
 		if (ret <= 0)
 			return ret;
+	}
+	if (stream->tree_walker != NULL) {
+		ret = json_ostream_write_tree_more(stream);
+		if (ret <= 0)
+			return ret;
+		if (stream->node_state != JSON_OSTREAM_NODE_STATE_NONE) {
+			ret = json_ostream_write_node_more(stream);
+			if (ret <= 0)
+				return ret;
+		}
 	}
 	if (json_node_is_none(&stream->node))
 		return json_generator_flush(stream->generator);
@@ -983,6 +1005,88 @@ void json_ostream_nwrite_text_stream(struct json_ostream *stream,
 	json_ostream_nwrite_value(stream, name, JSON_TYPE_TEXT, &jvalue);
 	if (input->stream_errno != 0)
 		stream->nfailed = TRUE;
+}
+
+static int json_ostream_write_tree_more(struct json_ostream *stream)
+{
+	int ret;
+
+	i_assert(stream->tree_walker != NULL);
+
+	for (;;) {
+		/* Walk the tree to the next node */
+		if (json_node_is_none(&stream->tree_node) &&
+		    !json_tree_walk(stream->tree_walker,
+				    &stream->tree_node)) {
+			json_tree_walker_free(&stream->tree_walker);
+			json_tree_unref(&stream->tree);
+			i_zero(&stream->tree_node);
+			return 1;
+		}
+
+		ret = json_ostream_do_write_node(stream, &stream->tree_node,
+						 FALSE, FALSE);
+		if (ret < 0) {
+			json_tree_walker_free(&stream->tree_walker);
+			json_tree_unref(&stream->tree);
+			i_zero(&stream->tree_node);
+			return -1;
+		}
+		if (ret == 0)
+			return ret;
+		i_zero(&stream->tree_node);
+	}
+	i_unreached();
+}
+
+static int
+json_ostream_write_tree_init(struct json_ostream *stream, const char *name,
+			     const struct json_tree *jtree)
+{
+	int ret;
+
+	i_assert(jtree != NULL);
+
+	ret = json_ostream_write_init(stream, name, JSON_TYPE_TEXT);
+	if (ret <= 0)
+		return ret;
+
+	i_assert(stream->tree_walker == NULL);
+	stream->tree_walker = json_tree_walker_create(jtree);
+	i_zero(&stream->tree_node);
+
+	return 1;
+}
+
+int json_ostream_write_tree(struct json_ostream *stream, const char *name,
+			    struct json_tree *jtree)
+{
+	int ret;
+
+	ret = json_ostream_write_tree_init(stream, name, jtree);
+	if (ret <= 0)
+		return ret;
+
+	ret = json_ostream_write_tree_more(stream);
+	if (stream->tree_walker != NULL) {
+		stream->tree = jtree;
+		json_tree_ref(jtree);
+	}
+	return 1;
+}
+
+void json_ostream_nwrite_tree(struct json_ostream *stream, const char *name,
+			      const struct json_tree *jtree)
+{
+	int ret;
+
+	if (!json_ostream_nwrite_pre(stream))
+		return;
+	ret = json_ostream_write_tree_init(stream, name, jtree);
+	if (ret > 0)
+		ret = json_ostream_write_tree_more(stream);
+	i_assert(ret <= 0 || stream->tree_walker == NULL);
+	json_ostream_nwrite_post(stream, ret);
 }
 
 /*

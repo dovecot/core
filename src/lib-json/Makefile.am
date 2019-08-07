@@ -29,7 +29,8 @@ test_programs = \
 	test-json-io \
 	test-json-istream \
 	test-json-ostream \
-	test-json-tree
+	test-json-tree \
+	test-json-tree-io
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -85,6 +86,13 @@ test_json_tree_SOURCE = \
 test_json_tree_LDADD = \
 	$(test_libs)
 test_json_tree_DEPENDENCIES = \
+	$(test_deps)
+
+test_json_tree_io_SOURCE = \
+	test-json-tree-io.c
+test_json_tree_io_LDADD = \
+	$(test_libs)
+test_json_tree_io_DEPENDENCIES = \
 	$(test_deps)
 
 pkginc_libdir=$(pkgincludedir)
