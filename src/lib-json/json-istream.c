@@ -20,6 +20,10 @@ struct json_istream {
 
 	struct istream *value_stream, *seekable_stream;
 
+	struct json_tree *tree;
+	struct json_tree_node *tree_node;
+	unsigned int tree_node_level;
+
 	char *error;
 
 	bool opened:1;
@@ -223,11 +227,12 @@ static inline bool json_istream_parse_skip(struct json_istream *stream)
 }
 
 static void
-json_istream_parse_list_open(void *context, void *parent_context ATTR_UNUSED,
+json_istream_parse_list_open(void *context, void *parent_context,
 			     const char *name, bool object,
-			     void **list_context_r ATTR_UNUSED)
+			     void **list_context_r)
 {
 	struct json_istream *stream = context;
+	struct json_tree_node *parent = parent_context;
 	unsigned int node_level = stream->node_level;
 
 	i_assert(!stream->node_parsed);
@@ -258,6 +263,19 @@ json_istream_parse_list_open(void *context, void *parent_context ATTR_UNUSED,
 	}
 
 	stream->node_level++;
+
+	if (stream->tree != NULL) {
+		if (parent == NULL)
+			parent = stream->tree_node;
+		if (object) {
+			*list_context_r = (void *)
+				json_tree_node_add_object(parent, name);
+		} else {
+			*list_context_r = (void *)
+				json_tree_node_add_array(parent, name);
+		}
+		return;
+	}
 
 	if (node_level == stream->read_node_level) {
 		i_zero(&stream->node);
@@ -307,6 +325,20 @@ json_istream_parse_list_close(void *context, void *list_context ATTR_UNUSED,
 		}
 	}
 
+	if (stream->tree != NULL) {
+		if (stream->node_level < stream->tree_node_level) {
+			stream->end_of_list = TRUE;
+			stream->node_parsed = TRUE;
+			json_parser_interrupt(stream->parser);
+		} else if (stream->node_level == stream->tree_node_level) {
+			if (!json_istream_parse_skip(stream)) {
+				stream->node_parsed = TRUE;
+				json_parser_interrupt(stream->parser);
+			}
+		}
+		return;
+	}
+
 	if (stream->node_level < stream->read_node_level) {
 		stream->end_of_list = TRUE;
 		if (!json_istream_parse_skip(stream)) {
@@ -334,6 +366,7 @@ json_istream_parse_object_member(void *context,
 	if (stream->skip_to_end || stream->skip_nodes > 0)
 		return;
 
+	i_assert(stream->tree == NULL);
 	i_assert(stream->node_level >= stream->read_node_level);
 
 	if (stream->node_level != stream->read_node_level)
@@ -346,11 +379,11 @@ json_istream_parse_object_member(void *context,
 }
 
 static void
-json_istream_parse_value(void *context, void *parent_context ATTR_UNUSED,
-			 const char *name, enum json_type type,
-			 const struct json_value *value)
+json_istream_parse_value(void *context, void *parent_context, const char *name,
+			 enum json_type type, const struct json_value *value)
 {
 	struct json_istream *stream = context;
+	struct json_tree_node *parent = parent_context;
 
 	i_assert(!stream->node_parsed);
 	i_assert(stream->node_level >= stream->read_node_level);
@@ -374,6 +407,20 @@ json_istream_parse_value(void *context, void *parent_context ATTR_UNUSED,
 		}
 	}
 
+	if (stream->tree != NULL) {
+		if (parent == NULL) {
+			/* just starting; parent is not in the syntax tree */
+			parent = stream->tree_node;
+		}
+		(void)json_tree_node_add_value(parent, name, type, value);
+		if (stream->node_level == stream->tree_node_level) {
+			stream->node_parsed = TRUE;
+			json_parser_interrupt(stream->parser);
+		}
+		return;
+	}
+
+	/* not parsing a full tree */
 	if (stream->node_level != stream->read_node_level)
 		return;
 	if (json_istream_parse_skip(stream))
@@ -409,6 +456,8 @@ static void json_istream_dereference_value(struct json_istream *stream)
 		}
 		json_parser_disable_string_stream(stream->parser);
 	}
+	if (stream->tree != NULL)
+		json_tree_unref(&stream->tree);
 }
 
 int json_istream_read(struct json_istream *stream, struct json_node *node_r)
@@ -581,6 +630,8 @@ int json_istream_descend(struct json_istream *stream,
 
 static void json_istream_ascend_common(struct json_istream *stream)
 {
+	if (stream->tree != NULL)
+		json_tree_unref(&stream->tree);
 	stream->skip_nodes = 0;
 	stream->node_parsed = FALSE;
 	stream->member_parsed = FALSE;
@@ -818,4 +869,159 @@ int json_istream_walk_stream(struct json_istream *stream,
 	json_istream_handle_stream(stream, temp_path_prefix, max_buffer_size,
 				   node_r);
 	return 1;
+}
+
+/*
+ * Tree values
+ */
+
+static int json_istream_read_tree_common(struct json_istream *stream)
+{
+	const char *error;
+	int ret;
+
+	ret = json_istream_consume_value_stream(stream);
+	if (ret <= 0)
+		return ret;
+	ret = json_parse_more(stream->parser, &error);
+	if (ret < 0) {
+		json_istream_set_error(stream, error);
+		return ret;
+	}
+	if (stream->error != NULL)
+		return -1;
+	if (ret == 0 && !stream->node_parsed) {
+		return 0;
+	}
+	if (ret > 0) {
+		stream->end_of_input = TRUE;
+		if (!stream->node_parsed)
+			return -1;
+	}
+	return 1;
+}
+
+int json_istream_read_tree(struct json_istream *stream,
+			   struct json_tree **tree_r)
+{
+	int ret;
+
+	i_assert(tree_r != NULL);
+
+	if (stream->closed) {
+		*tree_r = NULL;
+		return -1;
+	}
+	if (stream->end_of_input) {
+		*tree_r = NULL;
+		return -1;
+	}
+	if (stream->end_of_list) {
+		*tree_r = NULL;
+		return 1;
+	}
+
+	stream->member_parsed = FALSE;
+	if (stream->node_parsed) {
+		struct json_node root_node = stream->node;
+
+		if (stream->tree != NULL) {
+			*tree_r = stream->tree;
+			return 1;
+		}
+
+		i_assert(stream->node.type != JSON_TYPE_NONE);
+		i_assert(!json_node_is_end(&stream->node));
+
+		/* start tree with parsed node */
+		root_node.name = NULL;
+		stream->tree = json_tree_create();
+		stream->tree_node = json_tree_node_add(
+			json_tree_get_root(stream->tree), &root_node);
+
+		stream->node_parsed = FALSE;
+
+		if (json_node_is_singular(&root_node)) {
+			/* return tree with non-list item immediately */
+			*tree_r = stream->tree;
+			stream->tree = NULL;
+			return 1;
+		}
+
+		stream->tree_node_level = stream->read_node_level;
+
+	} else if (stream->tree == NULL) {
+		/* start blank tree */
+		stream->tree = json_tree_create();
+		stream->tree_node = json_tree_get_root(stream->tree);
+		stream->tree_node_level = stream->read_node_level;
+	}
+
+	ret = json_istream_read_tree_common(stream);
+	if (ret <= 0) {
+		*tree_r = NULL;
+		return ret;
+	}
+
+	if (stream->end_of_list) {
+		*tree_r = NULL;
+		return 1;
+	}
+
+	*tree_r = stream->tree;
+	stream->tree = NULL;
+	json_istream_skip(stream);
+	return 1;
+}
+
+int json_istream_read_into_tree_node(struct json_istream *stream,
+				     struct json_tree_node *tree_node)
+{
+	int ret;
+
+	if (stream->tree != NULL) {
+		if (stream->node_parsed)
+			return 1;
+	} else {
+		if (!stream->node_parsed) {
+			ret = json_istream_read(stream, NULL);
+			if (ret <= 0 )
+				return ret;
+		}
+
+		struct json_node new_node = stream->node;
+
+		i_assert(new_node.type != JSON_TYPE_NONE);
+		i_assert(!json_node_is_end(&new_node));
+
+		/* start tree branch with parsed node */
+		stream->tree_node = json_tree_node_add(tree_node, &new_node);
+
+		stream->node_parsed = FALSE;
+
+		if (json_node_is_singular(&new_node)) {
+			stream->tree_node = NULL;
+			json_istream_skip(stream);
+			return 1;
+		}
+
+		stream->tree = json_tree_node_get_tree(tree_node);
+		json_tree_ref(stream->tree);
+
+		stream->tree_node_level = stream->read_node_level;
+	}
+
+	ret = json_istream_read_tree_common(stream);
+	if (ret <= 0)
+		return ret;
+
+	json_istream_skip(stream);
+	return 1;
+}
+
+int json_istream_read_into_tree(struct json_istream *stream,
+				struct json_tree *tree)
+{
+	return json_istream_read_into_tree_node(
+		stream, json_tree_get_root(tree));
 }

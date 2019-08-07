@@ -2354,6 +2354,503 @@ static void test_json_istream_finish(void)
 }
 
 /*
+ * Test: read tree
+ */
+
+static void test_json_istream_read_tree(void)
+{
+	struct istream *input;
+	struct json_istream *jinput;
+	const char *text;
+	struct json_tree *jtree;
+	struct json_tree_node *jtnode;
+	struct json_node jnode;
+	unsigned int pos, text_len, state;
+	int ret = 0;
+
+	/* number */
+	text = "2234234";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read tree - number");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 1) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		ret = json_istream_read_tree(jinput, &jtree);
+		if (ret == 0)
+			continue;
+		if (ret < 0)
+			break;
+		jtnode = json_tree_get_root(jtree);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_NUMBER);
+		test_assert(json_tree_node_get_next(jtnode) == NULL);
+		json_tree_unref(&jtree);
+		state++;
+	}
+	test_assert(state == 1);
+	test_istream_set_size(input, text_len);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	/* string */
+	text = "\"frop\"";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read tree - string");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 1) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		ret = json_istream_read_tree(jinput, &jtree);
+		if (ret == 0)
+			continue;
+		if (ret < 0)
+			break;
+		jtnode = json_tree_get_root(jtree);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_STRING);
+		test_assert(json_tree_node_get_next(jtnode) == NULL);
+		json_tree_unref(&jtree);
+		state++;
+	}
+	test_assert(state == 1);
+	test_istream_set_size(input, text_len);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	/* array */
+	text = "[\"frop\"]";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read tree - array");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 1) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		ret = json_istream_read_tree(jinput, &jtree);
+		if (ret == 0)
+			continue;
+		if (ret < 0)
+			break;
+		jtnode = json_tree_get_root(jtree);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_ARRAY);
+		jtnode = json_tree_node_get_child(jtnode);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_STRING);
+		test_assert(json_tree_node_get_next(jtnode) == NULL);
+		jtnode = json_tree_node_get_parent(jtnode);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_ARRAY);
+		test_assert(json_tree_node_get_next(jtnode) == NULL);
+		json_tree_unref(&jtree);
+		state++;
+	}
+	test_assert(state == 1);
+	test_istream_set_size(input, text_len);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	/* array */
+	text = "[\"frop\", {\"a\":1234, \"b\":[1, 2, 3, 4], "
+		"\"c\":1234}, \"frop\"]";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read tree - sequence");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 4) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		switch (state) {
+		case 0:
+			ret = json_istream_descend(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			test_assert(json_node_is_array(&jnode));
+			state++;
+			break;
+		case 1:
+			ret = json_istream_read_tree(jinput, &jtree);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			jtnode = json_tree_get_root(jtree);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_STRING);
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+			json_tree_unref(&jtree);
+			state++;
+			break;
+		case 2:
+			ret = json_istream_read_tree(jinput, &jtree);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			jtnode = json_tree_get_root(jtree);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_OBJECT);
+			jtnode = json_tree_node_get_child(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_ARRAY);
+			jtnode = json_tree_node_get_child(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+			jtnode = json_tree_node_get_parent(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_ARRAY);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+			jtnode = json_tree_node_get_parent(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_OBJECT);
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+			json_tree_unref(&jtree);
+			state++;
+			break;
+		case 3:
+			ret = json_istream_read_tree(jinput, &jtree);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			jtnode = json_tree_get_root(jtree);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_STRING);
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+			json_tree_unref(&jtree);
+			json_istream_ascend(jinput);
+			state++;
+			break;
+		case 4:
+			ret = json_istream_read(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			state++;
+			break;
+		}
+	}
+	test_assert(state == 4);
+	test_istream_set_size(input, text_len);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+}
+
+/*
+ * Test: read into tree
+ */
+
+static void test_json_istream_read_into_tree(void)
+{
+	struct istream *input;
+	struct json_istream *jinput;
+	const char *text;
+	struct json_tree *jtree;
+	struct json_node jnode;
+	struct json_tree_node *jtnode;
+	unsigned int pos, text_len, state;
+	int ret = 0;
+
+	/* number */
+	jtree = json_tree_create();
+	text = "2234234";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read into tree - number");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 1) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		ret = json_istream_read_into_tree(jinput, jtree);
+		if (ret == 0)
+			continue;
+		if (ret < 0)
+			break;
+		jtnode = json_tree_get_root(jtree);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_NUMBER);
+		test_assert(json_tree_node_get_next(jtnode) == NULL);
+		state++;
+	}
+	test_assert(state == 1);
+	test_istream_set_size(input, text_len);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+	json_tree_unref(&jtree);
+
+	/* string */
+	jtree = json_tree_create();
+	text = "\"frop\"";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read into tree - string");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 1) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		ret = json_istream_read_into_tree(jinput, jtree);
+		if (ret == 0)
+			continue;
+		if (ret < 0)
+			break;
+		jtnode = json_tree_get_root(jtree);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_STRING);
+		test_assert(json_tree_node_get_next(jtnode) == NULL);
+		state++;
+	}
+	test_assert(state == 1);
+	test_istream_set_size(input, text_len);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+	json_tree_unref(&jtree);
+
+	/* array */
+	jtree = json_tree_create();
+	text = "[\"frop\"]";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read into tree - array");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 1) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		ret = json_istream_read_into_tree(jinput, jtree);
+		if (ret == 0)
+			continue;
+		if (ret < 0)
+			break;
+		jtnode = json_tree_get_root(jtree);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_ARRAY);
+		jtnode = json_tree_node_get_child(jtnode);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_STRING);
+		test_assert(json_tree_node_get_next(jtnode) == NULL);
+		jtnode = json_tree_node_get_parent(jtnode);
+		test_assert(json_tree_node_get_type(jtnode) ==
+			    JSON_TYPE_ARRAY);
+		test_assert(json_tree_node_get_next(jtnode) == NULL);
+		state++;
+	}
+	test_assert(state == 1);
+	test_istream_set_size(input, text_len);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+	json_tree_unref(&jtree);
+
+	/* sequence */
+	jtree = json_tree_create();
+	(void)json_tree_node_add_array(json_tree_get_root(jtree), NULL);
+	text = "[\"frop\", {\"a\":1234, \"b\":[1, 2, 3, 4], "
+		"\"c\":1234}, \"frop\"]";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read into tree - sequence");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 4) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		switch (state) {
+		case 0:
+			ret = json_istream_descend(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			test_assert(json_node_is_array(&jnode));
+			state++;
+			break;
+		case 1:
+			ret = json_istream_read_into_tree(jinput, jtree);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			state++;
+			break;
+		case 2:
+			ret = json_istream_read_into_tree(jinput, jtree);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			state++;
+			break;
+		case 3:
+			ret = json_istream_read_into_tree(jinput, jtree);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			state++;
+			break;
+		case 4:
+			ret = json_istream_read(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+
+			jtnode = json_tree_get_root(jtree);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_ARRAY);
+			jtnode = json_tree_node_get_child(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_STRING);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_OBJECT);
+			jtnode = json_tree_node_get_child(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			test_assert_strcmp(json_tree_node_get_name(jtnode),
+					   "a");
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_ARRAY);
+			test_assert_strcmp(json_tree_node_get_name(jtnode),
+					   "b");
+			jtnode = json_tree_node_get_child(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+			jtnode = json_tree_node_get_parent(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_ARRAY);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_NUMBER);
+			test_assert_strcmp(json_tree_node_get_name(jtnode),
+					   "c");
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+			jtnode = json_tree_node_get_parent(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_OBJECT);
+			jtnode = json_tree_node_get_next(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_STRING);
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+			jtnode = json_tree_node_get_parent(jtnode);
+			test_assert(json_tree_node_get_type(jtnode) ==
+				    JSON_TYPE_ARRAY);
+			test_assert(json_tree_node_get_next(jtnode) == NULL);
+
+			json_istream_ascend(jinput);
+			state++;
+			break;
+		}
+	}
+	test_assert(state == 5);
+	test_istream_set_size(input, text_len);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	i_stream_unref(&input);
+	json_tree_unref(&jtree);
+}
+
+/*
  * Test: read stream
  */
 
@@ -3130,6 +3627,7 @@ static void test_json_istream_error(void)
 	struct json_istream *jinput;
 	const char *text, *error;
 	struct json_node jnode;
+	struct json_tree *jtree;
 	unsigned int text_len;
 	int ret = 0;
 
@@ -3185,6 +3683,24 @@ static void test_json_istream_error(void)
 	test_assert(json_node_is_string(&jnode));
 	json_istream_skip(jinput);
 	ret = json_istream_read(jinput, &jnode);
+	error = json_istream_get_error(jinput);
+	test_out_reason("read failure", (ret < 0 && error != NULL), error);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	/* tree parse error */
+	text = "{\"a\":[0],\"b\":[1],\"c\":[2],\"d\":[\"unclosed array\"}";
+	text_len = strlen(text);
+
+	input = i_stream_create_from_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream error - tree parse error");
+
+	ret = json_istream_read_tree(jinput, &jtree);
 	error = json_istream_get_error(jinput);
 	test_out_reason("read failure", (ret < 0 && error != NULL), error);
 
@@ -3347,6 +3863,8 @@ int main(int argc, char *argv[])
 		test_json_istream_read_buffer,
 		test_json_istream_read_trickle,
 		test_json_istream_finish,
+		test_json_istream_read_tree,
+		test_json_istream_read_into_tree,
 		test_json_istream_read_stream,
 		test_json_istream_tokens_buffer,
 		test_json_istream_tokens_trickle,

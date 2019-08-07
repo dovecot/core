@@ -1,6 +1,7 @@
 #ifndef JSON_ISTREAM_H
 #define JSON_ISTREAM_H
 
+#include "json-tree.new.h"
 #include "json-parser.new.h"
 
 // FIXME: don't bother recording values if we're only validating/skipping
@@ -171,5 +172,26 @@ int json_istream_walk_stream(struct json_istream *stream,
 			     size_t threshold, size_t max_buffer_size,
 			     const char *temp_path_prefix,
 			     struct json_node *node_r);
+
+/* Read a full JSON tree starting at the current position. If a node was
+   already read using json_istream_read(), is used as the tree root. Returns
+   1 on success, 0 if more data is needed from the input stream, or -1 upon
+   error or EOF. The last node in an array/object reads as *tree_r == NULL. The
+   next json_istream_read*() will read the node right after the tree, so
+   calling json_istream_skip() afterwards is not needed.
+   */
+int json_istream_read_tree(struct json_istream *stream,
+			   struct json_tree **tree_r);
+
+/* Same as json_istream_read_tree(), but read current node from stream and all
+   its children into the provided existing tree node as a new child. */
+int json_istream_read_into_tree_node(struct json_istream *stream,
+				     struct json_tree_node *tree_node);
+/* Same as json_istream_read_tree(), but read current node from stream and all
+   children into the provided existing tree at the root. If there is no root,
+   the read node becomes the tree root. Otherwise, it is added as a new child of
+   the tree root. */
+int json_istream_read_into_tree(struct json_istream *stream,
+				struct json_tree *tree);
 
 #endif
