@@ -958,6 +958,33 @@ void json_ostream_nwrite_text(struct json_ostream *stream,
 	json_ostream_nwrite_value(stream, name, JSON_TYPE_TEXT, &jvalue);
 }
 
+int json_ostream_write_text_stream(struct json_ostream *stream,
+				   const char *name, struct istream *input)
+{
+	struct json_value jvalue;
+
+	i_zero(&jvalue);
+	jvalue.content_type = JSON_CONTENT_TYPE_STREAM;
+	jvalue.content.stream = input;
+
+	return json_ostream_write_value(stream, name, JSON_TYPE_TEXT,
+					&jvalue);
+}
+
+void json_ostream_nwrite_text_stream(struct json_ostream *stream,
+				     const char *name, struct istream *input)
+{
+	struct json_value jvalue;
+
+	i_zero(&jvalue);
+	jvalue.content_type = JSON_CONTENT_TYPE_STREAM;
+	jvalue.content.stream = input;
+
+	json_ostream_nwrite_value(stream, name, JSON_TYPE_TEXT, &jvalue);
+	if (input->stream_errno != 0)
+		stream->nfailed = TRUE;
+}
+
 /*
  * Nodes
  */

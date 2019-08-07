@@ -259,4 +259,11 @@ int json_ostream_write_text(struct json_ostream *stream,
 void json_ostream_nwrite_text(struct json_ostream *stream,
 			      const char *name, const char *str);
 
+/* Try to write the stream to the output stream directly (JSON-text, not as
+   a string). Returns 1 if buffered, 0 if not, -1 if error. */
+int json_ostream_write_text_stream(struct json_ostream *stream,
+                                   const char *name, struct istream *input);
+void json_ostream_nwrite_text_stream(struct json_ostream *stream,
+                                     const char *name, struct istream *input);
+
 #endif
