@@ -61,9 +61,12 @@ struct json_generator {
 	/* We opened an input stream string */
 	bool string_stream:1;         /* API state */
 	bool string_stream_written:1; /* write state */
+	/* We opened an input stream JSON-text */
+	bool text_stream:1;           /* API state */
 };
 
 static int json_generator_flush_string_input(struct json_generator *generator);
+static int json_generator_flush_text_input(struct json_generator *generator);
 
 static struct json_generator *
 json_generator_new(enum json_generator_flags flags)
@@ -394,6 +397,16 @@ int json_generator_flush(struct json_generator *generator)
 			generator->write_state = JSON_GENERATOR_STATE_STRING;
 			return 0;
 		}
+		generator->write_state = JSON_GENERATOR_STATE_VALUE_END;
+	}
+	/* flush string stream */
+	if (generator->text_stream) {
+		i_assert(generator->value_input != NULL);
+		/* flush the stream */
+		ret = json_generator_flush_text_input(generator);
+		if (ret <= 0)
+			return ret;
+		generator->text_stream = FALSE;
 		generator->write_state = JSON_GENERATOR_STATE_VALUE_END;
 	}
 	return 1;
@@ -982,6 +995,56 @@ int json_generate_text(struct json_generator *generator, const char *str)
 				       strlen(str));
 }
 
+static int
+json_generator_flush_text_input(struct json_generator *generator)
+{
+	const unsigned char *data;
+	size_t size;
+	ssize_t sret;
+	int ret;
+
+	while ((ret = i_stream_read_more(generator->value_input,
+					 &data, &size)) > 0) {
+		sret = json_generate_text_write_data(generator, data,
+						     size, FALSE);
+		if (sret < 0)
+			return -1;
+		if (sret == 0)
+			return 0;
+		i_stream_skip(generator->value_input, (size_t)sret);
+	}
+	if (ret < 0) {
+		if (generator->value_input->stream_errno != 0)
+			return -1;
+
+		i_assert(!i_stream_have_bytes_left(generator->value_input));
+		i_stream_unref(&generator->value_input);
+		return 1;
+	}
+	return 0;
+}
+
+int json_generate_text_stream(struct json_generator *generator,
+			      struct istream *input)
+{
+	i_assert(generator->value_input == NULL);
+	json_generator_value_begin(generator);
+	generator->value_input = input;
+	i_stream_ref(input);
+	generator->text_stream = TRUE;
+	if (generator->write_state == JSON_GENERATOR_STATE_VALUE_END)
+		generator->write_state = JSON_GENERATOR_STATE_VALUE_NEXT;
+	if (generator->level_stack_pos == 0)
+		generator->state = JSON_GENERATOR_STATE_END;
+	else if (generator->object_level)
+		generator->state = JSON_GENERATOR_STATE_OBJECT_MEMBER;
+	else
+		generator->state = JSON_GENERATOR_STATE_VALUE;
+	if (json_generator_flush(generator) < 0)
+		return -1;
+	return 1;
+}
+
 /*
  * value
  */
@@ -1039,6 +1102,9 @@ int json_generate_value(struct json_generator *generator,
 			return json_generate_text_data(
 				generator, value->content.data->data,
 				value->content.data->size);
+		case JSON_CONTENT_TYPE_STREAM:
+			return json_generate_text_stream(
+				generator, value->content.stream);
 		default:
 			break;
 		}
