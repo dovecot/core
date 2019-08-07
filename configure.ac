@@ -546,6 +546,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-charset/libcharset.la \
 	$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la \
 	$(top_builddir)/src/lib-dcrypt/libdcrypt.la \
+	$(top_builddir)/src/lib-json/libjson.la \
 	$(top_builddir)/src/lib-test/libtest.la \
 	$(top_builddir)/src/lib/liblib.la'
 # This is used in dovecot-config, which is grepped in dovecot.m4,
@@ -757,6 +758,7 @@ src/lib-imap-storage/Makefile
 src/lib-imap-client/Makefile
 src/lib-imap-urlauth/Makefile
 src/lib-index/Makefile
+src/lib-json/Makefile
 src/lib-lda/Makefile
 src/lib-ldap/Makefile
 src/lib-lua/Makefile

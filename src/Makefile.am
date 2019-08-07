@@ -17,6 +17,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-master \
 	lib-login \
 	lib-charset \
+	lib-json \
 	lib-dcrypt \
 	lib-dict \
 	lib-sasl \
