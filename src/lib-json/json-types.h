@@ -3,6 +3,10 @@
 
 #include "istream.h"
 
+struct json_tree;
+struct json_tree_node;
+struct json_tree_node_list;
+
 struct json_data;
 struct json_value;
 struct json_node;
@@ -29,7 +33,7 @@ enum json_type {
 	JSON_TYPE_FALSE,
 	/* null */
 	JSON_TYPE_NULL,
-	/* JSON-text */
+	/* JSON-text; either sub-tree or literal JSON text */
 	JSON_TYPE_TEXT,
 };
 
@@ -47,6 +51,8 @@ enum json_content_type {
 	JSON_CONTENT_TYPE_STREAM,
 	/* integer number */
 	JSON_CONTENT_TYPE_INTEGER,
+	/* sub-tree */
+	JSON_CONTENT_TYPE_TREE,
 };
 
 struct json_data {
@@ -63,6 +69,8 @@ struct json_data {
 struct json_value {
 	enum json_content_type content_type;
 	union {
+		/* JSON2_CONTENT_TYPE_LIST */
+		struct json_tree_node_list *list; /* only used by trees */
 		/* JSON_CONTENT_TYPE_STRING */
 		const char *str;
 		/* JSON_CONTENT_TYPE_DATA */
@@ -71,6 +79,8 @@ struct json_value {
 		struct istream *stream;
 		/* JSON_CONTENT_TYPE_INTEGER */
 		intmax_t intnum;
+		/* JSON2_CONTENT_TYPE_TREE */
+		struct json_tree *tree;
 	} content;
 };
 

@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 libjson_la_SOURCES = \
 	json-syntax.c \
 	json-types.c \
+	json-tree.new.c \
 	json-parser.new.c \
 	json-generator.c \
 	json-istream.c \
@@ -16,6 +17,7 @@ libjson_la_LIBADD = -lm
 headers = \
 	json-syntax.h \
 	json-types.h \
+	json-tree.new.h \
 	json-parser.new.h \
 	json-generator.h \
 	json-istream.h \

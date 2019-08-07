@@ -24,9 +24,10 @@ static const char *json_content_type_names[] = {
 	[JSON_CONTENT_TYPE_DATA] = "<DATA>",
 	[JSON_CONTENT_TYPE_STREAM] = "<STREAM>",
 	[JSON_CONTENT_TYPE_INTEGER] = "<INTEGER>",
+	[JSON_CONTENT_TYPE_TREE] = "<TREE>",
 };
 static_assert_array_size(json_content_type_names,
-			 JSON_CONTENT_TYPE_INTEGER + 1);
+			 JSON_CONTENT_TYPE_TREE + 1);
 
 const char *json_type_get_name(enum json_type type)
 {
@@ -36,7 +37,7 @@ const char *json_type_get_name(enum json_type type)
 
 const char *json_content_type_get_name(enum json_content_type ctype)
 {
-	i_assert(ctype <= JSON_CONTENT_TYPE_INTEGER);
+	i_assert(ctype <= JSON_CONTENT_TYPE_TREE);
 	return json_content_type_names[ctype];
 }
 
