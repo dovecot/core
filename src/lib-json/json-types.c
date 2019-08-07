@@ -22,6 +22,7 @@ static const char *json_content_type_names[] = {
 	[JSON_CONTENT_TYPE_LIST] = "<LIST>",
 	[JSON_CONTENT_TYPE_STRING] = "<STRING>",
 	[JSON_CONTENT_TYPE_DATA] = "<DATA>",
+	[JSON_CONTENT_TYPE_STREAM] = "<STREAM>",
 	[JSON_CONTENT_TYPE_INTEGER] = "<INTEGER>",
 };
 static_assert_array_size(json_content_type_names,

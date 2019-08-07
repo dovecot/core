@@ -171,11 +171,16 @@ struct json_parser {
 	string_t *object_member;
 	struct json_data content_data;
 
+	struct json_string_istream *str_stream;
+	size_t str_stream_threshold;
+	size_t str_stream_max_buffer_size;
+
 	char *error;
 
 	bool parsed_nul_char:1;
 	bool parsed_control_char:1;
 	bool parsed_float:1;
+	bool streaming_string:1;
 	bool callback_interrupted:1;
 	bool callback_running:1;
 	bool finished_level:1;
@@ -183,6 +188,9 @@ struct json_parser {
 	bool started:1;
 	bool have_object_member:1;
 };
+
+static struct istream *
+json_string_stream_create(struct json_parser *parser, bool complete);
 
 static inline bool json_parser_is_busy(struct json_parser *parser)
 {
@@ -521,8 +529,32 @@ json_parser_callback_string_value(struct json_parser *parser,
 				  void *list_context)
 {
 	struct json_value value;
+	int ret;
+
+	if (parser->str_stream != NULL)
+		return JSON_PARSE_BOUNDARY;
+	if (parser->streaming_string) {
+		parser->streaming_string = FALSE;
+		return JSON_PARSE_OK;
+	}
 
 	i_zero(&value);
+
+	if (parser->str_stream_max_buffer_size > 0) {
+		if (str_len(parser->buffer) >= parser->str_stream_threshold) {
+			value.content_type = JSON_CONTENT_TYPE_STREAM;
+			value.content.stream =
+				json_string_stream_create(parser, TRUE);
+			ret = json_parser_callback_parse_value(
+				parser, list_context, JSON_TYPE_STRING,
+				&value);
+			i_stream_unref(&value.content.stream);
+			parser->streaming_string = TRUE;
+			if (ret < JSON_PARSE_OK)
+				return ret;
+			return JSON_PARSE_INTERRUPTED;
+		}
+	}
 
 	if (parser->parsed_nul_char ||
 	    (parser->flags & JSON_PARSER_FLAG_STRINGS_AS_DATA) != 0) {
@@ -546,8 +578,29 @@ json_parser_callback_string_value(struct json_parser *parser,
 }
 
 static int
+json_parser_callback_string_stream(struct json_parser *parser,
+				   void *list_context)
+{
+	struct json_value value;
+	int ret;
+
+	if (parser->streaming_string)
+		return JSON_PARSE_OK;
+	parser->streaming_string = TRUE;
+
+	i_zero(&value);
+	value.content_type = JSON_CONTENT_TYPE_STREAM;
+	value.content.stream = json_string_stream_create(parser, FALSE);
+
+	ret = json_parser_callback_parse_value(parser, list_context,
+					       JSON_TYPE_STRING, &value);
+	i_stream_unref(&value.content.stream);
+	return ret;
+}
+
+static int
 json_parser_callback_true_value(struct json_parser *parser,
-				void *list_context)
+				 void *list_context)
 {
 	struct json_value value;
 
@@ -1566,7 +1619,20 @@ static int
 json_parser_do_parse_string_value(struct json_parser *parser,
 				  struct json_parser_state *state)
 {
-	size_t max_size = parser->limits.max_string_size;
+	size_t max_size;
+
+	if (parser->str_stream_max_buffer_size > 0)
+		max_size = parser->str_stream_max_buffer_size;
+	else
+		max_size = parser->limits.max_string_size;
+
+	if (parser->str_stream == NULL &&
+	    parser->str_stream_max_buffer_size > 0 &&
+	    max_size > parser->str_stream_threshold) {
+		/* Return string stream immediately once the treshold is
+		   crossed */
+		max_size = parser->str_stream_threshold;
+	}
 
 	return json_parser_do_parse_string(parser, state, max_size);
 }
@@ -1904,10 +1970,17 @@ json_parser_do_parse_value(struct json_parser *parser,
 			if (ret < JSON_PARSE_OK) {
 				if (ret != JSON_PARSE_OVERFLOW)
 					return ret;
-				json_parser_error(parser,
-					"Excessive string size (> %zu)",
-					parser->limits.max_string_size);
-				return JSON_PARSE_ERROR;
+				if (parser->str_stream_max_buffer_size == 0) {
+					json_parser_error(parser,
+						"Excessive string size (> %zu)",
+						parser->limits.max_string_size);
+					return JSON_PARSE_ERROR;
+				}
+				ret = json_parser_callback_string_stream(
+					parser,	parent_context);
+				if (ret < JSON_PARSE_OK)
+					return ret;
+				return JSON_PARSE_INTERRUPTED;
 			}
 			state->state = _VALUE_WS;
 			ret = json_parser_callback_string_value(
@@ -1953,6 +2026,7 @@ json_parser_do_parse_value(struct json_parser *parser,
 			ret = json_parser_skip_ws(parser);
 			if (ret < JSON_PARSE_OK)
 				return ret;
+			parser->streaming_string = FALSE;
 			state->state = _VALUE_END;
 			return JSON_PARSE_OK;
 		default:
@@ -2171,6 +2245,8 @@ int json_parse_more(struct json_parser *parser, const char **error_r)
 {
 	int ret;
 
+	i_assert(parser->str_stream == NULL);
+
 	*error_r = NULL;
 
 	ret = json_parser_continue(parser);
@@ -2205,4 +2281,170 @@ void json_parser_get_location(struct json_parser *parser,
 	loc_r->line = parser->loc.line_number;
 	loc_r->value_line = parser->loc.value_line_number;
 	loc_r->column = parser->loc.column;
+}
+
+/*
+ *
+ */
+
+struct json_string_istream {
+	struct istream_private istream;
+
+	struct json_parser *parser;
+
+	bool buffer_overflowed:1;
+	bool ended:1;
+};
+
+static ssize_t json_string_istream_read(struct istream_private *stream)
+{
+	struct json_string_istream *jstream =
+		(struct json_string_istream *)stream;
+	struct json_parser *parser = jstream->parser;
+	bool read_data;
+	size_t old_pos;
+	int ret;
+
+	if (jstream->ended) {
+		stream->istream.eof = TRUE;
+		return -1;
+	}
+	i_assert(jstream->parser != NULL);
+
+	i_assert(stream->pos == str_len(parser->buffer));
+	i_assert(stream->skip <= stream->pos);
+
+	read_data = FALSE;
+	do {
+		if (jstream->buffer_overflowed) {
+			stream->pos = str_len(parser->buffer);
+			if (stream->skip == stream->pos)
+				str_truncate(parser->buffer, 0);
+			else if (stream->skip > 0)
+				str_delete(parser->buffer, 0, stream->skip);
+			else
+				return -2;
+			stream->skip = 0;
+			jstream->buffer_overflowed = FALSE;
+		}
+
+		old_pos = str_len(parser->buffer);
+		ret = json_parser_continue(parser);
+		i_assert(str_len(parser->buffer) >= old_pos);
+		read_data = str_len(parser->buffer) > old_pos;
+		switch (ret) {
+		case JSON_PARSE_INTERRUPTED:
+			i_assert(stream->skip == 0 ||
+				 !jstream->buffer_overflowed);
+			jstream->buffer_overflowed = TRUE;
+			break;
+		case JSON_PARSE_BOUNDARY:
+			jstream->ended = TRUE;
+			read_data = TRUE;
+			if (str_len(parser->buffer) == old_pos) {
+				stream->istream.eof = TRUE;
+				return -1;
+			}
+			break;
+		case JSON_PARSE_NO_DATA:
+			stream->buffer = str_data(parser->buffer);
+			stream->pos = str_len(parser->buffer);
+			return 0;
+		case JSON_PARSE_ERROR:
+			io_stream_set_error(&stream->iostream,
+					    "%s", parser->error);
+			stream->istream.stream_errno = EINVAL;
+			return -1;
+		case JSON_PARSE_UNEXPECTED_EOF:
+			io_stream_set_error(&stream->iostream,
+					    "%s", parser->error);
+			stream->istream.stream_errno = EPIPE;
+			return -1;
+		default:
+			i_unreached();
+		}
+	} while (jstream->buffer_overflowed && !read_data);
+
+	stream->pos = str_len(parser->buffer);
+	stream->buffer = str_data(parser->buffer);
+	return (ssize_t)(stream->pos - old_pos);
+}
+
+static void
+json_string_istream_set_max_buffer_size(struct iostream_private *stream,
+					size_t max_size)
+{
+	struct json_string_istream *jstream =
+		(struct json_string_istream *)stream;
+
+	i_assert(max_size > 0);
+	jstream->parser->str_stream_max_buffer_size = max_size;
+}
+
+static void
+json_string_istream_close(struct iostream_private *stream,
+			  bool close_parent ATTR_UNUSED)
+{
+	struct json_string_istream *jstream =
+		(struct json_string_istream *)stream;
+
+	if (jstream->parser != NULL)
+		jstream->parser->str_stream = NULL;
+}
+
+static struct istream *
+json_string_stream_create(struct json_parser *parser, bool complete)
+{
+	struct json_string_istream *jstream;
+	struct istream *stream;
+	const char *name;
+
+	i_assert(parser->str_stream == NULL);
+
+	jstream = i_new(struct json_string_istream, 1);
+	jstream->parser = parser;
+
+	jstream->ended = complete;
+	jstream->istream.pos = str_len(parser->buffer);
+	jstream->istream.buffer = str_data(parser->buffer);
+
+	jstream->istream.max_buffer_size = parser->str_stream_max_buffer_size;
+	jstream->istream.iostream.set_max_buffer_size =
+		json_string_istream_set_max_buffer_size;
+	jstream->istream.iostream.close =
+		json_string_istream_close;
+	jstream->istream.read = json_string_istream_read;
+
+	jstream->istream.istream.readable_fd = FALSE;
+	jstream->istream.istream.blocking = parser->input->blocking;
+	jstream->istream.istream.seekable = FALSE;
+
+	parser->str_stream = jstream;
+
+	stream = i_stream_create(&jstream->istream, NULL,
+				 i_stream_get_fd(parser->input), 0);
+
+	name = i_stream_get_name(parser->input);
+	if (name == NULL || *name == '\0') {
+		i_stream_set_name(stream, "(JSON string)");
+	} else {
+		i_stream_set_name(stream, t_strdup_printf(
+			"(JSON string parsed from %s)", name));
+	}
+	return stream;
+}
+
+void json_parser_enable_string_stream(struct json_parser *parser,
+				      size_t threshold, size_t max_buffer_size)
+{
+	i_assert(max_buffer_size > 0);
+	if (threshold > max_buffer_size)
+		threshold = max_buffer_size;
+	parser->str_stream_threshold = threshold;
+	parser->str_stream_max_buffer_size = max_buffer_size;
+}
+
+void json_parser_disable_string_stream(struct json_parser *parser)
+{
+	parser->str_stream_max_buffer_size = 0;
 }

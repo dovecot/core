@@ -103,4 +103,12 @@ int json_parse_more(struct json_parser *parser, const char **error_r);
 void json_parser_get_location(struct json_parser *parser,
 			      struct json_parser_location *loc_r);
 
+/* Enable parsing strings as a stream if the length of the string equals or
+   exceeds `threshold' octets. This disables the normal string size limit. The
+   stream will buffer at most `max_buffer_size' bytes. */
+void json_parser_enable_string_stream(struct json_parser *parser,
+				      size_t threshold, size_t max_buffer_size);
+/* Disable parsing strings as a stream. */
+void json_parser_disable_string_stream(struct json_parser *parser);
+
 #endif

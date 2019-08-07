@@ -2390,6 +2390,447 @@ static void test_json_parse_invalid(void)
 	} T_END;
 }
 
+/*
+ * Test: stream parse tests
+ */
+
+struct json_stream_parse_test {
+	const char *input, *output;
+	struct json_limits limits;
+	enum json_parser_flags flags;
+};
+
+static const struct json_stream_parse_test
+stream_parse_tests[] = {
+	{
+		.input = "\"AABBCC\"",
+		.output = "AABBCC"
+	},{
+		.input = "\""
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"\"",
+		.output =
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+	},{
+		.input = "[\""
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"\"]",
+		.output =
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+	},{
+		.input = "  [ \""
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"\" ]  ",
+		.output =
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+			"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ"
+	},{
+		.input = "\"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\uffff\"",
+		.output = "foo\\\"\b\f\n\r\t\001\xEF\xBF\xBF"
+	},{
+		.input = "\"\\ud801\\udc37\"",
+		.output = "\xf0\x90\x90\xb7"
+	},{
+		.input = "\"\"",
+		.output = ""
+	}
+};
+
+static const unsigned int stream_parse_test_count =
+	N_ELEMENTS(stream_parse_tests);
+
+static void
+test_parse_stream_parse_value(void *context,
+	void *parent_context ATTR_UNUSED,
+	const char *name ATTR_UNUSED, enum json_type type,
+	const struct json_value *value)
+{
+	struct istream **str_stream_r = (struct istream **)context;
+
+	test_assert(type == JSON_TYPE_STRING);
+	test_assert(value->content_type == JSON_CONTENT_TYPE_STREAM);
+	*str_stream_r = value->content.stream;
+	i_stream_ref(value->content.stream);
+}
+
+static struct json_parser_callbacks parse_stream_callbacks = {
+	.parse_value = test_parse_stream_parse_value
+};
+
+static void test_json_parse_stream(void)
+{
+	static const unsigned int trickle_steps[] = {1,2,3,4,5,10,20};
+	string_t *buffer;
+	unsigned int i, j;
+
+	buffer = str_new(default_pool, 256);
+
+	for (i = 0; i < stream_parse_test_count; i++) T_BEGIN {
+		const struct json_stream_parse_test *test;
+		struct istream *input, *str_input;
+		struct json_parser *parser;
+		const char *text, *error = NULL;
+		unsigned int pos, text_len;
+		int ret = 0;
+
+		test = &stream_parse_tests[i];
+
+		text = test->input;
+		text_len = strlen(text);
+
+		input = test_istream_create_data(text, text_len);
+
+		test_begin(t_strdup_printf("json parse stream [%u]", i));
+
+		/* trickle tests */
+		for (j = 0; j < N_ELEMENTS(trickle_steps); j++) {
+			unsigned int trickle_step = trickle_steps[j];
+
+			i_stream_seek(input, 0);
+			str_input = NULL;
+			str_truncate(buffer, 0);
+
+			parser = json_parser_init(input,
+				NULL, 0, &parse_stream_callbacks, &str_input);
+			json_parser_enable_string_stream(parser, 0, 10);
+
+			ret = 0;
+			for (pos = 0; pos <= text_len+1000 && ret == 0; pos += trickle_step) {
+				test_istream_set_size(input, pos);
+				if (str_input == NULL) {
+					ret = json_parse_more(parser, &error);
+					if (ret < 0)
+						break;
+				}
+				if (str_input != NULL) {
+					const unsigned char *data;
+					size_t size;
+
+					while ((ret = i_stream_read_more(str_input,
+									 &data, &size)) > 0) {
+						buffer_append(buffer, data, size);
+						i_stream_skip(str_input, size);
+					}
+					if (ret < 0) {
+						i_assert(!i_stream_have_bytes_left(str_input));
+						i_stream_skip(str_input, size);
+						i_stream_unref(&str_input);
+						ret = 0;
+					}
+				}
+			}
+			test_out_reason_quiet(
+				t_strdup_printf("parse success "
+						"(trickle, step=%u)",
+						trickle_step),
+				ret > 0, error);
+			test_out_quiet("stream output",
+				       strcmp(str_c(buffer),
+					      test->output) == 0);
+			json_parser_deinit(&parser);
+		}
+
+		/* buffered test */
+		i_stream_seek(input, 0);
+		str_truncate(buffer, 0);
+
+		parser = json_parser_init(input,
+			NULL, 0, &parse_stream_callbacks, &str_input);
+		json_parser_enable_string_stream(parser, 0, 10);
+
+		test_istream_set_size(input, text_len);
+		ret = json_parse_more(parser, &error);
+		test_out_reason_quiet("parse success (buffered) #1",
+				      ret == 0, error);
+		if (ret == 0 && str_input != NULL) {
+			const unsigned char *data;
+			size_t size;
+
+			while ((ret = i_stream_read_more(str_input,
+							 &data, &size)) > 0) {
+				buffer_append(buffer, data, size);
+				i_stream_skip(str_input, size);
+			}
+			i_assert (ret != 0);
+			if (ret < 0) {
+				i_assert(!i_stream_have_bytes_left(str_input));
+				i_stream_skip(str_input, size);
+				i_stream_unref(&str_input);
+				ret = 0;
+			}
+		}
+		if (ret == 0) {
+			ret = json_parse_more(parser, &error);
+			test_out_reason_quiet("parse success (buffered) #2",
+					      ret > 0, error);
+		}
+		test_out_quiet("stream output",
+			       strcmp(str_c(buffer), test->output) == 0);
+		json_parser_deinit(&parser);
+
+		test_end();
+
+		i_stream_unref(&input);
+	} T_END;
+
+	str_free(&buffer);
+}
+
+/*
+ * Test: stream parse error tests
+ */
+
+struct json_stream_parse_error_test {
+	const char *input;
+	struct json_limits limits;
+	enum json_parser_flags flags;
+	int stream_errno;
+};
+
+static const struct json_stream_parse_error_test
+stream_parse_error_tests[] = {
+	/* invalid escape */
+	{
+		.input = "\"foo\\?\"",
+		.stream_errno = EINVAL,
+	/* just a DQUOTE */
+	},{
+		.input = "\"",
+		.stream_errno = EPIPE,
+	/* unterminated string, escaped DQUOTE */
+	},{
+		.input = "\"\\\"",
+		.stream_errno = EPIPE,
+	/* unterminated string */
+	},{
+		.input = "\"foo",
+		.stream_errno = EPIPE,
+	/* high surrogate alone, unterminated string */
+	},{
+		.input = "\"\\ud801",
+		.stream_errno = EPIPE,
+	/* high surrogate alone */
+	},{
+		.input = "\"\\ud801\"",
+		.stream_errno = EINVAL,
+	/* low surrogate before high */
+	},{
+		.input = "\"\\udced\\udc37\"",
+		.stream_errno = EINVAL,
+	/* has extra 1 in middle */
+	},{
+		.input = "\"\\ud8011\\udc37\"",
+		.stream_errno = EINVAL,
+	/* has extra TAB in middle */
+	},{
+		.input = "\"\\ud801\\t\\udc37\"",
+		.stream_errno = EINVAL,
+	/* low surrogate before high with valid prefix*/
+	},{
+		.input = "\"hello \\udc37\"",
+		.stream_errno = EINVAL,
+	/* high surrogate alone with valid prefix */
+	},{
+		.input = "\"hello \\ud801",
+		.stream_errno = EPIPE,
+	/* invalid hex value */
+	},{
+		.input = "\"\\uabcg",
+		.stream_errno = EINVAL,
+	/* invalid escape */
+	},{
+		.input = "\"\\xFF\\xFF\\xFF\"",
+		.stream_errno = EINVAL,
+	}
+};
+
+static const unsigned int stream_parse_error_test_count =
+	N_ELEMENTS(stream_parse_error_tests);
+
+static void
+test_parse_stream_parse_error_value(void *context,
+				    void *parent_context ATTR_UNUSED,
+				    const char *name ATTR_UNUSED,
+				    enum json_type type,
+				    const struct json_value *value)
+{
+	struct istream **str_stream_r = (struct istream **)context;
+
+	test_assert(type == JSON_TYPE_STRING);
+	test_assert(value->content_type == JSON_CONTENT_TYPE_STREAM);
+	*str_stream_r = value->content.stream;
+	i_stream_ref(value->content.stream);
+}
+
+static struct json_parser_callbacks parse_stream_error_callbacks = {
+	.parse_value = test_parse_stream_parse_error_value
+};
+
+static void test_json_parse_stream_error(void)
+{
+	static const unsigned int trickle_steps[] = {1,2,3,4,5,10,20};
+	string_t *buffer;
+	unsigned int i, j;
+
+	buffer = str_new(default_pool, 256);
+
+	for (i = 0; i < stream_parse_error_test_count; i++) T_BEGIN {
+		const struct json_stream_parse_error_test *test;
+		struct istream *input, *str_input;
+		struct json_parser *parser;
+		const char *text, *error = NULL;
+		unsigned int pos, text_len;
+		int ret = 0;
+
+		test = &stream_parse_error_tests[i];
+
+		text = test->input;
+		text_len = strlen(text);
+
+		input = test_istream_create_data(text, text_len);
+
+		test_begin(t_strdup_printf("json parse stream error [%u]", i));
+
+		/* trickle tests */
+		for (j = 0; j < N_ELEMENTS(trickle_steps); j++) {
+			unsigned int trickle_step = trickle_steps[j];
+
+			i_stream_seek(input, 0);
+			str_input = NULL;
+			str_truncate(buffer, 0);
+
+			parser = json_parser_init(input,
+				NULL, 0, &parse_stream_error_callbacks, &str_input);
+			json_parser_enable_string_stream(parser, 0, 10);
+
+			ret = 0;
+			for (pos = 0; pos <= text_len+1000 && ret == 0; pos += trickle_step) {
+				test_istream_set_size(input, pos);
+				if (str_input == NULL) {
+					ret = json_parse_more(parser, &error);
+					if (ret < 0)
+						break;
+				}
+				if (str_input != NULL) {
+					const unsigned char *data;
+					size_t size;
+
+					while ((ret = i_stream_read_more(str_input,
+									 &data, &size)) > 0) {
+						buffer_append(buffer, data, size);
+						i_stream_skip(str_input, size);
+					}
+					if (ret < 0) {
+						test_assert(str_input->stream_errno != 0);
+						test_out_quiet("stream errno",
+							       str_input->stream_errno == test->stream_errno);
+						i_stream_skip(str_input, size);
+						i_stream_unref(&str_input);
+						ret = 0;
+					}
+				}
+			}
+			test_out_reason_quiet(
+				t_strdup_printf("parse failure "
+						"(trickle, step=%u)",
+						trickle_step),
+				ret < 0, error);
+			json_parser_deinit(&parser);
+		}
+
+		/* buffered test */
+		i_stream_seek(input, 0);
+		str_truncate(buffer, 0);
+
+		parser = json_parser_init(input,
+			NULL, 0, &parse_stream_error_callbacks, &str_input);
+		json_parser_enable_string_stream(parser, 0, 10);
+
+		test_istream_set_size(input, text_len);
+		ret = json_parse_more(parser, &error);
+		test_out_reason_quiet("parse failure (buffered) #1",
+				      ret <= 0, error);
+		if (ret == 0 && str_input != NULL) {
+			const unsigned char *data;
+			size_t size;
+
+			while ((ret = i_stream_read_more(str_input,
+							 &data, &size)) > 0) {
+				buffer_append(buffer, data, size);
+				i_stream_skip(str_input, size);
+			}
+			i_assert (ret != 0);
+			if (ret < 0) {
+				test_assert(str_input->stream_errno != 0);
+				test_out_quiet("stream errno",
+					       str_input->stream_errno == test->stream_errno);
+				i_stream_skip(str_input, size);
+				i_stream_unref(&str_input);
+				ret = 0;
+			}
+		}
+		if (ret == 0) {
+			ret = json_parse_more(parser, &error);
+			test_out_reason_quiet("parse failure (buffered) #2",
+					      ret < 0, error);
+		}
+		json_parser_deinit(&parser);
+
+		test_end();
+
+		i_stream_unref(&input);
+	} T_END;
+
+	str_free(&buffer);
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -2397,6 +2838,8 @@ int main(int argc, char *argv[])
 	static void (*test_functions[])(void) = {
 		test_json_parse_valid,
 		test_json_parse_invalid,
+		test_json_parse_stream,
+		test_json_parse_stream_error,
 		NULL
 	};
 

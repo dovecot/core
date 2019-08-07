@@ -1,6 +1,8 @@
 #ifndef JSON_TYPES_H
 #define JSON_TYPES_H
 
+#include "istream.h"
+
 struct json_data;
 struct json_value;
 struct json_node;
@@ -41,6 +43,8 @@ enum json_content_type {
 	JSON_CONTENT_TYPE_STRING,
 	/* data buffer (for string/text containing \u0000) */
 	JSON_CONTENT_TYPE_DATA,
+	/* data stream (for potentially very long string/text) */
+	JSON_CONTENT_TYPE_STREAM,
 	/* integer number */
 	JSON_CONTENT_TYPE_INTEGER,
 };
@@ -63,6 +67,8 @@ struct json_value {
 		const char *str;
 		/* JSON_CONTENT_TYPE_DATA */
 		struct json_data *data;
+		/* JSON_CONTENT_TYPE_STREAM */
+		struct istream *stream;
 		/* JSON_CONTENT_TYPE_INTEGER */
 		intmax_t intnum;
 	} content;
@@ -105,15 +111,15 @@ name(const struct json_value *jvalue, type *num_r)                      \
 }
 
 JSON_VALUE_GET_U__TEMPLATE(json_value_get_uint,
-			    unsigned int, UINT_MAX)
+			   unsigned int, UINT_MAX)
 JSON_VALUE_GET_U__TEMPLATE(json_value_get_ulong,
-			    unsigned long, ULONG_MAX)
+			   unsigned long, ULONG_MAX)
 JSON_VALUE_GET_U__TEMPLATE(json_value_get_ullong,
-			    unsigned long long, ULLONG_MAX)
+			   unsigned long long, ULLONG_MAX)
 JSON_VALUE_GET_U__TEMPLATE(json_value_get_uint32,
-			    uint32_t, UINT32_MAX)
+			   uint32_t, UINT32_MAX)
 JSON_VALUE_GET_U__TEMPLATE(json_value_get_uint64,
-			    uint64_t, UINT64_MAX)
+			   uint64_t, UINT64_MAX)
 
 #define JSON_VALUE_GET_S__TEMPLATE(name, type, int_min, int_max)        \
 static inline int                                                       \
@@ -129,15 +135,15 @@ name(const struct json_value *jvalue, type *num_r)                      \
 }
 
 JSON_VALUE_GET_S__TEMPLATE(json_value_get_int,
-			    int, INT_MIN, INT_MAX)
+			   int, INT_MIN, INT_MAX)
 JSON_VALUE_GET_S__TEMPLATE(json_value_get_long,
-			    long, LONG_MIN, LONG_MAX)
+			   long, LONG_MIN, LONG_MAX)
 JSON_VALUE_GET_S__TEMPLATE(json_value_get_llong,
-			    long long, LLONG_MIN, LLONG_MAX)
+			   long long, LLONG_MIN, LLONG_MAX)
 JSON_VALUE_GET_S__TEMPLATE(json_value_get_int32,
-			    int32_t, INT32_MIN, INT32_MAX)
+			   int32_t, INT32_MIN, INT32_MAX)
 JSON_VALUE_GET_S__TEMPLATE(json_value_get_int64,
-			    int64_t, INT64_MIN, INT64_MAX)
+			   int64_t, INT64_MIN, INT64_MAX)
 
 #define JSON_VALUE_GET_F__TEMPLATE(name, type)                          \
 static inline int                                                       \
@@ -185,6 +191,17 @@ json_value_get_data(const struct json_value *jvalue, size_t *size_r)
 		break;
 	}
 	i_unreached();
+}
+
+static inline ATTR_PURE int
+json_value_get_stream(const struct json_value *jvalue,
+		       struct istream **stream_r)
+{
+	if (jvalue->content_type != JSON_CONTENT_TYPE_STREAM)
+		return -1;
+	*stream_r = jvalue->content.stream;
+	i_stream_ref(*stream_r);
+	return 0;
 }
 
 /*
@@ -324,6 +341,16 @@ json_node_get_data(const struct json_node *jnode, size_t *size_r)
 		i_unreached();
 	}
 	return json_value_get_data(&jnode->value, size_r);
+}
+
+static inline int
+json_node_get_stream(const struct json_node *jnode,
+		      struct istream **stream_r)
+{
+	if (jnode->type != JSON_TYPE_STRING)
+		return -1;
+
+	return json_value_get_stream(&jnode->value, stream_r);
 }
 
 /* number */
@@ -513,6 +540,10 @@ json_node_is_singular(const struct json_node *jnode)
 /*
  * Limits
  */
+
+// NOTE: There is currently no support for reading enormous object member names
+//       incrementally. This is usually not needed, but it could sometimes be
+//       nice to have.
 
 #define JSON_DEFAULT_MAX_NAME_SIZE 1024
 #define JSON_DEFAULT_MAX_STRING_SIZE 32*1024
