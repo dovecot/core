@@ -143,4 +143,33 @@ void json_istream_ascend_to(struct json_istream *stream,
 int json_istream_walk(struct json_istream *stream,
 		      struct json_node *node_r);
 
+/* Equivalent to json_istream_read(), but reads strings bigger than
+  `threshold' octets as an istream with `max_buffer_size'. When
+  `temp_path_prefix' is not NULL, the returned stream is made seekable and
+   can be read at a later time.
+ */
+int json_istream_read_stream(struct json_istream *stream,
+			     size_t threshold, size_t max_buffer_size,
+			     const char *temp_path_prefix,
+			     struct json_node *node_r);
+/* Equivalent to json_istream_read_next(), but reads strings bigger than
+  `threshold' octets as an istream with `max_buffer_size'. When
+  `temp_path_prefix' is not NULL, the returned stream is made seekable and
+   can be read at a later time.
+ */
+int json_istream_read_next_stream(struct json_istream *stream,
+				  size_t threshold, size_t max_buffer_size,
+				  const char *temp_path_prefix,
+				  struct json_node *node_r);
+
+/* Equivalent to json_istream_walk(), but reads strings bigger than
+  `threshold' octets as an istream with `max_buffer_size'. When
+  `temp_path_prefix' is not NULL, the returned stream is made seekable and
+   can be read at a later time.
+ */
+int json_istream_walk_stream(struct json_istream *stream,
+			     size_t threshold, size_t max_buffer_size,
+			     const char *temp_path_prefix,
+			     struct json_node *node_r);
+
 #endif

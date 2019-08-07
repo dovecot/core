@@ -18,6 +18,8 @@ struct json_istream {
 	unsigned int read_node_level;
 	unsigned int skip_nodes;
 
+	struct istream *value_stream, *seekable_stream;
+
 	char *error;
 
 	bool opened:1;
@@ -28,7 +30,11 @@ struct json_istream {
 	bool end_of_list:1;    /* Encountered the end of current array/object */
 	bool end_of_input:1;   /* Encountered end of input */
 	bool skip_to_end:1;    /* Skip to the end of the JSON text */
+	bool deref_value:1;    /* Value (stream) needs to be dereferenced */
 };
+
+static void json_istream_dereference_value(struct json_istream *stream);
+static int json_istream_consume_value_stream(struct json_istream *stream);
 
 /*
  * Parser callbacks
@@ -96,6 +102,8 @@ void json_istream_unref(struct json_istream **_stream)
 	if (--stream->refcount > 0)
 		return;
 
+	json_istream_dereference_value(stream);
+
 	json_parser_deinit(&stream->parser);
 	i_free(stream->error);
 	i_free(stream);
@@ -108,6 +116,8 @@ void json_istream_destroy(struct json_istream **_stream)
 	if (stream == NULL)
 		return;
 
+	json_istream_dereference_value(stream);
+
 	json_istream_close(stream);
 	json_istream_unref(_stream);
 }
@@ -115,6 +125,8 @@ void json_istream_destroy(struct json_istream **_stream)
 void json_istream_close(struct json_istream *stream)
 {
 	stream->closed = TRUE;
+	if (stream->value_stream != NULL)
+		i_stream_close(stream->value_stream);
 }
 
 bool json_istream_is_closed(struct json_istream *stream)
@@ -371,12 +383,33 @@ json_istream_parse_value(void *context, void *parent_context ATTR_UNUSED,
 	stream->node.type = type;
 	stream->node.value = *value;
 	stream->node_parsed = TRUE;
+	if (value->content_type == JSON_CONTENT_TYPE_STREAM) {
+		stream->value_stream = value->content.stream;
+		i_stream_ref(stream->value_stream);
+	}
 	json_parser_interrupt(stream->parser);
 }
 
 /*
  *
  */
+
+static void json_istream_dereference_value(struct json_istream *stream)
+{
+	if (stream->deref_value) {
+		stream->deref_value = FALSE;
+		/* These streams have destroy callbacks that guarantee that no
+		   stale pointer can remain in the JSON istream. */
+		if (stream->seekable_stream != NULL) {
+			struct istream *seekable_stream =
+				stream->seekable_stream;
+			i_stream_unref(&seekable_stream);
+		} else if (stream->value_stream != NULL) {
+			i_stream_unref(&stream->value_stream);
+		}
+		json_parser_disable_string_stream(stream->parser);
+	}
+}
 
 int json_istream_read(struct json_istream *stream, struct json_node *node_r)
 {
@@ -397,6 +430,10 @@ int json_istream_read(struct json_istream *stream, struct json_node *node_r)
 				*node_r = stream->node;
 			return 1;
 		}
+		json_istream_dereference_value(stream);
+		ret = json_istream_consume_value_stream(stream);
+		if (ret <= 0)
+			return ret;
 		ret = json_parse_more(stream->parser, &error);
 		if (ret < 0) {
 			json_istream_set_error(stream, error);
@@ -447,6 +484,7 @@ static void json_istream_next_node(struct json_istream *stream)
 
 void json_istream_skip(struct json_istream *stream)
 {
+	json_istream_dereference_value(stream);
 	json_istream_next_node(stream);
 }
 
@@ -487,6 +525,10 @@ int json_istream_read_object_member(struct json_istream *stream,
 			*name_r = NULL;
 			return 1;
 		}
+		json_istream_dereference_value(stream);
+		ret = json_istream_consume_value_stream(stream);
+		if (ret <= 0)
+			return ret;
 		stream->read_member = TRUE;
 		ret = json_parse_more(stream->parser, &error);
 		stream->read_member = FALSE;
@@ -580,5 +622,200 @@ int json_istream_walk(struct json_istream *stream, struct json_node *node_r)
 	}
 	if (node_r != NULL)
 		*node_r = node;
+	return 1;
+}
+
+/*
+ * Stream values
+ */
+
+static void json_istream_drop_seekable_stream(struct json_istream *stream)
+{
+	stream->deref_value = FALSE;
+	stream->value_stream = NULL;
+	stream->seekable_stream = NULL;
+	json_parser_disable_string_stream(stream->parser);
+}
+
+static void json_istream_drop_value_stream(struct json_istream *stream)
+{
+	if (stream->deref_value) {
+		stream->deref_value = FALSE;
+		if (stream->seekable_stream != NULL) {
+			i_stream_remove_destroy_callback(
+				stream->seekable_stream,
+				json_istream_drop_seekable_stream);
+			i_stream_unref(&stream->seekable_stream);
+		}
+	}
+	stream->value_stream = NULL;
+	stream->seekable_stream = NULL;
+}
+
+static void json_istream_consumed_value_stream(struct json_istream *stream)
+{
+	json_istream_dereference_value(stream);
+	if (stream->seekable_stream != NULL) {
+		i_stream_remove_destroy_callback(
+			stream->seekable_stream,
+			json_istream_drop_seekable_stream);
+	}
+	if (stream->value_stream != NULL) {
+		i_stream_remove_destroy_callback(
+			stream->value_stream,
+			json_istream_drop_value_stream);
+	}
+	stream->value_stream = NULL;
+	stream->seekable_stream = NULL;
+	json_parser_disable_string_stream(stream->parser);
+}
+
+static int json_istream_consume_value_stream(struct json_istream *stream)
+{
+	struct istream *input = stream->seekable_stream;
+	const unsigned char *data;
+	uoff_t v_offset;
+	size_t size;
+	int ret;
+
+	if (input == NULL)
+		return 1;
+	if (!i_stream_have_bytes_left(stream->seekable_stream)) {
+		json_istream_consumed_value_stream(stream);
+		return 1;
+	}
+
+	v_offset = input->v_offset;
+	i_stream_seek(input, stream->value_stream->v_offset);
+	while ((ret = i_stream_read_more(input, &data, &size)) > 0)
+		i_stream_skip(input, size);
+	i_stream_seek(input, v_offset);
+	if (ret == 0)
+		return ret;
+
+	if (input->stream_errno != 0) {
+		json_istream_set_error(stream,
+			t_strdup_printf("read(%s) failed: %s",
+					i_stream_get_name(input),
+					i_stream_get_error(input)));
+		return -1;
+	}
+	i_assert(stream->value_stream == NULL ||
+		 !i_stream_have_bytes_left(stream->value_stream));
+	i_assert(stream->seekable_stream == NULL ||
+		 !i_stream_have_bytes_left(stream->seekable_stream));
+	json_istream_consumed_value_stream(stream);
+	return 1;
+}
+
+static void
+json_istream_handle_stream(struct json_istream *stream,
+			    const char *temp_path_prefix,
+			    size_t max_buffer_size,
+			    struct json_node *node)
+{
+	if (node->value.content_type == JSON_CONTENT_TYPE_STREAM) {
+		if (temp_path_prefix != NULL) {
+			struct istream *input[2] = { NULL, NULL };
+
+			i_assert(stream->value_stream != NULL);
+			i_assert(stream->seekable_stream == NULL);
+			i_assert(!stream->deref_value);
+
+			input[0] = stream->value_stream;
+			stream->seekable_stream = i_stream_create_seekable_path(
+				input, max_buffer_size, temp_path_prefix);
+			i_stream_unref(&input[0]);
+			node->value.content.stream = stream->seekable_stream;
+			i_stream_set_name(stream->seekable_stream,
+					  "(seekable JSON string)");
+
+			i_stream_add_destroy_callback(
+				stream->value_stream,
+				json_istream_drop_value_stream, stream);
+			i_stream_add_destroy_callback(
+				stream->seekable_stream,
+				json_istream_drop_seekable_stream, stream);
+		}
+		stream->deref_value = TRUE;
+	}
+}
+
+int json_istream_read_stream(struct json_istream *stream,
+			     size_t threshold, size_t max_buffer_size,
+			     const char *temp_path_prefix,
+			     struct json_node *node_r)
+{
+	int ret;
+
+	if (stream->closed)
+		return -1;
+
+	if (stream->node_parsed) {
+		if (node_r != NULL)
+			*node_r = stream->node;
+		if (node_r->value.content_type == JSON_CONTENT_TYPE_STREAM &&
+		    stream->seekable_stream != NULL)
+			node_r->value.content.stream = stream->seekable_stream;
+		return 1;
+	}
+
+	json_parser_enable_string_stream(stream->parser, threshold,
+					 max_buffer_size);
+	ret = json_istream_read(stream, node_r);
+	if (ret <= 0 ) {
+		json_parser_disable_string_stream(stream->parser);
+		return ret;
+	}
+
+	json_istream_handle_stream(stream, temp_path_prefix, max_buffer_size,
+				   node_r);
+	return 1;
+}
+
+int json_istream_read_next_stream(struct json_istream *stream,
+				  size_t threshold, size_t max_buffer_size,
+				  const char *temp_path_prefix,
+				  struct json_node *node_r)
+{
+	int ret;
+
+	ret = json_istream_read_stream(stream, threshold, max_buffer_size,
+				       temp_path_prefix, node_r);
+	if (ret <= 0)
+		return ret;
+	json_istream_next_node(stream);
+	return 1;
+}
+
+int json_istream_walk_stream(struct json_istream *stream,
+			     size_t threshold, size_t max_buffer_size,
+			     const char *temp_path_prefix,
+			     struct json_node *node_r)
+{
+	int ret;
+
+	if (stream->closed)
+		return -1;
+
+	if (stream->node_parsed) {
+		if (node_r != NULL)
+			*node_r = stream->node;
+		if (node_r->value.content_type == JSON_CONTENT_TYPE_STREAM &&
+		    stream->seekable_stream != NULL)
+			node_r->value.content.stream = stream->seekable_stream;
+		return 1;
+	}
+
+	json_parser_enable_string_stream(stream->parser, threshold,
+					 max_buffer_size);
+	ret = json_istream_walk(stream, node_r);
+	if (ret <= 0 ) {
+		json_parser_disable_string_stream(stream->parser);
+		return ret;
+	}
+
+	json_istream_handle_stream(stream, temp_path_prefix, max_buffer_size,
+				   node_r);
 	return 1;
 }

@@ -2354,6 +2354,279 @@ static void test_json_istream_finish(void)
 }
 
 /*
+ * Test: read stream
+ */
+
+static void test_json_istream_read_stream(void)
+{
+	struct istream *input, *val_input;
+	struct json_istream *jinput;
+	const char *str_text, *text;
+	struct json_node jnode;
+	unsigned int pos, text_len, state;
+	string_t *buffer;
+	int ret = 0;
+
+	buffer = str_new(default_pool, 256);
+
+	str_text =
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789";
+
+	text = "[\"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789\"]";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read stream (array)");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 2) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		switch (state) {
+		case 0:
+			ret = json_istream_descend(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			test_assert(json_node_is_array(&jnode));
+			state++;
+			break;
+		case 1:
+			ret = json_istream_read_stream(
+				jinput, 0, IO_BLOCK_SIZE,
+				"/tmp/dovecot-test-json.", &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			test_assert(json_node_is_string(&jnode));
+			test_assert(jnode.value.content_type ==
+				    JSON_CONTENT_TYPE_STREAM);
+			test_assert(jnode.value.content.stream != NULL);
+			val_input = jnode.value.content.stream;
+			i_stream_ref(val_input);
+			json_istream_ascend(jinput);
+			state++;
+			break;
+		case 2:
+			ret = json_istream_read(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			state++;
+			break;
+		}
+	}
+	test_assert(state == 2);
+
+	if (!test_has_failed()) {
+		const unsigned char *data;
+		size_t size;
+
+		while ((ret = i_stream_read_more(val_input,
+						 &data, &size)) > 0) {
+			buffer_append(buffer, data, size);
+			i_stream_skip(val_input, size);
+		}
+		if (ret < 0) {
+			test_assert(!i_stream_have_bytes_left(val_input));
+			i_stream_unref(&val_input);
+			ret = 0;
+		}
+	}
+	test_out_quiet("stream output", strcmp(str_c(buffer), str_text) == 0);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	str_truncate(buffer, 0);
+
+	text = "[[{\"data\": \"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789\"}, \"frop\"]]";
+	text_len = strlen(text);
+
+	input = test_istream_create_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream read stream (object)");
+
+	pos = 0; state = 0; ret = 0;
+	while (ret >= 0 && state <= 8) {
+		if (pos <= text_len)
+			pos++;
+		test_istream_set_size(input, pos);
+		switch (state) {
+		case 0:
+			ret = json_istream_descend(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			i_assert(json_node_is_array(&jnode));
+			state++;
+			break;
+		case 1:
+			ret = json_istream_descend(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			i_assert(json_node_is_array(&jnode));
+			state++;
+			break;
+		case 2:
+			ret = json_istream_descend(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			i_assert(json_node_is_object(&jnode));
+			state++;
+			break;
+		case 3:
+			ret = json_istream_read_stream(
+				jinput, 0, IO_BLOCK_SIZE,
+				"/tmp/dovecot-test-json.", &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			test_assert(json_node_is_string(&jnode));
+			test_assert(jnode.value.content_type ==
+				    JSON_CONTENT_TYPE_STREAM);
+			test_assert(jnode.value.content.stream != NULL);
+			val_input = jnode.value.content.stream;
+			i_stream_ref(val_input);
+			json_istream_skip(jinput);
+			state++;
+			break;
+		case 4:
+			ret = json_istream_read_next(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			i_assert(json_node_is_object_end(&jnode));
+			json_istream_ascend(jinput);
+			state++;
+			break;
+		case 5:
+			ret = json_istream_read_next(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			i_assert(json_node_is_string(&jnode));
+			state++;
+			break;
+		case 6:
+			ret = json_istream_read_next(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			i_assert(json_node_is_array_end(&jnode));
+			json_istream_ascend(jinput);
+			state++;
+			break;
+		case 7:
+			ret = json_istream_read_next(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			i_assert(json_node_is_array_end(&jnode));
+			json_istream_ascend(jinput);
+			state++;
+			break;
+		case 8:
+			ret = json_istream_read_next(jinput, &jnode);
+			if (ret == 0)
+				continue;
+			if (ret < 0)
+				break;
+			state++;
+			break;
+		}
+	}
+	test_assert(state == 8);
+
+	if (!test_has_failed()) {
+		const unsigned char *data;
+		size_t size;
+
+		while ((ret = i_stream_read_more(val_input,
+						 &data, &size)) > 0) {
+			buffer_append(buffer, data, size);
+			i_stream_skip(val_input, size);
+		}
+		if (ret < 0) {
+			test_assert(!i_stream_have_bytes_left(val_input));
+			i_stream_unref(&val_input);
+			ret = 0;
+		}
+	}
+	test_out_quiet("stream output", strcmp(str_c(buffer), str_text) == 0);
+	test_json_read_success(&jinput);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	str_free(&buffer);
+}
+
+/*
  * Test: tokens
  */
 
@@ -2376,6 +2649,7 @@ static const char test_json_tokens_input[] =
 	"  \"sub4\":0.456e-789"
 	"},"
 	"\"key9\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\u10ff\","
+	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\u10ff\","
 	"\"key11\": [],"
 	"\"key12\": [ \"foo\" , 5.24,[true],{\"aobj\":[]}],"
 	"\"key13\": \"\\ud801\\udc37\","
@@ -2461,6 +2735,12 @@ static struct json_node test_json_tokens_output[] = {
 			.content = {
 				.str = "foo\\\"\b\f\n\r\t\001\xe1\x83\xbf" } },
 	}, {
+		.name = "key10", .type = JSON_TYPE_STRING,
+		.value = {
+			.content_type = JSON_CONTENT_TYPE_STREAM,
+			.content = {
+				.str = "foo\\\"\b\f\n\r\t\001\xe1\x83\xbf" } },
+	}, {
 		.name = "key11", .type = JSON_TYPE_ARRAY,
 		.value = {
 			.content_type = JSON_CONTENT_TYPE_LIST },
@@ -2535,10 +2815,30 @@ static struct json_node test_json_tokens_output[] = {
 	}
 };
 
+static int
+stream_read_value(struct istream **input, const char **value_r)
+{
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
+
+	while ((ret = i_stream_read(*input)) > 0) ;
+	if (ret == 0)
+		return 0;
+	i_assert(ret == -1);
+	if ((*input)->stream_errno != 0)
+		return -1;
+
+	data = i_stream_get_data(*input, &size);
+	*value_r = t_strndup(data, size);
+	i_stream_unref(input);
+	return 1;
+}
+
 static void test_json_istream_tokens(bool full_size)
 {
 	struct json_istream *jinput;
-	struct istream *input;
+	struct istream *input, *jsoninput = NULL;
 	struct json_node jnode;
 	const char *value;
 	unsigned int i, pos, json_input_len = strlen(test_json_tokens_input);
@@ -2565,12 +2865,30 @@ static void test_json_istream_tokens(bool full_size)
 				json_istream_ignore(jinput, 1);
 				pos++;
 				continue;
-			} else {
+			} else if (pos == ntokens ||
+				   test_output->value.content_type !=
+					JSON_CONTENT_TYPE_STREAM) {
 				ret = json_istream_walk(jinput, &jnode);
 				if (ret > 0 &&
 				    test_output->value.content_type ==
 					JSON_CONTENT_TYPE_STRING)
 					value = jnode.value.content.str;
+			} else {
+				if (jsoninput != NULL)
+					ret = 1;
+				else {
+					ret = json_istream_read_next_stream(
+						jinput, 0, 1024, NULL, &jnode);
+					if (ret > 0 &&
+					    json_node_get_stream(
+						&jnode, &jsoninput) < 0)
+						ret = -1;
+				}
+
+				if (ret > 0 && jsoninput != NULL) {
+					ret = stream_read_value(&jsoninput,
+								&value);
+				}
 			}
 			if (ret <= 0)
 				break;
@@ -2808,7 +3126,7 @@ static void test_json_istream_skip_object_fields(void)
 
 static void test_json_istream_error(void)
 {
-	struct istream *input, *err_input;
+	struct istream *input, *err_input, *val_input;
 	struct json_istream *jinput;
 	const char *text, *error;
 	struct json_node jnode;
@@ -2945,6 +3263,74 @@ static void test_json_istream_error(void)
 
 	json_istream_unref(&jinput);
 	i_stream_unref(&input);
+
+	/* bad string stream */
+	text = "\"\xed\xa2\xab <-- encoded surrogate half\"";
+	text_len = strlen(text);
+
+	input = i_stream_create_from_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream error - bad string stream");
+
+	ret = json_istream_read_stream(jinput, 0, 16, NULL, &jnode);
+	error = json_istream_get_error(jinput);
+	test_out_reason("read failure", (ret < 0 && error != NULL), error);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	/* bad string seekable stream */
+	text = "\"\xed\xa2\xab <-- encoded surrogate half\"";
+	text_len = strlen(text);
+
+	input = i_stream_create_from_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream error - bad seekable string stream");
+
+	ret = json_istream_read_stream(jinput, 0, IO_BLOCK_SIZE,
+					"/tmp/dovecot-test-json.", &jnode);
+	ret = json_istream_read(jinput, &jnode);	
+	error = json_istream_get_error(jinput);
+	test_out_reason("read failure", (ret < 0 && error != NULL), error);
+
+	test_end();
+
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	/* string stream with bad end */
+	text = "\"bladiebladiebladiebladiebladiebladiebladiebla \xed\xa2\xab\"";
+	text_len = strlen(text);
+
+	input = i_stream_create_from_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	test_begin("json istream error - string stream with bad end");
+
+	ret = json_istream_read_stream(jinput, 0, 16,
+					"/tmp/dovecot-test-json.", &jnode);
+	test_out_reason_quiet("read success", ret > 0,
+			      json_istream_get_error(jinput));
+	test_assert(json_node_is_string(&jnode));
+	test_assert(jnode.value.content_type == JSON_CONTENT_TYPE_STREAM);
+	test_assert(jnode.value.content.stream != NULL);
+	val_input = jnode.value.content.stream;
+	if (val_input != NULL)
+		i_stream_ref(val_input);
+	json_istream_skip(jinput);
+	ret = json_istream_read(jinput, &jnode);	
+	error = json_istream_get_error(jinput);
+	test_out_reason("read failure", (ret < 0 && error != NULL), error);
+
+	test_end();
+
+	i_stream_unref(&val_input);
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
 }
 
 /*
@@ -2961,6 +3347,7 @@ int main(int argc, char *argv[])
 		test_json_istream_read_buffer,
 		test_json_istream_read_trickle,
 		test_json_istream_finish,
+		test_json_istream_read_stream,
 		test_json_istream_tokens_buffer,
 		test_json_istream_tokens_trickle,
 		test_json_istream_skip_array,
