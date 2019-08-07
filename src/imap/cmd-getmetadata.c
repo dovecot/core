@@ -175,6 +175,12 @@ cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx,
 		/* don't treat this as an error */
 		return FALSE;
 	}
+	if (error == MAIL_ERROR_NOTPOSSIBLE && ctx->depth > 0) {
+		/* Using DEPTH to iterate children with imap_metadata=no.
+		   Don't return an error, since some of the entries could be
+		   returned successfully. */
+		return FALSE;
+	}
 
 	cmd_getmetadata_handle_error_str(ctx, error_string, error);
 	return TRUE;
