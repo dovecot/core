@@ -4,10 +4,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test
 
-libjson_la_SOURCES =
+libjson_la_SOURCES = \
+	json-syntax.c
 libjson_la_LIBADD = -lm
 
-headers =
+headers = \
+	json-syntax.h
 
 test_programs =
 
