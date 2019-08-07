@@ -93,6 +93,13 @@ int json_generate_value(struct json_generator *generator,
 			enum json_type type, const struct json_value *value);
 
 /*
+ * String value stream
+ */
+
+struct ostream *
+json_generate_string_open_stream(struct json_generator *generator);
+
+/*
  * Simple string output
  */
 

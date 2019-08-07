@@ -12,6 +12,10 @@
 
 #include <math.h>
 
+#define JSON_STRING_OSTREAM_DEFAULT_BUFFER_SIZE 256
+
+struct json_string_ostream;
+
 enum json_generator_state {
 	JSON_GENERATOR_STATE_VALUE = 0,
 	JSON_GENERATOR_STATE_VALUE_END,
@@ -50,6 +54,8 @@ struct json_generator {
 	/* Write state: stack position of written syntax levels */
 	unsigned int level_stack_written;
 
+	/* Currently opened string output stream */
+	struct json_string_ostream *str_stream;
 	/* Currently pending string input stream */
 	struct istream *value_input;
 
@@ -63,6 +69,8 @@ struct json_generator {
 	bool string_stream_written:1; /* write state */
 	/* We opened an input stream JSON-text */
 	bool text_stream:1;           /* API state */
+	/* A json_string_ostream is running the generator */
+	bool streaming:1;
 };
 
 static int json_generator_flush_string_input(struct json_generator *generator);
@@ -111,6 +119,8 @@ void json_generator_deinit(struct json_generator **_generator)
 	if (generator == NULL)
 		return;
 	*_generator = NULL;
+
+	i_assert(generator->str_stream == NULL);
 
 	i_stream_unref(&generator->value_input);
 	if (generator->output != NULL) {
@@ -420,6 +430,7 @@ static inline void
 json_generator_value_begin(struct json_generator *generator)
 {
 	i_assert(generator->state == JSON_GENERATOR_STATE_VALUE);
+	i_assert(generator->streaming || generator->str_stream == NULL);
 }
 
 static inline int
@@ -632,6 +643,7 @@ ssize_t json_generate_string_more(struct json_generator *generator,
 
 void json_generate_string_close(struct json_generator *generator)
 {
+	i_assert(generator->streaming || generator->str_stream == NULL);
 	i_assert(generator->value_input == NULL);
 	i_assert(generator->state == JSON_GENERATOR_STATE_STRING);
 	if (generator->write_state != JSON_GENERATOR_STATE_STRING) {
@@ -651,6 +663,7 @@ void json_generate_string_close(struct json_generator *generator)
 
 int json_generate_string_write_close(struct json_generator *generator)
 {
+	i_assert(generator->streaming || generator->str_stream == NULL);
 	if (generator->state == JSON_GENERATOR_STATE_STRING)
 		json_generate_string_close(generator);
 	return json_generator_flush(generator);
@@ -829,6 +842,7 @@ int json_generate_array_close(struct json_generator *generator)
 				      JSON_GENERATOR_FLAG_HIDE_ROOT);
 	int ret;
 
+	i_assert(generator->str_stream == NULL);
 	i_assert(generator->state == JSON_GENERATOR_STATE_VALUE);
 	ret = json_generator_flush(generator);
 	if (ret <= 0)
@@ -863,6 +877,7 @@ int json_generate_object_member(struct json_generator *generator,
 {
 	int ret;
 
+	i_assert(generator->str_stream == NULL);
 	i_assert(generator->state == JSON_GENERATOR_STATE_OBJECT_MEMBER);
 	if (generator->write_state == JSON_GENERATOR_STATE_VALUE_END) {
 		generator->write_state = JSON_GENERATOR_STATE_VALUE_NEXT;
@@ -890,6 +905,7 @@ int json_generate_object_close(struct json_generator *generator)
 				      JSON_GENERATOR_FLAG_HIDE_ROOT);
 	int ret;
 
+	i_assert(generator->str_stream == NULL);
 	i_assert(generator->state == JSON_GENERATOR_STATE_OBJECT_MEMBER);
 	ret = json_generator_flush(generator);
 	if (ret <= 0)
@@ -1114,6 +1130,275 @@ int json_generate_value(struct json_generator *generator,
 		break;
 	}
 	i_unreached();
+}
+
+/*
+ * string stream
+ */
+
+struct json_string_ostream {
+	struct ostream_private ostream;
+
+	buffer_t *buf;
+
+	struct json_generator *generator;
+};
+
+static void json_string_ostream_finish(struct json_string_ostream *jstream)
+{
+	struct json_generator *generator = jstream->generator;
+
+	if (generator == NULL)
+		return;
+
+	generator->streaming = TRUE;
+	json_generate_string_close(generator);
+	generator->streaming = FALSE;
+
+	generator->str_stream = NULL;
+	jstream->generator = NULL;
+}
+
+static void json_string_ostream_cork(struct ostream_private *stream, bool set)
+{
+	struct json_string_ostream *jstream =
+		container_of(stream, struct json_string_ostream, ostream);
+	struct json_generator *generator = jstream->generator;
+
+	if (generator == NULL || generator->output == NULL)
+		return;
+	if (set)
+		o_stream_cork(generator->output);
+	else
+		o_stream_uncork(generator->output);
+}
+
+static void
+json_string_ostream_close(struct iostream_private *stream,
+			   bool close_parent)
+{
+	struct ostream_private *_stream =
+		container_of(stream, struct ostream_private, iostream);
+	struct json_string_ostream *jstream =
+		container_of(_stream, struct json_string_ostream, ostream);
+
+	if (jstream->ostream.ostream.stream_errno == 0)
+		json_string_ostream_finish(jstream);
+	if (close_parent)
+		o_stream_close(jstream->ostream.parent);
+}
+
+static ssize_t
+json_string_ostream_send(struct json_string_ostream *jstream,
+			  const void *data, size_t size)
+{
+	struct ostream_private *stream = &jstream->ostream;
+	struct json_generator *generator = jstream->generator;
+	ssize_t sret;
+
+	generator->streaming = TRUE;
+
+	sret = json_generate_string_more(generator, data, size,
+					 stream->finished);
+	if (sret < 0) {
+		io_stream_set_error(&stream->iostream, "%s",
+				    o_stream_get_error(generator->output));
+		stream->ostream.stream_errno =
+			generator->output->stream_errno;
+		generator->streaming = FALSE;
+		return -1;
+	}
+
+	generator->streaming = FALSE;
+	return sret;
+}
+
+static int json_string_ostream_send_buffer(struct json_string_ostream *jstream)
+{
+	ssize_t sret;
+
+	if (jstream->buf == NULL)
+		return 1;
+
+	sret = json_string_ostream_send(jstream, jstream->buf->data,
+					jstream->buf->used);
+	if (sret < 0)
+		return -1;
+
+	if ((size_t)sret == jstream->buf->used) {
+		buffer_set_used_size(jstream->buf, 0);
+		return 1;
+	}
+	buffer_delete(jstream->buf, 0, (size_t)sret);
+	return 0;
+}
+
+static ssize_t
+json_string_ostream_sendv(struct ostream_private *stream,
+			  const struct const_iovec *iov,
+			  unsigned int iov_count)
+{
+	struct json_string_ostream *jstream =
+		container_of(stream, struct json_string_ostream, ostream);
+	ssize_t sret, sent;
+	unsigned int i;
+	int ret;
+
+	ret = json_string_ostream_send_buffer(jstream);
+	if (ret <= 0)
+		return (ssize_t)ret;
+
+	sent = 0;
+	for (i = 0; i < iov_count; i++) {
+		sret = json_string_ostream_send(jstream, iov[i].iov_base,
+						iov[i].iov_len);
+		if (sret < 0)
+			return -1;
+		sent += sret;
+		if ((size_t)sret != iov[i].iov_len)
+			break;
+	}
+
+	if (jstream->buf != NULL) {
+		for (; i < iov_count; i++) {
+			const void *base;
+			size_t avail, append;
+
+			i_assert(jstream->buf->used <=
+				 jstream->ostream.max_buffer_size);
+			avail = (jstream->ostream.max_buffer_size -
+				 jstream->buf->used);
+			if (avail == 0)
+				break;
+
+			if (sret > 0) {
+				i_assert((size_t)sret < iov[i].iov_len);
+				append = iov[i].iov_len - (size_t)sret;
+				base = PTR_OFFSET(iov[i].iov_base, (size_t)sret);
+				sret = 0;
+			} else {
+				append = iov[i].iov_len;
+				base = iov[i].iov_base;
+			}
+
+			if (append < avail) {
+				buffer_append(jstream->buf, base, append);
+				sent += append;
+			} else {
+				buffer_append(jstream->buf, base, avail);
+				sent += avail;
+				break;
+			}
+		}
+	}
+
+	return sent;
+}
+
+static int json_string_ostream_flush(struct ostream_private *stream)
+{
+	struct json_string_ostream *jstream =
+		container_of(stream, struct json_string_ostream, ostream);
+
+	if (json_string_ostream_send_buffer(jstream) <= 0)
+		return 0;
+
+	if (stream->finished)
+		json_string_ostream_finish(jstream);
+	return 1;
+}
+
+static void json_string_ostream_destroy(struct iostream_private *stream)
+{
+	struct ostream_private *_stream =
+		container_of(stream, struct ostream_private, iostream);
+	struct json_string_ostream *jstream =
+		container_of(_stream, struct json_string_ostream, ostream);
+
+	buffer_free(&jstream->buf);
+}
+
+static size_t
+json_string_ostream_get_buffer_used_size(const struct ostream_private *stream)
+{
+	const struct json_string_ostream *jstream =
+		container_of(stream, const struct json_string_ostream,
+			     ostream);
+	struct json_generator *generator = jstream->generator;
+	size_t size = 0;
+
+	if (jstream->buf != NULL)
+		size += jstream->buf->used;
+	return (size + o_stream_get_buffer_used_size(generator->output));
+}
+
+static size_t
+json_string_ostream_get_buffer_avail_size(const struct ostream_private *stream)
+{
+	const struct json_string_ostream *jstream =
+		container_of(stream, const struct json_string_ostream,
+			     ostream);
+	struct json_generator *generator = jstream->generator;
+
+	return o_stream_get_buffer_avail_size(generator->output);
+}
+
+static void
+json_string_ostream_set_max_buffer_size(struct iostream_private *stream,
+					size_t max_size)
+{
+	struct ostream_private *_stream =
+		container_of(stream, struct ostream_private, iostream);
+	struct json_string_ostream *jstream =
+		container_of(_stream, struct json_string_ostream, ostream);
+	struct json_generator *generator = jstream->generator;
+
+	jstream->ostream.max_buffer_size =
+		o_stream_get_max_buffer_size(generator->output) / 6;
+	if (jstream->ostream.max_buffer_size < max_size) {
+		jstream->ostream.max_buffer_size = max_size;
+		if (jstream->buf == NULL)
+			jstream->buf = buffer_create_dynamic(default_pool, 256);
+	} else {
+		buffer_free(&jstream->buf);
+	}
+}
+
+struct ostream *
+json_generate_string_open_stream(struct json_generator *generator)
+{
+	struct json_string_ostream *jstream;
+
+	i_assert(generator->str_stream == NULL);
+
+	jstream = i_new(struct json_string_ostream, 1);
+	jstream->generator = generator;
+	jstream->ostream.cork = json_string_ostream_cork;
+	jstream->ostream.sendv = json_string_ostream_sendv;
+	jstream->ostream.flush = json_string_ostream_flush;
+	jstream->ostream.iostream.close = json_string_ostream_close;
+	jstream->ostream.get_buffer_used_size =
+		json_string_ostream_get_buffer_used_size;
+	jstream->ostream.get_buffer_avail_size =
+		json_string_ostream_get_buffer_avail_size;
+	jstream->ostream.iostream.destroy = json_string_ostream_destroy;
+	jstream->ostream.iostream.set_max_buffer_size =
+		json_string_ostream_set_max_buffer_size;
+
+	/* base default max_buffer_size on worst-case escape ratio */
+	jstream->ostream.max_buffer_size =
+		o_stream_get_max_buffer_size(generator->output) / 6;
+	if (jstream->ostream.max_buffer_size <
+		JSON_STRING_OSTREAM_DEFAULT_BUFFER_SIZE) {
+		jstream->ostream.max_buffer_size =
+			JSON_STRING_OSTREAM_DEFAULT_BUFFER_SIZE;
+		jstream->buf = buffer_create_dynamic(default_pool, 256);
+	}
+
+	json_generate_string_open(jstream->generator);
+	generator->str_stream = jstream;
+
+	return o_stream_create(&jstream->ostream, NULL, -1);
 }
 
 /*

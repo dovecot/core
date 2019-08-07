@@ -1802,6 +1802,361 @@ static void test_json_generate_buffer(void)
 	str_free(&buffer);
 }
 
+static void test_json_generate_stream(void)
+{
+	string_t *buffer;
+	struct ostream *output, *str_stream;
+	struct json_generator *generator;
+	unsigned int state, pos;
+	const char *data;
+	size_t data_len, dpos;
+	ssize_t sret;
+	int ret;
+
+	buffer = str_new(default_pool, 256);
+	output = o_stream_create_buffer(buffer);
+	o_stream_set_no_error_handling(output, TRUE);
+
+	test_begin("json write string stream");
+	generator = json_generator_init(output, 0);
+	str_stream = json_generate_string_open_stream(generator);
+	sret = o_stream_send_str(str_stream, "FROPFROPFROPFROPFROP");
+	test_assert(sret > 0);
+	o_stream_unref(&str_stream);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("\"FROPFROPFROPFROPFROP\"", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - empty");
+	generator = json_generator_init(output, 0);
+	str_stream = json_generate_string_open_stream(generator);
+	o_stream_unref(&str_stream);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("\"\"", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - nested in array");
+	generator = json_generator_init(output, 0);
+	json_generate_array_open(generator);
+	str_stream = json_generate_string_open_stream(generator);
+	sret = o_stream_send_str(str_stream, "FROPFROPFROPFROPFROP");
+	test_assert(sret > 0);
+	o_stream_unref(&str_stream);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("[\"FROPFROPFROPFROPFROP\"]", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - nested in object");
+	generator = json_generator_init(output, 0);
+	json_generate_object_open(generator);
+	ret = json_generate_object_member(generator, "a");
+	test_assert(ret > 0);
+	str_stream = json_generate_string_open_stream(generator);
+	sret = o_stream_send_str(str_stream, "FROPFROPFROPFROPFROP");
+	test_assert(sret > 0);
+	o_stream_unref(&str_stream);
+	ret = json_generate_object_close(generator);
+	test_assert(ret > 0);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("{\"a\":\"FROPFROPFROPFROPFROP\"}",
+			   str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - empty nested in array");
+	generator = json_generator_init(output, 0);
+	json_generate_array_open(generator);
+	str_stream = json_generate_string_open_stream(generator);
+	o_stream_unref(&str_stream);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("[\"\"]", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - empty nested in object");
+	generator = json_generator_init(output, 0);
+	json_generate_object_open(generator);
+	ret = json_generate_object_member(generator, "a");
+	test_assert(ret > 0);
+	str_stream = json_generate_string_open_stream(generator);
+	o_stream_unref(&str_stream);
+	ret = json_generate_object_close(generator);
+	test_assert(ret > 0);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("{\"a\":\"\"}", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - trickle [1]");
+	o_stream_set_max_buffer_size(output, 0);
+	generator = json_generator_init(output, 0);
+	data = "FROPFROPFROPFROPFROP";
+	data_len = strlen(data);
+	str_stream = json_generate_string_open_stream(generator);
+	state = 0;
+	dpos = 0;
+	for (pos = 0; pos < 65535 && state < 3; pos++) {
+		o_stream_set_max_buffer_size(output, pos);
+		switch (state) {
+		case 0:
+			sret = o_stream_send(str_stream, data + dpos,
+					     data_len - dpos);
+			if (sret > 0) {
+				dpos += sret;
+				i_assert(dpos <= data_len);
+			}
+			if (dpos < data_len)
+				continue;
+			state++;
+			/* fall through */
+		case 1:
+			ret = o_stream_flush(str_stream);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			o_stream_unref(&str_stream);
+			state++;
+			/* fall through */
+		case 2:
+			ret = json_generator_flush(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		}
+	}
+	json_generator_deinit(&generator);
+	test_assert(state == 3);
+	test_assert(strcmp("\"FROPFROPFROPFROPFROP\"", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - trickle [2]");
+	o_stream_set_max_buffer_size(output, 0);
+	generator = json_generator_init(output, 0);
+	data = "FROPFROPFROPFROPFROP";
+	data_len = strlen(data);
+	json_generate_array_open(generator);
+	str_stream = json_generate_string_open_stream(generator);
+	state = 0;
+	dpos = 0;
+	for (pos = 0; pos < 65535 && state < 4; pos++) {
+		o_stream_set_max_buffer_size(output, pos);
+		switch (state) {
+		case 0:
+			sret = o_stream_send(str_stream, data + dpos,
+					     data_len - dpos);
+			if (sret > 0) {
+				dpos += sret;
+				i_assert(dpos <= data_len);
+			}
+			if (dpos < data_len)
+				continue;
+			state++;
+			/* fall through */
+		case 1:
+			ret = o_stream_flush(str_stream);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			o_stream_unref(&str_stream);
+			state++;
+			/* fall through */
+		case 2:
+			ret = json_generate_array_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 3:
+			ret = json_generator_flush(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		}
+	}
+	json_generator_deinit(&generator);
+	test_assert(state == 4);
+	test_assert(strcmp("[\"FROPFROPFROPFROPFROP\"]", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - trickle [3]");
+	o_stream_set_max_buffer_size(output, 0);
+	generator = json_generator_init(output, 0);
+	data = "FROPFROPFROPFROPFROP";
+	data_len = strlen(data);
+	json_generate_object_open(generator);
+	state = 0;
+	dpos = 0;
+	for (pos = 0; pos < 65535 && state < 4; pos++) {
+		o_stream_set_max_buffer_size(output, pos);
+		switch (state) {
+		case 0:
+			ret = json_generate_object_member(generator, "a");
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			str_stream = json_generate_string_open_stream(generator);
+			state++;
+			continue;
+		case 1:
+			sret = o_stream_send(str_stream, data + dpos,
+					     data_len - dpos);
+			if (sret > 0) {
+				dpos += sret;
+				i_assert(dpos <= data_len);
+			}
+			if (dpos < data_len)
+				continue;
+			state++;
+			/* fall through */
+		case 2:
+			ret = o_stream_flush(str_stream);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			o_stream_unref(&str_stream);
+			state++;
+			/* fall through */
+		case 3:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 4:
+			ret = json_generator_flush(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		}
+	}
+	json_generator_deinit(&generator);
+	test_assert(state == 4);
+	test_assert(strcmp("{\"a\":\"FROPFROPFROPFROPFROP\"}",
+			   str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - trickle [4]");
+	o_stream_set_max_buffer_size(output, 0);
+	generator = json_generator_init(output, 0);
+	json_generate_array_open(generator);
+	str_stream = json_generate_string_open_stream(generator);
+	state = 0;
+	dpos = 0;
+	for (pos = 0; pos < 65535 && state < 3; pos++) {
+		o_stream_set_max_buffer_size(output, pos);
+		switch (state) {
+		case 0:
+			o_stream_unref(&str_stream);
+			state++;
+			/* fall through */
+		case 1:
+			ret = json_generate_array_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 2:
+			ret = json_generator_flush(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		}
+	}
+	json_generator_deinit(&generator);
+	test_assert(state == 3);
+	test_assert(strcmp("[\"\"]", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - trickle [5]");
+	o_stream_set_max_buffer_size(output, 0);
+	generator = json_generator_init(output, 0);
+	json_generate_object_open(generator);
+	state = 0;
+	dpos = 0;
+	for (pos = 0; pos < 65535 && state < 3; pos++) {
+		o_stream_set_max_buffer_size(output, pos);
+		switch (state) {
+		case 0:
+			ret = json_generate_object_member(generator, "a");
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			str_stream =
+				json_generate_string_open_stream(generator);
+			o_stream_unref(&str_stream);
+			state++;
+			/* fall through */
+		case 1:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 2:
+			ret = json_generator_flush(generator);
+			test_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		}
+	}
+	json_generator_deinit(&generator);
+	test_assert(state == 3);
+	test_assert(strcmp("{\"a\":\"\"}", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	o_stream_destroy(&output);
+	str_free(&buffer);
+}
+
 static void test_json_append_escaped(void)
 {
 	string_t *str = t_str_new(32);
@@ -1838,6 +2193,7 @@ int main(int argc, char *argv[])
 
 	static void (*test_functions[])(void) = {
 		test_json_generate_buffer,
+		test_json_generate_stream,
 		test_json_append_escaped,
 		test_json_append_escaped_data,
 		NULL
