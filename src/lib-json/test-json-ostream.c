@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "istream.h"
 #include "ostream.h"
 #include "test-common.h"
 
@@ -14,8 +15,10 @@ static bool debug = FALSE;
 static void test_json_ostream_write(void)
 {
 	string_t *buffer;
+	struct istream *input;
 	struct ostream *output;
 	struct json_ostream *joutput;
+	const char *data;
 	unsigned int state, pos;
 	int ret;
 
@@ -88,6 +91,24 @@ static void test_json_ostream_write(void)
 	str_truncate(buffer, 0);
 	output->offset = 0;
 
+	/* string stream */
+	test_begin("json ostream write - string stream");
+	joutput = json_ostream_create(output, 0);
+	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	ret = json_ostream_write_string_stream(joutput, NULL, input);
+	i_assert(ret > 0);
+	i_stream_unref(&input);
+	ret = json_ostream_flush(joutput);
+	i_assert(ret > 0);
+	json_ostream_unref(&joutput);
+	test_assert_strcmp(
+		"\"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ\"",
+		str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
 	/* <JSON-text> */
 	test_begin("json ostream write - <JSON-text>");
 	joutput = json_ostream_create(output, 0);
@@ -129,6 +150,28 @@ static void test_json_ostream_write(void)
 	i_assert(ret > 0);
 	json_ostream_unref(&joutput);
 	test_assert_strcmp("[\"frop\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ string string stream ] */
+	test_begin("json ostream write - array [ string stream ]");
+	joutput = json_ostream_create(output, 0);
+	ret = json_ostream_descend_array(joutput, NULL);
+	i_assert(ret > 0);
+	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	ret = json_ostream_write_string_stream(joutput, NULL, input);
+	i_assert(ret > 0);
+	i_stream_unref(&input);
+	ret = json_ostream_ascend_array(joutput);
+	i_assert(ret > 0);
+	ret = json_ostream_flush(joutput);
+	i_assert(ret > 0);
+	json_ostream_unref(&joutput);
+	test_assert_strcmp(
+		"[\"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ\"]",
+		str_c(buffer));
 	test_end();
 	str_truncate(buffer, 0);
 	output->offset = 0;
@@ -197,6 +240,29 @@ static void test_json_ostream_write(void)
 	i_assert(ret > 0);
 	json_ostream_unref(&joutput);
 	test_assert_strcmp("{\"frop\":1234}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "frop": string stream } */
+	test_begin("json ostream write - object { \"frop\": string stream }");
+	joutput = json_ostream_create(output, 0);
+	ret = json_ostream_descend_object(joutput, NULL);
+	i_assert(ret > 0);
+	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	ret = json_ostream_write_string_stream(joutput, "frop", input);
+	i_assert(ret > 0);
+	i_stream_unref(&input);
+	ret = json_ostream_ascend_object(joutput);
+	i_assert(ret > 0);
+	ret = json_ostream_flush(joutput);
+	i_assert(ret > 0);
+	json_ostream_unref(&joutput);
+	test_assert_strcmp(
+		"{\"frop\":"
+		"\"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ\"}",
+		str_c(buffer));
 	test_end();
 	str_truncate(buffer, 0);
 	output->offset = 0;
@@ -694,6 +760,156 @@ static void test_json_ostream_write(void)
 	str_truncate(buffer, 0);
 	output->offset = 0;
 
+	/* trickle[4] */
+	test_begin("json ostream write - object, trickle[4]");
+	o_stream_set_max_buffer_size(output, 0);
+	joutput = json_ostream_create(output, 0);
+	state = 0;
+	for (pos = 0; pos < 400 && state <= 16; pos++) {
+		o_stream_set_max_buffer_size(output, pos);
+		switch (state) {
+		case 0:
+			ret = json_ostream_descend_object(joutput, NULL);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 1:
+			ret = json_ostream_descend_array(joutput, "aaaaaa");
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 2:
+			ret = json_ostream_descend_object(joutput, NULL);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			data = "AAAAA";
+			input = i_stream_create_from_data(data, strlen(data));
+			state++;
+			continue;
+		case 3:
+			ret = json_ostream_write_string_stream(
+				joutput, "dddddd", input);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			i_stream_unref(&input);
+			state++;
+			continue;
+		case 4:
+			ret = json_ostream_ascend_object(joutput);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 5:
+			ret = json_ostream_ascend_array(joutput);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 6:
+			ret = json_ostream_descend_array(joutput, "bbbbbb");
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 7:
+			ret = json_ostream_descend_object(joutput, NULL);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			data = "BBBBB";
+			input = i_stream_create_from_data(data, strlen(data));
+			state++;
+			continue;
+		case 8:
+			ret = json_ostream_write_string_stream(
+				joutput, "eeeeee", input);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			i_stream_unref(&input);
+			state++;
+			continue;
+		case 9:
+			ret = json_ostream_ascend_object(joutput);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 10:
+			ret = json_ostream_ascend_array(joutput);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 11:
+			ret = json_ostream_descend_array(joutput, "cccccc");
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 12:
+			ret = json_ostream_descend_object(joutput, NULL);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			data = "CCCCC";
+			input = i_stream_create_from_data(data, strlen(data));
+			state++;
+			continue;
+		case 13:
+			ret = json_ostream_write_string_stream(
+				joutput, "ffffff", input);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			i_stream_unref(&input);
+			state++;
+			continue;
+		case 14:
+			ret = json_ostream_ascend_object(joutput);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 15:
+			ret = json_ostream_ascend_array(joutput);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		case 16:
+			ret = json_ostream_ascend_object(joutput);
+			i_assert(ret >= 0);
+			if (ret == 0)
+				break;
+			state++;
+			continue;
+		}
+	}
+	json_ostream_unref(&joutput);
+	test_assert_strcmp("{\"aaaaaa\":[{\"dddddd\":\"AAAAA\"}],"
+			   "\"bbbbbb\":[{\"eeeeee\":\"BBBBB\"}],"
+			   "\"cccccc\":[{\"ffffff\":\"CCCCC\"}]}",
+			   str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
 	o_stream_destroy(&output);
 	str_free(&buffer);
 }
@@ -701,8 +917,10 @@ static void test_json_ostream_write(void)
 static void test_json_ostream_nwrite(void)
 {
 	string_t *buffer;
+	struct istream *input;
 	struct ostream *output;
 	struct json_ostream *joutput;
+	const char *data;
 
 	buffer = str_new(default_pool, 256);
 	output = o_stream_create_buffer(buffer);
@@ -768,6 +986,21 @@ static void test_json_ostream_nwrite(void)
 	str_truncate(buffer, 0);
 	output->offset = 0;
 
+	/* string stream */
+	test_begin("json ostream nwrite - string stream");
+	joutput = json_ostream_create(output, 0);
+	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	json_ostream_nwrite_string_stream(joutput, NULL, input);
+	i_stream_unref(&input);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp(
+		"\"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ\"",
+		str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
 	/* <JSON-text> */
 	test_begin("json ostream nwrite - <JSON-text>");
 	joutput = json_ostream_create(output, 0);
@@ -797,6 +1030,23 @@ static void test_json_ostream_nwrite(void)
 	json_ostream_nascend_array(joutput);
 	json_ostream_nfinish_destroy(&joutput);
 	test_assert_strcmp("[\"frop\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ string string stream ] */
+	test_begin("json ostream nwrite - array [ string stream ]");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_array(joutput, NULL);
+	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	json_ostream_nwrite_string_stream(joutput, NULL, input);
+	i_stream_unref(&input);
+	json_ostream_nascend_array(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp(
+		"[\"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ\"]",
+		str_c(buffer));
 	test_end();
 	str_truncate(buffer, 0);
 	output->offset = 0;
@@ -867,6 +1117,24 @@ static void test_json_ostream_nwrite(void)
 		 "\"subject\":\"Stuff =?utf8?q?p=C3=A4_=3Dutf8=3Fq=3Fencoding=3F=3D?=\","
 		 "\"snippet\":\"P\xc3\xa4iv\xc3\xa4\xc3\xa4.\","
 		 "\"unseen\":1}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "frop": string stream } */
+	test_begin("json ostream nwrite - object { \"frop\": string stream }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
+	input = i_stream_create_from_data(data, strlen(data));
+	json_ostream_nwrite_string_stream(joutput, "frop", input);
+	i_stream_unref(&input);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp(
+		"{\"frop\":"
+		"\"AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ\"}",
+		str_c(buffer));
 	test_end();
 	str_truncate(buffer, 0);
 	output->offset = 0;
