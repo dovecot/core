@@ -31,6 +31,15 @@ struct anvil_request {
 	unsigned char cookie[MASTER_AUTH_COOKIE_SIZE];
 };
 
+static bool
+sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech)
+{
+	if (client->v.sasl_filter_mech != NULL &&
+	    !client->v.sasl_filter_mech(client, mech))
+		return FALSE;
+	return TRUE;
+}
+
 const struct auth_mech_desc *
 sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 {
@@ -47,29 +56,43 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 
 	ret_mech = t_new(struct auth_mech_desc, count);
 	for (i = j = 0; i < count; i++) {
+		struct auth_mech_desc fmech = mech[i];
+
+		if (!sasl_server_filter_mech(client, &fmech))
+			continue;
+
 		/* a) transport is secured
 		   b) auth mechanism isn't plaintext
 		   c) we allow insecure authentication
 		*/
-		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
+		if ((fmech.flags & MECH_SEC_PRIVATE) == 0 &&
 		    (client->secured || !client->set->disable_plaintext_auth ||
-		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0))
-			ret_mech[j++] = mech[i];
+		     (fmech.flags & MECH_SEC_PLAINTEXT) == 0))
+			ret_mech[j++] = fmech;
 	}
 	*count_r = j;
 	return ret_mech;
 }
 
 const struct auth_mech_desc *
-sasl_server_find_available_mech(struct client *client ATTR_UNUSED,
-				const char *name)
+sasl_server_find_available_mech(struct client *client, const char *name)
 {
 	const struct auth_mech_desc *mech;
+	struct auth_mech_desc fmech;
 
 	mech = auth_client_find_mech(auth_client, name);
 	if (mech == NULL)
 		return NULL;
 
+	fmech = *mech;
+	if (!sasl_server_filter_mech(client, &fmech))
+		return NULL;
+	if (memcmp(&fmech, mech, sizeof(fmech)) != 0) {
+		struct auth_mech_desc *nmech = t_new(struct auth_mech_desc, 1);
+
+		*nmech = fmech;
+		mech = nmech;
+	}
 	return mech;
 }
 

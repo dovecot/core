@@ -110,6 +110,8 @@ struct client_vfuncs {
 				bool success, const char *text);
 	void (*starttls)(struct client *client);
 	void (*input)(struct client *client);
+	bool (*sasl_filter_mech)(struct client *client,
+				 struct auth_mech_desc *mech);
 	void (*auth_send_challenge)(struct client *client, const char *data);
 	void (*auth_parse_response)(struct client *client);
 	void (*auth_result)(struct client *client,
