@@ -283,25 +283,17 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 };
 
 static struct client_vfuncs submission_client_vfuncs = {
-	submission_client_alloc,
-	submission_client_create,
-	submission_client_destroy,
-	submission_client_notify_auth_ready,
-	submission_client_notify_disconnect,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	submission_client_auth_send_challenge,
-	NULL,
-	submission_client_auth_result,
-	submission_proxy_reset,
-	submission_proxy_parse_line,
-	submission_proxy_error,
-	submission_proxy_get_state,
-	NULL,
-	NULL,
-	NULL
+	.alloc = submission_client_alloc,
+	.create = submission_client_create,
+	.destroy = submission_client_destroy,
+	.notify_auth_ready = submission_client_notify_auth_ready,
+	.notify_disconnect = submission_client_notify_disconnect,
+	.auth_send_challenge = submission_client_auth_send_challenge,
+	.auth_result = submission_client_auth_result,
+	.proxy_reset = submission_proxy_reset,
+	.proxy_parse_line = submission_proxy_parse_line,
+	.proxy_error = submission_proxy_error,
+	.proxy_get_state = submission_proxy_get_state,
 };
 
 static const struct login_binary submission_login_binary = {
