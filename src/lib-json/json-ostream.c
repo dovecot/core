@@ -1126,3 +1126,45 @@ void json_ostream_nwrite_node(struct json_ostream *stream,
 	json_ostream_nwrite_value(stream, node->name,
 				  node->type, &node->value);
 }
+
+/*
+ * String output stream
+ */
+
+int json_ostream_open_string_stream(struct json_ostream *stream,
+				    const char *name,
+				    struct ostream **ostream_r)
+{
+	int ret;
+
+	ret = json_ostream_write_init(stream, name, JSON_TYPE_NONE);
+	if (ret <= 0)
+		return ret;
+
+	*ostream_r = json_generate_string_open_stream(stream->generator);
+	return 1;
+}
+
+struct ostream *
+json_ostream_nopen_string_stream(struct json_ostream *stream, const char *name)
+{
+	struct ostream *ostream;
+	bool failed = FALSE;
+	int ret;
+
+	if (!json_ostream_nwrite_pre(stream)) {
+		if (stream->output == NULL)
+			i_assert(!stream->nfailed);
+		else
+			failed = TRUE;
+	}
+	if (failed) {
+		int stream_errno = stream->output->stream_errno;
+		if (stream_errno == 0)
+			stream_errno = EIO;
+		return o_stream_create_error(stream_errno);
+	}
+	ret = json_ostream_open_string_stream(stream, name, &ostream);
+	json_ostream_nwrite_post(stream, ret);
+	return ostream;
+}

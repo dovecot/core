@@ -266,4 +266,18 @@ int json_ostream_write_text_stream(struct json_ostream *stream,
 void json_ostream_nwrite_text_stream(struct json_ostream *stream,
                                      const char *name, struct istream *input);
 
+/*
+ * String output stream
+ */
+
+/* Try to open an output stream for a writing a big string value. Returns 1 if
+   opened, 0 if the json output stream needs to be flushed more (tried
+   implicitly) before the stream can be opened, -1 if error.
+ */
+int json_ostream_open_string_stream(struct json_ostream *stream,
+                                    const char *name,
+                                    struct ostream **ostream_r);
+struct ostream *
+json_ostream_nopen_string_stream(struct json_ostream *stream, const char *name);
+
 #endif
