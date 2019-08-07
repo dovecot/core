@@ -164,25 +164,12 @@ static void imap_urlauth_login_deinit(void)
 }
 
 static struct client_vfuncs imap_urlauth_vfuncs = {
-	imap_urlauth_client_alloc,
-	imap_urlauth_client_create,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	imap_urlauth_client_input,
-	NULL,
-	NULL,
-	imap_urlauth_client_auth_result,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	client_common_send_raw_data,
-	NULL,
-	client_common_default_free,
+	.alloc = imap_urlauth_client_alloc,
+	.create = imap_urlauth_client_create,
+	.input = imap_urlauth_client_input,
+	.auth_result = imap_urlauth_client_auth_result,
+	.send_raw_data = client_common_send_raw_data,
+	.free = client_common_default_free,
 };
 
 static const struct login_binary imap_urlauth_login_binary = {
