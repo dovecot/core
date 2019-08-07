@@ -9,7 +9,8 @@ libjson_la_SOURCES = \
 	json-types.c \
 	json-parser.new.c \
 	json-generator.c \
-	json-istream.c
+	json-istream.c \
+	json-ostream.c
 libjson_la_LIBADD = -lm
 
 headers = \
@@ -17,13 +18,15 @@ headers = \
 	json-types.h \
 	json-parser.new.h \
 	json-generator.h \
-	json-istream.h
+	json-istream.h \
+	json-ostream.h
 
 test_programs = \
 	test-json-parser \
 	test-json-generator \
 	test-json-io \
-	test-json-istream
+	test-json-istream \
+	test-json-ostream
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -65,6 +68,13 @@ test_json_istream_SOURCE = \
 test_json_istream_LDADD = \
 	$(test_libs)
 test_json_istream_DEPENDENCIES = \
+	$(test_deps)
+
+test_json_ostream_SOURCE = \
+	test-json-ostream.c
+test_json_ostream_LDADD = \
+	$(test_libs)
+test_json_ostream_DEPENDENCIES = \
 	$(test_deps)
 
 pkginc_libdir=$(pkgincludedir)

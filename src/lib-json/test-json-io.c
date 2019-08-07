@@ -11,6 +11,8 @@
 
 #include "json-parser.new.h"
 #include "json-generator.h"
+#include "json-istream.h"
+#include "json-ostream.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
@@ -1249,6 +1251,553 @@ static void test_json_io_async(void)
 	} T_END;
 }
 
+/*
+ * Stream I/O
+ */
+
+struct test_sio_context;
+
+struct test_sio_processor {
+	struct test_sio_context *tctx;
+	const char *name;
+
+	struct istream *input;
+	struct ostream *output;
+	struct io *io;
+
+	struct json_node jnode;
+
+	struct json_istream *jinput;
+	struct json_ostream *joutput;
+
+	bool input_finished:1;
+};
+
+struct test_sio_context {
+	const struct json_io_test *test;
+	unsigned int scenario;
+
+	struct iostream_pump *pump_in, *pump_out;
+};
+
+static void test_json_stream_io(void)
+{
+	static const unsigned int margins[] = { 0, 1, 2, 10, 50 };
+	string_t *outbuf;
+	unsigned int i, j;
+
+	outbuf = str_new(default_pool, 256);
+
+	for (i = 0; i < tests_count; i++) T_BEGIN {
+		const struct json_io_test *test;
+		const char *text, *text_out;
+		unsigned int pos, margin, text_len;
+
+		test = &tests[i];
+		text = test->input;
+		text_out = test->output;
+		if (text_out == NULL)
+			text_out = test->input;
+		text_len = strlen(text);
+
+		test_begin(t_strdup_printf("json stream io [%d]", i));
+
+		for (j = 0; j < N_ELEMENTS(margins); j++) {
+			struct istream *input;
+			struct ostream *output;
+			struct json_istream *jinput;
+			struct json_ostream *joutput;
+			struct json_node jnode;
+			int pret = 0, wret = 0;
+			const char *error = NULL;
+
+			margin = margins[j];
+
+			buffer_set_used_size(outbuf, 0);
+
+			output = o_stream_create_buffer(outbuf);
+			o_stream_set_no_error_handling(output, TRUE);
+			input = test_istream_create_data(text, text_len);
+
+			jinput = json_istream_create(input, 0, &test->limits, test->flags);
+			joutput = json_ostream_create(output, 0);
+
+			o_stream_set_max_buffer_size(output, 0);
+			pret = 0; wret = 1;
+			i_zero(&jnode);
+			for (pos = 0;
+				pos <= (text_len+margin+1) && (pret == 0 || wret == 0);
+				pos++) {
+				test_istream_set_size(input, pos);
+				o_stream_set_max_buffer_size(output,
+					(pos > margin ? pos - margin : 0));
+
+				if (wret > 0 && pret == 0) {
+					pret = json_istream_walk(jinput, &jnode);
+					if (pret < 0)
+						break;
+					test_assert(!json_istream_failed(jinput));
+				}
+				if (json_node_is_none(&jnode))
+					wret = 1;
+				else
+					wret = json_ostream_write_node(joutput, &jnode, TRUE);
+				if (wret == 0)
+					continue;
+				if (wret < 0)
+					break;
+				i_zero(&jnode);
+				pret = 0;
+			}
+
+			o_stream_set_max_buffer_size(output, SIZE_MAX);
+			wret = json_ostream_flush(joutput);
+			json_ostream_destroy(&joutput);
+
+			pret = json_istream_finish(&jinput, &error);
+
+			test_out_reason_quiet(
+				t_strdup_printf("read success "
+						"(trickle, margin=%u)", margin),
+				pret > 0, error);
+			test_out_quiet(
+				t_strdup_printf("write success "
+						"(trickle, margin=%u)", margin),
+				wret > 0);
+			test_out_quiet(
+				t_strdup_printf("io match (trickle, margin=%u)",
+						margin),
+				strcmp(text_out, str_c(outbuf)) == 0);
+			if (debug) {
+				i_debug("OUT: >%s<", text_out);
+				i_debug("OUT: >%s<", str_c(outbuf));
+			}
+
+			o_stream_unref(&output);
+			i_stream_unref(&input);
+		}
+
+		test_end();
+
+	} T_END;
+
+	buffer_free(&outbuf);
+}
+
+static void test_json_stream_io_input_callback(struct test_sio_processor *tproc)
+{
+	int ret;
+
+	if (!json_node_is_none(&tproc->jnode)) {
+		io_remove(&tproc->io);
+		return;
+	}
+
+	ret = json_istream_walk(tproc->jinput, &tproc->jnode);
+	test_assert(!json_istream_failed(tproc->jinput) || ret < 0);
+	if (ret < 0) {
+		const char *error = NULL;
+
+		ret = json_istream_finish(&tproc->jinput, &error);
+		i_assert(ret != 0);
+
+		test_out_reason_quiet(
+			t_strdup_printf("%u: %s: read success (async)",
+					tproc->tctx->scenario, tproc->name),
+			ret > 0, error);
+
+		if (ret < 0)
+			io_loop_stop(current_ioloop);
+		else {
+			tproc->input_finished = TRUE;
+			io_remove(&tproc->io);
+			o_stream_set_flush_pending(tproc->output, TRUE);
+		}
+		return;
+	}
+	if (ret == 0)
+		return;
+
+	o_stream_set_flush_pending(tproc->output, TRUE);
+}
+
+static int test_json_stream_io_flush_callback(struct test_sio_processor *tproc)
+{
+	int ret;
+
+	if (json_node_is_none(&tproc->jnode))
+		ret = 1;
+	else {
+		ret = json_ostream_write_node(tproc->joutput, &tproc->jnode,
+					       TRUE);
+	}
+	if (ret < 0) {
+		test_assert(FALSE);
+		io_loop_stop(current_ioloop);
+		return -1;
+	}
+	if (ret == 0) {
+		io_remove(&tproc->io);
+		return 0;
+	}
+	i_zero(&tproc->jnode);
+
+	if (tproc->input_finished) {
+		ret = json_ostream_flush(tproc->joutput);
+		if (ret == 0)
+			return 0;
+		test_out_quiet(
+			t_strdup_printf("%u: %s: write success (async)",
+					tproc->tctx->scenario, tproc->name),
+			ret > 0);
+		if (ret < 0)
+			io_loop_stop(current_ioloop);
+		else {
+			io_remove(&tproc->io);
+			o_stream_close(tproc->output);
+		}
+		return ret;
+	}
+
+	if (tproc->io == NULL) {
+		tproc->io = io_add_istream(
+			tproc->input, test_json_stream_io_input_callback, tproc);
+		i_stream_set_input_pending(tproc->input, TRUE);
+	}
+	return 1;
+}
+
+static void
+test_json_stream_io_pump_in_callback(enum iostream_pump_status status,
+				     struct test_sio_context *tctx)
+{
+	if (status != IOSTREAM_PUMP_STATUS_INPUT_EOF) {
+		test_assert(FALSE);
+		io_loop_stop(current_ioloop);
+		return;
+	}
+
+	struct ostream *output = iostream_pump_get_output(tctx->pump_in);
+
+	o_stream_close(output);
+	iostream_pump_destroy(&tctx->pump_in);
+}
+
+static void
+test_json_stream_io_pump_out_callback(enum iostream_pump_status status,
+				      struct test_sio_context *tctx)
+{
+	if (status != IOSTREAM_PUMP_STATUS_INPUT_EOF)
+		test_assert(FALSE);
+
+	io_loop_stop(current_ioloop);
+	iostream_pump_destroy(&tctx->pump_out);
+}
+
+static void
+test_sio_processor_init(struct test_sio_processor *tproc,
+			const struct json_io_test *test,
+			struct istream *input, struct ostream *output)
+{
+	i_zero(tproc);
+
+	tproc->output = output;
+	o_stream_set_no_error_handling(tproc->output, TRUE);
+	o_stream_set_flush_callback(tproc->output,
+				    test_json_stream_io_flush_callback, tproc);
+	o_stream_uncork(tproc->output);
+
+	tproc->input = input;
+	tproc->io = io_add_istream(tproc->input,
+				   test_json_stream_io_input_callback, tproc);
+
+	tproc->jinput = json_istream_create(input, 0, &test->limits,
+					     test->flags);
+	tproc->joutput = json_ostream_create(output, 0);
+}
+
+static void test_sio_processor_deinit(struct test_sio_processor *tproc)
+{
+	json_ostream_destroy(&tproc->joutput);
+	json_istream_destroy(&tproc->jinput);
+}
+
+static void
+test_json_stream_io_async_run(const struct json_io_test *test,
+			      unsigned int scenario)
+{
+	struct test_sio_context tctx;
+	string_t *outbuf;
+	struct test_sio_processor tproc1, tproc2;
+	struct ioloop *ioloop;
+	int fd_pipe1[2], fd_pipe2[2], fd_pipe3[2];
+	const char *text, *text_out;
+	unsigned int text_len;
+	struct istream *input, *pipe1_input, *pipe2_input, *pipe3_input;
+	struct ostream *output, *pipe1_output, *pipe2_output, *pipe3_output;
+
+	i_zero(&tctx);
+	tctx.test = test;
+	tctx.scenario = scenario;
+
+	text = test->input;
+	text_out = test->output;
+	if (text_out == NULL)
+		text_out = test->input;
+	text_len = strlen(text);
+
+	outbuf = str_new(default_pool, 256);
+
+	if (pipe(fd_pipe1) < 0)
+		i_fatal("pipe() failed: %m");
+	if (pipe(fd_pipe2) < 0)
+		i_fatal("pipe() failed: %m");
+	if (pipe(fd_pipe3) < 0)
+		i_fatal("pipe() failed: %m");
+	fd_set_nonblock(fd_pipe1[0], TRUE);
+	fd_set_nonblock(fd_pipe1[1], TRUE);
+	fd_set_nonblock(fd_pipe2[0], TRUE);
+	fd_set_nonblock(fd_pipe2[1], TRUE);
+	fd_set_nonblock(fd_pipe3[0], TRUE);
+	fd_set_nonblock(fd_pipe3[1], TRUE);
+
+	ioloop = io_loop_create();
+
+	input = i_stream_create_from_data(text, text_len);
+	output = o_stream_create_buffer(outbuf);
+
+	switch (scenario) {
+	case 0: case 2:
+		pipe1_input = i_stream_create_fd_autoclose(&fd_pipe1[0], 16);
+		pipe2_input = i_stream_create_fd_autoclose(&fd_pipe2[0], 32);
+		pipe3_input = i_stream_create_fd_autoclose(&fd_pipe3[0], 64);
+		break;
+	case 1: case 3:
+		pipe1_input = i_stream_create_fd_autoclose(&fd_pipe1[0], 128);
+		pipe2_input = i_stream_create_fd_autoclose(&fd_pipe2[0], 64);
+		pipe3_input = i_stream_create_fd_autoclose(&fd_pipe3[0], 32);
+		break;
+	default:
+		i_unreached();
+	}
+
+	switch (scenario) {
+	case 0: case 1:
+		pipe1_output = o_stream_create_fd_autoclose(&fd_pipe1[1], 32);
+		pipe2_output = o_stream_create_fd_autoclose(&fd_pipe2[1], 64);
+		pipe3_output = o_stream_create_fd_autoclose(&fd_pipe3[1], 128);
+		break;
+	case 2: case 3:
+		pipe1_output = o_stream_create_fd_autoclose(&fd_pipe1[1], 64);
+		pipe2_output = o_stream_create_fd_autoclose(&fd_pipe2[1], 32);
+		pipe3_output = o_stream_create_fd_autoclose(&fd_pipe3[1], 16);
+		break;
+	default:
+		i_unreached();
+	}
+
+	tctx.pump_in = iostream_pump_create(input, pipe1_output);
+	tctx.pump_out = iostream_pump_create(pipe3_input, output);
+
+	iostream_pump_set_completion_callback(
+		tctx.pump_in, test_json_stream_io_pump_in_callback, &tctx);
+	iostream_pump_set_completion_callback(
+		tctx.pump_out, test_json_stream_io_pump_out_callback, &tctx);
+
+	/* Processor 1 */
+	test_sio_processor_init(&tproc1, test, pipe1_input, pipe2_output);
+	tproc1.tctx = &tctx;
+	tproc1.name = "proc_a";
+
+	/* Processor 2 */
+	test_sio_processor_init(&tproc2, test, pipe2_input, pipe3_output);
+	tproc2.tctx = &tctx;
+	tproc2.name = "proc_b";
+
+	struct timeout *to = timeout_add(5000, io_loop_stop, ioloop);
+
+	iostream_pump_start(tctx.pump_in);
+	iostream_pump_start(tctx.pump_out);
+
+	io_loop_run(ioloop);
+
+	timeout_remove(&to);
+
+	test_sio_processor_deinit(&tproc1);
+	test_sio_processor_deinit(&tproc2);
+
+	iostream_pump_destroy(&tctx.pump_in);
+	iostream_pump_destroy(&tctx.pump_out);
+
+	i_stream_destroy(&input);
+	i_stream_destroy(&pipe1_input);
+	i_stream_destroy(&pipe2_input);
+	i_stream_destroy(&pipe3_input);
+
+	o_stream_destroy(&output);
+	o_stream_destroy(&pipe1_output);
+	o_stream_destroy(&pipe2_output);
+	o_stream_destroy(&pipe3_output);
+
+	io_loop_destroy(&ioloop);
+
+	test_out_quiet(t_strdup_printf("%u: io match (async)", scenario),
+		       strcmp(text_out, str_c(outbuf)) == 0);
+
+	buffer_free(&outbuf);
+}
+
+static void test_json_stream_io_async(void)
+{
+	unsigned int i, sc;
+
+	for (i = 0; i < tests_count; i++) T_BEGIN {
+		test_begin(t_strdup_printf("json stream io async [%d]", i));
+
+		for (sc = 0; sc < 4; sc++)
+			test_json_stream_io_async_run(&tests[i], sc);
+		test_end();
+	} T_END;
+}
+
+/*
+ * File I/O
+ */
+
+static void
+test_json_file_io_run(struct istream *input, struct ostream *output)
+{
+	struct json_istream *jinput;
+	struct json_ostream *joutput;
+	struct json_node jnode;
+	struct json_limits json_limits;
+	int rret, wret;
+
+	i_zero(&json_limits);
+	json_limits.max_name_size = SIZE_MAX;
+	json_limits.max_string_size = SIZE_MAX;
+	json_limits.max_nesting = UINT_MAX;
+	json_limits.max_list_items = UINT_MAX;
+
+	jinput = json_istream_create(input, 0, &json_limits, 0);
+	joutput = json_ostream_create(output, 0);
+
+	rret = 0; wret = 1;
+	i_zero(&jnode);
+	for (;;) {
+		if (wret > 0 && rret == 0) {
+			rret = json_istream_walk(jinput, &jnode);
+			if (rret < 0)
+				break;
+			test_assert(!json_istream_failed(jinput));
+		}
+		if (json_node_is_none(&jnode))
+			wret = 1;
+		else
+			wret = json_ostream_write_node(joutput, &jnode, TRUE);
+		if (wret == 0)
+			continue;
+		if (wret < 0)
+			break;
+		i_zero(&jnode);
+		rret = 0;
+	}
+	wret = json_ostream_flush(joutput);
+
+	test_out_reason("read success",
+		!json_istream_failed(jinput),
+		(!json_istream_failed(jinput) ?
+		 NULL : json_istream_get_error(jinput)));
+	test_out("write success", wret > 0);
+
+	json_ostream_destroy(&joutput);
+	json_istream_destroy(&jinput);
+}
+
+static void
+test_json_file_compare(struct istream *input1, struct istream *input2)
+{
+	const unsigned char *data1, *data2;
+	size_t size1, size2, pleft;
+	off_t ret;
+
+	i_stream_seek(input1, 0);
+	i_stream_seek(input2, 0);
+
+	/* read payload */
+	while ((ret = i_stream_read_more(input1, &data1, &size1)) > 0) {
+		/* compare with file on disk */
+		pleft = size1;
+		while ((ret = i_stream_read_more(input2,
+						 &data2, &size2)) > 0 &&
+		       pleft > 0) {
+			size2 = (size2 > pleft ? pleft : size2);
+			if (memcmp(data1, data2, size2) != 0) {
+				i_fatal("processed data does not match "
+					"(%"PRIuUOFF_T":%"PRIuUOFF_T")",
+					input1->v_offset, input2->v_offset);
+			}
+			i_stream_skip(input2, size2);
+			pleft -= size2;
+			data1 += size2;
+		}
+		if (ret < 0 && input2->stream_errno != 0) {
+			i_fatal("failed to read result stream: %s",
+				i_stream_get_error(input2));
+		}
+		i_stream_skip(input1, size1);
+	}
+
+	i_assert(ret != 0);
+
+	(void)i_stream_read(input2);
+	if (input2->stream_errno != 0) {
+		i_fatal("failed to read input stream: %s",
+			i_stream_get_error(input1));
+	} if (i_stream_have_bytes_left(input2)) {
+		if (i_stream_read_more(input2, &data2, &size2) <= 0)
+			size2 = 0;
+		i_fatal("result stream ended prematurely "
+			"(at least %zu bytes left)", size2);
+	}
+}
+
+static void test_json_file_io(const char *file)
+{
+	struct istream *input, *oinput;
+	struct ostream *output;
+	int fd;
+
+	test_begin(t_strdup_printf("json file io [%s]", file));
+
+	fd = open(file, O_RDONLY);
+	if (fd < 0)
+		i_fatal("Failed to open: %m");
+
+	input = i_stream_create_fd_autoclose(&fd, 1024);
+	output = iostream_temp_create("/tmp/.test-json-io-", 0);
+	o_stream_set_no_error_handling(output, TRUE);
+	test_json_file_io_run(input, output);
+	i_stream_unref(&input);
+
+	if (test_has_failed()) {
+		o_stream_unref(&output);
+		return;
+	}
+
+	input = iostream_temp_finish(&output, IO_BLOCK_SIZE);
+	output = iostream_temp_create("/tmp/.test-json-io-", 0);
+	test_json_file_io_run(input, output);
+
+	oinput = iostream_temp_finish(&output, IO_BLOCK_SIZE);
+	test_json_file_compare(input, oinput);
+
+	i_stream_unref(&input);
+	i_stream_unref(&oinput);
+
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	int ret, c;
@@ -1258,6 +1807,8 @@ int main(int argc, char *argv[])
 	static void (*test_functions[])(void) = {
 		test_json_io,
 		test_json_io_async,
+		test_json_stream_io,
+		test_json_stream_io_async,
 		NULL
 	};
 
@@ -1267,14 +1818,18 @@ int main(int argc, char *argv[])
 			debug = TRUE;
 			break;
 		default:
-			i_fatal("Usage: %s [-D]", argv[0]);
+			i_fatal("Usage: %s [-D] [<json-file>]", argv[0]);
 		}
 	}
 	argc -= optind;
 	argv += optind;
 
-	if (argc > 0)
-		i_fatal("Usage: %s [-D]", argv[0]);
+	if (argc > 1 )
+		i_fatal("Usage: %s [-D] [<json-file>]", argv[0]);
+	if (argc == 1) {
+		test_json_file_io(argv[0]);
+		return 0;
+	}
 
 	ret = test_run(test_functions);
 
