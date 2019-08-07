@@ -6,16 +6,38 @@ AM_CPPFLAGS = \
 
 libjson_la_SOURCES = \
 	json-syntax.c \
-	json-types.c
+	json-types.c \
+	json-parser.new.c
 libjson_la_LIBADD = -lm
 
 headers = \
 	json-syntax.h \
-	json-types.h
+	json-types.h \
+	json-parser.new.h
 
-test_programs =
+test_programs = \
+	test-json-parser
 
 noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	libjson.la \
+	../lib-test/libtest.la \
+	../lib-charset/libcharset.la \
+	../lib/liblib.la \
+	$(MODULE_LIBS)
+test_deps = \
+	libjson.la \
+	../lib-test/libtest.la \
+	../lib-charset/libcharset.la \
+	../lib/liblib.la
+
+test_json_parser_SOURCE = \
+	test-json-parser.c
+test_json_parser_LDADD = \
+	$(test_libs)
+test_json_parser_DEPENDENCIES = \
+	$(test_deps)
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
