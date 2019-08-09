@@ -60,6 +60,19 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 	return ret_mech;
 }
 
+const struct auth_mech_desc *
+sasl_server_find_available_mech(struct client *client ATTR_UNUSED,
+				const char *name)
+{
+	const struct auth_mech_desc *mech;
+
+	mech = auth_client_find_mech(auth_client, name);
+	if (mech == NULL)
+		return NULL;
+
+	return mech;
+}
+
 static enum auth_request_flags
 client_get_auth_flags(struct client *client)
 {
@@ -397,7 +410,7 @@ void sasl_server_auth_begin(struct client *client,
 	client->auth_anonymous = FALSE;
 	client->sasl_callback = callback;
 
-	mech = auth_client_find_mech(auth_client, mech_name);
+	mech = sasl_server_find_available_mech(client, mech_name);
 	if (mech == NULL) {
 		sasl_server_auth_failed(client,
 			"Unsupported authentication mechanism.",
