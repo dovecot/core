@@ -116,6 +116,7 @@ struct client {
 	bool destroyed:1;
 	bool anvil_sent:1;
 	bool backend_capabilities_configured:1;
+	bool anonymous_allowed:1;
 };
 
 struct submission_module_register {

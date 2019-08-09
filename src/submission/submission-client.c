@@ -247,14 +247,6 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client_create_backend_default(client, set);
 
-	if (client->backend_capabilities_configured) {
-		client_apply_backend_capabilities(client);
-		smtp_server_connection_start(client->conn);
-	} else {
-		submission_backend_start(client->backend_default);
-		smtp_server_connection_start_pending(client->conn);
-	}
-
 	mail_set = mail_user_set_get_storage_set(user);
 	if (*set->imap_urlauth_host != '\0' &&
 	    *mail_set->mail_attribute_dict != '\0') {
@@ -276,6 +268,18 @@ struct client *client_create(int fd_in, int fd_out,
 
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
+
+	if (user->anonymous && !client->anonymous_allowed) {
+		smtp_server_connection_abort(
+			&client->conn, 534, "5.7.9",
+			"Anonymous login is not allowed for submission");
+	} else if (client->backend_capabilities_configured) {
+		client_apply_backend_capabilities(client);
+		smtp_server_connection_start(client->conn);
+	} else {
+		submission_backend_start(client->backend_default);
+		smtp_server_connection_start_pending(client->conn);
+	}
 
 	submission_refresh_proctitle();
 	return client;
