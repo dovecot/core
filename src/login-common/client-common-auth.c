@@ -694,6 +694,8 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			client_auth_parse_args(client, FALSE, args, &reply);
+			if (reply.reason == NULL)
+				reply.reason = data;
 			client->last_auth_fail = reply.fail_code;
 			reply.nologin = TRUE;
 			reply.all_fields = args;
