@@ -107,8 +107,8 @@ static void imap_urlauth_client_handle_input(struct client *client)
 		base64_encode(str_data(auth_data),
 			      str_len(auth_data), init_resp);
 
-		(void)client_auth_begin(client, "DOVECOT-TOKEN",
-					str_c(init_resp));
+		(void)client_auth_begin_private(client, "DOVECOT-TOKEN",
+						str_c(init_resp));
 	} T_END;
 }
 

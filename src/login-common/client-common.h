@@ -315,6 +315,8 @@ void client_auth_send_challenge(struct client *client, const char *data);
 void client_auth_parse_response(struct client *client);
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp);
+int client_auth_begin_private(struct client *client, const char *mech_name,
+			      const char *init_resp);
 bool client_check_plaintext_auth(struct client *client, bool pass_sent);
 int client_auth_read_line(struct client *client);
 

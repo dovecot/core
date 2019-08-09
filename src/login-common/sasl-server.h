@@ -22,7 +22,7 @@ sasl_server_find_available_mech(struct client *client, const char *name);
 
 void sasl_server_auth_begin(struct client *client,
 			    const char *service, const char *mech_name,
-			    const char *initial_resp_base64,
+			    bool private, const char *initial_resp_base64,
 			    sasl_server_callback_t *callback);
 void sasl_server_auth_failed(struct client *client, const char *reason,
 	const char *code) ATTR_NULL(3);

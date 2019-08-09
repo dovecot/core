@@ -415,7 +415,7 @@ static bool get_cert_username(struct client *client, const char **username_r,
 
 void sasl_server_auth_begin(struct client *client,
 			    const char *service, const char *mech_name,
-			    const char *initial_resp_base64,
+			    bool private, const char *initial_resp_base64,
 			    sasl_server_callback_t *callback)
 {
 	struct auth_request_info info;
@@ -434,12 +434,15 @@ void sasl_server_auth_begin(struct client *client,
 	client->sasl_callback = callback;
 
 	mech = sasl_server_find_available_mech(client, mech_name);
-	if (mech == NULL) {
+	if (mech == NULL ||
+	    ((mech->flags & MECH_SEC_PRIVATE) != 0 && !private)) {
 		sasl_server_auth_failed(client,
 			"Unsupported authentication mechanism.",
 			AUTH_CLIENT_FAIL_CODE_MECH_INVALID);
 		return;
 	}
+
+	i_assert(!private || (mech->flags & MECH_SEC_PRIVATE) != 0);
 
 	if (!client->secured && client->set->disable_plaintext_auth &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
