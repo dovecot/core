@@ -383,6 +383,24 @@ static void driver_cassandra_log_error(struct cassandra_db *db,
 	e_error(db->api.event, "%s: %.*s", str, (int)size, message);
 }
 
+static struct cassandra_callback *
+cassandra_callback_detach(struct cassandra_db *db, unsigned int id)
+{
+	struct cassandra_callback *cb, *const *cbp;
+
+	/* usually there are only a few callbacks, so don't bother with using
+	   a hash table */
+	array_foreach(&db->callbacks, cbp) {
+		cb = *cbp;
+		if (cb->id == id) {
+			array_delete(&db->callbacks,
+				     array_foreach_idx(&db->callbacks, cbp), 1);
+			return cb;
+		}
+	}
+	return NULL;
+}
+
 static void cassandra_callback_run(struct cassandra_callback *cb)
 {
 	timeout_remove(&cb->to);
@@ -417,20 +435,12 @@ static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 
 static void driver_cassandra_input_id(struct cassandra_db *db, unsigned int id)
 {
-	struct cassandra_callback *cb, *const *cbp;
+	struct cassandra_callback *cb;
 
-	/* usually there are only a few callbacks, so don't bother with using
-	   a hash table */
-	array_foreach(&db->callbacks, cbp) {
-		cb = *cbp;
-		if (cb->id == id) {
-			array_delete(&db->callbacks,
-				     array_foreach_idx(&db->callbacks, cbp), 1);
-			cassandra_callback_run(cb);
-			return;
-		}
-	}
-	i_panic("cassandra: Received unknown ID %u", id);
+	cb = cassandra_callback_detach(db, id);
+	if (cb == NULL)
+		i_panic("cassandra: Received unknown ID %u", id);
+	cassandra_callback_run(cb);
 }
 
 static void driver_cassandra_input(struct cassandra_db *db)
