@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cassandra.h>
+#include <pthread.h>
 
 #define IS_CONNECTED(db) \
 	((db)->api.state != SQL_DB_STATE_DISCONNECTED && \
@@ -238,6 +239,9 @@ static struct event_category event_category_cassandra = {
 	.name = "cassandra"
 };
 
+static pthread_t main_thread_id;
+static bool main_thread_id_set;
+
 static void driver_cassandra_prepare_pending(struct cassandra_db *db);
 static void
 prepare_finish_pending_statements(struct cassandra_sql_prepared_statement *prep_stmt);
@@ -414,8 +418,9 @@ static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 {
 	struct cassandra_callback *cb = context;
 
-	if (cb->id == 0) {
+	if (pthread_equal(pthread_self(), main_thread_id) != 0) {
 		/* called immediately from the main thread. */
+		cassandra_callback_detach(cb->db, cb->id);
 		cb->to = timeout_add_short(0, cassandra_callback_run, cb);
 		return;
 	}
@@ -481,17 +486,16 @@ driver_cassandra_set_callback(CassFuture *future, struct cassandra_db *db,
 	cb->context = context;
 	cb->db = db;
 
-	/* NOTE: The callback may be called immediately. This is checked by
-	   seeing whether cb->id==0, so set it only after this call. */
-	cass_future_set_callback(future, driver_cassandra_future_callback, cb);
-
-	if (cb->to == NULL) {
-		/* callback will be called later */
-		array_push_back(&db->callbacks, &cb);
+	array_push_back(&db->callbacks, &cb);
+	cb->id = ++db->callback_ids;
+	if (cb->id == 0)
 		cb->id = ++db->callback_ids;
-		if (cb->id == 0)
-			cb->id = ++db->callback_ids;
-	}
+
+	/* NOTE: The callback may be called immediately by this same thread.
+	   This is checked within the callback. It may also be called at any
+	   time after this call by another thread. So we must not access "cb"
+	   again after this call. */
+	cass_future_set_callback(future, driver_cassandra_future_callback, cb);
 }
 
 static void connect_callback(CassFuture *future, void *context)
@@ -897,6 +901,11 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 	i_array_init(&db->results, 16);
 	i_array_init(&db->callbacks, 16);
 	i_array_init(&db->pending_prepares, 16);
+	if (!main_thread_id_set) {
+		main_thread_id = pthread_self();
+		main_thread_id_set = TRUE;
+	}
+
 	*db_r = &db->api;
 	return 0;
 }
