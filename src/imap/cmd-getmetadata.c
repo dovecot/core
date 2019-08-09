@@ -301,7 +301,8 @@ cmd_getmetadata_send_entry_tree(struct imap_getmetadata_context *ctx,
 		} while (ctx->depth == 1 && strchr(subentry, '/') != NULL);
 		entry = t_strconcat(str_c(ctx->iter_entry_prefix), subentry, NULL);
 	}
-	cmd_getmetadata_send_entry(ctx, entry, ctx->iter == NULL);
+	/* send NIL only on depth 0 query */
+	cmd_getmetadata_send_entry(ctx, entry, ctx->depth == 0);
 
 	if (ctx->cur_stream != NULL) {
 		if (!cmd_getmetadata_stream_continue(ctx))
