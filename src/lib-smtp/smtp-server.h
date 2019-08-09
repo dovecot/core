@@ -420,6 +420,10 @@ void smtp_server_connection_start(struct smtp_server_connection *conn);
    handling command input is held off until smtp_server_connection_resume() is
    called. */
 void smtp_server_connection_start_pending(struct smtp_server_connection *conn);
+/* Abort the connection prematurely (before it is started). */
+void smtp_server_connection_abort(struct smtp_server_connection **_conn,
+				  unsigned int status, const char *enh_code,
+				  const char *reason);
 
 /* Halt connection command input and idle timeout entirely. */
 void smtp_server_connection_halt(struct smtp_server_connection *conn);
