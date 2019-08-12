@@ -274,6 +274,15 @@ anvil_check_too_many_connections(struct client *client,
 	anvil_client_query(anvil, query, anvil_lookup_callback, req);
 }
 
+static bool
+sasl_server_check_login(struct client *client)
+{
+	if (client->v.sasl_check_login != NULL &&
+	    !client->v.sasl_check_login(client))
+		return FALSE;
+	return TRUE;
+}
+
 static void
 authenticate_callback(struct auth_client_request *request,
 		      enum auth_request_status status, const char *data_base64,
@@ -337,6 +346,8 @@ authenticate_callback(struct auth_client_request *request,
 			client->authenticating = FALSE;
 			call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
 					     NULL, args);
+		} else if (!sasl_server_check_login(client)) {
+			i_assert(!client->authenticating);
 		} else {
 			anvil_check_too_many_connections(client, request);
 		}
