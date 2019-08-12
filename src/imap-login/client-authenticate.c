@@ -105,6 +105,7 @@ void imap_client_auth_result(struct client *client,
 				       IMAP_RESP_CODE_EXPIRED, text);
 		break;
 	case CLIENT_AUTH_RESULT_LOGIN_DISABLED:
+	case CLIENT_AUTH_RESULT_ANONYMOUS_DENIED:
 		client_send_reply_code(client, IMAP_CMD_REPLY_NO,
 				       IMAP_RESP_CODE_CONTACTADMIN, text);
 		break;

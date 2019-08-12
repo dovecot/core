@@ -564,7 +564,8 @@ static const struct login_binary imap_login_binary = {
 	.init = imap_login_init,
 	.deinit = imap_login_deinit,
 
-	.sasl_support_final_reply = FALSE
+	.sasl_support_final_reply = FALSE,
+	.anonymous_login_acceptable = TRUE,
 };
 
 int main(int argc, char *argv[])

@@ -344,7 +344,8 @@ static const struct login_binary pop3_login_binary = {
 	.init = pop3_login_init,
 	.deinit = pop3_login_deinit,
 
-	.sasl_support_final_reply = FALSE
+	.sasl_support_final_reply = FALSE,
+	.anonymous_login_acceptable = TRUE,
 };
 
 int main(int argc, char *argv[])

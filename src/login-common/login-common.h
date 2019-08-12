@@ -35,7 +35,8 @@ struct login_binary {
 	void (*init)(void);
 	void (*deinit)(void);
 
-	bool sasl_support_final_reply;
+	bool sasl_support_final_reply:1;
+	bool anonymous_login_acceptable:1;
 };
 
 struct login_module_register {

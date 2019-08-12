@@ -177,6 +177,7 @@ void submission_client_auth_result(struct client *client,
 		smtp_server_reply(cmd, 504, "5.5.4", "%s", text);
 		break;
 	case CLIENT_AUTH_RESULT_LOGIN_DISABLED:
+	case CLIENT_AUTH_RESULT_ANONYMOUS_DENIED:
 		/* RFC5248, Section 2.4:
 
 		   525 X.7.13 User Account Disabled

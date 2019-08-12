@@ -37,7 +37,8 @@ sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech)
 	if (client->v.sasl_filter_mech != NULL &&
 	    !client->v.sasl_filter_mech(client, mech))
 		return FALSE;
-	return TRUE;
+	return ((mech->flags & MECH_SEC_ANONYMOUS) == 0 ||
+		login_binary->anonymous_login_acceptable);
 }
 
 const struct auth_mech_desc *
@@ -278,6 +279,13 @@ sasl_server_check_login(struct client *client)
 	if (client->v.sasl_check_login != NULL &&
 	    !client->v.sasl_check_login(client))
 		return FALSE;
+	if (client->auth_anonymous &&
+	    !login_binary->anonymous_login_acceptable) {
+		sasl_server_auth_failed(client,
+			"Anonymous login denied",
+			AUTH_CLIENT_FAIL_CODE_ANONYMOUS_DENIED);
+		return FALSE;
+	}
 	return TRUE;
 }
 

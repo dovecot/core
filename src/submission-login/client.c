@@ -306,7 +306,8 @@ static const struct login_binary submission_login_binary = {
 	.init = submission_login_init,
 	.deinit = submission_login_deinit,
 
-	.sasl_support_final_reply = FALSE
+	.sasl_support_final_reply = FALSE,
+	.anonymous_login_acceptable = FALSE,
 };
 
 int main(int argc, char *argv[])

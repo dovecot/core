@@ -181,6 +181,8 @@ static const struct login_binary imap_urlauth_login_binary = {
 	.preinit = imap_urlauth_login_preinit,
 	.init = imap_urlauth_login_init,
 	.deinit = imap_urlauth_login_deinit,
+
+	.anonymous_login_acceptable = TRUE,
 };
 
 int main(int argc, char *argv[])
