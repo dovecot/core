@@ -27,7 +27,7 @@
 
 struct anvil_request {
 	struct client *client;
-	unsigned int auth_pid, auth_id;
+	unsigned int auth_pid;
 	unsigned char cookie[MASTER_AUTH_COOKIE_SIZE];
 };
 
@@ -170,7 +170,7 @@ static int master_send_request(struct anvil_request *anvil_request)
 
 	i_zero(&req);
 	req.auth_pid = anvil_request->auth_pid;
-	req.auth_id = anvil_request->auth_id;
+	req.auth_id = client->master_auth_id;
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
 	req.local_port = client->local_port;
@@ -197,7 +197,6 @@ static int master_send_request(struct anvil_request *anvil_request)
 	req.data_size = buf->used;
 
 	client->auth_finished = ioloop_time;
-	client->master_auth_id = req.auth_id;
 
 	i_zero(&params);
 	params.client_fd = fd;
@@ -237,7 +236,7 @@ anvil_lookup_callback(const char *reply, void *context)
 	}
 	if (ret < 0) {
 		client->authenticating = FALSE;
-		auth_client_send_cancel(auth_client, req->auth_id);
+		auth_client_send_cancel(auth_client, client->master_auth_id);
 		call_client_callback(client, SASL_SERVER_REPLY_MASTER_FAILED,
 				     errmsg, NULL);
 	}
@@ -255,7 +254,6 @@ anvil_check_too_many_connections(struct client *client,
 	req = i_new(struct anvil_request, 1);
 	req->client = client;
 	req->auth_pid = auth_client_request_get_server_pid(request);
-	req->auth_id = auth_client_request_get_id(request);
 
 	buffer_create_from_data(&buf, req->cookie, sizeof(req->cookie));
 	cookie = auth_client_request_get_cookie(request);
@@ -307,6 +305,7 @@ authenticate_callback(struct auth_client_request *request,
 				      data_base64, NULL);
 		break;
 	case AUTH_REQUEST_STATUS_OK:
+		client->master_auth_id = auth_client_request_get_id(request);
 		client->auth_request = NULL;
 		client->auth_successes++;
 		client->auth_passdb_args = p_strarray_dup(client->pool, args);
@@ -437,6 +436,7 @@ void sasl_server_auth_begin(struct client *client,
 
 	client->auth_attempts++;
 	client->authenticating = TRUE;
+	client->master_auth_id = 0;
 	if (client->auth_first_started == 0)
 		client->auth_first_started = ioloop_time;
 	i_free(client->auth_mech_name);
@@ -522,6 +522,8 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 	client->authenticating = FALSE;
 	if (client->auth_request != NULL)
 		auth_client_request_abort(&client->auth_request, reason);
+	if (client->master_auth_id != 0)
+		auth_client_send_cancel(auth_client, client->master_auth_id);
 
 	if (code != NULL) {
 		const char *args[2];
