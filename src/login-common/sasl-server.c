@@ -288,6 +288,8 @@ authenticate_callback(struct auth_client_request *request,
 				   strcmp(args[i], "proxy") == 0) {
 				/* user can't login */
 				nologin = TRUE;
+			} else if (strcmp(args[i], "anonymous") == 0 ) {
+				client->auth_anonymous = TRUE;
 			} else if (str_begins(args[i], "resp=") &&
 				   login_binary->sasl_support_final_reply) {
 				client->sasl_final_resp =
@@ -392,6 +394,7 @@ void sasl_server_auth_begin(struct client *client,
 		client->auth_first_started = ioloop_time;
 	i_free(client->auth_mech_name);
 	client->auth_mech_name = str_ucase(i_strdup(mech_name));
+	client->auth_anonymous = FALSE;
 	client->sasl_callback = callback;
 
 	mech = auth_client_find_mech(auth_client, mech_name);

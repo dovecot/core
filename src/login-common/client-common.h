@@ -220,6 +220,7 @@ struct client {
 	bool auth_try_aborted:1;
 	bool auth_initializing:1;
 	bool auth_process_comm_fail:1;
+	bool auth_anonymous:1;
 	bool proxy_auth_failed:1;
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;
