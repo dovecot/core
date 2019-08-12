@@ -182,7 +182,13 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 	if (request->master_user != NULL &&
 	    !auth_fields_exists(request->extra_fields, "auth_user"))
 		auth_str_add_keyvalue(dest, "auth_user", request->master_user);
-
+	if (*request->set->anonymous_username != '\0' &&
+	    null_strcmp(request->user, request->set->anonymous_username) == 0) {
+		/* this is an anonymous login, either via ANONYMOUS
+		   SASL mechanism or simply logging in as the anonymous
+		   user via another mechanism */
+		str_append(dest, "\tanonymous");
+	}
 	if (!request->auth_only &&
 	    auth_fields_exists(request->extra_fields, "proxy")) {
 		/* we're proxying */
