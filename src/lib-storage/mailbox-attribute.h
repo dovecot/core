@@ -256,6 +256,15 @@ struct mailbox_attribute_internal {
 	/* Set the value of this internal attribute */
 	int (*set)(struct mailbox_transaction_context *t, const char *key,
 		   const struct mail_attribute_value *value);
+	/* If non-NULL, the function is responsible for iterating the
+	   attribute. Typically this would be used for attributes with
+	   MAIL_ATTRIBUTE_INTERNAL_FLAG_CHILDREN to get the children
+	   iterated. If key_prefix is "", all keys should be returned.
+	   Otherwise only the keys beginning with key_prefix should be
+	   returned. The key_prefix is already relative to the
+	   mailbox_attribute_internal.key. */
+	int (*iter)(struct mailbox *box, const char *key_prefix,
+		    pool_t pool, ARRAY_TYPE(const_string) *keys);
 };
 
 void mailbox_attribute_register_internal(
