@@ -134,6 +134,12 @@ push_notification_event_messagenew_event(struct push_notification_txn *ptxn,
         array_append_zero(&kws);
         data->keywords = array_idx(&kws, 0);
     }
+
+    if ((data->message_id == NULL) &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_MESSAGE_ID) != 0 &&
+        (mail_get_first_header(mail, "Message-ID", &value) >= 0)) {
+        data->message_id = p_strdup(ptxn->pool, value);
+    }
 }
 
 

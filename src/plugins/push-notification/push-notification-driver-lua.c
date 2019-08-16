@@ -61,7 +61,7 @@ struct dlua_push_notification_txn_context {
 	PUSH_NOTIFICATION_MESSAGE_HDR_FROM | PUSH_NOTIFICATION_MESSAGE_HDR_TO | \
 	PUSH_NOTIFICATION_MESSAGE_HDR_SUBJECT | PUSH_NOTIFICATION_MESSAGE_HDR_DATE | \
 	PUSH_NOTIFICATION_MESSAGE_BODY_SNIPPET | PUSH_NOTIFICATION_MESSAGE_FLAGS | \
-	PUSH_NOTIFICATION_MESSAGE_KEYWORDS)
+	PUSH_NOTIFICATION_MESSAGE_KEYWORDS | PUSH_NOTIFICATION_MESSAGE_HDR_MESSAGE_ID)
 
 static const char *push_notification_driver_lua_to_fn(const char *evname);
 
@@ -368,6 +368,9 @@ push_notification_lua_push_messageappend(const struct push_notification_txn_even
 
 	dlua_pushkeywords(script, data->keywords, str_array_length(data->keywords));
 	lua_setfield(script->L, -2, "keywords");
+
+	lua_pushstring(script->L, data->message_id);
+	lua_setfield(script->L, -2, "message_id");
 }
 
 static void
@@ -399,6 +402,9 @@ push_notification_lua_push_messagenew(const struct push_notification_txn_event *
 
 	dlua_pushkeywords(script, data->keywords, str_array_length(data->keywords));
 	lua_setfield(script->L, -2, "keywords");
+
+	lua_pushstring(script->L, data->message_id);
+	lua_setfield(script->L, -2, "message_id");
 }
 
 /* events that need special treatment */
