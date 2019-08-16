@@ -28,6 +28,8 @@ struct push_notification_event_messagenew_data {
     enum mail_flags flags;
     /* PUSH_NOTIFICATION_MESSAGE_KEYWORDS */
     const char *const *keywords;
+    /* PUSH_NOTIFICATION_MESSAGE_HDR_MESSAGE_ID */
+    const char *message_id;
 };
 
 

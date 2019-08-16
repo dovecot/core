@@ -19,6 +19,8 @@ enum push_notification_event_message_flags {
     PUSH_NOTIFICATION_MESSAGE_FLAGS = 0x20,
     /* Meta: Keywords */
     PUSH_NOTIFICATION_MESSAGE_KEYWORDS = 0x40,
+    /* Header: Message-ID */
+    PUSH_NOTIFICATION_MESSAGE_HDR_MESSAGE_ID = 0x80,
 };
 
 
