@@ -17,6 +17,7 @@ long long timeval_diff_usecs(const struct timeval *tv1,
 static inline void
 timeval_add_usecs(struct timeval *tv, long long usecs)
 {
+	i_assert(usecs >= 0);
 	tv->tv_sec += usecs / 1000000;
 	tv->tv_usec += (usecs % 1000000);
 	if (tv->tv_usec >= 1000000) {
@@ -28,6 +29,7 @@ timeval_add_usecs(struct timeval *tv, long long usecs)
 static inline void
 timeval_sub_usecs(struct timeval *tv, long long usecs)
 {
+	i_assert(usecs >= 0);
 	tv->tv_sec -= usecs / 1000000;
 	tv->tv_usec -= (usecs % 1000000);
 	if (tv->tv_usec < 0) {
