@@ -592,7 +592,10 @@ static void io_loop_timeouts_update(struct ioloop *ioloop, long long diff_usecs)
 	for (i = 0; i < count; i++) {
 		struct timeout *to = (struct timeout *)items[i];
 
-		timeval_add_usecs(&to->next_run, diff_usecs);
+		if (diff_usecs > 0)
+			timeval_add_usecs(&to->next_run, diff_usecs);
+		else
+			timeval_sub_usecs(&to->next_run, -diff_usecs);
 	}
 }
 
