@@ -73,7 +73,7 @@ void test_iostream_proxy_simple(void)
 	counter = 1;
 	io_loop_run(ioloop);
 
-	i_stream_read(right_in);
+	test_assert(i_stream_read(right_in) > 0);
 	test_assert(strcmp((const char*)i_stream_get_data(right_in, &bytes), "hello, world") == 0);
 	i_stream_skip(right_in, bytes);
 
@@ -85,7 +85,7 @@ void test_iostream_proxy_simple(void)
 	counter = 1;
 	io_loop_run(ioloop);
 
-	i_stream_read(left_in);
+	test_assert(i_stream_read(left_in) > 0);
 	test_assert(strcmp((const char*)i_stream_get_data(left_in, &bytes), "hello, world") == 0);
 	i_stream_skip(left_in, bytes);
 
