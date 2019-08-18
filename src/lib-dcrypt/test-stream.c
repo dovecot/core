@@ -367,7 +367,7 @@ static void test_write_read_v2(void)
 	/* test regression where read fails due to incorrect behaviour
 	   when buffer is full before going to decrypt code */
 	i_stream_set_max_buffer_size(is, 8192);
-	i_stream_read(is);
+	test_assert(i_stream_read(is) > 0);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
 
 	size_t offset = 0;
