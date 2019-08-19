@@ -151,6 +151,24 @@ struct dcrypt_vfs {
 			       const char **error_r);
 	bool (*private_key_id_old)(struct dcrypt_private_key *key,
 				   buffer_t *result, const char **error_r);
+	bool (*key_store_private_raw)(struct dcrypt_private_key *key,
+				      pool_t pool,
+				      enum dcrypt_key_type *key_type_r,
+				      ARRAY_TYPE(dcrypt_raw_key) *keys_r,
+				      const char **error_r);
+	bool (*key_store_public_raw)(struct dcrypt_public_key *key,
+				     pool_t pool,
+				     enum dcrypt_key_type *key_type_r,
+				     ARRAY_TYPE(dcrypt_raw_key) *keys_r,
+				     const char **error_r);
+	bool (*key_load_private_raw)(struct dcrypt_private_key **key_r,
+				     enum dcrypt_key_type key_type,
+				     const ARRAY_TYPE(dcrypt_raw_key) *keys,
+				     const char **error_r);
+	bool (*key_load_public_raw)(struct dcrypt_public_key **key_r,
+				    enum dcrypt_key_type key_type,
+				    const ARRAY_TYPE(dcrypt_raw_key) *keys,
+				    const char **error_r);
 };
 
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs);

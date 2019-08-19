@@ -433,3 +433,60 @@ bool dcrypt_name2oid(const char *name, buffer_t *oid, const char **error_r)
 	return dcrypt_vfs->name2oid(name, oid, error_r);
 }
 
+bool dcrypt_key_store_private_raw(struct dcrypt_private_key *key,
+				  pool_t pool,
+				  enum dcrypt_key_type *key_type_r,
+				  ARRAY_TYPE(dcrypt_raw_key) *keys_r,
+				  const char **error_r)
+{
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_store_private_raw == NULL) {
+		*error_r = "Not implemented";
+		return FALSE;
+	}
+	return dcrypt_vfs->key_store_private_raw(key, pool, key_type_r, keys_r,
+						 error_r);
+}
+
+bool dcrypt_key_store_public_raw(struct dcrypt_public_key *key,
+				 pool_t pool,
+				 enum dcrypt_key_type *key_type_r,
+				 ARRAY_TYPE(dcrypt_raw_key) *keys_r,
+				 const char **error_r)
+{
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_store_public_raw == NULL) {
+		*error_r = "Not implemented";
+		return FALSE;
+	}
+	return dcrypt_vfs->key_store_public_raw(key, pool, key_type_r, keys_r,
+						error_r);
+}
+
+bool dcrypt_key_load_private_raw(struct dcrypt_private_key **key_r,
+				 enum dcrypt_key_type key_type,
+				 const ARRAY_TYPE(dcrypt_raw_key) *keys,
+				 const char **error_r)
+{
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_load_private_raw == NULL) {
+		*error_r = "Not implemented";
+		return FALSE;
+	}
+	return dcrypt_vfs->key_load_private_raw(key_r, key_type, keys,
+						error_r);
+}
+
+bool dcrypt_key_load_public_raw(struct dcrypt_public_key **key_r,
+				enum dcrypt_key_type key_type,
+				const ARRAY_TYPE(dcrypt_raw_key) *keys,
+				const char **error_r)
+{
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_load_public_raw == NULL) {
+		*error_r = "Not implemented";
+		return FALSE;
+	}
+	return dcrypt_vfs->key_load_public_raw(key_r, key_type, keys,
+					       error_r);
+}
