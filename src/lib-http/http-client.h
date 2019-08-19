@@ -378,6 +378,12 @@ void http_client_request_delay(struct http_client_request *req,
 void http_client_request_delay_msecs(struct http_client_request *req,
 	unsigned int msecs);
 
+/* Try to set request delay based on the Retry-After header. Returns 1 if
+   successful, 0 if it doesn't exist or is already expired, -1 if the delay
+   would be too long. */
+int http_client_request_delay_from_response(struct http_client_request *req,
+	const struct http_response *response);
+
 /* return the HTTP method for the request */
 const char *
 http_client_request_get_method(const struct http_client_request *req)
