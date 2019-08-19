@@ -478,8 +478,6 @@ void http_client_request_ref(struct http_client_request *req);
 bool http_client_request_unref(struct http_client_request **_req);
 void http_client_request_destroy(struct http_client_request **_req);
 
-int http_client_request_delay_from_response(struct http_client_request *req,
-	const struct http_response *response);
 void http_client_request_get_peer_addr(const struct http_client_request *req,
 	struct http_client_peer_addr *addr);
 enum http_response_payload_type
