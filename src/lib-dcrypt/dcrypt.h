@@ -1,5 +1,6 @@
 #ifndef DCRYPT_H
 #define DCRYPT_H 1
+#include "array.h"
 
 struct dcrypt_context_symmetric;
 struct dcrypt_context_hmac;
@@ -55,6 +56,13 @@ struct dcrypt_settings {
 	/* Look for backends in this directory */
 	const char *module_dir;
 };
+
+struct dcrypt_raw_key {
+	const void *parameter;
+	size_t len;
+};
+
+ARRAY_DEFINE_TYPE(dcrypt_raw_key, struct dcrypt_raw_key);
 
 /**
  * load and initialize dcrypt backend, use either openssl or gnutls
@@ -253,6 +261,48 @@ bool dcrypt_key_id_private(struct dcrypt_private_key *key,
 /* return SHA1 sum of key */
 bool dcrypt_key_id_private_old(struct dcrypt_private_key *key,
 			       buffer_t *result, const char **error_r);
+
+/* return raw private key:
+   Only ECC supported currently
+
+   returns OID bytes and private key in bigendian bytes
+*/
+bool dcrypt_key_store_private_raw(struct dcrypt_private_key *key,
+				  pool_t pool,
+				  enum dcrypt_key_type *key_type_r,
+				  ARRAY_TYPE(dcrypt_raw_key) *keys_r,
+				  const char **error_r);
+
+/* return raw public key
+   Only ECC supported currently
+
+   returns OID bytes and public key in compressed form (z||x)
+*/
+bool dcrypt_key_store_public_raw(struct dcrypt_public_key *key,
+				 pool_t pool,
+				 enum dcrypt_key_type *key_type_r,
+				 ARRAY_TYPE(dcrypt_raw_key) *keys_r,
+				 const char **error_r);
+
+/* load raw private key:
+   Only ECC supported currently
+
+   expects OID bytes and private key in bigendian bytes
+*/
+bool dcrypt_key_load_private_raw(struct dcrypt_private_key **key_r,
+				 enum dcrypt_key_type key_type,
+				 const ARRAY_TYPE(dcrypt_raw_key) *keys,
+				 const char **error_r);
+
+/* load raw public key
+   Only ECC supported currently
+
+   expects OID bytes and public key bytes.
+*/
+bool dcrypt_key_load_public_raw(struct dcrypt_public_key **key_r,
+				enum dcrypt_key_type key_type,
+				const ARRAY_TYPE(dcrypt_raw_key) *keys,
+				const char **error_r);
 
 bool dcrypt_key_string_get_info(const char *key_data,
 				enum dcrypt_key_format *format_r,
