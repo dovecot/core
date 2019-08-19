@@ -1,6 +1,7 @@
 /* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "buffer.h"
 #include "str.h"
 #include "dcrypt.h"
@@ -901,6 +902,122 @@ static void test_load_invalid_keys(void)
 	test_end();
 }
 
+static void test_raw_keys(void)
+{
+
+	test_begin("test_raw_keys");
+
+	ARRAY_TYPE(dcrypt_raw_key) priv_key;
+	ARRAY_TYPE(dcrypt_raw_key) pub_key;
+	pool_t pool = pool_datastack_create();
+
+	enum dcrypt_key_type t;
+
+	p_array_init(&priv_key, pool, 2);
+	p_array_init(&pub_key, pool, 2);
+
+	/* generate ECC key */
+	struct dcrypt_keypair pair;
+	i_assert(dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "prime256v1", NULL));
+
+	/* store it */
+	test_assert(dcrypt_key_store_private_raw(pair.priv, pool, &t, &priv_key,
+		    NULL));
+	test_assert(dcrypt_key_store_public_raw(pair.pub, pool, &t, &pub_key,
+		    NULL));
+	dcrypt_keypair_unref(&pair);
+
+	/* load it */
+	test_assert(dcrypt_key_load_private_raw(&pair.priv, t, &priv_key,
+		    NULL));
+	test_assert(dcrypt_key_load_public_raw(&pair.pub, t, &pub_key,
+		    NULL));
+
+	dcrypt_keypair_unref(&pair);
+
+	/* test load known raw private key */
+	const char *curve = "prime256v1";
+	const unsigned char priv_key_data[] = {
+		0x16, 0x9e, 0x62, 0x36, 0xaf, 0x9c, 0xae, 0x0e, 0x71, 0xda,
+		0xf2, 0x63, 0xe2, 0xe0, 0x5d, 0xf1, 0xd5, 0x35, 0x8c, 0x2b,
+		0x68, 0xf0, 0x2a, 0x69, 0xc4, 0x5d, 0x3d, 0x1c, 0xde, 0xa1,
+		0x9b, 0xd3
+	};
+
+	/* create buffers */
+	struct dcrypt_raw_key *item;
+	ARRAY_TYPE(dcrypt_raw_key) static_key;
+	t_array_init(&static_key, 2);
+
+	/* Add OID */
+	buffer_t *buf = t_buffer_create(32);
+	test_assert(dcrypt_name2oid(curve, buf, NULL));
+	item = array_append_space(&static_key);
+	item->parameter = buf->data;
+	item->len = buf->used;
+
+	/* Add key data */
+	item = array_append_space(&static_key);
+	item->parameter = priv_key_data;
+	item->len = sizeof(priv_key_data);
+
+	/* Try load it */
+	test_assert(dcrypt_key_load_private_raw(&pair.priv, t,
+						&static_key, NULL));
+
+	/* See what we got */
+	buf = t_buffer_create(128);
+	test_assert(dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_DOVECOT,
+					     NULL, buf, NULL, NULL, NULL));
+	test_assert_strcmp(str_c(buf),
+			   "2:1.2.840.10045.3.1.7:0:00000020169e6236af9cae0e71d"
+			   "af263e2e05df1d5358c2b68f02a69c45d3d1cdea19bd3:21d11"
+			   "6b7b3e5c52e81f0437a10b0116cfafc467fb1b96e48926d0216"
+			   "68fc1bea");
+
+	/* try to load public key, too */
+	const unsigned char pub_key_data[] = {
+		0x04, 0xe8, 0x7c, 0x6d, 0xa0, 0x29, 0xfe, 0x5d, 0x16, 0x1a,
+		0xd6, 0x6a, 0xc6, 0x1c, 0x78, 0x8a, 0x36, 0x0f, 0xfb, 0x64,
+		0xe7, 0x7f, 0x58, 0x13, 0xb3, 0x80, 0x1f, 0x99, 0x45, 0xee,
+		0xa9, 0x4a, 0xe2, 0xde, 0xf3, 0x88, 0xc6, 0x37, 0x72, 0x7f,
+		0xbe, 0x97, 0x02, 0x94, 0xb2, 0x21, 0x60, 0xa4, 0x98, 0x4e,
+		0xfb, 0x46, 0x19, 0x61, 0x4c, 0xc5, 0xe1, 0x9f, 0xe9, 0xb2,
+		0xd2, 0x4d, 0xae, 0x83, 0x4b
+	};
+
+	array_clear(&static_key);
+
+	/* Add OID */
+	buf = t_buffer_create(32);
+	test_assert(dcrypt_name2oid(curve, buf, NULL));
+	item = array_append_space(&static_key);
+	item->parameter = buf->data;
+	item->len = buf->used;
+
+	/* Add key data */
+	item = array_append_space(&static_key);
+	item->parameter = pub_key_data;
+	item->len = sizeof(pub_key_data);
+
+	/* See what we got */
+	test_assert(dcrypt_key_load_public_raw(&pair.pub, t,
+					       &static_key, NULL));
+	buf = t_buffer_create(128);
+	test_assert(dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_DOVECOT,
+					    buf, NULL));
+	test_assert_strcmp(str_c(buf),
+			   "2:3059301306072a8648ce3d020106082a8648ce3d030107034"
+			   "20004e87c6da029fe5d161ad66ac61c788a360ffb64e77f5813"
+			   "b3801f9945eea94ae2def388c637727fbe970294b22160a4984"
+			   "efb4619614cc5e19fe9b2d24dae834b:21d116b7b3e5c52e81f"
+			   "0437a10b0116cfafc467fb1b96e48926d021668fc1bea");
+
+	dcrypt_keypair_unref(&pair);
+
+	test_end();
+}
+
 int main(void)
 {
 	struct dcrypt_settings set = {
@@ -931,6 +1048,7 @@ int main(void)
 		test_get_info_pw_encrypted,
 		test_password_change,
 		test_load_invalid_keys,
+		test_raw_keys,
 		NULL
 	};
 
