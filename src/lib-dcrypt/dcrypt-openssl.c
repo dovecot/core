@@ -2445,6 +2445,276 @@ dcrypt_openssl_private_key_id(struct dcrypt_private_key *key,
 }
 
 
+static bool
+dcrypt_openssl_key_store_private_raw(struct dcrypt_private_key *key,
+				     pool_t pool,
+				     enum dcrypt_key_type *type_r,
+				     ARRAY_TYPE(dcrypt_raw_key) *keys_r,
+				     const char **error_r)
+{
+	i_assert(key != NULL && key->key != NULL);
+	i_assert(array_is_created(keys_r));
+	EVP_PKEY *priv = key->key;
+	ARRAY_TYPE(dcrypt_raw_key) keys;
+	t_array_init(&keys, 2);
+
+	if (EVP_PKEY_base_id(priv) == EVP_PKEY_RSA) {
+		if (error_r != NULL)
+			*error_r = "Not implemented";
+		return FALSE;
+	} else if (EVP_PKEY_base_id(priv) == EVP_PKEY_EC) {
+		/* store OID */
+		EC_KEY *key = EVP_PKEY_get0_EC_KEY(priv);
+		int nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(key));
+		ASN1_OBJECT *obj = OBJ_nid2obj(nid);
+		int len = OBJ_length(obj);
+		if (len == 0) {
+			if (error_r != NULL)
+				*error_r = "Object has no OID assigned";
+			return FALSE;
+		}
+		len = i2d_ASN1_OBJECT(obj, NULL);
+		unsigned char *bufptr = p_malloc(pool, len);
+		struct dcrypt_raw_key *item = array_append_space(&keys);
+		item->parameter = bufptr;
+		item->len = i2d_ASN1_OBJECT(obj, &bufptr);
+		ASN1_OBJECT_free(obj);
+		/* store private key */
+		const BIGNUM *b = EC_KEY_get0_private_key(key);
+		len = BN_num_bytes(b);
+		item = array_append_space(&keys);
+		bufptr = p_malloc(pool, len);
+		if (BN_bn2bin(b, bufptr) < len)
+			return dcrypt_openssl_error(error_r);
+		item->parameter = bufptr;
+		item->len = len;
+		*type_r = DCRYPT_KEY_EC;
+	} else {
+		if (error_r != NULL)
+			*error_r = "Key type unsupported";
+		return FALSE;
+	}
+
+	array_append_array(keys_r, &keys);
+	return TRUE;
+}
+
+static bool
+dcrypt_openssl_key_store_public_raw(struct dcrypt_public_key *key,
+				    pool_t pool,
+				    enum dcrypt_key_type *type_r,
+				    ARRAY_TYPE(dcrypt_raw_key) *keys_r,
+				    const char **error_r)
+{
+	i_assert(key != NULL && key->key != NULL);
+	EVP_PKEY *pub = key->key;
+	ARRAY_TYPE(dcrypt_raw_key) keys;
+	t_array_init(&keys, 2);
+
+	if (EVP_PKEY_base_id(pub) == EVP_PKEY_RSA) {
+		if (error_r != NULL)
+			*error_r = "Not implemented";
+		return FALSE;
+	} else if (EVP_PKEY_base_id(pub) == EVP_PKEY_EC) {
+		/* store OID */
+		EC_KEY *key = EVP_PKEY_get0_EC_KEY(pub);
+		int nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(key));
+		ASN1_OBJECT *obj = OBJ_nid2obj(nid);
+		int len = OBJ_length(obj);
+		if (len == 0) {
+			if (error_r != NULL)
+				*error_r = "Object has no OID assigned";
+			return FALSE;
+		}
+		len = i2d_ASN1_OBJECT(obj, NULL);
+		unsigned char *bufptr = p_malloc(pool, len);
+		struct dcrypt_raw_key *item = array_append_space(&keys);
+		item->parameter = bufptr;
+		item->len = i2d_ASN1_OBJECT(obj, &bufptr);
+		ASN1_OBJECT_free(obj);
+
+		/* store public key */
+		const EC_POINT *point = EC_KEY_get0_public_key(key);
+		len = EC_POINT_point2oct(EC_KEY_get0_group(key), point,
+					 POINT_CONVERSION_UNCOMPRESSED,
+					 NULL, 0, NULL);
+		bufptr = p_malloc(pool, len);
+		item = array_append_space(&keys);
+		item->parameter = bufptr;
+		item->len = len;
+		if (EC_POINT_point2oct(EC_KEY_get0_group(key), point,
+				       POINT_CONVERSION_UNCOMPRESSED,
+				       bufptr, len, NULL) < (unsigned int)len)
+			return dcrypt_openssl_error(error_r);
+		*type_r = DCRYPT_KEY_EC;
+	} else {
+		if (error_r != NULL)
+			*error_r = "Key type unsupported";
+		return FALSE;
+	}
+
+	array_append_array(keys_r, &keys);
+
+	return TRUE;
+}
+
+static bool
+dcrypt_openssl_key_load_private_raw(struct dcrypt_private_key **key_r,
+				    enum dcrypt_key_type type,
+				    const ARRAY_TYPE(dcrypt_raw_key) *keys,
+				    const char **error_r)
+{
+	int ec;
+	i_assert(keys != NULL && array_is_created(keys) && array_count(keys) > 1);
+	const struct dcrypt_raw_key *item;
+
+	if (type == DCRYPT_KEY_RSA) {
+		if (error_r != NULL)
+			*error_r = "Not implemented";
+		return FALSE;
+	} else if (type == DCRYPT_KEY_EC) {
+		/* get curve */
+		if (array_count(keys) < 2) {
+			if (error_r != NULL)
+				*error_r = "Invalid parameters";
+			return FALSE;
+		}
+		item = array_idx(keys, 0);
+		const unsigned char *oid = item->parameter;
+		ASN1_OBJECT *obj = d2i_ASN1_OBJECT(NULL, &oid, item->len);
+		if (obj == NULL)
+			return dcrypt_openssl_error(error_r);
+		int nid = OBJ_obj2nid(obj);
+		ASN1_OBJECT_free(obj);
+
+		/* load private point */
+		item = array_idx(keys, 1);
+		BIGNUM *bn = BN_secure_new();
+		if (BN_bin2bn(item->parameter, item->len, bn) == NULL) {
+			BN_free(bn);
+			return dcrypt_openssl_error(error_r);
+		}
+
+		/* setup a key */
+		EC_KEY *key = EC_KEY_new_by_curve_name(nid);
+		ec = EC_KEY_set_private_key(key, bn);
+		BN_free(bn);
+
+		if (ec != 1) {
+			EC_KEY_free(key);
+			return dcrypt_openssl_error(error_r);
+		}
+
+		/* calculate & assign public key */
+		EC_POINT *pub = EC_POINT_new(EC_KEY_get0_group(key));
+		if (pub == NULL) {
+			EC_KEY_free(key);
+			return dcrypt_openssl_error(error_r);
+		}
+		/* calculate public key */
+		ec = EC_POINT_mul(EC_KEY_get0_group(key), pub,
+				  EC_KEY_get0_private_key(key),
+				  NULL, NULL, NULL);
+		if (ec == 1)
+			ec = EC_KEY_set_public_key(key, pub);
+		EC_POINT_free(pub);
+
+		/* check the key */
+		if (ec != 1 || EC_KEY_check_key(key) != 1) {
+			EC_KEY_free(key);
+			return dcrypt_openssl_error(error_r);
+		}
+
+		EVP_PKEY *pkey = EVP_PKEY_new();
+		EVP_PKEY_set1_EC_KEY(pkey, key);
+		EC_KEY_free(key);
+		*key_r = i_new(struct dcrypt_private_key, 1);
+		(*key_r)->key = pkey;
+		(*key_r)->ref++;
+		return TRUE;
+	} else {
+		if (error_r != NULL)
+			*error_r = "Key type unsupported";
+	}
+
+	return FALSE;
+}
+
+static bool
+dcrypt_openssl_key_load_public_raw(struct dcrypt_public_key **key_r,
+				   enum dcrypt_key_type type,
+				   const ARRAY_TYPE(dcrypt_raw_key) *keys,
+				   const char **error_r)
+{
+	int ec;
+	i_assert(keys != NULL && array_is_created(keys) && array_count(keys) > 1);
+	const struct dcrypt_raw_key *item;
+
+	if (type == DCRYPT_KEY_RSA) {
+		if (error_r != NULL)
+			*error_r = "Not implemented";
+		return FALSE;
+	} else if (type == DCRYPT_KEY_EC) {
+		/* get curve */
+		if (array_count(keys) < 2) {
+			if (error_r != NULL)
+				*error_r = "Invalid parameters";
+			return FALSE;
+		}
+		item = array_idx(keys, 0);
+		const unsigned char *oid = item->parameter;
+		ASN1_OBJECT *obj = d2i_ASN1_OBJECT(NULL, &oid, item->len);
+		if (obj == NULL) {
+			dcrypt_openssl_error(error_r);
+			return FALSE;
+		}
+		int nid = OBJ_obj2nid(obj);
+		ASN1_OBJECT_free(obj);
+
+		/* set group */
+		EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
+		if (group == NULL) {
+			dcrypt_openssl_error(error_r);
+			return FALSE;
+		}
+
+		/* load point */
+		item = array_idx(keys, 1);
+		EC_POINT *point = EC_POINT_new(group);
+		if (EC_POINT_oct2point(group, point, item->parameter,
+				       item->len, NULL) != 1) {
+			EC_POINT_free(point);
+			EC_GROUP_free(group);
+			return dcrypt_openssl_error(error_r);
+		}
+
+		EC_KEY *key = EC_KEY_new();
+		ec = EC_KEY_set_group(key, group);
+		if (ec == 1)
+			ec = EC_KEY_set_public_key(key, point);
+		EC_POINT_free(point);
+		EC_GROUP_free(group);
+
+		if (ec != 1 || EC_KEY_check_key(key) != 1) {
+			EC_KEY_free(key);
+			return dcrypt_openssl_error(error_r);
+		}
+
+		EVP_PKEY *pkey = EVP_PKEY_new();
+		EVP_PKEY_set1_EC_KEY(pkey, key);
+		EC_KEY_free(key);
+		*key_r = i_new(struct dcrypt_public_key, 1);
+		(*key_r)->key = pkey;
+		(*key_r)->ref++;
+		return TRUE;
+	} else {
+		if (error_r != NULL)
+			*error_r = "Key type unsupported";
+	}
+
+	return FALSE;
+}
+
 static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.initialize = dcrypt_openssl_initialize,
 	.ctx_sym_create = dcrypt_openssl_ctx_sym_create,
@@ -2499,6 +2769,10 @@ static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.public_key_id_old = dcrypt_openssl_public_key_id_old,
 	.private_key_id = dcrypt_openssl_private_key_id,
 	.private_key_id_old = dcrypt_openssl_private_key_id_old,
+	.key_store_private_raw = dcrypt_openssl_key_store_private_raw,
+	.key_store_public_raw = dcrypt_openssl_key_store_public_raw,
+	.key_load_private_raw = dcrypt_openssl_key_load_private_raw,
+	.key_load_public_raw = dcrypt_openssl_key_load_public_raw,
 };
 
 void dcrypt_openssl_init(struct module *module ATTR_UNUSED)
