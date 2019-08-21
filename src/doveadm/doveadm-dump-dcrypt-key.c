@@ -136,6 +136,8 @@ static bool dcrypt_key_dump_metadata(const char *filename, bool print)
 	case DCRYPT_FORMAT_DOVECOT:
 		printf("format: DCRYPT_FORMAT_DOVECOT\n");
 		break;
+	case DCRYPT_FORMAT_JWK:
+		printf("format: DCRYPT_FORMAT_JWK\n");
 	}
 
 	switch (version) {
