@@ -218,6 +218,15 @@ AC_DEFUN([DOVECOT_SSL], [
       AC_CHECK_LIB(ssl, BN_secure_new, [
         AC_DEFINE(HAVE_BN_SECURE_NEW,, [Build with BN_secure_new support])
       ],, $SSL_LIBS)
+      AC_CHECK_LIB(ssl, RSA_set0_key, [
+        AC_DEFINE(HAVE_RSA_SET0_KEY,, [Build with RSA_set0_key support])
+      ],, $SSL_LIBS)
+      AC_CHECK_LIB(ssl, RSA_set0_factors, [
+        AC_DEFINE(HAVE_RSA_SET0_FACTORS,, [Build with RSA_set0_factors support])
+      ],, $SSL_LIBS)
+      AC_CHECK_LIB(ssl, RSA_set0_crt_params, [
+        AC_DEFINE(HAVE_RSA_SET0_CRT_PARAMS,, [Build with RSA_set0_crt_params support])
+      ],, $SSL_LIBS)
       AC_CHECK_LIB(ssl, [EVP_PKEY_CTX_new_id], [have_evp_pkey_ctx_new_id="yes"],, $SSL_LIBS)
       AC_CHECK_LIB(ssl, [EC_KEY_new], [have_ec_key_new="yes"],, $SSL_LIBS)
       if test "$have_evp_pkey_ctx_new_id" = "yes" && test "$have_ec_key_new" = "yes"; then
