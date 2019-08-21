@@ -490,3 +490,14 @@ bool dcrypt_key_load_public_raw(struct dcrypt_public_key **key_r,
 	return dcrypt_vfs->key_load_public_raw(key_r, key_type, keys,
 					       error_r);
 }
+
+bool dcrypt_key_get_curve_public(struct dcrypt_public_key *key,
+				 const char **curve_r, const char **error_r)
+{
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_get_curve_public == NULL) {
+		*error_r = "Not implemented";
+		return FALSE;
+	}
+	return dcrypt_vfs->key_get_curve_public(key, curve_r, error_r);
+}

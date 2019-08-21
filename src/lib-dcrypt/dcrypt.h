@@ -304,6 +304,10 @@ bool dcrypt_key_load_public_raw(struct dcrypt_public_key **key_r,
 				const ARRAY_TYPE(dcrypt_raw_key) *keys,
 				const char **error_r);
 
+/* for ECC only - return textual name or OID of used curve */
+bool dcrypt_key_get_curve_public(struct dcrypt_public_key *key,
+				 const char **curve_r, const char **error_r);
+
 bool dcrypt_key_string_get_info(const char *key_data,
 				enum dcrypt_key_format *format_r,
 				enum dcrypt_key_version *version_r,
