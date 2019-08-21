@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "module-dir.h"
 #include "dcrypt.h"
+#include "istream.h"
+#include "json-tree.h"
 #include "dcrypt-private.h"
 
 static struct module *dcrypt_module = NULL;
@@ -520,50 +522,81 @@ const char *dcrypt_key_get_id_private(struct dcrypt_private_key *key)
 
 void dcrypt_key_set_id_public(struct dcrypt_public_key *key, const char *id)
 {
-        i_assert(dcrypt_vfs != NULL);
-        if (dcrypt_vfs->key_set_id_public == NULL)
-                return;
-        dcrypt_vfs->key_set_id_public(key, id);
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_set_id_public == NULL)
+		return;
+	dcrypt_vfs->key_set_id_public(key, id);
 }
 
 void dcrypt_key_set_id_private(struct dcrypt_private_key *key, const char *id)
 {
-        i_assert(dcrypt_vfs != NULL);
-        if (dcrypt_vfs->key_set_id_private == NULL)
-                return;
-        dcrypt_vfs->key_set_id_private(key, id);
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_set_id_private == NULL)
+		return;
+	dcrypt_vfs->key_set_id_private(key, id);
 }
 
 enum dcrypt_key_usage dcrypt_key_get_usage_public(struct dcrypt_public_key *key)
 {
-        i_assert(dcrypt_vfs != NULL);
-        if (dcrypt_vfs->key_get_usage_public == NULL)
-                return DCRYPT_KEY_USAGE_NONE;
-        return dcrypt_vfs->key_get_usage_public(key);
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_get_usage_public == NULL)
+		return DCRYPT_KEY_USAGE_NONE;
+	return dcrypt_vfs->key_get_usage_public(key);
 }
 
 enum dcrypt_key_usage dcrypt_key_get_usage_private(struct dcrypt_private_key *key)
 {
-        i_assert(dcrypt_vfs != NULL);
-        if (dcrypt_vfs->key_get_usage_private == NULL)
-                return DCRYPT_KEY_USAGE_NONE;
-        return dcrypt_vfs->key_get_usage_private(key);
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_get_usage_private == NULL)
+		return DCRYPT_KEY_USAGE_NONE;
+	return dcrypt_vfs->key_get_usage_private(key);
 }
 
 void dcrypt_key_set_usage_public(struct dcrypt_public_key *key,
 				 enum dcrypt_key_usage usage)
 {
-        i_assert(dcrypt_vfs != NULL);
-        if (dcrypt_vfs->key_set_usage_public == NULL)
-                return;
-        dcrypt_vfs->key_set_usage_public(key, usage);
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_set_usage_public == NULL)
+		return;
+	dcrypt_vfs->key_set_usage_public(key, usage);
 }
 
 void dcrypt_key_set_usage_private(struct dcrypt_private_key *key,
 				  enum dcrypt_key_usage usage)
 {
-        i_assert(dcrypt_vfs != NULL);
-        if (dcrypt_vfs->key_set_usage_private == NULL)
-                return;
-        dcrypt_vfs->key_set_usage_private(key, usage);
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_set_usage_private == NULL)
+		return;
+	dcrypt_vfs->key_set_usage_private(key, usage);
+}
+
+int parse_jwk_key(const char *key_data, struct json_tree **tree_r,
+		  const char **error_r)
+{
+	struct istream *is = i_stream_create_from_data(key_data, strlen(key_data));
+	struct json_parser *parser = json_parser_init(is);
+	struct json_tree *tree = json_tree_init();
+	const char *error;
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	i_stream_unref(&is);
+
+	while ((ret = json_parse_next(parser, &type, &value)) == 1)
+		json_tree_append(tree, type, value);
+
+	i_assert(ret == -1);
+
+	if (json_parser_deinit(&parser, &error) != 0) {
+		json_tree_deinit(&tree);
+		*error_r = error;
+		if (error == NULL)
+			*error_r = "Truncated JSON";
+		return -1;
+	}
+
+	*tree_r = tree;
+
+	return 0;
 }

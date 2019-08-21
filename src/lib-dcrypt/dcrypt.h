@@ -31,6 +31,7 @@ enum dcrypt_key_type {
 enum dcrypt_key_format {
 	DCRYPT_FORMAT_PEM,
 	DCRYPT_FORMAT_DOVECOT,
+	DCRYPT_FORMAT_JWK, /* JSON Web Key (JWK) [RFC7517] */
 };
 
 enum dcrypt_key_encryption_type {

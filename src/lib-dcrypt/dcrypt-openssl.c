@@ -2,12 +2,15 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "base64.h"
 #include "str.h"
 #include "hex-binary.h"
 #include "safe-memset.h"
 #include "randgen.h"
 #include "array.h"
 #include "module-dir.h"
+#include "istream.h"
+#include "json-tree.h"
 #include "dovecot-openssl-common.h"
 #include <openssl/evp.h>
 #include <openssl/sha.h>
@@ -101,6 +104,8 @@
 
 /* openssl manual says this is OK */
 #define OID_TEXT_MAX_LEN 80
+
+#define t_base64url_decode_str(x) t_base64url_decode_str(0, (x))
 
 struct dcrypt_context_symmetric {
 	pool_t pool;
@@ -1413,6 +1418,570 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 	return TRUE;
 }
 
+/* JWK Parameter names defined at https://www.iana.org/assignments/jose/jose.xhtml */
+
+static const struct jwk_to_ssl_map_entry {
+	const char *jwk_curve;
+	int nid;
+} jwk_to_ssl_curves[] =
+{
+	/* See https://tools.ietf.org/search/rfc8422#appendix-A */
+	{ .jwk_curve = "P-256", .nid = NID_X9_62_prime256v1 },
+	{ .jwk_curve = "P-384", .nid = NID_secp384r1 },
+	{ .jwk_curve = "P-521", .nid = NID_secp521r1 },
+	{ .jwk_curve = NULL, .nid = 0 }
+};
+
+static const char *key_usage_to_jwk_use(enum dcrypt_key_usage usage)
+{
+	switch(usage) {
+	case DCRYPT_KEY_USAGE_NONE:
+		return NULL;
+	case DCRYPT_KEY_USAGE_ENCRYPT:
+		return "enc";
+	case DCRYPT_KEY_USAGE_SIGN:
+		return "sig";
+	};
+	i_unreached();
+}
+
+static enum dcrypt_key_usage jwk_use_to_key_usage(const char *use)
+{
+	if (strcmp(use, "enc") == 0)
+		return DCRYPT_KEY_USAGE_ENCRYPT;
+	if (strcmp(use, "sig") == 0)
+		return DCRYPT_KEY_USAGE_SIGN;
+	return DCRYPT_KEY_USAGE_NONE;
+}
+
+static int jwk_curve_to_nid(const char *curve)
+{
+	/* use static mapping table to get correct input for OpenSSL */
+	const struct jwk_to_ssl_map_entry *entry = jwk_to_ssl_curves;
+	for (;entry->jwk_curve != NULL;entry++)
+		if (strcmp(curve, entry->jwk_curve) == 0)
+			return entry->nid;
+	return 0;
+}
+
+static const char *nid_to_jwk_curve(int nid)
+{
+	const struct jwk_to_ssl_map_entry *entry = jwk_to_ssl_curves;
+	for (;entry->jwk_curve != NULL;entry++)
+		if (nid == entry->nid)
+			return entry->jwk_curve;
+	return NULL;
+}
+
+/* Loads both public and private key */
+static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
+			    const struct json_tree_node *root,
+			    const char *password ATTR_UNUSED,
+			    struct dcrypt_private_key *dec_key ATTR_UNUSED,
+			    const char **error_r)
+{
+	i_assert(password == NULL && dec_key == NULL);
+	const char *crv, *x, *y, *d;
+	const struct json_tree_node *node;
+
+	if ((node = json_tree_find_key(root, "crv")) == NULL ||
+	    (crv = json_tree_get_value_str(node)) == NULL) {
+		*error_r = "Missing crv parameter";
+		return FALSE;
+	}
+
+	if ((node = json_tree_find_key(root, "x")) == NULL ||
+	    (x = json_tree_get_value_str(node)) == NULL) {
+		*error_r = "Missing x parameter";
+		return FALSE;
+	}
+
+	if ((node = json_tree_find_key(root, "y")) == NULL ||
+	    (y = json_tree_get_value_str(node)) == NULL) {
+		*error_r = "Missing y parameter";
+		return FALSE;
+	}
+
+	if ((node = json_tree_find_key(root, "d")) == NULL ||
+	    (d = json_tree_get_value_str(node)) == NULL) {
+		if (want_private_key) {
+			*error_r = "Missing d parameter";
+			return FALSE;
+		}
+	}
+
+	/* base64 decode x and y */
+	buffer_t *bx = t_base64url_decode_str(x);
+	buffer_t *by = t_base64url_decode_str(y);
+
+	/* determine NID */
+	int nid = jwk_curve_to_nid(crv);
+	if (nid == 0) {
+		*error_r = t_strdup_printf("Unsupported curve: %s", crv);
+		return FALSE;
+	}
+	/* create key */
+	EC_KEY *ec_key = EC_KEY_new_by_curve_name(nid);
+	if (ec_key == NULL) {
+		*error_r = "Cannot allocate memory";
+		return FALSE;
+	}
+
+	BIGNUM *px = BN_new();
+	BIGNUM *py = BN_new();
+
+	if (BN_bin2bn(bx->data, bx->used, px) == NULL ||
+	    BN_bin2bn(by->data, by->used, py) == NULL) {
+		EC_KEY_free(ec_key);
+		BN_free(px);
+		BN_free(py);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	int ret = EC_KEY_set_public_key_affine_coordinates(ec_key, px, py);
+	BN_free(px);
+	BN_free(py);
+
+	if (ret != 1) {
+		EC_KEY_free(ec_key);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	/* FIXME: Support decryption */
+	if (want_private_key) {
+		buffer_t *bd = t_base64url_decode_str(d);
+		BIGNUM *pd = BN_secure_new();
+		if (BN_bin2bn(bd->data, bd->used, pd) == NULL) {
+			EC_KEY_free(ec_key);
+			return dcrypt_openssl_error(error_r);
+		}
+		ret = EC_KEY_set_private_key(ec_key, pd);
+		BN_free(pd);
+		if (ret != 1) {
+			EC_KEY_free(ec_key);
+			return dcrypt_openssl_error(error_r);
+		}
+	}
+
+	if (EC_KEY_check_key(ec_key) != 1) {
+		EC_KEY_free(ec_key);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	/* return as EVP_PKEY */
+	EVP_PKEY *pkey = EVP_PKEY_new();
+	EVP_PKEY_set1_EC_KEY(pkey, ec_key);
+	EC_KEY_free(ec_key);
+	*key_r = pkey;
+
+	return TRUE;
+}
+
+/* RSA helpers */
+#if !defined(HAVE_RSA_SET0_KEY)
+static int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
+{
+	if (n == NULL || e == NULL) {
+		RSAerr(0, ERR_R_PASSED_INVALID_ARGUMENT);
+		return 0;
+	}
+	r->n = pn;
+	r->e = pe;
+	r->d = pd;
+	return 1;
+}
+#endif
+#if !defined(HAVE_RSA_SET0_FACTORS)
+static int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
+{
+	if (p == NULL || q == NULL) {
+		RSAerr(0, ERR_R_PASSED_INVALID_ARGUMENT);
+		return 0;
+	}
+	r->p = p;
+	r->q = q;
+	return 1;
+}
+#endif
+#if !defined(HAVE_RSA_SET0_CRT_PARAMS)
+static int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
+{
+	if (dmp1 == NULL || dmq1 == NULL || iqmp == NULL) {
+		RSAerr(0, ERR_R_PASSED_INVALID_ARGUMENT);
+		return 0;
+	}
+	r->dmp1 = dmp1;
+	r->dmq1 = dmq1;
+	r->iqmp = iqmp;
+}
+#endif
+
+/* Loads both public and private key */
+static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
+			     const struct json_tree_node *root,
+			     const char *password ATTR_UNUSED,
+			     struct dcrypt_private_key *dec_key ATTR_UNUSED,
+			     const char **error_r)
+{
+	const char *n, *e, *d = NULL, *p = NULL, *q = NULL, *dp = NULL;
+	const char *dq = NULL, *qi = NULL;
+	const struct json_tree_node *node;
+
+	/* n and e must be present */
+	if ((node = json_tree_find_key(root, "n")) == NULL ||
+	    (n = json_tree_get_value_str(node)) == NULL) {
+		*error_r = "Missing n parameter";
+		return FALSE;
+	}
+
+	if ((node = json_tree_find_key(root, "e")) == NULL ||
+	    (e = json_tree_get_value_str(node)) == NULL) {
+		*error_r = "Missing e parameter";
+		return FALSE;
+	}
+
+	if (want_private_key) {
+		if ((node = json_tree_find_key(root, "d")) == NULL ||
+		    (d = json_tree_get_value_str(node)) == NULL) {
+			*error_r = "Missing d parameter";
+			return FALSE;
+		}
+
+		if ((node = json_tree_find_key(root, "p")) == NULL ||
+		    (p = json_tree_get_value_str(node)) == NULL) {
+			*error_r = "Missing p parameter";
+			return FALSE;
+		}
+
+		if ((node = json_tree_find_key(root, "q")) == NULL ||
+		    (q = json_tree_get_value_str(node)) == NULL) {
+			*error_r = "Missing q parameter";
+			return FALSE;
+		}
+
+		if ((node = json_tree_find_key(root, "dp")) == NULL ||
+		    (dp = json_tree_get_value_str(node)) == NULL) {
+			*error_r = "Missing dp parameter";
+			return FALSE;
+		}
+
+		if ((node = json_tree_find_key(root, "dq")) == NULL ||
+		    (dq = json_tree_get_value_str(node)) == NULL) {
+			*error_r = "Missing dq parameter";
+			return FALSE;
+		}
+
+		if ((node = json_tree_find_key(root, "qi")) == NULL ||
+		    (qi = json_tree_get_value_str(node)) == NULL) {
+			*error_r = "Missing qi parameter";
+			return FALSE;
+		}
+	}
+
+	/* convert into BIGNUMs */
+	BIGNUM *pn, *pe, *pd, *pp, *pq, *pdp, *pdq, *pqi;
+	buffer_t *bn = t_base64url_decode_str(n);
+	buffer_t *be = t_base64url_decode_str(e);
+	if (want_private_key) {
+		pd = BN_secure_new();
+		buffer_t *bd = t_base64url_decode_str(d);
+		if (BN_bin2bn(bd->data, bd->used, pd) == NULL) {
+			BN_free(pd);
+			return dcrypt_openssl_error(error_r);
+		}
+	} else {
+		pd = NULL;
+	}
+
+	pn = BN_new();
+	pe = BN_new();
+
+	if (BN_bin2bn(bn->data, bn->used, pn) == NULL ||
+	    BN_bin2bn(be->data, be->used, pe) == NULL) {
+		if (pd != NULL)
+			BN_free(pd);
+		BN_free(pn);
+		BN_free(pe);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	RSA *rsa_key = RSA_new();
+	if (rsa_key == NULL) {
+		if (pd != NULL)
+			BN_free(pd);
+		BN_free(pn);
+		BN_free(pe);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	if (RSA_set0_key(rsa_key, pn, pe, pd) != 1) {
+		if (pd != NULL)
+			BN_free(pd);
+		BN_free(pn);
+		BN_free(pe);
+		RSA_free(rsa_key);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	if (want_private_key) {
+		pp = BN_secure_new();
+		pq = BN_secure_new();
+		pdp = BN_secure_new();
+		pdq = BN_secure_new();
+		pqi = BN_secure_new();
+
+		buffer_t *bp = t_base64url_decode_str(p);
+		buffer_t *bq = t_base64url_decode_str(q);
+		buffer_t *bdp = t_base64url_decode_str(dp);
+		buffer_t *bdq = t_base64url_decode_str(dq);
+		buffer_t *bqi = t_base64url_decode_str(qi);
+
+		if (BN_bin2bn(bp->data, bp->used, pp) == NULL ||
+		    BN_bin2bn(bq->data, bq->used, pq) == NULL ||
+		    BN_bin2bn(bdp->data, bdp->used, pdp) == NULL ||
+		    BN_bin2bn(bdq->data, bdq->used, pdq) == NULL ||
+		    BN_bin2bn(bqi->data, bqi->used, pqi) == NULL ||
+		    RSA_set0_factors(rsa_key, pp, pq) != 1) {
+			RSA_free(rsa_key);
+			BN_free(pp);
+			BN_free(pq);
+			BN_free(pdp);
+			BN_free(pdq);
+			BN_free(pqi);
+			return dcrypt_openssl_error(error_r);
+		} else if (RSA_set0_crt_params(rsa_key, pdp, pdq, pqi) != 1) {
+			RSA_free(rsa_key);
+			BN_free(pdp);
+			BN_free(pdq);
+			BN_free(pqi);
+			return dcrypt_openssl_error(error_r);
+		}
+	}
+
+	/* return as EVP_PKEY */
+	EVP_PKEY *pkey = EVP_PKEY_new();
+	EVP_PKEY_set1_RSA(pkey, rsa_key);
+	RSA_free(rsa_key);
+	*key_r = pkey;
+
+	return TRUE;
+}
+
+
+static bool
+dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
+				    const char *data, const char *password,
+				    struct dcrypt_private_key *dec_key,
+				    const char **error_r)
+{
+	const char *kty;
+	const char *error;
+	const struct json_tree_node *root, *node;
+	struct json_tree *key_tree;
+	EVP_PKEY *pkey;
+	bool ret;
+
+	if (parse_jwk_key(data, &key_tree, &error) != 0) {
+		if (error_r != NULL)
+			*error_r = t_strdup_printf("Cannot load JWK private key: %s",
+						   error);
+		return FALSE;
+	}
+
+	root = json_tree_root(key_tree);
+
+	/* check key type */
+	if ((node = json_tree_find_key(root, "kty")) == NULL) {
+		if (error_r != NULL)
+			*error_r = "Cannot load JWK private key: no kty parameter";
+		json_tree_deinit(&key_tree);
+		return FALSE;
+	}
+
+	kty = json_tree_get_value_str(node);
+
+	if (null_strcmp(kty, "EC") == 0) {
+		ret = load_jwk_ec_key(&pkey, TRUE, root, password, dec_key, &error);
+	} else if (strcmp(kty, "RSA") == 0) {
+		ret = load_jwk_rsa_key(&pkey, TRUE, root, password, dec_key, &error);
+	} else {
+		error = "Unsupported key type";
+		ret = FALSE;
+	}
+
+	i_assert(ret || error != NULL);
+
+	if (!ret && error_r != NULL)
+		*error_r = t_strdup_printf("Cannot load JWK private key: %s", error);
+	else if (ret) {
+		*key_r = i_new(struct dcrypt_private_key, 1);
+		(*key_r)->key = pkey;
+		(*key_r)->ref++;
+		/* check if kid is present */
+		if ((node = json_tree_find_key(root, "kid")) != NULL)
+			(*key_r)->key_id = i_strdup_empty(json_tree_get_value_str(node));
+		/* check if use is present */
+		if ((node = json_tree_find_key(root, "use")) != NULL)
+			(*key_r)->usage = jwk_use_to_key_usage(json_tree_get_value_str(node));
+	}
+
+	json_tree_deinit(&key_tree);
+
+	return ret;
+}
+
+static bool
+dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
+				   const char *data, const char **error_r)
+{
+	const char *kty;
+	const char *error;
+	const struct json_tree_node *root, *node;
+	struct json_tree *key_tree;
+	EVP_PKEY *pkey;
+	bool ret;
+
+	if (parse_jwk_key(data, &key_tree, &error) != 0) {
+		if (error_r != NULL)
+			*error_r = t_strdup_printf("Cannot load JWK public key: %s",
+						   error);
+		return FALSE;
+	}
+
+	root = json_tree_root(key_tree);
+
+	/* check key type */
+	if ((node = json_tree_find_key(root, "kty")) == NULL) {
+		if (error_r != NULL)
+			*error_r = "Cannot load JWK public key: no kty parameter";
+		json_tree_deinit(&key_tree);
+		return FALSE;
+	}
+
+	kty = json_tree_get_value_str(node);
+
+	if (null_strcmp(kty, "EC") == 0) {
+		ret = load_jwk_ec_key(&pkey, FALSE, root, NULL, NULL, &error);
+	} else if (strcmp(kty, "RSA") == 0) {
+	      ret = load_jwk_rsa_key(&pkey, FALSE, root, NULL, NULL, &error);
+	} else {
+		error = "Unsupported key type";
+		ret = FALSE;
+	}
+
+	i_assert(ret || error != NULL);
+
+	if (!ret && error_r != NULL)
+		*error_r = t_strdup_printf("Cannot load JWK public key: %s", error);
+	else if (ret) {
+		*key_r = i_new(struct dcrypt_public_key, 1);
+		(*key_r)->key = pkey;
+		(*key_r)->ref++;
+		/* check if kid is present */
+		if ((node = json_tree_find_key(root, "kid")) != NULL)
+			(*key_r)->key_id = i_strdup_empty(json_tree_get_value_str(node));
+		/* check if use is present */
+		if ((node = json_tree_find_key(root, "use")) != NULL)
+			(*key_r)->usage = jwk_use_to_key_usage(json_tree_get_value_str(node));
+	}
+
+	json_tree_deinit(&key_tree);
+
+	return ret;
+}
+
+
+static int bn2base64url(const BIGNUM *bn, string_t *dest)
+{
+	int len = BN_num_bytes(bn);
+	unsigned char *data = t_malloc_no0(len);
+	if (BN_bn2bin(bn, data) != len)
+		return -1;
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, (size_t)-1, data, len, dest);
+	return 0;
+}
+
+/* FIXME: Add encryption support */
+/* FIXME: Add support for 'algo' field */
+static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
+			     enum dcrypt_key_usage usage,
+			     const char *key_id,
+			     const char *cipher ATTR_UNUSED,
+			     const char *password ATTR_UNUSED,
+			     struct dcrypt_public_key *enc_key ATTR_UNUSED,
+			     string_t *dest, const char **error_r)
+{
+	i_assert(cipher == NULL && password == NULL && enc_key == NULL);
+	string_t *temp = t_str_new(256);
+	const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+	i_assert(ec_key != NULL);
+
+	int nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec_key));
+	const EC_POINT *public_point = EC_KEY_get0_public_key(ec_key);
+	BIGNUM *x, *y;
+
+	x = BN_new();
+	y = BN_new();
+	if (EC_POINT_get_affine_coordinates_GFp(EC_KEY_get0_group(ec_key), public_point,
+						x, y, NULL) != 1) {
+		BN_free(x);
+		BN_free(y);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	const char *curve = nid_to_jwk_curve(nid);
+	const char *use = key_usage_to_jwk_use(usage);
+
+	str_printfa(temp, "{\"kty\":\"EC\",\"crv\":\"%s\"", curve);
+	str_append(temp, ",\"x\":\"");
+	bn2base64url(x, temp);
+	str_append(temp, "\",\"y\":\"");
+	bn2base64url(y, temp);
+
+	if (use != NULL) {
+		str_append(temp, "\",\"use\":\"");
+		json_append_escaped(temp, use);
+	}
+	if (key_id != NULL) {
+		str_append(temp, "\",\"kid\":\"");
+		json_append_escaped(temp, key_id);
+	}
+	BN_free(x);
+	BN_free(y);
+
+	if (is_private_key) {
+		const BIGNUM *d = EC_KEY_get0_private_key(ec_key);
+		if (d == NULL) {
+			*error_r = "No private key available";
+			return FALSE;
+		}
+		str_append(temp, "\",\"d\":\"");
+		bn2base64url(d, temp);
+	}
+	str_append(temp, "\"}");
+	str_append_str(dest, temp);
+	return TRUE;
+}
+
+/* FIXME: Add RSA support */
+
+static bool store_jwk_key(EVP_PKEY *pkey, bool is_private_key,
+			  enum dcrypt_key_usage usage,
+			  const char *key_id,
+			  const char *cipher,
+			  const char *password,
+			  struct dcrypt_public_key *enc_key,
+			  string_t *dest, const char **error_r)
+{
+	i_assert(cipher == NULL && password == NULL && enc_key == NULL);
+	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
+		return store_jwk_ec_key(pkey, is_private_key, usage, key_id,
+					cipher, password, enc_key, dest, error_r);
+	}
+	*error_r = "Unsupported key type";
+	return FALSE;
+}
+
 static bool
 dcrypt_openssl_load_private_key_dovecot(struct dcrypt_private_key **key_r,
 					const char *data, const char *password,
@@ -1804,6 +2373,10 @@ dcrypt_openssl_load_private_key(struct dcrypt_private_key **key_r,
 		return FALSE;
 	}
 
+	if (format == DCRYPT_FORMAT_JWK)
+		return dcrypt_openssl_load_private_key_jwk(key_r, data, password,
+							   dec_key, error_r);
+
 	if (format == DCRYPT_FORMAT_DOVECOT)
 		return dcrypt_openssl_load_private_key_dovecot(key_r, data,
 				password, dec_key, version, error_r);
@@ -1849,10 +2422,14 @@ dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r,
 						error_r)) {
 		return FALSE;
 	}
-	if (kind != DCRYPT_KEY_KIND_PUBLIC) {
+	/* JWK private keys can be loaded as public */
+	if (kind != DCRYPT_KEY_KIND_PUBLIC && format != DCRYPT_FORMAT_JWK) {
 		if (error_r != NULL) *error_r = "key is not public";
 		return FALSE;
 	}
+
+	if (format == DCRYPT_FORMAT_JWK)
+		return dcrypt_openssl_load_public_key_jwk(key_r, data, error_r);
 
 	if (format == DCRYPT_FORMAT_DOVECOT)
 		return dcrypt_openssl_load_public_key_dovecot(key_r, data,
@@ -1925,6 +2502,15 @@ dcrypt_openssl_store_private_key(struct dcrypt_private_key *key,
 	}
 
 	EVP_PKEY *pkey = key->key;
+
+	if (format == DCRYPT_FORMAT_JWK) {
+		bool ret;
+		ret = store_jwk_key(pkey, TRUE, key->usage, key->key_id,
+				    cipher, password, enc_key,
+				    destination, error_r);
+		return ret;
+	}
+
 	BIO *key_out = BIO_new(BIO_s_mem());
 	if (key_out == NULL)
 		return dcrypt_openssl_error(error_r);
@@ -1976,6 +2562,15 @@ dcrypt_openssl_store_public_key(struct dcrypt_public_key *key,
 	}
 
 	EVP_PKEY *pkey = key->key;
+
+	if (format == DCRYPT_FORMAT_JWK) {
+		bool ret;
+		ret = store_jwk_key(pkey, FALSE, key->usage, key->key_id,
+				    NULL, NULL, NULL,
+				    destination, error_r);
+		return ret;
+	}
+
 	BIO *key_out = BIO_new(BIO_s_mem());
 	if (key_out == NULL)
 		return dcrypt_openssl_error(error_r);
@@ -2086,6 +2681,44 @@ dcrypt_openssl_key_string_get_info(
 				*error_r = "Unknown/invalid PEM key type";
 			return FALSE;
 		}
+	} else if (*key_data == '{') {
+		/* possibly a JWK key */
+		format = DCRYPT_FORMAT_JWK;
+		version = DCRYPT_KEY_VERSION_NA;
+		struct json_tree *tree;
+		const struct json_tree_node *root, *node;
+		const char *value, *error;
+		if (parse_jwk_key(key_data, &tree, &error) != 0) {
+			if (error_r != NULL)
+				*error_r = "Unknown/invalid key data";
+			return FALSE;
+		}
+
+		/* determine key type */
+		root = json_tree_root(tree);
+		if ((node = json_tree_find_key(root, "kty")) == NULL ||
+		    (value = json_tree_get_value_str(node)) == NULL) {
+			json_tree_deinit(&tree);
+			if (error_r != NULL)
+				*error_r = "Invalid JWK key: Missing kty parameter";
+			return FALSE;
+		} else if (strcmp(value, "RSA") == 0) {
+			if ((node = json_tree_find_key(root, "d")) != NULL)
+				kind = DCRYPT_KEY_KIND_PRIVATE;
+			else
+				kind = DCRYPT_KEY_KIND_PUBLIC;
+		} else if (strcmp(value, "EC") == 0) {
+			if ((node = json_tree_find_key(root, "d")) != NULL)
+				kind = DCRYPT_KEY_KIND_PRIVATE;
+			else
+				kind = DCRYPT_KEY_KIND_PUBLIC;
+		} else {
+			json_tree_deinit(&tree);
+			if (error_r != NULL)
+				*error_r = "Unsupported JWK key type";
+			return FALSE;
+		}
+		json_tree_deinit(&tree);
 	} else {
 		if (str_begins(key_data, "1:")) {
 			if (error_r != NULL)
