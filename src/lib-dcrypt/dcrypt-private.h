@@ -169,6 +169,8 @@ struct dcrypt_vfs {
 				    enum dcrypt_key_type key_type,
 				    const ARRAY_TYPE(dcrypt_raw_key) *keys,
 				    const char **error_r);
+	bool (*key_get_curve_public)(struct dcrypt_public_key *key,
+				     const char **curve_r, const char **error_r);
 };
 
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs);
