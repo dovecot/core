@@ -2715,6 +2715,35 @@ dcrypt_openssl_key_load_public_raw(struct dcrypt_public_key **key_r,
 	return FALSE;
 }
 
+static bool
+dcrypt_openssl_key_get_curve_public(struct dcrypt_public_key *key,
+				    const char **curve_r, const char **error_r)
+{
+	EVP_PKEY *pkey = key->key;
+	char objtxt[OID_TEXT_MAX_LEN];
+
+	if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
+		*error_r = "Unsupported key type";
+		return FALSE;
+	}
+
+	ASN1_OBJECT *obj = OBJ_nid2obj(EC_GROUP_get_curve_name(
+				EC_KEY_get0_group(EVP_PKEY_get0_EC_KEY(pkey))));
+
+	int len = OBJ_obj2txt(objtxt, sizeof(objtxt), obj, 1);
+	ASN1_OBJECT_free(obj);
+
+	if (len < 1) {
+		return dcrypt_openssl_error(error_r);
+	} else if ((unsigned int)len > sizeof(objtxt)) {
+		*error_r = "Object name too long";
+		return FALSE;
+	}
+
+	*curve_r = t_strndup(objtxt, len);
+	return TRUE;
+}
+
 static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.initialize = dcrypt_openssl_initialize,
 	.ctx_sym_create = dcrypt_openssl_ctx_sym_create,
@@ -2773,6 +2802,7 @@ static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.key_store_public_raw = dcrypt_openssl_key_store_public_raw,
 	.key_load_private_raw = dcrypt_openssl_key_load_private_raw,
 	.key_load_public_raw = dcrypt_openssl_key_load_public_raw,
+	.key_get_curve_public = dcrypt_openssl_key_get_curve_public,
 };
 
 void dcrypt_openssl_init(struct module *module ATTR_UNUSED)
