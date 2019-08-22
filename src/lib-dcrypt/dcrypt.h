@@ -71,7 +71,11 @@ bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set,
 		       const char **error_r);
 
 /**
- * deinitialize dcrypt
+ * deinitialize dcrypt.
+ *
+ * NOTE: Do not call this function if you are going to use dcrypt later on.
+ * Deinitializing the library using this will not allow it to be reinitialized
+ * when using OpenSSL.
  */
 void dcrypt_deinitialize(void);
 
