@@ -12,6 +12,8 @@
 #include "safe-memset.h"
 #include "buffer.h"
 
+#include "hex-binary.h"
+
 void hmac_init(struct hmac_context *_ctx, const unsigned char *key,
 		size_t key_len, const struct hash_method *meth)
 {
@@ -93,3 +95,58 @@ buffer_t *t_hmac_str(const struct hash_method *meth,
 	return t_hmac_data(meth, key, key_len, data, strlen(data));
 }
 
+void hmac_hkdf(const struct hash_method *method,
+	       const unsigned char *salt, size_t salt_len,
+	       const unsigned char *ikm, size_t ikm_len,
+	       const unsigned char *info, size_t info_len,
+	       buffer_t *okm_r, size_t okm_len)
+{
+	i_assert(method != NULL);
+	i_assert(okm_len < 255*method->digest_size);
+	struct hmac_context key_mac;
+	struct hmac_context info_mac;
+	size_t remain = okm_len;
+	unsigned char prk[method->digest_size];
+	unsigned char okm[method->digest_size];
+	/* N = ceil(L/HashLen) */
+	unsigned int rounds = (okm_len + method->digest_size - 1)/method->digest_size;
+
+	/* salt and info can be NULL */
+	i_assert(salt != NULL || salt_len == 0);
+	i_assert(info != NULL || info_len == 0);
+
+	i_assert(ikm != NULL && ikm_len > 0);
+	i_assert(okm_r != NULL && okm_len > 0);
+
+	/* but they still need valid pointer, reduces
+	   complains from static analysers */
+	if (salt == NULL)
+		salt = &uchar_nul;
+	if (info == NULL)
+		info = &uchar_nul;
+
+	/* extract */
+	hmac_init(&key_mac, salt, salt_len, method);
+	hmac_update(&key_mac, ikm, ikm_len);
+	hmac_final(&key_mac, prk);
+
+	/* expand */
+	for (unsigned int i = 0; remain > 0 && i < rounds; i++) {
+		unsigned char round = (i+1);
+		size_t amt = remain;
+		if (amt > method->digest_size)
+			amt = method->digest_size;
+		hmac_init(&info_mac, prk, method->digest_size, method);
+		if (i > 0)
+			hmac_update(&info_mac, okm, method->digest_size);
+		hmac_update(&info_mac, info, info_len);
+		hmac_update(&info_mac, &round, 1);
+		memset(okm, 0, method->digest_size);
+		hmac_final(&info_mac, okm);
+		buffer_append(okm_r, okm, amt);
+		remain -= amt;
+	}
+
+	safe_memset(prk, 0, sizeof(prk));
+	safe_memset(okm, 0, sizeof(okm));
+}

@@ -42,4 +42,23 @@ buffer_t *t_hmac_str(const struct hash_method *meth,
 		     const unsigned char *key, size_t key_len,
 		     const char *data);
 
+void hmac_hkdf(const struct hash_method *method,
+	       const unsigned char *salt, size_t salt_len,
+	       const unsigned char *ikm, size_t ikm_len,
+	       const unsigned char *info, size_t info_len,
+	       buffer_t *okm_r, size_t okm_len);
+
+static inline buffer_t *
+t_hmac_hkdf(const struct hash_method *method,
+	    const unsigned char *salt, size_t salt_len,
+	    const unsigned char *ikm, size_t ikm_len,
+	    const unsigned char *info, size_t info_len,
+	    size_t okm_len)
+{
+	buffer_t *okm_buffer = t_buffer_create(okm_len);
+	hmac_hkdf(method, salt, salt_len, ikm, ikm_len, info, info_len,
+		  okm_buffer, okm_len);
+	return okm_buffer;
+}
+
 #endif
