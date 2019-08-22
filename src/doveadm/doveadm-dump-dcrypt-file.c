@@ -74,7 +74,6 @@ static bool test_dump_dcrypt_file(const char *path)
 	if (!dcrypt_initialize("openssl", NULL, NULL))
 		return FALSE;
 	bool ret = dcrypt_file_dump_metadata(path, FALSE);
-	dcrypt_deinitialize();
 	return ret;
 }
 
@@ -84,7 +83,6 @@ static void cmd_dump_dcrypt_file(int argc ATTR_UNUSED, char *argv[])
 	if (!dcrypt_initialize("openssl", NULL, &error))
 		i_fatal("dcrypt_initialize failed: %s", error);
 	(void)dcrypt_file_dump_metadata(argv[1], TRUE);
-	dcrypt_deinitialize();
 }
 
 struct doveadm_cmd_dump doveadm_cmd_dump_dcrypt_file = {
