@@ -131,11 +131,15 @@ struct dcrypt_context_hmac {
 struct dcrypt_public_key {
 	EVP_PKEY *key;
 	unsigned int ref;
+	enum dcrypt_key_usage usage;
+	char *key_id;
 };
 
 struct dcrypt_private_key {
 	EVP_PKEY *key;
 	unsigned int ref;
+	enum dcrypt_key_usage usage;
+	char *key_id;
 };
 
 static bool
@@ -1476,7 +1480,9 @@ dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 		EC_KEY_free(eckey);
 		/* make sure digest matches */
 		buffer_t *dgst = t_buffer_create(32);
-		struct dcrypt_public_key tmp = { key, 0 };
+		struct dcrypt_public_key tmp;
+		i_zero(&tmp);
+		tmp.key = key;
 		dcrypt_openssl_public_key_id_old(&tmp, dgst, NULL);
 		if (strcmp(binary_to_hex(dgst->data, dgst->used),
 			   input[len-1]) != 0) {
@@ -1517,7 +1523,9 @@ dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 
 	/* make sure digest matches */
 	buffer_t *dgst = t_buffer_create(32);
-	struct dcrypt_public_key tmpkey = {pkey, 0};
+	struct dcrypt_public_key tmpkey;
+	i_zero(&tmpkey);
+	tmpkey.key = pkey;
 	dcrypt_openssl_public_key_id(&tmpkey, "sha256", dgst, NULL);
 	if (strcmp(binary_to_hex(dgst->data, dgst->used), input[len-1]) != 0) {
 		if (error_r != NULL)
