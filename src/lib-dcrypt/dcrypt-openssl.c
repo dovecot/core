@@ -2763,6 +2763,59 @@ dcrypt_openssl_key_get_curve_public(struct dcrypt_public_key *key,
 	return TRUE;
 }
 
+static const char *
+dcrypt_openssl_key_get_id_public(struct dcrypt_public_key *key)
+{
+	return key->key_id;
+}
+
+static const char *
+dcrypt_openssl_key_get_id_private(struct dcrypt_private_key *key)
+{
+	return key->key_id;
+}
+
+static void
+dcrypt_openssl_key_set_id_public(struct dcrypt_public_key *key, const char *id)
+{
+	i_free(key->key_id);
+	key->key_id = i_strdup_empty(id);
+}
+
+static void
+dcrypt_openssl_key_set_id_private(struct dcrypt_private_key *key, const char *id)
+{
+	i_free(key->key_id);
+	key->key_id = i_strdup_empty(id);
+}
+
+static enum dcrypt_key_usage
+dcrypt_openssl_key_get_usage_public(struct dcrypt_public_key *key)
+{
+	return key->usage;
+}
+
+static enum dcrypt_key_usage
+dcrypt_openssl_key_get_usage_private(struct dcrypt_private_key *key)
+{
+	return key->usage;
+}
+
+static void
+dcrypt_openssl_key_set_usage_public(struct dcrypt_public_key *key,
+				    enum dcrypt_key_usage usage)
+{
+	key->usage = usage;
+}
+
+static void
+dcrypt_openssl_key_set_usage_private(struct dcrypt_private_key *key,
+				     enum dcrypt_key_usage usage)
+{
+	key->usage = usage;
+}
+
+
 static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.initialize = dcrypt_openssl_initialize,
 	.ctx_sym_create = dcrypt_openssl_ctx_sym_create,
@@ -2822,6 +2875,14 @@ static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.key_load_private_raw = dcrypt_openssl_key_load_private_raw,
 	.key_load_public_raw = dcrypt_openssl_key_load_public_raw,
 	.key_get_curve_public = dcrypt_openssl_key_get_curve_public,
+	.key_get_id_public = dcrypt_openssl_key_get_id_public,
+	.key_get_id_private = dcrypt_openssl_key_get_id_private,
+	.key_set_id_public = dcrypt_openssl_key_set_id_public,
+	.key_set_id_private = dcrypt_openssl_key_set_id_private,
+	.key_get_usage_public = dcrypt_openssl_key_get_usage_public,
+	.key_get_usage_private = dcrypt_openssl_key_get_usage_private,
+	.key_set_usage_public = dcrypt_openssl_key_set_usage_public,
+	.key_set_usage_private = dcrypt_openssl_key_set_usage_private,
 };
 
 void dcrypt_openssl_init(struct module *module ATTR_UNUSED)
