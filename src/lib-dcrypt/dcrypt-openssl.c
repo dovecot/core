@@ -1656,10 +1656,10 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 	}
 
 	int enctype = DCRYPT_KEY_ENCRYPTION_TYPE_NONE;
-	int ln = OBJ_obj2txt(objtxt, sizeof(objtxt), obj, 1);
-	if (ln < 1)
+	int len = OBJ_obj2txt(objtxt, sizeof(objtxt), obj, 1);
+	if (len < 1)
 		return dcrypt_openssl_error(error_r);
-	if (ln > (int)sizeof(objtxt)) {
+	if (len > (int)sizeof(objtxt)) {
 		if (error_r != NULL)
 			*error_r = "Object identifier too long";
 		return FALSE;
@@ -1671,10 +1671,10 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
 		unsigned char *ptr;
 		RSA *rsa = EVP_PKEY_get0_RSA(pkey);
-		int ln = i2d_RSAPrivateKey(rsa, &ptr);
-		if (ln < 1)
+		int len = i2d_RSAPrivateKey(rsa, &ptr);
+		if (len < 1)
 			return dcrypt_openssl_error(error_r);
-		buffer_append(buf, ptr, ln);
+		buffer_append(buf, ptr, len);
 	} else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
 		unsigned char *ptr;
 		EC_KEY *eckey = EVP_PKEY_get0_EC_KEY(pkey);
