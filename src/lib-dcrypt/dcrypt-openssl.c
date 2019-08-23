@@ -94,6 +94,9 @@
 	STMT_START { HMAC_CTX_free(ctx); (ctx) = NULL; } STMT_END
 #endif
 
+/* openssl manual says this is OK */
+#define OID_TEXT_MAX_LEN 80
+
 struct dcrypt_context_symmetric {
 	pool_t pool;
 	const EVP_CIPHER *cipher;
@@ -1643,7 +1646,7 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 	size_t dest_used = buffer_get_used_size(destination);
 	const char *cipher2 = NULL;
 	EVP_PKEY *pkey = key->key;
-	char objtxt[80]; /* openssl manual says this is OK */
+	char objtxt[OID_TEXT_MAX_LEN];
 	ASN1_OBJECT *obj;
 
 	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
