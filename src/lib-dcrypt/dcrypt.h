@@ -50,6 +50,12 @@ enum dcrypt_key_kind {
 	DCRYPT_KEY_KIND_PRIVATE
 };
 
+enum dcrypt_key_usage {
+	DCRYPT_KEY_USAGE_NONE,
+	DCRYPT_KEY_USAGE_ENCRYPT,
+	DCRYPT_KEY_USAGE_SIGN,
+};
+
 struct dcrypt_settings {
 	/* OpenSSL engine to use */
 	const char *crypto_device;
