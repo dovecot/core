@@ -13,6 +13,7 @@
 #include "randgen.h"
 #include "test-common.h"
 #include "hex-binary.h"
+#include "json-parser.h"
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdio.h>
@@ -1018,6 +1019,47 @@ static void test_raw_keys(void)
 	test_end();
 }
 
+static void test_jwk_keys(void)
+{
+	/* Make sure this matches what comes out from store private */
+	const char *jwk_key_json = "{\"kty\":\"EC\","
+	  "\"crv\":\"P-256\","
+	  "\"x\":\"Kp0Y4-Wpt-D9t_2XenFIj0LmvaZByLG69yOisek4aMI\","
+	  "\"y\":\"wjEPB5BhH5SRPw1cCN5grWrLCphrW19fCFR8p7c9O5o\","
+          "\"use\":\"sig\","
+          "\"kid\":\"123\","
+	  "\"d\":\"Po2z9rs86J2Qb_xWprr4idsWNPlgKf3G8-mftnE2ync\"}";
+	/* Acquired using another tool */
+	const char *pem_key = "-----BEGIN PUBLIC KEY-----\n"
+	  "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
+	  "yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
+	  "-----END PUBLIC KEY-----";
+
+	test_begin("test_jwk_keys");
+	struct dcrypt_keypair pair;
+	buffer_t *pem = t_buffer_create(256);
+	i_zero(&pair);
+
+	test_assert(dcrypt_key_load_public(&pair.pub, jwk_key_json, NULL));
+	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json, NULL, NULL, NULL));
+
+	/* test accessors */
+	test_assert_strcmp(dcrypt_key_get_id_public(pair.pub), "123");
+	test_assert(dcrypt_key_get_usage_public(pair.pub) == DCRYPT_KEY_USAGE_SIGN);
+
+	/* make sure we got the right key */
+	test_assert(dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_PEM, pem, NULL));
+	test_assert_strcmp(str_c(pem), pem_key);
+
+	str_truncate(pem, 0);
+	test_assert(dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_JWK, NULL, pem, NULL, NULL, NULL));
+	test_assert_strcmp(str_c(pem), jwk_key_json);
+
+	dcrypt_keypair_unref(&pair);
+
+	test_end();
+}
+
 int main(void)
 {
 	struct dcrypt_settings set = {
@@ -1049,6 +1091,7 @@ int main(void)
 		test_password_change,
 		test_load_invalid_keys,
 		test_raw_keys,
+		test_jwk_keys,
 		NULL
 	};
 
