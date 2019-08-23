@@ -1,3 +1,9 @@
+v2.3.7.2 2019-08-28  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2019-11500: IMAP protocol parser does not properly handle NUL byte
+	  when scanning data in quoted strings, leading to out of bounds heap
+	  memory writes. Found by Nick Roessler and Rafi Rubin.
+
 v2.3.7.1 2019-07-23  Timo Sirainen <timo.sirainen@open-xchange.com>
 
 	- Fix TCP_NODELAY errors being logged on non-Linux OSes
