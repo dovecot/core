@@ -2182,8 +2182,10 @@ static void dcrypt_openssl_ref_private_key(struct dcrypt_private_key *key)
 
 static void dcrypt_openssl_unref_public_key(struct dcrypt_public_key **key)
 {
-	i_assert(key != NULL && *key != NULL);
+	i_assert(key != NULL);
 	struct dcrypt_public_key *_key = *key;
+	if (_key == NULL)
+		return;
 	i_assert(_key->ref > 0);
 	*key = NULL;
 	if (--_key->ref > 0) return;
@@ -2193,8 +2195,10 @@ static void dcrypt_openssl_unref_public_key(struct dcrypt_public_key **key)
 
 static void dcrypt_openssl_unref_private_key(struct dcrypt_private_key **key)
 {
-	i_assert(key != NULL && *key != NULL);
+	i_assert(key != NULL);
 	struct dcrypt_private_key *_key = *key;
+	if (_key == NULL)
+		return;
 	i_assert(_key->ref > 0);
 	*key = NULL;
 	if (--_key->ref > 0) return;
