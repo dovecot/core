@@ -2198,6 +2198,7 @@ static void dcrypt_openssl_unref_public_key(struct dcrypt_public_key **key)
 	*key = NULL;
 	if (--_key->ref > 0) return;
 	EVP_PKEY_free(_key->key);
+	i_free(_key->key_id);
 	i_free(_key);
 }
 
@@ -2211,6 +2212,7 @@ static void dcrypt_openssl_unref_private_key(struct dcrypt_private_key **key)
 	*key = NULL;
 	if (--_key->ref > 0) return;
 	EVP_PKEY_free(_key->key);
+	i_free(_key->key_id);
 	i_free(_key);
 }
 

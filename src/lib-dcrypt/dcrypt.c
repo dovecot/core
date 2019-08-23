@@ -501,3 +501,69 @@ bool dcrypt_key_get_curve_public(struct dcrypt_public_key *key,
 	}
 	return dcrypt_vfs->key_get_curve_public(key, curve_r, error_r);
 }
+
+const char *dcrypt_key_get_id_public(struct dcrypt_public_key *key)
+{
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_get_id_public == NULL)
+		return NULL;
+	return dcrypt_vfs->key_get_id_public(key);
+}
+
+const char *dcrypt_key_get_id_private(struct dcrypt_private_key *key)
+{
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->key_get_id_private == NULL)
+		return NULL;
+	return dcrypt_vfs->key_get_id_private(key);
+}
+
+void dcrypt_key_set_id_public(struct dcrypt_public_key *key, const char *id)
+{
+        i_assert(dcrypt_vfs != NULL);
+        if (dcrypt_vfs->key_set_id_public == NULL)
+                return;
+        dcrypt_vfs->key_set_id_public(key, id);
+}
+
+void dcrypt_key_set_id_private(struct dcrypt_private_key *key, const char *id)
+{
+        i_assert(dcrypt_vfs != NULL);
+        if (dcrypt_vfs->key_set_id_private == NULL)
+                return;
+        dcrypt_vfs->key_set_id_private(key, id);
+}
+
+enum dcrypt_key_usage dcrypt_key_get_usage_public(struct dcrypt_public_key *key)
+{
+        i_assert(dcrypt_vfs != NULL);
+        if (dcrypt_vfs->key_get_usage_public == NULL)
+                return DCRYPT_KEY_USAGE_NONE;
+        return dcrypt_vfs->key_get_usage_public(key);
+}
+
+enum dcrypt_key_usage dcrypt_key_get_usage_private(struct dcrypt_private_key *key)
+{
+        i_assert(dcrypt_vfs != NULL);
+        if (dcrypt_vfs->key_get_usage_private == NULL)
+                return DCRYPT_KEY_USAGE_NONE;
+        return dcrypt_vfs->key_get_usage_private(key);
+}
+
+void dcrypt_key_set_usage_public(struct dcrypt_public_key *key,
+				 enum dcrypt_key_usage usage)
+{
+        i_assert(dcrypt_vfs != NULL);
+        if (dcrypt_vfs->key_set_usage_public == NULL)
+                return;
+        dcrypt_vfs->key_set_usage_public(key, usage);
+}
+
+void dcrypt_key_set_usage_private(struct dcrypt_private_key *key,
+				  enum dcrypt_key_usage usage)
+{
+        i_assert(dcrypt_vfs != NULL);
+        if (dcrypt_vfs->key_set_usage_private == NULL)
+                return;
+        dcrypt_vfs->key_set_usage_private(key, usage);
+}
