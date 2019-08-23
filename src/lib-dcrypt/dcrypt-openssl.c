@@ -2282,14 +2282,15 @@ dcrypt_openssl_name2oid(const char *name, buffer_t *oid, const char **error_r)
 	if (obj == NULL)
 		return dcrypt_openssl_error(error_r);
 
-	size_t len =  OBJ_length(obj);
+	size_t len = OBJ_length(obj);
 	if (len == 0)
 	{
 		if (error_r != NULL)
 			*error_r = "Object has no OID assigned";
 		return FALSE;
 	}
-	unsigned char *bufptr = buffer_append_space_unsafe(oid, len + 2);
+	len = i2d_ASN1_OBJECT(obj, NULL);
+	unsigned char *bufptr = buffer_append_space_unsafe(oid, len);
 	i2d_ASN1_OBJECT(obj, &bufptr);
 	ASN1_OBJECT_free(obj);
 	if (bufptr != NULL) {
