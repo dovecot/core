@@ -326,6 +326,20 @@ bool dcrypt_key_string_get_info(const char *key_data,
 				const char **encryption_key_hash_r,
 				const char **key_hash_r, const char **error_r);
 
+/* Get/Set key identifier, this is optional opaque string identifying the key. */
+const char *dcrypt_key_get_id_public(struct dcrypt_public_key *key);
+const char *dcrypt_key_get_id_private(struct dcrypt_private_key *key);
+void dcrypt_key_set_id_public(struct dcrypt_public_key *key, const char *id);
+void dcrypt_key_set_id_private(struct dcrypt_private_key *key, const char *id);
+
+/* Get/Set key usage, optional. Defaults to NONE */
+enum dcrypt_key_usage dcrypt_key_get_usage_public(struct dcrypt_public_key *key);
+enum dcrypt_key_usage dcrypt_key_get_usage_private(struct dcrypt_private_key *key);
+void dcrypt_key_set_usage_public(struct dcrypt_public_key *key,
+				 enum dcrypt_key_usage usage);
+void dcrypt_key_set_usage_private(struct dcrypt_private_key *key,
+				  enum dcrypt_key_usage usage);
+
 /* RSA stuff */
 bool dcrypt_rsa_encrypt(struct dcrypt_public_key *key,
 			const unsigned char *data, size_t data_len,

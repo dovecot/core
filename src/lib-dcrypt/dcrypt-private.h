@@ -171,6 +171,16 @@ struct dcrypt_vfs {
 				    const char **error_r);
 	bool (*key_get_curve_public)(struct dcrypt_public_key *key,
 				     const char **curve_r, const char **error_r);
+	const char *(*key_get_id_public)(struct dcrypt_public_key *key);
+	const char *(*key_get_id_private)(struct dcrypt_private_key *key);
+	void (*key_set_id_public)(struct dcrypt_public_key *key, const char *id);
+	void (*key_set_id_private)(struct dcrypt_private_key *key, const char *id);
+	enum dcrypt_key_usage (*key_get_usage_public)(struct dcrypt_public_key *key);
+	enum dcrypt_key_usage (*key_get_usage_private)(struct dcrypt_private_key *key);
+	void (*key_set_usage_public)(struct dcrypt_public_key *key,
+				     enum dcrypt_key_usage usage);
+	void (*key_set_usage_private)(struct dcrypt_private_key *key,
+				      enum dcrypt_key_usage usage);
 };
 
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs);
