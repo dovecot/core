@@ -94,6 +94,11 @@
 	STMT_START { HMAC_CTX_free(ctx); (ctx) = NULL; } STMT_END
 #endif
 
+/* Not always present */
+#ifndef HAVE_BN_SECURE_NEW
+#  define BN_secure_new BN_new
+#endif
+
 /* openssl manual says this is OK */
 #define OID_TEXT_MAX_LEN 80
 
@@ -1023,7 +1028,7 @@ dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_r,
 
 	/* decode and optionally decipher private key value */
 	if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_NONE) {
-		point = BN_new();
+		point = BN_secure_new();
 		if (point == NULL || BN_hex2bn(&point, input[3]) < 1) {
 			BN_free(point);
 			return dcrypt_openssl_error(error_r);
@@ -1340,7 +1345,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		(*key_r)->ref++;
 	} else {
 		int ec;
-		BIGNUM *point = BN_new();
+		BIGNUM *point = BN_secure_new();
 		if (point == NULL ||
 		    BN_mpi2bn(key_data->data, key_data->used, point) == NULL) {
 			safe_memset(buffer_get_modifiable_data(key_data, NULL),
