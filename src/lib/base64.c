@@ -524,71 +524,15 @@ int base64_decode_finish(struct base64_decoder *dec)
  */
 
 int base64_scheme_decode(const struct base64_scheme *b64,
-			 const void *src, size_t src_size, size_t *src_pos_r,
-			 buffer_t *dest)
+			 const void *src, size_t src_size, buffer_t *dest)
 {
-	const unsigned char *b64dec = b64->decmap;
-	const unsigned char *src_c = src;
-	size_t src_pos;
-	unsigned char input[4], output[3];
-	int ret = 1;
+	struct base64_decoder dec;
+	int ret;
 
-	for (src_pos = 0; src_pos+3 < src_size; ) {
-		input[0] = b64dec[src_c[src_pos]];
-		if (input[0] == 0xff) {
-			if (unlikely(!IS_EMPTY(src_c[src_pos]))) {
-				ret = -1;
-				break;
-			}
-			src_pos++;
-			continue;
-		}
-
-		input[1] = b64dec[src_c[src_pos+1]];
-		if (unlikely(input[1] == 0xff)) {
-			ret = -1;
-			break;
-		}
-		output[0] = (input[0] << 2) | (input[1] >> 4);
-
-		input[2] = b64dec[src_c[src_pos+2]];
-		if (input[2] == 0xff) {
-			if (unlikely(src_c[src_pos+2] != '=' ||
-				     src_c[src_pos+3] != '=')) {
-				ret = -1;
-				break;
-			}
-			buffer_append(dest, output, 1);
-			ret = 0;
-			src_pos += 4;
-			break;
-		}
-
-		output[1] = (input[1] << 4) | (input[2] >> 2);
-		input[3] = b64dec[src_c[src_pos+3]];
-		if (input[3] == 0xff) {
-			if (unlikely(src_c[src_pos+3] != '=')) {
-				ret = -1;
-				break;
-			}
-			buffer_append(dest, output, 2);
-			ret = 0;
-			src_pos += 4;
-			break;
-		}
-
-		output[2] = ((input[2] << 6) & 0xc0) | input[3];
-		buffer_append(dest, output, 3);
-		src_pos += 4;
-	}
-
-	for (; src_pos < src_size; src_pos++) {
-		if (!IS_EMPTY(src_c[src_pos]))
-			break;
-	}
-
-	if (src_pos_r != NULL)
-		*src_pos_r = src_pos;
+	base64_decode_init(&dec, b64, 0);
+	ret = base64_decode_more(&dec, src, src_size, NULL, dest);
+	if (ret >= 0)
+		ret = base64_decode_finish(&dec);
 
 	return ret;
 }
@@ -600,7 +544,7 @@ buffer_t *t_base64_scheme_decode_str(const struct base64_scheme *b64,
 	size_t len = strlen(str);
 
 	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
-	(void)base64_scheme_decode(b64, str, len, NULL, buf);
+	(void)base64_scheme_decode(b64, str, len, buf);
 	return buf;
 }
 

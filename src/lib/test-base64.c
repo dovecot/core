@@ -40,35 +40,33 @@ struct test_base64_decode {
 	const char *input;
 	const char *output;
 	int ret;
-	unsigned int src_pos;
 };
 
 static void test_base64_decode(void)
 {
 	static const struct test_base64_decode tests[] = {
 		{ "\taGVsbG8gd29ybGQ=",
-		  "hello world", 0, UINT_MAX },
+		  "hello world", 0 },
 		{ "\nZm9v\n \tIGJh  \t\ncml0cw==",
-		  "foo barits", 0, UINT_MAX },
+		  "foo barits", 0 },
 		{ "  anVzdCBuaWlu  \n",
-		  "just niin", 1, UINT_MAX },
+		  "just niin", 0 },
 		{ "aGVsb",
-		  "hel", 1, 4 },
+		  "hel", -1 },
 		{ "aGVsb!!!!!",
-		  "hel", -1, 4 },
+		  "hel", -1 },
 		{ "aGVs!!!!!",
-		  "hel", -1, 4 },
+		  "hel", -1 },
 		{ "0JPQvtCy0L7RgNGPzIHRgiwg0YfRgt"
 		  "C+INC60YPRgCDQtNC+0Y/MgdGCLg==",
 		  "\xd0\x93\xd0\xbe\xd0\xb2\xd0\xbe\xd1\x80\xd1\x8f\xcc"
 		  "\x81\xd1\x82\x2c\x20\xd1\x87\xd1\x82\xd0\xbe\x20\xd0"
 		  "\xba\xd1\x83\xd1\x80\x20\xd0\xb4\xd0\xbe\xd1\x8f\xcc"
-		  "\x81\xd1\x82\x2e", 0, UINT_MAX },
+		  "\x81\xd1\x82\x2e", 0 },
 	};
 	string_t *str;
 	buffer_t buf;
 	unsigned int i;
-	size_t src_pos;
 	int ret;
 
 	test_begin("base64_decode()");
@@ -83,17 +81,13 @@ static void test_base64_decode(void)
 		buffer_create_from_data(&buf, t_malloc0(max_decoded_size),
 					max_decoded_size);
 		str = &buf;
-		src_pos = 0;
 		ret = base64_decode(tests[i].input, strlen(tests[i].input),
-				    &src_pos, str);
+				    NULL, str);
 
 		test_assert_idx(tests[i].ret == ret, i);
 		test_assert_idx(strlen(tests[i].output) == str_len(str) &&
 				memcmp(tests[i].output, str_data(str),
 				       str_len(str)) == 0, i);
-		test_assert_idx(src_pos == tests[i].src_pos ||
-				(tests[i].src_pos == UINT_MAX &&
-				 src_pos == strlen(tests[i].input)), i);
 		if (ret >= 0) {
 			test_assert_idx(
 				str_len(str) <= MAX_BASE64_DECODED_SIZE(
@@ -165,35 +159,33 @@ struct test_base64url_decode {
 	const char *input;
 	const char *output;
 	int ret;
-	unsigned int src_pos;
 };
 
 static void test_base64url_decode(void)
 {
 	static const struct test_base64url_decode tests[] = {
 		{ "\taGVsbG8gd29ybGQ=",
-		  "hello world", 0, UINT_MAX },
+		  "hello world", 0 },
 		{ "\nZm9v\n \tIGJh  \t\ncml0cw==",
-		  "foo barits", 0, UINT_MAX },
+		  "foo barits", 0 },
 		{ "  anVzdCBuaWlu  \n",
-		  "just niin", 1, UINT_MAX },
+		  "just niin", 0 },
 		{ "aGVsb",
-		  "hel", 1, 4 },
+		  "hel", -1 },
 		{ "aGVsb!!!!!",
-		  "hel", -1, 4 },
+		  "hel", -1 },
 		{ "aGVs!!!!!",
-		  "hel", -1, 4 },
+		  "hel", -1 },
 		{ "0JPQvtCy0L7RgNGPzIHRgiwg0YfRgt"
 		  "C-INC60YPRgCDQtNC-0Y_MgdGCLg==",
 		  "\xd0\x93\xd0\xbe\xd0\xb2\xd0\xbe\xd1\x80\xd1\x8f\xcc"
 		  "\x81\xd1\x82\x2c\x20\xd1\x87\xd1\x82\xd0\xbe\x20\xd0"
 		  "\xba\xd1\x83\xd1\x80\x20\xd0\xb4\xd0\xbe\xd1\x8f\xcc"
-		  "\x81\xd1\x82\x2e", 0, UINT_MAX },
+		  "\x81\xd1\x82\x2e", 0 },
 	};
 	string_t *str;
 	buffer_t buf;
 	unsigned int i;
-	size_t src_pos;
 	int ret;
 
 	test_begin("base64url_decode()");
@@ -208,17 +200,13 @@ static void test_base64url_decode(void)
 		buffer_create_from_data(&buf, t_malloc0(max_decoded_size),
 					max_decoded_size);
 		str = &buf;
-		src_pos = 0;
 		ret = base64url_decode(tests[i].input, strlen(tests[i].input),
-				       &src_pos, str);
+				       str);
 
 		test_assert_idx(tests[i].ret == ret, i);
 		test_assert_idx(strlen(tests[i].output) == str_len(str) &&
 				memcmp(tests[i].output, str_data(str),
 				       str_len(str)) == 0, i);
-		test_assert_idx(src_pos == tests[i].src_pos ||
-				(tests[i].src_pos == UINT_MAX &&
-				 src_pos == strlen(tests[i].input)), i);
 		if (ret >= 0) {
 			test_assert_idx(
 				str_len(str) <= MAX_BASE64_DECODED_SIZE(
@@ -247,7 +235,7 @@ static void test_base64url_random(void)
 		str_truncate(dest, 0);
 		base64url_encode(buf, max, str);
 		test_assert_idx(base64url_decode(str_data(str), str_len(str),
-						 NULL, dest) >= 0, i);
+						 dest) >= 0, i);
 		test_assert_idx(str_len(dest) == max &&
 				memcmp(buf, str_data(dest), max) == 0, i);
 	}

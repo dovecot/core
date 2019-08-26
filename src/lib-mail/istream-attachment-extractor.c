@@ -341,6 +341,7 @@ static int astream_decode_base64(struct attachment_istream *astream,
 				 buffer_t **extra_buf_r)
 {
 	struct attachment_istream_part *part = &astream->part;
+	struct base64_decoder b64dec;
 	struct istream *input, *base64_input;
 	struct ostream *output;
 	const unsigned char *data;
@@ -376,12 +377,13 @@ static int astream_decode_base64(struct attachment_istream *astream,
 	output = o_stream_create_fd_file(outfd, 0, FALSE);
 	o_stream_cork(output);
 
+	base64_decode_init(&b64dec, &base64_scheme, 0);
 	hash_format_reset(astream->set.hash_format);
 	size_t bytes_needed = 1;
 	while ((ret = i_stream_read_bytes(base64_input, &data, &size,
 					  bytes_needed)) > 0) {
 		buffer_set_used_size(buf, 0);
-		if (base64_decode(data, size, &size, buf) < 0) {
+		if (base64_decode_more(&b64dec, data, size, &size, buf) < 0) {
 			i_error("istream-attachment: BUG: "
 				"Attachment base64 data unexpectedly broke");
 			failed = TRUE;
@@ -399,6 +401,11 @@ static int astream_decode_base64(struct attachment_istream *astream,
 		i_error("istream-attachment: read(%s) failed: %s",
 			i_stream_get_name(base64_input),
 			i_stream_get_error(base64_input));
+		failed = TRUE;
+	}
+	if (base64_decode_finish(&b64dec) < 0) {
+		i_error("istream-attachment: BUG: "
+			"Attachment base64 data unexpectedly broke");
 		failed = TRUE;
 	}
 	if (o_stream_finish(output) < 0) {
