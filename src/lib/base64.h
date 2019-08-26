@@ -189,13 +189,9 @@ base64_scheme_encode(const struct base64_scheme *b64,
 
    Any CR, LF characters are ignored, as well as whitespace at beginning or
    end of line.
-
-   This function may be called multiple times for parsing the same stream.
-   If src_pos is non-NULL, it's updated to first non-translated character in
-   src. */
+ */
 int base64_scheme_decode(const struct base64_scheme *b64,
-			 const void *src, size_t src_size, size_t *src_pos_r,
-			 buffer_t *dest) ATTR_NULL(4);
+			 const void *src, size_t src_size, buffer_t *dest);
 
 /* Decode given string to a buffer allocated from data stack.
 
@@ -227,13 +223,18 @@ base64_encode(const void *src, size_t src_size, buffer_t *dest)
 }
 
 /* Translates base64 data into binary and appends it to dest buffer. See
-   base64_scheme_decode(). */
+   base64_scheme_decode().
+
+   The src_pos_r parameter is deprecated and MUST be NULL.
+ */
 static inline int
-base64_decode(const void *src, size_t src_size, size_t *src_pos_r,
+base64_decode(const void *src, size_t src_size, size_t *src_pos_r ATTR_UNUSED,
 	      buffer_t *dest) ATTR_NULL(3)
 {
-	return base64_scheme_decode(&base64_scheme, src, src_size,
-				    src_pos_r, dest);
+	// NOTE: src_pos_r is deprecated here; to be removed in v2.4 */
+	i_assert(src_pos_r == NULL);
+
+	return base64_scheme_decode(&base64_scheme, src, src_size, dest);
 }
 
 /* Decode given string to a buffer allocated from data stack. */
@@ -264,11 +265,9 @@ base64url_encode(const void *src, size_t src_size, buffer_t *dest)
 /* Translates base64url data into binary and appends it to dest buffer. See
    base64_scheme_decode(). */
 static inline int
-base64url_decode(const void *src, size_t src_size, size_t *src_pos_r,
-		 buffer_t *dest) ATTR_NULL(3)
+base64url_decode(const void *src, size_t src_size, buffer_t *dest)
 {
-	return base64_scheme_decode(&base64url_scheme, src, src_size,
-				    src_pos_r, dest);
+	return base64_scheme_decode(&base64url_scheme, src, src_size, dest);
 }
 
 /* Decode given string to a buffer allocated from data stack. */

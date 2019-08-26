@@ -273,6 +273,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				struct message_block *input,
 				struct message_block *output)
 {
+	struct base64_decoder b64dec;
 	const unsigned char *data = NULL;
 	size_t pos = 0, size = 0;
 	const char *error;
@@ -307,15 +308,18 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	}
 	case MESSAGE_CTE_BASE64:
 		buffer_set_used_size(ctx->buf, 0);
+		base64_decode_init(&b64dec, &base64_scheme, 0);
 		if (ctx->encoding_buf->used != 0) {
-			ret = base64_decode(ctx->encoding_buf->data,
-					    ctx->encoding_buf->used,
-					    &pos, ctx->buf);
+			ret = base64_decode_more(&b64dec,
+						 ctx->encoding_buf->data,
+						 ctx->encoding_buf->used,
+						 &pos, ctx->buf);
 		} else {
-			ret = base64_decode(input->data, input->size,
-					    &pos, ctx->buf);
+			ret = base64_decode_more(&b64dec,
+						 input->data, input->size,
+						 &pos, ctx->buf);
 		}
-		if (ret < 0) {
+		if (ret < 0 || base64_decode_finish(&b64dec) < 0) {
 			/* corrupted base64 data, don't bother with
 			   the rest of it */
 			return FALSE;

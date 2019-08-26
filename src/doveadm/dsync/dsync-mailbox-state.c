@@ -81,11 +81,10 @@ int dsync_mailbox_states_import(HASH_TABLE_TYPE(dsync_mailbox_state) states,
 	buffer_t *buf;
 	uint8_t *guid_p;
 	const unsigned char *data;
-	size_t pos;
 	unsigned int i, count;
 
 	buf = t_buffer_create(strlen(input));
-	if (base64_decode(input, strlen(input), &pos, buf) < 0) {
+	if (base64_decode(input, strlen(input), NULL, buf) < 0) {
 		*error_r = "Invalid base64 data";
 		return -1;
 	}
