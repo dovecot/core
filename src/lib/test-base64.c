@@ -536,6 +536,22 @@ tests_base64_decode_lowlevel[] = {
 	},
 	{
 		.scheme = &base64_scheme,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
+		.input = "\taGVsbG8gd29ybGQ=",
+		.output = "hello world",
+		.ret = 0,
+		.src_pos = 17,
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
+		.input = "\taGVsbG8gd29ybGQ",
+		.output = "hello world",
+		.ret = 0,
+		.src_pos = 16,
+	},
+	{
+		.scheme = &base64_scheme,
 		.input = "\nZm9v\n \tIGJh  \t\ncml0cw==",
 		.output = "foo barits",
 		.ret = 0,
@@ -587,6 +603,22 @@ tests_base64_decode_lowlevel[] = {
 	},
 	{
 		.scheme = &base64_scheme,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
+		.input = "\nZm9v\n \tIGJh  \t\ncml0cw==",
+		.output = "foo barits",
+		.ret = 0,
+		.src_pos = 24,
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
+		.input = "\nZm9v\n \tIGJh  \t\ncml0cw",
+		.output = "foo barits",
+		.ret = 0,
+		.src_pos = 22,
+	},
+	{
+		.scheme = &base64_scheme,
 		.input = "  anVzdCBuaWlu  \n",
 		.output = "just niin",
 		.ret = 0,
@@ -609,6 +641,14 @@ tests_base64_decode_lowlevel[] = {
 	},
 	{
 		.scheme = &base64_scheme,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
+		.input = "  anVzdCBuaWlu  \n",
+		.output = "just niin",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
 		.input = "aGVsb",
 		.output = "hel",
 		.ret = -1,
@@ -624,6 +664,14 @@ tests_base64_decode_lowlevel[] = {
 	{
 		.scheme = &base64_scheme,
 		.flags = BASE64_DECODE_FLAG_NO_PADDING,
+		.input = "aGVsb",
+		.output = "hel",
+		.ret = 0,
+		.src_pos = 5,
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
 		.input = "aGVsb",
 		.output = "hel",
 		.ret = 0,
@@ -689,6 +737,34 @@ tests_base64_decode_lowlevel[] = {
 		.input =
 			"0JPQvtCy0L7RgNGPzIHRgiwg0YfRgt"
 			"C+INC60YPRgCDQtNC+0Y/MgdGCLg",
+		.output =
+			"\xd0\x93\xd0\xbe\xd0\xb2\xd0\xbe\xd1\x80\xd1\x8f\xcc"
+			"\x81\xd1\x82\x2c\x20\xd1\x87\xd1\x82\xd0\xbe\x20\xd0"
+			"\xba\xd1\x83\xd1\x80\x20\xd0\xb4\xd0\xbe\xd1\x8f\xcc"
+			"\x81\xd1\x82\x2e",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
+		.input =
+			"0JPQvtCy0L7RgNGPzIHRgiwg0YfRgt"
+			"C+INC60YPRgCDQtNC+0Y/MgdGCLg",
+		.output =
+			"\xd0\x93\xd0\xbe\xd0\xb2\xd0\xbe\xd1\x80\xd1\x8f\xcc"
+			"\x81\xd1\x82\x2c\x20\xd1\x87\xd1\x82\xd0\xbe\x20\xd0"
+			"\xba\xd1\x83\xd1\x80\x20\xd0\xb4\xd0\xbe\xd1\x8f\xcc"
+			"\x81\xd1\x82\x2e",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
+		.input =
+			"0JPQvtCy0L7RgNGPzIHRgiwg0YfRgt"
+			"C+INC60YPRgCDQtNC+0Y/MgdGCLg==",
 		.output =
 			"\xd0\x93\xd0\xbe\xd0\xb2\xd0\xbe\xd1\x80\xd1\x8f\xcc"
 			"\x81\xd1\x82\x2c\x20\xd1\x87\xd1\x82\xd0\xbe\x20\xd0"

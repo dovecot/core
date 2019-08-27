@@ -118,6 +118,10 @@ enum base64_decode_flags {
 	BASE64_DECODE_FLAG_NO_WHITESPACE   = BIT(1),
 	/* Require absence of padding at the end of the input. */
 	BASE64_DECODE_FLAG_NO_PADDING      = BIT(2),
+	/* Ignore padding at the end of the input. This flag is ignored when
+	   BASE64_DECODE_FLAG_NO_PADDING is also set. If both of these flags are
+	   absent, padding is required (the default). */
+	BASE64_DECODE_FLAG_IGNORE_PADDING  = BIT(3),
 };
 
 struct base64_decoder {

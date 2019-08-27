@@ -672,7 +672,12 @@ int base64_decode_finish(struct base64_decoder *dec)
 		return -1;
 
 	if (HAS_ALL_BITS(dec->flags,
-			 BASE64_DECODE_FLAG_NO_PADDING))
+			 BASE64_DECODE_FLAG_NO_PADDING)) {
+		i_assert(!dec->seen_padding);
+		return 0;
+	}
+	if (HAS_ALL_BITS(dec->flags,
+			 BASE64_DECODE_FLAG_IGNORE_PADDING))
 		return 0;
 	return (dec->sub_pos == 0 ? 0 : -1);
 }
