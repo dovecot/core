@@ -468,10 +468,12 @@ int base64_decode_more(struct base64_decoder *dec,
 {
 	const struct base64_scheme *b64 = dec->b64;
 	const unsigned char *src_c = src;
-	bool expect_boundary = HAS_ALL_BITS(dec->flags,
-					    BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
-	bool no_whitespace = HAS_ALL_BITS(dec->flags,
-					  BASE64_DECODE_FLAG_NO_WHITESPACE);
+	bool expect_boundary = HAS_ALL_BITS(
+		dec->flags, BASE64_DECODE_FLAG_EXPECT_BOUNDARY);
+	bool no_whitespace = HAS_ALL_BITS(
+		dec->flags, BASE64_DECODE_FLAG_NO_WHITESPACE);
+	bool no_padding = HAS_ALL_BITS(
+		dec->flags, BASE64_DECODE_FLAG_NO_PADDING);
 	size_t src_pos, dst_avail;
 	int ret = 1;
 
@@ -587,8 +589,7 @@ int base64_decode_more(struct base64_decoder *dec,
 		/* try to parse the end (padding) of the base64 input */
 		i_assert(src_pos < src_size);
 
-		if (HAS_ALL_BITS(dec->flags,
-				 BASE64_DECODE_FLAG_NO_PADDING)) {
+		if (no_padding) {
 			/* no padding allowed */
 			i_assert(!dec->seen_padding);
 			ret = -1;
