@@ -249,7 +249,6 @@ base64_encode_more_data(struct base64_encoder *enc,
 		enc->w_buf_len = 2;
 		enc->buf = (src_c[src_pos+1] & 0x0f) << 2;
 		src_pos += 2;
-		res_size = end - ptr;
 		break;
 	default:
 		/* hit the end of the destination buffer */
