@@ -1014,6 +1014,8 @@ static void test_raw_keys(void)
 			   "efb4619614cc5e19fe9b2d24dae834b:21d116b7b3e5c52e81f"
 			   "0437a10b0116cfafc467fb1b96e48926d021668fc1bea");
 
+	dcrypt_keypair_unref(&pair);
+
 	test_end();
 }
 
