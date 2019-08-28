@@ -146,7 +146,8 @@ static void test_base64url_encode(void)
 	str = t_str_new(256);
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
-		base64url_encode(tests[i].input, strlen(tests[i].input), str);
+		base64url_encode(0, 0, tests[i].input, strlen(tests[i].input),
+				 str);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 		test_assert_idx(
 			str_len(str) ==	MAX_BASE64_ENCODED_SIZE(
@@ -233,7 +234,7 @@ static void test_base64url_random(void)
 
 		str_truncate(str, 0);
 		str_truncate(dest, 0);
-		base64url_encode(buf, max, str);
+		base64url_encode(0, 0, buf, max, str);
 		test_assert_idx(base64url_decode(0, str_data(str), str_len(str),
 						 dest) >= 0, i);
 		test_assert_idx(str_len(dest) == max &&

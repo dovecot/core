@@ -199,11 +199,12 @@ int base64_decode_finish(struct base64_decoder *dec);
  */
 static inline void
 base64_scheme_encode(const struct base64_scheme *b64,
+		     enum base64_encode_flags flags, size_t max_line_len,
 		     const void *src, size_t src_size, buffer_t *dest)
 {
 	struct base64_encoder enc;
 
-	base64_encode_init(&enc, b64, 0, 0);
+	base64_encode_init(&enc, b64, flags, max_line_len);
 	base64_encode_more(&enc, src, src_size, NULL, dest);
 	base64_encode_finish(&enc, dest);
 }
@@ -260,7 +261,7 @@ extern struct base64_scheme base64_scheme;
 static inline void
 base64_encode(const void *src, size_t src_size, buffer_t *dest)
 {
-	base64_scheme_encode(&base64_scheme, src, src_size, dest);
+	base64_scheme_encode(&base64_scheme, 0, 0, src, src_size, dest);
 }
 
 /* Translates base64 data into binary and appends it to dest buffer. See
@@ -306,9 +307,11 @@ extern struct base64_scheme base64url_scheme;
 
 /* Translates binary data into base64url. See base64_scheme_encode(). */
 static inline void
-base64url_encode(const void *src, size_t src_size, buffer_t *dest)
+base64url_encode(enum base64_encode_flags flags, size_t max_line_len,
+		 const void *src, size_t src_size, buffer_t *dest)
 {
-	base64_scheme_encode(&base64url_scheme, src, src_size, dest);
+	base64_scheme_encode(&base64url_scheme, flags, max_line_len,
+			     src, src_size, dest);
 }
 
 /* Translates base64url data into binary and appends it to dest buffer. See
