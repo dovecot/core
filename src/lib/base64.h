@@ -209,6 +209,20 @@ base64_scheme_encode(const struct base64_scheme *b64,
 	base64_encode_finish(&enc, dest);
 }
 
+buffer_t *t_base64_scheme_encode(const struct base64_scheme *b64,
+				 enum base64_encode_flags flags,
+				 size_t max_line_len,
+				 const void *src, size_t src_size);
+
+static inline buffer_t *
+t_base64_scheme_encode_str(const struct base64_scheme *b64,
+			   enum base64_encode_flags flags, size_t max_line_len,
+			   const char *src)
+{
+        return t_base64_scheme_encode(b64, flags, max_line_len,
+				      src, strlen(src));
+}
+
 /* Translates some variant of Base64 data into binary and appends it to dest
    buffer. dest may point to same buffer as src. Returns 1 if all ok, 0 if end
    of Base64 data found, -1 if data is invalid.
@@ -264,6 +278,22 @@ base64_encode(const void *src, size_t src_size, buffer_t *dest)
 	base64_scheme_encode(&base64_scheme, 0, 0, src, src_size, dest);
 }
 
+static inline buffer_t *
+t_base64_encode(enum base64_encode_flags flags, size_t max_line_len,
+		const void *src, size_t src_size)
+{
+	return t_base64_scheme_encode(&base64_scheme, flags, max_line_len,
+				      src, src_size);
+}
+
+static inline buffer_t *
+t_base64_encode_str(enum base64_encode_flags flags, size_t max_line_len,
+		    const char *src)
+{
+        return t_base64_scheme_encode(&base64_scheme, flags, max_line_len,
+				      src, strlen(src));
+}
+
 /* Translates base64 data into binary and appends it to dest buffer. See
    base64_scheme_decode().
 
@@ -312,6 +342,22 @@ base64url_encode(enum base64_encode_flags flags, size_t max_line_len,
 {
 	base64_scheme_encode(&base64url_scheme, flags, max_line_len,
 			     src, src_size, dest);
+}
+
+static inline buffer_t *
+t_base64url_encode(enum base64_encode_flags flags, size_t max_line_len,
+		const void *src, size_t src_size)
+{
+	return t_base64_scheme_encode(&base64url_scheme, flags, max_line_len,
+				      src, src_size);
+}
+
+static inline buffer_t *
+t_base64url_encode_str(enum base64_encode_flags flags, size_t max_line_len,
+		       const char *src)
+{
+        return t_base64_scheme_encode(&base64url_scheme, flags, max_line_len,
+				      src, strlen(src));
 }
 
 /* Translates base64url data into binary and appends it to dest buffer. See

@@ -686,6 +686,19 @@ int base64_decode_finish(struct base64_decoder *dec)
  * Generic Base64 API
  */
 
+buffer_t *t_base64_scheme_encode(const struct base64_scheme *b64,
+				 enum base64_encode_flags flags,
+				 size_t max_line_len,
+				 const void *src, size_t src_size)
+{
+	buffer_t *buf;
+
+        buf = t_buffer_create(MAX_BASE64_ENCODED_SIZE(src_size));
+        base64_scheme_encode(b64, flags, max_line_len, src, src_size, buf);
+        return buf;
+}
+
+
 int base64_scheme_decode(const struct base64_scheme *b64,
 			 enum base64_decode_flags flags,
 			 const void *src, size_t src_size, buffer_t *dest)
