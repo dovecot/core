@@ -1,3 +1,9 @@
+v2.2.36.4 2019-08-28  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2019-11500: IMAP protocol parser does not properly handle NUL byte
+	  when scanning data in quoted strings, leading to out of bounds heap
+	  memory writes. Found by Nick Roessler and Rafi Rubin.
+
 v2.2.36.3 2019-03-28  Timo Sirainen <tss@iki.fi>
 
 	* CVE-2019-7524: Missing input buffer size validation leads into
