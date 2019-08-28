@@ -222,14 +222,25 @@ int base64_scheme_decode(const struct base64_scheme *b64,
 			 enum base64_decode_flags flags,
 			 const void *src, size_t src_size, buffer_t *dest);
 
+/* Decode given data to a buffer allocated from data stack.
+
+   The b64 parameter is the definition of the particular Base 64 encoding scheme
+   that is expected. See below for specific functions.
+ */
+buffer_t *t_base64_scheme_decode(const struct base64_scheme *b64,
+				 enum base64_decode_flags flags,
+				 const void *src, size_t src_size);
 /* Decode given string to a buffer allocated from data stack.
 
-   The decmap is the mapping table used for the specific base64 encoding
-   variant. See below for specific functions.
+   The b64 parameter is the definition of the particular Base 64 encoding scheme
+   that is expected. See below for specific functions.
  */
-buffer_t *t_base64_scheme_decode_str(const struct base64_scheme *b64,
-				     enum base64_decode_flags flags,
-				     const char *str);
+static inline buffer_t *
+t_base64_scheme_decode_str(const struct base64_scheme *b64,
+			   enum base64_decode_flags flags, const char *str)
+{
+	return t_base64_scheme_decode(b64, flags, str, strlen(str));
+}
 
 /* Returns TRUE if c is a valid encoding character (excluding '=') for the
    provided base64 mapping table */
@@ -267,6 +278,14 @@ base64_decode(const void *src, size_t src_size, size_t *src_pos_r ATTR_UNUSED,
 	return base64_scheme_decode(&base64_scheme, 0, src, src_size, dest);
 }
 
+/* Decode given data to a buffer allocated from data stack. */
+static inline buffer_t *
+t_base64_decode(enum base64_decode_flags flags,
+		const void *src, size_t src_size)
+{
+	return t_base64_scheme_decode(&base64_scheme, flags, src, src_size);
+}
+
 /* Decode given string to a buffer allocated from data stack. */
 static inline buffer_t *t_base64_decode_str(const char *str)
 {
@@ -300,6 +319,14 @@ base64url_decode(enum base64_decode_flags flags,
 {
 	return base64_scheme_decode(&base64url_scheme, flags,
 				    src, src_size, dest);
+}
+
+/* Decode given data to a buffer allocated from data stack. */
+static inline buffer_t *
+t_base64url_decode(enum base64_decode_flags flags,
+		   const void *src, size_t src_size)
+{
+	return t_base64_scheme_decode(&base64url_scheme, flags, src, src_size);
 }
 
 /* Decode given string to a buffer allocated from data stack. */

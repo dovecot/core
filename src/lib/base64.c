@@ -701,15 +701,14 @@ int base64_scheme_decode(const struct base64_scheme *b64,
 	return ret;
 }
 
-buffer_t *t_base64_scheme_decode_str(const struct base64_scheme *b64,
-				     enum base64_decode_flags flags,
-				     const char *str)
+buffer_t *t_base64_scheme_decode(const struct base64_scheme *b64,
+				 enum base64_decode_flags flags,
+				 const void *src, size_t src_size)
 {
 	buffer_t *buf;
-	size_t len = strlen(str);
 
-	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
-	(void)base64_scheme_decode(b64, flags, str, len, buf);
+	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(src_size));
+	(void)base64_scheme_decode(b64, flags, src, src_size, buf);
 	return buf;
 }
 
