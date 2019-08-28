@@ -219,6 +219,7 @@ base64_scheme_encode(const struct base64_scheme *b64,
    end of line.
  */
 int base64_scheme_decode(const struct base64_scheme *b64,
+			 enum base64_decode_flags flags,
 			 const void *src, size_t src_size, buffer_t *dest);
 
 /* Decode given string to a buffer allocated from data stack.
@@ -227,6 +228,7 @@ int base64_scheme_decode(const struct base64_scheme *b64,
    variant. See below for specific functions.
  */
 buffer_t *t_base64_scheme_decode_str(const struct base64_scheme *b64,
+				     enum base64_decode_flags flags,
 				     const char *str);
 
 /* Returns TRUE if c is a valid encoding character (excluding '=') for the
@@ -262,13 +264,13 @@ base64_decode(const void *src, size_t src_size, size_t *src_pos_r ATTR_UNUSED,
 	// NOTE: src_pos_r is deprecated here; to be removed in v2.4 */
 	i_assert(src_pos_r == NULL);
 
-	return base64_scheme_decode(&base64_scheme, src, src_size, dest);
+	return base64_scheme_decode(&base64_scheme, 0, src, src_size, dest);
 }
 
 /* Decode given string to a buffer allocated from data stack. */
 static inline buffer_t *t_base64_decode_str(const char *str)
 {
-	return t_base64_scheme_decode_str(&base64_scheme, str);
+	return t_base64_scheme_decode_str(&base64_scheme, 0, str);
 }
 
 /* Returns TRUE if c is a valid base64 encoding character (excluding '=') */
@@ -293,15 +295,18 @@ base64url_encode(const void *src, size_t src_size, buffer_t *dest)
 /* Translates base64url data into binary and appends it to dest buffer. See
    base64_scheme_decode(). */
 static inline int
-base64url_decode(const void *src, size_t src_size, buffer_t *dest)
+base64url_decode(enum base64_decode_flags flags,
+		 const void *src, size_t src_size, buffer_t *dest)
 {
-	return base64_scheme_decode(&base64url_scheme, src, src_size, dest);
+	return base64_scheme_decode(&base64url_scheme, flags,
+				    src, src_size, dest);
 }
 
 /* Decode given string to a buffer allocated from data stack. */
-static inline buffer_t *t_base64url_decode_str(const char *str)
+static inline buffer_t *
+t_base64url_decode_str(enum base64_decode_flags flags, const char *str)
 {
-	return t_base64_scheme_decode_str(&base64url_scheme, str);
+	return t_base64_scheme_decode_str(&base64url_scheme, flags, str);
 }
 
 /* Returns TRUE if c is a valid base64url encoding character (excluding '=') */

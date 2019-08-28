@@ -687,12 +687,13 @@ int base64_decode_finish(struct base64_decoder *dec)
  */
 
 int base64_scheme_decode(const struct base64_scheme *b64,
+			 enum base64_decode_flags flags,
 			 const void *src, size_t src_size, buffer_t *dest)
 {
 	struct base64_decoder dec;
 	int ret;
 
-	base64_decode_init(&dec, b64, 0);
+	base64_decode_init(&dec, b64, flags);
 	ret = base64_decode_more(&dec, src, src_size, NULL, dest);
 	if (ret >= 0)
 		ret = base64_decode_finish(&dec);
@@ -701,13 +702,14 @@ int base64_scheme_decode(const struct base64_scheme *b64,
 }
 
 buffer_t *t_base64_scheme_decode_str(const struct base64_scheme *b64,
+				     enum base64_decode_flags flags,
 				     const char *str)
 {
 	buffer_t *buf;
 	size_t len = strlen(str);
 
 	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
-	(void)base64_scheme_decode(b64, str, len, buf);
+	(void)base64_scheme_decode(b64, flags, str, len, buf);
 	return buf;
 }
 

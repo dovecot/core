@@ -200,8 +200,8 @@ static void test_base64url_decode(void)
 		buffer_create_from_data(&buf, t_malloc0(max_decoded_size),
 					max_decoded_size);
 		str = &buf;
-		ret = base64url_decode(tests[i].input, strlen(tests[i].input),
-				       str);
+		ret = base64url_decode(0, tests[i].input,
+				       strlen(tests[i].input), str);
 
 		test_assert_idx(tests[i].ret == ret, i);
 		test_assert_idx(strlen(tests[i].output) == str_len(str) &&
@@ -234,7 +234,7 @@ static void test_base64url_random(void)
 		str_truncate(str, 0);
 		str_truncate(dest, 0);
 		base64url_encode(buf, max, str);
-		test_assert_idx(base64url_decode(str_data(str), str_len(str),
+		test_assert_idx(base64url_decode(0, str_data(str), str_len(str),
 						 dest) >= 0, i);
 		test_assert_idx(str_len(dest) == max &&
 				memcmp(buf, str_data(dest), max) == 0, i);
