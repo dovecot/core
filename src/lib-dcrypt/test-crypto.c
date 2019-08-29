@@ -453,11 +453,12 @@ static void test_load_v2_key(void)
 {
 	const char *keys[] = {
 		"-----BEGIN PRIVATE KEY-----\n"
-		"MGcCAQAwEwYHKoZIzj0CAQYIKoZIzj0D"
-			"AQcETTBLAgEBBCC25AkD65uhlZXCAdwN\n"
-		"yLJV2ui8A/CUyqyEMrezvwgMO6EkAyIA"
-			"AybRUR3MsH0+0PQcDwkrXOJ9aePwzTQV\n"
-		"DN51+n1JCxbI\n"
+		"MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgtu"
+		"QJA+uboZWVwgHc\n"
+		"DciyVdrovAPwlMqshDK3s78IDDuhRANCAAQm0VEdzLB9PtD0HA"
+		"8JK1zifWnj8M00\n"
+		"FQzedfp9SQsWyA8dzs5/NFR5MTe6Xbh/ndKEs1zZH3vZ4FlNri"
+		"lZc0st\n"
 		"-----END PRIVATE KEY-----\n",
 		"2:1.2.840.10045.3.1.7:0:0000002100b6e40903eb9ba195"
 		"95c201dc0dc8b255dae8bc03f094caac8432b7b3bf080c3b:a"
@@ -1155,10 +1156,9 @@ static void test_jwk_keys(void)
 	/* Acquired using another tool */
 	const char *pem_key =
 	  "-----BEGIN PUBLIC KEY-----\n"
-	  "MDkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDIgACKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
-	  "yLG69yOisek4aMI=\n"
+	  "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
+	  "yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
 	  "-----END PUBLIC KEY-----";
-
 	test_begin("test_jwk_keys");
 	struct dcrypt_keypair pair;
 	buffer_t *pem = t_buffer_create(256);
