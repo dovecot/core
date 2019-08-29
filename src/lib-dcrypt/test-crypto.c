@@ -1008,12 +1008,9 @@ static void test_raw_keys(void)
 	test_assert(dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_DOVECOT,
 					    buf, NULL));
 	test_assert_strcmp(str_c(buf),
-			   "2:3059301306072a8648ce3d020106082a8648ce3d030107034"
-			   "20004e87c6da029fe5d161ad66ac61c788a360ffb64e77f5813"
-			   "b3801f9945eea94ae2def388c637727fbe970294b22160a4984"
-			   "efb4619614cc5e19fe9b2d24dae834b:21d116b7b3e5c52e81f"
-			   "0437a10b0116cfafc467fb1b96e48926d021668fc1bea");
-
+		"2:3039301306072a8648ce3d020106082a8648ce3d03010703220003e87c6d"
+		"a029fe5d161ad66ac61c788a360ffb64e77f5813b3801f9945eea94ae2:21d"
+		"116b7b3e5c52e81f0437a10b0116cfafc467fb1b96e48926d021668fc1bea");
 	dcrypt_keypair_unref(&pair);
 
 	test_end();
@@ -1156,9 +1153,10 @@ static void test_jwk_keys(void)
           "\"kid\":\"123\","
 	  "\"d\":\"Po2z9rs86J2Qb_xWprr4idsWNPlgKf3G8-mftnE2ync\"}";
 	/* Acquired using another tool */
-	const char *pem_key = "-----BEGIN PUBLIC KEY-----\n"
-	  "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
-	  "yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
+	const char *pem_key =
+	  "-----BEGIN PUBLIC KEY-----\n"
+	  "MDkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDIgACKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
+	  "yLG69yOisek4aMI=\n"
 	  "-----END PUBLIC KEY-----";
 
 	test_begin("test_jwk_keys");
