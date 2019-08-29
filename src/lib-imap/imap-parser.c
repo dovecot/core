@@ -349,8 +349,7 @@ static int imap_parser_read_string(struct imap_parser *parser,
 		}
 
 		if (data[i] == '\0') {
-			parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
-			parser->error_msg = "NULs not allowed in strings";
+			parser->error = "NULs not allowed in strings";
 			return FALSE;
 		}
 
