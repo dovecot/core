@@ -1595,6 +1595,10 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 		return dcrypt_openssl_error(error_r);
 	}
 
+	EC_KEY_precompute_mult(ec_key, NULL);
+	EC_KEY_set_asn1_flag(ec_key, OPENSSL_EC_NAMED_CURVE);
+	EC_KEY_set_conv_form(ec_key, POINT_CONVERSION_COMPRESSED);
+
 	/* return as EVP_PKEY */
 	EVP_PKEY *pkey = EVP_PKEY_new();
 	EVP_PKEY_set1_EC_KEY(pkey, ec_key);
@@ -3405,6 +3409,8 @@ dcrypt_openssl_key_load_private_raw(struct dcrypt_private_key **key_r,
 			EC_KEY_free(key);
 			return dcrypt_openssl_error(error_r);
 		}
+		EC_KEY_set_asn1_flag(key, OPENSSL_EC_NAMED_CURVE);
+		EC_KEY_set_conv_form(key, POINT_CONVERSION_COMPRESSED);
 
 		EVP_PKEY *pkey = EVP_PKEY_new();
 		EVP_PKEY_set1_EC_KEY(pkey, key);
@@ -3481,6 +3487,9 @@ dcrypt_openssl_key_load_public_raw(struct dcrypt_public_key **key_r,
 			return dcrypt_openssl_error(error_r);
 		}
 
+		EC_KEY_precompute_mult(key, NULL);
+		EC_KEY_set_asn1_flag(key, OPENSSL_EC_NAMED_CURVE);
+		EC_KEY_set_conv_form(key, POINT_CONVERSION_COMPRESSED);
 		EVP_PKEY *pkey = EVP_PKEY_new();
 		EVP_PKEY_set1_EC_KEY(pkey, key);
 		EC_KEY_free(key);
