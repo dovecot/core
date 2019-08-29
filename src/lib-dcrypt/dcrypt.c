@@ -242,6 +242,20 @@ bool dcrypt_ctx_hmac_final(struct dcrypt_context_hmac *ctx, buffer_t *result,
 	return dcrypt_vfs->ctx_hmac_final(ctx, result, error_r);
 }
 
+bool dcrypt_ecdh_derive_secret(struct dcrypt_private_key *local_key,
+			       struct dcrypt_public_key *pub_key,
+			       buffer_t *shared_secret,
+			       const char **error_r)
+{
+	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->ecdh_derive_secret == NULL) {
+		*error_r = "Not implemented";
+		return FALSE;
+	}
+	return dcrypt_vfs->ecdh_derive_secret(local_key, pub_key, shared_secret,
+					      error_r);
+}
+
 bool dcrypt_ecdh_derive_secret_local(struct dcrypt_private_key *local_key,
 				     buffer_t *R, buffer_t *S,
 				     const char **error_r)

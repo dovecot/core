@@ -212,6 +212,12 @@ bool dcrypt_ctx_hmac_final(struct dcrypt_context_hmac *ctx, buffer_t *result,
 
 /**
  * Elliptic Curve based Diffie-Heffman shared secret derivation */
+bool dcrypt_ecdh_derive_secret(struct dcrypt_private_key *priv_key,
+			       struct dcrypt_public_key *pub_key,
+			       buffer_t *shared_secret,
+			       const char **error_r);
+/**
+ * Helpers for DCRYPT file format */
 bool dcrypt_ecdh_derive_secret_local(struct dcrypt_private_key *local_key,
 				     buffer_t *R, buffer_t *S,
 				     const char **error_r);
