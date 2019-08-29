@@ -191,6 +191,9 @@ struct dcrypt_vfs {
 		       const unsigned char *signature, size_t signature_len,
 		       bool *valid_r, enum dcrypt_padding padding,
 		       const char **error_r);
+	bool (*ecdh_derive_secret)(struct dcrypt_private_key *priv_key,
+				   struct dcrypt_public_key *pub_key,
+				   buffer_t *shared_secret, const char **error_r);
 };
 
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs);
