@@ -1612,9 +1612,9 @@ static int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
 		return 0;
 	}
-	r->n = pn;
-	r->e = pe;
-	r->d = pd;
+	r->n = n;
+	r->e = e;
+	r->d = d;
 	return 1;
 }
 #endif
