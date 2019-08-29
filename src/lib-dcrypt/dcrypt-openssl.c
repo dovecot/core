@@ -721,10 +721,44 @@ dcrypt_openssl_generate_rsa_key(int bits, EVP_PKEY **key, const char **error_r)
 }
 
 static bool
+dcrypt_openssl_ecdh_derive_secret(struct dcrypt_private_key *priv_key,
+				  struct dcrypt_public_key *pub_key,
+				  buffer_t *shared_secret,
+				  const char **error_r)
+{
+	/* initialize */
+	EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(priv_key->key, NULL);
+	if (pctx == NULL ||
+	    EVP_PKEY_derive_init(pctx) != 1 ||
+	    EVP_PKEY_derive_set_peer(pctx, pub_key->key) != 1) {
+		EVP_PKEY_CTX_free(pctx);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	/* derive */
+	size_t len;
+	if (EVP_PKEY_derive(pctx, NULL, &len) != 1) {
+		EVP_PKEY_CTX_free(pctx);
+		return dcrypt_openssl_error(error_r);
+	}
+	unsigned char buf[len];
+	if (EVP_PKEY_derive(pctx, buf, &len) != 1) {
+		EVP_PKEY_CTX_free(pctx);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	EVP_PKEY_CTX_free(pctx);
+	buffer_append(shared_secret, buf, len);
+
+	return TRUE;
+}
+
+static bool
 dcrypt_openssl_ecdh_derive_secret_local(struct dcrypt_private_key *local_key,
 					buffer_t *R, buffer_t *S,
 					const char **error_r)
 {
+	bool ret;
 	i_assert(local_key != NULL && local_key->key != NULL);
 
 	EVP_PKEY *local = local_key->key;
@@ -769,36 +803,15 @@ dcrypt_openssl_ecdh_derive_secret_local(struct dcrypt_private_key *local_key,
 	}
 	EVP_PKEY_set1_EC_KEY(peer, ec_key);
 	EC_KEY_free(ec_key);
-	EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(local, NULL);
 
-	/* initialize derivation */
-	if (pctx == NULL ||
-	    EVP_PKEY_derive_init(pctx) != 1 ||
-	    EVP_PKEY_derive_set_peer(pctx, peer) != 1) {
-		EVP_PKEY_CTX_free(pctx);
-		EVP_PKEY_free(peer);
-		return dcrypt_openssl_error(error_r);
-	}
+	struct dcrypt_public_key pub_key;
+	i_zero(&pub_key);
+	pub_key.key = peer;
 
-	/* have to do it twice to get the data length */
-	size_t len;
-	if (EVP_PKEY_derive(pctx, NULL, &len) != 1) {
-		EVP_PKEY_CTX_free(pctx);
-		EVP_PKEY_free(peer);
-		return dcrypt_openssl_error(error_r);
-	}
+	ret = dcrypt_openssl_ecdh_derive_secret(local_key, &pub_key, S, error_r);
 
-	unsigned char buf[len];
-	memset(buf,0,len);
-	if (EVP_PKEY_derive(pctx, buf, &len) != 1) {
-		EVP_PKEY_CTX_free(pctx);
-		EVP_PKEY_free(peer);
-		return dcrypt_openssl_error(error_r);
-	}
-	EVP_PKEY_CTX_free(pctx);
-	buffer_append(S, buf, len);
 	EVP_PKEY_free(peer);
-	return TRUE;
+	return ret;
 }
 
 static bool
@@ -807,6 +820,7 @@ dcrypt_openssl_ecdh_derive_secret_peer(struct dcrypt_public_key *peer_key,
 				       const char **error_r)
 {
 	i_assert(peer_key != NULL && peer_key->key != NULL);
+	bool ret;
 
 	/* ensure peer_key is EC key */
 	EVP_PKEY *local = NULL;
@@ -823,36 +837,22 @@ dcrypt_openssl_ecdh_derive_secret_peer(struct dcrypt_public_key *peer_key,
 	if (!dcrypt_openssl_generate_ec_key(nid, &local, error_r))
 		return FALSE;
 
-	/* initialize */
-	EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(local, NULL);
-	if (pctx == NULL ||
-	    EVP_PKEY_derive_init(pctx) != 1 ||
-	    EVP_PKEY_derive_set_peer(pctx, peer) != 1) {
-		EVP_PKEY_CTX_free(pctx);
-		return dcrypt_openssl_error(error_r);
-	}
+	struct dcrypt_private_key priv_key;
+	i_zero(&priv_key);
+	priv_key.key = local;
 
-	/* derive */
-	size_t len;
-	if (EVP_PKEY_derive(pctx, NULL, &len) != 1) {
-		EVP_PKEY_CTX_free(pctx);
-		return dcrypt_openssl_error(error_r);
+	if (!(ret = dcrypt_openssl_ecdh_derive_secret(&priv_key, peer_key, S,
+						 error_r))) {
+		EVP_PKEY_free(local);
+		return FALSE;
 	}
-	unsigned char buf[len];
-	if (EVP_PKEY_derive(pctx, buf, &len) != 1) {
-		EVP_PKEY_CTX_free(pctx);
-		return dcrypt_openssl_error(error_r);
-	}
-
-	EVP_PKEY_CTX_free(pctx);
-	buffer_append(S, buf, len);
 
 	/* get ephemeral key (=R) */
 	BN_CTX *bn_ctx = BN_CTX_new();
 	const EC_POINT *pub = EC_KEY_get0_public_key(EVP_PKEY_get0_EC_KEY(local));
 	const EC_GROUP *grp = EC_KEY_get0_group(EVP_PKEY_get0_EC_KEY(local));
-	len = EC_POINT_point2oct(grp, pub, POINT_CONVERSION_COMPRESSED,
-				 NULL, 0, bn_ctx);
+	size_t len = EC_POINT_point2oct(grp, pub, POINT_CONVERSION_COMPRESSED,
+					NULL, 0, bn_ctx);
 	unsigned char R_buf[len];
 	EC_POINT_point2oct(grp, pub, POINT_CONVERSION_COMPRESSED,
 			   R_buf, len, bn_ctx);
@@ -860,7 +860,7 @@ dcrypt_openssl_ecdh_derive_secret_peer(struct dcrypt_public_key *peer_key,
 	buffer_append(R, R_buf, len);
 	EVP_PKEY_free(local);
 
-	return TRUE;
+	return ret;
 }
 
 static bool
