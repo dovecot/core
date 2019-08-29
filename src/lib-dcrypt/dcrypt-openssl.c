@@ -3657,6 +3657,7 @@ static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.key_set_usage_private = dcrypt_openssl_key_set_usage_private,
 	.sign = dcrypt_openssl_sign,
 	.verify = dcrypt_openssl_verify,
+	.ecdh_derive_secret = dcrypt_openssl_ecdh_derive_secret,
 };
 
 void dcrypt_openssl_init(struct module *module ATTR_UNUSED)
