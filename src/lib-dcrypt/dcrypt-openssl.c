@@ -1609,7 +1609,7 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 static int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 {
 	if (n == NULL || e == NULL) {
-		RSAerr(0, ERR_R_PASSED_INVALID_ARGUMENT);
+		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
 		return 0;
 	}
 	r->n = pn;
@@ -1622,7 +1622,7 @@ static int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 static int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
 {
 	if (p == NULL || q == NULL) {
-		RSAerr(0, ERR_R_PASSED_INVALID_ARGUMENT);
+		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
 		return 0;
 	}
 	r->p = p;
@@ -1634,7 +1634,7 @@ static int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
 static int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
 {
 	if (dmp1 == NULL || dmq1 == NULL || iqmp == NULL) {
-		RSAerr(0, ERR_R_PASSED_INVALID_ARGUMENT);
+		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
 		return 0;
 	}
 	r->dmp1 = dmp1;
