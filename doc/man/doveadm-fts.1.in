@@ -64,7 +64,9 @@ what actually exist in mailboxes.
 This removes mails from the index that have already been expunged and
 makes sure that the next
 .B doveadm index
-will index all the missing mails (if any).
+will index all the missing mails (if any). Note that currently most FTS
+backends do not implement this properly, but instead they delete all the
+FTS indexes. This may change in the future versions.
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@
 .\"------------------------------------------------------------------------
