@@ -231,6 +231,7 @@ do_auth_continue(struct auth_request *auth_request,
 	if (strcmp(token[0], "TT") == 0) {
 		buffer_t *buf;
 
+		i_assert(token[1] != NULL);
 		buf = t_base64_decode_str(token[1]);
 		auth_request_handler_reply_continue(auth_request, buf->data,
 						    buf->used);
