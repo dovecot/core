@@ -1051,11 +1051,11 @@ static void test_sign_verify_rsa(void)
 	if (priv_key == NULL)
 		i_fatal("%s", error);
 	dcrypt_key_convert_private_to_public(priv_key, &pub_key);
-	test_assert(dcrypt_sign(priv_key,
-		"sha256", data, strlen(data), signature, 0, &error));
+	test_assert(dcrypt_sign(priv_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		 data, strlen(data), signature, 0, &error));
 	/* verify signature */
-	test_assert(dcrypt_verify(pub_key,
-		"sha256", data, strlen(data),
+	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		 data, strlen(data),
 		 signature->data, signature->used, &valid, 0, &error) && valid);
 
 	dcrypt_key_unref_public(&pub_key);
@@ -1087,11 +1087,11 @@ static void test_sign_verify_ecdsa(void)
 	if (priv_key == NULL)
 		i_fatal("%s", error);
 	dcrypt_key_convert_private_to_public(priv_key, &pub_key);
-	test_assert(dcrypt_sign(priv_key,
-		"sha256", data, strlen(data), signature, 0, &error));
+	test_assert(dcrypt_sign(priv_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		data, strlen(data), signature, 0, &error));
 	/* verify signature */
-	test_assert(dcrypt_verify(pub_key,
-		"sha256", data, strlen(data), signature->data,
+	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		data, strlen(data), signature->data,
 		signature->used, &valid, 0, &error) && valid);
 
 	dcrypt_key_unref_public(&pub_key);
@@ -1134,7 +1134,8 @@ static void test_static_verify_ecdsa(void)
 	test_assert(dcrypt_key_load_public(&pair.pub, pub_key_pem, NULL));
 	test_assert(dcrypt_key_load_private(&pair.priv, priv_key_pem, NULL, NULL, NULL));
 	/* validate signature */
-	test_assert(dcrypt_verify(pair.pub, "sha256", input, strlen(input),
+	test_assert(dcrypt_verify(pair.pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+				  input, strlen(input),
 				  sig, sizeof(sig), &valid, 0, &error) &&
 		    valid == TRUE);
 
@@ -1150,8 +1151,8 @@ static void test_jwk_keys(void)
 	  "\"crv\":\"P-256\","
 	  "\"x\":\"Kp0Y4-Wpt-D9t_2XenFIj0LmvaZByLG69yOisek4aMI\","
 	  "\"y\":\"wjEPB5BhH5SRPw1cCN5grWrLCphrW19fCFR8p7c9O5o\","
-          "\"use\":\"sig\","
-          "\"kid\":\"123\","
+	  "\"use\":\"sig\","
+	  "\"kid\":\"123\","
 	  "\"d\":\"Po2z9rs86J2Qb_xWprr4idsWNPlgKf3G8-mftnE2ync\"}";
 	/* Acquired using another tool */
 	const char *pem_key =
@@ -1217,13 +1218,53 @@ static void test_static_verify_rsa(void)
 	test_assert(dcrypt_key_load_public(&pub_key, key, &error));
 	if (pub_key == NULL)
 		i_fatal("%s", error);
-	test_assert(dcrypt_verify(pub_key, "sha256", data, strlen(data),
+	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		data, strlen(data),
 		sig, sizeof(sig), &valid, DCRYPT_PADDING_RSA_PKCS1, &error) &&
 		valid);
 	dcrypt_key_unref_public(&pub_key);
 
 	test_end();
 }
+
+/* Sample values from RFC8292 */
+static void test_static_verify_ecdsa_x962(void)
+{
+	const char *error = NULL;
+	bool valid;
+	struct dcrypt_public_key *pub_key = NULL;
+
+	test_begin("static verify (ecdsa x9.62)");
+	const char *data =
+		"eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL3B1c"
+		"2guZXhhbXBsZS5uZXQiLCJleHAiOjE0NTM1MjM3NjgsInN1YiI6Im1haWx0bzp"
+		"wdXNoQGV4YW1wbGUuY29tIn0";
+	const unsigned char sig[] = {
+		0x8b,0x70,0x98,0x6f,0xbb,0x78,0xc5,0xfc,0x42,0x0e,0xab,
+		0xa9,0xb4,0x53,0x9e,0xa4,0x2f,0x46,0x02,0xef,0xc7,0x2c,
+		0x69,0x0c,0x94,0xcb,0x82,0x19,0x22,0xb6,0xae,0x98,0x94,
+		0x7e,0x72,0xbd,0xa2,0x31,0x70,0x0d,0x76,0xf5,0x26,0xb1,
+		0x2b,0xb6,0x6c,0xac,0x6b,0x33,0x63,0x8e,0xf5,0xb6,0x2f,
+		0xd3,0xa4,0x49,0x21,0xf3,0xbe,0x80,0xf5,0xa0
+	};
+	const char *key =
+"-----BEGIN PUBLIC KEY-----\n"
+"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEDUfHPKLVFQzVvnCPGyfucbECzPDa\n"
+"7rWbXriLcysAjEcXpgrmHhINiJz51G5T9EI8J8Dlqr2iNLCTljYSYKUE+w==\n"
+"-----END PUBLIC KEY-----";
+
+	test_assert(dcrypt_key_load_public(&pub_key, key, &error));
+	if (pub_key == NULL)
+		i_fatal("%s", error);
+	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_X962,
+		data, strlen(data),
+		sig, sizeof(sig), &valid, DCRYPT_PADDING_RSA_PKCS1, &error) &&
+		valid);
+	dcrypt_key_unref_public(&pub_key);
+
+	test_end();
+}
+
 
 int main(void)
 {
@@ -1261,6 +1302,7 @@ int main(void)
 		test_sign_verify_ecdsa,
 		test_static_verify_ecdsa,
 		test_static_verify_rsa,
+		test_static_verify_ecdsa_x962,
 		NULL
 	};
 

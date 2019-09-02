@@ -3142,10 +3142,93 @@ dcrypt_openssl_private_key_id(struct dcrypt_private_key *key,
 }
 
 static bool
+dcrypt_openssl_digest(const char *algorithm, const void *data, size_t data_len,
+		      buffer_t *digest_r, const char **error_r)
+{
+	bool ret;
+	EVP_MD_CTX *mdctx;
+	const EVP_MD *md = EVP_get_digestbyname(algorithm);
+	if (md == NULL)
+		return dcrypt_openssl_error(error_r);
+	unsigned int md_size = EVP_MD_size(md);
+	if ((mdctx = EVP_MD_CTX_create()) == NULL)
+		return dcrypt_openssl_error(error_r);
+	unsigned char *buf = buffer_append_space_unsafe(digest_r, md_size);
+	if (EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL) != 1 ||
+	    EVP_DigestUpdate(mdctx, data, data_len) != 1 ||
+	    EVP_DigestFinal_ex(mdctx, buf, &md_size) != 1) {
+		ret = dcrypt_openssl_error(error_r);
+	} else {
+		ret = TRUE;
+	}
+	return ret;
+}
+
+static bool
+dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
+			  const void *data, size_t data_len, buffer_t *signature_r,
+			  const char **error_r)
+{
+	EVP_PKEY *pkey = key->key;
+	EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+	bool ret;
+
+	/* digest data */
+	buffer_t *digest = t_buffer_create(64);
+	if (!dcrypt_openssl_digest(algorithm, data, data_len, digest, error_r))
+		return FALSE;
+
+	/* sign data */
+	ECDSA_SIG *ec_sig;
+	if ((ec_sig = ECDSA_do_sign(digest->data, digest->used, ec_key)) == NULL)
+		return dcrypt_openssl_error(error_r);
+
+	/* export signature */
+	const BIGNUM *r;
+	const BIGNUM *s;
+
+	ECDSA_SIG_get0(ec_sig, &r, &s);
+
+	/* write r */
+	int bytes = BN_num_bytes(r);
+	unsigned char *buf = buffer_append_space_unsafe(signature_r, bytes);
+	if (BN_bn2bin(r, buf) != bytes) {
+		ret = dcrypt_openssl_error(error_r);
+	} else {
+		bytes = BN_num_bytes(s);
+		buf = buffer_append_space_unsafe(signature_r, bytes);
+		if (BN_bn2bin(s, buf) != bytes) {
+			ret = dcrypt_openssl_error(error_r);
+		} else {
+			ret = TRUE;
+		}
+	}
+
+	ECDSA_SIG_free(ec_sig);
+
+	return ret;
+}
+
+static bool
 dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
+		    enum dcrypt_signature_format format,
 		    const void *data, size_t data_len, buffer_t *signature_r,
 		    enum dcrypt_padding padding, const char **error_r)
 {
+	switch (format) {
+	case DCRYPT_SIGNATURE_FORMAT_DSS:
+		break;
+	case DCRYPT_SIGNATURE_FORMAT_X962:
+		if (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA) {
+			*error_r = "Format does not support RSA";
+			return FALSE;
+		}
+		return dcrypt_openssl_sign_ecdsa(key, algorithm,
+				data, data_len, signature_r, error_r);
+	default:
+		i_unreached();
+	}
+
 	EVP_PKEY_CTX *pctx = NULL;
 	EVP_MD_CTX *dctx;
 	bool ret;
@@ -3193,12 +3276,77 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 }
 
 static bool
+dcrypt_openssl_verify_ecdsa(struct dcrypt_public_key *key, const char *algorithm,
+			    const void *data, size_t data_len,
+			    const unsigned char *signature, size_t signature_len,
+			    bool *valid_r, const char **error_r)
+{
+	EVP_PKEY *pkey = key->key;
+	EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+	int ec;
+
+	/* digest data */
+	buffer_t *digest = t_buffer_create(64);
+	if (!dcrypt_openssl_digest(algorithm, data, data_len, digest, error_r))
+		return FALSE;
+
+	BIGNUM *r = BN_new();
+	BIGNUM *s = BN_new();
+	/* attempt to decode BIGNUMs */
+	if (BN_bin2bn(signature, signature_len / 2, r) == NULL) {
+		BN_free(r);
+		BN_free(s);
+		return dcrypt_openssl_error(error_r);
+	}
+	/* then next */
+	if (BN_bin2bn(CONST_PTR_OFFSET(signature, signature_len / 2),
+		      signature_len / 2, s) == NULL) {
+		BN_free(r);
+		BN_free(s);
+		return dcrypt_openssl_error(error_r);
+	}
+
+	/* reconstruct signature */
+	ECDSA_SIG *ec_sig = ECDSA_SIG_new();
+	ECDSA_SIG_set0(ec_sig, r, s);
+
+	/* verify it */
+	ec = ECDSA_do_verify(digest->data, digest->used, ec_sig, ec_key);
+	ECDSA_SIG_free(ec_sig);
+
+	if (ec == 1) {
+		*valid_r = TRUE;
+	} else if (ec == 0) {
+		*valid_r = FALSE;
+	} else {
+		return dcrypt_openssl_error(error_r);
+	}
+	return TRUE;
+}
+
+static bool
 dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
+		      enum dcrypt_signature_format format,
 		      const void *data, size_t data_len,
 		      const unsigned char *signature, size_t signature_len,
 		      bool *valid_r, enum dcrypt_padding padding,
 		      const char **error_r)
 {
+	switch (format) {
+	case DCRYPT_SIGNATURE_FORMAT_DSS:
+		break;
+	case DCRYPT_SIGNATURE_FORMAT_X962:
+		if (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA) {
+			*error_r = "Format does not support RSA";
+			return FALSE;
+		}
+		return dcrypt_openssl_verify_ecdsa(key, algorithm,
+				data, data_len, signature, signature_len,
+				valid_r, error_r);
+	default:
+		i_unreached();
+	}
+
 	EVP_PKEY_CTX *pctx = NULL;
 	EVP_MD_CTX *dctx;
 	bool ret;

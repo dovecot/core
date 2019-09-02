@@ -184,9 +184,11 @@ struct dcrypt_vfs {
 	void (*key_set_usage_private)(struct dcrypt_private_key *key,
 				      enum dcrypt_key_usage usage);
 	bool (*sign)(struct dcrypt_private_key *key, const char *algorithm,
+		     enum dcrypt_signature_format format,
 		     const void *data, size_t data_len, buffer_t *signature_r,
 		     enum dcrypt_padding padding, const char **error_r);
 	bool (*verify)(struct dcrypt_public_key *key, const char *algorithm,
+		       enum dcrypt_signature_format format,
 		       const void *data, size_t data_len,
 		       const unsigned char *signature, size_t signature_len,
 		       bool *valid_r, enum dcrypt_padding padding,
