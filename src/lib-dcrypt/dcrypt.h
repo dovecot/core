@@ -57,6 +57,11 @@ enum dcrypt_key_usage {
 	DCRYPT_KEY_USAGE_SIGN,
 };
 
+enum dcrypt_signature_format {
+	DCRYPT_SIGNATURE_FORMAT_DSS,
+	DCRYPT_SIGNATURE_FORMAT_X962,
+};
+
 /* this parameter makes sense with RSA only
    default for RSA means either PSS (sign/verify)
    or OAEP (encrypt/decrypt).
@@ -233,12 +238,14 @@ bool dcrypt_ecdh_derive_secret_peer(struct dcrypt_public_key *peer_key,
 
 /* returns false on error, true on success */
 bool dcrypt_sign(struct dcrypt_private_key *key, const char *algorithm,
+		 enum dcrypt_signature_format format,
 		 const void *data, size_t data_len, buffer_t *signature_r,
 		 enum dcrypt_padding padding, const char **error_r);
 
 /* check valid_r for signature validity
    false return means it wasn't able to verify it for other reasons */
 bool dcrypt_verify(struct dcrypt_public_key *key, const char *algorithm,
+		   enum dcrypt_signature_format format,
 		   const void *data, size_t data_len,
 		   const unsigned char *signature, size_t signature_len,
 		   bool *valid_r, enum dcrypt_padding padding,

@@ -589,6 +589,7 @@ void dcrypt_key_set_usage_private(struct dcrypt_private_key *key,
 }
 
 bool dcrypt_sign(struct dcrypt_private_key *key, const char *algorithm,
+		 enum dcrypt_signature_format format,
 		 const void *data, size_t data_len, buffer_t *signature_r,
 		 enum dcrypt_padding padding, const char **error_r)
 {
@@ -599,11 +600,12 @@ bool dcrypt_sign(struct dcrypt_private_key *key, const char *algorithm,
 		return FALSE;
 	}
 
-	return dcrypt_vfs->sign(key, algorithm, data, data_len,
+	return dcrypt_vfs->sign(key, algorithm, format, data, data_len,
 				signature_r, padding, error_r);
 }
 
 bool dcrypt_verify(struct dcrypt_public_key *key, const char *algorithm,
+		   enum dcrypt_signature_format format,
 		   const void *data, size_t data_len,
 		   const unsigned char *signature, size_t signature_len,
 		   bool *valid_r, enum dcrypt_padding padding,
@@ -616,7 +618,7 @@ bool dcrypt_verify(struct dcrypt_public_key *key, const char *algorithm,
 		return FALSE;
 	}
 
-	return dcrypt_vfs->verify(key, algorithm, data, data_len,
+	return dcrypt_vfs->verify(key, algorithm, format, data, data_len,
 				  signature, signature_len,
 				  valid_r, padding, error_r);
 }
