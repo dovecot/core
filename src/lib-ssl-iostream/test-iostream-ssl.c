@@ -322,30 +322,6 @@ static void test_iostream_ssl_handshake(void)
 							 "failhost") != 0, idx);
 	idx++;
 
-	/* mismatch in cipher list */
-	ssl_iostream_test_settings_server(&server_set);
-	ssl_iostream_test_settings_client(&client_set);
-	server_set.cipher_list = "ECDSA";
-	client_set.cipher_list = "RSA";
-	server_set.ciphersuites = "TLS_CHACHA20_POLY1305_SHA256";
-	client_set.ciphersuites = "TLS_AES_128_CCM_SHA256";
-	client_set.prefer_server_ciphers = TRUE;
-	client_set.verify_remote_cert = TRUE;
-	test_expect_error_string("client(127.0.0.1): SSL certificate not received");
-	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") != 0, idx);
-	idx++;
-
-	/* unsupported cipher list */
-	ssl_iostream_test_settings_server(&server_set);
-	ssl_iostream_test_settings_client(&client_set);
-	server_set.cipher_list = "NONEXISTENT";
-	client_set.prefer_server_ciphers = TRUE;
-	test_expect_error_string("server: Can't set cipher list to 'NONEXISTENT'");
-	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
-							 "127.0.0.1") != 0, idx);
-	idx++;
-
 	/* invalid client credentials: missing credentials */
 	ssl_iostream_test_settings_server(&server_set);
 	ssl_iostream_test_settings_client(&client_set);
