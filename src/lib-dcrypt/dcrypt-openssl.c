@@ -105,7 +105,7 @@
 /* openssl manual says this is OK */
 #define OID_TEXT_MAX_LEN 80
 
-#define t_base64url_decode_str(x) t_base64url_decode_str(0, (x))
+#define t_base64url_decode_str(x) t_base64url_decode_str(BASE64_DECODE_FLAG_IGNORE_PADDING, (x))
 
 struct dcrypt_context_symmetric {
 	pool_t pool;
