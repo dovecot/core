@@ -40,20 +40,17 @@ i_stream_base64_try_decode_block(struct base64_decoder_istream *bstream)
 {
 	struct istream_private *stream = &bstream->istream;
 	const unsigned char *data;
-	size_t size, avail, buffer_avail, pos;
+	size_t size, avail, pos;
 	buffer_t buf;
 
 	data = i_stream_get_data(stream->parent, &size);
 	if (size == 0)
 		return 0;
 
-	i_stream_try_alloc(stream, (size+3)/4*3, &avail);
-	buffer_avail = stream->buffer_size - stream->pos;
-	if (buffer_avail == 0)
+	if (!i_stream_try_alloc(stream, (size+3)/4*3, &avail))
 		return -2;
 
-	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
-				buffer_avail);
+	buffer_create_from_data(&buf, stream->w_buffer + stream->pos, avail);
 	if (base64_decode_more(&bstream->decoder, data, size, &pos, &buf) < 0) {
 		io_stream_set_error(&stream->iostream,
 			"Invalid base64 data: 0x%s",
