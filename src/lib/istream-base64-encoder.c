@@ -39,7 +39,7 @@ i_stream_base64_try_encode(struct base64_encoder_istream *bstream)
 	struct istream_private *stream = &bstream->istream;
 	struct base64_encoder *b64enc = &bstream->encoder;
 	const unsigned char *data;
-	size_t size, pos, out_size, buffer_avail;
+	size_t size, pos, out_size, avail;
 	buffer_t buf;
 
 	data = i_stream_get_data(stream->parent, &size);
@@ -47,12 +47,10 @@ i_stream_base64_try_encode(struct base64_encoder_istream *bstream)
 		return 0;
 
 	out_size = base64_encode_get_size(b64enc, size);
-	i_stream_try_alloc(stream, out_size, &buffer_avail);
-	if (buffer_avail == 0)
+	if (!i_stream_try_alloc(stream, out_size, &avail))
 		return -2;
 
-	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
-				buffer_avail);
+	buffer_create_from_data(&buf, stream->w_buffer + stream->pos, avail);
 	base64_encode_more(b64enc, data, size, &pos, &buf);
 	i_assert(buf.used > 0);
 
