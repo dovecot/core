@@ -594,7 +594,7 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 	      void *context)
 {
 	const bool lazy = context != NULL;
-	enum mail_lookup_abort temp_lookup_abort = lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE : mail->lookup_abort;
+	enum mail_lookup_abort temp_lookup_abort = lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE_START_CACHING : mail->lookup_abort;
 	enum mail_lookup_abort orig_lookup_abort = mail->lookup_abort;
 	const char *resp, *snippet;
 	int ret;
