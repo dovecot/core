@@ -484,8 +484,22 @@ static void cmd_fs_iter_full(int argc, char *argv[], enum fs_iter_flags flags,
 	struct fs *fs;
 	struct fs_iter *iter;
 	const char *fname;
+	int c;
 
-	cmd_fs_getopt(&argc, &argv);
+	while ((c = getopt(argc, argv, "CO")) > 0) {
+		switch (c) {
+		case 'C':
+			flags |= FS_ITER_FLAG_NOCACHE;
+			break;
+		case 'O':
+			flags |= FS_ITER_FLAG_OBJECTIDS;
+			break;
+		default:
+			fs_cmd_help(cmd);
+		}
+	}
+	argc -= optind; argv += optind;
+
 	fs = cmd_fs_init(&argc, &argv, 1, cmd);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
@@ -583,8 +597,10 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "fs iter",
 	.old_cmd = cmd_fs_iter,
-	.usage = "<fs-driver> <fs-args> <path>",
+	.usage = "[--no-cache] [--object-ids] <fs-driver> <fs-args> <path>",
 DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('C', "no-cache", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('O', "object-ids", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "fs-driver", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "fs-args", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "path", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
