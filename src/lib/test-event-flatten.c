@@ -148,7 +148,7 @@ static void test_event_flatten_one_parent(void)
 		.value = {
 			.str = NULL,
 			.intmax = 42,
-			.timeval = {0},
+			.timeval = {0,0},
 		}
 	};
 	static struct event_field exp_2int[2] = {
@@ -158,7 +158,7 @@ static void test_event_flatten_one_parent(void)
 			.value = {
 				.intmax = 42,
 				.str = NULL,
-				.timeval = {0},
+				.timeval = {0,0},
 			}
 		},
 		{
@@ -167,7 +167,7 @@ static void test_event_flatten_one_parent(void)
 			.value = {
 				.intmax = 49,
 				.str = NULL,
-				.timeval = {0},
+				.timeval = {0,0},
 			}
 		},
 	};
@@ -178,7 +178,7 @@ static void test_event_flatten_one_parent(void)
 			.value = {
 				.str = "foo",
 				.intmax = 0,
-				.timeval = {0},
+				.timeval = {0,0},
 			}
 		},
 		{
@@ -187,7 +187,7 @@ static void test_event_flatten_one_parent(void)
 			.value = {
 				.intmax = 49,
 				.str = NULL,
-				.timeval = {0},
+				.timeval = {0,0},
 			}
 		},
 	};
@@ -231,7 +231,7 @@ static void test_event_flatten_override_parent_field(void)
 		.value = {
 			.intmax = 42,
 			.str = NULL,
-			.timeval = {0},
+			.timeval = {0,0},
 		}
 	};
 	static struct event_field exp_str = {
@@ -240,7 +240,7 @@ static void test_event_flatten_override_parent_field(void)
 		.value = {
 			.str = "def",
 			.intmax = 0,
-			.timeval = {0},
+			.timeval = {0,0},
 		}
 	};
 	static struct event_field exp_2str[2] = {
@@ -250,7 +250,7 @@ static void test_event_flatten_override_parent_field(void)
 			.value = {
 				.str = "def",
 				.intmax = 0,
-				.timeval = {0},
+				.timeval = {0,0},
 			}
 		},
 		{
@@ -259,7 +259,7 @@ static void test_event_flatten_override_parent_field(void)
 			.value = {
 				.str = "bar",
 				.intmax = 0,
-				.timeval = {0},
+				.timeval = {0,0},
 			}
 		},
 	};
