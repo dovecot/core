@@ -16,6 +16,9 @@ off_t base64_get_full_encoded_size(struct base64_encoder *enc, off_t src_size)
 	off_t out_size;
 	off_t newlines;
 
+	if (src_size == 0)
+		return 0;
+
 	/* calculate size of encoded data */
 	out_size = MAX_BASE64_ENCODED_SIZE(src_size);
 	if (no_padding) {
