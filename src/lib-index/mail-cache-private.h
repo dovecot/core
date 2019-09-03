@@ -254,11 +254,6 @@ int mail_cache_reopen(struct mail_cache *cache);
    in the cache file. */
 void mail_cache_decision_state_update(struct mail_cache_view *view,
 				      uint32_t seq, unsigned int field);
-/* Notify the decision handling code when field is committed to cache.
-   If this is the first time the field is added to cache, its caching decision
-   is updated to TEMP. */
-void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
-			     unsigned int field);
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			       uint32_t seq, const void *data,
