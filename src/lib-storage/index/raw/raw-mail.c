@@ -14,7 +14,7 @@ static int raw_mail_stat(struct mail *mail)
 	struct raw_mailbox *mbox = RAW_MAILBOX(mail->box);
 	const struct stat *st;
 
-	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
+	if (mail->lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
 		mail_set_aborted(mail);
 		return -1;
 	}

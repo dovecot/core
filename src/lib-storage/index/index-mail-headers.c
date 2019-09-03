@@ -652,7 +652,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 			/* don't try to parse headers recursively. we're here
 			   because message size was wrong and istream-mail
 			   wants to log some cached headers. */
-			i_assert(mail->mail.mail.lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE);
+			i_assert(mail->mail.mail.lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE);
 			mail_set_aborted(&mail->mail.mail);
 			return -1;
 		}

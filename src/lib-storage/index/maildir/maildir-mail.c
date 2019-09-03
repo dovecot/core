@@ -107,7 +107,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 	const char *path;
 	int fd, ret;
 
-	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
+	if (mail->lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
 		mail_set_aborted(mail);
 		return -1;
 	}

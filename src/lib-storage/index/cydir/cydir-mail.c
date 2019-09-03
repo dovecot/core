@@ -21,7 +21,7 @@ static int cydir_mail_stat(struct mail *mail, struct stat *st_r)
 {
 	const char *path;
 
-	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
+	if (mail->lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
 		mail_set_aborted(mail);
 		return -1;
 	}
