@@ -3174,7 +3174,7 @@ dcrypt_openssl_digest(const char *algorithm, const void *data, size_t data_len,
 }
 
 #ifndef HAVE_ECDSA_SIG_GET0
-void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps)
+static void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps)
 {
 	i_assert(sig != NULL);
 	*pr = sig->r;
