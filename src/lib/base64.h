@@ -38,7 +38,7 @@ struct base64_encoder {
 	unsigned char buf;
 	size_t cur_line_len;
 
-	unsigned char w_buf[4];
+	unsigned char w_buf[5];
 	unsigned int w_buf_len;
 
 	bool finished:1;
