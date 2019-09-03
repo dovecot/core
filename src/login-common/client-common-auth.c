@@ -858,7 +858,7 @@ void clients_notify_auth_connected(void)
 
 		if (!client_does_custom_io(client) && client->input_blocked) {
 			client->input_blocked = FALSE;
-			client_input(client);
+			io_set_pending(client->io);
 		}
 	}
 }
