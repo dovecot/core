@@ -379,7 +379,12 @@ enum mail_lookup_abort {
 	   operations to be performed, such as stat()ing a file. */
 	MAIL_LOOKUP_ABORT_READ_MAIL,
 	/* Abort if the operation can't be done fully using cache file */
-	MAIL_LOOKUP_ABORT_NOT_IN_CACHE
+	MAIL_LOOKUP_ABORT_NOT_IN_CACHE,
+	/* Abort if the operation can't be done fully using cache file.
+	 * During this lookup all cache lookups that have "no" decision
+	 * will be changed to "tmp". This way the field will start to be
+	 * cached in the future. */
+	MAIL_LOOKUP_ABORT_NOT_IN_CACHE_START_CACHING,
 };
 
 enum mail_access_type {
