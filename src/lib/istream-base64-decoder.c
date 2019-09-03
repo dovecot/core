@@ -27,7 +27,6 @@ static int i_stream_read_parent(struct istream_private *stream)
 	ret = i_stream_read_memarea(stream->parent);
 	if (ret <= 0) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
-		stream->istream.eof = stream->parent->eof;
 		return ret;
 	}
 	size = i_stream_get_data_size(stream->parent);
@@ -92,10 +91,16 @@ static ssize_t i_stream_base64_decoder_read(struct istream_private *stream)
 
 	do {
 		ret = i_stream_read_parent(stream);
-		if (ret <= 0) {
-			if (ret < 0 && stream->istream.stream_errno == 0)
+		if (ret == 0)
+			return 0;
+		if (ret < 0 && ret != -2) {
+			if (stream->istream.stream_errno != 0)
+				return -1;
+			if (i_stream_get_data_size(stream->parent) == 0) {
 				i_stream_base64_finish_decode(bstream);
-			return ret;
+				stream->istream.eof = TRUE;
+				return -1;
+			}
 		}
 
 		/* encode as many blocks as fits into destination buffer */
