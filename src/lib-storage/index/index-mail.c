@@ -77,12 +77,22 @@ static int index_mail_write_body_snippet(struct index_mail *mail);
 int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 				  unsigned int field_idx)
 {
+	struct mail *_mail = &mail->mail.mail;
 	int ret;
 
 	ret = mail_cache_lookup_field(mail->mail.mail.transaction->cache_view,
 				      buf, mail->data.seq, field_idx);
 	if (ret > 0)
 		mail->mail.mail.transaction->stats.cache_hit_count++;
+
+	/* If the request was lazy mark the field as cache wanted. */
+	if (_mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE_START_CACHING &&
+	    mail_cache_field_get_decision(_mail->box->cache, field_idx) ==
+	    MAIL_CACHE_DECISION_NO) {
+		mail_cache_decision_add(_mail->transaction->cache_view,
+					_mail->seq, field_idx);
+	}
+
 	return ret;
 }
 
