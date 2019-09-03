@@ -3164,6 +3164,29 @@ dcrypt_openssl_digest(const char *algorithm, const void *data, size_t data_len,
 	return ret;
 }
 
+#ifndef HAVE_ECDSA_SIG_GET0
+void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps)
+{
+	i_assert(sig != NULL);
+	*pr = sig->r;
+	*ps = sig->s;
+}
+#endif
+#ifndef HAVE_ECDSA_SIG_SET0
+static int ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s)
+{
+	if (sig == NULL || r == NULL || s == NULL) {
+		ECDSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
+		return 0;
+	}
+
+	sig->r = r;
+	sig->s = s;
+
+	return 1;
+}
+#endif
+
 static bool
 dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
 			  const void *data, size_t data_len, buffer_t *signature_r,
