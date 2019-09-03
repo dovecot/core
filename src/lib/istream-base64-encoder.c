@@ -18,11 +18,9 @@ static int i_stream_read_parent(struct istream_private *stream)
 	ssize_t ret;
 
 	size = i_stream_get_data_size(stream->parent);
-	if (size >= 3)
+	if (size > 0)
 		return 1;
 
-	/* we have less than one base64 block.
-	   see if there is more data available. */
 	ret = i_stream_read_memarea(stream->parent);
 	if (ret <= 0) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
@@ -43,7 +41,7 @@ i_stream_base64_try_encode(struct base64_encoder_istream *bstream)
 	buffer_t buf;
 
 	data = i_stream_get_data(stream->parent, &size);
-	if (size == 0 || (size < 3 && !stream->parent->eof))
+	if (size == 0)
 		return 0;
 
 	out_size = base64_encode_get_size(b64enc, size);
@@ -82,6 +80,8 @@ i_stream_base64_finish_encode(struct base64_encoder_istream *bstream)
 				buffer_avail);
 	if (base64_encode_finish(b64enc, &buf))
 		stream->istream.eof = TRUE;
+	i_assert(buf.used > 0);
+
 	stream->pos += buf.used;
 	return 1;
 }
@@ -104,6 +104,8 @@ static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 		if (ret == 0)
 			return 0;
 		if (ret < 0) {
+			if (stream->istream.stream_errno != 0)
+				return -1;
 			if (i_stream_get_data_size(stream->parent) == 0)
 				break;
 			/* add the final partial block */
@@ -115,18 +117,22 @@ static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 		post_count = stream->pos - stream->skip;
 	} while (ret == 0 && pre_count == post_count);
 
-	if (ret < 0) {
-		if (ret == -2)
-			return ret;
+	if (ret == -2) {
+		if (pre_count == post_count)
+			return -2;
+	} else if (ret < 0) {
 		if (i_stream_get_data_size(stream->parent) == 0) {
+			i_assert(post_count == pre_count);
 			pre_count = stream->pos - stream->skip;
 			ret = i_stream_base64_finish_encode(bstream);
 			post_count = stream->pos - stream->skip;
 			if (ret <= 0)
 				return ret;
 		}
-		if (pre_count == post_count)
+		if (pre_count == post_count) {
+			stream->istream.eof = TRUE;
 			return -1;
+		}
 	}
 
 	i_assert(post_count > pre_count);
