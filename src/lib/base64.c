@@ -52,7 +52,7 @@ base64_encode_get_out_size(struct base64_encoder *enc, size_t src_size)
 {
 	size_t res_size = enc->w_buf_len;
 
-	i_assert(enc->w_buf_len <= 4);
+	i_assert(enc->w_buf_len <= sizeof(enc->w_buf));
 
 	if (src_size == 0)
 		return res_size;
@@ -156,7 +156,7 @@ base64_encode_more_data(struct base64_encoder *enc,
 	ptr = start;
 
 	/* write bytes not written in previous call */
-	i_assert(enc->w_buf_len <= 4);
+	i_assert(enc->w_buf_len <= sizeof(enc->w_buf));
 	if (enc->w_buf_len > res_size) {
 		memcpy(ptr, enc->w_buf, res_size);
 		ptr += res_size;
@@ -270,7 +270,7 @@ base64_encode_more_data(struct base64_encoder *enc,
 	/* fill the remaining allocated space */
 	i_assert(ptr <= end);
 	res_size = end - ptr;
-	i_assert(enc->w_buf_len <= 4);
+	i_assert(enc->w_buf_len <= sizeof(enc->w_buf));
 	if (enc->w_buf_len > res_size) {
 		memcpy(ptr, enc->w_buf, res_size);
 		ptr += res_size;
@@ -368,7 +368,7 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	if (enc->w_buf_len > 0) {
 		if (dst_avail == 0)
 			return FALSE;
-		i_assert(enc->w_buf_len <= 4);
+		i_assert(enc->w_buf_len <= sizeof(enc->w_buf));
 		memcpy(w_buf, enc->w_buf, enc->w_buf_len);
 		w_buf_len += enc->w_buf_len;
 	}
