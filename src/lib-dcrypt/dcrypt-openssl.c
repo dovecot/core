@@ -1610,8 +1610,11 @@ static int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
 		return 0;
 	}
+	BN_free(r->n);
 	r->n = n;
+	BN_free(r->e);
 	r->e = e;
+	BN_free(r->d);
 	r->d = d;
 	return 1;
 }
@@ -1623,7 +1626,9 @@ static int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
 		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
 		return 0;
 	}
+	BN_free(r->p);
 	r->p = p;
+	BN_free(r->q);
 	r->q = q;
 	return 1;
 }
@@ -1635,8 +1640,11 @@ static int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
 		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
 		return 0;
 	}
+	BN_free(r->dmp1);
 	r->dmp1 = dmp1;
+	BN_free(r->dmq1);
 	r->dmq1 = dmq1;
+	BN_free(r->iqmp);
 	r->iqmp = iqmp;
 	return 1;
 }
@@ -3180,7 +3188,9 @@ static int ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s)
 		return 0;
 	}
 
+	BN_free(sig->r);
 	sig->r = r;
+	BN_free(sig->s);
 	sig->s = s;
 
 	return 1;
