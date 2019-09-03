@@ -4,6 +4,8 @@
 #include "str.h"
 #include "istream-private.h"
 #include "istream-base64.h"
+#include "istream-sized.h"
+#include "base64.h"
 
 struct base64_istream_test {
 	const char *input;
@@ -122,6 +124,160 @@ decode_base64url_test(const char *base64_input, const char *output,
 	i_stream_unref(&input_data);
 }
 
+static void
+test_istream_base64_io_random(void)
+{
+	unsigned char in_buf[2048];
+	size_t in_buf_size;
+	buffer_t *out_buf;
+	unsigned int i, j;
+	int ret;
+
+	out_buf = t_buffer_create(sizeof(in_buf));
+
+	test_begin("istream base64 random I/O");
+
+	for (i = 0; i < 4000; i++) {
+		struct istream *input1, *input2, *input3, *input4, *input5;
+		struct istream *sinput1, *sinput2, *sinput3, *sinput4;
+		struct istream *top_input;
+		const unsigned char *data;
+		unsigned int chpl1, chpl2;
+		unsigned char sized_streams;
+		size_t size;
+		struct base64_encoder b64enc;
+
+		/* Initialize test data */
+		in_buf_size = i_rand_limit(sizeof(in_buf));
+		for (j = 0; j < in_buf_size; j++)
+			in_buf[j] = i_rand();
+
+		/* Reset final output buffer */
+		buffer_set_used_size(out_buf, 0);
+
+		/* Determine line lengths */
+		chpl1 = i_rand_limit(30)*4;
+		chpl2 = i_rand_limit(30)*4;
+
+		/* Create stream for test data */
+		input1 = i_stream_create_from_data(in_buf, in_buf_size);
+		i_stream_set_name(input1, "[data]");
+
+		/* Determine which stages have sized streams */
+		sized_streams = i_rand_minmax(0x00, 0x0f);
+
+		/* Create first encoder stream */
+		input2 = i_stream_create_base64_encoder(input1, chpl1, FALSE);
+		i_stream_set_name(input2, "[base64_encoder #1]");
+
+		if (HAS_ALL_BITS(sized_streams, BIT(0))) {
+			/* Wrap the first encoder stream in a sized stream to
+			   check size and trigger any buffer overflow problems
+			 */
+			base64_encode_init(&b64enc, &base64_scheme, 0, chpl1);
+			sinput1 = i_stream_create_sized(input2,
+				base64_get_full_encoded_size(&b64enc,
+							     in_buf_size));
+			i_stream_set_name(sinput1, "[sized #1]");
+		} else {
+			sinput1 = input2;
+			i_stream_ref(sinput1);
+		}
+
+		/* Create first decoder stream */
+		input3 = i_stream_create_base64_decoder(sinput1);
+		i_stream_set_name(input3, "[base64_decoder #1]");
+
+		if (HAS_ALL_BITS(sized_streams, BIT(1))) {
+			/* Wrap the first decoder stream in a sized stream to
+			   check size and trigger any buffer overflow problems
+			 */
+			sinput2 = i_stream_create_sized(input3, in_buf_size);
+			i_stream_set_name(sinput2, "[sized #2]");
+		} else {
+			sinput2 = input3;
+			i_stream_ref(sinput2);
+		}
+
+		/* Create second encoder stream */
+		input4 = i_stream_create_base64_encoder(sinput2, chpl2, FALSE);
+		i_stream_set_name(input4, "[base64_encoder #2]");
+
+		if (HAS_ALL_BITS(sized_streams, BIT(2))) {
+			/* Wrap the second encoder stream in a sized stream to
+			   check size and trigger any buffer overflow problems
+			 */
+			base64_encode_init(&b64enc, &base64_scheme, 0, chpl2);
+			sinput3 = i_stream_create_sized(input4,
+				base64_get_full_encoded_size(&b64enc,
+							    in_buf_size));
+			i_stream_set_name(sinput3, "[sized #3]");
+		} else {
+			sinput3 = input4;
+			i_stream_ref(sinput3);
+		}
+
+		/* Create second deoder stream */
+		input5 = i_stream_create_base64_decoder(sinput3);
+		i_stream_set_name(input5, "[base64_decoder #2]");
+
+		if (HAS_ALL_BITS(sized_streams, BIT(3))) {
+			/* Wrap the second decoder stream in a sized stream to
+			   check size and trigger any buffer overflow problems
+			 */
+			sinput4 = i_stream_create_sized(input5, in_buf_size);
+			i_stream_set_name(sinput4, "[sized #4]");
+		} else {
+			sinput4 = input5;
+			i_stream_ref(sinput4);
+		}
+
+
+		/* Assign random buffer sizes */
+		i_stream_set_max_buffer_size(input5, i_rand_minmax(4, 512));
+		i_stream_set_max_buffer_size(input4, i_rand_minmax(4, 512));
+		i_stream_set_max_buffer_size(input3, i_rand_minmax(4, 512));
+		i_stream_set_max_buffer_size(input2, i_rand_minmax(4, 512));
+
+		/* Read the outer stream in full with random increments. */
+		top_input = sinput4;
+		while ((ret = i_stream_read_more(
+			top_input, &data, &size)) > 0) {
+			size_t ch = i_rand_limit(512);
+
+			size = I_MIN(size, ch);
+			buffer_append(out_buf, data, size);
+			i_stream_skip(top_input, size);
+		}
+		if (ret < 0 && top_input->stream_errno == 0) {
+			data = i_stream_get_data(top_input, &size);
+			if (size > 0) {
+				buffer_append(out_buf, data, size);
+				i_stream_skip(top_input, size);
+			}
+		}
+
+		/* Assert stream status */
+		test_assert_idx(ret < 0 && top_input->stream_errno == 0, i);
+		/* Assert input/output equality */
+		test_assert_idx(out_buf->used == in_buf_size &&
+				memcmp(in_buf, out_buf->data, in_buf_size) == 0,
+				i);
+
+		/* Clean up */
+		i_stream_unref(&input1);
+		i_stream_unref(&input2);
+		i_stream_unref(&input3);
+		i_stream_unref(&input4);
+		i_stream_unref(&input5);
+		i_stream_unref(&sinput1);
+		i_stream_unref(&sinput2);
+		i_stream_unref(&sinput3);
+		i_stream_unref(&sinput4);
+	}
+	test_end();
+}
+
 void test_istream_base64_decoder(void)
 {
 	unsigned int i;
@@ -144,4 +300,6 @@ void test_istream_base64_decoder(void)
 				      test->stream_errno);
 		test_end();
 	}
+
+	test_istream_base64_io_random();
 }
