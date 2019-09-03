@@ -281,13 +281,11 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		imap_state_import_idle_cmd_tag(imap_client, master_input.tag);
 
 	/* make sure all pending input gets handled */
-	i_assert(imap_client->to_delayed_input == NULL);
 	if (master_input.client_input->used > 0) {
 		e_debug(imap_client->event,
 			"imap-master: Pending client input: '%s'",
 			str_sanitize(str_c(master_input.client_input), 128));
-		imap_client->to_delayed_input =
-			timeout_add(0, client_input, imap_client);
+		io_set_pending(imap_client->io);
 	}
 
 	imap_refresh_proctitle();

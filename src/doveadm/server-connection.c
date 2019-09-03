@@ -50,7 +50,6 @@ struct server_connection {
 	struct istream *log_input;
 	struct ostream *output;
 	struct ssl_iostream *ssl_iostream;
-	struct timeout *to_input;
 
 	struct istream *cmd_input;
 	struct ostream *cmd_output;
@@ -97,8 +96,7 @@ static void server_print_connection_released(struct doveadm_server *server)
 
 		conns[i]->io = io_add(conns[i]->fd, IO_READ,
 				      server_connection_input, conns[i]);
-		conns[i]->to_input = timeout_add_short(0,
-			server_connection_input, conns[i]);
+		io_set_pending(conns[i]->io);
 	}
 }
 
@@ -344,8 +342,6 @@ static void server_connection_input(struct server_connection *conn)
 {
 	const char *line;
 
-	timeout_remove(&conn->to_input);
-
 	if (i_stream_read(conn->input) < 0) {
 		/* disconnected */
 		server_log_disconnect_error(conn);
@@ -588,7 +584,6 @@ void server_connection_destroy(struct server_connection **_conn)
 	if (printing_conn == conn)
 		print_connection_released();
 
-	timeout_remove(&conn->to_input);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	i_stream_destroy(&conn->cmd_input);

@@ -478,7 +478,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 		imap_parser_unref(&client->free_parser);
 	io_remove(&client->io);
 	timeout_remove(&client->to_idle_output);
-	timeout_remove(&client->to_delayed_input);
 	timeout_remove(&client->to_idle);
 
 	/* i/ostreams are already closed at this stage, so fd can be closed */
@@ -1004,10 +1003,7 @@ void client_command_free(struct client_command_context **_cmd)
 	if (state == CLIENT_COMMAND_STATE_WAIT_EXTERNAL &&
 	    !client->disconnected) {
 		client_add_missing_io(client);
-		if (client->to_delayed_input == NULL) {
-			client->to_delayed_input =
-				timeout_add(0, client_input, client);
-		}
+		io_set_pending(client->io);
 	}
 }
 
@@ -1319,8 +1315,6 @@ void client_input(struct client *client)
 
 	client->last_input = ioloop_time;
 	timeout_reset(client->to_idle);
-
-	timeout_remove(&client->to_delayed_input);
 
 	bytes = i_stream_read(client->input);
 	if (bytes == -1) {
