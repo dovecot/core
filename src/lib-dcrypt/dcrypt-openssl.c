@@ -3169,6 +3169,7 @@ dcrypt_openssl_digest(const char *algorithm, const void *data, size_t data_len,
 	} else {
 		ret = TRUE;
 	}
+	EVP_MD_CTX_free(mdctx);
 	return ret;
 }
 
