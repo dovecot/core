@@ -327,14 +327,20 @@ bool base64_encode_more(struct base64_encoder *enc,
 			dst_avail -= written;
 		}
 
+		if (dst_avail == 0)
+			break;
+
+		i_assert(enc->w_buf_len < sizeof(enc->w_buf));
 		if (src_size > 0 && enc->cur_line_len == enc->max_line_len) {
 			if (HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF)) {
-				if (dst_avail < 2)
-					break;
-				buffer_append(dest, "\r\n", 2);
+				if (dst_avail >= 2)
+					buffer_append(dest, "\r\n", 2);
+				else {
+					buffer_append_c(dest, '\r');
+					enc->w_buf[enc->w_buf_len] = '\n';
+					enc->w_buf_len++;
+				}
 			} else {
-				if (dst_avail < 1)
-					break;
 				buffer_append_c(dest, '\n');
 			}
 			enc->cur_line_len = 0;
