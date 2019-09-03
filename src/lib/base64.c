@@ -362,8 +362,7 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	bool padding = HAS_NO_BITS(enc->flags, BASE64_ENCODE_FLAG_NO_PADDING);
 	unsigned char *ptr, *end;
 	size_t dst_avail, line_avail, write;
-	unsigned char w_buf[9];
-	unsigned int w_buf_len = 0, w_buf_pos = 0;
+	unsigned int w_buf_pos = 0;
 
 	dst_avail = 0;
 	if (dest != NULL)
@@ -375,8 +374,6 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 		if (dst_avail == 0)
 			return FALSE;
 		i_assert(enc->w_buf_len <= sizeof(enc->w_buf));
-		memcpy(w_buf, enc->w_buf, enc->w_buf_len);
-		w_buf_len += enc->w_buf_len;
 	}
 
 	i_assert(enc->max_line_len > 0);
@@ -387,22 +384,22 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	case 0:
 		break;
 	case 1:
-		i_assert(w_buf_len < (sizeof(w_buf) - 3));
-		w_buf[w_buf_len] = b64enc[enc->buf];
-		w_buf_len ++;
+		i_assert(enc->w_buf_len <= (sizeof(enc->w_buf) - 3));
+		enc->w_buf[enc->w_buf_len] = b64enc[enc->buf];
+		enc->w_buf_len++;
 		if (padding) {
-			w_buf[w_buf_len + 0] =  '=';
-			w_buf[w_buf_len + 1] =  '=';
-			w_buf_len += 2;
+			enc->w_buf[enc->w_buf_len + 0] =  '=';
+			enc->w_buf[enc->w_buf_len + 1] =  '=';
+			enc->w_buf_len += 2;
 		}
 		break;
 	case 2:
-		i_assert(w_buf_len < (sizeof(w_buf) - 2));
-		w_buf[w_buf_len] = b64enc[enc->buf];
-		w_buf_len++;
+		i_assert(enc->w_buf_len <= (sizeof(enc->w_buf) - 2));
+		enc->w_buf[enc->w_buf_len] = b64enc[enc->buf];
+		enc->w_buf_len++;
 		if (padding) {
-			w_buf[w_buf_len + 0] =  '=';
-			w_buf_len++;
+			enc->w_buf[enc->w_buf_len + 0] =  '=';
+			enc->w_buf_len++;
 		}
 		break;
 	default:
@@ -410,7 +407,7 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	}
 	enc->sub_pos = 0;
 
-	write = w_buf_len;
+	write = enc->w_buf_len;
 	if (enc->max_line_len < SIZE_MAX && line_avail < write) {
 		unsigned int lines;
 
@@ -426,30 +423,44 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	}
 
 	i_assert(dest != NULL);
-	if (dst_avail < write)
-		return FALSE;
+	if (write > dst_avail)
+		write = dst_avail;
 
 	ptr = buffer_append_space_unsafe(dest, write);
 	end = ptr + write;
 	if (line_avail > 0) {
-		memcpy(ptr, w_buf, line_avail);
+		memcpy(ptr, enc->w_buf, line_avail);
 		ptr += line_avail;
 		w_buf_pos += line_avail;
 	}
-	while (w_buf_pos < w_buf_len) {
+	while (ptr < end && w_buf_pos < enc->w_buf_len) {
 		if (crlf) {
 			ptr[0] = '\r';
 			ptr++;
+			if (ptr == end) {
+				i_assert(enc->w_buf_len < sizeof(enc->w_buf));
+				enc->w_buf[enc->w_buf_len++] = '\n';
+				break;
+			}
 		}
 		ptr[0] = '\n';
 		ptr++;
+		if (ptr == end)
+			break;
 
-		write = I_MIN(w_buf_len - w_buf_pos, enc->max_line_len);
-		memcpy(ptr, &w_buf[w_buf_pos], write);
+		write = I_MIN(enc->w_buf_len - w_buf_pos, enc->max_line_len);
+		write = I_MIN(write, (size_t)(end - ptr));
+		memcpy(ptr, &enc->w_buf[w_buf_pos], write);
 		ptr += write;
 		w_buf_pos += write;
+		i_assert(ptr <= end);
 	}
 	i_assert(ptr == end);
+	if (w_buf_pos < enc->w_buf_len) {
+		enc->w_buf_len -= w_buf_pos;
+		memmove(enc->w_buf, enc->w_buf + w_buf_pos, enc->w_buf_len);
+		return FALSE;
+	}
 	enc->finished = TRUE;
 	return TRUE;
 }
