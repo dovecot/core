@@ -75,7 +75,7 @@ static void client_auth_failed(struct client *client)
 
 	if (!client_does_custom_io(client)) {
 		client->io = io_add(client->fd, IO_READ, client_input, client);
-		client_input(client);
+		io_set_pending(client->io);
 	}
 }
 
