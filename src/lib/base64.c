@@ -381,6 +381,7 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	case 0:
 		break;
 	case 1:
+		i_assert(w_buf_len < (sizeof(w_buf) - 3));
 		w_buf[w_buf_len] = b64enc[enc->buf];
 		w_buf_len ++;
 		if (padding) {
@@ -390,6 +391,7 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 		}
 		break;
 	case 2:
+		i_assert(w_buf_len < (sizeof(w_buf) - 2));
 		w_buf[w_buf_len] = b64enc[enc->buf];
 		w_buf_len++;
 		if (padding) {
