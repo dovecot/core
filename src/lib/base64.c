@@ -561,6 +561,12 @@ int base64_decode_more(struct base64_decoder *dec,
 			continue;
 		}
 
+		if (dst_avail == 0) {
+			i_assert(src_pos_r != NULL);
+			*src_pos_r = src_pos;
+			return 1;
+		}
+
 		switch (dec->sub_pos) {
 		case 0:
 			dec->buf = dm;
@@ -589,13 +595,6 @@ int base64_decode_more(struct base64_decoder *dec,
 			break;
 		default:
 			i_unreached();
-		}
-		if (dst_avail == 0) {
-			if (src_pos_r != NULL)
-				*src_pos_r = src_pos + 1;
-			else
-				i_assert(src_pos + 1 == src_size);
-			return 1;
 		}
 	}
 
