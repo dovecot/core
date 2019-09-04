@@ -110,6 +110,8 @@ ARRAY_DEFINE_TYPE(push_notification_event,
                   const struct push_notification_event *);
 extern ARRAY_TYPE(push_notification_event) push_notification_events;
 
+ARRAY_TYPE(push_notification_event) *push_notification_get_events(void);
+
 
 void
 push_notification_event_init(struct push_notification_driver_txn *dtxn,
