@@ -234,10 +234,10 @@ test_istream_base64_io_random(void)
 
 
 		/* Assign random buffer sizes */
-		i_stream_set_max_buffer_size(input5, i_rand_minmax(4, 512));
-		i_stream_set_max_buffer_size(input4, i_rand_minmax(4, 512));
-		i_stream_set_max_buffer_size(input3, i_rand_minmax(4, 512));
-		i_stream_set_max_buffer_size(input2, i_rand_minmax(4, 512));
+		i_stream_set_max_buffer_size(input5, i_rand_minmax(1, 512));
+		i_stream_set_max_buffer_size(input4, i_rand_minmax(1, 512));
+		i_stream_set_max_buffer_size(input3, i_rand_minmax(1, 512));
+		i_stream_set_max_buffer_size(input2, i_rand_minmax(1, 512));
 
 		/* Read the outer stream in full with random increments. */
 		top_input = sinput4;
