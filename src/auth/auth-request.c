@@ -298,6 +298,7 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		auth_request_fail(request);
 		return;
 	}
+	request->successful = TRUE;
 
 	/* log before delay */
 	auth_request_log_finished(request);
@@ -309,7 +310,6 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		return;
 	}
 
-	request->successful = TRUE;
 	if (ctx->success_data->used > 0 && !request->final_resp_ok) {
 		/* we'll need one more SASL round, since client doesn't support
 		   the final SASL response */
