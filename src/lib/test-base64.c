@@ -850,6 +850,9 @@ test_base64_random_lowlevel_one_block(const struct base64_scheme *b64,
 	base64_encode_more(&enc, in_buf, in_buf_size, NULL, &buf);
 	base64_encode_finish(&enc, &buf);
 
+	test_assert(base64_get_full_encoded_size(&enc, in_buf_size) ==
+		    buf1->used);
+
 	base64_decode_init(&dec, b64, dec_flags);
 	space = buffer_append_space_unsafe(buf2, in_buf_size);
 	buffer_create_from_data(&buf, space, in_buf_size);
@@ -881,11 +884,12 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 	void *out_data;
 	buffer_t out;
 
-	buf_begin = in_buf;
-	buf_end = buf_begin + in_buf_size;
+	/* Encode */
 
 	buffer_set_used_size(buf1, 0);
-	buffer_set_used_size(buf2, 0);
+
+	buf_begin = in_buf;
+	buf_end = buf_begin + in_buf_size;
 
 	base64_encode_init(&enc, b64, enc_flags, max_line_len);
 	out_space = 0;
@@ -917,6 +921,21 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 		buffer_set_used_size(buf1, used + out.used);
 	}
 	base64_encode_finish(&enc, buf1);
+
+	/* Verify encode */
+
+	test_assert(base64_get_full_encoded_size(&enc, in_buf_size) ==
+		    buf1->used);
+
+	buffer_set_used_size(buf2, 0);
+	base64_encode_init(&enc, b64, enc_flags, max_line_len);
+	base64_encode_more(&enc, in_buf, in_buf_size, NULL, buf2);
+	base64_encode_finish(&enc, buf2);
+	test_assert_idx(buffer_cmp(buf1, buf2), test_idx);
+
+	/* Decode */
+
+	buffer_set_used_size(buf2, 0);
 
 	buf_begin = buf1->data;
 	buf_end = buf_begin + buf1->used;
@@ -957,6 +976,7 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 	}
 	test_assert_idx(ret >= 0, test_idx);
 
+	/* Verify decode */
 	if (ret > 0) {
 		ret = base64_decode_finish(&dec);
 		test_assert_idx(ret == 0, test_idx);
@@ -978,7 +998,7 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 	unsigned int i, j;
 
 	buf1 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(sizeof(in_buf)));
-	buf2 = t_buffer_create(sizeof(in_buf));
+	buf2 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(sizeof(in_buf)));
 
 	/* one block */
 	for (i = 0; i < 1000; i++) {
