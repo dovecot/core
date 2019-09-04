@@ -102,7 +102,6 @@ size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size)
 {
 	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
 	size_t out_size = base64_encode_get_out_size(enc, src_size);
-	size_t line_part, lines;
 
 	if (src_size == 0) {
 		/* last block */
@@ -120,16 +119,18 @@ size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size)
 		}
 	}
 
-	if (enc->max_line_len == SIZE_MAX)
-		return out_size;
+	if (enc->max_line_len < SIZE_MAX) {
+		size_t line_part, lines;
 
-	/* Calculate how many line endings must be added */
-	lines = out_size / enc->max_line_len;
-	line_part = out_size % enc->max_line_len;
-	if (enc->cur_line_len > (enc->max_line_len - line_part))
-		lines++;
+		/* Calculate how many line endings must be added */
+		lines = out_size / enc->max_line_len;
+		line_part = out_size % enc->max_line_len;
+		if (enc->cur_line_len > (enc->max_line_len - line_part))
+			lines++;
 
-	out_size += lines * (crlf ? 2 : 1);
+		out_size += lines * (crlf ? 2 : 1);
+	}
+
 	return out_size;
 }
 
