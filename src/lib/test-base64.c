@@ -1071,6 +1071,10 @@ test_base64_random_lowlevel(void)
 					 BASE64_ENCODE_FLAG_NO_PADDING |
 					 BASE64_ENCODE_FLAG_CRLF,
 					 BASE64_DECODE_FLAG_NO_PADDING, 15);
+	test_base64_random_lowlevel_case(&base64_scheme,
+					 BASE64_ENCODE_FLAG_NO_PADDING |
+					 BASE64_ENCODE_FLAG_CRLF,
+					 BASE64_DECODE_FLAG_NO_PADDING, 1);
 	test_end();
 }
 
