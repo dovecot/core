@@ -62,6 +62,14 @@ void imap_master_connection_deinit(struct imap_master_connection **_conn)
 
 	if (conn->read_callback != NULL)
 		conn->read_callback(conn->context, "-");
+	imap_master_connection_free(&conn);
+}
+
+void imap_master_connection_free(struct imap_master_connection **_conn)
+{
+	struct imap_master_connection *conn = *_conn;
+
+	*_conn = NULL;
 
 	timeout_remove(&conn->to);
 	connection_deinit(&conn->conn);

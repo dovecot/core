@@ -613,6 +613,8 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 			"\n", NULL));
 	}
 
+	if (client->master_conn != NULL)
+		imap_master_connection_free(&client->master_conn);
 	if (client->ioloop_ctx != NULL) {
 		io_loop_context_remove_callbacks(client->ioloop_ctx,
 						 imap_client_io_activate_user,

@@ -16,6 +16,7 @@ int imap_master_connection_init(const char *path,
 				struct imap_master_connection **conn_r,
 				const char **error_r);
 void imap_master_connection_deinit(struct imap_master_connection **conn);
+void imap_master_connection_free(struct imap_master_connection **conn);
 
 void imap_master_connections_init(void);
 void imap_master_connections_deinit(void);
