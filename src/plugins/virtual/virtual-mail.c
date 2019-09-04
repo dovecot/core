@@ -92,7 +92,7 @@ static void virtual_mail_free(struct mail *mail)
 	array_free(&vmail->backend_mails);
 
 	mailbox_header_lookup_unref(&vmail->wanted_headers);
-
+	event_unref(&mail->event);
 	pool_unref(&vmail->imail.mail.data_pool);
 	pool_unref(&vmail->imail.mail.pool);
 }
