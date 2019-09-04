@@ -522,7 +522,7 @@ unsigned int service_signal(struct service *service, int signo,
 				      dec2str(process->pid), signo);
 		}
 	}
-	if (count > 0) {
+	if (count > 0 && signo != SIGUSR1) {
 		i_warning("Sent %s to %u %s processes",
 			  signo == SIGTERM ? "SIGTERM" : "SIGKILL",
 			  count, service->set->name);
