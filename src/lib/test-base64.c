@@ -834,18 +834,27 @@ test_base64_random_lowlevel_one_block(const struct base64_scheme *b64,
 {
 	struct base64_encoder enc;
 	struct base64_decoder dec;
+	void *space;
+	size_t enc_size;
+	buffer_t buf;
 	int ret;
 
 	buffer_set_used_size(buf1, 0);
 	buffer_set_used_size(buf2, 0);
 
 	base64_encode_init(&enc, b64, enc_flags, max_line_len);
-	base64_encode_more(&enc, in_buf, in_buf_size, NULL, buf1);
-	base64_encode_finish(&enc, buf1);
+	enc_size = base64_get_full_encoded_size(&enc, in_buf_size);
+	space = buffer_append_space_unsafe(buf1, enc_size);
+	buffer_create_from_data(&buf, space, enc_size);
+
+	base64_encode_more(&enc, in_buf, in_buf_size, NULL, &buf);
+	base64_encode_finish(&enc, &buf);
 
 	base64_decode_init(&dec, b64, dec_flags);
-	ret = base64_decode_more(&dec, buf1->data, buf1->used,
-				 NULL, buf2);
+	space = buffer_append_space_unsafe(buf2, in_buf_size);
+	buffer_create_from_data(&buf, space, in_buf_size);
+
+	ret = base64_decode_more(&dec, buf1->data, buf1->used, NULL, &buf);
 	if (ret >= 0)
 		ret = base64_decode_finish(&dec);
 
