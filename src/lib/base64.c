@@ -8,13 +8,13 @@
  * Low-level Base64 encoder
  */
 
-off_t base64_get_full_encoded_size(struct base64_encoder *enc, off_t src_size)
+uoff_t base64_get_full_encoded_size(struct base64_encoder *enc, uoff_t src_size)
 {
 	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
 	bool no_padding = HAS_ALL_BITS(enc->flags,
 				       BASE64_ENCODE_FLAG_NO_PADDING);
-	off_t out_size;
-	off_t newlines;
+	uoff_t out_size;
+	uoff_t newlines;
 
 	if (src_size == 0)
 		return 0;
@@ -26,23 +26,27 @@ off_t base64_get_full_encoded_size(struct base64_encoder *enc, off_t src_size)
 		case 0:
 			break;
 		case 1:
+			i_assert(out_size > 2);
 			out_size -= 2;
 			break;
 		case 2:
+			i_assert(out_size > 1);
 			out_size -= 1;
 			break;
 		}
 	}
 
-	/* newline between each full line */
-	newlines = (out_size / enc->max_line_len) - 1;
-	/* an extra newline to separate the partial last line from the previous
-	  full line */
-	if ((out_size % enc->max_line_len) != 0)
-		newlines++;
+	if (out_size > enc->max_line_len) {
+		/* newline between each full line */
+		newlines = (out_size / enc->max_line_len) - 1;
+		/* an extra newline to separate the partial last line from the
+		   previous full line */
+		if ((out_size % enc->max_line_len) != 0)
+			newlines++;
 
-	/* update size with added newlines */
-	out_size += newlines * (crlf ? 2 : 1);
+		/* update size with added newlines */
+		out_size += newlines * (crlf ? 2 : 1);
+	}
 
 	return out_size;
 }

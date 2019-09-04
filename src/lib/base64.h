@@ -80,7 +80,8 @@ base64_encode_reset(struct base64_encoder *enc)
 /* Translate the size of the full encoder input to the size of the encoder
    output.
  */
-off_t base64_get_full_encoded_size(struct base64_encoder *enc, off_t src_size);
+uoff_t base64_get_full_encoded_size(struct base64_encoder *enc,
+				    uoff_t src_size);
 /* Translate the size of the next input to the size of the output once encoded.
    This yields the amount of data appended to the dest buffer by
    base64_encode_more() with the indicated src_size. */
