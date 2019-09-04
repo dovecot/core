@@ -137,7 +137,7 @@ test_istream_base64_io_random(void)
 
 	test_begin("istream base64 random I/O");
 
-	for (i = 0; i < 4000; i++) {
+	for (i = 0; !test_has_failed() && i < 4000; i++) {
 		struct istream *input1, *input2, *input3, *input4, *input5;
 		struct istream *sinput1, *sinput2, *sinput3, *sinput4;
 		struct istream *top_input;
@@ -263,6 +263,25 @@ test_istream_base64_io_random(void)
 		test_assert_idx(out_buf->used == in_buf_size &&
 				memcmp(in_buf, out_buf->data, in_buf_size) == 0,
 				i);
+
+		if (top_input->stream_errno != 0) {
+			i_error("%s: %s", i_stream_get_name(input1),
+			       i_stream_get_error(input1));
+			i_error("%s: %s", i_stream_get_name(input2),
+			       i_stream_get_error(input2));
+			i_error("%s: %s", i_stream_get_name(input3),
+			       i_stream_get_error(input3));
+			i_error("%s: %s", i_stream_get_name(input4),
+			       i_stream_get_error(input4));
+			i_error("%s: %s", i_stream_get_name(input5),
+			       i_stream_get_error(input5));
+		}
+
+		if (test_has_failed()) {
+			i_info("Test parameters: size=%"PRIuSIZE_T" "
+			       "line_length_1=%u line_length_2=%u",
+				in_buf_size, chpl1, chpl2);
+		}
 
 		/* Clean up */
 		i_stream_unref(&input1);
