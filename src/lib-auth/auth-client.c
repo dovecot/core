@@ -56,7 +56,9 @@ void auth_client_disconnect(struct auth_client *client, const char *reason)
 
 bool auth_client_is_connected(struct auth_client *client)
 {
-	return client->conn->conn.handshake_received;
+	/* handshake_received isn't unset immediately after disconnection */
+	return client->conn->conn.handshake_received &&
+		client->conn->connected;
 }
 
 bool auth_client_is_disconnected(struct auth_client *client)
