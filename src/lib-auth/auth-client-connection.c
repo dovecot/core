@@ -221,7 +221,7 @@ auth_server_lookup_request(struct auth_client_connection *conn,
 	request = hash_table_lookup(conn->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		e_error(conn->event,
-			"BUG: Authentication server sent unknown id %u", id);
+			"Authentication server sent unknown id %u", id);
 		return 0;
 	}
 	if (remove || auth_client_request_is_aborted(request))
