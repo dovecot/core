@@ -124,5 +124,5 @@ void imap_old_stats_plugin_deinit(void)
 	command_hook_unregister(stats_command_pre, stats_command_post);
 }
 
-const char *imap_stats_plugin_dependencies[] = { "old_stats", NULL };
-const char imap_stats_plugin_binary_dependency[] = "imap";
+const char *imap_old_stats_plugin_dependencies[] = { "old_stats", NULL };
+const char imap_old_stats_plugin_binary_dependency[] = "imap";
