@@ -247,8 +247,10 @@ static void imap_client_move_back(struct imap_client *client)
 	/* imap-master socket is busy. retry in a while. */
 	if (client->move_back_start == 0)
 		client->move_back_start = ioloop_time;
-	client->unhibernate_queued = TRUE;
-	priorityq_add(unhibernate_queue, &client->item);
+	if (!client->unhibernate_queued) {
+		client->unhibernate_queued = TRUE;
+		priorityq_add(unhibernate_queue, &client->item);
+	}
 	if (to_unhibernate == NULL) {
 		to_unhibernate = timeout_add_short(IMAP_UNHIBERNATE_RETRY_MSECS,
 						   imap_clients_unhibernate, NULL);
@@ -583,8 +585,10 @@ static void imap_client_stop(struct imap_client *client)
 {
 	struct imap_client_notify *notify;
 
-	if (client->unhibernate_queued)
+	if (client->unhibernate_queued) {
 		priorityq_remove(unhibernate_queue, &client->item);
+		client->unhibernate_queued = FALSE;
+	}
 	io_remove(&client->io);
 	timeout_remove(&client->to_keepalive);
 
@@ -693,7 +697,7 @@ static void imap_clients_unhibernate(void *context ATTR_UNUSED)
 {
 	struct priorityq_item *item;
 
-	while ((item = priorityq_pop(unhibernate_queue)) != NULL) {
+	while ((item = priorityq_peek(unhibernate_queue)) != NULL) {
 		struct imap_client *client = (struct imap_client *)item;
 
 		if (!imap_client_try_move_back(client))
