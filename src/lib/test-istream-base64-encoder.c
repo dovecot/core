@@ -194,7 +194,7 @@ void test_istream_base64_encoder(void)
 		const struct base64_istream_test *test = &base64_tests[i];
 
 		test_begin(t_strdup_printf(
-			"istream base64 decoder %u", i+1));
+			"istream base64 encoder %u", i+1));
 		encode_base64_test(test->input, test->chars_per_line,
 				   test->crlf, test->output);
 		test_end();
@@ -204,7 +204,7 @@ void test_istream_base64_encoder(void)
 		const struct base64_istream_test *test = &base64url_tests[i];
 
 		test_begin(t_strdup_printf(
-			"istream base64url decoder %u", i+1));
+			"istream base64url encoder %u", i+1));
 		encode_base64url_test(test->input, test->chars_per_line,
 				      test->crlf, test->output);
 		test_end();
