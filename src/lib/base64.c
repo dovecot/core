@@ -591,8 +591,10 @@ int base64_decode_more(struct base64_decoder *dec,
 			i_unreached();
 		}
 		if (dst_avail == 0) {
-			i_assert(src_pos_r != NULL);
-			*src_pos_r = src_pos + 1;
+			if (src_pos_r != NULL)
+				*src_pos_r = src_pos + 1;
+			else
+				i_assert(src_pos + 1 == src_size);
 			return 1;
 		}
 	}
