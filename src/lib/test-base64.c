@@ -1010,6 +1010,15 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 						      max_line_len, i,
 						      in_buf, in_buf_size,
 						      buf1, buf2);
+
+		if (test_has_failed()) {
+			i_info("One block test failed ("
+			       "enc_flags=%02x dec_flags=%02x "
+			       "max_line_len=%"PRIuSIZE_T" size=%"PRIuSIZE_T")",
+				enc_flags, dec_flags, max_line_len,
+				in_buf_size);
+			return;
+		}
 	}
 
 	/* streaming; single-byte trickle */
@@ -1022,6 +1031,15 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 						   max_line_len, i,
 						   in_buf, in_buf_size,
 						   buf1, buf2, 1);
+
+		if (test_has_failed()) {
+			i_info("Streaming single-byte trickle test failed ("
+			       "enc_flags=%02x dec_flags=%02x "
+			       "max_line_len=%"PRIuSIZE_T" size=%"PRIuSIZE_T")",
+				enc_flags, dec_flags, max_line_len,
+				in_buf_size);
+			return;
+		}
 	}
 
 	/* streaming; random chunks */
@@ -1034,6 +1052,14 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 						   max_line_len, i,
 						   in_buf, in_buf_size,
 						   buf1, buf2, 0);
+		if (test_has_failed()) {
+			i_info("Streaming random chunks test failed ("
+			       "enc_flags=%02x dec_flags=%02x "
+			       "max_line_len=%"PRIuSIZE_T" size=%"PRIuSIZE_T")",
+				enc_flags, dec_flags, max_line_len,
+				in_buf_size);
+			return;
+		}
 	}
 }
 
