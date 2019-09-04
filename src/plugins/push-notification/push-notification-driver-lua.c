@@ -75,7 +75,7 @@ push_notification_driver_lua_init(struct push_notification_driver_config *config
 	struct dlua_push_notification_context *ctx;
 	const char *tmp, *file;
 	struct event *event = event_create(user->event);
-	event_add_category(event, &event_category_push_notification);
+	event_add_category(event, push_notification_get_event_category());
 	event_set_append_log_prefix(event, "lua: ");
 
 	if ((tmp = mail_user_plugin_getenv(user, DLUA_LOG_USERENV_KEY)) == NULL)
@@ -140,7 +140,7 @@ push_notification_driver_lua_init_events(struct push_notification_driver_txn *dt
 	bool found_one = FALSE;
 
 	/* register *all* events that are present in Lua */
-	array_foreach(&push_notification_events, event) {
+	array_foreach(push_notification_get_events(), event) {
 		const char *name = (*event)->name;
 		const char *fn = push_notification_driver_lua_to_fn(name);
 		if (!dlua_script_has_function(ctx->script, fn))
