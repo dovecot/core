@@ -9,6 +9,10 @@
 
 ARRAY_TYPE(push_notification_event) push_notification_events;
 
+ARRAY_TYPE(push_notification_event) *push_notification_get_events(void)
+{
+	return &push_notification_events;
+}
 
 static bool
 push_notification_event_find(const char *name, unsigned int *idx_r)

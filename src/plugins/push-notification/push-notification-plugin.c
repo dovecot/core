@@ -32,6 +32,17 @@ struct event_category event_category_push_notification = {
 	.name = "push_notification",
 };
 
+struct event_category *push_notification_get_event_category(void)
+{
+	return &event_category_push_notification;
+}
+
+struct push_notification_event *
+push_notification_get_event_messagenew(void)
+{
+	return &push_notification_event_messagenew;
+}
+
 static void
 push_notification_transaction_init(struct push_notification_txn *ptxn)
 {

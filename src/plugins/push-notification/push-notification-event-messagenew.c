@@ -145,8 +145,6 @@ push_notification_event_messagenew_event(struct push_notification_txn *ptxn,
 
 /* Event definition */
 
-extern struct push_notification_event push_notification_event_messagenew;
-
 struct push_notification_event push_notification_event_messagenew = {
     .name = EVENT_NAME,
     .init = {
