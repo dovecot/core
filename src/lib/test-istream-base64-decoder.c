@@ -14,6 +14,7 @@ struct base64_istream_test {
 };
 
 static const struct base64_istream_test base64_tests[] = {
+	{ "", "", 0 },
 	{ "aGVsbG8gd29ybGQ=", "hello world", 0 },
 	{ "\naGVs\nbG8g\nd29y\nbGQ=\n", "hello world", 0 },
 	{ "  aGVs    \r\n bG8g  \r\n   d29y  \t \r\n    bGQ= \r\n\r\n",
@@ -38,6 +39,7 @@ static const struct base64_istream_test base64_tests[] = {
 };
 
 static const struct base64_istream_test base64url_tests[] = {
+	{ "", "", 0 },
 	{ "aGVsbG8gd29ybGQ=", "hello world", 0 },
 	{ "\naGVs\nbG8g\nd29y\nbGQ=\n", "hello world", 0 },
 	{ "  aGVs    \r\n bG8g  \r\n   d29y  \t \r\n    bGQ= \r\n\r\n",
