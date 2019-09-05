@@ -42,6 +42,7 @@ struct base64_encoder {
 	unsigned int w_buf_len;
 
 	bool pending_lf:1;
+	bool finishing:1;
 	bool finished:1;
 };
 
