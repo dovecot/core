@@ -947,6 +947,12 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 {
 	const char *error;
 
+	/* Event's create callback has already added service:<name> category.
+	   This imported event may be coming from another service process
+	   though, so clear it out. */
+	if (array_is_created(&event->categories))
+		array_clear(&event->categories);
+
 	/* required fields: */
 	if (args[0] == NULL) {
 		*error_r = "Missing required fields";
