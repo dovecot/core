@@ -33,6 +33,10 @@ static ARRAY(struct event_category *) event_registered_categories;
 static ARRAY(struct event *) global_event_stack;
 static uint64_t event_id_counter = 0;
 
+static struct event *
+event_create_internal(struct event *parent, const char *source_filename,
+		      unsigned int source_linenum);
+
 static struct event *last_passthrough_event(void)
 {
 	return container_of(event_last_passthrough,
@@ -146,7 +150,9 @@ bool event_has_all_fields(struct event *event, const struct event *other)
 
 struct event *event_dup(const struct event *source)
 {
-	struct event *ret = event_create(source->parent);
+	struct event *ret =
+		event_create_internal(source->parent, source->source_filename,
+				      source->source_linenum);
 	string_t *str = t_str_new(256);
 	const char *err;
 	event_export(source, str);
@@ -182,10 +188,9 @@ struct event *event_flatten(struct event *src)
 
 	/* We have to flatten the event. */
 
-	dst = event_create(NULL);
+	dst = event_create_internal(NULL, src->source_filename,
+				    src->source_linenum);
 	dst = event_set_name(dst, src->sending_name);
-	dst = event_set_source(dst, src->source_filename, src->source_linenum,
-			       FALSE);
 
 	event_flatten_recurse(dst, src, NULL);
 
@@ -310,9 +315,9 @@ struct event *event_minimize(struct event *event)
 	return new_event;
 }
 
-#undef event_create
-struct event *event_create(struct event *parent, const char *source_filename,
-			   unsigned int source_linenum)
+static struct event *
+event_create_internal(struct event *parent, const char *source_filename,
+		      unsigned int source_linenum)
 {
 	struct event *event;
 	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"event", 64);
@@ -335,6 +340,13 @@ struct event *event_create(struct event *parent, const char *source_filename,
 	}
 	DLLIST_PREPEND(&events, event);
 	return event;
+}
+
+#undef event_create
+struct event *event_create(struct event *parent, const char *source_filename,
+			   unsigned int source_linenum)
+{
+	return event_create_internal(parent, source_filename, source_linenum);
 }
 
 #undef event_create_passthrough
