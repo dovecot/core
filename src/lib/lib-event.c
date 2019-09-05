@@ -55,7 +55,7 @@ static struct event_field *
 event_find_field_int(struct event *event, const char *key);
 
 static bool
-event_send_callbacks(struct event *event, enum event_callback_type type,
+event_call_callbacks(struct event *event, enum event_callback_type type,
 		     struct failure_context *ctx, const char *fmt, va_list args)
 {
 	event_callback_t *const *callbackp;
@@ -82,7 +82,7 @@ static void event_send_free(struct event *event, ...)
 	   to be any nice and standard way of passing an initialized va_list
 	   as a parameter without va_start(). */
 	va_start(args, event);
-	(void)event_send_callbacks(event, EVENT_CALLBACK_TYPE_FREE,
+	(void)event_call_callbacks(event, EVENT_CALLBACK_TYPE_FREE,
 				   NULL, NULL, args);
 	va_end(args);
 }
@@ -807,7 +807,7 @@ void event_vsend(struct event *event, struct failure_context *ctx,
 {
 	if (gettimeofday(&event->tv_last_sent, NULL) < 0)
 		i_panic("gettimeofday() failed: %m");
-	if (event_send_callbacks(event, EVENT_CALLBACK_TYPE_SEND,
+	if (event_call_callbacks(event, EVENT_CALLBACK_TYPE_SEND,
 				 ctx, fmt, args)) {
 		if (ctx->type != LOG_TYPE_DEBUG ||
 		    event->sending_debug_log)
