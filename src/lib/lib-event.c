@@ -54,6 +54,39 @@ event_find_category(struct event *event, const struct event_category *category);
 static struct event_field *
 event_find_field_int(struct event *event, const char *key);
 
+static bool
+event_send_callbacks(struct event *event, enum event_callback_type type,
+		     struct failure_context *ctx, const char *fmt, va_list args)
+{
+	event_callback_t *const *callbackp;
+
+	array_foreach(&event_handlers, callbackp) {
+		bool ret;
+
+		T_BEGIN {
+			ret = (*callbackp)(event, type, ctx, fmt, args);
+		} T_END;
+		if (!ret) {
+			/* event sending was stopped */
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+static void event_send_free(struct event *event, ...)
+{
+	va_list args;
+
+	/* the args are empty and not used for anything, but there doesn't seem
+	   to be any nice and standard way of passing an initialized va_list
+	   as a parameter without va_start(). */
+	va_start(args, event);
+	(void)event_send_callbacks(event, EVENT_CALLBACK_TYPE_FREE,
+				   NULL, NULL, args);
+	va_end(args);
+}
+
 void event_copy_categories(struct event *to, struct event *from)
 {
 	unsigned int cat_count;
@@ -327,45 +360,12 @@ event_create_passthrough(struct event *parent, const char *source_filename,
 	return event_last_passthrough;
 }
 
-static bool
-event_send_callbacks(struct event *event, enum event_callback_type type,
-		     struct failure_context *ctx, const char *fmt, va_list args)
-{
-	event_callback_t *const *callbackp;
-
-	array_foreach(&event_handlers, callbackp) {
-		bool ret;
-
-		T_BEGIN {
-			ret = (*callbackp)(event, type, ctx, fmt, args);
-		} T_END;
-		if (!ret) {
-			/* event sending was stopped */
-			return FALSE;
-		}
-	}
-	return TRUE;
-}
-
 struct event *event_ref(struct event *event)
 {
 	i_assert(event->refcount > 0);
 
 	event->refcount++;
 	return event;
-}
-
-static void event_send_free(struct event *event, ...)
-{
-	va_list args;
-
-	/* the args are empty and not used for anything, but there doesn't seem
-	   to be any nice and standard way of passing an initialized va_list
-	   as a parameter without va_start(). */
-	va_start(args, event);
-	(void)event_send_callbacks(event, EVENT_CALLBACK_TYPE_FREE,
-				   NULL, NULL, args);
-	va_end(args);
 }
 
 void event_unref(struct event **_event)
