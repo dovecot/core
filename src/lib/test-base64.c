@@ -45,6 +45,7 @@ struct test_base64_decode {
 static void test_base64_decode(void)
 {
 	static const struct test_base64_decode tests[] = {
+		{ "", "", 0 },
 		{ "\taGVsbG8gd29ybGQ=",
 		  "hello world", 0 },
 		{ "\nZm9v\n \tIGJh  \t\ncml0cw==",
@@ -78,7 +79,9 @@ static void test_base64_decode(void)
 		size_t max_decoded_size =
 			MAX_BASE64_DECODED_SIZE(strlen(tests[i].input));
 
-		buffer_create_from_data(&buf, t_malloc0(max_decoded_size),
+		buffer_create_from_data(&buf,
+					(max_decoded_size == 0 ? NULL :
+					 t_malloc0(max_decoded_size)),
 					max_decoded_size);
 		str = &buf;
 		ret = base64_decode(tests[i].input, strlen(tests[i].input),
@@ -129,6 +132,7 @@ static void test_base64url_encode(void)
 		const char *input;
 		const char *output;
 	} tests[] = {
+		{ "", "" },
 		{ "hello world", "aGVsbG8gd29ybGQ=" },
 		{ "foo barits", "Zm9vIGJhcml0cw==" },
 		{ "just niin", "anVzdCBuaWlu" },
@@ -165,6 +169,7 @@ struct test_base64url_decode {
 static void test_base64url_decode(void)
 {
 	static const struct test_base64url_decode tests[] = {
+		{ "", "", 0 },
 		{ "\taGVsbG8gd29ybGQ=",
 		  "hello world", 0 },
 		{ "\nZm9v\n \tIGJh  \t\ncml0cw==",
@@ -198,7 +203,9 @@ static void test_base64url_decode(void)
 		size_t max_decoded_size =
 			MAX_BASE64_DECODED_SIZE(strlen(tests[i].input));
 
-		buffer_create_from_data(&buf, t_malloc0(max_decoded_size),
+		buffer_create_from_data(&buf,
+					(max_decoded_size == 0 ? NULL :
+					 t_malloc0(max_decoded_size)),
 					max_decoded_size);
 		str = &buf;
 		ret = base64url_decode(0, tests[i].input,
@@ -254,6 +261,30 @@ struct test_base64_encode_lowlevel {
 
 static const struct test_base64_encode_lowlevel
 tests_base64_encode_lowlevel[] = {
+	{
+		.scheme = &base64_scheme,
+		.input = "",
+		.output = "",
+	},
+	{
+		.scheme = &base64_scheme,
+		.max_line_len = 2,
+		.input = "",
+		.output = "",
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_ENCODE_FLAG_CRLF,
+		.max_line_len = 2,
+		.input = "",
+		.output = "",
+	},
+	{
+		.scheme = &base64_scheme,
+		.flags = BASE64_ENCODE_FLAG_NO_PADDING,
+		.input = "",
+		.output = "",
+	},
 	{
 		.scheme = &base64_scheme,
 		.input = "hello world",
@@ -459,6 +490,60 @@ struct test_base64_decode_lowlevel {
 
 static const struct test_base64_decode_lowlevel
 tests_base64_decode_lowlevel[] = {
+	{
+		.scheme = &base64_scheme,
+		.input = "",
+		.output = "",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = " ",
+		.output = "",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "",
+		.output = "",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+		.flags = BASE64_DECODE_FLAG_EXPECT_BOUNDARY,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "",
+		.output = "",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+		.flags = BASE64_DECODE_FLAG_NO_WHITESPACE,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = " ",
+		.output = "",
+		.ret = -1,
+		.src_pos = 0,
+		.flags = BASE64_DECODE_FLAG_NO_WHITESPACE,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "",
+		.output = "",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+		.flags = BASE64_DECODE_FLAG_NO_PADDING,
+	},
+	{
+		.scheme = &base64_scheme,
+		.input = "",
+		.output = "",
+		.ret = 0,
+		.src_pos = UINT_MAX,
+		.flags = BASE64_DECODE_FLAG_IGNORE_PADDING,
+	},
 	{
 		.scheme = &base64_scheme,
 		.input = "\taGVsbG8gd29ybGQ=",
@@ -797,7 +882,9 @@ static void test_base64_decode_lowlevel(void)
 		size_t max_decoded_size =
 			MAX_BASE64_DECODED_SIZE(strlen(test->input));
 
-		buffer_create_from_data(&buf, t_malloc0(max_decoded_size),
+		buffer_create_from_data(&buf,
+					(max_decoded_size == 0 ? NULL :
+					 t_malloc0(max_decoded_size)),
 					max_decoded_size);
 		str = &buf;
 		base64_decode_init(&dec, test->scheme, test->flags);
