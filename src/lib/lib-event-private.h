@@ -43,6 +43,8 @@ struct event {
 };
 
 enum event_callback_type {
+	/* Event was just created */
+	EVENT_CALLBACK_TYPE_CREATE,
 	/* Event is being sent */
 	EVENT_CALLBACK_TYPE_SEND,
 	/* Event is being freed */
@@ -72,7 +74,7 @@ struct event_category *event_category_find_registered(const char *name);
 struct event_category *const *
 event_get_registered_categories(unsigned int *count_r);
 
-/* Register callback to be called whenever events are sent. */
+/* Register callback to be called for event's different states. */
 void event_register_callback(event_callback_t *callback);
 void event_unregister_callback(event_callback_t *callback);
 

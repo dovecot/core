@@ -346,7 +346,11 @@ event_create_internal(struct event *parent, const char *source_filename,
 struct event *event_create(struct event *parent, const char *source_filename,
 			   unsigned int source_linenum)
 {
-	return event_create_internal(parent, source_filename, source_linenum);
+	struct event *event;
+
+	event = event_create_internal(parent, source_filename, source_linenum);
+	(void)event_call_callbacks_noargs(event, EVENT_CALLBACK_TYPE_CREATE);
+	return event;
 }
 
 #undef event_create_passthrough
