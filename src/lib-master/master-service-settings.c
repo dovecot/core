@@ -108,6 +108,13 @@ const struct setting_parser_info master_service_setting_parser_info = {
 };
 
 /* <settings checks> */
+static void add_category(ARRAY_TYPE(const_string) *categories, const char *name)
+{
+	if (!array_is_created(categories))
+		t_array_init(categories, 4);
+	array_push_back(categories, &name);
+}
+
 static int parse_query(const char *str, struct event_filter_query *query_r,
 		       const char **error_r)
 {
@@ -150,15 +157,11 @@ static int parse_query(const char *str, struct event_filter_query *query_r,
 				array_append_space(&fields);
 			field->key = t_strdup_until(str+6, value);
 			field->value = value+1;
-		} else if (strncmp(str, "cat:", 4) == 0 ||
-			   strncmp(str, "category:", 9) == 0) {
-			if (!array_is_created(&categories))
-				t_array_init(&categories, 4);
-			str = strchr(str, ':');
-			i_assert(str != NULL);
-			str++;
-			array_push_back(&categories, &str);
-		} else {
+		} else if (str_begins(str, "cat:"))
+			add_category(&categories, str+4);
+		else if (str_begins(str, "category:"))
+			add_category(&categories, str+9);
+		else {
 			*error_r = t_strdup_printf("Unknown event '%s'", str);
 			return -1;
 		}
