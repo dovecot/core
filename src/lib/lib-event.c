@@ -74,16 +74,17 @@ event_call_callbacks(struct event *event, enum event_callback_type type,
 	return TRUE;
 }
 
-static void event_send_free(struct event *event, ...)
+static void
+event_call_callbacks_noargs(struct event *event,
+			    enum event_callback_type type, ...)
 {
 	va_list args;
 
 	/* the args are empty and not used for anything, but there doesn't seem
 	   to be any nice and standard way of passing an initialized va_list
 	   as a parameter without va_start(). */
-	va_start(args, event);
-	(void)event_call_callbacks(event, EVENT_CALLBACK_TYPE_FREE,
-				   NULL, NULL, args);
+	va_start(args, type);
+	(void)event_call_callbacks(event, type, NULL, NULL, args);
 	va_end(args);
 }
 
@@ -381,7 +382,7 @@ void event_unref(struct event **_event)
 		return;
 	i_assert(event != current_global_event);
 
-	event_send_free(event);
+	event_call_callbacks_noargs(event, EVENT_CALLBACK_TYPE_FREE);
 
 	if (last_passthrough_event() == event)
 		event_last_passthrough = NULL;
