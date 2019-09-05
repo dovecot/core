@@ -973,18 +973,21 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 			i_free(event->sending_name);
 			event->sending_name = i_strdup(arg);
 			break;
-		case EVENT_CODE_SOURCE:
-			event->source_filename = p_strdup(event->pool, arg);
+		case EVENT_CODE_SOURCE: {
+			unsigned int linenum;
+
 			if (args[1] == NULL) {
 				*error_r = "Source line number missing";
 				return FALSE;
 			}
-			if (str_to_uint(args[1], &event->source_linenum) < 0) {
+			if (str_to_uint(args[1], &linenum) < 0) {
 				*error_r = "Invalid Source line number";
 				return FALSE;
 			}
+			event_set_source(event, arg, linenum, FALSE);
 			args++;
 			break;
+		}
 
 		case EVENT_CODE_FIELD_INTMAX:
 		case EVENT_CODE_FIELD_STR:
