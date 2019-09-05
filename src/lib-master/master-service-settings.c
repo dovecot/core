@@ -161,7 +161,10 @@ static int parse_query(const char *str, struct event_filter_query *query_r,
 			add_category(&categories, str+4);
 		else if (str_begins(str, "category:"))
 			add_category(&categories, str+9);
-		else {
+		else if (str_begins(str, "service:")) {
+			/* service:name is short for category:service:name */
+			add_category(&categories, str);
+		} else {
 			*error_r = t_strdup_printf("Unknown event '%s'", str);
 			return -1;
 		}
