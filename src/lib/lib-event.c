@@ -381,8 +381,7 @@ void event_unref(struct event **_event)
 		return;
 	i_assert(event != current_global_event);
 
-	if (event->call_free)
-		event_send_free(event);
+	event_send_free(event);
 
 	if (last_passthrough_event() == event)
 		event_last_passthrough = NULL;

@@ -25,8 +25,6 @@ struct event {
 	bool always_log_source:1;
 	bool sending_debug_log:1;
 	bool id_sent_to_stats:1;
-	/* Call callbacks with EVENT_CALLBACK_TYPE_FREE for this event. */
-	bool call_free:1;
 
 /* Fields that are exported & imported: */
 	struct timeval tv_created_ioloop;
@@ -47,7 +45,7 @@ struct event {
 enum event_callback_type {
 	/* Event is being sent */
 	EVENT_CALLBACK_TYPE_SEND,
-	/* Event with call_free=TRUE is being freed */
+	/* Event is being freed */
 	EVENT_CALLBACK_TYPE_FREE,
 };
 

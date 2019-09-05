@@ -175,7 +175,6 @@ stats_event_write(struct event *event, const struct failure_context *ctx,
 	if (begin) {
 		str_printfa(str, "BEGIN\t%"PRIu64"\t", event->id);
 		event->id_sent_to_stats = TRUE;
-		event->call_free = TRUE;
 	} else {
 		str_append(str, "EVENT\t");
 	}

@@ -347,7 +347,8 @@ static void test_no_merging2(void)
 		compare_test_stats_to(
 			"EVENT	%"PRIu64"	1	0	0"
 			"	stest-event-stats.c	%d"
-			"	l0	0	ctest2\n", id, l));
+			"	l0	0	ctest2\n"
+			"END	9\n", id, l));
 	test_end();
 }
 
@@ -440,7 +441,8 @@ static void test_merge_events2(void)
 			"	stest-event-stats.c	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
-			"	Skey1	str1\n", id, l));
+			"	Skey1	str1\n"
+			"END	16\n", id, l));
 	test_end();
 }
 
