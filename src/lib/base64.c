@@ -304,6 +304,7 @@ bool base64_encode_more(struct base64_encoder *enc,
 	const unsigned char *src_c, *src_p;
 	size_t src_pos;
 
+	i_assert(!enc->finishing);
 	i_assert(!enc->finished);
 
 	src_p = src_c = src;
@@ -386,11 +387,12 @@ bool base64_encode_finish(struct base64_encoder *enc, buffer_t *dest)
 	size_t dst_avail, line_avail, write_full, write;
 	unsigned int w_buf_pos = 0;
 
+	i_assert(!enc->finished);
+	enc->finishing = TRUE;
+
 	dst_avail = 0;
 	if (dest != NULL)
 		dst_avail = buffer_get_avail_size(dest);
-
-	i_assert(!enc->finished);
 
 	if (enc->w_buf_len > 0 || enc->pending_lf)  {
 		if (dst_avail == 0)
