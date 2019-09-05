@@ -46,7 +46,7 @@ struct event {
 
 enum event_callback_type {
 	/* Event is being sent */
-	EVENT_CALLBACK_TYPE_EVENT,
+	EVENT_CALLBACK_TYPE_SEND,
 	/* Event with call_free=TRUE is being freed */
 	EVENT_CALLBACK_TYPE_FREE,
 };

@@ -227,7 +227,7 @@ stats_event_callback(struct event *event, enum event_callback_type type,
 		return TRUE;
 
 	switch (type) {
-	case EVENT_CALLBACK_TYPE_EVENT:
+	case EVENT_CALLBACK_TYPE_SEND:
 		stats_client_send_event(client, event, ctx);
 		break;
 	case EVENT_CALLBACK_TYPE_FREE:

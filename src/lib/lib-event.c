@@ -807,7 +807,7 @@ void event_vsend(struct event *event, struct failure_context *ctx,
 {
 	if (gettimeofday(&event->tv_last_sent, NULL) < 0)
 		i_panic("gettimeofday() failed: %m");
-	if (event_send_callbacks(event, EVENT_CALLBACK_TYPE_EVENT,
+	if (event_send_callbacks(event, EVENT_CALLBACK_TYPE_SEND,
 				 ctx, fmt, args)) {
 		if (ctx->type != LOG_TYPE_DEBUG ||
 		    event->sending_debug_log)
