@@ -515,8 +515,10 @@ struct event *
 event_set_source(struct event *event, const char *filename,
 		 unsigned int linenum, bool literal_fname)
 {
-	event->source_filename = literal_fname ? filename :
-		p_strdup(event->pool, filename);
+	if (strcmp(event->source_filename, filename) != 0) {
+		event->source_filename = literal_fname ? filename :
+			p_strdup(event->pool, filename);
+	}
 	event->source_linenum = linenum;
 	return event;
 }
