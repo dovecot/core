@@ -143,7 +143,7 @@ test_istream_base64_io_random(void)
 		struct istream *top_input;
 		const unsigned char *data;
 		unsigned int chpl1, chpl2;
-		unsigned char sized_streams;
+		unsigned int sized_streams;
 		size_t size;
 		struct base64_encoder b64enc;
 
