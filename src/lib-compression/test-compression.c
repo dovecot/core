@@ -384,6 +384,148 @@ static void test_compression_handler_partial_parent_write(const struct compressi
 	test_end();
 }
 
+static void
+test_compression_handler_random_io(const struct compression_handler *handler)
+{
+	unsigned char in_buf[8192];
+	size_t in_buf_size;
+	buffer_t *enc_buf, *dec_buf;
+	unsigned int i, j;
+	int ret;
+
+	enc_buf = buffer_create_dynamic(default_pool, sizeof(in_buf));
+	dec_buf = buffer_create_dynamic(default_pool, sizeof(in_buf));
+
+	test_begin(t_strdup_printf("compression handler %s (random I/O)",
+				   handler->name));
+
+	for (i = 0; !test_has_failed() && i < 300; i++) {
+		struct istream *input1, *input2;
+		struct ostream *output1, *output2;
+		struct istream *top_input;
+		const unsigned char *data;
+		size_t size, in_pos, out_pos;
+
+		/* Initialize test data (semi-compressible) */
+		in_buf_size = i_rand_limit(sizeof(in_buf));
+		for (j = 0; j < in_buf_size; j++) {
+			if (i_rand_limit(3) == 0)
+				in_buf[j] = i_rand_limit(256);
+			else
+				in_buf[j] = (unsigned char)j;
+		}
+
+		/* Reset encode output buffer */
+		buffer_set_used_size(enc_buf, 0);
+
+		/* Create input stream for test data */
+		input1 = test_istream_create_data(in_buf, in_buf_size);
+		i_stream_set_name(input1, "[data]");
+
+		/* Create output stream for compressed data */
+		output1 = test_ostream_create_nonblocking(enc_buf,
+							  i_rand_minmax(1, 512));
+
+		/* Create compressor output stream */
+		output2 = handler->create_ostream(output1, i_rand_minmax(1, 6));
+
+		/* Compress the data incrementally */
+		in_pos = out_pos = 0;
+		ret = 0;
+		test_istream_set_size(input1, in_pos);
+		while (ret == 0) {
+			enum ostream_send_istream_result res;
+
+			res = o_stream_send_istream(output2, input1);
+			switch(res) {
+			case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+			case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+				ret = -1;
+				break;
+			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+				out_pos += i_rand_limit(512);
+				test_ostream_set_max_output_size(
+					output1, out_pos);
+				break;
+			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+				in_pos += i_rand_limit(512);
+				if (in_pos > in_buf_size)
+					in_pos = in_buf_size;
+				test_istream_set_size(input1, in_pos);
+				break;
+			case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+				/* finish it */
+				ret = o_stream_finish(output2);
+				break;
+			}
+		}
+
+		/* Clean up */
+		i_stream_unref(&input1);
+		o_stream_unref(&output1);
+		o_stream_unref(&output2);
+
+		/* Reset decode output buffer */
+		buffer_set_used_size(dec_buf, 0);
+
+		/* Create input stream for compressed data */
+		input1 = i_stream_create_from_buffer(enc_buf);
+		i_stream_set_name(input1, "[compressed-data]");
+
+		/* Create decompressor stream */
+		input2 = handler->create_istream(input1, TRUE);
+		i_stream_set_name(input2, "[decompressor]");
+
+		/* Assign random buffer sizes */
+		i_stream_set_max_buffer_size(input2, i_rand_minmax(1, 512));
+
+		/* Read the outer stream in full with random increments. */
+		top_input = input2;
+		while ((ret = i_stream_read_more(
+			top_input, &data, &size)) > 0) {
+			size_t ch = i_rand_limit(512);
+
+			size = I_MIN(size, ch);
+			buffer_append(dec_buf, data, size);
+			i_stream_skip(top_input, size);
+		}
+		if (ret < 0 && top_input->stream_errno == 0) {
+			data = i_stream_get_data(top_input, &size);
+			if (size > 0) {
+				buffer_append(dec_buf, data, size);
+				i_stream_skip(top_input, size);
+			}
+		}
+
+		/* Assert stream status */
+		test_assert_idx(ret < 0 && top_input->stream_errno == 0, i);
+		/* Assert input/output equality */
+		test_assert_idx(dec_buf->used == in_buf_size &&
+				memcmp(in_buf, dec_buf->data, in_buf_size) == 0,
+				i);
+
+		if (top_input->stream_errno != 0) {
+			i_error("%s: %s", i_stream_get_name(input1),
+			       i_stream_get_error(input1));
+			i_error("%s: %s", i_stream_get_name(input2),
+			       i_stream_get_error(input2));
+		}
+
+		if (test_has_failed()) {
+			i_info("Test parameters: size=%"PRIuSIZE_T,
+				in_buf_size);
+		}
+
+		/* Clean up */
+		i_stream_unref(&input1);
+		i_stream_unref(&input2);
+	}
+	test_end();
+
+	buffer_free(&enc_buf);
+	buffer_free(&dec_buf);
+}
+
 static void test_compression_handler_errors(const struct compression_handler *handler)
 {
 	test_begin(t_strdup_printf("compression handler %s (errors)", handler->name));
@@ -448,6 +590,7 @@ static void test_compression(void)
 			test_compression_handler_seek(&compression_handlers[i]);
 			test_compression_handler_reset(&compression_handlers[i]);
 			test_compression_handler_partial_parent_write(&compression_handlers[i]);
+			test_compression_handler_random_io(&compression_handlers[i]);
 			test_compression_handler_errors(&compression_handlers[i]);
 		} T_END;
 	}
