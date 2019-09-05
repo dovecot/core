@@ -146,6 +146,7 @@ test_istream_base64_io_random(void)
 		const unsigned char *data;
 		unsigned int chpl1, chpl2;
 		unsigned int sized_streams;
+		unsigned int crlf_encode;
 		size_t size;
 		struct base64_encoder b64enc;
 
@@ -167,16 +168,22 @@ test_istream_base64_io_random(void)
 
 		/* Determine which stages have sized streams */
 		sized_streams = i_rand_minmax(0x00, 0x0f);
+		/* Determine which stages use CRLF */
+		crlf_encode = i_rand_minmax(0x00, 0x03);
 
 		/* Create first encoder stream */
-		input2 = i_stream_create_base64_encoder(input1, chpl1, FALSE);
+		input2 = i_stream_create_base64_encoder(
+			input1, chpl1, HAS_ALL_BITS(crlf_encode, BIT(0)));
 		i_stream_set_name(input2, "[base64_encoder #1]");
 
 		if (HAS_ALL_BITS(sized_streams, BIT(0))) {
 			/* Wrap the first encoder stream in a sized stream to
 			   check size and trigger any buffer overflow problems
 			 */
-			base64_encode_init(&b64enc, &base64_scheme, 0, chpl1);
+			base64_encode_init(&b64enc, &base64_scheme,
+					   (HAS_ALL_BITS(crlf_encode, BIT(0)) ?
+					    BASE64_ENCODE_FLAG_CRLF : 0),
+					   chpl1);
 			sinput1 = i_stream_create_sized(input2,
 				base64_get_full_encoded_size(&b64enc,
 							     in_buf_size));
@@ -202,14 +209,18 @@ test_istream_base64_io_random(void)
 		}
 
 		/* Create second encoder stream */
-		input4 = i_stream_create_base64_encoder(sinput2, chpl2, FALSE);
+		input4 = i_stream_create_base64_encoder(
+			sinput2, chpl2, HAS_ALL_BITS(crlf_encode, BIT(1)));
 		i_stream_set_name(input4, "[base64_encoder #2]");
 
 		if (HAS_ALL_BITS(sized_streams, BIT(2))) {
 			/* Wrap the second encoder stream in a sized stream to
 			   check size and trigger any buffer overflow problems
 			 */
-			base64_encode_init(&b64enc, &base64_scheme, 0, chpl2);
+			base64_encode_init(&b64enc, &base64_scheme,
+					   (HAS_ALL_BITS(crlf_encode, BIT(1)) ?
+					    BASE64_ENCODE_FLAG_CRLF : 0),
+					   chpl2);
 			sinput3 = i_stream_create_sized(input4,
 				base64_get_full_encoded_size(&b64enc,
 							    in_buf_size));
