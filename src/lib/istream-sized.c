@@ -50,9 +50,7 @@ i_stream_sized_parent_read(struct istream_private *stream, size_t *pos_r)
 	ssize_t ret;
 
 	do {
-		if ((ret = i_stream_read_memarea(stream->parent)) == -2)
-			break;
-
+		ret = i_stream_read_memarea(stream->parent);
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		stream->istream.eof = stream->parent->eof;
 		stream->buffer = i_stream_get_data(stream->parent, pos_r);

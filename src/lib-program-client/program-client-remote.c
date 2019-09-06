@@ -98,17 +98,15 @@ program_client_istream_read(struct istream_private *stream)
 		ret = -1;
 	} else
 		do {
-			if ((ret=i_stream_read_memarea(stream->parent)) == -2) {
-				return -2;	/* input buffer full */
-			}
-
-			if (ret == 0 || (ret < 0 && !stream->parent->eof))
-				break;
-
+			ret = i_stream_read_memarea(stream->parent);
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;
 			stream->buffer =
 				i_stream_get_data(stream->parent, &pos);
+			if (ret == -2)
+				return -2;	/* input buffer full */
+			if (ret == 0 || (ret < 0 && !stream->parent->eof))
+				break;
 
 			if (stream->parent->eof) {
 				/* Check return code at EOF */

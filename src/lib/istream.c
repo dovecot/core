@@ -384,11 +384,7 @@ ssize_t i_stream_read_copy_from_parent(struct istream *istream)
 	if (pos > stream->pos)
 		ret = 0;
 	else do {
-		if ((ret = i_stream_read_memarea(stream->parent)) == -2) {
-			i_stream_update(stream);
-			return -2;
-		}
-
+		ret = i_stream_read_memarea(stream->parent);
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		stream->istream.eof = stream->parent->eof;
 		stream->buffer = i_stream_get_data(stream->parent, &pos);
@@ -396,6 +392,10 @@ ssize_t i_stream_read_copy_from_parent(struct istream *istream)
 		   backwards and the previous read() didn't get us far
 		   enough. */
 	} while (pos <= stream->pos && ret > 0);
+	if (ret == -2) {
+		i_stream_update(stream);
+		return -2;
+	}
 
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
 		(ret == 0 ? 0 : -1);
