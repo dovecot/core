@@ -2833,6 +2833,10 @@ int auth_request_password_verify_log(struct auth_request *request,
 
 enum passdb_result auth_request_password_missing(struct auth_request *request)
 {
+	if (request->skip_password_check) {
+		/* This passdb wasn't used for authentication */
+		return PASSDB_RESULT_OK;
+	}
 	e_info(authdb_event(request),
 	       "No password returned (and no nopassword)");
 	return PASSDB_RESULT_PASSWORD_MISMATCH;
