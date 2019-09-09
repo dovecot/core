@@ -269,6 +269,7 @@ static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 	str = str_new(mail->mail.data_pool, 256);
 	imap_envelope_write(mail->data.envelope_data, str);
 	mail->data.envelope = str_c(str);
+	mail->data.save_envelope = FALSE;
 
 	if (mail_cache_field_can_add(_mail->transaction->cache_trans,
 				     _mail->seq, cache_field_envelope)) {
@@ -509,7 +510,10 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 	old_offset = mail->data.stream == NULL ? 0 :
 		mail->data.stream->v_offset;
 
-	mail->data.save_envelope = TRUE;
+	/* Make sure header_cache_callback() isn't also parsing the ENVELOPE.
+	   Otherwise two callbacks are doing it and mixing up results. */
+	mail->data.save_envelope = FALSE;
+
 	header_ctx = mailbox_header_lookup_init(mail->mail.mail.box,
 						message_part_envelope_headers);
 	if (mail_get_header_stream(&mail->mail.mail, header_ctx, &stream) < 0) {
@@ -518,7 +522,7 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 	}
 	mailbox_header_lookup_unref(&header_ctx);
 
-	if (mail->data.envelope == NULL && stream != NULL) {
+	if (mail->data.envelope == NULL) {
 		/* we got the headers from cache - parse them to get the
 		   envelope */
 		message_parse_header(stream, NULL, hdr_parser_flags,
@@ -527,7 +531,7 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 			index_mail_stream_log_failure_for(mail, stream);
 			return -1;
 		}
-		mail->data.save_envelope = FALSE;
+		i_assert(mail->data.envelope != NULL);
 	}
 
 	if (mail->data.stream != NULL)
