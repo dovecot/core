@@ -876,6 +876,7 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 		request->passdb->passdb->iface.name);
 
 	event = event_create(request->event);
+	event_add_str(event, "passdb_id", dec2str(request->passdb->passdb->id));
 	event_add_str(event, "passdb_name", name);
 	event_add_str(event, "passdb", request->passdb->passdb->iface.name);
 	event_set_log_prefix_callback(event, FALSE, get_log_prefix_db, request);
@@ -937,6 +938,7 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 		request->userdb->userdb->iface->name);
 
 	event = event_create(request->event);
+	event_add_str(event, "userdb_id", dec2str(request->userdb->userdb->id));
 	event_add_str(event, "userdb_name", name);
 	event_add_str(event, "userdb", request->userdb->userdb->iface->name);
 	event_set_log_prefix_callback(event, FALSE, get_log_prefix_db, request);
