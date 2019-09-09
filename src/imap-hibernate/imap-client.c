@@ -37,7 +37,7 @@
 #define IMAP_CLIENT_MOVE_BACK_WITHOUT_INPUT_TIMEOUT_SECS (60*5)
 
 /* How often to try to unhibernate clients. */
-#define IMAP_UNHIBERNATE_RETRY_MSECS 10
+#define IMAP_UNHIBERNATE_RETRY_MSECS 100
 
 #define IMAP_CLIENT_BUFFER_FULL_ERROR "Client output buffer is full"
 
