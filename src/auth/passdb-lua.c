@@ -52,9 +52,7 @@ passdb_lua_lookup(struct auth_request *request,
 		/* skip next bit */
 	} else if (!auth_fields_exists(request->extra_fields, "nopassword")) {
 		if (*password_r == NULL || **password_r == '\0') {
-			e_info(authdb_event(request),
-			       "No password returned (and no nopassword)");
-			result = PASSDB_RESULT_PASSWORD_MISMATCH;
+			result = auth_request_password_missing(request);
 		} else {
 			if (*scheme_r == NULL)
 				*scheme_r = request->passdb->passdb->default_pass_scheme;

@@ -40,9 +40,7 @@ static_save_fields(struct auth_request *request, const char **password_r,
 	} else if (auth_fields_exists(request->extra_fields, "nopassword")) {
 		*password_r = "";
 	} else {
-		e_info(authdb_event(request),
-		       "No password returned (and no nopassword)");
-		return PASSDB_RESULT_PASSWORD_MISMATCH;
+		return auth_request_password_missing(request);
 	}
 
 	*scheme_r = password_get_scheme(password_r);

@@ -100,9 +100,7 @@ static void sql_query_callback(struct sql_result *result,
 				"Password query returned multiple matches");
 		} else if (auth_request->passdb_password == NULL &&
 			   !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
-			e_info(authdb_event(auth_request),
-			       "Empty password returned without nopassword");
-			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+			passdb_result = auth_request_password_missing(auth_request);
 		} else {
 			/* passdb_password may change on the way,
 			   so we'll need to strdup. */

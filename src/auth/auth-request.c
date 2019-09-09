@@ -2831,6 +2831,13 @@ int auth_request_password_verify_log(struct auth_request *request,
 	return ret;
 }
 
+enum passdb_result auth_request_password_missing(struct auth_request *request)
+{
+	e_info(authdb_event(request),
+	       "No password returned (and no nopassword)");
+	return PASSDB_RESULT_PASSWORD_MISMATCH;
+}
+
 void auth_request_get_log_prefix(string_t *str, struct auth_request *auth_request,
 				 const char *subsystem)
 {

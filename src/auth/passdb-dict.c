@@ -69,9 +69,7 @@ passdb_dict_lookup_key(struct auth_request *auth_request,
 
 		if (auth_request->passdb_password == NULL &&
 		    !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
-			e_info(authdb_event(auth_request),
-			       "No password returned (and no nopassword)");
-			return PASSDB_RESULT_PASSWORD_MISMATCH;
+			return auth_request_password_missing(auth_request);
 		} else {
 			return PASSDB_RESULT_OK;
 		}
