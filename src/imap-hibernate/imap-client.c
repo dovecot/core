@@ -88,6 +88,7 @@ static void imap_client_stop(struct imap_client *client);
 void imap_client_destroy(struct imap_client **_client, const char *reason);
 static void imap_client_add_idle_keepalive_timeout(struct imap_client *client);
 static void imap_clients_unhibernate(void *context);
+static void imap_client_stop_notify_listening(struct imap_client *client);
 
 static void imap_client_disconnected(struct imap_client **_client)
 {
@@ -236,6 +237,13 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		imap_client_destroy(&client, error);
 		return TRUE;
 	}
+	/* Stop listening for client's IOs while waiting for the next
+	   reconnection attempt. However if we got here because of an external
+	   notification keep waiting to see if client sends any IO, since that
+	   will cause the unhibernation to be aborted earlier. */
+	if (client->input_pending)
+		io_remove(&client->io);
+	imap_client_stop_notify_listening(client);
 	return FALSE;
 }
 
@@ -581,21 +589,25 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	return client;
 }
 
-static void imap_client_stop(struct imap_client *client)
+static void imap_client_stop_notify_listening(struct imap_client *client)
 {
 	struct imap_client_notify *notify;
 
+	array_foreach_modifiable(&client->notifys, notify) {
+		io_remove(&notify->io);
+		i_close_fd(&notify->fd);
+	}
+}
+
+static void imap_client_stop(struct imap_client *client)
+{
 	if (client->unhibernate_queued) {
 		priorityq_remove(unhibernate_queue, &client->item);
 		client->unhibernate_queued = FALSE;
 	}
 	io_remove(&client->io);
 	timeout_remove(&client->to_keepalive);
-
-	array_foreach_modifiable(&client->notifys, notify) {
-		io_remove(&notify->io);
-		i_close_fd(&notify->fd);
-	}
+	imap_client_stop_notify_listening(client);
 }
 
 void imap_client_destroy(struct imap_client **_client, const char *reason)
