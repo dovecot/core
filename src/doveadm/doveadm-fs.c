@@ -47,7 +47,7 @@ cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 	ssl_set.verbose = doveadm_debug;
 	i_zero(&fs_set);
 	fs_set.ssl_client_set = &ssl_set;
-	fs_set.temp_dir = "/tmp";
+	fs_set.temp_dir = doveadm_settings->mail_temp_dir;
 	fs_set.base_dir = doveadm_settings->base_dir;
 	fs_set.debug = doveadm_debug;
 

@@ -14,6 +14,7 @@ struct doveadm_settings {
 	const char *libexec_dir;
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
+	const char *mail_temp_dir;
 	bool auth_debug;
 	const char *auth_socket_path;
 	const char *doveadm_socket_path;
