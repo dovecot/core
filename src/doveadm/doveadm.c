@@ -34,6 +34,8 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 bool doveadm_verbose_proctitle;
 int doveadm_exit_code = 0;
 
+static pool_t doveadm_settings_pool = NULL;
+
 static void failure_exit_callback(int *status)
 {
 	enum fatal_exit_status fatal_status = *status;
@@ -267,17 +269,18 @@ static void doveadm_read_settings(void)
 					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
+	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
 	service_set = master_service_settings_get(master_service);
 	service_set = settings_dup(&master_service_setting_parser_info,
-				   service_set, pool_datastack_create());
+				   service_set, doveadm_settings_pool);
 	doveadm_verbose_proctitle = service_set->verbose_proctitle;
 
 	set = master_service_settings_get_others(master_service)[1];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
-					pool_datastack_create());
+					doveadm_settings_pool);
 	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
 				       master_service_ssl_settings_get(master_service),
-				       pool_datastack_create());
+				       doveadm_settings_pool);
 	doveadm_settings->parsed_features = set->parsed_features; /* copy this value by hand */
 }
 
@@ -410,6 +413,7 @@ int main(int argc, char *argv[])
 		o_stream_unref(&doveadm_print_ostream);
 	}
 	doveadm_cmds_deinit();
+	pool_unref(&doveadm_settings_pool);
 	master_service_deinit(&master_service);
 	return doveadm_exit_code;
 }
