@@ -27,10 +27,7 @@ smtp_server_transaction_update_event(struct smtp_server_transaction *trans)
 
 struct smtp_server_transaction *
 smtp_server_transaction_create(struct smtp_server_connection *conn,
-			       enum smtp_server_transaction_flags flags,
-			       const struct smtp_address *mail_from,
-			       const struct smtp_params_mail *params,
-			       const struct timeval *timestamp)
+			       const struct smtp_server_cmd_mail *mail_data)
 {
 	struct smtp_server_transaction *trans;
 	pool_t pool;
@@ -51,10 +48,10 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	str_truncate(id, str_len(id)-2); /* drop trailing "==" */
 	trans->id = p_strdup(pool, str_c(id));
 
-	trans->flags = flags;
-	trans->mail_from = smtp_address_clone(trans->pool, mail_from);
-	smtp_params_mail_copy(pool, &trans->params, params);
-	trans->timestamp = *timestamp;
+	trans->flags = mail_data->flags;
+	trans->mail_from = smtp_address_clone(trans->pool, mail_data->path);
+	smtp_params_mail_copy(pool, &trans->params, &mail_data->params);
+	trans->timestamp = mail_data->timestamp;
 
 	trans->event = event_create(conn->event);
 	smtp_server_transaction_update_event(trans);

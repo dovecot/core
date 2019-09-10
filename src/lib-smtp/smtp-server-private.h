@@ -396,10 +396,7 @@ bool smtp_server_recipient_call_hooks(
 
 struct smtp_server_transaction *
 smtp_server_transaction_create(struct smtp_server_connection *conn,
-			       enum smtp_server_transaction_flags flags,
-			       const struct smtp_address *mail_from,
-			       const struct smtp_params_mail *params,
-			       const struct timeval *timestamp);
+			       const struct smtp_server_cmd_mail *mail_data);
 void smtp_server_transaction_free(struct smtp_server_transaction **_trans);
 
 void smtp_server_transaction_add_rcpt(struct smtp_server_transaction *trans,

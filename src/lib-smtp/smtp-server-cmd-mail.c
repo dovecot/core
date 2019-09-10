@@ -42,8 +42,7 @@ cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
 	}
 
 	/* success */
-	conn->state.trans = smtp_server_transaction_create(conn,
-		data->flags, data->path, &data->params, &data->timestamp);
+	conn->state.trans = smtp_server_transaction_create(conn, data);
 }
 
 static void
