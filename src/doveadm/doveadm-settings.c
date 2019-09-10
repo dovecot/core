@@ -1,6 +1,7 @@
 /* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "var-expand.h"
 #include "buffer.h"
 #include "settings-parser.h"
 #include "service-settings.h"
@@ -204,4 +205,14 @@ void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool)
 	master_service_ssl_settings_to_iostream_set(doveadm_ssl_set, pool,
 						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
 						    set_r);
+}
+
+void doveadm_settings_expand(struct doveadm_settings *set, pool_t pool)
+{
+	struct var_expand_table tab[] = { { '\0', NULL, NULL } };
+	const char *error;
+
+	if (settings_var_expand(&doveadm_setting_parser_info, set,
+				pool, tab, &error) <= 0)
+		i_fatal("Failed to expand settings: %s", error);
 }

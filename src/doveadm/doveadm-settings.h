@@ -41,5 +41,6 @@ extern const struct master_service_ssl_settings *doveadm_ssl_set;
 struct ssl_iostream_settings;
 
 void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool);
+void doveadm_settings_expand(struct doveadm_settings *set, pool_t pool);
 
 #endif

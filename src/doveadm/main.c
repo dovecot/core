@@ -79,6 +79,7 @@ static void main_init(void)
 	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
 				       master_service_ssl_settings_get(master_service),
 				       doveadm_settings_pool);
+	doveadm_settings_expand(doveadm_settings, doveadm_settings_pool);
 	doveadm_verbose_proctitle =
 		master_service_settings_get(master_service)->verbose_proctitle;
 	if (doveadm_verbose_proctitle)

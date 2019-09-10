@@ -281,6 +281,7 @@ static void doveadm_read_settings(void)
 	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
 				       master_service_ssl_settings_get(master_service),
 				       doveadm_settings_pool);
+	doveadm_settings_expand(doveadm_settings, doveadm_settings_pool);
 	doveadm_settings->parsed_features = set->parsed_features; /* copy this value by hand */
 }
 
