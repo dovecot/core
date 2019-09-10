@@ -497,6 +497,77 @@ void smtp_address_detail_parse_temp(const char *delimiters,
 				  address, username_r, delim_r, detail_r);
 }
 
+int smtp_address_parse_any(const char *in, const char **address_r,
+			   const char **endp_r)
+{
+	const unsigned char *p, *pend, *poffset;
+	bool path = FALSE;
+	bool quoted = FALSE;
+
+	if (endp_r != NULL)
+		*endp_r = in;
+
+	poffset = p = (const unsigned char *)in;
+	pend = p + strlen(in);
+	if (*p  == '<') {
+		path = TRUE;
+		p++;
+		poffset = p;
+	}
+	if (*p == '"') {
+		quoted = TRUE;
+		p++;
+	}
+
+	while (p < pend) {
+		if (quoted && *p == '\\') {
+			p++;
+			if (p == pend || *p < 0x20)
+				return -1;
+			p++;
+			if (p == pend)
+				break;
+		}
+		switch (*p) {
+		case '"':
+			quoted = FALSE;
+			break;
+		case ' ':
+			if (!quoted) {
+				if (path)
+					return -1;
+				if (address_r != NULL)
+					*address_r = t_strdup_until(poffset, p);
+				if (endp_r != NULL)
+					*endp_r = (const char *)p;
+				return 0;
+			}
+			break;
+		case '>':
+			if (!quoted) {
+				if (address_r != NULL)
+					*address_r = t_strdup_until(poffset, p);
+				if (endp_r != NULL)
+					*endp_r = (const char *)(p + 1);
+				return 0;
+			}
+			break;
+		default:
+			if (*p < 0x20)
+				return -1;
+			break;
+		}
+		p++;
+	}
+	if (quoted || path)
+		return -1;
+	if (address_r != NULL)
+		*address_r = t_strdup_until(poffset, p);
+	if (endp_r != NULL)
+		*endp_r = (const char *)p;
+	return 0;
+}
+
 /*
  * SMTP address construction
  */

@@ -79,6 +79,17 @@ void smtp_address_detail_parse_temp(const char *delimiters,
 				    const char **username_r, char *delim_r,
 				    const char **detail_r);
 
+/* Parse any (possibly broken) address on the input to the best of our ability
+   until end of input or unquoted ` '. Things that are truly evil (unending
+   quoted string, control characters and a path without a closing '>') will
+   still fail and return -1. If the parse was successful, it will return 0.
+   The parsed address string is returned in address_r. Any outer < and > are
+   omitted in the parsed address. The endp_r parameter is used to return a
+   pointer to the end of the path string, so that the caller can continue
+   parsing from there.*/
+int smtp_address_parse_any(const char *in, const char **address_r,
+			   const char **endp_r);
+
 /*
  * SMTP address construction
  */

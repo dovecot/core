@@ -2,6 +2,7 @@
 
 #include "test-lib.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "test-common.h"
 #include "smtp-address.h"
 
@@ -978,6 +979,192 @@ static void test_smtp_address_detail_parse(void)
 }
 
 /*
+ * Skip address tests
+ */
+
+struct any_address_parse_test {
+	const char *input;
+	const char *address;
+	size_t pos;
+	int ret;
+};
+
+static const struct any_address_parse_test
+any_address_parse_tests[] = {
+	{
+		.input = "",
+		.address = "",
+		.pos = 0,
+		.ret = 0,
+	},
+	{
+		.input = " ",
+		.address = "",
+		.pos = 0,
+		.ret = 0,
+	},
+	{
+		.input = "frop@example.com",
+		.address = "frop@example.com",
+		.pos = 16,
+		.ret = 0,
+	},
+	{
+		.input = "frop@example.com ",
+		.address = "frop@example.com",
+		.pos = 16,
+		.ret = 0,
+	},
+	{
+		.input = "<frop@example.com>",
+		.address = "frop@example.com",
+		.pos = 18,
+		.ret = 0,
+	},
+	{
+		.input = "<frop@example.com> ",
+		.address = "frop@example.com",
+		.pos = 18,
+		.ret = 0,
+	},
+	{
+		.input = "<frop@example.com",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "<frop@example.com ",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "fr\"op@example.com",
+		.address = "fr\"op@example.com",
+		.pos = 17,
+		.ret = 0,
+	},
+	{
+		.input = "fr\"op@example.com ",
+		.address = "fr\"op@example.com",
+		.pos = 17,
+		.ret = 0,
+	},
+	{
+		.input = "fr<op@example.com",
+		.address = "fr<op@example.com",
+		.pos = 17,
+		.ret = 0,
+	},
+	{
+		.input = "fr<op@example.com ",
+		.address = "fr<op@example.com",
+		.pos = 17,
+		.ret = 0,
+	},
+	{
+		.input = "\"frop\"@example.com",
+		.address = "\"frop\"@example.com",
+		.pos = 18,
+		.ret = 0,
+	},
+	{
+		.input = "\"frop\"@example.com ",
+		.address = "\"frop\"@example.com",
+		.pos = 18,
+		.ret = 0,
+	},
+	{
+		.input = "\"frop\\\"@example.com",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "\"frop\\\"@example.com ",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "<\"fr>op\"@example.com>",
+		.address = "\"fr>op\"@example.com",
+		.pos = 21,
+		.ret = 0,
+	},
+	{
+		.input = "<\"fr>op\"@example.com> ",
+		.address = "\"fr>op\"@example.com",
+		.pos = 21,
+		.ret = 0,
+	},
+	{
+		.input = "<\"fr>op\"@example.com",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "<\"fr>op\"@example.com ",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "<\"frop\">",
+		.address = "\"frop\"",
+		.pos = 8,
+		.ret = 0,
+	},
+	{
+		.input = "<\"frop\"> ",
+		.address = "\"frop\"",
+		.pos = 8,
+		.ret = 0,
+	},
+	{
+		.input = "<\"frop\"",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "<\"frop\" ",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "\"frop\\\" ",
+		.pos = 0,
+		.ret = -1,
+	},
+	{
+		.input = "\"frop\\\"",
+		.pos = 0,
+		.ret = -1,
+	},
+};
+
+unsigned int any_address_parse_tests_count =
+	N_ELEMENTS(any_address_parse_tests);
+
+static void test_smtp_parse_any_address(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < any_address_parse_tests_count; i++) T_BEGIN {
+		const struct any_address_parse_test *test;
+		const char *address = NULL, *pos = NULL;
+		int ret;
+
+		test = &any_address_parse_tests[i];
+		ret = smtp_address_parse_any(test->input, &address, &pos);
+
+		test_begin(t_strdup_printf("smtp parse any [%d]", i));
+		test_out_quiet(t_strdup_printf("parse(\"%s\")",
+					       str_sanitize(test->input, 256)),
+			       (ret == test->ret) &&
+			       ((size_t)(pos - test->input) == test->pos) &&
+			       (null_strcmp(test->address, address ) == 0));
+		test_end();
+	} T_END;
+}
+
+/*
  * Tests
  */
 
@@ -991,6 +1178,7 @@ int main(void)
 		test_smtp_path_parse_invalid,
 		test_smtp_username_parse_invalid,
 		test_smtp_address_detail_parse,
+		test_smtp_parse_any_address,
 		NULL
 	};
 	return test_run(test_functions);
