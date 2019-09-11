@@ -679,7 +679,7 @@ i_stream_get_data(struct istream *stream, size_t *size_r)
 		return uchar_empty_ptr;
 	}
 
-	if (i_stream_is_buffer_invalid(_stream)) {
+	if (unlikely(i_stream_is_buffer_invalid(_stream))) {
 		/* This stream may be using parent's buffer directly as
 		   _stream->buffer, but the parent stream has already been
 		   modified indirectly. This means that the buffer might no
