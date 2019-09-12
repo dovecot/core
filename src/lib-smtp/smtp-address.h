@@ -24,8 +24,17 @@ enum smtp_address_parse_flags {
 };
 
 struct smtp_address {
+	/* Localpart */
 	const char *localpart;
+	/* Domain */
 	const char *domain;
+	/* Raw, unparsed address. If localpart == NULL, the value of this field
+	   is syntactically invalid and MUST NOT be used for any purposes that
+	   may be visible to external systems. It can be e.g. used for logging.
+	   This is always in mailbox format, meaning that there are no
+	   surrounding '<' and '>'.
+	 */
+	const char *raw;
 };
 
 ARRAY_DEFINE_TYPE(smtp_address, struct smtp_address *);

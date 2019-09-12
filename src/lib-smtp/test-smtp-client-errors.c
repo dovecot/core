@@ -743,12 +743,14 @@ test_client_broken_payload(
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[0],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	strans = smtp_client_transaction_create(sconn,
-		&((struct smtp_address){"sender", "example.com"}), NULL, 0,
+		&((struct smtp_address){.localpart = "sender",
+					.domain = "example.com"}), NULL, 0,
 		test_client_broken_payload_finished, NULL);
 	smtp_client_connection_unref(&sconn);
 
 	smtp_client_transaction_add_rcpt(strans,
-		&((struct smtp_address){"rcpt", "example.com"}), NULL,
+		&((struct smtp_address){.localpart = "rcpt",
+					.domain = "example.com"}), NULL,
 		test_client_broken_payload_rcpt_to_cb,
 		test_client_broken_payload_rcpt_data_cb, NULL);
 	smtp_client_transaction_send(strans, input,
@@ -802,12 +804,14 @@ test_client_broken_payload_later(
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[0],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	strans = smtp_client_transaction_create(sconn,
-		&((struct smtp_address){"sender", "example.com"}), NULL, 0,
+		&((struct smtp_address){.localpart = "sender",
+					.domain = "example.com"}), NULL, 0,
 		test_client_broken_payload_finished, NULL);
 	smtp_client_connection_unref(&sconn);
 
 	smtp_client_transaction_add_rcpt(strans,
-		&((struct smtp_address){"rcpt", "example.com"}), NULL,
+		&((struct smtp_address){.localpart = "rcpt",
+					.domain = "example.com"}), NULL,
 		test_client_broken_payload_rcpt_to_cb,
 		test_client_broken_payload_rcpt_data_cb, NULL);
 	smtp_client_transaction_send
@@ -1026,12 +1030,14 @@ test_client_connection_lost_submit(struct _connection_lost *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	strans = smtp_client_transaction_create(sconn,
-		&((struct smtp_address){"sender", "example.com"}), NULL, 0,
+		&((struct smtp_address){.localpart = "sender",
+					.domain = "example.com"}), NULL, 0,
 		test_client_connection_lost_finished, pctx);
 	smtp_client_connection_unref(&sconn);
 
 	smtp_client_transaction_add_rcpt(strans,
-		&((struct smtp_address){"rcpt", "example.com"}), NULL,
+		&((struct smtp_address){.localpart = "rcpt",
+					.domain = "example.com"}), NULL,
 		test_client_connection_lost_rcpt_to_cb,
 		test_client_connection_lost_rcpt_data_cb, pctx);
 	smtp_client_transaction_send
@@ -1339,7 +1345,8 @@ test_client_unexpected_reply_submit1(struct _unexpected_reply_peer *pctx)
 	timeout_remove(&pctx->to);
 
 	smtp_client_transaction_add_rcpt(pctx->trans,
-		&((struct smtp_address){"rcpt", "example.com"}), NULL,
+		&((struct smtp_address){.localpart = "rcpt",
+					.domain = "example.com"}), NULL,
 		test_client_unexpected_reply_rcpt_to_cb,
 		test_client_unexpected_reply_rcpt_data_cb, pctx);
 
@@ -1361,7 +1368,8 @@ test_client_unexpected_reply_submit(struct _unexpected_reply *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	pctx->trans = smtp_client_transaction_create(pctx->conn,
-		&((struct smtp_address){"sender", "example.com"}), NULL, 0,
+		&((struct smtp_address){.localpart = "sender",
+					.domain = "example.com"}), NULL, 0,
 		test_client_unexpected_reply_finished, pctx);
 	smtp_client_connection_connect(pctx->conn,
 		test_client_unexpected_reply_login_cb, (void *)pctx);
@@ -1800,7 +1808,8 @@ test_client_premature_reply_submit2(struct _premature_reply_peer *pctx)
 		i_debug("SUBMIT2[%u]", pctx->index);
 
 	smtp_client_transaction_add_rcpt(pctx->trans,
-		&((struct smtp_address){"rcpt", "example.com"}), NULL,
+		&((struct smtp_address){.localpart = "rcpt",
+					.domain = "example.com"}), NULL,
 		test_client_premature_reply_rcpt_to_cb,
 		test_client_premature_reply_rcpt_data_cb, pctx);
 
@@ -1839,7 +1848,8 @@ test_client_premature_reply_submit(struct _premature_reply *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	pctx->trans = smtp_client_transaction_create(conn,
-		&((struct smtp_address){"sender", "example.com"}), NULL, 0,
+		&((struct smtp_address){.localpart = "sender",
+					.domain = "example.com"}), NULL, 0,
 		test_client_premature_reply_finished, pctx);
 	smtp_client_connection_connect(conn,
 		test_client_premature_reply_login_cb, (void *)pctx);
@@ -2124,10 +2134,12 @@ test_client_early_data_reply_submit(struct _early_data_reply *ctx,
 		test_client_early_data_reply_login_cb, (void *)pctx);
 
 	pctx->trans = smtp_client_transaction_create(conn,
-		&((struct smtp_address){"sender", "example.com"}), NULL, 0,
+		&((struct smtp_address){.localpart = "sender",
+					.domain = "example.com"}), NULL, 0,
 		test_client_early_data_reply_finished, pctx);
 	smtp_client_transaction_add_rcpt(pctx->trans,
-		&((struct smtp_address){"rcpt", "example.com"}), NULL,
+		&((struct smtp_address){.localpart = "rcpt",
+					.domain = "example.com"}), NULL,
 		test_client_early_data_reply_rcpt_to_cb,
 		test_client_early_data_reply_rcpt_data_cb, pctx);
 	smtp_client_transaction_start(pctx->trans,
@@ -3152,7 +3164,8 @@ test_client_authentication_failed_submit(struct _authentication_failed *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, &smtp_set);
 	pctx->trans = smtp_client_transaction_create(pctx->conn,
-		&((struct smtp_address){"sender", "example.com"}), NULL, 0,
+		&((struct smtp_address){.localpart = "sender",
+					.domain = "example.com"}), NULL, 0,
 		test_client_authentication_failed_finished, pctx);
 	smtp_client_connection_connect(pctx->conn,
 		test_client_authentication_failed_login_cb, (void *)pctx);
@@ -3161,7 +3174,8 @@ test_client_authentication_failed_submit(struct _authentication_failed *ctx,
 	smtp_client_connection_unref(&pctx->conn);
 
 	smtp_client_transaction_add_rcpt(pctx->trans,
-		&((struct smtp_address){"rcpt", "example.com"}), NULL,
+		&((struct smtp_address){.localpart = "rcpt",
+					.domain = "example.com"}), NULL,
 		test_client_authentication_failed_rcpt_to_cb,
 		test_client_authentication_failed_rcpt_data_cb, pctx);
 
@@ -3403,7 +3417,8 @@ test_client_transaction_timeout_submit1(struct _transaction_timeout_peer *pctx)
 	timeout_remove(&pctx->to);
 
 	smtp_client_transaction_add_rcpt(pctx->trans,
-		&((struct smtp_address){"rcpt", "example.com"}), NULL,
+		&((struct smtp_address){.localpart = "rcpt",
+					.domain = "example.com"}), NULL,
 		test_client_transaction_timeout_rcpt_to_cb,
 		test_client_transaction_timeout_rcpt_data_cb, pctx);
 
@@ -3425,7 +3440,8 @@ test_client_transaction_timeout_submit(struct _transaction_timeout *ctx,
 		SMTP_PROTOCOL_SMTP, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	pctx->trans = smtp_client_transaction_create(pctx->conn,
-		&((struct smtp_address){"sender", "example.com"}), NULL, 0,
+		&((struct smtp_address){.localpart = "sender",
+					.domain = "example.com"}), NULL, 0,
 		test_client_transaction_timeout_finished, pctx);
 	smtp_client_transaction_set_timeout(pctx->trans, 1000);
 	smtp_client_transaction_start(pctx->trans,

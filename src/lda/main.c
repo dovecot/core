@@ -33,7 +33,7 @@
 #include <sysexits.h>
 
 const struct smtp_address default_envelope_sender = {
-	"MAILER-DAEMON", NULL
+	.localpart = "MAILER-DAEMON",
 };
 
 /* After buffer grows larger than this, create a temporary file to /tmp
