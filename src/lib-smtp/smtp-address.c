@@ -683,32 +683,45 @@ struct smtp_address *
 smtp_address_clone(pool_t pool, const struct smtp_address *src)
 {
 	struct smtp_address *new;
-	size_t size, lpsize, dsize = 0;
-	char *data, *localpart, *domain = NULL;
+	size_t size, lpsize = 0, dsize = 0, rsize = 0;
+	char *data, *localpart = NULL, *domain = NULL, *raw = NULL;
 
-	if (smtp_address_isnull(src))
+	if (src == NULL || (smtp_address_isnull(src) && src->raw == NULL))
 		return NULL;
 
 	/* @UNSAFE */
 
 	size = sizeof(struct smtp_address);
-	lpsize = strlen(src->localpart) + 1;
-	size = MALLOC_ADD(size, lpsize);
+	if (src->localpart != NULL) {
+		lpsize = strlen(src->localpart) + 1;
+		size = MALLOC_ADD(size, lpsize);
+	}
 	if (src->domain != NULL) {
 		dsize = strlen(src->domain) + 1;
 		size = MALLOC_ADD(size, dsize);
 	}
+	if (src->raw != NULL) {
+		rsize = strlen(src->raw) + 1;
+		size = MALLOC_ADD(size, rsize);
+	}
 
 	data = p_malloc(pool, size);
 	new = (struct smtp_address *)data;
-	localpart = PTR_OFFSET(data, sizeof(*new));
-	memcpy(localpart, src->localpart, lpsize);
+	if (lpsize > 0) {
+		localpart = PTR_OFFSET(data, sizeof(*new));
+		memcpy(localpart, src->localpart, lpsize);
+	}
 	if (dsize > 0) {
 		domain = PTR_OFFSET(data, sizeof(*new) + lpsize);
 		memcpy(domain, src->domain, dsize);
 	}
+	if (rsize > 0) {
+		raw = PTR_OFFSET(data, sizeof(*new) + lpsize + dsize);
+		memcpy(raw, src->raw, rsize);
+	}
 	new->localpart = localpart;
 	new->domain = domain;
+	new->raw = raw;
 
 	return new;
 }
@@ -741,12 +754,13 @@ struct smtp_address *smtp_address_clone_temp(const struct smtp_address *src)
 {
 	struct smtp_address *new;
 
-	if (smtp_address_isnull(src))
+	if (src == NULL || (smtp_address_isnull(src) && src->raw == NULL))
 		return NULL;
 
 	new = t_new(struct smtp_address, 1);
 	new->localpart = t_strdup(src->localpart);
 	new->domain = t_strdup(src->domain);
+	new->raw = t_strdup(src->raw);
 	return new;
 }
 
