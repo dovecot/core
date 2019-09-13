@@ -196,4 +196,12 @@ smtp_address_isnull(const struct smtp_address *address)
 		*address->localpart == '\0');
 }
 
+static inline bool ATTR_NULL(1) ATTR_PURE
+smtp_address_is_broken(const struct smtp_address *address)
+{
+	return (address != NULL &&
+		(address->localpart == NULL || *address->localpart == '\0') &&
+		(address->raw != NULL && *address->raw != '\0'));
+}
+
 #endif
