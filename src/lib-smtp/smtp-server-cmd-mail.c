@@ -132,6 +132,7 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 	if (ret < 0) {
+		i_assert(set->mail_path_allow_broken);
 		e_debug(conn->event, "Invalid FROM: %s "
 			"(proceeding with <> as sender)", error);
 	}

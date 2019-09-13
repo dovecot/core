@@ -86,6 +86,7 @@ static void main_init(void)
 	lmtp_set.protocol = SMTP_PROTOCOL_LMTP;
 	lmtp_set.auth_optional = TRUE;
 	lmtp_set.rcpt_domain_optional = TRUE;
+	lmtp_set.mail_path_allow_broken = TRUE;
 
 	lmtp_server = smtp_server_init(&lmtp_set);
 
