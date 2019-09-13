@@ -513,8 +513,6 @@ void smtp_address_write(string_t *out, const struct smtp_address *address)
 	begin = str_len(out);
 
 	/* encode localpart */
-	if (address->localpart == NULL)
-		return;
 	p = (const unsigned char *)address->localpart;
 	pend = p + strlen(address->localpart);
 	pblock = p;
