@@ -12,7 +12,8 @@ enum smtp_address_parse_flags {
 	SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY         = BIT(1),
 	/* Allow an address without a domain part */
 	SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART     = BIT(2),
-	/* Allow omission of the <...> brackets in a path */
+	/* Allow omission of the <...> brackets in a path. This flag is only
+	   relevant for smtp_address_parse_path(). */
 	SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL   = BIT(3),
 	/* Allow localpart to have all kinds of bad unquoted characters by
 	   parsing the last '@' in the string directly as the localpart/domain
@@ -21,6 +22,10 @@ enum smtp_address_parse_flags {
 	   cannot be used to construct a valid RFC 5321 address.
 	 */
 	SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART = BIT(4),
+	/* Store an unparsed copy of the address in the `raw' field of struct
+	   smtp_address. This flag is only relevant for
+	   smtp_address_parse_path(). */
+	SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW        = BIT(5),
 };
 
 struct smtp_address {

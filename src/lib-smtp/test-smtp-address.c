@@ -216,6 +216,42 @@ valid_path_parse_tests[] = {
 		.address = { .localpart = "user", .domain = "domain.tld" },
 		.output = "<user@domain.tld>"
 	},
+	/* Raw */
+	{
+		.input = "<>",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY |
+			 SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW,
+		.address = { .localpart = NULL, .domain = NULL, .raw = NULL }
+	},
+	{
+		.input = "<user>",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
+			 SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW,
+		.address = { .localpart = "user", .domain = NULL,
+			     .raw = "user" }
+	},
+	{
+		.input = "<user@domain.tld>",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW,
+		.address = { .localpart = "user", .domain = "domain.tld",
+			     .raw = "user@domain.tld" }
+	},
+	{
+		.input = "<@otherdomain.tld,@yetanotherdomain.tld:user@domain.tld>",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW,
+		.address = { .localpart = "user", .domain = "domain.tld",
+			     .raw = "@otherdomain.tld,@yetanotherdomain.tld:"
+				    "user@domain.tld" },
+		.output = "<user@domain.tld>"
+	},
+	{
+		.input = "user@domain.tld",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+			 SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW,
+		.address = { .localpart = "user", .domain = "domain.tld",
+			     .raw = "user@domain.tld"},
+		.output = "<user@domain.tld>"
+	},
 };
 
 unsigned int valid_path_parse_test_count =
@@ -243,6 +279,16 @@ test_smtp_path_equal(const struct smtp_address *test,
 		test_out(t_strdup_printf("address->domain = \"%s\"",
 					 parsed->domain),
 			 null_strcmp(parsed->domain, test->domain) == 0);
+	}
+	if (parsed == NULL) {
+		/* nothing */
+	} else if (parsed->raw == NULL) {
+		test_out_quiet(t_strdup_printf("address->raw = (null)"),
+			       (parsed->raw == test->raw));
+	} else {
+		test_out_quiet(t_strdup_printf("address->raw = \"%s\"",
+					 parsed->raw),
+			       null_strcmp(parsed->raw, test->raw) == 0);
 	}
 }
 

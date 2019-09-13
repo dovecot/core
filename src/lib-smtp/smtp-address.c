@@ -378,6 +378,18 @@ int smtp_address_parse_path_full(pool_t pool, const char *path,
 		return -1;
 	}
 
+	if (HAS_ALL_BITS(flags, SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW) &&
+	    aparser.address.localpart != NULL) {
+		if (aparser.path &&
+		    ((const unsigned char *)(path + 1) < aparser.parser.cur)) {
+			aparser.address.raw = t_strdup_until(
+				path + 1, aparser.parser.cur - 1);
+		} else {
+			aparser.address.raw = t_strdup_until(
+				path, aparser.parser.cur);
+		}
+	}
+
 	if (address_r != NULL)
 		*address_r = smtp_address_clone(pool, &aparser.address);
 	return 0;
