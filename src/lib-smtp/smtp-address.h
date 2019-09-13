@@ -23,9 +23,18 @@ enum smtp_address_parse_flags {
 	 */
 	SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART = BIT(4),
 	/* Store an unparsed copy of the address in the `raw' field of struct
-	   smtp_address. This flag is only relevant for
-	   smtp_address_parse_path(). */
+	   smtp_address. When combined with SMTP_ADDRESS_PARSE_FLAG_SKIP_BROKEN,
+	   the broken address will be stored there. This flag is only relevant
+	   for smtp_address_parse_path(). */
 	SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW        = BIT(5),
+	/* Try to skip over a broken address to allow working around syntax
+	   errors in e.g. the sender address for the MAIL command. This flag is
+	   only relevant for smtp_address_parse_path*(). The parser will return
+	   failure, but it will return a broken address which is be equivalent
+	   to <>. The raw broken address string is available in the address->raw
+	   field. When the broken address contains control characters or is
+	   badly delimited, parsing will still fail completely. */
+	SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN       = BIT(6),
 };
 
 struct smtp_address {
@@ -63,7 +72,10 @@ int smtp_address_parse_mailbox(pool_t pool, const char *mailbox,
    returned in address_r. When address_r is NULL, the provided string will be
    verified for validity as a path only. The endp_r parameter is used to
    return a pointer to the end of the path string, so that the caller can
-   continue parsing from there. */
+   continue parsing from there. When the SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN
+   flag is set, a broken address will be returned, even when the return value
+   is -1 (see above). If it is totally broken, *endp_r will be then be NULL.
+ */
 int smtp_address_parse_path_full(pool_t pool, const char *path,
 				 enum smtp_address_parse_flags flags,
 				 struct smtp_address **address_r,
@@ -72,7 +84,9 @@ int smtp_address_parse_path_full(pool_t pool, const char *path,
 /* Parse the RFC 5321 address from the provided path string. Returns 0 when
    the address was parsed successfully and -1 upon error. The address is
    returned in address_r. When address_r is NULL, the provided string will be
-   verified for validity as a path only. */
+   verified for validity as a path only. When the
+   SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN flag is set, a broken address will be
+   returned, even when the return value is -1 (see above). */
 int smtp_address_parse_path(pool_t pool, const char *path,
 			    enum smtp_address_parse_flags flags,
 			    struct smtp_address **address_r,
@@ -109,7 +123,7 @@ void smtp_address_detail_parse_temp(const char *delimiters,
    pointer to the end of the path string, so that the caller can continue
    parsing from there.*/
 int smtp_address_parse_any(const char *in, const char **address_r,
-			   const char **endp_r);
+			   const char **endp_r) ATTR_NULL(2, 3);
 
 /*
  * SMTP address construction
