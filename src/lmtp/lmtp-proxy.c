@@ -241,6 +241,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	lmtp_set.ssl = &ssl_set;
 	lmtp_set.peer_trusted = !conn->set.proxy_not_trusted;
 	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
+	lmtp_set.mail_send_broken_path = TRUE;
 
 	if (conn->set.hostip.family != 0) {
 		lmtp_conn = smtp_client_connection_create_ip(proxy->lmtp_client,
