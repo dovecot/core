@@ -1803,6 +1803,8 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 				      &set->proxy_data);
 		conn->set.xclient_defer = set->xclient_defer;
 		conn->set.peer_trusted = set->peer_trusted;
+
+		conn->set.mail_send_broken_path = set->mail_send_broken_path;
 	}
 
 

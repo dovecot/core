@@ -940,6 +940,8 @@ void smtp_client_transaction_start(
 	i_assert(mail != NULL);
 	event_add_str(trans->event, "mail_from",
 		      smtp_address_encode(mail->mail_from));
+	event_add_str(trans->event, "mail_from_raw",
+		      smtp_address_encode_raw(mail->mail_from));
 	smtp_params_mail_add_to_event(&mail->mail_params,
 				      trans->event);
 

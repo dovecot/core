@@ -1117,8 +1117,15 @@ smtp_client_command_mail_submit(struct smtp_client_connection *conn,
 
 	flags |= SMTP_CLIENT_COMMAND_FLAG_PIPELINE;
 	cmd = smtp_client_command_new(conn, flags, callback, context);
-	smtp_client_command_printf(cmd, "MAIL FROM:<%s>",
-				   smtp_address_encode(from));
+	if (!conn->set.mail_send_broken_path || !smtp_address_is_broken(from)) {
+		/* Compose MAIL command with normalized path. */
+		smtp_client_command_printf(cmd, "MAIL FROM:<%s>",
+					   smtp_address_encode(from));
+	} else {
+		/* Compose MAIL command with broken path (for proxy). */
+		smtp_client_command_printf(cmd, "MAIL FROM:<%s>",
+					   smtp_address_encode_raw(from));
+	}
 	if (params != NULL) {
 		size_t orig_len = str_len(cmd->data);
 		str_append_c(cmd->data, ' ');
