@@ -645,6 +645,22 @@ const char *smtp_address_encode_path(const struct smtp_address *address)
 	return str_c(str);
 }
 
+const char *smtp_address_encode_raw(const struct smtp_address *address)
+{
+	if (address != NULL && address->raw != NULL && *address->raw != '\0')
+		return address->raw;
+
+	return smtp_address_encode(address);
+}
+
+const char *smtp_address_encode_raw_path(const struct smtp_address *address)
+{
+	if (address != NULL && address->raw != NULL && *address->raw != '\0')
+		return t_strconcat("<", address->raw, ">", NULL);
+
+	return smtp_address_encode_path(address);
+}
+
 /*
  * SMTP address manipulation
  */

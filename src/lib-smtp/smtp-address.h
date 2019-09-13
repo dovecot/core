@@ -120,6 +120,11 @@ const char *smtp_address_encode(const struct smtp_address *address)
 const char *smtp_address_encode_path(const struct smtp_address *address)
 				     ATTR_NULL(1);
 
+const char *
+smtp_address_encode_raw(const struct smtp_address *address) ATTR_NULL(1);
+const char *
+smtp_address_encode_raw_path(const struct smtp_address *address) ATTR_NULL(1);
+
 /*
  * SMTP address manipulation
  */
