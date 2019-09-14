@@ -881,6 +881,9 @@ smtp_server_connection_alloc(struct smtp_server *server,
 			conn->set.tls_required || set->tls_required;
 		conn->set.auth_optional =
 			conn->set.auth_optional || set->auth_optional;
+		conn->set.mail_path_allow_broken =
+			conn->set.mail_path_allow_broken ||
+				set->mail_path_allow_broken;
 		conn->set.rcpt_domain_optional =
 			conn->set.rcpt_domain_optional ||
 				set->rcpt_domain_optional;

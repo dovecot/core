@@ -364,6 +364,15 @@ struct smtp_server_settings {
 	bool auth_optional:1;
 	/* TLS security is required for this service */
 	bool tls_required:1;
+	/* The path provided to the MAIL command does not need to be valid. A
+	   completely invalid path will parse as <>. Paths that can still be
+	   fixed by splitting it on the last `@' yielding a usable localpart and
+	   domain, will be parsed as such. There are limits though; when the
+	   path is badly delimited or contains control characters, the MAIL
+	   command will still fail. The unparsed broken address will be
+	   available in the `raw' field of struct smtp_address for logging etc.
+	 */
+	bool mail_path_allow_broken:1;
 	/* The path provided to the RCPT command does not need to have the
 	   domain part. */
 	bool rcpt_domain_optional:1;

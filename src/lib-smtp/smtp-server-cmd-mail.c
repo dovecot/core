@@ -72,7 +72,7 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 	struct smtp_server_cmd_mail *mail_data;
 	enum smtp_address_parse_flags path_parse_flags;
 	const char *const *param_extensions = NULL;
-	struct smtp_address *path;
+	struct smtp_address *path = NULL;
 	enum smtp_param_parse_error pperror;
 	const char *error;
 	int ret;
@@ -103,22 +103,37 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 				  "Unexpected whitespace before path");
 		return;
 	}
-	path_parse_flags = SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY;
+	path_parse_flags =
+		SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY |
+		SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW;
 	if (*params != '\0' &&
-	    (set->workarounds & SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH) != 0)
+	    (set->mail_path_allow_broken ||
+	     (set->workarounds & SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH) != 0))
 		path_parse_flags |= SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL;
-	if (smtp_address_parse_path_full(pool_datastack_create(), params,
-					 path_parse_flags, &path, &error,
-					 &params) < 0) {
-		smtp_server_reply(cmd, 501, "5.5.4", "Invalid FROM: %s", error);
+	if (set->mail_path_allow_broken) {
+		path_parse_flags |=
+			SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART |
+			SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN;
+	}
+	ret = smtp_address_parse_path_full(pool_datastack_create(), params,
+					   path_parse_flags, &path, &error,
+					   &params);
+	if (ret < 0 && !smtp_address_is_broken(path)) {
+		smtp_server_reply(cmd, 501, "5.5.4",
+				  "Invalid FROM: %s", error);
 		return;
 	}
 	if (*params == ' ')
 		params++;
 	else if (*params != '\0') {
-		smtp_server_reply(cmd, 501, "5.5.4",
+		smtp_server_reply(
+			cmd, 501, "5.5.4",
 			"Invalid FROM: Invalid character in path");
 		return;
+	}
+	if (ret < 0) {
+		e_debug(conn->event, "Invalid FROM: %s "
+			"(proceeding with <> as sender)", error);
 	}
 
 	mail_data = p_new(cmd->pool, struct smtp_server_cmd_mail, 1);

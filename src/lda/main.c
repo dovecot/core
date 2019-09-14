@@ -556,6 +556,11 @@ int main(int argc, char *argv[])
 				"userdb lookup skipped, username taken from %s",
 				user_source);
 		}
+		if (mail_from_error != NULL) {
+			e_debug(event, "Broken -f parameter: %s "
+				"(proceeding with <> as sender)",
+				mail_from_error);
+		}
 
 		ret = lda_deliver(&dinput, service_user, user, path,
 				  rcpt_to, rcpt_to_source, stderr_rejection);
