@@ -197,6 +197,10 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 		stream->skip = stream->istream.v_offset;
 		stream->pos = sstream->buffer_peak;
 		size = stream->pos - stream->skip;
+		if (stream->istream.v_offset == sstream->buffer_peak) {
+			/* this could happen after write to temp file failed */
+			return read_from_buffer(sstream, ret_r);
+		}
 	} else {
 		/* need to read more */
 		i_assert(stream->pos == sstream->buffer_peak);
