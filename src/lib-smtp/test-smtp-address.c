@@ -124,6 +124,28 @@ valid_mailbox_parse_tests[] = {
 unsigned int valid_mailbox_parse_test_count =
 	N_ELEMENTS(valid_mailbox_parse_tests);
 
+static void
+test_smtp_mailbox_equal(const struct smtp_address *test,
+			const struct smtp_address *parsed)
+{
+	if (parsed->localpart == NULL) {
+		test_out("address->localpart = (null)",
+			 (parsed->localpart == test->localpart));
+	} else {
+		test_out(t_strdup_printf("address->localpart = \"%s\"",
+					 parsed->localpart),
+			 null_strcmp(parsed->localpart, test->localpart) == 0);
+	}
+	if (parsed->domain == NULL) {
+		test_out(t_strdup_printf("address->domain = (null)"),
+			 (parsed->domain == test->domain));
+	} else {
+		test_out(t_strdup_printf("address->domain = \"%s\"",
+					 parsed->domain),
+			 null_strcmp(parsed->domain, test->domain) == 0);
+	}
+}
+
 static void test_smtp_mailbox_parse_valid(void)
 {
 	unsigned int i;
@@ -144,26 +166,7 @@ static void test_smtp_mailbox_parse_valid(void)
 				ret == 0, error);
 
 		if (!test_has_failed()) {
-			if (address->localpart == NULL ||
-				test->address.localpart == NULL) {
-				test_out(t_strdup_printf("address->localpart = %s",
-							 address->localpart),
-					 (address->localpart == test->address.localpart));
-			} else {
-				test_out(t_strdup_printf("address->localpart = \"%s\"",
-							 address->localpart),
-					 strcmp(address->localpart, test->address.localpart) == 0);
-			}
-			if (address->domain == NULL ||
-			    test->address.domain == NULL) {
-				test_out(t_strdup_printf("address->domain = %s",
-							 address->domain),
-					 (address->domain == test->address.domain));
-			} else {
-				test_out(t_strdup_printf("address->domain = \"%s\"",
-							 address->domain),
-					 strcmp(address->domain, test->address.domain) == 0);
-			}
+			test_smtp_mailbox_equal(&test->address, address);
 
 			encoded = smtp_address_encode(address);
 			output = (test->output == NULL ?
@@ -218,6 +221,31 @@ valid_path_parse_tests[] = {
 unsigned int valid_path_parse_test_count =
 	N_ELEMENTS(valid_path_parse_tests);
 
+static void
+test_smtp_path_equal(const struct smtp_address *test,
+		     const struct smtp_address *parsed)
+{
+	if (smtp_address_isnull(parsed) || smtp_address_isnull(test)) {
+		test_out("address = <>",
+			 (smtp_address_isnull(parsed) &&
+			  smtp_address_isnull(test)));
+	} else {
+		test_out(t_strdup_printf("address->localpart = \"%s\"",
+					 parsed->localpart),
+			 null_strcmp(parsed->localpart, test->localpart) == 0);
+	}
+	if (smtp_address_isnull(parsed)) {
+		/* nothing */
+	} else if (parsed->domain == NULL) {
+		test_out("address->domain = (null)",
+			 (parsed->domain == test->domain));
+	} else {
+		test_out(t_strdup_printf("address->domain = \"%s\"",
+					 parsed->domain),
+			 null_strcmp(parsed->domain, test->domain) == 0);
+	}
+}
+
 static void test_smtp_path_parse_valid(void)
 {
 	unsigned int i;
@@ -238,30 +266,7 @@ static void test_smtp_path_parse_valid(void)
 				ret == 0, error);
 
 		if (!test_has_failed()) {
-			if (smtp_address_isnull(address) ||
-			    smtp_address_isnull(&test->address)) {
-				test_out("address = <>",
-					 smtp_address_isnull(address) &&
-					 smtp_address_isnull(&test->address));
-			} else {
-				test_out(t_strdup_printf("address->localpart = \"%s\"",
-							 address->localpart),
-					 strcmp(address->localpart,
-						test->address.localpart) == 0);
-			}
-			if (smtp_address_isnull(address)) {
-				/* nothing */
-			} else if (address->domain == NULL ||
-				test->address.domain == NULL) {
-				test_out(t_strdup_printf("address->domain = %s",
-							 address->domain),
-					(address->domain == test->address.domain));
-			} else {
-				test_out(t_strdup_printf("address->domain = \"%s\"",
-							 address->domain),
-					 strcmp(address->domain,
-						test->address.domain) == 0);
-			}
+			test_smtp_path_equal(&test->address, address);
 
 			encoded = smtp_address_encode_path(address);
 			output = (test->output == NULL ?
@@ -404,30 +409,7 @@ static void test_smtp_username_parse_valid(void)
 				ret == 0, error);
 
 		if (!test_has_failed()) {
-			if (smtp_address_isnull(address) ||
-			    smtp_address_isnull(&test->address)) {
-				test_out("address = <>",
-					 smtp_address_isnull(address) &&
-					 smtp_address_isnull(&test->address));
-			} else {
-				test_out(t_strdup_printf("address->localpart = \"%s\"",
-							 address->localpart),
-					 strcmp(address->localpart,
-						test->address.localpart) == 0);
-			}
-			if (smtp_address_isnull(address)) {
-				/* nothing */
-			} else if (address->domain == NULL ||
-				   test->address.domain == NULL) {
-				test_out(t_strdup_printf("address->domain = %s",
-							 address->domain),
-					 (address->domain == test->address.domain));
-			} else {
-				test_out(t_strdup_printf("address->domain = \"%s\"",
-							 address->domain),
-					 strcmp(address->domain,
-						test->address.domain) == 0);
-			}
+			test_smtp_path_equal(&test->address, address);
 
 			encoded = smtp_address_encode(address);
 			output = (test->output == NULL ?
