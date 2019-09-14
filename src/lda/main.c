@@ -366,7 +366,7 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
 	struct event *event;
-	const char *user_source = "", *rcpt_to_source = "";
+	const char *user_source = "", *rcpt_to_source = "", *mail_from_error;
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
 	int ret, c;
@@ -407,6 +407,7 @@ int main(int argc, char *argv[])
 
 	user = getenv("USER");
 	mail_from = final_rcpt_to = rcpt_to = NULL;
+	mail_from_error = NULL;
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'a':
@@ -431,15 +432,20 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			/* envelope sender address */
-			if (smtp_address_parse_path(
+			ret = smtp_address_parse_path(
 				pool_datastack_create(), optarg,
 				SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
 				SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
-				SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY,
-				&mail_from, &errstr) < 0) {
+				SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY |
+				SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN |
+				SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW,
+				&mail_from, &errstr);
+			if (ret < 0 && !smtp_address_is_broken(mail_from)) {
 				i_fatal_status(EX_USAGE,
 					"Invalid -f parameter: %s", errstr);
 			}
+			if (ret < 0)
+				mail_from_error = errstr;
 			break;
 		case 'm':
 			/* destination mailbox.
