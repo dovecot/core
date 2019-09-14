@@ -719,7 +719,8 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		error = ssl_iostream_get_last_error(proxy->server_ssl_iostream);
 		client_log_err(proxy->client, t_strdup_printf(
 			"proxy: Failed to start SSL handshake to %s:%u: %s",
-			net_ip2addr(&proxy->ip), proxy->port, error));
+			net_ip2addr(&proxy->ip), proxy->port,
+			ssl_iostream_get_last_error(proxy->server_ssl_iostream)));
 		return -1;
 	}
 
