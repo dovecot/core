@@ -239,15 +239,22 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 {
 	struct istream_private *stream = &sstream->istream;
 	void *data;
+	size_t old_pos = stream->pos;
 
 	i_assert(sstream->fd != -1);
+	i_assert(stream->skip == 0);
 
 	stream->max_buffer_size = SIZE_MAX;
+	stream->pos = 0;
 	data = i_stream_alloc(stream, sstream->write_peak);
+	stream->pos = old_pos;
 
 	if (pread_full(sstream->fd, data, sstream->write_peak, 0) < 0) {
-		i_error("istream-seekable: read(%s) failed: %m", sstream->temp_path);
-		memarea_unref(&stream->memarea);
+		sstream->istream.istream.stream_errno = errno;
+		sstream->istream.istream.eof = TRUE;
+		io_stream_set_error(&sstream->istream.iostream,
+				    "istream-seekable: read(%s) failed: %m",
+				    sstream->temp_path);
 		return -1;
 	}
 	i_stream_destroy(&sstream->fd_input);
