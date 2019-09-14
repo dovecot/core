@@ -125,7 +125,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 				i_stream_get_name(&stream->istream),
 				i_stream_get_error(sstream->fd_input));
 			i_stream_destroy(&sstream->fd_input);
-			i_close_fd(&sstream->fd);
+			sstream->fd = -1; /* autoclosed by fd_input */
 			return -1;
 		}
 	}
@@ -258,7 +258,7 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 		return -1;
 	}
 	i_stream_destroy(&sstream->fd_input);
-	i_close_fd(&sstream->fd);
+	sstream->fd = -1; /* autoclosed by fd_input */
 
 	i_free_and_null(sstream->temp_path);
 	return 0;
