@@ -103,15 +103,24 @@ int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
 		return -1;
 
 	i_array_init(&db->module_contexts, 5);
+	db->refcount = 1;
 	*db_r = db;
 	return 0;
 }
 
-void sql_deinit(struct sql_db **_db)
+void sql_ref(struct sql_db *db)
+{
+	db->refcount++;
+}
+
+void sql_unref(struct sql_db **_db)
 {
 	struct sql_db *db = *_db;
 
 	*_db = NULL;
+
+	if (--db->refcount > 0)
+		return;
 
 	timeout_remove(&db->to_reconnect);
 	db->v.deinit(db);

@@ -131,7 +131,7 @@ void db_sql_unref(struct db_sql_connection **_conn)
 	if (--conn->refcount > 0)
 		return;
 
-	sql_deinit(&conn->db);
+	sql_unref(&conn->db);
 	pool_unref(&conn->pool);
 }
 

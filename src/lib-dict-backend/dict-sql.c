@@ -143,7 +143,7 @@ static void sql_dict_deinit(struct dict *_dict)
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 
 	sql_dict_prep_stmt_hash_free(dict);
-	sql_deinit(&dict->db);
+	sql_unref(&dict->db);
 	pool_unref(&dict->pool);
 }
 

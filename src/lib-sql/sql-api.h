@@ -94,7 +94,8 @@ struct sql_db *sql_init(const char *db_driver, const char *connect_string);
 int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
 		  const char **error_r);
 
-void sql_deinit(struct sql_db **db);
+void sql_ref(struct sql_db *db);
+void sql_unref(struct sql_db **db);
 
 /* Returns SQL database state flags. */
 enum sql_db_flags sql_get_flags(struct sql_db *db);

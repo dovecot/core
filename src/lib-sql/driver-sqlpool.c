@@ -548,7 +548,7 @@ static void driver_sqlpool_deinit(struct sql_db *_db)
 	struct sqlpool_connection *conn;
 
 	array_foreach_modifiable(&db->all_connections, conn)
-		sql_deinit(&conn->db);
+		sql_unref(&conn->db);
 	array_clear(&db->all_connections);
 
 	driver_sqlpool_abort_requests(db);

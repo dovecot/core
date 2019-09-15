@@ -123,6 +123,7 @@ struct sql_db_vfuncs {
 struct sql_db {
 	const char *name;
 	enum sql_db_flags flags;
+	int refcount;
 
 	struct sql_db_vfuncs v;
 	ARRAY(union sql_db_module_context *) module_contexts;
