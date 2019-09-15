@@ -337,6 +337,15 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				"setting it non-selectable";
 			node->corrupted_flags = TRUE;
 		}
+		if (!ilist->has_backing_store && !guid_128_is_empty(irec->guid) &&
+		    (rec->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
+				   MAILBOX_LIST_INDEX_FLAG_NOSELECT)) != 0) {
+			node->flags &= ~(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
+					 MAILBOX_LIST_INDEX_FLAG_NOSELECT);
+			*error_r = "non-selectable mailbox already has GUID - "
+				"marking it selectable";
+			node->corrupted_flags = TRUE;
+		}
 
 		node->name_id = irec->name_id;
 		if (node->name_id == 0) {
