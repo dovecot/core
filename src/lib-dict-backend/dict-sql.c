@@ -132,7 +132,7 @@ static void sql_dict_prep_stmt_hash_free(struct sql_dict *dict)
 
 	iter = hash_table_iterate_init(dict->prep_stmt_hash);
 	while (hash_table_iterate(iter, dict->prep_stmt_hash, &query, &prep_stmt))
-		sql_prepared_statement_deinit(&prep_stmt);
+		sql_prepared_statement_unref(&prep_stmt);
 	hash_table_iterate_deinit(&iter);
 
 	hash_table_destroy(&dict->prep_stmt_hash);

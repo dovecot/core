@@ -312,7 +312,7 @@ sql_prepared_statement_init(struct sql_db *db, const char *query_template)
 	return stmt;
 }
 
-void sql_prepared_statement_deinit(struct sql_prepared_statement **_prep_stmt)
+void sql_prepared_statement_unref(struct sql_prepared_statement **_prep_stmt)
 {
 	struct sql_prepared_statement *prep_stmt = *_prep_stmt;
 

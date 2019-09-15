@@ -130,7 +130,7 @@ struct sql_result *sql_query_s(struct sql_db *db, const char *query);
 
 struct sql_prepared_statement *
 sql_prepared_statement_init(struct sql_db *db, const char *query_template);
-void sql_prepared_statement_deinit(struct sql_prepared_statement **prep_stmt);
+void sql_prepared_statement_unref(struct sql_prepared_statement **prep_stmt);
 
 struct sql_statement *
 sql_statement_init(struct sql_db *db, const char *query_template);
