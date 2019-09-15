@@ -189,7 +189,6 @@ struct cassandra_sql_statement {
 
 struct cassandra_sql_prepared_statement {
 	struct sql_prepared_statement prep_stmt;
-	char *query_template;
 
 	/* NULL, until the prepare is asynchronously finished */
 	const CassPrepared *prepared;
@@ -2025,7 +2024,7 @@ static void prepare_start(struct cassandra_sql_prepared_statement *prep_stmt)
 	/* clear the current error in case we're retrying */
 	i_free_and_null(prep_stmt->error);
 
-	future = cass_session_prepare(db->session, prep_stmt->query_template);
+	future = cass_session_prepare(db->session, prep_stmt->prep_stmt.query_template);
 	driver_cassandra_set_callback(future, db, prepare_callback, prep_stmt);
 }
 
@@ -2049,7 +2048,7 @@ driver_cassandra_prepared_statement_init(struct sql_db *db,
 	struct cassandra_sql_prepared_statement *prep_stmt =
 		i_new(struct cassandra_sql_prepared_statement, 1);
 	prep_stmt->prep_stmt.db = db;
-	prep_stmt->query_template = i_strdup(query_template);
+	prep_stmt->prep_stmt.query_template = i_strdup(query_template);
 	i_array_init(&prep_stmt->pending_statements, 4);
 	prepare_start(prep_stmt);
 	return &prep_stmt->prep_stmt;
@@ -2065,8 +2064,8 @@ driver_cassandra_prepared_statement_deinit(struct sql_prepared_statement *_prep_
 	if (prep_stmt->prepared != NULL)
 		cass_prepared_free(prep_stmt->prepared);
 	array_free(&prep_stmt->pending_statements);
-	i_free(prep_stmt->query_template);
 	i_free(prep_stmt->error);
+	i_free(prep_stmt->prep_stmt.query_template);
 	i_free(prep_stmt);
 }
 
@@ -2092,7 +2091,7 @@ driver_cassandra_statement_init_prepared(struct sql_prepared_statement *_prep_st
 
 	stmt->stmt.pool = pool;
 	stmt->stmt.query_template =
-		p_strdup(stmt->stmt.pool, prep_stmt->query_template);
+		p_strdup(stmt->stmt.pool, prep_stmt->prep_stmt.query_template);
 	stmt->prep = prep_stmt;
 
 	if (prep_stmt->prepared != NULL) {

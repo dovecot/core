@@ -9,11 +9,6 @@
 
 #include <time.h>
 
-struct default_sql_prepared_statement {
-	struct sql_prepared_statement prep_stmt;
-	char *query_template;
-};
-
 struct event_category event_category_sql = {
 	.name = "sql",
 };
@@ -187,30 +182,25 @@ static struct sql_prepared_statement *
 default_sql_prepared_statement_init(struct sql_db *db,
 				    const char *query_template)
 {
-	struct default_sql_prepared_statement *prep_stmt;
+	struct sql_prepared_statement *prep_stmt;
 
-	prep_stmt = i_new(struct default_sql_prepared_statement, 1);
-	prep_stmt->prep_stmt.db = db;
+	prep_stmt = i_new(struct sql_prepared_statement, 1);
+	prep_stmt->db = db;
 	prep_stmt->query_template = i_strdup(query_template);
-	return &prep_stmt->prep_stmt;
+	return prep_stmt;
 }
 
 static void
-default_sql_prepared_statement_deinit(struct sql_prepared_statement *_prep_stmt)
+default_sql_prepared_statement_deinit(struct sql_prepared_statement *prep_stmt)
 {
-	struct default_sql_prepared_statement *prep_stmt =
-		(struct default_sql_prepared_statement *)_prep_stmt;
-
 	i_free(prep_stmt->query_template);
 	i_free(prep_stmt);
 }
 
 static struct sql_statement *
-default_sql_statement_init_prepared(struct sql_prepared_statement *_stmt)
+default_sql_statement_init_prepared(struct sql_prepared_statement *stmt)
 {
-	struct default_sql_prepared_statement *stmt =
-		(struct default_sql_prepared_statement *)_stmt;
-	return sql_statement_init(_stmt->db, stmt->query_template);
+	return sql_statement_init(stmt->db, stmt->query_template);
 }
 
 const char *sql_statement_get_query(struct sql_statement *stmt)

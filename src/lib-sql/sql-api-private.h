@@ -176,6 +176,7 @@ struct sql_result_vfuncs {
 
 struct sql_prepared_statement {
 	struct sql_db *db;
+	char *query_template;
 };
 
 struct sql_statement {
