@@ -116,6 +116,31 @@ void sql_ref(struct sql_db *db)
 	db->refcount++;
 }
 
+static void
+default_sql_prepared_statement_deinit(struct sql_prepared_statement *prep_stmt)
+{
+	i_free(prep_stmt->query_template);
+	i_free(prep_stmt);
+}
+
+static void sql_prepared_statements_free(struct sql_db *db)
+{
+	struct hash_iterate_context *iter;
+	struct sql_prepared_statement *prep_stmt;
+	char *query;
+
+	iter = hash_table_iterate_init(db->prepared_stmt_hash);
+	while (hash_table_iterate(iter, db->prepared_stmt_hash, &query, &prep_stmt)) {
+		i_assert(prep_stmt->refcount == 0);
+		if (prep_stmt->db->v.prepared_statement_deinit != NULL)
+			prep_stmt->db->v.prepared_statement_deinit(prep_stmt);
+		else
+			default_sql_prepared_statement_deinit(prep_stmt);
+	}
+	hash_table_iterate_deinit(&iter);
+	hash_table_clear(db->prepared_stmt_hash, TRUE);
+}
+
 void sql_unref(struct sql_db **_db)
 {
 	struct sql_db *db = *_db;
@@ -128,7 +153,7 @@ void sql_unref(struct sql_db **_db)
 		return;
 
 	timeout_remove(&db->to_reconnect);
-	i_assert(hash_table_count(db->prepared_stmt_hash) == 0);
+	sql_prepared_statements_free(db);
 	hash_table_destroy(&db->prepared_stmt_hash);
 	db->v.deinit(db);
 }
@@ -205,13 +230,6 @@ default_sql_prepared_statement_init(struct sql_db *db,
 	prep_stmt->refcount = 1;
 	prep_stmt->query_template = i_strdup(query_template);
 	return prep_stmt;
-}
-
-static void
-default_sql_prepared_statement_deinit(struct sql_prepared_statement *prep_stmt)
-{
-	i_free(prep_stmt->query_template);
-	i_free(prep_stmt);
 }
 
 static struct sql_statement *
@@ -301,13 +319,7 @@ void sql_prepared_statement_deinit(struct sql_prepared_statement **_prep_stmt)
 	*_prep_stmt = NULL;
 
 	i_assert(prep_stmt->refcount > 0);
-	if (--prep_stmt->refcount > 0)
-		return;
-
-	if (prep_stmt->db->v.prepared_statement_deinit != NULL)
-		prep_stmt->db->v.prepared_statement_deinit(prep_stmt);
-	else
-		default_sql_prepared_statement_deinit(prep_stmt);
+	prep_stmt->refcount--;
 }
 
 static void
