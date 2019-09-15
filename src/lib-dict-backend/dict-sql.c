@@ -113,36 +113,14 @@ sql_dict_init(struct dict *driver, const char *uri,
 		return -1;
 	}
 
-	if ((sql_get_flags(dict->db) & SQL_DB_FLAG_PREP_STATEMENTS) != 0) {
-		hash_table_create(&dict->prep_stmt_hash, dict->pool,
-				  0, str_hash, strcmp);
-	}
 	*dict_r = &dict->dict;
 	return 0;
-}
-
-static void sql_dict_prep_stmt_hash_free(struct sql_dict *dict)
-{
-	struct hash_iterate_context *iter;
-	struct sql_prepared_statement *prep_stmt;
-	const char *query;
-
-	if (!hash_table_is_created(dict->prep_stmt_hash))
-		return;
-
-	iter = hash_table_iterate_init(dict->prep_stmt_hash);
-	while (hash_table_iterate(iter, dict->prep_stmt_hash, &query, &prep_stmt))
-		sql_prepared_statement_unref(&prep_stmt);
-	hash_table_iterate_deinit(&iter);
-
-	hash_table_destroy(&dict->prep_stmt_hash);
 }
 
 static void sql_dict_deinit(struct dict *_dict)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 
-	sql_dict_prep_stmt_hash_free(dict);
 	sql_unref(&dict->db);
 	pool_unref(&dict->pool);
 }
@@ -276,14 +254,10 @@ sql_dict_statement_init(struct sql_dict *dict, const char *query,
 	struct sql_prepared_statement *prep_stmt;
 	const struct sql_dict_param *param;
 
-	if (hash_table_is_created(dict->prep_stmt_hash)) {
-		prep_stmt = hash_table_lookup(dict->prep_stmt_hash, query);
-		if (prep_stmt == NULL) {
-			const char *query_dup = p_strdup(dict->pool, query);
-			prep_stmt = sql_prepared_statement_init(dict->db, query);
-			hash_table_insert(dict->prep_stmt_hash, query_dup, prep_stmt);
-		}
+	if ((sql_get_flags(dict->db) & SQL_DB_FLAG_PREP_STATEMENTS) != 0) {
+		prep_stmt = sql_prepared_statement_init(dict->db, query);
 		stmt = sql_statement_init_prepared(prep_stmt);
+		sql_prepared_statement_unref(&prep_stmt);
 	} else {
 		/* Prepared statements not supported by the backend.
 		   Just use regular statements to avoid wasting memory. */

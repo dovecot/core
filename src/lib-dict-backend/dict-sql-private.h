@@ -9,9 +9,6 @@ struct sql_dict {
 	const char *username;
 	const struct dict_sql_settings *set;
 
-	/* query template => prepared statement */
-	HASH_TABLE(const char *, struct sql_prepared_statement *) prep_stmt_hash;
-
 	bool has_on_duplicate_key:1;
 };
 
