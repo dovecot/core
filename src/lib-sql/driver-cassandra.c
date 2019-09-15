@@ -2048,6 +2048,7 @@ driver_cassandra_prepared_statement_init(struct sql_db *db,
 	struct cassandra_sql_prepared_statement *prep_stmt =
 		i_new(struct cassandra_sql_prepared_statement, 1);
 	prep_stmt->prep_stmt.db = db;
+	prep_stmt->prep_stmt.refcount = 1;
 	prep_stmt->prep_stmt.query_template = i_strdup(query_template);
 	i_array_init(&prep_stmt->pending_statements, 4);
 	prepare_start(prep_stmt);

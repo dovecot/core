@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "hash.h"
 #include "str.h"
 #include "time-util.h"
 #include "sql-api-private.h"
@@ -104,6 +105,8 @@ int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
 
 	i_array_init(&db->module_contexts, 5);
 	db->refcount = 1;
+	hash_table_create(&db->prepared_stmt_hash, default_pool, 0,
+			  str_hash, strcmp);
 	*db_r = db;
 	return 0;
 }
@@ -125,6 +128,8 @@ void sql_unref(struct sql_db **_db)
 		return;
 
 	timeout_remove(&db->to_reconnect);
+	i_assert(hash_table_count(db->prepared_stmt_hash) == 0);
+	hash_table_destroy(&db->prepared_stmt_hash);
 	db->v.deinit(db);
 }
 
@@ -197,6 +202,7 @@ default_sql_prepared_statement_init(struct sql_db *db,
 
 	prep_stmt = i_new(struct sql_prepared_statement, 1);
 	prep_stmt->db = db;
+	prep_stmt->refcount = 1;
 	prep_stmt->query_template = i_strdup(query_template);
 	return prep_stmt;
 }
@@ -271,10 +277,21 @@ static void default_sql_update_stmt(struct sql_transaction_context *ctx,
 struct sql_prepared_statement *
 sql_prepared_statement_init(struct sql_db *db, const char *query_template)
 {
+	struct sql_prepared_statement *stmt;
+
+	stmt = hash_table_lookup(db->prepared_stmt_hash, query_template);
+	if (stmt != NULL) {
+		stmt->refcount++;
+		return stmt;
+	}
+
 	if (db->v.prepared_statement_init != NULL)
-		return db->v.prepared_statement_init(db, query_template);
+		stmt = db->v.prepared_statement_init(db, query_template);
 	else
-		return default_sql_prepared_statement_init(db, query_template);
+		stmt = default_sql_prepared_statement_init(db, query_template);
+
+	hash_table_insert(db->prepared_stmt_hash, stmt->query_template, stmt);
+	return stmt;
 }
 
 void sql_prepared_statement_deinit(struct sql_prepared_statement **_prep_stmt)
@@ -282,6 +299,11 @@ void sql_prepared_statement_deinit(struct sql_prepared_statement **_prep_stmt)
 	struct sql_prepared_statement *prep_stmt = *_prep_stmt;
 
 	*_prep_stmt = NULL;
+
+	i_assert(prep_stmt->refcount > 0);
+	if (--prep_stmt->refcount > 0)
+		return;
+
 	if (prep_stmt->db->v.prepared_statement_deinit != NULL)
 		prep_stmt->db->v.prepared_statement_deinit(prep_stmt);
 	else

@@ -135,6 +135,7 @@ struct sql_db {
 	void *state_change_context;
 
 	struct event *event;
+	HASH_TABLE(char *, struct sql_prepared_statement *) prepared_stmt_hash;
 
 	enum sql_db_state state;
 	/* last time we started connecting to this server
@@ -178,6 +179,7 @@ struct sql_result_vfuncs {
 
 struct sql_prepared_statement {
 	struct sql_db *db;
+	int refcount;
 	char *query_template;
 };
 
