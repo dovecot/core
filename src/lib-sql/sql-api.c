@@ -119,6 +119,8 @@ void sql_unref(struct sql_db **_db)
 
 	*_db = NULL;
 
+	if (db->v.unref != NULL)
+		db->v.unref(db);
 	if (--db->refcount > 0)
 		return;
 

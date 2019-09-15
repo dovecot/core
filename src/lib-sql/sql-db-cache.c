@@ -27,13 +27,15 @@ struct sql_db_cache {
 
 static MODULE_CONTEXT_DEFINE_INIT(sql_db_cache_module, &sql_db_module_register);
 
-static void sql_db_cache_db_deinit(struct sql_db *db)
+static void sql_db_cache_db_unref(struct sql_db *db)
 {
 	struct sql_db_cache_context *ctx = SQL_DB_CACHE_CONTEXT(db);
 	struct sql_db_cache_context *head_ctx;
 
 	if (--ctx->refcount > 0)
 		return;
+
+	i_assert(db->refcount == 2);
 
 	ctx->cache->unused_count++;
 	if (ctx->cache->unused_tail == NULL)
@@ -73,13 +75,17 @@ static void sql_db_cache_free_tail(struct sql_db_cache *cache)
 	struct sql_db_cache_context *ctx;
 
 	db = cache->unused_tail;
+	i_assert(db->refcount == 1);
+
 	ctx = SQL_DB_CACHE_CONTEXT(db);
 	sql_db_cache_unlink(ctx);
 	hash_table_remove(cache->dbs, ctx->key);
 
 	i_free(ctx->key);
-	ctx->orig_deinit(db);
 	i_free(ctx);
+
+	db->v.unref = NULL;
+	sql_unref(&db);
 }
 
 static void sql_db_cache_drop_oldest(struct sql_db_cache *cache)
@@ -116,13 +122,14 @@ int sql_db_cache_new(struct sql_db_cache *cache, const struct sql_settings *set,
 		ctx->cache = cache;
 		ctx->key = key;
 		ctx->orig_deinit = db->v.deinit;
-		db->v.deinit = sql_db_cache_db_deinit;
+		db->v.unref = sql_db_cache_db_unref;
 
 		MODULE_CONTEXT_SET(db, sql_db_cache_module, ctx);
 		hash_table_insert(cache->dbs, ctx->key, db);
 	}
 
 	ctx->refcount++;
+	sql_ref(db);
 	*db_r = db;
 	return 0;
 }

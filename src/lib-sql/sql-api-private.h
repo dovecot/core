@@ -69,6 +69,7 @@ struct sql_db_vfuncs {
 	int (*init_full)(const struct sql_settings *set, struct sql_db **db_r,
 			 const char **error);
 	void (*deinit)(struct sql_db *db);
+	void (*unref)(struct sql_db *db);
 
 	int (*connect)(struct sql_db *db);
 	void (*disconnect)(struct sql_db *db);
