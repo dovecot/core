@@ -201,6 +201,8 @@ void io_loop_set_time_moved_callback(struct ioloop *ioloop,
 
 /* Change the current_ioloop. */
 void io_loop_set_current(struct ioloop *ioloop);
+/* Return the root ioloop. */
+struct ioloop *io_loop_get_root(void);
 /* Call the callback whenever ioloop is changed. */
 void io_loop_add_switch_callback(io_switch_callback_t *callback);
 void io_loop_remove_switch_callback(io_switch_callback_t *callback);

@@ -947,6 +947,15 @@ void io_loop_set_current(struct ioloop *ioloop)
 	}
 }
 
+struct ioloop *io_loop_get_root(void)
+{
+	struct ioloop *ioloop = current_ioloop;
+
+	while (ioloop->prev != NULL)
+		ioloop = ioloop->prev;
+	return ioloop;
+}
+
 void io_loop_add_switch_callback(io_switch_callback_t *callback)
 {
 	if (!array_is_created(&io_switch_callbacks)) {
