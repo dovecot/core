@@ -237,8 +237,11 @@ void mail_index_alloc_cache_unref(struct mail_index **_index)
 		*listp = list->next;
 		mail_index_alloc_cache_list_free(list);
 	} else if (to_index == NULL) {
-		to_index = timeout_add(INDEX_CACHE_TIMEOUT*1000/2,
-				       index_removal_timeout, NULL);
+		/* Add to root ioloop in case we got here from an inner
+		   ioloop which gets destroyed too early. */
+		to_index = timeout_add_to(io_loop_get_root(),
+					  INDEX_CACHE_TIMEOUT*1000/2,
+					  index_removal_timeout, NULL);
 	}
 }
 
