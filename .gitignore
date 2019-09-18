@@ -9,7 +9,7 @@ Makefile.in
 .deps
 .libs
 *~
-
+/*.tar.gz
 /configure
 /config.cache
 /config.guess
@@ -38,7 +38,7 @@ Makefile.in
 /dovecot-config
 /dovecot-config.in
 /dovecot-version.h
-
+/autom4te
 /aclocal.m4
 libtool.m4
 ltoptions.m4

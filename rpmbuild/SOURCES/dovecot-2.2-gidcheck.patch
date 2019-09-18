@@ -1,0 +1,60 @@
+From ca5b3ec5331545b46ec1f1c4ecfa1302ddb10653 Mon Sep 17 00:00:00 2001
+From: Timo Sirainen <timo.sirainen@dovecot.fi>
+Date: Wed, 29 Jun 2016 00:56:56 +0300
+Subject: [PATCH] auth: userdb passwd iteration now skips users not in
+ first/last_valid_gid range
+
+Patch by Michal Hlavinka / Red Hat
+---
+ src/auth/auth-settings.c | 4 ++++
+ src/auth/auth-settings.h | 2 ++
+ src/auth/userdb-passwd.c | 4 ++++
+ 3 files changed, 10 insertions(+)
+
+diff -up dovecot-2.2.36/src/auth/auth-settings.c.gidcheck dovecot-2.2.36/src/auth/auth-settings.c
+--- dovecot-2.2.36/src/auth/auth-settings.c.gidcheck	2018-04-30 15:52:05.000000000 +0200
++++ dovecot-2.2.36/src/auth/auth-settings.c	2018-09-17 12:17:13.132032699 +0200
+@@ -272,6 +272,8 @@ static const struct setting_define auth_
+ 	DEF_NOPREFIX(SET_BOOL, verbose_proctitle),
+ 	DEF_NOPREFIX(SET_UINT, first_valid_uid),
+ 	DEF_NOPREFIX(SET_UINT, last_valid_uid),
++	DEF_NOPREFIX(SET_UINT, first_valid_gid),
++	DEF_NOPREFIX(SET_UINT, last_valid_gid),
+ 
+ 	DEF_NOPREFIX(SET_STR, ssl_client_ca_dir),
+ 	DEF_NOPREFIX(SET_STR, ssl_client_ca_file),
+@@ -331,6 +333,8 @@ static const struct auth_settings auth_d
+ 	.verbose_proctitle = FALSE,
+ 	.first_valid_uid = 500,
+ 	.last_valid_uid = 0,
++	.first_valid_gid = 1,
++	.last_valid_gid = 0,
+ };
+ 
+ const struct setting_parser_info auth_setting_parser_info = {
+diff -up dovecot-2.2.36/src/auth/auth-settings.h.gidcheck dovecot-2.2.36/src/auth/auth-settings.h
+--- dovecot-2.2.36/src/auth/auth-settings.h.gidcheck	2018-04-30 15:52:05.000000000 +0200
++++ dovecot-2.2.36/src/auth/auth-settings.h	2018-09-17 12:13:30.540159133 +0200
+@@ -88,6 +88,8 @@ struct auth_settings {
+ 	bool verbose_proctitle;
+ 	unsigned int first_valid_uid;
+ 	unsigned int last_valid_uid;
++	unsigned int first_valid_gid;
++	unsigned int last_valid_gid;
+ 
+ 	/* generated: */
+ 	char username_chars_map[256];
+diff -up dovecot-2.2.36/src/auth/userdb-passwd.c.gidcheck dovecot-2.2.36/src/auth/userdb-passwd.c
+--- dovecot-2.2.36/src/auth/userdb-passwd.c.gidcheck	2018-04-30 15:52:05.000000000 +0200
++++ dovecot-2.2.36/src/auth/userdb-passwd.c	2018-09-17 12:13:30.540159133 +0200
+@@ -145,6 +145,10 @@ passwd_iterate_want_pw(struct passwd *pw
+ 		return FALSE;
+ 	if (pw->pw_uid > (uid_t)set->last_valid_uid && set->last_valid_uid != 0)
+ 		return FALSE;
++	if (pw->pw_gid < (gid_t)set->first_valid_gid)
++		return FALSE;
++	if (pw->pw_gid > (gid_t)set->last_valid_gid && set->last_valid_gid != 0)
++		return FALSE;
+ 	return TRUE;
+ }
+ 
