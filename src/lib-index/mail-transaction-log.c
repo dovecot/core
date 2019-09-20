@@ -260,7 +260,7 @@ bool mail_transaction_log_want_rotate(struct mail_transaction_log *log)
 
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 {
-	struct mail_transaction_log_file *file;
+	struct mail_transaction_log_file *file, *old_head;
 	const char *path = log->head->filepath;
 	struct stat st;
 	int ret;
@@ -304,15 +304,15 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 		i_assert(file->locked);
 	}
 
-	if (--log->head->refcount == 0)
-		mail_transaction_logs_clean(log);
-	else {
-		/* the newly created log file is already locked */
-		mail_transaction_log_file_unlock(log->head,
-			!log->index->log_sync_locked ? "rotating" :
-			"rotating while syncing");
-	}
+	old_head = log->head;
 	mail_transaction_log_set_head(log, file);
+
+	/* the newly created log file is already locked */
+	mail_transaction_log_file_unlock(old_head,
+		!log->index->log_sync_locked ? "rotating" :
+		"rotating while syncing");
+	if (--old_head->refcount == 0)
+		mail_transaction_logs_clean(log);
 	return 0;
 }
 
