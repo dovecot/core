@@ -118,6 +118,7 @@ void sql_init_common(struct sql_db *db)
 
 void sql_ref(struct sql_db *db)
 {
+	i_assert(db->refcount > 0);
 	db->refcount++;
 }
 
@@ -152,6 +153,7 @@ void sql_unref(struct sql_db **_db)
 
 	*_db = NULL;
 
+	i_assert(db->refcount > 0);
 	if (db->v.unref != NULL)
 		db->v.unref(db);
 	if (--db->refcount > 0)
