@@ -228,6 +228,7 @@ ARRAY_DEFINE_TYPE(sql_drivers, const struct sql_db *);
 extern ARRAY_TYPE(sql_drivers) sql_drivers;
 extern struct sql_result sql_not_connected_result;
 
+void sql_init_common(struct sql_db *db);
 struct sql_db *
 driver_sqlpool_init(const char *connect_string, const struct sql_db *driver);
 int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db *driver,

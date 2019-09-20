@@ -296,7 +296,7 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 	if (ret < 0)
 		i_fatal("sqlpool: %s", error);
 
-	i_array_init(&conndb->module_contexts, 5);
+	sql_init_common(conndb);
 
 	conndb->state_change_callback = sqlpool_state_changed;
 	conndb->state_change_context = db;

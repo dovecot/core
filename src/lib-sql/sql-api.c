@@ -103,12 +103,17 @@ int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
 	if (ret < 0)
 		return -1;
 
-	i_array_init(&db->module_contexts, 5);
-	db->refcount = 1;
-	hash_table_create(&db->prepared_stmt_hash, default_pool, 0,
-			  str_hash, strcmp);
+	sql_init_common(db);
 	*db_r = db;
 	return 0;
+}
+
+void sql_init_common(struct sql_db *db)
+{
+	db->refcount = 1;
+	i_array_init(&db->module_contexts, 5);
+	hash_table_create(&db->prepared_stmt_hash, default_pool, 0,
+			  str_hash, strcmp);
 }
 
 void sql_ref(struct sql_db *db)
