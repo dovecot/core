@@ -716,6 +716,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	}
 	ssl_iostream_context_unref(&ssl_ctx);
 	if (ssl_iostream_handshake(proxy->server_ssl_iostream) < 0) {
+		error = ssl_iostream_get_last_error(proxy->server_ssl_iostream);
 		client_log_err(proxy->client, t_strdup_printf(
 			"proxy: Failed to start SSL handshake to %s:%u: %s",
 			net_ip2addr(&proxy->ip), proxy->port, error));
