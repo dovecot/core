@@ -1,7 +1,5 @@
 #include "test-lib.h"
 #include "backtrace-string.h"
-#include <setjmp.h>
-#include <signal.h>
 
 static void test_backtrace_get(void)
 {
