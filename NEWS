@@ -1,3 +1,55 @@
+v2.3.8 2019-10-08  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	+ Added mail_delivery_started and mail_delivery_finished events, see
+	  https://doc.dovecot.org/admin_manual/list_of_events/ for details.
+	+ dsync-replication: Don't replicate users who have "noreplicate" extra
+	  field in userdb.
+	+ doveadm service status: Show total number of processes created.
+	+ When logging to syslog, use instance_name setting's value for the
+	  ident. This commonly is added as a log prefix.
+	+ Base64 encoding/decoding code was rewritten with additional features.
+	  It shouldn't cause any user visible changes.
+	- v2.3.7 regression: If a folder only receives new mails without any
+	  other mail access, dovecot.index.log keeps growing forever and
+	  dovecot.index keeps being rewritten for every mail delivery.
+	- dsync-replication may lose keywords after syncing mails restored from
+	  another replica. This only happened if the mail only had keywords and
+	  no system flags.
+	- event filters: Non-textual event fields could not be filtered using
+	  wildcards.
+	- auth: Scope parameter was missing from OAuth password grant
+	  request.
+	- doveadm client-server communication may hang in some situations.
+	  It is also using unnecessarily small TCP/IP packet sizes.
+	- doveadm who and kick did not flush protocol output correctly.
+	- imap: SETMETADATA with literal value would delete the metadata value
+	  instead of updating it.
+	- imap: When client issues FETCH PREVIEW (LAZY=FUZZY) command, the
+	  caching decisions should be updated so that newly saved mails will
+	  have the preview cached.
+	- With mail_nfs_index=yes and/or mail_nfs_storage=yes setuid/setgid
+	  permission bits in some files may have become dropped with some NFS
+	  servers. Changed NFS flushing to now use chmod() instead of chown().
+	- quota: warnings did not work if quota root was noenforcing
+	- acl: Global ACL file ignored the last line if it didn't end with LF.
+	- doveadm stats dump: With JSON formatter output numbers using the
+	  number type instead of as strings
+	- lmtp_proxy: Ensure that real_* variables are correctly set when using
+	  lmtp_proxy.
+	- event exporter: http-post driver had hardcoded timeout and did not
+	  support DNS lookups or TLS connections.
+	- auth: Fix user iteration to work with userdb passwd with glibc v2.28.
+	- auth: auth service can crash if auth-policy JSON response is invalid
+	  or returned too fast.
+	- In some rare situations "ps" output could have shown a lot of "?"
+	  characters after Dovecot process titles.
+	- When dovecot.index.pvt is empty, an unnecessary error is logged:
+	  Error: .../dovecot.index.pvt reset, view is now inconsistent
+	- SMTP address encoder duplicated initial double quote character when
+	  the localpart of an address ended in '..'. For example
+	  "user+..@example.com" became ""user+.."@example.com in a
+	  sieve redirect.
+
 v2.3.7.1 2019-07-23  Timo Sirainen <timo.sirainen@open-xchange.com>
 
 	- Fix TCP_NODELAY errors being logged on non-Linux OSes
