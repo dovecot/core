@@ -5,7 +5,7 @@
 #include "backtrace-string.h"
 
 #define MAX_STACK_SIZE 30
-#define STACK_SKIP_COUNT 2
+#define BACKTRACE_SKIP_PREFIX "backtrace_"
 
 #if defined(HAVE_LIBUNWIND)
 
@@ -13,6 +13,7 @@
 
 int backtrace_append(string_t *str)
 {
+	size_t str_orig_size = str_len(str);
 	char proc_name[256];
 	int ret;
 	unsigned int fp = 0;
@@ -31,11 +32,7 @@ int backtrace_append(string_t *str)
 	}
 
 	do {
-		if (fp < STACK_SKIP_COUNT) {
-			fp++;
-			continue;
-		}
-		str_printfa(str, "#%d ", fp - STACK_SKIP_COUNT);
+		str_printfa(str, "#%d ", fp);
 		if ((ret = unw_get_proc_info(&c, &pip)) != 0) {
 			str_printfa(str, "[unw_get_proc_info_failed(): %d]", ret);
 		} else if (pip.start_ip == 0 || pip.end_ip == 0) {
@@ -43,6 +40,9 @@ int backtrace_append(string_t *str)
 		} else if ((ret = unw_get_proc_name(&c, proc_name, sizeof(proc_name), 0)) != 0 &&
 			   ret != UNW_ENOMEM) {
 			str_printfa(str, "[unw_get_proc_name() failed: %d]", ret);
+		} else if (!success && str_begins(proc_name, BACKTRACE_SKIP_PREFIX)) {
+			str_truncate(str, str_orig_size);
+			continue;
 		} else {
 			str_append_max(str, proc_name, sizeof(proc_name));
 			str_printfa(str, "[0x%08lx]", pip.start_ip);
@@ -64,25 +64,26 @@ int backtrace_append(string_t *str)
 
 int backtrace_append(string_t *str)
 {
+	size_t str_orig_size = str_len(str);
 	void *stack[MAX_STACK_SIZE];
 	char **strings;
 	int ret, i;
 
 	ret = backtrace(stack, N_ELEMENTS(stack));
-	if (ret <= STACK_SKIP_COUNT)
+	if (ret <= 0)
 		return -1;
 
 	strings = backtrace_symbols(stack, ret);
-	for (i = STACK_SKIP_COUNT; i < ret; i++) {
-		if (i > STACK_SKIP_COUNT)
+	for (i = 0; i < ret; i++) {
+		if (str_len(str) > str_orig_size)
 			str_append(str, " -> ");
 
-		if (strings != NULL)
-			str_append(str, strings[i]);
-		else {
+		if (strings == NULL) {
 			/* out of memory case */
 			str_printfa(str, "0x%p", stack[i]);
-		}
+		} else if (str_len(str) != str_orig_size ||
+			   !str_begins(strings[i], BACKTRACE_SKIP_PREFIX))
+			str_append(str, strings[i]);
 	}
 	free(strings);
 	return 0;
@@ -101,11 +102,9 @@ static int walk_callback(uintptr_t ptr, int signo ATTR_UNUSED,
 {
 	struct walk_context *ctx = context;
 
-	if (ctx->pos >= STACK_SKIP_COUNT) {
-		if (ctx->pos > STACK_SKIP_COUNT)
-			str_append(ctx->str, " -> ");
-		str_printfa(ctx->str, "0x%p", (void *)ptr);
-	}
+	if (ctx->pos > 0)
+		str_append(ctx->str, " -> ");
+	str_printfa(ctx->str, "0x%p", (void *)ptr);
 	ctx->pos++;
 	return 0;
 }
