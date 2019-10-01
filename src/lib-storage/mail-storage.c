@@ -2541,7 +2541,6 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	struct mailbox_transaction_context *t = ctx->transaction;
 	/* we need to keep a copy of this because save_finish implementations
 	   will likely zero the data structure during cleanup */
-	struct mail_keywords *keywords = ctx->data.keywords;
 	enum mail_flags pvt_flags = ctx->data.pvt_flags;
 	bool copying_via_save = ctx->copying_via_save;
 	int ret;
@@ -2569,8 +2568,6 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 		t->save_count++;
 	}
 
-	if (keywords != NULL)
-		mailbox_keywords_unref(&keywords);
 	mailbox_save_context_reset(ctx, TRUE);
 	return ret;
 }
@@ -2578,14 +2575,11 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 void mailbox_save_cancel(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
-	struct mail_keywords *keywords = ctx->data.keywords;
 
 	*_ctx = NULL;
 	T_BEGIN {
 		ctx->transaction->box->v.save_cancel(ctx);
 	} T_END;
-	if (keywords != NULL && !ctx->finishing)
-		mailbox_keywords_unref(&keywords);
 
 	/* the dest_mail is no longer valid. if we're still saving
 	   more mails, the mail sequence may get reused. make sure
@@ -2605,7 +2599,6 @@ static int mailbox_copy_int(struct mail_save_context **_ctx, struct mail *mail)
 {
 	struct mail_save_context *ctx = *_ctx;
 	struct mailbox_transaction_context *t = ctx->transaction;
-	struct mail_keywords *keywords = ctx->data.keywords;
 	enum mail_flags pvt_flags = ctx->data.pvt_flags;
 	struct mail *backend_mail;
 	int ret;
@@ -2639,8 +2632,6 @@ static int mailbox_copy_int(struct mail_save_context **_ctx, struct mail *mail)
 			mailbox_save_add_pvt_flags(t, pvt_flags);
 		t->save_count++;
 	}
-	if (keywords != NULL)
-		mailbox_keywords_unref(&keywords);
 	i_assert(!ctx->unfinished);
 
 	ctx->copy_src_mail = NULL;
