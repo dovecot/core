@@ -937,6 +937,8 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 void index_save_context_free(struct mail_save_context *ctx)
 {
 	index_mail_save_finish(ctx);
+	if (ctx->data.keywords != NULL)
+		mailbox_keywords_unref(&ctx->data.keywords);
 	i_free_and_null(ctx->data.from_envelope);
 	i_free_and_null(ctx->data.guid);
 	i_free_and_null(ctx->data.pop3_uidl);
