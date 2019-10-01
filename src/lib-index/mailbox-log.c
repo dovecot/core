@@ -23,6 +23,7 @@
 struct mailbox_log {
 	char *filepath, *filepath2;
 	int fd;
+	struct event *event;
 	time_t open_timestamp;
 
 	mode_t mode;
@@ -44,11 +45,13 @@ struct mailbox_log_iter {
 
 static void mailbox_log_close(struct mailbox_log *log);
 
-struct mailbox_log *mailbox_log_alloc(const char *path)
+struct mailbox_log *
+mailbox_log_alloc(struct event *parent_event, const char *path)
 {
 	struct mailbox_log *log;
 
 	log = i_new(struct mailbox_log, 1);
+	log->event = event_create(parent_event);
 	log->filepath = i_strdup(path);
 	log->filepath2 = i_strconcat(path, ".2", NULL);
 	log->mode = 0644;
@@ -64,6 +67,7 @@ void mailbox_log_free(struct mailbox_log **_log)
 	*_log = NULL;
 
 	mailbox_log_close(log);
+	event_unref(&log->event);
 	i_free(log->gid_origin);
 	i_free(log->filepath);
 	i_free(log->filepath2);

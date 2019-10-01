@@ -19,7 +19,8 @@ struct mailbox_log_record {
 	uint8_t timestamp[4];
 };
 
-struct mailbox_log *mailbox_log_alloc(const char *path);
+struct mailbox_log *
+mailbox_log_alloc(struct event *parent_event, const char *path);
 void mailbox_log_free(struct mailbox_log **log);
 
 void mailbox_log_set_permissions(struct mailbox_log *log, mode_t mode,

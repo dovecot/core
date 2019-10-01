@@ -1657,7 +1657,7 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 		return FALSE;
 
 	path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
-	list->changelog = mailbox_log_alloc(path);
+	list->changelog = mailbox_log_alloc(list->ns->user->event, path);
 
 	mailbox_list_get_root_permissions(list, &perm);
 	mailbox_log_set_permissions(list->changelog, perm.file_create_mode,
