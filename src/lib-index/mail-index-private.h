@@ -174,6 +174,7 @@ struct mail_index {
 	int fd;
 
 	struct mail_index_map *map;
+	char *need_recreate;
 
 	time_t last_mmap_error_time;
 
@@ -218,7 +219,6 @@ struct mail_index {
 	bool readonly:1;
 	bool mapping:1;
 	bool syncing:1;
-	bool need_recreate:1;
 	bool index_min_write:1;
 	bool modseqs_enabled:1;
 	bool initial_create:1;

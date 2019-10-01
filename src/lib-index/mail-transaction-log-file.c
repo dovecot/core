@@ -1351,7 +1351,10 @@ int mail_transaction_log_file_get_modseq_next_offset(
 			return -1;
 		i_assert(ret != 0);
 		/* get it fixed on the next sync */
-		file->log->index->need_recreate = TRUE;
+		if (file->log->index->need_recreate == NULL) {
+			file->log->index->need_recreate =
+				i_strdup("modseq tracking is corrupted");
+		}
 		if (file->need_rotate == NULL) {
 			file->need_rotate =
 				i_strdup("modseq tracking is corrupted");

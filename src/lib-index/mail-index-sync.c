@@ -273,7 +273,7 @@ mail_index_need_sync(struct mail_index *index, enum mail_index_sync_flags flags,
 	    hdr->log_file_seq < log_file_seq)
 		return TRUE;
 
-	if (index->need_recreate)
+	if (index->need_recreate != NULL)
 		return TRUE;
 
 	/* already synced */
@@ -366,7 +366,7 @@ mail_index_sync_begin_init(struct mail_index *index,
 	}
 
 	if (!mail_index_need_sync(index, flags, log_file_seq, log_file_offset) &&
-	    !index->index_deleted && !index->need_recreate) {
+	    !index->index_deleted && index->need_recreate == NULL) {
 		if (locked)
 			mail_transaction_log_sync_unlock(index->log, "syncing determined unnecessary");
 		return 0;
@@ -849,7 +849,7 @@ static bool mail_index_sync_want_index_write(struct mail_index *index)
 	     log_diff > index->optimization_set.index.rewrite_min_log_bytes))
 		return TRUE;
 
-	if (index->need_recreate)
+	if (index->need_recreate != NULL)
 		return TRUE;
 	return FALSE;
 }
@@ -959,7 +959,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		mail_transaction_log_want_rotate(index->log);
 	if (ret == 0 &&
 	    (want_rotate || mail_index_sync_want_index_write(index))) {
-		index->need_recreate = FALSE;
+		i_free(index->need_recreate);
 		index->index_min_write = FALSE;
 		mail_index_write(index, want_rotate);
 	}
@@ -1019,11 +1019,19 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 	va_list va;
 	uint32_t seq;
 	uoff_t offset;
+	char *reason, *reason_free = NULL;
+
+	va_start(va, fmt);
+	reason = reason_free = i_strdup_vprintf(fmt, va);
+	va_end(va);
 
 	ctx->errors = TRUE;
 	/* make sure we don't get to this same error again by updating the
 	   dovecot.index */
-	ctx->view->index->need_recreate = TRUE;
+	if (ctx->view->index->need_recreate == NULL) {
+		ctx->view->index->need_recreate = reason;
+		reason_free = NULL;
+	}
 
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 					       &seq, &offset);
@@ -1032,16 +1040,12 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 	    (seq == ctx->view->index->fsck_log_head_file_seq &&
 	     offset < ctx->view->index->fsck_log_head_file_offset)) {
 		/* be silent */
-		return;
-	}
-
-	va_start(va, fmt);
-	T_BEGIN {
+	} else {
 		mail_index_set_error(ctx->view->index,
 				     "Log synchronization error at "
 				     "seq=%u,offset=%"PRIuUOFF_T" for %s: %s",
 				     seq, offset, ctx->view->index->filepath,
-				     t_strdup_vprintf(fmt, va));
-	} T_END;
-	va_end(va);
+				     reason);
+	}
+	i_free(reason_free);
 }

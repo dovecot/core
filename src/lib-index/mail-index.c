@@ -116,6 +116,7 @@ void mail_index_free(struct mail_index **_index)
 	i_free(index->error);
 	i_free(index->dir);
 	i_free(index->prefix);
+	i_free(index->need_recreate);
 	i_free(index);
 }
 
