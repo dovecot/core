@@ -150,9 +150,10 @@ mail_index_alloc_cache_get(struct event *parent_event, const char *mailbox_path,
 		if (errno == ENOENT) {
 			/* it'll be created later */
 		} else if (errno == EACCES) {
-			i_error("%s", eacces_error_get("stat", index_dir));
+			e_error(parent_event, "%s",
+				eacces_error_get("stat", index_dir));
 		} else {
-			i_error("stat(%s) failed: %m", index_dir);
+			e_error(parent_event, "stat(%s) failed: %m", index_dir);
 		}
 	}
 

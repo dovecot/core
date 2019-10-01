@@ -435,7 +435,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	if ((size > cache->mmap_length || offset + size > cache->mmap_length) &&
 	    (offset > 0 || size > sizeof(struct mail_cache_header))) {
 		if (fstat(cache->fd, &st) < 0) {
-			i_error("fstat(%s) failed: %m", cache->filepath);
+			e_error(cache->index->event,
+				"fstat(%s) failed: %m", cache->filepath);
 			return -1;
 		}
 		cache->last_stat_size = st.st_size;
