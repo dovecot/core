@@ -691,6 +691,10 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	index->log_sync_locked = FALSE;
 	index->flags = flags;
 	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
+	if ((flags & MAIL_INDEX_OPEN_FLAG_DEBUG) != 0)
+		event_set_forced_debug(index->event, TRUE);
+	else
+		event_unset_forced_debug(index->event);
 
 	if ((flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
 	    index->fsync_mode != FSYNC_MODE_ALWAYS)

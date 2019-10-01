@@ -352,12 +352,10 @@ mail_cache_compress_write(struct mail_cache *cache,
 		return -1;
 	}
 
-	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_DEBUG) != 0) {
-		i_debug("%s: Compressed, file_seq changed %u -> %u, "
-			"size=%"PRIuUOFF_T", max_uid=%u", cache->filepath,
-			cache->need_compress_file_seq, file_seq,
-			file_size, max_uid);
-	}
+	e_debug(cache->index->event, "%s: Compressed, file_seq changed %u -> %u, "
+		"size=%"PRIuUOFF_T", max_uid=%u", cache->filepath,
+		cache->need_compress_file_seq, file_seq,
+		file_size, max_uid);
 
 	/* once we're sure that the compression was successful,
 	   update the offsets */
