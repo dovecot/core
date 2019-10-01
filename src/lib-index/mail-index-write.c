@@ -1,6 +1,7 @@
 /* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "nfs-workarounds.h"
 #include "read-full.h"
 #include "write-full.h"
 #include "ostream.h"
@@ -116,6 +117,40 @@ static int mail_index_recreate(struct mail_index *index)
 	return ret;
 }
 
+static bool mail_index_should_recreate(struct mail_index *index)
+{
+	struct stat st1, st2;
+
+	if (nfs_safe_stat(index->filepath, &st1) < 0) {
+		if (errno != ENOENT) {
+			mail_index_set_syscall_error(index, "stat()");
+			return FALSE;
+		} else if (index->fd == -1) {
+			/* main index hasn't been created yet */
+			return TRUE;
+		} else {
+			/* mailbox was just deleted? don't log an error */
+			return FALSE;
+		}
+	}
+	if (index->fd == -1) {
+		/* main index was just created by another process */
+		return FALSE;
+	}
+	if (fstat(index->fd, &st2) < 0) {
+		if (!ESTALE_FSTAT(errno))
+			mail_index_set_syscall_error(index, "fstat()");
+		return FALSE;
+	}
+	if (st1.st_ino != st2.st_ino ||
+	    !CMP_DEV_T(st1.st_dev, st2.st_dev)) {
+		/* Index has already been recreated since we last read it.
+		   We can't trust our decisions about whether to recreate it. */
+		return FALSE;
+	}
+	return TRUE;
+}
+
 void mail_index_write(struct mail_index *index, bool want_rotate,
 		      const char *reason)
 {
@@ -152,7 +187,12 @@ void mail_index_write(struct mail_index *index, bool want_rotate,
 		}
 	}
 
-	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		;
+	else if (!mail_index_should_recreate(index)) {
+		/* make sure we don't keep getting back in here */
+		index->reopen_main_index = TRUE;
+	} else {
 		e_debug(index->event, "Recreating %s because: %s",
 			index->filepath, reason);
 		if (mail_index_recreate(index) < 0) {

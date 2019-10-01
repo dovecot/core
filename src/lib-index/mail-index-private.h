@@ -223,6 +223,7 @@ struct mail_index {
 	bool modseqs_enabled:1;
 	bool initial_create:1;
 	bool initial_mapped:1;
+	bool reopen_main_index:1;
 	bool fscked:1;
 };
 

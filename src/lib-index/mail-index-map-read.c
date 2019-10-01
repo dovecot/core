@@ -313,6 +313,7 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 
 	*reason_r = NULL;
 
+	index->reopen_main_index = FALSE;
 	ret = mail_index_reopen_if_changed(index, reason_r);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -418,7 +419,7 @@ int mail_index_map(struct mail_index *index,
 		index->map = mail_index_map_alloc(index);
 
 	/* first try updating the existing mapping from transaction log. */
-	if (index->initial_mapped) {
+	if (index->initial_mapped && !index->reopen_main_index) {
 		/* we're not creating/opening the index.
 		   sync this as a view from transaction log. */
 		ret = mail_index_sync_map(&index->map, type, FALSE, "initial mapping");
