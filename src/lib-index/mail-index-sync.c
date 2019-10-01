@@ -830,7 +830,7 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 	}
 }
 
-static bool mail_index_sync_want_index_write(struct mail_index *index)
+static bool mail_index_sync_want_index_write(struct mail_index *index, const char **reason_r)
 {
 	uint32_t log_diff;
 
@@ -839,18 +839,35 @@ static bool mail_index_sync_want_index_write(struct mail_index *index)
 		/* dovecot.index points to an old .log file. we were supposed
 		   to rewrite the dovecot.index when rotating the log, so
 		   we shouldn't usually get here. */
+		*reason_r = "points to old .log file";
 		return TRUE;
 	}
 
 	log_diff = index->map->hdr.log_file_tail_offset -
 		index->last_read_log_file_tail_offset;
-	if (log_diff > index->optimization_set.index.rewrite_max_log_bytes ||
-	    (index->index_min_write &&
-	     log_diff > index->optimization_set.index.rewrite_min_log_bytes))
+	if (log_diff > index->optimization_set.index.rewrite_max_log_bytes) {
+		*reason_r = t_strdup_printf(
+			".log read %u..%u > rewrite_max_log_bytes %"PRIuUOFF_T,
+			index->map->hdr.log_file_tail_offset,
+			index->last_read_log_file_tail_offset,
+			index->optimization_set.index.rewrite_max_log_bytes);
 		return TRUE;
+	}
+	if (index->index_min_write &&
+	    log_diff > index->optimization_set.index.rewrite_min_log_bytes) {
+		*reason_r = t_strdup_printf(
+			".log read %u..%u > rewrite_min_log_bytes %"PRIuUOFF_T,
+			index->map->hdr.log_file_tail_offset,
+			index->last_read_log_file_tail_offset,
+			index->optimization_set.index.rewrite_min_log_bytes);
+		return TRUE;
+	}
 
-	if (index->need_recreate != NULL)
+	if (index->need_recreate != NULL) {
+		*reason_r = t_strdup_printf("Need to recreate index: %s",
+					    index->need_recreate);
 		return TRUE;
+	}
 	return FALSE;
 }
 
@@ -859,6 +876,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
 	struct mail_cache_compress_lock *cache_lock = NULL;
+	const char *reason = NULL;
 	uint32_t next_uid;
 	bool want_rotate, index_undeleted, delete_index;
 	int ret = 0, ret2;
@@ -956,12 +974,12 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	   However, it's still safe to do the rotation because external
 	   transactions don't require syncing. */
 	want_rotate = ctx->fully_synced &&
-		mail_transaction_log_want_rotate(index->log);
+		mail_transaction_log_want_rotate(index->log, &reason);
 	if (ret == 0 &&
-	    (want_rotate || mail_index_sync_want_index_write(index))) {
+	    (want_rotate || mail_index_sync_want_index_write(index, &reason))) {
 		i_free(index->need_recreate);
 		index->index_min_write = FALSE;
-		mail_index_write(index, want_rotate);
+		mail_index_write(index, want_rotate, reason);
 	}
 	mail_index_sync_end(_ctx);
 	return ret;

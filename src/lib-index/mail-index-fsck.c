@@ -472,7 +472,7 @@ int mail_index_fsck(struct mail_index *index)
 		mail_index_fsck_map(index, map);
 	} T_END;
 
-	mail_index_write(index, FALSE);
+	mail_index_write(index, FALSE, "fscking");
 
 	if (!orig_locked)
 		mail_transaction_log_sync_unlock(index->log, "fscking");

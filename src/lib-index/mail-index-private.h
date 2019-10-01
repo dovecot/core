@@ -249,7 +249,8 @@ void mail_index_close_file(struct mail_index *index);
 int mail_index_reopen_if_changed(struct mail_index *index,
 				 const char **reason_r);
 /* Update/rewrite the main index file from index->map */
-void mail_index_write(struct mail_index *index, bool want_rotate);
+void mail_index_write(struct mail_index *index, bool want_rotate,
+		      const char *reason);
 
 void mail_index_flush_read_cache(struct mail_index *index, const char *path,
 				 int fd, bool locked);

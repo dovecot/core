@@ -131,7 +131,8 @@ int mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file *f
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log);
 
-bool mail_transaction_log_want_rotate(struct mail_transaction_log *log);
+bool mail_transaction_log_want_rotate(struct mail_transaction_log *log,
+				      const char **reason_r);
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset);
 int mail_transaction_log_lock_head(struct mail_transaction_log *log,
 				   const char *lock_reason);

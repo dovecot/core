@@ -116,7 +116,8 @@ static int mail_index_recreate(struct mail_index *index)
 	return ret;
 }
 
-void mail_index_write(struct mail_index *index, bool want_rotate)
+void mail_index_write(struct mail_index *index, bool want_rotate,
+		      const char *reason)
 {
 	struct mail_index_header *hdr = &index->map->hdr;
 
@@ -152,6 +153,8 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	}
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
+		e_debug(index->event, "Recreating %s because: %s",
+			index->filepath, reason);
 		if (mail_index_recreate(index) < 0) {
 			(void)mail_index_move_to_memory(index);
 			return;
