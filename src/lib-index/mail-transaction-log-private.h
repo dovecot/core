@@ -37,6 +37,7 @@ struct mail_transaction_log_file {
 	uoff_t last_size;
 
 	time_t last_mmap_error_time;
+	char *need_rotate;
 
 	struct mail_transaction_log_header hdr;
 	buffer_t mmap_buffer;
@@ -71,7 +72,6 @@ struct mail_transaction_log_file {
 	bool locked:1;
 	bool locked_sync_offset_updated:1;
 	bool corrupted:1;
-	bool need_rotate:1;
 };
 
 struct mail_transaction_log {
