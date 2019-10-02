@@ -919,33 +919,25 @@ mailbox_alloc_for_user(struct mail_user *user, const char *vname,
 
 	ns = mail_namespace_find(user->namespaces, vname);
 
+	if (HAS_ALL_BITS(flags, MAILBOX_FLAG_POST_SESSION)) {
+		flags |= MAILBOX_FLAG_SAVEONLY;
+
+		if (strcmp(vname, ns->prefix) == 0 &&
+		    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+			/* delivering to a namespace prefix means we actually
+			   want to deliver to the INBOX instead */
+			vname = "INBOX";
+			ns = mail_namespace_find_inbox(user->namespaces);
+		}
+
+		if (strcasecmp(vname, "INBOX") == 0) {
+			/* deliveries to INBOX must always succeed,
+			   regardless of ACLs */
+			flags |= MAILBOX_FLAG_IGNORE_ACLS;
+		}
+	}
+
 	return mailbox_alloc(ns->list, vname, flags);
-}
-
-struct mailbox *mailbox_alloc_delivery(struct mail_user *user,
-	const char *name, enum mailbox_flags flags)
-{
-	struct mail_namespace *ns;
-	
-	flags |= MAILBOX_FLAG_SAVEONLY |
-		MAILBOX_FLAG_POST_SESSION;
-
-	ns = mail_namespace_find(user->namespaces, name);
-	if (strcmp(name, ns->prefix) == 0 &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
-		/* delivering to a namespace prefix means we actually want to
-		   deliver to the INBOX instead */
-		name = "INBOX";
-		ns = mail_namespace_find_inbox(user->namespaces);
-	}
-
-	if (strcasecmp(name, "INBOX") == 0) {
-		/* deliveries to INBOX must always succeed,
-		   regardless of ACLs */
-		flags |= MAILBOX_FLAG_IGNORE_ACLS;
-	}
-
-	return mailbox_alloc(ns->list, name, flags);
 }
 
 void mailbox_set_reason(struct mailbox *box, const char *reason)

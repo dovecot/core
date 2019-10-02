@@ -227,7 +227,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 			   enum mail_error *error_r, const char **error_str_r)
 {
 	struct mailbox *box;
-	enum mailbox_flags flags = 0;
+	enum mailbox_flags flags = MAILBOX_FLAG_POST_SESSION;
 
 	*box_r = NULL;
 	*error_r = MAIL_ERROR_NONE;
@@ -243,7 +243,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 		flags |= MAILBOX_FLAG_AUTO_CREATE;
 	if (ctx->lda_mailbox_autosubscribe)
 		flags |= MAILBOX_FLAG_AUTO_SUBSCRIBE;
-	*box_r = box = mailbox_alloc_delivery(ctx->user, name, flags);
+	*box_r = box = mailbox_alloc_for_user(ctx->user, name, flags);
 
 	if (mailbox_open(box) == 0)
 		return 0;
