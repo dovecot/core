@@ -318,7 +318,7 @@ int smtp_address_parse_mailbox(pool_t pool, const char *mailbox,
 
 		if (address_r != NULL)
 			*address_r = p_new(pool, struct smtp_address, 1);
-		return 1;
+		return 0;
 	}
 
 	i_zero(&aparser);
@@ -340,7 +340,7 @@ int smtp_address_parse_mailbox(pool_t pool, const char *mailbox,
 
 	if (address_r != NULL)
 		*address_r = smtp_address_clone(pool, &aparser.address);
-	return 1;
+	return 0;
 }
 
 int smtp_address_parse_path_full(pool_t pool, const char *path,
@@ -365,7 +365,7 @@ int smtp_address_parse_path_full(pool_t pool, const char *path,
 		}
 		if (address_r != NULL)
 			*address_r = p_new(pool, struct smtp_address, 1);
-		return 1;
+		return 0;
 	}
 
 	i_zero(&aparser);
@@ -389,7 +389,7 @@ int smtp_address_parse_path_full(pool_t pool, const char *path,
 
 	if (address_r != NULL)
 		*address_r = smtp_address_clone(pool, &aparser.address);
-	return 1;
+	return 0;
 }
 
 int smtp_address_parse_path(pool_t pool, const char *path,
@@ -438,7 +438,7 @@ int smtp_address_parse_username(pool_t pool, const char *username,
 
 	if (address_r != NULL)
 		*address_r = smtp_address_clone(pool, &aparser.address);
-	return 1;
+	return 0;
 }
 
 void smtp_address_detail_parse(pool_t pool, const char *delimiters,

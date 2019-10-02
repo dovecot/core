@@ -29,7 +29,7 @@ ARRAY_DEFINE_TYPE(smtp_address_const, const struct smtp_address *);
  */
 
 
-/* Parse the RFC 5321 address from the provided mailbox string. Returns 1 when
+/* Parse the RFC 5321 address from the provided mailbox string. Returns 0 when
    the address was parsed successfully and -1 upon error. The address is
    returned in address_r. When address_r is NULL, the provided string will be
    verified for validity as a mailbox only. */
@@ -37,7 +37,7 @@ int smtp_address_parse_mailbox(pool_t pool, const char *mailbox,
 			       enum smtp_address_parse_flags flags,
 			       struct smtp_address **address_r,
 			       const char **error_r) ATTR_NULL(4, 5);
-/* Parse the RFC 5321 address from the provided path string. Returns 1 when
+/* Parse the RFC 5321 address from the provided path string. Returns 0 when
    the address was parsed successfully and -1 upon error. The address is
    returned in address_r. When address_r is NULL, the provided string will be
    verified for validity as a path only. The endp_r parameter is used to
@@ -48,7 +48,7 @@ int smtp_address_parse_path_full(pool_t pool, const char *path,
 				 struct smtp_address **address_r,
 				 const char **error_r, const char **endp_r)
 				 ATTR_NULL(4, 5, 6);
-/* Parse the RFC 5321 address from the provided path string. Returns 1 when
+/* Parse the RFC 5321 address from the provided path string. Returns 0 when
    the address was parsed successfully and -1 upon error. The address is
    returned in address_r. When address_r is NULL, the provided string will be
    verified for validity as a path only. */
@@ -60,7 +60,7 @@ int smtp_address_parse_path(pool_t pool, const char *path,
    string is not strictly parsed as an RFC 5321 mailbox; it allows a more
    lenient syntax. If the address obtained from splitting the string at the last
    `@' can be encoded back into a valid RFC 5321 mailbox string, parsing the
-   username will succeeded. Returns 1 when the address was parsed successfully
+   username will succeeded. Returns 0 when the address was parsed successfully
    and -1 upon error. The address is returned in address_r. When address_r is
    NULL, the provided string will be verified for validity as a username only.
  */

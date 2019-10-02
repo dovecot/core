@@ -140,9 +140,9 @@ static void test_smtp_mailbox_parse_valid(void)
 
 		test_begin(t_strdup_printf("smtp mailbox valid [%d]", i));
 		test_out_reason(t_strdup_printf("parse(\"%s\")", test->input),
-				ret > 0, error);
+				ret == 0, error);
 
-		if (ret > 0) {
+		if (!test_has_failed()) {
 			if (address->localpart == NULL ||
 				test->address.localpart == NULL) {
 				test_out(t_strdup_printf("address->localpart = %s",
@@ -234,9 +234,9 @@ static void test_smtp_path_parse_valid(void)
 
 		test_begin(t_strdup_printf("smtp path valid [%d]", i));
 		test_out_reason(t_strdup_printf("parse(\"%s\")", test->input),
-				ret > 0, error);
+				ret == 0, error);
 
-		if (ret > 0) {
+		if (!test_has_failed()) {
 			if (smtp_address_isnull(address) ||
 			    smtp_address_isnull(&test->address)) {
 				test_out("address = <>",
@@ -385,9 +385,9 @@ static void test_smtp_username_parse_valid(void)
 
 		test_begin(t_strdup_printf("smtp username valid [%d]", i));
 		test_out_reason(t_strdup_printf("parse(\"%s\")", test->input),
-				ret > 0, error);
+				ret == 0, error);
 
-		if (ret > 0) {
+		if (!test_has_failed()) {
 			if (smtp_address_isnull(address) ||
 			    smtp_address_isnull(&test->address)) {
 				test_out("address = <>",
@@ -962,7 +962,7 @@ static void test_smtp_address_detail_parse(void)
 			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
 			&address, &error);
-		test_out_reason("address parse", ret > 0, error);
+		test_out_reason("address parse", ret == 0, error);
 
 		if (!test_has_failed()) {
 			smtp_address_detail_parse_temp(test->delimiters,
