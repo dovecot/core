@@ -522,6 +522,11 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 				   const guid_128_t guid,
 				   enum mailbox_flags flags);
+/* Initialize mailbox for a particular user without actually opening any files
+   or verifying that it exists. */
+struct mailbox *
+mailbox_alloc_for_user(struct mail_user *user, const char *vname,
+		       enum mailbox_flags flags);
 /* Initialize mailbox for delivery without actually opening any files or
    verifying that it exists. */
 struct mailbox *mailbox_alloc_delivery(struct mail_user *user,

@@ -911,6 +911,17 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 	return box;
 }
 
+struct mailbox *
+mailbox_alloc_for_user(struct mail_user *user, const char *vname,
+		       enum mailbox_flags flags)
+{
+	struct mail_namespace *ns;
+
+	ns = mail_namespace_find(user->namespaces, vname);
+
+	return mailbox_alloc(ns->list, vname, flags);
+}
+
 struct mailbox *mailbox_alloc_delivery(struct mail_user *user,
 	const char *name, enum mailbox_flags flags)
 {
