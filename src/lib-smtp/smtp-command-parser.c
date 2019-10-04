@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "unichar.h"
 #include "istream.h"
 #include "istream-failure-at.h"
 #include "istream-sized.h"
@@ -169,12 +170,31 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		parser->limits.max_auth_size :
 		parser->limits.max_parameters_size);
 
-	/* We assume parameters to match textstr
-	   => HT, SP, Printable US-ASCII
+	/* We assume parameters to match textstr (HT, SP, Printable US-ASCII).
+	   For command parameters, we also accept valid UTF-8 characters.
 	 */
 	p = parser->cur + parser->state.poff;
-	while (p < parser->end && smtp_char_is_textstr(*p))
-		p++;
+	while (p < parser->end) {
+		unichar_t ch;
+		int nch = 1;
+
+		if (parser->auth_response)
+			ch = *p;
+		else {
+			nch = uni_utf8_get_char_n(p, (size_t)(p - parser->end),
+						  &ch);
+		}
+		if (nch < 0) {
+			smtp_command_parser_error(parser,
+				SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
+				"Invalid UTF-8 character in command parameters");
+			return -1;
+		}
+		if ((parser->auth_response || (ch & 0x80) == 0x00) &&
+		    !smtp_char_is_textstr((unsigned char)ch))
+			break;
+		p += nch;
+	}
 	if (max_size > 0 && (uoff_t)(p - parser->cur) > max_size) {
 		smtp_command_parser_error(parser,
 			SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,

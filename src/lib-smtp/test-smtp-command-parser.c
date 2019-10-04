@@ -56,6 +56,10 @@ valid_command_parse_tests[] = {
 		.limits = { .max_parameters_size = 39 },
 		.cmd_name = "RCPT",
 		.cmd_params = "TO:<recipient@example.com> NOTIFY=NEVER"
+	}, {
+		.command = "MAIL FROM:<f\xc3\xb6\xc3\xa4@\xc3\xb6\xc3\xa4>\r\n",
+		.cmd_name = "MAIL",
+		.cmd_params = "FROM:<f\xc3\xb6\xc3\xa4@\xc3\xb6\xc3\xa4>"
 	}
 };
 
@@ -271,6 +275,9 @@ static const struct smtp_auth_response_parse_invalid_test
 			"B2ZXJ5IHZlcnkgdmVyeSBsb25nIEJhc2U2NCB0ZXN0\r\n",
 		.limits = { .max_auth_size = 83 },
 		.error_code = SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG
+	}, {
+		.auth_response = "\xc3\xb6\xc3\xa4\xc3\xb6\xc3\xa4\r\n",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
 	}
 };
 
