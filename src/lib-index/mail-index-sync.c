@@ -949,7 +949,14 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		}
 	}
 
-	want_rotate = mail_transaction_log_want_rotate(index->log);
+	/* Log rotation is allowed only if everything was synced. Note that
+	   tail_offset might not equal head_offset here, because
+	   mail_index_sync_update_mailbox_offset() doesn't always update
+	   tail_offset to skip over other committed external transactions.
+	   However, it's still safe to do the rotation because external
+	   transactions don't require syncing. */
+	want_rotate = ctx->fully_synced &&
+		mail_transaction_log_want_rotate(index->log);
 	if (ret == 0 &&
 	    (want_rotate || mail_index_sync_want_index_write(index))) {
 		index->need_recreate = FALSE;

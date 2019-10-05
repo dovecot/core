@@ -126,10 +126,10 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 		return;
 
 	/* rotate the .log before writing index, so the index will point to
-	   the latest log. */
-	if (want_rotate &&
-	    hdr->log_file_seq == index->log->head->hdr.file_seq &&
-	    hdr->log_file_tail_offset == hdr->log_file_head_offset) {
+	   the latest log. Note that it's the caller's responsibility to make
+	   sure that the .log can be safely rotated (i.e. everything has been
+	   synced). */
+	if (want_rotate) {
 		if (mail_transaction_log_rotate(index->log, FALSE) == 0) {
 			struct mail_transaction_log_file *file =
 				index->log->head;
