@@ -4,7 +4,7 @@
 #include "module-dir.h"
 #include "dcrypt.h"
 #include "istream.h"
-#include "json-tree.h"
+#include "json-tree-io.h"
 #include "dcrypt-private.h"
 
 static struct module *dcrypt_module = NULL;
@@ -628,33 +628,10 @@ bool dcrypt_verify(struct dcrypt_public_key *key, const char *algorithm,
 				  valid_r, padding, error_r);
 }
 
-int parse_jwk_key(const char *key_data, struct json_tree **tree_r,
+int parse_jwk_key(const char *key_data, struct json_tree **jtree_r,
 		  const char **error_r)
 {
-	struct istream *is = i_stream_create_from_data(key_data, strlen(key_data));
-	struct json_parser *parser = json_parser_init(is);
-	struct json_tree *tree = json_tree_init();
-	const char *error;
-	enum json_type type;
-	const char *value;
-	int ret;
-
-	i_stream_unref(&is);
-
-	while ((ret = json_parse_next(parser, &type, &value)) == 1)
-		json_tree_append(tree, type, value);
-
-	i_assert(ret == -1);
-
-	if (json_parser_deinit(&parser, &error) != 0) {
-		json_tree_deinit(&tree);
-		*error_r = error;
-		if (error == NULL)
-			*error_r = "Truncated JSON";
-		return -1;
-	}
-
-	*tree_r = tree;
-
-	return 0;
+	return json_tree_read_cstr(key_data,
+				    JSON_PARSER_FLAG_NUMBERS_AS_STRING,
+				    jtree_r, error_r);
 }

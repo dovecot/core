@@ -32,6 +32,7 @@ test_libs = \
 	$(noinst_LTLIBRARIES) \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-http/libhttp.la \
+	../lib-json/libjson.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
@@ -45,6 +46,7 @@ test_deps = \
 	$(noinst_LTLIBRARIES) \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-http/libhttp.la \
+	../lib-json/libjson.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \

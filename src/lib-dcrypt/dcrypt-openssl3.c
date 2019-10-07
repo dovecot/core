@@ -12,7 +12,7 @@
 #include "array.h"
 #include "module-dir.h"
 #include "istream.h"
-#include "json-tree.h"
+#include "json-ostream.h"
 #include "dovecot-openssl-common.h"
 #include "dcrypt.h"
 #include "dcrypt-private.h"
@@ -1539,20 +1539,20 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 	const char *crv, *x, *y, *d;
 	const struct json_tree_node *node;
 
-	if ((node = json_tree_find_key(root, "crv")) == NULL ||
-	    (crv = json_tree_get_value_str(node)) == NULL) {
+	if ((node = json_tree_node_get_member(root, "crv")) == NULL ||
+	    (crv = json_tree_node_get_str(node)) == NULL) {
 		*error_r = "Missing crv parameter";
 		return FALSE;
 	}
 
-	if ((node = json_tree_find_key(root, "x")) == NULL ||
-	    (x = json_tree_get_value_str(node)) == NULL) {
+	if ((node = json_tree_node_get_member(root, "x")) == NULL ||
+	    (x = json_tree_node_get_str(node)) == NULL) {
 		*error_r = "Missing x parameter";
 		return FALSE;
 	}
 
-	if ((node = json_tree_find_key(root, "y")) == NULL ||
-	    (y = json_tree_get_value_str(node)) == NULL) {
+	if ((node = json_tree_node_get_member(root, "y")) == NULL ||
+	    (y = json_tree_node_get_str(node)) == NULL) {
 		*error_r = "Missing y parameter";
 		return FALSE;
 	}
@@ -1570,8 +1570,8 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 
 	/* FIXME: Support decryption */
 	if (want_private_key) {
-		if ((node = json_tree_find_key(root, "d")) == NULL ||
-		    (d = json_tree_get_value_str(node)) == NULL) {
+		if ((node = json_tree_node_get_member(root, "d")) == NULL ||
+		    (d = json_tree_node_get_str(node)) == NULL) {
 			*error_r = "Missing d parameter";
 			return FALSE;
 		}
@@ -1652,51 +1652,51 @@ static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
 	const struct json_tree_node *node;
 
 	/* n and e must be present */
-	if ((node = json_tree_find_key(root, "n")) == NULL ||
-	    (n = json_tree_get_value_str(node)) == NULL) {
+	if ((node = json_tree_node_get_member(root, "n")) == NULL ||
+	    (n = json_tree_node_get_str(node)) == NULL) {
 		*error_r = "Missing n parameter";
 		return FALSE;
 	}
 
-	if ((node = json_tree_find_key(root, "e")) == NULL ||
-	    (e = json_tree_get_value_str(node)) == NULL) {
+	if ((node = json_tree_node_get_member(root, "e")) == NULL ||
+	    (e = json_tree_node_get_str(node)) == NULL) {
 		*error_r = "Missing e parameter";
 		return FALSE;
 	}
 
 	if (want_private_key) {
-		if ((node = json_tree_find_key(root, "d")) == NULL ||
-		    (d = json_tree_get_value_str(node)) == NULL) {
+		if ((node = json_tree_node_get_member(root, "d")) == NULL ||
+		    (d = json_tree_node_get_str(node)) == NULL) {
 			*error_r = "Missing d parameter";
 			return FALSE;
 		}
 
-		if ((node = json_tree_find_key(root, "p")) == NULL ||
-		    (p = json_tree_get_value_str(node)) == NULL) {
+		if ((node = json_tree_node_get_member(root, "p")) == NULL ||
+		    (p = json_tree_node_get_str(node)) == NULL) {
 			*error_r = "Missing p parameter";
 			return FALSE;
 		}
 
-		if ((node = json_tree_find_key(root, "q")) == NULL ||
-		    (q = json_tree_get_value_str(node)) == NULL) {
+		if ((node = json_tree_node_get_member(root, "q")) == NULL ||
+		    (q = json_tree_node_get_str(node)) == NULL) {
 			*error_r = "Missing q parameter";
 			return FALSE;
 		}
 
-		if ((node = json_tree_find_key(root, "dp")) == NULL ||
-		    (dp = json_tree_get_value_str(node)) == NULL) {
+		if ((node = json_tree_node_get_member(root, "dp")) == NULL ||
+		    (dp = json_tree_node_get_str(node)) == NULL) {
 			*error_r = "Missing dp parameter";
 			return FALSE;
 		}
 
-		if ((node = json_tree_find_key(root, "dq")) == NULL ||
-		    (dq = json_tree_get_value_str(node)) == NULL) {
+		if ((node = json_tree_node_get_member(root, "dq")) == NULL ||
+		    (dq = json_tree_node_get_str(node)) == NULL) {
 			*error_r = "Missing dq parameter";
 			return FALSE;
 		}
 
-		if ((node = json_tree_find_key(root, "qi")) == NULL ||
-		    (qi = json_tree_get_value_str(node)) == NULL) {
+		if ((node = json_tree_node_get_member(root, "qi")) == NULL ||
+		    (qi = json_tree_node_get_str(node)) == NULL) {
 			*error_r = "Missing qi parameter";
 			return FALSE;
 		}
@@ -1826,16 +1826,16 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 		return FALSE;
 	}
 
-	root = json_tree_root(key_tree);
+	root = json_tree_get_root(key_tree);
 
 	/* check key type */
-	if ((node = json_tree_find_key(root, "kty")) == NULL) {
+	if ((node = json_tree_node_get_member(root, "kty")) == NULL) {
 		*error_r = "Cannot load JWK private key: no kty parameter";
-		json_tree_deinit(&key_tree);
+		json_tree_unref(&key_tree);
 		return FALSE;
 	}
 
-	kty = json_tree_get_value_str(node);
+	kty = json_tree_node_get_str(node);
 
 	if (null_strcmp(kty, "EC") == 0) {
 		ret = load_jwk_ec_key(&pkey, TRUE, root, password, dec_key, &error);
@@ -1855,14 +1855,18 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
 		/* check if kid is present */
-		if ((node = json_tree_find_key(root, "kid")) != NULL)
-			(*key_r)->key_id = i_strdup_empty(json_tree_get_value_str(node));
+		if ((node = json_tree_node_get_member(root, "kid")) != NULL) {
+			(*key_r)->key_id = i_strdup_empty(
+				json_tree_node_get_str(node));
+		}
 		/* check if use is present */
-		if ((node = json_tree_find_key(root, "use")) != NULL)
-			(*key_r)->usage = jwk_use_to_key_usage(json_tree_get_value_str(node));
+		if ((node = json_tree_node_get_member(root, "use")) != NULL) {
+			(*key_r)->usage = jwk_use_to_key_usage(
+				json_tree_node_get_str(node));
+		}
 	}
 
-	json_tree_deinit(&key_tree);
+	json_tree_unref(&key_tree);
 
 	return ret;
 }
@@ -1884,16 +1888,16 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 		return FALSE;
 	}
 
-	root = json_tree_root(key_tree);
+	root = json_tree_get_root(key_tree);
 
 	/* check key type */
-	if ((node = json_tree_find_key(root, "kty")) == NULL) {
+	if ((node = json_tree_node_get_member(root, "kty")) == NULL) {
 		*error_r = "Cannot load JWK public key: no kty parameter";
-		json_tree_deinit(&key_tree);
+		json_tree_unref(&key_tree);
 		return FALSE;
 	}
 
-	kty = json_tree_get_value_str(node);
+	kty = json_tree_node_get_str(node);
 
 	if (null_strcmp(kty, "EC") == 0) {
 		ret = load_jwk_ec_key(&pkey, FALSE, root, NULL, NULL, &error);
@@ -1913,14 +1917,18 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
 		/* check if kid is present */
-		if ((node = json_tree_find_key(root, "kid")) != NULL)
-			(*key_r)->key_id = i_strdup_empty(json_tree_get_value_str(node));
+		if ((node = json_tree_node_get_member(root, "kid")) != NULL) {
+			(*key_r)->key_id = i_strdup_empty(
+				json_tree_node_get_str(node));
+		}
 		/* check if use is present */
-		if ((node = json_tree_find_key(root, "use")) != NULL)
-			(*key_r)->usage = jwk_use_to_key_usage(json_tree_get_value_str(node));
+		if ((node = json_tree_node_get_member(root, "use")) != NULL) {
+			(*key_r)->usage = jwk_use_to_key_usage(
+				json_tree_node_get_str(node));
+		}
 	}
 
-	json_tree_deinit(&key_tree);
+	json_tree_unref(&key_tree);
 
 	return ret;
 }
@@ -1963,21 +1971,22 @@ static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
 	const char *curve = nid_to_jwk_curve(nid);
 	const char *use = key_usage_to_jwk_use(usage);
 	string_t *temp = t_str_new(256);
+	string_t *b64url_temp = t_str_new(256);
+	struct json_ostream *joutput = json_ostream_create_str(temp, 0);
 
-	str_printfa(temp, "{\"kty\":\"EC\",\"crv\":\"%s\"", curve);
-	str_append(temp, ",\"x\":\"");
-	bn2base64url(x, temp);
-	str_append(temp, "\",\"y\":\"");
-	bn2base64url(y, temp);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nwrite_string(joutput, "kty", "EC");
+	json_ostream_nwrite_string(joutput, "crv", curve);
+	bn2base64url(x, b64url_temp);
+	json_ostream_nwrite_string_buffer(joutput, "x", b64url_temp);
+	str_truncate(b64url_temp, 0);
+	bn2base64url(y, b64url_temp);
+	json_ostream_nwrite_string_buffer(joutput, "y", b64url_temp);
 
-	if (use != NULL) {
-		str_append(temp, "\",\"use\":\"");
-		json_append_escaped(temp, use);
-	}
-	if (key_id != NULL) {
-		str_append(temp, "\",\"kid\":\"");
-		json_append_escaped(temp, key_id);
-	}
+	if (use != NULL)
+		json_ostream_nwrite_string(joutput, "use", use);
+	if (key_id != NULL)
+		json_ostream_nwrite_string(joutput, "kid", key_id);
 	BN_free(x);
 	BN_free(y);
 
@@ -1986,13 +1995,16 @@ static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
 		EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &d);
 		if (d == NULL) {
 			*error_r = "No private key available";
+			json_ostream_destroy(&joutput);
 			return FALSE;
 		}
-		str_append(temp, "\",\"d\":\"");
-		bn2base64url(d, temp);
+		str_truncate(b64url_temp, 0);
+		bn2base64url(d, b64url_temp);
+		json_ostream_nwrite_string_buffer(joutput, "d", b64url_temp);
 		BN_free(d);
 	}
-	str_append(temp, "\"}");
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
 	str_append_str(dest, temp);
 	return TRUE;
 }
@@ -2672,28 +2684,28 @@ dcrypt_openssl_key_string_get_info(
 		}
 
 		/* determine key type */
-		root = json_tree_root(tree);
-		if ((node = json_tree_find_key(root, "kty")) == NULL ||
-		    (value = json_tree_get_value_str(node)) == NULL) {
-			json_tree_deinit(&tree);
+		root = json_tree_get_root(tree);
+		if ((node = json_tree_node_get_member(root, "kty")) == NULL ||
+		    (value = json_tree_node_get_str(node)) == NULL) {
+			json_tree_unref(&tree);
 			*error_r = "Invalid JWK key: Missing kty parameter";
 			return FALSE;
 		} else if (strcmp(value, "RSA") == 0) {
-			if (json_tree_find_key(root, "d") != NULL)
+			if (json_tree_node_get_member(root, "d") != NULL)
 				kind = DCRYPT_KEY_KIND_PRIVATE;
 			else
 				kind = DCRYPT_KEY_KIND_PUBLIC;
 		} else if (strcmp(value, "EC") == 0) {
-			if (json_tree_find_key(root, "d") != NULL)
+			if (json_tree_node_get_member(root, "d") != NULL)
 				kind = DCRYPT_KEY_KIND_PRIVATE;
 			else
 				kind = DCRYPT_KEY_KIND_PUBLIC;
 		} else {
-			json_tree_deinit(&tree);
+			json_tree_unref(&tree);
 			*error_r = "Unsupported JWK key type";
 			return FALSE;
 		}
-		json_tree_deinit(&tree);
+		json_tree_unref(&tree);
 	} else {
 		if (str_begins_with(key_data, "1:")) {
 			*error_r = "Dovecot v1 key format uses tab to separate fields";

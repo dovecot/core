@@ -13,7 +13,6 @@
 #include "randgen.h"
 #include "test-common.h"
 #include "hex-binary.h"
-#include "json-parser.h"
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdio.h>
