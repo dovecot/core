@@ -76,8 +76,9 @@ struct solr_connection {
 	bool http_ssl:1;
 };
 
-static int solr_xml_parse(struct solr_connection *conn,
-			  const void *data, size_t size, bool done)
+static int
+solr_xml_parse(struct solr_connection *conn,
+	       const void *data, size_t size, bool done)
 {
 	enum XML_Error err;
 	int line, col;
@@ -139,7 +140,8 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 	if (http_url->user != NULL) {
 		conn->http_user = i_strdup(http_url->user);
 		/* allow empty password */
-		conn->http_password = i_strdup(http_url->password != NULL ? http_url->password : "");
+		conn->http_password = i_strdup(http_url->password != NULL ?
+					       http_url->password : "");
 	}
 
 	conn->debug = solr_set->debug;
@@ -236,7 +238,7 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 			ctx->content_state = SOLR_XML_CONTENT_STATE_NAMESPACE;
 		else if (strcmp(name_attr, "uidv") == 0)
 			ctx->content_state = SOLR_XML_CONTENT_STATE_UIDVALIDITY;
-		else 
+		else
 			break;
 		ctx->state++;
 		break;
@@ -412,7 +414,8 @@ static void solr_connection_payload_input(struct solr_connection *conn)
 		/* we will be called again for more data */
 	} else {
 		if (conn->payload->stream_errno != 0) {
-			i_error("fts_solr: failed to read payload from HTTP server: %m");
+			i_error("fts_solr: "
+				"failed to read payload from HTTP server: %m");
 			conn->request_status = -1;
 		}
 		io_remove(&conn->io);
@@ -472,7 +475,8 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 				       conn->http_host, url,
 				       solr_connection_select_response, conn);
 	if (conn->http_user != NULL) {
-		http_client_request_set_auth_simple(http_req, conn->http_user, conn->http_password);
+		http_client_request_set_auth_simple(
+			http_req, conn->http_user, conn->http_password);
 	}
 	http_client_request_set_port(http_req, conn->http_port);
 	http_client_request_set_ssl(http_req, conn->http_ssl);
@@ -516,7 +520,8 @@ solr_connection_post_request(struct solr_connection *conn)
 				       conn->http_host, url,
 				       solr_connection_update_response, conn);
 	if (conn->http_user != NULL) {
-		http_client_request_set_auth_simple(http_req, conn->http_user, conn->http_password);
+		http_client_request_set_auth_simple(
+			http_req, conn->http_user, conn->http_password);
 	}
 	http_client_request_set_port(http_req, conn->http_port);
 	http_client_request_set_ssl(http_req, conn->http_ssl);
@@ -548,8 +553,10 @@ void solr_connection_post_more(struct solr_connection_post *post,
 	if (post->failed)
 		return;
 
-	if (conn->request_status == 0)
-		(void)http_client_request_send_payload(&post->http_req, data, size);
+	if (conn->request_status == 0) {
+		(void)http_client_request_send_payload(
+			&post->http_req, data, size);
+	}
 	if (conn->request_status < 0)
 		post->failed = TRUE;
 }
