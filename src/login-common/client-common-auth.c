@@ -74,7 +74,7 @@ static void client_auth_failed(struct client *client)
 	io_remove(&client->io);
 
 	if (!client_does_custom_io(client)) {
-		client->io = io_add(client->fd, IO_READ, client_input, client);
+		client->io = io_add_istream(client->input, client_input, client);
 		io_set_pending(client->io);
 	}
 }
@@ -763,8 +763,8 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		i_assert(client->io == NULL);
 		client->auth_waiting = TRUE;
 		if (!client_does_custom_io(client)) {
-			client->io = io_add(client->fd, IO_READ,
-					    client_auth_input, client);
+			client->io = io_add_istream(client->input,
+						    client_auth_input, client);
 			client_auth_input(client);
 		}
 		return;
