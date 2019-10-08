@@ -14,6 +14,15 @@
 
 #include <expat.h>
 
+struct solr_lookup_context {
+	struct solr_connection *conn;
+
+	struct istream *payload;
+	struct io *io;
+
+	int request_status;
+};
+
 struct solr_connection_post {
 	struct solr_connection *conn;
 
@@ -33,9 +42,6 @@ struct solr_connection {
 	char *http_password;
 
 	int request_status;
-
-	struct istream *payload;
-	struct io *io;
 
 	bool debug:1;
 	bool posting:1;
@@ -126,62 +132,66 @@ void solr_connection_deinit(struct solr_connection **_conn)
 	i_free(conn);
 }
 
-static void solr_connection_payload_input(struct solr_connection *conn)
+static void solr_connection_payload_input(struct solr_lookup_context *lctx)
 {
 	const unsigned char *data;
 	size_t size;
 	int ret;
 
 	/* read payload */
-	while ((ret = i_stream_read_more(conn->payload, &data, &size)) > 0) {
-		(void)solr_xml_parse(conn, data, size, FALSE);
-		i_stream_skip(conn->payload, size);
+	while ((ret = i_stream_read_more(lctx->payload, &data, &size)) > 0) {
+		(void)solr_xml_parse(lctx->conn, data, size, FALSE);
+		i_stream_skip(lctx->payload, size);
 	}
 
 	if (ret == 0) {
 		/* we will be called again for more data */
 	} else {
-		if (conn->payload->stream_errno != 0) {
+		if (lctx->payload->stream_errno != 0) {
 			i_error("fts_solr: "
 				"failed to read payload from HTTP server: %m");
-			conn->request_status = -1;
+			lctx->request_status = -1;
 		}
-		io_remove(&conn->io);
-		i_stream_unref(&conn->payload);
+		io_remove(&lctx->io);
+		i_stream_unref(&lctx->payload);
 	}
 }
 
 static void
 solr_connection_select_response(const struct http_response *response,
-				struct solr_connection *conn)
+				struct solr_lookup_context *lctx)
 {
 	if (response->status / 100 != 2) {
 		i_error("fts_solr: Lookup failed: %s",
 			http_response_get_message(response));
-		conn->request_status = -1;
+		lctx->request_status = -1;
 		return;
 	}
 
 	if (response->payload == NULL) {
 		i_error("fts_solr: Lookup failed: Empty response payload");
-		conn->request_status = -1;
+		lctx->request_status = -1;
 		return;
 	}
 
 	i_stream_ref(response->payload);
-	conn->payload = response->payload;
-	conn->io = io_add_istream(response->payload,
-				  solr_connection_payload_input, conn);
-	solr_connection_payload_input(conn);
+	lctx->payload = response->payload;
+	lctx->io = io_add_istream(response->payload,
+				  solr_connection_payload_input, lctx);
+	solr_connection_payload_input(lctx);
 }
 
 int solr_connection_select(struct solr_connection *conn, const char *query,
 			   pool_t pool, struct solr_result ***box_results_r)
 {
 	struct solr_lookup_xml_context solr_lookup_context;
+	struct solr_lookup_context lctx;
 	struct http_client_request *http_req;
 	const char *url;
 	int parse_ret;
+
+	i_zero(&lctx);
+	lctx.conn = conn;
 
 	i_zero(&solr_lookup_context);
 	solr_lookup_context.result_pool = pool;
@@ -201,7 +211,8 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 
 	http_req = http_client_request(solr_http_client, "GET",
 				       conn->http_host, url,
-				       solr_connection_select_response, conn);
+				       solr_connection_select_response,
+				       &lctx);
 	if (conn->http_user != NULL) {
 		http_client_request_set_auth_simple(
 			http_req, conn->http_user, conn->http_password);
@@ -210,10 +221,10 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	http_client_request_set_ssl(http_req, conn->http_ssl);
 	http_client_request_submit(http_req);
 
-	conn->request_status = 0;
+	lctx.request_status = 0;
 	http_client_wait(solr_http_client);
 
-	if (conn->request_status < 0 ||
+	if (lctx.request_status < 0 ||
 	    solr_lookup_context.content_state == SOLR_XML_CONTENT_STATE_ERROR)
 		return -1;
 
