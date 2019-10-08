@@ -63,3 +63,68 @@ solr_xml_parse(struct solr_connection *conn,
 	}
 	return 0;
 }
+
+static const char *attrs_get_name(const char **attrs)
+{
+	for (; *attrs != NULL; attrs += 2) {
+		if (strcmp(attrs[0], "name") == 0)
+			return attrs[1];
+	}
+	return "";
+}
+
+static void
+solr_lookup_xml_start(void *context, const char *name, const char **attrs)
+{
+	struct solr_lookup_xml_context *ctx = context;
+	const char *name_attr;
+
+	i_assert(ctx->depth >= (int)ctx->state);
+
+	ctx->depth++;
+	if (ctx->depth - 1 > (int)ctx->state) {
+		/* skipping over unwanted elements */
+		return;
+	}
+
+	/* response -> result -> doc */
+	switch (ctx->state) {
+	case SOLR_XML_RESPONSE_STATE_ROOT:
+		if (strcmp(name, "response") == 0)
+			ctx->state++;
+		break;
+	case SOLR_XML_RESPONSE_STATE_RESPONSE:
+		if (strcmp(name, "result") == 0)
+			ctx->state++;
+		break;
+	case SOLR_XML_RESPONSE_STATE_RESULT:
+		if (strcmp(name, "doc") == 0) {
+			ctx->state++;
+			ctx->uid = 0;
+			ctx->score = 0;
+			i_free_and_null(ctx->mailbox);
+			i_free_and_null(ctx->ns);
+			ctx->uidvalidity = 0;
+		}
+		break;
+	case SOLR_XML_RESPONSE_STATE_DOC:
+		name_attr = attrs_get_name(attrs);
+		if (strcmp(name_attr, "uid") == 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_UID;
+		else if (strcmp(name_attr, "score") == 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_SCORE;
+		else if (strcmp(name_attr, "box") == 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_MAILBOX;
+		else if (strcmp(name_attr, "ns") == 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_NAMESPACE;
+		else if (strcmp(name_attr, "uidv") == 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_UIDVALIDITY;
+		else
+			break;
+		ctx->state++;
+		break;
+	case SOLR_XML_RESPONSE_STATE_CONTENT:
+		break;
+	}
+}
+
