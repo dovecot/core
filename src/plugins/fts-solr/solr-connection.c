@@ -45,32 +45,6 @@ struct solr_connection {
 
 #include "solr-response.c"
 
-static int
-solr_xml_parse(struct solr_connection *conn,
-	       const void *data, size_t size, bool done)
-{
-	enum XML_Error err;
-	int line, col;
-
-	if (conn->xml_failed)
-		return -1;
-
-	if (XML_Parse(conn->xml_parser, data, size, done ? 1 : 0) != 0)
-		return 0;
-
-	err = XML_GetErrorCode(conn->xml_parser);
-	if (err != XML_ERROR_FINISHED) {
-		line = XML_GetCurrentLineNumber(conn->xml_parser);
-		col = XML_GetCurrentColumnNumber(conn->xml_parser);
-		i_error("fts_solr: Invalid XML input at %d:%d: %s "
-			"(near: %.*s)", line, col, XML_ErrorString(err),
-			(int)I_MIN(size, 128), (const char *)data);
-		conn->xml_failed = TRUE;
-		return -1;
-	}
-	return 0;
-}
-
 /* Regardless of the specified URL, make sure path ends in '/' */
 static char *solr_connection_create_http_base_url(struct http_url *http_url)
 {
