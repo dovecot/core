@@ -27,6 +27,7 @@ struct solr_connection_post {
 	struct solr_connection *conn;
 
 	struct http_client_request *http_req;
+	int request_status;
 
 	bool failed:1;
 };
@@ -40,8 +41,6 @@ struct solr_connection {
 	char *http_failure;
 	char *http_user;
 	char *http_password;
-
-	int request_status;
 
 	bool debug:1;
 	bool posting:1;
@@ -238,18 +237,19 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 
 static void
 solr_connection_update_response(const struct http_response *response,
-				struct solr_connection *conn)
+				struct solr_connection_post *post)
 {
 	if (response->status / 100 != 2) {
 		i_error("fts_solr: Indexing failed: %s",
 			http_response_get_message(response));
-		conn->request_status = -1;
+		post->request_status = -1;
 	}
 }
 
 static struct http_client_request *
-solr_connection_post_request(struct solr_connection *conn)
+solr_connection_post_request(struct solr_connection_post *post)
 {
+	struct solr_connection *conn = post->conn;
 	struct http_client_request *http_req;
 	const char *url;
 
@@ -257,7 +257,7 @@ solr_connection_post_request(struct solr_connection *conn)
 
 	http_req = http_client_request(solr_http_client, "POST",
 				       conn->http_host, url,
-				       solr_connection_update_response, conn);
+				       solr_connection_update_response, post);
 	if (conn->http_user != NULL) {
 		http_client_request_set_auth_simple(
 			http_req, conn->http_user, conn->http_password);
@@ -278,7 +278,7 @@ solr_connection_post_begin(struct solr_connection *conn)
 
 	post = i_new(struct solr_connection_post, 1);
 	post->conn = conn;
-	post->http_req = solr_connection_post_request(conn);
+	post->http_req = solr_connection_post_request(post);
 	XML_ParserReset(conn->xml_parser, "UTF-8");
 	return post;
 }
@@ -286,17 +286,16 @@ solr_connection_post_begin(struct solr_connection *conn)
 void solr_connection_post_more(struct solr_connection_post *post,
 			       const unsigned char *data, size_t size)
 {
-	struct solr_connection *conn = post->conn;
 	i_assert(post->conn->posting);
 
 	if (post->failed)
 		return;
 
-	if (conn->request_status == 0) {
+	if (post->request_status == 0) {
 		(void)http_client_request_send_payload(
 			&post->http_req, data, size);
 	}
-	if (conn->request_status < 0)
+	if (post->request_status < 0)
 		post->failed = TRUE;
 }
 
@@ -312,7 +311,7 @@ int solr_connection_post_end(struct solr_connection_post **_post)
 
 	if (!post->failed) {
 		if (http_client_request_finish_payload(&post->http_req) < 0 ||
-			conn->request_status < 0) {
+		    post->request_status < 0) {
 			ret = -1;
 		}
 	} else {
@@ -326,21 +325,24 @@ int solr_connection_post_end(struct solr_connection_post **_post)
 
 int solr_connection_post(struct solr_connection *conn, const char *cmd)
 {
-	struct http_client_request *http_req;
 	struct istream *post_payload;
+	struct solr_connection_post post;
 
 	i_assert(!conn->posting);
 
-	http_req = solr_connection_post_request(conn);
+	i_zero(&post);
+	post.conn = conn;
+
+	post.http_req = solr_connection_post_request(&post);
 	post_payload = i_stream_create_from_data(cmd, strlen(cmd));
-	http_client_request_set_payload(http_req, post_payload, TRUE);
+	http_client_request_set_payload(post.http_req, post_payload, TRUE);
 	i_stream_unref(&post_payload);
-	http_client_request_submit(http_req);
+	http_client_request_submit(post.http_req);
 
 	XML_ParserReset(conn->xml_parser, "UTF-8");
 
-	conn->request_status = 0;
+	post.request_status = 0;
 	http_client_wait(solr_http_client);
 
-	return conn->request_status;
+	return post.request_status;
 }
