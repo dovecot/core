@@ -130,7 +130,13 @@ void smtp_params_mail_add_to_event(const struct smtp_params_mail *params,
 
 /* parse */
 
+enum smtp_param_rcpt_parse_flags {
+	/* Allow address values without a domain part */
+	SMTP_PARAM_RCPT_FLAG_ORCPT_ALLOW_LOCALPART = BIT(0),
+};
+
 int smtp_params_rcpt_parse(pool_t pool, const char *args,
+			   enum smtp_param_rcpt_parse_flags flags,
 			   enum smtp_capability caps,
 			   const char *const *param_extensions,
 			   struct smtp_params_rcpt *params_r,

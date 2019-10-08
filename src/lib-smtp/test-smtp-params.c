@@ -521,6 +521,7 @@ static void test_smtp_mail_params_parse_invalid(void)
 struct valid_rcpt_params_parse_test {
 	const char *input, *output;
 
+	enum smtp_param_rcpt_parse_flags flags;
 	enum smtp_capability caps;
 	const char *const *extensions;
 
@@ -530,11 +531,28 @@ struct valid_rcpt_params_parse_test {
 static const struct valid_rcpt_params_parse_test
 valid_rcpt_params_parse_tests[] = {
 	/* ORCPT */
-#if 0 // FIXME: message_address_parser() does not allow bare localpart
-      //         addresses.
 	{
-
+		.input = "ORCPT=rfc822;e+3Dmc2@example.com",
+		.caps = SMTP_CAPABILITY_DSN,
+		.params = {
+			.orcpt = {
+				.addr = &test_address3
+			}
+		}
+	},
+	{
+		.input = "ORCPT=rfc822;<e+3Dmc2@example.com>",
+		.output = "ORCPT=rfc822;e+3Dmc2@example.com",
+		.caps = SMTP_CAPABILITY_DSN,
+		.params = {
+			.orcpt = {
+				.addr = &test_address3
+			}
+		}
+	},
+	{
 		.input = "ORCPT=rfc822;user+2Bdetail",
+		.flags = SMTP_PARAM_RCPT_FLAG_ORCPT_ALLOW_LOCALPART,
 		.caps = SMTP_CAPABILITY_DSN,
 		.params = {
 			.orcpt = {
@@ -542,13 +560,14 @@ valid_rcpt_params_parse_tests[] = {
 			}
 		}
 	},
-#endif
 	{
-		.input = "ORCPT=rfc822;e+3Dmc2@example.com",
+		.input = "ORCPT=rfc822;<user+2Bdetail>",
+		.output = "ORCPT=rfc822;user+2Bdetail",
+		.flags = SMTP_PARAM_RCPT_FLAG_ORCPT_ALLOW_LOCALPART,
 		.caps = SMTP_CAPABILITY_DSN,
 		.params = {
 			.orcpt = {
-				.addr = &test_address3
+				.addr = &test_address2
 			}
 		}
 	},
@@ -755,8 +774,8 @@ static void test_smtp_rcpt_params_parse_valid(void)
 
 		test = &valid_rcpt_params_parse_tests[i];
 		ret = smtp_params_rcpt_parse(pool_datastack_create(),
-					     test->input, test->caps,
-					     test->extensions,
+					     test->input, test->flags,
+					     test->caps, test->extensions,
 					     &params, &error_code, &error);
 
 		test_begin(t_strdup_printf("smtp rcpt params valid [%d]", i));
@@ -793,6 +812,7 @@ static void test_smtp_rcpt_params_parse_valid(void)
 struct invalid_rcpt_params_parse_test {
 	const char *input;
 
+	enum smtp_param_rcpt_parse_flags flags;
 	enum smtp_capability caps;
 	const char *const *extensions;
 };
@@ -802,6 +822,14 @@ invalid_rcpt_params_parse_tests[] = {
 	/* DSN */
 	{
 		.input = "ORCPT=rfc822;frop@example.com",
+	},
+	{
+		.input = "ORCPT=rfc822;<>",
+		.caps = SMTP_CAPABILITY_DSN
+	},
+	{
+		.input = "ORCPT=rfc822;",
+		.caps = SMTP_CAPABILITY_DSN
 	},
 	{
 		.input = "ORCPT=++",
@@ -840,8 +868,8 @@ static void test_smtp_rcpt_params_parse_invalid(void)
 
 		test = &invalid_rcpt_params_parse_tests[i];
 		ret = smtp_params_rcpt_parse(pool_datastack_create(),
-					     test->input, test->caps,
-					     test->extensions,
+					     test->input, test->flags,
+					     test->caps, test->extensions,
 					     &params, &error_code, &error);
 
 		test_begin(t_strdup_printf("smtp rcpt params invalid [%d]", i));

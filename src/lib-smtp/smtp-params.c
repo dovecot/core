@@ -748,6 +748,7 @@ void smtp_params_mail_add_to_event(const struct smtp_params_mail *params,
 struct smtp_params_rcpt_parser {
 	pool_t pool;
 	struct smtp_params_rcpt *params;
+	enum smtp_param_rcpt_parse_flags flags;
 	enum smtp_capability caps;
 
 	enum smtp_param_parse_error error_code;
@@ -827,7 +828,8 @@ smtp_params_rcpt_parse_notify(struct smtp_params_rcpt_parser *prparser,
 }
 
 static int
-smtp_params_rcpt_parse_orcpt_rfc822(const char *addr_str, pool_t pool,
+smtp_params_rcpt_parse_orcpt_rfc822(struct smtp_params_rcpt_parser *prparser,
+				    const char *addr_str, pool_t pool,
 				    const struct smtp_address **addr_r)
 {
 	struct message_address *rfc822_addr;
@@ -836,9 +838,17 @@ smtp_params_rcpt_parse_orcpt_rfc822(const char *addr_str, pool_t pool,
 	rfc822_addr = message_address_parse(pool_datastack_create(),
 					    (const unsigned char *)addr_str,
 					    strlen(addr_str), 2, 0);
-	if (rfc822_addr == NULL || rfc822_addr->invalid_syntax ||
-	    rfc822_addr->next != NULL ||
-	    smtp_address_create_from_msg(pool, rfc822_addr, &addr) < 0)
+	if (rfc822_addr == NULL || rfc822_addr->next != NULL)
+		return -1;
+	if (rfc822_addr->invalid_syntax) {
+		if (HAS_NO_BITS(prparser->flags,
+				SMTP_PARAM_RCPT_FLAG_ORCPT_ALLOW_LOCALPART) ||
+		    rfc822_addr->mailbox == NULL ||
+		    *rfc822_addr->mailbox == '\0')
+			return -1;
+		rfc822_addr->invalid_syntax = FALSE;
+	}
+	if (smtp_address_create_from_msg(pool, rfc822_addr, &addr) < 0)
 		return -1;
 	*addr_r = addr;
 	return 0;
@@ -935,7 +945,7 @@ smtp_params_rcpt_parse_orcpt(struct smtp_params_rcpt_parser *prparser,
 
 	if (strcasecmp(params->orcpt.addr_type, "rfc822") == 0) {
 		if (smtp_params_rcpt_parse_orcpt_rfc822(
-			params->orcpt.addr_raw, prparser->pool,
+			prparser, params->orcpt.addr_raw, prparser->pool,
 			&params->orcpt.addr) < 0) {
 			prparser->error = "Invalid ORCPT= address value: "
 				"Invalid RFC822 address";
@@ -948,6 +958,7 @@ smtp_params_rcpt_parse_orcpt(struct smtp_params_rcpt_parser *prparser,
 }
 
 int smtp_params_rcpt_parse(pool_t pool, const char *args,
+			   enum smtp_param_rcpt_parse_flags flags,
 			   enum smtp_capability caps,
 			   const char *const *extensions,
 			   struct smtp_params_rcpt *params_r,
@@ -965,6 +976,7 @@ int smtp_params_rcpt_parse(pool_t pool, const char *args,
 	i_zero(&prparser);
 	prparser.pool = pool;
 	prparser.params = params_r;
+	prparser.flags = flags;
 	prparser.caps = caps;
 
 	argv = t_strsplit(args, " ");
