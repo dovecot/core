@@ -28,6 +28,9 @@ lib21_fts_solr_plugin_la_SOURCES = \
 	fts-solr-plugin.c \
 	solr-connection.c
 
+EXTRA_DIST = \
+	solr-response.c
+
 noinst_HEADERS = \
 	fts-solr-plugin.h \
 	solr-response.h \
