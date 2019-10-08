@@ -17,8 +17,8 @@
  * SMTP parameter parsing
  */
 
-static int smtp_param_do_parse(struct smtp_parser *parser,
-	struct smtp_param *param_r)
+static int
+smtp_param_do_parse(struct smtp_parser *parser, struct smtp_param *param_r)
 {
 	const unsigned char *pbegin = parser->cur;
 
@@ -38,7 +38,7 @@ static int smtp_param_do_parse(struct smtp_parser *parser,
 	parser->cur++;
 
 	while (parser->cur < parser->end &&
-		(i_isalnum(*parser->cur) || *parser->cur == '-'))
+	       (i_isalnum(*parser->cur) || *parser->cur == '-'))
 		parser->cur++;
 	param_r->keyword = t_strndup(pbegin, parser->cur - pbegin);
 
@@ -54,7 +54,7 @@ static int smtp_param_do_parse(struct smtp_parser *parser,
 
 	pbegin = parser->cur;
 	while (parser->cur < parser->end &&
-		smtp_char_is_esmtp_value(*parser->cur))
+	       smtp_char_is_esmtp_value(*parser->cur))
 		parser->cur++;
 
 	if (parser->cur < parser->end) {
@@ -66,7 +66,7 @@ static int smtp_param_do_parse(struct smtp_parser *parser,
 }
 
 int smtp_param_parse(pool_t pool, const char *text,
-	struct smtp_param *param_r, const char **error_r)
+		     struct smtp_param *param_r, const char **error_r)
 {
 	struct smtp_parser parser;
 	int ret;
@@ -81,7 +81,7 @@ int smtp_param_parse(pool_t pool, const char *text,
 
 	smtp_parser_init(&parser, pool, text);
 
-	if ((ret=smtp_param_do_parse(&parser, param_r)) <= 0) {
+	if ((ret = smtp_param_do_parse(&parser, param_r)) <= 0) {
 		if (error_r != NULL)
 			*error_r = parser.error;
 		return -1;
@@ -123,8 +123,9 @@ struct smtp_params_mail_parser {
 	const char *error;
 };
 
-static int smtp_params_mail_parse_auth(
-	struct smtp_params_mail_parser *pmparser, const char *xtext)
+static int
+smtp_params_mail_parse_auth(struct smtp_params_mail_parser *pmparser,
+			    const char *xtext)
 {
 	struct smtp_params_mail *params = pmparser->params;
 	struct smtp_address *auth_addr;
@@ -155,8 +156,9 @@ static int smtp_params_mail_parse_auth(
 	}
 	if (strcmp(value, "<>") == 0) {
 		params->auth = p_new(pmparser->pool, struct smtp_address, 1);
-	} else if (smtp_address_parse_mailbox(pmparser->pool,
-			value, SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART,
+	} else if (smtp_address_parse_mailbox(
+			pmparser->pool,	value,
+			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART,
 			&auth_addr, &error) < 0)	{
 		pmparser->error = t_strdup_printf(
 			"Invalid AUTH= address value: %s", error);
@@ -169,9 +171,9 @@ static int smtp_params_mail_parse_auth(
 	return 0;
 }
 
-static int smtp_params_mail_parse_body(
-	struct smtp_params_mail_parser *pmparser,
-	const char *value, const char *const *extensions)
+static int
+smtp_params_mail_parse_body(struct smtp_params_mail_parser *pmparser,
+			    const char *value, const char *const *extensions)
 {
 	struct smtp_params_mail *params = pmparser->params;
 	enum smtp_capability caps = pmparser->caps;
@@ -198,12 +200,12 @@ static int smtp_params_mail_parse_body(
 		params->body.type = SMTP_PARAM_MAIL_BODY_TYPE_7BIT;
 	/* =8BITMIME: RFC 6152 */
 	} else if ((caps & SMTP_CAPABILITY_8BITMIME) != 0 &&
-			strcmp(value, "8BITMIME") == 0) {
+		   strcmp(value, "8BITMIME") == 0) {
 		params->body.type = SMTP_PARAM_MAIL_BODY_TYPE_8BITMIME;
 	/* =BINARYMIME: RFC 3030 */
 	} else if ((caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
-			(caps & SMTP_CAPABILITY_CHUNKING) != 0 &&
-			strcmp(value, "BINARYMIME") == 0) {
+		   (caps & SMTP_CAPABILITY_CHUNKING) != 0 &&
+		   strcmp(value, "BINARYMIME") == 0) {
 		params->body.type = SMTP_PARAM_MAIL_BODY_TYPE_BINARYMIME;
 	/* =?? */
 	} else if (extensions != NULL &&
@@ -218,8 +220,9 @@ static int smtp_params_mail_parse_body(
 	return 0;
 }
 
-static int smtp_params_mail_parse_envid(
-	struct smtp_params_mail_parser *pmparser, const char *xtext)
+static int
+smtp_params_mail_parse_envid(struct smtp_params_mail_parser *pmparser,
+			     const char *xtext)
 {
 	struct smtp_params_mail *params = pmparser->params;
 	const unsigned char *p, *pend;
@@ -268,8 +271,9 @@ static int smtp_params_mail_parse_envid(
 	return 0;
 }
 
-static int smtp_params_mail_parse_ret(
-	struct smtp_params_mail_parser *pmparser, const char *value)
+static int
+smtp_params_mail_parse_ret(struct smtp_params_mail_parser *pmparser,
+			   const char *value)
 {
 	struct smtp_params_mail *params = pmparser->params;
 
@@ -293,7 +297,7 @@ static int smtp_params_mail_parse_ret(
 	if (strcmp(value, "FULL") == 0) {
 		params->ret = SMTP_PARAM_MAIL_RET_FULL;
 	/* =HDRS */
-	} else if (	strcmp(value, "HDRS") == 0) {
+	} else if (strcmp(value, "HDRS") == 0) {
 		params->ret = SMTP_PARAM_MAIL_RET_HDRS;
 	} else {
 		pmparser->error = "Unsupported RET= parameter keyword";
@@ -304,8 +308,8 @@ static int smtp_params_mail_parse_ret(
 }
 
 static int
-smtp_params_mail_parse_size(
-	struct smtp_params_mail_parser *pmparser, const char *value)
+smtp_params_mail_parse_size(struct smtp_params_mail_parser *pmparser,
+			    const char *value)
 {
 	struct smtp_params_mail *params = pmparser->params;
 
@@ -357,7 +361,7 @@ int smtp_params_mail_parse(pool_t pool, const char *args,
 	argv = t_strsplit(args, " ");
 	for (; *argv != NULL; argv++) {
 		if (smtp_param_parse(pool_datastack_create(), *argv,
-			&param, &error) < 0) {
+				     &param, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Invalid MAIL parameter: %s", error);
 			*error_code_r = SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX;
@@ -367,36 +371,36 @@ int smtp_params_mail_parse(pool_t pool, const char *args,
 		/* parse known parameters */
 		param.keyword = t_str_ucase(param.keyword);
 		if ((caps & SMTP_CAPABILITY_AUTH) != 0 &&
-			strcmp(param.keyword, "AUTH") == 0) {
-			if (smtp_params_mail_parse_auth
-				(&pmparser, param.value) < 0) {
+		    strcmp(param.keyword, "AUTH") == 0) {
+			if (smtp_params_mail_parse_auth(
+				&pmparser, param.value) < 0) {
 				ret = -1;
 				break;
 			}
 		} else if (strcmp(param.keyword, "BODY") == 0) {
-			if (smtp_params_mail_parse_body(
-				&pmparser, param.value, body_extensions) < 0) {
+			if (smtp_params_mail_parse_body(&pmparser, param.value,
+							body_extensions) < 0) {
 				ret = -1;
 				break;
 			}
 		} else if ((caps & SMTP_CAPABILITY_DSN) != 0 &&
-			strcmp(param.keyword, "ENVID") == 0) {
-			if (smtp_params_mail_parse_envid
-				(&pmparser, param.value) < 0) {
+			   strcmp(param.keyword, "ENVID") == 0) {
+			if (smtp_params_mail_parse_envid(&pmparser,
+							 param.value) < 0) {
 				ret = -1;
 				break;
 			}
 		} else if ((caps & SMTP_CAPABILITY_DSN) != 0 &&
-			strcmp(param.keyword, "RET") == 0) {
-			if (smtp_params_mail_parse_ret
-				(&pmparser, param.value) < 0) {
+			   strcmp(param.keyword, "RET") == 0) {
+			if (smtp_params_mail_parse_ret(&pmparser,
+						       param.value) < 0) {
 				ret = -1;
 				break;
 			}
 		} else if ((caps & SMTP_CAPABILITY_SIZE) != 0 &&
-			strcmp(param.keyword, "SIZE") == 0) {
-			if (smtp_params_mail_parse_size
-				(&pmparser, param.value) < 0) {
+			   strcmp(param.keyword, "SIZE") == 0) {
+			if (smtp_params_mail_parse_size(&pmparser,
+							param.value) < 0) {
 				ret = -1;
 				break;
 			}
@@ -427,8 +431,8 @@ int smtp_params_mail_parse(pool_t pool, const char *args,
 
 /* manipulate */
 
-void smtp_params_mail_copy(pool_t pool,
-	struct smtp_params_mail *dst, const struct smtp_params_mail *src)
+void smtp_params_mail_copy(pool_t pool, struct smtp_params_mail *dst,
+			   const struct smtp_params_mail *src)
 {
 	i_zero(dst);
 
@@ -447,7 +451,7 @@ void smtp_params_mail_copy(pool_t pool,
 		struct smtp_param param_new;
 
 		p_array_init(&dst->extra_params, pool,
-			array_count(&src->extra_params));
+			     array_count(&src->extra_params));
 		array_foreach(&src->extra_params, param) {
 			param_new.keyword = p_strdup(pool, param->keyword);
 			param_new.value = p_strdup(pool, param->value);
@@ -494,9 +498,8 @@ bool smtp_params_mail_drop_extra(struct smtp_params_mail *params,
 /* write */
 
 static void
-smtp_params_mail_write_auth(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_mail *params)
+smtp_params_mail_write_auth(string_t *buffer, enum smtp_capability caps,
+			    const struct smtp_params_mail *params)
 {
 	/* add AUTH= parameter */
 	string_t *auth_addr;
@@ -518,9 +521,8 @@ smtp_params_mail_write_auth(string_t *buffer,
 }
 
 static void
-smtp_params_mail_write_body(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_mail *params)
+smtp_params_mail_write_body(string_t *buffer, enum smtp_capability caps,
+			    const struct smtp_params_mail *params)
 {
 	/* BODY=<type>: RFC 6152 */
 	/* =7BIT: RFC 6152 */
@@ -538,7 +540,7 @@ smtp_params_mail_write_body(string_t *buffer,
 	/* =BINARYMIME: RFC 3030 */
 	case SMTP_PARAM_MAIL_BODY_TYPE_BINARYMIME:
 		i_assert((caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
-			(caps & SMTP_CAPABILITY_CHUNKING) != 0);
+			 (caps & SMTP_CAPABILITY_CHUNKING) != 0);
 		str_append(buffer, "BODY=BINARYMIME ");
 		break;
 	case SMTP_PARAM_MAIL_BODY_TYPE_EXTENSION:
@@ -552,9 +554,8 @@ smtp_params_mail_write_body(string_t *buffer,
 }
 
 static void
-smtp_params_mail_write_envid(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_mail *params)
+smtp_params_mail_write_envid(string_t *buffer, enum smtp_capability caps,
+			     const struct smtp_params_mail *params)
 {
 	const char *envid = params->envid;
 
@@ -566,15 +567,13 @@ smtp_params_mail_write_envid(string_t *buffer,
 		return;
 
 	str_append(buffer, "ENVID=");
-	smtp_xtext_encode
-		(buffer, (const unsigned char *)envid, strlen(envid));
+	smtp_xtext_encode(buffer, (const unsigned char *)envid, strlen(envid));
 	str_append_c(buffer, ' ');
 }
 
 static void
-smtp_params_mail_write_ret(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_mail *params)
+smtp_params_mail_write_ret(string_t *buffer, enum smtp_capability caps,
+			   const struct smtp_params_mail *params)
 {
 	if ((caps & SMTP_CAPABILITY_DSN) == 0)
 		return;
@@ -594,9 +593,8 @@ smtp_params_mail_write_ret(string_t *buffer,
 }
 
 static void
-smtp_params_mail_write_size(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_mail *params)
+smtp_params_mail_write_size(string_t *buffer, enum smtp_capability caps,
+			    const struct smtp_params_mail *params)
 {
 	/* SIZE=<size-value>: RFC 1870 */
 
@@ -609,9 +607,8 @@ smtp_params_mail_write_size(string_t *buffer,
 	str_printfa(buffer, "SIZE=%"PRIuUOFF_T" ", params->size);
 }
 
-void smtp_params_mail_write(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_mail *params)
+void smtp_params_mail_write(string_t *buffer, enum smtp_capability caps,
+			    const struct smtp_params_mail *params)
 {
 	size_t init_len = str_len(buffer);
 
@@ -757,8 +754,9 @@ struct smtp_params_rcpt_parser {
 	const char *error;
 };
 
-static int smtp_params_rcpt_parse_notify(
-	struct smtp_params_rcpt_parser *prparser, const char *value)
+static int
+smtp_params_rcpt_parse_notify(struct smtp_params_rcpt_parser *prparser,
+			      const char *value)
 {
 	struct smtp_params_rcpt *params = prparser->params;
 	const char *const *list;
@@ -818,25 +816,26 @@ static int smtp_params_rcpt_parse_notify(
 	}
 
 	if (!valid || unsupported ||
-		params->notify == SMTP_PARAM_RCPT_NOTIFY_UNSPECIFIED) {
+	    params->notify == SMTP_PARAM_RCPT_NOTIFY_UNSPECIFIED) {
 		prparser->error = "Invalid NOTIFY= parameter value";
 		prparser->error_code = ((valid && unsupported) ?
-			SMTP_PARAM_PARSE_ERROR_NOT_SUPPORTED :
-			SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX);
+					SMTP_PARAM_PARSE_ERROR_NOT_SUPPORTED :
+					SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX);
 		return -1;
 	}
 	return 0;
 }
 
 static int
-smtp_params_rcpt_parse_orcpt_rfc822(const char *addr_str,
-	pool_t pool, const struct smtp_address **addr_r)
+smtp_params_rcpt_parse_orcpt_rfc822(const char *addr_str, pool_t pool,
+				    const struct smtp_address **addr_r)
 {
 	struct message_address *rfc822_addr;
 	struct smtp_address *addr;
 
 	rfc822_addr = message_address_parse(pool_datastack_create(),
-		(const unsigned char *)addr_str, strlen(addr_str), 2, 0);
+					    (const unsigned char *)addr_str,
+					    strlen(addr_str), 2, 0);
 	if (rfc822_addr == NULL || rfc822_addr->invalid_syntax ||
 	    rfc822_addr->next != NULL ||
 	    smtp_address_create_from_msg(pool, rfc822_addr, &addr) < 0)
@@ -847,7 +846,7 @@ smtp_params_rcpt_parse_orcpt_rfc822(const char *addr_str,
 
 static int
 smtp_params_rcpt_parse_orcpt(struct smtp_params_rcpt_parser *prparser,
-	const char *value)
+			     const char *value)
 {
 	struct smtp_params_rcpt *params = prparser->params;
 	struct smtp_parser parser;
@@ -881,7 +880,7 @@ smtp_params_rcpt_parse_orcpt(struct smtp_params_rcpt_parser *prparser,
 	/* check addr-type */
 	smtp_parser_init(&parser, pool_datastack_create(), value);
 	if (smtp_parser_parse_atom(&parser, &addr_type) <= 0 ||
-		parser.cur >= parser.end || *parser.cur != ';') {
+	    parser.cur >= parser.end || *parser.cur != ';') {
 		prparser->error = "Invalid addr-type for ORCPT= parameter";
 		prparser->error_code = SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX;
 		return -1;
@@ -971,7 +970,7 @@ int smtp_params_rcpt_parse(pool_t pool, const char *args,
 	argv = t_strsplit(args, " ");
 	for (; *argv != NULL; argv++) {
 		if (smtp_param_parse(pool_datastack_create(), *argv,
-			&param, &error) < 0) {
+				     &param, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Invalid RCPT parameter: %s", error);
 			*error_code_r = SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX;
@@ -981,7 +980,7 @@ int smtp_params_rcpt_parse(pool_t pool, const char *args,
 		/* parse known parameters */
 		param.keyword = t_str_ucase(param.keyword);
 		if ((caps & SMTP_CAPABILITY_DSN) != 0 &&
-			strcmp(param.keyword, "NOTIFY") == 0) {
+		     strcmp(param.keyword, "NOTIFY") == 0) {
 			if (smtp_params_rcpt_parse_notify
 				(&prparser, param.value) < 0) {
 				ret = -1;
@@ -1022,8 +1021,8 @@ int smtp_params_rcpt_parse(pool_t pool, const char *args,
 
 /* manipulate */
 
-void smtp_params_rcpt_copy(pool_t pool,
-	struct smtp_params_rcpt *dst, const struct smtp_params_rcpt *src)
+void smtp_params_rcpt_copy(pool_t pool, struct smtp_params_rcpt *dst,
+			   const struct smtp_params_rcpt *src)
 {
 	i_zero(dst);
 
@@ -1087,9 +1086,8 @@ bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,
 /* write */
 
 static void
-smtp_params_rcpt_write_notify(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_rcpt *params)
+smtp_params_rcpt_write_notify(string_t *buffer, enum smtp_capability caps,
+			      const struct smtp_params_rcpt *params)
 {
 	if (params->notify == SMTP_PARAM_RCPT_NOTIFY_UNSPECIFIED)
 		return;
@@ -1128,9 +1126,8 @@ smtp_params_rcpt_write_notify(string_t *buffer,
 }
 
 static void
-smtp_params_rcpt_write_orcpt(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_rcpt *params)
+smtp_params_rcpt_write_orcpt(string_t *buffer, enum smtp_capability caps,
+			     const struct smtp_params_rcpt *params)
 {
 	if (params->orcpt.addr_type == NULL)
 		return;
@@ -1142,8 +1139,8 @@ smtp_params_rcpt_write_orcpt(string_t *buffer,
 
 	str_printfa(buffer, "ORCPT=%s;", params->orcpt.addr_type);
 	if (strcasecmp(params->orcpt.addr_type, "rfc822") == 0) {
-		smtp_xtext_encode_cstr(buffer,
-			smtp_address_encode(params->orcpt.addr));
+		smtp_xtext_encode_cstr(
+			buffer, smtp_address_encode(params->orcpt.addr));
 	} else {
 		i_assert(params->orcpt.addr_raw != NULL);
 		smtp_xtext_encode_cstr(buffer, params->orcpt.addr_raw);
@@ -1151,9 +1148,8 @@ smtp_params_rcpt_write_orcpt(string_t *buffer,
 	str_append_c(buffer, ' ');
 }
 
-void smtp_params_rcpt_write(string_t *buffer,
-	enum smtp_capability caps,
-	const struct smtp_params_rcpt *params)
+void smtp_params_rcpt_write(string_t *buffer, enum smtp_capability caps,
+			    const struct smtp_params_rcpt *params)
 {
 	size_t init_len = str_len(buffer);
 
@@ -1226,7 +1222,8 @@ bool smtp_params_rcpt_equals(const struct smtp_params_rcpt *params1,
 		    array_count(&params2->extra_params))
 			return FALSE;
 		array_foreach(&params1->extra_params, param1) {
-			param2 = smtp_params_rcpt_get_extra(params2, param1->keyword);
+			param2 = smtp_params_rcpt_get_extra(
+				params2, param1->keyword);
 			if (param2 == NULL)
 				return FALSE;
 			if (null_strcmp(param1->value, param2->value) != 0)
