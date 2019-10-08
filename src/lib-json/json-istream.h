@@ -1,8 +1,8 @@
 #ifndef JSON_ISTREAM_H
 #define JSON_ISTREAM_H
 
-#include "json-tree.new.h"
-#include "json-parser.new.h"
+#include "json-tree.h"
+#include "json-parser.h"
 
 // FIXME: don't bother recording values if we're only validating/skipping
 

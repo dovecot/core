@@ -3,9 +3,6 @@
 
 #include "json-types.h"
 
-#define json_parser_init json_parser_new_init
-#define json_parser_deinit json_parser_new_deinit
-
 // FIXME: don't bother recording values if we're only validating.
 
 /*

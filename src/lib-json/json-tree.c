@@ -5,7 +5,7 @@
 #include "array.h"
 #include "istream.h"
 
-#include "json-tree.new.h"
+#include "json-tree.h"
 
 struct json_tree_node_list {
 	struct json_tree_node *head, *tail;

@@ -4,7 +4,7 @@
 #include "lib.h"
 
 #include "json-types.h"
-#include "json-tree.new.h"
+#include "json-tree.h"
 #include "json-generator.h"
 
 struct json_ostream;

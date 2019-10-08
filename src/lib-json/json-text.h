@@ -1,7 +1,7 @@
 #ifndef JSON_TEXT_H
 #define JSON_TEXT_H
 
-#include "json-parser.new.h"
+#include "json-parser.h"
 #include "json-generator.h"
 
 int json_text_format_data(const void *data, size_t size,

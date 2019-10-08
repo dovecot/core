@@ -9,7 +9,7 @@
 #include "hash-method.h"
 #include "istream.h"
 #include "iso8601-date.h"
-#include "json-tree.new.h"
+#include "json-tree.h"
 #include "array.h"
 #include "base64.h"
 #include "str-sanitize.h"

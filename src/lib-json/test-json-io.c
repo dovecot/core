@@ -9,7 +9,7 @@
 #include "iostream-pump.h"
 #include "test-common.h"
 
-#include "json-parser.new.h"
+#include "json-parser.h"
 #include "json-generator.h"
 #include "json-istream.h"
 #include "json-ostream.h"

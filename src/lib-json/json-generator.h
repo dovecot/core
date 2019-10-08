@@ -3,9 +3,6 @@
 
 #include "json-types.h"
 
-#define json_append_escaped json_append_escaped_new
-#define json_append_escaped_data json_append_escaped_data_new
-
 // FIXME: add settings for formatting/indenting the output
 
 struct json_generator;

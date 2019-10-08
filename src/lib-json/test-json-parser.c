@@ -7,7 +7,7 @@
 #include "istream-base64.h"
 #include "test-common.h"
 
-#include "json-parser.new.h"
+#include "json-parser.h"
 
 #include <unistd.h>
 

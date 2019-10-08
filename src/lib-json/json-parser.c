@@ -8,7 +8,7 @@
 #include "istream-private.h"
 
 #include "json-syntax.h"
-#include "json-parser.new.h"
+#include "json-parser.h"
 
 #include <stdlib.h>
 #include <math.h>

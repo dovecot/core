@@ -101,7 +101,6 @@ liblib_la_SOURCES = \
 	istream-failure-at.c \
 	istream-file.c \
 	istream-hash.c \
-	istream-jsonstr.c \
 	istream-limit.c \
 	istream-multiplex.c \
 	istream-nonuls.c \
@@ -123,8 +122,6 @@ liblib_la_SOURCES = \
 	ioloop-select.c \
 	ioloop-epoll.c \
 	ioloop-kqueue.c \
-	json-parser.c \
-	json-tree.c \
 	lib.c \
 	lib-event.c \
 	lib-signals.c \
@@ -270,7 +267,6 @@ headers = \
 	istream-failure-at.h \
 	istream-file-private.h \
 	istream-hash.h \
-	istream-jsonstr.h \
 	istream-multiplex.h \
 	istream-nonuls.h \
 	istream-private.h \
@@ -285,8 +281,6 @@ headers = \
 	ioloop-iolist.h \
 	ioloop-private.h \
 	ioloop-notify-fd.h \
-	json-parser.h \
-	json-tree.h \
 	lib.h \
 	lib-event.h \
 	lib-event-private.h \
@@ -419,7 +413,6 @@ test_lib_SOURCES = \
 	test-istream-concat.c \
 	test-istream-crlf.c \
 	test-istream-failure-at.c \
-	test-istream-jsonstr.c \
 	test-istream-multiplex.c \
 	test-istream-noop.c \
 	test-istream-seekable.c \
@@ -427,8 +420,6 @@ test_lib_SOURCES = \
 	test-istream-tee.c \
 	test-istream-try.c \
 	test-istream-unix.c \
-	test-json-parser.c \
-	test-json-tree.c \
 	test-lib-event.c \
 	test-lib-signals.c \
 	test-llist.c \

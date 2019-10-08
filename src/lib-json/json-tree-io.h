@@ -1,8 +1,8 @@
 #ifndef JSON_TREE_IO_H
 #define JSON_TREE_IO_H
 
-#include "json-tree.new.h"
-#include "json-parser.new.h"
+#include "json-tree.h"
+#include "json-parser.h"
 #include "json-generator.h"
 
 /*

@@ -6,7 +6,7 @@
 #include "ostream.h"
 #include "test-common.h"
 
-#include "json-tree.new.h"
+#include "json-tree.h"
 
 #include <unistd.h>
 
