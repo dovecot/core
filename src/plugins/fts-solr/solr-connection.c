@@ -183,7 +183,7 @@ solr_connection_select_response(const struct http_response *response,
 int solr_connection_select(struct solr_connection *conn, const char *query,
 			   pool_t pool, struct solr_result ***box_results_r)
 {
-	struct solr_lookup_xml_context solr_lookup_context;
+	struct solr_response_parser parser;
 	struct solr_lookup_context lctx;
 	struct http_client_request *http_req;
 	const char *url;
@@ -192,11 +192,11 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	i_zero(&lctx);
 	lctx.conn = conn;
 
-	i_zero(&solr_lookup_context);
-	solr_lookup_context.result_pool = pool;
-	hash_table_create(&solr_lookup_context.mailboxes, default_pool, 0,
+	i_zero(&parser);
+	parser.result_pool = pool;
+	hash_table_create(&parser.mailboxes, default_pool, 0,
 			  str_hash, strcmp);
-	p_array_init(&solr_lookup_context.results, pool, 32);
+	p_array_init(&parser.results, pool, 32);
 
 	i_free_and_null(conn->http_failure);
 	conn->xml_failed = FALSE;
@@ -204,7 +204,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	XML_SetElementHandler(conn->xml_parser,
 			      solr_lookup_xml_start, solr_lookup_xml_end);
 	XML_SetCharacterDataHandler(conn->xml_parser, solr_lookup_xml_data);
-	XML_SetUserData(conn->xml_parser, &solr_lookup_context);
+	XML_SetUserData(conn->xml_parser, &parser);
 
 	url = t_strconcat(conn->http_base_url, "select?", query, NULL);
 
@@ -224,14 +224,14 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	http_client_wait(solr_http_client);
 
 	if (lctx.request_status < 0 ||
-	    solr_lookup_context.content_state == SOLR_XML_CONTENT_STATE_ERROR)
+	    parser.content_state == SOLR_XML_CONTENT_STATE_ERROR)
 		return -1;
 
 	parse_ret = solr_xml_parse(conn, "", 0, TRUE);
-	hash_table_destroy(&solr_lookup_context.mailboxes);
+	hash_table_destroy(&parser.mailboxes);
 
-	array_append_zero(&solr_lookup_context.results);
-	*box_results_r = array_front_modifiable(&solr_lookup_context.results);
+	array_append_zero(&parser.results);
+	*box_results_r = array_front_modifiable(&parser.results);
 	return parse_ret;
 }
 
