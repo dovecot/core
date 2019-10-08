@@ -218,3 +218,63 @@ static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 	}
 	ctx->depth--;
 }
+
+static int uint32_parse(const char *str, int len, uint32_t *value_r)
+{
+	uint32_t value = 0;
+	int i;
+
+	for (i = 0; i < len; i++) {
+		if (str[i] < '0' || str[i] > '9')
+			break;
+		value = value*10 + str[i]-'0';
+	}
+	if (i != len)
+		return -1;
+
+	*value_r = value;
+	return 0;
+}
+
+static void solr_lookup_xml_data(void *context, const char *str, int len)
+{
+	struct solr_lookup_xml_context *ctx = context;
+	char *new_name;
+
+	switch (ctx->content_state) {
+	case SOLR_XML_CONTENT_STATE_NONE:
+		break;
+	case SOLR_XML_CONTENT_STATE_UID:
+		if (uint32_parse(str, len, &ctx->uid) < 0 || ctx->uid == 0) {
+			i_error("fts_solr: received invalid uid '%s'",
+				t_strndup(str, len));
+			ctx->content_state = SOLR_XML_CONTENT_STATE_ERROR;
+		}
+		break;
+	case SOLR_XML_CONTENT_STATE_SCORE:
+		T_BEGIN {
+			ctx->score = strtod(t_strndup(str, len), NULL);
+		} T_END;
+		break;
+	case SOLR_XML_CONTENT_STATE_MAILBOX:
+		/* this may be called multiple times, for example if input
+		   contains '&' characters */
+		new_name = ctx->mailbox == NULL ? i_strndup(str, len) :
+			i_strconcat(ctx->mailbox, t_strndup(str, len), NULL);
+		i_free(ctx->mailbox);
+		ctx->mailbox = new_name;
+		break;
+	case SOLR_XML_CONTENT_STATE_NAMESPACE:
+		new_name = ctx->ns == NULL ? i_strndup(str, len) :
+			i_strconcat(ctx->ns, t_strndup(str, len), NULL);
+		i_free(ctx->ns);
+		ctx->ns = new_name;
+		break;
+	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
+		if (uint32_parse(str, len, &ctx->uidvalidity) < 0)
+			i_error("fts_solr: received invalid uidvalidity");
+		break;
+	case SOLR_XML_CONTENT_STATE_ERROR:
+		break;
+	}
+}
