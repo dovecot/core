@@ -541,7 +541,7 @@ void smtp_address_detail_parse(pool_t pool, const char *delimiters,
 		*detail_r = p+1;
 	}
 
-	if (address->domain == NULL)
+	if (address->domain == NULL || *address->domain == '\0')
 		*username_r = user;
 	else if (strchr(user, '@') == NULL) {
 		/* username is just glued to the domain... no SMTP escaping */
@@ -694,7 +694,7 @@ void smtp_address_write(string_t *out, const struct smtp_address *address)
 	if (quoted)
 		str_append_c(out, '\"');
 
-	if (address->domain == NULL)
+	if (address->domain == NULL || *address->domain == '\0')
 		return;
 
 	str_append_c(out, '@');
@@ -746,8 +746,12 @@ void smtp_address_init(struct smtp_address *address,
 		       const char *localpart, const char *domain)
 {
 	i_zero(address);
+	if (localpart == NULL || *localpart == '\0')
+		return;
+
 	address->localpart = localpart;
-	address->domain = (localpart == NULL ? NULL : domain);
+	if (domain != NULL && *domain != '\0')
+		address->domain = domain;
 }
 
 int smtp_address_init_from_msg(struct smtp_address *address,
@@ -756,7 +760,7 @@ int smtp_address_init_from_msg(struct smtp_address *address,
 	const char *p;
 
 	i_zero(address);
-	if (msg_addr->mailbox == NULL)
+	if (msg_addr->mailbox == NULL || *msg_addr->mailbox == '\0')
 		return 0;
 
 	/* The message_address_parse() function allows UTF-8 codepoints in
@@ -768,7 +772,8 @@ int smtp_address_init_from_msg(struct smtp_address *address,
 	}
 
 	address->localpart = msg_addr->mailbox;
-	address->domain = msg_addr->domain;
+	if (msg_addr->domain != NULL && *msg_addr->domain != '\0')
+		address->domain = msg_addr->domain;
 	return 0;
 }
 
@@ -785,15 +790,15 @@ smtp_address_clone(pool_t pool, const struct smtp_address *src)
 	/* @UNSAFE */
 
 	size = sizeof(struct smtp_address);
-	if (src->localpart != NULL) {
+	if (src->localpart != NULL && *src->localpart != '\0') {
 		lpsize = strlen(src->localpart) + 1;
 		size = MALLOC_ADD(size, lpsize);
 	}
-	if (src->domain != NULL) {
+	if (src->domain != NULL && *src->domain != '\0') {
 		dsize = strlen(src->domain) + 1;
 		size = MALLOC_ADD(size, dsize);
 	}
-	if (src->raw != NULL) {
+	if (src->raw != NULL && *src->raw != '\0') {
 		rsize = strlen(src->raw) + 1;
 		size = MALLOC_ADD(size, rsize);
 	}
@@ -851,9 +856,9 @@ struct smtp_address *smtp_address_clone_temp(const struct smtp_address *src)
 		return NULL;
 
 	new = t_new(struct smtp_address, 1);
-	new->localpart = t_strdup(src->localpart);
-	new->domain = t_strdup(src->domain);
-	new->raw = t_strdup(src->raw);
+	new->localpart = t_strdup_empty(src->localpart);
+	new->domain = t_strdup_empty(src->domain);
+	new->raw = t_strdup_empty(src->raw);
 	return new;
 }
 
@@ -891,7 +896,7 @@ smtp_address_add_detail(pool_t pool, const struct smtp_address *address,
 	new_addr = p_new(pool, struct smtp_address, 1);
 	new_addr->localpart = p_strconcat(pool,	address->localpart, delim,
 					  detail, NULL);
-	new_addr->domain = p_strdup(pool, address->domain);
+	new_addr->domain = p_strdup_empty(pool, address->domain);
 
 	return new_addr;
 }
@@ -908,7 +913,7 @@ smtp_address_add_detail_temp(const struct smtp_address *address,
 	new_addr = t_new(struct smtp_address, 1);
 	new_addr->localpart = t_strconcat(address->localpart, delim, detail,
 					  NULL);
-	new_addr->domain = t_strdup(address->domain);
+	new_addr->domain = t_strdup_empty(address->domain);
 
 	return new_addr;
 }
