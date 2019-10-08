@@ -126,44 +126,6 @@ void solr_connection_deinit(struct solr_connection **_conn)
 	i_free(conn);
 }
 
-static int solr_lookup_add_doc(struct solr_lookup_xml_context *ctx)
-{
-	struct fts_score_map *score;
-	struct solr_result *result;
-	const char *box_id;
-
-	if (ctx->uid == 0) {
-		i_error("fts_solr: uid missing from inside doc");
-		return -1;
-	}
-
-	if (ctx->mailbox == NULL) {
-		/* looking up from a single mailbox only */
-		box_id = "";
-	} else if (ctx->uidvalidity != 0) {
-		/* old style lookup */
-		string_t *str = t_str_new(64);
-		str_printfa(str, "%u\001", ctx->uidvalidity);
-		str_append(str, ctx->mailbox);
-		if (ctx->ns != NULL)
-			str_printfa(str, "\001%s", ctx->ns);
-		box_id = str_c(str);
-	} else {
-		/* new style lookup */
-		box_id = ctx->mailbox;
-	}
-	result = solr_result_get(ctx, box_id);
-
-	if (seq_range_array_add(&result->uids, ctx->uid)) {
-		/* duplicate result */
-	} else if (ctx->score != 0) {
-		score = array_append_space(&result->scores);
-		score->uid = ctx->uid;
-		score->score = ctx->score;
-	}
-	return 0;
-}
-
 static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 {
 	struct solr_lookup_xml_context *ctx = context;
