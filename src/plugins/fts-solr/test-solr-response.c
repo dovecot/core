@@ -190,7 +190,7 @@ static void test_solr_response_parser(void)
 	for (i = 0; i < tests_count; i++) T_BEGIN {
 		const struct solr_response_test *test;
 		const char *text;
-		unsigned int text_len;
+		unsigned int pos, text_len;
 		struct istream *input;
 		struct solr_response_parser *parser;
 		struct solr_result **box_results;
@@ -211,6 +211,24 @@ static void test_solr_response_parser(void)
 		ret = solr_response_parse(parser, &box_results);
 
 		test_out_reason("parse ok (buffer)", ret > 0, error);
+		if (ret > 0)
+			test_solr_result(test->results, box_results);
+
+		solr_response_parser_deinit(&parser);
+		pool_unref(&pool);
+		i_stream_unref(&input);
+
+		input = test_istream_create_data(text, text_len);
+		pool = pool_alloconly_create("solr response", 4096);
+		parser = solr_response_parser_init(pool, input);
+
+		ret = 0;
+		for (pos = 0; pos <= text_len && ret == 0; pos++) {
+			test_istream_set_size(input, pos);
+			ret = solr_response_parse(parser, &box_results);
+		}
+
+		test_out_reason("parse ok (trickle)", ret > 0, error);
 		if (ret > 0)
 			test_solr_result(test->results, box_results);
 

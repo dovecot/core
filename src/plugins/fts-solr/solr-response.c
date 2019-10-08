@@ -9,6 +9,8 @@
 
 #include <expat.h>
 
+#define MAX_VALUE_LEN 2048
+
 enum solr_xml_response_state {
 	SOLR_XML_RESPONSE_STATE_ROOT,
 	SOLR_XML_RESPONSE_STATE_RESPONSE,
@@ -34,6 +36,7 @@ struct solr_response_parser {
 	enum solr_xml_response_state state;
 	enum solr_xml_content_state content_state;
 	int depth;
+	string_t *buffer;
 
 	uint32_t uid, uidvalidity;
 	float score;
@@ -95,6 +98,8 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 		/* skipping over unwanted elements */
 		return;
 	}
+
+	str_truncate(parser->buffer, 0);
 
 	/* response -> result -> doc */
 	switch (parser->state) {
@@ -198,10 +203,36 @@ static int solr_lookup_add_doc(struct solr_response_parser *parser)
 static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 {
 	struct solr_response_parser *parser = context;
+	string_t *buf = parser->buffer;
 	int ret;
 
-	if (parser->content_state == SOLR_XML_CONTENT_STATE_ERROR)
+	switch (parser->content_state) {
+	case SOLR_XML_CONTENT_STATE_NONE:
+		break;
+	case SOLR_XML_CONTENT_STATE_UID:
+		if (str_to_uint32(str_c(buf), &parser->uid) < 0 ||
+		    parser->uid == 0) {
+			i_error("fts_solr: received invalid uid '%s'",
+				str_c(buf));
+			parser->content_state = SOLR_XML_CONTENT_STATE_ERROR;
+		}
+		break;
+	case SOLR_XML_CONTENT_STATE_SCORE:
+		parser->score = strtod(str_c(buf), NULL);
+		break;
+	case SOLR_XML_CONTENT_STATE_MAILBOX:
+		parser->mailbox = i_strdup(str_c(buf));
+		break;
+	case SOLR_XML_CONTENT_STATE_NAMESPACE:
+		parser->ns = i_strdup(str_c(buf));
+		break;
+	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
+		if (str_to_uint32(str_c(buf), &parser->uidvalidity) < 0)
+			i_error("fts_solr: received invalid uidvalidity");
+		break;
+	case SOLR_XML_CONTENT_STATE_ERROR:
 		return;
+	}
 
 	i_assert(parser->depth >= (int)parser->state);
 
@@ -231,46 +262,27 @@ static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 static void solr_lookup_xml_data(void *context, const char *str, int len)
 {
 	struct solr_response_parser *parser = context;
-	char *new_name;
 
 	switch (parser->content_state) {
 	case SOLR_XML_CONTENT_STATE_NONE:
-		break;
-	case SOLR_XML_CONTENT_STATE_UID:
-		if (str_to_uint32(t_strndup(str, len), &parser->uid) < 0 ||
-		    parser->uid == 0) {
-			i_error("fts_solr: received invalid uid '%s'",
-				t_strndup(str, len));
-			parser->content_state = SOLR_XML_CONTENT_STATE_ERROR;
-		}
-		break;
-	case SOLR_XML_CONTENT_STATE_SCORE:
-		T_BEGIN {
-			parser->score = strtod(t_strndup(str, len), NULL);
-		} T_END;
-		break;
-	case SOLR_XML_CONTENT_STATE_MAILBOX:
-		/* this may be called multiple times, for example if input
-		   contains '&' characters */
-		new_name = parser->mailbox == NULL ? i_strndup(str, len) :
-			i_strconcat(parser->mailbox, t_strndup(str, len), NULL);
-		i_free(parser->mailbox);
-		parser->mailbox = new_name;
-		break;
-	case SOLR_XML_CONTENT_STATE_NAMESPACE:
-		new_name = parser->ns == NULL ? i_strndup(str, len) :
-			i_strconcat(parser->ns, t_strndup(str, len), NULL);
-		i_free(parser->ns);
-		parser->ns = new_name;
-		break;
-	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
-		if (str_to_uint32(t_strndup(str, len),
-				  &parser->uidvalidity) < 0)
-			i_error("fts_solr: received invalid uidvalidity");
-		break;
 	case SOLR_XML_CONTENT_STATE_ERROR:
+		/* ignore element data */
+		return;
+	case SOLR_XML_CONTENT_STATE_UID:
+	case SOLR_XML_CONTENT_STATE_SCORE:
+	case SOLR_XML_CONTENT_STATE_MAILBOX:
+	case SOLR_XML_CONTENT_STATE_NAMESPACE:
+	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
 		break;
 	}
+
+	if (str_len(parser->buffer) + len > MAX_VALUE_LEN) {
+		i_error("fts_solr: XML element data length out of range");
+		parser->content_state = SOLR_XML_CONTENT_STATE_ERROR;
+		return;
+	}
+
+	str_append_data(parser->buffer, str, len);
 }
 
 struct solr_response_parser *
@@ -286,6 +298,7 @@ solr_response_parser_init(pool_t result_pool, struct istream *input)
 			       "fts_solr: Failed to allocate XML parser");
 	}
 
+	parser->buffer = str_new(default_pool, 256);
 	hash_table_create(&parser->mailboxes, default_pool, 0,
 			  str_hash, strcmp);
 
@@ -314,6 +327,7 @@ void solr_response_parser_deinit(struct solr_response_parser **_parser)
 	if (parser == NULL)
 		return;
 
+	str_free(&parser->buffer);
 	hash_table_destroy(&parser->mailboxes);
 	XML_ParserFree(parser->xml_parser);
 	i_stream_unref(&parser->input);
