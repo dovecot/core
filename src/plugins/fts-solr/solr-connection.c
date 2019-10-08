@@ -14,17 +14,15 @@
 
 #include <expat.h>
 
-struct solr_response_parser;
-
 struct solr_lookup_context {
-	struct solr_connection *conn;
-
+	pool_t result_pool;
 	struct istream *payload;
 	struct io *io;
 
 	int request_status;
 
 	struct solr_response_parser *parser;
+	struct solr_result **results;
 };
 
 struct solr_connection_post {
@@ -48,8 +46,6 @@ struct solr_connection {
 	bool posting:1;
 	bool http_ssl:1;
 };
-
-#include "solr-response.c"
 
 /* Regardless of the specified URL, make sure path ends in '/' */
 static char *solr_connection_create_http_base_url(struct http_url *http_url)
@@ -128,27 +124,24 @@ void solr_connection_deinit(struct solr_connection **_conn)
 
 static void solr_connection_payload_input(struct solr_lookup_context *lctx)
 {
-	const unsigned char *data;
-	size_t size;
 	int ret;
 
 	/* read payload */
-	while ((ret = i_stream_read_more(lctx->payload, &data, &size)) > 0) {
-		(void)solr_xml_parse(lctx->parser, data, size, FALSE);
-		i_stream_skip(lctx->payload, size);
-	}
+	ret = solr_response_parse(lctx->parser, &lctx->results);
 
 	if (ret == 0) {
 		/* we will be called again for more data */
 	} else {
 		if (lctx->payload->stream_errno != 0) {
+			i_assert(ret < 0);
 			i_error("fts_solr: "
 				"failed to read payload from HTTP server: %s",
 				i_stream_get_error(lctx->payload));
-			lctx->request_status = -1;
 		}
+		if (ret < 0)
+			lctx->request_status = -1;
+		solr_response_parser_deinit(&lctx->parser);
 		io_remove(&lctx->io);
-		i_stream_unref(&lctx->payload);
 	}
 }
 
@@ -169,7 +162,8 @@ solr_connection_select_response(const struct http_response *response,
 		return;
 	}
 
-	i_stream_ref(response->payload);
+	lctx->parser = solr_response_parser_init(lctx->result_pool,
+						 response->payload);
 	lctx->payload = response->payload;
 	lctx->io = io_add_istream(response->payload,
 				  solr_connection_payload_input, lctx);
@@ -179,17 +173,12 @@ solr_connection_select_response(const struct http_response *response,
 int solr_connection_select(struct solr_connection *conn, const char *query,
 			   pool_t pool, struct solr_result ***box_results_r)
 {
-	struct solr_response_parser parser;
 	struct solr_lookup_context lctx;
 	struct http_client_request *http_req;
 	const char *url;
-	int parse_ret;
 
 	i_zero(&lctx);
-	lctx.conn = conn;
-
-	solr_response_parser_init(&parser, pool);
-	lctx.parser = &parser;
+	lctx.result_pool = pool;
 
 	i_free_and_null(conn->http_failure);
 	url = t_strconcat(conn->http_base_url, "select?", query, NULL);
@@ -209,16 +198,11 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	lctx.request_status = 0;
 	http_client_wait(solr_http_client);
 
-	if (lctx.request_status < 0 ||
-	    parser.content_state == SOLR_XML_CONTENT_STATE_ERROR)
+	if (lctx.request_status < 0)
 		return -1;
 
-	parse_ret = solr_xml_parse(&parser, "", 0, TRUE);
-	solr_response_parser_deinit(&parser);
-
-	array_append_zero(&parser.results);
-	*box_results_r = array_front_modifiable(&parser.results);
-	return parse_ret;
+	*box_results_r = lctx.results;
+	return 0;
 }
 
 static void

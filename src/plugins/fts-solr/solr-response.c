@@ -1,6 +1,10 @@
 /* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
+#include "hash.h"
+#include "str.h"
+#include "istream.h"
 #include "solr-response.h"
 
 #include <expat.h>
@@ -25,6 +29,7 @@ enum solr_xml_content_state {
 
 struct solr_response_parser {
 	XML_Parser xml_parser;
+	struct istream *input;
 
 	enum solr_xml_response_state state;
 	enum solr_xml_content_state content_state;
@@ -284,10 +289,12 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 	}
 }
 
-void solr_response_parser_init(struct solr_response_parser *parser,
-			       pool_t result_pool)
+struct solr_response_parser *
+solr_response_parser_init(pool_t result_pool, struct istream *input)
 {
-	i_zero(parser);
+	struct solr_response_parser *parser;
+
+	parser = i_new(struct solr_response_parser, 1);
 
 	parser->xml_parser = XML_ParserCreate("UTF-8");
 	if (parser->xml_parser == NULL) {
@@ -299,17 +306,69 @@ void solr_response_parser_init(struct solr_response_parser *parser,
 			  str_hash, strcmp);
 
 	parser->result_pool = result_pool;
+	pool_ref(result_pool);
 	p_array_init(&parser->results, result_pool, 32);
+
+	parser->input = input;
+	i_stream_ref(input);
 
 	parser->xml_failed = FALSE;
 	XML_SetElementHandler(parser->xml_parser,
 			      solr_lookup_xml_start, solr_lookup_xml_end);
 	XML_SetCharacterDataHandler(parser->xml_parser, solr_lookup_xml_data);
 	XML_SetUserData(parser->xml_parser, parser);
+
+	return parser;
 }
 
-void solr_response_parser_deinit(struct solr_response_parser *parser)
+void solr_response_parser_deinit(struct solr_response_parser **_parser)
 {
+	struct solr_response_parser *parser = *_parser;
+
+	*_parser = NULL;
+
+	if (parser == NULL)
+		return;
+
 	hash_table_destroy(&parser->mailboxes);
 	XML_ParserFree(parser->xml_parser);
+	i_stream_unref(&parser->input);
+	pool_unref(&parser->result_pool);
+	i_free(parser);
+}
+
+int solr_response_parse(struct solr_response_parser *parser,
+			struct solr_result ***box_results_r)
+{
+	const unsigned char *data;
+	size_t size;
+	int stream_errno, ret;
+
+	i_assert(parser->input != NULL);
+	i_zero(box_results_r);
+
+	/* read payload */
+	while ((ret = i_stream_read_more(parser->input, &data, &size)) > 0) {
+		(void)solr_xml_parse(parser, data, size, FALSE);
+		i_stream_skip(parser->input, size);
+	}
+
+	if (ret == 0) {
+		/* we will be called again for more data */
+		return 0;
+	}
+
+	stream_errno = parser->input->stream_errno;
+	i_stream_unref(&parser->input);
+
+	if (parser->content_state == SOLR_XML_CONTENT_STATE_ERROR)
+		return -1;
+	if (stream_errno != 0)
+		return -1;
+
+	ret = solr_xml_parse(parser, "", 0, TRUE);
+
+	array_append_zero(&parser->results);
+	*box_results_r = array_front_modifiable(&parser->results);
+	return (ret == 0 ? 1 : -1);
 }
