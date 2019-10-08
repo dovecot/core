@@ -1083,6 +1083,14 @@ bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,
 	return FALSE;
 }
 
+void smtp_params_rcpt_set_orcpt(struct smtp_params_rcpt *params, pool_t pool,
+				struct smtp_address *rcpt)
+{
+	params->orcpt.addr_type = "rfc822";
+	params->orcpt.addr = smtp_address_clone(pool, rcpt);
+	params->orcpt.addr_raw = p_strdup(pool, smtp_address_encode(rcpt));
+}
+
 /* write */
 
 static void

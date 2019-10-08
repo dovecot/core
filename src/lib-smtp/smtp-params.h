@@ -149,6 +149,9 @@ bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,
 				 const char *keyword, const char **value_r)
 				 ATTR_NULL(3);
 
+void smtp_params_rcpt_set_orcpt(struct smtp_params_rcpt *params, pool_t pool,
+				struct smtp_address *rcpt);
+
 /* write */
 
 void smtp_params_rcpt_write(string_t *buffer, enum smtp_capability caps,
