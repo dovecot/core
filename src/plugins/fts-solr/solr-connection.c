@@ -279,7 +279,6 @@ solr_connection_post_begin(struct solr_connection *conn)
 	post = i_new(struct solr_connection_post, 1);
 	post->conn = conn;
 	post->http_req = solr_connection_post_request(post);
-	XML_ParserReset(conn->xml_parser, "UTF-8");
 	return post;
 }
 
@@ -338,8 +337,6 @@ int solr_connection_post(struct solr_connection *conn, const char *cmd)
 	http_client_request_set_payload(post.http_req, post_payload, TRUE);
 	i_stream_unref(&post_payload);
 	http_client_request_submit(post.http_req);
-
-	XML_ParserReset(conn->xml_parser, "UTF-8");
 
 	post.request_status = 0;
 	http_client_wait(solr_http_client);
