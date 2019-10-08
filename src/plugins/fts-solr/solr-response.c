@@ -128,3 +128,23 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 	}
 }
 
+static struct solr_result *
+solr_result_get(struct solr_lookup_xml_context *ctx, const char *box_id)
+{
+	struct solr_result *result;
+	char *box_id_dup;
+
+	result = hash_table_lookup(ctx->mailboxes, box_id);
+	if (result != NULL)
+		return result;
+
+	box_id_dup = p_strdup(ctx->result_pool, box_id);
+	result = p_new(ctx->result_pool, struct solr_result, 1);
+	result->box_id = box_id_dup;
+	p_array_init(&result->uids, ctx->result_pool, 32);
+	p_array_init(&result->scores, ctx->result_pool, 32);
+	hash_table_insert(ctx->mailboxes, box_id_dup, result);
+	array_push_back(&ctx->results, &result);
+	return result;
+}
+
