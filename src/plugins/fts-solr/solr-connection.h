@@ -1,18 +1,10 @@
 #ifndef SOLR_CONNECTION_H
 #define SOLR_CONNECTION_H
 
-#include "seq-range-array.h"
-#include "fts-api.h"
+#include "solr-response.h"
 
 struct solr_connection;
 struct fts_solr_settings;
-
-struct solr_result {
-	const char *box_id;
-
-	ARRAY_TYPE(seq_range) uids;
-	ARRAY_TYPE(fts_score_map) scores;
-};
 
 int solr_connection_init(const struct fts_solr_settings *solr_set,
 			 const struct ssl_iostream_settings *ssl_client_set,

@@ -30,4 +30,5 @@ lib21_fts_solr_plugin_la_SOURCES = \
 
 noinst_HEADERS = \
 	fts-solr-plugin.h \
+	solr-response.h \
 	solr-connection.h
