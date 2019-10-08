@@ -143,7 +143,8 @@ static void solr_connection_payload_input(struct solr_lookup_context *lctx)
 	} else {
 		if (lctx->payload->stream_errno != 0) {
 			i_error("fts_solr: "
-				"failed to read payload from HTTP server: %m");
+				"failed to read payload from HTTP server: %s",
+				i_stream_get_error(lctx->payload));
 			lctx->request_status = -1;
 		}
 		io_remove(&lctx->io);
