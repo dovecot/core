@@ -1137,7 +1137,7 @@ static void
 smtp_params_rcpt_write_orcpt(string_t *buffer, enum smtp_capability caps,
 			     const struct smtp_params_rcpt *params)
 {
-	if (params->orcpt.addr_type == NULL)
+	if (!smtp_params_rcpt_has_orcpt(params))
 		return;
 	if ((caps & SMTP_CAPABILITY_DSN) == 0 &&
 	    (caps & SMTP_CAPABILITY__ORCPT) == 0)

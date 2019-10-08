@@ -166,6 +166,12 @@ smtp_params_rcpt_get_extra(const struct smtp_params_rcpt *params,
 bool smtp_params_rcpt_equals(const struct smtp_params_rcpt *params1,
 			     const struct smtp_params_rcpt *params2);
 
+static inline bool
+smtp_params_rcpt_has_orcpt(const struct smtp_params_rcpt *params)
+{
+	return (params->orcpt.addr_type != NULL);
+}
+
 /* events */
 
 void smtp_params_rcpt_add_to_event(const struct smtp_params_rcpt *params,
