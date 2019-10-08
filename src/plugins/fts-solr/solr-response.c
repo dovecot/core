@@ -228,23 +228,6 @@ static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 	parser->depth--;
 }
 
-static int uint32_parse(const char *str, int len, uint32_t *value_r)
-{
-	uint32_t value = 0;
-	int i;
-
-	for (i = 0; i < len; i++) {
-		if (str[i] < '0' || str[i] > '9')
-			break;
-		value = value*10 + str[i]-'0';
-	}
-	if (i != len)
-		return -1;
-
-	*value_r = value;
-	return 0;
-}
-
 static void solr_lookup_xml_data(void *context, const char *str, int len)
 {
 	struct solr_response_parser *parser = context;
@@ -254,7 +237,7 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 	case SOLR_XML_CONTENT_STATE_NONE:
 		break;
 	case SOLR_XML_CONTENT_STATE_UID:
-		if (uint32_parse(str, len, &parser->uid) < 0 ||
+		if (str_to_uint32(t_strndup(str, len), &parser->uid) < 0 ||
 		    parser->uid == 0) {
 			i_error("fts_solr: received invalid uid '%s'",
 				t_strndup(str, len));
@@ -281,7 +264,8 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 		parser->ns = new_name;
 		break;
 	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
-		if (uint32_parse(str, len, &parser->uidvalidity) < 0)
+		if (str_to_uint32(t_strndup(str, len),
+				  &parser->uidvalidity) < 0)
 			i_error("fts_solr: received invalid uidvalidity");
 		break;
 	case SOLR_XML_CONTENT_STATE_ERROR:
