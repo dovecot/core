@@ -14,6 +14,8 @@
 
 #include <expat.h>
 
+struct solr_response_parser;
+
 struct solr_lookup_context {
 	struct solr_connection *conn;
 
@@ -21,6 +23,8 @@ struct solr_lookup_context {
 	struct io *io;
 
 	int request_status;
+
+	struct solr_response_parser *parser;
 };
 
 struct solr_connection_post {
@@ -33,8 +37,6 @@ struct solr_connection_post {
 };
 
 struct solr_connection {
-	XML_Parser xml_parser;
-
 	char *http_host;
 	in_port_t http_port;
 	char *http_base_url;
@@ -44,7 +46,6 @@ struct solr_connection {
 
 	bool debug:1;
 	bool posting:1;
-	bool xml_failed:1;
 	bool http_ssl:1;
 };
 
@@ -109,11 +110,6 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		solr_http_client = http_client_init(&http_set);
 	}
 
-	conn->xml_parser = XML_ParserCreate("UTF-8");
-	if (conn->xml_parser == NULL) {
-		i_fatal_status(FATAL_OUTOFMEM,
-			       "fts_solr: Failed to allocate XML parser");
-	}
 	*conn_r = conn;
 	return 0;
 }
@@ -123,7 +119,6 @@ void solr_connection_deinit(struct solr_connection **_conn)
 	struct solr_connection *conn = *_conn;
 
 	*_conn = NULL;
-	XML_ParserFree(conn->xml_parser);
 	i_free(conn->http_host);
 	i_free(conn->http_base_url);
 	i_free(conn->http_user);
@@ -139,7 +134,7 @@ static void solr_connection_payload_input(struct solr_lookup_context *lctx)
 
 	/* read payload */
 	while ((ret = i_stream_read_more(lctx->payload, &data, &size)) > 0) {
-		(void)solr_xml_parse(lctx->conn, data, size, FALSE);
+		(void)solr_xml_parse(lctx->parser, data, size, FALSE);
 		i_stream_skip(lctx->payload, size);
 	}
 
@@ -194,17 +189,25 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 
 	i_zero(&parser);
 	parser.result_pool = pool;
+	lctx.parser = &parser;
+
+	parser.xml_parser = XML_ParserCreate("UTF-8");
+	if (parser.xml_parser == NULL) {
+		i_fatal_status(FATAL_OUTOFMEM,
+			       "fts_solr: Failed to allocate XML parser");
+	}
+
 	hash_table_create(&parser.mailboxes, default_pool, 0,
 			  str_hash, strcmp);
 	p_array_init(&parser.results, pool, 32);
 
 	i_free_and_null(conn->http_failure);
-	conn->xml_failed = FALSE;
-	XML_ParserReset(conn->xml_parser, "UTF-8");
-	XML_SetElementHandler(conn->xml_parser,
+	parser.xml_failed = FALSE;
+	XML_ParserReset(parser.xml_parser, "UTF-8");
+	XML_SetElementHandler(parser.xml_parser,
 			      solr_lookup_xml_start, solr_lookup_xml_end);
-	XML_SetCharacterDataHandler(conn->xml_parser, solr_lookup_xml_data);
-	XML_SetUserData(conn->xml_parser, &parser);
+	XML_SetCharacterDataHandler(parser.xml_parser, solr_lookup_xml_data);
+	XML_SetUserData(parser.xml_parser, &parser);
 
 	url = t_strconcat(conn->http_base_url, "select?", query, NULL);
 
@@ -227,8 +230,9 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	    parser.content_state == SOLR_XML_CONTENT_STATE_ERROR)
 		return -1;
 
-	parse_ret = solr_xml_parse(conn, "", 0, TRUE);
+	parse_ret = solr_xml_parse(&parser, "", 0, TRUE);
 	hash_table_destroy(&parser.mailboxes);
+	XML_ParserFree(parser.xml_parser);
 
 	array_append_zero(&parser.results);
 	*box_results_r = array_front_modifiable(&parser.results);

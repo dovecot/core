@@ -24,6 +24,8 @@ enum solr_xml_content_state {
 };
 
 struct solr_response_parser {
+	XML_Parser xml_parser;
+
 	enum solr_xml_response_state state;
 	enum solr_xml_content_state content_state;
 	int depth;
@@ -36,29 +38,31 @@ struct solr_response_parser {
 	/* box_id -> solr_result */
 	HASH_TABLE(char *, struct solr_result *) mailboxes;
 	ARRAY(struct solr_result *) results;
+
+	bool xml_failed:1;
 };
 
 static int
-solr_xml_parse(struct solr_connection *conn,
+solr_xml_parse(struct solr_response_parser *parser,
 	       const void *data, size_t size, bool done)
 {
 	enum XML_Error err;
 	int line, col;
 
-	if (conn->xml_failed)
+	if (parser->xml_failed)
 		return -1;
 
-	if (XML_Parse(conn->xml_parser, data, size, done ? 1 : 0) != 0)
+	if (XML_Parse(parser->xml_parser, data, size, done ? 1 : 0) != 0)
 		return 0;
 
-	err = XML_GetErrorCode(conn->xml_parser);
+	err = XML_GetErrorCode(parser->xml_parser);
 	if (err != XML_ERROR_FINISHED) {
-		line = XML_GetCurrentLineNumber(conn->xml_parser);
-		col = XML_GetCurrentColumnNumber(conn->xml_parser);
+		line = XML_GetCurrentLineNumber(parser->xml_parser);
+		col = XML_GetCurrentColumnNumber(parser->xml_parser);
 		i_error("fts_solr: Invalid XML input at %d:%d: %s "
 			"(near: %.*s)", line, col, XML_ErrorString(err),
 			(int)I_MIN(size, 128), (const char *)data);
-		conn->xml_failed = TRUE;
+		parser->xml_failed = TRUE;
 		return -1;
 	}
 	return 0;
