@@ -283,3 +283,33 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 		break;
 	}
 }
+
+void solr_response_parser_init(struct solr_response_parser *parser,
+			       pool_t result_pool)
+{
+	i_zero(parser);
+
+	parser->xml_parser = XML_ParserCreate("UTF-8");
+	if (parser->xml_parser == NULL) {
+		i_fatal_status(FATAL_OUTOFMEM,
+			       "fts_solr: Failed to allocate XML parser");
+	}
+
+	hash_table_create(&parser->mailboxes, default_pool, 0,
+			  str_hash, strcmp);
+
+	parser->result_pool = result_pool;
+	p_array_init(&parser->results, result_pool, 32);
+
+	parser->xml_failed = FALSE;
+	XML_SetElementHandler(parser->xml_parser,
+			      solr_lookup_xml_start, solr_lookup_xml_end);
+	XML_SetCharacterDataHandler(parser->xml_parser, solr_lookup_xml_data);
+	XML_SetUserData(parser->xml_parser, parser);
+}
+
+void solr_response_parser_deinit(struct solr_response_parser *parser)
+{
+	hash_table_destroy(&parser->mailboxes);
+	XML_ParserFree(parser->xml_parser);
+}

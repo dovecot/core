@@ -188,28 +188,10 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	i_zero(&lctx);
 	lctx.conn = conn;
 
-	i_zero(&parser);
-	parser.result_pool = pool;
+	solr_response_parser_init(&parser, pool);
 	lctx.parser = &parser;
 
-	parser.xml_parser = XML_ParserCreate("UTF-8");
-	if (parser.xml_parser == NULL) {
-		i_fatal_status(FATAL_OUTOFMEM,
-			       "fts_solr: Failed to allocate XML parser");
-	}
-
-	hash_table_create(&parser.mailboxes, default_pool, 0,
-			  str_hash, strcmp);
-	p_array_init(&parser.results, pool, 32);
-
 	i_free_and_null(conn->http_failure);
-	parser.xml_failed = FALSE;
-	XML_ParserReset(parser.xml_parser, "UTF-8");
-	XML_SetElementHandler(parser.xml_parser,
-			      solr_lookup_xml_start, solr_lookup_xml_end);
-	XML_SetCharacterDataHandler(parser.xml_parser, solr_lookup_xml_data);
-	XML_SetUserData(parser.xml_parser, &parser);
-
 	url = t_strconcat(conn->http_base_url, "select?", query, NULL);
 
 	http_req = http_client_request(solr_http_client, "GET",
@@ -232,8 +214,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 		return -1;
 
 	parse_ret = solr_xml_parse(&parser, "", 0, TRUE);
-	hash_table_destroy(&parser.mailboxes);
-	XML_ParserFree(parser.xml_parser);
+	solr_response_parser_deinit(&parser);
 
 	array_append_zero(&parser.results);
 	*box_results_r = array_front_modifiable(&parser.results);
