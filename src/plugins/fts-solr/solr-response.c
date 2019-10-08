@@ -185,3 +185,36 @@ static int solr_lookup_add_doc(struct solr_lookup_xml_context *ctx)
 	}
 	return 0;
 }
+
+static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
+{
+	struct solr_lookup_xml_context *ctx = context;
+	int ret;
+
+	if (ctx->content_state == SOLR_XML_CONTENT_STATE_ERROR)
+		return;
+
+	i_assert(ctx->depth >= (int)ctx->state);
+
+	if (ctx->state == SOLR_XML_RESPONSE_STATE_CONTENT &&
+	    ctx->content_state == SOLR_XML_CONTENT_STATE_MAILBOX &&
+	    ctx->mailbox == NULL) {
+		/* mailbox is namespace prefix */
+		ctx->mailbox = i_strdup("");
+	}
+
+	if (ctx->depth == (int)ctx->state) {
+		ret = 0;
+		if (ctx->state == SOLR_XML_RESPONSE_STATE_DOC) {
+			T_BEGIN {
+				ret = solr_lookup_add_doc(ctx);
+			} T_END;
+		}
+		ctx->state--;
+		if (ret < 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_ERROR;
+		else
+			ctx->content_state = SOLR_XML_CONTENT_STATE_NONE;
+	}
+	ctx->depth--;
+}
