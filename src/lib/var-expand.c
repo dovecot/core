@@ -201,7 +201,8 @@ var_expand_hash(struct var_expand_context *ctx,
 	enum {
 		FORMAT_HEX,
 		FORMAT_HEX_UC,
-		FORMAT_BASE64
+		FORMAT_BASE64,
+		FORMAT_BASE64_URL,
 	} format = FORMAT_HEX;
 
 	const char *p = strchr(key, ';');
@@ -289,6 +290,8 @@ var_expand_hash(struct var_expand_context *ctx,
 				format = FORMAT_HEX_UC;
 			} else if (strcmp(value, "base64") == 0) {
 				format = FORMAT_BASE64;
+			} else if (strcmp(value, "base64url") == 0) {
+				format = FORMAT_BASE64_URL;
 			} else {
 				*error_r = t_strdup_printf(
 					"Cannot parse hash arguments:"
@@ -341,6 +344,13 @@ var_expand_hash(struct var_expand_context *ctx,
 		case FORMAT_BASE64: {
 			string_t *dest = t_str_new(64);
 			base64_encode(tmp->data, tmp->used, dest);
+			*result_r = str_c(dest);
+			return 1;
+		}
+		case FORMAT_BASE64_URL: {
+			string_t *dest = t_str_new(64);
+			base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, 0,
+					 tmp->data, tmp->used, dest);
 			*result_r = str_c(dest);
 			return 1;
 		}
