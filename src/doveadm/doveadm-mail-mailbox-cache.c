@@ -314,6 +314,9 @@ static void cmd_mailbox_cache_remove_init(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox_cache_cmd_context *ctx =
 		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
 
+	if (args[0] == NULL)
+		doveadm_mail_help_name("mailbox cache remove");
+
 	doveadm_print_header_simple("mailbox");
 	doveadm_print_header_simple("uid");
 	doveadm_print_header_simple("result");
