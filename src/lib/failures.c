@@ -661,7 +661,7 @@ void i_set_failure_syslog(const char *ident, int options, int facility)
 	i_set_debug_handler(i_syslog_error_handler);
 }
 
-static void open_log_file(int *fd, const char *path)
+static void open_log_file(int *fd, const char *path, mode_t mode)
 {
 	const char *str;
 
@@ -675,7 +675,7 @@ static void open_log_file(int *fd, const char *path)
 	if (path == NULL || strcmp(path, "/dev/stderr") == 0)
 		*fd = STDERR_FILENO;
 	else {
-		*fd = open(path, O_CREAT | O_APPEND | O_WRONLY, 0600);
+		*fd = open(path, O_CREAT | O_APPEND | O_WRONLY, mode);
 		if (*fd == -1) {
 			*fd = STDERR_FILENO;
 			str = t_strdup_printf("Can't open log file %s: %m\n",
@@ -690,7 +690,7 @@ static void open_log_file(int *fd, const char *path)
 	}
 }
 
-void i_set_failure_file(const char *path, const char *prefix)
+void i_set_failure_file(const char *path, const char *prefix, mode_t mode)
 {
 	i_set_failure_prefix("%s", prefix);
 
@@ -705,7 +705,7 @@ void i_set_failure_file(const char *path, const char *prefix)
 			i_error("close(%d) failed: %m", log_debug_fd);
 	}
 
-	open_log_file(&log_fd, path);
+	open_log_file(&log_fd, path, mode);
 	/* if info/debug logs are elsewhere, i_set_info/debug_file()
 	   overrides these later. */
 	log_info_fd = log_fd;
@@ -879,12 +879,12 @@ void i_set_failure_ignore_errors(bool ignore)
 	failure_ignore_errors = ignore;
 }
 
-void i_set_info_file(const char *path)
+void i_set_info_file(const char *path, mode_t mode)
 {
 	if (log_info_fd == log_fd)
 		log_info_fd = STDERR_FILENO;
 
-	open_log_file(&log_info_fd, path);
+	open_log_file(&log_info_fd, path, mode);
         info_handler = default_error_handler;
 	/* write debug-level messages to the info_log_path,
 	  until i_set_debug_file() was called */
@@ -892,12 +892,12 @@ void i_set_info_file(const char *path)
 	i_set_debug_handler(default_error_handler);
 }
 
-void i_set_debug_file(const char *path)
+void i_set_debug_file(const char *path, mode_t mode)
 {
 	if (log_debug_fd == log_fd || log_debug_fd == log_info_fd)
 		log_debug_fd = STDERR_FILENO;
 
-	open_log_file(&log_debug_fd, path);
+	open_log_file(&log_debug_fd, path, mode);
 	debug_handler = default_error_handler;
 }
 

@@ -385,7 +385,7 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	if (!doveadm_debug) {
 		/* disable debugging unless -D is given */
-		i_set_debug_file("/dev/null");
+		i_set_debug_file("/dev/null", 0600);
 	}
 
 	/* this has to be done here because proctitle hack can break

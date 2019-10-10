@@ -418,7 +418,7 @@ master_service_try_init_log(struct master_service *service,
 		timestamp = getenv("LOG_STDERR_TIMESTAMP");
 		if (timestamp != NULL)
 			i_set_failure_timestamp_format(timestamp);
-		i_set_failure_file("/dev/stderr", "");
+		i_set_failure_file("/dev/stderr", "", service->set->log_file_mode);
 		return TRUE;
 	}
 
@@ -430,7 +430,7 @@ master_service_try_init_log(struct master_service *service,
 	}
 
 	if (service->set == NULL) {
-		i_set_failure_file("/dev/stderr", prefix);
+		i_set_failure_file("/dev/stderr", prefix, service->set->log_file_mode);
 		/* may be called again after we have settings */
 		return FALSE;
 	}
@@ -438,7 +438,7 @@ master_service_try_init_log(struct master_service *service,
 	if (strcmp(service->set->log_path, "syslog") != 0) {
 		/* error logging goes to file or stderr */
 		path = home_expand(service->set->log_path);
-		i_set_failure_file(path, prefix);
+		i_set_failure_file(path, prefix, service->set->log_file_mode);
 	}
 
 	if (strcmp(service->set->log_path, "syslog") == 0 ||
@@ -464,15 +464,16 @@ master_service_try_init_log(struct master_service *service,
 	if (*service->set->info_log_path != '\0' &&
 	    strcmp(service->set->info_log_path, "syslog") != 0) {
 		path = home_expand(service->set->info_log_path);
+		mode_t mode = service->set->log_file_mode;
 		if (*path != '\0')
-			i_set_info_file(path);
+			i_set_info_file(path, mode);
 	}
 
 	if (*service->set->debug_log_path != '\0' &&
 	    strcmp(service->set->debug_log_path, "syslog") != 0) {
 		path = home_expand(service->set->debug_log_path);
 		if (*path != '\0')
-			i_set_debug_file(path);
+			i_set_debug_file(path, service->set->log_file_mode);
 	}
 	i_set_failure_timestamp_format(service->set->log_timestamp);
 	return TRUE;

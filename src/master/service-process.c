@@ -159,7 +159,8 @@ service_dup_fds(struct service *service)
 	   There's no guarantee that writing to stderr is visible anywhere, but
 	   it's better than the process just dying with FATAL_LOGWRITE. */
 	i_set_failure_file("/dev/stderr",
-		t_strdup_printf("service(%s): ", service->set->name));
+		t_strdup_printf("service(%s): ", service->set->name),
+		0600);
 
 	/* make sure we don't leak syslog fd. try to do it as late as possible,
 	   but also before dup2()s in case syslog fd is one of them. */

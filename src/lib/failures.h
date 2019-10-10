@@ -106,7 +106,7 @@ void i_syslog_error_handler(const struct failure_context *ctx,
 void i_set_failure_syslog(const char *ident, int options, int facility);
 
 /* Send failures to specified log file instead of stderr. */
-void i_set_failure_file(const char *path, const char *prefix);
+void i_set_failure_file(const char *path, const char *prefix, mode_t mode);
 
 /* Send errors to stderr using internal error protocol. */
 void i_set_failure_internal(void);
@@ -119,11 +119,11 @@ void i_set_failure_ignore_errors(bool ignore);
 
 /* Send informational messages to specified log file. i_set_failure_*()
    functions modify the info file too, so call this function after them. */
-void i_set_info_file(const char *path);
+void i_set_info_file(const char *path, mode_t mode);
 
 /* Send debug-level message to the given log file. The i_set_info_file() 
    function modifies also the debug log file, so call this function after it. */
-void i_set_debug_file(const char *path);
+void i_set_debug_file(const char *path, mode_t mode);
 
 /* Set the failure prefix. */
 void i_set_failure_prefix(const char *prefix_fmt, ...) ATTR_FORMAT(1, 2);
