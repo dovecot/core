@@ -94,6 +94,8 @@ static void test_compression_handler(const struct compression_handler *handler)
 		if (seeked)
 			break;
 		seeked = TRUE;
+		i_stream_seek(input, 1);
+		(void)i_stream_read(input);
 		i_stream_seek(input, 0);
 	}
 	i_stream_destroy(&input);

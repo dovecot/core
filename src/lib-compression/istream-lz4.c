@@ -92,6 +92,10 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 	size_t size;
 	int ret;
 
+	/* if we already have max_buffer_size amount of data, fail here */
+	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
+		return -2;
+
 	if (!zstream->header_read) {
 		if ((ret = i_stream_lz4_read_header(zstream)) <= 0) {
 			stream->istream.eof = TRUE;
