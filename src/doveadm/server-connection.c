@@ -492,12 +492,24 @@ static int server_connection_init_ssl(struct server_connection *conn,
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
-	if (conn->server->ssl_ctx == NULL)
+	if (conn->server->ssl_flags == 0)
 		return 0;
 
-	doveadm_get_ssl_settings(&ssl_set, conn->pool);
+	doveadm_get_ssl_settings(&ssl_set, pool_datastack_create());
+
+	if ((conn->server->ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0)
+		ssl_set.allow_invalid_cert = TRUE;
 	if (ssl_set.allow_invalid_cert)
 		ssl_set.verbose_invalid_cert = TRUE;
+
+	if (conn->server->ssl_ctx == NULL &&
+	    ssl_iostream_client_context_cache_get(&ssl_set,
+						  &conn->server->ssl_ctx,
+						  &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Couldn't initialize SSL client: %s", error);
+		return -1;
+	}
 
 	if (io_stream_create_ssl_client(conn->server->ssl_ctx,
 					conn->server->hostname, &ssl_set,

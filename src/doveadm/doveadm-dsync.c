@@ -856,6 +856,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 				"Couldn't initialize SSL context: %s", error);
 			return -1;
 		}
+		server->ssl_flags = PROXY_SSL_FLAG_YES;
 		server->ssl_ctx = ctx->ssl_ctx;
 	}
 	p_array_init(&server->connections, ctx->ctx.pool, 1);
