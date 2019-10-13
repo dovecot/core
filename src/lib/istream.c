@@ -1065,7 +1065,8 @@ bool i_stream_nonseekable_try_seek(struct istream_private *stream,
 		/* seeking backwards within what's already cached */
 		stream->skip = v_offset - start_offset;
 		stream->istream.v_offset = v_offset;
-		stream->high_pos = stream->pos;
+		if (stream->high_pos == 0)
+			stream->high_pos = stream->pos;
 		stream->pos = stream->skip;
 	} else {
 		/* read forward */
