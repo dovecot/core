@@ -47,6 +47,8 @@ static void
 client_connection_tcp_send_auth_handshake(struct client_connection_tcp *conn);
 static void
 client_connection_tcp_destroy(struct client_connection_tcp **_conn);
+static int
+client_connection_tcp_init_ssl(struct client_connection_tcp *conn);
 
 static failure_callback_t *orig_error_callback, *orig_fatal_callback;
 static failure_callback_t *orig_info_callback, *orig_debug_callback = NULL;
@@ -444,6 +446,14 @@ client_connection_tcp_authenticate(struct client_connection_tcp *conn)
 		i_error("doveadm_password not set, "
 			"remote authentication disabled");
 		return -1;
+	}
+
+	if (strcmp(line, "STARTTLS") == 0) {
+		io_remove(&conn->io);
+		if (client_connection_tcp_init_ssl(conn) < 0)
+			return -1;
+		conn->io = io_add_istream(conn->input, client_connection_tcp_input, conn);
+		return 0;
 	}
 
 	/* FIXME: some day we should probably let auth process do this and

@@ -63,6 +63,7 @@ struct server_connection {
 	bool authenticate_sent:1;
 	bool authenticated:1;
 	bool streaming:1;
+	bool ssl_done:1;
 };
 
 static struct server_connection *printing_conn = NULL;
@@ -70,6 +71,8 @@ static ARRAY(struct doveadm_server *) print_pending_servers = ARRAY_INIT;
 
 static void server_connection_input(struct server_connection *conn);
 static bool server_connection_input_one(struct server_connection *conn);
+static int server_connection_init_ssl(struct server_connection *conn,
+				      const char **error_r);
 
 static void server_set_print_pending(struct doveadm_server *server)
 {
@@ -341,6 +344,7 @@ static void server_connection_start_multiplex(struct server_connection *conn)
 static void server_connection_input(struct server_connection *conn)
 {
 	const char *line;
+	const char *error;
 
 	if (i_stream_read(conn->input) < 0) {
 		/* disconnected */
@@ -382,6 +386,24 @@ static void server_connection_input(struct server_connection *conn)
 					line+1);
 				server_connection_destroy(&conn);
 				return;
+			}
+			if (!conn->ssl_done &&
+			    (conn->server->ssl_flags & PROXY_SSL_FLAG_STARTTLS) != 0) {
+				io_remove(&conn->io);
+				if (conn->minor < 2) {
+					i_error("doveadm STARTTLS failed: Server does not support it");
+					server_connection_destroy(&conn);
+					return;
+				}
+				/* send STARTTLS */
+				o_stream_nsend_str(conn->output, "STARTTLS\n");
+				if (server_connection_init_ssl(conn, &error) < 0) {
+					i_error("doveadm STARTTLS failed: %s", error);
+					server_connection_destroy(&conn);
+					return;
+				}
+				conn->ssl_done = TRUE;
+				conn->io = io_add_istream(conn->input, server_connection_input, conn);
 			}
 			if (server_connection_authenticate(conn) < 0) {
 				server_connection_destroy(&conn);
@@ -553,7 +575,8 @@ int server_connection_create(struct doveadm_server *server,
 	array_push_back(&conn->server->connections, &conn);
 
 	if (server_connection_read_settings(conn, error_r) < 0 ||
-	    server_connection_init_ssl(conn, error_r) < 0) {
+	    ((server->ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0 &&
+	     server_connection_init_ssl(conn, error_r) < 0)) {
 		server_connection_destroy(&conn);
 		return -1;
 	}

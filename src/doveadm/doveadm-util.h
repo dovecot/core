@@ -4,9 +4,9 @@
 #include "net.h"
 
 #define DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR 1
-#define DOVEADM_SERVER_PROTOCOL_VERSION_MINOR 1
-#define DOVEADM_SERVER_PROTOCOL_VERSION_LINE "VERSION\tdoveadm-server\t1\t1"
-#define DOVEADM_CLIENT_PROTOCOL_VERSION_LINE "VERSION\tdoveadm-client\t1\t1"
+#define DOVEADM_SERVER_PROTOCOL_VERSION_MINOR 2
+#define DOVEADM_SERVER_PROTOCOL_VERSION_LINE "VERSION\tdoveadm-server\t1\t2"
+#define DOVEADM_CLIENT_PROTOCOL_VERSION_LINE "VERSION\tdoveadm-client\t1\t2"
 
 extern bool doveadm_verbose, doveadm_debug, doveadm_server;
 
