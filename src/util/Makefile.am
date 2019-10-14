@@ -8,10 +8,14 @@ pkglibexec_PROGRAMS = \
 	gdbhelper \
 	maildirlock
 
+noinst_PROGRAMS = \
+	test-fs
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
@@ -22,6 +26,11 @@ AM_CPPFLAGS = \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	$(BINARY_CFLAGS)
+
+test_fs_SOURCES = test-fs.c
+test_fs_LDADD = $(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+test_fs_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 rawlog_LDADD = $(LIBDOVECOT) \
 	$(BINARY_LDFLAGS)
