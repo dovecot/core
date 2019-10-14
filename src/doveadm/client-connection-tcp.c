@@ -420,10 +420,8 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	conn->io = io_add_istream(conn->input, client_connection_tcp_input, conn);
 	client_connection_set_proctitle(&conn->conn, "");
 
-	/* flush the output and possibly run next command */
-	net_set_nonblock(conn->fd, FALSE);
+	/* Try to flush the output. It might finish later. */
 	(void)o_stream_flush(conn->output);
-	net_set_nonblock(conn->fd, TRUE);
 	return TRUE;
 }
 
