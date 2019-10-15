@@ -554,6 +554,7 @@ int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r,
 			     const char **error_r)
 {
+	const char *target;
 	struct server_connection *conn;
 	pool_t pool;
 
@@ -561,7 +562,12 @@ int server_connection_create(struct doveadm_server *server,
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 	conn->server = server;
-	conn->fd = doveadm_connect_with_default_port(server->name,
+	if (server->ip.family != 0) {
+		(void)net_ipport2str(&server->ip, server->port, &target);
+	} else {
+		target = server->name;
+	}
+	conn->fd = doveadm_connect_with_default_port(target,
 						     doveadm_settings->doveadm_port);
 	net_set_nonblock(conn->fd, TRUE);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);

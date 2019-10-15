@@ -179,6 +179,8 @@ static int
 doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 				  const struct mail_storage_service_input *input,
 				  const char **user_r, const char **host_r,
+				  struct ip_addr *hostip_r, in_port_t *port_r,
+				  enum doveadm_proxy_ssl_flags *ssl_flags_r,
 				  const char **error_r)
 {
 	struct auth_master_connection *auth_conn;
@@ -238,10 +240,23 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			else if (str_begins(fields[i], "port=")) {
 				if (net_str2port(fields[i]+5, &proxy_port) < 0)
 					proxy_port = 0;
+	                } else if (str_begins(fields[i], "ssl=")) {
+	                        *ssl_flags_r |= PROXY_SSL_FLAG_YES;
+	                        if (strcmp(fields[i]+4, "any-cert") == 0)
+	                               *ssl_flags_r |= PROXY_SSL_FLAG_ANY_CERT;
+	                } else if (str_begins(fields[i], "starttls=")) {
+	                        *ssl_flags_r |= PROXY_SSL_FLAG_YES |
+	                                PROXY_SSL_FLAG_STARTTLS;
+	                        if (strcmp(fields[i]+9, "any-cert") == 0)
+	                                *ssl_flags_r |= PROXY_SSL_FLAG_ANY_CERT;
 			}
 		}
-		if (proxy_hostip != NULL)
-			proxy_host = proxy_hostip;
+		if (proxy_hostip != NULL &&
+		    net_addr2ip(proxy_hostip, hostip_r) < 0) {
+			*error_r = t_strdup_printf("%s Invalid hostip value '%s'",
+						   auth_socket_path, proxy_hostip);
+			ret = -1;
+		}
 		if (!proxying)
 			ret = 0;
 		else if (proxy_host == NULL) {
@@ -254,6 +269,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			}
 			ret = -1;
 		} else {
+			*port_r = proxy_port;
 			*host_r = t_strdup_printf("%s:%u", proxy_host, proxy_port);
 		}
 	}
@@ -268,13 +284,18 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	struct doveadm_server *server;
 	struct server_connection *conn;
 	const char *user, *host;
+	struct ip_addr hostip;
+	enum doveadm_proxy_ssl_flags ssl_flags = 0;
 	char *username_dup;
 	int ret;
+	in_port_t port;
 
 	i_assert(cmd_ctx == ctx || cmd_ctx == NULL);
 	cmd_ctx = ctx;
 
-	ret = doveadm_mail_server_user_get_host(ctx, input, &user, &host, error_r);
+	i_zero(&hostip);
+	ret = doveadm_mail_server_user_get_host(ctx, input, &user, &host, &hostip,
+						&port, &ssl_flags, error_r);
 	if (ret < 0)
 		return ret;
 	if (ret == 0 &&
@@ -288,6 +309,9 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	doveadm_print_unstick_headers();
 
 	server = doveadm_server_get(ctx, host);
+	server->ip = hostip;
+	server->ssl_flags = ssl_flags;
+	server->port = port;
 	conn = doveadm_server_find_unused_conn(server);
 	if (conn != NULL)
 		doveadm_mail_server_handle(conn, user);

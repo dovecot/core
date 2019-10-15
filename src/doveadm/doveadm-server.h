@@ -14,10 +14,14 @@ enum doveadm_proxy_ssl_flags {
 };
 
 struct doveadm_server {
-	/* host:port */
+	/* hostname:port or socket name for logging */
 	const char *name;
-	/* host only */
+	/* hostname without port */
 	const char *hostname;
+	/* host ip to use */
+	struct ip_addr ip;
+	/* port to use */
+	in_port_t port;
 
 	/* ssl related settings */
 	enum doveadm_proxy_ssl_flags ssl_flags;
