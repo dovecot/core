@@ -198,6 +198,11 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	if (ctx->set->doveadm_port == 0)
 		return 0;
 
+	if (strcmp(ctx->set->doveadm_ssl, "ssl") == 0)
+		*ssl_flags_r |= PROXY_SSL_FLAG_YES;
+	else if (strcmp(ctx->set->doveadm_ssl, "starttls") == 0)
+		*ssl_flags_r |= PROXY_SSL_FLAG_YES | PROXY_SSL_FLAG_STARTTLS;
+
 	/* make sure we have an auth connection */
 	mail_storage_service_init_settings(ctx->storage_service, input);
 
