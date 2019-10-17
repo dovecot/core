@@ -194,6 +194,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 
 	*user_r = input->username;
 	*host_r = ctx->set->doveadm_socket_path;
+	*port_r = ctx->set->doveadm_port;
 
 	if (ctx->set->doveadm_port == 0)
 		return 0;
