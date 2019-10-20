@@ -324,6 +324,7 @@ static void dsync_ibc_stream_init(struct dsync_ibc_stream *ibc)
 	unsigned int i;
 
 	ibc->io = io_add_istream(ibc->input, dsync_ibc_stream_input, ibc);
+	io_set_pending(ibc->io);
 	o_stream_set_no_error_handling(ibc->output, TRUE);
 	o_stream_set_flush_callback(ibc->output, dsync_ibc_stream_output, ibc);
 	ibc->to = timeout_add(ibc->timeout_secs * 1000,
