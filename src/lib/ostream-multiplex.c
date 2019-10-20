@@ -70,7 +70,7 @@ static struct multiplex_ochannel *get_next_channel(struct multiplex_ostream *mst
 	return channel;
 }
 
-static ssize_t
+static void
 o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 {
 	struct multiplex_ochannel *channel;
@@ -107,7 +107,6 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 	}
 	if (o_stream_is_corked(mstream->parent))
 		o_stream_uncork(mstream->parent);
-	return 0;
 }
 
 static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
@@ -124,8 +123,7 @@ static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
 	}
 
 	/* send all channels */
-	if (o_stream_multiplex_sendv(mstream) < 0)
-		return -1;
+	o_stream_multiplex_sendv(mstream);
 
 	if (channel->buf->used > 0)
 		return 0;
@@ -154,8 +152,7 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 		total += iov[i].iov_len;
 
 	if (avail < total) {
-		if (o_stream_multiplex_sendv(channel->mstream) < 0)
-			return -1;
+		o_stream_multiplex_sendv(channel->mstream);
 		avail = o_stream_get_buffer_avail_size(&stream->ostream);
 		if (avail == 0)
 			return -2;
@@ -179,8 +176,7 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 	if (channel->corked && channel->buf->used < optimal_size)
 		return total;
 
-	if (o_stream_multiplex_sendv(channel->mstream) < 0)
-		return -1;
+	o_stream_multiplex_sendv(channel->mstream);
 	return total;
 }
 
