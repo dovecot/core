@@ -80,7 +80,7 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 		if (channel->buf->used == 0)
 			continue;
 		if (o_stream_get_buffer_avail_size(mstream->parent) < 6)
-			return 0;
+			break;
 		/* check parent stream capacity */
 		size_t tmp = o_stream_get_buffer_avail_size(mstream->parent) - 5;
 		/* ensure it fits into 32 bit int */
