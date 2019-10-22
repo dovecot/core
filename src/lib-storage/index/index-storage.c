@@ -1015,7 +1015,6 @@ static void
 index_copy_vsize_extension(struct mail_save_context *ctx,
 			   struct mail *src_mail, uint32_t dest_seq)
 {
-	unsigned int idx;
 	const uint32_t *vsizep;
 	bool expunged ATTR_UNUSED;
 
@@ -1024,11 +1023,8 @@ index_copy_vsize_extension(struct mail_save_context *ctx,
 		return;
 	uint32_t vsize = *vsizep;
 
-	if (mail_index_map_get_ext_idx(ctx->transaction->view->map,
-				       ctx->transaction->box->mail_vsize_ext_id,
-				       &idx) &&
-	    vsize < (uint32_t)-1) {
-		uint32_t vsize = src_imail->data.virtual_size+1;
+	if (vsize < (uint32_t)-1) {
+		/* copy the vsize record to the destination index */
 		mail_index_update_ext(ctx->transaction->itrans, dest_seq,
 				      ctx->transaction->box->mail_vsize_ext_id,
 				      &vsize, NULL);
