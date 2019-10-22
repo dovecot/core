@@ -1015,18 +1015,19 @@ static void
 index_copy_vsize_extension(struct mail_save_context *ctx,
 			   struct mail *src_mail, uint32_t dest_seq)
 {
-	struct index_mail *src_imail = INDEX_MAIL(src_mail);
 	unsigned int idx;
+	const uint32_t *vsizep;
 	bool expunged ATTR_UNUSED;
 
-	(void)index_mail_get_vsize_extension(src_mail);
-	if (src_imail->data.virtual_size == (uoff_t)-1)
+	vsizep = index_mail_get_vsize_extension(src_mail);
+	if (vsizep == NULL || *vsizep == 0)
 		return;
+	uint32_t vsize = *vsizep;
 
 	if (mail_index_map_get_ext_idx(ctx->transaction->view->map,
 				       ctx->transaction->box->mail_vsize_ext_id,
 				       &idx) &&
-	    src_imail->data.virtual_size < (uint32_t)-1) {
+	    vsize < (uint32_t)-1) {
 		uint32_t vsize = src_imail->data.virtual_size+1;
 		mail_index_update_ext(ctx->transaction->itrans, dest_seq,
 				      ctx->transaction->box->mail_vsize_ext_id,
