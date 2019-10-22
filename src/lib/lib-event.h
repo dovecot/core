@@ -14,7 +14,7 @@ struct event_category {
 	struct event_category *parent;
 	const char *name;
 
-	/* TRUE after an event with this category is sent the first time */
+	/* TRUE if this category has been registered with event_add_categories() */
 	bool registered;
 };
 
