@@ -22,6 +22,31 @@ enum event_code {
 	EVENT_CODE_FIELD_TIMEVAL	= 'T',
 };
 
+/* Internal event category state.
+
+   Each (unique) event category maps to one internal category.  (I.e., if
+   two places attempt to register the same category, they will share the
+   internal state.)
+
+   This is required in order to support multiple registrations of the same
+   category.  Currently, the only situation in which this occurs is the
+   stats process receiving categories from other processes and also using
+   the same categories internally.
+
+   During registration, we look up the internal state based on the new
+   category's name.  If found, we use it after sanity checking that the two
+   are identical (i.e., they both have the same name and parent).  If not
+   found, we allocate a new internal state and use it.
+
+   We stash a pointer to the internal state in struct event_category (the
+   "internal" member).  As a result, all category structs for the same
+   category point to the same internal state. */
+struct event_internal_category {
+	struct event_internal_category *parent;
+	char *name;
+	int refcount;
+};
+
 extern const struct event_passthrough event_passthrough_vfuncs;
 
 static struct event *events = NULL;
@@ -29,6 +54,7 @@ static struct event *current_global_event = NULL;
 static struct event_passthrough *event_last_passthrough = NULL;
 static ARRAY(event_callback_t *) event_handlers;
 static ARRAY(event_category_callback_t *) event_category_callbacks;
+static ARRAY(struct event_internal_category *) event_registered_categories_internal;
 static ARRAY(struct event_category *) event_registered_categories;
 static ARRAY(struct event *) global_event_stack;
 static uint64_t event_id_counter = 0;
@@ -36,6 +62,8 @@ static uint64_t event_id_counter = 0;
 static struct event *
 event_create_internal(struct event *parent, const char *source_filename,
 		      unsigned int source_linenum);
+static struct event_internal_category *
+event_category_find_internal(const char *name);
 
 static struct event *last_passthrough_event(void)
 {
@@ -567,6 +595,18 @@ struct event_category *event_category_find_registered(const char *name)
 	return NULL;
 }
 
+static struct event_internal_category *event_category_find_internal(const char *name)
+{
+	struct event_internal_category *const *internal;
+
+	array_foreach(&event_registered_categories_internal, internal) {
+		if (strcmp((*internal)->name, name) == 0)
+			return *internal;
+	}
+
+	return NULL;
+}
+
 struct event_category *const *
 event_get_registered_categories(unsigned int *count_r)
 {
@@ -576,19 +616,65 @@ event_get_registered_categories(unsigned int *count_r)
 static void event_category_register(struct event_category *category)
 {
 	event_category_callback_t *const *callbackp;
+	struct event_internal_category *internal;
+	bool allocated;
 
 	if (category->internal != NULL)
-		return;
+		return; /* case 2 - see below */
 
 	/* register parent categories first */
 	if (category->parent != NULL)
 		event_category_register(category->parent);
 
+	/* There are four cases we need to handle:
+
+	   1) a new category is registered
+	   2) same category struct is re-registered - already handled above
+	      internal NULL check
+	   3) different category struct is registered, but it is identical
+	      to the previously registered one
+	   4) different category struct is registered, and it is different
+	      from the previously registered one - a programming error */
+	internal = event_category_find_internal(category->name);
+	if (internal == NULL) {
+		/* case 1: first time we saw this name - allocate new */
+		internal = i_new(struct event_internal_category, 1);
+		if (category->parent != NULL)
+			internal->parent = category->parent->internal;
+		internal->name = i_strdup(category->name);
+		internal->refcount = 1;
+
+		array_push_back(&event_registered_categories_internal, &internal);
+
+		allocated = TRUE;
+	} else {
+		/* case 3 or 4: someone registered this name before - share */
+		if ((category->parent != NULL) &&
+		    (internal->parent != category->parent->internal)) {
+			/* case 4 */
+			struct event_internal_category *other = category->parent->internal;
+
+			i_panic("event category parent mismatch detected: "
+				"category %p internal %p (%s), "
+				"internal parent %p (%s), public parent %p (%s)",
+				category, internal, internal->name,
+				internal->parent, internal->parent->name,
+				other, other->name);
+		}
+
+		internal->refcount++;
+
+		allocated = FALSE;
+	}
+
 	/* Don't allow duplicate category structs with the same name.
 	   Event filtering uses pointer comparisons for efficiency. */
 	i_assert(event_category_find_registered(category->name) == NULL);
-	category->internal = i_malloc(1);
+	category->internal = internal;
 	array_push_back(&event_registered_categories, &category);
+
+	if (!allocated)
+		return; /* this is not the first registration of this category */
 
 	array_foreach(&event_category_callbacks, callbackp) T_BEGIN {
 		(*callbackp)(category);
@@ -1211,6 +1297,7 @@ void lib_event_init(void)
 {
 	i_array_init(&event_handlers, 4);
 	i_array_init(&event_category_callbacks, 4);
+	i_array_init(&event_registered_categories_internal, 16);
 	i_array_init(&event_registered_categories, 16);
 }
 
@@ -1226,6 +1313,7 @@ void lib_event_deinit(void)
 	}
 	array_free(&event_handlers);
 	array_free(&event_category_callbacks);
+	array_free(&event_registered_categories_internal);
 	array_free(&event_registered_categories);
 	array_free(&global_event_stack);
 }
