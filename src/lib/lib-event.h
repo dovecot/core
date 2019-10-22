@@ -16,8 +16,12 @@ struct event_category {
 
 	/* non-NULL if this category has been registered
 
-	   Do NOT dereference outside of event code in src/lib.  It is safe
-	   to check for NULL/non-NULL anywhere. */
+	   Do NOT dereference outside of event code in src/lib.
+
+	   At any point in time it is safe to (1) check the pointer for
+	   NULL/non-NULL to determine if this particular category instance
+	   has been registered, and (2) compare two categories' internal
+	   pointers to determine if they represent the same category. */
 	void *internal;
 };
 
