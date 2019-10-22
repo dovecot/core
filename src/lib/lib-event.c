@@ -577,7 +577,7 @@ static void event_category_register(struct event_category *category)
 {
 	event_category_callback_t *const *callbackp;
 
-	if (category->registered)
+	if (category->internal != NULL)
 		return;
 
 	/* register parent categories first */
@@ -587,7 +587,7 @@ static void event_category_register(struct event_category *category)
 	/* Don't allow duplicate category structs with the same name.
 	   Event filtering uses pointer comparisons for efficiency. */
 	i_assert(event_category_find_registered(category->name) == NULL);
-	category->registered = TRUE;
+	category->internal = i_malloc(1);
 	array_push_back(&event_registered_categories, &category);
 
 	array_foreach(&event_category_callbacks, callbackp) T_BEGIN {

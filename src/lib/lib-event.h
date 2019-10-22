@@ -14,8 +14,11 @@ struct event_category {
 	struct event_category *parent;
 	const char *name;
 
-	/* TRUE if this category has been registered with event_add_categories() */
-	bool registered;
+	/* non-NULL if this category has been registered
+
+	   Do NOT dereference outside of event code in src/lib.  It is safe
+	   to check for NULL/non-NULL anywhere. */
+	void *internal;
 };
 
 enum event_field_value_type {

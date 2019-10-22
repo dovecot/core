@@ -669,7 +669,7 @@ static void event_filter_category_registered(struct event_category *category)
 	struct event_filter *filter;
 
 	for (filter = event_filters; filter != NULL; filter = filter->next) {
-		if (!category->registered)
+		if (category->internal == NULL)
 			event_filter_remove_category(filter, category);
 		else
 			event_filter_add_missing_category(filter, category);
