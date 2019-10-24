@@ -35,7 +35,7 @@ mail_cache_merge_bitmask(struct mail_cache_copy_context *ctx,
 	unsigned char *dest;
 	unsigned int i, *pos;
 
-	pos = array_idx_modifiable(&ctx->bitmask_pos, field->field_idx);
+	pos = array_idx_get_space(&ctx->bitmask_pos, field->field_idx);
 	if (*pos == 0) {
 		/* we decided to drop this field */
 		return;
