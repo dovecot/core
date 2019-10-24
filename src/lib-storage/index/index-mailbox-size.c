@@ -166,10 +166,21 @@ bool index_mailbox_vsize_want_updates(struct mailbox_vsize_update *update)
 }
 
 static void
-index_mailbox_vsize_update_write(struct mailbox_vsize_update *update)
+index_mailbox_vsize_update_write_to_index(struct mailbox_vsize_update *update)
 {
 	struct mail_index_transaction *trans;
 
+	trans = mail_index_transaction_begin(update->view,
+				MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_update_header_ext(trans, update->box->vsize_hdr_ext_id,
+				     0, &update->vsize_hdr,
+				     sizeof(update->vsize_hdr));
+	(void)mail_index_transaction_commit(&trans);
+}
+
+static void
+index_mailbox_vsize_update_write(struct mailbox_vsize_update *update)
+{
 	if (update->written)
 		return;
 	update->written = TRUE;
@@ -180,12 +191,7 @@ index_mailbox_vsize_update_write(struct mailbox_vsize_update *update)
 		/* no changes */
 		return;
 	}
-	trans = mail_index_transaction_begin(update->view,
-				MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	mail_index_update_header_ext(trans, update->box->vsize_hdr_ext_id,
-				     0, &update->vsize_hdr,
-				     sizeof(update->vsize_hdr));
-	(void)mail_index_transaction_commit(&trans);
+	index_mailbox_vsize_update_write_to_index(update);
 }
 
 static void index_mailbox_vsize_notify_indexer(struct mailbox *box)
@@ -267,7 +273,7 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 	struct mail_search_args *search_args;
 	struct mailbox_status status;
 	struct mail *mail;
-	unsigned int mails_left;
+	unsigned int idx, mails_left;
 	uint32_t seq1, seq2;
 	uoff_t vsize;
 	int ret = 0;
@@ -293,6 +299,14 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 		return 0;
 	}
 	mail_search_build_add_seqset(search_args, seq1, seq2);
+
+	if (!mail_index_map_get_ext_idx(update->box->view->map,
+					update->box->vsize_hdr_ext_id, &idx)) {
+		/* vsize header doesn't exist yet. Create it here early so
+		   that vsize mail records get created (instead of adding
+		   size.virtuals to cache). */
+		index_mailbox_vsize_update_write_to_index(update);
+	}
 
 	trans = mailbox_transaction_begin(update->box, 0, "vsize update");
 	search_ctx = mailbox_search_init(trans, search_args, NULL,
