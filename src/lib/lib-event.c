@@ -63,7 +63,6 @@ static ARRAY(event_callback_t *) event_handlers;
 static ARRAY(event_category_callback_t *) event_category_callbacks;
 static ARRAY(struct event_internal_category *) event_registered_categories_internal;
 static ARRAY(struct event_category *) event_registered_categories_representative;
-static ARRAY(struct event_category *) event_registered_categories;
 static ARRAY(struct event *) global_event_stack;
 static uint64_t event_id_counter = 0;
 
@@ -596,7 +595,7 @@ struct event_category *event_category_find_registered(const char *name)
 {
 	struct event_category *const *catp;
 
-	array_foreach(&event_registered_categories, catp) {
+	array_foreach(&event_registered_categories_representative, catp) {
 		if (strcmp((*catp)->name, name) == 0)
 			return *catp;
 	}
@@ -618,7 +617,7 @@ static struct event_internal_category *event_category_find_internal(const char *
 struct event_category *const *
 event_get_registered_categories(unsigned int *count_r)
 {
-	return array_get(&event_registered_categories, count_r);
+	return array_get(&event_registered_categories_representative, count_r);
 }
 
 static void event_category_add_to_array(struct event_internal_category *internal)
@@ -629,18 +628,18 @@ static void event_category_add_to_array(struct event_internal_category *internal
 	array_push_back(&event_registered_categories_representative, &representative);
 }
 
-static void event_category_register(struct event_category *category)
+static struct event_category *event_category_register(struct event_category *category)
 {
+	struct event_internal_category *internal = category->internal;
 	event_category_callback_t *const *callbackp;
-	struct event_internal_category *internal;
 	bool allocated;
 
-	if (category->internal != NULL)
-		return; /* case 2 - see below */
+	if (internal != NULL)
+		return &internal->representative; /* case 2 - see below */
 
 	/* register parent categories first */
 	if (category->parent != NULL)
-		event_category_register(category->parent);
+		(void) event_category_register(category->parent);
 
 	/* There are four cases we need to handle:
 
@@ -686,18 +685,16 @@ static void event_category_register(struct event_category *category)
 		allocated = FALSE;
 	}
 
-	/* Don't allow duplicate category structs with the same name.
-	   Event filtering uses pointer comparisons for efficiency. */
-	i_assert(event_category_find_registered(category->name) == NULL);
 	category->internal = internal;
-	array_push_back(&event_registered_categories, &category);
 
 	if (!allocated)
-		return; /* this is not the first registration of this category */
+		return &internal->representative; /* not the first registration of this category */
 
 	array_foreach(&event_category_callbacks, callbackp) T_BEGIN {
-		(*callbackp)(category);
+		(*callbackp)(&internal->representative);
 	} T_END;
+
+	return &internal->representative;
 }
 
 static bool
@@ -716,13 +713,15 @@ struct event *
 event_add_categories(struct event *event,
 		     struct event_category *const *categories)
 {
+	struct event_category *representative;
+
 	if (!array_is_created(&event->categories))
 		p_array_init(&event->categories, event->pool, 4);
 
 	for (unsigned int i = 0; categories[i] != NULL; i++) {
-		event_category_register(categories[i]);
+		representative = event_category_register(categories[i]);
 		if (!event_find_category(event, categories[i]))
-			array_push_back(&event->categories, &categories[i]);
+			array_push_back(&event->categories, &representative);
 	}
 	return event;
 }
@@ -1318,7 +1317,6 @@ void lib_event_init(void)
 	i_array_init(&event_category_callbacks, 4);
 	i_array_init(&event_registered_categories_internal, 16);
 	i_array_init(&event_registered_categories_representative, 16);
-	i_array_init(&event_registered_categories, 16);
 }
 
 void lib_event_deinit(void)
@@ -1335,6 +1333,5 @@ void lib_event_deinit(void)
 	array_free(&event_category_callbacks);
 	array_free(&event_registered_categories_internal);
 	array_free(&event_registered_categories_representative);
-	array_free(&event_registered_categories);
 	array_free(&global_event_stack);
 }

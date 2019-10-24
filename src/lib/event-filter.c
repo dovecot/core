@@ -407,7 +407,7 @@ event_category_match(const struct event_category *category,
 		     const struct event_category *wanted_category)
 {
 	for (; category != NULL; category = category->parent) {
-		if (category == wanted_category)
+		if (category->internal == wanted_category->internal)
 			return TRUE;
 	}
 	return FALSE;
