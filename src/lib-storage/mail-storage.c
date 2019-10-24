@@ -2454,8 +2454,6 @@ struct mail_save_context *
 mailbox_save_alloc(struct mailbox_transaction_context *t)
 {
 	struct mail_save_context *ctx;
-	const struct mail_storage_settings *mail_set =
-		mailbox_get_settings(t->box);
 	T_BEGIN {
 		ctx = t->box->v.save_alloc(t);
 	} T_END;
@@ -2472,11 +2470,6 @@ mailbox_save_alloc(struct mailbox_transaction_context *t)
 		/* make sure the mail isn't used before mail_set_seq_saving() */
 		mailbox_save_dest_mail_close(ctx);
 	}
-
-	/* make sure parts get parsed early on */
-	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save)
-		mail_add_temp_wanted_fields(ctx->dest_mail,
-					    MAIL_FETCH_MESSAGE_PARTS, NULL);
 
 	return ctx;
 }
@@ -2599,6 +2592,13 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 	   (which in turn sets stub_seq) */
 	i_assert(((*ctx)->transaction->flags & MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB) == 0 ||
 		 (*ctx)->data.stub_seq != 0);
+
+	/* make sure parts get parsed early on */
+	const struct mail_storage_settings *mail_set =
+		mailbox_get_settings(box);
+	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save)
+		mail_add_temp_wanted_fields((*ctx)->dest_mail,
+					    MAIL_FETCH_MESSAGE_PARTS, NULL);
 
 	if (!(*ctx)->copying_or_moving) {
 		/* We're actually saving the mail. We're not being called by
