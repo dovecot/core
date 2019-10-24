@@ -42,6 +42,13 @@ enum event_code {
    "internal" member).  As a result, all category structs for the same
    category point to the same internal state. */
 struct event_internal_category {
+	/* More than one category can be represented by the internal state.
+	   To give consumers a unique but consistent category pointer, we
+	   return a pointer to this 'represetative' category structure.
+	   Because we allocated it, we know that it will live exactly as
+	   long as we need it to. */
+	struct event_category representative;
+
 	struct event_internal_category *parent;
 	char *name;
 	int refcount;
@@ -55,6 +62,7 @@ static struct event_passthrough *event_last_passthrough = NULL;
 static ARRAY(event_callback_t *) event_handlers;
 static ARRAY(event_category_callback_t *) event_category_callbacks;
 static ARRAY(struct event_internal_category *) event_registered_categories_internal;
+static ARRAY(struct event_category *) event_registered_categories_representative;
 static ARRAY(struct event_category *) event_registered_categories;
 static ARRAY(struct event *) global_event_stack;
 static uint64_t event_id_counter = 0;
@@ -613,6 +621,14 @@ event_get_registered_categories(unsigned int *count_r)
 	return array_get(&event_registered_categories, count_r);
 }
 
+static void event_category_add_to_array(struct event_internal_category *internal)
+{
+	struct event_category *representative = &internal->representative;
+
+	array_push_back(&event_registered_categories_internal, &internal);
+	array_push_back(&event_registered_categories_representative, &representative);
+}
+
 static void event_category_register(struct event_category *category)
 {
 	event_category_callback_t *const *callbackp;
@@ -643,8 +659,11 @@ static void event_category_register(struct event_category *category)
 			internal->parent = category->parent->internal;
 		internal->name = i_strdup(category->name);
 		internal->refcount = 1;
+		internal->representative.name = internal->name;
+		internal->representative.parent = category->parent;
+		internal->representative.internal = internal;
 
-		array_push_back(&event_registered_categories_internal, &internal);
+		event_category_add_to_array(internal);
 
 		allocated = TRUE;
 	} else {
@@ -1298,6 +1317,7 @@ void lib_event_init(void)
 	i_array_init(&event_handlers, 4);
 	i_array_init(&event_category_callbacks, 4);
 	i_array_init(&event_registered_categories_internal, 16);
+	i_array_init(&event_registered_categories_representative, 16);
 	i_array_init(&event_registered_categories, 16);
 }
 
@@ -1314,6 +1334,7 @@ void lib_event_deinit(void)
 	array_free(&event_handlers);
 	array_free(&event_category_callbacks);
 	array_free(&event_registered_categories_internal);
+	array_free(&event_registered_categories_representative);
 	array_free(&event_registered_categories);
 	array_free(&global_event_stack);
 }
