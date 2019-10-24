@@ -939,8 +939,8 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 		size is not cached or
 		cached size differs
 	*/
-	if ((mail_index_map_get_ext_idx(view->map, _mail->box->mail_vsize_ext_id, &idx) ||
-	     mail_index_map_get_ext_idx(view->map, _mail->box->vsize_hdr_ext_id, &idx)) &&
+	if ((mail_index_map_get_ext_idx(view->index->map, _mail->box->mail_vsize_ext_id, &idx) ||
+	     mail_index_map_get_ext_idx(view->index->map, _mail->box->vsize_hdr_ext_id, &idx)) &&
 	    (sizes[0] != (uoff_t)-1 &&
 	     sizes[0] < (uint32_t)-1)) {
 		const uint32_t *vsize_ext =
