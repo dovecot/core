@@ -83,11 +83,13 @@ void imap_write_arg(string_t *dest, const struct imap_arg *arg)
 	case IMAP_ARG_ATOM:
 		str_append(dest, imap_arg_as_astring(arg));
 		break;
-	case IMAP_ARG_STRING:
+	case IMAP_ARG_STRING: {
+		const char *strarg = imap_arg_as_astring(arg);
 		str_append_c(dest, '"');
-		str_append(dest, str_escape(imap_arg_as_astring(arg)));
+		str_append_escaped(dest, strarg, strlen(strarg));
 		str_append_c(dest, '"');
 		break;
+	}
 	case IMAP_ARG_LITERAL: {
 		const char *strarg = imap_arg_as_astring(arg);
 		str_printfa(dest, "{%"PRIuSIZE_T"}\r\n",
