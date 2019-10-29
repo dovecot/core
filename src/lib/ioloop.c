@@ -769,6 +769,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	ioloop->wait_started = ioloop_timeval;
 	io_loop_handler_run_internal(ioloop);
 	io_loop_call_pending(ioloop);
+	if (ioloop->stop_after_run_loop)
+		io_loop_stop(ioloop);
 
 	i_assert(ioloop == current_ioloop);
 }
@@ -776,6 +778,12 @@ void io_loop_handler_run(struct ioloop *ioloop)
 void io_loop_stop(struct ioloop *ioloop)
 {
         ioloop->running = FALSE;
+	ioloop->stop_after_run_loop = FALSE;
+}
+
+void io_loop_stop_delayed(struct ioloop *ioloop)
+{
+        ioloop->stop_after_run_loop = TRUE;
 }
 
 void io_loop_set_running(struct ioloop *ioloop)

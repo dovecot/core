@@ -181,7 +181,11 @@ void timeout_reset(struct timeout *timeout);
 void io_loop_time_refresh(void);
 
 void io_loop_run(struct ioloop *ioloop);
-void io_loop_stop(struct ioloop *ioloop); /* safe to run in signal handler */
+/* Stop the ioloop immediately. No further IO or timeout callbacks are called.
+   This is safe to run in a signal handler. */
+void io_loop_stop(struct ioloop *ioloop);
+/* Stop ioloop after finishing all the pending IOs and timeouts. */
+void io_loop_stop_delayed(struct ioloop *ioloop);
 
 bool io_loop_is_running(struct ioloop *ioloop);
 

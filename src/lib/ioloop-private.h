@@ -33,6 +33,7 @@ struct ioloop {
 
 	bool running:1;
 	bool iolooping:1;
+	bool stop_after_run_loop:1;
 };
 
 struct io {
