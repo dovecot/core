@@ -50,8 +50,7 @@ static void snippet_add_content(struct snippet_context *ctx,
 		/* skip NULs without increasing snippet size */
 		return;
 	}
-	if (data[0] == '\r' || data[0] == '\n' ||
-	    data[0] == '\t' || data[0] == ' ') {
+	if (i_isspace(*data)) {
 		/* skip any leading whitespace */
 		if (str_len(target->snippet) > 1)
 			ctx->add_whitespace = TRUE;
