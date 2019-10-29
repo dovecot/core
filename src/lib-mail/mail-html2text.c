@@ -172,7 +172,8 @@ static void mail_html2text_add_space(buffer_t *output)
 {
 	const unsigned char *data = output->data;
 
-	if (output->used > 0 && data[output->used-1] != ' ')
+	if (output->used > 0 && data[output->used-1] != ' ' &&
+	    data[output->used-1] != '\n')
 		buffer_append_c(output, ' ');
 }
 
