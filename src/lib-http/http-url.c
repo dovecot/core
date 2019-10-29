@@ -27,6 +27,47 @@ struct http_url_parser {
 	bool request_target:1;
 };
 
+static bool
+http_url_parse_userinfo(struct http_url_parser *url_parser,
+			struct uri_authority *auth,
+			const char **user_r, const char **password_r)
+{
+	struct uri_parser *parser = &url_parser->parser;
+	const char *p;
+
+	*user_r = *password_r = NULL;
+
+	if (auth->enc_userinfo == NULL)
+		return TRUE;
+
+	if ((url_parser->flags & HTTP_URL_ALLOW_USERINFO_PART) == 0) {
+		/* RFC 7230, Section 2.7.1: http URI Scheme
+
+		   A sender MUST NOT generate the userinfo subcomponent (and its
+		   "@" delimiter) when an "http" URI reference is generated
+		   within a message as a request target or header field value.
+		   Before making use of an "http" URI reference received from an
+		   untrusted source, a recipient SHOULD parse for userinfo and
+		   treat its presence as an error; it is likely being used to
+		   obscure the authority for the sake of phishing attacks.
+		 */
+		parser->error = "HTTP URL does not allow `userinfo@' part";
+		return FALSE;
+	}
+
+	p = strchr(auth->enc_userinfo, ':');
+	if (p == NULL) {
+		if (!uri_data_decode(parser, auth->enc_userinfo, NULL, user_r))
+			return FALSE;
+	} else {
+		if (!uri_data_decode(parser, auth->enc_userinfo, p, user_r))
+			return FALSE;
+		if (!uri_data_decode(parser, p + 1, NULL, password_r))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static bool http_url_parse_authority(struct http_url_parser *url_parser)
 {
 	struct uri_parser *parser = &url_parser->parser;
@@ -48,43 +89,9 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 		return FALSE;
 	}
 	if (ret > 0) {
-		if (auth.enc_userinfo != NULL) {
-			const char *p;
-
-			if ((url_parser->flags &
-			     HTTP_URL_ALLOW_USERINFO_PART) == 0) {
-				/* RFC 7230, Section 2.7.1: http URI Scheme
-
-				   A sender MUST NOT generate the userinfo
-				   subcomponent (and its "@" delimiter) when an
-				   "http" URI reference is generated within a
-				   message as a request target or header field
-				   value. Before making use of an "http" URI
-				   reference received from an untrusted source,
-				   a recipient SHOULD parse for userinfo and
-				   treat its presence as an error; it is likely
-				   being used to obscure the authority for
-				   the sake of phishing attacks.
-				 */
-				parser->error =
-					"HTTP URL does not allow `userinfo@' part";
-				return FALSE;
-			}
-
-			p = strchr(auth.enc_userinfo, ':');
-			if (p == NULL) {
-				if (!uri_data_decode(parser, auth.enc_userinfo,
-						     NULL, &user))
-					return FALSE;
-			} else {
-				if (!uri_data_decode(parser, auth.enc_userinfo,
-						     p, &user))
-					return FALSE;
-				if (!uri_data_decode(parser, p + 1, NULL,
-						     &password))
-					return FALSE;
-			}
-		}
+		if (!http_url_parse_userinfo(url_parser, &auth,
+					     &user, &password))
+			return FALSE;
 	}
 	if (url != NULL) {
 		uri_host_copy(parser->pool, &url->host, &auth.host);
