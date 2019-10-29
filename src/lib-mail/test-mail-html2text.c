@@ -44,9 +44,17 @@ static const struct {
 	{ "&#deee;", "" }, // invalid codepoint
 };
 
-static const char *test_blockquote_input =
-	"a<blockquote>b<blockquote><blockquote>c</blockquote>d</blockquote>e</blockquote>f";
-static const char *test_blockquote_output = "a b c d e f";
+static const char *test_blockquote_input[] = {
+	"a<blockquote>b<blockquote><blockquote>c</blockquote>d</blockquote>e</blockquote>f",
+	"a&amp;<blockquote>b&amp;<blockquote>&amp;<blockquote>&amp;c</blockquote>d&amp;</blockquote>&amp;e</blockquote>f&amp;",
+	NULL
+};
+
+static const char *test_blockquote_output[] = {
+	"a\n> b\n> \n> c\n> d\n> e\nf",
+	"a&\n> b&\n> &\n> &c\n> d&\n> &e\nf&",
+	NULL
+};
 
 static void test_mail_html2text(void)
 {
@@ -67,11 +75,14 @@ static void test_mail_html2text(void)
 	}
 
 	/* test without skipping quoted */
-	ht = mail_html2text_init(0);
-	mail_html2text_more(ht, (const void *)test_blockquote_input,
-			    strlen(test_blockquote_input), str);
-	test_assert(strcmp(str_c(str), test_blockquote_output) == 0);
-	mail_html2text_deinit(&ht);
+	for (unsigned int i = 0; test_blockquote_input[i] != NULL; i++) {
+		str_truncate(str, 0);
+		ht = mail_html2text_init(0);
+		mail_html2text_more(ht, (const void *)test_blockquote_input[i],
+				    strlen(test_blockquote_input[i]), str);
+		test_assert_idx(strcmp(str_c(str), test_blockquote_output[i]) == 0, i);
+		mail_html2text_deinit(&ht);
+	}
 
 	test_end();
 }

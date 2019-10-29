@@ -41,6 +41,7 @@ struct mail_html2text {
 	enum html_state state;
 	buffer_t *input;
 	unsigned int quote_level;
+	bool add_newline;
 };
 
 static struct {
@@ -86,18 +87,18 @@ parse_tag_name(struct mail_html2text *ht,
 		return 8 + 1;
 	}
 
-	if ((ht->flags & MAIL_HTML2TEXT_FLAG_SKIP_QUOTED) != 0) {
-		if (size >= 10 && i_memcasecmp(data, "blockquote", 10) == 0 &&
-		    (HTML_WHITESPACE(data[10]) || data[10] == '>')) {
-			ht->quote_level++;
-			ht->state = HTML_STATE_TAG;
-			return 1;
-		} else if (ht->quote_level > 0 &&
-			   size >= 12 && i_memcasecmp(data, "/blockquote>", 12) == 0) {
-			ht->quote_level--;
-			ht->state = HTML_STATE_TAG;
-			return 1;
-		}
+	if (size >= 10 && i_memcasecmp(data, "blockquote", 10) == 0 &&
+	    (HTML_WHITESPACE(data[10]) || data[10] == '>')) {
+		ht->quote_level++;
+		ht->state = HTML_STATE_TAG;
+		return 1;
+	} else if (ht->quote_level > 0 &&
+		   size >= 12 && i_memcasecmp(data, "/blockquote>", 12) == 0) {
+		ht->quote_level--;
+		if ((ht->flags & MAIL_HTML2TEXT_FLAG_SKIP_QUOTED) == 0)
+			ht->add_newline = TRUE;
+		ht->state = HTML_STATE_TAG;
+		return 1;
 	}
 	if (size < 12) {
 		/* can we see the whole tag name? */
@@ -191,15 +192,16 @@ parse_data(struct mail_html2text *ht,
 				if (ret == 0)
 					return i;
 				i += ret - 1;
-			} else if (ht->quote_level == 0) {
-				if (c == '&') {
-					ret = parse_entity(data+i+1, size-i-1, output);
-					if (ret == 0)
-						return i;
-					i += ret - 1;
-				} else {
-					buffer_append_c(output, c);
-				}
+			} else if (ht->quote_level > 0 &&
+				   (ht->flags & MAIL_HTML2TEXT_FLAG_SKIP_QUOTED) != 0) {
+					break;
+			} else if (c == '&') {
+				ret = parse_entity(data+i+1, size-i-1, output);
+				if (ret == 0)
+					return i;
+				i += ret - 1;
+			} else {
+				buffer_append_c(output, c);
 			}
 			break;
 		case HTML_STATE_TAG:
@@ -209,6 +211,13 @@ parse_data(struct mail_html2text *ht,
 				ht->state = HTML_STATE_TAG_SQUOTED;
 			else if (c == '>') {
 				ht->state = HTML_STATE_TEXT;
+				if (ht->quote_level > 0 &&
+				    (ht->flags & MAIL_HTML2TEXT_FLAG_SKIP_QUOTED) == 0) {
+					buffer_append(output, "\n>", 2);
+				} else if (ht->add_newline) {
+					buffer_append_c(output, '\n');
+				}
+				ht->add_newline = FALSE;
 				mail_html2text_add_space(output);
 			}
 			break;
@@ -284,7 +293,8 @@ parse_data(struct mail_html2text *ht,
 					break;
 				}
 			}
-			if (ht->quote_level == 0)
+			if (ht->quote_level == 0 ||
+			    (ht->flags & MAIL_HTML2TEXT_FLAG_SKIP_QUOTED) == 0)
 				buffer_append_c(output, c);
 			break;
 		}
