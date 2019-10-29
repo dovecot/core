@@ -31,6 +31,45 @@ struct snippet_context {
 	buffer_t *plain_output;
 };
 
+static void snippet_add_content(struct snippet_context *ctx,
+				struct snippet_data *target,
+				const unsigned char *data, size_t size,
+				size_t *count_r)
+{
+	i_assert(target != NULL);
+	if (size >= 3 &&
+	     ((data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) ||
+	      (data[0] == 0xBF && data[1] == 0xBB && data[2] == 0xEF))) {
+		*count_r = 3;
+		return;
+	}
+	if (data[0] == '\0') {
+		/* skip NULs without increasing snippet size */
+		return;
+	}
+	if (data[0] == '\r' || data[0] == '\n' ||
+	    data[0] == '\t' || data[0] == ' ') {
+		/* skip any leading whitespace */
+		if (str_len(target->snippet) > 1)
+			ctx->add_whitespace = TRUE;
+		if (data[0] == '\n')
+			ctx->state = SNIPPET_STATE_NEWLINE;
+		return;
+	}
+	if (ctx->add_whitespace) {
+		str_append_c(target->snippet, ' ');
+		ctx->add_whitespace = FALSE;
+		if (target->chars_left-- == 0)
+			return;
+	}
+	if (target->chars_left == 0)
+		return;
+	target->chars_left--;
+	*count_r = uni_utf8_char_bytes(data[0]);
+	i_assert(*count_r <= size);
+	str_append_data(target->snippet, data, *count_r);
+}
+
 static bool snippet_generate(struct snippet_context *ctx,
 			     const unsigned char *data, size_t size)
 {
@@ -58,37 +97,9 @@ static bool snippet_generate(struct snippet_context *ctx,
 			ctx->state = SNIPPET_STATE_NORMAL;
 			/* fallthrough */
 		case SNIPPET_STATE_NORMAL:
-			if (size-i >= 3 &&
-			     ((data[i] == 0xEF && data[i+1] == 0xBB && data[i+2] == 0xBF) ||
-			      (data[i] == 0xBF && data[i+1] == 0xBB && data[i+2] == 0xEF))) {
-				count += 2; /* because we skip +1 next */
-				break;
-			}
-			if (data[i] == '\0') {
-				/* skip NULs without increasing snippet size */
-				break;
-			}
-			if (data[i] == '\r' || data[i] == '\n' ||
-			    data[i] == '\t' || data[i] == ' ') {
-				/* skip any leading whitespace */
-				if (str_len(ctx->snippet.snippet) > 1)
-					ctx->add_whitespace = TRUE;
-				if (data[i] == '\n')
-					ctx->state = SNIPPET_STATE_NEWLINE;
-				break;
-			}
-			if (ctx->add_whitespace) {
-				str_append_c(ctx->snippet.snippet, ' ');
-				ctx->add_whitespace = FALSE;
-				if (ctx->snippet.chars_left-- == 0)
-					return FALSE;
-			}
-			if (ctx->snippet.chars_left == 0)
-				return FALSE;
-			ctx->snippet.chars_left--;
-			count = uni_utf8_char_bytes(data[i]);
-			i_assert(i + count <= size);
-			str_append_data(ctx->snippet.snippet, data + i, count);
+			snippet_add_content(ctx, &ctx->snippet,
+					    CONST_PTR_OFFSET(data, i), size-i,
+					    &count);
 			break;
 		case SNIPPET_STATE_QUOTED:
 			if (data[i] == '\n')
