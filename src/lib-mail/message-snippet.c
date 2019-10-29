@@ -18,9 +18,13 @@ enum snippet_state {
 	SNIPPET_STATE_QUOTED
 };
 
-struct snippet_context {
+struct snippet_data {
 	string_t *snippet;
 	unsigned int chars_left;
+};
+
+struct snippet_context {
+	struct snippet_data snippet;
 	enum snippet_state state;
 	bool add_whitespace;
 	struct mail_html2text *html2text;
@@ -67,24 +71,24 @@ static bool snippet_generate(struct snippet_context *ctx,
 			if (data[i] == '\r' || data[i] == '\n' ||
 			    data[i] == '\t' || data[i] == ' ') {
 				/* skip any leading whitespace */
-				if (str_len(ctx->snippet) > 1)
+				if (str_len(ctx->snippet.snippet) > 1)
 					ctx->add_whitespace = TRUE;
 				if (data[i] == '\n')
 					ctx->state = SNIPPET_STATE_NEWLINE;
 				break;
 			}
 			if (ctx->add_whitespace) {
-				str_append_c(ctx->snippet, ' ');
+				str_append_c(ctx->snippet.snippet, ' ');
 				ctx->add_whitespace = FALSE;
-				if (ctx->chars_left-- == 0)
+				if (ctx->snippet.chars_left-- == 0)
 					return FALSE;
 			}
-			if (ctx->chars_left == 0)
+			if (ctx->snippet.chars_left == 0)
 				return FALSE;
-			ctx->chars_left--;
+			ctx->snippet.chars_left--;
 			count = uni_utf8_char_bytes(data[i]);
 			i_assert(i + count <= size);
-			str_append_data(ctx->snippet, data + i, count);
+			str_append_data(ctx->snippet.snippet, data + i, count);
 			break;
 		case SNIPPET_STATE_QUOTED:
 			if (data[i] == '\n')
@@ -109,8 +113,8 @@ int message_snippet_generate(struct istream *input,
 
 	i_zero(&ctx);
 	pool = pool_alloconly_create("message snippet", 1024);
-	ctx.snippet = snippet;
-	ctx.chars_left = max_snippet_chars;
+	ctx.snippet.snippet = snippet;
+	ctx.snippet.chars_left = max_snippet_chars;
 
 	parser = message_parser_init(pool_datastack_create(), input, 0, 0);
 	decoder = message_decoder_init(NULL, 0);
