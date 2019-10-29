@@ -94,7 +94,7 @@ static bool snippet_generate(struct snippet_context *ctx,
 		count = 1;
 		switch (ctx->state) {
 		case SNIPPET_STATE_NEWLINE:
-			if (data[i] == '>' && ctx->html2text == NULL) {
+			if (data[i] == '>') {
 				ctx->state = SNIPPET_STATE_QUOTED;
 				i++;
 				target = &ctx->quoted_snippet;
@@ -160,7 +160,7 @@ int message_snippet_generate(struct istream *input,
 			if (ct == NULL)
 				/* text/plain */ ;
 			else if (mail_html2text_content_type_match(ct)) {
-				ctx.html2text = mail_html2text_init(MAIL_HTML2TEXT_FLAG_SKIP_QUOTED);
+				ctx.html2text = mail_html2text_init(0);
 				ctx.plain_output = buffer_create_dynamic(pool, 1024);
 			} else if (strncasecmp(ct, "text/", 5) != 0)
 				break;

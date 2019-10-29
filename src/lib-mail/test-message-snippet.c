@@ -50,7 +50,7 @@ static const struct {
 	  "&gt; -foo\n"
 	  "</div><br =class=3D\"\"></body></html>=\n",
 	  100,
-	  "Hi, How is it going? > -foo" },
+	  "Hi, How is it going?" },
 
 	{ "Content-Transfer-Encoding: quoted-printable\n"
 	  "Content-Type: application/xhtml+xml;\n"
@@ -64,7 +64,7 @@ static const struct {
 	  "&gt; -foo\n"
 	  "</div><br =class=3D\"\"></body></html>=\n",
 	  100,
-	  "Hi, How is it going? > -foo" },
+	  "Hi, How is it going?" },
 	{ "Content-Type: text/plain\n"
 	  "\n"
 	  ">quote1\n>quote2\n",
@@ -90,7 +90,7 @@ static const struct {
           "class=3D\"\"><div><blockquote>quoted text is included</blockquote>\n"
           "</div><br =class=3D\"\"></body></html>=\n",
           100,
-          "" },
+          ">quoted text is included" },
 };
 
 static void test_message_snippet(void)
