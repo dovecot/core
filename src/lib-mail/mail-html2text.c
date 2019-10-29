@@ -41,7 +41,6 @@ struct mail_html2text {
 	enum html_state state;
 	buffer_t *input;
 	unsigned int quote_level;
-	bool ignore_next_text;
 };
 
 static struct {
@@ -95,8 +94,7 @@ parse_tag_name(struct mail_html2text *ht,
 			return 1;
 		} else if (ht->quote_level > 0 &&
 			   size >= 12 && i_memcasecmp(data, "/blockquote>", 12) == 0) {
-			if (--ht->quote_level == 0)
-				ht->ignore_next_text = FALSE;
+			ht->quote_level--;
 			ht->state = HTML_STATE_TAG;
 			return 1;
 		}
