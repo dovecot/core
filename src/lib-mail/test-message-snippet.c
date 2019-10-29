@@ -65,6 +65,32 @@ static const struct {
 	  "</div><br =class=3D\"\"></body></html>=\n",
 	  100,
 	  "Hi, How is it going? > -foo" },
+	{ "Content-Type: text/plain\n"
+	  "\n"
+	  ">quote1\n>quote2\n",
+	  100,
+	  ">quote1 quote2" },
+	{ "Content-Type: text/plain\n"
+	  "\n"
+	  ">quote1\n>quote2\nbottom\nposter\n",
+	  100,
+	  "bottom poster" },
+	{ "Content-Type: text/plain\n"
+	  "\n"
+	  "top\nposter\n>quote1\n>quote2\n",
+	  100,
+	  "top poster" },
+        { "Content-Transfer-Encoding: quoted-printable\n"
+          "Content-Type: text/html;\n"
+          "      charset=utf-8\n"
+          "\n"
+          "<html><head><meta http-equiv=3D\"Content-Type\" content=3D\"text/html =\n"
+          "charset=3Dutf-8\"></head><body style=3D\"word-wrap: break-word; =\n"
+          "-webkit-nbsp-mode: space; -webkit-line-break: after-white-space;\" =\n"
+          "class=3D\"\"><div><blockquote>quoted text is included</blockquote>\n"
+          "</div><br =class=3D\"\"></body></html>=\n",
+          100,
+          "" },
 };
 
 static void test_message_snippet(void)

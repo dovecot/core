@@ -9,6 +9,8 @@
 #include "message-decoder.h"
 #include "message-snippet.h"
 
+#include <ctype.h>
+
 enum snippet_state {
 	/* beginning of the line */
 	SNIPPET_STATE_NEWLINE = 0,
@@ -25,6 +27,7 @@ struct snippet_data {
 
 struct snippet_context {
 	struct snippet_data snippet;
+	struct snippet_data quoted_snippet;
 	enum snippet_state state;
 	bool add_whitespace;
 	struct mail_html2text *html2text;
@@ -74,6 +77,7 @@ static bool snippet_generate(struct snippet_context *ctx,
 			     const unsigned char *data, size_t size)
 {
 	size_t i, count;
+	struct snippet_data *target = &ctx->snippet;
 
 	if (ctx->html2text != NULL) {
 		buffer_set_used_size(ctx->plain_output, 0);
@@ -92,22 +96,32 @@ static bool snippet_generate(struct snippet_context *ctx,
 		case SNIPPET_STATE_NEWLINE:
 			if (data[i] == '>' && ctx->html2text == NULL) {
 				ctx->state = SNIPPET_STATE_QUOTED;
-				break;
+				i++;
+				target = &ctx->quoted_snippet;
+			} else {
+				ctx->state = SNIPPET_STATE_NORMAL;
+				target = &ctx->snippet;
 			}
-			ctx->state = SNIPPET_STATE_NORMAL;
 			/* fallthrough */
 		case SNIPPET_STATE_NORMAL:
-			snippet_add_content(ctx, &ctx->snippet,
-					    CONST_PTR_OFFSET(data, i), size-i,
-					    &count);
-			break;
 		case SNIPPET_STATE_QUOTED:
-			if (data[i] == '\n')
-				ctx->state = SNIPPET_STATE_NEWLINE;
+			snippet_add_content(ctx, target, CONST_PTR_OFFSET(data, i),
+					    size-i, &count);
+			/* break here if we have enough non-quoted data,
+			   quoted data does not need to break here as it's
+			   only used if the actual snippet is left empty. */
+			if (ctx->snippet.chars_left == 0)
+				return FALSE;
 			break;
 		}
 	}
 	return TRUE;
+}
+
+static void snippet_copy(const char *src, string_t *dst)
+{
+	while (*src != '\0' && i_isspace(*src)) src++;
+	str_append(dst, src);
 }
 
 int message_snippet_generate(struct istream *input,
@@ -123,10 +137,11 @@ int message_snippet_generate(struct istream *input,
 	int ret;
 
 	i_zero(&ctx);
-	pool = pool_alloconly_create("message snippet", 1024);
-	ctx.snippet.snippet = snippet;
+	pool = pool_alloconly_create("message snippet", 2048);
+	ctx.snippet.snippet = str_new(pool, max_snippet_chars);
 	ctx.snippet.chars_left = max_snippet_chars;
-
+	ctx.quoted_snippet.snippet = str_new(pool, max_snippet_chars);
+	ctx.quoted_snippet.chars_left = max_snippet_chars;
 	parser = message_parser_init(pool_datastack_create(), input, 0, 0);
 	decoder = message_decoder_init(NULL, 0);
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
@@ -158,6 +173,12 @@ int message_snippet_generate(struct istream *input,
 	message_decoder_deinit(&decoder);
 	message_parser_deinit(&parser, &parts);
 	mail_html2text_deinit(&ctx.html2text);
+	if (ctx.snippet.snippet->used != 0)
+		snippet_copy(str_c(ctx.snippet.snippet), snippet);
+	else if (ctx.quoted_snippet.snippet->used != 0) {
+		str_append_c(snippet, '>');
+		snippet_copy(str_c(ctx.quoted_snippet.snippet), snippet);
+	}
 	pool_unref(&pool);
 	return input->stream_errno == 0 ? 0 : -1;
 }
