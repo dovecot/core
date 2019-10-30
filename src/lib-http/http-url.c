@@ -241,13 +241,39 @@ http_url_parse_query(struct http_url_parser *url_parser, bool have_path)
 	return TRUE;
 }
 
+static bool
+http_url_parse_fragment(struct http_url_parser *url_parser, bool have_path)
+{
+	struct uri_parser *parser = &url_parser->parser;
+	struct http_url *url = url_parser->url, *base = url_parser->base;
+	const char *fragment;
+	int ret;
+
+	if ((ret = uri_parse_fragment(parser, &fragment)) < 0)
+		return FALSE;
+	if (ret > 0 &&
+	    (url_parser->flags & HTTP_URL_ALLOW_FRAGMENT_PART) == 0) {
+		parser->error =
+			"URL fragment not allowed for HTTP URL in this context";
+		return FALSE;
+	}
+	if (url == NULL)
+		return TRUE;
+
+	if (ret > 0)
+		url->enc_fragment =  p_strdup(parser->pool, fragment);
+	else if (url_parser->relative && !have_path)
+		url->enc_fragment = p_strdup(parser->pool, base->enc_fragment);
+	return TRUE;
+}
+
 static bool http_url_do_parse(struct http_url_parser *url_parser)
 {
 	struct uri_parser *parser = &url_parser->parser;
 	struct http_url *url = url_parser->url, *base = url_parser->base;
 	bool relative = TRUE, have_scheme = FALSE, have_authority = FALSE,
 		have_path = FALSE;
-	const char *scheme, *part;
+	const char *scheme;
 	int ret;
 
 	/* RFC 7230, Appendix B:
@@ -373,19 +399,8 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 		return FALSE;
 
 	/* [ "#" fragment ] */
-	if ((ret = uri_parse_fragment(parser, &part)) < 0)
+	if (!http_url_parse_fragment(url_parser, have_path))
 		return FALSE;
-	if (ret > 0) {
-		if ((url_parser->flags & HTTP_URL_ALLOW_FRAGMENT_PART) == 0) {
-			parser->error =
-				"URL fragment not allowed for HTTP URL in this context";
-			return FALSE;
-		}
-		if (url != NULL)
-			url->enc_fragment =  p_strdup(parser->pool, part);
-	} else if (relative && !have_path && url != NULL) {
-		url->enc_fragment = p_strdup(parser->pool, base->enc_fragment);
-	}
 
 	/* must be at end of URL now */
 	i_assert(parser->cur == parser->end);
