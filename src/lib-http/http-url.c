@@ -221,6 +221,26 @@ http_url_parse_path(struct http_url_parser *url_parser)
 	return 1;
 }
 
+static bool
+http_url_parse_query(struct http_url_parser *url_parser, bool have_path)
+{
+	struct uri_parser *parser = &url_parser->parser;
+	struct http_url *url = url_parser->url, *base = url_parser->base;
+	const char *query;
+	int ret;
+
+	if ((ret = uri_parse_query(parser, &query)) < 0)
+		return FALSE;
+	if (url == NULL)
+		return TRUE;
+
+	if (ret > 0)
+		url->enc_query = p_strdup(parser->pool, query);
+	else if (url_parser->relative && !have_path)
+		url->enc_query = p_strdup(parser->pool, base->enc_query);
+	return TRUE;
+}
+
 static bool http_url_do_parse(struct http_url_parser *url_parser)
 {
 	struct uri_parser *parser = &url_parser->parser;
@@ -349,14 +369,8 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 	have_path = (ret > 0);
 
 	/* [ "?" query ] */
-	if ((ret = uri_parse_query(parser, &part)) < 0)
+	if (!http_url_parse_query(url_parser, have_path))
 		return FALSE;
-	if (ret > 0) {
-		if (url != NULL)
-			url->enc_query = p_strdup(parser->pool, part);
-	} else if (relative && !have_path && url != NULL) {
-		url->enc_query = p_strdup(parser->pool, base->enc_query);
-	}
 
 	/* [ "#" fragment ] */
 	if ((ret = uri_parse_fragment(parser, &part)) < 0)
