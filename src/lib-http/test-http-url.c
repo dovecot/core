@@ -647,6 +647,44 @@ static struct valid_http_url_test valid_url_tests[] = {
 
 static unsigned int valid_url_test_count = N_ELEMENTS(valid_url_tests);
 
+static void
+test_http_url_equal(struct http_url *urlt, struct http_url *urlp)
+{
+	if (urlp->host.name == NULL || urlt->host.name == NULL) {
+		test_assert(urlp->host.name == urlt->host.name);
+	} else {
+		test_assert(strcmp(urlp->host.name, urlt->host.name) == 0);
+	}
+	test_assert(urlp->port == urlt->port);
+	test_assert(urlp->host.ip.family == urlt->host.ip.family);
+	if (urlp->user == NULL || urlt->user == NULL) {
+		test_assert(urlp->user == urlt->user);
+	} else {
+		test_assert(strcmp(urlp->user, urlt->user) == 0);
+	}
+	if (urlp->password == NULL || urlt->password == NULL) {
+		test_assert(urlp->password == urlt->password);
+	} else {
+		test_assert(strcmp(urlp->password, urlt->password) == 0);
+	}
+	if (urlp->path == NULL || urlt->path == NULL) {
+		test_assert(urlp->path == urlt->path);
+	} else {
+		test_assert(strcmp(urlp->path, urlt->path) == 0);
+	}
+	if (urlp->enc_query == NULL || urlt->enc_query == NULL) {
+		test_assert(urlp->enc_query == urlt->enc_query);
+	} else {
+		test_assert(strcmp(urlp->enc_query, urlt->enc_query) == 0);
+	}
+	if (urlp->enc_fragment == NULL || urlt->enc_fragment == NULL) {
+		test_assert(urlp->enc_fragment == urlt->enc_fragment);
+	} else {
+		test_assert(strcmp(urlp->enc_fragment,
+				   urlt->enc_fragment) == 0);
+	}
+}
+
 static void test_http_url_valid(void)
 {
 	unsigned int i;
@@ -668,52 +706,8 @@ static void test_http_url_valid(void)
 
 		test_out_reason(t_strdup_printf("http_url_parse(%s)",
 			valid_url_tests[i].url), urlp != NULL, error);
-		if (urlp != NULL) {
-			if (urlp->host.name == NULL ||
-			    urlt->host.name == NULL) {
-				test_assert(urlp->host.name == urlt->host.name);
-			} else {
-				test_assert(strcmp(urlp->host.name,
-						   urlt->host.name) == 0);
-			}
-			test_assert(urlp->port == urlt->port);
-			test_assert(urlp->host.ip.family ==
-				    urlt->host.ip.family);
-			if (urlp->user == NULL || urlt->user == NULL) {
-				test_assert(urlp->user == urlt->user);
-			} else {
-				test_assert(strcmp(urlp->user,
-						   urlt->user) == 0);
-			}
-			if (urlp->password == NULL || urlt->password == NULL) {
-				test_assert(urlp->password == urlt->password);
-			} else {
-				test_assert(strcmp(urlp->password,
-						   urlt->password) == 0);
-			}
-			if (urlp->path == NULL || urlt->path == NULL) {
-				test_assert(urlp->path == urlt->path);
-			} else {
-				test_assert(strcmp(urlp->path,
-						   urlt->path) == 0);
-			}
-			if (urlp->enc_query == NULL ||
-			    urlt->enc_query == NULL) {
-				test_assert(urlp->enc_query ==
-					    urlt->enc_query);
-			} else {
-				test_assert(strcmp(urlp->enc_query,
-						   urlt->enc_query) == 0);
-			}
-			if (urlp->enc_fragment == NULL ||
-			    urlt->enc_fragment == NULL) {
-				test_assert(urlp->enc_fragment ==
-					    urlt->enc_fragment);
-			} else {
-				test_assert(strcmp(urlp->enc_fragment,
-						   urlt->enc_fragment) == 0);
-			}
-		}
+		if (urlp != NULL)
+			test_http_url_equal(urlt, urlp);
 
 		test_end();
 	} T_END;
