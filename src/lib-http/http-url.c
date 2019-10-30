@@ -29,6 +29,24 @@ struct http_url_parser {
 
 static bool http_url_parse_authority_form(struct http_url_parser *url_parser);
 
+static bool
+http_url_parse_scheme(struct http_url_parser *url_parser, const char **scheme_r)
+{
+	struct uri_parser *parser = &url_parser->parser;
+	int ret;
+
+	*scheme_r = NULL;
+	if ((url_parser->flags & HTTP_URL_PARSE_SCHEME_EXTERNAL) != 0)
+		return TRUE;
+
+	if ((ret = uri_parse_scheme(parser, scheme_r)) <= 0) {
+		parser->cur = parser->begin;
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static bool http_url_parse_unknown_scheme(struct http_url_parser *url_parser)
 {
 	struct uri_parser *parser = &url_parser->parser;
@@ -144,7 +162,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 	bool relative = TRUE, have_scheme = FALSE, have_authority = FALSE,
 		have_path = FALSE;
 	int path_relative;
-	const char *part;
+	const char *scheme, *part;
 	int ret;
 
 	/* RFC 7230, Appendix B:
@@ -198,22 +216,16 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 	 */
 
 	/* "http:" / "https:" */
-	if ((url_parser->flags & HTTP_URL_PARSE_SCHEME_EXTERNAL) == 0) {
-		const char *scheme;
-
-		if ((ret = uri_parse_scheme(parser, &scheme)) <= 0) {
-			parser->cur = parser->begin;
-		} else {
-			if (strcasecmp(scheme, "https") == 0) {
-				if (url != NULL)
-					url->have_ssl = TRUE;
-			} else if (strcasecmp(scheme, "http") != 0) {
-				return http_url_parse_unknown_scheme(url_parser);
-			}
-			relative = FALSE;
-			have_scheme = TRUE;
+	if (http_url_parse_scheme(url_parser, &scheme)) {
+		if (scheme == NULL) {
+			/* Scheme externally parsed */
+		} else if (strcasecmp(scheme, "https") == 0) {
+			if (url != NULL)
+				url->have_ssl = TRUE;
+		} else if (strcasecmp(scheme, "http") != 0) {
+			return http_url_parse_unknown_scheme(url_parser);
 		}
-	} else {
+
 		relative = FALSE;
 		have_scheme = TRUE;
 	}
