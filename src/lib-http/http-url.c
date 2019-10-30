@@ -154,14 +154,79 @@ static bool http_url_parse_authority_form(struct http_url_parser *url_parser)
 	return TRUE;
 }
 
-static bool http_url_do_parse(struct http_url_parser *url_parser)
+static int
+http_url_parse_path(struct http_url_parser *url_parser)
 {
 	struct uri_parser *parser = &url_parser->parser;
 	struct http_url *url = url_parser->url, *base = url_parser->base;
 	const char *const *path;
+	int path_relative;
+	string_t *fullpath = NULL;
+	int ret;
+
+	/* path-abempty / path-absolute / path-noscheme / path-empty */
+	if ((ret = uri_parse_path(parser, &path_relative, &path)) < 0)
+		return -1;
+
+	/* Resolve path */
+	if (ret == 0) {
+		if (url_parser->relative && url != NULL)
+			url->path = p_strdup(parser->pool, base->path);
+		return 0;
+	}
+
+	if (url != NULL)
+		fullpath = t_str_new(256);
+
+	if (url_parser->relative && path_relative > 0 && base->path != NULL) {
+		const char *pbegin = base->path;
+		const char *pend = base->path + strlen(base->path);
+		const char *p = pend - 1;
+
+		i_assert(*pbegin == '/');
+
+		/* Discard trailing segments of base path based on how many
+		   effective leading '..' segments were found in the relative
+		   path.
+		 */
+		while (path_relative > 0 && p > pbegin) {
+			while (p > pbegin && *p != '/') p--;
+			if (p >= pbegin) {
+				pend = p;
+				path_relative--;
+			}
+			if (p > pbegin) p--;
+		}
+
+		if (url != NULL && pend > pbegin)
+			str_append_data(fullpath, pbegin, pend - pbegin);
+	}
+
+	/* Append relative path */
+	while (*path != NULL) {
+		const char *part;
+
+		if (!uri_data_decode(parser, *path, NULL, &part))
+			return -1;
+
+		if (url != NULL) {
+			str_append_c(fullpath, '/');
+			str_append(fullpath, part);
+		}
+		path++;
+	}
+
+	if (url != NULL)
+		url->path = p_strdup(parser->pool, str_c(fullpath));
+	return 1;
+}
+
+static bool http_url_do_parse(struct http_url_parser *url_parser)
+{
+	struct uri_parser *parser = &url_parser->parser;
+	struct http_url *url = url_parser->url, *base = url_parser->base;
 	bool relative = TRUE, have_scheme = FALSE, have_authority = FALSE,
 		have_path = FALSE;
-	int path_relative;
 	const char *scheme, *part;
 	int ret;
 
@@ -260,10 +325,6 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 			return FALSE;
 	}
 
-	/* path-abempty / path-absolute / path-noscheme / path-empty */
-	if ((ret = uri_parse_path(parser, &path_relative, &path)) < 0)
-		return FALSE;
-
 	/* Relative URLs are only valid when we have a base URL */
 	if (relative) {
 		if (base == NULL) {
@@ -281,56 +342,11 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 		url_parser->relative = TRUE;
 	}
 
-	/* Resolve path */
-	if (ret > 0) {
-		string_t *fullpath = NULL;
-
-		have_path = TRUE;
-
-		if (url != NULL)
-			fullpath = t_str_new(256);
-
-		if (relative && path_relative > 0 && base->path != NULL) {
-			const char *pbegin = base->path;
-			const char *pend = base->path + strlen(base->path);
-			const char *p = pend - 1;
-
-			i_assert(*pbegin == '/');
-
-			/* Discard trailing segments of base path based on how
-			   many effective leading '..' segments were found in
-			   the relative path.
-			 */
-			while (path_relative > 0 && p > pbegin) {
-				while (p > pbegin && *p != '/') p--;
-				if (p >= pbegin) {
-					pend = p;
-					path_relative--;
-				}
-				if (p > pbegin) p--;
-			}
-
-			if (url != NULL && pend > pbegin)
-				str_append_data(fullpath, pbegin, pend-pbegin);
-		}
-
-		/* Append relative path */
-		while (*path != NULL) {
-			if (!uri_data_decode(parser, *path, NULL, &part))
-				return FALSE;
-
-			if (url != NULL) {
-				str_append_c(fullpath, '/');
-				str_append(fullpath, part);
-			}
-			path++;
-		}
-
-		if (url != NULL)
-			url->path = p_strdup(parser->pool, str_c(fullpath));
-	} else if (relative && url != NULL) {
-		url->path = p_strdup(parser->pool, base->path);
-	}
+	/* path-abempty / path-absolute / path-noscheme / path-empty */
+	ret = http_url_parse_path(url_parser);
+	if (ret < 0)
+		return FALSE;
+	have_path = (ret > 0);
 
 	/* [ "?" query ] */
 	if ((ret = uri_parse_query(parser, &part)) < 0)
