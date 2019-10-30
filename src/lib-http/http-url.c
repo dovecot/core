@@ -27,6 +27,28 @@ struct http_url_parser {
 	bool request_target:1;
 };
 
+static bool http_url_parse_authority_form(struct http_url_parser *url_parser);
+
+static bool http_url_parse_unknown_scheme(struct http_url_parser *url_parser)
+{
+	struct uri_parser *parser = &url_parser->parser;
+
+	if (url_parser->request_target) {
+		/* Valid as non-HTTP scheme, but also try to parse as authority
+		 */
+		parser->cur = parser->begin;
+		if (!http_url_parse_authority_form(url_parser)) {
+			/* indicate non-http-url */
+			url_parser->url = NULL;
+			url_parser->req_format =
+				HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE;
+		}
+		return TRUE;
+	}
+	parser->error = "Not an HTTP URL";
+	return FALSE;
+}
+
 static bool
 http_url_parse_userinfo(struct http_url_parser *url_parser,
 			struct uri_authority *auth,
@@ -186,21 +208,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 				if (url != NULL)
 					url->have_ssl = TRUE;
 			} else if (strcasecmp(scheme, "http") != 0) {
-				if (url_parser->request_target) {
-					/* Valid as non-HTTP scheme, but also
-					   try to parse as authority */
-					parser->cur = parser->begin;
-					if (!http_url_parse_authority_form(
-						url_parser)) {
-						/* indicate non-http-url */
-						url_parser->url = NULL;
-						url_parser->req_format =
-							HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE;
-					}
-					return TRUE;
-				}
-				parser->error = "Not an HTTP URL";
-				return FALSE;
+				return http_url_parse_unknown_scheme(url_parser);
 			}
 			relative = FALSE;
 			have_scheme = TRUE;
