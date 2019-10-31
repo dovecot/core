@@ -1452,7 +1452,7 @@ director_init(const struct director_settings *set,
 	i_array_init(&dir->dir_hosts, 16);
 	i_array_init(&dir->pending_requests, 16);
 	i_array_init(&dir->connections, 8);
-	dir->mail_hosts = mail_hosts_init(set->director_user_expire,
+	dir->mail_hosts = mail_hosts_init(dir, set->director_user_expire,
 					  director_user_freed);
 
 	dir->ipc_proxy = ipc_client_init(DIRECTOR_IPC_PROXY_PATH);

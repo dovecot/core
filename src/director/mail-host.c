@@ -11,6 +11,7 @@
 #define VHOST_MULTIPLIER 100
 
 struct mail_host_list {
+	struct director *dir;
 	ARRAY_TYPE(mail_tag) tags;
 	ARRAY_TYPE(mail_host) hosts;
 	user_free_hook_t *user_free_hook;
@@ -482,12 +483,14 @@ const ARRAY_TYPE(mail_tag) *mail_hosts_get_tags(struct mail_host_list *list)
 }
 
 struct mail_host_list *
-mail_hosts_init(unsigned int user_expire_secs,
+mail_hosts_init(struct director *dir,
+		unsigned int user_expire_secs,
 		user_free_hook_t *user_free_hook)
 {
 	struct mail_host_list *list;
 
 	list = i_new(struct mail_host_list, 1);
+	list->dir = dir;
 	list->user_expire_secs = user_expire_secs;
 	list->user_free_hook = user_free_hook;
 
@@ -531,7 +534,7 @@ struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src)
 	struct mail_host_list *dest;
 	struct mail_host *const *hostp, *dest_host;
 
-	dest = mail_hosts_init(src->user_expire_secs, src->user_free_hook);
+	dest = mail_hosts_init(src->dir, src->user_expire_secs, src->user_free_hook);
 	array_foreach(&src->hosts, hostp) {
 		dest_host = mail_host_dup(dest, *hostp);
 		array_push_back(&dest->hosts, &dest_host);
