@@ -51,6 +51,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
 			.url = {
 				.host = { .name = "example.com" },
+				.path = "/",
 			},
 		},
 		.version_major = 1, .version_minor = 1,
@@ -66,6 +67,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
 			.url = {
 				.host = { .name = "example.org" },
+				.path = "/",
 			},
 		},
 		.version_major = 1, .version_minor = 1,
@@ -80,6 +82,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
 			.url = {
 				.host = { .name = "example.org" },
+				.path = "/",
 			},
 		},
 		.version_major = 1, .version_minor = 0,
@@ -163,6 +166,7 @@ valid_request_parse_tests[] = {
 			.url = {
 				.host = { .name = "api.example.com" },
 				.port = 8080,
+				.path = "/commit",
 			},
 		},
 		.version_major = 1, .version_minor = 1,
@@ -180,6 +184,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE,
 			.url = {
 				.host = { .name = "www.example.com" },
+				.path = "/index.php",
 			},
 		},
 		.version_major = 1, .version_minor = 1,
@@ -196,6 +201,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE,
 			.url = {
 				.host = { .name = "www.example.com" },
+				.path = "/index.html",
 			},
 		},
 		.version_major = 1, .version_minor = 0,
@@ -213,6 +219,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE,
 			.url = {
 				.host = { .name = "www.example.com" },
+				.path = "/index.html",
 			},
 		},
 		.version_major = 1, .version_minor = 1,
@@ -230,6 +237,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
 			.url = {
 				.host = { .name = "example.com" },
+				.path = "/",
 			},
 		},
 		.version_major = 1, .version_minor = 1,
@@ -247,6 +255,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
 			.url = {
 				.host = { .name = "example.com" },
+				.path = "/",
 			},
 		},
 		.version_major = 1, .version_minor = 1,
@@ -301,6 +310,15 @@ test_http_request_url_equal(const struct http_url *urlt,
 	test_out(t_strdup_printf("request->target.url->have_ssl = %s",
 				 (urlp->have_ssl ? "yes" : "no")),
 		 urlp->have_ssl == urlt->have_ssl);
+	if (urlp->path == NULL || urlt->path == NULL) {
+		test_out(t_strdup_printf("request->target.url->path = %s",
+					 urlp->path),
+			 urlp->path == urlt->path);
+	} else {
+		test_out(t_strdup_printf("request->target.url->path = %s",
+					 urlp->path),
+			 strcmp(urlp->path, urlt->path) == 0);
+	}
 }
 
 static void
