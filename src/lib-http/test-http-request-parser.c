@@ -272,6 +272,89 @@ _request_target_format(enum http_request_target_format target_format)
 	return t_strdup_printf("<<UNKNOWN: %u>>", target_format);
 }
 
+static void
+test_http_request_url_equal(const struct http_url *urlt,
+			    const struct http_url *urlp)
+{
+	if (urlp == NULL) {
+		test_out("request->target.url = (null)",
+			 (urlt->host.name == NULL && urlt->port == 0));
+		return;
+	}
+	if (urlp->host.name == NULL || urlt->host.name == NULL) {
+		test_out(t_strdup_printf("request->target.url->host.name = %s",
+					 urlp->host.name),
+			 (urlp->host.name == urlt->host.name));
+	} else {
+		test_out(t_strdup_printf("request->target.url->host.name = %s",
+					 urlp->host.name),
+			 strcmp(urlp->host.name, urlt->host.name) == 0);
+	}
+	if (urlp->port == 0) {
+		test_out("request->target.url->port = (unspecified)",
+			 urlp->port == urlt->port);
+	} else {
+		test_out(t_strdup_printf("request->target.url->port = %u",
+					 urlp->port),
+			 urlp->port == urlt->port);
+	}
+	test_out(t_strdup_printf("request->target.url->have_ssl = %s",
+				 (urlp->have_ssl ? "yes" : "no")),
+		 urlp->have_ssl == urlt->have_ssl);
+}
+
+static void
+test_http_request_equal(const struct http_request_valid_parse_test *test,
+			struct http_request request, const char *payload)
+{
+	if (request.method == NULL || test->method == NULL) {
+		test_out(t_strdup_printf("request->method = %s",
+					 request.method),
+			 request.method == test->method);
+	} else {
+		test_out(t_strdup_printf("request->method = %s",
+					 request.method),
+			 strcmp(request.method, test->method) == 0);
+	}
+
+	if (request.target_raw == NULL || test->target_raw == NULL) {
+		test_out(t_strdup_printf("request->target_raw = %s",
+					 request.target_raw),
+			 request.target_raw == test->target_raw);
+	} else {
+		test_out(t_strdup_printf("request->target_raw = %s",
+					 request.target_raw),
+			 strcmp(request.target_raw, test->target_raw) == 0);
+	}
+
+	test_http_request_url_equal(&test->target.url, request.target.url);
+
+	test_out(t_strdup_printf("request->target_format = %s",
+				 _request_target_format(request.target.format)),
+		 request.target.format == test->target.format);
+
+	test_out(t_strdup_printf("request->version = %u.%u",
+				 request.version_major, request.version_minor),
+		 (request.version_major == test->version_major &&
+		  request.version_minor == test->version_minor));
+	test_out(t_strdup_printf("request->connection_close = %s",
+				 (request.connection_close ? "yes" : "no")),
+		 request.connection_close == test->connection_close);
+	test_out(t_strdup_printf("request->expect_100_continue = %s",
+				 (request.expect_100_continue ? "yes" : "no")),
+		 request.expect_100_continue == test->expect_100_continue);
+
+	if (payload == NULL || test->payload == NULL) {
+		test_out(t_strdup_printf("request->payload = %s",
+					 str_sanitize(payload, 80)),
+			 payload == test->payload);
+	} else {
+		test_out(t_strdup_printf("request->payload = %s",
+					 str_sanitize(payload, 80)),
+			 strcmp(payload, test->payload) == 0);
+	}
+}
+
 static void test_http_request_parse_valid(void)
 {
 	unsigned int i;
@@ -331,77 +414,7 @@ static void test_http_request_parse_valid(void)
 		
 		if (ret == 0) {
 			/* verify last request only */
-			if (request.method == NULL || test->method == NULL) {
-				test_out(t_strdup_printf("request->method = %s",
-							 request.method),
-					 request.method == test->method);
-			} else {
-				test_out(t_strdup_printf("request->method = %s",
-							 request.method),
-					 strcmp(request.method, test->method) == 0);
-			}
-
-			if (request.target_raw == NULL || test->target_raw == NULL) {
-				test_out(t_strdup_printf("request->target_raw = %s",
-							 request.target_raw),
-					 request.target_raw == test->target_raw);
-			} else {
-				test_out(t_strdup_printf("request->target_raw = %s",
-							 request.target_raw),
-					 strcmp(request.target_raw, test->target_raw) == 0);
-			}
-			if (request.target.url == NULL) {
-				test_out("request->target.url = (null)",
-					 (test->target.url.host.name == NULL &&
-					  test->target.url.port == 0));
-			} else {
-				if (request.target.url->host.name == NULL ||
-				    test->target.url.host.name == NULL) {
-					test_out(t_strdup_printf("request->target.url->host.name = %s",
-								 request.target.url->host.name),
-						 request.target.url->host.name == test->target.url.host.name);
-				} else {
-					test_out(t_strdup_printf("request->target.url->host.name = %s",
-								 request.target.url->host.name),
-						 strcmp(request.target.url->host.name,
-							test->target.url.host.name) == 0);
-				}
-				if (request.target.url->port == 0) {
-					test_out("request->target.url->port = (unspecified)",
-						 request.target.url->port == test->target.url.port);
-				} else {
-					test_out(t_strdup_printf("request->target.url->port = %u",
-								 request.target.url->port),
-						 request.target.url->port == test->target.url.port);
-				}
-				test_out(t_strdup_printf("request->target.url->have_ssl = %s",
-							 (request.target.url->have_ssl ? "yes" : "no")),
-					 request.target.url->have_ssl == test->target.url.have_ssl);
-			}
-			test_out(t_strdup_printf("request->target_format = %s",
-						 _request_target_format(request.target.format)),
-				 request.target.format == test->target.format);
-
-			test_out(t_strdup_printf("request->version = %u.%u",
-						 request.version_major, request.version_minor),
-				 (request.version_major == test->version_major &&
-				  request.version_minor == test->version_minor));
-			test_out(t_strdup_printf("request->connection_close = %s",
-						 (request.connection_close ? "yes" : "no")),
-				 request.connection_close == test->connection_close);
-			test_out(t_strdup_printf("request->expect_100_continue = %s",
-						 (request.expect_100_continue ? "yes" : "no")),
-				 request.expect_100_continue == test->expect_100_continue);
-		
-			if (payload == NULL || test->payload == NULL) {
-				test_out(t_strdup_printf("request->payload = %s",
-							 str_sanitize(payload, 80)),
-					 payload == test->payload);
-			} else {
-				test_out(t_strdup_printf("request->payload = %s",
-							 str_sanitize(payload, 80)),
-					 strcmp(payload, test->payload) == 0);
-			}
+			test_http_request_equal(test, request, payload);
 		}
 		test_end();
 		http_request_parser_deinit(&parser);
