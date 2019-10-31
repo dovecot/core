@@ -65,18 +65,34 @@ static struct auth_worker_client *auth_worker_get_client(void)
 	return client;
 }
 
-static void auth_worker_request_finished(struct auth_worker_command *cmd,
-					 const char *error)
+static void
+auth_worker_request_finished_full(struct auth_worker_command *cmd,
+				  const char *error, bool log_as_error)
 {
 	event_set_name(cmd->event, "auth_worker_request_finished");
 	if (error != NULL) {
 		event_add_str(cmd->event, "error", error);
-		e_error(cmd->event, "Finished: %s", error);
+		if (log_as_error)
+			e_error(cmd->event, "Finished: %s", error);
+		else
+			e_debug(cmd->event, "Finished: %s", error);
 	} else {
 		e_debug(cmd->event, "Finished");
 	}
 	event_unref(&cmd->event);
 	i_free(cmd);
+}
+
+static void auth_worker_request_finished(struct auth_worker_command *cmd,
+					 const char *error)
+{
+	auth_worker_request_finished_full(cmd, error, FALSE);
+}
+
+static void auth_worker_request_finished_bug(struct auth_worker_command *cmd,
+					     const char *error)
+{
+	auth_worker_request_finished_full(cmd, error, TRUE);
 }
 
 void auth_worker_refresh_proctitle(const char *state)
@@ -187,6 +203,7 @@ static void verify_plain_callback(enum passdb_result result,
 {
 	struct auth_worker_command *cmd = request->context;
 	struct auth_worker_client *client = cmd->client;
+	const char *error = NULL;
 	string_t *str;
 
 	if (request->failed && result == PASSDB_RESULT_OK)
@@ -200,8 +217,10 @@ static void verify_plain_callback(enum passdb_result result,
 			str_append(str, "NEXT");
 		else
 			str_append(str, "OK");
-	else
+	else {
 		str_printfa(str, "FAIL\t%d", result);
+		error = passdb_result_to_string(result);
+	}
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
 		str_append_c(str, '\t');
 		if (request->user_changed_by_lookup)
@@ -215,7 +234,7 @@ static void verify_plain_callback(enum passdb_result result,
 	auth_worker_send_reply(client, request, str);
 
 	auth_request_passdb_lookup_end(request, result);
-	auth_worker_request_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -279,7 +298,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	struct auth_request *request;
 	string_t *str;
 	const char *password;
-	const char *crypted, *scheme;
+	const char *crypted, *scheme, *error;
 	unsigned int passdb_id;
 	int ret;
 
@@ -308,17 +327,21 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	str = t_str_new(128);
 	str_printfa(str, "%u\t", request->id);
 
-	if (ret == 1)
+	if (ret == 1) {
 		str_printfa(str, "OK\t\t");
-	else if (ret == 0)
+		error = NULL;
+	} else if (ret == 0) {
 		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_PASSWORD_MISMATCH);
-	else
+		error = passdb_result_to_string(PASSDB_RESULT_PASSWORD_MISMATCH);
+	} else {
 		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE);
+		error = passdb_result_to_string(PASSDB_RESULT_INTERNAL_FAILURE);
+	}
 
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, request, str);
 
-	auth_worker_request_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -426,7 +449,8 @@ set_credentials_callback(bool success, struct auth_request *request)
 	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
 	auth_worker_send_reply(client, request, str);
 
-	auth_worker_request_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, success ? NULL :
+				     "Failed to set credentials");
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -473,6 +497,7 @@ lookup_user_callback(enum userdb_result result,
 {
 	struct auth_worker_command *cmd = auth_request->context;
 	struct auth_worker_client *client = cmd->client;
+	const char *error;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -502,7 +527,9 @@ lookup_user_callback(enum userdb_result result,
 	auth_worker_send_reply(client, auth_request, str);
 
 	auth_request_userdb_lookup_end(auth_request, result);
-	auth_worker_request_finished(cmd, NULL);
+	error = result == USERDB_RESULT_OK ? NULL :
+		userdb_result_to_string(result);
+	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&auth_request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -567,15 +594,17 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 {
 	struct auth_worker_command *cmd = ctx->cmd;
 	struct auth_worker_client *client = ctx->client;
+	const char *error = NULL;
 	string_t *str;
 
 	i_assert(client->conn.io == NULL);
 
 	str = t_str_new(32);
 	if (ctx->auth_request->userdb->userdb->iface->
-	    		iterate_deinit(ctx->iter) < 0)
+	    			iterate_deinit(ctx->iter) < 0) {
+		error = "Iteration failed";
 		str_printfa(str, "%u\tFAIL\n", ctx->auth_request->id);
-	else
+	} else
 		str_printfa(str, "%u\tOK\n", ctx->auth_request->id);
 	auth_worker_send_reply(client, NULL, str);
 
@@ -583,7 +612,7 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	o_stream_set_flush_callback(client->conn.output, auth_worker_output,
 				    client);
 	auth_request_userdb_lookup_end(ctx->auth_request, USERDB_RESULT_OK);
-	auth_worker_request_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&ctx->auth_request);
 	auth_worker_client_unref(&client);
 	i_free(ctx);
@@ -789,7 +818,7 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	i_assert(ret || error != NULL);
 
 	if (!ret) {
-		auth_worker_request_finished(cmd, error);
+		auth_worker_request_finished_bug(cmd, error);
 	} else if (client->conn.io == NULL) {
 		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 	}
