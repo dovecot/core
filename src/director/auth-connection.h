@@ -1,11 +1,14 @@
 #ifndef AUTH_CONNECTION_H
 #define AUTH_CONNECTION_H
 
+struct director;
+
 /* Called for each input line. This is also called with line=NULL if
    connection gets disconnected. */
 typedef void auth_input_callback(const char *line, void *context);
 
-struct auth_connection *auth_connection_init(const char *path);
+struct auth_connection *
+auth_connection_init(struct director *dir, const char *path);
 void auth_connection_deinit(struct auth_connection **conn);
 
 void auth_connection_set_callback(struct auth_connection *conn,

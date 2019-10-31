@@ -15,6 +15,7 @@
 struct auth_connection {
 	struct auth_connection *prev, *next;
 
+	struct director *dir;
 	char *path;
 	int fd;
 	struct io *io;
@@ -57,11 +58,13 @@ static void auth_connection_input(struct auth_connection *conn)
 	}
 }
 
-struct auth_connection *auth_connection_init(const char *path)
+struct auth_connection *
+auth_connection_init(struct director *dir, const char *path)
 {
 	struct auth_connection *conn;
  
 	conn = i_new(struct auth_connection, 1);
+	conn->dir = dir;
 	conn->fd = -1;
 	conn->path = i_strdup(path);
 	DLLIST_PREPEND(&auth_connections, conn);

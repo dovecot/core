@@ -199,7 +199,7 @@ static void client_connected(struct master_service_connection *conn)
 		userdb = *typep == DIRECTOR_SOCKET_TYPE_USERDB;
 		socket_path = userdb ? AUTH_USERDB_SOCKET_PATH :
 			AUTH_SOCKET_PATH;
-		auth = auth_connection_init(socket_path);
+		auth = auth_connection_init(director, socket_path);
 		if (auth_connection_connect(auth) < 0) {
 			auth_connection_deinit(&auth);
 			break;
