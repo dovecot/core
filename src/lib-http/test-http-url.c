@@ -98,6 +98,88 @@ static struct valid_http_url_test valid_url_tests[] = {
 			.enc_query = "question=What%20are%20you%20doing%3f&answer=Nothing.",
 		},
 	},
+	/* Empty path segments */
+	{
+		.url = "http://target//index.php",
+		.url_parsed = {
+			.path = "//index.php",
+			.host = { .name = "target" },
+		},
+	},
+	{
+		.url = "http://target//path//index.php",
+		.url_parsed = {
+			.path = "//path//index.php",
+			.host = { .name = "target" },
+		},
+	},
+	{
+		.url = "http://target//path/",
+		.url_parsed = {
+			.path = "//path/",
+			.host = { .name = "target" },
+		},
+	},
+	{
+		.url = "http://target//path//",
+		.url_parsed = {
+			.path = "//path//",
+			.host = { .name = "target" },
+		},
+	},
+	{
+		.url = "http://target//path//to//./index.php",
+		.url_parsed = {
+			.path = "//path//to//index.php",
+			.host = { .name = "target" },
+		},
+	},
+	{
+		.url = "http://target//path//to//../index.php",
+		.url_parsed = {
+			.path = "//path//to/index.php",
+			.host = { .name = "target" },
+		},
+	},
+	{
+		.url = "/index.php",
+		.url_base = {
+			.host = { .name = "target" },
+		},
+		.url_parsed = {
+			.host = { .name = "target" },
+			.path = "/index.php",
+		},
+	},
+	{
+		.url = "//index.php",
+		.url_base = {
+			.host = { .name = "target" },
+		},
+		.url_parsed = {
+			.host = { .name = "index.php" },
+		},
+	},
+	{
+		.url = "/path/to/index.php",
+		.url_base = {
+			.host = { .name = "target" },
+		},
+		.url_parsed = {
+			.host = { .name = "target" },
+			.path = "/path/to/index.php",
+		},
+	},
+	{
+		.url = "//path//to//index.php",
+		.url_base = {
+			.host = { .name = "target" },
+		},
+		.url_parsed = {
+			.host = { .name = "path" },
+			.path = "//to//index.php",
+		},
+	},
 	/* These next 2 URLs don't follow the recommendations in
 	   http://tools.ietf.org/html/rfc1034#section-3.5 and
 	   http://tools.ietf.org/html/rfc3696

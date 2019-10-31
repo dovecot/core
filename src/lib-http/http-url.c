@@ -345,7 +345,8 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 	 * ["//"] authority ; when parsing a request target
 	 */
 	if (parser->cur < parser->end && parser->cur[0] == '/') {
-		if ((parser->cur + 1) < parser->end && parser->cur[1] == '/') {
+		if ((have_scheme || !url_parser->request_target) &&
+		    (parser->cur + 1) < parser->end && parser->cur[1] == '/') {
 			parser->cur += 2;
 			relative = FALSE;
 			have_authority = TRUE;

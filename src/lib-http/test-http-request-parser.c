@@ -260,6 +260,24 @@ valid_request_parse_tests[] = {
 		},
 		.version_major = 1, .version_minor = 1,
 	},
+	{
+		.request =
+			"GET //index.php HTTP/1.1\r\n"
+			"Date: Sun, 07 Oct 2012 19:52:03 GMT\r\n"
+			"Host: example.com\r\n"
+			"Date: Sun, 13 Oct 2013 13:13:13 GMT\r\n"
+			"\r\n",
+		.method = "GET",
+		.target_raw = "//index.php",
+		.target = {
+			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
+			.url = {
+				.host = { .name = "example.com" },
+				.path = "//index.php",
+			},
+		},
+		.version_major = 1, .version_minor = 1,
+	},
 };
 
 static const unsigned int valid_request_parse_test_count =
