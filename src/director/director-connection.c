@@ -164,7 +164,7 @@ director_cmd_error(struct director_connection *conn, const char *fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
-	i_error("director(%s): Command %s: %s (input: %s)", conn->name,
+	e_error(conn->dir->event, "director(%s): Command %s: %s (input: %s)", conn->name,
 		conn->cur_cmd, t_strdup_vprintf(fmt, args),
 		t_strarray_join(conn->cur_args, "\t"));
 	va_end(args);
@@ -242,7 +242,7 @@ director_connection_init_timeout(struct director_connection *conn)
 	director_connection_append_stats(conn, reason);
 	str_append_c(reason, ')');
 
-	i_error("director(%s): %s", conn->name, str_c(reason));
+	e_error(conn->dir->event, "director(%s): %s", conn->name, str_c(reason));
 	director_connection_disconnected(&conn, "Handshake timeout");
 }
 
@@ -315,7 +315,7 @@ static bool director_connection_assign_left(struct director_connection *conn)
 
 	/* make sure this is the correct incoming connection */
 	if (conn->host->self) {
-		i_error("Connection from self, dropping");
+		e_error(conn->dir->event, "Connection from self, dropping");
 		return FALSE;
 	} else if (dir->left == NULL) {
 		/* no conflicts yet */
@@ -475,7 +475,8 @@ static bool director_cmd_me(struct director_connection *conn,
 
 	if (!conn->in && (!net_ip_compare(&conn->host->ip, &ip) ||
 			  conn->host->port != port)) {
-		i_error("Remote director thinks it's someone else "
+		e_error(conn->dir->event,
+			"Remote director thinks it's someone else "
 			"(connected to %s:%u, remote says it's %s:%u)",
 			conn->host->ip_str, conn->host->port,
 			net_ip2addr(&ip), port);
@@ -542,7 +543,8 @@ static bool director_cmd_me(struct director_connection *conn,
 	if (next_comm_attempt > ioloop_time) {
 		/* the director recently sent invalid protocol data,
 		   don't try retrying yet */
-		i_error("director(%s): Remote sent invalid protocol data recently, "
+		e_error(conn->dir->event,
+			"director(%s): Remote sent invalid protocol data recently, "
 			"waiting %u secs before allowing further communication",
 			conn->name, (unsigned int)(next_comm_attempt-ioloop_time));
 		return FALSE;
@@ -696,7 +698,7 @@ director_user_refresh(struct director_connection *conn,
 				    user_kill_state_names[user->kill_ctx->kill_state]);
 		}
 		str_append_c(str, ')');
-		i_error("%s", str_c(str));
+		e_error(conn->dir->event, "%s", str_c(str));
 
 		/* we want all the directors to redirect the user to same
 		   server, but we don't want two directors fighting over which
@@ -777,7 +779,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
-		i_error("director(%s): USER used unknown host %s in handshake",
+		e_error(conn->dir->event, "director(%s): USER used unknown host %s in handshake",
 			conn->name, args[1]);
 		return FALSE;
 	}
@@ -1147,7 +1149,8 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 
 		host_tag = mail_host_get_tag(host);
 		if (strcmp(tag, host_tag) != 0) {
-			i_error("director(%s): Host %s changed tag from '%s' to '%s'",
+			e_error(conn->dir->event,
+				"director(%s): Host %s changed tag from '%s' to '%s'",
 				conn->name, host->ip_str,
 				host_tag, tag);
 			mail_host_set_tag(host, tag);
@@ -1472,7 +1475,7 @@ director_handshake_cmd_options(struct director_connection *conn,
 			consistent_hashing = TRUE;
 	}
 	if (!consistent_hashing) {
-		i_error("director(%s): director_consistent_hashing settings "
+		e_error(conn->dir->event, "director(%s): director_consistent_hashing settings "
 			"differ between directors. Set "
 			"director_consistent_hashing=yes on old directors",
 			conn->name);
@@ -1490,24 +1493,24 @@ director_connection_handle_handshake(struct director_connection *conn,
 	/* both incoming and outgoing connections get VERSION and ME */
 	if (strcmp(cmd, "VERSION") == 0 && str_array_length(args) >= 3) {
 		if (strcmp(args[0], DIRECTOR_VERSION_NAME) != 0) {
-			i_error("director(%s): Wrong protocol in socket "
+			e_error(conn->dir->event, "director(%s): Wrong protocol in socket "
 				"(%s vs %s)",
 				conn->name, args[0], DIRECTOR_VERSION_NAME);
 			return -1;
 		} else if (str_to_uint(args[1], &major_version) < 0 ||
 			str_to_uint(args[2], &conn->minor_version) < 0) {
-			i_error("director(%s): Invalid protocol version: "
+			e_error(conn->dir->event, "director(%s): Invalid protocol version: "
 				"%s.%s", conn->name, args[1], args[2]);
 			return -1;
 		} else if (major_version != DIRECTOR_VERSION_MAJOR) {
-			i_error("director(%s): Incompatible protocol version: "
+			e_error(conn->dir->event, "director(%s): Incompatible protocol version: "
 				"%u vs %u", conn->name, major_version,
 				DIRECTOR_VERSION_MAJOR);
 			return -1;
 		}
 		if (conn->minor_version < DIRECTOR_VERSION_TAGS_V2 &&
 		    mail_hosts_have_tags(conn->dir->mail_hosts)) {
-			i_error("director(%s): Director version supports incompatible tags", conn->name);
+			e_error(conn->dir->event, "director(%s): Director version supports incompatible tags", conn->name);
 			return -1;
 		}
 		conn->version_received = TRUE;
@@ -1585,7 +1588,7 @@ director_connection_sync_host(struct director_connection *conn,
 
 		if (hosts_hash != 0 &&
 		    hosts_hash != mail_hosts_hash(conn->dir->mail_hosts)) {
-			i_error("director(%s): Hosts unexpectedly changed during SYNC reply - resending"
+			e_error(conn->dir->event, "director(%s): Hosts unexpectedly changed during SYNC reply - resending"
 				"(seq=%u, old hosts_hash=%u, new hosts_hash=%u)",
 				conn->name, seq, hosts_hash,
 				mail_hosts_hash(dir->mail_hosts));
@@ -1662,7 +1665,7 @@ director_connection_sync_host(struct director_connection *conn,
 			   with the same wrong hosts_hash. FIXME: this gets
 			   triggered unnecessarily sometimes if hosts are
 			   changing rapidly. */
-			i_error("director(%s): Director %s SYNC request hosts don't match us - resending hosts "
+			e_error(conn->dir->event, "director(%s): Director %s SYNC request hosts don't match us - resending hosts "
 				"(seq=%u, remote hosts_hash=%u, my hosts_hash=%u)",
 				conn->name, host->ip_str, seq,
 				hosts_hash, mail_hosts_hash(dir->mail_hosts));
@@ -2059,7 +2062,7 @@ director_connection_log_disconnect(struct director_connection *conn, int err,
 	if (conn->synced)
 		str_append(str, ", synced");
 	str_append_c(str, ')');
-	i_error("%s", str_c(str));
+	e_error(conn->dir->event, "%s", str_c(str));
 }
 
 static void director_connection_input(struct director_connection *conn)
@@ -2183,7 +2186,7 @@ static int director_connection_send_done(struct director_connection *conn)
 		director_connection_send(conn,
 			"OPTIONS\t"DIRECTOR_OPT_CONSISTENT_HASHING"\n");
 	} else {
-		i_error("director(%s): Director version is too old for supporting director_consistent_hashing=yes",
+		e_error(conn->dir->event, "director(%s): Director version is too old for supporting director_consistent_hashing=yes",
 			conn->name);
 		return -1;
 	}
@@ -2336,7 +2339,7 @@ static void director_connection_connected(struct director_connection *conn)
 	int err;
 
 	if ((err = net_geterror(conn->fd)) != 0) {
-		i_error("director(%s): connect() failed: %s", conn->name,
+		e_error(conn->dir->event, "director(%s): connect() failed: %s", conn->name,
 			strerror(err));
 		director_connection_disconnected(&conn, strerror(err));
 		return;

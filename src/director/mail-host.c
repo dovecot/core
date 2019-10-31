@@ -204,7 +204,7 @@ mail_host_add(struct mail_host_list *list, const char *hostname,
 	}
 
 	if (net_gethostbyname(hostname, &ips, &ips_count) < 0) {
-		i_error("Unknown mail host: %s", hostname);
+		e_error(list->dir->event, "Unknown mail host: %s", hostname);
 		return -1;
 	}
 
@@ -223,12 +223,12 @@ mail_hosts_add_range(struct mail_host_list *list,
 	unsigned int i, j, max_bits, last_bits;
 
 	if (ip1.family != ip2.family) {
-		i_error("IP address family mismatch: %s vs %s",
+		e_error(list->dir->event, "IP address family mismatch: %s vs %s",
 			net_ip2addr(&ip1), net_ip2addr(&ip2));
 		return -1;
 	}
 	if (net_ip_cmp(&ip1, &ip2) > 0) {
-		i_error("IP addresses reversed: %s-%s",
+		e_error(list->dir->event, "IP addresses reversed: %s-%s",
 			net_ip2addr(&ip1), net_ip2addr(&ip2));
 		return -1;
 	}
@@ -247,7 +247,7 @@ mail_hosts_add_range(struct mail_host_list *list,
 	/* make sure initial bits match */
 	for (i = 0; i < (max_bits-last_bits)/32; i++) {
 		if (ip1_arr[i] != ip2_arr[i]) {
-			i_error("IP address range too large: %s-%s",
+			e_error(list->dir->event, "IP address range too large: %s-%s",
 				net_ip2addr(&ip1), net_ip2addr(&ip2));
 			return -1;
 		}
@@ -257,7 +257,7 @@ mail_hosts_add_range(struct mail_host_list *list,
 
 	for (j = last_bits; j < 32; j++) {
 		if ((i1 & (1U << j)) != (i2 & (1U << j))) {
-			i_error("IP address range too large: %s-%s",
+			e_error(list->dir->event, "IP address range too large: %s-%s",
 				net_ip2addr(&ip1), net_ip2addr(&ip2));
 			return -1;
 		}
@@ -313,9 +313,9 @@ int mail_hosts_parse_and_add(struct mail_host_list *list,
 
 	if (array_count(&list->hosts) == 0) {
 		if (ret < 0)
-			i_error("No valid servers specified");
+			e_error(list->dir->event, "No valid servers specified");
 		else
-			i_error("Empty server list");
+			e_error(list->dir->event, "Empty server list");
 		ret = -1;
 	}
 	return ret;

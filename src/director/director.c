@@ -162,7 +162,7 @@ int director_connect_host(struct director *dir, struct director_host *host,
 	fd = net_connect_ip(&host->ip, port, &dir->self_ip);
 	if (fd == -1) {
 		host->last_network_failure = ioloop_time;
-		i_error("connect(%s) failed: %m", host->name);
+		e_error(dir->event, "connect(%s) failed: %m", host->name);
 		return -1;
 	}
 	/* Reset timestamp so that director_connect() won't skip this host
@@ -438,7 +438,7 @@ static void director_sync_timeout(struct director *dir)
 	i_assert(!dir->ring_synced);
 
 	if (director_resend_sync(dir))
-		i_error("Ring SYNC seq=%u appears to have got lost, resending", dir->sync_seq);
+		e_error(dir->event, "Ring SYNC seq=%u appears to have got lost, resending", dir->sync_seq);
 }
 
 void director_set_ring_unsynced(struct director *dir)
@@ -633,10 +633,10 @@ director_send_host(struct director *dir, struct director_host *src,
 	} else if (host_tag[0] != '\0' &&
 		   dir->ring_min_version < DIRECTOR_VERSION_TAGS_V2) {
 		if (dir->ring_min_version < DIRECTOR_VERSION_TAGS) {
-			i_error("Ring has directors that don't support tags - removing host %s with tag '%s'",
+			e_error(dir->event, "Ring has directors that don't support tags - removing host %s with tag '%s'",
 				host->ip_str, host_tag);
 		} else {
-			i_error("Ring has directors that support mixed versions of tags - removing host %s with tag '%s'",
+			e_error(dir->event, "Ring has directors that support mixed versions of tags - removing host %s with tag '%s'",
 				host->ip_str, host_tag);
 		}
 		director_remove_host(dir, NULL, NULL, host);
@@ -801,13 +801,13 @@ director_flush_user_continue(int result, struct director_kill_context *ctx)
 		char *data;
 		i_stream_set_return_partial_line(is, TRUE);
 		data = i_stream_read_next_line(is);
-		i_error("%s: Failed to flush user hash %u in host %s: %s",
+		e_error(dir->event, "%s: Failed to flush user hash %u in host %s: %s",
 			ctx->socket_path,
 			ctx->username_hash,
 			net_ip2addr(&ctx->host_ip),
 			data == NULL ? "(no output to stdout)" : data);
 		while((data = i_stream_read_next_line(is)) != NULL) {
-			i_error("%s: Failed to flush user hash %u in host %s: %s",
+			e_error(dir->event, "%s: Failed to flush user hash %u in host %s: %s",
 				ctx->socket_path,
 				ctx->username_hash,
 				net_ip2addr(&ctx->host_ip), data);
@@ -863,7 +863,7 @@ director_flush_user(struct director *dir, struct user *user)
 
 	string_t *s_sock = str_new(default_pool, 32);
 	if (var_expand(s_sock, dir->set->director_flush_socket, tab, &error) <= 0) {
-		i_error("Failed to expand director_flush_socket=%s: %s",
+		e_error(dir->event, "Failed to expand director_flush_socket=%s: %s",
 			dir->set->director_flush_socket, error);
 		director_user_kill_finish_delayed(dir, user, FALSE);
 		return;
@@ -893,7 +893,7 @@ director_flush_user(struct director *dir, struct user *user)
 
 	if ((program_client_create(ctx->socket_path, args, &set, FALSE,
 				   &ctx->pclient, &error)) != 0) {
-		i_error("%s: Failed to flush user hash %u in host %s: %s",
+		e_error(dir->event, "%s: Failed to flush user hash %u in host %s: %s",
 			ctx->socket_path,
 			user->username_hash,
 			user->host->ip_str,
@@ -1018,13 +1018,15 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	switch (state) {
 	case IPC_CLIENT_CMD_STATE_REPLY:
 		/* shouldn't get here. the command reply isn't finished yet. */
-		i_error("login process sent unexpected reply to kick: %s", data);
+		e_error(ctx->dir->event,
+			"login process sent unexpected reply to kick: %s", data);
 		return;
 	case IPC_CLIENT_CMD_STATE_OK:
 		break;
 	case IPC_CLIENT_CMD_STATE_ERROR:
 		if (log_throttle_accept(user_kill_fail_throttle)) {
-			i_error("Failed to kill user %u connections: %s",
+			e_error(ctx->dir->event,
+				"Failed to kill user %u connections: %s",
 				ctx->username_hash, data);
 		}
 		/* we can't really do anything but continue anyway */
@@ -1063,7 +1065,8 @@ static void director_user_move_timeout(struct user *user)
 	i_assert(user->kill_ctx->kill_state != USER_KILL_STATE_DELAY);
 
 	if (log_throttle_accept(user_move_throttle)) {
-		i_error("Finishing user %u move timed out, "
+		e_error(user->kill_ctx->dir->event,
+			"Finishing user %u move timed out, "
 			"its state may now be inconsistent (state=%s)",
 			user->username_hash,
 			user_kill_state_names[user->kill_ctx->kill_state]);
@@ -1199,7 +1202,7 @@ director_kick_user_callback(enum ipc_client_cmd_state state,
 
 	if (state == IPC_CLIENT_CMD_STATE_REPLY) {
 		/* shouldn't get here. the command reply isn't finished yet. */
-		i_error("login process sent unexpected reply to kick: %s", data);
+		e_error(dir->event, "login process sent unexpected reply to kick: %s", data);
 		return;
 	}
 
@@ -1561,7 +1564,7 @@ director_get_username_hash(struct director *dir, const char *username,
 	if (mail_user_hash(username, dir->set->director_username_hash, hash_r,
 			   &error))
 		return TRUE;
-	i_error("Failed to expand director_user_expire=%s: %s",
+	e_error(dir->event, "Failed to expand director_user_expire=%s: %s",
 		dir->set->director_username_hash, error);
 	return FALSE;
 }

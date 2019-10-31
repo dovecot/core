@@ -8,6 +8,7 @@
 #include "llist.h"
 #include "safe-memset.h"
 #include "auth-client-interface.h"
+#include "director.h"
 #include "auth-connection.h"
 
 #include <unistd.h>
@@ -39,12 +40,13 @@ static void auth_connection_input(struct auth_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		i_error("Auth server disconnected unexpectedly");
+		e_error(conn->dir->event, "Auth server disconnected unexpectedly");
 		auth_connection_disconnected(&conn);
 		return;
 	case -2:
 		/* buffer full */
-		i_error("BUG: Auth server sent us more than %d bytes",
+		e_error(conn->dir->event,
+			"BUG: Auth server sent us more than %d bytes",
 			(int)AUTH_CLIENT_MAX_LINE_LENGTH);
 		auth_connection_disconnected(&conn);
 		return;
@@ -84,7 +86,7 @@ int auth_connection_connect(struct auth_connection *conn)
 
 	conn->fd = net_connect_unix_with_retries(conn->path, 1000);
 	if (conn->fd == -1) {
-		i_error("connect(%s) failed: %m", conn->path);
+		e_error(conn->dir->event, "connect(%s) failed: %m", conn->path);
 		return -1;
 	}
 
@@ -108,7 +110,7 @@ void auth_connection_deinit(struct auth_connection **_conn)
 		o_stream_unref(&conn->output);
 
 		if (close(conn->fd) < 0)
-			i_error("close(auth connection) failed: %m");
+			e_error(conn->dir->event, "close(auth connection) failed: %m");
 	}
 	i_free(conn->path);
 	i_free(conn);
