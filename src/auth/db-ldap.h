@@ -155,6 +155,7 @@ struct ldap_connection {
 
 	pool_t pool;
 	int refcount;
+	struct event *event;
 
 	char *config_path;
         struct ldap_settings set;
