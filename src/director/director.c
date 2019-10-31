@@ -143,7 +143,7 @@ director_log_connect(struct director *dir, struct director_host *host,
 		str_printfa(str, ", last protocol failure %ds ago",
 			    (int)(ioloop_time - host->last_protocol_failure));
 	}
-	i_info("Connecting to %s:%u (as %s%s): %s",
+	e_info(dir->event, "Connecting to %s:%u (as %s%s): %s",
 	       host->ip_str, host->port,
 	       net_ip2addr(&dir->self_ip), str_c(str), reason);
 }
@@ -262,13 +262,15 @@ void director_connect(struct director *dir, const char *reason)
 
 	/* we're the only one */
 	if (count > 1) {
-		i_warning("director: Couldn't connect to right side, "
+		e_warning(dir->event,
+			  "director: Couldn't connect to right side, "
 			  "we must be the only director left");
 	}
 	if (dir->left != NULL) {
 		/* since we couldn't connect to it,
 		   it must have failed recently */
-		i_warning("director: Assuming %s is dead, disconnecting",
+		e_warning(dir->event,
+			  "director: Assuming %s is dead, disconnecting",
 			  director_connection_get_name(dir->left));
 		director_connection_deinit(&dir->left,
 					   "This connection is dead?");
@@ -286,7 +288,8 @@ void director_set_ring_handshaked(struct director *dir)
 
 	timeout_remove(&dir->to_handshake_warning);
 	if (dir->ring_handshake_warning_sent) {
-		i_warning("Directors have been connected, "
+		e_warning(dir->event,
+			  "Directors have been connected, "
 			  "continuing delayed requests");
 		dir->ring_handshake_warning_sent = FALSE;
 	}
@@ -325,7 +328,8 @@ void director_set_ring_synced(struct director *dir)
 
 	timeout_remove(&dir->to_handshake_warning);
 	if (dir->ring_handshake_warning_sent) {
-		i_warning("Ring is synced, continuing delayed requests "
+		e_warning(dir->event,
+			  "Ring is synced, continuing delayed requests "
 			  "(syncing took %d secs, hosts_hash=%u)",
 			  (int)(ioloop_time - dir->ring_last_sync_time),
 			  mail_hosts_hash(dir->mail_hosts));
@@ -412,7 +416,8 @@ bool director_resend_sync(struct director *dir)
 		   hanging due to some bug. */
 		if (dir->to_reconnect == NULL &&
 		    !director_has_any_outgoing_connections(dir)) {
-			i_warning("Right side connection is unexpectedly lost, reconnecting");
+			e_warning(dir->event,
+				  "Right side connection is unexpectedly lost, reconnecting");
 			director_connect(dir, "Right side connection lost");
 		}
 	} else if (dir->left != NULL) {
@@ -522,7 +527,8 @@ void director_notify_ring_added(struct director_host *added_host,
 	const char *cmd;
 
 	if (log) {
-		i_info("Adding director %s to ring (requested by %s)",
+		e_info(added_host->dir->event,
+		       "Adding director %s to ring (requested by %s)",
 		       added_host->name, src->name);
 	}
 
@@ -559,7 +565,7 @@ void director_ring_remove(struct director_host *removed_host,
 	unsigned int i, count;
 	const char *cmd;
 
-	i_info("Removing director %s from ring (requested by %s)",
+	e_info(dir->event, "Removing director %s from ring (requested by %s)",
 	       removed_host->name, src->name);
 
 	if (removed_host->self && !src->self) {

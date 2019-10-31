@@ -320,7 +320,8 @@ static bool director_connection_assign_left(struct director_connection *conn)
 	} else if (dir->left == NULL) {
 		/* no conflicts yet */
 	} else if (dir->left->host == conn->host) {
-		i_warning("Replacing left director connection %s with %s",
+		e_warning(dir->event,
+			  "Replacing left director connection %s with %s",
 			  dir->left->host->name, conn->host->name);
 		director_connection_deinit(&dir->left, t_strdup_printf(
 			"Replacing with %s", conn->host->name));
@@ -415,13 +416,15 @@ static bool director_connection_assign_right(struct director_connection *conn)
 		if (director_host_cmp_to_self(conn->host, dir->right->host,
 					      dir->self_host) <= 0) {
 			/* the old connection is the correct one */
-			i_warning("Aborting incorrect outgoing connection to %s "
+			e_warning(dir->event,
+				  "Aborting incorrect outgoing connection to %s "
 				  "(already connected to correct one: %s)",
 				  conn->host->name, dir->right->host->name);
 			conn->wrong_host = TRUE;
 			return FALSE;
 		}
-		i_warning("Replacing right director connection %s with %s",
+		e_warning(dir->event,
+			  "Replacing right director connection %s with %s",
 			  dir->right->host->name, conn->host->name);
 		director_connection_deinit(&dir->right, t_strdup_printf(
 			"Replacing with %s", conn->host->name));
@@ -492,7 +495,8 @@ static bool director_cmd_me(struct director_connection *conn,
 		diff = ioloop_time - remote_time;
 		if (diff > DIRECTOR_MAX_CLOCK_DIFF_WARN_SECS ||
 		    (diff < 0 && -diff > DIRECTOR_MAX_CLOCK_DIFF_WARN_SECS)) {
-			i_warning("Director %s clock differs from ours by %d secs",
+			e_warning(dir->event,
+				  "Director %s clock differs from ours by %d secs",
 				  conn->name, diff);
 		}
 	}
@@ -1176,7 +1180,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			vhost_count = I_MIN(vhost_count, host->vhost_count);
 			str_printfa(str, "setting to state=%s vhosts=%u",
 				    down ? "down" : "up", vhost_count);
-			i_warning("%s", str_c(str));
+			e_warning(conn->dir->event, "%s", str_c(str));
 			/* make the change appear to come from us, so it
 			   reaches the full ring */
 			dir_host = NULL;
@@ -1429,9 +1433,9 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 	director_connection_append_stats(conn, str);
 	str_append_c(str, ')');
 	if (handshake_msecs >= DIRECTOR_HANDSHAKE_WARN_SECS*1000)
-		i_warning("%s", str_c(str));
+		e_warning(dir->event, "%s", str_c(str));
 	else
-		i_info("%s", str_c(str));
+		e_info(dir->event, "%s", str_c(str));
 
 	/* the host is up now, make sure we can connect to it immediately
 	   if needed */
@@ -1617,7 +1621,8 @@ director_connection_sync_host(struct director_connection *conn,
 				timestamp);
 			return FALSE;
 		} else if (seq < host->last_sync_seq) {
-			i_warning("Last SYNC seq for %s appears to be stale, resetting "
+			e_warning(dir->event,
+				  "Last SYNC seq for %s appears to be stale, resetting "
 				  "(seq=%u, timestamp=%u -> seq=%u, timestamp=%u)",
 				  host->name, host->last_sync_seq,
 				  host->last_sync_timestamp, seq, timestamp);
@@ -1846,7 +1851,8 @@ static bool director_cmd_ping(struct director_connection *conn,
 	    str_to_uintmax(args[1], &send_buffer_size) == 0) {
 		int diff_secs = ioloop_time - sent_time;
 		if (diff_secs*1000+500 > DIRECTOR_CONNECTION_PINGPONG_WARN_MSECS) {
-			i_warning("director(%s): PING response took %d secs to receive "
+			e_warning(conn->dir->event,
+				  "director(%s): PING response took %d secs to receive "
 				  "(send buffer was %ju bytes)",
 				  conn->name, diff_secs, send_buffer_size);
 		}
@@ -1909,7 +1915,8 @@ static bool director_cmd_pong(struct director_connection *conn,
 		if (ping_msecs > DIRECTOR_CONNECTION_PINGPONG_WARN_MSECS) {
 			string_t *extra = t_str_new(128);
 			director_ping_append_extra(conn, extra, sent_time, send_buffer_size);
-			i_warning("director(%s): PONG response took %u.%03u secs (%s)",
+			e_warning(conn->dir->event,
+				  "director(%s): PONG response took %u.%03u secs (%s)",
 				  conn->name, ping_msecs/1000, ping_msecs%1000,
 				  str_c(extra));
 		}
@@ -1982,7 +1989,8 @@ director_connection_handle_cmd(struct director_connection *conn,
 	if (strcmp(cmd, "CONNECT") == 0)
 		return director_cmd_connect(conn, args);
 	if (strcmp(cmd, "QUIT") == 0) {
-		i_warning("Director %s disconnected us with reason: %s",
+		e_warning(conn->dir->event,
+			  "Director %s disconnected us with reason: %s",
 			  conn->name, t_strarray_join(args, " "));
 		return FALSE;
 	}
@@ -2024,7 +2032,8 @@ director_connection_log_disconnect(struct director_connection *conn, int err,
 	i_assert(conn->connected);
 
 	if (conn->connect_request_to != NULL) {
-		i_warning("Director %s tried to connect to us, "
+		e_warning(conn->dir->event,
+			  "Director %s tried to connect to us, "
 			  "should use %s instead",
 			  conn->name, conn->connect_request_to->name);
 		return;
@@ -2317,7 +2326,7 @@ director_connection_init_in(struct director *dir, int fd,
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
 				    director_connection_init_timeout, conn);
 
-	i_info("Incoming connection from director %s", conn->name);
+	e_info(dir->event, "Incoming connection from director %s", conn->name);
 	director_connection_send_handshake(conn);
 	return conn;
 }

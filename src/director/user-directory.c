@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "llist.h"
 #include "mail-host.h"
+#include "director.h"
 
 /* n% of timeout_secs */
 #define USER_NEAR_EXPIRING_PERCENTAGE 10
@@ -94,7 +95,8 @@ static bool user_directory_user_has_connections(struct user_directory *dir,
 			return TRUE;
 		}
 
-		i_warning("User %u weakness appears to be stuck, removing it",
+		e_warning(dir->director->event,
+			  "User %u weakness appears to be stuck, removing it",
 			  user->username_hash);
 	}
 	return FALSE;

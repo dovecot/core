@@ -164,7 +164,8 @@ static int director_client_connected(int fd, const struct ip_addr *ip)
 
 	host = director_host_lookup_ip(director, ip);
 	if (host == NULL || host->removed) {
-		i_warning("Connection from %s: Server not listed in "
+		e_warning(director->event,
+			  "Connection from %s: Server not listed in "
 			  "director_servers, dropping", net_ip2addr(ip));
 		return -1;
 	}

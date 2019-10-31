@@ -488,7 +488,8 @@ doveadm_cmd_host_flush_all(struct doveadm_connection *conn)
 		director_flush_host(conn->dir, conn->dir->self_host,
 				    NULL, *hostp);
 	}
-	i_warning("Flushed all backend hosts with %u users. This is an unsafe "
+	e_warning(conn->dir->event,
+		  "Flushed all backend hosts with %u users. This is an unsafe "
 		  "operation and may cause the same users to end up in multiple backends.",
 		  total_user_count);
 	o_stream_nsend(conn->output, "OK\n", 3);
@@ -576,7 +577,8 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 	}
 	if (user == NULL) {
 		int msecs = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
-		i_info("Moved %u users in %u hosts in %u.%03u secs (max parallel=%u)",
+		e_info(dir->event,
+		       "Moved %u users in %u hosts in %u.%03u secs (max parallel=%u)",
 		       cmd->reset_count, cmd->hosts_count - cmd->host_start_idx,
 		       msecs / 1000, msecs % 1000, cmd->max_moving_users);
 		director_iterate_users_deinit(&cmd->iter);

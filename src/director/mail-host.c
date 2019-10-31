@@ -5,6 +5,7 @@
 #include "bsearch-insert-pos.h"
 #include "crc32.h"
 #include "md5.h"
+#include "director.h"
 #include "user-directory.h"
 #include "mail-host.h"
 
@@ -338,7 +339,7 @@ void mail_host_set_down(struct mail_host *host, bool down,
 {
 	if (host->down != down) {
 		const char *updown = down ? "down" : "up";
-		i_info("%sHost %s changed %s "
+		e_info(host->list->dir->event, "%sHost %s changed %s "
 		       "(vhost_count=%u last_updown_change=%ld)",
 		       log_prefix, host->ip_str, updown,
 		       host->vhost_count, (long)host->last_updown_change);
@@ -352,7 +353,8 @@ void mail_host_set_down(struct mail_host *host, bool down,
 void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count,
 			       const char *log_prefix)
 {
-	i_info("%sHost %s vhost count changed from %u to %u",
+	e_info(host->list->dir->event,
+	       "%sHost %s vhost count changed from %u to %u",
 	       log_prefix, host->ip_str,
 	       host->vhost_count, vhost_count);
 

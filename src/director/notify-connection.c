@@ -39,7 +39,8 @@ static void notify_update_user(struct director *dir, struct mail_tag *tag,
 
 	diff = ioloop_time - user->timestamp;
 	if (diff >= (int)dir->set->director_user_expire) {
-		i_warning("notify: User %s refreshed too late (%d secs)",
+		e_warning(dir->event,
+			  "notify: User %s refreshed too late (%d secs)",
 			  username, diff);
 	}
 	user_directory_refresh(tag->users, user);

@@ -169,10 +169,11 @@ void director_request(struct director *dir, const char *username,
 static void ring_noconn_warning(struct director *dir)
 {
 	if (!dir->ring_handshaked) {
-		i_warning("Delaying all requests "
+		e_warning(dir->event, "Delaying all requests "
 			  "until all directors have connected");
 	} else {
-		i_warning("Delaying new user requests until ring is synced");
+		e_warning(dir->event,
+			  "Delaying new user requests until ring is synced");
 	}
 	dir->ring_handshake_warning_sent = TRUE;
 	timeout_remove(&dir->to_handshake_warning);
