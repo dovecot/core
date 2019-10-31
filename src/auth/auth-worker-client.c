@@ -65,8 +65,8 @@ static struct auth_worker_client *auth_worker_get_client(void)
 	return client;
 }
 
-static void auth_worker_log_finished(struct auth_worker_command *cmd,
-				     const char *error)
+static void auth_worker_request_finished(struct auth_worker_command *cmd,
+					 const char *error)
 {
 	event_set_name(cmd->event, "auth_worker_request_finished");
 	if (error != NULL) {
@@ -215,7 +215,7 @@ static void verify_plain_callback(enum passdb_result result,
 	auth_worker_send_reply(client, request, str);
 
 	auth_request_passdb_lookup_end(request, result);
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -318,7 +318,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, request, str);
 
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -363,7 +363,7 @@ lookup_credentials_callback(enum passdb_result result,
 
 	auth_request_passdb_lookup_end(request, result);
 	auth_request_unref(&request);
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, NULL);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
 }
@@ -426,7 +426,7 @@ set_credentials_callback(bool success, struct auth_request *request)
 	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
 	auth_worker_send_reply(client, request, str);
 
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -502,7 +502,7 @@ lookup_user_callback(enum userdb_result result,
 	auth_worker_send_reply(client, auth_request, str);
 
 	auth_request_userdb_lookup_end(auth_request, result);
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, NULL);
 	auth_request_unref(&auth_request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -583,7 +583,7 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	o_stream_set_flush_callback(client->conn.output, auth_worker_output,
 				    client);
 	auth_request_userdb_lookup_end(ctx->auth_request, USERDB_RESULT_OK);
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, NULL);
 	auth_request_unref(&ctx->auth_request);
 	auth_worker_client_unref(&client);
 	i_free(ctx);
@@ -789,7 +789,7 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	i_assert(ret || error != NULL);
 
 	if (!ret) {
-		auth_worker_log_finished(cmd, error);
+		auth_worker_request_finished(cmd, error);
 	} else if (client->conn.io == NULL) {
 		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 	}
