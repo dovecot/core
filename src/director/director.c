@@ -292,7 +292,7 @@ void director_set_ring_handshaked(struct director *dir)
 			  "continuing delayed requests");
 		dir->ring_handshake_warning_sent = FALSE;
 	}
-	dir_debug("Director ring handshaked");
+	e_debug(dir->event, "Director ring handshaked");
 
 	dir->ring_handshaked = TRUE;
 	director_set_ring_synced(dir);
@@ -471,14 +471,14 @@ static void director_sync(struct director *dir)
 	if (dir->right == NULL) {
 		i_assert(!dir->ring_synced ||
 			 (dir->left == NULL && dir->right == NULL));
-		dir_debug("Ring is desynced (seq=%u, no right connection)",
-			  dir->sync_seq);
+		e_debug(dir->event, "Ring is desynced (seq=%u, no right connection)",
+			dir->sync_seq);
 		return;
 	}
 
-	dir_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
-		  dir->sync_seq, dir->right == NULL ? "(nowhere)" :
-		  director_connection_get_name(dir->right));
+	e_debug(dir->event, "Ring is desynced (seq=%u, sending SYNC to %s)",
+		dir->sync_seq, dir->right == NULL ? "(nowhere)" :
+		director_connection_get_name(dir->right));
 
 	/* send PINGs to our connections more rapidly until we've synced again.
 	   if the connection has actually died, we don't need to wait (and
@@ -665,11 +665,11 @@ void director_update_host(struct director *dir, struct director_host *src,
 	/* update state in case this is the first mail host being added */
 	director_set_state_changed(dir);
 
-	dir_debug("Updating host %s vhost_count=%u "
-		  "down=%d last_updown_change=%ld (hosts_hash=%u)",
-		  host->ip_str, host->vhost_count, host->down ? 1 : 0,
-		  (long)host->last_updown_change,
-		  mail_hosts_hash(dir->mail_hosts));
+	e_debug(dir->event, "Updating host %s vhost_count=%u "
+		"down=%d last_updown_change=%ld (hosts_hash=%u)",
+		host->ip_str, host->vhost_count, host->down ? 1 : 0,
+		(long)host->last_updown_change,
+		mail_hosts_hash(dir->mail_hosts));
 
 	director_send_host(dir, src, orig_src, host);
 
@@ -816,14 +816,14 @@ director_flush_user_continue(int result, struct director_kill_context *ctx)
 
 	if (!DIRECTOR_KILL_CONTEXT_IS_VALID(user, ctx)) {
 		/* user was already freed - ignore */
-		dir_debug("User %u freed while flushing, result=%d",
-			  ctx->username_hash, result);
+		e_debug(dir->event, "User %u freed while flushing, result=%d",
+			ctx->username_hash, result);
 		i_assert(ctx->to_move == NULL);
 		i_free(ctx);
 	} else {
 		/* ctx is freed later via user->kill_ctx */
-		dir_debug("Flushing user %u finished, result=%d",
-			  ctx->username_hash, result);
+		e_debug(dir->event, "Flushing user %u finished, result=%d",
+			ctx->username_hash, result);
 		director_user_kill_finish_delayed(dir, user, result == 1);
 	}
 }
@@ -884,8 +884,8 @@ director_flush_user(struct director *dir, struct user *user)
 	};
 
 	ctx->kill_state = USER_KILL_STATE_FLUSHING;
-	dir_debug("Flushing user %u via %s", user->username_hash,
-		  ctx->socket_path);
+	e_debug(dir->event, "Flushing user %u via %s", user->username_hash,
+		ctx->socket_path);
 
 	if ((program_client_create(ctx->socket_path, args, &set, FALSE,
 				   &ctx->pclient, &error)) != 0) {
@@ -923,8 +923,8 @@ static void director_user_move_free(struct user *user)
 
 	i_assert(kill_ctx != NULL);
 
-	dir_debug("User %u move finished at state=%s", user->username_hash,
-		  user_kill_state_names[kill_ctx->kill_state]);
+	e_debug(dir->event, "User %u move finished at state=%s", user->username_hash,
+		user_kill_state_names[kill_ctx->kill_state]);
 
 	if (kill_ctx->ipc_cmd != NULL)
 		ipc_client_cmd_abort(dir->ipc_proxy, &kill_ctx->ipc_cmd);
@@ -975,9 +975,9 @@ director_finish_user_kill(struct director *dir, struct user *user, bool self)
 	i_assert(kill_ctx->kill_state != USER_KILL_STATE_FLUSHING);
 	i_assert(kill_ctx->kill_state != USER_KILL_STATE_DELAY);
 
-	dir_debug("User %u kill finished - %sstate=%s", user->username_hash,
-		  self ? "we started it " : "",
-		  user_kill_state_names[kill_ctx->kill_state]);
+	e_debug(dir->event, "User %u kill finished - %sstate=%s", user->username_hash,
+		self ? "we started it " : "",
+		user_kill_state_names[kill_ctx->kill_state]);
 
 	if (dir->right == NULL) {
 		/* we're alone */
@@ -1082,9 +1082,9 @@ void director_kill_user(struct director *dir, struct director_host *src,
 		/* User is being moved again before the previous move
 		   finished. We'll just continue wherever we left off
 		   earlier. */
-		dir_debug("User %u move restarted - previous kill_state=%s",
-			  user->username_hash,
-			  user_kill_state_names[user->kill_ctx->kill_state]);
+		e_debug(dir->event, "User %u move restarted - previous kill_state=%s",
+			user->username_hash,
+			user_kill_state_names[user->kill_ctx->kill_state]);
 		return;
 	}
 
@@ -1147,8 +1147,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 	*/
 	user = user_directory_lookup(users, username_hash);
 	if (user == NULL) {
-		dir_debug("User %u move started: User was nonexistent",
-			  username_hash);
+		e_debug(dir->event, "User %u move started: User was nonexistent",
+			username_hash);
 		user = user_directory_add(users, username_hash,
 					  host, ioloop_time);
 	} else if (user->host == host) {
@@ -1157,8 +1157,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 		   killing any of our connections. */
 		old_host = user->host;
 		user->timestamp = ioloop_time;
-		dir_debug("User %u move forwarded: host is already %s",
-			  username_hash, host->ip_str);
+		e_debug(dir->event, "User %u move forwarded: host is already %s",
+			username_hash, host->ip_str);
 	} else {
 		/* user is looked up via the new host's tag, so if it's found
 		   the old tag has to be the same. */
@@ -1169,9 +1169,9 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->host = host;
 		user->host->user_count++;
 		user->timestamp = ioloop_time;
-		dir_debug("User %u move started: host %s -> %s",
-			  username_hash, old_host->ip_str,
-			  host->ip_str);
+		e_debug(dir->event, "User %u move started: host %s -> %s",
+			username_hash, old_host->ip_str,
+			host->ip_str);
 	}
 
 	if (orig_src == NULL) {
@@ -1313,8 +1313,8 @@ director_user_tag_killed(struct director *dir, struct mail_tag *tag,
 		director_finish_user_kill(dir, user, TRUE);
 		break;
 	case USER_KILL_STATE_KILLING_NOTIFY_RECEIVED:
-		dir_debug("User %u kill_state=%s - ignoring USER-KILLED",
-			  username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
+		e_debug(dir->event, "User %u kill_state=%s - ignoring USER-KILLED",
+			username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
 		break;
 	case USER_KILL_STATE_NONE:
 	case USER_KILL_STATE_FLUSHING:
@@ -1351,18 +1351,18 @@ director_user_tag_killed_everywhere(struct director *dir,
 
 	user = user_directory_lookup(tag->users, username_hash);
 	if (user == NULL) {
-		dir_debug("User %u no longer exists - ignoring USER-KILLED-EVERYWHERE",
-			  username_hash);
+		e_debug(dir->event, "User %u no longer exists - ignoring USER-KILLED-EVERYWHERE",
+			username_hash);
 		return;
 	}
 	if (!USER_IS_BEING_KILLED(user)) {
-		dir_debug("User %u is no longer being killed - ignoring USER-KILLED-EVERYWHERE",
-			  username_hash);
+		e_debug(dir->event, "User %u is no longer being killed - ignoring USER-KILLED-EVERYWHERE",
+			username_hash);
 		return;
 	}
 	if (user->kill_ctx->kill_state != USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE) {
-		dir_debug("User %u kill_state=%s - ignoring USER-KILLED-EVERYWHERE",
-			  username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
+		e_debug(dir->event, "User %u kill_state=%s - ignoring USER-KILLED-EVERYWHERE",
+			username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
 		return;
 	}
 
