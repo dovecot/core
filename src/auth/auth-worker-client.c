@@ -65,6 +65,29 @@ static struct auth_worker_client *auth_worker_get_client(void)
 	return client;
 }
 
+void auth_worker_refresh_proctitle(const char *state)
+{
+	if (!global_auth_settings->verbose_proctitle || !worker)
+		return;
+
+	if (auth_worker_client_error)
+		state = "error";
+	else if (!auth_worker_has_client())
+		state = "waiting for connection";
+	process_title_set(t_strdup_printf("worker: %s", state));
+}
+
+static void
+auth_worker_client_check_throttle(struct auth_worker_client *client)
+{
+	if (o_stream_get_buffer_used_size(client->conn.output) >=
+	    OUTBUF_THROTTLE_SIZE) {
+		/* stop reading new requests until client has read the pending
+		   replies. */
+		connection_input_halt(&client->conn);
+	}
+}
+
 static void
 auth_worker_request_finished_full(struct auth_worker_command *cmd,
 				  const char *error, bool log_as_error)
@@ -93,29 +116,6 @@ static void auth_worker_request_finished_bug(struct auth_worker_command *cmd,
 					     const char *error)
 {
 	auth_worker_request_finished_full(cmd, error, TRUE);
-}
-
-void auth_worker_refresh_proctitle(const char *state)
-{
-	if (!global_auth_settings->verbose_proctitle || !worker)
-		return;
-
-	if (auth_worker_client_error)
-		state = "error";
-	else if (!auth_worker_has_client())
-		state = "waiting for connection";
-	process_title_set(t_strdup_printf("worker: %s", state));
-}
-
-static void
-auth_worker_client_check_throttle(struct auth_worker_client *client)
-{
-	if (o_stream_get_buffer_used_size(client->conn.output) >=
-	    OUTBUF_THROTTLE_SIZE) {
-		/* stop reading new requests until client has read the pending
-		   replies. */
-		connection_input_halt(&client->conn);
-	}
 }
 
 bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int id,
