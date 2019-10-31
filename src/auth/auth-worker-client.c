@@ -102,6 +102,8 @@ auth_worker_request_finished_full(struct auth_worker_command *cmd,
 	} else {
 		e_debug(cmd->event, "Finished");
 	}
+	auth_worker_client_check_throttle(cmd->client);
+	auth_worker_client_unref(&cmd->client);
 	event_unref(&cmd->event);
 	i_free(cmd);
 }
@@ -236,8 +238,6 @@ static void verify_plain_callback(enum passdb_result result,
 	auth_request_passdb_lookup_end(request, result);
 	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&request);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 }
 
 static bool
@@ -343,8 +343,6 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 
 	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&request);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 	return TRUE;
 }
 
@@ -387,8 +385,6 @@ lookup_credentials_callback(enum passdb_result result,
 	auth_request_passdb_lookup_end(request, result);
 	auth_request_unref(&request);
 	auth_worker_request_finished(cmd, NULL);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 }
 
 static bool
@@ -452,8 +448,6 @@ set_credentials_callback(bool success, struct auth_request *request)
 	auth_worker_request_finished(cmd, success ? NULL :
 				     "Failed to set credentials");
 	auth_request_unref(&request);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 }
 
 static bool
@@ -531,8 +525,6 @@ lookup_user_callback(enum userdb_result result,
 		userdb_result_to_string(result);
 	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&auth_request);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 }
 
 static struct auth_userdb *
@@ -614,7 +606,6 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	auth_request_userdb_lookup_end(ctx->auth_request, USERDB_RESULT_OK);
 	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&ctx->auth_request);
-	auth_worker_client_unref(&client);
 	i_free(ctx);
 
 	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
@@ -819,11 +810,12 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 
 	if (!ret) {
 		auth_worker_request_finished_bug(cmd, error);
+		return -1;
 	} else if (client->conn.io == NULL) {
 		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 	}
 	auth_worker_client_unref(&client);
-	return ret ? 1 : -1;
+	return 1;
 }
 
 static int auth_worker_output(struct auth_worker_client *client)
