@@ -106,6 +106,8 @@ auth_worker_request_finished_full(struct auth_worker_command *cmd,
 	auth_worker_client_unref(&cmd->client);
 	event_unref(&cmd->event);
 	i_free(cmd);
+
+	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 }
 
 static void auth_worker_request_finished(struct auth_worker_command *cmd,
@@ -607,8 +609,6 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&ctx->auth_request);
 	i_free(ctx);
-
-	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 }
 
 static void list_iter_callback(const char *user, void *context)
@@ -811,8 +811,6 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	if (!ret) {
 		auth_worker_request_finished_bug(cmd, error);
 		return -1;
-	} else if (client->conn.io == NULL) {
-		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 	}
 	auth_worker_client_unref(&client);
 	return 1;
