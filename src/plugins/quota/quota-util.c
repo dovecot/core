@@ -130,8 +130,9 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 					      bytes_limit, 0);
 	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
 
-	if (root_set->set->debug && root_set->set->initialized) {
-		i_debug("Quota root %s: Recalculated relative rules with "
+	if (root_set->set->initialized) {
+		e_debug(root_set->set->event,
+			"Quota root %s: Recalculated relative rules with "
 			"bytes=%lld count=%lld. Now grace=%"PRIu64, root_set->name,
 			(long long)bytes_limit, (long long)count_limit,
 			root_set->last_mail_max_extra_bytes);
@@ -167,7 +168,7 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 			}
 			value++;
 		} else if (*value != '-' && relative_rule) {
-			i_warning("quota root %s rule %s: "
+			e_warning(root_set->set->event, "quota root %s rule %s: "
 				  "obsolete configuration for rule '%s' "
 				  "should be changed to '%s=+%s'",
 				  root_set->name, full_rule_def,
@@ -255,10 +256,9 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 
 	if (strcmp(p, "ignore") == 0) {
 		rule->ignore = TRUE;
-		if (root_set->set->debug) {
-			i_debug("Quota rule: root=%s mailbox=%s ignored",
-				root_set->name, mailbox_mask);
-		}
+		e_debug(root_set->set->event,
+			"Quota rule: root=%s mailbox=%s ignored",
+			root_set->name, mailbox_mask);
 		return 0;
 	}
 
@@ -280,22 +280,20 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 	quota_root_recalculate_relative_rules(root_set,
 					      root_set->default_rule.bytes_limit,
 					      root_set->default_rule.count_limit);
-	if (root_set->set->debug) {
-		const char *rule_plus =
-			rule == &root_set->default_rule ? "" : "+";
+	const char *rule_plus =
+		rule == &root_set->default_rule ? "" : "+";
 
-		i_debug("Quota rule: root=%s mailbox=%s "
-			"bytes=%s%lld%s messages=%s%lld%s",
-			root_set->name, mailbox_mask,
-			rule->bytes_limit > 0 ? rule_plus : "",
-			(long long)rule->bytes_limit,
-			rule->bytes_percent == 0 ? "" :
-			t_strdup_printf(" (%u%%)", rule->bytes_percent),
-			rule->count_limit > 0 ? rule_plus : "",
-			(long long)rule->count_limit,
-			rule->count_percent == 0 ? "" :
-			t_strdup_printf(" (%u%%)", rule->count_percent));
-	}
+	e_debug(root_set->set->event, "Quota rule: root=%s mailbox=%s "
+		"bytes=%s%lld%s messages=%s%lld%s",
+		root_set->name, mailbox_mask,
+		rule->bytes_limit > 0 ? rule_plus : "",
+		(long long)rule->bytes_limit,
+		rule->bytes_percent == 0 ? "" :
+		t_strdup_printf(" (%u%%)", rule->bytes_percent),
+		rule->count_limit > 0 ? rule_plus : "",
+		(long long)rule->count_limit,
+		rule->count_percent == 0 ? "" :
+		t_strdup_printf(" (%u%%)", rule->count_percent));
 	return ret;
 }
 
@@ -342,18 +340,16 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	quota_root_recalculate_relative_rules(root_set,
 					      root_set->default_rule.bytes_limit,
 					      root_set->default_rule.count_limit);
-	if (root_set->set->debug) {
-		i_debug("Quota warning: bytes=%"PRId64"%s "
-			"messages=%"PRId64"%s reverse=%s command=%s",
-			warning->rule.bytes_limit,
-			warning->rule.bytes_percent == 0 ? "" :
-			t_strdup_printf(" (%u%%)", warning->rule.bytes_percent),
-			warning->rule.count_limit,
-			warning->rule.count_percent == 0 ? "" :
-			t_strdup_printf(" (%u%%)", warning->rule.count_percent),
-			warning->reverse ? "yes" : "no",
-			warning->command);
-	}
+	e_debug(root_set->set->event, "Quota warning: bytes=%"PRId64"%s "
+		"messages=%"PRId64"%s reverse=%s command=%s",
+		warning->rule.bytes_limit,
+		warning->rule.bytes_percent == 0 ? "" :
+		t_strdup_printf(" (%u%%)", warning->rule.bytes_percent),
+		warning->rule.count_limit,
+		warning->rule.count_percent == 0 ? "" :
+		t_strdup_printf(" (%u%%)", warning->rule.count_percent),
+		warning->reverse ? "yes" : "no",
+		warning->command);
 	return 0;
 }
 
@@ -375,12 +371,10 @@ int quota_root_parse_grace(struct quota_root_settings *root_set,
 	quota_rule_recalculate_relative_rules(&root_set->grace_rule,
 		root_set->default_rule.bytes_limit, 0);
 	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
-	if (root_set->set->debug) {
-		i_debug("Quota grace: root=%s bytes=%lld%s",
-			root_set->name, (long long)root_set->grace_rule.bytes_limit,
-			root_set->grace_rule.bytes_percent == 0 ? "" :
-			t_strdup_printf(" (%u%%)", root_set->grace_rule.bytes_percent));
-	}
+	e_debug(root_set->set->event, "Quota grace: root=%s bytes=%lld%s",
+		root_set->name, (long long)root_set->grace_rule.bytes_limit,
+		root_set->grace_rule.bytes_percent == 0 ? "" :
+		t_strdup_printf(" (%u%%)", root_set->grace_rule.bytes_percent));
 	return 0;
 }
 

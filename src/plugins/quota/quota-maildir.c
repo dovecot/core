@@ -188,7 +188,8 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 		/* ignore if the directory got lost, stale or if it was
 		   actually a file and not a directory */
 		if (errno != ENOENT && errno != ESTALE && errno != ENOTDIR) {
-			i_error("stat(%s) failed: %m", str_c(ctx->path));
+			e_error(ctx->root->root.quota->event,
+				"stat(%s) failed: %m", str_c(ctx->path));
 			ctx->state = 0;
 		}
 	}
@@ -278,7 +279,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 					perm.file_create_gid,
 					perm.file_create_gid_origin) < 0 &&
 		    errno != EEXIST) {
-			i_error("mkdir_parents(%s) failed: %m", dir);
+			e_error(root->root.quota->event,
+				"mkdir_parents(%s) failed: %m", dir);
 			return -1;
 		}
 		fd = safe_mkstemp_hostpid_group(temp_path,
@@ -287,7 +289,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 						perm.file_create_gid_origin);
 	}
 	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", path);
+		e_error(root->root.quota->event,
+			"safe_mkstemp(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -304,7 +307,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	str_printfa(str, "\n%"PRIu64" %"PRIu64"\n",
 		    root->total_bytes, root->total_count);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		i_error("write_full(%s) failed: %m", str_c(temp_path));
+		e_error(_root->quota->event,
+			"write_full(%s) failed: %m", str_c(temp_path));
 		i_close_fd(&fd);
 		i_unlink(str_c(temp_path));
 		return -1;
@@ -312,7 +316,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	i_close_fd(&fd);
 
 	if (rename(str_c(temp_path), path) < 0) {
-		i_error("rename(%s, %s) failed: %m", str_c(temp_path), path);
+		e_error(_root->quota->event,
+			"rename(%s, %s) failed: %m", str_c(temp_path), path);
 		i_unlink_if_exists(str_c(temp_path));
 		return -1;
 	}
@@ -358,7 +363,8 @@ static void maildirsize_rebuild_later(struct maildir_quota_root *root)
 
 	if (unlink(root->maildirsize_path) < 0 &&
 	    errno != ENOENT && errno != ESTALE)
-		i_error("unlink(%s) failed: %m", root->maildirsize_path);
+		e_error(root->root.quota->event,
+			"unlink(%s) failed: %m", root->maildirsize_path);
 }
 
 static int maildirsize_recalculate_finish(struct maildir_quota_root *root,
@@ -657,7 +663,8 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 		/* non-maildir namespace, skip */
 		if ((storage->class_flags &
 		     MAIL_STORAGE_CLASS_FLAG_NOQUOTA) == 0) {
-			i_warning("quota: Namespace '%s' is not Maildir, "
+			e_warning(root->root.quota->event,
+				  "Namespace '%s' is not Maildir, "
 				  "skipping for Maildir++ quota",
 				  root->maildirsize_ns->prefix);
 		}
@@ -743,7 +750,8 @@ static int maildirsize_update(struct maildir_quota_root *root,
 		if (errno == ESTALE) {
 			/* deleted/replaced already, ignore */
 		} else {
-			i_error("write_full(%s) failed: %m",
+			e_error(root->root.quota->event,
+				"write_full(%s) failed: %m",
 				root->maildirsize_path);
 		}
 	} else {
@@ -751,7 +759,8 @@ static int maildirsize_update(struct maildir_quota_root *root,
 		if (close(root->fd) < 0) {
 			ret = -1;
 			if (errno != ESTALE)
-				i_error("close(%s) failed: %m", root->maildirsize_path);
+				e_error(root->root.quota->event,
+					"close(%s) failed: %m", root->maildirsize_path);
 		}
 		root->fd = -1;
 	}
@@ -909,11 +918,13 @@ maildir_quota_update(struct quota_root *_root,
 		   we wanted to do. */
 	} else if (root->fd == -1) {
 		if (maildirsize_recalculate(root, &error) < 0)
-			i_error("quota-maildir: %s", error);
+			e_error(_root->quota->event,
+				"quota-maildir: %s", error);
 	} else if (ctx->recalculate != QUOTA_RECALCULATE_DONT) {
 		i_close_fd(&root->fd);
 		if (maildirsize_recalculate(root, &error) < 0)
-			i_error("quota-maildir: %s", error);
+			e_error(_root->quota->event,
+				"quota-maildir: %s", error);
 	} else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0) {
 		i_close_fd(&root->fd);
 		maildirsize_rebuild_later(root);

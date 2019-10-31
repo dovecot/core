@@ -163,7 +163,8 @@ static void fs_quota_deinit(struct quota_root *_root)
 	i_free(root);
 }
 
-static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
+static struct fs_quota_mountpoint *
+fs_quota_mountpoint_get(struct quota *quota, const char *dir)
 {
 	struct fs_quota_mountpoint *mount;
 	struct mountpoint point;
@@ -185,7 +186,8 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 
 	if (mount_type_is_nfs(mount)) {
 		if (strchr(mount->device_path, ':') == NULL) {
-			i_error("quota-fs: %s is not a valid NFS device path",
+			e_error(quota->event,
+				"quota-fs: %s is not a valid NFS device path",
 				mount->device_path);
 			fs_quota_mountpoint_free(mount);
 			return NULL;
@@ -238,17 +240,16 @@ fs_quota_mount_init(struct fs_quota_root *root,
 		mount->path = i_strconcat(mount->mount_path, "/quotas", NULL);
 		mount->fd = open(mount->path, O_RDONLY);
 		if (mount->fd == -1 && errno != ENOENT)
-			i_error("open(%s) failed: %m", mount->path);
+			e_error(root->root.quota->event,
+				"open(%s) failed: %m", mount->path);
 	}
 #endif
 	root->mount = mount;
 
-	if (root->root.quota->set->debug) {
-		i_debug("fs quota add mailbox dir = %s", dir);
-		i_debug("fs quota block device = %s", mount->device_path);
-		i_debug("fs quota mount point = %s", mount->mount_path);
-		i_debug("fs quota mount type = %s", mount->type);
-	}
+	e_debug(root->root.quota->event, "fs quota add mailbox dir = %s", dir);
+	e_debug(root->root.quota->event, "fs quota block device = %s", mount->device_path);
+	e_debug(root->root.quota->event, "fs quota mount point = %s", mount->mount_path);
+	e_debug(root->root.quota->event, "fs quota mount type = %s", mount->type);
 
 	/* if there are more unused quota roots, copy this mount to them */
 	roots = array_get(&root->root.quota->roots, &count);
@@ -275,7 +276,7 @@ static void fs_quota_add_missing_mounts(struct quota *quota)
 		    root->storage_mount_path == NULL || root->mount != NULL)
 			continue;
 
-		mount = fs_quota_mountpoint_get(root->storage_mount_path);
+		mount = fs_quota_mountpoint_get(quota, root->storage_mount_path);
 		if (mount != NULL) {
 			fs_quota_mount_init(root, mount,
 					    root->storage_mount_path);
@@ -294,7 +295,7 @@ static void fs_quota_namespace_added(struct quota *quota,
 					&dir))
 		mount = NULL;
 	else
-		mount = fs_quota_mountpoint_get(dir);
+		mount = fs_quota_mountpoint_get(quota, dir);
 	if (mount != NULL) {
 		root = fs_quota_root_find_mountpoint(quota, mount);
 		if (root != NULL && root->mount == NULL)
@@ -391,10 +392,8 @@ do_rquota_user(struct fs_quota_root *root,
 			path++;
 	}
 
-	if (root->root.quota->set->debug) {
-		i_debug("quota-fs: host=%s, path=%s, uid=%s",
-			host, path, dec2str(root->uid));
-	}
+	e_debug(root->root.quota->event, "quota-fs: host=%s, path=%s, uid=%s",
+		host, path, dec2str(root->uid));
 
 	/* clnt_create() polls for a while to establish a connection */
 	cl = clnt_create(host, RQUOTAPROG, RQUOTAVERS, "udp");
@@ -437,20 +436,16 @@ do_rquota_user(struct fs_quota_root *root,
 		rquota_get_result(&result.getquota_rslt_u.gqr_rquota,
 				  bytes_value_r, bytes_limit_r,
 				  count_value_r, count_limit_r);
-		if (root->root.quota->set->debug) {
-			i_debug("quota-fs: uid=%s, bytes=%"PRIu64"/%"PRIu64" "
-				"files=%"PRIu64"/%"PRIu64,
-				dec2str(root->uid),
-				*bytes_value_r, *bytes_limit_r,
-				*count_value_r, *count_limit_r);
-		}
+		e_debug(root->root.quota->event, "quota-fs: uid=%s, bytes=%"PRIu64"/%"PRIu64" "
+			"files=%"PRIu64"/%"PRIu64,
+			dec2str(root->uid),
+			*bytes_value_r, *bytes_limit_r,
+			*count_value_r, *count_limit_r);
 		return 1;
 	}
 	case Q_NOQUOTA:
-		if (root->root.quota->set->debug) {
-			i_debug("quota-fs: uid=%s, limit=unlimited",
-				dec2str(root->uid));
-		}
+		e_debug(root->root.quota->event, "quota-fs: uid=%s, limit=unlimited",
+			dec2str(root->uid));
 		fs_quota_root_disable(root, FALSE);
 		return 0;
 	case Q_EPERM:
@@ -488,10 +483,8 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 	host = t_strdup_until(mount->device_path, path);
 	path++;
 
-	if (root->root.quota->set->debug) {
-		i_debug("quota-fs: host=%s, path=%s, gid=%s",
-			host, path, dec2str(root->gid));
-	}
+	e_debug(root->root.quota->event, "quota-fs: host=%s, path=%s, gid=%s",
+		host, path, dec2str(root->gid));
 
 	/* clnt_create() polls for a while to establish a connection */
 	cl = clnt_create(host, RQUOTAPROG, EXT_RQUOTAVERS, "udp");
@@ -534,20 +527,16 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 		rquota_get_result(&result.getquota_rslt_u.gqr_rquota,
 				  bytes_value_r, bytes_limit_r,
 				  count_value_r, count_limit_r);
-		if (root->root.quota->set->debug) {
-			i_debug("quota-fs: gid=%s, bytes=%"PRIu64"/%"PRIu64" "
-				"files=%"PRIu64"/%"PRIu64,
-				dec2str(root->gid),
-				*bytes_value_r, *bytes_limit_r,
-				*count_value_r, *count_limit_r);
-		}
+		e_debug(root->root.quota->event, "quota-fs: gid=%s, bytes=%"PRIu64"/%"PRIu64" "
+			"files=%"PRIu64"/%"PRIu64,
+			dec2str(root->gid),
+			*bytes_value_r, *bytes_limit_r,
+			*count_value_r, *count_limit_r);
 		return 1;
 	}
 	case Q_NOQUOTA:
-		if (root->root.quota->set->debug) {
-			i_debug("quota-fs: gid=%s, limit=unlimited",
-				dec2str(root->gid));
-		}
+		e_debug(root->root.quota->event, "quota-fs: gid=%s, limit=unlimited",
+			dec2str(root->gid));
 		fs_quota_root_disable(root, TRUE);
 		return 0;
 	case Q_EPERM:
@@ -866,21 +855,18 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 		return FALSE;
 	if (stat(mailbox_path, &mst) < 0) {
 		if (errno != ENOENT)
-			i_error("stat(%s) failed: %m", mailbox_path);
+			e_error(_root->quota->event,
+				"stat(%s) failed: %m", mailbox_path);
 		return FALSE;
 	}
 	if (stat(root->storage_mount_path, &rst) < 0) {
-		if (_root->quota->set->debug) {
-			i_debug("stat(%s) failed: %m",
-				root->storage_mount_path);
-		}
+		e_debug(_root->quota->event, "stat(%s) failed: %m",
+			root->storage_mount_path);
 		return FALSE;
 	}
 	match = CMP_DEV_T(mst.st_dev, rst.st_dev);
-	if (_root->quota->set->debug) {
-		i_debug("box=%s mount=%s match=%s", mailbox_path,
-			root->storage_mount_path, match ? "yes" : "no");
-	}
+	e_debug(_root->quota->event, "box=%s mount=%s match=%s", mailbox_path,
+		root->storage_mount_path, match ? "yes" : "no");
 	return match;
 }
 

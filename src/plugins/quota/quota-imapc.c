@@ -222,7 +222,8 @@ static bool imapc_quota_client_init(struct imapc_quota_root *root)
 		/* non-imapc namespace, skip */
 		if ((storage->class_flags &
 		     MAIL_STORAGE_CLASS_FLAG_NOQUOTA) == 0) {
-			i_warning("quota: Namespace '%s' is not imapc, "
+			e_warning(root->root.quota->event,
+				  "quota: Namespace '%s' is not imapc, "
 				  "skipping for imapc quota",
 				  root->imapc_ns->prefix);
 		}
@@ -253,7 +254,8 @@ imapc_quota_refresh_update(struct quota *quota,
 	const struct imapc_quota_refresh_root *refresh_root;
 
 	if (array_count(&refresh->roots) == 0) {
-		i_error("quota: imapc didn't return any QUOTA results");
+		e_error(quota->event,
+			"quota: imapc didn't return any QUOTA results");
 		return;
 	}
 	/* use the first quota root for everything */
@@ -386,7 +388,8 @@ static int imapc_quota_refresh(struct imapc_quota_root *root,
 	}
 	if ((capa & IMAPC_CAPABILITY_QUOTA) == 0) {
 		/* no QUOTA capability - disable quota */
-		i_warning("quota: Remote IMAP server doesn't support QUOTA - disabling");
+		e_warning(root->root.quota->event,
+			  "quota: Remote IMAP server doesn't support QUOTA - disabling");
 		root->client = NULL;
 		return 0;
 	}

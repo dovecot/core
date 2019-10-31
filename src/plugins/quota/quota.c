@@ -238,10 +238,8 @@ quota_root_settings_init(struct quota_settings *quota_set, const char *root_def,
 	}
 	root_set->args = p_strdup(quota_set->pool, args);
 
-	if (quota_set->debug) {
-		i_debug("Quota root: name=%s backend=%s args=%s",
-			root_set->name, backend_name, args == NULL ? "" : args);
-	}
+	e_debug(quota_set->event, "Quota root: name=%s backend=%s args=%s",
+		root_set->name, backend_name, args == NULL ? "" : args);
 
 	p_array_init(&root_set->rules, quota_set->pool, 4);
 	p_array_init(&root_set->warning_rules, quota_set->pool, 4);
@@ -854,7 +852,8 @@ int quota_set_resource(struct quota_root *root, const char *name,
 			set.home_dir = NULL;
 		if (dict_init(root->set->limit_set, &set,
 			      &root->limit_set_dict, &error) < 0) {
-			i_error("dict_init() failed: %s", error);
+			e_error(root->quota->event,
+				"dict_init() failed: %s", error);
 			*client_error_r = "Internal quota limit update error";
 			return -1;
 		}
@@ -864,7 +863,8 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	key = t_strdup_printf(QUOTA_LIMIT_SET_PATH"%s", key);
 	dict_set(trans, key, dec2str(value));
 	if (dict_transaction_commit(&trans, &error) < 0) {
-		i_error("dict_transaction_commit() failed: %s", error);
+		e_error(root->quota->event,
+			"dict_transaction_commit() failed: %s", error);
 		*client_error_r = "Internal quota limit update error";
 		return -1;
 	}
@@ -1039,8 +1039,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	restrict_access_init(&set.restrict_set);
 
-	if (root->quota->set->debug)
-		i_debug("quota: Executing warning: %s (because %s)", cmd, reason);
+	e_debug(root->quota->event, "quota: Executing warning: %s (because %s)", cmd, reason);
 
 	args = t_strsplit_spaces(cmd, " ");
 	if (last_arg != NULL) {
@@ -1072,7 +1071,8 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	if (program_client_create(socket_path, args, &set, TRUE,
 				  &pc, &error) < 0) {
-		i_error("program_client_create(%s) failed: %s", socket_path,
+		e_error(root->quota->event,
+			"program_client_create(%s) failed: %s", socket_path,
 			error);
 		return;
 	}
@@ -1097,13 +1097,15 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 
 	if (quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
 			       &bytes_current, &bytes_limit, &error) == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		i_error("Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES
+		e_error(root->quota->event,
+			"Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES
 			": %s", error);
 		return;
 	}
 	if (quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
 			       &count_current, &count_limit, &error) == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		i_error("Failed to get quota resource "QUOTA_NAME_MESSAGES
+		e_error(root->quota->event,
+			"Failed to get quota resource "QUOTA_NAME_MESSAGES
 			": %s", error);
 		return;
 	}
@@ -1165,7 +1167,8 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 
 			const char *error;
 			if (roots[i]->backend.v.update(roots[i], ctx, &error) < 0) {
-				i_error("Failed to update quota for %s: %s",
+				e_error(ctx->quota->event,
+					"Failed to update quota for %s: %s",
 					mailbox_name, error);
 				ret = -1;
 			}
@@ -1199,10 +1202,8 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 	name = t_strconcat(root->set->set_name, "_over_script", NULL);
 	*quota_over_script_r = mail_user_plugin_getenv(root->quota->user, name);
 	if (*quota_over_script_r == NULL) {
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: "
-				"%s unset - skipping", name);
-		}
+		e_debug(root->quota->event, "quota: quota_over_flag check: "
+			"%s unset - skipping", name);
 		return FALSE;
 	}
 
@@ -1210,10 +1211,8 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
 	flag_mask = mail_user_plugin_getenv(root->quota->user, name);
 	if (flag_mask == NULL) {
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: "
-				"%s unset - skipping", name);
-		}
+		e_debug(root->quota->event, "quota: quota_over_flag check: "
+			"%s unset - skipping", name);
 		return FALSE;
 	}
 
@@ -1241,20 +1240,16 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	if (root->quota->user->session_create_time +
 	    QUOTA_OVER_FLAG_MAX_DELAY_SECS < ioloop_time) {
 		/* userdb's quota_over_flag lookup is too old. */
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: "
-				"Flag lookup time is too old - skipping");
-		}
+		e_debug(root->quota->event, "quota: quota_over_flag check: "
+			"Flag lookup time is too old - skipping");
 		return;
 	}
 	if (root->quota->user->session_restored) {
 		/* we don't know whether the quota_over_script was executed
 		   before hibernation. just assume that it was, so we don't
 		   unnecessarily call it too often. */
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: "
-				"Session was already hibernated - skipping");
-		}
+		e_debug(root->quota->event, "quota: quota_over_flag check: "
+			"Session was already hibernated - skipping");
 		return;
 	}
 	root->quota_over_flag_checked = TRUE;
@@ -1268,23 +1263,20 @@ static void quota_over_flag_check_root(struct quota_root *root)
 					 &limit, &error);
 		if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 			/* can't reliably verify this */
-			i_error("quota: Quota %s lookup failed - can't verify quota_over_flag: %s",
+			e_error(root->quota->event,
+				"quota: Quota %s lookup failed - can't verify quota_over_flag: %s",
 				resources[i], error);
 			return;
 		}
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: %s ret=%d value=%"PRIu64" limit=%"PRIu64,
-				resources[i], ret, value, limit);
-		}
+		e_debug(root->quota->event, "quota: quota_over_flag check: %s ret=%d value=%"PRIu64" limit=%"PRIu64,
+			resources[i], ret, value, limit);
 		if (ret == QUOTA_GET_RESULT_LIMITED && value >= limit)
 			cur_overquota = TRUE;
 	}
-	if (root->quota->set->debug) {
-		i_debug("quota: quota_over_flag=%d(%s) vs currently overquota=%d",
-			quota_over_status ? 1 : 0,
-			quota_over_flag == NULL ? "(null)" : quota_over_flag,
-			cur_overquota ? 1 : 0);
-	}
+	e_debug(root->quota->event, "quota: quota_over_flag=%d(%s) vs currently overquota=%d",
+		quota_over_status ? 1 : 0,
+		quota_over_flag == NULL ? "(null)" : quota_over_flag,
+		cur_overquota ? 1 : 0);
 	if (cur_overquota != quota_over_status) {
 		quota_warning_execute(root, quota_over_script, quota_over_flag,
 				      "quota_over_flag mismatch");
