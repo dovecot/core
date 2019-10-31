@@ -101,6 +101,7 @@ struct director_kill_context {
 };
 
 struct director {
+	struct event *event;
 	const struct director_settings *set;
 
 	/* IP and port of this director. self_host->ip/port must equal these. */

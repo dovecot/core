@@ -41,6 +41,10 @@ const char *user_kill_state_names[USER_KILL_STATE_DELAY+1] = {
 	"delay",
 };
 
+static struct event_category event_category_director = {
+	.name = "director",
+};
+
 static struct log_throttle *user_move_throttle;
 static struct log_throttle *user_kill_fail_throttle;
 
@@ -1445,6 +1449,8 @@ director_init(const struct director_settings *set,
 	dir->self_ip = *listen_ip;
 	dir->state_change_callback = callback;
 	dir->kick_callback = kick_callback;
+	dir->event = event_create(NULL);
+	event_add_category(dir->event, &event_category_director);
 	i_array_init(&dir->dir_hosts, 16);
 	i_array_init(&dir->pending_requests, 16);
 	i_array_init(&dir->connections, 8);
@@ -1488,6 +1494,7 @@ void director_deinit(struct director **_dir)
 	array_free(&dir->pending_requests);
 	array_free(&dir->dir_hosts);
 	array_free(&dir->connections);
+	event_unref(&dir->event);
 	i_free(dir);
 }
 
