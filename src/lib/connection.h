@@ -209,6 +209,8 @@ void connection_disconnect(struct connection *conn);
 void connection_deinit(struct connection *conn);
 
 void connection_input_halt(struct connection *conn);
+/* Resume connection handling. If a new IO was added, it's marked as having
+   pending input. */
 void connection_input_resume(struct connection *conn);
 
 /* Update event fields and log prefix based on connection properties. */

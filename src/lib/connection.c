@@ -202,7 +202,8 @@ void connection_input_halt(struct connection *conn)
 	timeout_remove(&conn->to);
 }
 
-void connection_input_resume(struct connection *conn)
+static void
+connection_input_resume_full(struct connection *conn, bool set_io_pending)
 {
 	i_assert(!conn->disconnected);
 
@@ -211,15 +212,24 @@ void connection_input_resume(struct connection *conn)
 	} else if (conn->input != NULL) {
 		conn->io = io_add_istream_to(conn->ioloop, conn->input,
 					     *conn->v.input, conn);
+		if (set_io_pending)
+			io_set_pending(conn->io);
 	} else if (conn->fd_in != -1) {
 		conn->io = io_add_to(conn->ioloop, conn->fd_in, IO_READ,
 				     *conn->v.input, conn);
+		if (set_io_pending)
+			io_set_pending(conn->io);
 	}
 	if (conn->input_idle_timeout_secs != 0 && conn->to == NULL) {
 		conn->to = timeout_add_to(conn->ioloop,
 					  conn->input_idle_timeout_secs*1000,
 					  *conn->v.idle_timeout, conn);
 	}
+}
+
+void connection_input_resume(struct connection *conn)
+{
+	connection_input_resume_full(conn, TRUE);
 }
 
 static void
@@ -452,7 +462,7 @@ static void connection_init_streams(struct connection *conn)
 
 	conn->disconnected = FALSE;
 	i_assert(conn->to == NULL);
-	connection_input_resume(conn);
+	connection_input_resume_full(conn, FALSE);
 	i_assert(conn->to != NULL || conn->input_idle_timeout_secs == 0);
 	if (set->major_version != 0 && !set->dont_send_version) {
 		e_debug(conn->event, "Sending version handshake");
@@ -669,7 +679,7 @@ void connection_init_from_streams(struct connection_list *list,
 	connection_update_stream_names(conn);
 	
 	conn->disconnected = FALSE;
-	connection_input_resume(conn);
+	connection_input_resume_full(conn, FALSE);
 
 	if (conn->v.client_connected != NULL)
 		conn->v.client_connected(conn, TRUE);
@@ -878,7 +888,7 @@ void connection_set_handlers(struct connection *conn,
         if (conn->v.connect_timeout == NULL)
                 conn->v.connect_timeout = connection_connect_timeout;
 	if (!conn->disconnected)
-		connection_input_resume(conn);
+		connection_input_resume_full(conn, FALSE);
 }
 
 void connection_set_default_handlers(struct connection *conn)

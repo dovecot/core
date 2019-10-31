@@ -57,6 +57,8 @@ static void test_connection_run(const struct connection_settings *set_s,
 	for(unsigned int iters = 0; iters < iter_count; iters++) {
 		test_assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
+		fd_set_nonblock(fds[0], TRUE);
+		fd_set_nonblock(fds[1], TRUE);
 		connection_init_server(servers, conn_s, "client", fds[1], fds[1]);
 		connection_init_client_fd(clients, conn_c, "server", fds[0], fds[0]);
 
@@ -398,6 +400,50 @@ static void test_connection_resume(void)
 	test_end();
 }
 
+/* BEGIN RESUME PIPELINED TEST */
+static int test_connection_resume_pipelined_input_args(struct connection *conn,
+						       const char *const *args)
+{
+	test_assert(args[0] != NULL);
+	if (args[0] == NULL)
+		return -1;
+
+	if (strcmp(args[0], "BEGIN") == 0) {
+		o_stream_nsend_str(conn->output, "HALT\nQUIT\n");
+	} else if (strcmp(args[0], "HALT") == 0) {
+		connection_input_halt(conn);
+		to_resume = timeout_add_short(100, test_connection_resume_continue, conn);
+		return 0;
+	} else if (strcmp(args[0], "QUIT") == 0) {
+		received_quit = TRUE;
+		connection_disconnect(conn);
+	}
+
+	return 1;
+}
+
+static const struct connection_vfuncs resume_pipelined_v =
+{
+	.client_connected = test_connection_resume_client_connected,
+	.input_args = test_connection_resume_pipelined_input_args,
+	.destroy = test_connection_simple_destroy,
+};
+
+static void test_connection_resume_pipelined(void)
+{
+	test_begin("connection resume pipelined");
+
+	was_resumed = received_quit = FALSE;
+	test_connection_run(&server_set, &client_set,
+			    &resume_pipelined_v, &resume_pipelined_v, 1);
+
+	test_assert(was_resumed);
+	test_assert(received_quit);
+	was_resumed = received_quit = FALSE;
+
+	test_end();
+}
+
 /* BEGIN IDLE KILL TEST */
 
 static void
@@ -687,6 +733,7 @@ void test_connection(void)
 	test_connection_ping_pong();
 	test_connection_input_full();
 	test_connection_resume();
+	test_connection_resume_pipelined();
 	test_connection_idle_kill();
 	test_connection_handshake_failed_version();
 	test_connection_handshake_failed_args();
