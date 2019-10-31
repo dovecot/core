@@ -116,7 +116,8 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 	ctx->ctx.context = context;
 	ctx->skip_passdb_entries = !module->pwf->userdb_warn_missing;
 	if (module->pwf->default_file == NULL) {
-		i_error("passwd-file: User iteration isn't currently supported "
+		e_error(authdb_event(auth_request),
+			"passwd-file: User iteration isn't currently supported "
 			"with %%variable paths");
 		ctx->ctx.failed = TRUE;
 		return &ctx->ctx;
@@ -126,7 +127,8 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 	/* for now we support only a single passwd-file */
 	fd = open(ctx->path, O_RDONLY);
 	if (fd == -1) {
-		i_error("open(%s) failed: %m", ctx->path);
+		e_error(authdb_event(auth_request),
+			"open(%s) failed: %m", ctx->path);
 		ctx->ctx.failed = TRUE;
 	} else {
 		ctx->input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
@@ -155,7 +157,8 @@ static void passwd_file_iterate_next(struct userdb_iterate_context *_ctx)
 			break;
 		}
 		if (line == NULL && ctx->input->stream_errno != 0) {
-			i_error("read(%s) failed: %s", ctx->path,
+			e_error(authdb_event(_ctx->auth_request),
+				"read(%s) failed: %s", ctx->path,
 				i_stream_get_error(ctx->input));
 			_ctx->failed = TRUE;
 		}

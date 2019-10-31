@@ -220,9 +220,11 @@ static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
 		db_sql_success(module->conn);
 	if (ret > 0) {
 		if (userdb_sql_iterate_get_user(ctx, &user) < 0)
-			i_error("sql: Iterate query didn't return 'user' field");
+			e_error(authdb_event(_ctx->auth_request),
+				"sql: Iterate query didn't return 'user' field");
 		else if (user == NULL)
-			i_error("sql: Iterate query returned NULL user");
+			e_error(authdb_event(_ctx->auth_request),
+				"sql: Iterate query returned NULL user");
 		else {
 			_ctx->callback(user, _ctx->context);
 			return;
@@ -230,10 +232,12 @@ static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
 		_ctx->failed = TRUE;
 	} else if (ret < 0) {
 		if (!module->conn->default_iterate_query) {
-			i_error("sql: Iterate query failed: %s",
+			e_error(authdb_event(_ctx->auth_request),
+				"sql: Iterate query failed: %s",
 				sql_result_get_error(ctx->result));
 		} else {
-			i_error("sql: Iterate query failed: %s "
+			e_error(authdb_event(_ctx->auth_request),
+				"sql: Iterate query failed: %s "
 				"(using built-in default iterate_query: %s)",
 				sql_result_get_error(ctx->result),
 				module->conn->set.iterate_query);

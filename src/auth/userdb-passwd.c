@@ -182,7 +182,8 @@ static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 		errno = 0;
 	}
 	if (errno != 0) {
-		i_error("getpwent() failed: %m");
+		e_error(authdb_event(_ctx->auth_request),
+			"getpwent() failed: %m");
 		_ctx->failed = TRUE;
 	}
 	_ctx->callback(NULL, _ctx->context);

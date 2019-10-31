@@ -152,7 +152,8 @@ static int userdb_dict_iterate_deinit(struct userdb_iterate_context *_ctx)
 	int ret = _ctx->failed ? -1 : 0;
 
 	if (dict_iterate_deinit(&ctx->iter, &error) < 0) {
-		i_error("dict_iterate(%s) failed: %s",
+		e_error(authdb_event(_ctx->auth_request),
+			"dict_iterate(%s) failed: %s",
 			ctx->key_prefix, error);
 		ret = -1;
 	}
