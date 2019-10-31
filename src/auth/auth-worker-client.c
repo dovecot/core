@@ -746,12 +746,14 @@ static int auth_worker_client_handshake_args(struct connection *conn, const char
 
 	if (str_array_length(args) < 3 ||
 	    strcmp(args[0], "DBHASH") != 0) {
-		i_error("BUG: Invalid input: %s", t_strarray_join(args, "\t"));
+		e_error(conn->event, "BUG: Invalid input: %s",
+			t_strarray_join(args, "\t"));
 		return -1;
 	}
 
 	if (!auth_worker_verify_db_hash(args[1], args[2])) {
-		i_error("Auth worker sees different passdbs/userdbs "
+		e_error(conn->event,
+			"Auth worker sees different passdbs/userdbs "
 			"than auth server. Maybe config just changed "
 			"and this goes away automatically?");
 		return -1;
@@ -771,7 +773,8 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 
 	if (str_array_length(args) < 3 ||
 	    str_to_uint(args[0], &id) < 0) {
-		i_error("BUG: Invalid input: %s", t_strarray_join(args, "\t"));
+		e_error(conn->event, "BUG: Invalid input: %s",
+			t_strarray_join(args, "\t"));
 		return -1;
 	}
 
