@@ -1976,7 +1976,8 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		/* FIXME: the system_user is for backwards compatibility */
 		static bool warned = FALSE;
 		if (!warned) {
-			i_warning("userdb: Replace system_user with system_groups_user");
+			e_warning(authdb_event(request),
+				  "Replace system_user with system_groups_user");
 			warned = TRUE;
 		}
 		name = "system_groups_user";

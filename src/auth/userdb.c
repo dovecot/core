@@ -69,7 +69,10 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 
 	switch (i_getpwnam(str, &pw)) {
 	case -1:
-		i_error("getpwnam() failed: %m");
+		if (request == NULL)
+			i_error("getpwnam() failed: %m");
+		else
+			e_error(authdb_event(request), "getpwnam() failed: %m");
 		return (uid_t)-1;
 	case 0:
 		if (request != NULL) {

@@ -365,7 +365,8 @@ auth_request_expand_cache_key(const struct auth_request *request,
 					       auth_cache_escape, &error) < 0 &&
 	    !error_logged) {
 		error_logged = TRUE;
-		i_error("Failed to expand auth cache key %s: %s", key, error);
+		e_error(authdb_event(request),
+			"Failed to expand auth cache key %s: %s", key, error);
 	}
 	return str_c(value);
 }

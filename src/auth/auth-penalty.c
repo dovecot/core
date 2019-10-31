@@ -76,7 +76,8 @@ static void auth_penalty_anvil_callback(const char *reply, void *context)
 			master_service_stop(master_service);
 		}
 	} else if (sscanf(reply, "%u %lu", &penalty, &last_penalty) != 2) {
-		i_error("Invalid PENALTY-GET reply: %s", reply);
+		e_error(request->auth_request->event,
+			"Invalid PENALTY-GET reply: %s", reply);
 	} else {
 		if ((time_t)last_penalty > ioloop_time) {
 			/* time moved backwards? */
