@@ -345,7 +345,6 @@ int main(int argc, char *argv[])
 
 	main_preinit();
 	director->test_port = test_port;
-	director_debug = debug;
 	event_set_forced_debug(director->event, debug);
 	director_connect(director, "Initial connection");
 

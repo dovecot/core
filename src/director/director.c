@@ -29,8 +29,6 @@
 #define DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS 1000
 #define DIRECTOR_DELAYED_DIR_REMOVE_MSECS (1000*30)
 
-bool director_debug;
-
 const char *user_kill_state_names[USER_KILL_STATE_DELAY+1] = {
 	"none",
 	"killing",
@@ -1496,20 +1494,6 @@ void director_deinit(struct director **_dir)
 	array_free(&dir->connections);
 	event_unref(&dir->event);
 	i_free(dir);
-}
-
-void dir_debug(const char *fmt, ...)
-{
-	va_list args;
-
-	if (!director_debug)
-		return;
-
-	va_start(args, fmt);
-	T_BEGIN {
-		i_debug("%s", t_strdup_vprintf(fmt, args));
-	} T_END;
-	va_end(args);
 }
 
 struct director_user_iter {
