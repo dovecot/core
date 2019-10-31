@@ -1,6 +1,8 @@
 #ifndef USER_DIRECTORY_H
 #define USER_DIRECTORY_H
 
+struct director;
+
 #define USER_IS_BEING_KILLED(user) \
 	((user)->kill_ctx != NULL)
 
@@ -33,7 +35,7 @@ typedef void user_free_hook_t(struct user *);
 /* Create a new directory. Users are dropped if their time gets older
    than timeout_secs. */
 struct user_directory *
-user_directory_init(unsigned int timeout_secs,
+user_directory_init(struct director *director, unsigned int timeout_secs,
 		    user_free_hook_t *user_free_hook);
 void user_directory_deinit(struct user_directory **dir);
 

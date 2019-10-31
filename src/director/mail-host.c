@@ -142,7 +142,8 @@ mail_tag_get(struct mail_host_list *list, const char *tag_name)
 		tag = i_new(struct mail_tag, 1);
 		tag->name = i_strdup(tag_name);
 		i_array_init(&tag->vhosts, 16*VHOST_MULTIPLIER);
-		tag->users = user_directory_init(list->user_expire_secs,
+		tag->users = user_directory_init(list->dir,
+						 list->user_expire_secs,
 						 list->user_free_hook);
 		array_push_back(&list->tags, &tag);
 	}
