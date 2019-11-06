@@ -387,6 +387,12 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 			   output is sent outside corking it may get delayed. */
 			o_stream_tcp_flush_via_nodelay(fstream);
 		}
+		if (!set && !fstream->no_socket_quickack) {
+			/* Uncorking - disable delayed ACKs to reduce latency.
+			   Note that this needs to be set repeatedly. */
+			if (net_set_tcp_quickack(fstream->fd, TRUE) < 0)
+				fstream->no_socket_quickack = TRUE;
+		}
 		stream->corked = set;
 	}
 }
@@ -1026,6 +1032,7 @@ static void fstream_init_file(struct file_ostream *fstream)
 	if (S_ISREG(st.st_mode)) {
 		fstream->no_socket_cork = TRUE;
 		fstream->no_socket_nodelay = TRUE;
+		fstream->no_socket_quickack = TRUE;
 		fstream->file = TRUE;
 	}
 }
@@ -1056,10 +1063,12 @@ struct ostream * o_stream_create_fd_common(int fd, size_t max_buffer_size,
 			fstream->no_sendfile = TRUE;
 			fstream->no_socket_cork = TRUE;
 			fstream->no_socket_nodelay = TRUE;
+			fstream->no_socket_quickack = TRUE;
 		} else if (local_ip.family == 0) {
 			/* UNIX domain socket */
 			fstream->no_socket_cork = TRUE;
 			fstream->no_socket_nodelay = TRUE;
+			fstream->no_socket_quickack = TRUE;
 		}
 	}
 
