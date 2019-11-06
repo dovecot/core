@@ -98,6 +98,10 @@ void net_set_nonblock(int fd, bool nonblock);
 int net_set_cork(int fd, bool cork) ATTR_NOWARN_UNUSED_RESULT;
 /* Set TCP_NODELAY, which disables the Nagle algorithm. */
 int net_set_tcp_nodelay(int fd, bool nodelay);
+/* Set TCP_QUICKACK, which tells the kernel to not delay ACKs. Note that the
+   kernel can (and will) re-enable delayed ACKs while processing the TCP stack.
+   This means that this function needs to be called repeatedly. */
+int net_set_tcp_quickack(int fd, bool quickack);
 
 /* Set socket kernel buffer sizes */
 int net_set_send_buffer_size(int fd, size_t size);

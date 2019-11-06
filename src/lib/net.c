@@ -366,6 +366,18 @@ int net_set_tcp_nodelay(int fd, bool nodelay)
 	return setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
 }
 
+int net_set_tcp_quickack(int fd, bool quickack)
+{
+#ifdef TCP_QUICKACK
+	int val = quickack;
+
+	return setsockopt(fd, IPPROTO_TCP, TCP_QUICKACK, &val, sizeof(val));
+#else
+	errno = ENOPROTOOPT;
+	return -1;
+#endif
+}
+
 int net_set_send_buffer_size(int fd, size_t size)
 {
 	int opt;
