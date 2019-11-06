@@ -1693,8 +1693,8 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 	if (conn->conn.output != NULL && !conn->sent_quit &&
 		!conn->sending_command) {
 		/* Close the connection gracefully if possible */
-		o_stream_uncork(conn->conn.output);
 		o_stream_nsend_str(conn->conn.output, "QUIT\r\n");
+		o_stream_uncork(conn->conn.output);
 	}
 
 	if (conn->dns_lookup != NULL)
