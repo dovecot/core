@@ -154,6 +154,7 @@ static int client_input_line(struct connection *conn, const char *line)
 {
 	struct quota_client *client = (struct quota_client *)conn;
 	const char *error;
+	static char *value = "";
 
 	if (*line == '\0') {
 		o_stream_cork(conn->output);
@@ -162,12 +163,24 @@ static int client_input_line(struct connection *conn, const char *line)
 		client_reset(client);
 		return 1;
 	}
+	if (str_begins(line, "protocol_state=")) {
+		value = t_strdup(line + 15);
+		if (strcmp(value, "RCPT") != 0 && strcmp(value, "END-OF-MESSAGE") != 0) {
+			return 1;
+		}
+	}
 	if (client->recipient == NULL &&
 	    str_begins(line, "recipient=")) {
 		if (smtp_address_parse_path(default_pool, line + 10,
 			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
 			&client->recipient, &error) < 0) {
+			if (strcmp(value, "END-OF-MESSAGE") == 0) {
+				if (strlen(line) == 10) { // multiple recipients has empty "recipient="
+					client->recipient = NULL;
+					return 1;
+				}
+			}
 			i_error("quota-status: "
 				"Client sent invalid recipient address: %s",
 				error);
