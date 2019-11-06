@@ -731,12 +731,12 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		str = t_str_new(256);
 		imap_write_args(str, *args_r);
 		cmd->args = p_strdup(cmd->pool, str_c(str));
-		event_add_str(cmd->event, "args", cmd->args);
+		event_add_str(cmd->event, "cmd_args", cmd->args);
 
 		str_truncate(str, 0);
 		imap_write_args_for_human(str, *args_r);
 		cmd->human_args = p_strdup(cmd->pool, str_c(str));
-		event_add_str(cmd->event, "human_args", cmd->human_args);
+		event_add_str(cmd->event, "cmd_human_args", cmd->human_args);
 
 		cmd->client->input_lock = NULL;
 		return TRUE;
@@ -895,8 +895,8 @@ struct client_command_context *client_command_alloc(struct client *client)
 
 void client_command_init_finished(struct client_command_context *cmd)
 {
-	event_add_str(cmd->event, "tag", cmd->tag);
-	event_add_str(cmd->event, "name", t_str_ucase(cmd->name));
+	event_add_str(cmd->event, "cmd_tag", cmd->tag);
+	event_add_str(cmd->event, "cmd_name", t_str_ucase(cmd->name));
 }
 
 static struct client_command_context *
