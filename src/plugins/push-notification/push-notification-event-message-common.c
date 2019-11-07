@@ -1,7 +1,6 @@
 /* Copyright (c) 2015-2019 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
 #include "mail-storage.h"
 #include "push-notification-event-message-common.h"
 
@@ -58,15 +57,7 @@ void push_notification_message_fill(struct mail *mail, pool_t pool,
 
 	if ((*keywords == NULL) &&
 	    (event_flags & PUSH_NOTIFICATION_MESSAGE_KEYWORDS) != 0) {
-		const char *const *mail_kws = mail_get_keywords(mail);
-		ARRAY_TYPE(const_string) kws;
-		p_array_init(&kws, pool, 2);
-		for (;*mail_kws != NULL; mail_kws++) {
-			value = p_strdup(pool, *mail_kws);
-			array_append(&kws, &value, 1);
-		}
-		array_append_zero(&kws);
-		*keywords = array_idx(&kws, 0);
+		*keywords = p_strarray_dup(pool, mail_get_keywords(mail));
 	}
 
 	if ((*snippet == NULL) &&
