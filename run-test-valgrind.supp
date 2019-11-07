@@ -63,6 +63,6 @@
    ...
    obj:/usr/lib/x86_64-linux-gnu/libunwind-x86_64.so.8.0.1
    fun:_Ux86_64_step
-   fun:backtrace_append
+   fun:backtrace_append_unwind
    ...
 }
