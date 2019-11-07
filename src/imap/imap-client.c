@@ -783,11 +783,19 @@ void client_args_finished(struct client_command_context *cmd,
 {
 	string_t *str = t_str_new(256);
 
+	if (cmd->args != NULL && cmd->args[0] != '\0') {
+		str_append(str, cmd->args);
+		str_append_c(str, ' ');
+	}
 	imap_write_args(str, args);
 	cmd->args = p_strdup(cmd->pool, str_c(str));
 	event_add_str(cmd->event, "cmd_args", cmd->args);
 
 	str_truncate(str, 0);
+	if (cmd->human_args != NULL && cmd->human_args[0] != '\0') {
+		str_append(str, cmd->human_args);
+		str_append_c(str, ' ');
+	}
 	imap_write_args_for_human(str, args);
 	cmd->human_args = p_strdup(cmd->pool, str_c(str));
 	event_add_str(cmd->event, "cmd_human_args", cmd->human_args);
