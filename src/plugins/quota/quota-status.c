@@ -175,16 +175,16 @@ static int client_input_line(struct connection *conn, const char *line)
 			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
 			&client->recipient, &error) < 0) {
-			if (strcmp(value, "END-OF-MESSAGE") == 0) {
-				if (strlen(line) == 10) { // multiple recipients has empty "recipient="
-					client->recipient = NULL;
-					return 1;
+				if (strcmp(value, "END-OF-MESSAGE") == 0) {
+					if (strlen(line) == 10) { // multiple recipients has empty "recipient="
+						client->recipient = NULL;
+						return 1;
+					}
 				}
-			}
-			i_error("quota-status: "
-				"Client sent invalid recipient address: %s",
-				error);
-			return 0;
+				i_error("quota-status: "
+					"Client sent invalid recipient address: %s",
+					error);
+				return 0;
 		}
 	} else if (str_begins(line, "size=")) {
 		if (str_to_uoff(line+5, &client->size) < 0)
