@@ -102,9 +102,8 @@ void imap_write_arg(string_t *dest, const struct imap_arg *arg)
 		break;
 	case IMAP_ARG_LITERAL_SIZE:
 	case IMAP_ARG_LITERAL_SIZE_NONSYNC:
-		str_printfa(dest, "{%"PRIuUOFF_T"}\r\n",
+		str_printfa(dest, "<%"PRIuUOFF_T" byte literal>",
 			    imap_arg_as_literal_size(arg));
-		str_append(dest, "<too large>");
 		break;
 	case IMAP_ARG_EOL:
 		i_unreached();
