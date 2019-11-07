@@ -308,6 +308,8 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
    store the arguments. */
 bool client_read_string_args(struct client_command_context *cmd,
 			     unsigned int count, ...);
+void client_args_finished(struct client_command_context *cmd,
+			  const struct imap_arg *args);
 
 /* SEARCHRES extension: Call if $ is being used/updated, returns TRUE if we
    have to wait for an existing SEARCH SAVE to finish. */

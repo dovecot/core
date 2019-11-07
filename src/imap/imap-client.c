@@ -717,7 +717,6 @@ void client_send_internal_error(struct client_command_context *cmd)
 bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		      unsigned int flags, const struct imap_arg **args_r)
 {
-	string_t *str;
 	int ret;
 
 	i_assert(count <= INT_MAX);
@@ -728,16 +727,7 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		i_assert(cmd->client->input_lock == NULL ||
 			 cmd->client->input_lock == cmd);
 
-		str = t_str_new(256);
-		imap_write_args(str, *args_r);
-		cmd->args = p_strdup(cmd->pool, str_c(str));
-		event_add_str(cmd->event, "cmd_args", cmd->args);
-
-		str_truncate(str, 0);
-		imap_write_args_for_human(str, *args_r);
-		cmd->human_args = p_strdup(cmd->pool, str_c(str));
-		event_add_str(cmd->event, "cmd_human_args", cmd->human_args);
-
+		client_args_finished(cmd, *args_r);
 		cmd->client->input_lock = NULL;
 		return TRUE;
 	} else if (ret == -2) {
@@ -786,6 +776,21 @@ bool client_read_string_args(struct client_command_context *cmd,
 	va_end(va);
 
 	return i == count;
+}
+
+void client_args_finished(struct client_command_context *cmd,
+			  const struct imap_arg *args)
+{
+	string_t *str = t_str_new(256);
+
+	imap_write_args(str, args);
+	cmd->args = p_strdup(cmd->pool, str_c(str));
+	event_add_str(cmd->event, "cmd_args", cmd->args);
+
+	str_truncate(str, 0);
+	imap_write_args_for_human(str, args);
+	cmd->human_args = p_strdup(cmd->pool, str_c(str));
+	event_add_str(cmd->event, "cmd_human_args", cmd->human_args);
 }
 
 static struct client_command_context *
