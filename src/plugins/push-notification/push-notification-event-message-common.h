@@ -23,6 +23,15 @@ enum push_notification_event_message_flags {
     PUSH_NOTIFICATION_MESSAGE_HDR_MESSAGE_ID = 0x80,
 };
 
+void push_notification_message_fill(struct mail *mail, pool_t pool,
+				    enum push_notification_event_message_flags event_flags,
+				    const char **from, const char **to,
+				    const char **subject,
+				    time_t *date, int *date_tz,
+				    const char **message_id,
+				    enum mail_flags *flags, bool *flags_set,
+				    const char *const **keywords,
+				    const char **snippet);
 
 #endif	/* PUSH_NOTIFICATION_EVENT_MESSAGE_COMMON_H */
 

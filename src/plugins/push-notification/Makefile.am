@@ -36,6 +36,7 @@ lib20_push_notification_plugin_la_SOURCES = \
 	push-notification-event-messagenew.c \
 	push-notification-event-messageread.c \
 	push-notification-event-messagetrash.c \
+	push-notification-event-message-common.c \
 	push-notification-events.c \
 	push-notification-events-rfc5423.c \
 	push-notification-plugin.c \
