@@ -1098,37 +1098,6 @@ void event_category_unregister_callback(event_category_callback_t *callback)
 	i_unreached();
 }
 
-static void event_category_remove_from_array(struct event_category *category)
-{
-	struct event_category *const *catp;
-
-	array_foreach(&event_registered_categories, catp) {
-		if (*catp == category) {
-			array_delete(&event_registered_categories,
-				array_foreach_idx(&event_registered_categories, catp), 1);
-			return;
-		}
-	}
-	i_unreached();
-}
-
-void event_category_unregister(struct event_category *category)
-{
-	event_category_callback_t *const *callbackp;
-
-	if (!category->registered) {
-		/* it was never registered in the first place - ignore */
-		return;
-	}
-
-	category->registered = FALSE;
-	event_category_remove_from_array(category);
-
-	array_foreach(&event_category_callbacks, callbackp) T_BEGIN {
-		(*callbackp)(category);
-	} T_END;
-}
-
 static struct event_passthrough *
 event_passthrough_set_append_log_prefix(const char *prefix)
 {
