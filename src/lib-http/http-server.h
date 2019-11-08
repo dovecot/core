@@ -26,8 +26,8 @@ struct http_server_settings {
 	/* SSL settings; if NULL, master_service_ssl_init() is used instead */
 	const struct ssl_iostream_settings *ssl;
 
-	/* The maximum time in milliseconds a client is allowed to be idle before
-	   it is disconnected. */
+	/* The maximum time in milliseconds a client is allowed to be idle
+	   before it is disconnected. */
 	unsigned int max_client_idle_time_msecs;
 
 	/* Maximum number of pipelined requests per connection (default = 1) */
@@ -57,19 +57,20 @@ struct http_server_tunnel {
 	struct ostream *output;
 };
 
-typedef void (*http_server_tunnel_callback_t)(void *context,
-	const struct http_server_tunnel *tunnel);
+typedef void
+(*http_server_tunnel_callback_t)(void *context,
+				 const struct http_server_tunnel *tunnel);
 
 /* Start creating the response for the request. This function can be called
    only once for each request. */
 struct http_server_response *
 http_server_response_create(struct http_server_request *req,
-	unsigned int status, const char *reason);
+			    unsigned int status, const char *reason);
 
 /* Add a custom header to the response. This can override headers that are
    otherwise created implicitly. */
 void http_server_response_add_header(struct http_server_response *resp,
-				    const char *key, const char *value);
+				     const char *key, const char *value);
 /* Add a header permanently to the response. Even if another response is
    created for the request, this header is kept. */
 void http_server_response_add_permanent_header(struct http_server_response *resp,
@@ -81,18 +82,19 @@ void http_server_response_update_status(struct http_server_response *resp,
    Use this instead of setting it directly using
    http_server_response_add_header() */
 void http_server_response_set_date(struct http_server_response *resp,
-				    time_t date);
+				   time_t date);
 /* Assign an input stream for the outgoing payload of this response. The input
    stream is read asynchronously while the response is sent to the client. */
 void http_server_response_set_payload(struct http_server_response *resp,
-				     struct istream *input);
+				      struct istream *input);
 /* Assign payload data to the response. The data is copied to the request pool.
    If your data is already durably allocated during the existence of the
    response, you should consider using http_server_response_set_payload() with
    a data input stream instead. This will avoid copying the data unnecessarily.
  */
 void http_server_response_set_payload_data(struct http_server_response *resp,
-				     const unsigned char *data, size_t size);
+					   const unsigned char *data,
+					   size_t size);
 
 /* Obtain an output stream for the response payload. This is an alternative to
    using http_server_response_set_payload(). Currently, this can only return a
@@ -102,20 +104,19 @@ void http_server_response_set_payload_data(struct http_server_response *resp,
  */
 struct ostream *
 http_server_response_get_payload_output(struct http_server_response *resp,
-	bool blocking);
+					bool blocking);
 
 /* Get the status code and reason string currently set for this response. */
 void http_server_response_get_status(struct http_server_response *resp,
-	int *status_r, const char **reason_r);
+				     int *status_r, const char **reason_r);
 /* Get the total size of the response when sent over the connection. */
 uoff_t http_server_response_get_total_size(struct http_server_response *resp);
 /* Add authentication challenge to the response. */
-void http_server_response_add_auth(
-	struct http_server_response *resp,
-	const struct http_auth_challenge *chlng);
+void http_server_response_add_auth(struct http_server_response *resp,
+				   const struct http_auth_challenge *chlng);
 /* Add "Basic" authentication challenge to the response. */
-void http_server_response_add_auth_basic(
-	struct http_server_response *resp, const char *realm);
+void http_server_response_add_auth_basic(struct http_server_response *resp,
+					 const char *realm);
 
 /* Submit the response. It is queued for transmission to the client. */
 void http_server_response_submit(struct http_server_response *resp);
@@ -124,7 +125,8 @@ void http_server_response_submit_close(struct http_server_response *resp);
 /* Submit the response and turn the connection it is sent across into a tunnel
    once it is sent successfully. The callback is called once that happens. */
 void http_server_response_submit_tunnel(struct http_server_response *resp,
-	http_server_tunnel_callback_t callback, void *context);
+					http_server_tunnel_callback_t callback,
+					void *context);
 
 /* Submits response and blocks until provided payload is sent. Multiple calls
    are allowed; payload is sent in chunks this way. Payload transmission is
@@ -136,7 +138,7 @@ void http_server_response_submit_tunnel(struct http_server_response *resp,
    http_server_response_get_payload_output() with blocking=TRUE.
  */
 int http_server_response_send_payload(struct http_server_response **resp,
-	const unsigned char *data, size_t size);
+				      const unsigned char *data, size_t size);
 /* Finish sending the payload. Always frees resp and sets it to NULL.
    Returns 0 on success, -1 on error. */
 int http_server_response_finish_payload(struct http_server_response **resp);
@@ -161,7 +163,7 @@ bool http_server_request_unref(struct http_server_request **_req);
 /* Set flag that determines whether the connection is closed after the
    request is handled. */
 void http_server_request_connection_close(struct http_server_request *req,
-	bool close);
+					  bool close);
 
 /* Get the pool for this request. */
 pool_t http_server_request_get_pool(struct http_server_request *req);
@@ -183,7 +185,7 @@ void http_server_request_add_response_header(struct http_server_request *req,
  */
 struct istream *
 http_server_request_get_payload_input(struct http_server_request *req,
-	bool blocking);
+				      bool blocking);
 
 /* Forward the incoming request payload to the provided output stream in the
    background. Calls the provided callback once the payload was forwarded
@@ -192,10 +194,12 @@ http_server_request_get_payload_input(struct http_server_request *req,
    get a 413 error. Before the callback finishes, the application must either
    have added a reference to the request or have submitted a response. */
 void http_server_request_forward_payload(struct http_server_request *req,
-	struct ostream *output, uoff_t max_size,
-	void (*callback)(void *), void *context);
-#define http_server_request_forward_payload(req, \
-		output, max_size, callback, context) \
+					 struct ostream *output,
+					 uoff_t max_size,
+					 void (*callback)(void *),
+					 void *context);
+#define http_server_request_forward_payload(req, output, max_size, \
+					    callback, context) \
 	http_server_request_forward_payload(req, output, max_size, \
 		(void(*)(void*))callback, TRUE ? context : \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
@@ -203,10 +207,11 @@ void http_server_request_forward_payload(struct http_server_request *req,
    background. Behaves identical to http_server_request_forward_payload()
    otherwise. */
 void http_server_request_buffer_payload(struct http_server_request *req,
-	buffer_t *buffer, uoff_t max_size,
-	void (*callback)(void *), void *context);
-#define http_server_request_buffer_payload(req, \
-		buffer, max_size, callback, context) \
+					buffer_t *buffer, uoff_t max_size,
+					void (*callback)(void *),
+					void *context);
+#define http_server_request_buffer_payload(req, buffer, max_size, \
+					   callback, context) \
 	http_server_request_buffer_payload(req, buffer, max_size, \
 		(void(*)(void*))callback, TRUE ? context : \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
@@ -216,7 +221,8 @@ void http_server_request_buffer_payload(struct http_server_request *req,
    application must either have added a reference to the request or have
    submitted a response. */
 void http_server_request_handle_payload(struct http_server_request *req,
-	void (*callback)(void *context), void *context);
+					void (*callback)(void *context),
+					void *context);
 #define http_server_request_handle_payload(req, callback, context) \
 	http_server_request_handle_payload(req,\
 		(void(*)(void*))callback, TRUE ? context : \
@@ -226,32 +232,33 @@ void http_server_request_handle_payload(struct http_server_request *req,
    the Authorization header is absent, returns -1 when that header cannot be
    parsed, and returns 1 otherwise */
 int http_server_request_get_auth(struct http_server_request *req,
-	struct http_auth_credentials *credentials);
+				 struct http_auth_credentials *credentials);
 
 /* Send a failure response for the request with given status/reason. */
 void http_server_request_fail(struct http_server_request *req,
-	unsigned int status, const char *reason);
+			      unsigned int status, const char *reason);
 /* Send a failure response for the request with given status/reason
    and close the connection. */
 void http_server_request_fail_close(struct http_server_request *req,
-	unsigned int status, const char *reason);
+				    unsigned int status, const char *reason);
 /* Send a failure response for the request with given status/reason/text.
    The text is sent as the response payload, if appropriate. */
 void http_server_request_fail_text(struct http_server_request *req,
-	unsigned int status, const char *reason, const char *format, ...)
-	 ATTR_FORMAT(4, 5);
+				   unsigned int status, const char *reason,
+				   const char *format, ...) ATTR_FORMAT(4, 5);
 /* Send an authentication failure response for the request with given reason.
    The provided challenge is set in the WWW-Authenticate header of the
    response. */
 void http_server_request_fail_auth(struct http_server_request *req,
-	const char *reason, const struct http_auth_challenge *chlng)
-	ATTR_NULL(2);
+				   const char *reason,
+				   const struct http_auth_challenge *chlng)
+				   ATTR_NULL(2);
 /* Send a authentication failure response for the request with given reason.
    The provided realm is used to construct an Basic challenge in the
    WWW-Authenticate header of the response. */
 void http_server_request_fail_auth_basic(struct http_server_request *req,
-	const char *reason, const char *realm)
-	ATTR_NULL(2);
+					 const char *reason, const char *realm)
+					 ATTR_NULL(2);
 
 /* Call the specified callback when HTTP request is destroyed. This happens
    after one of the following:
@@ -268,9 +275,10 @@ void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context);
 #define http_server_request_set_destroy_callback(req, callback, context) \
-	http_server_request_set_destroy_callback(req, (void(*)(void*))callback, \
-		TRUE ? context : \
-		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
+	http_server_request_set_destroy_callback( \
+		req, (void(*)(void*))callback, \
+		(TRUE ? context : \
+		 CALLBACK_TYPECHECK(callback, void (*)(typeof(context)))))
 
 /*
  * Connection
@@ -306,7 +314,8 @@ struct http_server_callbacks {
 	*/
 	void (*handle_request)(void *context, struct http_server_request *req);
 	void (*handle_connect_request)(void *context,
-		struct http_server_request *req, struct http_url *target);
+				       struct http_server_request *req,
+				       struct http_url *target);
 
 	/* Called once the connection is destroyed. */
 	void (*connection_destroy)(void *context, const char *reason);
@@ -316,8 +325,9 @@ struct http_server_callbacks {
    callbacks structure is described above. */
 struct http_server_connection *
 http_server_connection_create(struct http_server *server,
-	int fd_in, int fd_out, bool ssl,
-	const struct http_server_callbacks *callbacks, void *context);
+			      int fd_in, int fd_out, bool ssl,
+			      const struct http_server_callbacks *callbacks,
+			      void *context);
 /* Reference the connection */
 void http_server_connection_ref(struct http_server_connection *conn);
 /* Dereference the connection. Returns FALSE if unrefing destroyed the
@@ -326,7 +336,7 @@ bool http_server_connection_unref(struct http_server_connection **_conn);
 /* Dereference and close the connection. The provided reason is passed to the
    connection_destroy() callback. */
 void http_server_connection_close(struct http_server_connection **_conn,
-	const char *reason);
+				  const char *reason);
 /* Get the current statistics for this connection */
 const struct http_server_stats *
 http_server_connection_get_stats(struct http_server_connection *conn);
