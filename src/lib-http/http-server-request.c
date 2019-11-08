@@ -27,21 +27,6 @@ http_server_request_debug(struct http_server_request *req,
 }
 
 static inline void
-http_server_request_error(struct http_server_request *req,
-			  const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_server_request_error(struct http_server_request *req,
-			  const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_error(req->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-static inline void
 http_server_request_client_error(struct http_server_request *req,
 				 const char *format, ...) ATTR_FORMAT(2, 3);
 
@@ -728,8 +713,8 @@ payload_handler_pump_callback(enum iostream_pump_status status,
 		break;
 	case IOSTREAM_PUMP_STATUS_OUTPUT_ERROR:
 		if (output->stream_errno != 0) {
-			http_server_request_error(
-				req, "iostream_pump: write(%s) failed: %s",
+			e_error(req->event,
+				"iostream_pump: write(%s) failed: %s",
 				o_stream_get_name(output),
 				o_stream_get_error(output));
 		}
@@ -763,8 +748,8 @@ void http_server_request_forward_payload(struct http_server_request *req,
 		if ((ret = i_stream_get_size(input, TRUE,
 					     &payload_size)) != 0) {
 			if (ret < 0) {
-				http_server_request_error(
-					req, "i_stream_get_size(%s) failed: %s",
+				e_error(req->event,
+					"i_stream_get_size(%s) failed: %s",
 					i_stream_get_name(input),
 					i_stream_get_error(input));
 				http_server_request_fail_close(

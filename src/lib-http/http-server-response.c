@@ -35,21 +35,6 @@ http_server_response_debug(struct http_server_response *resp,
 	va_end(args);
 }
 
-static inline void
-http_server_response_error(struct http_server_response *resp,
-			   const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_server_response_error(struct http_server_response *resp,
-			   const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_debug(resp->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
 /*
  * Response
  */
@@ -539,8 +524,7 @@ int http_server_response_send_more(struct http_server_response *resp)
 		if (!resp->payload_chunked &&
 		    (resp->payload_input->v_offset - resp->payload_offset) !=
 			resp->payload_size) {
-			http_server_response_error(
-				resp,
+			e_error(resp->event,
 				"Payload stream %s size changed unexpectedly",
 				i_stream_get_name(resp->payload_input));
 			http_server_connection_close(
@@ -565,8 +549,7 @@ int http_server_response_send_more(struct http_server_response *resp)
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		/* We're in the middle of sending a response, so the connection
 		   will also have to be aborted */
-		http_server_response_error(resp,
-			"read(%s) failed: %s",
+		e_error(resp->event, "read(%s) failed: %s",
 			i_stream_get_name(resp->payload_input),
 			i_stream_get_error(resp->payload_input));
 		http_server_connection_close(&conn,

@@ -47,21 +47,6 @@ http_server_connection_debug(struct http_server_connection *conn,
 }
 
 static inline void
-http_server_connection_error(struct http_server_connection *conn,
-			     const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_server_connection_error(struct http_server_connection *conn,
-			     const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_error(conn->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-static inline void
 http_server_connection_client_error(struct http_server_connection *conn,
 				    const char *format, ...) ATTR_FORMAT(2, 3);
 
@@ -413,8 +398,7 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 	int ret;
 
 	if (http_server_init_ssl_ctx(server, &error) < 0) {
-		http_server_connection_error(
-			conn, "Couldn't initialize SSL: %s", error);
+		e_error(conn->event, "Couldn't initialize SSL: %s", error);
 		return -1;
 	}
 
@@ -434,16 +418,15 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 						  &conn->ssl_iostream, &error);
 	}
 	if (ret < 0) {
-		http_server_connection_error(
-			conn, "Couldn't initialize SSL server for %s: %s",
+		e_error(conn->event,
+			"Couldn't initialize SSL server for %s: %s",
 			conn->conn.name, error);
 		return -1;
 	}
 	http_server_connection_input_resume(conn);
 
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
-		http_server_connection_error(
-			conn,"SSL handshake failed: %s",
+		e_error(conn->event, "SSL handshake failed: %s",
 			ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
@@ -876,8 +859,7 @@ void http_server_connection_handle_output_error(
 
 	if (output->stream_errno != EPIPE &&
 	    output->stream_errno != ECONNRESET) {
-		http_server_connection_error(
-			conn, "Connection lost: write(%s) failed: %s",
+		e_error(conn->event, "Connection lost: write(%s) failed: %s",
 			o_stream_get_name(output),
 			o_stream_get_error(output));
 		http_server_connection_close(
