@@ -12,21 +12,6 @@
  */
 
 static inline void
-http_server_request_debug(struct http_server_request *req,
-			  const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_server_request_debug(struct http_server_request *req,
-			  const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_debug(req->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-static inline void
 http_server_request_client_error(struct http_server_request *req,
 				 const char *format, ...) ATTR_FORMAT(2, 3);
 
@@ -107,7 +92,7 @@ bool http_server_request_unref(struct http_server_request **_req)
 	if (--req->refcount > 0)
 		return TRUE;
 
-	http_server_request_debug(req, "Free");
+	e_debug(req->event, "Free");
 
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
@@ -138,7 +123,7 @@ void http_server_request_destroy(struct http_server_request **_req)
 	struct http_server_request *req = *_req;
 	struct http_server *server = req->server;
 
-	http_server_request_debug(req, "Destroy");
+	e_debug(req->event, "Destroy");
 
 	/* Just make sure the request ends in a proper state */
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED)
@@ -176,7 +161,7 @@ void http_server_request_abort(struct http_server_request **_req,
 	if (req->state >= HTTP_SERVER_REQUEST_STATE_FINISHED)
 		return;
 
-	http_server_request_debug(req, "Abort");
+	e_debug(req->event, "Abort");
 
 	req->conn = NULL;
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
@@ -276,7 +261,7 @@ void http_server_request_continue_payload(struct http_server_request *req)
 
 void http_server_request_ready_to_respond(struct http_server_request *req)
 {
-	http_server_request_debug(req, "Ready to respond");
+	e_debug(req->event, "Ready to respond");
 
 	req->state = HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND;
 	http_server_connection_trigger_responses(req->conn);
@@ -301,7 +286,7 @@ void http_server_request_submit_response(struct http_server_request *req)
 	case HTTP_SERVER_REQUEST_STATE_PROCESSING:
 	case HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE:
 		if (!http_server_request_is_complete(req)) {
-			http_server_request_debug(req, "Not ready to respond");
+			e_debug(req->event, "Not ready to respond");
 			req->state = HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE;
 			break;
 		}
@@ -326,7 +311,7 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_tunnel_callback_t tunnel_callback = resp->tunnel_callback;
 	void *tunnel_context = resp->tunnel_context;
 
-	http_server_request_debug(req, "Finished");
+	e_debug(req->event, "Finished");
 
 	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_FINISHED);
 	req->state = HTTP_SERVER_REQUEST_STATE_FINISHED;

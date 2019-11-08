@@ -17,25 +17,6 @@ struct http_server_response_payload {
 };
 
 /*
- * Logging
- */
-
-static inline void
-http_server_response_debug(struct http_server_response *resp,
-			   const char *format, ...) ATTR_FORMAT(2, 3);
-
-static inline void
-http_server_response_debug(struct http_server_response *resp,
-			   const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	e_debug(resp->event, "%s", t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
-/*
  * Response
  */
 
@@ -93,7 +74,7 @@ http_server_response_create(struct http_server_request *req,
 
 void http_server_response_free(struct http_server_response *resp)
 {
-	http_server_response_debug(resp, "Destroy");
+	e_debug(resp->event, "Destroy");
 
 	i_assert(!resp->payload_blocking);
 
@@ -231,7 +212,7 @@ http_server_response_do_submit(struct http_server_response *resp)
 
 void http_server_response_submit(struct http_server_response *resp)
 {
-	http_server_response_debug(resp, "Submitted");
+	e_debug(resp->event, "Submitted");
 
 	http_server_response_do_submit(resp);
 }
@@ -246,7 +227,7 @@ void http_server_response_submit_tunnel(struct http_server_response *resp,
 					http_server_tunnel_callback_t callback,
 					void *context)
 {
-	http_server_response_debug(resp, "Started tunnelling");
+	e_debug(resp->event, "Started tunnelling");
 
 	resp->tunnel_callback = callback;
 	resp->tunnel_context = context;
@@ -264,7 +245,7 @@ http_server_response_finish_payload_out(struct http_server_response *resp)
 		resp->payload_output = NULL;
 	}
 
-	http_server_response_debug(resp, "Finished sending payload");
+	e_debug(resp->event, "Finished sending payload");
 
 	http_server_connection_ref(conn);
 	conn->output_locked = FALSE;
@@ -380,12 +361,12 @@ http_server_response_output_payload(struct http_server_response **_resp,
 
 		do {
 			if (req->state < HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT) {
-				http_server_response_debug(
-					resp, "Preparing to send blocking payload");
+				e_debug(resp->event,
+					"Preparing to send blocking payload");
 				http_server_connection_trigger_responses(conn);
 			} else if (resp->payload_output != NULL) {
-				http_server_response_debug(
-					resp, "Sending blocking payload");
+				e_debug(resp->event,
+					"Sending blocking payload");
 				o_stream_unset_flush_callback(conn->conn.output);
 				o_stream_set_flush_callback(
 					resp->payload_output,
@@ -417,8 +398,8 @@ http_server_response_output_payload(struct http_server_response **_resp,
 		ret = 1;
 		break;
 	case HTTP_SERVER_REQUEST_STATE_ABORTED:
-		http_server_response_debug(
-			resp, "Request aborted while sending blocking payload");
+		e_debug(resp->event,
+			"Request aborted while sending blocking payload");
 		ret = -1;
 		break;
 	default:
@@ -544,7 +525,7 @@ int http_server_response_send_more(struct http_server_response *resp)
 		/* Output is blocking */
 		conn->output_locked = TRUE;
 		o_stream_set_flush_pending(output, TRUE);
-		//http_server_response_debug(resp, "Partially sent payload");
+		//e_debug(resp->event, "Partially sent payload");
 		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		/* We're in the middle of sending a response, so the connection
@@ -688,7 +669,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 		return -1;
 	}
 
-	http_server_response_debug(resp, "Sent header");
+	e_debug(resp->event, "Sent header");
 
 	if (resp->payload_blocking) {
 		/* Blocking payload */
