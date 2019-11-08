@@ -24,20 +24,19 @@ struct http_server_connection;
 enum http_server_request_state {
 	/* New request; request header is still being parsed. */
 	HTTP_SERVER_REQUEST_STATE_NEW = 0,
-	/* Queued request; callback to request handler executing. */	
+	/* Queued request; callback to request handler executing. */
 	HTTP_SERVER_REQUEST_STATE_QUEUED,
 	/* Reading request payload; request handler still needs to read more
 	   payload. */
 	HTTP_SERVER_REQUEST_STATE_PAYLOAD_IN,
-	/* This request is being processed; request payload is fully read, but no
-	   response is yet submitted */
+	/* This request is being processed; request payload is fully read, but
+	   no response is yet submitted */
 	HTTP_SERVER_REQUEST_STATE_PROCESSING,
 	/* A response is submitted for this request. If not all request payload
-	   was read by the handler, it is first skipped on the input.
-   */
+	   was read by the handler, it is first skipped on the input. */
 	HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE,
-	/* Request is ready for response; a response is submitted and the request
-	   payload is fully read */
+	/* Request is ready for response; a response is submitted and the
+	   request payload is fully read */
 	HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND,
 	/* The response for the request is sent (apart from payload) */
 	HTTP_SERVER_REQUEST_STATE_SENT_RESPONSE,
@@ -201,15 +200,17 @@ http_server_request_is_new(struct http_server_request *req)
 
 static inline bool
 http_server_request_version_equals(struct http_server_request *req,
-	unsigned int major, unsigned int minor) {
-	return (req->req.version_major == major && req->req.version_minor == minor);
+				   unsigned int major, unsigned int minor)
+{
+	return (req->req.version_major == major &&
+		req->req.version_minor == minor);
 }
 
 struct http_server_request *
 http_server_request_new(struct http_server_connection *conn);
 void http_server_request_destroy(struct http_server_request **_req);
 void http_server_request_abort(struct http_server_request **_req,
-	const char *reason) ATTR_NULL(2);
+			       const char *reason) ATTR_NULL(2);
 
 bool http_server_request_is_complete(struct http_server_request *req);
 
@@ -221,7 +222,7 @@ void http_server_request_submit_response(struct http_server_request *req);
 void http_server_request_ready_to_respond(struct http_server_request *req);
 void http_server_request_finished(struct http_server_request *req);
 
-/* payload handler */
+/* Payload handler */
 
 void http_server_payload_handler_destroy(
 	struct http_server_payload_handler **_handler);
@@ -229,7 +230,7 @@ void http_server_payload_handler_switch_ioloop(
 	struct http_server_payload_handler *handler);
 
 /*
- * connection
+ * Connection
  */
 
 static inline const char *
@@ -240,16 +241,18 @@ http_server_connection_label(struct http_server_connection *conn)
 
 static inline void
 http_server_connection_add_request(struct http_server_connection *conn,
-	struct http_server_request *sreq)
+				   struct http_server_request *sreq)
 {
-	DLLIST2_APPEND(&conn->request_queue_head, &conn->request_queue_tail, sreq);
+	DLLIST2_APPEND(&conn->request_queue_head, &conn->request_queue_tail,
+		       sreq);
 	conn->request_queue_count++;
 }
 static inline void
 http_server_connection_remove_request(struct http_server_connection *conn,
-	struct http_server_request *sreq)
+				      struct http_server_request *sreq)
 {
-	DLLIST2_REMOVE(&conn->request_queue_head, &conn->request_queue_tail, sreq);
+	DLLIST2_REMOVE(&conn->request_queue_head, &conn->request_queue_tail,
+		       sreq);
 	conn->request_queue_count--;
 }
 
@@ -268,7 +271,8 @@ int http_server_connection_flush(struct http_server_connection *conn);
 int http_server_connection_output(struct http_server_connection *conn);
 
 void http_server_connection_tunnel(struct http_server_connection **_conn,
-	http_server_tunnel_callback_t callback, void *context);
+				   http_server_tunnel_callback_t callback,
+				   void *context);
 
 int http_server_connection_discard_payload(
 	struct http_server_connection *conn);
