@@ -209,6 +209,8 @@ void http_server_request_abort(struct http_server_request **_req,
 
 bool http_server_request_is_complete(struct http_server_request *req);
 
+void http_server_request_callback(struct http_server_request *req);
+
 void http_server_request_halt_payload(struct http_server_request *req);
 void http_server_request_continue_payload(struct http_server_request *req);
 

@@ -256,32 +256,6 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 	}
 }
 
-static void http_server_connection_request_callback(
-	struct http_server_connection *conn, struct http_server_request *req)
-{
-	/* CONNECT method */
-	if (strcmp(req->req.method, "CONNECT") == 0) {
-		if (conn->callbacks->handle_connect_request == NULL) {
-			http_server_request_fail(req, 505, "Not Implemented");
-			return;
-		}
-		if (req->req.target.format !=
-		    HTTP_REQUEST_TARGET_FORMAT_AUTHORITY) {
-			http_server_request_fail(req, 400, "Bad Request");
-			return;
-		}
-		conn->callbacks->handle_connect_request(conn->context, req,
-							req->req.target.url);
-	/* Other methods */
-	} else {
-		if (conn->callbacks->handle_request == NULL) {
-			http_server_request_fail(req, 505, "Not Implemented");
-			return;
-		}
-		conn->callbacks->handle_request(conn->context, req);
-	}
-}
-
 static bool
 http_server_connection_handle_request(struct http_server_connection *conn,
 				      struct http_server_request *req)
@@ -324,7 +298,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 
 	old_refcount = req->refcount;
 	conn->in_req_callback = TRUE;
-	http_server_connection_request_callback(conn, req);
+	http_server_request_callback(req);
 	if (conn->closed) {
 		/* The callback managed to get this connection destroyed/closed
 		 */

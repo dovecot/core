@@ -259,6 +259,43 @@ void http_server_request_continue_payload(struct http_server_request *req)
 		http_server_connection_trigger_responses(req->conn);
 }
 
+static void
+http_server_request_connect_callback(struct http_server_request *req)
+{
+	struct http_server_connection *conn = req->conn;
+
+	if (conn->callbacks->handle_connect_request == NULL) {
+		http_server_request_fail(req, 505, "Not Implemented");
+		return;
+	}
+
+	if (req->req.target.format !=
+	    HTTP_REQUEST_TARGET_FORMAT_AUTHORITY) {
+		http_server_request_fail(req, 400, "Bad Request");
+		return;
+	}
+
+	conn->callbacks->handle_connect_request(conn->context, req,
+						req->req.target.url);
+}
+
+void http_server_request_callback(struct http_server_request *req)
+{
+	struct http_server_connection *conn = req->conn;
+
+	if (strcmp(req->req.method, "CONNECT") == 0) {
+		/* CONNECT method */
+		http_server_request_connect_callback(req);
+		return;
+	}
+
+	if (conn->callbacks->handle_request == NULL) {
+		http_server_request_fail(req, 404, "Not Found");
+		return;
+	}
+	conn->callbacks->handle_request(conn->context, req);
+}
+
 void http_server_request_ready_to_respond(struct http_server_request *req)
 {
 	e_debug(req->event, "Ready to respond");
