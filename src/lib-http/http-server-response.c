@@ -30,11 +30,9 @@ http_server_response_debug(struct http_server_response *resp,
 {
 	va_list args;
 
-	if (resp->request->server->set.debug) {
-		va_start(args, format);
-		e_debug(resp->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(resp->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 static inline void

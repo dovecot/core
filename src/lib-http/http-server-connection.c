@@ -41,11 +41,9 @@ http_server_connection_debug(struct http_server_connection *conn,
 {
 	va_list args;
 
-	if (conn->server->set.debug) {
-		va_start(args, format);
-		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 static inline void
@@ -420,8 +418,7 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 		return -1;
 	}
 
-	if (server->set.debug)
-		http_server_connection_debug(conn, "Starting SSL handshake");
+	http_server_connection_debug(conn, "Starting SSL handshake");
 
 	http_server_connection_input_halt(conn);
 	if (server->ssl_ctx == NULL) {

@@ -19,14 +19,11 @@ static inline void
 http_server_request_debug(struct http_server_request *req,
 			  const char *format, ...)
 {
-	struct http_server *server = req->server;
 	va_list args;
 
-	if (server->set.debug) {
-		va_start(args, format);
-		e_debug(req->event, "%s", t_strdup_vprintf(format, args));
-		va_end(args);
-	}
+	va_start(args, format);
+	e_debug(req->event, "%s", t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 static inline void
