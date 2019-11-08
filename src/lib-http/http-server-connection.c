@@ -42,10 +42,8 @@ http_server_connection_debug(struct http_server_connection *conn,
 	va_list args;
 
 	if (conn->server->set.debug) {
-		va_start(args, format);	
-		i_debug("http-server: conn %s: %s",
-			http_server_connection_label(conn),
-			t_strdup_vprintf(format, args));
+		va_start(args, format);
+		e_debug(conn->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -61,9 +59,7 @@ http_server_connection_error(struct http_server_connection *conn,
 	va_list args;
 
 	va_start(args, format);
-	i_error("http-server: conn %s: %s",
-		http_server_connection_label(conn),
-		t_strdup_vprintf(format, args));
+	e_error(conn->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -78,9 +74,7 @@ http_server_connection_client_error(struct http_server_connection *conn,
 	va_list args;
 
 	va_start(args, format);
-	i_info("http-server: conn %s: %s",
-		http_server_connection_label(conn),
-		t_strdup_vprintf(format, args));
+	e_info(conn->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -662,6 +656,7 @@ static void http_server_connection_input(struct connection *_conn)
 			conn->http_parser, req->pool, &req->req,
 			&error_code, &error)) > 0) {
 			conn->stats.request_count++;
+			http_server_request_update_event(req);
 			http_server_connection_debug(
 				conn, "Received new request %s "
 				"(%u requests pending; %u maximum)",
@@ -1100,6 +1095,7 @@ http_server_connection_create(struct http_server *server,
 {
 	const struct http_server_settings *set = &server->set;
 	struct http_server_connection *conn;
+	struct event *conn_event;
 
 	i_assert(!server->shutting_down);
 
@@ -1128,8 +1124,12 @@ http_server_connection_create(struct http_server *server,
 				set->socket_recv_buffer_size);
 	}
 
+	conn_event = event_create(server->event);
+	conn->conn.event_parent = conn_event;
 	connection_init_server(server->conn_list, &conn->conn, NULL,
 			       fd_in, fd_out);
+	conn->event = conn->conn.event;
+	event_unref(&conn_event);
 
 	if (!ssl)
 		http_server_connection_ready(conn);

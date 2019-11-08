@@ -24,9 +24,7 @@ http_server_request_debug(struct http_server_request *req,
 
 	if (server->set.debug) {
 		va_start(args, format);
-		i_debug("http-server: request %s: %s",
-			http_server_request_label(req),
-			t_strdup_vprintf(format, args));
+		e_debug(req->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -42,9 +40,7 @@ http_server_request_error(struct http_server_request *req,
 	va_list args;
 
 	va_start(args, format);
-	i_error("http-server: request %s: %s",
-		http_server_request_label(req),
-		t_strdup_vprintf(format, args));
+	e_error(req->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -59,9 +55,7 @@ http_server_request_client_error(struct http_server_request *req,
 	va_list args;
 
 	va_start(args, format);
-	i_info("http-server: request %s: %s",
-		http_server_request_label(req),
-		t_strdup_vprintf(format, args));
+	e_info(req->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
@@ -81,6 +75,17 @@ const char *http_server_request_label(struct http_server_request *req)
 		req->req.method, req->req.target_raw);
 }
 
+void http_server_request_update_event(struct http_server_request *req)
+{
+	if (req->req.method != NULL)
+		event_add_str(req->event, "method", req->req.method);
+	if (req->req.target_raw != NULL)
+		event_add_str(req->event, "target", req->req.target_raw);
+	event_set_append_log_prefix(
+		req->event, t_strdup_printf("request %s: ",
+					    http_server_request_label(req)));
+}
+
 struct http_server_request *
 http_server_request_new(struct http_server_connection *conn)
 {
@@ -96,6 +101,8 @@ http_server_request_new(struct http_server_connection *conn)
 	req->conn = conn;
 	req->server = conn->server;
 	req->id = ++id_counter;
+	req->event = event_create(conn->event);
+	http_server_request_update_event(req);
 
 	http_server_connection_add_request(conn, req);
 	return req;
@@ -132,6 +139,7 @@ bool http_server_request_unref(struct http_server_request **_req)
 
 	if (req->response != NULL)
 		http_server_response_free(req->response);
+	event_unref(&req->event);
 	pool_unref(&req->pool);
 	return FALSE;
 }

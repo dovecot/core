@@ -63,6 +63,7 @@ struct http_server_payload_handler {
 
 struct http_server_response {
 	struct http_server_request *request;
+	struct event *event;
 
 	unsigned int status;
 	const char *reason;
@@ -98,6 +99,7 @@ struct http_server_request {
 	unsigned int refcount;
 	unsigned int id;
 	int callback_refcount;
+	struct event *event;
 
 	enum http_server_request_state state;
 
@@ -124,6 +126,7 @@ struct http_server_request {
 struct http_server_connection {
 	struct connection conn;
 	struct http_server *server;
+	struct event *event;
 	unsigned int refcount;
 
 	const struct http_server_callbacks *callbacks;
@@ -160,6 +163,7 @@ struct http_server {
 	struct http_server_settings set;
 
 	struct ioloop *ioloop;
+	struct event *event;
 	struct ssl_iostream_context *ssl_ctx;
 
 	struct connection_list *conn_list;
@@ -195,6 +199,8 @@ http_server_request_version_equals(struct http_server_request *req,
 
 const char *http_server_request_label(struct http_server_request *req);
 
+void http_server_request_update_event(struct http_server_request *req);
+
 struct http_server_request *
 http_server_request_new(struct http_server_connection *conn);
 void http_server_request_destroy(struct http_server_request **_req);
@@ -221,12 +227,6 @@ void http_server_payload_handler_switch_ioloop(
 /*
  * Connection
  */
-
-static inline const char *
-http_server_connection_label(struct http_server_connection *conn)
-{
-	return conn->conn.label;
-}
 
 static inline void
 http_server_connection_add_request(struct http_server_connection *conn,

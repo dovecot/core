@@ -42,6 +42,9 @@ struct http_server_settings {
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
 
+	/* Event to use for the http server. */
+	struct event *event;
+
 	/* Enable logging debug messages */
 	bool debug;
 };

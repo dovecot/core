@@ -32,9 +32,7 @@ http_server_response_debug(struct http_server_response *resp,
 
 	if (resp->request->server->set.debug) {
 		va_start(args, format);
-		i_debug("http-server: request %s; %u response: %s",
-			http_server_request_label(resp->request), resp->status,
-			t_strdup_vprintf(format, args));
+		e_debug(resp->event, "%s", t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -50,15 +48,21 @@ http_server_response_error(struct http_server_response *resp,
 	va_list args;
 
 	va_start(args, format);
-	i_error("http-server: request %s; %u response: %s",
-		http_server_request_label(resp->request), resp->status,
-		t_strdup_vprintf(format, args));
+	e_debug(resp->event, "%s", t_strdup_vprintf(format, args));
 	va_end(args);
 }
 
 /*
  * Response
  */
+
+static void http_server_response_update_event(struct http_server_response *resp)
+{
+	event_add_int(resp->event, "status", resp->status);
+	event_set_append_log_prefix(resp->event,
+				    t_strdup_printf("%u response: ",
+						    resp->status));
+}
 
 struct http_server_response *
 http_server_response_create(struct http_server_request *req,
@@ -91,6 +95,8 @@ http_server_response_create(struct http_server_request *req,
 	resp->reason = p_strdup(req->pool, reason);
 	resp->headers = str_new(default_pool, 256);
 	resp->date = (time_t)-1;
+	resp->event = event_create(req->event);
+	http_server_response_update_event(resp);
 
 	if (array_is_created(&resp->perm_headers)) {
 		unsigned int i, count;
@@ -110,6 +116,7 @@ void http_server_response_free(struct http_server_response *resp)
 
 	i_stream_unref(&resp->payload_input);
 	o_stream_unref(&resp->payload_output);
+	event_unref(&resp->event);
 	str_free(&resp->headers);
 
 	if (array_is_created(&resp->perm_headers)) {
