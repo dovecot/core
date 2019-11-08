@@ -184,7 +184,7 @@ void http_server_response_set_payload(struct http_server_response *resp,
 	resp->payload_input = input;
 	if ((ret = i_stream_get_size(input, TRUE, &resp->payload_size)) <= 0) {
 		if (ret < 0) {
-			i_error("i_stream_get_size(%s) failed: %s",
+			e_error(resp->event, "i_stream_get_size(%s) failed: %s",
 				i_stream_get_name(input),
 				i_stream_get_error(input));
 		}

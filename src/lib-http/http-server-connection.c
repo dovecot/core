@@ -1108,17 +1108,19 @@ http_server_connection_create(struct http_server *server,
 		net_set_nonblock(fd_out, TRUE);
 	(void)net_set_tcp_nodelay(fd_out, TRUE);
 
-	if (set->socket_send_buffer_size > 0) {
-		if (net_set_send_buffer_size(fd_out,
-			set->socket_send_buffer_size) < 0)
-			i_error("net_set_send_buffer_size(%zu) failed: %m",
-				set->socket_send_buffer_size);
+	if (set->socket_send_buffer_size > 0 &&
+	    net_set_send_buffer_size(fd_out,
+				     set->socket_send_buffer_size) < 0) {
+		e_error(conn->event,
+			"net_set_send_buffer_size(%zu) failed: %m",
+			set->socket_send_buffer_size);
 	}
-	if (set->socket_recv_buffer_size > 0) {
-		if (net_set_recv_buffer_size(fd_in,
-			set->socket_recv_buffer_size) < 0)
-			i_error("net_set_recv_buffer_size(%zu) failed: %m",
-				set->socket_recv_buffer_size);
+	if (set->socket_recv_buffer_size > 0 &&
+	    net_set_recv_buffer_size(fd_in,
+				     set->socket_recv_buffer_size) < 0) {
+		e_error(conn->event,
+			"net_set_recv_buffer_size(%zu) failed: %m",
+			set->socket_recv_buffer_size);
 	}
 
 	conn_event = event_create(server->event);
