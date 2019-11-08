@@ -759,12 +759,18 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 	parser->cur_pos = 0;
 	parser->cur_resp_text = FALSE;
 
-	if (parser->list_arg != NULL && !parser->literal_size_return &&
-	    (parser->flags & IMAP_PARSE_FLAG_STOP_AT_LIST) == 0) {
+	if (parser->list_arg == NULL) {
+		/* no open list */
+	} else if (!parser->literal_size_return &&
+		   (parser->flags & IMAP_PARSE_FLAG_STOP_AT_LIST) == 0) {
 		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
 		parser->error_msg = "Missing ')'";
 		*args_r = NULL;
 		return -1;
+	} else {
+		arg = array_append_space(&parser->list_arg->_data.list);
+		arg->type = IMAP_ARG_EOL;
+		array_pop_back(&parser->list_arg->_data.list);
 	}
 
 	arg = array_append_space(&parser->root_list);
@@ -775,6 +781,12 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 	return ret;
 }
 
+static void imap_parser_delete_extra_eol(struct imap_parser *parser)
+{
+	array_pop_back(&parser->root_list);
+	parser->args_added_extra_eol = FALSE;
+}
+
 int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 			  enum imap_parser_flags flags,
 			  const struct imap_arg **args_r)
@@ -783,8 +795,7 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 
 	if (parser->args_added_extra_eol) {
 		/* delete EOL */
-		array_pop_back(&parser->root_list);
-		parser->args_added_extra_eol = FALSE;
+		imap_parser_delete_extra_eol(parser);
 		parser->literal_size_return = FALSE;
 	}
 
@@ -866,6 +877,7 @@ void imap_parser_read_last_literal(struct imap_parser *parser)
 	struct imap_arg *last_arg;
 
 	i_assert(parser->literal_size_return);
+	i_assert(parser->args_added_extra_eol);
 
 	last_arg = imap_parser_get_last_literal_size(parser, &list);
 	i_assert(last_arg != NULL);
@@ -874,8 +886,7 @@ void imap_parser_read_last_literal(struct imap_parser *parser)
 	i_assert(parser->literal_size == last_arg->_data.literal_size);
 
 	/* delete EOL */
-	array_pop_back(&parser->root_list);
-	parser->args_added_extra_eol = FALSE;
+	imap_parser_delete_extra_eol(parser);
 
 	/* delete literal size */
 	array_pop_back(list);
