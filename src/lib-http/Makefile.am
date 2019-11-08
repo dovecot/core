@@ -30,6 +30,7 @@ libhttp_la_SOURCES = \
 	http-server-response.c \
 	http-server-request.c \
 	http-server-connection.c \
+	http-server-resource.c \
 	http-server.c
 
 headers = \

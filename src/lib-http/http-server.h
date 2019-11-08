@@ -11,6 +11,7 @@ struct ostream;
 struct http_request;
 
 struct http_server;
+struct http_server_resource;
 struct http_server_request;
 struct http_server_response;
 
@@ -343,6 +344,50 @@ void http_server_connection_close(struct http_server_connection **_conn,
 /* Get the current statistics for this connection */
 const struct http_server_stats *
 http_server_connection_get_stats(struct http_server_connection *conn);
+
+/*
+ * Resource
+ */
+
+typedef void
+(http_server_resource_callback_t)(void *context,
+				  struct http_server_request *req,
+				  const char *sub_path);
+
+struct http_server_resource *
+http_server_resource_create(struct http_server *server, pool_t pool,
+			    http_server_resource_callback_t *callback,
+			    void *context);
+#define http_server_resource_create(server, pool, callback, context) \
+	http_server_resource_create(server, pool, \
+		(http_server_resource_callback_t *)callback, \
+		(TRUE ? context : \
+		 CALLBACK_TYPECHECK(callback, void (*)( \
+			typeof(context), struct http_server_request *req, \
+			const char *sub_path))))
+/* Resources are freed upon http_server_deinit(), so calling
+   http_server_resource_free() is only necessary when the resource needs to
+   disappear somewhere in the middle of the server lifetime. */
+void http_server_resource_free(struct http_server_resource **_res);
+
+pool_t http_server_resource_get_pool(struct http_server_resource *res)
+				     ATTR_PURE;
+const char *
+http_server_resource_get_path(struct http_server_resource *res) ATTR_PURE;
+struct event *
+http_server_resource_get_event(struct http_server_resource *res) ATTR_PURE;
+
+void http_server_resource_add_location(struct http_server_resource *res,
+				       const char *path);
+
+/* Call the specified callback when HTTP resource is destroyed. */
+void http_server_resource_set_destroy_callback(struct http_server_resource *res,
+					       void (*callback)(void *),
+					       void *context);
+#define http_server_resource_set_destroy_callback(req, callback, context) \
+	http_server_resource_set_destroy_callback(req, \
+		(void(*)(void*))callback, context - \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 
 /*
  * Server

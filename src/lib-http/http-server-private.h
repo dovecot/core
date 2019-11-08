@@ -157,6 +157,26 @@ struct http_server_connection {
 	bool switching_ioloop:1; /* in the middle of switching ioloop */
 };
 
+struct http_server_location {
+	const char *path;
+
+	struct http_server_resource *resource;
+};
+
+struct http_server_resource {
+	pool_t pool;
+	struct http_server *server;
+	struct event *event;
+
+	http_server_resource_callback_t *callback;
+	void *context;
+
+	void (*destroy_callback)(void *);
+	void *destroy_context;
+
+	ARRAY(struct http_server_location *) locations;
+};
+
 struct http_server {
 	pool_t pool;
 
@@ -167,6 +187,9 @@ struct http_server {
 	struct ssl_iostream_context *ssl_ctx;
 
 	struct connection_list *conn_list;
+
+	ARRAY(struct http_server_resource *) resources;
+	ARRAY(struct http_server_location *) locations;
 
 	bool shutting_down:1;    /* shutting down server */
 };
@@ -269,6 +292,16 @@ int http_server_connection_discard_payload(
 	struct http_server_connection *conn);
 bool http_server_connection_pending_payload(
 	struct http_server_connection *conn);
+
+/*
+ * Resource
+ */
+
+int http_server_resource_find(struct http_server *server, const char *path,
+			      struct http_server_resource **res_r,
+			      const char **sub_path_r) ATTR_NULL(2);
+
+bool http_server_resource_callback(struct http_server_request *req);
 
 /*
  * Server

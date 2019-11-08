@@ -58,16 +58,24 @@ struct http_server *http_server_init(const struct http_server_settings *set)
 
 	server->conn_list = http_server_connection_list_init();
 
+	p_array_init(&server->resources, pool, 4);
+	p_array_init(&server->locations, pool, 4);
+
 	return server;
 }
 
 void http_server_deinit(struct http_server **_server)
 {
 	struct http_server *server = *_server;
+	struct http_server_resource **resp;
 
 	*_server = NULL;
 
 	connection_list_deinit(&server->conn_list);
+
+	array_foreach_modifiable(&server->resources, resp)
+		http_server_resource_free(resp);
+	i_assert(array_count(&server->locations) == 0);
 
 	if (server->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&server->ssl_ctx);

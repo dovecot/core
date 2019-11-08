@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "ostream.h"
 #include "istream-private.h"
@@ -305,6 +306,12 @@ void http_server_request_callback(struct http_server_request *req)
 		http_server_request_connect_callback(req);
 		return;
 	}
+
+	if (http_server_resource_callback(req))
+		return;
+
+	if (array_count(&req->server->resources) > 0)
+		e_debug(req->event, "No matching resource found");
 
 	if (conn->callbacks->handle_request == NULL) {
 		http_server_request_default_handler(req);
