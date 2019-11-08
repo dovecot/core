@@ -310,11 +310,6 @@ bool event_import_unescaped(struct event *event, const char *const *args,
    need to be called. */
 void event_send_abort(struct event *event);
 
-/* Explicitly register an event category. It must not be in use by any events
-   at this point. This is normally necessary only when unloading an plugin
-   that has registered an event category. */
-void event_category_unregister(struct event_category *category);
-
 void lib_event_init(void);
 void lib_event_deinit(void);
 
