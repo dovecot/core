@@ -55,7 +55,8 @@ enum http_server_request_state {
 struct http_server_payload_handler {
 	struct http_server_request *req;
 
-	void (*switch_ioloop)(struct http_server_payload_handler *handler);
+	void (*switch_ioloop)(struct http_server_payload_handler *handler,
+			      struct ioloop *ioloop);
 	void (*destroy)(struct http_server_payload_handler *handler);
 
 	bool in_callback:1;
@@ -127,6 +128,7 @@ struct http_server_request {
 struct http_server_connection {
 	struct connection conn;
 	struct http_server *server;
+	struct ioloop *ioloop, *ioloop_switching;
 	struct event *event;
 	unsigned int refcount;
 
@@ -155,7 +157,6 @@ struct http_server_connection {
 	bool input_broken:1;
 	bool output_locked:1;
 	bool in_req_callback:1;  /* performing request callback (busy) */
-	bool switching_ioloop:1; /* in the middle of switching ioloop */
 };
 
 struct http_server_location {
@@ -248,7 +249,7 @@ void http_server_request_finished(struct http_server_request *req);
 void http_server_payload_handler_destroy(
 	struct http_server_payload_handler **_handler);
 void http_server_payload_handler_switch_ioloop(
-	struct http_server_payload_handler *handler);
+	struct http_server_payload_handler *handler, struct ioloop *ioloop);
 
 /*
  * Connection
@@ -274,8 +275,6 @@ http_server_connection_remove_request(struct http_server_connection *conn,
 struct connection_list *http_server_connection_list_init(void);
 
 bool http_server_connection_shut_down(struct http_server_connection *conn);
-
-void http_server_connection_switch_ioloop(struct http_server_connection *conn);
 
 void http_server_connection_handle_output_error(
 	struct http_server_connection *conn);

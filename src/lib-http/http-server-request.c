@@ -702,10 +702,10 @@ void http_server_payload_handler_destroy(
 }
 
 void http_server_payload_handler_switch_ioloop(
-	struct http_server_payload_handler *handler)
+	struct http_server_payload_handler *handler, struct ioloop *ioloop)
 {
 	if (handler->switch_ioloop != NULL)
-		handler->switch_ioloop(handler);
+		handler->switch_ioloop(handler, ioloop);
 }
 
 /* Pump-based */
@@ -729,12 +729,13 @@ payload_handler_pump_destroy(struct http_server_payload_handler *handler)
 }
 
 static void
-payload_handler_pump_switch_ioloop(struct http_server_payload_handler *handler)
+payload_handler_pump_switch_ioloop(struct http_server_payload_handler *handler,
+				   struct ioloop *ioloop)
 {
 	struct http_server_payload_handler_pump *phandler =
 		(struct http_server_payload_handler_pump *)handler;
 
-	iostream_pump_switch_ioloop(phandler->pump);
+	iostream_pump_switch_ioloop_to(phandler->pump, ioloop);
 }
 
 static void
@@ -875,12 +876,13 @@ payload_handler_raw_destroy(struct http_server_payload_handler *handler)
 }
 
 static void
-payload_handler_raw_switch_ioloop(struct http_server_payload_handler *handler)
+payload_handler_raw_switch_ioloop(struct http_server_payload_handler *handler,
+				  struct ioloop *ioloop)
 {
 	struct http_server_payload_handler_raw *rhandler =
 		(struct http_server_payload_handler_raw *)handler;
 
-	rhandler->io = io_loop_move_io(&rhandler->io);
+	rhandler->io = io_loop_move_io_to(ioloop, &rhandler->io);
 }
 
 static void

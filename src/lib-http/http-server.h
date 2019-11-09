@@ -351,6 +351,14 @@ void http_server_connection_close(struct http_server_connection **_conn,
 const struct http_server_stats *
 http_server_connection_get_stats(struct http_server_connection *conn);
 
+/* Switch connection to a specific ioloop. */
+struct ioloop *
+http_server_connection_switch_ioloop_to(struct http_server_connection *conn,
+					struct ioloop *ioloop);
+/* Switch connection to the current ioloop. */
+struct ioloop *
+http_server_connection_switch_ioloop(struct http_server_connection *conn);
+
 /*
  * Resource
  */

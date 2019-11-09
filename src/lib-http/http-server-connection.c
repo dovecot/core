@@ -1033,6 +1033,7 @@ http_server_connection_create(struct http_server *server,
 	conn = i_new(struct http_server_connection, 1);
 	conn->refcount = 1;
 	conn->server = server;
+	conn->ioloop = current_ioloop;
 	conn->ssl = ssl;
 	conn->callbacks = callbacks;
 	conn->context = context;
@@ -1196,22 +1197,43 @@ void http_server_connection_tunnel(struct http_server_connection **_conn,
 	callback(context, &tunnel);
 }
 
-void http_server_connection_switch_ioloop(struct http_server_connection *conn)
+struct ioloop *
+http_server_connection_switch_ioloop_to(struct http_server_connection *conn,
+					struct ioloop *ioloop)
 {
-	if (conn->switching_ioloop)
-		return;
+	struct ioloop *prev_ioloop = conn->ioloop;
 
-	conn->switching_ioloop = TRUE;
-	if (conn->to_input != NULL)
-		conn->to_input = io_loop_move_timeout(&conn->to_input);
-	if (conn->to_idle != NULL)
-		conn->to_idle = io_loop_move_timeout(&conn->to_idle);
-	if (conn->io_resp_payload != NULL)
-		conn->io_resp_payload = io_loop_move_io(&conn->io_resp_payload);
-	if (conn->payload_handler != NULL)
-		http_server_payload_handler_switch_ioloop(conn->payload_handler);
+	if (conn->ioloop_switching != NULL)
+		return conn->ioloop_switching;
+
+	conn->ioloop = ioloop;
+	conn->ioloop_switching = prev_ioloop;
+	connection_switch_ioloop_to(&conn->conn, ioloop);
+	if (conn->to_input != NULL) {
+		conn->to_input =
+			io_loop_move_timeout_to(ioloop, &conn->to_input);
+	}
+	if (conn->to_idle != NULL) {
+		conn->to_idle =
+			io_loop_move_timeout_to(ioloop, &conn->to_idle);
+	}
+	if (conn->io_resp_payload != NULL) {
+		conn->io_resp_payload =
+			io_loop_move_io_to(ioloop, &conn->io_resp_payload);
+	}
+	if (conn->payload_handler != NULL) {
+		http_server_payload_handler_switch_ioloop(
+			conn->payload_handler, ioloop);
+	}
 	if (conn->incoming_payload != NULL)
-		i_stream_switch_ioloop(conn->incoming_payload);
-	connection_switch_ioloop(&conn->conn);
-	conn->switching_ioloop = FALSE;
+		i_stream_switch_ioloop_to(conn->incoming_payload, ioloop);
+	conn->ioloop_switching = NULL;
+
+	return prev_ioloop;
+}
+
+struct ioloop *
+http_server_connection_switch_ioloop(struct http_server_connection *conn)
+{
+	return http_server_connection_switch_ioloop_to(conn, current_ioloop);
 }
