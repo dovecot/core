@@ -156,6 +156,7 @@ struct http_server_connection {
 	bool close_indicated:1;
 	bool input_broken:1;
 	bool output_locked:1;
+	bool output_halted:1;
 	bool in_req_callback:1;  /* performing request callback (busy) */
 };
 
@@ -279,8 +280,10 @@ bool http_server_connection_shut_down(struct http_server_connection *conn);
 void http_server_connection_handle_output_error(
 	struct http_server_connection *conn);
 
-void http_server_connection_trigger_responses(
-	struct http_server_connection *conn);
+void http_server_connection_output_trigger(struct http_server_connection *conn);
+void http_server_connection_output_halt(struct http_server_connection *conn);
+void http_server_connection_output_resume(struct http_server_connection *conn);
+
 int http_server_connection_flush(struct http_server_connection *conn);
 int http_server_connection_output(struct http_server_connection *conn);
 

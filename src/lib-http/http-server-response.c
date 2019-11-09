@@ -392,7 +392,7 @@ http_server_response_output_payload(struct http_server_response **_resp,
 			if (req->state < HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT) {
 				e_debug(resp->event,
 					"Preparing to send blocking payload");
-				http_server_connection_trigger_responses(conn);
+				http_server_connection_output_trigger(conn);
 			} else if (resp->payload_output != NULL) {
 				e_debug(resp->event,
 					"Sending blocking payload");

@@ -314,7 +314,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		/* Send 100 Continue when appropriate */
 		if (req->req.expect_100_continue && !req->payload_halted &&
 		    req->response == NULL) {
-			http_server_connection_trigger_responses(conn);
+			http_server_connection_output_trigger(conn);
 		}
 
 		/* Delegate payload handling to request handler */
@@ -988,10 +988,30 @@ int http_server_connection_output(struct http_server_connection *conn)
 	return 1;
 }
 
-void http_server_connection_trigger_responses(
-	struct http_server_connection *conn)
+void http_server_connection_output_trigger(struct http_server_connection *conn)
 {
+	if (conn->conn.output == NULL)
+		return;
 	o_stream_set_flush_pending(conn->conn.output, TRUE);
+}
+
+void http_server_connection_output_halt(struct http_server_connection *conn)
+{
+	conn->output_halted = TRUE;
+
+	if (conn->conn.output == NULL)
+		return;
+
+	o_stream_unset_flush_callback(conn->conn.output);
+}
+
+void http_server_connection_output_resume(struct http_server_connection *conn)
+{
+	if (conn->output_halted) {
+		conn->output_halted = FALSE;
+		o_stream_set_flush_callback(conn->conn.output,
+					    http_server_connection_output, conn);
+	}
 }
 
 bool http_server_connection_pending_payload(
