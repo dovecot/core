@@ -554,9 +554,9 @@ int login_binary_run(const struct login_binary *binary,
 				    &global_other_settings);
 
 	main_preinit();
-	master_service_init_finish(master_service);
 	main_init(login_socket);
 
+	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 	main_deinit();
 	pool_unref(&set_pool);

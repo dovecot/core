@@ -96,8 +96,8 @@ int main(int argc, char *argv[])
 
 	main_preinit();
 
-	master_service_init_finish(master_service);
 	main_init();
+	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 	main_deinit();
 	master_service_deinit(&master_service);

@@ -147,11 +147,10 @@ int main(int argc, char *argv[])
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 
-	master_service_init_finish(master_service);
-
 	/* setup connection list */
 	dns_clients = connection_list_init(&dns_client_set, &dns_client_vfuncs);
 
+	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 
 	/* disconnect all clients */
