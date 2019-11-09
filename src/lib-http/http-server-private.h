@@ -88,6 +88,7 @@ struct http_server_response {
 
 	bool payload_chunked:1;
 	bool payload_blocking:1;
+	bool payload_finished:1;
 	bool payload_direct:1;
 	bool payload_corked:1;
 	bool submitted:1;

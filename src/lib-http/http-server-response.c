@@ -235,12 +235,40 @@ void http_server_response_submit_tunnel(struct http_server_response *resp,
 	http_server_response_do_submit(resp);
 }
 
-static void
+static int
+http_server_response_flush_payload(struct http_server_response *resp)
+{
+	struct http_server_request *req = resp->request;
+	struct http_server_connection *conn = req->conn;
+	int ret;
+
+	if (resp->payload_output != conn->conn.output &&
+	    (ret = o_stream_finish(resp->payload_output)) <= 0) {
+		if (ret < 0)
+			http_server_connection_handle_output_error(conn);
+		return ret;
+	}
+
+	return 1;
+}
+
+static int
 http_server_response_finish_payload_out(struct http_server_response *resp)
 {
 	struct http_server_connection *conn = resp->request->conn;
+	int ret;
+
+	resp->payload_finished = TRUE;
 
 	if (resp->payload_output != NULL) {
+		ret = http_server_response_flush_payload(resp);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
+			e_debug(resp->event,
+				"Not quite finished sending payload");
+			return 0;
+		}
 		o_stream_unref(&resp->payload_output);
 		resp->payload_output = NULL;
 	}
@@ -260,6 +288,7 @@ http_server_response_finish_payload_out(struct http_server_response *resp)
 
 	http_server_request_finished(resp->request);
 	http_server_connection_unref(&conn);
+	return 1;
 }
 
 static int
@@ -338,7 +367,7 @@ http_server_response_output_payload(struct http_server_response **_resp,
 	if (iov == NULL) {
 		resp->payload_direct = FALSE;
 		if (req->state == HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT)
-			http_server_response_finish_payload_out(resp);
+			(void)http_server_response_finish_payload_out(resp);
 	} else {
 		resp->payload_direct = TRUE;
 		rpay.iov = i_new(struct const_iovec, iov_count);
@@ -492,6 +521,9 @@ int http_server_response_send_more(struct http_server_response *resp)
 	i_assert(resp->payload_input != NULL);
 	i_assert(resp->payload_output != NULL);
 
+	if (resp->payload_finished)
+		return http_server_response_finish_payload_out(resp);
+
 	io_remove(&conn->io_resp_payload);
 
 	/* Chunked ostream needs to write to the parent stream's buffer */
@@ -546,7 +578,8 @@ int http_server_response_send_more(struct http_server_response *resp)
 
 	if (ret != 0) {
 		/* Finished sending payload (or error) */
-		http_server_response_finish_payload_out(resp);
+		if (http_server_response_finish_payload_out(resp) < 0)
+			return -1;
 	}
 	return ret < 0 ? -1 : 0;
 }
