@@ -16,6 +16,7 @@
 
 struct istream;
 struct ostream;
+struct ioloop;
 struct iostream_pump;
 
 enum iostream_pump_status {
@@ -61,6 +62,8 @@ void iostream_pump_set_completion_callback(struct iostream_pump *pump,
    from the completion callback in error conditions. */
 bool iostream_pump_is_waiting_output(struct iostream_pump *pump);
 
+void iostream_pump_switch_ioloop_to(struct iostream_pump *pump,
+				    struct ioloop *ioloop);
 void iostream_pump_switch_ioloop(struct iostream_pump *pump);
 
 #endif

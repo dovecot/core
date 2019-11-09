@@ -235,11 +235,17 @@ bool iostream_pump_is_waiting_output(struct iostream_pump *pump)
 	return pump->waiting_output;
 }
 
-void iostream_pump_switch_ioloop(struct iostream_pump *pump)
+void iostream_pump_switch_ioloop_to(struct iostream_pump *pump,
+				    struct ioloop *ioloop)
 {
 	i_assert(pump != NULL);
 	if (pump->io != NULL)
-		pump->io = io_loop_move_io(&pump->io);
-	o_stream_switch_ioloop(pump->output);
-	i_stream_switch_ioloop(pump->input);
+		pump->io = io_loop_move_io_to(ioloop, &pump->io);
+	o_stream_switch_ioloop_to(pump->output, ioloop);
+	i_stream_switch_ioloop_to(pump->input, ioloop);
+}
+
+void iostream_pump_switch_ioloop(struct iostream_pump *pump)
+{
+	iostream_pump_switch_ioloop_to(pump, current_ioloop);
 }
