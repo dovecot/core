@@ -591,63 +591,31 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	struct http_server *server = req->server;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
+	uoff_t content_length = 0;
+	bool chunked = FALSE, send_content_length = FALSE, close = FALSE;
 	bool is_head = http_request_method_is(&req->req, "HEAD");
-	bool close = FALSE;
 
 	i_assert(!conn->output_locked);
 
-	/* Create status line */
-	str_append(rtext, "HTTP/1.1 ");
-	str_printfa(rtext, "%u", resp->status);
-	str_append(rtext, " ");
-	str_append(rtext, resp->reason);
-
-	/* Create special headers implicitly if not set explicitly using
-	   http_server_response_add_header() */
-	if (!resp->have_hdr_date) {
-		str_append(rtext, "\r\nDate: ");
-		str_append(rtext, http_date_create(resp->date));
-		str_append(rtext, "\r\n");
-	}
-	if (array_is_created(&resp->auth_challenges)) {
-		str_append(rtext, "WWW-Authenticate: ");
-		http_auth_create_challenges(rtext, &resp->auth_challenges);
-		str_append(rtext, "\r\n");
-	}
+	/* Determine response payload to send */
 	if (resp->payload_input != NULL || resp->payload_direct) {
 		i_assert(resp->tunnel_callback == NULL &&
 			 resp->status / 100 != 1 &&
 			 resp->status != 204 && resp->status != 304);
 		if (resp->payload_chunked) {
 			if (http_server_request_version_equals(req, 1, 0)) {
-				if (!is_head) {
-					/* Cannot use Transfer-Encoding */
-					resp->payload_output = conn->conn.output;
-					o_stream_ref(conn->conn.output);
-					/* Connection close marks end of payload
-					 */
-					close = TRUE;
-				}
+				/* Connection close marks end of payload
+				 */
+				close = TRUE;
 			} else {
-				if (!resp->have_hdr_body_spec)
-					str_append(rtext, "Transfer-Encoding: chunked\r\n");
-				if (!is_head) {
-					resp->payload_output =
-						http_transfer_chunked_ostream_create(conn->conn.output);
-					o_stream_set_finish_also_parent(resp->payload_output, FALSE);
-				}
+				/* Input stream with unknown size */
+				chunked = TRUE;
 			}
 		} else {
 			/* Send Content-Length if we have specified a payload,
 			   even if it's 0 bytes. */
-			if (!resp->have_hdr_body_spec) {
-				str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
-					    resp->payload_size);
-			}
-			if (!is_head) {
-				resp->payload_output = conn->conn.output;
-				o_stream_ref(conn->conn.output);
-			}
+			content_length = resp->payload_size;
+			send_content_length = TRUE;
 		}
 	} else if (resp->tunnel_callback == NULL && resp->status / 100 != 1 &&
 		   resp->status != 204 && resp->status != 304 && !is_head) {
@@ -674,8 +642,70 @@ static int http_server_response_send_real(struct http_server_response *resp)
 
 		   -> Create empty body if it is missing.
 		 */
+		send_content_length = TRUE;
+	}
+
+	/* Initialize output payload stream if needed */
+	if (is_head) {
+		e_debug(resp->event, "A HEAD response has no payload");
+	} else if (chunked) {
+		i_assert(resp->payload_input != NULL || resp->payload_direct);
+
+		e_debug(resp->event, "Will send payload in chunks");
+
+		resp->payload_output =
+			http_transfer_chunked_ostream_create(conn->conn.output);
+	} else if (send_content_length) {
+		i_assert(resp->payload_input != NULL || content_length == 0 ||
+			 resp->payload_direct);
+
+		e_debug(resp->event,
+			"Will send payload with explicit size %"PRIuUOFF_T,
+			content_length);
+
+		if (content_length > 0) {
+			resp->payload_output = conn->conn.output;
+			o_stream_ref(conn->conn.output);
+		}
+	} else if (close) {
+		i_assert(resp->payload_input != NULL || resp->payload_direct);
+
+		e_debug(resp->event,
+			"Will close connection after sending payload "
+			"(HTTP/1.0)");
+
+		resp->payload_output = conn->conn.output;
+		o_stream_ref(conn->conn.output);
+	} else {
+		e_debug(resp->event, "Response has no payload");
+	}
+
+	/* Create status line */
+	str_append(rtext, "HTTP/1.1 ");
+	str_printfa(rtext, "%u", resp->status);
+	str_append(rtext, " ");
+	str_append(rtext, resp->reason);
+
+	/* Create special headers implicitly if not set explicitly using
+	   http_server_response_add_header() */
+	if (!resp->have_hdr_date) {
+		str_append(rtext, "\r\nDate: ");
+		str_append(rtext, http_date_create(resp->date));
+		str_append(rtext, "\r\n");
+	}
+	if (array_is_created(&resp->auth_challenges)) {
+		str_append(rtext, "WWW-Authenticate: ");
+		http_auth_create_challenges(rtext, &resp->auth_challenges);
+		str_append(rtext, "\r\n");
+	}
+	if (chunked) {
 		if (!resp->have_hdr_body_spec)
-			str_append(rtext, "Content-Length: 0\r\n");
+			str_append(rtext, "Transfer-Encoding: chunked\r\n");
+	} else if (send_content_length) {
+		if (!resp->have_hdr_body_spec) {
+			str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
+				    content_length);
+		}
 	}
 	if (!resp->have_hdr_connection) {
 		close = (close || req->req.connection_close ||
