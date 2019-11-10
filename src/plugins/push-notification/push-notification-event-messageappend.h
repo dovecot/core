@@ -23,6 +23,8 @@ struct push_notification_event_messageappend_data {
     const char *const *keywords;
     /* PUSH_NOTIFICATION_MESSAGE_HDR_MESSAGE_ID */
     const char *message_id;
+
+    struct push_notification_message_ext ext;
 };
 
 
