@@ -50,7 +50,7 @@ static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
 			       int is_export ATTR_UNUSED, int keylength ATTR_UNUSED)
 {
 	i_error("Diffie-Hellman key exchange requested, "
-		"but no DH parameters provided. Set ssh_dh=</path/to/dh.pem");
+		"but no DH parameters provided. Set ssl_dh=</path/to/dh.pem");
 	return NULL;
 }
 
