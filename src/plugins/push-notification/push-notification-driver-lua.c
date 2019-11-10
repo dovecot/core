@@ -340,6 +340,24 @@ push_notification_lua_push_mailboxrename(const struct push_notification_txn_even
 }
 
 static void
+push_notification_lua_push_message_ext(const struct push_notification_message_ext *ext,
+				       struct dlua_script *script)
+{
+	lua_pushstring(script->L, ext->from_address);
+	lua_setfield(script->L, -2, "from_address");
+	lua_pushstring(script->L, ext->from_display_name_utf8);
+	lua_setfield(script->L, -2, "from_display_name");
+
+	lua_pushstring(script->L, ext->to_address);
+	lua_setfield(script->L, -2, "to_address");
+	lua_pushstring(script->L, ext->to_display_name_utf8);
+	lua_setfield(script->L, -2, "to_display_name");
+
+	lua_pushstring(script->L, ext->subject_utf8);
+	lua_setfield(script->L, -2, "subject");
+}
+
+static void
 push_notification_lua_push_messageappend(const struct push_notification_txn_event *event,
 					 struct dlua_script *script)
 {
@@ -357,9 +375,6 @@ push_notification_lua_push_messageappend(const struct push_notification_txn_even
 	lua_pushstring(script->L, data->to);
 	lua_setfield(script->L, -2, "to");
 
-	lua_pushstring(script->L, data->subject);
-	lua_setfield(script->L, -2, "subject");
-
 	lua_pushstring(script->L, data->snippet);
 	lua_setfield(script->L, -2, "snippet");
 
@@ -371,6 +386,8 @@ push_notification_lua_push_messageappend(const struct push_notification_txn_even
 
 	lua_pushstring(script->L, data->message_id);
 	lua_setfield(script->L, -2, "message_id");
+
+	push_notification_lua_push_message_ext(&data->ext, script);
 }
 
 static void
@@ -391,9 +408,6 @@ push_notification_lua_push_messagenew(const struct push_notification_txn_event *
 	lua_pushstring(script->L, data->to);
 	lua_setfield(script->L, -2, "to");
 
-	lua_pushstring(script->L, data->subject);
-	lua_setfield(script->L, -2, "subject");
-
 	lua_pushstring(script->L, data->snippet);
 	lua_setfield(script->L, -2, "snippet");
 
@@ -405,6 +419,8 @@ push_notification_lua_push_messagenew(const struct push_notification_txn_event *
 
 	lua_pushstring(script->L, data->message_id);
 	lua_setfield(script->L, -2, "message_id");
+
+	push_notification_lua_push_message_ext(&data->ext, script);
 }
 
 /* events that need special treatment */
