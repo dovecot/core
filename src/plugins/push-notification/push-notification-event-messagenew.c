@@ -86,7 +86,7 @@ push_notification_event_messagenew_event(struct push_notification_txn *ptxn,
 				   &data->message_id,
 				   &data->flags, &data->flags_set,
 				   &data->keywords,
-				   &data->snippet);
+				   &data->snippet, &data->ext);
 }
 
 
