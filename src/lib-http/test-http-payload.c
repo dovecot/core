@@ -258,6 +258,7 @@ client_handle_download_request(struct client_request *creq,
 	struct istream *fstream;
 	struct ostream *output;
 	unsigned int status;
+	int ret;
 
 	if (strcmp(hreq->method, "GET") != 0) {
 		http_server_request_fail(req,
@@ -283,11 +284,34 @@ client_handle_download_request(struct client_request *creq,
 
 	if (tset.server_blocking) {
 		output = http_server_response_get_payload_output(resp, TRUE);
-		if (o_stream_send_istream(output, fstream) !=
-				OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
+
+		ret = 0;
+		switch (o_stream_send_istream(output, fstream)) {
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+			i_unreached();
+		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+			/* finish it */
+			ret = o_stream_finish(output);
+			if (ret >= 0)
+				break;
+			/* fall through */
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+			i_assert(output->stream_errno != 0);
 			i_fatal("test server: download: "
-				"failed to send blocking file payload");
+				"write(%s) failed: %s",
+				o_stream_get_name(output),
+				o_stream_get_error(output));
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+			i_assert(fstream->stream_errno != 0);
+			i_fatal("test server: download: "
+				"read(%s) failed: %s",
+				i_stream_get_name(fstream),
+				i_stream_get_error(fstream));
+			break;
 		}
+		i_assert(ret != 0);
 
 		if (debug) {
 			i_debug("test server: download: "
@@ -296,8 +320,7 @@ client_handle_download_request(struct client_request *creq,
 				fpath, fstream->v_offset, output->offset);
 		}
 
-		o_stream_close(output);
-		o_stream_unref(&output);
+		o_stream_destroy(&output);
 	} else {
 		http_server_response_set_payload(resp, fstream);
 		http_server_response_submit(resp);
@@ -383,6 +406,7 @@ client_handle_echo_request(struct client_request *creq,
 	struct http_server_response *resp;
 	struct ostream *payload_output;
 	uoff_t size;
+	int ret;
 
 	creq->path = p_strdup(http_server_request_get_pool(req), path);
 
@@ -443,11 +467,34 @@ client_handle_echo_request(struct client_request *creq,
 
 		payload_output =
 			http_server_response_get_payload_output(resp, TRUE);
-		if (o_stream_send_istream(payload_output, payload_input) !=
-			OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
+
+		ret = 0;
+		switch (o_stream_send_istream(payload_output, payload_input)) {
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+			i_unreached();
+		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+			/* finish it */
+			ret = o_stream_finish(payload_output);
+			if (ret >= 0)
+				break;
+			/* fall through */
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+			i_assert(payload_output->stream_errno != 0);
 			i_fatal("test server: echo: "
-				"failed to send blocking echo payload");
+				"write(%s) failed: %s",
+				o_stream_get_name(payload_output),
+				o_stream_get_error(payload_output));
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+			i_assert(payload_input->stream_errno != 0);
+			i_fatal("test server: echo: "
+				"read(%s) failed: %s",
+				i_stream_get_name(payload_input),
+				i_stream_get_error(payload_input));
+			break;
 		}
+		i_assert(ret != 0);
 
 		if (debug) {
 			i_debug("test server: echo: "
@@ -456,8 +503,7 @@ client_handle_echo_request(struct client_request *creq,
 		}
 
 		i_stream_unref(&payload_input);
-		o_stream_close(payload_output);
-		o_stream_unref(&payload_output);
+		o_stream_destroy(&payload_output);
 	} else {
 		creq->payload_output = payload_output;
 
