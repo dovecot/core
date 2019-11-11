@@ -960,12 +960,10 @@ test_run_client_server(const struct http_server_settings *server_set,
 				client_pids[i] = (pid_t)-1;
 				client_pids_count = 0;
 				hostpid_init();
-				if (debug) {
-					i_debug("client[%d]: PID=%s",
-						i+1, my_pid);
-				}
-				i_set_failure_prefix("CLIENT[%u]: ", i + 1);
 				/* Child: client */
+				i_set_failure_prefix("CLIENT[%u]: ", i + 1);
+				if (debug)
+					i_debug("PID=%s", my_pid);
 				/* Wait a little for server setup */
 				i_sleep_msecs(100);
 				i_close_fd(&fd_listen);
@@ -980,19 +978,18 @@ test_run_client_server(const struct http_server_settings *server_set,
 				exit(1);
 			}
 		}
-		if (debug)
-			i_debug("server: PID=%s", my_pid);
-		i_set_failure_prefix("SERVER: ");
 	}
 
 	/* Parent: server */
-
+	i_set_failure_prefix("SERVER: ");
+	if (debug)
+		i_debug("PID=%s", my_pid);
 	ioloop = io_loop_create();
 	server_test(server_set);
 	io_loop_destroy(&ioloop);
 
+	i_unset_failure_prefix();
 	i_close_fd(&fd_listen);
-
 	test_clients_kill_all();
 	i_free(client_pids);
 }
