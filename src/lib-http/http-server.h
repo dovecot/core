@@ -106,15 +106,16 @@ void http_server_response_set_payload_data(struct http_server_response *resp,
 					   const unsigned char *data,
 					   size_t size);
 
-/* Obtain an output stream for the response payload. This is an alternative to
-   using http_server_response_set_payload(). Currently, this can only return a
-   blocking output stream. The request is submitted implicitly once the output
-   stream is written to. Closing the stream concludes the payload. Destroying
-   the stream before that aborts the response and closes the connection.
- */
+/* Get an output stream for the outgoing payload of this response. The output
+   stream operates asynchronously when blocking is FALSE. In that case the
+   flush callback is called once more data can be sent. When blocking is TRUE,
+   writing to the stream will block until all data is sent. In every respect,
+   it operates very similar to a normal file output stream. The response is
+   submitted implicitly when the stream is first used; e.g., when it is written,
+   flushed, or o_stream_set_flush_pending(ostream, TRUE) is called. */
 struct ostream *
 http_server_response_get_payload_output(struct http_server_response *resp,
-					bool blocking);
+					size_t max_buffer_size, bool blocking);
 
 /* Get the status code and reason string currently set for this response. */
 void http_server_response_get_status(struct http_server_response *resp,

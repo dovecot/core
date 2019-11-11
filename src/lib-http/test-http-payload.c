@@ -285,7 +285,8 @@ client_handle_download_request(struct client_request *creq,
 	http_server_response_add_header(resp, "Content-Type", "text/plain");
 
 	if (tset.server_blocking) {
-		output = http_server_response_get_payload_output(resp, TRUE);
+		output = http_server_response_get_payload_output(
+			resp, IO_BLOCK_SIZE, TRUE);
 
 		ret = 0;
 		switch (o_stream_send_istream(output, fstream)) {
@@ -380,7 +381,8 @@ client_request_echo_ostream_blocking(struct client_request *creq,
 	struct ostream *payload_output;
 	int ret;
 
-	payload_output = http_server_response_get_payload_output(resp, TRUE);
+	payload_output = http_server_response_get_payload_output(
+		resp, IO_BLOCK_SIZE, TRUE);
 
 	ret = 0;
 	switch (o_stream_send_istream(payload_output, input)) {

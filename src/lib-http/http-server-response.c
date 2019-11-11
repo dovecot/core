@@ -77,6 +77,8 @@ void http_server_response_request_free(struct http_server_response *resp)
 	e_debug(resp->event, "Free");
 
 	i_assert(!resp->payload_blocking);
+	/* Cannot be destroyed while payload output stream still exists */
+	i_assert(resp->payload_stream == NULL);
 
 	i_stream_unref(&resp->payload_input);
 	o_stream_unref(&resp->payload_output);
@@ -95,6 +97,23 @@ void http_server_response_request_free(struct http_server_response *resp)
 void http_server_response_request_destroy(struct http_server_response *resp)
 {
 	e_debug(resp->event, "Destroy");
+
+	if (resp->payload_stream != NULL)
+		http_server_ostream_response_destroyed(resp->payload_stream);
+}
+
+void http_server_response_request_abort(struct http_server_response *resp,
+					const char *reason)
+{
+	if (reason == NULL)
+		e_debug(resp->event, "Abort");
+	else
+		e_debug(resp->event, "Abort: %s", reason);
+
+	if (resp->payload_stream != NULL) {
+		http_server_ostream_set_error(resp->payload_stream,
+					      EPIPE, reason);
+	}
 }
 
 void http_server_response_ref(struct http_server_response *resp)
@@ -166,8 +185,8 @@ void http_server_response_set_payload(struct http_server_response *resp,
 	int ret;
 
 	i_assert(!resp->submitted);
-	i_assert(resp->blocking_output == NULL);
 	i_assert(resp->payload_input == NULL);
+	i_assert(resp->payload_stream == NULL);
 
 	i_stream_ref(input);
 	resp->payload_input = input;
@@ -190,6 +209,10 @@ void http_server_response_set_payload_data(struct http_server_response *resp,
 	struct istream *input;
 	unsigned char *payload_data;
 
+	i_assert(!resp->submitted);
+	i_assert(resp->payload_input == NULL);
+	i_assert(resp->payload_stream == NULL);
+
 	if (size == 0)
 		return;
 
@@ -199,6 +222,27 @@ void http_server_response_set_payload_data(struct http_server_response *resp,
 
 	http_server_response_set_payload(resp, input);
 	i_stream_unref(&input);
+}
+
+struct ostream *
+http_server_response_get_payload_output(struct http_server_response *resp,
+					size_t max_buffer_size, bool blocking)
+{
+	struct http_server_request *req = resp->request;
+	struct http_server_connection *conn = req->conn;
+	struct ostream *output;
+
+	i_assert(conn != NULL);
+	i_assert(!resp->submitted);
+	i_assert(resp->payload_input == NULL);
+	i_assert(resp->payload_stream == NULL);
+
+	output = http_server_ostream_create(resp, max_buffer_size, blocking);
+	o_stream_set_name(output,
+		t_strdup_printf("(conn %s: request %s: %u response payload)",
+				conn->conn.label,
+				http_server_request_label(req), resp->status));
+	return output;
 }
 
 void http_server_response_add_auth(struct http_server_response *resp,
@@ -279,8 +323,12 @@ http_server_response_flush_payload(struct http_server_response *resp)
 
 int http_server_response_finish_payload_out(struct http_server_response *resp)
 {
-	struct http_server_connection *conn = resp->request->conn;
+	struct http_server_request *req = resp->request;
+	struct http_server_connection *conn = req->conn;
 	int ret;
+
+	if (req->state >= HTTP_SERVER_REQUEST_STATE_FINISHED)
+		return 1;
 
 	resp->payload_finished = TRUE;
 
@@ -487,7 +535,7 @@ int http_server_response_send_payload(struct http_server_response **_resp,
 	struct const_iovec iov;
 	int ret;
 
-	i_assert(resp->blocking_output == NULL);
+	i_assert(resp->payload_stream == NULL);
 
 	resp->payload_corked = TRUE;
 
@@ -511,7 +559,7 @@ int http_server_response_finish_payload(struct http_server_response **_resp)
 	struct http_server_response *resp = *_resp;
 	int ret;
 
-	i_assert(resp->blocking_output == NULL);
+	i_assert(resp->payload_stream == NULL);
 
 	*_resp = NULL;
 	ret = http_server_response_output_payload(&resp, NULL, 0);
@@ -546,13 +594,20 @@ int http_server_response_send_more(struct http_server_response *resp)
 	enum ostream_send_istream_result res;
 	int ret = 0;
 
-	i_assert(!resp->payload_blocking);
-	i_assert(resp->payload_input != NULL);
 	i_assert(resp->payload_output != NULL);
 
-	if (resp->payload_finished)
+	if (resp->payload_finished) {
+		e_debug(resp->event, "Finish sending payload (more)");
 		return http_server_response_finish_payload_out(resp);
+	}
 
+	if (resp->payload_stream != NULL) {
+		conn->output_locked = TRUE;
+		http_server_ostream_continue(resp->payload_stream);
+		return 0;
+	}
+
+	i_assert(resp->payload_input != NULL);
 	io_remove(&conn->io_resp_payload);
 
 	/* Chunked ostream needs to write to the parent stream's buffer */
@@ -609,6 +664,7 @@ int http_server_response_send_more(struct http_server_response *resp)
 
 	if (ret != 0) {
 		/* Finished sending payload (or error) */
+		e_debug(resp->event, "Finish sending payload");
 		if (http_server_response_finish_payload_out(resp) < 0)
 			return -1;
 	}
@@ -648,6 +704,17 @@ static int http_server_response_send_real(struct http_server_response *resp)
 			content_length = resp->payload_size;
 			send_content_length = TRUE;
 		}
+	} else if (resp->payload_stream != NULL) {
+		/* HTTP payload output stream */
+		if (!http_server_ostream_get_size(resp->payload_stream,
+						  &content_length)) {
+			/* size not known at this point */
+			chunked = TRUE;
+		} else {
+			/* output stream already finished, so data is
+			   pre-buffered */
+			send_content_length = TRUE;
+		}
 	} else if (resp->tunnel_callback == NULL && resp->status / 100 != 1 &&
 		   resp->status != 204 && resp->status != 304 && !is_head) {
 		/* RFC 7230, Section 3.3: Message Body
@@ -680,7 +747,8 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	if (is_head) {
 		e_debug(resp->event, "A HEAD response has no payload");
 	} else if (chunked) {
-		i_assert(resp->payload_input != NULL || resp->payload_direct);
+		i_assert(resp->payload_input != NULL || resp->payload_direct ||
+			 resp->payload_stream != NULL);
 
 		e_debug(resp->event, "Will send payload in chunks");
 
@@ -688,7 +756,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 			http_transfer_chunked_ostream_create(conn->conn.output);
 	} else if (send_content_length) {
 		i_assert(resp->payload_input != NULL || content_length == 0 ||
-			 resp->payload_direct);
+			 resp->payload_stream != NULL || resp->payload_direct);
 
 		e_debug(resp->event,
 			"Will send payload with explicit size %"PRIuUOFF_T,
@@ -766,6 +834,8 @@ static int http_server_response_send_real(struct http_server_response *resp)
 
 	e_debug(resp->event, "Sent header");
 
+	if (resp->payload_stream != NULL)
+		http_server_ostream_output_available(resp->payload_stream);
 	if (resp->payload_blocking) {
 		/* Blocking payload */
 		conn->output_locked = TRUE;
@@ -777,6 +847,9 @@ static int http_server_response_send_real(struct http_server_response *resp)
 			return -1;
 	} else {
 		/* No payload to send */
+		e_debug(resp->event, "No payload to send");
+		if (resp->payload_stream != NULL)
+			http_server_ostream_continue(resp->payload_stream);
 		conn->output_locked = FALSE;
 		http_server_response_finish_payload_out(resp);
 	}
@@ -797,105 +870,6 @@ int http_server_response_send(struct http_server_response *resp)
 		ret = http_server_response_send_real(resp);
 	} T_END;
 	return ret;
-}
-
-/*
- * Payload output stream
- */
-
-struct http_server_ostream {
-	struct ostream_private ostream;
-
-	struct http_server_response *resp;
-};
-
-static ssize_t
-http_server_ostream_sendv(struct ostream_private *stream,
-			  const struct const_iovec *iov, unsigned int iov_count)
-{
-	struct http_server_ostream *hsostream =
-		(struct http_server_ostream *)stream;
-	unsigned int i;
-	ssize_t ret;
-
-	if (http_server_response_output_payload(&hsostream->resp,
-						iov, iov_count) < 0) {
-		if (stream->parent->stream_errno != 0) {
-			o_stream_copy_error_from_parent(stream);
-		} else {
-			io_stream_set_error(
-				&stream->iostream,
-				"HTTP connection broke while sending payload");
-			stream->ostream.stream_errno = EIO;
-		}
-		return -1;
-	}
-
-	ret = 0;
-	for (i = 0; i < iov_count; i++)
-		ret += iov[i].iov_len;
-	stream->ostream.offset += ret;
-	return ret;
-}
-
-static void
-http_server_ostream_close(struct iostream_private *stream,
-			  bool close_parent ATTR_UNUSED)
-{
-	struct http_server_ostream *hsostream =
-		(struct http_server_ostream *)stream;
-	struct ostream_private *ostream = &hsostream->ostream;
-
-	if (hsostream->resp == NULL)
-		return;
-	hsostream->resp->blocking_output = NULL;
-
-	if (http_server_response_output_payload(
-		&hsostream->resp, NULL, 0) < 0) {
-		if (ostream->parent->stream_errno != 0) {
-			o_stream_copy_error_from_parent(ostream);
-		} else {
-			io_stream_set_error(
-				&ostream->iostream,
-				"HTTP connection broke while sending payload");
-			ostream->ostream.stream_errno = EIO;
-		}
-	}
-	hsostream->resp = NULL;
-}
-
-static void http_server_ostream_destroy(struct iostream_private *stream)
-{
-	struct http_server_ostream *hsostream =
-		(struct http_server_ostream *)stream;
-
-	if (hsostream->resp != NULL) {
-		hsostream->resp->blocking_output = NULL;
-		http_server_response_abort_payload(&hsostream->resp);
-	}
-}
-
-struct ostream *
-http_server_response_get_payload_output(struct http_server_response *resp,
-					bool blocking)
-{
-	struct http_server_connection *conn = resp->request->conn;
-	struct http_server_ostream *hsostream;
-
-	i_assert(resp->payload_input == NULL);
-	i_assert(resp->blocking_output == NULL);
-
-	i_assert(blocking == TRUE); // FIXME: support non-blocking
-
-	hsostream = i_new(struct http_server_ostream, 1);
-	hsostream->ostream.sendv = http_server_ostream_sendv;
-	hsostream->ostream.iostream.close = http_server_ostream_close;
-	hsostream->ostream.iostream.destroy = http_server_ostream_destroy;
-	hsostream->resp = resp;
-
-	resp->blocking_output = o_stream_create(&hsostream->ostream,
-						conn->conn.output, -1);
-	return resp->blocking_output;
 }
 
 void http_server_response_get_status(struct http_server_response *resp,

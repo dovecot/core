@@ -7,6 +7,7 @@
 #include "http-server.h"
 #include "llist.h"
 
+struct http_server_ostream;
 struct http_server_payload_handler;
 struct http_server_request;
 struct http_server_connection;
@@ -77,8 +78,7 @@ struct http_server_response {
 	struct istream *payload_input;
 	uoff_t payload_size, payload_offset;
 	struct ostream *payload_output;
-
-	struct ostream *blocking_output;
+	struct http_server_ostream *payload_stream;
 
 	http_server_tunnel_callback_t tunnel_callback;
 	void *tunnel_context;
@@ -197,11 +197,35 @@ struct http_server {
 };
 
 /*
+ * Response output stream
+ */
+
+struct ostream *
+http_server_ostream_create(struct http_server_response *resp,
+			   size_t max_buffer_size, bool blocking);
+bool http_server_ostream_get_size(struct http_server_ostream *hsostream,
+				  uoff_t *size_r);
+void http_server_ostream_continue(struct http_server_ostream *hsostream);
+
+void http_server_ostream_output_available(
+	struct http_server_ostream *hsostream);
+void http_server_ostream_response_destroyed(
+	struct http_server_ostream *hsostream);
+
+struct ostream *
+http_server_ostream_get_output(struct http_server_ostream *hsostream);
+
+void http_server_ostream_set_error(struct http_server_ostream *hsostream,
+				   int stream_errno, const char *stream_error);
+
+/*
  * Response
  */
 
 void http_server_response_request_free(struct http_server_response *resp);
 void http_server_response_request_destroy(struct http_server_response *resp);
+void http_server_response_request_abort(struct http_server_response *resp,
+					const char *reason);
 
 int http_server_response_send(struct http_server_response *resp);
 int http_server_response_send_more(struct http_server_response *resp);

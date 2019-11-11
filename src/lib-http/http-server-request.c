@@ -175,6 +175,9 @@ void http_server_request_abort(struct http_server_request **_req,
 	else
 		e_debug(req->event, "Abort: %s", reason);
 
+	if (req->response != NULL)
+		http_server_response_request_abort(req->response, reason);
+
 	req->conn = NULL;
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
 		if (conn != NULL) {
@@ -201,11 +204,6 @@ void http_server_request_abort(struct http_server_request **_req,
 		}
 
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
-	}
-
-	if (req->response != NULL && !req->response->payload_blocking) {
-		http_server_response_request_free(req->response);
-		req->response = NULL;
 	}
 
 	http_server_request_destroy(_req);
