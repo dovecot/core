@@ -608,7 +608,7 @@ static void client_connection_init(const struct ip_addr *ip, in_port_t port)
 	(void)connection_client_connect(&conn->conn);
 }
 
-static void server_connection_deinit(struct client_connection **_conn)
+static void client_connection_deinit(struct client_connection **_conn)
 {
 	struct client_connection *conn = *_conn;
 
@@ -622,7 +622,7 @@ static void client_connection_destroy(struct connection *_conn)
 {
 	struct client_connection *conn = (struct client_connection *)_conn;
 
-	server_connection_deinit(&conn);
+	client_connection_deinit(&conn);
 }
 
 /* */
