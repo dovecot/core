@@ -81,10 +81,13 @@ void http_server_connection_input_halt(struct http_server_connection *conn)
 
 void http_server_connection_input_resume(struct http_server_connection *conn)
 {
-	if (!conn->closed && !conn->input_broken && !conn->close_indicated &&
-	    !conn->in_req_callback && conn->incoming_payload == NULL) {
-		connection_input_resume(&conn->conn);
+	if (conn->closed || conn->input_broken || conn->close_indicated ||
+	    conn->in_req_callback || conn->incoming_payload != NULL) {
+		/* Connection not usable */
+		return;
 	}
+
+	connection_input_resume(&conn->conn);
 }
 
 static void
