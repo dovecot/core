@@ -97,6 +97,24 @@ void http_server_response_request_destroy(struct http_server_response *resp)
 	e_debug(resp->event, "Destroy");
 }
 
+void http_server_response_ref(struct http_server_response *resp)
+{
+	http_server_request_ref(resp->request);
+}
+
+bool http_server_response_unref(struct http_server_response **_resp)
+{
+	struct http_server_response *resp = *_resp;
+	struct http_server_request *req;
+
+	*_resp = NULL;
+	if (resp == NULL)
+		return FALSE;
+
+	req = resp->request;
+	return http_server_request_unref(&req);
+}
+
 void http_server_response_add_header(struct http_server_response *resp,
 				     const char *key, const char *value)
 {

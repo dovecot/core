@@ -71,6 +71,12 @@ struct http_server_response *
 http_server_response_create(struct http_server_request *req,
 			    unsigned int status, const char *reason);
 
+/* Reference a server response */
+void http_server_response_ref(struct http_server_response *resp);
+/* Unreference a server response. Returns TRUE if there are still more
+   references, FALSE if not. */
+bool http_server_response_unref(struct http_server_response **_resp);
+
 /* Add a custom header to the response. This can override headers that are
    otherwise created implicitly. */
 void http_server_response_add_header(struct http_server_response *resp,
