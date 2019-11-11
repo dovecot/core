@@ -252,8 +252,7 @@ http_server_response_flush_payload(struct http_server_response *resp)
 	return 1;
 }
 
-static int
-http_server_response_finish_payload_out(struct http_server_response *resp)
+int http_server_response_finish_payload_out(struct http_server_response *resp)
 {
 	struct http_server_connection *conn = resp->request->conn;
 	int ret;
