@@ -790,6 +790,7 @@ test_run_client_server(const struct http_server_settings *server_set,
 					i_debug("client[%d]: PID=%s",
 						i+1, my_pid);
 				}
+				i_set_failure_prefix("CLIENT[%u]: ", i + 1);
 				/* Child: client */
 				/* Wait a little for server setup */
 				i_sleep_msecs(100);
@@ -807,6 +808,7 @@ test_run_client_server(const struct http_server_settings *server_set,
 		}
 		if (debug)
 			i_debug("server: PID=%s", my_pid);
+		i_set_failure_prefix("SERVER: ");
 	}
 
 	/* Parent: server */
