@@ -68,6 +68,12 @@ http_server_connection_get_stats(struct http_server_connection *conn)
 	return &conn->stats;
 }
 
+void http_server_connection_input_set_pending(
+	struct http_server_connection *conn)
+{
+	i_stream_set_input_pending(conn->conn.input, TRUE);
+}
+
 void http_server_connection_input_halt(struct http_server_connection *conn)
 {
 	connection_input_halt(&conn->conn);
@@ -980,7 +986,7 @@ int http_server_connection_output(struct http_server_connection *conn)
 	if (!http_server_connection_pipeline_is_full(conn)) {
 		http_server_connection_input_resume(conn);
 		if (pipeline_was_full && conn->conn.io != NULL)
-			i_stream_set_input_pending(conn->conn.input, TRUE);
+			http_server_connection_input_set_pending(conn);
 	}
 
 	return 1;
