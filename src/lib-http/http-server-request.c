@@ -106,7 +106,7 @@ bool http_server_request_unref(struct http_server_request **_req)
 	}
 
 	if (req->response != NULL)
-		http_server_response_free(req->response);
+		http_server_response_request_free(req->response);
 	event_unref(&req->event);
 	pool_unref(&req->pool);
 	return FALSE;
@@ -193,7 +193,7 @@ void http_server_request_abort(struct http_server_request **_req,
 	}
 
 	if (req->response != NULL && !req->response->payload_blocking) {
-		http_server_response_free(req->response);
+		http_server_response_request_free(req->response);
 		req->response = NULL;
 	}
 

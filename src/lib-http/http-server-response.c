@@ -48,7 +48,7 @@ http_server_response_create(struct http_server_request *req,
 		ARRAY_TYPE(string) perm_headers = resp->perm_headers;
 		i_zero(&resp->perm_headers);
 
-		http_server_response_free(resp);
+		http_server_response_request_free(resp);
 		i_zero(resp);
 
 		resp->perm_headers = perm_headers;
@@ -72,9 +72,9 @@ http_server_response_create(struct http_server_request *req,
 	return resp;
 }
 
-void http_server_response_free(struct http_server_response *resp)
+void http_server_response_request_free(struct http_server_response *resp)
 {
-	e_debug(resp->event, "Destroy");
+	e_debug(resp->event, "Free");
 
 	i_assert(!resp->payload_blocking);
 

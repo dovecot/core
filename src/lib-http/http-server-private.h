@@ -201,7 +201,7 @@ struct http_server {
  * Response
  */
 
-void http_server_response_free(struct http_server_response *resp);
+void http_server_response_request_free(struct http_server_response *resp);
 int http_server_response_send(struct http_server_response *resp);
 int http_server_response_send_more(struct http_server_response *resp);
 int http_server_response_finish_payload_out(struct http_server_response *resp);
