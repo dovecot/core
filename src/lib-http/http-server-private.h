@@ -179,19 +179,6 @@ int http_server_response_send_more(struct http_server_response *resp);
  * Request
  */
 
-static inline const char *
-http_server_request_label(struct http_server_request *req)
-{
-	if (req->req.target_raw == NULL) {
-		if (req->req.method == NULL)
-			return t_strdup_printf("[Req%u: <NEW>]", req->id);
-		return t_strdup_printf("[Req%u: %s <INCOMPLETE>]",
-			req->id, req->req.method);
-	}
-	return t_strdup_printf("[Req%u: %s %s]", req->id,
-		req->req.method, req->req.target_raw);
-}
-
 static inline bool
 http_server_request_is_new(struct http_server_request *req)
 {
@@ -205,6 +192,8 @@ http_server_request_version_equals(struct http_server_request *req,
 	return (req->req.version_major == major &&
 		req->req.version_minor == minor);
 }
+
+const char *http_server_request_label(struct http_server_request *req);
 
 struct http_server_request *
 http_server_request_new(struct http_server_connection *conn);
