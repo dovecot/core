@@ -82,9 +82,21 @@ void http_server_connection_input_halt(struct http_server_connection *conn)
 void http_server_connection_input_resume(struct http_server_connection *conn)
 {
 	if (conn->closed || conn->input_broken || conn->close_indicated ||
-	    conn->in_req_callback || conn->incoming_payload != NULL) {
+	    conn->incoming_payload != NULL) {
 		/* Connection not usable */
 		return;
+	}
+
+	if (conn->in_req_callback) {
+		struct http_server_request *req = conn->request_queue_tail;
+
+		/* Currently running request callback for this connection. Only
+		   handle discarded request payload. */
+		if (req == NULL ||
+		    req->state != HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE)
+			return;
+		if (!http_server_connection_pending_payload(conn))
+			return;
 	}
 
 	connection_input_resume(&conn->conn);
@@ -170,18 +182,6 @@ static void http_server_connection_destroy(struct connection *_conn)
 	http_server_connection_unref(&conn);
 }
 
-static void http_server_payload_finished(struct http_server_connection *conn)
-{
-	timeout_remove(&conn->to_input);
-	http_server_connection_input_resume(conn);
-}
-
-static void
-http_server_payload_destroyed_timeout(struct http_server_connection *conn)
-{
-	http_server_connection_input(&conn->conn);
-}
-
 static void http_server_payload_destroyed(struct http_server_request *req)
 {
 	struct http_server_connection *conn = req->conn;
@@ -255,15 +255,9 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 		i_unreached();
 	}
 
-	/* Input stream may have pending input. make sure input handler
-	   gets called (but don't do it directly, since we get get here
-	   somewhere from the API user's code, which we can't really know what
-	   state it is in). this call also triggers sending the next response if
-	   necessary. */
-	if (!conn->input_broken && !conn->in_req_callback) {
-		conn->to_input =
-			timeout_add_short(0, http_server_payload_destroyed_timeout, conn);
-	}
+	/* Input stream may have pending input. */
+	http_server_connection_input_resume(conn);
+	http_server_connection_input_set_pending(conn);
 }
 
 static bool
@@ -273,7 +267,6 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 	const struct http_server_settings *set = &conn->server->set;
 	unsigned int old_refcount;
 	struct istream *payload;
-	bool payload_destroyed = FALSE;
 
 	i_assert(!conn->in_req_callback);
 	i_assert(conn->incoming_payload == NULL);
@@ -332,11 +325,6 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		payload = req->req.payload;
 		req->req.payload = NULL;
 		i_stream_unref(&payload);
-		if (conn->to_input != NULL) {
-			/* Already finished reading the payload */
-			http_server_payload_finished(conn);
-			payload_destroyed = TRUE;
-		}
 	}
 
 	if (req->state < HTTP_SERVER_REQUEST_STATE_PROCESSING &&
@@ -348,12 +336,12 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 			http_server_request_submit_response(req);
 	}
 
-	i_assert(!payload_destroyed || req->callback_refcount > 0 ||
+	i_assert(conn->incoming_payload != NULL || req->callback_refcount > 0 ||
 		 (req->response != NULL && req->response->submitted));
 
 	if (conn->incoming_payload == NULL) {
-		if (conn->conn.io == NULL && conn->to_input == NULL)
-			http_server_connection_input_resume(conn);
+		http_server_connection_input_resume(conn);
+		http_server_connection_input_set_pending(conn);
 		return TRUE;
 	}
 
@@ -547,7 +535,6 @@ static void http_server_connection_input(struct connection *_conn)
 		return;
 	}
 
-	i_assert(!conn->in_req_callback);
 	i_assert(!conn->input_broken && conn->incoming_payload == NULL);
 	i_assert(!conn->close_indicated);
 
@@ -562,18 +549,17 @@ static void http_server_connection_input(struct connection *_conn)
 		}
 	}
 
-	if (conn->to_input != NULL) {
-		/* We came here from a timeout added by
-		   http_server_payload_destroyed(). The IO couldn't be added
-		   back immediately in there, because the HTTP API user may
-		   still have had its own IO pointed to the same fd. It should
-		   be removed by now, so we can add it back. */
-		http_server_payload_finished(conn);
-	}
-
 	/* Finish up pending request */
 	if (!http_server_connection_finish_request(conn))
 		return;
+
+	/* Stop handling input here when running ioloop from within request
+	   callback; we cannot read the next request, since that could mean
+	   recursing request callbacks. */
+	if (conn->in_req_callback) {
+		http_server_connection_input_halt(conn);
+		return;
+	}
 
 	/* Create request object if none was created already */
 	if (conn->request_queue_tail != NULL &&

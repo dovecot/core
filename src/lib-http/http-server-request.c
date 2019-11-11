@@ -352,6 +352,8 @@ void http_server_request_submit_response(struct http_server_request *req)
 		if (!http_server_request_is_complete(req)) {
 			e_debug(req->event, "Not ready to respond");
 			req->state = HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE;
+			http_server_connection_input_resume(req->conn);
+			http_server_connection_input_set_pending(req->conn);
 			break;
 		}
 		http_server_request_ready_to_respond(req);
