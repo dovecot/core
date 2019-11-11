@@ -277,6 +277,9 @@ struct connection_list *http_server_connection_list_init(void);
 
 bool http_server_connection_shut_down(struct http_server_connection *conn);
 
+void http_server_connection_input_halt(struct http_server_connection *conn);
+void http_server_connection_input_resume(struct http_server_connection *conn);
+
 void http_server_connection_handle_output_error(
 	struct http_server_connection *conn);
 

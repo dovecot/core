@@ -68,14 +68,12 @@ http_server_connection_get_stats(struct http_server_connection *conn)
 	return &conn->stats;
 }
 
-static void
-http_server_connection_input_halt(struct http_server_connection *conn)
+void http_server_connection_input_halt(struct http_server_connection *conn)
 {
 	connection_input_halt(&conn->conn);
 }
 
-static void
-http_server_connection_input_resume(struct http_server_connection *conn)
+void http_server_connection_input_resume(struct http_server_connection *conn)
 {
 	if (!conn->closed && !conn->input_broken && !conn->close_indicated &&
 	    !conn->in_req_callback && conn->incoming_payload == NULL) {
