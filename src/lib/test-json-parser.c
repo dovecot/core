@@ -30,7 +30,9 @@ static const char json_input[] =
 	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\u10ff\","
 	"\"key11\": [],"
 	"\"key12\": [ \"foo\" , 5.24,[true],{\"aobj\":[]}],"
-	"\"key13\": \"\\ud801\\udc37\""
+	"\"key13\": \"\\ud801\\udc37\","
+	"\"key14\": \"\xd8\xb3\xd9\x84\xd8\xa7\xd9\x85\","
+	"\"key15\": \"\\u10000\""
 	"}\n";
 
 static const struct {
@@ -89,7 +91,11 @@ static const struct {
 	{ JSON_TYPE_OBJECT_END, NULL },
 	{ JSON_TYPE_ARRAY_END, NULL },
 	{ JSON_TYPE_OBJECT_KEY, "key13" },
-	{ JSON_TYPE_STRING, "\xf0\x90\x90\xb7" }
+	{ JSON_TYPE_STRING, "\xf0\x90\x90\xb7" },
+	{ JSON_TYPE_OBJECT_KEY, "key14" },
+	{ JSON_TYPE_STRING, "\xd8\xb3\xd9\x84\xd8\xa7\xd9\x85" },
+	{ JSON_TYPE_OBJECT_KEY, "key15" },
+	{ JSON_TYPE_STRING, "\xe1\x80\x80""0" },
 };
 
 static int
@@ -375,7 +381,7 @@ static void test_json_append_escaped(void)
 
 	test_begin("json_append_escaped()");
 	json_append_escaped(str, "\b\f\r\n\t\"\\\001\002-\xC3\xA4\xf0\x90\x90\xb7\xff");
-	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0001\\u0002-\\u00e4\\ud801\\udc37" UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
+	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0001\\u0002-\xC3\xA4\xf0\x90\x90\xb7" UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
 	test_end();
 }
 
@@ -385,9 +391,9 @@ static void test_json_append_escaped_data(void)
 		"\b\f\r\n\t\"\\\000\001\002-\xC3\xA4\xf0\x90\x90\xb7\xff";
 	string_t *str = t_str_new(32);
 
-	test_begin("json_append_escaped()");
+	test_begin("json_append_escaped_data()");
 	json_append_escaped_data(str, test_input, sizeof(test_input)-1);
-	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0000\\u0001\\u0002-\\u00e4\\ud801\\udc37" UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
+	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0000\\u0001\\u0002-\xC3\xA4\xf0\x90\x90\xb7" UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
 	test_end();
 }
 
