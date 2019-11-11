@@ -92,6 +92,11 @@ void http_server_response_request_free(struct http_server_response *resp)
 	}
 }
 
+void http_server_response_request_destroy(struct http_server_response *resp)
+{
+	e_debug(resp->event, "Destroy");
+}
+
 void http_server_response_add_header(struct http_server_response *resp,
 				     const char *key, const char *value)
 {
