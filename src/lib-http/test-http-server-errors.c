@@ -68,6 +68,7 @@ static void test_server_defaults(struct http_server_settings *http_set);
 static void test_server_run(const struct http_server_settings *http_set);
 
 /* client */
+static void client_connection_deinit(struct client_connection **_conn);
 static void test_client_run(unsigned int index);
 
 /* test*/
@@ -561,6 +562,178 @@ static void test_excessive_payload_length(void)
 }
 
 /*
+ * Response ostream disconnect
+ */
+
+/* client */
+
+static void
+test_response_ostream_disconnect_connected(struct client_connection *conn)
+{
+	o_stream_nsend_str(conn->conn.output,
+			   "GET / HTTP/1.1\r\n"
+			   "Host: example.com\r\n"
+			   "Content-Length: 18\r\n"
+			   "\r\n"
+			   "Complete payload\r\n");
+	i_sleep_intr_msecs(10);
+	client_connection_deinit(&conn);
+	io_loop_stop(ioloop);
+}
+
+static void test_client_response_ostream_disconnect(unsigned int index)
+{
+	test_client_connected = test_response_ostream_disconnect_connected;
+	test_client_run(index);
+}
+
+/* server */
+
+struct _response_ostream_disconnect {
+	struct http_server_request *req;
+	struct istream *payload_input;
+	struct ostream *payload_output;
+	struct io *io;
+	bool finished:1;
+	bool seen_stream_error:1;
+};
+
+static void
+test_server_response_ostream_disconnect_destroyed(
+	struct _response_ostream_disconnect *ctx)
+{
+	test_assert(ctx->seen_stream_error);
+	io_remove(&ctx->io);
+	i_stream_unref(&ctx->payload_input);
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static int
+test_server_response_ostream_disconnect_output(
+	struct _response_ostream_disconnect *ctx)
+{
+	struct ostream *output = ctx->payload_output;
+	enum ostream_send_istream_result res;
+	int ret;
+
+	if (ctx->finished) {
+		ret = o_stream_finish(output);
+		if (ret == 0)
+			return ret;
+		if (ret < 0) {
+			if (debug) {
+				i_debug("OUTPUT ERROR: %s",
+					o_stream_get_error(output));
+			}
+			test_assert(output->stream_errno == ECONNRESET ||
+				    output->stream_errno == EPIPE);
+
+			ctx->seen_stream_error = TRUE;
+			o_stream_destroy(&ctx->payload_output);
+			return -1;
+		}
+		return 1;
+	}
+
+	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
+	res = o_stream_send_istream(output, ctx->payload_input);
+	o_stream_set_max_buffer_size(output, (size_t)-1);
+
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		ctx->finished = TRUE;
+		return test_server_response_ostream_disconnect_output(ctx);
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		if (debug)
+			i_debug("WAIT OUTPUT");
+		return 1;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		if (debug) {
+			i_debug("OUTPUT ERROR: %s",
+				o_stream_get_error(output));
+		}
+		test_assert(output->stream_errno == ECONNRESET ||
+			    output->stream_errno == EPIPE);
+
+		ctx->seen_stream_error = TRUE;
+		o_stream_destroy(&ctx->payload_output);
+		return -1;
+	}
+	i_unreached();
+}
+
+static void
+test_server_response_ostream_disconnect_request(struct http_server_request *req)
+{
+	const struct http_request *hreq = http_server_request_get(req);
+	struct http_server_response *resp;
+	struct _response_ostream_disconnect *ctx;
+	string_t *data;
+	unsigned int i;
+
+	if (debug) {
+		i_debug("REQUEST: %s %s HTTP/%u.%u",
+			hreq->method, hreq->target_raw,
+			hreq->version_major, hreq->version_minor);
+	}
+
+	ctx = i_new(struct _response_ostream_disconnect, 1);
+	ctx->req = req;
+
+	data = str_new(default_pool, 2048000);
+	for (i = 0; i < 32000; i++) {
+		str_append(data, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n"
+				 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n");
+	}
+	ctx->payload_input = i_stream_create_copy_from_data(
+		str_data(data), str_len(data));
+	str_free(&data);
+
+	resp = http_server_response_create(req, 200, "OK");
+	ctx->payload_output = http_server_response_get_payload_output(
+		resp, IO_BLOCK_SIZE, FALSE);
+
+	o_stream_add_destroy_callback(
+		ctx->payload_output,
+		test_server_response_ostream_disconnect_destroyed, ctx);
+
+	o_stream_set_flush_callback(
+		ctx->payload_output,
+		test_server_response_ostream_disconnect_output, ctx);
+	o_stream_set_flush_pending(ctx->payload_output, TRUE);
+}
+
+static void
+test_server_response_ostream_disconnect(
+	const struct http_server_settings *server_set)
+{
+	test_server_request = test_server_response_ostream_disconnect_request;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_response_ostream_disconnect(void)
+{
+	struct http_server_settings http_server_set;
+
+	test_server_defaults(&http_server_set);
+	http_server_set.socket_send_buffer_size = 4096;
+	http_server_set.max_client_idle_time_msecs = 10000;
+
+	test_begin("response ostream disconnect");
+	test_run_client_server(&http_server_set,
+			       test_server_response_ostream_disconnect,
+			       test_client_response_ostream_disconnect, 1);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -569,6 +742,7 @@ static void (*const test_functions[])(void) = {
 	test_hanging_request_payload,
 	test_hanging_response_payload,
 	test_excessive_payload_length,
+	test_response_ostream_disconnect,
 	NULL
 };
 
