@@ -59,8 +59,8 @@ static inline const char *_chr_sanitize(unsigned char c)
 	return t_strdup_printf("0x%02x", c);
 }
 
-static int http_transfer_chunked_parse_size
-(struct http_transfer_chunked_istream *tcstream)
+static int
+http_transfer_chunked_parse_size(struct http_transfer_chunked_istream *tcstream)
 {
 	uoff_t size = 0, prev;
 
@@ -77,8 +77,10 @@ static int http_transfer_chunked_parse_size
 			size = *tcstream->cur-'a' + 10;
 		else {
 			if (tcstream->parsed_chars == 0) {
-				io_stream_set_error(&tcstream->istream.iostream,
-					"Expected chunk size digit, but found %s",
+				io_stream_set_error(
+					&tcstream->istream.iostream,
+					"Expected chunk size digit, "
+					"but found %s",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
 			}
@@ -99,13 +101,14 @@ static int http_transfer_chunked_parse_size
 	return 0;
 }
 
-static int http_transfer_chunked_skip_token
-(struct http_transfer_chunked_istream *tcstream)
+static int
+http_transfer_chunked_skip_token(struct http_transfer_chunked_istream *tcstream)
 {
 	const unsigned char *first = tcstream->cur;
 
 	/* token          = 1*tchar */
-	while (tcstream->cur < tcstream->end && http_char_is_token(*tcstream->cur))
+	while (tcstream->cur < tcstream->end &&
+	       http_char_is_token(*tcstream->cur))
 		tcstream->cur++;
 
 	tcstream->parsed_chars += (tcstream->cur-first);
@@ -116,11 +119,13 @@ static int http_transfer_chunked_skip_token
 	return 1;
 }
 
-static int http_transfer_chunked_skip_qdtext
-(struct http_transfer_chunked_istream *tcstream)
+static int
+http_transfer_chunked_skip_qdtext(
+	struct http_transfer_chunked_istream *tcstream)
 {
 	/* qdtext      = HTAB / SP / %x21 / %x23-5B / %x5D-7E / obs-text */
-	while (tcstream->cur < tcstream->end && http_char_is_qdtext(*tcstream->cur))
+	while (tcstream->cur < tcstream->end &&
+	       http_char_is_qdtext(*tcstream->cur))
 		tcstream->cur++;
 	if (tcstream->cur == tcstream->end)
 		return 0;
@@ -160,7 +165,8 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 			tcstream->state = HTTP_CHUNKED_PARSE_STATE_SIZE;
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_SIZE:
-			if ((ret=http_transfer_chunked_parse_size(tcstream)) <= 0)
+			ret = http_transfer_chunked_parse_size(tcstream);
+			if (ret <= 0)
 				return ret;
 			tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT;
 			/* fall through */
@@ -177,9 +183,11 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_EXT_NAME:
 			/* chunk-ext-name = token */
-			if ((ret=http_transfer_chunked_skip_token(tcstream)) <= 0) {
+			ret = http_transfer_chunked_skip_token(tcstream);
+			if (ret <= 0) {
 				if (ret < 0) {
-					io_stream_set_error(&tcstream->istream.iostream,
+					io_stream_set_error(
+						&tcstream->istream.iostream,
 						"Invalid chunked extension name");
 				}
 				return ret;
@@ -199,11 +207,13 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 		case HTTP_CHUNKED_PARSE_STATE_EXT_VALUE:
 			/* chunk-ext-val  = token / quoted-string */
 			if (*tcstream->cur != '"') {
-				tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_TOKEN;
+				tcstream->state =
+					HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_TOKEN;
 				break;
 			}
 			tcstream->cur++;
-			tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_STRING;
+			tcstream->state =
+				HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_STRING;
 			if (tcstream->cur >= tcstream->end)
 				return 0;
 			/* fall through */
@@ -213,9 +223,10 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 				tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT;
 				if (tcstream->cur >= tcstream->end)
 					return 0;
-			} else if ((ret=http_transfer_chunked_skip_qdtext(tcstream)) <= 0) {
+			} else if ((ret = http_transfer_chunked_skip_qdtext(tcstream)) <= 0) {
 				if (ret < 0) {
-					io_stream_set_error(&tcstream->istream.iostream,
+					io_stream_set_error(
+						&tcstream->istream.iostream,
 						"Invalid chunked extension value");
 				}
 				return ret;
@@ -225,7 +236,8 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 				if (tcstream->cur >= tcstream->end)
 					return 0;
 			} else {
-				io_stream_set_error(&tcstream->istream.iostream,
+				io_stream_set_error(
+					&tcstream->istream.iostream,
 					"Invalid character %s in chunked extension value string",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
@@ -234,19 +246,23 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 		case HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_ESCAPE:
 			/* ( HTAB / SP / VCHAR / obs-text ) */
 			if (!http_char_is_text(*tcstream->cur)) {
-				io_stream_set_error(&tcstream->istream.iostream,
+				io_stream_set_error(
+					&tcstream->istream.iostream,
 					"Escaped invalid character %s in chunked extension value string",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
 			}
-			tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_STRING;
+			tcstream->state =
+				HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_STRING;
 			if (tcstream->cur >= tcstream->end)
 				return 0;
 			break;
 		case HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_TOKEN:
-			if ((ret=http_transfer_chunked_skip_token(tcstream)) <= 0) {
+			ret = http_transfer_chunked_skip_token(tcstream);
+			if (ret <= 0) {
 				if (ret < 0) {
-					io_stream_set_error(&tcstream->istream.iostream,
+					io_stream_set_error(
+						&tcstream->istream.iostream,
 						"Invalid chunked extension value");
 				}
 				return ret;
@@ -263,8 +279,10 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_LF:
 			if (*tcstream->cur != '\n') {
-				io_stream_set_error(&tcstream->istream.iostream,
-					"Expected new line after chunk size, but found %s",
+				io_stream_set_error(
+					&tcstream->istream.iostream,
+					"Expected new line after chunk size, "
+					"but found %s",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
 			}
@@ -286,7 +304,8 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_DATA_LF:
 			if (*tcstream->cur != '\n') {
-				io_stream_set_error(&tcstream->istream.iostream,
+				io_stream_set_error(
+					&tcstream->istream.iostream,
 					"Expected new line after chunk data, but found %s",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
@@ -303,19 +322,19 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 	return -1;
 }
 
-static int http_transfer_chunked_parse_next(
-	struct http_transfer_chunked_istream *tcstream)
+static int
+http_transfer_chunked_parse_next(struct http_transfer_chunked_istream *tcstream)
 {
 	struct istream_private *stream = &tcstream->istream;
 	struct istream *input = tcstream->istream.parent;
 	size_t size;
 	int ret;
 
-	while ((ret=i_stream_read_more(input, &tcstream->begin, &size)) > 0) {
+	while ((ret = i_stream_read_more(input, &tcstream->begin, &size)) > 0) {
 		tcstream->cur = tcstream->begin;
 		tcstream->end = tcstream->cur + size;
 
-		if ((ret=http_transfer_chunked_parse(tcstream)) < 0) {
+		if ((ret = http_transfer_chunked_parse(tcstream)) < 0) {
 			stream->istream.stream_errno = EIO;
 			return -1;
 		}
@@ -327,8 +346,10 @@ static int http_transfer_chunked_parse_next(
 				tcstream->chunk_v_offset = input->v_offset;
 
 				tcstream->size += tcstream->chunk_size;
-				if (tcstream->max_size > 0 && tcstream->size > tcstream->max_size) {
-					io_stream_set_error(&tcstream->istream.iostream,
+				if (tcstream->max_size > 0 &&
+				    tcstream->size > tcstream->max_size) {
+					io_stream_set_error(
+						&tcstream->istream.iostream,
 						"Total chunked payload size exceeds maximum");
 					stream->istream.stream_errno = EMSGSIZE;
 					return -1;
@@ -341,14 +362,16 @@ static int http_transfer_chunked_parse_next(
 	i_assert(ret != -2);
 
 	if (ret < 0) {
-		if ( stream->parent->eof && stream->parent->stream_errno == 0 ) {
+		if (stream->parent->eof &&
+		    stream->parent->stream_errno == 0) {
 			/* unexpected EOF */
 			io_stream_set_error(&tcstream->istream.iostream,
 					    "Unexpected end of payload");
 			stream->istream.stream_errno = EIO;
 		} else {
 			/* parent stream error */
-			stream->istream.stream_errno = stream->parent->stream_errno;
+			stream->istream.stream_errno =
+				stream->parent->stream_errno;
 		}
 	}
 	return ret;
@@ -371,7 +394,8 @@ http_transfer_chunked_istream_read_data(
 	}
 
 	// FIXME: is this even necessary?
-	i_stream_seek(stream->parent, tcstream->chunk_v_offset + tcstream->chunk_pos);
+	i_stream_seek(stream->parent,
+		      tcstream->chunk_v_offset + tcstream->chunk_pos);
 
 	/* read from parent if necessary */
 	data = i_stream_get_data(stream->parent, &size);
@@ -379,14 +403,17 @@ http_transfer_chunked_istream_read_data(
 		ret = i_stream_read_memarea(stream->parent);
 		if (ret <= 0) {
 			i_assert(ret != -2); /* 0 sized buffer can't be full */
-			if ( stream->parent->eof && stream->parent->stream_errno == 0 ) {
+			if (stream->parent->eof &&
+			    stream->parent->stream_errno == 0) {
 				/* unexpected EOF */
-				io_stream_set_error(&tcstream->istream.iostream,
-						    "Unexpected end of payload");
+				io_stream_set_error(
+					&tcstream->istream.iostream,
+					"Unexpected end of payload");
 				stream->istream.stream_errno = EIO;
 			} else {
 				/* parent stream error */
-				stream->istream.stream_errno = stream->parent->stream_errno;
+				stream->istream.stream_errno =
+					stream->parent->stream_errno;
 			}
 			return ret;
 		}
@@ -394,8 +421,8 @@ http_transfer_chunked_istream_read_data(
 		i_assert(size != 0);
 	}
 
-	size = size > (tcstream->chunk_size - tcstream->chunk_pos) ?
-		(tcstream->chunk_size - tcstream->chunk_pos) : size;
+	size = (size > (tcstream->chunk_size - tcstream->chunk_pos) ?
+		(tcstream->chunk_size - tcstream->chunk_pos) : size);
 
 	/* Allocate buffer space */
 	if (!i_stream_try_alloc(stream, size, &avail))
@@ -416,7 +443,8 @@ http_transfer_chunked_istream_read_data(
 	return ret;
 }
 
-static int http_transfer_chunked_parse_trailer(
+static int
+http_transfer_chunked_parse_trailer(
 	struct http_transfer_chunked_istream *tcstream)
 {
 	struct istream_private *stream = &tcstream->istream;
@@ -429,17 +457,21 @@ static int http_transfer_chunked_parse_trailer(
 		/* NOTE: trailer is currently ignored */
 		/* FIXME: limit trailer size */
 		tcstream->header_parser =
-			http_header_parser_init(tcstream->istream.parent, NULL, 0);
+			http_header_parser_init(tcstream->istream.parent,
+						NULL, 0);
 	}
 
-	while ((ret=http_header_parse_next_field(tcstream->header_parser,
-		&field_name, &field_data, &field_size, &error)) > 0) {
-		if (field_name == NULL) break;
+	while ((ret = http_header_parse_next_field(tcstream->header_parser,
+						   &field_name, &field_data,
+						   &field_size, &error)) > 0) {
+		if (field_name == NULL)
+			break;
 	}
 
 	if (ret <= 0) {
 		if (ret < 0) {
-			io_stream_set_error(&stream->iostream,
+			io_stream_set_error(
+				&stream->iostream,
 				"Failed to parse chunked trailer: %s", error);
 			stream->istream.stream_errno = EIO;
 		}
@@ -461,19 +493,23 @@ http_transfer_chunked_istream_read(struct istream_private *stream)
 			tcstream->istream.istream.eof = TRUE;
 			return -1;
 		case 	HTTP_CHUNKED_PARSE_STATE_DATA:
-			if ((ret=http_transfer_chunked_istream_read_data(tcstream)) != 0)
+			ret = http_transfer_chunked_istream_read_data(tcstream);
+			if (ret != 0)
 				return ret;
-			if (tcstream->state != HTTP_CHUNKED_PARSE_STATE_DATA_READY)
+			if (tcstream->state !=
+			    HTTP_CHUNKED_PARSE_STATE_DATA_READY)
 				return 0;
 			break;
 		case HTTP_CHUNKED_PARSE_STATE_TRAILER:
-			if ((ret=http_transfer_chunked_parse_trailer(tcstream)) <= 0)
+			ret = http_transfer_chunked_parse_trailer(tcstream);
+			if (ret <= 0)
 				return ret;
 			tcstream->state = HTTP_CHUNKED_PARSE_STATE_FINISHED;
 			tcstream->istream.istream.eof = TRUE;
 			return -1;
 		default:
-			if ((ret=http_transfer_chunked_parse_next(tcstream)) <= 0)
+			ret = http_transfer_chunked_parse_next(tcstream);
+			if (ret <= 0)
 				return ret;
 		}
 	}
@@ -505,13 +541,15 @@ http_transfer_chunked_istream_create(struct istream *input, uoff_t max_size)
 	tcstream->istream.max_buffer_size =
 		input->real_stream->max_buffer_size;
 
-	tcstream->istream.iostream.destroy = http_transfer_chunked_istream_destroy;
+	tcstream->istream.iostream.destroy =
+		http_transfer_chunked_istream_destroy;
 	tcstream->istream.read = http_transfer_chunked_istream_read;
 
 	tcstream->istream.istream.readable_fd = FALSE;
 	tcstream->istream.istream.blocking = input->blocking;
 	tcstream->istream.istream.seekable = FALSE;
-	return i_stream_create(&tcstream->istream, input, i_stream_get_fd(input), 0);
+	return i_stream_create(&tcstream->istream, input,
+			       i_stream_get_fd(input), 0);
 }
 
 /*
@@ -554,8 +592,7 @@ static size_t _max_chunk_size(size_t avail)
 	   chunk-size     = 1*HEXDIG
 	 */
 	chunk_extra += _log16(avail);
-	return avail < chunk_extra ? 0 :
-		avail - chunk_extra;
+	return (avail < chunk_extra ? 0 : avail - chunk_extra);
 }
 
 static void
@@ -573,7 +610,8 @@ http_transfer_chunked_ostream_close(struct iostream_private *stream,
 
 static ssize_t
 http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
-		    const struct const_iovec *iov, unsigned int iov_count)
+				    const struct const_iovec *iov,
+				    unsigned int iov_count)
 {
 	struct http_transfer_chunked_ostream *tcstream =
 		(struct http_transfer_chunked_ostream *)stream;
@@ -583,9 +621,10 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 	ssize_t ret;
 	const char *prefix;
 
-	i_assert(stream->parent->real_stream->max_buffer_size >= MIN_CHUNK_SIZE_WITH_EXTRA);
+	i_assert(stream->parent->real_stream->max_buffer_size >=
+		 MIN_CHUNK_SIZE_WITH_EXTRA);
 
-	if ((ret=o_stream_flush(stream->parent)) <= 0) {
+	if ((ret = o_stream_flush(stream->parent)) <= 0) {
 		/* error / we still couldn't flush existing data to
 		   parent stream. */
 		o_stream_copy_error_from_parent(stream);
@@ -594,9 +633,8 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 
 	/* check how many bytes we want to send */
 	bytes = 0;
-	for (i = 0; i < iov_count; i++) {
+	for (i = 0; i < iov_count; i++)
 		bytes += iov[i].iov_len;
-	}
 
 	/* check if we have room to send at least one byte */
 	max_bytes = o_stream_get_buffer_avail_size(stream->parent);
@@ -604,7 +642,7 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 	if (max_bytes < MIN_CHUNK_SIZE_WITH_EXTRA)
 		return 0;
 
-	tcstream->chunk_size = bytes > max_bytes ? max_bytes : bytes;
+	tcstream->chunk_size = (bytes > max_bytes ? max_bytes : bytes);
 
 	/* determine what to send */
 	bytes = tcstream->chunk_size;
@@ -617,7 +655,8 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 	}
 
 	/* create new iovec */
-	prefix = t_strdup_printf("%llx\r\n", (unsigned long long)tcstream->chunk_size);
+	prefix = t_strdup_printf("%llx\r\n",
+				 (unsigned long long)tcstream->chunk_size);
 	iov_count = iov_count_new + 2;
 	iov_new = t_new(struct const_iovec, iov_count);
 	iov_new[0].iov_base = prefix;
@@ -628,15 +667,15 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 	iov_new[iov_count-1].iov_len = 2;
 
 	/* send */
-	if ((ret=o_stream_sendv(stream->parent, iov_new, iov_count)) <= 0) {
+	if ((ret = o_stream_sendv(stream->parent, iov_new, iov_count)) <= 0) {
 		i_assert(ret < 0);
 		o_stream_copy_error_from_parent(stream);
 		return -1;
 	}
 
 	/* all must be sent */
-	i_assert((size_t)ret == (tcstream->chunk_size +
-		iov_new[0].iov_len + iov_new[iov_count-1].iov_len));
+	i_assert((size_t)ret == (tcstream->chunk_size + iov_new[0].iov_len +
+				 iov_new[iov_count-1].iov_len));
 
 	stream->ostream.offset += tcstream->chunk_size;
 	return tcstream->chunk_size;
