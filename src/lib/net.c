@@ -366,7 +366,7 @@ int net_set_tcp_nodelay(int fd, bool nodelay)
 	return setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
 }
 
-int net_set_tcp_quickack(int fd, bool quickack)
+int net_set_tcp_quickack(int fd ATTR_UNUSED, bool quickack ATTR_UNUSED)
 {
 #ifdef TCP_QUICKACK
 	int val = quickack;
