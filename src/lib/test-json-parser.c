@@ -380,20 +380,20 @@ static void test_json_append_escaped(void)
 	string_t *str = t_str_new(32);
 
 	test_begin("json_append_escaped()");
-	json_append_escaped(str, "\b\f\r\n\t\"\\\001\002-\xC3\xA4\xf0\x90\x90\xb7\xff");
-	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0001\\u0002-\xC3\xA4\xf0\x90\x90\xb7" UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
+	json_append_escaped(str, "\b\f\r\n\t\"\\\001\002-\xC3\xA4\xf0\x90\x90\xb7\xe2\x80\xa8\xe2\x80\xa9\xff");
+	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0001\\u0002-\xC3\xA4\xf0\x90\x90\xb7\\u2028\\u2029" UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
 	test_end();
 }
 
 static void test_json_append_escaped_data(void)
 {
 	static const unsigned char test_input[] =
-		"\b\f\r\n\t\"\\\000\001\002-\xC3\xA4\xf0\x90\x90\xb7\xff";
+		"\b\f\r\n\t\"\\\000\001\002-\xC3\xA4\xf0\x90\x90\xb7\xe2\x80\xa8\xe2\x80\xa9\xff";
 	string_t *str = t_str_new(32);
 
 	test_begin("json_append_escaped_data()");
 	json_append_escaped_data(str, test_input, sizeof(test_input)-1);
-	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0000\\u0001\\u0002-\xC3\xA4\xf0\x90\x90\xb7" UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
+	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0000\\u0001\\u0002-\xC3\xA4\xf0\x90\x90\xb7\\u2028\\u2029" UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
 	test_end();
 }
 
