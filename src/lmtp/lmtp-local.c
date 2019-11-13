@@ -383,11 +383,11 @@ void lmtp_local_add_headers(struct lmtp_local *local,
 			    struct smtp_server_transaction *trans,
 			    string_t *headers)
 {
+	struct client *client = local->client;
+	const struct lmtp_settings *lmtp_set = client->lmtp_set;
 	struct lmtp_local_recipient *const *llrcpts;
-	const struct lmtp_settings *lmtp_set;
 	const struct smtp_address *rcpt_to = NULL;
 	unsigned int count;
-	void **sets;
 
 	str_printfa(headers, "Return-Path: <%s>\r\n",
 		    smtp_address_encode(trans->mail_from));
@@ -395,9 +395,6 @@ void lmtp_local_add_headers(struct lmtp_local *local,
 	llrcpts = array_get(&local->rcpt_to, &count);
 	if (count == 1) {
 		struct smtp_server_recipient *rcpt = llrcpts[0]->rcpt->rcpt;
-
-		sets = mail_storage_service_user_get_set(llrcpts[0]->service_user);
-		lmtp_set = sets[3];
 
 		switch (lmtp_set->parsed_lmtp_hdr_delivery_address) {
 		case LMTP_HDR_DELIVERY_ADDRESS_NONE:
