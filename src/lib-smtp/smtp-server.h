@@ -86,6 +86,11 @@ struct smtp_server_recipient {
 };
 ARRAY_DEFINE_TYPE(smtp_server_recipient, struct smtp_server_recipient *);
 
+/* Returns the original recipient path if available. Otherwise, it returns the
+   final path. */
+const struct smtp_address *
+smtp_server_recipient_get_original(struct smtp_server_recipient *rcpt);
+
 struct smtp_server_reply *
 smtp_server_recipient_get_reply(struct smtp_server_recipient *rcpt);
 bool smtp_server_recipient_is_replied(struct smtp_server_recipient *rcpt);

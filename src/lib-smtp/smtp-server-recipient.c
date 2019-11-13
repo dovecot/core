@@ -96,6 +96,14 @@ void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt)
 	smtp_server_recipient_unref(_rcpt);
 }
 
+const struct smtp_address *
+smtp_server_recipient_get_original(struct smtp_server_recipient *rcpt)
+{
+	if (rcpt->params.orcpt.addr == NULL)
+		return rcpt->path;
+	return rcpt->params.orcpt.addr;
+}
+
 bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 {
 	struct smtp_server_recipient *rcpt = *_rcpt;
