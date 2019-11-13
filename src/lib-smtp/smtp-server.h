@@ -127,6 +127,15 @@ void smtp_server_recipient_remove_hook(
  * Transaction
  */
 
+enum smtp_server_trace_rcpt_to_address {
+	/* Don't add recipient address to trace header. */
+	SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_NONE,
+	/* Add final recipient address to trace header. */
+	SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_FINAL,
+	/* Add original recipient address to trace header. */
+	SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_ORIGINAL,
+};
+
 enum smtp_server_transaction_flags {
 	SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT = BIT(0),
 };
@@ -165,8 +174,9 @@ void smtp_server_transaction_fail_data(
 	unsigned int status, const char *enh_code,
 	const char *fmt, va_list args) ATTR_FORMAT(5, 0);
 
-void smtp_server_transaction_write_trace_record(string_t *str,
-	struct smtp_server_transaction *trans);
+void smtp_server_transaction_write_trace_record(
+	string_t *str, struct smtp_server_transaction *trans,
+	enum smtp_server_trace_rcpt_to_address rcpt_to_address);
 
 /*
  * Callbacks

@@ -294,8 +294,9 @@ void smtp_server_transaction_fail_data(struct smtp_server_transaction *trans,
 	}
 }
 
-void smtp_server_transaction_write_trace_record(string_t *str,
-	struct smtp_server_transaction *trans)
+void smtp_server_transaction_write_trace_record(
+	string_t *str, struct smtp_server_transaction *trans,
+	enum smtp_server_trace_rcpt_to_address rcpt_to_address)
 {
 	struct smtp_server_connection *conn = trans->conn;
 	const struct smtp_server_helo_data *helo_data = &conn->helo;
@@ -305,7 +306,17 @@ void smtp_server_transaction_write_trace_record(string_t *str,
 		struct smtp_server_recipient *const *rcpts =
 			array_front(&trans->rcpt_to);
 
-		rcpt_to = smtp_address_encode(rcpts[0]->path);
+		switch (rcpt_to_address) {
+		case SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_NONE:
+			break;
+		case SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_FINAL:
+			rcpt_to = smtp_address_encode(rcpts[0]->path);
+			break;
+		case SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_ORIGINAL:
+			rcpt_to = smtp_address_encode(
+				smtp_server_recipient_get_original(rcpts[0]));
+			break;
+		}
 	}
 
 	/* from */
