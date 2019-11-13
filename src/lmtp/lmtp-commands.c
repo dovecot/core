@@ -114,8 +114,10 @@ cmd_data_create_added_headers(struct client *client,
 
 	/* headers for local and proxied messages */
 	proxy_offset = str_len(str);
-	if (client->lmtp_set->lmtp_add_received_header)
-		smtp_server_transaction_write_trace_record(str, trans);
+	if (client->lmtp_set->lmtp_add_received_header) {
+		smtp_server_transaction_write_trace_record(
+			str, trans, SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_FINAL);
+	}
 
 	client->state.added_headers_local =
 		p_strdup(client->state_pool, str_c(str));

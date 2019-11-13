@@ -242,7 +242,8 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	/* prepend our own headers */
 	added_headers = t_str_new(200);
-	smtp_server_transaction_write_trace_record(added_headers, trans);
+	smtp_server_transaction_write_trace_record(
+		added_headers, trans, SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_FINAL);
 
 	i_stream_seek(data_input, 0);
 	inputs[0] = i_stream_create_copy_from_data(
