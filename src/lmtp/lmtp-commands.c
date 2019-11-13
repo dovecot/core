@@ -115,8 +115,27 @@ cmd_data_create_added_headers(struct client *client,
 	/* headers for local and proxied messages */
 	proxy_offset = str_len(str);
 	if (client->lmtp_set->lmtp_add_received_header) {
+		const struct lmtp_settings *lmtp_set = client->lmtp_set;
+		enum smtp_server_trace_rcpt_to_address rcpt_to_address =
+			SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_FINAL;
+
+		switch (lmtp_set->parsed_lmtp_hdr_delivery_address) {
+		case LMTP_HDR_DELIVERY_ADDRESS_NONE:
+			rcpt_to_address =
+				SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_NONE;
+			break;
+		case LMTP_HDR_DELIVERY_ADDRESS_FINAL:
+			rcpt_to_address =
+				SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_FINAL;
+			break;
+		case LMTP_HDR_DELIVERY_ADDRESS_ORIGINAL:
+			rcpt_to_address =
+				SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_ORIGINAL;
+			break;
+		}
+
 		smtp_server_transaction_write_trace_record(
-			str, trans, SMTP_SERVER_TRACE_RCPT_TO_ADDRESS_FINAL);
+			str, trans, rcpt_to_address);
 	}
 
 	client->state.added_headers_local =
