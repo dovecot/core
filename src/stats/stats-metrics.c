@@ -1,6 +1,6 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "stats-common.h"
 #include "array.h"
 #include "str.h"
 #include "stats-dist.h"

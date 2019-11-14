@@ -1,6 +1,6 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "stats-common.h"
 #include "buffer.h"
 #include "settings-parser.h"
 #include "service-settings.h"

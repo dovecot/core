@@ -43,6 +43,7 @@ libstats_local_la_SOURCES = \
 	stats-settings.c
 
 noinst_HEADERS = \
+	stats-common.h \
 	client-reader.h \
 	client-writer.h \
 	event-exporter.h \
