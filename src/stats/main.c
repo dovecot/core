@@ -2,6 +2,7 @@
 
 #include "stats-common.h"
 #include "restrict-access.h"
+#include "ioloop.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "stats-settings.h"
@@ -12,6 +13,7 @@
 
 const struct stats_settings *stats_settings;
 struct stats_metrics *stats_metrics;
+time_t stats_startup_time;
 
 static bool client_is_writer(const char *path)
 {
@@ -57,6 +59,7 @@ static void main_init(void)
 	void **sets = master_service_settings_get_others(master_service);
 	stats_settings = sets[0];
 
+	stats_startup_time = ioloop_time;
 	stats_metrics = stats_metrics_init(stats_settings);
 	stats_event_categories_init();
 	client_readers_init();
