@@ -70,7 +70,8 @@ imap_master_read_callback(struct imap_master_connection **_conn,
 
 void imap_master_connection_deinit(struct imap_master_connection **_conn)
 {
-	imap_master_read_callback(_conn, "-");
+	imap_master_read_callback(_conn, t_strdup_printf(
+		"-%s", connection_disconnect_reason(&(*_conn)->conn)));
 }
 
 void imap_master_connection_free(struct imap_master_connection **_conn)
