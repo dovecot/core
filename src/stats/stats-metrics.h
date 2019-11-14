@@ -65,6 +65,7 @@ struct metric_value {
 };
 
 struct metric {
+	const struct stats_metric_settings *set;
 	const char *name;
 	/* When this metric is a sub-metric, then this is the
 	   suffix for name and any sub_names before it.

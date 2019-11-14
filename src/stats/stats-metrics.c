@@ -124,10 +124,13 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 }
 
 static struct metric *
-stats_metric_alloc(pool_t pool, const char *name, const char *const *fields)
+stats_metric_alloc(pool_t pool, const char *name,
+		   const struct stats_metric_settings *set,
+		   const char *const *fields)
 {
 	struct metric *metric = p_new(pool, struct metric, 1);
 	metric->name = p_strdup(pool, name);
+	metric->set = set;
 	metric->duration_stats = stats_dist_init();
 	metric->fields_count = str_array_length(fields);
 	if (metric->fields_count > 0) {
@@ -151,7 +154,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 	const char *const *tmp;
 
 	fields = t_strsplit_spaces(set->fields, " ");
-	metric = stats_metric_alloc(metrics->pool, set->name, fields);
+	metric = stats_metric_alloc(metrics->pool, set->name, set, fields);
 
 	if (array_is_created(&set->parsed_group_by))
 		metric->group_by = array_get(&set->parsed_group_by,
@@ -347,7 +350,7 @@ stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t po
 	for (unsigned int i = 0; i < metric->fields_count; i++)
 		array_append(&fields, &metric->fields[i].field_key, 1);
 	array_append_zero(&fields);
-	sub_metric = stats_metric_alloc(pool, metric->name,
+	sub_metric = stats_metric_alloc(pool, metric->name, metric->set,
 					array_idx(&fields, 0));
 	sub_metric->sub_name = sub_metric_name_create(pool, name);
 	array_append(&metric->sub_metrics, &sub_metric, 1);
