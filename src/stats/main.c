@@ -10,6 +10,8 @@
 #include "client-writer.h"
 #include "client-reader.h"
 
+const struct stats_settings *stats_settings;
+
 static struct stats_metrics *metrics;
 
 static bool client_is_writer(const char *path)
@@ -54,9 +56,10 @@ static void main_preinit(void)
 static void main_init(void)
 {
 	void **sets = master_service_settings_get_others(master_service);
-	const struct stats_settings *set = sets[0];
 
-	metrics = stats_metrics_init(set);
+	stats_settings = sets[0];
+
+	metrics = stats_metrics_init(stats_settings);
 	stats_event_categories_init();
 	client_readers_init();
 	client_writers_init();
