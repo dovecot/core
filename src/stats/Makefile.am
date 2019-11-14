@@ -25,6 +25,8 @@ stats_DEPENDENCIES = \
 	$(DOVECOT_SSL_LIBS) \
 	$(LIBDOVECOT_DEPS)
 
+stats_services =
+
 stats_SOURCES = \
 	main.c
 
@@ -39,6 +41,8 @@ libstats_local_la_SOURCES = \
 	event-exporter-transport-drop.c \
 	event-exporter-transport-http-post.c \
 	event-exporter-transport-log.c \
+	$(stats_services) \
+	stats-service.c \
 	stats-event-category.c \
 	stats-metrics.c \
 	stats-settings.c
@@ -49,6 +53,8 @@ noinst_HEADERS = \
 	client-writer.h \
 	client-http.h\
 	event-exporter.h \
+	stats-service.h \
+	stats-service-private.h \
 	stats-event-category.h \
 	stats-metrics.h \
 	stats-settings.h \

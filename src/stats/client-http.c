@@ -10,6 +10,7 @@
 #include "http-server.h"
 #include "http-url.h"
 #include "stats-metrics.h"
+#include "stats-service.h"
 #include "client-http.h"
 
 struct stats_http_client;
@@ -188,11 +189,12 @@ stats_http_resource_root_request(void *context ATTR_UNUSED,
 
 	if (strcmp(hreq->method, "OPTIONS") == 0) {
 		resp = http_server_response_create(req, 200, "OK");
+		http_server_response_add_header(resp, "Allow", "GET");
 		http_server_response_submit(resp);
 		return;
 	}
 	if (strcmp(hreq->method, "GET") != 0) {
-		http_server_request_fail(req, 405, "Method Not Allowed");
+		http_server_request_fail_bad_method(req, "GET");
 		return;
 	}
 	if (*sub_path != '\0') {

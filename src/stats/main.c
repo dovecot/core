@@ -8,6 +8,7 @@
 #include "stats-settings.h"
 #include "stats-event-category.h"
 #include "stats-metrics.h"
+#include "stats-service.h"
 #include "client-writer.h"
 #include "client-reader.h"
 #include "client-http.h"
@@ -68,10 +69,12 @@ static void main_init(void)
 	client_readers_init();
 	client_writers_init();
 	client_http_init();
+	stats_services_init();
 }
 
 static void main_deinit(void)
 {
+	stats_services_deinit();
 	client_readers_deinit();
 	client_writers_deinit();
 	client_http_deinit();
