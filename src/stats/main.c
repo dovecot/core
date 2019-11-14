@@ -10,6 +10,7 @@
 #include "stats-metrics.h"
 #include "client-writer.h"
 #include "client-reader.h"
+#include "client-http.h"
 
 const struct stats_settings *stats_settings;
 struct stats_metrics *stats_metrics;
@@ -36,7 +37,9 @@ static bool client_is_writer(const char *path)
 
 static void client_connected(struct master_service_connection *conn)
 {
-	if (client_is_writer(conn->name))
+	if (strcmp(conn->name, "http") == 0)
+		client_http_create(conn);
+	else if (client_is_writer(conn->name))
 		client_writer_create(conn->fd);
 	else
 		client_reader_create(conn->fd);
@@ -64,12 +67,14 @@ static void main_init(void)
 	stats_event_categories_init();
 	client_readers_init();
 	client_writers_init();
+	client_http_init();
 }
 
 static void main_deinit(void)
 {
 	client_readers_deinit();
 	client_writers_deinit();
+	client_http_deinit();
 	stats_event_categories_deinit();
 	stats_metrics_deinit(&stats_metrics);
 }

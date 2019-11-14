@@ -141,18 +141,25 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
  * top-level settings
  */
 
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct stats_settings, name), NULL }
 #undef DEFLIST_UNIQUE
 #define DEFLIST_UNIQUE(field, name, defines) \
 	{ SET_DEFLIST_UNIQUE, name, \
 	  offsetof(struct stats_settings, field), defines }
 
 static const struct setting_define stats_setting_defines[] = {
+	DEF(SET_STR, stats_http_rawlog_dir),
+
 	DEFLIST_UNIQUE(metrics, "metric", &stats_metric_setting_parser_info),
 	DEFLIST_UNIQUE(exporters, "event_exporter", &stats_exporter_setting_parser_info),
 	SETTING_DEFINE_LIST_END
 };
 
 const struct stats_settings stats_default_settings = {
+	.stats_http_rawlog_dir = "",
+
 	.metrics = ARRAY_INIT,
 	.exporters = ARRAY_INIT,
 };

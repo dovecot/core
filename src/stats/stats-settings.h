@@ -113,6 +113,8 @@ struct stats_metric_settings {
 };
 
 struct stats_settings {
+	const char *stats_http_rawlog_dir;
+
 	ARRAY(struct stats_exporter_settings *) exporters;
 	ARRAY(struct stats_metric_settings *) metrics;
 };

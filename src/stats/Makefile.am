@@ -31,6 +31,7 @@ stats_SOURCES = \
 libstats_local_la_SOURCES = \
 	client-reader.c \
 	client-writer.c \
+	client-http.c \
 	event-exporter-fmt.c \
 	event-exporter-fmt-json.c \
 	event-exporter-fmt-none.c \
@@ -46,6 +47,7 @@ noinst_HEADERS = \
 	stats-common.h \
 	client-reader.h \
 	client-writer.h \
+	client-http.h\
 	event-exporter.h \
 	stats-event-category.h \
 	stats-metrics.h \
