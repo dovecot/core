@@ -1,7 +1,7 @@
 #ifndef TEST_STATS_COMMON
 #define TEST_STATS_COMMON 1
 
-#include "lib.h"
+#include "stats-common.h"
 #include "event-filter.h"
 #include "istream.h"
 #include "settings-parser.h"
@@ -15,8 +15,6 @@
 extern struct event_category test_category;
 extern struct event_category child_test_category;
 extern pool_t test_pool;
-
-extern struct stats_metrics *metrics;
 
 bool test_stats_callback(struct event *event,
 			 enum event_callback_type type ATTR_UNUSED,

@@ -3,7 +3,7 @@
 
 struct stats_metrics;
 
-void client_reader_create(int fd, struct stats_metrics *metrics);
+void client_reader_create(int fd);
 
 void client_readers_init(void);
 void client_readers_deinit(void);

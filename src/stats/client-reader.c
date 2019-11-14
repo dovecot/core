@@ -13,17 +13,15 @@
 
 struct reader_client {
 	struct connection conn;
-	struct stats_metrics *metrics;
 };
 
 static struct connection_list *reader_clients = NULL;
 
-void client_reader_create(int fd, struct stats_metrics *metrics)
+void client_reader_create(int fd)
 {
 	struct reader_client *client;
 
 	client = i_new(struct reader_client, 1);
-	client->metrics = metrics;
 	connection_init_server(reader_clients, &client->conn,
 			       "stats-reader", fd, fd);
 }
@@ -110,7 +108,7 @@ reader_client_input_dump(struct reader_client *client, const char *const *args)
 	const struct metric *metric;
 
 	o_stream_cork(client->conn.output);
-	iter = stats_metrics_iterate_init(client->metrics);
+	iter = stats_metrics_iterate_init(stats_metrics);
 	while ((metric = stats_metrics_iterate(iter)) != NULL) T_BEGIN {
 		string_t *str = t_str_new(128);
 		str_append_tabescaped(str, metric->name);
@@ -130,7 +128,7 @@ reader_client_input_dump_reset(struct reader_client *client,
 			       const char *const *args)
 {
 	(void)reader_client_input_dump(client, args);
-	stats_metrics_reset(client->metrics);
+	stats_metrics_reset(stats_metrics);
 	return 1;
 }
 

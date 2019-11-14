@@ -11,8 +11,7 @@
 #include "client-reader.h"
 
 const struct stats_settings *stats_settings;
-
-static struct stats_metrics *metrics;
+struct stats_metrics *stats_metrics;
 
 static bool client_is_writer(const char *path)
 {
@@ -36,9 +35,9 @@ static bool client_is_writer(const char *path)
 static void client_connected(struct master_service_connection *conn)
 {
 	if (client_is_writer(conn->name))
-		client_writer_create(conn->fd, metrics);
+		client_writer_create(conn->fd);
 	else
-		client_reader_create(conn->fd, metrics);
+		client_reader_create(conn->fd);
 	master_service_client_connection_accept(conn);
 }
 
@@ -56,10 +55,9 @@ static void main_preinit(void)
 static void main_init(void)
 {
 	void **sets = master_service_settings_get_others(master_service);
-
 	stats_settings = sets[0];
 
-	metrics = stats_metrics_init(stats_settings);
+	stats_metrics = stats_metrics_init(stats_settings);
 	stats_event_categories_init();
 	client_readers_init();
 	client_writers_init();
@@ -70,7 +68,7 @@ static void main_deinit(void)
 	client_readers_deinit();
 	client_writers_deinit();
 	stats_event_categories_deinit();
-	stats_metrics_deinit(&metrics);
+	stats_metrics_deinit(&stats_metrics);
 }
 
 int main(int argc, char *argv[])

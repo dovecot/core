@@ -61,7 +61,7 @@ static void test_write_one(struct event *event ATTR_UNUSED)
 
 	struct ioloop *loop = io_loop_create();
 
-	client_writer_create(fds[1], metrics);
+	client_writer_create(fds[1]);
 	connection_init_client_fd(conn_list, conn, "stats", fds[0], fds[0]);
 
 	last_sent_event = event;
@@ -89,7 +89,7 @@ bool test_stats_callback(struct event *event,
 		return TRUE;
 
 	recurse_back = TRUE;
-	if (metrics != NULL) {
+	if (stats_metrics != NULL) {
 		test_write_one(event);
 	}
 	recurse_back = FALSE;

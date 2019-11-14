@@ -8,9 +8,10 @@ bool test_stats_callback(struct event *event,
 			 struct failure_context *ctx, const char *fmt ATTR_UNUSED,
 			 va_list args ATTR_UNUSED)
 {
-	if (metrics != NULL) {
-		stats_metrics_event(metrics, event, ctx);
-		struct event_filter *filter = stats_metrics_get_event_filter(metrics);
+	if (stats_metrics != NULL) {
+		stats_metrics_event(stats_metrics, event, ctx);
+		struct event_filter *filter =
+			stats_metrics_get_event_filter(stats_metrics);
 		return !event_filter_match(filter, event, ctx);
 	}
 	return TRUE;
@@ -58,7 +59,8 @@ static void test_stats_metrics_filter(void)
 	test_init(settings_blob_2);
 
 	/* check filter */
-	struct event_filter *filter = stats_metrics_get_event_filter(metrics);
+	struct event_filter *filter =
+		stats_metrics_get_event_filter(stats_metrics);
 	string_t *str_filter = t_str_new(64);
 	event_filter_export(filter, str_filter);
 	test_assert_strcmp("ntest	ftest_field	value	",
@@ -187,7 +189,7 @@ static void test_stats_metrics_group_by_discrete_real(const struct discrete_test
 	test_assert(get_stats_dist_field("test", STATS_DIST_COUNT) == test->num_values * test->num_values);
 
 	/* analyze the structure */
-	struct stats_metrics_iter *iter = stats_metrics_iterate_init(metrics);
+	struct stats_metrics_iter *iter = stats_metrics_iterate_init(stats_metrics);
 	const struct metric *root_metric = stats_metrics_iterate(iter);
 	stats_metrics_iterate_deinit(&iter);
 
@@ -363,7 +365,7 @@ static void test_stats_metrics_group_by_quantized_real(const struct quantized_te
 	test_assert(get_stats_dist_field("test", STATS_DIST_COUNT) == test->num_inputs);
 
 	/* analyze the structure */
-	struct stats_metrics_iter *iter = stats_metrics_iterate_init(metrics);
+	struct stats_metrics_iter *iter = stats_metrics_iterate_init(stats_metrics);
 	const struct metric *root_metric = stats_metrics_iterate(iter);
 	stats_metrics_iterate_deinit(&iter);
 

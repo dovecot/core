@@ -35,9 +35,10 @@ bool test_stats_callback(struct event *event,
 			 struct failure_context *ctx, const char *fmt ATTR_UNUSED,
 			 va_list args ATTR_UNUSED)
 {
-	if (metrics != NULL) {
-		stats_metrics_event(metrics, event, ctx);
-		struct event_filter *filter = stats_metrics_get_event_filter(metrics);
+	if (stats_metrics != NULL) {
+		stats_metrics_event(stats_metrics, event, ctx);
+		struct event_filter *filter =
+			stats_metrics_get_event_filter(stats_metrics);
 		return !event_filter_match(filter, event, ctx);
 	}
 	return TRUE;
@@ -71,7 +72,7 @@ static void test_dump_metrics(void)
 
 	struct ioloop *loop = io_loop_create();
 
-	client_reader_create(fds[1], metrics);
+	client_reader_create(fds[1]);
 	connection_init_client_fd(conn_list, conn, "stats", fds[0], fds[0]);
 	o_stream_nsend_str(conn->output, "DUMP\tcount\n");
 
@@ -161,7 +162,7 @@ static void test_dump_metrics_group_by(void)
 
 	struct ioloop *loop = io_loop_create();
 
-	client_reader_create(fds[1], metrics);
+	client_reader_create(fds[1]);
 	connection_init_client_fd(conn_list, &conn->conn, "stats", fds[0], fds[0]);
 	o_stream_nsend_str(conn->conn.output, "DUMP\tcount\n");
 

@@ -13,7 +13,7 @@ struct event_category child_test_category = {
 };
 
 pool_t test_pool;
-struct stats_metrics *metrics = NULL;
+struct stats_metrics *stats_metrics = NULL;
 
 static bool callback_added = FALSE;
 
@@ -50,12 +50,12 @@ void test_init(const char *settings_blob)
 	stats_event_category_register(child_test_category.name,
 				      &test_category);
 	struct stats_settings *set = read_settings(settings_blob);
-	metrics = stats_metrics_init(set);
+	stats_metrics = stats_metrics_init(set);
 }
 
 void test_deinit(void)
 {
-	stats_metrics_deinit(&metrics);
+	stats_metrics_deinit(&stats_metrics);
 	stats_event_categories_deinit();
 	pool_unref(&test_pool);
 }
@@ -72,7 +72,8 @@ void test_event_send(struct event *event)
 
 uint64_t get_stats_dist_field(const char *metric_name, enum stats_dist_field field)
 {
-        struct stats_metrics_iter *iter = stats_metrics_iterate_init(metrics);
+        struct stats_metrics_iter *iter =
+		stats_metrics_iterate_init(stats_metrics);
         const struct metric *metric;
         while((metric = stats_metrics_iterate(iter)) != NULL)
                 if (strcmp(metric->name, metric_name) == 0)

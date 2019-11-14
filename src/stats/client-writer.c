@@ -24,7 +24,6 @@ struct stats_event {
 
 struct writer_client {
 	struct connection conn;
-	struct stats_metrics *metrics;
 
 	struct stats_event *events;
 	HASH_TABLE(struct stats_event *, struct stats_event *) events_hash;
@@ -37,7 +36,7 @@ static void client_writer_send_handshake(struct writer_client *client)
 	string_t *str = t_str_new(128);
 
 	str_append(str, "FILTER\t");
-	event_filter_export(stats_metrics_get_event_filter(client->metrics), str);
+	event_filter_export(stats_metrics_get_event_filter(stats_metrics), str);
 	str_append_c(str, '\n');
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 }
@@ -53,12 +52,11 @@ static int stats_event_cmp(const struct stats_event *event1,
 	return event1->id == event2->id ? 0 : 1;
 }
 
-void client_writer_create(int fd, struct stats_metrics *metrics)
+void client_writer_create(int fd)
 {
 	struct writer_client *client;
 
 	client = i_new(struct writer_client, 1);
-	client->metrics = metrics;
 	hash_table_create(&client->events_hash, default_pool, 0,
 			  stats_event_hash, stats_event_cmp);
 
@@ -126,7 +124,7 @@ writer_client_run_event(struct writer_client *client,
 		event_unref(&event);
 		return FALSE;
 	}
-	stats_metrics_event(client->metrics, event, &ctx);
+	stats_metrics_event(stats_metrics, event, &ctx);
 	*event_r = event;
 	return TRUE;
 }
