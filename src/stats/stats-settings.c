@@ -110,6 +110,7 @@ static const struct setting_define stats_metric_setting_defines[] = {
 	{ SET_STRLIST, "filter", offsetof(struct stats_metric_settings, filter), NULL },
 	DEF(SET_STR, exporter),
 	DEF(SET_STR, exporter_include),
+	DEF(SET_STR, description),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -122,6 +123,7 @@ static const struct stats_metric_settings stats_metric_default_settings = {
 	.exporter = "",
 	.group_by = "",
 	.exporter_include = "name hostname timestamps categories fields",
+	.description = "",
 };
 
 const struct setting_parser_info stats_metric_setting_parser_info = {
