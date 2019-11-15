@@ -54,7 +54,9 @@ static struct test_settings {
 	size_t read_client_partial;
 	bool unknown_size;
 
+	/* server */
 	bool server_blocking;
+	bool server_ostream;
 	enum payload_handling server_payload_handling;
 	size_t read_server_partial;
 
@@ -330,6 +332,93 @@ client_handle_download_request(struct client_request *creq,
 
 /* location: /echo */
 
+static void
+client_request_echo_blocking(struct client_request *creq,
+			     struct http_server_response *resp,
+			     struct istream *input)
+{
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
+		ret = http_server_response_send_payload(&resp, data, size);
+		i_assert(ret <= 0);
+		if (ret < 0)
+			break;
+		i_stream_skip(input, size);
+	}
+	i_assert(ret < 0);
+	if (input->stream_errno != 0) {
+		i_fatal("test server: echo: "
+			"read(%s) failed for %s: %s",
+			i_stream_get_name(input), creq->path,
+			i_stream_get_error(input));
+	} else if (i_stream_have_bytes_left(input)) {
+		i_fatal("test server: echo: "
+			"failed to send all blocking payload for %s",
+			creq->path);
+	}
+
+	/* finish it */
+	if (http_server_response_finish_payload(&resp) < 0) {
+		i_fatal("test server: echo: "
+			"failed to finish blocking payload for %s", creq->path);
+	}
+
+	if (debug) {
+		i_debug("test server: echo: "
+			"sent all payload for %s", creq->path);
+	}
+}
+
+static void
+client_request_echo_ostream_blocking(struct client_request *creq,
+				     struct http_server_response *resp,
+				     struct istream *input)
+{
+	struct ostream *payload_output;
+	int ret;
+
+	payload_output = http_server_response_get_payload_output(resp, TRUE);
+
+	ret = 0;
+	switch (o_stream_send_istream(payload_output, input)) {
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		/* finish it */
+		ret = o_stream_finish(payload_output);
+		if (ret >= 0)
+			break;
+		/* fall through */
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		i_assert(payload_output->stream_errno != 0);
+		i_fatal("test server: echo: "
+			"write(%s) failed for %s: %s",
+			o_stream_get_name(payload_output), creq->path,
+			o_stream_get_error(payload_output));
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		i_assert(input->stream_errno != 0);
+		i_fatal("test server: echo: "
+			"read(%s) failed for %s: %s",
+			i_stream_get_name(input), creq->path,
+			i_stream_get_error(input));
+		break;
+	}
+	i_assert(ret != 0);
+
+	if (debug) {
+		i_debug("test server: echo: "
+			"finished sending blocking payload for %s",
+			creq->path);
+	}
+
+	o_stream_destroy(&payload_output);
+}
+
 static void client_request_finish_payload_in(struct client_request *creq)
 {
 	struct http_server_response *resp;
@@ -406,7 +495,6 @@ client_handle_echo_request(struct client_request *creq,
 	struct http_server_response *resp;
 	struct ostream *payload_output;
 	uoff_t size;
-	int ret;
 
 	creq->path = p_strdup(http_server_request_get_pool(req), path);
 
@@ -465,45 +553,13 @@ client_handle_echo_request(struct client_request *creq,
 		http_server_response_add_header(resp,
 			"Content-Type", "text/plain");
 
-		payload_output =
-			http_server_response_get_payload_output(resp, TRUE);
-
-		ret = 0;
-		switch (o_stream_send_istream(payload_output, payload_input)) {
-		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
-		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
-			i_unreached();
-		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-			/* finish it */
-			ret = o_stream_finish(payload_output);
-			if (ret >= 0)
-				break;
-			/* fall through */
-		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
-			i_assert(payload_output->stream_errno != 0);
-			i_fatal("test server: echo: "
-				"write(%s) failed: %s",
-				o_stream_get_name(payload_output),
-				o_stream_get_error(payload_output));
-			break;
-		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
-			i_assert(payload_input->stream_errno != 0);
-			i_fatal("test server: echo: "
-				"read(%s) failed: %s",
-				i_stream_get_name(payload_input),
-				i_stream_get_error(payload_input));
-			break;
+		if (tset.server_ostream) {
+			client_request_echo_ostream_blocking(creq, resp,
+							     payload_input);
+		} else {
+			client_request_echo_blocking(creq, resp, payload_input);
 		}
-		i_assert(ret != 0);
-
-		if (debug) {
-			i_debug("test server: echo: "
-				"finished sending blocking payload for %s",
-				path);
-		}
-
 		i_stream_unref(&payload_input);
-		o_stream_destroy(&payload_output);
 	} else {
 		creq->payload_output = payload_output;
 
@@ -1675,6 +1731,15 @@ static void test_echo_server_blocking(void)
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
+
+	test_begin("http payload echo (server blocking; ostream)");
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.server_ostream = TRUE;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
 }
 
 static void test_echo_server_nonblocking_sync(void)
@@ -1714,6 +1779,17 @@ static void test_echo_server_blocking_sync(void)
 	test_begin("http payload echo (server blocking; 100-continue)");
 	test_init_defaults();
 	tset.server_blocking = TRUE;
+	tset.request_100_continue = TRUE;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo "
+		   "(server blocking; ostream; 100-continue)");
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.server_ostream = TRUE;
 	tset.request_100_continue = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
@@ -1797,6 +1873,27 @@ static void test_echo_server_blocking_partial(void)
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
+
+	test_begin("http payload echo "
+		   "(server blocking; partial short; ostream)");
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.server_ostream = TRUE;
+	tset.read_server_partial = 1024;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+	test_begin("http payload echo "
+		   "(server blocking; partial long; ostream)");
+	test_init_defaults();
+	tset.server_blocking = TRUE;
+	tset.server_ostream = TRUE;
+	tset.read_server_partial = IO_BLOCK_SIZE + 1024;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
 }
 
 static void test_download_client_partial(void)
@@ -1866,6 +1963,7 @@ static void test_echo_client_shared(void)
 		   "(server blocking; client shared)");
 	test_init_defaults();
 	tset.server_blocking = TRUE;
+	tset.server_ostream = TRUE;
 	tset.parallel_clients = 4;
 	test_run_sequential(test_client_echo);
 	tset.parallel_clients = 4;
