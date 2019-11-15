@@ -88,9 +88,7 @@ struct http_server_response {
 	bool have_hdr_body_spec:1;
 
 	bool payload_chunked:1;
-	bool payload_blocking:1;
 	bool payload_finished:1;
-	bool payload_direct:1;
 	bool payload_corked:1;
 	bool submitted:1;
 };
@@ -332,8 +330,6 @@ void http_server_connection_tunnel(struct http_server_connection **_conn,
 				   http_server_tunnel_callback_t callback,
 				   void *context);
 
-int http_server_connection_discard_payload(
-	struct http_server_connection *conn);
 bool http_server_connection_pending_payload(
 	struct http_server_connection *conn);
 

@@ -76,7 +76,6 @@ void http_server_response_request_free(struct http_server_response *resp)
 {
 	e_debug(resp->event, "Free");
 
-	i_assert(!resp->payload_blocking);
 	/* Cannot be destroyed while payload output stream still exists */
 	i_assert(resp->payload_stream == NULL);
 
@@ -369,134 +368,43 @@ int http_server_response_finish_payload_out(struct http_server_response *resp)
 }
 
 static int
-http_server_response_output_direct(struct http_server_response_payload *rpay)
-{
-	struct http_server_response *resp = rpay->resp;
-	struct http_server_connection *conn = resp->request->conn;
-	struct http_server *server = resp->request->server;
-	struct ostream *output = resp->payload_output;
-	struct const_iovec *iov;
-	unsigned int iov_count, i;
-	size_t bytes_left, block_len;
-	ssize_t ret;
-
-	if (http_server_connection_flush(conn) < 0)
-		return -1;
-
-	iov = &rpay->iov[rpay->iov_idx];
-	iov_count = rpay->iov_count - rpay->iov_idx;
-
-	if ((ret = o_stream_sendv(output, iov, iov_count)) < 0) {
-		http_server_connection_handle_output_error(conn);
-		return -1;
-	}
-	if (ret > 0) {
-		bytes_left = ret;
-		for (i = 0; i < iov_count && bytes_left > 0; i++) {
-			block_len = (iov[i].iov_len <= bytes_left ?
-				     iov[i].iov_len : bytes_left);
-			bytes_left -= block_len;
-		}
-		rpay->iov_idx += i;
-		if (i < iov_count) {
-			i_assert(iov[i].iov_len > bytes_left);
-			iov[i].iov_base = PTR_OFFSET(
-				iov[i].iov_base, iov[i].iov_len - bytes_left);
-			iov[i].iov_len = bytes_left;
-		} else {
-			i_assert(rpay->iov_idx == rpay->iov_count);
-			i_assert(server->ioloop != NULL);
-			io_loop_stop(server->ioloop);
-		}
-	}
-	return 1;
-}
-
-static int
 http_server_response_output_payload(struct http_server_response **_resp,
-				    const struct const_iovec *iov,
-				    unsigned int iov_count)
+				    const unsigned char *data, size_t size)
 {
-	struct ioloop *prev_ioloop = current_ioloop;
 	struct http_server_response *resp = *_resp;
 	struct http_server_request *req = resp->request;
-	struct http_server *server = req->server;
-	struct http_server_connection *conn = req->conn;
-	struct http_server_response_payload rpay;
+	struct ostream *output;
+	ssize_t sret;
 	int ret;
 
 	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE ||
 		 req->state == HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT);
-	i_assert(resp->payload_input == NULL);
 
-	/* Discard any remaining incoming payload */
-	if (http_server_connection_discard_payload(conn) < 0)
-		return -1;
-	req->req.payload = NULL;
+	http_server_response_ref(resp);
 
-	http_server_connection_ref(conn);
-	http_server_request_ref(req);
-	resp->payload_blocking = TRUE;
-
-	i_zero(&rpay);
-	rpay.resp = resp;
-
-	if (iov == NULL) {
-		resp->payload_direct = FALSE;
-		if (req->state == HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT)
-			(void)http_server_response_finish_payload_out(resp);
+	if (resp->payload_stream == NULL) {
+		output = http_server_response_get_payload_output(
+			resp, IO_BLOCK_SIZE, TRUE);
 	} else {
-		resp->payload_direct = TRUE;
-		rpay.iov = i_new(struct const_iovec, iov_count);
-		memcpy(rpay.iov, iov, sizeof(*iov)*iov_count);
-		rpay.iov_count = iov_count;
+		output = http_server_ostream_get_output(resp->payload_stream);
 	}
 
-	resp->payload_size = 0;
-	resp->payload_chunked = TRUE;
-
-	if (req->state < HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE)
-		http_server_response_submit(resp);
-
-	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
-		/* Wait for payload data to be written */
-
-		i_assert(server->ioloop == NULL);
-		server->ioloop = io_loop_create();
-		http_server_connection_switch_ioloop(conn);
-
-		do {
-			if (req->state < HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT) {
-				e_debug(resp->event,
-					"Preparing to send blocking payload");
-				http_server_connection_output_trigger(conn);
-			} else if (resp->payload_output != NULL) {
-				e_debug(resp->event,
-					"Sending blocking payload");
-				o_stream_unset_flush_callback(conn->conn.output);
-				o_stream_set_flush_callback(
-					resp->payload_output,
-					http_server_response_output_direct,
-					&rpay);
-				o_stream_set_flush_pending(resp->payload_output,
-							   TRUE);
-			} else {
-				http_server_response_finish_payload_out(resp);
-				i_assert(req->state >=
-					 HTTP_SERVER_REQUEST_STATE_FINISHED);
-				break;
-			}
-
-			io_loop_run(server->ioloop);
-
-			if (rpay.iov_count > 0 && rpay.iov_idx >= rpay.iov_count)
-				break;
-		} while (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED);
-
-		io_loop_set_current(prev_ioloop);
-		http_server_connection_switch_ioloop(conn);
-		io_loop_set_current(server->ioloop);
-		io_loop_destroy(&server->ioloop);
+	if (data != NULL) {
+		if ((sret = o_stream_send(output, data, size)) < 0) {
+			*_resp = NULL;
+			o_stream_destroy(&output);
+			http_server_response_unref(&resp);
+			return -1;
+		}
+		i_assert((size_t)sret == size);
+	} else {
+		if ((ret = o_stream_finish(output)) < 0) {
+			*_resp = NULL;
+			o_stream_destroy(&output);
+			http_server_response_unref(&resp);
+			return -1;
+		}
+		i_assert(ret > 0);
 	}
 
 	switch (req->state) {
@@ -513,16 +421,13 @@ http_server_response_output_payload(struct http_server_response **_resp,
 		break;
 	}
 
-	resp->payload_blocking = FALSE;
-	resp->payload_direct = FALSE;
+	if (data == NULL)
+		o_stream_destroy(&output);
 
 	/* Callback may have messed with our pointer, so unref using local
 	   variable */
-	if (!http_server_request_unref(&req))
+	if (!http_server_response_unref(&resp))
 		*_resp = NULL;
-
-	http_server_connection_unref(&conn);
-	i_free(rpay.iov);
 
 	/* Return status */
 	return ret;
@@ -532,19 +437,13 @@ int http_server_response_send_payload(struct http_server_response **_resp,
 				      const unsigned char *data, size_t size)
 {
 	struct http_server_response *resp = *_resp;
-	struct const_iovec iov;
 	int ret;
-
-	i_assert(resp->payload_stream == NULL);
 
 	resp->payload_corked = TRUE;
 
 	i_assert(data != NULL);
 
-	i_zero(&iov);
-	iov.iov_base = data;
-	iov.iov_len = size;
-	ret = http_server_response_output_payload(&resp, &iov, 1);
+	ret = http_server_response_output_payload(&resp, data, size);
 	if (ret < 0)
 		*_resp = NULL;
 	else {
@@ -558,8 +457,6 @@ int http_server_response_finish_payload(struct http_server_response **_resp)
 {
 	struct http_server_response *resp = *_resp;
 	int ret;
-
-	i_assert(resp->payload_stream == NULL);
 
 	*_resp = NULL;
 	ret = http_server_response_output_payload(&resp, NULL, 0);
@@ -675,7 +572,6 @@ static int http_server_response_send_real(struct http_server_response *resp)
 {
 	struct http_server_request *req = resp->request;
 	struct http_server_connection *conn = req->conn;
-	struct http_server *server = req->server;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
 	uoff_t content_length = 0;
@@ -685,7 +581,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	i_assert(!conn->output_locked);
 
 	/* Determine response payload to send */
-	if (resp->payload_input != NULL || resp->payload_direct) {
+	if (resp->payload_input != NULL) {
 		i_assert(resp->tunnel_callback == NULL &&
 			 resp->status / 100 != 1 &&
 			 resp->status != 204 && resp->status != 304);
@@ -747,7 +643,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	if (is_head) {
 		e_debug(resp->event, "A HEAD response has no payload");
 	} else if (chunked) {
-		i_assert(resp->payload_input != NULL || resp->payload_direct ||
+		i_assert(resp->payload_input != NULL ||
 			 resp->payload_stream != NULL);
 
 		e_debug(resp->event, "Will send payload in chunks");
@@ -756,7 +652,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 			http_transfer_chunked_ostream_create(conn->conn.output);
 	} else if (send_content_length) {
 		i_assert(resp->payload_input != NULL || content_length == 0 ||
-			 resp->payload_stream != NULL || resp->payload_direct);
+			 resp->payload_stream != NULL);
 
 		e_debug(resp->event,
 			"Will send payload with explicit size %"PRIuUOFF_T,
@@ -767,7 +663,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 			o_stream_ref(conn->conn.output);
 		}
 	} else if (close) {
-		i_assert(resp->payload_input != NULL || resp->payload_direct);
+		i_assert(resp->payload_input != NULL);
 
 		e_debug(resp->event,
 			"Will close connection after sending payload "
@@ -836,12 +732,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 
 	if (resp->payload_stream != NULL)
 		http_server_ostream_output_available(resp->payload_stream);
-	if (resp->payload_blocking) {
-		/* Blocking payload */
-		conn->output_locked = TRUE;
-		if (server->ioloop != NULL)
-			io_loop_stop(server->ioloop);
-	} else if (resp->payload_output != NULL) {
+	if (resp->payload_output != NULL) {
 		/* Non-blocking payload */
 		if (http_server_response_send_more(resp) < 0)
 			return -1;
