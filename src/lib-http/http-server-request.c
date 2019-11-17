@@ -279,6 +279,23 @@ http_server_request_connect_callback(struct http_server_request *req)
 						req->req.target.url);
 }
 
+static void
+http_server_request_default_handler(struct http_server_request *req)
+{
+	const struct http_request *hreq = &req->req;
+	struct http_server_response *resp;
+
+	if (strcmp(hreq->method, "OPTIONS") == 0 &&
+	    hreq->target.format == HTTP_REQUEST_TARGET_FORMAT_ASTERISK) {
+		resp = http_server_response_create(req, 200, "OK");
+		http_server_response_submit(resp);
+		return;
+	}
+
+	http_server_request_fail(req, 404, "Not Found");
+	return;
+}
+
 void http_server_request_callback(struct http_server_request *req)
 {
 	struct http_server_connection *conn = req->conn;
@@ -290,7 +307,7 @@ void http_server_request_callback(struct http_server_request *req)
 	}
 
 	if (conn->callbacks->handle_request == NULL) {
-		http_server_request_fail(req, 404, "Not Found");
+		http_server_request_default_handler(req);
 		return;
 	}
 	conn->callbacks->handle_request(conn->context, req);
