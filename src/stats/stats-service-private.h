@@ -3,4 +3,6 @@
 
 #include "stats-service.h"
 
+void stats_service_openmetrics_init(void);
+
 #endif

@@ -25,7 +25,8 @@ stats_DEPENDENCIES = \
 	$(DOVECOT_SSL_LIBS) \
 	$(LIBDOVECOT_DEPS)
 
-stats_services =
+stats_services = \
+	stats-service-openmetrics.c
 
 stats_SOURCES = \
 	main.c

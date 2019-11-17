@@ -6,7 +6,7 @@
 
 void stats_services_init(void)
 {
-	/* Nothing yet */
+	 stats_service_openmetrics_init();
 }
 
 void stats_services_deinit(void)
