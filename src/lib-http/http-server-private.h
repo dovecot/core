@@ -282,6 +282,13 @@ void http_server_connection_input_set_pending(
 void http_server_connection_input_halt(struct http_server_connection *conn);
 void http_server_connection_input_resume(struct http_server_connection *conn);
 
+void http_server_connection_start_idle_timeout(
+	struct http_server_connection *conn);
+void http_server_connection_reset_idle_timeout(
+	struct http_server_connection *conn);
+void http_server_connection_stop_idle_timeout(
+	struct http_server_connection *conn);
+
 void http_server_connection_handle_output_error(
 	struct http_server_connection *conn);
 

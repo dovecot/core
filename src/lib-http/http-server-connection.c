@@ -98,28 +98,30 @@ http_server_connection_idle_timeout(struct http_server_connection *conn)
 	http_server_connection_close(&conn, "Disconnected for inactivity");
 }
 
-static void
-http_server_connection_timeout_stop(struct http_server_connection *conn)
+void http_server_connection_start_idle_timeout(
+	struct http_server_connection *conn)
 {
-	timeout_remove(&conn->to_idle);
-}
+	unsigned int timeout_msecs =
+		conn->server->set.max_client_idle_time_msecs;
 
-static void
-http_server_connection_timeout_start(struct http_server_connection *conn)
-{
-	if (conn->to_idle == NULL &&
-	    conn->server->set.max_client_idle_time_msecs > 0) {
-		conn->to_idle = timeout_add(
-			conn->server->set.max_client_idle_time_msecs,
-			http_server_connection_idle_timeout, conn);
+	if (conn->to_idle == NULL && timeout_msecs > 0) {
+		conn->to_idle = timeout_add(timeout_msecs,
+					    http_server_connection_idle_timeout,
+					    conn);
 	}
 }
 
-static void
-http_server_connection_timeout_reset(struct http_server_connection *conn)
+void http_server_connection_reset_idle_timeout(
+	struct http_server_connection *conn)
 {
 	if (conn->to_idle != NULL)
 		timeout_reset(conn->to_idle);
+}
+
+void http_server_connection_stop_idle_timeout(
+	struct http_server_connection *conn)
+{
+	timeout_remove(&conn->to_idle);
 }
 
 bool http_server_connection_shut_down(struct http_server_connection *conn)
@@ -231,7 +233,7 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 	case HTTP_SERVER_REQUEST_STATE_PAYLOAD_IN:
 		/* Finished reading request */
 		req->state = HTTP_SERVER_REQUEST_STATE_PROCESSING;
-		http_server_connection_timeout_stop(conn);
+		http_server_connection_stop_idle_timeout(conn);
 		if (req->response != NULL && req->response->submitted)
 			http_server_request_submit_response(req);
 		break;
@@ -293,7 +295,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 				set->max_client_idle_time_msecs);
 		/* We've received the request itself, and we can't reset the
 		   timeout during the payload reading. */
-		http_server_connection_timeout_stop(conn);
+		http_server_connection_stop_idle_timeout(conn);
 	} else {
 		conn->incoming_payload = req->req.payload =
 			i_stream_create_from_data("", 0);
@@ -549,7 +551,7 @@ static void http_server_connection_input(struct connection *_conn)
 	i_assert(!conn->input_broken && conn->incoming_payload == NULL);
 	i_assert(!conn->close_indicated);
 
-	http_server_connection_timeout_reset(conn);
+	http_server_connection_reset_idle_timeout(conn);
 
 	if (conn->ssl && conn->ssl_iostream == NULL) {
 		if (http_server_connection_ssl_init(conn) < 0) {
@@ -848,7 +850,7 @@ http_server_connection_next_response(struct http_server_connection *conn)
 	if (req == NULL || req->state == HTTP_SERVER_REQUEST_STATE_NEW) {
 		/* No requests pending */
 		e_debug(conn->event, "No more requests pending");
-		http_server_connection_timeout_start(conn);
+		http_server_connection_start_idle_timeout(conn);
 		return FALSE;
 	}
 	if (req->state < HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND) {
@@ -856,12 +858,12 @@ http_server_connection_next_response(struct http_server_connection *conn)
 			/* Server is causing idle time */
 			e_debug(conn->event, "Not ready to respond: "
 				"Server is processing");
-			http_server_connection_timeout_stop(conn);
+			http_server_connection_stop_idle_timeout(conn);
 		} else {
 			/* Client is causing idle time */
 			e_debug(conn->event, "Not ready to respond: "
 				"Waiting for client");
-			http_server_connection_timeout_start(conn);
+			http_server_connection_start_idle_timeout(conn);
 		}
 
 		/* send 100 Continue if appropriate */
@@ -890,7 +892,7 @@ http_server_connection_next_response(struct http_server_connection *conn)
 		 req->response != NULL);
 
 	e_debug(conn->event, "Sending response");
-	http_server_connection_timeout_start(conn);
+	http_server_connection_start_idle_timeout(conn);
 
 	http_server_request_ref(req);
 	ret = http_server_response_send(req->response);
@@ -899,7 +901,7 @@ http_server_connection_next_response(struct http_server_connection *conn)
 	if (ret < 0)
 		return FALSE;
 
-	http_server_connection_timeout_reset(conn);
+	http_server_connection_reset_idle_timeout(conn);
 	return TRUE;
 }
 
@@ -937,7 +939,7 @@ int http_server_connection_flush(struct http_server_connection *conn)
 		return ret;
 	}
 
-	http_server_connection_timeout_reset(conn);
+	http_server_connection_reset_idle_timeout(conn);
 	return 0;
 }
 
@@ -973,12 +975,12 @@ int http_server_connection_output(struct http_server_connection *conn)
 			/* Server is causing idle time */
 			e_debug(conn->event, "Not ready to continue response: "
 				"Server is producing response");
-			http_server_connection_timeout_stop(conn);
+			http_server_connection_stop_idle_timeout(conn);
 		} else {
 			/* Client is causing idle time */
 			e_debug(conn->event, "Not ready to continue response: "
 				"Waiting for client");
-			http_server_connection_timeout_start(conn);
+			http_server_connection_start_idle_timeout(conn);
 		}
 	}
 
@@ -1094,7 +1096,7 @@ http_server_connection_create(struct http_server *server,
 
 	if (!ssl)
 		http_server_connection_ready(conn);
-	http_server_connection_timeout_start(conn);
+	http_server_connection_start_idle_timeout(conn);
 
 	e_debug(conn->event, "Connection created");
 	return conn;
@@ -1142,8 +1144,7 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 	}
 
 	timeout_remove(&conn->to_input);
-
-	http_server_connection_timeout_stop(conn);
+	timeout_remove(&conn->to_idle);
 	io_remove(&conn->io_resp_payload);
 	if (conn->conn.output != NULL)
 		o_stream_uncork(conn->conn.output);
