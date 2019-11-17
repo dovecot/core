@@ -76,6 +76,8 @@ static inline in_port_t http_url_get_port(const struct http_url *url)
  * HTTP URL manipulation
  */
 
+void http_url_init_authority_from(struct http_url *dest,
+				  const struct http_url *src);
 void http_url_copy_authority(pool_t pool, struct http_url *dest,
 			     const struct http_url *src);
 struct http_url *

@@ -513,6 +513,15 @@ int http_url_request_target_parse(const char *request_target,
  * HTTP URL manipulation
  */
 
+void http_url_init_authority_from(struct http_url *dest,
+				  const struct http_url *src)
+{
+	i_zero(dest);
+	dest->host = src->host;
+	dest->port = src->port;
+	dest->have_ssl = src->have_ssl;
+}
+
 void http_url_copy_authority(pool_t pool, struct http_url *dest,
 			     const struct http_url *src)
 {
