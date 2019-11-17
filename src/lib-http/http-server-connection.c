@@ -298,7 +298,9 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 
 	old_refcount = req->refcount;
 	conn->in_req_callback = TRUE;
-	http_server_request_callback(req);
+	T_BEGIN {
+		http_server_request_callback(req);
+	} T_END;
 	if (conn->closed) {
 		/* The callback managed to get this connection destroyed/closed
 		 */
