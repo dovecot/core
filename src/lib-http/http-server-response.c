@@ -269,6 +269,8 @@ http_server_response_flush_payload(struct http_server_response *resp)
 	    (ret = o_stream_finish(resp->payload_output)) <= 0) {
 		if (ret < 0)
 			http_server_connection_handle_output_error(conn);
+		else
+			http_server_connection_start_idle_timeout(conn);
 		return ret;
 	}
 
@@ -307,6 +309,11 @@ int http_server_response_finish_payload_out(struct http_server_response *resp)
 					    http_server_connection_output,
 					    conn);
 	}
+
+	if (conn->request_queue_head == NULL ||
+	    (conn->request_queue_head->state !=
+	     HTTP_SERVER_REQUEST_STATE_PROCESSING))
+		http_server_connection_start_idle_timeout(conn);
 
 	http_server_request_finished(resp->request);
 	http_server_connection_unref(&conn);
@@ -570,14 +577,16 @@ int http_server_response_send_more(struct http_server_response *resp)
 		}
 		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
-		/* Input is blocking */
+		/* Input is blocking (server needs to act; disable timeout) */
 		conn->output_locked = TRUE;
+		http_server_connection_stop_idle_timeout(conn);
 		conn->io_resp_payload = io_add_istream(resp->payload_input,
 			http_server_response_payload_input, resp);
 		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
-		/* Output is blocking */
+		/* Output is blocking (client needs to act; enable timeout) */
 		conn->output_locked = TRUE;
+		http_server_connection_start_idle_timeout(conn);
 		o_stream_set_flush_pending(output, TRUE);
 		//e_debug(resp->event, "Partially sent payload");
 		break;
