@@ -927,7 +927,7 @@ int http_server_connection_flush(struct http_server_connection *conn)
 	if ((ret = o_stream_flush(output)) <= 0) {
 		if (ret < 0)
 			http_server_connection_handle_output_error(conn);
-		return -1;
+		return ret;
 	}
 
 	http_server_connection_timeout_reset(conn);
