@@ -264,6 +264,12 @@ void http_server_request_fail_auth_basic(struct http_server_request *req,
 					 const char *reason, const char *realm)
 					 ATTR_NULL(2);
 
+/* Send a 405 failure response for a request with an unknown method. The allow
+   parameter is the value used for the mandatory "Allow" header in the response.
+ */
+void http_server_request_fail_bad_method(struct http_server_request *req,
+					 const char *allow);
+
 /* Call the specified callback when HTTP request is destroyed. This happens
    after one of the following:
 

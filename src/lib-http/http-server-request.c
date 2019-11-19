@@ -503,6 +503,20 @@ void http_server_request_fail_auth_basic(struct http_server_request *req,
 	http_server_request_fail_auth(req, reason, &chlng);
 }
 
+void http_server_request_fail_bad_method(struct http_server_request *req,
+					 const char *allow)
+{
+	struct http_server_response *resp;
+	const char *reason = "Method Not Allowed";
+
+	req->failed = TRUE;
+
+	resp = http_server_request_create_fail_response(req, 405, reason,
+							reason);
+	http_server_response_add_header(resp, "Allow", allow);
+	http_server_response_submit(resp);
+}
+
 /*
  * Payload input stream
  */
