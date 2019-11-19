@@ -24,6 +24,7 @@ struct dbox_save_mail {
 	struct dbox_file_append_context *file_append;
 	uint32_t seq;
 	uint32_t append_offset;
+	time_t save_date;
 	bool written_to_disk;
 };
 
@@ -185,6 +186,7 @@ static int mdbox_save_mail_write_metadata(struct mdbox_save_context *ctx,
 		return -1;
 	}
 	mail->written_to_disk = TRUE;
+	mail->save_date = ctx->ctx.ctx.data.save_date;
 	return 0;
 }
 
@@ -256,7 +258,6 @@ mdbox_save_set_map_uids(struct mdbox_save_context *ctx,
 	mdbox_update_header(mbox, ctx->ctx.trans, NULL);
 
 	i_zero(&rec);
-	rec.save_date = ioloop_time;
 	mails = array_get(&ctx->mails, &count);
 	for (i = 0; i < count; i++) {
 		mail_index_lookup_ext(view, mails[i].seq, mbox->ext_id,
@@ -267,6 +268,10 @@ mdbox_save_set_map_uids(struct mdbox_save_context *ctx,
 			continue;
 		}
 
+		if (mails[i].save_date > 0)
+			rec.save_date = mails[i].save_date;
+		else
+			rec.save_date = ioloop_time;
 		rec.map_uid = next_map_uid++;
 		mail_index_update_ext(ctx->ctx.trans, mails[i].seq,
 				      mbox->ext_id, &rec, NULL);
