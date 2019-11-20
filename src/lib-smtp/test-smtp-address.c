@@ -295,7 +295,8 @@ valid_path_parse_tests[] = {
 	},
 	{
 		.input = "u\"ser",
-		.flags = SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
+		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+			 SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
 			 SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
 			 SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN,
 		.address = { .localpart = NULL, .domain = NULL,
@@ -304,7 +305,8 @@ valid_path_parse_tests[] = {
 	},
 	{
 		.input = "user\"@domain.tld",
-		.flags = SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
+		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+			 SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
 			 SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN,
 		.address = { .localpart = NULL, .domain = NULL,
 			     .raw = "user\"@domain.tld" },
@@ -329,7 +331,8 @@ valid_path_parse_tests[] = {
 	},
 	{
 		.input = "bla$die%bla@die&bla",
-		.flags = SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
+		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+			 SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
 			 SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN,
 		.address = { .localpart = NULL, .domain = NULL,
 			     .raw = "bla$die%bla@die&bla" },
@@ -337,7 +340,8 @@ valid_path_parse_tests[] = {
 	},
 	{
 		.input = "/@)$@)BLAARGH!@#$$",
-		.flags = SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
+		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+			 SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
 			 SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN,
 		.address = { .localpart = NULL, .domain = NULL,
 			     .raw = "/@)$@)BLAARGH!@#$$" },
@@ -373,7 +377,8 @@ valid_path_parse_tests[] = {
 	},
 	{
 		.input = "f\xc3\xb6\xc3\xa4@\xc3\xb6\xc3\xa4",
-		.flags = SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
+		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+			 SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW |
 			 SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN |
 			 SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART |
 			 SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
@@ -898,6 +903,10 @@ invalid_path_parse_tests[] = {
 		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL
 	},
 	{
+		.input = "user@domain.tld",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN,
+	},
+	{
 		.input = "<>",
 	},
 	{
@@ -1014,6 +1023,10 @@ invalid_path_parse_tests[] = {
 	{
 		.input = "<@###domain.tld,@yetanotherdomain.tld.user@domain.tld>",
 	},
+	{
+		.input = "f\xc3\xb6\xc3\xa4@\xc3\xb6\xc3\xa4",
+		.flags = SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN,
+	}
 };
 
 unsigned int invalid_path_parse_test_count =
@@ -1036,7 +1049,8 @@ static void test_smtp_path_parse_invalid(void)
 
 		test_begin(t_strdup_printf("smtp path invalid [%d]", i));
 		test_out_reason(t_strdup_printf("parse(\"%s\")", test->input),
-				ret < 0, error);
+				(ret < 0 && !smtp_address_is_broken(address)),
+				error);
 		test_end();
 	} T_END;
 }

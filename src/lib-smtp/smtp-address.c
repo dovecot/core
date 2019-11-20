@@ -358,6 +358,11 @@ smtp_address_parse_path_broken(struct smtp_address_parser *aparser,
 	if (aparser->totally_broken ||
 	    HAS_NO_BITS(flags, SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN))
 		return -1;
+	if (*begin != '<' &&
+	    HAS_NO_BITS(flags, SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL)) {
+		/* brackets missing; totally broken */
+		return -1;
+	}
 	i_assert(aparser->parse);
 	if (aparser->parsed_any) {
 		if (endp_r != NULL)
