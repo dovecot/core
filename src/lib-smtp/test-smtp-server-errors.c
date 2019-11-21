@@ -2046,12 +2046,11 @@ test_mail_broken_path_client_input(struct client_connection *conn)
 			break;
 		case 1: /* bad command reply */
 			switch (client_index) {
-			case 0: case 1: case 2: case 4: case 5:
-			case 6: case 7: case 8:
+			case 0: case 1: case 2: case 3: case 4: case 5:
+			case 6: case 7: case 8: case 11: case 14: case 16:
 				i_assert(reply->status == 501);
 				break;
-			case 3: case 9: case 10: case 11: case 12: case 13:
-			case 14: case 15: case 16: case 17:
+			case 9: case 10: case 12: case 13: case 15: case 17:
 				i_assert(reply->status == 250);
 				break;
 			default:
