@@ -53,7 +53,7 @@ smtp_client_command_get_label(struct smtp_client_command *cmd)
 static void
 smtp_client_command_update_event(struct smtp_client_command *cmd)
 {
-	event_add_str(cmd->event, "name", smtp_client_command_get_name(cmd));
+	event_add_str(cmd->event, "cmd_name", smtp_client_command_get_name(cmd));
 	event_set_append_log_prefix(
 		cmd->event,
 		t_strdup_printf("command %s: ",
