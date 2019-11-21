@@ -1333,7 +1333,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			       user->service_ctx->debug || (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
 	event_add_fields(user->event, (const struct event_add_field []){
 		{ .key = "user", .value = user->input.username },
-		{ .key = "service", .value = ctx->service->name },
 		{ .key = "session", .value = user->input.session_id },
 		{ .key = NULL }
 	});

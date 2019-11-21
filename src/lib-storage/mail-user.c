@@ -263,8 +263,6 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 	i_assert(service != NULL);
 
 	user->service = p_strdup(user->pool, service);
-	event_add_str(user->event, "service", service);
-
 	mail_user_connection_init_from(&user->conn, user->pool, conn);
 }
 
