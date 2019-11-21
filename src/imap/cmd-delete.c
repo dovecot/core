@@ -21,6 +21,7 @@ bool cmd_delete(struct client_command_context *cmd)
 		return TRUE;
 
 	box = mailbox_alloc(ns->list, name, 0);
+	event_add_str(cmd->event, "mailbox", mailbox_get_vname(box));
 	mailbox_set_reason(box, "DELETE");
 	if (mailbox_is_any_inbox(box)) {
 		/* IMAP protocol allows this, but I think it's safer to

@@ -49,6 +49,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		return TRUE;
 
 	box = mailbox_alloc(ns->list, mailbox, 0);
+	event_add_str(cmd->event, "mailbox", mailbox_get_vname(box));
 	mailbox_set_reason(box, subscribe ? "SUBSCRIBE" : "UNSUBSCRIBE");
 	if (subscribe) {
 		if (!subscribe_is_valid_name(cmd, box)) {

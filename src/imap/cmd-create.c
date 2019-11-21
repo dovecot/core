@@ -38,6 +38,7 @@ bool cmd_create(struct client_command_context *cmd)
 	}
 
 	box = mailbox_alloc(ns->list, mailbox, 0);
+	event_add_str(cmd->event, "mailbox", mailbox_get_vname(box));
 	mailbox_set_reason(box, "CREATE");
 	if (mailbox_create(box, NULL, directory) < 0)
 		client_send_box_error(cmd, box);

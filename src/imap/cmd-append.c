@@ -933,6 +933,8 @@ bool cmd_append(struct client_command_context *cmd)
 	if (client_open_save_dest_box(cmd, mailbox, &ctx->box) < 0)
 		ctx->failed = TRUE;
 	else {
+		event_add_str(cmd->event, "mailbox",
+			      mailbox_get_vname(ctx->box));
 		ctx->t = mailbox_transaction_begin(ctx->box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS,
