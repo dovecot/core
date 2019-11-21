@@ -1337,22 +1337,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		{ .key = "session", .value = user->input.session_id },
 		{ .key = NULL }
 	});
-	if (user->input.local_ip.family != 0) {
-		event_add_str(user->event, "local_ip",
-			      net_ip2addr(&user->input.local_ip));
-	}
-	if (user->input.local_port != 0) {
-		event_add_int(user->event, "local_port",
-			      user->input.local_port);
-	}
-	if (user->input.remote_ip.family != 0) {
-		event_add_str(user->event, "remote_ip",
-			      net_ip2addr(&user->input.remote_ip));
-	}
-	if (user->input.remote_port != 0) {
-		event_add_int(user->event, "remote_port",
-			      user->input.remote_port);
-	}
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		(void)settings_parse_line(user->set_parser, "mail_debug=yes");
