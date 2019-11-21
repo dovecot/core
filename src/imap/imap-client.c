@@ -68,7 +68,7 @@ static void client_init_urlauth(struct client *client)
 	config.url_port = client->set->imap_urlauth_port;
 	config.socket_path = t_strconcat(client->user->set->base_dir,
 					 "/"IMAP_URLAUTH_SOCKET_NAME, NULL);
-	config.session_id = client->session_id;
+	config.session_id = client->user->session_id;
 	config.access_user = client->user->username;
 	config.access_service = "imap";
 	config.access_anonymous = client->user->anonymous;
@@ -107,7 +107,7 @@ static bool user_has_special_use_mailboxes(struct mail_user *user)
 	return FALSE;
 }
 
-struct client *client_create(int fd_in, int fd_out, const char *session_id,
+struct client *client_create(int fd_in, int fd_out,
 			     struct event *event, struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
@@ -131,7 +131,6 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->set = set;
 	client->smtp_set = smtp_set;
 	client->service_user = service_user;
-	client->session_id = p_strdup(pool, session_id);
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in,
@@ -279,7 +278,7 @@ const char *client_stats(struct client *client)
 	const struct var_expand_table logout_tab[] = {
 		{ 'i', dec2str(i_stream_get_absolute_offset(client->input)), "input" },
 		{ 'o', dec2str(client->output->offset), "output" },
-		{ '\0', client->session_id, "session" },
+		{ '\0', client->user->session_id, "session" },
 		{ '\0', dec2str(client->fetch_hdr_count), "fetch_hdr_count" },
 		{ '\0', dec2str(client->fetch_hdr_bytes), "fetch_hdr_bytes" },
 		{ '\0', dec2str(client->fetch_body_count), "fetch_body_count" },

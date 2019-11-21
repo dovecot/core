@@ -289,7 +289,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		return -1;
 	}
 
-	client = client_create(fd_in, fd_out, input->session_id,
+	client = client_create(fd_in, fd_out,
 			       event, mail_user, user, imap_set, smtp_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
