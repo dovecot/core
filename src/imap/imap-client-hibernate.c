@@ -61,10 +61,8 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 			    (unsigned long long)peer_st.st_ino);
 	}
 
-	if (client->session_id != NULL) {
-		str_append(cmd, "\tsession=");
-		str_append_tabescaped(cmd, client->session_id);
-	}
+	str_append(cmd, "\tsession=");
+	str_append_tabescaped(cmd, user->session_id);
 	if (user->session_create_time != 0) {
 		str_printfa(cmd, "\tsession_created=%s",
 			    dec2str(user->session_create_time));

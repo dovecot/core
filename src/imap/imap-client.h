@@ -153,7 +153,6 @@ struct client {
 
 	struct imap_client_vfuncs v;
 	struct event *event;
-	const char *session_id;
 	const char *const *userdb_fields; /* for internal session saving/restoring */
 
 	int fd_in, fd_out;
@@ -262,7 +261,7 @@ extern unsigned int imap_feature_qresync;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out, const char *session_id,
+struct client *client_create(int fd_in, int fd_out,
 			     struct event *event, struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
