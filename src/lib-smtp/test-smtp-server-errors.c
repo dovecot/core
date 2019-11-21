@@ -2226,10 +2226,10 @@ static void test_mail_broken_path(void)
 	smtp_server_set.mail_path_allow_broken = TRUE;
 	smtp_server_set.max_client_idle_time_msecs = 1000;
 
-	test_begin("MAIL workarounds");
+	test_begin("MAIL broken path");
 	test_run_client_server(&smtp_server_set,
 		test_server_mail_broken_path,
-		test_client_mail_broken_path, 16);
+		test_client_mail_broken_path, 18);
 	test_end();
 }
 
