@@ -266,12 +266,6 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 	event_add_str(user->event, "service", service);
 
 	mail_user_connection_init_from(&user->conn, user->pool, conn);
-	if (user->conn.local_ip != NULL)
-		event_add_str(user->event, "local_ip",
-			      net_ip2addr(user->conn.local_ip));
-	if (user->conn.remote_ip != NULL)
-		event_add_str(user->event, "remote_ip",
-			      net_ip2addr(user->conn.remote_ip));
 }
 
 const struct var_expand_table *
