@@ -253,6 +253,14 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		{ .key = "session", .value = input->session_id },
 		{ .key = NULL }
 	});
+	if (input->local_ip.family != 0)
+		event_add_str(event, "local_ip", net_ip2addr(&input->local_ip));
+	if (input->local_port != 0)
+		event_add_int(event, "local_port", input->local_port);
+	if (input->remote_ip.family != 0)
+		event_add_str(event, "remote_ip", net_ip2addr(&input->remote_ip));
+	if (input->remote_port != 0)
+		event_add_int(event, "remote_port", input->remote_port);
 
 	service_input = *input;
 	service_input.parent_event = event;
