@@ -250,7 +250,6 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	event_add_category(event, &event_category_imap);
 	event_add_fields(event, (const struct event_add_field []){
 		{ .key = "user", .value = input->username },
-		{ .key = "session", .value = input->session_id },
 		{ .key = NULL }
 	});
 	if (input->local_ip.family != 0)
@@ -269,6 +268,10 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		event_unref(&event);
 		return -1;
 	}
+	/* Add the session only after creating the user, because
+	   input->session_id may be NULL */
+	event_add_str(event, "session", mail_user->session_id);
+
 	restrict_access_allow_coredumps(TRUE);
 
 	smtp_set = mail_storage_service_user_get_set(user)[1];
