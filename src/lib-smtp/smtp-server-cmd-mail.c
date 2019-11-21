@@ -107,8 +107,7 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 		SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY |
 		SMTP_ADDRESS_PARSE_FLAG_PRESERVE_RAW;
 	if (*params != '\0' &&
-	    (set->mail_path_allow_broken ||
-	     (set->workarounds & SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH) != 0))
+	    (set->workarounds & SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH) != 0)
 		path_parse_flags |= SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL;
 	if (set->mail_path_allow_broken) {
 		path_parse_flags |=
