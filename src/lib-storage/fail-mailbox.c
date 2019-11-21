@@ -325,7 +325,7 @@ fail_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	box->event = event_create(box->storage->event);
 	event_add_category(box->event, &event_category_mailbox);
-	event_add_str(box->event, "name", box->vname);
+	event_add_str(box->event, "mailbox", box->vname);
 	event_set_append_log_prefix(box->event,
 		t_strdup_printf("Mailbox %s: ", box->vname));
 

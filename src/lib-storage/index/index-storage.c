@@ -387,7 +387,7 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 	box->index_prefix = p_strdup(box->pool, index_prefix);
 	box->event = event_create(box->storage->event);
 	event_add_category(box->event, &event_category_mailbox);
-	event_add_str(box->event, "name", box->vname);
+	event_add_str(box->event, "mailbox", box->vname);
 	event_set_append_log_prefix(box->event,
 		t_strdup_printf("Mailbox %s: ", box->vname));
 
