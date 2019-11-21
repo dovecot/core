@@ -283,6 +283,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	else
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	ctx->box = mailbox_alloc(ctx->ns->list, mailbox, flags);
+	event_add_str(ctx->cmd->event, "mailbox", mailbox_get_vname(ctx->box));
 	mailbox_set_reason(ctx->box, readonly ? "EXAMINE" : "SELECT");
 	if (mailbox_open(ctx->box) < 0) {
 		client_send_box_error(ctx->cmd, ctx->box);

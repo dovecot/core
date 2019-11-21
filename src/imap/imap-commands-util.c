@@ -66,9 +66,11 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 
 bool client_verify_open_mailbox(struct client_command_context *cmd)
 {
-	if (cmd->client->mailbox != NULL)
+	if (cmd->client->mailbox != NULL) {
+		event_add_str(cmd->event, "mailbox",
+			      mailbox_get_vname(cmd->client->mailbox));
 		return TRUE;
-	else {
+	} else {
 		client_send_tagline(cmd, "BAD No mailbox selected.");
 		return FALSE;
 	}
