@@ -87,8 +87,12 @@ http_client_request_result_event(struct http_client_request *req)
 		}
 	}
 
-	return event_create_passthrough(req->event)->
-		add_int("status_code", req->last_status)->
+	struct event_passthrough *e = event_create_passthrough(req->event);
+	if (req->queue != NULL &&
+	    req->queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX)
+		e->add_str("dest_ip", net_ip2addr(&req->queue->addr.a.tcp.ip));
+
+	return e->add_int("status_code", req->last_status)->
 		add_int("attempts", req->attempts)->
 		add_int("redirects", req->redirects)->
 		add_int("bytes_in", req->bytes_in)->
