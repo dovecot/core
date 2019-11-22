@@ -67,13 +67,16 @@ static void o_stream_close_full(struct ostream *stream, bool close_parents)
 		stream->stream_errno = EPIPE;
 }
 
-void o_stream_destroy(struct ostream **stream)
+void o_stream_destroy(struct ostream **_stream)
 {
-	if (*stream == NULL)
+	struct ostream *stream = *_stream;
+
+	if (stream == NULL)
 		return;
 
-	o_stream_close_full(*stream, FALSE);
-	o_stream_unref(stream);
+	*_stream = NULL;
+	o_stream_close_full(stream, FALSE);
+	o_stream_unref(&stream);
 }
 
 void o_stream_ref(struct ostream *stream)
