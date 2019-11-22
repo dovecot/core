@@ -619,6 +619,8 @@ void connection_init_client_ip_from(struct connection_list *list,
 		i_zero(&conn->local_ip);
 
 	connection_init(list, conn, name);
+	if (hostname != NULL)
+		event_add_str(conn->event, "dest_host", hostname);
 	connection_update_event(conn);
 }
 
