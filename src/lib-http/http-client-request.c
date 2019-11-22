@@ -53,8 +53,8 @@ static void
 http_client_request_update_event(struct http_client_request *req)
 {
 	event_add_str(req->event, "method", req->method);
-	event_add_str(req->event, "host", req->origin_url.host.name);
-	event_add_int(req->event, "port", http_url_get_port(&req->origin_url));
+	event_add_str(req->event, "dest_host", req->origin_url.host.name);
+	event_add_int(req->event, "dest_port", http_url_get_port(&req->origin_url));
 	if (req->target != NULL)
 		event_add_str(req->event, "target", req->target);
 	event_set_append_log_prefix(req->event, t_strdup_printf(
