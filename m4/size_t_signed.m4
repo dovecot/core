@@ -3,14 +3,13 @@ dnl * it's more likely vulnerable to buffer overflows. Anyway, C99 specifies
 dnl * that it's unsigned and only some old systems define it as signed.
 AC_DEFUN([DOVECOT_SIZE_T_SIGNED], [
   AC_CACHE_CHECK([whether size_t is signed],i_cv_signed_size_t,[
-    AC_RUN_IFELSE([AC_LANG_SOURCE([[
+    AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
       #include <sys/types.h>
       #include <stdlib.h>
-      int main() {
-        /* return 0 if we're signed */
-        exit((size_t)(int)-1 <= 0 ? 0 : 1);
-      }
+      int arr[(size_t)-1 > 0 ? 1 : -1];
     ]])],[
+      i_cv_signed_size_t=no
+    ],[
       i_cv_signed_size_t=yes
   
       echo
@@ -23,8 +22,6 @@ AC_DEFUN([DOVECOT_SIZE_T_SIGNED], [
         AC_MSG_ERROR([aborting])
       fi
       echo "..ignoring as requested.."
-    ],[
-      i_cv_signed_size_t=no
     ],[])
   ])
   dnl Note: we check size_t rather than ssize_t here, because on OSX 10.2
