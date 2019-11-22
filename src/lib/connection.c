@@ -619,8 +619,6 @@ void connection_init_client_ip_from(struct connection_list *list,
 		i_zero(&conn->local_ip);
 
 	connection_init(list, conn, name);
-
-	event_field_clear(conn->event, "socket_path");
 	connection_update_event(conn);
 }
 
@@ -639,12 +637,6 @@ void connection_init_client_unix(struct connection_list *list,
 	conn->unix_socket = TRUE;
 
 	connection_init(list, conn, path);
-
-	event_field_clear(conn->event, "ip");
-	event_field_clear(conn->event, "port");
-	event_field_clear(conn->event, "client_ip");
-	event_field_clear(conn->event, "client_port");
-
 	event_add_str(conn->event, "socket_path", path);
 }
 
