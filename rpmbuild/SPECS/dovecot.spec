@@ -2,10 +2,12 @@
 %global __requires_exclude_from %{_docdir}
 Summary: Secure imap and pop3 server
 Name: dovecot
-Epoch: 1
+# for whatever reason hin is at epoch 2
+Epoch: 2
 Version: 2.2.36.4
 %global prever %{nil}
-Release: 1%{?dist}
+#Release: 1%{?dist}
+Release: op01%{?dist}
 #dovecot itself is MIT, a few sources are PD, pigeonhole is LGPLv2
 License: MIT and LGPLv2
 Group: System Environment/Daemons
