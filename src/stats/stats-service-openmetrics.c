@@ -5,6 +5,7 @@
 #include "str.h"
 #include "array.h"
 #include "ioloop.h"
+#include "ostream.h"
 #include "stats-dist.h"
 #include "http-server.h"
 #include "client-http.h"
@@ -28,10 +29,29 @@ enum openmetrics_metric_type {
 	OPENMETRICS_METRIC_TYPE_DURATION,
 };
 
+enum openmetrics_request_state {
+	OPENMETRICS_REQUEST_STATE_INIT = 0,
+	OPENMETRICS_REQUEST_STATE_METRIC,
+	OPENMETRICS_REQUEST_STATE_METRIC_HEADER,
+	OPENMETRICS_REQUEST_STATE_SUB_METRICS,
+	OPENMETRICS_REQUEST_STATE_METRIC_BODY,
+	OPENMETRICS_REQUEST_STATE_FINISHED,
+};
+
+struct openmetrics_request_sub_metric {
+	size_t labels_pos;
+	const struct metric *metric;
+	unsigned int sub_index;
+};
+
 struct openmetrics_request {
+	enum openmetrics_request_state state;
+	struct stats_metrics_iter *stats_iter;
 	const struct metric *metric;
 	enum openmetrics_metric_type metric_type;
 	string_t *labels;
+	size_t labels_pos;
+	ARRAY(struct openmetrics_request_sub_metric) sub_metric_stack;
 
 	bool has_submetric:1;
 };
@@ -46,10 +66,6 @@ struct openmetrics_request {
    may contain ASCII letters and digits, as well as underscores and colons. It
    must match the regex [a-zA-Z_:][a-zA-Z0-9_:]*.
  */
-
-static void
-openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
-			      const struct metric *metric, int64_t timestamp);
 
 static bool openmetrics_check_name(const char *name)
 {
@@ -260,86 +276,273 @@ static void
 openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 			     const struct metric *metric, int64_t timestamp)
 {
-	if (!openmetrics_check_name(metric->sub_name))
-		return;
 	str_append_c(req->labels, '"');
 	openmetrics_escape_string(req->labels, metric->sub_name);
 	str_append_c(req->labels, '"');
 
 	openmetrics_export_metric_value(req, out, metric, timestamp);
 
-	size_t label_pos = str_len(req->labels);
-	openmetrics_export_submetrics(req, out, metric, timestamp);
-	str_truncate(req->labels, label_pos);
-
 	req->has_submetric = TRUE;
 }
 
-static void
-openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
-			      const struct metric *metric, int64_t timestamp)
+static const struct metric *
+openmetrics_export_sub_metric_get(struct openmetrics_request_sub_metric *reqsm)
 {
 	struct metric *const *sub_metric;
-	if (!array_is_created(&metric->sub_metrics))
-		return;
+
+	/* Get the first valid sub-metric */
+
+	if (reqsm->sub_index >= array_count(&reqsm->metric->sub_metrics))
+		return NULL;
+
+	sub_metric = array_idx(&reqsm->metric->sub_metrics, reqsm->sub_index);
+	while (((*sub_metric)->group_by == NULL ||
+	        !openmetrics_check_name((*sub_metric)->group_by->field)) &&
+	       ++reqsm->sub_index < array_count(&reqsm->metric->sub_metrics)) {
+		sub_metric = array_idx(&reqsm->metric->sub_metrics,
+				       reqsm->sub_index);
+	}
+	if (reqsm->sub_index == array_count(&reqsm->metric->sub_metrics))
+		return NULL;
+
+	return *sub_metric;
+}
+
+static const struct metric *
+openmetrics_export_sub_metric_get_next(
+	struct openmetrics_request_sub_metric *reqsm)
+{
+	/* Get the next valid sub-metric */
+	reqsm->sub_index++;
+	return openmetrics_export_sub_metric_get(reqsm);
+}
+
+static struct openmetrics_request_sub_metric *
+openmetrics_export_sub_metric_down(struct openmetrics_request *req)
+{
+	struct openmetrics_request_sub_metric *reqsm =
+		array_back_modifiable(&req->sub_metric_stack);
+	const struct metric *sub_metric;
+
+	/* Descend further into sub-metric tree */
+
+	if (reqsm->metric->group_by == NULL ||
+	    !array_is_created(&reqsm->metric->sub_metrics) ||
+	    array_count(&reqsm->metric->sub_metrics) == 0)
+		return NULL;
+
+	/* Find sub-metric to descend into */
+	sub_metric = openmetrics_export_sub_metric_get(reqsm);
+	if (sub_metric == NULL) {
+		/* None valid */
+		return NULL;
+	}
+
 	if (str_len(req->labels) > 0)
 		str_append_c(req->labels, ',');
-	str_append(req->labels, metric->group_by->field);
+	str_append(req->labels, reqsm->metric->group_by->field);
 	str_append_c(req->labels, '=');
-	array_foreach(&metric->sub_metrics, sub_metric) {
-		size_t label_pos = str_len(req->labels);
-		openmetrics_export_submetric(req, out, *sub_metric, timestamp);
-		str_truncate(req->labels, label_pos);
+	reqsm->labels_pos = str_len(req->labels);
+
+	/* Descend */
+	reqsm = array_append_space(&req->sub_metric_stack);
+	reqsm->metric = sub_metric;
+
+	return reqsm;
+}
+
+static struct openmetrics_request_sub_metric *
+openmetrics_export_sub_metric_up_next(struct openmetrics_request *req)
+{
+	struct openmetrics_request_sub_metric *reqsm;
+	const struct metric *sub_metric = NULL;
+
+	/* Ascend to next sub-metric of an ancestor */
+
+	while (array_count(&req->sub_metric_stack) > 1) {
+		/* Ascend */
+		array_pop_back(&req->sub_metric_stack);
+		reqsm = array_back_modifiable(&req->sub_metric_stack);
+		str_truncate(req->labels, reqsm->labels_pos);
+
+		/* Find next sub-metric */
+		sub_metric = openmetrics_export_sub_metric_get_next(reqsm);
+		if (sub_metric != NULL) {
+			/* None valid */
+			break;
+		}
 	}
+	if (sub_metric == NULL) {
+		/* End of sub-metric tree */
+		return NULL;
+	}
+
+	/* Descend */
+	reqsm = array_append_space(&req->sub_metric_stack);
+	reqsm->metric = sub_metric;
+	return reqsm;
+}
+
+static struct openmetrics_request_sub_metric *
+openmetrics_export_sub_metric_current(struct openmetrics_request *req)
+{
+	struct openmetrics_request_sub_metric *reqsm;
+
+	/* Get state for current sub-metric */
+
+	if (!array_is_created(&req->sub_metric_stack))
+		i_array_init(&req->sub_metric_stack, 8);
+	if (array_count(&req->sub_metric_stack) >= 2) {
+		/* Already walking the sub-metric tree */
+		return array_back_modifiable(&req->sub_metric_stack);
+	}
+
+	/* Start tree walking */
+
+	reqsm = array_append_space(&req->sub_metric_stack);
+	reqsm->metric = req->metric;
+	reqsm->labels_pos = str_len(req->labels);
+
+	return openmetrics_export_sub_metric_down(req);
+}
+
+static bool
+openmetrics_export_sub_metrics(struct openmetrics_request *req, string_t *out,
+			       int64_t timestamp)
+{
+	struct openmetrics_request_sub_metric *reqsm = NULL;
+
+	if (!array_is_created(&req->metric->sub_metrics))
+		return TRUE;
+
+	reqsm = openmetrics_export_sub_metric_current(req);
+	if (reqsm == NULL) {
+		/* No valid sub-metrics to export */
+		return TRUE;
+	}
+	openmetrics_export_submetric(req, out, reqsm->metric, timestamp);
+
+	/* Try do descend into sub-metrics tree for next sub-metric to export.
+	 */
+	reqsm = openmetrics_export_sub_metric_down(req);
+	if (reqsm == NULL) {
+		/* Sub-metrics of this metric exhausted; ascend to the next
+		   parent sub-metric.
+		 */
+		reqsm = openmetrics_export_sub_metric_up_next(req);
+	}
+
+	if (reqsm == NULL) {
+		/* Finished */
+		array_clear(&req->sub_metric_stack);
+		return TRUE;
+	}
+	return FALSE;
 }
 
 static void
-openmetrics_export_metric(struct openmetrics_request *req, string_t *out,
-			  int64_t timestamp)
+openmetrics_export_metric_body(struct openmetrics_request *req, string_t *out,
+			       int64_t timestamp)
 {
-	const struct metric *metric = req->metric;
+	openmetrics_export_metric_value(req, out, req->metric, timestamp);
+}
 
-	if (!openmetrics_check_metric(metric))
-		return;
+static void openmetrics_export_next(struct openmetrics_request *req)
+{
+	/* Determine what to export next. */
+	switch (req->metric_type) {
+	case OPENMETRICS_METRIC_TYPE_COUNT:
+		/* Continue with duration output for this metric. */
+		req->metric_type = OPENMETRICS_METRIC_TYPE_DURATION;
+		req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
+		break;
+	case OPENMETRICS_METRIC_TYPE_DURATION:
+		/* Continue with next metric */
+		req->state = OPENMETRICS_REQUEST_STATE_METRIC;
+		break;
+	}
+}
 
-	req->labels = t_str_new(32);
-	size_t label_pos;
-	openmetrics_export_metric_labels(req->labels, metric);
+static void openmetrics_export_continue(struct openmetrics_request *req,
+					string_t *out, int64_t timestamp)
+{
+	switch (req->state) {
+	case OPENMETRICS_REQUEST_STATE_INIT:
+		/* Export the Dovecot base metrics. */
+		i_assert(req->stats_iter == NULL);
+		req->stats_iter = stats_metrics_iterate_init(stats_metrics);
+		openmetrics_export_dovecot(out, timestamp);
+		req->state = OPENMETRICS_REQUEST_STATE_METRIC;
+		break;
+	case OPENMETRICS_REQUEST_STATE_METRIC:
+		/* Export the next metric. */
+		i_assert(req->stats_iter != NULL);
+		do {
+			req->metric = stats_metrics_iterate(req->stats_iter);
+		} while (req->metric != NULL &&
+			 !openmetrics_check_metric(req->metric));
+		if (req->metric == NULL) {
+			/* Finished exporting metrics. */
+			req->state = OPENMETRICS_REQUEST_STATE_FINISHED;
+			break;
+		}
 
-	/* Export count output */
+		if (req->labels == NULL)
+			req->labels = str_new(default_pool, 32);
+		else
+			str_truncate(req->labels, 0);
+		openmetrics_export_metric_labels(req->labels, req->metric);
+		req->labels_pos = str_len(req->labels);
 
-	req->metric_type = OPENMETRICS_METRIC_TYPE_COUNT;
-	openmetrics_export_metric_header(req, out);
+		/* Start with count output for this metric. */
+		req->metric_type = OPENMETRICS_METRIC_TYPE_COUNT;
+		req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
+		/* Fall through */
+	case OPENMETRICS_REQUEST_STATE_METRIC_HEADER:
+		/* Export the HELP/TYPE header for the current metric */
+		str_truncate(req->labels, req->labels_pos);
+		req->has_submetric = FALSE;
+		openmetrics_export_metric_header(req, out);
+		req->state = OPENMETRICS_REQUEST_STATE_SUB_METRICS;
+		break;
+	case OPENMETRICS_REQUEST_STATE_SUB_METRICS:
+		/* Export the sub-metrics for the current metric. This will
+		   return for each sub-metric, so that the out string buffer
+		   stays small. */
+		if (!openmetrics_export_sub_metrics(req, out, timestamp))
+			break;
+		/* All sub-metrics written. */
+		if (!req->has_submetric) {
+			/* No sub-metrics; write the top-level metric body */
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC_BODY;
+		} else {
+			/* Sub-metrics present; skip the top-level metric body
+			 */
+			openmetrics_export_next(req);
+		}
+		break;
+	case OPENMETRICS_REQUEST_STATE_METRIC_BODY:
+		/* Export the body of the current metric. */
+		str_truncate(req->labels, req->labels_pos);
+		openmetrics_export_metric_body(req, out, timestamp);
+		openmetrics_export_next(req);
+		break;
+	case OPENMETRICS_REQUEST_STATE_FINISHED:
+		i_unreached();
+	}
+}
 
-	/* Put all sub-metrics before the actual value */
-	req->has_submetric = FALSE;
-	label_pos = str_len(req->labels);
-	openmetrics_export_submetrics(req, out, metric, timestamp);
-	str_truncate(req->labels, label_pos);
-
-	if (!req->has_submetric)
-		openmetrics_export_metric_value(req, out, metric, timestamp);
-
-	/* Export duration output */
-
-	req->metric_type = OPENMETRICS_METRIC_TYPE_DURATION;
-	openmetrics_export_metric_header(req, out);
-
-	/* Put all sub-metrics before the actual value */
-	req->has_submetric = FALSE;
-	openmetrics_export_submetrics(req, out, metric, timestamp);
-	str_truncate(req->labels, label_pos);
-
-	if (!req->has_submetric)
-		openmetrics_export_metric_value(req, out, metric, timestamp);
+static void openmetrics_request_deinit(struct openmetrics_request *req)
+{
+	stats_metrics_iterate_deinit(&req->stats_iter);
+	str_free(&req->labels);
+	array_free(&req->sub_metric_stack);
 }
 
 static void
 openmetrics_export(struct openmetrics_request *req,
 		   struct http_server_response *resp)
 {
-	struct stats_metrics_iter *iter;
-	const struct metric *metric;
 	string_t *out = t_str_new(2048);
 	int64_t timestamp;
 
@@ -347,14 +550,10 @@ openmetrics_export(struct openmetrics_request *req,
 	timestamp = ((int64_t)ioloop_timeval.tv_sec * 1000 +
 		     (int64_t)ioloop_timeval.tv_usec / 1000);
 
-	openmetrics_export_dovecot(out, timestamp);
-	
-	iter = stats_metrics_iterate_init(stats_metrics);
-	while ((metric = stats_metrics_iterate(iter)) != NULL) {
-		req->metric = metric;
-		openmetrics_export_metric(req, out, timestamp);
-	}
-	stats_metrics_iterate_deinit(&iter);
+	while (req->state != OPENMETRICS_REQUEST_STATE_FINISHED)
+		openmetrics_export_continue(req, out, timestamp);
+
+	openmetrics_request_deinit(req);
 
 	http_server_response_set_payload_data(
 		resp, str_data(out), str_len(out));
