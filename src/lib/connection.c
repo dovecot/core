@@ -353,16 +353,21 @@ void connection_update_event(struct connection *conn)
 	event_set_append_log_prefix(conn->event, str_c(prefix));
 
 	if (conn->local_ip.family > 0) {
-		event_add_str(conn->event, "local_ip",
+		event_add_str(conn->event, conn->list->set.client ?
+			      "source_ip" : "local_ip",
 			      net_ip2addr(&conn->local_ip));
 	}
 
 	if (conn->remote_ip.family > 0) {
-		event_add_str(conn->event, "remote_ip",
+		event_add_str(conn->event, conn->list->set.client ?
+			      "dest_ip" : "remote_ip",
 			      net_ip2addr(&conn->remote_ip));
 	}
-	if (conn->remote_port > 0)
-		event_add_int(conn->event, "remote_port", conn->remote_port);
+	if (conn->remote_port > 0) {
+		event_add_int(conn->event, conn->list->set.client ?
+			      "dest_port" : "remote_port",
+			      conn->remote_port);
+	}
 
 	if (conn->remote_pid != (pid_t)-1)
 		event_add_int(conn->event, "remote_pid", conn->remote_pid);
@@ -616,11 +621,7 @@ void connection_init_client_ip_from(struct connection_list *list,
 	connection_init(list, conn, name);
 
 	event_field_clear(conn->event, "socket_path");
-
-	if (my_ip != NULL)
-		event_add_str(conn->event, "client_ip", net_ip2addr(my_ip));
-	event_add_str(conn->event, "ip", net_ip2addr(ip));
-	event_add_str(conn->event, "port", dec2str(port));
+	connection_update_event(conn);
 }
 
 void connection_init_client_ip(struct connection_list *list,
