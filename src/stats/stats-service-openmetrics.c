@@ -328,28 +328,28 @@ static void openmetrics_export(struct http_server_response *resp)
 
 static void
 stats_service_openmetrics_request(void *context ATTR_UNUSED,
-				  struct http_server_request *req,
+				  struct http_server_request *hsreq,
 				  const char *sub_path)
 {
-	const struct http_request *hreq = http_server_request_get(req);
+	const struct http_request *hreq = http_server_request_get(hsreq);
 	struct http_server_response *resp;
 
 	if (strcmp(hreq->method, "OPTIONS") == 0) {
-		resp = http_server_response_create(req, 200, "OK");
+		resp = http_server_response_create(hsreq, 200, "OK");
 		http_server_response_add_header(resp, "Allow", "GET");
 		http_server_response_submit(resp);
 		return;
 	}
 	if (strcmp(hreq->method, "GET") != 0) {
-		http_server_request_fail_bad_method(req, "GET");
+		http_server_request_fail_bad_method(hsreq, "GET");
 		return;
 	}
 	if (*sub_path != '\0') {
-		http_server_request_fail(req, 404, "Not Found");
+		http_server_request_fail(hsreq, 404, "Not Found");
 		return;
 	}
 
-	resp = http_server_response_create(req, 200, "OK");
+	resp = http_server_response_create(hsreq, 200, "OK");
 	http_server_response_add_header(
 		resp, "Content-Type", "text/plain; "
 				      "version="OPENMETRICS_CONTENT_VERSION"; "
