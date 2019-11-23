@@ -332,12 +332,12 @@ stats_service_openmetrics_request(void *context ATTR_UNUSED,
 				  const char *sub_path)
 {
 	const struct http_request *hreq = http_server_request_get(hsreq);
-	struct http_server_response *resp;
+	struct http_server_response *hsresp;
 
 	if (strcmp(hreq->method, "OPTIONS") == 0) {
-		resp = http_server_response_create(hsreq, 200, "OK");
-		http_server_response_add_header(resp, "Allow", "GET");
-		http_server_response_submit(resp);
+		hsresp = http_server_response_create(hsreq, 200, "OK");
+		http_server_response_add_header(hsresp, "Allow", "GET");
+		http_server_response_submit(hsresp);
 		return;
 	}
 	if (strcmp(hreq->method, "GET") != 0) {
@@ -349,15 +349,15 @@ stats_service_openmetrics_request(void *context ATTR_UNUSED,
 		return;
 	}
 
-	resp = http_server_response_create(hsreq, 200, "OK");
+	hsresp = http_server_response_create(hsreq, 200, "OK");
 	http_server_response_add_header(
-		resp, "Content-Type", "text/plain; "
-				      "version="OPENMETRICS_CONTENT_VERSION"; "
-				      "charset=utf-8");
+		hsresp, "Content-Type",
+		"text/plain; version="OPENMETRICS_CONTENT_VERSION"; "
+		"charset=utf-8");
 
-	openmetrics_export(resp);
+	openmetrics_export(hsresp);
 
-	http_server_response_submit(resp);
+	http_server_response_submit(hsresp);
 }
 
 void stats_service_openmetrics_init(void)
