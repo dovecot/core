@@ -51,10 +51,39 @@ static void test_imap_parser_crlf(void)
 	test_end();
 }
 
+static void test_imap_parser_partial_list(void)
+{
+	static const char *test_input = "((((foo {1000000}\r\n";
+	struct istream *input;
+	struct imap_parser *parser;
+	const struct imap_arg *args, *sub_list;
+
+	test_begin("imap parser partial list");
+	input = test_istream_create(test_input);
+	parser = imap_parser_create(input, NULL, 1024);
+
+	(void)i_stream_read(input);
+	test_assert(imap_parser_read_args(parser, 0,
+		IMAP_PARSE_FLAG_LITERAL_SIZE, &args) == 1);
+	for (unsigned int i = 0; i < 4; i++) {
+		sub_list = imap_arg_as_list(&args[0]);
+		test_assert(IMAP_ARG_IS_EOL(&args[1]));
+		args = sub_list;
+	}
+	test_assert(imap_arg_atom_equals(&args[0], "foo"));
+	test_assert(args[1].type == IMAP_ARG_LITERAL_SIZE);
+	test_assert(IMAP_ARG_IS_EOL(&args[2]));
+
+	imap_parser_unref(&parser);
+	i_stream_destroy(&input);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_parser_crlf,
+		test_imap_parser_partial_list,
 		NULL
 	};
 	return test_run(test_functions);
