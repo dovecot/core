@@ -353,8 +353,8 @@ static void fs_posix_file_close(struct fs_file *_file)
 
 	if (file->fd != -1 && file->file.output == NULL) {
 		if (close(file->fd) < 0) {
-			fs_set_critical(file->file.fs, "close(%s) failed: %m",
-					file->full_path);
+			e_error(_file->event, "close(%s) failed: %m",
+				file->full_path);
 		}
 		file->fd = -1;
 	}
@@ -378,8 +378,8 @@ static void fs_posix_file_deinit(struct fs_file *_file)
 			break;
 		/* failed to create/replace this. delete the temp file */
 		if (unlink(file->temp_path) < 0) {
-			fs_set_critical(_file->fs, "unlink(%s) failed: %m",
-					file->temp_path);
+			e_error(_file->event, "unlink(%s) failed: %m",
+				file->temp_path);
 		}
 		break;
 	}
