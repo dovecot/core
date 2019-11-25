@@ -37,13 +37,14 @@ static struct fs *fs_sis_alloc(void)
 }
 
 static int
-fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set)
+fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set,
+	    const char **error_r)
 {
 	enum fs_properties props;
-	const char *parent_name, *parent_args, *error;
+	const char *parent_name, *parent_args;
 
 	if (*args == '\0') {
-		fs_set_error(_fs, "Parent filesystem not given as parameter");
+		*error_r = "Parent filesystem not given as parameter";
 		return -1;
 	}
 
@@ -55,14 +56,12 @@ fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
-		fs_set_error(_fs, "%s", error);
+	if (fs_init(parent_name, parent_args, set, &_fs->parent, error_r) < 0)
 		return -1;
-	}
 	props = fs_get_properties(_fs->parent);
 	if ((props & FS_SIS_REQUIRED_PROPS) != FS_SIS_REQUIRED_PROPS) {
-		fs_set_error(_fs, "%s backend can't be used with SIS",
-			     parent_name);
+		*error_r = t_strdup_printf("%s backend can't be used with SIS",
+					   parent_name);
 		return -1;
 	}
 	return 0;

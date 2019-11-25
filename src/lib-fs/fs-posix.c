@@ -75,7 +75,8 @@ static struct fs *fs_posix_alloc(void)
 }
 
 static int
-fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
+fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set,
+	      const char **error_r)
 {
 	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
 	const char *const *tmp;
@@ -112,16 +113,16 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 		} else if (str_begins(arg, "mode=")) {
 			unsigned int mode;
 			if (str_to_uint_oct(arg+5, &mode) < 0) {
-				fs_set_error(_fs, "Invalid mode value: %s", arg+5);
+				*error_r = t_strdup_printf("Invalid mode value: %s", arg+5);
 				return -1;
 			}
 			fs->mode = mode & 0666;
 			if (fs->mode == 0) {
-				fs_set_error(_fs, "Invalid mode: %s", arg+5);
+				*error_r = t_strdup_printf("Invalid mode: %s", arg+5);
 				return -1;
 			}
 		} else {
-			fs_set_error(_fs, "Unknown arg '%s'", arg);
+			*error_r = t_strdup_printf("Unknown arg '%s'", arg);
 			return -1;
 		}
 	}

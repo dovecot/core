@@ -46,7 +46,8 @@ static struct fs *fs_dict_alloc(void)
 }
 
 static int
-fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set)
+fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set,
+	     const char **error_r)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
 	struct dict_settings dict_set;
@@ -54,7 +55,7 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 
 	p = strchr(args, ':');
 	if (p == NULL) {
-		fs_set_error(_fs, "':' missing in args");
+		*error_r = "':' missing in args";
 		return -1;
 	}
 	encoding_str = t_strdup_until(args, p++);
@@ -65,7 +66,8 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 	else if (strcmp(encoding_str, "base64") == 0)
 		fs->encoding = FS_DICT_VALUE_ENCODING_BASE64;
 	else {
-		fs_set_error(_fs, "Unknown value encoding '%s'", encoding_str);
+		*error_r = t_strdup_printf("Unknown value encoding '%s'",
+					   encoding_str);
 		return -1;
 	}
 
@@ -74,7 +76,8 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 	dict_set.base_dir = set->base_dir;
 
 	if (dict_init(p, &dict_set, &fs->dict, &error) < 0) {
-		fs_set_error(_fs, "dict_init(%s) failed: %s", args, error);
+		*error_r = t_strdup_printf("dict_init(%s) failed: %s",
+					   args, error);
 		return -1;
 	}
 	return 0;

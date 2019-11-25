@@ -54,8 +54,8 @@ static struct fs *fs_crypt_alloc(void)
 }
 
 static int
-fs_crypt_init(struct fs *_fs, const char *args, const
-	      struct fs_settings *set)
+fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
+	      const char **error_r)
 {
 	struct crypt_fs *fs = (struct crypt_fs *)_fs;
 	const char *enc_algo, *set_prefix;
@@ -72,7 +72,7 @@ fs_crypt_init(struct fs *_fs, const char *args, const
 	for (;;) {
 		p = strchr(args, ':');
 		if (p == NULL) {
-			fs_set_error(_fs, "Missing parameters");
+			*error_r = "Missing parameters";
 			return -1;
 		}
 		arg = t_strdup_until(args, p);
@@ -92,7 +92,8 @@ fs_crypt_init(struct fs *_fs, const char *args, const
 		else if (strcmp(arg, "password") == 0)
 			password = value;
 		else {
-			fs_set_error(_fs, "Invalid parameter '%s'", arg);
+			*error_r = t_strdup_printf(
+				"Invalid parameter '%s'", arg);
 			return -1;
 		}
 	}
@@ -106,7 +107,7 @@ fs_crypt_init(struct fs *_fs, const char *args, const
 		parent_args++;
 	}
 	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
-		fs_set_error(_fs, "%s: %s", parent_name, error);
+		*error_r = t_strdup_printf("%s: %s", parent_name, error);
 		return -1;
 	}
 	fs->enc_algo = i_strdup(enc_algo);

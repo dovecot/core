@@ -43,14 +43,14 @@ static struct fs *fs_metawrap_alloc(void)
 }
 
 static int
-fs_metawrap_init(struct fs *_fs, const char *args, const
-		 struct fs_settings *set)
+fs_metawrap_init(struct fs *_fs, const char *args,
+		 const struct fs_settings *set, const char **error_r)
 {
 	struct metawrap_fs *fs = (struct metawrap_fs *)_fs;
-	const char *parent_name, *parent_args, *error;
+	const char *parent_name, *parent_args;
 
 	if (*args == '\0') {
-		fs_set_error(_fs, "Parent filesystem not given as parameter");
+		*error_r = "Parent filesystem not given as parameter";
 		return -1;
 	}
 
@@ -62,10 +62,8 @@ fs_metawrap_init(struct fs *_fs, const char *args, const
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
-		fs_set_error(_fs, "%s", error);
+	if (fs_init(parent_name, parent_args, set, &_fs->parent, error_r) < 0)
 		return -1;
-	}
 	if ((fs_get_properties(_fs->parent) & FS_PROPERTY_METADATA) == 0)
 		fs->wrap_metadata = TRUE;
 	return 0;

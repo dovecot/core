@@ -159,24 +159,25 @@ static int fs_randomfail_parse_params(struct randomfail_fs *fs,
 
 static int
 fs_randomfail_init(struct fs *_fs, const char *args,
-		   const struct fs_settings *set)
+		   const struct fs_settings *set, const char **error_r)
 {
 	struct randomfail_fs *fs = (struct randomfail_fs *)_fs;
 	const char *p, *parent_name, *parent_args, *error;
 
 	p = strchr(args, ':');
 	if (p == NULL) {
-		fs_set_error(_fs, "Randomfail parameters missing");
+		*error_r = "Randomfail parameters missing";
 		return -1;
 	}
 	if (fs_randomfail_parse_params(fs, t_strdup_until(args, p++), &error) < 0) {
-		fs_set_error(_fs, "Invalid randomfail parameters: %s", error);
+		*error_r = t_strdup_printf(
+			"Invalid randomfail parameters: %s", error);
 		return -1;
 	}
 	args = p;
 
 	if (*args == '\0') {
-		fs_set_error(_fs, "Parent filesystem not given as parameter");
+		*error_r = "Parent filesystem not given as parameter";
 		return -1;
 	}
 
@@ -188,10 +189,8 @@ fs_randomfail_init(struct fs *_fs, const char *args,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
-		fs_set_error(_fs, "%s", error);
+	if (fs_init(parent_name, parent_args, set, &_fs->parent, error_r) < 0)
 		return -1;
-	}
 	return 0;
 }
 

@@ -29,16 +29,16 @@ static struct fs *fs_sis_queue_alloc(void)
 
 static int
 fs_sis_queue_init(struct fs *_fs, const char *args,
-		  const struct fs_settings *set)
+		  const struct fs_settings *set, const char **error_r)
 {
 	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
-	const char *p, *parent_name, *parent_args, *error;
+	const char *p, *parent_name, *parent_args;
 
 	/* <queue_dir>:<parent fs>[:<args>] */
 
 	p = strchr(args, ':');
 	if (p == NULL || p[1] == '\0') {
-		fs_set_error(_fs, "Parent filesystem not given as parameter");
+		*error_r = "Parent filesystem not given as parameter";
 		return -1;
 	}
 
@@ -50,10 +50,8 @@ fs_sis_queue_init(struct fs *_fs, const char *args,
 		parent_args = "";
 	else
 		parent_name = t_strdup_until(parent_name, parent_args++);
-	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
-		fs_set_error(_fs, "%s", error);
+	if (fs_init(parent_name, parent_args, set, &_fs->parent, error_r) < 0)
 		return -1;
-	}
 	return 0;
 }
 
