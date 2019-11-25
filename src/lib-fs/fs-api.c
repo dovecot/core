@@ -1225,17 +1225,6 @@ void fs_set_error(struct fs *fs, const char *fmt, ...)
 	va_end(args);
 }
 
-void fs_set_critical(struct fs *fs, const char *fmt, ...)
-{
-	va_list args;
-
-	va_start(args, fmt);
-	fs_set_verror(fs, fmt, args);
-
-	e_error(fs->event, "%s", fs_last_error(fs));
-	va_end(args);
-}
-
 void fs_set_error_async(struct fs *fs)
 {
 	fs_set_error(fs, "Asynchronous operation in progress");
