@@ -83,7 +83,7 @@ struct fs {
 	char *username, *session_id;
 
 	struct fs_settings set;
-	string_t *last_error;
+	char *last_error;
 
 	/* may be used by fs_wait_async() to do the waiting */
 	struct ioloop *wait_ioloop, *prev_ioloop;

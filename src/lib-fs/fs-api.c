@@ -30,7 +30,6 @@ fs_alloc(const struct fs *fs_class, const char *args,
 
 	fs = fs_class->v.alloc();
 	fs->refcount = 1;
-	fs->last_error = str_new(default_pool, 64);
 	fs->set.debug = set->debug;
 	fs->set.enable_timing = set->enable_timing;
 	i_array_init(&fs->module_contexts, 5);
@@ -197,14 +196,12 @@ void fs_ref(struct fs *fs)
 void fs_unref(struct fs **_fs)
 {
 	struct fs *fs = *_fs;
-	string_t *last_error;
 	struct array module_contexts_arr;
 	unsigned int i;
 
 	if (fs == NULL)
 		return;
 
-	last_error = fs->last_error;
 	module_contexts_arr = fs->module_contexts.arr;
 
 	i_assert(fs->refcount > 0);
@@ -224,6 +221,7 @@ void fs_unref(struct fs **_fs)
 	i_free(fs->username);
 	i_free(fs->session_id);
 	i_free(fs->temp_path_prefix);
+	i_free(fs->last_error);
 	for (i = 0; i < FS_OP_COUNT; i++) {
 		if (fs->stats.timings[i] != NULL)
 			stats_dist_deinit(&fs->stats.timings[i]);
@@ -232,7 +230,6 @@ void fs_unref(struct fs **_fs)
 		fs->v.deinit(fs);
 	} T_END;
 	array_free_i(&module_contexts_arr);
-	str_free(&last_error);
 }
 
 struct fs *fs_get_parent(struct fs *fs)
@@ -527,8 +524,10 @@ fs_set_verror(struct fs *fs, const char *fmt, va_list args)
 	if (fs->parent != NULL)
 		fs_set_verror(fs->parent, fmt, args);
 	else {
-		str_truncate(fs->last_error, 0);
-		str_vprintfa(fs->last_error, fmt, args);
+		char *old_error = fs->last_error;
+		fs->last_error = i_strdup_vprintf(fmt, args);
+		/* free after strdup in case args point to the old error */
+		i_free(old_error);
 	}
 }
 
@@ -538,9 +537,9 @@ const char *fs_last_error(struct fs *fs)
 	if (fs->parent != NULL)
 		return fs_last_error(fs->parent);
 
-	if (str_len(fs->last_error) == 0)
+	if (fs->last_error == NULL)
 		return "BUG: Unknown fs error";
-	return str_c(fs->last_error);
+	return fs->last_error;
 }
 
 const char *fs_file_last_error(struct fs_file *file)
