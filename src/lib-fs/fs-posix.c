@@ -432,8 +432,8 @@ static ssize_t fs_posix_read(struct fs_file *_file, void *buf, size_t size)
 	if (file->seek_to_beginning) {
 		file->seek_to_beginning = FALSE;
 		if (lseek(file->fd, 0, SEEK_SET) < 0) {
-			fs_set_critical(_file->fs, "lseek(%s, 0) failed: %m",
-					file->full_path);
+			fs_set_error(_file->fs, "lseek(%s, 0) failed: %m",
+				     file->full_path);
 			return -1;
 		}
 	}
