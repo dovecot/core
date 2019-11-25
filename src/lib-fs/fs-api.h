@@ -353,7 +353,7 @@ struct fs_iter *
 fs_iter_init_with_event(struct fs *fs, struct event *event,
 			const char *path, enum fs_iter_flags flags);
 /* Returns 0 if ok, -1 if iteration failed. */
-int fs_iter_deinit(struct fs_iter **iter);
+int fs_iter_deinit(struct fs_iter **iter, const char **error_r);
 /* Returns the next filename. */
 const char *fs_iter_next(struct fs_iter *iter);
 

@@ -162,9 +162,11 @@ const char *fs_wrapper_iter_next(struct fs_iter *_iter)
 int fs_wrapper_iter_deinit(struct fs_iter *_iter)
 {
 	struct wrapper_fs_iter *iter = (struct wrapper_fs_iter *)_iter;
+	const char *error;
 	int ret;
 
-	ret = fs_iter_deinit(&iter->parent);
+	if ((ret = fs_iter_deinit(&iter->parent, &error)) < 0)
+		fs_set_error(_iter->fs, "%s", error);
 	i_free(iter);
 	return ret;
 }

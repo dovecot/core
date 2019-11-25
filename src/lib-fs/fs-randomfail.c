@@ -499,9 +499,11 @@ static const char *fs_randomfail_iter_next(struct fs_iter *_iter)
 static int fs_randomfail_iter_deinit(struct fs_iter *_iter)
 {
 	struct randomfail_fs_iter *iter = (struct randomfail_fs_iter *)_iter;
+	const char *error;
 	int ret;
 
-	ret = fs_iter_deinit(&iter->super);
+	if ((ret = fs_iter_deinit(&iter->super, &error)) < 0)
+		fs_set_error(_iter->fs, "%s", error);
 	if (iter->fail_pos == 1) {
 		fs_set_error(_iter->fs, RANDOMFAIL_ERROR);
 		errno = EIO;

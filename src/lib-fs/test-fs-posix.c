@@ -84,7 +84,7 @@ static void test_fs_posix(void)
 	filename = fs_iter_next(iter);
 	test_assert_strcmp(filename, "good1");
 	test_assert(fs_iter_next(iter) == NULL);
-	fs_iter_deinit(&iter);
+	fs_iter_deinit(&iter, &error);
 	test_end();
 
 	struct stat st;

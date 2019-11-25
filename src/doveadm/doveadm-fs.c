@@ -331,7 +331,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	struct fs_iter *iter;
 	ARRAY_TYPE(const_string) fnames;
 	struct fs_delete_ctx ctx;
-	const char *fname, *const *fnamep;
+	const char *fname, *const *fnamep, *error;
 	int ret;
 
 	i_zero(&ctx);
@@ -351,9 +351,9 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 		fname = t_strconcat(fname, "/", NULL);
 		array_push_back(&fnames, &fname);
 	}
-	if (fs_iter_deinit(&iter) < 0) {
+	if (fs_iter_deinit(&iter, &error) < 0) {
 		i_error("fs_iter_deinit(%s) failed: %s",
-			path_prefix, fs_last_error(fs));
+			path_prefix, error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	array_foreach(&fnames, fnamep) T_BEGIN {
@@ -373,9 +373,9 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 		fname = t_strdup(fname);
 		array_push_back(&fnames, &fname);
 	}
-	if (fs_iter_deinit(&iter) < 0) {
+	if (fs_iter_deinit(&iter, &error) < 0) {
 		i_error("fs_iter_deinit(%s) failed: %s",
-			path_prefix, fs_last_error(fs));
+			path_prefix, error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 
@@ -483,7 +483,7 @@ static void cmd_fs_iter_full(int argc, char *argv[], enum fs_iter_flags flags,
 {
 	struct fs *fs;
 	struct fs_iter *iter;
-	const char *fname;
+	const char *fname, *error;
 	int c;
 
 	while ((c = getopt(argc, argv, "CO")) > 0) {
@@ -510,9 +510,9 @@ static void cmd_fs_iter_full(int argc, char *argv[], enum fs_iter_flags flags,
 	while ((fname = fs_iter_next(iter)) != NULL) {
 		doveadm_print(fname);
 	}
-	if (fs_iter_deinit(&iter) < 0) {
+	if (fs_iter_deinit(&iter, &error) < 0) {
 		i_error("fs_iter_deinit(%s) failed: %s",
-			argv[0], fs_last_error(fs));
+			argv[0], error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	fs_deinit(&fs);

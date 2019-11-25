@@ -1145,27 +1145,31 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 	return iter;
 }
 
-int fs_iter_deinit(struct fs_iter **_iter)
+int fs_iter_deinit(struct fs_iter **_iter, const char **error_r)
 {
 	struct fs_iter *iter = *_iter;
+	struct fs *fs;
 	struct event *event;
 	int ret;
 
 	if (iter == NULL)
 		return 0;
 
+	fs = iter->fs;
 	event = iter->event;
 
 	*_iter = NULL;
-	DLLIST_REMOVE(&iter->fs->iters, iter);
+	DLLIST_REMOVE(&fs->iters, iter);
 
-	if (iter->fs->v.iter_deinit == NULL) {
-		fs_set_error(iter->fs, "FS iteration not supported");
+	if (fs->v.iter_deinit == NULL) {
+		fs_set_error(fs, "FS iteration not supported");
 		i_free(iter);
 		ret = -1;
 	} else T_BEGIN {
 		ret = iter->fs->v.iter_deinit(iter);
 	} T_END;
+	if (ret < 0)
+		*error_r = fs_last_error(fs);
 	event_unref(&event);
 	return ret;
 }
