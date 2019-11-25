@@ -157,7 +157,7 @@ struct connection {
 	bool version_received:1;
 	bool handshake_received:1;
 	bool unix_socket:1;
-	bool unix_peer_known:1;
+	bool unix_peer_checked:1;
 	bool disconnected:1;
 };
 

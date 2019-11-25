@@ -384,7 +384,7 @@ connection_update_properties(struct connection *conn)
 	if (conn->remote_ip.family != 0) {
 		/* remote IP was already set */
 		i_assert(conn->remote_port != 0);
-	} else if (conn->unix_peer_known) {
+	} else if (conn->unix_peer_checked) {
 		/* already checked */
 	} else if (fd < 0) {
 		/* not connected yet - wait */
@@ -405,7 +405,7 @@ connection_update_properties(struct connection *conn)
 			conn->remote_pid = cred.pid;
 			conn->remote_uid = cred.uid;
 		}
-		conn->unix_peer_known = TRUE;
+		conn->unix_peer_checked = TRUE;
 	}
 
 	connection_update_property_label(conn);
