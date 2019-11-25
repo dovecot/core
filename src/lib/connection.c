@@ -381,22 +381,27 @@ connection_update_properties(struct connection *conn)
 	int fd = (conn->fd_in < 0 ? conn->fd_out : conn->fd_in);
 	struct net_unix_cred cred;
 
-	if (conn->remote_ip.family != 0)
+	if (conn->remote_ip.family != 0) {
+		/* remote IP was already set */
 		i_assert(conn->remote_port != 0);
-	else if (fd < 0) {
+	} else if (conn->unix_peer_known) {
+		/* already checked */
+	} else if (fd < 0) {
 		/* not connected yet - wait */
-	} else if (conn->fd_in != conn->fd_out || fd < 0 ||
-		 net_getpeername(fd, &conn->remote_ip,
-				 &conn->remote_port) < 0 ||
-		 conn->remote_ip.family == 0) {
-		conn->remote_ip.family = 0;
-		conn->remote_port = 0;
+	} else {
+		if (net_getpeername(fd, &conn->remote_ip,
+				    &conn->remote_port) == 0) {
+			/* either TCP or UNIX socket connection */
+			errno = 0;
+		}
 
-		if (conn->unix_peer_known) {
-			/* already known */
-		} else if (fd < 0 || errno == ENOTSOCK ||
-		      net_getunixcred(fd, &cred) < 0) {
-		} else {
+		if (conn->remote_ip.family != 0) {
+			/* TCP connection */
+			i_assert(conn->remote_port != 0);
+		} else if (errno == ENOTSOCK) {
+			/* getpeername() already found out this can't be a UNIX
+			   socket connection */
+		} else if (net_getunixcred(fd, &cred) == 0) {
 			conn->remote_pid = cred.pid;
 			conn->remote_uid = cred.uid;
 		}
