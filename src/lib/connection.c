@@ -383,7 +383,9 @@ connection_update_properties(struct connection *conn)
 
 	if (conn->remote_ip.family != 0)
 		i_assert(conn->remote_port != 0);
-	else if (conn->fd_in != conn->fd_out || fd < 0 ||
+	else if (fd < 0) {
+		/* not connected yet - wait */
+	} else if (conn->fd_in != conn->fd_out || fd < 0 ||
 		 net_getpeername(fd, &conn->remote_ip,
 				 &conn->remote_port) < 0 ||
 		 conn->remote_ip.family == 0) {
