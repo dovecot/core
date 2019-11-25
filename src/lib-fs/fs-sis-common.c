@@ -49,7 +49,7 @@ void fs_sis_try_unlink_hash_file(struct fs *sis_fs, struct fs_file *super_file)
 		    CMP_DEV_T(st1.st_dev, st2.st_dev)) {
 			if (fs_delete(hash_file) < 0) {
 				e_error(hash_file->event, "%s",
-					fs_last_error(hash_file->fs));
+					fs_file_last_error(hash_file));
 			}
 		}
 		fs_file_deinit(&hash_file);

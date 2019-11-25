@@ -137,7 +137,7 @@ static int sdbox_file_rename_attachments(struct sdbox_file *file)
 					FS_OPEN_MODE_READONLY);
 		if (fs_rename(src_file, dest_file) < 0) {
 			mailbox_set_critical(&file->mbox->box, "%s",
-				fs_last_error(storage->attachment_fs));
+				fs_file_last_error(dest_file));
 			ret = -1;
 		}
 		fs_file_deinit(&src_file);
@@ -204,7 +204,7 @@ static int sdbox_file_unlink_aborted_save_attachments(struct sdbox_file *file)
 		if (fs_delete(fs_file) < 0 &&
 		    errno != ENOENT) {
 			mailbox_set_critical(&file->mbox->box, "%s",
-					     fs_last_error(fs));
+					     fs_file_last_error(fs_file));
 			ret = -1;
 		}
 		fs_file_deinit(&fs_file);
@@ -215,7 +215,7 @@ static int sdbox_file_unlink_aborted_save_attachments(struct sdbox_file *file)
 		if (fs_delete(fs_file) < 0 &&
 		    errno != ENOENT) {
 			mailbox_set_critical(&file->mbox->box, "%s",
-					     fs_last_error(fs));
+					     fs_file_last_error(fs_file));
 			ret = -1;
 		}
 		fs_file_deinit(&fs_file);

@@ -197,7 +197,7 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 				   trying to deduplicate it anymore */
 			} else {
 				e_error(file->file.event, "%s",
-					fs_last_error(super_fs));
+					fs_file_last_error(file->hash_file));
 			}
 		}
 		return;
@@ -224,11 +224,11 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 		   try to continue. */
 		if (fs_delete(temp_file) < 0 &&
 		    errno != ENOENT)
-			e_error(file->file.event, "%s", fs_last_error(super_fs));
+			e_error(file->file.event, "%s", fs_file_last_error(temp_file));
 		ret = fs_copy(file->file.parent, temp_file);
 	}
 	if (ret < 0) {
-		e_error(file->file.event, "%s", fs_last_error(super_fs));
+		e_error(file->file.event, "%s", fs_file_last_error(temp_file));
 		fs_file_deinit(&temp_file);
 		return;
 	}
@@ -237,7 +237,8 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 		if (errno == ENOENT) {
 			/* apparently someone else just renamed it. ignore. */
 		} else {
-			e_error(file->file.event, "%s", fs_last_error(super_fs));
+			e_error(file->file.event, "%s",
+				fs_file_last_error(file->hash_file));
 		}
 		(void)fs_delete(temp_file);
 	}

@@ -279,7 +279,7 @@ index_attachment_delete_real(struct mail_storage *storage,
 	path = t_strdup_printf("%s/%s", index_attachment_dir_get(storage), name);
 	file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
 	if ((ret = fs_delete(file)) < 0)
-		mail_storage_set_critical(storage, "%s", fs_last_error(fs));
+		mail_storage_set_critical(storage, "%s", fs_file_last_error(file));
 	fs_file_deinit(&file);
 	return ret;
 }

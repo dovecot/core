@@ -76,7 +76,7 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 					   FS_OPEN_MODE_READONLY);
 		if (fs_copy(src_fsfile, dest_fsfile) < 0) {
 			mailbox_set_critical(&dest_file->mbox->box, "%s",
-				fs_last_error(dest_storage->attachment_fs));
+				fs_file_last_error(dest_fsfile));
 			ret = -1;
 		} else {
 			array_push_back(&dest_file->attachment_paths,

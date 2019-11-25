@@ -169,11 +169,11 @@ static void cmd_fs_copy(int argc, char *argv[])
 	if (fs_copy(src_file, dest_file) == 0) ;
 	else if (errno == ENOENT) {
 		i_error("%s doesn't exist: %s", src_path,
-			fs_last_error(fs));
+			fs_file_last_error(dest_file));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
 		i_error("fs_copy(%s, %s) failed: %s",
-			src_path, dest_path, fs_last_error(fs));
+			src_path, dest_path, fs_file_last_error(dest_file));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	fs_file_deinit(&src_file);

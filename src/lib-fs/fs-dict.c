@@ -173,7 +173,7 @@ fs_dict_read_stream(struct fs_file *_file, size_t max_buffer_size ATTR_UNUSED)
 	struct istream *input;
 
 	if (fs_dict_lookup(file) < 0)
-		input = i_stream_create_error_str(errno, "%s", fs_last_error(_file->fs));
+		input = i_stream_create_error_str(errno, "%s", fs_file_last_error(_file));
 	else
 		input = i_stream_create_from_data(file->value, strlen(file->value));
 	i_stream_set_name(input, file->key);

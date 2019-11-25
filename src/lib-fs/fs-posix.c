@@ -453,7 +453,7 @@ fs_posix_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	int fd_dup;
 
 	if (fs_posix_open_for_read(file) < 0)
-		input = i_stream_create_error_str(errno, "%s", fs_last_error(_file->fs));
+		input = i_stream_create_error_str(errno, "%s", fs_file_last_error(_file));
 	else if ((fd_dup = dup(file->fd)) == -1)
 		input = i_stream_create_error_str(errno, "dup() failed: %m");
 	else {
