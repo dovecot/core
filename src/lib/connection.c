@@ -394,16 +394,11 @@ connection_update_properties(struct connection *conn)
 			/* already known */
 		} else if (fd < 0 || errno == ENOTSOCK ||
 		      net_getunixcred(fd, &cred) < 0) {
-			conn->remote_uid = (uid_t)-1;
-			conn->remote_pid = (pid_t)-1;
 		} else {
 			conn->remote_pid = cred.pid;
 			conn->remote_uid = cred.uid;
 		}
 		conn->unix_peer_known = TRUE;
-	} else {
-		conn->remote_uid = (uid_t)-1;
-		conn->remote_pid = (pid_t)-1;
 	}
 
 	connection_update_property_label(conn);
@@ -514,6 +509,8 @@ connection_init_full(struct connection_list *list, struct connection *conn,
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;
 	conn->disconnected = TRUE;
+	conn->remote_uid = (uid_t)-1;
+	conn->remote_pid = (pid_t)-1;
 
 	i_free(conn->base_name);
 	conn->base_name = i_strdup(name);
