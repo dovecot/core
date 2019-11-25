@@ -383,7 +383,6 @@ connection_update_properties(struct connection *conn)
 
 	if (conn->remote_ip.family != 0) {
 		/* remote IP was already set */
-		i_assert(conn->remote_port != 0);
 	} else if (conn->unix_peer_checked) {
 		/* already checked */
 	} else if (fd < 0) {
