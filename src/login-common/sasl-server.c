@@ -438,7 +438,6 @@ void sasl_server_auth_begin(struct client *client,
 		info.ssl_pfs = ssl_iostream_get_pfs(client->ssl_iostream);
 		info.ssl_protocol =
 			ssl_iostream_get_protocol_name(client->ssl_iostream);
-	}
 
 /* patch        
 	info.cert_loginname = client->ssl_proxy == NULL ? NULL :
@@ -449,12 +448,13 @@ void sasl_server_auth_begin(struct client *client,
 		ssl_proxy_get_fingerprint_base64(client->ssl_proxy);
 */
 
-	info.cert_loginname = client->iostream == NULL ? NULL :
+	info.cert_loginname = client->ssl_iostream == NULL ? NULL :
 		ssl_iostream_get_peer_name(client->ssl_iostream);
 	info.cert_fingerprint = client->ssl_iostream == NULL ? NULL :
 		ssl_iostream_get_fingerprint(client->ssl_iostream);
 	info.cert_fingerprint_base64 = client->ssl_iostream == NULL ? NULL :
 		ssl_iostream_get_fingerprint_base64(client->ssl_iostream);
+	}
 
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;

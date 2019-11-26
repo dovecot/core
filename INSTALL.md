@@ -4,6 +4,7 @@ Build Instructions
 For most people, the usual:
 
 ```
+./autogen.sh
 ./configure
 make
 sudo make install

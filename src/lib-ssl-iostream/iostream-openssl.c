@@ -887,6 +887,18 @@ openssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io)
 	return SSL_get_version(ssl_io->ssl);
 }
 
+static const char *
+openssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io)
+{
+    return __ssl_iostream_get_fingerprint(ssl_io, 0);
+}
+
+static const char *
+openssl_iostream_get_fingerprint_base64(struct ssl_iostream *ssl_io)
+{
+	return __ssl_iostream_get_fingerprint(ssl_io, 1);
+}
+
 
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.global_init = openssl_iostream_global_init,
@@ -918,6 +930,8 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.get_cipher = openssl_iostream_get_cipher,
 	.get_pfs = openssl_iostream_get_pfs,
 	.get_protocol_name = openssl_iostream_get_protocol_name,
+        .get_fingerprint = openssl_iostream_get_fingerprint, 
+        .get_fingerprint_base64 = openssl_iostream_get_fingerprint_base64, 
 };
 
 void ssl_iostream_openssl_init(void)
@@ -935,19 +949,10 @@ void ssl_iostream_openssl_deinit(void)
 
 
 
+
 static const char hexcodes[] = "0123456789ABCDEF";
 
-const char *ssl_iostream_get_fingerprint(struct iostream *ssl_io)
-{
-    return __ssl_iostream_get_fingerprint(iostream, 0);
-}
-
-const char *ssl_iostream_get_fingerprint_base64(struct iostream *ssl_io)
-{
-	return __ssl_iostream_get_fingerprint(iostream, 1);
-}
-
-const char *__ssl_iostream_get_fingerprint(struct iostream *ssl_io, bool base64mode)
+const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, bool base64mode)
 {
     X509 *x509;
     char *peer_fingerprint = NULL;
@@ -964,14 +969,20 @@ const char *__ssl_iostream_get_fingerprint(struct iostream *ssl_io, bool base64m
     int num = 0;
     /* end base64 */
 
-    if (!ssl_proxy_has_valid_client_cert(proxy))
+    x509 = NULL;
+    num = 0;
+    
+    if (!ssl_iostream_has_valid_client_cert(ssl_io))
         return NULL;
 
-    x509 = SSL_get_peer_certificate(proxy->ssl);
+    x509 = SSL_get_peer_certificate(ssl_io->ssl);
     if (x509 == NULL)
         return NULL; /* we should have had it.. */
 
-    ssl_cert_md_algorithm = t_strdup_printf("%s", proxy->ssl_set->ssl_cert_md_algorithm);
+    /* ???? */
+    /* ssl_cert_md_algorithm = t_strdup_printf("%s", proxy->ssl_set->ssl_cert_md_algorithm); */
+    /* ssl_cert_md_algorithm = t_strdup_printf("%s", ssl_io->ctx->ssl_ctx->ssl_cert_md_algorithm); */
+    ssl_cert_md_algorithm = t_strdup_printf("sha1");
 
     if ((md_alg = EVP_get_digestbyname(ssl_cert_md_algorithm)) == 0) {
         i_panic("Certificate digest algorithm \"%s\" not found ...",
@@ -1005,22 +1016,24 @@ const char *__ssl_iostream_get_fingerprint(struct iostream *ssl_io, bool base64m
             peer_fingerprint[(j * 2) + 1] = hexcodes[(md_buf[j] & 0x0f)];
         }
 
-        if (proxy->ssl_set->ssl_cert_debug) {
-            if (!base64mode) {
-                i_debug("fingerprint: %s", peer_fingerprint);
-            } else {
-                i_debug("fingerprint_compressed: %s", peer_fingerprint);
-            }
-        }
+        /* ???? */
+        /* if (ssl_io->ssl_set->ssl_cert_debug) { */
+        /*     if (!base64mode) { */
+        /*         i_debug("fingerprint: %s", peer_fingerprint); */
+        /*     } else { */
+        /*         i_debug("fingerprint_compressed: %s", peer_fingerprint); */
+        /*     } */
+        /* } */
     }
 
-    if (proxy->ssl_set->ssl_cert_info) {
-        if (!base64mode) {
-            i_info("x509 fingerprint found: %s", peer_fingerprint);
-        } else {
-            i_info("x509 fingerprint_compressed found: %s", peer_fingerprint);
-        }
-    }
+    /* ???? */
+    /* if (ssl_io->ssl_set->ssl_cert_info) { */
+    /*     if (!base64mode) { */
+    /*         i_info("x509 fingerprint found: %s", peer_fingerprint); */
+    /*     } else { */
+    /*         i_info("x509 fingerprint_compressed found: %s", peer_fingerprint); */
+    /*     } */
+    /* } */
 
     if (base64mode) {
         fingerprint_ascii_ptr   = peer_fingerprint;
@@ -1029,13 +1042,15 @@ const char *__ssl_iostream_get_fingerprint(struct iostream *ssl_io, bool base64m
             fingerprint_ascii_ptr += 2;
             arr[index] = num;
             index++;
-            if (proxy->ssl_set->ssl_cert_debug) {
-                i_debug("fingerprint_binary: %s", arr);
-            }
+            /* ???? */
+            /* if (ssl_io->ssl_set->ssl_cert_debug) { */
+            /*     i_debug("fingerprint_binary: %s", arr); */
+            /* } */
         }
-        if (proxy->ssl_set->ssl_cert_debug) {
-            i_debug("x509 fingerprint_binary: %s", arr);
-        }
+        /* ???? */
+        /* if (ssl_io->ssl_set->ssl_cert_debug) { */
+        /*     i_debug("x509 fingerprint_binary: %s", arr); */
+        /* } */
         i_free(peer_fingerprint);
         return (const char *)__base64(arr, index);
     }
@@ -1043,6 +1058,8 @@ const char *__ssl_iostream_get_fingerprint(struct iostream *ssl_io, bool base64m
     /* non base64 case */
     return (const char *)peer_fingerprint;
 }
+
+
 
 char *__base64(const char *input, int length)
 {
