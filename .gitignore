@@ -9,7 +9,7 @@ Makefile.in
 .deps
 .libs
 *~
-
+/*.tar.gz
 /configure
 /config.cache
 /config.guess

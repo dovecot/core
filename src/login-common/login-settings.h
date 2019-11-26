@@ -18,11 +18,17 @@ struct login_settings {
 	bool auth_ssl_require_client_cert;
 	bool auth_ssl_username_from_cert;
 
+	const char* ssl_cert_md_algorithm;
+	unsigned int ssl_verify_depth;
+
 	bool disable_plaintext_auth;
 	bool auth_verbose;
 	bool auth_debug;
 	bool auth_debug_passwords;
 	bool verbose_proctitle;
+
+	bool ssl_cert_info;
+	bool ssl_cert_debug;
 
 	unsigned int mail_max_userip_connections;
 

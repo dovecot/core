@@ -1,0 +1,5 @@
+BUILD/*
+BUILDROOT/*
+RPMS/*
+SRPMS/*
+SOURCES/dovecot-2.2.36*gz

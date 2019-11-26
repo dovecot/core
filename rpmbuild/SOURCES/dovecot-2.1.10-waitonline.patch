@@ -1,0 +1,16 @@
+diff -up dovecot-2.2.36/dovecot.service.in.waitonline dovecot-2.2.36/dovecot.service.in
+--- dovecot-2.2.36/dovecot.service.in.waitonline	2018-04-30 15:52:05.000000000 +0200
++++ dovecot-2.2.36/dovecot.service.in	2018-06-12 15:34:22.459995078 +0200
+@@ -8,10 +8,11 @@
+ Description=Dovecot IMAP/POP3 email server
+ Documentation=man:dovecot(1)
+ Documentation=http://wiki2.dovecot.org/
+-After=local-fs.target network.target
++After=local-fs.target network.target network-online.target
+ 
+ [Service]
+ Type=forking
++ExecStartPre=/usr/libexec/dovecot/prestartscript
+ ExecStart=@sbindir@/dovecot
+ PIDFile=@rundir@/master.pid
+ ExecReload=@bindir@/doveadm reload

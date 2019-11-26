@@ -1,0 +1,41 @@
+diff -up dovecot-2.2.9/src/lib-master/master-service.c.fixit dovecot-2.2.9/src/lib-master/master-service.c
+--- dovecot-2.2.9/src/lib-master/master-service.c.fixit	2013-11-24 14:37:39.000000000 +0100
++++ dovecot-2.2.9/src/lib-master/master-service.c	2013-11-27 17:52:48.802843395 +0100
+@@ -559,6 +559,11 @@ const char *master_service_get_name(stru
+ 	return service->name;
+ }
+ 
++const enum master_service_flags master_service_get_flags(struct master_service *service)
++{
++	return service->flags;
++}
++
+ void master_service_run(struct master_service *service,
+ 			master_service_connection_callback_t *callback)
+ {
+diff -up dovecot-2.2.9/src/lib-master/master-service.h.fixit dovecot-2.2.9/src/lib-master/master-service.h
+--- dovecot-2.2.9/src/lib-master/master-service.h.fixit	2013-11-24 14:37:39.000000000 +0100
++++ dovecot-2.2.9/src/lib-master/master-service.h	2013-11-27 17:53:05.329705614 +0100
+@@ -134,6 +134,8 @@ const char *master_service_get_version_s
+ /* Returns name of the service, as given in name parameter to _init(). */
+ const char *master_service_get_name(struct master_service *service);
+ 
++const enum master_service_flags master_service_get_flags(struct master_service *service);
++
+ /* Start the service. Blocks until finished */
+ void master_service_run(struct master_service *service,
+ 			master_service_connection_callback_t *callback)
+diff -up dovecot-2.2.9/src/ssl-params/main.c.fixit dovecot-2.2.9/src/ssl-params/main.c
+--- dovecot-2.2.9/src/ssl-params/main.c.fixit	2013-11-24 14:37:39.000000000 +0100
++++ dovecot-2.2.9/src/ssl-params/main.c	2013-11-27 17:51:06.664694558 +0100
+@@ -103,7 +103,10 @@ static void sig_chld(const siginfo_t *si
+ 	if (waitpid(-1, &status, WNOHANG) < 0)
+ 		i_error("waitpid() failed: %m");
+ 	else if (status != 0)
++	{
+ 		i_error("child process failed with status %d", status);
++		if(master_service_get_flags(master_service) & MASTER_SERVICE_FLAG_STANDALONE) exit(1);
++	}
+ 	else {
+ 		/* params should have been created now. try refreshing. */
+ 		ssl_params_refresh(param);

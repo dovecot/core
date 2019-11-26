@@ -172,4 +172,9 @@ int ssl_iostream_server_context_cache_get(const struct ssl_iostream_settings *se
 					  const char **error_r);
 void ssl_iostream_context_cache_free(void);
 
+const char *ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io);
+const char *ssl_iostream_get_fingerprint_base64(struct ssl_iostream *ssl_io);
+const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, bool base64mode);
+char *__base64(const char *input, int length);
+
 #endif
