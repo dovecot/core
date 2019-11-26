@@ -26,7 +26,8 @@ struct index_cmd_context {
 	bool have_wildcards:1;
 };
 
-static int cmd_index_box_precache(struct mailbox *box)
+static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
+				  struct mailbox *box)
 {
 	struct mailbox_status status;
 	struct mailbox_transaction_context *trans;
@@ -65,8 +66,8 @@ static int cmd_index_box_precache(struct mailbox *box)
 		       mailbox_get_vname(box), seq, status.messages);
 	}
 
-	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC,
-					  __func__);
+	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC |
+					  dctx->transaction_flags, __func__);
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq, status.messages);
 	ctx = mailbox_search_init(trans, search_args, NULL,
@@ -133,7 +134,7 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		ret = -1;
 	} else {
-		if (cmd_index_box_precache(box) < 0) {
+		if (cmd_index_box_precache(&ctx->ctx, box) < 0) {
 			doveadm_mail_failed_mailbox(&ctx->ctx, box);
 			ret = -1;
 		}

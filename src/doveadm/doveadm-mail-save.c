@@ -36,8 +36,8 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 		return -1;
 	}
 
-	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL,
-					  __func__);
+	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL |
+					  ctx->ctx.transaction_flags, __func__);
 	save_ctx = mailbox_save_alloc(trans);
 	if (mailbox_save_begin(&save_ctx, input) < 0) {
 		i_error("Saving failed: %s",

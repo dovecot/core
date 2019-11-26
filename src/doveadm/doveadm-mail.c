@@ -1081,6 +1081,11 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			mctx->cmd_input = arg->value.v_istream;
 			i_stream_ref(mctx->cmd_input);
 
+		} else if (strcmp(arg->name, "trans-flags") == 0) {
+			/* This parameter allows to set additional
+			 * mailbox transaction flags. */
+			mctx->transaction_flags = arg->value.v_int64;
+
 		/* Keep all named special parameters above this line */
 
 		} else if (mctx->v.parse_arg != NULL && arg->short_opt != '\0') {

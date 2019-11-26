@@ -201,14 +201,14 @@ cmd_acl_rights_alloc(void)
 }
 
 static int
-cmd_acl_mailbox_update(struct mailbox *box,
+cmd_acl_mailbox_update(struct doveadm_mail_cmd_context *ctx, struct mailbox *box,
 		       const struct acl_rights_update *update)
 {
 	struct mailbox_transaction_context *t;
 	int ret;
 
-	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL,
-				      __func__);
+	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL |
+				      ctx->transaction_flags, __func__);
 	ret = acl_mailbox_update_acl(t, update);
 	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
@@ -235,7 +235,7 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	update.neg_modify_mode = ctx->modify_mode;
 	if (acl_rights_update_import(&update, id, rights, &error) < 0)
 		i_fatal_status(EX_USAGE, "%s", error);
-	if ((ret = cmd_acl_mailbox_update(box, &update)) < 0) {
+	if ((ret = cmd_acl_mailbox_update(&ctx->ctx, box, &update)) < 0) {
 		i_error("Failed to set ACL: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
@@ -293,7 +293,7 @@ cmd_acl_delete_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 	i_zero(&update);
 	if (acl_rights_update_import(&update, id, NULL, &error) < 0)
 		i_fatal_status(EX_USAGE, "%s", error);
-	if ((ret = cmd_acl_mailbox_update(box, &update)) < 0) {
+	if ((ret = cmd_acl_mailbox_update(ctx, box, &update)) < 0) {
 		i_error("Failed to delete ACL: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);

@@ -91,7 +91,8 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 }
 
 static int
-cmd_import_box_contents(struct doveadm_mail_iter *iter, struct mail *src_mail,
+cmd_import_box_contents(struct doveadm_mail_cmd_context *ctx,
+			struct doveadm_mail_iter *iter, struct mail *src_mail,
 			struct mailbox *dest_box)
 {
 	struct mail_save_context *save_ctx;
@@ -100,8 +101,8 @@ cmd_import_box_contents(struct doveadm_mail_iter *iter, struct mail *src_mail,
 	int ret = 0;
 
 	dest_trans = mailbox_transaction_begin(dest_box,
-					MAILBOX_TRANSACTION_FLAG_EXTERNAL,
-					__func__);
+					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
+					ctx->transaction_flags,	__func__);
 	do {
 		if (doveadm_debug) {
 			i_debug("import: box=%s uid=%u",
@@ -144,7 +145,7 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 		if (dest_mailbox_open_or_create(ctx, dest_user, info, &box) < 0)
 			ret = -1;
 		else {
-			if (cmd_import_box_contents(iter, mail, box) < 0) {
+			if (cmd_import_box_contents(&ctx->ctx, iter, mail, box) < 0) {
 				doveadm_mail_failed_mailbox(&ctx->ctx, mail->box);
 				ret = -1;
 			}

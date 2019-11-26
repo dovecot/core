@@ -168,7 +168,8 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	return ret;
 }
 
-static int mcp_update_shared_keys(struct mailbox *box, struct mail_user *user,
+static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
+				  struct mailbox *box, struct mail_user *user,
 				  const char *pubid, struct dcrypt_private_key *key)
 {
 	const char *error;
@@ -192,7 +193,7 @@ static int mcp_update_shared_keys(struct mailbox *box, struct mail_user *user,
 	string_t *uid = t_str_new(64);
 
 	struct mailbox_transaction_context *t =
-		mailbox_transaction_begin(box, 0, __func__);
+		mailbox_transaction_begin(box, ctx->transaction_flags, __func__);
 	
 	ret = 0;
 
@@ -423,7 +424,8 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			res->success = TRUE;
 			res->id = pubid;
 			T_BEGIN {
-				mcp_update_shared_keys(box, user, pubid, pair.priv);
+				mcp_update_shared_keys(&ctx->ctx, box, user,
+						       pubid, pair.priv);
 			} T_END;
 			if (pair.pub != NULL)
 				dcrypt_key_unref_public(&pair.pub);
@@ -794,7 +796,8 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 
 	if (ret == 1) {
 		struct mailbox_transaction_context *t =
-			mailbox_transaction_begin(box, 0, __func__);
+			mailbox_transaction_begin(box, _ctx->transaction_flags,
+						  __func__);
 		struct dcrypt_private_key *key;
 		const struct raw_key *raw_key;
 		const char *algo = ctx->new_password != NULL ?

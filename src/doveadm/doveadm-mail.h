@@ -6,6 +6,7 @@
 #include "doveadm-util.h"
 #include "module-context.h"
 #include "mail-error.h"
+#include "mail-storage.h"
 #include "mail-storage-service.h"
 
 struct mailbox;
@@ -70,6 +71,7 @@ struct doveadm_mail_cmd_context {
 	const char *getopt_args;
 	const struct doveadm_settings *set;
 	enum mail_storage_service_flags service_flags;
+	enum mailbox_transaction_flags transaction_flags;
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_input storage_service_input;
 	/* search args aren't set for all mail commands */
@@ -204,6 +206,7 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_rebuild_attachments;
 DOVEADM_CMD_PARAM('A', "all-users", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('S', "socket-path", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('\0', "trans-flags", CMD_PARAM_INT64, 0) \
 DOVEADM_CMD_PARAM('F', "user-file", CMD_PARAM_ISTREAM, 0)
 
 #define DOVEADM_CMD_MAIL_USAGE_PREFIX \
