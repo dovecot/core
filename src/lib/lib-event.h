@@ -82,6 +82,9 @@ struct event_passthrough {
 	struct event_passthrough *
 		(*inc_int)(const char *key, intmax_t num);
 
+	struct event_passthrough *
+		(*clear_field)(const char *key);
+
 	struct event *(*event)(void);
 };
 

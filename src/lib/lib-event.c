@@ -1288,6 +1288,13 @@ event_passthrough_inc_int(const char *key, intmax_t num)
 	return event_last_passthrough;
 }
 
+static struct event_passthrough *
+event_passthrough_clear_field(const char *key)
+{
+	event_field_clear(last_passthrough_event(), key);
+	return event_last_passthrough;
+}
+
 static struct event *event_passthrough_event(void)
 {
 	struct event *event = last_passthrough_event();
@@ -1308,6 +1315,7 @@ const struct event_passthrough event_passthrough_vfuncs = {
 	event_passthrough_add_int,
 	event_passthrough_add_timeval,
 	event_passthrough_inc_int,
+	event_passthrough_clear_field,
 	event_passthrough_event,
 };
 
