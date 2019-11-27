@@ -4,6 +4,7 @@
 #include "istream-private.h"
 #include "ostream-private.h"
 #include "iostream-openssl.h"
+#include "../login-common/login-settings.h"
 
 #include <openssl/rand.h>
 #include <openssl/err.h>
@@ -888,15 +889,15 @@ openssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io)
 }
 
 static const char *
-openssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io)
+openssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct login_settings *set)
 {
-    return __ssl_iostream_get_fingerprint(ssl_io, 0);
+  return __ssl_iostream_get_fingerprint(ssl_io, set, 0);
 }
 
 static const char *
-openssl_iostream_get_fingerprint_base64(struct ssl_iostream *ssl_io)
+openssl_iostream_get_fingerprint_base64(struct ssl_iostream *ssl_io, struct login_settings *set)
 {
-	return __ssl_iostream_get_fingerprint(ssl_io, 1);
+  return __ssl_iostream_get_fingerprint(ssl_io, set, 1);
 }
 
 
@@ -952,7 +953,7 @@ void ssl_iostream_openssl_deinit(void)
 
 static const char hexcodes[] = "0123456789ABCDEF";
 
-const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, bool base64mode)
+const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct login_settings *set, bool base64mode)
 {
     X509 *x509;
     char *peer_fingerprint = NULL;
@@ -979,10 +980,10 @@ const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, bool bas
     if (x509 == NULL)
         return NULL; /* we should have had it.. */
 
+    
     /* ???? */
-    /* ssl_cert_md_algorithm = t_strdup_printf("%s", proxy->ssl_set->ssl_cert_md_algorithm); */
-    /* ssl_cert_md_algorithm = t_strdup_printf("%s", ssl_io->ctx->ssl_ctx->ssl_cert_md_algorithm); */
-    ssl_cert_md_algorithm = t_strdup_printf("sha1");
+    ssl_cert_md_algorithm = t_strdup_printf("%s", set->ssl_cert_md_algorithm);
+    /*    ssl_cert_md_algorithm = t_strdup_printf("sha1");*/
 
     if ((md_alg = EVP_get_digestbyname(ssl_cert_md_algorithm)) == 0) {
         i_panic("Certificate digest algorithm \"%s\" not found ...",
@@ -1017,23 +1018,23 @@ const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, bool bas
         }
 
         /* ???? */
-        /* if (ssl_io->ssl_set->ssl_cert_debug) { */
-        /*     if (!base64mode) { */
-        /*         i_debug("fingerprint: %s", peer_fingerprint); */
-        /*     } else { */
-        /*         i_debug("fingerprint_compressed: %s", peer_fingerprint); */
-        /*     } */
-        /* } */
+        if (set->ssl_cert_debug) {
+            if (!base64mode) {
+                i_debug("fingerprint: %s", peer_fingerprint);
+            } else {
+                i_debug("fingerprint_compressed: %s", peer_fingerprint);
+            }
+        }
     }
 
     /* ???? */
-    /* if (ssl_io->ssl_set->ssl_cert_info) { */
-    /*     if (!base64mode) { */
-    /*         i_info("x509 fingerprint found: %s", peer_fingerprint); */
-    /*     } else { */
-    /*         i_info("x509 fingerprint_compressed found: %s", peer_fingerprint); */
-    /*     } */
-    /* } */
+    if (set->ssl_cert_info) {
+        if (!base64mode) {
+            i_info("x509 fingerprint found: %s", peer_fingerprint);
+        } else {
+            i_info("x509 fingerprint_compressed found: %s", peer_fingerprint);
+        }
+    }
 
     if (base64mode) {
         fingerprint_ascii_ptr   = peer_fingerprint;
@@ -1043,14 +1044,14 @@ const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, bool bas
             arr[index] = num;
             index++;
             /* ???? */
-            /* if (ssl_io->ssl_set->ssl_cert_debug) { */
-            /*     i_debug("fingerprint_binary: %s", arr); */
-            /* } */
+            if (set->ssl_cert_debug) {
+                i_debug("fingerprint_binary: %s", arr);
+            }
         }
         /* ???? */
-        /* if (ssl_io->ssl_set->ssl_cert_debug) { */
-        /*     i_debug("x509 fingerprint_binary: %s", arr); */
-        /* } */
+        if (set->ssl_cert_debug) {
+            i_debug("x509 fingerprint_binary: %s", arr);
+        }
         i_free(peer_fingerprint);
         return (const char *)__base64(arr, index);
     }

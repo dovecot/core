@@ -1,6 +1,8 @@
 #ifndef IOSTREAM_SSL_H
 #define IOSTREAM_SSL_H
 
+#include "../login-common/login-settings.h"
+
 struct ssl_iostream;
 struct ssl_iostream_context;
 
@@ -172,9 +174,9 @@ int ssl_iostream_server_context_cache_get(const struct ssl_iostream_settings *se
 					  const char **error_r);
 void ssl_iostream_context_cache_free(void);
 
-const char *ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io);
-const char *ssl_iostream_get_fingerprint_base64(struct ssl_iostream *ssl_io);
-const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, bool base64mode);
+const char *ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct login_settings *set);
+const char *ssl_iostream_get_fingerprint_base64(struct ssl_iostream *ssl_io, struct login_settings *set);
+const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct login_settings *set, bool base64mode);
 char *__base64(const char *input, int length);
 
 #endif
