@@ -186,6 +186,13 @@ mdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = p_strdup_printf(mail->imail.mail.data_pool, "%u",
 					   refcount);
 		return 0;
+	case MAIL_FETCH_REFCOUNT_ID:
+		if (mdbox_mail_lookup(mbox, _mail->transaction->view,
+				      _mail->seq, &map_uid) < 0)
+			return -1;
+		*value_r = p_strdup_printf(mail->imail.mail.data_pool, "%u",
+					   map_uid);
+		return 0;
 	case MAIL_FETCH_UIDL_BACKEND:
 		if (!dbox_header_have_flag(&mbox->box, mbox->hdr_ext_id,
 				offsetof(struct mdbox_index_header, flags),

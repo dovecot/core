@@ -1601,6 +1601,7 @@ int index_mail_get_special(struct mail *_mail,
 	case MAIL_FETCH_HEADER_MD5:
 	case MAIL_FETCH_POP3_ORDER:
 	case MAIL_FETCH_REFCOUNT:
+	case MAIL_FETCH_REFCOUNT_ID:
 		*value_r = "";
 		return 0;
 	case MAIL_FETCH_MAILBOX_NAME:
