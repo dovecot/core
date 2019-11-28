@@ -1157,6 +1157,7 @@ static void query_callback(CassFuture *future, void *context)
 		   not. Also _SERVER_UNAVAILABLE could have actually written
 		   enough copies of the data for the query to succeed. */
 		result->api.error_type = error == CASS_ERROR_SERVER_WRITE_TIMEOUT ||
+			error == CASS_ERROR_SERVER_WRITE_FAILURE ||
 			error == CASS_ERROR_SERVER_UNAVAILABLE ||
 			error == CASS_ERROR_LIB_REQUEST_TIMED_OUT ?
 			SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN :
