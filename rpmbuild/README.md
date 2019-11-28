@@ -7,7 +7,7 @@ Rebase the source
 =================
 
 git fetch upstream
-git rebase upstream/release-2.2.36
+git rebase upstream/release-2.3.8
 
 Build RPMS
 ==========
@@ -15,7 +15,7 @@ Build RPMS
 ./autogen.sh
 ./configure
 make dist
-cp dovecot-2.2.36.4.tar.gz rpmbuild/SOURCES
+cp dovecot-2.3.8.tar.gz rpmbuild/SOURCES
 cd rpmbuild
 docker-compose run rpmbuild
 
