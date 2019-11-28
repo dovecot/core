@@ -9,13 +9,15 @@ Rebase the source
 git fetch upstream
 git rebase upstream/release-2.3.8
 
+git diff 2.3.8 > dovecot-2.3.8-hin-2.3.x.patch
+
 Build RPMS
 ==========
 
-./autogen.sh
-./configure
-make dist
-cp dovecot-2.3.8.tar.gz rpmbuild/SOURCES
+# update rpmbuild/SOURCES from https://src.fedoraproject.org/rpms/dovecot/tree/master
+# manually first and adapt dovecot.spec file
+mv dovecot_2.3.8-hin-patch_2.3.8.patch rpmbuild/SOURCES
+
 cd rpmbuild
 docker-compose run rpmbuild
 

@@ -11,11 +11,11 @@ Release: op1%{?dist}
 License: MIT and LGPLv2
 
 URL: http://www.dovecot.org/
-Source: http://www.dovecot.org/releases/2.3/%{name}-%{version}%{?prever}.tar.gz
+Source: https://www.dovecot.org/releases/2.3/%{name}-%{version}%{?prever}.tar.gz
 Source1: dovecot.init
 Source2: dovecot.pam
 %global pigeonholever 0.5.8
-Source8: http://pigeonhole.dovecot.org/releases/2.3/dovecot-2.3-pigeonhole-%{pigeonholever}.tar.gz
+Source8: https://pigeonhole.dovecot.org/releases/2.3/dovecot-2.3-pigeonhole-%{pigeonholever}.tar.gz
 Source9: dovecot.sysconfig
 Source10: dovecot.tmpfilesd
 
@@ -35,14 +35,14 @@ Patch9: dovecot-2.2.22-systemd_w_protectsystem.patch
 Patch10: dovecot-2.3.0.1-libxcrypt.patch
 
 # HIN patch
-Patch11: hin-patch-2.3.8_for_dovecot_2.3.8.patch
+Patch11: dovecot-2.3.8-hin-2.3.x.patch
 
 Source15: prestartscript
 
 BuildRequires: gcc, gcc-c++, openssl-devel, pam-devel, zlib-devel, bzip2-devel, libcap-devel
 BuildRequires: libtool, autoconf, automake, pkgconfig
 BuildRequires: sqlite-devel
-BuildRequires: libpq-devel
+#BuildRequires: libpq-devel
 %if %{?fedora}0 < 280
 BuildRequires: mysql-devel
 BuildRequires: tcp_wrappers-devel
@@ -53,11 +53,11 @@ BuildRequires: libxcrypt-devel
 BuildRequires: openldap-devel
 BuildRequires: krb5-devel
 BuildRequires: quota-devel
-BuildRequires: xz-devel
-BuildRequires: lz4-devel
-BuildRequires: libsodium-devel
-BuildRequires: libexttextcat-devel
-BuildRequires: libstemmer-devel
+#BuildRequires: xz-devel
+#BuildRequires: lz4-devel
+#BuildRequires: libsodium-devel
+#BuildRequires: libexttextcat-devel
+#BuildRequires: libstemmer-devel
 
 # gettext-devel is needed for running autoconf because of the
 # presence of AM_ICONV
@@ -138,6 +138,7 @@ This package provides the development files for dovecot.
 %patch8 -p1 -b .initbysystemd
 %patch9 -p1 -b .systemd_w_protectsystem
 #%patch10 -p1 -b .libxcrypt
+%patch11 -p1 -b .hin_patch-2.3.x
 
 #pushd dovecot-2*3-pigeonhole-%{pigeonholever}
 #popd

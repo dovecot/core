@@ -1,16 +1,3 @@
-diff --git a/.gitignore b/.gitignore
-index e41087115..ce3224c86 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -9,7 +9,7 @@ Makefile.in
- .deps
- .libs
- *~
--
-+/*.tar.gz
- /configure
- /config.cache
- /config.guess
 diff --git a/INSTALL.md b/INSTALL.md
 index 1e397d8f7..66e21d0fa 100644
 --- a/INSTALL.md
