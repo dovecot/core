@@ -1,0 +1,130 @@
+### These patches from 2.2.x couldn't be applied to 2.3.8 as the respective files
+### don't exist and now similar code was found.
+###
+### Fritz Zaucker, 2019-11-28
+
+diff --git a/src/login-common/ssl-proxy-gnutls.c b/src/login-common/ssl-proxy-gnutls.c
+index d1b308a6a9..ee270c3190 100644
+--- a/src/login-common/ssl-proxy-gnutls.c
++++ b/src/login-common/ssl-proxy-gnutls.c
+@@ -60,6 +60,16 @@ static const char *get_alert_text(struct ssl_proxy *proxy)
+ 	return gnutls_alert_get_name(gnutls_alert_get(proxy->session));
+ }
+ 
++const char *ssl_proxy_get_fingerprint(struct ssl_proxy *proxy __attr_unused__)
++{
++	return NULL;
++}
++
++const char *ssl_proxy_get_fingerprint_base64(struct ssl_proxy *proxy __attr_unused__)
++{
++	return NULL;
++}
++
+ static int handle_ssl_error(struct ssl_proxy *proxy, int error)
+ {
+ 	if (!gnutls_error_is_fatal(error)) {
+
+
+diff --git a/src/login-common/ssl-proxy-openssl.c b/src/login-common/ssl-proxy-openssl.c
+index 424ef70703..a26818ae69 100644
+--- a/src/login-common/ssl-proxy-openssl.c
++++ b/src/login-common/ssl-proxy-openssl.c
+@@ -105,6 +107,7 @@ struct ssl_server_context {
+ 	const char *ca;
+ 	const char *cipher_list;
+ 	const char *protocols;
++	unsigned int verify_depth;
+ 	bool verify_client_cert;
+ 	bool prefer_server_ciphers;
+ 	bool compression;
+@@ -186,10 +189,17 @@ static int ssl_server_context_cmp(const struct ssl_server_context *ctx1,
+ 		return 1;
+ 	if (null_strcmp(ctx1->protocols, ctx2->protocols) != 0)
+ 		return 1;
++	if (ctx1->verify_depth != ctx2->verify_depth)
++		return 1;
++	if (ctx1->verify_client_cert != ctx2->verify_client_cert)
++		return 1;
++
++    return 0;
+ 
+-	return ctx1->verify_client_cert == ctx2->verify_client_cert ? 0 : 1;
+ }
+ 
++
++
+ static void ssl_params_corrupted(const char *reason)
+ {
+ 	i_fatal("Corrupted SSL ssl-parameters.dat in state_dir: %s", reason);
+@@ -630,6 +640,7 @@ ssl_server_context_get(const struct login_settings *login_set,
+ 	lookup_ctx.alt.key = set->ssl_alt_key;
+ 	lookup_ctx.ca = set->ssl_ca;
+ 	lookup_ctx.cipher_list = set->ssl_cipher_list;
++	lookup_ctx.verify_depth = set->ssl_verify_depth;
+ 	lookup_ctx.protocols = set->ssl_protocols;
+ 	lookup_ctx.verify_client_cert = set->ssl_verify_client_cert ||
+ 		login_set->auth_ssl_require_client_cert ||
+@@ -732,7 +743,10 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
+ 		}
+ 	}
+ 	X509_free(x509);
+-	
++
++	if (proxy->ssl_set->ssl_cert_info)
++		i_info("x509 name found in certificate \"%s\" ...", name);
++
+ 	return *name == '\0' ? NULL : name;
+ }
+ 
+@@ -1214,7 +1228,7 @@ ssl_proxy_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
+ 		X509 *ca;
+ 		int r;
+ 		unsigned long err;
+-		
++
+ 		while ((ca = PEM_read_bio_X509(in,NULL,NULL,NULL)) != NULL) {
+ 			r = SSL_CTX_add_extra_chain_cert(ctx, ca);
+ 			if (!r) {
+@@ -1227,7 +1241,7 @@ ssl_proxy_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
+ 		err = ERR_peek_last_error();
+ 		if (ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE)
+ 			ERR_clear_error();
+-		else 
++		else
+ 			ret = 0; /* some real error */
+ 		}
+ 
+@@ -1283,6 +1297,7 @@ ssl_server_context_init(const struct login_settings *login_set,
+ 	ctx->alt.key = p_strdup(pool, ssl_set->ssl_alt_key);
+ 	ctx->ca = p_strdup(pool, ssl_set->ssl_ca);
+ 	ctx->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
++	ctx->verify_depth = ssl_set->ssl_verify_depth;
+ 	ctx->protocols = p_strdup(pool, ssl_set->ssl_protocols);
+ 	ctx->verify_client_cert = ssl_set->ssl_verify_client_cert ||
+ 		login_set->auth_ssl_require_client_cert ||
+@@ -1296,6 +1311,20 @@ ssl_server_context_init(const struct login_settings *login_set,
+ 		i_fatal("SSL_CTX_new() failed");
+ 	xnames = ssl_proxy_ctx_init(ssl_ctx, ssl_set, ctx->verify_client_cert);
+ 
++	/* 	Note: we add one to the configured depth purposefully.  As noted
++		in the OpenSSL man pages, the verification process will silently
++		stop at the configured depth, and the error messages ensuing will
++		be that of an incomplete certificate chain, rather than the
++		"chain too long" error that might be expected. To log the "chain
++		too long" condition, we add one to the configured depth, and catch,
++		in the verify callback, the exceeding of the actual depth.
++	*/
++
++        SSL_CTX_set_verify_depth(ssl_ctx, ctx->verify_depth + 1);
++
++        /* session cache fails quite often ... disable it */
++        SSL_CTX_set_session_cache_mode(ssl_ctx, SSL_SESS_CACHE_OFF);
++
+ 	if (SSL_CTX_set_cipher_list(ssl_ctx, ctx->cipher_list) != 1) {
+ 		i_fatal("Can't set cipher list to '%s': %s",
+ 			ctx->cipher_list, openssl_iostream_error());
+@@ -1470,4 +1499,134 @@ void ssl_proxy_deinit(void)
+ 	ERR_free_strings();
+ }
+ 
