@@ -184,11 +184,16 @@ lazy_expunge_count_in_transaction(struct lazy_expunge_transaction *lt,
 
 static int lazy_expunge_mail_is_last_instance(struct mail *_mail)
 {
+	struct mail_private *mail = (struct mail_private *)_mail;
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT_REQUIRE(_mail->transaction);
 	const char *value, *errstr;
 	unsigned long refcount;
 	enum mail_error error;
+
+	/* mail is reused by the search query, so the next mail_prefetch() on
+	   it will try to prefetch the refcount */
+	mail->wanted_fields |= MAIL_FETCH_REFCOUNT;
 
 	if (mail_get_special(_mail, MAIL_FETCH_REFCOUNT, &value) < 0) {
 		errstr = mailbox_get_last_internal_error(_mail->box, &error);
