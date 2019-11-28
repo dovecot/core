@@ -214,22 +214,22 @@ static int lazy_expunge_mail_is_last_instance(struct mail *_mail)
 		   multiple times and we're deleting more than one instance
 		   within this transaction. in those cases each expunge will
 		   see the same refcount, so we need to adjust the refcount
-		   by tracking the expunged message GUIDs. */
-		if (mail_get_special(_mail, MAIL_FETCH_GUID, &value) < 0) {
+		   by tracking the expunged message's refcount IDs. */
+		if (mail_get_special(_mail, MAIL_FETCH_REFCOUNT_ID, &value) < 0) {
 			errstr = mailbox_get_last_internal_error(_mail->box, &error);
 			if (error == MAIL_ERROR_EXPUNGED) {
 				/* already expunged - just ignore it */
 				return 0;
 			}
 			mail_set_critical(_mail,
-				"lazy_expunge: Couldn't lookup message's GUID: %s", errstr);
+				"lazy_expunge: Couldn't lookup message's refcount ID: %s", errstr);
 			return -1;
 		}
 		if (*value == '\0') {
-			/* GUIDs not supported by backend, but refcounts are?
-			   not with our current backends. */
+			/* refcount IDs not supported by backend, but refcounts
+			   are? not with our current backends. */
 			mail_set_critical(_mail,
-				"lazy_expunge: Message unexpectedly has no GUID");
+				"lazy_expunge: Message unexpectedly has no refcount ID");
 			return -1;
 		}
 		refcount -= lazy_expunge_count_in_transaction(lt, value);
