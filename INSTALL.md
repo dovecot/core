@@ -4,13 +4,12 @@ Build Instructions
 For most people, the usual:
 
 ```
-./autogen.sh
 ./configure
 make
 sudo make install
 ```
 
-is enough. This installs Dovecot under /usr/local.
+is enough. This installs Dovecot under /usr/local. If installing from git, user `./autogen.sh` first.
 
 If you have installed some libraries into locations which require special include or library paths, you can give them in CPPFLAGS and LDFLAGS environment variables. For example:
 
