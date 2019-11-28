@@ -1,10 +1,10 @@
-diff -up dovecot-2.1.10/dovecot.service.in.privatetmp dovecot-2.1.10/dovecot.service.in
---- dovecot-2.1.10/dovecot.service.in.privatetmp	2012-11-02 10:27:38.000000000 +0100
-+++ dovecot-2.1.10/dovecot.service.in	2012-11-02 10:28:04.079320857 +0100
-@@ -6,6 +6,7 @@ After=local-fs.target network.target
+diff -up dovecot-2.2.19/dovecot.service.in.privatetmp dovecot-2.2.19/dovecot.service.in
+--- dovecot-2.2.19/dovecot.service.in.privatetmp	2015-10-05 12:50:24.273780394 +0200
++++ dovecot-2.2.19/dovecot.service.in	2015-10-05 12:50:56.281621589 +0200
+@@ -26,6 +26,7 @@ After=local-fs.target network.target
  Type=simple
- ExecStart=@sbindir@/dovecot -F
- ExecReload=/bin/kill -HUP $MAINPID
+ ExecStart=@sbindir@/dovecot -F $OPTIONS
+ ExecReload=@sbindir@/dovecot reload
 +PrivateTmp=true
  NonBlocking=yes
  

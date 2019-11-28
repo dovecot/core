@@ -1,2 +1,2 @@
-d /var/run/dovecot 0755 root dovecot -
+d /run/dovecot 0755 root dovecot -
 
