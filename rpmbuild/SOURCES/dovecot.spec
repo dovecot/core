@@ -35,7 +35,7 @@ Patch9: dovecot-2.2.22-systemd_w_protectsystem.patch
 Patch10: dovecot-2.3.0.1-libxcrypt.patch
 
 # HIN patch
-Patch11: 
+Patch11: hin-patch-2.3.8_for_dovecot_2.3.8.patch
 
 Source15: prestartscript
 
