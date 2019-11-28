@@ -250,7 +250,7 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
 	return 0;
 }
 
-const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
+const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io, struct login_settings *set)
 {
 	return ssl_vfuncs->get_peer_name(ssl_io);
 }

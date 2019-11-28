@@ -764,7 +764,7 @@ openssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io)
 }
 
 static const char *
-openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
+openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io, struct login_settings *set)
 {
 	X509 *x509;
 	char *name;
@@ -794,6 +794,10 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 	}
 	X509_free(x509);
 	
+        if (set->ssl_cert_info) {
+                i_info("**** openssl_iostream_get_peer_name(): peername=%s", name);
+        }
+
 	return *name == '\0' ? NULL : name;
 }
 
@@ -973,18 +977,23 @@ const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct l
     x509 = NULL;
     num = 0;
     
-    if (!ssl_iostream_has_valid_client_cert(ssl_io))
-        return NULL;
+
+    if (!ssl_iostream_has_valid_client_cert(ssl_io)) {
+        if (set->ssl_cert_debug) {
+	    i_debug("**** __ssl_iostream_get_fingerprint(): invalid client certificate, returning NULL");
+        }
+	return NULL;
+    }
 
     x509 = SSL_get_peer_certificate(ssl_io->ssl);
-    if (x509 == NULL)
+    if (x509 == NULL) {
+        if (set->ssl_cert_debug) {
+            i_debug("***** __ssl_iostream_get_fingerprint(): didn't get peer certificate, returning NULL");
+        }
         return NULL; /* we should have had it.. */
-
+    }
     
-    /* ???? */
     ssl_cert_md_algorithm = t_strdup_printf("%s", set->ssl_cert_md_algorithm);
-    /*    ssl_cert_md_algorithm = t_strdup_printf("sha1");*/
-
     if ((md_alg = EVP_get_digestbyname(ssl_cert_md_algorithm)) == 0) {
         i_panic("Certificate digest algorithm \"%s\" not found ...",
                 ssl_cert_md_algorithm);
@@ -1017,7 +1026,6 @@ const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct l
             peer_fingerprint[(j * 2) + 1] = hexcodes[(md_buf[j] & 0x0f)];
         }
 
-        /* ???? */
         if (set->ssl_cert_debug) {
             if (!base64mode) {
                 i_debug("fingerprint: %s", peer_fingerprint);
@@ -1027,7 +1035,6 @@ const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct l
         }
     }
 
-    /* ???? */
     if (set->ssl_cert_info) {
         if (!base64mode) {
             i_info("x509 fingerprint found: %s", peer_fingerprint);
@@ -1043,12 +1050,10 @@ const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct l
             fingerprint_ascii_ptr += 2;
             arr[index] = num;
             index++;
-            /* ???? */
             if (set->ssl_cert_debug) {
                 i_debug("fingerprint_binary: %s", arr);
             }
         }
-        /* ???? */
         if (set->ssl_cert_debug) {
             i_debug("x509 fingerprint_binary: %s", arr);
         }

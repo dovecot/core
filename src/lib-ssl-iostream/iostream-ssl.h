@@ -122,7 +122,7 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
    will always return FALSE before even checking the hostname. */
 bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
 				  const char **reason_r);
-const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
+const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io, struct login_settings *set);
 const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
