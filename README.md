@@ -94,6 +94,7 @@ IMAP extensions
 - [RFC6851 - Internet Message Access Protocol (IMAP) - MOVE Extension](https://tools.ietf.org/html/rfc6851)
 - [RFC7162 - IMAP Extensions: Quick Flag Changes Resynchronization (CONDSTORE) and Quick Mailbox Resynchronization (QRESYNC) (updated RFC4551 and RFC5162)](https://tools.ietf.org/html/rfc7162)
 - [RFC7888 - IMAP4 Non-synchronizing Literals (updated RFC2088)](https://tools.ietf.org/html/rfc7888)
+- [RFC8457 - IMAP "$Important" Keyword and "\Important" Special-Use Attribute](https://tools.ietf.org/html/rfc8457)
 
 SMTP/LMTP base
 --------------
