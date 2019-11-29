@@ -306,12 +306,11 @@ backend_relay_cmd_helo(struct submission_backend *_backend,
 	helo->cmd = cmd;
 	helo->data = data;
 
-	/* this is not the first HELO/EHLO; just relay a RSET command */
-	smtp_server_command_add_hook(
-		cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
-		relay_cmd_helo_start, helo);
-	helo->cmd_relayed = smtp_client_command_rset_submit
-		(backend->conn, 0, relay_cmd_helo_callback, helo);
+	/* This is not the first HELO/EHLO; just relay a RSET command */
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
+				     relay_cmd_helo_start, helo);
+	helo->cmd_relayed = smtp_client_command_rset_submit(
+		backend->conn, 0, relay_cmd_helo_callback, helo);
 	return 0;
 }
 
@@ -406,7 +405,8 @@ relay_cmd_mail_parameter_size(struct submission_backend_relay *backend,
 	/* determine actual size limit (account for our additions) */
 	max_size = client_get_max_mail_size(client);
 	if (max_size > 0 && data->params.size > max_size) {
-		smtp_server_reply(cmd, 552, "5.3.4",
+		smtp_server_reply(
+			cmd, 552, "5.3.4",
 			"Message size exceeds fixed maximum message size");
 		return -1;
 	}
@@ -449,8 +449,8 @@ backend_relay_cmd_mail(struct submission_backend *_backend,
 			backend->conn, data->path, &data->params, 0,
 			backend_relay_trans_finished, backend);
 		smtp_client_transaction_set_immediate(backend->trans, TRUE);
-		smtp_client_transaction_start(backend->trans,
-					      relay_cmd_mail_callback, mail_cmd);
+		smtp_client_transaction_start(
+			backend->trans, relay_cmd_mail_callback, mail_cmd);
 	} else {
 		/* forward pipelined MAIL command */
 		i_assert(backend->trans_started);
@@ -1093,8 +1093,9 @@ static void backend_relay_ready_cb(const struct smtp_reply *reply,
 	if (!smtp_reply_is_success(reply)) {
 		i_error("Failed to establish relay connection: %s",
 			smtp_reply_log(reply));
-		submission_backend_fail(&backend->backend, NULL,
-			"4.4.0", "Failed to establish relay connection");
+		submission_backend_fail(
+			&backend->backend, NULL, "4.4.0",
+			"Failed to establish relay connection");
 		return;
 	}
 
@@ -1167,4 +1168,3 @@ static struct submission_backend_vfuncs backend_relay_vfuncs = {
 
 	.cmd_quit = backend_relay_cmd_quit,
 };
-
