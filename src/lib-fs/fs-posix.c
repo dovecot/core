@@ -157,13 +157,17 @@ static enum fs_properties fs_posix_get_properties(struct fs *_fs)
 }
 
 static int
-fs_posix_get_mode(struct posix_fs *fs, const char *path, mode_t *mode_r)
+fs_posix_get_mode(struct posix_fs_file *file, const char *path, mode_t *mode_r)
 {
+	struct posix_fs *fs = (struct posix_fs *)file->file.fs;
 	struct stat st;
 	const char *p;
 
 	*mode_r = fs->mode;
 
+	/* This function is used to get mode of the parent directory, so path
+	   is never the same as file->path. The file is used just to set the
+	   errors. */
 	while (stat(path, &st) < 0) {
 		if (errno != ENOENT) {
 			fs_set_error(&fs->fs, "stat(%s) failed: %m", path);
@@ -184,7 +188,7 @@ fs_posix_get_mode(struct posix_fs *fs, const char *path, mode_t *mode_r)
 	return 0;
 }
 
-static int fs_posix_mkdir_parents(struct posix_fs *fs, const char *path)
+static int fs_posix_mkdir_parents(struct posix_fs_file *file, const char *path)
 {
 	const char *dir, *fname;
 	mode_t mode, dir_mode;
@@ -194,7 +198,7 @@ static int fs_posix_mkdir_parents(struct posix_fs *fs, const char *path)
 		return 1;
 	dir = t_strdup_until(path, fname);
 
-	if (fs_posix_get_mode(fs, dir, &mode) < 0)
+	if (fs_posix_get_mode(file, dir, &mode) < 0)
 		return -1;
 	dir_mode = mode;
 	if ((dir_mode & 0600) != 0) dir_mode |= 0100;
@@ -206,7 +210,7 @@ static int fs_posix_mkdir_parents(struct posix_fs *fs, const char *path)
 	else if (errno == EEXIST)
 		return 1;
 	else {
-		fs_set_error(&fs->fs, "mkdir_parents(%s) failed: %m", dir);
+		fs_set_error(file->file.fs, "mkdir_parents(%s) failed: %m", dir);
 		return -1;
 	}
 }
@@ -254,11 +258,11 @@ static int fs_posix_create(struct posix_fs_file *file)
 
 	if ((slash = strrchr(file->full_path, '/')) != NULL) {
 		str_append_data(str, file->full_path, slash - file->full_path);
-		if (fs_posix_get_mode(fs, str_c(str), &mode) < 0)
+		if (fs_posix_get_mode(file, str_c(str), &mode) < 0)
 			return -1;
 		str_append_c(str, '/');
 	} else {
-		if (fs_posix_get_mode(fs, ".", &mode) < 0)
+		if (fs_posix_get_mode(file, ".", &mode) < 0)
 			return -1;
 	}
 	str_append(str, fs->temp_file_prefix);
@@ -266,7 +270,7 @@ static int fs_posix_create(struct posix_fs_file *file)
 	fd = safe_mkstemp_hostpid(str, mode, (uid_t)-1, (gid_t)-1);
 	while (fd == -1 && errno == ENOENT &&
 	       try_count <= MAX_MKDIR_RETRY_COUNT) {
-		if (fs_posix_mkdir_parents(fs, str_c(str)) < 0)
+		if (fs_posix_mkdir_parents(file, str_c(str)) < 0)
 			return -1;
 		fd = safe_mkstemp_hostpid(str, mode, (uid_t)-1, (gid_t)-1);
 		try_count++;
@@ -487,14 +491,13 @@ static void fs_posix_write_rename_if_needed(struct posix_fs_file *file)
 
 static int fs_posix_write_finish_link(struct posix_fs_file *file)
 {
-	struct posix_fs *fs = container_of(file->file.fs, struct posix_fs, fs);
 	unsigned int try_count = 0;
 	int ret;
 
 	ret = link(file->temp_path, file->full_path);
 	while (ret < 0 && errno == ENOENT &&
 	       try_count <= MAX_MKDIR_RETRY_COUNT) {
-		if (fs_posix_mkdir_parents(fs, file->full_path) < 0)
+		if (fs_posix_mkdir_parents(file, file->full_path) < 0)
 			return -1;
 		ret = link(file->temp_path, file->full_path);
 		try_count++;
@@ -557,7 +560,7 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 		ret = rename(file->temp_path, file->full_path);
 		while (ret < 0 && errno == ENOENT &&
 		       try_count <= MAX_MKDIR_RETRY_COUNT) {
-			if (fs_posix_mkdir_parents(fs, file->full_path) < 0)
+			if (fs_posix_mkdir_parents(file, file->full_path) < 0)
 				return -1;
 			ret = rename(file->temp_path, file->full_path);
 			try_count++;
@@ -781,7 +784,6 @@ static int fs_posix_copy(struct fs_file *_src, struct fs_file *_dest)
 		container_of(_src, struct posix_fs_file, file);
 	struct posix_fs_file *dest =
 		container_of(_dest, struct posix_fs_file, file);
-	struct posix_fs *fs = container_of(_src->fs, struct posix_fs, fs);
 	unsigned int try_count = 0;
 	int ret;
 
@@ -794,7 +796,7 @@ static int fs_posix_copy(struct fs_file *_src, struct fs_file *_dest)
 	}
 	while (ret < 0 && errno == ENOENT &&
 	       try_count <= MAX_MKDIR_RETRY_COUNT) {
-		if (fs_posix_mkdir_parents(fs, dest->full_path) < 0)
+		if (fs_posix_mkdir_parents(dest, dest->full_path) < 0)
 			return -1;
 		ret = link(src->full_path, dest->full_path);
 		try_count++;
@@ -809,7 +811,6 @@ static int fs_posix_copy(struct fs_file *_src, struct fs_file *_dest)
 
 static int fs_posix_rename(struct fs_file *_src, struct fs_file *_dest)
 {
-	struct posix_fs *fs = container_of(_src->fs, struct posix_fs, fs);
 	struct posix_fs_file *src =
 		container_of(_src, struct posix_fs_file, file);
 	struct posix_fs_file *dest =
@@ -820,7 +821,7 @@ static int fs_posix_rename(struct fs_file *_src, struct fs_file *_dest)
 	ret = rename(src->full_path, dest->full_path);
 	while (ret < 0 && errno == ENOENT &&
 	       try_count <= MAX_MKDIR_RETRY_COUNT) {
-		if (fs_posix_mkdir_parents(fs, dest->full_path) < 0)
+		if (fs_posix_mkdir_parents(dest, dest->full_path) < 0)
 			return -1;
 		ret = rename(src->full_path, dest->full_path);
 		try_count++;
