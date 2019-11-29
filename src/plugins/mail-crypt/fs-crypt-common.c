@@ -170,7 +170,7 @@ static void fs_crypt_file_deinit(struct fs_file *_file)
 
 	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
-	fs_file_deinit(&_file->parent);
+	fs_file_free(_file);
 	i_free(file->file.path);
 	i_free(file);
 }

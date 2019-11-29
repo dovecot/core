@@ -136,6 +136,7 @@ static void fs_dict_file_deinit(struct fs_file *_file)
 
 	i_assert(_file->output == NULL);
 
+	fs_file_free(_file);
 	pool_unref(&file->pool);
 }
 

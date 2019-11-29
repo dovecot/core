@@ -227,7 +227,7 @@ static void fs_randomfail_file_deinit(struct fs_file *_file)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
 
-	fs_file_deinit(&file->file.parent);
+	fs_file_free(_file);
 	i_free(file->file.path);
 	i_free(file);
 }

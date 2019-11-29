@@ -388,6 +388,7 @@ static void fs_posix_file_deinit(struct fs_file *_file)
 		break;
 	}
 
+	fs_file_free(_file);
 	i_free(file->temp_path);
 	i_free(file->full_path);
 	i_free(file->file.path);

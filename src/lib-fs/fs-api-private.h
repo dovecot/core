@@ -187,6 +187,7 @@ fs_file_init_parent(struct fs_file *parent, const char *path, int mode_flags);
 struct fs_iter *
 fs_iter_init_parent(struct fs_iter *parent,
 		    const char *path, enum fs_iter_flags flags);
+void fs_file_free(struct fs_file *file);
 
 /* Same as fs_write_stream_abort_error(), except it closes the *parent* file
    and error is left untouched */

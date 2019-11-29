@@ -64,6 +64,7 @@ static void fs_test_file_deinit(struct fs_file *_file)
 {
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
+	fs_file_free(_file);
 	buffer_free(&file->contents);
 	i_free(file->file.path);
 	i_free(file);

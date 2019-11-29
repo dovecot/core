@@ -314,6 +314,11 @@ void fs_file_deinit(struct fs_file **_file)
 		pool_unref(&metadata_pool);
 }
 
+void fs_file_free(struct fs_file *file)
+{
+	fs_file_deinit(&file->parent);
+}
+
 void fs_file_close(struct fs_file *file)
 {
 	if (file == NULL)

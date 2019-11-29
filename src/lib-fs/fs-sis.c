@@ -123,7 +123,7 @@ static void fs_sis_file_deinit(struct fs_file *_file)
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
 	fs_file_deinit(&file->hash_file);
-	fs_file_deinit(&_file->parent);
+	fs_file_free(_file);
 	i_free(file->hash);
 	i_free(file->hash_path);
 	i_free(file->file.path);

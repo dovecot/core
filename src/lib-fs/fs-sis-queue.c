@@ -90,7 +90,7 @@ static void fs_sis_queue_file_deinit(struct fs_file *_file)
 {
 	struct sis_queue_fs_file *file = (struct sis_queue_fs_file *)_file;
 
-	fs_file_deinit(&_file->parent);
+	fs_file_free(_file);
 	i_free(file->file.path);
 	i_free(file);
 }
