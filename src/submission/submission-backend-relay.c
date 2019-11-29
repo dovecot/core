@@ -228,6 +228,15 @@ struct relay_cmd_helo_context {
 };
 
 static void
+relay_cmd_helo_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		       struct relay_cmd_helo_context *helo_cmd)
+{
+	i_assert(helo_cmd != NULL);
+	if (helo_cmd->cmd_relayed != NULL)
+		smtp_client_command_abort(&helo_cmd->cmd_relayed);
+}
+
+static void
 relay_cmd_helo_update_xclient(struct submission_backend_relay *backend,
 			      struct smtp_server_cmd_helo *data)
 {
@@ -314,6 +323,8 @@ backend_relay_cmd_helo(struct submission_backend *_backend,
 	/* This is not the first HELO/EHLO; just relay a RSET command */
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     relay_cmd_helo_start, helo_cmd);
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     relay_cmd_helo_destroy, helo_cmd);
 	helo_cmd->cmd_relayed = smtp_client_command_rset_submit(
 		backend->conn, 0, relay_cmd_helo_callback, helo_cmd);
 	return 0;
@@ -561,6 +572,15 @@ struct relay_cmd_rset_context {
 };
 
 static void
+relay_cmd_rset_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		       struct relay_cmd_rset_context *rset_cmd)
+{
+	i_assert(rset_cmd != NULL);
+	if (rset_cmd->cmd_relayed != NULL)
+		smtp_client_command_abort(&rset_cmd->cmd_relayed);
+}
+
+static void
 relay_cmd_rset_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_rset_context *rset_cmd)
 {
@@ -600,6 +620,9 @@ backend_relay_cmd_rset(struct submission_backend *_backend,
 					      rset_cmd);
 	} else {
 		/* RSET alone */
+		smtp_server_command_add_hook(cmd->cmd,
+					     SMTP_SERVER_COMMAND_HOOK_DESTROY,
+					     relay_cmd_rset_destroy, rset_cmd);
 		rset_cmd->cmd_relayed = smtp_client_command_rset_submit(
 			backend->conn, 0, relay_cmd_rset_callback, rset_cmd);
 	}
@@ -767,6 +790,15 @@ struct relay_cmd_vrfy_context {
 };
 
 static void
+relay_cmd_vrfy_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		       struct relay_cmd_vrfy_context *vrfy_cmd)
+{
+	i_assert(vrfy_cmd != NULL);
+	if (vrfy_cmd->cmd_relayed != NULL)
+		smtp_client_command_abort(&vrfy_cmd->cmd_relayed);
+}
+
+static void
 relay_cmd_vrfy_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_vrfy_context *vrfy_cmd)
 {
@@ -827,6 +859,8 @@ backend_relay_cmd_vrfy(struct submission_backend *_backend,
 	vrfy_cmd->backend = backend;
 	vrfy_cmd->cmd = cmd;
 
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     relay_cmd_vrfy_destroy, vrfy_cmd);
 	vrfy_cmd->cmd_relayed = smtp_client_command_vrfy_submit(
 		backend->conn, 0, param, relay_cmd_vrfy_callback, vrfy_cmd);
 	return 0;
@@ -843,6 +877,15 @@ struct relay_cmd_noop_context {
 
 	struct smtp_client_command *cmd_relayed;
 };
+
+static void
+relay_cmd_noop_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		       struct relay_cmd_noop_context *noop_cmd)
+{
+	i_assert(noop_cmd != NULL);
+	if (noop_cmd->cmd_relayed != NULL)
+		smtp_client_command_abort(&noop_cmd->cmd_relayed);
+}
 
 static void
 relay_cmd_noop_callback(const struct smtp_reply *relay_reply,
@@ -879,6 +922,8 @@ backend_relay_cmd_noop(struct submission_backend *_backend,
 	noop_cmd->backend = backend;
 	noop_cmd->cmd = cmd;
 
+	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+				     relay_cmd_noop_destroy, noop_cmd);
 	noop_cmd->cmd_relayed = smtp_client_command_noop_submit(
 		backend->conn, 0, relay_cmd_noop_callback, noop_cmd);
 	return 0;
