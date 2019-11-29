@@ -243,25 +243,25 @@ relay_cmd_helo_update_xclient(struct submission_backend_relay *backend,
 
 static void
 relay_cmd_helo_reply(struct smtp_server_cmd_ctx *cmd,
-		     struct relay_cmd_helo_context *helo)
+		     struct relay_cmd_helo_context *helo_cmd)
 {
-	struct submission_backend_relay *backend = helo->backend;
+	struct submission_backend_relay *backend = helo_cmd->backend;
 
-	if (helo->data->changed)
-		relay_cmd_helo_update_xclient(backend, helo->data);
+	if (helo_cmd->data->changed)
+		relay_cmd_helo_update_xclient(backend, helo_cmd->data);
 
 	T_BEGIN {
 		submission_backend_helo_reply_submit(&backend->backend, cmd,
-						     helo->data);
+						     helo_cmd->data);
 	} T_END;
 }
 
 static void
 relay_cmd_helo_callback(const struct smtp_reply *relay_reply,
-			struct relay_cmd_helo_context *helo)
+			struct relay_cmd_helo_context *helo_cmd)
 {
-	struct smtp_server_cmd_ctx *cmd = helo->cmd;
-	struct submission_backend_relay *backend = helo->backend;
+	struct smtp_server_cmd_ctx *cmd = helo_cmd->cmd;
+	struct submission_backend_relay *backend = helo_cmd->backend;
 	struct smtp_reply reply;
 
 	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
@@ -269,7 +269,7 @@ relay_cmd_helo_callback(const struct smtp_reply *relay_reply,
 		return;
 
 	if (smtp_reply_is_success(&reply)) {
-		relay_cmd_helo_reply(cmd, helo);
+		relay_cmd_helo_reply(cmd, helo_cmd);
 	} else {
 		/* RFC 2034, Section 4:
 
@@ -284,12 +284,12 @@ relay_cmd_helo_callback(const struct smtp_reply *relay_reply,
 
 static void
 relay_cmd_helo_start(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-		     struct relay_cmd_helo_context *helo)
+		     struct relay_cmd_helo_context *helo_cmd)
 {
-	struct submission_backend_relay *backend = helo->backend;
+	struct submission_backend_relay *backend = helo_cmd->backend;
 
-	if (helo->data->changed)
-		relay_cmd_helo_update_xclient(backend, helo->data);
+	if (helo_cmd->data->changed)
+		relay_cmd_helo_update_xclient(backend, helo_cmd->data);
 }
 
 static int
@@ -299,18 +299,18 @@ backend_relay_cmd_helo(struct submission_backend *_backend,
 {
 	struct submission_backend_relay *backend =
 		(struct submission_backend_relay *)_backend;
-	struct relay_cmd_helo_context *helo;
+	struct relay_cmd_helo_context *helo_cmd;
 
-	helo = p_new(cmd->pool, struct relay_cmd_helo_context, 1);
-	helo->backend = backend;
-	helo->cmd = cmd;
-	helo->data = data;
+	helo_cmd = p_new(cmd->pool, struct relay_cmd_helo_context, 1);
+	helo_cmd->backend = backend;
+	helo_cmd->cmd = cmd;
+	helo_cmd->data = data;
 
 	/* This is not the first HELO/EHLO; just relay a RSET command */
 	smtp_server_command_add_hook(cmd->cmd, SMTP_SERVER_COMMAND_HOOK_NEXT,
-				     relay_cmd_helo_start, helo);
-	helo->cmd_relayed = smtp_client_command_rset_submit(
-		backend->conn, 0, relay_cmd_helo_callback, helo);
+				     relay_cmd_helo_start, helo_cmd);
+	helo_cmd->cmd_relayed = smtp_client_command_rset_submit(
+		backend->conn, 0, relay_cmd_helo_callback, helo_cmd);
 	return 0;
 }
 
