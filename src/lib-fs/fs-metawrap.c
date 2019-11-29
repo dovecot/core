@@ -188,7 +188,7 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 			fs_wait_async(_file->fs);
 		}
 		if (ret == -1 && file->input->stream_errno != 0) {
-			fs_set_error(_file->fs, "read(%s) failed: %s",
+			fs_set_error(_file->event, "read(%s) failed: %s",
 				     i_stream_get_name(file->input),
 				     i_stream_get_error(file->input));
 			return -1;
@@ -433,7 +433,7 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 		if (fs_stat(_file->parent, st_r) < 0)
 			return -1;
 		if ((uoff_t)st_r->st_size < file->metadata_write_size) {
-			fs_set_error(_file->fs,
+			fs_set_error(_file->event,
 				"Just-written %s shrank unexpectedly "
 				"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
 				fs_file_path(_file), st_r->st_size,
@@ -451,7 +451,7 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 		i_stream_ref(input);
 	}
 	if ((ret = i_stream_get_size(input, TRUE, &input_size)) < 0) {
-		fs_set_error(_file->fs, "i_stream_get_size(%s) failed: %s",
+		fs_set_error(_file->event, "i_stream_get_size(%s) failed: %s",
 			     fs_file_path(_file), i_stream_get_error(input));
 		i_stream_unref(&input);
 		return -1;
@@ -459,7 +459,7 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 	i_stream_unref(&input);
 	if (ret == 0) {
 		/* we shouldn't get here */
-		fs_set_error(_file->fs, "i_stream_get_size(%s) returned size as unknown",
+		fs_set_error(_file->event, "i_stream_get_size(%s) returned size as unknown",
 			     fs_file_path(_file));
 		errno = EIO;
 		return -1;

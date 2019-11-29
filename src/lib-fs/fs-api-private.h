@@ -166,8 +166,8 @@ extern const struct fs fs_class_test;
 
 void fs_class_register(const struct fs *fs_class);
 
-void fs_set_error(struct fs *fs, const char *fmt, ...) ATTR_FORMAT(2, 3);
-
+/* Event must be fs_file or fs_iter events */
+void fs_set_error(struct event *event, const char *fmt, ...) ATTR_FORMAT(2, 3);
 void fs_file_set_error_async(struct fs_file *file);
 
 ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size);
