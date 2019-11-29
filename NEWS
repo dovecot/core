@@ -1,3 +1,93 @@
+v2.3.9 2019-12-04  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* Changed several event field names for consistency and to avoid
+	  conflicts in parent-child event relationships:
+	   * SMTP server command events: Renamed "name" to "cmd_name"
+	   * Events inheriting from a mailbox: Renamed "name" to "mailbox"
+	   * Server connection events have only "remote_ip", "remote_port",
+	     "local_ip" and "local_port".
+	   * Removed duplicate "client_ip", "ip" and "port".
+	   * Mail storage events: Removed "service" field.
+	     Use "service:<name>" category instead.
+	   * HTTP client connection events: Renamed "host" to "dest_host" and
+	     "port" to "dest_port"
+	* auth: Drop Postfix socketmap support. It hasn't been working
+	  with recent Postfix versions for a while now.
+	* push-notification-lua: The "subject" field is now decoded to UTF8
+	  instead of kept as MIME-encoded.
+	+ push-notification-lua: Added new "from_address", "from_display_name",
+	  "to_address" and "to_display_name" fields. The display names are
+	  decoded to UTF8.
+	+ Added various new fields to existing events.
+	  See http://doc.dovecot.net/admin_manual/list_of_events.html
+	+ Add lmtp_add_received_header setting. It can be used to prevent LMTP
+	  from adding "Received:" headers.
+	+ doveadm: Support SSL/STARTTLS for proxied doveadm connections based on
+	  doveadm_ssl setting and proxy ssl/tls settings.
+	+ Log filters support now "service:<name>", which matches all events for
+	  the given service. It can also be used as a category.
+	+ lib: Use libunwind to get abort backtraces with function names
+	  where available.
+	+ lmtp: When the LMTP proxy changes the username (from passdb lookup)
+	  add an appropriate ORCPT parameter.
+	- lmtp: Add lmtp_client_workarounds setting to implement workarounds for
+	  clients that send MAIL and RCPT commands with additional spaces before
+	  the path and for clients that omit <> brackets around the path.
+	  See example-config/conf.d/20-lmtp.conf.
+	- lda/lmtp: Invalid MAIL FROM addresses were rejcted too aggressively.
+	  Now mails from addresses with unicode characters are delivered, but
+	  their Return-Path header will be <> instead of the given MAIL FROM
+	  address.
+	- lmtp: The lmtp_hdr_delivery_address setting is ignored.
+	- imap: imap_command_finished event's "args" and "human_args" parameters
+	  were always empty.
+	- mbox: Seeking in zlib and bzip2 compressed input streams didn't work
+	  correctly.
+	- imap-hibernate: Process crashed when client got destroyed while it was
+	  attempted to be unhibernated, and the unhibernation fails.
+	- *-login: Proxying may have crashed if SSL handshake to the backend
+	  failed immediately. This was unlikely to happen in normal operation.
+	- *-login: If TLS handshake to upstream server failed during proxying,
+	  login process could crash due to invalid memory access.
+	- *-login: v2.3 regression: Using SASL authentication without initial
+	  response may have caused SSL connections to hang. This happened often
+	  at least with PHP's IMAP library.
+	- *-login: When login processes are flooded with authentication attempts
+	  it starts logging errors about "Authentication server sent unknown id".
+	  This is still expected. However, it also caused the login process to
+	  disconnect from auth server and potentially log some user's password
+	  in the error message.
+	- dict-sql: SQL prepared statements were not shared between sessions.
+	  This resulted in creating a lot of prepared statements, which was
+	  especially inefficient when using Cassandra backend with a lot of
+	  Cassandra nodes.
+	- auth: auth_request_finished event didn't have success=yes parameter
+	  set for successful authentications.
+	- auth: userdb dict - Trying to list users crashed.
+	- submission: Service could be configured to allow anonymous
+	  authentication mechanism and anonymous user access.
+	- LAYOUT=index: Corrupted dovecot.list.index caused folder creation to
+	  panic.
+	- doveadm: HTTP server crashes if request target starts with double "/".
+	- dsync: Remote dsync started hanging if the initial doveadm
+	  "dsync-server" command was sent in the same TCP packet as the
+	  following dsync handshake. v2.3.8 regression.
+	- lib: Several "input streams" had a bug that in some rare situations
+	  might cause it to access freed memory. This could lead to crashes or
+	  corruption.
+	  The only currently known effect of this is that using zlib plugin with
+	  external mail attachments (mail_attachment_dir) could cause fetching
+	  the mail to return a few bytes of garbage data at the beginning of the
+	  header. Note that the mail wasn't saved corrupted, but fetching it
+	  caused corrupted mail to be sent to the client.
+	- lib-storage: If a mail only has quoted content, use the quoted text
+	  for generating message snippet (IMAP PREVIEW) instead of returning
+	  empty snippet.
+	- lib-storage: When vsize header was rebuilt, newly calculated message
+	  sizes were added to dovecot.index.cache instead of being directly
+	  saved into vsize records in dovecot.index.
+	- lib: JSON generator was escaping UTF-8 characters unnecessarily.
+
 v2.3.8 2019-10-08  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	+ Added mail_delivery_started and mail_delivery_finished events, see
