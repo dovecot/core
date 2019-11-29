@@ -136,6 +136,7 @@ struct fs_file {
 	bool lookup_metadata_counted:1;
 	bool stat_counted:1;
 	bool istream_open:1;
+	bool last_error_changed:1;
 };
 
 struct fs_lock {

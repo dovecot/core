@@ -551,7 +551,25 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 
 	/* free old error after strdup in case args point to the old error */
 	if (file != NULL) {
+		char *old_error = file->last_error;
 		file = fs_file_get_error_file(file);
+
+		if (old_error != NULL && strcmp(old_error, new_error) == 0) {
+			/* identical error - ignore */
+		} else if (file->last_error_changed) {
+			/* multiple fs_set_error() calls used without
+			   fs_file_last_error() in the middle. */
+			e_error(file->event, "%s (overwriting error)", old_error);
+		}
+		if (errno == EAGAIN || errno == ENOENT || errno == EEXIST ||
+		    errno == ENOTEMPTY) {
+			/* These are (or can be) expected errors - don't log
+			   them if they have a missing fs_file_last_error()
+			   call */
+			file->last_error_changed = FALSE;
+		} else {
+			file->last_error_changed = TRUE;
+		}
 
 		i_free(file->last_error);
 		file->last_error = new_error;
@@ -570,6 +588,7 @@ const char *fs_file_last_error(struct fs_file *file)
 {
 	struct fs_file *error_file = fs_file_get_error_file(file);
 
+	error_file->last_error_changed = FALSE;
 	if (error_file->last_error == NULL)
 		return "BUG: Unknown file error";
 	return error_file->last_error;
@@ -857,6 +876,9 @@ void fs_write_stream_abort_error(struct fs_file *file, struct ostream **output, 
 	va_list args;
 	va_start(args, error_fmt);
 	fs_set_verror(file->event, error_fmt, args);
+	/* the error shouldn't be automatically logged if
+	   fs_file_last_error() is no longer used */
+	fs_file_get_error_file(file)->last_error_changed = FALSE;
 	fs_write_stream_abort(file, output);
 	va_end(args);
 }
@@ -1255,8 +1277,8 @@ void fs_set_error(struct event *event, const char *fmt, ...)
 
 void fs_file_set_error_async(struct fs_file *file)
 {
-	fs_set_error(file->event, "Asynchronous operation in progress");
 	errno = EAGAIN;
+	fs_set_error(file->event, "Asynchronous operation in progress");
 }
 
 static uint64_t
