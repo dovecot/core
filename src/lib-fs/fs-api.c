@@ -288,14 +288,9 @@ struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
 void fs_file_deinit(struct fs_file **_file)
 {
 	struct fs_file *file = *_file;
-	struct event *event;
-	pool_t metadata_pool;
 
 	if (file == NULL)
 		return;
-
-	event = file->event;
-	metadata_pool = file->metadata_pool;
 
 	i_assert(file->fs->files_open_count > 0);
 
@@ -308,15 +303,13 @@ void fs_file_deinit(struct fs_file **_file)
 	T_BEGIN {
 		file->fs->v.file_deinit(file);
 	} T_END;
-
-	event_unref(&event);
-	if (metadata_pool != NULL)
-		pool_unref(&metadata_pool);
 }
 
 void fs_file_free(struct fs_file *file)
 {
 	fs_file_deinit(&file->parent);
+	event_unref(&file->event);
+	pool_unref(&file->metadata_pool);
 }
 
 void fs_file_close(struct fs_file *file)
