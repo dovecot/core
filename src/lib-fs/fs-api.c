@@ -306,6 +306,14 @@ void fs_file_deinit(struct fs_file **_file)
 
 void fs_file_free(struct fs_file *file)
 {
+	if (file->last_error_changed) {
+		/* fs_set_error() used without ever accessing it via
+		   fs_file_last_error(). Log it to make sure it's not lost.
+		   Note that the errors are always set only to the file at
+		   the root of the parent hierarchy. */
+		e_error(file->event, "%s (in file deinit)", file->last_error);
+	}
+
 	fs_file_deinit(&file->parent);
 	event_unref(&file->event);
 	pool_unref(&file->metadata_pool);
