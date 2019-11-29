@@ -215,8 +215,9 @@ static int fs_posix_mkdir_parents(struct posix_fs_file *file, const char *path)
 	}
 }
 
-static int fs_posix_rmdir_parents(struct posix_fs *fs, const char *path)
+static int fs_posix_rmdir_parents(struct posix_fs_file *file, const char *path)
 {
+	struct posix_fs *fs = (struct posix_fs *)file->file.fs;
 	const char *p;
 
 	if (fs->have_dirs)
@@ -238,7 +239,7 @@ static int fs_posix_rmdir_parents(struct posix_fs *fs, const char *path)
 			/* some other not-unexpected error */
 			break;
 		} else {
-			fs_set_error(&fs->fs, "rmdir(%s) failed: %m", path);
+			fs_set_error(file->file.fs, "rmdir(%s) failed: %m", path);
 			return -1;
 		}
 	}
@@ -838,7 +839,6 @@ static int fs_posix_delete(struct fs_file *_file)
 {
 	struct posix_fs_file *file =
 		container_of(_file, struct posix_fs_file, file);
-	struct posix_fs *fs = container_of(_file->fs, struct posix_fs, fs);
 
 	if (unlink(file->full_path) < 0) {
 		if (!UNLINK_EISDIR(errno)) {
@@ -852,7 +852,7 @@ static int fs_posix_delete(struct fs_file *_file)
 			return -1;
 		}
 	}
-	(void)fs_posix_rmdir_parents(fs, file->full_path);
+	(void)fs_posix_rmdir_parents(file, file->full_path);
 	return 0;
 }
 
