@@ -97,7 +97,7 @@ fs_sis_file_init(struct fs_file *_file, const char *path,
 		return;
 	}
 
-	if (fs_sis_path_parse(_file->fs, path, &dir, &hash) < 0) {
+	if (fs_sis_path_parse(_file, path, &dir, &hash) < 0) {
 		fs_set_error(_file->fs, "Invalid path");
 		return;
 	}
@@ -324,7 +324,7 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 static int fs_sis_delete(struct fs_file *_file)
 {
 	T_BEGIN {
-		fs_sis_try_unlink_hash_file(_file->fs, _file->parent);
+		fs_sis_try_unlink_hash_file(_file, _file->parent);
 	} T_END;
 	return fs_delete(_file->parent);
 }

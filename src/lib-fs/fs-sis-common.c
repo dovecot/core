@@ -5,7 +5,7 @@
 
 #include <sys/stat.h>
 
-int fs_sis_path_parse(struct fs *fs, const char *path,
+int fs_sis_path_parse(struct fs_file *file, const char *path,
 		      const char **dir_r, const char **hash_r)
 {
 	const char *fname, *p;
@@ -22,7 +22,7 @@ int fs_sis_path_parse(struct fs *fs, const char *path,
 	/* assume filename begins with "<hash>-" */
 	p = strchr(fname, '-');
 	if (p == NULL) {
-		fs_set_error(fs, "open(%s) failed: "
+		fs_set_error(file->fs, "open(%s) failed: "
 			     "Filenames must begin with '<hash>-'", path);
 		return -1;
 	}
@@ -30,13 +30,14 @@ int fs_sis_path_parse(struct fs *fs, const char *path,
 	return 0;
 }
 
-void fs_sis_try_unlink_hash_file(struct fs *sis_fs, struct fs_file *super_file)
+void fs_sis_try_unlink_hash_file(struct fs_file *sis_file,
+				 struct fs_file *super_file)
 {
 	struct fs_file *hash_file;
 	struct stat st1, st2;
 	const char *dir, *hash, *hash_path;
 
-	if (fs_sis_path_parse(sis_fs, super_file->path, &dir, &hash) == 0 &&
+	if (fs_sis_path_parse(sis_file, super_file->path, &dir, &hash) == 0 &&
 	    fs_stat(super_file, &st1) == 0 && st1.st_nlink == 2) {
 		/* this may be the last link. if hashes/ file is the same,
 		   delete it. */

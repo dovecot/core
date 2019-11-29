@@ -163,7 +163,7 @@ static int fs_sis_queue_write_stream_finish(struct fs_file *_file, bool success)
 static int fs_sis_queue_delete(struct fs_file *_file)
 {
 	T_BEGIN {
-		fs_sis_try_unlink_hash_file(_file->fs, _file->parent);
+		fs_sis_try_unlink_hash_file(_file, _file->parent);
 	} T_END;
 	return fs_delete(_file->parent);
 }
