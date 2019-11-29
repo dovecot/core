@@ -591,6 +591,40 @@ enum log_type event_get_min_log_level(const struct event *event)
 	return event->min_log_level;
 }
 
+struct event *event_set_ptr(struct event *event, const char *key, void *value)
+{
+	struct event_pointer *p;
+
+	if (!array_is_created(&event->pointers))
+		p_array_init(&event->pointers, event->pool, 4);
+	else {
+		/* replace existing pointer if the key already exists */
+		array_foreach_modifiable(&event->pointers, p) {
+			if (strcmp(p->key, key) == 0) {
+				p->value = value;
+				return event;
+			}
+		}
+	}
+	p = array_append_space(&event->pointers);
+	p->key = p_strdup(event->pool, key);
+	p->value = value;
+	return event;
+}
+
+void *event_get_ptr(struct event *event, const char *key)
+{
+	const struct event_pointer *p;
+
+	if (!array_is_created(&event->pointers))
+		return NULL;
+	array_foreach(&event->pointers, p) {
+		if (strcmp(p->key, key) == 0)
+			return p->value;
+	}
+	return NULL;
+}
+
 struct event_category *event_category_find_registered(const char *name)
 {
 	struct event_category *const *catp;

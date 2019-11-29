@@ -100,19 +100,20 @@ bool event_has_all_categories(struct event *event, const struct event *other);
    Only the fields in the events themselves are checked. Parent events' fields are not checked. */
 bool event_has_all_fields(struct event *event, const struct event *other);
 
-/* Returns the source event duplicated into a new event. */
+/* Returns the source event duplicated into a new event. Event pointers are
+   dropped. */
 struct event *event_dup(const struct event *source);
 /* Returns a flattened version of the source event.
    Both categories and fields will be flattened.
    A new reference to the source event is returned if no flattening was
-   needed. */
+   needed. Event pointers are dropped if a new event was created. */
 struct event *event_flatten(struct event *src);
 /* Returns a minimized version of the source event.
    Remove parents with no fields or categories, attempt to flatten fields
    and categories to avoid sending one-off parent events.  (There is a more
    detailed description in a comment above the function implementation.)
    A new reference to the source event is returned if no simplification
-   occured. */
+   occured. Event pointers are dropped if a new event was created. */
 struct event *event_minimize(struct event *src);
 /* Copy all categories from source to dest.
    Only the categories in source event itself are copied.
@@ -237,6 +238,15 @@ struct event *event_set_always_log_source(struct event *event);
 /* Set minimum log level for the event */
 struct event *event_set_min_log_level(struct event *event, enum log_type level);
 enum log_type event_get_min_log_level(const struct event *event);
+
+/* Add an internal pointer to an event. It can be looked up only with
+   event_get_ptr(). The keys are in their own namespace and won't conflict
+   with event fields. The pointers are specific to this specific event only -
+   they will be dropped from any duplicated/flattened/minimized events. */
+struct event *event_set_ptr(struct event *event, const char *key, void *value);
+/* Return a pointer set with event_set_ptr(), or NULL if it doesn't exist.
+   The pointer is looked up only from the event itself, not its parents. */
+void *event_get_ptr(struct event *event, const char *key);
 
 /* Add NULL-terminated list of categories to the event. The categories pointer
    doesn't need to stay valid afterwards, but the event_category structs
