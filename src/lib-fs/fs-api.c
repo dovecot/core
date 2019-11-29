@@ -225,7 +225,6 @@ void fs_unref(struct fs **_fs)
 	i_free(fs->username);
 	i_free(fs->session_id);
 	i_free(fs->temp_path_prefix);
-	i_free(fs->last_error);
 	for (i = 0; i < FS_OP_COUNT; i++) {
 		if (fs->stats.timings[i] != NULL)
 			stats_dist_deinit(&fs->stats.timings[i]);
@@ -310,6 +309,7 @@ void fs_file_free(struct fs_file *file)
 	fs_file_deinit(&file->parent);
 	event_unref(&file->event);
 	pool_unref(&file->metadata_pool);
+	i_free(file->last_error);
 }
 
 void fs_file_close(struct fs_file *file)
@@ -521,44 +521,58 @@ struct event *fs_file_event(struct fs_file *file)
 	return file->event;
 }
 
+static struct fs_file *fs_file_get_error_file(struct fs_file *file)
+{
+	/* the error is always kept in the parentmost file */
+	while (file->parent != NULL)
+		file = file->parent;
+	return file;
+}
+
 static void ATTR_FORMAT(2, 0)
 fs_set_verror(struct event *event, const char *fmt, va_list args)
 {
 	struct event *fs_event = event;
-	struct fs *fs;
+	struct fs_file *file;
+	struct fs_iter *iter;
 
 	/* NOTE: the event might be a passthrough event. We must log it exactly
 	   once so it gets freed. */
 
-	while ((fs = event_get_ptr(fs_event, FS_EVENT_FIELD_FS)) == NULL) {
+	/* figure out if the error is for a file or iter */
+	while ((file = event_get_ptr(fs_event, FS_EVENT_FIELD_FILE)) == NULL &&
+	       (iter = event_get_ptr(fs_event, FS_EVENT_FIELD_ITER)) == NULL) {
 		fs_event = event_get_parent(fs_event);
 		i_assert(fs_event != NULL);
 	}
 
-	/* the error is always kept in the parentmost fs */
-	while (fs->parent != NULL)
-		fs = fs->parent;
-	char *old_error = fs->last_error;
-	fs->last_error = i_strdup_vprintf(fmt, args);
-	i_free(old_error);
+	char *new_error = i_strdup_vprintf(fmt, args);
+	e_debug(event, "%s", new_error);
 
-	e_debug(event, "%s", fs->last_error);
-}
+	/* free old error after strdup in case args point to the old error */
+	if (file != NULL) {
+		file = fs_file_get_error_file(file);
 
-const char *fs_last_error(struct fs *fs)
-{
-	/* the error is always kept in the parentmost fs */
-	if (fs->parent != NULL)
-		return fs_last_error(fs->parent);
-
-	if (fs->last_error == NULL)
-		return "BUG: Unknown fs error";
-	return fs->last_error;
+		i_free(file->last_error);
+		file->last_error = new_error;
+	} else {
+		i_assert(iter != NULL);
+		/* Preserve the first error for iters. That's the first
+		   thing that went wrong and broke the iteration. */
+		if (iter->last_error == NULL)
+			iter->last_error = new_error;
+		else
+			i_free(new_error);
+	}
 }
 
 const char *fs_file_last_error(struct fs_file *file)
 {
-	return fs_last_error(file->fs);
+	struct fs_file *error_file = fs_file_get_error_file(file);
+
+	if (error_file->last_error == NULL)
+		return "BUG: Unknown file error";
+	return error_file->last_error;
 }
 
 bool fs_prefetch(struct fs_file *file, uoff_t length)
@@ -1184,7 +1198,8 @@ int fs_iter_deinit(struct fs_iter **_iter, const char **error_r)
 		ret = iter->fs->v.iter_deinit(iter);
 	} T_END;
 	if (ret < 0)
-		*error_r = fs_last_error(fs);
+		*error_r = t_strdup(iter->last_error);
+	i_free(iter->last_error);
 	i_free(iter);
 	event_unref(&event);
 	return ret;

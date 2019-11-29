@@ -256,9 +256,9 @@ struct fs *fs_file_fs(struct fs_file *file);
 /* Returns the file's event. */
 struct event *fs_file_event(struct fs_file *file);
 
-/* Return the error message for the last failed operation. */
-const char *fs_last_error(struct fs *fs);
-/* Convenience function for the above. Errors aren't preserved across files. */
+/* Return the error message for the last failed file operation. Each file
+   keeps track of its own errors. For failed copy/rename operations the "dest"
+   file contains the error. */
 const char *fs_file_last_error(struct fs_file *file);
 
 /* Try to asynchronously prefetch file into memory. Returns TRUE if file is
@@ -330,12 +330,13 @@ int fs_stat(struct fs_file *file, struct stat *st_r);
 int fs_get_nlinks(struct fs_file *file, nlink_t *nlinks_r);
 /* Copy an object with possibly updated metadata. Destination parent
    directories are created automatically. Returns 0 if ok, -1 if error
-   occurred. */
+   occurred. The "dest" file contains the error. */
 int fs_copy(struct fs_file *src, struct fs_file *dest);
 /* Try to finish asynchronous fs_copy(). Returns the same as fs_copy(). */
 int fs_copy_finish_async(struct fs_file *dest);
 /* Atomically rename a file. Destination parent directories are created
-   automatically. Returns 0 if ok, -1 if error occurred. */
+   automatically. Returns 0 if ok, -1 if error occurred. The "dest" file
+   contains the error. */
 int fs_rename(struct fs_file *src, struct fs_file *dest);
 
 /* Exclusively lock a file. If file is already locked, wait for it for given

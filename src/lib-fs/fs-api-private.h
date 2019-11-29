@@ -87,7 +87,6 @@ struct fs {
 	char *username, *session_id;
 
 	struct fs_settings set;
-	char *last_error;
 
 	/* may be used by fs_wait_async() to do the waiting */
 	struct ioloop *wait_ioloop, *prev_ioloop;
@@ -111,6 +110,7 @@ struct fs_file {
 	struct ostream *output;
 	struct event *event;
 	char *path;
+	char *last_error;
 	enum fs_open_flags flags;
 
 	struct istream *seekable_input;
@@ -150,6 +150,7 @@ struct fs_iter {
 	struct event *event;
 	enum fs_iter_flags flags;
 	struct timeval start_time;
+	char *last_error;
 
 	bool async_have_more;
 	fs_file_async_callback_t *async_callback;
