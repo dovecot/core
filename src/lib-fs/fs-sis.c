@@ -97,10 +97,8 @@ fs_sis_file_init(struct fs_file *_file, const char *path,
 		return;
 	}
 
-	if (fs_sis_path_parse(_file, path, &dir, &hash) < 0) {
-		fs_set_error(_file->fs, "Invalid path");
+	if (fs_sis_path_parse(_file, path, &dir, &hash) < 0)
 		return;
-	}
 
 	/* if hashes/<hash> already exists, open it */
 	file->hash_path = i_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
