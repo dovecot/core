@@ -7,6 +7,10 @@
 
 #include <sys/time.h>
 
+#define FS_EVENT_FIELD_FS "lib-fs#fs"
+#define FS_EVENT_FIELD_FILE "lib-fs#file"
+#define FS_EVENT_FIELD_ITER "lib-fs#iter"
+
 struct fs_api_module_register {
 	unsigned int id;
 };

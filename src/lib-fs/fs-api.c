@@ -161,6 +161,7 @@ int fs_init(const char *driver, const char *args,
 	if (fs_alloc(fs_class, args, set, fs_r, error_r) < 0)
 		return -1;
 	(*fs_r)->event = fs_create_event(*fs_r, set->event);
+	event_set_ptr((*fs_r)->event, FS_EVENT_FIELD_FS, *fs_r);
 
 	temp_file_prefix = set->temp_file_prefix != NULL ?
 		set->temp_file_prefix : ".temp.dovecot";
@@ -271,6 +272,8 @@ struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
 		file->fs = fs;
 		file->flags = mode_flags & ~FS_OPEN_MODE_MASK;
 		file->event = fs_create_event(fs, event);
+		event_set_ptr(file->event, FS_EVENT_FIELD_FS, fs);
+		event_set_ptr(file->event, FS_EVENT_FIELD_FILE, file);
 		fs->v.file_init(file, path, mode_flags & FS_OPEN_MODE_MASK,
 				mode_flags & ~FS_OPEN_MODE_MASK);
 	} T_END;
@@ -1141,6 +1144,8 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 		iter->fs = fs;
 		iter->flags = flags;
 		iter->event = fs_create_event(fs, event);
+		event_set_ptr(iter->event, FS_EVENT_FIELD_FS, fs);
+		event_set_ptr(iter->event, FS_EVENT_FIELD_ITER, iter);
 		fs->v.iter_init(iter, path, flags);
 	} T_END;
 	iter->start_time = now;
