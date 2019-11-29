@@ -1,3 +1,116 @@
+v2.3.8 2019-10-08  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	+ Added mail_delivery_started and mail_delivery_finished events, see
+	  https://doc.dovecot.org/admin_manual/list_of_events/ for details.
+	+ dsync-replication: Don't replicate users who have "noreplicate" extra
+	  field in userdb.
+	+ doveadm service status: Show total number of processes created.
+	+ When logging to syslog, use instance_name setting's value for the
+	  ident. This commonly is added as a log prefix.
+	+ Base64 encoding/decoding code was rewritten with additional features.
+	  It shouldn't cause any user visible changes.
+	- v2.3.7 regression: If a folder only receives new mails without any
+	  other mail access, dovecot.index.log keeps growing forever and
+	  dovecot.index keeps being rewritten for every mail delivery.
+	- dsync-replication may lose keywords after syncing mails restored from
+	  another replica. This only happened if the mail only had keywords and
+	  no system flags.
+	- event filters: Non-textual event fields could not be filtered using
+	  wildcards.
+	- auth: Scope parameter was missing from OAuth password grant
+	  request.
+	- doveadm client-server communication may hang in some situations.
+	  It is also using unnecessarily small TCP/IP packet sizes.
+	- doveadm who and kick did not flush protocol output correctly.
+	- imap: SETMETADATA with literal value would delete the metadata value
+	  instead of updating it.
+	- imap: When client issues FETCH PREVIEW (LAZY=FUZZY) command, the
+	  caching decisions should be updated so that newly saved mails will
+	  have the preview cached.
+	- With mail_nfs_index=yes and/or mail_nfs_storage=yes setuid/setgid
+	  permission bits in some files may have become dropped with some NFS
+	  servers. Changed NFS flushing to now use chmod() instead of chown().
+	- quota: warnings did not work if quota root was noenforcing
+	- acl: Global ACL file ignored the last line if it didn't end with LF.
+	- doveadm stats dump: With JSON formatter output numbers using the
+	  number type instead of as strings
+	- lmtp_proxy: Ensure that real_* variables are correctly set when using
+	  lmtp_proxy.
+	- event exporter: http-post driver had hardcoded timeout and did not
+	  support DNS lookups or TLS connections.
+	- auth: Fix user iteration to work with userdb passwd with glibc v2.28.
+	- auth: auth service can crash if auth-policy JSON response is invalid
+	  or returned too fast.
+	- In some rare situations "ps" output could have shown a lot of "?"
+	  characters after Dovecot process titles.
+	- When dovecot.index.pvt is empty, an unnecessary error is logged:
+	  Error: .../dovecot.index.pvt reset, view is now inconsistent
+	- SMTP address encoder duplicated initial double quote character when
+	  the localpart of an address ended in '..'. For example
+	  "user+..@example.com" became ""user+.."@example.com in a
+	  sieve redirect.
+
+v2.3.7.1 2019-07-23  Timo Sirainen <timo.sirainen@open-xchange.com>
+
+	- Fix TCP_NODELAY errors being logged on non-Linux OSes
+	- lmtp proxy: Fix assert-crash when client uses BODY=8BITMIME
+	- Remove wrongly added checks in namespace prefix checking
+
+v2.3.7 2019-07-12  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* fts-solr: Removed break-imap-search parameter
+	+ Added more events for the new statistics, see
+	  https://doc.dovecot.org/admin_manual/list_of_events/
+	+ mail-lua: Add IMAP metadata accessors, see
+	  https://doc.dovecot.org/admin_manual/lua/
+	+ Add event exporters that allow exporting raw events to log files and
+	  external systems, see
+	  https://doc.dovecot.org/configuration_manual/event_export/
+	+ SNIPPET is now PREVIEW and size has been increased to 200 characters.
+	+ Add body option to fts_enforced. This triggers building FTS index only
+	  on body search, and an error using FTS index fails the search rather
+	  than reads through all the mails.
+	- Submission/LMTP: Fixed crash when domain argument is invalid in a
+	  second EHLO/LHLO command.
+	- Copying/moving mails using Maildir format loses IMAP keywords in the
+	  destination if the mail also has no system flags.
+	- mail_attachment_detection_options=add-flags-on-save caused email body
+	  to be unnecessarily opened when FETCHing mail headers that were
+	  already cached.
+	- mail attachment detection keywords not saved with maildir.
+	- dovecot.index.cache may have grown excessively large in some
+	  situations. This happened especially when using autoexpunging with
+	  lazy_expunge folders. Also with mdbox format in general the cache file
+	  wasn't recreated as often as it should have.
+	- Autoexpunged mails weren't immediately deleted from the disk. Instead,
+	  the deletion from disk happened the next time the folder was opened.
+	  This could have caused unnecessary delays if the opening was done by
+	  an interactive IMAP session.
+	- Dovecot's TCP connections sometimes add extra 40ms latency due to not
+	  enabling TCP_NODELAY. HTTP and SMTP/LMTP connections weren't
+	  affected, but everything else was. This delay wasn't always visible -
+	  only in some situations with some message/packet sizes.
+	- imapc: Fix various crash conditions
+	- Dovecot builds were not always reproducible.
+	- login-proxy: With shutdown_clients=no after config reload the
+	  existing connections could no longer be listed or kicked with doveadm.
+	- "doveadm proxy kick" with -f parameter caused a crash in some
+	  situations.
+	- Auth policy can cause segmentation fault crash during auth process
+	  shutdown if all auth requests have not been finished.
+	- Fix various minor bugs leading into incorrect behaviour in mailbox
+	  list index handling. These rarely caused noticeable problems.
+	- LDAP auth: Iteration accesses freed memory, possibly crashing
+	  auth-worker
+	- local_name { .. } filter in dovecot.conf does not correctly support
+	  multiple names and wildcards were matched incorrectly.
+	- replicator: dsync assert-crashes if it can't connect to remote TCP
+	  server.
+	- config: Memory leak in config process when ssl_dh setting wasn't
+	  set and there was no ssl-parameters.dat file.
+	  This caused config process to die once in a while
+	  with "out of memory".
+
 v2.3.6 2019-04-30  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2019-11494: Submission-login crashed with signal 11 due to null
