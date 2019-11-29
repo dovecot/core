@@ -115,7 +115,7 @@ fs_test_get_metadata(struct fs_file *_file,
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
 	if (file->wait_async) {
-		fs_set_error_async(_file->fs);
+		fs_file_set_error_async(_file);
 		return -1;
 	}
 	if (file->io_failure) {
@@ -179,7 +179,7 @@ static int fs_test_write_stream_finish(struct fs_file *_file, bool success)
 
 	o_stream_destroy(&_file->output);
 	if (file->wait_async) {
-		fs_set_error_async(_file->fs);
+		fs_file_set_error_async(_file);
 		return 0;
 	}
 	if (file->io_failure)
@@ -216,7 +216,7 @@ static int fs_test_exists(struct fs_file *_file)
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
 	if (file->wait_async) {
-		fs_set_error_async(_file->fs);
+		fs_file_set_error_async(_file);
 		return -1;
 	}
 	if (file->io_failure) {
@@ -231,7 +231,7 @@ static int fs_test_stat(struct fs_file *_file, struct stat *st_r)
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
 	if (file->wait_async) {
-		fs_set_error_async(_file->fs);
+		fs_file_set_error_async(_file);
 		return -1;
 	}
 	if (file->io_failure) {
@@ -256,7 +256,7 @@ static int fs_test_copy(struct fs_file *_src, struct fs_file *_dest)
 		dest->copy_src = test_fs_file_get(_src->fs, fs_file_path(_src));
 	src = dest->copy_src;
 	if (dest->wait_async) {
-		fs_set_error_async(_dest->fs);
+		fs_file_set_error_async(_dest);
 		return -1;
 	}
 	dest->copy_src = NULL;
@@ -281,7 +281,7 @@ static int fs_test_rename(struct fs_file *_src, struct fs_file *_dest)
 	struct test_fs_file *dest = (struct test_fs_file *)_dest;
 
 	if (src->wait_async || dest->wait_async) {
-		fs_set_error_async(_dest->fs);
+		fs_file_set_error_async(_dest);
 		return -1;
 	}
 
@@ -296,7 +296,7 @@ static int fs_test_delete(struct fs_file *_file)
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
 	if (file->wait_async) {
-		fs_set_error_async(_file->fs);
+		fs_file_set_error_async(_file);
 		return -1;
 	}
 

@@ -579,7 +579,7 @@ ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size)
 	ret = i_stream_read_bytes(file->pending_read_input, &data,
 				  &data_size, size);
 	if (ret == 0) {
-		fs_set_error_async(file->fs);
+		fs_file_set_error_async(file);
 		return -1;
 	}
 	if (ret < 0 && file->pending_read_input->stream_errno != 0) {
@@ -714,7 +714,7 @@ int fs_write_via_stream(struct fs_file *file, const void *data, size_t size)
 		ret = fs_write_stream_finish_async(file);
 	}
 	if (ret == 0) {
-		fs_set_error_async(file->fs);
+		fs_file_set_error_async(file);
 		file->write_pending = TRUE;
 		return -1;
 	}
@@ -1012,7 +1012,7 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
-		fs_set_error_async(dest->fs);
+		fs_file_set_error_async(dest);
 		return -1;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		fs_write_stream_abort_error(dest, &dest->copy_output,
@@ -1225,9 +1225,9 @@ void fs_set_error(struct fs *fs, const char *fmt, ...)
 	va_end(args);
 }
 
-void fs_set_error_async(struct fs *fs)
+void fs_file_set_error_async(struct fs_file *file)
 {
-	fs_set_error(fs, "Asynchronous operation in progress");
+	fs_set_error(file->fs, "Asynchronous operation in progress");
 	errno = EAGAIN;
 }
 

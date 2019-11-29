@@ -164,7 +164,7 @@ void fs_class_register(const struct fs *fs_class);
 
 void fs_set_error(struct fs *fs, const char *fmt, ...) ATTR_FORMAT(2, 3);
 
-void fs_set_error_async(struct fs *fs);
+void fs_file_set_error_async(struct fs_file *file);
 
 ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size);
 int fs_write_via_stream(struct fs_file *file, const void *data, size_t size);
