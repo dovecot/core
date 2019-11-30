@@ -714,6 +714,12 @@ http_client_request_get_state(const struct http_client_request *req)
 	return req->state;
 }
 
+unsigned int
+http_client_request_get_attempts(const struct http_client_request *req)
+{
+	return req->attempts;
+}
+
 void http_client_request_get_stats(struct http_client_request *req,
 	struct http_client_request_stats *stats_r)
 {

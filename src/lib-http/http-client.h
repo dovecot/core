@@ -396,6 +396,10 @@ http_client_request_get_target(const struct http_client_request *req)
 enum http_request_state
 http_client_request_get_state(const struct http_client_request *req)
 	ATTR_PURE;
+/* return number of retry attempts */
+unsigned int
+http_client_request_get_attempts(const struct http_client_request *req)
+	ATTR_PURE;
 /* return origin_url */
 const struct http_url *
 http_client_request_get_origin_url(const struct http_client_request *req)
