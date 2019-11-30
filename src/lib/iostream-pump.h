@@ -51,8 +51,8 @@ void iostream_pump_set_completion_callback(struct iostream_pump *pump,
 					   void *context);
 #define iostream_pump_set_completion_callback(pump, callback, context) \
 	iostream_pump_set_completion_callback(pump, \
-		(iostream_pump_callback_t *)callback, \
-		context - CALLBACK_TYPECHECK(callback, \
+		(iostream_pump_callback_t *)callback, TRUE ? context : \
+		CALLBACK_TYPECHECK(callback, \
 			void (*)(enum iostream_pump_status, typeof(context))))
 
 /* Returns TRUE if the pump is currently only writing to the ostream. The input

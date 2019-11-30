@@ -428,7 +428,8 @@ void http_client_request_set_destroy_callback(struct http_client_request *req,
 					      void (*callback)(void *),
 					      void *context);
 #define http_client_request_set_destroy_callback(req, callback, context) \
-        http_client_request_set_destroy_callback(req, (void(*)(void*))callback, context - \
+        http_client_request_set_destroy_callback(req, (void(*)(void*))callback, \
+		TRUE ? context : \
                 CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 
 /* submits request and blocks until the provided payload is sent. Multiple

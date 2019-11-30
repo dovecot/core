@@ -87,8 +87,8 @@ void smtp_client_transaction_start(struct smtp_client_transaction *trans,
 	smtp_client_command_callback_t *mail_callback, void *context);
 #define smtp_client_transaction_start(trans, mail_callback, context) \
 	smtp_client_transaction_start(trans, \
-		(smtp_client_command_callback_t *)mail_callback, \
-		context - CALLBACK_TYPECHECK(mail_callback, void (*)( \
+		(smtp_client_command_callback_t *)mail_callback, TRUE ? context : \
+		CALLBACK_TYPECHECK(mail_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))))
 /* Start the transaction with a MAIL command. This function allows providing the
    parameters for the MAIL FROM command for when the transaction was created
@@ -106,8 +106,8 @@ void smtp_client_transaction_start_empty(
 #define smtp_client_transaction_start_empty(trans, mail_from, mail_params, \
 					    mail_callback, context) \
 	smtp_client_transaction_start_empty(trans, mail_from, mail_params, \
-		(smtp_client_command_callback_t *)mail_callback, \
-		context - CALLBACK_TYPECHECK(mail_callback, void (*)( \
+		(smtp_client_command_callback_t *)mail_callback, TRUE ? context : \
+		CALLBACK_TYPECHECK(mail_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(context))))
 
 /* Add an extra pipelined MAIL command to the transaction. The mail_callback is
@@ -230,7 +230,8 @@ void smtp_client_transaction_reset(
 #define smtp_client_transaction_reset(trans, reset_callback, reset_context) \
 	smtp_client_transaction_reset(trans, \
 		(smtp_client_command_callback_t *)reset_callback, \
-		reset_context - CALLBACK_TYPECHECK(reset_callback, void (*)( \
+		TRUE ? reset_context : \
+		CALLBACK_TYPECHECK(reset_callback, void (*)( \
 			const struct smtp_reply *reply, typeof(reset_context))))
 
 /* Enables mode in which all commands are submitted immediately and (non-

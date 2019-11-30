@@ -150,7 +150,7 @@ void sql_statement_query(struct sql_statement **stmt,
 			 sql_query_callback_t *callback, void *context);
 #define sql_statement_query(stmt, callback, context) \
 	sql_statement_query(stmt, \
-		(sql_query_callback_t *)callback, context - \
+		(sql_query_callback_t *)callback, TRUE ? context : \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			struct sql_result *, typeof(context))))
 struct sql_result *sql_statement_query_s(struct sql_statement **stmt);

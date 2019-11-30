@@ -205,8 +205,9 @@ struct event *event_set_log_prefix_callback(struct event *event,
 					    event_log_prefix_callback_t *callback,
 					    void *context);
 #define event_set_log_prefix_callback(event, replace, callback, context) \
-	event_set_log_prefix_callback(event, replace, (event_log_prefix_callback_t*)callback, \
-		context - CALLBACK_TYPECHECK(callback, const char *(*)(typeof(context))))
+	event_set_log_prefix_callback(event, replace, \
+		(event_log_prefix_callback_t*)callback, TRUE ? context : \
+		CALLBACK_TYPECHECK(callback, const char *(*)(typeof(context))))
 
 /* Sets event message amendment callback */
 struct event *event_set_log_message_callback(struct event *event,
@@ -214,8 +215,8 @@ struct event *event_set_log_message_callback(struct event *event,
 					     void *context);
 #define event_set_log_message_callback(event, callback, context) \
 	event_set_log_message_callback(event, \
-		(event_log_message_callback_t*)callback, \
-		context - CALLBACK_TYPECHECK(callback, \
+		(event_log_message_callback_t*)callback, TRUE ? context : \
+		CALLBACK_TYPECHECK(callback, \
 			const char *(*)(typeof(context), enum log_type, \
 					const char *)))
 
