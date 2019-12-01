@@ -98,6 +98,24 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 	array_push_back(&metrics->exporters, &exporter);
 }
 
+static struct metric *
+stats_metric_alloc(pool_t pool, const char *name, const char *const *fields)
+{
+	struct metric *metric = p_new(pool, struct metric, 1);
+	metric->name = p_strdup(pool, name);
+	metric->duration_stats = stats_dist_init();
+	metric->fields_count = str_array_length(fields);
+	if (metric->fields_count > 0) {
+	    metric->fields = p_new(pool, struct metric_field,
+				   metric->fields_count);
+		for (unsigned int i = 0; i < metric->fields_count; i++) {
+			metric->fields[i].field_key = p_strdup(pool, fields[i]);
+			metric->fields[i].stats = stats_dist_init();
+		}
+	}
+	return metric;
+}
+
 static void stats_metrics_add_set(struct stats_metrics *metrics,
 				  const struct stats_metric_settings *set)
 {
@@ -107,21 +125,8 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 	const char *const *fields;
 	const char *const *tmp;
 
-	metric = p_new(metrics->pool, struct metric, 1);
-	metric->name = p_strdup(metrics->pool, set->name);
-	metric->duration_stats = stats_dist_init();
-
 	fields = t_strsplit_spaces(set->fields, " ");
-	metric->fields_count = str_array_length(fields);
-	if (metric->fields_count > 0) {
-		metric->fields = p_new(metrics->pool, struct metric_field,
-				       metric->fields_count);
-		for (unsigned int i = 0; i < metric->fields_count; i++) {
-			metric->fields[i].field_key =
-				p_strdup(metrics->pool, fields[i]);
-			metric->fields[i].stats = stats_dist_init();
-		}
-	}
+	metric = stats_metric_alloc(metrics->pool, set->name, fields);
 	array_push_back(&metrics->metrics, &metric);
 
 	stats_metric_settings_to_query(set, &query);
