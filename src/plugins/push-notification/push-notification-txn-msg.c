@@ -11,7 +11,7 @@
 
 struct push_notification_txn_msg *
 push_notification_txn_msg_create(struct push_notification_txn *txn,
-                                 struct mail *mail)
+				 struct mail *mail)
 {
     struct push_notification_txn_msg *msg = NULL;
 
@@ -39,9 +39,9 @@ push_notification_txn_msg_create(struct push_notification_txn *txn,
     return msg;
 }
 
-void
-push_notification_txn_msg_end(struct push_notification_txn *ptxn,
-                              struct mail_transaction_commit_changes *changes)
+void push_notification_txn_msg_end(
+	struct push_notification_txn *ptxn,
+	struct mail_transaction_commit_changes *changes)
 {
     struct hash_iterate_context *hiter;
     void *key;
@@ -90,7 +90,7 @@ push_notification_txn_msg_end(struct push_notification_txn *ptxn,
 
 void *
 push_notification_txn_msg_get_eventdata(struct push_notification_txn_msg *msg,
-                                        const char *event_name)
+					const char *event_name)
 {
     struct push_notification_txn_event **mevent;
 
@@ -105,11 +105,10 @@ push_notification_txn_msg_get_eventdata(struct push_notification_txn_msg *msg,
     return NULL;
 }
 
-void
-push_notification_txn_msg_set_eventdata(struct push_notification_txn *txn,
-                                        struct push_notification_txn_msg *msg,
-                                        struct push_notification_event_config *event,
-                                        void *data)
+void push_notification_txn_msg_set_eventdata(
+	struct push_notification_txn *txn,
+	struct push_notification_txn_msg *msg,
+	struct push_notification_event_config *event, void *data)
 {
     struct push_notification_txn_event *mevent;
 
@@ -124,8 +123,8 @@ push_notification_txn_msg_set_eventdata(struct push_notification_txn *txn,
     array_push_back(&msg->eventdata, &mevent);
 }
 
-void
-push_notification_txn_msg_deinit_eventdata(struct push_notification_txn_msg *msg)
+void push_notification_txn_msg_deinit_eventdata(
+	struct push_notification_txn_msg *msg)
 {
     struct push_notification_txn_event **mevent;
 
