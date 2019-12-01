@@ -7,8 +7,9 @@
 #include "mail-storage.h"
 #include "push-notification-event-message-common.h"
 
-static void decode_address_header(pool_t pool, const char *hdr,
-				  const char **address_r, const char **name_r)
+static void
+decode_address_header(pool_t pool, const char *hdr,
+		      const char **address_r, const char **name_r)
 {
 	struct message_address *addr;
 	const char *display_name;
@@ -40,16 +41,13 @@ static void decode_address_header(pool_t pool, const char *hdr,
 	}
 }
 
-void push_notification_message_fill(struct mail *mail, pool_t pool,
-				    enum push_notification_event_message_flags event_flags,
-				    const char **from, const char **to,
-				    const char **subject,
-				    time_t *date, int *date_tz,
-				    const char **message_id,
-				    enum mail_flags *flags, bool *flags_set,
-				    const char *const **keywords,
-				    const char **snippet,
-				    struct push_notification_message_ext *ext)
+void push_notification_message_fill(
+	struct mail *mail, pool_t pool,
+	enum push_notification_event_message_flags event_flags,
+	const char **from, const char **to, const char **subject, time_t *date,
+	int *date_tz, const char **message_id, enum mail_flags *flags,
+	bool *flags_set, const char *const **keywords, const char **snippet,
+	struct push_notification_message_ext *ext)
 {
 	const char *value;
 	time_t tmp_date;
@@ -78,8 +76,9 @@ void push_notification_message_fill(struct mail *mail, pool_t pool,
 
 		*subject = p_strdup(pool, value);
 		if (value != NULL) {
-			message_header_decode_utf8((const unsigned char *)value,
-						   strlen(value), subject_utf8, NULL);
+			message_header_decode_utf8(
+				(const unsigned char *)value,
+				strlen(value), subject_utf8, NULL);
 			ext->subject_utf8 = p_strdup(pool, str_c(subject_utf8));
 		}
 	}
