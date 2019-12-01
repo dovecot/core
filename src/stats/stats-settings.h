@@ -75,6 +75,7 @@ struct stats_metric_settings {
 	const char *source_location;
 	const char *categories;
 	const char *fields;
+	const char *group_by;
 	ARRAY(const char *) filter;
 
 	unsigned int parsed_source_linenum;
