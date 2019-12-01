@@ -53,12 +53,29 @@ struct metric_field {
 
 struct metric {
 	const char *name;
+	/* When this metric is a sub-metric, then this is the
+	   suffix for name and any sub_names before it.
+
+	   So if we have
+
+	   struct metric imap_command {
+	       event_name = imap_command_finished
+	       group_by = cmd_name
+	   }
+
+	   The metric.name will always be imap_command and for each sub-metric
+	   metric.sub_name will be whatever the cmd_name is, such as 'select'.
+
+	   This is a display name and does not guarantee uniqueness.
+	*/
+	const char *sub_name;
 
 	/* Timing for how long the event existed */
 	struct stats_dist *duration_stats;
 
 	unsigned int fields_count;
 	struct metric_field *fields;
+	ARRAY(struct metric *) sub_metrics;
 
 	struct metric_export_info export_info;
 };

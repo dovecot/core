@@ -221,9 +221,14 @@ struct stats_metrics *stats_metrics_init(const struct stats_settings *set)
 
 static void stats_metric_free(struct metric *metric)
 {
+	struct metric *const *metricp;
 	stats_dist_deinit(&metric->duration_stats);
 	for (unsigned int i = 0; i < metric->fields_count; i++)
 		stats_dist_deinit(&metric->fields[i].stats);
+	if (!array_is_created(&metric->sub_metrics))
+		return;
+	array_foreach(&metric->sub_metrics, metricp)
+		stats_metric_free(*metricp);
 }
 
 static void stats_export_deinit(void)
@@ -250,15 +255,24 @@ void stats_metrics_deinit(struct stats_metrics **_metrics)
 	pool_unref(&metrics->pool);
 }
 
+static void stats_metric_reset(struct metric *metric)
+{
+	struct metric *const *metricp;
+	stats_dist_reset(metric->duration_stats);
+	for (unsigned int i = 0; i < metric->fields_count; i++)
+		stats_dist_reset(metric->fields[i].stats);
+	if (!array_is_created(&metric->sub_metrics))
+		return;
+	array_foreach(&metric->sub_metrics, metricp)
+		stats_metric_reset(*metricp);
+}
+
 void stats_metrics_reset(struct stats_metrics *metrics)
 {
 	struct metric *const *metricp;
 
-	array_foreach(&metrics->metrics, metricp) {
-		stats_dist_reset((*metricp)->duration_stats);
-		for (unsigned int i = 0; i < (*metricp)->fields_count; i++)
-			stats_dist_reset((*metricp)->fields[i].stats);
-	}
+	array_foreach(&metrics->metrics, metricp)
+		stats_metric_reset(*metricp);
 }
 
 struct event_filter *
