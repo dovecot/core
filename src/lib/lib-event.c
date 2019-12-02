@@ -1329,6 +1329,8 @@ void lib_event_init(void)
 
 void lib_event_deinit(void)
 {
+	struct event_internal_category **internal;
+
 	event_unset_global_debug_log_filter();
 	event_unset_global_debug_send_filter();
 	event_unset_global_core_log_filter();
@@ -1336,6 +1338,13 @@ void lib_event_deinit(void)
 		i_warning("Event %p leaked (parent=%p): %s:%u",
 			  event, event->parent,
 			  event->source_filename, event->source_linenum);
+	}
+	/* categories cannot be unregistered, so just free them here */
+	array_foreach_modifiable(&event_registered_categories_internal, internal) {
+		struct event_internal_category *cur = *internal;
+
+		i_free(cur->name);
+		i_free(cur);
 	}
 	array_free(&event_handlers);
 	array_free(&event_category_callbacks);
