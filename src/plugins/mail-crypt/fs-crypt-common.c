@@ -106,10 +106,8 @@ fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
-		*error_r = t_strdup_printf("%s: %s", parent_name, error);
+	if (fs_init(parent_name, parent_args, set, &_fs->parent, error_r) < 0)
 		return -1;
-	}
 	fs->enc_algo = i_strdup(enc_algo);
 	fs->set_prefix = i_strdup(set_prefix);
 	fs->public_key_path = i_strdup_empty(public_key_path);

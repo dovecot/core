@@ -44,7 +44,7 @@ fs_compress_init(struct fs *_fs, const char *args,
 		 const struct fs_settings *set, const char **error_r)
 {
 	struct compress_fs *fs = (struct compress_fs *)_fs;
-	const char *p, *compression_name, *level_str, *error;
+	const char *p, *compression_name, *level_str;
 	const char *parent_name, *parent_args;
 
 	/* get compression handler name */
@@ -92,11 +92,7 @@ fs_compress_init(struct fs *_fs, const char *args,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
-		*error_r = t_strdup_printf("%s: %s", parent_name, error);
-		return -1;
-	}
-	return 0;
+	return fs_init(parent_name, parent_args, set, &_fs->parent, error_r);
 }
 
 static void fs_compress_deinit(struct fs *_fs)
