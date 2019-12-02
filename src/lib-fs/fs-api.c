@@ -14,6 +14,10 @@
 #include "istream-fs-stats.h"
 #include "fs-api-private.h"
 
+static struct event_category event_category_fs = {
+	.name = "fs"
+};
+
 struct fs_api_module_register fs_api_module_register = { 0 };
 
 static struct module *fs_modules = NULL;
@@ -135,6 +139,7 @@ static struct event *fs_create_event(struct fs *fs, struct event *parent)
 	struct event *event;
 
 	event = event_create(parent);
+	event_add_category(event, &event_category_fs);
 	event_set_append_log_prefix(event,
 		t_strdup_printf("fs-%s: ", fs->name));
 	return event;
