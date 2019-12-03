@@ -351,6 +351,11 @@ void http_client_request_set_attempt_timeout_msecs(struct http_client_request *r
 void http_client_request_set_max_attempts(struct http_client_request *req,
 	unsigned int max_attempts);
 
+/* Include the specified HTTP response headers in the http_request_finished
+   event parameters with "http_hdr_" prefix. */
+void http_client_request_set_event_headers(struct http_client_request *req,
+					   const char *const *headers);
+
 /* set the username:password credentials for this request for simple
    authentication. This function is meant for simple schemes that use a
    password. More complex schemes will need to be handled manually.

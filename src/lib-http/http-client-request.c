@@ -620,6 +620,12 @@ void http_client_request_set_max_attempts(struct http_client_request *req,
 	req->max_attempts = max_attempts;
 }
 
+void http_client_request_set_event_headers(struct http_client_request *req,
+					   const char *const *headers)
+{
+	req->event_headers = p_strarray_dup(req->pool, headers);
+}
+
 void http_client_request_set_auth_simple(struct http_client_request *req,
 	const char *username, const char *password)
 {

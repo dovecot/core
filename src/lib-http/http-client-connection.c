@@ -932,6 +932,31 @@ http_client_connection_return_response(
 	return FALSE;
 }
 
+static const char *
+http_client_request_add_event_headers(struct http_client_request *req,
+				      const struct http_response *response)
+{
+	if (req->event_headers == NULL)
+		return "";
+
+	string_t *str = t_str_new(128);
+	for (unsigned int i = 0; req->event_headers[i] != NULL; i++) {
+		const char *hdr_name = req->event_headers[i];
+		const char *value = http_response_header_get(response, hdr_name);
+
+		if (value == NULL)
+			continue;
+
+		str_append(str, str_len(str) == 0 ? " (" : ", ");
+		event_add_str(req->event,
+			      t_strconcat("http_hdr_", hdr_name, NULL), value);
+		str_printfa(str, "%s:%s", hdr_name, value);
+	}
+	if (str_len(str) > 0)
+		str_append_c(str, ')');
+	return str_c(str);
+}
+
 static void http_client_connection_input(struct connection *_conn)
 {
 	struct http_client_connection *conn =
@@ -1096,10 +1121,12 @@ static void http_client_connection_input(struct connection *_conn)
 			conn->output_broken = early = TRUE;
 		}
 
+		const char *suffix =
+			http_client_request_add_event_headers(req, &response);
 		e_debug(conn->event,
-			"Got %u response for request %s: %s (took %u ms + %u ms in queue)",
+			"Got %u response for request %s: %s%s (took %u ms + %u ms in queue)",
 			response.status, http_client_request_label(req),
-			response.reason,
+			response.reason, suffix,
 			timeval_diff_msecs(&req->response_time, &req->sent_time),
 			timeval_diff_msecs(&req->sent_time, &req->submit_time));
 

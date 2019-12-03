@@ -99,6 +99,7 @@ struct http_client_request {
 	struct http_client_connection *conn;
 
 	struct event *event;
+	const char *const *event_headers;
 	unsigned int last_status;
 
 	string_t *headers;
