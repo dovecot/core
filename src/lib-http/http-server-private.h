@@ -69,6 +69,7 @@ struct http_server_response {
 	const char *reason;
 
 	string_t *headers;
+	ARRAY_TYPE(string) perm_headers;
 	time_t date;
 	ARRAY_TYPE(http_auth_challenge) auth_challenges;
 

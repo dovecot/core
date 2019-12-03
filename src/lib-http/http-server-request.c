@@ -871,3 +871,12 @@ void http_server_request_handle_payload(struct http_server_request *req,
 		payload_handler_raw_input, rhandler);
 	i_stream_set_input_pending(conn->incoming_payload, TRUE);
 }
+
+void http_server_request_add_response_header(struct http_server_request *req,
+					     const char *key, const char *value)
+{
+	struct http_server_response *resp;
+
+	resp = http_server_response_create(req, 0, "");
+	http_server_response_add_permanent_header(resp, key, value);
+}

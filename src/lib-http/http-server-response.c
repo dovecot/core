@@ -76,8 +76,14 @@ http_server_response_create(struct http_server_request *req,
 		   start a new one (would usually be a failure response)
 		 */
 		resp = req->response;
+
+		ARRAY_TYPE(string) perm_headers = resp->perm_headers;
+		i_zero(&resp->perm_headers);
+
 		http_server_response_free(resp);
 		i_zero(resp);
+
+		resp->perm_headers = perm_headers;
 	}
 
 	resp->request = req;
@@ -86,6 +92,13 @@ http_server_response_create(struct http_server_request *req,
 	resp->headers = str_new(default_pool, 256);
 	resp->date = (time_t)-1;
 
+	if (array_is_created(&resp->perm_headers)) {
+		unsigned int i, count;
+		char *const *headers = array_get(&resp->perm_headers, &count);
+		for (i = 0; i < count; i += 2)
+			http_server_response_add_header(resp, headers[i],
+							headers[i+1]);
+	}
 	return resp;
 }
 
@@ -98,6 +111,14 @@ void http_server_response_free(struct http_server_response *resp)
 	i_stream_unref(&resp->payload_input);
 	o_stream_unref(&resp->payload_output);
 	str_free(&resp->headers);
+
+	if (array_is_created(&resp->perm_headers)) {
+		char **headers;
+
+		array_foreach_modifiable(&resp->perm_headers, headers)
+			i_free(*headers);
+		array_free(&resp->perm_headers);
+	}
 }
 
 void http_server_response_add_header(struct http_server_response *resp,
@@ -812,4 +833,19 @@ uoff_t http_server_response_get_total_size(struct http_server_response *resp)
 {
 	i_assert(resp != NULL);
 	return resp->payload_size + str_len(resp->headers);
+}
+
+void http_server_response_add_permanent_header(struct http_server_response *resp,
+					       const char *key, const char *value)
+{
+	char *key_dup = i_strdup(key), *value_dup = i_strdup(value);
+
+	http_server_response_add_header(resp, key, value);
+
+	if (!array_is_created(&resp->perm_headers))
+		i_array_init(&resp->perm_headers, 4);
+	key_dup = i_strdup(key);
+	value_dup = i_strdup(value);
+	array_push_back(&resp->perm_headers, &key_dup);
+	array_push_back(&resp->perm_headers, &value_dup);
 }

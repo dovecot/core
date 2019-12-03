@@ -70,6 +70,10 @@ http_server_response_create(struct http_server_request *req,
    otherwise created implicitly. */
 void http_server_response_add_header(struct http_server_response *resp,
 				    const char *key, const char *value);
+/* Add a header permanently to the response. Even if another response is
+   created for the request, this header is kept. */
+void http_server_response_add_permanent_header(struct http_server_response *resp,
+					       const char *key, const char *value);
 /* Change the response code and text, cannot be used after submission */
 void http_server_response_update_status(struct http_server_response *resp,
 					unsigned int status, const char *reason);
@@ -168,6 +172,10 @@ http_server_request_get_response(struct http_server_request *req);
 /* Returns TRUE if request is finished either because a response was sent
    or because the request was aborted. */
 bool http_server_request_is_finished(struct http_server_request *req);
+
+/* Add a header to any HTTP response created for the HTTP request. */
+void http_server_request_add_response_header(struct http_server_request *req,
+					     const char *key, const char *value);
 
 /* Return input stream for the request's payload. Optionally, this stream
    can be made blocking. Do *NOT* meddle with the FD of the http_request
