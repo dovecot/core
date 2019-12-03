@@ -1097,8 +1097,9 @@ static void http_client_connection_input(struct connection *_conn)
 		}
 
 		e_debug(conn->event,
-			"Got %u response for request %s (took %u ms + %u ms in queue)",
+			"Got %u response for request %s: %s (took %u ms + %u ms in queue)",
 			response.status, http_client_request_label(req),
+			response.reason,
 			timeval_diff_msecs(&req->response_time, &req->sent_time),
 			timeval_diff_msecs(&req->sent_time, &req->submit_time));
 
