@@ -941,6 +941,7 @@ void http_client_request_submit(struct http_client_request *req)
 
 	req->submit_time = ioloop_timeval;
 
+	http_client_request_update_event(req);
 	http_client_request_do_submit(req);
 
 	req->submitted = TRUE;
