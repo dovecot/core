@@ -46,7 +46,6 @@ test_libs = \
 	../lib/liblib.la
 
 test_iostream_ssl_SOURCES = test-iostream-ssl.c
-test_iostream_ssl_LDFLAGS = -static
 test_iostream_ssl_LDADD = $(test_libs) $(SSL_LIBS) $(DLLIB)
 test_iostream_ssl_DEPENDENCIES = $(test_libs)
 
