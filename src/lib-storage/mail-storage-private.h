@@ -358,7 +358,7 @@ struct mailbox {
 	/* virtual mailboxes: */
 	const struct virtual_mailbox_vfuncs *virtual_vfuncs;
 /* private: */
-	pool_t pool, metadata_pool;
+	pool_t pool;
 	/* Linked list of all mailboxes in this storage */
 	struct mailbox *prev, *next;
 

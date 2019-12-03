@@ -199,17 +199,11 @@ get_metadata_cache_fields(struct mailbox *box,
 	struct mailbox_cache_field *cf;
 	unsigned int i, count;
 
-	if (box->metadata_pool == NULL) {
-		box->metadata_pool =
-			pool_alloconly_create("mailbox metadata", 1024*3);
-	}
-
 	fields = mail_cache_register_get_list(box->cache,
-					      box->metadata_pool, &count);
+					      pool_datastack_create(), &count);
 
-	cache_fields = p_new(box->metadata_pool,
-			     ARRAY_TYPE(mailbox_cache_field), 1);
-	p_array_init(cache_fields, box->metadata_pool, count);
+	cache_fields = t_new(ARRAY_TYPE(mailbox_cache_field), 1);
+	t_array_init(cache_fields, count);
 	for (i = 0; i < count; i++) {
 		dec = fields[i].decision & ~MAIL_CACHE_DECISION_FORCED;
 		if (dec != MAIL_CACHE_DECISION_NO) {
