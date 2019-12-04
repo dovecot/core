@@ -28,7 +28,7 @@ struct quota_client {
 
 	struct event *event;
 
-	struct smtp_address *recipient;
+	char *recipient;
 	uoff_t size;
 };
 
@@ -61,7 +61,7 @@ static void client_connected(struct master_service_connection *conn)
 
 static void client_reset(struct quota_client *client)
 {
-	i_free_and_null(client->recipient);
+	i_free(client->recipient);
 }
 
 static enum quota_alloc_result
@@ -100,6 +100,7 @@ static void client_handle_request(struct quota_client *client)
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
+	struct smtp_address *rcpt;
 	const char *value = NULL, *error;
 	const char *detail ATTR_UNUSED;
 	char delim ATTR_UNUSED;
@@ -112,10 +113,23 @@ static void client_handle_request(struct quota_client *client)
 		return;
 	}
 
+	if (smtp_address_parse_path(pool_datastack_create(), client->recipient,
+				    SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
+				    SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+				    SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART,
+				    &rcpt, &error) < 0) {
+		e_error(client->event,
+			"Client sent invalid recipient address `%s': "
+			"%s", str_sanitize(client->recipient, 256), error);
+		e_debug(client->event, "Response: action=DUNNO");
+		o_stream_nsend_str(client->conn.output, "action=DUNNO\n\n");
+		return;
+	}
+
 	i_zero(&input);
 	input.parent_event = client->event;
 	smtp_address_detail_parse_temp(quota_status_settings->recipient_delimiter,
-				       client->recipient, &input.username, &delim,
+				       rcpt, &input.username, &delim,
 				       &detail);
 	ret = mail_storage_service_lookup_next(storage_service, &input,
 					       &service_user, &user, &error);
@@ -186,7 +200,6 @@ static void client_handle_request(struct quota_client *client)
 static int client_input_line(struct connection *conn, const char *line)
 {
 	struct quota_client *client = (struct quota_client *)conn;
-	const char *error;
 
 	e_debug(client->event, "Request: %s", str_sanitize(line, 1024));
 
@@ -197,17 +210,9 @@ static int client_input_line(struct connection *conn, const char *line)
 		client_reset(client);
 		return 1;
 	}
-	if (client->recipient == NULL &&
-	    str_begins(line, "recipient=")) {
-		if (smtp_address_parse_path(default_pool, line + 10,
-			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
-			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
-			SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART,
-			&client->recipient, &error) < 0) {
-			e_error(client->event,
-				"Client sent invalid recipient address `%s': "
-				"%s", str_sanitize(line + 10, 256), error);
-		}
+	if (str_begins(line, "recipient=")) {
+		if (client->recipient == NULL)
+			client->recipient = i_strdup(line + 10);
 	} else if (str_begins(line, "size=")) {
 		if (str_to_uoff(line+5, &client->size) < 0)
 			client->size = 0;
