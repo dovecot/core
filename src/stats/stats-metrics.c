@@ -323,14 +323,16 @@ void stats_metrics_event(struct stats_metrics *metrics, struct event *event,
 
 	/* process stats */
 	iter = event_filter_match_iter_init(metrics->stats_filter, event, ctx);
-	while ((metric = event_filter_match_iter_next(iter)) != NULL)
+	while ((metric = event_filter_match_iter_next(iter)) != NULL) T_BEGIN {
 		stats_metric_event(metric, event);
+	} T_END;
 	event_filter_match_iter_deinit(&iter);
 
 	/* process exports */
 	iter = event_filter_match_iter_init(metrics->export_filter, event, ctx);
-	while ((metric = event_filter_match_iter_next(iter)) != NULL)
+	while ((metric = event_filter_match_iter_next(iter)) != NULL) T_BEGIN {
 		stats_export_event(metric, event);
+	} T_END;
 	event_filter_match_iter_deinit(&iter);
 }
 
