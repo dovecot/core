@@ -204,7 +204,7 @@ static int client_input_line(struct connection *conn, const char *line)
 			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
 			SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART,
 			&client->recipient, &error) < 0) {
-			e_error(client->event, "quota-status: "
+			e_error(client->event,
 				"Client sent invalid recipient address `%s': "
 				"%s", str_sanitize(line + 10, 256), error);
 		}
