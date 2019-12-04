@@ -28,8 +28,11 @@ struct quota_client {
 
 	struct event *event;
 
+	char *state;
 	char *recipient;
 	uoff_t size;
+
+	bool warned_bad_state:1;
 };
 
 static struct event_category event_category_quota_status = {
@@ -61,6 +64,7 @@ static void client_connected(struct master_service_connection *conn)
 
 static void client_reset(struct quota_client *client)
 {
+	i_free(client->state);
 	i_free(client->recipient);
 }
 
@@ -95,6 +99,21 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 	return ret;
 }
 
+static int client_check_mta_state(struct quota_client *client)
+{
+	if (client->state == NULL || strcasecmp(client->state, "RCPT") == 0)
+		return 0;
+
+	if (!client->warned_bad_state) {
+		e_warning(client->event,
+		          "Received policy query from MTA in unexpected state %s "
+		          "(service can only be used for recipient restrictions)",
+		          client->state);
+	}
+	client->warned_bad_state = TRUE;
+	return -1;
+}
+
 static void client_handle_request(struct quota_client *client)
 {
 	struct mail_storage_service_input input;
@@ -107,7 +126,7 @@ static void client_handle_request(struct quota_client *client)
 	string_t *resp;
 	int ret;
 
-	if (client->recipient == NULL) {
+	if (client_check_mta_state(client) < 0 || client->recipient == NULL) {
 		e_debug(client->event, "Response: action=DUNNO");
 		o_stream_nsend_str(client->conn.output, "action=DUNNO\n\n");
 		return;
@@ -216,6 +235,9 @@ static int client_input_line(struct connection *conn, const char *line)
 	} else if (str_begins(line, "size=")) {
 		if (str_to_uoff(line+5, &client->size) < 0)
 			client->size = 0;
+	} else if (str_begins(line, "protocol_state=")) {
+		if (client->state == NULL)
+			client->state = i_strdup(line + 15);
 	}
 	return 1;
 }
