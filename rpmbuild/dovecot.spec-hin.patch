@@ -1,0 +1,28 @@
+--- ../SOURCES.orig/dovecot.spec	2019-10-08 10:47:33.000000000 +0200
++++ dovecot.spec	2019-12-03 17:32:26.091106893 +0100
+@@ -19,7 +19,7 @@
+ Name: dovecot
+ Epoch: 2
+ Version: 2.3.8
+-Release: 4
++Release: op1
+ #dovecot itself is MIT, a few sources are PD, pigeonhole is LGPLv2
+ License: MIT and LGPLv2
+ Group: System Environment/Daemons
+@@ -46,6 +46,8 @@
+ Patch8: dovecot-initbysystemd.patch
+ #Patch9: dovecot-2.2.22-systemd_w_protectsystem.patch
+ 
++Patch11: dovecot-%{version}-%{release}.hin-2.3.x.patch
++
+ Source15: prestartscript
+ 
+ BuildRequires: redhat-rpm-config
+@@ -154,6 +156,7 @@
+ #%patch7 -p1 -b .online
+ %patch8 -p1 -b .initbysystemd
+ #%patch9 -p1 -b .systemd_w_protectsystem
++%patch11 -p1 -b .hin_patch-2.3.x
+ 
+ sed -i '/DEFAULT_INCLUDES *=/s|$| '"$(pkg-config --cflags libclucene-core)|" src/plugins/fts-lucene/Makefile.in
+ 
