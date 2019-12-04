@@ -1,25 +1,26 @@
 HOWTO Build RPMS
 ==========================
-Author: Tobi Oetiker 
-Date:   19.09.2019, Version 1
+Author: Tobias Oetiker and Fritz Zaucker
+Date:   2019-12-03, Version 2
 
-Rebase the source
-=================
+
+# Rebase the source
+VERSION=2.3.8
+RELEASE=op1
 
 git fetch upstream
-git rebase upstream/release-2.3.8
+git checkout master
+git branch -b hin-patch-${VERSION}
+git rebase upstream/release-${VERSION}
 
-git diff 2.3.8 > dovecot-2.3.8-hin-2.3.x.patch
+# make any additional changes to the source
 
-Build RPMS
-==========
+# Create patch
+git diff ${VERSION} > dovecot-${VERSION}.hin-${VERSION}-${RELEASE}.patch
+git add
 
-# update rpmbuild/SOURCES from https://src.fedoraproject.org/rpms/dovecot/tree/master
-# manually first and adapt dovecot.spec file
-mv dovecot_2.3.8-hin-patch_2.3.8.patch rpmbuild/SOURCES
-
+# Build RPMS
 cd rpmbuild
-docker-compose run rpmbuild
+make
 
-
-The rpms are in the folders RPMS and SRPMS
+# The generated rpm files are below the RPMS folder
