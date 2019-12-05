@@ -17,40 +17,21 @@ static void
 bsdauth_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
-	struct passwd pw;
 	const char *type;
 	int result;
 
 	e_debug(authdb_event(request), "lookup");
 
-	switch (i_getpwnam(request->user, &pw)) {
-	case -1:
-		e_error(authdb_event(request),
-			"getpwnam() failed: %m");
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
-		return;
-	case 0:
-		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
-		callback(PASSDB_RESULT_USER_UNKNOWN, request);
-		return;
-	}
-
-	/* check if the password is valid */
+	/* check if the auth is valid */
 	type = t_strdup_printf("auth-%s", request->service);
 	result = auth_userokay(request->user, NULL, t_strdup_noconst(type),
 			       t_strdup_noconst(password));
-
-	/* clear the passwords from memory */
-	safe_memset(pw.pw_passwd, 0, strlen(pw.pw_passwd));
 
 	if (result == 0) {
 		auth_request_log_password_mismatch(request, AUTH_SUBSYS_DB);
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}
-
-	/* make sure we're using the username exactly as it's in the database */
-        auth_request_set_field(request, "user", pw.pw_name, NULL);
 
 	callback(PASSDB_RESULT_OK, request);
 }
