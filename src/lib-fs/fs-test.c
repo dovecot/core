@@ -369,7 +369,6 @@ static int fs_test_iter_deinit(struct fs_iter *_iter)
 	int ret = iter->failed ? -1 : 0;
 
 	i_free(iter->prefix);
-	i_free(iter);
 	return ret;
 }
 

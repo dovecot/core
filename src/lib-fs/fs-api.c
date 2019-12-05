@@ -1163,13 +1163,13 @@ int fs_iter_deinit(struct fs_iter **_iter, const char **error_r)
 
 	if (fs->v.iter_deinit == NULL) {
 		fs_set_error(fs, "FS iteration not supported");
-		i_free(iter);
 		ret = -1;
 	} else T_BEGIN {
 		ret = iter->fs->v.iter_deinit(iter);
 	} T_END;
 	if (ret < 0)
 		*error_r = fs_last_error(fs);
+	i_free(iter);
 	event_unref(&event);
 	return ret;
 }

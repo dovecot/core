@@ -167,6 +167,5 @@ int fs_wrapper_iter_deinit(struct fs_iter *_iter)
 
 	if ((ret = fs_iter_deinit(&iter->parent, &error)) < 0)
 		fs_set_error(_iter->fs, "%s", error);
-	i_free(iter);
 	return ret;
 }

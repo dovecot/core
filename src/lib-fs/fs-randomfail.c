@@ -509,7 +509,6 @@ static int fs_randomfail_iter_deinit(struct fs_iter *_iter)
 		errno = EIO;
 		ret = -1;
 	}
-	i_free(iter);
 	return ret;
 }
 

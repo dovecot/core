@@ -313,7 +313,6 @@ static int fs_dict_iter_deinit(struct fs_iter *_iter)
 	ret = dict_iterate_deinit(&iter->dict_iter, &error);
 	if (ret < 0)
 		fs_set_error(_iter->fs, "Dict iteration failed: %s", error);
-	i_free(iter);
 	return ret;
 }
 

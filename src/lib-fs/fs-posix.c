@@ -960,7 +960,6 @@ static int fs_posix_iter_deinit(struct fs_iter *_iter)
 		ret = -1;
 	}
 	i_free(iter->path);
-	i_free(iter);
 	return ret;
 }
 
