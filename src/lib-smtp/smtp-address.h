@@ -190,6 +190,12 @@ smtp_address_equals(const struct smtp_address *address1,
 {
 	return (smtp_address_cmp(address1, address2) == 0);
 }
+static inline bool ATTR_NULL(1, 2)
+smtp_address_equals_icase(const struct smtp_address *address1,
+			  const struct smtp_address *address2)
+{
+	return (smtp_address_cmp_icase(address1, address2) == 0);
+}
 
 static inline bool ATTR_NULL(1) ATTR_PURE
 smtp_address_isnull(const struct smtp_address *address)
