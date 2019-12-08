@@ -939,3 +939,20 @@ int smtp_address_cmp(const struct smtp_address *address1,
 		return ret;
 	return null_strcmp(address1->localpart, address2->localpart);
 }
+
+int smtp_address_cmp_icase(const struct smtp_address *address1,
+			  const struct smtp_address *address2)
+{
+	bool null1, null2;
+	int ret;
+
+	null1 = smtp_address_isnull(address1);
+	null2 = smtp_address_isnull(address2);
+	if (null1)
+		return (null2 ? 0 : -1);
+	else if (null2)
+		return 1;
+	if ((ret = null_strcasecmp(address1->domain, address2->domain)) != 0)
+		return ret;
+	return null_strcasecmp(address1->localpart, address2->localpart);
+}

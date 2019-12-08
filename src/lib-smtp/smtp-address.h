@@ -181,6 +181,8 @@ smtp_address_add_detail_temp(const struct smtp_address *address,
 
 int smtp_address_cmp(const struct smtp_address *address1,
 		     const struct smtp_address *address2) ATTR_NULL(1, 2);
+int smtp_address_cmp_icase(const struct smtp_address *address1,
+			  const struct smtp_address *address2) ATTR_NULL(1, 2);
 
 static inline bool ATTR_NULL(1, 2)
 smtp_address_equals(const struct smtp_address *address1,
