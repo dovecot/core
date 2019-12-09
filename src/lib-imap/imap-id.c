@@ -7,6 +7,7 @@
 #include "imap-parser.h"
 #include "imap-quote.h"
 #include "imap-id.h"
+#include "dovecot-version.h"
 
 #ifdef HAVE_SYS_UTSNAME_H
 #  include <sys/utsname.h>
@@ -40,6 +41,8 @@ static const char *imap_id_get_default(const char *key)
 		return PACKAGE_NAME;
 	if (strcasecmp(key, "version") == 0)
 		return PACKAGE_VERSION;
+	if (strcasecmp(key, "revision") == 0)
+		return DOVECOT_REVISION;
 	if (strcasecmp(key, "support-url") == 0)
 		return PACKAGE_WEBPAGE;
 	if (strcasecmp(key, "support-email") == 0)
