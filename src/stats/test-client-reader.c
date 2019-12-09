@@ -122,6 +122,96 @@ static void test_client_reader(void)
 	test_end();
 }
 
+static const char *settings_blob_2 =
+"metric=test\n"
+"metric/test/name=test\n"
+"metric/test/event_name=test\n"
+"metric/test/group_by=test_name\n"
+"\n";
+
+static int
+test_reader_server_input_args_group_by(struct connection *conn,
+				       const char *const *args)
+{
+	struct test_connection *tconn =
+		container_of(conn, struct test_connection, conn);
+
+	if (args[0] == NULL)
+		return -1;
+
+	tconn->row_count++;
+
+	if (tconn->row_count == 1) {
+		test_assert_strcmp(args[0], "test");
+		test_assert_strcmp(args[1], "1");
+	} else if (tconn->row_count == 2) {
+		test_assert_strcmp(args[0], "test_alpha");
+		test_assert_strcmp(args[1], "1");
+	}
+	return 1;
+}
+
+static void test_dump_metrics_group_by(void)
+{
+	int fds[2];
+
+	test_assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+
+	struct test_connection *conn = i_new(struct test_connection, 1);
+
+	struct ioloop *loop = io_loop_create();
+
+	client_reader_create(fds[1], metrics);
+	connection_init_client_fd(conn_list, &conn->conn, "stats", fds[0], fds[0]);
+	o_stream_nsend_str(conn->conn.output, "DUMP\tcount\n");
+
+	io_loop_run(loop);
+	connection_deinit(&conn->conn);
+	i_free(conn);
+
+	io_loop_set_running(loop);
+	io_loop_handler_run(loop);
+
+	io_loop_destroy(&loop);
+}
+
+static void test_client_reader_group_by(void)
+{
+	const struct connection_vfuncs client_vfuncs = {
+		.input_args = test_reader_server_input_args_group_by,
+		.destroy = test_reader_server_destroy,
+	};
+
+	test_begin("client reader (group by)");
+
+	/* register some stats */
+	test_init(settings_blob_2);
+
+	client_readers_init();
+	conn_list = connection_list_init(&client_set, &client_vfuncs);
+
+	/* push event in */
+	struct event *event = event_create(NULL);
+	event_add_category(event, &test_category);
+	event_set_name(event, "test");
+	event_add_str(event, "event_name", "alpha");
+	test_event_send(event);
+	event_unref(&event);
+
+	test_assert(get_stats_dist_field("test", STATS_DIST_COUNT) == 1);
+	test_assert(get_stats_dist_field("test", STATS_DIST_SUM) > 0);
+
+	/* check output from reader */
+	test_dump_metrics_group_by();
+
+	test_deinit();
+
+	client_readers_deinit();
+	connection_list_deinit(&conn_list);
+
+	test_end();
+}
+
 int main(void) {
 	/* fake master service to pretend destroying
 	   connections. */
@@ -132,6 +222,7 @@ int main(void) {
 	};
 	void (*const test_functions[])(void) = {
 		test_client_reader,
+		test_client_reader_group_by,
 		NULL
 	};
 
