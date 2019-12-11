@@ -339,18 +339,21 @@ push_notification_lua_push_mailboxrename(const struct push_notification_txn_even
 	lua_setfield(script->L, -2, "mailbox_old");
 }
 
+#define push_notification_lua_pushstring(L, value) \
+	lua_pushstring((L), (value) == NULL ? "" : (value))
+
 static void
 push_notification_lua_push_message_ext(const struct push_notification_message_ext *ext,
 				       struct dlua_script *script)
 {
-	lua_pushstring(script->L, ext->from_address);
+	push_notification_lua_pushstring(script->L, ext->from_address);
 	lua_setfield(script->L, -2, "from_address");
-	lua_pushstring(script->L, ext->from_display_name_utf8);
+	push_notification_lua_pushstring(script->L, ext->from_display_name_utf8);
 	lua_setfield(script->L, -2, "from_display_name");
 
-	lua_pushstring(script->L, ext->to_address);
+	push_notification_lua_pushstring(script->L, ext->to_address);
 	lua_setfield(script->L, -2, "to_address");
-	lua_pushstring(script->L, ext->to_display_name_utf8);
+	push_notification_lua_pushstring(script->L, ext->to_display_name_utf8);
 	lua_setfield(script->L, -2, "to_display_name");
 
 	lua_pushstring(script->L, ext->subject_utf8);
@@ -369,10 +372,10 @@ push_notification_lua_push_messageappend(const struct push_notification_txn_even
 	lua_pushnumber(script->L, data->date_tz);
 	lua_setfield(script->L, -2, "tz");
 
-	lua_pushstring(script->L, data->from);
+	push_notification_lua_pushstring(script->L, data->from);
 	lua_setfield(script->L, -2, "from");
 
-	lua_pushstring(script->L, data->to);
+	push_notification_lua_pushstring(script->L, data->to);
 	lua_setfield(script->L, -2, "to");
 
 	lua_pushstring(script->L, data->snippet);
@@ -402,10 +405,10 @@ push_notification_lua_push_messagenew(const struct push_notification_txn_event *
 	lua_pushnumber(script->L, data->date_tz);
 	lua_setfield(script->L, -2, "tz");
 
-	lua_pushstring(script->L, data->from);
+	push_notification_lua_pushstring(script->L, data->from);
 	lua_setfield(script->L, -2, "from");
 
-	lua_pushstring(script->L, data->to);
+	push_notification_lua_pushstring(script->L, data->to);
 	lua_setfield(script->L, -2, "to");
 
 	lua_pushstring(script->L, data->snippet);
