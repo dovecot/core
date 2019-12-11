@@ -864,7 +864,7 @@ smtp_server_connection_alloc(struct smtp_server *server,
 				p_strarray_dup(pool, set->rcpt_param_extensions);
 		}
 		if (set->xclient_extensions != NULL) {
-			server->set.xclient_extensions =
+			conn->set.xclient_extensions =
 				p_strarray_dup(pool, set->xclient_extensions);
 		}
 
