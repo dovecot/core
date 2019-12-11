@@ -70,7 +70,6 @@ struct master_login_auth {
 	bool request_auth_token:1;
 };
 
-static void master_login_auth_connected(struct connection *_conn, bool success);
 static int
 master_login_auth_input_args(struct connection *_conn, const char *const *args);
 static int
@@ -84,7 +83,6 @@ static const struct connection_vfuncs master_login_auth_vfuncs = {
 	.destroy = master_login_auth_destroy,
 	.handshake_line = master_login_auth_handshake_line,
 	.input_args = master_login_auth_input_args,
-	.client_connected = master_login_auth_connected,
 };
 
 static const struct connection_settings master_login_auth_set = {
@@ -488,17 +486,6 @@ master_login_auth_input_args(struct connection *_conn, const char *const *args)
 	return 1;
 }
 
-static void master_login_auth_connected(struct connection *_conn, bool success)
-{
-	struct master_login_auth *auth =
-		container_of(_conn, struct master_login_auth, conn);
-
-	/* Cannot get here unless connect() was successful */
-	i_assert(success);
-
-	auth->connected = TRUE;
-}
-
 static int
 master_login_auth_connect(struct master_login_auth *auth)
 {
@@ -517,6 +504,7 @@ master_login_auth_connect(struct master_login_auth *auth)
 	}
 	io_loop_time_refresh();
 	auth->connect_time = ioloop_timeval;
+	auth->connected = TRUE;
 	return 0;
 }
 
