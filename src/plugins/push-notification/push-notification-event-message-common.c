@@ -11,23 +11,28 @@ static void decode_address_header(pool_t pool, const char *hdr,
 				  const char **address_r, const char **name_r)
 {
 	struct message_address *addr;
+	const char *display_name;
 
 	if (hdr == NULL)
 		return;
 
 	addr = message_address_parse(pool_datastack_create(),
 		(const unsigned char *)hdr, strlen(hdr), 1, 0);
-	if (addr->domain[0] != '\0')
+	display_name = addr->name;
+	if (addr->domain == NULL) {
+		/* group */
+		display_name = addr->mailbox;
+	} else if (addr->domain[0] != '\0')
 		*address_r = p_strdup_printf(pool, "%s@%s", addr->mailbox,
 					     addr->domain);
-	else if (addr->mailbox[0] != '\0')
+	else if (addr->mailbox != NULL && addr->mailbox[0] != '\0')
 		*address_r = p_strdup(pool, addr->mailbox);
 
-	if (addr->name != NULL) {
+	if (display_name != NULL && display_name[0] != '\0') {
 		string_t *name_utf8 = t_str_new(128);
 
-		message_header_decode_utf8((const unsigned char *)addr->name,
-					   strlen(addr->name), name_utf8, NULL);
+		message_header_decode_utf8((const unsigned char *)display_name,
+					   strlen(display_name), name_utf8, NULL);
 		*name_r = p_strdup(pool, str_c(name_utf8));
 	}
 }
