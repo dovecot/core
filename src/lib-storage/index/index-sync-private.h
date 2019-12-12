@@ -26,7 +26,6 @@ void index_sync_search_results_expunge(struct index_mailbox_sync_context *ctx);
 
 /* Returns 1 = ok, 0 = no private indexes, -1 = error */
 int index_mailbox_sync_pvt_init(struct mailbox *box, bool lock,
-				enum mail_index_view_sync_flags flags,
 				struct index_mailbox_sync_pvt_context **ctx_r);
 int index_mailbox_sync_pvt_newmails(struct index_mailbox_sync_pvt_context *ctx,
 				    struct mailbox_transaction_context *trans);

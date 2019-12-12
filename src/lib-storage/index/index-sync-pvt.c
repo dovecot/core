@@ -11,8 +11,6 @@ struct index_mailbox_sync_pvt_context {
 	struct mail_index_view *view_pvt;
 	struct mail_index_transaction *trans_pvt;
 	struct mail_index_view *view_shared;
-
-	enum mail_index_view_sync_flags flags;
 };
 
 static int sync_pvt_expunges(struct index_mailbox_sync_pvt_context *ctx)
@@ -125,7 +123,6 @@ index_mailbox_sync_open(struct index_mailbox_sync_pvt_context *ctx, bool force)
 }
 
 int index_mailbox_sync_pvt_init(struct mailbox *box, bool lock,
-				enum mail_index_view_sync_flags flags,
 				struct index_mailbox_sync_pvt_context **ctx_r)
 {
 	struct index_mailbox_sync_pvt_context *ctx;
@@ -138,7 +135,6 @@ int index_mailbox_sync_pvt_init(struct mailbox *box, bool lock,
 
 	ctx = i_new(struct index_mailbox_sync_pvt_context, 1);
 	ctx->box = box;
-	ctx->flags = flags;
 	if (lock) {
 		if (index_mailbox_sync_open(ctx, TRUE) < 0) {
 			index_mailbox_sync_pvt_deinit(&ctx);
@@ -303,8 +299,13 @@ int index_mailbox_sync_pvt_view(struct index_mailbox_sync_pvt_context *ctx,
 	if (index_mailbox_sync_pvt_index(ctx, NULL, 0) < 0)
 		return -1;
 
-	/* sync the private view */
-	view_sync_ctx = mail_index_view_sync_begin(ctx->box->view_pvt, ctx->flags);
+	/* Sync the private view. The flags index can't be fully synced with
+	   the main index at all times anyway, so don't even try. Just fully
+	   sync it always and fix any found inconsistencies. This way we also
+	   avoid any unnecessary "dovecot.index.pvt reset, view is now
+	   inconsistent" errors. */
+	view_sync_ctx = mail_index_view_sync_begin(ctx->box->view_pvt,
+		MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
 	while (mail_index_view_sync_next(view_sync_ctx, &sync_rec)) {
 		if (sync_rec.type != MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS)
 			continue;
