@@ -42,7 +42,7 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 	/* remote supports XCLIENT, send it */
 
 	fwd = t_str_new(128);
-	for(arg = client->common.auth_passdb_args; *arg != NULL; arg++) {
+	for (arg = client->common.auth_passdb_args; *arg != NULL; arg++) {
 		if (strncasecmp(*arg, "forward_", 8) == 0) {
 			if (str_len(fwd) > 0)
 				str_append_c(fwd, '\t');
@@ -84,8 +84,8 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 	string_t *str;
 
 	if ((client->proxy_capability & SMTP_CAPABILITY_AUTH) == 0) {
-		/* Prevent sending credentials to a server that has login disabled;
-		   i.e., due to the lack of TLS */
+		/* Prevent sending credentials to a server that has login
+		   disabled; i.e., due to the lack of TLS */
 		client_log_err(&client->common, "proxy: "
 			"Server has disabled authentication (TLS required?)");
 		return -1;
@@ -143,8 +143,9 @@ submission_proxy_continue_sasl_auth(struct client *client, struct ostream *outpu
 
 	str = t_str_new(128);
 	if (base64_decode(line, strlen(line), NULL, str) < 0) {
-		client_log_err(client,
-			"proxy: Server sent invalid base64 data in AUTH response");
+		client_log_err(
+			client, "proxy: "
+			"Server sent invalid base64 data in AUTH response");
 		return -1;
 	}
 	ret = dsasl_client_input(client->proxy_sasl_client,
@@ -229,18 +230,18 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	i_assert(cmd != NULL);
 
 	if ((line[3] != ' ' && line[3] != '-') ||
-		str_parse_uint(line, &status, &text) < 0 ||
-		status < 200 || status >= 560) {
+	    str_parse_uint(line, &status, &text) < 0 ||
+	    status < 200 || status >= 560) {
 		invalid_line = TRUE;
 	} else {
 		text++;
 
 		if ((subm_client->proxy_capability &
-			SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0)
+		    SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0)
 			text = strip_enhanced_code(text, &enh_code);
 	}
 	if (subm_client->proxy_reply_status != 0 &&
-		subm_client->proxy_reply_status != status) {
+	    subm_client->proxy_reply_status != status) {
 		client_log_err(client, t_strdup_printf(
 			"proxy: Remote returned inconsistent SMTP reply: %s "
 			"(status != %u)", str_sanitize(line, 160),
@@ -319,9 +320,10 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			}
 		} else {
 			if ((subm_client->proxy_capability &
-				SMTP_CAPABILITY_STARTTLS) == 0) {
-				client_log_err(client,
-					"proxy: Remote doesn't support STARTTLS");
+			     SMTP_CAPABILITY_STARTTLS) == 0) {
+				client_log_err(
+					client, "proxy: "
+					"Remote doesn't support STARTTLS");
 				return -1;
 			}
 			o_stream_nsend_str(output, "STARTTLS\r\n");
@@ -348,8 +350,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		subm_client->proxy_capability = 0;
 		i_free_and_null(subm_client->proxy_xclient);
 		subm_client->proxy_state = SUBMISSION_PROXY_TLS_EHLO;
-		o_stream_nsend_str(output, t_strdup_printf("EHLO %s\r\n",
-			subm_client->set->hostname));
+		o_stream_nsend_str(output, t_strdup_printf(
+			"EHLO %s\r\n", subm_client->set->hostname));
 		return 0;
 	case SUBMISSION_PROXY_XCLIENT:
 		if (invalid_line || (status / 100) != 2) {
@@ -377,8 +379,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		}
 
 		if (subm_client->proxy_reply == NULL) {
-			subm_client->proxy_reply =
-				smtp_server_reply_create(command, status, enh_code);
+			subm_client->proxy_reply = smtp_server_reply_create(
+				command, status, enh_code);
 		}
 		smtp_server_reply_add_text(subm_client->proxy_reply, text);
 
