@@ -71,7 +71,8 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 		str_printfa(str, " PORT=%u", client->common.remote_port);
 	if (str_array_icase_find(client->proxy_xclient, "SESSION")) {
 		str_append(str, " SESSION=");
-		str_append(str, client_get_session_id(&client->common));
+		smtp_xtext_encode_cstr(
+			str, client_get_session_id(&client->common));
 	}
 	if (str_array_icase_find(client->proxy_xclient, "TTL"))
 		str_printfa(str, " TTL=%u", client->common.proxy_ttl - 1);
@@ -80,7 +81,7 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 
 		if (fwd != NULL) {
 			str_append(str, " FORWARD=");
-			str_append_data(str, fwd->data, fwd->used);
+			smtp_xtext_encode(str, fwd->data, fwd->used);
 		}
 	}
 	str_append(str, "\r\n");
