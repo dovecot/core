@@ -227,6 +227,9 @@ static bool view_sync_have_expunges(struct mail_index_view *view)
 	bool have_expunges = FALSE;
 	int ret;
 
+	if (mail_transaction_log_view_is_last(view->log_view))
+		return FALSE;
+
 	mail_transaction_log_view_mark(view->log_view);
 
 	while ((ret = mail_transaction_log_view_next(view->log_view,
