@@ -11,6 +11,7 @@
 #include "strescape.h"
 #include "dsasl-client.h"
 #include "client.h"
+#include "smtp-syntax.h"
 #include "submission-login-settings.h"
 #include "submission-proxy.h"
 
@@ -29,27 +30,37 @@ static void proxy_free_password(struct client *client)
 	i_free_and_null(client->proxy_password);
 }
 
+static buffer_t *
+proxy_compose_xclient_forward(struct submission_client *client)
+{
+	const char *const *arg;
+	string_t *str;
+
+	if (*client->common.auth_passdb_args == NULL)
+		return NULL;
+
+	str = t_str_new(128);
+	for (arg = client->common.auth_passdb_args; *arg != NULL; arg++) {
+		if (strncasecmp(*arg, "forward_", 8) == 0) {
+			if (str_len(str) > 0)
+				str_append_c(str, '\t');
+			str_append_tabescaped(str, (*arg)+8);
+		}
+	}
+
+	return t_base64_encode(0, 0, str_data(str), str_len(str));
+}
+
 static void
 proxy_send_xclient(struct submission_client *client, struct ostream *output)
 {
-	const char *const *arg;
-	string_t *str, *fwd;
+	string_t *str;
 
 	if ((client->proxy_capability & SMTP_CAPABILITY_XCLIENT) == 0 ||
 	    client->common.proxy_not_trusted)
 		return;
 
 	/* remote supports XCLIENT, send it */
-
-	fwd = t_str_new(128);
-	for (arg = client->common.auth_passdb_args; *arg != NULL; arg++) {
-		if (strncasecmp(*arg, "forward_", 8) == 0) {
-			if (str_len(fwd) > 0)
-				str_append_c(fwd, '\t');
-			str_append_tabescaped(fwd, (*arg)+8);
-		}
-	}
-
 	str = t_str_new(128);
 	str_append(str, "XCLIENT");
 	if (str_array_icase_find(client->proxy_xclient, "ADDR")) {
@@ -64,10 +75,13 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 	}
 	if (str_array_icase_find(client->proxy_xclient, "TTL"))
 		str_printfa(str, " TTL=%u", client->common.proxy_ttl - 1);
-	if (str_array_icase_find(client->proxy_xclient, "FORWARD") &&
-		str_len(fwd) > 0) {
-		str_append(str, " FORWARD=");
-		base64_encode(str_data(fwd), str_len(fwd), str);
+	if (str_array_icase_find(client->proxy_xclient, "FORWARD")) {
+		buffer_t *fwd = proxy_compose_xclient_forward(client);
+
+		if (fwd != NULL) {
+			str_append(str, " FORWARD=");
+			str_append_data(str, fwd->data, fwd->used);
+		}
 	}
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
