@@ -40,6 +40,19 @@ static void client_send_sendalive_if_needed(struct client *client)
 	}
 }
 
+static void copy_update_trashed(struct client *client, struct mailbox *box,
+				unsigned int count)
+{
+	const struct mailbox_settings *set;
+
+	set = mailbox_settings_find(mailbox_get_namespace(box),
+				    mailbox_get_vname(box));
+	if (set != NULL && set->special_use[0] != '\0' &&
+	    str_array_icase_find(t_strsplit_spaces(set->special_use, " "),
+				 "\\Trash"))
+		client->trashed_count += count;
+}
+
 static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 			  struct mail_search_args *search_args,
 			  struct mail_transaction_commit_changes *changes_r)
@@ -109,19 +122,6 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
 	return ret;
-}
-
-static void copy_update_trashed(struct client *client, struct mailbox *box,
-				unsigned int count)
-{
-	const struct mailbox_settings *set;
-
-	set = mailbox_settings_find(mailbox_get_namespace(box),
-				    mailbox_get_vname(box));
-	if (set != NULL && set->special_use[0] != '\0' &&
-	    str_array_icase_find(t_strsplit_spaces(set->special_use, " "),
-				 "\\Trash"))
-		client->trashed_count += count;
 }
 
 static bool cmd_copy_full(struct client_command_context *cmd, bool move)
