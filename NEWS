@@ -1,3 +1,8 @@
+v2.3.9.2 2019-12-13  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	- Mails with empty From/To headers can also cause crash
+	  in push notification drivers.
+
 v2.3.9.1 2019-12-13  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2019-19722: Mails with group addresses in From or To fields
