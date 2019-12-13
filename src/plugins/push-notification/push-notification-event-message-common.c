@@ -18,6 +18,9 @@ static void decode_address_header(pool_t pool, const char *hdr,
 
 	addr = message_address_parse(pool_datastack_create(),
 		(const unsigned char *)hdr, strlen(hdr), 1, 0);
+	if (addr == NULL)
+		return;
+
 	display_name = addr->name;
 	if (addr->domain == NULL) {
 		/* group */
