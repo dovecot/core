@@ -190,6 +190,14 @@ imap_get_error_string(struct client_command_context *cmd,
 		return t_strdup_printf("NO [%s] %s", resp_code, error_string);
 }
 
+void client_send_error(struct client_command_context *cmd,
+		       const char *error_string, enum mail_error error)
+{
+	client_send_tagline(cmd, imap_get_error_string(cmd, error_string,
+						       error));
+	client_disconnect_if_inconsistent(cmd->client);
+}
+
 void client_send_list_error(struct client_command_context *cmd,
 			    struct mailbox_list *list)
 {
@@ -224,10 +232,7 @@ void client_send_storage_error(struct client_command_context *cmd,
 	enum mail_error error;
 
 	error_string = mail_storage_get_last_error(storage, &error);
-	client_send_tagline(cmd, imap_get_error_string(cmd, error_string,
-						       error));
-
-	client_disconnect_if_inconsistent(cmd->client);
+	client_send_error(cmd, error_string, error);
 }
 
 void client_send_untagged_storage_error(struct client *client,
