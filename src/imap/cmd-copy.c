@@ -11,13 +11,13 @@
 #include <time.h>
 
 #define COPY_CHECK_INTERVAL 100
+#define MOVE_COMMIT_INTERVAL 1000
 
 struct cmd_copy_context {
 	struct client_command_context *cmd;
 	struct mailbox *destbox;
 	bool move;
 
-	struct mailbox_transaction_context *src_trans;
 	struct msgset_generator_context srcset_ctx;
 	unsigned int copy_count;
 
@@ -61,7 +61,7 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 			  struct mail_search_args *search_args)
 {
 	struct client *client = copy_ctx->cmd->client;
-	struct mailbox_transaction_context *t;
+	struct mailbox_transaction_context *t, *src_trans;
 	struct mail_search_context *search_ctx;
 	struct mail_save_context *save_ctx;
 	struct mail *mail;
@@ -78,9 +78,8 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS,
 				      cmd_reason);
 
-	copy_ctx->src_trans =
-		mailbox_transaction_begin(client->mailbox, 0, cmd_reason);
-	search_ctx = mailbox_search_init(copy_ctx->src_trans, search_args,
+	src_trans = mailbox_transaction_begin(client->mailbox, 0, cmd_reason);
+	search_ctx = mailbox_search_init(src_trans, search_args,
 					 NULL, 0, NULL);
 
 	ret = 1;
@@ -109,6 +108,9 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		msgset_generator_next(&copy_ctx->srcset_ctx, mail->uid);
 	}
 
+	if (mailbox_search_deinit(&search_ctx) < 0)
+		ret = -1;
+
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
 	else if (mailbox_transaction_commit_get_changes(&t, &changes) < 0) {
@@ -136,10 +138,13 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		pool_unref(&changes.pool);
 	}
 
-	msgset_generator_finish(&copy_ctx->srcset_ctx);
-
-	if (mailbox_search_deinit(&search_ctx) < 0)
-		ret = -1;
+	if (ret <= 0 && copy_ctx->move) {
+		/* move failed, don't expunge anything */
+		mailbox_transaction_rollback(&src_trans);
+	} else {
+		if (mailbox_transaction_commit(&src_trans) < 0)
+			ret = -1;
+	}
 	return ret;
 }
 
@@ -149,6 +154,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	struct mail_storage *dest_storage;
 	struct mailbox *destbox;
         struct mail_search_args *search_args;
+	struct imap_search_seqset_iter *seqset_iter = NULL;
 	const char *messageset, *mailbox;
 	enum mailbox_sync_flags sync_flags = 0;
 	enum imap_sync_flags imap_flags = 0;
@@ -172,6 +178,13 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		return TRUE;
 	}
 
+	if (move) {
+		/* When moving mails, perform the work in batches of
+		   MOVE_COMMIT_INTERVAL. Each such batch has its own
+		   transaction and search query. */
+		seqset_iter = imap_search_seqset_iter_init(search_args,
+			client->messages_count, MOVE_COMMIT_INTERVAL);
+	}
 	i_zero(&copy_ctx);
 	copy_ctx.cmd = cmd;
 	copy_ctx.destbox = destbox;
@@ -179,8 +192,19 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	i_array_init(&copy_ctx.saved_uids, 8);
 	src_uidset = t_str_new(256);
 	msgset_generator_init(&copy_ctx.srcset_ctx, src_uidset);
-	ret = fetch_and_copy(&copy_ctx, search_args);
+	do {
+		T_BEGIN {
+			ret = fetch_and_copy(&copy_ctx, search_args);
+		} T_END;
+		if (ret <= 0) {
+			/* failed */
+			break;
+		}
+	} while (seqset_iter != NULL &&
+		 imap_search_seqset_iter_next(seqset_iter));
+	imap_search_seqset_iter_deinit(&seqset_iter);
 	mail_search_args_unref(&search_args);
+	msgset_generator_finish(&copy_ctx.srcset_ctx);
 
 	msg = t_str_new(256);
 	if (ret <= 0)
@@ -209,13 +233,6 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		str_append(msg, "] Copy completed.");
 	}
 
-	if (ret <= 0 && move) {
-		/* move failed, don't expunge anything */
-		mailbox_transaction_rollback(&copy_ctx.src_trans);
-	} else {
-		if (mailbox_transaction_commit(&copy_ctx.src_trans) < 0)
-			ret = -1;
-	}
 	array_free(&copy_ctx.saved_uids);
 
  	dest_storage = mailbox_get_storage(destbox);
