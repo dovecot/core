@@ -24,6 +24,9 @@ struct cmd_copy_context {
 	uint32_t uid_validity;
 	ARRAY_TYPE(seq_range) saved_uids;
 	bool hide_saved_uids;
+
+	const char *error_string;
+	enum mail_error mail_error;
 };
 
 static void client_send_sendalive_if_needed(struct client *client)
@@ -108,8 +111,15 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		msgset_generator_next(&copy_ctx->srcset_ctx, mail->uid);
 	}
 
-	if (mailbox_search_deinit(&search_ctx) < 0)
+	if (ret < 0) {
+		copy_ctx->error_string =
+			mailbox_get_last_error(copy_ctx->destbox, &copy_ctx->mail_error);
+	}
+	if (mailbox_search_deinit(&search_ctx) < 0 && ret >= 0) {
+		copy_ctx->error_string =
+			mailbox_get_last_error(client->mailbox, &copy_ctx->mail_error);
 		ret = -1;
+	}
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
@@ -120,6 +130,8 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 			ret = 0;
 		} else {
 			ret = -1;
+			copy_ctx->error_string =
+				mailbox_get_last_error(copy_ctx->destbox, &copy_ctx->mail_error);
 		}
 	} else {
 		if (changes.no_read_perm)
@@ -142,8 +154,11 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		/* move failed, don't expunge anything */
 		mailbox_transaction_rollback(&src_trans);
 	} else {
-		if (mailbox_transaction_commit(&src_trans) < 0)
+		if (mailbox_transaction_commit(&src_trans) < 0 && ret >= 0) {
+			copy_ctx->error_string =
+				mailbox_get_last_error(client->mailbox, &copy_ctx->mail_error);
 			ret = -1;
+		}
 	}
 	return ret;
 }
@@ -151,7 +166,6 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 {
 	struct client *client = cmd->client;
-	struct mail_storage *dest_storage;
 	struct mailbox *destbox;
         struct mail_search_args *search_args;
 	struct imap_search_seqset_iter *seqset_iter = NULL;
@@ -235,7 +249,6 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 
 	array_free(&copy_ctx.saved_uids);
 
- 	dest_storage = mailbox_get_storage(destbox);
 	if (destbox != client->mailbox) {
 		if (move)
 			sync_flags |= MAILBOX_SYNC_FLAG_EXPUNGE;
@@ -256,7 +269,8 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 			"NO ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some of the requested messages no longer exist.");
 	} else {
-		client_send_storage_error(cmd, dest_storage);
+		client_send_error(cmd, copy_ctx.error_string,
+				  copy_ctx.mail_error);
 		return TRUE;
 	}
 }
