@@ -82,20 +82,22 @@ static void
 reader_client_dump_sub_metrics(struct ostream *output, const struct metric *metric,
 			       const char *sub_name, const char *const *fields)
 {
-	size_t pos;
+	size_t root_pos, name_pos;
 	struct metric *const *sub_metrics;
 	if (!array_is_created(&metric->sub_metrics))
 		return;
 	string_t *str = t_str_new(128);
 	str_append_tabescaped(str, sub_name);
 	str_append_c(str, '_');
-	pos = str->used;
+	root_pos = str->used;
 
 	array_foreach(&metric->sub_metrics, sub_metrics) {
+		str_truncate(str, root_pos);
 		str_append_tabescaped(str, (*sub_metrics)->sub_name);
+		name_pos = str->used;
 		reader_client_dump_metric(str, *sub_metrics, fields);
 		o_stream_nsend(output, str_data(str), str_len(str));
-		str_truncate(str, pos);
+		str_truncate(str, name_pos);
 		reader_client_dump_sub_metrics(output, *sub_metrics,
 					       str_c(str), fields);
 	}
