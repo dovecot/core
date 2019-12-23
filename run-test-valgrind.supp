@@ -59,7 +59,6 @@
    <libunwind_backtrace>
    Memcheck:Param
    msync(start)
-   fun:msync
    ...
    obj:/usr/lib/x86_64-linux-gnu/libunwind-x86_64.so.8.0.1
    fun:_Ux86_64_step
