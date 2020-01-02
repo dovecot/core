@@ -1,6 +1,7 @@
 /* Copyright (c) 2019 Dovecot authors, see the included COPYING file */
 
 #include "test-stats-common.h"
+#include <unistd.h>
 
 struct event_category test_category = {
 	.name = "test",
@@ -65,6 +66,7 @@ void test_event_send(struct event *event)
                 .type = LOG_TYPE_DEBUG,
         };
 
+	usleep(1); /* make sure duration>0 always */
         event_send(event, &ctx, "hello");
 }
 
