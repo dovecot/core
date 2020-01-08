@@ -40,6 +40,7 @@ bool test_has_failed(void);
 /* If you're testing nasty cases which you want to warn, surround the noisy op with these */
 void test_expect_errors(unsigned int expected);
 void test_expect_error_string(const char *substr); /* expect just 1 message matching the printf format */
+void test_expect_error_string_n_times(const char *substr, unsigned int times); /* expect just n messages matching the printf format */
 void test_expect_no_more_errors(void);
 /* Note that test_expect_error{s,_string}() effectively begin with a check equivalent
    to test_expect_no_more_errors(), so you don't need the latter explicitly if following
