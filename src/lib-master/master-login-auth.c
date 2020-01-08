@@ -554,7 +554,7 @@ master_login_auth_send_request(struct master_login_auth *auth,
 		master_login_auth_request_remove(auth, req);
 		req->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
 			      req->context);
-		i_free(req);
+		request_free(&req);
 		return;
 	}
 
