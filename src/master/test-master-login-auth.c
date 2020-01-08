@@ -119,7 +119,7 @@ test_client_connection_refused(void)
 static void test_connection_refused(void)
 {
 	test_begin("connection refused");
-	test_expect_error_string("Connection refused");
+	test_expect_error_string_n_times("Connection refused", 2);
 	test_run_client_server(test_client_connection_refused,
 			       test_server_connection_refused);
 	test_end();

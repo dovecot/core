@@ -97,6 +97,9 @@ static const struct connection_settings master_login_auth_set = {
 	.client = TRUE,
 };
 
+static int
+master_login_auth_connect(struct master_login_auth *auth);
+
 struct master_login_auth *
 master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 {
@@ -125,6 +128,7 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 				    auth->auth_socket_path);
 
 	auth->timeout_msecs = 1000 * MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
+	master_login_auth_connect(auth);
 	return auth;
 }
 
@@ -505,6 +509,11 @@ master_login_auth_connect(struct master_login_auth *auth)
 	io_loop_time_refresh();
 	auth->connect_time = ioloop_timeval;
 	auth->connected = TRUE;
+
+	o_stream_nsend_str(auth->conn.output,
+		t_strdup_printf("VERSION\t%u\t%u\n",
+				AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
+				AUTH_MASTER_PROTOCOL_MINOR_VERSION));
 	return 0;
 }
 
@@ -577,10 +586,6 @@ void master_login_auth_request(struct master_login_auth *auth,
 				 context);
 			return;
 		}
-		o_stream_nsend_str(auth->conn.output,
-			t_strdup_printf("VERSION\t%u\t%u\n",
-					AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
-					AUTH_MASTER_PROTOCOL_MINOR_VERSION));
 	}
 
 	id = ++auth->id_counter;
