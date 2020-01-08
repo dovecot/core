@@ -498,7 +498,7 @@ master_login_auth_connect(struct master_login_auth *auth)
 						 auth->auth_socket_path));
 		} else {
 			e_error(auth->event, "connect(%s) failed: %m",
-				auth->auth_socket_path);;
+				auth->auth_socket_path);
 		}
 		return -1;
 	}
