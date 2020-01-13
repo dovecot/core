@@ -9,6 +9,7 @@
 #include "mail-autoexpunge.h"
 
 #define AUTOEXPUNGE_LOCK_FNAME "dovecot.autoexpunge.lock"
+#define AUTOEXPUNGE_BATCH_SIZE 1000
 
 static bool
 mailbox_autoexpunge_lock(struct mail_user *user, struct file_lock **lock)
@@ -42,6 +43,7 @@ mailbox_autoexpunge_lock(struct mail_user *user, struct file_lock **lock)
 	}
 }
 
+/* returns -1 on error, 0 when done, and 1 when there is more to do */
 static int
 mailbox_autoexpunge_batch(struct mailbox *box,
 			  const unsigned int interval_time,
@@ -57,6 +59,7 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 	const void *data;
 	size_t size;
 	unsigned int count = 0;
+	bool done = FALSE;
 	int ret = 0;
 
 	mail_index_get_header_ext(box->view, box->box_last_rename_stamp_ext_id,
@@ -69,7 +72,9 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 	mail = mail_alloc(t, 0, NULL);
 
 	hdr = mail_index_get_header(box->view);
-	for (seq = 1; seq <= hdr->messages_count; seq++) {
+	done = hdr->messages_count == 0;
+
+	for (seq = 1; seq <= I_MIN(hdr->messages_count, AUTOEXPUNGE_BATCH_SIZE); seq++) {
 		mail_set_seq(mail, seq);
 		if (max_mails > 0 && hdr->messages_count - seq + 1 > max_mails) {
 			/* max_mails is still being reached -> expunge.
@@ -79,10 +84,13 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 			count++;
 		} else if (interval_time == 0) {
 			/* only max_mails is used. nothing further to do. */
+			done = TRUE;
 			break;
 		} else if (mail_get_save_date(mail, &timestamp) == 0) {
-			if (I_MAX(last_rename_stamp, timestamp) > expire_time)
+			if (I_MAX(last_rename_stamp, timestamp) > expire_time) {
+				done = TRUE;
 				break;
+			}
 			mail_autoexpunge(mail);
 			count++;
 		} else if (mailbox_get_last_mail_error(box) == MAIL_ERROR_EXPUNGED) {
@@ -101,7 +109,10 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 			ret = -1;
 		*expunged_count += count;
 	}
-	return ret;
+
+	if (ret < 0)
+		return -1;
+	return done ? 0 : 1;
 }
 
 static int
@@ -111,6 +122,7 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 	struct mailbox_metadata metadata;
 	struct mailbox_status status;
 	time_t expire_time;
+	int ret;
 
 	if ((unsigned int)ioloop_time < interval_time)
 		expire_time = 0;
@@ -141,8 +153,12 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
 		return -1;
 
-	return mailbox_autoexpunge_batch(box, interval_time, max_mails,
-					 expire_time, expunged_count);
+	do {
+		ret = mailbox_autoexpunge_batch(box, interval_time, max_mails,
+						expire_time, expunged_count);
+	} while (ret > 0);
+
+	return ret;
 }
 
 static void
