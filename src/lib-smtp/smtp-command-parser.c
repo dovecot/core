@@ -169,6 +169,7 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 	uoff_t max_size = (parser->auth_response ?
 		parser->limits.max_auth_size :
 		parser->limits.max_parameters_size);
+	int nch = 1;
 
 	/* We assume parameters to match textstr (HT, SP, Printable US-ASCII).
 	   For command parameters, we also accept valid UTF-8 characters.
@@ -176,7 +177,6 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 	p = parser->cur + parser->state.poff;
 	while (p < parser->end) {
 		unichar_t ch;
-		int nch = 1;
 
 		if (parser->auth_response)
 			ch = *p;
@@ -184,6 +184,8 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 			nch = uni_utf8_get_char_n(p, (size_t)(p - parser->end),
 						  &ch);
 		}
+		if (nch == 0)
+			break;
 		if (nch < 0) {
 			smtp_command_parser_error(parser,
 				SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
@@ -204,7 +206,7 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		return -1;
 	}
 	parser->state.poff = p - parser->cur;
-	if (p == parser->end)
+	if (p == parser->end || nch == 0)
 		return 0;
 
 	/* In the interest of improved interoperability, SMTP receivers SHOULD
