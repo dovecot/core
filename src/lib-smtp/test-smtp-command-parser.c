@@ -141,6 +141,15 @@ static const struct smtp_command_parse_invalid_test
 		.command = "RCPT TO:<recipient@example.com> NOTIFY=NEVER\r\n",
 		.limits = { .max_parameters_size = 38 },
 		.error_code = SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG
+	}, {
+		.command = "MAIL FROM:<f\xc3\xb6\xc3\xa4@\xc3\xb6\xc3>\r\n",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
+	}, {
+		.command = "MAIL FROM:f\xc3\xb6\xc3\xa4@\xc3\xb6\xc3\r\n",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
+	}, {
+		.command = "MAIL FROM:f\xc3\xb6\xc3\xa4@\xc3\xb6\xc3",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
 	}
 };
 
