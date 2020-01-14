@@ -43,49 +43,21 @@ mailbox_autoexpunge_lock(struct mail_user *user, struct file_lock **lock)
 }
 
 static int
-mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
-		    unsigned int max_mails, unsigned int *expunged_count)
+mailbox_autoexpunge_batch(struct mailbox *box,
+			  const unsigned int interval_time,
+			  const unsigned int max_mails,
+			  const time_t expire_time,
+			  unsigned int *expunged_count)
 {
 	struct mailbox_transaction_context *t;
 	struct mail *mail;
-	struct mailbox_metadata metadata;
 	const struct mail_index_header *hdr;
-	struct mailbox_status status;
 	uint32_t seq;
-	time_t timestamp, expire_time, last_rename_stamp = 0;
+	time_t timestamp, last_rename_stamp = 0;
 	const void *data;
 	size_t size;
 	unsigned int count = 0;
 	int ret = 0;
-
-	if ((unsigned int)ioloop_time < interval_time)
-		expire_time = 0;
-	else
-		expire_time = ioloop_time - interval_time;
-
-	/* first try to check quickly from mailbox list index if we should
-	   bother opening this mailbox. */
-	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
-		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND) {
-			/* autocreated mailbox doesn't exist yet */
-			return 0;
-		}
-		return -1;
-	}
-	if (interval_time == 0 && status.messages <= max_mails)
-		return 0;
-
-	if (max_mails == 0 || status.messages <= max_mails) {
-		if (mailbox_get_metadata(box, MAILBOX_METADATA_FIRST_SAVE_DATE,
-					 &metadata) < 0)
-			return -1;
-		if (metadata.first_save_date == (time_t)-1 ||
-		    metadata.first_save_date > expire_time)
-			return 0;
-	}
-
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
-		return -1;
 
 	mail_index_get_header_ext(box->view, box->box_last_rename_stamp_ext_id,
 				  &data, &size);
@@ -130,6 +102,47 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 		*expunged_count += count;
 	}
 	return ret;
+}
+
+static int
+mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
+		    unsigned int max_mails, unsigned int *expunged_count)
+{
+	struct mailbox_metadata metadata;
+	struct mailbox_status status;
+	time_t expire_time;
+
+	if ((unsigned int)ioloop_time < interval_time)
+		expire_time = 0;
+	else
+		expire_time = ioloop_time - interval_time;
+
+	/* first try to check quickly from mailbox list index if we should
+	   bother opening this mailbox. */
+	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
+		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND) {
+			/* autocreated mailbox doesn't exist yet */
+			return 0;
+		}
+		return -1;
+	}
+	if (interval_time == 0 && status.messages <= max_mails)
+		return 0;
+
+	if (max_mails == 0 || status.messages <= max_mails) {
+		if (mailbox_get_metadata(box, MAILBOX_METADATA_FIRST_SAVE_DATE,
+					 &metadata) < 0)
+			return -1;
+		if (metadata.first_save_date == (time_t)-1 ||
+		    metadata.first_save_date > expire_time)
+			return 0;
+	}
+
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
+		return -1;
+
+	return mailbox_autoexpunge_batch(box, interval_time, max_mails,
+					 expire_time, expunged_count);
 }
 
 static void
