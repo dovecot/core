@@ -243,7 +243,8 @@ imap_metadata_transaction_begin_server(struct mail_user *user)
 	struct imap_metadata_transaction *imtrans;
 
 	ns = mail_namespace_find_inbox(user->namespaces);
-	box = mailbox_alloc(ns->list, "INBOX", 0);
+	/* Server metadata shouldn't depend on INBOX's ACLs, so ignore them. */
+	box = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_IGNORE_ACLS);
 	mailbox_set_reason(box, "Server METADATA");
 	imtrans = imap_metadata_transaction_begin(box);
 	imtrans->server = TRUE;

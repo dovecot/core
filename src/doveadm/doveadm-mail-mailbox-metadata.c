@@ -35,9 +35,11 @@ cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
 			return -1;
 		}
 
-		/* server attribute */
+		/* Server attribute. It shouldn't depend on INBOX's ACLs,
+		   so ignore them. */
 		*ns_r = mail_namespace_find_inbox(user->namespaces);
-		*box_r = mailbox_alloc((*ns_r)->list, "INBOX", 0);
+		*box_r = mailbox_alloc((*ns_r)->list, "INBOX",
+				       MAILBOX_FLAG_IGNORE_ACLS);
 
 		mctx->key = t_strconcat(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
 					mctx->key, NULL);
