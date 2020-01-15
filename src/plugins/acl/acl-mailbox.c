@@ -487,6 +487,28 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 	return 0;
 }
 
+bool acl_mailbox_have_extra_attribute_rights(struct mailbox *box)
+{
+	/* RFC 5464:
+
+	   When the ACL extension [RFC4314] is present, users can only set and
+	   retrieve private or shared mailbox annotations on a mailbox on which
+	   they have the "l" right and any one of the "r", "s", "w", "i", or "p"
+	   rights.
+	*/
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_READ) > 0)
+		return TRUE;
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) > 0)
+		return TRUE;
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0)
+		return TRUE;
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) > 0)
+		return TRUE;
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_POST) > 0)
+		return TRUE;
+	return FALSE;
+}
+
 static int acl_mailbox_open_check_acl(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);

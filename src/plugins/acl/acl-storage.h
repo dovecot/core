@@ -28,6 +28,10 @@ struct acl_object *acl_mailbox_get_aclobj(struct mailbox *box);
    sets storage error. */
 int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx);
 
+/* Returns TRUE if mailbox has the necessary extra ACL for accessing
+   attributes. The caller must have checked the LOOKUP right already. */
+bool acl_mailbox_have_extra_attribute_rights(struct mailbox *box);
+
 int acl_mailbox_update_acl(struct mailbox_transaction_context *t,
 			   const struct acl_rights_update *update);
 
