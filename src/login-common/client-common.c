@@ -106,7 +106,7 @@ static void client_idle_disconnect_timeout(struct client *client)
 			"Disconnected for inactivity during authentication.";
 		destroy_reason = "Inactivity during authentication";
 	} else if (client->login_proxy != NULL) {
-		secs = ioloop_time - client->created;
+		secs = ioloop_time - client->created.tv_sec;
 		user_reason = "Timeout while finishing login.";
 		destroy_reason = t_strdup_printf(
 			"Logging in timed out "
@@ -183,7 +183,7 @@ client_alloc(int fd, pool_t pool,
 	if (client->v.auth_parse_response == NULL)
 		client->v.auth_parse_response = client_auth_parse_response;
 
-	client->created = ioloop_time;
+	client->created = ioloop_timeval;
 	client->refcount = 1;
 
 	client->pool = pool;
@@ -995,7 +995,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (!client->notified_auth_ready)
 		return t_strdup_printf(
 			"(disconnected before auth was ready, waited %u secs)",
-			(unsigned int)(ioloop_time - client->created));
+			(unsigned int)(ioloop_time - client->created.tv_sec));
 
 	if (client->auth_attempts == 0) {
 		if (!client->banner_sent) {
@@ -1003,7 +1003,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			return "";
 		}
 		return t_strdup_printf("(no auth attempts in %u secs)",
-			(unsigned int)(ioloop_time - client->created));
+			(unsigned int)(ioloop_time - client->created.tv_sec));
 	}
 
 	/* some auth attempts without SSL/TLS */

@@ -151,7 +151,7 @@ struct client {
 	struct client_vfuncs v;
 	struct client_vfuncs *vlast;
 
-	time_t created;
+	struct timeval created;
 	int refcount;
 	struct event *event;
 

@@ -345,7 +345,7 @@ static void proxy_input(struct client *client)
 		return;
 	case -1:
 		line = i_stream_next_line(input);
-		duration = ioloop_time - client->created;
+		duration = ioloop_time - client->created.tv_sec;
 		const char *reason = t_strdup_printf(
 			"Disconnected by server: %s "
 			"(state=%s, duration=%us)%s",
