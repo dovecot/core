@@ -58,6 +58,7 @@ fts_filter_contractions_filter(struct fts_filter *filter ATTR_UNUSED,
 		if (token[pos] == '\0')
 			break;
 		char_size = uni_utf8_get_char(token + pos, &apostrophe);
+		i_assert(char_size > 0);
 		if (IS_APOSTROPHE(apostrophe)) {
 			pos += char_size;
 			*_token = token + pos;
