@@ -467,6 +467,9 @@ struct mailbox {
 	/* Using LAYOUT=index and mailbox is being opened with a corrupted
 	   mailbox name. Try to revert to the previously known good name. */
 	bool corrupted_mailbox_name:1;
+	/* mailbox_open() returned MAIL_ERROR_NOTFOUND because the mailbox
+	   doesn't have the LOOKUP ACL right. */
+	bool acl_no_lookup_right:1;
 };
 
 struct mail_vfuncs {

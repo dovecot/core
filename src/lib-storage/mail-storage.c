@@ -1094,6 +1094,10 @@ static int mailbox_autocreate(struct mailbox *box)
 
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
+		if (error == MAIL_ERROR_NOTFOUND && box->acl_no_lookup_right) {
+			/* ACL prevents creating this mailbox */
+			return -1;
+		}
 		if (error != MAIL_ERROR_EXISTS) {
 			mailbox_set_critical(box,
 				"Failed to autocreate mailbox: %s",
@@ -1120,7 +1124,7 @@ static int mailbox_autocreate_and_reopen(struct mailbox *box)
 	mailbox_close(box);
 
 	ret = box->v.open(box);
-	if (ret < 0 && box->inbox_user &&
+	if (ret < 0 && box->inbox_user && !box->acl_no_lookup_right &&
 	    !box->storage->user->inbox_open_error_logged) {
 		box->storage->user->inbox_open_error_logged = TRUE;
 		mailbox_set_critical(box,

@@ -174,6 +174,7 @@ static void acl_mailbox_fail_not_found(struct mailbox *box)
 		mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
 				       MAIL_ERRSTR_NO_PERMISSION);
 	} else if (ret == 0) {
+		box->acl_no_lookup_right = TRUE;
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 	}
