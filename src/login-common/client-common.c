@@ -448,9 +448,10 @@ bool client_destroy_oldest(bool kill, struct timeval *created_r)
 
 	/* destroy the last client that hasn't successfully authenticated yet.
 	   this is usually the last client, but don't kill it if it's just
-	   waiting for master to finish its job. */
+	   waiting for master to finish its job. Also prefer to kill clients
+	   that can immediately be killed (i.e. refcount=1) */
 	for (client = last_client; client != NULL; client = client->prev) {
-		if (client->master_tag == 0)
+		if (client->master_tag == 0 && client->refcount == 1)
 			break;
 	}
 	if (client == NULL)
@@ -462,8 +463,11 @@ bool client_destroy_oldest(bool kill, struct timeval *created_r)
 
 	client_notify_disconnect(client, CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
 				 "Connection queue full");
+	client_ref(client);
 	client_destroy(client, "Connection queue full");
-	return TRUE;
+	/* return TRUE only if the client was actually freed */
+	i_assert(client->create_finished);
+	return !client_unref(&client);
 }
 
 void clients_destroy_all_reason(const char *reason)
