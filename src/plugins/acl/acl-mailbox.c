@@ -534,6 +534,10 @@ static int acl_mailbox_open_check_acl(struct mailbox *box)
 			ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	} else if (box->deleting) {
 		open_right = ACL_STORAGE_RIGHT_DELETE;
+	} else if ((box->flags & MAILBOX_FLAG_ATTRIBUTE_SESSION) != 0) {
+		/* GETMETADATA/SETMETADATA requires "l" right and another one
+		   which is checked afterwards. */
+		open_right = ACL_STORAGE_RIGHT_LOOKUP;
 	} else {
 		open_right = ACL_STORAGE_RIGHT_READ;
 	}
@@ -553,6 +557,10 @@ static int acl_mailbox_open_check_acl(struct mailbox *box)
 			return -1;
 		if (ret == 0)
 			abox->no_read_right = TRUE;
+	}
+	if ((box->flags & MAILBOX_FLAG_ATTRIBUTE_SESSION) != 0) {
+		if (!acl_mailbox_have_extra_attribute_rights(box))
+			return -1;
 	}
 	return 0;
 }
