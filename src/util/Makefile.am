@@ -74,4 +74,8 @@ maildirlock_SOURCES = \
 	maildirlock.c
 
 pkglibexec_SCRIPTS = health-check.sh
-EXTRA_DIST = $(pkglibexec_SCRIPTS)
+
+bin_SCRIPTS = dovecot-sysreport
+
+EXTRA_DIST = $(pkglibexec_SCRIPTS) \
+	$(bin_SCRIPTS)

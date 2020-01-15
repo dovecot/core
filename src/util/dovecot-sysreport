@@ -1,0 +1,195 @@
+#!/bin/bash
+
+set -eu
+
+dest="dovecot-sysreport-$(hostname)-$(date +'%s').tar.gz"
+conf_flag=""
+binary=""
+core=""
+core_files=""
+keep_temp=0
+
+PARAMS=""
+SRTEMP="`mktemp -d`"
+
+if test "x$SRTEMP" = x; then
+  echo "Could not create temp directory"
+  exit 1
+fi
+
+while (( "$#" )); do
+  case "$1" in
+    -d|--destination)
+
+      if [ "$#" -lt "2" ] ; then
+        echo "Usage: $0 $1 <destination.tar.gz>"
+        exit 1
+      fi
+      dest=$2
+      shift 2
+      ;;
+
+    -c|--config)
+
+      if [ "$#" -lt "2" ] ; then
+        echo "Usage: $0 $1 <config_file>"
+        exit 1
+      fi
+      conf_flag="-c $2"
+      shift 2
+      ;;
+
+    -o|--core)
+
+      if [[ "$#" -lt 3 ]] ; then
+        echo "Usage: $0 $1 <binary> <core>"
+        exit 1
+      fi
+
+      binary=$2
+      core=$3
+
+      if ! [ -r "$binary" ]; then
+        echo "$binary not readable"
+        exit 1
+      fi
+      if ! [ -s "$core" ]; then
+        echo "$core not found or it is empty"
+        exit 1
+      fi
+
+      gdb=`which gdb`
+      if [ "$gdb" = "" ]; then
+        echo "gdb not found"
+        exit 1
+      fi
+
+      echo "gathering core file dependencies..."
+      core_files=$((echo "info shared"; sleep 1) | $gdb $binary $core | grep '^0x.*/' | sed 's,^[^/]*,,')
+      cp $core $SRTEMP
+      shift 3
+      ;;
+
+    -k|--keeptemp)
+
+      keep_temp=1
+      shift
+      ;;
+
+    -h|--help)
+      
+      echo -e "dovecot-sysreport \t[-h|--help] [-c|--core binary core] [-d|--destination dest] 
+      \t\t\t[-k|--keeptemp] -- utility to gather information from the current 
+      \t\t\tsystem to be reported for dovecot bug fixes."
+      echo ""
+      echo -e "where:"
+      echo ""
+      echo -e "\t-h, --help\t\tShow the contents of this help."
+      echo -e "\t-d, --destination\tThe file location which the report archive should be put to.
+      \t\t\t\tThe default value is dovecot-sysreport-<hostname>-<current_timestamp>.tar.gz"
+      echo -e "\t-c, --config\t\tSpecify the root configuration file of dovecot."
+      echo -e "\t-o, --core\t\tInclude an specific core file along with its dependencies."
+      echo -e "\t-k, --keeptemp\t\tDo not remove temp files at the end."
+      exit 0
+      ;;
+
+    --)
+
+      shift
+      break
+      ;;
+
+    -*|--*=)
+
+      echo "Error: Unsupported flag $1" >&2
+      exit 1
+      ;;
+
+    *)
+
+      PARAMS="$PARAMS $1"
+      shift
+      ;;
+
+  esac
+done
+
+eval set -- "$PARAMS"
+
+mkdir $SRTEMP/conf
+
+doveconf $conf_flag -n > $SRTEMP/conf/dovecot.conf
+
+unwrap_and_hide_pass () {
+  files=`grep -zPo 'dict\s*{[^}]*}' $1 | grep -zPo '.*=.*:\K(.*)' | tr '\0' '\n'`
+  files="$files `grep -zPo 'args\s*=\s*\K(.*)' $1 | tr '\0' '\n'`"
+  for cf in $files; do
+    if [ -r "$cf" ]; then
+      if [[ ! -z `grep -vhIE '^([^:]*:){6}[^:]*$' $cf` ]]; then
+        unwrap_and_hide_pass $cf
+        mkdir -p $SRTEMP/conf"$(dirname "$cf")"
+        if [[ -x "$(command -v python)" ]]; then
+          python <<HEREDOC
+import re
+conf =  open('$cf', 'r').read()
+hidden = re.sub('(?<!no)((?:password|key|nonce|dnpass)\s*=\s*).*?(?=$|\s)', '\1#hidden', conf)
+f = open('$SRTEMP/conf$cf', "w")
+f.write(hidden)
+f.close()
+HEREDOC
+        elif ! [ -x "$(command -v perl)" ]; then
+          perl -pe 's/(?<!no)((?:password|key|nonce|dnpass)\s*=\s*).*?(?=$|\s)/\1#hidden/g' \
+            $cf > $SRTEMP/conf$cf
+        else
+          echo "perl or python is required to hide your passwords in dovecot's"
+          echo "configuration files. Either install at least one of them or"
+          echo "continue at your own peril. Do you want to continue (N/y)? "
+          read permit
+          if [ "$permit" != "Y" ] && [ "$permit" != "y" ]; then
+            exit 1
+          fi
+          cat $cf > $SRTEMP/conf$cf
+        fi
+      fi
+    fi
+  done
+}
+
+echo "Gathering configurations ..."
+unwrap_and_hide_pass $SRTEMP/conf/dovecot.conf
+
+echo "Gathering system informations ..."
+doveadm $conf_flag log errors > $SRTEMP/log_errors
+ps auxwww | grep '[d]ovecot' > $SRTEMP/ps_output
+doveadm $conf_flag service status > $SRTEMP/service_status
+doveadm $conf_flag process status > $SRTEMP/process_status
+uptime > $SRTEMP/uptime_output
+doveadm $conf_flag stats dump > $SRTEMP/stats_dump
+sleep 1
+echo -e "\n\n###################### AFTER ONE SECOND ######################\n\n" | \
+  tee -a $SRTEMP/ps_output $SRTEMP/service_status $SRTEMP/process_status \
+  $SRTEMP/uptime_output $SRTEMP/stats_dump > /dev/null
+ps auxwww | grep '[d]ovecot' >> $SRTEMP/ps_output
+doveadm $conf_flag service status >> $SRTEMP/service_status
+doveadm $conf_flag process status >> $SRTEMP/process_status
+uptime >> $SRTEMP/uptime_output
+doveadm $conf_flag stats dump >> $SRTEMP/stats_dump
+
+cf=`pwd`
+cd $SRTEMP
+echo "Creating archive ..."
+tar -czf `if [[ "$dest" = /* ]]; then echo $dest; else echo $cf/$dest; fi` --dereference \
+  $binary $core_files *
+
+function cleanup {
+  if [ $keep_temp = 0 ]; then
+    echo "Removing temp files at $SRTEMP ..."
+    rm -rf $SRTEMP
+  else
+    echo "Temp files remains untouched at $SRTEMP ..."
+  fi
+}
+
+trap cleanup EXIT
+
+echo "All done! Please report file $dest"
