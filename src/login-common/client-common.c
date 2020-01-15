@@ -437,13 +437,13 @@ void client_common_default_free(struct client *client ATTR_UNUSED)
 {
 }
 
-void client_destroy_oldest(void)
+bool client_destroy_oldest(bool kill, struct timeval *created_r)
 {
 	struct client *client;
 
 	if (last_client == NULL) {
 		/* we have no clients */
-		return;
+		return FALSE;
 	}
 
 	/* destroy the last client that hasn't successfully authenticated yet.
@@ -456,9 +456,14 @@ void client_destroy_oldest(void)
 	if (client == NULL)
 		client = last_client;
 
+	*created_r = client->created;
+	if (!kill)
+		return TRUE;
+
 	client_notify_disconnect(client, CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
 				 "Connection queue full");
 	client_destroy(client, "Connection queue full");
+	return TRUE;
 }
 
 void clients_destroy_all_reason(const char *reason)

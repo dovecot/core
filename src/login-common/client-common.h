@@ -339,7 +339,7 @@ void client_proxy_log_failure(struct client *client, const char *line);
 const char *client_proxy_get_state(struct client *client);
 
 void clients_notify_auth_connected(void);
-void client_destroy_oldest(void);
+bool client_destroy_oldest(bool kill, struct timeval *created_r);
 void clients_destroy_all(void);
 void clients_destroy_all_reason(const char *reason);
 

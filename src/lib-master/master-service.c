@@ -828,7 +828,7 @@ const char *master_service_get_socket_name(struct master_service *service,
 }
 
 void master_service_set_avail_overflow_callback(struct master_service *service,
-						void (*callback)(void))
+	master_service_avail_overflow_callback_t *callback)
 {
 	service->avail_overflow_callback = callback;
 }
@@ -1174,13 +1174,14 @@ static void master_service_listen(struct master_service_listener *l)
 {
 	struct master_service *service = l->service;
 	struct master_service_connection conn;
+	struct timeval created;
 
 	if (service->master_status.available_count == 0) {
 		/* we are full. stop listening for now, unless overflow
 		   callback destroys one of the existing connections */
 		if (service->call_avail_overflow &&
 		    service->avail_overflow_callback != NULL)
-			service->avail_overflow_callback();
+			service->avail_overflow_callback(TRUE, &created);
 
 		if (service->master_status.available_count == 0) {
 			master_service_io_listeners_remove(service);
