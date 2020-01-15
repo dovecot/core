@@ -970,12 +970,20 @@ void master_service_client_connection_handled(struct master_service *service,
 	if (!master_service_want_listener(service)) {
 		i_assert(service->listeners != NULL);
 		master_service_io_listeners_remove(service);
-		if (service->service_count_left == 1) {
+		if (service->service_count_left == 1 &&
+		   service->avail_overflow_callback == NULL) {
 			/* we're not going to accept any more connections after
 			   this. go ahead and close the connection early. don't
 			   do this before calling callback, because it may want
 			   to access the listen_fd (e.g. to check socket
-			   permissions). */
+			   permissions).
+
+			   Don't do this if overflow callback is set, because
+			   otherwise it's never called with service_count=1.
+			   Actually this isn't important anymore to do with
+			   any service, since nowadays master can request the
+			   listeners to be closed via SIGQUIT. Still, closing
+			   the fd when possible saves a little bit of memory. */
 			master_service_io_listeners_close(service);
 		}
 	}
