@@ -496,16 +496,22 @@ bool acl_mailbox_have_extra_attribute_rights(struct mailbox *box)
 	   they have the "l" right and any one of the "r", "s", "w", "i", or "p"
 	   rights.
 	*/
-	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_READ) > 0)
-		return TRUE;
-	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) > 0)
-		return TRUE;
-	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0)
-		return TRUE;
-	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) > 0)
-		return TRUE;
-	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_POST) > 0)
-		return TRUE;
+	const enum acl_storage_rights check_rights[] = {
+		ACL_STORAGE_RIGHT_READ,
+		ACL_STORAGE_RIGHT_WRITE_SEEN,
+		ACL_STORAGE_RIGHT_WRITE,
+		ACL_STORAGE_RIGHT_INSERT,
+		ACL_STORAGE_RIGHT_POST,
+	};
+	for (unsigned int i = 0; i < N_ELEMENTS(check_rights); i++) {
+		int ret = acl_mailbox_right_lookup(box, check_rights[i]);
+		if (ret > 0)
+			return TRUE;
+		if (ret < 0) {
+			/* unexpected error - stop checking further */
+			return FALSE;
+		}
+	}
 	return FALSE;
 }
 
