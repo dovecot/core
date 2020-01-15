@@ -595,14 +595,16 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 		if (ERR_peek_error() != 0) {
 			errstr = openssl_iostream_error();
 			errno = EINVAL;
-		} else if (ret != 0) {
-			i_assert(errno != 0);
-			errstr = strerror(errno);
-		} else {
+		} else if (ret == 0) {
 			/* EOF. */
 			errno = EPIPE;
 			errstr = "Disconnected";
 			break;
+		} else if (errno != 0) {
+			errstr = strerror(errno);
+		} else {
+			/* Seen this at least with v1.1.0l SSL_accept() */
+			errstr = "OpenSSL BUG: errno=0";
 		}
 		errstr = t_strdup_printf("%s syscall failed: %s",
 					 func_name, errstr);
