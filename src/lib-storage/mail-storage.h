@@ -76,6 +76,10 @@ enum mailbox_flags {
 	/* Interpret name argument for mailbox_alloc_for_user() as a SPECIAL-USE
 	   flag. */
 	MAILBOX_FLAG_SPECIAL_USE	= 0x8000,
+	/* Mailbox is opened for reading/writing attributes. This allows ACL
+	   plugin to determine correctly whether the mailbox should be allowed
+	   to be opened. */
+	MAILBOX_FLAG_ATTRIBUTE_SESSION	= 0x10000,
 };
 
 enum mailbox_feature {

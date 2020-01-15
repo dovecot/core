@@ -39,14 +39,16 @@ cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
 		   so ignore them. */
 		*ns_r = mail_namespace_find_inbox(user->namespaces);
 		*box_r = mailbox_alloc((*ns_r)->list, "INBOX",
-				       MAILBOX_FLAG_IGNORE_ACLS);
+				       MAILBOX_FLAG_IGNORE_ACLS |
+				       MAILBOX_FLAG_ATTRIBUTE_SESSION);
 
 		mctx->key = t_strconcat(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
 					mctx->key, NULL);
 	} else {
 		/* mailbox attributes */
 		*ns_r = mail_namespace_find(user->namespaces, mctx->mailbox);
-		*box_r = mailbox_alloc((*ns_r)->list, mctx->mailbox, 0);
+		*box_r = mailbox_alloc((*ns_r)->list, mctx->mailbox,
+				       MAILBOX_FLAG_ATTRIBUTE_SESSION);
 	}
 	mailbox_set_reason(*box_r, mctx->ctx.cmd->name);
 

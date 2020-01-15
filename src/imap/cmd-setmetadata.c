@@ -312,7 +312,8 @@ cmd_setmetadata_mailbox(struct imap_setmetadata_context *ctx,
 	    mailbox_equals(client->mailbox, ns, mailbox))
 		ctx->box = client->mailbox;
 	else {
-		ctx->box = mailbox_alloc(ns->list, mailbox, 0);
+		ctx->box = mailbox_alloc(ns->list, mailbox,
+					 MAILBOX_FLAG_ATTRIBUTE_SESSION);
 		mailbox_set_reason(ctx->box, "SETMETADATA");
 		if (mailbox_open(ctx->box) < 0) {
 			client_send_box_error(cmd, ctx->box);
