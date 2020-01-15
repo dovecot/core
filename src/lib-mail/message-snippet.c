@@ -40,6 +40,8 @@ static void snippet_add_content(struct snippet_context *ctx,
 				size_t *count_r)
 {
 	i_assert(target != NULL);
+	if (size == 0)
+		return;
 	if (size >= 3 &&
 	     ((data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) ||
 	      (data[0] == 0xBF && data[1] == 0xBB && data[2] == 0xEF))) {
