@@ -58,7 +58,7 @@ struct master_service {
 	struct timeout *to_die;
 
 	master_service_avail_overflow_callback_t *avail_overflow_callback;
-	struct timeout *to_overflow_state;
+	struct timeout *to_overflow_state, *to_overflow_call;
 
 	struct master_login *login;
 

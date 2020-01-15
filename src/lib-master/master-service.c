@@ -12,6 +12,7 @@
 #include "env-util.h"
 #include "home-expand.h"
 #include "process-title.h"
+#include "time-util.h"
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "syslog-util.h"
@@ -52,6 +53,7 @@ static struct event_category master_service_category = {
 static char *master_service_category_name;
 
 static void master_service_io_listeners_close(struct master_service *service);
+static int master_service_get_login_state(enum master_login_state *state_r);
 static void master_service_refresh_login_state(struct master_service *service);
 static void
 master_status_send(struct master_service *service, bool important_update);
@@ -1114,6 +1116,7 @@ static void master_service_deinit_real(struct master_service **_service)
 	if (service->stats_client != NULL)
 		stats_client_deinit(&service->stats_client);
 	master_service_close_config_fd(service);
+	timeout_remove(&service->to_overflow_call);
 	timeout_remove(&service->to_die);
 	timeout_remove(&service->to_overflow_state);
 	timeout_remove(&service->to_status);
@@ -1170,23 +1173,115 @@ void master_service_deinit_forked(struct master_service **_service)
 	master_service_free(service);
 }
 
+static void master_service_overflow(struct master_service *service)
+{
+	enum master_login_state state;
+	struct timeval created;
+
+	timeout_remove(&service->to_overflow_call);
+
+	if (master_service_get_login_state(&state) < 0 ||
+	    state != MASTER_LOGIN_STATE_FULL) {
+		/* service is no longer full (or we couldn't check if it is) */
+		return;
+	}
+
+	if (!service->avail_overflow_callback(TRUE, &created)) {
+		/* can't kill the client anymore after all */
+		return;
+	}
+	if (service->master_status.available_count == 0) {
+		/* Client was destroyed, but service_count is now 0.
+		   The servive was already stopped, so the process will
+		   shutdown and a new process can handle the waiting client
+		   connection. */
+		i_assert(service->service_count_left == 0);
+		i_assert(!io_loop_is_running(service->ioloop));
+		return;
+	}
+	master_service_io_listeners_add(service);
+
+	/* The connection is soon accepted by the listener IO callback.
+	   Note that this often results in killing two connections, because
+	   after the first process has accepted the new client the service is
+	   full again. The second process sees this and kills another client.
+	   After this the other processes see that the service is no longer
+	   full and kill no more clients. */
+}
+
+static unsigned int
+master_service_overflow_timeout_msecs(const struct timeval *created)
+{
+	/* Returns a value between 0..max_wait. The oldest clients return the
+	   lowest wait so they get killed before newer clients. For simplicity
+	   this code treats all clients older than 10 seconds the same. */
+	const unsigned int max_wait = 100;
+	const int max_since = 10*1000;
+	int created_since = timeval_diff_msecs(&ioloop_timeval, created);
+	unsigned int msecs;
+
+	created_since = I_MAX(created_since, 0);
+	created_since = I_MIN(created_since, max_since);
+
+	msecs = created_since * max_wait / max_since;
+	i_assert(msecs <= max_wait);
+	msecs = max_wait - msecs;
+
+	/* Add some extra randomness, so even if all clients have exactly the
+	   same creation time they won't all be killed. */
+	return msecs + i_rand_limit(10);
+}
+
+static bool master_service_full(struct master_service *service)
+{
+	struct timeval created;
+
+	/* This process can't handle any more connections. */
+	if (!service->call_avail_overflow ||
+	    service->avail_overflow_callback == NULL)
+		return TRUE;
+
+	/* Master has notified us that all processes are full, and
+	   we have the ability to kill old connections. */
+	if (service->total_available_count > 1) {
+		/* This process can still create multiple concurrent
+		   clients if we just kill some of the existing ones.
+		   Do it immediately. */
+		return !service->avail_overflow_callback(TRUE, &created);
+	}
+
+	/* This process can't create more than a single client. Most likely
+	   running with service_count=1. Check the overflow again after a short
+	   delay before killing anything. This way only some of the connections
+	   get killed instead of all of them. The delay is based on the
+	   connection age with a bit of randomness, so the oldest connections
+	   should die first, but even if all the connections have time same
+	   timestamp they still don't all die at once. */
+	if (!service->avail_overflow_callback(FALSE, &created)) {
+		/* can't kill any clients */
+		return TRUE;
+	}
+	i_assert(service->to_overflow_call == NULL);
+	service->to_overflow_call =
+		timeout_add(master_service_overflow_timeout_msecs(&created),
+			    master_service_overflow, service);
+	return TRUE;
+}
+
 static void master_service_listen(struct master_service_listener *l)
 {
 	struct master_service *service = l->service;
 	struct master_service_connection conn;
-	struct timeval created;
 
 	if (service->master_status.available_count == 0) {
-		/* we are full. stop listening for now, unless overflow
-		   callback destroys one of the existing connections */
-		if (service->call_avail_overflow &&
-		    service->avail_overflow_callback != NULL)
-			service->avail_overflow_callback(TRUE, &created);
-
-		if (service->master_status.available_count == 0) {
+		if (master_service_full(service)) {
+			/* Stop the listener until a client has disconnected or
+			   overflow callback has killed one. */
 			master_service_io_listeners_remove(service);
 			return;
 		}
+		/* we can accept another client */
+		i_assert(service->master_status.available_count > 0);
 	}
 
 	i_zero(&conn);
@@ -1242,6 +1337,10 @@ static void master_service_listen(struct master_service_listener *l)
 void master_service_io_listeners_add(struct master_service *service)
 {
 	unsigned int i;
+
+	/* If there's a pending overflow call, remove it now since new
+	   clients just became available. */
+	timeout_remove(&service->to_overflow_call);
 
 	if (service->stopping)
 		return;
