@@ -1068,15 +1068,26 @@ static void master_service_set_login_state(struct master_service *service,
 	i_error("Invalid master login state: %d", state);
 }
 
-static void master_service_refresh_login_state(struct master_service *service)
+static int master_service_get_login_state(enum master_login_state *state_r)
 {
-	int ret;
+	off_t ret;
 
 	ret = lseek(MASTER_LOGIN_NOTIFY_FD, 0, SEEK_CUR);
-	if (ret < 0)
+	if (ret < 0) {
 		i_error("lseek(login notify fd) failed: %m");
-	else
-		master_service_set_login_state(service, ret);
+		return -1;
+	}
+	*state_r = ret == MASTER_LOGIN_STATE_FULL ?
+		MASTER_LOGIN_STATE_FULL : MASTER_LOGIN_STATE_NONFULL;
+	return 0;
+}
+
+static void master_service_refresh_login_state(struct master_service *service)
+{
+	enum master_login_state state;
+
+	if (master_service_get_login_state(&state) == 0)
+		master_service_set_login_state(service, state);
 }
 
 void master_service_close_config_fd(struct master_service *service)
