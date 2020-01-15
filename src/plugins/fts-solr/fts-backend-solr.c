@@ -115,9 +115,10 @@ xml_encode_data_max(string_t *dest, const unsigned char *data, size_t len,
 			} else if (data[i] >= 0x80) {
 				/* make sure the character is valid for XML
 				   so we don't get XML parser errors */
-				unsigned int char_len =
+				int char_len =
 					uni_utf8_get_char_n(data + i, len - i, &chr);
-				if (char_len > 0 && is_valid_xml_char(chr))
+				i_assert(char_len > 0); /* input is valid UTF8 */
+				if (is_valid_xml_char(chr))
 					str_append_data(dest, data + i, char_len);
 				else {
 					str_append_data(dest, utf8_replacement_char,
