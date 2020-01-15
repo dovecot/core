@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "istream.h"
+#include "unichar.h"
 #include "message-snippet.h"
 #include "test-common.h"
 
@@ -80,6 +81,16 @@ static const struct {
 	  "top\nposter\n>quote1\n>quote2\n",
 	  100,
 	  "top poster" },
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	  "\n"
+	  "Invalid utf8 \x80\xff\n",
+	  100,
+	  "Invalid utf8 "UNICODE_REPLACEMENT_CHAR_UTF8 },
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	  "\n"
+	  "Incomplete utf8 \xC3",
+	  100,
+	  "Incomplete utf8" },
         { "Content-Transfer-Encoding: quoted-printable\n"
           "Content-Type: text/html;\n"
           "      charset=utf-8\n"
