@@ -12,7 +12,11 @@ struct service_process {
 
 	/* number of new connections process is currently accepting */
 	unsigned int available_count;
-	/* number of connections process has ever accepted */
+	/* Approximate number of connections process has ever accepted.
+	   This isn't exact, because its calculation is based on
+	   available_count updates, which aren't done on every single
+	   connection/disconnection. With a busy process it might be a lot
+	   smaller than the correct value. */
 	unsigned int total_count;
 
 	/* time when process started idling, or 0 if we're not idling */
