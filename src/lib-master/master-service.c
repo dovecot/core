@@ -1268,10 +1268,20 @@ static void master_service_io_listeners_close(struct master_service *service)
 
 static bool master_status_update_is_important(struct master_service *service)
 {
-	if (service->master_status.available_count == 0)
+	if (service->master_status.available_count == 0) {
+		/* client_limit reached for this process */
 		return TRUE;
-	if (!service->initial_status_sent)
+	}
+	if (service->last_sent_status_avail_count == 0) {
+		/* This process can now handle more clients. This is important
+		   to know for master if all the existing processes have
+		   avail_count=0 so it doesn't unnecessarily create more
+		   processes. */
 		return TRUE;
+	}
+	/* The previous check should have triggered also for the initial
+	   status notification. */
+	i_assert(service->initial_status_sent);
 	return FALSE;
 }
 
