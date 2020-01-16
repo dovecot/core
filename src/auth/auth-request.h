@@ -61,6 +61,10 @@ struct auth_request {
 	char *passdb_password; /* set after password lookup if successful */
         /* extra_fields are returned in authentication reply. Fields prefixed
            with "userdb_" are automatically placed to userdb_reply instead. */
+	/* the login/username and fingerprint given by the certificate */
+	char *cert_loginname;
+	char *cert_fingerprint;
+	char *cert_fingerprint_base64;
         struct auth_fields *extra_fields;
 	/* the whole userdb result reply */
 	struct auth_fields *userdb_reply;

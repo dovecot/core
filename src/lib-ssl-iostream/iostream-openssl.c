@@ -4,6 +4,7 @@
 #include "istream-private.h"
 #include "ostream-private.h"
 #include "iostream-openssl.h"
+#include "../login-common/login-settings.h"
 
 #include <openssl/rand.h>
 #include <openssl/err.h>
@@ -763,7 +764,7 @@ openssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io)
 }
 
 static const char *
-openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
+openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io, struct login_settings *set)
 {
 	X509 *x509;
 	char *name;
@@ -793,6 +794,10 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 	}
 	X509_free(x509);
 	
+	if (set->ssl_cert_info) {
+                i_info("**** openssl_iostream_get_peer_name(): peername=%s", name);
+        }
+
 	return *name == '\0' ? NULL : name;
 }
 
@@ -887,6 +892,18 @@ openssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io)
 	return SSL_get_version(ssl_io->ssl);
 }
 
+static const char *
+openssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct login_settings *set)
+{
+  return __ssl_iostream_get_fingerprint(ssl_io, set, 0);
+}
+
+static const char *
+openssl_iostream_get_fingerprint_base64(struct ssl_iostream *ssl_io, struct login_settings *set)
+{
+  return __ssl_iostream_get_fingerprint(ssl_io, set, 1);
+}
+
 
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.global_init = openssl_iostream_global_init,
@@ -918,6 +935,8 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.get_cipher = openssl_iostream_get_cipher,
 	.get_pfs = openssl_iostream_get_pfs,
 	.get_protocol_name = openssl_iostream_get_protocol_name,
+	.get_fingerprint = openssl_iostream_get_fingerprint,
+	.get_fingerprint_base64 = openssl_iostream_get_fingerprint_base64,
 };
 
 void ssl_iostream_openssl_init(void)
@@ -931,4 +950,141 @@ void ssl_iostream_openssl_init(void)
 void ssl_iostream_openssl_deinit(void)
 {
 	openssl_iostream_global_deinit();
+}
+
+
+
+
+static const char hexcodes[] = "0123456789ABCDEF";
+
+const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct login_settings *set, bool base64mode)
+{
+    X509 *x509;
+    char *peer_fingerprint = NULL;
+    const char *ssl_cert_md_algorithm = NULL;
+    const EVP_MD *md_alg;
+    unsigned char md_buf[EVP_MAX_MD_SIZE];
+    unsigned int md_len;
+    int j;
+
+    /* begin base64: needed for base64 handling */
+    char *fingerprint_ascii_ptr = NULL;
+    char arr[21];
+    int index = 0;
+    int num = 0;
+    /* end base64 */
+
+    x509 = NULL;
+    num = 0;
+
+    if (!ssl_iostream_has_valid_client_cert(ssl_io)) {
+        if (set->ssl_cert_debug) {
+	    i_debug("**** __ssl_iostream_get_fingerprint(): invalid client certificate, returning NULL");
+        }
+        return NULL;
+    }
+
+    x509 = SSL_get_peer_certificate(ssl_io->ssl);
+    if (x509 == NULL) {
+        if (set->ssl_cert_debug) {
+            i_debug("***** __ssl_iostream_get_fingerprint(): didn't get peer certificate, returning NULL");
+        }
+        return NULL; /* we should have had it.. */
+    }
+
+    ssl_cert_md_algorithm = t_strdup_printf("%s", set->ssl_cert_md_algorithm);
+    if ((md_alg = EVP_get_digestbyname(ssl_cert_md_algorithm)) == 0) {
+        i_panic("Certificate digest algorithm \"%s\" not found ...",
+                ssl_cert_md_algorithm);
+    }
+
+    /* Fails when serialization to ASN.1 runs out of memory */
+    if (X509_digest(x509, md_alg, md_buf, &md_len) == 0) {
+        i_fatal("Certificate error computing certificate %s digest (out of memory?)",
+                ssl_cert_md_algorithm);
+    }
+
+    /* Check for OpenSSL contract violation */
+    if (md_len > EVP_MAX_MD_SIZE || md_len >= INT_MAX / 3)
+        i_panic("unexpectedly large %s digest size: %u",
+                ssl_cert_md_algorithm, md_len);
+
+    peer_fingerprint = i_malloc(md_len * 3);
+
+    for (j = 0; j < (int) md_len; j++) {
+        if (!base64mode) {
+            peer_fingerprint[j * 3] = hexcodes[(md_buf[j] & 0xf0) >> 4U];
+            peer_fingerprint[(j * 3) + 1] = hexcodes[(md_buf[j] & 0x0f)];
+            if (j + 1 != (int) md_len) {
+                peer_fingerprint[(j * 3) + 2] = ':';
+            } else {
+                peer_fingerprint[(j * 3) + 2] = '\0';
+            }
+        } else {
+            peer_fingerprint[j * 2] = hexcodes[(md_buf[j] & 0xf0) >> 4U];
+            peer_fingerprint[(j * 2) + 1] = hexcodes[(md_buf[j] & 0x0f)];
+        }
+
+        if (set->ssl_cert_debug) {
+            if (!base64mode) {
+                i_debug("fingerprint: %s", peer_fingerprint);
+            } else {
+                i_debug("fingerprint_compressed: %s", peer_fingerprint);
+            }
+        }
+    }
+
+    if (set->ssl_cert_info) {
+        if (!base64mode) {
+            i_info("x509 fingerprint found: %s", peer_fingerprint);
+        } else {
+            i_info("x509 fingerprint_compressed found: %s", peer_fingerprint);
+        }
+    }
+
+    if (base64mode) {
+        fingerprint_ascii_ptr   = peer_fingerprint;
+        /* convert hex to int array */
+        while(sscanf(fingerprint_ascii_ptr,"%02x",&num) == 1){
+            fingerprint_ascii_ptr += 2;
+            arr[index] = num;
+            index++;
+            if (set->ssl_cert_debug) {
+                i_debug("fingerprint_binary: %s", arr);
+            }
+        }
+        if (set->ssl_cert_debug) {
+            i_debug("x509 fingerprint_binary: %s", arr);
+        }
+        i_free(peer_fingerprint);
+        return (const char *)__base64(arr, index);
+    }
+
+    /* non base64 case */
+    return (const char *)peer_fingerprint;
+}
+
+
+
+char *__base64(const char *input, int length)
+{
+    char *buff;
+
+    BIO *bmem, *b64;
+    BUF_MEM *bptr;
+
+    b64 = BIO_new(BIO_f_base64());
+    bmem = BIO_new(BIO_s_mem());
+    b64 = BIO_push(b64, bmem);
+    BIO_write(b64, input, length);
+    BIO_flush(b64);
+    BIO_get_mem_ptr(b64, &bptr);
+
+    buff = i_malloc(bptr->length);
+    memcpy(buff, bptr->data, bptr->length-1);
+    buff[bptr->length-1] = 0;
+
+    BIO_free_all(b64);
+
+    return buff;
 }

@@ -416,7 +416,7 @@ static bool get_cert_username(struct client *client, const char **username_r,
 	}
 
 	/* get peer name */
-	const char *username = ssl_iostream_get_peer_name(client->ssl_iostream);
+	const char *username = client->ssl_iostream == NULL ? NULL : ssl_iostream_get_peer_name(client->ssl_iostream, client->set);
 
 	/* if we wanted peer name, but it was not there, fail */
 	if (client->set->auth_ssl_username_from_cert &&
@@ -486,12 +486,19 @@ void sasl_server_auth_begin(struct client *client,
 	}
 
 	if (client->ssl_iostream != NULL) {
-		info.cert_username = ssl_iostream_get_peer_name(client->ssl_iostream);
+		info.cert_username = ssl_iostream_get_peer_name(client->ssl_iostream, client->set);
 		info.ssl_cipher = ssl_iostream_get_cipher(client->ssl_iostream,
 							 &info.ssl_cipher_bits);
 		info.ssl_pfs = ssl_iostream_get_pfs(client->ssl_iostream);
 		info.ssl_protocol =
 			ssl_iostream_get_protocol_name(client->ssl_iostream);
+
+                info.cert_loginname = client->ssl_iostream == NULL ? NULL :
+                        ssl_iostream_get_peer_name(client->ssl_iostream, client->set);
+                info.cert_fingerprint = client->ssl_iostream == NULL ? NULL :
+                        ssl_iostream_get_fingerprint(client->ssl_iostream, client->set);
+                info.cert_fingerprint_base64 = client->ssl_iostream == NULL ? NULL :
+		        ssl_iostream_get_fingerprint_base64(client->ssl_iostream, client->set);
 	}
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;

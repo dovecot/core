@@ -172,6 +172,8 @@ static void client_auth_parse_args(struct client *client, bool success,
 			reply_r->destuser = value;
 		else if (strcmp(key, "pass") == 0)
 			reply_r->password = value;
+		else if (strcmp(key, "fingerprint") == 0)
+			reply_r->fingerprint = value;
 		else if (strcmp(key, "proxy_timeout") == 0) {
 			if (str_to_uint(value, &reply_r->proxy_timeout_msecs) < 0) {
 				i_error("BUG: Auth service returned invalid "
