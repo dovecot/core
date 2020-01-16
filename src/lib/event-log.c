@@ -247,6 +247,10 @@ bool event_want_log_level(struct event *event, enum log_type level,
 	if (event->min_log_level <= level)
 		return TRUE;
 
+	if (event->debug_level_checked)
+		return event->sending_debug_log;
+	event->debug_level_checked = TRUE;
+
 	if (event->forced_debug)
 		event->sending_debug_log = TRUE;
 
@@ -355,6 +359,10 @@ void event_logv(struct event *event, const struct event_log_params *params,
 				 params->source_linenum, TRUE);
 	}
 
+	(void)event_want_log_level(event, params->log_type,
+				   event->source_filename,
+				   event->source_linenum);
+
 	event_ref(event);
 	event_logv_params(event, params, fmt, args);
 	event_set_source(event, orig_source_filename,
@@ -366,12 +374,14 @@ struct event *event_set_forced_debug(struct event *event, bool force)
 {
 	if (force)
 		event->forced_debug = TRUE;
+	event->debug_level_checked = FALSE;
 	return event;
 }
 
 struct event *event_unset_forced_debug(struct event *event)
 {
 	event->forced_debug = FALSE;
+	event->debug_level_checked = FALSE;
 	return event;
 }
 

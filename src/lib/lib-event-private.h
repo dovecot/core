@@ -31,6 +31,7 @@ struct event {
 	bool always_log_source:1;
 	bool sending_debug_log:1;
 	bool id_sent_to_stats:1;
+	bool debug_level_checked:1;
 
 /* Fields that are exported & imported: */
 	struct timeval tv_created_ioloop;
