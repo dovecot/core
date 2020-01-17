@@ -196,17 +196,22 @@ dnl Check for support for Retpoline
 dnl
 
 AC_DEFUN([AC_CC_RETPOLINE],[
+    AC_ARG_WITH(retpoline,
+       AS_HELP_STRING([--with-retpoline=<choice>], [Retpoline migitation choice (default: keep)]),
+            with_retpoline=$withval,
+            with_retpoline=keep)
+
     AC_REQUIRE([gl_UNKNOWN_WARNINGS_ARE_ERRORS])
     AS_IF([test "$enable_hardening" = yes], [
       case "$host" in
         *)
-          gl_COMPILER_OPTION_IF([-mfunction-return=thunk],
-            [CFLAGS="$CFLAGS -mfunction-return=thunk],
+          gl_COMPILER_OPTION_IF([-mfunction-return=$with_retpoline],
+            [CFLAGS="$CFLAGS -mfunction-return=$with_retpoline"],
             [],
             [AC_LANG_PROGRAM()]
           )
-          gl_COMPILER_OPTION_IF([-mindirect-branch=thunk], [
-            CFLAGS="$CFLAGS -mindirect-branch=thunk"
+          gl_COMPILER_OPTION_IF([-mindirect-branch=$with_retpoline], [
+            CFLAGS="$CFLAGS -mindirect-branch=$with_retpoline"
             ],
             [],
             [AC_LANG_PROGRAM()]
