@@ -34,7 +34,34 @@ static void test_random_median(void)
 	test_end();
 }
 
+static void test_random_limits(void)
+{
+	test_begin("random limits");
+	test_assert(i_rand_limit(1) == 0);
+	test_assert(i_rand_minmax(0, 0) == 0);
+	test_assert(i_rand_minmax(UINT32_MAX, UINT32_MAX) == UINT32_MAX);
+	test_end();
+}
+
 void test_random(void)
 {
 	test_random_median();
+	test_random_limits();
+}
+
+enum fatal_test_state fatal_random(unsigned int stage)
+{
+	switch (stage) {
+	case 0:
+		test_begin("random fatals");
+		test_expect_fatal_string("min_val <= max_val");
+		(void)i_rand_minmax(1, 0);
+		return FATAL_TEST_FAILURE;
+	case 1:
+		test_expect_fatal_string("upper_bound > 0");
+		(void)i_rand_limit(0);
+		return FATAL_TEST_FAILURE;
+	}
+	test_end();
+	return FATAL_TEST_FINISHED;
 }
