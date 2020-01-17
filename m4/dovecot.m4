@@ -200,8 +200,13 @@ AC_DEFUN([AC_CC_RETPOLINE],[
     AS_IF([test "$enable_hardening" = yes], [
       case "$host" in
         *)
-          gl_COMPILER_OPTION_IF([-mfunction-return=thunk -mindirect-branch=thunk], [
-            CFLAGS="$CFLAGS -mfunction-return=thunk -mindirect-branch=thunk"
+          gl_COMPILER_OPTION_IF([-mfunction-return=thunk],
+            [CFLAGS="$CFLAGS -mfunction-return=thunk],
+            [],
+            [AC_LANG_PROGRAM()]
+          )
+          gl_COMPILER_OPTION_IF([-mindirect-branch=thunk], [
+            CFLAGS="$CFLAGS -mindirect-branch=thunk"
             ],
             [],
             [AC_LANG_PROGRAM()]
