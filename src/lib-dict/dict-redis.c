@@ -476,6 +476,13 @@ static void redis_dict_deinit(struct dict *_dict)
 		connection_list_deinit(&redis_connections);
 }
 
+static void redis_dict_wait(struct dict *_dict)
+{
+	struct redis_dict *dict = (struct redis_dict *)_dict;
+
+	redis_wait(dict);
+}
+
 static void redis_dict_lookup_timeout(struct redis_dict *dict)
 {
 	const char *reason = t_strdup_printf(
@@ -812,6 +819,7 @@ struct dict dict_driver_redis = {
 	{
 		.init = redis_dict_init,
 		.deinit = redis_dict_deinit,
+		.wait = redis_dict_wait,
 		.lookup = redis_dict_lookup,
 		.transaction_init = redis_transaction_init,
 		.transaction_commit = redis_transaction_commit,
