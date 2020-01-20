@@ -564,6 +564,8 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 	   messages. They tell nothing useful. */
 	if (errno != EAGAIN)
 		e_debug(event, "%s", new_error);
+	else
+		event_send_abort(event);
 
 	/* free old error after strdup in case args point to the old error */
 	if (file != NULL) {
