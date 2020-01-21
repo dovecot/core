@@ -97,6 +97,7 @@ doc/man/doveadm.1
 doc/man/doveconf.1
 doc/man/dovecot-lda.1
 doc/man/dovecot.1
+doc/man/dovecot-sysreport.1
 
 doc/example-config/README
 doc/wiki/*.txt

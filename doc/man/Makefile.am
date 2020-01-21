@@ -54,7 +54,8 @@ nodist_man1_MANS = \
 	doveadm-who.1 \
 	doveconf.1 \
 	dovecot.1 \
-	dovecot-lda.1
+	dovecot-lda.1 \
+	dovecot-sysreport.1
 
 man_includefiles = \
 	$(srcdir)/global-options-formatter.inc \
@@ -106,6 +107,7 @@ EXTRA_DIST = \
 	doveconf.1.in \
 	dovecot.1.in \
 	dovecot-lda.1.in \
+	dovecot-sysreport.1.in \
 	sed.sh \
 	$(man_includefiles)
 

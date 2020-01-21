@@ -1,0 +1,40 @@
+.\" Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file
+.TH DOVECOT-SYSREPORT 1 "2020-01-21" "Dovecot v2.3" "Dovecot"
+.SH NAME
+dovecot-sysreport \- Dovecot\(aqs system report utility
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR dovecot-sysreport " [" \-h|\-\-help "] [" \-c|\-\-core
+.IR binary " " core "]
+.BR "[\-d|\-\-destination
+.IR dest "]
+.BR "[\-k|\-\-keeptemp]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B dovecot-sysreport
+is a utility that should be used to gather information from the current
+system to be reported for dovecot bug fixes. It will collect dovecot's
+ps output, service status, process status, uptime command's output,
+error log, stats dump and if given, a core file along with its binary
+dependencies.
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+.TP
+.B \-h|\-\-help
+Prints a help message.
+.TP
+.BI \-c|\-\-config\  root_config_file
+Sets the root file of the dovecot's configuration. If not set, it will be
+assumed to be in the default configuration path.
+.TP
+.BI \-o|\-\-core\  "binary\  core"
+Includes a core file along with its dependencies extracted from the
+specified binary file.
+.TP
+.BI \-d|\-\-destination\  dest
+Sets the file location which the report archive should be put to. The default 
+value is dovecot-sysreport-<hostname>-<current_timestamp>.tar.gz in the
+current path.
+.TP
+.B \-k|\-\-keeptemp
+If set, temp files would not be deleted at the end.
