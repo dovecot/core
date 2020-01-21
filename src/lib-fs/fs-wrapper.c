@@ -166,6 +166,6 @@ int fs_wrapper_iter_deinit(struct fs_iter *_iter)
 	int ret;
 
 	if ((ret = fs_iter_deinit(&iter->parent, &error)) < 0)
-		fs_set_error(_iter->event, "%s", error);
+		fs_set_error_errno(_iter->event, "%s", error);
 	return ret;
 }
