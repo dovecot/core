@@ -1293,6 +1293,17 @@ void fs_set_error(struct event *event, const char *fmt, ...)
 	va_end(args);
 }
 
+void fs_set_error_errno(struct event *event, const char *fmt, ...)
+{
+	va_list args;
+
+	i_assert(errno != 0);
+
+	va_start(args, fmt);
+	fs_set_verror(event, fmt, args);
+	va_end(args);
+}
+
 void fs_file_set_error_async(struct fs_file *file)
 {
 	errno = EAGAIN;
