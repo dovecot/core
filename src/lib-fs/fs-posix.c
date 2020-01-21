@@ -623,10 +623,9 @@ static int fs_posix_write(struct fs_file *_file, const void *data, size_t size)
 		return -1;
 	}
 	if ((size_t)ret != size) {
-		fs_set_error(_file->event,
+		fs_set_error(_file->event, ENOSPC,
 			     "write(%s) returned %"PRIuSIZE_T"/%"PRIuSIZE_T,
 			     file->full_path, (size_t)ret, size);
-		errno = ENOSPC;
 		return -1;
 	}
 	return 0;
@@ -697,8 +696,9 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 	switch (fs->lock_method) {
 	case FS_POSIX_LOCK_METHOD_FLOCK:
 #ifndef HAVE_FLOCK
-		fs_set_error(_file->event, "flock() not supported by OS "
-			     "(for file %s)", file->full_path);
+		fs_set_error(_file->event, ENOTSUP,
+			     "flock() not supported by OS (for file %s)",
+			     file->full_path);
 #else
 		if (secs == 0) {
 			ret = file_try_lock(file->fd, file->full_path, F_WRLCK,

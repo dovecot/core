@@ -168,8 +168,10 @@ extern const struct fs fs_class_test;
 
 void fs_class_register(const struct fs *fs_class);
 
-/* Event must be fs_file or fs_iter events */
-void fs_set_error(struct event *event, const char *fmt, ...) ATTR_FORMAT(2, 3);
+/* Event must be fs_file or fs_iter events. Set errno from err. */
+void fs_set_error(struct event *event, int err,
+		  const char *fmt, ...) ATTR_FORMAT(3, 4);
+/* Like fs_set_error(), but use the existing errno. */
 void fs_set_error_errno(struct event *event, const char *fmt, ...) ATTR_FORMAT(2, 3);
 void fs_file_set_error_async(struct fs_file *file);
 

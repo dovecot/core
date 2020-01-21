@@ -240,8 +240,7 @@ static bool fs_random_fail(struct fs *_fs, struct event *event,
 	if (fs->op_probability[op] == 0)
 		return FALSE;
 	if ((unsigned int)i_rand_limit(100 * divider) <= fs->op_probability[op]) {
-		errno = EIO;
-		fs_set_error(event, RANDOMFAIL_ERROR);
+		fs_set_error(event, EIO, RANDOMFAIL_ERROR);
 		return TRUE;
 	}
 	return FALSE;
@@ -506,8 +505,7 @@ static int fs_randomfail_iter_deinit(struct fs_iter *_iter)
 	if ((ret = fs_iter_deinit(&iter->super, &error)) < 0)
 		fs_set_error_errno(_iter->event, "%s", error);
 	if (iter->fail_pos == 1) {
-		fs_set_error(_iter->event, RANDOMFAIL_ERROR);
-		errno = EIO;
+		fs_set_error(_iter->event, EIO, RANDOMFAIL_ERROR);
 		ret = -1;
 	}
 	return ret;

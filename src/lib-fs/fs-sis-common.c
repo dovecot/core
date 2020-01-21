@@ -22,7 +22,7 @@ int fs_sis_path_parse(struct fs_file *file, const char *path,
 	/* assume filename begins with "<hash>-" */
 	p = strchr(fname, '-');
 	if (p == NULL) {
-		fs_set_error(file->event, "open(%s) failed: "
+		fs_set_error(file->event, EINVAL, "open(%s) failed: "
 			     "Filenames must begin with '<hash>-'", path);
 		return -1;
 	}

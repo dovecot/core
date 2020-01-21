@@ -81,7 +81,7 @@ fs_sis_queue_file_init(struct fs_file *_file, const char *path,
 	file->fs = fs;
 
 	if (mode == FS_OPEN_MODE_APPEND)
-		fs_set_error(_file->event, "APPEND mode not supported");
+		fs_set_error(_file->event, ENOTSUP, "APPEND mode not supported");
 	else
 		file->file.parent = fs_file_init_parent(_file, path, mode | flags);
 }

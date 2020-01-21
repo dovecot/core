@@ -490,7 +490,7 @@ int fs_get_metadata(struct fs_file *file,
 			*metadata_r = &file->metadata;
 			return 0;
 		}
-		fs_set_error(file->event, "Metadata not supported by backend");
+		fs_set_error(file->event, ENOTSUP, "Metadata not supported by backend");
 		return -1;
 	}
 	if (!file->read_or_prefetch_counted &&
@@ -645,7 +645,9 @@ ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size)
 		return -1;
 	}
 	if (ret < 0 && file->pending_read_input->stream_errno != 0) {
-		fs_set_error(file->event, "read(%s) failed: %s",
+		fs_set_error(file->event,
+			     file->pending_read_input->stream_errno,
+			     "read(%s) failed: %s",
 			     i_stream_get_name(file->pending_read_input),
 			     i_stream_get_error(file->pending_read_input));
 	} else {
@@ -859,7 +861,8 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 		o_stream_uncork(file->output);
 		if ((ret = o_stream_finish(file->output)) <= 0) {
 			i_assert(ret < 0);
-			fs_set_error(file->event, "write(%s) failed: %s",
+			fs_set_error(file->event, file->output->stream_errno,
+				     "write(%s) failed: %s",
 				     o_stream_get_name(file->output),
 				     o_stream_get_error(file->output));
 			success = FALSE;
@@ -1006,7 +1009,7 @@ int fs_stat(struct fs_file *file, struct stat *st_r)
 	int ret;
 
 	if (file->fs->v.stat == NULL) {
-		fs_set_error(file->event, "fs_stat() not supported");
+		fs_set_error(file->event, ENOTSUP, "fs_stat() not supported");
 		return -1;
 	}
 
@@ -1112,7 +1115,7 @@ int fs_copy(struct fs_file *src, struct fs_file *dest)
 	i_assert(src->fs == dest->fs);
 
 	if (src->fs->v.copy == NULL) {
-		fs_set_error(src->event, "fs_copy() not supported");
+		fs_set_error(src->event, ENOTSUP, "fs_copy() not supported");
 		return -1;
 	}
 
@@ -1232,7 +1235,7 @@ int fs_iter_deinit(struct fs_iter **_iter, const char **error_r)
 	DLLIST_REMOVE(&fs->iters, iter);
 
 	if (fs->v.iter_deinit == NULL) {
-		fs_set_error(event, "FS iteration not supported");
+		fs_set_error(event, ENOTSUP, "FS iteration not supported");
 		ret = -1;
 	} else T_BEGIN {
 		ret = iter->fs->v.iter_deinit(iter);
@@ -1284,10 +1287,13 @@ const struct fs_stats *fs_get_stats(struct fs *fs)
 	return &fs->stats;
 }
 
-void fs_set_error(struct event *event, const char *fmt, ...)
+void fs_set_error(struct event *event, int err, const char *fmt, ...)
 {
 	va_list args;
 
+	i_assert(err != 0);
+
+	errno = err;
 	va_start(args, fmt);
 	fs_set_verror(event, fmt, args);
 	va_end(args);
@@ -1306,8 +1312,7 @@ void fs_set_error_errno(struct event *event, const char *fmt, ...)
 
 void fs_file_set_error_async(struct fs_file *file)
 {
-	errno = EAGAIN;
-	fs_set_error(file->event, "Asynchronous operation in progress");
+	fs_set_error(file->event, EAGAIN, "Asynchronous operation in progress");
 }
 
 static uint64_t

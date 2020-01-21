@@ -93,7 +93,7 @@ fs_sis_file_init(struct fs_file *_file, const char *path,
 	file->fs = fs;
 	file->open_mode = mode;
 	if (mode == FS_OPEN_MODE_APPEND) {
-		fs_set_error(_file->event, "APPEND mode not supported");
+		fs_set_error(_file->event, ENOTSUP, "APPEND mode not supported");
 		return;
 	}
 
