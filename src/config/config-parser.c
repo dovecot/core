@@ -821,6 +821,11 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 			str_append(str, var_name);
 		} else if (!ctx->expand_values && !expand_parent) {
 			str_append(str, var_name);
+		} else if (str_begins(var_name, "$ENV:")) {
+			/* use environment variable */
+			const char *envval = getenv(var_name+5);
+			if (envval != NULL)
+				str_append(str, envval);
 		} else {
 			const char *var_value;
 			enum setting_type var_type;
