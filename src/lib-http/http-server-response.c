@@ -838,14 +838,12 @@ uoff_t http_server_response_get_total_size(struct http_server_response *resp)
 void http_server_response_add_permanent_header(struct http_server_response *resp,
 					       const char *key, const char *value)
 {
-	char *key_dup = i_strdup(key), *value_dup = i_strdup(value);
-
 	http_server_response_add_header(resp, key, value);
 
 	if (!array_is_created(&resp->perm_headers))
 		i_array_init(&resp->perm_headers, 4);
-	key_dup = i_strdup(key);
-	value_dup = i_strdup(value);
+	char *key_dup = i_strdup(key);
+	char *value_dup = i_strdup(value);
 	array_push_back(&resp->perm_headers, &key_dup);
 	array_push_back(&resp->perm_headers, &value_dup);
 }
