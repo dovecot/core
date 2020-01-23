@@ -14,7 +14,7 @@ message_header_decode_encoded(const unsigned char *data, size_t size,
 {
 #define QCOUNT 3
 	unsigned int num = 0;
-	size_t i, start_pos[QCOUNT];
+	size_t i, start_pos[QCOUNT] = {0, 0, 0};
 
 	/* data should contain "charset?encoding?text?=" */
 	for (i = 0; i < size; i++) {
