@@ -65,6 +65,7 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
 		int ret2;
 
 		while ((ret1 = read(fd1, buf1, sizeof(buf1))) > 0) {
+			i_assert((size_t)ret1 <= sizeof(buf2));
 			if ((ret2 = read_full(fd2, buf2, ret1)) <= 0) {
 				if (ret2 < 0)
 					i_error("read(%s) failed: %m", path2);
