@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "istream.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "doveadm-print.h"
@@ -219,7 +220,12 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 		/* not found, print as empty */
 		doveadm_print("");
 	} else if (value.value_stream != NULL) {
-		doveadm_print_istream(value.value_stream);
+		if (doveadm_print_istream(value.value_stream) < 0) {
+			i_error("read(%s) failed: %s",
+				i_stream_get_name(value.value_stream),
+				i_stream_get_error(value.value_stream));
+			ret = -1;
+		}
 	} else {
 		doveadm_print(value.value);
 	}
