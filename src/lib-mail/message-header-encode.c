@@ -25,6 +25,7 @@ static bool input_idx_need_encoding(const unsigned char *input,
 			/* trailing LF - we need to drop it */
 			return TRUE;
 		}
+		i_assert(i+1 < len);
 		if (input[i+1] != '\t' && input[i+1] != ' ') {
 			/* LF not followed by whitespace - we need to
 			   add the whitespace */
