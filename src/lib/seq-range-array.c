@@ -215,6 +215,30 @@ void seq_range_array_merge(ARRAY_TYPE(seq_range) *dest,
 		seq_range_array_add_range(dest, range->seq1, range->seq2);
 }
 
+void seq_range_array_merge_n(ARRAY_TYPE(seq_range) *dest,
+			     const ARRAY_TYPE(seq_range) *src,
+			     unsigned int count)
+{
+	const struct seq_range *src_range;
+	unsigned int src_idx, src_count;
+	unsigned int merge_count = count;
+
+	src_range = array_get(src, &src_count);
+	for (src_idx = 0; src_idx < src_count && merge_count > 0; src_idx++) {
+		uint32_t first_seq = src_range[src_idx].seq1;
+		uint32_t last_seq = src_range[src_idx].seq2;
+		unsigned int idx_count = last_seq - first_seq + 1;
+
+		if (idx_count > merge_count) {
+			last_seq = first_seq + merge_count - 1;
+			merge_count = 0;
+		} else {
+			merge_count -= idx_count;
+		}
+		seq_range_array_add_range(dest, first_seq, last_seq);
+	}
+}
+
 bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	struct seq_range *data, value;

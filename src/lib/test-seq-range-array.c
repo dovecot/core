@@ -58,6 +58,38 @@ static void test_seq_range_array_add_merge(void)
 	test_end();
 }
 
+static void test_seq_range_array_merge_n(void)
+{
+	ARRAY_TYPE(seq_range) src, dest, dest2;
+	struct seq_range_iter iter;
+	const uint32_t seqs[] = { 4, 5, 7, 8, 9, 11 };
+	uint32_t seq;
+
+	test_begin("seq_range_array_merge_n()");
+	t_array_init(&src, 16);
+	t_array_init(&dest, 16);
+	t_array_init(&dest2, 16);
+	for (unsigned int i = 0; i < N_ELEMENTS(seqs); i++)
+		seq_range_array_add(&src, seqs[i]);
+
+	for (unsigned int i = 0; i <= N_ELEMENTS(seqs); i++) {
+		array_clear(&dest);
+		array_clear(&dest2);
+		seq_range_array_merge_n(&dest, &src, i);
+		test_assert_idx(seq_range_count(&dest) == I_MIN(i, N_ELEMENTS(seqs)), i);
+
+		seq_range_array_iter_init(&iter, &src);
+		for (unsigned int j = 0; j < i; j++) {
+			test_assert_idx(seq_range_array_iter_nth(&iter, j, &seq), i);
+			seq_range_array_add(&dest2, seq);
+		}
+		seq_range_array_invert(&dest2, 1, UINT32_MAX);
+		seq_range_array_intersect(&dest2, &dest);
+		test_assert_idx(array_count(&dest2) == 0, i);
+	}
+	test_end();
+}
+
 static void test_seq_range_array_remove_nth(void)
 {
 	ARRAY_TYPE(seq_range) range;
@@ -298,6 +330,7 @@ void test_seq_range_array(void)
 {
 	test_seq_range_array_add_boundaries();
 	test_seq_range_array_add_merge();
+	test_seq_range_array_merge_n();
 	test_seq_range_array_remove_nth();
 	test_seq_range_array_invert();
 	test_seq_range_array_invert_edges();
