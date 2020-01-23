@@ -98,7 +98,7 @@ void smtp_server_transaction_free(struct smtp_server_transaction **_trans)
 
 	if (!trans->finished) {
 		struct event_passthrough *e =
-			e = event_create_passthrough(trans->event)->
+			event_create_passthrough(trans->event)->
 			set_name("smtp_server_transaction_finished")->
 			add_int("recipients", rcpts_total)->
 			add_int("recipients_denied", rcpts_failed)->

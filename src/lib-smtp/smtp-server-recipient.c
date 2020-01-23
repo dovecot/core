@@ -77,7 +77,7 @@ bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt)
 
 	if (!rcpt->finished) {
 		struct event_passthrough *e =
-			e = event_create_passthrough(rcpt->event)->
+			event_create_passthrough(rcpt->event)->
 			set_name("smtp_server_transaction_rcpt_finished");
 		e->add_int("status_code", 9000);
 		e->add_str("enhanced_code", "9.0.0");
