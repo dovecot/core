@@ -1,3 +1,9 @@
+v2.3.9.3 2019-02-12  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2020-7046: Truncated UTF-8 can be used to DoS
+	  submission-login and lmtp processes.
+	* CVE-2020-7957: Specially crafted mail can crash snippet generation.
+
 v2.3.9.2 2019-12-13  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	- Mails with empty From/To headers can also cause crash
