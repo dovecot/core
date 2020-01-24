@@ -18,10 +18,10 @@ struct cmd_copy_context {
 	struct mailbox *destbox;
 	bool move;
 
-	struct msgset_generator_context srcset_ctx;
 	unsigned int copy_count;
 
 	uint32_t uid_validity;
+	ARRAY_TYPE(seq_range) src_uids;
 	ARRAY_TYPE(seq_range) saved_uids;
 	bool hide_saved_uids;
 
@@ -70,6 +70,7 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 	struct mail *mail;
 	const char *cmd_reason;
 	struct mail_transaction_commit_changes changes;
+	ARRAY_TYPE(seq_range) src_uids;
 	int ret;
 
 	i_assert(o_stream_is_corked(client->output) ||
@@ -85,6 +86,7 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 	search_ctx = mailbox_search_init(src_trans, search_args,
 					 NULL, 0, NULL);
 
+	t_array_init(&src_uids, 64);
 	ret = 1;
 	while (mailbox_search_next(search_ctx, &mail) && ret > 0) {
 		if (mail->expunged) {
@@ -108,7 +110,8 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		if (ret < 0 && mail->expunged)
 			ret = 0;
 
-		msgset_generator_next(&copy_ctx->srcset_ctx, mail->uid);
+		if (ret > 0)
+			seq_range_array_add(&src_uids, mail->uid);
 	}
 
 	if (ret < 0) {
@@ -143,6 +146,7 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 			/* UIDVALIDITY unexpectedly changed */
 			copy_ctx->hide_saved_uids = TRUE;
 		}
+		seq_range_array_merge(&copy_ctx->src_uids, &src_uids);
 		seq_range_array_merge(&copy_ctx->saved_uids, &changes.saved_uids);
 
 		i_assert(copy_ctx->copy_count == seq_range_count(&copy_ctx->saved_uids));
@@ -215,9 +219,8 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	copy_ctx.cmd = cmd;
 	copy_ctx.destbox = destbox;
 	copy_ctx.move = move;
+	i_array_init(&copy_ctx.src_uids, 8);
 	i_array_init(&copy_ctx.saved_uids, 8);
-	src_uidset = t_str_new(256);
-	msgset_generator_init(&copy_ctx.srcset_ctx, src_uidset);
 	do {
 		T_BEGIN {
 			ret = fetch_and_copy(&copy_ctx, search_args);
@@ -230,12 +233,17 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		 imap_search_seqset_iter_next(seqset_iter));
 	imap_search_seqset_iter_deinit(&seqset_iter);
 	mail_search_args_unref(&search_args);
-	msgset_generator_finish(&copy_ctx.srcset_ctx);
+
+	src_uidset = t_str_new(256);
+	imap_write_seq_range(src_uidset, &copy_ctx.src_uids);
 
 	msg = t_str_new(256);
-	if (ret <= 0)
-		;
-	else if (copy_ctx.copy_count == 0) {
+	if (ret <= 0) {
+		if (move && array_count(&copy_ctx.src_uids) > 0) {
+			/* some of the messages were successfully moved */
+			cmd_move_send_untagged(&copy_ctx, msg, src_uidset);
+		}
+	} else if (copy_ctx.copy_count == 0) {
 		str_append(msg, "OK No messages found.");
 	} else if (seq_range_count(&copy_ctx.saved_uids) == 0 ||
 		   copy_ctx.hide_saved_uids) {
@@ -254,6 +262,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		str_append(msg, "] Copy completed.");
 	}
 
+	array_free(&copy_ctx.src_uids);
 	array_free(&copy_ctx.saved_uids);
 
 	if (destbox != client->mailbox) {
