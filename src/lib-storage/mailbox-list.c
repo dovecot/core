@@ -1908,11 +1908,23 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 const char *mailbox_list_get_last_error(struct mailbox_list *list,
 					enum mail_error *error_r)
 {
+	if (list->error == MAIL_ERROR_NONE) {
+		if (error_r != NULL)
+			*error_r = MAIL_ERROR_TEMP;
+		return list->error_string != NULL ? list->error_string :
+			"BUG: Unknown internal list error";
+	}
+
+	if (list->error_string == NULL) {
+		/* This shouldn't happen.. */
+		list->error_string =
+			i_strdup_printf("BUG: Unknown 0x%x list error",
+					list->error);
+	}
+
 	if (error_r != NULL)
 		*error_r = list->error;
-
-	return list->error_string != NULL ? list->error_string :
-		"Unknown internal list error";
+	return list->error_string;
 }
 
 enum mail_error mailbox_list_get_last_mail_error(struct mailbox_list *list)
