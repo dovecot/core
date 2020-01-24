@@ -163,6 +163,18 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 	return ret;
 }
 
+static void cmd_move_send_untagged(struct cmd_copy_context *copy_ctx,
+				   string_t *msg, string_t *src_uidset)
+{
+	if (array_count(&copy_ctx->saved_uids) == 0)
+		return;
+	str_printfa(msg, "* OK [COPYUID %u %s ",
+		    copy_ctx->uid_validity, str_c(src_uidset));
+	imap_write_seq_range(msg, &copy_ctx->saved_uids);
+	str_append(msg, "] Moved UIDs.");
+	client_send_line(copy_ctx->cmd->client, str_c(msg));
+}
+
 static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 {
 	struct client *client = cmd->client;
@@ -232,12 +244,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		str_append(msg, move ? "OK Move completed." :
 			   "OK Copy completed.");
 	} else if (move) {
-		str_printfa(msg, "* OK [COPYUID %u %s ",
-			    copy_ctx.uid_validity, str_c(src_uidset));
-		imap_write_seq_range(msg, &copy_ctx.saved_uids);
-		str_append(msg, "] Moved UIDs.");
-		client_send_line(client, str_c(msg));
-
+		cmd_move_send_untagged(&copy_ctx, msg, src_uidset);
 		str_truncate(msg, 0);
 		str_append(msg, "OK Move completed.");
 	} else {
