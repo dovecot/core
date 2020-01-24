@@ -25,6 +25,17 @@ static ARRAY(const struct fs *) fs_classes;
 
 static void fs_classes_init(void);
 
+static struct event *fs_create_event(struct fs *fs, struct event *parent)
+{
+	struct event *event;
+
+	event = event_create(parent);
+	event_add_category(event, &event_category_fs);
+	event_set_append_log_prefix(event,
+		t_strdup_printf("fs-%s: ", fs->name));
+	return event;
+}
+
 static int
 fs_alloc(const struct fs *fs_class, const char *args,
 	 const struct fs_settings *set, struct fs **fs_r, const char **error_r)
@@ -39,6 +50,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	fs->set.debug = set->debug;
 	fs->set.enable_timing = set->enable_timing;
 	i_array_init(&fs->module_contexts, 5);
+	fs->event = fs_create_event(fs, set->event);
 
 	T_BEGIN {
 		if ((ret = fs_class->v.init(fs, args, set, &temp_error)) < 0)
@@ -134,17 +146,6 @@ static void fs_class_try_load_plugin(const char *driver)
 	lib_atexit(fs_class_deinit_modules);
 }
 
-static struct event *fs_create_event(struct fs *fs, struct event *parent)
-{
-	struct event *event;
-
-	event = event_create(parent);
-	event_add_category(event, &event_category_fs);
-	event_set_append_log_prefix(event,
-		t_strdup_printf("fs-%s: ", fs->name));
-	return event;
-}
-
 int fs_init(const char *driver, const char *args,
 	    const struct fs_settings *set,
 	    struct fs **fs_r, const char **error_r)
@@ -165,7 +166,6 @@ int fs_init(const char *driver, const char *args,
 	}
 	if (fs_alloc(fs_class, args, set, fs_r, error_r) < 0)
 		return -1;
-	(*fs_r)->event = fs_create_event(*fs_r, set->event);
 	event_set_ptr((*fs_r)->event, FS_EVENT_FIELD_FS, *fs_r);
 
 	temp_file_prefix = set->temp_file_prefix != NULL ?
