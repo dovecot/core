@@ -40,8 +40,7 @@ passwd_check_warnings(struct auth_request *auth_request,
 	struct timeval end_tv;
 	unsigned int msecs, percentage;
 
-	if (gettimeofday(&end_tv, NULL) < 0)
-		return;
+	i_gettimeofday(&end_tv);
 
 	msecs = timeval_diff_msecs(&end_tv, start_tv);
 	if (msecs >= PASSWD_SLOW_WARN_MSECS) {
@@ -89,8 +88,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 
 	e_debug(authdb_event(auth_request), "lookup");
 
-	if (gettimeofday(&start_tv, NULL) < 0)
-		start_tv.tv_sec = 0;
+	i_gettimeofday(&start_tv);
 	ret = i_getpwnam(auth_request->user, &pw);
 	if (start_tv.tv_sec != 0)
 		passwd_check_warnings(auth_request, module, &start_tv);

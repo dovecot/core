@@ -195,16 +195,10 @@ static void stats_conn_input(struct connection *_conn)
 static void wait_for_signal(const char *signal_file)
 {
 	struct timeval start, now;
-	if (gettimeofday(&start, NULL) < 0) {
-		kill_stats_child();
-		i_fatal("gettimeofday() failed %m");
-	}
+	i_gettimeofday(&start);
 	while (access(signal_file, F_OK) < 0) {
 		i_sleep_msecs(10);
-		if (gettimeofday(&now, NULL) < 0) {
-			kill_stats_child();
-			i_fatal("gettimeofday() failed %m");
-		}
+		i_gettimeofday(&now);
 		if (timeval_diff_usecs(&now, &start) > 10000000) {
 			kill_stats_child();
 			i_fatal("wait_for_signal has timed out");

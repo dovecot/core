@@ -1226,10 +1226,8 @@ int db_ldap_connect(struct ldap_connection *conn)
 	if (conn->conn_state != LDAP_CONN_STATE_DISCONNECTED)
 		return 0;
 
-	if (debug) {
-		if (gettimeofday(&start, NULL) < 0)
-			i_zero(&start);
-	}
+	if (debug)
+		i_gettimeofday(&start);
 	i_assert(conn->pending_count == 0);
 
 	if (conn->delayed_connect) {
@@ -1262,10 +1260,9 @@ int db_ldap_connect(struct ldap_connection *conn)
 		return -1;
 
 	if (debug) {
-		if (gettimeofday(&end, NULL) == 0) {
-			int msecs = timeval_diff_msecs(&end, &start);
-			i_debug("LDAP initialization took %d msecs", msecs);
-		}
+		i_gettimeofday(&end);
+		int msecs = timeval_diff_msecs(&end, &start);
+		i_debug("LDAP initialization took %d msecs", msecs);
 	}
 
 	db_ldap_get_fd(conn);
