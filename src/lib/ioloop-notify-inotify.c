@@ -10,6 +10,7 @@
 #include "buffer.h"
 #include "net.h"
 #include "ipwd.h"
+#include "time-util.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -50,8 +51,7 @@ static bool inotify_input_more(struct ioloop *ioloop)
 		i_fatal("read(inotify) failed: %m");
 	}
 
-	if (gettimeofday(&ioloop_timeval, NULL) < 0)
-		i_fatal("gettimeofday(): %m");
+	i_gettimeofday(&ioloop_timeval);
 	ioloop_time = ioloop_timeval.tv_sec;
 
 	for (pos = 0; pos < ret; ) {

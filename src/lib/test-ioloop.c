@@ -16,8 +16,7 @@ struct test_ctx {
 
 static void timeout_callback(struct timeval *tv)
 {
-	if (gettimeofday(tv, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(tv);
 	io_loop_stop(current_ioloop);
 }
 
@@ -116,8 +115,7 @@ static void test_ioloop_timeout(void)
 
 	/* add the timeout we're actually testing below */
 	to = timeout_add(1000, timeout_callback, &tv_callback);
-	if (gettimeofday(&tv_start, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&tv_start);
 	io_loop_run(ioloop);
 	test_assert(timeval_diff_msecs(&tv_callback, &tv_start) >= 500);
 	timeout_remove(&to);

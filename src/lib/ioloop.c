@@ -227,11 +227,10 @@ void io_set_never_wait_alone(struct io *io, bool set)
 
 static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 {
-	if (tv_now == NULL) {
-		if (gettimeofday(&timeout->next_run, NULL) < 0)
-			i_fatal("gettimeofday(): %m");
-	} else {
-                timeout->next_run.tv_sec = tv_now->tv_sec;
+	if (tv_now == NULL)
+		i_gettimeofday(&timeout->next_run);
+	else {
+		timeout->next_run.tv_sec = tv_now->tv_sec;
                 timeout->next_run.tv_usec = tv_now->tv_usec;
 	}
 
@@ -449,10 +448,8 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 {
 	int ret;
 
-	if (tv_now->tv_sec == 0) {
-		if (gettimeofday(tv_now, NULL) < 0)
-			i_fatal("gettimeofday(): %m");
-	} 
+	if (tv_now->tv_sec == 0)
+		i_gettimeofday(tv_now);
 	tv_r->tv_sec = tv_now->tv_sec;
 	tv_r->tv_usec = tv_now->tv_usec;
 
@@ -504,8 +501,7 @@ static int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	}
 
 	if (ioloop->io_pending_count > 0) {
-		if (gettimeofday(&tv_now, NULL) < 0)
-			i_fatal("gettimeofday(): %m");
+		i_gettimeofday(&tv_now);
 		msecs = 0;
 		tv_r->tv_sec = 0;
 		tv_r->tv_usec = 0;
@@ -633,8 +629,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 	data_stack_frame_t t_id;
 
 	tv_old = ioloop_timeval;
-	if (gettimeofday(&ioloop_timeval, NULL) < 0)
-		i_fatal("gettimeofday(): %m");
+	i_gettimeofday(&ioloop_timeval);
 
 	diff_usecs = timeval_diff_usecs(&ioloop_timeval, &tv_old);
 	if (unlikely(diff_usecs < 0)) {
@@ -643,8 +638,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		ioloop->time_moved_callback(&tv_old, &ioloop_timeval);
 		i_assert(ioloop == current_ioloop);
 		/* the callback may have slept, so check the time again. */
-		if (gettimeofday(&ioloop_timeval, NULL) < 0)
-			i_fatal("gettimeofday(): %m");
+		i_gettimeofday(&ioloop_timeval);
 	} else {
 		diff_usecs = timeval_diff_usecs(&ioloop->next_max_time,
 						&ioloop_timeval);
@@ -803,8 +797,7 @@ bool io_loop_is_running(struct ioloop *ioloop)
 
 void io_loop_time_refresh(void)
 {
-	if (gettimeofday(&ioloop_timeval, NULL) < 0)
-		i_fatal("gettimeofday(): %m");
+	i_gettimeofday(&ioloop_timeval);
 	ioloop_time = ioloop_timeval.tv_sec;
 }
 
@@ -818,8 +811,7 @@ struct ioloop *io_loop_create(void)
 	}
 
 	/* initialize time */
-	if (gettimeofday(&ioloop_timeval, NULL) < 0)
-		i_fatal("gettimeofday(): %m");
+	i_gettimeofday(&ioloop_timeval);
 	ioloop_time = ioloop_timeval.tv_sec;
 
         ioloop = i_new(struct ioloop, 1);

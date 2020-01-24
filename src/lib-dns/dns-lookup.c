@@ -151,8 +151,7 @@ static void dns_lookup_save_msecs(struct dns_lookup *lookup)
 	struct timeval now;
 	int diff;
 
-	if (gettimeofday(&now, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&now);
 
 	diff = timeval_diff_msecs(&now, &lookup->start_time);
 	if (diff > 0)
@@ -375,8 +374,7 @@ dns_client_lookup_common(struct dns_client *client,
 	lookup = p_new(pool, struct dns_lookup, 1);
 	lookup->pool = pool;
 
-	if (gettimeofday(&lookup->start_time, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&lookup->start_time);
 
 	lookup->client = client;
 	lookup->callback = callback;

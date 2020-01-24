@@ -318,8 +318,7 @@ int net_connect_unix_with_retries(const char *path, unsigned int msecs)
 	struct timeval start, now;
 	int fd;
 
-	if (gettimeofday(&start, NULL) < 0)
-		i_panic("gettimeofday() failed: %m");
+	i_gettimeofday(&start);
 
 	do {
 		fd = net_connect_unix(path);
@@ -328,8 +327,7 @@ int net_connect_unix_with_retries(const char *path, unsigned int msecs)
 
 		/* busy. wait for a while. */
 		usleep(i_rand_minmax(1, 10) * 10000);
-		if (gettimeofday(&now, NULL) < 0)
-			i_panic("gettimeofday() failed: %m");
+		i_gettimeofday(&now);
 	} while (timeval_diff_msecs(&now, &start) < (int)msecs);
 	return fd;
 }

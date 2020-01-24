@@ -17,6 +17,7 @@
 #include "base64.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
+#include "time-util.h"
 #include "var-expand.h"
 #include "master-interface.h"
 #include "master-service.h"
@@ -678,8 +679,7 @@ const char *client_get_session_id(struct client *client)
 	buf = t_buffer_create(24);
 	base64_buf = t_buffer_create(24*2);
 
-	if (gettimeofday(&tv, NULL) < 0)
-		i_fatal("gettimeofday(): %m");
+	i_gettimeofday(&tv);
 	timestamp = tv.tv_usec + (long long)tv.tv_sec * 1000ULL*1000ULL;
 
 	/* add lowest 48 bits of the timestamp. this gives us a bit less than

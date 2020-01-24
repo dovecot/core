@@ -11,6 +11,7 @@
 #include "write-full.h"
 #include "file-lock.h"
 #include "file-dotlock.h"
+#include "time-util.h"
 #include "fs-api-private.h"
 
 #include <stdio.h>
@@ -539,8 +540,7 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 		   If requested, use utimes() to explicitly set a more accurate
 		   mtime. */
 		struct timeval tv[2];
-		if (gettimeofday(&tv[0], NULL) < 0)
-			i_fatal("gettimeofday() failed: %m");
+		i_gettimeofday(&tv[0]);
 		tv[1] = tv[0];
 		if ((utimes(file->temp_path, tv)) < 0) {
 			fs_set_error_errno(file->file.event,

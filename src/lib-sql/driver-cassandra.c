@@ -953,8 +953,7 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 	struct timeval now;
 	unsigned int row_count;
 
-	if (gettimeofday(&now, NULL) < 0)
-		i_fatal("cassandra: gettimeofday() failed: %m");
+	i_gettimeofday(&now);
 
 	string_t *str = t_str_new(128);
 	str_printfa(str, "Finished %squery '%s' (",

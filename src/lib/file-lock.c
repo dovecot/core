@@ -324,8 +324,7 @@ int file_wait_lock_error(int fd, const char *path, int lock_type,
 	lock->path = i_strdup(path);
 	lock->lock_type = lock_type;
 	lock->lock_method = lock_method;
-	if (gettimeofday(&lock->locked_time, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&lock->locked_time);
 	*lock_r = lock;
 	return 1;
 }
@@ -363,8 +362,7 @@ struct file_lock *file_lock_from_dotlock(struct dotlock **dotlock)
 	lock->path = i_strdup(file_dotlock_get_lock_path(*dotlock));
 	lock->lock_type = F_WRLCK;
 	lock->lock_method = FILE_LOCK_METHOD_DOTLOCK;
-	if (gettimeofday(&lock->locked_time, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&lock->locked_time);
 	lock->dotlock = *dotlock;
 
 	*dotlock = NULL;
@@ -467,8 +465,7 @@ void file_lock_wait_start(void)
 {
 	i_assert(lock_wait_start.tv_sec == 0);
 
-	if (gettimeofday(&lock_wait_start, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&lock_wait_start);
 }
 
 static void file_lock_wait_init_warning(void)
@@ -505,8 +502,7 @@ static void file_lock_log_warning_if_slow(struct file_lock *lock)
 	}
 
 	struct timeval now;
-	if (gettimeofday(&now, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&now);
 
 	int diff = timeval_diff_msecs(&now, &lock->locked_time);
 	if (diff > file_lock_slow_warning_usecs/1000) {
@@ -521,8 +517,7 @@ void file_lock_wait_end(const char *lock_name)
 
 	i_assert(lock_wait_start.tv_sec != 0);
 
-	if (gettimeofday(&now, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&now);
 	long long diff = timeval_diff_usecs(&now, &lock_wait_start);
 	if (diff < 0) {
 		/* time moved backwards */

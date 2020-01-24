@@ -140,7 +140,7 @@ void mail_stats_fill(struct stats_user *suser, struct mail_stats *stats_r)
 	stats_r->invol_cs = usage.ru_nivcsw;
 	stats_r->disk_input = (unsigned long long)usage.ru_inblock * 512ULL;
 	stats_r->disk_output = (unsigned long long)usage.ru_oublock * 512ULL;
-	(void)gettimeofday(&stats_r->clock_time, NULL);
+	i_gettimeofday(&stats_r->clock_time);
 	process_read_io_stats(stats_r);
 	user_trans_stats_get(suser, stats_r);
 }

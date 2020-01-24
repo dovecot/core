@@ -60,7 +60,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 			       FILE_LOCK_METHOD_FCNTL, 0, 0600, (gid_t)-1);
 
 	clock_start = clock();
-	gettimeofday(&tv_start, NULL);
+	i_gettimeofday(&tv_start);
 
 	fd = open(argv[1], O_RDONLY);
 	if (fd == -1)
@@ -138,7 +138,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	}
 
 	clock_end = clock();
-	(void)gettimeofday(&tv_end, NULL);
+	i_gettimeofday(&tv_end);
 
 	cputime = (double)(clock_end - clock_start) / CLOCKS_PER_SEC;
 	fprintf(stderr, "\n - Index time: %.2f CPU seconds, "
@@ -177,14 +177,14 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		ret = strlen(str)-1;
 		str[ret] = 0;
 
-		gettimeofday(&tv_start, NULL);
+		i_gettimeofday(&tv_start);
 		ret = squat_trie_lookup(trie, str, SQUAT_INDEX_TYPE_HEADER |
 					SQUAT_INDEX_TYPE_BODY,
 					&definite_uids, &maybe_uids);
 		if (ret < 0)
 			printf("error\n");
 		else {
-			gettimeofday(&tv_end, NULL);
+			i_gettimeofday(&tv_end);
 			printf(" - Search took %.05f CPU seconds\n",
 			       timeval_diff_usecs(&tv_end, &tv_start)/1000000.0);
 			printf(" - definite uids: ");

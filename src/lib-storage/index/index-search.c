@@ -1288,8 +1288,7 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 	if (ctx->mail_ctx.max_mails == 0)
 		ctx->mail_ctx.max_mails = UINT_MAX;
 	ctx->next_time_check_cost = SEARCH_INITIAL_MAX_COST;
-	if (gettimeofday(&ctx->last_nonblock_timeval, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&ctx->last_nonblock_timeval);
 
 	mailbox_get_open_status(t->box, STATUS_MESSAGES, &status);
 	ctx->mail_ctx.progress_max = status.messages;
@@ -1553,8 +1552,7 @@ static bool search_would_block(struct index_search_context *ctx)
 	if (ctx->cost < ctx->next_time_check_cost)
 		return FALSE;
 
-	if (gettimeofday(&now, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&now);
 
 	usecs = timeval_diff_usecs(&now, &ctx->last_nonblock_timeval);
 	if (usecs < 0) {

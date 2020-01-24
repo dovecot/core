@@ -446,10 +446,8 @@ static void fs_file_timing_start(struct fs_file *file, enum fs_op op)
 {
 	if (!file->fs->set.enable_timing)
 		return;
-	if (file->timing_start[op].tv_sec == 0) {
-		if (gettimeofday(&file->timing_start[op], NULL) < 0)
-			i_fatal("gettimeofday() failed: %m");
-	}
+	if (file->timing_start[op].tv_sec == 0)
+		i_gettimeofday(&file->timing_start[op]);
 }
 
 static void
@@ -458,8 +456,7 @@ fs_timing_end(struct stats_dist **timing, const struct timeval *start_tv)
 	struct timeval now;
 	long long diff;
 
-	if (gettimeofday(&now, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
+	i_gettimeofday(&now);
 
 	diff = timeval_diff_usecs(&now, start_tv);
 	if (diff > 0) {
@@ -1197,10 +1194,8 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 		 (fs_get_properties(fs) & FS_PROPERTY_OBJECTIDS) != 0);
 
 	fs->stats.iter_count++;
-	if (fs->set.enable_timing) {
-		if (gettimeofday(&now, NULL) < 0)
-			i_fatal("gettimeofday() failed: %m");
-	}
+	if (fs->set.enable_timing)
+		i_gettimeofday(&now);
 	if (fs->v.iter_init == NULL) {
 		iter = i_new(struct fs_iter, 1);
 		iter->fs = fs;

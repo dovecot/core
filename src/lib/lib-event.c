@@ -364,8 +364,7 @@ event_create_internal(struct event *parent, const char *source_filename,
 	event->pool = pool;
 	event->tv_created_ioloop = ioloop_timeval;
 	event->min_log_level = LOG_TYPE_INFO;
-	if (gettimeofday(&event->tv_created, NULL) < 0)
-		i_panic("gettimeofday() failed: %m");
+	i_gettimeofday(&event->tv_created);
 	event->source_filename = p_strdup(pool, source_filename);
 	event->source_linenum = source_linenum;
 	if (parent != NULL) {
@@ -963,8 +962,7 @@ void event_send(struct event *event, struct failure_context *ctx,
 void event_vsend(struct event *event, struct failure_context *ctx,
 		 const char *fmt, va_list args)
 {
-	if (gettimeofday(&event->tv_last_sent, NULL) < 0)
-		i_panic("gettimeofday() failed: %m");
+	i_gettimeofday(&event->tv_last_sent);
 	if (event_call_callbacks(event, EVENT_CALLBACK_TYPE_SEND,
 				 ctx, fmt, args)) {
 		if (ctx->type != LOG_TYPE_DEBUG ||
