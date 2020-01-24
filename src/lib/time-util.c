@@ -7,6 +7,12 @@
 
 #define STRFTIME_MAX_BUFSIZE (1024*64)
 
+void i_gettimeofday(struct timeval *tv_r)
+{
+	if (gettimeofday(tv_r, NULL) < 0)
+		i_fatal("gettimeofday() failed: %m");
+}
+
 int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2)
 {
 	if (tv1->tv_sec < tv2->tv_sec)

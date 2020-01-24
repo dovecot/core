@@ -3,6 +3,9 @@
 
 #include <sys/time.h> /* for struct timeval */
 
+/* Same as gettimeofday(), but call i_fatal() if the call fails. */
+void i_gettimeofday(struct timeval *tv_r);
+
 /* Returns -1 if tv1<tv2, 1 if tv1>tv2, 0 if they're equal. */
 int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2);
 /* Same as timeval_cmp, but tv->usecs must differ by at least usec_margin */
