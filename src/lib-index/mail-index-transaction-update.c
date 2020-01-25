@@ -336,7 +336,7 @@ mail_index_revert_changes_common(struct mail_index_transaction *t, uint32_t seq)
 void mail_index_revert_changes(struct mail_index_transaction *t, uint32_t seq)
 {
 	mail_index_revert_changes_common(t, seq);
-	mail_index_cancel_flag_updates(t, seq);
+	(void)mail_index_cancel_flag_updates(t, seq);
 }
 
 static void
