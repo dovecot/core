@@ -118,3 +118,5 @@ check-local:
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+noinst_HEADERS = test-mail-index.h

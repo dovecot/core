@@ -1,14 +1,10 @@
 /* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "ioloop.h"
-#include "unlink-directory.h"
 #include "test-common.h"
-#include "mail-index-private.h"
+#include "test-mail-index.h"
 #include "mail-index-modseq.h"
 #include "mail-transaction-log-private.h"
-
-#define TESTDIR_NAME ".dovecot.test"
 
 static void test_mail_index_modseq_get_next_log_offset(void)
 {
@@ -29,17 +25,9 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 	struct mail_index_view *view, *view2;
 	struct mail_index_transaction *trans;
 	uint32_t seq, uid;
-	const char *error;
-
-	(void)unlink_directory(TESTDIR_NAME, UNLINK_DIRECTORY_FLAG_RMDIR, &error);
-	if (mkdir(TESTDIR_NAME, 0700) < 0)
-		i_error("mkdir(%s) failed: %m", TESTDIR_NAME);
-
-	ioloop_time = 1;
 
 	test_begin("mail_transaction_log_file_get_modseq_next_offset()");
-	index = mail_index_alloc(NULL, TESTDIR_NAME, "test.dovecot.index");
-	test_assert(mail_index_open_or_create(index, MAIL_INDEX_OPEN_FLAG_CREATE) == 0);
+	index = test_mail_index_init();
 	view = mail_index_view_open(index);
 	mail_index_modseq_enable(index);
 
@@ -75,10 +63,7 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 
 	mail_index_view_close(&view);
 	mail_index_view_close(&view2);
-	mail_index_close(index);
-	mail_index_free(&index);
-
-	(void)unlink_directory(TESTDIR_NAME, UNLINK_DIRECTORY_FLAG_RMDIR, &error);
+	test_mail_index_deinit(&index);
 	test_end();
 }
 
