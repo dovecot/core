@@ -8,12 +8,15 @@
 
 static void test_mail_index_rotate(void)
 {
-	struct mail_index *index;
+	struct mail_index *index, *index2;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
+	struct mail_transaction_log_file *file;
+	const char *reason;
 
 	test_begin("mail index rotate");
 	index = test_mail_index_init();
+	index2 = test_mail_index_open();
 	view = mail_index_view_open(index);
 
 	/* First rotation of the index. The view will point to the old index. */
@@ -27,8 +30,13 @@ static void test_mail_index_rotate(void)
 	mail_index_reset(trans);
 	test_assert(mail_index_transaction_commit(&trans) == 0);
 
+	/* The 2nd index's log head also doesn't have any extra references.
+	   Check that it doesn't crash. */
+	test_assert(mail_transaction_log_find_file(index2->log, 3, FALSE, &file, &reason) == 0);
+
 	mail_index_view_close(&view);
 	test_mail_index_deinit(&index);
+	test_mail_index_deinit(&index2);
 	test_end();
 }
 

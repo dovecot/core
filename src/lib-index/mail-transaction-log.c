@@ -368,9 +368,10 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 
 	i_assert(!file->locked);
 
-	if (--log->head->refcount == 0)
-		mail_transaction_logs_clean(log);
+	struct mail_transaction_log_file *old_head = log->head;
 	mail_transaction_log_set_head(log, file);
+	if (--old_head->refcount == 0)
+		mail_transaction_logs_clean(log);
 	*reason_r = "Log reopened";
 	return 0;
 }
