@@ -61,6 +61,7 @@ headers = \
         mailbox-log.h
 
 test_programs = \
+	test-mail-index \
 	test-mail-index-map \
 	test-mail-index-modseq \
 	test-mail-index-sync-ext \
@@ -78,6 +79,10 @@ test_libs = \
 	../lib/liblib.la
 
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+
+test_mail_index_SOURCES = test-mail-index.c
+test_mail_index_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
+test_mail_index_DEPENDENCIES = $(test_deps)
 
 test_mail_index_map_SOURCES = test-mail-index-map.c
 test_mail_index_map_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
