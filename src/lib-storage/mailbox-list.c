@@ -1956,8 +1956,10 @@ void mailbox_list_clear_error(struct mailbox_list *list)
 void mailbox_list_set_error(struct mailbox_list *list,
 			    enum mail_error error, const char *string)
 {
-	i_free(list->error_string);
-	list->error_string = i_strdup(string);
+	if (list->error_string != string) {
+		i_free(list->error_string);
+		list->error_string = i_strdup(string);
+	}
 
 	list->last_error_is_internal = FALSE;
 	list->error = error;
@@ -1971,23 +1973,36 @@ void mailbox_list_set_internal_error(struct mailbox_list *list)
 	i_free(list->error_string);
 	list->error_string = i_strdup(str);
 	list->error = MAIL_ERROR_TEMP;
+
+	/* this function doesn't set last_internal_error, so
+	   last_error_is_internal can't be TRUE. */
+	list->last_error_is_internal = FALSE;
+	i_free(list->last_internal_error);
 }
 
 void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 {
+	char *old_error = list->error_string;
+	char *old_internal_error = list->last_internal_error;
 	va_list va;
 
-	i_free(list->last_internal_error);
+	list->error_string = NULL;
+	list->last_internal_error = NULL;
+	/* critical errors may contain sensitive data, so let user
+	   see only "Internal error" with a timestamp to make it
+	   easier to look from log files the actual error message. */
+	mailbox_list_set_internal_error(list);
+
 	va_start(va, fmt);
 	list->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
 	list->last_error_is_internal = TRUE;
 	i_error("%s", list->last_internal_error);
 
-	/* critical errors may contain sensitive data, so let user
-	   see only "Internal error" with a timestamp to make it
-	   easier to look from log files the actual error message. */
-	mailbox_list_set_internal_error(list);
+	/* free the old_error and old_internal_error only after the new error
+	   is generated, because they may be one of the parameters. */
+	i_free(old_error);
+	i_free(old_internal_error);
 }
 
 bool mailbox_list_set_error_from_errno(struct mailbox_list *list)
