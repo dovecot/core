@@ -27,6 +27,7 @@ static void test_deinit_storage(struct mail_storage *storage)
 
 static void test_mail_storage_errors(void)
 {
+	/* NOTE: keep in sync with test-mailbox-list.c */
 	struct mail_storage storage;
 	enum mail_error mail_error;
 	const char *errstr;
@@ -158,6 +159,7 @@ static void test_mail_storage_errors(void)
 
 static void test_mail_storage_last_error_push_pop(void)
 {
+	/* NOTE: keep in sync with test-mailbox-list.c */
 	struct mail_storage storage;
 	enum mail_error mail_error;
 
