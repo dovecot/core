@@ -113,10 +113,13 @@ push_notification_transaction_end(struct push_notification_txn *ptxn,
 		}
 	}
 
-	struct event_passthrough *e = event_create_passthrough(ptxn->event)->
-		set_name(PUSH_NOTIFICATION_EVENT_FINISHED);
-	/* Emit event */
-	e_debug(e->event(), "Push notification transaction completed");
+	if (success) {
+		struct event_passthrough *e = event_create_passthrough(ptxn->event)->
+			set_name(PUSH_NOTIFICATION_EVENT_FINISHED);
+		/* Emit event */
+		e_debug(e->event(), "Push notification transaction completed");
+	}
+
 	event_unref(&ptxn->event);
 	pool_unref(&ptxn->pool);
 }
