@@ -387,7 +387,7 @@ push_notification_driver_ox_process_msg(
 	http_req = http_client_request_url(
 		ox_global->http_client, "PUT", dconfig->http_url,
 		push_notification_driver_ox_http_callback, dconfig);
-	http_client_request_set_event(http_req, dconfig->event);
+	http_client_request_set_event(http_req, dtxn->ptxn->event);
 	http_client_request_add_header(http_req, "Content-Type",
 				       "application/json; charset=utf-8");
 
