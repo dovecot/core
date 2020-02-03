@@ -113,7 +113,7 @@ push_notification_transaction_end(struct push_notification_txn *ptxn,
 		}
 	}
 
-	if (success) {
+	if (success && ptxn->trigger != 0) {
 		struct event_passthrough *e = event_create_passthrough(ptxn->event)->
 			set_name(PUSH_NOTIFICATION_EVENT_FINISHED);
 		/* Emit event */
