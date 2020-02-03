@@ -22,6 +22,7 @@ push_notification_trigger_mbox_common(
 	}
 
 	txn->trigger |= trigger;
+	event_add_str(txn->event, "mailbox", mailbox_get_vname(box));
 }
 
 void push_notification_trigger_mbox_create(
