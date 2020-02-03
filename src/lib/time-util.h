@@ -5,6 +5,12 @@
 
 /* Same as gettimeofday(), but call i_fatal() if the call fails. */
 void i_gettimeofday(struct timeval *tv_r);
+/* Return nanoseconds since UNIX epoch (1970-01-01). */
+uint64_t i_nanoseconds(void);
+/* Return microseconds since UNIX epoch (1970-01-01). */
+static inline uint64_t i_microseconds(void) {
+	return i_nanoseconds() / 1000;
+}
 
 /* Returns -1 if tv1<tv2, 1 if tv1>tv2, 0 if they're equal. */
 int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2);

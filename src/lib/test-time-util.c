@@ -335,6 +335,25 @@ static void test_strftime_fixed(void)
 	test_end();
 }
 
+static void test_micro_nanoseconds(void)
+{
+	uint64_t secs, usecs, nsecs;
+
+	test_begin("i_microseconds() and i_nanoseconds()");
+
+	secs = time(NULL);
+	usecs = i_microseconds();
+	nsecs = i_nanoseconds();
+
+	/* Assume max 1 seconds time difference between the calls. That should
+	   be more than enough, while still not failing if there are temporary
+	   hangs when running in heavily loaded systems. */
+	test_assert(usecs/1000000 - secs <= 1);
+	test_assert(nsecs/1000 - usecs <= 1000000);
+
+	test_end();
+}
+
 void test_time_util(void)
 {
 	test_timeval_cmp();
@@ -343,4 +362,5 @@ void test_time_util(void)
 	test_time_to_local_day_start();
 	test_strftime_now();
 	test_strftime_fixed();
+	test_micro_nanoseconds();
 }

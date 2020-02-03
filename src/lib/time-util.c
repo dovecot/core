@@ -13,6 +13,15 @@ void i_gettimeofday(struct timeval *tv_r)
 		i_fatal("gettimeofday() failed: %m");
 }
 
+uint64_t i_nanoseconds(void)
+{
+	struct timespec ts;
+
+	if (clock_gettime(CLOCK_REALTIME, &ts) < 0)
+		i_fatal("clock_gettime() failed: %m");
+	return ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
+
 int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2)
 {
 	if (tv1->tv_sec < tv2->tv_sec)
