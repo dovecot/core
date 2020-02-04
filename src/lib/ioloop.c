@@ -463,7 +463,8 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 		tv_r->tv_usec += 1000000;
 	}
 
-	if (tv_r->tv_sec < 0 || (tv_r->tv_sec == 0 && tv_r->tv_usec < 1000)) {
+	if (tv_r->tv_sec < 0) {
+		/* The timeout should have been called already */
 		tv_r->tv_sec = 0;
 		tv_r->tv_usec = 0;
 		return 0;
@@ -473,7 +474,7 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 
 	/* round wait times up to next millisecond */
 	ret = tv_r->tv_sec * 1000 + (tv_r->tv_usec + 999) / 1000;
-	i_assert(ret > 0 && tv_r->tv_sec >= 0 && tv_r->tv_usec >= 0);
+	i_assert(ret >= 0 && tv_r->tv_sec >= 0 && tv_r->tv_usec >= 0);
 	return ret;
 }
 
