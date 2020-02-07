@@ -1,6 +1,6 @@
 dnl dovecot.m4 - Check presence of dovecot -*-Autoconf-*-
 dnl
-dnl   Copyright (C) 2010 Dennis Schridded
+dnl   Copyright (C) 2010 Dennis Schridde
 dnl
 dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
