@@ -355,8 +355,8 @@ redis_dict_init(struct dict *driver, const char *uri,
 		struct dict **dict_r, const char **error_r)
 {
 	struct redis_dict *dict;
-	struct ip_addr ip;
-	unsigned int secs;
+	struct ip_addr ip, *ips;
+	unsigned int secs, ips_count;
 	in_port_t port = REDIS_DEFAULT_PORT;
 	const char *const *args, *unix_path = NULL;
 	int ret = 0;
@@ -379,10 +379,13 @@ redis_dict_init(struct dict *driver, const char *uri,
 		if (str_begins(*args, "path=")) {
 			unix_path = *args + 5;
 		} else if (str_begins(*args, "host=")) {
-			if (net_addr2ip(*args+5, &ip) < 0) {
-				*error_r = t_strdup_printf("Invalid IP: %s",
-							   *args+5);
+			ret = net_gethostbyname(*args+5, &ips, &ips_count);
+			if (ret != 0) {
+				*error_r = t_strdup_printf("net_gethostbyname() failed: %s",
+										   net_gethosterror(ret));
 				ret = -1;
+			} else {
+				ip = ips[0];
 			}
 		} else if (str_begins(*args, "port=")) {
 			if (net_str2port(*args+5, &port) < 0) {

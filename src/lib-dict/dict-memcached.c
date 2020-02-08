@@ -173,6 +173,8 @@ memcached_dict_init(struct dict *driver, const char *uri,
 		    struct dict **dict_r, const char **error_r)
 {
 	struct memcached_dict *dict;
+	struct ip_addr *ips;
+	unsigned int ips_count;
 	const char *const *args;
 	int ret = 0;
 
@@ -192,10 +194,13 @@ memcached_dict_init(struct dict *driver, const char *uri,
 	args = t_strsplit(uri, ":");
 	for (; *args != NULL; args++) {
 		if (str_begins(*args, "host=")) {
-			if (net_addr2ip(*args+5, &dict->ip) < 0) {
-				*error_r = t_strdup_printf("Invalid IP: %s",
-							   *args+5);
+			ret = net_gethostbyname(*args+5, &ips, &ips_count);
+			if (ret != 0) {
+				*error_r = t_strdup_printf("net_gethostbyname() failed: %s",
+										   net_gethosterror(ret));
 				ret = -1;
+			} else {
+				dict->ip = ips[0];
 			}
 		} else if (str_begins(*args, "port=")) {
 			if (net_str2port(*args+5, &dict->port) < 0) {
