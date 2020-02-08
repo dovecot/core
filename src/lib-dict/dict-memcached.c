@@ -197,7 +197,7 @@ memcached_dict_init(struct dict *driver, const char *uri,
 			ret = net_gethostbyname(*args+5, &ips, &ips_count);
 			if (ret != 0) {
 				*error_r = t_strdup_printf("net_gethostbyname() failed: %s",
-										   net_gethosterror(ret));
+							   net_gethosterror(ret));
 				ret = -1;
 			} else {
 				dict->ip = ips[0];
