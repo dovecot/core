@@ -16,6 +16,7 @@
 #ifdef HAVE_SYS_UIO_H
 #  include <sys/uio.h>
 #endif
+#include <fcntl.h>
 
 /* try to keep the buffer size within 4k..128k. ReiserFS may actually return
    128k as optimal size. */
@@ -1116,4 +1117,18 @@ struct ostream *o_stream_create_fd_file_autoclose(int *fd, uoff_t offset)
 	output = o_stream_create_fd_file(*fd, offset, TRUE);
 	*fd = -1;
 	return output;
+}
+
+struct ostream *o_stream_create_file(const char *path, uoff_t offset, mode_t mode,
+				     enum ostream_create_file_flags flags)
+{
+	int fd;
+	int open_flags = O_WRONLY|O_CREAT;
+	if (HAS_ANY_BITS(flags, OSTREAM_CREATE_FILE_FLAG_APPEND))
+		open_flags |= O_APPEND;
+	else
+		open_flags |= O_TRUNC;
+	if ((fd = open(path, open_flags, mode)) < 0)
+		return o_stream_create_error(errno);
+	return o_stream_create_fd_file_autoclose(&fd, offset);
 }

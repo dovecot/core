@@ -17,6 +17,11 @@ enum ostream_send_istream_result {
 	OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT
 };
 
+enum ostream_create_file_flags {
+  /* without append, file is truncated */
+  OSTREAM_CREATE_FILE_FLAG_APPEND = BIT(0),
+};
+
 struct ostream {
 	/* Number of bytes sent via o_stream_send*() and similar functions.
 	   This is counting the input data. For example with a compressed
@@ -59,6 +64,9 @@ struct ostream *o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
 struct ostream *
 o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd);
 struct ostream *o_stream_create_fd_file_autoclose(int *fd, uoff_t offset);
+/* Create ostream for file. If append flag is not set, file will be truncated. */
+struct ostream *o_stream_create_file(const char *path, uoff_t offset, mode_t mode,
+				     enum ostream_create_file_flags flags);
 /* Create an output stream to a buffer. */
 struct ostream *o_stream_create_buffer(buffer_t *buf);
 /* Create an output streams that always fails the writes. */
