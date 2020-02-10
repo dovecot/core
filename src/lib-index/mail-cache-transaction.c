@@ -254,9 +254,20 @@ mail_cache_transaction_open_if_needed(struct mail_cache_transaction_ctx *ctx)
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
+	const uoff_t cache_max_size =
+		cache->index->optimization_set.cache.max_size;
 	int ret;
 
 	mail_cache_transaction_open_if_needed(ctx);
+
+	if (!ctx->tried_compression && ctx->cache_data != NULL &&
+	    cache->last_stat_size + ctx->cache_data->used >= cache_max_size) {
+		/* Looks like cache file is becoming too large. Try to compress
+		   it to free up some space. */
+		if (cache->hdr->continued_record_count > 0 ||
+		    cache->hdr->deleted_record_count > 0)
+			(void)mail_cache_transaction_compress(ctx);
+	}
 
 	if ((ret = mail_cache_lock(cache)) <= 0) {
 		if (ret < 0)
