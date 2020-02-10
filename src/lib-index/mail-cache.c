@@ -116,6 +116,7 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 		mail_cache_set_syscall_error(cache, "fstat()");
 	}
 
+	cache->last_stat_size = st.st_size;
 	cache->st_ino = st.st_ino;
 	cache->st_dev = st.st_dev;
 }
@@ -437,6 +438,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 			i_error("fstat(%s) failed: %m", cache->filepath);
 			return -1;
 		}
+		cache->last_stat_size = st.st_size;
 		if (offset >= (uoff_t)st.st_size) {
 			*data_r = NULL;
 			return 0;
@@ -796,6 +798,7 @@ int mail_cache_append(struct mail_cache *cache, const void *data, size_t size,
 				mail_cache_set_syscall_error(cache, "fstat()");
 			return -1;
 		}
+		cache->last_stat_size = st.st_size;
 		if ((uoff_t)st.st_size > cache->index->optimization_set.cache.max_size) {
 			mail_cache_set_corrupted(cache, "Cache file too large");
 			return -1;
