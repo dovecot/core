@@ -63,6 +63,11 @@ void dcrypt_set_vfs(struct dcrypt_vfs *vfs)
 	dcrypt_vfs = vfs;
 }
 
+bool dcrypt_is_initialized(void)
+{
+	return dcrypt_vfs != NULL;
+}
+
 bool dcrypt_ctx_sym_create(const char *algorithm, enum dcrypt_sym_mode mode,
 			   struct dcrypt_context_symmetric **ctx_r,
 			   const char **error_r)

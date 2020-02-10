@@ -96,6 +96,11 @@ bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set,
 		       const char **error_r);
 
 /**
+ * Returns TRUE if dcrypt has been initialized.
+ */
+bool dcrypt_is_initialized(void);
+
+/**
  * deinitialize dcrypt.
  *
  * NOTE: Do not call this function if you are going to use dcrypt later on.
