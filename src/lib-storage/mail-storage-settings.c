@@ -46,6 +46,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_UINT, mail_cache_min_mail_count),
 	DEF(SET_TIME, mail_cache_unaccessed_field_drop),
 	DEF(SET_SIZE, mail_cache_record_max_size),
+	DEF(SET_SIZE, mail_cache_max_size),
 	DEF(SET_SIZE, mail_cache_compress_min_size),
 	DEF(SET_UINT, mail_cache_compress_delete_percentage),
 	DEF(SET_UINT, mail_cache_compress_continued_percentage),
@@ -112,6 +113,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_cache_min_mail_count = 0,
 	.mail_cache_unaccessed_field_drop = 60*60*24*30,
 	.mail_cache_record_max_size = 64 * 1024,
+	.mail_cache_max_size = 1024 * 1024 * 1024,
 	.mail_cache_compress_min_size = 32 * 1024,
 	.mail_cache_compress_delete_percentage = 20,
 	.mail_cache_compress_continued_percentage = 200,
@@ -468,6 +470,10 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 		return FALSE;
 	}
 
+	if (set->mail_cache_max_size > 1024 * 1024 * 1024) {
+		*error_r = "mail_cache_max_size can't be over 1 GB";
+		return FALSE;
+	}
 	if (set->mail_cache_compress_delete_percentage > 100) {
 		*error_r = "mail_cache_compress_delete_percentage can't be over 100";
 		return FALSE;
