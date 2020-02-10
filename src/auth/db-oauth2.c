@@ -11,10 +11,13 @@
 #include "http-client.h"
 #include "iostream-ssl.h"
 #include "auth-request.h"
+#include "auth-settings.h"
 #include "passdb.h"
 #include "passdb-template.h"
 #include "llist.h"
 #include "db-oauth2.h"
+#include "dcrypt.h"
+#include "dict.h"
 
 #include <stddef.h>
 
@@ -47,6 +50,8 @@ struct passdb_oauth2_settings {
 	const char *client_secret;
 	/* template to expand into passdb */
 	const char *pass_attrs;
+	/* template to expand into key path, turns on local validation support */
+	const char *local_validation_key_dict;
 
 	/* TLS options */
 	const char *tls_ca_cert_file;
@@ -109,6 +114,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(username_format),
 	DEF_STR(username_attribute),
 	DEF_STR(pass_attrs),
+	DEF_STR(local_validation_key_dict),
 	DEF_STR(active_attribute),
 	DEF_STR(active_value),
 	DEF_STR(client_id),
@@ -148,6 +154,7 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.client_id = "",
 	.client_secret = "",
 	.pass_attrs = "",
+	.local_validation_key_dict = "",
 	.rawlog_dir = "",
 	.timeout_msecs = 0,
 	.max_idle_time_msecs = 60000,
@@ -216,10 +223,12 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.dns_client_socket_path = "dns-client";
 	http_set.user_agent = "dovecot-oauth2-passdb/" DOVECOT_VERSION;
 
-	if (*db->set.tokeninfo_url == '\0' &&
+	if (*db->set.local_validation_key_dict == '\0' &&
+	    *db->set.tokeninfo_url == '\0' &&
 	    (*db->set.grant_url == '\0' || *db->set.client_id == '\0') &&
 	    *db->set.introspection_url == '\0')
-		i_fatal("oauth2: Password grant or Tokeninfo or introspection URL must be given");
+		i_fatal("oauth2: Password grant, tokeninfo, introspection URL or "
+			"validation key dictionary must be given");
 
 	if (*db->set.rawlog_dir != '\0')
 		http_set.rawlog_dir = db->set.rawlog_dir;
@@ -257,6 +266,22 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 			db->set.introspection_mode);
 	}
 
+	if (*db->set.local_validation_key_dict != '\0') {
+		struct dict_settings dict_set = {
+			.username = "",
+			.base_dir = global_auth_settings->base_dir,
+			.value_type = DICT_DATA_TYPE_STRING,
+		};
+		if (dict_init(db->set.local_validation_key_dict, &dict_set,
+			      &db->oauth2_set.key_dict, &error) < 0)
+			i_fatal("Cannot initialize key dict: %s", error);
+		/* failure to initialize dcrypt is not fatal - we can still
+		   validate HMAC based keys */
+		(void)dcrypt_initialize(NULL, NULL, NULL);
+		/* initialize key cache */
+		db->oauth2_set.key_cache = oauth2_validation_key_cache_init();
+	}
+
 	DLLIST_PREPEND(&db_oauth2_head, db);
 
 	return db;
@@ -289,7 +314,9 @@ void db_oauth2_unref(struct db_oauth2 **_db)
 		oauth2_request_abort(&db->head->req);
 
 	http_client_deinit(&db->client);
-
+	if (db->oauth2_set.key_dict != NULL)
+		dict_deinit(&db->oauth2_set.key_dict);
+	oauth2_validation_key_cache_deinit(&db->oauth2_set.key_cache);
 	pool_unref(&db->pool);
 }
 
@@ -520,6 +547,8 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 	if (*req->db->set.scope != '\0') {
 		bool found = FALSE;
 		const char *value = auth_fields_find(req->fields, "scope");
+		if (value == NULL)
+			value = auth_fields_find(req->fields, "aud");
 		e_debug(authdb_event(req->auth_request),
 			"oauth2: Token scope(s): %s",
 			value);
@@ -680,6 +709,28 @@ db_oauth2_lookup_continue(struct oauth2_request_result *result,
 	db_oauth2_callback(req, passdb_result, error);
 }
 
+static int db_oauth2_local_validation(struct db_oauth2_request *req)
+{
+	bool is_jwt;
+	struct auth_request *request = req->auth_request;
+	const char *error = NULL;
+	enum passdb_result passdb_result;
+	ARRAY_TYPE(oauth2_field) fields;
+	t_array_init(&fields, 8);
+
+	if (oauth2_try_parse_jwt(&req->db->oauth2_set, request->mech_password,
+				 &fields, &is_jwt, &error) < 0) {
+		if (!is_jwt)
+			return -1;
+		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+	} else {
+		db_oauth2_fields_merge(req, &fields);
+		db_oauth2_process_fields(req, &passdb_result, &error);
+	}
+	db_oauth2_callback(req, passdb_result, error);
+	return 0;
+}
+
 #undef db_oauth2_lookup
 void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 		      const char *token, struct auth_request *request,
@@ -705,6 +756,24 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	input.real_remote_port = req->auth_request->real_remote_port;
 	input.service = req->auth_request->service;
 
+	if (db->oauth2_set.key_dict != NULL) {
+		/* try to validate token locally */
+		e_debug(authdb_event(req->auth_request),
+			"oauth2: Attempting to locally validate token");
+		/* will send result if ret = 0 */
+		if (db_oauth2_local_validation(req) == 0)
+			return;
+		/* fallback to online validation */
+		if (*db->oauth2_set.tokeninfo_url == '\0' &&
+		    *db->oauth2_set.introspection_url == '\0') {
+			db_oauth2_callback(req, PASSDB_RESULT_PASSWORD_MISMATCH,
+					   "oauth2: Not a JWT token");
+			return;
+		}
+		e_debug(authdb_event(req->auth_request),
+                        "Token not a JWT token, falling back to online validation");
+
+	}
 	if (db->oauth2_set.use_grant_password) {
 		e_debug(authdb_event(req->auth_request),
 			"oauth2: Making grant url request to %s",
@@ -725,6 +794,7 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 		req->req = oauth2_token_validation_start(&db->oauth2_set, &input,
 							 db_oauth2_lookup_continue, req);
 	}
+	i_assert(req->req != NULL);
 	DLLIST_PREPEND(&db->head, req);
 }
 

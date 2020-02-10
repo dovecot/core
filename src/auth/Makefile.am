@@ -38,9 +38,11 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-oauth2 \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-lua \
+	-I$(top_srcdir)/src/lib-dcrypt \
 	-DAUTH_MODULE_DIR=\""$(auth_moduledir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
+	-DSYSCONFDIR=\""$(sysconfdir)/dovecot"\" \
 	$(LUA_CFLAGS) \
 	$(AUTH_CFLAGS)
 
