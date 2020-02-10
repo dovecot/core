@@ -262,6 +262,8 @@ struct mail_index_cache_optimization_settings {
 	/* If cache record becomes larger than this, don't add it. */
 	unsigned int record_max_size;
 
+	/* Maximum size for the cache file. Internally the limit is 1 GB. */
+	uoff_t max_size;
 	/* Never compress the file if it's smaller than this */
 	uoff_t compress_min_size;
 	/* Compress the file when n% of records are deleted */

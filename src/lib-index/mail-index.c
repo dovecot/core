@@ -43,6 +43,7 @@ static const struct mail_index_optimization_settings default_optimization_set = 
 	.cache = {
 		.unaccessed_field_drop_secs = 3600 * 24 * 30,
 		.record_max_size = 64 * 1024,
+		.max_size = (uint32_t)-1,
 		.compress_min_size = 32 * 1024,
 		.compress_delete_percentage = 20,
 		.compress_continued_percentage = 200,
@@ -195,6 +196,8 @@ void mail_index_set_optimization_settings(struct mail_index *index,
 	if (set->cache.unaccessed_field_drop_secs != 0)
 		dest->cache.unaccessed_field_drop_secs =
 			set->cache.unaccessed_field_drop_secs;
+	if (set->cache.max_size != 0)
+		dest->cache.max_size = set->cache.max_size;
 	if (set->cache.compress_min_size != 0)
 		dest->cache.compress_min_size = set->cache.compress_min_size;
 	if (set->cache.compress_delete_percentage != 0)
