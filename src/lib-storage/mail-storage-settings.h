@@ -26,6 +26,7 @@ struct mail_storage_settings {
 	unsigned int mail_cache_min_mail_count;
 	unsigned int mail_cache_unaccessed_field_drop;
 	uoff_t mail_cache_record_max_size;
+	uoff_t mail_cache_max_size;
 	uoff_t mail_cache_compress_min_size;
 	unsigned int mail_cache_compress_delete_percentage;
 	unsigned int mail_cache_compress_continued_percentage;
