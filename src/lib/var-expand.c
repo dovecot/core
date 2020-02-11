@@ -589,7 +589,9 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 			if (final_ret > ret)
 				final_ret = ret;
 
-			if (var != NULL) {
+			if (ret <= 0)
+				str_append(dest, var);
+			else {
 				for (i = 0; i < modifier_count; i++)
 					var = modifier[i](var, &ctx);
 
