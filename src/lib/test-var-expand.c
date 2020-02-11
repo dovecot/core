@@ -59,6 +59,7 @@ static void test_var_expand_builtin(void)
 
 		{ "%{nonexistent}", "UNSUPPORTED_VARIABLE_nonexistent", 0 },
 		{ "%{nonexistent:default}", "UNSUPPORTED_VARIABLE_nonexistent", 0 },
+		{ "%x", "UNSUPPORTED_VARIABLE_x", 0 },
 	};
 	static const struct var_expand_table table[] = {
 		{ 'v', "value", NULL },
