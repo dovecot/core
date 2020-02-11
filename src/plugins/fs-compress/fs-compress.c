@@ -129,7 +129,8 @@ fs_compress_file_init(struct fs_file *_file, const char *path,
 		/* use async stream for parent, so fs_read_stream() won't create
 		   another seekable stream needlessly */
 		file->super_read = fs_file_init_parent(_file, path,
-			mode | flags | FS_OPEN_FLAG_ASYNC);
+			mode | flags | FS_OPEN_FLAG_ASYNC |
+			FS_OPEN_FLAG_ASYNC_NOQUEUE);
 	} else {
 		file->super_read = file->file.parent;
 	}
