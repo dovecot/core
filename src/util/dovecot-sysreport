@@ -77,9 +77,9 @@ while (( "$#" )); do
       ;;
 
     -h|--help)
-      
-      echo -e "dovecot-sysreport \t[-h|--help] [-c|--core binary core] [-d|--destination dest] 
-      \t\t\t[-k|--keeptemp] -- utility to gather information from the current 
+
+      echo -e "dovecot-sysreport \t[-h|--help] [-c|--core binary core] [-d|--destination dest]
+      \t\t\t[-k|--keeptemp] -- utility to gather information from the current
       \t\t\tsystem to be reported for dovecot bug fixes."
       echo ""
       echo -e "where:"
