@@ -30,6 +30,7 @@ struct message_decoder_context {
 	size_t translation_size;
 
 	struct qp_decoder *qp;
+	struct base64_decoder base64_decoder;
 	buffer_t *encoding_buf;
 
 	char *content_type, *content_charset;
@@ -54,6 +55,7 @@ message_decoder_init(normalizer_func_t *normalizer,
 	ctx->buf = buffer_create_dynamic(default_pool, 8192);
 	ctx->buf2 = buffer_create_dynamic(default_pool, 8192);
 	ctx->encoding_buf = buffer_create_dynamic(default_pool, 128);
+	base64_decode_init(&ctx->base64_decoder, &base64_scheme, 0);
 	return ctx;
 }
 
@@ -273,11 +275,9 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				struct message_block *input,
 				struct message_block *output)
 {
-	struct base64_decoder b64dec;
 	const unsigned char *data = NULL;
 	size_t pos = 0, size = 0;
 	const char *error;
-	int ret;
 
 	if (ctx->encoding_buf->used != 0)
 		buffer_append(ctx->encoding_buf, input->data, input->size);
@@ -307,30 +307,21 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		break;
 	}
 	case MESSAGE_CTE_BASE64:
+		i_assert(ctx->encoding_buf->used == 0);
 		buffer_set_used_size(ctx->buf, 0);
-		base64_decode_init(&b64dec, &base64_scheme, 0);
-		if (ctx->encoding_buf->used != 0) {
-			ret = base64_decode_more(&b64dec,
-						 ctx->encoding_buf->data,
-						 ctx->encoding_buf->used,
-						 &pos, ctx->buf);
-		} else {
-			ret = base64_decode_more(&b64dec,
-						 input->data, input->size,
-						 &pos, ctx->buf);
-		}
-		if (ret < 0 || base64_decode_finish(&b64dec) < 0) {
-			/* corrupted base64 data, don't bother with
-			   the rest of it */
-			return FALSE;
-		}
-		if (ret == 0) {
-			/* end of base64 input */
-			pos = input->size;
-			buffer_set_used_size(ctx->encoding_buf, 0);
+		if (!base64_decode_is_finished(&ctx->base64_decoder)) {
+			if (base64_decode_more(&ctx->base64_decoder,
+					       input->data, input->size,
+					       &pos, ctx->buf) <= 0) {
+				/* ignore the rest of the input in this
+				   MIME part */
+				(void)base64_decode_finish(&ctx->base64_decoder);
+			}
 		}
 		data = ctx->buf->data;
 		size = ctx->buf->used;
+		/* eat away all input. base64-decoder buffers it internally. */
+		pos = input->size;
 		break;
 	}
 
@@ -401,6 +392,8 @@ message_decoder_current_content_type(struct message_decoder_context *ctx)
 void message_decoder_decode_reset(struct message_decoder_context *ctx)
 {
 	const char *error;
+
+	base64_decode_reset(&ctx->base64_decoder);
 
 	if (ctx->qp != NULL)
 		(void)qp_decoder_finish(ctx->qp, &error);
