@@ -13,9 +13,6 @@
 #include "message-header-decode.h"
 #include "message-decoder.h"
 
-/* base64 takes max 4 bytes per character, q-p takes max 3. */
-#define MAX_ENCODING_BUF_SIZE 3
-
 struct message_decoder_context {
 	enum message_decoder_flags flags;
 	normalizer_func_t *normalizer;
@@ -31,7 +28,6 @@ struct message_decoder_context {
 
 	struct qp_decoder *qp;
 	struct base64_decoder base64_decoder;
-	buffer_t *encoding_buf;
 
 	char *content_type, *content_charset;
 	enum message_cte message_cte;
@@ -54,7 +50,6 @@ message_decoder_init(normalizer_func_t *normalizer,
 	ctx->normalizer = normalizer;
 	ctx->buf = buffer_create_dynamic(default_pool, 8192);
 	ctx->buf2 = buffer_create_dynamic(default_pool, 8192);
-	ctx->encoding_buf = buffer_create_dynamic(default_pool, 128);
 	base64_decode_init(&ctx->base64_decoder, &base64_scheme, 0);
 	return ctx;
 }
@@ -70,7 +65,6 @@ void message_decoder_deinit(struct message_decoder_context **_ctx)
 	if (ctx->qp != NULL)
 		qp_decoder_deinit(&ctx->qp);
 
-	buffer_free(&ctx->encoding_buf);
 	buffer_free(&ctx->buf);
 	buffer_free(&ctx->buf2);
 	i_free(ctx->charset_trans_charset);
@@ -276,11 +270,8 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				struct message_block *output)
 {
 	const unsigned char *data = NULL;
-	size_t pos = 0, size = 0;
+	size_t pos, size = 0;
 	const char *error;
-
-	if (ctx->encoding_buf->used != 0)
-		buffer_append(ctx->encoding_buf, input->data, input->size);
 
 	switch (ctx->message_cte) {
 	case MESSAGE_CTE_UNKNOWN:
@@ -289,12 +280,10 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 
 	case MESSAGE_CTE_78BIT:
 	case MESSAGE_CTE_BINARY:
-		i_assert(ctx->encoding_buf->used == 0);
 		data = input->data;
-		size = pos = input->size;
+		size = input->size;
 		break;
 	case MESSAGE_CTE_QP: {
-		i_assert(ctx->encoding_buf->used == 0);
 		buffer_set_used_size(ctx->buf, 0);
 		if (ctx->qp == NULL)
 			ctx->qp = qp_decoder_init(ctx->buf);
@@ -302,12 +291,9 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				      &pos, &error);
 		data = ctx->buf->data;
 		size = ctx->buf->used;
-		/* eat away all input. qp-decoder buffers it internally. */
-		pos = input->size;
 		break;
 	}
 	case MESSAGE_CTE_BASE64:
-		i_assert(ctx->encoding_buf->used == 0);
 		buffer_set_used_size(ctx->buf, 0);
 		if (!base64_decode_is_finished(&ctx->base64_decoder)) {
 			if (base64_decode_more(&ctx->base64_decoder,
@@ -320,16 +306,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		}
 		data = ctx->buf->data;
 		size = ctx->buf->used;
-		/* eat away all input. base64-decoder buffers it internally. */
-		pos = input->size;
 		break;
-	}
-
-	if (ctx->encoding_buf->used != 0)
-		buffer_delete(ctx->encoding_buf, 0, pos);
-	else if (pos != input->size) {
-		buffer_append(ctx->encoding_buf,
-			      input->data + pos, input->size - pos);
 	}
 
 	if (ctx->binary_input) {
@@ -400,5 +377,4 @@ void message_decoder_decode_reset(struct message_decoder_context *ctx)
 	i_free_and_null(ctx->content_type);
 	i_free_and_null(ctx->content_charset);
 	ctx->message_cte = MESSAGE_CTE_78BIT;
-	buffer_set_used_size(ctx->encoding_buf, 0);
 }
