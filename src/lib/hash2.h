@@ -1,6 +1,8 @@
 #ifndef HASH2_H
 #define HASH2_H
 
+#include "hash.h"
+
 struct hash2_iter {
 	struct hash2_value *value, *next_value;
 	unsigned int key_hash;
@@ -39,5 +41,16 @@ void hash2_remove(struct hash2_table *hash, const void *key);
 void hash2_remove_iter(struct hash2_table *hash, struct hash2_iter *iter);
 /* Return the number of nodes in hash table. */
 unsigned int hash2_count(const struct hash2_table *hash) ATTR_PURE;
+
+/* can be used with string keys */
+static inline bool hash2_strcmp(const void *a, const void *b, void *ctx ATTR_UNUSED)
+{
+	return strcmp(a, b) == 0;
+}
+
+static inline unsigned int hash2_str_hash(const void *key)
+{
+	return str_hash(key);
+}
 
 #endif
