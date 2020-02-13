@@ -1,4 +1,4 @@
-v2.3.9.3 2019-02-12  Aki Tuomi <aki.tuomi@open-xchange.com>
+v2.3.9.3 2020-02-12  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2020-7046: Truncated UTF-8 can be used to DoS
 	  submission-login and lmtp processes.
