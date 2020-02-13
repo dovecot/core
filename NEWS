@@ -1,3 +1,109 @@
+v2.3.10  2020-03-06  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* Disable retpoline migitations by default. These can cause severe
+	  performance regressions, so they should be only enabled when
+	  applicable.
+	* IMAP MOVE now commits transactions in batches of 1000 mails. This
+	  helps especially with lazy_expunge when moving a lot of mails. It
+	  mainly avoids situations where multiple IMAP sessions are running the
+	  same MOVE command and duplicating the mails in the lazy_expunge folder.
+	  With this change there can still be some duplication, but the MOVE
+	  always progresses forward. Also if the MOVE fails at some point, the
+	  changes up to the last 1000 mails are still committed instead of
+	  rolled back. Note that the COPY command behavior hasn't changed,
+	  because it is required by IMAP standard to be an atomic operation.
+	* IMAP EXPUNGE and CLOSE now expunges mails in batches of 1000 mails.
+	  This helps especially with lazy_expunge when expunging a lot of mails
+	  (e.g. millions) to make sure that the progress always moves forward
+	  even if the process is killed.
+	* Autoexpunging now expunges mails in batches of 1000 mails. This helps
+	  especially with lazy_expunge when expunging a lot of mails
+	  (e.g. millions) to make sure that the progress always moves forward
+	  even if the process is killed.
+	+ Add tool for generating sysreport called dovecot-sysreport.
+	  This generates a bundle of information usually needed for support
+	  requests.
+	+ Add support for the new IMAP \Important SPECIAL-USE flag (RFC 8457).
+	+ Add metric { group_by } setting. This allows automatically creating
+	  new metrics based on the fields you want to group statistics by.
+	  NOTE: This feature is considered experimental and syntax is subject
+	  to change in future release.
+	+ auth: Support SCRAM-SHA-256 authentication mechanism.
+	+ imap: Support the new IMAP STATUS=SIZE extension.
+	+ Use TCP_QUICKACK to reduce latency for some TCP connections.
+	+ quota-status: Made the service more robust against erroneous use with
+	  Postfix ACL policies other than smtpd_recipient_restrictions.
+	+ Add "revision" field support to imap_id_send setting. Using
+	  "revision *" will send in IMAP ID command response the short commit
+	  hash of the Dovecot git source tree HEAD (same as in dovecot --version).
+	+ IMAP ENVELOPE includes now all addresses when there are multiple
+	  headers (From, To, Cc, etc.) The standard way of having multiple
+	  addresses is to just list them all in a single header. It's
+	  non-standard to have multiple headers. However, since MTAs allow these
+	  mails to pass through and different software may handle them in
+	  different ways, it's better from security point of view to show all
+	  the addresses.
+	+ Event filters now support using "field_name=" to match a field that
+	  doesn't exist or has an empty value. For example use "error=" to match
+	  only events that didn't fail.
+	- acl: INBOX ACLs shouldn't apply for IMAP GETMETADATA/SETMETADATA
+	  commands.
+	- cassandra: CASS_ERROR_SERVER_WRITE_FAILURE error should also be
+	  treated as "uncertain write failure".
+	- dict-redis: Using quota_clone configured with dict-redis could have
+	  crashed when Redis responded slowly.
+	- imap-hibernate: Communication trouble with imap-master leads to
+	  segfault.
+	- imap-hibernate: Unhibernation retrying wasn't working.
+	- imap: Fixed auth lookup privilege problem when imap process was reused
+	  and user was being un-hibernated.
+	- Fix potential crash when copying/moving mails within the same folder.
+	  This happened only when there were a lot of fields in dovecot.index.cache.
+	- lib-index: Recreating dovecot.index.cache file could have crashed when
+	  merging bitmask fields.
+	- lib-index: Using public/shared folders with INDEXPVT configured to use
+	  private \Seen flags, trying to search seen/unseen in an empty folder
+	  crashes with segfault.
+	- lib-mail: Large base64-encoded mails weren't decoded properly.
+	  This could have affected searching/indexing mails and message snippet
+	  generation.
+	- lib-mail: Message with only quoted text could have caused message
+	  snippet to ignore its 200 character limit and return the entire
+	  message. This was added also to dovecot.index.cache file, which
+	  increased disk space and memory usage unnecessarily.
+	  v2.3.9.2 regression (previous versions cached the quoted snippet as
+	  empty). In a large mail quoted text could have become wrongly added
+	  to the snippet, possibly mixed together with non-quoted text.
+	- lib-smtp: client could have assert-crashed if STARTTLS handshake
+	  finished earlier than usually.
+	- lib-ssl-iostream: remove -static flag for lib-ssl-iostream linking to
+	  prevent a compile issue.
+	- lib-storage: Mailbox synchronization may have assert-crashed in some
+	  rare situations.
+	- lib-storage: mdbox didn't preserve date.saved with dsync.
+	- lib: Don't require EAI_{ADDRFAMILY,NODATA}, breaks FreeBSD
+	- master: Some services could respawn unthrottled if they crash during
+	  startup.
+	- push-notification: Do not send push_notification_finished event if
+	  nothing was done. This happens when mail transaction is started and
+	  ended with no changes.
+	- quota-status: Addresses with special characters in the local part caused
+	  problems in the interaction between Postfix and Dovecot. Postfix sent
+	  its own internal representation in the recipient field, while Dovecot
+	  expected a valid RFC5321 mailbox address.
+	- submission-login: SESSION was not correctly encoded field for the
+	  XCLIENT command. Particularly, a '+' character introduced by the
+	  session ID's Base64 encoding causes problems.
+	- submission: Fix submission_max_mail_size to work correctly on 32-bit
+	  systems.
+	- submission: Trusted connections crashed in second connection's EHLO
+	  if submission-login { service_count } is something else than 1 (which
+	  is the default).
+	- submission: XCLIENT command was never used in the protocol exchange
+	  with the relay MTA when submission_backend_capabilities is configured,
+	  even when the relay MTA was properly configured to accept the XCLIENT
+	  command.
+
 v2.3.9.3 2020-02-12  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2020-7046: Truncated UTF-8 can be used to DoS
