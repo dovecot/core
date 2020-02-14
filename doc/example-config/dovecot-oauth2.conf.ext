@@ -1,0 +1,61 @@
+### OAuth2 password database configuration
+
+## url for verifying token validity. Token is appended to the URL
+# tokeninfo_url = http://endpoint/oauth/tokeninfo?access_token=
+
+## introspection endpoint, used to gather extra fields and other information.
+# introspection_url = http://endpoint/oauth/me
+
+## How introspection is made, valid values are
+##   auth = GET request with Bearer authentication
+##   get  = GET request with token appended to URL
+##   post = POST request with token=bearer_token as content
+# introspection_mode = auth
+
+## Force introspection even if tokeninfo contains wanted fields
+## Set this to yes if you are using active_attribute
+# force_introspection = no
+
+## Validation key dictionary, turns on local validation
+# local_validation_key_dict =
+
+## A single wanted scope of validity (optional)
+# scope = something
+
+## username attribute in response (default: email)
+# username_attribute = email
+
+## username normalization format (default: %Lu)
+# username_format = %Lu
+
+## Attribute name for checking whether account is disabled (optional)
+# active_attribute =
+
+## Expected value in active_attribute (empty = require present, but anything goes)
+# active_value =
+
+## Extra fields to set in passdb response (in passdb static style)
+# pass_attrs =
+
+## Timeout in milliseconds
+# timeout_msecs = 0
+
+## Enable debug logging
+# debug = no
+
+## Max parallel connections (how many simultaneous connections to open)
+# max_parallel_connections = 1
+
+## Max pipelined requests (how many requests to send per connection, requires server-side support)
+# max_pipelined_requests = 1
+
+## HTTP request raw log directory
+# rawlog_dir = /tmp/oauth2
+
+## TLS settings
+# tls_ca_cert_file = /path/to/ca-certificates.txt
+# tls_ca_cert_dir = /path/to/certs/
+# tls_cert_file = /path/to/client/cert
+# tls_key_file = /path/to/client/key
+# tls_cipher_suite = HIGH:!SSLv2
+# tls_allow_invalid_cert = FALSE
