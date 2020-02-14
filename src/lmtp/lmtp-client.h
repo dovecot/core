@@ -120,6 +120,7 @@ void client_disconnect(struct client *client, const char *enh_code,
 		       const char *reason) ATTR_NULL(2, 3);
 
 void client_state_reset(struct client *client);
+void client_update_data_state(struct client *client, const char *new_args);
 
 void clients_destroy(void);
 

@@ -471,6 +471,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	io_loop_time_refresh();
 	lldctx.delivery_time_started = ioloop_timeval;
 
+	client_update_data_state(client, username);
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, service_user,
 				      &rcpt_user, &error) < 0) {
@@ -630,6 +631,7 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 			    struct smtp_server_transaction *trans,
 			    struct mail_deliver_session *session)
 {
+	struct client *client = local->client;
 	uid_t first_uid = (uid_t)-1;
 	struct mail *src_mail;
 	struct lmtp_local_recipient *const *llrcpts;
@@ -653,6 +655,7 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 
 		ret = lmtp_local_deliver(local, cmd,
 			trans, llrcpt, src_mail, session);
+		client_update_data_state(client, NULL);
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
 
 		/* succeeded and mail_user is not saved in first_saved_mail */

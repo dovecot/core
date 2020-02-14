@@ -696,6 +696,8 @@ void lmtp_proxy_data(struct client *client,
 	i_assert(data_input->seekable);
 	i_assert(proxy->data_input == NULL);
 
+	client_update_data_state(client, "proxying");
+
 	proxy->data_input = data_input;
 	i_stream_ref(proxy->data_input);
 	if (i_stream_get_size(proxy->data_input, TRUE, &size) < 0) {

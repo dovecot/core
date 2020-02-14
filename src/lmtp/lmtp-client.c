@@ -340,6 +340,16 @@ client_connection_state_changed(void *context,
 		refresh_proctitle();
 }
 
+void client_update_data_state(struct client *client, const char *new_args)
+{
+	i_assert(client->state.state == SMTP_SERVER_STATE_DATA);
+	i_free(client->state.args);
+	client->state.args = i_strdup(new_args);
+
+	if (clients_count == 1)
+		refresh_proctitle();
+}
+
 static void
 client_connection_proxy_data_updated(void *context,
 				     const struct smtp_proxy_data *data)
