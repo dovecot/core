@@ -28,7 +28,8 @@ struct lmtp_local_deliver_context {
 };
 
 struct client_state {
-	const char *name;
+	enum smtp_server_state state;
+	char *args;
 	unsigned int session_id_seq;
 
 	struct istream *data_input;
@@ -81,7 +82,6 @@ struct client {
 	const struct master_service_settings *service_set;
 
 	struct smtp_server_connection *conn;
-	enum smtp_server_state last_state;
 
 	struct ip_addr remote_ip, local_ip, real_local_ip, real_remote_ip;
 	in_port_t remote_port, local_port, real_local_port, real_remote_port;
@@ -119,7 +119,6 @@ void client_destroy(struct client *client, const char *enh_code,
 void client_disconnect(struct client *client, const char *enh_code,
 		       const char *reason) ATTR_NULL(2, 3);
 
-const char *client_state_get_name(struct client *client);
 void client_state_reset(struct client *client);
 
 void clients_destroy(void);

@@ -65,7 +65,11 @@ static void refresh_proctitle(void)
 		client = clients;
 		str_append(title, client_remote_id(client));
 		str_append_c(title, ' ');
-		str_append(title, client_state_get_name(client));
+		str_append(title, smtp_server_state_names[client->state.state]);
+		if (client->state.args != NULL && *client->state.args != '\0') {
+			str_append_c(title, ' ');
+			str_append(title, client->state.args);
+		}
 		break;
 	default:
 		str_printfa(title, "%u connections", clients_count);
@@ -224,6 +228,8 @@ struct client *client_create(int fd_in, int fd_out,
 
 void client_state_reset(struct client *client)
 {
+	i_free(client->state.args);
+
 	if (client->local != NULL)
 		lmtp_local_deinit(&client->local);
 	if (client->proxy != NULL)
@@ -265,17 +271,6 @@ client_default_destroy(struct client *client, const char *enh_code,
 	master_service_client_connection_destroyed(master_service);
 }
 
-const char *client_state_get_name(struct client *client)
-{
-	enum smtp_server_state state;
-
-	if (client->conn == NULL)
-		state = client->last_state;
-	else
-		state = smtp_server_connection_get_state(client->conn, NULL);
-	return smtp_server_state_names[state];
-}
-
 void client_disconnect(struct client *client, const char *enh_code,
 		       const char *reason)
 {
@@ -288,11 +283,10 @@ void client_disconnect(struct client *client, const char *enh_code,
 	if (reason == NULL)
 		reason = "Connection closed";
 	e_info(client->event, "Disconnect from %s: %s (state=%s)",
-	       client_remote_id(client), reason, client_state_get_name(client));
+	       client_remote_id(client), reason,
+			        smtp_server_state_names[client->state.state]);
 
 	if (conn != NULL) {
-		client->last_state =
-			smtp_server_connection_get_state(conn, NULL);
 		smtp_server_connection_terminate(&conn,
 			(enh_code == NULL ? "4.0.0" : enh_code), reason);
 	}
@@ -331,10 +325,17 @@ client_default_trans_free(struct client *client,
 }
 
 static void
-client_connection_state_changed(void *context ATTR_UNUSED,
-				enum smtp_server_state new_state ATTR_UNUSED,
-				const char *new_args ATTR_UNUSED)
+client_connection_state_changed(void *context,
+				enum smtp_server_state new_state,
+				const char *new_args)
 {
+	struct client *client = (struct client *)context;
+
+	i_free(client->state.args);
+
+	client->state.state = new_state;
+	client->state.args = i_strdup(new_args);
+
 	if (clients_count == 1)
 		refresh_proctitle();
 }
@@ -355,12 +356,7 @@ client_connection_proxy_data_updated(void *context,
 static void client_connection_disconnect(void *context, const char *reason)
 {
 	struct client *client = (struct client *)context;
-	struct smtp_server_connection *conn = client->conn;
 
-	if (conn != NULL) {
-		client->last_state =
-			smtp_server_connection_get_state(conn, NULL);
-	}
 	client_disconnect(client, NULL, reason);
 }
 
