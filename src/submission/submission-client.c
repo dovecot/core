@@ -378,7 +378,8 @@ client_default_trans_free(struct client *client,
 
 static void
 client_connection_state_changed(void *context ATTR_UNUSED,
-				enum smtp_server_state newstate ATTR_UNUSED)
+				enum smtp_server_state new_state ATTR_UNUSED,
+				const char *new_args ATTR_UNUSED)
 {
 	if (submission_client_count == 1)
 		submission_refresh_proctitle();
@@ -393,7 +394,8 @@ static void client_connection_disconnect(void *context, const char *reason)
 	if (conn != NULL) {
 		stats = smtp_server_connection_get_stats(conn);
 		client->stats = *stats;
-		client->last_state = smtp_server_connection_get_state(conn);
+		client->last_state =
+			smtp_server_connection_get_state(conn, NULL);
 	}
 	client_disconnect(client, NULL, reason);
 }
@@ -412,7 +414,7 @@ const char *client_state_get_name(struct client *client)
 	if (client->conn == NULL)
 		state = client->last_state;
 	else
-		state = smtp_server_connection_get_state(client->conn);
+		state = smtp_server_connection_get_state(client->conn, NULL);
 	return smtp_server_state_names[state];
 }
 
@@ -479,7 +481,8 @@ void client_disconnect(struct client *client, const char *enh_code,
 	conn = client->conn;
 	client->conn = NULL;
 	if (conn != NULL) {
-		client->last_state = smtp_server_connection_get_state(conn);
+		client->last_state =
+			smtp_server_connection_get_state(conn, NULL);
 		smtp_server_connection_terminate(&conn,
 			(enh_code == NULL ? "4.0.0" : enh_code), reason);
 	}

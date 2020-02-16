@@ -68,8 +68,10 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	ret = smtp_helo_domain_parse(params, !old_smtp, &domain);
 
 	smtp_server_command_input_lock(cmd);
-	if (conn->state.state == SMTP_SERVER_STATE_GREETING)
-		smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_HELO);
+	if (conn->state.state == SMTP_SERVER_STATE_GREETING) {
+		smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_HELO,
+						 NULL);
+	}
 
 	helo_data = p_new(cmd->pool, struct smtp_server_cmd_helo, 1);
 	helo_data->helo.domain = p_strdup(cmd->pool, domain);

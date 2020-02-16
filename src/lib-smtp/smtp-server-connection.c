@@ -1323,22 +1323,33 @@ smtp_server_connection_get_helo_data(struct smtp_server_connection *conn)
 }
 
 enum smtp_server_state
-smtp_server_connection_get_state(struct smtp_server_connection *conn)
+smtp_server_connection_get_state(struct smtp_server_connection *conn,
+				 const char **args_r)
 {
+	if (args_r != NULL)
+		*args_r = conn->state.args;
 	return conn->state.state;
 }
 
 void smtp_server_connection_set_state(struct smtp_server_connection *conn,
-				      enum smtp_server_state state)
+				      enum smtp_server_state state,
+				      const char *args)
 {
+	bool changed = FALSE;
+
 	if (conn->state.state != state) {
 		conn->state.state = state;
-
-		if (conn->callbacks != NULL &&
-			conn->callbacks->conn_state_changed != NULL) {
-			conn->callbacks->conn_state_changed(conn->context, state);
-		}
+		changed = TRUE;
 	}
+	if (null_strcmp(args, conn->state.args) != 0) {
+		i_free(conn->state.args);
+		conn->state.args = i_strdup(args);
+		changed = TRUE;
+	}
+
+	if (changed && conn->callbacks != NULL &&
+	    conn->callbacks->conn_state_changed != NULL)
+		conn->callbacks->conn_state_changed(conn->context, state, args);
 }
 
 const char *
@@ -1352,6 +1363,8 @@ smtp_server_connection_get_security_string(struct smtp_server_connection *conn)
 void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 {
 	e_debug(conn->event, "Connection state reset");
+
+	i_free(conn->state.args);
 
 	if (conn->state.trans != NULL)
 		smtp_server_transaction_free(&conn->state.trans);
@@ -1367,7 +1380,7 @@ void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 
 	/* reset state */
 	i_zero(&conn->state);
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_READY);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_READY, NULL);
 }
 
 void smtp_server_connection_clear(struct smtp_server_connection *conn)

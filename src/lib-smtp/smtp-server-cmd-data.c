@@ -381,7 +381,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 		}
 	}
 
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_DATA);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_DATA, NULL);
 
 	/* chain data streams in the correct order */
 	if (conn->state.data_chain != NULL) {
@@ -493,7 +493,7 @@ cmd_data_start(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_DATA);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_DATA, NULL);
 
 	/* confirm initial success to client */
 	smtp_server_connection_reply_immediate(conn, 354, "OK");

@@ -56,7 +56,7 @@ cmd_xclient_recheck(struct smtp_server_cmd_ctx *cmd,
 	   clear. This provides the opportunity to re-check the protocol state */
 	if (!cmd_xclient_check_state(cmd))
 		return;
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_XCLIENT);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_XCLIENT, NULL);
 
 	/* succes; send greeting */
 	smtp_server_reply(cmd, 220, NULL, "%s %s",
@@ -216,8 +216,10 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
 				     cmd_xclient_completed, proxy_data);
 
-	if (conn->state.state == SMTP_SERVER_STATE_GREETING)
-		smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_XCLIENT);
+	if (conn->state.state == SMTP_SERVER_STATE_GREETING) {
+		smtp_server_connection_set_state(
+			conn, SMTP_SERVER_STATE_XCLIENT, NULL);
+	}
 
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_xclient != NULL) {

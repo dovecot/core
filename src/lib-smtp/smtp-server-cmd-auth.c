@@ -176,7 +176,7 @@ cmd_auth_start(struct smtp_server_cmd_ctx *cmd,
 		return;
 
 	/* advance state */
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_AUTH);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_AUTH, NULL);
 
 	smtp_server_command_ref(command);
 	i_assert(callbacks != NULL && callbacks->conn_cmd_auth != NULL);

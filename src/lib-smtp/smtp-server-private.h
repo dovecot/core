@@ -123,6 +123,7 @@ struct smtp_server_recipient_private {
 
 struct smtp_server_state_data {
 	enum smtp_server_state state;
+	char *args;
 	time_t timestamp;
 
 	unsigned int pending_mail_cmds;
@@ -350,7 +351,8 @@ void smtp_server_connection_reply_immediate(
 
 void smtp_server_connection_reset_state(struct smtp_server_connection *conn);
 void smtp_server_connection_set_state(struct smtp_server_connection *conn,
-	enum smtp_server_state state);
+				      enum smtp_server_state state,
+				      const char *args) ATTR_NULL(3);
 
 int smtp_server_connection_ssl_init(struct smtp_server_connection *conn);
 

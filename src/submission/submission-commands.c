@@ -103,7 +103,7 @@ int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	struct client *client = conn_ctx;
 
 	if (!data->first ||
-	    smtp_server_connection_get_state(client->conn)
+	    smtp_server_connection_get_state(client->conn, NULL)
 		>= SMTP_SERVER_STATE_READY)
 		return client->v.cmd_helo(client, cmd, data);
 

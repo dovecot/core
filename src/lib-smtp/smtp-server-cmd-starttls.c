@@ -107,7 +107,8 @@ cmd_starttls_next(struct smtp_server_cmd_ctx *cmd, void *context ATTR_UNUSED)
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	int ret;
 
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_STARTTLS);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_STARTTLS,
+					 NULL);
 
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_starttls != NULL)

@@ -292,7 +292,8 @@ struct smtp_server_callbacks {
 
 	/* Protocol state events */
 	void (*conn_state_changed)(void *context,
-				   enum smtp_server_state newstate);
+				   enum smtp_server_state new_state,
+				   const char *new_args) ATTR_NULL(3);
 
 	/* Proxy data */
 	void (*conn_proxy_data_updated)(void *conn_ctx,
@@ -475,7 +476,8 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 	bool client_input);
 
 enum smtp_server_state
-smtp_server_connection_get_state(struct smtp_server_connection *conn);
+smtp_server_connection_get_state(struct smtp_server_connection *conn,
+				 const char **args_r) ATTR_NULL(2);
 const char *
 smtp_server_connection_get_security_string(struct smtp_server_connection *conn);
 struct smtp_server_transaction *

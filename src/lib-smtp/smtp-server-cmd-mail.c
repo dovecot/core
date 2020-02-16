@@ -47,7 +47,7 @@ cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
 
 static void
 cmd_mail_recheck(struct smtp_server_cmd_ctx *cmd,
-		 struct smtp_server_cmd_mail *data ATTR_UNUSED)
+		 struct smtp_server_cmd_mail *data)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
@@ -58,7 +58,8 @@ cmd_mail_recheck(struct smtp_server_cmd_ctx *cmd,
 		return;
 
 	/* Advance state */
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_MAIL_FROM);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_MAIL_FROM,
+					 smtp_address_encode(data->path));
 }
 
 void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
@@ -175,7 +176,8 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
 				     cmd_mail_completed, mail_data);
 
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_MAIL_FROM);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_MAIL_FROM,
+					 smtp_address_encode(mail_data->path));
 	conn->state.pending_mail_cmds++;
 
 	smtp_server_command_ref(command);

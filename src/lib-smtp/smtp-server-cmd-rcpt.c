@@ -90,7 +90,8 @@ cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd,
 		return;
 
 	/* Advance state */
-	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_RCPT_TO);
+	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_RCPT_TO,
+					 smtp_address_encode(data->rcpt->path));
 }
 
 void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
