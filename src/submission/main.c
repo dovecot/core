@@ -75,7 +75,11 @@ void submission_refresh_proctitle(void)
 				   net_ip2addr(client->user->conn.remote_ip));
 		}
 		str_append_c(title, ' ');
-		str_append(title, client_state_get_name(client));
+		str_append(title, smtp_server_state_names[client->state.state]);
+		if (client->state.args != NULL && *client->state.args != '\0') {
+			str_append_c(title, ' ');
+			str_append(title, client->state.args);
+		}
 		break;
 	default:
 		str_printfa(title, "%u connections", submission_client_count);

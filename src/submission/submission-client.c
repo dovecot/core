@@ -287,6 +287,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 static void client_state_reset(struct client *client)
 {
+	i_free(client->state.args);
 	i_stream_unref(&client->state.data_input);
 	pool_unref(&client->state.pool);
 
@@ -378,9 +379,16 @@ client_default_trans_free(struct client *client,
 
 static void
 client_connection_state_changed(void *context ATTR_UNUSED,
-				enum smtp_server_state new_state ATTR_UNUSED,
-				const char *new_args ATTR_UNUSED)
+				enum smtp_server_state new_state,
+				const char *new_args)
 {
+	struct client *client = context;
+
+	i_free(client->state.args);
+
+	client->state.state = new_state;
+	client->state.args = i_strdup(new_args);
+
 	if (submission_client_count == 1)
 		submission_refresh_proctitle();
 }
@@ -394,8 +402,6 @@ static void client_connection_disconnect(void *context, const char *reason)
 	if (conn != NULL) {
 		stats = smtp_server_connection_get_stats(conn);
 		client->stats = *stats;
-		client->last_state =
-			smtp_server_connection_get_state(conn, NULL);
 	}
 	client_disconnect(client, NULL, reason);
 }
@@ -405,17 +411,6 @@ static void client_connection_destroy(void *context)
 	struct client *client = context;
 
 	client_destroy(client, NULL, NULL);
-}
-
-const char *client_state_get_name(struct client *client)
-{
-	enum smtp_server_state state;
-
-	if (client->conn == NULL)
-		state = client->last_state;
-	else
-		state = smtp_server_connection_get_state(client->conn, NULL);
-	return smtp_server_state_names[state];
 }
 
 static const char *client_stats(struct client *client)
@@ -476,13 +471,11 @@ void client_disconnect(struct client *client, const char *enh_code,
 	i_info("Disconnect from %s: %s %s (state=%s)",
 	       client_remote_id(client),
 	       log_reason, client_stats(client),
-	       client_state_get_name(client));
+	       smtp_server_state_names[client->state.state]);
 
 	conn = client->conn;
 	client->conn = NULL;
 	if (conn != NULL) {
-		client->last_state =
-			smtp_server_connection_get_state(conn, NULL);
 		smtp_server_connection_terminate(&conn,
 			(enh_code == NULL ? "4.0.0" : enh_code), reason);
 	}

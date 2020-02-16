@@ -12,6 +12,8 @@ struct client;
 
 struct client_state {
 	pool_t pool;
+	enum smtp_server_state state;
+	char *args;
 
 	struct submission_backend *backend;
 	struct istream *data_input;
@@ -85,7 +87,6 @@ struct client {
 	const struct submission_settings *set;
 
 	struct smtp_server_connection *conn;
-	enum smtp_server_state last_state;
 	struct client_state state;
 	ARRAY(struct submission_backend *) pending_backends;
 	ARRAY(struct submission_recipient *) rcpt_to;
@@ -151,8 +152,6 @@ typedef void (*client_input_callback_t)(struct client *context);
 void client_apply_backend_capabilities(struct client *client);
 void client_default_backend_started(struct client *client,
 				    enum smtp_capability caps);
-
-const char *client_state_get_name(struct client *client);
 
 uoff_t client_get_max_mail_size(struct client *client);
 
