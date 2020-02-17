@@ -264,8 +264,9 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 	    cache->last_stat_size + ctx->cache_data->used >= cache_max_size) {
 		/* Looks like cache file is becoming too large. Try to compress
 		   it to free up some space. */
-		if (cache->hdr->continued_record_count > 0 ||
-		    cache->hdr->deleted_record_count > 0)
+		if (!MAIL_CACHE_IS_UNUSABLE(cache) &&
+		    (cache->hdr->continued_record_count > 0 ||
+		     cache->hdr->deleted_record_count > 0))
 			(void)mail_cache_transaction_compress(ctx);
 	}
 
