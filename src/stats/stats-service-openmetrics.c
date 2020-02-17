@@ -34,6 +34,10 @@
    must match the regex [a-zA-Z_:][a-zA-Z0-9_:]*.
  */
 
+static void
+openmetrics_export_submetrics(string_t *out, const struct metric *metric,
+			      string_t *labels, bool count, int64_t timestamp);
+
 static bool openmetrics_check_name(const char *name)
 {
 	const unsigned char *p, *pend;
@@ -135,8 +139,6 @@ openmetrics_export_metric_labels(string_t *out, const struct metric *metric)
 		return;
 	i_assert(count % 2 == 0);
 
-	str_append_c(out, '{');
-
 	str_append(out, filters[0]);
 	str_append(out, "=\"");
 	openmetrics_escape_string(out, filters[1]);
@@ -150,8 +152,59 @@ openmetrics_export_metric_labels(string_t *out, const struct metric *metric)
 		openmetrics_escape_string(out, filters[i * 2 + 1]);
 		str_append_c(out, '"');
 	}
+}
 
-	str_append_c(out, '}');
+static void
+openmetrics_export_submetric(string_t *out, const struct metric *metric,
+			     string_t *labels, bool count, int64_t timestamp)
+{
+	if (!openmetrics_check_name(metric->sub_name))
+		return;
+	str_append_c(labels, '"');
+	openmetrics_escape_string(labels, metric->sub_name);
+	str_append_c(labels, '"');
+
+	str_append(out, "dovecot_");
+	str_append(out, metric->name);
+	if (count) {
+		str_append(out, "_count");
+		str_append_c(out, '{');
+		str_append_str(out, labels);
+		str_append_c(out, '}');
+		str_printfa(out, " %u %"PRId64"\n",
+			    stats_dist_get_count(metric->duration_stats),
+			    timestamp);
+	} else {
+		str_append(out, "_duration_usecs_sum");
+		str_append_c(out, '{');
+		str_append_str(out, labels);
+		str_append_c(out, '}');
+		str_printfa(out, " %"PRIu64" %"PRId64"\n",
+			    stats_dist_get_sum(metric->duration_stats),
+			    timestamp);
+	}
+	size_t label_pos = str_len(labels);
+	openmetrics_export_submetrics(out, metric, labels, count, timestamp);
+	str_truncate(labels, label_pos);
+}
+
+static void
+openmetrics_export_submetrics(string_t *out, const struct metric *metric,
+			      string_t *labels, bool count, int64_t timestamp)
+{
+	struct metric *const *sub_metric;
+	if (!array_is_created(&metric->sub_metrics))
+		return;
+	if (str_len(labels) > 0)
+		str_append_c(labels, ',');
+	str_append(labels, metric->group_by->field);
+	str_append_c(labels, '=');
+	array_foreach(&metric->sub_metrics, sub_metric) {
+		size_t label_pos = str_len(labels);
+		openmetrics_export_submetric(out, *sub_metric, labels,
+					     count, timestamp);
+		str_truncate(labels, label_pos);
+	}
 }
 
 static void
@@ -160,6 +213,10 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 {
 	if (!openmetrics_check_metric(metric))
 		return;
+
+	string_t *labels = t_str_new(32);
+	size_t label_pos;
+	openmetrics_export_metric_labels(labels, metric);
 
 	/* Description */
 	str_append(out, "# HELP dovecot_");
@@ -174,16 +231,24 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 	str_append(out, "# TYPE dovecot_");
 	str_append(out, metric->name);
 	str_append(out, "_count counter\n");
+	/* Put all sub-metrics before the actual value */
+	label_pos = str_len(labels);
+	openmetrics_export_submetrics(out, metric, labels, TRUE,
+				      timestamp);
+	str_truncate(labels, label_pos);
 	/* Metric name */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
 	str_append(out, "_count");
 	/* Labels */
-	openmetrics_export_metric_labels(out, metric);
+	if (str_len(labels) > 0) {
+		str_append_c(out, '{');
+		str_append_str(out, labels);
+		str_append_c(out, '}');
+	}
 	/* Value */
 	str_printfa(out, " %u %"PRId64"\n\n",
 		    stats_dist_get_count(metric->duration_stats), timestamp);
-
 	/* Description */
 	str_append(out, "# HELP dovecot_");
 	str_append(out, metric->name);
@@ -197,12 +262,20 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 	str_append(out, "# TYPE dovecot_");
 	str_append(out, metric->name);
 	str_append(out, "_duration_usecs_sum counter\n");
+	/* Put all sub-metrics before the actual value */
+	openmetrics_export_submetrics(out, metric, labels, FALSE,
+				      timestamp);
+	str_truncate(labels, label_pos);
 	/* Metric name*/
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
 	str_append(out, "_duration_usecs_sum");
 	/* Labels */
-	openmetrics_export_metric_labels(out, metric);
+	if (str_len(labels) > 0) {
+		str_append_c(out, '{');
+		str_append_str(out, labels);
+		str_append_c(out, '}');
+	}
 	/* Value */
 	str_printfa(out, " %"PRIu64" %"PRId64"\n",
 		    stats_dist_get_sum(metric->duration_stats),
