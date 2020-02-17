@@ -23,7 +23,8 @@ dict_LDADD = \
 	$(libs) \
 	$(LIBDOVECOT) \
 	$(DICT_LIBS) \
-	$(SQL_LIBS)
+	$(SQL_LIBS) \
+	-lm
 
 dict_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 
