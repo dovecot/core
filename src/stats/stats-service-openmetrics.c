@@ -160,7 +160,7 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 {
 	if (!openmetrics_check_metric(metric))
 		return;
-	
+
 	/* Description */
 	str_append(out, "# HELP dovecot_");
 	str_append(out, metric->name);
@@ -223,7 +223,7 @@ openmetrics_export(struct http_server_response *resp)
 
 	i_assert(stats_startup_time <= ioloop_time);
 	str_append(out, "# HELP dovecot_stats_uptime_seconds "
-		        "Dovecot stats service uptime\n");
+			"Dovecot stats service uptime\n");
 	str_append(out, "# TYPE dovecot_stats_uptime_seconds counter\n");
 	str_printfa(out, "dovecot_stats_uptime_seconds %"PRId64" %"PRId64"\n\n",
 		    (int64_t)(ioloop_time - stats_startup_time), timestamp);
