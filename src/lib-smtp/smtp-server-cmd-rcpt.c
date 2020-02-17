@@ -56,6 +56,13 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 	i_assert(conn->state.pending_rcpt_cmds > 0);
 	conn->state.pending_rcpt_cmds--;
 
+	if (conn->state.state < SMTP_SERVER_STATE_RCPT_TO) {
+		i_assert(conn->state.state == SMTP_SERVER_STATE_MAIL_FROM);
+		smtp_server_connection_set_state(
+			conn, SMTP_SERVER_STATE_RCPT_TO,
+			smtp_address_encode(data->rcpt->path));
+	}
+
 	i_assert(smtp_server_command_is_replied(command));
 	if (!smtp_server_command_replied_success(command)) {
 		conn->state.denied_rcpt_cmds++;
