@@ -553,8 +553,11 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 			"oauth2: Token scope(s): %s",
 			value);
 		if (value != NULL) {
+			const char **wanted_scopes =
+				t_strsplit_spaces(req->db->set.scope, " ");
 			const char **scopes = t_strsplit_spaces(value, " ");
-			found = str_array_find(scopes, req->db->set.scope);
+			for (; !found && *wanted_scopes != NULL; wanted_scopes++)
+				found = str_array_find(scopes, *wanted_scopes);
 		}
 		if (!found) {
 			*error_r = t_strdup_printf("Token is not valid for scope '%s'",
