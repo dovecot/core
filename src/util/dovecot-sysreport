@@ -137,7 +137,7 @@ f = open('$SRTEMP/conf$cf', "w")
 f.write(hidden)
 f.close()
 HEREDOC
-        elif ! [ -x "$(command -v perl)" ]; then
+        elif [[ -x "$(command -v perl)" ]]; then
           perl -pe 's/(?<!no)((?:password|key|nonce|dnpass)\s*=\s*).*?(?=$|\s)/\1#hidden/g' \
             $cf > $SRTEMP/conf$cf
         else
