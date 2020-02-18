@@ -319,13 +319,17 @@ stats_metric_get_sub_metric(struct metric *metric,
 
 	/* lookup sub-metric */
 	array_foreach (&metric->sub_metrics, sub_metrics) {
-		if ((*sub_metrics)->group_value.type == METRIC_VALUE_TYPE_STR &&
-		    memcmp((*sub_metrics)->group_value.hash, value->hash,
-			   SHA1_RESULTLEN) == 0)
-			return *sub_metrics;
-		else if ((*sub_metrics)->group_value.type == METRIC_VALUE_TYPE_INT &&
-		    (*sub_metrics)->group_value.intmax == value->intmax)
-			return *sub_metrics;
+		switch ((*sub_metrics)->group_value.type) {
+		case METRIC_VALUE_TYPE_STR:
+			if (memcmp((*sub_metrics)->group_value.hash, value->hash,
+				   SHA1_RESULTLEN) == 0)
+				return *sub_metrics;
+			break;
+		case METRIC_VALUE_TYPE_INT:
+			if ((*sub_metrics)->group_value.intmax == value->intmax)
+				return *sub_metrics;
+			break;
+		}
 	}
 	return NULL;
 }
@@ -394,13 +398,17 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 	sub_metric = stats_metric_get_sub_metric(metric, &value);
 
 	if (sub_metric == NULL) T_BEGIN {
-		const char *value_label;
-		if (value.type == METRIC_VALUE_TYPE_STR)
+		const char *value_label = NULL;
+
+		switch (value.type) {
+		case METRIC_VALUE_TYPE_STR:
 			value_label = field->value.str;
-		else if (value.type == METRIC_VALUE_TYPE_INT)
+			break;
+		case METRIC_VALUE_TYPE_INT:
 			value_label = dec2str(field->value.intmax);
-		else
-			i_unreached();
+			break;
+		}
+
 		sub_metric = stats_metric_sub_metric_alloc(metric, value_label,
 							   pool);
 		if (metric->group_by_count > 1) {
