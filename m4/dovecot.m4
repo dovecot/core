@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 30
+# serial 31
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -197,7 +197,7 @@ dnl
 
 AC_DEFUN([AC_CC_RETPOLINE],[
     AC_ARG_WITH(retpoline,
-       AS_HELP_STRING([--with-retpoline=<choice>], [Retpoline migitation choice (default: keep)]),
+       AS_HELP_STRING([--with-retpoline=<choice>], [Retpoline mitigation choice (default: keep)]),
             with_retpoline=$withval,
             with_retpoline=keep)
 
