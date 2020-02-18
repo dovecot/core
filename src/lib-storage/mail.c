@@ -11,6 +11,7 @@
 #include "istream.h"
 #include "mail-cache.h"
 #include "mail-storage-private.h"
+#include "message-id.h"
 #include "message-part-data.h"
 #include "imap-bodystructure.h"
 
@@ -360,6 +361,26 @@ int mail_get_backend_mail(struct mail *mail, struct mail **real_mail_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 	return p->v.get_backend_mail(mail, real_mail_r);
+}
+
+int mail_get_message_id(struct mail *mail, const char **value_r)
+{
+	const char *hdr_value, *msgid_bare;
+	int ret;
+
+	*value_r = NULL;
+
+	ret = mail_get_first_header(mail, "Message-ID", &hdr_value);
+	if (ret <= 0)
+		return ret;
+
+	msgid_bare = message_id_get_next(&hdr_value);
+	if (msgid_bare == NULL)
+		return 0;
+
+	/* Complete the message ID with surrounding `<' and `>'. */
+	*value_r = t_strconcat("<",  msgid_bare, ">", NULL);
+	return 1;
 }
 
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,

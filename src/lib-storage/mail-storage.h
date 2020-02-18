@@ -975,6 +975,14 @@ int mail_get_special(struct mail *mail, enum mail_fetch_field field,
    but in virtual mailboxes it points to the backend mailbox. */
 int mail_get_backend_mail(struct mail *mail, struct mail **real_mail_r);
 
+/* Retrieve and parse the value of the Message-ID header field. Returns 1 if the
+   header was found and it contains a valid message ID, 0 if the header was not
+   found or no valid message ID was contained in it, and -1 if an error occurred
+   while retrieving the header. Returns the message ID value including '<' and
+   '>' in the *value_r return parameter or NULL if the header wasn't found or
+   its value was invalid. */
+int mail_get_message_id(struct mail *mail, const char **value_r);
+
 /* Update message flags. */
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,
 		       enum mail_flags flags);
