@@ -132,7 +132,7 @@ unwrap_and_hide_pass () {
           python <<HEREDOC
 import re
 conf =  open('$cf', 'r').read()
-hidden = re.sub('(?<!no)((?:password|key|nonce|dnpass)\s*=\s*).*?(?=$|\s)', '\1#hidden', conf)
+hidden = re.sub('(?<!no)((?:password|key|nonce|dnpass)\s*=\s*).*?(?=$|\s)', '\g<1>#hidden', conf)
 f = open('$SRTEMP/conf$cf', "w")
 f.write(hidden)
 f.close()
