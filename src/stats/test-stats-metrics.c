@@ -233,11 +233,149 @@ static void test_stats_metrics_group_by_discrete(void)
 		test_stats_metrics_group_by_discrete_real(&discrete_tests[i]);
 }
 
+#define QUANTIZED_TEST_VAL_COUNT	15
+struct quantized_test {
+	const char *settings_blob;
+	unsigned int num_inputs;
+	intmax_t input_vals[QUANTIZED_TEST_VAL_COUNT];
+
+	unsigned int num_sub_metrics;
+
+	unsigned int num_ranges;
+	struct {
+		struct stats_metric_settings_bucket_range range;
+		intmax_t count;
+	} ranges[QUANTIZED_TEST_VAL_COUNT];
+};
+
+static const struct quantized_test quantized_tests[] = {
+	{
+		"linear:100:1000:100",
+		13,
+		{ 0, 50, 100, 101, 200, 201, 250, 301, 900, 901, 1000, 1001, 2000 },
+		7,
+		11,
+		{ { { INTMAX_MIN, 100 }, 3 },
+		  { { 100, 200 }, 2 },
+		  { { 200, 300 }, 2 },
+		  { { 300, 400 }, 1 },
+		  { { 400, 500 }, 0 },
+		  { { 500, 600 }, 0 },
+		  { { 600, 700 }, 0 },
+		  { { 700, 800 }, 0 },
+		  { { 800, 900 }, 1 },
+		  { { 900, 1000 }, 2 },
+		  { { 1000, INTMAX_MAX }, 2 },
+		}
+	},
+};
+
+static void test_stats_metrics_group_by_quantized_real(const struct quantized_test *test)
+{
+	unsigned int i;
+
+	test_begin(t_strdup_printf("stats metrics (quantized group by) - %s",
+				   test->settings_blob));
+
+	test_init(t_strdup_printf("metric=test\n"
+				  "metric/test/name=test\n"
+				  "metric/test/event_name=test\n"
+				  "metric/test/group_by=test_name foobar:%s\n"
+				  "\n", test->settings_blob));
+
+	struct event *event;
+
+	for (i = 0; i < test->num_inputs; i++) {
+		event = event_create(NULL);
+		event_add_category(event, &test_category);
+		event_set_name(event, "test");
+		event_add_str(event, "test_name", "alpha");
+		event_add_int(event, "foobar", test->input_vals[i]);
+		test_event_send(event);
+		event_unref(&event);
+	}
+
+	/* check total number of events */
+	test_assert(get_stats_dist_field("test", STATS_DIST_COUNT) == test->num_inputs);
+
+	/* analyze the structure */
+	struct stats_metrics_iter *iter = stats_metrics_iterate_init(metrics);
+	const struct metric *root_metric = stats_metrics_iterate(iter);
+	stats_metrics_iterate_deinit(&iter);
+
+	test_stats_metrics_group_by_check_one(root_metric, NULL, test->num_inputs,
+					      1, 2, STATS_METRIC_GROUPBY_DISCRETE,
+					      "test_name", 0);
+
+	/* examine first level sub-metric */
+	struct metric *const *first = array_idx(&root_metric->sub_metrics, 0);
+	test_stats_metrics_group_by_check_one(first[0],
+					      "alpha",
+					      test->num_inputs,
+					      test->num_sub_metrics,
+					      1,
+					      STATS_METRIC_GROUPBY_QUANTIZED,
+					      "foobar",
+					      METRIC_VALUE_TYPE_STR);
+
+	/* check the ranges */
+	test_assert(first[0]->group_by[0].num_ranges == test->num_ranges);
+	for (i = 0; i < test->num_ranges; i++) {
+		test_assert(first[0]->group_by[0].ranges[i].min == test->ranges[i].range.min);
+		test_assert(first[0]->group_by[0].ranges[i].max == test->ranges[i].range.max);
+	}
+
+	/* examine second level sub-metrics */
+	struct metric *const *second = array_idx(&first[0]->sub_metrics, 0);
+
+	for (i = 0; i < test->num_sub_metrics; i++) {
+		const char *sub_name;
+		intmax_t range_idx;
+
+		/* we check these first, before we use the value below */
+		test_assert(second[i]->group_value.type == METRIC_VALUE_TYPE_BUCKET_INDEX);
+		test_assert(second[i]->group_value.intmax < test->num_ranges);
+
+		range_idx = second[i]->group_value.intmax;
+
+		/* construct the expected sub-metric name */
+		if (test->ranges[range_idx].range.min == INTMAX_MIN) {
+			sub_name = t_strdup_printf("foobar_ninf_%jd",
+						   test->ranges[range_idx].range.max);
+		} else if (test->ranges[range_idx].range.max == INTMAX_MAX) {
+			sub_name = t_strdup_printf("foobar_%jd_inf",
+						   test->ranges[range_idx].range.min + 1);
+		} else {
+			sub_name = t_strdup_printf("foobar_%jd_%jd",
+						   test->ranges[range_idx].range.min + 1,
+						   test->ranges[range_idx].range.max);
+		}
+
+		test_stats_metrics_group_by_check_one(second[i],
+						      sub_name,
+						      test->ranges[second[i]->group_value.intmax].count,
+						      0, 0, 0, NULL,
+						      METRIC_VALUE_TYPE_BUCKET_INDEX);
+	}
+
+	test_deinit();
+	test_end();
+}
+
+static void test_stats_metrics_group_by_quantized(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(quantized_tests); i++)
+		test_stats_metrics_group_by_quantized_real(&quantized_tests[i]);
+}
+
 int main(void) {
 	void (*const test_functions[])(void) = {
 		test_stats_metrics,
 		test_stats_metrics_filter,
 		test_stats_metrics_group_by_discrete,
+		test_stats_metrics_group_by_quantized,
 		NULL
 	};
 

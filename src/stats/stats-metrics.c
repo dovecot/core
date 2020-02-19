@@ -329,6 +329,10 @@ stats_metric_get_sub_metric(struct metric *metric,
 			if ((*sub_metrics)->group_value.intmax == value->intmax)
 				return *sub_metrics;
 			break;
+		case METRIC_VALUE_TYPE_BUCKET_INDEX:
+			if ((*sub_metrics)->group_value.intmax == value->intmax)
+				return *sub_metrics;
+			break;
 		}
 	}
 	return NULL;
@@ -373,6 +377,64 @@ stats_metric_group_by_discrete(const struct event_field *field,
 	i_unreached();
 }
 
+/* convert the value to a bucket index */
+static bool
+stats_metric_group_by_quantized(const struct event_field *field,
+				struct metric_value *value,
+				const struct stats_metric_settings_group_by *group_by)
+{
+	switch (field->value_type) {
+	case EVENT_FIELD_VALUE_TYPE_STR:
+	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+		return FALSE;
+	case EVENT_FIELD_VALUE_TYPE_INTMAX:
+		break;
+	}
+
+	value->type = METRIC_VALUE_TYPE_BUCKET_INDEX;
+
+	for (unsigned int i = 0; i < group_by->num_ranges; i++) {
+		if ((field->value.intmax <= group_by->ranges[i].min) ||
+		    (field->value.intmax > group_by->ranges[i].max))
+			continue;
+
+		value->intmax = i;
+		return TRUE;
+	}
+
+	i_panic("failed to find a matching bucket for '%s'=%jd",
+		group_by->field, field->value.intmax);
+}
+
+/* convert value to a bucket label */
+static const char *
+stats_metric_group_by_quantized_label(const struct event_field *field,
+				      const struct stats_metric_settings_group_by *group_by,
+				      const size_t bucket_index)
+{
+	const struct stats_metric_settings_bucket_range *range = &group_by->ranges[bucket_index];
+	const char *name = group_by->field;
+	const char *label;
+
+	switch (field->value_type) {
+	case EVENT_FIELD_VALUE_TYPE_STR:
+	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+		i_unreached();
+	case EVENT_FIELD_VALUE_TYPE_INTMAX:
+		break;
+	}
+
+	if (range->min == INTMAX_MIN)
+		label = t_strdup_printf("%s_ninf_%jd", name, range->max);
+	else if (range->max == INTMAX_MAX)
+		label = t_strdup_printf("%s_%jd_inf", name, range->min + 1);
+	else
+		label = t_strdup_printf("%s_%jd_%jd", name,
+					range->min + 1, range->max);
+
+	return label;
+}
+
 static void
 stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 {
@@ -388,6 +450,10 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 	switch (group_by->func) {
 	case STATS_METRIC_GROUPBY_DISCRETE:
 		if (!stats_metric_group_by_discrete(field, &value))
+			return;
+		break;
+	case STATS_METRIC_GROUPBY_QUANTIZED:
+		if (!stats_metric_group_by_quantized(field, &value, group_by))
 			return;
 		break;
 	}
@@ -407,6 +473,17 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 		case METRIC_VALUE_TYPE_INT:
 			value_label = dec2str(field->value.intmax);
 			break;
+		case METRIC_VALUE_TYPE_BUCKET_INDEX:
+			switch (group_by->func) {
+			case STATS_METRIC_GROUPBY_DISCRETE:
+				i_unreached();
+			case STATS_METRIC_GROUPBY_QUANTIZED:
+				value_label = stats_metric_group_by_quantized_label(field,
+										    group_by,
+										    value.intmax);
+				break;
+			}
+			break;
 		}
 
 		sub_metric = stats_metric_sub_metric_alloc(metric, value_label,
@@ -415,6 +492,7 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 			sub_metric->group_by_count = metric->group_by_count - 1;
 			sub_metric->group_by = &metric->group_by[1];
 		}
+		sub_metric->group_value.type = value.type;
 		sub_metric->group_value.intmax = value.intmax;
 		memcpy(sub_metric->group_value.hash, value.hash, SHA1_RESULTLEN);
 	} T_END;

@@ -55,6 +55,7 @@ struct metric_field {
 enum metric_value_type {
 	METRIC_VALUE_TYPE_STR,
 	METRIC_VALUE_TYPE_INT,
+	METRIC_VALUE_TYPE_BUCKET_INDEX,
 };
 
 struct metric_value {

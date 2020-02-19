@@ -280,6 +280,90 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 
+static bool parse_metric_group_by_common(const char *func,
+					 const char *const *params,
+					 intmax_t *min_r,
+					 intmax_t *max_r,
+					 intmax_t *other_r,
+					 const char **error_r)
+{
+	intmax_t min, max, other;
+
+	if ((str_array_length(params) != 3) ||
+	    (str_to_intmax(params[0], &min) < 0) ||
+	    (str_to_intmax(params[1], &max) < 0) ||
+	    (str_to_intmax(params[2], &other) < 0)) {
+		*error_r = t_strdup_printf("group_by '%s' aggregate function takes "
+					   "3 int args", func);
+		return FALSE;
+	}
+
+	if ((min < 0) || (max < 0) || (other < 0)) {
+		*error_r = t_strdup_printf("group_by '%s' aggregate function "
+					   "arguments must be >= 0", func);
+		return FALSE;
+	}
+
+	if (min >= max) {
+		*error_r = t_strdup_printf("group_by '%s' aggregate function "
+					   "min must be < max (%ju must be < %ju)",
+					   func, min, max);
+		return FALSE;
+	}
+
+	*min_r = min;
+	*max_r = max;
+	*other_r = other;
+
+	return TRUE;
+}
+
+static bool parse_metric_group_by_lin(pool_t pool, struct stats_metric_settings_group_by *group_by,
+				      const char *const *params, const char **error_r)
+{
+	intmax_t min, max, step;
+
+	if (!parse_metric_group_by_common("linear", params, &min, &max, &step, error_r))
+		return FALSE;
+
+	if ((min + step) > max) {
+		*error_r = t_strdup_printf("group_by 'linear' aggregate function "
+					   "min+step must be <= max (%ju must be <= %ju)",
+					   min + step, max);
+		return FALSE;
+	}
+
+	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
+
+	/*
+	 * Allocate the bucket range array and fill it in
+	 *
+	 * The first bucket is special - it contains everything less than or
+	 * equal to 'min'.  The last bucket is also special - it contains
+	 * everything greater than 'max'.
+	 *
+	 * The second bucket begins at 'min + 1', the third bucket begins at
+	 * 'min + 1 * step + 1', the fourth at 'min + 2 * step + 1', and so on.
+	 */
+	group_by->num_ranges = (max - min) / step + 2;
+	group_by->ranges = p_new(pool, struct stats_metric_settings_bucket_range,
+				 group_by->num_ranges);
+
+	/* set up min & max buckets */
+	group_by->ranges[0].min = INTMAX_MIN;
+	group_by->ranges[0].max = min;
+	group_by->ranges[group_by->num_ranges - 1].min = max;
+	group_by->ranges[group_by->num_ranges - 1].max = INTMAX_MAX;
+
+	/* remaining buckets */
+	for (unsigned int i = 1; i < group_by->num_ranges - 1; i++) {
+		group_by->ranges[i].min = min + (i - 1) * step;
+		group_by->ranges[i].max = min + i * step;
+	}
+
+	return TRUE;
+}
+
 static bool parse_metric_group_by(struct stats_metric_settings *set,
 				  pool_t pool, const char **error_r)
 {
@@ -311,6 +395,10 @@ static bool parse_metric_group_by(struct stats_metric_settings *set,
 					   "does not take any args";
 				return FALSE;
 			}
+		} else if (strcmp(params[1], "linear") == 0) {
+			/* <field>:linear:<min val>:<max val>:<step> */
+			if (!parse_metric_group_by_lin(pool, &group_by, &params[2], error_r))
+				return FALSE;
 		} else {
 			*error_r = t_strdup_printf("unknown aggregation function "
 						   "'%s' on field '%s'", params[1], params[0]);
