@@ -452,11 +452,9 @@ stats_metric_event_field(struct event *event, const char *fieldname,
 static void
 stats_metric_event(struct metric *metric, struct event *event, pool_t pool)
 {
-	intmax_t duration;
-
-	event_get_last_duration(event, &duration);
-	stats_dist_add(metric->duration_stats, duration);
-
+	/* duration is special - we always add it */
+	stats_metric_event_field(event, "duration",
+				 metric->duration_stats);
 
 	for (unsigned int i = 0; i < metric->fields_count; i++)
 		stats_metric_event_field(event,
@@ -495,6 +493,13 @@ void stats_metrics_event(struct stats_metrics *metrics, struct event *event,
 {
 	struct event_filter_match_iter *iter;
 	struct metric *metric;
+	intmax_t duration;
+
+	/* Note: Adding the field here means that it will get exported
+	   below.  This is necessary to allow group-by functions to quantize
+	   based on the event duration. */
+	event_get_last_duration(event, &duration);
+	event_add_int(event, "duration", duration);
 
 	/* process stats */
 	iter = event_filter_match_iter_init(metrics->stats_filter, event, ctx);
