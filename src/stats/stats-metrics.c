@@ -425,6 +425,31 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 }
 
 static void
+stats_metric_event_field(struct event *event, const char *fieldname,
+			 struct stats_dist *stats)
+{
+	const struct event_field *field = event_find_field(event, fieldname);
+	intmax_t num = 0;
+
+	if (field == NULL)
+		return;
+
+	switch (field->value_type) {
+	case EVENT_FIELD_VALUE_TYPE_STR:
+		break;
+	case EVENT_FIELD_VALUE_TYPE_INTMAX:
+		num = field->value.intmax;
+		break;
+	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+		num = field->value.timeval.tv_sec * 1000000ULL +
+			field->value.timeval.tv_usec;
+		break;
+	}
+
+	stats_dist_add(stats, num);
+}
+
+static void
 stats_metric_event(struct metric *metric, struct event *event, pool_t pool)
 {
 	intmax_t duration;
@@ -432,26 +457,11 @@ stats_metric_event(struct metric *metric, struct event *event, pool_t pool)
 	event_get_last_duration(event, &duration);
 	stats_dist_add(metric->duration_stats, duration);
 
-	for (unsigned int i = 0; i < metric->fields_count; i++) {
-		const struct event_field *field =
-			event_find_field(event, metric->fields[i].field_key);
-		if (field == NULL)
-			continue;
 
-		intmax_t num = 0;
-		switch (field->value_type) {
-		case EVENT_FIELD_VALUE_TYPE_STR:
-			break;
-		case EVENT_FIELD_VALUE_TYPE_INTMAX:
-			num = field->value.intmax;
-			break;
-		case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
-			num = field->value.timeval.tv_sec * 1000000ULL +
-				field->value.timeval.tv_usec;
-			break;
-		}
-		stats_dist_add(metric->fields[i].stats, num);
-	}
+	for (unsigned int i = 0; i < metric->fields_count; i++)
+		stats_metric_event_field(event,
+					 metric->fields[i].field_key,
+					 metric->fields[i].stats);
 
 	if (metric->group_by != NULL)
 		stats_metric_group_by(metric, event, pool);
