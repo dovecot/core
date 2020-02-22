@@ -36,26 +36,32 @@ static void test_mail_storage_errors(void)
 
 	/* try a regular error */
 	mail_storage_set_error(&storage, MAIL_ERROR_PERM, "error1");
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "error1") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "error1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PERM);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "error1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "error1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PERM);
 	test_assert(!storage.last_error_is_internal);
 
 	/* set the error to itself */
 	mail_storage_set_error(&storage, MAIL_ERROR_PARAMS,
 		mail_storage_get_last_error(&storage, &mail_error));
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "error1") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "error1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "error1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "error1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
 	test_assert(!storage.last_error_is_internal);
 
 	/* clear the error - asking for it afterwards is a bug */
 	mail_storage_clear_error(&storage);
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "BUG: Unknown internal error") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "BUG: Unknown internal error") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "BUG: Unknown internal error") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "BUG: Unknown internal error") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(!storage.last_error_is_internal);
 
@@ -63,18 +69,22 @@ static void test_mail_storage_errors(void)
 	test_expect_error_string("critical0");
 	mail_storage_set_critical(&storage, "critical0");
 	test_expect_no_more_errors();
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical0") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical0") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
 	/* internal error without specifying what it is. this needs to clear
 	   the previous internal error. */
 	mail_storage_set_internal_error(&storage);
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strstr(mail_storage_get_last_internal_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(!storage.last_error_is_internal);
 
@@ -82,9 +92,11 @@ static void test_mail_storage_errors(void)
 	test_expect_error_string("critical1");
 	mail_storage_set_critical(&storage, "critical1");
 	test_expect_no_more_errors();
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical1") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
@@ -93,9 +105,11 @@ static void test_mail_storage_errors(void)
 	mail_storage_set_critical(&storage, "critical2: %s",
 		mail_storage_get_last_internal_error(&storage, &mail_error));
 	test_expect_no_more_errors();
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical2: critical1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical2: critical1") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
@@ -104,7 +118,8 @@ static void test_mail_storage_errors(void)
 	mail_storage_set_critical(&storage, "critical3: %s",
 		mail_storage_get_last_error(&storage, &mail_error));
 	test_expect_no_more_errors();
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	errstr = mail_storage_get_last_internal_error(&storage, &mail_error);
 	test_assert(str_begins(errstr, "critical3: "));
@@ -114,9 +129,11 @@ static void test_mail_storage_errors(void)
 
 	/* clear the error again and check that all is as expected */
 	mail_storage_clear_error(&storage);
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "BUG: Unknown internal error") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "BUG: Unknown internal error") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "BUG: Unknown internal error") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "BUG: Unknown internal error") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(!storage.last_error_is_internal);
 
@@ -127,9 +144,11 @@ static void test_mail_storage_errors(void)
 	mail_storage_set_error(&storage, MAIL_ERROR_PARAMS,
 		mail_storage_get_last_internal_error(&storage, &mail_error));
 	test_expect_no_more_errors();
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "critical4") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "critical4") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical4") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical4") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
 	test_assert(!storage.last_error_is_internal);
 
@@ -170,33 +189,41 @@ static void test_mail_storage_last_error_push_pop(void)
 
 	/* critical error 2 pop */
 	mail_storage_last_error_pop(&storage);
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical error 2") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical error 2") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
 	/* regular error 2 pop */
 	mail_storage_last_error_pop(&storage);
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "regular error 2") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "regular error 2") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "regular error 2") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "regular error 2") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
 	test_assert(!storage.last_error_is_internal);
 
 	/* critical error 1 pop */
 	mail_storage_last_error_pop(&storage);
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical error 1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical error 1") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
 	/* regular error 1 pop */
 	mail_storage_last_error_pop(&storage);
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "regular error 1") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "regular error 1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PERM);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "regular error 1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "regular error 1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PERM);
 	test_assert(!storage.last_error_is_internal);
 
