@@ -9,7 +9,7 @@ struct oauth2_request {
 
 	const struct oauth2_settings *set;
 	struct http_client_request *req;
-	struct json_parser *parser;
+	struct json_istream *json_istream;
 	struct istream *is;
 	struct io *io;
 
@@ -22,7 +22,6 @@ struct oauth2_request {
 	void (*json_parsed_cb)(struct oauth2_request *, const char *error);
 
 	ARRAY_TYPE(oauth2_field) fields;
-	char *field_name;
 
 	oauth2_request_callback_t *req_callback;
 	void *req_context;
@@ -31,7 +30,7 @@ struct oauth2_request {
 };
 
 void oauth2_request_parse_json(struct oauth2_request *req);
-int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
+int oauth2_json_tree_build(const buffer_t *json, struct json_tree **jtree_r,
 			   const char **error_r);
 
 int oauth2_validation_key_cache_lookup_pubkey(

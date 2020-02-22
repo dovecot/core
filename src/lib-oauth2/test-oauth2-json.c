@@ -2,7 +2,8 @@
 
 #include "lib.h"
 #include "array.h"
-#include "json-parser.h"
+#include "istream.h"
+#include "json-istream.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
 #include "test-common.h"
@@ -70,7 +71,8 @@ static void test_oauth2_json_valid(void)
 	req->pool = pool;
 	p_array_init(&req->fields, req->pool, 1);
 	req->is = test_istream_create_data(test_input, strlen(test_input));
-	req->parser = json_parser_init(req->is);
+	req->json_istream = json_istream_create_object(
+		req->is, NULL, JSON_PARSER_FLAG_NUMBERS_AS_STRING);
 	req->json_parsed_cb = test_oauth_json_valid_parsed;
 	cb_got_called = FALSE;
 
@@ -124,7 +126,8 @@ static void test_oauth2_json_error(void)
 	req->pool = pool;
 	p_array_init(&req->fields, req->pool, 1);
 	req->is = test_istream_create_data(test_input_1, strlen(test_input_1));
-	req->parser = json_parser_init(req->is);
+	req->json_istream = json_istream_create_object(
+		req->is, NULL, JSON_PARSER_FLAG_NUMBERS_AS_STRING);
 	req->req_context = "invalid_request";
 	req->json_parsed_cb = test_oauth_json_has_error;
 	cb_got_called = FALSE;
@@ -145,7 +148,8 @@ static void test_oauth2_json_error(void)
 	req->pool = pool;
 	p_array_init(&req->fields, req->pool, 1);
 	req->is = test_istream_create_data(test_input_2, strlen(test_input_2));
-	req->parser = json_parser_init(req->is);
+	req->json_istream = json_istream_create_object(
+		req->is, NULL, JSON_PARSER_FLAG_NUMBERS_AS_STRING);
 	req->req_context = "Access denied";
 	req->json_parsed_cb = test_oauth_json_has_error;
 	cb_got_called = FALSE;

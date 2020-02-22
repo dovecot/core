@@ -6,12 +6,16 @@
 #include "str.h"
 #include "http-client.h"
 #include "http-url.h"
-#include "json-parser.h"
+#include "json-istream.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
 
 static void oauth2_request_free(struct oauth2_request *req)
 {
+	json_istream_destroy(&req->json_istream);
+	io_remove(&req->io);
+	i_stream_unref(&req->is);
+
 	timeout_remove(&req->to_delayed_error);
 	pool_unref(&req->pool);
 }
@@ -85,50 +89,48 @@ static int request_field_cmp(const char *key, const struct oauth2_field *field)
 
 void oauth2_request_parse_json(struct oauth2_request *req)
 {
-	enum json_type type;
-	const char *token, *error;
+	struct json_node jnode;
+	struct json_istream *jinput = req->json_istream;
+	const char *error;
 	int ret;
 
-	while((ret = json_parse_next(req->parser, &type, &token)) > 0) {
-		if (req->field_name == NULL) {
-			if (type != JSON_TYPE_OBJECT_KEY) break;
-			/* cannot use t_strdup because we might
-			   have to read more */
-			req->field_name = p_strdup(req->pool, token);
-		} else if (type < JSON_TYPE_STRING) {
-			/* this should be last allocation */
-			p_free(req->pool, req->field_name);
-			json_parse_skip(req->parser);
-		} else {
+	ret = 1;
+	while (ret > 0) {
+		ret = json_istream_read_next(jinput, &jnode);
+		if (ret <= 0)
+			break;
+		i_assert(jnode.name != NULL);
+		if (json_node_is_singular(&jnode)) {
 			if (!array_is_created(&req->fields))
 				p_array_init(&req->fields, req->pool, 4);
 			struct oauth2_field *field =
 				array_append_space(&req->fields);
-			field->name = req->field_name;
-			req->field_name = NULL;
-			field->value = p_strdup(req->pool, token);
+			field->name = p_strdup(req->pool, jnode.name);
+			field->value = p_strdup(req->pool,
+						json_node_get_str(&jnode));
 		}
 	}
 
-	/* read more */
-	if (ret == 0) return;
-
-	io_remove(&req->io);
-
-	if (ret > 0) {
-		(void)json_parser_deinit(&req->parser, &error);
-		error = "Invalid response data";
-	} else if (i_stream_read_eof(req->is) &&
-		   req->is->v_offset == 0 && req->is->stream_errno == 0) {
-		/* discard error, empty response is OK. */
-		(void)json_parser_deinit(&req->parser, &error);
-		error = NULL;
-	} else if (json_parser_deinit(&req->parser, &error) == 0) {
-		error = NULL;
-	} else {
-		i_assert(error != NULL);
+	if (ret == 0) {
+		/* need more data */
+		return;
 	}
 
+	if (i_stream_read_eof(req->is) &&
+	    req->is->v_offset == 0 && req->is->stream_errno == 0) {
+		/* discard error, empty response is OK. */
+		error = NULL;
+	} else {
+		ret = json_istream_finish(&req->json_istream, &error);
+		i_assert(ret != 0);
+		if (ret < 0) {
+			error = t_strdup_printf("Invalid JSON in response: %s",
+						error);
+		}
+	}
+
+	json_istream_destroy(&req->json_istream);
+	io_remove(&req->io);
 	i_stream_unref(&req->is);
 
 	/* check if fields contain error now */
@@ -171,7 +173,8 @@ oauth2_request_response(const struct http_response *response,
 	}
 
 	p_array_init(&req->fields, req->pool, 1);
-	req->parser = json_parser_init(req->is);
+	req->json_istream = json_istream_create_object(
+		req->is, NULL, JSON_PARSER_FLAG_NUMBERS_AS_STRING);
 	req->json_parsed_cb = oauth2_request_continue;
 	req->io = io_add_istream(req->is, oauth2_request_parse_json, req);
 	oauth2_request_parse_json(req);

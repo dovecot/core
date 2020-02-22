@@ -9,7 +9,7 @@
 #include "hash-method.h"
 #include "istream.h"
 #include "iso8601-date.h"
-#include "json-tree.h"
+#include "json-tree.new.h"
 #include "array.h"
 #include "base64.h"
 #include "str-sanitize.h"
@@ -24,11 +24,13 @@
 static const struct json_tree_node *
 get_field_node(const struct json_tree *tree, const char *key)
 {
-	const struct json_tree_node *root = json_tree_root(tree);
-	const struct json_tree_node *value_node = json_tree_find_key(root, key);
+	const struct json_tree_node *root = json_tree_get_root_const(tree);
+	const struct json_tree_node *value_node;
 
-	if (value_node == NULL || value_node->value_type == JSON_TYPE_OBJECT ||
-	    value_node->value_type == JSON_TYPE_ARRAY)
+	value_node = json_tree_node_get_member(root, key);
+	if (value_node == NULL ||
+	    json_tree_node_is_object(value_node) ||
+	    json_tree_node_is_array(value_node))
 		return NULL;
 
 	return value_node;
@@ -43,30 +45,34 @@ get_field(const struct json_tree *tree, const char *key,
 	if (value_node == NULL)
 		return NULL;
 	if (type_r != NULL)
-		*type_r = value_node->value_type;
-	return json_tree_get_value_str(value_node);
+		*type_r = json_tree_node_get_type(value_node);
+	return json_tree_node_as_str(value_node);
 }
 
 static const char *
 get_field_multiple(const struct json_tree *tree, const char *key)
 {
-	const struct json_tree_node *root = json_tree_root(tree);
-	const struct json_tree_node *value_node = json_tree_find_key(root, key);
+	const struct json_tree_node *root = json_tree_get_root_const(tree);
+	const struct json_tree_node *value_node;
 
-	if (value_node == NULL || value_node->value_type == JSON_TYPE_OBJECT)
+	value_node = json_tree_node_get_member(root, key);
+	if (value_node == NULL || json_tree_node_is_object(value_node))
 		return NULL;
-	if (value_node->value_type != JSON_TYPE_ARRAY)
-		return json_tree_get_value_str(value_node);
+	if (!json_tree_node_is_array(value_node))
+		return json_tree_node_as_str(value_node);
 
-	const struct json_tree_node *entry_node = json_tree_get_child(value_node);
+	const struct json_tree_node *entry_node;
+
+	entry_node = json_tree_node_get_child(value_node);
 	string_t *values = t_str_new(64);
 
-	for (; entry_node != NULL; entry_node = entry_node->next) {
-		if (entry_node->value_type == JSON_TYPE_OBJECT ||
-		    entry_node->value_type == JSON_TYPE_ARRAY)
+	for (; entry_node != NULL;
+	     entry_node = json_tree_node_get_next(entry_node)) {
+		if (json_tree_node_is_object(entry_node) ||
+		    json_tree_node_is_array(entry_node))
 		    	continue;
 
-		const char *value_str = json_tree_get_value_str(entry_node);
+		const char *value_str =	json_tree_node_as_str(entry_node);
 
 		if (str_len(values) > 0)
 			str_append_c(values, '\t');
@@ -76,30 +82,32 @@ get_field_multiple(const struct json_tree *tree, const char *key)
 }
 
 static int
-get_time_field(const struct json_tree *tree, const char *key, int64_t *value_r)
+get_time_field(const struct json_tree *tree, const char *key,
+	       int64_t *value_r)
 {
+	const struct json_tree_node *value_node = get_field_node(tree, key);
+
+	if (value_node == NULL)
+		return 0;
+
+	enum json_type value_type = json_tree_node_get_type(value_node);
+
+	if (value_type == JSON_TYPE_NUMBER) {
+		int64_t tstamp;
+
+		if (json_tree_node_get_int64(value_node, &tstamp) < 0 ||
+		    tstamp < 0)
+			return -1;
+		*value_r = tstamp;
+		return 1;
+	}
+
+	const char *value = json_tree_node_as_str(value_node);
 	time_t tvalue;
-	enum json_type value_type;
-	const char *value = get_field(tree, key, &value_type);
 	int tz_offset ATTR_UNUSED;
 
-	if (value == NULL)
-		return 0;
-	if (value_type == JSON_TYPE_NUMBER) {
-		/* Parse with atof() to handle the json valid exponential
-		   formats, but discard the decimal part of the fields as we are
-		   not interested in them.
-
-		   The worst case of x.99999 would appear as almost a second
-		   older than the actual x which is same as saying we processed
-		   it a second later for the purpose of JWT tokens */
-		double v = atof(value);
-		*value_r = (int64_t) v;
-		if (*value_r < 0)
-			return -1;
-		return 1;
-	} else if (iso8601_date_parse((const unsigned char*)value,
-				      strlen(value), &tvalue, &tz_offset)) {
+	if (iso8601_date_parse((const unsigned char*)value, strlen(value),
+			       &tvalue, &tz_offset)) {
 		if (tvalue < 0)
 			return -1;
 		*value_r = tvalue;
@@ -356,7 +364,8 @@ struct jwt_node {
 };
 
 static void
-oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree)
+oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields,
+		       struct json_tree *tree)
 {
 	pool_t pool = array_get_pool(fields);
 	ARRAY(struct jwt_node) nodes;
@@ -366,24 +375,26 @@ oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree)
 	struct jwt_node *root = array_append_space(&nodes);
 
 	root->prefix = "";
-	root->root = json_tree_root(tree);
+	root->root = json_tree_get_root_const(tree);
 
 	while (array_count(&nodes) > 0) {
 		const struct jwt_node *subroot = array_front(&nodes);
-		const struct json_tree_node *node = subroot->root;
+		const struct json_tree_node *tnode = subroot->root;
 
-		while (node != NULL) {
-			if (node->value_type == JSON_TYPE_OBJECT ||
-			    node->value_type == JSON_TYPE_ARRAY) {
+		while (tnode != NULL) {
+			const struct json_node *jnode =
+				json_tree_node_get(tnode);
+
+			if (!json_node_is_singular(jnode)) {
 				root = array_append_space(&nodes);
-				root->root = node->value.child;
-				root->array = node->value_type == JSON_TYPE_ARRAY;
-				if (node->key == NULL)
+				root->root = json_tree_node_get_child(tnode);
+				root->array = json_node_is_array(jnode);
+				if (jnode->name == NULL)
 					root->prefix = subroot->prefix;
 				else if (*subroot->prefix != '\0')
-					root->prefix = t_strconcat(subroot->prefix, node->key, "_", NULL);
+					root->prefix = t_strconcat(subroot->prefix, jnode->name, "_", NULL);
 				else
-					root->prefix = t_strconcat(node->key, "_", NULL);
+					root->prefix = t_strconcat(jnode->name, "_", NULL);
 			} else {
 				struct oauth2_field *field;
 				const char *name;
@@ -404,10 +415,10 @@ oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree)
 					}
 				} else {
 					field = array_append_space(fields);
-					field->name = p_strconcat(pool, subroot->prefix, node->key, NULL);
+					field->name = p_strconcat(pool, subroot->prefix, jnode->name, NULL);
 				}
 
-				const char *value = str_tabescape(json_tree_get_value_str(node));
+				const char *value = str_tabescape(json_node_as_str(jnode));
 
 				if (field->value != NULL) {
 					field->value = p_strconcat(pool, field->value, "\t", value, NULL);
@@ -415,7 +426,7 @@ oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree)
 					field->value = p_strdup(pool, value);
 				}
 			}
-			node = node->next;
+			tnode = json_tree_node_get_next(tnode);
 		}
 		array_pop_front(&nodes);
 	}
@@ -452,10 +463,11 @@ static bool check_scope(const char *req, const char *got)
 }
 
 static int
-oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
-			const char *kid, ARRAY_TYPE(oauth2_field) *fields,
-			struct json_tree *tree, const char *const *blobs,
-			const char **error_r)
+oauth2_jwt_body_process(const struct oauth2_settings *set,
+			const char *alg, const char *kid,
+			ARRAY_TYPE(oauth2_field) *fields,
+			struct json_tree *tree,
+			const char *const *blobs, const char **error_r)
 {
 	const char *sub = get_field(tree, "sub", NULL);
 	int64_t t0 = time(NULL);
@@ -600,7 +612,7 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 
 	const char *alg, *kid;
 	ret = oauth2_jwt_header_process(header_tree, &alg, &kid, error_r);
-	json_tree_deinit(&header_tree);
+	json_tree_unref(&header_tree);
 	if (ret < 0)
 		return -1;
 
@@ -624,7 +636,7 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 		return -1;
 	ret = oauth2_jwt_body_process(set, alg, kid, fields, body_tree, blobs,
 				      error_r);
-	json_tree_deinit(&body_tree);
+	json_tree_unref(&body_tree);
 
 	return ret;
 }
