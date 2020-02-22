@@ -8,6 +8,7 @@
 
 #include "json-istream.h"
 #include "json-ostream.h"
+#include "json-tree-io.h"
 
 #include <unistd.h>
 
@@ -245,6 +246,55 @@ tests[] = {
 
 static const unsigned tests_count = N_ELEMENTS(tests);
 
+static void test_json_tree_io(void)
+{
+	string_t *outbuf;
+	unsigned int i;
+
+	outbuf = str_new(default_pool, 1024);
+
+	for (i = 0; i < tests_count; i++) T_BEGIN {
+		const struct json_io_test *test;
+		const char *text, *text_out;
+		unsigned int text_len;
+		struct json_tree *jtree = NULL;
+		const char *error = NULL;
+		int ret = 0;
+
+		test = &tests[i];
+		text = test->input;
+		text_out = test->output;
+		if (text_out == NULL)
+			text_out = test->input;
+		text_len = strlen(text);
+
+		test_begin(t_strdup_printf("json tree io [%d]", i));
+
+		buffer_set_used_size(outbuf, 0);
+
+		ret = json_tree_read_data(text, text_len, 0, &jtree, &error);
+		test_out_reason_quiet("input ok", ret >= 0, error);
+
+		if (jtree != NULL)
+			json_tree_write_buffer(jtree, outbuf, 0);
+
+		test_out_quiet("io match",
+			       strcmp(text_out, str_c(outbuf)) == 0);
+
+		if (debug) {
+			i_debug("OUT: >%s<", text_out);
+			i_debug("OUT: >%s<", str_c(outbuf));
+		}
+
+		json_tree_unref(&jtree);
+
+		test_end();
+
+	} T_END;
+
+	buffer_free(&outbuf);
+}
+
 static void test_json_tree_stream_io(void)
 {
 	string_t *outbuf;
@@ -421,6 +471,7 @@ int main(int argc, char *argv[])
 	int c;
 
 	static void (*test_functions[])(void) = {
+		test_json_tree_io,
 		test_json_tree_stream_io,
 		NULL
 	};
