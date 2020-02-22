@@ -166,6 +166,12 @@ bool json_ostream_is_closed(struct json_ostream *stream)
 	return stream->closed;
 }
 
+void json_ostream_set_format(struct json_ostream *stream,
+			     const struct json_format *format)
+{
+	json_generator_set_format(stream->generator, format);
+}
+
 void json_ostream_cork(struct json_ostream *stream)
 {
 	if (stream->output != NULL)

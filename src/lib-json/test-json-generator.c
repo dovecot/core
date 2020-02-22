@@ -2157,6 +2157,389 @@ static void test_json_generate_stream(void)
 	str_free(&buffer);
 }
 
+static void test_json_generate_formatted(void)
+{
+	string_t *buffer;
+	struct ostream *output;
+	struct json_format format;
+	struct json_generator *generator;
+	unsigned int state, pos;
+	int ret;
+
+	i_zero(&format);
+	format.indent_chars = 2;
+	format.indent_tab = FALSE;
+	format.whitespace = TRUE;
+	format.new_line = TRUE;
+
+	buffer = str_new(default_pool, 256);
+	output = o_stream_create_buffer(buffer);
+	o_stream_set_no_error_handling(output, TRUE);
+
+	/* value */
+	test_begin("json format value");
+	generator = json_generator_init(output, 0);
+	json_generator_set_format(generator, &format);
+	ret = json_generate_number(generator, 23423);
+	test_assert(ret > 0);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("23423\n", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ value ] */
+	test_begin("json format array - [ string ]");
+	generator = json_generator_init(output, 0);
+	json_generator_set_format(generator, &format);
+	json_generate_array_open(generator);
+	ret = json_generate_string(generator, "frop");
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("[\n"
+			   "  \"frop\"\n"
+			   "]\n", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ true, true, true ] */
+	test_begin("json format array - [ true, true, true ]");
+	generator = json_generator_init(output, 0);
+	json_generator_set_format(generator, &format);
+	json_generate_array_open(generator);
+	ret = json_generate_true(generator);
+	test_assert(ret > 0);
+	ret = json_generate_true(generator);
+	test_assert(ret > 0);
+	ret = json_generate_true(generator);
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("[\n"
+			   "  true,\n"
+			   "  true,\n"
+			   "  true\n"
+			   "]\n",
+			   str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ "frop", "friep", "frml" ] */
+	test_begin("json format array - [ \"frop\", \"friep\", \"frml\" ]");
+	generator = json_generator_init(output, 0);
+	json_generator_set_format(generator, &format);
+	json_generate_array_open(generator);
+	ret = json_generate_string(generator, "frop");
+	test_assert(ret > 0);
+	ret = json_generate_string(generator, "friep");
+	test_assert(ret > 0);
+	ret = json_generate_string(generator, "frml");
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("[\n"
+			   "  \"frop\",\n"
+			   "  \"friep\",\n"
+			   "  \"frml\"\n"
+			   "]\n",
+			   str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "a": [{"d": 1}], "b": [{"e": 2}], "c": [{"f": 3}] } */
+	test_begin("json format object - "
+		   "{ \"a\": [{\"d\": 1}], \"b\": [{\"e\": 2}], "
+		     "\"c\": [{\"f\": 3}] }");
+	generator = json_generator_init(output, 0);
+	json_generator_set_format(generator, &format);
+	json_generate_object_open(generator);
+	ret = json_generate_object_member(generator, "a");
+	test_assert(ret > 0);
+	json_generate_array_open(generator);
+	json_generate_object_open(generator);
+	ret = json_generate_object_member(generator, "d");
+	test_assert(ret > 0);
+	ret = json_generate_number(generator, 1);
+	ret = json_generate_object_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_object_member(generator, "b");
+	test_assert(ret > 0);
+	json_generate_array_open(generator);
+	json_generate_object_open(generator);
+	ret = json_generate_object_member(generator, "e");
+	test_assert(ret > 0);
+	ret = json_generate_number(generator, 2);
+	ret = json_generate_object_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_object_member(generator, "c");
+	test_assert(ret > 0);
+	json_generate_array_open(generator);
+	json_generate_object_open(generator);
+	ret = json_generate_object_member(generator, "f");
+	test_assert(ret > 0);
+	ret = json_generate_number(generator, 3);
+	ret = json_generate_object_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_object_close(generator);
+	test_assert(ret > 0);
+	json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert(strcmp("{\n"
+			   "  \"a\": [\n"
+			   "    {\n"
+			   "      \"d\": 1\n"
+			   "    }\n"
+			   "  ],\n"
+			   "  \"b\": [\n"
+			   "    {\n"
+			   "      \"e\": 2\n"
+			   "    }\n"
+			   "  ],\n"
+			   "  \"c\": [\n"
+			   "    {\n"
+			   "      \"f\": 3\n"
+			   "    }\n"
+			   "  ]\n"
+			   "}\n", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* trickle */
+	test_begin("json format object - trickle");
+	o_stream_set_max_buffer_size(output, 0);
+	generator = json_generator_init(output, 0);
+	json_generator_set_format(generator, &format);
+	json_generate_object_open(generator);
+	state = 0;
+	for (pos = 0; pos < 65535 && state <= 25; pos++) {
+		o_stream_set_max_buffer_size(output, pos);
+		switch (state) {
+		case 0:
+			ret = json_generate_object_member(generator, "aaaaaa");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_array_open(generator);
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 1:
+			ret = json_generate_object_member(generator, "dddddd");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 2:
+			ret = json_generate_number(generator, 1);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 3:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 4:
+			ret = json_generate_object_member(generator, "gggggg");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 5:
+			ret = json_generate_number(generator, 4);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 6:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 7:
+			ret = json_generate_array_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 8:
+			ret = json_generate_object_member(generator, "bbbbbb");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_array_open(generator);
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 9:
+			ret = json_generate_object_member(generator, "eeeeee");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 10:
+			ret = json_generate_number(generator, 2);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 11:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 12:
+			ret = json_generate_object_member(generator, "hhhhhh");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 13:
+			ret = json_generate_number(generator, 5);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 14:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 15:
+			ret = json_generate_array_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 16:
+			ret = json_generate_object_member(generator, "cccccc");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_array_open(generator);
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 17:
+			ret = json_generate_object_member(generator, "ffffff");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 18:
+			ret = json_generate_number(generator, 3);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 19:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			json_generate_object_open(generator);
+			state++;
+			continue;
+		case 20:
+			ret = json_generate_object_member(generator, "iiiiii");
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 21:
+			ret = json_generate_number(generator, 6);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 22:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 23:
+			ret = json_generate_array_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 24:
+			ret = json_generate_object_close(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		case 25:
+			ret = json_generator_flush(generator);
+			test_assert(ret >= 0);
+			if (ret == 0) break;
+			state++;
+			continue;
+		}
+	}
+	json_generator_deinit(&generator);
+	test_assert(state == 26);
+	test_assert(strcmp("{\n"
+			   "  \"aaaaaa\": [\n"
+			   "    {\n"
+			   "      \"dddddd\": 1\n"
+			   "    },\n"
+			   "    {\n"
+			   "      \"gggggg\": 4\n"
+			   "    }\n"
+			   "  ],\n"
+			   "  \"bbbbbb\": [\n"
+			   "    {\n"
+			   "      \"eeeeee\": 2\n"
+			   "    },\n"
+			   "    {\n"
+			   "      \"hhhhhh\": 5\n"
+			   "    }\n"
+			   "  ],\n"
+			   "  \"cccccc\": [\n"
+			   "    {\n"
+			   "      \"ffffff\": 3\n"
+			   "    },\n"
+			   "    {\n"
+			   "      \"iiiiii\": 6\n"
+			   "    }\n"
+			   "  ]\n"
+			   "}\n", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	o_stream_destroy(&output);
+	str_free(&buffer);
+}
+
 static void test_json_append_escaped(void)
 {
 	string_t *str = t_str_new(32);
@@ -2194,6 +2577,7 @@ int main(int argc, char *argv[])
 	static void (*test_functions[])(void) = {
 		test_json_generate_buffer,
 		test_json_generate_stream,
+		test_json_generate_formatted,
 		test_json_append_escaped,
 		test_json_append_escaped_data,
 		NULL

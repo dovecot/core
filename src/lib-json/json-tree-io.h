@@ -24,10 +24,13 @@ int json_tree_read_cstr(const char *str, enum json_parser_flags parser_flags,
  */
 
 void json_tree_write_buffer(const struct json_tree *jtree, buffer_t *buf,
-			    enum json_generator_flags gen_flags);
+			    enum json_generator_flags gen_flags,
+			    const struct json_format *format);
+
 const char *
 json_tree_to_text(const struct json_tree *jtree,
-		  enum json_generator_flags gen_flags);
+		  enum json_generator_flags gen_flags,
+		  const struct json_format *format);
 const char *json_tree_to_text_line(const struct json_tree *jtree);
 
 #endif

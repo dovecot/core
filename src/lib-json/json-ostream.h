@@ -27,6 +27,9 @@ void json_ostream_destroy(struct json_ostream **_stream);
 void json_ostream_close(struct json_ostream *stream);
 bool json_ostream_is_closed(struct json_ostream *stream) ATTR_PURE;
 
+void json_ostream_set_format(struct json_ostream *stream,
+			     const struct json_format *format);
+
 /*
  * Position
  */

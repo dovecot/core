@@ -276,7 +276,7 @@ static void test_json_tree_io(void)
 		test_out_reason_quiet("input ok", ret >= 0, error);
 
 		if (jtree != NULL)
-			json_tree_write_buffer(jtree, outbuf, 0);
+			json_tree_write_buffer(jtree, outbuf, 0, NULL);
 
 		test_out_quiet("io match",
 			       strcmp(text_out, str_c(outbuf)) == 0);

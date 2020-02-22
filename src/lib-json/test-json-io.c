@@ -1145,12 +1145,12 @@ test_json_async_io_run(const struct json_io_test *test, unsigned int scenario)
 	output = o_stream_create_buffer(outbuf);
 
 	switch (scenario) {
-	case 0: case 2:
+	case 0: case 2: case 4: case 6:
 		pipe1_input = i_stream_create_fd_autoclose(&fd_pipe1[0], 16);
 		pipe2_input = i_stream_create_fd_autoclose(&fd_pipe2[0], 32);
 		pipe3_input = i_stream_create_fd_autoclose(&fd_pipe3[0], 64);
 		break;
-	case 1: case 3:
+	case 1: case 3: case 5: case 7:
 		pipe1_input = i_stream_create_fd_autoclose(&fd_pipe1[0], 128);
 		pipe2_input = i_stream_create_fd_autoclose(&fd_pipe2[0], 64);
 		pipe3_input = i_stream_create_fd_autoclose(&fd_pipe3[0], 32);
@@ -1160,12 +1160,12 @@ test_json_async_io_run(const struct json_io_test *test, unsigned int scenario)
 	}
 
 	switch (scenario) {
-	case 0: case 1:
+	case 0: case 1: case 4: case 5:
 		pipe1_output = o_stream_create_fd_autoclose(&fd_pipe1[1], 32);
 		pipe2_output = o_stream_create_fd_autoclose(&fd_pipe2[1], 64);
 		pipe3_output = o_stream_create_fd_autoclose(&fd_pipe3[1], 128);
 		break;
-	case 2: case 3:
+	case 2: case 3: case 6: case 7:
 		pipe1_output = o_stream_create_fd_autoclose(&fd_pipe1[1], 64);
 		pipe2_output = o_stream_create_fd_autoclose(&fd_pipe2[1], 32);
 		pipe3_output = o_stream_create_fd_autoclose(&fd_pipe3[1], 16);
@@ -1203,6 +1203,22 @@ test_json_async_io_run(const struct json_io_test *test, unsigned int scenario)
 				    test_json_async_io_flush_callback, &tproc2);
 	tproc2.io = io_add_istream(tproc2.input,
 				  test_json_async_io_input_callback, &tproc2);
+
+	struct json_format json_format;
+
+	switch (scenario) {
+	case 0: case 1: case 2: case 3:
+		break;
+	case 4: case 5: case 6: case 7:
+		i_zero(&json_format);
+		json_format.indent_chars = 2;
+		json_format.new_line = TRUE;
+		json_format.whitespace = TRUE;
+		json_generator_set_format(tproc1.generator, &json_format);
+		break;
+	default:
+		i_unreached();
+	}
 
 	struct timeout *to = timeout_add(5000, io_loop_stop, ioloop);
 
@@ -1244,7 +1260,7 @@ static void test_json_io_async(void)
 	for (i = 0; i < tests_count; i++) T_BEGIN {
 		test_begin(t_strdup_printf("json io async [%d]", i));
 
-		for (sc = 0; sc < 4; sc++)
+		for (sc = 0; sc < 8; sc++)
 			test_json_async_io_run(&tests[i], sc);
 
 		test_end();
@@ -1567,12 +1583,12 @@ test_json_stream_io_async_run(const struct json_io_test *test,
 	output = o_stream_create_buffer(outbuf);
 
 	switch (scenario) {
-	case 0: case 2:
+	case 0: case 2: case 4: case 6:
 		pipe1_input = i_stream_create_fd_autoclose(&fd_pipe1[0], 16);
 		pipe2_input = i_stream_create_fd_autoclose(&fd_pipe2[0], 32);
 		pipe3_input = i_stream_create_fd_autoclose(&fd_pipe3[0], 64);
 		break;
-	case 1: case 3:
+	case 1: case 3: case 5: case 7:
 		pipe1_input = i_stream_create_fd_autoclose(&fd_pipe1[0], 128);
 		pipe2_input = i_stream_create_fd_autoclose(&fd_pipe2[0], 64);
 		pipe3_input = i_stream_create_fd_autoclose(&fd_pipe3[0], 32);
@@ -1582,12 +1598,12 @@ test_json_stream_io_async_run(const struct json_io_test *test,
 	}
 
 	switch (scenario) {
-	case 0: case 1:
+	case 0: case 1: case 4: case 5:
 		pipe1_output = o_stream_create_fd_autoclose(&fd_pipe1[1], 32);
 		pipe2_output = o_stream_create_fd_autoclose(&fd_pipe2[1], 64);
 		pipe3_output = o_stream_create_fd_autoclose(&fd_pipe3[1], 128);
 		break;
-	case 2: case 3:
+	case 2: case 3: case 6: case 7:
 		pipe1_output = o_stream_create_fd_autoclose(&fd_pipe1[1], 64);
 		pipe2_output = o_stream_create_fd_autoclose(&fd_pipe2[1], 32);
 		pipe3_output = o_stream_create_fd_autoclose(&fd_pipe3[1], 16);
@@ -1613,6 +1629,22 @@ test_json_stream_io_async_run(const struct json_io_test *test,
 	test_sio_processor_init(&tproc2, test, pipe2_input, pipe3_output);
 	tproc2.tctx = &tctx;
 	tproc2.name = "proc_b";
+
+	struct json_format json_format;
+
+	switch (scenario) {
+	case 0: case 1: case 2: case 3:
+		break;
+	case 4: case 5: case 6: case 7:
+		i_zero(&json_format);
+		json_format.indent_chars = 2;
+		json_format.new_line = TRUE;
+		json_format.whitespace = TRUE;
+		json_ostream_set_format(tproc1.joutput, &json_format);
+		break;
+	default:
+		i_unreached();
+	}
 
 	struct timeout *to = timeout_add(5000, io_loop_stop, ioloop);
 
@@ -1654,7 +1686,7 @@ static void test_json_stream_io_async(void)
 	for (i = 0; i < tests_count; i++) T_BEGIN {
 		test_begin(t_strdup_printf("json stream io async [%d]", i));
 
-		for (sc = 0; sc < 4; sc++)
+		for (sc = 0; sc < 8; sc++)
 			test_json_stream_io_async_run(&tests[i], sc);
 		test_end();
 	} T_END;

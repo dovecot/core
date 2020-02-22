@@ -571,4 +571,22 @@ struct json_limits {
 	unsigned int max_list_items;
 };
 
+/*
+ * Format
+ */
+
+struct json_format {
+	/* Number of indent characters (either TAB or SPACE) */
+	unsigned int indent_chars;
+
+	/* Indent character is TAB instead of SPACE */
+	bool indent_tab:1;
+	/* Insert whitespace at appropriate places around separators */
+	bool whitespace:1;
+	/* Insert newlines */
+	bool new_line:1;
+	/* Newlines are CRLF rather than the default LF */
+	bool crlf:1;
+};
+
 #endif

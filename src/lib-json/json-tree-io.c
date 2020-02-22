@@ -59,22 +59,27 @@ int json_tree_read_cstr(const char *str, enum json_parser_flags parser_flags,
  */
 
 void json_tree_write_buffer(const struct json_tree *jtree, buffer_t *buf,
-			    enum json_generator_flags gen_flags)
+			    enum json_generator_flags gen_flags,
+			    const struct json_format *format)
+
 {
 	struct json_ostream *joutput;
 
 	joutput = json_ostream_create_str(buf, gen_flags);
+	if (format != NULL)
+		json_ostream_set_format(joutput, format);
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_ostream_nfinish_destroy(&joutput);
 }
 
 const char *
 json_tree_to_text(const struct json_tree *jtree,
-		  enum json_generator_flags gen_flags)
+		  enum json_generator_flags gen_flags,
+		  const struct json_format *format)
 {
 	string_t *str = t_str_new(1024);
 
-	json_tree_write_buffer(jtree, str, gen_flags);
+	json_tree_write_buffer(jtree, str, gen_flags, format);
 	return str_c(str);
 }
 
@@ -82,6 +87,6 @@ const char *json_tree_to_text_line(const struct json_tree *jtree)
 {
 	string_t *str = t_str_new(1024);
 
-	json_tree_write_buffer(jtree, str, 0);
+	json_tree_write_buffer(jtree, str, 0, NULL);
 	return str_c(str);
 }

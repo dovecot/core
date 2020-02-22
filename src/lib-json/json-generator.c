@@ -28,6 +28,15 @@ enum json_generator_state {
 	JSON_GENERATOR_STATE_END,
 };
 
+enum json_format_state {
+	JSON_FORMAT_STATE_NONE = 0,
+	JSON_FORMAT_STATE_INDENT,
+	JSON_FORMAT_STATE_SPACE,
+	JSON_FORMAT_STATE_CR,
+	JSON_FORMAT_STATE_LF,
+	JSON_FORMAT_STATE_DONE,
+};
+
 struct json_generator_level {
 	bool object:1;
 };
@@ -55,6 +64,12 @@ struct json_generator {
 	/* Write state: stack position of written syntax levels */
 	unsigned int level_stack_written;
 
+	/* Formatting state */
+	struct json_format format;
+	char *format_indent;
+	enum json_format_state format_state;
+	unsigned int indent_pos, indent_count;
+
 	/* Currently opened string output stream */
 	struct json_string_ostream *str_stream;
 	/* Currently pending string input stream */
@@ -72,6 +87,8 @@ struct json_generator {
 	bool text_stream:1;           /* API state */
 	/* A json_string_ostream is running the generator */
 	bool streaming:1;
+	/* Finish writing formatting whitespace element */
+	bool format_finish:1;
 };
 
 static int json_generator_flush_string_input(struct json_generator *generator);
@@ -129,7 +146,24 @@ void json_generator_deinit(struct json_generator **_generator)
 		str_free(&generator->buf);
 	}
 	array_free(&generator->level_stack);
+	i_free(generator->format_indent);
 	i_free(generator);
+}
+
+void json_generator_set_format(struct json_generator *generator,
+				const struct json_format *format)
+{
+	i_assert(generator->state == JSON_GENERATOR_STATE_VALUE);
+	i_assert(generator->write_state == JSON_GENERATOR_STATE_VALUE);
+	generator->format = *format;
+
+	i_free(generator->format_indent);
+	if (format->indent_chars > 0) {
+		generator->format_indent = i_malloc(format->indent_chars);
+		memset(generator->format_indent,
+		       (format->indent_tab ? '\t' : ' '),
+		       format->indent_chars);
+	}
 }
 
 static inline size_t
@@ -252,6 +286,94 @@ static int json_generator_flush_buffer(struct json_generator *generator)
 	return 1;
 }
 
+static int json_generator_flush_format(struct json_generator *generator)
+{
+	int ret;
+
+	for (;;) switch (generator->format_state) {
+	case JSON_FORMAT_STATE_NONE:
+		return 1;
+	case JSON_FORMAT_STATE_CR:
+		ret = json_generator_write_all(generator, "\r", 1);
+		if (ret <= 0)
+			return ret;
+		generator->format_state = JSON_FORMAT_STATE_LF;
+		/* fall through */
+	case JSON_FORMAT_STATE_LF:
+		ret = json_generator_write_all(generator, "\n", 1);
+		if (ret <= 0)
+			return ret;
+		if (generator->format.indent_chars == 0) {
+			generator->format_state = JSON_FORMAT_STATE_DONE;
+			break;
+		}
+		generator->format_state = JSON_FORMAT_STATE_INDENT;
+		/* fall through */
+	case JSON_FORMAT_STATE_INDENT:
+		i_assert(generator->format.indent_chars != 0);
+		while (generator->indent_pos < generator->indent_count) {
+			ret = json_generator_write_buffered(
+				generator, generator->format_indent,
+				generator->format.indent_chars, FALSE);
+			if (ret <= 0)
+				return -1;
+			generator->indent_pos++;
+		}
+		generator->format_state = JSON_FORMAT_STATE_DONE;
+		break;
+	case JSON_FORMAT_STATE_SPACE:
+		ret = json_generator_write_all(generator, " ", 1);
+		if (ret <= 0)
+			return ret;
+		generator->format_state = JSON_FORMAT_STATE_DONE;
+		break;
+	case JSON_FORMAT_STATE_DONE:
+		if (!generator->format_finish)
+			return 1;
+		generator->format_state = JSON_FORMAT_STATE_NONE;
+		break;
+	}
+	i_unreached();
+}
+
+static int
+json_generator_write_newline(struct json_generator *generator,
+			      unsigned int indent_count, bool finish)
+{
+	if (generator->format_state == JSON_FORMAT_STATE_DONE)
+		return 1;
+	i_assert(generator->format_state == JSON_FORMAT_STATE_NONE);
+	if (!generator->format.new_line)
+		return 1;
+	if (generator->format.crlf)
+		generator->format_state = JSON_FORMAT_STATE_CR;
+	else
+		generator->format_state = JSON_FORMAT_STATE_LF;
+	generator->indent_pos = 0;
+	generator->indent_count = indent_count;
+	generator->format_finish = finish;
+	return json_generator_flush_format(generator);
+}
+
+static int
+json_generator_write_space(struct json_generator *generator,
+			    bool finish)
+{
+	if (generator->format_state == JSON_FORMAT_STATE_DONE)
+		return 1;
+	i_assert(generator->format_state == JSON_FORMAT_STATE_NONE);
+	if (!generator->format.whitespace)
+		return 1;
+	generator->format_state = JSON_FORMAT_STATE_SPACE;
+	generator->format_finish = finish;
+	return json_generator_flush_format(generator);
+}
+
+static void json_generator_finish_format(struct json_generator *generator)
+{
+	generator->format_state = JSON_FORMAT_STATE_NONE;
+}
+
 int json_generator_flush(struct json_generator *generator)
 {
 	bool hide_root = HAS_ALL_BITS(generator->flags,
@@ -260,6 +382,10 @@ int json_generator_flush(struct json_generator *generator)
 
 	/* Flush buffer */
 	ret = json_generator_flush_buffer(generator);
+	if (ret <= 0)
+		return ret;
+	/* Flush formatting whitespace */
+	ret = json_generator_flush_format(generator);
 	if (ret <= 0)
 		return ret;
 	/* Flush closing string */
@@ -276,6 +402,9 @@ int json_generator_flush(struct json_generator *generator)
 		if (ret <= 0)
 			return ret;
 		generator->write_state = JSON_GENERATOR_STATE_VALUE;
+		ret = json_generator_write_space(generator, TRUE);
+		if (ret <= 0)
+			return ret;
 	}
 	/* Flush opening objects/arrays */
 	for (;;) {
@@ -296,6 +425,11 @@ int json_generator_flush(struct json_generator *generator)
 			if (ret <= 0)
 				return ret;
 			generator->write_state = JSON_GENERATOR_STATE_VALUE;
+			ret = json_generator_write_newline(
+				generator, generator->level_stack_written,
+				TRUE);
+			if (ret <= 0)
+				return ret;
 		}
 
 		// FIXME: add indent
@@ -321,6 +455,10 @@ int json_generator_flush(struct json_generator *generator)
 			generator->object_level_written = FALSE;
 			generator->write_state = JSON_GENERATOR_STATE_VALUE;
 		}
+		ret = json_generator_write_newline(
+			generator, generator->level_stack_written, TRUE);
+		if (ret <= 0)
+			return ret;
 	}
 	/* Flush separator */
 	switch (generator->write_state) {
@@ -328,6 +466,11 @@ int json_generator_flush(struct json_generator *generator)
 	case JSON_GENERATOR_STATE_VALUE_END:
 		if (generator->level_stack_pos == 0) {
 			generator->write_state = JSON_GENERATOR_STATE_END;
+			ret = json_generator_write_newline(
+				generator, generator->level_stack_written,
+				TRUE);
+			if (ret <= 0)
+				return ret;
 			break;
 		}
 		if (generator->state != JSON_GENERATOR_STATE_STRING &&
@@ -345,6 +488,10 @@ int json_generator_flush(struct json_generator *generator)
 		} else {
 			generator->write_state = JSON_GENERATOR_STATE_VALUE;
 		}
+		ret = json_generator_write_newline(
+			generator, generator->level_stack_written, TRUE);
+		if (ret <= 0)
+			return ret;
 		break;
 	/* Flush colon */
 	case JSON_GENERATOR_STATE_OBJECT_VALUE:
@@ -352,6 +499,9 @@ int json_generator_flush(struct json_generator *generator)
 		if (ret <= 0)
 			return ret;
 		generator->write_state = JSON_GENERATOR_STATE_VALUE;
+		ret = json_generator_write_space(generator, TRUE);
+		if (ret <= 0)
+			return ret;
 		break;
 	default:
 		break;
@@ -858,6 +1008,10 @@ int json_generate_array_close(struct json_generator *generator)
 		 generator->write_state == JSON_GENERATOR_STATE_VALUE_END);
 
 	i_assert(generator->level_stack_written > 0);
+	ret = json_generator_write_newline(
+		generator, generator->level_stack_written - 1, FALSE);
+	if (ret <= 0)
+		return ret;
 	if (!hide_root || generator->level_stack_written > 1) {
 		ret = json_generator_write_all(generator, "]", 1);
 		if (ret <= 0)
@@ -865,6 +1019,7 @@ int json_generate_array_close(struct json_generator *generator)
 	}
 	json_generator_level_close(generator, FALSE);
 	json_generator_value_end(generator);
+	json_generator_finish_format(generator);
 	return 1;
 }
 
@@ -920,6 +1075,10 @@ int json_generate_object_close(struct json_generator *generator)
 	i_assert(generator->write_state == JSON_GENERATOR_STATE_OBJECT_MEMBER ||
 		 generator->write_state == JSON_GENERATOR_STATE_VALUE_END);
 	i_assert(generator->level_stack_written > 0);
+	ret = json_generator_write_newline(
+		generator, generator->level_stack_written - 1, FALSE);
+	if (ret <= 0)
+		return ret;
 	if (!hide_root || generator->level_stack_written > 1) {
 		ret = json_generator_write_all(generator, "}", 1);
 		if (ret <= 0)
@@ -927,6 +1086,7 @@ int json_generate_object_close(struct json_generator *generator)
 	}
 	json_generator_level_close(generator, TRUE);
 	json_generator_value_end(generator);
+	json_generator_finish_format(generator);
 	return 1;
 }
 

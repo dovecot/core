@@ -25,6 +25,9 @@ json_generator_init_str(string_t *buf, enum json_generator_flags flags);
 
 void json_generator_deinit(struct json_generator **_generator);
 
+void json_generator_set_format(struct json_generator *generator,
+				const struct json_format *format);
+
 int json_generator_flush(struct json_generator *generator);
 
 /* number */
