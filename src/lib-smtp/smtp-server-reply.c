@@ -662,7 +662,9 @@ void smtp_server_reply_add_to_event(const struct smtp_server_reply *reply,
 {
 	i_assert(reply->content != NULL);
 	e->add_int("status_code", reply->content->status);
-	e->add_str("enhanced_code", reply->content->enhanced_code);
+	if (reply->content->enhanced_code != NULL &&
+	    reply->content->enhanced_code[0] != '\0')
+		e->add_str("enhanced_code", reply->content->enhanced_code);
 	if (!smtp_server_reply_is_success(reply))
 		e->add_str("error", smtp_server_reply_get_message(reply));
 }
