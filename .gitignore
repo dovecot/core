@@ -126,6 +126,7 @@ src/indexer/indexer-worker
 src/ipc/ipc
 src/lib/unicodemap.c
 src/lib/UnicodeData.txt
+src/lib-compression/bench-compress
 src/lib-fts/PropList.txt
 src/lib-fts/WordBreakProperty.txt
 src/lib-fts/word-boundary-data.c

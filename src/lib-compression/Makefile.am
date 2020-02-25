@@ -36,7 +36,7 @@ libdovecot_compression_la_LDFLAGS = -export-dynamic
 test_programs = \
 	test-compression
 
-noinst_PROGRAMS = $(test_programs)
+noinst_PROGRAMS = $(test_programs) bench-compression
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
@@ -47,6 +47,10 @@ test_deps = $(test_libs)
 test_compression_SOURCES = test-compression.c
 test_compression_LDADD = $(test_libs)
 test_compression_DEPENDENCIES = $(test_deps)
+
+bench_compression_SOURCES = bench-compression.c
+bench_compression_LDADD = $(test_libs)
+bench_compression_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
