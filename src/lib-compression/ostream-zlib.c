@@ -148,6 +148,8 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 		case Z_OK:
 		case Z_BUF_ERROR:
 			break;
+		case Z_MEM_ERROR:
+			i_fatal_status(FATAL_OUTOFMEM, "zlib: Out of memory");
 		case Z_STREAM_ERROR:
 			i_assert(zstream->gz);
 			i_panic("zlib.write(%s) failed: Can't write more data to .gz after flushing",
@@ -212,6 +214,8 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 		case Z_STREAM_END:
 			done = TRUE;
 			break;
+		case Z_MEM_ERROR:
+			i_fatal_status(FATAL_OUTOFMEM, "zlib: Out of memory");
 		default:
 			i_unreached();
 		}
@@ -223,17 +227,18 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 	}
 	if (final)
 		zstream->flushed = TRUE;
-	return 0;
+	return zstream->outbuf_used == 0 ? 1 : 0;
 }
 
 static int o_stream_zlib_flush(struct ostream_private *stream)
 {
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
-
-	if (o_stream_zlib_send_flush(zstream, stream->finished) < 0)
+	int ret;
+	if ((ret = o_stream_zlib_send_flush(zstream, stream->finished)) < 0)
 		return -1;
-
-	return o_stream_flush_parent(stream);
+	else if (ret > 0)
+		return o_stream_flush_parent(stream);
+	return ret;
 }
 
 static size_t
