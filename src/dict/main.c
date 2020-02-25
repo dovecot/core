@@ -123,6 +123,9 @@ static void main_init(void)
 	dict_drivers_register_all();
 	dict_commands_init();
 	dict_connections_init();
+
+	if (dict_settings->verbose_proctitle)
+		dict_proctitle_update(NULL);
 }
 
 static void main_deinit(void)
