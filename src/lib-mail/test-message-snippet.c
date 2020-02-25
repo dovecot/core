@@ -86,6 +86,21 @@ static const struct {
 	  ">quoted long text",
 	  7,
 	  ">quoted" },
+	{ "Content-Type: text/plain\n"
+	  "\n"
+	  ">quoted long text",
+	  8,
+	  ">quoted" },
+	{ "Content-Type: text/plain\n"
+	  "\n"
+	  "whitespace and more",
+	  10,
+	  "whitespace" },
+	{ "Content-Type: text/plain\n"
+	  "\n"
+	  "whitespace and more",
+	  11,
+	  "whitespace" },
 	{ "Content-Type: text/plain; charset=utf-8\n"
 	  "\n"
 	  "Invalid utf8 \x80\xff\n",
