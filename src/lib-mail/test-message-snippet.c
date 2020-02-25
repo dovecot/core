@@ -81,6 +81,11 @@ static const struct {
 	  "top\nposter\n>quote1\n>quote2\n",
 	  100,
 	  "top poster" },
+	{ "Content-Type: text/plain\n"
+	  "\n"
+	  ">quoted long text",
+	  6,
+	  ">quoted" },
 	{ "Content-Type: text/plain; charset=utf-8\n"
 	  "\n"
 	  "Invalid utf8 \x80\xff\n",
