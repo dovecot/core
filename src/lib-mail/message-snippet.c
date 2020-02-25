@@ -143,7 +143,7 @@ int message_snippet_generate(struct istream *input,
 	ctx.snippet.snippet = str_new(pool, max_snippet_chars);
 	ctx.snippet.chars_left = max_snippet_chars;
 	ctx.quoted_snippet.snippet = str_new(pool, max_snippet_chars);
-	ctx.quoted_snippet.chars_left = max_snippet_chars;
+	ctx.quoted_snippet.chars_left = max_snippet_chars - 1; /* -1 for '>' */
 	parser = message_parser_init(pool_datastack_create(), input, 0, 0);
 	decoder = message_decoder_init(NULL, 0);
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {

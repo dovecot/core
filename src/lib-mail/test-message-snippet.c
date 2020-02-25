@@ -84,7 +84,7 @@ static const struct {
 	{ "Content-Type: text/plain\n"
 	  "\n"
 	  ">quoted long text",
-	  6,
+	  7,
 	  ">quoted" },
 	{ "Content-Type: text/plain; charset=utf-8\n"
 	  "\n"
