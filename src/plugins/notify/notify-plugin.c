@@ -130,8 +130,6 @@ void notify_contexts_mail_transaction_commit(struct mailbox_transaction_context 
 	struct notify_mail_txn *mail_txn;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
-		if (ctx->v.mail_transaction_commit == NULL)
-			continue;
 		mail_txn = notify_context_find_mail_txn(ctx, t);
 		if (ctx->v.mail_transaction_commit != NULL)
 			ctx->v.mail_transaction_commit(mail_txn->txn, changes);
