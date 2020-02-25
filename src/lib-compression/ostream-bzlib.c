@@ -82,11 +82,14 @@ o_stream_bzlib_send_chunk(struct bzlib_ostream *zstream,
 			}
 		}
 
-		switch (BZ2_bzCompress(zs, BZ_RUN)) {
+		switch ((ret = BZ2_bzCompress(zs, BZ_RUN))) {
 		case BZ_RUN_OK:
 			break;
+		case BZ_MEM_ERROR:
+			i_fatal_status(FATAL_OUTOFMEM, "bzip2.write(%s): Out of memory",
+				       o_stream_get_name(&zstream->ostream.ostream));
 		default:
-			i_unreached();
+			i_fatal("BZ2_bzCompress() failed with %d", ret);
 		}
 	}
 	size -= zs->avail_in;
@@ -95,7 +98,7 @@ o_stream_bzlib_send_chunk(struct bzlib_ostream *zstream,
 	return size;
 }
 
-static int o_stream_bzlib_send_flush(struct bzlib_ostream *zstream)
+static int o_stream_bzlib_send_flush(struct bzlib_ostream *zstream, bool final)
 {
 	bz_stream *zs = &zstream->zs;
 	size_t len;
@@ -105,7 +108,7 @@ static int o_stream_bzlib_send_flush(struct bzlib_ostream *zstream)
 	i_assert(zs->avail_in == 0);
 
 	if (zstream->flushed)
-		return 0;
+		return 1;
 
 	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
 		return ret;
@@ -132,28 +135,35 @@ static int o_stream_bzlib_send_flush(struct bzlib_ostream *zstream)
 
 		ret = BZ2_bzCompress(zs, BZ_FINISH);
 		switch (ret) {
+		case BZ_RUN_OK:
+		case BZ_FLUSH_OK:
 		case BZ_STREAM_END:
 			done = TRUE;
 			break;
 		case BZ_FINISH_OK:
 			break;
-		default:
-			i_unreached();
+                case BZ_MEM_ERROR:
+                        i_fatal_status(FATAL_OUTOFMEM, "bzip2.write(%s): Out of memory",
+                                       o_stream_get_name(&zstream->ostream.ostream));
+                default:
+                        i_fatal("BZ2_bzCompress() failed with %d", ret);
 		}
 	} while (zs->avail_out != sizeof(zstream->outbuf));
 
-	zstream->flushed = TRUE;
-	return 0;
+	if (final)
+		zstream->flushed = TRUE;
+	return zstream->outbuf_used == 0 ? 1 : 0;
 }
 
 static int o_stream_bzlib_flush(struct ostream_private *stream)
 {
 	struct bzlib_ostream *zstream = (struct bzlib_ostream *)stream;
-
-	if (o_stream_bzlib_send_flush(zstream) < 0)
+	int ret;
+	if ((ret = o_stream_bzlib_send_flush(zstream, stream->finished)) < 0)
 		return -1;
-
-	return o_stream_flush_parent(stream);
+	else if (ret > 0)
+		return o_stream_flush_parent(stream);
+	return ret;
 }
 
 static size_t
