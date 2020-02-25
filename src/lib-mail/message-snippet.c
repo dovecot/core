@@ -81,7 +81,7 @@ static bool snippet_generate(struct snippet_context *ctx,
 			     const unsigned char *data, size_t size)
 {
 	size_t i, count;
-	struct snippet_data *target = &ctx->snippet;
+	struct snippet_data *target;
 
 	if (ctx->html2text != NULL) {
 		buffer_set_used_size(ctx->plain_output, 0);
@@ -90,6 +90,11 @@ static bool snippet_generate(struct snippet_context *ctx,
 		data = ctx->plain_output->data;
 		size = ctx->plain_output->used;
 	}
+
+	if (ctx->state == SNIPPET_STATE_QUOTED)
+		target = &ctx->quoted_snippet;
+	else
+		target = &ctx->snippet;
 
 	/* message-decoder should feed us only valid and complete
 	   UTF-8 input */

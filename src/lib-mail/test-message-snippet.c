@@ -133,7 +133,12 @@ static void test_message_snippet(void)
 	test_begin("message snippet");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
-		input = i_stream_create_from_data(tests[i].input, strlen(tests[i].input));
+		input = test_istream_create(tests[i].input);
+		/* Limit the input max buffer size so the parsing uses multiple
+		   blocks. 45 = large enough to be able to read the Content-*
+		   headers. */
+		test_istream_set_max_buffer_size(input,
+			I_MIN(45, strlen(tests[i].input)));
 		test_assert_idx(message_snippet_generate(input, tests[i].max_snippet_chars, str) == 0, i);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 		i_stream_destroy(&input);
