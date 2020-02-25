@@ -24,7 +24,9 @@ static void o_stream_lzma_close(struct iostream_private *stream,
 				bool close_parent)
 {
 	struct lzma_ostream *zstream = (struct lzma_ostream *)stream;
-
+	i_assert(zstream->ostream.finished ||
+		 zstream->ostream.ostream.stream_errno != 0 ||
+		 zstream->ostream.error_handling_disabled);
 	lzma_end(&zstream->strm);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);
@@ -97,11 +99,10 @@ o_stream_lzma_send_chunk(struct lzma_ostream *zstream,
 	}
 	size -= zs->avail_in;
 
-	zstream->flushed = FALSE;
 	return size;
 }
 
-static int o_stream_lzma_send_flush(struct lzma_ostream *zstream)
+static int o_stream_lzma_send_flush(struct lzma_ostream *zstream, bool final)
 {
 	lzma_stream *zs = &zstream->strm;
 	size_t len;
@@ -111,19 +112,32 @@ static int o_stream_lzma_send_flush(struct lzma_ostream *zstream)
 	i_assert(zs->avail_in == 0);
 
 	if (zstream->flushed)
-		return 0;
+		return 1;
 
 	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
 		return ret;
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
 		return ret;
 
+	if (!final)
+		return 1;
+
 	i_assert(zstream->outbuf_used == 0);
 	do {
+		len = sizeof(zstream->outbuf) - zs->avail_out;
+		if (len != 0) {
+			zs->next_out = zstream->outbuf;
+			zs->avail_out = sizeof(zstream->outbuf);
+
+			zstream->outbuf_used = len;
+			if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
+				return ret;
+			if (done)
+				break;
+		}
 		ret = lzma_code(zs, LZMA_FINISH);
 		switch (ret) {
 		case LZMA_OK:
-			break;
 		case LZMA_STREAM_END:
 			done = TRUE;
 			break;
@@ -135,29 +149,23 @@ static int o_stream_lzma_send_flush(struct lzma_ostream *zstream)
 			i_panic("lzma.write(%s) flush failed with unexpected code %d",
 				o_stream_get_name(&zstream->ostream.ostream), ret);
 		}
-		if (zs->avail_out == 0 || done) {
-			len = sizeof(zstream->outbuf) - zs->avail_out;
-			zs->next_out = zstream->outbuf;
-			zs->avail_out = sizeof(zstream->outbuf);
+	} while (zs->avail_out != sizeof(zstream->outbuf));
 
-			zstream->outbuf_used = len;
-			if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
-				return ret;
-		}
-	} while (!done);
-
-	zstream->flushed = TRUE;
-	return 0;
+	if (final)
+		zstream->flushed = TRUE;
+	return zstream->outbuf_used == 0 ? 1 : 0;
 }
 
 static int o_stream_lzma_flush(struct ostream_private *stream)
 {
 	struct lzma_ostream *zstream = (struct lzma_ostream *)stream;
+	int ret;
 
-	if (o_stream_lzma_send_flush(zstream) < 0)
+	if ((ret = o_stream_lzma_send_flush(zstream, stream->finished)) < 0)
 		return -1;
-
-	return o_stream_flush_parent(stream);
+	else if (ret > 0)
+		return o_stream_flush_parent(stream);
+	return ret;
 }
 
 static size_t
