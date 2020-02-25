@@ -64,10 +64,12 @@ static void snippet_add_content(struct snippet_context *ctx,
 		return;
 	target->chars_left--;
 	if (ctx->add_whitespace) {
+		if (target->chars_left == 0) {
+			/* don't add a trailing whitespace */
+			return;
+		}
 		str_append_c(target->snippet, ' ');
 		ctx->add_whitespace = FALSE;
-		if (target->chars_left == 0)
-			return;
 		target->chars_left--;
 	}
 	*count_r = uni_utf8_char_bytes(data[0]);
