@@ -15,8 +15,10 @@
 #include <ctype.h>
 
 void http_message_parser_init(struct http_message_parser *parser,
-	struct istream *input, const struct http_header_limits *hdr_limits,
-	uoff_t max_payload_size, enum http_message_parse_flags flags)
+			      struct istream *input,
+			      const struct http_header_limits *hdr_limits,
+			      uoff_t max_payload_size,
+			      enum http_message_parse_flags flags)
 {
 	i_zero(parser);
 	parser->input = input;
@@ -37,7 +39,7 @@ void http_message_parser_deinit(struct http_message_parser *parser)
 }
 
 void http_message_parser_restart(struct http_message_parser *parser,
-	pool_t pool)
+				 pool_t pool)
 {
 	i_assert(parser->payload == NULL);
 
@@ -46,8 +48,8 @@ void http_message_parser_restart(struct http_message_parser *parser,
 
 		if ((parser->flags & HTTP_MESSAGE_PARSE_FLAG_STRICT) != 0)
 			hdr_flags |= HTTP_HEADER_PARSE_FLAG_STRICT;
-		parser->header_parser = http_header_parser_init
-			(parser->input, &parser->header_limits,	hdr_flags);
+		parser->header_parser = http_header_parser_init(
+			parser->input, &parser->header_limits,	hdr_flags);
 	} else {
 		http_header_parser_reset(parser->header_parser);
 	}
@@ -119,8 +121,9 @@ int http_message_parse_finish_payload(struct http_message_parser *parser)
 				parser->error = "Invalid payload";
 			} else {
 				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
-				parser->error = t_strdup_printf("Stream error while skipping payload: %s",
-								i_stream_get_error(parser->payload));
+				parser->error = t_strdup_printf(
+					"Stream error while skipping payload: %s",
+					i_stream_get_error(parser->payload));
 			}
 		}
 		return ret;
@@ -132,7 +135,8 @@ int http_message_parse_finish_payload(struct http_message_parser *parser)
 
 static int
 http_message_parse_header(struct http_message_parser *parser,
-			  const char *name, const unsigned char *data, size_t size)
+			  const char *name, const unsigned char *data,
+			  size_t size)
 {
 	const struct http_header_field *hdr;
 	struct http_parser hparser;
@@ -165,7 +169,8 @@ http_message_parse_header(struct http_message_parser *parser,
 			   connection-option = token
 			*/
 
-			/* Multiple Connection headers are allowed and combined into one */
+			/* Multiple Connection headers are allowed and combined
+			   into one */
 			http_parser_init(&hparser, data, size);
 			for (;;) {
 				if (http_parse_token_list_next(&hparser, &option) <= 0)
@@ -202,7 +207,7 @@ http_message_parse_header(struct http_message_parser *parser,
 			   Content-Length = 1*DIGIT
 			 */
 			if (str_to_uoff(hdr->value, &parser->msg.content_length) < 0) {
-				parser->error= "Invalid Content-Length header";
+				parser->error = "Invalid Content-Length header";
 				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 				return -1;
 			}
@@ -227,7 +232,7 @@ http_message_parse_header(struct http_message_parser *parser,
 			   Date = HTTP-date
 			 */
 			if (!http_date_parse(data, size, &parser->msg.date) &&
-				(parser->flags & HTTP_MESSAGE_PARSE_FLAG_STRICT) != 0) {
+			    (parser->flags & HTTP_MESSAGE_PARSE_FLAG_STRICT) != 0) {
 				parser->error = "Invalid Date header";
 				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 				return -1;
@@ -370,8 +375,9 @@ int http_message_parse_headers(struct http_message_parser *parser)
 	parser->error = NULL;
 
 	/* *( header-field CRLF ) CRLF */
-	while ((ret=http_header_parse_next_field(parser->header_parser,
-		&field_name, &field_data, &field_size, &error)) > 0) {
+	while ((ret = http_header_parse_next_field(
+		parser->header_parser,  &field_name, &field_data, &field_size,
+		&error)) > 0) {
 		if (field_name == NULL) {
 			pool_t pool;
 			/* EOH */
@@ -406,11 +412,14 @@ int http_message_parse_headers(struct http_message_parser *parser)
 
 	if (ret < 0) {
 		if (parser->input->eof || parser->input->stream_errno != 0)  {			
-			parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
+			parser->error_code =
+				HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
 			parser->error = "Broken stream";
 		} else {
-			parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
-			parser->error = t_strdup_printf("Failed to parse header: %s", error);
+			parser->error_code =
+				HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
+			parser->error = t_strdup_printf(
+				"Failed to parse header: %s", error);
 		}
 	
 	}
@@ -424,7 +433,8 @@ http_istream_error_callback(const struct istream_sized_error_data *data,
 	i_assert(data->eof);
 	i_assert(data->v_offset + data->new_bytes < data->wanted_size);
 
-	return t_strdup_printf("Disconnected while reading response payload at offset %"PRIuUOFF_T
+	return t_strdup_printf(
+		"Disconnected while reading response payload at offset %"PRIuUOFF_T
 		" (wanted %"PRIuUOFF_T"): %s", data->v_offset + data->new_bytes,
 		data->wanted_size, io_stream_get_disconnect_reason(input, NULL));
 }
@@ -468,12 +478,12 @@ int http_message_parse_body(struct http_message_parser *parser, bool request)
 				parser->error = t_strdup_printf(
   				"Unknown transfer coding `%s'", coding->name);
 				/* recoverable */
-  		}
-  	}
+			}
+		}
 
 		if (chunked_last) {	
-			parser->payload = http_transfer_chunked_istream_create
-				(parser->input, parser->max_payload_size);
+			parser->payload = http_transfer_chunked_istream_create(
+				parser->input, parser->max_payload_size);
 		} else if (!request) {
 			/* RFC 7230, Section 3.3.3: Message Body Length
 
