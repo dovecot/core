@@ -480,7 +480,8 @@ static void redis_dict_wait(struct dict *_dict)
 {
 	struct redis_dict *dict = (struct redis_dict *)_dict;
 
-	redis_wait(dict);
+	if (array_count(&dict->input_states) > 0)
+		redis_wait(dict);
 }
 
 static void redis_dict_lookup_timeout(struct redis_dict *dict)
