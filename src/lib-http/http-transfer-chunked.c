@@ -636,8 +636,6 @@ http_transfer_chunked_ostream_close(struct iostream_private *stream,
 	i_assert(tcstream->ostream.finished ||
 		 tcstream->ostream.ostream.stream_errno != 0 ||
 		 tcstream->ostream.error_handling_disabled);
-	if (!tcstream->ostream.finished)
-		(void)o_stream_finish(&tcstream->ostream.ostream);
 	if (close_parent)
 		o_stream_close(tcstream->ostream.parent);
 }
