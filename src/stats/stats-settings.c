@@ -280,8 +280,43 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 
-static bool stats_metric_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-					const char **error_r)
+static bool parse_metric_group_by(struct stats_metric_settings *set,
+				  pool_t pool, const char **error_r)
+{
+	const char *const *tmp = t_strsplit_spaces(set->group_by, " ");
+
+	if (tmp[0] == NULL)
+		return TRUE;
+
+	p_array_init(&set->parsed_group_by, pool, str_array_length(tmp));
+
+	/* For each group_by field */
+	for (; *tmp != NULL; tmp++) {
+		struct stats_metric_settings_group_by group_by;
+		const char *const *params;
+
+		i_zero(&group_by);
+
+		/* <field name>:<aggregation func>... */
+		params = t_strsplit(*tmp, ":");
+
+		if (params[1] == NULL) {
+			group_by.func = STATS_METRIC_GROUPBY_DISCRETE;
+		} else {
+			*error_r = t_strdup_printf("unknown aggregation function "
+						   "'%s' on field '%s'", params[1], params[0]);
+			return FALSE;
+		}
+
+		group_by.field = p_strdup(pool, params[0]);
+
+		array_push_back(&set->parsed_group_by, &group_by);
+	}
+
+	return TRUE;
+}
+
+static bool stats_metric_settings_check(void *_set, pool_t pool, const char **error_r)
 {
 	struct stats_metric_settings *set = _set;
 	const char *p;
@@ -301,6 +336,9 @@ static bool stats_metric_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			return FALSE;
 		}
 	}
+
+	if (!parse_metric_group_by(set, pool, error_r))
+		return FALSE;
 
 	return TRUE;
 }

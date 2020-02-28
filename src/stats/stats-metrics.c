@@ -153,8 +153,9 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 	fields = t_strsplit_spaces(set->fields, " ");
 	metric = stats_metric_alloc(metrics->pool, set->name, fields);
 
-	if (*set->group_by != '\0')
-		metric->group_by = (const char *const *)p_strsplit_spaces(metrics->pool, set->group_by, " ");
+	if (array_is_created(&set->parsed_group_by))
+		metric->group_by = array_get(&set->parsed_group_by,
+					     &metric->group_by_count);
 
 	array_push_back(&metrics->metrics, &metric);
 
@@ -345,32 +346,46 @@ stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t po
 	return sub_metric;
 }
 
+static bool
+stats_metric_group_by_discrete(const struct event_field *field,
+			       struct metric_value *value)
+{
+	switch (field->value_type) {
+	case EVENT_FIELD_VALUE_TYPE_STR:
+		value->type = METRIC_VALUE_TYPE_STR;
+		/* use sha1 of value to avoid excessive memory usage in case the
+		   actual value is quite long */
+		sha1_get_digest(field->value.str, strlen(field->value.str),
+				value->hash);
+		return TRUE;
+	case EVENT_FIELD_VALUE_TYPE_INTMAX:
+		value->type = METRIC_VALUE_TYPE_INT;
+		value->intmax = field->value.intmax;
+		return TRUE;
+	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+		return FALSE;
+	}
+
+	i_unreached();
+}
+
 static void
 stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 {
+	const struct stats_metric_settings_group_by *group_by = &metric->group_by[0];
+	const struct event_field *field = event_find_field(event, group_by->field);
 	struct metric *sub_metric;
-	const char *const *group = metric->group_by;
-	const struct event_field *field =
-		event_find_field(event, *group);
 	struct metric_value value;
 
 	/* ignore missing field */
 	if (field == NULL)
 		return;
-	switch (field->value_type) {
-	case EVENT_FIELD_VALUE_TYPE_STR:
-		value.type = METRIC_VALUE_TYPE_STR;
-		/* use sha1 of value to avoid excessive memory usage in case the
-		   actual value is quite long */
-		sha1_get_digest(field->value.str, strlen(field->value.str),
-				value.hash);
+
+	switch (group_by->func) {
+	case STATS_METRIC_GROUPBY_DISCRETE:
+		if (!stats_metric_group_by_discrete(field, &value))
+			return;
 		break;
-	case EVENT_FIELD_VALUE_TYPE_INTMAX:
-		value.type = METRIC_VALUE_TYPE_INT;
-		value.intmax = field->value.intmax;
-		break;
-	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
-		return;
 	}
 
 	if (!array_is_created(&metric->sub_metrics))
@@ -388,8 +403,10 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 			i_unreached();
 		sub_metric = stats_metric_sub_metric_alloc(metric, value_label,
 							   pool);
-		if (group[1] != NULL)
-			sub_metric->group_by = group+1;
+		if (metric->group_by_count > 1) {
+			sub_metric->group_by_count = metric->group_by_count - 1;
+			sub_metric->group_by = &metric->group_by[1];
+		}
 		sub_metric->group_value.intmax = value.intmax;
 		memcpy(sub_metric->group_value.hash, value.hash, SHA1_RESULTLEN);
 	} T_END;

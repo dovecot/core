@@ -69,6 +69,17 @@ struct stats_exporter_settings {
 	enum event_exporter_time_fmt parsed_time_format;
 };
 
+/* <settings checks> */
+enum stats_metric_group_by_func {
+	STATS_METRIC_GROUPBY_DISCRETE = 0,
+};
+
+struct stats_metric_settings_group_by {
+	const char *field;
+	enum stats_metric_group_by_func func;
+};
+/* </settings checks> */
+
 struct stats_metric_settings {
 	const char *name;
 	const char *event_name;
@@ -79,6 +90,7 @@ struct stats_metric_settings {
 	ARRAY(const char *) filter;
 
 	unsigned int parsed_source_linenum;
+	ARRAY(struct stats_metric_settings_group_by) parsed_group_by;
 
 	/* exporter related fields */
 	const char *exporter;
