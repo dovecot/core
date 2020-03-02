@@ -79,17 +79,6 @@ static void redis_input_state_remove(struct redis_dict *dict)
 	array_pop_front(&dict->input_states);
 }
 
-static void redis_callback(struct redis_dict *dict,
-			   const struct redis_dict_reply *reply,
-			   const struct dict_commit_result *result)
-{
-	if (reply->callback != NULL) {
-		dict_pre_api_callback(&dict->dict);
-		reply->callback(result, reply->context);
-		dict_post_api_callback(&dict->dict);
-	}
-}
-
 static void
 redis_disconnected(struct redis_connection *conn, const char *reason)
 {
@@ -103,7 +92,7 @@ redis_disconnected(struct redis_connection *conn, const char *reason)
 	connection_disconnect(&conn->conn);
 
 	array_foreach(&conn->dict->replies, reply)
-		redis_callback(conn->dict, reply, &result);
+		reply->callback(&result, reply->context);
 	array_clear(&conn->dict->replies);
 	array_clear(&conn->dict->input_states);
 
@@ -258,7 +247,7 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 			const struct dict_commit_result result = {
 				DICT_COMMIT_RET_OK, NULL
 			};
-			redis_callback(dict, reply, &result);
+			reply->callback(&result, reply->context);
 			array_pop_front(&dict->replies);
 			/* if we're running in a dict-ioloop, we're handling a
 			   synchronous commit and need to stop now */
