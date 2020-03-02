@@ -18,9 +18,10 @@ mail_user_find_attribute_namespace(struct mail_user *user)
 {
 	struct mail_namespace *ns;
 
-	ns = mail_namespace_find_inbox(user->namespaces);
-	if (ns != NULL)
-		return ns;
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
+			return ns;
+	}
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
 		if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE)
