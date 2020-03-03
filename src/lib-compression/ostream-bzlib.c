@@ -112,6 +112,10 @@ static int o_stream_bzlib_send_flush(struct bzlib_ostream *zstream)
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
 		return ret;
 
+	/* do not attempt to finish the stream early */
+	if (!final)
+		return 1;
+
 	i_assert(zstream->outbuf_used == 0);
 	do {
 		len = sizeof(zstream->outbuf) - zs->avail_out;
