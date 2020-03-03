@@ -192,7 +192,7 @@ static void i_stream_bzlib_sync(struct istream_private *stream)
 	struct bzlib_istream *zstream = (struct bzlib_istream *) stream;
 	const struct stat *st;
 
-	if (i_stream_stat(stream->parent, FALSE, &st) < 0) {
+	if (i_stream_stat(stream->parent, FALSE, &st) == 0) {
 		if (memcmp(&zstream->last_parent_statbuf,
 			   st, sizeof(*st)) == 0) {
 			/* a compressed file doesn't change unexpectedly,
