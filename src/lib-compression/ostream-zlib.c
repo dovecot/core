@@ -176,7 +176,7 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 	i_assert(zs->avail_in == 0);
 
 	if (zstream->flushed)
-		return 0;
+		return 1;
 
 	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
 		return ret;
