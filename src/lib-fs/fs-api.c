@@ -504,8 +504,10 @@ int fs_get_metadata_full(struct fs_file *file,
 	}
 	if (!file->read_or_prefetch_counted &&
 	    !file->lookup_metadata_counted) {
-		file->lookup_metadata_counted = TRUE;
-		file->fs->stats.lookup_metadata_count++;
+		if ((flags & FS_GET_METADATA_FLAG_LOADED_ONLY) == 0) {
+			file->lookup_metadata_counted = TRUE;
+			file->fs->stats.lookup_metadata_count++;
+		}
 		fs_file_timing_start(file, FS_OP_METADATA);
 	}
 	T_BEGIN {
@@ -531,6 +533,15 @@ int fs_lookup_metadata(struct fs_file *file, const char *key,
 		return -1;
 	*value_r = fs_metadata_find(metadata, key);
 	return *value_r != NULL ? 1 : 0;
+}
+
+const char *fs_lookup_loaded_metadata(struct fs_file *file, const char *key)
+{
+	const ARRAY_TYPE(fs_metadata) *metadata;
+
+	if (fs_get_metadata_full(file, FS_GET_METADATA_FLAG_LOADED_ONLY, &metadata) < 0)
+		i_panic("FS_GET_METADATA_FLAG_LOADED_ONLY lookup can't fail");
+	return fs_metadata_find(metadata, key);
 }
 
 const char *fs_file_path(struct fs_file *file)

@@ -250,6 +250,12 @@ int fs_get_metadata(struct fs_file *file,
    is set, 0 if key wasn't found, -1 if error. */
 int fs_lookup_metadata(struct fs_file *file, const char *key,
 		       const char **value_r);
+/* Try to find key from the currently set metadata (without refreshing it).
+   This is typically used e.g. after writing or copying a file to find some
+   extra metadata they may have set. It can also be used after
+   fs_get_metadata() or fs_lookup_metadata() to search within the looked up
+   metadata. */
+const char *fs_lookup_loaded_metadata(struct fs_file *file, const char *key);
 
 /* Returns the path given to fs_open(). If file was opened with
    FS_OPEN_MODE_CREATE_UNIQUE_128 and the write has already finished,

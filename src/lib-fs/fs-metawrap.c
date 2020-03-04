@@ -177,6 +177,8 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 
 	if (file->metadata_read) {
 		/* we have the metadata */
+	} else if ((flags & FS_GET_METADATA_FLAG_LOADED_ONLY) != 0) {
+		/* use the existing metadata only */
 	} else if (file->input == NULL) {
 		if (fs_read(_file, &c, 1) < 0)
 			return -1;
