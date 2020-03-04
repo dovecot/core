@@ -170,6 +170,15 @@ static bool client_dict_cmd_unref(struct client_dict_cmd *cmd)
 	return FALSE;
 }
 
+static void dict_client_stop_wait(struct client_dict *dict)
+{
+	if (dict->prev_ioloop != NULL) {
+		current_ioloop = dict->ioloop;
+		/* stop client_dict_wait() */
+		io_loop_stop(dict->ioloop);
+	}
+}
+
 static void dict_pre_api_callback(struct client_dict *dict)
 {
 	if (dict->prev_ioloop != NULL) {
@@ -182,11 +191,7 @@ static void dict_pre_api_callback(struct client_dict *dict)
 
 static void dict_post_api_callback(struct client_dict *dict)
 {
-	if (dict->prev_ioloop != NULL) {
-		current_ioloop = dict->ioloop;
-		/* stop client_dict_wait() */
-		io_loop_stop(dict->ioloop);
-	}
+	dict_client_stop_wait(dict);
 }
 
 static bool
@@ -1057,7 +1062,9 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 	struct client_dict *dict = cmd->dict;
 
 	if (ctx->deinit) {
-		/* iterator was already deinitialized */
+		/* Iterator was already deinitialized. Stop if we're in
+		   client_dict_wait(). */
+		dict_client_stop_wait(dict);
 		return;
 	}
 	if (ctx->finished) {
