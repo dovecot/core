@@ -487,8 +487,9 @@ void fs_file_timing_end(struct fs_file *file, enum fs_op op)
 	file->timing_start[op].tv_sec = 0;
 }
 
-int fs_get_metadata(struct fs_file *file,
-		    const ARRAY_TYPE(fs_metadata) **metadata_r)
+int fs_get_metadata_full(struct fs_file *file,
+			 enum fs_get_metadata_flags flags,
+			 const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
 	int ret;
 
@@ -508,11 +509,17 @@ int fs_get_metadata(struct fs_file *file,
 		fs_file_timing_start(file, FS_OP_METADATA);
 	}
 	T_BEGIN {
-		ret = file->fs->v.get_metadata(file, metadata_r);
+		ret = file->fs->v.get_metadata(file, flags, metadata_r);
 	} T_END;
 	if (!(ret < 0 && errno == EAGAIN))
 		fs_file_timing_end(file, FS_OP_METADATA);
 	return ret;
+}
+
+int fs_get_metadata(struct fs_file *file,
+		    const ARRAY_TYPE(fs_metadata) **metadata_r)
+{
+	return fs_get_metadata_full(file, 0, metadata_r);
 }
 
 int fs_lookup_metadata(struct fs_file *file, const char *key,

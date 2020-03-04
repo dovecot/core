@@ -11,6 +11,10 @@
 #define FS_EVENT_FIELD_FILE "lib-fs#file"
 #define FS_EVENT_FIELD_ITER "lib-fs#iter"
 
+enum fs_get_metadata_flags {
+	FS_GET_METADATA_FLAG_DUMMY,
+};
+
 struct fs_api_module_register {
 	unsigned int id;
 };
@@ -44,6 +48,7 @@ struct fs_vfuncs {
 	void (*set_metadata)(struct fs_file *file, const char *key,
 			     const char *value);
 	int (*get_metadata)(struct fs_file *file,
+			    enum fs_get_metadata_flags flags,
 			    const ARRAY_TYPE(fs_metadata) **metadata_r);
 
 	bool (*prefetch)(struct fs_file *file, uoff_t length);
@@ -181,6 +186,9 @@ void fs_metadata_init(struct fs_file *file);
 void fs_metadata_init_or_clear(struct fs_file *file);
 void fs_default_set_metadata(struct fs_file *file,
 			     const char *key, const char *value);
+int fs_get_metadata_full(struct fs_file *file,
+			 enum fs_get_metadata_flags flags,
+			 const ARRAY_TYPE(fs_metadata) **metadata_r);
 const char *fs_metadata_find(const ARRAY_TYPE(fs_metadata) *metadata,
 			     const char *key);
 int fs_default_copy(struct fs_file *src, struct fs_file *dest);

@@ -1,6 +1,8 @@
 #ifndef FS_WRAPPER_H
 #define FS_WRAPPER_H
 
+enum fs_get_metadata_flags;
+
 enum fs_properties fs_wrapper_get_properties(struct fs *fs);
 void fs_wrapper_file_close(struct fs_file *file);
 const char *fs_wrapper_file_get_path(struct fs_file *file);
@@ -11,6 +13,7 @@ void fs_wrapper_wait_async(struct fs *fs);
 void fs_wrapper_set_metadata(struct fs_file *file, const char *key,
 			     const char *value);
 int fs_wrapper_get_metadata(struct fs_file *file,
+			    enum fs_get_metadata_flags flags,
 			    const ARRAY_TYPE(fs_metadata) **metadata_r);
 bool fs_wrapper_prefetch(struct fs_file *file, uoff_t length);
 ssize_t fs_wrapper_read(struct fs_file *file, void *buf, size_t size);
