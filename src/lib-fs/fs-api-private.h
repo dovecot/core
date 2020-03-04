@@ -12,7 +12,7 @@
 #define FS_EVENT_FIELD_ITER "lib-fs#iter"
 
 enum fs_get_metadata_flags {
-	FS_GET_METADATA_FLAG_DUMMY,
+	FS_GET_METADATA_FLAG_LOADED_ONLY = BIT(0),
 };
 
 struct fs_api_module_register {

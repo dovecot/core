@@ -111,10 +111,15 @@ fs_test_set_metadata(struct fs_file *_file, const char *key,
 
 static int
 fs_test_get_metadata(struct fs_file *_file,
-		     enum fs_get_metadata_flags flags ATTR_UNUSED,
+		     enum fs_get_metadata_flags flags,
 		     const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
 	struct test_fs_file *file = (struct test_fs_file *)_file;
+
+	if ((flags & FS_GET_METADATA_FLAG_LOADED_ONLY) != 0) {
+		*metadata_r = &_file->metadata;
+		return 0;
+	}
 
 	if (file->wait_async) {
 		fs_file_set_error_async(_file);
