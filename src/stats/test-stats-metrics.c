@@ -143,6 +143,18 @@ static const struct discrete_test discrete_tests[] = {
 		{ "eta", "kappa", "nu", },
 		{ "upsilon", "pi", "epsilon", },
 	},
+	{
+		"test_name:discrete sub_name:discrete",
+		3,
+		{ "apple", "bannana", "orange", },
+		{ "pie", "yoghurt", "cobbler", },
+	},
+	{
+		"test_name sub_name:discrete",
+		3,
+		{ "apollo", "gaia", "hermes", },
+		{ "thor", "odin", "loki", },
+	},
 };
 
 static void test_stats_metrics_group_by_discrete_real(const struct discrete_test *test)

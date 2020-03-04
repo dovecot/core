@@ -301,7 +301,16 @@ static bool parse_metric_group_by(struct stats_metric_settings *set,
 		params = t_strsplit(*tmp, ":");
 
 		if (params[1] == NULL) {
+			/* <field name> - alias for <field>:discrete */
 			group_by.func = STATS_METRIC_GROUPBY_DISCRETE;
+		} else if (strcmp(params[1], "discrete") == 0) {
+			/* <field>:discrete */
+			group_by.func = STATS_METRIC_GROUPBY_DISCRETE;
+			if (params[2] != NULL) {
+				*error_r = "group_by 'discrete' aggregate function "
+					   "does not take any args";
+				return FALSE;
+			}
 		} else {
 			*error_r = t_strdup_printf("unknown aggregation function "
 						   "'%s' on field '%s'", params[1], params[0]);
