@@ -230,6 +230,10 @@ struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
 					const char *path, int mode_flags);
 void fs_file_deinit(struct fs_file **file);
 
+/* Change flags for a file (and its parents). */
+void fs_file_set_flags(struct fs_file *file,
+		       enum fs_open_flags add_flags,
+		       enum fs_open_flags remove_flags);
 /* If the file has an input streams open, close them. */
 void fs_file_close(struct fs_file *file);
 
