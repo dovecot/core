@@ -43,9 +43,10 @@ void fs_wrapper_set_metadata(struct fs_file *file, const char *key,
 }
 
 int fs_wrapper_get_metadata(struct fs_file *file,
+			    enum fs_get_metadata_flags flags,
 			    const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
-	return fs_get_metadata(file->parent, metadata_r);
+	return fs_get_metadata_full(file->parent, flags, metadata_r);
 }
 
 bool fs_wrapper_prefetch(struct fs_file *file, uoff_t length)

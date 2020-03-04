@@ -283,6 +283,7 @@ fs_random_fail_range(struct fs *_fs, struct event *event,
 
 static int
 fs_randomfail_get_metadata(struct fs_file *_file,
+			   enum fs_get_metadata_flags flags,
 			   const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
@@ -290,7 +291,7 @@ fs_randomfail_get_metadata(struct fs_file *_file,
 
 	if (fs_file_random_fail_begin(file, FS_OP_METADATA))
 		return -1;
-	ret = fs_get_metadata(_file->parent, metadata_r);
+	ret = fs_get_metadata_full(_file->parent, flags, metadata_r);
 	return fs_file_random_fail_end(file, ret, FS_OP_METADATA);
 }
 

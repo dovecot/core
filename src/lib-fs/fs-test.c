@@ -111,6 +111,7 @@ fs_test_set_metadata(struct fs_file *_file, const char *key,
 
 static int
 fs_test_get_metadata(struct fs_file *_file,
+		     enum fs_get_metadata_flags flags ATTR_UNUSED,
 		     const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
 	struct test_fs_file *file = (struct test_fs_file *)_file;

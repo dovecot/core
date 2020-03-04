@@ -164,6 +164,7 @@ fs_metawrap_set_metadata(struct fs_file *_file, const char *key,
 
 static int
 fs_metawrap_get_metadata(struct fs_file *_file,
+			 enum fs_get_metadata_flags flags,
 			 const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
@@ -171,7 +172,7 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 	char c;
 
 	if (!file->fs->wrap_metadata)
-		return fs_get_metadata(_file->parent, metadata_r);
+		return fs_get_metadata_full(_file->parent, flags, metadata_r);
 
 	if (file->metadata_read) {
 		/* we have the metadata */
