@@ -325,6 +325,17 @@ void fs_file_free(struct fs_file *file)
 	i_free(file->last_error);
 }
 
+void fs_file_set_flags(struct fs_file *file,
+		       enum fs_open_flags add_flags,
+		       enum fs_open_flags remove_flags)
+{
+	file->flags |= add_flags;
+	file->flags &= ~remove_flags;
+
+	if (file->parent != NULL)
+		fs_file_set_flags(file->parent, add_flags, remove_flags);
+}
+
 void fs_file_close(struct fs_file *file)
 {
 	if (file == NULL)
