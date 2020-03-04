@@ -417,10 +417,13 @@ void auth_policy_send_request(struct policy_lookup_ctx *context)
 {
 	const char *error;
 	struct http_url *url;
+
+	auth_request_ref(context->request);
 	if (http_url_parse(context->url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
 			   context->pool, &url, &error) != 0) {
 		e_error(context->event,
 			"Could not parse url %s: %s", context->url, error);
+		auth_policy_callback(context);
 		auth_policy_finish(context);
 		return;
 	}
@@ -447,7 +450,6 @@ void auth_policy_send_request(struct policy_lookup_ctx *context)
 	http_client_request_set_payload(context->http_request, is, FALSE);
 	i_stream_unref(&is);
 	http_client_request_submit(context->http_request);
-	auth_request_ref(context->request);
 }
 
 static
