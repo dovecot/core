@@ -435,6 +435,41 @@ stats_metric_group_by_quantized_label(const struct event_field *field,
 	return label;
 }
 
+static bool
+stats_metric_group_by_get_value(const struct event_field *field,
+				const struct stats_metric_settings_group_by *group_by,
+				struct metric_value *value)
+{
+	switch (group_by->func) {
+	case STATS_METRIC_GROUPBY_DISCRETE:
+		if (!stats_metric_group_by_discrete(field, value))
+			return FALSE;
+		return TRUE;
+	case STATS_METRIC_GROUPBY_QUANTIZED:
+		if (!stats_metric_group_by_quantized(field, value, group_by))
+			return FALSE;
+		return TRUE;
+	}
+
+	i_panic("unknown group-by function %d", group_by->func);
+}
+
+static const char *
+stats_metric_group_by_get_label(const struct event_field *field,
+				const struct stats_metric_settings_group_by *group_by,
+				const struct metric_value *value)
+{
+	switch (group_by->func) {
+	case STATS_METRIC_GROUPBY_DISCRETE:
+		i_unreached();
+	case STATS_METRIC_GROUPBY_QUANTIZED:
+		return stats_metric_group_by_quantized_label(field, group_by,
+							     value->intmax);
+	}
+
+	i_panic("unknown group-by function %d", group_by->func);
+}
+
 static void
 stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 {
@@ -447,16 +482,8 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 	if (field == NULL)
 		return;
 
-	switch (group_by->func) {
-	case STATS_METRIC_GROUPBY_DISCRETE:
-		if (!stats_metric_group_by_discrete(field, &value))
-			return;
-		break;
-	case STATS_METRIC_GROUPBY_QUANTIZED:
-		if (!stats_metric_group_by_quantized(field, &value, group_by))
-			return;
-		break;
-	}
+	if (!stats_metric_group_by_get_value(field, group_by, &value))
+		return;
 
 	if (!array_is_created(&metric->sub_metrics))
 		p_array_init(&metric->sub_metrics, pool, 8);
@@ -474,15 +501,9 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 			value_label = dec2str(field->value.intmax);
 			break;
 		case METRIC_VALUE_TYPE_BUCKET_INDEX:
-			switch (group_by->func) {
-			case STATS_METRIC_GROUPBY_DISCRETE:
-				i_unreached();
-			case STATS_METRIC_GROUPBY_QUANTIZED:
-				value_label = stats_metric_group_by_quantized_label(field,
-										    group_by,
-										    value.intmax);
-				break;
-			}
+			value_label = stats_metric_group_by_get_label(field,
+								      group_by,
+								      &value);
 			break;
 		}
 
