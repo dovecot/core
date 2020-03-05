@@ -17,7 +17,8 @@ stats_LDADD = \
 	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT) \
 	$(DOVECOT_SSL_LIBS) \
-	$(BINARY_LDFLAGS)
+	$(BINARY_LDFLAGS) \
+	-lm
 
 stats_DEPENDENCIES = \
 	$(noinst_LTLIBRARIES) \
@@ -54,7 +55,8 @@ test_libs = \
 	$(noinst_LTLIBRARIES) \
 	$(DOVECOT_SSL_LIBS) \
 	$(LIBDOVECOT) \
-	$(BINARY_LDFLAGS)
+	$(BINARY_LDFLAGS) \
+	-lm
 
 test_deps = \
 	$(noinst_LTLIBRARIES) \
