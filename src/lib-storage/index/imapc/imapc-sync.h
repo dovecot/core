@@ -1,5 +1,5 @@
-#ifndef CYDIR_SYNC_H
-#define CYDIR_SYNC_H
+#ifndef IMAPC_SYNC_H
+#define IMAPC_SYNC_H
 
 struct mailbox;
 struct mailbox_sync_status;
