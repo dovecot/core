@@ -111,7 +111,6 @@ shlibs = \
 	index/dbox-common/libstorage_dbox_common.la \
 	index/maildir/libstorage_maildir.la \
 	index/mbox/libstorage_mbox.la \
-	index/cydir/libstorage_cydir.la \
 	index/imapc/libstorage_imapc.la \
 	../lib-imap-client/libimap_client.la \
 	index/pop3c/libstorage_pop3c.la \

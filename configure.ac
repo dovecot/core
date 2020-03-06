@@ -854,7 +854,6 @@ src/lib-storage/index/mbox/Makefile
 src/lib-storage/index/dbox-common/Makefile
 src/lib-storage/index/dbox-multi/Makefile
 src/lib-storage/index/dbox-single/Makefile
-src/lib-storage/index/cydir/Makefile
 src/lib-storage/index/raw/Makefile
 src/lib-storage/index/shared/Makefile
 src/anvil/Makefile
