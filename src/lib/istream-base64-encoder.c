@@ -72,8 +72,7 @@ i_stream_base64_finish_encode(struct base64_encoder_istream *bstream)
 		return 1;
 	}
 
-	i_stream_try_alloc(stream, out_size, &buffer_avail);
-	if (buffer_avail == 0)
+	if (!i_stream_try_alloc(stream, out_size, &buffer_avail))
 		return -2;
 
 	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
