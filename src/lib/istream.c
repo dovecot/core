@@ -887,13 +887,13 @@ void *i_stream_alloc(struct istream_private *stream, size_t size)
 {
 	size_t old_size, avail_size;
 
-	i_stream_try_alloc(stream, size, &avail_size);
+	(void)i_stream_try_alloc(stream, size, &avail_size);
 	if (avail_size < size) {
 		old_size = stream->buffer_size;
 		stream->buffer_size = nearest_power(stream->pos + size);
 		i_stream_w_buffer_realloc(stream, old_size);
 
-		i_stream_try_alloc(stream, size, &avail_size);
+		(void)i_stream_try_alloc(stream, size, &avail_size);
 		i_assert(avail_size >= size);
 	}
 	return stream->w_buffer + stream->pos;
@@ -905,7 +905,7 @@ bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
 	struct istream_private *stream = _stream->real_stream;
 	size_t size2;
 
-	i_stream_try_alloc(stream, size, &size2);
+	(void)i_stream_try_alloc(stream, size, &size2);
 	if (size > size2)
 		return FALSE;
 
