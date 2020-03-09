@@ -490,11 +490,11 @@ static void *t_malloc_real(size_t size, bool permanent)
 	if (permanent)
 		current_block->left -= alloc_size;
 
-	if (warn) {
+	if (warn) T_BEGIN {
 		/* warn after allocation, so if e_debug() wants to
 		   allocate more memory we don't go to infinite loop */
 		data_stack_send_grow_event(alloc_size);
-	}
+	} T_END;
 #ifdef DEBUG
 	memcpy(ret, &size, sizeof(size));
 	ret = PTR_OFFSET(ret, MEM_ALIGN(sizeof(size)));

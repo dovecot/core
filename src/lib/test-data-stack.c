@@ -37,7 +37,7 @@ test_ds_grow_event_callback(struct event *event,
 	field = event_find_field_nonrecursive(event, "frame_marker");
 	test_assert(field != NULL &&
 		    field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
-		    strstr(field->value.str, "test-data-stack.c") != NULL);
+		    strstr(field->value.str, "data-stack.c") != NULL);
 	return TRUE;
 }
 
@@ -93,6 +93,46 @@ static void test_ds_get_bytes_available(void)
 		} T_END;
 		test_assert_idx(t_get_bytes_available() == orig_avail, i);
 	}
+	test_end();
+}
+
+static void ATTR_FORMAT(2, 0)
+test_ds_growing_debug(const struct failure_context *ctx ATTR_UNUSED,
+		      const char *format, va_list args)
+{
+	ds_grow_event_count++;
+	(void)t_strdup_vprintf(format, args);
+}
+
+static void test_ds_grow_in_event(void)
+{
+	size_t i, alloc1 = 8096;
+	unsigned char *buf;
+	const char *error;
+
+	test_begin("data-stack grow in event");
+
+	struct event_filter *filter = event_filter_create();
+	event_set_global_debug_log_filter(filter);
+	test_assert(event_filter_parse("event=data_stack_grow", filter, &error) == 0);
+	event_filter_unref(&filter);
+
+	i_set_debug_handler(test_ds_growing_debug);
+	buf = t_buffer_get(alloc1);
+	for (i = 0; i < alloc1; i++)
+		buf[i] = i;
+
+	test_assert(ds_grow_event_count == 0);
+	buf = t_buffer_reget(buf, 65536);
+	test_assert(ds_grow_event_count == 1);
+	for (i = 0; i < alloc1; i++) {
+		if (buf[i] != (unsigned char)i)
+			break;
+	}
+	test_assert(i == alloc1);
+
+	i_set_debug_handler(default_error_handler);
+	event_unset_global_debug_log_filter();
 	test_end();
 }
 
@@ -286,6 +326,7 @@ void test_data_stack(void)
 	void (*tests[])(void) = {
 		test_ds_grow_event,
 		test_ds_get_bytes_available,
+		test_ds_grow_in_event,
 		test_ds_buffers,
 		test_ds_realloc,
 		test_ds_recursive,
