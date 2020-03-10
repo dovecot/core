@@ -452,8 +452,8 @@ dict_conn_assign_next_async_id(struct dict_connection *conn, const char *line)
 	i_assert(line[0] == DICT_PROTOCOL_REPLY_ASYNC_ID);
 
 	if (str_to_uint(line+1, &async_id) < 0 || async_id == 0) {
-		i_error("%s: Received invalid async-id line: %s",
-			conn->conn.name, line);
+		e_error(conn->conn.event, "Received invalid async-id line: %s",
+			line);
 		return -1;
 	}
 	cmds = array_get(&conn->dict->cmds, &count);
@@ -464,8 +464,9 @@ dict_conn_assign_next_async_id(struct dict_connection *conn, const char *line)
 			return 0;
 		}
 	}
-	i_error("%s: Received async-id line, but all %u commands already have it: %s",
-		conn->conn.name, count, line);
+	e_error(conn->conn.event, "Received async-id line, but all %u "
+				  "commands already have it: %s",
+		count, line);
 	return -1;
 }
 
@@ -479,8 +480,8 @@ static int dict_conn_find_async_id(struct dict_connection *conn,
 	i_assert(async_arg[0] == DICT_PROTOCOL_REPLY_ASYNC_REPLY);
 
 	if (str_to_uint(async_arg+1, &async_id) < 0 || async_id == 0) {
-		i_error("%s: Received invalid async-reply line: %s",
-			conn->conn.name, line);
+		e_error(conn->conn.event, "Received invalid async-reply line: %s",
+			line);
 		return -1;
 	}
 
@@ -491,8 +492,8 @@ static int dict_conn_find_async_id(struct dict_connection *conn,
 			return 0;
 		}
 	}
-	i_error("%s: Received reply for nonexistent async-id %u: %s",
-		conn->conn.name, async_id, line);
+	e_error(conn->conn.event, "Received reply for nonexistent async-id %u: %s",
+		async_id, line);
 	return -1;
 }
 
@@ -513,8 +514,8 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 
 	cmds = array_get(&conn->dict->cmds, &count);
 	if (count == 0) {
-		i_error("%s: Received reply without pending commands: %s",
-			dict->conn.conn.name, line);
+		e_error(conn->conn.event, "Received reply without pending commands: %s",
+			line);
 		return -1;
 	}
 
@@ -653,7 +654,7 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 	}
 	if (array_count(&retry_cmds) == 0)
 		return 0;
-	i_warning("%s - reconnected", reason);
+	e_warning(dict->conn.conn.event, "%s - reconnected", reason);
 
 	ret = 0; error = "";
 	array_foreach(&retry_cmds, cmdp) {
@@ -945,8 +946,8 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 			result.error, dict_warnings_sec(cmd, diff, extra_args));
 	} else if (!cmd->background &&
 		   diff >= (int)dict->warn_slow_msecs) {
-		i_warning("read(%s): dict lookup took %s: %s",
-			  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
+		e_warning(dict->conn.conn.event, "dict lookup took %s: %s",
+			  dict_warnings_sec(cmd, diff, extra_args),
 			  cmd->query);
 	}
 
@@ -1050,8 +1051,8 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 			ctx->error = new_error;
 		} else if (!cmd->background &&
 			   diff >= (int)dict->warn_slow_msecs) {
-			i_warning("read(%s): dict iteration took %s: %s",
-				  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
+			e_warning(dict->conn.conn.event, "dict iteration took %s: %s",
+				  dict_warnings_sec(cmd, diff, extra_args),
 				  cmd->query);
 		}
 	}
@@ -1312,9 +1313,9 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 			result.error, dict_warnings_sec(cmd, diff, extra_args));
 	} else if (!cmd->background && !cmd->trans->ctx.no_slowness_warning &&
 		   diff >= (int)dict->warn_slow_msecs) {
-		i_warning("read(%s): dict commit took %s: "
+		e_warning(dict->conn.conn.event, "dict commit took %s: "
 			  "%s (%u commands, first: %s)",
-			  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
+			  dict_warnings_sec(cmd, diff, extra_args),
 			  cmd->query, cmd->trans->query_count,
 			  cmd->trans->first_query);
 	}
