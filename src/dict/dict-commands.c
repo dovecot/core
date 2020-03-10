@@ -26,6 +26,7 @@ struct dict_connection_cmd {
 	const struct dict_cmd_func *cmd;
 	struct dict_connection *conn;
 	struct timeval start_timeval;
+	struct event *event;
 	char *reply;
 
 	struct dict_iterate_context *iter;
@@ -33,6 +34,7 @@ struct dict_connection_cmd {
 
 	unsigned int async_reply_id;
 	unsigned int trans_id; /* obsolete */
+	unsigned int rows;
 };
 
 struct dict_command_stats cmd_stats;
@@ -47,12 +49,13 @@ static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 
 	if (cmd->iter != NULL) {
 		if (dict_iterate_deinit(&cmd->iter, &error) < 0)
-			i_error("dict_iterate() failed: %s", error);
+			e_error(cmd->event, "dict_iterate() failed: %s", error);
 	}
 	i_free(cmd->reply);
 
 	if (dict_connection_unref(cmd->conn) && !cmd->conn->destroyed)
 		connection_input_resume(&cmd->conn->conn);
+	event_unref(&cmd->event);
 	i_free(cmd);
 }
 
@@ -193,12 +196,17 @@ cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
 	struct dict_connection_cmd *cmd = context;
 	string_t *str = t_str_new(128);
 
+	event_set_name(cmd->event, "dict_server_lookup_finished");
 	if (result->ret > 0) {
 		cmd_lookup_write_reply(cmd, result->values, str);
+		e_debug(cmd->event, "Lookup finished");
 	} else if (result->ret == 0) {
+		event_add_str(cmd->event, "key_not_found", "yes");
 		str_append_c(str, DICT_PROTOCOL_REPLY_NOTFOUND);
+		e_debug(cmd->event, "Lookup finished without results");
 	} else {
-		i_error("%s", result->error);
+		event_add_str(cmd->event, "error", result->error);
+		e_error(cmd->event, "Lookup failed: %s", result->error);
 		str_append_c(str, DICT_PROTOCOL_REPLY_FAIL);
 		str_append_tabescaped(str, result->error);
 	}
@@ -213,6 +221,7 @@ static int cmd_lookup(struct dict_connection_cmd *cmd, const char *line)
 {
 	/* <key> */
 	dict_connection_cmd_async(cmd);
+	event_add_str(cmd->event, "key", line);
 	dict_lookup_async(cmd->conn->dict, line, cmd_lookup_callback, cmd);
 	return 1;
 }
@@ -242,6 +251,7 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 
 	str = t_str_new(256);
 	while (dict_iterate(cmd->iter, &key, &value)) {
+		cmd->rows++;
 		str_truncate(str, 0);
 		if (cmd->async_reply_id != 0) {
 			str_append_c(str, DICT_PROTOCOL_REPLY_ASYNC_REPLY);
@@ -263,10 +273,16 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 		return 0;
 	}
 
+	event_set_name(cmd->event, "dict_server_iteration_finished");
+
 	str_truncate(str, 0);
 	if (dict_iterate_deinit(&cmd->iter, &error) < 0) {
-		i_error("dict_iterate() failed: %s", error);
+		event_add_str(cmd->event, "error", error);
+		e_error(cmd->event, "dict_iterate() failed: %s", error);
 		str_printfa(str, "%c%s", DICT_PROTOCOL_REPLY_FAIL, error);
+	} else {
+		event_add_int(cmd->event, "rows", cmd->rows);
+		e_debug(cmd->event, "Iteration finished");
 	}
 	dict_cmd_reply_handle_stats(cmd, str, cmd_stats.iterations);
 	str_append_c(str, '\n');
@@ -295,13 +311,14 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 	if (str_array_length(args) < 3 ||
 	    str_to_uint(args[0], &flags) < 0 ||
 	    str_to_uint64(args[1], &max_rows) < 0) {
-		i_error("dict client: ITERATE: broken input");
+		e_error(cmd->event, "ITERATE: broken input");
 		return -1;
 	}
 	dict_connection_cmd_async(cmd);
 
 	/* <flags> <max_rows> <path> */
 	flags |= DICT_ITERATE_FLAG_ASYNC;
+	event_add_str(cmd->event, "key", args[2]);
 	cmd->iter = dict_iterate_init_multiple(cmd->conn->dict, args+2, flags);
 	cmd->iter_flags = flags;
 	if (max_rows > 0)
@@ -351,11 +368,11 @@ static int cmd_begin(struct dict_connection_cmd *cmd, const char *line)
 	unsigned int id;
 
 	if (str_to_uint(line, &id) < 0) {
-		i_error("dict client: Invalid transaction ID %s", line);
+		e_error(cmd->event, "Invalid transaction ID %s", line);
 		return -1;
 	}
 	if (dict_connection_transaction_lookup(cmd->conn, id) != NULL) {
-		i_error("dict client: Transaction ID %u already exists", id);
+		e_error(cmd->event, "Transaction ID %u already exists", id);
 		return -1;
 	}
 
@@ -378,12 +395,12 @@ dict_connection_transaction_lookup_parse(struct dict_connection *conn,
 	unsigned int id;
 
 	if (str_to_uint(line, &id) < 0) {
-		i_error("dict client: Invalid transaction ID %s", line);
+		e_error(conn->conn.event, "Invalid transaction ID %s", line);
 		return -1;
 	}
 	*trans_r = dict_connection_transaction_lookup(conn, id);
 	if (*trans_r == NULL) {
-		i_error("dict client: Transaction ID %u doesn't exist", id);
+		e_error(conn->conn.event, "Transaction ID %u doesn't exist", id);
 		return -1;
 	}
 	return 0;
@@ -396,20 +413,25 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 	string_t *str = t_str_new(64);
 	char chr;
 
+	event_set_name(cmd->event, "dict_server_transaction_finished");
 	switch (result->ret) {
 	case DICT_COMMIT_RET_OK:
 		chr = DICT_PROTOCOL_REPLY_OK;
 		break;
 	case DICT_COMMIT_RET_NOTFOUND:
+		event_add_str(cmd->event, "key_not_found", "yes");
 		chr = DICT_PROTOCOL_REPLY_NOTFOUND;
 		break;
 	case DICT_COMMIT_RET_WRITE_UNCERTAIN:
 		i_assert(result->error != NULL);
+		event_add_str(cmd->event, "write_uncertain", "yes");
+		event_add_str(cmd->event, "error", result->error);
 		chr = DICT_PROTOCOL_REPLY_WRITE_UNCERTAIN;
 		break;
 	case DICT_COMMIT_RET_FAILED:
 	default:
 		i_assert(result->error != NULL);
+		event_add_str(cmd->event, "error", result->error);
 		chr = DICT_PROTOCOL_REPLY_FAIL;
 		break;
 	}
@@ -425,6 +447,10 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 	str_append_c(str, '\n');
 	cmd->reply = i_strdup(str_c(str));
 
+	if (result->ret < 0)
+		e_debug(cmd->event, "Transaction finished: %s", result->error);
+	else
+		e_debug(cmd->event, "Transaction finished");
 	dict_connection_transaction_array_remove(cmd->conn, cmd->trans_id);
 	dict_connection_cmd_try_flush(&cmd);
 }
@@ -493,7 +519,7 @@ static int cmd_set(struct dict_connection_cmd *cmd, const char *line)
 	/* <id> <key> <value> */
 	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 3) {
-		i_error("dict client: SET: broken input");
+		e_error(cmd->event, "SET: broken input");
 		return -1;
 	}
 
@@ -511,7 +537,7 @@ static int cmd_unset(struct dict_connection_cmd *cmd, const char *line)
 	/* <id> <key> */
 	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 2) {
-		i_error("dict client: UNSET: broken input");
+		e_error(cmd->event, "UNSET: broken input");
 		return -1;
 	}
 
@@ -531,7 +557,7 @@ static int cmd_atomic_inc(struct dict_connection_cmd *cmd, const char *line)
 	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 3 ||
 	    str_to_llong(args[2], &diff) < 0) {
-		i_error("dict client: ATOMIC_INC: broken input");
+		e_error(cmd->event, "ATOMIC_INC: broken input");
 		return -1;
 	}
 
@@ -554,7 +580,7 @@ static int cmd_timestamp(struct dict_connection_cmd *cmd, const char *line)
 	if (str_array_length(args) != 3 ||
 	    str_to_llong(args[1], &tv_sec) < 0 ||
 	    str_to_uint(args[2], &tv_nsec) < 0) {
-		i_error("dict client: TIMESTAMP: broken input");
+		e_error(cmd->event, "TIMESTAMP: broken input");
 		return -1;
 	}
 
@@ -603,12 +629,13 @@ int dict_command_input(struct dict_connection *conn, const char *line)
 
 	cmd_func = dict_command_find((enum dict_protocol_cmd)*line);
 	if (cmd_func == NULL) {
-		i_error("dict client: Unknown command %c", *line);
+		e_error(conn->conn.event, "Unknown command %c", *line);
 		return -1;
 	}
 
 	cmd = i_new(struct dict_connection_cmd, 1);
 	cmd->conn = conn;
+	cmd->event = event_create(cmd->conn->conn.event);
 	cmd->cmd = cmd_func;
 	cmd->start_timeval = ioloop_timeval;
 	array_push_back(&conn->cmds, &cmd);

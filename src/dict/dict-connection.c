@@ -21,6 +21,10 @@ static int dict_connection_dict_init(struct dict_connection *conn);
 static void dict_connection_destroy(struct connection *_conn);
 struct connection_list *dict_connections = NULL;
 
+static  struct event_category dict_server_event_category = {
+	.name = "dict-server",
+};
+
 static int dict_connection_handshake_args(struct connection *_conn,
 					  const char *const *args)
 {
@@ -70,7 +74,7 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	const char *uri, *error;
 
 	if (!array_is_created(&dict_settings->dicts)) {
-		i_error("dict client: No dictionaries configured");
+		e_error(conn->conn.event, "No dictionaries configured");
 		return -1;
 	}
 	strlist = array_get(&dict_settings->dicts, &count);
@@ -80,19 +84,21 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	}
 
 	if (i == count) {
-		i_error("dict client: Unconfigured dictionary name '%s'",
+		e_error(conn->conn.event, "Unconfigured dictionary name '%s'",
 			conn->name);
 		return -1;
 	}
+	event_add_str(conn->conn.event, "dict_name", conn->name);
 	uri = strlist[i+1];
 
 	i_zero(&dict_set);
 	dict_set.value_type = conn->value_type;
 	dict_set.username = conn->username;
 	dict_set.base_dir = dict_settings->base_dir;
+	dict_set.event_parent = conn->conn.event;
 	if (dict_init(uri, &dict_set, &conn->dict, &error) < 0) {
 		/* dictionary initialization failed */
-		i_error("Failed to initialize dictionary '%s': %s",
+		e_error(conn->conn.event, "Failed to initialize dictionary '%s': %s",
 			conn->name, error);
 		return -1;
 	}
@@ -123,6 +129,8 @@ dict_connection_create(struct master_service_connection *master_conn)
 
 	connection_init_server(dict_connections, &conn->conn, master_conn->name,
 			       master_conn->fd, master_conn->fd);
+	event_set_append_log_prefix(conn->conn.event, "dict client: ");
+	event_add_category(conn->conn.event, &dict_server_event_category);
 
 	o_stream_set_flush_callback(conn->conn.output, dict_connection_output,
 				    &conn->conn);
