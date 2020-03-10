@@ -444,6 +444,7 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 			op->res.error = error;
 			callback(&op->res, context);
 			pool_unref(&oppool);
+			return;
 		}
 		input.filter = str_c(query);
 		input.attributes = attributes;
