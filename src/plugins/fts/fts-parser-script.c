@@ -138,7 +138,7 @@ static bool script_support_content(struct mail_user *user,
 		extension = strrchr(filename, '.');
 		if (extension == NULL)
 			return FALSE;
-		extension = filename + 1;
+		extension = extension + 1;
 
 		array_foreach(&suser->content, content) {
 			if (content->extensions != NULL &&
