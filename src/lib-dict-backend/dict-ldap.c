@@ -43,7 +43,6 @@ struct ldap_dict {
 	pool_t pool;
 
 	struct ldap_client *client;
-	struct ioloop *ioloop, *prev_ioloop;
 
 	unsigned long last_txid;
 	unsigned int pending;
@@ -271,21 +270,21 @@ static void ldap_dict_wait(struct dict *dict)
 {
 	struct ldap_dict *ctx = (struct ldap_dict *)dict;
 
-	i_assert(ctx->ioloop == NULL);
+	i_assert(ctx->dict.ioloop == NULL);
 
-	ctx->prev_ioloop = current_ioloop;
-	ctx->ioloop = io_loop_create();
+	ctx->dict.prev_ioloop = current_ioloop;
+	ctx->dict.ioloop = io_loop_create();
 	dict_switch_ioloop(dict);
 
 	do {
 		io_loop_run(current_ioloop);
 	} while (ctx->pending > 0);
 
-	io_loop_set_current(ctx->prev_ioloop);
+	io_loop_set_current(ctx->dict.prev_ioloop);
 	dict_switch_ioloop(dict);
-	io_loop_set_current(ctx->ioloop);
-	io_loop_destroy(&ctx->ioloop);
-	ctx->prev_ioloop = NULL;
+	io_loop_set_current(ctx->dict.ioloop);
+	io_loop_destroy(&ctx->dict.ioloop);
+	ctx->dict.prev_ioloop = NULL;
 }
 
 static bool ldap_dict_switch_ioloop(struct dict *dict)
