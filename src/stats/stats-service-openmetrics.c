@@ -27,6 +27,7 @@
 enum openmetrics_metric_type {
 	OPENMETRICS_METRIC_TYPE_COUNT,
 	OPENMETRICS_METRIC_TYPE_DURATION,
+	OPENMETRICS_METRIC_TYPE_HISTOGRAM,
 };
 
 enum openmetrics_request_state {
@@ -215,6 +216,8 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 	case OPENMETRICS_METRIC_TYPE_DURATION:
 		str_append(out, "_duration_usecs_sum");
 		break;
+	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
+		i_unreached();
 	}
 	/* Labels */
 	if (str_len(req->labels) > 0) {
@@ -234,7 +237,102 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 			    stats_dist_get_sum(metric->duration_stats),
 			    timestamp);
 		break;
+	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
+		i_unreached();
 	}
+}
+
+static const struct metric *
+openmetrics_find_histogram_bucket(const struct metric *metric,
+				 unsigned int index)
+{
+	struct metric *const *sub_metric_p;
+
+	if (!array_is_created(&metric->sub_metrics))
+		return NULL;
+
+	array_foreach(&metric->sub_metrics, sub_metric_p) {
+		struct metric *sub_metric = *sub_metric_p;
+
+		if (sub_metric->group_value.type !=
+		    METRIC_VALUE_TYPE_BUCKET_INDEX)
+			continue;
+		if (sub_metric->group_value.intmax == index)
+			return sub_metric;
+	}
+
+	return NULL;
+}
+
+static void
+openmetrics_export_histogram_bucket(struct openmetrics_request *req,
+				    string_t *out, const struct metric *metric,
+				    intmax_t bucket_limit, int64_t count,
+				    int64_t timestamp)
+{
+	/* Metric name */
+	str_append(out, "dovecot_");
+	str_append(out, metric->name);
+	str_append(out, "_histogram_bucket");
+	/* Labels */
+	str_append_c(out, '{');
+	if (str_len(req->labels) > 0) {
+		str_append_str(out, req->labels);
+		str_append_c(out, ',');
+	}
+	if (bucket_limit == INTMAX_MAX)
+		str_append(out, "le=\"+Inf\"");
+	else
+		str_printfa(out, "le=\"%jd\"", bucket_limit);
+	str_printfa(out, "} %"PRIu64" %"PRId64"\n", count, timestamp);
+}
+
+static void
+openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
+			     const struct metric *metric, int64_t timestamp)
+{
+	const struct stats_metric_settings_group_by *group_by =
+		metric->group_by;
+	int64_t sum = 0;
+	uint64_t count = 0;
+
+	/* Buckets */
+	for (unsigned int i = 0; i < group_by->num_ranges; i++) {
+		const struct metric *sub_metric =
+			openmetrics_find_histogram_bucket(metric, i);
+
+		if (sub_metric != NULL) {
+			sum += stats_dist_get_sum(sub_metric->duration_stats);
+			count += stats_dist_get_count(
+				sub_metric->duration_stats);
+		}
+
+		openmetrics_export_histogram_bucket(req, out, metric,
+						    group_by->ranges[i].max,
+						    count, timestamp);
+	}
+	/* Sum */
+	str_append(out, "dovecot_");
+	str_append(out, metric->name);
+	str_append(out, "_histogram_sum");
+	/* Labels */
+	if (str_len(req->labels) > 0) {
+		str_append_c(out, '{');
+		str_append_str(out, req->labels);
+		str_append_c(out, '}');
+	}
+	str_printfa(out, " %"PRIu64" %"PRId64"\n", sum, timestamp);
+	/* Count */
+	str_append(out, "dovecot_");
+	str_append(out, metric->name);
+	str_append(out, "_histogram_count");
+	/* Labels */
+	if (str_len(req->labels) > 0) {
+		str_append_c(out, '{');
+		str_append_str(out, req->labels);
+		str_append_c(out, '}');
+	}
+	str_printfa(out, " %"PRIu64" %"PRId64"\n", count, timestamp);
 }
 
 static void
@@ -255,6 +353,9 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 	case OPENMETRICS_METRIC_TYPE_DURATION:
 		str_append(out, "_duration_usecs_sum Duration");
 		break;
+	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
+		str_append(out, "_histogram Histogram");
+		break;
 	}
 	if (*metric->set->description != '\0') {
 		str_append(out, " of ");
@@ -271,6 +372,9 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 	case OPENMETRICS_METRIC_TYPE_DURATION:
 		str_append(out, "_duration_usecs_sum counter\n");
 		break;
+	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
+		str_append(out, "_histogram histogram\n");
+		break;
 	}
 }
 
@@ -281,6 +385,15 @@ openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 	str_append_c(req->labels, '"');
 	openmetrics_escape_string(req->labels, metric->sub_name);
 	str_append_c(req->labels, '"');
+
+	if (req->metric_type == OPENMETRICS_METRIC_TYPE_HISTOGRAM) {
+		if (metric->group_by == NULL ||
+		    metric->group_by[0].func != STATS_METRIC_GROUPBY_QUANTIZED)
+			return;
+
+		openmetrics_export_histogram(req, out, metric, timestamp);
+		return;
+	}
 
 	openmetrics_export_metric_value(req, out, metric, timestamp);
 
@@ -332,6 +445,11 @@ openmetrics_export_sub_metric_down(struct openmetrics_request *req)
 	    !array_is_created(&reqsm->metric->sub_metrics) ||
 	    array_count(&reqsm->metric->sub_metrics) == 0)
 		return NULL;
+	if (reqsm->metric->group_by[0].func == STATS_METRIC_GROUPBY_QUANTIZED) {
+		/* Never descend into quantized group_by sub-metrics.
+		   Histograms are exported as a single blob. */
+		return NULL;
+	}
 
 	/* Find sub-metric to descend into */
 	sub_metric = openmetrics_export_sub_metric_get(reqsm);
@@ -469,6 +587,28 @@ openmetrics_send_buffer(struct openmetrics_request *req, buffer_t *buffer)
 	return 1;
 }
 
+static bool openmetrics_export_has_histogram(struct openmetrics_request *req)
+{
+	const struct metric *metric = req->metric;
+	unsigned int i;
+
+	if (metric->group_by_count == 0) {
+		/* No group_by */
+		return FALSE;
+	}
+
+	/* We can only support quantized group_by when it is the last group
+	   item. */
+	for (i = 0; i < (metric->group_by_count - 1); i++) {
+		if (metric->group_by[i].func ==
+		    STATS_METRIC_GROUPBY_QUANTIZED)
+			return FALSE;
+	}
+
+	return (metric->group_by[metric->group_by_count - 1].func ==
+		STATS_METRIC_GROUPBY_QUANTIZED);
+}
+
 static void openmetrics_export_next(struct openmetrics_request *req)
 {
 	/* Determine what to export next. */
@@ -479,14 +619,25 @@ static void openmetrics_export_next(struct openmetrics_request *req)
 		req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
+		if (openmetrics_export_has_histogram(req)) {
+			/* Continue with histogram output for this metric. */
+			req->metric_type = OPENMETRICS_METRIC_TYPE_HISTOGRAM;
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
+		} else {
+			/* No histogram; continue with next metric */
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC;
+		}
+		break;
+	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		/* Continue with next metric */
 		req->state = OPENMETRICS_REQUEST_STATE_METRIC;
 		break;
 	}
 }
 
-static void openmetrics_export_continue(struct openmetrics_request *req,
-					string_t *out, int64_t timestamp)
+static void
+openmetrics_export_continue(struct openmetrics_request *req, string_t *out,
+			    int64_t timestamp)
 {
 	switch (req->state) {
 	case OPENMETRICS_REQUEST_STATE_INIT:
@@ -534,13 +685,19 @@ static void openmetrics_export_continue(struct openmetrics_request *req,
 		if (!openmetrics_export_sub_metrics(req, out, timestamp))
 			break;
 		/* All sub-metrics written. */
-		if (!req->has_submetric) {
-			/* No sub-metrics; write the top-level metric body */
-			req->state = OPENMETRICS_REQUEST_STATE_METRIC_BODY;
-		} else {
-			/* Sub-metrics present; skip the top-level metric body
+		if (req->metric_type == OPENMETRICS_METRIC_TYPE_HISTOGRAM ||
+		    req->has_submetric) {
+			/* If either:
+
+			   - we're writing a histogram metric, or
+			   - sub-metrics are present,
+
+			   then skip the top-level metric body.
 			 */
 			openmetrics_export_next(req);
+		} else {
+			/* Export values for top-level metric */
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC_BODY;
 		}
 		break;
 	case OPENMETRICS_REQUEST_STATE_METRIC_BODY:
