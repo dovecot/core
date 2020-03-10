@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "llist.h"
+#include "ioloop.h"
 #include "str.h"
 #include "dict-private.h"
 
@@ -120,6 +121,25 @@ static bool dict_key_prefix_is_valid(const char *key)
 	return str_begins(key, DICT_PATH_SHARED) ||
 		str_begins(key, DICT_PATH_PRIVATE);
 }
+
+void dict_pre_api_callback(struct dict *dict)
+{
+	if (dict->prev_ioloop != NULL) {
+		/* Don't let callback see that we've created our
+		   internal ioloop in case it wants to add some ios
+		   or timeouts. */
+		io_loop_set_current(dict->prev_ioloop);
+	}
+}
+
+void dict_post_api_callback(struct dict *dict)
+{
+	if (dict->prev_ioloop != NULL) {
+		io_loop_set_current(dict->ioloop);
+		io_loop_stop(dict->ioloop);
+	}
+}
+
 
 int dict_lookup(struct dict *dict, pool_t pool, const char *key,
 		const char **value_r, const char **error_r)

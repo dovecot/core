@@ -79,7 +79,6 @@ struct client_dict {
 	time_t last_failed_connect;
 	char *last_connect_error;
 
-	struct ioloop *ioloop, *prev_ioloop;
 	struct io_wait_timer *wait_timer;
 	uint64_t last_timer_switch_usecs;
 	struct timeout *to_requests;
@@ -168,30 +167,6 @@ static bool client_dict_cmd_unref(struct client_dict_cmd *cmd)
 	i_free(cmd->query);
 	i_free(cmd);
 	return FALSE;
-}
-
-static void dict_client_stop_wait(struct client_dict *dict)
-{
-	if (dict->prev_ioloop != NULL) {
-		current_ioloop = dict->ioloop;
-		/* stop client_dict_wait() */
-		io_loop_stop(dict->ioloop);
-	}
-}
-
-static void dict_pre_api_callback(struct client_dict *dict)
-{
-	if (dict->prev_ioloop != NULL) {
-		/* Don't let callback see that we've created our
-		   internal ioloop in case it wants to add some ios
-		   or timeouts. */
-		current_ioloop = dict->prev_ioloop;
-	}
-}
-
-static void dict_post_api_callback(struct client_dict *dict)
-{
-	dict_client_stop_wait(dict);
 }
 
 static bool
@@ -789,7 +764,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	connection_init_client_unix(dict_connections, &dict->conn.conn, path);
 	dict->uri = i_strdup(dest_uri + 1);
 
-	dict->ioloop = io_loop_create();
+	dict->dict.ioloop = io_loop_create();
 	dict->wait_timer = io_wait_timer_add();
 	io_loop_set_current(old_ioloop);
 	*dict_r = &dict->dict;
@@ -808,8 +783,8 @@ static void client_dict_deinit(struct dict *_dict)
 	i_assert(dict->transactions == NULL);
 	i_assert(array_count(&dict->cmds) == 0);
 
-	io_loop_set_current(dict->ioloop);
-	io_loop_destroy(&dict->ioloop);
+	io_loop_set_current(dict->dict.ioloop);
+	io_loop_destroy(&dict->dict.ioloop);
 	io_loop_set_current(old_ioloop);
 
 	array_free(&dict->cmds);
@@ -829,14 +804,14 @@ static void client_dict_wait(struct dict *_dict)
 	if (array_count(&dict->cmds) == 0)
 		return;
 
-	dict->prev_ioloop = current_ioloop;
-	io_loop_set_current(dict->ioloop);
+	dict->dict.prev_ioloop = current_ioloop;
+	io_loop_set_current(dict->dict.ioloop);
 	dict_switch_ioloop(_dict);
 	while (array_count(&dict->cmds) > 0)
-		io_loop_run(dict->ioloop);
+		io_loop_run(dict->dict.ioloop);
 
-	io_loop_set_current(dict->prev_ioloop);
-	dict->prev_ioloop = NULL;
+	io_loop_set_current(dict->dict.prev_ioloop);
+	dict->dict.prev_ioloop = NULL;
 
 	dict_switch_ioloop(_dict);
 }
@@ -975,9 +950,9 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 			  cmd->query);
 	}
 
-	dict_pre_api_callback(dict);
+	dict_pre_api_callback(&dict->dict);
 	cmd->api_callback.lookup(&result, cmd->api_callback.context);
-	dict_post_api_callback(dict);
+	dict_post_api_callback(&dict->dict);
 }
 
 static void
@@ -1064,7 +1039,7 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 	if (ctx->deinit) {
 		/* Iterator was already deinitialized. Stop if we're in
 		   client_dict_wait(). */
-		dict_client_stop_wait(dict);
+		dict_post_api_callback(&dict->dict);
 		return;
 	}
 	if (ctx->finished) {
@@ -1083,12 +1058,12 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 		}
 	}
 	if (ctx->ctx.async_callback != NULL) {
-		dict_pre_api_callback(dict);
+		dict_pre_api_callback(&dict->dict);
 		ctx->ctx.async_callback(ctx->ctx.async_context);
-		dict_post_api_callback(dict);
+		dict_post_api_callback(&dict->dict);
 	} else {
 		/* synchronous lookup */
-		io_loop_stop(dict->ioloop);
+		io_loop_stop(dict->dict.ioloop);
 	}
 }
 
@@ -1347,9 +1322,9 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	}
 	client_dict_transaction_free(&cmd->trans);
 
-	dict_pre_api_callback(dict);
+	dict_pre_api_callback(&dict->dict);
 	cmd->api_callback.commit(&result, cmd->api_callback.context);
-	dict_post_api_callback(dict);
+	dict_post_api_callback(&dict->dict);
 }
 
 

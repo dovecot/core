@@ -51,7 +51,6 @@ struct memcached_dict {
 	in_port_t port;
 	unsigned int timeout_msecs;
 
-	struct ioloop *ioloop;
 	struct memcached_connection conn;
 
 	bool connected;
@@ -66,8 +65,8 @@ static void memcached_conn_destroy(struct connection *_conn)
 	conn->dict->connected = FALSE;
 	connection_disconnect(_conn);
 
-	if (conn->dict->ioloop != NULL)
-		io_loop_stop(conn->dict->ioloop);
+	if (conn->dict->dict.ioloop != NULL)
+		io_loop_stop(conn->dict->dict.ioloop);
 }
 
 static int memcached_input_get(struct memcached_connection *conn)
@@ -117,8 +116,8 @@ static int memcached_input_get(struct memcached_connection *conn)
 	i_stream_skip(conn->conn.input, body_len);
 	conn->reply.reply_received = TRUE;
 
-	if (conn->dict->ioloop != NULL)
-		io_loop_stop(conn->dict->ioloop);
+	if (conn->dict->dict.ioloop != NULL)
+		io_loop_stop(conn->dict->dict.ioloop);
 	return 1;
 }
 
@@ -151,8 +150,8 @@ static void memcached_conn_connected(struct connection *_conn, bool success)
 	} else {
 		conn->dict->connected = TRUE;
 	}
-	if (conn->dict->ioloop != NULL)
-		io_loop_stop(conn->dict->ioloop);
+	if (conn->dict->dict.ioloop != NULL)
+		io_loop_stop(conn->dict->dict.ioloop);
 }
 
 static const struct connection_settings memcached_conn_set = {
@@ -250,7 +249,7 @@ static void memcached_dict_lookup_timeout(struct memcached_dict *dict)
 {
 	i_error("memcached: Lookup timed out in %u.%03u secs",
 		dict->timeout_msecs/1000, dict->timeout_msecs%1000);
-	io_loop_stop(dict->ioloop);
+	io_loop_stop(dict->dict.ioloop);
 }
 
 static void memcached_add_header(buffer_t *buf, unsigned int key_len)
@@ -295,9 +294,9 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 		return -1;
 	}
 
-	i_assert(dict->ioloop == NULL);
+	i_assert(dict->dict.ioloop == NULL);
 
-	dict->ioloop = io_loop_create();
+	dict->dict.ioloop = io_loop_create();
 	connection_switch_ioloop(&dict->conn.conn);
 
 	if (dict->conn.conn.fd_in == -1 &&
@@ -309,7 +308,7 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 				 memcached_dict_lookup_timeout, dict);
 		if (!dict->connected) {
 			/* wait for connection */
-			io_loop_run(dict->ioloop);
+			io_loop_run(dict->dict.ioloop);
 		}
 
 		if (dict->connected) {
@@ -322,15 +321,15 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 				       dict->conn.cmd->used);
 
 			i_zero(&dict->conn.reply);
-			io_loop_run(dict->ioloop);
+			io_loop_run(dict->dict.ioloop);
 		}
 		timeout_remove(&to);
 	}
 
 	io_loop_set_current(prev_ioloop);
 	connection_switch_ioloop(&dict->conn.conn);
-	io_loop_set_current(dict->ioloop);
-	io_loop_destroy(&dict->ioloop);
+	io_loop_set_current(dict->dict.ioloop);
+	io_loop_destroy(&dict->dict.ioloop);
 
 	if (!dict->conn.reply.reply_received) {
 		/* we failed in some way. make sure we disconnect since the

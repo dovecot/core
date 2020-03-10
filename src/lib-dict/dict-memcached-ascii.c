@@ -56,7 +56,6 @@ struct memcached_ascii_dict {
 	in_port_t port;
 	unsigned int timeout_msecs;
 
-	struct ioloop *ioloop, *prev_ioloop;
 	struct timeout *to;
 	struct memcached_ascii_connection conn;
 
@@ -72,15 +71,15 @@ memcached_ascii_callback(struct memcached_ascii_dict *dict,
 			 const struct dict_commit_result *result)
 {
 	if (reply->callback != NULL) {
-		if (dict->prev_ioloop != NULL) {
+		if (dict->dict.prev_ioloop != NULL) {
 			/* Don't let callback see that we've created our
 			   internal ioloop in case it wants to add some ios
 			   or timeouts. */
-			current_ioloop = dict->prev_ioloop;
+			current_ioloop = dict->dict.prev_ioloop;
 		}
 		reply->callback(result, reply->context);
-		if (dict->prev_ioloop != NULL)
-			current_ioloop = dict->ioloop;
+		if (dict->dict.prev_ioloop != NULL)
+			current_ioloop = dict->dict.ioloop;
 	}
 }
 
@@ -94,8 +93,8 @@ memcached_ascii_disconnected(struct memcached_ascii_connection *conn,
 	const struct memcached_ascii_dict_reply *reply;
 
 	connection_disconnect(&conn->conn);
-	if (conn->dict->ioloop != NULL)
-		io_loop_stop(conn->dict->ioloop);
+	if (conn->dict->dict.ioloop != NULL)
+		io_loop_stop(conn->dict->dict.ioloop);
 
 	array_foreach(&conn->dict->replies, reply)
 		memcached_ascii_callback(conn->dict, reply, &result);
@@ -246,21 +245,21 @@ static void memcached_ascii_conn_input(struct connection *_conn)
 	while ((ret = memcached_ascii_input_reply(conn->dict, &error)) > 0) ;
 	if (ret < 0)
 		memcached_ascii_disconnected(conn, error);
-	io_loop_stop(conn->dict->ioloop);
+	io_loop_stop(conn->dict->dict.ioloop);
 }
 
 static int memcached_ascii_input_wait(struct memcached_ascii_dict *dict,
 				      const char **error_r)
 {
-	dict->prev_ioloop = current_ioloop;
-	io_loop_set_current(dict->ioloop);
+	dict->dict.prev_ioloop = current_ioloop;
+	io_loop_set_current(dict->dict.ioloop);
 	if (dict->to != NULL)
 		dict->to = io_loop_move_timeout(&dict->to);
 	connection_switch_ioloop(&dict->conn.conn);
-	io_loop_run(dict->ioloop);
+	io_loop_run(dict->dict.ioloop);
 
-	io_loop_set_current(dict->prev_ioloop);
-	dict->prev_ioloop = NULL;
+	io_loop_set_current(dict->dict.prev_ioloop);
+	dict->dict.prev_ioloop = NULL;
 
 	if (dict->to != NULL)
 		dict->to = io_loop_move_timeout(&dict->to);
@@ -337,8 +336,8 @@ memcached_ascii_conn_connected(struct connection *_conn, bool success)
 		i_error("memcached_ascii: connect(%s, %u) failed: %m",
 			net_ip2addr(&conn->dict->ip), conn->dict->port);
 	}
-	if (conn->dict->ioloop != NULL)
-		io_loop_stop(conn->dict->ioloop);
+	if (conn->dict->dict.ioloop != NULL)
+		io_loop_stop(conn->dict->dict.ioloop);
 }
 
 static const struct connection_settings memcached_ascii_conn_set = {
@@ -446,7 +445,7 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 	i_array_init(&dict->input_states, 4);
 	i_array_init(&dict->replies, 4);
 
-	dict->ioloop = io_loop_create();
+	dict->dict.ioloop = io_loop_create();
 	io_loop_set_current(old_ioloop);
 	*dict_r = &dict->dict;
 	return 0;
@@ -465,8 +464,8 @@ static void memcached_ascii_dict_deinit(struct dict *_dict)
 	}
 	connection_deinit(&dict->conn.conn);
 
-	io_loop_set_current(dict->ioloop);
-	io_loop_destroy(&dict->ioloop);
+	io_loop_set_current(dict->dict.ioloop);
+	io_loop_destroy(&dict->dict.ioloop);
 	io_loop_set_current(old_ioloop);
 
 	str_free(&dict->conn.reply_str);
