@@ -125,6 +125,22 @@ static void openmetrics_escape_string(string_t *dest, const char *value)
 	}
 }
 
+static void openmetrics_export_dovecot(string_t *out, int64_t timestamp)
+{
+	i_assert(stats_startup_time <= ioloop_time);
+	str_append(out, "# HELP dovecot_stats_uptime_seconds "
+			"Dovecot stats service uptime\n");
+	str_append(out, "# TYPE dovecot_stats_uptime_seconds counter\n");
+	str_printfa(out, "dovecot_stats_uptime_seconds %"PRId64" %"PRId64"\n\n",
+		    (int64_t)(ioloop_time - stats_startup_time), timestamp);
+
+	str_append(out, "# HELP dovecot_build_info "
+			"Dovecot build information\n");
+	str_append(out, "# TYPE dovecot_build_info untyped\n");
+	str_printfa(out, "dovecot_build_info{"OPENMETRICS_BUILD_INFO"} "
+			 "1 %"PRId64"\n", timestamp);
+}
+
 static void
 openmetrics_export_metric_labels(string_t *out, const struct metric *metric)
 {
@@ -300,19 +316,8 @@ static void openmetrics_export(struct http_server_response *resp)
 	timestamp = ((int64_t)ioloop_timeval.tv_sec * 1000 +
 		     (int64_t)ioloop_timeval.tv_usec / 1000);
 
-	i_assert(stats_startup_time <= ioloop_time);
-	str_append(out, "# HELP dovecot_stats_uptime_seconds "
-			"Dovecot stats service uptime\n");
-	str_append(out, "# TYPE dovecot_stats_uptime_seconds counter\n");
-	str_printfa(out, "dovecot_stats_uptime_seconds %"PRId64" %"PRId64"\n\n",
-		    (int64_t)(ioloop_time - stats_startup_time), timestamp);
-
-	str_append(out, "# HELP dovecot_build_info "
-			"Dovecot build information\n");
-	str_append(out, "# TYPE dovecot_build_info untyped\n");
-	str_printfa(out, "dovecot_build_info{"OPENMETRICS_BUILD_INFO"} "
-			 "1 %"PRId64"\n", timestamp);
-
+	openmetrics_export_dovecot(out, timestamp);
+	
 	iter = stats_metrics_iterate_init(stats_metrics);
 	while ((metric = stats_metrics_iterate(iter)) != NULL) {
 		/* Empty line */
