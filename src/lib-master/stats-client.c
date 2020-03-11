@@ -10,6 +10,7 @@
 #include "connection.h"
 #include "stats-client.h"
 
+#define STATS_CLIENT_TIMEOUT_MSECS (5*1000)
 #define STATS_CLIENT_RECONNECT_INTERVAL_MSECS (10*1000)
 
 struct stats_client {
@@ -286,13 +287,21 @@ static void stats_global_deinit(void)
 	connection_list_deinit(&stats_clients);
 }
 
+static void stats_client_timeout(struct stats_client *client)
+{
+	e_error(client->conn.event, "Timeout waiting for handshake response");
+	io_loop_stop(client->ioloop);
+}
+
 static void stats_client_wait_handshake(struct stats_client *client)
 {
 	struct ioloop *prev_ioloop = current_ioloop;
+	struct timeout *to;
 
 	i_assert(client->to_reconnect == NULL);
 
 	client->ioloop = io_loop_create();
+	to = timeout_add(STATS_CLIENT_TIMEOUT_MSECS, stats_client_timeout, client);
 	connection_switch_ioloop(&client->conn);
 	io_loop_run(client->ioloop);
 	io_loop_set_current(prev_ioloop);
@@ -300,6 +309,7 @@ static void stats_client_wait_handshake(struct stats_client *client)
 	if (client->to_reconnect != NULL)
 		client->to_reconnect = io_loop_move_timeout(&client->to_reconnect);
 	io_loop_set_current(client->ioloop);
+	timeout_remove(&to);
 	io_loop_destroy(&client->ioloop);
 }
 
