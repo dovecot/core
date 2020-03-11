@@ -210,7 +210,7 @@ openmetrics_export_submetrics(string_t *out, const struct metric *metric,
 
 static void
 openmetrics_export_metric(string_t *out, const struct metric *metric,
-			 int64_t timestamp)
+			  int64_t timestamp)
 {
 	if (!openmetrics_check_metric(metric))
 		return;
@@ -289,8 +289,7 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 	}
 }
 
-static void
-openmetrics_export(struct http_server_response *resp)
+static void openmetrics_export(struct http_server_response *resp)
 {
 	struct stats_metrics_iter *iter;
 	const struct metric *metric;
@@ -329,8 +328,8 @@ openmetrics_export(struct http_server_response *resp)
 
 static void
 stats_service_openmetrics_request(void *context ATTR_UNUSED,
-				 struct http_server_request *req,
-				 const char *sub_path)
+				  struct http_server_request *req,
+				  const char *sub_path)
 {
 	const struct http_request *hreq = http_server_request_get(req);
 	struct http_server_response *resp;
