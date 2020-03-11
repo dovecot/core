@@ -23,8 +23,14 @@
 	"version=\""DOVECOT_VERSION"\""
 #endif
 
+enum openmetrics_metric_type {
+	OPENMETRICS_METRIC_TYPE_COUNT,
+	OPENMETRICS_METRIC_TYPE_DURATION,
+};
+
 struct openmetrics_request {
 	const struct metric *metric;
+	enum openmetrics_metric_type metric_type;
 	string_t *labels;
 
 	bool has_submetric:1;
@@ -43,8 +49,7 @@ struct openmetrics_request {
 
 static void
 openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
-			      const struct metric *metric, bool count,
-			      int64_t timestamp);
+			      const struct metric *metric, int64_t timestamp);
 
 static bool openmetrics_check_name(const char *name)
 {
@@ -179,9 +184,81 @@ openmetrics_export_metric_labels(string_t *out, const struct metric *metric)
 }
 
 static void
+openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
+				const struct metric *metric, int64_t timestamp)
+{
+	/* Metric name */
+	str_append(out, "dovecot_");
+	str_append(out, req->metric->name);
+	switch (req->metric_type) {
+	case OPENMETRICS_METRIC_TYPE_COUNT:
+		str_append(out, "_count");
+		break;
+	case OPENMETRICS_METRIC_TYPE_DURATION:
+		str_append(out, "_duration_usecs_sum");
+		break;
+	}
+	/* Labels */
+	if (str_len(req->labels) > 0) {
+		str_append_c(out, '{');
+		str_append_str(out, req->labels);
+		str_append_c(out, '}');
+	}
+	/* Value */
+	switch (req->metric_type) {
+	case OPENMETRICS_METRIC_TYPE_COUNT:
+		str_printfa(out, " %u %"PRId64"\n",
+			    stats_dist_get_count(metric->duration_stats),
+			    timestamp);
+		break;
+	case OPENMETRICS_METRIC_TYPE_DURATION:
+		str_printfa(out, " %"PRIu64" %"PRId64"\n",
+			    stats_dist_get_sum(metric->duration_stats),
+			    timestamp);
+		break;
+	}
+}
+
+static void
+openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
+{
+	const struct metric *metric = req->metric;
+
+	/* Empty line */
+	str_append_c(out, '\n');
+
+	/* Description */
+	str_append(out, "# HELP dovecot_");
+	str_append(out, metric->name);
+	switch (req->metric_type) {
+	case OPENMETRICS_METRIC_TYPE_COUNT:
+		str_append(out, "_count Total number");
+		break;
+	case OPENMETRICS_METRIC_TYPE_DURATION:
+		str_append(out, "_duration_usecs_sum Duration");
+		break;
+	}
+	if (*metric->set->description != '\0') {
+		str_append(out, " of ");
+		str_append(out, metric->set->description);
+	}
+	str_append_c(out, '\n');
+	/* Type */
+	str_append(out, "# TYPE dovecot_");
+	str_append(out, metric->name);
+	switch (req->metric_type) {
+	case OPENMETRICS_METRIC_TYPE_COUNT:
+		str_append(out, "_count counter\n");
+		break;
+	case OPENMETRICS_METRIC_TYPE_DURATION:
+		str_append(out, "_duration_usecs_sum counter\n");
+		break;
+	}
+}
+
+static void
 openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
-			     const struct metric *metric, bool count,
-			     int64_t timestamp)
+			     const struct metric *metric, int64_t timestamp)
 {
 	if (!openmetrics_check_name(metric->sub_name))
 		return;
@@ -189,28 +266,10 @@ openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 	openmetrics_escape_string(req->labels, metric->sub_name);
 	str_append_c(req->labels, '"');
 
-	str_append(out, "dovecot_");
-	str_append(out, req->metric->name);
-	if (count) {
-		str_append(out, "_count");
-		str_append_c(out, '{');
-		str_append_str(out, req->labels);
-		str_append_c(out, '}');
-		str_printfa(out, " %u %"PRId64"\n",
-			    stats_dist_get_count(metric->duration_stats),
-			    timestamp);
-	} else {
-		str_append(out, "_duration_usecs_sum");
-		str_append_c(out, '{');
-		str_append_str(out, req->labels);
-		str_append_c(out, '}');
-		str_printfa(out, " %"PRIu64" %"PRId64"\n",
-			    stats_dist_get_sum(metric->duration_stats),
-			    timestamp);
-	}
+	openmetrics_export_metric_value(req, out, metric, timestamp);
 
 	size_t label_pos = str_len(req->labels);
-	(void)openmetrics_export_submetrics(req, out, metric, count, timestamp);
+	openmetrics_export_submetrics(req, out, metric, timestamp);
 	str_truncate(req->labels, label_pos);
 
 	req->has_submetric = TRUE;
@@ -218,8 +277,7 @@ openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 
 static void
 openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
-			      const struct metric *metric, bool count,
-			      int64_t timestamp)
+			      const struct metric *metric, int64_t timestamp)
 {
 	struct metric *const *sub_metric;
 	if (!array_is_created(&metric->sub_metrics))
@@ -230,8 +288,7 @@ openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
 	str_append_c(req->labels, '=');
 	array_foreach(&metric->sub_metrics, sub_metric) {
 		size_t label_pos = str_len(req->labels);
-		openmetrics_export_submetric(req, out, *sub_metric, count,
-					     timestamp);
+		openmetrics_export_submetric(req, out, *sub_metric, timestamp);
 		str_truncate(req->labels, label_pos);
 	}
 }
@@ -249,73 +306,32 @@ openmetrics_export_metric(struct openmetrics_request *req, string_t *out,
 	size_t label_pos;
 	openmetrics_export_metric_labels(req->labels, metric);
 
-	/* Description */
-	str_append(out, "# HELP dovecot_");
-	str_append(out, metric->name);
-	str_append(out, "_count Total number");
-	if (*metric->set->description != '\0') {
-		str_append(out, " of ");
-		str_append(out, metric->set->description);
-	}
-	str_append_c(out, '\n');
-	/* Type */
-	str_append(out, "# TYPE dovecot_");
-	str_append(out, metric->name);
-	str_append(out, "_count counter\n");
+	/* Export count output */
+
+	req->metric_type = OPENMETRICS_METRIC_TYPE_COUNT;
+	openmetrics_export_metric_header(req, out);
+
 	/* Put all sub-metrics before the actual value */
 	req->has_submetric = FALSE;
 	label_pos = str_len(req->labels);
-	openmetrics_export_submetrics(req, out, metric, TRUE, timestamp);
+	openmetrics_export_submetrics(req, out, metric, timestamp);
 	str_truncate(req->labels, label_pos);
-	if (!req->has_submetric) {
-		/* Metric name */
-		str_append(out, "dovecot_");
-		str_append(out, metric->name);
-		str_append(out, "_count");
-		/* Labels */
-		if (str_len(req->labels) > 0) {
-			str_append_c(out, '{');
-			str_append_str(out, req->labels);
-			str_append_c(out, '}');
-		}
-		/* Value */
-		str_printfa(out, " %u %"PRId64"\n",
-			    stats_dist_get_count(metric->duration_stats), timestamp);
-	}
-	str_append_c(out, '\n');
-	/* Description */
-	str_append(out, "# HELP dovecot_");
-	str_append(out, metric->name);
-	str_append(out, "_duration_usecs_sum Duration");
-	if (*metric->set->description != '\0') {
-		str_append(out, " of ");
-		str_append(out, metric->set->description);
-	}
-	str_append_c(out, '\n');
-	/* Type */
-	str_append(out, "# TYPE dovecot_");
-	str_append(out, metric->name);
-	str_append(out, "_duration_usecs_sum counter\n");
+
+	if (!req->has_submetric)
+		openmetrics_export_metric_value(req, out, metric, timestamp);
+
+	/* Export duration output */
+
+	req->metric_type = OPENMETRICS_METRIC_TYPE_DURATION;
+	openmetrics_export_metric_header(req, out);
+
 	/* Put all sub-metrics before the actual value */
 	req->has_submetric = FALSE;
-	openmetrics_export_submetrics(req, out, metric, FALSE, timestamp);
+	openmetrics_export_submetrics(req, out, metric, timestamp);
 	str_truncate(req->labels, label_pos);
-	if (!req->has_submetric) {
-		/* Metric name*/
-		str_append(out, "dovecot_");
-		str_append(out, metric->name);
-		str_append(out, "_duration_usecs_sum");
-		/* Labels */
-		if (str_len(req->labels) > 0) {
-			str_append_c(out, '{');
-			str_append_str(out, req->labels);
-			str_append_c(out, '}');
-		}
-		/* Value */
-		str_printfa(out, " %"PRIu64" %"PRId64"\n",
-			    stats_dist_get_sum(metric->duration_stats),
-			    timestamp);
-	}
+
+	if (!req->has_submetric)
+		openmetrics_export_metric_value(req, out, metric, timestamp);
 }
 
 static void
@@ -335,9 +351,6 @@ openmetrics_export(struct openmetrics_request *req,
 	
 	iter = stats_metrics_iterate_init(stats_metrics);
 	while ((metric = stats_metrics_iterate(iter)) != NULL) {
-		/* Empty line */
-		str_append_c(out, '\n');
-
 		req->metric = metric;
 		openmetrics_export_metric(req, out, timestamp);
 	}
