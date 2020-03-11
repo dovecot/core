@@ -22,6 +22,10 @@ struct dict_lookup_callback_ctx {
 
 static ARRAY(struct dict *) dict_drivers;
 
+static struct event_category event_category_dict = {
+	.name = "dict",
+};
+
 static struct dict *dict_driver_lookup(const char *name)
 {
 	struct dict *const *dicts;
@@ -75,6 +79,7 @@ void dict_driver_unregister(struct dict *driver)
 int dict_init(const char *uri, const struct dict_settings *set,
 	      struct dict **dict_r, const char **error_r)
 {
+	struct dict_settings set_dup = *set;
 	struct dict *dict;
 	const char *p, *name, *error;
 
@@ -93,12 +98,20 @@ int dict_init(const char *uri, const struct dict_settings *set,
 		*error_r = t_strdup_printf("Unknown dict module: %s", name);
 		return -1;
 	}
-	if (dict->v.init(dict, p+1, set, dict_r, &error) < 0) {
+	struct event *event = event_create(set->event_parent);
+	event_add_category(event, &event_category_dict);
+	event_add_str(event, "driver", dict->name);
+	event_set_append_log_prefix(event, t_strdup_printf("dict(%s)<%s>: ",
+				    dict->name, set->username));
+	set_dup.event_parent = event;
+	if (dict->v.init(dict, p+1, &set_dup, dict_r, &error) < 0) {
 		*error_r = t_strdup_printf("dict %s: %s", name, error);
+		event_unref(&event);
 		return -1;
 	}
 	i_assert(*dict_r != NULL);
 	(*dict_r)->refcount++;
+	(*dict_r)->event = event;
 
 	return 0;
 }
@@ -116,9 +129,12 @@ static void dict_unref(struct dict **_dict)
 	*_dict = NULL;
 	if (dict == NULL)
 		return;
+	struct event *event = dict->event;
 	i_assert(dict->refcount > 0);
-	if (--dict->refcount == 0)
+	if (--dict->refcount == 0) {
 		dict->v.deinit(dict);
+		event_unref(&event);
+	}
 }
 
 void dict_deinit(struct dict **_dict)
