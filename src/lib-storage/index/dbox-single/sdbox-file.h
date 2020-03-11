@@ -29,8 +29,7 @@ const char *
 sdbox_file_attachment_relpath(struct sdbox_file *file, const char *srcpath);
 
 /* Assign UID for a newly created file (by renaming it) */
-int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid,
-			  bool ignore_if_exists);
+int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid);
 
 int sdbox_file_create_fd(struct dbox_file *file, const char *path,
 			 bool parents);

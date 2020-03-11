@@ -106,8 +106,6 @@ enum mail_storage_class_flags {
 	/* Storage deletes all files internally - mailbox list's
 	   delete_mailbox() shouldn't delete anything itself. */
 	MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES	= 0x400,
-	/* Storage supports stubs (used for caching purposes). */
-	MAIL_STORAGE_CLASS_FLAG_STUBS = 0x800,
 };
 
 struct mail_binary_cache {
@@ -677,7 +675,7 @@ struct mail_save_data {
 	time_t received_date, save_date;
 	int received_tz_offset;
 
-	uint32_t uid, stub_seq;
+	uint32_t uid;
 	char *guid, *pop3_uidl, *from_envelope;
 	uint32_t pop3_order;
 

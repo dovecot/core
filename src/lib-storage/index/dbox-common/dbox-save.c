@@ -17,12 +17,8 @@ void dbox_save_add_to_index(struct dbox_save_context *ctx)
 	struct mail_save_data *mdata = &ctx->ctx.data;
 	enum mail_flags save_flags;
 
-	if ((ctx->ctx.transaction->flags & MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB) == 0)
-		mail_index_append(ctx->trans, mdata->uid, &ctx->seq);
-	else
-		ctx->seq = mdata->stub_seq;
-
 	save_flags = mdata->flags & ~MAIL_RECENT;
+	mail_index_append(ctx->trans, mdata->uid, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 				save_flags);
 	if (mdata->keywords != NULL) {

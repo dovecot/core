@@ -60,11 +60,6 @@ enum mailbox_flags {
 	   quota updates (possibly resulting in broken quota). and This is
 	   useful for example when deleting entire user accounts. */
 	MAILBOX_FLAG_DELETE_UNSAFE	= 0x400,
-	/* Mailbox is used for caching purposes. Some of the mails may be
-	   stubs, which exist in the index but that don't have a mail body.
-	   The backend shouldn't treat it as corruption if a mail body isn't
-	   found. */
-	MAILBOX_FLAG_USE_STUBS		= 0x800,
 	/* Mailbox is created implicitly if it does not exist. */
 	MAILBOX_FLAG_AUTO_CREATE	= 0x1000,
 	/* Mailbox is subscribed to implicitly when it is created automatically */
@@ -212,10 +207,6 @@ enum mailbox_transaction_flags {
 	   especially means the notify plugin. This would normally be used only
 	   with _FLAG_SYNC. */
 	MAILBOX_TRANSACTION_FLAG_NO_NOTIFY	= 0x40,
-	/* Append fills in an existing stub mail for the specified UID,
-	   instead of saving a new mail. This requires mailbox to be opened
-	   with MAILBOX_FLAG_USE_STUBS. */
-	MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB	= 0x80,
 };
 
 enum mailbox_sync_flags {
