@@ -23,6 +23,11 @@
 	"version=\""DOVECOT_VERSION"\""
 #endif
 
+struct openmetrics_request {
+	const struct metric *metric;
+	string_t *labels;
+};
+
 /* https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels:
 
    Every time series is uniquely identified by its metric name and optional
@@ -35,8 +40,9 @@
  */
 
 static bool
-openmetrics_export_submetrics(string_t *out, const struct metric *metric,
-			      string_t *labels, bool count, int64_t timestamp);
+openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
+			      const struct metric *metric, bool count,
+			      int64_t timestamp);
 
 static bool openmetrics_check_name(const char *name)
 {
@@ -171,21 +177,22 @@ openmetrics_export_metric_labels(string_t *out, const struct metric *metric)
 }
 
 static void
-openmetrics_export_submetric(string_t *out, const struct metric *metric,
-			     string_t *labels, bool count, int64_t timestamp)
+openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
+			     const struct metric *metric, bool count,
+			     int64_t timestamp)
 {
 	if (!openmetrics_check_name(metric->sub_name))
 		return;
-	str_append_c(labels, '"');
-	openmetrics_escape_string(labels, metric->sub_name);
-	str_append_c(labels, '"');
+	str_append_c(req->labels, '"');
+	openmetrics_escape_string(req->labels, metric->sub_name);
+	str_append_c(req->labels, '"');
 
 	str_append(out, "dovecot_");
-	str_append(out, metric->name);
+	str_append(out, req->metric->name);
 	if (count) {
 		str_append(out, "_count");
 		str_append_c(out, '{');
-		str_append_str(out, labels);
+		str_append_str(out, req->labels);
 		str_append_c(out, '}');
 		str_printfa(out, " %u %"PRId64"\n",
 			    stats_dist_get_count(metric->duration_stats),
@@ -193,48 +200,51 @@ openmetrics_export_submetric(string_t *out, const struct metric *metric,
 	} else {
 		str_append(out, "_duration_usecs_sum");
 		str_append_c(out, '{');
-		str_append_str(out, labels);
+		str_append_str(out, req->labels);
 		str_append_c(out, '}');
 		str_printfa(out, " %"PRIu64" %"PRId64"\n",
 			    stats_dist_get_sum(metric->duration_stats),
 			    timestamp);
 	}
-	size_t label_pos = str_len(labels);
-	(void)openmetrics_export_submetrics(out, metric, labels, count, timestamp);
-	str_truncate(labels, label_pos);
+	size_t label_pos = str_len(req->labels);
+	(void)openmetrics_export_submetrics(req, out, metric, count, timestamp);
+	str_truncate(req->labels, label_pos);
 }
 
 static bool
-openmetrics_export_submetrics(string_t *out, const struct metric *metric,
-			      string_t *labels, bool count, int64_t timestamp)
+openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
+			      const struct metric *metric, bool count,
+			      int64_t timestamp)
 {
 	struct metric *const *sub_metric;
 	if (!array_is_created(&metric->sub_metrics))
 		return FALSE;
-	if (str_len(labels) > 0)
-		str_append_c(labels, ',');
-	str_append(labels, metric->group_by->field);
-	str_append_c(labels, '=');
+	if (str_len(req->labels) > 0)
+		str_append_c(req->labels, ',');
+	str_append(req->labels, metric->group_by->field);
+	str_append_c(req->labels, '=');
 	array_foreach(&metric->sub_metrics, sub_metric) {
-		size_t label_pos = str_len(labels);
-		openmetrics_export_submetric(out, *sub_metric, labels,
-					     count, timestamp);
-		str_truncate(labels, label_pos);
+		size_t label_pos = str_len(req->labels);
+		openmetrics_export_submetric(req, out, *sub_metric, count,
+					     timestamp);
+		str_truncate(req->labels, label_pos);
 	}
 	return TRUE;
 }
 
 static void
-openmetrics_export_metric(string_t *out, const struct metric *metric,
+openmetrics_export_metric(struct openmetrics_request *req, string_t *out,
 			  int64_t timestamp)
 {
+	const struct metric *metric = req->metric;
+
 	if (!openmetrics_check_metric(metric))
 		return;
 
-	string_t *labels = t_str_new(32);
+	req->labels = t_str_new(32);
 	size_t label_pos;
 	bool has_submetric;
-	openmetrics_export_metric_labels(labels, metric);
+	openmetrics_export_metric_labels(req->labels, metric);
 
 	/* Description */
 	str_append(out, "# HELP dovecot_");
@@ -250,19 +260,19 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 	str_append(out, metric->name);
 	str_append(out, "_count counter\n");
 	/* Put all sub-metrics before the actual value */
-	label_pos = str_len(labels);
-	has_submetric = openmetrics_export_submetrics(out, metric, labels, TRUE,
+	label_pos = str_len(req->labels);
+	has_submetric = openmetrics_export_submetrics(req, out, metric, TRUE,
 						      timestamp);
-	str_truncate(labels, label_pos);
+	str_truncate(req->labels, label_pos);
 	if (!has_submetric) {
 		/* Metric name */
 		str_append(out, "dovecot_");
 		str_append(out, metric->name);
 		str_append(out, "_count");
 		/* Labels */
-		if (str_len(labels) > 0) {
+		if (str_len(req->labels) > 0) {
 			str_append_c(out, '{');
-			str_append_str(out, labels);
+			str_append_str(out, req->labels);
 			str_append_c(out, '}');
 		}
 		/* Value */
@@ -284,18 +294,18 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 	str_append(out, metric->name);
 	str_append(out, "_duration_usecs_sum counter\n");
 	/* Put all sub-metrics before the actual value */
-	has_submetric = openmetrics_export_submetrics(out, metric, labels, FALSE,
+	has_submetric = openmetrics_export_submetrics(req, out, metric, FALSE,
 						      timestamp);
-	str_truncate(labels, label_pos);
+	str_truncate(req->labels, label_pos);
 	if (!has_submetric) {
 		/* Metric name*/
 		str_append(out, "dovecot_");
 		str_append(out, metric->name);
 		str_append(out, "_duration_usecs_sum");
 		/* Labels */
-		if (str_len(labels) > 0) {
+		if (str_len(req->labels) > 0) {
 			str_append_c(out, '{');
-			str_append_str(out, labels);
+			str_append_str(out, req->labels);
 			str_append_c(out, '}');
 		}
 		/* Value */
@@ -305,7 +315,9 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 	}
 }
 
-static void openmetrics_export(struct http_server_response *resp)
+static void
+openmetrics_export(struct openmetrics_request *req,
+		   struct http_server_response *resp)
 {
 	struct stats_metrics_iter *iter;
 	const struct metric *metric;
@@ -323,7 +335,8 @@ static void openmetrics_export(struct http_server_response *resp)
 		/* Empty line */
 		str_append_c(out, '\n');
 
-		openmetrics_export_metric(out, metric, timestamp);
+		req->metric = metric;
+		openmetrics_export_metric(req, out, timestamp);
 	}
 	stats_metrics_iterate_deinit(&iter);
 
@@ -338,6 +351,7 @@ stats_service_openmetrics_request(void *context ATTR_UNUSED,
 {
 	const struct http_request *hreq = http_server_request_get(hsreq);
 	struct http_server_response *hsresp;
+	struct openmetrics_request req;
 
 	if (strcmp(hreq->method, "OPTIONS") == 0) {
 		hsresp = http_server_response_create(hsreq, 200, "OK");
@@ -360,7 +374,8 @@ stats_service_openmetrics_request(void *context ATTR_UNUSED,
 		"text/plain; version="OPENMETRICS_CONTENT_VERSION"; "
 		"charset=utf-8");
 
-	openmetrics_export(hsresp);
+	i_zero(&req);
+	openmetrics_export(&req, hsresp);
 
 	http_server_response_submit(hsresp);
 }
