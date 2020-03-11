@@ -169,11 +169,6 @@ AS_HELP_STRING([--with-bzlib], [Build with bzlib compression support (auto)]),
   TEST_WITH(bzlib, $withval),
   want_bzlib=auto)
 
-AC_ARG_WITH(lzma,
-AS_HELP_STRING([--with-lzma], [Build with LZMA decompression support (auto)]),
-  TEST_WITH(lzma, $withval),
-  want_lzma=auto)
-
 AC_ARG_WITH(lz4,
 AS_HELP_STRING([--with-lz4], [Build with LZ4 compression support (auto)]),
   TEST_WITH(lz4, $withval),
@@ -736,7 +731,6 @@ COMPRESS_LIBS=
 
 DOVECOT_WANT_ZLIB
 DOVECOT_WANT_BZLIB
-DOVECOT_WANT_LZMA
 DOVECOT_WANT_LZ4
 DOVECOT_WANT_ZSTD
 

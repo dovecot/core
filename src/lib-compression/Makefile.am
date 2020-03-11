@@ -8,7 +8,6 @@ AM_CPPFLAGS = \
 libcompression_la_SOURCES = \
 	compression.c \
 	istream-decompress.c \
-	istream-lzma.c \
 	istream-lz4.c \
 	istream-zlib.c \
 	istream-bzlib.c \

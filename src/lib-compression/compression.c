@@ -23,9 +23,6 @@
 #  define compression_get_default_level_bz2 NULL
 #  define compression_get_max_level_bz2 NULL
 #endif
-#ifndef HAVE_LZMA
-#  define i_stream_create_lzma NULL
-#endif
 #ifndef HAVE_LZ4
 #  define i_stream_create_lz4 NULL
 #  define o_stream_create_lz4 NULL
@@ -72,16 +69,6 @@ static bool is_compressed_bzlib(struct istream *input)
 	   Normally it's followed by data header beginning with 0x31. However,
 	   with empty compressed files it's followed by 0x17. */
 	return TRUE;
-}
-
-static bool is_compressed_xz(struct istream *input)
-{
-	const unsigned char *data;
-	size_t size;
-
-	if (i_stream_read_bytes(input, &data, &size, 6) <= 0)
-		return FALSE;
-	return memcmp(data, "\xfd\x37\x7a\x58\x5a\x00", 6) == 0;
 }
 
 static bool is_compressed_lz4(struct istream *input)
@@ -165,21 +152,6 @@ int compression_lookup_handler_from_ext(const char *path,
 	return -1;
 }
 
-static int compression_get_min_level_unsupported(void)
-{
-	return -1;
-}
-
-static int compression_get_default_level_unsupported(void)
-{
-	return -1;
-}
-
-static int compression_get_max_level_unsupported(void)
-{
-	return -1;
-}
-
 const struct compression_handler compression_handlers[] = {
 	{
 		.name = "gz",
@@ -210,16 +182,6 @@ const struct compression_handler compression_handlers[] = {
 		.get_min_level = compression_get_min_level_gz,
 		.get_default_level = compression_get_default_level_gz,
 		.get_max_level = compression_get_max_level_gz,
-	},
-	{
-		.name = "xz",
-		.ext = ".xz",
-		.is_compressed = is_compressed_xz,
-		.create_istream = i_stream_create_lzma,
-		.create_ostream = NULL,
-		.get_min_level = compression_get_min_level_unsupported,
-		.get_default_level = compression_get_default_level_unsupported,
-		.get_max_level = compression_get_max_level_unsupported,
 	},
 	{
 		.name = "lz4",
