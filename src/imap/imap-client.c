@@ -908,7 +908,10 @@ struct client_command_context *client_command_alloc(struct client *client)
 void client_command_init_finished(struct client_command_context *cmd)
 {
 	event_add_str(cmd->event, "cmd_tag", cmd->tag);
-	event_add_str(cmd->event, "cmd_name", t_str_ucase(cmd->name));
+	/* use "unknown" until we checked that the command name is known/valid */
+	event_add_str(cmd->event, "cmd_name", "unknown");
+	/* the actual command name received from client - as-is */
+	event_add_str(cmd->event, "cmd_input_name", cmd->name);
 }
 
 static struct client_command_context *
@@ -1215,6 +1218,8 @@ static bool client_command_input(struct client_command_context *cmd)
 	} else if ((command = command_find(cmd->name)) != NULL) {
 		cmd->func = command->func;
 		cmd->cmd_flags = command->flags;
+		/* valid command - overwrite the "unknown" string set earlier */
+		event_add_str(cmd->event, "cmd_name", command->name);
 		if (client_command_is_ambiguous(cmd)) {
 			/* do nothing until existing commands are finished */
 			i_assert(cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT);
