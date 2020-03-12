@@ -34,7 +34,7 @@
    must match the regex [a-zA-Z_:][a-zA-Z0-9_:]*.
  */
 
-static void
+static bool
 openmetrics_export_submetrics(string_t *out, const struct metric *metric,
 			      string_t *labels, bool count, int64_t timestamp);
 
@@ -184,17 +184,17 @@ openmetrics_export_submetric(string_t *out, const struct metric *metric,
 			    timestamp);
 	}
 	size_t label_pos = str_len(labels);
-	openmetrics_export_submetrics(out, metric, labels, count, timestamp);
+	(void)openmetrics_export_submetrics(out, metric, labels, count, timestamp);
 	str_truncate(labels, label_pos);
 }
 
-static void
+static bool
 openmetrics_export_submetrics(string_t *out, const struct metric *metric,
 			      string_t *labels, bool count, int64_t timestamp)
 {
 	struct metric *const *sub_metric;
 	if (!array_is_created(&metric->sub_metrics))
-		return;
+		return FALSE;
 	if (str_len(labels) > 0)
 		str_append_c(labels, ',');
 	str_append(labels, metric->group_by->field);
@@ -205,6 +205,7 @@ openmetrics_export_submetrics(string_t *out, const struct metric *metric,
 					     count, timestamp);
 		str_truncate(labels, label_pos);
 	}
+	return TRUE;
 }
 
 static void
@@ -216,6 +217,7 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 
 	string_t *labels = t_str_new(32);
 	size_t label_pos;
+	bool has_submetric;
 	openmetrics_export_metric_labels(labels, metric);
 
 	/* Description */
@@ -233,22 +235,25 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 	str_append(out, "_count counter\n");
 	/* Put all sub-metrics before the actual value */
 	label_pos = str_len(labels);
-	openmetrics_export_submetrics(out, metric, labels, TRUE,
-				      timestamp);
+	has_submetric = openmetrics_export_submetrics(out, metric, labels, TRUE,
+						      timestamp);
 	str_truncate(labels, label_pos);
-	/* Metric name */
-	str_append(out, "dovecot_");
-	str_append(out, metric->name);
-	str_append(out, "_count");
-	/* Labels */
-	if (str_len(labels) > 0) {
-		str_append_c(out, '{');
-		str_append_str(out, labels);
-		str_append_c(out, '}');
+	if (!has_submetric) {
+		/* Metric name */
+		str_append(out, "dovecot_");
+		str_append(out, metric->name);
+		str_append(out, "_count");
+		/* Labels */
+		if (str_len(labels) > 0) {
+			str_append_c(out, '{');
+			str_append_str(out, labels);
+			str_append_c(out, '}');
+		}
+		/* Value */
+		str_printfa(out, " %u %"PRId64"\n",
+			    stats_dist_get_count(metric->duration_stats), timestamp);
 	}
-	/* Value */
-	str_printfa(out, " %u %"PRId64"\n\n",
-		    stats_dist_get_count(metric->duration_stats), timestamp);
+	str_append_c(out, '\n');
 	/* Description */
 	str_append(out, "# HELP dovecot_");
 	str_append(out, metric->name);
@@ -263,23 +268,25 @@ openmetrics_export_metric(string_t *out, const struct metric *metric,
 	str_append(out, metric->name);
 	str_append(out, "_duration_usecs_sum counter\n");
 	/* Put all sub-metrics before the actual value */
-	openmetrics_export_submetrics(out, metric, labels, FALSE,
-				      timestamp);
+	has_submetric = openmetrics_export_submetrics(out, metric, labels, FALSE,
+						      timestamp);
 	str_truncate(labels, label_pos);
-	/* Metric name*/
-	str_append(out, "dovecot_");
-	str_append(out, metric->name);
-	str_append(out, "_duration_usecs_sum");
-	/* Labels */
-	if (str_len(labels) > 0) {
-		str_append_c(out, '{');
-		str_append_str(out, labels);
-		str_append_c(out, '}');
+	if (!has_submetric) {
+		/* Metric name*/
+		str_append(out, "dovecot_");
+		str_append(out, metric->name);
+		str_append(out, "_duration_usecs_sum");
+		/* Labels */
+		if (str_len(labels) > 0) {
+			str_append_c(out, '{');
+			str_append_str(out, labels);
+			str_append_c(out, '}');
+		}
+		/* Value */
+		str_printfa(out, " %"PRIu64" %"PRId64"\n",
+			    stats_dist_get_sum(metric->duration_stats),
+			    timestamp);
 	}
-	/* Value */
-	str_printfa(out, " %"PRIu64" %"PRId64"\n",
-		    stats_dist_get_sum(metric->duration_stats),
-		    timestamp);
 }
 
 static void
