@@ -26,6 +26,8 @@
 struct openmetrics_request {
 	const struct metric *metric;
 	string_t *labels;
+
+	bool has_submetric:1;
 };
 
 /* https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels:
@@ -39,7 +41,7 @@ struct openmetrics_request {
    must match the regex [a-zA-Z_:][a-zA-Z0-9_:]*.
  */
 
-static bool
+static void
 openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
 			      const struct metric *metric, bool count,
 			      int64_t timestamp);
@@ -206,19 +208,22 @@ openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 			    stats_dist_get_sum(metric->duration_stats),
 			    timestamp);
 	}
+
 	size_t label_pos = str_len(req->labels);
 	(void)openmetrics_export_submetrics(req, out, metric, count, timestamp);
 	str_truncate(req->labels, label_pos);
+
+	req->has_submetric = TRUE;
 }
 
-static bool
+static void
 openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
 			      const struct metric *metric, bool count,
 			      int64_t timestamp)
 {
 	struct metric *const *sub_metric;
 	if (!array_is_created(&metric->sub_metrics))
-		return FALSE;
+		return;
 	if (str_len(req->labels) > 0)
 		str_append_c(req->labels, ',');
 	str_append(req->labels, metric->group_by->field);
@@ -229,7 +234,6 @@ openmetrics_export_submetrics(struct openmetrics_request *req, string_t *out,
 					     timestamp);
 		str_truncate(req->labels, label_pos);
 	}
-	return TRUE;
 }
 
 static void
@@ -243,7 +247,6 @@ openmetrics_export_metric(struct openmetrics_request *req, string_t *out,
 
 	req->labels = t_str_new(32);
 	size_t label_pos;
-	bool has_submetric;
 	openmetrics_export_metric_labels(req->labels, metric);
 
 	/* Description */
@@ -260,11 +263,11 @@ openmetrics_export_metric(struct openmetrics_request *req, string_t *out,
 	str_append(out, metric->name);
 	str_append(out, "_count counter\n");
 	/* Put all sub-metrics before the actual value */
+	req->has_submetric = FALSE;
 	label_pos = str_len(req->labels);
-	has_submetric = openmetrics_export_submetrics(req, out, metric, TRUE,
-						      timestamp);
+	openmetrics_export_submetrics(req, out, metric, TRUE, timestamp);
 	str_truncate(req->labels, label_pos);
-	if (!has_submetric) {
+	if (!req->has_submetric) {
 		/* Metric name */
 		str_append(out, "dovecot_");
 		str_append(out, metric->name);
@@ -294,10 +297,10 @@ openmetrics_export_metric(struct openmetrics_request *req, string_t *out,
 	str_append(out, metric->name);
 	str_append(out, "_duration_usecs_sum counter\n");
 	/* Put all sub-metrics before the actual value */
-	has_submetric = openmetrics_export_submetrics(req, out, metric, FALSE,
-						      timestamp);
+	req->has_submetric = FALSE;
+	openmetrics_export_submetrics(req, out, metric, FALSE, timestamp);
 	str_truncate(req->labels, label_pos);
-	if (!has_submetric) {
+	if (!req->has_submetric) {
 		/* Metric name*/
 		str_append(out, "dovecot_");
 		str_append(out, metric->name);
