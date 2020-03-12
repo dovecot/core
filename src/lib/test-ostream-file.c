@@ -164,8 +164,16 @@ static void test_ostream_file_send_istream_sendfile(void)
 	test_assert(read(sock_fd[1], buf, sizeof(buf)) == 4 &&
 		    memcmp(buf, "defg", 4) == 0);
 	i_stream_unref(&input2);
-	i_stream_unref(&input);
 
+	/* test reading past EOF */
+	i_stream_seek(input, 0);
+	input2 = i_stream_create_limit(input, 20);
+	test_assert(o_stream_send_istream(output, input2) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
+	test_assert(input2->v_offset == 10);
+	test_assert(output->offset == 14);
+	i_stream_unref(&input2);
+
+	i_stream_unref(&input);
 	o_stream_destroy(&output);
 	i_close_fd(&sock_fd[1]);
 
