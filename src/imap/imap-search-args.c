@@ -56,7 +56,7 @@ int imap_search_args_build(struct client_command_context *cmd,
 	if (ret < 0) {
 		if (charset == NULL) {
 			client_send_tagline(cmd, t_strconcat(
-				"BAD [BADCHARSET] ", client_error, NULL));
+				"NO [BADCHARSET] ", client_error, NULL));
 		} else {
 			client_send_command_error(cmd, client_error);
 		}
