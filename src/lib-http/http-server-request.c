@@ -139,6 +139,9 @@ void http_server_request_destroy(struct http_server_request **_req)
 		return;
 	}
 
+	if (req->response != NULL)
+		http_server_response_request_destroy(req->response);
+
 	if (req->destroy_callback != NULL) {
 		void (*callback)(void *) = req->destroy_callback;
 
@@ -146,8 +149,6 @@ void http_server_request_destroy(struct http_server_request **_req)
 		callback(req->destroy_context);
 	}
 
-	if (req->response != NULL)
-		http_server_response_request_destroy(req->response);
 	http_server_request_unref(_req);
 }
 
