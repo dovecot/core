@@ -16,17 +16,13 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     const char *error = NULL;
 
     // Allocate string we null terminate
-	char *new_data = malloc(size+1);
-    memcpy(new_data, data, size);
-	if (new_data == NULL)
-        return 0;    
-    new_data[size] = '\0';
+    char *new_data = i_strndup(data, size);
     
 	// Fuzz entrypoint
     pool_t pdata_stack = pool_datastack_create();
     http_url_parse(new_data, NULL, 0, pdata_stack, &urlp, &error);
 
-    free(new_data);
+    i_free(new_data);
     }T_END;
 
 
