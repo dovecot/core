@@ -85,6 +85,7 @@ void imap_client_close_mailbox(struct client *client)
 	if (array_is_created(&client->fetch_failed_uids))
 		array_clear(&client->fetch_failed_uids);
 	client_search_updates_free(client);
+	array_free(&client->search_saved_uidset);
 
 	box = client->mailbox;
 	client->mailbox = NULL;
