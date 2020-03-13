@@ -35,6 +35,14 @@ static bool search_args_have_searchres(struct mail_search_arg *sargs)
 	return FALSE;
 }
 
+static void imap_search_saved_uidset_clear(struct client_command_context *cmd)
+{
+	if (array_is_created(&cmd->client->search_saved_uidset))
+		array_clear(&cmd->client->search_saved_uidset);
+	else
+		i_array_init(&cmd->client->search_saved_uidset, 128);
+}
+
 int imap_search_args_build(struct client_command_context *cmd,
 			   const struct imap_arg *args, const char *charset,
 			   struct mail_search_args **search_args_r)
@@ -55,6 +63,8 @@ int imap_search_args_build(struct client_command_context *cmd,
 	mail_search_parser_deinit(&parser);
 	if (ret < 0) {
 		if (charset == NULL) {
+			if (cmd->search_save_result)
+				imap_search_saved_uidset_clear(cmd);
 			client_send_tagline(cmd, t_strconcat(
 				"NO [BADCHARSET] ", client_error, NULL));
 		} else {
@@ -70,6 +80,11 @@ int imap_search_args_build(struct client_command_context *cmd,
 
 	mail_search_args_init(sargs, cmd->client->mailbox, TRUE,
 			      &cmd->client->search_saved_uidset);
+	if (cmd->search_save_result) {
+		/* clear the SAVE resultset only after potentially using $
+		   in the search args themselves */
+		imap_search_saved_uidset_clear(cmd);
+	}
 	*search_args_r = sargs;
 	return 1;
 }

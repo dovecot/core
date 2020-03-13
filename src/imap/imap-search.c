@@ -555,11 +555,6 @@ int cmd_search_parse_return_if_found(struct imap_search_context *ctx,
 			return 0;
 		}
 
-		/* make sure the search result gets cleared if SEARCH fails */
-		if (array_is_created(&cmd->client->search_saved_uidset))
-			array_clear(&cmd->client->search_saved_uidset);
-		else
-			i_array_init(&cmd->client->search_saved_uidset, 128);
 		cmd->search_save_result = TRUE;
 	}
 
