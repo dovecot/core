@@ -165,7 +165,10 @@ void http_server_request_abort(struct http_server_request **_req,
 	if (req->state >= HTTP_SERVER_REQUEST_STATE_FINISHED)
 		return;
 
-	e_debug(req->event, "Abort");
+	if (reason == NULL)
+		e_debug(req->event, "Abort");
+	else
+		e_debug(req->event, "Abort: %s", reason);
 
 	req->conn = NULL;
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
