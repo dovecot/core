@@ -98,7 +98,7 @@ struct http_server_response {
 struct http_server_request {
 	struct http_request req;
 	pool_t pool;
-	unsigned int refcount;
+	unsigned int refcount, immune_refcount;
 	unsigned int id;
 	int callback_refcount;
 	struct event *event;
@@ -119,7 +119,6 @@ struct http_server_request {
 
 	bool payload_halted:1;
 	bool sent_100_continue:1;
-	bool delay_destroy:1;
 	bool destroy_pending:1;
 	bool failed:1;
 	bool connection_close:1;
@@ -235,6 +234,9 @@ http_server_request_new(struct http_server_connection *conn);
 void http_server_request_destroy(struct http_server_request **_req);
 void http_server_request_abort(struct http_server_request **_req,
 			       const char *reason) ATTR_NULL(2);
+
+void http_server_request_immune_ref(struct http_server_request *req);
+void http_server_request_immune_unref(struct http_server_request **_req);
 
 bool http_server_request_is_complete(struct http_server_request *req);
 

@@ -598,29 +598,20 @@ static void http_server_connection_input(struct connection *_conn)
 				conn->request_queue_count,
 				conn->server->set.max_pipelined_requests);
 
-			http_server_request_ref(req);
-			i_assert(!req->delay_destroy);
-			req->delay_destroy = TRUE;
+			http_server_request_immune_ref(req);
 			T_BEGIN {
 				cont = http_server_connection_handle_request(conn, req);
 			} T_END;
-			req->delay_destroy = FALSE;
 			if (!cont) {
 				/* Connection closed or request body not read
 				   yet. The request may be destroyed now. */
-				if (req->destroy_pending)
-					http_server_request_destroy(&req);
-				else
-					http_server_request_unref(&req);
+				http_server_request_immune_unref(&req);
 				http_server_connection_unref(&conn);
 				return;
 			}
 			if (req->req.connection_close)
 				conn->close_indicated = TRUE;
-			if (req->destroy_pending)
-				http_server_request_destroy(&req);
-			else
-				http_server_request_unref(&req);
+			http_server_request_immune_unref(&req);
 
 			if (conn->closed) {
 				/* Connection got closed in destroy callback */

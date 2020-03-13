@@ -133,7 +133,7 @@ void http_server_request_destroy(struct http_server_request **_req)
 	if (server->ioloop != NULL)
 		io_loop_stop(server->ioloop);
 
-	if (req->delay_destroy) {
+	if (req->immune_refcount > 0) {
 		req->destroy_pending = TRUE;
 		http_server_request_unref(_req);
 		return;
@@ -209,6 +209,25 @@ void http_server_request_abort(struct http_server_request **_req,
 	}
 
 	http_server_request_destroy(_req);
+}
+
+void http_server_request_immune_ref(struct http_server_request *req)
+{
+	http_server_request_ref(req);
+	req->immune_refcount++;
+}
+
+void http_server_request_immune_unref(struct http_server_request **_req)
+{
+	struct http_server_request *req = *_req;
+
+	i_assert(req->immune_refcount > 0);
+
+	*_req = NULL;
+	if (--req->immune_refcount == 0 && req->destroy_pending)
+		http_server_request_destroy(&req);
+	else
+		http_server_request_unref(&req);
 }
 
 const struct http_request *
