@@ -1116,7 +1116,7 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 	req = conn->request_queue_head;
 	while (req != NULL) {
 		req_next = req->next;
-		http_server_request_abort(&req, NULL);
+		http_server_request_abort(&req, reason);
 		req = req_next;
 	}
 
