@@ -84,21 +84,13 @@ mail_search_arg_change_uidset(struct mail_search_args *args,
 }
 
 void mail_search_arg_init(struct mail_search_args *args,
-			  struct mail_search_arg *arg,
-			  bool change_uidsets,
-			  const ARRAY_TYPE(seq_range) *search_saved_uidset)
+			  struct mail_search_arg *arg)
 {
 	struct mail_search_args *thread_args;
 	const char *keywords[2];
 
 	for (; arg != NULL; arg = arg->next) {
 		switch (arg->type) {
-		case SEARCH_UIDSET:
-			if (change_uidsets) T_BEGIN {
-				mailbox_uidset_change(arg, args->box,
-						      search_saved_uidset);
-			} T_END;
-			break;
 		case SEARCH_MODSEQ:
 			if (arg->value.str == NULL)
 				break;
@@ -141,9 +133,7 @@ void mail_search_arg_init(struct mail_search_args *args,
 			/* fall through */
 		case SEARCH_SUB:
 		case SEARCH_OR:
-			mail_search_arg_init(args, arg->value.subargs,
-					     change_uidsets,
-					     search_saved_uidset);
+			mail_search_arg_init(args, arg->value.subargs);
 			break;
 		default:
 			break;
@@ -171,8 +161,7 @@ void mail_search_args_init(struct mail_search_args *args,
 	}
 	if (!args->simplified)
 		mail_search_args_simplify(args);
-	mail_search_arg_init(args, args->args, change_uidsets,
-			     search_saved_uidset);
+	mail_search_arg_init(args, args->args);
 }
 
 void mail_search_arg_deinit(struct mail_search_arg *arg)

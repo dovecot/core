@@ -252,7 +252,7 @@ int fts_search_args_expand(struct fts_backend *backend,
 
 	/* duplicated args aren't initialized */
 	i_assert(args->init_refcount > 0);
-	mail_search_arg_init(args, args_dup, FALSE, NULL);
+	mail_search_arg_init(args, args_dup);
 	mail_search_arg_deinit(orig_args);
 	return 0;
 }

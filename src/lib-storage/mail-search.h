@@ -161,9 +161,7 @@ void mail_search_args_init(struct mail_search_args *args,
 /* Initialize arg and its children. args is used for getting mailbox and
    pool. */
 void mail_search_arg_init(struct mail_search_args *args,
-			  struct mail_search_arg *arg,
-			  bool change_uidsets,
-			  const ARRAY_TYPE(seq_range) *search_saved_uidset);
+			  struct mail_search_arg *arg);
 /* Free memory allocated by mail_search_args_init(). The args can initialized
    afterwards again if needed. The args can be reused for other queries after
    calling this. */
