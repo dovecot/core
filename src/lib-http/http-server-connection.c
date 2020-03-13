@@ -871,9 +871,9 @@ http_server_connection_next_response(struct http_server_connection *conn)
 	e_debug(conn->event, "Sending response");
 	http_server_connection_start_idle_timeout(conn);
 
-	http_server_request_ref(req);
+	http_server_request_immune_ref(req);
 	ret = http_server_response_send(req->response);
-	http_server_request_unref(&req);
+	http_server_request_immune_unref(&req);
 
 	if (ret < 0)
 		return FALSE;
@@ -936,10 +936,13 @@ int http_server_connection_output(struct http_server_connection *conn)
 		struct http_server_request *req = conn->request_queue_head;
 		struct http_server_response *resp = req->response;
 
+		i_assert(resp != NULL);
+
 		http_server_connection_ref(conn);
 
-		i_assert(resp != NULL);
+		http_server_request_immune_ref(req);
 		ret = http_server_response_send_more(resp);
+		http_server_request_immune_unref(&req);
 
 		if (http_server_connection_unref_is_closed(conn) || ret < 0)
 			return -1;
