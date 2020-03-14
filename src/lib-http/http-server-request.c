@@ -135,7 +135,11 @@ void http_server_request_destroy(struct http_server_request **_req)
 
 	if (req->delay_destroy) {
 		req->destroy_pending = TRUE;
-	} else if (req->destroy_callback != NULL) {
+		http_server_request_unref(_req);
+		return;
+	}
+
+	if (req->destroy_callback != NULL) {
 		void (*callback)(void *) = req->destroy_callback;
 
 		req->destroy_callback = NULL;
