@@ -34,8 +34,10 @@ static bool user_callback(const char *reply, void *context)
 			args = "";
 		else
 			username = t_strdup_until(username, args++);
-		if (username[0] != '\0' && strcmp(request->user, username) != 0)
+		if (username[0] != '\0' && strcmp(request->user, username) != 0) {
 			request->user = p_strdup(request->pool, username);
+			request->user_changed_by_lookup = TRUE;
+		}
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 		i_error("BUG: auth-worker sent invalid user reply");
