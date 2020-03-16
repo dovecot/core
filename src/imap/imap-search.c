@@ -463,7 +463,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	if ((opts & SEARCH_RETURN_MAX) != 0 && ctx->max_seq != 0 &&
 	    ctx->max_update_seq != ctx->max_seq &&
 	    HAS_ANY_BITS(opts, SEARCH_RETURN_MODSEQ |
-			 SEARCH_RETURN_SAVE)) {
+			 SEARCH_RETURN_SAVE | SEARCH_RETURN_RELEVANCY)) {
 		/* finish handling MAX */
 		mail = mail_alloc(ctx->trans, 0, NULL);
 		mail_set_seq(mail, ctx->max_seq);
