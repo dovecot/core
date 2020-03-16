@@ -157,7 +157,7 @@ static int smtp_command_parse_identifier(struct smtp_command_parser *parser)
 	parser->state.poff = p - parser->cur;
 	if (p == parser->end)
 		return 0;
-	parser->state.cmd_name = str_ucase(i_strdup_until(parser->cur, p));
+	parser->state.cmd_name = i_strdup_until(parser->cur, p);
 	parser->cur = p;
 	parser->state.poff = 0;
 	return 1;
