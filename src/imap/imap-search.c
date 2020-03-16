@@ -308,8 +308,6 @@ imap_search_send_relevancy(struct imap_search_context *ctx, string_t *dest)
 static void imap_search_send_result(struct imap_search_context *ctx)
 {
 	struct client *client = ctx->cmd->client;
-	const struct seq_range *range;
-	unsigned int count;
 	string_t *str;
 
 	if ((ctx->return_options & SEARCH_RETURN_ESEARCH) == 0) {
@@ -332,16 +330,18 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 	if (ctx->cmd->uid)
 		str_append(str, " UID");
 
-	range = array_get(&ctx->result, &count);
-	if (count > 0) {
-		if ((ctx->return_options & SEARCH_RETURN_MIN) != 0)
-			str_printfa(str, " MIN %u", range[0].seq1);
-		if ((ctx->return_options & SEARCH_RETURN_MAX) != 0)
-			str_printfa(str, " MAX %u", range[count-1].seq2);
-		if ((ctx->return_options & SEARCH_RETURN_ALL) != 0) {
-			str_append(str, " ALL ");
-			imap_write_seq_range(str, &ctx->result);
-		}
+	if ((ctx->return_options & SEARCH_RETURN_MIN) != 0 && ctx->min_id != 0)
+		str_printfa(str, " MIN %u", ctx->min_id);
+	if ((ctx->return_options & SEARCH_RETURN_MAX) != 0 &&
+	    ctx->max_seq != 0) {
+		uint32_t id = ctx->cmd->uid ? ctx->max_uid : ctx->max_seq;
+		str_printfa(str, " MAX %u", id);
+	}
+
+	if ((ctx->return_options & SEARCH_RETURN_ALL) != 0 &&
+	    array_count(&ctx->result) > 0) {
+		str_append(str, " ALL ");
+		imap_write_seq_range(str, &ctx->result);
 	}
 	if ((ctx->return_options & SEARCH_RETURN_RELEVANCY) != 0) {
 		str_append(str, " RELEVANCY (");
@@ -367,6 +367,12 @@ static void
 search_update_mail(struct imap_search_context *ctx, struct mail *mail)
 {
 	uint64_t modseq;
+
+	if (ctx->max_update_seq == mail->seq) {
+		/* MIN already handled this mail */
+		return;
+	}
+	ctx->max_update_seq = mail->seq;
 
 	if ((ctx->return_options & SEARCH_RETURN_MODSEQ) != 0) {
 		modseq = mail_get_modseq(mail);
@@ -415,83 +421,53 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	enum search_return_options opts = ctx->return_options;
 	struct mail *mail;
 	enum mailbox_sync_flags sync_flags;
-	const struct seq_range *range;
-	unsigned int count;
-	uint32_t id, id_min, id_max;
+	uint32_t id;
 	const char *ok_reply;
-	bool tryagain, minmax, lost_data;
+	bool tryagain, lost_data;
 
 	if (cmd->cancel) {
 		(void)imap_search_deinit(ctx);
 		return TRUE;
 	}
 
-	range = array_get(&ctx->result, &count);
-	if (count == 0) {
-		id_min = 0;
-		id_max = 0;
-	} else {
-		id_min = range[0].seq1;
-		id_max = range[count-1].seq2;
-	}
-
-	minmax = (opts & (SEARCH_RETURN_MIN | SEARCH_RETURN_MAX)) != 0 &&
-		(opts & ~(SEARCH_RETURN_NORESULTS |
-			  SEARCH_RETURN_MIN | SEARCH_RETURN_MAX)) == 0;
 	while (mailbox_search_next_nonblock(ctx->search_ctx,
 					    &mail, &tryagain)) {
 		id = cmd->uid ? mail->uid : mail->seq;
 		ctx->result_count++;
 
-		if (minmax) {
-			/* we only care about min/max */
-			if (id_min == 0 && (opts & SEARCH_RETURN_MIN) != 0)
-				id_min = id;
-			if ((opts & SEARCH_RETURN_MAX) != 0)
-				id_max = id;
-			if (id == id_min || id == id_max) {
-				/* return option updates are delayed until
-				   we know the actual min/max values */
-				search_add_result_id(ctx, id);
-			}
-			continue;
+		ctx->max_seq = mail->seq;
+		ctx->max_uid = mail->uid;
+		if (HAS_ANY_BITS(opts, SEARCH_RETURN_MIN) && ctx->min_id == 0) {
+			/* MIN not set yet */
+			ctx->min_id = id;
+			search_update_mail(ctx, mail);
 		}
-
+		if (HAS_ANY_BITS(opts, SEARCH_RETURN_ALL))
+			search_add_result_id(ctx, id);
+		else if (HAS_ANY_BITS(opts, SEARCH_RETURN_COUNT)) {
+			/* with COUNT don't add it to results, but handle
+			   SAVE and MODSEQ */
+		} else if (HAS_ANY_BITS(opts, SEARCH_RETURN_MIN |
+					SEARCH_RETURN_MAX)) {
+			/* MIN and/or MAX only requested, but we don't know if
+			   this is MAX until the search is finished. */
+			continue;
+		} else if (HAS_ANY_BITS(opts, SEARCH_RETURN_SAVE)) {
+			/* Only SAVE used */
+		}
 		search_update_mail(ctx, mail);
-		if ((opts & ~(SEARCH_RETURN_NORESULTS |
-			      SEARCH_RETURN_COUNT)) == 0) {
-			/* we only want to count (and get modseqs) */
-			continue;
-		}
-		search_add_result_id(ctx, id);
 	}
 	if (tryagain)
 		return FALSE;
 
-	if (minmax && array_count(&ctx->result) > 0 &&
-	    (opts & (SEARCH_RETURN_MODSEQ | SEARCH_RETURN_SAVE)) != 0) {
-		/* handle MIN/MAX modseq/save updates */
+	if ((opts & SEARCH_RETURN_MAX) != 0 && ctx->max_seq != 0 &&
+	    ctx->max_update_seq != ctx->max_seq &&
+	    HAS_ANY_BITS(opts, SEARCH_RETURN_MODSEQ |
+			 SEARCH_RETURN_SAVE)) {
+		/* finish handling MAX */
 		mail = mail_alloc(ctx->trans, 0, NULL);
-		if ((opts & SEARCH_RETURN_MIN) != 0) {
-			i_assert(id_min != 0);
-			if (cmd->uid) {
-				if (!mail_set_uid(mail, id_min))
-					i_unreached();
-			} else {
-				mail_set_seq(mail, id_min);
-			}
-			search_update_mail(ctx, mail);
-		}
-		if ((opts & SEARCH_RETURN_MAX) != 0) {
-			i_assert(id_max != 0);
-			if (cmd->uid) {
-				if (!mail_set_uid(mail, id_max))
-					i_unreached();
-			} else {
-				mail_set_seq(mail, id_max);
-			}
-			search_update_mail(ctx, mail);
-		}
+		mail_set_seq(mail, ctx->max_seq);
+		search_update_mail(ctx, mail);
 		mail_free(&mail);
 	}
 

@@ -37,6 +37,7 @@ struct imap_search_context {
 	struct timeout *to;
 	ARRAY_TYPE(seq_range) result;
 	unsigned int result_count;
+	uint32_t min_id, max_update_seq, max_seq, max_uid;
 
 	ARRAY(float) relevancy_scores;
 	float min_relevancy, max_relevancy;
