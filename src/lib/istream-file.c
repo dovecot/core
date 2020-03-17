@@ -89,12 +89,11 @@ ssize_t i_stream_file_read(struct istream_private *stream)
 			i_assert(errno != EBADF);
 			if (fstream->file) {
 				io_stream_set_error(&stream->iostream,
-					"pread(size=%"PRIuSIZE_T
-					" offset=%"PRIuUOFF_T") failed: %m",
+					"pread(size=%zu offset=%"PRIuUOFF_T") failed: %m",
 					size, offset);
 			} else {
 				io_stream_set_error(&stream->iostream,
-					"read(size=%"PRIuSIZE_T") failed: %m",
+					"read(size=%zu) failed: %m",
 					size);
 			}
 			stream->istream.stream_errno = errno;

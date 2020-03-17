@@ -213,7 +213,7 @@ master_service_haproxy_parse_ssl_tlv(struct master_service_haproxy_conn *hpconn,
 	for(size_t i = 0; i < ssl_kv->len;) {
 		struct haproxy_pp2_tlv kv;
 		if (get_tlv(ssl_kv->data + i, ssl_kv->len - i, &kv) < 0) {
-			*error_r = t_strdup_printf("get_tlv(%"PRIuSIZE_T") failed:"
+			*error_r = t_strdup_printf("get_tlv(%zu) failed: "
 						   "Truncated data", i);
 			return -1;
 		}
@@ -243,7 +243,7 @@ master_service_haproxy_parse_tlv(struct master_service_haproxy_conn *hpconn,
                 struct haproxy_pp2_tlv_ssl ssl_kv;
 
 		if (get_tlv(buf + i, blen - i, &kv) < 0) {
-			*error_r = t_strdup_printf("get_tlv(%"PRIuSIZE_T") failed:"
+			*error_r = t_strdup_printf("get_tlv(%zu) failed: "
 						   "Truncated data", i);
 			return -1;
 		}
@@ -262,7 +262,7 @@ master_service_haproxy_parse_tlv(struct master_service_haproxy_conn *hpconn,
                         break;
                 case PP2_TYPE_SSL:
 			if (get_ssl_tlv(kv.data, kv.len, &ssl_kv) < 0) {
-				*error_r = t_strdup_printf("get_ssl_tlv(%"PRIuSIZE_T") failed:"
+				*error_r = t_strdup_printf("get_ssl_tlv(%zu) failed: "
 							   "Truncated data", i);
 				return -1;
 			}
@@ -375,7 +375,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 		if (ret < (ssize_t)size) {
 			i_error("haproxy(v2): Client disconnected: "
 				"Protocol payload length does not match header "
-				"(got=%"PRIuSIZE_T", expect=%"PRIuSIZE_T", rip=%s)",
+				"(got=%zu, expect=%zu, rip=%s)",
 				(size_t)ret, size, net_ip2addr(real_remote_ip));
 			return -1;
 		}

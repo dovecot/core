@@ -629,7 +629,7 @@ char *i_stream_read_next_line(struct istream *stream)
 		switch (i_stream_read(stream)) {
 		case -2:
 			io_stream_set_error(&stream->real_stream->iostream,
-				"Line is too long (over %"PRIuSIZE_T
+				"Line is too long (over %zu"
 				" bytes at offset %"PRIuUOFF_T")",
 				i_stream_get_data_size(stream), stream->v_offset);
 			stream->stream_errno = errno = ENOBUFS;

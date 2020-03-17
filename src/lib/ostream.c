@@ -191,7 +191,7 @@ int o_stream_flush(struct ostream *stream)
 
 	if (unlikely(_stream->noverflow)) {
 		io_stream_set_error(&_stream->iostream,
-			"Output stream buffer was full (%"PRIuSIZE_T" bytes)",
+			"Output stream buffer was full (%zu bytes)",
 			o_stream_get_max_buffer_size(stream));
 		errno = stream->stream_errno = ENOBUFS;
 		return -1;

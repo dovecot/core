@@ -291,7 +291,7 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	key_len = strlen(key);
 	if (key_len > 0xffff) {
 		*error_r = t_strdup_printf(
-			"memcached: Key is too long (%"PRIuSIZE_T" bytes): %s", key_len, key);
+			"memcached: Key is too long (%zu bytes): %s", key_len, key);
 		return -1;
 	}
 

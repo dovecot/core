@@ -624,7 +624,7 @@ static int fs_posix_write(struct fs_file *_file, const void *data, size_t size)
 	}
 	if ((size_t)ret != size) {
 		fs_set_error(_file->event, ENOSPC,
-			     "write(%s) returned %"PRIuSIZE_T"/%"PRIuSIZE_T,
+			     "write(%s) returned %zu/%zu",
 			     file->full_path, (size_t)ret, size);
 		return -1;
 	}

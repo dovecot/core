@@ -73,7 +73,7 @@ static void vsize_header_refresh(struct mailbox_vsize_update *update)
 	else {
 		if (size != 0) {
 			mailbox_set_critical(update->box,
-				"vsize-hdr has invalid size: %"PRIuSIZE_T,
+				"vsize-hdr has invalid size: %zu",
 				size);
 		}
 		update->rebuild = TRUE;

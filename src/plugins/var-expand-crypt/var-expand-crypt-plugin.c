@@ -111,7 +111,7 @@ var_expand_crypt(struct dcrypt_context_symmetric *dctx, buffer_t *key, buffer_t 
 		/* acquire IV */
 		dcrypt_ctx_sym_get_iv(dctx, iv);
 	} else if (dcrypt_ctx_sym_get_iv_length(dctx) != iv->used) {
-		*error_r = t_strdup_printf("crypt: IV length invalid (%"PRIuSIZE_T" != %u)",
+		*error_r = t_strdup_printf("crypt: IV length invalid (%zu != %u)",
 					   iv->used,
 					   dcrypt_ctx_sym_get_iv_length(dctx));
 		return -1;
@@ -120,7 +120,7 @@ var_expand_crypt(struct dcrypt_context_symmetric *dctx, buffer_t *key, buffer_t 
 	}
 
 	if (dcrypt_ctx_sym_get_key_length(dctx) != key->used) {
-		*error_r = t_strdup_printf("crypt: Key length invalid (%"PRIuSIZE_T" != %u)",
+		*error_r = t_strdup_printf("crypt: Key length invalid (%zu != %u)",
 					   key->used,
 					   dcrypt_ctx_sym_get_key_length(dctx));
 		return -1;

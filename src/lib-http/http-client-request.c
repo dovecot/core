@@ -1195,7 +1195,7 @@ int http_client_request_send_more(struct http_client_request *req,
 	o_stream_set_max_buffer_size(output, (size_t)-1);
 
 	i_assert(req->payload_input->v_offset >= offset);
-	e_debug(req->event, "Send more (sent %"PRIuUOFF_T", buffered=%"PRIuSIZE_T")",
+	e_debug(req->event, "Send more (sent %"PRIuUOFF_T", buffered=%zu)",
 		(uoff_t)(req->payload_input->v_offset - offset),
 		o_stream_get_buffer_used_size(output));
 

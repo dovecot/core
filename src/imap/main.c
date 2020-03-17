@@ -89,7 +89,7 @@ void imap_refresh_proctitle(void)
 				wait_output = TRUE;
 		}
 		if (wait_output) {
-			str_printfa(title, " - %"PRIuSIZE_T" bytes waiting",
+			str_printfa(title, " - %zu bytes waiting",
 				    o_stream_get_buffer_used_size(client->output));
 			if (o_stream_is_corked(client->output))
 				str_append(title, " corked");

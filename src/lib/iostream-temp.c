@@ -388,7 +388,7 @@ struct istream *iostream_temp_finish(struct ostream **output,
 		input = i_stream_create_from_data(tstream->buf->data,
 						  tstream->buf->used);
 		i_stream_set_name(input, t_strdup_printf(
-			"(Temp buffer in %s%s, %"PRIuSIZE_T" bytes)",
+			"(Temp buffer in %s%s, %zu bytes)",
 			tstream->temp_path_prefix, for_path, tstream->buf->used));
 		i_stream_add_destroy_callback(input, iostream_temp_buf_destroyed,
 					      tstream->buf);

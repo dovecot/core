@@ -1424,7 +1424,7 @@ _cmd_bdat_send_chunks(struct _cmd_data_context *ctx,
 	cmd = ctx->cmd_data;
 	smtp_client_command_set_stream(cmd, chunk, FALSE);
 	i_stream_unref(&chunk);
-	smtp_client_command_printf(cmd, "BDAT %"PRIuSIZE_T" LAST", data_size);
+	smtp_client_command_printf(cmd, "BDAT %zu LAST", data_size);
 	smtp_client_command_submit_after(cmd, cmd_prev);
 
 	if (array_count(&ctx->cmds) == 0) {

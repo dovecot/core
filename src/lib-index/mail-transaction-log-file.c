@@ -1741,9 +1741,9 @@ mail_transaction_log_file_mmap(struct mail_transaction_log_file *file,
 		if (ioloop_time != file->last_mmap_error_time) {
 			file->last_mmap_error_time = ioloop_time;
 			log_file_set_syscall_error(file, t_strdup_printf(
-				"mmap(size=%"PRIuSIZE_T")", file->mmap_size));
+				"mmap(size=%zu)", file->mmap_size));
 		}
-		*reason_r = t_strdup_printf("mmap(size=%"PRIuSIZE_T") failed: %m",
+		*reason_r = t_strdup_printf("mmap(size=%zu) failed: %m",
 					    file->mmap_size);
 		file->mmap_size = 0;
 		return -1;

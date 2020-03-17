@@ -67,7 +67,7 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 
 	if (rec_map->mmap_size < MAIL_INDEX_HEADER_MIN_SIZE) {
 		mail_index_set_error(index, "Corrupted index file %s: "
-				     "File too small (%"PRIuSIZE_T")",
+				     "File too small (%zu)",
 				     index->filepath, rec_map->mmap_size);
 		return 0;
 	}

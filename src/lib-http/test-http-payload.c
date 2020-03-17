@@ -801,7 +801,7 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 				fsize = 0;
 			i_fatal("test client: download: "
 				"payload ended prematurely "
-				"(at least %"PRIuSIZE_T" bytes left)", fsize);
+				"(at least %zu bytes left)", fsize);
 		} else if (debug) {
 			i_debug("test client: download: "
 				"finished request for [%u]",
@@ -1039,7 +1039,7 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 				fsize = 0;
 			i_fatal("test client: echo: "
 				"payload ended prematurely "
-				"(at least %"PRIuSIZE_T" bytes left)", fsize);
+				"(at least %zu bytes left)", fsize);
 		} else if (debug) {
 			i_debug("test client: echo: "
 				"finished request for [%u]",

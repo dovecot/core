@@ -61,7 +61,7 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 
 		if (subm_client->set->submission_max_mail_size > 0) {
 			smtp_server_reply_ehlo_add_param(reply,
-				"SIZE", "%"PRIuSIZE_T,
+				"SIZE", "%zu",
 				subm_client->set->submission_max_mail_size);
 		} else {
 			smtp_server_reply_ehlo_add(reply, "SIZE");

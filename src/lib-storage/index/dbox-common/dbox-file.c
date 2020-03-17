@@ -360,7 +360,7 @@ int dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 		if (file->input->stream_errno == 0) {
 			/* EOF, broken offset or file truncated */
 			dbox_file_set_corrupted(file, "EOF reading msg header "
-						"(got %"PRIuSIZE_T"/%u bytes)",
+						"(got %zu/%u bytes)",
 						size, file->msg_header_size);
 			return 0;
 		}

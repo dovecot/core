@@ -243,7 +243,7 @@ int mail_index_map_check_header(struct mail_index_map *map,
 	/* following some extra checks that only take a bit of CPU */
 	if (hdr->record_size < sizeof(struct mail_index_record)) {
 		*error_r = t_strdup_printf(
-			"record_size too small (%u < %"PRIuSIZE_T")",
+			"record_size too small (%u < %zu)",
 			hdr->record_size, sizeof(struct mail_index_record));
 		return -1;
 	}

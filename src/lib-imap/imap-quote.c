@@ -46,7 +46,7 @@ imap_append_literal(string_t *dest, const char *src, unsigned int pos)
 {
 	size_t full_len = pos + strlen(src+pos);
 
-	str_printfa(dest, "{%"PRIuSIZE_T"}\r\n", full_len);
+	str_printfa(dest, "{%zu}\r\n", full_len);
 	buffer_append(dest, src, full_len);
 }
 
@@ -207,7 +207,7 @@ void imap_append_string_for_humans(string_t *dest,
 		return;
 	}
 
-	str_printfa(dest, "{%"PRIuSIZE_T"}\r\n", size - remove_count);
+	str_printfa(dest, "{%zu}\r\n", size - remove_count);
 	pos = str_len(dest);
 
 	last_lwsp = TRUE; whitespace_prefix = TRUE;

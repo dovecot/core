@@ -202,7 +202,7 @@ director_connection_append_stats(struct director_connection *conn, string_t *str
 			    connected_msecs/1000, connected_msecs%1000);
 	}
 	if (o_stream_get_buffer_used_size(conn->output) > 0) {
-		str_printfa(str, ", %"PRIuSIZE_T" bytes in output buffer",
+		str_printfa(str, ", %zu bytes in output buffer",
 			    o_stream_get_buffer_used_size(conn->output));
 	}
 	str_printfa(str, ", %zu peak output buffer size",

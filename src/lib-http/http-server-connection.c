@@ -1096,13 +1096,13 @@ http_server_connection_create(struct http_server *server,
 	if (set->socket_send_buffer_size > 0) {
 		if (net_set_send_buffer_size(fd_out,
 			set->socket_send_buffer_size) < 0)
-			i_error("net_set_send_buffer_size(%"PRIuSIZE_T") failed: %m",
+			i_error("net_set_send_buffer_size(%zu) failed: %m",
 				set->socket_send_buffer_size);
 	}
 	if (set->socket_recv_buffer_size > 0) {
 		if (net_set_recv_buffer_size(fd_in,
 			set->socket_recv_buffer_size) < 0)
-			i_error("net_set_recv_buffer_size(%"PRIuSIZE_T") failed: %m",
+			i_error("net_set_recv_buffer_size(%zu) failed: %m",
 				set->socket_recv_buffer_size);
 	}
 

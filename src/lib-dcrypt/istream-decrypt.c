@@ -867,7 +867,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 					stream->istream.stream_errno = EINVAL;
 					io_stream_set_error(&stream->iostream,
 						"Header too large "
-						"(more than %"PRIuSIZE_T" bytes)",
+						"(more than %zu bytes)",
 						size);
 					return -1;
 				}

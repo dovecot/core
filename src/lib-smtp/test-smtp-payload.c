@@ -240,7 +240,7 @@ client_transaction_read_more(struct client_transaction *ctrans)
 			fsize = 0;
 		i_fatal("test server: "
 			"payload ended prematurely "
-			"(at least %"PRIuSIZE_T" bytes left)", fsize);
+			"(at least %zu bytes left)", fsize);
 	}
 
 	if (debug) {

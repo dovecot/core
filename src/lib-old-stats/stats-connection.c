@@ -85,7 +85,7 @@ int stats_connection_send(struct stats_connection *conn, const string_t *str)
 
 	if (str_len(str) > PIPE_BUF && !pipe_warned) {
 		i_warning("stats update sent more bytes that PIPE_BUF "
-			  "(%"PRIuSIZE_T" > %u), this may break statistics",
+			  "(%zu > %u), this may break statistics",
 			  str_len(str), (unsigned int)PIPE_BUF);
 		pipe_warned = TRUE;
 	}

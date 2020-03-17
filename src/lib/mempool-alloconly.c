@@ -359,7 +359,7 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 			   stack, so make sure everything is allocated before
 			   calling it. */
 			t_buffer_alloc_last_full();
-			i_debug("Growing pool '%s' with: %"PRIuSIZE_T,
+			i_debug("Growing pool '%s' with: %zu",
 				  apool->name, size);
 		}
 #endif
@@ -367,7 +367,7 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 
 	block = calloc(size, 1);
 	if (unlikely(block == NULL)) {
-		i_fatal_status(FATAL_OUTOFMEM, "block_alloc(%"PRIuSIZE_T
+		i_fatal_status(FATAL_OUTOFMEM, "block_alloc(%zu"
 			       "): Out of memory", size);
 	}
 	block->prev = apool->block;

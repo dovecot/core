@@ -59,10 +59,10 @@ static enum fatal_test_state fatal_malloc_overflow_multiply(unsigned int *stage)
 	switch (*stage) {
 	case 0:
 		test_begin("MALLOC_MULTIPLY() overflows");
-		i_error("%"PRIuSIZE_T, MALLOC_MULTIPLY((size_t)SIZE_MAX/2, (uint8_t)3));
+		i_error("%zu", MALLOC_MULTIPLY((size_t)SIZE_MAX/2, (uint8_t)3));
 		break;
 	case 1:
-		i_error("%"PRIuSIZE_T, MALLOC_MULTIPLY((uint8_t)3, (size_t)SIZE_MAX/2));
+		i_error("%zu", MALLOC_MULTIPLY((uint8_t)3, (size_t)SIZE_MAX/2));
 		break;
 	}
 	*stage -= 2;
@@ -77,9 +77,9 @@ static enum fatal_test_state fatal_malloc_overflow_multiply(unsigned int *stage)
 	i = *stage / 2;
 
 	if (*stage % 2 == 0)
-		i_error("%"PRIuSIZE_T, MALLOC_MULTIPLY(mul_tests[i].a, mul_tests[i].b));
+		i_error("%zu", MALLOC_MULTIPLY(mul_tests[i].a, mul_tests[i].b));
 	else
-		i_error("%"PRIuSIZE_T, MALLOC_MULTIPLY(mul_tests[i].b, mul_tests[i].a));
+		i_error("%zu", MALLOC_MULTIPLY(mul_tests[i].b, mul_tests[i].a));
 	return FATAL_TEST_FAILURE;
 }
 
@@ -97,10 +97,10 @@ static enum fatal_test_state fatal_malloc_overflow_add(unsigned int *stage)
 	switch (*stage) {
 	case 0:
 		test_begin("MALLOC_ADD() overflows");
-		i_error("%"PRIuSIZE_T, MALLOC_ADD((size_t)SIZE_MAX, (uint8_t)1));
+		i_error("%zu", MALLOC_ADD((size_t)SIZE_MAX, (uint8_t)1));
 		break;
 	case 1:
-		i_error("%"PRIuSIZE_T, MALLOC_ADD((uint8_t)1, (size_t)SIZE_MAX));
+		i_error("%zu", MALLOC_ADD((uint8_t)1, (size_t)SIZE_MAX));
 		break;
 	}
 	*stage -= 2;
@@ -115,9 +115,9 @@ static enum fatal_test_state fatal_malloc_overflow_add(unsigned int *stage)
 	i = *stage / 2;
 
 	if (*stage % 2 == 0)
-		i_error("%"PRIuSIZE_T, MALLOC_ADD(add_tests[i].a, add_tests[i].b));
+		i_error("%zu", MALLOC_ADD(add_tests[i].a, add_tests[i].b));
 	else
-		i_error("%"PRIuSIZE_T, MALLOC_ADD(add_tests[i].b, add_tests[i].a));
+		i_error("%zu", MALLOC_ADD(add_tests[i].b, add_tests[i].a));
 	return FATAL_TEST_FAILURE;
 }
 

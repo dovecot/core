@@ -509,7 +509,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		if (ioloop_time != cache->last_mmap_error_time) {
 			cache->last_mmap_error_time = ioloop_time;
 			mail_cache_set_syscall_error(cache, t_strdup_printf(
-				"mmap(size=%"PRIuSIZE_T")", cache->mmap_length));
+				"mmap(size=%zu)", cache->mmap_length));
 		}
 		cache->mmap_length = 0;
 		return -1;

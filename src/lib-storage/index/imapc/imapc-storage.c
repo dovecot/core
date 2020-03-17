@@ -404,7 +404,7 @@ imapc_storage_create(struct mail_storage *_storage,
 	/* serialize all the settings */
 	_storage->unique_root_dir = p_strdup_printf(_storage->pool,
 						    "%s%s://(%s|%s):%s@%s:%u/%s mechs:%s features:%s "
-						    "rawlog:%s cmd_timeout:%u maxidle:%u maxline:%"PRIuSIZE_T"u "
+						    "rawlog:%s cmd_timeout:%u maxidle:%u maxline:%zuu "
 						    "pop3delflg:%s root_dir:%s",
 						    storage->set->imapc_ssl,
 						    storage->set->imapc_ssl_verify ? "(verify)" : "",

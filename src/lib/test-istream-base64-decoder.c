@@ -291,7 +291,7 @@ test_istream_base64_io_random(void)
 		}
 
 		if (test_has_failed()) {
-			i_info("Test parameters: size=%"PRIuSIZE_T" "
+			i_info("Test parameters: size=%zu "
 			       "line_length_1=%u line_length_2=%u",
 				in_buf_size, chpl1, chpl2);
 		}

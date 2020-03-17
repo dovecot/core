@@ -23,7 +23,7 @@ static void dump_hdr(struct istream *input, uint64_t *modseq_r,
 	if (ret < 0 && input->stream_errno != 0)
 		i_fatal("read() failed: %s", i_stream_get_error(input));
 	if (ret <= 0) {
-		i_fatal("file hdr read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
+		i_fatal("file hdr read() %zu != %zu",
 			size, sizeof(hdr));
 	}
 	memcpy(&hdr, data, sizeof(hdr));
@@ -480,7 +480,7 @@ static int dump_record(struct istream *input, uint64_t *modseq,
 	if (ret <= 0) {
 		if (size == 0)
 			return 0;
-		i_fatal("rec hdr read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
+		i_fatal("rec hdr read() %zu != %zu",
 			size, sizeof(hdr));
 	}
 	memcpy(&hdr, data, sizeof(hdr));
@@ -502,7 +502,7 @@ static int dump_record(struct istream *input, uint64_t *modseq,
 	if (ret < 0 && input->stream_errno != 0)
 		i_fatal("read() failed: %s", i_stream_get_error(input));
 	if (ret <= 0) {
-		i_fatal("rec data read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
+		i_fatal("rec data read() %zu != %zu",
 			size, data_size);
 	}
 

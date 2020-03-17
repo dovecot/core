@@ -355,8 +355,8 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 			return &outofmem_area.block;
 		}
 		outofmem = TRUE;
-		i_panic("data stack: Out of memory when allocating %"
-			PRIuSIZE_T" bytes", alloc_size + SIZEOF_MEMBLOCK);
+		i_panic("data stack: Out of memory when allocating %zu bytes",
+			alloc_size + SIZEOF_MEMBLOCK);
 	}
 	block->size = alloc_size;
 	block->left = 0;
@@ -380,7 +380,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 #endif
 
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
+		i_panic("Trying to allocate %zu bytes", size);
 
 	if (unlikely(!data_stack_initialized)) {
 		/* kludgy, but allow this before initialization */
@@ -474,7 +474,7 @@ bool t_try_realloc(void *mem, size_t size)
 	unsigned char *after_last_alloc;
 
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
+		i_panic("Trying to allocate %zu bytes", size);
 	block_canary_check(current_block);
 
 	last_alloc_size = current_frame_block->last_alloc_size[frame_pos];

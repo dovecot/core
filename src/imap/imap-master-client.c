@@ -248,8 +248,7 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	    !i_stream_add_data(imap_client->input,
 			       master_input.client_input->data,
 			       master_input.client_input->used)) {
-		i_error("imap-master: Couldn't add %"PRIuSIZE_T
-			" bytes to client's input stream",
+		i_error("imap-master: Couldn't add %zu bytes to client's input stream",
 			master_input.client_input->used);
 		client_destroy(imap_client, "Client initialization failed");
 		return -1;

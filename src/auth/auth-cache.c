@@ -214,7 +214,7 @@ static void sig_auth_cache_stats(const siginfo_t *si ATTR_UNUSED, void *context)
 
 	cache_used = cache->max_size - cache->size_left;
 	i_info("Authentication cache current size: "
-	       "%"PRIuSIZE_T" bytes used of %"PRIuSIZE_T" bytes (%u%%)",
+	       "%zu bytes used of %zu bytes (%u%%)",
 	       cache_used, cache->max_size,
 	       (unsigned int)(cache_used * 100ULL / cache->max_size));
 

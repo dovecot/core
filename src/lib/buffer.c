@@ -46,10 +46,9 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	unsigned int extra;
 	size_t new_size;
 
-	if (unlikely((size_t)-1 - pos < data_size)) {
-		i_panic("Buffer write out of range (%"PRIuSIZE_T
-			" + %"PRIuSIZE_T")", pos, data_size);
-	}
+	if (unlikely((size_t)-1 - pos < data_size))
+		i_panic("Buffer write out of range (%zu + %zu)", pos, data_size);
+
 	new_size = pos + data_size;
 
 	if (new_size > buf->used && buf->used < buf->dirty) {
@@ -66,8 +65,8 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	extra = buf->dynamic ? 1 : 0;
 	if (new_size + extra > buf->alloc) {
 		if (unlikely(!buf->dynamic)) {
-			i_panic("Buffer full (%"PRIuSIZE_T" > %"PRIuSIZE_T", "
-				"pool %s)", pos + data_size, buf->alloc,
+			i_panic("Buffer full (%zu > %zu, pool %s)",
+				pos + data_size, buf->alloc,
 				buf->pool == NULL ? "<none>" :
 				pool_get_name(buf->pool));
 		}

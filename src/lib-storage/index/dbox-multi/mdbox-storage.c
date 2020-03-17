@@ -217,7 +217,7 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 	if (data_size < MDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
 		mailbox_set_critical(&mbox->box,
-			"mdbox: Invalid dbox header size: %"PRIuSIZE_T,
+			"mdbox: Invalid dbox header size: %zu",
 			data_size);
 		mdbox_storage_set_corrupted(mbox->storage);
 		return -1;

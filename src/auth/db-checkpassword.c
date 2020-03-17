@@ -468,7 +468,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 		output_len += strlen(auth_password);
 	if (output_len > CHECKPASSWORD_MAX_REQUEST_LEN) {
 		e_info(authdb_event(request),
-		       "Username+password combination too long (%"PRIuSIZE_T" bytes)",
+		       "Username+password combination too long (%zu bytes)",
 		       output_len);
 		callback(request, DB_CHECKPASSWORD_STATUS_FAILURE,
 			 NULL, request_callback);

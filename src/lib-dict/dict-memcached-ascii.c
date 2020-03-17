@@ -566,7 +566,7 @@ memcached_send_change(struct dict_memcached_ascii_commit_ctx *ctx,
 	switch (change->type) {
 	case DICT_CHANGE_TYPE_SET:
 		state = MEMCACHED_INPUT_STATE_STORED;
-		str_printfa(ctx->str, "set %s 0 0 %"PRIuSIZE_T"\r\n%s\r\n",
+		str_printfa(ctx->str, "set %s 0 0 %zu\r\n%s\r\n",
 			    key, strlen(change->value.str), change->value.str);
 		break;
 	case DICT_CHANGE_TYPE_UNSET:

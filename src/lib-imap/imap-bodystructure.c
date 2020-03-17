@@ -697,7 +697,7 @@ static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
 		str_append_c(str, '"');
 		break;
 	case IMAP_ARG_LITERAL: {
-		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", strlen(cstr));
+		str_printfa(str, "{%zu}\r\n", strlen(cstr));
 		str_append(str, cstr);
 		break;
 	}

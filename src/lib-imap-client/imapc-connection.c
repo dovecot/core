@@ -1591,7 +1591,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 				    conn->disconnect_reason);
 		} else if (ret == -2) {
 			str_printfa(str, "Server sent too large input "
-				    "(buffer full at %"PRIuSIZE_T")",
+				    "(buffer full at %zu)",
 				    i_stream_get_data_size(conn->input));
 		} else if (conn->ssl_iostream == NULL) {
 			errstr = conn->input->stream_errno == 0 ? "EOF" :
@@ -2421,10 +2421,10 @@ void imapc_command_sendvf(struct imapc_command *cmd,
 				imap_append_quoted(cmd->data, arg);
 			else if ((cmd->conn->capabilities &
 				  IMAPC_CAPABILITY_LITERALPLUS) != 0) {
-				str_printfa(cmd->data, "{%"PRIuSIZE_T"+}\r\n%s",
+				str_printfa(cmd->data, "{%zu+}\r\n%s",
 					    strlen(arg), arg);
 			} else {
-				str_printfa(cmd->data, "{%"PRIuSIZE_T"}\r\n%s",
+				str_printfa(cmd->data, "{%zu}\r\n%s",
 					    strlen(arg), arg);
 			}
 			break;

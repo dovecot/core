@@ -512,7 +512,7 @@ test_compression_handler_random_io(const struct compression_handler *handler)
 		}
 
 		if (test_has_failed()) {
-			i_info("Test parameters: size=%"PRIuSIZE_T,
+			i_info("Test parameters: size=%zu",
 				in_buf_size);
 		}
 

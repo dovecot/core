@@ -102,7 +102,7 @@ static inline void * ATTR_MALLOC ATTR_RETURNS_NONNULL
 p_malloc(pool_t pool, size_t size)
 {
 	if (unlikely(size == 0 || size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to allocate %" PRIuSIZE_T " bytes", size);
+		i_panic("Trying to allocate %zu bytes", size);
 
 	return pool->v->malloc(pool, size);
 }
@@ -111,7 +111,7 @@ static inline void * ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL
 p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 {
 	if (unlikely(new_size == 0 || new_size > POOL_MAX_ALLOC_SIZE))
-		i_panic("Trying to reallocate %" PRIuSIZE_T " -> %" PRIuSIZE_T " bytes",
+		i_panic("Trying to reallocate %zu -> %zu bytes",
 			old_size, new_size);
 
 	if (mem == NULL)

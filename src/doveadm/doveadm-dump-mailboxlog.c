@@ -24,7 +24,7 @@ static int dump_record(int fd)
 		return 0;
 
 	if (ret != sizeof(rec)) {
-		i_fatal("rec read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
+		i_fatal("rec read() %zu != %zu",
 			ret, sizeof(rec));
 	}
 

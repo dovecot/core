@@ -104,8 +104,8 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 
 	mem = calloc(size, 1);
 	if (unlikely(mem == NULL)) {
-		i_fatal_status(FATAL_OUTOFMEM, "pool_system_malloc(%"PRIuSIZE_T
-			       "): Out of memory", size);
+		i_fatal_status(FATAL_OUTOFMEM, "pool_system_malloc(%zu): "
+			       "Out of memory", size);
 	}
 #ifdef DEBUG
 	/* we rely on errno not changing. it shouldn't. */
@@ -139,8 +139,8 @@ static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 
 	mem = realloc(mem, new_size);
 	if (unlikely(mem == NULL)) {
-		i_fatal_status(FATAL_OUTOFMEM, "pool_system_realloc(%"PRIuSIZE_T
-			       "): Out of memory", new_size);
+		i_fatal_status(FATAL_OUTOFMEM, "pool_system_realloc(%zu): "
+			       "Out of memory", new_size);
 	}
 
 	if (old_size < new_size) {

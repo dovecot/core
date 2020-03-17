@@ -15,8 +15,8 @@ malloc_multiply_check(size_t a, size_t b, size_t sizeof_a, size_t sizeof_b,
 	   if-check for types that are small enough to never wrap size_t. */
 	if ((sizeof_a * 2 > sizeof(size_t) || sizeof_b * 2 > sizeof(size_t)) &&
 	    b != 0 && (a > SIZE_MAX / b)) {
-		i_panic("file %s: line %d: memory allocation overflow: "
-			"%" PRIuSIZE_T" * %" PRIuSIZE_T, fname, linenum, a, b);
+		i_panic("file %s: line %d: memory allocation overflow: %zu * %zu",
+			fname, linenum, a, b);
 	}
 	return a * b;
 }
@@ -37,8 +37,8 @@ malloc_add_check(size_t a, size_t b, size_t sizeof_a, size_t sizeof_b,
 	   if-check for types that are small enough to never wrap size_t. */
 	if ((sizeof_a >= sizeof(size_t) || sizeof_b >= sizeof(size_t)) &&
 	    SIZE_MAX - a < b) {
-		i_panic("file %s: line %d: memory allocation overflow: "
-			"%" PRIuSIZE_T" + %" PRIuSIZE_T, fname, linenum, a, b);
+		i_panic("file %s: line %d: memory allocation overflow: %zu + %zu",
+			fname, linenum, a, b);
 	}
 	return a + b;
 }

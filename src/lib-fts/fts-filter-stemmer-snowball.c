@@ -84,8 +84,8 @@ fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
 		/* the only reason why this could fail is because of
 		   out of memory. */
 		i_fatal_status(FATAL_OUTOFMEM,
-			       "sb_stemmer_stem(len=%"PRIuSIZE_T") failed: "
-			       "Out of memory", strlen(*token));
+			       "sb_stemmer_stem(len=%zu) failed: Out of memory",
+			       strlen(*token));
 	}
 	*token = t_strndup(base, sb_stemmer_length(sp->stemmer));
 	return 1;

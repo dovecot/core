@@ -97,8 +97,8 @@ dump_msg_hdr(struct istream *input, unsigned int hdr_size, uoff_t *msg_size_r)
 	if (i_stream_read_bytes(input, &data, &size, hdr_size) <= 0) {
 		if (size == 0)
 			return FALSE;
-		i_fatal("Partial message header read at %"PRIuUOFF_T": "
-			"%"PRIuSIZE_T" bytes", input->v_offset, size);
+		i_fatal("Partial message header read at %"PRIuUOFF_T": %zu bytes",
+			input->v_offset, size);
 	}
 	printf("offset %"PRIuUOFF_T":\n", input->v_offset);
 

@@ -163,7 +163,7 @@ static int filter_connect(struct mail_filter_ostream *mstream,
 			mstream->ext_out->stream_errno;
 	} else if ((size_t)ret != str_len(str)) {
 		io_stream_set_error(&mstream->ostream.iostream,
-			"write(%s): Wrote only %"PRIuSIZE_T" of %"PRIuSIZE_T" bytes",
+			"write(%s): Wrote only %zu of %zu bytes",
 			socket_path, (size_t)ret, str_len(str));
 		mstream->ostream.ostream.stream_errno = ENOBUFS;
 	}

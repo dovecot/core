@@ -339,7 +339,7 @@ client_command_stats_append(string_t *str,
 	str_printfa(str, ", %"PRIu64" B in + %"PRIu64,
 		    stats->bytes_in, stats->bytes_out);
 	if (buffered_size > 0)
-		str_printfa(str, "+%"PRIuSIZE_T, buffered_size);
+		str_printfa(str, "+%zu", buffered_size);
 	str_append(str, " B out");
 }
 

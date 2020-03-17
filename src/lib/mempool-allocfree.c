@@ -152,7 +152,7 @@ pool_t pool_allocfree_create(const char *name ATTR_UNUSED)
 
 	pool = calloc(1, SIZEOF_ALLOCFREE_POOL);
 	if (pool == NULL)
-		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %"PRIuSIZE_T"): Out of memory",
+		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %zu): Out of memory",
 			       SIZEOF_ALLOCFREE_POOL);
 #ifdef DEBUG
 	pool->name = strdup(name);
@@ -257,7 +257,7 @@ static void *pool_allocfree_malloc(pool_t pool, size_t size)
 
 	struct pool_block *block = calloc(1, SIZEOF_POOLBLOCK + size);
 	if (block == NULL)
-		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %"PRIuSIZE_T"): Out of memory",
+		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %zu): Out of memory",
 			       SIZEOF_POOLBLOCK + size);
 	block->size = size;
 	return pool_block_attach(apool, block);
@@ -282,7 +282,7 @@ static void *pool_allocfree_realloc(pool_t pool, void *mem,
 
 	struct pool_block *block = pool_block_detach(apool, mem);
 	if ((new_mem = realloc(block, SIZEOF_POOLBLOCK+new_size)) == NULL)
-		i_fatal_status(FATAL_OUTOFMEM, "realloc(block, %"PRIuSIZE_T")",
+		i_fatal_status(FATAL_OUTOFMEM, "realloc(block, %zu)",
 			       SIZEOF_POOLBLOCK+new_size);
 
 	/* zero out new memory */

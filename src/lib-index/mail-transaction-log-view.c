@@ -778,7 +778,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	if (view->cur_offset + sizeof(*hdr) > file_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"offset points outside file "
-			"(%"PRIuUOFF_T" + %"PRIuSIZE_T" > %"PRIuSIZE_T")",
+			"(%"PRIuUOFF_T" + %zu > %zu)",
 			view->cur_offset, sizeof(*hdr), file_size);
 		return -1;
 	}
@@ -800,7 +800,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	if (file_size - view->cur_offset < full_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too large (type=0x%x, "
-			"offset=%"PRIuUOFF_T", size=%u, end=%"PRIuSIZE_T")",
+			"offset=%"PRIuUOFF_T", size=%u, end=%zu)",
 			rec_type, view->cur_offset, full_size, file_size);
 		return -1;
 	}
