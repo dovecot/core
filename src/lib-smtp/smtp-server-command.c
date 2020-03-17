@@ -182,11 +182,12 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 			const char *name, const char *params)
 {
 	struct smtp_server *server = conn->server;
-	const struct smtp_server_command_reg *cmd_reg;
 	struct smtp_server_command *cmd;
 
 	cmd = smtp_server_command_alloc(conn);
 	cmd->context.name = p_strdup(cmd->context.pool, name);
+	cmd->reg = smtp_server_command_find(server, name);
+
 	smtp_server_command_update_event(cmd);
 
 	struct event_passthrough *e =
@@ -194,7 +195,7 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 		set_name("smtp_server_command_started");
 	e_debug(e->event(), "New command");
 
-	if ((cmd_reg=smtp_server_command_find(server, name)) == NULL) {
+	if (cmd->reg == NULL) {
 		/* RFC 5321, Section 4.2.4: Reply Code 502
 
 		   Questions have been raised as to when reply code 502 (Command
@@ -207,7 +208,7 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 			500, "5.5.1", "Unknown command");
 
 	} else if (!conn->ssl_secured && conn->set.tls_required &&
-		(cmd_reg->flags & SMTP_SERVER_CMD_FLAG_PRETLS) == 0) {
+		   (cmd->reg->flags & SMTP_SERVER_CMD_FLAG_PRETLS) == 0) {
 		/* RFC 3207, Section 4:
 
 		   A SMTP server that is not publicly referenced may choose to
@@ -226,7 +227,7 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 			530, "5.7.0", "TLS required.");
 
 	} else if (!conn->authenticated && !conn->set.auth_optional &&
-		(cmd_reg->flags & SMTP_SERVER_CMD_FLAG_PREAUTH) == 0) {
+		   (cmd->reg->flags & SMTP_SERVER_CMD_FLAG_PREAUTH) == 0) {
 		/* RFC 4954, Section 6: Status Codes
 
 		   530 5.7.0  Authentication required
@@ -242,10 +243,9 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 	} else {
 		struct smtp_server_command *tmp_cmd = cmd;
 
-		i_assert(cmd_reg->func != NULL);
+		i_assert(cmd->reg->func != NULL);
 		smtp_server_command_ref(tmp_cmd);
-		tmp_cmd->reg = cmd_reg;
-		cmd_reg->func(&tmp_cmd->context, params);
+		cmd->reg->func(&tmp_cmd->context, params);
 		if (tmp_cmd->state == SMTP_SERVER_COMMAND_STATE_NEW)
 			tmp_cmd->state = SMTP_SERVER_COMMAND_STATE_PROCESSING;
 		if (!smtp_server_command_unref(&tmp_cmd))
