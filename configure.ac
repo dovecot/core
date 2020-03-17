@@ -428,7 +428,6 @@ AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", [printf() format for uoff_t])
 DOVECOT_SIZE_T_SIGNED
 
 AC_DEFINE_UNQUOTED(SSIZE_T_MAX, $ssizet_max, [Maximum value of ssize_t])
-AC_DEFINE_UNQUOTED(PRIuSIZE_T, "$sizet_fmt", [printf() format for size_t])
 
 dnl we require inttypes.h for PRIu{8,16,32,64} macros
 AC_CHECK_HEADER(inttypes.h,,AC_MSG_ERROR([inttypes.h missing but required]))
