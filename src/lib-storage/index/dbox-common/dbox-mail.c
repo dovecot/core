@@ -146,8 +146,8 @@ int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct stat st;
 	uoff_t offset;
 
- 	if (index_mail_get_save_date(_mail, date_r) == 0)
-		return 0;
+	if (index_mail_get_save_date(_mail, date_r) > 0)
+		return 1;
 
 	if (storage->v.mail_open(mail, &offset, &file) < 0)
 		return -1;
@@ -159,7 +159,7 @@ int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 		return -1;
 	}
 	*date_r = data->save_date = st.st_ctime;
-	return 0;
+	return 1;
 }
 
 static int

@@ -135,7 +135,7 @@ static int mbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 
-	if (index_mail_get_save_date(_mail, date_r) == 0)
+	if (index_mail_get_save_date(_mail, date_r) > 0)
 		return 0;
 
 	/* no way to know this. save the current time into cache and use

@@ -60,7 +60,7 @@ static int raw_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	}
 
 	*date_r = mail->data.save_date = mbox->ctime;
-	return 0;
+	return 1;
 }
 
 static int raw_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)

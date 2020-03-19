@@ -63,15 +63,15 @@ static int cydir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 
-	if (index_mail_get_save_date(_mail, date_r) == 0)
-		return 0;
+	if (index_mail_get_save_date(_mail, date_r) > 0)
+		return 1;
 
 	if (cydir_mail_stat(_mail, &st) < 0)
 		return -1;
 
 	data->save_date = st.st_ctime;
 	*date_r = data->save_date;
-	return 0;
+	return 1;
 }
 
 static int cydir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)

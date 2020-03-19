@@ -281,7 +281,7 @@ index_mailbox_get_first_save_date(struct mailbox *box,
 	mail = mail_alloc(t, 0, NULL);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		mail_set_seq(mail, seq);
-		if (mail_get_save_date(mail, &metadata_r->first_save_date) == 0) {
+		if (mail_get_save_date(mail, &metadata_r->first_save_date) >= 0) {
 			ret = 0;
 			break;
 		}

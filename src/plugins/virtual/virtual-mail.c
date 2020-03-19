@@ -349,14 +349,14 @@ static int virtual_mail_get_save_date(struct mail *mail, time_t *date_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail *backend_mail;
+	int ret;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
 		return -1;
-	if (mail_get_save_date(backend_mail, date_r) < 0) {
+	ret = mail_get_save_date(backend_mail, date_r);
+	if (ret < 0)
 		virtual_box_copy_error(mail->box, backend_mail->box);
-		return -1;
-	}
-	return 0;
+	return ret;
 }
 
 static int virtual_mail_get_virtual_mail_size(struct mail *mail, uoff_t *size_r)

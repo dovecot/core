@@ -388,7 +388,7 @@ int index_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	}
 
 	*date_r = data->save_date;
-	return *date_r == (time_t)-1 ? -1 : 0;
+	return *date_r == (time_t)-1 ? -1 : 1;
 }
 
 static int index_mail_cache_sent_date(struct index_mail *mail)

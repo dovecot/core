@@ -170,14 +170,14 @@ static int maildir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 
-	if (index_mail_get_save_date(_mail, date_r) == 0)
-		return 0;
+	if (index_mail_get_save_date(_mail, date_r) > 0)
+		return 1;
 
 	if (maildir_mail_stat(_mail, &st) < 0)
 		return -1;
 
 	*date_r = data->save_date = st.st_ctime;
-	return 0;
+	return 1;
 }
 
 static int

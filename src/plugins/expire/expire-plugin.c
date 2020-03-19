@@ -196,7 +196,7 @@ static void first_nonexpunged_timestamp(struct mailbox_transaction_context *t,
 	for (seq = 2; seq <= hdr->messages_count; seq++) {
 		if (!mail_index_is_expunged(view, seq)) {
 			mail_set_seq(mail, seq);
-			if (mail_get_save_date(mail, stamp_r) == 0)
+			if (mail_get_save_date(mail, stamp_r) >= 0)
 				break;
 		}
 	}

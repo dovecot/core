@@ -145,7 +145,9 @@ static int imapc_mail_get_save_date(struct mail *_mail, time_t *date_r)
 
 	if (data->save_date == (time_t)-1) {
 		/* FIXME: we could use a value stored in cache */
-		return imapc_mail_get_received_date(_mail, date_r);
+		if (imapc_mail_get_received_date(_mail, date_r) < 0)
+			return -1;
+		return 0;
 	}
 	*date_r = data->save_date;
 	return 0;

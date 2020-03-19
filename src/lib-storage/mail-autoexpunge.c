@@ -86,7 +86,7 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 			/* only max_mails is used. nothing further to do. */
 			done = TRUE;
 			break;
-		} else if (mail_get_save_date(mail, &timestamp) == 0) {
+		} else if (mail_get_save_date(mail, &timestamp) >= 0) {
 			if (I_MAX(last_rename_stamp, timestamp) > expire_time) {
 				done = TRUE;
 				break;

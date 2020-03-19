@@ -488,7 +488,7 @@ index_list_update_first_saved(struct mailbox *box,
 		messages_count = mail_index_view_get_messages_count(box->view);
 		for (seq = 1; seq <= messages_count; seq++) {
 			mail_set_seq(mail, seq);
-			if (mail_get_save_date(mail, &save_date) == 0) {
+			if (mail_get_save_date(mail, &save_date) >= 0) {
 				first_saved.uid = mail->uid;
 				first_saved.timestamp = save_date;
 				break;

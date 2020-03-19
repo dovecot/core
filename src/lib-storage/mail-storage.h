@@ -895,8 +895,9 @@ int mail_get_parts(struct mail *mail, struct message_part **parts_r);
 int mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r);
 /* Get the time when the mail was received (IMAP INTERNALDATE). */
 int mail_get_received_date(struct mail *mail, time_t *date_r);
-/* Get the time when the mail was saved into this mailbox. This time may not
-   always be entirely reliable. */
+/* Get the time when the mail was saved into this mailbox. This returns -1 on
+   error, 0 if a real save date is not supported and a fall-back date is used,
+   and 1 when a save date was successfully retrieved. */
 int mail_get_save_date(struct mail *mail, time_t *date_r);
 
 /* Get the space used by the mail as seen by the reader. Linefeeds are always
