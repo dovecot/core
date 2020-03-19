@@ -33,6 +33,7 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ "WITHIN", IMAPC_CAPABILITY_WITHIN },
 	{ "QUOTA", IMAPC_CAPABILITY_QUOTA },
 	{ "ID", IMAPC_CAPABILITY_ID },
+	{ "SAVEDATE", IMAPC_CAPABILITY_SAVEDATE },
 
 	{ "IMAP4REV1", IMAPC_CAPABILITY_IMAP4REV1 },
 	{ NULL, 0 }
