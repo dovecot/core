@@ -125,6 +125,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 		if ((mbox->capabilities & IMAPC_CAPABILITY_CONDSTORE) == 0)
 			return FALSE;
 		return mail_search_arg_to_imap(str, arg, &error);
+	case SEARCH_SAVEDATESUPPORTED:
 	case SEARCH_INTHREAD:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:

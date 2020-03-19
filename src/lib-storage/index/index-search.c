@@ -334,6 +334,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	time_t date;
 	int tz_offset;
 	bool have_tz_offset;
+	int ret;
 
 	switch (arg->type) {
 	/* internal dates */
@@ -383,6 +384,15 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		default:
 			i_unreached();
 		}
+
+	/* save date attribute */
+	case SEARCH_SAVEDATESUPPORTED:
+		ret = mail_get_save_date(ctx->cur_mail, &date);
+		if (ret < 0) {
+			search_cur_mail_failed(ctx);
+			return -1;
+		}
+		return ret;
 
 	/* sizes */
 	case SEARCH_SMALLER:
@@ -1435,6 +1445,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_HEADER_COMPRESS_LWSP:
 	case SEARCH_BODY:
 	case SEARCH_TEXT:
+	case SEARCH_SAVEDATESUPPORTED:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GUID:

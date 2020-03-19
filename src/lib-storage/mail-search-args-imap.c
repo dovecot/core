@@ -272,6 +272,9 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		str_printfa(dest, "%"PRIu64, arg->value.modseq->modseq);
 		break;
 	}
+	case SEARCH_SAVEDATESUPPORTED:
+		str_append(dest, "SAVEDATESUPPORTED");
+		break;
 	case SEARCH_INTHREAD:
 		str_append(dest, "INTHREAD ");
 		imap_append_astring(dest, mail_thread_type_to_str(arg->value.thread_type));

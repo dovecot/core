@@ -81,6 +81,7 @@ mail_search_arg_to_cmdline(string_t *dest, const struct mail_search_arg *arg)
 	case SEARCH_BODY:
 	case SEARCH_TEXT:
 	case SEARCH_MODSEQ:
+	case SEARCH_SAVEDATESUPPORTED:
 	case SEARCH_GUID:
 	case SEARCH_REAL_UID:
 	case SEARCH_MIMEPART:

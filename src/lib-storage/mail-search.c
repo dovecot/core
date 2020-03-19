@@ -297,6 +297,7 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 			mail_search_arg_dup(pool, arg->value.subargs);
 		break;
 	case SEARCH_ALL:
+	case SEARCH_SAVEDATESUPPORTED:
 		break;
 	case SEARCH_SEQSET:
 	case SEARCH_UIDSET:
@@ -624,6 +625,7 @@ bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 					      arg2->value.subargs);
 
 	case SEARCH_ALL:
+	case SEARCH_SAVEDATESUPPORTED:
 		return TRUE;
 	case SEARCH_SEQSET:
 		/* sequences may point to different messages at different times,
