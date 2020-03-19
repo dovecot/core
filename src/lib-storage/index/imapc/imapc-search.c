@@ -96,7 +96,9 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 		return TRUE;
 	case SEARCH_BEFORE:
 	case SEARCH_SINCE:
-		if ((mbox->capabilities & IMAPC_CAPABILITY_WITHIN) == 0) {
+	case SEARCH_ON:
+		if (arg->type != SEARCH_ON &&
+		    (mbox->capabilities & IMAPC_CAPABILITY_WITHIN) == 0) {
 			/* a bit kludgy way to check this.. */
 			size_t pos = str_len(str);
 			if (!mail_search_arg_to_imap(str, arg, &error))
@@ -106,12 +108,17 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 				return FALSE;
 			return TRUE;
 		}
+		if (arg->value.date_type == MAIL_SEARCH_DATE_TYPE_SAVED &&
+		    (mbox->capabilities & IMAPC_CAPABILITY_SAVEDATE) == 0) {
+			/* Fall back to internal date if save date is not
+			   supported. */
+			arg2.value.date_type = MAIL_SEARCH_DATE_TYPE_RECEIVED;
+		}
 		/* fall through */
 	case SEARCH_ALL:
 	case SEARCH_UIDSET:
 	case SEARCH_FLAGS:
 	case SEARCH_KEYWORDS:
-	case SEARCH_ON:
 	case SEARCH_SMALLER:
 	case SEARCH_LARGER:
 	case SEARCH_HEADER:
@@ -126,6 +133,9 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 			return FALSE;
 		return mail_search_arg_to_imap(str, arg, &error);
 	case SEARCH_SAVEDATESUPPORTED:
+		if ((mbox->capabilities & IMAPC_CAPABILITY_SAVEDATE) == 0)
+			return FALSE;
+		return mail_search_arg_to_imap(str, arg, &error);
 	case SEARCH_INTHREAD:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:

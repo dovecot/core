@@ -253,6 +253,11 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	str_printfa(str, "UID FETCH %u (", _mail->uid);
 	if ((fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		str_append(str, "INTERNALDATE ");
+	if ((fields & MAIL_FETCH_SAVE_DATE) != 0) {
+		i_assert(HAS_ALL_BITS(mbox->capabilities,
+				      IMAPC_CAPABILITY_SAVEDATE));
+		str_append(str, "SAVEDATE ");
+	}
 	if ((fields & (MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE)) != 0)
 		str_append(str, "RFC822.SIZE ");
 	if ((fields & MAIL_FETCH_GUID) != 0) {
@@ -338,8 +343,12 @@ imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 	    data->received_date == (time_t)-1)
 		fields |= MAIL_FETCH_RECEIVED_DATE;
 	if ((data->wanted_fields & MAIL_FETCH_SAVE_DATE) != 0 &&
-	    data->save_date == (time_t)-1 && data->received_date == (time_t)-1)
-		fields |= MAIL_FETCH_RECEIVED_DATE;
+	    data->save_date == (time_t)-1) {
+		if (HAS_ALL_BITS(mbox->capabilities, IMAPC_CAPABILITY_SAVEDATE))
+			fields |= MAIL_FETCH_SAVE_DATE;
+		else
+			fields |= MAIL_FETCH_RECEIVED_DATE;
+	}
 	if ((data->wanted_fields & (MAIL_FETCH_PHYSICAL_SIZE |
 				    MAIL_FETCH_VIRTUAL_SIZE)) != 0 &&
 	    data->physical_size == (uoff_t)-1 &&
@@ -410,10 +419,19 @@ bool imapc_mail_prefetch(struct mail *_mail)
 static bool
 imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 {
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(imail->imail.mail.mail.box);
+
 	if ((fields & MAIL_FETCH_RECEIVED_DATE) != 0) {
 		if (imail->imail.data.received_date == (time_t)-1)
 			return FALSE;
 		fields &= ~MAIL_FETCH_RECEIVED_DATE;
+	}
+	if ((fields & MAIL_FETCH_SAVE_DATE) != 0) {
+		i_assert(HAS_ALL_BITS(mbox->capabilities,
+				      IMAPC_CAPABILITY_SAVEDATE));
+		if (imail->imail.data.save_date == (time_t)-1)
+			return FALSE;
+		fields &= ~MAIL_FETCH_SAVE_DATE;
 	}
 	if ((fields & (MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE)) != 0) {
 		if (imail->imail.data.physical_size == (uoff_t)-1)
@@ -826,8 +844,20 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 			match = TRUE;
 		} else if (strcasecmp(key, "INTERNALDATE") == 0) {
 			if (imap_arg_get_astring(&args[i+1], &value) &&
-			    imap_parse_datetime(value, &t, &tz))
+			    imap_parse_datetime(value, &t, &tz)) {
 				mail->imail.data.received_date = t;
+				if (HAS_NO_BITS(mbox->capabilities,
+						 IMAPC_CAPABILITY_SAVEDATE))
+					mail->imail.data.save_date = t;
+			}
+			match = TRUE;
+		} else if (strcasecmp(key, "SAVEDATE") == 0) {
+			if (imap_arg_get_astring(&args[i+1], &value)) {
+				if (strcasecmp(value, "NIL") == 0)
+					mail->imail.data.save_date = 0;
+				else if (imap_parse_datetime(value, &t, &tz))
+					mail->imail.data.save_date = t;
+			}
 			match = TRUE;
 		} else if (strcasecmp(key, "BODY") == 0) {
 			if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_BODYSTRUCTURE)) {

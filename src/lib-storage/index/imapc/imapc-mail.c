@@ -140,17 +140,29 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 static int imapc_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 
-	if (data->save_date == (time_t)-1) {
-		/* FIXME: we could use a value stored in cache */
+	if (data->save_date != 0 && index_mail_get_save_date(_mail, date_r) > 0)
+		return 1;
+
+	if (HAS_NO_BITS(mbox->capabilities, IMAPC_CAPABILITY_SAVEDATE)) {
+		data->save_date = 0;
+	} else if (data->save_date == (time_t)-1) {
+		if (imapc_mail_fetch(_mail, MAIL_FETCH_SAVE_DATE, NULL) < 0)
+			return -1;
+		if (data->save_date == (time_t)-1 &&
+		    imapc_mail_failed(_mail, "SAVEDATE") < 0)
+			return -1;
+	}
+	if (data->save_date == (time_t)-1 || data->save_date == 0) {
 		if (imapc_mail_get_received_date(_mail, date_r) < 0)
 			return -1;
 		return 0;
 	}
 	*date_r = data->save_date;
-	return 0;
+	return 1;
 }
 
 static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
@@ -369,7 +381,9 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		(void)index_mail_get_received_date(_mail, &date);
 	if ((data->wanted_fields & MAIL_FETCH_SAVE_DATE) != 0) {
-		if (index_mail_get_save_date(_mail, &date) < 0) {
+		if (index_mail_get_save_date(_mail, &date) < 0 &&
+		    HAS_NO_BITS(mbox->capabilities,
+				IMAPC_CAPABILITY_SAVEDATE)) {
 			(void)index_mail_get_received_date(_mail, &date);
 			data->save_date = data->received_date;
 		}
