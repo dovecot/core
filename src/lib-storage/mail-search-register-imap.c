@@ -11,6 +11,7 @@
 #include "mail-search-register.h"
 #include "mail-search-parser.h"
 #include "mail-search-build.h"
+#include "mail-search-build.h"
 #include "mail-search-mime-build.h"
 
 struct mail_search_register *mail_search_register_imap;
@@ -186,9 +187,19 @@ CALLBACK_DATE(sentbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SENT)
 CALLBACK_DATE(senton, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SENT)
 CALLBACK_DATE(sentsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SENT)
 
+CALLBACK_DATE(savedbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SAVED)
+CALLBACK_DATE(savedon, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SAVED)
+CALLBACK_DATE(savedsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SAVED)
+
 CALLBACK_DATE(x_savedbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SAVED)
 CALLBACK_DATE(x_savedon, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SAVED)
 CALLBACK_DATE(x_savedsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SAVED)
+
+static struct mail_search_arg *
+imap_search_savedatesupported(struct mail_search_build_context *ctx)
+{
+	return mail_search_build_new(ctx, SEARCH_SAVEDATESUPPORTED);
+}
 
 static struct mail_search_arg *
 arg_new_size(struct mail_search_build_context *ctx,
@@ -559,6 +570,11 @@ static const struct mail_search_register_arg imap_register_args[] = {
 	{ "SENTBEFORE", imap_search_sentbefore },
 	{ "SENTON", imap_search_senton },
 	{ "SENTSINCE", imap_search_sentsince },
+	{ "SAVEDBEFORE", imap_search_savedbefore },
+	{ "SAVEDON", imap_search_savedon },
+	{ "SAVEDSINCE", imap_search_savedsince },
+	{ "SAVEDATESUPPORTED", imap_search_savedatesupported },
+	/* FIXME: remove these in v2.4: */
 	{ "X-SAVEDBEFORE", imap_search_x_savedbefore },
 	{ "X-SAVEDON", imap_search_x_savedon },
 	{ "X-SAVEDSINCE", imap_search_x_savedsince },

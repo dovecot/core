@@ -889,6 +889,33 @@ bool imap_fetch_uid_init(struct imap_fetch_init_context *ctx)
 	return TRUE;
 }
 
+static int imap_fetch_savedate(struct imap_fetch_context *ctx, struct mail *mail,
+			       void *context ATTR_UNUSED)
+{
+	time_t date;
+	int ret;
+
+	ret = mail_get_save_date(mail, &date);
+	if (ret < 0)
+		return -1;
+
+	if (ret == 0)
+		str_append(ctx->state.cur_str, "SAVEDATE NIL ");
+	else {
+		str_printfa(ctx->state.cur_str, "SAVEDATE \"%s\" ",
+			    imap_to_datetime(date));
+	}
+	return 1;
+}
+
+static bool imap_fetch_savedate_init(struct imap_fetch_init_context *ctx)
+{
+	ctx->fetch_ctx->fetch_data |= MAIL_FETCH_SAVE_DATE;
+	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
+			       "NIL", imap_fetch_savedate, NULL);
+	return TRUE;
+}
+
 static int fetch_guid(struct imap_fetch_context *ctx, struct mail *mail,
 		      void *context ATTR_UNUSED)
 {
@@ -993,6 +1020,7 @@ imap_fetch_default_handlers[] = {
 	{ "RFC822", imap_fetch_rfc822_init },
 	{ "SNIPPET", imap_fetch_snippet_init },
 	{ "UID", imap_fetch_uid_init },
+	{ "SAVEDATE", imap_fetch_savedate_init },
 	{ "X-GUID", fetch_guid_init },
 	{ "X-MAILBOX", fetch_x_mailbox_init },
 	{ "X-REAL-UID", fetch_x_real_uid_init },

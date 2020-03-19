@@ -74,6 +74,12 @@ CALLBACK_DATE(savedon, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SAVED)
 CALLBACK_DATE(savedsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SAVED)
 
 static struct mail_search_arg *
+human_search_savedatesupported(struct mail_search_build_context *ctx)
+{
+	return mail_search_build_new(ctx, SEARCH_SAVEDATESUPPORTED);
+}
+
+static struct mail_search_arg *
 arg_new_human_size(struct mail_search_build_context *ctx,
 		   enum mail_search_arg_type type)
 {
@@ -157,6 +163,7 @@ static const struct mail_search_register_arg human_register_args[] = {
 	{ "SAVEDBEFORE", human_search_savedbefore },
 	{ "SAVEDON", human_search_savedon },
 	{ "SAVEDSINCE", human_search_savedsince },
+	{ "SAVEDATESUPPORTED", human_search_savedatesupported },
 	{ "X-SAVEDBEFORE", human_search_savedbefore },
 	{ "X-SAVEDON", human_search_savedon },
 	{ "X-SAVEDSINCE", human_search_savedsince },

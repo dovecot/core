@@ -144,7 +144,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			str_append(dest, "BEFORE");
 			break;
 		case MAIL_SEARCH_DATE_TYPE_SAVED:
-			str_append(dest, "X-SAVEDBEFORE");
+			str_append(dest, "SAVEDBEFORE");
 			break;
 		}
 		if (mail_search_arg_to_imap_date(dest, arg))
@@ -171,7 +171,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			str_append(dest, "ON");
 			break;
 		case MAIL_SEARCH_DATE_TYPE_SAVED:
-			str_append(dest, "X-SAVEDON");
+			str_append(dest, "SAVEDON");
 			break;
 		}
 		if (!mail_search_arg_to_imap_date(dest, arg)) {
@@ -191,7 +191,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			str_append(dest, "SINCE");
 			break;
 		case MAIL_SEARCH_DATE_TYPE_SAVED:
-			str_append(dest, "X-SAVEDSINCE");
+			str_append(dest, "SAVEDSINCE");
 			break;
 		}
 		if (mail_search_arg_to_imap_date(dest, arg))
