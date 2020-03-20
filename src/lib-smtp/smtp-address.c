@@ -795,7 +795,7 @@ smtp_address_clone(pool_t pool, const struct smtp_address *src)
 	/* @UNSAFE */
 
 	size = sizeof(struct smtp_address);
-	if (src->localpart != NULL && *src->localpart != '\0') {
+	if (!smtp_address_isnull(src)) {
 		lpsize = strlen(src->localpart) + 1;
 		size = MALLOC_ADD(size, lpsize);
 	}
