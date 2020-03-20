@@ -119,13 +119,19 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	return ctx;
 }
 
-void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
+static void
+mail_cache_transaction_forget_flushed(struct mail_cache_transaction_ctx *ctx)
 {
 	ctx->cache_file_seq = MAIL_CACHE_IS_UNUSABLE(ctx->cache) ? 0 :
 		ctx->cache->hdr->file_seq;
+	/* forget all cache extension updates even if reset_id doesn't change */
 	mail_index_ext_set_reset_id(ctx->trans, ctx->cache->ext_id,
 				    ctx->cache_file_seq);
+}
 
+void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
+{
+	mail_cache_transaction_forget_flushed(ctx);
 	if (ctx->cache_data != NULL)
 		buffer_set_used_size(ctx->cache_data, 0);
 	if (array_is_created(&ctx->cache_data_seq))
