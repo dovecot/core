@@ -719,13 +719,43 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	return ret;
 }
 
+static int
+mail_cache_trans_get_file_field(struct mail_cache_transaction_ctx *ctx,
+				unsigned int field_idx, uint32_t *file_field_r)
+{
+	uint32_t file_field;
+	int ret;
+
+	file_field = ctx->cache->field_file_map[field_idx];
+	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) || file_field == (uint32_t)-1) {
+		/* we'll have to add this field to headers */
+		mail_cache_mark_adding(ctx->cache, TRUE);
+		ret = mail_cache_header_add_field(ctx, field_idx);
+		mail_cache_mark_adding(ctx->cache, FALSE);
+		if (ret < 0)
+			return -1;
+
+		if (ctx->cache_file_seq == 0) {
+			if (MAIL_INDEX_IS_IN_MEMORY(ctx->cache->index))
+				ctx->cache_file_seq = 1;
+			else
+				ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+		}
+
+		file_field = ctx->cache->field_file_map[field_idx];
+		i_assert(file_field != (uint32_t)-1);
+	}
+	i_assert(ctx->cache_file_seq != 0);
+	*file_field_r = file_field;
+	return 0;
+}
+
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		    unsigned int field_idx, const void *data, size_t data_size)
 {
 	uint32_t file_field, data_size32;
 	unsigned int fixed_size;
 	size_t full_size;
-	int ret;
 
 	i_assert(field_idx < ctx->cache->fields_count);
 	i_assert(data_size < (uint32_t)-1);
@@ -744,26 +774,8 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		mail_cache_transaction_reset(ctx);
 	}
 
-	file_field = ctx->cache->field_file_map[field_idx];
-	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) || file_field == (uint32_t)-1) {
-		/* we'll have to add this field to headers */
-		mail_cache_mark_adding(ctx->cache, TRUE);
-		ret = mail_cache_header_add_field(ctx, field_idx);
-		mail_cache_mark_adding(ctx->cache, FALSE);
-		if (ret < 0)
-			return;
-
-		if (ctx->cache_file_seq == 0) {
-			if (MAIL_INDEX_IS_IN_MEMORY(ctx->cache->index))
-				ctx->cache_file_seq = 1;
-			else
-				ctx->cache_file_seq = ctx->cache->hdr->file_seq;
-		}
-
-		file_field = ctx->cache->field_file_map[field_idx];
-		i_assert(file_field != (uint32_t)-1);
-	}
-	i_assert(ctx->cache_file_seq != 0);
+	if (mail_cache_trans_get_file_field(ctx, field_idx, &file_field) < 0)
+		return;
 
 	mail_cache_decision_add(ctx->view, seq, field_idx);
 
