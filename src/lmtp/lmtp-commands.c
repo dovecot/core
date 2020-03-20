@@ -66,10 +66,18 @@ int client_default_cmd_rcpt(struct client *client,
 	char delim = '\0';
 	int ret;
 
+	i_assert(!smtp_address_isnull(rcpt->path));
+	if (*rcpt->path->localpart == '\0' && rcpt->path->domain == NULL) {
+		smtp_server_recipient_reply(
+			rcpt, 550, "5.1.1",
+			"Unacceptable TO: Empty path not allowed");
+		return -1;
+	}
 
 	smtp_address_detail_parse_temp(
 		client->unexpanded_lda_set->recipient_delimiter,
 		rcpt->path, &username, &delim, &detail);
+	i_assert(*username != '\0');
 
 	/* Make user name and detail available in the recipient event. The
 	   mail_user event (for local delivery) also adds the user field, but
