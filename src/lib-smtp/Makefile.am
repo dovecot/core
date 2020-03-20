@@ -84,7 +84,14 @@ test_programs = \
 
 test_nocheck_programs =
 
-noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
+fuzz_programs =
+
+if USE_FUZZER
+fuzz_programs += \
+	fuzz-smtp-server
+endif
+
+noinst_PROGRAMS = $(fuzz_programs) $(test_programs) $(test_nocheck_programs)
 
 EXTRA_DIST = \
 	test-bin/sendmail-exit-1.sh \
@@ -167,6 +174,13 @@ test_smtp_server_errors_SOURCES = test-smtp-server-errors.c
 test_smtp_server_errors_LDFLAGS = -export-dynamic
 test_smtp_server_errors_LDADD = $(test_libs)
 test_smtp_server_errors_DEPENDENCIES = $(test_deps)
+
+nodist_EXTRA_fuzz_smtp_server_SOURCES = force-cxx-linking.cxx
+fuzz_smtp_server_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_smtp_server_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_smtp_server_SOURCES = fuzz-smtp-server.c
+fuzz_smtp_server_LDADD = $(test_libs)
+fuzz_smtp_server_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
