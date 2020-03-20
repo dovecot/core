@@ -644,40 +644,11 @@ static void mail_cache_mark_adding(struct mail_cache *cache, bool set)
 	}
 }
 
-static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
-				       unsigned int field_idx)
+static int
+mail_cache_header_add_field_locked(struct mail_cache *cache,
+				   unsigned int field_idx)
 {
-	struct mail_cache *cache = ctx->cache;
 	int ret;
-
-	if (MAIL_INDEX_IS_IN_MEMORY(cache->index)) {
-		if (cache->file_fields_count <= field_idx) {
-			cache->file_field_map =
-				i_realloc_type(cache->file_field_map,
-					       unsigned int,
-					       cache->file_fields_count,
-					       field_idx+1);
-			cache->file_fields_count = field_idx+1;
-		}
-		cache->file_field_map[field_idx] = field_idx;
-		cache->field_file_map[field_idx] = field_idx;
-		return 0;
-	}
-
-	if (mail_cache_transaction_lock(ctx) <= 0) {
-		if (MAIL_CACHE_IS_UNUSABLE(cache))
-			return -1;
-
-		/* if we compressed the cache, the field should be there now.
-		   it's however possible that someone else just compressed it
-		   and we only reopened the cache file. */
-		if (cache->field_file_map[field_idx] != (uint32_t)-1)
-			return 0;
-
-		/* need to add it */
-		if (mail_cache_transaction_lock(ctx) <= 0)
-			return -1;
-	}
 
 	/* re-read header to make sure we don't lose any fields. */
 	if (mail_cache_header_fields_read(cache) < 0) {
@@ -715,6 +686,42 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	if (mail_cache_unlock(cache) < 0)
 		ret = -1;
 	return ret;
+}
+
+static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
+				       unsigned int field_idx)
+{
+	struct mail_cache *cache = ctx->cache;
+
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index)) {
+		if (cache->file_fields_count <= field_idx) {
+			cache->file_field_map =
+				i_realloc_type(cache->file_field_map,
+					       unsigned int,
+					       cache->file_fields_count,
+					       field_idx+1);
+			cache->file_fields_count = field_idx+1;
+		}
+		cache->file_field_map[field_idx] = field_idx;
+		cache->field_file_map[field_idx] = field_idx;
+		return 0;
+	}
+
+	if (mail_cache_transaction_lock(ctx) <= 0) {
+		if (MAIL_CACHE_IS_UNUSABLE(cache))
+			return -1;
+
+		/* if we compressed the cache, the field should be there now.
+		   it's however possible that someone else just compressed it
+		   and we only reopened the cache file. */
+		if (cache->field_file_map[field_idx] != (uint32_t)-1)
+			return 0;
+
+		/* need to add it */
+		if (mail_cache_transaction_lock(ctx) <= 0)
+			return -1;
+	}
+	return mail_cache_header_add_field_locked(cache, field_idx);
 }
 
 static int
