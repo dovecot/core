@@ -306,7 +306,7 @@ static const struct auth_settings auth_default_settings = {
 	.policy_server_timeout_msecs = 2000,
 	.policy_hash_mech = "sha256",
 	.policy_hash_nonce = "",
-	.policy_request_attributes = "login=%{requested_username} pwhash=%{hashed_password} remote=%{rip} device_id=%{client_id} protocol=%s",
+	.policy_request_attributes = "login=%{requested_username} pwhash=%{hashed_password} remote=%{rip} device_id=%{client_id} protocol=%s session_id=%{session}",
 	.policy_reject_on_fail = FALSE,
 	.policy_check_before_auth = TRUE,
 	.policy_check_after_auth = TRUE,
