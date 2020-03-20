@@ -595,10 +595,8 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx **_ctx)
 }
 
 static int
-mail_cache_header_fields_write(struct mail_cache_transaction_ctx *ctx,
-			       const buffer_t *buffer)
+mail_cache_header_fields_write(struct mail_cache *cache, const buffer_t *buffer)
 {
-	struct mail_cache *cache = ctx->cache;
 	uint32_t offset, hdr_offset;
 
 	i_assert(cache->locked);
@@ -699,7 +697,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 
 		buffer = t_buffer_create(256);
 		mail_cache_header_fields_get(cache, buffer);
-		ret = mail_cache_header_fields_write(ctx, buffer);
+		ret = mail_cache_header_fields_write(cache, buffer);
 	} T_END;
 
 	if (ret == 0) {
