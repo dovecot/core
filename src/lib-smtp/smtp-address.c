@@ -789,7 +789,7 @@ smtp_address_clone(pool_t pool, const struct smtp_address *src)
 	size_t size, lpsize = 0, dsize = 0, rsize = 0;
 	char *data, *localpart = NULL, *domain = NULL, *raw = NULL;
 
-	if (src == NULL || (smtp_address_isnull(src) && src->raw == NULL))
+	if (src == NULL)
 		return NULL;
 
 	/* @UNSAFE */
@@ -857,7 +857,7 @@ struct smtp_address *smtp_address_clone_temp(const struct smtp_address *src)
 {
 	struct smtp_address *new;
 
-	if (src == NULL || (smtp_address_isnull(src) && src->raw == NULL))
+	if (src == NULL)
 		return NULL;
 
 	new = t_new(struct smtp_address, 1);
