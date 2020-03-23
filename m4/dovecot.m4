@@ -335,6 +335,27 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
 	DOVECOT_WANT_UBSAN
 ])
 
+AC_DEFUN([DC_DOVECOT_FUZZER],[
+        AC_ARG_WITH(fuzzer,
+        AS_HELP_STRING([--with-fuzzer=clang], [Build with clang fuzzer (default: no)]),
+                with_fuzzer=$withval,
+                with_fuzzer=no)
+	AS_IF([test x$with_fuzzer = xclang], [
+		CFLAGS="$CFLAGS -fsanitize=fuzzer-no-link"
+		# use $LIB_FUZZING_ENGINE for linking if it exists
+		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer}
+		# May need to use CXXLINK for linking, which wants sources to
+		# be compiled with -fPIE
+		FUZZER_CPPFLAGS='$(AM_CPPFLAGS) -fPIE -DPIE'
+	], [test x$with_fuzzer != xno], [
+		AC_MSG_ERROR([Unknown fuzzer $with_fuzzer])
+	])
+	AC_SUBST([FUZZER_CPPFLAGS])
+	AC_SUBST([FUZZER_LDFLAGS])
+	AM_CONDITIONAL([USE_FUZZER], [test "x$with_fuzzer" != "xno"])
+
+])
+
 AC_DEFUN([DC_DOVECOT],[
 	AC_ARG_WITH(dovecot,
 	  [  --with-dovecot=DIR      Dovecot base directory],
