@@ -96,3 +96,16 @@ check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
+
+if USE_FUZZER
+noinst_PROGRAMS += \
+	fuzz-imap-utf7
+
+nodist_EXTRA_fuzz_imap_utf7_SOURCES = force-cxx-linking.cxx
+fuzz_imap_utf7_SOURCES = fuzz-imap-utf7.c
+fuzz_imap_utf7_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_imap_utf7_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_imap_utf7_LDADD = libimap.la $(test_libs)
+fuzz_imap_utf7_DEPENDENCIES = libimap.la $(test_deps)
+
+endif
