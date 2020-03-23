@@ -10,6 +10,7 @@ libtest_la_SOURCES = \
 	test-ostream.c
 
 headers = \
+	fuzzer.h \
 	test-common.h
 
 pkginc_libdir=$(pkgincludedir)
