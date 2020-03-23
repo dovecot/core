@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 31
+# serial 32
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -340,6 +340,27 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
 	AC_CC_D_FORTIFY_SOURCE
 	AC_CC_RETPOLINE
 	AC_LD_RELRO
+])
+
+AC_DEFUN([DC_DOVECOT_FUZZER],[
+        AC_ARG_WITH(fuzzer,
+        AS_HELP_STRING([--with-fuzzer=clang], [Build with clang fuzzer (default: no)]),
+                with_fuzzer=$withval,
+                with_fuzzer=no)
+	AS_IF([test x$with_fuzzer = xclang], [
+		CFLAGS="$CFLAGS -fsanitize=fuzzer-no-link"
+		# use $LIB_FUZZING_ENGINE for linking if it exists
+		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer}
+		# May need to use CXXLINK for linking, which wants sources to
+		# be compiled with -fPIE
+		FUZZER_CPPFLAGS='$(AM_CPPFLAGS) -fPIE -DPIE'
+	], [test x$with_fuzzer != xno], [
+		AC_MSG_ERROR([Unknown fuzzer $with_fuzzer])
+	])
+	AC_SUBST([FUZZER_CPPFLAGS])
+	AC_SUBST([FUZZER_LDFLAGS])
+	AM_CONDITIONAL([USE_FUZZER], [test "x$with_fuzzer" != "xno"])
+
 ])
 
 AC_DEFUN([DC_DOVECOT],[
