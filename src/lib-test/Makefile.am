@@ -11,6 +11,7 @@ libtest_la_SOURCES = \
 	test-subprocess.c
 
 headers = \
+	fuzzer.h \
 	test-common.h \
 	test-subprocess.h
 
