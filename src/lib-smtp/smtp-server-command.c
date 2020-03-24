@@ -389,8 +389,11 @@ bool smtp_server_command_call_hooks(struct smtp_server_command **_cmd,
 	struct smtp_server_command *cmd = *_cmd;
 	struct smtp_server_command_hook *hook;
 
-	if (type != SMTP_SERVER_COMMAND_HOOK_DESTROY)
+	if (type != SMTP_SERVER_COMMAND_HOOK_DESTROY) {
+		if (cmd->state >= SMTP_SERVER_COMMAND_STATE_FINISHED)
+			return FALSE;
 		smtp_server_command_ref(cmd);
+	}
 
 	hook = cmd->hooks_head;
 	while (hook != NULL) {
