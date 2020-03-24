@@ -105,7 +105,7 @@ static int oauth2_validate_hmac(const struct oauth2_settings *set,
 	buffer_t *their_digest =
 		t_base64url_decode_str(BASE64_DECODE_FLAG_NO_PADDING, blobs[2]);
 	if (method->digest_size != their_digest->used ||
-	    memcmp(digest, their_digest->data, method->digest_size) != 0) {
+	    !mem_equals_timing_safe(digest, their_digest->data, method->digest_size)) {
 		*error_r = "Incorrect JWT signature";
 		return -1;
 	}
