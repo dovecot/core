@@ -54,6 +54,7 @@ struct dict {
 	unsigned int iter_count;
 	unsigned int transaction_count;
 	struct dict_transaction_context *transactions;
+	int refcount;
 	struct ioloop *ioloop, *prev_ioloop;
 };
 

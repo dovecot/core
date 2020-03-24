@@ -98,8 +98,27 @@ int dict_init(const char *uri, const struct dict_settings *set,
 		return -1;
 	}
 	i_assert(*dict_r != NULL);
+	(*dict_r)->refcount++;
 
 	return 0;
+}
+
+static void dict_ref(struct dict *dict)
+{
+	i_assert(dict->refcount > 0);
+
+	dict->refcount++;
+}
+
+static void dict_unref(struct dict **_dict)
+{
+	struct dict *dict = *_dict;
+	*_dict = NULL;
+	if (dict == NULL)
+		return;
+	i_assert(dict->refcount > 0);
+	if (--dict->refcount == 0)
+		dict->v.deinit(dict);
 }
 
 void dict_deinit(struct dict **_dict)
@@ -111,8 +130,7 @@ void dict_deinit(struct dict **_dict)
 	i_assert(dict->iter_count == 0);
 	i_assert(dict->transaction_count == 0);
 	i_assert(dict->transactions == NULL);
-
-	dict->v.deinit(dict);
+	dict_unref(&dict);
 }
 
 void dict_wait(struct dict *dict)
@@ -163,6 +181,7 @@ dict_lookup_callback(const struct dict_lookup_result *result,
 	ctx->callback(result, ctx->context);
 	dict_post_api_callback(ctx->dict);
 
+	dict_unref(&ctx->dict);
 	i_free(ctx);
 }
 
@@ -179,6 +198,8 @@ static void dict_commit_callback(const struct dict_commit_result *result,
 		i_error("dict(%s): Commit failed: %s",
 			ctx->dict->name, result->error);
 	dict_post_api_callback(ctx->dict);
+
+	dict_unref(&ctx->dict);
 	i_free(ctx);
 }
 
@@ -206,6 +227,7 @@ void dict_lookup_async(struct dict *dict, const char *key,
 	struct dict_lookup_callback_ctx *lctx =
 		i_new(struct dict_lookup_callback_ctx, 1);
 	lctx->dict = dict;
+	dict_ref(lctx->dict);
 	lctx->callback = callback;
 	lctx->context = context;
 	dict->v.lookup_async(dict, key, dict_lookup_callback, lctx);
@@ -357,6 +379,7 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx,
 	ctx->dict->transaction_count--;
 	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
 	cctx->dict = ctx->dict;
+	dict_ref(cctx->dict);
 	cctx->callback = dict_transaction_commit_sync_callback;
 	cctx->context = &result;
 
@@ -381,8 +404,10 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	if (callback == NULL)
 		callback = dict_transaction_commit_async_noop_callback;
 	cctx->dict = ctx->dict;
+	dict_ref(cctx->dict);
 	cctx->callback = callback;
 	cctx->context = context;
+
 	ctx->dict->v.transaction_commit(ctx, TRUE, dict_commit_callback, cctx);
 }
 
