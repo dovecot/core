@@ -48,7 +48,6 @@ struct dns_client {
 	struct ioloop *ioloop;
 	char *path;
 
-	struct event *event;
 	unsigned int timeout_msecs;
 	unsigned int idle_timeout_msecs;
 
@@ -90,10 +89,11 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 	struct dns_lookup *lookup, *next;
 	struct dns_lookup_result result;
 
+	if (!client->connected)
+	        return;
 	timeout_remove(&client->to_idle);
 
-	if (client->connected)
-		connection_disconnect(&client->conn);
+	connection_disconnect(&client->conn);
 	client->connected = FALSE;
 
 	i_zero(&result);
@@ -201,6 +201,7 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 	struct dns_client *client;
 
 	client = dns_client_init(set);
+	event_add_category(client->conn.event, &event_category_dns);
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup(client, host, callback, context, lookup_r);
 }
@@ -213,6 +214,7 @@ int dns_lookup_ptr(const struct ip_addr *ip,
 	struct dns_client *client;
 
 	client = dns_client_init(set);
+	event_add_category(client->conn.event, &event_category_dns);
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup_ptr(client, ip, callback, context, lookup_r);
 }
@@ -300,11 +302,7 @@ struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
 	client->clist = connection_list_init(&dns_client_set, &dns_client_vfuncs);
 	client->ioloop = set->ioloop == NULL ? current_ioloop : set->ioloop;
 	client->path = i_strdup(set->dns_client_socket_path);
-
-	client->event = event_create(set->event_parent);
-	event_add_category(client->event, &event_category_dns);
-
-	client->conn.event_parent = client->event;
+	client->conn.event_parent=set->event_parent;
 	connection_init_client_unix(client->clist, &client->conn, client->path);
 	return client;
 }
@@ -320,7 +318,6 @@ void dns_client_deinit(struct dns_client **_client)
 	dns_client_disconnect(client, "deinit");
 	connection_list_deinit(&clist);
 	i_free(client->path);
-	event_unref(&client->event);
 	i_free(client);
 }
 
@@ -381,7 +378,7 @@ dns_client_lookup_common(struct dns_client *client,
 	lookup->context = context;
 	lookup->ptr_lookup = ptr_lookup;
 	lookup->result.ret = EAI_FAIL;
-	lookup->event = event_create(client->event);
+	lookup->event = event_create(client->conn.event);
 	event_set_append_log_prefix(lookup->event, t_strconcat("dns(", param, "): ", NULL));
 	struct event_passthrough *e =
 		event_create_passthrough(lookup->event)->
