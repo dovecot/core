@@ -848,8 +848,6 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 
 static void imap_urlauth_input(struct imap_urlauth_connection *conn)
 {
-	int ret;
-
 	i_assert(conn->state != IMAP_URLAUTH_STATE_DISCONNECTED);
 
 	if (conn->input->closed) {
@@ -873,7 +871,7 @@ static void imap_urlauth_input(struct imap_urlauth_connection *conn)
 	}
 
 	while (!conn->input->closed) {
-		if ((ret = imap_urlauth_input_next(conn)) <= 0)
+		if (imap_urlauth_input_next(conn) <= 0)
 			break;
 	}
 }

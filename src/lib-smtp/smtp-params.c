@@ -69,7 +69,6 @@ int smtp_param_parse(pool_t pool, const char *text,
 		     struct smtp_param *param_r, const char **error_r)
 {
 	struct smtp_parser parser;
-	int ret;
 
 	i_zero(param_r);
 
@@ -81,7 +80,7 @@ int smtp_param_parse(pool_t pool, const char *text,
 
 	smtp_parser_init(&parser, pool, text);
 
-	if ((ret = smtp_param_do_parse(&parser, param_r)) <= 0) {
+	if (smtp_param_do_parse(&parser, param_r) <= 0) {
 		if (error_r != NULL)
 			*error_r = parser.error;
 		return -1;

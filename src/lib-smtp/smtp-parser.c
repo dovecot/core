@@ -277,8 +277,7 @@ smtp_parser_parse_ipv4_address(struct smtp_parser *parser,
 			str_append_c(literal, '.');
 		parser->cur++;
 
-		if ((ret = smtp_parser_parse_snum(parser,
-			literal, &octet)) <= 0)
+		if (smtp_parser_parse_snum(parser, literal, &octet) <= 0)
 			return -1;
 		ip = (ip << 8) + octet;
 	}
@@ -349,7 +348,7 @@ int smtp_parser_parse_address_literal(struct smtp_parser *parser,
 			tagbuf = t_str_new(16);
 			str_append_c(tagbuf, '[');
 		}
-		if ((ret=smtp_parser_parse_ldh_str(parser, tagbuf)) <= 0 ||
+		if (smtp_parser_parse_ldh_str(parser, tagbuf) <= 0 ||
 			parser->cur >= parser->end || *parser->cur != ':') {
 			parser->error = "Invalid address literal";
 			return -1;
@@ -381,8 +380,8 @@ int smtp_parser_parse_address_literal(struct smtp_parser *parser,
 
 		if (ipv6) {
 			i_zero(&ip6);
-			if ((ret = inet_pton(AF_INET6, t_strndup(pblock,
-				parser->cur - pblock), &ip6)) <= 0) {
+			if (inet_pton(AF_INET6, t_strndup(pblock,
+				parser->cur - pblock), &ip6) <= 0) {
 				parser->error = "Invalid IPv6 address literal";
 				return -1;
 			}

@@ -1670,10 +1670,9 @@ db_ldap_field_ptr_expand(const char *data, void *context,
 {
 	struct db_ldap_result_iterate_context *ctx = context;
 	const char *field_name, *suffix;
-	int ret;
 
 	suffix = strchr(t_strcut(data, ':'), '@');
-	if ((ret = db_ldap_field_expand(data, ctx, &field_name, error_r)) <= 0)
+	if (db_ldap_field_expand(data, ctx, &field_name, error_r) <= 0)
 		i_unreached();
 	if (field_name[0] == '\0') {
 		*value_r = "";

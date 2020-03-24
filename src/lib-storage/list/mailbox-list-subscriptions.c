@@ -80,7 +80,8 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		   it should be saved as "pub/", but handle it anyway */
 		i_assert(strncmp(ns_name, ns->prefix, ns->prefix_len-1) == 0 &&
 			 ns_name[ns->prefix_len-1] == '\0');
-		name = ns_name = "";
+		name = "";
+		/* ns_name = ""; */
 	}
 
 	len = strlen(name);

@@ -17,7 +17,6 @@ int smtp_string_parse(const char *string,
 	const char **value_r, const char **error_r)
 {
 	struct smtp_parser parser;
-	int ret;
 
 	if (string == NULL || *string == '\0') {
 		*value_r = "";
@@ -26,7 +25,7 @@ int smtp_string_parse(const char *string,
 
 	smtp_parser_init(&parser, pool_datastack_create(), string);
 
-	if ((ret=smtp_parser_parse_string(&parser, value_r)) < 0) {
+	if (smtp_parser_parse_string(&parser, value_r) < 0) {
 		if (error_r != NULL)
 			*error_r = parser.error;
 		return -1;
@@ -85,7 +84,6 @@ int smtp_xtext_parse(const char *xtext,
 {
 	struct smtp_parser parser;
 	string_t *value = NULL;
-	int ret;
 
 	if (xtext == NULL || *xtext == '\0') {
 		*value_r = "";
@@ -96,7 +94,7 @@ int smtp_xtext_parse(const char *xtext,
 		value = t_str_new(256);
 	smtp_parser_init(&parser, pool_datastack_create(), xtext);
 
-	if ((ret=smtp_parser_parse_xtext(&parser, value)) < 0) {
+	if (smtp_parser_parse_xtext(&parser, value) < 0) {
 		if (error_r != NULL)
 			*error_r = parser.error;
 		return -1;
@@ -297,7 +295,6 @@ int smtp_ehlo_line_parse(const char *ehlo_line, const char **key_r,
 	const char *const **params_r, const char **error_r)
 {
 	struct smtp_parser parser;
-	int ret;
 
 	if (ehlo_line == NULL || *ehlo_line == '\0') {
 		if (error_r != NULL)
@@ -307,7 +304,7 @@ int smtp_ehlo_line_parse(const char *ehlo_line, const char **key_r,
 
 	smtp_parser_init(&parser, pool_datastack_create(), ehlo_line);
 
-	if ((ret=smtp_parse_ehlo_line(&parser, key_r, params_r)) <= 0) {
+	if (smtp_parse_ehlo_line(&parser, key_r, params_r) <= 0) {
 		if (error_r != NULL)
 			*error_r = parser.error;
 		return -1;

@@ -736,7 +736,6 @@ static void test_compress_file(const char *in_path, const char *out_path)
 	unsigned char output_sha1[SHA1_RESULTLEN], input_sha1[SHA1_RESULTLEN];
 	const unsigned char *data;
 	size_t size;
-	ssize_t ret;
 
 	handler = compression_lookup_handler_from_ext(out_path);
 	if (handler == NULL)
@@ -774,7 +773,7 @@ static void test_compress_file(const char *in_path, const char *out_path)
 	sha1_init(&sha1);
 	file_input = i_stream_create_fd(fd_out, IO_BLOCK_SIZE);
 	input = handler->create_istream(file_input, TRUE);
-	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
+	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&sha1, data, size);
 		i_stream_skip(input, size);
 	}

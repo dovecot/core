@@ -488,8 +488,7 @@ void message_part_data_parse_from_header(pool_t pool,
 		if (part->data == NULL) {
 			/* no Content-* headers. add an empty context
 			   structure anyway. */
-			part->data = part_data =
-				p_new(pool, struct message_part_data, 1);
+			part->data = p_new(pool, struct message_part_data, 1);
 		} else if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
 			/* If there was no Mime-Version, forget all
 			   the Content-stuff */
@@ -512,8 +511,7 @@ void message_part_data_parse_from_header(pool_t pool,
 
 	if (part->data == NULL) {
 		/* initialize message part data */
-		part->data = part_data =
-			p_new(pool, struct message_part_data, 1);
+		part->data = p_new(pool, struct message_part_data, 1);
 	}
 	part_data = part->data;
 

@@ -33,13 +33,12 @@ static bool
 http_url_parse_scheme(struct http_url_parser *url_parser, const char **scheme_r)
 {
 	struct uri_parser *parser = &url_parser->parser;
-	int ret;
 
 	*scheme_r = NULL;
 	if ((url_parser->flags & HTTP_URL_PARSE_SCHEME_EXTERNAL) != 0)
 		return TRUE;
 
-	if ((ret = uri_parse_scheme(parser, scheme_r)) <= 0) {
+	if (uri_parse_scheme(parser, scheme_r) <= 0) {
 		parser->cur = parser->begin;
 		return FALSE;
 	}

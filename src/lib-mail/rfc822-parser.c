@@ -212,7 +212,7 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 		ctx->data++;
 		str_append_c(str, '.');
 
-		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
+		if (rfc822_skip_lwsp(ctx) <= 0)
 			return -1;
 		start = ctx->data;
 	}

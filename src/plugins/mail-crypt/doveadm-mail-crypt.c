@@ -179,9 +179,9 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 	t_array_init(&ids, 8);
 
 	/* figure out who needs the key */
-	if ((ret = mail_crypt_box_get_pvt_digests(box, pool_datastack_create(),
-						  MAIL_ATTRIBUTE_TYPE_SHARED,
-					     	  &ids, &error)) < 0) {
+	if (mail_crypt_box_get_pvt_digests(box, pool_datastack_create(),
+					   MAIL_ATTRIBUTE_TYPE_SHARED,
+					   &ids, &error) < 0) {
 		i_error("mail_crypt_box_get_pvt_digests(%s, /shared) failed: %s",
 			mailbox_get_vname(box),
 			error);
@@ -272,8 +272,8 @@ static int mcp_keypair_generate(struct mcp_cmd_context *ctx,
 		   FIXME: this could be less confusing altogether */
 		ret = 0;
 	} else {
-		if ((ret = mail_crypt_box_generate_keypair(box, &pair,
-						user_key, pubid_r, error_r)) < 0) {
+		if (mail_crypt_box_generate_keypair(box, &pair, user_key,
+						    pubid_r, error_r) < 0) {
 			ret = -1;
 		} else {
 			*pubid_r = p_strdup(ctx->ctx.pool, *pubid_r);
@@ -490,7 +490,6 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 			void *context)
 {
 	const char *error;
-	int ret;
 
 	/* we need to use the mailbox attribute API here, as we
 	   are not necessarily able to decrypt any of these keys
@@ -508,10 +507,9 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 		struct mail_attribute_value value;
 		i_zero(&value);
 
-		if ((ret = mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_SHARED,
-						 USER_CRYPT_PREFIX
-						 ACTIVE_KEY_NAME,
-						 &value)) < 0) {
+		if (mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_SHARED,
+					  USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
+					  &value) < 0) {
 			i_error("mailbox_get_attribute(%s, %s) failed: %s",
 				mailbox_get_vname(box),
 				USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
@@ -563,17 +561,16 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 		array_clear(&ids);
 
 		/* get active ID */
-		if ((ret = mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_SHARED,
-					  	 BOX_CRYPT_PREFIX
-						 ACTIVE_KEY_NAME,
-						 &value)) < 0) {
+		if (mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_SHARED,
+					  BOX_CRYPT_PREFIX ACTIVE_KEY_NAME,
+					  &value) < 0) {
 			i_error("mailbox_get_attribute(%s, %s) failed: %s",
 				mailbox_get_vname(box),
 				BOX_CRYPT_PREFIX ACTIVE_KEY_NAME,
 				mailbox_get_last_internal_error(box, NULL));
-		} else if ((ret = mail_crypt_box_get_pvt_digests(box, pool_datastack_create(),
-								 MAIL_ATTRIBUTE_TYPE_PRIVATE,
-							   	 &ids, &error)) < 0) {
+		} else if (mail_crypt_box_get_pvt_digests(box, pool_datastack_create(),
+							  MAIL_ATTRIBUTE_TYPE_PRIVATE,
+							  &ids, &error) < 0) {
 			i_error("mail_crypt_box_get_pvt_digests(%s) failed: %s",
 				mailbox_get_vname(box),
 				error);

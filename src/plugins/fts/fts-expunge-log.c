@@ -319,7 +319,7 @@ fts_expunge_log_write(struct fts_expunge_log_append_ctx *ctx)
 	/* the file was opened with O_APPEND, so this write() should be
 	   appended atomically without any need for locking. */
 	for (;;) {
-		if ((ret = write_full(log->fd, buf->data, buf->used)) < 0) {
+		if (write_full(log->fd, buf->data, buf->used) < 0) {
 			i_error("write(%s) failed: %m", log->path);
 			if (ftruncate(log->fd, log->st.st_size) < 0)
 				i_error("ftruncate(%s) failed: %m", log->path);

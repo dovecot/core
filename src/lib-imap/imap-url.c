@@ -847,8 +847,8 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 
 	/* Parse path, i.e. `[ icommand ]` from `*( "/" segment )` */
 	if (ret > 0 || url_parser->relative) {
-		if ((ret = imap_url_parse_path(url_parser, path, relative,
-					       &is_messagelist)) < 0)
+		if (imap_url_parse_path(url_parser, path, relative,
+					&is_messagelist) < 0)
 			return FALSE;
 	}
 

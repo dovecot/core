@@ -2750,12 +2750,12 @@ dcrypt_openssl_key_string_get_info(
 				*error_r = "Invalid JWK key: Missing kty parameter";
 			return FALSE;
 		} else if (strcmp(value, "RSA") == 0) {
-			if ((node = json_tree_find_key(root, "d")) != NULL)
+			if (json_tree_find_key(root, "d") != NULL)
 				kind = DCRYPT_KEY_KIND_PRIVATE;
 			else
 				kind = DCRYPT_KEY_KIND_PUBLIC;
 		} else if (strcmp(value, "EC") == 0) {
-			if ((node = json_tree_find_key(root, "d")) != NULL)
+			if (json_tree_find_key(root, "d") != NULL)
 				kind = DCRYPT_KEY_KIND_PRIVATE;
 			else
 				kind = DCRYPT_KEY_KIND_PUBLIC;

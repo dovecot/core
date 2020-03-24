@@ -352,7 +352,7 @@ index_list_mailbox_create(struct mailbox *box,
 	int ret;
 
 	/* first do a quick check that it doesn't exist */
-	if ((ret = index_list_node_exists(list, box->name, &existence)) < 0) {
+	if (index_list_node_exists(list, box->name, &existence) < 0) {
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
 	}

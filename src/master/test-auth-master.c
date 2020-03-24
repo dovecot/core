@@ -1197,7 +1197,6 @@ static int test_client_user_list_simple(void)
 	struct auth_master_user_list_ctx *list_ctx;
 	enum auth_master_flags flags = 0;
 	struct auth_user_info info;
-	const char *user;
 	int ret;
 
 	i_zero(&info);
@@ -1210,7 +1209,7 @@ static int test_client_user_list_simple(void)
 	auth_conn = auth_master_init(TEST_SOCKET, flags);
 	auth_master_set_timeout(auth_conn, 1000);
 	list_ctx = auth_master_user_list_init(auth_conn, "*", &info);
-	while ((user = auth_master_user_list_next(list_ctx)) != NULL);
+	while (auth_master_user_list_next(list_ctx) != NULL);
 	ret = auth_master_user_list_deinit(&list_ctx);
 	auth_master_deinit(&auth_conn);
 

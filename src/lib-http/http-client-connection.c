@@ -325,7 +325,6 @@ int http_client_connection_check_ready(struct http_client_connection *conn)
 {
 	const struct http_client_settings *set =
 		http_client_connection_get_settings(conn);
-	int ret;
 
 	if (conn->in_req_callback) {
 		/* this can happen when a nested ioloop is created inside request
@@ -347,7 +346,7 @@ int http_client_connection_check_ready(struct http_client_connection *conn)
 		/* Active ioloop is different from what we saw earlier;
 		   we may have missed a disconnection event on this connection.
 		   Verify status by reading from connection. */
-		if ((ret=i_stream_read(conn->conn.input)) == -1) {
+		if (i_stream_read(conn->conn.input) == -1) {
 			int stream_errno = conn->conn.input->stream_errno;
 
 			i_assert(conn->conn.input->stream_errno != 0 || conn->conn.input->eof);

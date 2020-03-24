@@ -36,9 +36,8 @@ index_list_exists(struct mailbox *box, bool auto_boxes,
 	const struct mail_index_record *rec;
 	enum mailbox_list_index_flags flags;
 	uint32_t seq;
-	int ret;
 
-	if ((ret = mailbox_list_index_view_open(box, FALSE, &view, &seq)) <= 0) {
+	if (mailbox_list_index_view_open(box, FALSE, &view, &seq) <= 0) {
 		/* failure / not found. fallback to the real storage check
 		   just in case to see if the mailbox was just created. */
 		return ibox->module_ctx.super.
@@ -652,12 +651,11 @@ void mailbox_list_index_update_mailbox_index(struct mailbox *box,
 	struct mailbox_status status;
 	guid_128_t mailbox_guid;
 	bool guid_changed = FALSE;
-	int ret;
 
 	i_zero(&changes);
 	/* update the mailbox list index even if it has some other pending
 	   changes. */
-	if ((ret = mailbox_list_index_view_open(box, FALSE, &list_view, &changes.seq)) <= 0)
+	if (mailbox_list_index_view_open(box, FALSE, &list_view, &changes.seq) <= 0)
 		return;
 
 	guid_128_empty(mailbox_guid);

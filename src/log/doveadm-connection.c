@@ -48,9 +48,7 @@ static int doveadm_connection_send_errors(struct doveadm_connection *conn)
 
 static int doveadm_output(struct doveadm_connection *conn)
 {
-	int ret;
-
-	if ((ret = o_stream_flush(conn->output)) != 0) {
+	if (o_stream_flush(conn->output) != 0) {
 		/* error / finished */
 		doveadm_connection_destroy(&conn);
 	}

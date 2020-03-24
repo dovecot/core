@@ -75,7 +75,6 @@ static void test_parsed_parts(struct istream *input, struct message_part *parts)
 	struct message_part *parts2;
 	uoff_t i, input_size;
 	const char *error;
-	int ret;
 
 	i_stream_seek(input, 0);
 	if (i_stream_get_size(input, TRUE, &input_size) < 0)
@@ -87,8 +86,7 @@ static void test_parsed_parts(struct istream *input, struct message_part *parts)
 		test_istream_set_size(input, i/2);
 		if (i > TEST_MSG_LEN*2)
 			test_istream_set_allow_eof(input, TRUE);
-		while ((ret = message_parser_parse_next_block(parser,
-							      &block)) > 0) ;
+		while (message_parser_parse_next_block(parser, &block) > 0) ;
 	}
 	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
 	test_assert(msg_parts_cmp(parts, parts2));

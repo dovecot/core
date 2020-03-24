@@ -383,7 +383,7 @@ uri_parse_ipv4address(struct uri_parser *parser, string_t *literal,
 			str_append_c(literal, '.');
 		parser->cur++;
 
-		if ((ret = uri_parse_dec_octet(parser, literal, &octet)) <= 0)
+		if (uri_parse_dec_octet(parser, literal, &octet) <= 0)
 			return -1;
 		ip = (ip << 8) + octet;
 	}
@@ -589,7 +589,6 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 	const unsigned char *p;
 	const char *address;
 	struct in6_addr ip6;
-	int ret;
 
 	/* IP-literal    = "[" ( IPv6address / IPvFuture  ) "]"
 	 * IPvFuture     = "v" 1*HEXDIG "." 1*( unreserved / sub-delims / ":" )
@@ -623,7 +622,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 			"Future IP host address '%s' not supported", address);
 		return -1;
 	}
-	if ((ret = inet_pton(AF_INET6, address, &ip6)) <= 0) {
+	if (inet_pton(AF_INET6, address, &ip6) <= 0) {
 		parser->error = p_strdup_printf(parser->pool,
 			"Invalid IPv6 host address '%s'", address);
 		return -1;
@@ -656,7 +655,7 @@ uri_do_parse_host(struct uri_parser *parser,
 
 	/* IP-literal / */
 	if (parser->cur < parser->end && *parser->cur == '[') {
-		if ((ret=uri_parse_ip_literal(parser, literal, &ip6)) <= 0)
+		if (uri_parse_ip_literal(parser, literal, &ip6) <= 0)
 			return -1;
 
 		if (host != NULL) {

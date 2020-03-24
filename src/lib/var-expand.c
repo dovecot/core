@@ -553,7 +553,7 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 				break;
 
 			var = NULL;
-			if (*str == '{' && (end = strchr(str, '}')) != NULL) {
+			if (*str == '{' && strchr(str, '}') != NULL) {
 				/* %{long_key} */
 				unsigned int ctr = 1;
 				bool escape = FALSE;

@@ -9,9 +9,8 @@ static bool
 subscribe_is_valid_name(struct client_command_context *cmd, struct mailbox *box)
 {
 	enum mailbox_existence existence;
-	int ret;
 
-	if ((ret = mailbox_exists(box, TRUE, &existence)) < 0) {
+	if (mailbox_exists(box, TRUE, &existence) < 0) {
 		client_send_box_error(cmd, box);
 		return FALSE;
 	}
