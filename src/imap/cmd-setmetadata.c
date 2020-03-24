@@ -129,33 +129,33 @@ cmd_setmetadata_entry_read_stream(struct imap_setmetadata_context *ctx)
 
 	while ((ret = i_stream_read_more(ctx->input, &data, &size)) > 0)
 		i_stream_skip(ctx->input, size);
-	if (ret < 0) {
-		if (ctx->input->v_offset != ctx->entry_value_len) {
-			/* client disconnected */
-			i_assert(ctx->input->eof);
-			return -1;
-		}
+	if (ret == 0)
+		return 0;
 
-		/* finished reading the value */
-		i_stream_seek(ctx->input, 0);
+	if (ctx->input->v_offset != ctx->entry_value_len) {
+		/* client disconnected */
+		i_assert(ctx->input->eof);
+		return -1;
+	}
 
-		if (ctx->failed) {
-			i_stream_unref(&ctx->input);
-			return 1;
-		}
+	/* finished reading the value */
+	i_stream_seek(ctx->input, 0);
 
-		i_zero(&value);
-		value.value_stream = ctx->input;
-		if (imap_metadata_set(ctx->trans, ctx->entry_name, &value) < 0) {
-			/* delay reporting the failure so we'll finish
-			   reading the command input */
-			ctx->storage_failure = TRUE;
-			ctx->failed = TRUE;
-		}
+	if (ctx->failed) {
 		i_stream_unref(&ctx->input);
 		return 1;
 	}
-	return 0;
+
+	i_zero(&value);
+	value.value_stream = ctx->input;
+	if (imap_metadata_set(ctx->trans, ctx->entry_name, &value) < 0) {
+		/* delay reporting the failure so we'll finish
+		   reading the command input */
+		ctx->storage_failure = TRUE;
+		ctx->failed = TRUE;
+	}
+	i_stream_unref(&ctx->input);
+	return 1;
 }
 
 static int
