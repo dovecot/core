@@ -26,7 +26,8 @@ void smtp_server_cmd_noop(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_noop != NULL) {
 		/* specific implementation of NOOP command */
-		if ((ret=callbacks->conn_cmd_noop(conn->context, cmd)) <= 0) {
+		ret = callbacks->conn_cmd_noop(conn->context, cmd);
+		if (ret <= 0) {
 			i_assert(ret == 0 ||
 				 smtp_server_command_is_replied(command));
 			/* command is waiting for external event or it failed */
