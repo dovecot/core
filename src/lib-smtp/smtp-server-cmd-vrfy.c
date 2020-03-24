@@ -17,14 +17,15 @@ void smtp_server_cmd_vrfy(struct smtp_server_cmd_ctx *cmd,
 	int ret;
 
 	/* vrfy = "VRFY" SP String CRLF */
-	if ((ret=smtp_string_parse(params, &param, &error)) <= 0) {
+	ret = smtp_string_parse(params, &param, &error);
+	if (ret <= 0) {
 		if (ret < 0) {
-			smtp_server_reply(cmd,
-				501, "5.5.4",
-				"Invalid string parameter: %s", error);
+			smtp_server_reply(cmd, 501, "5.5.4",
+					  "Invalid string parameter: %s",
+					  error);
 		} else {
-			smtp_server_reply(cmd,
-				501, "5.5.4", "Invalid parameters");
+			smtp_server_reply(cmd, 501, "5.5.4",
+					  "Invalid parameters");
 		}
 		return;
 	}
@@ -32,8 +33,8 @@ void smtp_server_cmd_vrfy(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_vrfy != NULL) {
 		/* specific implementation of VRFY command */
-		if ((ret=callbacks->conn_cmd_vrfy(conn->context,
-			cmd, param)) <= 0) {
+		ret = callbacks->conn_cmd_vrfy(conn->context, cmd, param);
+		if (ret <= 0) {
 			i_assert(ret == 0 ||
 				 smtp_server_command_is_replied(command));
 			/* command is waiting for external event or it failed */
