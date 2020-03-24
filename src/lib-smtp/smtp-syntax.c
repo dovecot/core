@@ -86,20 +86,20 @@ int smtp_xtext_parse(const char *xtext,
 {
 	struct smtp_parser parser;
 	string_t *value = NULL;
-	int ret;
+
+	*value_r = NULL;
+	*error_r = NULL;
 
 	if (xtext == NULL || *xtext == '\0') {
 		*value_r = "";
 		return 1;
 	}
 
-	if (value_r != NULL)
-		value = t_str_new(256);
+	value = t_str_new(256);
 	smtp_parser_init(&parser, pool_datastack_create(), xtext);
 
-	if ((ret=smtp_parser_parse_xtext(&parser, value)) < 0) {
-		if (error_r != NULL)
-			*error_r = parser.error;
+	if (smtp_parser_parse_xtext(&parser, value) < 0) {
+		*error_r = parser.error;
 		return -1;
 	}
 	if (parser.cur < parser.end) {
@@ -110,8 +110,7 @@ int smtp_xtext_parse(const char *xtext,
 	if (value_r != NULL) {
 		*value_r = str_c(value);
 		if (strlen(*value_r) != str_len(value)) {
-			if (*error_r != NULL)
-				*error_r = "Encountered NUL character in xtext";
+			*error_r = "Encountered NUL character in xtext";
 			return -1;
 		}
 	}
