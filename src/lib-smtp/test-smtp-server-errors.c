@@ -574,6 +574,174 @@ static void test_bad_command(void)
 }
 
 /*
+ * Many bad commands
+ */
+
+/* client */
+
+struct _many_bad_commands_client {
+	struct smtp_reply_parser *parser;
+	unsigned int reply;
+	bool replied:1;
+};
+
+static void
+test_many_bad_commands_client_input(struct client_connection *conn)
+{
+	struct _many_bad_commands_client *ctx = conn->context;
+	struct smtp_reply *reply;
+	const char *error;
+	int ret;
+
+	while ((ret=smtp_reply_parse_next(ctx->parser, FALSE,
+					  &reply, &error)) > 0) {
+		if (debug)
+			i_debug("REPLY: %s", smtp_reply_log(reply));
+
+		switch (ctx->reply++) {
+		/* greeting */
+		case 0:
+			i_assert(reply->status == 220);
+			break;
+		/* bad command reply */
+		case 1: case 2: case 3: case 4: case 5:
+		case 6: case 7: case 8: case 9: case 10:
+			i_assert(reply->status == 500);
+			break;
+		case 11:
+			i_assert(reply->status == 421);
+			ctx->replied = TRUE;
+			io_loop_stop(ioloop);
+			connection_disconnect(&conn->conn);
+			return;
+		default:
+			i_unreached();
+		}
+	}
+
+	i_assert(ret >= 0);
+}
+
+static void
+test_many_bad_commands_client_connected(struct client_connection *conn)
+{
+	struct _many_bad_commands_client *ctx;
+
+	ctx = p_new(conn->pool, struct _many_bad_commands_client, 1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	conn->context = ctx;
+
+	switch (client_index) {
+	case 0:
+		o_stream_nsend_str(conn->conn.output,
+				   "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+		break;
+	case 1:
+		o_stream_nsend_str(conn->conn.output,
+				   "a\r\nb\r\nc\r\nd\r\ne\r\nf\r\ng\r\nh\r\n"
+				   "i\r\nj\r\nk\r\nl\r\nm\r\nn\r\no\r\np\r\n");
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+static void
+test_many_bad_commands_client_deinit(struct client_connection *conn)
+{
+	struct _many_bad_commands_client *ctx = conn->context;
+
+	i_assert(ctx->replied);
+	smtp_reply_parser_deinit(&ctx->parser);
+}
+
+static void test_client_many_bad_commands(unsigned int index)
+{
+	test_client_input = test_many_bad_commands_client_input;
+	test_client_connected = test_many_bad_commands_client_connected;
+	test_client_deinit = test_many_bad_commands_client_deinit;
+	test_client_run(index);
+}
+
+/* server */
+
+struct _many_bad_commands {
+	struct istream *payload_input;
+	struct io *io;
+
+	bool serviced:1;
+};
+
+static void
+test_server_many_bad_commands_disconnect(void *context ATTR_UNUSED,
+					   const char *reason)
+{
+	if (debug)
+		i_debug("Disconnect: %s", reason);
+	io_loop_stop(ioloop);
+}
+
+static int
+test_server_many_bad_commands_helo(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_cmd_helo *data ATTR_UNUSED)
+{
+	test_assert(FALSE);
+	return 1;
+}
+
+static int
+test_server_many_bad_commands_rcpt(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
+{
+	test_assert(FALSE);
+	return 1;
+}
+
+static int
+test_server_many_bad_commands_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct istream *data_input ATTR_UNUSED)
+{
+	test_assert(FALSE);
+	return 1;
+}
+
+static void test_server_many_bad_commands
+(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_disconnect =
+		test_server_many_bad_commands_disconnect;
+
+	server_callbacks.conn_cmd_helo =
+		test_server_many_bad_commands_helo;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_many_bad_commands_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_many_bad_commands_data_begin;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_many_bad_commands(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+	smtp_server_set.max_bad_commands = 10;
+
+	test_begin("many bad commands");
+	test_run_client_server(&smtp_server_set,
+		test_server_many_bad_commands,
+		test_client_many_bad_commands, 2);
+	test_end();
+}
+
+/*
  * Long command
  */
 
@@ -2551,6 +2719,7 @@ static void (*const test_functions[])(void) = {
 	test_slow_client,
 	test_hanging_command_payload,
 	test_bad_command,
+	test_many_bad_commands,
 	test_long_command,
 	test_big_data,
 	test_bad_ehlo,
