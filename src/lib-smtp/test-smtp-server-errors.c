@@ -1274,6 +1274,316 @@ static void test_bad_rcpt(void)
 }
 
 /*
+ * Bad VRFY
+ */
+
+/* client */
+
+struct _bad_vrfy_client {
+	struct smtp_reply_parser *parser;
+	unsigned int reply;
+
+	bool replied:1;
+};
+
+static void
+test_bad_vrfy_client_input(struct client_connection *conn)
+{
+	struct _bad_vrfy_client *ctx = conn->context;
+	struct smtp_reply *reply;
+	const char *error;
+	int ret;
+
+	while ((ret = smtp_reply_parse_next(ctx->parser, FALSE,
+					    &reply, &error)) > 0) {
+		if (debug)
+			i_debug("REPLY: %s", smtp_reply_log(reply));
+
+		switch (ctx->reply++) {
+		case 0: /* greeting */
+			i_assert(reply->status == 220);
+			break;
+		case 1: /* bad command reply */
+			switch (client_index) {
+			case 0: case 1: case 2:
+				i_assert(reply->status == 501);
+				break;
+			case 3:
+				i_assert(smtp_reply_is_success(reply));
+				break;
+			default:
+				i_unreached();
+			}
+			ctx->replied = TRUE;
+			io_loop_stop(ioloop);
+			connection_disconnect(&conn->conn);
+			return;
+		default:
+			i_unreached();
+		}
+	}
+
+	i_assert(ret == 0);
+}
+
+static void
+test_bad_vrfy_client_connected(struct client_connection *conn)
+{
+	struct _bad_vrfy_client *ctx;
+
+	ctx = p_new(conn->pool, struct _bad_vrfy_client, 1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	conn->context = ctx;
+
+	switch (client_index) {
+	case 0:
+		o_stream_nsend_str(conn->conn.output,
+				   "VRFY\r\n");
+		break;
+	case 1:
+		o_stream_nsend_str(conn->conn.output,
+				   "VRFY \"hendrik\r\n");
+		break;
+	case 2:
+		o_stream_nsend_str(conn->conn.output,
+				   "VRFY hen\"drik\r\n");
+		break;
+	case 3:
+		o_stream_nsend_str(conn->conn.output,
+				   "VRFY \"hendrik\"\r\n");
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+static void
+test_bad_vrfy_client_deinit(struct client_connection *conn)
+{
+	struct _bad_vrfy_client *ctx = conn->context;
+
+	i_assert(ctx->replied);
+	smtp_reply_parser_deinit(&ctx->parser);
+}
+
+static void test_client_bad_vrfy(unsigned int index)
+{
+	test_client_input = test_bad_vrfy_client_input;
+	test_client_connected = test_bad_vrfy_client_connected;
+	test_client_deinit = test_bad_vrfy_client_deinit;
+	test_client_run(index);
+}
+
+/* server */
+
+static void
+test_server_bad_vrfy_disconnect(void *context ATTR_UNUSED, const char *reason)
+{
+	if (debug)
+		i_debug("Disconnect: %s", reason);
+}
+
+static int
+test_server_bad_vrfy_rcpt(void *conn_ctx ATTR_UNUSED,
+			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+			  struct smtp_server_recipient *rcpt ATTR_UNUSED)
+{
+	test_assert(FALSE);
+	return 1;
+}
+
+static int
+test_server_bad_vrfy_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct istream *data_input ATTR_UNUSED)
+{
+	test_assert(FALSE);
+	return 1;
+}
+
+static void
+test_server_bad_vrfy(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_disconnect = test_server_bad_vrfy_disconnect;
+
+	server_callbacks.conn_cmd_rcpt = test_server_bad_vrfy_rcpt;
+	server_callbacks.conn_cmd_data_begin = test_server_bad_vrfy_data_begin;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_vrfy(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+
+	test_begin("bad VRFY");
+	test_run_client_server(&smtp_server_set,
+			       test_server_bad_vrfy,
+			       test_client_bad_vrfy, 4);
+	test_end();
+}
+
+/*
+ * Bad NOOP
+ */
+
+/* client */
+
+struct _bad_noop_client {
+	struct smtp_reply_parser *parser;
+	unsigned int reply;
+
+	bool replied:1;
+};
+
+static void
+test_bad_noop_client_input(struct client_connection *conn)
+{
+	struct _bad_noop_client *ctx = conn->context;
+	struct smtp_reply *reply;
+	const char *error;
+	int ret;
+
+	while ((ret = smtp_reply_parse_next(ctx->parser, FALSE,
+					    &reply, &error)) > 0) {
+		if (debug)
+			i_debug("REPLY: %s", smtp_reply_log(reply));
+
+		switch (ctx->reply++) {
+		case 0: /* greeting */
+			i_assert(reply->status == 220);
+			break;
+		case 1: /* bad command reply */
+			switch (client_index) {
+			case 1: case 2:
+				i_assert(reply->status == 501);
+				break;
+			case 0: case 3:
+				i_assert(smtp_reply_is_success(reply));
+				break;
+			default:
+				i_unreached();
+			}
+			ctx->replied = TRUE;
+			io_loop_stop(ioloop);
+			connection_disconnect(&conn->conn);
+			return;
+		default:
+			i_unreached();
+		}
+	}
+
+	i_assert(ret == 0);
+}
+
+static void
+test_bad_noop_client_connected(struct client_connection *conn)
+{
+	struct _bad_noop_client *ctx;
+
+	ctx = p_new(conn->pool, struct _bad_noop_client, 1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	conn->context = ctx;
+
+	switch (client_index) {
+	case 0:
+		o_stream_nsend_str(conn->conn.output,
+				   "NOOP\r\n");
+		break;
+	case 1:
+		o_stream_nsend_str(conn->conn.output,
+				   "NOOP \"frop\r\n");
+		break;
+	case 2:
+		o_stream_nsend_str(conn->conn.output,
+				   "NOOP fr\"op\r\n");
+		break;
+	case 3:
+		o_stream_nsend_str(conn->conn.output,
+				   "NOOP \"frop\"\r\n");
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+static void
+test_bad_noop_client_deinit(struct client_connection *conn)
+{
+	struct _bad_noop_client *ctx = conn->context;
+
+	i_assert(ctx->replied);
+	smtp_reply_parser_deinit(&ctx->parser);
+}
+
+static void test_client_bad_noop(unsigned int index)
+{
+	test_client_input = test_bad_noop_client_input;
+	test_client_connected = test_bad_noop_client_connected;
+	test_client_deinit = test_bad_noop_client_deinit;
+	test_client_run(index);
+}
+
+/* server */
+
+static void
+test_server_bad_noop_disconnect(void *context ATTR_UNUSED, const char *reason)
+{
+	if (debug)
+		i_debug("Disconnect: %s", reason);
+}
+
+static int
+test_server_bad_noop_rcpt(void *conn_ctx ATTR_UNUSED,
+			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+			  struct smtp_server_recipient *rcpt ATTR_UNUSED)
+{
+	test_assert(FALSE);
+	return 1;
+}
+
+static int
+test_server_bad_noop_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct istream *data_input ATTR_UNUSED)
+{
+	test_assert(FALSE);
+	return 1;
+}
+
+static void
+test_server_bad_noop(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_disconnect = test_server_bad_noop_disconnect;
+
+	server_callbacks.conn_cmd_rcpt = test_server_bad_noop_rcpt;
+	server_callbacks.conn_cmd_data_begin = test_server_bad_noop_data_begin;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_noop(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+
+	test_begin("bad NOOP");
+	test_run_client_server(&smtp_server_set,
+			       test_server_bad_noop,
+			       test_client_bad_noop, 4);
+	test_end();
+}
+
+/*
  * MAIL workarounds
  */
 
@@ -2246,6 +2556,8 @@ static void (*const test_functions[])(void) = {
 	test_bad_ehlo,
 	test_bad_mail,
 	test_bad_rcpt,
+	test_bad_vrfy,
+	test_bad_noop,
 	test_mail_workarounds,
 	test_rcpt_workarounds,
 	test_too_many_recipients,
