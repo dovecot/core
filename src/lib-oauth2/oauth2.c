@@ -24,6 +24,7 @@ int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
 		ret = json_tree_append(tree, type, value);
 		i_assert(ret == 0);
 	}
+	i_assert(ret != 0);
 	ret = json_parser_deinit(&parser, error_r);
 	i_stream_unref(&is);
 	if (ret != 0)
