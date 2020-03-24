@@ -117,7 +117,7 @@ static void test_stats_metrics_group_by_check_one(const struct metric *metric,
 
 	if (group_by_count > 0) {
 		test_assert(metric->group_by_count == group_by_count);
-		test_assert(metric->group_by != NULL);
+		i_assert(metric->group_by != NULL);
 		test_assert(metric->group_by[0].func == group_by_func);
 		test_assert_strcmp(metric->group_by[0].field, group_by_field);
 	} else {

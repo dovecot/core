@@ -156,7 +156,7 @@ test_solr_result(const struct solr_response_test_result *test_results,
 	if (test_has_failed())
 		return;
 
-	for (i = 0; i < rcount; i++) {
+	for (i = 0; i < rcount && parse_results[i] != NULL; i++) {
 		unsigned int scount, j;
 		const struct fts_score_map *tscores = test_results[i].scores;
 		const struct fts_score_map *pscores =
