@@ -72,6 +72,7 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
+	test-smtp-syntax \
 	test-smtp-address \
 	test-smtp-params \
 	test-smtp-reply \
@@ -120,6 +121,10 @@ test_libs_ssl=
 if BUILD_OPENSSL
 test_libs_ssl += ../lib-ssl-iostream/libssl_iostream_openssl.la
 endif
+
+test_smtp_syntax_SOURCES = test-smtp-syntax.c
+test_smtp_syntax_LDADD = $(test_libs)
+test_smtp_syntax_DEPENDENCIES = $(test_deps)
 
 test_smtp_address_SOURCES = test-smtp-address.c
 test_smtp_address_LDFLAGS = -export-dynamic
