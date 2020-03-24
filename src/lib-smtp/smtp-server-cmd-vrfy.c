@@ -18,15 +18,12 @@ void smtp_server_cmd_vrfy(struct smtp_server_cmd_ctx *cmd,
 
 	/* vrfy = "VRFY" SP String CRLF */
 	ret = smtp_string_parse(params, &param, &error);
-	if (ret <= 0) {
-		if (ret < 0) {
-			smtp_server_reply(cmd, 501, "5.5.4",
-					  "Invalid string parameter: %s",
-					  error);
-		} else {
-			smtp_server_reply(cmd, 501, "5.5.4",
-					  "Invalid parameters");
-		}
+	if (ret < 0) {
+		smtp_server_reply(cmd, 501, "5.5.4",
+				  "Invalid string parameter: %s", error);
+		return;
+	} else if (ret == 0) {
+		smtp_server_reply(cmd, 501, "5.5.4", "Invalid parameters");
 		return;
 	}
 
