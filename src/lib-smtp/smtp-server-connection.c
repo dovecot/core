@@ -295,7 +295,8 @@ smtp_server_connection_handle_command(struct smtp_server_connection *conn,
 	struct smtp_server_command *cmd;
 
 	smtp_server_connection_ref(tmp_conn);
-	cmd = smtp_server_command_new(tmp_conn, cmd_name, cmd_params);
+	cmd = smtp_server_command_new(tmp_conn, cmd_name);
+	smtp_server_command_execute(cmd, cmd_params);
 	if (!smtp_server_connection_unref(&tmp_conn)) {
 		/* the command start callback managed to get this connection
 		   destroyed */

@@ -242,8 +242,11 @@ void smtp_server_command_debug(struct smtp_server_cmd_ctx *cmd,
 struct smtp_server_command *
 smtp_server_command_new_invalid(struct smtp_server_connection *conn);
 struct smtp_server_command *
-smtp_server_command_new(struct smtp_server_connection *conn,
-	const char *name, const char *params);
+smtp_server_command_new(struct smtp_server_connection *conn, const char *name);
+
+void smtp_server_command_execute(struct smtp_server_command *cmd,
+				 const char *params);
+
 void smtp_server_command_ref(struct smtp_server_command *cmd);
 bool smtp_server_command_unref(struct smtp_server_command **_cmd);
 void smtp_server_command_abort(struct smtp_server_command **_cmd);
