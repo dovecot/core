@@ -179,7 +179,7 @@ smtp_server_command_new_invalid(struct smtp_server_connection *conn)
 
 struct smtp_server_command *
 smtp_server_command_new(struct smtp_server_connection *conn,
-			const char *name, const char *params)
+			const char *name)
 {
 	struct smtp_server *server = conn->server;
 	struct smtp_server_command *cmd;
@@ -194,6 +194,14 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 		event_create_passthrough(cmd->context.event)->
 		set_name("smtp_server_command_started");
 	e_debug(e->event(), "New command");
+
+	return cmd;
+}
+
+void smtp_server_command_execute(struct smtp_server_command *cmd,
+				 const char *params)
+{
+	struct smtp_server_connection *conn = cmd->context.conn;
 
 	if (cmd->reg == NULL) {
 		/* RFC 5321, Section 4.2.4: Reply Code 502
@@ -251,7 +259,6 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 		if (!smtp_server_command_unref(&tmp_cmd))
 			cmd = NULL;
 	}
-	return cmd;
 }
 
 void smtp_server_command_ref(struct smtp_server_command *cmd)
