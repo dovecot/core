@@ -23,7 +23,7 @@ int smtp_string_parse(const char *string, const char **value_r,
 
 	if (string == NULL || *string == '\0') {
 		*value_r = "";
-		return 1;
+		return 0;
 	}
 
 	smtp_parser_init(&parser, pool_datastack_create(), string);
