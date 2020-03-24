@@ -249,12 +249,10 @@ static int smtp_parse_ehlo_line(struct smtp_parser *parser,
 		(i_isalnum(*parser->cur) || *parser->cur == '-'))
 		parser->cur++;
 
-	if (key_r != NULL)
-		*key_r = p_strdup_until(parser->pool, pbegin, parser->cur);
+	*key_r = p_strdup_until(parser->pool, pbegin, parser->cur);
 
 	if (parser->cur >= parser->end) {
-		if (params_r != NULL)
-			*params_r = p_new(parser->pool, const char *, 1);
+		*params_r = p_new(parser->pool, const char *, 1);
 		return 1;
 	}
 	if (*parser->cur != ' ') {
@@ -264,18 +262,16 @@ static int smtp_parse_ehlo_line(struct smtp_parser *parser,
 	parser->cur++;
 
 	pbegin = parser->cur;
-	if (params_r != NULL)
-		p_array_init(&params, parser->pool, 32);
+	p_array_init(&params, parser->pool, 32);
 	while (parser->cur < parser->end) {
 		if (*parser->cur == ' ') {
 			if (parser->cur+1 >= parser->end || *(parser->cur+1) == ' ') {
 				parser->error = "Missing EHLO parameter after ' '";
 				return -1;
 			}
-			if (params_r != NULL) {
-				param = p_strdup_until(parser->pool, pbegin, parser->cur);
-				array_push_back(&params, &param);
-			}
+			param = p_strdup_until(parser->pool, pbegin,
+					       parser->cur);
+			array_push_back(&params, &param);
 			pbegin = parser->cur + 1;
 		} else if (!smtp_char_is_ehlo_param(*parser->cur)) {
 			parser->error = "Unexpected character in EHLO parameter";
@@ -284,12 +280,10 @@ static int smtp_parse_ehlo_line(struct smtp_parser *parser,
 		parser->cur++;
 	}
 
-	if (params_r != NULL) {
-		param = p_strdup_until(parser->pool, pbegin, parser->cur);
-		array_push_back(&params, &param);
-		array_append_zero(&params);
-		*params_r = array_front(&params);
-	}
+	param = p_strdup_until(parser->pool, pbegin, parser->cur);
+	array_push_back(&params, &param);
+	array_append_zero(&params);
+	*params_r = array_front(&params);
 	return 1;
 }
 
@@ -297,19 +291,20 @@ int smtp_ehlo_line_parse(const char *ehlo_line, const char **key_r,
 	const char *const **params_r, const char **error_r)
 {
 	struct smtp_parser parser;
-	int ret;
+
+	*key_r = NULL;
+	*params_r = NULL;
+	*error_r = NULL;
 
 	if (ehlo_line == NULL || *ehlo_line == '\0') {
-		if (error_r != NULL)
-			*error_r = "Parameter is empty";
+		*error_r = "Parameter is empty";
 		return -1;
 	}
 
 	smtp_parser_init(&parser, pool_datastack_create(), ehlo_line);
 
-	if ((ret=smtp_parse_ehlo_line(&parser, key_r, params_r)) <= 0) {
-		if (error_r != NULL)
-			*error_r = parser.error;
+	if (smtp_parse_ehlo_line(&parser, key_r, params_r) <= 0) {
+		*error_r = parser.error;
 		return -1;
 	}
 	return 1;
