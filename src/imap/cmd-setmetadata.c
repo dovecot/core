@@ -129,7 +129,13 @@ cmd_setmetadata_entry_read_stream(struct imap_setmetadata_context *ctx)
 
 	while ((ret = i_stream_read_more(ctx->input, &data, &size)) > 0)
 		i_stream_skip(ctx->input, size);
-	if (ctx->input->v_offset == ctx->entry_value_len) {
+	if (ret < 0) {
+		if (ctx->input->v_offset != ctx->entry_value_len) {
+			/* client disconnected */
+			i_assert(ctx->input->eof);
+			return -1;
+		}
+
 		/* finished reading the value */
 		i_stream_seek(ctx->input, 0);
 
@@ -148,10 +154,6 @@ cmd_setmetadata_entry_read_stream(struct imap_setmetadata_context *ctx)
 		}
 		i_stream_unref(&ctx->input);
 		return 1;
-	}
-	if (ctx->input->eof) {
-		/* client disconnected */
-		return -1;
 	}
 	return 0;
 }
