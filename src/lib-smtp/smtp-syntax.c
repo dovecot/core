@@ -17,7 +17,9 @@ int smtp_string_parse(const char *string,
 	const char **value_r, const char **error_r)
 {
 	struct smtp_parser parser;
-	int ret;
+
+	*value_r = NULL;
+	*error_r = NULL;
 
 	if (string == NULL || *string == '\0') {
 		*value_r = "";
@@ -26,9 +28,8 @@ int smtp_string_parse(const char *string,
 
 	smtp_parser_init(&parser, pool_datastack_create(), string);
 
-	if ((ret=smtp_parser_parse_string(&parser, value_r)) < 0) {
-		if (error_r != NULL)
-			*error_r = parser.error;
+	if (smtp_parser_parse_string(&parser, value_r) < 0) {
+		*error_r = parser.error;
 		return -1;
 	}
 	if (parser.cur < parser.end) {
