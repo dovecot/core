@@ -472,6 +472,64 @@ static void test_imap_bodystructure_parse(void)
 	} T_END;
 }
 
+static void test_imap_bodystructure_parse_invalid(void)
+{
+	static const struct parse_test_invalid {
+		const char *message;
+		const char *bodystructure;
+	} invalid_bodystructure_tests[] = {
+		/* Make sure NILs aren't allowed where strings are expected */
+		{ "foo", "NIL \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" NIL (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (NIL \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" NIL) NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL NIL 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" NIL 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 NIL NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (NIL (\"foo\" \"bar\")) NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (\"inline\" (NIL \"bar\")) NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (\"inline\" (\"foo\" NIL)) NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (NIL \"bar\") NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (\"foo\" NIL) NIL" },
+
+		/* Make sure atoms aren't allowed anywhere */
+		{ "foo", "ATOM \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" ATOM (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (ATOM \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" ATOM) NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") ATOM NIL \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL ATOM \"7bit\" 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL ATOM 0 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" ATOM 0 NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 ATOM NIL NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 ATOM NIL NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL ATOM NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (ATOM (\"foo\" \"bar\")) NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (\"inline\" (ATOM \"bar\")) NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (\"inline\" (\"foo\" ATOM)) NIL NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL ATOM NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (ATOM \"bar\") NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (\"foo\" ATOM) NIL" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL ATOM" },
+	};
+	struct message_part *parts;
+	const char *error;
+	unsigned int i;
+
+	test_begin("imap bodystructure parser invalid");
+	for (i = 0; i < N_ELEMENTS(invalid_bodystructure_tests); i++) T_BEGIN {
+		const struct parse_test_invalid *test =
+			&invalid_bodystructure_tests[i];
+		pool_t pool = pool_alloconly_create("imap bodystructure parse", 1024);
+
+		parts = msg_parse(pool, test->message, 0, 0, FALSE);
+		test_assert_idx(imap_bodystructure_parse(test->bodystructure,
+							 pool, parts, &error) == -1, i);
+		pool_unref(&pool);
+	} T_END;
+	test_end();
+}
+
 static void test_imap_bodystructure_parse_full(void)
 {
 	const char *error;
@@ -635,6 +693,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_imap_bodystructure_write,
 		test_imap_bodystructure_parse,
+		test_imap_bodystructure_parse_invalid,
 		test_imap_bodystructure_normalize,
 		test_imap_bodystructure_parse_full,
 		test_imap_bodystructure_truncation,
