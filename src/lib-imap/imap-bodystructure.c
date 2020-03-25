@@ -726,9 +726,6 @@ static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
 	case IMAP_ARG_NIL:
 		str_append(str, "NIL");
 		break;
-	case IMAP_ARG_ATOM:
-		str_append(str, cstr);
-		break;
 	case IMAP_ARG_STRING:
 		str_append_c(str, '"');
 		/* NOTE: we're parsing with no-unescape flag,
