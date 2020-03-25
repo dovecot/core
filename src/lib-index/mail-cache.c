@@ -662,6 +662,10 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	int i;
 
 	i_assert(!cache->locked);
+	/* the only reason why we might be in here while mapping the index is
+	   if we're coming from mail_cache_expunge_count() while syncing the
+	   index. */
+	i_assert(!cache->index->mapping || cache->index->log_sync_locked);
 
 	if (!cache->opened)
 		(void)mail_cache_open_and_verify(cache);
