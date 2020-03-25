@@ -52,7 +52,7 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 			auth_token_get(service, pid, request->user, session_id);
 
 		if (auth_token != NULL &&
-		    strcmp(auth_token, valid_token) == 0) {
+		    str_equals_timing_almost_safe(auth_token, valid_token)) {
 			request->passdb_success = TRUE;
 			auth_request_set_field(request, "userdb_client_service", service, "");
 			auth_request_success(request, NULL, 0);
