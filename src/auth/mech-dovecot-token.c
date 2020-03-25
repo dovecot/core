@@ -30,12 +30,13 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 				username = (const char *)data + i;
 			else if (count == 3)
 				session_id = (const char *)data + i;
-			else {
+			else if (count == 4) {
 				len = data_size - i;
 				auth_token = p_strndup(unsafe_data_stack_pool,
 						       data+i, len);
-				break;
 			}
+			else
+				break;
 		}
 	}	
 

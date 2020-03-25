@@ -24,13 +24,14 @@ mech_plain_auth_continue(struct auth_request *request,
 		if (data[i] == '\0') {
 			if (++count == 1)
 				authenid = (const char *) data + i+1;
-			else {
+			else if (count == 2) {
 				i++;
 				len = data_size - i;
 				pass = p_strndup(unsafe_data_stack_pool,
 						 data+i, len);
-				break;
 			}
+			else
+				break;
 		}
 	}
 
