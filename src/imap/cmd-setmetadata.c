@@ -177,7 +177,12 @@ cmd_setmetadata_entry(struct imap_setmetadata_context *ctx,
 		if (ctx->failed)
 			return 1;
 		i_zero(&value);
-		value.value = imap_arg_as_nstring(entry_value);
+		/* NOTE: The RFC doesn't allow atoms as value, but since
+		   Dovecot has traditionally supported it this is kept for
+		   backwards compatibility just in case some client is
+		   using it. */
+		if (!imap_arg_get_atom(entry_value, &value.value))
+			value.value = imap_arg_as_nstring(entry_value);
 		ret = imap_metadata_set(ctx->trans, entry_name, &value);
 		if (ret < 0) {
 			/* delay reporting the failure so we'll finish
