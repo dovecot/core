@@ -112,10 +112,11 @@ imap_urlauth_internal_verify(const char *rumpurl,
 
 	valtoken = imap_urlauth_internal_generate(rumpurl, mailbox_key,
 						  &valtoken_len);
+	/* Note: the token length has timing leak here in any case */
 	if (token_len != valtoken_len)
 		return FALSE;
 
-	return memcmp(token, valtoken, valtoken_len) == 0;
+	return mem_equals_timing_safe(token, valtoken, valtoken_len);
 }
 
 static bool
