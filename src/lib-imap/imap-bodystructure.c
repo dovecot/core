@@ -862,7 +862,7 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 	args++;
 
 	/* "content id" "content description" "transfer encoding" size */
-	for (i = 0; i < 4; i++, args++) {
+	for (i = 0; i < 3; i++, args++) {
 		str_append_c(str, ' ');
 
 		if (!str_append_nstring(str, args)) {
@@ -870,6 +870,12 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 			return -1;
 		}
 	}
+	if (!imap_arg_get_atom(args, &value)) {
+		*error_r = "atom expected for size";
+		return -1;
+	}
+	str_printfa(str, " %s", value);
+	args++;
 
 	if (text) {
 		/* text/xxx - text lines */
