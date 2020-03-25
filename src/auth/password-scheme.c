@@ -330,7 +330,7 @@ int crypt_verify(const char *plaintext, const struct password_generate_params *p
 		return -1;
 	}
 
-	return strcmp(crypted, password) == 0 ? 1 : 0;
+	return str_equals_timing_almost_safe(crypted, password) ? 1 : 0;
 }
 
 static int
@@ -345,7 +345,7 @@ md5_verify(const char *plaintext, const struct password_generate_params *params,
 	if (str_begins(password, "$1$")) {
 		/* MD5-CRYPT */
 		str = password_generate_md5_crypt(plaintext, password);
-		return strcmp(str, password) == 0 ? 1 : 0;
+		return str_equals_timing_almost_safe(str, password) ? 1 : 0;
 	} else if (password_decode(password, "PLAIN-MD5",
 				   &md5_password, &md5_size, &error) <= 0) {
 		*error_r = "Not a valid MD5-CRYPT or PLAIN-MD5 password";
@@ -365,7 +365,7 @@ md5_crypt_verify(const char *plaintext, const struct password_generate_params *p
 
 	password = t_strndup(raw_password, size);
 	str = password_generate_md5_crypt(plaintext, password);
-	return strcmp(str, password) == 0 ? 1 : 0;
+	return str_equals_timing_almost_safe(str, password) ? 1 : 0;
 }
 
 static void
