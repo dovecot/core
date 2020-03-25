@@ -288,7 +288,7 @@ imap_bodystructure_strlist_parse(const struct imap_arg *arg,
 
 		list = p_new(pool, const char *, list_count+1);
 		for (i = 0; i < list_count; i++) {
-			if (!imap_arg_get_nstring(&list_args[i], &item))
+			if (!imap_arg_get_string(&list_args[i], &item))
 				return -1;
 			list[i] = p_strdup(pool, item);
 		}
@@ -320,9 +320,9 @@ imap_bodystructure_params_parse(const struct imap_arg *arg,
 	for (i = 0; i < params_count; i++) {
 		const char *name, *value;
 
-		if (!imap_arg_get_nstring(&list_args[i*2+0], &name))
+		if (!imap_arg_get_string(&list_args[i*2+0], &name))
 			return -1;
-		if (!imap_arg_get_nstring(&list_args[i*2+1], &value))
+		if (!imap_arg_get_string(&list_args[i*2+1], &value))
 			return -1;
 		params[i].name = p_strdup(pool, name);
 		params[i].value = p_strdup(pool, value);
@@ -348,7 +348,7 @@ imap_bodystructure_parse_args_common(struct message_part *part,
 		*error_r = "Invalid content-disposition list";
 		return -1;
 	} else {
-		if (!imap_arg_get_nstring
+		if (!imap_arg_get_string
 			(list_args++, &data->content_disposition)) {
 			*error_r = "Invalid content-disposition";
 			return -1;
@@ -490,7 +490,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 
 	if (multipart) {
 		data->content_type = "multipart";
-		if (!imap_arg_get_nstring(args++, &data->content_subtype)) {
+		if (!imap_arg_get_string(args++, &data->content_subtype)) {
 			*error_r = "Invalid multipart content-type";
 			return -1;
 		}
@@ -508,8 +508,8 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	}
 
 	/* "content type" "subtype" */
-	if (!imap_arg_get_astring(&args[0], &content_type) ||
-	    !imap_arg_get_astring(&args[1], &subtype)) {
+	if (!imap_arg_get_string(&args[0], &content_type) ||
+	    !imap_arg_get_string(&args[1], &subtype)) {
 		*error_r = "Invalid content-type";
 		return -1;
 	}
@@ -563,7 +563,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		*error_r = "Invalid content-description";
 		return -1;
 	}
-	if (!imap_arg_get_nstring(args++, &data->content_transfer_encoding)) {
+	if (!imap_arg_get_string(args++, &data->content_transfer_encoding)) {
 		*error_r = "Invalid content-transfer-encoding";
 		return -1;
 	}
@@ -815,8 +815,8 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 	}
 
 	/* "content type" "subtype" */
-	if (!imap_arg_get_astring(&args[0], &content_type) ||
-	    !imap_arg_get_astring(&args[1], &subtype)) {
+	if (!imap_arg_get_string(&args[0], &content_type) ||
+	    !imap_arg_get_string(&args[1], &subtype)) {
 		*error_r = "Invalid content-type";
 		return -1;
 	}
