@@ -39,6 +39,9 @@ params_write(const struct message_part_param *params,
 
 	seen_charset = FALSE;
 	for (i = 0; i < params_count; i++) {
+		i_assert(params[i].name != NULL);
+		i_assert(params[i].value != NULL);
+
 		if (i > 0)
 			str_append_c(str, ' ');
 		if (default_charset &&
