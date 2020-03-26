@@ -499,6 +499,20 @@ mail_cache_transaction_update_fields(struct mail_cache_transaction_ctx *ctx)
 	return 0;
 }
 
+static void
+mail_cache_transaction_drop_last_flush(struct mail_cache_transaction_ctx *ctx)
+{
+	buffer_copy(ctx->cache_data, 0,
+		    ctx->cache_data, ctx->last_rec_pos, (size_t)-1);
+	buffer_set_used_size(ctx->cache_data,
+			     ctx->cache_data->used - ctx->last_rec_pos);
+	ctx->last_rec_pos = 0;
+	ctx->min_seq = 0;
+
+	array_clear(&ctx->cache_data_seq);
+	array_clear(&ctx->cache_data_wanted_seqs);
+}
+
 static int
 mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 {
@@ -552,17 +566,6 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	}
 	if (mail_cache_unlock(ctx->cache) < 0)
 		ret = -1;
-
-	/* drop the written data from buffer */
-	buffer_copy(ctx->cache_data, 0,
-		    ctx->cache_data, ctx->last_rec_pos, (size_t)-1);
-	buffer_set_used_size(ctx->cache_data,
-			     ctx->cache_data->used - ctx->last_rec_pos);
-	ctx->last_rec_pos = 0;
-	ctx->min_seq = 0;
-
-	array_clear(&ctx->cache_data_seq);
-	array_clear(&ctx->cache_data_wanted_seqs);
 	return ret;
 }
 
@@ -793,21 +796,29 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 	if (ctx->cache_data->used + full_size > MAIL_CACHE_MAX_WRITE_BUFFER &&
 	    ctx->last_rec_pos > 0) {
-		/* time to flush our buffer. if flushing fails because the
-		   cache file had been compressed and was reopened, return
-		   without adding the cached data since cache_data buffer
-		   doesn't contain the cache_rec anymore. */
+		/* time to flush our buffer. */
 		if (MAIL_INDEX_IS_IN_MEMORY(ctx->cache->index)) {
 			/* just drop the old data to free up memory */
 			size_t space_needed = ctx->cache_data->used +
 				full_size - MAIL_CACHE_MAX_WRITE_BUFFER;
 			mail_cache_transaction_drop_unwanted(ctx, space_needed);
-		} else if (mail_cache_transaction_flush(ctx) < 0) {
-			/* make sure the transaction is reset, so we don't
-			   constantly try to flush for each call to this
-			   function */
-			mail_cache_transaction_reset(ctx);
-			return;
+		} else {
+			if (mail_cache_transaction_flush(ctx) < 0) {
+				/* If this is a syscall failure, the already
+				   flushed changes could still be finished by
+				   writing the offsets to .log file. If this is
+				   a corruption/lost cache, the offsets will
+				   point to a nonexistent file or be ignored.
+				   Either way, we don't really need to handle
+				   this failure in any special way. */
+			}
+			/* Regardless of whether the flush succeeded, drop all
+			   data that it would have written. This way the flush
+			   is attempted only once, but it could still be
+			   possible to write new data later. Also don't reset
+			   the transaction entirely so that the last partially
+			   cached mail can still be accessed from memory. */
+			mail_cache_transaction_drop_last_flush(ctx);
 		}
 	}
 
