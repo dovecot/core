@@ -105,6 +105,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	i_zero(&sql_set);
 	sql_set.driver = driver->name;
 	sql_set.connect_string = dict->set->connect;
+	sql_set.event_parent = set->event_parent;
 	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
 	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
 
