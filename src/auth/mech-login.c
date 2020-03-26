@@ -20,6 +20,9 @@ mech_login_auth_continue(struct auth_request *request,
 	static const char prompt2[] = "Password:";
 	const char *username, *error;
 
+	if (auth_request_fail_on_nuls(request, data, data_size))
+		return;
+
 	if (request->user == NULL) {
 		username = t_strndup(data, data_size);
 

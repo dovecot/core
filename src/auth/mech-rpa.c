@@ -535,6 +535,9 @@ mech_rpa_auth_continue(struct auth_request *auth_request,
 	struct rpa_auth_request *request =
 		(struct rpa_auth_request *)auth_request;
 
+	if (auth_request_fail_on_nuls(auth_request, data, data_size))
+		return;
+
 	switch (request->phase) {
 	case 0:
 		mech_rpa_auth_phase1(auth_request, data, data_size);
