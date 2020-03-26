@@ -12,6 +12,11 @@
 		fuzzer_init(); \
 		T_BEGIN { str_arg = t_strndup(_param_data, _param_size);
 
+#define FUZZ_BEGIN_FD(fd_arg, ioloop_arg) \
+	FUZZ_BEGIN_DATA(const uint8_t *_param_data, size_t _param_size) \
+	ioloop_arg = io_loop_create(); \
+	fd_arg = fuzzer_io_as_fd(_param_data, _param_size);
+
 #define FUZZ_END \
 	} T_END; return 0; }
 
