@@ -39,6 +39,7 @@ struct mail_cache_transaction_ctx {
 	uint32_t first_new_seq;
 
 	buffer_t *cache_data;
+	ARRAY(uint8_t) cache_field_idx_used;
 	ARRAY(struct mail_cache_transaction_rec) cache_data_seq;
 	ARRAY_TYPE(seq_range) cache_data_wanted_seqs;
 	uint32_t prev_seq, min_seq;
@@ -171,6 +172,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **_ctx)
 		array_free(&ctx->cache_data_seq);
 	if (array_is_created(&ctx->cache_data_wanted_seqs))
 		array_free(&ctx->cache_data_wanted_seqs);
+	array_free(&ctx->cache_field_idx_used);
 	i_free(ctx);
 }
 
@@ -417,12 +419,28 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 	return 0;
 }
 
+static void
+mail_cache_transaction_set_used(struct mail_cache_transaction_ctx *ctx)
+{
+	const uint8_t *cache_fields_used;
+	unsigned int field_idx, count;
+
+	cache_fields_used = array_get(&ctx->cache_field_idx_used, &count);
+	i_assert(count <= ctx->cache->fields_count);
+	for (field_idx = 0; field_idx < count; field_idx++) {
+		if (cache_fields_used[field_idx] != 0)
+			ctx->cache->fields[field_idx].used = TRUE;
+	}
+}
+
 static int
 mail_cache_transaction_update_fields(struct mail_cache_transaction_ctx *ctx)
 {
 	unsigned char *p;
 	const unsigned char *end, *rec_end;
 	uint32_t field_idx, data_size;
+
+	mail_cache_transaction_set_used(ctx);
 
 	/* Go through all the added cache records and replace the in-memory
 	   field_idx with the cache file-specific field index. Update only
@@ -611,6 +629,7 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 					      MAIL_CACHE_INIT_WRITE_BUFFER);
 		i_array_init(&ctx->cache_data_seq, 64);
 		i_array_init(&ctx->cache_data_wanted_seqs, 32);
+		i_array_init(&ctx->cache_field_idx_used, 64);
 	}
 
 	i_zero(&new_rec);
@@ -680,17 +699,6 @@ mail_cache_header_fields_write(struct mail_cache *cache, const buffer_t *buffer)
 	return 0;
 }
 
-static void mail_cache_mark_used(struct mail_cache *cache)
-{
-	unsigned int i;
-
-	/* we want to avoid adding all the fields one by one to the cache file,
-	   so just add all of them at once in here. the unused ones get dropped
-	   later when compressing. */
-	for (i = 0; i < cache->fields_count; i++)
-		cache->fields[i].used = TRUE;
-}
-
 static int
 mail_cache_header_add_field_locked(struct mail_cache *cache,
 				   unsigned int field_idx)
@@ -741,7 +749,6 @@ mail_cache_trans_get_file_field(struct mail_cache_transaction_ctx *ctx,
 	file_field = ctx->cache->field_file_map[field_idx];
 	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) || file_field == (uint32_t)-1) {
 		/* we'll have to add this field to headers */
-		mail_cache_mark_used(ctx->cache);
 		ret = mail_cache_header_add_field_locked(ctx->cache, field_idx);
 		if (ret < 0)
 			return -1;
@@ -795,7 +802,14 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 			ctx->view->trans_seq2 = seq;
 	}
 
-	/* remember that this value exists, in case we try to look it up */
+	/* Remember that this field has been used within the transaction. Later
+	   on we fill mail_cache_field_private.used with it. We can't rely on
+	   setting it here, because cache compression may run and clear it. */
+	uint8_t field_idx_set = 1;
+	array_idx_set(&ctx->cache_field_idx_used, field_idx, &field_idx_set);
+
+	/* Remember that this value exists for the mail, in case we try to look
+	   it up. Note that this gets forgotten whenever changing the mail. */
 	buffer_write(ctx->view->cached_exists_buf, field_idx,
 		     &ctx->view->cached_exists_value, 1);
 
