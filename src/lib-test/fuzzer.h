@@ -17,4 +17,6 @@
 
 void fuzzer_init(void);
 
+int fuzzer_io_as_fd(const uint8_t *data, size_t size);
+
 #endif
