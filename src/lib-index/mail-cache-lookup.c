@@ -232,32 +232,14 @@ mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 	return 1;
 }
 
-int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
-				struct mail_cache_iterate_field *field_r)
+static int
+mail_cache_lookup_rec_get_field(struct mail_cache_lookup_iterate_ctx *ctx,
+				unsigned int *field_idx_r)
 {
 	struct mail_cache *cache = ctx->view->cache;
-	unsigned int field_idx;
-	unsigned int data_size;
 	uint32_t file_field;
-	int ret;
 
-	i_assert(ctx->remap_counter == cache->remap_counter);
-
-	if (ctx->pos + sizeof(uint32_t) > ctx->rec_size) {
-		if (ctx->pos != ctx->rec_size) {
-			mail_cache_set_corrupted(cache,
-				"record has invalid size");
-			return -1;
-		}
-
-		if ((ret = mail_cache_lookup_iter_next_record(ctx)) <= 0)
-			return ret;
-	}
-
-	/* return the next field */
 	file_field = *((const uint32_t *)CONST_PTR_OFFSET(ctx->rec, ctx->pos));
-	ctx->pos += sizeof(uint32_t);
-
 	if (file_field >= cache->file_fields_count) {
 		/* new field, have to re-read fields header to figure
 		   out its size. don't do this if we're compressing. */
@@ -279,7 +261,36 @@ int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 		ctx->remap_counter = cache->remap_counter;
 	}
 
-	field_idx = cache->file_field_map[file_field];
+	*field_idx_r = cache->file_field_map[file_field];
+	return 0;
+}
+
+int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
+				struct mail_cache_iterate_field *field_r)
+{
+	struct mail_cache *cache = ctx->view->cache;
+	unsigned int field_idx;
+	unsigned int data_size;
+	int ret;
+
+	i_assert(ctx->remap_counter == cache->remap_counter);
+
+	if (ctx->pos + sizeof(uint32_t) > ctx->rec_size) {
+		if (ctx->pos != ctx->rec_size) {
+			mail_cache_set_corrupted(cache,
+				"record has invalid size");
+			return -1;
+		}
+
+		if ((ret = mail_cache_lookup_iter_next_record(ctx)) <= 0)
+			return ret;
+	}
+
+	/* return the next field */
+	if (mail_cache_lookup_rec_get_field(ctx, &field_idx) < 0)
+		return -1;
+	ctx->pos += sizeof(uint32_t);
+
 	data_size = cache->fields[field_idx].field.field_size;
 	if (data_size == UINT_MAX &&
 	    ctx->pos + sizeof(uint32_t) <= ctx->rec->size) {
