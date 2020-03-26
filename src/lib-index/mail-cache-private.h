@@ -204,6 +204,7 @@ struct mail_cache_lookup_iterate_ctx {
 	bool failed:1;
 	bool memory_appends_checked:1;
 	bool disk_appends_checked:1;
+	bool inmemory_field_idx:1;
 };
 
 /* Explicitly lock the cache file. Returns -1 if error / timed out,

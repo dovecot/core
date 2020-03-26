@@ -171,6 +171,7 @@ mail_cache_lookup_iter_transaction(struct mail_cache_lookup_iterate_ctx *ctx)
 	if (ctx->rec == NULL)
 		return FALSE;
 
+	ctx->inmemory_field_idx = TRUE;
 	ctx->remap_counter = ctx->view->cache->remap_counter;
 	ctx->pos = sizeof(*ctx->rec);
 	ctx->rec_size = ctx->rec->size;
@@ -225,6 +226,7 @@ mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 					 "record list is circular");
 		return -1;
 	}
+	ctx->inmemory_field_idx = FALSE;
 	ctx->remap_counter = view->cache->remap_counter;
 
 	ctx->pos = sizeof(*ctx->rec);
@@ -240,6 +242,11 @@ mail_cache_lookup_rec_get_field(struct mail_cache_lookup_iterate_ctx *ctx,
 	uint32_t file_field;
 
 	file_field = *((const uint32_t *)CONST_PTR_OFFSET(ctx->rec, ctx->pos));
+	if (ctx->inmemory_field_idx) {
+		*field_idx_r = file_field;
+		return 0;
+	}
+
 	if (file_field >= cache->file_fields_count) {
 		/* new field, have to re-read fields header to figure
 		   out its size. don't do this if we're compressing. */
