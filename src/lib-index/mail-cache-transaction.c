@@ -207,61 +207,6 @@ mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 	return ret;
 }
 
-static void
-mail_cache_transaction_open_if_needed(struct mail_cache_transaction_ctx *ctx)
-{
-	struct mail_cache *cache = ctx->cache;
-	const struct mail_index_ext *ext;
-	uint32_t idx;
-	int i;
-
-	if (!cache->opened) {
-		(void)mail_cache_open_and_verify(cache);
-		return;
-	}
-
-	/* see if we should try to reopen the cache file */
-	for (i = 0;; i++) {
-		if (MAIL_CACHE_IS_UNUSABLE(cache))
-			return;
-
-		if (!mail_index_map_get_ext_idx(cache->index->map,
-						cache->ext_id, &idx)) {
-			/* index doesn't have a cache extension, but the cache
-			   file exists (corrupted indexes fixed?). fix it. */
-			if (i == 2)
-				break;
-		} else {
-			ext = array_idx(&cache->index->map->extensions, idx);
-			if (ext->reset_id == cache->hdr->file_seq || i == 2)
-				break;
-
-			/* index offsets don't match the cache file */
-			if (ext->reset_id > cache->hdr->file_seq) {
-				/* the cache file appears to be too old.
-				   reopening should help. */
-				if (mail_cache_reopen(cache) != 0)
-					break;
-			}
-		}
-
-		/* cache file sequence might be broken. it's also possible
-		   that it was just compressed and we just haven't yet seen
-		   the changes in index. try if refreshing index helps.
-		   if not, compress the cache file. */
-		if (i == 0) {
-			if (ctx->tried_compression)
-				break;
-			/* get the latest reset ID */
-			if (mail_index_refresh(ctx->cache->index) < 0)
-				return;
-		} else {
-			i_assert(i == 1);
-			(void)mail_cache_transaction_compress(ctx);
-		}
-	}
-}
-
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
@@ -269,8 +214,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 		cache->index->optimization_set.cache.max_size;
 	int ret;
 
-	mail_cache_transaction_open_if_needed(ctx);
-
+	(void)mail_cache_open_and_verify(cache);
 	if (!ctx->tried_compression && ctx->cache_data != NULL &&
 	    cache->last_stat_size + ctx->cache_data->used >= cache_max_size) {
 		/* Looks like cache file is becoming too large. Try to compress
