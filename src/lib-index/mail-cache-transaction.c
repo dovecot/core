@@ -200,7 +200,9 @@ mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 			mail_cache_compress_unlock(&lock);
 	}
 	mail_index_view_close(&view);
-	mail_cache_transaction_reset(ctx);
+	/* already written cache records must be forgotten, but records in
+	   memory can still be written to the new cache file */
+	mail_cache_transaction_forget_flushed(ctx);
 	return ret;
 }
 
@@ -295,10 +297,10 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 	if (ctx->cache_file_seq == 0)
 		ctx->cache_file_seq = cache->hdr->file_seq;
 	else if (ctx->cache_file_seq != cache->hdr->file_seq) {
-		if (mail_cache_unlock(cache) < 0)
-			return -1;
-		mail_cache_transaction_reset(ctx);
-		return 0;
+		/* already written cache records must be forgotten, but records
+		   in memory can still be written to the new cache file */
+		mail_cache_transaction_forget_flushed(ctx);
+		i_assert(ctx->cache_file_seq == cache->hdr->file_seq);
 	}
 	return 1;
 }
@@ -750,13 +752,9 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	    (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED))
 		return;
 
-	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) && !ctx->tried_compression) {
-		/* Cache file isn't created yet. Create it using compression
-		   before anything is added to transaction, so fields aren't
-		   lost when compression causes transaction to be reset.
-		   FIXME: get rid of this in later commits */
-		(void)mail_cache_transaction_compress(ctx);
-	}
+	/* If the cache file exists, make sure the caching decisions have been
+	   read. */
+	mail_cache_transaction_open_if_needed(ctx);
 
 	mail_cache_decision_add(ctx->view, seq, field_idx);
 

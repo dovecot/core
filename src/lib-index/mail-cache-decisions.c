@@ -134,7 +134,7 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 
 	i_assert(field < cache->fields_count);
 
-	if (MAIL_CACHE_IS_UNUSABLE(cache) || view->no_decision_updates)
+	if (view->no_decision_updates)
 		return;
 
 	if (cache->fields[field].field.decision != MAIL_CACHE_DECISION_NO) {
