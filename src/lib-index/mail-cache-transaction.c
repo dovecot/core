@@ -48,6 +48,7 @@ struct mail_cache_transaction_ctx {
 	unsigned int records_written;
 
 	bool tried_compression:1;
+	bool decisions_refreshed:1;
 	bool changes:1;
 };
 
@@ -741,6 +742,21 @@ static int mail_cache_header_rewrite_fields(struct mail_cache *cache)
 	return ret;
 }
 
+static void
+mail_cache_transaction_refresh_decisions(struct mail_cache_transaction_ctx *ctx)
+{
+	if (ctx->decisions_refreshed)
+		return;
+
+	/* Read latest caching decisions from the cache file's header once
+	   per transaction. */
+	if (!ctx->cache->opened)
+		(void)mail_cache_open_and_verify(ctx->cache);
+	else
+		(void)mail_cache_header_fields_read(ctx->cache);
+	ctx->decisions_refreshed = TRUE;
+}
+
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		    unsigned int field_idx, const void *data, size_t data_size)
 {
@@ -757,7 +773,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 	/* If the cache file exists, make sure the caching decisions have been
 	   read. */
-	mail_cache_transaction_open_if_needed(ctx);
+	mail_cache_transaction_refresh_decisions(ctx);
 
 	mail_cache_decision_add(ctx->view, seq, field_idx);
 
@@ -838,7 +854,7 @@ bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
 {
 	enum mail_cache_decision_type decision;
 
-	mail_cache_transaction_open_if_needed(ctx);
+	mail_cache_transaction_refresh_decisions(ctx);
 
 	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
 	decision &= ~MAIL_CACHE_DECISION_FORCED;
@@ -867,7 +883,7 @@ bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 {
 	enum mail_cache_decision_type decision;
 
-	mail_cache_transaction_open_if_needed(ctx);
+	mail_cache_transaction_refresh_decisions(ctx);
 
 	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
 	if (decision == (MAIL_CACHE_DECISION_FORCED | MAIL_CACHE_DECISION_NO))
