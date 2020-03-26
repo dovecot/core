@@ -56,9 +56,7 @@ static MODULE_CONTEXT_DEFINE_INIT(cache_mail_index_transaction_module,
 
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx);
 static size_t mail_cache_transaction_update_last_rec_size(struct mail_cache_transaction_ctx *ctx);
-static int
-mail_cache_trans_get_file_field(struct mail_cache_transaction_ctx *ctx,
-				unsigned int field_idx, uint32_t *file_field_r);
+static int mail_cache_header_rewrite_fields(struct mail_cache *cache);
 
 static void mail_index_transaction_cache_reset(struct mail_index_transaction *t)
 {
@@ -419,18 +417,23 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 	return 0;
 }
 
-static void
+static bool
 mail_cache_transaction_set_used(struct mail_cache_transaction_ctx *ctx)
 {
 	const uint8_t *cache_fields_used;
 	unsigned int field_idx, count;
+	bool missing_file_fields = FALSE;
 
 	cache_fields_used = array_get(&ctx->cache_field_idx_used, &count);
 	i_assert(count <= ctx->cache->fields_count);
 	for (field_idx = 0; field_idx < count; field_idx++) {
-		if (cache_fields_used[field_idx] != 0)
+		if (cache_fields_used[field_idx] != 0) {
 			ctx->cache->fields[field_idx].used = TRUE;
+			if (ctx->cache->field_file_map[field_idx] == (uint32_t)-1)
+				missing_file_fields = TRUE;
+		}
 	}
+	return missing_file_fields;
 }
 
 static int
@@ -440,7 +443,18 @@ mail_cache_transaction_update_fields(struct mail_cache_transaction_ctx *ctx)
 	const unsigned char *end, *rec_end;
 	uint32_t field_idx, data_size;
 
-	mail_cache_transaction_set_used(ctx);
+	if (mail_cache_transaction_set_used(ctx)) {
+		/* add missing fields to cache */
+		if (mail_cache_header_rewrite_fields(ctx->cache) < 0)
+			return -1;
+		/* make sure they were actually added */
+		if (mail_cache_transaction_set_used(ctx)) {
+			mail_index_set_error(ctx->cache->index,
+				"Cache file %s: Unexpectedly lost newly added field",
+				ctx->cache->filepath);
+			return -1;
+		}
+	}
 
 	/* Go through all the added cache records and replace the in-memory
 	   field_idx with the cache file-specific field index. Update only
@@ -463,9 +477,8 @@ mail_cache_transaction_update_fields(struct mail_cache_transaction_ctx *ctx)
 		/* replace field_idx */
 		uint32_t *file_fieldp = (uint32_t *)p;
 		field_idx = *file_fieldp;
-		if (mail_cache_trans_get_file_field(ctx, field_idx,
-						    file_fieldp) < 0)
-			return -1;
+		*file_fieldp = ctx->cache->field_file_map[field_idx];
+		i_assert(*file_fieldp != (uint32_t)-1);
 		p += sizeof(field_idx);
 
 		/* Skip to next cache field. Next is <data size> if the field
@@ -699,20 +712,13 @@ mail_cache_header_fields_write(struct mail_cache *cache, const buffer_t *buffer)
 	return 0;
 }
 
-static int
-mail_cache_header_add_field_locked(struct mail_cache *cache,
-				   unsigned int field_idx)
+static int mail_cache_header_rewrite_fields(struct mail_cache *cache)
 {
 	int ret;
 
 	/* re-read header to make sure we don't lose any fields. */
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
-
-	if (cache->field_file_map[field_idx] != (uint32_t)-1) {
-		/* it was already added */
-		return 0;
-	}
 
 	T_BEGIN {
 		buffer_t *buffer;
@@ -727,37 +733,7 @@ mail_cache_header_add_field_locked(struct mail_cache *cache,
 		cache->field_header_write_pending = FALSE;
 		ret = mail_cache_header_fields_read(cache);
 	}
-	if (ret == 0 && cache->field_file_map[field_idx] == (uint32_t)-1) {
-		mail_index_set_error(cache->index,
-				     "Cache file %s: Newly added field got "
-				     "lost unexpectedly", cache->filepath);
-		ret = -1;
-	}
 	return ret;
-}
-
-static int
-mail_cache_trans_get_file_field(struct mail_cache_transaction_ctx *ctx,
-				unsigned int field_idx, uint32_t *file_field_r)
-{
-	uint32_t file_field;
-	int ret;
-
-	i_assert(ctx->cache->locked);
-	i_assert(ctx->cache_file_seq != 0);
-
-	file_field = ctx->cache->field_file_map[field_idx];
-	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) || file_field == (uint32_t)-1) {
-		/* we'll have to add this field to headers */
-		ret = mail_cache_header_add_field_locked(ctx->cache, field_idx);
-		if (ret < 0)
-			return -1;
-
-		file_field = ctx->cache->field_file_map[field_idx];
-		i_assert(file_field != (uint32_t)-1);
-	}
-	*file_field_r = file_field;
-	return 0;
 }
 
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
