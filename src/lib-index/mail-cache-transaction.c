@@ -635,18 +635,15 @@ mail_cache_header_fields_write(struct mail_cache *cache, const buffer_t *buffer)
 	return 0;
 }
 
-static void mail_cache_mark_adding(struct mail_cache *cache, bool set)
+static void mail_cache_mark_used(struct mail_cache *cache)
 {
 	unsigned int i;
 
 	/* we want to avoid adding all the fields one by one to the cache file,
 	   so just add all of them at once in here. the unused ones get dropped
 	   later when compressing. */
-	for (i = 0; i < cache->fields_count; i++) {
-		if (set)
-			cache->fields[i].used = TRUE;
-		cache->fields[i].adding = set;
-	}
+	for (i = 0; i < cache->fields_count; i++)
+		cache->fields[i].used = TRUE;
 }
 
 static int
@@ -736,9 +733,8 @@ mail_cache_trans_get_file_field(struct mail_cache_transaction_ctx *ctx,
 	file_field = ctx->cache->field_file_map[field_idx];
 	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) || file_field == (uint32_t)-1) {
 		/* we'll have to add this field to headers */
-		mail_cache_mark_adding(ctx->cache, TRUE);
+		mail_cache_mark_used(ctx->cache);
 		ret = mail_cache_header_add_field(ctx, field_idx);
-		mail_cache_mark_adding(ctx->cache, FALSE);
 		if (ret < 0)
 			return -1;
 

@@ -226,15 +226,14 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			/* if the decision isn't forced and this field hasn't
 			   been accessed for a while, drop it */
 			if ((dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
-			    priv->field.last_used < max_drop_time &&
-			    !priv->adding) {
+			    priv->field.last_used < max_drop_time) {
 				dec = MAIL_CACHE_DECISION_NO;
 				priv->field.decision = dec;
 			}
 
 			/* drop all fields we don't want */
 			if ((dec & ~MAIL_CACHE_DECISION_FORCED) ==
-			    MAIL_CACHE_DECISION_NO && !priv->adding) {
+			    MAIL_CACHE_DECISION_NO) {
 				priv->used = FALSE;
 				priv->field.last_used = 0;
 			}

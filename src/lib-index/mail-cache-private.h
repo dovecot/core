@@ -80,7 +80,6 @@ struct mail_cache_field_private {
 
 	/* Unused fields aren't written to cache file */
 	bool used:1;
-	bool adding:1;
 	bool decision_dirty:1;
 };
 
