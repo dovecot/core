@@ -505,6 +505,7 @@ mail_cache_compress_full(struct mail_cache *cache,
 	int ret;
 
 	i_assert(!cache->compressing);
+	i_assert(cache->index->log_sync_locked);
 
 	*lock_r = NULL;
 

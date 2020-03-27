@@ -67,11 +67,8 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 
 /* Returns TRUE if cache should be compressed. */
 bool mail_cache_need_compress(struct mail_cache *cache);
-/* Compress cache file. Offsets are updated to given transaction. The cache
-   compression lock should be kept until the transaction is committed.
-   mail_cache_compress_unlock() needs to be called afterwards. The lock doesn't
-   prevent updates to the cache while it's held, it only prevents another cache
-   compression.
+/* Compress cache file. Offsets are updated to given transaction.
+   The transaction log must already be exclusively locked.
 
    The cache compression is done only if the current cache file's file_seq
    matches compress_file_seq. The idea is that compression isn't done if
