@@ -577,7 +577,19 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 	struct mail_cache_compress_lock *lock;
+	bool lock_log;
 	int ret;
+
+	lock_log = !cache->index->log_sync_locked;
+	if (lock_log) {
+		uint32_t file_seq;
+		uoff_t file_offset;
+
+		if (mail_transaction_log_sync_lock(cache->index->log,
+						   "mail cache compress",
+						   &file_seq, &file_offset) < 0)
+			return -1;
+	}
 
 	view = mail_index_view_open(cache->index);
 	trans = mail_index_transaction_begin(view,
@@ -590,6 +602,10 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 		mail_cache_compress_unlock(&lock);
 	}
 	mail_index_view_close(&view);
+	if (lock_log) {
+		mail_transaction_log_sync_unlock(cache->index->log,
+						 "mail cache compress");
+	}
 	return ret;
 }
 
