@@ -179,28 +179,13 @@ static int
 mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
-	struct mail_index_view *view;
-	struct mail_index_transaction *trans;
-	struct mail_cache_compress_lock *lock;
-	int ret;
 
 	ctx->tried_compression = TRUE;
 
 	cache->need_compress_file_seq =
 		MAIL_CACHE_IS_UNUSABLE(cache) ? 0 : cache->hdr->file_seq;
 
-	view = mail_index_view_open(cache->index);
-	trans = mail_index_transaction_begin(view,
-					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	if (mail_cache_compress_with_trans(cache, trans, &lock) < 0) {
-		mail_index_transaction_rollback(&trans);
-		ret = -1;
-	} else {
-		ret = mail_index_transaction_commit(&trans);
-		if (lock != NULL)
-			mail_cache_compress_unlock(&lock);
-	}
-	mail_index_view_close(&view);
+	int ret = mail_cache_compress(cache);
 	/* already written cache records must be forgotten, but records in
 	   memory can still be written to the new cache file */
 	mail_cache_transaction_forget_flushed(ctx);
