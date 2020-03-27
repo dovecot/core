@@ -416,35 +416,14 @@ mail_cache_compress_has_file_changed(struct mail_cache *cache,
 	}
 }
 
-static int mail_cache_compress_dotlock(struct mail_cache *cache,
-				       struct dotlock **dotlock_r)
-{
-	if (file_dotlock_create(&cache->dotlock_settings, cache->filepath,
-				DOTLOCK_CREATE_FLAG_NONBLOCK, dotlock_r) <= 0) {
-		if (errno != EAGAIN)
-			mail_cache_set_syscall_error(cache, "file_dotlock_open()");
-		return -1;
-	}
-	return 0;
-}
-
 static int mail_cache_compress_locked(struct mail_cache *cache,
 				      uint32_t compress_file_seq,
 				      struct mail_index_transaction *trans,
-				      bool *unlock, struct dotlock **dotlock_r)
+				      bool *unlock)
 {
 	const char *temp_path;
 	int fd, ret;
 
-	/* There are two possible locking situations here:
-	   a) Cache is locked against any modifications.
-	   b) Cache doesn't exist or is unusable. There's no lock.
-	   Because the cache lock itself is unreliable, we'll be using a
-	   separate dotlock to guard against two processes compressing the
-	   cache at the same time. */
-
-	if (mail_cache_compress_dotlock(cache, dotlock_r) < 0)
-		return -1;
 	/* we've locked the cache compression now. if somebody else had just
 	   recreated the cache, reopen the cache and return success. */
 	if (compress_file_seq != (uint32_t)-1 &&
@@ -454,7 +433,6 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 
 		/* was just compressed, forget this */
 		cache->need_compress_file_seq = 0;
-		file_dotlock_delete(dotlock_r);
 
 		if (*unlock) {
 			(void)mail_cache_unlock(cache);
@@ -495,7 +473,6 @@ mail_cache_compress_full(struct mail_cache *cache,
 			 struct mail_index_transaction *trans,
 			 uint32_t compress_file_seq)
 {
-	struct dotlock *dotlock = NULL;
 	bool unlock = FALSE;
 	int ret;
 
@@ -514,37 +491,29 @@ mail_cache_compress_full(struct mail_cache *cache,
 		cache->mmap_length = 0;
 	}
 
-	if (cache->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
-		/* we're using dotlocking, cache file creation itself creates
-		   the dotlock file we need. */
-		if (!MAIL_CACHE_IS_UNUSABLE(cache)) {
-			mail_index_flush_read_cache(cache->index,
-						    cache->filepath, cache->fd,
-						    FALSE);
-		}
-	} else {
-		switch (mail_cache_try_lock(cache)) {
-		case -1:
-			/* already locked or some other error */
-			return -1;
-		case 0:
-			/* cache is broken or doesn't exist.
-			   just start creating it. */
-			break;
-		default:
-			/* locking succeeded. */
-			unlock = TRUE;
-		}
+	/* .log lock already prevents other processes from compressing cache at
+	   the same time, but locking the cache file itself prevents other
+	   processes from doing other changes to it (header changes, adding
+	   more cached data). */
+	switch (mail_cache_try_lock(cache)) {
+	case -1:
+		/* already locked or some other error */
+		return -1;
+	case 0:
+		/* cache is broken or doesn't exist.
+		   just start creating it. */
+		break;
+	default:
+		/* locking succeeded. */
+		unlock = TRUE;
 	}
 	cache->compressing = TRUE;
-	ret = mail_cache_compress_locked(cache, compress_file_seq, trans, &unlock, &dotlock);
+	ret = mail_cache_compress_locked(cache, compress_file_seq, trans, &unlock);
 	cache->compressing = FALSE;
 	if (unlock) {
 		if (mail_cache_unlock(cache) < 0)
 			ret = -1;
 	}
-	if (dotlock != NULL)
-		file_dotlock_delete(&dotlock);
 	if (ret < 0) {
 		/* the fields may have been updated in memory already.
 		   reverse those changes by re-reading them from file. */
