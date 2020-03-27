@@ -71,11 +71,18 @@ bool mail_cache_need_compress(struct mail_cache *cache);
    compression lock should be kept until the transaction is committed.
    mail_cache_compress_unlock() needs to be called afterwards. The lock doesn't
    prevent updates to the cache while it's held, it only prevents another cache
-   compression. */
+   compression.
+
+   The cache compression is done only if the current cache file's file_seq
+   matches compress_file_seq. The idea is that compression isn't done if
+   another process had just compressed it. 0 means the cache file is created
+   only if it didn't already exist. (uint32_t)-1 means that compression is
+   done always regardless of file_seq. */
 int mail_cache_compress_with_trans(struct mail_cache *cache,
 				   struct mail_index_transaction *trans,
+				   uint32_t compress_file_seq,
 				   struct mail_cache_compress_lock **lock_r);
-int mail_cache_compress(struct mail_cache *cache);
+int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq);
 int mail_cache_compress_forced(struct mail_cache *cache,
 			       struct mail_index_transaction *trans,
 			       struct mail_cache_compress_lock **lock_r);

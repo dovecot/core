@@ -182,10 +182,10 @@ mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 
 	ctx->tried_compression = TRUE;
 
-	cache->need_compress_file_seq =
+	uint32_t compress_file_seq =
 		MAIL_CACHE_IS_UNUSABLE(cache) ? 0 : cache->hdr->file_seq;
 
-	int ret = mail_cache_compress(cache);
+	int ret = mail_cache_compress(cache, compress_file_seq);
 	/* already written cache records must be forgotten, but records in
 	   memory can still be written to the new cache file */
 	mail_cache_transaction_forget_flushed(ctx);

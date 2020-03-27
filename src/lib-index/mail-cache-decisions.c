@@ -171,5 +171,5 @@ int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
 	   that the fields are updated even if the cache was already created
 	   and no compression was done. */
 	dst->field_header_write_pending = TRUE;
-	return mail_cache_compress(dst);
+	return mail_cache_compress(dst, 0);
 }

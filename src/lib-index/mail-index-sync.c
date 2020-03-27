@@ -949,6 +949,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 			trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
 		cache_trans = mail_index_transaction_begin(ctx->view, trans_flags);
 		if (mail_cache_compress_with_trans(index->cache, cache_trans,
+						   index->cache->need_compress_file_seq,
 						   &cache_lock) < 0)
 			mail_index_transaction_rollback(&cache_trans);
 		else {
