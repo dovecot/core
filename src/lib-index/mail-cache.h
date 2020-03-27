@@ -75,6 +75,7 @@ bool mail_cache_need_compress(struct mail_cache *cache);
 int mail_cache_compress_with_trans(struct mail_cache *cache,
 				   struct mail_index_transaction *trans,
 				   struct mail_cache_compress_lock **lock_r);
+int mail_cache_compress(struct mail_cache *cache);
 int mail_cache_compress_forced(struct mail_cache *cache,
 			       struct mail_index_transaction *trans,
 			       struct mail_cache_compress_lock **lock_r);

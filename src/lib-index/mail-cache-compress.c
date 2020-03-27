@@ -566,6 +566,27 @@ int mail_cache_compress_with_trans(struct mail_cache *cache,
 	return mail_cache_compress_full(cache, FALSE, trans, lock_r);
 }
 
+int mail_cache_compress(struct mail_cache *cache)
+{
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mail_cache_compress_lock *lock;
+	int ret;
+
+	view = mail_index_view_open(cache->index);
+	trans = mail_index_transaction_begin(view,
+		MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	if ((ret = mail_cache_compress_full(cache, FALSE, trans, &lock)) < 0)
+		mail_index_transaction_rollback(&trans);
+	else {
+		if (mail_index_transaction_commit(&trans) < 0)
+			ret = -1;
+		mail_cache_compress_unlock(&lock);
+	}
+	mail_index_view_close(&view);
+	return ret;
+}
+
 int mail_cache_compress_forced(struct mail_cache *cache,
 			       struct mail_index_transaction *trans,
 			       struct mail_cache_compress_lock **lock_r)
