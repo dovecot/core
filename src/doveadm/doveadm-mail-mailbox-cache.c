@@ -328,38 +328,12 @@ static void cmd_mailbox_cache_remove_init(struct doveadm_mail_cmd_context *_ctx,
 static int cmd_mailbox_cache_purge_run_box(struct mailbox_cache_cmd_context *ctx,
 					   struct mailbox *box)
 {
-	struct mailbox_transaction_context *t =
-		mailbox_transaction_begin(box,
-					  MAILBOX_TRANSACTION_FLAG_EXTERNAL |
-					  ctx->ctx.transaction_flags,
-					  "mailbox cache purge");
-	struct mail_cache *cache = t->box->cache;
-	struct mail_cache_compress_lock *lock;
-	int ret = 0;
-
-	if (mail_cache_open_and_verify(cache) < 0 ||
-	    MAIL_CACHE_IS_UNUSABLE(cache)) {
-		mailbox_transaction_rollback(&t);
-		i_error("Cache is unusable");
-		ctx->ctx.exit_code = EX_TEMPFAIL;
+	if (mail_cache_compress(box->cache, (uint32_t)-1) < 0) {
+		mailbox_set_index_error(box);
+		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		return -1;
 	}
-
-	cache->need_compress_file_seq = UINT_MAX;
-	if (mail_cache_compress_forced(cache, t->itrans, &lock) < 0) {
-		mailbox_set_index_error(t->box);
-		doveadm_mail_failed_mailbox(&ctx->ctx, box);
-		ret = -1;
-	}
-
-	if (mailbox_transaction_commit(&t) < 0) {
-		i_error("mailbox_transaction_commit() failed: %s",
-			mailbox_get_last_internal_error(box, NULL));
-		doveadm_mail_failed_mailbox(&ctx->ctx, box);
-		ret = -1;
-	}
-	mail_cache_compress_unlock(&lock);
-	return ret;
+	return 0;
 }
 
 static int cmd_mailbox_cache_purge_run(struct doveadm_mail_cmd_context *_ctx,
