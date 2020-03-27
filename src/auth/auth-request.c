@@ -16,6 +16,7 @@
 #include "auth-cache.h"
 #include "auth-request.h"
 #include "auth-request-handler.h"
+#include "auth-request-handler-private.h"
 #include "auth-request-stats.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
@@ -66,9 +67,6 @@ static void get_log_identifier(string_t *str, struct auth_request *auth_request)
 static void
 auth_request_userdb_import(struct auth_request *request, const char *args);
 
-static
-void auth_request_verify_plain_continue(struct auth_request *request,
-					verify_plain_callback_t *callback);
 static
 void auth_request_lookup_credentials_policy_continue(struct auth_request *request,
 						     lookup_credentials_callback_t *callback);
@@ -1226,7 +1224,7 @@ void auth_request_policy_penalty_finish(void *context)
 
 	switch(ctx->type) {
 	case AUTH_POLICY_CHECK_TYPE_PLAIN:
-		auth_request_verify_plain_continue(ctx->request, ctx->callback_plain);
+		ctx->request->handler->verify_plain_continue_callback(ctx->request, ctx->callback_plain);
 		return;
 	case AUTH_POLICY_CHECK_TYPE_LOOKUP:
 		auth_request_lookup_credentials_policy_continue(ctx->request, ctx->callback_lookup);
@@ -1277,7 +1275,8 @@ void auth_request_verify_plain(struct auth_request *request,
 	request->user_changed_by_lookup = FALSE;
 
 	if (request->policy_processed || !request->set->policy_check_before_auth) {
-		auth_request_verify_plain_continue(request, callback);
+		request->handler->verify_plain_continue_callback(request,
+								 callback);
 	} else {
 		ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
 		ctx->request = request;
@@ -1287,10 +1286,9 @@ void auth_request_verify_plain(struct auth_request *request,
 	}
 }
 
-static
-void auth_request_verify_plain_continue(struct auth_request *request,
-					verify_plain_callback_t *callback) {
-
+void auth_request_default_verify_plain_continue(struct auth_request *request,
+						verify_plain_callback_t *callback)
+{
 	struct auth_passdb *passdb;
 	enum passdb_result result;
 	const char *cache_key, *error;

@@ -24,6 +24,8 @@ enum passdb_result {
 
 typedef void verify_plain_callback_t(enum passdb_result result,
 				     struct auth_request *request);
+typedef void verify_plain_continue_callback_t(struct auth_request *request,
+					      verify_plain_callback_t *callback);
 typedef void lookup_credentials_callback_t(enum passdb_result result,
 					   const unsigned char *credentials,
 					   size_t size,

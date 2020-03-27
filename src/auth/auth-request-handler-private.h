@@ -15,6 +15,9 @@ struct auth_request_handler {
 	struct auth_client_connection *conn;
 
 	auth_master_request_callback_t *master_callback;
+	auth_request_handler_reply_callback_t *reply_callback;
+	auth_request_handler_reply_continue_callback_t *reply_continue_callback;
+	verify_plain_continue_callback_t *verify_plain_continue_callback;
 
 	bool destroyed:1;
 	bool token_auth:1;

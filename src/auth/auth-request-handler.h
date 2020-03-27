@@ -17,6 +17,17 @@ auth_client_request_callback_t(const char *reply, struct auth_client_connection 
 typedef void
 auth_master_request_callback_t(const char *reply, struct auth_master_connection *conn);
 
+typedef void
+auth_request_handler_reply_callback_t(struct auth_request *request,
+				      enum auth_client_result result,
+				      const void *auth_reply,
+				      size_t reply_size);
+typedef void
+auth_request_handler_reply_continue_callback_t(struct auth_request *request,
+					       const void *reply,
+					       size_t reply_size);
+
+
 struct auth_request_handler *
 auth_request_handler_create(bool token_auth, auth_client_request_callback_t *callback,
 			    struct auth_client_connection *conn,
