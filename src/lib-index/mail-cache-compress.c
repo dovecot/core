@@ -24,10 +24,6 @@ struct mail_cache_copy_context {
 	bool new_msg;
 };
 
-struct mail_cache_compress_lock {
-	struct dotlock *dotlock;
-};
-
 static void
 mail_cache_merge_bitmask(struct mail_cache_copy_context *ctx,
 			 const struct mail_cache_iterate_field *field)
@@ -497,8 +493,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 static int
 mail_cache_compress_full(struct mail_cache *cache,
 			 struct mail_index_transaction *trans,
-			 uint32_t compress_file_seq,
-			 struct mail_cache_compress_lock **lock_r)
+			 uint32_t compress_file_seq)
 {
 	struct dotlock *dotlock = NULL;
 	bool unlock = FALSE;
@@ -507,12 +502,8 @@ mail_cache_compress_full(struct mail_cache *cache,
 	i_assert(!cache->compressing);
 	i_assert(cache->index->log_sync_locked);
 
-	*lock_r = NULL;
-
-	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) || cache->index->readonly) {
-		*lock_r = i_new(struct mail_cache_compress_lock, 1);
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) || cache->index->readonly)
 		return 0;
-	}
 
 	/* compression isn't very efficient with small read()s */
 	if (cache->map_with_read) {
@@ -552,32 +543,27 @@ mail_cache_compress_full(struct mail_cache *cache,
 		if (mail_cache_unlock(cache) < 0)
 			ret = -1;
 	}
+	if (dotlock != NULL)
+		file_dotlock_delete(&dotlock);
 	if (ret < 0) {
-		if (dotlock != NULL)
-			file_dotlock_delete(&dotlock);
 		/* the fields may have been updated in memory already.
 		   reverse those changes by re-reading them from file. */
 		(void)mail_cache_header_fields_read(cache);
-	} else {
-		*lock_r = i_new(struct mail_cache_compress_lock, 1);
-		(*lock_r)->dotlock = dotlock;
 	}
 	return ret;
 }
 
 int mail_cache_compress_with_trans(struct mail_cache *cache,
 				   struct mail_index_transaction *trans,
-				   uint32_t compress_file_seq,
-				   struct mail_cache_compress_lock **lock_r)
+				   uint32_t compress_file_seq)
 {
-	return mail_cache_compress_full(cache, trans, compress_file_seq, lock_r);
+	return mail_cache_compress_full(cache, trans, compress_file_seq);
 }
 
 int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 {
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
-	struct mail_cache_compress_lock *lock;
 	bool lock_log;
 	int ret;
 
@@ -599,12 +585,11 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 		MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	if (ret < 0)
 		;
-	else if ((ret = mail_cache_compress_full(cache, trans, compress_file_seq, &lock)) < 0)
+	else if ((ret = mail_cache_compress_full(cache, trans, compress_file_seq)) < 0)
 		mail_index_transaction_rollback(&trans);
 	else {
 		if (mail_index_transaction_commit(&trans) < 0)
 			ret = -1;
-		mail_cache_compress_unlock(&lock);
 	}
 	mail_index_view_close(&view);
 	if (lock_log) {
@@ -612,17 +597,6 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 						 "mail cache compress");
 	}
 	return ret;
-}
-
-void mail_cache_compress_unlock(struct mail_cache_compress_lock **_lock)
-{
-	struct mail_cache_compress_lock *lock = *_lock;
-
-	*_lock = NULL;
-
-	if (lock->dotlock != NULL)
-		file_dotlock_delete(&lock->dotlock);
-	i_free(lock);
 }
 
 bool mail_cache_need_compress(struct mail_cache *cache)

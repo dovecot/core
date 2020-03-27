@@ -8,7 +8,6 @@
 struct mail_cache;
 struct mail_cache_view;
 struct mail_cache_transaction_ctx;
-struct mail_cache_compress_lock;
 
 enum mail_cache_decision_type {
 	/* Not needed currently */
@@ -77,10 +76,8 @@ bool mail_cache_need_compress(struct mail_cache *cache);
    done always regardless of file_seq. */
 int mail_cache_compress_with_trans(struct mail_cache *cache,
 				   struct mail_index_transaction *trans,
-				   uint32_t compress_file_seq,
-				   struct mail_cache_compress_lock **lock_r);
+				   uint32_t compress_file_seq);
 int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq);
-void mail_cache_compress_unlock(struct mail_cache_compress_lock **lock);
 /* Returns TRUE if there is at least something in the cache. */
 bool mail_cache_exists(struct mail_cache *cache);
 /* Open and read cache header. Returns 0 if ok, -1 if error/corrupted. */

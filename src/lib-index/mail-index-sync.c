@@ -875,7 +875,6 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
-	struct mail_cache_compress_lock *cache_lock = NULL;
 	const char *reason = NULL;
 	uint32_t next_uid;
 	bool want_rotate, index_undeleted, delete_index;
@@ -949,13 +948,11 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 			trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
 		cache_trans = mail_index_transaction_begin(ctx->view, trans_flags);
 		if (mail_cache_compress_with_trans(index->cache, cache_trans,
-						   index->cache->need_compress_file_seq,
-						   &cache_lock) < 0)
+						   index->cache->need_compress_file_seq) < 0)
 			mail_index_transaction_rollback(&cache_trans);
 		else {
 			/* can't really do anything if index commit fails */
 			(void)mail_index_transaction_commit(&cache_trans);
-			mail_cache_compress_unlock(&cache_lock);
 			/* Make sure the newly committed cache record offsets
 			   are updated to the current index. This is important
 			   if the dovecot.index gets recreated below, because

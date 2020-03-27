@@ -235,20 +235,12 @@ void index_index_rebuild_deinit(struct index_rebuild_context **_ctx,
 				index_rebuild_generate_uidvalidity_t *cb)
 {
 	struct index_rebuild_context *ctx = *_ctx;
-	struct mail_cache_compress_lock *lock = NULL;
 
 	*_ctx = NULL;
 
 	/* initialize cache file with the old field decisions */
 	(void)mail_cache_compress_with_trans(ctx->box->cache, ctx->trans,
-					     (uint32_t)-1, &lock);
-	if (lock != NULL) {
-		/* FIXME: this is a bit too early. ideally we should return it
-		   from this function and unlock only after the transaction is
-		   committed, but it would be an API change and this rebuilding
-		   isn't happening normally anyway. */
-		mail_cache_compress_unlock(&lock);
-	}
+					     (uint32_t)-1);
 	index_rebuild_header(ctx, cb);
 	index_rebuild_box_name_header(ctx);
 	if (ctx->backup_index != NULL) {
