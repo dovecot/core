@@ -192,7 +192,7 @@ mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 	view = mail_index_view_open(cache->index);
 	trans = mail_index_transaction_begin(view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	if (mail_cache_compress(cache, trans, &lock) < 0) {
+	if (mail_cache_compress_with_trans(cache, trans, &lock) < 0) {
 		mail_index_transaction_rollback(&trans);
 		ret = -1;
 	} else {

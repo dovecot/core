@@ -240,7 +240,7 @@ void index_index_rebuild_deinit(struct index_rebuild_context **_ctx,
 	*_ctx = NULL;
 
 	/* initialize cache file with the old field decisions */
-	(void)mail_cache_compress(ctx->box->cache, ctx->trans, &lock);
+	(void)mail_cache_compress_with_trans(ctx->box->cache, ctx->trans, &lock);
 	if (lock != NULL) {
 		/* FIXME: this is a bit too early. ideally we should return it
 		   from this function and unlock only after the transaction is

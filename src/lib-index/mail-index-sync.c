@@ -948,8 +948,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_FSYNC) != 0)
 			trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
 		cache_trans = mail_index_transaction_begin(ctx->view, trans_flags);
-		if (mail_cache_compress(index->cache, cache_trans,
-					&cache_lock) < 0)
+		if (mail_cache_compress_with_trans(index->cache, cache_trans,
+						   &cache_lock) < 0)
 			mail_index_transaction_rollback(&cache_trans);
 		else {
 			/* can't really do anything if index commit fails */

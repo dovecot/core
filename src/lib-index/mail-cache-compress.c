@@ -559,9 +559,9 @@ mail_cache_compress_full(struct mail_cache *cache, bool forced,
 	return ret;
 }
 
-int mail_cache_compress(struct mail_cache *cache,
-			struct mail_index_transaction *trans,
-			struct mail_cache_compress_lock **lock_r)
+int mail_cache_compress_with_trans(struct mail_cache *cache,
+				   struct mail_index_transaction *trans,
+				   struct mail_cache_compress_lock **lock_r)
 {
 	return mail_cache_compress_full(cache, FALSE, trans, lock_r);
 }
