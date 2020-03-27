@@ -83,9 +83,6 @@ int mail_cache_compress_with_trans(struct mail_cache *cache,
 				   uint32_t compress_file_seq,
 				   struct mail_cache_compress_lock **lock_r);
 int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq);
-int mail_cache_compress_forced(struct mail_cache *cache,
-			       struct mail_index_transaction *trans,
-			       struct mail_cache_compress_lock **lock_r);
 void mail_cache_compress_unlock(struct mail_cache_compress_lock **lock);
 /* Returns TRUE if there is at least something in the cache. */
 bool mail_cache_exists(struct mail_cache *cache);

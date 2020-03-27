@@ -593,13 +593,6 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 	return ret;
 }
 
-int mail_cache_compress_forced(struct mail_cache *cache,
-			       struct mail_index_transaction *trans,
-			       struct mail_cache_compress_lock **lock_r)
-{
-	return mail_cache_compress_full(cache, trans, (uint32_t)-1, lock_r);
-}
-
 void mail_cache_compress_unlock(struct mail_cache_compress_lock **_lock)
 {
 	struct mail_cache_compress_lock *lock = *_lock;
