@@ -171,6 +171,7 @@ headers = \
 	auth-policy.h \
 	auth-request.h \
 	auth-request-handler.h \
+	auth-request-handler-private.h \
 	auth-request-stats.h \
 	auth-request-var-expand.h \
 	auth-settings.h \

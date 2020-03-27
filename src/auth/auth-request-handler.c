@@ -17,26 +17,10 @@
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 #include "auth-request-handler.h"
+#include "auth-request-handler-private.h"
 #include "auth-policy.h"
 
 #define AUTH_FAILURE_DELAY_CHECK_MSECS 500
-
-struct auth_request_handler {
-	int refcount;
-	pool_t pool;
-	HASH_TABLE(void *, struct auth_request *) requests;
-
-        unsigned int connect_uid, client_pid;
-
-	auth_client_request_callback_t *callback;
-	struct auth_client_connection *conn;
-
-	auth_master_request_callback_t *master_callback;
-
-	bool destroyed:1;
-	bool token_auth:1;
-};
-
 static ARRAY(struct auth_request *) auth_failures_arr;
 static struct aqueue *auth_failures;
 static struct timeout *to_auth_failures;
