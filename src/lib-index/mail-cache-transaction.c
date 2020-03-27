@@ -199,17 +199,6 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 		cache->index->optimization_set.cache.max_size;
 	int ret;
 
-	(void)mail_cache_open_and_verify(cache);
-	if (!ctx->tried_compression && ctx->cache_data != NULL &&
-	    cache->last_stat_size + ctx->cache_data->used >= cache_max_size) {
-		/* Looks like cache file is becoming too large. Try to compress
-		   it to free up some space. */
-		if (!MAIL_CACHE_IS_UNUSABLE(cache) &&
-		    (cache->hdr->continued_record_count > 0 ||
-		     cache->hdr->deleted_record_count > 0))
-			(void)mail_cache_transaction_compress(ctx);
-	}
-
 	if ((ret = mail_cache_lock(cache)) <= 0) {
 		if (ret < 0)
 			return -1;
@@ -223,6 +212,18 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 		}
 	}
 	i_assert(!MAIL_CACHE_IS_UNUSABLE(cache));
+
+	if (!ctx->tried_compression && ctx->cache_data != NULL &&
+	    cache->last_stat_size + ctx->cache_data->used >= cache_max_size) {
+		/* Looks like cache file is becoming too large. Try to compress
+		   it to free up some space. */
+		if (cache->hdr->continued_record_count > 0 ||
+		    cache->hdr->deleted_record_count > 0) {
+			(void)mail_cache_unlock(cache);
+			(void)mail_cache_transaction_compress(ctx);
+			return mail_cache_transaction_lock(ctx);
+		}
+	}
 
 	if (ctx->cache_file_seq == 0)
 		ctx->cache_file_seq = cache->hdr->file_seq;
