@@ -307,10 +307,12 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		return;
 	}
 
-	stats = auth_request_stats_get(request);
-	stats->auth_success_count++;
-	if (request->master_user != NULL)
-		stats->auth_master_success_count++;
+	if (request->set->stats) {
+		stats = auth_request_stats_get(request);
+		stats->auth_success_count++;
+		if (request->master_user != NULL)
+			stats->auth_master_success_count++;
+	}
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
@@ -324,8 +326,10 @@ void auth_request_fail(struct auth_request *request)
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	stats = auth_request_stats_get(request);
-	stats->auth_failure_count++;
+	if (request->set->stats) {
+		stats = auth_request_stats_get(request);
+		stats->auth_failure_count++;
+	}
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
