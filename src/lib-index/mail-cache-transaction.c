@@ -285,7 +285,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 		if (ret < 0)
 			return -1;
 
-		if (!ctx->tried_compression && MAIL_CACHE_IS_UNUSABLE(cache)) {
+		if (!ctx->tried_compression) {
 			if (mail_cache_transaction_compress(ctx) < 0)
 				return -1;
 			return mail_cache_transaction_lock(ctx);
