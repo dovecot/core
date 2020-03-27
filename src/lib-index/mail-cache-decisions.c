@@ -152,15 +152,19 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 	cache->fields[field].uid_highwater = uid;
 }
 
-void mail_cache_decisions_copy(struct mail_index_transaction *itrans,
-			       struct mail_cache *src,
-			       struct mail_cache *dst)
+int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
 {
 	struct mail_cache_compress_lock *lock = NULL;
 
-	if (mail_cache_open_and_verify(src) < 0 ||
-	    MAIL_CACHE_IS_UNUSABLE(src))
-		return;
+	if (mail_cache_open_and_verify(src) < 0)
+		return -1;
+	if (MAIL_CACHE_IS_UNUSABLE(src))
+		return 0; /* no caching decisions */
+
+	struct mail_index_view *dest_view = mail_index_view_open(dst->index);
+	struct mail_index_transaction *itrans =
+		mail_index_transaction_begin(dest_view,
+					     MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 
 	unsigned int count = 0;
 	struct mail_cache_field *fields =
@@ -169,8 +173,16 @@ void mail_cache_decisions_copy(struct mail_index_transaction *itrans,
 	if (count > 0)
 		mail_cache_register_fields(dst, fields, count);
 
+	/* Destination cache isn't expected to exist yet, so use compression
+	   to create it. Setting field_header_write_pending also guarantees
+	   that the fields are updated even if the cache was already created
+	   and no compression was done. */
 	dst->field_header_write_pending = TRUE;
-	(void)mail_cache_compress(dst, itrans, &lock);
+	int ret = mail_cache_compress(dst, itrans, &lock);
 	if (lock != NULL)
 		mail_cache_compress_unlock(&lock);
+	if (mail_index_transaction_commit(&itrans) < 0)
+		ret = -1;
+	mail_index_view_close(&dest_view);
+	return ret;
 }

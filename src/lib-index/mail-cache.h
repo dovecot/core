@@ -93,10 +93,9 @@ void mail_cache_view_close(struct mail_cache_view **view);
 void mail_cache_view_update_cache_decisions(struct mail_cache_view *view,
 					    bool update);
 
-/* Copy caching decisions */
-void mail_cache_decisions_copy(struct mail_index_transaction *itrans,
-			       struct mail_cache *src,
-			       struct mail_cache *dst);
+/* Copy caching decisions. This is expected to be called only for a newly
+   created empty mailbox. */
+int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst);
 
 /* Get index transaction specific cache transaction. */
 struct mail_cache_transaction_ctx *

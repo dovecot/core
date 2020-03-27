@@ -1684,14 +1684,8 @@ static void mailbox_copy_cache_decisions_from_inbox(struct mailbox *box)
 	    existence != MAILBOX_EXISTENCE_NONE &&
 	    mailbox_open(inbox) == 0 &&
 	    mailbox_open(box) == 0) {
-		struct mail_index_transaction *dit =
-			mail_index_transaction_begin(box->view,
-						     MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-
-		mail_cache_decisions_copy(dit, inbox->cache, box->cache);
-
 		/* we can't do much about errors here */
-		(void)mail_index_transaction_commit(&dit);
+		(void)mail_cache_decisions_copy(inbox->cache, box->cache);
 	}
 
 	mailbox_free(&inbox);
