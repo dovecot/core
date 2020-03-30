@@ -663,7 +663,8 @@ static void mail_cache_unlock_file(struct mail_cache *cache)
 		file_unlock(&cache->file_lock);
 }
 
-static bool mail_cache_verify_reset_id(struct mail_cache *cache)
+static bool
+mail_cache_verify_reset_id(struct mail_cache *cache, uint32_t *reset_id_r)
 {
 	const struct mail_index_ext *ext;
 	struct mail_index_view *iview;
@@ -674,10 +675,12 @@ static bool mail_cache_verify_reset_id(struct mail_cache *cache)
 	reset_id = ext == NULL ? 0 : ext->reset_id;
 	mail_index_view_close(&iview);
 
+	*reset_id_r = reset_id;
 	return cache->hdr->file_seq == reset_id;
 }
 
-static int mail_cache_sync_wait_index(struct mail_cache *cache)
+static int
+mail_cache_sync_wait_index(struct mail_cache *cache, uint32_t *reset_id_r)
 {
 	const char *lock_reason = "cache reset_id sync";
 	uint32_t file_seq;
@@ -718,7 +721,7 @@ static int mail_cache_sync_wait_index(struct mail_cache *cache)
 	else if (mail_index_refresh(cache->index) < 0)
 		ret = -1;
 	else
-		ret = mail_cache_verify_reset_id(cache) ? 1 : 0;
+		ret = mail_cache_verify_reset_id(cache, reset_id_r) ? 1 : 0;
 	mail_transaction_log_sync_unlock(cache->index->log, lock_reason);
 	if (ret <= 0)
 		mail_cache_unlock_file(cache);
@@ -727,8 +730,11 @@ static int mail_cache_sync_wait_index(struct mail_cache *cache)
 
 static int mail_cache_sync_reset_id(struct mail_cache *cache)
 {
+	uint32_t reset_id;
+	int ret;
+
 	/* verify that the index reset_id matches the cache's file_seq */
-	if (mail_cache_verify_reset_id(cache))
+	if (mail_cache_verify_reset_id(cache, &reset_id))
 		return 1;
 
 	/* Mismatch. See if we can get it synced. */
@@ -736,18 +742,27 @@ static int mail_cache_sync_reset_id(struct mail_cache *cache)
 		/* Syncing is already locked, and we're in the middle of
 		   mapping the index. The cache is unusable. */
 		i_assert(cache->index->log_sync_locked);
+		mail_cache_set_corrupted(cache, "reset_id mismatch during sync");
 		return 0;
 	}
 
 	/* See if reset_id changes after refreshing the index. */
 	if (mail_index_refresh(cache->index) < 0)
 		return -1;
-	if (mail_cache_verify_reset_id(cache))
+	if (mail_cache_verify_reset_id(cache, &reset_id))
 		return 1;
 
 	/* Use locking to wait for a potential cache compressing to finish.
 	   If that didn't work either, the cache is corrupted or lost. */
-	return mail_cache_sync_wait_index(cache);
+	ret = mail_cache_sync_wait_index(cache, &reset_id);
+	if (ret == 0 && cache->fd != -1 && reset_id != 0) {
+		mail_cache_set_corrupted(cache,
+			"reset_id mismatch even after locking "
+			"(file_seq=%u != reset_id=%u)",
+			cache->hdr == NULL ? 0 : cache->hdr->file_seq,
+			reset_id);
+	}
+	return ret;
 }
 
 static int
