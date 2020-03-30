@@ -230,8 +230,6 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 		   happen if old Dovecot was used to access mailbox after
 		   it had been updated. */
 		records_count = I_MAX(msg_count, 1);
-		cache->hdr_copy.record_count = msg_count;
-		cache->hdr_modified = TRUE;
 	} else {
 		records_count = hdr->record_count;
 	}
@@ -930,11 +928,6 @@ int mail_cache_append(struct mail_cache *cache, const void *data, size_t size,
 	}
 	if (mail_cache_write(cache, data, size, *offset) < 0)
 		return -1;
-
-	/* FIXME: this is updated only so that older Dovecot versions (<=v2.1)
-	   can read this file. we can remove this later. */
-	cache->hdr_modified = TRUE;
-	cache->hdr_copy.backwards_compat_used_file_size = *offset + size;
 	return 0;
 }
 
