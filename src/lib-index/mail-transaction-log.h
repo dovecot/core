@@ -287,8 +287,14 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 				     const void *data, size_t size);
 int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **ctx);
 
-/* Lock transaction log for index synchronization. Log cannot be read or
-   written to while it's locked. Returns end offset. */
+/* Lock transaction log for index synchronization. This is used as the main
+   exclusive lock for index changes. The index/log can still be read since they
+   don't use locking, but the log can't be written to while it's locked.
+   Returns 0 on success, -1 if locking failed for any reason.
+
+   After successfully locking the transaction log, the log file is also fully
+   mapped into memory and its sync_offset updated. The locked file's sequence
+   and sync_offset are returned. */
 int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 				   const char *lock_reason,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r);
