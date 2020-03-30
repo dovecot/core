@@ -699,13 +699,20 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	   index. */
 	i_assert(!cache->index->mapping || cache->index->log_sync_locked);
 
-	if (!cache->opened)
-		(void)mail_cache_open_and_verify(cache);
-
-	if (MAIL_CACHE_IS_UNUSABLE(cache) ||
-	    MAIL_INDEX_IS_IN_MEMORY(cache->index) ||
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) ||
 	    cache->index->readonly)
 		return 0;
+
+	/* Make sure at least some cache file is opened. Usually it's the
+	   latest one, so delay until it's locked to check whether a newer
+	   cache file exists. */
+	if ((ret = mail_cache_open_and_verify(cache)) < 0)
+		return -1;
+	if (ret == 0) {
+		/* Cache doesn't exist or it was just found to be corrupted and
+		   was unlinked. Cache compression will create it back. */
+		return 0;
+	}
 
 	for (;;) {
 		if (mail_cache_lock_file(cache, nonblock) <= 0)
@@ -715,9 +722,9 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 			/* locked the latest file */
 			break;
 		}
-		if (mail_cache_reopen(cache) <= 0) {
+		if ((ret = mail_cache_reopen(cache)) <= 0) {
 			i_assert(cache->file_lock == NULL);
-			return -1;
+			return ret;
 		}
 		i_assert(cache->file_lock == NULL);
 		/* okay, so it was just compressed. try again. */
