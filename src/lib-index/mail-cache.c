@@ -155,7 +155,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 	return 1;
 }
 
-static bool mail_cache_need_reopen(struct mail_cache *cache)
+bool mail_cache_need_reopen(struct mail_cache *cache)
 {
 	struct stat st;
 
@@ -198,7 +198,7 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 	return FALSE;
 }
 
-static int mail_cache_reopen_now(struct mail_cache *cache)
+int mail_cache_reopen(struct mail_cache *cache)
 {
 	struct mail_index_view *view;
 	const struct mail_index_ext *ext;
@@ -226,17 +226,6 @@ static int mail_cache_reopen_now(struct mail_cache *cache)
 	mail_index_view_close(&view);
 	i_assert(!MAIL_CACHE_IS_UNUSABLE(cache));
 	return 1;
-}
-
-int mail_cache_reopen(struct mail_cache *cache)
-{
-	i_assert(!cache->locked);
-
-	if (!mail_cache_need_reopen(cache)) {
-		/* reopening does no good */
-		return 0;
-	}
-	return mail_cache_reopen_now(cache);
 }
 
 static void mail_cache_update_need_compress(struct mail_cache *cache)
@@ -750,7 +739,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 			/* locked the latest file */
 			break;
 		}
-		if (mail_cache_reopen_now(cache) <= 0) {
+		if (mail_cache_reopen(cache) <= 0) {
 			i_assert(cache->file_lock == NULL);
 			return -1;
 		}

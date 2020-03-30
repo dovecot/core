@@ -258,6 +258,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
    (and deleted), -1 if I/O error. */
 int mail_cache_map_all(struct mail_cache *cache);
 void mail_cache_file_close(struct mail_cache *cache);
+bool mail_cache_need_reopen(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
 
 /* Notify the decision handling code that field was looked up for seq.

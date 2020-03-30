@@ -100,8 +100,10 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 			return 0;
 		}
 
-		if ((ret = mail_cache_reopen(cache)) <= 0) {
-			/* error / we already have the latest file open */
+		if (!mail_cache_need_reopen(cache))
+			return 0;
+		else if ((ret = mail_cache_reopen(cache)) <= 0) {
+			/* error / corrupted */
 			return ret;
 		}
 	}
