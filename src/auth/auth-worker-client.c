@@ -36,7 +36,13 @@ struct auth_worker_client {
 	bool destroyed:1;
 };
 
+struct auth_worker_command {
+	struct auth_worker_client *client;
+	struct event *event;
+};
+
 struct auth_worker_list_context {
+	struct auth_worker_command *cmd;
 	struct auth_worker_client *client;
 	struct auth_request *auth_request;
 	struct userdb_iterate_context *iter;
@@ -51,17 +57,18 @@ static int auth_worker_output(struct auth_worker_client *client);
 static void auth_worker_client_destroy(struct connection *conn);
 static void auth_worker_client_unref(struct auth_worker_client **_client);
 
-static void auth_worker_log_finished(struct auth_worker_client *client,
+static void auth_worker_log_finished(struct auth_worker_command *cmd,
 				     const char *error)
 {
-	struct event_passthrough *e = event_create_passthrough(client->event)->
-		set_name("auth_worker_request_finished");
+	event_set_name(cmd->event, "auth_worker_request_finished");
 	if (error != NULL) {
-		e->add_str("error", error);
-		e_error(e->event(), "Finished: %s", error);
+		event_add_str(cmd->event, "error", error);
+		e_error(cmd->event, "Finished: %s", error);
 	} else {
-		e_debug(e->event(), "Finished");
+		e_debug(cmd->event, "Finished");
 	}
+	event_unref(&cmd->event);
+	i_free(cmd);
 }
 
 void auth_worker_refresh_proctitle(const char *state)
@@ -87,7 +94,7 @@ auth_worker_client_check_throttle(struct auth_worker_client *client)
 	}
 }
 
-bool auth_worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
+bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int id,
 				  const char *const *args, struct auth_request **request_r)
 {
 	struct auth_request *auth_request;
@@ -95,8 +102,8 @@ bool auth_worker_auth_request_new(struct auth_worker_client *client, unsigned in
 
 	auth_request = auth_request_new_dummy();
 
-	client->refcount++;
-	auth_request->context = client;
+	cmd->client->refcount++;
+	auth_request->context = cmd;
 	auth_request->id = id;
 
 	for (; *args != NULL; args++) {
@@ -140,7 +147,7 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 		p = i_strchr_to_next(str_c(str), '\t');
 		p = p == NULL ? "BUG" : t_strcut(p, '\t');
 
-		e_warning(client->event, "Auth master disconnected us while handling "
+		e_warning(client->conn.event, "Auth master disconnected us while handling "
 			  "request for %s for %ld secs (result=%s)",
 			  request->user, (long)cmd_duration, p);
 	}
@@ -169,7 +176,8 @@ reply_append_extra_fields(string_t *str, struct auth_request *request)
 static void verify_plain_callback(enum passdb_result result,
 				  struct auth_request *request)
 {
-	struct auth_worker_client *client = request->context;
+	struct auth_worker_command *cmd = request->context;
+	struct auth_worker_client *client = cmd->client;
 	string_t *str;
 
 	if (request->failed && result == PASSDB_RESULT_OK)
@@ -198,14 +206,14 @@ static void verify_plain_callback(enum passdb_result result,
 	auth_worker_send_reply(client, request, str);
 
 	auth_request_passdb_lookup_end(request, result);
-	auth_worker_log_finished(client, NULL);
+	auth_worker_log_finished(cmd, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
 }
 
 static bool
-auth_worker_handle_passv(struct auth_worker_client *client,
+auth_worker_handle_passv(struct auth_worker_command *cmd,
 			 unsigned int id, const char *const *args,
 			 const char **error_r)
 {
@@ -222,7 +230,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	}
 	password = args[1];
 
-	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
+	if (!auth_worker_auth_request_new(cmd, id, args + 2, &auth_request)) {
 		*error_r = "BUG: Auth worker server sent us invalid PASSV";
 		return FALSE;
 	}
@@ -254,10 +262,11 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 }
 
 static bool
-auth_worker_handle_passw(struct auth_worker_client *client,
+auth_worker_handle_passw(struct auth_worker_command *cmd,
 			 unsigned int id, const char *const *args,
 			 const char **error_r)
 {
+	struct auth_worker_client *client = cmd->client;
 	struct auth_request *request;
 	string_t *str;
 	const char *password;
@@ -278,7 +287,7 @@ auth_worker_handle_passw(struct auth_worker_client *client,
 		return FALSE;
 	}
 
-	if (!auth_worker_auth_request_new(client, id, args + 3, &request)) {
+	if (!auth_worker_auth_request_new(cmd, id, args + 3, &request)) {
 		*error_r = "BUG: PASSW had missing parameters";
 		return FALSE;
 	}
@@ -300,7 +309,7 @@ auth_worker_handle_passw(struct auth_worker_client *client,
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, request, str);
 
-	auth_worker_log_finished(client, NULL);
+	auth_worker_log_finished(cmd, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -312,7 +321,8 @@ lookup_credentials_callback(enum passdb_result result,
 			    const unsigned char *credentials, size_t size,
 			    struct auth_request *request)
 {
-	struct auth_worker_client *client = request->context;
+	struct auth_worker_command *cmd = request->context;
+	struct auth_worker_client *client = cmd->client;
 	string_t *str;
 
 	if (request->failed && result == PASSDB_RESULT_OK)
@@ -344,13 +354,13 @@ lookup_credentials_callback(enum passdb_result result,
 
 	auth_request_passdb_lookup_end(request, result);
 	auth_request_unref(&request);
-	auth_worker_log_finished(client, NULL);
+	auth_worker_log_finished(cmd, NULL);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
 }
 
 static bool
-auth_worker_handle_passl(struct auth_worker_client *client,
+auth_worker_handle_passl(struct auth_worker_command *cmd,
 			 unsigned int id, const char *const *args,
 			 const char **error_r)
 {
@@ -366,7 +376,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	}
 	scheme = args[1];
 
-	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
+	if (!auth_worker_auth_request_new(cmd, id, args + 2, &auth_request)) {
 		*error_r = "BUG: PASSL had missing parameters";
 		return FALSE;
 	}
@@ -397,7 +407,8 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 static void
 set_credentials_callback(bool success, struct auth_request *request)
 {
-	struct auth_worker_client *client = request->context;
+	struct auth_worker_command *cmd = request->context;
+	struct auth_worker_client *client = cmd->client;
 
 	string_t *str;
 
@@ -405,14 +416,14 @@ set_credentials_callback(bool success, struct auth_request *request)
 	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
 	auth_worker_send_reply(client, request, str);
 
-	auth_worker_log_finished(client, NULL);
+	auth_worker_log_finished(cmd, NULL);
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
 }
 
 static bool
-auth_worker_handle_setcred(struct auth_worker_client *client,
+auth_worker_handle_setcred(struct auth_worker_command *cmd,
 			   unsigned int id, const char *const *args,
 			   const char **error_r)
 {
@@ -427,7 +438,7 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 	}
 	creds = args[1];
 
-	if (!auth_worker_auth_request_new(client, id, args + 2, &auth_request)) {
+	if (!auth_worker_auth_request_new(cmd, id, args + 2, &auth_request)) {
 		*error_r = "BUG: SETCRED had missing parameters";
 		return FALSE;
 	}
@@ -450,7 +461,8 @@ static void
 lookup_user_callback(enum userdb_result result,
 		     struct auth_request *auth_request)
 {
-	struct auth_worker_client *client = auth_request->context;
+	struct auth_worker_command *cmd = auth_request->context;
+	struct auth_worker_client *client = cmd->client;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -480,7 +492,7 @@ lookup_user_callback(enum userdb_result result,
 	auth_worker_send_reply(client, auth_request, str);
 
 	auth_request_userdb_lookup_end(auth_request, result);
-	auth_worker_log_finished(client, NULL);
+	auth_worker_log_finished(cmd, NULL);
 	auth_request_unref(&auth_request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
@@ -499,7 +511,7 @@ auth_userdb_find_by_id(struct auth_userdb *userdbs, unsigned int id)
 }
 
 static bool
-auth_worker_handle_user(struct auth_worker_client *client,
+auth_worker_handle_user(struct auth_worker_command *cmd,
 			unsigned int id, const char *const *args,
 			const char **error_r)
 {
@@ -513,7 +525,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		return FALSE;
 	}
 
-	if (!auth_worker_auth_request_new(client, id, args + 1, &auth_request)) {
+	if (!auth_worker_auth_request_new(cmd, id, args + 1, &auth_request)) {
 		*error_r = "BUG: USER had missing parameters";
 		return FALSE;
 	}
@@ -543,6 +555,7 @@ auth_worker_client_idle_kill(struct connection *conn ATTR_UNUSED)
 
 static void list_iter_deinit(struct auth_worker_list_context *ctx)
 {
+	struct auth_worker_command *cmd = ctx->cmd;
 	struct auth_worker_client *client = ctx->client;
 	string_t *str;
 
@@ -560,7 +573,7 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	o_stream_set_flush_callback(client->conn.output, auth_worker_output,
 				    client);
 	auth_request_userdb_lookup_end(ctx->auth_request, USERDB_RESULT_OK);
-	auth_worker_log_finished(client, NULL);
+	auth_worker_log_finished(cmd, NULL);
 	auth_request_unref(&ctx->auth_request);
 	auth_worker_client_unref(&client);
 	i_free(ctx);
@@ -634,10 +647,11 @@ static int auth_worker_list_output(struct auth_worker_list_context *ctx)
 }
 
 static bool
-auth_worker_handle_list(struct auth_worker_client *client,
+auth_worker_handle_list(struct auth_worker_command *cmd,
 			unsigned int id, const char *const *args,
 			const char **error_r)
 {
+	struct auth_worker_client *client = cmd->client;
 	struct auth_worker_list_context *ctx;
 	struct auth_userdb *userdb;
 	unsigned int userdb_id;
@@ -654,8 +668,9 @@ auth_worker_handle_list(struct auth_worker_client *client,
 	}
 
 	ctx = i_new(struct auth_worker_list_context, 1);
+	ctx->cmd = cmd;
 	ctx->client = client;
-	if (!auth_worker_auth_request_new(client, id, args + 1, &ctx->auth_request)) {
+	if (!auth_worker_auth_request_new(cmd, id, args + 1, &ctx->auth_request)) {
 		*error_r = "BUG: LIST had missing parameters";
 		i_free(ctx);
 		return FALSE;
@@ -720,6 +735,7 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	unsigned int id;
 	bool ret = FALSE;
 	const char *error = NULL;
+	struct auth_worker_command *cmd;
 	struct auth_worker_client *client =
 		container_of(conn, struct auth_worker_client, conn);
 
@@ -730,28 +746,31 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	}
 
 	io_loop_time_refresh();
-	if (client->event == NULL)
-		client->event = event_create(client->conn.event);
-	event_add_str(client->event, "command", args[1]);
-	event_add_int(client->event, "id", id);
-	event_set_append_log_prefix(client->event, t_strdup_printf("auth-worker<%u>: ", id));
+
+	cmd = i_new(struct auth_worker_command, 1);
+	cmd->client = client;
+	cmd->event = event_create(client->conn.event);
+	event_add_category(cmd->event, &event_category_auth);
+	event_add_str(cmd->event, "command", args[1]);
+	event_add_int(cmd->event, "id", id);
+	event_set_append_log_prefix(cmd->event, t_strdup_printf("auth-worker<%u>: ", id));
 	client->cmd_start = ioloop_time;
 	client->refcount++;
-	e_debug(client->event, "Handling %s request", args[1]);
+	e_debug(cmd->event, "Handling %s request", args[1]);
 
 	auth_worker_refresh_proctitle(args[1]);
 	if (strcmp(args[1], "PASSV") == 0)
-		ret = auth_worker_handle_passv(client, id, args + 2, &error);
+		ret = auth_worker_handle_passv(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "PASSL") == 0)
-		ret = auth_worker_handle_passl(client, id, args + 2, &error);
+		ret = auth_worker_handle_passl(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "PASSW") == 0)
-		ret = auth_worker_handle_passw(client, id, args + 2, &error);
+		ret = auth_worker_handle_passw(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "SETCRED") == 0)
-		ret = auth_worker_handle_setcred(client, id, args + 2, &error);
+		ret = auth_worker_handle_setcred(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "USER") == 0)
-		ret = auth_worker_handle_user(client, id, args + 2, &error);
+		ret = auth_worker_handle_user(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "LIST") == 0)
-		ret = auth_worker_handle_list(client, id, args + 2, &error);
+		ret = auth_worker_handle_list(cmd, id, args + 2, &error);
 	else {
 		error = t_strdup_printf("BUG: Auth-worker received unknown command: %s",
 			args[1]);
@@ -760,7 +779,7 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	i_assert(ret || error != NULL);
 
 	if (!ret) {
-		auth_worker_log_finished(client, error);
+		auth_worker_log_finished(cmd, error);
 	} else if (client->conn.io == NULL) {
 		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 	}
@@ -793,7 +812,6 @@ static void auth_worker_client_unref(struct auth_worker_client **_client)
 
 	/* the connection should've been destroyed before getting here */
 	i_assert(client->destroyed);
-	event_unref(&client->event);
 	connection_deinit(&client->conn);
 	i_free(client);
 }
