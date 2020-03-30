@@ -685,9 +685,8 @@ mail_cache_sync_wait_index(struct mail_cache *cache, uint32_t *reset_id_r)
 	const char *lock_reason = "cache reset_id sync";
 	uint32_t file_seq;
 	uoff_t file_offset;
+	bool cache_locked = cache->file_lock != NULL;
 	int ret;
-
-	i_assert(cache->file_lock != NULL);
 
 	if (cache->index->log_sync_locked)
 		return 0;
@@ -697,7 +696,8 @@ mail_cache_sync_wait_index(struct mail_cache *cache, uint32_t *reset_id_r)
 	   unlocks it and only then writes the changes to the index and
 	   releases the .log lock.) To prevent deadlocks, cache file must be
 	   locked after the .log, not before. */
-	mail_cache_unlock_file(cache);
+	if (cache_locked)
+		mail_cache_unlock_file(cache);
 	if (mail_transaction_log_sync_lock(cache->index->log, lock_reason,
 					   &file_seq, &file_offset) < 0)
 		return -1;
@@ -723,12 +723,12 @@ mail_cache_sync_wait_index(struct mail_cache *cache, uint32_t *reset_id_r)
 	else
 		ret = mail_cache_verify_reset_id(cache, reset_id_r) ? 1 : 0;
 	mail_transaction_log_sync_unlock(cache->index->log, lock_reason);
-	if (ret <= 0)
+	if (ret <= 0 || !cache_locked)
 		mail_cache_unlock_file(cache);
 	return ret;
 }
 
-static int mail_cache_sync_reset_id(struct mail_cache *cache)
+int mail_cache_sync_reset_id(struct mail_cache *cache)
 {
 	uint32_t reset_id;
 	int ret;

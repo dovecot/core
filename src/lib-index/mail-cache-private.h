@@ -260,6 +260,7 @@ int mail_cache_map_all(struct mail_cache *cache);
 void mail_cache_file_close(struct mail_cache *cache);
 bool mail_cache_need_reopen(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
+int mail_cache_sync_reset_id(struct mail_cache *cache);
 
 /* Notify the decision handling code that field was looked up for seq.
    This should be called even for fields that aren't currently in cache file.
