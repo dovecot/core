@@ -80,32 +80,31 @@ static int
 mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 			 uint32_t seq, uint32_t *offset_r)
 {
-	uint32_t offset, reset_id;
-	int i, ret;
+	uint32_t offset, reset_id, reset_id2;
+	int ret;
 
 	offset = mail_cache_lookup_cur_offset(view, seq, &reset_id);
 	if (offset == 0)
 		return 0;
 
-	/* reset_id must match file_seq or the offset is for a different cache
-	   file. if this happens, try if reopening the cache helps. if not,
-	   it was probably for an old cache file that's already lost by now. */
-	i = 0;
 	while (cache->hdr->file_seq != reset_id) {
-		if (++i == 2 || reset_id < cache->hdr->file_seq)
-			return 0;
-
-		if (cache->locked) {
-			/* we're probably compressing */
-			return 0;
-		}
-
-		if (!mail_cache_need_reopen(cache))
-			return 0;
-		else if ((ret = mail_cache_reopen(cache)) <= 0) {
-			/* error / corrupted */
+		/* reset_it doesn't match - sync the index/cache */
+		if ((ret = mail_cache_sync_reset_id(cache)) <= 0)
 			return ret;
+
+		/* lookup again after syncing */
+		offset = mail_cache_lookup_cur_offset(view, seq, &reset_id2);
+		if (offset == 0)
+			return 0;
+		if (cache->hdr->file_seq == reset_id2)
+			break; /* match - all good */
+		if (reset_id == reset_id2) {
+			/* reset_id didn't change after sync. This means it's
+			   pointing to an old already deleted cache file. */
+			return 0;
 		}
+		/* reset_id changed - try again */
+		reset_id = reset_id2;
 	}
 
 	*offset_r = offset;
