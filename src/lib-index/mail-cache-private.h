@@ -250,10 +250,12 @@ mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
 				  unsigned int *trans_next_idx);
 
 /* Return data from the specified position in the cache file. Returns 1 if
-   successful, 0 if offset/size points outside the cache file, -1 if error. */
+   successful, 0 if offset/size points outside the cache file, -1 if I/O
+   error. */
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		   const void **data_r);
-/* Map the whole cache file into memory. Returns 0 if ok, -1 if error. */
+/* Map the whole cache file into memory. Returns 1 if ok, 0 if corrupted
+   (and deleted), -1 if I/O error. */
 int mail_cache_map_all(struct mail_cache *cache);
 void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);

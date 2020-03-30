@@ -146,7 +146,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 
 	mail_cache_init_file_cache(cache);
 
-	if (mail_cache_map_all(cache) < 0) {
+	if (mail_cache_map_all(cache) <= 0) {
 		mail_cache_file_close(cache);
 		return -1;
 	}
@@ -334,9 +334,11 @@ static bool mail_cache_verify_header(struct mail_cache *cache,
 
 static int
 mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
-		      const void *hdr_data, bool copy_hdr)
+		      const void *hdr_data, bool copy_hdr, bool *corrupted_r)
 {
 	const struct mail_cache_header *hdr = hdr_data;
+
+	*corrupted_r = FALSE;
 
 	if (offset == 0) {
 		/* verify the header validity only with offset=0. this way
@@ -347,6 +349,7 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 				cache->hdr->file_seq != 0 ?
 				cache->hdr->file_seq : 0;
 			cache->hdr = NULL;
+			*corrupted_r = TRUE;
 			return -1;
 		}
 	}
@@ -371,7 +374,7 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 
 static int
 mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
-			 const void **data_r)
+			 const void **data_r, bool *corrupted_r)
 {
 	const void *hdr_data;
 	void *data;
@@ -386,7 +389,8 @@ mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
 		*data_r = CONST_PTR_OFFSET(cache->read_buf->data,
 					   offset - cache->read_offset);
 		hdr_data = offset == 0 ? *data_r : NULL;
-		return mail_cache_map_finish(cache, offset, size, hdr_data, TRUE);
+		return mail_cache_map_finish(cache, offset, size, hdr_data,
+					     TRUE, corrupted_r);
 	} else {
 		buffer_set_used_size(cache->read_buf, 0);
 	}
@@ -416,15 +420,19 @@ mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
 	*data_r = data;
 	hdr_data = offset == 0 ? *data_r : NULL;
 	return mail_cache_map_finish(cache, offset,
-				     cache->read_buf->used, hdr_data, TRUE);
+				     cache->read_buf->used, hdr_data,
+				     TRUE, corrupted_r);
 }
 
-int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
-		   const void **data_r)
+static int
+mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
+		    const void **data_r, bool *corrupted_r)
 {
 	struct stat st;
 	const void *data;
 	ssize_t ret;
+
+	*corrupted_r = FALSE;
 
 	if (size == 0)
 		size = sizeof(struct mail_cache_header);
@@ -450,7 +458,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 
 	cache->remap_counter++;
 	if (cache->map_with_read)
-		return mail_cache_map_with_read(cache, offset, size, data_r);
+		return mail_cache_map_with_read(cache, offset, size, data_r,
+						corrupted_r);
 
 	if (cache->file_cache != NULL) {
 		ret = file_cache_read(cache->file_cache, offset, size);
@@ -473,7 +482,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		*data_r = offset > cache->mmap_length ? NULL :
 			CONST_PTR_OFFSET(data, offset);
 		return mail_cache_map_finish(cache, offset, size,
-					     offset == 0 ? data : NULL, TRUE);
+					     offset == 0 ? data : NULL, TRUE,
+					     corrupted_r);
 	}
 
 	if (offset < cache->mmap_length &&
@@ -517,16 +527,32 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	*data_r = offset > cache->mmap_length ? NULL :
 		CONST_PTR_OFFSET(cache->mmap_base, offset);
 	return mail_cache_map_finish(cache, offset, size,
-				     cache->mmap_base, FALSE);
+				     cache->mmap_base, FALSE, corrupted_r);
+}
+
+int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
+		   const void **data_r)
+{
+	i_assert(offset != 0);
+
+	bool corrupted;
+	int ret = mail_cache_map_full(cache, offset, size, data_r, &corrupted);
+	i_assert(!corrupted);
+	return ret;
 }
 
 int mail_cache_map_all(struct mail_cache *cache)
 {
 	const void *data;
+	bool corrupted;
 
-	int ret = mail_cache_map(cache, 0, 0, &data);
+	int ret = mail_cache_map_full(cache, 0, 0, &data, &corrupted);
 	i_assert(ret != 0);
-	return ret < 0 ? -1 : 0;
+	if (corrupted) {
+		i_assert(ret == -1);
+		return 0;
+	}
+	return ret < 0 ? -1 : 1;
 }
 
 int mail_cache_open_and_verify(struct mail_cache *cache)
@@ -740,9 +766,9 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	}
 	if (cache->read_buf != NULL)
 		buffer_set_used_size(cache->read_buf, 0);
-	if (mail_cache_map_all(cache) < 0) {
+	if ((ret = mail_cache_map_all(cache)) <= 0) {
 		(void)mail_cache_unlock(cache);
-		return -1;
+		return ret;
 	}
 	cache->hdr_copy = *cache->hdr;
 	return 1;
