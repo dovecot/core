@@ -851,10 +851,11 @@ int mail_cache_flush_and_unlock(struct mail_cache *cache)
 	if (cache->field_header_write_pending)
                 ret = mail_cache_header_fields_update(cache);
 
+	/* Cache may become unusable during for various reasons, e.g.
+	   mail_cache_map(). Also the above mail_cache_header_fields_update()
+	   call can make it unusable, so check this after it. */
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
-		/* we found it to be broken during the lock. just clean up. */
-		cache->hdr_modified = FALSE;
-		cache->locked = FALSE;
+		mail_cache_unlock(cache);
 		return -1;
 	}
 
@@ -867,14 +868,24 @@ int mail_cache_flush_and_unlock(struct mail_cache *cache)
 		mail_cache_update_need_compress(cache);
 	}
 
-	if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
+	mail_cache_unlock(cache);
+	return ret;
+}
+
+void mail_cache_unlock(struct mail_cache *cache)
+{
+	i_assert(cache->locked);
+
+	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
+		/* we found it to be broken during the lock. just clean up. */
+		cache->hdr_modified = FALSE;
+	} else if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(cache->fd) < 0)
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 	}
 
 	cache->locked = FALSE;
 	mail_cache_unlock_file(cache);
-	return ret;
 }
 
 int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
