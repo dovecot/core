@@ -590,11 +590,15 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 						   &file_seq, &file_offset) < 0)
 			return -1;
 	}
+	/* make sure we see the latest changes in index */
+	ret = mail_index_refresh(cache->index);
 
 	view = mail_index_view_open(cache->index);
 	trans = mail_index_transaction_begin(view,
 		MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	if ((ret = mail_cache_compress_full(cache, trans, compress_file_seq, &lock)) < 0)
+	if (ret < 0)
+		;
+	else if ((ret = mail_cache_compress_full(cache, trans, compress_file_seq, &lock)) < 0)
 		mail_index_transaction_rollback(&trans);
 	else {
 		if (mail_index_transaction_commit(&trans) < 0)
