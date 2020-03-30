@@ -156,6 +156,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **_ctx)
 		if (mail_cache_transaction_lock(ctx) > 0) {
 			ctx->cache->hdr_copy.deleted_record_count +=
 				ctx->records_written;
+			ctx->cache->hdr_modified = TRUE;
 			(void)mail_cache_flush_and_unlock(ctx->cache);
 		}
 	}
