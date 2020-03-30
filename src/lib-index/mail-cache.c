@@ -124,6 +124,8 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 
 static int mail_cache_try_open(struct mail_cache *cache)
 {
+	int ret;
+
 	i_assert(!cache->opened);
 	cache->opened = TRUE;
 
@@ -146,9 +148,9 @@ static int mail_cache_try_open(struct mail_cache *cache)
 
 	mail_cache_init_file_cache(cache);
 
-	if (mail_cache_map_all(cache) <= 0) {
+	if ((ret = mail_cache_map_all(cache)) <= 0) {
 		mail_cache_file_close(cache);
-		return -1;
+		return ret;
 	}
 	return 1;
 }
@@ -553,14 +555,25 @@ int mail_cache_open_and_verify(struct mail_cache *cache)
 {
 	int ret;
 
-	if (cache->opened)
-		return 0;
-	ret = mail_cache_try_open(cache);
-	if (ret > 0)
-		ret = mail_cache_header_fields_read(cache);
-	if (ret < 0) {
-		/* failed for some reason - doesn't really matter,
-		   it's disabled for now. */
+	if (cache->opened) {
+		if (!MAIL_CACHE_IS_UNUSABLE(cache))
+			return 1;
+		mail_cache_file_close(cache);
+	}
+	if ((ret = mail_cache_try_open(cache)) < 0) {
+		/* I/O error */
+		mail_cache_file_close(cache);
+		return -1;
+	}
+
+	if (ret > 0) {
+		if (mail_cache_header_fields_read(cache) < 0) {
+			/* corrupted */
+			ret = 0;
+		}
+	}
+	if (ret == 0) {
+		/* cache was corrupted and should have been deleted already. */
 		mail_cache_file_close(cache);
 	}
 	return ret;
