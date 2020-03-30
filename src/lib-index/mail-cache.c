@@ -200,32 +200,8 @@ bool mail_cache_need_reopen(struct mail_cache *cache)
 
 int mail_cache_reopen(struct mail_cache *cache)
 {
-	struct mail_index_view *view;
-	const struct mail_index_ext *ext;
-
 	mail_cache_file_close(cache);
-
-	if (mail_cache_try_open(cache) <= 0)
-		return -1;
-
-	if (mail_cache_header_fields_read(cache) < 0)
-		return -1;
-
-	view = mail_index_view_open(cache->index);
-	ext = mail_index_view_get_ext(view, cache->ext_id);
-	if (ext == NULL || cache->hdr->file_seq != ext->reset_id) {
-		/* still different - maybe a race condition or maybe the
-		   file_seq really is corrupted. either way, this shouldn't
-		   happen often so we'll just mark cache to be compressed
-		   later which fixes this. */
-		cache->need_compress_file_seq = cache->hdr->file_seq;
-		mail_index_view_close(&view);
-		return 0;
-	}
-
-	mail_index_view_close(&view);
-	i_assert(!MAIL_CACHE_IS_UNUSABLE(cache));
-	return 1;
+	return mail_cache_open_and_verify(cache);
 }
 
 static void mail_cache_update_need_compress(struct mail_cache *cache)
