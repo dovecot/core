@@ -520,6 +520,15 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 				     cache->mmap_base, FALSE);
 }
 
+int mail_cache_map_all(struct mail_cache *cache)
+{
+	const void *data;
+
+	int ret = mail_cache_map(cache, 0, 0, &data);
+	i_assert(ret != 0);
+	return ret < 0 ? -1 : 0;
+}
+
 int mail_cache_open_and_verify(struct mail_cache *cache)
 {
 	int ret;
