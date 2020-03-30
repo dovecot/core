@@ -366,7 +366,7 @@ mail_cache_compress_write(struct mail_cache *cache,
 	array_free(&ext_offsets);
 
 	if (*unlock) {
-		(void)mail_cache_flush_and_unlock(cache);
+		mail_cache_unlock(cache);
 		*unlock = FALSE;
 	}
 
@@ -435,7 +435,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		cache->need_compress_file_seq = 0;
 
 		if (*unlock) {
-			(void)mail_cache_flush_and_unlock(cache);
+			(void)mail_cache_unlock(cache);
 			*unlock = FALSE;
 		}
 
@@ -510,10 +510,9 @@ mail_cache_compress_full(struct mail_cache *cache,
 	cache->compressing = TRUE;
 	ret = mail_cache_compress_locked(cache, compress_file_seq, trans, &unlock);
 	cache->compressing = FALSE;
-	if (unlock) {
-		if (mail_cache_flush_and_unlock(cache) < 0)
-			ret = -1;
-	}
+	if (unlock)
+		mail_cache_unlock(cache);
+	i_assert(!cache->hdr_modified);
 	if (ret < 0) {
 		/* the fields may have been updated in memory already.
 		   reverse those changes by re-reading them from file. */

@@ -823,7 +823,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	if (cache->read_buf != NULL)
 		buffer_set_used_size(cache->read_buf, 0);
 	if ((ret = mail_cache_map_all(cache)) <= 0) {
-		(void)mail_cache_flush_and_unlock(cache);
+		mail_cache_unlock(cache);
 		return ret;
 	}
 	cache->hdr_copy = *cache->hdr;
