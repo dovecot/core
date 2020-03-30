@@ -123,8 +123,6 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 
 static int mail_cache_try_open(struct mail_cache *cache)
 {
-	const void *data;
-
 	i_assert(!cache->opened);
 	cache->opened = TRUE;
 
@@ -147,7 +145,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 
 	mail_cache_init_file_cache(cache);
 
-	if (mail_cache_map(cache, 0, 0, &data) < 0) {
+	if (mail_cache_map_all(cache) < 0) {
 		mail_cache_file_close(cache);
 		return -1;
 	}
@@ -690,7 +688,6 @@ static int mail_cache_sync_reset_id(struct mail_cache *cache)
 static int
 mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 {
-	const void *data;
 	int ret;
 
 	i_assert(!cache->locked);
@@ -738,7 +735,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	}
 	if (cache->read_buf != NULL)
 		buffer_set_used_size(cache->read_buf, 0);
-	if (mail_cache_map(cache, 0, 0, &data) <= 0) {
+	if (mail_cache_map_all(cache) < 0) {
 		(void)mail_cache_unlock(cache);
 		return -1;
 	}

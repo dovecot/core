@@ -435,7 +435,6 @@ static int mail_cache_compress_locked(struct mail_cache *cache, bool forced,
 				      bool *unlock, struct dotlock **dotlock_r)
 {
 	const char *temp_path;
-	const void *data;
 	int fd, ret;
 
 	/* There are two possible locking situations here:
@@ -467,7 +466,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache, bool forced,
 	}
 	if (cache->fd != -1) {
 		/* make sure we have mapped it before reading. */
-		if (mail_cache_map(cache, 0, 0, &data) < 0)
+		if (mail_cache_map_all(cache) < 0)
 			return -1;
 	}
 
@@ -483,7 +482,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache, bool forced,
 	if (cache->file_cache != NULL)
 		file_cache_set_fd(cache->file_cache, cache->fd);
 
-	if (mail_cache_map(cache, 0, 0, &data) < 0)
+	if (mail_cache_map_all(cache) < 0)
 		return -1;
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
