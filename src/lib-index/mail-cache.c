@@ -155,7 +155,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 	return 1;
 }
 
-bool mail_cache_need_reopen(struct mail_cache *cache)
+static bool mail_cache_need_reopen(struct mail_cache *cache)
 {
 	struct stat st;
 
