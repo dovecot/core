@@ -662,30 +662,40 @@ static void mail_cache_unlock_file(struct mail_cache *cache)
 	file_unlock(&cache->file_lock);
 }
 
-static int mail_cache_sync_reset_id(struct mail_cache *cache)
+static bool mail_cache_verify_reset_id(struct mail_cache *cache)
 {
 	const struct mail_index_ext *ext;
 	struct mail_index_view *iview;
 	uint32_t reset_id;
-	int i;
 
-	/* now verify that the index reset_id matches the cache's file_seq */
-	for (i = 0; ; i++) {
-		iview = mail_index_view_open(cache->index);
-		ext = mail_index_view_get_ext(iview, cache->ext_id);
-		reset_id = ext == NULL ? 0 : ext->reset_id;
-		mail_index_view_close(&iview);
+	iview = mail_index_view_open(cache->index);
+	ext = mail_index_view_get_ext(iview, cache->ext_id);
+	reset_id = ext == NULL ? 0 : ext->reset_id;
+	mail_index_view_close(&iview);
 
-		if (cache->hdr->file_seq == reset_id)
-			break;
-		/* mismatch. try refreshing index once. if that doesn't help,
-		   we can't use the cache. */
-		if (i > 0 || cache->index->mapping)
-			return 0;
-		if (mail_index_refresh(cache->index) < 0)
-			return -1;
+	return cache->hdr->file_seq == reset_id;
+}
+
+static int mail_cache_sync_reset_id(struct mail_cache *cache)
+{
+	/* verify that the index reset_id matches the cache's file_seq */
+	if (mail_cache_verify_reset_id(cache))
+		return 1;
+
+	/* Mismatch. See if we can get it synced. */
+	if (cache->index->mapping) {
+		/* Syncing is already locked, and we're in the middle of
+		   mapping the index. The cache is unusable. */
+		i_assert(cache->index->log_sync_locked);
+		return 0;
 	}
-	return 1;
+
+	/* See if reset_id changes after refreshing the index. */
+	if (mail_index_refresh(cache->index) < 0)
+		return -1;
+	if (mail_cache_verify_reset_id(cache))
+		return 1;
+	return 0;
 }
 
 static int
