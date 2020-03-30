@@ -157,15 +157,9 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 {
 	struct stat st;
 
-	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
-		if (cache->need_compress_file_seq != 0) {
-			/* we're waiting for compression */
-			return FALSE;
-		}
-		if (MAIL_INDEX_IS_IN_MEMORY(cache->index)) {
-			/* disabled */
-			return FALSE;
-		}
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index)) {
+		/* disabled */
+		return FALSE;
 	}
 
 	if (cache->fd == -1)
