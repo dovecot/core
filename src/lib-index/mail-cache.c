@@ -659,7 +659,8 @@ static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 
 static void mail_cache_unlock_file(struct mail_cache *cache)
 {
-	file_unlock(&cache->file_lock);
+	if (cache->file_lock != NULL)
+		file_unlock(&cache->file_lock);
 }
 
 static bool mail_cache_verify_reset_id(struct mail_cache *cache)
@@ -674,6 +675,54 @@ static bool mail_cache_verify_reset_id(struct mail_cache *cache)
 	mail_index_view_close(&iview);
 
 	return cache->hdr->file_seq == reset_id;
+}
+
+static int mail_cache_sync_wait_index(struct mail_cache *cache)
+{
+	const char *lock_reason = "cache reset_id sync";
+	uint32_t file_seq;
+	uoff_t file_offset;
+	int ret;
+
+	i_assert(cache->file_lock != NULL);
+
+	if (cache->index->log_sync_locked)
+		return 0;
+
+	/* Wait for .log file lock, so we can be sure that there are no cache
+	   compressions going on. (Because it first recreates the cache file,
+	   unlocks it and only then writes the changes to the index and
+	   releases the .log lock.) To prevent deadlocks, cache file must be
+	   locked after the .log, not before. */
+	mail_cache_unlock_file(cache);
+	if (mail_transaction_log_sync_lock(cache->index->log, lock_reason,
+					   &file_seq, &file_offset) < 0)
+		return -1;
+	/* Lock the cache file as well so we'll get a guaranteed result on
+	   whether the reset_id can be synced or if it's already desynced and
+	   the cache just needs to be recreated. */
+	ret = -1;
+	while (mail_cache_lock_file(cache, FALSE) > 0) {
+		/* Locked the current fd, but it may have already been
+		   recreated. Reopen and retry if needed. */
+		if (!mail_cache_need_reopen(cache)) {
+			ret = 1;
+			break;
+		}
+		if ((ret = mail_cache_reopen(cache)) <= 0)
+			break;
+	}
+
+	if (ret <= 0)
+		;
+	else if (mail_index_refresh(cache->index) < 0)
+		ret = -1;
+	else
+		ret = mail_cache_verify_reset_id(cache) ? 1 : 0;
+	mail_transaction_log_sync_unlock(cache->index->log, lock_reason);
+	if (ret <= 0)
+		mail_cache_unlock_file(cache);
+	return ret;
 }
 
 static int mail_cache_sync_reset_id(struct mail_cache *cache)
@@ -695,7 +744,10 @@ static int mail_cache_sync_reset_id(struct mail_cache *cache)
 		return -1;
 	if (mail_cache_verify_reset_id(cache))
 		return 1;
-	return 0;
+
+	/* Use locking to wait for a potential cache compressing to finish.
+	   If that didn't work either, the cache is corrupted or lost. */
+	return mail_cache_sync_wait_index(cache);
 }
 
 static int
@@ -708,6 +760,8 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	   if we're coming from mail_cache_expunge_count() while syncing the
 	   index. */
 	i_assert(!cache->index->mapping || cache->index->log_sync_locked);
+	/* No need to fully support nonblock=TRUE for now at least */
+	i_assert(!nonblock || cache->index->log_sync_locked);
 
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) ||
 	    cache->index->readonly)
@@ -727,7 +781,6 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	for (;;) {
 		if (mail_cache_lock_file(cache, nonblock) <= 0)
 			return -1;
-		i_assert(!MAIL_CACHE_IS_UNUSABLE(cache));
 		if (!mail_cache_need_reopen(cache)) {
 			/* locked the latest file */
 			break;
@@ -744,6 +797,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 		mail_cache_unlock_file(cache);
 		return ret;
 	}
+	i_assert(cache->file_lock != NULL);
 
 	/* successfully locked - make sure our header is up to date */
 	cache->locked = TRUE;
