@@ -825,7 +825,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	if (cache->read_buf != NULL)
 		buffer_set_used_size(cache->read_buf, 0);
 	if ((ret = mail_cache_map_all(cache)) <= 0) {
-		(void)mail_cache_unlock(cache);
+		(void)mail_cache_flush_and_unlock(cache);
 		return ret;
 	}
 	cache->hdr_copy = *cache->hdr;
@@ -842,7 +842,7 @@ int mail_cache_try_lock(struct mail_cache *cache)
 	return mail_cache_lock_full(cache, TRUE);
 }
 
-int mail_cache_unlock(struct mail_cache *cache)
+int mail_cache_flush_and_unlock(struct mail_cache *cache)
 {
 	int ret = 0;
 

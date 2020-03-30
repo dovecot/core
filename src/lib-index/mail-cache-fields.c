@@ -563,7 +563,7 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	T_BEGIN {
 		ret = mail_cache_header_fields_update_locked(cache);
 	} T_END;
-	if (mail_cache_unlock(cache) < 0)
+	if (mail_cache_flush_and_unlock(cache) < 0)
 		ret = -1;
 	return ret;
 }

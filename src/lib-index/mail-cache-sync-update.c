@@ -17,7 +17,7 @@ void mail_cache_expunge_count(struct mail_cache *cache, unsigned int count)
 		else
 			 cache->hdr_copy.record_count = 0;
 		cache->hdr_modified = TRUE;
-		(void)mail_cache_unlock(cache);
+		(void)mail_cache_flush_and_unlock(cache);
 	}
 }
 

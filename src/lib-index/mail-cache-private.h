@@ -212,7 +212,7 @@ struct mail_cache_lookup_iterate_ctx {
 int mail_cache_lock(struct mail_cache *cache);
 int mail_cache_try_lock(struct mail_cache *cache);
 /* Returns -1 if cache is / just got corrupted, 0 if ok. */
-int mail_cache_unlock(struct mail_cache *cache);
+int mail_cache_flush_and_unlock(struct mail_cache *cache);
 
 int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 		     uoff_t offset);

@@ -366,7 +366,7 @@ mail_cache_compress_write(struct mail_cache *cache,
 	array_free(&ext_offsets);
 
 	if (*unlock) {
-		(void)mail_cache_unlock(cache);
+		(void)mail_cache_flush_and_unlock(cache);
 		*unlock = FALSE;
 	}
 
@@ -435,7 +435,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		cache->need_compress_file_seq = 0;
 
 		if (*unlock) {
-			(void)mail_cache_unlock(cache);
+			(void)mail_cache_flush_and_unlock(cache);
 			*unlock = FALSE;
 		}
 
@@ -511,7 +511,7 @@ mail_cache_compress_full(struct mail_cache *cache,
 	ret = mail_cache_compress_locked(cache, compress_file_seq, trans, &unlock);
 	cache->compressing = FALSE;
 	if (unlock) {
-		if (mail_cache_unlock(cache) < 0)
+		if (mail_cache_flush_and_unlock(cache) < 0)
 			ret = -1;
 	}
 	if (ret < 0) {

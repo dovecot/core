@@ -156,7 +156,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **_ctx)
 		if (mail_cache_transaction_lock(ctx) > 0) {
 			ctx->cache->hdr_copy.deleted_record_count +=
 				ctx->records_written;
-			(void)mail_cache_unlock(ctx->cache);
+			(void)mail_cache_flush_and_unlock(ctx->cache);
 		}
 	}
 
@@ -219,7 +219,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 		   it to free up some space. */
 		if (cache->hdr->continued_record_count > 0 ||
 		    cache->hdr->deleted_record_count > 0) {
-			(void)mail_cache_unlock(cache);
+			(void)mail_cache_flush_and_unlock(cache);
 			(void)mail_cache_transaction_compress(ctx);
 			return mail_cache_transaction_lock(ctx);
 		}
@@ -467,7 +467,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	i_assert(ctx->last_rec_pos <= ctx->cache_data->used);
 
 	if (mail_cache_transaction_update_fields(ctx) < 0) {
-		(void)mail_cache_unlock(ctx->cache);
+		(void)mail_cache_flush_and_unlock(ctx->cache);
 		return -1;
 	}
 
@@ -495,7 +495,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		ctx->records_written++;
 		mail_cache_transaction_update_index(ctx, write_offset);
 	}
-	if (mail_cache_unlock(ctx->cache) < 0)
+	if (mail_cache_flush_and_unlock(ctx->cache) < 0)
 		ret = -1;
 	return ret;
 }
