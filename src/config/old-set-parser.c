@@ -341,6 +341,11 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		set_rename(ctx, key, "mdbox_rotate_size", value);
 		return TRUE;
 	}
+	if (str_begins(key, "mail_cache_compress_")) {
+		const char *new_key = t_strconcat("mail_cache_purge_", key+20, NULL);
+		set_rename(ctx, key, new_key, value);
+		return TRUE;
+	}
 	if (strcmp(key, "imap_client_workarounds") == 0) {
 		char **args, **arg;
 
