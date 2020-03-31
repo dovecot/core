@@ -495,9 +495,9 @@ mail_cache_compress_full(struct mail_cache *cache,
 	   the same time, but locking the cache file itself prevents other
 	   processes from doing other changes to it (header changes, adding
 	   more cached data). */
-	switch (mail_cache_try_lock(cache)) {
+	switch (mail_cache_lock(cache)) {
 	case -1:
-		/* already locked or some other error */
+		/* lock timeout or some other error */
 		return -1;
 	case 0:
 		/* cache is broken or doesn't exist.
