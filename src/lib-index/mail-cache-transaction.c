@@ -339,7 +339,7 @@ mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
 	return NULL;
 }
 
-static int
+static void
 mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 				    uint32_t write_offset)
 {
@@ -362,7 +362,6 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 		write_offset += rec->size;
 		rec = CONST_PTR_OFFSET(rec, rec->size);
 	}
-	return 0;
 }
 
 static int
@@ -471,7 +470,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	else {
 		/* update records' cache offsets to index */
 		ctx->records_written++;
-		ret = mail_cache_transaction_update_index(ctx, write_offset);
+		mail_cache_transaction_update_index(ctx, write_offset);
 	}
 	if (mail_cache_unlock(ctx->cache) < 0)
 		ret = -1;
