@@ -61,6 +61,7 @@ headers = \
         mailbox-log.h
 
 test_programs = \
+	test-mail-cache-purge \
 	test-mail-index \
 	test-mail-index-map \
 	test-mail-index-modseq \
@@ -79,6 +80,10 @@ test_libs = \
 	../lib/liblib.la
 
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+
+test_mail_cache_purge_SOURCES = test-mail-cache-common.c test-mail-cache-purge.c
+test_mail_cache_purge_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
+test_mail_cache_purge_DEPENDENCIES = $(test_deps)
 
 test_mail_index_SOURCES = test-mail-index.c
 test_mail_index_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
@@ -124,4 +129,6 @@ check-local:
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
-noinst_HEADERS = test-mail-index.h
+noinst_HEADERS = \
+	test-mail-cache.h \
+	test-mail-index.h
