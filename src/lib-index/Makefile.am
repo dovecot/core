@@ -7,10 +7,10 @@ AM_CPPFLAGS = \
 
 libindex_la_SOURCES = \
 	mail-cache.c \
-	mail-cache-compress.c \
 	mail-cache-decisions.c \
 	mail-cache-fields.c \
 	mail-cache-lookup.c \
+	mail-cache-purge.c \
 	mail-cache-transaction.c \
 	mail-cache-sync-update.c \
         mail-index.c \
