@@ -345,13 +345,6 @@ static int mail_cache_seq(struct mail_cache_view *view, uint32_t seq)
 	return ret;
 }
 
-static bool
-mail_cache_file_has_field(struct mail_cache *cache, unsigned int field)
-{
-	i_assert(field < cache->fields_count);
-	return cache->field_file_map[field] != (uint32_t)-1;
-}
-
 int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 			    unsigned int field)
 {
@@ -359,11 +352,9 @@ int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 
 	i_assert(seq > 0);
 
-	if (!view->cache->opened)
-		(void)mail_cache_open_and_verify(view->cache);
-
-	if (!mail_cache_file_has_field(view->cache, field))
-		return 0;
+	/* NOTE: view might point to a non-committed transaction that has
+	   fields that don't yet exist in the cache file. So don't add any
+	   fast-paths checking whether the field exists in the file. */
 
 	/* FIXME: we should discard the cache if view has been synced */
 	if (view->cached_exists_seq != seq) {
@@ -520,7 +511,6 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 			       uint32_t seq, const unsigned int field_idxs[],
 			       unsigned int fields_count, pool_t *pool_r)
 {
-	struct mail_cache *cache = view->cache;
 	struct mail_cache_lookup_iterate_ctx iter;
 	struct mail_cache_iterate_field field;
 	struct header_lookup_context ctx;
@@ -538,9 +528,6 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	if (fields_count == 0)
 		return 1;
 
-	if (!view->cache->opened)
-		(void)mail_cache_open_and_verify(view->cache);
-
 	/* update the decision state regardless of whether the fields
 	   actually exist or not. */
 	for (i = 0; i < fields_count; i++)
@@ -549,9 +536,6 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	/* mark all the fields we want to find. */
 	buf = t_buffer_create(32);
 	for (i = 0; i < fields_count; i++) {
-		if (!mail_cache_file_has_field(cache, field_idxs[i]))
-			return 0;
-
 		if (field_idxs[i] > max_field)
 			max_field = field_idxs[i];
 
