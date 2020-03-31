@@ -124,8 +124,13 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 }
 
 static void
-mail_cache_transaction_forget_flushed(struct mail_cache_transaction_ctx *ctx)
+mail_cache_transaction_forget_flushed(struct mail_cache_transaction_ctx *ctx,
+				      bool reset_id_changed)
 {
+	if (reset_id_changed && ctx->records_written > 0) {
+		/* don't increase deleted_record_count in the new file */
+		ctx->records_written = 0;
+	}
 	ctx->cache_file_seq = MAIL_CACHE_IS_UNUSABLE(ctx->cache) ? 0 :
 		ctx->cache->hdr->file_seq;
 	/* forget all cache extension updates even if reset_id doesn't change */
@@ -135,7 +140,7 @@ mail_cache_transaction_forget_flushed(struct mail_cache_transaction_ctx *ctx)
 
 void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
 {
-	mail_cache_transaction_forget_flushed(ctx);
+	mail_cache_transaction_forget_flushed(ctx, FALSE);
 	if (ctx->cache_data != NULL)
 		buffer_set_used_size(ctx->cache_data, 0);
 	if (array_is_created(&ctx->cache_data_seq))
@@ -203,7 +208,7 @@ mail_cache_transaction_purge(struct mail_cache_transaction_ctx *ctx)
 	int ret = mail_cache_purge(cache, purge_file_seq);
 	/* already written cache records must be forgotten, but records in
 	   memory can still be written to the new cache file */
-	mail_cache_transaction_forget_flushed(ctx);
+	mail_cache_transaction_forget_flushed(ctx, TRUE);
 	return ret;
 }
 
@@ -245,7 +250,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 	else if (ctx->cache_file_seq != cache->hdr->file_seq) {
 		/* already written cache records must be forgotten, but records
 		   in memory can still be written to the new cache file */
-		mail_cache_transaction_forget_flushed(ctx);
+		mail_cache_transaction_forget_flushed(ctx, TRUE);
 		i_assert(ctx->cache_file_seq == cache->hdr->file_seq);
 	}
 	return 1;
