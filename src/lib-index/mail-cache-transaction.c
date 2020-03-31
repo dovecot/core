@@ -16,7 +16,6 @@
 #include <sys/stat.h>
 
 #define MAIL_CACHE_INIT_WRITE_BUFFER (1024*16)
-#define MAIL_CACHE_MAX_WRITE_BUFFER (1024*256)
 
 #define CACHE_TRANS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, cache_mail_index_transaction_module)
