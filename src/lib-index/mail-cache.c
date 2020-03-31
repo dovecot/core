@@ -180,6 +180,7 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 		mail_cache_set_syscall_error(cache, "stat()");
 		return TRUE;
 	}
+	cache->last_stat_size = st.st_size;
 
 	if (st.st_ino != cache->st_ino ||
 	    !CMP_DEV_T(st.st_dev, cache->st_dev)) {
