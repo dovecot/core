@@ -127,12 +127,17 @@ static void
 mail_cache_transaction_forget_flushed(struct mail_cache_transaction_ctx *ctx,
 				      bool reset_id_changed)
 {
+	uint32_t new_cache_file_seq = MAIL_CACHE_IS_UNUSABLE(ctx->cache) ? 0 :
+		ctx->cache->hdr->file_seq;
 	if (reset_id_changed && ctx->records_written > 0) {
+		e_warning(ctx->cache->event,
+			  "Purging lost %u written cache records "
+			  "(reset_id changed %u -> %u)", ctx->records_written,
+			  ctx->cache_file_seq, new_cache_file_seq);
 		/* don't increase deleted_record_count in the new file */
 		ctx->records_written = 0;
 	}
-	ctx->cache_file_seq = MAIL_CACHE_IS_UNUSABLE(ctx->cache) ? 0 :
-		ctx->cache->hdr->file_seq;
+	ctx->cache_file_seq = new_cache_file_seq;
 	/* forget all cache extension updates even if reset_id doesn't change */
 	mail_index_ext_set_reset_id(ctx->trans, ctx->cache->ext_id,
 				    ctx->cache_file_seq);
