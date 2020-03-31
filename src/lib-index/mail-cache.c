@@ -173,7 +173,10 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 		nfs_flush_file_handle_cache(cache->filepath);
 	}
 	if (nfs_safe_stat(cache->filepath, &st) < 0) {
-		mail_cache_set_syscall_error(cache, "stat()");
+		/* if cache was already marked as corrupted, don't log errors
+		   about nonexistent cache file */
+		if (cache->hdr != NULL || errno != ENOENT)
+			mail_cache_set_syscall_error(cache, "stat()");
 		return TRUE;
 	}
 	cache->last_stat_size = st.st_size;
