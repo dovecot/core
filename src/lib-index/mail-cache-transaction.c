@@ -701,7 +701,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 {
 	uint32_t data_size32;
 	unsigned int fixed_size;
-	size_t full_size;
+	size_t full_size, record_size;
 
 	i_assert(field_idx < ctx->cache->fields_count);
 	i_assert(data_size < (uint32_t)-1);
@@ -720,6 +720,9 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	i_assert(fixed_size == UINT_MAX || fixed_size == data_size);
 
 	data_size32 = (uint32_t)data_size;
+	full_size = sizeof(field_idx) + ((data_size + 3) & ~3);
+	if (fixed_size == UINT_MAX)
+		full_size += sizeof(data_size32);
 
 	if (ctx->prev_seq != seq) {
 		mail_cache_transaction_switch_seq(ctx);
@@ -734,6 +737,15 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 			ctx->view->trans_seq2 = seq;
 	}
 
+	if (mail_cache_transaction_update_last_rec_size(ctx, &record_size) &&
+	    record_size + full_size >
+	    ctx->cache->index->optimization_set.cache.record_max_size) {
+		/* Adding this field would exceed the cache record's maximum
+		   size. If we don't add this, it's possible that other fields
+		   could still be added. */
+		return;
+	}
+
 	/* Remember that this field has been used within the transaction. Later
 	   on we fill mail_cache_field_private.used with it. We can't rely on
 	   setting it here, because cache compression may run and clear it. */
@@ -744,10 +756,6 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	   it up. Note that this gets forgotten whenever changing the mail. */
 	buffer_write(ctx->view->cached_exists_buf, field_idx,
 		     &ctx->view->cached_exists_value, 1);
-
-	full_size = sizeof(field_idx) + ((data_size + 3) & ~3);
-	if (fixed_size == UINT_MAX)
-		full_size += sizeof(data_size32);
 
 	if (ctx->cache_data->used + full_size > MAIL_CACHE_MAX_WRITE_BUFFER &&
 	    ctx->last_rec_pos > 0) {
