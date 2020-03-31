@@ -509,7 +509,7 @@ static int header_lookup_line_cmp(const struct header_lookup_line *l1,
 
 static int
 mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
-			       uint32_t seq, unsigned int field_idxs[],
+			       uint32_t seq, const unsigned int field_idxs[],
 			       unsigned int fields_count, pool_t *pool_r)
 {
 	struct mail_cache *cache = view->cache;
@@ -607,7 +607,7 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 }
 
 int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
-			      uint32_t seq, unsigned int field_idxs[],
+			      uint32_t seq, const unsigned int field_idxs[],
 			      unsigned int fields_count)
 {
 	pool_t pool = NULL;

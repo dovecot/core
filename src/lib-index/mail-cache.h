@@ -148,7 +148,7 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 /* Return specified cached headers. Returns 1 if all fields were found,
    0 if not, -1 if error. dest is updated only if all fields were found. */
 int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
-			      uint32_t seq, unsigned int field_idxs[],
+			      uint32_t seq, const unsigned int field_idxs[],
 			      unsigned int fields_count);
 
 /* "Error in index cache file %s: ...". */
