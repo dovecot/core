@@ -12,7 +12,7 @@ struct mail_cache_transaction_ctx;
 enum mail_cache_decision_type {
 	/* Not needed currently */
 	MAIL_CACHE_DECISION_NO		= 0x00,
-	/* Needed only for new mails. Drop when compressing. */
+	/* Needed only for new mails. Drop when purging. */
 	MAIL_CACHE_DECISION_TEMP	= 0x01,
 	/* Needed. */
 	MAIL_CACHE_DECISION_YES		= 0x02,
@@ -64,20 +64,20 @@ struct mail_cache_field *
 mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 			     unsigned int *count_r);
 
-/* Returns TRUE if cache should be compressed. */
-bool mail_cache_need_compress(struct mail_cache *cache);
-/* Compress cache file. Offsets are updated to given transaction.
+/* Returns TRUE if cache should be purged. */
+bool mail_cache_need_purge(struct mail_cache *cache);
+/* Purge cache file. Offsets are updated to given transaction.
    The transaction log must already be exclusively locked.
 
-   The cache compression is done only if the current cache file's file_seq
-   matches compress_file_seq. The idea is that compression isn't done if
-   another process had just compressed it. 0 means the cache file is created
-   only if it didn't already exist. (uint32_t)-1 means that compression is
+   The cache purging is done only if the current cache file's file_seq
+   matches purge_file_seq. The idea is that purging isn't done if
+   another process had just purged it. 0 means the cache file is created
+   only if it didn't already exist. (uint32_t)-1 means that purging is
    done always regardless of file_seq. */
-int mail_cache_compress_with_trans(struct mail_cache *cache,
-				   struct mail_index_transaction *trans,
-				   uint32_t compress_file_seq);
-int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq);
+int mail_cache_purge_with_trans(struct mail_cache *cache,
+				struct mail_index_transaction *trans,
+				uint32_t purge_file_seq);
+int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq);
 /* Returns TRUE if there is at least something in the cache. */
 bool mail_cache_exists(struct mail_cache *cache);
 /* Open and read cache header. Returns 1 if ok, 0 if cache doesn't exist or it

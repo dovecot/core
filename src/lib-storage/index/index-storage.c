@@ -273,10 +273,10 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 			.unaccessed_field_drop_secs = set->mail_cache_unaccessed_field_drop,
 			.record_max_size = set->mail_cache_record_max_size,
 			.max_size = set->mail_cache_max_size,
-			.compress_min_size = set->mail_cache_compress_min_size,
-			.compress_delete_percentage = set->mail_cache_compress_delete_percentage,
-			.compress_continued_percentage = set->mail_cache_compress_continued_percentage,
-			.compress_header_continue_count = set->mail_cache_compress_header_continue_count,
+			.purge_min_size = set->mail_cache_compress_min_size,
+			.purge_delete_percentage = set->mail_cache_compress_delete_percentage,
+			.purge_continued_percentage = set->mail_cache_compress_continued_percentage,
+			.purge_header_continue_count = set->mail_cache_compress_header_continue_count,
 		},
 	};
 	mail_index_set_optimization_settings(box->index, &optimization_set);

@@ -441,7 +441,7 @@ static void dump_cache_hdr(struct mail_cache *cache)
 	printf("major version ........ = %u\n", hdr->major_version);
 	printf("minor version ........ = %u\n", hdr->minor_version);
 	printf("indexid .............. = %u (%s)\n", hdr->indexid, unixdate2str(hdr->indexid));
-	printf("file_seq ............. = %u (%s) (%d compressions)\n",
+	printf("file_seq ............. = %u (%s) (%d purges)\n",
 	       hdr->file_seq, unixdate2str(hdr->file_seq),
 	       hdr->file_seq - hdr->indexid);
 	printf("continued_record_count = %u\n", hdr->continued_record_count);

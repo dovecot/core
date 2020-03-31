@@ -276,17 +276,17 @@ struct mail_index_cache_optimization_settings {
 
 	/* Maximum size for the cache file. Internally the limit is 1 GB. */
 	uoff_t max_size;
-	/* Never compress the file if it's smaller than this */
-	uoff_t compress_min_size;
-	/* Compress the file when n% of records are deleted */
-	unsigned int compress_delete_percentage;
-	/* Compress the file when n% of rows contain continued rows.
+	/* Never purge the file if it's smaller than this */
+	uoff_t purge_min_size;
+	/* Purge the file when n% of records are deleted */
+	unsigned int purge_delete_percentage;
+	/* Purge the file when n% of rows contain continued rows.
 	   For example 200% means that the record has 2 continued rows, i.e.
 	   it exists in 3 separate segments in the cache file. */
-	unsigned int compress_continued_percentage;
-	/* Compress the file when we need to follow more than n next_offsets to
+	unsigned int purge_continued_percentage;
+	/* Purge the file when we need to follow more than n next_offsets to
 	   find the latest cache header. */
-	unsigned int compress_header_continue_count;
+	unsigned int purge_header_continue_count;
 };
 
 struct mail_index_optimization_settings {

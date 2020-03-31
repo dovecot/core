@@ -47,7 +47,7 @@ struct mail_cache_transaction_ctx {
 
 	unsigned int records_written;
 
-	bool tried_compression:1;
+	bool tried_purging:1;
 	bool decisions_refreshed:1;
 	bool changes:1;
 };
@@ -191,16 +191,16 @@ bool mail_cache_transactions_have_changes(struct mail_cache *cache)
 }
 
 static int
-mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
+mail_cache_transaction_purge(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
 
-	ctx->tried_compression = TRUE;
+	ctx->tried_purging = TRUE;
 
-	uint32_t compress_file_seq =
+	uint32_t purge_file_seq =
 		MAIL_CACHE_IS_UNUSABLE(cache) ? 0 : cache->hdr->file_seq;
 
-	int ret = mail_cache_compress(cache, compress_file_seq);
+	int ret = mail_cache_purge(cache, purge_file_seq);
 	/* already written cache records must be forgotten, but records in
 	   memory can still be written to the new cache file */
 	mail_cache_transaction_forget_flushed(ctx);
@@ -218,8 +218,8 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 		if (ret < 0)
 			return -1;
 
-		if (!ctx->tried_compression) {
-			if (mail_cache_transaction_compress(ctx) < 0)
+		if (!ctx->tried_purging) {
+			if (mail_cache_transaction_purge(ctx) < 0)
 				return -1;
 			return mail_cache_transaction_lock(ctx);
 		} else {
@@ -228,14 +228,14 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 	}
 	i_assert(!MAIL_CACHE_IS_UNUSABLE(cache));
 
-	if (!ctx->tried_compression && ctx->cache_data != NULL &&
+	if (!ctx->tried_purging && ctx->cache_data != NULL &&
 	    cache->last_stat_size + ctx->cache_data->used > cache_max_size) {
-		/* Looks like cache file is becoming too large. Try to compress
+		/* Looks like cache file is becoming too large. Try to purge
 		   it to free up some space. */
 		if (cache->hdr->continued_record_count > 0 ||
 		    cache->hdr->deleted_record_count > 0) {
 			mail_cache_unlock(cache);
-			(void)mail_cache_transaction_compress(ctx);
+			(void)mail_cache_transaction_purge(ctx);
 			return mail_cache_transaction_lock(ctx);
 		}
 	}
@@ -760,7 +760,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 	/* Remember that this field has been used within the transaction. Later
 	   on we fill mail_cache_field_private.used with it. We can't rely on
-	   setting it here, because cache compression may run and clear it. */
+	   setting it here, because cache purging may run and clear it. */
 	uint8_t field_idx_set = 1;
 	array_idx_set(&ctx->cache_field_idx_used, field_idx, &field_idx_set);
 
@@ -822,7 +822,7 @@ bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
 		return FALSE;
 	case MAIL_CACHE_DECISION_TEMP:
 		/* add it only if it's newer than what we would drop when
-		   compressing */
+		   purging */
 		if (ctx->first_new_seq == 0) {
 			ctx->first_new_seq =
 				mail_cache_get_first_new_seq(ctx->view->view);

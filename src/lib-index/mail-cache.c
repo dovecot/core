@@ -138,7 +138,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 	if (cache->fd == -1) {
 		mail_cache_file_close(cache);
 		if (errno == ENOENT) {
-			cache->need_compress_file_seq = 0;
+			cache->need_purge_file_seq = 0;
 			return 0;
 		}
 
@@ -207,7 +207,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 	return mail_cache_open_and_verify(cache);
 }
 
-static void mail_cache_update_need_compress(struct mail_cache *cache)
+static void mail_cache_update_need_purge(struct mail_cache *cache)
 {
 	const struct mail_index_cache_optimization_settings *set =
 		&cache->index->optimization_set.cache;
@@ -215,11 +215,11 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 	struct stat st;
 	unsigned int msg_count;
 	unsigned int records_count, cont_percentage, delete_percentage;
-	bool want_compress = FALSE;
+	bool want_purge = FALSE;
 
 	if (hdr->minor_version == 0) {
-		/* compress to get ourself into the new header version */
-		cache->need_compress_file_seq = hdr->file_seq;
+		/* purge to get ourself into the new header version */
+		cache->need_purge_file_seq = hdr->file_seq;
 		return;
 	}
 
@@ -238,26 +238,26 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 	}
 
 	cont_percentage = hdr->continued_record_count * 100 / records_count;
-	if (cont_percentage >= set->compress_continued_percentage) {
-		/* too many continued rows, compress */
-		want_compress = TRUE;
+	if (cont_percentage >= set->purge_continued_percentage) {
+		/* too many continued rows, purge */
+		want_purge = TRUE;
 	}
 
 	delete_percentage = hdr->deleted_record_count * 100 /
 		(records_count + hdr->deleted_record_count);
-	if (delete_percentage >= set->compress_delete_percentage) {
-		/* too many deleted records, compress */
-		want_compress = TRUE;
+	if (delete_percentage >= set->purge_delete_percentage) {
+		/* too many deleted records, purge */
+		want_purge = TRUE;
 	}
 
-	if (want_compress) {
+	if (want_purge) {
 		if (fstat(cache->fd, &st) < 0) {
 			if (!ESTALE_FSTAT(errno))
 				mail_cache_set_syscall_error(cache, "fstat()");
 			return;
 		}
-		if ((uoff_t)st.st_size >= set->compress_min_size)
-			cache->need_compress_file_seq = hdr->file_seq;
+		if ((uoff_t)st.st_size >= set->purge_min_size)
+			cache->need_purge_file_seq = hdr->file_seq;
 	}
 
 }
@@ -306,7 +306,7 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 		/* verify the header validity only with offset=0. this way
 		   we won't waste time re-verifying it all the time */
 		if (!mail_cache_verify_header(cache, hdr)) {
-			cache->need_compress_file_seq =
+			cache->need_purge_file_seq =
 				!MAIL_CACHE_IS_UNUSABLE(cache) &&
 				cache->hdr->file_seq != 0 ?
 				cache->hdr->file_seq : 0;
@@ -323,7 +323,7 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 			       sizeof(cache->hdr_ro_copy));
 			cache->hdr = &cache->hdr_ro_copy;
 		}
-		mail_cache_update_need_compress(cache);
+		mail_cache_update_need_purge(cache);
 	} else {
 		i_assert(cache->hdr != NULL);
 	}
@@ -461,9 +461,9 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 			mail_cache_set_syscall_error(cache, "munmap()");
 	} else {
 		if (cache->fd == -1) {
-			/* unusable, waiting for compression or
+			/* unusable, waiting for purging or
 			   index is in memory */
-			i_assert(cache->need_compress_file_seq != 0 ||
+			i_assert(cache->need_purge_file_seq != 0 ||
 				 MAIL_INDEX_IS_IN_MEMORY(cache->index));
 			return -1;
 		}
@@ -693,8 +693,8 @@ mail_cache_sync_wait_index(struct mail_cache *cache, uint32_t *reset_id_r)
 	if (cache->index->log_sync_locked)
 		return 0;
 
-	/* Wait for .log file lock, so we can be sure that there are no cache
-	   compressions going on. (Because it first recreates the cache file,
+	/* Wait for .log file lock, so we can be sure that there is no cache
+	   purging going on. (Because it first recreates the cache file,
 	   unlocks it and only then writes the changes to the index and
 	   releases the .log lock.) To prevent deadlocks, cache file must be
 	   locked after the .log, not before. */
@@ -754,7 +754,7 @@ int mail_cache_sync_reset_id(struct mail_cache *cache)
 	if (mail_cache_verify_reset_id(cache, &reset_id))
 		return 1;
 
-	/* Use locking to wait for a potential cache compressing to finish.
+	/* Use locking to wait for a potential cache purging to finish.
 	   If that didn't work either, the cache is corrupted or lost. */
 	ret = mail_cache_sync_wait_index(cache, &reset_id);
 	if (ret == 0 && cache->fd != -1 && reset_id != 0) {
@@ -788,7 +788,7 @@ int mail_cache_lock(struct mail_cache *cache)
 		return -1;
 	if (ret == 0) {
 		/* Cache doesn't exist or it was just found to be corrupted and
-		   was unlinked. Cache compression will create it back. */
+		   was unlinked. Cache purging will create it back. */
 		return 0;
 	}
 
@@ -804,7 +804,7 @@ int mail_cache_lock(struct mail_cache *cache)
 			return ret;
 		}
 		i_assert(cache->file_lock == NULL);
-		/* okay, so it was just compressed. try again. */
+		/* okay, so it was just purged. try again. */
 	}
 
 	if ((ret = mail_cache_sync_reset_id(cache)) <= 0) {
@@ -854,7 +854,7 @@ int mail_cache_flush_and_unlock(struct mail_cache *cache)
 				     sizeof(cache->hdr_copy), 0) < 0)
 			ret = -1;
 		cache->hdr_ro_copy = cache->hdr_copy;
-		mail_cache_update_need_compress(cache);
+		mail_cache_update_need_purge(cache);
 	}
 
 	mail_cache_unlock(cache);
@@ -950,7 +950,7 @@ void mail_cache_view_close(struct mail_cache_view **_view)
 
 	*_view = NULL;
 	if (view->cache->field_header_write_pending &&
-	    !view->cache->compressing)
+	    !view->cache->purging)
                 (void)mail_cache_header_fields_update(view->cache);
 
 	DLLIST_REMOVE(&view->cache->views, view);

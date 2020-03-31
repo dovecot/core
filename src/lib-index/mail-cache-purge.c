@@ -43,8 +43,8 @@ mail_cache_merge_bitmask(struct mail_cache_copy_context *ctx,
 }
 
 static void
-mail_cache_compress_field(struct mail_cache_copy_context *ctx,
-			  const struct mail_cache_iterate_field *field)
+mail_cache_purge_field(struct mail_cache_copy_context *ctx,
+		       const struct mail_cache_iterate_field *field)
 {
         struct mail_cache_field *cache_field;
 	enum mail_cache_decision_type dec;
@@ -116,8 +116,8 @@ static uint32_t get_next_file_seq(struct mail_cache *cache)
 }
 
 static void
-mail_cache_compress_get_fields(struct mail_cache_copy_context *ctx,
-			       unsigned int used_fields_count)
+mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
+			    unsigned int used_fields_count)
 {
 	struct mail_cache *cache = ctx->cache;
 	struct mail_cache_field *field;
@@ -266,7 +266,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 		mail_cache_lookup_iter_init(cache_view, seq, &iter);
 		while (mail_cache_lookup_iter_next(&iter, &field) > 0)
-			mail_cache_compress_field(&ctx, &field);
+			mail_cache_purge_field(&ctx, &field);
 
 		if (ctx.buffer->used == sizeof(cache_rec) ||
 		    ctx.buffer->used > cache->index->optimization_set.cache.record_max_size) {
@@ -288,7 +288,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 	hdr.record_count = record_count;
 	hdr.field_header_offset = mail_index_uint32_to_offset(output->offset);
-	mail_cache_compress_get_fields(&ctx, used_fields_count);
+	mail_cache_purge_get_fields(&ctx, used_fields_count);
 	o_stream_nsend(output, ctx.buffer->data, ctx.buffer->used);
 
 	hdr.backwards_compat_used_file_size = output->offset;
@@ -322,9 +322,9 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 }
 
 static int
-mail_cache_compress_write(struct mail_cache *cache,
-			  struct mail_index_transaction *trans,
-			  int fd, const char *temp_path, bool *unlock)
+mail_cache_purge_write(struct mail_cache *cache,
+		       struct mail_index_transaction *trans,
+		       int fd, const char *temp_path, bool *unlock)
 {
 	struct stat st;
 	uint32_t prev_file_seq, file_seq, old_offset, max_uid;
@@ -350,11 +350,11 @@ mail_cache_compress_write(struct mail_cache *cache,
 		return -1;
 	}
 
-	e_debug(cache->index->event, "%s: Compressed, file_seq changed %u -> %u, "
+	e_debug(cache->index->event, "%s: Purged, file_seq changed %u -> %u, "
 		"size=%"PRIuUOFF_T", max_uid=%u", cache->filepath,
 		prev_file_seq, file_seq, file_size, max_uid);
 
-	/* once we're sure that the compression was successful,
+	/* once we're sure that the purging was successful,
 	   update the offsets */
 	mail_index_ext_reset(trans, cache->ext_id, file_seq, TRUE);
 	offsets = array_get(&ext_offsets, &count);
@@ -381,8 +381,8 @@ mail_cache_compress_write(struct mail_cache *cache,
 }
 
 static int
-mail_cache_compress_has_file_changed(struct mail_cache *cache,
-				     uint32_t compress_file_seq)
+mail_cache_purge_has_file_changed(struct mail_cache *cache,
+				  uint32_t purge_file_seq)
 {
 	struct mail_cache_header hdr;
 	unsigned int i;
@@ -404,12 +404,12 @@ mail_cache_compress_has_file_changed(struct mail_cache *cache,
 		if (ret >= 0) {
 			if (ret == 0)
 				return 0;
-			if (compress_file_seq == 0) {
+			if (purge_file_seq == 0) {
 				/* previously it didn't exist or it
 				   was unusable and was just unlinked */
 				return 1;
 			}
-			return hdr.file_seq != compress_file_seq ? 1 : 0;
+			return hdr.file_seq != purge_file_seq ? 1 : 0;
 		} else if (errno != ESTALE || i >= NFS_ESTALE_RETRY_COUNT) {
 			mail_cache_set_syscall_error(cache, "read()");
 			return -1;
@@ -417,23 +417,23 @@ mail_cache_compress_has_file_changed(struct mail_cache *cache,
 	}
 }
 
-static int mail_cache_compress_locked(struct mail_cache *cache,
-				      uint32_t compress_file_seq,
-				      struct mail_index_transaction *trans,
-				      bool *unlock)
+static int mail_cache_purge_locked(struct mail_cache *cache,
+				   uint32_t purge_file_seq,
+				   struct mail_index_transaction *trans,
+				   bool *unlock)
 {
 	const char *temp_path;
 	int fd, ret;
 
-	/* we've locked the cache compression now. if somebody else had just
+	/* we've locked the cache purging now. if somebody else had just
 	   recreated the cache, reopen the cache and return success. */
-	if (compress_file_seq != (uint32_t)-1 &&
-	    (ret = mail_cache_compress_has_file_changed(cache, compress_file_seq)) != 0) {
+	if (purge_file_seq != (uint32_t)-1 &&
+	    (ret = mail_cache_purge_has_file_changed(cache, purge_file_seq)) != 0) {
 		if (ret < 0)
 			return -1;
 
-		/* was just compressed, forget this */
-		cache->need_compress_file_seq = 0;
+		/* was just purged, forget this */
+		cache->need_purge_file_seq = 0;
 
 		if (*unlock) {
 			(void)mail_cache_unlock(cache);
@@ -452,7 +452,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	fd = mail_index_create_tmp_file(cache->index, cache->filepath, &temp_path);
 	if (fd == -1)
 		return -1;
-	if (mail_cache_compress_write(cache, trans, fd, temp_path, unlock) < 0) {
+	if (mail_cache_purge_write(cache, trans, fd, temp_path, unlock) < 0) {
 		i_close_fd(&fd);
 		i_unlink(temp_path);
 		return -1;
@@ -465,25 +465,25 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
 
-	cache->need_compress_file_seq = 0;
+	cache->need_purge_file_seq = 0;
 	return 0;
 }
 
 static int
-mail_cache_compress_full(struct mail_cache *cache,
-			 struct mail_index_transaction *trans,
-			 uint32_t compress_file_seq)
+mail_cache_purge_full(struct mail_cache *cache,
+		      struct mail_index_transaction *trans,
+		      uint32_t purge_file_seq)
 {
 	bool unlock = FALSE;
 	int ret;
 
-	i_assert(!cache->compressing);
+	i_assert(!cache->purging);
 	i_assert(cache->index->log_sync_locked);
 
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) || cache->index->readonly)
 		return 0;
 
-	/* compression isn't very efficient with small read()s */
+	/* purging isn't very efficient with small read()s */
 	if (cache->map_with_read) {
 		cache->map_with_read = FALSE;
 		if (cache->read_buf != NULL)
@@ -492,7 +492,7 @@ mail_cache_compress_full(struct mail_cache *cache,
 		cache->mmap_length = 0;
 	}
 
-	/* .log lock already prevents other processes from compressing cache at
+	/* .log lock already prevents other processes from purging cache at
 	   the same time, but locking the cache file itself prevents other
 	   processes from doing other changes to it (header changes, adding
 	   more cached data). */
@@ -508,9 +508,9 @@ mail_cache_compress_full(struct mail_cache *cache,
 		/* locking succeeded. */
 		unlock = TRUE;
 	}
-	cache->compressing = TRUE;
-	ret = mail_cache_compress_locked(cache, compress_file_seq, trans, &unlock);
-	cache->compressing = FALSE;
+	cache->purging = TRUE;
+	ret = mail_cache_purge_locked(cache, purge_file_seq, trans, &unlock);
+	cache->purging = FALSE;
 	if (unlock)
 		mail_cache_unlock(cache);
 	i_assert(!cache->hdr_modified);
@@ -522,14 +522,14 @@ mail_cache_compress_full(struct mail_cache *cache,
 	return ret;
 }
 
-int mail_cache_compress_with_trans(struct mail_cache *cache,
-				   struct mail_index_transaction *trans,
-				   uint32_t compress_file_seq)
+int mail_cache_purge_with_trans(struct mail_cache *cache,
+				struct mail_index_transaction *trans,
+				uint32_t purge_file_seq)
 {
-	return mail_cache_compress_full(cache, trans, compress_file_seq);
+	return mail_cache_purge_full(cache, trans, purge_file_seq);
 }
 
-int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
+int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq)
 {
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
@@ -542,7 +542,7 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 		uoff_t file_offset;
 
 		if (mail_transaction_log_sync_lock(cache->index->log,
-						   "mail cache compress",
+						   "mail cache purge",
 						   &file_seq, &file_offset) < 0)
 			return -1;
 	}
@@ -554,7 +554,7 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 		MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	if (ret < 0)
 		;
-	else if ((ret = mail_cache_compress_full(cache, trans, compress_file_seq)) < 0)
+	else if ((ret = mail_cache_purge_full(cache, trans, purge_file_seq)) < 0)
 		mail_index_transaction_rollback(&trans);
 	else {
 		if (mail_index_transaction_commit(&trans) < 0)
@@ -563,14 +563,14 @@ int mail_cache_compress(struct mail_cache *cache, uint32_t compress_file_seq)
 	mail_index_view_close(&view);
 	if (lock_log) {
 		mail_transaction_log_sync_unlock(cache->index->log,
-						 "mail cache compress");
+						 "mail cache purge");
 	}
 	return ret;
 }
 
-bool mail_cache_need_compress(struct mail_cache *cache)
+bool mail_cache_need_purge(struct mail_cache *cache)
 {
-	return cache->need_compress_file_seq != 0 &&
+	return cache->need_purge_file_seq != 0 &&
 		(cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) == 0 &&
 		!cache->index->readonly;
 }

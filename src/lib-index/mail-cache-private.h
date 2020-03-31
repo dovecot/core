@@ -130,9 +130,9 @@ struct mail_cache {
 	HASH_TABLE(char *, void *) field_name_hash; /* name -> idx */
 	uint32_t last_field_header_offset;
 
-	/* 0 is no need for compression, otherwise the file sequence number
-	   which we want compressed. */
-	uint32_t need_compress_file_seq;
+	/* 0 is no need for purging, otherwise the file sequence number
+	   which we want purged. */
+	uint32_t need_purge_file_seq;
 
 	unsigned int *file_field_map;
 	unsigned int file_fields_count;
@@ -142,7 +142,7 @@ struct mail_cache {
 	bool last_lock_failed:1;
 	bool hdr_modified:1;
 	bool field_header_write_pending:1;
-	bool compressing:1;
+	bool purging:1;
 	bool map_with_read:1;
 };
 

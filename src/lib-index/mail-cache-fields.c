@@ -287,8 +287,8 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	}
 	cache->last_field_header_offset = offset;
 
-	if (next_count > cache->index->optimization_set.cache.compress_header_continue_count)
-		cache->need_compress_file_seq = cache->hdr->file_seq;
+	if (next_count > cache->index->optimization_set.cache.purge_header_continue_count)
+		cache->need_purge_file_seq = cache->hdr->file_seq;
 
 	if (field_hdr_r != NULL) {
 		/* detect corrupted size later */
@@ -450,7 +450,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		    dec != MAIL_CACHE_DECISION_NO) {
 			/* time to drop this field. don't bother dropping
 			   fields that have never been used. */
-			cache->need_compress_file_seq = cache->hdr->file_seq;
+			cache->need_purge_file_seq = cache->hdr->file_seq;
 		}
 
                 names = p + 1;

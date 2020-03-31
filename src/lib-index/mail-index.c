@@ -48,10 +48,10 @@ static const struct mail_index_optimization_settings default_optimization_set = 
 		.unaccessed_field_drop_secs = 3600 * 24 * 30,
 		.record_max_size = 64 * 1024,
 		.max_size = 1024 * 1024 * 1024,
-		.compress_min_size = 32 * 1024,
-		.compress_delete_percentage = 20,
-		.compress_continued_percentage = 200,
-		.compress_header_continue_count = 4,
+		.purge_min_size = 32 * 1024,
+		.purge_delete_percentage = 20,
+		.purge_continued_percentage = 200,
+		.purge_header_continue_count = 4,
 	},
 };
 
@@ -214,17 +214,17 @@ void mail_index_set_optimization_settings(struct mail_index *index,
 			set->cache.unaccessed_field_drop_secs;
 	if (set->cache.max_size != 0)
 		dest->cache.max_size = set->cache.max_size;
-	if (set->cache.compress_min_size != 0)
-		dest->cache.compress_min_size = set->cache.compress_min_size;
-	if (set->cache.compress_delete_percentage != 0)
-		dest->cache.compress_delete_percentage =
-			set->cache.compress_delete_percentage;
-	if (set->cache.compress_continued_percentage != 0)
-		dest->cache.compress_continued_percentage =
-			set->cache.compress_continued_percentage;
-	if (set->cache.compress_header_continue_count != 0)
-		dest->cache.compress_header_continue_count =
-			set->cache.compress_header_continue_count;
+	if (set->cache.purge_min_size != 0)
+		dest->cache.purge_min_size = set->cache.purge_min_size;
+	if (set->cache.purge_delete_percentage != 0)
+		dest->cache.purge_delete_percentage =
+			set->cache.purge_delete_percentage;
+	if (set->cache.purge_continued_percentage != 0)
+		dest->cache.purge_continued_percentage =
+			set->cache.purge_continued_percentage;
+	if (set->cache.purge_header_continue_count != 0)
+		dest->cache.purge_header_continue_count =
+			set->cache.purge_header_continue_count;
 	if (set->cache.record_max_size != 0)
 		dest->cache.record_max_size = set->cache.record_max_size;
 }

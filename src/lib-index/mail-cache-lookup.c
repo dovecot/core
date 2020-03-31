@@ -250,7 +250,7 @@ mail_cache_lookup_rec_get_field(struct mail_cache_lookup_iterate_ctx *ctx,
 
 	if (file_field >= cache->file_fields_count) {
 		/* new field, have to re-read fields header to figure
-		   out its size. don't do this if we're compressing. */
+		   out its size. don't do this if we're purging. */
 		if (!cache->locked) {
 			if (mail_cache_header_fields_read(cache) < 0)
 				return -1;

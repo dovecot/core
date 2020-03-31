@@ -26,7 +26,7 @@
 
    So, group 1. and 2. could be optimally implemented by keeping things
    cached only for a while. I thought a week would be good. When cache file
-   is compressed, everything older than week will be dropped.
+   is purged, everything older than week will be dropped.
 
    But how to figure out if user is in group 3? One quite easy rule would
    be to see if client is accessing messages older than a week. But with
@@ -165,10 +165,10 @@ int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
 	if (count > 0)
 		mail_cache_register_fields(dst, fields, count);
 
-	/* Destination cache isn't expected to exist yet, so use compression
+	/* Destination cache isn't expected to exist yet, so use purging
 	   to create it. Setting field_header_write_pending also guarantees
 	   that the fields are updated even if the cache was already created
-	   and no compression was done. */
+	   and no purging was done. */
 	dst->field_header_write_pending = TRUE;
-	return mail_cache_compress(dst, 0);
+	return mail_cache_purge(dst, 0);
 }
