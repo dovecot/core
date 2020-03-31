@@ -345,7 +345,7 @@ static void mail_crypt_mailbox_close(struct mailbox *box)
 {
 	struct mail_crypt_mailbox *mbox = MAIL_CRYPT_CONTEXT(box);
 	struct mail_crypt_user *muser =
-		MAIL_CRYPT_USER_CONTEXT_REQUIRE(box->storage->user);
+		MAIL_CRYPT_USER_CONTEXT(box->storage->user);
 
 	if (mbox->pub_key != NULL)
 		dcrypt_key_unref_public(&mbox->pub_key);
