@@ -415,8 +415,7 @@ static void mail_crypt_mail_user_created(struct mail_user *user)
 	} else if (!dcrypt_name2oid(curve, tmp, &error)) {
 		user->error = p_strdup_printf(user->pool,
 			"mail_crypt_plugin: "
-			"invalid mail_crypt_curve setting %s: %s - "
-			"plugin disabled",
+			"invalid mail_crypt_curve setting %s: %s",
 			curve, error);
 	} else {
 		muser->curve = p_strdup(user->pool, curve);
@@ -428,8 +427,7 @@ static void mail_crypt_mail_user_created(struct mail_user *user)
 	if (version == NULL || *version == '\0') {
 		user->error = p_strdup_printf(user->pool,
 				"mail_crypt_plugin: "
-				"mail_crypt_save_version setting missing "
-				"- plugin disabled");
+				"mail_crypt_save_version setting missing");
 	} else if (version[0] == '0') {
 		muser->save_version = 0;
 	} else if (version[0] == '1') {
