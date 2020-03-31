@@ -5,6 +5,9 @@
 
 #define PASSWORD_HIDDEN_STR "<hidden>"
 
+ARRAY_DEFINE_TYPE(auth, struct auth *);
+extern ARRAY_TYPE(auth) auths;
+
 enum auth_passdb_skip {
 	AUTH_PASSDB_SKIP_NEVER,
 	AUTH_PASSDB_SKIP_AUTHENTICATED,

@@ -31,7 +31,7 @@ static const struct auth_userdb_settings userdb_dummy_set = {
 	.auth_verbose = "default",
 };
 
-static ARRAY(struct auth *) auths;
+ARRAY_TYPE(auth) auths;
 
 static enum auth_passdb_skip auth_passdb_skip_parse(const char *str)
 {
