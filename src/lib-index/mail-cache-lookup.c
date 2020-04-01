@@ -656,6 +656,9 @@ mail_cache_get_missing_reason(struct mail_cache_view *view, uint32_t seq)
 {
 	uint32_t offset, reset_id;
 
+	if (mail_index_is_expunged(view->view, seq))
+		return "Mail is already expunged";
+
 	if (MAIL_CACHE_IS_UNUSABLE(view->cache))
 		return "Cache file is unusable";
 
