@@ -670,14 +670,10 @@ static int mail_cache_sync_reset_id(struct mail_cache *cache)
 			break;
 		/* mismatch. try refreshing index once. if that doesn't help,
 		   we can't use the cache. */
-		if (i > 0 || cache->index->mapping) {
-			mail_cache_unlock_file(cache);
+		if (i > 0 || cache->index->mapping)
 			return 0;
-		}
-		if (mail_index_refresh(cache->index) < 0) {
-			mail_cache_unlock_file(cache);
+		if (mail_index_refresh(cache->index) < 0)
 			return -1;
-		}
 	}
 	return 1;
 }
@@ -718,8 +714,10 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 		/* okay, so it was just compressed. try again. */
 	}
 
-	if ((ret = mail_cache_sync_reset_id(cache)) <= 0)
+	if ((ret = mail_cache_sync_reset_id(cache)) <= 0) {
+		mail_cache_unlock_file(cache);
 		return ret;
+	}
 
 	/* successfully locked - make sure our header is up to date */
 	cache->locked = TRUE;
