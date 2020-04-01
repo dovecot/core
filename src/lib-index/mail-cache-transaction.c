@@ -286,6 +286,7 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 
 		write_offset += rec->size;
 		rec = CONST_PTR_OFFSET(rec, rec->size);
+		ctx->records_written++;
 	}
 }
 
@@ -493,7 +494,6 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		ret = -1;
 	else {
 		/* update records' cache offsets to index */
-		ctx->records_written++;
 		mail_cache_transaction_update_index(ctx, write_offset);
 	}
 	if (mail_cache_flush_and_unlock(ctx->cache) < 0)
