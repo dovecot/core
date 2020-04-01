@@ -260,6 +260,8 @@ static void
 relay_cmd_helo_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_helo_context *helo_cmd)
 {
+	i_assert(helo_cmd != NULL);
+
 	struct smtp_server_cmd_ctx *cmd = helo_cmd->cmd;
 	struct submission_backend_relay *backend = helo_cmd->backend;
 	struct smtp_reply reply;
@@ -339,12 +341,13 @@ static void
 relay_cmd_mail_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_mail_context *mail_cmd)
 {
+	i_assert(mail_cmd != NULL);
+
 	struct smtp_server_cmd_ctx *cmd = mail_cmd->cmd;
 	struct submission_backend_relay *backend = mail_cmd->backend;
 	struct smtp_reply reply;
 
 	/* finished relaying MAIL command to relay server */
-	i_assert(mail_cmd != NULL);
 	mail_cmd->relay_mail = NULL;
 
 	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
@@ -486,6 +489,8 @@ static void
 relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_rcpt_context *rcpt_cmd)
 {
+	i_assert(rcpt_cmd != NULL);
+
 	struct smtp_server_cmd_ctx *cmd = rcpt_cmd->cmd;
 	struct submission_backend_relay *backend = rcpt_cmd->backend;
 	struct submission_recipient *srcpt = rcpt_cmd->rcpt;
@@ -494,7 +499,6 @@ relay_cmd_rcpt_callback(const struct smtp_reply *relay_reply,
 	struct smtp_reply reply;
 
 	/* finished relaying RCPT command to relay server */
-	i_assert(rcpt_cmd != NULL);
 	rcpt_cmd->relay_rcpt = NULL;
 
 	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
@@ -557,12 +561,13 @@ static void
 relay_cmd_rset_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_rset_context *rset_cmd)
 {
+	i_assert(rset_cmd != NULL);
+
 	struct smtp_server_cmd_ctx *cmd = rset_cmd->cmd;
 	struct submission_backend_relay *backend = rset_cmd->backend;
 	struct smtp_reply reply;
 
 	/* finished relaying MAIL command to relay server */
-	i_assert(rset_cmd != NULL);
 	rset_cmd->cmd_relayed = NULL;
 
 	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
@@ -658,6 +663,8 @@ static void
 relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_data_context *data_ctx)
 {
+	i_assert(data_ctx != NULL);
+
 	struct smtp_server_cmd_ctx *cmd = data_ctx->cmd;
 	struct smtp_server_transaction *trans = data_ctx->trans;
 	struct submission_backend_relay *backend = data_ctx->backend;
@@ -760,6 +767,8 @@ static void
 relay_cmd_vrfy_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_vrfy_context *vrfy_cmd)
 {
+	i_assert(vrfy_cmd != NULL);
+
 	struct smtp_server_cmd_ctx *cmd = vrfy_cmd->cmd;
 	struct submission_backend_relay *backend = vrfy_cmd->backend;
 	struct smtp_reply reply;
@@ -833,6 +842,8 @@ static void
 relay_cmd_noop_callback(const struct smtp_reply *relay_reply,
 			struct relay_cmd_noop_context *noop_cmd)
 {
+	i_assert(noop_cmd != NULL);
+
 	struct smtp_server_cmd_ctx *cmd = noop_cmd->cmd;
 	struct submission_backend_relay *backend = noop_cmd->backend;
 	struct smtp_reply reply;
@@ -880,6 +891,7 @@ static void
 relay_cmd_quit_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		       struct relay_cmd_quit_context *quit_cmd)
 {
+	i_assert(quit_cmd != NULL);
 	if (quit_cmd->cmd_relayed != NULL)
 		smtp_client_command_abort(&quit_cmd->cmd_relayed);
 }
@@ -905,6 +917,7 @@ static void
 relay_cmd_quit_callback(const struct smtp_reply *relay_reply ATTR_UNUSED,
 			struct relay_cmd_quit_context *quit_cmd)
 {
+	i_assert(quit_cmd != NULL);
 	quit_cmd->cmd_relayed = NULL;
 	relay_cmd_quit_finish(quit_cmd);
 }
