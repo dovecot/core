@@ -266,6 +266,9 @@ relay_cmd_helo_callback(const struct smtp_reply *relay_reply,
 	struct submission_backend_relay *backend = helo_cmd->backend;
 	struct smtp_reply reply;
 
+	/* finished relaying EHLO command to relay server */
+	helo_cmd->cmd_relayed = NULL;
+
 	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
 					      &reply))
 		return;
@@ -773,6 +776,9 @@ relay_cmd_vrfy_callback(const struct smtp_reply *relay_reply,
 	struct submission_backend_relay *backend = vrfy_cmd->backend;
 	struct smtp_reply reply;
 
+	/* finished relaying VRFY command to relay server */
+	vrfy_cmd->cmd_relayed = NULL;
+
 	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
 					      &reply))
 		return;
@@ -847,6 +853,9 @@ relay_cmd_noop_callback(const struct smtp_reply *relay_reply,
 	struct smtp_server_cmd_ctx *cmd = noop_cmd->cmd;
 	struct submission_backend_relay *backend = noop_cmd->backend;
 	struct smtp_reply reply;
+
+	/* finished relaying NOOP command to relay server */
+	noop_cmd->cmd_relayed = NULL;
 
 	if (!backend_relay_handle_relay_reply(backend, cmd, relay_reply,
 					      &reply))
