@@ -652,14 +652,41 @@ static void mail_cache_unlock_file(struct mail_cache *cache)
 	file_unlock(&cache->file_lock);
 }
 
-static int
-mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
+static int mail_cache_sync_reset_id(struct mail_cache *cache)
 {
 	const struct mail_index_ext *ext;
-	const void *data;
 	struct mail_index_view *iview;
 	uint32_t reset_id;
 	int i;
+
+	/* now verify that the index reset_id matches the cache's file_seq */
+	for (i = 0; ; i++) {
+		iview = mail_index_view_open(cache->index);
+		ext = mail_index_view_get_ext(iview, cache->ext_id);
+		reset_id = ext == NULL ? 0 : ext->reset_id;
+		mail_index_view_close(&iview);
+
+		if (cache->hdr->file_seq == reset_id)
+			break;
+		/* mismatch. try refreshing index once. if that doesn't help,
+		   we can't use the cache. */
+		if (i > 0 || cache->index->mapping) {
+			mail_cache_unlock_file(cache);
+			return 0;
+		}
+		if (mail_index_refresh(cache->index) < 0) {
+			mail_cache_unlock_file(cache);
+			return -1;
+		}
+	}
+	return 1;
+}
+
+static int
+mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
+{
+	const void *data;
+	int ret;
 
 	i_assert(!cache->locked);
 	/* the only reason why we might be in here while mapping the index is
@@ -691,26 +718,8 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 		/* okay, so it was just compressed. try again. */
 	}
 
-	/* now verify that the index reset_id matches the cache's file_seq */
-	for (i = 0; ; i++) {
-		iview = mail_index_view_open(cache->index);
-		ext = mail_index_view_get_ext(iview, cache->ext_id);
-		reset_id = ext == NULL ? 0 : ext->reset_id;
-		mail_index_view_close(&iview);
-
-		if (cache->hdr->file_seq == reset_id)
-			break;
-		/* mismatch. try refreshing index once. if that doesn't help,
-		   we can't use the cache. */
-		if (i > 0 || cache->index->mapping) {
-			mail_cache_unlock_file(cache);
-			return 0;
-		}
-		if (mail_index_refresh(cache->index) < 0) {
-			mail_cache_unlock_file(cache);
-			return -1;
-		}
-	}
+	if ((ret = mail_cache_sync_reset_id(cache)) <= 0)
+		return ret;
 
 	/* successfully locked - make sure our header is up to date */
 	cache->locked = TRUE;
