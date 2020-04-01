@@ -56,7 +56,9 @@ static MODULE_CONTEXT_DEFINE_INIT(cache_mail_index_transaction_module,
 				  &mail_index_module_register);
 
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx);
-static size_t mail_cache_transaction_update_last_rec_size(struct mail_cache_transaction_ctx *ctx);
+static bool
+mail_cache_transaction_update_last_rec_size(struct mail_cache_transaction_ctx *ctx,
+					    size_t *size_r);
 static int mail_cache_header_rewrite_fields(struct mail_cache *cache);
 
 static void mail_index_transaction_cache_reset(struct mail_index_transaction *t)
@@ -257,7 +259,9 @@ mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
 	if (seq == ctx->prev_seq && i == count) {
 		/* update the unfinished record's (temporary) size and
 		   return it */
-		mail_cache_transaction_update_last_rec_size(ctx);
+		size_t size;
+		if (!mail_cache_transaction_update_last_rec_size(ctx, &size))
+			return NULL;
 		return CONST_PTR_OFFSET(ctx->cache_data->data,
 					ctx->last_rec_pos);
 	}
@@ -531,8 +535,9 @@ mail_cache_transaction_drop_unwanted(struct mail_cache_transaction_ctx *ctx,
 	buffer_delete(ctx->cache_data, 0, deleted_space);
 }
 
-static size_t
-mail_cache_transaction_update_last_rec_size(struct mail_cache_transaction_ctx *ctx)
+static bool
+mail_cache_transaction_update_last_rec_size(struct mail_cache_transaction_ctx *ctx,
+					    size_t *size_r)
 {
 	struct mail_cache_record *rec;
 	void *data;
@@ -541,8 +546,11 @@ mail_cache_transaction_update_last_rec_size(struct mail_cache_transaction_ctx *c
 	data = buffer_get_modifiable_data(ctx->cache_data, &size);
 	rec = PTR_OFFSET(data, ctx->last_rec_pos);
 	rec->size = size - ctx->last_rec_pos;
+	if (rec->size == sizeof(*rec))
+		return FALSE;
 	i_assert(rec->size > sizeof(*rec));
-	return rec->size;
+	*size_r = rec->size;
+	return TRUE;
 }
 
 static void
@@ -551,8 +559,8 @@ mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache_transaction_rec *trans_rec;
 	size_t size;
 
-	size = mail_cache_transaction_update_last_rec_size(ctx);
-	if (size > ctx->cache->index->optimization_set.cache.record_max_size) {
+	if (!mail_cache_transaction_update_last_rec_size(ctx, &size) ||
+	    size > ctx->cache->index->optimization_set.cache.record_max_size) {
 		buffer_set_used_size(ctx->cache_data, ctx->last_rec_pos);
 		return;
 	}
