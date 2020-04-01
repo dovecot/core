@@ -251,6 +251,7 @@ const struct mail_cache_record *
 mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
 				  unsigned int seq,
 				  unsigned int *trans_next_idx);
+bool mail_cache_transactions_have_changes(struct mail_cache *cache);
 
 /* Return data from the specified position in the cache file. Returns 1 if
    successful, 0 if offset/size points outside the cache file, -1 if I/O

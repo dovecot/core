@@ -939,7 +939,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	/* The previously called expunged handlers will update cache's
 	   record_count and deleted_record_count. That also has a side effect
 	   of updating whether cache needs to be compressed. */
-	if (ret == 0 && mail_cache_need_compress(index->cache)) {
+	if (ret == 0 && mail_cache_need_compress(index->cache) &&
+	    !mail_cache_transactions_have_changes(index->cache)) {
 		if (mail_cache_compress(index->cache,
 					index->cache->need_compress_file_seq) < 0) {
 			/* can't really do anything if it fails */

@@ -178,6 +178,18 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **_ctx)
 	i_free(ctx);
 }
 
+bool mail_cache_transactions_have_changes(struct mail_cache *cache)
+{
+	struct mail_cache_view *view;
+
+	for (view = cache->views; view != NULL; view = view->next) {
+		if (view->transaction != NULL &&
+		    view->transaction->changes)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int
 mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 {
