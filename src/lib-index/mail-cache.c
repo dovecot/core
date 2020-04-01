@@ -4,6 +4,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "hash.h"
+#include "llist.h"
 #include "nfs-workarounds.h"
 #include "file-cache.h"
 #include "mmap-util.h"
@@ -591,6 +592,9 @@ void mail_cache_free(struct mail_cache **_cache)
 	struct mail_cache *cache = *_cache;
 
 	*_cache = NULL;
+
+	i_assert(cache->views == NULL);
+
 	if (cache->file_cache != NULL)
 		file_cache_free(&cache->file_cache);
 
@@ -854,6 +858,7 @@ mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 	view->cached_exists_buf =
 		buffer_create_dynamic(default_pool,
 				      cache->file_fields_count + 10);
+	DLLIST_PREPEND(&cache->views, view);
 	return view;
 }
 
@@ -868,6 +873,7 @@ void mail_cache_view_close(struct mail_cache_view **_view)
 	    !view->cache->compressing)
                 (void)mail_cache_header_fields_update(view->cache);
 
+	DLLIST_REMOVE(&view->cache->views, view);
 	buffer_free(&view->cached_exists_buf);
 	i_free(view);
 }

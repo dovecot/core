@@ -109,6 +109,8 @@ struct mail_cache {
 	/* mail_cache_map() increases this always. */
 	unsigned int remap_counter;
 
+	struct mail_cache_view *views;
+
 	struct dotlock_settings dotlock_settings;
 	struct file_lock *file_lock;
 
@@ -161,6 +163,7 @@ struct mail_cache_missing_reason_cache {
 
 struct mail_cache_view {
 	struct mail_cache *cache;
+	struct mail_cache_view *prev, *next;
 	struct mail_index_view *view, *trans_view;
 
 	struct mail_cache_transaction_ctx *transaction;
