@@ -611,9 +611,10 @@ void mail_cache_free(struct mail_cache **_cache)
 	i_free(cache);
 }
 
-static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
+static int mail_cache_lock_file(struct mail_cache *cache)
 {
 	unsigned int timeout_secs;
+	bool nonblock = FALSE;
 	int ret;
 
 	if (cache->last_lock_failed) {
@@ -706,7 +707,7 @@ mail_cache_sync_wait_index(struct mail_cache *cache, uint32_t *reset_id_r)
 	   whether the reset_id can be synced or if it's already desynced and
 	   the cache just needs to be recreated. */
 	ret = -1;
-	while (mail_cache_lock_file(cache, FALSE) > 0) {
+	while (mail_cache_lock_file(cache) > 0) {
 		/* Locked the current fd, but it may have already been
 		   recreated. Reopen and retry if needed. */
 		if (!mail_cache_need_reopen(cache)) {
@@ -766,8 +767,7 @@ int mail_cache_sync_reset_id(struct mail_cache *cache)
 	return ret;
 }
 
-static int
-mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
+int mail_cache_lock(struct mail_cache *cache)
 {
 	int ret;
 
@@ -776,8 +776,6 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	   if we're coming from mail_cache_expunge_count() while syncing the
 	   index. */
 	i_assert(!cache->index->mapping || cache->index->log_sync_locked);
-	/* No need to fully support nonblock=TRUE for now at least */
-	i_assert(!nonblock || cache->index->log_sync_locked);
 
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) ||
 	    cache->index->readonly)
@@ -795,7 +793,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	}
 
 	for (;;) {
-		if (mail_cache_lock_file(cache, nonblock) <= 0)
+		if (mail_cache_lock_file(cache) <= 0)
 			return -1;
 		if (!mail_cache_need_reopen(cache)) {
 			/* locked the latest file */
@@ -831,16 +829,6 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 	}
 	cache->hdr_copy = *cache->hdr;
 	return 1;
-}
-
-int mail_cache_lock(struct mail_cache *cache)
-{
-	return mail_cache_lock_full(cache, FALSE);
-}
-
-int mail_cache_try_lock(struct mail_cache *cache)
-{
-	return mail_cache_lock_full(cache, TRUE);
 }
 
 int mail_cache_flush_and_unlock(struct mail_cache *cache)
