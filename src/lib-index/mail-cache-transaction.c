@@ -49,6 +49,7 @@ struct mail_cache_transaction_ctx {
 
 	bool tried_purging:1;
 	bool decisions_refreshed:1;
+	bool have_noncommited_mails:1;
 	bool changes:1;
 };
 
@@ -293,14 +294,31 @@ mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
 
 static void
 mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
-				    uint32_t write_offset)
+				    uint32_t write_offset, bool committing)
 {
 	struct mail_cache *cache = ctx->cache;
+	struct mail_index_transaction *trans;
 	const struct mail_cache_record *rec = ctx->cache_data->data;
 	const struct mail_cache_transaction_rec *recs;
 	uint32_t i, seq_count;
 
-	mail_index_ext_using_reset_id(ctx->trans, ctx->cache->ext_id,
+	if (committing) {
+		/* The transaction is being committed now. Use it. */
+		trans = ctx->trans;
+	} else if (ctx->have_noncommited_mails) {
+		/* Some of the mails haven't been committed yet. We must use
+		   the provided transaction to update the cache records. */
+		trans = ctx->trans;
+	} else {
+		/* We can commit these changes immediately. This way even if
+		   the provided transaction runs for a very long time, we
+		   still once in a while commit the cache changes so they
+		   become visible to other processes as well. */
+		trans = mail_index_transaction_begin(ctx->view->trans_view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	}
+
+	mail_index_ext_using_reset_id(trans, ctx->cache->ext_id,
 				      ctx->cache_file_seq);
 
 	/* write the cache_offsets to index file. records' prev_offset
@@ -308,12 +326,19 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 	   synced. */
 	recs = array_get(&ctx->cache_data_seq, &seq_count);
 	for (i = 0; i < seq_count; i++) {
-		mail_index_update_ext(ctx->trans, recs[i].seq, cache->ext_id,
+		mail_index_update_ext(trans, recs[i].seq, cache->ext_id,
 				      &write_offset, NULL);
 
 		write_offset += rec->size;
 		rec = CONST_PTR_OFFSET(rec, rec->size);
 		ctx->records_written++;
+	}
+	if (trans != ctx->trans) {
+		if (mail_index_transaction_commit(&trans) < 0) {
+			/* failed, but can't really do anything */
+		} else {
+			ctx->records_written = 0;
+		}
 	}
 }
 
@@ -474,7 +499,8 @@ mail_cache_transaction_drop_last_flush(struct mail_cache_transaction_ctx *ctx)
 }
 
 static int
-mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
+mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx,
+			     bool committing)
 {
 	struct stat st;
 	uint32_t write_offset = 0;
@@ -521,7 +547,8 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		ret = -1;
 	else {
 		/* update records' cache offsets to index */
-		mail_cache_transaction_update_index(ctx, write_offset);
+		mail_cache_transaction_update_index(ctx, write_offset,
+						    committing);
 	}
 	if (mail_cache_flush_and_unlock(ctx->cache) < 0)
 		ret = -1;
@@ -628,7 +655,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx **_ctx)
 	if (ctx->changes) {
 		if (ctx->prev_seq != 0)
 			mail_cache_transaction_update_last_rec(ctx);
-		if (mail_cache_transaction_flush(ctx) < 0)
+		if (mail_cache_transaction_flush(ctx, TRUE) < 0)
 			ret = -1;
 		else {
 			/* successfully wrote everything */
@@ -733,6 +760,9 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	    (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED))
 		return;
 
+	if (seq >= ctx->trans->first_new_seq)
+		ctx->have_noncommited_mails = TRUE;
+
 	/* If the cache file exists, make sure the caching decisions have been
 	   read. */
 	mail_cache_transaction_refresh_decisions(ctx);
@@ -789,7 +819,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 				full_size - MAIL_CACHE_MAX_WRITE_BUFFER;
 			mail_cache_transaction_drop_unwanted(ctx, space_needed);
 		} else {
-			if (mail_cache_transaction_flush(ctx) < 0) {
+			if (mail_cache_transaction_flush(ctx, FALSE) < 0) {
 				/* If this is a syscall failure, the already
 				   flushed changes could still be finished by
 				   writing the offsets to .log file. If this is

@@ -235,7 +235,8 @@ static bool cache_equals(struct mail_cache_view *cache_view, uint32_t seq,
 	return match;
 }
 
-static void test_mail_cache_write_lost_during_purge_n(unsigned int num_mails)
+static void test_mail_cache_purge_during_write_n(unsigned int num_mails,
+						 bool commit_saves)
 {
 	const struct mail_index_optimization_settings optimization_set = {
 		.cache = {
@@ -257,11 +258,13 @@ static void test_mail_cache_write_lost_during_purge_n(unsigned int num_mails)
 	trans = mail_index_transaction_begin(ctx.view, 0);
 	for (seq = 2; seq <= num_mails; seq++)
 		mail_index_append(trans, seq, &seq);
-	test_assert(mail_index_transaction_commit(&trans) == 0);
-	test_mail_cache_view_sync(&ctx);
 
+	if (commit_saves) {
+		test_assert(mail_index_transaction_commit(&trans) == 0);
+		test_mail_cache_view_sync(&ctx);
+		trans = mail_index_transaction_begin(ctx.view, 0);
+	}
 	/* start adding a small cached field to mail1 */
-	trans = mail_index_transaction_begin(ctx.view, 0);
 	updated_view = mail_index_transaction_open_updated_view(trans);
 	cache_view = mail_cache_view_open(ctx.cache, updated_view);
 	cache_trans = mail_cache_get_transaction(cache_view, trans);
@@ -285,7 +288,7 @@ static void test_mail_cache_write_lost_during_purge_n(unsigned int num_mails)
 		/* the mails are still accessible after purge */
 		test_assert(cache_equals(cache_view, 1, ctx.cache_field.idx, "foo1"));
 		test_assert(cache_equals(cache_view, 2, ctx.cache_field.idx, huge_field));
-	} else {
+	} else if (!commit_saves) {
 		/* add 3rd mail, which attempts to flush 2nd mail and finds
 		   that the first mail is already lost */
 		test_expect_error_string("Purging lost 1 written cache records");
@@ -295,20 +298,29 @@ static void test_mail_cache_write_lost_during_purge_n(unsigned int num_mails)
 		test_assert(cache_equals(cache_view, 1, ctx.cache_field.idx, NULL));
 		test_assert(cache_equals(cache_view, 2, ctx.cache_field.idx, huge_field));
 		test_assert(cache_equals(cache_view, 3, ctx.cache_field.idx, "foo3"));
+	} else {
+		/* add 3rd mail, which commits the first two mails */
+		mail_cache_add(cache_trans, 3, ctx.cache_field.idx, "foo3", 4);
+		test_assert(cache_equals(cache_view, 1, ctx.cache_field.idx, "foo1"));
+		test_assert(cache_equals(cache_view, 2, ctx.cache_field.idx, huge_field));
+		test_assert(cache_equals(cache_view, 3, ctx.cache_field.idx, "foo3"));
 	}
 
 	/* finish committing cached fields */
-	if (num_mails == 2)
+	if (num_mails == 2 && !commit_saves)
 		test_expect_error_string("Purging lost 1 written cache records");
 	test_assert(mail_index_transaction_commit(&trans) == 0);
 	test_expect_no_more_errors();
 	mail_index_view_close(&updated_view);
 	mail_cache_view_close(&cache_view);
 
-	/* see that we lost the first flush, but not the others */
+	/* see that we lost the first flush without commit_saves, but not the others */
 	test_mail_cache_view_sync(&ctx);
 	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
-	test_assert(cache_equals(cache_view, 1, ctx.cache_field.idx, NULL));
+	if (commit_saves)
+		test_assert(cache_equals(cache_view, 1, ctx.cache_field.idx, "foo1"));
+	else
+		test_assert(cache_equals(cache_view, 1, ctx.cache_field.idx, NULL));
 	test_assert(cache_equals(cache_view, 2, ctx.cache_field.idx, huge_field));
 	if (num_mails >= 3)
 		test_assert(cache_equals(cache_view, 3, ctx.cache_field.idx, "foo3"));
@@ -324,14 +336,28 @@ static void test_mail_cache_write_lost_during_purge_n(unsigned int num_mails)
 static void test_mail_cache_write_lost_during_purge(void)
 {
 	test_begin("mail cache write lost during purge");
-	test_mail_cache_write_lost_during_purge_n(2);
+	test_mail_cache_purge_during_write_n(2, FALSE);
 	test_end();
 }
 
 static void test_mail_cache_write_lost_during_purge2(void)
 {
 	test_begin("mail cache write lost during purge (2)");
-	test_mail_cache_write_lost_during_purge_n(3);
+	test_mail_cache_purge_during_write_n(3, FALSE);
+	test_end();
+}
+
+static void test_mail_cache_write_autocommit(void)
+{
+	test_begin("mail cache write autocommit");
+	test_mail_cache_purge_during_write_n(2, TRUE);
+	test_end();
+}
+
+static void test_mail_cache_write_autocommit2(void)
+{
+	test_begin("mail cache write autocommit");
+	test_mail_cache_purge_during_write_n(3, TRUE);
 	test_end();
 }
 
@@ -1024,6 +1050,8 @@ int main(void)
 		test_mail_cache_purge_while_cache_locked,
 		test_mail_cache_write_lost_during_purge,
 		test_mail_cache_write_lost_during_purge2,
+		test_mail_cache_write_autocommit,
+		test_mail_cache_write_autocommit2,
 		test_mail_cache_delete_too_large,
 		test_mail_cache_delete_too_large2,
 		test_mail_cache_purge_too_large,
