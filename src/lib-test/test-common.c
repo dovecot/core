@@ -51,10 +51,14 @@ void test_assert_failed_idx(const char *code, const char *file, unsigned int lin
 	test_success = FALSE;
 }
 
-void test_assert_failed_strcmp(const char *code, const char *file, unsigned int line,
-				const char * src, const char * dst)
+void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned int line,
+				   const char * src, const char * dst, long long i)
 {
-	printf("%s: Assert(#%u) failed: %s\n", file, line, code);
+	printf("%s:%u: Assert", file, line);
+	if (i == LLONG_MIN)
+		printf(" failed: %s\n", code);
+	else
+		printf("(#%lld) failed: %s\n", i, code);
 	if (src != NULL)
 		printf("        \"%s\" != ", src);
 	else
