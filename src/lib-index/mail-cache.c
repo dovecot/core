@@ -977,7 +977,7 @@ uint32_t mail_cache_get_first_new_seq(struct mail_index_view *view)
 					 (uint32_t)-1, &first_new_seq,
 					 &message_count)) {
 		/* all messages are too old */
-		return message_count+1;
+		return idx_hdr->messages_count+1;
 	}
 	return first_new_seq;
 }
