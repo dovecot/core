@@ -259,6 +259,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			       0, buffer_get_size(ctx.field_seen));
 			ctx.field_seen_value++;
 		}
+		array_clear(&ctx.bitmask_pos);
 
 		i_zero(&cache_rec);
 		buffer_append(ctx.buffer, &cache_rec, sizeof(cache_rec));
