@@ -940,29 +940,19 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	   record_count and deleted_record_count. That also has a side effect
 	   of updating whether cache needs to be compressed. */
 	if (ret == 0 && mail_cache_need_compress(index->cache)) {
-		struct mail_index_transaction *cache_trans;
-		enum mail_index_transaction_flags trans_flags;
-
-		trans_flags = MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
-		if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_FSYNC) != 0)
-			trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
-		cache_trans = mail_index_transaction_begin(ctx->view, trans_flags);
-		if (mail_cache_compress_with_trans(index->cache, cache_trans,
-						   index->cache->need_compress_file_seq) < 0)
-			mail_index_transaction_rollback(&cache_trans);
-		else {
-			/* can't really do anything if index commit fails */
-			(void)mail_index_transaction_commit(&cache_trans);
-			/* Make sure the newly committed cache record offsets
-			   are updated to the current index. This is important
-			   if the dovecot.index gets recreated below, because
-			   rotation of dovecot.index.log also re-maps the index
-			   to make sure everything is up-to-date. But if it
-			   wasn't, mail_index_write() will just assert-crash
-			   because log_file_head_offset changed. */
-			if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE) <= 0)
-				ret = -1;
+		if (mail_cache_compress(index->cache,
+					index->cache->need_compress_file_seq) < 0) {
+			/* can't really do anything if it fails */
 		}
+		/* Make sure the newly committed cache record offsets are
+		   updated to the current index. This is important if the
+		   dovecot.index gets recreated below, because rotation of
+		   dovecot.index.log also re-maps the index to make sure
+		   everything is up-to-date. But if it wasn't,
+		   mail_index_write() will just assert-crash because
+		   log_file_head_offset changed. */
+		if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE) <= 0)
+			ret = -1;
 	}
 
 	/* Log rotation is allowed only if everything was synced. Note that
