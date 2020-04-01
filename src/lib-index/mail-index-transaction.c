@@ -208,7 +208,8 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	i_assert(log_seq1 == log_seq2);
 
 #ifdef DEBUG
-	i_assert(expected_highest_modseq == log->head->sync_highest_modseq);
+	i_assert(t->reset ||
+		 expected_highest_modseq == log->head->sync_highest_modseq);
 #endif
 
 	if (t->reset) {
