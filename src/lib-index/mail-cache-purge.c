@@ -15,6 +15,7 @@
 
 struct mail_cache_copy_context {
 	struct mail_cache *cache;
+	struct event *event;
 
 	buffer_t *buffer, *field_seen;
 	ARRAY(unsigned int) bitmask_pos;
@@ -159,8 +160,20 @@ mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
 		/* change permanent decisions to temporary decisions.
 		   if they're still permanent they'll get updated later. */
 		field = &cache->fields[i].field;
-		if (field->decision == MAIL_CACHE_DECISION_YES)
+		if (field->decision == MAIL_CACHE_DECISION_YES) {
 			field->decision = MAIL_CACHE_DECISION_TEMP;
+
+			struct event_passthrough *e =
+				mail_cache_decision_changed_event(
+					cache, ctx->event, i)->
+				add_str("reason", "purge")->
+				add_str("old_decision", "yes")->
+				add_str("new_decision", "temp");
+			e_debug(e->event(), "Purge changes field %s "
+				"cache decision yes -> temp "
+				"(last_used=%"PRIdTIME_T")",
+				field->name, field->last_used);
+		}
 	}
 	i_assert(j == used_fields_count);
 
@@ -211,6 +224,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 	i_zero(&ctx);
 	ctx.cache = cache;
+	ctx.event = event;
 	ctx.buffer = buffer_create_dynamic(default_pool, 4096);
 	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
 	ctx.field_seen_value = 0;

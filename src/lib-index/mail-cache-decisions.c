@@ -70,6 +70,16 @@
 #include "ioloop.h"
 #include "mail-cache-private.h"
 
+struct event_passthrough *
+mail_cache_decision_changed_event(struct mail_cache *cache, struct event *event,
+				  unsigned int field)
+{
+	return event_create_passthrough(event)->
+		set_name("mail_cache_decision_changed")->
+		add_str("field", cache->fields[field].field.name)->
+		add_int("last_used", cache->fields[field].field.last_used);
+}
+
 void mail_cache_decision_state_update(struct mail_cache_view *view,
 				      uint32_t seq, unsigned int field)
 {
@@ -119,6 +129,18 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 		cache->fields[field].field.decision = MAIL_CACHE_DECISION_YES;
 		cache->fields[field].decision_dirty = TRUE;
 		cache->field_header_write_pending = TRUE;
+
+		const char *reason = uid < hdr->day_first_uid[7] ?
+			"old_mail" : "unordered_access";
+		struct event_passthrough *e =
+			mail_cache_decision_changed_event(
+				view->cache, view->cache->event, field)->
+			add_str("reason", reason)->
+			add_int("uid", uid)->
+			add_str("old_decision", "temp")->
+			add_str("new_decision", "yes");
+		e_debug(e->event(), "Changing field %s decision temp -> yes (uid=%u)",
+			cache->fields[field].field.name, uid);
 	} else {
 		cache->fields[field].uid_highwater = uid;
 	}
@@ -149,6 +171,15 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 
 	mail_index_lookup_uid(view->view, seq, &uid);
 	cache->fields[field].uid_highwater = uid;
+
+	struct event_passthrough *e =
+		mail_cache_decision_changed_event(cache, cache->event, field)->
+		add_str("reason", "add")->
+		add_int("uid", uid)->
+		add_str("old_decision", "no")->
+		add_str("new_decision", "temp");
+	e_debug(e->event(), "Adding field %s to cache for the first time (uid=%u)",
+		cache->fields[field].field.name, uid);
 }
 
 int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
