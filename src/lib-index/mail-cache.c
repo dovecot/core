@@ -58,13 +58,9 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 void mail_cache_set_seq_corrupted_reason(struct mail_cache_view *cache_view,
 					 uint32_t seq, const char *reason)
 {
-	uint32_t empty = 0;
+	uint32_t uid, empty = 0;
 	struct mail_cache *cache = cache_view->cache;
 	struct mail_index_view *view = cache_view->view;
-
-	mail_index_set_error(cache->index,
-			     "Corrupted record in index cache file %s: %s",
-					     cache->filepath, reason);
 
 	/* drop cache pointer */
 	struct mail_index_transaction *t =
@@ -76,6 +72,14 @@ void mail_cache_set_seq_corrupted_reason(struct mail_cache_view *cache_view,
 		   maybe it works again later. */
 		return;
 	}
+
+	mail_index_lookup_uid(cache_view->view, seq, &uid);
+	const char *errstr = t_strdup_printf(
+		"Deleting corrupted cache record uid=%u: %s", uid, reason);
+	e_error(event_create_passthrough(cache->event)->
+		set_name("mail_cache_record_corrupted")->
+		add_int("uid", uid)->
+		add_str("reason", reason)->event(), "%s", errstr);
 	mail_cache_expunge_count(cache, 1);
 }
 
