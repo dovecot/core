@@ -24,6 +24,19 @@ struct mail_cache_copy_context {
 	bool new_msg;
 };
 
+static const char *cache_decision_str(enum mail_cache_decision_type dec)
+{
+	switch (dec & ~MAIL_CACHE_DECISION_FORCED) {
+	case MAIL_CACHE_DECISION_NO:
+		return "no";
+	case MAIL_CACHE_DECISION_TEMP:
+		return "temp";
+	case MAIL_CACHE_DECISION_YES:
+		return "yes";
+	}
+	i_unreached();
+}
+
 static void
 mail_cache_merge_bitmask(struct mail_cache_copy_context *ctx,
 			 const struct mail_cache_iterate_field *field)
@@ -227,7 +240,19 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			/* if the decision isn't forced and this field hasn't
 			   been accessed for a while, drop it */
 			if ((dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
-			    priv->field.last_used < max_drop_time) {
+			    priv->field.last_used < max_drop_time &&
+			    dec != MAIL_CACHE_DECISION_NO) {
+				const char *dec_str = cache_decision_str(dec);
+				struct event_passthrough *e =
+					event_create_passthrough(event)->
+					set_name("mail_cache_purge_drop_field")->
+					add_str("field", priv->field.name)->
+					add_str("decision", dec_str)->
+					add_int("last_used", priv->field.last_used);
+				e_debug(e->event(), "Purge dropped field %s "
+					"(decision=%s, last_used=%"PRIdTIME_T")",
+					priv->field.name, dec_str,
+					priv->field.last_used);
 				dec = MAIL_CACHE_DECISION_NO;
 				priv->field.decision = dec;
 			}
