@@ -344,17 +344,50 @@ static void doveadm_user_init_dsync(struct mail_user *user)
 	}
 }
 
-static bool paths_are_equal(struct mail_user *user1, struct mail_user *user2,
-			    enum mailbox_list_path_type type)
+static bool
+paths_are_equal(struct mail_namespace *ns1, struct mail_namespace *ns2,
+		enum mailbox_list_path_type type)
 {
 	const char *path1, *path2;
 
-	i_assert(user1->namespaces != NULL);
-	i_assert(user2->namespaces != NULL);
-
-	return mailbox_list_get_root_path(user1->namespaces->list, type, &path1) &&
-		mailbox_list_get_root_path(user2->namespaces->list, type, &path2) &&
+	return mailbox_list_get_root_path(ns1->list, type, &path1) &&
+		mailbox_list_get_root_path(ns2->list, type, &path2) &&
 		strcmp(path1, path2) == 0;
+}
+
+static int
+get_dsync_verify_namespace(struct dsync_cmd_context *ctx,
+			   struct mail_user *user, struct mail_namespace **ns_r)
+{
+	struct mail_namespace *ns;
+
+	/* Use the first -n namespace if given */
+	if (array_count(&ctx->namespace_prefixes) > 0) {
+		const char *prefix =
+			array_idx_elem(&ctx->namespace_prefixes, 0);
+		ns = mail_namespace_find(user->namespaces, prefix);
+		if (ns == NULL) {
+			i_error("Namespace not found: '%s'", prefix);
+			ctx->ctx.exit_code = DOVEADM_EX_NOTFOUND;
+			return -1;
+		}
+		*ns_r = ns;
+		return 0;
+	}
+
+	/* Prefer prefix="" namespace over inbox=yes namespace. Either it uses
+	   the global mail_location, which is good, or it might have
+	   overwritten location in case of e.g. using subscriptions file for
+	   all namespaces. This isn't necessarily obvious, so lets make it
+	   clearer by failing if it happens. */
+	if ((user->namespaces->flags & NAMESPACE_FLAG_UNUSABLE) == 0) {
+		*ns_r = user->namespaces;
+		i_assert((*ns_r)->prefix_len == 0);
+	} else {
+		/* fallback to inbox=yes */
+		*ns_r = mail_namespace_find_inbox(user->namespaces);
+	}
+	return 0;
 }
 
 static int
@@ -365,6 +398,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 {
 	struct dsync_brain *brain2;
 	struct mail_user *user2;
+	struct mail_namespace *ns, *ns2;
 	struct setting_parser_context *set_parser;
 	const char *location, *error;
 	bool brain1_running, brain2_running, changed1, changed2;
@@ -397,23 +431,25 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	}
 	doveadm_user_init_dsync(user2);
 
-	if (mail_namespaces_get_root_sep(user->namespaces) !=
-	    mail_namespaces_get_root_sep(user2->namespaces)) {
+	if (get_dsync_verify_namespace(ctx, user, &ns) < 0 ||
+	    get_dsync_verify_namespace(ctx, user2, &ns2) < 0)
+		return -1;
+	if (mail_namespace_get_sep(ns) != mail_namespace_get_sep(ns2)) {
 		i_error("Mail locations must use the same hierarchy separator "
 			"(specify namespace prefix=\"%s\" "
-			"{ separator } explicitly)", user->namespaces->prefix);
+			"{ separator } explicitly)", ns->prefix);
 		ctx->ctx.exit_code = EX_CONFIG;
 		mail_user_deinit(&user2);
 		return -1;
 	}
-	if (paths_are_equal(user, user2, MAILBOX_LIST_PATH_TYPE_MAILBOX) &&
-	    paths_are_equal(user, user2, MAILBOX_LIST_PATH_TYPE_INDEX)) {
+	if (paths_are_equal(ns, ns2, MAILBOX_LIST_PATH_TYPE_MAILBOX) &&
+	    paths_are_equal(ns, ns2, MAILBOX_LIST_PATH_TYPE_INDEX)) {
 		i_error("Both source and destination mail_location "
 			"points to same directory: %s (namespace "
 			"prefix=\"%s\" { location } is set explicitly?)",
 			mailbox_list_get_root_forced(user->namespaces->list,
 						     MAILBOX_LIST_PATH_TYPE_MAILBOX),
-			user->namespaces->prefix);
+			ns->prefix);
 		ctx->ctx.exit_code = EX_CONFIG;
 		mail_user_deinit(&user2);
 		return -1;
