@@ -32,11 +32,6 @@ static void mail_cache_unlink(struct mail_cache *cache)
 {
 	if (!cache->index->readonly && !MAIL_INDEX_IS_IN_MEMORY(cache->index))
 		i_unlink_if_exists(cache->filepath);
-}
-
-void mail_cache_reset(struct mail_cache *cache)
-{
-	mail_cache_unlink(cache);
 	/* mark the cache as unusable */
 	cache->hdr = NULL;
 }
@@ -45,7 +40,7 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 {
 	va_list va;
 
-	mail_cache_reset(cache);
+	mail_cache_unlink(cache);
 
 	va_start(va, fmt);
 	T_BEGIN {
@@ -316,7 +311,6 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 				!MAIL_CACHE_IS_UNUSABLE(cache) &&
 				cache->hdr->file_seq != 0 ?
 				cache->hdr->file_seq : 0;
-			cache->hdr = NULL;
 			*corrupted_r = TRUE;
 			return -1;
 		}
