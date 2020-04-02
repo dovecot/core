@@ -4,7 +4,6 @@
 #include "test-common.h"
 
 #include <stdio.h>
-#include <unistd.h> /* _exit() */
 #include <setjmp.h> /* for fatal tests */
 
 static bool test_deinit_lib;
@@ -386,5 +385,5 @@ test_exit(int status)
 	i_free_and_null(test_prefix);
 	t_pop_last_unsafe(); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
 	lib_deinit();
-	_exit(status);
+	exit(status);
 }
