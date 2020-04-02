@@ -73,10 +73,12 @@ void mail_cache_set_seq_corrupted_reason(struct mail_cache_view *cache_view,
 		mail_index_transaction_begin(view, MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	mail_index_update_ext(t, seq, cache->ext_id, &empty, NULL);
 
-	if (mail_index_transaction_commit(&t) < 0)
-		mail_cache_reset(cache);
-	else
-		mail_cache_expunge_count(cache, 1);
+	if (mail_index_transaction_commit(&t) < 0) {
+		/* I/O error (e.g. out of disk space). Ignore this for now,
+		   maybe it works again later. */
+		return;
+	}
+	mail_cache_expunge_count(cache, 1);
 }
 
 void mail_cache_file_close(struct mail_cache *cache)
