@@ -87,6 +87,7 @@ struct mail_cache_field_private {
 
 struct mail_cache {
 	struct mail_index *index;
+	struct event *event;
 	uint32_t ext_id;
 
 	char *filepath;

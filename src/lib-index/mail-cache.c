@@ -17,6 +17,10 @@
 
 #define MAIL_CACHE_MIN_HEADER_READ_SIZE 4096
 
+static struct event_category event_category_mail_cache = {
+	.name = "mail-cache",
+};
+
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function)
 {
@@ -558,6 +562,11 @@ mail_cache_open_or_create_path(struct mail_index *index, const char *path)
 	hash_table_create(&cache->field_name_hash, cache->field_pool, 0,
 			  strcase_hash, strcasecmp);
 
+	cache->event = event_create(index->event);
+	event_add_category(cache->event, &event_category_mail_cache);
+	event_set_append_log_prefix(cache->event,
+		t_strdup_printf("Cache %s: ", cache->filepath));
+
 	cache->dotlock_settings.use_excl_lock =
 		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
 	cache->dotlock_settings.nfs_flush =
@@ -604,6 +613,7 @@ void mail_cache_free(struct mail_cache **_cache)
 	buffer_free(&cache->read_buf);
 	hash_table_destroy(&cache->field_name_hash);
 	pool_unref(&cache->field_pool);
+	event_unref(&cache->event);
 	i_free(cache->field_file_map);
 	i_free(cache->file_field_map);
 	i_free(cache->fields);
