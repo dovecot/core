@@ -157,7 +157,8 @@ mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
 
 static int
 mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
-		int fd, uint32_t *file_seq_r, uoff_t *file_size_r, uint32_t *max_uid_r,
+		struct event *event, int fd, uint32_t *file_seq_r,
+		uoff_t *file_size_r, uint32_t *max_uid_r,
 		ARRAY_TYPE(uint32_t) *ext_offsets)
 {
         struct mail_cache_copy_context ctx;
@@ -190,6 +191,10 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	hdr.indexid = cache->index->indexid;
 	hdr.file_seq = get_next_file_seq(cache);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
+
+	event_add_int(event, "file_seq", hdr.file_seq);
+	event_set_name(event, "mail_cache_purge_started");
+	e_debug(event, "Purging (new file_seq=%u)", hdr.file_seq);
 
 	i_zero(&ctx);
 	ctx.cache = cache;
@@ -326,16 +331,29 @@ mail_cache_purge_write(struct mail_cache *cache,
 		       struct mail_index_transaction *trans,
 		       int fd, const char *temp_path, bool *unlock)
 {
+	struct event *event;
 	struct stat st;
 	uint32_t prev_file_seq, file_seq, old_offset, max_uid;
 	ARRAY_TYPE(uint32_t) ext_offsets;
 	const uint32_t *offsets;
-	uoff_t file_size;
-	unsigned int i, count;
+	uoff_t prev_file_size, file_size;
+	unsigned int i, count, prev_deleted_records;
 
-	prev_file_seq = cache->hdr == NULL ? 0 : cache->hdr->file_seq;
+	if (cache->hdr == NULL) {
+		prev_file_seq = 0;
+		prev_file_size = 0;
+		prev_deleted_records = 0;
+	} else {
+		prev_file_seq = cache->hdr->file_seq;
+		prev_file_size = cache->last_stat_size;
+		prev_deleted_records = cache->hdr->deleted_record_count;
+	}
+	event = event_create(cache->event);
+	event_add_int(event, "prev_file_seq", prev_file_seq);
+	event_add_int(event, "prev_file_size", prev_file_size);
+	event_add_int(event, "prev_deleted_records", prev_deleted_records);
 
-	if (mail_cache_copy(cache, trans, fd, &file_seq, &file_size,
+	if (mail_cache_copy(cache, trans, event, fd, &file_seq, &file_size,
 			    &max_uid, &ext_offsets) < 0)
 		return -1;
 
@@ -350,9 +368,13 @@ mail_cache_purge_write(struct mail_cache *cache,
 		return -1;
 	}
 
-	e_debug(cache->index->event, "%s: Purged, file_seq changed %u -> %u, "
-		"size=%"PRIuUOFF_T", max_uid=%u", cache->filepath,
-		prev_file_seq, file_seq, file_size, max_uid);
+	event_add_int(event, "file_size", file_size);
+	event_add_int(event, "max_uid", max_uid);
+	event_set_name(event, "mail_cache_purge_finished");
+	e_debug(event, "Purging finished, file_seq changed %u -> %u, "
+		"size=%"PRIuUOFF_T" -> %"PRIuUOFF_T", max_uid=%u",
+		prev_file_seq, file_seq, prev_file_size, file_size, max_uid);
+	event_unref(&event);
 
 	/* once we're sure that the purging was successful,
 	   update the offsets */
