@@ -274,12 +274,14 @@ static bool mail_cache_verify_header(struct mail_cache *cache,
 
 	if (hdr->major_version != MAIL_CACHE_MAJOR_VERSION) {
 		/* version changed - upgrade silently */
-		mail_cache_unlink(cache);
+		mail_cache_set_corrupted(cache, "Unsupported major version (%u)",
+					 hdr->major_version);
 		return FALSE;
 	}
 	if (hdr->compat_sizeof_uoff_t != sizeof(uoff_t)) {
 		/* architecture change - handle silently(?) */
-		mail_cache_unlink(cache);
+		mail_cache_set_corrupted(cache, "Unsupported uoff_t size (%u)",
+					 hdr->compat_sizeof_uoff_t);
 		return FALSE;
 	}
 
