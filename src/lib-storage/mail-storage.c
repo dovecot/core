@@ -1539,7 +1539,8 @@ static int mailbox_alloc_index_pvt(struct mailbox *box)
 	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE) < 0)
 		return -1;
 
-	box->index_pvt = mail_index_alloc_cache_get(box->storage->event,
+	/* Note that this may cause box->event to live longer than box */
+	box->index_pvt = mail_index_alloc_cache_get(box->event,
 		NULL, index_dir, t_strconcat(box->index_prefix, ".pvt", NULL));
 	mail_index_set_fsync_mode(box->index_pvt,
 				  box->storage->set->parsed_fsync_mode, 0);
