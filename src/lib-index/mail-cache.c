@@ -44,10 +44,13 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 
 	va_start(va, fmt);
 	T_BEGIN {
-		mail_index_set_error(cache->index,
-				     "Corrupted index cache file %s: %s",
-				     cache->filepath,
-				     t_strdup_vprintf(fmt, va));
+		const char *reason = t_strdup_vprintf(fmt, va);
+		const char *errstr = t_strdup_printf(
+			"Deleting corrupted file: %s", reason);
+		e_error(event_create_passthrough(cache->event)->
+			set_name("mail_cache_corrupted")->
+			add_str("reason", reason)->event(), "%s", errstr);
+		mail_index_set_error_nolog(cache->index, errstr);
 	} T_END;
 	va_end(va);
 }
