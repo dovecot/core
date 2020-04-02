@@ -177,7 +177,7 @@ static int parse_angle_addr(struct message_address_parser_context *ctx,
 	if (*ctx->parser.data == '@') {
 		if (parse_domain_list(ctx) > 0 && *ctx->parser.data == ':') {
 			ctx->parser.data++;
-		} else if (parsing_path && *ctx->parser.data != ':') {
+		} else if (parsing_path && (ctx->parser.data >= ctx->parser.end || *ctx->parser.data != ':')) {
 			return -1;
 		} else {
 			if (ctx->fill_missing)
