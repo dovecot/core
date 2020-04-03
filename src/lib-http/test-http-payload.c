@@ -1,7 +1,6 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "lib-signals.h"
 #include "str.h"
 #include "llist.h"
 #include "path-util.h"
@@ -18,6 +17,7 @@
 #endif
 #include "connection.h"
 #include "test-common.h"
+#include "test-subprocess.h"
 #include "http-url.h"
 #include "http-request.h"
 #include "http-server.h"
@@ -25,13 +25,12 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
-#include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
 
 #define CLIENT_PROGRESS_TIMEOUT     30
+#define SERVER_KILL_TIMEOUT_SECS    20
 
 enum payload_handling {
 	PAYLOAD_HANDLING_LOW_LEVEL,
@@ -69,11 +68,12 @@ static struct test_settings {
 static struct ip_addr bind_ip;
 static in_port_t bind_port = 0;
 static int fd_listen = -1;
-static pid_t server_pid = (pid_t)-1;
 static struct ioloop *ioloop_nested = NULL;
 static unsigned ioloop_nested_first = 0;
 static unsigned ioloop_nested_last = 0;
 static unsigned ioloop_nested_depth = 0;
+
+static void main_deinit(void);
 
 /*
  * Test settings
@@ -1582,6 +1582,10 @@ static void test_client_deinit(void)
  * Tests
  */
 
+struct test_server_data {
+	const struct http_server_settings *set;
+};
+
 static void test_open_server_fd(void)
 {
 	i_close_fd(&fd_listen);
@@ -1593,18 +1597,9 @@ static void test_open_server_fd(void)
 	net_set_nonblock(fd_listen, TRUE);
 }
 
-static void test_server_kill_forced(void)
+static int test_run_server(struct test_server_data *data)
 {
-	if (server_pid != (pid_t)-1) {
-		(void)kill(server_pid, SIGKILL);
-		(void)waitpid(server_pid, NULL, 0);
-	}
-	server_pid = (pid_t)-1;
-}
-
-static void
-test_run_server(const struct http_server_settings *server_set)
-{
+	const struct http_server_settings *server_set = data->set;
 	struct ioloop *ioloop;
 
 	i_set_failure_prefix("SERVER: ");
@@ -1614,15 +1609,19 @@ test_run_server(const struct http_server_settings *server_set)
 
 	ioloop_nested = NULL;
 	ioloop_nested_depth = 0;
-
 	ioloop = io_loop_create();
 	test_server_init(server_set);
 	io_loop_run(ioloop);
 	test_server_deinit();
 	io_loop_destroy(&ioloop);
 
+	if (debug)
+		i_debug("Terminated");
+
 	i_close_fd(&fd_listen);
 	test_files_deinit();
+	main_deinit();
+	return 0;
 }
 
 static void
@@ -1644,6 +1643,9 @@ test_run_client(
 	io_loop_run(ioloop);
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
+
+	if (debug)
+		i_debug("Terminated");
 }
 
 static void
@@ -1652,35 +1654,25 @@ test_run_client_server(
 	const struct http_server_settings *server_set,
 	void (*client_init)(const struct http_client_settings *client_set))
 {
+	struct test_server_data data;
+
 	failure = NULL;
-	test_open_server_fd();
 
 	test_files_init();
 
-	lib_signals_ioloop_detach();
+	i_zero(&data);
+	data.set = server_set;
 
-	if ((server_pid = fork()) == (pid_t)-1)
-		i_fatal("fork() failed: %m");
-	if (server_pid == 0) {
-		server_pid = (pid_t)-1;
-		hostpid_init();
-		lib_signals_deinit();
-
-		/* child: server */
-		test_run_server(server_set);
-
-		lib_deinit();
-		exit(1);
-	}
+	/* Fork server */
+	test_open_server_fd();
+	test_subprocess_fork(test_run_server, &data, FALSE);
 	i_close_fd(&fd_listen);
 
-	lib_signals_ioloop_attach();
-
-	/* parent: client */
+	/* Run client */
 	test_run_client(client_set, client_init);
 
 	i_unset_failure_prefix();
-	test_server_kill_forced();
+	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
 	test_files_deinit();
 }
 
@@ -2260,42 +2252,11 @@ static void (*const test_functions[])(void) = {
  * Main
  */
 
-volatile sig_atomic_t terminating = 0;
-
-static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	int signo = si->si_signo;
-
-	if (terminating != 0)
-		raise(signo);
-	terminating = 1;
-
-	/* make sure we don't leave any pesky children alive */
-	test_server_kill_forced();
-
-	(void)signal(signo, SIG_DFL);
-	raise(signo);
-}
-
-static void test_atexit(void)
-{
-	test_server_kill_forced();
-}
-
 static void main_init(void)
 {
-	lib_signals_init();
 #ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_init();
 #endif
-
-	atexit(test_atexit);
-	lib_signals_ignore(SIGPIPE, TRUE);
-	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
 }
 
 static void main_deinit(void)
@@ -2304,7 +2265,6 @@ static void main_deinit(void)
 #ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_deinit();
 #endif
-	lib_signals_deinit();
 }
 
 int main(int argc, char *argv[])
@@ -2328,6 +2288,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	test_subprocesses_init(debug);
+
 	/* listen on localhost */
 	i_zero(&bind_ip);
 	bind_ip.family = AF_INET;
@@ -2335,6 +2297,7 @@ int main(int argc, char *argv[])
 
 	ret = test_run(test_functions);
 
+	test_subprocesses_deinit();
 	main_deinit();
 	lib_deinit();
 	return ret;
