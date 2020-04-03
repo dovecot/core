@@ -76,8 +76,9 @@ bool mail_cache_need_purge(struct mail_cache *cache);
    done always regardless of file_seq. */
 int mail_cache_purge_with_trans(struct mail_cache *cache,
 				struct mail_index_transaction *trans,
-				uint32_t purge_file_seq);
-int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq);
+				uint32_t purge_file_seq, const char *reason);
+int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq,
+		     const char *reason);
 /* Returns TRUE if there is at least something in the cache. */
 bool mail_cache_exists(struct mail_cache *cache);
 /* Open and read cache header. Returns 1 if ok, 0 if cache doesn't exist or it

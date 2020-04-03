@@ -201,5 +201,5 @@ int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
 	   that the fields are updated even if the cache was already created
 	   and no purging was done. */
 	dst->field_header_write_pending = TRUE;
-	return mail_cache_purge(dst, 0);
+	return mail_cache_purge(dst, 0, "copy cache decisions");
 }

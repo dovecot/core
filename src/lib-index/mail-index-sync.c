@@ -942,7 +942,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	if (ret == 0 && mail_cache_need_purge(index->cache) &&
 	    !mail_cache_transactions_have_changes(index->cache)) {
 		if (mail_cache_purge(index->cache,
-				     index->cache->need_purge_file_seq) < 0) {
+				     index->cache->need_purge_file_seq,
+				     "syncing") < 0) {
 			/* can't really do anything if it fails */
 		}
 		/* Make sure the newly committed cache record offsets are

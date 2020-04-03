@@ -201,7 +201,8 @@ bool mail_cache_transactions_have_changes(struct mail_cache *cache)
 }
 
 static int
-mail_cache_transaction_purge(struct mail_cache_transaction_ctx *ctx)
+mail_cache_transaction_purge(struct mail_cache_transaction_ctx *ctx,
+			     const char *reason)
 {
 	struct mail_cache *cache = ctx->cache;
 
@@ -210,7 +211,7 @@ mail_cache_transaction_purge(struct mail_cache_transaction_ctx *ctx)
 	uint32_t purge_file_seq =
 		MAIL_CACHE_IS_UNUSABLE(cache) ? 0 : cache->hdr->file_seq;
 
-	int ret = mail_cache_purge(cache, purge_file_seq);
+	int ret = mail_cache_purge(cache, purge_file_seq, reason);
 	/* already written cache records must be forgotten, but records in
 	   memory can still be written to the new cache file */
 	mail_cache_transaction_forget_flushed(ctx, TRUE);
@@ -229,7 +230,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 			return -1;
 
 		if (!ctx->tried_purging) {
-			if (mail_cache_transaction_purge(ctx) < 0)
+			if (mail_cache_transaction_purge(ctx, "creating cache") < 0)
 				return -1;
 			return mail_cache_transaction_lock(ctx);
 		} else {
@@ -245,7 +246,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 		if (cache->hdr->continued_record_count > 0 ||
 		    cache->hdr->deleted_record_count > 0) {
 			mail_cache_unlock(cache);
-			(void)mail_cache_transaction_purge(ctx);
+			(void)mail_cache_transaction_purge(ctx, "cache is too large");
 			return mail_cache_transaction_lock(ctx);
 		}
 	}

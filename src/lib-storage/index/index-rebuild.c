@@ -240,7 +240,7 @@ void index_index_rebuild_deinit(struct index_rebuild_context **_ctx,
 
 	/* initialize cache file with the old field decisions */
 	(void)mail_cache_purge_with_trans(ctx->box->cache, ctx->trans,
-					  (uint32_t)-1);
+					  (uint32_t)-1, "rebuilding index");
 	index_rebuild_header(ctx, cb);
 	index_rebuild_box_name_header(ctx);
 	if (ctx->backup_index != NULL) {

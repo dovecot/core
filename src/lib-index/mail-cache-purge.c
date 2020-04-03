@@ -166,7 +166,6 @@ mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
 			struct event_passthrough *e =
 				mail_cache_decision_changed_event(
 					cache, ctx->event, i)->
-				add_str("reason", "purge")->
 				add_str("old_decision", "yes")->
 				add_str("new_decision", "temp");
 			e_debug(e->event(), "Purge changes field %s "
@@ -183,8 +182,8 @@ mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
 
 static int
 mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
-		struct event *event, int fd, uint32_t *file_seq_r,
-		uoff_t *file_size_r, uint32_t *max_uid_r,
+		struct event *event, int fd, const char *reason,
+		uint32_t *file_seq_r, uoff_t *file_size_r, uint32_t *max_uid_r,
 		ARRAY_TYPE(uint32_t) *ext_offsets)
 {
         struct mail_cache_copy_context ctx;
@@ -199,6 +198,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	uint32_t message_count, seq, first_new_seq, ext_offset;
 	unsigned int i, used_fields_count, orig_fields_count, record_count;
 	time_t max_drop_time;
+
+	i_assert(reason != NULL);
 
 	*max_uid_r = 0;
 
@@ -218,9 +219,10 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	hdr.file_seq = get_next_file_seq(cache);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
 
+	event_add_str(event, "reason", reason);
 	event_add_int(event, "file_seq", hdr.file_seq);
 	event_set_name(event, "mail_cache_purge_started");
-	e_debug(event, "Purging (new file_seq=%u)", hdr.file_seq);
+	e_debug(event, "Purging (new file_seq=%u): %s", hdr.file_seq, reason);
 
 	i_zero(&ctx);
 	ctx.cache = cache;
@@ -368,7 +370,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 static int
 mail_cache_purge_write(struct mail_cache *cache,
 		       struct mail_index_transaction *trans,
-		       int fd, const char *temp_path, bool *unlock)
+		       int fd, const char *temp_path, const char *
+		       reason, bool *unlock)
 {
 	struct event *event;
 	struct stat st;
@@ -392,8 +395,8 @@ mail_cache_purge_write(struct mail_cache *cache,
 	event_add_int(event, "prev_file_size", prev_file_size);
 	event_add_int(event, "prev_deleted_records", prev_deleted_records);
 
-	if (mail_cache_copy(cache, trans, event, fd, &file_seq, &file_size,
-			    &max_uid, &ext_offsets) < 0)
+	if (mail_cache_copy(cache, trans, event, fd, reason,
+			    &file_seq, &file_size, &max_uid, &ext_offsets) < 0)
 		return -1;
 
 	if (fstat(fd, &st) < 0) {
@@ -481,7 +484,7 @@ mail_cache_purge_has_file_changed(struct mail_cache *cache,
 static int mail_cache_purge_locked(struct mail_cache *cache,
 				   uint32_t purge_file_seq,
 				   struct mail_index_transaction *trans,
-				   bool *unlock)
+				   const char *reason, bool *unlock)
 {
 	const char *temp_path;
 	int fd, ret;
@@ -513,7 +516,7 @@ static int mail_cache_purge_locked(struct mail_cache *cache,
 	fd = mail_index_create_tmp_file(cache->index, cache->filepath, &temp_path);
 	if (fd == -1)
 		return -1;
-	if (mail_cache_purge_write(cache, trans, fd, temp_path, unlock) < 0) {
+	if (mail_cache_purge_write(cache, trans, fd, temp_path, reason, unlock) < 0) {
 		i_close_fd(&fd);
 		i_unlink(temp_path);
 		return -1;
@@ -533,7 +536,7 @@ static int mail_cache_purge_locked(struct mail_cache *cache,
 static int
 mail_cache_purge_full(struct mail_cache *cache,
 		      struct mail_index_transaction *trans,
-		      uint32_t purge_file_seq)
+		      uint32_t purge_file_seq, const char *reason)
 {
 	bool unlock = FALSE;
 	int ret;
@@ -570,7 +573,7 @@ mail_cache_purge_full(struct mail_cache *cache,
 		unlock = TRUE;
 	}
 	cache->purging = TRUE;
-	ret = mail_cache_purge_locked(cache, purge_file_seq, trans, &unlock);
+	ret = mail_cache_purge_locked(cache, purge_file_seq, trans, reason, &unlock);
 	cache->purging = FALSE;
 	if (unlock)
 		mail_cache_unlock(cache);
@@ -585,12 +588,13 @@ mail_cache_purge_full(struct mail_cache *cache,
 
 int mail_cache_purge_with_trans(struct mail_cache *cache,
 				struct mail_index_transaction *trans,
-				uint32_t purge_file_seq)
+				uint32_t purge_file_seq, const char *reason)
 {
-	return mail_cache_purge_full(cache, trans, purge_file_seq);
+	return mail_cache_purge_full(cache, trans, purge_file_seq, reason);
 }
 
-int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq)
+int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq,
+		     const char *reason)
 {
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
@@ -615,7 +619,8 @@ int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq)
 		MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	if (ret < 0)
 		;
-	else if ((ret = mail_cache_purge_full(cache, trans, purge_file_seq)) < 0)
+	else if ((ret = mail_cache_purge_full(cache, trans, purge_file_seq,
+					      reason)) < 0)
 		mail_index_transaction_rollback(&trans);
 	else {
 		if (mail_index_transaction_commit(&trans) < 0)
