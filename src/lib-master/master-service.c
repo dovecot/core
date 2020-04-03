@@ -368,7 +368,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	if ((flags & MASTER_SERVICE_FLAG_DONT_SEND_STATS) == 0) {
 		/* Initialize stats-client early so it can see all events. */
 		value = getenv(DOVECOT_STATS_WRITER_SOCKET_PATH);
-		if (value != NULL)
+		if (value != NULL && value[0] != '\0')
 			service->stats_client = stats_client_init(value, FALSE);
 	}
 
