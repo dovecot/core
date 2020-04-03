@@ -1613,6 +1613,8 @@ test_run_client_server(
 	failure = NULL;
 	test_open_server_fd();
 
+	test_files_init();
+
 	lib_signals_ioloop_detach();
 
 	if ((server_pid = fork()) == (pid_t)-1)
@@ -1654,6 +1656,8 @@ test_run_client_server(
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 	test_server_kill();
+
+	test_files_deinit();
 }
 
 static void
@@ -1713,9 +1717,7 @@ test_run_sequential(
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 1;
 
-	test_files_init();
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
-	test_files_deinit();
 
 	test_out_reason("sequential", (failure == NULL), failure);
 }
@@ -1747,9 +1749,7 @@ test_run_pipeline(
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 8;
 
-	test_files_init();
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
-	test_files_deinit();
 
 	test_out_reason("pipeline", (failure == NULL), failure);
 }
@@ -1781,9 +1781,7 @@ test_run_parallel(
 	http_client_set.max_parallel_connections = 40;
 	http_client_set.max_pipelined_requests = 8;
 
-	test_files_init();
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
-	test_files_deinit();
 
 	test_out_reason("parallel", (failure == NULL), failure);
 }
