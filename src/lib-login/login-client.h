@@ -1,6 +1,10 @@
 #ifndef LOGIN_CLIENT_H
 #define LOGIN_CLIENT_H
 
+/* This login-client API is used by the untrusted pre-login processes (e.g.
+   login-common). It connects to the post-login process (e.g. imap), which uses
+   login-server API to handle the login request. */
+
 #include "net.h"
 
 struct master_service;

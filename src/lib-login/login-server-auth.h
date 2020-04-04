@@ -1,6 +1,10 @@
 #ifndef LOGIN_SERVER_AUTH_H
 #define LOGIN_SERVER_AUTH_H
 
+/* Used for connecting to auth process via auth-master socket and sending
+   REQUEST commands to finish login requests. FIXME: This should be moved
+   to lib-auth/auth-master. */
+
 struct login_request;
 
 typedef void
