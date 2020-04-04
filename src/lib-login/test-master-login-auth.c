@@ -19,7 +19,7 @@
 #include "test-common.h"
 #include "test-subprocess.h"
 
-#include "master-auth.h"
+#include "login-client.h"
 #include "master-login-auth.h"
 
 #define TEST_SOCKET "./master-login-auth-test"

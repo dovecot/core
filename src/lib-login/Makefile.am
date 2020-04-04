@@ -9,12 +9,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master
 
 liblogin_la_SOURCES = \
-	master-auth.c \
+	login-client.c \
 	master-login.c \
 	master-login-auth.c
 
 headers = \
-	master-auth.h \
+	login-client.h \
 	master-login.h \
 	master-login-auth.h
 

@@ -10,7 +10,7 @@
 #include "process-title.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
-#include "master-auth.h"
+#include "login-client.h"
 #include "master-service.h"
 #include "master-interface.h"
 #include "iostream-ssl.h"

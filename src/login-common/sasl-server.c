@@ -16,7 +16,7 @@
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
 #include "master-interface.h"
-#include "master-auth.h"
+#include "login-client.h"
 #include "client-common.h"
 
 #include <unistd.h>

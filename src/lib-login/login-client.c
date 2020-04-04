@@ -7,7 +7,7 @@
 #include "hash.h"
 #include "time-util.h"
 #include "master-service-private.h"
-#include "master-auth.h"
+#include "login-client.h"
 
 #include <unistd.h>
 #include <sys/stat.h>

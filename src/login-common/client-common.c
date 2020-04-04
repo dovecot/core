@@ -23,7 +23,7 @@
 #include "master-interface.h"
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
-#include "master-auth.h"
+#include "login-client.h"
 #include "anvil-client.h"
 #include "auth-client.h"
 #include "dsasl-client.h"

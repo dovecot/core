@@ -1,7 +1,7 @@
 #ifndef MASTER_LOGIN_H
 #define MASTER_LOGIN_H
 
-#include "master-auth.h"
+#include "login-client.h"
 
 #define MASTER_POSTLOGIN_TIMEOUT_DEFAULT 60
 

@@ -15,7 +15,7 @@
 #include "master-service-settings.h"
 #include "auth-client.h"
 #include "auth-master.h"
-#include "master-auth.h"
+#include "login-client.h"
 #include "master-login-auth.h"
 #include "mail-storage-service.h"
 #include "mail-user.h"
