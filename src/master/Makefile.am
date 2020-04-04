@@ -9,7 +9,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
-	-I$(top_srcdir)/src/lib-login \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
@@ -54,8 +53,7 @@ noinst_HEADERS = \
 
 test_programs = \
 	test-auth-client \
-	test-auth-master \
-	test-master-login-auth
+	test-auth-master
 
 test_nocheck_programs =
 
@@ -63,7 +61,6 @@ noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
 test_libs = \
 	../lib-auth/libauth.la \
-	../lib-login/liblogin.la \
 	../lib-master/libmaster.la \
 	../lib-auth/libauth.la \
 	../lib-dns/libdns.la \
@@ -75,7 +72,6 @@ test_libs = \
 
 test_deps = \
 	../lib-auth/libauth.la \
-	../lib-login/liblogin.la \
 	../lib-master/libmaster.la \
 	../lib-auth/libauth.la \
 	../lib-dns/libdns.la \
@@ -91,10 +87,6 @@ test_auth_client_DEPENDENCIES = $(test_deps)
 test_auth_master_SOURCES = test-auth-master.c
 test_auth_master_LDADD = $(test_libs)
 test_auth_master_DEPENDENCIES = $(test_deps)
-
-test_master_login_auth_SOURCES = test-master-login-auth.c
-test_master_login_auth_LDADD = $(test_libs)
-test_master_login_auth_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
