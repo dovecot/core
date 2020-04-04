@@ -121,7 +121,8 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	}
 
 	buffer_create_from_data(&buf, cookie, sizeof(cookie));
-	if (hex_to_binary(list[3], &buf) < 0) {
+	if (strlen(list[3]) != sizeof(cookie)*2 ||
+	    hex_to_binary(list[3], &buf) < 0) {
 		e_error(conn->event, "BUG: Master sent broken REQUEST cookie");
 		return FALSE;
 	}
