@@ -15,12 +15,13 @@
 #include "unlink-directory.h"
 #include "write-full.h"
 #include "connection.h"
-#include "master-service.h"
 #include "master-interface.h"
 #include "test-common.h"
 #include "test-subprocess.h"
 
 #include "auth-client.h"
+
+#include <unistd.h>
 
 #define TEST_SOCKET "./auth-client-test"
 #define CLIENT_PROGRESS_TIMEOUT     30
@@ -1174,7 +1175,6 @@ static int test_open_server_fd(void)
 static int test_run_server(test_server_init_t *server_test)
 {
 	main_deinit();
-	master_service_deinit_forked(&master_service);
 
 	i_set_failure_prefix("SERVER: ");
 
@@ -1250,18 +1250,13 @@ static void main_deinit(void)
 
 int main(int argc, char *argv[])
 {
-	const enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_STANDALONE |
-		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
-		MASTER_SERVICE_FLAG_NO_SSL_INIT;
 	int c;
 	int ret;
 
-	master_service = master_service_init("test-auth-master", service_flags,
-					     &argc, &argv, "D");
+	lib_init();
 	main_init();
 
-	while ((c = master_getopt(master_service)) > 0) {
+	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
 		case 'D':
 			debug = TRUE;
@@ -1271,7 +1266,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	master_service_init_finish(master_service);
 	test_subprocesses_init(debug);
 	test_subprocess_set_cleanup_callback(main_cleanup);
 
@@ -1279,7 +1273,6 @@ int main(int argc, char *argv[])
 
 	test_subprocesses_deinit();
 	main_deinit();
-	master_service_deinit(&master_service);
-
+	lib_deinit();
 	return ret;
 }
