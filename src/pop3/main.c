@@ -268,7 +268,7 @@ login_client_connected(const struct master_login_client *login_client,
 {
 	struct client *client;
 	struct mail_storage_service_input input;
-	enum mail_auth_request_flags flags = login_client->auth_req.flags;
+	enum login_request_flags flags = login_client->auth_req.flags;
 	const char *error;
 	buffer_t input_buf;
 
@@ -281,9 +281,9 @@ login_client_connected(const struct master_login_client *login_client,
 	input.username = username;
 	input.userdb_fields = extra_fields;
 	input.session_id = login_client->session_id;
-	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SECURED) != 0)
+	if ((flags & LOGIN_REQUEST_FLAG_CONN_SECURED) != 0)
 		input.conn_secured = TRUE;
-	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
+	if ((flags & LOGIN_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
 		input.conn_ssl_secured = TRUE;
 
 	buffer_create_from_const_data(&input_buf, login_client->data,

@@ -14,10 +14,10 @@
 
 #define SOCKET_CONNECT_RETRY_MSECS 500
 #define SOCKET_CONNECT_RETRY_WARNING_INTERVAL_SECS 2
-#define MASTER_AUTH_REQUEST_TIMEOUT_MSECS (MASTER_LOGIN_TIMEOUT_SECS/2*1000)
+#define LOGIN_CLIENT_REQUEST_TIMEOUT_MSECS (MASTER_LOGIN_TIMEOUT_SECS/2*1000)
 
-struct master_auth_connection {
-	struct master_auth *auth;
+struct login_connection {
+	struct login_client_list *list;
 	unsigned int tag;
 
 	unsigned int client_pid, auth_id;
@@ -29,14 +29,14 @@ struct master_auth_connection {
 	struct io *io;
 	struct timeout *to;
 
-	char buf[sizeof(struct master_auth_reply)];
+	char buf[sizeof(struct login_reply)];
 	unsigned int buf_pos;
 
-	master_auth_callback_t *callback;
+	login_client_request_callback_t *callback;
 	void *context;
 };
 
-struct master_auth {
+struct login_client_list {
 	struct master_service *service;
 	pool_t pool;
 
@@ -44,33 +44,33 @@ struct master_auth {
 	time_t last_connect_warning;
 
 	unsigned int tag_counter;
-	HASH_TABLE(void *, struct master_auth_connection *) connections;
+	HASH_TABLE(void *, struct login_connection *) connections;
 };
 
-struct master_auth *
-master_auth_init(struct master_service *service, const char *path)
+struct login_client_list *
+login_client_list_init(struct master_service *service, const char *path)
 {
-	struct master_auth *auth;
+	struct login_client_list *list;
 	pool_t pool;
 
-	pool = pool_alloconly_create("master auth", 1024);
-	auth = p_new(pool, struct master_auth, 1);
-	auth->pool = pool;
-	auth->service = service;
-	auth->default_path = p_strdup(pool, path);
-	hash_table_create_direct(&auth->connections, pool, 0);
-	return auth;
+	pool = pool_alloconly_create("login connection list", 1024);
+	list = p_new(pool, struct login_client_list, 1);
+	list->pool = pool;
+	list->service = service;
+	list->default_path = p_strdup(pool, path);
+	hash_table_create_direct(&list->connections, pool, 0);
+	return list;
 }
 
 static void
-master_auth_connection_deinit(struct master_auth_connection **_conn)
+login_connection_deinit(struct login_connection **_conn)
 {
-	struct master_auth_connection *conn = *_conn;
+	struct login_connection *conn = *_conn;
 
 	*_conn = NULL;
 
 	if (conn->tag != 0)
-		hash_table_remove(conn->auth->connections,
+		hash_table_remove(conn->list->connections,
 				  POINTER_CAST(conn->tag));
 
 	if (conn->callback != NULL)
@@ -88,7 +88,7 @@ master_auth_connection_deinit(struct master_auth_connection **_conn)
 }
 
 static void ATTR_FORMAT(2, 3)
-conn_error(struct master_auth_connection *conn, const char *fmt, ...)
+conn_error(struct login_connection *conn, const char *fmt, ...)
 {
 	va_list args;
 
@@ -101,28 +101,28 @@ conn_error(struct master_auth_connection *conn, const char *fmt, ...)
 	va_end(args);
 }
 
-void master_auth_deinit(struct master_auth **_auth)
+void login_client_list_deinit(struct login_client_list **_list)
 {
-	struct master_auth *auth = *_auth;
+	struct login_client_list *list = *_list;
 	struct hash_iterate_context *iter;
 	void *key;
-	struct master_auth_connection *conn;
+	struct login_connection *conn;
 
-	*_auth = NULL;
+	*_list = NULL;
 
-	iter = hash_table_iterate_init(auth->connections);
-	while (hash_table_iterate(iter, auth->connections, &key, &conn)) {
+	iter = hash_table_iterate_init(list->connections);
+	while (hash_table_iterate(iter, list->connections, &key, &conn)) {
 		conn->tag = 0;
-		master_auth_connection_deinit(&conn);
+		login_connection_deinit(&conn);
 	}
 	hash_table_iterate_deinit(&iter);
-	hash_table_destroy(&auth->connections);
-	pool_unref(&auth->pool);
+	hash_table_destroy(&list->connections);
+	pool_unref(&list->pool);
 }
 
-static void master_auth_connection_input(struct master_auth_connection *conn)
+static void login_connection_input(struct login_connection *conn)
 {
-	const struct master_auth_reply *reply;
+	const struct login_reply *reply;
 	int ret;
 
 	ret = read(conn->fd, conn->buf + conn->buf_pos,
@@ -136,7 +136,7 @@ static void master_auth_connection_input(struct master_auth_connection *conn)
 				return;
 			conn_error(conn, "read() failed: %m");
 		}
-		master_auth_connection_deinit(&conn);
+		login_connection_deinit(&conn);
 		return;
 	}
 
@@ -156,22 +156,22 @@ static void master_auth_connection_input(struct master_auth_connection *conn)
 		conn->callback(reply, conn->context);
 		conn->callback = NULL;
 	}
-	master_auth_connection_deinit(&conn);
+	login_connection_deinit(&conn);
 }
 
-static void master_auth_connection_timeout(struct master_auth_connection *conn)
+static void login_connection_timeout(struct login_connection *conn)
 {
-	conn_error(conn, "Auth request timed out");
-	master_auth_connection_deinit(&conn);
+	conn_error(conn, "Login request timed out");
+	login_connection_deinit(&conn);
 }
 
-void master_auth_request(struct master_auth *auth,
-			 const struct master_auth_request_params *params,
-			 master_auth_callback_t *callback, void *context,
-			 unsigned int *tag_r)
+void login_client_request(struct login_client_list *list,
+			  const struct login_client_request_params *params,
+			  login_client_request_callback_t *callback,
+			  void *context, unsigned int *tag_r)
 {
-        struct master_auth_connection *conn;
-	struct master_auth_request req;
+        struct login_connection *conn;
+	struct login_request req;
 	buffer_t *buf;
 	struct stat st;
 	ssize_t ret;
@@ -179,25 +179,25 @@ void master_auth_request(struct master_auth *auth,
 	i_assert(params->request.client_pid != 0);
 	i_assert(params->request.auth_pid != 0);
 
-	conn = i_new(struct master_auth_connection, 1);
-	conn->auth = auth;
+	conn = i_new(struct login_connection, 1);
+	conn->list = list;
 	conn->create_time = ioloop_timeval;
 	conn->callback = callback;
 	conn->context = context;
 	conn->path = params->socket_path != NULL ?
-		i_strdup(params->socket_path) : i_strdup(auth->default_path);
+		i_strdup(params->socket_path) : i_strdup(list->default_path);
 
 	req = params->request;
-	req.tag = ++auth->tag_counter;
+	req.tag = ++list->tag_counter;
 	if (req.tag == 0)
-		req.tag = ++auth->tag_counter;
+		req.tag = ++list->tag_counter;
 
 	conn->client_pid = req.client_pid;
 	conn->auth_id = req.auth_id;
 	conn->remote_ip = req.remote_ip;
 
 	if (fstat(params->client_fd, &st) < 0)
-		i_fatal("fstat(auth dest fd) failed: %m");
+		i_fatal("fstat(login dest fd) failed: %m");
 	req.ino = st.st_ino;
 
 	buf = t_buffer_create(sizeof(req) + req.data_size);
@@ -218,19 +218,19 @@ void master_auth_request(struct master_auth *auth,
 			SOCKET_CONNECT_RETRY_MSECS);
 		io_loop_time_refresh();
 		if (conn->fd != -1 &&
-		    ioloop_time - auth->last_connect_warning >=
+		    ioloop_time - list->last_connect_warning >=
 		    SOCKET_CONNECT_RETRY_WARNING_INTERVAL_SECS) {
 			i_warning("net_connect_unix(%s) succeeded only after retrying - "
 				  "took %lld us", conn->path,
 				  timeval_diff_usecs(&ioloop_timeval, &start_time));
-			auth->last_connect_warning = ioloop_time;
+			list->last_connect_warning = ioloop_time;
 		}
 	}
 	if (conn->fd == -1) {
 		conn_error(conn, "net_connect_unix(%s) failed: %m%s",
 			conn->path, errno != EAGAIN ? "" :
 			" - https://doc.dovecot.org/admin_manual/errors/socket_unavailable/");
-		master_auth_connection_deinit(&conn);
+		login_connection_deinit(&conn);
 		return;
 	}
 
@@ -244,27 +244,28 @@ void master_auth_request(struct master_auth *auth,
 		ret = -1;
 	}
 	if (ret < 0) {
-		master_auth_connection_deinit(&conn);
+		login_connection_deinit(&conn);
 		return;
 	}
 
 	conn->tag = req.tag;
-	conn->to = timeout_add(MASTER_AUTH_REQUEST_TIMEOUT_MSECS,
-			       master_auth_connection_timeout, conn);
+	conn->to = timeout_add(LOGIN_CLIENT_REQUEST_TIMEOUT_MSECS,
+			       login_connection_timeout, conn);
 	conn->io = io_add(conn->fd, IO_READ,
-			  master_auth_connection_input, conn);
-	i_assert(hash_table_lookup(auth->connections, POINTER_CAST(req.tag)) == NULL);
-	hash_table_insert(auth->connections, POINTER_CAST(req.tag), conn);
+			  login_connection_input, conn);
+	i_assert(hash_table_lookup(list->connections, POINTER_CAST(req.tag)) == NULL);
+	hash_table_insert(list->connections, POINTER_CAST(req.tag), conn);
 	*tag_r = req.tag;
 }
 
-void master_auth_request_abort(struct master_auth *auth, unsigned int tag)
+void login_client_request_abort(struct login_client_list *list,
+				unsigned int tag)
 {
-        struct master_auth_connection *conn;
+        struct login_connection *conn;
 
-	conn = hash_table_lookup(auth->connections, POINTER_CAST(tag));
+	conn = hash_table_lookup(list->connections, POINTER_CAST(tag));
 	if (conn == NULL)
-		i_panic("master_auth_request_abort(): tag %u not found", tag);
+		i_panic("login_client_request_abort(): tag %u not found", tag);
 
 	conn->callback = NULL;
 }

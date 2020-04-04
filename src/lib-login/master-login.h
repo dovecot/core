@@ -16,7 +16,7 @@ struct master_login_client {
 	int fd;
 	struct timeval create_time;
 
-	struct master_auth_request auth_req;
+	struct login_request auth_req;
 	char *session_id;
 	unsigned char data[FLEXIBLE_ARRAY_MEMBER];
 };

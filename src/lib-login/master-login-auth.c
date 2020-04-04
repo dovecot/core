@@ -33,7 +33,7 @@ struct master_login_auth_request {
 	pid_t auth_pid;
 	unsigned int auth_id;
 	unsigned int client_pid;
-	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
+	uint8_t cookie[LOGIN_REQUEST_COOKIE_SIZE];
 
 	master_login_auth_request_callback_t *callback;
 	void *context;
@@ -159,7 +159,7 @@ request_internal_failure(struct master_login_auth *auth,
 			 struct master_login_auth_request *request,
 			 const char *reason)
 {
-	request_failure(auth, request, reason, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE);
+	request_failure(auth, request, reason, LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE);
 }
 
 static void request_free(struct master_login_auth_request **_request)
@@ -378,7 +378,7 @@ master_login_auth_lookup_request(struct master_login_auth *auth,
 	}
 	master_login_auth_request_remove(auth, request);
 	if (request->aborted) {
-		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+		request->callback(NULL, LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE,
 				  request->context);
 		request_free(&request);
 		return NULL;
@@ -548,7 +548,7 @@ master_login_auth_send_request(struct master_login_auth *auth,
 
 	if (!auth_request_check_spid(auth, req)) {
 		master_login_auth_request_remove(auth, req);
-		req->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+		req->callback(NULL, LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE,
 			      req->context);
 		request_free(&req);
 		return;
@@ -566,7 +566,7 @@ master_login_auth_send_request(struct master_login_auth *auth,
 }
 
 void master_login_auth_request(struct master_login_auth *auth,
-			       const struct master_auth_request *req,
+			       const struct login_request *req,
 			       master_login_auth_request_callback_t *callback,
 			       void *context)
 {
@@ -578,7 +578,7 @@ void master_login_auth_request(struct master_login_auth *auth,
 			/* we couldn't connect to auth now,
 			   so we probably can't in future either. */
 			master_service_stop_new_connections(master_service);
-			callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+			callback(NULL, LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE,
 				 context);
 			return;
 		}

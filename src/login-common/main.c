@@ -35,7 +35,7 @@ static struct event_category event_category_auth = {
 
 struct login_binary *login_binary;
 struct auth_client *auth_client;
-struct master_auth *master_auth;
+struct login_client_list *login_client_list;
 bool closing_down, login_debug;
 struct anvil_client *anvil;
 const char *login_rawlog_dir = NULL;
@@ -428,7 +428,8 @@ static void main_init(const char *login_socket)
 				       FALSE);
 	auth_client_connect(auth_client);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
-	master_auth = master_auth_init(master_service, post_login_socket);
+	login_client_list = login_client_list_init(master_service,
+						   post_login_socket);
 
 	login_binary->init();
 
@@ -444,7 +445,7 @@ static void main_deinit(void)
 	login_binary->deinit();
 	module_dir_unload(&modules);
 	auth_client_deinit(&auth_client);
-	master_auth_deinit(&master_auth);
+	login_client_list_deinit(&login_client_list);
 
 	char *str;
 	array_foreach_elem(&global_alt_usernames, str)

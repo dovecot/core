@@ -151,8 +151,8 @@ conn_error(struct master_login_connection *conn, const char *fmt, ...)
 
 static int
 master_login_conn_read_request(struct master_login_connection *conn,
-			       struct master_auth_request *req_r,
-			       unsigned char data[MASTER_AUTH_MAX_DATA_SIZE],
+			       struct login_request *req_r,
+			       unsigned char data[LOGIN_REQUEST_MAX_DATA_SIZE],
 			       int *client_fd_r)
 {
 	struct stat st;
@@ -180,7 +180,7 @@ master_login_conn_read_request(struct master_login_connection *conn,
 	}
 
 	if (req_r->data_size != 0) {
-		if (req_r->data_size > MASTER_AUTH_MAX_DATA_SIZE) {
+		if (req_r->data_size > LOGIN_REQUEST_MAX_DATA_SIZE) {
 			conn_error(conn, "Too large auth data_size sent");
 			return -1;
 		}
@@ -421,22 +421,22 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 {
 	struct master_login_client *client = context;
 	struct master_login_connection *conn = client->conn;
-	struct master_auth_reply reply;
+	struct login_reply reply;
 	const char *postlogin_socket_path;
 
 	i_assert(errormsg != NULL || auth_args != NULL);
 	
 	i_zero(&reply);
 	reply.tag = client->auth_req.tag;
-	reply.status = errormsg == NULL ? MASTER_AUTH_STATUS_OK :
-		MASTER_AUTH_STATUS_INTERNAL_ERROR;
+	reply.status = errormsg == NULL ? LOGIN_REPLY_STATUS_OK :
+		LOGIN_REPLY_STATUS_INTERNAL_ERROR;
 	reply.mail_pid = getpid();
 	o_stream_nsend(conn->output, &reply, sizeof(reply));
 
 	if (errormsg != NULL || auth_args[0] == NULL) {
 		if (auth_args != NULL) {
 			i_error("login client: Username missing from auth reply");
-			errormsg = MASTER_AUTH_ERRMSG_INTERNAL_FAILURE;
+			errormsg = LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE;
 		}
 		conn->login->failure_callback(client, errormsg);
 		master_login_client_free(&client);
@@ -469,10 +469,10 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 
 static void master_login_conn_input(struct master_login_connection *conn)
 {
-	struct master_auth_request req;
+	struct login_request req;
 	struct master_login_client *client;
 	struct master_login *login = conn->login;
-	unsigned char data[MASTER_AUTH_MAX_DATA_SIZE];
+	unsigned char data[LOGIN_REQUEST_MAX_DATA_SIZE];
 	size_t i, session_len = 0;
 	int ret, client_fd;
 

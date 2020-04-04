@@ -107,7 +107,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	struct auth_client_connection *client_conn;
 	const char *const *list, *const *params;
 	unsigned int id, client_pid, client_id;
-	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
+	uint8_t cookie[LOGIN_REQUEST_COOKIE_SIZE];
 	buffer_t buf;
 
 	/* <id> <client-pid> <client-id> <cookie> [<parameters>] */

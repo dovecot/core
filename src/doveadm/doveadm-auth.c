@@ -404,26 +404,26 @@ cmd_auth_master_input(const char *auth_master_socket_path,
 		      struct authtest_input *input)
 {
 	struct master_login_auth *master_auth;
-	struct master_auth_request master_auth_req;
+	struct login_request login_req;
 	buffer_t buf;
 
-	i_zero(&master_auth_req);
-	master_auth_req.tag = 1;
-	master_auth_req.auth_pid = input->auth_pid;
-	master_auth_req.auth_id = input->auth_id;
-	master_auth_req.client_pid = getpid();
-	master_auth_req.local_ip = input->info.local_ip;
-	master_auth_req.remote_ip = input->info.remote_ip;
+	i_zero(&login_req);
+	login_req.tag = 1;
+	login_req.auth_pid = input->auth_pid;
+	login_req.auth_id = input->auth_id;
+	login_req.client_pid = getpid();
+	login_req.local_ip = input->info.local_ip;
+	login_req.remote_ip = input->info.remote_ip;
 
-	buffer_create_from_data(&buf, master_auth_req.cookie,
-				sizeof(master_auth_req.cookie));
-	if (strlen(input->auth_cookie) == MASTER_AUTH_COOKIE_SIZE*2)
+	buffer_create_from_data(&buf, login_req.cookie,
+				sizeof(login_req.cookie));
+	if (strlen(input->auth_cookie) == LOGIN_REQUEST_COOKIE_SIZE*2)
 		(void)hex_to_binary(input->auth_cookie, &buf);
 
 	input->success = FALSE;
 	master_auth = master_login_auth_init(auth_master_socket_path, FALSE);
 	io_loop_set_running(current_ioloop);
-	master_login_auth_request(master_auth, &master_auth_req,
+	master_login_auth_request(master_auth, &login_req,
 				  master_auth_callback, input);
 	if (io_loop_is_running(current_ioloop))
 		io_loop_run(current_ioloop);

@@ -141,7 +141,7 @@ extract_input_data_field(const unsigned char **data, size_t *data_len,
 
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
-			 enum mail_auth_request_flags login_flags,
+			 enum login_request_flags login_flags,
 			 int fd_in, int fd_out, const buffer_t *input_buf,
 			 const char **error_r)
 {
@@ -149,7 +149,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_user *mail_user;
 	struct submission_settings *set;
 	bool no_greeting = HAS_ALL_BITS(login_flags,
-					MAIL_AUTH_REQUEST_FLAG_IMPLICIT);
+					LOGIN_REQUEST_FLAG_IMPLICIT);
 	const char *errstr;
 	const char *helo = NULL;
 	struct smtp_proxy_data proxy_data;
@@ -247,7 +247,7 @@ login_client_connected(const struct master_login_client *login_client,
 		       const char *username, const char *const *extra_fields)
 {
 	struct mail_storage_service_input input;
-	enum mail_auth_request_flags flags = login_client->auth_req.flags;
+	enum login_request_flags flags = login_client->auth_req.flags;
 	const char *error;
 	buffer_t input_buf;
 
@@ -260,9 +260,9 @@ login_client_connected(const struct master_login_client *login_client,
 	input.username = username;
 	input.userdb_fields = extra_fields;
 	input.session_id = login_client->session_id;
-	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SECURED) != 0)
+	if ((flags & LOGIN_REQUEST_FLAG_CONN_SECURED) != 0)
 		input.conn_secured = TRUE;
-	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
+	if ((flags & LOGIN_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
 		input.conn_ssl_secured = TRUE;
 
 	buffer_create_from_const_data(&input_buf, login_client->data,

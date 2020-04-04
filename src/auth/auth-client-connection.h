@@ -17,7 +17,7 @@ struct auth_client_connection {
 	unsigned int version_minor;
 	unsigned int pid;
 	unsigned int connect_uid;
-	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
+	uint8_t cookie[LOGIN_REQUEST_COOKIE_SIZE];
 	struct auth_request_handler *request_handler;
 
 	bool login_requests:1;

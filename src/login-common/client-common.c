@@ -343,7 +343,8 @@ void client_destroy(struct client *client, const char *reason)
 		i_assert(client->authenticating);
 		i_assert(client->refcount > 1);
 		client->authenticating = FALSE;
-		master_auth_request_abort(master_auth, client->master_tag);
+		login_client_request_abort(login_client_list,
+					   client->master_tag);
 		client->refcount--;
 	} else if (client->auth_request != NULL ||
 		   client->anvil_query != NULL) {

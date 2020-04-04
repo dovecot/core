@@ -1,37 +1,36 @@
-#ifndef MASTER_AUTH_H
-#define MASTER_AUTH_H
+#ifndef LOGIN_CLIENT_H
+#define LOGIN_CLIENT_H
 
 #include "net.h"
 
 struct master_service;
 
 /* Authentication client process's cookie size */
-#define MASTER_AUTH_COOKIE_SIZE (128/8)
+#define LOGIN_REQUEST_COOKIE_SIZE (128/8)
 
 /* LOGIN_MAX_INBUF_SIZE should be based on this. Keep this large enough so that
    LOGIN_MAX_INBUF_SIZE will be 1024+2 bytes. This is because IMAP ID command's
    values may be max. 1024 bytes plus 2 for "" quotes. (Although it could be
    even double of that when value is full of \" quotes, but for now lets not
    make it too easy to waste memory..) */
-#define MASTER_AUTH_MAX_DATA_SIZE (1024 + 128 + 64 + 2)
+#define LOGIN_REQUEST_MAX_DATA_SIZE (1024 + 128 + 64 + 2)
 
-#define MASTER_AUTH_ERRMSG_INTERNAL_FAILURE \
+#define LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE \
 	"Internal error occurred. Refer to server log for more information."
 
-enum mail_auth_request_flags {
+enum login_request_flags {
 	/* Connection has TLS compression enabled */
-	MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION	= BIT(0),
+	LOGIN_REQUEST_FLAG_TLS_COMPRESSION	= BIT(0),
 	/* Connection is secure (SSL or just trusted) */
-	MAIL_AUTH_REQUEST_FLAG_CONN_SECURED = BIT(1),
+	LOGIN_REQUEST_FLAG_CONN_SECURED		= BIT(1),
 	/* Connection is secured using SSL specifically */
-	MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED = BIT(2),
+	LOGIN_REQUEST_FLAG_CONN_SSL_SECURED	= BIT(2),
 	/* This login is implicit; no command reply is expected */
-	MAIL_AUTH_REQUEST_FLAG_IMPLICIT = BIT(3),
+	LOGIN_REQUEST_FLAG_IMPLICIT		= BIT(3),
 };
 
-/* Authentication request. File descriptor may be sent along with the
-   request. */
-struct master_auth_request {
+/* Login request. File descriptor may be sent along with the request. */
+struct login_request {
 	/* Request tag. Reply is sent back using same tag. */
 	unsigned int tag;
 
@@ -39,7 +38,7 @@ struct master_auth_request {
 	pid_t auth_pid;
 	unsigned int auth_id;
 	unsigned int client_pid;
-	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
+	uint8_t cookie[LOGIN_REQUEST_COOKIE_SIZE];
 
 	/* Properties of the connection. The file descriptor
 	   itself may be a local socketpair. */
@@ -55,47 +54,48 @@ struct master_auth_request {
 	ino_t ino;
 };
 
-enum master_auth_status {
-	MASTER_AUTH_STATUS_OK,
-	MASTER_AUTH_STATUS_INTERNAL_ERROR
+enum login_reply_status {
+	LOGIN_REPLY_STATUS_OK,
+	LOGIN_REPLY_STATUS_INTERNAL_ERROR
 };
 
-struct master_auth_reply {
+struct login_reply {
 	/* tag=0 are notifications from master */
 	unsigned int tag;
-	enum master_auth_status status;
+	enum login_reply_status status;
 	/* PID of the post-login mail process handling this connection */
 	pid_t mail_pid;
 };
 
-struct master_auth_request_params {
+struct login_client_request_params {
 	/* Client fd to transfer to post-login process or -1 if no fd is
 	   wanted to be transferred. */
 	int client_fd;
-	/* Override master_auth->default_path if non-NULL */
+	/* Override login_connection_list->default_path if non-NULL */
 	const char *socket_path;
 
-	/* Authentication request that is sent to post-login process.
+	/* Login request that is sent to post-login process.
 	   tag is ignored. */
-	struct master_auth_request request;
+	struct login_request request;
 	/* Client input of size request.data_size */
 	const unsigned char *data;
 };
 
-/* reply=NULL if the auth lookup was cancelled due to some error */
-typedef void master_auth_callback_t(const struct master_auth_reply *reply,
-				    void *context);
+/* reply=NULL if the login was cancelled due to some error */
+typedef void login_client_request_callback_t(const struct login_reply *reply,
+					     void *context);
 
-struct master_auth *
-master_auth_init(struct master_service *service, const char *path);
-void master_auth_deinit(struct master_auth **auth);
+struct login_client_list *
+login_client_list_init(struct master_service *service, const char *path);
+void login_client_list_deinit(struct login_client_list **list);
 
-/* Send an authentication request. Returns tag which can be used to abort the
+/* Send a login request. Returns tag which can be used to abort the
    request (ie. ignore the reply from master). */
-void master_auth_request(struct master_auth *auth,
-			 const struct master_auth_request_params *params,
-			 master_auth_callback_t *callback, void *context,
-			 unsigned int *tag_r);
-void master_auth_request_abort(struct master_auth *auth, unsigned int tag);
+void login_client_request(struct login_client_list *list,
+			  const struct login_client_request_params *params,
+			  login_client_request_callback_t *callback,
+			  void *context, unsigned int *tag_r);
+void login_client_request_abort(struct login_client_list *list,
+				unsigned int tag);
 
 #endif

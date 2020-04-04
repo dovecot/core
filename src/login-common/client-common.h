@@ -19,7 +19,7 @@ struct module;
    POP3: Max. length of a command line (spec says 512 would be enough)
 */
 #define LOGIN_MAX_INBUF_SIZE \
-	(MASTER_AUTH_MAX_DATA_SIZE - LOGIN_MAX_MASTER_PREFIX_LEN - \
+	(LOGIN_REQUEST_MAX_DATA_SIZE - LOGIN_MAX_MASTER_PREFIX_LEN - \
 	 LOGIN_MAX_SESSION_ID_LEN)
 /* max. size of output buffer. if it gets full, the client is disconnected.
    SASL authentication gives the largest output. */

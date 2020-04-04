@@ -360,7 +360,7 @@ login_client_connected(const struct master_login_client *login_client,
 	struct mail_storage_service_input input;
 	struct client *client;
 	struct imap_login_request request;
-	enum mail_auth_request_flags flags = login_client->auth_req.flags;
+	enum login_request_flags flags = login_client->auth_req.flags;
 	const char *error;
 
 	i_zero(&input);
@@ -372,9 +372,9 @@ login_client_connected(const struct master_login_client *login_client,
 	input.username = username;
 	input.userdb_fields = extra_fields;
 	input.session_id = login_client->session_id;
-	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SECURED) != 0)
+	if ((flags & LOGIN_REQUEST_FLAG_CONN_SECURED) != 0)
 		input.conn_secured = TRUE;
-	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
+	if ((flags & LOGIN_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
 		input.conn_ssl_secured = TRUE;
 
 	client_parse_imap_login_request(login_client->data,
@@ -393,7 +393,7 @@ login_client_connected(const struct master_login_client *login_client,
 		master_service_client_connection_destroyed(master_service);
 		return;
 	}
-	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
+	if ((flags & LOGIN_REQUEST_FLAG_TLS_COMPRESSION) != 0)
 		client->tls_compression = TRUE;
 	if (request.input_size > 0) {
 		client_add_istream_prefix(client, request.input,

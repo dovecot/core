@@ -28,7 +28,7 @@
 struct anvil_request {
 	struct client *client;
 	unsigned int auth_pid;
-	unsigned char cookie[MASTER_AUTH_COOKIE_SIZE];
+	unsigned char cookie[LOGIN_REQUEST_COOKIE_SIZE];
 };
 
 static bool
@@ -130,7 +130,7 @@ call_client_callback(struct client *client, enum sasl_server_reply reply,
 }
 
 static void
-master_auth_callback(const struct master_auth_reply *reply, void *context)
+login_callback(const struct login_reply *reply, void *context)
 {
 	struct client *client = context;
 	enum sasl_server_reply sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
@@ -140,10 +140,10 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 	client->authenticating = FALSE;
 	if (reply != NULL) {
 		switch (reply->status) {
-		case MASTER_AUTH_STATUS_OK:
+		case LOGIN_REPLY_STATUS_OK:
 			sasl_reply = SASL_SERVER_REPLY_SUCCESS;
 			break;
-		case MASTER_AUTH_STATUS_INTERNAL_ERROR:
+		case LOGIN_REPLY_STATUS_INTERNAL_ERROR:
 			sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
 			break;
 		}
@@ -157,8 +157,8 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 static int master_send_request(struct anvil_request *anvil_request)
 {
 	struct client *client = anvil_request->client;
-	struct master_auth_request_params params;
-	struct master_auth_request req;
+	struct login_client_request_params params;
+	struct login_request req;
 	const unsigned char *data;
 	size_t size;
 	buffer_t *buf;
@@ -179,13 +179,13 @@ static int master_send_request(struct anvil_request *anvil_request)
 	req.client_pid = getpid();
 	if (client->ssl_iostream != NULL &&
 	    ssl_iostream_get_compression(client->ssl_iostream) != NULL)
-		req.flags |= MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION;
+		req.flags |= LOGIN_REQUEST_FLAG_TLS_COMPRESSION;
 	if (client->secured)
-		req.flags |= MAIL_AUTH_REQUEST_FLAG_CONN_SECURED;
+		req.flags |= LOGIN_REQUEST_FLAG_CONN_SECURED;
 	if (client->ssl_secured)
-		req.flags |= MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED;
+		req.flags |= LOGIN_REQUEST_FLAG_CONN_SSL_SECURED;
 	if (HAS_ALL_BITS(client->auth_flags, SASL_SERVER_AUTH_FLAG_IMPLICIT))
-		req.flags |= MAIL_AUTH_REQUEST_FLAG_IMPLICIT;
+		req.flags |= LOGIN_REQUEST_FLAG_IMPLICIT;
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
 	buf = t_buffer_create(256);
@@ -207,8 +207,8 @@ static int master_send_request(struct anvil_request *anvil_request)
 	params.socket_path = client->postlogin_socket_path;
 	params.request = req;
 	params.data = buf->data;
-	master_auth_request(master_auth, &params, master_auth_callback,
-			    client, &client->master_tag);
+	login_client_request(login_client_list, &params, login_callback,
+			     client, &client->master_tag);
 	if (close_fd)
 		i_close_fd(&fd);
 	return 0;
@@ -263,7 +263,7 @@ anvil_check_too_many_connections(struct client *client,
 
 	buffer_create_from_data(&buf, req->cookie, sizeof(req->cookie));
 	cookie = auth_client_request_get_cookie(request);
-	if (strlen(cookie) == MASTER_AUTH_COOKIE_SIZE*2)
+	if (strlen(cookie) == LOGIN_REQUEST_COOKIE_SIZE*2)
 		(void)hex_to_binary(cookie, &buf);
 
 	if (client->virtual_user == NULL ||

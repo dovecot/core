@@ -695,7 +695,7 @@ test_client_request_callback(const char *const *auth_args ATTR_UNUSED,
 
 static int
 test_client_request_run(struct master_login_auth *auth, struct ioloop *ioloop,
-			struct master_auth_request *auth_req,
+			struct login_request *login_req,
 			unsigned int concurrency, const char **error_r)
 {
 	struct login_test login_test;
@@ -710,7 +710,7 @@ test_client_request_run(struct master_login_auth *auth, struct ioloop *ioloop,
 
 	login_test.pending_requests = concurrency;
 	for (i = 0; i < concurrency; i++) {
-		master_login_auth_request(auth, auth_req,
+		master_login_auth_request(auth, login_req,
 					  test_client_request_callback,
 					  &login_test);
 	}
@@ -729,29 +729,29 @@ test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
 			     bool retry, const char **error_r)
 {
 	struct master_login_auth *auth;
-	struct master_auth_request auth_req;
+	struct login_request login_req;
 	struct ioloop *ioloop;
 	int ret;
 
-	i_zero(&auth_req);
-	auth_req.tag = 99033;
-	auth_req.auth_pid = 23234;
-	auth_req.auth_id = 45521;
-	auth_req.client_pid = client_pid;
-	random_fill(auth_req.cookie, sizeof(auth_req.cookie));
-	(void)net_addr2ip("10.0.0.15", &auth_req.local_ip);
-	auth_req.local_port = 143;
-	(void)net_addr2ip("10.0.0.211", &auth_req.remote_ip);
-	auth_req.remote_port = 45546;
-	auth_req.flags = MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED;
+	i_zero(&login_req);
+	login_req.tag = 99033;
+	login_req.auth_pid = 23234;
+	login_req.auth_id = 45521;
+	login_req.client_pid = client_pid;
+	random_fill(login_req.cookie, sizeof(login_req.cookie));
+	(void)net_addr2ip("10.0.0.15", &login_req.local_ip);
+	login_req.local_port = 143;
+	(void)net_addr2ip("10.0.0.211", &login_req.remote_ip);
+	login_req.remote_port = 45546;
+	login_req.flags = LOGIN_REQUEST_FLAG_CONN_SSL_SECURED;
 
 	ioloop = io_loop_create();
 
 	auth = master_login_auth_init(TEST_SOCKET, TRUE);
-	ret = test_client_request_run(auth, ioloop, &auth_req, concurrency,
+	ret = test_client_request_run(auth, ioloop, &login_req, concurrency,
 				      error_r);
 	if (ret < 0 && retry) {
-		ret = test_client_request_run(auth, ioloop, &auth_req,
+		ret = test_client_request_run(auth, ioloop, &login_req,
 					      concurrency, error_r);
 	}
 	master_login_auth_deinit(&auth);
