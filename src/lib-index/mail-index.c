@@ -27,8 +27,8 @@
 
 struct mail_index_module_register mail_index_module_register = { 0 };
 
-struct event_category event_category_index = {
-	.name = "index",
+struct event_category event_category_mail_index = {
+	.name = "mail-index",
 };
 
 static void mail_index_close_nonopened(struct mail_index *index);
@@ -65,7 +65,7 @@ struct mail_index *mail_index_alloc(struct event *parent_event,
 	index->prefix = i_strdup(prefix);
 	index->fd = -1;
 	index->event = event_create(parent_event);
-	event_add_category(index->event, &event_category_index);
+	event_add_category(index->event, &event_category_mail_index);
 
 	index->extension_pool =
 		pool_alloconly_create(MEMPOOL_GROWING"index extension", 1024);
