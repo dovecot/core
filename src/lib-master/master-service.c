@@ -21,9 +21,8 @@
 #include "stats-client.h"
 #include "master-admin-client.h"
 #include "master-instance.h"
-#include "master-login.h"
-#include "master-service-ssl.h"
 #include "master-service-private.h"
+#include "master-service-ssl.h"
 #include "master-service-settings.h"
 #include "iostream-ssl.h"
 
@@ -1135,8 +1134,31 @@ void master_service_stop_new_connections(struct master_service *service)
 		service->master_status.available_count = 0;
 		master_status_update(service);
 	}
-	if (service->login != NULL)
-		master_login_stop(service->login);
+	if (service->stop_new_connections_callback != NULL) {
+		service->stop_new_connections_callback(
+			service->stop_new_connections_context);
+	}
+}
+
+void master_service_add_stop_new_connections_callback(
+	struct master_service *service,
+	void (*callback)(void *context), void *context)
+{
+	/* for now we need to support just one */
+	i_assert(service->stop_new_connections_callback == NULL);
+	service->stop_new_connections_callback = callback;
+	service->stop_new_connections_context = context;
+}
+
+void master_service_remove_stop_new_connections_callback(
+	struct master_service *service,
+	void (*callback)(void *context), void *context)
+{
+	i_assert(service->stop_new_connections_callback == callback);
+	i_assert(service->stop_new_connections_context == context);
+
+	service->stop_new_connections_callback = NULL;
+	service->stop_new_connections_context = NULL;
 }
 
 bool master_service_is_killed(struct master_service *service)

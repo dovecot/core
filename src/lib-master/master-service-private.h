@@ -62,7 +62,8 @@ struct master_service {
 	master_service_avail_overflow_callback_t *avail_overflow_callback;
 	struct timeout *to_overflow_state, *to_overflow_call;
 
-	struct master_login *login;
+	void (*stop_new_connections_callback)(void *context);
+	void *stop_new_connections_context;
 
 	master_service_connection_callback_t *callback;
 
@@ -112,6 +113,13 @@ void master_service_client_connection_handled(struct master_service *service,
 					      struct master_service_connection *conn);
 void master_service_client_connection_callback(struct master_service *service,
 					       struct master_service_connection *conn);
+
+void master_service_add_stop_new_connections_callback(
+	struct master_service *service,
+	void (*callback)(void *context), void *context);
+void master_service_remove_stop_new_connections_callback(
+	struct master_service *service,
+	void (*callback)(void *context), void *context);
 
 void master_service_haproxy_new(struct master_service *service,
 				struct master_service_connection *conn);

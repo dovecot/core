@@ -61,6 +61,13 @@ struct master_login {
 static void master_login_conn_close(struct master_login_connection *conn);
 static void master_login_conn_unref(struct master_login_connection **_conn);
 
+static void master_login_stop_new_connections(void *context)
+{
+	struct master_login *login = context;
+
+	master_login_stop(login);
+}
+
 struct master_login *
 master_login_init(struct master_service *service,
 		  const struct master_login_settings *set)
@@ -79,8 +86,8 @@ master_login_init(struct master_service *service,
 	login->postlogin_socket_path = i_strdup(set->postlogin_socket_path);
 	login->postlogin_timeout_secs = set->postlogin_timeout_secs;
 
-	i_assert(service->login == NULL);
-	service->login = login;
+	master_service_add_stop_new_connections_callback(service,
+		master_login_stop_new_connections, login);
 	return login;
 }
 
@@ -90,8 +97,8 @@ void master_login_deinit(struct master_login **_login)
 
 	*_login = NULL;
 
-	i_assert(login->service->login == login);
-	login->service->login = NULL;
+	master_service_remove_stop_new_connections_callback(login->service,
+		master_login_stop_new_connections, login);
 
 	master_login_auth_deinit(&login->auth);
 	while (login->conns != NULL) {
