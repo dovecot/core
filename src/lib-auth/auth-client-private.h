@@ -60,6 +60,8 @@ struct auth_client {
 	bool debug:1;
 };
 
+extern struct event_category event_category_auth_client;
+
 bool auth_client_request_is_aborted(struct auth_client_request *request);
 time_t auth_client_request_get_create_time(struct auth_client_request *request);
 

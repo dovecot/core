@@ -4,7 +4,7 @@
 #include "array.h"
 #include "auth-client-private.h"
 
-static struct event_category event_category_auth_client = {
+struct event_category event_category_auth_client = {
 	.name = "auth-client"
 };
 

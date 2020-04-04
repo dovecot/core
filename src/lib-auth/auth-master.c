@@ -12,6 +12,7 @@
 #include "strescape.h"
 #include "connection.h"
 #include "master-interface.h"
+#include "auth-client-private.h"
 #include "auth-master.h"
 
 #include <unistd.h>
@@ -23,10 +24,6 @@
 
 #define MAX_INBUF_SIZE 8192
 #define MAX_OUTBUF_SIZE 1024
-
-static struct event_category event_category_auth_master_client = {
-	.name = "auth-master-client"
-};
 
 struct auth_master_connection {
 	struct connection conn;
@@ -110,7 +107,7 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 					   &auth_master_vfuncs);
 
 	conn->event_parent = conn->event = event_create(NULL);
-	event_add_category(conn->event_parent, &event_category_auth_master_client);
+	event_add_category(conn->event_parent, &event_category_auth_client);
 	event_set_append_log_prefix(conn->event_parent, "auth-master: ");
 	event_set_forced_debug(conn->event_parent,
 			       HAS_ALL_BITS(flags, AUTH_MASTER_FLAG_DEBUG));
