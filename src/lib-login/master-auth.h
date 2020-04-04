@@ -97,10 +97,10 @@ void master_auth_deinit(struct master_auth **auth);
 
 /* Send an authentication request. Returns tag which can be used to abort the
    request (ie. ignore the reply from master). */
-void master_auth_request_full(struct master_auth *auth,
-			      const struct master_auth_request_params *params,
-			      master_auth_callback_t *callback, void *context,
-			      unsigned int *tag_r);
+void master_auth_request(struct master_auth *auth,
+			 const struct master_auth_request_params *params,
+			 master_auth_callback_t *callback, void *context,
+			 unsigned int *tag_r);
 void master_auth_request_abort(struct master_auth *auth, unsigned int tag);
 
 #endif

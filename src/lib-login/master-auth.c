@@ -165,10 +165,10 @@ static void master_auth_connection_timeout(struct master_auth_connection *conn)
 	master_auth_connection_deinit(&conn);
 }
 
-void master_auth_request_full(struct master_auth *auth,
-			      const struct master_auth_request_params *params,
-			      master_auth_callback_t *callback, void *context,
-			      unsigned int *tag_r)
+void master_auth_request(struct master_auth *auth,
+			 const struct master_auth_request_params *params,
+			 master_auth_callback_t *callback, void *context,
+			 unsigned int *tag_r)
 {
         struct master_auth_connection *conn;
 	struct master_auth_request req;

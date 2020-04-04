@@ -207,8 +207,8 @@ static int master_send_request(struct anvil_request *anvil_request)
 	params.socket_path = client->postlogin_socket_path;
 	params.request = req;
 	params.data = buf->data;
-	master_auth_request_full(master_auth, &params, master_auth_callback,
-				 client, &client->master_tag);
+	master_auth_request(master_auth, &params, master_auth_callback,
+			    client, &client->master_tag);
 	if (close_fd)
 		i_close_fd(&fd);
 	return 0;
