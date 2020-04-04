@@ -11,14 +11,12 @@
 #include "str.h"
 #include "strescape.h"
 #include "connection.h"
+#include "auth-client-interface.h"
 #include "master-interface.h"
 #include "auth-client-private.h"
 #include "auth-master.h"
 
 #include <unistd.h>
-
-#define AUTH_PROTOCOL_MAJOR 1
-#define AUTH_PROTOCOL_MINOR 0
 
 #define AUTH_MASTER_IDLE_SECS 60
 
@@ -86,8 +84,8 @@ static const struct connection_settings auth_master_set = {
 	.dont_send_version = TRUE,
 	.service_name_in = "auth-master",
 	.service_name_out = "auth-master",
-	.major_version = AUTH_PROTOCOL_MAJOR,
-	.minor_version = AUTH_PROTOCOL_MINOR,
+	.major_version = AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+	.minor_version = AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 	.unix_client_connect_msecs = 1000,
 	.input_max_size = MAX_INBUF_SIZE,
 	.output_max_size = MAX_OUTBUF_SIZE,

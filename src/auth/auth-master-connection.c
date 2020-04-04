@@ -689,7 +689,7 @@ static void master_input(struct auth_master_connection *conn)
 		/* make sure the major version matches */
 		if (!str_begins(line, "VERSION\t", &args) ||
 		    !str_uint_equals(t_strcut(args, '\t'),
-				     AUTH_MASTER_PROTOCOL_MAJOR_VERSION)) {
+				     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION)) {
 			e_error(conn->event,
 				"Master not compatible with this server "
 				"(mixed old and new binaries?)");
@@ -787,8 +787,8 @@ auth_master_connection_create(struct auth *auth, int fd,
 	event_set_log_message_callback(conn->event, auth_master_event_log_callback, conn);
 
 	line = t_strdup_printf("VERSION\t%u\t%u\nSPID\t%s\n",
-			       AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
-			       AUTH_MASTER_PROTOCOL_MINOR_VERSION,
+			       AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+			       AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 			       my_pid);
 	o_stream_nsend_str(conn->output, line);
 	DLLIST_PREPEND(&auth_master_connections, conn);

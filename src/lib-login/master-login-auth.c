@@ -86,8 +86,8 @@ static const struct connection_settings master_login_auth_set = {
 	.dont_send_version = TRUE,
 	.service_name_in = "auth-master",
 	.service_name_out = "auth-master",
-	.major_version = AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
-	.minor_version = AUTH_MASTER_PROTOCOL_MINOR_VERSION,
+	.major_version = AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+	.minor_version = AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 	.unix_client_connect_msecs = 1000,
 	.input_max_size = AUTH_MAX_INBUF_SIZE,
 	.output_max_size = SIZE_MAX,
@@ -508,8 +508,8 @@ master_login_auth_connect(struct master_login_auth *auth)
 
 	o_stream_nsend_str(auth->conn.output,
 		t_strdup_printf("VERSION\t%u\t%u\n",
-				AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
-				AUTH_MASTER_PROTOCOL_MINOR_VERSION));
+				AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+				AUTH_CLIENT_PROTOCOL_MINOR_VERSION));
 	return 0;
 }
 

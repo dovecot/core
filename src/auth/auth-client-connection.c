@@ -277,7 +277,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 				return;
 			}
 			/* make sure the major version matches */
-			if (vmajor != AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
+			if (vmajor != AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
 				e_error(conn->event, "Authentication client "
 					"not compatible with this server "
 					"(mixed old and new binaries?)");
