@@ -28,7 +28,7 @@ static MODULE_CONTEXT_DEFINE_INIT(push_notification_user_module,
 static struct ioloop *main_ioloop;
 
 struct event_category event_category_push_notification = {
-	.name = "push_notification",
+	.name = "push-notification",
 };
 
 struct event_category *push_notification_get_event_category(void)
