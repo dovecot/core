@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap-urlauth \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-login \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/raw \

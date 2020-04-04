@@ -594,6 +594,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-smtp/libsmtp.la \
 	$(top_builddir)/src/lib-program-client/libprogram_client.la \
 	$(top_builddir)/src/lib-master/libmaster.la \
+	$(top_builddir)/src/lib-login/liblogin.la \
 	$(top_builddir)/src/lib-settings/libsettings.la \
 	$(top_builddir)/src/lib-http/libhttp.la \
 	$(top_builddir)/src/lib-fs/libfs.la \
@@ -824,6 +825,7 @@ src/lib-ldap/Makefile
 src/lib-lua/Makefile
 src/lib-mail/Makefile
 src/lib-master/Makefile
+src/lib-login/Makefile
 src/lib-program-client/Makefile
 src/lib-otp/Makefile
 src/lib-dovecot/Makefile

@@ -17,10 +17,7 @@ AM_CPPFLAGS = \
 libmaster_la_SOURCES = \
 	anvil-client.c \
 	master-admin-client.c \
-	master-auth.c \
 	master-instance.c \
-	master-login.c \
-	master-login-auth.c \
 	master-service.c \
 	master-service-haproxy.c \
 	master-service-settings.c \
@@ -33,11 +30,8 @@ libmaster_la_SOURCES = \
 headers = \
 	anvil-client.h \
 	master-admin-client.h \
-	master-auth.h \
 	master-instance.h \
 	master-interface.h \
-	master-login.h \
-	master-login-auth.h \
 	master-service.h \
 	master-service-private.h \
 	master-service-settings.h \

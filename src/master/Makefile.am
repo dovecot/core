@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-login \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
@@ -62,6 +63,7 @@ noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
 test_libs = \
 	../lib-auth/libauth.la \
+	../lib-login/liblogin.la \
 	../lib-master/libmaster.la \
 	../lib-auth/libauth.la \
 	../lib-dns/libdns.la \
@@ -73,6 +75,7 @@ test_libs = \
 
 test_deps = \
 	../lib-auth/libauth.la \
+	../lib-login/liblogin.la \
 	../lib-master/libmaster.la \
 	../lib-auth/libauth.la \
 	../lib-dns/libdns.la \
