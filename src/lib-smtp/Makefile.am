@@ -96,6 +96,7 @@ test_libs = \
 	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
 	../lib-master/libmaster.la \
+	../lib-auth/libauth.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
 	../lib-sasl/libsasl.la \
@@ -110,6 +111,7 @@ test_deps = \
 	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
 	../lib-master/libmaster.la \
+	../lib-auth/libauth.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
 	../lib-sasl/libsasl.la \

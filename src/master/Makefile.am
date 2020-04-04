@@ -68,6 +68,7 @@ noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 test_libs = \
 	../lib-auth/libauth.la \
 	../lib-master/libmaster.la \
+	../lib-auth/libauth.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
@@ -78,6 +79,7 @@ test_libs = \
 test_deps = \
 	../lib-auth/libauth.la \
 	../lib-master/libmaster.la \
+	../lib-auth/libauth.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \

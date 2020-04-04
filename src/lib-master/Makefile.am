@@ -4,6 +4,7 @@ noinst_LTLIBRARIES = libmaster.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \

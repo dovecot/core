@@ -14,6 +14,7 @@
 #include "strescape.h"
 #include "time-util.h"
 #include "connection.h"
+#include "auth-client-private.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "master-auth.h"
@@ -21,10 +22,6 @@
 
 
 #define AUTH_MAX_INBUF_SIZE 8192
-
-static struct event_category event_category_auth_master_client_login = {
-	.name = "auth-master-client-login"
-};
 
 struct master_login_auth_request {
 	struct master_login_auth_request *prev, *next;
@@ -119,8 +116,7 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 					   &master_login_auth_vfuncs);
 
 	auth->event = event_create(NULL);
-	event_add_category(auth->event,
-			   &event_category_auth_master_client_login);
+	event_add_category(auth->event, &event_category_auth_client);
 	event_set_append_log_prefix(auth->event, "auth-master: login: ");
 
 	auth->conn.event_parent = auth->event;
