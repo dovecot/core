@@ -38,7 +38,6 @@ struct authtest_input {
 	bool success;
 
 	struct auth_client_request *request;
-	struct master_auth_request master_auth_req;
 
 	unsigned int auth_id;
 	unsigned int auth_pid;
