@@ -19,7 +19,7 @@
 #include "test-common.h"
 #include "test-subprocess.h"
 
-#include "login-client.h"
+#include "login-interface.h"
 #include "login-server-auth.h"
 
 #define TEST_SOCKET "./login-server-auth-test"

@@ -4,7 +4,7 @@
 /* This login-server API is used by post-login processes (e.g. imap) to accept
    a login request sent by the pre-login processes via login-client API. */
 
-#include "login-client.h"
+#include "login-interface.h"
 
 #define LOGIN_SERVER_POSTLOGIN_TIMEOUT_DEFAULT 60
 

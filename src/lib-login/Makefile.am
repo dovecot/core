@@ -15,6 +15,7 @@ liblogin_la_SOURCES = \
 
 headers = \
 	login-client.h \
+	login-interface.h \
 	login-server.h \
 	login-server-auth.h
 

@@ -17,7 +17,7 @@
 #include "auth-client-private.h"
 #include "master-interface.h"
 #include "master-service.h"
-#include "login-client.h"
+#include "login-interface.h"
 #include "login-server-auth.h"
 
 
