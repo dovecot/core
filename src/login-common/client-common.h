@@ -6,7 +6,7 @@ struct module;
 #include "net.h"
 #include "login-proxy.h"
 #include "sasl-server.h"
-#include "master-login.h" /* for LOGIN_MAX_SESSION_ID_LEN */
+#include "login-client.h"
 
 #define LOGIN_MAX_SESSION_ID_LEN 64
 #define LOGIN_MAX_MASTER_PREFIX_LEN 128
