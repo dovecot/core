@@ -80,6 +80,14 @@ mail_cache_decision_changed_event(struct mail_cache *cache, struct event *event,
 		add_int("last_used", cache->fields[field].field.last_used);
 }
 
+static void
+mail_cache_update_last_used(struct mail_cache *cache, unsigned int field)
+{
+	cache->fields[field].field.last_used = (uint32_t)ioloop_time;
+	if (cache->field_file_map[field] != (uint32_t)-1)
+		cache->field_header_write_pending = TRUE;
+}
+
 void mail_cache_decision_state_update(struct mail_cache_view *view,
 				      uint32_t seq, unsigned int field)
 {
@@ -99,12 +107,9 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 		return;
 	}
 
-	if (ioloop_time - cache->fields[field].field.last_used > 3600*24) {
-		/* update last_used about once a day */
-		cache->fields[field].field.last_used = (uint32_t)ioloop_time;
-		if (cache->field_file_map[field] != (uint32_t)-1)
-			cache->field_header_write_pending = TRUE;
-	}
+	/* update last_used about once a day */
+	if (ioloop_time - cache->fields[field].field.last_used > 3600*24)
+		mail_cache_update_last_used(cache, field);
 
 	if (dec != MAIL_CACHE_DECISION_TEMP) {
 		/* a) forced decision
