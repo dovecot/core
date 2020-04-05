@@ -78,11 +78,7 @@ login_connection_deinit(struct login_connection **_conn)
 
 	timeout_remove(&conn->to);
 	io_remove(&conn->io);
-	if (conn->fd != -1) {
-		if (close(conn->fd) < 0)
-			i_fatal("close(%s) failed: %m", conn->path);
-		conn->fd = -1;
-	}
+	i_close_fd(&conn->fd);
 	i_free(conn->path);
 	i_free(conn);
 }

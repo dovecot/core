@@ -227,8 +227,7 @@ static void master_login_client_free(struct master_login_client **_client)
 
 	*_client = NULL;
 	if (client->fd != -1) {
-		if (close(client->fd) < 0)
-			i_error("close(fd_read client) failed: %m");
+		i_close_fd(&client->fd);
 		/* this client failed (login callback wasn't called).
 		   reset prefix to default. */
 		i_set_failure_prefix("%s: ", client->conn->login->service->name);
@@ -282,8 +281,7 @@ static void master_login_postlogin_free(struct master_login_postlogin *pl)
 	}
 	timeout_remove(&pl->to);
 	io_remove(&pl->io);
-	if (close(pl->fd) < 0)
-		i_error("close(postlogin) failed: %m");
+	i_close_fd(&pl->fd);
 	str_free(&pl->input);
 	i_free(pl->socket_path);
 	i_free(pl->username);
@@ -302,8 +300,7 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 	while ((ret = fd_read(pl->fd, buf, sizeof(buf), &fd)) > 0) {
 		if (fd != -1) {
 			/* post-login script replaced fd */
-			if (close(pl->client->fd) < 0)
-				conn_error(conn, "close(client) failed: %m");
+			i_close_fd(&pl->client->fd);
 			pl->client->fd = fd;
 		}
 		str_append_data(pl->input, buf, ret);
@@ -539,9 +536,7 @@ static void master_login_conn_close(struct master_login_connection *conn)
 
 	io_remove(&conn->io);
 	o_stream_close(conn->output);
-	if (close(conn->fd) < 0)
-		i_error("close(master login) failed: %m");
-	conn->fd = -1;
+	i_close_fd(&conn->fd);
 }
 
 static void master_login_conn_unref(struct master_login_connection **_conn)
