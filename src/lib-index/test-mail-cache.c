@@ -408,15 +408,9 @@ static void test_mail_cache_add_decisions(void)
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
 
-	/* purging changes YES -> TEMP */
-	expected_decisions[TEST_FIELD_YES] = MAIL_CACHE_DECISION_TEMP;
+	/* check that decisions haven't changed */
 	for (i = 0; i < TEST_FIELD_COUNT; i++)
 		test_assert_idx(ctx.cache->fields[cache_fields[i].idx].field.decision == expected_decisions[i], i);
-	/* but change it back */
-	ctx.cache->fields[cache_fields[TEST_FIELD_YES].idx].field.decision =
-		MAIL_CACHE_DECISION_YES;
-	ctx.cache->fields[cache_fields[TEST_FIELD_YES].idx].decision_dirty = TRUE;
-	expected_decisions[TEST_FIELD_YES] = MAIL_CACHE_DECISION_YES;
 
 	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
 	trans = mail_index_transaction_begin(ctx.view, 0);
@@ -525,6 +519,7 @@ static void test_mail_cache_lookup_decisions_int(bool header_lookups)
 		const struct mail_cache_field_private *priv =
 			&ctx.cache->fields[cache_fields[i].idx];
 
+		time_t prev_last_used = priv->field.last_used;
 		ioloop_time++;
 		if (!header_lookups) {
 			test_assert_idx(mail_cache_lookup_field(cache_view,
@@ -548,6 +543,12 @@ static void test_mail_cache_lookup_decisions_int(bool header_lookups)
 			/* Note that uid_highwater isn't permanently saved to
 			   the cache file. It's used only within a single
 			   session. */
+			expected_uid_highwater[i] = 2;
+			break;
+		case TEST_FIELD_YES:
+			/* YES decision doesn't change last_used until the
+			   cache decision has been confirmed again. */
+			expected_last_used[i] = prev_last_used;
 			expected_uid_highwater[i] = 2;
 			break;
 		}
@@ -596,6 +597,12 @@ static void test_mail_cache_lookup_decisions_int(bool header_lookups)
 				test_assert_idx(mail_cache_lookup_headers(
 					cache_view, str, seq,
 					&cache_fields[i].idx, 1) == 0, i);
+			}
+			if (i == TEST_FIELD_YES && seq == 2) {
+				/* YES decision is confirmed now. The last_used
+				   timestamp was updated for the first old
+				   mail. */
+				expected_last_used[i] = ioloop_time;
 			}
 			test_assert_idx(priv->field.decision == expected_decisions[i], i);
 			test_assert_idx(priv->uid_highwater == expected_uid_highwater[i], i);

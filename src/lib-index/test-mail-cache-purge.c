@@ -609,7 +609,14 @@ static void test_mail_cache_resetid_mismatch2(void)
 	test_end();
 }
 
-static void test_mail_cache_purge_field_changes_int(bool drop_fields)
+enum test_drop {
+	TEST_DROP_NOTHING,
+	TEST_DROP_YES_TO_TEMP_FIRST,
+	TEST_DROP_YES_TO_TEMP_LAST,
+	TEST_DROP_TEMP_TO_NO,
+};
+
+static void test_mail_cache_purge_field_changes_int(enum test_drop drop)
 {
 	enum {
 		TEST_FIELD_NO,
@@ -708,9 +715,22 @@ static void test_mail_cache_purge_field_changes_int(bool drop_fields)
 	/* set the last_used time just at the boundary of being dropped or
 	   being kept */
 	for (i = 0; i < ctx.cache->fields_count; i++) {
-		ctx.cache->fields[i].field.last_used = day_stamp -
-			(drop_fields ? 1 : 0) -
-			optimization_set.cache.unaccessed_field_drop_secs;
+		unsigned int secs = optimization_set.cache.unaccessed_field_drop_secs;
+		switch (drop) {
+		case TEST_DROP_NOTHING:
+			break;
+		case TEST_DROP_YES_TO_TEMP_FIRST:
+			secs++;
+			break;
+		case TEST_DROP_YES_TO_TEMP_LAST:
+			secs *= 2;
+			break;
+		case TEST_DROP_TEMP_TO_NO:
+			secs *= 2;
+			secs++;
+			break;
+		}
+		ctx.cache->fields[i].field.last_used = day_stamp - secs;
 	}
 	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
 	test_mail_cache_view_sync(&ctx);
@@ -725,16 +745,26 @@ static void test_mail_cache_purge_field_changes_int(bool drop_fields)
 	test_assert(ctx.cache->fields[cache_fields[TEST_FIELD_YES_FORCED].idx].field.decision ==
 		    (MAIL_CACHE_DECISION_YES | MAIL_CACHE_DECISION_FORCED));
 
-	if (drop_fields) {
+	switch (drop) {
+	case TEST_DROP_NOTHING:
 		test_assert(ctx.cache->fields[cache_fields[TEST_FIELD_TEMP].idx].field.decision ==
-			    MAIL_CACHE_DECISION_NO);
+			    MAIL_CACHE_DECISION_TEMP);
 		test_assert(ctx.cache->fields[cache_fields[TEST_FIELD_YES].idx].field.decision ==
-			    MAIL_CACHE_DECISION_NO);
-	} else {
+			    MAIL_CACHE_DECISION_YES);
+		break;
+	case TEST_DROP_YES_TO_TEMP_FIRST:
+	case TEST_DROP_YES_TO_TEMP_LAST:
 		test_assert(ctx.cache->fields[cache_fields[TEST_FIELD_TEMP].idx].field.decision ==
 			    MAIL_CACHE_DECISION_TEMP);
 		test_assert(ctx.cache->fields[cache_fields[TEST_FIELD_YES].idx].field.decision ==
 			    MAIL_CACHE_DECISION_TEMP);
+		break;
+	case TEST_DROP_TEMP_TO_NO:
+		test_assert(ctx.cache->fields[cache_fields[TEST_FIELD_TEMP].idx].field.decision ==
+			    MAIL_CACHE_DECISION_NO);
+		test_assert(ctx.cache->fields[cache_fields[TEST_FIELD_YES].idx].field.decision ==
+			    MAIL_CACHE_DECISION_NO);
+		break;
 	}
 
 	/* verify that cache fields exist as expected after purging */
@@ -743,13 +773,13 @@ static void test_mail_cache_purge_field_changes_int(bool drop_fields)
 	test_assert(cache_equals(cache_view, 1, cache_fields[TEST_FIELD_NO_FORCED].idx, NULL));
 	test_assert(cache_equals(cache_view, 2, cache_fields[TEST_FIELD_NO_FORCED].idx, NULL));
 	test_assert(cache_equals(cache_view, 1, cache_fields[TEST_FIELD_TEMP].idx, NULL));
-	if (drop_fields)
+	if (drop == TEST_DROP_TEMP_TO_NO)
 		test_assert(cache_equals(cache_view, 2, cache_fields[TEST_FIELD_TEMP].idx, NULL));
 	else
 		test_assert(cache_equals(cache_view, 2, cache_fields[TEST_FIELD_TEMP].idx, "temp-value"));
 	test_assert(cache_equals(cache_view, 1, cache_fields[TEST_FIELD_TEMP_FORCED].idx, NULL));
 	test_assert(cache_equals(cache_view, 2, cache_fields[TEST_FIELD_TEMP_FORCED].idx, "temp-forced-value"));
-	if (drop_fields)
+	if (drop != TEST_DROP_NOTHING)
 		test_assert(cache_equals(cache_view, 1, cache_fields[TEST_FIELD_YES].idx, NULL));
 	else
 		test_assert(cache_equals(cache_view, 1, cache_fields[TEST_FIELD_YES].idx, "yes-value"));
@@ -763,15 +793,29 @@ static void test_mail_cache_purge_field_changes_int(bool drop_fields)
 
 static void test_mail_cache_purge_field_changes(void)
 {
-	test_begin("mail cache purge field changes");
-	test_mail_cache_purge_field_changes_int(FALSE);
+	test_begin("mail cache purge field changes (nothing)");
+	test_mail_cache_purge_field_changes_int(TEST_DROP_NOTHING);
 	test_end();
 }
 
 static void test_mail_cache_purge_field_changes2(void)
 {
-	test_begin("mail cache purge field changes");
-	test_mail_cache_purge_field_changes_int(TRUE);
+	test_begin("mail cache purge field changes (yes -> temp, first)");
+	test_mail_cache_purge_field_changes_int(TEST_DROP_YES_TO_TEMP_FIRST);
+	test_end();
+}
+
+static void test_mail_cache_purge_field_changes3(void)
+{
+	test_begin("mail cache purge field changes (yes -> temp, last)");
+	test_mail_cache_purge_field_changes_int(TEST_DROP_YES_TO_TEMP_LAST);
+	test_end();
+}
+
+static void test_mail_cache_purge_field_changes4(void)
+{
+	test_begin("mail cache purge field changes (temp -> no)");
+	test_mail_cache_purge_field_changes_int(TEST_DROP_TEMP_TO_NO);
 	test_end();
 }
 
@@ -990,6 +1034,8 @@ int main(void)
 		test_mail_cache_resetid_mismatch2,
 		test_mail_cache_purge_field_changes,
 		test_mail_cache_purge_field_changes2,
+		test_mail_cache_purge_field_changes3,
+		test_mail_cache_purge_field_changes4,
 		test_mail_cache_purge_already_done,
 		test_mail_cache_purge_bitmask,
 		test_mail_cache_update_need_purge_continued_records,

@@ -16,7 +16,7 @@
 struct mail_cache_copy_context {
 	struct mail_cache *cache;
 	struct event *event;
-	time_t max_drop_time;
+	time_t max_temp_drop_time, max_yes_downgrade_time;
 
 	buffer_t *buffer, *field_seen;
 	ARRAY(unsigned int) bitmask_pos;
@@ -135,7 +135,6 @@ mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
 			    unsigned int used_fields_count)
 {
 	struct mail_cache *cache = ctx->cache;
-	struct mail_cache_field *field;
 	unsigned int i, j, idx;
 
 	/* Make mail_cache_header_fields_get() return the fields in
@@ -157,23 +156,6 @@ mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
 			cache->file_field_map[idx] = i;
 			j++;
 		}
-
-		/* change permanent decisions to temporary decisions.
-		   if they're still permanent they'll get updated later. */
-		field = &cache->fields[i].field;
-		if (field->decision == MAIL_CACHE_DECISION_YES) {
-			field->decision = MAIL_CACHE_DECISION_TEMP;
-
-			struct event_passthrough *e =
-				mail_cache_decision_changed_event(
-					cache, ctx->event, i)->
-				add_str("old_decision", "yes")->
-				add_str("new_decision", "temp");
-			e_debug(e->event(), "Purge changes field %s "
-				"cache decision yes -> temp "
-				"(last_used=%"PRIdTIME_T")",
-				field->name, field->last_used);
-		}
 	}
 	i_assert(j == used_fields_count);
 
@@ -188,11 +170,12 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 	struct mail_cache_field_private *priv = &ctx->cache->fields[field];
 	enum mail_cache_decision_type dec = priv->field.decision;
 
-	/* if the decision isn't forced and this field hasn't
-	   been accessed for a while, drop it */
-	if ((dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
-	    priv->field.last_used < ctx->max_drop_time &&
-	    dec != MAIL_CACHE_DECISION_NO) {
+	if ((dec & MAIL_CACHE_DECISION_FORCED) != 0)
+		;
+	else if (dec != MAIL_CACHE_DECISION_NO &&
+		 priv->field.last_used < ctx->max_temp_drop_time) {
+		/* YES or TEMP decision field hasn't been accessed for a long
+		   time now. Drop it. */
 		const char *dec_str = cache_decision_str(dec);
 		struct event_passthrough *e =
 			event_create_passthrough(ctx->event)->
@@ -204,8 +187,22 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 			"(decision=%s, last_used=%"PRIdTIME_T")",
 			priv->field.name, dec_str, priv->field.last_used);
 		dec = MAIL_CACHE_DECISION_NO;
-		priv->field.decision = dec;
+	} else if (dec == MAIL_CACHE_DECISION_YES &&
+		   priv->field.last_used < ctx->max_yes_downgrade_time) {
+		/* YES decision field hasn't been accessed for a while
+		   now. Change its decision to TEMP. */
+		struct event_passthrough *e =
+			mail_cache_decision_changed_event(
+				ctx->cache, ctx->event, field)->
+			add_str("old_decision", "yes")->
+			add_str("new_decision", "temp");
+		e_debug(e->event(), "Purge changes field %s "
+			"cache decision yes -> temp "
+			"(last_used=%"PRIdTIME_T")",
+			priv->field.name, priv->field.last_used);
+		dec = MAIL_CACHE_DECISION_TEMP;
 	}
+	priv->field.decision = dec;
 
 	/* drop all fields we don't want */
 	if ((dec & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO) {
@@ -270,9 +267,12 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	/* @UNSAFE: drop unused fields and create a field mapping for
 	   used fields */
 	idx_hdr = mail_index_get_header(view);
-	ctx.max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
-		idx_hdr->day_stamp -
-		cache->index->optimization_set.cache.unaccessed_field_drop_secs;
+	if (idx_hdr->day_stamp != 0) {
+		ctx.max_yes_downgrade_time = idx_hdr->day_stamp -
+			cache->index->optimization_set.cache.unaccessed_field_drop_secs;
+		ctx.max_temp_drop_time = idx_hdr->day_stamp -
+			2 * cache->index->optimization_set.cache.unaccessed_field_drop_secs;
+	}
 
 	orig_fields_count = cache->fields_count;
 	if (cache->file_fields_count == 0) {

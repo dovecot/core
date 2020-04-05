@@ -110,23 +110,38 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 	/* update last_used about once a day */
 	bool last_used_need_update =
 		ioloop_time - cache->fields[field].field.last_used > 3600*24;
-	if (last_used_need_update)
-		mail_cache_update_last_used(cache, field);
 
-	if (dec != MAIL_CACHE_DECISION_TEMP) {
+	if (dec == MAIL_CACHE_DECISION_NO ||
+	    (dec & MAIL_CACHE_DECISION_FORCED) != 0) {
 		/* a) forced decision
-		   b) not cached, mail_cache_decision_add() will handle this
-		   c) permanently cached already, okay. */
+		   b) not cached, mail_cache_decision_add() will handle this */
+		if (last_used_need_update)
+			mail_cache_update_last_used(cache, field);
 		return;
+	}
+	if (dec == MAIL_CACHE_DECISION_YES) {
+		if (!last_used_need_update)
+			return;
+		/* update last_used only when we can confirm that the YES
+		   decision is still correct. */
+	} else {
+		/* see if we want to change decision from TEMP to YES */
+		i_assert(dec == MAIL_CACHE_DECISION_TEMP);
+		if (last_used_need_update)
+			mail_cache_update_last_used(cache, field);
 	}
 
 	mail_index_lookup_uid(view->view, seq, &uid);
 	hdr = mail_index_get_header(view->view);
 
-	/* see if we want to change decision from TEMP to YES */
 	if (uid >= cache->fields[field].uid_highwater &&
 	    uid >= hdr->day_first_uid[7]) {
 		cache->fields[field].uid_highwater = uid;
+	} else if (dec == MAIL_CACHE_DECISION_YES) {
+		/* Confirmed that we still want to preserve YES as cache
+		   decision. We can update last_used now. */
+		i_assert(last_used_need_update);
+		mail_cache_update_last_used(cache, field);
 	} else {
 		/* a) nonordered access within this session. if client doesn't
 		      request messages in growing order, we assume it doesn't
@@ -135,6 +150,7 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 		      client with no local cache. if it was just a new client
 		      generating the local cache for the first time, we'll
 		      drop back to TEMP within few months. */
+		i_assert(dec == MAIL_CACHE_DECISION_TEMP);
 		cache->fields[field].field.decision = MAIL_CACHE_DECISION_YES;
 		cache->fields[field].decision_dirty = TRUE;
 		cache->field_header_write_pending = TRUE;
