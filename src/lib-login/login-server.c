@@ -15,16 +15,16 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define master_login_conn_is_closed(conn) \
+#define login_server_conn_is_closed(conn) \
 	((conn)->fd == -1)
-#define master_login_conn_has_clients(conn) \
+#define login_server_conn_has_requests(conn) \
 	((conn)->refcount > 1)
 
-struct master_login_connection {
-	struct master_login_connection *prev, *next;
+struct login_server_connection {
+	struct login_server_connection *prev, *next;
 
-	struct master_login *login;
-	struct master_login_client *clients;
+	struct login_server *server;
+	struct login_server_request *requests;
 	struct timeval create_time;
 	int refcount;
 	int fd;
@@ -34,8 +34,8 @@ struct master_login_connection {
 	bool login_success:1;
 };
 
-struct master_login_postlogin {
-	struct master_login_client *client;
+struct login_server_postlogin {
+	struct login_server_request *request;
 
 	int fd;
 	struct timeval create_time;
@@ -46,11 +46,11 @@ struct master_login_postlogin {
 	char *socket_path;
 };
 
-struct master_login {
+struct login_server {
 	struct master_service *service;
-	master_login_callback_t *callback;
-	master_login_failure_callback_t *failure_callback;
-	struct master_login_connection *conns;
+	login_server_callback_t *callback;
+	login_server_failure_callback_t *failure_callback;
+	struct login_server_connection *conns;
 	struct master_login_auth *auth;
 	char *postlogin_socket_path;
 	unsigned int postlogin_timeout_secs;
@@ -58,61 +58,61 @@ struct master_login {
 	bool stopping:1;
 };
 
-static void master_login_conn_close(struct master_login_connection *conn);
-static void master_login_conn_unref(struct master_login_connection **_conn);
+static void login_server_conn_close(struct login_server_connection *conn);
+static void login_server_conn_unref(struct login_server_connection **_conn);
 
-static void master_login_stop_new_connections(void *context)
+static void login_server_stop_new_connections(void *context)
 {
-	struct master_login *login = context;
+	struct login_server *server = context;
 
-	master_login_stop(login);
+	login_server_stop(server);
 }
 
-struct master_login *
-master_login_init(struct master_service *service,
-		  const struct master_login_settings *set)
+struct login_server *
+login_server_init(struct master_service *service,
+		  const struct login_server_settings *set)
 {
-	struct master_login *login;
+	struct login_server *server;
 
 	i_assert(set->postlogin_socket_path == NULL ||
 		 set->postlogin_timeout_secs > 0);
 
-	login = i_new(struct master_login, 1);
-	login->service = service;
-	login->callback = set->callback;
-	login->failure_callback = set->failure_callback;
-	login->auth = master_login_auth_init(set->auth_socket_path,
-					     set->request_auth_token);
-	login->postlogin_socket_path = i_strdup(set->postlogin_socket_path);
-	login->postlogin_timeout_secs = set->postlogin_timeout_secs;
+	server = i_new(struct login_server, 1);
+	server->service = service;
+	server->callback = set->callback;
+	server->failure_callback = set->failure_callback;
+	server->auth = master_login_auth_init(set->auth_socket_path,
+					      set->request_auth_token);
+	server->postlogin_socket_path = i_strdup(set->postlogin_socket_path);
+	server->postlogin_timeout_secs = set->postlogin_timeout_secs;
 
 	master_service_add_stop_new_connections_callback(service,
-		master_login_stop_new_connections, login);
-	return login;
+		login_server_stop_new_connections, server);
+	return server;
 }
 
-void master_login_deinit(struct master_login **_login)
+void login_server_deinit(struct login_server **_server)
 {
-	struct master_login *login = *_login;
+	struct login_server *server = *_server;
 
-	*_login = NULL;
+	*_server = NULL;
 
-	master_service_remove_stop_new_connections_callback(login->service,
-		master_login_stop_new_connections, login);
+	master_service_remove_stop_new_connections_callback(server->service,
+		login_server_stop_new_connections, server);
 
-	master_login_auth_deinit(&login->auth);
-	while (login->conns != NULL) {
-		struct master_login_connection *conn = login->conns;
+	master_login_auth_deinit(&server->auth);
+	while (server->conns != NULL) {
+		struct login_server_connection *conn = server->conns;
 
-		master_login_conn_close(conn);
-		master_login_conn_unref(&conn);
+		login_server_conn_close(conn);
+		login_server_conn_unref(&conn);
 	}
-	i_free(login->postlogin_socket_path);
-	i_free(login);
+	i_free(server->postlogin_socket_path);
+	i_free(server);
 }
 
 static void ATTR_FORMAT(2, 3)
-conn_error(struct master_login_connection *conn, const char *fmt, ...)
+conn_error(struct login_server_connection *conn, const char *fmt, ...)
 {
 	string_t *str = t_str_new(128);
 	va_list args;
@@ -120,25 +120,25 @@ conn_error(struct master_login_connection *conn, const char *fmt, ...)
 	va_start(args, fmt);
 	str_printfa(str, "connection created %d msecs ago",
 		    timeval_diff_msecs(&ioloop_timeval, &conn->create_time));
-	if (conn->clients != NULL) {
-		struct master_login_client *client = conn->clients;
+	if (conn->requests != NULL) {
+		struct login_server_request *request = conn->requests;
 
 		str_append(str, ", ");
-		if (client->next != NULL)
-			str_printfa(str, "%u clients, first ", conn->refcount-1);
-		str_printfa(str, "client created %d msecs ago: ",
+		if (request->next != NULL)
+			str_printfa(str, "%u requests, first ", conn->refcount-1);
+		str_printfa(str, "request created %d msecs ago: ",
 			    timeval_diff_msecs(&ioloop_timeval,
-					       &client->create_time));
+					       &request->create_time));
 		str_printfa(str, "session=%s, rip=%s, auth_pid=%ld, "
 			    "client-pid=%u, client-id=%u",
-			    client->session_id,
-			    net_ip2addr(&client->auth_req.remote_ip),
-			    (long)client->auth_req.auth_pid,
-			    client->auth_req.client_pid,
-			    client->auth_req.auth_id);
-		if (client->postlogin_client != NULL) {
-			struct master_login_postlogin *pl =
-				client->postlogin_client;
+			    request->session_id,
+			    net_ip2addr(&request->auth_req.remote_ip),
+			    (long)request->auth_req.auth_pid,
+			    request->auth_req.client_pid,
+			    request->auth_req.auth_id);
+		if (request->postlogin_request != NULL) {
+			struct login_server_postlogin *pl =
+				request->postlogin_request;
 			str_printfa(str, ", post-login script %s started %d msecs ago",
 				    pl->socket_path,
 				    timeval_diff_msecs(&ioloop_timeval,
@@ -150,7 +150,7 @@ conn_error(struct master_login_connection *conn, const char *fmt, ...)
 }
 
 static int
-master_login_conn_read_request(struct master_login_connection *conn,
+login_server_conn_read_request(struct login_server_connection *conn,
 			       struct login_request *req_r,
 			       unsigned char data[LOGIN_REQUEST_MAX_DATA_SIZE],
 			       int *client_fd_r)
@@ -164,7 +164,7 @@ master_login_conn_read_request(struct master_login_connection *conn,
 	if (ret != sizeof(*req_r)) {
 		if (ret == 0) {
 			/* disconnected */
-			if (master_login_conn_has_clients(conn))
+			if (login_server_conn_has_requests(conn))
 				conn_error(conn, "Login client disconnected too early");
 		} else if (ret > 0) {
 			/* request wasn't fully read */
@@ -189,7 +189,7 @@ master_login_conn_read_request(struct master_login_connection *conn,
 		if (ret != (ssize_t)req_r->data_size) {
 			if (ret == 0) {
 				/* disconnected */
-				if (master_login_conn_has_clients(conn)) {
+				if (login_server_conn_has_requests(conn)) {
 					conn_error(conn, "Login client disconnected too early "
 						"(while reading data)");
 				}
@@ -221,63 +221,63 @@ master_login_conn_read_request(struct master_login_connection *conn,
 	return 1;
 }
 
-static void master_login_client_free(struct master_login_client **_client)
+static void login_server_request_free(struct login_server_request **_request)
 {
-	struct master_login_client *client = *_client;
+	struct login_server_request *request = *_request;
 
-	*_client = NULL;
-	if (client->fd != -1) {
-		i_close_fd(&client->fd);
+	*_request = NULL;
+	if (request->fd != -1) {
+		i_close_fd(&request->fd);
 		/* this client failed (login callback wasn't called).
 		   reset prefix to default. */
-		i_set_failure_prefix("%s: ", client->conn->login->service->name);
+		i_set_failure_prefix("%s: ", request->conn->server->service->name);
 	}
 
 	/* FIXME: currently we create a separate connection for each request,
-	   so close the connection after we're done with this client */
-	if (!master_login_conn_is_closed(client->conn)) {
-		i_assert(client->conn->refcount > 1);
-		client->conn->refcount--;
+	   so close the connection after we're done with this request */
+	if (!login_server_conn_is_closed(request->conn)) {
+		i_assert(request->conn->refcount > 1);
+		request->conn->refcount--;
 	}
-	DLLIST_REMOVE(&client->conn->clients, client);
-	master_login_conn_unref(&client->conn);
-	i_free(client->session_id);
-	i_free(client);
+	DLLIST_REMOVE(&request->conn->requests, request);
+	login_server_conn_unref(&request->conn);
+	i_free(request->session_id);
+	i_free(request);
 }
 
-static void master_login_auth_finish(struct master_login_client *client,
+static void login_server_auth_finish(struct login_server_request *request,
 				     const char *const *auth_args)
 {
-	struct master_login *login = client->conn->login;
-	struct master_service *service = login->service;
+	struct login_server *server = request->conn->server;
+	struct master_service *service = server->service;
 	bool close_sockets;
 
 	close_sockets = service->master_status.available_count == 0 &&
 		service->service_count_left == 1;
 
-	client->conn->login_success = TRUE;
-	login->callback(client, auth_args[0], auth_args+1);
+	request->conn->login_success = TRUE;
+	server->callback(request, auth_args[0], auth_args+1);
 
 	if (close_sockets) {
 		/* we're dying as soon as this connection closes. */
-		i_assert(master_login_auth_request_count(login->auth) == 0);
-		master_login_auth_disconnect(login->auth);
+		i_assert(master_login_auth_request_count(server->auth) == 0);
+		master_login_auth_disconnect(server->auth);
 
 		master_service_close_config_fd(service);
-	} else if (login->stopping) {
+	} else if (server->stopping) {
 		/* try stopping again */
-		master_login_stop(login);
+		login_server_stop(server);
 	}
 
-	client->fd = -1;
-	master_login_client_free(&client);
+	request->fd = -1;
+	login_server_request_free(&request);
 }
 
-static void master_login_postlogin_free(struct master_login_postlogin *pl)
+static void login_server_postlogin_free(struct login_server_postlogin *pl)
 {
-	if (pl->client != NULL) {
-		i_assert(pl->client->postlogin_client == pl);
-		master_login_client_free(&pl->client);
+	if (pl->request != NULL) {
+		i_assert(pl->request->postlogin_request == pl);
+		login_server_request_free(&pl->request);
 	}
 	timeout_remove(&pl->to);
 	io_remove(&pl->io);
@@ -288,9 +288,9 @@ static void master_login_postlogin_free(struct master_login_postlogin *pl)
 	i_free(pl);
 }
 
-static void master_login_postlogin_input(struct master_login_postlogin *pl)
+static void login_server_postlogin_input(struct login_server_postlogin *pl)
 {
-	struct master_login_connection *conn = pl->client->conn;
+	struct login_server_connection *conn = pl->request->conn;
 	char buf[1024];
 	const char *const *auth_args;
 	size_t len;
@@ -300,8 +300,8 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 	while ((ret = fd_read(pl->fd, buf, sizeof(buf), &fd)) > 0) {
 		if (fd != -1) {
 			/* post-login script replaced fd */
-			i_close_fd(&pl->client->fd);
-			pl->client->fd = fd;
+			i_close_fd(&pl->request->fd);
+			pl->request->fd = fd;
 		}
 		str_append_data(pl->input, buf, ret);
 	}
@@ -323,32 +323,32 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 			conn_error(conn, "Post-login script denied access to user %s",
 				   pl->username);
 		}
-		master_login_postlogin_free(pl);
+		login_server_postlogin_free(pl);
 		return;
 	}
 
 	auth_args = t_strsplit_tabescaped(str_c(pl->input));
-	pl->client->postlogin_client = NULL;
-	master_login_auth_finish(pl->client, auth_args);
+	pl->request->postlogin_request = NULL;
+	login_server_auth_finish(pl->request, auth_args);
 
-	pl->client = NULL;
-	master_login_postlogin_free(pl);
+	pl->request = NULL;
+	login_server_postlogin_free(pl);
 }
 
-static void master_login_postlogin_timeout(struct master_login_postlogin *pl)
+static void login_server_postlogin_timeout(struct login_server_postlogin *pl)
 {
-	conn_error(pl->client->conn,
+	conn_error(pl->request->conn,
 		   "Timeout waiting for post-login script to finish, aborting");
 
-	master_login_postlogin_free(pl);
+	login_server_postlogin_free(pl);
 }
 
-static int master_login_postlogin(struct master_login_client *client,
+static int login_server_postlogin(struct login_server_request *request,
 				  const char *const *auth_args,
 				  const char *socket_path)
 {
-	struct master_login *login = client->conn->login;
-	struct master_login_postlogin *pl;
+	struct login_server *server = request->conn->server;
+	struct login_server_postlogin *pl;
 	string_t *str;
 	unsigned int i;
 	int fd;
@@ -356,7 +356,7 @@ static int master_login_postlogin(struct master_login_client *client,
 
 	fd = net_connect_unix_with_retries(socket_path, 1000);
 	if (fd == -1) {
-		conn_error(client->conn, "net_connect_unix(%s) failed: %m%s",
+		conn_error(request->conn, "net_connect_unix(%s) failed: %m%s",
 			   socket_path, errno != EAGAIN ? "" :
 			   " - https://doc.dovecot.org/admin_manual/errors/socket_unavailable/");
 		return -1;
@@ -364,19 +364,19 @@ static int master_login_postlogin(struct master_login_client *client,
 
 	str = t_str_new(256);
 	str_printfa(str, "VERSION\tscript-login\t1\t0\n"
-		    "%s\t%s", net_ip2addr(&client->auth_req.local_ip),
-		    net_ip2addr(&client->auth_req.remote_ip));
+		    "%s\t%s", net_ip2addr(&request->auth_req.local_ip),
+		    net_ip2addr(&request->auth_req.remote_ip));
 	for (i = 0; auth_args[i] != NULL; i++) {
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, auth_args[i]);
 	}
 	str_append_c(str, '\n');
-	ret = fd_send(fd, client->fd, str_data(str), str_len(str));
+	ret = fd_send(fd, request->fd, str_data(str), str_len(str));
 	if (ret != (ssize_t)str_len(str)) {
 		if (ret < 0) {
-			conn_error(client->conn, "write(%s) failed: %m", socket_path);
+			conn_error(request->conn, "write(%s) failed: %m", socket_path);
 		} else {
-			conn_error(client->conn, "write(%s) failed: partial write", socket_path);
+			conn_error(request->conn, "write(%s) failed: partial write", socket_path);
 		}
 		i_close_fd(&fd);
 		return -1;
@@ -384,19 +384,19 @@ static int master_login_postlogin(struct master_login_client *client,
 	net_set_nonblock(fd, TRUE);
 	io_loop_time_refresh();
 
-	pl = i_new(struct master_login_postlogin, 1);
-	pl->client = client;
+	pl = i_new(struct login_server_postlogin, 1);
+	pl->request = request;
 	pl->username = i_strdup(auth_args[0]);
 	pl->socket_path = i_strdup(socket_path);
 	pl->create_time = ioloop_timeval;
 	pl->fd = fd;
-	pl->io = io_add(fd, IO_READ, master_login_postlogin_input, pl);
-	pl->to = timeout_add(login->postlogin_timeout_secs * 1000,
-			     master_login_postlogin_timeout, pl);
+	pl->io = io_add(fd, IO_READ, login_server_postlogin_input, pl);
+	pl->to = timeout_add(server->postlogin_timeout_secs * 1000,
+			     login_server_postlogin_timeout, pl);
 	pl->input = str_new(default_pool, 512);
 
-	i_assert(client->postlogin_client == NULL);
-	client->postlogin_client = pl;
+	i_assert(request->postlogin_request == NULL);
+	request->postlogin_request = pl;
 	return 0;
 }
 
@@ -413,18 +413,18 @@ auth_args_find_postlogin_socket(const char *const *auth_args)
 }
 
 static void
-master_login_auth_callback(const char *const *auth_args, const char *errormsg,
+login_server_auth_callback(const char *const *auth_args, const char *errormsg,
 			   void *context)
 {
-	struct master_login_client *client = context;
-	struct master_login_connection *conn = client->conn;
+	struct login_server_request *request = context;
+	struct login_server_connection *conn = request->conn;
 	struct login_reply reply;
 	const char *postlogin_socket_path;
 
 	i_assert(errormsg != NULL || auth_args != NULL);
 	
 	i_zero(&reply);
-	reply.tag = client->auth_req.tag;
+	reply.tag = request->auth_req.tag;
 	reply.status = errormsg == NULL ? LOGIN_REPLY_STATUS_OK :
 		LOGIN_REPLY_STATUS_INTERNAL_ERROR;
 	reply.mail_pid = getpid();
@@ -435,49 +435,49 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 			i_error("login client: Username missing from auth reply");
 			errormsg = LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE;
 		}
-		conn->login->failure_callback(client, errormsg);
-		master_login_client_free(&client);
+		conn->server->failure_callback(request, errormsg);
+		login_server_request_free(&request);
 		return;
 	}
-	i_set_failure_prefix("%s(%s): ", client->conn->login->service->name,
+	i_set_failure_prefix("%s(%s): ", request->conn->server->service->name,
 			     auth_args[0]);
 
 	postlogin_socket_path = auth_args_find_postlogin_socket(auth_args);
 	if (postlogin_socket_path == NULL)
-		postlogin_socket_path = conn->login->postlogin_socket_path;
+		postlogin_socket_path = conn->server->postlogin_socket_path;
 
 	if (postlogin_socket_path == NULL)
-		master_login_auth_finish(client, auth_args);
+		login_server_auth_finish(request, auth_args);
 	else {
 		/* we've sent the reply. the connection is no longer needed,
 		   so disconnect it (before login process disconnects us and
 		   logs an error) */
-		if (!master_login_conn_is_closed(conn)) {
-			master_login_conn_close(conn);
-			master_login_conn_unref(&conn);
+		if (!login_server_conn_is_closed(conn)) {
+			login_server_conn_close(conn);
+			login_server_conn_unref(&conn);
 		}
 
 		/* execute post-login scripts before finishing auth */
-		if (master_login_postlogin(client, auth_args,
+		if (login_server_postlogin(request, auth_args,
 					   postlogin_socket_path) < 0)
-			master_login_client_free(&client);
+			login_server_request_free(&request);
 	}
 }
 
-static void master_login_conn_input(struct master_login_connection *conn)
+static void login_server_conn_input(struct login_server_connection *conn)
 {
 	struct login_request req;
-	struct master_login_client *client;
-	struct master_login *login = conn->login;
+	struct login_server_request *request;
+	struct login_server *server = conn->server;
 	unsigned char data[LOGIN_REQUEST_MAX_DATA_SIZE];
 	size_t i, session_len = 0;
 	int ret, client_fd;
 
-	ret = master_login_conn_read_request(conn, &req, data, &client_fd);
+	ret = login_server_conn_read_request(conn, &req, data, &client_fd);
 	if (ret <= 0) {
 		if (ret < 0) {
-			master_login_conn_close(conn);
-			master_login_conn_unref(&conn);
+			login_server_conn_close(conn);
+			login_server_conn_unref(&conn);
 		}
 		i_close_fd(&client_fd);
 		return;
@@ -495,53 +495,54 @@ static void master_login_conn_input(struct master_login_connection *conn)
 
 	/* @UNSAFE: we have a request. do userdb lookup for it. */
 	req.data_size -= i;
-	client = i_malloc(MALLOC_ADD(sizeof(struct master_login_client), req.data_size));
-	client->create_time = ioloop_timeval;
-	client->conn = conn;
-	client->fd = client_fd;
-	client->auth_req = req;
-	client->session_id = i_strndup(data, session_len);
-	memcpy(client->data, data+i, req.data_size);
+	request = i_malloc(MALLOC_ADD(sizeof(struct login_server_request),
+				      req.data_size));
+	request->create_time = ioloop_timeval;
+	request->conn = conn;
+	request->fd = client_fd;
+	request->auth_req = req;
+	request->session_id = i_strndup(data, session_len);
+	memcpy(request->data, data+i, req.data_size);
 	conn->refcount++;
-	DLLIST_PREPEND(&conn->clients, client);
+	DLLIST_PREPEND(&conn->requests, request);
 
-	master_login_auth_request(login->auth, &req,
-				  master_login_auth_callback, client);
+	master_login_auth_request(server->auth, &req,
+				  login_server_auth_callback, request);
 }
 
-void master_login_add(struct master_login *login, int fd)
+void login_server_add(struct login_server *server, int fd)
 {
-	struct master_login_connection *conn;
+	struct login_server_connection *conn;
 
-	conn = i_new(struct master_login_connection, 1);
+	conn = i_new(struct login_server_connection, 1);
 	conn->refcount = 1;
-	conn->login = login;
+	conn->server = server;
 	conn->create_time = ioloop_timeval;
 	conn->fd = fd;
-	conn->io = io_add(conn->fd, IO_READ, master_login_conn_input, conn);
+	conn->io = io_add(conn->fd, IO_READ, login_server_conn_input, conn);
 	conn->output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
-	DLLIST_PREPEND(&login->conns, conn);
+	DLLIST_PREPEND(&server->conns, conn);
 
 	/* NOTE: currently there's a separate connection for each request. */
 }
 
-static void master_login_conn_close(struct master_login_connection *conn)
+static void login_server_conn_close(struct login_server_connection *conn)
 {
-	if (master_login_conn_is_closed(conn))
+	if (login_server_conn_is_closed(conn))
 		return;
 
-	DLLIST_REMOVE(&conn->login->conns, conn);
+	DLLIST_REMOVE(&conn->server->conns, conn);
 
 	io_remove(&conn->io);
 	o_stream_close(conn->output);
 	i_close_fd(&conn->fd);
 }
 
-static void master_login_conn_unref(struct master_login_connection **_conn)
+static void login_server_conn_unref(struct login_server_connection **_conn)
 {
-	struct master_login_connection *conn = *_conn;
+	struct login_server_connection *conn = *_conn;
 
 	i_assert(conn->refcount > 0);
 
@@ -549,20 +550,20 @@ static void master_login_conn_unref(struct master_login_connection **_conn)
 		return;
 
 	*_conn = NULL;
-	i_assert(conn->clients == NULL);
-	master_login_conn_close(conn);
+	i_assert(conn->requests == NULL);
+	login_server_conn_close(conn);
 	o_stream_unref(&conn->output);
 
 	if (!conn->login_success)
-		master_service_client_connection_destroyed(conn->login->service);
+		master_service_client_connection_destroyed(conn->server->service);
 	i_free(conn);
 }
 
-void master_login_stop(struct master_login *login)
+void login_server_stop(struct login_server *server)
 {
-	login->stopping = TRUE;
-	if (master_login_auth_request_count(login->auth) == 0) {
-		master_login_auth_disconnect(login->auth);
-		master_service_close_config_fd(login->service);
+	server->stopping = TRUE;
+	if (master_login_auth_request_count(server->auth) == 0) {
+		master_login_auth_disconnect(server->auth);
+		master_service_close_config_fd(server->service);
 	}
 }

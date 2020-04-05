@@ -1,17 +1,17 @@
-#ifndef MASTER_LOGIN_H
-#define MASTER_LOGIN_H
+#ifndef LOGIN_SERVER_H
+#define LOGIN_SERVER_H
 
 #include "login-client.h"
 
-#define MASTER_POSTLOGIN_TIMEOUT_DEFAULT 60
+#define LOGIN_SERVER_POSTLOGIN_TIMEOUT_DEFAULT 60
 
-struct master_login_client {
+struct login_server_request {
 	/* parent connection */
-	struct master_login_connection *conn;
-	/* linked list of all clients within the connection */
-	struct master_login_client *prev, *next;
+	struct login_server_connection *conn;
+	/* linked list of all requests within the connection */
+	struct login_server_request *prev, *next;
 	/* non-NULL while running postlogin script */
-	struct master_login_postlogin *postlogin_client;
+	struct login_server_postlogin *postlogin_request;
 
 	int fd;
 	struct timeval create_time;
@@ -22,29 +22,29 @@ struct master_login_client {
 };
 
 typedef void
-master_login_callback_t(const struct master_login_client *client,
+login_server_callback_t(const struct login_server_request *request,
 			const char *username, const char *const *extra_fields);
 typedef void
-master_login_failure_callback_t(const struct master_login_client *client,
+login_server_failure_callback_t(const struct login_server_request *request,
 				const char *errormsg);
 
-struct master_login_settings {
+struct login_server_settings {
 	const char *auth_socket_path;
 	const char *postlogin_socket_path;
 	unsigned int postlogin_timeout_secs;
 
-	master_login_callback_t *callback;
-	master_login_failure_callback_t *failure_callback;
+	login_server_callback_t *callback;
+	login_server_failure_callback_t *failure_callback;
 
 	bool request_auth_token:1;
 };
 
-struct master_login *
-master_login_init(struct master_service *service,
-		  const struct master_login_settings *set);
-void master_login_deinit(struct master_login **login);
+struct login_server *
+login_server_init(struct master_service *service,
+		  const struct login_server_settings *set);
+void login_server_deinit(struct login_server **server);
 
-void master_login_add(struct master_login *login, int fd);
-void master_login_stop(struct master_login *login);
+void login_server_add(struct login_server *server, int fd);
+void login_server_stop(struct login_server *server);
 
 #endif

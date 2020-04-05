@@ -30,7 +30,7 @@
 
 static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;
-static struct master_login *master_login = NULL;
+static struct login_server *login_server = NULL;
 
 pop3_client_created_func_t *hook_client_created = NULL;
 
@@ -263,7 +263,7 @@ static void main_stdio_run(const char *username)
 }
 
 static void
-login_client_connected(const struct master_login_client *login_client,
+login_request_finished(const struct login_server_request *login_client,
 		       const char *username, const char *const *extra_fields)
 {
 	struct client *client;
@@ -304,13 +304,13 @@ login_client_connected(const struct master_login_client *login_client,
 	/* client may be destroyed now */
 }
 
-static void login_client_failed(const struct master_login_client *client,
+static void login_request_failed(const struct login_server_request *request,
 				const char *errormsg)
 {
 	const char *msg;
 
 	msg = t_strdup_printf("-ERR [SYS/TEMP] %s\r\n", errormsg);
-	if (write(client->fd, msg, strlen(msg)) < 0) {
+	if (write(request->fd, msg, strlen(msg)) < 0) {
 		/* ignored */
 	}
 }
@@ -338,10 +338,10 @@ static const struct master_admin_client_callback admin_callbacks = {
 static void client_connected(struct master_service_connection *conn)
 {
 	/* when running standalone, we shouldn't even get here */
-	i_assert(master_login != NULL);
+	i_assert(login_server != NULL);
 
 	master_service_client_connection_accept(conn);
-	master_login_add(master_login, conn->fd);
+	login_server_add(login_server, conn->fd);
 }
 
 int main(int argc, char *argv[])
@@ -350,7 +350,7 @@ int main(int argc, char *argv[])
 		&pop3_setting_parser_info,
 		NULL
 	};
-	struct master_login_settings login_set;
+	struct login_server_settings login_set;
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_NO_SSL_CA;
@@ -358,7 +358,8 @@ int main(int argc, char *argv[])
 	int c;
 
 	i_zero(&login_set);
-	login_set.postlogin_timeout_secs = MASTER_POSTLOGIN_TIMEOUT_DEFAULT;
+	login_set.postlogin_timeout_secs =
+		LOGIN_SERVER_POSTLOGIN_TIMEOUT_DEFAULT;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
@@ -413,10 +414,10 @@ int main(int argc, char *argv[])
 			i_fatal("t_abspath(%s) failed: %s", argv[optind], error);
 		}
 	}
-	login_set.callback = login_client_connected;
-	login_set.failure_callback = login_client_failed;
+	login_set.callback = login_request_finished;
+	login_set.failure_callback = login_request_failed;
 	if (!IS_STANDALONE())
-		master_login = master_login_init(master_service, &login_set);
+		login_server = login_server_init(master_service, &login_set);
 
 	master_admin_clients_init(&admin_callbacks);
 	master_service_set_die_callback(master_service, pop3_die);
@@ -444,8 +445,8 @@ int main(int argc, char *argv[])
 		master_service_run(master_service, client_connected);
 	clients_destroy_all();
 
-	if (master_login != NULL)
-		master_login_deinit(&master_login);
+	if (login_server != NULL)
+		login_server_deinit(&login_server);
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
 	return 0;
