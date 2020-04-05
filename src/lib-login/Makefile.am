@@ -10,12 +10,12 @@ AM_CPPFLAGS = \
 
 liblogin_la_SOURCES = \
 	login-client.c \
-	master-login.c \
+	login-server.c \
 	master-login-auth.c
 
 headers = \
 	login-client.h \
-	master-login.h \
+	login-server.h \
 	master-login-auth.h
 
 pkginc_libdir=$(pkgincludedir)

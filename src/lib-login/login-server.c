@@ -9,7 +9,7 @@
 #include "strescape.h"
 #include "time-util.h"
 #include "master-service-private.h"
-#include "master-login.h"
+#include "login-server.h"
 #include "master-login-auth.h"
 
 #include <sys/stat.h>

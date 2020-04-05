@@ -13,7 +13,7 @@
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "master-service.h"
-#include "master-login.h"
+#include "login-server.h"
 #include "master-interface.h"
 #include "master-admin-client.h"
 #include "var-expand.h"
