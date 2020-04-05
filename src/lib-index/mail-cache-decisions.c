@@ -108,7 +108,9 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 	}
 
 	/* update last_used about once a day */
-	if (ioloop_time - cache->fields[field].field.last_used > 3600*24)
+	bool last_used_need_update =
+		ioloop_time - cache->fields[field].field.last_used > 3600*24;
+	if (last_used_need_update)
 		mail_cache_update_last_used(cache, field);
 
 	if (dec != MAIL_CACHE_DECISION_TEMP) {
@@ -122,8 +124,10 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 	hdr = mail_index_get_header(view->view);
 
 	/* see if we want to change decision from TEMP to YES */
-	if (uid < cache->fields[field].uid_highwater ||
-	    uid < hdr->day_first_uid[7]) {
+	if (uid >= cache->fields[field].uid_highwater &&
+	    uid >= hdr->day_first_uid[7]) {
+		cache->fields[field].uid_highwater = uid;
+	} else {
 		/* a) nonordered access within this session. if client doesn't
 		      request messages in growing order, we assume it doesn't
 		      have a permanent local cache.
@@ -146,8 +150,6 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 			add_str("new_decision", "yes");
 		e_debug(e->event(), "Changing field %s decision temp -> yes (uid=%u)",
 			cache->fields[field].field.name, uid);
-	} else {
-		cache->fields[field].uid_highwater = uid;
 	}
 }
 
