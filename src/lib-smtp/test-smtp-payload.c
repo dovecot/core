@@ -1097,12 +1097,8 @@ static void test_atexit(void)
 	test_server_kill();
 }
 
-int main(int argc, char *argv[])
+static void main_init(void)
 {
-	int c;
-	int ret;
-
-	lib_init();
 	lib_signals_init();
 #ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_init();
@@ -1115,6 +1111,24 @@ int main(int argc, char *argv[])
 	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
 	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
 	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+}
+
+static void main_deinit(void)
+{
+	ssl_iostream_context_cache_free();
+#ifdef HAVE_OPENSSL
+	ssl_iostream_openssl_deinit();
+#endif
+	lib_signals_deinit();
+}
+
+int main(int argc, char *argv[])
+{
+	int c;
+	int ret;
+
+	lib_init();
+	main_init();
 
 	while ((c = getopt(argc, argv, "DS")) > 0) {
 		switch (c) {
@@ -1136,11 +1150,7 @@ int main(int argc, char *argv[])
 
 	ret = test_run(test_functions);
 
-	ssl_iostream_context_cache_free();
-#ifdef HAVE_OPENSSL
-	ssl_iostream_openssl_deinit();
-#endif
-	lib_signals_deinit();
+	main_deinit();
 	lib_deinit();
 
 	return ret;
