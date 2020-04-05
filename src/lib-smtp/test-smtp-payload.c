@@ -879,6 +879,8 @@ test_run_client_server(
 	failure = NULL;
 	test_open_server_fd();
 
+	test_files_init();
+
 	lib_signals_ioloop_detach();
 
 	if ((server_pid = fork()) == (pid_t)-1)
@@ -918,6 +920,8 @@ test_run_client_server(
 	io_loop_destroy(&ioloop);
 	bind_port = 0;
 	test_server_kill();
+
+	test_files_deinit();
 }
 
 static void
@@ -967,20 +971,16 @@ test_run_scenarios(
 	test_max_pending = 1;
 	test_unknown_size = FALSE;
 	test_ssl_mode = TEST_SSL_MODE_NONE;
-	test_files_init();
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
-	test_files_deinit();
 
 	test_out_reason("sequential", (failure == NULL), failure);
 
 	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = FALSE;
 	test_ssl_mode = TEST_SSL_MODE_NONE;
-	test_files_init();
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
-	test_files_deinit();
 
 	test_out_reason("parallel", (failure == NULL), failure);
 
@@ -989,10 +989,8 @@ test_run_scenarios(
 	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = FALSE;
 	test_ssl_mode = TEST_SSL_MODE_NONE;
-	test_files_init();
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
-	test_files_deinit();
 
 	test_out_reason("parallel pipelining", (failure == NULL), failure);
 
@@ -1001,10 +999,8 @@ test_run_scenarios(
 	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = TRUE;
 	test_ssl_mode = TEST_SSL_MODE_NONE;
-	test_files_init();
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
-	test_files_deinit();
 
 	test_out_reason("unknown payload size", (failure == NULL), failure);
 
@@ -1014,10 +1010,8 @@ test_run_scenarios(
 	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = FALSE;
 	test_ssl_mode = TEST_SSL_MODE_IMMEDIATE;
-	test_files_init();
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
-	test_files_deinit();
 
 	test_out_reason("parallel pipelining ssl",
 			(failure == NULL), failure);
@@ -1027,10 +1021,8 @@ test_run_scenarios(
 	test_max_pending = MAX_PARALLEL_PENDING;
 	test_unknown_size = FALSE;
 	test_ssl_mode = TEST_SSL_MODE_STARTTLS;
-	test_files_init();
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
-	test_files_deinit();
 
 	test_out_reason("parallel pipelining startls",
 			(failure == NULL), failure);
