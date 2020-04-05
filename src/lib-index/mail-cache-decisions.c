@@ -145,6 +145,7 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 
 	/* field used the first time */
 	cache->fields[field].field.decision = MAIL_CACHE_DECISION_TEMP;
+	cache->fields[field].field.last_used = ioloop_time;
 	cache->fields[field].decision_dirty = TRUE;
 	cache->field_header_write_pending = TRUE;
 
