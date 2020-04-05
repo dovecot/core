@@ -854,7 +854,7 @@ static void test_open_server_fd(void)
 	net_set_nonblock(fd_listen, TRUE);
 }
 
-static void test_server_kill(void)
+static void test_server_kill_forced(void)
 {
 	if (server_pid != (pid_t)-1) {
 		(void)kill(server_pid, SIGKILL);
@@ -919,7 +919,7 @@ test_run_client_server(
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 	bind_port = 0;
-	test_server_kill();
+	test_server_kill_forced();
 
 	test_files_deinit();
 }
@@ -1086,7 +1086,7 @@ static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 	terminating = 1;
 
 	/* make sure we don't leave any pesky children alive */
-	test_server_kill();
+	test_server_kill_forced();
 
 	(void)signal(signo, SIG_DFL);
 	raise(signo);
@@ -1094,7 +1094,7 @@ static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 
 static void test_atexit(void)
 {
-	test_server_kill();
+	test_server_kill_forced();
 }
 
 static void main_init(void)
