@@ -138,14 +138,16 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 }
 
 static unsigned int
-get_header_field_idx(struct mailbox *box, const char *field,
-		     enum mail_cache_decision_type decision)
+get_header_field_idx(struct mailbox *box, const char *field)
 {
 	struct mail_cache_field header_field;
 
 	i_zero(&header_field);
 	header_field.type = MAIL_CACHE_FIELD_HEADER;
-	header_field.decision = decision;
+	/* Always register with NO decision. The field should be added soon
+	   with mail_cache_add(), which changes the decision to TEMP. Most
+	   importantly doing it this way emits mail_cache_decision event. */
+	header_field.decision = MAIL_CACHE_DECISION_NO;
 	T_BEGIN {
 		header_field.name = t_strconcat("hdr.", field, NULL);
 		mail_cache_register_fields(box->cache, &header_field, 1);
@@ -241,8 +243,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	   Date: header. if we have Date field's index set at this point we
 	   know that we want it. otherwise add it and remember that we don't
 	   want it cached. */
-	field_idx = get_header_field_idx(mail->mail.mail.box, "Date",
-					 MAIL_CACHE_DECISION_NO);
+	field_idx = get_header_field_idx(mail->mail.mail.box, "Date");
 	match = array_get(&mail->header_match, &match_count);
 	if (field_idx < match_count &&
 	    match[field_idx] == mail->header_match_value) {
@@ -644,8 +645,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 
 	i_assert(field != NULL);
 
-	field_idx = get_header_field_idx(_mail->box, field,
-					 MAIL_CACHE_DECISION_TEMP);
+	field_idx = get_header_field_idx(_mail->box, field);
 
 	dest = t_str_new(128);
 	if (mail_cache_lookup_headers(_mail->transaction->cache_view, dest,

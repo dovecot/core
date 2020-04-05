@@ -12,7 +12,7 @@ mailbox_header_lookup_init_real(struct mailbox *box,
 {
 	struct mail_cache_field *fields, header_field = {
 		.type = MAIL_CACHE_FIELD_HEADER,
-		.decision = MAIL_CACHE_DECISION_TEMP
+		.decision = MAIL_CACHE_DECISION_NO,
 	};
 	struct mailbox_header_lookup_ctx *ctx;
 	const char *const *name;
