@@ -16,6 +16,7 @@
 struct mail_cache_copy_context {
 	struct mail_cache *cache;
 	struct event *event;
+	time_t max_drop_time;
 
 	buffer_t *buffer, *field_seen;
 	ARRAY(unsigned int) bitmask_pos;
@@ -180,6 +181,40 @@ mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
 	mail_cache_header_fields_get(cache, ctx->buffer);
 }
 
+static bool
+mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
+			     unsigned int field)
+{
+	struct mail_cache_field_private *priv = &ctx->cache->fields[field];
+	enum mail_cache_decision_type dec = priv->field.decision;
+
+	/* if the decision isn't forced and this field hasn't
+	   been accessed for a while, drop it */
+	if ((dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
+	    priv->field.last_used < ctx->max_drop_time &&
+	    dec != MAIL_CACHE_DECISION_NO) {
+		const char *dec_str = cache_decision_str(dec);
+		struct event_passthrough *e =
+			event_create_passthrough(ctx->event)->
+			set_name("mail_cache_purge_drop_field")->
+			add_str("field", priv->field.name)->
+			add_str("decision", dec_str)->
+			add_int("last_used", priv->field.last_used);
+		e_debug(e->event(), "Purge dropped field %s "
+			"(decision=%s, last_used=%"PRIdTIME_T")",
+			priv->field.name, dec_str, priv->field.last_used);
+		dec = MAIL_CACHE_DECISION_NO;
+		priv->field.decision = dec;
+	}
+
+	/* drop all fields we don't want */
+	if ((dec & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO) {
+		priv->used = FALSE;
+		priv->field.last_used = 0;
+	}
+	return priv->used;
+}
+
 static int
 mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		struct event *event, int fd, const char *reason,
@@ -197,7 +232,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	struct ostream *output;
 	uint32_t message_count, seq, first_new_seq, ext_offset;
 	unsigned int i, used_fields_count, orig_fields_count, record_count;
-	time_t max_drop_time;
 
 	i_assert(reason != NULL);
 
@@ -236,7 +270,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	/* @UNSAFE: drop unused fields and create a field mapping for
 	   used fields */
 	idx_hdr = mail_index_get_header(view);
-	max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
+	ctx.max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
 		idx_hdr->day_stamp -
 		cache->index->optimization_set.cache.unaccessed_field_drop_secs;
 
@@ -248,40 +282,10 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		used_fields_count = i;
 	} else {
 		for (i = used_fields_count = 0; i < orig_fields_count; i++) {
-			struct mail_cache_field_private *priv =
-				&cache->fields[i];
-			enum mail_cache_decision_type dec =
-				priv->field.decision;
-
-			/* if the decision isn't forced and this field hasn't
-			   been accessed for a while, drop it */
-			if ((dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
-			    priv->field.last_used < max_drop_time &&
-			    dec != MAIL_CACHE_DECISION_NO) {
-				const char *dec_str = cache_decision_str(dec);
-				struct event_passthrough *e =
-					event_create_passthrough(event)->
-					set_name("mail_cache_purge_drop_field")->
-					add_str("field", priv->field.name)->
-					add_str("decision", dec_str)->
-					add_int("last_used", priv->field.last_used);
-				e_debug(e->event(), "Purge dropped field %s "
-					"(decision=%s, last_used=%"PRIdTIME_T")",
-					priv->field.name, dec_str,
-					priv->field.last_used);
-				dec = MAIL_CACHE_DECISION_NO;
-				priv->field.decision = dec;
-			}
-
-			/* drop all fields we don't want */
-			if ((dec & ~MAIL_CACHE_DECISION_FORCED) ==
-			    MAIL_CACHE_DECISION_NO) {
-				priv->used = FALSE;
-				priv->field.last_used = 0;
-			}
-
-			ctx.field_file_map[i] = !priv->used ?
-				(uint32_t)-1 : used_fields_count++;
+			if (!mail_cache_purge_check_field(&ctx, i))
+				ctx.field_file_map[i] = (uint32_t)-1;
+			else
+				ctx.field_file_map[i] = used_fields_count++;
 		}
 	}
 
