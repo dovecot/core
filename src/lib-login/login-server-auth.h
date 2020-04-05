@@ -1,28 +1,28 @@
-#ifndef MASTER_LOGIN_AUTH_H
-#define MASTER_LOGIN_AUTH_H
+#ifndef LOGIN_SERVER_AUTH_H
+#define LOGIN_SERVER_AUTH_H
 
 struct login_request;
 
 typedef void
-master_login_auth_request_callback_t(const char *const *auth_args,
+login_server_auth_request_callback_t(const char *const *auth_args,
 				     const char *errormsg, void *context);
 
-struct master_login_auth *
-master_login_auth_init(const char *auth_socket_path, bool request_auth_token);
-void master_login_auth_deinit(struct master_login_auth **auth);
-void master_login_auth_disconnect(struct master_login_auth *auth);
+struct login_server_auth *
+login_server_auth_init(const char *auth_socket_path, bool request_auth_token);
+void login_server_auth_deinit(struct login_server_auth **auth);
+void login_server_auth_disconnect(struct login_server_auth *auth);
 
 /* Set timeout for requests. */
-void master_login_auth_set_timeout(struct master_login_auth *auth,
+void login_server_auth_set_timeout(struct login_server_auth *auth,
 				   unsigned int msecs);
 
 /* req has been sent by login process. this function finishes authentication
    by performing verifying from auth that req is valid and doing the userdb
    lookup. */
-void master_login_auth_request(struct master_login_auth *auth,
+void login_server_auth_request(struct login_server_auth *auth,
 			       const struct login_request *req,
-			       master_login_auth_request_callback_t *callback,
+			       login_server_auth_request_callback_t *callback,
 			       void *context);
-unsigned int master_login_auth_request_count(struct master_login_auth *auth);
+unsigned int login_server_auth_request_count(struct login_server_auth *auth);
 
 #endif

@@ -51,7 +51,7 @@ struct login_server {
 	login_server_callback_t *callback;
 	login_server_failure_callback_t *failure_callback;
 	struct login_server_connection *conns;
-	struct master_login_auth *auth;
+	struct login_server_auth *auth;
 	char *postlogin_socket_path;
 	unsigned int postlogin_timeout_secs;
 
@@ -81,7 +81,7 @@ login_server_init(struct master_service *service,
 	server->service = service;
 	server->callback = set->callback;
 	server->failure_callback = set->failure_callback;
-	server->auth = master_login_auth_init(set->auth_socket_path,
+	server->auth = login_server_auth_init(set->auth_socket_path,
 					      set->request_auth_token);
 	server->postlogin_socket_path = i_strdup(set->postlogin_socket_path);
 	server->postlogin_timeout_secs = set->postlogin_timeout_secs;
@@ -100,7 +100,7 @@ void login_server_deinit(struct login_server **_server)
 	master_service_remove_stop_new_connections_callback(server->service,
 		login_server_stop_new_connections, server);
 
-	master_login_auth_deinit(&server->auth);
+	login_server_auth_deinit(&server->auth);
 	while (server->conns != NULL) {
 		struct login_server_connection *conn = server->conns;
 
@@ -260,8 +260,8 @@ static void login_server_auth_finish(struct login_server_request *request,
 
 	if (close_sockets) {
 		/* we're dying as soon as this connection closes. */
-		i_assert(master_login_auth_request_count(server->auth) == 0);
-		master_login_auth_disconnect(server->auth);
+		i_assert(login_server_auth_request_count(server->auth) == 0);
+		login_server_auth_disconnect(server->auth);
 
 		master_service_close_config_fd(service);
 	} else if (server->stopping) {
@@ -506,7 +506,7 @@ static void login_server_conn_input(struct login_server_connection *conn)
 	conn->refcount++;
 	DLLIST_PREPEND(&conn->requests, request);
 
-	master_login_auth_request(server->auth, &req,
+	login_server_auth_request(server->auth, &req,
 				  login_server_auth_callback, request);
 }
 
@@ -562,8 +562,8 @@ static void login_server_conn_unref(struct login_server_connection **_conn)
 void login_server_stop(struct login_server *server)
 {
 	server->stopping = TRUE;
-	if (master_login_auth_request_count(server->auth) == 0) {
-		master_login_auth_disconnect(server->auth);
+	if (login_server_auth_request_count(server->auth) == 0) {
+		login_server_auth_disconnect(server->auth);
 		master_service_close_config_fd(server->service);
 	}
 }

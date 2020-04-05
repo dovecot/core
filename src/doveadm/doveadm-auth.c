@@ -382,8 +382,8 @@ static void cmd_auth_test(struct doveadm_cmd_context *cctx)
 }
 
 static void
-master_auth_callback(const char *const *auth_args,
-		     const char *errormsg, void *context)
+login_server_auth_callback(const char *const *auth_args,
+			   const char *errormsg, void *context)
 {
 	struct authtest_input *input = context;
 	unsigned int i;
@@ -403,7 +403,7 @@ static void
 cmd_auth_master_input(const char *auth_master_socket_path,
 		      struct authtest_input *input)
 {
-	struct master_login_auth *master_auth;
+	struct login_server_auth *auth;
 	struct login_request login_req;
 	buffer_t buf;
 
@@ -421,13 +421,13 @@ cmd_auth_master_input(const char *auth_master_socket_path,
 		(void)hex_to_binary(input->auth_cookie, &buf);
 
 	input->success = FALSE;
-	master_auth = master_login_auth_init(auth_master_socket_path, FALSE);
+	auth = login_server_auth_init(auth_master_socket_path, FALSE);
 	io_loop_set_running(current_ioloop);
-	master_login_auth_request(master_auth, &login_req,
-				  master_auth_callback, input);
+	login_server_auth_request(auth, &login_req,
+				  login_server_auth_callback, input);
 	if (io_loop_is_running(current_ioloop))
 		io_loop_run(current_ioloop);
-	master_login_auth_deinit(&master_auth);
+	login_server_auth_deinit(&auth);
 }
 
 static void cmd_auth_login(struct doveadm_cmd_context *cctx)

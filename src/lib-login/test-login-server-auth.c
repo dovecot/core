@@ -22,7 +22,7 @@
 #include "login-client.h"
 #include "login-server-auth.h"
 
-#define TEST_SOCKET "./master-login-auth-test"
+#define TEST_SOCKET "./login-server-auth-test"
 #define SERVER_KILL_TIMEOUT_SECS    20
 
 static void main_deinit(void);
@@ -694,7 +694,7 @@ test_client_request_callback(const char *const *auth_args ATTR_UNUSED,
 }
 
 static int
-test_client_request_run(struct master_login_auth *auth, struct ioloop *ioloop,
+test_client_request_run(struct login_server_auth *auth, struct ioloop *ioloop,
 			struct login_request *login_req,
 			unsigned int concurrency, const char **error_r)
 {
@@ -706,11 +706,11 @@ test_client_request_run(struct master_login_auth *auth, struct ioloop *ioloop,
 	i_zero(&login_test);
 	login_test.ioloop = ioloop;
 
-	master_login_auth_set_timeout(auth, 1000);
+	login_server_auth_set_timeout(auth, 1000);
 
 	login_test.pending_requests = concurrency;
 	for (i = 0; i < concurrency; i++) {
-		master_login_auth_request(auth, login_req,
+		login_server_auth_request(auth, login_req,
 					  test_client_request_callback,
 					  &login_test);
 	}
@@ -728,7 +728,7 @@ static int
 test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
 			     bool retry, const char **error_r)
 {
-	struct master_login_auth *auth;
+	struct login_server_auth *auth;
 	struct login_request login_req;
 	struct ioloop *ioloop;
 	int ret;
@@ -747,14 +747,14 @@ test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
 
 	ioloop = io_loop_create();
 
-	auth = master_login_auth_init(TEST_SOCKET, TRUE);
+	auth = login_server_auth_init(TEST_SOCKET, TRUE);
 	ret = test_client_request_run(auth, ioloop, &login_req, concurrency,
 				      error_r);
 	if (ret < 0 && retry) {
 		ret = test_client_request_run(auth, ioloop, &login_req,
 					      concurrency, error_r);
 	}
-	master_login_auth_deinit(&auth);
+	login_server_auth_deinit(&auth);
 
 	io_loop_destroy(&ioloop);
 
@@ -966,8 +966,8 @@ int main(int argc, char *argv[])
 	int c;
 	int ret;
 
-	master_service = master_service_init("test-auth-master", service_flags,
-					     &argc, &argv, "D");
+	master_service = master_service_init("test-login-server-auth",
+					     service_flags, &argc, &argv, "D");
 	main_init();
 
 	while ((c = master_getopt(master_service)) > 0) {

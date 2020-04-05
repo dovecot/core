@@ -23,8 +23,8 @@
 
 #define AUTH_MAX_INBUF_SIZE 8192
 
-struct master_login_auth_request {
-	struct master_login_auth_request *prev, *next;
+struct login_server_auth_request {
+	struct login_server_auth_request *prev, *next;
 	struct event *event;
 
 	unsigned int id;
@@ -35,13 +35,13 @@ struct master_login_auth_request {
 	unsigned int client_pid;
 	uint8_t cookie[LOGIN_REQUEST_COOKIE_SIZE];
 
-	master_login_auth_request_callback_t *callback;
+	login_server_auth_request_callback_t *callback;
 	void *context;
 
 	bool aborted:1;
 };
 
-struct master_login_auth {
+struct login_server_auth {
 	struct connection conn;
 	struct connection_list *clist;
 	struct event *event;
@@ -55,9 +55,9 @@ struct master_login_auth {
 	struct timeout *to;
 
 	unsigned int id_counter;
-	HASH_TABLE(void *, struct master_login_auth_request *) requests;
+	HASH_TABLE(void *, struct login_server_auth_request *) requests;
 	/* linked list of requests, ordered by create_stamp */
-	struct master_login_auth_request *request_head, *request_tail;
+	struct login_server_auth_request *request_head, *request_tail;
 
 	pid_t auth_server_pid;
 
@@ -68,21 +68,21 @@ struct master_login_auth {
 };
 
 static int
-master_login_auth_input_args(struct connection *_conn, const char *const *args);
+login_server_auth_input_args(struct connection *_conn, const char *const *args);
 static int
-master_login_auth_handshake_line(struct connection *_conn, const char *line);
-static void master_login_auth_destroy(struct connection *_conn);
+login_server_auth_handshake_line(struct connection *_conn, const char *line);
+static void login_server_auth_destroy(struct connection *_conn);
 
-static void master_login_auth_update_timeout(struct master_login_auth *auth);
-static void master_login_auth_check_spids(struct master_login_auth *auth);
+static void login_server_auth_update_timeout(struct login_server_auth *auth);
+static void login_server_auth_check_spids(struct login_server_auth *auth);
 
-static const struct connection_vfuncs master_login_auth_vfuncs = {
-	.destroy = master_login_auth_destroy,
-	.handshake_line = master_login_auth_handshake_line,
-	.input_args = master_login_auth_input_args,
+static const struct connection_vfuncs login_server_auth_vfuncs = {
+	.destroy = login_server_auth_destroy,
+	.handshake_line = login_server_auth_handshake_line,
+	.input_args = login_server_auth_input_args,
 };
 
-static const struct connection_settings master_login_auth_set = {
+static const struct connection_settings login_server_auth_set = {
 	.dont_send_version = TRUE,
 	.service_name_in = "auth-master",
 	.service_name_out = "auth-master",
@@ -95,16 +95,16 @@ static const struct connection_settings master_login_auth_set = {
 };
 
 static int
-master_login_auth_connect(struct master_login_auth *auth);
+login_server_auth_connect(struct login_server_auth *auth);
 
-struct master_login_auth *
-master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
+struct login_server_auth *
+login_server_auth_init(const char *auth_socket_path, bool request_auth_token)
 {
-	struct master_login_auth *auth;
+	struct login_server_auth *auth;
 	pool_t pool;
 
-	pool = pool_alloconly_create("master login auth", 1024);
-	auth = p_new(pool, struct master_login_auth, 1);
+	pool = pool_alloconly_create("login server auth", 1024);
+	auth = p_new(pool, struct login_server_auth, 1);
 	auth->pool = pool;
 	auth->auth_socket_path = p_strdup(pool, auth_socket_path);
 	auth->request_auth_token = request_auth_token;
@@ -112,8 +112,8 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 	hash_table_create_direct(&auth->requests, pool, 0);
 	auth->id_counter = i_rand_limit(32767) * 131072U;
 
-	auth->clist = connection_list_init(&master_login_auth_set,
-					   &master_login_auth_vfuncs);
+	auth->clist = connection_list_init(&login_server_auth_set,
+					   &login_server_auth_vfuncs);
 
 	auth->event = event_create(NULL);
 	event_add_category(auth->event, &event_category_auth_client);
@@ -124,12 +124,12 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 				    auth->auth_socket_path);
 
 	auth->timeout_msecs = 1000 * MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
-	master_login_auth_connect(auth);
+	login_server_auth_connect(auth);
 	return auth;
 }
 
-static void request_failure(struct master_login_auth *auth,
-			    struct master_login_auth_request *request,
+static void request_failure(struct login_server_auth *auth,
+			    struct login_server_auth_request *request,
 			    const char *log_reason, const char *client_reason)
 {
 	string_t *str = t_str_new(128);
@@ -155,16 +155,16 @@ static void request_failure(struct master_login_auth *auth,
 }
 
 static void
-request_internal_failure(struct master_login_auth *auth,
-			 struct master_login_auth_request *request,
+request_internal_failure(struct login_server_auth *auth,
+			 struct login_server_auth_request *request,
 			 const char *reason)
 {
 	request_failure(auth, request, reason, LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE);
 }
 
-static void request_free(struct master_login_auth_request **_request)
+static void request_free(struct login_server_auth_request **_request)
 {
-	struct master_login_auth_request *request = *_request;
+	struct login_server_auth_request *request = *_request;
 
 	*_request = NULL;
 
@@ -173,10 +173,10 @@ static void request_free(struct master_login_auth_request **_request)
 }
 
 static void
-master_login_auth_fail(struct master_login_auth *auth,
+login_server_auth_fail(struct login_server_auth *auth,
 		       const char *reason) ATTR_NULL(2)
 {
-	struct master_login_auth_request *request;
+	struct login_server_auth_request *request;
 
 	if (reason == NULL)
 		reason = "Disconnected from auth server, aborting";
@@ -200,14 +200,14 @@ master_login_auth_fail(struct master_login_auth *auth,
 	i_zero(&auth->handshake_time);
 }
 
-void master_login_auth_disconnect(struct master_login_auth *auth)
+void login_server_auth_disconnect(struct login_server_auth *auth)
 {
-	master_login_auth_fail(auth, NULL);
+	login_server_auth_fail(auth, NULL);
 }
 
-static void master_login_auth_unref(struct master_login_auth **_auth)
+static void login_server_auth_unref(struct login_server_auth **_auth)
 {
-	struct master_login_auth *auth = *_auth;
+	struct login_server_auth *auth = *_auth;
 	struct connection_list *clist = auth->clist;
 
 	*_auth = NULL;
@@ -223,47 +223,47 @@ static void master_login_auth_unref(struct master_login_auth **_auth)
 	pool_unref(&auth->pool);
 }
 
-void master_login_auth_deinit(struct master_login_auth **_auth)
+void login_server_auth_deinit(struct login_server_auth **_auth)
 {
-	struct master_login_auth *auth = *_auth;
+	struct login_server_auth *auth = *_auth;
 
 	*_auth = NULL;
 
-	master_login_auth_disconnect(auth);
-	master_login_auth_unref(&auth);
+	login_server_auth_disconnect(auth);
+	login_server_auth_unref(&auth);
 }
 
-void master_login_auth_set_timeout(struct master_login_auth *auth,
+void login_server_auth_set_timeout(struct login_server_auth *auth,
 				   unsigned int msecs)
 {
 	auth->timeout_msecs = msecs;
 }
 
-static void master_login_auth_destroy(struct connection *_conn)
+static void login_server_auth_destroy(struct connection *_conn)
 {
-	struct master_login_auth *auth =
-		container_of(_conn, struct master_login_auth, conn);
+	struct login_server_auth *auth =
+		container_of(_conn, struct login_server_auth, conn);
 
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
-		master_login_auth_fail(auth,
+		login_server_auth_fail(auth,
 				       "Handshake with auth service failed");
 		break;
 	case CONNECTION_DISCONNECT_BUFFER_FULL:
 		/* buffer full */
 		e_error(auth->event, "Auth server sent us too long line");
-		master_login_auth_fail(auth, NULL);
+		login_server_auth_fail(auth, NULL);
 		break;
 	default:
 		/* disconnected. stop accepting new connections, because in
 		   default configuration we no longer have permissions to
 		   connect back to auth-master */
 		master_service_stop_new_connections(master_service);
-		master_login_auth_fail(auth, NULL);
+		login_server_auth_fail(auth, NULL);
 	}
 }
 
-static unsigned int auth_get_next_timeout_msecs(struct master_login_auth *auth)
+static unsigned int auth_get_next_timeout_msecs(struct login_server_auth *auth)
 {
 	struct timeval expires;
 	int diff;
@@ -275,9 +275,9 @@ static unsigned int auth_get_next_timeout_msecs(struct master_login_auth *auth)
 	return (diff <= 0 ? 0 : (unsigned int)diff);
 }
 
-static void master_login_auth_timeout(struct master_login_auth *auth)
+static void login_server_auth_timeout(struct login_server_auth *auth)
 {
-	struct master_login_auth_request *request;
+	struct login_server_auth_request *request;
 	const char *reason;
 
 	while (auth->request_head != NULL &&
@@ -298,24 +298,24 @@ static void master_login_auth_timeout(struct master_login_auth *auth)
 		request_free(&request);
 	}
 	timeout_remove(&auth->to);
-	master_login_auth_update_timeout(auth);
+	login_server_auth_update_timeout(auth);
 }
 
-static void master_login_auth_update_timeout(struct master_login_auth *auth)
+static void login_server_auth_update_timeout(struct login_server_auth *auth)
 {
 	i_assert(auth->to == NULL);
 
 	if (auth->request_head != NULL) {
 		auth->to = timeout_add(auth_get_next_timeout_msecs(auth),
-				       master_login_auth_timeout, auth);
+				       login_server_auth_timeout, auth);
 	}
 }
 
 static int
-master_login_auth_handshake_line(struct connection *_conn, const char *line)
+login_server_auth_handshake_line(struct connection *_conn, const char *line)
 {
-	struct master_login_auth *auth =
-		container_of(_conn, struct master_login_auth, conn);
+	struct login_server_auth *auth =
+		container_of(_conn, struct login_server_auth, conn);
 	const char *const *tmp;
 	unsigned int major_version, minor_version;
 
@@ -343,13 +343,13 @@ master_login_auth_handshake_line(struct connection *_conn, const char *line)
 		return -1;
 	}
 
-	master_login_auth_check_spids(auth);
+	login_server_auth_check_spids(auth);
 	return 1;
 }
 
 static void
-master_login_auth_request_remove(struct master_login_auth *auth,
-				 struct master_login_auth_request *request)
+login_server_auth_request_remove(struct login_server_auth *auth,
+				 struct login_server_auth_request *request)
 {
 	bool update_timeout;
 
@@ -360,15 +360,15 @@ master_login_auth_request_remove(struct master_login_auth *auth,
 
 	if (update_timeout) {
 		timeout_remove(&auth->to);
-		master_login_auth_update_timeout(auth);
+		login_server_auth_update_timeout(auth);
 	}
 }
 
-static struct master_login_auth_request *
-master_login_auth_lookup_request(struct master_login_auth *auth,
+static struct login_server_auth_request *
+login_server_auth_lookup_request(struct login_server_auth *auth,
 				 unsigned int id)
 {
-	struct master_login_auth_request *request;
+	struct login_server_auth_request *request;
 
 	request = hash_table_lookup(auth->requests, POINTER_CAST(id));
 	if (request == NULL) {
@@ -376,7 +376,7 @@ master_login_auth_lookup_request(struct master_login_auth *auth,
 			"Auth server sent reply with unknown ID %u", id);
 		return NULL;
 	}
-	master_login_auth_request_remove(auth, request);
+	login_server_auth_request_remove(auth, request);
 	if (request->aborted) {
 		request->callback(NULL, LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE,
 				  request->context);
@@ -387,13 +387,13 @@ master_login_auth_lookup_request(struct master_login_auth *auth,
 }
 
 static void
-master_login_auth_input_user(struct master_login_auth *auth, unsigned int id,
+login_server_auth_input_user(struct login_server_auth *auth, unsigned int id,
 			     const char *const *args)
 {
-	struct master_login_auth_request *request;
+	struct login_server_auth_request *request;
 
 	/* USER <id> <userid> [..] */
-	request = master_login_auth_lookup_request(auth, id);
+	request = login_server_auth_lookup_request(auth, id);
 	if (request != NULL) {
 		struct event_passthrough *e =
 			event_create_passthrough(request->event)->
@@ -408,14 +408,14 @@ master_login_auth_input_user(struct master_login_auth *auth, unsigned int id,
 }
 
 static void
-master_login_auth_input_notfound(struct master_login_auth *auth,
+login_server_auth_input_notfound(struct login_server_auth *auth,
 				 unsigned int id,
 				 const char *const *args ATTR_UNUSED)
 {
-	struct master_login_auth_request *request;
+	struct login_server_auth_request *request;
 
 	/* NOTFOUND <id> */
-	request = master_login_auth_lookup_request(auth, id);
+	request = login_server_auth_lookup_request(auth, id);
 	if (request != NULL) {
 		const char *reason = t_strdup_printf(
 			"Authenticated user not found from userdb, "
@@ -426,10 +426,10 @@ master_login_auth_input_notfound(struct master_login_auth *auth,
 }
 
 static void
-master_login_auth_input_fail(struct master_login_auth *auth, unsigned int id,
+login_server_auth_input_fail(struct login_server_auth *auth, unsigned int id,
 			     const char *const *args)
 {
-	struct master_login_auth_request *request;
+	struct login_server_auth_request *request;
 	const char *error = NULL;
 	unsigned int i;
 
@@ -439,7 +439,7 @@ master_login_auth_input_fail(struct master_login_auth *auth, unsigned int id,
 			break;
 	}
 
-	request = master_login_auth_lookup_request(auth, id);
+	request = login_server_auth_lookup_request(auth, id);
 	if (request != NULL) {
 		if (error == NULL) {
 			request_internal_failure(auth, request,
@@ -454,10 +454,10 @@ master_login_auth_input_fail(struct master_login_auth *auth, unsigned int id,
 }
 
 static int
-master_login_auth_input_args(struct connection *_conn, const char *const *args)
+login_server_auth_input_args(struct connection *_conn, const char *const *args)
 {
-	struct master_login_auth *auth =
-		container_of(_conn, struct master_login_auth, conn);
+	struct login_server_auth *auth =
+		container_of(_conn, struct login_server_auth, conn);
 	unsigned int id;
 
 	if (args[0] != NULL && strcmp(args[0], "CUID") == 0) {
@@ -476,18 +476,18 @@ master_login_auth_input_args(struct connection *_conn, const char *const *args)
 
 	auth->refcount++;
 	if (strcmp(args[0], "USER") == 0)
-		master_login_auth_input_user(auth, id, &args[2]);
+		login_server_auth_input_user(auth, id, &args[2]);
 	else if (strcmp(args[0], "NOTFOUND") == 0)
-		master_login_auth_input_notfound(auth, id, &args[2]);
+		login_server_auth_input_notfound(auth, id, &args[2]);
 	else if (strcmp(args[0], "FAIL") == 0)
-		master_login_auth_input_fail(auth, id, &args[2]);
-	master_login_auth_unref(&auth);
+		login_server_auth_input_fail(auth, id, &args[2]);
+	login_server_auth_unref(&auth);
 
 	return 1;
 }
 
 static int
-master_login_auth_connect(struct master_login_auth *auth)
+login_server_auth_connect(struct login_server_auth *auth)
 {
 	i_assert(!auth->connected);
 
@@ -514,8 +514,8 @@ master_login_auth_connect(struct master_login_auth *auth)
 }
 
 static bool
-auth_request_check_spid(struct master_login_auth *auth,
-			struct master_login_auth_request *req)
+auth_request_check_spid(struct login_server_auth *auth,
+			struct login_server_auth_request *req)
 {
 	if (auth->auth_server_pid != req->auth_pid &&
 	    auth->conn.handshake_received) {
@@ -529,9 +529,9 @@ auth_request_check_spid(struct master_login_auth *auth,
 	return TRUE;
 }
 
-static void master_login_auth_check_spids(struct master_login_auth *auth)
+static void login_server_auth_check_spids(struct login_server_auth *auth)
 {
-	struct master_login_auth_request *req, *next;
+	struct login_server_auth_request *req, *next;
 
 	for (req = auth->request_head; req != NULL; req = next) {
 		next = req->next;
@@ -541,13 +541,13 @@ static void master_login_auth_check_spids(struct master_login_auth *auth)
 }
 
 static void
-master_login_auth_send_request(struct master_login_auth *auth,
-			       struct master_login_auth_request *req)
+login_server_auth_send_request(struct login_server_auth *auth,
+			       struct login_server_auth_request *req)
 {
 	string_t *str;
 
 	if (!auth_request_check_spid(auth, req)) {
-		master_login_auth_request_remove(auth, req);
+		login_server_auth_request_remove(auth, req);
 		req->callback(NULL, LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE,
 			      req->context);
 		request_free(&req);
@@ -565,16 +565,16 @@ master_login_auth_send_request(struct master_login_auth *auth,
 	o_stream_nsend(auth->conn.output, str_data(str), str_len(str));
 }
 
-void master_login_auth_request(struct master_login_auth *auth,
+void login_server_auth_request(struct login_server_auth *auth,
 			       const struct login_request *req,
-			       master_login_auth_request_callback_t *callback,
+			       login_server_auth_request_callback_t *callback,
 			       void *context)
 {
-	struct master_login_auth_request *login_req;
+	struct login_server_auth_request *login_req;
 	unsigned int id;
 
 	if (!auth->connected) {
-		if (master_login_auth_connect(auth) < 0) {
+		if (login_server_auth_connect(auth) < 0) {
 			/* we couldn't connect to auth now,
 			   so we probably can't in future either. */
 			master_service_stop_new_connections(master_service);
@@ -589,7 +589,7 @@ void master_login_auth_request(struct master_login_auth *auth,
 		id++;
 
 	io_loop_time_refresh();
-	login_req = i_new(struct master_login_auth_request, 1);
+	login_req = i_new(struct login_server_auth_request, 1);
 	login_req->create_stamp = ioloop_timeval;
 	login_req->id = id;
 	login_req->auth_pid = req->auth_pid;
@@ -631,12 +631,12 @@ void master_login_auth_request(struct master_login_auth *auth,
 	e_debug(e->event(), "Started login auth request");
 
 	if (auth->to == NULL)
-		master_login_auth_update_timeout(auth);
+		login_server_auth_update_timeout(auth);
 
-	master_login_auth_send_request(auth, login_req);
+	login_server_auth_send_request(auth, login_req);
 }
 
-unsigned int master_login_auth_request_count(struct master_login_auth *auth)
+unsigned int login_server_auth_request_count(struct login_server_auth *auth)
 {
 	return hash_table_count(auth->requests);
 }
