@@ -11,18 +11,18 @@ AM_CPPFLAGS = \
 liblogin_la_SOURCES = \
 	login-client.c \
 	login-server.c \
-	master-login-auth.c
+	login-server-auth.c
 
 headers = \
 	login-client.h \
 	login-server.h \
-	master-login-auth.h
+	login-server-auth.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
-	test-master-login-auth
+	test-login-server-auth
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -47,9 +47,9 @@ test_deps = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_master_login_auth_SOURCES = test-master-login-auth.c
-test_master_login_auth_LDADD = $(test_libs)
-test_master_login_auth_DEPENDENCIES = $(test_deps)
+test_login_server_auth_SOURCES = test-login-server-auth.c
+test_login_server_auth_LDADD = $(test_libs)
+test_login_server_auth_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \

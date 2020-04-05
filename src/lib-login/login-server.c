@@ -10,7 +10,7 @@
 #include "time-util.h"
 #include "master-service-private.h"
 #include "login-server.h"
-#include "master-login-auth.h"
+#include "login-server-auth.h"
 
 #include <sys/stat.h>
 #include <unistd.h>

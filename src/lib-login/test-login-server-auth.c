@@ -20,7 +20,7 @@
 #include "test-subprocess.h"
 
 #include "login-client.h"
-#include "master-login-auth.h"
+#include "login-server-auth.h"
 
 #define TEST_SOCKET "./master-login-auth-test"
 #define SERVER_KILL_TIMEOUT_SECS    20
