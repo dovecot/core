@@ -118,9 +118,7 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 		      drop back to TEMP within few months. */
 		cache->fields[field].field.decision = MAIL_CACHE_DECISION_YES;
 		cache->fields[field].decision_dirty = TRUE;
-
-		if (cache->field_file_map[field] != (uint32_t)-1)
-			cache->field_header_write_pending = TRUE;
+		cache->field_header_write_pending = TRUE;
 	} else {
 		cache->fields[field].uid_highwater = uid;
 	}
