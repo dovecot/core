@@ -1026,12 +1026,8 @@ static void test_atexit(void)
 	test_clients_kill_all();
 }
 
-int main(int argc, char *argv[])
+static void main_init(void)
 {
-	int c;
-	int ret;
-
-	lib_init();
 	lib_signals_init();
 
 	atexit(test_atexit);
@@ -1041,6 +1037,20 @@ int main(int argc, char *argv[])
 	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
 	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
 	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+}
+
+static void main_deinit(void)
+{
+	lib_signals_deinit();
+}
+
+int main(int argc, char *argv[])
+{
+	int c;
+	int ret;
+
+	lib_init();
+	main_init();
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
@@ -1059,8 +1069,8 @@ int main(int argc, char *argv[])
 
 	ret = test_run(test_functions);
 
-	lib_signals_deinit();
+	main_deinit();
 	lib_deinit();
-
+	
 	return ret;
 }
