@@ -919,7 +919,7 @@ static int test_open_server_fd(void)
 	return fd;
 }
 
-static void test_clients_kill_all(void)
+static void test_clients_kill_forced(void)
 {
 	unsigned int i;
 
@@ -996,7 +996,7 @@ test_run_client_server(const struct http_server_settings *server_set,
 
 	i_unset_failure_prefix();
 	i_close_fd(&fd_listen);
-	test_clients_kill_all();
+	test_clients_kill_forced();
 	i_free(client_pids);
 }
 
@@ -1015,7 +1015,7 @@ static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 	terminating = 1;
 
 	/* make sure we don't leave any pesky children alive */
-	test_clients_kill_all();
+	test_clients_kill_forced();
 
 	(void)signal(signo, SIG_DFL);
 	raise(signo);
@@ -1023,7 +1023,7 @@ static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 
 static void test_atexit(void)
 {
-	test_clients_kill_all();
+	test_clients_kill_forced();
 }
 
 static void main_init(void)
