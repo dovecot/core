@@ -34,8 +34,8 @@ struct server_connection {
 };
 
 typedef void (*test_server_init_t)(unsigned int index);
-typedef bool (*test_client_init_t)
-	(const struct http_client_settings *client_set);
+typedef bool
+(*test_client_init_t)(const struct http_client_settings *client_set);
 typedef void (*test_dns_init_t)(void);
 
 /*
@@ -71,22 +71,19 @@ static struct http_client *http_client = NULL;
 
 /* server */
 static void test_server_run(unsigned int index);
-static void
-server_connection_deinit(struct server_connection **_conn);
+static void server_connection_deinit(struct server_connection **_conn);
 
 /* client */
-static void
-test_client_defaults(struct http_client_settings *http_set);
+static void test_client_defaults(struct http_client_settings *http_set);
 static void test_client_deinit(void);
 
 /* test*/
-static void test_run_client_server(
-	const struct http_client_settings *client_set,
-	test_client_init_t client_test,
-	test_server_init_t server_test,
-	unsigned int server_tests_count,
-	test_dns_init_t dns_test)
-	ATTR_NULL(3);
+static void
+test_run_client_server(const struct http_client_settings *client_set,
+		       test_client_init_t client_test,
+		       test_server_init_t server_test,
+		       unsigned int server_tests_count,
+		       test_dns_init_t dns_test) ATTR_NULL(3);
 
 /*
  * Unconfigured SSL
@@ -99,9 +96,8 @@ struct _unconfigured_ssl {
 };
 
 static void
-test_client_unconfigured_ssl_response(
-	const struct http_response *resp,
-	struct _unconfigured_ssl *ctx)
+test_client_unconfigured_ssl_response(const struct http_response *resp,
+				      struct _unconfigured_ssl *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -126,14 +122,14 @@ test_client_unconfigured_ssl(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "127.0.0.1", "/unconfigured-ssl.txt",
+	hreq = http_client_request(
+		http_client, "GET", "127.0.0.1", "/unconfigured-ssl.txt",
 		test_client_unconfigured_ssl_response, ctx);
 	http_client_request_set_ssl(hreq, TRUE);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "127.0.0.1", "/unconfigured-ssl2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "127.0.0.1", "/unconfigured-ssl2.txt",
 		test_client_unconfigured_ssl_response, ctx);
 	http_client_request_set_ssl(hreq, TRUE);
 	http_client_request_submit(hreq);
@@ -151,8 +147,7 @@ static void test_unconfigured_ssl(void)
 
 	test_begin("unconfigured ssl");
 	test_run_client_server(&http_client_set,
-		test_client_unconfigured_ssl,
-		NULL, 0, NULL);
+			       test_client_unconfigured_ssl, NULL, 0, NULL);
 	test_end();
 }
 
@@ -179,8 +174,7 @@ test_client_unconfigured_ssl_abort_response1(
 
 static void
 test_client_unconfigured_ssl_abort_response2(
-	const struct http_response *resp,
-	struct _unconfigured_ssl_abort *ctx)
+	const struct http_response *resp, struct _unconfigured_ssl_abort *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -193,7 +187,8 @@ test_client_unconfigured_ssl_abort_response2(
 }
 
 static bool
-test_client_unconfigured_ssl_abort(const struct http_client_settings *client_set)
+test_client_unconfigured_ssl_abort(
+	const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
 	struct _unconfigured_ssl_abort *ctx;
@@ -203,15 +198,15 @@ test_client_unconfigured_ssl_abort(const struct http_client_settings *client_set
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "127.0.0.1", "/unconfigured-ssl.txt",
+	hreq = http_client_request(
+		http_client, "GET", "127.0.0.1", "/unconfigured-ssl.txt",
 		test_client_unconfigured_ssl_abort_response1, ctx);
 	http_client_request_set_ssl(hreq, TRUE);
 	http_client_request_submit(hreq);
 	http_client_request_abort(&hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "127.0.0.1", "/unconfigured-ssl2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "127.0.0.1", "/unconfigured-ssl2.txt",
 		test_client_unconfigured_ssl_abort_response2, ctx);
 	http_client_request_set_ssl(hreq, TRUE);
 	http_client_request_submit(hreq);
@@ -229,8 +224,8 @@ static void test_unconfigured_ssl_abort(void)
 
 	test_begin("unconfigured ssl abort");
 	test_run_client_server(&http_client_set,
-		test_client_unconfigured_ssl_abort,
-		NULL, 0, NULL);
+			       test_client_unconfigured_ssl_abort,
+			       NULL, 0, NULL);
 	test_end();
 }
 
@@ -245,9 +240,8 @@ struct _invalid_url {
 };
 
 static void
-test_client_invalid_url_response(
-	const struct http_response *resp,
-	struct _invalid_url *ctx)
+test_client_invalid_url_response(const struct http_response *resp,
+				 struct _invalid_url *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -272,13 +266,13 @@ test_client_invalid_url(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request_url_str(http_client,
-		"GET", "imap://example.com/INBOX",
+	hreq = http_client_request_url_str(
+		http_client, "GET", "imap://example.com/INBOX",
 		test_client_invalid_url_response, ctx);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request_url_str(http_client,
-		"GET", "http:/www.example.com",
+	hreq = http_client_request_url_str(
+		http_client, "GET", "http:/www.example.com",
 		test_client_invalid_url_response, ctx);
 	http_client_request_submit(hreq);
 
@@ -295,8 +289,7 @@ static void test_invalid_url(void)
 
 	test_begin("invalid url");
 	test_run_client_server(&http_client_set,
-		test_client_invalid_url,
-		NULL, 0, NULL);
+			       test_client_invalid_url, NULL, 0, NULL);
 	test_end();
 }
 
@@ -311,14 +304,14 @@ struct _host_lookup_failed {
 };
 
 static void
-test_client_host_lookup_failed_response(
-	const struct http_response *resp,
-	struct _host_lookup_failed *ctx)
+test_client_host_lookup_failed_response(const struct http_response *resp,
+					struct _host_lookup_failed *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->status ==
+		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
 	if (--ctx->count == 0) {
@@ -338,13 +331,15 @@ test_client_host_lookup_failed(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "host.in-addr.arpa", "/host-lookup-failed.txt",
+	hreq = http_client_request(
+		http_client, "GET", "host.in-addr.arpa",
+		"/host-lookup-failed.txt",
 		test_client_host_lookup_failed_response, ctx);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "host.in-addr.arpa", "/host-lookup-failed2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "host.in-addr.arpa",
+		"/host-lookup-failed2.txt",
 		test_client_host_lookup_failed_response, ctx);
 	http_client_request_submit(hreq);
 
@@ -361,8 +356,7 @@ static void test_host_lookup_failed(void)
 
 	test_begin("host lookup failed");
 	test_run_client_server(&http_client_set,
-		test_client_host_lookup_failed,
-		NULL, 0, NULL);
+			       test_client_host_lookup_failed, NULL, 0, NULL);
 	test_end();
 }
 
@@ -386,9 +380,8 @@ struct _connection_refused {
 };
 
 static void
-test_client_connection_refused_response(
-	const struct http_response *resp,
-	struct _connection_refused *ctx)
+test_client_connection_refused_response(const struct http_response *resp,
+					struct _connection_refused *ctx)
 {
 	test_assert(ctx->to == NULL);
 	timeout_remove(&ctx->to);
@@ -429,14 +422,16 @@ test_client_connection_refused(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-refused.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-refused.txt",
 		test_client_connection_refused_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-refused2.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-refused2.txt",
 		test_client_connection_refused_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -454,18 +449,16 @@ static void test_connection_refused(void)
 
 	test_begin("connection refused");
 	test_run_client_server(&http_client_set,
-		test_client_connection_refused,
-		test_server_connection_refused, 1,
-		NULL);
+			       test_client_connection_refused,
+			       test_server_connection_refused, 1, NULL);
 	test_end();
 
 	http_client_set.max_connect_attempts = 3;
 
 	test_begin("connection refused backoff");
 	test_run_client_server(&http_client_set,
-		test_client_connection_refused,
-		test_server_connection_refused, 1,
-		NULL);
+			       test_client_connection_refused,
+			       test_server_connection_refused, 1, NULL);
 	test_end();
 }
 
@@ -481,8 +474,7 @@ test_server_connection_lost_prematurely_input(struct server_connection *conn)
 	server_connection_deinit(&conn);
 }
 
-static void
-test_server_connection_lost_prematurely(unsigned int index)
+static void test_server_connection_lost_prematurely(unsigned int index)
 {
 	test_server_input = test_server_connection_lost_prematurely_input;
 	test_server_run(index);
@@ -525,7 +517,8 @@ test_client_connection_lost_prematurely_timeout(
 }
 
 static bool
-test_client_connection_lost_prematurely(const struct http_client_settings *client_set)
+test_client_connection_lost_prematurely(
+	const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
 	struct _connection_lost_prematurely *ctx;
@@ -533,19 +526,21 @@ test_client_connection_lost_prematurely(const struct http_client_settings *clien
 	ctx = i_new(struct _connection_lost_prematurely, 1);
 	ctx->count = 2;
 
-	ctx->to = timeout_add_short(250,
-		test_client_connection_lost_prematurely_timeout, ctx);
+	ctx->to = timeout_add_short(
+		250, test_client_connection_lost_prematurely_timeout, ctx);
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-refused-retry.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-refused-retry.txt",
 		test_client_connection_lost_prematurely_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-refused-retry2.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-refused-retry2.txt",
 		test_client_connection_lost_prematurely_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -565,9 +560,9 @@ static void test_connection_lost_prematurely(void)
 
 	test_begin("connection lost prematurely");
 	test_run_client_server(&http_client_set,
-		test_client_connection_lost_prematurely,
-		test_server_connection_lost_prematurely, 1,
-		NULL);
+			       test_client_connection_lost_prematurely,
+			       test_server_connection_lost_prematurely, 1,
+			       NULL);
 	test_end();
 }
 
@@ -582,9 +577,8 @@ struct _connection_timed_out {
 };
 
 static void
-test_client_connection_timed_out_response(
-	const struct http_response *resp,
-	struct _connection_timed_out *ctx)
+test_client_connection_timed_out_response(const struct http_response *resp,
+					  struct _connection_timed_out *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -599,8 +593,7 @@ test_client_connection_timed_out_response(
 }
 
 static bool
-test_client_connection_timed_out(
-	const struct http_client_settings *client_set)
+test_client_connection_timed_out(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
 	struct _connection_timed_out *ctx;
@@ -610,13 +603,13 @@ test_client_connection_timed_out(
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "192.168.0.0", "/connection-timed-out.txt",
+	hreq = http_client_request(
+		http_client, "GET", "192.168.0.0", "/connection-timed-out.txt",
 		test_client_connection_timed_out_response, ctx);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "192.168.0.0", "/connection-timed-out2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "192.168.0.0", "/connection-timed-out2.txt",
 		test_client_connection_timed_out_response, ctx);
 	http_client_request_submit(hreq);
 
@@ -635,8 +628,7 @@ static void test_connection_timed_out(void)
 
 	test_begin("connection timed out");
 	test_run_client_server(&http_client_set,
-		test_client_connection_timed_out,
-		NULL, 0, NULL);
+			       test_client_connection_timed_out, NULL, 0, NULL);
 	test_end();
 }
 
@@ -648,13 +640,13 @@ static void test_connection_timed_out(void)
 
 /* -> not accepted */
 
-static void
-test_invalid_redirect_input1(struct server_connection *conn)
+static void test_invalid_redirect_input1(struct server_connection *conn)
 {
 	static const char *resp =
 		"HTTP/1.1 302 Redirect\r\n"
 		"Location: http://localhost:4444\r\n"
 		"\r\n";
+
 	o_stream_nsend_str(conn->conn.output, resp);
 	server_connection_deinit(&conn);
 }
@@ -667,13 +659,13 @@ static void test_server_invalid_redirect1(unsigned int index)
 
 /* -> bad location */
 
-static void
-test_invalid_redirect_input2(struct server_connection *conn)
+static void test_invalid_redirect_input2(struct server_connection *conn)
 {
 	static const char *resp =
 		"HTTP/1.1 302 Redirect\r\n"
 		"Location: unix:/var/run/dovecot/auth-master\r\n"
 		"\r\n";
+
 	o_stream_nsend_str(conn->conn.output, resp);
 	server_connection_deinit(&conn);
 }
@@ -686,19 +678,17 @@ static void test_server_invalid_redirect2(unsigned int index)
 
 /* -> too many */
 
-static void
-test_invalid_redirect_input3(struct server_connection *conn)
+static void test_invalid_redirect_input3(struct server_connection *conn)
 {
 	string_t *resp;
 
 	resp = t_str_new(512);
 	str_printfa(resp, 
-		"HTTP/1.1 302 Redirect\r\n"
-		"Location: http://%s:%u/friep.txt\r\n"
-		"\r\n",
-		net_ip2addr(&bind_ip), bind_ports[server_index+1]);
-	o_stream_nsend(conn->conn.output,
-		str_data(resp), str_len(resp));
+		    "HTTP/1.1 302 Redirect\r\n"
+		    "Location: http://%s:%u/friep.txt\r\n"
+		    "\r\n",
+		    net_ip2addr(&bind_ip), bind_ports[server_index+1]);
+	o_stream_nsend(conn->conn.output, str_data(resp), str_len(resp));
 	server_connection_deinit(&conn);
 }
 
@@ -711,9 +701,8 @@ static void test_server_invalid_redirect3(unsigned int index)
 /* client */
 
 static void
-test_client_invalid_redirect_response(
-	const struct http_response *resp,
-	void *context ATTR_UNUSED)
+test_client_invalid_redirect_response(const struct http_response *resp,
+				      void *context ATTR_UNUSED)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -730,8 +719,9 @@ test_client_invalid_redirect(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/invalid-redirect.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/invalid-redirect.txt",
 		test_client_invalid_redirect_response, NULL);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -750,25 +740,22 @@ static void test_invalid_redirect(void)
 	test_begin("invalid redirect: not accepted");
 	http_client_set.max_redirects = 0;
 	test_run_client_server(&http_client_set,
-		test_client_invalid_redirect,
-		test_server_invalid_redirect1, 1,
-		NULL);
+			       test_client_invalid_redirect,
+			       test_server_invalid_redirect1, 1, NULL);
 	test_end();
 
 	test_begin("invalid redirect: bad location");
 	http_client_set.max_redirects = 1;
 	test_run_client_server(&http_client_set,
-		test_client_invalid_redirect,
-		test_server_invalid_redirect2, 1,
-		NULL);
+			       test_client_invalid_redirect,
+			       test_server_invalid_redirect2, 1, NULL);
 	test_end();
 
 	test_begin("invalid redirect: too many");
 	http_client_set.max_redirects = 1;
 	test_run_client_server(&http_client_set,
-		test_client_invalid_redirect,
-		test_server_invalid_redirect3, 3,
-		NULL);
+			       test_client_invalid_redirect,
+			       test_server_invalid_redirect3, 3, NULL);
 	test_end();
 }
 
@@ -778,19 +765,17 @@ static void test_invalid_redirect(void)
 
 /* server */
 
-static void
-test_unseekable_redirect_input(struct server_connection *conn)
+static void test_unseekable_redirect_input(struct server_connection *conn)
 {
 	string_t *resp;
 
 	resp = t_str_new(512);
 	str_printfa(resp, 
-		"HTTP/1.1 302 Redirect\r\n"
-		"Location: http://%s:%u/frml.txt\r\n"
-		"\r\n",
-		net_ip2addr(&bind_ip), bind_ports[server_index+1]);
-	o_stream_nsend(conn->conn.output,
-		str_data(resp), str_len(resp));
+		    "HTTP/1.1 302 Redirect\r\n"
+		    "Location: http://%s:%u/frml.txt\r\n"
+		    "\r\n",
+		    net_ip2addr(&bind_ip), bind_ports[server_index+1]);
+	o_stream_nsend(conn->conn.output, str_data(resp), str_len(resp));
 	server_connection_deinit(&conn);
 }
 
@@ -803,9 +788,8 @@ static void test_server_unseekable_redirect(unsigned int index)
 /* client */
 
 static void
-test_client_unseekable_redirect_response(
-	const struct http_response *resp,
-	void *context ATTR_UNUSED)
+test_client_unseekable_redirect_response(const struct http_response *resp,
+					 void *context ATTR_UNUSED)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -826,8 +810,9 @@ test_client_unseekable_redirect(const struct http_client_settings *client_set)
 	input = i_stream_create_from_data("FROP", 4);
 	input->seekable = FALSE;
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/unseekable-redirect.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/unseekable-redirect.txt",
 		test_client_unseekable_redirect_response, NULL);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, FALSE);
@@ -848,9 +833,8 @@ static void test_unseekable_redirect(void)
 
 	test_begin("unseekable redirect");
 	test_run_client_server(&http_client_set,
-		test_client_unseekable_redirect,
-		test_server_unseekable_redirect, 2,
-		NULL);
+			       test_client_unseekable_redirect,
+			       test_server_unseekable_redirect, 2, NULL);
 	test_end();
 }
 
@@ -860,8 +844,7 @@ static void test_unseekable_redirect(void)
 
 /* server */
 
-static void
-test_unseekable_retry_input(struct server_connection *conn)
+static void test_unseekable_retry_input(struct server_connection *conn)
 {
 	server_connection_deinit(&conn);
 }
@@ -875,9 +858,8 @@ static void test_server_unseekable_retry(unsigned int index)
 /* client */
 
 static void
-test_client_unseekable_retry_response(
-	const struct http_response *resp,
-	void *context ATTR_UNUSED)
+test_client_unseekable_retry_response(const struct http_response *resp,
+				      void *context ATTR_UNUSED)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -898,8 +880,9 @@ test_client_unseekable_retry(const struct http_client_settings *client_set)
 	input = i_stream_create_from_data("FROP", 4);
 	input->seekable = FALSE;
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/unseekable-retry.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/unseekable-retry.txt",
 		test_client_unseekable_retry_response, NULL);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, FALSE);
@@ -920,9 +903,8 @@ static void test_unseekable_retry(void)
 
 	test_begin("unseekable retry");
 	test_run_client_server(&http_client_set,
-		test_client_unseekable_retry,
-		test_server_unseekable_retry, 2,
-		NULL);
+			       test_client_unseekable_retry,
+			       test_server_unseekable_retry, 2, NULL);
 	test_end();
 }
 
@@ -932,14 +914,14 @@ static void test_unseekable_retry(void)
 
 /* server */
 
-static void
-test_broken_payload_input(struct server_connection *conn)
+static void test_broken_payload_input(struct server_connection *conn)
 {
 	static const char *resp =
 		"HTTP/1.1 200 OK\r\n"
 		"Content-Length: 18\r\n"
 		"\r\n"
 		"Everything is OK\r\n";
+
 	o_stream_nsend_str(conn->conn.output, resp);
 	server_connection_deinit(&conn);
 }
@@ -953,9 +935,8 @@ static void test_server_broken_payload(unsigned int index)
 /* client */
 
 static void
-test_client_broken_payload_response(
-	const struct http_response *resp,
-	void *context ATTR_UNUSED)
+test_client_broken_payload_response(const struct http_response *resp,
+				    void *context ATTR_UNUSED)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -978,8 +959,9 @@ test_client_broken_payload(const struct http_client_settings *client_set)
 	input = i_stream_create_error_str(EIO, "Moehahahaha!!");
 	i_stream_set_name(input, "PURE EVIL");
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/broken-payload.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/broken-payload.txt",
 		test_client_broken_payload_response, NULL);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, FALSE);
@@ -999,9 +981,8 @@ static void test_broken_payload(void)
 
 	test_begin("broken payload");
 	test_run_client_server(&http_client_set,
-		test_client_broken_payload,
-		test_server_broken_payload, 1,
-		NULL);
+			       test_client_broken_payload,
+			       test_server_broken_payload, 1, NULL);
 	test_end();
 }
 
@@ -1011,8 +992,7 @@ static void test_broken_payload(void)
 
 /* server */
 
-static void
-test_connection_lost_input(struct server_connection *conn)
+static void test_connection_lost_input(struct server_connection *conn)
 {
 	ssize_t ret;
 
@@ -1055,9 +1035,8 @@ struct _connection_lost_request_ctx {
 };
 
 static void
-test_client_connection_lost_response(
-	const struct http_response *resp,
-	struct _connection_lost_request_ctx *rctx)
+test_client_connection_lost_response(const struct http_response *resp,
+				     struct _connection_lost_request_ctx *rctx)
 {
 	struct _connection_lost_ctx *ctx = rctx->ctx;
 
@@ -1084,9 +1063,9 @@ static bool
 test_client_connection_lost(const struct http_client_settings *client_set)
 {
 	static const char payload[] =
-		"This is a useless payload that only serves as a means to give the "
-		"server the opportunity to close the connection before the payload "
-		"is finished.";
+		"This is a useless payload that only serves as a means to give "
+		"the server the opportunity to close the connection before the "
+		"payload is finished.";
 	struct _connection_lost_ctx *ctx;
 	struct _connection_lost_request_ctx *rctx;
 	struct http_client_request *hreq;
@@ -1102,8 +1081,9 @@ test_client_connection_lost(const struct http_client_settings *client_set)
 	rctx = i_new(struct _connection_lost_request_ctx, 1);
 	rctx->ctx = ctx;
 
-	rctx->req = hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-lost.txt",
+	rctx->req = hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-lost.txt",
 		test_client_connection_lost_response, rctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, FALSE);
@@ -1112,8 +1092,9 @@ test_client_connection_lost(const struct http_client_settings *client_set)
 	rctx = i_new(struct _connection_lost_request_ctx, 1);
 	rctx->ctx = ctx;
 
-	rctx->req = hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-lost2.txt",
+	rctx->req = hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-lost2.txt",
 		test_client_connection_lost_response, rctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -1135,34 +1116,30 @@ static void test_connection_lost(void)
 	test_begin("connection lost: one attempt");
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
-		test_client_connection_lost,
-		test_server_connection_lost, 1,
-		NULL);
+			       test_client_connection_lost,
+			       test_server_connection_lost, 1, NULL);
 	test_end();
 
 	test_begin("connection lost: two attempts");
 	http_client_set.max_attempts = 2;
 	test_run_client_server(&http_client_set,
-		test_client_connection_lost,
-		test_server_connection_lost, 1,
-		NULL);
+			       test_client_connection_lost,
+			       test_server_connection_lost, 1, NULL);
 	test_end();
 
 	test_begin("connection lost: three attempts");
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
-		test_client_connection_lost,
-		test_server_connection_lost, 1,
-		NULL);
+			       test_client_connection_lost,
+			       test_server_connection_lost, 1, NULL);
 	test_end();
 
 	test_begin("connection lost: manual retry");
 	http_client_set.max_attempts = 3;
 	http_client_set.no_auto_retry = TRUE;
 	test_run_client_server(&http_client_set,
-		test_client_connection_lost,
-		test_server_connection_lost, 1,
-		NULL);
+			       test_client_connection_lost,
+			       test_server_connection_lost, 1, NULL);
 	test_end();
 }
 
@@ -1172,12 +1149,12 @@ static void test_connection_lost(void)
 
 /* server */
 
-static void
-test_connection_lost_100_input(struct server_connection *conn)
+static void test_connection_lost_100_input(struct server_connection *conn)
 {
 	static const char *resp =
 		"HTTP/1.1 100 Continue\r\n"
 		"\r\n";
+
 	o_stream_nsend_str(conn->conn.output, resp);
 	server_connection_deinit(&conn);
 }
@@ -1195,9 +1172,8 @@ struct _connection_lost_100_ctx {
 };
 
 static void
-test_client_connection_lost_100_response(
-	const struct http_response *resp,
-	struct _connection_lost_100_ctx *ctx)
+test_client_connection_lost_100_response(const struct http_response *resp,
+					 struct _connection_lost_100_ctx *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -1216,9 +1192,9 @@ test_client_connection_lost_100(
 	const struct http_client_settings *client_set)
 {
 	static const char payload[] =
-		"This is a useless payload that only serves as a means to give the "
-		"server the opportunity to close the connection before the payload "
-		"is finished.";
+		"This is a useless payload that only serves as a means to give "
+		"the server the opportunity to close the connection before the "
+		"payload is finished.";
 	struct _connection_lost_100_ctx *ctx;
 	struct http_client_request *hreq;
 	struct istream *input;
@@ -1230,15 +1206,17 @@ test_client_connection_lost_100(
 
 	input = i_stream_create_from_data(payload, sizeof(payload)-1);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-lost.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-lost.txt",
 		test_client_connection_lost_100_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, TRUE);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-lost2.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-lost2.txt",
 		test_client_connection_lost_100_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, TRUE);
@@ -1261,9 +1239,8 @@ static void test_connection_lost_100(void)
 	test_begin("connection lost after 100-continue");
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
-		test_client_connection_lost_100,
-		test_server_connection_lost_100, 1,
-		NULL);
+			       test_client_connection_lost_100,
+			       test_server_connection_lost_100, 1, NULL);
 	test_end();
 }
 
@@ -1280,6 +1257,7 @@ test_connection_lost_sub_ioloop_input(struct server_connection *conn)
 		"HTTP/1.1 200 OK\r\n"
 		"Content-Length: 0\r\n"
 		"\r\n";
+
 	o_stream_nsend_str(conn->conn.output, resp);
 	server_connection_deinit(&conn);
 }
@@ -1298,8 +1276,7 @@ struct _connection_lost_sub_ioloop_ctx {
 
 static void
 test_client_connection_lost_sub_ioloop_response2(
-	const struct http_response *resp,
-	struct ioloop *sub_ioloop)
+	const struct http_response *resp, struct ioloop *sub_ioloop)
 {
 	if (debug)
 		i_debug("SUB-RESPONSE: %u %s", resp->status, resp->reason);
@@ -1329,8 +1306,9 @@ test_client_connection_lost_sub_ioloop_response(
 	sub_ioloop = io_loop_create();
 	http_client_switch_ioloop(http_client);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-lost-sub-ioloop3.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-lost-sub-ioloop3.txt",
 		test_client_connection_lost_sub_ioloop_response2, sub_ioloop);
 	http_client_request_set_port(hreq, bind_ports[1]);
 	http_client_request_submit(hreq);
@@ -1352,9 +1330,9 @@ test_client_connection_lost_sub_ioloop(
 	const struct http_client_settings *client_set)
 {
 	static const char payload[] =
-		"This is a useless payload that only serves as a means to give the "
-		"server the opportunity to close the connection before the payload "
-		"is finished.";
+		"This is a useless payload that only serves as a means to give "
+		"the server the opportunity to close the connection before the "
+		"payload is finished.";
 	struct _connection_lost_sub_ioloop_ctx *ctx;
 	struct http_client_request *hreq;
 	struct istream *input;
@@ -1366,15 +1344,17 @@ test_client_connection_lost_sub_ioloop(
 
 	input = i_stream_create_from_data(payload, sizeof(payload)-1);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-lost-sub-ioloop.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-lost-sub-ioloop.txt",
 		test_client_connection_lost_sub_ioloop_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, TRUE);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/connection-lost-sub-ioloop2.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/connection-lost-sub-ioloop2.txt",
 		test_client_connection_lost_sub_ioloop_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, TRUE);
@@ -1397,9 +1377,8 @@ static void test_connection_lost_sub_ioloop(void)
 	test_begin("connection lost while running sub-ioloop");
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
-		test_client_connection_lost_sub_ioloop,
-		test_server_connection_lost_sub_ioloop, 2,
-		NULL);
+			       test_client_connection_lost_sub_ioloop,
+			       test_server_connection_lost_sub_ioloop, 2, NULL);
 	test_end();
 }
 
@@ -1409,8 +1388,7 @@ static void test_connection_lost_sub_ioloop(void)
 
 /* server */
 
-static void
-test_early_success_input(struct server_connection *conn)
+static void test_early_success_input(struct server_connection *conn)
 {
 	static const char *resp =
 		"HTTP/1.1 200 OK\r\n"
@@ -1436,17 +1414,18 @@ struct _early_success_ctx {
 };
 
 static void
-test_client_early_success_response(
-	const struct http_response *resp,
-	struct _early_success_ctx *ctx)
+test_client_early_success_response(const struct http_response *resp,
+				   struct _early_success_ctx *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	if (ctx->count == 2)
-		test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE);
-	else
+	if (ctx->count == 2) {
+		test_assert(resp->status ==
+			    HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE);
+	} else {
 		test_assert(resp->status == 200);
+	}
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 	if (--ctx->count == 0) {
 		io_loop_stop(ioloop);
@@ -1467,8 +1446,9 @@ test_client_early_success(const struct http_client_settings *client_set)
 	
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/early-success.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/early-success.txt",
 		test_client_early_success_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 
@@ -1485,8 +1465,8 @@ test_client_early_success(const struct http_client_settings *client_set)
 
 		chain_input = i_stream_create_chain(&chain);
 
-		input = i_stream_create_copy_from_data
-			(str_data(payload), str_len(payload));
+		input = i_stream_create_copy_from_data(str_data(payload),
+						       str_len(payload));
 		i_stream_chain_append(chain, input);
 		i_stream_unref(&input);
 
@@ -1495,8 +1475,9 @@ test_client_early_success(const struct http_client_settings *client_set)
 	} T_END;
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/early-success2.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/early-success2.txt",
 		test_client_early_success_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -1515,9 +1496,8 @@ static void test_early_success(void)
 
 	test_begin("early succes");
 	test_run_client_server(&http_client_set,
-		test_client_early_success,
-		test_server_early_success, 1,
-		NULL);
+			       test_client_early_success,
+			       test_server_early_success, 1, NULL);
 	test_end();
 }
 
@@ -1527,12 +1507,12 @@ static void test_early_success(void)
 
 /* server */
 
-static void
-test_bad_response_input(struct server_connection *conn)
+static void test_bad_response_input(struct server_connection *conn)
 {
 	static const char *resp =
 		"HTTP/1.1 666 Really bad response\r\n"
 		"\r\n";
+
 	o_stream_nsend_str(conn->conn.output, resp);
 	server_connection_deinit(&conn);
 }
@@ -1550,9 +1530,8 @@ struct _bad_response_ctx {
 };
 
 static void
-test_client_bad_response_response(
-	const struct http_response *resp,
-	struct _bad_response_ctx *ctx)
+test_client_bad_response_response(const struct http_response *resp,
+				  struct _bad_response_ctx *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -1577,14 +1556,16 @@ test_client_bad_response(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/bad-response.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/bad-response.txt",
 		test_client_bad_response_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/bad-response2.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/bad-response2.txt",
 		test_client_bad_response_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -1602,9 +1583,8 @@ static void test_bad_response(void)
 
 	test_begin("bad response");
 	test_run_client_server(&http_client_set,
-		test_client_bad_response,
-		test_server_bad_response, 1,
-		NULL);
+			       test_client_bad_response,
+			       test_server_bad_response, 1, NULL);
 	test_end();
 }
 
@@ -1633,9 +1613,8 @@ struct _request_timed_out1_ctx {
 };
 
 static void
-test_client_request_timed_out1_response(
-	const struct http_response *resp,
-	struct _request_timed_out1_ctx *ctx)
+test_client_request_timed_out1_response(const struct http_response *resp,
+					struct _request_timed_out1_ctx *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -1660,14 +1639,16 @@ test_client_request_timed_out1(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-timed-out1-1.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/request-timed-out1-1.txt",
 		test_client_request_timed_out1_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-timed-out1-2.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/request-timed-out1-2.txt",
 		test_client_request_timed_out1_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -1682,17 +1663,15 @@ struct _request_timed_out2_ctx {
 };
 
 static void
-test_client_request_timed_out2_timeout(
-	struct _request_timed_out2_ctx *ctx)
+test_client_request_timed_out2_timeout(struct _request_timed_out2_ctx *ctx)
 {
 	timeout_remove(&ctx->to);
 	i_debug("TIMEOUT");
 }
 
 static void
-test_client_request_timed_out2_response(
-	const struct http_response *resp,
-	struct _request_timed_out2_ctx *ctx)
+test_client_request_timed_out2_response(const struct http_response *resp,
+					struct _request_timed_out2_ctx *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -1727,15 +1706,17 @@ test_client_request_timed_out2(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-timed-out2-1.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/request-timed-out2-1.txt",
 		test_client_request_timed_out2_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_attempt_timeout_msecs(hreq, 1000);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-timed-out2-2.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/request-timed-out2-2.txt",
 		test_client_request_timed_out2_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_attempt_timeout_msecs(hreq, 1000);
@@ -1756,18 +1737,16 @@ static void test_request_timed_out(void)
 	http_client_set.request_timeout_msecs = 1000;
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out1,
-		test_server_request_timed_out, 1,
-		NULL);
+			       test_client_request_timed_out1,
+			       test_server_request_timed_out, 1, NULL);
 	test_end();
 
 	test_begin("request timed out: two attempts");
 	http_client_set.request_timeout_msecs = 1000;
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out1,
-		test_server_request_timed_out, 1,
-		NULL);
+			       test_client_request_timed_out1,
+			       test_server_request_timed_out, 1, NULL);
 	test_end();
 
 	test_begin("request absolutely timed out");
@@ -1775,9 +1754,8 @@ static void test_request_timed_out(void)
 	http_client_set.request_absolute_timeout_msecs = 2000;
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out1,
-		test_server_request_timed_out, 1,
-		NULL);
+			       test_client_request_timed_out1,
+			       test_server_request_timed_out, 1, NULL);
 	test_end();
 
 	test_begin("request double timed out");
@@ -1785,9 +1763,8 @@ static void test_request_timed_out(void)
 	http_client_set.request_absolute_timeout_msecs = 2000;
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out1,
-		test_server_request_timed_out, 1,
-		NULL);
+			       test_client_request_timed_out1,
+			       test_server_request_timed_out, 1, NULL);
 	test_end();
 
 	test_begin("request timed out: specific timeout");
@@ -1796,9 +1773,8 @@ static void test_request_timed_out(void)
 	http_client_set.max_attempts = 1;
 	http_client_set.max_parallel_connections = 1;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out2,
-		test_server_request_timed_out, 1,
-		NULL);
+			       test_client_request_timed_out2,
+			       test_server_request_timed_out, 1, NULL);
 	test_end();
 
 	test_begin("request timed out: specific timeout (parallel)");
@@ -1807,9 +1783,8 @@ static void test_request_timed_out(void)
 	http_client_set.max_attempts = 1;
 	http_client_set.max_parallel_connections = 4;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out2,
-		test_server_request_timed_out, 1,
-		NULL);
+			       test_client_request_timed_out2,
+			       test_server_request_timed_out, 1, NULL);
 	test_end();
 }
 
@@ -1872,8 +1847,8 @@ test_client_request_aborted_early_timeout(
 	
 		/* wait a little for server to actually respond to an
 		   already aborted request */
-		ctx->to = timeout_add_short(1000,
-			test_client_request_aborted_early_timeout, ctx);
+		ctx->to = timeout_add_short(
+			1000, test_client_request_aborted_early_timeout, ctx);
 	} else {
 		/* all done */
 		i_free(ctx);
@@ -1882,8 +1857,7 @@ test_client_request_aborted_early_timeout(
 }
 
 static bool
-test_client_request_aborted_early(
-	const struct http_client_settings *client_set)
+test_client_request_aborted_early(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
 	struct _request_aborted_early_ctx *ctx;
@@ -1892,20 +1866,22 @@ test_client_request_aborted_early(
 
 	http_client = http_client_init(client_set);
 
-	hreq = ctx->req1 = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-aborted-early.txt",
+	hreq = ctx->req1 = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/request-aborted-early.txt",
 		test_client_request_aborted_early_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = ctx->req2 = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-aborted-early2.txt",
+	hreq = ctx->req2 = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/request-aborted-early2.txt",
 		test_client_request_aborted_early_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	ctx->to = timeout_add_short(500,
-		test_client_request_aborted_early_timeout, ctx);
+	ctx->to = timeout_add_short(
+		500, test_client_request_aborted_early_timeout, ctx);
 	return TRUE;
 }
 
@@ -1919,9 +1895,8 @@ static void test_request_aborted_early(void)
 
 	test_begin("request aborted early");
 	test_run_client_server(&http_client_set,
-		test_client_request_aborted_early,
-		test_server_request_aborted_early, 1,
-		NULL);
+			       test_client_request_aborted_early,
+			       test_server_request_aborted_early, 1, NULL);
 	test_end();
 }
 
@@ -1985,8 +1960,9 @@ test_client_request_failed_blocking(
 
 	http_client = http_client_init(client_set);
 
-	hreq = ctx->req = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-failed-blocking.txt",
+	hreq = ctx->req = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/request-failed-blocking.txt",
 		test_client_request_failed_blocking_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 
@@ -2010,9 +1986,8 @@ static void test_request_failed_blocking(void)
 
 	test_begin("request failed blocking");
 	test_run_client_server(&http_client_set,
-		test_client_request_failed_blocking,
-		test_server_request_failed_blocking, 1,
-		NULL);
+			       test_client_request_failed_blocking,
+			       test_server_request_failed_blocking, 1, NULL);
 	test_end();
 }
 
@@ -2062,8 +2037,7 @@ test_client_client_deinit_early_response(
 }
 
 static void
-test_client_client_deinit_early_timeout(
-	struct _client_deinit_early_ctx *ctx)
+test_client_client_deinit_early_timeout(struct _client_deinit_early_ctx *ctx)
 {
 	timeout_remove(&ctx->to);
 
@@ -2085,20 +2059,22 @@ test_client_client_deinit_early(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/client-deinit-early.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/client-deinit-early.txt",
 		test_client_client_deinit_early_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq =  http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/client-deinit-early2.txt",
+	hreq =  http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/client-deinit-early2.txt",
 		test_client_client_deinit_early_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	ctx->to = timeout_add_short(500,
-		test_client_client_deinit_early_timeout, ctx);
+	ctx->to = timeout_add_short(
+		500, test_client_client_deinit_early_timeout, ctx);
 	return TRUE;
 }
 
@@ -2112,9 +2088,8 @@ static void test_client_deinit_early(void)
 
 	test_begin("client deinit early");
 	test_run_client_server(&http_client_set,
-		test_client_client_deinit_early,
-		test_server_client_deinit_early, 1,
-		NULL);
+			       test_client_client_deinit_early,
+			       test_server_client_deinit_early, 1, NULL);
 	test_end();
 }
 
@@ -2124,17 +2099,15 @@ static void test_client_deinit_early(void)
 
 /* server */
 
-static void
-test_retry_with_delay_input(struct server_connection *conn)
+static void test_retry_with_delay_input(struct server_connection *conn)
 {
 	string_t *resp;
 
 	resp = t_str_new(512);
-	str_printfa(resp, 
-		"HTTP/1.1 500 Internal Server Error\r\n"
-		"\r\n");
-	o_stream_nsend(conn->conn.output,
-		str_data(resp), str_len(resp));
+	str_printfa(resp,
+		    "HTTP/1.1 500 Internal Server Error\r\n"
+		    "\r\n");
+	o_stream_nsend(conn->conn.output, str_data(resp), str_len(resp));
 	server_connection_deinit(&conn);
 }
 
@@ -2199,8 +2172,9 @@ test_client_retry_with_delay(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	ctx->req = hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/retry-with-delay.txt",
+	ctx->req = hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/retry-with-delay.txt",
 		test_client_retry_with_delay_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -2219,9 +2193,8 @@ static void test_retry_with_delay(void)
 
 	test_begin("retry with delay");
 	test_run_client_server(&http_client_set,
-		test_client_retry_with_delay,
-		test_server_retry_with_delay, 1,
-		NULL);
+			       test_client_retry_with_delay,
+			       test_server_retry_with_delay, 1, NULL);
 	test_end();
 }
 
@@ -2243,7 +2216,8 @@ test_client_dns_service_failure_response(
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->status ==
+		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
 	if (--ctx->count == 0) {
@@ -2263,14 +2237,14 @@ test_client_dns_service_failure(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "example.com", "/dns-service-failure.txt",
+	hreq = http_client_request(
+		http_client, "GET", "example.com", "/dns-service-failure.txt",
 		test_client_dns_service_failure_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "example.com", "/dns-service-failure2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "example.com", "/dns-service-failure2.txt",
 		test_client_dns_service_failure_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
@@ -2289,8 +2263,8 @@ static void test_dns_service_failure(void)
 
 	test_begin("dns service failure");
 	test_run_client_server(&http_client_set,
-		test_client_dns_service_failure,
-		NULL, 0, NULL);
+			       test_client_dns_service_failure,
+			       NULL, 0, NULL);
 	test_end();
 }
 
@@ -2300,8 +2274,7 @@ static void test_dns_service_failure(void)
 
 /* dns */
 
-static void
-test_dns_timeout_input(struct server_connection *conn ATTR_UNUSED)
+static void test_dns_timeout_input(struct server_connection *conn ATTR_UNUSED)
 {
 	/* hang */
 	sleep(100);
@@ -2328,7 +2301,8 @@ test_client_dns_timeout_response(
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->status ==
+		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
 	if (--ctx->count == 0) {
@@ -2348,14 +2322,14 @@ test_client_dns_timeout(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "example.com", "/dns-timeout.txt",
+	hreq = http_client_request(
+		http_client, "GET", "example.com", "/dns-timeout.txt",
 		test_client_dns_timeout_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "example.com", "/dns-timeout2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "example.com", "/dns-timeout2.txt",
 		test_client_dns_timeout_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
@@ -2376,9 +2350,8 @@ static void test_dns_timeout(void)
 
 	test_begin("dns timeout");
 	test_run_client_server(&http_client_set,
-		test_client_dns_timeout,
-		NULL, 0,
-		test_dns_dns_timeout);
+			       test_client_dns_timeout, NULL, 0,
+			       test_dns_dns_timeout);
 	test_end();
 }
 
@@ -2397,7 +2370,7 @@ test_dns_lookup_failure_input(struct server_connection *conn)
 	}
 
 	o_stream_nsend_str(conn->conn.output,
-		t_strdup_printf("%d\tFAIL\n", EAI_FAIL));
+			   t_strdup_printf("%d\tFAIL\n", EAI_FAIL));
 	server_connection_deinit(&conn);
 }
 
@@ -2414,14 +2387,14 @@ struct _dns_lookup_failure {
 };
 
 static void
-test_client_dns_lookup_failure_response(
-	const struct http_response *resp,
-	struct _dns_lookup_failure *ctx)
+test_client_dns_lookup_failure_response(const struct http_response *resp,
+					struct _dns_lookup_failure *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->status ==
+		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
 	if (--ctx->count == 0) {
@@ -2441,14 +2414,14 @@ test_client_dns_lookup_failure(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "example.com", "/dns-lookup-failure.txt",
+	hreq = http_client_request(
+		http_client, "GET", "example.com", "/dns-lookup-failure.txt",
 		test_client_dns_lookup_failure_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "example.com", "/dns-lookup-failure2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "example.com", "/dns-lookup-failure2.txt",
 		test_client_dns_lookup_failure_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
@@ -2467,9 +2440,8 @@ static void test_dns_lookup_failure(void)
 
 	test_begin("dns lookup failure");
 	test_run_client_server(&http_client_set,
-		test_client_dns_lookup_failure,
-		NULL, 0,
-		test_dns_dns_lookup_failure);
+			       test_client_dns_lookup_failure, NULL, 0,
+			       test_dns_dns_lookup_failure);
 	test_end();
 }
 
@@ -2490,7 +2462,7 @@ test_dns_lookup_ttl_input(struct server_connection *conn)
 		o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
 	}
 
-	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
 		if (str_begins(line, "VERSION"))
 			continue;
 		if (debug)
@@ -2498,9 +2470,10 @@ test_dns_lookup_ttl_input(struct server_connection *conn)
 
 		if (count == 0) {
 			o_stream_nsend_str(conn->conn.output,
-				"0\t127.0.0.1\n");
+					   "0\t127.0.0.1\n");
 		} else {
-			o_stream_nsend_str(conn->conn.output,
+			o_stream_nsend_str(
+				conn->conn.output,
 				t_strdup_printf("%d\tFAIL\n", EAI_FAIL));
 			if (count > 4) {
 				server_connection_deinit(&conn);
@@ -2526,11 +2499,10 @@ test_server_dns_lookup_ttl_input(struct server_connection *conn)
 
 	resp = t_str_new(512);
 	str_printfa(resp,
-		"HTTP/1.1 200 OK\r\n"
-		"Connection: close\r\n"
-		"\r\n");
-	o_stream_nsend(conn->conn.output,
-		str_data(resp), str_len(resp));
+		    "HTTP/1.1 200 OK\r\n"
+		    "Connection: close\r\n"
+		    "\r\n");
+	o_stream_nsend(conn->conn.output, str_data(resp), str_len(resp));
 	server_connection_deinit(&conn);
 }
 
@@ -2549,14 +2521,14 @@ struct _dns_lookup_ttl {
 };
 
 static void
-test_client_dns_lookup_ttl_response_stage2(
-	const struct http_response *resp,
-	struct _dns_lookup_ttl *ctx)
+test_client_dns_lookup_ttl_response_stage2(const struct http_response *resp,
+					   struct _dns_lookup_ttl *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->status ==
+		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
 	if (--ctx->count == 0) {
@@ -2565,8 +2537,7 @@ test_client_dns_lookup_ttl_response_stage2(
 	}
 }
 
-static void
-test_client_dns_lookup_ttl_stage2_start(struct _dns_lookup_ttl *ctx)
+static void test_client_dns_lookup_ttl_stage2_start(struct _dns_lookup_ttl *ctx)
 {
 	struct http_client_request *hreq;
 
@@ -2574,23 +2545,24 @@ test_client_dns_lookup_ttl_stage2_start(struct _dns_lookup_ttl *ctx)
 
 	ctx->count = 2;
 
-	hreq = http_client_request(ctx->client,
-		"GET", "example.com", "/dns-lookup-ttl-stage2.txt",
+	hreq = http_client_request(
+		ctx->client, "GET", "example.com",
+		"/dns-lookup-ttl-stage2.txt",
 		test_client_dns_lookup_ttl_response_stage2, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(ctx->client,
-		"GET", "example.com", "/dns-lookup-ttl2-stage2.txt",
+	hreq = http_client_request(
+		ctx->client, "GET", "example.com",
+		"/dns-lookup-ttl2-stage2.txt",
 		test_client_dns_lookup_ttl_response_stage2, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 }
 
 static void
-test_client_dns_lookup_ttl_response_stage1(
-	const struct http_response *resp,
-	struct _dns_lookup_ttl *ctx)
+test_client_dns_lookup_ttl_response_stage1(const struct http_response *resp,
+					   struct _dns_lookup_ttl *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -2614,14 +2586,16 @@ test_client_dns_lookup_ttl(const struct http_client_settings *client_set)
 
 	ctx->client = http_client = http_client_init(client_set);
 
-	hreq = http_client_request(ctx->client,
-		"GET", "example.com", "/dns-lookup-ttl-stage1.txt",
+	hreq = http_client_request(
+		ctx->client, "GET", "example.com",
+		"/dns-lookup-ttl-stage1.txt",
 		test_client_dns_lookup_ttl_response_stage1, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(ctx->client,
-		"GET", "example.com", "/dns-lookup-ttl2-stage1.txt",
+	hreq = http_client_request(
+		ctx->client, "GET", "example.com",
+		"/dns-lookup-ttl2-stage1.txt",
 		test_client_dns_lookup_ttl_response_stage1, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -2641,9 +2615,9 @@ static void test_dns_lookup_ttl(void)
 
 	test_begin("dns lookup ttl");
 	test_run_client_server(&http_client_set,
-		test_client_dns_lookup_ttl,
-		test_server_dns_lookup_ttl, 1,
-		test_dns_dns_lookup_ttl);
+			       test_client_dns_lookup_ttl,
+			       test_server_dns_lookup_ttl, 1,
+			       test_dns_dns_lookup_ttl);
 	test_end();
 }
 
@@ -2653,13 +2627,13 @@ static void test_dns_lookup_ttl(void)
 
 /* server */
 
-static void
-test_peer_reuse_failure_input(struct server_connection *conn)
+static void test_peer_reuse_failure_input(struct server_connection *conn)
 {
 	static unsigned int seq = 0;
 	static const char *resp =
 		"HTTP/1.1 200 OK\r\n"
 		"\r\n";
+
 	o_stream_nsend_str(conn->conn.output, resp);
 	if (seq++ > 2) {
 		server_connection_deinit(&conn);
@@ -2681,9 +2655,8 @@ struct _peer_reuse_failure {
 };
 
 static void
-test_client_peer_reuse_failure_response2(
-	const struct http_response *resp,
-	struct _peer_reuse_failure *ctx)
+test_client_peer_reuse_failure_response2(const struct http_response *resp,
+					 struct _peer_reuse_failure *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -2701,17 +2674,17 @@ test_client_peer_reuse_failure_next(struct _peer_reuse_failure *ctx)
 
 	timeout_remove(&ctx->to);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/peer-reuse-next.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip),
+		"/peer-reuse-next.txt",
 		test_client_peer_reuse_failure_response2, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 }
 
 static void
-test_client_peer_reuse_failure_response1(
-	const struct http_response *resp,
-	struct _peer_reuse_failure *ctx)
+test_client_peer_reuse_failure_response1(const struct http_response *resp,
+					 struct _peer_reuse_failure *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -2720,7 +2693,8 @@ test_client_peer_reuse_failure_response1(
 		test_assert(resp->status == 200);
 
 		ctx->first = FALSE;
-		ctx->to = timeout_add_short(500, test_client_peer_reuse_failure_next, ctx);
+		ctx->to = timeout_add_short(
+			500, test_client_peer_reuse_failure_next, ctx);
 	} else {
 		test_assert(http_response_is_internal_error(resp));
 	}
@@ -2739,20 +2713,20 @@ test_client_peer_reuse_failure(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
 		test_client_peer_reuse_failure_response1, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
 		test_client_peer_reuse_failure_response1, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
+	hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
 		test_client_peer_reuse_failure_response1, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -2772,9 +2746,8 @@ static void test_peer_reuse_failure(void)
 
 	test_begin("peer reuse failure");
 	test_run_client_server(&http_client_set,
-		test_client_peer_reuse_failure,
-		test_server_peer_reuse_failure, 1,
-		NULL);
+			       test_client_peer_reuse_failure,
+			       test_server_peer_reuse_failure, 1, NULL);
 	test_end();
 }
 
@@ -2784,8 +2757,7 @@ static void test_peer_reuse_failure(void)
 
 /* dns */
 
-static void
-test_dns_reconnect_failure_input(struct server_connection *conn)
+static void test_dns_reconnect_failure_input(struct server_connection *conn)
 {
 	static unsigned int count = 0;
 	const char *line;
@@ -2795,7 +2767,7 @@ test_dns_reconnect_failure_input(struct server_connection *conn)
 	        o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
 	}
 
-	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
 		if (str_begins(line, "VERSION"))
 			continue;
 		if (debug)
@@ -2803,9 +2775,10 @@ test_dns_reconnect_failure_input(struct server_connection *conn)
 
 		if (count == 0) {
 			o_stream_nsend_str(conn->conn.output,
-				"0\t127.0.0.1\n");
+					   "0\t127.0.0.1\n");
 		} else {
-			o_stream_nsend_str(conn->conn.output,
+			o_stream_nsend_str(
+				conn->conn.output,
 				t_strdup_printf("%d\tFAIL\n", EAI_FAIL));
 			if (count > 4) {
 				server_connection_deinit(&conn);
@@ -2821,10 +2794,10 @@ static void test_dns_reconnect_failure(void)
 	test_server_input = test_dns_reconnect_failure_input;
 	test_server_run(0);
 }
+
 /* server */
 
-static void
-test_reconnect_failure_input(struct server_connection *conn)
+static void test_reconnect_failure_input(struct server_connection *conn)
 {
 	static const char *resp =
 		"HTTP/1.1 200 OK\r\n"
@@ -2850,9 +2823,8 @@ struct _reconnect_failure_ctx {
 };
 
 static void
-test_client_reconnect_failure_response2(
-	const struct http_response *resp,
-	struct _reconnect_failure_ctx *ctx)
+test_client_reconnect_failure_response2(const struct http_response *resp,
+					struct _reconnect_failure_ctx *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -2865,8 +2837,7 @@ test_client_reconnect_failure_response2(
 }
 
 static void
-test_client_reconnect_failure_next(
-	struct _reconnect_failure_ctx *ctx)
+test_client_reconnect_failure_next(struct _reconnect_failure_ctx *ctx)
 {
 	struct http_client_request *hreq;
 
@@ -2875,17 +2846,16 @@ test_client_reconnect_failure_next(
 
 	timeout_remove(&ctx->to);
 
-	hreq = http_client_request(http_client,
-		"GET", "example.com", "/reconnect-failure-2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "example.com", "/reconnect-failure-2.txt",
 		test_client_reconnect_failure_response2, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 }
 
 static void
-test_client_reconnect_failure_response1(
-	const struct http_response *resp,
-	struct _reconnect_failure_ctx *ctx)
+test_client_reconnect_failure_response1(const struct http_response *resp,
+					struct _reconnect_failure_ctx *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -2893,8 +2863,8 @@ test_client_reconnect_failure_response1(
 	test_assert(resp->status == 200);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
-	ctx->to = timeout_add_short(5000,
-		test_client_reconnect_failure_next, ctx);
+	ctx->to = timeout_add_short(
+		5000, test_client_reconnect_failure_next, ctx);
 }
 
 static bool
@@ -2907,8 +2877,8 @@ test_client_reconnect_failure(const struct http_client_settings *client_set)
 	
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "example.com", "/reconnect-failure-1.txt",
+	hreq = http_client_request(
+		http_client, "GET", "example.com", "/reconnect-failure-1.txt",
 		test_client_reconnect_failure_response1, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -2931,9 +2901,9 @@ static void test_reconnect_failure(void)
 
 	test_begin("reconnect failure");
 	test_run_client_server(&http_client_set,
-		test_client_reconnect_failure,
-		test_server_reconnect_failure, 1,
-		test_dns_reconnect_failure);
+			       test_client_reconnect_failure,
+			       test_server_reconnect_failure, 1,
+			       test_dns_reconnect_failure);
 	test_end();
 }
 
@@ -2943,8 +2913,7 @@ static void test_reconnect_failure(void)
 
 /* dns */
 
-static void
-test_multi_ip_attempts_input(struct server_connection *conn)
+static void test_multi_ip_attempts_input(struct server_connection *conn)
 {
 	unsigned int count = 0;
 	const char *line;
@@ -2954,7 +2923,7 @@ test_multi_ip_attempts_input(struct server_connection *conn)
 		o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
 	}
 
-	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
 		if (str_begins(line, "VERSION"))
 			continue;
 		if (debug)
@@ -2962,8 +2931,8 @@ test_multi_ip_attempts_input(struct server_connection *conn)
 
 		if (strcmp(line, "IP\ttest1.local") == 0) {
 			o_stream_nsend_str(conn->conn.output,
-				   "0\t127.0.0.4\t127.0.0.3\t"
-				   "127.0.0.2\t127.0.0.1\n");
+					   "0\t127.0.0.4\t127.0.0.3\t"
+					   "127.0.0.2\t127.0.0.1\n");
 			continue;
 		}
 
@@ -2981,18 +2950,16 @@ static void test_dns_multi_ip_attempts(void)
 
 /* server */
 
-static void
-test_server_multi_ip_attempts_input(struct server_connection *conn)
+static void test_server_multi_ip_attempts_input(struct server_connection *conn)
 {
 	string_t *resp;
 
 	resp = t_str_new(512);
 	str_printfa(resp,
-		"HTTP/1.1 200 OK\r\n"
-		"Connection: close\r\n"
-		"\r\n");
-	o_stream_nsend(conn->conn.output,
-		str_data(resp), str_len(resp));
+		    "HTTP/1.1 200 OK\r\n"
+		    "Connection: close\r\n"
+		    "\r\n");
+	o_stream_nsend(conn->conn.output, str_data(resp), str_len(resp));
 	server_connection_deinit(&conn);
 }
 
@@ -3009,9 +2976,8 @@ struct _multi_ip_attempts {
 };
 
 static void
-test_client_multi_ip_attempts_response(
-	const struct http_response *resp,
-	struct _multi_ip_attempts *ctx)
+test_client_multi_ip_attempts_response(const struct http_response *resp,
+				       struct _multi_ip_attempts *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -3036,14 +3002,14 @@ test_client_multi_ip_attempts1(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "test1.local", "/multi-ip-attempts.txt",
+	hreq = http_client_request(
+		http_client, "GET", "test1.local", "/multi-ip-attempts.txt",
 		test_client_multi_ip_attempts_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "test1.local", "/multi-ip-attempts2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "test1.local", "/multi-ip-attempts2.txt",
 		test_client_multi_ip_attempts_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -3062,14 +3028,14 @@ test_client_multi_ip_attempts2(const struct http_client_settings *client_set)
 
 	http_client = http_client_init(client_set);
 
-	hreq = http_client_request(http_client,
-		"GET", "test2.local", "/multi-ip-attempts.txt",
+	hreq = http_client_request(
+		http_client, "GET", "test2.local", "/multi-ip-attempts.txt",
 		test_client_multi_ip_attempts_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
-		"GET", "test2.local", "/multi-ip-attempts2.txt",
+	hreq = http_client_request(
+		http_client, "GET", "test2.local", "/multi-ip-attempts2.txt",
 		test_client_multi_ip_attempts_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
@@ -3091,25 +3057,25 @@ static void test_multi_ip_attempts(void)
 
 	test_begin("multi IP attempts (connection refused)");
 	test_run_client_server(&http_client_set,
-		test_client_multi_ip_attempts1,
-		test_server_multi_ip_attempts, 1,
-		test_dns_multi_ip_attempts);
+			       test_client_multi_ip_attempts1,
+			       test_server_multi_ip_attempts, 1,
+			       test_dns_multi_ip_attempts);
 	test_end();
 
 	test_begin("multi IP attempts (connect timeout)");
 	test_run_client_server(&http_client_set,
-		test_client_multi_ip_attempts2,
-		test_server_multi_ip_attempts, 1,
-		test_dns_multi_ip_attempts);
+			       test_client_multi_ip_attempts2,
+			       test_server_multi_ip_attempts, 1,
+			       test_dns_multi_ip_attempts);
 	test_end();
 
 	http_client_set.soft_connect_timeout_msecs = 100;
 
 	test_begin("multi IP attempts (soft connect timeout)");
 	test_run_client_server(&http_client_set,
-		test_client_multi_ip_attempts2,
-		test_server_multi_ip_attempts, 1,
-		test_dns_multi_ip_attempts);
+			       test_client_multi_ip_attempts2,
+			       test_server_multi_ip_attempts, 1,
+			       test_dns_multi_ip_attempts);
 	test_end();
 }
 
@@ -3153,8 +3119,7 @@ static void (*const test_functions[])(void) = {
  * Test client
  */
 
-static void
-test_client_defaults(struct http_client_settings *http_set)
+static void test_client_defaults(struct http_client_settings *http_set)
 {
 	/* client settings */
 	i_zero(http_set);
@@ -3166,8 +3131,7 @@ test_client_defaults(struct http_client_settings *http_set)
 	http_set->debug = debug;
 }
 
-static void
-test_client_progress_timeout(void *context ATTR_UNUSED)
+static void test_client_progress_timeout(void *context ATTR_UNUSED)
 {
 	/* Terminate test due to lack of progress */
 	test_assert(FALSE);
@@ -3184,8 +3148,7 @@ test_client_init(test_client_init_t client_test,
 		return FALSE;
 
 	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
-		test_client_progress_timeout, NULL);
-
+					 test_client_progress_timeout, NULL);
 	return TRUE;
 }
 
@@ -3212,16 +3175,14 @@ test_client_run(test_client_init_t client_test,
 
 /* client connection */
 
-static void
-server_connection_input(struct connection *_conn)
+static void server_connection_input(struct connection *_conn)
 {
 	struct server_connection *conn = (struct server_connection *)_conn;
 	
 	test_server_input(conn);
 }
 
-static void
-server_connection_init(int fd)
+static void server_connection_init(int fd)
 {
 	struct server_connection *conn;
 	pool_t pool;
@@ -3232,12 +3193,11 @@ server_connection_init(int fd)
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 
-	connection_init_server
-		(server_conn_list, &conn->conn, "server connection", fd, fd);
+	connection_init_server(server_conn_list, &conn->conn,
+			       "server connection", fd, fd);
 }
 
-static void
-server_connection_deinit(struct server_connection **_conn)
+static void server_connection_deinit(struct server_connection **_conn)
 {
 	struct server_connection *conn = *_conn;
 
@@ -3247,17 +3207,14 @@ server_connection_deinit(struct server_connection **_conn)
 	pool_unref(&conn->pool);
 }
 
-static void
-server_connection_destroy(struct connection *_conn)
+static void server_connection_destroy(struct connection *_conn)
 {
-	struct server_connection *conn =
-		(struct server_connection *)_conn;
+	struct server_connection *conn = (struct server_connection *)_conn;
 
 	server_connection_deinit(&conn);
 }
 
-static void
-server_connection_accept(void *context ATTR_UNUSED)
+static void server_connection_accept(void *context ATTR_UNUSED)
 {
 	int fd;
 
@@ -3290,11 +3247,10 @@ static void test_server_run(unsigned int index)
 	server_index = index;
 
 	/* open server socket */
-	io_listen = io_add(fd_listen,
-		IO_READ, server_connection_accept, NULL);
+	io_listen = io_add(fd_listen, IO_READ, server_connection_accept, NULL);
 
-	server_conn_list = connection_list_init
-		(&server_connection_set, &server_connection_vfuncs);
+	server_conn_list = connection_list_init(&server_connection_set,
+						&server_connection_vfuncs);
 
 	io_loop_run(ioloop);
 
@@ -3342,12 +3298,12 @@ static void test_servers_kill_all(void)
 	}
 }
 
-static void test_run_client_server(
-	const struct http_client_settings *client_set,
-	test_client_init_t client_test,
-	test_server_init_t server_test,
-	unsigned int server_tests_count,
-	test_dns_init_t dns_test)
+static void
+test_run_client_server(const struct http_client_settings *client_set,
+		       test_client_init_t client_test,
+		       test_server_init_t server_test,
+		       unsigned int server_tests_count,
+		       test_dns_init_t dns_test)
 {
 	unsigned int i;
 
@@ -3375,8 +3331,10 @@ static void test_run_client_server(
 				server_pids[i] = (pid_t)-1;
 				server_pids_count = 0;
 				hostpid_init();
-				if (debug)
-					i_debug("server[%d]: PID=%s", i+1, my_pid);
+				if (debug) {
+					i_debug("server[%d]: PID=%s",
+						i+1, my_pid);
+				}
 				/* child: server */
 				ioloop = io_loop_create();
 				server_test(i);
@@ -3384,8 +3342,9 @@ static void test_run_client_server(
 				i_close_fd(&fd_listen);
 				i_free(bind_ports);
 				i_free(server_pids);
-				/* wait for it to be killed; this way, valgrind will not
-				   object to this process going away inelegantly. */
+				/* wait for it to be killed; this way, valgrind
+				   will not object to this process going away
+				   inelegantly. */
 				sleep(60);
 				exit(1);
 			}
@@ -3446,8 +3405,7 @@ static void test_run_client_server(
 
 volatile sig_atomic_t terminating = 0;
 
-static void
-test_signal_handler(int signo)
+static void test_signal_handler(int signo)
 {
 	if (terminating != 0)
 		raise(signo);
@@ -3477,7 +3435,7 @@ int main(int argc, char *argv[])
 	(void)signal(SIGSEGV, test_signal_handler);
 	(void)signal(SIGABRT, test_signal_handler);
 
-  while ((c = getopt(argc, argv, "D")) > 0) {
+	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
 		case 'D':
 			debug = TRUE;
@@ -3485,7 +3443,7 @@ int main(int argc, char *argv[])
 		default:
 			i_fatal("Usage: %s [-D]", argv[0]);
 		}
-  }
+	}
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
