@@ -3439,11 +3439,10 @@ test_run_client_server(const struct http_client_settings *client_set,
 				server_pids[i] = (pid_t)-1;
 				server_pids_count = 0;
 				hostpid_init();
-				if (debug) {
-					i_debug("server[%d]: PID=%s",
-						i+1, my_pid);
-				}
 				/* child: server */
+				i_set_failure_prefix("SERVER[%u]: ", i + 1);
+				if (debug)
+					i_debug("PID=%s", my_pid);
 				ioloop = io_loop_create();
 				server_test(i);
 				io_loop_destroy(&ioloop);
@@ -3458,8 +3457,6 @@ test_run_client_server(const struct http_client_settings *client_set,
 			}
 			i_close_fd(&fd_listen);
 		}
-		if (debug)
-			i_debug("client: PID=%s", my_pid);
 	}
 
 	if (dns_test != NULL) {
@@ -3477,9 +3474,10 @@ test_run_client_server(const struct http_client_settings *client_set,
 		if (dns_pid == 0) {
 			dns_pid = (pid_t)-1;
 			hostpid_init();
-			if (debug)
-				i_debug("dns server: PID=%s", my_pid);
 			/* child: server */
+			i_set_failure_prefix("DNS: ");
+			if (debug)
+				i_debug("PID=%s", my_pid);
 			ioloop = io_loop_create();
 			dns_test();
 			io_loop_destroy(&ioloop);
@@ -3493,6 +3491,9 @@ test_run_client_server(const struct http_client_settings *client_set,
 	}
 
 	/* parent: client */
+	i_set_failure_prefix("CLIENT: ");
+	if (debug)
+		i_debug("PID=%s", my_pid);
 
 	i_sleep_msecs(100); /* wait a little for server setup */
 
@@ -3500,6 +3501,7 @@ test_run_client_server(const struct http_client_settings *client_set,
 	test_client_run(client_test, client_set);
 	io_loop_destroy(&ioloop);
 
+	i_unset_failure_prefix();
 	test_servers_kill_all();
 	i_free(server_pids);
 	i_free(bind_ports);
