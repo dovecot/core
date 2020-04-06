@@ -1935,7 +1935,7 @@ test_request_aborted_early_input(struct server_connection *conn ATTR_UNUSED)
 		"\r\n";
 
 	/* wait one second to respond */
-	sleep(1);
+	i_sleep_intr_secs(1);
 
 	/* respond */
 	o_stream_nsend_str(conn->conn.output, resp);
@@ -2048,7 +2048,7 @@ test_request_failed_blocking_input(struct server_connection *conn)
 
 	/* respond */
 	o_stream_nsend_str(conn->conn.output, resp);
-	sleep(10);
+	i_sleep_intr_secs(10);
 	server_connection_deinit(&conn);
 }
 
@@ -2135,7 +2135,7 @@ test_client_deinit_early_input(struct server_connection *conn ATTR_UNUSED)
 		"\r\n";
 
 	/* wait one second to respond */
-	sleep(1);
+	i_sleep_intr_secs(1);
 
 	/* respond */
 	o_stream_nsend_str(conn->conn.output, resp);
@@ -2400,7 +2400,7 @@ static void test_dns_service_failure(void)
 static void test_dns_timeout_input(struct server_connection *conn ATTR_UNUSED)
 {
 	/* hang */
-	sleep(100);
+	i_sleep_intr_secs(100);
 	server_connection_deinit(&conn);
 }
 
@@ -2914,7 +2914,7 @@ static void test_reconnect_failure_input(struct server_connection *conn)
 
 	o_stream_nsend_str(conn->conn.output, resp);
 	i_close_fd(&fd_listen);
-	sleep(500);
+	i_sleep_intr_secs(500);
 }
 
 static void test_server_reconnect_failure(unsigned int index)
@@ -3456,7 +3456,7 @@ test_run_client_server(const struct http_client_settings *client_set,
 				/* wait for it to be killed; this way, valgrind
 				   will not object to this process going away
 				   inelegantly. */
-				sleep(60);
+				i_sleep_intr_secs(60);
 				exit(1);
 			}
 			i_close_fd(&fd_listen);
@@ -3489,7 +3489,7 @@ test_run_client_server(const struct http_client_settings *client_set,
 			i_close_fd(&fd_listen);
 			/* wait for it to be killed; this way, valgrind will not
 			   object to this process going away inelegantly. */
-			sleep(60);
+			i_sleep_intr_secs(60);
 			exit(1);
 		}
 		i_close_fd(&fd_listen);
