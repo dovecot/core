@@ -935,6 +935,37 @@ static void test_clients_kill_forced(void)
 	client_pids_count = 0;
 }
 
+static void test_run_client(unsigned index, test_client_init_t client_test)
+{
+	i_close_fd(&fd_listen);
+
+	i_set_failure_prefix("CLIENT[%u]: ", index + 1);
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	/* Wait a little for server setup */
+	i_sleep_msecs(100);
+
+	ioloop = io_loop_create();
+	client_test(index);
+	io_loop_destroy(&ioloop);
+}
+
+static void
+test_run_server(const struct http_server_settings *server_set,
+		test_server_init_t server_test)
+{
+	i_set_failure_prefix("SERVER: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop = io_loop_create();
+	server_test(server_set);
+	io_loop_destroy(&ioloop);
+}
+
 static void
 test_run_client_server(const struct http_server_settings *server_set,
 		       test_server_init_t server_test,
@@ -963,17 +994,11 @@ test_run_client_server(const struct http_server_settings *server_set,
 				client_pids[i] = (pid_t)-1;
 				client_pids_count = 0;
 				hostpid_init();
-				lib_signals_deinit();
+				lib_signals_init();
+
 				/* Child: client */
-				i_set_failure_prefix("CLIENT[%u]: ", i + 1);
-				if (debug)
-					i_debug("PID=%s", my_pid);
-				/* Wait a little for server setup */
-				i_sleep_msecs(100);
-				i_close_fd(&fd_listen);
-				ioloop = io_loop_create();
-				client_test(i);
-				io_loop_destroy(&ioloop);
+				test_run_client(i, client_test);
+
 				i_free(client_pids);
 				/* Wait for it to be killed; this way, valgrind
 				   will not object to this process going away
@@ -987,12 +1012,7 @@ test_run_client_server(const struct http_server_settings *server_set,
 	}
 
 	/* Parent: server */
-	i_set_failure_prefix("SERVER: ");
-	if (debug)
-		i_debug("PID=%s", my_pid);
-	ioloop = io_loop_create();
-	server_test(server_set);
-	io_loop_destroy(&ioloop);
+	test_run_server(server_set, server_test);
 
 	i_unset_failure_prefix();
 	i_close_fd(&fd_listen);
