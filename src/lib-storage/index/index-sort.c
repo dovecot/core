@@ -302,21 +302,91 @@ bool index_sort_list_next(struct mail_search_sort_program *program,
 	return TRUE;
 }
 
+static void
+get_wanted_fields(struct mailbox *box, const enum mail_sort_type *sort_program,
+		  enum mail_fetch_field *wanted_fields_r,
+		  struct mailbox_header_lookup_ctx **wanted_headers_r)
+{
+	enum mail_fetch_field fields = 0;
+	ARRAY_TYPE(const_string) headers;
+	const char *hdr_name;
+
+	t_array_init(&headers, 4);
+	for (unsigned int i = 0; sort_program[i] != MAIL_SORT_END; i++) {
+		enum mail_sort_type sort_type =
+			sort_program[i] & MAIL_SORT_MASK;
+		switch (sort_type) {
+		case MAIL_SORT_ARRIVAL:
+			fields |= MAIL_FETCH_RECEIVED_DATE;
+			break;
+		case MAIL_SORT_CC:
+			hdr_name = "Cc";
+			array_push_back(&headers, &hdr_name);
+			break;
+		case MAIL_SORT_DATE:
+			fields |= MAIL_FETCH_DATE;
+			break;
+		case MAIL_SORT_FROM:
+		case MAIL_SORT_DISPLAYFROM:
+			hdr_name = "From";
+			array_push_back(&headers, &hdr_name);
+			break;
+		case MAIL_SORT_SIZE:
+			fields |= MAIL_FETCH_VIRTUAL_SIZE;
+			break;
+		case MAIL_SORT_SUBJECT:
+			hdr_name = "Subject";
+			array_push_back(&headers, &hdr_name);
+			break;
+		case MAIL_SORT_TO:
+		case MAIL_SORT_DISPLAYTO:
+			hdr_name = "To";
+			array_push_back(&headers, &hdr_name);
+			break;
+		case MAIL_SORT_RELEVANCY:
+			fields |= MAIL_FETCH_SEARCH_RELEVANCY;
+			break;
+		case MAIL_SORT_POP3_ORDER:
+			fields |= MAIL_FETCH_POP3_ORDER;
+			break;
+
+		case MAIL_SORT_MASK:
+		case MAIL_SORT_FLAG_REVERSE:
+		case MAIL_SORT_END:
+			i_unreached();
+		}
+	}
+	*wanted_fields_r = fields;
+	if (array_count(&headers) == 0)
+		*wanted_headers_r = NULL;
+	else {
+		array_append_zero(&headers);
+		*wanted_headers_r =
+			mailbox_header_lookup_init(box, array_idx(&headers, 0));
+	}
+}
+
 struct mail_search_sort_program *
 index_sort_program_init(struct mailbox_transaction_context *t,
 			const enum mail_sort_type *sort_program)
 {
 	struct mail_search_sort_program *program;
+	enum mail_fetch_field wanted_fields;
+	struct mailbox_header_lookup_ctx *wanted_headers;
 	unsigned int i;
 
 	if (sort_program == NULL || sort_program[0] == MAIL_SORT_END)
 		return NULL;
 
+	get_wanted_fields(t->box, sort_program, &wanted_fields, &wanted_headers);
+
 	/* we support internal sorting by the primary condition */
 	program = i_new(struct mail_search_sort_program, 1);
 	program->t = t;
-	program->temp_mail = mail_alloc(t, 0, NULL);
+	program->temp_mail = mail_alloc(t, wanted_fields, wanted_headers);
 	program->temp_mail->access_type = MAIL_ACCESS_TYPE_SORT;
+	if (wanted_headers != NULL)
+		mailbox_header_lookup_unref(&wanted_headers);
 
 	program->slow_mails_left =
 		program->t->box->storage->set->mail_sort_max_read_count;
