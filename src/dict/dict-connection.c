@@ -129,7 +129,6 @@ dict_connection_create(struct master_service_connection *master_conn)
 
 	connection_init_server(dict_connections, &conn->conn, master_conn->name,
 			       master_conn->fd, master_conn->fd);
-	event_set_append_log_prefix(conn->conn.event, "dict client: ");
 	event_add_category(conn->conn.event, &dict_server_event_category);
 
 	o_stream_set_flush_callback(conn->conn.output, dict_connection_output,
