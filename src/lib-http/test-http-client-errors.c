@@ -3403,6 +3403,52 @@ static void test_servers_kill_forced(void)
 	}
 }
 
+static void test_run_server(unsigned int index, test_server_init_t server_test)
+{
+	i_set_failure_prefix("SERVER[%u]: ", index + 1);
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop = io_loop_create();
+	server_test(index);
+	io_loop_destroy(&ioloop);
+
+	i_close_fd(&fd_listen);
+	i_free(bind_ports);
+}
+
+static void test_run_dns(test_dns_init_t dns_test)
+{
+	i_set_failure_prefix("DNS: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop = io_loop_create();
+	dns_test();
+	io_loop_destroy(&ioloop);
+
+	i_close_fd(&fd_listen);
+	i_free(bind_ports);
+}
+
+static void
+test_run_client(const struct http_client_settings *client_set,
+		test_client_init_t client_test)
+{
+	i_set_failure_prefix("CLIENT: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	i_sleep_msecs(100); /* wait a little for server setup */
+
+	ioloop = io_loop_create();
+	test_client_run(client_test, client_set);
+	io_loop_destroy(&ioloop);
+}
+
 static void
 test_run_client_server(const struct http_client_settings *client_set,
 		       test_client_init_t client_test,
@@ -3443,13 +3489,10 @@ test_run_client_server(const struct http_client_settings *client_set,
 				server_pids_count = 0;
 				hostpid_init();
 				lib_signals_deinit();
+
 				/* child: server */
-				i_set_failure_prefix("SERVER[%u]: ", i + 1);
-				if (debug)
-					i_debug("PID=%s", my_pid);
-				ioloop = io_loop_create();
-				server_test(i);
-				io_loop_destroy(&ioloop);
+				test_run_server(i, server_test);
+
 				i_close_fd(&fd_listen);
 				i_free(bind_ports);
 				i_free(server_pids);
@@ -3479,13 +3522,10 @@ test_run_client_server(const struct http_client_settings *client_set,
 			dns_pid = (pid_t)-1;
 			hostpid_init();
 			lib_signals_deinit();
+
 			/* child: server */
-			i_set_failure_prefix("DNS: ");
-			if (debug)
-				i_debug("PID=%s", my_pid);
-			ioloop = io_loop_create();
-			dns_test();
-			io_loop_destroy(&ioloop);
+			test_run_dns(dns_test);
+
 			i_close_fd(&fd_listen);
 			/* wait for it to be killed; this way, valgrind will not
 			   object to this process going away inelegantly. */
@@ -3498,15 +3538,7 @@ test_run_client_server(const struct http_client_settings *client_set,
 	lib_signals_ioloop_attach();
 
 	/* parent: client */
-	i_set_failure_prefix("CLIENT: ");
-	if (debug)
-		i_debug("PID=%s", my_pid);
-
-	i_sleep_msecs(100); /* wait a little for server setup */
-
-	ioloop = io_loop_create();
-	test_client_run(client_test, client_set);
-	io_loop_destroy(&ioloop);
+	test_run_client(client_set, client_test);
 
 	i_unset_failure_prefix();
 	test_servers_kill_forced();
