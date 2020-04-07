@@ -218,7 +218,7 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 	struct event_passthrough *e = event_create_passthrough(event);
 
 	e->add_str("user", request->user);
-	e->add_str("original_username", request->original_username);
+	e->add_str("orig_user", request->original_username);
 	e->add_str("translated_username", request->translated_username);
 	e->add_str("login_user", request->requested_login_user);
 	e->add_str("master_user", request->master_user);
