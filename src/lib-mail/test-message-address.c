@@ -442,6 +442,8 @@ static void test_message_address_path(void)
 		  { NULL, NULL, NULL, "user\"name", "domain", FALSE } },
 		{ "<\"\"@domain>", NULL,
 		  { NULL, NULL, NULL, "", "domain", FALSE } },
+		{ "<@source", "<>",
+		  { NULL, NULL, NULL, NULL, NULL, TRUE } },
 	};
 	const struct message_address *addr;
 	string_t *str;
@@ -458,7 +460,10 @@ static void test_message_address_path(void)
 
 		test_wanted_addr = &test->addr;
 		ret = test_parse_path(test->input, &addr);
-		test_assert_idx(ret == 0, i);
+		if (addr->invalid_syntax)
+			test_assert_idx(ret == -1, i);
+		else
+			test_assert_idx(ret == 0, i);
 		test_assert_idx(addr != NULL && addr->next == NULL &&
 				cmp_addr(addr, test_wanted_addr), i);
 
