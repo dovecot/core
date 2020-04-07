@@ -888,10 +888,10 @@ test_run_client_server(
 	if (server_pid == 0) {
 		server_pid = (pid_t)-1;
 		hostpid_init();
-		if (debug)
-			i_debug("server: PID=%s", my_pid);
-		i_set_failure_prefix("SERVER: ");
 		/* child: server */
+		i_set_failure_prefix("SERVER: ");
+		if (debug)
+			i_debug("PID=%s", my_pid);
 		ioloop = io_loop_create();
 		test_server_init(server_set);
 		io_loop_run(ioloop);
@@ -908,10 +908,10 @@ test_run_client_server(
 
 	lib_signals_ioloop_attach();
 
-	if (debug)
-		i_debug("client: PID=%s", my_pid);
-	i_set_failure_prefix("CLIENT: ");
 	/* parent: client */
+	i_set_failure_prefix("CLIENT: ");
+	if (debug)
+		i_debug("PID=%s", my_pid);
 	ioloop = io_loop_create();
 	test_client_init();
 	client_init(protocol, client_set);
@@ -919,8 +919,9 @@ test_run_client_server(
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 	bind_port = 0;
-	test_server_kill_forced();
 
+	i_unset_failure_prefix();
+	test_server_kill_forced();
 	test_files_deinit();
 }
 
