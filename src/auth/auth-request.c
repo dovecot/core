@@ -252,8 +252,6 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 	if (request->userdb_lookup) {
 		return e;
 	}
-	if (request->mech != NULL)
-		e->add_str("mechanism", request->mech->mech_name);
 	if (request->credentials_scheme != NULL)
 		e->add_str("credentials_scheme", request->credentials_scheme);
 	if (request->realm != NULL)
