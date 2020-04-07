@@ -217,16 +217,11 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 {
 	struct event_passthrough *e = event_create_passthrough(event);
 
-	if (request->user != NULL)
-		e->add_str("user", request->user);
-	if (request->original_username != NULL)
-		e->add_str("original_username", request->original_username);
-	if (request->translated_username != NULL)
-		e->add_str("translated_username", request->translated_username);
-	if (request->master_user != NULL) {
-		e->add_str("login_user", request->requested_login_user);
-		e->add_str("master_user", request->master_user);
-	}
+	e->add_str("user", request->user);
+	e->add_str("original_username", request->original_username);
+	e->add_str("translated_username", request->translated_username);
+	e->add_str("login_user", request->requested_login_user);
+	e->add_str("master_user", request->master_user);
 	if (request->failed) {
 		if (request->internal_failure) {
 			e->add_str("error", "internal failure");
@@ -252,10 +247,8 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 	if (request->userdb_lookup) {
 		return e;
 	}
-	if (request->credentials_scheme != NULL)
-		e->add_str("credentials_scheme", request->credentials_scheme);
-	if (request->realm != NULL)
-		e->add_str("realm", request->realm);
+	e->add_str("credentials_scheme", request->credentials_scheme);
+	e->add_str("realm", request->realm);
 	if (request->policy_penalty > 0)
 		e->add_int("policy_penalty", request->policy_penalty);
 	if (request->policy_refusal) {
