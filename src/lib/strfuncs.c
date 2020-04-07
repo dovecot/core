@@ -583,6 +583,21 @@ bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size)
 	return ret == 0;
 }
 
+bool str_equals_timing_almost_safe(const char *s1, const char *s2)
+{
+	size_t i;
+	int ret = 0;
+
+	for (i = 0; s1[i] != '\0' && s2[i] != '\0'; i++)
+		ret |= s1[i] ^ s2[i];
+	ret |= s1[i] ^ s2[i];
+
+	/* make sure the compiler optimizer doesn't try to break out of the
+	   above loop early. */
+	timing_safety_unoptimization = ret;
+	return ret == 0;
+}
+
 size_t
 str_match(const char *p1, const char *p2)
 {

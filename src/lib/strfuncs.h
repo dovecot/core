@@ -80,6 +80,11 @@ int i_strcasecmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 /* Returns TRUE if the two memory areas are equal. This function is safe
    against timing attacks, so it compares all the bytes every time. */
 bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size);
+/* Returns TRUE if the two strings are equal. Similar to
+   mem_equals_timing_safe() this function is safe against timing attacks when
+   the string lengths are the same. If not, the length of the secret string may
+   be leaked, but otherwise the contents won't be. */
+bool str_equals_timing_almost_safe(const char *s1, const char *s2);
 
 size_t str_match(const char *p1, const char *p2) ATTR_PURE;
 static inline ATTR_PURE bool str_begins(const char *haystack, const char *needle)

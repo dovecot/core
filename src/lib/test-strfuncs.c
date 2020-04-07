@@ -387,6 +387,32 @@ static void test_mem_equals_timing_safe(void)
 	test_end();
 }
 
+static void test_str_equals_timing_almost_safe(void)
+{
+	const struct {
+		const char *a, *b;
+	} tests[] = {
+		{ "", "" },
+		{ "a", "a" },
+		{ "b", "a" },
+		{ "ab", "ab" },
+		{ "ab", "ba" },
+		{ "ab", "bc" },
+		{ "a", "" },
+		{ "a", "ab" },
+		{ "a", "abc" },
+		{ "ab", "abc" },
+	};
+	test_begin("str_equals_timing_almost_safe()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_assert((strcmp(tests[i].a, tests[i].b) == 0) ==
+			    str_equals_timing_almost_safe(tests[i].a, tests[i].b));
+		test_assert((strcmp(tests[i].a, tests[i].b) == 0) ==
+			    str_equals_timing_almost_safe(tests[i].b, tests[i].a));
+	}
+	test_end();
+}
+
 static void test_dec2str_buf(void)
 {
 	const uintmax_t test_input[] = {
@@ -462,6 +488,7 @@ void test_strfuncs(void)
 	test_t_strarray_join();
 	test_p_array_const_string_join();
 	test_mem_equals_timing_safe();
+	test_str_equals_timing_almost_safe();
 	test_dec2str_buf();
 	test_str_match();
 }
