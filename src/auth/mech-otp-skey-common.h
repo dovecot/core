@@ -18,5 +18,6 @@ void otp_unlock(struct auth_request *auth_request);
 void otp_set_credentials_callback(bool success,
 				  struct auth_request *auth_request);
 void mech_otp_skey_auth_free(struct auth_request *auth_request);
+void mech_otp_deinit(void);
 
 #endif

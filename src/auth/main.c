@@ -19,6 +19,8 @@
 #include "password-scheme.h"
 #include "passdb-cache.h"
 #include "mech.h"
+#include "otp.h"
+#include "mech-otp-skey-common.h"
 #include "auth.h"
 #include "auth-penalty.h"
 #include "auth-token.h"
@@ -280,6 +282,7 @@ static void main_deinit(void)
 
 	auth_policy_deinit();
 	mech_register_deinit(&mech_reg);
+	mech_otp_deinit();
 	mech_deinit(global_auth_settings);
 
 	/* allow modules to unregister their dbs/drivers/etc. before freeing
