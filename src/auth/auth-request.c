@@ -219,7 +219,7 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 
 	e->add_str("user", request->user);
 	e->add_str("orig_user", request->original_username);
-	e->add_str("translated_username", request->translated_username);
+	e->add_str("translated_user", request->translated_username);
 	e->add_str("login_user", request->requested_login_user);
 	e->add_str("master_user", request->master_user);
 	if (request->failed) {
