@@ -863,6 +863,49 @@ static void test_server_kill_forced(void)
 	server_pid = (pid_t)-1;
 }
 
+static void test_run_server(struct smtp_server_settings *server_set)
+{
+	struct ioloop *ioloop;
+
+	i_set_failure_prefix("SERVER: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop = io_loop_create();
+	test_server_init(server_set);
+	io_loop_run(ioloop);
+	test_server_deinit();
+	io_loop_destroy(&ioloop);
+
+	if (debug)
+		i_debug("Terminated");
+
+	i_close_fd(&fd_listen);
+	test_files_deinit();
+}
+
+static void
+test_run_client(
+	enum smtp_protocol protocol, struct smtp_client_settings *client_set,
+	void (*client_init)(enum smtp_protocol protocol,
+			    const struct smtp_client_settings *client_set))
+{
+	struct ioloop *ioloop;
+
+	i_set_failure_prefix("CLIENT: ");
+
+	if (debug)
+		i_debug("client: PID=%s", my_pid);
+
+	ioloop = io_loop_create();
+	test_client_init();
+	client_init(protocol, client_set);
+	io_loop_run(ioloop);
+	test_client_deinit();
+	io_loop_destroy(&ioloop);
+}
+
 static void
 test_run_client_server(
 	enum smtp_protocol protocol,
@@ -871,8 +914,6 @@ test_run_client_server(
 	void (*client_init)(enum smtp_protocol protocol,
 			    const struct smtp_client_settings *client_set))
 {
-	struct ioloop *ioloop;
-
 	if (test_ssl_mode == TEST_SSL_MODE_STARTTLS)
 		server_set->capabilities |= SMTP_CAPABILITY_STARTTLS;
 
@@ -888,19 +929,11 @@ test_run_client_server(
 	if (server_pid == 0) {
 		server_pid = (pid_t)-1;
 		hostpid_init();
+		lib_signals_deinit();
+
 		/* child: server */
-		i_set_failure_prefix("SERVER: ");
-		if (debug)
-			i_debug("PID=%s", my_pid);
-		ioloop = io_loop_create();
-		test_server_init(server_set);
-		io_loop_run(ioloop);
-		test_server_deinit();
-		io_loop_destroy(&ioloop);
+		test_run_server(server_set);
 
-		i_close_fd(&fd_listen);
-
-		test_files_deinit();
 		lib_deinit();
 		exit(1);
 	}
@@ -909,18 +942,10 @@ test_run_client_server(
 	lib_signals_ioloop_attach();
 
 	/* parent: client */
-	i_set_failure_prefix("CLIENT: ");
-	if (debug)
-		i_debug("PID=%s", my_pid);
-	ioloop = io_loop_create();
-	test_client_init();
-	client_init(protocol, client_set);
-	io_loop_run(ioloop);
-	test_client_deinit();
-	io_loop_destroy(&ioloop);
-	bind_port = 0;
+	test_run_client(protocol, client_set, client_init);
 
 	i_unset_failure_prefix();
+	bind_port = 0;
 	test_server_kill_forced();
 	test_files_deinit();
 }
