@@ -660,6 +660,36 @@ static void test_gz_no_concat(void)
 	test_end();
 }
 
+static void test_gz_header(void)
+{
+	const struct compression_handler *gz = compression_lookup_handler("gz");
+	const char *input_strings[] = {
+		"\x1F\x8B",
+		"\x1F\x8B\x01\x02"/* GZ_FLAG_FHCRC */"\xFF\xFF\x01\x01\x01\x01",
+		"\x1F\x8B\x01\x04"/* GZ_FLAG_FEXTRA */"\xFF\xFF\x01\x01\x01\x01",
+		"\x1F\x8B\x01\x08"/* GZ_FLAG_FNAME */"\x01\x01\x01\x01\x01\x01",
+		"\x1F\x8B\x01\x10"/* GZ_FLAG_FCOMMENT */"\x01\x01\x01\x01\x01\x01",
+		"\x1F\x8B\x01\x0C"/* GZ_FLAG_FEXTRA | GZ_FLAG_FNAME */"\xFF\xFF\x01\x01\x01\x01",
+	};
+	struct istream *file_input, *input;
+
+	if (gz == NULL || gz->create_istream == NULL)
+		return; /* not compiled in */
+
+	test_begin("gz header");
+	for (unsigned int i = 0; i < N_ELEMENTS(input_strings); i++) {
+		file_input = test_istream_create_data(input_strings[i],
+						      strlen(input_strings[i]));
+		file_input->blocking = TRUE;
+		input = gz->create_istream(file_input, FALSE);
+		test_assert_idx(i_stream_read(input) == -1, i);
+		test_assert_idx(input->stream_errno == EINVAL, i);
+		i_stream_unref(&input);
+		i_stream_unref(&file_input);
+	}
+	test_end();
+}
+
 static void test_gz_large_header(void)
 {
 	const struct compression_handler *gz = compression_lookup_handler("gz");
@@ -792,6 +822,7 @@ int main(int argc, char *argv[])
 		test_compression,
 		test_gz_concat,
 		test_gz_no_concat,
+		test_gz_header,
 		test_gz_large_header,
 		NULL
 	};
