@@ -1603,13 +1603,55 @@ static void test_server_kill_forced(void)
 }
 
 static void
+test_run_server(const struct http_server_settings *server_set)
+{
+	struct ioloop *ioloop;
+
+	i_set_failure_prefix("SERVER: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop_nested = NULL;
+	ioloop_nested_depth = 0;
+
+	ioloop = io_loop_create();
+	test_server_init(server_set);
+	io_loop_run(ioloop);
+	test_server_deinit();
+	io_loop_destroy(&ioloop);
+
+	i_close_fd(&fd_listen);
+	test_files_deinit();
+}
+
+static void
+test_run_client(
+	const struct http_client_settings *client_set,
+	void (*client_init)(const struct http_client_settings *client_set))
+{
+	struct ioloop *ioloop;
+
+	i_set_failure_prefix("CLIENT: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop_nested = NULL;
+	ioloop_nested_depth = 0;
+	ioloop = io_loop_create();
+	client_init(client_set);
+	io_loop_run(ioloop);
+	test_client_deinit();
+	io_loop_destroy(&ioloop);
+}
+
+static void
 test_run_client_server(
 	const struct http_client_settings *client_set,
 	const struct http_server_settings *server_set,
 	void (*client_init)(const struct http_client_settings *client_set))
 {
-	struct ioloop *ioloop;
-
 	failure = NULL;
 	test_open_server_fd();
 
@@ -1623,20 +1665,10 @@ test_run_client_server(
 		server_pid = (pid_t)-1;
 		hostpid_init();
 		lib_signals_deinit();
-		/* child: server */
-		i_set_failure_prefix("SERVER: ");
-		if (debug)
-			i_debug("PID=%s", my_pid);
-		ioloop_nested = NULL;
-		ioloop_nested_depth = 0;
-		ioloop = io_loop_create();
-		test_server_init(server_set);
-		io_loop_run(ioloop);
-		test_server_deinit();
-		io_loop_destroy(&ioloop);
 
-		i_close_fd(&fd_listen);
-		test_files_deinit();
+		/* child: server */
+		test_run_server(server_set);
+
 		lib_deinit();
 		exit(1);
 	}
@@ -1645,16 +1677,7 @@ test_run_client_server(
 	lib_signals_ioloop_attach();
 
 	/* parent: client */
-	i_set_failure_prefix("CLIENT: ");
-	if (debug)
-		i_debug("PID=%s", my_pid);
-	ioloop_nested = NULL;
-	ioloop_nested_depth = 0;
-	ioloop = io_loop_create();
-	client_init(client_set);
-	io_loop_run(ioloop);
-	test_client_deinit();
-	io_loop_destroy(&ioloop);
+	test_run_client(client_set, client_init);
 
 	i_unset_failure_prefix();
 	test_server_kill_forced();
