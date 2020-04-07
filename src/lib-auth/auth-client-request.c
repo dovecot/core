@@ -163,7 +163,7 @@ void auth_client_request_continue(struct auth_client_request *request,
 
 	struct event_passthrough *e =
 		event_create_passthrough(request->event)->
-		set_name("auth_client_request_continue");
+		set_name("auth_client_request_continued");
 	e_debug(e->event(), "Continue request");
 
 	if (o_stream_sendv(request->conn->conn.output, iov, 3) < 0) {
