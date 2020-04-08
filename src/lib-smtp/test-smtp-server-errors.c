@@ -2971,6 +2971,39 @@ static void test_clients_kill_forced(void)
 	client_pids_count = 0;
 }
 
+static void test_run_client(unsigned index, test_client_init_t client_test)
+{
+	i_set_failure_prefix("CLIENT[%u]: ", index + 1);
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	/* wait a little for server setup */
+	i_sleep_msecs(100);
+
+	ioloop = io_loop_create();
+	client_test(index);
+	io_loop_destroy(&ioloop);
+}
+
+static void
+test_run_server(const struct smtp_server_settings *server_set,
+		test_server_init_t server_test,
+		unsigned int client_tests_count)
+{
+	i_set_failure_prefix("SERVER: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	i_zero(&server_callbacks);
+
+	server_pending = client_tests_count;
+	ioloop = io_loop_create();
+	server_test(server_set);
+	io_loop_destroy(&ioloop);
+}
+
 static void
 test_run_client_server(const struct smtp_server_settings *server_set,
 		       test_server_init_t server_test,
@@ -2996,22 +3029,16 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 			if ((client_pids[i] = fork()) == (pid_t)-1)
 				i_fatal("fork() failed: %m");
 			if (client_pids[i] == 0) {
+				i_close_fd(&fd_listen);
 				client_pids[i] = (pid_t)-1;
 				client_pids_count = 0;
 				hostpid_init();
 				lib_signals_deinit();
-				/* child: client */
-				i_set_failure_prefix("CLIENT[%u]: ", i + 1);
-				if (debug)
-					i_debug("PID=%s", my_pid);
-				/* wait a little for server setup */
-				i_sleep_msecs(100);
-				i_close_fd(&fd_listen);
-				ioloop = io_loop_create();
-				client_test(i);
-				io_loop_destroy(&ioloop);
-				i_free(client_pids);
 
+				/* child: client */
+				test_run_client(i, client_test);
+
+				i_free(client_pids);
 				if (debug)
 					i_debug("Waiting to be killed");
 				/* wait for it to be killed; this way, valgrind
@@ -3027,16 +3054,7 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 	}
 
 	/* parent: server */
-	i_set_failure_prefix("SERVER: ");
-	if (debug)
-		i_debug("PID=%s", my_pid);
-
-	i_zero(&server_callbacks);
-
-	server_pending = client_tests_count;
-	ioloop = io_loop_create();
-	server_test(server_set);
-	io_loop_destroy(&ioloop);
+	test_run_server(server_set, server_test, client_tests_count);
 
 	i_unset_failure_prefix();
 	i_close_fd(&fd_listen);
