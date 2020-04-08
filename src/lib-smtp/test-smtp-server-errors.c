@@ -1,7 +1,6 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "lib-signals.h"
 #include "str.h"
 #include "array.h"
 #include "hostpid.h"
@@ -12,16 +11,17 @@
 #include "sleep.h"
 #include "connection.h"
 #include "test-common.h"
+#include "test-subprocess.h"
 #include "smtp-address.h"
 #include "smtp-reply-parser.h"
 #include "smtp-server.h"
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <signal.h>
 #include <unistd.h>
 
 #define SERVER_MAX_TIMEOUT_MSECS 10*1000
+#define CLIENT_KILL_TIMEOUT_SECS 20
+
+static void main_deinit(void);
 
 /*
  * Types
@@ -60,9 +60,7 @@ static struct smtp_server_callbacks server_callbacks;
 static unsigned int server_pending;
 
 /* client */
-static pid_t *client_pids = NULL;
 static struct connection_list *client_conn_list;
-static unsigned int client_pids_count = 0;
 static unsigned int client_index;
 static void (*test_client_connected)(struct client_connection *conn);
 static void (*test_client_input)(struct client_connection *conn);
@@ -2943,6 +2941,11 @@ static void test_server_run(const struct smtp_server_settings *smtp_set)
  * Tests
  */
 
+struct test_client_data {
+	unsigned int index;
+	test_client_init_t client_test;
+};
+
 static int test_open_server_fd(void)
 {
 	int fd = net_listen(&bind_ip, &bind_port, 128);
@@ -2955,25 +2958,9 @@ static int test_open_server_fd(void)
 	return fd;
 }
 
-static void test_clients_kill_forced(void)
+static int test_run_client(struct test_client_data *data)
 {
-	unsigned int i;
-
-	if (client_pids_count > 0) {
-		for (i = 0; i < client_pids_count; i++) {
-			if (client_pids[i] != (pid_t)-1) {
-				(void)kill(client_pids[i], SIGKILL);
-				(void)waitpid(client_pids[i], NULL, 0);
-				client_pids[i] = -1;
-			}
-		}
-	}
-	client_pids_count = 0;
-}
-
-static void test_run_client(unsigned index, test_client_init_t client_test)
-{
-	i_set_failure_prefix("CLIENT[%u]: ", index + 1);
+	i_set_failure_prefix("CLIENT[%u]: ", data->index + 1);
 
 	if (debug)
 		i_debug("PID=%s", my_pid);
@@ -2982,8 +2969,14 @@ static void test_run_client(unsigned index, test_client_init_t client_test)
 	i_sleep_msecs(100);
 
 	ioloop = io_loop_create();
-	client_test(index);
+	data->client_test(data->index);
 	io_loop_destroy(&ioloop);
+
+	if (debug)
+		i_debug("Terminated");
+
+	main_deinit();
+	return 0;
 }
 
 static void
@@ -3002,6 +2995,9 @@ test_run_server(const struct smtp_server_settings *server_set,
 	ioloop = io_loop_create();
 	server_test(server_set);
 	io_loop_destroy(&ioloop);
+
+	if (debug)
+		i_debug("Terminated");
 }
 
 static void
@@ -3012,98 +3008,40 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 {
 	unsigned int i;
 
-	client_pids = NULL;
-	client_pids_count = 0;
-
 	fd_listen = test_open_server_fd();
 
-	if (client_tests_count > 0) {
-		lib_signals_ioloop_detach();
+	for (i = 0; i < client_tests_count; i++) {
+		struct test_client_data data;
 
-		client_pids = i_new(pid_t, client_tests_count);
-		for (i = 0; i < client_tests_count; i++)
-			client_pids[i] = (pid_t)-1;
-		client_pids_count = client_tests_count;
+		i_zero(&data);
+		data.index = i;
+		data.client_test = client_test;
 
-		for (i = 0; i < client_tests_count; i++) {
-			if ((client_pids[i] = fork()) == (pid_t)-1)
-				i_fatal("fork() failed: %m");
-			if (client_pids[i] == 0) {
-				i_close_fd(&fd_listen);
-				client_pids[i] = (pid_t)-1;
-				client_pids_count = 0;
-				hostpid_init();
-				lib_signals_deinit();
+		/* Fork client */
+		test_subprocess_fork(test_run_client, &data, FALSE);
 
-				/* child: client */
-				test_run_client(i, client_test);
-
-				i_free(client_pids);
-				if (debug)
-					i_debug("Waiting to be killed");
-				/* wait for it to be killed; this way, valgrind
-				   will not object to this process going away
-				   inelegantly. */
-				sleep(60);
-
-				exit(1);
-			}
-		}
-
-		lib_signals_ioloop_attach();
 	}
 
-	/* parent: server */
+	/* Run server */
 	test_run_server(server_set, server_test, client_tests_count);
 
 	i_unset_failure_prefix();
 	i_close_fd(&fd_listen);
-	test_clients_kill_forced();
-	i_free(client_pids);
+	test_subprocess_kill_all(CLIENT_KILL_TIMEOUT_SECS);
 }
 
 /*
  * Main
  */
 
-volatile sig_atomic_t terminating = 0;
-
-static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	int signo = si->si_signo;
-
-	if (terminating != 0)
-		raise(signo);
-	terminating = 1;
-
-	/* make sure we don't leave any pesky children alive */
-	test_clients_kill_forced();
-
-	(void)signal(signo, SIG_DFL);
-	raise(signo);
-}
-
-static void test_atexit(void)
-{
-	test_clients_kill_forced();
-}
-
 static void main_init(void)
 {
-	lib_signals_init();
-
-	atexit(test_atexit);
-	lib_signals_ignore(SIGPIPE, TRUE);
-	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+	/* nothing yet */
 }
 
 static void main_deinit(void)
 {
-	lib_signals_deinit();
+	/* nothing yet; also called from sub-processes */
 }
 
 int main(int argc, char *argv[])
@@ -3124,6 +3062,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	test_subprocesses_init(debug);
+
 	/* listen on localhost */
 	i_zero(&bind_ip);
 	bind_ip.family = AF_INET;
@@ -3131,6 +3071,7 @@ int main(int argc, char *argv[])
 
 	ret = test_run(test_functions);
 
+	test_subprocesses_deinit();
 	main_deinit();
 	lib_deinit();
 
