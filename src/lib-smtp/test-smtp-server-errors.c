@@ -2991,8 +2991,6 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 {
 	unsigned int i;
 
-	i_set_failure_prefix("SERVER: ");
-
 	client_pids = NULL;
 	client_pids_count = 0;
 
@@ -3010,11 +3008,11 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 			if (client_pids[i] == 0) {
 				client_pids[i] = (pid_t)-1;
 				client_pids_count = 0;
-				i_set_failure_prefix("CLIENT[%d]: ", i+1);
 				hostpid_init();
+				/* child: client */
+				i_set_failure_prefix("CLIENT[%u]: ", i + 1);
 				if (debug)
 					i_debug("PID=%s", my_pid);
-				/* child: client */
 				/* wait a little for server setup */
 				i_sleep_msecs(100);
 				i_close_fd(&fd_listen);
@@ -3033,11 +3031,12 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 				exit(1);
 			}
 		}
-		if (debug)
-			i_debug("PID=%s", my_pid);
 	}
 
 	/* parent: server */
+	i_set_failure_prefix("SERVER: ");
+	if (debug)
+		i_debug("PID=%s", my_pid);
 
 	i_zero(&server_callbacks);
 
@@ -3046,8 +3045,8 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 	server_test(server_set);
 	io_loop_destroy(&ioloop);
 
+	i_unset_failure_prefix();
 	i_close_fd(&fd_listen);
-
 	test_clients_kill_all();
 	i_free(client_pids);
 }
