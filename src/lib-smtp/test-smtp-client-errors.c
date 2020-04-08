@@ -120,7 +120,7 @@ test_server_unconfigured_ssl_input(struct server_connection *conn ATTR_UNUSED)
 
 static void test_server_unconfigured_ssl(unsigned int index)
 {
-	sleep(100);
+	i_sleep_intr_secs(100);
 	test_server_input = test_server_unconfigured_ssl_input;
 	test_server_run(index);
 }
@@ -206,7 +206,7 @@ test_server_unconfigured_ssl_abort_input(
 
 static void test_server_unconfigured_ssl_abort(unsigned int index)
 {
-	sleep(100);
+	i_sleep_intr_secs(100);
 	test_server_input = test_server_unconfigured_ssl_abort_input;
 	test_server_run(index);
 }
@@ -570,7 +570,7 @@ static void test_connection_lost_prematurely(void)
 
 static void test_server_connection_timed_out(unsigned int index ATTR_UNUSED)
 {
-	sleep(10);
+	i_sleep_intr_secs(10);
 }
 
 /* client */
@@ -865,7 +865,7 @@ test_connection_lost_input_line(struct server_connection *conn,
 	case SERVER_CONNECTION_STATE_EHLO:
 		if (server_index == 0) {
 			conn->state = SERVER_CONNECTION_STATE_MAIL_FROM;
-			sleep(1);
+			i_sleep_intr_secs(1);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -873,7 +873,7 @@ test_connection_lost_input_line(struct server_connection *conn,
 	case SERVER_CONNECTION_STATE_MAIL_FROM:
 		if (server_index == 1) {
 			conn->state = SERVER_CONNECTION_STATE_RCPT_TO;
-			sleep(1);
+			i_sleep_intr_secs(1);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -881,7 +881,7 @@ test_connection_lost_input_line(struct server_connection *conn,
 	case SERVER_CONNECTION_STATE_RCPT_TO:
 		if (server_index == 2) {
 			conn->state = SERVER_CONNECTION_STATE_DATA;
-			sleep(1);
+			i_sleep_intr_secs(1);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -889,7 +889,7 @@ test_connection_lost_input_line(struct server_connection *conn,
 	case SERVER_CONNECTION_STATE_DATA:
 		if (server_index == 3) {
 			conn->state = SERVER_CONNECTION_STATE_FINISH;
-			sleep(1);
+			i_sleep_intr_secs(1);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -905,7 +905,7 @@ test_connection_lost_input_data(struct server_connection *conn,
 				const unsigned char *data ATTR_UNUSED,
 				size_t size ATTR_UNUSED)
 {
-	sleep(1);
+	i_sleep_intr_secs(1);
 	server_connection_deinit(&conn);
 	return -1;
 }
@@ -1098,7 +1098,7 @@ test_unexpected_reply_init(struct server_connection *conn)
 				   "ESMTP Testfix (Debian/GNU)\r\n");
 		o_stream_nsend_str(conn->conn.output, "421 testserver "
 				   "Server shutting down for maintenance\r\n");
-		sleep(4);
+		i_sleep_intr_secs(4);
 		server_connection_deinit(&conn);
 		return 1;
 	}
@@ -1120,7 +1120,7 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 			o_stream_nsend_str(
 				conn->conn.output, "421 testserver "
 				"Server shutting down for maintenance\r\n");
-			sleep(4);
+			i_sleep_intr_secs(4);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -1132,7 +1132,7 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 			o_stream_nsend_str(
 				conn->conn.output, "421 testserver "
 				"Server shutting down for maintenance\r\n");
-			sleep(4);
+			i_sleep_intr_secs(4);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -1144,7 +1144,7 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 			o_stream_nsend_str(
 				conn->conn.output, "421 testserver "
 				"Server shutting down for maintenance\r\n");
-			sleep(4);
+			i_sleep_intr_secs(4);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -1157,7 +1157,7 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 			o_stream_nsend_str(
 				conn->conn.output, "421 testserver "
 				"Server shutting down for maintenance\r\n");
-			sleep(4);
+			i_sleep_intr_secs(4);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -1550,7 +1550,7 @@ test_premature_reply_init(struct server_connection *conn)
 			"250-PIPELINING\r\n"
 			"250-ENHANCEDSTATUSCODES\r\n"
 			"250 DSN\r\n");
-		sleep(4);
+		i_sleep_intr_secs(4);
 		server_connection_deinit(&conn);
 		return 1;
 	}
@@ -1586,7 +1586,7 @@ test_premature_reply_input_line(struct server_connection *conn, const char *line
 			o_stream_nsend_str(conn->conn.output,
 					   "250 2.1.0 Ok\r\n"
 					   "250 2.1.5 Ok\r\n");
-			sleep(4);
+			i_sleep_intr_secs(4);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -1597,7 +1597,7 @@ test_premature_reply_input_line(struct server_connection *conn, const char *line
 				conn->conn.output,
 				"250 2.1.5 Ok\r\n"
 				"354 End data with <CR><LF>.<CR><LF>\r\n");
-			sleep(4);
+			i_sleep_intr_secs(4);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -1608,7 +1608,7 @@ test_premature_reply_input_line(struct server_connection *conn, const char *line
 				conn->conn.output,
 				"354 End data with <CR><LF>.<CR><LF>\r\n"
 				"250 2.0.0 Ok: queued as 35424ed4af24\r\n");
-			sleep(4);
+			i_sleep_intr_secs(4);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -2452,7 +2452,7 @@ test_command_timed_out_input_line(struct server_connection *conn,
 {
 	if (conn->state == SERVER_CONNECTION_STATE_EHLO)
 		return 0;
-	sleep(10);
+	i_sleep_intr_secs(10);
 	server_connection_deinit(&conn);
 	return -1;
 }
@@ -2540,7 +2540,7 @@ test_command_aborted_early_input_line(struct server_connection *conn,
 	if (conn->state == SERVER_CONNECTION_STATE_EHLO)
 		return 0;
 
-	sleep(1);
+	i_sleep_intr_secs(1);
 	o_stream_nsend_str(conn->conn.output, "200 OK\r\n");
 	server_connection_deinit(&conn);
 	return -1;
@@ -2650,7 +2650,7 @@ test_client_deinit_early_input_line(struct server_connection *conn,
 	if (conn->state == SERVER_CONNECTION_STATE_EHLO)
 		return 0;
 
-	sleep(1);
+	i_sleep_intr_secs(1);
 	o_stream_nsend_str(conn->conn.output, "200 OK\r\n");
 	server_connection_deinit(&conn);
 	return -1;
@@ -2821,7 +2821,7 @@ static void test_dns_service_failure(void)
 static void test_dns_timeout_input(struct server_connection *conn ATTR_UNUSED)
 {
 	/* hang */
-	sleep(100);
+	i_sleep_intr_secs(100);
 	server_connection_deinit(&conn);
 }
 
@@ -3029,7 +3029,7 @@ test_authentication_failed_input_line(struct server_connection *conn,
 				conn->conn.output,
 				"535 5.7.8 "
 				"Authentication credentials invalid\r\n");
-			sleep(10);
+			i_sleep_intr_secs(10);
 			server_connection_deinit(&conn);
 			return -1;
 		}
@@ -3279,15 +3279,15 @@ test_transaction_timeout_input_line(struct server_connection *conn,
 		break;
 	case SERVER_CONNECTION_STATE_MAIL_FROM:
 		if (server_index == 0)
-			sleep(20);
+			i_sleep_intr_secs(20);
 		break;
 	case SERVER_CONNECTION_STATE_RCPT_TO:
 		if (server_index == 1)
-			sleep(20);
+			i_sleep_intr_secs(20);
 		break;
 	case SERVER_CONNECTION_STATE_DATA:
 		if (server_index == 2)
-			sleep(20);
+			i_sleep_intr_secs(20);
 		break;
 	case SERVER_CONNECTION_STATE_FINISH:
 		break;
@@ -3911,7 +3911,7 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 				/* wait for it to be killed; this way, valgrind
 				   will not object to this process going away
 				   inelegantly. */
-				sleep(60);
+				i_sleep_intr_secs(60);
 				exit(1);
 			}
 			i_close_fd(&fd_listen);
@@ -3944,7 +3944,7 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 			i_close_fd(&fd_listen);
 			/* wait for it to be killed; this way, valgrind will not
 			   object to this process going away inelegantly. */
-			sleep(60);
+			i_sleep_intr_secs(60);
 			exit(1);
 		}
 		i_close_fd(&fd_listen);
