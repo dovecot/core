@@ -3892,7 +3892,6 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 			if ((server_pids[i] = fork()) == (pid_t)-1)
 				i_fatal("fork() failed: %m");
 			if (server_pids[i] == 0) {
-				lib_signals_ignore(SIGPIPE, TRUE);
 				server_pids[i] = (pid_t)-1;
 				server_pids_count = 0;
 				hostpid_init();
@@ -3929,7 +3928,6 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 		if ((dns_pid = fork()) == (pid_t)-1)
 			i_fatal("fork() failed: %m");
 		if (dns_pid == 0) {
-			lib_signals_ignore(SIGPIPE, TRUE);
 			dns_pid = (pid_t)-1;
 			hostpid_init();
 			/* child: server */
@@ -3955,7 +3953,6 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 
 	i_sleep_msecs(100); /* wait a little for server setup */
 
-	lib_signals_ignore(SIGPIPE, TRUE);
 	ioloop = io_loop_create();
 	test_client_run(client_test, client_set);
 	io_loop_destroy(&ioloop);
@@ -3997,6 +3994,7 @@ int main(int argc, char *argv[])
 	int c;
 
 	atexit(test_atexit);
+	(void)signal(SIGPIPE, SIG_IGN);
 	(void)signal(SIGTERM, test_signal_handler);
 	(void)signal(SIGQUIT, test_signal_handler);
 	(void)signal(SIGINT, test_signal_handler);
