@@ -80,8 +80,8 @@ static int proxy_write_starttls(struct imap_client *client, string_t *str)
 	if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) != 0) {
 		if (client->proxy_backend_capability != NULL &&
 		    !str_array_icase_find(t_strsplit(client->proxy_backend_capability, " "), "STARTTLS")) {
-			client_log_err(&client->common,
-			"proxy: Remote doesn't support STARTTLS");
+			e_error(client->common.event,
+				"proxy: Remote doesn't support STARTTLS");
 			return -1;
 		}
 		str_append(str, "S STARTTLS\r\n");
@@ -120,7 +120,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		/* logging in normally - use LOGIN command */
 		if (client->proxy_logindisabled &&
 		    login_proxy_get_ssl_flags(client->common.login_proxy) == 0) {
-			client_log_err(&client->common,
+			e_error(client->common.event,
 				"proxy: Remote advertised LOGINDISABLED and SSL/TLS not enabled");
 			return -1;
 		}
@@ -150,9 +150,9 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	if (client->proxy_sasl_ir) {
 		if (dsasl_client_output(client->common.proxy_sasl_client,
 					&output, &len, &error) < 0) {
-			client_log_err(&client->common, t_strdup_printf(
+			e_error(client->common.event,
 				"proxy: SASL mechanism %s init failed: %s",
-				mech_name, error));
+				mech_name, error);
 			return -1;
 		}
 		str_append_c(str, ' ');
@@ -175,9 +175,9 @@ static int proxy_input_banner(struct imap_client *client,
 	int ret;
 
 	if (!str_begins(line, "* OK ")) {
-		client_log_err(&client->common, t_strdup_printf(
+		e_error(client->common.event,
 			"proxy: Remote returned invalid banner: %s",
-			str_sanitize(line, 160)));
+			str_sanitize(line, 160));
 		return -1;
 	}
 
@@ -283,7 +283,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		str = t_str_new(128);
 		if (line[1] != ' ' ||
 		    base64_decode(line+2, strlen(line+2), NULL, str) < 0) {
-			client_log_err(client,
+			e_error(client->event,
 				"proxy: Server sent invalid base64 data in AUTHENTICATE response");
 			client_proxy_failed(client, TRUE);
 			return -1;
@@ -295,9 +295,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 						  &data, &data_len, &error);
 		}
 		if (ret < 0) {
-			client_log_err(client, t_strdup_printf(
+			e_error(client->event,
 				"proxy: Server sent invalid authentication data: %s",
-				error));
+				error);
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
@@ -316,9 +316,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 
 		if (!str_begins(line, "S OK ")) {
 			/* STARTTLS failed */
-			client_log_err(client, t_strdup_printf(
+			e_error(client->event,
 				"proxy: Remote STARTTLS failed: %s",
-				str_sanitize(line + 5, 160)));
+				str_sanitize(line + 5, 160));
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
@@ -434,9 +434,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	} else {
 		/* tagged reply, shouldn't happen. */
-		client_log_err(client, t_strdup_printf(
+		e_error(client->event,
 			"proxy: Unexpected input, ignoring: %s",
-			str_sanitize(line, 160)));
+			str_sanitize(line, 160));
 		return 0;
 	}
 }

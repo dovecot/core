@@ -472,8 +472,8 @@ void sasl_server_auth_begin(struct client *client,
 	info.session_id = client_get_session_id(client);
 
 	if (!get_cert_username(client, &info.cert_username, &error)) {
-		client_log_err(client, t_strdup_printf("Cannot get username "
-						       "from certificate: %s", error));
+		e_error(client->event,
+			"Cannot get username from certificate: %s", error);
 		sasl_server_auth_failed(client,
 			"Unable to validate certificate",
 			AUTH_CLIENT_FAIL_CODE_AUTHZFAILED);

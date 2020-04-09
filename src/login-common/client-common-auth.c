@@ -350,21 +350,20 @@ static void proxy_input(struct client *client)
 
 	switch (i_stream_read(input)) {
 	case -2:
-		client_log_err(client, "proxy: Remote input buffer full");
+		e_error(client->event, "proxy: Remote input buffer full");
 		client_proxy_failed(client, TRUE);
 		return;
 	case -1:
 		line = i_stream_next_line(input);
 		duration = ioloop_time - client->created;
-		client_log_err(client, t_strdup_printf(
-			"proxy: Remote %s:%u disconnected: %s "
+		e_error(client->event, "proxy: Remote %s:%u disconnected: %s "
 			"(state=%s, duration=%us)%s",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
 			io_stream_get_disconnect_reason(input, NULL),
 			client_proxy_get_state(client), duration,
 			line == NULL ? "" : t_strdup_printf(
-				" - BUG: line not read: %s", line)));
+				" - BUG: line not read: %s", line));
 		client_proxy_failed(client, TRUE);
 		return;
 	}
@@ -394,12 +393,12 @@ static int proxy_start(struct client *client,
 	client->v.proxy_reset(client);
 
 	if (reply->password == NULL) {
-		client_log_err(client, "proxy: password not given");
+		e_error(client->event, "proxy: password not given");
 		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 	if (reply->host == NULL || *reply->host == '\0') {
-		client_log_err(client, "proxy: host not given");
+		e_error(client->event, "proxy: host not given");
 		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
@@ -407,9 +406,9 @@ static int proxy_start(struct client *client,
 	if (reply->proxy_mech != NULL) {
 		sasl_mech = dsasl_client_mech_find(reply->proxy_mech);
 		if (sasl_mech == NULL) {
-			client_log_err(client, t_strdup_printf(
+			e_error(client->event,
 				"proxy: Unsupported SASL mechanism %s",
-				reply->proxy_mech));
+				reply->proxy_mech);
 			client_proxy_error(client, PROXY_FAILURE_MSG);
 			return -1;
 		}
@@ -427,7 +426,7 @@ static int proxy_start(struct client *client,
 	}
 	if (login_proxy_is_ourself(client, reply->host, reply->port,
 				   reply->destuser)) {
-		client_log_err(client, "Proxying loops to itself");
+		e_error(client->event, "Proxying loops to itself");
 		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}

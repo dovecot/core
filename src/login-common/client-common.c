@@ -97,7 +97,7 @@ static void client_idle_disconnect_timeout(struct client *client)
 		user_reason = "Timeout while finishing login.";
 		destroy_reason = t_strdup_printf(
 			"Timeout while finishing login (waited %u secs)", secs);
-		client_log_err(client, destroy_reason);
+		e_error(client->event, "%s", destroy_reason);
 	} else if (client->auth_request != NULL) {
 		user_reason =
 			"Disconnected for inactivity during authentication.";
@@ -112,7 +112,7 @@ static void client_idle_disconnect_timeout(struct client *client)
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
 			client_proxy_get_state(client), secs);
-		client_log_err(client, destroy_reason);
+		e_error(client->event, "%s", destroy_reason);
 	} else {
 		user_reason = "Disconnected for inactivity.";
 		destroy_reason = "Disconnected: Inactivity";
@@ -509,15 +509,15 @@ int client_init_ssl(struct client *client)
 	   command. */
 	ssl_set.allow_invalid_cert = TRUE;
 	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
-		client_log_err(client, t_strdup_printf(
-			"Failed to initialize SSL server context: %s", error));
+		e_error(client->event,
+			"Failed to initialize SSL server context: %s", error);
 		return -1;
 	}
 	if (io_stream_create_ssl_server(ssl_ctx, &ssl_set,
 					&client->input, &client->output,
 					&client->ssl_iostream, &error) < 0) {
-		client_log_err(client, t_strdup_printf(
-			"Failed to initialize SSL connection: %s", error));
+		e_error(client->event,
+			"Failed to initialize SSL connection: %s", error);
 		ssl_iostream_context_unref(&ssl_ctx);
 		return -1;
 	}
@@ -630,7 +630,7 @@ int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
 	   disconnects. Create a socketpair where login process is proxying on
 	   one side and the other side is sent to the post-login process. */
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
-		client_log_err(client, t_strdup_printf("socketpair() failed: %m"));
+		e_error(client->event, "socketpair() failed: %m");
 		return -1;
 	}
 	fd_set_nonblock(fds[0], TRUE);

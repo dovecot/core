@@ -87,9 +87,9 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	str_printfa(str, "AUTH %s ", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
 				&sasl_output, &len, &error) < 0) {
-		client_log_err(&client->common, t_strdup_printf(
+		e_error(client->common.event,
 			"proxy: SASL mechanism %s init failed: %s",
-			mech_name, error));
+			mech_name, error);
 		return -1;
 	}
 	if (len == 0)
@@ -117,7 +117,7 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 
 	str = t_str_new(128);
 	if (base64_decode(line, strlen(line), NULL, str) < 0) {
-		client_log_err(client, "proxy: Server sent invalid base64 data in AUTH response");
+		e_error(client->event, "proxy: Server sent invalid base64 data in AUTH response");
 		return -1;
 	}
 	ret = dsasl_client_input(client->proxy_sasl_client,
@@ -127,9 +127,9 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 					  &data, &data_len, &error);
 	}
 	if (ret < 0) {
-		client_log_err(client, t_strdup_printf(
+		e_error(client->event,
 			"proxy: Server sent invalid authentication data: %s",
-			error));
+			error);
 		return -1;
 	}
 	i_assert(ret == 0);
@@ -155,9 +155,9 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	case POP3_PROXY_BANNER:
 		/* this is a banner */
 		if (!str_begins(line, "+OK")) {
-			client_log_err(client, t_strdup_printf(
+			e_error(client->event,
 				"proxy: Remote returned invalid banner: %s",
-				str_sanitize(line, 160)));
+				str_sanitize(line, 160));
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
@@ -177,9 +177,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	case POP3_PROXY_STARTTLS:
 		if (!str_begins(line, "+OK")) {
-			client_log_err(client, t_strdup_printf(
-				"proxy: Remote STLS failed: %s",
-				str_sanitize(line, 160)));
+			e_error(client->event, "proxy: Remote STLS failed: %s",
+				str_sanitize(line, 160));
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
@@ -196,9 +195,9 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		return 1;
 	case POP3_PROXY_XCLIENT:
 		if (!str_begins(line, "+OK")) {
-			client_log_err(client, t_strdup_printf(
+			e_error(client->event,
 				"proxy: Remote XCLIENT failed: %s",
-				str_sanitize(line, 160)));
+				str_sanitize(line, 160));
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
