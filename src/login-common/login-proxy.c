@@ -850,7 +850,8 @@ static bool director_username_hash(struct client *client, unsigned int *hash_r)
 				   client->set->director_username_hash,
 				   &client->director_username_hash_cache,
 				   &error)) {
-		i_error("Failed to expand director_username_hash=%s: %s",
+		e_error(client->event,
+			"Failed to expand director_username_hash=%s: %s",
 			client->set->director_username_hash, error);
 		return FALSE;
 	}

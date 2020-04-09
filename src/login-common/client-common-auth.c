@@ -165,7 +165,8 @@ static void client_auth_parse_args(struct client *client, bool success,
 			reply_r->source_ip = value;
 		else if (strcmp(key, "port") == 0) {
 			if (net_str2port(value, &reply_r->port) < 0) {
-				i_error("Auth service returned invalid "
+				e_error(client->event,
+					"Auth service returned invalid "
 					"port number: %s", value);
 			}
 		} else if (strcmp(key, "destuser") == 0)
@@ -174,13 +175,15 @@ static void client_auth_parse_args(struct client *client, bool success,
 			reply_r->password = value;
 		else if (strcmp(key, "proxy_timeout") == 0) {
 			if (str_to_uint(value, &reply_r->proxy_timeout_msecs) < 0) {
-				i_error("BUG: Auth service returned invalid "
+				e_error(client->event,
+					"BUG: Auth service returned invalid "
 					"proxy_timeout value: %s", value);
 			}
 			reply_r->proxy_timeout_msecs *= 1000;
 		} else if (strcmp(key, "proxy_refresh") == 0) {
 			if (str_to_uint(value, &reply_r->proxy_refresh_secs) < 0) {
-				i_error("BUG: Auth service returned invalid "
+				e_error(client->event,
+					"BUG: Auth service returned invalid "
 					"proxy_refresh value: %s", value);
 			}
 		} else if (strcmp(key, "proxy_mech") == 0)
@@ -734,7 +737,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		/* the fd may still be hanging somewhere in kernel or another
 		   process. make sure the client gets disconnected. */
 		if (shutdown(client->fd, SHUT_RDWR) < 0 && errno != ENOTCONN)
-			i_error("shutdown() failed: %m");
+			e_error(client->event, "shutdown() failed: %m");
 
 		if (data != NULL) {
 			/* e.g. mail_max_userip_connections is reached */
