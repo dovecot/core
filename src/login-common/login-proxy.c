@@ -36,6 +36,9 @@
 #define LOGIN_PROXY_SIDE_CLIENT IOSTREAM_PROXY_SIDE_LEFT
 #define LOGIN_PROXY_SIDE_SERVER IOSTREAM_PROXY_SIDE_RIGHT
 
+enum login_proxy_free_flags {
+	LOGIN_PROXY_FREE_FLAG_DELAYED = BIT(0)
+};
 
 struct login_proxy {
 	struct login_proxy *prev, *next;
@@ -474,7 +477,7 @@ static unsigned int login_proxy_delay_disconnect(struct login_proxy *proxy)
 
 static void ATTR_NULL(2)
 login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
-		      bool delayed)
+		      enum login_proxy_free_flags flags)
 {
 	struct login_proxy *proxy = *_proxy;
 	struct client *client = proxy->client;
@@ -494,7 +497,7 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 		/* detached proxy */
 		DLLIST_REMOVE(&login_proxies, proxy);
 
-		if (delayed)
+		if ((flags & LOGIN_PROXY_FREE_FLAG_DELAYED) != 0)
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
 		ipstr = net_ip2addr(&proxy->client->ip);
@@ -528,13 +531,13 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 static void ATTR_NULL(2)
 login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 {
-	login_proxy_free_full(_proxy, reason, FALSE);
+	login_proxy_free_full(_proxy, reason, 0);
 }
 
 static void ATTR_NULL(2)
 login_proxy_free_delayed(struct login_proxy **_proxy, const char *reason)
 {
-	login_proxy_free_full(_proxy, reason, TRUE);
+	login_proxy_free_full(_proxy, reason, LOGIN_PROXY_FREE_FLAG_DELAYED);
 }
 
 void login_proxy_free(struct login_proxy **_proxy)
