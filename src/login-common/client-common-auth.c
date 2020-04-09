@@ -382,6 +382,40 @@ static void proxy_input(struct client *client)
 	o_stream_unref(&output);
 }
 
+static bool
+proxy_check_start(struct client *client, const struct client_auth_reply *reply,
+		  const struct dsasl_client_mech **sasl_mech_r)
+{
+	if (reply->password == NULL) {
+		e_error(client->event, "proxy: password not given");
+		return FALSE;
+	}
+	if (reply->host == NULL || *reply->host == '\0') {
+		e_error(client->event, "proxy: host not given");
+		return FALSE;
+	}
+
+	if (reply->proxy_mech != NULL) {
+		*sasl_mech_r = dsasl_client_mech_find(reply->proxy_mech);
+		if (*sasl_mech_r == NULL) {
+			e_error(client->event,
+				"proxy: Unsupported SASL mechanism %s",
+				reply->proxy_mech);
+			return FALSE;
+		}
+	} else if (reply->master_user != NULL) {
+		/* have to use PLAIN authentication with master user logins */
+		*sasl_mech_r = &dsasl_client_mech_plain;
+	}
+
+	if (login_proxy_is_ourself(client, reply->host, reply->port,
+				   reply->destuser)) {
+		e_error(client->event, "Proxying loops to itself");
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static int proxy_start(struct client *client,
 		       const struct client_auth_reply *reply)
 {
@@ -389,40 +423,14 @@ static int proxy_start(struct client *client,
 	const struct dsasl_client_mech *sasl_mech = NULL;
 
 	i_assert(reply->destuser != NULL);
+	i_assert(client->refcount > 1);
 	i_assert(!client->destroyed);
 	i_assert(client->proxy_sasl_client == NULL);
 
 	client->proxy_mech = NULL;
 	client->v.proxy_reset(client);
 
-	if (reply->password == NULL) {
-		e_error(client->event, "proxy: password not given");
-		client_proxy_error(client, PROXY_FAILURE_MSG);
-		return -1;
-	}
-	if (reply->host == NULL || *reply->host == '\0') {
-		e_error(client->event, "proxy: host not given");
-		client_proxy_error(client, PROXY_FAILURE_MSG);
-		return -1;
-	}
-
-	if (reply->proxy_mech != NULL) {
-		sasl_mech = dsasl_client_mech_find(reply->proxy_mech);
-		if (sasl_mech == NULL) {
-			e_error(client->event,
-				"proxy: Unsupported SASL mechanism %s",
-				reply->proxy_mech);
-			client_proxy_error(client, PROXY_FAILURE_MSG);
-			return -1;
-		}
-	} else if (reply->master_user != NULL) {
-		/* have to use PLAIN authentication with master user logins */
-		sasl_mech = &dsasl_client_mech_plain;
-	}
-
-	if (login_proxy_is_ourself(client, reply->host, reply->port,
-				   reply->destuser)) {
-		e_error(client->event, "Proxying loops to itself");
+	if (!proxy_check_start(client, reply, &sasl_mech)) {
 		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
