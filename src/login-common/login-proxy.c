@@ -576,6 +576,11 @@ struct ostream *login_proxy_get_ostream(struct login_proxy *proxy)
 	return proxy->server_output;
 }
 
+struct event *login_proxy_get_event(struct login_proxy *proxy)
+{
+	return proxy->event;
+}
+
 const char *login_proxy_get_host(const struct login_proxy *proxy)
 {
 	return proxy->host;
