@@ -65,7 +65,6 @@ struct login_proxy {
 	bool connected:1;
 	bool detached:1;
 	bool destroying:1;
-	bool disconnecting:1;
 	bool delayed_disconnect:1;
 	bool num_waiting_connections_updated:1;
 };
@@ -564,7 +563,7 @@ bool login_proxy_is_ourself(const struct client *client, const char *host,
 
 struct istream *login_proxy_get_istream(struct login_proxy *proxy)
 {
-	return proxy->disconnecting ? NULL : proxy->server_input;
+	return proxy->server_input;
 }
 
 struct ostream *login_proxy_get_ostream(struct login_proxy *proxy)
