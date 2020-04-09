@@ -26,9 +26,9 @@
 #define LOGIN_PROXY_DIE_IDLE_SECS 2
 #define LOGIN_PROXY_IPC_PATH "ipc-proxy"
 #define LOGIN_PROXY_IPC_NAME "proxy"
-#define KILLED_BY_ADMIN_REASON "Kicked by admin"
-#define KILLED_BY_DIRECTOR_REASON "Kicked via director"
-#define KILLED_BY_SHUTDOWN_REASON "Process shutting down"
+#define KILLED_BY_ADMIN_REASON "Disconnected by proxy: Kicked by admin"
+#define KILLED_BY_DIRECTOR_REASON "Disconnected by proxy: Kicked via director"
+#define KILLED_BY_SHUTDOWN_REASON "Disconnected by proxy: Process shutting down"
 #define PROXY_IMMEDIATE_FAILURE_SECS 30
 #define PROXY_CONNECT_RETRY_MSECS 1000
 #define PROXY_DISCONNECT_INTERVAL_MSECS 100
@@ -480,8 +480,12 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 		if ((flags & LOGIN_PROXY_FREE_FLAG_DELAYED) != 0)
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
-		e_info(proxy->event, "disconnecting (%s)%s", reason,
-		       delay_ms == 0 ? "" : t_strdup_printf(" - disconnecting client in %ums", delay_ms));
+		if (delay_ms == 0)
+			e_info(proxy->event, "%s", reason);
+		else {
+			e_info(proxy->event, "%s - disconnecting client in %ums",
+			       reason, delay_ms);
+		}
 
 		i_assert(detached_login_proxies_count > 0);
 		detached_login_proxies_count--;
