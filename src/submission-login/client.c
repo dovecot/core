@@ -301,6 +301,10 @@ static struct login_binary submission_login_binary = {
 	.process_name = "submission-login",
 	.default_port = 587,
 
+	.event_category = {
+		.name = "submission",
+	},
+
 	.client_vfuncs = &submission_client_vfuncs,
 	.preinit = submission_login_preinit,
 	.init = submission_login_init,

@@ -339,6 +339,10 @@ static struct login_binary pop3_login_binary = {
 	.default_port = 110,
 	.default_ssl_port = 995,
 
+	.event_category = {
+		.name = "pop3",
+	},
+
 	.client_vfuncs = &pop3_client_vfuncs,
 	.preinit = pop3_login_preinit,
 	.init = pop3_login_init,

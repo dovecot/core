@@ -559,6 +559,10 @@ static struct login_binary imap_login_binary = {
 	.default_port = 143,
 	.default_ssl_port = 993,
 
+	.event_category = {
+		.name = "imap",
+	},
+
 	.client_vfuncs = &imap_client_vfuncs,
 	.preinit = imap_login_preinit,
 	.init = imap_login_init,

@@ -30,6 +30,8 @@ struct login_binary {
 	/* if value is NULL, LOGIN_DEFAULT_SOCKET is used as the default */
 	const char *default_login_socket;
 
+	struct event_category event_category;
+
 	const struct client_vfuncs *client_vfuncs;
 	void (*preinit)(void);
 	void (*init)(void);

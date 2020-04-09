@@ -177,6 +177,10 @@ static struct login_binary imap_urlauth_login_binary = {
 	.process_name = "imap-urlauth-login",
 	.default_login_socket = LOGIN_TOKEN_DEFAULT_SOCKET,
 
+	.event_category = {
+		.name = "imap",
+	},
+
 	.client_vfuncs = &imap_urlauth_vfuncs,
 	.preinit = imap_urlauth_login_preinit,
 	.init = imap_urlauth_login_init,
