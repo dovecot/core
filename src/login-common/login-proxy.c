@@ -183,8 +183,7 @@ proxy_log_connect_error(struct login_proxy *proxy)
 		str_printfa(str, "connect(%s, %u) failed: %m",
 			    net_ip2addr(&proxy->ip), proxy->port);
 	} else {
-		str_printfa(str, "Login for %s:%u timed out in state=%s",
-			    net_ip2addr(&proxy->ip), proxy->port,
+		str_printfa(str, "Login timed out in state=%s",
 			    client_proxy_get_state(proxy->client));
 	}
 	str_printfa(str, " (after %u secs",
@@ -289,8 +288,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
-		e_error(proxy->event, "Host %s:%u is down",
-			net_ip2addr(&proxy->ip), proxy->port);
+		e_error(proxy->event, "Host is down");
 		return -1;
 	}
 
@@ -463,7 +461,6 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 {
 	struct login_proxy *proxy = *_proxy;
 	struct client *client = proxy->client;
-	const char *ipstr;
 	unsigned int delay_ms = 0;
 
 	*_proxy = NULL;
@@ -483,9 +480,7 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 		if ((flags & LOGIN_PROXY_FREE_FLAG_DELAYED) != 0)
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
-		ipstr = net_ip2addr(&proxy->client->ip);
-		e_info(proxy->event, "disconnecting %s (%s)%s",
-		       ipstr != NULL ? ipstr : "", reason,
+		e_info(proxy->event, "disconnecting (%s)%s", reason,
 		       delay_ms == 0 ? "" : t_strdup_printf(" - disconnecting client in %ums", delay_ms));
 
 		i_assert(detached_login_proxies_count > 0);
@@ -686,18 +681,14 @@ int login_proxy_starttls(struct login_proxy *proxy)
 					&proxy->server_output,
 					&proxy->server_ssl_iostream,
 					&error) < 0) {
-		e_error(proxy->event,
-			"Failed to create SSL client to %s:%u: %s",
-			net_ip2addr(&proxy->ip), proxy->port, error);
+		e_error(proxy->event, "Failed to create SSL client: %s", error);
 		ssl_iostream_context_unref(&ssl_ctx);
 		return -1;
 	}
 	ssl_iostream_context_unref(&ssl_ctx);
 	if (ssl_iostream_handshake(proxy->server_ssl_iostream) < 0) {
 		error = ssl_iostream_get_last_error(proxy->server_ssl_iostream);
-		e_error(proxy->event,
-			"Failed to start SSL handshake to %s:%u: %s",
-			net_ip2addr(&proxy->ip), proxy->port,
+		e_error(proxy->event, "Failed to start SSL handshake: %s",
 			ssl_iostream_get_last_error(proxy->server_ssl_iostream));
 		return -1;
 	}

@@ -107,10 +107,8 @@ static void client_idle_disconnect_timeout(struct client *client)
 		secs = ioloop_time - client->created;
 		user_reason = "Timeout while finishing login.";
 		destroy_reason = t_strdup_printf(
-			"Logging in to %s:%u timed out "
+			"Logging in timed out "
 			"(state=%s, duration=%us)",
-			login_proxy_get_host(client->login_proxy),
-			login_proxy_get_port(client->login_proxy),
 			client_proxy_get_state(client), secs);
 		e_error(login_proxy_get_event(client->login_proxy),
 			"%s", destroy_reason);

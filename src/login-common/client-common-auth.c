@@ -262,13 +262,13 @@ void client_proxy_finish_destroy_client(struct client *client)
 		return;
 	}
 
-	str_printfa(str, "started proxying to %s:%u",
-		    login_proxy_get_host(client->login_proxy),
-		    login_proxy_get_port(client->login_proxy));
+	/* Include hostname in the log message in case it's different from the
+	   IP address in the prefix. */
+	str_printfa(str, "started proxying to %s",
+		    login_proxy_get_host(client->login_proxy));
 	if (strcmp(client->virtual_user, client->proxy_user) != 0) {
 		/* remote username is different, log it */
-		str_append_c(str, '/');
-		str_append(str, client->proxy_user);
+		str_printfa(str, " as user %s", client->proxy_user);
 	}
 	if (client->proxy_master_user != NULL)
 		str_printfa(str, " (master %s)", client->proxy_master_user);
@@ -292,13 +292,10 @@ void client_proxy_log_failure(struct client *client, const char *line)
 {
 	string_t *str = t_str_new(128);
 
-	str_printfa(str, "Login failed to %s:%u",
-		    login_proxy_get_host(client->login_proxy),
-		    login_proxy_get_port(client->login_proxy));
+	str_printfa(str, "Login failed");
 	if (strcmp(client->virtual_user, client->proxy_user) != 0) {
 		/* remote username is different, log it */
-		str_append_c(str, '/');
-		str_append(str, client->proxy_user);
+		str_printfa(str, " as user %s", client->proxy_user);
 	}
 	if (client->proxy_master_user != NULL)
 		str_printfa(str, " (master %s)", client->proxy_master_user);
@@ -361,10 +358,8 @@ static void proxy_input(struct client *client)
 		line = i_stream_next_line(input);
 		duration = ioloop_time - client->created;
 		e_error(login_proxy_get_event(client->login_proxy),
-			"Disconnected by server %s:%u: %s "
+			"Disconnected by server: %s "
 			"(state=%s, duration=%us)%s",
-			login_proxy_get_host(client->login_proxy),
-			login_proxy_get_port(client->login_proxy),
 			io_stream_get_disconnect_reason(input, NULL),
 			client_proxy_get_state(client), duration,
 			line == NULL ? "" : t_strdup_printf(
@@ -474,6 +469,11 @@ static int proxy_start(struct client *client,
 		proxy_set.connect_timeout_msecs = PROXY_DEFAULT_TIMEOUT_MSECS;
 	proxy_set.notify_refresh_secs = reply->proxy_refresh_secs;
 	proxy_set.ssl_flags = reply->ssl_flags;
+
+	/* Include destination ip:port also in the log prefix */
+	event_set_append_log_prefix(event, t_strdup_printf(
+		"proxy(%s,%s:%u): ", client->virtual_user,
+		net_ip2addr(&proxy_set.ip), proxy_set.port));
 
 	if (login_proxy_new(client, event, &proxy_set, proxy_input) < 0) {
 		event_unref(&event);
