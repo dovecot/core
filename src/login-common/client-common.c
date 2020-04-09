@@ -940,21 +940,6 @@ client_get_log_str(struct client *client, const char *msg)
 	return str_c(str);
 }
 
-void client_log(struct client *client, const char *msg)
-{
-	e_info(client->event, "%s", msg);
-}
-
-void client_log_err(struct client *client, const char *msg)
-{
-	e_error(client->event, "%s", msg);
-}
-
-void client_log_warn(struct client *client, const char *msg)
-{
-	e_warning(client->event, "%s", msg);
-}
-
 bool client_is_tls_enabled(struct client *client)
 {
 	return login_ssl_initialized && strcmp(client->ssl_set->ssl, "no") != 0;

@@ -281,9 +281,6 @@ struct client *clients_get_first_fd_proxy(void);
 void client_add_forward_field(struct client *client, const char *key,
 			      const char *value);
 void client_set_title(struct client *client);
-void client_log(struct client *client, const char *msg);
-void client_log_err(struct client *client, const char *msg);
-void client_log_warn(struct client *client, const char *msg);
 const char *client_get_extra_disconnect_reason(struct client *client);
 
 void client_auth_respond(struct client *client, const char *response);
