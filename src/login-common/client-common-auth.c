@@ -82,8 +82,8 @@ static void client_auth_failed(struct client *client)
 static void client_auth_waiting_timeout(struct client *client)
 {
 	if (!client->notified_auth_ready) {
-		client_log_warn(client, "Auth process not responding, "
-				"delayed sending initial response (greeting)");
+		e_warning(client->event, "Auth process not responding, "
+			  "delayed sending initial response (greeting)");
 	}
 	client_notify_status(client, FALSE, client->master_tag == 0 ?
 			     AUTH_SERVER_WAITING_MSG : AUTH_MASTER_WAITING_MSG);
