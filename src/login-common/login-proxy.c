@@ -499,12 +499,11 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
 		ipstr = net_ip2addr(&proxy->client->ip);
-		client_log(proxy->client, t_strdup_printf(
-			"proxy(%s): disconnecting %s%s%s",
-			proxy->client->virtual_user,
-			ipstr != NULL ? ipstr : "",
-			reason == NULL ? "" : t_strdup_printf(" (%s)", reason),
-			delay_ms == 0 ? "" : t_strdup_printf(" - disconnecting client in %ums", delay_ms)));
+		e_info(proxy->client->event, "proxy(%s): disconnecting %s%s%s",
+		       proxy->client->virtual_user,
+		       ipstr != NULL ? ipstr : "",
+		       reason == NULL ? "" : t_strdup_printf(" (%s)", reason),
+		       delay_ms == 0 ? "" : t_strdup_printf(" - disconnecting client in %ums", delay_ms));
 
 		i_assert(detached_login_proxies_count > 0);
 		detached_login_proxies_count--;

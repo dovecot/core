@@ -302,7 +302,7 @@ void client_proxy_log_failure(struct client *client, const char *line)
 		str_printfa(str, " (master %s)", client->proxy_master_user);
 	str_append(str, ": ");
 	str_append(str, line);
-	client_log(client, str_c(str));
+	e_info(client->event, "%s", str_c(str));
 }
 
 void client_proxy_failed(struct client *client, bool send_line)
@@ -779,8 +779,8 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 {
 	if (!client->secured && strcmp(client->ssl_set->ssl, "required") == 0) {
 		if (client->set->auth_verbose) {
-			client_log(client, "Login failed: "
-				   "SSL required for authentication");
+			e_info(client->event, "Login failed: "
+			       "SSL required for authentication");
 		}
 		client->auth_attempts++;
 		client_auth_result(client, CLIENT_AUTH_RESULT_SSL_REQUIRED, NULL,
@@ -824,8 +824,8 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 		return TRUE;
 
 	if (client->set->auth_verbose) {
-		client_log(client, "Login failed: "
-			   "Plaintext authentication disabled");
+		e_info(client->event, "Login failed: "
+		       "Plaintext authentication disabled");
 	}
 	if (pass_sent) {
 		client_notify_status(client, TRUE,

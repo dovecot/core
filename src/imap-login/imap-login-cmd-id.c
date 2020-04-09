@@ -199,8 +199,8 @@ static void cmd_id_finish(struct imap_client *client)
 		client->id_logged = TRUE;
 
 		if (client->cmd_id->log_reply != NULL) {
-			client_log(&client->common, t_strdup_printf(
-				"ID sent: %s", str_c(client->cmd_id->log_reply)));
+			e_info(client->common.event, "ID sent: %s",
+			       str_c(client->cmd_id->log_reply));
 		}
 	}
 

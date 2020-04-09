@@ -265,7 +265,7 @@ void client_disconnect(struct client *client, const char *reason)
 			reason = t_strconcat(reason, " ", extra_reason, NULL);
 	}
 	if (reason != NULL)
-		client_log(client, reason);
+		e_info(client->event, "%s", reason);
 
 	if (client->output != NULL)
 		o_stream_uncork(client->output);
@@ -498,7 +498,7 @@ int client_init_ssl(struct client *client)
 	i_assert(client->fd != -1);
 
 	if (strcmp(client->ssl_set->ssl, "no") == 0) {
-		client_log(client, "SSL is disabled (ssl=no)");
+		e_info(client->event, "SSL is disabled (ssl=no)");
 		return -1;
 	}
 
