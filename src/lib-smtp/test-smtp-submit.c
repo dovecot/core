@@ -205,7 +205,7 @@ static void test_connection_refused(void)
 
 static void test_connection_timed_out_input(struct server_connection *conn)
 {
-	sleep(10);
+	i_sleep_intr_secs(10);
 	server_connection_deinit(&conn);
 }
 
@@ -1210,7 +1210,7 @@ static void test_data_timout_input(struct server_connection *conn)
 			ctx->state = DATA_TIMEOUT_STATE_FINISH;
 			continue;
 		case DATA_TIMEOUT_STATE_FINISH:
-			sleep(10);
+			i_sleep_intr_secs(10);
 			server_connection_deinit(&conn);
 			return;
 		}
@@ -2127,7 +2127,7 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 				/* wait for it to be killed; this way, valgrind
 				   will not object to this process going away
 				   inelegantly. */
-				sleep(60);
+				i_sleep_intr_secs(60);
 				exit(1);
 			}
 			if (fd_listen != -1)
