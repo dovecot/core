@@ -110,7 +110,7 @@ static void login_proxy_free_errstr(struct login_proxy **_proxy,
 	if (errstr[0] != '\0')
 		str_printfa(reason, ": %s", errstr);
 
-	str_printfa(reason, "(%ds idle, in=%"PRIuUOFF_T", out=%"PRIuUOFF_T,
+	str_printfa(reason, " (%ds idle, in=%"PRIuUOFF_T", out=%"PRIuUOFF_T,
 		    (int)(ioloop_time - proxy_last_io(proxy)),
 		    proxy->server_output->offset, proxy->client_output->offset);
 	if (o_stream_get_buffer_used_size(proxy->client_output) > 0) {
