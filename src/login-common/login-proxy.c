@@ -85,12 +85,9 @@ static void login_proxy_disconnect(struct login_proxy *proxy);
 static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line);
 static void login_proxy_free_final(struct login_proxy *proxy);
 
-static void
-login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
-	ATTR_NULL(2);
-static void
-login_proxy_free_delayed(struct login_proxy **_proxy, const char *reason)
-	ATTR_NULL(2);
+static void ATTR_NULL(2)
+login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
+		      enum login_proxy_free_flags flags);
 
 static time_t proxy_last_io(struct login_proxy *proxy)
 {
@@ -128,10 +125,8 @@ static void login_proxy_free_errstr(struct login_proxy **_proxy,
 		str_append(reason, ", server output blocked");
 
 	str_append_c(reason, ')');
-	if (server)
-		login_proxy_free_delayed(_proxy, str_c(reason));
-	else
-		login_proxy_free_reason(_proxy, str_c(reason));
+	login_proxy_free_full(_proxy, str_c(reason),
+			      server ? LOGIN_PROXY_FREE_FLAG_DELAYED : 0);
 }
 
 static void proxy_client_disconnected_input(struct login_proxy *proxy)
@@ -528,21 +523,9 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 	}
 }
 
-static void ATTR_NULL(2)
-login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
-{
-	login_proxy_free_full(_proxy, reason, 0);
-}
-
-static void ATTR_NULL(2)
-login_proxy_free_delayed(struct login_proxy **_proxy, const char *reason)
-{
-	login_proxy_free_full(_proxy, reason, LOGIN_PROXY_FREE_FLAG_DELAYED);
-}
-
 void login_proxy_free(struct login_proxy **_proxy)
 {
-	login_proxy_free_reason(_proxy, NULL);
+	login_proxy_free_full(_proxy, NULL, 0);
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,
@@ -735,7 +718,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 static void proxy_kill_idle(struct login_proxy *proxy)
 {
-	login_proxy_free_reason(&proxy, KILLED_BY_SHUTDOWN_REASON);
+	login_proxy_free_full(&proxy, KILLED_BY_SHUTDOWN_REASON, 0);
 }
 
 void login_proxy_kill_idle(void)
@@ -801,7 +784,8 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 		next = proxy->next;
 
 		if (want_kick(proxy->client, args, key_idx)) {
-			login_proxy_free_delayed(&proxy, KILLED_BY_ADMIN_REASON);
+			login_proxy_free_full(&proxy, KILLED_BY_ADMIN_REASON,
+					      LOGIN_PROXY_FREE_FLAG_DELAYED);
 			count++;
 		}
 	}
@@ -892,7 +876,8 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 		if (director_username_hash(proxy->client, &proxy_hash) &&
 		    proxy_hash == hash &&
 		    !net_ip_compare(&proxy->ip, &except_ip)) {
-			login_proxy_free_delayed(&proxy, KILLED_BY_DIRECTOR_REASON);
+			login_proxy_free_full(&proxy, KILLED_BY_DIRECTOR_REASON,
+					      LOGIN_PROXY_FREE_FLAG_DELAYED);
 			count++;
 		}
 	}
@@ -997,7 +982,7 @@ void login_proxy_deinit(void)
 
 	while (login_proxies != NULL) {
 		proxy = login_proxies;
-		login_proxy_free_reason(&proxy, KILLED_BY_SHUTDOWN_REASON);
+		login_proxy_free_full(&proxy, KILLED_BY_SHUTDOWN_REASON, 0);
 	}
 	i_assert(detached_login_proxies_count == 0);
 
