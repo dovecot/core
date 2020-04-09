@@ -353,14 +353,15 @@ static void proxy_input(struct client *client)
 	switch (i_stream_read(input)) {
 	case -2:
 		e_error(login_proxy_get_event(client->login_proxy),
-			"Remote input buffer full");
+			"Disconnected by proxy: "
+			"Received too long line from remote server");
 		client_proxy_failed(client, TRUE);
 		return;
 	case -1:
 		line = i_stream_next_line(input);
 		duration = ioloop_time - client->created;
 		e_error(login_proxy_get_event(client->login_proxy),
-			"Remote %s:%u disconnected: %s "
+			"Disconnected by server %s:%u: %s "
 			"(state=%s, duration=%us)%s",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
