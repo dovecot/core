@@ -265,8 +265,12 @@ void client_disconnect(struct client *client, const char *reason)
 		if (extra_reason[0] != '\0')
 			reason = t_strconcat(reason, " ", extra_reason, NULL);
 	}
-	if (reason != NULL)
-		e_info(client->event, "%s", reason);
+	if (reason != NULL) {
+		struct event *event = client->login_proxy == NULL ?
+			client->event :
+			login_proxy_get_event(client->login_proxy);
+		e_info(event, "%s", reason);
+	}
 
 	if (client->output != NULL)
 		o_stream_uncork(client->output);

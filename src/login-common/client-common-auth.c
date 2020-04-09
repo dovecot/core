@@ -262,8 +262,7 @@ void client_proxy_finish_destroy_client(struct client *client)
 		return;
 	}
 
-	str_printfa(str, "proxy(%s): started proxying to %s:%u",
-		    client->virtual_user,
+	str_printfa(str, "started proxying to %s:%u",
 		    login_proxy_get_host(client->login_proxy),
 		    login_proxy_get_port(client->login_proxy));
 	if (strcmp(client->virtual_user, client->proxy_user) != 0) {
