@@ -2112,11 +2112,10 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 					io_loop_destroy(&ioloop);
 				}
 				lib_signals_deinit();
-				if (debug) {
-					i_debug("server[%d]: PID=%s",
-						i + 1, my_pid);
-				}
 				/* child: server */
+				i_set_failure_prefix("SERVER[%u]: ", i + 1);
+				if (debug)
+					i_debug("PID=%s", my_pid);
 				ioloop = io_loop_create();
 				server_test(i);
 				io_loop_destroy(&ioloop);
@@ -2134,13 +2133,13 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 			if (fd_listen != -1)
 				i_close_fd(&fd_listen);
 		}
-		if (debug)
-			i_debug("client: PID=%s", my_pid);
-
 		lib_signals_ioloop_attach();
 	}
 
 	/* parent: client */
+	i_set_failure_prefix("CLIENT: ");
+	if (debug)
+		i_debug("PID=%s", my_pid);
 
 	i_sleep_msecs(100); /* wait a little for server setup */
 	server_port = 0;
@@ -2151,6 +2150,7 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 
+	i_unset_failure_prefix();
 	test_servers_kill_all();
 	i_free(server_pids);
 	i_free(bind_ports);
