@@ -296,6 +296,7 @@ static bool args_parse_user(struct client *client, const char *arg)
 		i_free_and_null(client->virtual_user_orig);
 		i_free_and_null(client->virtual_auth_user);
 		client->virtual_user = i_strdup(arg + 5);
+		event_add_str(client->event, "user", client->virtual_user);
 	} else if (str_begins(arg, "original_user=")) {
 		i_free(client->virtual_user_orig);
 		client->virtual_user_orig = i_strdup(arg + 14);

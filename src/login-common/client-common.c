@@ -204,6 +204,14 @@ client_alloc(int fd, pool_t pool,
 			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
 	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;
+
+	client->event = event_create(NULL);
+	event_add_category(client->event, &login_binary->event_category);
+	event_add_str(client->event, "local_ip", net_ip2addr(&conn->local_ip));
+	event_add_int(client->event, "local_port", conn->local_port);
+	event_add_str(client->event, "remote_ip", net_ip2addr(&conn->remote_ip));
+	event_add_int(client->event, "remote_port", conn->remote_port);
+
 	client_open_streams(client);
 	return client;
 }
@@ -353,6 +361,7 @@ bool client_unref(struct client **_client)
 		i_stream_unref(&client->input);
 		o_stream_unref(&client->output);
 		pool_unref(&client->preproxy_pool);
+		event_unref(&client->event);
 		pool_unref(&client->pool);
 		return FALSE;
 	}
@@ -373,6 +382,7 @@ bool client_unref(struct client **_client)
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
 	i_close_fd(&client->fd);
+	event_unref(&client->event);
 
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);

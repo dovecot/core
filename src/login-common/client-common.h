@@ -146,6 +146,7 @@ struct client {
 
 	time_t created;
 	int refcount;
+	struct event *event;
 
 	struct ip_addr local_ip;
 	struct ip_addr ip;
