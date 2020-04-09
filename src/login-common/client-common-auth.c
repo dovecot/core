@@ -422,11 +422,6 @@ static int proxy_start(struct client *client,
 
 	i_assert(client->refcount > 1);
 
-	if (client->destroyed) {
-		/* connection_queue_add() decided that we were the oldest
-		   connection and killed us. */
-		return -1;
-	}
 	if (login_proxy_is_ourself(client, reply->host, reply->port,
 				   reply->destuser)) {
 		e_error(client->event, "Proxying loops to itself");
