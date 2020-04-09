@@ -2071,6 +2071,44 @@ static void test_message_delivery(const char *message, const char *file)
 }
 
 static void
+test_run_server(unsigned int index, test_server_init_t server_test)
+{
+	server_port = bind_ports[index];
+
+	i_set_failure_prefix("SERVER[%u]: ", index + 1);
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop = io_loop_create();
+	server_test(index);
+	io_loop_destroy(&ioloop);
+
+	i_close_fd(&fd_listen);
+	i_free(bind_ports);
+	test_tmp_dir_deinit();
+}
+
+static void
+test_run_client(const struct smtp_submit_settings *submit_set,
+		 test_client_init_t client_test)
+{
+	i_set_failure_prefix("CLIENT: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	server_port = 0;
+	i_sleep_msecs(100); /* wait a little for server setup */
+
+	ioloop = io_loop_create();
+	if (client_test(submit_set))
+		io_loop_run(ioloop);
+	test_client_deinit();
+	io_loop_destroy(&ioloop);
+}
+
+static void
 test_run_client_server(const struct smtp_submit_settings *submit_set,
 		       test_client_init_t client_test,
 		       test_server_init_t server_test,
@@ -2100,7 +2138,6 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 
 		for (i = 0; i < server_tests_count; i++) {
 			fd_listen = fds[i];
-			server_port = bind_ports[i];
 			if ((server_pids[i] = fork()) == (pid_t)-1)
 				i_fatal("fork() failed: %m");
 			if (server_pids[i] == 0) {
@@ -2112,18 +2149,11 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 					io_loop_destroy(&ioloop);
 				}
 				lib_signals_deinit();
+
 				/* child: server */
-				i_set_failure_prefix("SERVER[%u]: ", i + 1);
-				if (debug)
-					i_debug("PID=%s", my_pid);
-				ioloop = io_loop_create();
-				server_test(i);
-				io_loop_destroy(&ioloop);
-				if (fd_listen != -1)
-					i_close_fd(&fd_listen);
-				i_free(bind_ports);
+				test_run_server(i, server_test);
+
 				i_free(server_pids);
-				test_tmp_dir_deinit();
 				/* wait for it to be killed; this way, valgrind
 				   will not object to this process going away
 				   inelegantly. */
@@ -2137,18 +2167,7 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 	}
 
 	/* parent: client */
-	i_set_failure_prefix("CLIENT: ");
-	if (debug)
-		i_debug("PID=%s", my_pid);
-
-	i_sleep_msecs(100); /* wait a little for server setup */
-	server_port = 0;
-
-	ioloop = io_loop_create();
-	if (client_test(submit_set))
-		io_loop_run(ioloop);
-	test_client_deinit();
-	io_loop_destroy(&ioloop);
+	test_run_client(submit_set, client_test);
 
 	i_unset_failure_prefix();
 	test_servers_kill_forced();
