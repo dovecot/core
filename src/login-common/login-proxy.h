@@ -38,7 +38,7 @@ typedef void proxy_callback_t(struct client *client);
 
 /* Create a proxy to given host. Returns NULL if failed. Given callback is
    called when new input is available from proxy. */
-int login_proxy_new(struct client *client,
+int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
 		    proxy_callback_t *callback);
 /* Free the proxy. This should be called if authentication fails. */

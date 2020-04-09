@@ -421,6 +421,7 @@ static int proxy_start(struct client *client,
 {
 	struct login_proxy_settings proxy_set;
 	const struct dsasl_client_mech *sasl_mech = NULL;
+	struct event *event;
 
 	i_assert(reply->destuser != NULL);
 	i_assert(client->refcount > 1);
@@ -429,9 +430,13 @@ static int proxy_start(struct client *client,
 
 	client->proxy_mech = NULL;
 	client->v.proxy_reset(client);
+	event = event_create(client->event);
+	event_set_append_log_prefix(event, t_strdup_printf(
+		"proxy(%s): ", client->virtual_user));
 
 	if (!proxy_check_start(client, reply, &sasl_mech)) {
 		client_proxy_error(client, PROXY_FAILURE_MSG);
+		event_unref(&event);
 		return -1;
 	}
 
@@ -456,10 +461,12 @@ static int proxy_start(struct client *client,
 	proxy_set.notify_refresh_secs = reply->proxy_refresh_secs;
 	proxy_set.ssl_flags = reply->ssl_flags;
 
-	if (login_proxy_new(client, &proxy_set, proxy_input) < 0) {
+	if (login_proxy_new(client, event, &proxy_set, proxy_input) < 0) {
+		event_unref(&event);
 		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
+	event_unref(&event);
 
 	client->proxy_mech = sasl_mech;
 	client->proxy_user = i_strdup(reply->destuser);

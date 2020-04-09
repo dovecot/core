@@ -41,6 +41,7 @@ struct login_proxy {
 	struct login_proxy *prev, *next;
 
 	struct client *client;
+	struct event *event;
 	int server_fd;
 	struct io *client_wait_io, *server_io;
 	struct istream *client_input, *server_input;
@@ -323,7 +324,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	return 0;
 }
 
-int login_proxy_new(struct client *client,
+int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
 		    proxy_callback_t *callback)
 {
@@ -334,6 +335,7 @@ int login_proxy_new(struct client *client,
 	if (set->host == NULL || *set->host == '\0') {
 		e_error(client->event,
 			"proxy(%s): host not given", client->virtual_user);
+		event_unref(&event);
 		return -1;
 	}
 
@@ -341,11 +343,13 @@ int login_proxy_new(struct client *client,
 		e_error(client->event,
 			"proxy(%s): TTL reached zero - "
 			"proxies appear to be looping?", client->virtual_user);
+		event_unref(&event);
 		return -1;
 	}
 
 	proxy = i_new(struct login_proxy, 1);
 	proxy->client = client;
+	proxy->event = event;
 	proxy->server_fd = -1;
 	proxy->created = ioloop_timeval;
 	proxy->ip = set->ip;
@@ -358,6 +362,7 @@ int login_proxy_new(struct client *client,
 	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
 						 proxy->port);
 	client_ref(client);
+	event_ref(proxy->event);
 
 	if (login_proxy_connect(proxy) < 0) {
 		login_proxy_free(&proxy);
@@ -414,6 +419,7 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 	i_stream_destroy(&proxy->client_input);
 	o_stream_destroy(&proxy->client_output);
 	client_unref(&proxy->client);
+	event_unref(&proxy->event);
 	i_free(proxy->host);
 	i_free(proxy);
 }
