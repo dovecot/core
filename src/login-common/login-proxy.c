@@ -324,13 +324,8 @@ int login_proxy_new(struct client *client, struct event *event,
 {
 	struct login_proxy *proxy;
 
+	i_assert(set->host != NULL && set->host[0] != '\0');
 	i_assert(client->login_proxy == NULL);
-
-	if (set->host == NULL || *set->host == '\0') {
-		e_error(event, "host not given");
-		event_unref(&event);
-		return -1;
-	}
 
 	if (client->proxy_ttl <= 1) {
 		e_error(event, "TTL reached zero - proxies appear to be looping?");
