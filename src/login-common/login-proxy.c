@@ -490,15 +490,15 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 
 	if (proxy->detached) {
 		/* detached proxy */
+		i_assert(reason != NULL || proxy->client->destroyed);
 		DLLIST_REMOVE(&login_proxies, proxy);
 
 		if ((flags & LOGIN_PROXY_FREE_FLAG_DELAYED) != 0)
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
 		ipstr = net_ip2addr(&proxy->client->ip);
-		e_info(proxy->event, "disconnecting %s%s%s",
-		       ipstr != NULL ? ipstr : "",
-		       reason == NULL ? "" : t_strdup_printf(" (%s)", reason),
+		e_info(proxy->event, "disconnecting %s (%s)%s",
+		       ipstr != NULL ? ipstr : "", reason,
 		       delay_ms == 0 ? "" : t_strdup_printf(" - disconnecting client in %ums", delay_ms));
 
 		i_assert(detached_login_proxies_count > 0);
@@ -525,6 +525,10 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 
 void login_proxy_free(struct login_proxy **_proxy)
 {
+	struct login_proxy *proxy = *_proxy;
+
+	i_assert(!proxy->detached || proxy->client->destroyed);
+	/* Note: The NULL error is never even attempted to be used here. */
 	login_proxy_free_full(_proxy, NULL, 0);
 }
 
