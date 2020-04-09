@@ -280,14 +280,6 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	proxy->num_waiting_connections_updated = FALSE;
 	rec->num_waiting_connections++;
 
-	if (proxy->ip.family == 0 &&
-	    net_addr2ip(proxy->host, &proxy->ip) < 0) {
-		e_error(proxy->event,
-			"BUG: host %s is not an IP (auth should have changed it)",
-			proxy->host);
-		return -1;
-	}
-
 	if (rec->last_success.tv_sec == 0) {
 		/* first connect to this IP. don't start immediately failing
 		   the check below. */
