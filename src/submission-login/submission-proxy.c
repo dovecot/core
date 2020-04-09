@@ -101,7 +101,7 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 	if ((client->proxy_capability & SMTP_CAPABILITY_AUTH) == 0) {
 		/* Prevent sending credentials to a server that has login
 		   disabled; i.e., due to the lack of TLS */
-		e_error(client->common.event, "proxy: "
+		e_error(login_proxy_get_event(client->common.login_proxy),
 			"Server has disabled authentication (TLS required?)");
 		return -1;
 	}
@@ -127,8 +127,8 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 	str_printfa(str, "AUTH %s ", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
 				&sasl_output, &len, &error) < 0) {
-		e_error(client->common.event,
-			"proxy: SASL mechanism %s init failed: %s",
+		e_error(login_proxy_get_event(client->common.login_proxy),
+			"SASL mechanism %s init failed: %s",
 			mech_name, error);
 		return -1;
 	}
@@ -158,7 +158,7 @@ submission_proxy_continue_sasl_auth(struct client *client, struct ostream *outpu
 
 	str = t_str_new(128);
 	if (base64_decode(line, strlen(line), NULL, str) < 0) {
-		e_error(client->event, "proxy: "
+		e_error(login_proxy_get_event(client->login_proxy),
 			"Server sent invalid base64 data in AUTH response");
 		return -1;
 	}
@@ -169,9 +169,8 @@ submission_proxy_continue_sasl_auth(struct client *client, struct ostream *outpu
 					  &data, &data_len, &error);
 	}
 	if (ret < 0) {
-		e_error(client->event,
-			"proxy: Server sent invalid authentication data: %s",
-			error);
+		e_error(login_proxy_get_event(client->login_proxy),
+			"Server sent invalid authentication data: %s", error);
 		return -1;
 	}
 	i_assert(ret == 0);
@@ -256,8 +255,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	}
 	if (subm_client->proxy_reply_status != 0 &&
 	    subm_client->proxy_reply_status != status) {
-		e_error(client->event,
-			"proxy: Remote returned inconsistent SMTP reply: %s "
+		e_error(login_proxy_get_event(client->login_proxy),
+			"Remote returned inconsistent SMTP reply: %s "
 			"(status != %u)", str_sanitize(line, 160),
 			subm_client->proxy_reply_status);
 		client_proxy_failed(client, TRUE);
@@ -275,8 +274,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	case SUBMISSION_PROXY_BANNER:
 		/* this is a banner */
 		if (invalid_line || status != 220) {
-			e_error(client->event,
-				"proxy: Remote returned invalid banner: %s",
+			e_error(login_proxy_get_event(client->login_proxy),
+				"Remote returned invalid banner: %s",
 				str_sanitize(line, 160));
 			client_proxy_failed(client, TRUE);
 			return -1;
@@ -291,8 +290,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	case SUBMISSION_PROXY_EHLO:
 	case SUBMISSION_PROXY_TLS_EHLO:
 		if (invalid_line || (status / 100) != 2) {
-			e_error(client->event,
-				"proxy: Remote returned invalid EHLO line: %s",
+			e_error(login_proxy_get_event(client->login_proxy),
+				"Remote returned invalid EHLO line: %s",
 				str_sanitize(line, 160));
 			client_proxy_failed(client, TRUE);
 			return -1;
@@ -335,7 +334,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		} else {
 			if ((subm_client->proxy_capability &
 			     SMTP_CAPABILITY_STARTTLS) == 0) {
-				e_error(client->event, "proxy: "
+				e_error(login_proxy_get_event(client->login_proxy),
 					"Remote doesn't support STARTTLS");
 				return -1;
 			}
@@ -345,8 +344,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	case SUBMISSION_PROXY_STARTTLS:
 		if (invalid_line || status != 220) {
-			e_error(client->event,
-				"proxy: Remote STARTTLS failed: %s",
+			e_error(login_proxy_get_event(client->login_proxy),
+				"Remote STARTTLS failed: %s",
 				str_sanitize(line, 160));
 			client_proxy_failed(client, TRUE);
 			return -1;
@@ -368,8 +367,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	case SUBMISSION_PROXY_XCLIENT:
 		if (invalid_line || (status / 100) != 2) {
-			e_error(client->event,
-				"proxy: Remote XCLIENT failed: %s",
+			e_error(login_proxy_get_event(client->login_proxy),
+				"Remote XCLIENT failed: %s",
 				str_sanitize(line, 160));
 			client_proxy_failed(client, TRUE);
 			return -1;

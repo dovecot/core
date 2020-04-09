@@ -274,8 +274,9 @@ void client_proxy_finish_destroy_client(struct client *client)
 	if (client->proxy_master_user != NULL)
 		str_printfa(str, " (master %s)", client->proxy_master_user);
 
+	e_info(login_proxy_get_event(client->login_proxy), "%s", str_c(str));
 	login_proxy_detach(client->login_proxy);
-	client_destroy_success(client, str_c(str));
+	client_destroy_success(client, NULL);
 }
 
 static void client_proxy_error(struct client *client, const char *text)
@@ -292,8 +293,7 @@ void client_proxy_log_failure(struct client *client, const char *line)
 {
 	string_t *str = t_str_new(128);
 
-	str_printfa(str, "proxy(%s): Login failed to %s:%u",
-		    client->virtual_user,
+	str_printfa(str, "Login failed to %s:%u",
 		    login_proxy_get_host(client->login_proxy),
 		    login_proxy_get_port(client->login_proxy));
 	if (strcmp(client->virtual_user, client->proxy_user) != 0) {
@@ -305,7 +305,7 @@ void client_proxy_log_failure(struct client *client, const char *line)
 		str_printfa(str, " (master %s)", client->proxy_master_user);
 	str_append(str, ": ");
 	str_append(str, line);
-	e_info(client->event, "%s", str_c(str));
+	e_info(login_proxy_get_event(client->login_proxy), "%s", str_c(str));
 }
 
 void client_proxy_failed(struct client *client, bool send_line)
@@ -353,13 +353,15 @@ static void proxy_input(struct client *client)
 
 	switch (i_stream_read(input)) {
 	case -2:
-		e_error(client->event, "proxy: Remote input buffer full");
+		e_error(login_proxy_get_event(client->login_proxy),
+			"Remote input buffer full");
 		client_proxy_failed(client, TRUE);
 		return;
 	case -1:
 		line = i_stream_next_line(input);
 		duration = ioloop_time - client->created;
-		e_error(client->event, "proxy: Remote %s:%u disconnected: %s "
+		e_error(login_proxy_get_event(client->login_proxy),
+			"Remote %s:%u disconnected: %s "
 			"(state=%s, duration=%us)%s",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
@@ -383,23 +385,23 @@ static void proxy_input(struct client *client)
 }
 
 static bool
-proxy_check_start(struct client *client, const struct client_auth_reply *reply,
+proxy_check_start(struct client *client, struct event *event,
+		  const struct client_auth_reply *reply,
 		  const struct dsasl_client_mech **sasl_mech_r)
 {
 	if (reply->password == NULL) {
-		e_error(client->event, "proxy: password not given");
+		e_error(event, "password not given");
 		return FALSE;
 	}
 	if (reply->host == NULL || *reply->host == '\0') {
-		e_error(client->event, "proxy: host not given");
+		e_error(event, "host not given");
 		return FALSE;
 	}
 
 	if (reply->proxy_mech != NULL) {
 		*sasl_mech_r = dsasl_client_mech_find(reply->proxy_mech);
 		if (*sasl_mech_r == NULL) {
-			e_error(client->event,
-				"proxy: Unsupported SASL mechanism %s",
+			e_error(event, "Unsupported SASL mechanism %s",
 				reply->proxy_mech);
 			return FALSE;
 		}
@@ -410,7 +412,7 @@ proxy_check_start(struct client *client, const struct client_auth_reply *reply,
 
 	if (login_proxy_is_ourself(client, reply->host, reply->port,
 				   reply->destuser)) {
-		e_error(client->event, "Proxying loops to itself");
+		e_error(event, "Proxying loops to itself");
 		return FALSE;
 	}
 	return TRUE;
@@ -434,7 +436,7 @@ static int proxy_start(struct client *client,
 	event_set_append_log_prefix(event, t_strdup_printf(
 		"proxy(%s): ", client->virtual_user));
 
-	if (!proxy_check_start(client, reply, &sasl_mech)) {
+	if (!proxy_check_start(client, event, reply, &sasl_mech)) {
 		client_proxy_error(client, PROXY_FAILURE_MSG);
 		event_unref(&event);
 		return -1;

@@ -181,7 +181,6 @@ proxy_log_connect_error(struct login_proxy *proxy)
 	struct ip_addr local_ip;
 	in_port_t local_port;
 
-	str_printfa(str, "proxy(%s): ", proxy->client->virtual_user);
 	if (!proxy->connected) {
 		str_printfa(str, "connect(%s, %u) failed: %m",
 			    net_ip2addr(&proxy->ip), proxy->port);
@@ -205,7 +204,7 @@ proxy_log_connect_error(struct login_proxy *proxy)
 	}
 
 	str_append_c(str, ')');
-	e_error(proxy->client->event, "%s", str_c(str));
+	e_error(proxy->event, "%s", str_c(str));
 }
 
 static void proxy_reconnect_timeout(struct login_proxy *proxy)
@@ -285,10 +284,9 @@ static int login_proxy_connect(struct login_proxy *proxy)
 
 	if (proxy->ip.family == 0 &&
 	    net_addr2ip(proxy->host, &proxy->ip) < 0) {
-		e_error(proxy->client->event,
-			"proxy(%s): BUG: host %s is not an IP "
-			"(auth should have changed it)",
-			proxy->client->virtual_user, proxy->host);
+		e_error(proxy->event,
+			"BUG: host %s is not an IP (auth should have changed it)",
+			proxy->host);
 		return -1;
 	}
 
@@ -301,9 +299,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
-		e_error(proxy->client->event,
-			"proxy(%s): Host %s:%u is down",
-			proxy->client->virtual_user,
+		e_error(proxy->event, "Host %s:%u is down",
 			net_ip2addr(&proxy->ip), proxy->port);
 		return -1;
 	}
@@ -333,16 +329,13 @@ int login_proxy_new(struct client *client, struct event *event,
 	i_assert(client->login_proxy == NULL);
 
 	if (set->host == NULL || *set->host == '\0') {
-		e_error(client->event,
-			"proxy(%s): host not given", client->virtual_user);
+		e_error(event, "host not given");
 		event_unref(&event);
 		return -1;
 	}
 
 	if (client->proxy_ttl <= 1) {
-		e_error(client->event,
-			"proxy(%s): TTL reached zero - "
-			"proxies appear to be looping?", client->virtual_user);
+		e_error(event, "TTL reached zero - proxies appear to be looping?");
 		event_unref(&event);
 		return -1;
 	}
@@ -505,8 +498,7 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
 		ipstr = net_ip2addr(&proxy->client->ip);
-		e_info(proxy->client->event, "proxy(%s): disconnecting %s%s%s",
-		       proxy->client->virtual_user,
+		e_info(proxy->event, "disconnecting %s%s%s",
 		       ipstr != NULL ? ipstr : "",
 		       reason == NULL ? "" : t_strdup_printf(" (%s)", reason),
 		       delay_ms == 0 ? "" : t_strdup_printf(" - disconnecting client in %ums", delay_ms));
@@ -707,8 +699,8 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 	io_remove(&proxy->server_io);
 	if (ssl_iostream_client_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
-		e_error(proxy->client->event,
-			"proxy: Failed to create SSL client context: %s", error);
+		e_error(proxy->event, "Failed to create SSL client context: %s",
+			error);
 		return -1;
 	}
 
@@ -717,8 +709,8 @@ int login_proxy_starttls(struct login_proxy *proxy)
 					&proxy->server_output,
 					&proxy->server_ssl_iostream,
 					&error) < 0) {
-		e_error(proxy->client->event,
-			"proxy: Failed to create SSL client to %s:%u: %s",
+		e_error(proxy->event,
+			"Failed to create SSL client to %s:%u: %s",
 			net_ip2addr(&proxy->ip), proxy->port, error);
 		ssl_iostream_context_unref(&ssl_ctx);
 		return -1;
@@ -726,8 +718,8 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	ssl_iostream_context_unref(&ssl_ctx);
 	if (ssl_iostream_handshake(proxy->server_ssl_iostream) < 0) {
 		error = ssl_iostream_get_last_error(proxy->server_ssl_iostream);
-		e_error(proxy->client->event,
-			"proxy: Failed to start SSL handshake to %s:%u: %s",
+		e_error(proxy->event,
+			"Failed to start SSL handshake to %s:%u: %s",
 			net_ip2addr(&proxy->ip), proxy->port,
 			ssl_iostream_get_last_error(proxy->server_ssl_iostream));
 		return -1;
