@@ -42,6 +42,8 @@ struct login_client_module_hooks {
 
 static ARRAY(struct login_client_module_hooks) module_hooks = ARRAY_INIT;
 
+static const char *client_get_log_str(struct client *client, const char *msg);
+
 void login_client_hooks_add(struct module *module,
 			    const struct login_client_hooks *hooks)
 {
@@ -132,6 +134,14 @@ static void client_open_streams(struct client *client)
 	}
 }
 
+static const char *
+client_log_msg_callback(struct client *client,
+			enum log_type log_type ATTR_UNUSED,
+			const char *message)
+{
+	return client_get_log_str(client, message);
+}
+
 static bool client_is_trusted(struct client *client)
 {
 	const char *const *net;
@@ -211,6 +221,8 @@ client_alloc(int fd, pool_t pool,
 	event_add_int(client->event, "local_port", conn->local_port);
 	event_add_str(client->event, "remote_ip", net_ip2addr(&conn->remote_ip));
 	event_add_int(client->event, "remote_port", conn->remote_port);
+	event_set_log_message_callback(client->event, client_log_msg_callback,
+				       client);
 
 	client_open_streams(client);
 	return client;
@@ -882,6 +894,8 @@ client_get_log_str(struct client *client, const char *msg)
 		if (var_expand_with_funcs(str, *e, var_expand_table,
 					  func_table, client, &error) <= 0 &&
 		    !expand_error_logged) {
+			/* NOTE: Don't log via client->event - it would cause
+			   recursion */
 			i_error("Failed to expand log_format_elements=%s: %s",
 				*e, error);
 			expand_error_logged = TRUE;
@@ -917,6 +931,8 @@ client_get_log_str(struct client *client, const char *msg)
 
 	str_truncate(str, 0);
 	if (var_expand(str, client->set->login_log_format, tab, &error) <= 0) {
+		/* NOTE: Don't log via client->event - it would cause
+		   recursion */
 		i_error("Failed to expand login_log_format=%s: %s",
 			client->set->login_log_format, error);
 		expand_error_logged = TRUE;
@@ -926,23 +942,17 @@ client_get_log_str(struct client *client, const char *msg)
 
 void client_log(struct client *client, const char *msg)
 {
-	T_BEGIN {
-		i_info("%s", client_get_log_str(client, msg));
-	} T_END;
+	e_info(client->event, "%s", msg);
 }
 
 void client_log_err(struct client *client, const char *msg)
 {
-	T_BEGIN {
-		i_error("%s", client_get_log_str(client, msg));
-	} T_END;
+	e_error(client->event, "%s", msg);
 }
 
 void client_log_warn(struct client *client, const char *msg)
 {
-	T_BEGIN {
-		i_warning("%s", client_get_log_str(client, msg));
-	} T_END;
+	e_warning(client->event, "%s", msg);
 }
 
 bool client_is_tls_enabled(struct client *client)
