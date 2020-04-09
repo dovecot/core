@@ -420,8 +420,6 @@ static int proxy_start(struct client *client,
 		sasl_mech = &dsasl_client_mech_plain;
 	}
 
-	i_assert(client->refcount > 1);
-
 	if (login_proxy_is_ourself(client, reply->host, reply->port,
 				   reply->destuser)) {
 		e_error(client->event, "Proxying loops to itself");
