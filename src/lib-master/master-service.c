@@ -1067,10 +1067,9 @@ void master_service_close_config_fd(struct master_service *service)
 	i_close_fd(&service->config_fd);
 }
 
-void master_service_deinit(struct master_service **_service)
+static void master_service_deinit_real(struct master_service **_service)
 {
 	struct master_service *service = *_service;
-	unsigned int i;
 
 	*_service = NULL;
 
@@ -1102,10 +1101,11 @@ void master_service_deinit(struct master_service **_service)
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);
-	lib_signals_deinit();
-	/* run atexit callbacks before destroying ioloop */
-	lib_atexit_run();
-	io_loop_destroy(&service->ioloop);
+}
+
+static void master_service_free(struct master_service *service)
+{
+	unsigned int i;
 
 	for (i = 0; i < service->socket_count; i++)
 		i_free(service->listeners[i].name);
@@ -1115,8 +1115,31 @@ void master_service_deinit(struct master_service **_service)
 	i_free(service->name);
 	i_free(service->config_path);
 	i_free(service);
+}
 
+void master_service_deinit(struct master_service **_service)
+{
+	struct master_service *service = *_service;
+
+	master_service_deinit_real(_service);
+
+	lib_signals_deinit();
+	/* run atexit callbacks before destroying ioloop */
+	lib_atexit_run();
+	io_loop_destroy(&service->ioloop);
+
+	master_service_free(service);
 	lib_deinit();
+}
+
+void master_service_deinit_forked(struct master_service **_service)
+{
+	struct master_service *service = *_service;
+
+	master_service_deinit_real(_service);
+	io_loop_destroy(&service->ioloop);
+
+	master_service_free(service);
 }
 
 static void master_service_listen(struct master_service_listener *l)

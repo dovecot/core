@@ -230,6 +230,11 @@ void master_service_client_connection_destroyed(struct master_service *service);
 
 /* Deinitialize the service. */
 void master_service_deinit(struct master_service **service);
+/* Deinitialize the service for a forked child process. Currently, the only
+   difference with master_service_deinit() is that lib_deinit() and
+   lib_signals_deinit() are not called.
+ */
+void master_service_deinit_forked(struct master_service **_service);
 
 /* Returns TRUE if line contains compatible service name and major version.
    The line is expected to be in format:
