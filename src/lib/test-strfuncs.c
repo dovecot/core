@@ -492,6 +492,14 @@ test_str_match(void)
 		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
 				(strlen(tests[i].s2) == tests[i].match), i);
 	}
+	/* test literal-optimized versions of these */
+	test_assert(str_begins_with("", ""));
+	test_assert(str_begins_with("123", ""));
+	test_assert(str_begins_with("123", "1"));
+	test_assert(str_begins_with("123", "123"));
+	test_assert(!str_begins_with("123", "1234"));
+	test_assert(!str_begins_with("", "123"));
+	test_assert(!str_begins_with("12", "123"));
 	test_end();
 }
 
