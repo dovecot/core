@@ -987,6 +987,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	atexit(test_atexit);
+	(void)signal(SIGPIPE, SIG_IGN);
 	(void)signal(SIGTERM, test_signal_handler);
 	(void)signal(SIGQUIT, test_signal_handler);
 	(void)signal(SIGINT, test_signal_handler);
