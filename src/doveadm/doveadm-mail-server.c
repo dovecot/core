@@ -152,7 +152,7 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 			     bool *nologin_r, const char **error_r)
 {
 	const char *orig_user = proxy_set->username;
-	const char *error;
+	const char *error, *mend;
 	int ret;
 
 	proxy_set->username = NULL;
@@ -190,13 +190,13 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 		else if (strcmp(key, "user") == 0) {
 			if (proxy_set->username == NULL)
 				proxy_set->username = t_strdup(value);
-		} else if (str_begins(key, "forward_")) {
+		} else if (str_begins(key, "forward_", &mend)) {
 			if (!array_is_created(&ctx->proxy_forward_fields)) {
 				p_array_init(&ctx->proxy_forward_fields,
 					     ctx->pool, 8);
 			}
 			value = p_strdup_printf(ctx->pool, "%s=%s",
-						key + 8, value);
+						mend, value);
 			array_push_back(&ctx->proxy_forward_fields, &value);
 		}
 	}

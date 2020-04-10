@@ -92,7 +92,7 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 					      const char **error_r)
 {
 	const char *const *params = t_strsplit_spaces(connect_string, " ");
-	const char *file = NULL;
+	const char *arg, *file = NULL;
 	bool val;
 
 	if (str_array_length(params) < 1) {
@@ -101,19 +101,18 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 	}
 
 	for (; *params != NULL; params++) {
-		if (str_begins(*params, "journal_mode=")) {
-			const char *mode = (*params)+13;
-			if (strcmp(mode, "delete") == 0)
+		if (str_begins(*params, "journal_mode=", &arg)) {
+			if (strcmp(arg, "delete") == 0)
 				db->use_wal = FALSE;
-			else if (strcmp(mode, "wal") == 0)
+			else if (strcmp(arg, "wal") == 0)
 				db->use_wal = TRUE;
 			else {
 				*error_r = t_strdup_printf("journal_mode: Unsupported mode '%s', "
-							   "use either 'delete' or 'wal'", mode);
+							   "use either 'delete' or 'wal'", arg);
 				return -1;
 			}
-		} else if (str_begins(*params, "readonly=")) {
-			 if (settings_get_bool((*params)+9, &val, error_r) < 0) {
+		} else if (str_begins(*params, "readonly=", &arg)) {
+			 if (settings_get_bool(arg, &val, error_r) < 0) {
 				*error_r = t_strdup_printf("readonly: %s", *error_r);
 				return -1;
 			}

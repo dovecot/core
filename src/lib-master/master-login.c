@@ -399,9 +399,11 @@ static int master_login_postlogin(struct master_login_client *client,
 static const char *
 auth_args_find_postlogin_socket(const char *const *auth_args)
 {
+	const char *value;
+
 	for (unsigned int i = 0; auth_args[i] != NULL; i++) {
-		if (str_begins(auth_args[i], "postlogin="))
-			return auth_args[i]+10;
+		if (str_begins(auth_args[i], "postlogin=", &value))
+			return value;
 	}
 	return NULL;
 }

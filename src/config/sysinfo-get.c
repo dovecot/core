@@ -31,19 +31,19 @@ static bool readfile(const char *path, const char **data_r)
 
 static bool lsb_distro_get(const char *path, const char **name_r)
 {
-	const char *data, *const *p, *str, *end;
+	const char *data, *const *p, *str = NULL, *end;
 
 	if (!readfile(path, &data))
 		return FALSE;
 
 	for (p = t_strsplit(data, "\n"); *p != NULL; p++) {
-		if (str_begins(*p, "DISTRIB_DESCRIPTION="))
+		if (str_begins(*p, "DISTRIB_DESCRIPTION=", &str))
 			break;
 	}
-	if (*p == NULL)
+	if (str == NULL)
 		return FALSE;
 
-	str = t_strcut(*p + 20, '\n');
+	str = t_strcut(str, '\n');
 	if (*str != '"')
 		*name_r = str;
 	else {

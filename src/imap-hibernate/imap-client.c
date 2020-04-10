@@ -141,10 +141,8 @@ imap_client_parse_userdb_fields(struct imap_client *client,
 
 	field = t_strsplit_tabescaped(client->state.userdb_fields);
 	for (i = 0; field[i] != NULL; i++) {
-		if (str_begins(field[i], "auth_user=")) {
-			*auth_user_r = field[i] + 10;
+		if (str_begins(field[i], "auth_user=", auth_user_r))
 			break;
-		}
 	}
 }
 
@@ -546,10 +544,8 @@ imap_client_var_expand_func_userdb(const char *data, void *context,
 	const char *value = NULL;
 
 	for(;*fields != NULL; fields++) {
-		if (str_begins(*fields, field_name)) {
-			value = *fields+strlen(field_name);
+		if (str_begins(*fields, field_name, &value))
 			break;
-		}
 	}
 
 	*value_r = value != NULL ? value : default_value;

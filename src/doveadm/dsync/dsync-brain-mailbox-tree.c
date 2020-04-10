@@ -155,8 +155,7 @@ static bool
 dsync_namespace_match_parts(struct mail_namespace *ns,
 			    const char *const *name_parts)
 {
-	const char *part, *prefix = ns->prefix;
-	size_t part_len;
+	const char *part, *suffix, *prefix = ns->prefix;
 	char ns_sep = mail_namespace_get_sep(ns);
 
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
@@ -165,13 +164,12 @@ dsync_namespace_match_parts(struct mail_namespace *ns,
 
 	for (; *name_parts != NULL && *prefix != '\0'; name_parts++) {
 		part = *name_parts;
-		part_len = strlen(part);
 
-		if (!str_begins(prefix, part))
+		if (!str_begins(prefix, part, &suffix))
 			return FALSE;
-		if (prefix[part_len] != ns_sep)
+		if (suffix[0] != ns_sep)
 			return FALSE;
-		prefix += part_len + 1;
+		prefix = suffix + 1;
 	}
 	if (*name_parts != NULL) {
 		/* namespace prefix found with a mailbox */

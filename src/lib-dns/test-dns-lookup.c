@@ -46,16 +46,18 @@ static void server_handle_timeout(struct connection *client)
 static int
 test_dns_client_input_args(struct connection *client, const char *const *args)
 {
+	const char *value;
+
 	if (strcmp(args[0], "QUIT") == 0)
 		return 0;
 	if (strcmp(args[0], "IP") != 0 && strcmp(args[0], "NAME") != 0)
 		return -1;
 	test_server.lookup_counter++;
 	/* never finish this query */
-	if (str_begins(args[1], "waitfor")) {
+	if (str_begins(args[1], "waitfor", &value)) {
 		unsigned int msecs;
 		i_assert(test_server.to == NULL);
-		if (str_to_uint(args[1]+7, &msecs) < 0)
+		if (str_to_uint(value, &msecs) < 0)
 			i_unreached();
 		connection_input_halt(client);
 		test_server.to =

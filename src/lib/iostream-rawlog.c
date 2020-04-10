@@ -170,9 +170,8 @@ iostream_rawlog_try_create_tcp(const char *path,
 	int ret, fd;
 
 	/* tcp:host:port */
-	if (!str_begins(path, "tcp:"))
+	if (!str_begins(path, "tcp:", &path))
 		return 0;
-	path += 4;
 
 	if (strchr(path, '/') != NULL)
 		return 0;

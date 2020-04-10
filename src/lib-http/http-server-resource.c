@@ -50,7 +50,7 @@ http_server_location_find(struct http_server *server, const char *path,
 			  const char **sub_path_r)
 {
 	struct http_server_location qloc, *loc;
-	size_t loc_len;
+	const char *loc_suffix;
 	unsigned int insert_idx;
 
 	*sub_path_r = NULL;
@@ -73,16 +73,15 @@ http_server_location_find(struct http_server *server, const char *path,
 	}
 	loc = array_idx_elem(&server->locations, insert_idx-1);
 
-	loc_len = strlen(loc->path);
-	if (!str_begins(path, loc->path)) {
+	if (!str_begins(path, loc->path, &loc_suffix)) {
 		/* Location isn't a prefix of path */
 		return -1;
-	} else if (path[loc_len] != '/') {
+	} else if (loc_suffix[0] != '/') {
 		/* Match doesn't end at '/' */
 		return -1;
 	}
 
-	*sub_path_r = &path[loc_len + 1];
+	*sub_path_r = loc_suffix + 1;
 	*loc_r = loc;
 	return 0;
 }

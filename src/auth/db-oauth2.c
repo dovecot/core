@@ -389,13 +389,13 @@ db_oauth2_have_all_fields(struct db_oauth2_request *req)
 		while(ptr != NULL) {
 			ptr = strchr(ptr, '%');
 			if (ptr != NULL) {
-				const char *field;
+				const char *field, *suffix;
 				ptr++;
 				var_get_key_range(ptr, &idx, &size);
 				ptr = ptr+idx;
 				field = t_strndup(ptr,size);
-				if (str_begins(field, "oauth2:") &&
-				    !auth_fields_exists(req->fields, ptr+7))
+				if (str_begins(field, "oauth2:", &suffix) &&
+				    !auth_fields_exists(req->fields, suffix))
 					return FALSE;
 				ptr = ptr+size;
 			}

@@ -909,13 +909,12 @@ mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
 		/* there are autocreate parent boxes.
 		   set their children flag states. */
 		struct autocreate_box *autobox;
-		size_t name_len;
+		const char *suffix;
 		char sep = mail_namespace_get_sep(ctx->list->ns);
 
 		array_foreach_modifiable(&actx->boxes, autobox) {
-			name_len = strlen(autobox->name);
-			if (!str_begins(info->vname, autobox->name) ||
-			    info->vname[name_len] != sep)
+			if (!str_begins(info->vname, autobox->name, &suffix) ||
+			    suffix[0] != sep)
 				continue;
 
 			if ((info->flags & MAILBOX_NONEXISTENT) == 0)

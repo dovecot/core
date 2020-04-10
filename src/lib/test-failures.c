@@ -80,13 +80,11 @@ internal_line_match(const char *line, const char *prefix, const char *text)
 		return FALSE;
 	line += 2;
 
-	if (!str_begins(line, "123 "))
+	if (!str_begins(line, "123 ", &line))
 		return FALSE;
-	line += 4;
 
-	if (!str_begins(line, prefix))
+	if (!str_begins(line, prefix, &line))
 		return FALSE;
-	line += strlen(prefix);
 
 	return strcmp(line, text) == 0;
 }

@@ -38,10 +38,9 @@ passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
 	table = auth_request_get_var_expand_table(request, NULL);
 
 	for (i = 0; fields[i] != NULL; i++) {
-		if (!str_begins(fields[i], "userdb_"))
+		if (!str_begins(fields[i], "userdb_", &key))
 			continue;
 
-		key = fields[i] + 7;
 		value = strchr(key, '=');
 		if (value != NULL) {
 			key = t_strdup_until(key, value);
@@ -189,8 +188,7 @@ passwd_file_preinit(pool_t pool, const char *args)
 	const char *format = PASSWD_FILE_DEFAULT_USERNAME_FORMAT;
 	const char *p;
 
-	if (str_begins(args, "username_format=")) {
-		args += 16;
+	if (str_begins(args, "username_format=", &args)) {
 		p = strchr(args, ' ');
 		if (p == NULL) {
 			format = p_strdup(pool, args);

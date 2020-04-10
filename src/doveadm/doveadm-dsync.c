@@ -1008,26 +1008,22 @@ parse_location(struct dsync_cmd_context *ctx,
 {
 	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
 
-	if (str_begins(location, "tcp:")) {
+	if (str_begins(location, "tcp:", &ctx->remote_name)) {
 		/* TCP connection to remote dsync */
-		ctx->remote_name = location+4;
 		return dsync_connect_tcp(ctx, ssl_set, ctx->remote_name,
 					 FALSE, error_r);
 	}
-	if (str_begins(location, "tcps:")) {
+	if (str_begins(location, "tcps:", &ctx->remote_name)) {
 		/* TCP+SSL connection to remote dsync */
-		ctx->remote_name = location+5;
 		return dsync_connect_tcp(ctx, ssl_set, ctx->remote_name,
 					 TRUE, error_r);
 	}
 
-	if (str_begins(location, "remote:")) {
+	if (str_begins(location, "remote:", &ctx->remote_name)) {
 		/* this is a remote (ssh) command */
-		ctx->remote_name = location+7;
-	} else if (str_begins(location, "remoteprefix:")) {
+	} else if (str_begins(location, "remoteprefix:", &ctx->remote_name)) {
 		/* this is a remote (ssh) command with a "user\n"
 		   prefix sent before dsync actually starts */
-		ctx->remote_name = location+13;
 		ctx->remote_user_prefix = TRUE;
 	} else {
 		/* local with e.g. maildir:path */

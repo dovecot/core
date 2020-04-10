@@ -284,12 +284,14 @@ time_t auth_client_request_get_create_time(struct auth_client_request *request)
 
 static void args_parse_user(struct auth_client_request *request, const char *arg)
 {
-	if (str_begins(arg, "user="))
-		event_add_str(request->event, "user", arg + 5);
-	else if (str_begins(arg, "original_user="))
-		event_add_str(request->event, "original_user", arg + 14);
-	else if (str_begins(arg, "auth_user="))
-		event_add_str(request->event, "auth_user", arg + 10);
+	const char *value;
+
+	if (str_begins(arg, "user=", &value))
+		event_add_str(request->event, "user", value);
+	else if (str_begins(arg, "original_user=", &value))
+		event_add_str(request->event, "original_user", value);
+	else if (str_begins(arg, "auth_user=", &value))
+		event_add_str(request->event, "auth_user", value);
 }
 
 void auth_client_request_server_input(struct auth_client_request *request,
@@ -316,9 +318,7 @@ void auth_client_request_server_input(struct auth_client_request *request,
 	}
 
 	for (tmp = args; *tmp != NULL; tmp++) {
-		if (str_begins(*tmp, "resp=")) {
-			base64_data = *tmp + 5;
-		}
+		(void)str_begins(*tmp, "resp=", &base64_data);
 		args_parse_user(request, *tmp);
 	}
 

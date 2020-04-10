@@ -184,11 +184,11 @@ quota_root_parse_set(struct mail_user *user, const char *root_name,
 	if (value == NULL)
 		return 0;
 
-	if (!str_begins(value, "dict:")) {
+	if (!str_begins(value, "dict:", &value)) {
 		*error_r = t_strdup_printf("%s supports only dict backend", name);
 		return -1;
 	}
-	root_set->limit_set = p_strdup(root_set->set->pool, value+5);
+	root_set->limit_set = p_strdup(root_set->set->pool, value);
 	return 0;
 }
 

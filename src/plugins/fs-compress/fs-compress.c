@@ -52,10 +52,8 @@ fs_compress_init(struct fs *_fs, const char *args,
 	int ret;
 
 	/* get compression handler name */
-	if (str_begins(args, "maybe-")) {
+	if (str_begins(args, "maybe-", &args))
 		fs->try_plain = TRUE;
-		args += 6;
-	}
 
 	p = strchr(args, ':');
 	if (p == NULL) {

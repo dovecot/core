@@ -633,8 +633,8 @@ str_match(const char *p1, const char *p2)
 	return i;
 }
 
-#undef str_begins_suffix
-bool str_begins_suffix(const char *haystack, const char *needle, const char **suffix_r)
+#undef str_begins
+bool str_begins(const char *haystack, const char *needle, const char **suffix_r)
 {
 	size_t prefix_len = str_match(haystack, needle);
 	if (needle[prefix_len] != '\0')

@@ -1863,9 +1863,8 @@ bool version_string_verify_full(const char *line, const char *service_name,
 	size_t service_name_len = strlen(service_name);
 	bool ret;
 
-	if (!str_begins(line, "VERSION\t"))
+	if (!str_begins(line, "VERSION\t", &line))
 		return FALSE;
-	line += 8;
 
 	if (strncmp(line, service_name, service_name_len) != 0 ||
 	    line[service_name_len] != '\t')

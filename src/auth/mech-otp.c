@@ -181,16 +181,16 @@ static void
 mech_otp_auth_phase2(struct auth_request *auth_request,
 		     const unsigned char *data, size_t data_size)
 {
-	const char *str = t_strndup(data, data_size);
+	const char *value, *str = t_strndup(data, data_size);
 
-	if (str_begins(str, "hex:")) {
-		mech_otp_verify(auth_request, str + 4, TRUE);
-	} else if (str_begins(str, "word:")) {
-		mech_otp_verify(auth_request, str + 5, FALSE);
-	} else if (str_begins(str, "init-hex:")) {
-		mech_otp_verify_init(auth_request, str + 9, TRUE);
-	} else if (str_begins(str, "init-word:")) {
-		mech_otp_verify_init(auth_request, str + 10, FALSE);
+	if (str_begins(str, "hex:", &value)) {
+		mech_otp_verify(auth_request, value, TRUE);
+	} else if (str_begins(str, "word:", &value)) {
+		mech_otp_verify(auth_request, value, FALSE);
+	} else if (str_begins(str, "init-hex:", &value)) {
+		mech_otp_verify_init(auth_request, value, TRUE);
+	} else if (str_begins(str, "init-word:", &value)) {
+		mech_otp_verify_init(auth_request, value, FALSE);
 	} else {
 		e_error(auth_request->mech_event,
 			"unsupported response type");

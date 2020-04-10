@@ -324,6 +324,7 @@ static int driver_pgsql_init_full_v(const struct sql_settings *set,
 				    struct sql_db **db_r, const char **error_r ATTR_UNUSED)
 {
 	struct pgsql_db *db;
+	const char *value;
 
 	db = i_new(struct pgsql_db, 1);
 	db->connect_string = i_strdup(set->connect_string);
@@ -337,8 +338,8 @@ static int driver_pgsql_init_full_v(const struct sql_settings *set,
 		const char *const *arg = t_strsplit(db->connect_string, " ");
 
 		for (; *arg != NULL; arg++) {
-			if (str_begins(*arg, "host="))
-				db->host = i_strdup(*arg + 5);
+			if (str_begins(*arg, "host=", &value))
+				db->host = i_strdup(value);
 
 		}
 	} T_END;

@@ -433,7 +433,7 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 {
 	struct mail_storage_settings *set = _set;
 	struct hash_format *format;
-	const char *p, *error;
+	const char *p, *value, *error;
 	bool uidl_format_ok;
 	char c;
 
@@ -550,8 +550,8 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 				set->parsed_mail_attachment_detection_no_flags_on_fetch = TRUE;
 			} else if (strcmp(opt, "exclude-inlined") == 0) {
 				set->parsed_mail_attachment_exclude_inlined = TRUE;
-			} else if (str_begins(opt, "content-type=")) {
-				const char *value = p_strdup(pool, opt+13);
+			} else if (str_begins(opt, "content-type=", &value)) {
+				value = p_strdup(pool, value);
 				array_push_back(&content_types, &value);
 			} else {
 				*error_r = t_strdup_printf("mail_attachment_detection_options: "

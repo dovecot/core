@@ -53,7 +53,7 @@ static void test_mailbox_list_errors(void)
 	/* NOTE: keep in sync with test-mail-storage.c */
 	struct mailbox_list list;
 	enum mail_error mail_error;
-	const char *errstr;
+	const char *errstr, *suffix = "";
 
 	test_begin("mail list errors");
 	test_init_list(&list);
@@ -146,8 +146,8 @@ static void test_mailbox_list_errors(void)
 			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	errstr = mailbox_list_get_last_internal_error(&list, &mail_error);
-	test_assert(str_begins(errstr, "critical3: "));
-	test_assert(strstr(errstr+11, MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(str_begins(errstr, "critical3: ", &suffix));
+	test_assert(strstr(suffix, MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(list.last_error_is_internal);
 

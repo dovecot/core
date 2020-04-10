@@ -90,11 +90,8 @@ shared_list_join_refpattern(struct mailbox_list *list,
 {
 	struct mail_namespace *ns = list->ns;
 	const char *ns_ref, *prefix = list->ns->prefix;
-	size_t prefix_len = strlen(prefix);
 
-	if (*ref != '\0' && str_begins(ref, prefix))
-		ns_ref = ref + prefix_len;
-	else
+	if (*ref == '\0' || !str_begins(ref, prefix, &ns_ref))
 		ns_ref = NULL;
 
 	if (ns_ref != NULL && *ns_ref != '\0' &&

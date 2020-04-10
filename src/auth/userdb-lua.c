@@ -33,16 +33,15 @@ static struct userdb_module *
 userdb_lua_preinit(pool_t pool, const char *args)
 {
 	struct dlua_userdb_module *module;
-	const char *cache_key = DB_LUA_CACHE_KEY;
+	const char *value, *cache_key = DB_LUA_CACHE_KEY;
 	bool blocking = TRUE;
 
 	module = p_new(pool, struct dlua_userdb_module, 1);
 	const char *const *fields = t_strsplit_spaces(args, " ");
 	while(*fields != NULL) {
-		if (str_begins(*fields, "file=")) {
-			 module->file = p_strdup(pool, (*fields)+5);
-		} else if (str_begins(*fields, "blocking=")) {
-			const char *value = (*fields)+9;
+		if (str_begins(*fields, "file=", &value))
+			module->file = p_strdup(pool, value);
+		else if (str_begins(*fields, "blocking=", &value)) {
 			if (strcmp(value, "yes") == 0) {
 				blocking = TRUE;
 			} else if (strcmp(value, "no") == 0) {
@@ -52,9 +51,9 @@ userdb_lua_preinit(pool_t pool, const char *args)
 					"Field blocking must be yes or no",
 					value);
 			}
-		} else if (str_begins(*fields, "cache_key=")) {
-			if (*((*fields)+10) != '\0')
-				cache_key = (*fields)+10;
+		} else if (str_begins(*fields, "cache_key=", &value)) {
+			if (value[0] != '\0')
+				cache_key = value;
 			else /* explicitly disable auth caching for lua */
 				cache_key = NULL;
 		} else {

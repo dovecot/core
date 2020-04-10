@@ -279,6 +279,7 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 				       void *context)
 {
 	struct auth_master_lookup_ctx *ctx = context;
+	const char *value;
 	unsigned int i, len;
 
 	io_loop_stop(ctx->conn->ioloop);
@@ -295,9 +296,8 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 		/* put the reason string into first field */
 		ctx->fields = p_new(ctx->pool, const char *, 2);
 		for (i = 0; i < len; i++) {
-			if (str_begins(args[i], "reason=")) {
-				ctx->fields[0] =
-					p_strdup(ctx->pool, args[i] + 7);
+			if (str_begins(args[i], "reason=", &value)) {
+				ctx->fields[0] = p_strdup(ctx->pool, value);
 				break;
 			}
 		}
@@ -717,22 +717,24 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 void auth_user_fields_parse(const char *const *fields, pool_t pool,
 			    struct auth_user_reply *reply_r)
 {
+	const char *value;
+
 	i_zero(reply_r);
 	reply_r->uid = (uid_t)-1;
 	reply_r->gid = (gid_t)-1;
 	p_array_init(&reply_r->extra_fields, pool, 64);
 
 	for (; *fields != NULL; fields++) {
-		if (str_begins(*fields, "uid=")) {
-			if (str_to_uid(*fields + 4, &reply_r->uid) < 0)
+		if (str_begins(*fields, "uid=", &value)) {
+			if (str_to_uid(value, &reply_r->uid) < 0)
 				i_error("Invalid uid in reply");
-		} else if (str_begins(*fields, "gid=")) {
-			if (str_to_gid(*fields + 4, &reply_r->gid) < 0)
+		} else if (str_begins(*fields, "gid=", &value)) {
+			if (str_to_gid(value, &reply_r->gid) < 0)
 				i_error("Invalid gid in reply");
-		} else if (str_begins(*fields, "home="))
-			reply_r->home = p_strdup(pool, *fields + 5);
-		else if (str_begins(*fields, "chroot="))
-			reply_r->chroot = p_strdup(pool, *fields + 7);
+		} else if (str_begins(*fields, "home=", &value))
+			reply_r->home = p_strdup(pool, value);
+		else if (str_begins(*fields, "chroot=", &value))
+			reply_r->chroot = p_strdup(pool, value);
 		else if (strcmp(*fields, "anonymous") == 0)
 			reply_r->anonymous = TRUE;
 		else {

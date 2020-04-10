@@ -117,10 +117,8 @@ mail_storage_module_hooks_cmp(const struct mail_storage_module_hooks *h1,
 	p = strrchr(s2, '/');
 	if (p != NULL) s2 = p+1;
 
-	if (str_begins(s1, "lib"))
-		s1 += 3;
-	if (str_begins(s2, "lib"))
-		s2 += 3;
+	(void)str_begins(s1, "lib", &s1);
+	(void)str_begins(s2, "lib", &s2);
 
 	return strcmp(s1, s2);
 }

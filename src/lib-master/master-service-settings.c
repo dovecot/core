@@ -465,7 +465,7 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 	}
 
 	T_BEGIN {
-		const char *const *arg = t_strsplit_tabescaped(line);
+		const char *value, *const *arg = t_strsplit_tabescaped(line);
 		ARRAY_TYPE(const_string) services;
 
 		p_array_init(&services, pool, 8);
@@ -478,8 +478,8 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 				output_r->used_local = TRUE;
 			else if (strcmp(*arg, "used-remote") == 0)
 				output_r->used_remote = TRUE;
-			else if (str_begins(*arg, "service=")) {
-				const char *name = p_strdup(pool, *arg + 8);
+			else if (str_begins(*arg, "service=", &value)) {
+				const char *name = p_strdup(pool, value);
 				array_push_back(&services, &name);
 			 }
 		}
@@ -549,8 +549,8 @@ int master_service_settings_get_filters(struct master_service *service,
 		while((line = i_stream_read_next_line(is)) != NULL) {
 			if (*line == '\0')
 				break;
-			if (str_begins(line, "FILTER\t")) {
-				line = t_strdup(line+7);
+			if (str_begins(line, "FILTER\t", &line)) {
+				line = t_strdup(line);
 				array_push_back(&filters_tmp, &line);
 			}
 		}

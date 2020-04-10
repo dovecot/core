@@ -669,21 +669,23 @@ int program_client_create(const char *uri, const char *const *args,
 			  bool noreply, struct program_client **pc_r,
 			  const char **error_r)
 {
-	if (str_begins(uri, "exec:")) {
-		*pc_r = program_client_local_create(uri+5, args, set);
+	const char *suffix;
+
+	if (str_begins(uri, "exec:", &suffix)) {
+		*pc_r = program_client_local_create(suffix, args, set);
 		return 0;
-	} else if (str_begins(uri, "unix:")) {
-		*pc_r = program_client_unix_create(uri+5, args, set, noreply);
+	} else if (str_begins(uri, "unix:", &suffix)) {
+		*pc_r = program_client_unix_create(suffix, args, set, noreply);
 		return 0;
-	} else if (str_begins(uri, "tcp:")) {
+	} else if (str_begins(uri, "tcp:", &suffix)) {
 		const char *host;
 		in_port_t port;
 
-		if (net_str2hostport(uri+4, 0, &host, &port) < 0 ||
+		if (net_str2hostport(suffix, 0, &host, &port) < 0 ||
 		    port == 0) {
 			*error_r = t_strdup_printf(
 				"Invalid tcp syntax, "
-				"must be host:port in '%s'", uri+4);
+				"must be host:port in '%s'", suffix);
 			return -1;
 		}
 		*pc_r = program_client_net_create(host, port, args, set,

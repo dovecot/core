@@ -229,7 +229,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 {
 	const char *home = reply->home;
 	const char *chroot = reply->chroot;
-	const char *const *str, *line, *p;
+	const char *const *str, *line, *p, *value;
 	unsigned int i, count;
 	int ret = 0;
 
@@ -273,33 +273,33 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 	str = array_get(&reply->extra_fields, &count);
 	for (i = 0; i < count; i++) {
 		line = str[i];
-		if (str_begins(line, "system_groups_user=")) {
+		if (str_begins(line, "system_groups_user=", &value)) {
 			user->system_groups_user =
-				p_strdup(user->pool, line + 19);
-		} else if (str_begins(line, "chdir=")) {
-			user->chdir_path = p_strdup(user->pool, line+6);
-		} else if (str_begins(line, "nice=")) {
+				p_strdup(user->pool, value);
+		} else if (str_begins(line, "chdir=", &value)) {
+			user->chdir_path = p_strdup(user->pool, value);
+		} else if (str_begins(line, "nice=", &value)) {
 #ifdef HAVE_SETPRIORITY
 			int n;
-			if (str_to_int(line + 5, &n) < 0) {
+			if (str_to_int(value, &n) < 0) {
 				e_error(user->event,
 					"userdb returned invalid nice value %s",
-					line + 5);
+					value);
 			} else if (n != 0) {
 				if (setpriority(PRIO_PROCESS, 0, n) < 0)
 					e_error(user->event,
 						"setpriority(%d) failed: %m", n);
 			}
 #endif
-		} else if (str_begins(line, "auth_mech=")) {
-			user->auth_mech = p_strdup(user->pool, line+10);
-		} else if (str_begins(line, "auth_token=")) {
-			user->auth_token = p_strdup(user->pool, line+11);
-		} else if (str_begins(line, "auth_user=")) {
-			user->auth_user = p_strdup(user->pool, line+10);
-		} else if (str_begins(line, "admin=")) {
-			user->admin = line[6] == 'y' || line[6] == 'Y' ||
-				line[6] == '1';
+		} else if (str_begins(line, "auth_mech=", &value)) {
+			user->auth_mech = p_strdup(user->pool, value);
+		} else if (str_begins(line, "auth_token=", &value)) {
+			user->auth_token = p_strdup(user->pool, value);
+		} else if (str_begins(line, "auth_user=", &value)) {
+			user->auth_user = p_strdup(user->pool, value);
+		} else if (str_begins(line, "admin=", &value)) {
+			user->admin = value[0] == 'y' || value[0] == 'Y' ||
+				value[0] == '1';
 		} else T_BEGIN {
 			ret = set_line(ctx, user, line);
 		} T_END;

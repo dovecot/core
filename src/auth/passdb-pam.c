@@ -339,7 +339,7 @@ static struct passdb_module *
 pam_preinit(pool_t pool, const char *args)
 {
 	struct pam_passdb_module *module;
-	const char *const *t_args;
+	const char *value, *const *t_args;
 	int i;
 
 	module = p_new(pool, struct pam_passdb_module, 1);
@@ -358,9 +358,9 @@ pam_preinit(pool_t pool, const char *args)
 			module->pam_session = TRUE;
 		else if (strcmp(t_args[i], "setcred=yes") == 0)
 			module->pam_setcred = TRUE;
-		else if (str_begins(t_args[i], "cache_key=")) {
+		else if (str_begins(t_args[i], "cache_key=", &value)) {
 			module->module.default_cache_key =
-				auth_cache_parse_key(pool, t_args[i] + 10);
+				auth_cache_parse_key(pool, value);
 		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
 			/* ignore, for backwards compatibility */
 		} else if (strcmp(t_args[i], "failure_show_msg=yes") == 0) {
@@ -368,11 +368,10 @@ pam_preinit(pool_t pool, const char *args)
 		} else if (strcmp(t_args[i], "*") == 0) {
 			/* for backwards compatibility */
 			module->service_name = "%Ls";
-		} else if (str_begins(t_args[i], "max_requests=")) {
-			if (str_to_uint(t_args[i] + 13,
-					&module->requests_left) < 0) {
+		} else if (str_begins(t_args[i], "max_requests=", &value)) {
+			if (str_to_uint(value, &module->requests_left) < 0) {
 				i_error("pam: Invalid requests_left value: %s",
-					t_args[i] + 13);
+					value);
 			}
 		} else if (t_args[i+1] == NULL) {
 			module->service_name = p_strdup(pool, t_args[i]);

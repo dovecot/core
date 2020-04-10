@@ -270,8 +270,7 @@ unsigned int auth_cache_clear(struct auth_cache *cache)
 static bool auth_cache_node_is_user(struct auth_cache_node *node,
 				    const char *username)
 {
-	const char *data = node->data;
-	size_t username_len;
+	const char *data = node->data, *suffix;
 
 	/* The cache nodes begin with "P"/"U", passdb/userdb ID, optional
 	   "+" master user, "\t" and then usually followed by the username.
@@ -294,9 +293,8 @@ static bool auth_cache_node_is_user(struct auth_cache_node *node,
 		return FALSE;
 	data++;
 
-	username_len = strlen(username);
-	return str_begins(data, username) &&
-		(data[username_len] == '\t' || data[username_len] == '\0');
+	return str_begins(data, username, &suffix) &&
+		(suffix[0] == '\t' || suffix[0] == '\0');
 }
 
 static bool auth_cache_node_is_one_of_users(struct auth_cache_node *node,

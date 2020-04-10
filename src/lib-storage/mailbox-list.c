@@ -458,7 +458,7 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 
 static bool need_escape_dirstart(const char *vname, const char *maildir_name)
 {
-	size_t len;
+	const char *suffix;
 
 	if (vname[0] == '.') {
 		if (vname[1] == '\0' || vname[1] == '/')
@@ -467,9 +467,8 @@ static bool need_escape_dirstart(const char *vname, const char *maildir_name)
 			return TRUE; /* ".." */
 	}
 	if (*maildir_name != '\0') {
-		len = strlen(maildir_name);
-		if (str_begins(vname, maildir_name) &&
-		    (vname[len] == '\0' || vname[len] == '/'))
+		if (str_begins(vname, maildir_name, &suffix) &&
+		    (suffix[0] == '\0' || suffix[0] == '/'))
 			return TRUE; /* e.g. dbox-Mails */
 	}
 	return FALSE;
@@ -480,17 +479,14 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 				char ns_sep, char list_sep, char escape_char,
 				const char *maildir_name)
 {
-	size_t ns_prefix_len = strlen(ns_prefix);
 	string_t *escaped_name = t_str_new(64);
 	bool dirstart = TRUE;
 
 	i_assert(escape_char != '\0');
 
 	/* no escaping of namespace prefix */
-	if (str_begins(vname, ns_prefix)) {
-		str_append_data(escaped_name, vname, ns_prefix_len);
-		vname += ns_prefix_len;
-	}
+	if (str_begins(vname, ns_prefix, &vname))
+		str_append(escaped_name, ns_prefix);
 
 	/* escape the mailbox name */
 	if (*vname == '~') {
@@ -660,14 +656,11 @@ const char *
 mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
 				  char ns_sep, char list_sep, char escape_char)
 {
-	size_t ns_prefix_len = strlen(ns_prefix);
 	string_t *dest = t_str_new(strlen(src));
 	unsigned int num;
 
-	if (str_begins(src, ns_prefix)) {
-		str_append_data(dest, src, ns_prefix_len);
-		src += ns_prefix_len;
-	}
+	if (str_begins(src, ns_prefix, &src))
+		str_append(dest, ns_prefix);
 
 	for (; *src != '\0'; src++) {
 		if (*src == escape_char &&
@@ -1535,8 +1528,7 @@ int mailbox_has_children(struct mailbox_list *list, const char *name)
 int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r)
 {
-	const char *path, *fname, *rootdir, *dir, *inbox;
-	size_t len;
+	const char *path, *fname, *suffix, *rootdir, *dir, *inbox;
 
 	*flags_r = 0;
 
@@ -1611,8 +1603,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		fname++;
 	}
 
-	len = strlen(rootdir);
-	if (str_begins(path, rootdir) && path[len] == '/') {
+	if (str_begins(path, rootdir, &suffix) && suffix[0] == '/') {
 		/* looking up a regular mailbox under mail root dir */
 	} else if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 		   strcasecmp(name, "INBOX") == 0) {
@@ -1867,7 +1858,6 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name)
 {
 	const char *root_dir, *path, *mailbox_name;
-	size_t len;
 
 	if (!list->mail_set->mail_full_filesystem_access)
 		return FALSE;
@@ -1886,9 +1876,9 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 	/* okay, we have an absolute path now. but check first if it points to
 	   same directory as one of our regular mailboxes. */
 	root_dir = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	len = strlen(root_dir);
-	if (str_begins(*name, root_dir) && (*name)[len] == '/') {
-		mailbox_name = *name + len + 1;
+	if (str_begins(*name, root_dir, &mailbox_name) &&
+	    mailbox_name[0] == '/') {
+		mailbox_name++;
 		if (mailbox_list_get_path(list, mailbox_name,
 					  MAILBOX_LIST_PATH_TYPE_MAILBOX,
 					  &path) <= 0)

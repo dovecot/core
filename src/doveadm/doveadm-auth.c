@@ -236,39 +236,40 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 static void
 auth_user_info_parse_arg(struct auth_user_info *info, const char *arg)
 {
-	if (str_begins(arg, "service="))
-		info->service = arg + 8;
-	else if (str_begins(arg, "session="))
-		info->session_id = arg + 8;
-	else if (str_begins(arg, "local_name="))
-		info->local_name = arg + 11;
-	else if (str_begins(arg, "lip=")) {
-		if (net_addr2ip(arg + 4, &info->local_ip) < 0)
+	const char *key, *value;
+
+	if (str_begins(arg, "service=", &value))
+		info->service = value;
+	else if (str_begins(arg, "session=", &value))
+		info->session_id = value;
+	else if (str_begins(arg, "local_name=", &value))
+		info->local_name = value;
+	else if (str_begins(arg, "lip=", &value)) {
+		if (net_addr2ip(value, &info->local_ip) < 0)
 			i_fatal("lip: Invalid ip");
-	} else if (str_begins(arg, "rip=")) {
-		if (net_addr2ip(arg + 4, &info->remote_ip) < 0)
+	} else if (str_begins(arg, "rip=", &value)) {
+		if (net_addr2ip(value, &info->remote_ip) < 0)
 			i_fatal("rip: Invalid ip");
-	} else if (str_begins(arg, "lport=")) {
-		if (net_str2port(arg + 6, &info->local_port) < 0)
+	} else if (str_begins(arg, "lport=", &value)) {
+		if (net_str2port(value, &info->local_port) < 0)
 			i_fatal("lport: Invalid port number");
-	} else if (str_begins(arg, "rport=")) {
-		if (net_str2port(arg + 6, &info->remote_port) < 0)
+	} else if (str_begins(arg, "rport=", &value)) {
+		if (net_str2port(value, &info->remote_port) < 0)
 			i_fatal("rport: Invalid port number");
-	} else if (str_begins(arg, "real_lip=")) {
-		if (net_addr2ip(arg + 9, &info->real_local_ip) < 0)
+	} else if (str_begins(arg, "real_lip=", &value)) {
+		if (net_addr2ip(value, &info->real_local_ip) < 0)
 			i_fatal("real_lip: Invalid ip");
-	} else if (str_begins(arg, "real_rip=")) {
-		if (net_addr2ip(arg + 9, &info->real_remote_ip) < 0)
+	} else if (str_begins(arg, "real_rip=", &value)) {
+		if (net_addr2ip(value, &info->real_remote_ip) < 0)
 			i_fatal("real_rip: Invalid ip");
-	} else if (str_begins(arg, "real_lport=")) {
-		if (net_str2port(arg + 11, &info->real_local_port) < 0)
+	} else if (str_begins(arg, "real_lport=", &value)) {
+		if (net_str2port(value, &info->real_local_port) < 0)
 			i_fatal("real_lport: Invalid port number");
-	} else if (str_begins(arg, "real_rport=")) {
-		if (net_str2port(arg + 11, &info->real_remote_port) < 0)
+	} else if (str_begins(arg, "real_rport=", &value)) {
+		if (net_str2port(value, &info->real_remote_port) < 0)
 			i_fatal("real_rport: Invalid port number");
-	} else if (str_begins(arg, "forward_")) {
-		const char *key = arg+8;
-		const char *value = strchr(arg+8, '=');
+	} else if (str_begins(arg, "forward_", &key)) {
+		value = strchr(key, '=');
 
 		if (value == NULL)
 			value = "";

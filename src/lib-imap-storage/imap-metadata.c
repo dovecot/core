@@ -86,14 +86,12 @@ imap_metadata_entry2key(struct imap_metadata_transaction *imtrans,
 	/* names are case-insensitive so we'll always lowercase them */
 	entry = t_str_lcase(entry);
 
-	if (str_begins(entry, IMAP_METADATA_PRIVATE_PREFIX)) {
-		*key_r = entry + strlen(IMAP_METADATA_PRIVATE_PREFIX);
+	if (str_begins(entry, IMAP_METADATA_PRIVATE_PREFIX, key_r))
 		*type_r = MAIL_ATTRIBUTE_TYPE_PRIVATE;
-	} else {
-		i_assert(str_begins(entry, IMAP_METADATA_SHARED_PREFIX));
-		*key_r = entry + strlen(IMAP_METADATA_SHARED_PREFIX);
+	else if (str_begins(entry, IMAP_METADATA_SHARED_PREFIX, key_r))
 		*type_r = MAIL_ATTRIBUTE_TYPE_SHARED;
-	}
+	else
+		i_unreached();
 	if ((*key_r)[0] == '\0') {
 		/* /private or /shared prefix has no value itself */
 	} else {

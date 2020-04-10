@@ -218,6 +218,7 @@ static void client_handle_request(struct quota_client *client)
 static int client_input_line(struct connection *conn, const char *line)
 {
 	struct quota_client *client = (struct quota_client *)conn;
+	const char *value;
 
 	e_debug(client->event, "Request: %s", str_sanitize(line, 1024));
 
@@ -228,15 +229,15 @@ static int client_input_line(struct connection *conn, const char *line)
 		client_reset(client);
 		return 1;
 	}
-	if (str_begins(line, "recipient=")) {
+	if (str_begins(line, "recipient=", &value)) {
 		if (client->recipient == NULL)
-			client->recipient = i_strdup(line + 10);
-	} else if (str_begins(line, "size=")) {
-		if (str_to_uoff(line+5, &client->size) < 0)
+			client->recipient = i_strdup(value);
+	} else if (str_begins(line, "size=", &value)) {
+		if (str_to_uoff(value, &client->size) < 0)
 			client->size = 0;
-	} else if (str_begins(line, "protocol_state=")) {
+	} else if (str_begins(line, "protocol_state=", &value)) {
 		if (client->state == NULL)
-			client->state = i_strdup(line + 15);
+			client->state = i_strdup(value);
 	}
 	return 1;
 }

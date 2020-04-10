@@ -2681,18 +2681,15 @@ dcrypt_openssl_key_string_get_info(
 	i_assert(key_data != NULL);
 
 	/* is it PEM key */
-	if (str_begins(key_data, "-----BEGIN ")) {
+	if (str_begins(key_data, "-----BEGIN ", &key_data)) {
 		format = DCRYPT_FORMAT_PEM;
 		version = DCRYPT_KEY_VERSION_NA;
-		key_data += 11;
 		if (str_begins_with(key_data, "RSA ")) {
 			DCRYPT_SET_ERROR("RSA private key format not supported, convert it to PKEY format with openssl pkey");
 			return FALSE;
 		}
-		if (str_begins(key_data, "ENCRYPTED ")) {
+		if (str_begins(key_data, "ENCRYPTED ", &key_data))
 			encryption_type = DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD;
-			key_data += 10;
-		}
 		if (str_begins_with(key_data, "PRIVATE KEY-----"))
 			kind = DCRYPT_KEY_KIND_PRIVATE;
 		else if (str_begins_with(key_data, "PUBLIC KEY-----"))

@@ -273,12 +273,12 @@ bool auth_request_import(struct auth_request *request,
 	} else if (strcmp(key, "mech") == 0) {
 		fields->mech_name = p_strdup(request->pool, value);
 		event_add_str(request->event, "mechanism", value);
-	} else if (str_begins(key, "passdb_"))
-		auth_fields_add(fields->extra_fields, key+7, value, 0);
-	else if (str_begins(key, "userdb_")) {
+	} else if (str_begins(key, "passdb_", &key))
+		auth_fields_add(fields->extra_fields, key, value, 0);
+	else if (str_begins(key, "userdb_", &key)) {
 		if (fields->userdb_reply == NULL)
 			auth_request_init_userdb_reply(request, FALSE);
-		auth_fields_add(fields->userdb_reply, key+7, value, 0);
+		auth_fields_add(fields->userdb_reply, key, value, 0);
 	} else
 		return FALSE;
 

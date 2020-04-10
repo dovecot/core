@@ -336,7 +336,7 @@ static int
 client_connection_tcp_authenticate(struct client_connection_tcp *conn)
 {
 	const struct doveadm_settings *set = conn->conn.set;
-	const char *line, *pass;
+	const char *line, *args, *pass;
 	buffer_t *plain;
 	const unsigned char *data;
 	size_t size;
@@ -363,13 +363,13 @@ client_connection_tcp_authenticate(struct client_connection_tcp *conn)
 
 	/* FIXME: some day we should probably let auth process do this and
 	   support all kinds of authentication */
-	if (!str_begins(line, "PLAIN\t")) {
+	if (!str_begins(line, "PLAIN\t", &args)) {
 		i_error("doveadm client attempted non-PLAIN authentication: %s", line);
 		return -1;
 	}
 
 	plain = t_buffer_create(128);
-	if (base64_decode(line + 6, strlen(line + 6), plain) < 0) {
+	if (base64_decode(args, strlen(args), plain) < 0) {
 		i_error("doveadm client sent invalid base64 auth PLAIN data");
 		return -1;
 	}

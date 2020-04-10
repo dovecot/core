@@ -1103,8 +1103,8 @@ int index_storage_set_subscribed(struct mailbox *box, bool set)
 		   subscription name */
 		subs_name = t_strconcat(list->ns->prefix, box->name, NULL);
 		/* drop the common prefix (typically there isn't one) */
-		i_assert(str_begins(subs_name, ns->prefix));
-		subs_name += strlen(ns->prefix);
+		if (!str_begins(subs_name, ns->prefix, &subs_name))
+			i_unreached();
 
 		list = ns->list;
 	}

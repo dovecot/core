@@ -94,14 +94,12 @@ static const char *fs_dict_escape_key(const char *key)
 static const char *fs_dict_get_full_key(const char *username, const char *key)
 {
 	key = fs_dict_escape_key(key);
-	if (str_begins(key, DICT_PATH_SHARED))
-		return key + strlen(DICT_PATH_SHARED);
-	else if (str_begins(key, DICT_PATH_PRIVATE)) {
-		return t_strdup_printf("%s/%s", username,
-				       key + strlen(DICT_PATH_PRIVATE));
-	} else {
+	if (str_begins(key, DICT_PATH_SHARED, &key))
+		return key;
+	else if (str_begins(key, DICT_PATH_PRIVATE, &key))
+		return t_strdup_printf("%s/%s", username, key);
+	else
 		i_unreached();
-	}
 }
 
 static int fs_dict_lookup(struct dict *_dict, const struct dict_op_settings *set,

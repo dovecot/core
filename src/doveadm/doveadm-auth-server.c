@@ -141,19 +141,21 @@ cmd_user_input(struct auth_master_connection *conn,
 
 static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 {
-	if (str_begins(arg, "service="))
-		info->service = arg + 8;
-	else if (str_begins(arg, "lip=")) {
-		if (net_addr2ip(arg + 4, &info->local_ip) < 0)
+	const char *value;
+
+	if (str_begins(arg, "service=", &value))
+		info->service = value;
+	else if (str_begins(arg, "lip=", &value)) {
+		if (net_addr2ip(value, &info->local_ip) < 0)
 			i_fatal("lip: Invalid ip");
-	} else if (str_begins(arg, "rip=")) {
-		if (net_addr2ip(arg + 4, &info->remote_ip) < 0)
+	} else if (str_begins(arg, "rip=", &value)) {
+		if (net_addr2ip(value, &info->remote_ip) < 0)
 			i_fatal("rip: Invalid ip");
-	} else if (str_begins(arg, "lport=")) {
-		if (net_str2port(arg + 6, &info->local_port) < 0)
+	} else if (str_begins(arg, "lport=", &value)) {
+		if (net_str2port(value, &info->local_port) < 0)
 			i_fatal("lport: Invalid port number");
-	} else if (str_begins(arg, "rport=")) {
-		if (net_str2port(arg + 6, &info->remote_port) < 0)
+	} else if (str_begins(arg, "rport=", &value)) {
+		if (net_str2port(value, &info->remote_port) < 0)
 			i_fatal("rport: Invalid port number");
 	} else {
 		i_fatal("Unknown -x argument: %s", arg);

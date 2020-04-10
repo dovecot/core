@@ -73,9 +73,8 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 	uint32_t uid;
 	int ret;
 
-	if (!str_begins(fname, SDBOX_MAIL_FILE_PREFIX))
+	if (!str_begins(fname, SDBOX_MAIL_FILE_PREFIX, &fname))
 		return 0;
-	fname += strlen(SDBOX_MAIL_FILE_PREFIX);
 
 	if (str_to_uint32(fname, &uid) < 0 || uid == 0) {
 		i_warning("sdbox %s: Ignoring invalid filename %s",

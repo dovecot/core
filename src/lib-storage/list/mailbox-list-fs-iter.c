@@ -403,9 +403,8 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 	bool full_fs_access =
 		ctx->ctx.list->mail_set->mail_full_filesystem_access;
 	const char *const *patterns, *pattern, *parent, *child;
-	const char *p, *last, *root, *prefix_vname;
+	const char *p, *last, *root, *prefix_vname, *suffix;
 	unsigned int i;
-	size_t parentlen;
 
 	i_assert(*ctx->valid_patterns != NULL);
 
@@ -482,11 +481,9 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 	for (i = 1; i < array_count(&ctx->roots); ) {
 		parent = array_idx_elem(&ctx->roots, i-1);
 		child = array_idx_elem(&ctx->roots, i);
-		parentlen = strlen(parent);
-		if (str_begins(child, parent) &&
-		    (parentlen == 0 ||
-		     child[parentlen] == ctx->sep ||
-		     child[parentlen] == '\0'))
+		if (str_begins(child, parent, &suffix) &&
+		    (parent[0] == '\0' ||
+		     suffix[0] == ctx->sep || suffix[0] == '\0'))
 			array_delete(&ctx->roots, i, 1);
 		else
 			i++;

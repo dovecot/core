@@ -60,6 +60,7 @@ static struct passdb_module *
 bsdauth_preinit(pool_t pool, const char *args)
 {
 	struct passdb_module *module;
+	const char *value;
 
 	module = p_new(pool, struct passdb_module, 1);
 	module->default_pass_scheme = "PLAIN"; /* same reason as PAM */
@@ -67,8 +68,8 @@ bsdauth_preinit(pool_t pool, const char *args)
 
 	if (strcmp(args, "blocking=no") == 0)
 		module->blocking = FALSE;
-	else if (str_begins(args, "cache_key="))
-		module->default_cache_key = auth_cache_parse_key(pool, args + 10);
+	else if (str_begins(args, "cache_key=", &value))
+		module->default_cache_key = auth_cache_parse_key(pool, value);
 	else if (*args != '\0')
 		i_fatal("passdb bsdauth: Unknown setting: %s", args);
 	return module;

@@ -797,7 +797,7 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 	const char *var_end, *p_start = value;
 	bool dump;
 	while (value != NULL) {
-		const char *var_name;
+		const char *var_name, *env_name;
 		bool expand_parent;
 		var_end = strchr(value, ' ');
 
@@ -816,9 +816,9 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 			str_append(str, var_name);
 		} else if (!ctx->expand_values && !expand_parent) {
 			str_append(str, var_name);
-		} else if (str_begins(var_name, "$ENV:")) {
+		} else if (str_begins(var_name, "$ENV:", &env_name)) {
 			/* use environment variable */
-			const char *envval = getenv(var_name+5);
+			const char *envval = getenv(env_name);
 			if (envval != NULL)
 				str_append(str, envval);
 		} else {

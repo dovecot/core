@@ -182,14 +182,14 @@ static int lua_storage_mail_user_unref(lua_State *L)
 
 static const char *lua_storage_mail_user_metadata_key(const char *key)
 {
-	if (str_begins(key, "/private/")) {
+	if (str_begins(key, "/private/", &key)) {
 		return t_strdup_printf("/private/%s%s",
 				       MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
-				       key + 9);
-	} else if (str_begins(key, "/shared/")) {
+				       key);
+	} else if (str_begins(key, "/shared/", &key)) {
 		return t_strdup_printf("/shared/%s%s",
 				       MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
-				       key + 8);
+				       key);
 	}
 	return NULL;
 }

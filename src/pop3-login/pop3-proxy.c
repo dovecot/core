@@ -205,6 +205,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
 	struct ostream *output;
 	enum auth_proxy_ssl_flags ssl_flags;
+	const char *sasl_value;
 
 	i_assert(!client->destroyed);
 
@@ -212,7 +213,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	switch (pop3_client->proxy_state) {
 	case POP3_PROXY_BANNER:
 		/* this is a banner */
-		if (!str_begins(line, "+OK")) {
+		if (!str_begins(line, "+OK", &line)) {
 			const char *reason = t_strdup_printf(
 				"Invalid banner: %s", str_sanitize(line, 160));
 			login_proxy_failed(client->login_proxy,
@@ -221,7 +222,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		}
 		pop3_client->proxy_xclient =
-			str_begins_with(line+3, " [XCLIENT]");
+			str_begins_with(line, " [XCLIENT]");
 
 		ssl_flags = login_proxy_get_ssl_flags(client->login_proxy);
 		if ((ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0) {
@@ -271,11 +272,11 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		pop3_client->proxy_state = POP3_PROXY_LOGIN2;
 		return 0;
 	case POP3_PROXY_LOGIN2:
-		if (str_begins(line, "+ ") &&
+		if (str_begins(line, "+ ", &sasl_value) &&
 		    client->proxy_sasl_client != NULL) {
 			/* continue SASL authentication */
 			if (pop3_proxy_continue_sasl_auth(client, output,
-							  line+2) < 0)
+							  sasl_value) < 0)
 				return -1;
 			return 0;
 		}

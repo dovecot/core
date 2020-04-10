@@ -156,10 +156,8 @@ login_client_connected(const struct master_login_client *client,
 
 	fields = array_get(&reply.extra_fields, &count);
 	for (i = 0; i < count; i++) {
-		if (str_begins(fields[i], "client_service=")) {
-			service = fields[i] + 15;
+		if (str_begins(fields[i], "client_service=", &service))
 			break;
-		}
 	}
 
 	if (service == NULL) {

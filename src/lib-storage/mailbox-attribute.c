@@ -197,9 +197,10 @@ mailbox_internal_attributes_get(struct mailbox *box,
 	regs = array_get(&mailbox_internal_attributes, &count);
 	for (j = i; j > 0; j--) {
 		const struct mailbox_attribute_internal *attr = &regs[j-1];
+		const char *suffix;
 
 		if ((attr->flags & MAIL_ATTRIBUTE_INTERNAL_FLAG_CHILDREN) == 0 ||
-		    !str_begins(bare_prefix, attr->key))
+		    !str_begins(bare_prefix, attr->key, &suffix))
 			break;
 
 		/* For example: bare_prefix="foo/bar" and attr->key="foo/", so
@@ -207,8 +208,7 @@ mailbox_internal_attributes_get(struct mailbox *box,
 		   attrs: { "", "baz" }, which means with the full prefix:
 		   { "foo/bar", "foo/bar/baz" } */
 		if (attr->iter != NULL &&
-		    attr->iter(box, bare_prefix + strlen(attr->key),
-			       attr_pool, attrs) < 0)
+		    attr->iter(box, suffix, attr_pool, attrs) < 0)
 			ret = -1;
 	}
 

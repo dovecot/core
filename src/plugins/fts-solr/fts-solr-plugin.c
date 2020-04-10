@@ -21,7 +21,7 @@ static int
 fts_solr_plugin_init_settings(struct mail_user *user,
 			      struct fts_solr_settings *set, const char *str)
 {
-	const char *const *tmp;
+	const char *value, *const *tmp;
 
 	if (str == NULL)
 		str = "";
@@ -30,27 +30,26 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 	set->soft_commit = TRUE;
 
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
-		if (str_begins(*tmp, "url=")) {
-			set->url = p_strdup(user->pool, *tmp + 4);
+		if (str_begins(*tmp, "url=", &value)) {
+			set->url = p_strdup(user->pool, value);
 		} else if (strcmp(*tmp, "debug") == 0) {
 			set->debug = TRUE;
 		} else if (strcmp(*tmp, "use_libfts") == 0) {
 			set->use_libfts = TRUE;
-		} else if (str_begins(*tmp, "default_ns=")) {
-			set->default_ns_prefix =
-				p_strdup(user->pool, *tmp + 11);
-		} else if (str_begins(*tmp, "rawlog_dir=")) {
-			set->rawlog_dir = p_strdup(user->pool, *tmp + 11);
-		} else if (str_begins(*tmp, "batch_size=")) {
-			if (str_to_uint(*tmp+11, &set->batch_size) < 0 ||
+		} else if (str_begins(*tmp, "default_ns=", &value)) {
+			set->default_ns_prefix = p_strdup(user->pool, value);
+		} else if (str_begins(*tmp, "rawlog_dir=", &value)) {
+			set->rawlog_dir = p_strdup(user->pool, value);
+		} else if (str_begins(*tmp, "batch_size=", &value)) {
+			if (str_to_uint(value, &set->batch_size) < 0 ||
 			    set->batch_size == 0) {
 				i_error("fts_solr: batch_size must be a positive integer");
 					return -1;
 			}
-		} else if (str_begins(*tmp, "soft_commit=")) {
-			if (strcmp(*tmp + 12, "yes") == 0) {
+		} else if (str_begins(*tmp, "soft_commit=", &value)) {
+			if (strcmp(value, "yes") == 0) {
 				set->soft_commit = TRUE;
-			} else if (strcmp(*tmp + 12, "no") == 0) {
+			} else if (strcmp(value, "no") == 0) {
 				set->soft_commit = FALSE;
 			} else {
 				i_error("fts_solr: Invalid setting for soft_commit: %s", *tmp+12);

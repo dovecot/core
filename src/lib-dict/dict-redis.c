@@ -351,7 +351,7 @@ redis_dict_init(struct dict *driver, const char *uri,
 	struct ip_addr ip;
 	unsigned int secs;
 	in_port_t port = REDIS_DEFAULT_PORT;
-	const char *const *args, *unix_path = NULL;
+	const char *const *args, *value, *unix_path = NULL;
 	int ret = 0;
 
 	if (redis_connections == NULL) {
@@ -369,32 +369,30 @@ redis_dict_init(struct dict *driver, const char *uri,
 
 	args = t_strsplit(uri, ":");
 	for (; *args != NULL; args++) {
-		if (str_begins(*args, "path=")) {
-			unix_path = *args + 5;
-		} else if (str_begins(*args, "host=")) {
-			if (net_addr2ip(*args+5, &ip) < 0) {
+		if (str_begins(*args, "path=", &value)) {
+			unix_path = value;
+		} else if (str_begins(*args, "host=", &value)) {
+			if (net_addr2ip(value, &ip) < 0) {
 				*error_r = t_strdup_printf("Invalid IP: %s",
-							   *args+5);
+							   value);
 				ret = -1;
 			}
-		} else if (str_begins(*args, "port=")) {
-			if (net_str2port(*args+5, &port) < 0) {
+		} else if (str_begins(*args, "port=", &value)) {
+			if (net_str2port(value, &port) < 0) {
 				*error_r = t_strdup_printf("Invalid port: %s",
-							   *args+5);
+							   value);
 				ret = -1;
 			}
-		} else if (str_begins(*args, "prefix=")) {
+		} else if (str_begins(*args, "prefix=", &value)) {
 			i_free(dict->key_prefix);
-			dict->key_prefix = i_strdup(*args + 7);
-		} else if (str_begins(*args, "db=")) {
-			if (str_to_uint(*args+3, &dict->db_id) < 0) {
+			dict->key_prefix = i_strdup(value);
+		} else if (str_begins(*args, "db=", &value)) {
+			if (str_to_uint(value, &dict->db_id) < 0) {
 				*error_r = t_strdup_printf(
-					"Invalid db number: %s", *args+3);
+					"Invalid db number: %s", value);
 				ret = -1;
 			}
-		} else if (str_begins(*args, "expire_secs=")) {
-			const char *value = *args + 12;
-
+		} else if (str_begins(*args, "expire_secs=", &value)) {
 			if (str_to_uint(value, &secs) < 0 || secs == 0) {
 				*error_r = t_strdup_printf(
 					"Invalid expire_secs: %s", value);
@@ -402,15 +400,15 @@ redis_dict_init(struct dict *driver, const char *uri,
 			}
 			i_free(dict->expire_value);
 			dict->expire_value = i_strdup(value);
-		} else if (str_begins(*args, "timeout_msecs=")) {
-			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
+		} else if (str_begins(*args, "timeout_msecs=", &value)) {
+			if (str_to_uint(value, &dict->timeout_msecs) < 0) {
 				*error_r = t_strdup_printf(
-					"Invalid timeout_msecs: %s", *args+14);
+					"Invalid timeout_msecs: %s", value);
 				ret = -1;
 			}
-		} else if (str_begins(*args, "password=")) {
+		} else if (str_begins(*args, "password=", &value)) {
 			i_free(dict->password);
-			dict->password = i_strdup(*args + 9);
+			dict->password = i_strdup(value);
 		} else {
 			*error_r = t_strdup_printf("Unknown parameter: %s",
 						   *args);
@@ -488,14 +486,13 @@ redis_dict_get_full_key(struct redis_dict *dict, const char *username,
 {
 	const char *username_sp = strchr(username, DICT_USERNAME_SEPARATOR);
 
-	if (str_begins(key, DICT_PATH_SHARED))
-		key += strlen(DICT_PATH_SHARED);
-	else if (str_begins(key, DICT_PATH_PRIVATE)) {
+	if (str_begins(key, DICT_PATH_SHARED, &key))
+		;
+	else if (str_begins(key, DICT_PATH_PRIVATE, &key)) {
 		key = t_strdup_printf("%s%c%s",
 				      username_sp == NULL ? username :
 						redis_escape_username(username),
-				      DICT_USERNAME_SEPARATOR,
-				      key + strlen(DICT_PATH_PRIVATE));
+				      DICT_USERNAME_SEPARATOR, key);
 	} else {
 		i_unreached();
 	}

@@ -148,19 +148,19 @@ parse_input(ARRAY_TYPE(const_string)* envs, const char *const **args_r,
 	*args_r = t_strsplit(str_c(input), "\n");
 	script_verify_version(**args_r); (*args_r)++;
 	if (**args_r != NULL) {
-		const char *p;
+		const char *p, *value;
 
-		if (str_begins(**args_r, "alarm=")) {
+		if (str_begins(**args_r, "alarm=", &value)) {
 			unsigned int seconds;
-			if (str_to_uint((**args_r) + 6, &seconds) < 0)
+			if (str_to_uint(value, &seconds) < 0)
 				i_fatal("invalid alarm option");
 			alarm(seconds);
 			(*args_r)++;
 		}
-		while (str_begins(**args_r, "env_")) {
+		while (str_begins(**args_r, "env_", &value)) {
 			const char *envname, *env;
 
-			env = t_str_tabunescape((**args_r)+4);
+			env = t_str_tabunescape(value);
 			p = strchr(env, '=');
 			if (p == NULL)
 				i_fatal("invalid environment variable");

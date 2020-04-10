@@ -455,10 +455,8 @@ test_auth_handshake_auth(struct server_connection *conn, unsigned int id,
 	mech = args[0];
 	resp = NULL;
 	for (i = 1; args[i] != NULL; i++) {
-		if (str_begins(args[i], "resp=")) {
-			resp = t_strdup(args[i] + 5);
+		if (str_begins(args[i], "resp=", &resp))
 			break;
-		}
 	}
 	data = t_buffer_create(256);
 	if (resp != NULL) {

@@ -144,14 +144,16 @@ imapc_mail_try_merge_fetch(struct imapc_mailbox *mbox, string_t *str)
 {
 	const char *s1 = str_c(str);
 	const char *s2 = str_c(mbox->pending_fetch_cmd);
-	const char *p1, *p2;
+	const char *s1_args, *s2_args, *p1, *p2;
 
-	i_assert(str_begins(s1, "UID FETCH "));
-	i_assert(str_begins(s2, "UID FETCH "));
+	if (!str_begins(s1, "UID FETCH ", &s1_args))
+		i_unreached();
+	if (!str_begins(s2, "UID FETCH ", &s2_args))
+		i_unreached();
 
 	/* skip over UID range */
-	p1 = strchr(s1+10, ' ');
-	p2 = strchr(s2+10, ' ');
+	p1 = strchr(s1_args, ' ');
+	p2 = strchr(s2_args, ' ');
 
 	if (null_strcmp(p1, p2) != 0)
 		return FALSE;

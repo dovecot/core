@@ -80,7 +80,7 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	      const char **error_r)
 {
 	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
-	const char *const *tmp;
+	const char *value, *const *tmp;
 
 	fs->temp_file_prefix = set->temp_file_prefix != NULL ?
 		i_strdup(set->temp_file_prefix) : i_strdup("temp.dovecot.");
@@ -100,9 +100,9 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 			fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
 		else if (strcmp(arg, "lock=dotlock") == 0)
 			fs->lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
-		else if (str_begins(arg, "prefix=")) {
+		else if (str_begins(arg, "prefix=", &value)) {
 			i_free(fs->path_prefix);
-			fs->path_prefix = i_strdup(arg + 7);
+			fs->path_prefix = i_strdup(value);
 		} else if (strcmp(arg, "mode=auto") == 0) {
 			fs->mode_auto = TRUE;
 		} else if (strcmp(arg, "dirs") == 0) {
@@ -111,15 +111,15 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 			fs->disable_fsync = TRUE;
 		} else if (strcmp(arg, "accurate-mtime") == 0) {
 			fs->accurate_mtime = TRUE;
-		} else if (str_begins(arg, "mode=")) {
+		} else if (str_begins(arg, "mode=", &value)) {
 			unsigned int mode;
-			if (str_to_uint_oct(arg+5, &mode) < 0) {
-				*error_r = t_strdup_printf("Invalid mode value: %s", arg+5);
+			if (str_to_uint_oct(value, &mode) < 0) {
+				*error_r = t_strdup_printf("Invalid mode value: %s", value);
 				return -1;
 			}
 			fs->mode = mode & 0666;
 			if (fs->mode == 0) {
-				*error_r = t_strdup_printf("Invalid mode: %s", arg+5);
+				*error_r = t_strdup_printf("Invalid mode: %s", value);
 				return -1;
 			}
 		} else {

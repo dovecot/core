@@ -366,9 +366,8 @@ arg_modseq_set_ext(struct mail_search_build_context *ctx,
 	const char *value;
 
 	name = t_str_lcase(name);
-	if (!str_begins(name, "/flags/"))
+	if (!str_begins(name, "/flags/", &name))
 		return 0;
-	name += 7;
 
 	/* set name */
 	if (*name == '\\') {

@@ -1725,6 +1725,7 @@ void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
 {
+	const char *suffix;
 	size_t name_len = strlen(name);
 
 	i_assert(*name != '\0');
@@ -1800,7 +1801,7 @@ void auth_request_set_field(struct auth_request *request,
 	} else if (strcmp(name, "allow_real_nets") == 0) {
 		auth_request_validate_networks(request, name, value,
 					       &request->fields.real_remote_ip);
-	} else if (str_begins(name, "userdb_")) {
+	} else if (str_begins(name, "userdb_", &suffix)) {
 		/* for prefetch userdb */
 		request->userdb_prefetch_set = TRUE;
 		if (request->fields.userdb_reply == NULL)
@@ -1813,7 +1814,7 @@ void auth_request_set_field(struct auth_request *request,
 						   "userdb_", default_scheme);
 			return;
 		}
-		auth_request_set_userdb_field(request, name + 7, value);
+		auth_request_set_userdb_field(request, suffix, value);
 	} else if (strcmp(name, "noauthenticate") == 0) {
 		/* add "nopassword" also so that passdbs won't try to verify
 		   the password. */

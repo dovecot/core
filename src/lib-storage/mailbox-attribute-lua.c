@@ -22,13 +22,11 @@ int lua_storage_mailbox_attribute_get(struct mailbox *box, const char *key,
 	enum mail_attribute_type attr_type;
 	int ret;
 
-	if (str_begins(key, "/private/")) {
+	if (str_begins(key, "/private/", &key))
 		attr_type = MAIL_ATTRIBUTE_TYPE_PRIVATE;
-		key += 9;
-	} else if (str_begins(key, "/shared/")) {
+	else if (str_begins(key, "/shared/", &key))
 		attr_type = MAIL_ATTRIBUTE_TYPE_SHARED;
-		key += 8;
-	} else {
+	else {
 		*error_r = "Invalid key prefix, must be /private/ or /shared/";
 		return -1;
 	}
@@ -84,13 +82,11 @@ int lua_storage_mailbox_attribute_set(struct mailbox *box, const char *key,
 
 	i_assert(value != NULL || value_len == 0);
 
-	if (str_begins(key, "/private/")) {
+	if (str_begins(key, "/private/", &key))
 		attr_type = MAIL_ATTRIBUTE_TYPE_PRIVATE;
-		key += 9;
-	} else if (str_begins(key, "/shared/")) {
+	else if (str_begins(key, "/shared/", &key))
 		attr_type = MAIL_ATTRIBUTE_TYPE_SHARED;
-		key += 8;
-	} else {
+	else {
 		*error_r = "Invalid key prefix, must be /private/ or /shared/";
 		return -1;
 	}
@@ -127,13 +123,11 @@ int lua_storage_mailbox_attribute_list(struct mailbox *box, const char *prefix,
 	enum mail_attribute_type attr_type;
 	int ret;
 
-	if (str_begins(prefix, "/private/")) {
+	if (str_begins(prefix, "/private/", &prefix))
 		attr_type = MAIL_ATTRIBUTE_TYPE_PRIVATE;
-		prefix += 9;
-	} else if (str_begins(prefix, "/shared/")) {
+	else if (str_begins(prefix, "/shared/", &prefix))
 		attr_type = MAIL_ATTRIBUTE_TYPE_SHARED;
-		prefix += 8;
-	} else {
+	else {
 		*error_r = "Invalid key prefix, must be /private/ or /shared/";
 		return -1;
 	}

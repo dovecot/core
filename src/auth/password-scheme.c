@@ -110,14 +110,14 @@ int password_verify(const char *plaintext,
 
 const char *password_get_scheme(const char **password)
 {
-	const char *p, *scheme;
+	const char *p, *suffix, *scheme;
 
 	if (*password == NULL)
 		return NULL;
 
-	if (str_begins(*password, "$1$")) {
+	if (str_begins(*password, "$1$", &suffix)) {
 		/* $1$<salt>$<password>[$<ignored>] */
-		p = strchr(*password + 3, '$');
+		p = strchr(suffix, '$');
 		if (p != NULL) {
 			/* stop at next '$' after password */
 			p = strchr(p+1, '$');

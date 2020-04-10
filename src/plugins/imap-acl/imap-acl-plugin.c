@@ -822,13 +822,11 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 		rights->id_type = ACL_ID_AUTHENTICATED;
 	} else if (strcmp(id, IMAP_ACL_OWNER) == 0)
 		rights->id_type = ACL_ID_OWNER;
-	else if (str_begins(id, IMAP_ACL_GROUP_PREFIX)) {
+	else if (str_begins(id, IMAP_ACL_GROUP_PREFIX, &rights->identifier))
 		rights->id_type = ACL_ID_GROUP;
-		rights->identifier = id + strlen(IMAP_ACL_GROUP_PREFIX);
-	} else if (str_begins(id, IMAP_ACL_GROUP_OVERRIDE_PREFIX)) {
+	else if (str_begins(id, IMAP_ACL_GROUP_OVERRIDE_PREFIX,
+			    &rights->identifier)) {
 		rights->id_type = ACL_ID_GROUP_OVERRIDE;
-		rights->identifier = id +
-			strlen(IMAP_ACL_GROUP_OVERRIDE_PREFIX);
 	} else {
 		rights->id_type = ACL_ID_USER;
 		rights->identifier = id;

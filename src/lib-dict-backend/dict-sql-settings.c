@@ -204,7 +204,6 @@ parse_setting(const char *key, const char *value,
 	      struct setting_parser_ctx *ctx)
 {
 	struct dict_sql_map_field *field;
-	size_t value_len;
 
 	switch (ctx->type) {
 	case SECTION_ROOT:
@@ -224,26 +223,19 @@ parse_setting(const char *key, const char *value,
 		}
 		field = array_append_space(&ctx->cur_fields);
 		field->sql_field.name = p_strdup(ctx->pool, key);
-		value_len = strlen(value);
-		if (str_begins_with(value, "${hexblob:") &&
-		    value[value_len-1] == '}') {
-			field->variable = p_strndup(ctx->pool, value + 10,
-						    value_len-10-1);
+
+		const char *arg, *last = value + strlen(value) - 1;
+		if (str_begins(value, "${hexblob:", &arg) && *last == '}') {
+			field->variable = p_strdup_until(ctx->pool, arg, last);
 			field->sql_field.value_type = DICT_SQL_TYPE_HEXBLOB;
-		} else if (str_begins_with(value, "${int:") &&
-			   value[value_len-1] == '}') {
-			field->variable = p_strndup(ctx->pool, value + 6,
-						    value_len-6-1);
+		} else if (str_begins(value, "${int:", &arg) && *last == '}') {
+			field->variable = p_strdup_until(ctx->pool, arg, last);
 			field->sql_field.value_type = DICT_SQL_TYPE_INT;
-		} else if (str_begins_with(value, "${uint:") &&
-			   value[value_len-1] == '}') {
-			field->variable = p_strndup(ctx->pool, value + 7,
-						    value_len-7-1);
+		} else if (str_begins(value, "${uint:", &arg) && *last == '}') {
+			field->variable = p_strdup_until(ctx->pool, arg, last);
 			field->sql_field.value_type = DICT_SQL_TYPE_UINT;
-		} else if (str_begins(value, "${double:") &&
-			   value[value_len-1] == '}') {
-			field->variable = p_strndup(ctx->pool, value + 9,
-						    value_len-9-1);
+		} else if (str_begins(value, "${double:", &arg) && *last == '}') {
+			field->variable = p_strdup_until(ctx->pool, arg, last);
 			field->sql_field.value_type = DICT_SQL_TYPE_DOUBLE;
 		} else {
 			field->variable = p_strdup(ctx->pool, value + 1);

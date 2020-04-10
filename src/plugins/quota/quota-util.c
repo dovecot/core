@@ -228,7 +228,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 			const char *rule_def, const char **error_r)
 {
 	struct quota_rule *rule;
-	const char *p, *mailbox_mask;
+	const char *p, *mailbox_mask, *value;
 	int ret = 0;
 
 	p = strchr(rule_def, ':');
@@ -262,12 +262,12 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 		return 0;
 	}
 
-	if (str_begins(p, "backend=")) {
+	if (str_begins(p, "backend=", &value)) {
 		if (root_set->backend->v.parse_rule == NULL) {
 			*error_r = "backend rule not supported";
 			ret = -1;
 		} else if (!root_set->backend->v.parse_rule(root_set, rule,
-							    p + 8, error_r))
+							    value, error_r))
 			ret = -1;
 	} else {
 		bool relative_rule = rule != &root_set->default_rule;

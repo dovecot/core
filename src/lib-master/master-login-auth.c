@@ -435,10 +435,8 @@ master_login_auth_input_fail(struct master_login_auth *auth, unsigned int id,
 
 	/* FAIL <id> [..] [reason=<error>] [..] */
 	for (i = 0; args[i] != NULL; i++) {
-		if (str_begins(args[i], "reason=")) {
-			error = args[i] + 7;
+		if (str_begins(args[i], "reason=", &error))
 			break;
-		}
 	}
 
 	request = master_login_auth_lookup_request(auth, id);

@@ -707,30 +707,30 @@ client_dict_init(struct dict *driver, const char *uri,
 {
 	struct ioloop *old_ioloop = current_ioloop;
 	struct client_dict *dict;
-	const char *p, *dest_uri, *path;
+	const char *p, *dest_uri, *value, *path;
 	unsigned int idle_msecs = DICT_CLIENT_DEFAULT_TIMEOUT_MSECS;
 	unsigned int warn_slow_msecs = DICT_CLIENT_DEFAULT_WARN_SLOW_MSECS;
 
 	/* uri = [idle_msecs=<n>:] [warn_slow_msecs=<n>:] [<path>] ":" <uri> */
 	for (;;) {
-		if (str_begins(uri, "idle_msecs=")) {
-			p = strchr(uri+11, ':');
+		if (str_begins(uri, "idle_msecs=", &value)) {
+			p = strchr(value, ':');
 			if (p == NULL) {
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);
 				return -1;
 			}
-			if (str_to_uint(t_strdup_until(uri+11, p), &idle_msecs) < 0) {
+			if (str_to_uint(t_strdup_until(value, p), &idle_msecs) < 0) {
 				*error_r = "Invalid idle_msecs";
 				return -1;
 			}
 			uri = p+1;
-		} else if (str_begins(uri, "warn_slow_msecs=")) {
-			p = strchr(uri+11, ':');
+		} else if (str_begins(uri, "warn_slow_msecs=", &value)) {
+			p = strchr(value, ':');
 			if (p == NULL) {
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);
 				return -1;
 			}
-			if (str_to_uint(t_strdup_until(uri+16, p), &warn_slow_msecs) < 0) {
+			if (str_to_uint(t_strdup_until(value, p), &warn_slow_msecs) < 0) {
 				*error_r = "Invalid warn_slow_msecs";
 				return -1;
 			}

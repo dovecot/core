@@ -279,11 +279,8 @@ static int module_name_cmp(const char *const *n1, const char *const *n2)
 {
 	const char *s1 = *n1, *s2 = *n2;
 
-	if (str_begins(s1, "lib"))
-		s1 += 3;
-	if (str_begins(s2, "lib"))
-		s2 += 3;
-
+	(void)str_begins(s1, "lib", &s1);
+	(void)str_begins(s2, "lib", &s2);
 	return strcmp(s1, s2);
 }
 
@@ -664,8 +661,7 @@ const char *module_file_get_name(const char *fname)
 	const char *p;
 
 	/* [lib][nn_]name(.so) */
-	if (str_begins(fname, "lib"))
-		fname += 3;
+	(void)str_begins(fname, "lib", &fname);
 
 	for (p = fname; *p != '\0'; p++) {
 		if (*p < '0' || *p > '9')

@@ -252,10 +252,8 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	new_apool = p_new(&apool.pool, struct alloconly_pool, 1);
 	*new_apool = apool;
 #ifdef DEBUG
-	if (str_begins(name, MEMPOOL_GROWING)) {
-		name += strlen(MEMPOOL_GROWING);
-		new_apool->disable_warning = TRUE;
-	} else if (getenv("DEBUG_SILENT") != NULL)
+	if (str_begins(name, MEMPOOL_GROWING, &name) ||
+	    getenv("DEBUG_SILENT") != NULL)
 		new_apool->disable_warning = TRUE;
 	new_apool->name = p_strdup(&new_apool->pool, name);
 

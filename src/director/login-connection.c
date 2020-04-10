@@ -144,11 +144,8 @@ login_host_callback(const struct mail_host *host, const char *hostname,
 	unsigned int secs;
 
 	if (host == NULL) {
-		if (str_begins(request->line, "OK\t"))
-			line_params = request->line + 3;
-		else if (str_begins(request->line, "PASS\t"))
-			line_params = request->line + 5;
-		else
+		if (!str_begins(request->line, "OK\t", &line_params) &&
+		    !str_begins(request->line, "PASS\t", &line_params))
 			i_panic("BUG: Unexpected line: %s", request->line);
 
 		e_error(dir->event, "director: User %s host lookup failed: %s",
@@ -191,6 +188,7 @@ static void auth_input_line(const char *line, void *context)
 	struct login_connection *conn = context;
 	struct login_host_request *request, temp_request;
 	const char *const *args, *line_params, *username = NULL, *tag = "";
+	const char *value;
 	bool proxy = FALSE, host = FALSE;
 
 	if (line == NULL) {
@@ -199,11 +197,11 @@ static void auth_input_line(const char *line, void *context)
 		return;
 	}
 	if (conn->type != LOGIN_CONNECTION_TYPE_USERDB &&
-	    str_begins(line, "OK\t"))
-		line_params = line + 3;
+	    str_begins(line, "OK\t", &line_params))
+		;
 	else if (conn->type == LOGIN_CONNECTION_TYPE_USERDB &&
-		 str_begins(line, "PASS\t"))
-		line_params = line + 5;
+		 str_begins(line, "PASS\t", &line_params))
+		;
 	else {
 		login_connection_send_line(conn, line);
 		return;
@@ -219,30 +217,30 @@ static void auth_input_line(const char *line, void *context)
 
 	i_zero(&temp_request);
 	for (; *args != NULL; args++) {
-		if (str_begins(*args, "proxy") &&
-		    ((*args)[5] == '=' || (*args)[5] == '\0'))
+		if (str_begins(*args, "proxy", &value) &&
+		    (value[0] == '=' || value[0] == '\0'))
 			proxy = TRUE;
 		else if (str_begins_with(*args, "host="))
 			host = TRUE;
-		else if (str_begins(*args, "lip=")) {
-			if (net_addr2ip((*args) + 4, &temp_request.local_ip) < 0)
+		else if (str_begins(*args, "lip=", &value)) {
+			if (net_addr2ip(value, &temp_request.local_ip) < 0)
 				e_error(conn->dir->event, "auth sent invalid lip field: %s", (*args) + 6);
-		} else if (str_begins(*args, "lport=")) {
-			if (net_str2port((*args) + 6, &temp_request.local_port) < 0)
+		} else if (str_begins(*args, "lport=", &value)) {
+			if (net_str2port(value, &temp_request.local_port) < 0)
 				e_error(conn->dir->event, "auth sent invalid lport field: %s", (*args) + 6);
-		} else if (str_begins(*args, "port=")) {
-			if (net_str2port((*args) + 5, &temp_request.dest_port) < 0)
+		} else if (str_begins(*args, "port=", &value)) {
+			if (net_str2port(value, &temp_request.dest_port) < 0)
 				e_error(conn->dir->event, "auth sent invalid port field: %s", (*args) + 6);
-		} else if (str_begins(*args, "destuser="))
-			username = *args + 9;
-		else if (str_begins(*args, "director_tag="))
-			tag = *args + 13;
-		else if (str_begins(*args, "director_proxy_maybe") &&
-			 ((*args)[20] == '=' || (*args)[20] == '\0'))
+		} else if (str_begins(*args, "destuser=", &value))
+			username = value;
+		else if (str_begins(*args, "director_tag=", &value))
+			tag = value;
+		else if (str_begins(*args, "director_proxy_maybe", &value) &&
+			 (value[0] == '=' || value[0] == '\0'))
 			temp_request.director_proxy_maybe = TRUE;
-		else if (str_begins(*args, "user=")) {
+		else if (str_begins(*args, "user=", &value)) {
 			if (username == NULL)
-				username = *args + 5;
+				username = value;
 		}
 	}
 	if ((!proxy && !temp_request.director_proxy_maybe) ||

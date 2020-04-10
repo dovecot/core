@@ -46,8 +46,8 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 
 	group_count = str_array_length(groups);
 
-	if (str_begins(data, "vfile:"))
-		data += 6;
+	if (str_begins(data, "vfile:", &data))
+		;
 	else if (strcmp(data, "vfile") == 0)
 		data = "";
 	else

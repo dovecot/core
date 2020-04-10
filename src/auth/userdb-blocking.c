@@ -20,15 +20,12 @@ static bool user_callback(const char *reply, void *context)
 	enum userdb_result result;
 	const char *username, *args;
 
-	if (str_begins(reply, "FAIL\t")) {
+	if (str_begins(reply, "FAIL\t", &args)) {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
-		args = reply + 5;
-	} else if (str_begins(reply, "NOTFOUND\t")) {
+	} else if (str_begins(reply, "NOTFOUND\t", &args)) {
 		result = USERDB_RESULT_USER_UNKNOWN;
-		args = reply + 9;
-	} else if (str_begins(reply, "OK\t")) {
+	} else if (str_begins(reply, "OK\t", &username)) {
 		result = USERDB_RESULT_OK;
-		username = reply + 3;
 		args = strchr(username, '\t');
 		if (args == NULL)
 			args = "";
@@ -73,12 +70,13 @@ void userdb_blocking_lookup(struct auth_request *request)
 static bool iter_callback(const char *reply, void *context)
 {
 	struct blocking_userdb_iterate_context *ctx = context;
+	const char *args;
 
-	if (str_begins(reply, "*\t")) {
+	if (str_begins(reply, "*\t", &args)) {
 		if (ctx->destroyed)
 			return TRUE;
 		ctx->next = FALSE;
-		ctx->ctx.callback(reply + 2, ctx->ctx.context);
+		ctx->ctx.callback(args, ctx->ctx.context);
 		return ctx->next || ctx->destroyed;
 	}
 

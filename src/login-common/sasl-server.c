@@ -301,18 +301,20 @@ sasl_server_check_login(struct client *client)
 
 static bool args_parse_user(struct client *client, const char *arg)
 {
-	if (str_begins(arg, "user=")) {
+	const char *value;
+
+	if (str_begins(arg, "user=", &value)) {
 		i_free(client->virtual_user);
 		i_free_and_null(client->virtual_user_orig);
 		i_free_and_null(client->virtual_auth_user);
-		client->virtual_user = i_strdup(arg + 5);
+		client->virtual_user = i_strdup(value);
 		event_add_str(client->event, "user", client->virtual_user);
-	} else if (str_begins(arg, "original_user=")) {
+	} else if (str_begins(arg, "original_user=", &value)) {
 		i_free(client->virtual_user_orig);
-		client->virtual_user_orig = i_strdup(arg + 14);
-	} else if (str_begins(arg, "auth_user=")) {
+		client->virtual_user_orig = i_strdup(value);
+	} else if (str_begins(arg, "auth_user=", &value)) {
 		i_free(client->virtual_auth_user);
-		client->virtual_auth_user = i_strdup(arg + 10);
+		client->virtual_auth_user = i_strdup(value);
 	} else {
 		return FALSE;
 	}
@@ -325,6 +327,7 @@ authenticate_callback(struct auth_client_request *request,
 		      const char *const *args, void *context)
 {
 	struct client *client = context;
+	const char *value;
 	unsigned int i;
 	bool nologin;
 
@@ -353,19 +356,19 @@ authenticate_callback(struct auth_client_request *request,
 		for (i = 0; args[i] != NULL; i++) {
 			if (args_parse_user(client, args[i]))
 				;
-			else if (str_begins(args[i], "postlogin_socket=")) {
+			else if (str_begins(args[i], "postlogin_socket=", &value)) {
 				client->postlogin_socket_path =
-					p_strdup(client->pool, args[i] + 17);
+					p_strdup(client->pool, value);
 			} else if (strcmp(args[i], "nologin") == 0 ||
 				   strcmp(args[i], "proxy") == 0) {
 				/* user can't login */
 				nologin = TRUE;
 			} else if (strcmp(args[i], "anonymous") == 0 ) {
 				client->auth_anonymous = TRUE;
-			} else if (str_begins(args[i], "resp=") &&
+			} else if (str_begins(args[i], "resp=", &value) &&
 				   login_binary->sasl_support_final_reply) {
 				client->sasl_final_resp =
-					p_strdup(client->pool, args[i] + 5);
+					p_strdup(client->pool, value);
 			}
 		}
 

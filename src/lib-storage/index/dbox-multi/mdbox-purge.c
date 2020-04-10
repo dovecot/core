@@ -498,6 +498,7 @@ static int mdbox_purge_get_primary_files(struct mdbox_purge_context *ctx)
 	DIR *dir;
 	struct dirent *d;
 	string_t *path;
+	const char *suffix;
 	unsigned int file_id;
 	size_t dir_len;
 	int ret = 0;
@@ -526,10 +527,9 @@ static int mdbox_purge_get_primary_files(struct mdbox_purge_context *ctx)
 	dir_len = str_len(path);
 
 	for (errno = 0; (d = readdir(dir)) != NULL; errno = 0) {
-		if (!str_begins(d->d_name, MDBOX_MAIL_FILE_PREFIX))
+		if (!str_begins(d->d_name, MDBOX_MAIL_FILE_PREFIX, &suffix))
 			continue;
-		if (str_to_uint32(d->d_name + strlen(MDBOX_MAIL_FILE_PREFIX),
-				  &file_id) < 0)
+		if (str_to_uint32(suffix, &file_id) < 0)
 			continue;
 
 		str_truncate(path, dir_len);

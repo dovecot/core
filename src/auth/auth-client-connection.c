@@ -212,26 +212,28 @@ auth_client_cancel(struct auth_client_connection *conn, const char *line)
 static bool
 auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 {
-	if (str_begins(line, "AUTH\t")) {
+	const char *args;
+
+	if (str_begins(line, "AUTH\t", &args)) {
 		if (conn->auth->set->debug) {
 			e_debug(conn->event, "client in: %s",
 				auth_line_hide_pass(conn, line));
 		}
 		return auth_request_handler_auth_begin(conn->request_handler,
-						       line + 5);
+						       args);
 	}
-	if (str_begins(line, "CONT\t")) {
+	if (str_begins(line, "CONT\t", &args)) {
 		if (conn->auth->set->debug) {
 			e_debug(conn->event, "client in: %s",
 				cont_line_hide_pass(conn, line));
 		}
 		return auth_request_handler_auth_continue(conn->request_handler,
-							  line + 5);
+							  args);
 	}
-	if (str_begins(line, "CANCEL\t")) {
+	if (str_begins(line, "CANCEL\t", &args)) {
 		if (conn->auth->set->debug)
 			e_debug(conn->event, "client in: %s", line);
-		return auth_client_cancel(conn, line + 7);
+		return auth_client_cancel(conn, args);
 	}
 
 	e_error(conn->event, "BUG: Authentication client sent unknown command: %s",
@@ -241,6 +243,7 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 
 static void auth_client_input(struct auth_client_connection *conn)
 {
+	const char *args;
 	char *line;
 	bool ret;
 
@@ -270,8 +273,8 @@ static void auth_client_input(struct auth_client_connection *conn)
 			const char *p;
 
 			/* split the version line */
-			if (!str_begins(line, "VERSION\t") ||
-			    str_parse_uint(line + 8, &vmajor, &p) < 0 ||
+			if (!str_begins(line, "VERSION\t", &args) ||
+			    str_parse_uint(args, &vmajor, &p) < 0 ||
 			    *(p++) != '\t' || str_to_uint(p, &vminor) < 0) {
 				e_error(conn->event, "Authentication client "
 					"sent invalid VERSION line: %s", line);
@@ -291,8 +294,8 @@ static void auth_client_input(struct auth_client_connection *conn)
 			continue;
 		}
 
-		if (str_begins(line, "CPID\t")) {
-			if (!auth_client_input_cpid(conn, line + 5)) {
+		if (str_begins(line, "CPID\t", &args)) {
+			if (!auth_client_input_cpid(conn, args)) {
 				auth_client_connection_destroy(&conn);
 				return;
 			}

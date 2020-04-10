@@ -123,7 +123,7 @@ static bool
 old_settings_handle_root(struct config_parser_context *ctx,
 			 const char *key, const char *value)
 {
-	const char *p;
+	const char *p, *suffix;
 	size_t len;
 
 	if (strcmp(key, "base_dir") == 0) {
@@ -240,8 +240,8 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		set_rename(ctx, key, "mdbox_rotate_size", value);
 		return TRUE;
 	}
-	if (str_begins(key, "mail_cache_compress_")) {
-		const char *new_key = t_strconcat("mail_cache_purge_", key+20, NULL);
+	if (str_begins(key, "mail_cache_compress_", &suffix)) {
+		const char *new_key = t_strconcat("mail_cache_purge_", suffix, NULL);
 		set_rename(ctx, key, new_key, value);
 		return TRUE;
 	}
@@ -588,7 +588,7 @@ static bool old_auth_section(struct config_parser_context *ctx,
 static void socket_apply(struct config_parser_context *ctx)
 {
 	const struct socket_set *set = &ctx->old->socket_set;
-	const char *path, *prefix;
+	const char *path, *prefix, *suffix;
 	size_t len;
 	bool master_suffix;
 
@@ -597,10 +597,9 @@ static void socket_apply(struct config_parser_context *ctx)
 		return;
 	}
 	path = set->path;
-	len = strlen(ctx->old->base_dir);
-	if (str_begins(path, ctx->old->base_dir) &&
-	    path[len] == '/')
-		path += len + 1;
+	if (str_begins(path, ctx->old->base_dir, &suffix) &&
+	    suffix[0] == '/')
+		path = suffix + 1;
 
 	len = strlen(path);
 	master_suffix = len >= 7 &&

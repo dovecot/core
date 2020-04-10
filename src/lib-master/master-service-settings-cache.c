@@ -86,7 +86,7 @@ master_service_settings_cache_init(struct master_service *service,
 int master_service_settings_cache_init_filter(struct master_service_settings_cache *cache)
 {
 	const char *const *filters;
-	const char *error;
+	const char *value, *error;
 
 	if (cache->filters != NULL)
 		return 0;
@@ -101,14 +101,14 @@ int master_service_settings_cache_init_filter(struct master_service_settings_cac
 		struct config_filter *filter =
 			p_new(cache->pool, struct config_filter, 1);
 		while(*keys != NULL) {
-			if (str_begins(*keys, "local-net=")) {
-				(void)net_parse_range((*keys)+10,
+			if (str_begins(*keys, "local-net=", &value)) {
+				(void)net_parse_range(value,
 					&filter->local_ip, &filter->local_bits);
-			} else if (str_begins(*keys, "remote-net=")) {
-				(void)net_parse_range((*keys)+11,
+			} else if (str_begins(*keys, "remote-net=", &value)) {
+				(void)net_parse_range(value,
 					&filter->remote_ip, &filter->remote_bits);
-			} else if (str_begins(*keys, "local-name=")) {
-				filter->local_name = p_strdup(cache->pool, (*keys)+11);
+			} else if (str_begins(*keys, "local-name=", &value)) {
+				filter->local_name = p_strdup(cache->pool, value);
 			}
 			keys++;
 		}

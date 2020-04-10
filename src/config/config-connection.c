@@ -70,7 +70,7 @@ static int config_connection_request(struct config_connection *conn,
 	struct config_export_context *ctx;
 	struct master_service_settings_output output;
 	struct config_filter filter;
-	const char *path, *error, *module, *const *wanted_modules;
+	const char *path, *value, *error, *module, *const *wanted_modules;
 	ARRAY(const char *) modules;
 	ARRAY(const char *) exclude_settings;
 	bool is_master = FALSE;
@@ -80,26 +80,24 @@ static int config_connection_request(struct config_connection *conn,
 	t_array_init(&exclude_settings, 4);
 	i_zero(&filter);
 	for (; *args != NULL; args++) {
-		if (str_begins(*args, "service="))
-			filter.service = *args + 8;
-		else if (str_begins(*args, "module=")) {
-			module = *args + 7;
+		if (str_begins(*args, "service=", &filter.service))
+			;
+		else if (str_begins(*args, "module=", &module)) {
 			if (strcmp(module, "master") == 0)
 				is_master = TRUE;
 			array_push_back(&modules, &module);
-		} else if (str_begins(*args, "exclude=")) {
-			const char *value = *args + 8;
+		} else if (str_begins(*args, "exclude=", &value))
 			array_push_back(&exclude_settings, &value);
-		} else if (str_begins(*args, "lname="))
-			filter.local_name = *args + 6;
-		else if (str_begins(*args, "lip=")) {
-			if (net_addr2ip(*args + 4, &filter.local_net) == 0) {
+		else if (str_begins(*args, "lname=", &filter.local_name))
+			;
+		else if (str_begins(*args, "lip=", &value)) {
+			if (net_addr2ip(value, &filter.local_net) == 0) {
 				filter.local_bits =
 					IPADDR_IS_V4(&filter.local_net) ?
 					32 : 128;
 			}
-		} else if (str_begins(*args, "rip=")) {
-			if (net_addr2ip(*args + 4, &filter.remote_net) == 0) {
+		} else if (str_begins(*args, "rip=", &value)) {
+			if (net_addr2ip(value, &filter.remote_net) == 0) {
 				filter.remote_bits =
 					IPADDR_IS_V4(&filter.remote_net) ?
 					32 : 128;

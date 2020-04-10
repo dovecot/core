@@ -116,13 +116,14 @@ static void log_parse_option(struct log_connection *log,
 			     const struct failure_line *failure)
 {
 	struct log_client *client;
+	const char *value;
 
 	client = log_client_get(log, failure->pid);
-	if (str_begins(failure->text, "ip="))
-		(void)net_addr2ip(failure->text + 3, &client->ip);
-	else if (str_begins(failure->text, "prefix=")) {
+	if (str_begins(failure->text, "ip=", &value))
+		(void)net_addr2ip(value, &client->ip);
+	else if (str_begins(failure->text, "prefix=", &value)) {
 		i_free(client->prefix);
-		client->prefix = i_strdup(failure->text + 7);
+		client->prefix = i_strdup(value);
 	}
 }
 
@@ -193,7 +194,7 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 {
 	struct log_connection *const *logs, *log;
 	struct log_client *client;
-	const char *p, *p2, *cmd, *pidstr;
+	const char *p, *p2, *cmd, *args, *pidstr;
 	unsigned int count;
 	unsigned int service_fd;
 	pid_t pid;
@@ -232,13 +233,13 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 			return;
 		}
 		log_client_free(log, client, pid);
-	} else if (str_begins(cmd, "FATAL ")) {
-		client_log_fatal(log, client, cmd + 6, log_time, tm);
-	} else if (str_begins(cmd, "DEFAULT-FATAL ")) {
+	} else if (str_begins(cmd, "FATAL ", &args)) {
+		client_log_fatal(log, client, args, log_time, tm);
+	} else if (str_begins(cmd, "DEFAULT-FATAL ", &args)) {
 		/* If the client has logged a fatal/panic, don't log this
 		   message. */
 		if (client == NULL || !client->fatal_logged)
-			client_log_fatal(log, client, cmd + 14, log_time, tm);
+			client_log_fatal(log, client, args, log_time, tm);
 	} else {
 		i_error("Received unknown command from master: %s", cmd);
 	}

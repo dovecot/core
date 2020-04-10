@@ -808,11 +808,11 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 			  struct mailbox_list *_newlist, const char *newname)
 {
 	struct index_mailbox_list *list = (struct index_mailbox_list *)_oldlist;
-	const size_t oldname_len = strlen(oldname);
 	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mailbox_list_index_record oldrec, newrec;
 	struct mailbox_list_index_node *oldnode, *newnode, *child;
 	const void *data;
+	const char *suffix;
 	bool created, expunged;
 	uint32_t oldseq, newseq;
 	int ret;
@@ -823,8 +823,8 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 		return -1;
 	}
 
-	if (str_begins(newname, oldname) &&
-	   newname[oldname_len] == mailbox_list_get_hierarchy_sep(_newlist)) {
+	if (str_begins(newname, oldname, &suffix) &&
+	   suffix[0] == mailbox_list_get_hierarchy_sep(_newlist)) {
 		mailbox_list_set_error(_oldlist, MAIL_ERROR_NOTPOSSIBLE,
 			"Can't rename mailbox under itself.");
 		return -1;
