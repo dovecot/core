@@ -1,7 +1,6 @@
 /* Copyright (c) 2019 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "lib-signals.h"
 #include "str.h"
 #include "strescape.h"
 #include "hostpid.h"
@@ -18,18 +17,15 @@
 #include "master-service.h"
 #include "master-interface.h"
 #include "test-common.h"
+#include "test-subprocess.h"
 
 #include "master-auth.h"
 #include "master-login-auth.h"
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <signal.h>
-#include <unistd.h>
-#include <fcntl.h>
-
 #define TEST_SOCKET "./master-login-auth-test"
+#define SERVER_KILL_TIMEOUT_SECS    20
+
+static void main_deinit(void);
 
 /*
  * Types
@@ -57,7 +53,6 @@ static bool debug = FALSE;
 /* server */
 static struct io *io_listen;
 static int fd_listen = -1;
-static pid_t server_pid;
 static struct connection_list *server_conn_list;
 static void (*test_server_input)(struct server_connection *conn);
 static void (*test_server_init)(struct server_connection *conn);
@@ -96,6 +91,7 @@ test_run_client_server(test_client_init_t *client_test,
 static void test_server_connection_refused(void)
 {
 	i_close_fd(&fd_listen);
+	i_sleep_intr_secs(500);
 }
 
 /* client */
@@ -884,17 +880,11 @@ static int test_open_server_fd(void)
 	return fd;
 }
 
-static void test_server_kill_forced(void)
+static int test_run_server(test_server_init_t *server_test)
 {
-	if (server_pid != (pid_t)-1) {
-		(void)kill(server_pid, SIGKILL);
-		(void)waitpid(server_pid, NULL, 0);
-		server_pid = -1;
-	}
-}
+	main_deinit();
+	master_service_deinit_forked(&master_service);
 
-static void test_run_server(test_server_init_t *server_test)
-{
 	i_set_failure_prefix("SERVER: ");
 
 	if (debug)
@@ -904,7 +894,11 @@ static void test_run_server(test_server_init_t *server_test)
 	server_test();
 	io_loop_destroy(&ioloop);
 
+	if (debug)
+		i_debug("Terminated");
+
 	i_close_fd(&fd_listen);
+	return 0;
 }
 
 static void test_run_client(test_client_init_t *client_test)
@@ -921,6 +915,9 @@ static void test_run_client(test_client_init_t *client_test)
 		io_loop_run(ioloop);
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
+
+	if (debug)
+		i_debug("Terminated");
 }
 
 static void
@@ -928,87 +925,36 @@ test_run_client_server(test_client_init_t *client_test,
 		       test_server_init_t *server_test)
 {
 	if (server_test != NULL) {
-		lib_signals_ioloop_detach();
-
-		server_pid = (pid_t)-1;
-
+		/* Fork server */
 		fd_listen = test_open_server_fd();
-
-		if ((server_pid = fork()) == (pid_t)-1)
-			i_fatal("fork() failed: %m");
-		if (server_pid == 0) {
-			server_pid = (pid_t)-1;
-			hostpid_init();
-			while (current_ioloop != NULL) {
-				ioloop = current_ioloop;
-				io_loop_destroy(&ioloop);
-			}
-			lib_signals_deinit();
-
-			/* child: server */
-			test_run_server(server_test);
-
-			/* wait for it to be killed; this way, valgrind will not
-			   object to this process going away inelegantly. */
-			i_sleep_intr_secs(60);
-			exit(1);
-		}
-		if (fd_listen != -1)
-			i_close_fd(&fd_listen);
-
-		lib_signals_ioloop_attach();
+		test_subprocess_fork(test_run_server, server_test, FALSE);
+		i_close_fd(&fd_listen);
 	}
 
-	/* parent: client */
+	/* Run client */
 	test_run_client(client_test);
 
 	i_unset_failure_prefix();
-	test_server_kill_forced();
-	i_unlink_if_exists(TEST_SOCKET);
+	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
 }
 
 /*
  * Main
  */
 
-volatile sig_atomic_t terminating = 0;
-
-static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
+static void main_cleanup(void)
 {
-	int signo = si->si_signo;
-
-	if (terminating != 0)
-		raise(signo);
-	terminating = 1;
-
-	/* make sure we don't leave any pesky children alive */
-	test_server_kill_forced();
-	(void)unlink(TEST_SOCKET);
-
-	(void)signal(signo, SIG_DFL);
-	raise(signo);
-}
-
-static void test_atexit(void)
-{
-	test_server_kill_forced();
-	(void)unlink(TEST_SOCKET);
+	i_unlink_if_exists(TEST_SOCKET);
 }
 
 static void main_init(void)
 {
-	atexit(test_atexit);
-	lib_signals_ignore(SIGPIPE, TRUE);
-	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+	/* nothing yet */
 }
 
 static void main_deinit(void)
 {
-	/* nothing yet */
+	/* nothing yet; also called from sub-processes */
 }
 
 int main(int argc, char *argv[])
@@ -1035,9 +981,12 @@ int main(int argc, char *argv[])
 	}
 
 	master_service_init_finish(master_service);
+	test_subprocesses_init(debug);
+	test_subprocess_set_cleanup_callback(main_cleanup);
 
 	ret = test_run(test_functions);
 
+	test_subprocesses_deinit();
 	main_deinit();
 	master_service_deinit(&master_service);
 
