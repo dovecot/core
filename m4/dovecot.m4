@@ -299,9 +299,9 @@ else
   trap "rm -f \$test_out" 0 1 2 3 15
   supp_path="\$top_srcdir/run-test-valgrind.supp"
   if test -r "\$supp_path"; then
-    valgrind -q \$trace_children --leak-check=full --gen-suppressions=all --suppressions="\$supp_path" --log-file=\$test_out \$noundef \$[*]
+    valgrind -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --suppressions="\$supp_path" --log-file=\$test_out \$noundef \$[*]
   else
-    valgrind -q \$trace_children --leak-check=full --gen-suppressions=all --log-file=\$test_out \$noundef \$[*]
+    valgrind -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --log-file=\$test_out \$noundef \$[*]
   fi
   ret=\$?
   if test -s \$test_out; then
