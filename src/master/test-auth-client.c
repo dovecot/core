@@ -1180,6 +1180,36 @@ static void test_server_kill_forced(void)
 	}
 }
 
+static void test_run_server(test_server_init_t *server_test)
+{
+	i_set_failure_prefix("SERVER: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop = io_loop_create();
+	server_test();
+	io_loop_destroy(&ioloop);
+
+	i_close_fd(&fd_listen);
+}
+
+static void test_run_client(test_client_init_t *client_test)
+{
+	i_set_failure_prefix("CLIENT: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	i_sleep_intr_msecs(100); /* wait a little for server setup */
+
+	ioloop = io_loop_create();
+	if (client_test())
+		io_loop_run(ioloop);
+	test_client_deinit();
+	io_loop_destroy(&ioloop);
+}
+
 static void
 test_run_client_server(test_client_init_t *client_test,
 		       test_server_init_t *server_test)
@@ -1201,15 +1231,10 @@ test_run_client_server(test_client_init_t *client_test,
 				io_loop_destroy(&ioloop);
 			}
 			lib_signals_deinit();
-			i_set_failure_prefix("SERVER: ");
-			if (debug)
-				i_debug("PID=%s", my_pid);
+
 			/* child: server */
-			ioloop = io_loop_create();
-			server_test();
-			io_loop_destroy(&ioloop);
-			if (fd_listen != -1)
-				i_close_fd(&fd_listen);
+			test_run_server(server_test);
+
 			/* wait for it to be killed; this way, valgrind will not
 			   object to this process going away inelegantly. */
 			i_sleep_intr_secs(60);
@@ -1222,17 +1247,7 @@ test_run_client_server(test_client_init_t *client_test,
 	}
 
 	/* parent: client */
-	i_set_failure_prefix("CLIENT: ");
-	if (debug)
-		i_debug("PID=%s", my_pid);
-
-	i_sleep_intr_msecs(100); /* wait a little for server setup */
-
-	ioloop = io_loop_create();
-	if (client_test())
-		io_loop_run(ioloop);
-	test_client_deinit();
-	io_loop_destroy(&ioloop);
+	test_run_client(client_test);
 
 	i_unset_failure_prefix();
 	test_server_kill_forced();
