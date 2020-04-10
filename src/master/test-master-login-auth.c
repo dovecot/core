@@ -913,9 +913,10 @@ test_run_client_server(test_client_init_t *client_test,
 				io_loop_destroy(&ioloop);
 			}
 			lib_signals_deinit();
-			if (debug)
-				i_debug("server: PID=%s", my_pid);
 			/* child: server */
+			i_set_failure_prefix("SERVER: ");
+			if (debug)
+				i_debug("PID=%s", my_pid);
 			ioloop = io_loop_create();
 			server_test();
 			io_loop_destroy(&ioloop);
@@ -928,13 +929,14 @@ test_run_client_server(test_client_init_t *client_test,
 		}
 		if (fd_listen != -1)
 			i_close_fd(&fd_listen);
-		if (debug)
-			i_debug("client: PID=%s", my_pid);
 
 		lib_signals_ioloop_attach();
 	}
 
 	/* parent: client */
+	i_set_failure_prefix("CLIENT: ");
+	if (debug)
+		i_debug("PID=%s", my_pid);
 
 	usleep(100000); /* wait a little for server setup */
 
@@ -944,6 +946,7 @@ test_run_client_server(test_client_init_t *client_test,
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 
+	i_unset_failure_prefix();
 	test_server_kill();
 	i_unlink_if_exists(TEST_SOCKET);
 }
