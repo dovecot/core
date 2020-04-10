@@ -87,15 +87,19 @@ bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size);
 bool str_equals_timing_almost_safe(const char *s1, const char *s2);
 
 size_t str_match(const char *p1, const char *p2) ATTR_PURE;
-static inline ATTR_PURE bool str_begins(const char *haystack, const char *needle)
+static inline ATTR_PURE bool
+str_begins_with(const char *haystack, const char *needle)
 {
 	return needle[str_match(haystack, needle)] == '\0';
 }
 #if defined(__GNUC__) && (__GNUC__ >= 2)
 /* GCC (and Clang) are known to have a compile-time strlen("literal") shortcut, and
    an optimised strncmp(), so use that by default. Macro is multi-evaluation safe. */
-# define str_begins(h, n) (__builtin_constant_p(n) ? strncmp((h), (n), strlen(n))==0 : (str_begins)((h), (n)))
+# define str_begins_with(h, n) \
+	(__builtin_constant_p(n) ? strncmp((h), (n), strlen(n))==0 : \
+	 (str_begins_with)((h), (n)))
 #endif
+#define str_begins(h, n) str_begins_with(h, n)
 
 /* Get length of a prefix segment.
 
