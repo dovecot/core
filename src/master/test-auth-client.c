@@ -1267,6 +1267,22 @@ static void test_atexit(void)
 	(void)unlink(TEST_SOCKET);
 }
 
+static void main_init(void)
+{
+	atexit(test_atexit);
+	lib_signals_ignore(SIGPIPE, TRUE);
+	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+}
+
+static void main_deinit(void)
+{
+	/* nothing yet */
+}
+
 int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
@@ -1278,14 +1294,7 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("test-auth-master", service_flags,
 					     &argc, &argv, "D");
-
-	atexit(test_atexit);
-	lib_signals_ignore(SIGPIPE, TRUE);
-	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+	main_init();
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
@@ -1301,6 +1310,7 @@ int main(int argc, char *argv[])
 
 	ret = test_run(test_functions);
 
+	main_deinit();
 	master_service_deinit(&master_service);
 
 	return ret;
