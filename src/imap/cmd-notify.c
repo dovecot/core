@@ -189,7 +189,7 @@ cmd_notify_add_mailbox(struct imap_notify_context *ctx,
 				/* already matched in this subtree */
 				return;
 			}
-			if (strncmp(names[i], name, name_len) == 0 &&
+			if (str_begins(names[i], name) &&
 			    names[i][name_len] == ns_sep) {
 				/* we're adding a parent, remove the child */
 				array_delete(&notify_boxes->names, i, 1);
