@@ -475,7 +475,7 @@ test_str_match(void)
 		MATCH_TEST("blahblahblah", "foo", "bar"),
 #undef MATCH_TEST
 	};
-
+	const char *suffix;
 	unsigned int i;
 
 	test_begin("str_match");
@@ -487,12 +487,23 @@ test_str_match(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		/* This is just 2 ways of wording the same test, but that also
 		   sanity tests the match values above. */
-		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
-				(strncmp(tests[i].s1, tests[i].s2, strlen(tests[i].s2)) == 0), i);
-		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
+		bool equals = strncmp(tests[i].s1, tests[i].s2, strlen(tests[i].s2)) == 0;
+		test_assert_idx(str_begins_with(tests[i].s1, tests[i].s2) == equals, i);
+		test_assert_idx(str_begins_suffix(tests[i].s1, tests[i].s2, &suffix) == equals &&
+				(!equals || suffix == tests[i].s1 + strlen(tests[i].s2)), i);
+		test_assert_idx(str_begins_suffix(tests[i].s1, tests[i].s2, &suffix) ==
 				(strlen(tests[i].s2) == tests[i].match), i);
 	}
 	/* test literal-optimized versions of these */
+	test_assert(str_begins_suffix("", "", &suffix) && suffix[0] == '\0');
+	test_assert(str_begins_suffix("123", "", &suffix) && strcmp(suffix, "123") == 0);
+	test_assert(str_begins_suffix("123", "1", &suffix) && strcmp(suffix, "23") == 0);
+	test_assert(str_begins_suffix("123", "123", &suffix) && suffix[0] == '\0');
+	suffix = NULL;
+	test_assert(!str_begins_suffix("123", "1234", &suffix) && suffix == NULL);
+	test_assert(!str_begins_suffix("", "123", &suffix) && suffix == NULL);
+	test_assert(!str_begins_suffix("12", "123", &suffix) && suffix == NULL);
+
 	test_assert(str_begins_with("", ""));
 	test_assert(str_begins_with("123", ""));
 	test_assert(str_begins_with("123", "1"));

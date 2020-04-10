@@ -633,6 +633,16 @@ str_match(const char *p1, const char *p2)
 	return i;
 }
 
+#undef str_begins_suffix
+bool str_begins_suffix(const char *haystack, const char *needle, const char **suffix_r)
+{
+	size_t prefix_len = str_match(haystack, needle);
+	if (needle[prefix_len] != '\0')
+		return FALSE;
+	*suffix_r = haystack + prefix_len;
+	return TRUE;
+}
+
 size_t i_memspn(const void *data, size_t data_len,
 		const void *accept, size_t accept_len)
 {
