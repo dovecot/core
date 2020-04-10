@@ -10,6 +10,7 @@
 #include "istream-chain.h"
 #include "ostream.h"
 #include "time-util.h"
+#include "sleep.h"
 #include "unlink-directory.h"
 #include "write-full.h"
 #include "connection.h"
@@ -129,7 +130,7 @@ static void test_connection_refused(void)
 
 static void test_connection_timed_out_input(struct server_connection *conn)
 {
-	sleep(5);
+	i_sleep_intr_secs(5);
 	server_connection_deinit(&conn);
 }
 
@@ -324,7 +325,7 @@ static void test_passdb_fail_input(struct server_connection *conn)
 			if (strcmp(args[2], "henk") == 0) {
 				line = t_strdup_printf("NOTFOUND\t%u\n", id);
 			} else if (strcmp(args[2], "holger") == 0) {
-				sleep(5);
+				i_sleep_intr_secs(5);
 				server_connection_deinit(&conn);
 				return;
 			} else if (strcmp(args[2], "hendrik") == 0) {
@@ -510,7 +511,7 @@ static void test_userdb_fail_input(struct server_connection *conn)
 			if (strcmp(args[2], "henk") == 0) {
 				line = t_strdup_printf("NOTFOUND\t%u\n", id);
 			} else if (strcmp(args[2], "holger") == 0) {
-				sleep(5);
+				i_sleep_intr_secs(5);
 				server_connection_deinit(&conn);
 				return;
 			} else if (strcmp(args[2], "hendrik") == 0) {
@@ -1320,7 +1321,7 @@ test_run_client_server(test_client_init_t *client_test,
 				i_close_fd(&fd_listen);
 			/* wait for it to be killed; this way, valgrind will not
 			   object to this process going away inelegantly. */
-			sleep(60);
+			i_sleep_intr_secs(60);
 			exit(1);
 		}
 		if (fd_listen != -1)
@@ -1334,7 +1335,7 @@ test_run_client_server(test_client_init_t *client_test,
 	if (debug)
 		i_debug("PID=%s", my_pid);
 
-	usleep(100000); /* wait a little for server setup */
+	i_sleep_intr_msecs(100); /* wait a little for server setup */
 
 	ioloop = io_loop_create();
 	if (client_test())
