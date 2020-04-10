@@ -884,7 +884,7 @@ static int test_open_server_fd(void)
 	return fd;
 }
 
-static void test_server_kill(void)
+static void test_server_kill_forced(void)
 {
 	if (server_pid != (pid_t)-1) {
 		(void)kill(server_pid, SIGKILL);
@@ -948,7 +948,7 @@ test_run_client_server(test_client_init_t *client_test,
 	io_loop_destroy(&ioloop);
 
 	i_unset_failure_prefix();
-	test_server_kill();
+	test_server_kill_forced();
 	i_unlink_if_exists(TEST_SOCKET);
 }
 
@@ -967,7 +967,7 @@ static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 	terminating = 1;
 
 	/* make sure we don't leave any pesky children alive */
-	test_server_kill();
+	test_server_kill_forced();
 	(void)unlink(TEST_SOCKET);
 
 	(void)signal(signo, SIG_DFL);
@@ -976,7 +976,7 @@ static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 
 static void test_atexit(void)
 {
-	test_server_kill();
+	test_server_kill_forced();
 	(void)unlink(TEST_SOCKET);
 }
 
