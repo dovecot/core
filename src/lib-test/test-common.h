@@ -99,6 +99,9 @@ void test_expect_fatal_string(const char *substr);
 #define FATAL_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
 #define FATAL_NAMED(x) { .name = #x , .func = x },
 
+/* If a child is forked within test context, but wants to operate outside it,
+   then this will avoid valgrind leak errors */
+void test_forked_end(void);
 /* If a fork() wants to exit(), then this will avoid valgrind leak errors */
 void test_exit(int status) ATTR_NORETURN;
 

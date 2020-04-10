@@ -381,6 +381,17 @@ int test_run_named_with_fatals(const char *match, const struct named_test tests[
 	return test_deinit();
 }
 
+void test_forked_end(void)
+{
+	i_set_error_handler(default_error_handler);
+	i_set_fatal_handler(default_fatal_handler);
+
+	i_free_and_null(expected_error_str);
+	i_free_and_null(expected_fatal_str);
+	i_free_and_null(test_prefix);
+	t_pop_last_unsafe(); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
+}
+
 void ATTR_NORETURN
 test_exit(int status)
 {
