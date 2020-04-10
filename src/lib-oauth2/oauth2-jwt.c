@@ -236,13 +236,13 @@ oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 		return -1;
 	}
 
-	if (str_begins(alg, "RS")) {
+	if (str_begins_with(alg, "RS")) {
 		padding = DCRYPT_PADDING_RSA_PKCS1;
 		sig_format = DCRYPT_SIGNATURE_FORMAT_DSS;
-	} else if (str_begins(alg, "PS")) {
+	} else if (str_begins_with(alg, "PS")) {
 		padding = DCRYPT_PADDING_RSA_PKCS1_PSS;
 		sig_format = DCRYPT_SIGNATURE_FORMAT_DSS;
-	} else if (str_begins(alg, "ES")) {
+	} else if (str_begins_with(alg, "ES")) {
 		padding = DCRYPT_PADDING_DEFAULT;
 		sig_format = DCRYPT_SIGNATURE_FORMAT_X962;
 	} else {
@@ -289,11 +289,12 @@ oauth2_validate_signature(const struct oauth2_settings *set, const char *azp,
 			  const char *alg, const char *key_id,
 			  const char *const *blobs, const char **error_r)
 {
-	if (str_begins(alg, "HS")) {
+	if (str_begins_with(alg, "HS")) {
 		return oauth2_validate_hmac(set, azp, alg, key_id, blobs,
 					    error_r);
-	} else if (str_begins(alg, "RS") || str_begins(alg, "PS") ||
-		   str_begins(alg, "ES")) {
+	} else if (str_begins_with(alg, "RS") ||
+		   str_begins_with(alg, "PS") ||
+		   str_begins_with(alg, "ES")) {
 		return oauth2_validate_rsa_ecdsa(set, azp, alg, key_id, blobs,
 						 error_r);
 	}

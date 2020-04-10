@@ -200,9 +200,9 @@ bool dict_switch_ioloop(struct dict *dict)
 
 static bool dict_key_prefix_is_valid(const char *key, const char *username)
 {
-	if (str_begins(key, DICT_PATH_SHARED))
+	if (str_begins_with(key, DICT_PATH_SHARED))
 		return TRUE;
-	if (str_begins(key, DICT_PATH_PRIVATE)) {
+	if (str_begins_with(key, DICT_PATH_PRIVATE)) {
 		i_assert(username != NULL && username[0] != '\0');
 		return TRUE;
 	}

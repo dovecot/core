@@ -361,7 +361,7 @@ md5_verify(const char *plaintext, const struct password_generate_params *params,
 	size_t md5_size;
 
 	password = t_strndup(raw_password, size);
-	if (str_begins(password, "$1$")) {
+	if (str_begins_with(password, "$1$")) {
 		/* MD5-CRYPT */
 		str = password_generate_md5_crypt(plaintext, password);
 		return str_equals_timing_almost_safe(str, password) ? 1 : 0;

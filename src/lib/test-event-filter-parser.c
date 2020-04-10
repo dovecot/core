@@ -238,7 +238,7 @@ static void testcase(const char *name, const char *input, const char *exp,
 			       strcmp(exp, str_c(tmp)) == 0);
 	} else {
 		test_out_quiet(t_strdup_printf("input: %s", input),
-			       str_begins(error, exp));
+			       str_begins_with(error, exp));
 	}
 
 	event_filter_unref(&filter);

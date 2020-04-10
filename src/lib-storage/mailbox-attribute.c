@@ -117,7 +117,7 @@ mailbox_internal_attribute_get_int(enum mail_attribute_type type_flags,
 		return NULL;
 	}
 	iattr = array_idx(&mailbox_internal_attributes, insert_idx-1);
-	if (!str_begins(key, iattr->key)) {
+	if (!str_begins_with(key, iattr->key)) {
 		/* iattr isn't a prefix of key */
 		return NULL;
 	} else if ((iattr->flags & MAIL_ATTRIBUTE_INTERNAL_FLAG_CHILDREN) != 0) {
@@ -273,7 +273,7 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 
 	/* allow internal server attribute only for inbox */
 	if (iattr != NULL && !t->box->inbox_any &&
-	    str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER))
+	    str_begins_with(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER))
 		iattr = NULL;
 
 	/* handle internal attribute */
@@ -368,7 +368,7 @@ mailbox_attribute_get_common(struct mailbox *box,
 
 	/* allow internal server attributes only for the inbox */
 	if (iattr != NULL && !box->inbox_user &&
-	    str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER))
+	    str_begins_with(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER))
 		iattr = NULL;
 
 	/* internal attribute */

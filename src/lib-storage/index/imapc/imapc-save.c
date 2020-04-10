@@ -709,7 +709,7 @@ static bool
 imapc_mail_copy_bulk_try_merge(struct imapc_mailbox *mbox, uint32_t uid,
 			       const char *box)
 {
-	i_assert(str_begins(str_c(mbox->pending_copy_cmd), "UID COPY "));
+	i_assert(str_begins_with(str_c(mbox->pending_copy_cmd), "UID COPY "));
 
 	if (strcmp(box, mbox->copy_dest_box) != 0) {
 		/* Not the same mailbox merging not possible */

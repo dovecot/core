@@ -811,7 +811,7 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 		expand_parent = strcmp(key, var_name +
 				       (*var_name == '$' ? 1 : 0)) == 0;
 
-		if (!str_begins(var_name, "$") ||
+		if (!str_begins_with(var_name, "$") ||
 		    (value > p_start && !IS_WHITE(value[-1]))) {
 			str_append(str, var_name);
 		} else if (!ctx->expand_values && !expand_parent) {

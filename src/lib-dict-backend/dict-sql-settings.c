@@ -225,17 +225,17 @@ parse_setting(const char *key, const char *value,
 		field = array_append_space(&ctx->cur_fields);
 		field->sql_field.name = p_strdup(ctx->pool, key);
 		value_len = strlen(value);
-		if (str_begins(value, "${hexblob:") &&
+		if (str_begins_with(value, "${hexblob:") &&
 		    value[value_len-1] == '}') {
 			field->variable = p_strndup(ctx->pool, value + 10,
 						    value_len-10-1);
 			field->sql_field.value_type = DICT_SQL_TYPE_HEXBLOB;
-		} else if (str_begins(value, "${int:") &&
+		} else if (str_begins_with(value, "${int:") &&
 			   value[value_len-1] == '}') {
 			field->variable = p_strndup(ctx->pool, value + 6,
 						    value_len-6-1);
 			field->sql_field.value_type = DICT_SQL_TYPE_INT;
-		} else if (str_begins(value, "${uint:") &&
+		} else if (str_begins_with(value, "${uint:") &&
 			   value[value_len-1] == '}') {
 			field->variable = p_strndup(ctx->pool, value + 7,
 						    value_len-7-1);

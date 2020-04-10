@@ -536,7 +536,7 @@ static void test_auth_handshake_input(struct server_connection *conn)
 
 		switch (ctx->state) {
 		case AUTH_HANDSHAKE_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;

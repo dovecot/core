@@ -3084,12 +3084,12 @@ test_authentication_input_line(struct server_connection *conn,
 			server_connection_deinit(&conn);
 			return -1;
 		case 3: case 5:
-			if (str_begins(line, "AUTH ")) {
+			if (str_begins_with(line, "AUTH ")) {
 				o_stream_nsend_str(conn->conn.output,
 						   "334 \r\n");
 				return 1;
 			}
-			if (str_begins(line, "EHLO ")) {
+			if (str_begins_with(line, "EHLO ")) {
 				o_stream_nsend_str(conn->conn.output,
 						   "250-testserver\r\n"
 						   "250-PIPELINING\r\n"
@@ -3098,7 +3098,7 @@ test_authentication_input_line(struct server_connection *conn,
 						   "250 DSN\r\n");
 				return 1;
 			}
-			if (!str_begins(line, "MAIL ")) {
+			if (!str_begins_with(line, "MAIL ")) {
 				o_stream_nsend_str(
 					conn->conn.output, "235 2.7.0 "
 					"Authentication successful\r\n");
@@ -4043,13 +4043,13 @@ server_connection_input(struct connection *_conn)
 			conn->state = SERVER_CONNECTION_STATE_MAIL_FROM;
 			return;
 		case SERVER_CONNECTION_STATE_MAIL_FROM:
-			if (str_begins(line, "AUTH ")) {
+			if (str_begins_with(line, "AUTH ")) {
 				o_stream_nsend_str(
 					conn->conn.output, "235 2.7.0 "
 					"Authentication successful\r\n");
 				continue;
 			}
-			if (str_begins(line, "EHLO ")) {
+			if (str_begins_with(line, "EHLO ")) {
 				o_stream_nsend_str(conn->conn.output,
 						   "250-testserver\r\n"
 						   "250-PIPELINING\r\n"

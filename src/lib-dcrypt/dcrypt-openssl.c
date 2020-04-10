@@ -2685,7 +2685,7 @@ dcrypt_openssl_key_string_get_info(
 		format = DCRYPT_FORMAT_PEM;
 		version = DCRYPT_KEY_VERSION_NA;
 		key_data += 11;
-		if (str_begins(key_data, "RSA ")) {
+		if (str_begins_with(key_data, "RSA ")) {
 			DCRYPT_SET_ERROR("RSA private key format not supported, convert it to PKEY format with openssl pkey");
 			return FALSE;
 		}
@@ -2693,9 +2693,9 @@ dcrypt_openssl_key_string_get_info(
 			encryption_type = DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD;
 			key_data += 10;
 		}
-		if (str_begins(key_data, "PRIVATE KEY-----"))
+		if (str_begins_with(key_data, "PRIVATE KEY-----"))
 			kind = DCRYPT_KEY_KIND_PRIVATE;
-		else if (str_begins(key_data, "PUBLIC KEY-----"))
+		else if (str_begins_with(key_data, "PUBLIC KEY-----"))
 			kind = DCRYPT_KEY_KIND_PUBLIC;
 		else {
 			DCRYPT_SET_ERROR("Unknown/invalid PEM key type");
@@ -2737,10 +2737,10 @@ dcrypt_openssl_key_string_get_info(
 		}
 		json_tree_deinit(&tree);
 	} else {
-		if (str_begins(key_data, "1:")) {
+		if (str_begins_with(key_data, "1:")) {
 			DCRYPT_SET_ERROR("Dovecot v1 key format uses tab to separate fields");
 			return FALSE;
-		} else if (str_begins(key_data, "2\t")) {
+		} else if (str_begins_with(key_data, "2\t")) {
 			DCRYPT_SET_ERROR("Dovecot v2 key format uses colon to separate fields");
 			return FALSE;
 		}

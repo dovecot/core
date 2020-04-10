@@ -247,7 +247,7 @@ static inline bool key_ends_with(const char *key, const char *eptr,
 {
 	/* take = into account */
 	size_t n = strlen(suffix)+1;
-	return (eptr-key > (ptrdiff_t)n && str_begins(eptr-n, suffix));
+	return (eptr-key > (ptrdiff_t)n && str_begins_with(eptr-n, suffix));
 }
 
 static bool
@@ -260,7 +260,7 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 	    (key_ends_with(key, value, "_password") ||
 	     key_ends_with(key, value, "_key") ||
 	     key_ends_with(key, value, "_nonce") ||
-	     str_begins(key, "ssl_dh"))) {
+	     str_begins_with(key, "ssl_dh"))) {
 		o_stream_nsend_str(output, "# hidden, use -P to show it");
 		return TRUE;
 	}

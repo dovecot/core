@@ -855,7 +855,7 @@ static bool dsync_brain_want_shared_namespace(const struct mail_namespace *ns,
 	   shared namespace config. */
 	return (ns->type == MAIL_NAMESPACE_TYPE_SHARED) &&
 	       (sync_ns->type == MAIL_NAMESPACE_TYPE_SHARED) &&
-	       str_begins(ns->prefix, sync_ns->prefix);
+	       str_begins_with(ns->prefix, sync_ns->prefix);
 }
 
 bool dsync_brain_want_namespace(struct dsync_brain *brain,

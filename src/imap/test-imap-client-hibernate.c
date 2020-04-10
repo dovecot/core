@@ -97,25 +97,25 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	test_assert_strcmp(args[i++], EVILSTR"testuser");
 	test_assert_strcmp(args[i++], EVILSTR"%u");
 	test_assert_strcmp(args[i++], "idle_notify_interval=120");
-	test_assert(str_begins(args[i++], "peer_dev_major="));
-	test_assert(str_begins(args[i++], "peer_dev_minor="));
-	test_assert(str_begins(args[i++], "peer_ino="));
+	test_assert(str_begins_with(args[i++], "peer_dev_major="));
+	test_assert(str_begins_with(args[i++], "peer_dev_minor="));
+	test_assert(str_begins_with(args[i++], "peer_ino="));
 	test_assert_strcmp(args[i++], "session="EVILSTR"session");
-	test_assert(str_begins(args[i++], "session_created="));
+	test_assert(str_begins_with(args[i++], "session_created="));
 	test_assert_strcmp(args[i++], "lip=127.0.0.1");
 	test_assert_strcmp(args[i++], "lport=1234");
 	test_assert_strcmp(args[i++], "rip=127.0.0.2");
 	test_assert_strcmp(args[i++], "rport=5678");
-	test_assert(str_begins(args[i++], "uid="));
-	test_assert(str_begins(args[i++], "gid="));
+	test_assert(str_begins_with(args[i++], "uid="));
+	test_assert(str_begins_with(args[i++], "gid="));
 	if (ctx->has_mailbox)
 		test_assert_strcmp(args[i++], "mailbox="EVILSTR"mailbox");
 	test_assert_strcmp(args[i++], "tag="EVILSTR"tag");
-	test_assert(str_begins(args[i++], "stats="));
+	test_assert(str_begins_with(args[i++], "stats="));
 	test_assert_strcmp(args[i++], "idle-cmd");
 	if (ctx->has_mailbox)
 		test_assert_strcmp(args[i++], "notify_fd");
-	test_assert(str_begins(args[i++], "state="));
+	test_assert(str_begins_with(args[i++], "state="));
 	test_assert(args[i] == NULL);
 
 	i_stream_unref(&input);

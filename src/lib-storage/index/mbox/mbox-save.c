@@ -338,7 +338,7 @@ save_header_callback(struct header_filter_istream *input ATTR_UNUSED,
 		     bool *matched, struct mbox_save_context *ctx)
 {
 	if (hdr != NULL) {
-		if (str_begins(hdr->name, "From ")) {
+		if (str_begins_with(hdr->name, "From ")) {
 			/* we can't allow From_-lines in headers. there's no
 			   legitimate reason for allowing them in any case,
 			   so just drop them. */

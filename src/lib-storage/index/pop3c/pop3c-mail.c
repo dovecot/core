@@ -195,9 +195,9 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 
 	if (get_body && mail->data.stream != NULL) {
 		name = i_stream_get_name(mail->data.stream);
-		if (str_begins(name, "RETR")) {
+		if (str_begins_with(name, "RETR")) {
 			/* we've fetched the body */
-		} else if (str_begins(name, "TOP")) {
+		} else if (str_begins_with(name, "TOP")) {
 			/* we've fetched the header, but we need the body
 			   now too */
 			index_mail_close_streams(mail);

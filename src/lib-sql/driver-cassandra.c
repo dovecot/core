@@ -625,7 +625,7 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		}
 		key = t_strdup_until(*args, value++);
 
-		if (str_begins(key, "ssl_"))
+		if (str_begins_with(key, "ssl_"))
 			db->init_ssl = TRUE;
 
 		if (strcmp(key, "host") == 0) {

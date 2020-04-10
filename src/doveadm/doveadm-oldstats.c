@@ -529,7 +529,7 @@ static void stats_reset(const char *path)
 
 	if (line == NULL) {
 		i_error("read(%s) failed: %s", path, i_stream_get_error(input));
-	} else if (!str_begins(line, "OK")) {
+	} else if (!str_begins_with(line, "OK")) {
 		i_error("%s",line);
 	} else {
 		i_info("Stats reset");

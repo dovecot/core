@@ -460,7 +460,7 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 		   /var/mail and we want to allow privileged dotlocking */
 		rootdir = mailbox_list_get_root_forced(box->list,
 						       MAILBOX_LIST_PATH_TYPE_DIR);
-		if (!str_begins(box_path, rootdir))
+		if (!str_begins_with(box_path, rootdir))
 			mbox->mbox_privileged_locking = TRUE;
 	}
 	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {

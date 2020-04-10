@@ -201,7 +201,7 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 				   (flags & UNLINK_DIRECTORY_FLAG_FILES_ONLY) != 0) {
 				/* skip directory */
 			} else if (old_errno == EBUSY &&
-				   str_begins(d->d_name, ".nfs")) {
+				   str_begins_with(d->d_name, ".nfs")) {
 				/* can't delete NFS files that are still
 				   in use. let the caller decide if this error
 				   is worth logging about */

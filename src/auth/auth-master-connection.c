@@ -645,7 +645,7 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 			return master_input_request(conn, line + 8);
 		if (str_begins(line, "CACHE-FLUSH\t"))
 			return master_input_cache_flush(conn, line + 12);
-		if (str_begins(line, "CPID\t")) {
+		if (str_begins_with(line, "CPID\t")) {
 			e_error(conn->event,
 				"Authentication client trying to connect to "
 				"master socket");

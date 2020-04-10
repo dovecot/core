@@ -40,7 +40,7 @@ static int backtrace_append_unwind(string_t *str)
 		} else if ((ret = unw_get_proc_name(&c, proc_name, sizeof(proc_name), 0)) != 0 &&
 			   ret != UNW_ENOMEM) {
 			str_printfa(str, "[unw_get_proc_name() failed: %d]", ret);
-		} else if (!success && str_begins(proc_name, BACKTRACE_SKIP_PREFIX)) {
+		} else if (!success && str_begins_with(proc_name, BACKTRACE_SKIP_PREFIX)) {
 			str_truncate(str, str_orig_size);
 			continue;
 		} else {
@@ -83,7 +83,7 @@ static int backtrace_append_libc(string_t *str)
 			/* out of memory case */
 			str_printfa(str, "0x%p", stack[i]);
 		} else if (str_len(str) != str_orig_size ||
-			   !str_begins(strings[i], BACKTRACE_SKIP_PREFIX))
+			   !str_begins_with(strings[i], BACKTRACE_SKIP_PREFIX))
 			str_append(str, strings[i]);
 	}
 	free(strings);

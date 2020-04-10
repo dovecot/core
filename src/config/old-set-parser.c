@@ -275,7 +275,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (ctx->old->auth_section == 1) {
-		if (!str_begins(key, "auth_"))
+		if (!str_begins_with(key, "auth_"))
 			key = t_strconcat("auth_", key, NULL);
 		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
 					 key, value);
@@ -486,7 +486,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 	}
 
 	if (ctx->old->auth_section == 1) {
-		if (!str_begins(key, "auth_"))
+		if (!str_begins_with(key, "auth_"))
 			key = t_strconcat("auth_", key, NULL);
 	}
 

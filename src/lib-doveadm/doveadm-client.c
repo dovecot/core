@@ -423,7 +423,7 @@ static void doveadm_client_input(struct connection *_conn)
 		   because v2.2.33 sent the version after and newer
 		   versions send before. */
 		if (!conn->conn.version_received &&
-		    str_begins(line, "VERSION\t")) {
+		    str_begins_with(line, "VERSION\t")) {
 			if (!version_string_verify_full(line, "doveadm-client",
 							DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
 							&conn->conn.minor_version)) {

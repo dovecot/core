@@ -11,13 +11,13 @@ static bool verify_q(const char *str, unsigned int i, bool starts_with_a)
 {
 	unsigned int line_start = i, char_count = 0;
 
-	if (str_begins(str+i, "\n\t")) {
+	if (str_begins_with(str+i, "\n\t")) {
 		i += 2;
 		line_start = i - 1;
 	}
 
 	for (;;) {
-		if (!str_begins(str+i, "=?utf-8?q?"))
+		if (!str_begins_with(str+i, "=?utf-8?q?"))
 			return FALSE;
 		i += 10;
 
@@ -27,8 +27,8 @@ static bool verify_q(const char *str, unsigned int i, bool starts_with_a)
 			starts_with_a = FALSE;
 			i++;
 		}
-		while (!str_begins(str+i, "?=")) {
-			if (!str_begins(str+i, "=C3=A4"))
+		while (!str_begins_with(str+i, "?=")) {
+			if (!str_begins_with(str+i, "=C3=A4"))
 				return FALSE;
 			i += 6;
 			char_count++;
@@ -39,7 +39,7 @@ static bool verify_q(const char *str, unsigned int i, bool starts_with_a)
 
 		if (str[i] == '\0')
 			break;
-		if (!str_begins(str+i, "\n\t"))
+		if (!str_begins_with(str+i, "\n\t"))
 			return FALSE;
 		i += 2;
 		line_start = i - 1;
@@ -82,13 +82,13 @@ static bool verify_b(const char *str, unsigned int i, bool starts_with_a)
 	buffer_t buf;
 
 	buffer_create_from_data(&buf, bufdata, sizeof(bufdata));
-	if (str_begins(str+i, "\n\t")) {
+	if (str_begins_with(str+i, "\n\t")) {
 		i += 2;
 		line_start = i - 1;
 	}
 
 	for (;;) {
-		if (!str_begins(str+i, "=?utf-8?b?"))
+		if (!str_begins_with(str+i, "=?utf-8?b?"))
 			return FALSE;
 		i += 10;
 
@@ -126,7 +126,7 @@ static bool verify_b(const char *str, unsigned int i, bool starts_with_a)
 
 		if (str[i] == '\0')
 			break;
-		if (!str_begins(str+i, "\n\t"))
+		if (!str_begins_with(str+i, "\n\t"))
 			return FALSE;
 		i += 2;
 		line_start = i - 1;

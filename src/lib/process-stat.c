@@ -25,7 +25,7 @@ struct key_val {
 
 static int parse_field(const char *line, struct key_val *field)
 {
-	if (str_begins(line, field->key))
+	if (str_begins_with(line, field->key))
 		return str_to_uint64(line + strlen(field->key), field->value);
 	return -1;
 }

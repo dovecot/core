@@ -200,9 +200,9 @@ static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
 		if (((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0 &&
 		     strcmp(key, ctx->path) == 0) ||
 		    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 &&
-		     str_begins(key, ctx->path)) ||
+		     str_begins_with(key, ctx->path)) ||
 		    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
-		     str_begins(key, ctx->path) &&
+		     str_begins_with(key, ctx->path) &&
 		     strchr(key + strlen(ctx->path), '/') == NULL)) {
 			match = TRUE;
 			break;

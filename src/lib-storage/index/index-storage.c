@@ -501,7 +501,7 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 		}
 		if (j != old_count) {
 			field = old_fields[j];
-		} else if (str_begins(updates[i].name, "hdr.")) {
+		} else if (str_begins_with(updates[i].name, "hdr.")) {
 			/* new header */
 			i_zero(&field);
 			field.name = updates[i].name;
@@ -740,7 +740,7 @@ mailbox_delete_all_attributes(struct mailbox_transaction_context *t,
 	iter = mailbox_attribute_iter_init(t->box, type, "");
 	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
 		if (inbox &&
-		    str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER))
+		    str_begins_with(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER))
 			continue;
 
 		if (mailbox_attribute_unset(t, type, key) < 0) {

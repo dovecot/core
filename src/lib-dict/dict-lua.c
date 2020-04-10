@@ -61,9 +61,9 @@ static void lua_dict_lookup_callback(const struct dict_lookup_result *result,
 void lua_dict_check_key_prefix(lua_State *L, const char *key,
 			       const char *username)
 {
-	if (str_begins(key, DICT_PATH_SHARED))
+	if (str_begins_with(key, DICT_PATH_SHARED))
 		;
-	else if (str_begins(key, DICT_PATH_PRIVATE)) {
+	else if (str_begins_with(key, DICT_PATH_PRIVATE)) {
 		if (username == NULL || username[0] == '\0')
 			luaL_error(L, DICT_PATH_PRIVATE" dict key prefix requires username");
 	} else {

@@ -150,7 +150,7 @@ pop3_proxy_parse_referral(struct client *client, const char *resp,
 	const char *destuser;
 	struct uri_authority uri_auth;
 
-	if (!str_begins(resp, "[REFERRAL/"))
+	if (!str_begins_with(resp, "[REFERRAL/"))
 		return FALSE;
 
 	i_zero(&parser);
@@ -221,7 +221,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		}
 		pop3_client->proxy_xclient =
-			str_begins(line+3, " [XCLIENT]");
+			str_begins_with(line+3, " [XCLIENT]");
 
 		ssl_flags = login_proxy_get_ssl_flags(client->login_proxy);
 		if ((ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0) {
@@ -233,7 +233,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		}
 		return 0;
 	case POP3_PROXY_STARTTLS:
-		if (!str_begins(line, "+OK")) {
+		if (!str_begins_with(line, "+OK")) {
 			const char *reason = t_strdup_printf(
 				"STLS failed: %s", str_sanitize(line, 160));
 			login_proxy_failed(client->login_proxy,
@@ -249,7 +249,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		return 1;
 	case POP3_PROXY_XCLIENT:
-		if (!str_begins(line, "+OK")) {
+		if (!str_begins_with(line, "+OK")) {
 			const char *reason = t_strdup_printf(
 				"XCLIENT failed: %s", str_sanitize(line, 160));
 			login_proxy_failed(client->login_proxy,
@@ -262,7 +262,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	case POP3_PROXY_LOGIN1:
 		i_assert(client->proxy_sasl_client == NULL);
-		if (!str_begins(line, "+OK"))
+		if (!str_begins_with(line, "+OK"))
 			break;
 
 		/* USER successful, send PASS */
@@ -279,7 +279,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 				return -1;
 			return 0;
 		}
-		if (!str_begins(line, "+OK"))
+		if (!str_begins_with(line, "+OK"))
 			break;
 
 		/* Login successful. Send this line to client. */
@@ -309,10 +309,10 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	   be using only Dovecot as their backend :) */
 	enum login_proxy_failure_type failure_type =
 		LOGIN_PROXY_FAILURE_TYPE_AUTH;
-	if (!str_begins(line, "-ERR ")) {
+	if (!str_begins_with(line, "-ERR ")) {
 		client_send_reply(client, POP3_CMD_REPLY_ERROR,
 				  AUTH_FAILED_MSG);
-	} else if (str_begins(line, "-ERR [SYS/TEMP]")) {
+	} else if (str_begins_with(line, "-ERR [SYS/TEMP]")) {
 		/* delay sending the reply until we know if we reconnect */
 		failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
 		line += 5;

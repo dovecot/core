@@ -284,7 +284,7 @@ static bool auth_worker_request_handle(struct auth_worker_connection *conn,
 				       struct auth_worker_request *request,
 				       const char *line)
 {
-	if (str_begins(line, "*\t")) {
+	if (str_begins_with(line, "*\t")) {
 		/* multi-line reply, not finished yet */
 		if (conn->resuming)
 			timeout_reset(conn->to);

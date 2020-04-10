@@ -192,12 +192,12 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 		} else if (strcmp(key, "user") == 0 ||
 			   strcmp(key, "postlogin_socket") == 0) {
 			/* already handled in sasl-server.c */
-		} else if (str_begins(key, "user_")) {
+		} else if (str_begins_with(key, "user_")) {
 			if (success) {
 				alt_username_set(&reply_r->alt_usernames,
 						 client->pool, key, value);
 			}
-		} else if (str_begins(key, "forward_")) {
+		} else if (str_begins_with(key, "forward_")) {
 			/* these are passed to upstream */
 		} else
 			e_debug(event_auth, "Ignoring unknown passdb extra field: %s", key);

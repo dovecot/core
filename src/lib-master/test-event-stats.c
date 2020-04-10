@@ -170,7 +170,7 @@ static void stats_conn_input(struct connection *_conn)
 		while (access(test_done, F_OK) < 0 ||
 		       ((line=i_stream_read_next_line(conn->conn.input)) != NULL)) {
 			if (line != NULL) {
-				if (str_begins(line, "VERSION"))
+				if (str_begins_with(line, "VERSION"))
 					continue;
 
 				if ((fd=open(stats_data_file, O_WRONLY | O_CREAT | O_APPEND, 0600)) < 0) {

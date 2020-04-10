@@ -306,7 +306,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 		*error_r = t_strconcat(error, "mail root dir in: ", data, NULL);
 		return -1;
 	}
-	if (str_begins(set_r->root_dir, "INBOX=")) {
+	if (str_begins_with(set_r->root_dir, "INBOX=")) {
 		/* probably mbox user trying to avoid root_dir */
 		*error_r = t_strconcat("Mail root directory not given: ",
 				       data, NULL);
@@ -1242,7 +1242,7 @@ int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
 
 	if (!mailbox_list_get_root_path(list, type, &root_dir))
 		i_unreached();
-	i_assert(str_begins(path, root_dir));
+	i_assert(str_begins_with(path, root_dir));
 	if (strcmp(root_dir, path) != 0 && stat(root_dir, &st) == 0) {
 		/* creating a subdirectory under an already existing root dir.
 		   use the root's permissions */

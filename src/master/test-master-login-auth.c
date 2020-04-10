@@ -372,7 +372,7 @@ static void test_request_fail_input(struct server_connection *conn)
 
 		switch (ctx->state) {
 		case REQUEST_FAIL_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;
@@ -564,7 +564,7 @@ static void test_request_login_input(struct server_connection *conn)
 		}
 		switch (ctx->state) {
 		case REQUEST_LOGIN_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;

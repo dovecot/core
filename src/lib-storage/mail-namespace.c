@@ -682,7 +682,7 @@ static bool mail_namespace_is_usable_prefix(struct mail_namespace *ns,
 		return TRUE;
 	}
 
-	if (inbox && str_begins(ns->prefix, "INBOX") &&
+	if (inbox && str_begins_with(ns->prefix, "INBOX") &&
 	    strncmp(ns->prefix+5, mailbox+5, ns->prefix_len-5) == 0) {
 		/* we already checked that mailbox begins with case-insensitive
 		   INBOX. this namespace also begins with INBOX and the rest

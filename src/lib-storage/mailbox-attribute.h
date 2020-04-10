@@ -173,8 +173,8 @@ struct mailbox_transaction_context;
 /* User can get/set all non-pvt/ attributes and also pvt/server/
    (but not pvt/server/pvt/) attributes. */
 #define MAILBOX_ATTRIBUTE_KEY_IS_USER_ACCESSIBLE(key) \
-	(!str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT) || \
-	 (str_begins(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER) && \
+	(!str_begins_with(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT) || \
+	 (str_begins_with(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER) && \
 	  strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT, \
 		 strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) != 0))
 

@@ -67,7 +67,7 @@ static const char *expand_environment_vars(const char *value)
 		const char *var_end;
 		str_append_data(expanded_value, pvalue, p - pvalue);
 		if ((p == value || IS_WHITE(p[-1])) &&
-		    str_begins(p, "$ENV:")) {
+		    str_begins_with(p, "$ENV:")) {
 			const char *var_name, *envval;
 			var_end = strchr(p, ' ');
 			if (var_end == NULL)

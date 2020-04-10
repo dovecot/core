@@ -303,7 +303,7 @@ static void test_passdb_fail_input(struct server_connection *conn)
 
 		switch (ctx->state) {
 		case PASSDB_FAIL_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;
@@ -489,7 +489,7 @@ static void test_userdb_fail_input(struct server_connection *conn)
 
 		switch (ctx->state) {
 		case USERDB_FAIL_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;
@@ -672,7 +672,7 @@ static void test_user_list_fail_input(struct server_connection *conn)
 
 		switch (ctx->state) {
 		case USER_LIST_FAIL_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;
@@ -770,7 +770,7 @@ static void test_passdb_lookup_input(struct server_connection *conn)
 
 		switch (ctx->state) {
 		case PASSDB_LOOKUP_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;
@@ -868,7 +868,7 @@ static void test_userdb_lookup_input(struct server_connection *conn)
 
 		switch (ctx->state) {
 		case USERDB_LOOKUP_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;
@@ -969,7 +969,7 @@ static void test_user_list_input(struct server_connection *conn)
 
 		switch (ctx->state) {
 		case USER_LIST_STATE_VERSION:
-			if (!str_begins(line, "VERSION\t")) {
+			if (!str_begins_with(line, "VERSION\t")) {
 				i_error("Bad VERSION");
 				server_connection_deinit(&conn);
 				return;

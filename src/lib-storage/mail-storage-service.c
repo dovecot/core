@@ -214,7 +214,7 @@ static bool validate_chroot(const struct mail_user_settings *user_set,
 	chroot_dirs = t_strsplit(user_set->valid_chroot_dirs, ":");
 	while (*chroot_dirs != NULL) {
 		if (**chroot_dirs != '\0' &&
-		    str_begins(dir, *chroot_dirs))
+		    str_begins_with(dir, *chroot_dirs))
 			return TRUE;
 		chroot_dirs++;
 	}

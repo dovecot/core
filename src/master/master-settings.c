@@ -809,7 +809,7 @@ static void
 subdir_add(ARRAY_TYPE(file_listener_settings) *subdir_listeners,
 	   struct file_listener_settings *f, const char *base_prefix)
 {
-	if (!str_begins(f->path, base_prefix)) {
+	if (!str_begins_with(f->path, base_prefix)) {
 		/* not under base_dir */
 		return;
 	}
@@ -820,8 +820,8 @@ subdir_add(ARRAY_TYPE(file_listener_settings) *subdir_listeners,
 		return;
 	}
 
-	if (str_begins(rel_path, "login/") ||
-	    str_begins(rel_path, "token-login/")) {
+	if (str_begins_with(rel_path, "login/") ||
+	    str_begins_with(rel_path, "token-login/")) {
 		/* these are handled specially */
 		return;
 	}

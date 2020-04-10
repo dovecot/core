@@ -668,7 +668,7 @@ static void test_connection_errored_destroy(struct connection *conn)
 static int test_connection_errored_input_line(struct connection *conn ATTR_UNUSED,
 					      const char *line)
 {
-	if (str_begins(line, "VERSION"))
+	if (str_begins_with(line, "VERSION"))
 		return 1;
 	return -1;
 }

@@ -178,7 +178,7 @@ static bool remove_subj_fwd_hdr(buffer_t *buf, size_t *start_pos,
 	   subj-fwd-hdr    = "[fwd:"
 	   subj-fwd-trl    = "]" */
 
-	if (!str_begins(data + *start_pos, "[FWD:"))
+	if (!str_begins_with(data + *start_pos, "[FWD:"))
 		return FALSE;
 
 	if (data[size-2] != ']')

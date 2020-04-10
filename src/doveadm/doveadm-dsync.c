@@ -1562,7 +1562,7 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 		i_fatal("Invalid parameter: %s", argv[src]);
 	src++; dest++;
 
-	if (src < argc && str_begins(argv[src], "-E")) {
+	if (src < argc && str_begins_with(argv[src], "-E")) {
 		/* we're re-executing dsync due to doveconf */
 		return;
 	}

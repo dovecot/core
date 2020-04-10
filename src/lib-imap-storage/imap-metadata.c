@@ -104,7 +104,7 @@ imap_metadata_entry2key(struct imap_metadata_transaction *imtrans,
 	if (imtrans->validated_only)
 		*type_r |= MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED;
 
-	if (str_begins(*key_r, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) {
+	if (str_begins_with(*key_r, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) {
 		/* Dovecot's internal attribute (mailbox or server).
 		   don't allow accessing this. */
 		return FALSE;

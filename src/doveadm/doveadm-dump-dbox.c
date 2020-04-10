@@ -221,7 +221,7 @@ static bool test_dump_dbox(const char *path)
 		p = path;
 	else
 		p++;
-	return str_begins(p, "m.") || str_begins(p, "u.");
+	return str_begins_with(p, "m.") || str_begins_with(p, "u.");
 }
 
 struct doveadm_cmd_dump doveadm_cmd_dump_dbox = {

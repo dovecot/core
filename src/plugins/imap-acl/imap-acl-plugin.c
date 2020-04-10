@@ -802,7 +802,7 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 {
 	struct mail_user *user = cmd->client->user;
 
-	if (str_begins(id, IMAP_ACL_GLOBAL_PREFIX)) {
+	if (str_begins_with(id, IMAP_ACL_GLOBAL_PREFIX)) {
 		*client_error_r = t_strdup_printf("Global ACLs can't be modified: %s",
 					   id);
 		return -1;

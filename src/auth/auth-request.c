@@ -1855,7 +1855,7 @@ void auth_request_set_field(struct auth_request *request,
 
 void auth_request_set_null_field(struct auth_request *request, const char *name)
 {
-	if (str_begins(name, "userdb_")) {
+	if (str_begins_with(name, "userdb_")) {
 		/* make sure userdb prefetch is used even if all the fields
 		   were returned as NULL. */
 		request->userdb_prefetch_set = TRUE;

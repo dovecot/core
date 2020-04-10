@@ -63,7 +63,7 @@ cmd_dump_imapzlib(const char *path, const char *const *args ATTR_UNUSED)
 			continue;
 		line++;
 
-		if (str_begins(line, "OK Begin compression") ||
+		if (str_begins_with(line, "OK Begin compression") ||
 		    strcasecmp(line, "COMPRESS DEFLATE") == 0)
 			break;
 	}
@@ -162,7 +162,7 @@ static bool server_input_is_compress_reply(const char *line)
 	/* skip tag */
 	while (*line != ' ' && *line != '\0')
 		line++;
-	return str_begins(line, " OK Begin compression");
+	return str_begins_with(line, " OK Begin compression");
 }
 
 static bool server_input_uncompressed(struct client *client)

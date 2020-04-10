@@ -146,7 +146,8 @@ set_credentials_callback(const char *reply, void *context)
 	struct auth_request *request = context;
 	bool success;
 
-	success = strcmp(reply, "OK") == 0 || str_begins(reply, "OK\t");
+	success = strcmp(reply, "OK") == 0 ||
+		str_begins_with(reply, "OK\t");
 	request->private_callback.set_credentials(success, request);
 	auth_request_unref(&request);
 	return TRUE;

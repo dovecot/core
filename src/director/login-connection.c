@@ -222,7 +222,7 @@ static void auth_input_line(const char *line, void *context)
 		if (str_begins(*args, "proxy") &&
 		    ((*args)[5] == '=' || (*args)[5] == '\0'))
 			proxy = TRUE;
-		else if (str_begins(*args, "host="))
+		else if (str_begins_with(*args, "host="))
 			host = TRUE;
 		else if (str_begins(*args, "lip=")) {
 			if (net_addr2ip((*args) + 4, &temp_request.local_ip) < 0)

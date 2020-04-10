@@ -215,7 +215,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	i_zero(&parser_context);
 	parser_context.content_type = ctx->content_type != NULL ?
 		ctx->content_type : "text/plain";
-	if (str_begins(parser_context.content_type, "multipart/")) {
+	if (str_begins_with(parser_context.content_type, "multipart/")) {
 		/* multiparts are never indexed, only their contents */
 		return FALSE;
 	}
@@ -227,8 +227,8 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 		/* extract text using the the returned parser */
 		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
-	} else if (str_begins(parser_context.content_type, "text/") ||
-		   str_begins(parser_context.content_type, "message/")) {
+	} else if (str_begins_with(parser_context.content_type, "text/") ||
+		   str_begins_with(parser_context.content_type, "message/")) {
 		/* text body parts */
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
 		ctx->body_parser = fts_parser_text_init();

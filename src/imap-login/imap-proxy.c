@@ -363,7 +363,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_STARTTLS);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_STARTTLS;
 
-		if (!str_begins(line, "S OK ")) {
+		if (!str_begins_with(line, "S OK ")) {
 			/* STARTTLS failed */
 			const char *reason = t_strdup_printf(
 				"STARTTLS failed: %s",
@@ -404,7 +404,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		enum login_proxy_failure_type failure_type =
 			LOGIN_PROXY_FAILURE_TYPE_AUTH;
 #define STR_NO_IMAP_RESP_CODE_AUTHFAILED "NO ["IMAP_RESP_CODE_AUTHFAILED"]"
-		if (str_begins(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED)) {
+		if (str_begins_with(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED)) {
 			/* the remote sent a generic "authentication failed"
 			   error. replace it with our one, so that in case
 			   the remote is sending a different error message
@@ -413,7 +413,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			client_send_reply_code(client, IMAP_CMD_REPLY_NO,
 					       IMAP_RESP_CODE_AUTHFAILED,
 					       AUTH_FAILED_MSG);
-		} else if (str_begins(line, "NO [")) {
+		} else if (str_begins_with(line, "NO [")) {
 			/* remote sent some other resp-code. forward it. */
 			if (auth_resp_code_is_tempfail(line + 4))
 				failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
@@ -445,11 +445,11 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		i_free(imap_client->proxy_backend_capability);
 		imap_client->proxy_backend_capability = i_strdup(line + 13);
 		return 0;
-	} else if (str_begins(line, "C ")) {
+	} else if (str_begins_with(line, "C ")) {
 		/* Reply to CAPABILITY command we sent */
 		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_CAPABILITY);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_CAPABILITY;
-		if (str_begins(line, "C OK ") &&
+		if (str_begins_with(line, "C OK ") &&
 		    HAS_NO_BITS(imap_client->proxy_sent_state,
 				IMAP_PROXY_SENT_STATE_AUTHENTICATE |
 				IMAP_PROXY_SENT_STATE_LOGIN)) {
@@ -483,14 +483,14 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	} else if (strncasecmp(line, "* ID ", 5) == 0) {
 		/* Reply to ID command we sent, ignore it */
 		return 0;
-	} else if (str_begins(line, "* BYE ")) {
+	} else if (str_begins_with(line, "* BYE ")) {
 		/* Login unexpectedly failed (due to some internal error).
 		   Don't forward the BYE to the client, since we're not going
 		   to disconnect it. It could be a possibility to convert these
 		   to NO replies, but they're likely not going to provide
 		   anything useful. */
 		return 0;
-	} else if (str_begins(line, "* ")) {
+	} else if (str_begins_with(line, "* ")) {
 		/* untagged reply. just forward it. */
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 		return 0;
