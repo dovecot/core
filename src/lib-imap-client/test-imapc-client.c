@@ -810,6 +810,8 @@ static void test_imapc_client_get_capabilities_disconnected(void)
 
 int main(int argc ATTR_UNUSED, char *argv[])
 {
+	int c;
+
 	static void (*const test_functions[])(void) = {
 		test_imapc_connect_failed,
 		test_imapc_banner_hangs,
@@ -825,7 +827,16 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		NULL
 	};
 
-	debug = null_strcmp(argv[1], "-D") == 0;
+	while ((c = getopt(argc, argv, "D")) > 0) {
+		switch (c) {
+		case 'D':
+			debug = TRUE;
+			break;
+		default:
+			i_fatal("Usage: %s [-D]", argv[0]);
+		}
+	}
+
 	test_imapc_default_settings.debug = debug;
 
 	/* listen on localhost */
