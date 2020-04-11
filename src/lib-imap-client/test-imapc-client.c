@@ -239,9 +239,10 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 	if (server.pid == 0) {
 		server.pid = (pid_t)-1;
 		hostpid_init();
-		if (debug)
-			i_debug("server: PID=%s", my_pid);
 		/* child: server */
+		i_set_failure_prefix("SERVER: ");
+		if (debug)
+			i_debug("PID=%s", my_pid);
 		ioloop = io_loop_create();
 		if (server_test != NULL)
 			server_test();
@@ -253,6 +254,9 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 		exit(1);
 	}
 	/* parent: client */
+	i_set_failure_prefix("CLIENT: ");
+	if (debug)
+		i_debug("PID=%s", my_pid);
 
 	i_sleep_msecs(100); /* wait a little for server setup */
 
@@ -265,6 +269,7 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 		imapc_client_deinit(&imapc_client);
 	io_loop_destroy(&ioloop);
 
+	i_unset_failure_prefix();
 	i_close_fd(&server.fd_listen);
 	test_server_kill();
 	if (unlink_directory(client_set->temp_path_prefix,
