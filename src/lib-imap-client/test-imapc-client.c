@@ -210,13 +210,53 @@ static void test_server_kill_forced(void)
 	server.pid = (pid_t)-1;
 }
 
+static void test_run_server(test_server_init_t *server_test)
+{
+	struct ioloop *ioloop;
+
+	i_set_failure_prefix("SERVER: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	ioloop = io_loop_create();
+	if (server_test != NULL)
+		server_test();
+	test_server_disconnect(&server);
+	io_loop_destroy(&ioloop);
+
+	i_close_fd(&server.fd_listen);
+}
+
+static void
+test_run_client(const struct imapc_client_settings *client_set,
+		test_client_init_t *client_test)
+{
+	struct ioloop *ioloop;
+
+	i_set_failure_prefix("CLIENT: ");
+
+	if (debug)
+		i_debug("PID=%s", my_pid);
+
+	i_sleep_msecs(100); /* wait a little for server setup */
+
+	ioloop = io_loop_create();
+	imapc_client = imapc_client_init(client_set);
+	client_test();
+	imapc_client_logout(imapc_client);
+	test_assert(array_count(&imapc_cmd_last_replies) == 0);
+	if (imapc_client != NULL)
+		imapc_client_deinit(&imapc_client);
+	io_loop_destroy(&ioloop);
+}
+
 static void
 test_run_client_server(const struct imapc_client_settings *client_set,
 		       test_client_init_t *client_test,
 		       test_server_init_t *server_test)
 {
 	struct imapc_client_settings client_set_copy = *client_set;
-	struct ioloop *ioloop;
 	const char *error;
 
 	imapc_client_cmd_tag_counter = 0;
@@ -239,35 +279,18 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 	if (server.pid == 0) {
 		server.pid = (pid_t)-1;
 		hostpid_init();
+
 		/* child: server */
-		i_set_failure_prefix("SERVER: ");
-		if (debug)
-			i_debug("PID=%s", my_pid);
-		ioloop = io_loop_create();
-		if (server_test != NULL)
-			server_test();
-		test_server_disconnect(&server);
-		io_loop_destroy(&ioloop);
+		test_run_server(server_test);
+
 		/* wait for it to be killed; this way, valgrind will not
 		   object to this process going away inelegantly. */
 		sleep(60);
 		exit(1);
 	}
+
 	/* parent: client */
-	i_set_failure_prefix("CLIENT: ");
-	if (debug)
-		i_debug("PID=%s", my_pid);
-
-	i_sleep_msecs(100); /* wait a little for server setup */
-
-	ioloop = io_loop_create();
-	imapc_client = imapc_client_init(&client_set_copy);
-	client_test();
-	imapc_client_logout(imapc_client);
-	test_assert(array_count(&imapc_cmd_last_replies) == 0);
-	if (imapc_client != NULL)
-		imapc_client_deinit(&imapc_client);
-	io_loop_destroy(&ioloop);
+	test_run_client(&client_set_copy, client_test);
 
 	i_unset_failure_prefix();
 	i_close_fd(&server.fd_listen);
