@@ -121,7 +121,8 @@ static int master_instance_list_refresh(struct master_instance_list *list)
 			i_error("Invalid line in %s: %s", list->path, line);
 	} T_END;
 	if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", line, i_stream_get_error(input));
+		i_error("read(%s) failed: %s", list->path,
+			i_stream_get_error(input));
 		ret = -1;
 	}
 	i_stream_destroy(&input);
