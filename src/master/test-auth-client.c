@@ -95,16 +95,14 @@ test_run_client_server(test_client_init_t *client_test,
 
 /* server */
 
-static void
-test_server_connection_refused(void)
+static void test_server_connection_refused(void)
 {
 	i_close_fd(&fd_listen);
 }
 
 /* client */
 
-static bool
-test_client_connection_refused(void)
+static bool test_client_connection_refused(void)
 {
 	const char *error;
 	int ret;
@@ -132,8 +130,7 @@ static void test_connection_refused(void)
 
 /* server */
 
-static void
-test_connection_timed_out_input(struct server_connection *conn)
+static void test_connection_timed_out_input(struct server_connection *conn)
 {
 	sleep(5);
 	server_connection_deinit(&conn);
@@ -147,8 +144,7 @@ static void test_server_connection_timed_out(void)
 
 /* client */
 
-static bool
-test_client_connection_timed_out(void)
+static bool test_client_connection_timed_out(void)
 {
 	time_t time;
 	const char *error;
@@ -182,16 +178,15 @@ static void test_connection_timed_out(void)
 
 /* server */
 
-static void
-test_bad_version_input(struct server_connection *conn)
+static void test_bad_version_input(struct server_connection *conn)
 {
 	server_connection_deinit(&conn);
 }
 
-static void
-test_bad_version_init(struct server_connection *conn)
+static void test_bad_version_init(struct server_connection *conn)
 {
-	o_stream_nsend_str(conn->conn.output,
+	o_stream_nsend_str(
+		conn->conn.output,
 		"VERSION\t666\t666\n"
 		"MECH\tPLAIN\tplaintext\n"
 		"MECH\tLOGIN\tplaintext\n"
@@ -210,8 +205,7 @@ static void test_server_bad_version(void)
 
 /* client */
 
-static bool
-test_client_bad_version(void)
+static bool test_client_bad_version(void)
 {
 	const char *error;
 	int ret;
@@ -238,8 +232,7 @@ static void test_bad_version(void)
 
 /* server */
 
-static void
-test_disconnect_version_input(struct server_connection *conn)
+static void test_disconnect_version_input(struct server_connection *conn)
 {
 	const char *line;
 
@@ -252,10 +245,10 @@ test_disconnect_version_input(struct server_connection *conn)
 	server_connection_deinit(&conn);
 }
 
-static void
-test_disconnect_version_init(struct server_connection *conn)
+static void test_disconnect_version_init(struct server_connection *conn)
 {
-	o_stream_nsend_str(conn->conn.output,
+	o_stream_nsend_str(
+		conn->conn.output,
 		"VERSION\t1\t2\n"
 		"MECH\tPLAIN\tplaintext\n"
 		"MECH\tLOGIN\tplaintext\n"
@@ -274,8 +267,7 @@ static void test_server_disconnect_version(void)
 
 /* client */
 
-static bool
-test_client_disconnect_version(void)
+static bool test_client_disconnect_version(void)
 {
 	const char *error;
 	int ret;
@@ -357,13 +349,15 @@ test_auth_handshake_auth_plain(struct server_connection *conn, unsigned int id,
 	if (authenid == NULL)
 		authenid = authid;
 	if (strcmp(authenid, "harrie") == 0 && strcmp(pass, "frop") == 0) {
-		o_stream_nsend_str(conn->conn.output,
+		o_stream_nsend_str(
+			conn->conn.output,
 			t_strdup_printf("OK\t%u\tuser=harrie\n", id));
 		return TRUE;
 	}
 	if (strcmp(authenid, "hendrik") == 0)
 		return FALSE;
-	o_stream_nsend_str(conn->conn.output,
+	o_stream_nsend_str(
+		conn->conn.output,
 		t_strdup_printf("FAIL\t%u\tuser=%s\n", id, authenid));
 
 	return TRUE;
@@ -392,7 +386,8 @@ test_auth_handshake_auth_login(struct server_connection *conn, unsigned int id,
 
 	chal_b64 = t_str_new(64);
 	base64_encode(prompt1, strlen(prompt1), chal_b64);
-	o_stream_nsend_str(conn->conn.output,
+	o_stream_nsend_str(
+		conn->conn.output,
 		t_strdup_printf("CONT\t%u\t%s\n", id, str_c(chal_b64)));
 	return TRUE;
 }
@@ -411,7 +406,8 @@ test_auth_handshake_cont_login(struct server_connection *conn,
 	if (++req->login_state == 1) {
 		req->username = p_strdup(conn->pool, resp);
 		if (strcmp(resp, "harrie") != 0) {
-			o_stream_nsend_str(conn->conn.output,
+			o_stream_nsend_str(
+				conn->conn.output,
 				t_strdup_printf("FAIL\t%u\tuser=%s\n",
 						req->id, req->username));
 			return TRUE;
@@ -420,12 +416,14 @@ test_auth_handshake_cont_login(struct server_connection *conn,
 		i_assert(req->login_state == 2);
 		DLLIST_REMOVE(&ctx->requests, req);
 		if (strcmp(resp, "frop") != 0) {
-			o_stream_nsend_str(conn->conn.output,
+			o_stream_nsend_str(
+				conn->conn.output,
 				t_strdup_printf("FAIL\t%u\tuser=%s\n",
 						req->id, req->username));
 			return TRUE;
 		}
-		o_stream_nsend_str(conn->conn.output,
+		o_stream_nsend_str(
+			conn->conn.output,
 			t_strdup_printf("OK\t%u\tuser=harrie\n", req->id));
 		return TRUE;
 	}
@@ -433,7 +431,8 @@ test_auth_handshake_cont_login(struct server_connection *conn,
 	chal_b64 = t_str_new(64);
 	base64_encode(prompt2, strlen(prompt2), chal_b64);
 	o_stream_nsend_str(conn->conn.output,
-		t_strdup_printf("CONT\t%u\t%s\n", req->id, str_c(chal_b64)));
+			   t_strdup_printf("CONT\t%u\t%s\n",
+					   req->id, str_c(chal_b64)));
 	return TRUE;
 }
 
@@ -468,7 +467,7 @@ test_auth_handshake_auth(struct server_connection *conn, unsigned int id,
 
 	if (strcasecmp(mech, "PLAIN") == 0) {
 		return test_auth_handshake_auth_plain(conn, id,
-						     data->data, data->used);
+						      data->data, data->used);
 	} else if (strcasecmp(mech, "LOGIN") == 0) {
 		return test_auth_handshake_auth_login(conn, id,
 						      data->data, data->used);
@@ -516,8 +515,7 @@ test_auth_handshake_cont(struct server_connection *conn, unsigned int id,
 					      data->data, data->used);
 }
 
-static void
-test_auth_handshake_input(struct server_connection *conn)
+static void test_auth_handshake_input(struct server_connection *conn)
 {
 	struct _auth_handshake_server *ctx =
 		(struct _auth_handshake_server *)conn->context;
@@ -577,15 +575,15 @@ test_auth_handshake_input(struct server_connection *conn)
 	}
 }
 
-static void
-test_auth_handshake_init(struct server_connection *conn)
+static void test_auth_handshake_init(struct server_connection *conn)
 {
 	struct _auth_handshake_server *ctx;
 
 	ctx = p_new(conn->pool, struct _auth_handshake_server, 1);
 	conn->context = (void*)ctx;
 
-	o_stream_nsend_str(conn->conn.output,
+	o_stream_nsend_str(
+		conn->conn.output,
 		"VERSION\t1\t2\n"
 		"MECH\tPLAIN\tplaintext\n"
 		"MECH\tLOGIN\tplaintext\n"
@@ -604,8 +602,7 @@ static void test_server_auth_handshake(void)
 
 /* client */
 
-static bool
-test_client_auth_plain_disconnect(void)
+static bool test_client_auth_plain_disconnect(void)
 {
 	const char *error;
 	int ret;
@@ -618,8 +615,7 @@ test_client_auth_plain_disconnect(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_plain_reconnect(void)
+static bool test_client_auth_plain_reconnect(void)
 {
 	const char *error;
 	int ret;
@@ -632,8 +628,7 @@ test_client_auth_plain_reconnect(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_plain_failure(void)
+static bool test_client_auth_plain_failure(void)
 {
 	const char *error;
 	int ret;
@@ -645,8 +640,7 @@ test_client_auth_plain_failure(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_plain_success(void)
+static bool test_client_auth_plain_success(void)
 {
 	const char *error;
 	int ret;
@@ -658,8 +652,7 @@ test_client_auth_plain_success(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_login_failure1(void)
+static bool test_client_auth_login_failure1(void)
 {
 	const char *error;
 	int ret;
@@ -671,8 +664,7 @@ test_client_auth_login_failure1(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_login_failure2(void)
+static bool test_client_auth_login_failure2(void)
 {
 	const char *error;
 	int ret;
@@ -685,8 +677,7 @@ test_client_auth_login_failure2(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_login_success(void)
+static bool test_client_auth_login_success(void)
 {
 	const char *error;
 	int ret;
@@ -698,8 +689,7 @@ test_client_auth_login_success(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_plain_parallel_failure(void)
+static bool test_client_auth_plain_parallel_failure(void)
 {
 	const char *error;
 	int ret;
@@ -712,8 +702,7 @@ test_client_auth_plain_parallel_failure(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_plain_parallel_success(void)
+static bool test_client_auth_plain_parallel_success(void)
 {
 	const char *error;
 	int ret;
@@ -726,8 +715,7 @@ test_client_auth_plain_parallel_success(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_login_parallel_failure1(void)
+static bool test_client_auth_login_parallel_failure1(void)
 {
 	const char *error;
 	int ret;
@@ -740,8 +728,7 @@ test_client_auth_login_parallel_failure1(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_login_parallel_failure2(void)
+static bool test_client_auth_login_parallel_failure2(void)
 {
 	const char *error;
 	int ret;
@@ -754,8 +741,7 @@ test_client_auth_login_parallel_failure2(void)
 	return FALSE;
 }
 
-static bool
-test_client_auth_login_parallel_success(void)
+static bool test_client_auth_login_parallel_success(void)
 {
 	const char *error;
 	int ret;
@@ -904,11 +890,11 @@ test_client_auth_callback(struct auth_client_request *request,
 		resp_b64 = t_str_new(64);
 		if (++login_req->state == 1) {
 			base64_encode(login_test->username,
-				strlen(login_test->username), resp_b64);
+				      strlen(login_test->username), resp_b64);
 		} else {
 			test_assert(login_req->state == 2);
 			base64_encode(login_test->password,
-				strlen(login_test->password), resp_b64);
+				      strlen(login_test->password), resp_b64);
 		}
 		auth_client_request_continue(request, str_c(resp_b64));
 		return;
@@ -943,8 +929,7 @@ test_client_auth_connected(struct auth_client *client ATTR_UNUSED,
 	io_loop_stop(login_test->ioloop);
 }
 
-static void
-test_client_progress_timeout(void *context ATTR_UNUSED)
+static void test_client_progress_timeout(void *context ATTR_UNUSED)
 {
 	/* Terminate test due to lack of progress */
 	test_assert(FALSE);
@@ -1081,16 +1066,14 @@ test_client_auth_simple(const char *mech, const char *username,
 
 /* client connection */
 
-static void
-server_connection_input(struct connection *_conn)
+static void server_connection_input(struct connection *_conn)
 {
 	struct server_connection *conn = (struct server_connection *)_conn;
 
 	test_server_input(conn);
 }
 
-static void
-server_connection_init(int fd)
+static void server_connection_init(int fd)
 {
 	struct server_connection *conn;
 	pool_t pool;
@@ -1101,15 +1084,14 @@ server_connection_init(int fd)
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 
-	connection_init_server
-		(server_conn_list, &conn->conn, "server connection", fd, fd);
+	connection_init_server(server_conn_list, &conn->conn,
+			       "server connection", fd, fd);
 
 	if (test_server_init != NULL)
 		test_server_init(conn);
 }
 
-static void
-server_connection_deinit(struct server_connection **_conn)
+static void server_connection_deinit(struct server_connection **_conn)
 {
 	struct server_connection *conn = *_conn;
 
@@ -1122,17 +1104,14 @@ server_connection_deinit(struct server_connection **_conn)
 	pool_unref(&conn->pool);
 }
 
-static void
-server_connection_destroy(struct connection *_conn)
+static void server_connection_destroy(struct connection *_conn)
 {
-	struct server_connection *conn =
-		(struct server_connection *)_conn;
+	struct server_connection *conn = (struct server_connection *)_conn;
 
 	server_connection_deinit(&conn);
 }
 
-static void
-server_connection_accept(void *context ATTR_UNUSED)
+static void server_connection_accept(void *context ATTR_UNUSED)
 {
 	int fd;
 
@@ -1140,9 +1119,8 @@ server_connection_accept(void *context ATTR_UNUSED)
 	fd = net_accept(fd_listen, NULL, NULL);
 	if (fd == -1)
 		return;
-	if (fd == -2) {
+	if (fd == -2)
 		i_fatal("test server: accept() failed: %m");
-	}
 
 	server_connection_init(fd);
 }
@@ -1163,8 +1141,7 @@ static const struct connection_vfuncs server_connection_vfuncs = {
 static void test_server_run(void)
 {
 	/* open server socket */
-	io_listen = io_add(fd_listen,
-		IO_READ, server_connection_accept, NULL);
+	io_listen = io_add(fd_listen, IO_READ, server_connection_accept, NULL);
 
 	server_conn_list = connection_list_init(&server_connection_set,
 						&server_connection_vfuncs);
@@ -1264,8 +1241,7 @@ test_run_client_server(test_client_init_t *client_test,
 
 volatile sig_atomic_t terminating = 0;
 
-static void
-test_signal_handler(int signo)
+static void test_signal_handler(int signo)
 {
 	if (terminating != 0)
 		raise(signo);
