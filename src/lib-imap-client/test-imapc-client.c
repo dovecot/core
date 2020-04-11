@@ -1,7 +1,6 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "lib-signals.h"
 #include "array.h"
 #include "hostpid.h"
 #include "net.h"
@@ -11,13 +10,13 @@
 #include "unlink-directory.h"
 #include "sleep.h"
 #include "test-common.h"
+#include "test-subprocess.h"
 #include "imapc-client-private.h"
 
 #include <stdio.h>
 #include <unistd.h>
-#include <signal.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
+
+#define SERVER_KILL_TIMEOUT_SECS    20
 
 #define IMAPC_COMMAND_STATE_INVALID (enum imapc_command_state)-1
 
@@ -39,6 +38,8 @@ static struct imapc_client *imapc_client;
 static enum imapc_command_state imapc_login_last_reply;
 static ARRAY(enum imapc_command_state) imapc_cmd_last_replies;
 static bool debug = FALSE;
+
+static void main_deinit(void);
 
 /*
  * Test client
@@ -202,27 +203,7 @@ static int test_open_server_fd(in_port_t *bind_port)
 	return fd;
 }
 
-static void test_server_kill(void)
-{
-	if (server.pid != (pid_t)-1) {
-		if (kill(server.pid, SIGKILL) < 0)
-			i_fatal("kill(%ld) failed: %m", (long)server.pid);
-		if (waitpid(server.pid, NULL, 0) < 0)
-			i_fatal("waitpid(%ld) failed: %m", (long)server.pid);
-		server.pid = -1;
-	}
-}
-
-static void test_server_kill_forced(void)
-{
-	if (server.pid != (pid_t)-1) {
-		(void)kill(server.pid, SIGKILL);
-		(void)waitpid(server.pid, NULL, 0);
-	}
-	server.pid = (pid_t)-1;
-}
-
-static void test_run_server(test_server_init_t *server_test)
+static int test_run_server(test_server_init_t *server_test)
 {
 	struct ioloop *ioloop;
 
@@ -237,7 +218,12 @@ static void test_run_server(test_server_init_t *server_test)
 	test_server_disconnect(&server);
 	io_loop_destroy(&ioloop);
 
+	if (debug)
+		i_debug("Terminated");
+
 	i_close_fd(&server.fd_listen);
+	main_deinit();
+	return 0;
 }
 
 static void
@@ -261,6 +247,9 @@ test_run_client(const struct imapc_client_settings *client_set,
 	if (imapc_client != NULL)
 		imapc_client_deinit(&imapc_client);
 	io_loop_destroy(&ioloop);
+
+	if (debug)
+		i_debug("Terminated");
 }
 
 static void
@@ -280,33 +269,21 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 	server.fd = -1;
 	server.fd_listen = test_open_server_fd(&server.port);
 	client_set_copy.port = server.port;
-	if (server_test == NULL)
-		i_close_fd(&server.fd_listen);
 
 	if (mkdir(client_set->temp_path_prefix, 0700) < 0 && errno != EEXIST)
 		i_fatal("mkdir(%s) failed: %m", client_set->temp_path_prefix);
 
-	if ((server.pid = fork()) == (pid_t)-1)
-		i_fatal("fork() failed: %m");
-	if (server.pid == 0) {
-		server.pid = (pid_t)-1;
-		hostpid_init();
-
-		/* child: server */
-		test_run_server(server_test);
-
-		/* wait for it to be killed; this way, valgrind will not
-		   object to this process going away inelegantly. */
-		sleep(60);
-		exit(1);
+	if (server_test != NULL) {
+		/* Fork server */
+		test_subprocess_fork(test_run_server, server_test, TRUE);
 	}
+	i_close_fd(&server.fd_listen);
 
-	/* parent: client */
+	/* Run client */
 	test_run_client(&client_set_copy, client_test);
 
 	i_unset_failure_prefix();
-	i_close_fd(&server.fd_listen);
-	test_server_kill();
+	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
 	if (unlink_directory(client_set->temp_path_prefix,
 			     UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
 		i_fatal("%s", error);
@@ -642,6 +619,8 @@ static void test_imapc_reconnect_resend_cmds_failed_server(void)
 	test_assert(test_imapc_server_expect("3 RETRY2"));
 	test_assert(test_imapc_server_expect("4 DISCONNECT"));
 	test_server_disconnect(&server);
+
+	i_sleep_intr_secs(60);
 }
 
 static void test_imapc_reconnect_resend_commands_failed(void)
@@ -858,44 +837,14 @@ static void test_imapc_client_get_capabilities_disconnected(void)
  * Main
  */
 
-volatile sig_atomic_t terminating = 0;
-
-static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	int signo = si->si_signo;
-
-	if (terminating != 0)
-		raise(signo);
-	terminating = 1;
-
-	/* make sure we don't leave any pesky children alive */
-	test_server_kill_forced();
-
-	(void)signal(signo, SIG_DFL);
-	raise(signo);
-}
-
-static void test_atexit(void)
-{
-	/* NOTICE: This is also called by children, so be careful. */
-	test_server_kill_forced();
-}
-
 static void main_init(void)
 {
-	atexit(test_atexit);
-
-	lib_signals_ignore(SIGPIPE, TRUE);
-	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+	/* nothing yet */
 }
 
 static void main_deinit(void)
 {
-	/* nothing yet */
+	/* nothing yet; also called from sub-processes */
 }
 
 int main(int argc ATTR_UNUSED, char *argv[])
@@ -919,7 +868,6 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	};
 
 	lib_init();
-	lib_signals_init();
 	main_init();
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
@@ -932,6 +880,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		}
 	}
 
+	test_subprocesses_init(debug);
 	test_imapc_default_settings.debug = debug;
 
 	/* listen on localhost */
@@ -941,8 +890,8 @@ int main(int argc ATTR_UNUSED, char *argv[])
 
 	ret = test_run(test_functions);
 
+	test_subprocesses_deinit();
 	main_deinit();
-	lib_signals_deinit();
 	lib_deinit();
 
 	return ret;
