@@ -92,16 +92,14 @@ test_run_client_server(test_client_init_t *client_test,
 
 /* server */
 
-static void
-test_server_connection_refused(void)
+static void test_server_connection_refused(void)
 {
 	i_close_fd(&fd_listen);
 }
 
 /* client */
 
-static bool
-test_client_connection_refused(void)
+static bool test_client_connection_refused(void)
 {
 	const char *error;
 	int ret;
@@ -129,8 +127,7 @@ static void test_connection_refused(void)
 
 /* server */
 
-static void
-test_connection_timed_out_input(struct server_connection *conn)
+static void test_connection_timed_out_input(struct server_connection *conn)
 {
 	sleep(5);
 	server_connection_deinit(&conn);
@@ -144,8 +141,7 @@ static void test_server_connection_timed_out(void)
 
 /* client */
 
-static bool
-test_client_connection_timed_out(void)
+static bool test_client_connection_timed_out(void)
 {
 	time_t time;
 	const char *error;
@@ -179,19 +175,15 @@ static void test_connection_timed_out(void)
 
 /* server */
 
-static void
-test_bad_version_input(struct server_connection *conn)
+static void test_bad_version_input(struct server_connection *conn)
 {
 	server_connection_deinit(&conn);
 }
 
-static void
-test_bad_version_init(struct server_connection *conn)
+static void test_bad_version_init(struct server_connection *conn)
 {
-	o_stream_nsend_str(conn->conn.output,
-		"VERSION\t666\t666\n");
-	o_stream_nsend_str(conn->conn.output,
-		"SPID\t23234\n");
+	o_stream_nsend_str(conn->conn.output, "VERSION\t666\t666\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
 }
 
 static void test_server_bad_version(void)
@@ -203,8 +195,7 @@ static void test_server_bad_version(void)
 
 /* client */
 
-static bool
-test_client_bad_version(void)
+static bool test_client_bad_version(void)
 {
 	const char *error;
 	int ret;
@@ -231,8 +222,7 @@ static void test_bad_version(void)
 
 /* server */
 
-static void
-test_disconnect_version_input(struct server_connection *conn)
+static void test_disconnect_version_input(struct server_connection *conn)
 {
 	const char *line;
 
@@ -245,13 +235,10 @@ test_disconnect_version_input(struct server_connection *conn)
 	server_connection_deinit(&conn);
 }
 
-static void
-test_disconnect_version_init(struct server_connection *conn)
+static void test_disconnect_version_init(struct server_connection *conn)
 {
-	o_stream_nsend_str(conn->conn.output,
-		"VERSION\t1\t0\n");
-	o_stream_nsend_str(conn->conn.output,
-		"SPID\t23234\n");
+	o_stream_nsend_str(conn->conn.output, "VERSION\t1\t0\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
 }
 
 static void test_server_disconnect_version(void)
@@ -263,8 +250,7 @@ static void test_server_disconnect_version(void)
 
 /* client */
 
-static bool
-test_client_disconnect_version(void)
+static bool test_client_disconnect_version(void)
 {
 	const char *error;
 	int ret;
@@ -302,8 +288,7 @@ struct _passdb_fail_server {
 	bool not_found:1;
 };
 
-static void
-test_passdb_fail_input(struct server_connection *conn)
+static void test_passdb_fail_input(struct server_connection *conn)
 {
 	struct _passdb_fail_server *ctx =
 		(struct _passdb_fail_server *)conn->context;
@@ -346,7 +331,8 @@ test_passdb_fail_input(struct server_connection *conn)
 				server_connection_deinit(&conn);
 				return;
 			} else {
-				line = t_strdup_printf("FAIL\t%u\t"
+				line = t_strdup_printf(
+					"FAIL\t%u\t"
 					"reason=You shall not pass!!\n", id);
 			}
 			o_stream_nsend_str(conn->conn.output, line);
@@ -357,18 +343,15 @@ test_passdb_fail_input(struct server_connection *conn)
 	}
 }
 
-static void
-test_passdb_fail_init(struct server_connection *conn)
+static void test_passdb_fail_init(struct server_connection *conn)
 {
 	struct _passdb_fail_server *ctx;
 
 	ctx = p_new(conn->pool, struct _passdb_fail_server, 1);
 	conn->context = (void*)ctx;
 
-	o_stream_nsend_str(conn->conn.output,
-		"VERSION\t1\t0\n");
-	o_stream_nsend_str(conn->conn.output,
-		"SPID\t23234\n");
+	o_stream_nsend_str(conn->conn.output, "VERSION\t1\t0\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
 }
 
 static void test_server_passdb_fail(void)
@@ -380,8 +363,7 @@ static void test_server_passdb_fail(void)
 
 /* client */
 
-static bool
-test_client_passdb_fail(void)
+static bool test_client_passdb_fail(void)
 {
 	const char *error;
 	int ret;
@@ -394,8 +376,7 @@ test_client_passdb_fail(void)
 	return FALSE;
 }
 
-static bool
-test_client_passdb_notfound(void)
+static bool test_client_passdb_notfound(void)
 {
 	const char *error;
 	int ret;
@@ -407,8 +388,7 @@ test_client_passdb_notfound(void)
 	return FALSE;
 }
 
-static bool
-test_client_passdb_timeout(void)
+static bool test_client_passdb_timeout(void)
 {
 	const char *error;
 	int ret;
@@ -420,8 +400,7 @@ test_client_passdb_timeout(void)
 	return FALSE;
 }
 
-static bool
-test_client_passdb_disconnect(void)
+static bool test_client_passdb_disconnect(void)
 {
 	const char *error;
 	int ret;
@@ -433,8 +412,7 @@ test_client_passdb_disconnect(void)
 	return FALSE;
 }
 
-static bool
-test_client_passdb_reconnect(void)
+static bool test_client_passdb_reconnect(void)
 {
 	const char *error;
 	int ret;
@@ -496,8 +474,7 @@ struct _userdb_fail_server {
 	bool not_found:1;
 };
 
-static void
-test_userdb_fail_input(struct server_connection *conn)
+static void test_userdb_fail_input(struct server_connection *conn)
 {
 	struct _userdb_fail_server *ctx =
 		(struct _userdb_fail_server *)conn->context;
@@ -551,18 +528,15 @@ test_userdb_fail_input(struct server_connection *conn)
 	}
 }
 
-static void
-test_userdb_fail_init(struct server_connection *conn)
+static void test_userdb_fail_init(struct server_connection *conn)
 {
 	struct _userdb_fail_server *ctx;
 
 	ctx = p_new(conn->pool, struct _userdb_fail_server, 1);
 	conn->context = (void*)ctx;
 
-	o_stream_nsend_str(conn->conn.output,
-		"VERSION\t1\t0\n");
-	o_stream_nsend_str(conn->conn.output,
-		"SPID\t23234\n");
+	o_stream_nsend_str(conn->conn.output, "VERSION\t1\t0\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
 }
 
 static void test_server_userdb_fail(void)
@@ -574,8 +548,7 @@ static void test_server_userdb_fail(void)
 
 /* client */
 
-static bool
-test_client_userdb_fail(void)
+static bool test_client_userdb_fail(void)
 {
 	const char *error;
 	int ret;
@@ -588,8 +561,7 @@ test_client_userdb_fail(void)
 	return FALSE;
 }
 
-static bool
-test_client_userdb_notfound(void)
+static bool test_client_userdb_notfound(void)
 {
 	const char *error;
 	int ret;
@@ -601,8 +573,7 @@ test_client_userdb_notfound(void)
 	return FALSE;
 }
 
-static bool
-test_client_userdb_timeout(void)
+static bool test_client_userdb_timeout(void)
 {
 	const char *error;
 	int ret;
@@ -614,8 +585,7 @@ test_client_userdb_timeout(void)
 	return FALSE;
 }
 
-static bool
-test_client_userdb_disconnect(void)
+static bool test_client_userdb_disconnect(void)
 {
 	const char *error;
 	int ret;
@@ -627,8 +597,7 @@ test_client_userdb_disconnect(void)
 	return FALSE;
 }
 
-static bool
-test_client_userdb_reconnect(void)
+static bool test_client_userdb_reconnect(void)
 {
 	const char *error;
 	int ret;
@@ -688,8 +657,7 @@ struct _user_list_fail_server {
 	enum _user_list_fail_state state;
 };
 
-static void
-test_user_list_fail_input(struct server_connection *conn)
+static void test_user_list_fail_input(struct server_connection *conn)
 {
 	struct _user_list_fail_server *ctx =
 		(struct _user_list_fail_server *)conn->context;
@@ -731,18 +699,15 @@ test_user_list_fail_input(struct server_connection *conn)
 	}
 }
 
-static void
-test_user_list_fail_init(struct server_connection *conn)
+static void test_user_list_fail_init(struct server_connection *conn)
 {
 	struct _user_list_fail_server *ctx;
 
 	ctx = p_new(conn->pool, struct _user_list_fail_server, 1);
 	conn->context = (void*)ctx;
 
-	o_stream_nsend_str(conn->conn.output,
-		"VERSION\t1\t0\n");
-	o_stream_nsend_str(conn->conn.output,
-		"SPID\t23234\n");
+	o_stream_nsend_str(conn->conn.output, "VERSION\t1\t0\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
 }
 
 static void test_server_user_list_fail(void)
@@ -754,8 +719,7 @@ static void test_server_user_list_fail(void)
 
 /* client */
 
-static bool
-test_client_user_list_fail(void)
+static bool test_client_user_list_fail(void)
 {
 	int ret;
 
@@ -791,8 +755,7 @@ struct _passdb_lookup_server {
 	enum _passdb_lookup_state state;
 };
 
-static void
-test_passdb_lookup_input(struct server_connection *conn)
+static void test_passdb_lookup_input(struct server_connection *conn)
 {
 	struct _passdb_lookup_server *ctx =
 		(struct _passdb_lookup_server *)conn->context;
@@ -834,18 +797,15 @@ test_passdb_lookup_input(struct server_connection *conn)
 	}
 }
 
-static void
-test_passdb_lookup_init(struct server_connection *conn)
+static void test_passdb_lookup_init(struct server_connection *conn)
 {
 	struct _passdb_lookup_server *ctx;
 
 	ctx = p_new(conn->pool, struct _passdb_lookup_server, 1);
 	conn->context = (void*)ctx;
 
-	o_stream_nsend_str(conn->conn.output,
-		"VERSION\t1\t0\n");
-	o_stream_nsend_str(conn->conn.output,
-		"SPID\t23234\n");
+	o_stream_nsend_str(conn->conn.output, "VERSION\t1\t0\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
 }
 
 static void test_server_passdb_lookup(void)
@@ -857,8 +817,7 @@ static void test_server_passdb_lookup(void)
 
 /* client */
 
-static bool
-test_client_passdb_lookup(void)
+static bool test_client_passdb_lookup(void)
 {
 	const char *error;
 	int ret;
@@ -894,8 +853,7 @@ struct _userdb_lookup_server {
 	enum _userdb_lookup_state state;
 };
 
-static void
-test_userdb_lookup_input(struct server_connection *conn)
+static void test_userdb_lookup_input(struct server_connection *conn)
 {
 	struct _userdb_lookup_server *ctx =
 		(struct _userdb_lookup_server *)conn->context;
@@ -928,7 +886,8 @@ test_userdb_lookup_input(struct server_connection *conn)
 				server_connection_deinit(&conn);
 				return;
 			}
-			line = t_strdup_printf("USER\t%u\tharrie\t"
+			line = t_strdup_printf(
+				"USER\t%u\tharrie\t"
 				"uid=1000\tgid=110\thome=/home/harrie\n", id);
 			o_stream_nsend_str(conn->conn.output, line);
 			server_connection_deinit(&conn);
@@ -938,18 +897,15 @@ test_userdb_lookup_input(struct server_connection *conn)
 	}
 }
 
-static void
-test_userdb_lookup_init(struct server_connection *conn)
+static void test_userdb_lookup_init(struct server_connection *conn)
 {
 	struct _userdb_lookup_server *ctx;
 
 	ctx = p_new(conn->pool, struct _userdb_lookup_server, 1);
 	conn->context = (void*)ctx;
 
-	o_stream_nsend_str(conn->conn.output,
-		"VERSION\t1\t0\n");
-	o_stream_nsend_str(conn->conn.output,
-		"SPID\t23234\n");
+	o_stream_nsend_str(conn->conn.output, "VERSION\t1\t0\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
 }
 
 static void test_server_userdb_lookup(void)
@@ -961,8 +917,7 @@ static void test_server_userdb_lookup(void)
 
 /* client */
 
-static bool
-test_client_userdb_lookup(void)
+static bool test_client_userdb_lookup(void)
 {
 	const char *error;
 	int ret;
@@ -998,8 +953,7 @@ struct _user_list_server {
 	enum _user_list_state state;
 };
 
-static void
-test_user_list_input(struct server_connection *conn)
+static void test_user_list_input(struct server_connection *conn)
 {
 	struct _user_list_server *ctx =
 		(struct _user_list_server *)conn->context;
@@ -1047,18 +1001,15 @@ test_user_list_input(struct server_connection *conn)
 	}
 }
 
-static void
-test_user_list_init(struct server_connection *conn)
+static void test_user_list_init(struct server_connection *conn)
 {
 	struct _user_list_server *ctx;
 
 	ctx = p_new(conn->pool, struct _user_list_server, 1);
 	conn->context = (void*)ctx;
 
-	o_stream_nsend_str(conn->conn.output,
-		"VERSION\t1\t0\n");
-	o_stream_nsend_str(conn->conn.output,
-		"SPID\t23234\n");
+	o_stream_nsend_str(conn->conn.output, "VERSION\t1\t0\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
 }
 
 static void test_server_user_list(void)
@@ -1070,8 +1021,7 @@ static void test_server_user_list(void)
 
 /* client */
 
-static bool
-test_client_user_list(void)
+static bool test_client_user_list(void)
 {
 	int ret;
 
@@ -1222,16 +1172,14 @@ static int test_client_user_list_simple(void)
 
 /* client connection */
 
-static void
-server_connection_input(struct connection *_conn)
+static void server_connection_input(struct connection *_conn)
 {
 	struct server_connection *conn = (struct server_connection *)_conn;
 
 	test_server_input(conn);
 }
 
-static void
-server_connection_init(int fd)
+static void server_connection_init(int fd)
 {
 	struct server_connection *conn;
 	pool_t pool;
@@ -1242,15 +1190,14 @@ server_connection_init(int fd)
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 
-	connection_init_server
-		(server_conn_list, &conn->conn, "server connection", fd, fd);
+	connection_init_server(server_conn_list, &conn->conn,
+			       "server connection", fd, fd);
 
 	if (test_server_init != NULL)
 		test_server_init(conn);
 }
 
-static void
-server_connection_deinit(struct server_connection **_conn)
+static void server_connection_deinit(struct server_connection **_conn)
 {
 	struct server_connection *conn = *_conn;
 
@@ -1263,8 +1210,7 @@ server_connection_deinit(struct server_connection **_conn)
 	pool_unref(&conn->pool);
 }
 
-static void
-server_connection_destroy(struct connection *_conn)
+static void server_connection_destroy(struct connection *_conn)
 {
 	struct server_connection *conn =
 		(struct server_connection *)_conn;
@@ -1272,8 +1218,7 @@ server_connection_destroy(struct connection *_conn)
 	server_connection_deinit(&conn);
 }
 
-static void
-server_connection_accept(void *context ATTR_UNUSED)
+static void server_connection_accept(void *context ATTR_UNUSED)
 {
 	int fd;
 
@@ -1405,8 +1350,7 @@ test_run_client_server(test_client_init_t *client_test,
 
 volatile sig_atomic_t terminating = 0;
 
-static void
-test_signal_handler(int signo)
+static void test_signal_handler(int signo)
 {
 	if (terminating != 0)
 		raise(signo);
