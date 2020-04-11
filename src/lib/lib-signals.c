@@ -301,7 +301,7 @@ static void ATTR_NULL(1) signal_read(void *context ATTR_UNUSED)
 
 static void lib_signals_enable_delayed_hander(void)
 {
-	if (current_ioloop != NULL) {
+	if (current_ioloop != NULL && sig_pipe_fd[0] > 0) {
 		io_sig = io_add(sig_pipe_fd[0], IO_READ,
 			signal_read, NULL);
 		io_set_never_wait_alone(io_sig, TRUE);
