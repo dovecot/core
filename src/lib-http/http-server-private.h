@@ -183,8 +183,8 @@ int http_server_response_send_more(struct http_server_response *resp);
 static inline const char *
 http_server_request_label(struct http_server_request *req)
 {
-	if (req->req.method == NULL) {
-		if (req->req.target_raw == NULL)
+	if (req->req.target_raw == NULL) {
+		if (req->req.method == NULL)
 			return t_strdup_printf("[Req%u: <NEW>]", req->id);
 		return t_strdup_printf("[Req%u: %s <INCOMPLETE>]",
 			req->id, req->req.method);
