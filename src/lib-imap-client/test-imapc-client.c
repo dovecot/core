@@ -55,19 +55,6 @@ static struct imapc_client_settings test_imapc_default_settings = {
 	.max_idle_time = 10000,
 };
 
-static int test_open_server_fd(in_port_t *bind_port)
-{
-	int fd = net_listen(&bind_ip, bind_port, 128);
-	if (debug)
-		i_debug("server listening on %u", *bind_port);
-	if (fd == -1) {
-		i_fatal("listen(%s:%u) failed: %m",
-			net_ip2addr(&bind_ip), *bind_port);
-	}
-	fd_set_nonblock(fd, FALSE);
-	return fd;
-}
-
 static void
 test_server_wait_connection(struct test_server *server, bool send_banner)
 {
@@ -96,6 +83,19 @@ static void test_server_disconnect_and_wait(bool send_banner)
 {
 	test_server_disconnect(&server);
 	test_server_wait_connection(&server, send_banner);
+}
+
+static int test_open_server_fd(in_port_t *bind_port)
+{
+	int fd = net_listen(&bind_ip, bind_port, 128);
+	if (debug)
+		i_debug("server listening on %u", *bind_port);
+	if (fd == -1) {
+		i_fatal("listen(%s:%u) failed: %m",
+			net_ip2addr(&bind_ip), *bind_port);
+	}
+	fd_set_nonblock(fd, FALSE);
+	return fd;
 }
 
 static void test_server_kill(void)
