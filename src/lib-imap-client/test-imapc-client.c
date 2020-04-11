@@ -39,6 +39,10 @@ static enum imapc_command_state imapc_login_last_reply;
 static ARRAY(enum imapc_command_state) imapc_cmd_last_replies;
 static bool debug = FALSE;
 
+/*
+ * Test client
+ */
+
 static struct imapc_client_settings test_imapc_default_settings = {
 	.host = "127.0.0.1",
 	.username = "testuser",
@@ -110,6 +114,10 @@ static void imapc_reopen_callback(void *context)
 	imapc_command_send(cmd, "SELECT");
 }
 
+/*
+ * Test server
+ */
+
 static bool
 test_imapc_server_expect_full(struct test_server *server,
 			      const char *expected_line)
@@ -163,6 +171,10 @@ static void test_server_disconnect_and_wait(bool send_banner)
 	test_server_disconnect(&server);
 	test_server_wait_connection(&server, send_banner);
 }
+
+/*
+ * Test processes
+ */
 
 static int test_open_server_fd(in_port_t *bind_port)
 {
@@ -250,6 +262,10 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 		i_fatal("%s", error);
 }
 
+/*
+ * imapc connect failed
+ */
+
 static void test_imapc_connect_failed_client(void)
 {
 	imapc_client_set_login_callback(imapc_client,
@@ -270,6 +286,10 @@ static void test_imapc_connect_failed(void)
 	test_run_client_server(&set, test_imapc_connect_failed_client, NULL);
 	test_end();
 }
+
+/*
+ * imapc banner hang
+ */
 
 static void test_imapc_banner_hangs_client(void)
 {
@@ -301,6 +321,10 @@ static void test_imapc_banner_hangs(void)
 			       test_imapc_banner_hangs_server);
 	test_end();
 }
+
+/*
+ * imapc login hangs
+ */
 
 static void test_imapc_login_hangs_client(void)
 {
@@ -345,6 +369,10 @@ static void test_imapc_login_hangs(void)
 	test_end();
 }
 
+/*
+ * imapc login fails
+ */
+
 static void test_imapc_login_fails_client(void)
 {
 	imapc_client_set_login_callback(imapc_client,
@@ -373,6 +401,10 @@ static void test_imapc_login_fails(void)
 			       test_imapc_login_fails_server);
 	test_end();
 }
+
+/*
+ * imapc reconnect
+ */
 
 static void test_imapc_reconnect_client(void)
 {
@@ -434,6 +466,10 @@ static void test_imapc_reconnect(void)
 			       test_imapc_reconnect_server);
 	test_end();
 }
+
+/*
+ * imapc reconnect resend commands
+ */
 
 static void test_imapc_reconnect_resend_cmds_client(void)
 {
@@ -505,6 +541,10 @@ static void test_imapc_reconnect_resend_commands(void)
 	test_end();
 }
 
+/*
+ * imapc reconnect resend commands failed
+ */
+
 static void test_imapc_reconnect_resend_cmds_failed_client(void)
 {
 	struct imapc_command *cmd;
@@ -564,6 +604,10 @@ static void test_imapc_reconnect_resend_commands_failed(void)
 			       test_imapc_reconnect_resend_cmds_failed_server);
 	test_end();
 }
+
+/*
+ * imapc reconnect mailbox
+ */
 
 static void test_imapc_reconnect_mailbox_client(void)
 {
@@ -647,6 +691,10 @@ static void test_imapc_reconnect_mailbox(void)
 	test_end();
 }
 
+/*
+ * imapc_client_get_capabilities()
+ */
+
 static void test_imapc_client_get_capabilities_client(void)
 {
 	enum imapc_capability capabilities;
@@ -679,6 +727,10 @@ static void test_imapc_client_get_capabilities(void)
 			       test_imapc_client_get_capabilities_server);
 	test_end();
 }
+
+/*
+ * imapc_client_get_capabilities() reconnected
+ */
 
 static void test_imapc_client_get_capabilities_reconnected_client(void)
 {
@@ -720,6 +772,10 @@ static void test_imapc_client_get_capabilities_reconnected(void)
 	test_end();
 }
 
+/*
+ * imapc_client_get_capabilities() disconnected
+ */
+
 static void test_imapc_client_get_capabilities_disconnected_client(void)
 {
 	enum imapc_capability capabilities;
@@ -747,6 +803,10 @@ static void test_imapc_client_get_capabilities_disconnected(void)
 		test_imapc_client_get_capabilities_disconnected_server);
 	test_end();
 }
+
+/*
+ * Main
+ */
 
 int main(int argc ATTR_UNUSED, char *argv[])
 {
