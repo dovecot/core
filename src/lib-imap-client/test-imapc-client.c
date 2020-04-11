@@ -1,6 +1,7 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "lib-signals.h"
 #include "array.h"
 #include "hostpid.h"
 #include "net.h"
@@ -198,6 +199,15 @@ static void test_server_kill(void)
 			i_fatal("waitpid(%ld) failed: %m", (long)server.pid);
 		server.pid = -1;
 	}
+}
+
+static void test_server_kill_forced(void)
+{
+	if (server.pid != (pid_t)-1) {
+		(void)kill(server.pid, SIGKILL);
+		(void)waitpid(server.pid, NULL, 0);
+	}
+	server.pid = (pid_t)-1;
 }
 
 static void
@@ -808,9 +818,50 @@ static void test_imapc_client_get_capabilities_disconnected(void)
  * Main
  */
 
+volatile sig_atomic_t terminating = 0;
+
+static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
+{
+	int signo = si->si_signo;
+
+	if (terminating != 0)
+		raise(signo);
+	terminating = 1;
+
+	/* make sure we don't leave any pesky children alive */
+	test_server_kill_forced();
+
+	(void)signal(signo, SIG_DFL);
+	raise(signo);
+}
+
+static void test_atexit(void)
+{
+	/* NOTICE: This is also called by children, so be careful. */
+	test_server_kill_forced();
+}
+
+static void main_init(void)
+{
+	atexit(test_atexit);
+
+	lib_signals_ignore(SIGPIPE, TRUE);
+	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+}
+
+static void main_deinit(void)
+{
+	/* nothing yet */
+}
+
 int main(int argc ATTR_UNUSED, char *argv[])
 {
 	int c;
+	int ret;
 
 	static void (*const test_functions[])(void) = {
 		test_imapc_connect_failed,
@@ -826,6 +877,10 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_imapc_client_get_capabilities_disconnected,
 		NULL
 	};
+
+	lib_init();
+	lib_signals_init();
+	main_init();
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
@@ -844,5 +899,11 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	bind_ip.family = AF_INET;
 	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);
 
-	return test_run(test_functions);
+	ret = test_run(test_functions);
+
+	main_deinit();
+	lib_signals_deinit();
+	lib_deinit();
+
+	return ret;
 }
