@@ -109,10 +109,10 @@ static void test_server_kill(void)
 	}
 }
 
-static void test_run_client_server(
-	const struct imapc_client_settings *client_set,
-	test_client_init_t *client_test,
-	test_server_init_t *server_test)
+static void
+test_run_client_server(const struct imapc_client_settings *client_set,
+		       test_client_init_t *client_test,
+		       test_server_init_t *server_test)
 {
 	struct imapc_client_settings client_set_copy = *client_set;
 	struct ioloop *ioloop;
@@ -267,8 +267,7 @@ static void test_imapc_connect_failed(void)
 	struct imapc_client_settings set = test_imapc_default_settings;
 
 	test_begin("imapc connect failed");
-	test_run_client_server(&set, test_imapc_connect_failed_client,
-			       NULL);
+	test_run_client_server(&set, test_imapc_connect_failed_client, NULL);
 	test_end();
 }
 
@@ -325,7 +324,8 @@ static void test_imapc_login_hangs_server(void)
 	struct test_server server2 = { .fd_listen = server.fd_listen };
 
 	test_server_wait_connection(&server, TRUE);
-	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
 
 	test_server_wait_connection(&server2, TRUE);
 	test_assert(test_imapc_server_expect_full(
@@ -392,7 +392,8 @@ static void test_imapc_reconnect_client(void)
 	test_expect_error_string("reconnecting");
 	imapc_client_run(imapc_client);
 	test_expect_no_more_errors();
-	test_assert(test_imapc_cmd_last_reply_pop() == IMAPC_COMMAND_STATE_DISCONNECTED);
+	test_assert(test_imapc_cmd_last_reply_pop() ==
+		    IMAPC_COMMAND_STATE_DISCONNECTED);
 
 	/* we should be reconnected now. try a command. */
 	cmd = imapc_client_cmd(imapc_client, imapc_command_callback, NULL);
@@ -405,13 +406,15 @@ static void test_imapc_reconnect_client(void)
 static void test_imapc_reconnect_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
-	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "1 OK \r\n");
 
 	test_assert(test_imapc_server_expect("2 DISCONNECT"));
 	test_server_disconnect_and_wait(TRUE);
 
-	test_assert(test_imapc_server_expect("4 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"4 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "4 OK \r\n");
 	test_assert(test_imapc_server_expect("3 NOOP"));
 	o_stream_nsend_str(server.output, "3 OK \r\n");
@@ -458,7 +461,8 @@ static void test_imapc_reconnect_resend_cmds_client(void)
 	test_expect_error_string("reconnecting");
 	imapc_client_run(imapc_client);
 	test_expect_no_more_errors();
-	test_assert(test_imapc_cmd_last_reply_expect(IMAPC_COMMAND_STATE_DISCONNECTED));
+	test_assert(test_imapc_cmd_last_reply_expect(
+		IMAPC_COMMAND_STATE_DISCONNECTED));
 
 	/* continue reconnection */
 	test_assert(test_imapc_cmd_last_reply_expect(IMAPC_COMMAND_STATE_OK));
@@ -468,7 +472,8 @@ static void test_imapc_reconnect_resend_cmds_client(void)
 static void test_imapc_reconnect_resend_cmds_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
-	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "1 OK \r\n");
 
 	test_assert(test_imapc_server_expect("2 RETRY1"));
@@ -476,7 +481,8 @@ static void test_imapc_reconnect_resend_cmds_server(void)
 	test_assert(test_imapc_server_expect("4 DISCONNECT"));
 	test_server_disconnect_and_wait(TRUE);
 
-	test_assert(test_imapc_server_expect("5 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"5 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "5 OK \r\n");
 	test_assert(test_imapc_server_expect("2 RETRY1"));
 	o_stream_nsend_str(server.output, "2 OK \r\n");
@@ -525,17 +531,21 @@ static void test_imapc_reconnect_resend_cmds_failed_client(void)
 	test_expect_error_string("reconnecting");
 	imapc_client_run(imapc_client);
 	test_expect_no_more_errors();
-	test_assert(test_imapc_cmd_last_reply_expect(IMAPC_COMMAND_STATE_DISCONNECTED));
+	test_assert(test_imapc_cmd_last_reply_expect(
+		IMAPC_COMMAND_STATE_DISCONNECTED));
 	test_expect_error_string("timed out");
-	test_assert(test_imapc_cmd_last_reply_expect(IMAPC_COMMAND_STATE_DISCONNECTED));
+	test_assert(test_imapc_cmd_last_reply_expect(
+		IMAPC_COMMAND_STATE_DISCONNECTED));
 	test_expect_no_more_errors();
-	test_assert(test_imapc_cmd_last_reply_expect(IMAPC_COMMAND_STATE_DISCONNECTED));
+	test_assert(test_imapc_cmd_last_reply_expect(
+		IMAPC_COMMAND_STATE_DISCONNECTED));
 }
 
 static void test_imapc_reconnect_resend_cmds_failed_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
-	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "1 OK \r\n");
 
 	test_assert(test_imapc_server_expect("2 RETRY1"));
@@ -549,7 +559,8 @@ static void test_imapc_reconnect_resend_commands_failed(void)
 	struct imapc_client_settings set = test_imapc_default_settings;
 
 	test_begin("imapc reconnect resend commands failed");
-	test_run_client_server(&set, test_imapc_reconnect_resend_cmds_failed_client,
+	test_run_client_server(&set,
+			       test_imapc_reconnect_resend_cmds_failed_client,
 			       test_imapc_reconnect_resend_cmds_failed_server);
 	test_end();
 }
@@ -588,7 +599,8 @@ static void test_imapc_reconnect_mailbox_client(void)
 	test_expect_error_string("reconnecting");
 	imapc_client_run(imapc_client);
 	test_expect_no_more_errors();
-	test_assert(test_imapc_cmd_last_reply_expect(IMAPC_COMMAND_STATE_DISCONNECTED));
+	test_assert(test_imapc_cmd_last_reply_expect(
+		IMAPC_COMMAND_STATE_DISCONNECTED));
 
 	/* continue reconnection */
 	test_assert(test_imapc_cmd_last_reply_expect(IMAPC_COMMAND_STATE_OK));
@@ -600,7 +612,8 @@ static void test_imapc_reconnect_mailbox_client(void)
 static void test_imapc_reconnect_mailbox_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
-	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "1 OK \r\n");
 
 	test_assert(test_imapc_server_expect("2 SELECT"));
@@ -610,7 +623,8 @@ static void test_imapc_reconnect_mailbox_server(void)
 	test_assert(test_imapc_server_expect("4 DISCONNECT"));
 	test_server_disconnect_and_wait(TRUE);
 
-	test_assert(test_imapc_server_expect("5 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"5 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "5 OK \r\n");
 	test_assert(test_imapc_server_expect("6 SELECT"));
 	o_stream_nsend_str(server.output, "6 OK \r\n");
@@ -646,7 +660,8 @@ static void test_imapc_client_get_capabilities_client(void)
 static void test_imapc_client_get_capabilities_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
-	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "1 OK \r\n");
 
 	test_assert(test_imapc_server_expect("2 LOGOUT"));
@@ -670,7 +685,8 @@ static void test_imapc_client_get_capabilities_reconnected_client(void)
 	enum imapc_capability capabilities;
 
 	test_expect_error_string("Server disconnected unexpectedly");
-	test_assert(imapc_client_get_capabilities(imapc_client, &capabilities) == 0);
+	test_assert(imapc_client_get_capabilities(imapc_client,
+						  &capabilities) == 0);
 	test_assert(capabilities == (IMAPC_CAPABILITY_IMAP4REV1 |
 				     IMAPC_CAPABILITY_UNSELECT |
 				     IMAPC_CAPABILITY_QUOTA));
@@ -682,7 +698,8 @@ static void test_imapc_client_get_capabilities_reconnected_server(void)
 	test_server_wait_connection(&server, TRUE);
 	test_server_disconnect_and_wait(TRUE);
 
-	test_assert(test_imapc_server_expect("2 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect(
+		"2 LOGIN \"testuser\" \"testpass\""));
 	o_stream_nsend_str(server.output, "2 OK \r\n");
 
 	test_assert(test_imapc_server_expect("3 LOGOUT"));
@@ -697,8 +714,9 @@ static void test_imapc_client_get_capabilities_reconnected(void)
 
 	test_begin("imapc_client_get_capabilities() reconnected");
 
-	test_run_client_server(&set, test_imapc_client_get_capabilities_reconnected_client,
-			       test_imapc_client_get_capabilities_reconnected_server);
+	test_run_client_server(
+		&set, test_imapc_client_get_capabilities_reconnected_client,
+		test_imapc_client_get_capabilities_reconnected_server);
 	test_end();
 }
 
@@ -707,7 +725,8 @@ static void test_imapc_client_get_capabilities_disconnected_client(void)
 	enum imapc_capability capabilities;
 
 	test_expect_errors(2);
-	test_assert(imapc_client_get_capabilities(imapc_client, &capabilities) < 0);
+	test_assert(imapc_client_get_capabilities(imapc_client,
+						  &capabilities) < 0);
 	test_expect_no_more_errors();
 }
 
@@ -723,8 +742,9 @@ static void test_imapc_client_get_capabilities_disconnected(void)
 
 	test_begin("imapc_client_get_capabilities() disconnected");
 
-	test_run_client_server(&set, test_imapc_client_get_capabilities_disconnected_client,
-			       test_imapc_client_get_capabilities_disconnected_server);
+	test_run_client_server(
+		&set, test_imapc_client_get_capabilities_disconnected_client,
+		test_imapc_client_get_capabilities_disconnected_server);
 	test_end();
 }
 
