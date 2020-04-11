@@ -55,6 +55,61 @@ static struct imapc_client_settings test_imapc_default_settings = {
 	.max_idle_time = 10000,
 };
 
+static enum imapc_command_state test_imapc_cmd_last_reply_pop(void)
+{
+	const enum imapc_command_state *replies;
+	enum imapc_command_state reply;
+	unsigned int count;
+
+	replies = array_get(&imapc_cmd_last_replies, &count);
+	if (count == 0)
+		return IMAPC_COMMAND_STATE_INVALID;
+	reply = replies[0];
+	array_pop_front(&imapc_cmd_last_replies);
+	return reply;
+}
+
+static bool test_imapc_cmd_last_reply_expect(enum imapc_command_state state)
+{
+	if (array_count(&imapc_cmd_last_replies) == 0)
+		imapc_client_run(imapc_client);
+	return test_imapc_cmd_last_reply_pop() == state;
+}
+
+static void imapc_login_callback(const struct imapc_command_reply *reply,
+				 void *context ATTR_UNUSED)
+{
+	if (debug) {
+		i_debug("Login reply: %s %s",
+			imapc_command_state_names[reply->state],
+			reply->text_full);
+	}
+	imapc_login_last_reply = reply->state;
+	imapc_client_stop(imapc_client);
+}
+
+static void imapc_command_callback(const struct imapc_command_reply *reply,
+				   void *context ATTR_UNUSED)
+{
+	if (debug) {
+		i_debug("Command reply: %s %s",
+			imapc_command_state_names[reply->state],
+			reply->text_full);
+	}
+	array_push_back(&imapc_cmd_last_replies, &reply->state);
+	imapc_client_stop(imapc_client);
+}
+
+static void imapc_reopen_callback(void *context)
+{
+	struct imapc_client_mailbox *box = context;
+	struct imapc_command *cmd;
+
+	cmd = imapc_client_mailbox_cmd(box, imapc_command_callback, NULL);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
+	imapc_command_send(cmd, "SELECT");
+}
+
 static bool
 test_imapc_server_expect_full(struct test_server *server,
 			      const char *expected_line)
@@ -193,61 +248,6 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 	if (unlink_directory(client_set->temp_path_prefix,
 			     UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
 		i_fatal("%s", error);
-}
-
-static enum imapc_command_state test_imapc_cmd_last_reply_pop(void)
-{
-	const enum imapc_command_state *replies;
-	enum imapc_command_state reply;
-	unsigned int count;
-
-	replies = array_get(&imapc_cmd_last_replies, &count);
-	if (count == 0)
-		return IMAPC_COMMAND_STATE_INVALID;
-	reply = replies[0];
-	array_pop_front(&imapc_cmd_last_replies);
-	return reply;
-}
-
-static bool test_imapc_cmd_last_reply_expect(enum imapc_command_state state)
-{
-	if (array_count(&imapc_cmd_last_replies) == 0)
-		imapc_client_run(imapc_client);
-	return test_imapc_cmd_last_reply_pop() == state;
-}
-
-static void imapc_login_callback(const struct imapc_command_reply *reply,
-				 void *context ATTR_UNUSED)
-{
-	if (debug) {
-		i_debug("Login reply: %s %s",
-			imapc_command_state_names[reply->state],
-			reply->text_full);
-	}
-	imapc_login_last_reply = reply->state;
-	imapc_client_stop(imapc_client);
-}
-
-static void imapc_command_callback(const struct imapc_command_reply *reply,
-				   void *context ATTR_UNUSED)
-{
-	if (debug) {
-		i_debug("Command reply: %s %s",
-			imapc_command_state_names[reply->state],
-			reply->text_full);
-	}
-	array_push_back(&imapc_cmd_last_replies, &reply->state);
-	imapc_client_stop(imapc_client);
-}
-
-static void imapc_reopen_callback(void *context)
-{
-	struct imapc_client_mailbox *box = context;
-	struct imapc_command *cmd;
-
-	cmd = imapc_client_mailbox_cmd(box, imapc_command_callback, NULL);
-	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
-	imapc_command_send(cmd, "SELECT");
 }
 
 static void test_imapc_connect_failed_client(void)
