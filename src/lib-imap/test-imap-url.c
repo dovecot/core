@@ -697,8 +697,7 @@ static void test_imap_url_valid(void)
 			}
 			if (urlt->uauth_rumpurl != NULL) {
 				if (urlp->uauth_rumpurl == NULL) {
-					test_out_quiet(t_strdup_printf(
-							       "url->uauth_rumpurl = %s", urlp->uauth_rumpurl), FALSE);
+					test_out_quiet("url->uauth_rumpurl = NULL", FALSE);
 				} else {
 					test_out_quiet(t_strdup_printf(
 							       "url->uauth_rumpurl = %s", urlp->uauth_rumpurl),
