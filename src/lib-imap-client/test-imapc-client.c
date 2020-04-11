@@ -125,6 +125,9 @@ test_imapc_server_expect_full(struct test_server *server,
 {
 	const char *line = i_stream_read_next_line(server->input);
 
+	if (debug)
+		i_debug("Received: %s", (line == NULL ? "<EOF>" : line));
+
 	if (line == NULL) {
 		printf("imapc client disconnected unexpectedly: %s\n",
 		       i_stream_get_error(server->input));
@@ -146,8 +149,14 @@ static bool test_imapc_server_expect(const char *expected_line)
 static void
 test_server_wait_connection(struct test_server *server, bool send_banner)
 {
+	if (debug)
+		i_debug("Waiting for connection");
+
 	server->fd = net_accept(server->fd_listen, NULL, NULL);
 	i_assert(server->fd >= 0);
+
+	if (debug)
+		i_debug("Client connected");
 
 	fd_set_nonblock(server->fd, FALSE);
 	server->input = i_stream_create_fd(server->fd, (size_t)-1);
@@ -162,6 +171,9 @@ test_server_wait_connection(struct test_server *server, bool send_banner)
 
 static void test_server_disconnect(struct test_server *server)
 {
+	if (debug)
+		i_debug("Disconnecting client");
+
 	i_stream_unref(&server->input);
 	o_stream_unref(&server->output);
 	i_close_fd(&server->fd);
