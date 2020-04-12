@@ -309,12 +309,12 @@ static void test_imapc_login_hangs_client(void)
 					imapc_login_callback, NULL);
 	imapc_client_login(imapc_client);
 	/* run the first login */
-	test_expect_errors(2);
+	test_expect_error_string("Authentication timed out");
 	imapc_client_run(imapc_client);
 	test_expect_no_more_errors();
 	/* imapc_login_callback() has stopped us. run the second reconnect
 	   login. */
-	test_expect_errors(2);
+	test_expect_error_string("Authentication timed out");
 	imapc_client_run(imapc_client);
 	test_expect_no_more_errors();
 	test_assert(imapc_login_last_reply == IMAPC_COMMAND_STATE_DISCONNECTED);
@@ -342,6 +342,35 @@ static void test_imapc_login_hangs(void)
 	test_begin("imapc login hangs");
 	test_run_client_server(&set, test_imapc_login_hangs_client,
 			       test_imapc_login_hangs_server);
+	test_end();
+}
+
+static void test_imapc_login_fails_client(void)
+{
+	imapc_client_set_login_callback(imapc_client,
+					imapc_login_callback, NULL);
+	imapc_client_login(imapc_client);
+	test_expect_error_string("Authentication failed: Test login failed");
+	imapc_client_run(imapc_client);
+	test_expect_no_more_errors();
+	test_assert(imapc_login_last_reply == IMAPC_COMMAND_STATE_AUTH_FAILED);
+}
+
+static void test_imapc_login_fails_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
+	o_stream_nsend_str(server.output, "1 NO Test login failed\r\n");
+}
+
+static void test_imapc_login_fails(void)
+{
+	struct imapc_client_settings set = test_imapc_default_settings;
+
+	test_begin("imapc login fails");
+	test_run_client_server(&set, test_imapc_login_fails_client,
+			       test_imapc_login_fails_server);
 	test_end();
 }
 
@@ -640,7 +669,7 @@ static void test_imapc_client_get_capabilities_reconnected_client(void)
 {
 	enum imapc_capability capabilities;
 
-	test_expect_errors(2);
+	test_expect_error_string("Server disconnected unexpectedly");
 	test_assert(imapc_client_get_capabilities(imapc_client, &capabilities) == 0);
 	test_assert(capabilities == (IMAPC_CAPABILITY_IMAP4REV1 |
 				     IMAPC_CAPABILITY_UNSELECT |
@@ -677,7 +706,7 @@ static void test_imapc_client_get_capabilities_disconnected_client(void)
 {
 	enum imapc_capability capabilities;
 
-	test_expect_errors(4);
+	test_expect_errors(2);
 	test_assert(imapc_client_get_capabilities(imapc_client, &capabilities) < 0);
 	test_expect_no_more_errors();
 }
@@ -705,6 +734,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_imapc_connect_failed,
 		test_imapc_banner_hangs,
 		test_imapc_login_hangs,
+		test_imapc_login_fails,
 		test_imapc_reconnect,
 		test_imapc_reconnect_resend_commands,
 		test_imapc_reconnect_resend_commands_failed,
