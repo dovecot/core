@@ -435,6 +435,18 @@ void lib_signals_ignore(int signo, bool restart_syscalls)
 		i_fatal("sigaction(%d): %m", signo);
 }
 
+static void lib_signals_restore_system_default(int signo)
+{
+	struct sigaction act;
+
+	if (sigemptyset(&act.sa_mask) < 0)
+		i_fatal("sigemptyset(): %m");
+	act.sa_flags = 0;
+	act.sa_handler = SIG_DFL;
+	if (sigaction(signo, &act, NULL) < 0)
+		i_fatal("sigaction(%d): %m", signo);
+}
+
 void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 			       void *context)
 {
@@ -442,6 +454,11 @@ void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 
 	for (p = &signal_handlers[signo]; *p != NULL; p = &(*p)->next) {
 		if ((*p)->handler == handler && (*p)->context == context) {
+			if (p == &signal_handlers[signo] &&
+			    (*p)->next == NULL) {
+				/* last handler is to be removed */
+				lib_signals_restore_system_default(signo);
+			}
 			h = *p;
 			*p = h->next;
 			i_free(h);
@@ -518,6 +535,8 @@ void lib_signals_deinit(void)
 
 	for (i = 0; i < MAX_SIGNAL_VALUE; i++) {
 		if (signal_handlers[i] != NULL) {
+			lib_signals_restore_system_default(i);
+
 			/* atomically remove from signal_handlers[] list */
 			handlers = signal_handlers[i];
 			signal_handlers[i] = NULL;
