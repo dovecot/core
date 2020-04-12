@@ -158,6 +158,7 @@ static void test_run_client_server(
 	ioloop = io_loop_create();
 	imapc_client = imapc_client_init(&client_set_copy);
 	client_test();
+	imapc_client_logout(imapc_client);
 	test_assert(array_count(&imapc_cmd_last_replies) == 0);
 	if (imapc_client != NULL)
 		imapc_client_deinit(&imapc_client);
@@ -386,6 +387,9 @@ static void test_imapc_reconnect_server(void)
 	test_assert(test_imapc_server_expect("3 NOOP"));
 	o_stream_nsend_str(server.output, "3 OK \r\n");
 
+	test_assert(test_imapc_server_expect("5 LOGOUT"));
+	o_stream_nsend_str(server.output, "5 OK \r\n");
+
 	test_assert(i_stream_read_next_line(server.input) == NULL);
 }
 
@@ -449,6 +453,9 @@ static void test_imapc_reconnect_resend_cmds_server(void)
 	o_stream_nsend_str(server.output, "2 OK \r\n");
 	test_assert(test_imapc_server_expect("3 RETRY2"));
 	o_stream_nsend_str(server.output, "3 OK \r\n");
+
+	test_assert(test_imapc_server_expect("6 LOGOUT"));
+	o_stream_nsend_str(server.output, "6 OK \r\n");
 
 	test_assert(i_stream_read_next_line(server.input) == NULL);
 }
@@ -580,6 +587,9 @@ static void test_imapc_reconnect_mailbox_server(void)
 	o_stream_nsend_str(server.output, "6 OK \r\n");
 	test_assert(test_imapc_server_expect("3 RETRY"));
 	o_stream_nsend_str(server.output, "3 OK \r\n");
+
+	test_assert(test_imapc_server_expect("7 LOGOUT"));
+	o_stream_nsend_str(server.output, "7 OK \r\n");
 
 	test_assert(i_stream_read_next_line(server.input) == NULL);
 }
