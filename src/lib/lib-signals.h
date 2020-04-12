@@ -47,7 +47,7 @@ void lib_signals_unset_handler(int signo,
 /* Switch ioloop for a specific signal handler created with
    LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE. */
 void lib_signals_switch_ioloop(int signo,
-	signal_handler_t *handler, void *context);
+			       signal_handler_t *handler, void *context);
 
 /* Log a syscall error inside a (non-delayed) signal handler where i_error() is
    unsafe. errno number will be appended to the prefix. */
