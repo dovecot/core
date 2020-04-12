@@ -1628,22 +1628,26 @@ test_run_client_server(
 		io_loop_run(ioloop);
 		test_server_deinit();
 		io_loop_destroy(&ioloop);
+
 		i_close_fd(&fd_listen);
-	} else {
-		if (debug)
-			i_debug("client: PID=%s", my_pid);
-		i_set_failure_prefix("CLIENT: ");
-		i_close_fd(&fd_listen);
-		/* parent: client */
-		ioloop_nested = NULL;
-		ioloop_nested_depth = 0;
-		ioloop = io_loop_create();
-		client_init(client_set);
-		io_loop_run(ioloop);
-		test_client_deinit();
-		io_loop_destroy(&ioloop);
-		test_server_kill();
+		test_files_deinit();
+		lib_deinit();
+		exit(1);
 	}
+	i_close_fd(&fd_listen);
+
+	if (debug)
+		i_debug("client: PID=%s", my_pid);
+	i_set_failure_prefix("CLIENT: ");
+	/* parent: client */
+	ioloop_nested = NULL;
+	ioloop_nested_depth = 0;
+	ioloop = io_loop_create();
+	client_init(client_set);
+	io_loop_run(ioloop);
+	test_client_deinit();
+	io_loop_destroy(&ioloop);
+	test_server_kill();
 }
 
 static void
