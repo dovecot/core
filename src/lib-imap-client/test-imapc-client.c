@@ -191,13 +191,15 @@ static bool test_imapc_cmd_last_reply_expect(enum imapc_command_state state)
 	return test_imapc_cmd_last_reply_pop() == state;
 }
 
-static bool test_imapc_server_expect(const char *expected_line)
+static bool
+test_imapc_server_expect_full(struct test_server *server,
+			      const char *expected_line)
 {
-	const char *line = i_stream_read_next_line(server.input);
+	const char *line = i_stream_read_next_line(server->input);
 
 	if (line == NULL) {
 		printf("imapc client disconnected unexpectedly: %s\n",
-		       i_stream_get_error(server.input));
+		       i_stream_get_error(server->input));
 		return FALSE;
 	} else if (strcmp(line, expected_line) != 0) {
 		printf("imapc client sent '%s' when expecting '%s'\n",
@@ -206,6 +208,11 @@ static bool test_imapc_server_expect(const char *expected_line)
 	} else {
 		return TRUE;
 	}
+}
+
+static bool test_imapc_server_expect(const char *expected_line)
+{
+	return test_imapc_server_expect_full(&server, expected_line);
 }
 
 static void imapc_login_callback(const struct imapc_command_reply *reply,
@@ -314,7 +321,8 @@ static void test_imapc_login_hangs_server(void)
 	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
 
 	test_server_wait_connection(&server2, TRUE);
-	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
+	test_assert(test_imapc_server_expect_full(
+		&server2, "2 LOGIN \"testuser\" \"testpass\""));
 
 	test_assert(i_stream_read_next_line(server2.input) == NULL);
 	test_server_disconnect(&server2);
