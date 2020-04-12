@@ -138,8 +138,10 @@ static void sig_handler(int signo)
 		else if (pending_signals[signo].si_signo == 0) {
 			pending_signals[signo] = *si;
 			if (!have_pending_signals) {
-				if (write(sig_pipe_fd[1], &c, 1) != 1)
-					lib_signals_syscall_error("signal: write(sigpipe) failed: ");
+				if (write(sig_pipe_fd[1], &c, 1) != 1) {
+					lib_signals_syscall_error(
+						"signal: write(sigpipe) failed: ");
+				}
 				have_pending_signals = TRUE;
 			}
 		}
@@ -158,14 +160,13 @@ static void sig_ignore(int signo ATTR_UNUSED)
 	   the system call might be restarted */
 }
 
-static void
-signal_handle_shadowed(void)
+static void signal_handle_shadowed(void)
 {
-	const	siginfo_t *sis;
+	const siginfo_t *sis;
 	unsigned int count, i;
 
 	if (!array_is_created(&pending_shadowed_signals) ||
-		array_count(&pending_shadowed_signals) == 0)
+	    array_count(&pending_shadowed_signals) == 0)
 		return;
 
 	sis = array_get(&pending_shadowed_signals, &count);
@@ -174,11 +175,13 @@ signal_handle_shadowed(void)
 		bool shadowed = FALSE;
 
 		i_assert(sis[i].si_signo > 0);
-		for (h = signal_handlers[sis[i].si_signo]; h != NULL; h = h->next) {
+		for (h = signal_handlers[sis[i].si_signo]; h != NULL;
+		     h = h->next) {
 			if ((h->flags & LIBSIG_FLAG_DELAYED) == 0 ||
-				(h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) == 0)
+			    (h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) == 0)
 				continue;
-			if (h->shadowed && h->current_ioloop != current_ioloop) {
+			if (h->shadowed &&
+			    h->current_ioloop != current_ioloop) {
 				shadowed = TRUE;
 				continue;
 			}
@@ -187,26 +190,25 @@ signal_handle_shadowed(void)
 			h->handler(&sis[i], h->context);
 		}
 		if (!shadowed) {
-			/* no handlers are shadowed anymore; delete the signal info */
+			/* no handlers are shadowed anymore; delete the signal
+			   info */
 			array_delete(&pending_shadowed_signals, i, 1);
 			sis = array_get(&pending_shadowed_signals, &count);
 		}
 	}
 }
 
-static void
-signal_check_shadowed(void)
+static void signal_check_shadowed(void)
 {
 	if (!array_is_created(&pending_shadowed_signals) ||
-		array_count(&pending_shadowed_signals) == 0)
+	    array_count(&pending_shadowed_signals) == 0)
 		return;
 
 	if (io_sig != NULL)
 		io_set_pending(io_sig);
 }
 
-static void
-signal_shadow(int signo, const siginfo_t *si)
+static void signal_shadow(int signo, const siginfo_t *si)
 {
 	const	siginfo_t *sis;
 	unsigned int count, i;
@@ -224,8 +226,7 @@ signal_shadow(int signo, const siginfo_t *si)
 	array_idx_set(&pending_shadowed_signals, i, si);
 }
 
-static void ATTR_NULL(1)
-signal_read(void *context ATTR_UNUSED)
+static void ATTR_NULL(1) signal_read(void *context ATTR_UNUSED)
 {
 	siginfo_t signals[MAX_SIGNAL_VALUE+1];
 	sigset_t fullset, oldset;
@@ -236,7 +237,8 @@ signal_read(void *context ATTR_UNUSED)
 
 	if (ioloop_switched) {
 		ioloop_switched = FALSE;
-		/* handle any delayed signal handlers that emerged from the shadow */
+		/* handle any delayed signal handlers that emerged from the
+		   shadow */
 		signal_handle_shadowed();
 	}
 
@@ -245,8 +247,8 @@ signal_read(void *context ATTR_UNUSED)
 	if (sigprocmask(SIG_BLOCK, &fullset, &oldset) < 0)
 		i_fatal("sigprocmask() failed: %m");
 
-	/* typically we should read only a single byte, but if a signal
-	   is sent while signal handler is running we might get more. */
+	/* typically we should read only a single byte, but if a signal is sent
+	   while signal handler is running we might get more. */
 	ret = read(sig_pipe_fd[0], buf, sizeof(buf));
 	if (ret > 0) {
 		memcpy(signals, pending_signals, sizeof(signals));
@@ -273,12 +275,14 @@ signal_read(void *context ATTR_UNUSED)
 
 		for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 			if ((h->flags & LIBSIG_FLAG_DELAYED) == 0) {
-				/* handler already called immediately in signal context */
+				/* handler already called immediately in signal
+				   context */
 				continue;
 			}
 			if ((h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) != 0 &&
-				h->current_ioloop != current_ioloop) {
-				/* cannot run handler in current ioloop (shadowed) */
+			    h->current_ioloop != current_ioloop) {
+				/* cannot run handler in current ioloop
+				   (shadowed) */
 				h->shadowed = TRUE;
 				shadowed = TRUE;
 				continue;
@@ -288,15 +292,14 @@ signal_read(void *context ATTR_UNUSED)
 		}
 
 		if (shadowed) {
-			/* remember last signal info for handlers that cannot run in
-			   current ioloop (shadowed) */
+			/* remember last signal info for handlers that cannot
+			   run in current ioloop (shadowed) */
 			signal_shadow(signo, &signals[signo]);
 		}
 	}
 }
 
-static void
-lib_signals_enable_delayed_hander(void)
+static void lib_signals_enable_delayed_hander(void)
 {
 	if (current_ioloop != NULL) {
 		io_sig = io_add(sig_pipe_fd[0], IO_READ,
@@ -305,15 +308,13 @@ lib_signals_enable_delayed_hander(void)
 	}
 }
 
-static void
-lib_signals_disable_delayed_hander(void)
+static void lib_signals_disable_delayed_hander(void)
 {
 	if (io_sig != NULL)
 		io_remove(&io_sig);
 }
 
-static void
-lib_signals_ioloop_switched(struct ioloop *prev_ioloop ATTR_UNUSED)
+static void lib_signals_ioloop_switched(struct ioloop *prev_ioloop ATTR_UNUSED)
 {
 	ioloop_switched = TRUE;
 
@@ -453,7 +454,7 @@ void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 }
 
 void lib_signals_switch_ioloop(int signo,
-	signal_handler_t *handler, void *context)
+			       signal_handler_t *handler, void *context)
 {
 	struct signal_handler *h;
 
@@ -462,7 +463,8 @@ void lib_signals_switch_ioloop(int signo,
 			i_assert((h->flags & LIBSIG_FLAG_DELAYED) != 0);
 			i_assert((h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) != 0);
 			h->current_ioloop = current_ioloop;
-			/* check whether we can now handle any shadowed delayed signals */
+			/* check whether we can now handle any shadowed delayed
+			   signals */
 			signal_check_shadowed();
 			return;
 		}
@@ -487,7 +489,8 @@ void lib_signals_syscall_error(const char *prefix)
 	memcpy(buf, prefix, prefix_len);
 	memcpy(buf + prefix_len, errno_str, errno_str_len);
 	buf[prefix_len + errno_str_len] = '\n';
-	if (write_full(STDERR_FILENO, buf, prefix_len + errno_str_len + 1) < 0) {
+	if (write_full(STDERR_FILENO, buf,
+		       prefix_len + errno_str_len + 1) < 0) {
 		/* can't really do anything */
 	}
 }
