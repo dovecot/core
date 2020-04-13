@@ -1244,8 +1244,10 @@ test_run_client_server(test_client_init_t *client_test,
 
 volatile sig_atomic_t terminating = 0;
 
-static void test_signal_handler(int signo)
+static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 {
+	int signo = si->si_signo;
+
 	if (terminating != 0)
 		raise(signo);
 	terminating = 1;
@@ -1273,16 +1275,16 @@ int main(int argc, char *argv[])
 	int c;
 	int ret;
 
-	atexit(test_atexit);
-	(void)signal(SIGPIPE, SIG_IGN);
-	(void)signal(SIGTERM, test_signal_handler);
-	(void)signal(SIGQUIT, test_signal_handler);
-	(void)signal(SIGINT, test_signal_handler);
-	(void)signal(SIGSEGV, test_signal_handler);
-	(void)signal(SIGABRT, test_signal_handler);
-
 	master_service = master_service_init("test-auth-master", service_flags,
 					     &argc, &argv, "D");
+
+	atexit(test_atexit);
+	lib_signals_ignore(SIGPIPE, TRUE);
+	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
