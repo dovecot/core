@@ -50,7 +50,6 @@ static struct ip_addr bind_ip;
 static in_port_t bind_port = 0;
 static struct ioloop *ioloop;
 static bool debug = FALSE;
-static volatile bool killing_children = FALSE;
 
 /* server */
 static struct smtp_server *smtp_server = NULL;
@@ -2955,32 +2954,20 @@ static int test_open_server_fd(void)
 	return fd;
 }
 
-static void test_clients_kill_one(unsigned int index, pid_t pid)
-{
-	(void)kill(pid, SIGKILL);
-	if (waitpid(pid, NULL, 0) < 0 &&
-	    errno == ECHILD) {
-		test_out_quiet(
-			t_strdup_printf("client [%u] (pid=%u) still running",
-					index, (unsigned int)pid), FALSE);
-	}
-}
-
 static void test_clients_kill_all(void)
 {
 	unsigned int i;
 
-	killing_children = TRUE;
 	if (client_pids_count > 0) {
 		for (i = 0; i < client_pids_count; i++) {
 			if (client_pids[i] != (pid_t)-1) {
-				test_clients_kill_one(i+1, client_pids[i]);
+				(void)kill(client_pids[i], SIGKILL);
+				(void)waitpid(client_pids[i], NULL, 0);
 				client_pids[i] = -1;
 			}
 		}
 	}
 	client_pids_count = 0;
-	killing_children = FALSE;
 }
 
 static void
@@ -3070,21 +3057,6 @@ static void test_signal_handler(int signo)
 	raise(signo);
 }
 
-static void test_child_handler(int signo ATTR_UNUSED)
-{
-	int saved_errno = errno;
-
-	if (killing_children) {
-		/* waitpid() is used in test_clients_kill_all() to check
-		   whether child was still running. Therefore, we must not
-		   wait for it here when that is happening. */
-		return;
-	}
-
-	while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {}
-	errno = saved_errno;
-}
-
 static void test_atexit(void)
 {
 	test_clients_kill_all();
@@ -3100,7 +3072,6 @@ int main(int argc, char *argv[])
 	(void)signal(SIGINT, test_signal_handler);
 	(void)signal(SIGSEGV, test_signal_handler);
 	(void)signal(SIGABRT, test_signal_handler);
-	(void)signal(SIGCHLD, test_child_handler);
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
