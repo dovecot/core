@@ -1,6 +1,7 @@
 /* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "lib-signals.h"
 #include "str.h"
 #include "hostpid.h"
 #include "ioloop.h"
@@ -948,6 +949,8 @@ test_run_client_server(const struct http_server_settings *server_set,
 	fd_listen = test_open_server_fd();
 
 	if (client_tests_count > 0) {
+		lib_signals_ioloop_detach();
+
 		client_pids = i_new(pid_t, client_tests_count);
 		for (i = 0; i < client_tests_count; i++)
 			client_pids[i] = (pid_t)-1;
@@ -960,6 +963,7 @@ test_run_client_server(const struct http_server_settings *server_set,
 				client_pids[i] = (pid_t)-1;
 				client_pids_count = 0;
 				hostpid_init();
+				lib_signals_deinit();
 				/* Child: client */
 				i_set_failure_prefix("CLIENT[%u]: ", i + 1);
 				if (debug)
@@ -978,6 +982,8 @@ test_run_client_server(const struct http_server_settings *server_set,
 				exit(1);
 			}
 		}
+
+		lib_signals_ioloop_attach();
 	}
 
 	/* Parent: server */
@@ -1000,8 +1006,10 @@ test_run_client_server(const struct http_server_settings *server_set,
 
 volatile sig_atomic_t terminating = 0;
 
-static void test_signal_handler(int signo)
+static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 {
+	int signo = si->si_signo;
+
 	if (terminating != 0)
 		raise(signo);
 	terminating = 1;
@@ -1021,14 +1029,18 @@ static void test_atexit(void)
 int main(int argc, char *argv[])
 {
 	int c;
+	int ret;
+
+	lib_init();
+	lib_signals_init();
 
 	atexit(test_atexit);
-	(void)signal(SIGPIPE, SIG_IGN);
-	(void)signal(SIGTERM, test_signal_handler);
-	(void)signal(SIGQUIT, test_signal_handler);
-	(void)signal(SIGINT, test_signal_handler);
-	(void)signal(SIGSEGV, test_signal_handler);
-	(void)signal(SIGABRT, test_signal_handler);
+	lib_signals_ignore(SIGPIPE, TRUE);
+	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
@@ -1045,5 +1057,10 @@ int main(int argc, char *argv[])
 	bind_ip.family = AF_INET;
 	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);	
 
-	return test_run(test_functions);
+	ret = test_run(test_functions);
+
+	lib_signals_deinit();
+	lib_deinit();
+
+	return ret;
 }
