@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "lib-signals.h"
 #include "str.h"
 #include "llist.h"
 #include "array.h"
@@ -878,6 +879,8 @@ test_run_client_server(
 	failure = NULL;
 	test_open_server_fd();
 
+	lib_signals_ioloop_detach();
+
 	if ((server_pid = fork()) == (pid_t)-1)
 		i_fatal("fork() failed: %m");
 	if (server_pid == 0) {
@@ -900,6 +903,8 @@ test_run_client_server(
 		exit(1);
 	}
 	i_close_fd(&fd_listen);
+
+	lib_signals_ioloop_attach();
 
 	if (debug)
 		i_debug("client: PID=%s", my_pid);
@@ -1080,8 +1085,10 @@ static void (*const test_functions[])(void) = {
 
 volatile sig_atomic_t terminating = 0;
 
-static void test_signal_handler(int signo)
+static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
 {
+	int signo = si->si_signo;
+
 	if (terminating != 0)
 		raise(signo);
 	terminating = 1;
@@ -1104,17 +1111,18 @@ int main(int argc, char *argv[])
 	int ret;
 
 	lib_init();
+	lib_signals_init();
 #ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_init();
 #endif
 
 	atexit(test_atexit);
-	(void)signal(SIGPIPE, SIG_IGN);
-	(void)signal(SIGTERM, test_signal_handler);
-	(void)signal(SIGQUIT, test_signal_handler);
-	(void)signal(SIGINT, test_signal_handler);
-	(void)signal(SIGSEGV, test_signal_handler);
-	(void)signal(SIGABRT, test_signal_handler);
+	lib_signals_ignore(SIGPIPE, TRUE);
+	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
+	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
 
 	while ((c = getopt(argc, argv, "DS")) > 0) {
 		switch (c) {
@@ -1140,6 +1148,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_deinit();
 #endif
+	lib_signals_deinit();
 	lib_deinit();
 
 	return ret;
