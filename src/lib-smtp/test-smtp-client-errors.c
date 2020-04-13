@@ -3662,8 +3662,10 @@ server_connection_input(struct connection *_conn)
 			if (ret == 0)
 				return;
 			if (conn->dot_input->stream_errno != 0) {
-				i_error("Failed to read message payload: %s",
-					i_stream_get_error(conn->dot_input));
+				if (debug) {
+					i_debug("Failed to read message payload: %s",
+						i_stream_get_error(conn->dot_input));
+				}
 				server_connection_deinit(&conn);
 				return;
 			}
