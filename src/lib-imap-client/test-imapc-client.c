@@ -55,6 +55,30 @@ static struct imapc_client_settings test_imapc_default_settings = {
 	.max_idle_time = 10000,
 };
 
+static bool
+test_imapc_server_expect_full(struct test_server *server,
+			      const char *expected_line)
+{
+	const char *line = i_stream_read_next_line(server->input);
+
+	if (line == NULL) {
+		printf("imapc client disconnected unexpectedly: %s\n",
+		       i_stream_get_error(server->input));
+		return FALSE;
+	} else if (strcmp(line, expected_line) != 0) {
+		printf("imapc client sent '%s' when expecting '%s'\n",
+		       line, expected_line);
+		return FALSE;
+	} else {
+		return TRUE;
+	}
+}
+
+static bool test_imapc_server_expect(const char *expected_line)
+{
+	return test_imapc_server_expect_full(&server, expected_line);
+}
+
 static void
 test_server_wait_connection(struct test_server *server, bool send_banner)
 {
@@ -190,30 +214,6 @@ static bool test_imapc_cmd_last_reply_expect(enum imapc_command_state state)
 	if (array_count(&imapc_cmd_last_replies) == 0)
 		imapc_client_run(imapc_client);
 	return test_imapc_cmd_last_reply_pop() == state;
-}
-
-static bool
-test_imapc_server_expect_full(struct test_server *server,
-			      const char *expected_line)
-{
-	const char *line = i_stream_read_next_line(server->input);
-
-	if (line == NULL) {
-		printf("imapc client disconnected unexpectedly: %s\n",
-		       i_stream_get_error(server->input));
-		return FALSE;
-	} else if (strcmp(line, expected_line) != 0) {
-		printf("imapc client sent '%s' when expecting '%s'\n",
-		       line, expected_line);
-		return FALSE;
-	} else {
-		return TRUE;
-	}
-}
-
-static bool test_imapc_server_expect(const char *expected_line)
-{
-	return test_imapc_server_expect_full(&server, expected_line);
 }
 
 static void imapc_login_callback(const struct imapc_command_reply *reply,
