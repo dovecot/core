@@ -773,6 +773,12 @@ bool old_settings_handle(struct config_parser_context *ctx,
 			config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
 						 "protocol", "sieve");
 			return TRUE;
+		} else if (ctx->pathlen == 0 && strcmp(key, "service") == 0 &&
+			   strcmp(value, "dns_client") == 0) {
+			obsolete(ctx, "service dns_client {} has been replaced by service dns-client { }");
+			config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
+						 "service", "dns-client");
+			return TRUE;
 		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_END:

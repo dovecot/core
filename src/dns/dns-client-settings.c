@@ -22,7 +22,7 @@ static buffer_t dns_client_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings dns_client_service_settings = {
-	.name = "dns_client",
+	.name = "dns-client",
 	.protocol = "",
 	.type = "",
 	.executable = "dns-client",
