@@ -98,7 +98,6 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 			{ channel->buf->data, amt }
 		};
 		if ((ret = o_stream_sendv(mstream->parent, vec, N_ELEMENTS(vec))) < 0) {
-			i_assert(ret != -2);
 			propagate_error(mstream, mstream->parent->stream_errno);
 			break;
 		}
@@ -155,7 +154,7 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 		o_stream_multiplex_sendv(channel->mstream);
 		avail = o_stream_get_buffer_avail_size(&stream->ostream);
 		if (avail == 0)
-			return -2;
+			return 0;
 	}
 
 	total = 0;
