@@ -3206,6 +3206,7 @@ dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
 	EVP_PKEY *pkey = key->key;
 	EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
 	bool ret;
+	int rs_len = EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) / 8;
 
 	/* digest data */
 	buffer_t *digest = t_buffer_create(64);
@@ -3224,14 +3225,12 @@ dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
 	ECDSA_SIG_get0(ec_sig, &r, &s);
 
 	/* write r */
-	int bytes = BN_num_bytes(r);
-	unsigned char *buf = buffer_append_space_unsafe(signature_r, bytes);
-	if (BN_bn2bin(r, buf) != bytes) {
+	unsigned char *buf = buffer_append_space_unsafe(signature_r, rs_len);
+	if (BN_bn2binpad(r, buf, rs_len) != rs_len) {
 		ret = dcrypt_openssl_error(error_r);
 	} else {
-		bytes = BN_num_bytes(s);
-		buf = buffer_append_space_unsafe(signature_r, bytes);
-		if (BN_bn2bin(s, buf) != bytes) {
+		buf = buffer_append_space_unsafe(signature_r, rs_len);
+		if (BN_bn2binpad(s, buf, rs_len) != rs_len) {
 			ret = dcrypt_openssl_error(error_r);
 		} else {
 			ret = TRUE;
