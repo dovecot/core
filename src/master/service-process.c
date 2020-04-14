@@ -244,6 +244,8 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 
 	env_put(MASTER_IS_PARENT_ENV"=1");
 	service_process_setup_config_environment(service);
+	env_put(t_strdup_printf(MASTER_SERVICE_ENV"=%s",
+				service->set->name));
 	env_put(t_strdup_printf(MASTER_CLIENT_LIMIT_ENV"=%u",
 				service->client_limit));
 	env_put(t_strdup_printf(MASTER_PROCESS_LIMIT_ENV"=%u",

@@ -40,6 +40,9 @@ enum master_login_state {
 /* getenv(MASTER_UID_ENV) provides master_status.uid value */
 #define MASTER_UID_ENV "GENERATION"
 
+/* getenv(MASTER_SERVICE_NAME) provides the service's name */
+#define MASTER_SERVICE_ENV "SERVICE_NAME"
+
 /* getenv(MASTER_CLIENT_LIMIT_ENV) provides maximum
    master_status.available_count as specified in configuration file */
 #define MASTER_CLIENT_LIMIT_ENV "CLIENT_LIMIT"
