@@ -193,6 +193,10 @@ const char *master_service_get_config_path(struct master_service *service);
 const char *master_service_get_version_string(struct master_service *service);
 /* Returns name of the service, as given in name parameter to _init(). */
 const char *master_service_get_name(struct master_service *service);
+/* Returns name of the service, as given in the configuration file. For example
+   service name=auth, but configured_name=auth-worker. This is preferred in
+   e.g. log prefixes. */
+const char *master_service_get_configured_name(struct master_service *service);
 
 /* Start the service. Blocks until finished */
 void master_service_run(struct master_service *service,

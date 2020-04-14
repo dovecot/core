@@ -24,6 +24,7 @@ struct master_service {
 	struct ioloop *ioloop;
 
 	char *name;
+	char *configured_name;
 	char *getopt_str;
 	enum master_service_flags flags;
 
