@@ -23,6 +23,9 @@ struct multiplex_ochannel {
 struct multiplex_ostream {
 	struct ostream *parent;
 
+	stream_flush_callback_t *old_flush_callback;
+	void *old_flush_context;
+
 	/* channel 0 is main channel */
 	uint8_t cur_channel;
 	unsigned int remain;
@@ -70,17 +73,20 @@ static struct multiplex_ochannel *get_next_channel(struct multiplex_ostream *mst
 	return channel;
 }
 
-static void
+static bool
 o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 {
 	struct multiplex_ochannel *channel;
 	ssize_t ret = 0;
+	bool all_sent = TRUE;
 
 	while((channel = get_next_channel(mstream)) != NULL) {
 		if (channel->buf->used == 0)
 			continue;
-		if (o_stream_get_buffer_avail_size(mstream->parent) < 6)
+		if (o_stream_get_buffer_avail_size(mstream->parent) < 6) {
+			all_sent = FALSE;
 			break;
+		}
 		/* check parent stream capacity */
 		size_t tmp = o_stream_get_buffer_avail_size(mstream->parent) - 5;
 		/* ensure it fits into 32 bit int */
@@ -106,6 +112,33 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 	}
 	if (o_stream_is_corked(mstream->parent))
 		o_stream_uncork(mstream->parent);
+	return all_sent;
+}
+
+static int o_stream_multiplex_flush(struct multiplex_ostream *mstream)
+{
+	int ret = o_stream_flush(mstream->parent);
+	if (ret >= 0) {
+		if (!o_stream_multiplex_sendv(mstream))
+			ret = 0;
+	}
+	if (ret <= 0)
+		return ret;
+
+	/* Everything is flushed. See if one of the callbacks' flush callbacks
+	   wants to write more data. */
+	struct multiplex_ochannel **channelp;
+	bool unfinished = FALSE;
+	array_foreach_modifiable(&mstream->channels, channelp) {
+		if (*channelp != NULL && (*channelp)->ostream.callback != NULL) {
+			ret = (*channelp)->ostream.callback((*channelp)->ostream.context);
+			if (ret < 0)
+				return -1;
+			if (ret == 0)
+				unfinished = TRUE;
+		}
+	}
+	return unfinished ? 0 : 1;
 }
 
 static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
@@ -179,6 +212,16 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 	return total;
 }
 
+static void
+o_stream_multiplex_ochannel_set_flush_callback(struct ostream_private *stream,
+					       stream_flush_callback_t *callback,
+					       void *context)
+{
+	/* We have overwritten our parent's flush-callback. Don't change it. */
+	stream->callback = callback;
+	stream->context = context;
+}
+
 static size_t
 o_stream_multiplex_ochannel_get_buffer_used_size(const struct ostream_private *stream)
 {
@@ -224,6 +267,12 @@ static void o_stream_multiplex_try_destroy(struct multiplex_ostream *mstream)
 	array_foreach_modifiable(&mstream->channels, channelp)
 		if (*channelp != NULL)
 			return;
+
+	i_assert(mstream->parent->real_stream->callback ==
+		 (stream_flush_callback_t *)o_stream_multiplex_flush);
+	o_stream_set_flush_callback(mstream->parent,
+				    *mstream->old_flush_callback,
+				    mstream->old_flush_context);
 	o_stream_unref(&mstream->parent);
 	array_free(&mstream->channels);
 	i_free(mstream);
@@ -256,6 +305,8 @@ o_stream_add_channel_real(struct multiplex_ostream *mstream, uint8_t cid)
 	channel->ostream.cork = o_stream_multiplex_ochannel_cork;
 	channel->ostream.flush = o_stream_multiplex_ochannel_flush;
 	channel->ostream.sendv = o_stream_multiplex_ochannel_sendv;
+	channel->ostream.set_flush_callback =
+		o_stream_multiplex_ochannel_set_flush_callback;
 	channel->ostream.get_buffer_used_size =
 		o_stream_multiplex_ochannel_get_buffer_used_size;
 	channel->ostream.get_buffer_avail_size =
@@ -265,7 +316,13 @@ o_stream_add_channel_real(struct multiplex_ostream *mstream, uint8_t cid)
 	channel->ostream.fd = o_stream_get_fd(mstream->parent);
 	array_push_back(&channel->mstream->channels, &channel);
 
-	return o_stream_create(&channel->ostream, mstream->parent, -1);
+	(void)o_stream_create(&channel->ostream, mstream->parent, -1);
+	/* o_stream_create() defaults the flush_callback to parent's callback.
+	   Here it points to o_stream_multiplex_flush(), which just causes
+	   infinite looping. */
+	channel->ostream.callback = NULL;
+	channel->ostream.context = NULL;
+	return &channel->ostream.ostream;
 }
 
 struct ostream *o_stream_multiplex_add_channel(struct ostream *stream, uint8_t cid)
@@ -284,6 +341,9 @@ struct ostream *o_stream_create_multiplex(struct ostream *parent, size_t bufsize
 	mstream = i_new(struct multiplex_ostream, 1);
 	mstream->parent = parent;
 	mstream->bufsize = bufsize;
+	mstream->old_flush_callback = parent->real_stream->callback;
+	mstream->old_flush_context = parent->real_stream->context;
+	o_stream_set_flush_callback(parent, o_stream_multiplex_flush, mstream);
 	i_array_init(&mstream->channels, 8);
 	o_stream_ref(parent);
 
