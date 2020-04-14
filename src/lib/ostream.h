@@ -18,8 +18,8 @@ enum ostream_send_istream_result {
 };
 
 enum ostream_create_file_flags {
-  /* without append, file is truncated */
-  OSTREAM_CREATE_FILE_FLAG_APPEND = BIT(0),
+	/* without append, file is truncated */
+	OSTREAM_CREATE_FILE_FLAG_APPEND = BIT(0),
 };
 
 struct ostream {
