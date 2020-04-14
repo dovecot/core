@@ -3236,13 +3236,18 @@ dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
 
 	ECDSA_SIG_get0(ec_sig, &r, &s);
 
+	int r_len = BN_num_bytes(r);
+	i_assert(rs_len >= r_len);
+
 	/* write r */
 	unsigned char *buf = buffer_append_space_unsafe(signature_r, rs_len);
-	if (BN_bn2binpad(r, buf, rs_len) != rs_len) {
+	if (BN_bn2bin(r, buf + (rs_len - r_len)) != r_len) {
 		ret = dcrypt_openssl_error(error_r);
 	} else {
 		buf = buffer_append_space_unsafe(signature_r, rs_len);
-		if (BN_bn2binpad(s, buf, rs_len) != rs_len) {
+		int s_len = BN_num_bytes(s);
+		i_assert(rs_len >= s_len);
+		if (BN_bn2bin(s, buf + (rs_len - s_len)) != s_len) {
 			ret = dcrypt_openssl_error(error_r);
 		} else {
 			ret = TRUE;
