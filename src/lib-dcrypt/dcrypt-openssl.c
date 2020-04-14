@@ -3314,6 +3314,12 @@ dcrypt_openssl_verify_ecdsa(struct dcrypt_public_key *key, const char *algorithm
 			    const unsigned char *signature, size_t signature_len,
 			    bool *valid_r, const char **error_r)
 {
+        if ((signature_len % 2) != 0) {
+                if (error_r != NULL)
+                        *error_r = "Truncated signature";
+                return FALSE;
+        }
+
 	EVP_PKEY *pkey = key->key;
 	EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
 	int ec;
