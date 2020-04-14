@@ -9,6 +9,7 @@
 #include "str-sanitize.h"
 #include "mkdir-parents.h"
 #include "dict.h"
+#include "message-header-parser.h"
 #include "mail-index-alloc-cache.h"
 #include "mail-index-private.h"
 #include "mail-index-modseq.h"
@@ -48,9 +49,19 @@ static void set_cache_decisions(struct mail_cache *cache,
 		if (idx != UINT_MAX) {
 			field = *mail_cache_register_get_field(cache, idx);
 		} else if (strncasecmp(name, "hdr.", 4) == 0) {
-			i_zero(&field);
-			field.name = name;
-			field.type = MAIL_CACHE_FIELD_HEADER;
+			/* Do some sanity checking for the header name. Mainly
+			   to make sure there aren't UTF-8 characters that look
+			   like their ASCII equivalents or are completely
+			   invisible. */
+			if (message_header_name_is_valid(name+4)) {
+				i_zero(&field);
+				field.name = name;
+				field.type = MAIL_CACHE_FIELD_HEADER;
+			} else {
+				i_error("%s: Header name '%s' has invalid character, ignoring",
+					set, name);
+				continue;
+			}
 		} else {
 			i_error("%s: Unknown cache field name '%s', ignoring",
 				set, *arr);
