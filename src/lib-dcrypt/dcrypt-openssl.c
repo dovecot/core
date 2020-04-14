@@ -181,6 +181,18 @@ dcrypt_openssl_key_string_get_info(const char *key_data,
 	const char **encryption_key_hash_r, const char **key_hash_r,
 	const char **error_r);
 
+#ifndef HAVE_EC_GROUP_order_bits
+static int EC_GROUP_order_bits(const EC_GROUP *grp)
+{
+	int bits;
+	BIGNUM *bn = BN_new();
+	(void)EC_GROUP_get_order(grp, bn, NULL);
+	bits = BN_num_bits(bn);
+	BN_free(bn);
+	return bits;
+}
+#endif
+
 static bool dcrypt_openssl_error(const char **error_r)
 {
 	unsigned long ec;
