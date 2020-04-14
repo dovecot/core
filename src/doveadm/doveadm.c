@@ -367,6 +367,7 @@ int main(int argc, char *argv[])
 		master_service_init_stats_client(master_service, TRUE);
 		doveadm_print_ostream = o_stream_create_fd(STDOUT_FILENO, 0);
 		o_stream_set_no_error_handling(doveadm_print_ostream, TRUE);
+		o_stream_cork(doveadm_print_ostream);
 		doveadm_dump_init();
 		doveadm_mail_init();
 		dict_drivers_register_builtin();
