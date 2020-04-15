@@ -618,7 +618,12 @@ int mail_deliver(struct mail_deliver_context *ctx,
 
 	e = event_create_passthrough(ctx->event)->
 		set_name("mail_delivery_finished");
-	e_debug(e->event(), "Local delivery finished");
+	if (ret == 0) {
+		e_debug(e->event(), "Local delivery finished successfully");
+	} else {
+		e->add_str("error", error);
+		e_debug(e->event(), "Local delivery failed: %s", error);
+	}
 
 	muser->deliver_ctx = NULL;
 
