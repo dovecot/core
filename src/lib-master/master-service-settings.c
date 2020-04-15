@@ -31,31 +31,31 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct master_service_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_settings)
 
 static bool
 master_service_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define master_service_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_STR, state_dir),
-	DEF(SET_STR, instance_name),
-	DEF(SET_STR, log_path),
-	DEF(SET_STR, info_log_path),
-	DEF(SET_STR, debug_log_path),
-	DEF(SET_STR, log_timestamp),
-	DEF(SET_STR, log_debug),
-	DEF(SET_STR, log_core_filter),
-	DEF(SET_STR, syslog_facility),
-	DEF(SET_STR, import_environment),
-	DEF(SET_STR, stats_writer_socket_path),
-	DEF(SET_SIZE, config_cache_size),
-	DEF(SET_BOOL, version_ignore),
-	DEF(SET_BOOL, shutdown_clients),
-	DEF(SET_BOOL, verbose_proctitle),
+	DEF(STR, base_dir),
+	DEF(STR, state_dir),
+	DEF(STR, instance_name),
+	DEF(STR, log_path),
+	DEF(STR, info_log_path),
+	DEF(STR, debug_log_path),
+	DEF(STR, log_timestamp),
+	DEF(STR, log_debug),
+	DEF(STR, log_core_filter),
+	DEF(STR, syslog_facility),
+	DEF(STR, import_environment),
+	DEF(STR, stats_writer_socket_path),
+	DEF(SIZE, config_cache_size),
+	DEF(BOOL, version_ignore),
+	DEF(BOOL, shutdown_clients),
+	DEF(BOOL, verbose_proctitle),
 
-	DEF(SET_STR, haproxy_trusted_networks),
-	DEF(SET_TIME, haproxy_timeout),
+	DEF(STR, haproxy_trusted_networks),
+	DEF(TIME, haproxy_timeout),
 
 	SETTING_DEFINE_LIST_END
 };

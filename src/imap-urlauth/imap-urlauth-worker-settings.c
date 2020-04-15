@@ -50,13 +50,13 @@ struct service_settings imap_urlauth_worker_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct imap_urlauth_worker_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_urlauth_worker_settings)
 
 static const struct setting_define imap_urlauth_worker_setting_defines[] = {
-	DEF(SET_BOOL, verbose_proctitle),
+	DEF(BOOL, verbose_proctitle),
 
-	DEF(SET_STR, imap_urlauth_host),
-	DEF(SET_IN_PORT, imap_urlauth_port),
+	DEF(STR, imap_urlauth_host),
+	DEF(IN_PORT, imap_urlauth_port),
 
 	SETTING_DEFINE_LIST_END
 };

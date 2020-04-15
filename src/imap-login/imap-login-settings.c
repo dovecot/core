@@ -51,14 +51,14 @@ struct service_settings imap_login_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct imap_login_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_login_settings)
 
 static const struct setting_define imap_login_setting_defines[] = {
-	DEF(SET_STR, imap_capability),
-	DEF(SET_STR, imap_id_send),
-	DEF(SET_STR, imap_id_log),
-	DEF(SET_BOOL, imap_literal_minus),
-	DEF(SET_BOOL, imap_id_retain),
+	DEF(STR, imap_capability),
+	DEF(STR, imap_id_send),
+	DEF(STR, imap_id_log),
+	DEF(BOOL, imap_literal_minus),
+	DEF(BOOL, imap_id_retain),
 
 	SETTING_DEFINE_LIST_END
 };

@@ -9,13 +9,13 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct maildir_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct maildir_settings)
 
 static const struct setting_define maildir_setting_defines[] = {
-	DEF(SET_BOOL, maildir_copy_with_hardlinks),
-	DEF(SET_BOOL, maildir_very_dirty_syncs),
-	DEF(SET_BOOL, maildir_broken_filename_sizes),
-	DEF(SET_BOOL, maildir_empty_new),
+	DEF(BOOL, maildir_copy_with_hardlinks),
+	DEF(BOOL, maildir_very_dirty_syncs),
+	DEF(BOOL, maildir_broken_filename_sizes),
+	DEF(BOOL, maildir_empty_new),
 
 	SETTING_DEFINE_LIST_END
 };

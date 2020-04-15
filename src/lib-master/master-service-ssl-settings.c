@@ -10,35 +10,35 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct master_service_ssl_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_ssl_settings)
 
 static bool
 master_service_ssl_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define master_service_ssl_setting_defines[] = {
-	DEF(SET_ENUM, ssl),
-	DEF(SET_STR, ssl_ca),
-	DEF(SET_STR, ssl_cert),
-	DEF(SET_STR, ssl_key),
-	DEF(SET_STR, ssl_alt_cert),
-	DEF(SET_STR, ssl_alt_key),
-	DEF(SET_STR, ssl_key_password),
-	DEF(SET_STR, ssl_client_ca_file),
-	DEF(SET_STR, ssl_client_ca_dir),
-	DEF(SET_STR, ssl_client_cert),
-	DEF(SET_STR, ssl_client_key),
-	DEF(SET_STR, ssl_dh),
-	DEF(SET_STR, ssl_cipher_list),
-	DEF(SET_STR, ssl_curve_list),
-	DEF(SET_STR, ssl_min_protocol),
-	DEF(SET_STR, ssl_cert_username_field),
-	DEF(SET_STR, ssl_crypto_device),
-	DEF(SET_BOOL, ssl_verify_client_cert),
-	DEF(SET_BOOL, ssl_client_require_valid_cert),
-	DEF(SET_BOOL, ssl_require_crl),
-	DEF(SET_BOOL, verbose_ssl),
-	DEF(SET_BOOL, ssl_prefer_server_ciphers),
-	DEF(SET_STR, ssl_options), /* parsed as a string to set bools */
+	DEF(ENUM, ssl),
+	DEF(STR, ssl_ca),
+	DEF(STR, ssl_cert),
+	DEF(STR, ssl_key),
+	DEF(STR, ssl_alt_cert),
+	DEF(STR, ssl_alt_key),
+	DEF(STR, ssl_key_password),
+	DEF(STR, ssl_client_ca_file),
+	DEF(STR, ssl_client_ca_dir),
+	DEF(STR, ssl_client_cert),
+	DEF(STR, ssl_client_key),
+	DEF(STR, ssl_dh),
+	DEF(STR, ssl_cipher_list),
+	DEF(STR, ssl_curve_list),
+	DEF(STR, ssl_min_protocol),
+	DEF(STR, ssl_cert_username_field),
+	DEF(STR, ssl_crypto_device),
+	DEF(BOOL, ssl_verify_client_cert),
+	DEF(BOOL, ssl_client_require_valid_cert),
+	DEF(BOOL, ssl_require_crl),
+	DEF(BOOL, verbose_ssl),
+	DEF(BOOL, ssl_prefer_server_ciphers),
+	DEF(STR, ssl_options), /* parsed as a string to set bools */
 
 	SETTING_DEFINE_LIST_END
 };

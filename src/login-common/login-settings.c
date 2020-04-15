@@ -17,32 +17,32 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct login_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct login_settings)
 
 static const struct setting_define login_setting_defines[] = {
-	DEF(SET_STR, login_trusted_networks),
-	DEF(SET_STR, login_source_ips),
-	DEF(SET_STR_VARS, login_greeting),
-	DEF(SET_STR, login_log_format_elements),
-	DEF(SET_STR, login_log_format),
-	DEF(SET_STR, login_access_sockets),
-	DEF(SET_STR_VARS, login_proxy_notify_path),
-	DEF(SET_STR, login_plugin_dir),
-	DEF(SET_STR, login_plugins),
-	DEF(SET_TIME_MSECS, login_proxy_timeout),
-	DEF(SET_UINT, login_proxy_max_reconnects),
-	DEF(SET_TIME, login_proxy_max_disconnect_delay),
-	DEF(SET_STR, director_username_hash),
+	DEF(STR, login_trusted_networks),
+	DEF(STR, login_source_ips),
+	DEF(STR_VARS, login_greeting),
+	DEF(STR, login_log_format_elements),
+	DEF(STR, login_log_format),
+	DEF(STR, login_access_sockets),
+	DEF(STR_VARS, login_proxy_notify_path),
+	DEF(STR, login_plugin_dir),
+	DEF(STR, login_plugins),
+	DEF(TIME_MSECS, login_proxy_timeout),
+	DEF(UINT, login_proxy_max_reconnects),
+	DEF(TIME, login_proxy_max_disconnect_delay),
+	DEF(STR, director_username_hash),
 
-	DEF(SET_BOOL, auth_ssl_require_client_cert),
-	DEF(SET_BOOL, auth_ssl_username_from_cert),
+	DEF(BOOL, auth_ssl_require_client_cert),
+	DEF(BOOL, auth_ssl_username_from_cert),
 
-	DEF(SET_BOOL, disable_plaintext_auth),
-	DEF(SET_BOOL, auth_verbose),
-	DEF(SET_BOOL, auth_debug),
-	DEF(SET_BOOL, verbose_proctitle),
+	DEF(BOOL, disable_plaintext_auth),
+	DEF(BOOL, auth_verbose),
+	DEF(BOOL, auth_debug),
+	DEF(BOOL, verbose_proctitle),
 
-	DEF(SET_UINT, mail_max_userip_connections),
+	DEF(UINT, mail_max_userip_connections),
 
 	SETTING_DEFINE_LIST_END
 };

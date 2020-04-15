@@ -58,28 +58,28 @@ struct service_settings imap_service_settings = {
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct imap_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_settings)
 #define DEFLIST(field, name, defines) \
 	{ SET_DEFLIST, name, offsetof(struct imap_settings, field), defines }
 
 static const struct setting_define imap_setting_defines[] = {
-	DEF(SET_BOOL, verbose_proctitle),
-	DEF(SET_STR_VARS, rawlog_dir),
+	DEF(BOOL, verbose_proctitle),
+	DEF(STR_VARS, rawlog_dir),
 
-	DEF(SET_SIZE, imap_max_line_length),
-	DEF(SET_TIME, imap_idle_notify_interval),
-	DEF(SET_STR, imap_capability),
-	DEF(SET_STR, imap_client_workarounds),
-	DEF(SET_STR, imap_logout_format),
-	DEF(SET_STR, imap_id_send),
-	DEF(SET_STR, imap_id_log),
-	DEF(SET_ENUM, imap_fetch_failure),
-	DEF(SET_BOOL, imap_metadata),
-	DEF(SET_BOOL, imap_literal_minus),
-	DEF(SET_TIME, imap_hibernate_timeout),
+	DEF(SIZE, imap_max_line_length),
+	DEF(TIME, imap_idle_notify_interval),
+	DEF(STR, imap_capability),
+	DEF(STR, imap_client_workarounds),
+	DEF(STR, imap_logout_format),
+	DEF(STR, imap_id_send),
+	DEF(STR, imap_id_log),
+	DEF(ENUM, imap_fetch_failure),
+	DEF(BOOL, imap_metadata),
+	DEF(BOOL, imap_literal_minus),
+	DEF(TIME, imap_hibernate_timeout),
 
-	DEF(SET_STR, imap_urlauth_host),
-	DEF(SET_IN_PORT, imap_urlauth_port),
+	DEF(STR, imap_urlauth_host),
+	DEF(IN_PORT, imap_urlauth_port),
 
 	SETTING_DEFINE_LIST_END
 };

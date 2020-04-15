@@ -26,72 +26,72 @@ static bool mail_user_settings_expand_check(void *_set, pool_t pool ATTR_UNUSED,
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct mail_storage_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_storage_settings)
 
 static const struct setting_define mail_storage_setting_defines[] = {
-	DEF(SET_STR_VARS, mail_location),
+	DEF(STR_VARS, mail_location),
 	{ SET_ALIAS, "mail", 0, NULL },
-	DEF(SET_STR_VARS, mail_attachment_fs),
-	DEF(SET_STR_VARS, mail_attachment_dir),
-	DEF(SET_STR, mail_attachment_hash),
-	DEF(SET_SIZE, mail_attachment_min_size),
-	DEF(SET_STR, mail_attachment_detection_options),
-	DEF(SET_STR_VARS, mail_attribute_dict),
-	DEF(SET_UINT, mail_prefetch_count),
-	DEF(SET_STR, mail_cache_fields),
-	DEF(SET_STR, mail_always_cache_fields),
-	DEF(SET_STR, mail_never_cache_fields),
-	DEF(SET_STR, mail_server_comment),
-	DEF(SET_STR, mail_server_admin),
-	DEF(SET_UINT, mail_cache_min_mail_count),
-	DEF(SET_TIME, mail_cache_unaccessed_field_drop),
-	DEF(SET_SIZE, mail_cache_record_max_size),
-	DEF(SET_SIZE, mail_cache_max_size),
-	DEF(SET_SIZE, mail_cache_purge_min_size),
-	DEF(SET_UINT, mail_cache_purge_delete_percentage),
-	DEF(SET_UINT, mail_cache_purge_continued_percentage),
-	DEF(SET_UINT, mail_cache_purge_header_continue_count),
-	DEF(SET_SIZE, mail_index_rewrite_min_log_bytes),
-	DEF(SET_SIZE, mail_index_rewrite_max_log_bytes),
-	DEF(SET_SIZE, mail_index_log_rotate_min_size),
-	DEF(SET_SIZE, mail_index_log_rotate_max_size),
-	DEF(SET_TIME, mail_index_log_rotate_min_age),
-	DEF(SET_TIME, mail_index_log2_max_age),
-	DEF(SET_TIME, mailbox_idle_check_interval),
-	DEF(SET_UINT, mail_max_keyword_length),
-	DEF(SET_TIME, mail_max_lock_timeout),
-	DEF(SET_TIME, mail_temp_scan_interval),
-	DEF(SET_UINT, mail_vsize_bg_after_count),
-	DEF(SET_UINT, mail_sort_max_read_count),
-	DEF(SET_BOOL, mail_save_crlf),
-	DEF(SET_ENUM, mail_fsync),
-	DEF(SET_BOOL, mmap_disable),
-	DEF(SET_BOOL, dotlock_use_excl),
-	DEF(SET_BOOL, mail_nfs_storage),
-	DEF(SET_BOOL, mail_nfs_index),
-	DEF(SET_BOOL, mailbox_list_index),
-	DEF(SET_BOOL, mailbox_list_index_very_dirty_syncs),
-	DEF(SET_BOOL, mailbox_list_index_include_inbox),
-	DEF(SET_BOOL, mail_debug),
-	DEF(SET_BOOL, mail_full_filesystem_access),
-	DEF(SET_BOOL, maildir_stat_dirs),
-	DEF(SET_BOOL, mail_shared_explicit_inbox),
-	DEF(SET_ENUM, lock_method),
-	DEF(SET_STR, pop3_uidl_format),
+	DEF(STR_VARS, mail_attachment_fs),
+	DEF(STR_VARS, mail_attachment_dir),
+	DEF(STR, mail_attachment_hash),
+	DEF(SIZE, mail_attachment_min_size),
+	DEF(STR, mail_attachment_detection_options),
+	DEF(STR_VARS, mail_attribute_dict),
+	DEF(UINT, mail_prefetch_count),
+	DEF(STR, mail_cache_fields),
+	DEF(STR, mail_always_cache_fields),
+	DEF(STR, mail_never_cache_fields),
+	DEF(STR, mail_server_comment),
+	DEF(STR, mail_server_admin),
+	DEF(UINT, mail_cache_min_mail_count),
+	DEF(TIME, mail_cache_unaccessed_field_drop),
+	DEF(SIZE, mail_cache_record_max_size),
+	DEF(SIZE, mail_cache_max_size),
+	DEF(SIZE, mail_cache_purge_min_size),
+	DEF(UINT, mail_cache_purge_delete_percentage),
+	DEF(UINT, mail_cache_purge_continued_percentage),
+	DEF(UINT, mail_cache_purge_header_continue_count),
+	DEF(SIZE, mail_index_rewrite_min_log_bytes),
+	DEF(SIZE, mail_index_rewrite_max_log_bytes),
+	DEF(SIZE, mail_index_log_rotate_min_size),
+	DEF(SIZE, mail_index_log_rotate_max_size),
+	DEF(TIME, mail_index_log_rotate_min_age),
+	DEF(TIME, mail_index_log2_max_age),
+	DEF(TIME, mailbox_idle_check_interval),
+	DEF(UINT, mail_max_keyword_length),
+	DEF(TIME, mail_max_lock_timeout),
+	DEF(TIME, mail_temp_scan_interval),
+	DEF(UINT, mail_vsize_bg_after_count),
+	DEF(UINT, mail_sort_max_read_count),
+	DEF(BOOL, mail_save_crlf),
+	DEF(ENUM, mail_fsync),
+	DEF(BOOL, mmap_disable),
+	DEF(BOOL, dotlock_use_excl),
+	DEF(BOOL, mail_nfs_storage),
+	DEF(BOOL, mail_nfs_index),
+	DEF(BOOL, mailbox_list_index),
+	DEF(BOOL, mailbox_list_index_very_dirty_syncs),
+	DEF(BOOL, mailbox_list_index_include_inbox),
+	DEF(BOOL, mail_debug),
+	DEF(BOOL, mail_full_filesystem_access),
+	DEF(BOOL, maildir_stat_dirs),
+	DEF(BOOL, mail_shared_explicit_inbox),
+	DEF(ENUM, lock_method),
+	DEF(STR, pop3_uidl_format),
 
-	DEF(SET_STR, hostname),
-	DEF(SET_STR, recipient_delimiter),
+	DEF(STR, hostname),
+	DEF(STR, recipient_delimiter),
 
-	DEF(SET_STR, ssl_client_ca_file),
-	DEF(SET_STR, ssl_client_ca_dir),
-	DEF(SET_STR, ssl_client_cert),
-	DEF(SET_STR, ssl_client_key),
-	DEF(SET_STR, ssl_cipher_list),
-	DEF(SET_STR, ssl_curve_list),
-	DEF(SET_STR, ssl_min_protocol),
-	DEF(SET_STR, ssl_crypto_device),
-	DEF(SET_BOOL, ssl_client_require_valid_cert),
-	DEF(SET_BOOL, verbose_ssl),
+	DEF(STR, ssl_client_ca_file),
+	DEF(STR, ssl_client_ca_dir),
+	DEF(STR, ssl_client_cert),
+	DEF(STR, ssl_client_key),
+	DEF(STR, ssl_cipher_list),
+	DEF(STR, ssl_curve_list),
+	DEF(STR, ssl_min_protocol),
+	DEF(STR, ssl_crypto_device),
+	DEF(BOOL, ssl_client_require_valid_cert),
+	DEF(BOOL, verbose_ssl),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -178,16 +178,16 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct mailbox_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mailbox_settings)
 
 static const struct setting_define mailbox_setting_defines[] = {
-	DEF(SET_STR, name),
+	DEF(STR, name),
 	{ SET_ENUM, "auto", offsetof(struct mailbox_settings, autocreate), NULL } ,
-	DEF(SET_STR, special_use),
-	DEF(SET_STR, driver),
-	DEF(SET_STR, comment),
-	DEF(SET_TIME, autoexpunge),
-	DEF(SET_UINT, autoexpunge_max_mails),
+	DEF(STR, special_use),
+	DEF(STR, driver),
+	DEF(STR, comment),
+	DEF(TIME, autoexpunge),
+	DEF(UINT, autoexpunge_max_mails),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -220,28 +220,28 @@ const struct setting_parser_info mailbox_setting_parser_info = {
 #undef DEF
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct mail_namespace_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_namespace_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
 	{ SET_DEFLIST_UNIQUE, name, \
 	  offsetof(struct mail_namespace_settings, field), defines }
 
 static const struct setting_define mail_namespace_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_ENUM, type),
-	DEF(SET_STR, separator),
-	DEF(SET_STR_VARS, prefix),
-	DEF(SET_STR_VARS, location),
+	DEF(STR, name),
+	DEF(ENUM, type),
+	DEF(STR, separator),
+	DEF(STR_VARS, prefix),
+	DEF(STR_VARS, location),
 	{ SET_ALIAS, "mail", 0, NULL },
 	{ SET_ALIAS, "mail_location", 0, NULL },
-	DEF(SET_STR_VARS, alias_for),
+	DEF(STR_VARS, alias_for),
 
-	DEF(SET_BOOL, inbox),
-	DEF(SET_BOOL, hidden),
-	DEF(SET_ENUM, list),
-	DEF(SET_BOOL, subscriptions),
-	DEF(SET_BOOL, ignore_on_failure),
-	DEF(SET_BOOL, disabled),
-	DEF(SET_UINT, order),
+	DEF(BOOL, inbox),
+	DEF(BOOL, hidden),
+	DEF(ENUM, list),
+	DEF(BOOL, subscriptions),
+	DEF(BOOL, ignore_on_failure),
+	DEF(BOOL, disabled),
+	DEF(UINT, order),
 
 	DEFLIST_UNIQUE(mailboxes, "mailbox", &mailbox_setting_parser_info),
 
@@ -283,36 +283,36 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 #undef DEF
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct mail_user_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_user_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
 	{ SET_DEFLIST_UNIQUE, name, \
 	  offsetof(struct mail_user_settings, field), defines }
 
 static const struct setting_define mail_user_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_STR, auth_socket_path),
-	DEF(SET_STR_VARS, mail_temp_dir),
+	DEF(STR, base_dir),
+	DEF(STR, auth_socket_path),
+	DEF(STR_VARS, mail_temp_dir),
 
-	DEF(SET_STR, mail_uid),
-	DEF(SET_STR, mail_gid),
-	DEF(SET_STR_VARS, mail_home),
-	DEF(SET_STR_VARS, mail_chroot),
-	DEF(SET_STR, mail_access_groups),
-	DEF(SET_STR, mail_privileged_group),
-	DEF(SET_STR, valid_chroot_dirs),
+	DEF(STR, mail_uid),
+	DEF(STR, mail_gid),
+	DEF(STR_VARS, mail_home),
+	DEF(STR_VARS, mail_chroot),
+	DEF(STR, mail_access_groups),
+	DEF(STR, mail_privileged_group),
+	DEF(STR, valid_chroot_dirs),
 
-	DEF(SET_UINT, first_valid_uid),
-	DEF(SET_UINT, last_valid_uid),
-	DEF(SET_UINT, first_valid_gid),
-	DEF(SET_UINT, last_valid_gid),
+	DEF(UINT, first_valid_uid),
+	DEF(UINT, last_valid_uid),
+	DEF(UINT, first_valid_gid),
+	DEF(UINT, last_valid_gid),
 
-	DEF(SET_STR, mail_plugins),
-	DEF(SET_STR, mail_plugin_dir),
+	DEF(STR, mail_plugins),
+	DEF(STR, mail_plugin_dir),
 
-	DEF(SET_STR, mail_log_prefix),
+	DEF(STR, mail_log_prefix),
 
-	DEF(SET_STR, hostname),
-	DEF(SET_STR_VARS, postmaster_address),
+	DEF(STR, hostname),
+	DEF(STR_VARS, postmaster_address),
 
 	DEFLIST_UNIQUE(namespaces, "namespace", &mail_namespace_setting_parser_info),
 	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },

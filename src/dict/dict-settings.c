@@ -82,13 +82,13 @@ struct service_settings dict_async_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct dict_server_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct dict_server_settings)
 
 static const struct setting_define dict_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_BOOL, verbose_proctitle),
+	DEF(STR, base_dir),
+	DEF(BOOL, verbose_proctitle),
 
-	DEF(SET_STR, dict_db_config),
+	DEF(STR, dict_db_config),
 	{ SET_STRLIST, "dict", offsetof(struct dict_server_settings, dicts), NULL },
 
 	SETTING_DEFINE_LIST_END

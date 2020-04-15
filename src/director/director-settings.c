@@ -63,22 +63,22 @@ struct service_settings director_service_settings = {
 };
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct director_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct director_settings)
 
 static const struct setting_define director_setting_defines[] = {
-	DEF(SET_STR, master_user_separator),
+	DEF(STR, master_user_separator),
 
-	DEF(SET_STR, director_servers),
-	DEF(SET_STR, director_mail_servers),
-	DEF(SET_STR, director_username_hash),
-	DEF(SET_STR, director_flush_socket),
-	DEF(SET_TIME, director_ping_idle_timeout),
-	DEF(SET_TIME, director_ping_max_timeout),
-	DEF(SET_TIME, director_user_expire),
-	DEF(SET_TIME, director_user_kick_delay),
-	DEF(SET_UINT, director_max_parallel_moves),
-	DEF(SET_UINT, director_max_parallel_kicks),
-	DEF(SET_SIZE, director_output_buffer_size),
+	DEF(STR, director_servers),
+	DEF(STR, director_mail_servers),
+	DEF(STR, director_username_hash),
+	DEF(STR, director_flush_socket),
+	DEF(TIME, director_ping_idle_timeout),
+	DEF(TIME, director_ping_max_timeout),
+	DEF(TIME, director_user_expire),
+	DEF(TIME, director_user_kick_delay),
+	DEF(UINT, director_max_parallel_moves),
+	DEF(UINT, director_max_parallel_kicks),
+	DEF(SIZE, director_output_buffer_size),
 
 	SETTING_DEFINE_LIST_END
 };

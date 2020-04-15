@@ -8,10 +8,10 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct quota_status_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_status_settings)
 
 static const struct setting_define quota_status_setting_defines[] = {
-	DEF(SET_STR, recipient_delimiter),
+	DEF(STR, recipient_delimiter),
 
 	SETTING_DEFINE_LIST_END
 };
