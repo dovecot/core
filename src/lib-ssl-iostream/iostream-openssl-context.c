@@ -281,13 +281,26 @@ static int
 load_ca_locations(struct ssl_iostream_context *ctx, const char *ca_file,
 		  const char *ca_dir, const char **error_r)
 {
-	if (SSL_CTX_load_verify_locations(ctx->ssl_ctx, ca_file, ca_dir) == 0) {
+	if (SSL_CTX_load_verify_locations(ctx->ssl_ctx, ca_file, ca_dir) != 0)
+		return 0;
+
+	if (ca_dir == NULL) {
 		*error_r = t_strdup_printf(
-			"Can't load CA certs from directory %s: %s",
+			"Can't load CA certs from %s "
+			"(ssl_client_ca_file setting): %s",
+			ca_file, openssl_iostream_error());
+	} else if (ca_file == NULL) {
+		*error_r = t_strdup_printf(
+			"Can't load CA certs from directory %s "
+			"(ssl_client_ca_dir setting): %s",
 			ca_dir, openssl_iostream_error());
-		return -1;
+	} else {
+		*error_r = t_strdup_printf(
+			"Can't load CA certs from file %s and directory %s "
+			"(ssl_client_ca_* settings): %s",
+			ca_file, ca_dir, openssl_iostream_error());
 	}
-	return 0;
+	return -1;
 }
 
 static void
