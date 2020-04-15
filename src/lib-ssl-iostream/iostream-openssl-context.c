@@ -136,7 +136,7 @@ int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
 }
 
 static int
-ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx,
+ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx, const char *set_name,
 			 const struct ssl_iostream_cert *set,
 			 const char **error_r)
 {
@@ -147,8 +147,8 @@ ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx,
 		return -1;
 	if (SSL_CTX_use_PrivateKey(ctx->ssl_ctx, pkey) == 0) {
 		*error_r = t_strdup_printf(
-			"Can't load SSL private key: %s",
-			openssl_iostream_key_load_error());
+			"Can't load SSL private key (%s setting): %s",
+			set_name, openssl_iostream_key_load_error());
 		ret = -1;
 	}
 	EVP_PKEY_free(pkey);
@@ -169,7 +169,7 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 		return -1;
 	if (SSL_CTX_set_tmp_dh(ctx->ssl_ctx, dh) == 0) {
 		 *error_r = t_strdup_printf(
-			"Can't load DH parameters: %s",
+			"Can't load DH parameters (ssl_dh setting): %s",
 			openssl_iostream_key_load_error());
 		ret = -1;
 	}
@@ -376,15 +376,17 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	ssl_iostream_settings_init_from(ctx->pool, &ctx->set, set);
 	if (set->cipher_list != NULL &&
 	    SSL_CTX_set_cipher_list(ctx->ssl_ctx, set->cipher_list) == 0) {
-		*error_r = t_strdup_printf("Can't set cipher list to '%s': %s",
+		*error_r = t_strdup_printf(
+			"Can't set cipher list to '%s' (ssl_cipher_list setting): %s",
 			set->cipher_list, openssl_iostream_error());
 		return -1;
 	}
 #ifdef HAVE_SSL_CTX_SET1_CURVES_LIST
 	if (set->curve_list != NULL && strlen(set->curve_list) > 0 &&
 		SSL_CTX_set1_curves_list(ctx->ssl_ctx, set->curve_list) == 0) {
-		*error_r = t_strdup_printf("Failed to set curve list to '%s'",
-					   set->curve_list);
+		*error_r = t_strdup_printf(
+			"Can't set curve list to '%s' (ssl_curve_list setting)",
+			set->curve_list);
 		return -1;
 	}
 #endif
@@ -419,22 +421,25 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 
 	if (set->cert.cert != NULL &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert.cert) == 0) {
-		*error_r = t_strdup_printf("Can't load SSL certificate: %s",
+		*error_r = t_strdup_printf(
+			"Can't load SSL certificate (ssl_cert setting): %s",
 			openssl_iostream_use_certificate_error(set->cert.cert, NULL));
 		return -1;
 	}
 	if (set->cert.key != NULL) {
-		if (ssl_iostream_ctx_use_key(ctx, &set->cert, error_r) < 0)
+		if (ssl_iostream_ctx_use_key(ctx, "ssl_key", &set->cert, error_r) < 0)
 			return -1;
 	}
 	if (set->alt_cert.cert != NULL &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->alt_cert.cert) == 0) {
-		*error_r = t_strdup_printf("Can't load alternative SSL certificate: %s",
+		*error_r = t_strdup_printf(
+			"Can't load alternative SSL certificate "
+			"(ssl_alt_cert setting): %s",
 			openssl_iostream_use_certificate_error(set->alt_cert.cert, NULL));
 		return -1;
 	}
 	if (set->alt_cert.key != NULL) {
-		if (ssl_iostream_ctx_use_key(ctx, &set->alt_cert, error_r) < 0)
+		if (ssl_iostream_ctx_use_key(ctx, "ssl_alt_key", &set->alt_cert, error_r) < 0)
 			return -1;
 	}
 
