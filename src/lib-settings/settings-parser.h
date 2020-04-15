@@ -33,44 +33,70 @@ enum setting_type {
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
 	SET_ALIAS /* alias name for above setting definition */
 };
+enum setting_flags {
+	SET_FLAG_HIDDEN = BIT(0),
+};
 #define SETTING_TYPE_IS_DEFLIST(type) \
 	((type) == SET_DEFLIST || (type) == SET_DEFLIST_UNIQUE)
 
-#define SETTING_DEFINE_LIST_END { 0, NULL, 0, NULL }
+#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL }
 
 struct setting_define {
 	enum setting_type type;
+	enum setting_flags flags;
 	const char *key;
 
 	size_t offset;
 	const struct setting_parser_info *list_info;
 };
 
-#define SETTING_DEFINE_STRUCT_TYPE(_enum_type, _c_type, _key, _name, _struct_name) \
+#define SETTING_DEFINE_STRUCT_TYPE(_enum_type, _flags, _c_type, _key, _name, _struct_name) \
 	{ .type = (_enum_type) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		((_struct_name *)0)->_name, _c_type), \
-	  .key = _key, .offset = offsetof(_struct_name, _name) }
+	  .flags = _flags, .key = _key, \
+	  .offset = offsetof(_struct_name, _name) }
 
 #define SETTING_DEFINE_STRUCT_BOOL(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_BOOL, bool, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_BOOL, 0, bool, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_UINT(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_UINT, unsigned int, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_UINT, 0, unsigned int, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_UINT_OCT(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_UINT_OCT, unsigned int, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_UINT_OCT, 0, unsigned int, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_TIME(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_TIME, unsigned int, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_TIME, 0, unsigned int, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_TIME_MSECS(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_TIME_MSECS, unsigned int, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_TIME_MSECS, 0, unsigned int, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_SIZE(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_SIZE, uoff_t, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_SIZE, 0, uoff_t, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_IN_PORT(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_IN_PORT, in_port_t, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_IN_PORT, 0, in_port_t, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_STR, const char *, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_VARS(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_STR_VARS, const char *, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR_VARS, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, const char *, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, 0, const char *, key, name, struct_name)
+
+#define SETTING_DEFINE_STRUCT_BOOL_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_BOOL, SET_FLAG_HIDDEN, bool, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_UINT_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_UINT, SET_FLAG_HIDDEN, unsigned int, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_UINT_OCT_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_UINT_OCT, SET_FLAG_HIDDEN, unsigned int, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_TIME_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_TIME, SET_FLAG_HIDDEN, unsigned int, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_TIME_MSECS_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_TIME_MSECS, SET_FLAG_HIDDEN, unsigned int, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_SIZE_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_SIZE, SET_FLAG_HIDDEN, uoff_t, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_IN_PORT_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_IN_PORT, SET_FLAG_HIDDEN, in_port_t, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_STR_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_STR_VARS_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR_VARS, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_ENUM_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 
 struct setting_parser_info {
 	const char *module_name;
