@@ -271,6 +271,9 @@ openssl_iostream_use_certificate_error(const char *cert, const char *set_name)
 {
 	unsigned long err;
 
+	if (cert[0] == '\0')
+		return "The certificate is empty";
+
 	err = ERR_peek_error();
 	if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
 	    ERR_GET_REASON(err) != PEM_R_NO_START_LINE)
