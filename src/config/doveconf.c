@@ -866,7 +866,7 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
-	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
+	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
 	const char *orig_config_path, *config_path, *module;
 	ARRAY(const char *) module_names;
 	struct config_filter filter;
@@ -956,6 +956,8 @@ int main(int argc, char *argv[])
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
 		setting_name_filters = argv+optind;
+		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
+			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
 	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
@@ -1019,7 +1021,7 @@ int main(int argc, char *argv[])
 		printf("# Hostname: %s\n", my_hostdomain());
 		if (!config_path_specified)
 			check_wrong_config(config_path);
-		if (scope == CONFIG_DUMP_SCOPE_ALL)
+		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
 		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL, hide_passwords);

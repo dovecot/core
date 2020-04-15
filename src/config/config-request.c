@@ -232,9 +232,17 @@ settings_export(struct config_export_context *ctx,
 			CONST_PTR_OFFSET(info->defaults, def->offset);
 		change_value = CONST_PTR_OFFSET(change_set, def->offset);
 		switch (ctx->scope) {
-		case CONFIG_DUMP_SCOPE_ALL:
+		case CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN:
 			dump_default = TRUE;
 			break;
+		case CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN:
+			if ((def->flags & SET_FLAG_HIDDEN) == 0) {
+				/* not hidden - dump it */
+				dump_default = TRUE;
+				break;
+			}
+			/* hidden - dump default only if it's explicitly set */
+			/* fall through */
 		case CONFIG_DUMP_SCOPE_SET:
 			dump_default = *((const char *)change_value) != 0;
 			break;
