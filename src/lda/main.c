@@ -226,22 +226,15 @@ lda_set_rcpt_to(struct mail_deliver_input *dinput,
 static int
 lda_do_deliver(struct mail_deliver_context *ctx, bool stderr_rejection)
 {
-	struct mail_storage *storage;
-	enum mail_error error_code;
+	enum mail_deliver_error error_code;
 	const char *error;
 	int ret;
 
-	if (mail_deliver(ctx, &storage) >= 0)
+	if (mail_deliver(ctx, &error_code, &error) >= 0)
 		return EX_OK;
 
-	if (ctx->tempfail_error != NULL) {
-		error = ctx->tempfail_error;
-		error_code = MAIL_ERROR_TEMP;
-	} else if (storage != NULL) {
-		error = mail_storage_get_last_error(storage, &error_code);
-	} else {
+	if (error_code == MAIL_DELIVER_ERROR_INTERNAL) {
 		/* This shouldn't happen */
-		i_error("BUG: Saving failed to unknown storage");
 		return EX_TEMPFAIL;
 	}
 
@@ -251,14 +244,22 @@ lda_do_deliver(struct mail_deliver_context *ctx, bool stderr_rejection)
 		fprintf(stderr, "%s\n", error);
 	}
 
-	if (error_code != MAIL_ERROR_NOQUOTA ||
-	    ctx->set->quota_full_tempfail) {
-		/* Saving to INBOX should always work unless
-		   we're over quota. If it didn't, it's probably a
-		   configuration problem. */
+	switch (error_code) {
+	case MAIL_DELIVER_ERROR_NONE:
+		i_unreached();
+	case MAIL_DELIVER_ERROR_TEMPORARY:
 		return EX_TEMPFAIL;
+	case MAIL_DELIVER_ERROR_NOQUOTA:
+		if (ctx->set->quota_full_tempfail)
+			return EX_TEMPFAIL;
+		ctx->mailbox_full = TRUE;
+		break;
+	case MAIL_DELIVER_ERROR_INTERNAL:
+		i_unreached();
 	}
-	ctx->mailbox_full = TRUE;
+
+	/* Rejected */
+
 	ctx->dsn = TRUE;
 
 	/* we'll have to reply with permanent failure */

@@ -540,11 +540,10 @@ lmtp_local_default_do_deliver(struct lmtp_local *local,
 			      struct mail_deliver_context *dctx)
 {
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
-	struct mail_storage *storage;
-	enum mail_error mail_error;
+	enum mail_deliver_error error_code;
 	const char *error;
 
-	if (mail_deliver(dctx, &storage) == 0) {
+	if (mail_deliver(dctx, &error_code, &error) == 0) {
 		if (dctx->dest_mail != NULL) {
 			i_assert(local->first_saved_mail == NULL);
 			local->first_saved_mail = dctx->dest_mail;
@@ -554,23 +553,21 @@ lmtp_local_default_do_deliver(struct lmtp_local *local,
 		return 0;
 	}
 
-	if (dctx->tempfail_error != NULL) {
-		smtp_server_recipient_reply(rcpt, 451, "4.2.0", "%s",
-					    dctx->tempfail_error);
-	} else if (storage != NULL) {
-		error = mail_storage_get_last_error(storage, &mail_error);
-		if (mail_error == MAIL_ERROR_NOQUOTA) {
-			lmtp_local_rcpt_reply_overquota(llrcpt, error);
-		} else {
-			smtp_server_recipient_reply(rcpt, 451, "4.2.0", "%s",
-						    error);
-		}
-	} else {
+	switch (error_code) {
+	case MAIL_DELIVER_ERROR_NONE:
+		i_unreached();
+	case MAIL_DELIVER_ERROR_TEMPORARY:
+		smtp_server_recipient_reply(rcpt, 451, "4.2.0", "%s", error);
+		break;
+	case MAIL_DELIVER_ERROR_NOQUOTA:
+		lmtp_local_rcpt_reply_overquota(llrcpt, error);
+		break;
+	case MAIL_DELIVER_ERROR_INTERNAL:
 		/* This shouldn't happen */
-		e_error(rcpt->event, "BUG: Saving failed to unknown storage");
-		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
-					    "Temporary internal error");
+		smtp_server_recipient_reply(rcpt, 451, "4.3.0", "%s", error);
+		break;
 	}
+
 	return -1;
 }
 

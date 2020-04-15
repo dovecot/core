@@ -13,6 +13,17 @@ struct mail_storage;
 struct mail_save_context;
 struct mailbox;
 
+enum mail_deliver_error {
+	MAIL_DELIVER_ERROR_NONE = 0,
+
+	/* Temporary error */
+	MAIL_DELIVER_ERROR_TEMPORARY,
+	/* Out of storage quota for mailbox or user */
+	MAIL_DELIVER_ERROR_NOQUOTA,
+	/* Internal error (BUG) */
+	MAIL_DELIVER_ERROR_INTERNAL,
+};
+
 struct mail_deliver_session {
 	pool_t pool;
 
@@ -159,7 +170,8 @@ void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *sessio
 					     struct mail_save_context *save_ctx);
 
 int mail_deliver(struct mail_deliver_context *ctx,
-		 struct mail_storage **storage_r);
+		 enum mail_deliver_error *error_code_r,
+		 const char **error_r);
 
 /* Sets the deliver_mail hook and returns the previous hook,
    which the new_hook should call if it's non-NULL. */
