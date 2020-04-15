@@ -30,18 +30,18 @@ struct test_settings {
 };
 
 static const struct setting_define test_settings_defs[] = {
-	SETTING_DEFINE_STRUCT_STR(key, test_settings),
-	SETTING_DEFINE_STRUCT_STR(key2, test_settings),
-	SETTING_DEFINE_STRUCT_STR(key3, test_settings),
-	SETTING_DEFINE_STRUCT_STR(key4, test_settings),
-	SETTING_DEFINE_STRUCT_STR(key5, test_settings),
-	SETTING_DEFINE_STRUCT_STR(pop3_deleted_flag, test_settings),
-	SETTING_DEFINE_STRUCT_STR(env_key, test_settings),
-	SETTING_DEFINE_STRUCT_STR(env_key2, test_settings),
-	SETTING_DEFINE_STRUCT_STR(env_key3, test_settings),
-	SETTING_DEFINE_STRUCT_STR(env_key4, test_settings),
-	SETTING_DEFINE_STRUCT_STR(env_key5, test_settings),
-	SETTING_DEFINE_STRUCT_STR(protocols, test_settings),
+	SETTING_DEFINE_STRUCT_STR("key", key, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("key2", key2, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("key3", key3, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("key4", key4, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("key5", key5, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("pop3_deleted_flag", pop3_deleted_flag, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("env_key", env_key, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("env_key2", env_key2, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("env_key3", env_key3, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("env_key4", env_key4, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("env_key5", env_key5, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("protocols", protocols, struct test_settings),
 	SETTING_DEFINE_LIST_END
 };
 

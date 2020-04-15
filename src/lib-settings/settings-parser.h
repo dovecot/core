@@ -46,34 +46,31 @@ struct setting_define {
 	const struct setting_parser_info *list_info;
 };
 
-#define SETTING_DEFINE_STRUCT_BOOL(name, struct_name) \
-	{ SET_BOOL + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
-		((struct struct_name *)0)->name, bool), \
-	  #name, offsetof(struct struct_name, name), NULL }
-#define SETTING_DEFINE_STRUCT_UINT(name, struct_name) \
-	{ SET_UINT + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
-		((struct struct_name *)0)->name, unsigned int), \
-	  #name, offsetof(struct struct_name, name), NULL }
-#define SETTING_DEFINE_STRUCT_SIZE(name, struct_name) \
-	{ SET_SIZE + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
-		((struct struct_name *)0)->name, uoff_t), \
-	  #name, offsetof(struct struct_name, name), NULL }
-#define SETTING_DEFINE_STRUCT_TIME(name, struct_name) \
-	{ SET_TIME + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
-		((struct struct_name *)0)->name, unsigned int), \
-	  #name, offsetof(struct struct_name, name), NULL }
-#define SETTING_DEFINE_STRUCT_TIME_MSECS(name, struct_name) \
-	{ SET_TIME_MSECS + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
-		((struct struct_name *)0)->name, unsigned int), \
-	  #name, offsetof(struct struct_name, name), NULL }
-#define SETTING_DEFINE_STRUCT_STR(name, struct_name) \
-	{ SET_STR + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
-		((struct struct_name *)0)->name, const char *), \
-	  #name, offsetof(struct struct_name, name), NULL }
-#define SETTING_DEFINE_STRUCT_IN_PORT(name, struct_name) \
-	{ SET_IN_PORT + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
-		((struct struct_name *)0)->name, in_port_t), \
-	  #name, offsetof(struct struct_name, name), NULL }
+#define SETTING_DEFINE_STRUCT_TYPE(_enum_type, _c_type, _key, _name, _struct_name) \
+	{ .type = (_enum_type) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		((_struct_name *)0)->_name, _c_type), \
+	  .key = _key, .offset = offsetof(_struct_name, _name) }
+
+#define SETTING_DEFINE_STRUCT_BOOL(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_BOOL, bool, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_UINT(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_UINT, unsigned int, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_UINT_OCT(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_UINT_OCT, unsigned int, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_TIME(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_TIME, unsigned int, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_TIME_MSECS(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_TIME_MSECS, unsigned int, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_SIZE(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_SIZE, uoff_t, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_IN_PORT(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_IN_PORT, in_port_t, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_STR(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_STR_VARS(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR_VARS, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_ENUM(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, const char *, key, name, struct_name)
 
 struct setting_parser_info {
 	const char *module_name;
