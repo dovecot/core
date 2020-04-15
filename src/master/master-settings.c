@@ -91,12 +91,9 @@ static const struct setting_parser_info inet_listener_setting_parser_info = {
 };
 
 #undef DEF
-#undef DEFLIST
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct service_settings, name), NULL }
-#define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct service_settings, field), defines }
 #define DEFLIST_UNIQUE(field, name, defines) \
 	{ SET_DEFLIST_UNIQUE, name, offsetof(struct service_settings, field), defines }
 

@@ -7,10 +7,6 @@
 #include "mail-storage-settings.h"
 #include "fs-crypt-settings.h"
 
-#undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct fs_crypt_settings, name), NULL }
-
 static const struct setting_define fs_crypt_setting_defines[] = {
 	{ SET_STRLIST, "plugin", offsetof(struct fs_crypt_settings, plugin_envs), NULL },
 
