@@ -249,6 +249,8 @@ lda_do_deliver(struct mail_deliver_context *ctx, bool stderr_rejection)
 		i_unreached();
 	case MAIL_DELIVER_ERROR_TEMPORARY:
 		return EX_TEMPFAIL;
+	case MAIL_DELIVER_ERROR_REJECTED:
+		break;
 	case MAIL_DELIVER_ERROR_NOQUOTA:
 		if (ctx->set->quota_full_tempfail)
 			return EX_TEMPFAIL;

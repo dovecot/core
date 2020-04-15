@@ -559,6 +559,9 @@ lmtp_local_default_do_deliver(struct lmtp_local *local,
 	case MAIL_DELIVER_ERROR_TEMPORARY:
 		smtp_server_recipient_reply(rcpt, 451, "4.2.0", "%s", error);
 		break;
+	case MAIL_DELIVER_ERROR_REJECTED:
+		smtp_server_recipient_reply(rcpt, 552, "5.2.0", "%s", error);
+		break;
 	case MAIL_DELIVER_ERROR_NOQUOTA:
 		lmtp_local_rcpt_reply_overquota(llrcpt, error);
 		break;

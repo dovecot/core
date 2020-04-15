@@ -18,6 +18,8 @@ enum mail_deliver_error {
 
 	/* Temporary error */
 	MAIL_DELIVER_ERROR_TEMPORARY,
+	/* Delivery rejected */
+	MAIL_DELIVER_ERROR_REJECTED,
 	/* Out of storage quota for mailbox or user */
 	MAIL_DELIVER_ERROR_NOQUOTA,
 	/* Internal error (BUG) */
