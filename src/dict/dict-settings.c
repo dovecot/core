@@ -89,7 +89,8 @@ static const struct setting_define dict_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
 
 	DEF(STR, dict_db_config),
-	{ SET_STRLIST, "dict", offsetof(struct dict_server_settings, dicts), NULL },
+	{ .type = SET_STRLIST, .key = "dict",
+	  .offset = offsetof(struct dict_server_settings, dicts) },
 
 	SETTING_DEFINE_LIST_END
 };

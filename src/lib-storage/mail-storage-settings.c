@@ -30,7 +30,7 @@ static bool mail_user_settings_expand_check(void *_set, pool_t pool ATTR_UNUSED,
 
 static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(STR_VARS, mail_location),
-	{ SET_ALIAS, "mail", 0, NULL },
+	{ .type = SET_ALIAS, .key = "mail" },
 	DEF(STR_VARS, mail_attachment_fs),
 	DEF(STR_VARS, mail_attachment_dir),
 	DEF(STR, mail_attachment_hash),
@@ -182,7 +182,8 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 
 static const struct setting_define mailbox_setting_defines[] = {
 	DEF(STR, name),
-	{ SET_ENUM, "auto", offsetof(struct mailbox_settings, autocreate), NULL } ,
+	{ .type = SET_ENUM, .key = "auto",
+	  .offset = offsetof(struct mailbox_settings, autocreate) } ,
 	DEF(STR, special_use),
 	DEF(STR, driver),
 	DEF(STR, comment),
@@ -222,8 +223,9 @@ const struct setting_parser_info mailbox_setting_parser_info = {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_namespace_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, \
-	  offsetof(struct mail_namespace_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct mail_namespace_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(STR, name),
@@ -231,8 +233,8 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(STR, separator),
 	DEF(STR_VARS, prefix),
 	DEF(STR_VARS, location),
-	{ SET_ALIAS, "mail", 0, NULL },
-	{ SET_ALIAS, "mail_location", 0, NULL },
+	{ .type = SET_ALIAS, .key = "mail" },
+	{ .type = SET_ALIAS, .key = "mail_location" },
 	DEF(STR_VARS, alias_for),
 
 	DEF(BOOL, inbox),
@@ -285,8 +287,9 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_user_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, \
-	  offsetof(struct mail_user_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct mail_user_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define mail_user_setting_defines[] = {
 	DEF(STR, base_dir),
@@ -315,7 +318,8 @@ static const struct setting_define mail_user_setting_defines[] = {
 	DEF(STR_VARS, postmaster_address),
 
 	DEFLIST_UNIQUE(namespaces, "namespace", &mail_namespace_setting_parser_info),
-	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },
+	{ .type = SET_STRLIST, .key = "plugin",
+	  .offset = offsetof(struct mail_user_settings, plugin_envs) },
 
 	SETTING_DEFINE_LIST_END
 };

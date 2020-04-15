@@ -66,7 +66,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(STR, doveadm_socket_path),
 	DEF(UINT, doveadm_worker_count),
 	DEF(IN_PORT, doveadm_port),
-	{ SET_ALIAS, "doveadm_proxy_port", 0, NULL },
+	{ .type = SET_ALIAS, .key = "doveadm_proxy_port" },
 	DEF(ENUM, doveadm_ssl),
 	DEF(STR, doveadm_username),
 	DEF(STR, doveadm_password),
@@ -80,7 +80,8 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(STR, doveadm_http_rawlog_dir),
 	DEF(STR, dsync_hashed_headers),
 
-	{ SET_STRLIST, "plugin", offsetof(struct doveadm_settings, plugin_envs), NULL },
+	{ .type = SET_STRLIST, .key = "plugin",
+	  .offset = offsetof(struct doveadm_settings, plugin_envs) },
 
 	SETTING_DEFINE_LIST_END
 };

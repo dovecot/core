@@ -8,7 +8,8 @@
 #include "fs-crypt-settings.h"
 
 static const struct setting_define fs_crypt_setting_defines[] = {
-	{ SET_STRLIST, "plugin", offsetof(struct fs_crypt_settings, plugin_envs), NULL },
+	{ .type = SET_STRLIST, .key = "plugin",
+	  .offset = offsetof(struct fs_crypt_settings, plugin_envs) },
 
 	SETTING_DEFINE_LIST_END
 };

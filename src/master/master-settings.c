@@ -95,7 +95,9 @@ static const struct setting_parser_info inet_listener_setting_parser_info = {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct service_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, offsetof(struct service_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct service_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define service_setting_defines[] = {
 	DEF(STR, name),
@@ -168,7 +170,9 @@ const struct setting_parser_info service_setting_parser_info = {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, offsetof(struct master_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct master_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define master_setting_defines[] = {
 	DEF(STR, base_dir),

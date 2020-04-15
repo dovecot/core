@@ -221,7 +221,9 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 #define DEF_NOPREFIX(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_settings)
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct auth_settings, field), defines }
+	{ .type = SET_DEFLIST, .key = name, \
+	  .offset = offsetof(struct auth_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define auth_setting_defines[] = {
 	DEF(STR, mechanisms),

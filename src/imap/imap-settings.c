@@ -60,7 +60,9 @@ struct service_settings imap_service_settings = {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_settings)
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct imap_settings, field), defines }
+	{ .type = SET_DEFLIST, .key = name, \
+	  .offset = offsetof(struct imap_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define imap_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),

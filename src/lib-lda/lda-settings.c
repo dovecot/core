@@ -16,7 +16,9 @@ static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct lda_settings)
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct lda_settings, field), defines }
+	{ .type = SET_DEFLIST, .key = name, \
+	  .offset = offsetof(struct lda_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define lda_setting_defines[] = {
 	DEF(STR, hostname),

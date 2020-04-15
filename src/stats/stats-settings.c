@@ -142,8 +142,9 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct stats_settings)
 #undef DEFLIST_UNIQUE
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, \
-	  offsetof(struct stats_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct stats_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define stats_setting_defines[] = {
 	DEF(STR, stats_http_rawlog_dir),
