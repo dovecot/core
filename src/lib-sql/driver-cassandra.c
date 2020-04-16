@@ -1141,9 +1141,17 @@ driver_cassandra_error_is_uncertain(CassError error)
 {
 	switch (error) {
 	case CASS_ERROR_SERVER_WRITE_FAILURE:
+		/* This happens when some of the replicas that were contacted
+		 * by the coordinator replied with an error. */
 	case CASS_ERROR_SERVER_WRITE_TIMEOUT:
+		/* A Cassandra timeout during a write query. */
 	case CASS_ERROR_SERVER_UNAVAILABLE:
+		/* The coordinator knows there are not enough replicas alive
+		 * to perform a query with the requested consistency level. */
 	case CASS_ERROR_LIB_REQUEST_TIMED_OUT:
+		/* A request sent from the driver has timed out. */
+	case CASS_ERROR_LIB_WRITE_ERROR:
+		/* A write error occured. */
 		return SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN;
 	default:
 		return SQL_RESULT_ERROR_TYPE_UNKNOWN;
