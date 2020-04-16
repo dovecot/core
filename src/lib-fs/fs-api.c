@@ -619,12 +619,17 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 		file->last_error = new_error;
 	} else {
 		i_assert(iter != NULL);
-		/* Preserve the first error for iters. That's the first
-		   thing that went wrong and broke the iteration. */
-		if (iter->last_error == NULL)
-			iter->last_error = new_error;
-		else
-			i_free(new_error);
+		if (iter->last_error != NULL &&
+		    strcmp(iter->last_error, new_error) == 0) {
+			/* identical error - ignore */
+		} else if (iter->last_error != NULL) {
+			/* multiple fs_set_error() calls before the iter
+			   finishes */
+			e_error(iter->fs->event, "%s (overwriting error)",
+				iter->last_error);
+		}
+		i_free(iter->last_error);
+		iter->last_error = new_error;
 	}
 }
 
