@@ -293,9 +293,15 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	   removed. */
 	first_new_seq = mail_cache_get_first_new_seq(view);
 	message_count = mail_index_view_get_messages_count(view);
+	if (!trans->reset)
+		seq = 1;
+	else {
+		/* Index is being rebuilt. Ignore old messages. */
+		seq = trans->first_new_seq;
+	}
 
 	i_array_init(ext_offsets, message_count); record_count = 0;
-	for (seq = 1; seq <= message_count; seq++) {
+	for (; seq <= message_count; seq++) {
 		if (mail_index_transaction_is_expunged(trans, seq)) {
 			array_append_zero(ext_offsets);
 			continue;
