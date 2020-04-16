@@ -490,6 +490,18 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **ctx);
    actually written to index file. */
 void mail_index_sync_rollback(struct mail_index_sync_ctx **ctx);
 
+/* Lock the index exclusively. This is the same locking as what happens when
+   syncing the index. It's not necessary to normally call this function, unless
+   doing something special such as rebuilding the index outside syncing.
+   Returns 0 on success, -1 if locking failed for any reason. */
+int mail_index_lock_sync(struct mail_index *index, const char *lock_reason);
+/* Unlock the locked index. The index must have been locked previously with
+   mail_index_lock_sync(). If the lock had been kept for excessively long,
+   a warning is logged with the long_lock_reason. */
+void mail_index_unlock(struct mail_index *index, const char *long_lock_reason);
+/* Returns TRUE if index is currently exclusively locked. */
+bool mail_index_is_locked(struct mail_index *index);
+
 /* Mark index file corrupted. Invalidates all views. */
 void mail_index_mark_corrupted(struct mail_index *index);
 /* Check and fix any found problems. Returns -1 if we couldn't lock for sync,

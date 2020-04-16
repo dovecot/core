@@ -1037,6 +1037,25 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 		mail_index_file_set_syscall_error(index, path, "fchmod()");
 }
 
+int mail_index_lock_sync(struct mail_index *index, const char *lock_reason)
+{
+	uint32_t file_seq;
+	uoff_t file_offset;
+
+	return mail_transaction_log_sync_lock(index->log, lock_reason,
+					      &file_seq, &file_offset);
+}
+
+void mail_index_unlock(struct mail_index *index, const char *long_lock_reason)
+{
+	mail_transaction_log_sync_unlock(index->log, long_lock_reason);
+}
+
+bool mail_index_is_locked(struct mail_index *index)
+{
+	return index->log_sync_locked;
+}
+
 void mail_index_set_syscall_error(struct mail_index *index,
 				  const char *function)
 {
