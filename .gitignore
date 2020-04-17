@@ -41,6 +41,7 @@ compile_commands.json
 /dovecot-config
 /dovecot-config.in
 /dovecot-version.h
+/dovecot.service
 /README
 /INSTALL
 
