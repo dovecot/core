@@ -531,7 +531,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx,
 		if (!ESTALE_FSTAT(errno))
 			mail_cache_set_syscall_error(ctx->cache, "fstat()");
 		ret = -1;
-	} else if (st.st_size + ctx->last_rec_pos > ctx->cache->index->optimization_set.cache.max_size) {
+	} else if ((uoff_t)st.st_size + ctx->last_rec_pos > ctx->cache->index->optimization_set.cache.max_size) {
 		mail_cache_set_corrupted(ctx->cache, "Cache file too large");
 		ret = -1;
 	} else {
