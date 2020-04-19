@@ -23,27 +23,6 @@
 #  define INADDR_NONE INADDR_BROADCAST
 #endif
 
-#if !defined (HAVE_STRCASECMP) && !defined (HAVE_STRICMP)
-int i_my_strcasecmp(const char *s1, const char *s2)
-{
-	while (*s1 != '\0' && i_toupper(*s1) == i_toupper(*s2)) {
-		s1++; s2++;
-	}
-
-        return i_toupper(*s1) - i_toupper(*s2);
-}
-
-int i_my_strncasecmp(const char *s1, const char *s2, size_t max_chars)
-{
-	while (max_chars > 1 && *s1 != '\0' &&
-	       i_toupper(*s1) == i_toupper(*s2)) {
-		s1++; s2++; max_chars--;
-	}
-
-        return i_toupper(*s1) - i_toupper(*s2);
-}
-#endif
-
 #ifndef HAVE_INET_ATON
 int i_my_inet_aton(const char *cp, struct in_addr *inp)
 {

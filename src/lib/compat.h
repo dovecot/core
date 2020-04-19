@@ -137,19 +137,6 @@ typedef int socklen_t;
 	((st1)->st_ctime == (st2)->st_ctime && \
 	 ST_NTIMES_EQUAL(ST_CTIME_NSEC(*(st1)), ST_CTIME_NSEC(*(st2))))
 
-/* strcasecmp(), strncasecmp() */
-#ifndef HAVE_STRCASECMP
-#  ifdef HAVE_STRICMP
-#    define strcasecmp stricmp
-#    define strncasecmp strnicmp
-#  else
-#    define strcasecmp i_my_strcasecmp
-#    define strncasecmp i_my_strncasecmp
-int i_my_strcasecmp(const char *s1, const char *s2);
-int i_my_strncasecmp(const char *s1, const char *s2, size_t max_chars);
-#  endif
-#endif
-
 #ifndef HAVE_INET_ATON
 #  include <sys/socket.h>
 #  include <netinet/in.h>
