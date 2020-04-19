@@ -572,7 +572,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			i_free_and_null(subm_client->proxy_xclient);
 			subm_client->proxy_xclient = p_strarray_dup(
 				default_pool, t_strsplit_spaces(text + 8, " "));
-		} else if (strncasecmp(text, "STARTTLS", 9) == 0) {
+		} else if (strcasecmp(text, "STARTTLS") == 0) {
 			subm_client->proxy_capability |=
 				SMTP_CAPABILITY_STARTTLS;
 		} else if (strncasecmp(text, "AUTH", 4) == 0 &&
