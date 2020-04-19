@@ -462,6 +462,13 @@ test_str_match(void)
 	static const struct {
 		const char*s1, *s2; size_t match;
 	} tests[] = {
+		{ "", "a", 0 },
+		{ "a", "a", 1 },
+		{ "a", "A", 0 },
+		{ "ab", "a", 1 },
+		{ "ab", "A", 0 },
+		{ "B", "AB", 0 },
+		{ "ab", "AB", 0 },
 #define MATCH_TEST(common, left, right) { common left, common right, sizeof(common)-1 }
 		MATCH_TEST("", "", ""),
 		MATCH_TEST("", "x", ""),
@@ -511,6 +518,61 @@ test_str_match(void)
 	test_assert(!str_begins_with("123", "1234"));
 	test_assert(!str_begins_with("", "123"));
 	test_assert(!str_begins_with("12", "123"));
+	test_end();
+}
+
+static void
+test_str_match_icase(void)
+{
+	const struct {
+		const char *s1, *s2;
+		size_t match;
+	} tests[] = {
+		{ "", "a", 0 },
+		{ "a", "a", 1 },
+		{ "a", "A", 1 },
+		{ "ab", "a", 1 },
+		{ "ab", "A", 1 },
+		{ "B", "AB", 0 },
+		{ "ab", "AB", 2 },
+	};
+	const char *suffix;
+	unsigned int i;
+
+	test_begin("str_match_icase");
+	for (i = 0; i < N_ELEMENTS(tests); i++)
+		test_assert_idx(str_match_icase(tests[i].s1, tests[i].s2) == tests[i].match, i);
+	test_end();
+
+	test_begin("str_begins_icase");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		/* This is just 2 ways of wording the same test, but that also
+		   sanity tests the match values above. */
+		bool equals = strncasecmp(tests[i].s1, tests[i].s2, strlen(tests[i].s2)) == 0;
+		test_assert_idx(str_begins_icase_with(tests[i].s1, tests[i].s2) == equals, i);
+		test_assert_idx(str_begins_icase(tests[i].s1, tests[i].s2, &suffix) == equals &&
+				(!equals || suffix == tests[i].s1 + strlen(tests[i].s2)), i);
+		test_assert_idx(str_begins_icase(tests[i].s1, tests[i].s2, &suffix) ==
+				(strlen(tests[i].s2) == tests[i].match), i);
+	}
+	/* test literal-optimized versions of these */
+	test_assert(str_begins_icase("", "", &suffix) && suffix[0] == '\0');
+	test_assert(str_begins_icase("aBc", "", &suffix) && strcmp(suffix, "aBc") == 0);
+	test_assert(str_begins_icase("aBc", "a", &suffix) && strcmp(suffix, "Bc") == 0);
+	test_assert(str_begins_icase("aBc", "A", &suffix) && strcmp(suffix, "Bc") == 0);
+	test_assert(str_begins_icase("aBc", "AbC", &suffix) && suffix[0] == '\0');
+	suffix = NULL;
+	test_assert(!str_begins_icase("aBc", "AbCd", &suffix) && suffix == NULL);
+	test_assert(!str_begins_icase("", "aBc", &suffix) && suffix == NULL);
+	test_assert(!str_begins_icase("aB", "AbC", &suffix) && suffix == NULL);
+
+	test_assert(str_begins_icase_with("", ""));
+	test_assert(str_begins_icase_with("aBc", ""));
+	test_assert(str_begins_icase_with("aBc", "A"));
+	test_assert(str_begins_icase_with("aBc", "AbC"));
+	test_assert(!str_begins_icase_with("aBc", "aBcD"));
+	test_assert(!str_begins_icase_with("", "aBc"));
+	test_assert(!str_begins_icase_with("aB", "AbC"));
 	test_end();
 }
 
@@ -637,6 +699,7 @@ void test_strfuncs(void)
 	test_str_equals_timing_almost_safe();
 	test_dec2str_buf();
 	test_str_match();
+	test_str_match_icase();
 	test_memspn();
 	test_memcspn();
 }

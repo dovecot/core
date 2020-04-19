@@ -633,10 +633,31 @@ str_match(const char *p1, const char *p2)
 	return i;
 }
 
+size_t str_match_icase(const char *p1, const char *p2)
+{
+	size_t i = 0;
+
+	while (p1[i] != '\0' && i_tolower(p1[i]) == i_tolower(p2[i]))
+		i++;
+
+	return i;
+}
+
 #undef str_begins
 bool str_begins(const char *haystack, const char *needle, const char **suffix_r)
 {
 	size_t prefix_len = str_match(haystack, needle);
+	if (needle[prefix_len] != '\0')
+		return FALSE;
+	*suffix_r = haystack + prefix_len;
+	return TRUE;
+}
+
+#undef str_begins_icase
+bool str_begins_icase(const char *haystack, const char *needle,
+		      const char **suffix_r)
+{
+	size_t prefix_len = str_match_icase(haystack, needle);
 	if (needle[prefix_len] != '\0')
 		return FALSE;
 	*suffix_r = haystack + prefix_len;

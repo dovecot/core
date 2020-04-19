@@ -87,12 +87,20 @@ bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size);
 bool str_equals_timing_almost_safe(const char *s1, const char *s2);
 
 size_t str_match(const char *p1, const char *p2) ATTR_PURE;
+size_t str_match_icase(const char *p1, const char *p2) ATTR_PURE;
 bool str_begins(const char *haystack, const char *needle,
 		const char **suffix_r);
+bool str_begins_icase(const char *haystack, const char *needle,
+		      const char **suffix_r);
 static inline ATTR_PURE bool
 str_begins_with(const char *haystack, const char *needle)
 {
 	return needle[str_match(haystack, needle)] == '\0';
+}
+static inline ATTR_PURE bool
+str_begins_icase_with(const char *haystack, const char *needle)
+{
+	return needle[str_match_icase(haystack, needle)] == '\0';
 }
 #if defined(__GNUC__) && (__GNUC__ >= 2)
 /* GCC (and Clang) are known to have a compile-time strlen("literal") shortcut, and
@@ -110,6 +118,14 @@ str_begins_builtin_success(const char *haystack, size_t needle_len,
 # define str_begins(h, n, suffix_r) \
 	(!__builtin_constant_p(n) ? (str_begins)((h), (n), (suffix_r)) : \
 	 (strncmp((h), (n), strlen(n)) != 0 ? FALSE : \
+	  str_begins_builtin_success((h), strlen(n), suffix_r)))
+
+# define str_begins_icase_with(h, n) \
+	(__builtin_constant_p(n) ? strncasecmp((h), (n), strlen(n))==0 : \
+	 (str_begins_icase_with)((h), (n)))
+# define str_begins_icase(h, n, suffix_r) \
+	(!__builtin_constant_p(n) ? (str_begins_icase)((h), (n), (suffix_r)) : \
+	 (strncasecmp((h), (n), strlen(n)) != 0 ? FALSE : \
 	  str_begins_builtin_success((h), strlen(n), suffix_r)))
 #endif
 
