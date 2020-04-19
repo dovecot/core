@@ -539,6 +539,74 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	return TRUE;
 }
 
+int auth_master_pass_lookup(struct auth_master_connection *conn,
+			    const char *user, const struct auth_user_info *info,
+			    pool_t pool, const char *const **fields_r)
+{
+	struct auth_master_lookup_ctx ctx;
+	string_t *str;
+
+	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
+		/* non-allowed characters, the user can't exist */
+		*fields_r = NULL;
+		return 0;
+	}
+
+	i_zero(&ctx);
+	ctx.conn = conn;
+	ctx.return_value = -1;
+	ctx.pool = pool;
+	ctx.expected_reply = "PASS";
+	ctx.user = user;
+
+	conn->reply_callback = auth_lookup_reply_callback;
+	conn->reply_context = &ctx;
+
+	str = t_str_new(128);
+	str_printfa(str, "PASS\t%u\t%s",
+		    auth_master_next_request_id(conn), user);
+	auth_user_info_export(str, info);
+	str_append_c(str, '\n');
+
+	auth_master_user_event_create(
+		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
+	event_add_str(conn->event, "user", user);
+
+	struct event_passthrough *e =
+		event_create_passthrough(conn->event)->
+		set_name("auth_client_passdb_lookup_started");
+	e_debug(e->event(), "Started passdb lookup");
+
+	(void)auth_master_run_cmd(conn, str_c(str));
+
+	*fields_r = ctx.fields != NULL ? ctx.fields :
+		p_new(pool, const char *, 1);
+
+	if (ctx.return_value <= 0) {
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_passdb_lookup_finished");
+		if ((*fields_r)[0] == NULL) {
+			e->add_str("error", "Lookup failed");
+			e_debug(e->event(), "Passdb lookup failed");
+		} else {
+			e->add_str("error", (*fields_r)[0]);
+			e_debug(e->event(), "Passdb lookup failed: %s",
+				(*fields_r)[0]);
+		}
+	} else {
+		struct event_passthrough *e =
+			event_create_passthrough(conn->event)->
+			set_name("auth_client_passdb_lookup_finished");
+		e_debug(e->event(), "Finished passdb lookup (%s)",
+			t_strarray_join(*fields_r, " "));
+	}
+	auth_master_event_finish(conn);
+
+	conn->reply_context = NULL;
+	return ctx.return_value;
+}
+
 int auth_master_user_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char **username_r,
@@ -653,74 +721,6 @@ int auth_user_fields_parse(const char *const *fields, pool_t pool,
 		}
 	}
 	return 0;
-}
-
-int auth_master_pass_lookup(struct auth_master_connection *conn,
-			    const char *user, const struct auth_user_info *info,
-			    pool_t pool, const char *const **fields_r)
-{
-	struct auth_master_lookup_ctx ctx;
-	string_t *str;
-
-	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
-		/* non-allowed characters, the user can't exist */
-		*fields_r = NULL;
-		return 0;
-	}
-
-	i_zero(&ctx);
-	ctx.conn = conn;
-	ctx.return_value = -1;
-	ctx.pool = pool;
-	ctx.expected_reply = "PASS";
-	ctx.user = user;
-
-	conn->reply_callback = auth_lookup_reply_callback;
-	conn->reply_context = &ctx;
-
-	str = t_str_new(128);
-	str_printfa(str, "PASS\t%u\t%s",
-		    auth_master_next_request_id(conn), user);
-	auth_user_info_export(str, info);
-	str_append_c(str, '\n');
-
-	auth_master_user_event_create(
-		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
-	event_add_str(conn->event, "user", user);
-
-	struct event_passthrough *e =
-		event_create_passthrough(conn->event)->
-		set_name("auth_client_passdb_lookup_started");
-	e_debug(e->event(), "Started passdb lookup");
-
-	(void)auth_master_run_cmd(conn, str_c(str));
-
-	*fields_r = ctx.fields != NULL ? ctx.fields :
-		p_new(pool, const char *, 1);
-
-	if (ctx.return_value <= 0) {
-		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
-			set_name("auth_client_passdb_lookup_finished");
-		if ((*fields_r)[0] == NULL) {
-			e->add_str("error", "Lookup failed");
-			e_debug(e->event(), "Passdb lookup failed");
-		} else {
-			e->add_str("error", (*fields_r)[0]);
-			e_debug(e->event(), "Passdb lookup failed: %s",
-				(*fields_r)[0]);
-		}
-	} else {
-		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
-			set_name("auth_client_passdb_lookup_finished");
-		e_debug(e->event(), "Finished passdb lookup (%s)",
-			t_strarray_join(*fields_r, " "));
-	}
-	auth_master_event_finish(conn);
-
-	conn->reply_context = NULL;
-	return ctx.return_value;
 }
 
 struct auth_master_user_list_ctx {
