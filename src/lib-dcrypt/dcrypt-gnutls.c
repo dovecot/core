@@ -316,13 +316,13 @@ dcrypt_gnutls_pbkdf2(const unsigned char *password, size_t password_len,
 	unsigned char buf[result_len];
 
 	/* only sha1 or sha256 is supported */
-	if (strncasecmp(algorithm, "sha1", 4) == 0) {
+	if (str_begins_icase_with(algorithm, "sha1")) {
 		pbkdf2_hmac_sha1(password_len, password, rounds,
 				 salt_len, salt, result_len, buf);
-	} else if (strncasecmp(algorithm, "sha256", 6) == 0) {
+	} else if (str_begins_icase_with(algorithm, "sha256")) {
 		pbkdf2_hmac_sha256(password_len, password, rounds,
 				   salt_len, salt, result_len, buf);
-	} else if (strncasecmp(algorithm, "sha512", 6) == 0) {
+	} else if (str_begins_icase_with(algorithm, "sha512")) {
 		struct hmac_sha512_ctx ctx;
 
 		hmac_sha512_set_key(&ctx, password_len, password);

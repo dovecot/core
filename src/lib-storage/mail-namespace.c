@@ -707,10 +707,11 @@ mail_namespace_find_mask(struct mail_namespace *namespaces, const char *box,
         struct mail_namespace *ns = namespaces;
 	struct mail_namespace *best = NULL;
 	size_t best_len = 0;
+	const char *suffix;
 	bool inbox;
 
-	inbox = strncasecmp(box, "INBOX", 5) == 0;
-	if (inbox && box[5] == '\0') {
+	inbox = str_begins_icase(box, "INBOX", &suffix);
+	if (inbox && suffix[0] == '\0') {
 		/* find the INBOX namespace */
 		while (ns != NULL) {
 			if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&

@@ -2006,7 +2006,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 	/* just a single query, send it */
 	const char *query = ctx->query != NULL ?
 		ctx->query : sql_statement_get_query(&ctx->stmt->stmt);
-	if (strncasecmp(query, "DELETE ", 7) == 0)
+	if (str_begins_icase_with(query, "DELETE "))
 		query_type = CASSANDRA_QUERY_TYPE_DELETE;
 	else
 		query_type = CASSANDRA_QUERY_TYPE_WRITE;
@@ -2047,7 +2047,7 @@ driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx)
 	enum cassandra_query_type query_type;
 
 	/* just a single query, send it */
-	if (strncasecmp(ctx->query, "DELETE ", 7) == 0)
+	if (str_begins_icase_with(ctx->query, "DELETE "))
 		query_type = CASSANDRA_QUERY_TYPE_DELETE;
 	else
 		query_type = CASSANDRA_QUERY_TYPE_WRITE;

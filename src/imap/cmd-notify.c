@@ -162,7 +162,7 @@ cmd_notify_add_mailbox(struct imap_notify_context *ctx,
 
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 	    !str_begins_with(name, "INBOX") &&
-	    strncasecmp(name, "INBOX", 5) == 0 &&
+	    str_begins_icase_with(name, "INBOX") &&
 	    (name[5] == '\0' || name[5] == ns_sep)) {
 		/* we'll do only case-sensitive comparisons later,
 		   so sanitize INBOX to be uppercase */

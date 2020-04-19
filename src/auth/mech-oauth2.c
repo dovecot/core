@@ -146,9 +146,9 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 			username = value;
 			user_given = TRUE;
 		} else if (str_begins(*ptr, "auth=", &value)) {
-			if (strncasecmp(value, "bearer ", 7) == 0 &&
-			    oauth2_valid_token(value+7)) {
-				token = value+7;
+			if (str_begins_icase(value, "bearer ", &value) &&
+			    oauth2_valid_token(value)) {
+				token = value;
 			} else {
 				e_info(request->mech_event,
 				       "Invalid continued data");
@@ -246,9 +246,9 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 
 	for(ptr = fields; *ptr != NULL; ptr++) {
 		if (str_begins(*ptr, "auth=", &value)) {
-			if (strncasecmp(value, "bearer ", 7) == 0 &&
-			    oauth2_valid_token(value+7)) {
-				token = value+7;
+			if (str_begins_icase(value, "bearer ", &value) &&
+			    oauth2_valid_token(value)) {
+				token = value;
 			} else {
 				e_info(request->mech_event,
 				       "Invalid continued data");

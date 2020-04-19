@@ -130,12 +130,12 @@ cmd_log_find_syslog_files(struct log_find_context *ctx, const char *path)
 
 static bool log_type_find(const char *str, enum log_type *type_r)
 {
+	const char *suffix;
 	unsigned int i;
-	size_t len = strlen(str);
 
 	for (i = 0; i < LAST_LOG_TYPE; i++) {
-		if (strncasecmp(str, failure_log_type_prefixes[i], len) == 0 &&
-		    failure_log_type_prefixes[i][len] == ':') {
+		if (str_begins_icase(failure_log_type_prefixes[i], str, &suffix) &&
+		    suffix[0] == ':') {
 			*type_r = i;
 			return TRUE;
 		}

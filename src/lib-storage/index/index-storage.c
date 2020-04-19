@@ -49,7 +49,7 @@ static void set_cache_decisions(struct mail_cache *cache,
 		idx = mail_cache_register_lookup(cache, name);
 		if (idx != UINT_MAX) {
 			field = *mail_cache_register_get_field(cache, idx);
-		} else if (strncasecmp(name, "hdr.", 4) == 0) {
+		} else if (str_begins_icase_with(name, "hdr.")) {
 			/* Do some sanity checking for the header name. Mainly
 			   to make sure there aren't UTF-8 characters that look
 			   like their ASCII equivalents or are completely

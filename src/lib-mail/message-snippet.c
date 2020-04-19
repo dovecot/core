@@ -187,7 +187,7 @@ int message_snippet_generate(struct istream *input,
 					ctx.plain_output =
 						buffer_create_dynamic(pool, 1024);
 				}
-			} else if (strncasecmp(ct, "text/", 5) != 0)
+			} else if (!str_begins_icase_with(ct, "text/"))
 				skip_part = raw_block.part;
 		} else if (!snippet_generate(&ctx, block.data, block.size))
 			break;

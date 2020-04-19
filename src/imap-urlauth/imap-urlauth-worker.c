@@ -795,7 +795,7 @@ client_ctrl_read_fds(struct client *client)
 static void client_ctrl_input(struct client *client)
 {
 	const char *const *args;
-	const char *line;
+	const char *line, *value;
 	int ret;
 
 	timeout_reset(client->to_idle);
@@ -881,9 +881,9 @@ static void client_ctrl_input(struct client *client)
 		if (strcasecmp(*args, "debug") == 0) {
 			client->debug = TRUE;
 		/* apps=<access-application>[,<access-application,...] */
-		} else if (strncasecmp(*args, "apps=", 5) == 0 &&
-			   (*args)[5] != '\0') {
-			const char *const *apps = t_strsplit(*args+5, ",");
+		} else if (str_begins_icase(*args, "apps=", &value) &&
+			   value[0] != '\0') {
+			const char *const *apps = t_strsplit(value, ",");
 
 			while (*apps != NULL) {
 				char *app = i_strdup(*apps);

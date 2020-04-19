@@ -506,7 +506,7 @@ void message_part_data_parse_from_header(pool_t pool,
 
 	parent_rfc822 = part->parent != NULL &&
 		(part->parent->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0;
-	if (!parent_rfc822 && strncasecmp(hdr->name, "Content-", 8) != 0)
+	if (!parent_rfc822 && !str_begins_icase_with(hdr->name, "Content-"))
 		return;
 
 	if (part->data == NULL) {
@@ -515,7 +515,7 @@ void message_part_data_parse_from_header(pool_t pool,
 	}
 	part_data = part->data;
 
-	if (strncasecmp(hdr->name, "Content-", 8) == 0) {
+	if (str_begins_icase_with(hdr->name, "Content-")) {
 		T_BEGIN {
 			parse_content_header(part_data, pool, hdr);
 		} T_END;

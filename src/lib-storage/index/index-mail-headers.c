@@ -184,7 +184,7 @@ static void index_mail_parse_header_register_all_wanted(struct index_mail *mail)
 		mail_cache_register_get_list(_mail->box->cache,
 					     pool_datastack_create(), &count);
 	for (i = 0; i < count; i++) {
-		if (strncasecmp(all_cache_fields[i].name, "hdr.", 4) != 0)
+		if (!str_begins_icase_with(all_cache_fields[i].name, "hdr."))
 			continue;
 		if (!mail_cache_field_want_add(_mail->transaction->cache_trans,
 					       _mail->seq, i))

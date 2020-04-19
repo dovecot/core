@@ -55,7 +55,7 @@ static bool index_attachment_want(const struct istream_attachment_header *hdr,
 
 	/* don't treat text/ parts as attachments */
 	return hdr->content_type != NULL &&
-		strncasecmp(hdr->content_type, "text/", 5) != 0;
+		!str_begins_icase_with(hdr->content_type, "text/");
 }
 
 static int index_attachment_open_temp_fd(void *context)

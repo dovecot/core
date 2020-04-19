@@ -66,8 +66,11 @@ static void
 cmd_id_x_forward_(struct imap_client *client,
 		  const char *key, const char *value)
 {
-	i_assert(strncasecmp(key, "x-forward-", 10) == 0);
-	client_add_forward_field(&client->common, key+10, value);
+	const char *suffix;
+
+	if (!str_begins_icase(key, "x-forward-", &suffix))
+		i_unreached();
+	client_add_forward_field(&client->common, suffix, value);
 }
 
 static const struct imap_id_param_handler imap_login_id_params[] = {
@@ -86,11 +89,11 @@ static const struct imap_id_param_handler imap_login_id_params[] = {
 static const struct imap_id_param_handler *
 imap_id_param_handler_find(const char *key)
 {
-	for (unsigned int i = 0; imap_login_id_params[i].key != NULL; i++) {
-		unsigned int prefix_len = strlen(imap_login_id_params[i].key);
+	const char *suffix;
 
-		if (strncasecmp(imap_login_id_params[i].key, key, prefix_len) == 0 &&
-		    (key[prefix_len] == '\0' ||
+	for (unsigned int i = 0; imap_login_id_params[i].key != NULL; i++) {
+		if (str_begins_icase(key, imap_login_id_params[i].key, &suffix) &&
+		    (suffix[0] == '\0' ||
 		     imap_login_id_params[i].key_is_prefix))
 			return &imap_login_id_params[i];
 	}

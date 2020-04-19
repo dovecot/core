@@ -103,12 +103,9 @@ lua_Integer lua_tointegerx(lua_State *L, int idx, int *isnum_r)
 		/* convert using str_to_long() */
 		str = lua_tostring(L, idx);
 
-		if (strncasecmp(str, "0x", 2) == 0) {
+		if (str_begins_icase(str, "0x", &str)) {
 			/* hex */
 			uintmax_t tmp;
-
-			/* skip over leading 0x */
-			str += 2;
 
 			if (str_to_uintmax_hex(str, &tmp) < 0)
 				break;

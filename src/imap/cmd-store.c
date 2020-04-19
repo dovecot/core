@@ -32,11 +32,11 @@ get_modify_type(struct imap_store_context *ctx, const char *type)
 		ctx->modify_type = MODIFY_REPLACE;
 	}
 
-	if (strncasecmp(type, "FLAGS", 5) != 0)
+	if (!str_begins_icase(type, "FLAGS", &type))
 		return FALSE;
 
-	ctx->silent = strcasecmp(type+5, ".SILENT") == 0;
-	if (!ctx->silent && type[5] != '\0')
+	ctx->silent = strcasecmp(type, ".SILENT") == 0;
+	if (!ctx->silent && type[0] != '\0')
 		return FALSE;
 	return TRUE;
 }

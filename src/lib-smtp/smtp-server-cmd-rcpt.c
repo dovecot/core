@@ -127,16 +127,15 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 		return;
 
 	/* ( "<Postmaster@" Domain ">" / "<Postmaster>" / Forward-path ) */
-	if (params == NULL || strncasecmp(params, "TO:", 3) != 0) {
+	if (params == NULL || !str_begins_icase(params, "TO:", &params)) {
 		smtp_server_reply(cmd,
 			501, "5.5.4", "Invalid parameters");
 		return;
 	}
-	if (params[3] != ' ' && params[3] != '\t') {
-		params += 3;
+	if (params[0] != ' ' && params[0] != '\t') {
+		/* no whitespace */
 	} else if ((set->workarounds &
 		    SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
-		params += 3;
 		while (*params == ' ' || *params == '\t')
 			params++;
 	} else {

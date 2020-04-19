@@ -984,7 +984,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	/* Copy forward fields returned from passdb */
 	fwfields = NULL;
 	for (const char *const *ptr = fields; *ptr != NULL; ptr++) {
-		if (strncasecmp(*ptr, "forward_", 8) != 0)
+		if (!str_begins_icase_with(*ptr, "forward_"))
 			continue;
 
 		if (fwfields == NULL)

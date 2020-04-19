@@ -103,8 +103,8 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 			size_t pos = str_len(str);
 			if (!mail_search_arg_to_imap(str, arg, &error))
 				return FALSE;
-			if (strncasecmp(str_c(str) + pos, "OLDER", 5) == 0 ||
-			    strncasecmp(str_c(str) + pos, "YOUNGER", 7) == 0)
+			if (str_begins_icase_with(str_c(str) + pos, "OLDER") ||
+			    str_begins_icase_with(str_c(str) + pos, "YOUNGER"))
 				return FALSE;
 			return TRUE;
 		}

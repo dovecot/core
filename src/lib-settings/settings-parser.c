@@ -376,19 +376,19 @@ static int settings_get_time_full(const char *str, unsigned int *interval_r,
 	switch (i_toupper(*p)) {
 	case 'S':
 		multiply *= 1;
-		if (strncasecmp(p, "secs", strlen(p)) == 0 ||
-		    strncasecmp(p, "seconds", strlen(p)) == 0)
+		if (str_begins_icase_with("secs", p) ||
+		    str_begins_icase_with("seconds", p))
 			p = "";
 		break;
 	case 'M':
 		multiply *= 60;
-		if (strncasecmp(p, "mins", strlen(p)) == 0 ||
-		    strncasecmp(p, "minutes", strlen(p)) == 0)
+		if (str_begins_icase_with("mins", p) ||
+		    str_begins_icase_with("minutes", p))
 			p = "";
-		else if (strncasecmp(p, "msecs", strlen(p)) == 0 ||
-			 strncasecmp(p, "mseconds", strlen(p)) == 0 ||
-			 strncasecmp(p, "millisecs", strlen(p)) == 0 ||
-			 strncasecmp(p, "milliseconds", strlen(p)) == 0) {
+		else if (str_begins_icase_with("msecs", p) ||
+			 str_begins_icase_with("mseconds", p) ||
+			 str_begins_icase_with("millisecs", p) ||
+			 str_begins_icase_with("milliseconds", p)) {
 			if (milliseconds || (num % 1000) == 0) {
 				if (!milliseconds) {
 					/* allow ms also for seconds, as long
@@ -406,17 +406,17 @@ static int settings_get_time_full(const char *str, unsigned int *interval_r,
 		break;
 	case 'H':
 		multiply *= 60*60;
-		if (strncasecmp(p, "hours", strlen(p)) == 0)
+		if (str_begins_icase_with("hours", p))
 			p = "";
 		break;
 	case 'D':
 		multiply *= 60*60*24;
-		if (strncasecmp(p, "days", strlen(p)) == 0)
+		if (str_begins_icase_with("days", p))
 			p = "";
 		break;
 	case 'W':
 		multiply *= 60*60*24*7;
-		if (strncasecmp(p, "weeks", strlen(p)) == 0)
+		if (str_begins_icase_with("weeks", p))
 			p = "";
 		break;
 	}

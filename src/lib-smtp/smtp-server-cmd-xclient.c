@@ -141,10 +141,8 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 			bool ipv6 = FALSE;
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
 				continue;
-			if (strncasecmp(param.value, "IPV6:", 5) == 0) {
+			if (str_begins_icase(param.value, "IPV6:", &param.value))
 				ipv6 = TRUE;
-				param.value += 5;
-			}
 			if (net_addr2ip(param.value, &proxy_data->source_ip) < 0 ||
 				(ipv6 && proxy_data->source_ip.family != AF_INET6)) {
 				smtp_server_reply(cmd, 501, "5.5.4",

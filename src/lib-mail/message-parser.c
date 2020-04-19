@@ -503,7 +503,7 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 			       struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
-	const char *const *results;
+	const char *const *results, *suffix;
 	string_t *content_type;
 	int ret;
 
@@ -519,14 +519,13 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 
 	if (strcasecmp(str_c(content_type), "message/rfc822") == 0)
 		ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
-	else if (strncasecmp(str_c(content_type), "text", 4) == 0 &&
-		 (str_len(content_type) == 4 ||
-		  str_data(content_type)[4] == '/'))
+	else if (str_begins_icase(str_c(content_type), "text", &suffix) &&
+		 (suffix[0] == '\0' || suffix[0] == '/'))
 		ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
-	else if (strncasecmp(str_c(content_type), "multipart/", 10) == 0) {
+	else if (str_begins_icase(str_c(content_type), "multipart/", &suffix)) {
 		ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART;
 
-		if (strcasecmp(str_c(content_type)+10, "digest") == 0)
+		if (strcasecmp(suffix, "digest") == 0)
 			ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART_DIGEST;
 	}
 

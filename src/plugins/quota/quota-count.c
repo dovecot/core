@@ -153,7 +153,7 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 	}
 	if (iter->ns->prefix_len > 0 &&
 	    (iter->ns->prefix_len != 6 ||
-	     strncasecmp(iter->ns->prefix, "INBOX", 5) != 0)) {
+	     !str_begins_icase_with(iter->ns->prefix, "INBOX"))) {
 		/* if the namespace prefix itself exists, count it also */
 		iter->info.ns = iter->ns;
 		iter->info.vname = t_strndup(iter->ns->prefix,

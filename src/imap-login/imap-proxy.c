@@ -51,11 +51,12 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 
 	/* append any forward_ variables to request */
 	for(const char *const *ptr = client->common.auth_passdb_args; *ptr != NULL; ptr++) {
-		if (strncasecmp(*ptr, "forward_", 8) == 0) {
+		const char *suffix;
+		if (str_begins_icase(*ptr, "forward_", &suffix)) {
 			const char *key = t_strconcat("x-forward-",
-						      t_strcut((*ptr)+8, '='),
+						      t_strcut(suffix, '='),
 						      NULL);
-			const char *val = i_strchr_to_next(*ptr, '=');
+			const char *val = i_strchr_to_next(suffix, '=');
 			str_append_c(str, ' ');
 			imap_append_string(str, key);
 			str_append_c(str, ' ');
@@ -219,12 +220,14 @@ client_send_login_reply(struct imap_client *client, string_t *str,
 			const char *line)
 {
 	const char *capability;
-	bool tagged_capability;
+	bool tagged_capability = FALSE;
 
-	capability = client->proxy_backend_capability;
-	tagged_capability = strncasecmp(line, "[CAPABILITY ", 12) == 0;
-	if (tagged_capability)
-		capability = t_strcut(line + 12, ']');
+	if (!str_begins_icase(line, "[CAPABILITY ", &capability))
+		capability = client->proxy_backend_capability;
+	else {
+		capability = t_strcut(capability, ']');
+		tagged_capability = TRUE;
+	}
 
 	if (client->client_ignores_capability_resp_code && capability != NULL) {
 		/* client has used CAPABILITY command, so it didn't understand
@@ -398,8 +401,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
 
 		const char *log_line = line;
-		if (strncasecmp(log_line, "NO ", 3) == 0)
-			log_line += 3;
+		(void)str_begins_icase(log_line, "NO ", &log_line);
 		enum login_proxy_failure_type failure_type =
 			LOGIN_PROXY_FAILURE_TYPE_AUTH;
 #define STR_NO_IMAP_RESP_CODE_AUTHFAILED "NO ["IMAP_RESP_CODE_AUTHFAILED"]"
@@ -440,9 +442,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 				   login_proxy_get_event(client->login_proxy),
 				   failure_type, log_line);
 		return -1;
-	} else if (strncasecmp(line, "* CAPABILITY ", 13) == 0) {
+	} else if (str_begins_icase(line, "* CAPABILITY ", &line)) {
 		i_free(imap_client->proxy_backend_capability);
-		imap_client->proxy_backend_capability = i_strdup(line + 13);
+		imap_client->proxy_backend_capability = i_strdup(line);
 		return 0;
 	} else if (str_begins_with(line, "C ")) {
 		/* Reply to CAPABILITY command we sent */
@@ -460,7 +462,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return 1;
 		}
 		return 0;
-	} else if (strncasecmp(line, "I ", 2) == 0) {
+	} else if (str_begins_icase_with(line, "I ")) {
 		/* Reply to ID command we sent, ignore it unless
 		   pipelining is disabled, in which case send
 		   either STARTTLS or login */
@@ -479,7 +481,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return 1;
 		}
 		return 0;
-	} else if (strncasecmp(line, "* ID ", 5) == 0) {
+	} else if (str_begins_icase_with(line, "* ID ")) {
 		/* Reply to ID command we sent, ignore it */
 		return 0;
 	} else if (str_begins_with(line, "* BYE ")) {

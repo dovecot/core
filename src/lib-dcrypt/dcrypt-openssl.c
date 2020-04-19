@@ -2291,11 +2291,10 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 	}
 
 	/* see if we want ECDH based or password based encryption */
-	if (cipher != NULL && strncasecmp(cipher, "ecdh-", 5) == 0) {
+	if (cipher != NULL && str_begins_icase(cipher, "ecdh-", &cipher2)) {
 		i_assert(enc_key != NULL);
 		i_assert(password == NULL);
 		enctype = DCRYPT_DOVECOT_KEY_ENCRYPT_PK;
-		cipher2 = cipher+5;
 	} else if (cipher != NULL) {
 		i_assert(enc_key == NULL);
 		i_assert(password != NULL);

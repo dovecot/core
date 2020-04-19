@@ -688,7 +688,7 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 {
 	struct imap_urlauth_request *urlreq;
-	const char *response, *const *args, *bpstruct = NULL;
+	const char *value, *response, *const *args, *bpstruct = NULL;
 	uoff_t literal_size;
 
 	i_assert(conn->targets_head != NULL);
@@ -718,10 +718,9 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 			const char *param = args[1], *error = NULL;
 
 			if (param != NULL &&
-			    strncasecmp(param, "error=", 6) == 0 &&
-			    param[6] != '\0') {
-				error = param+6;
-			}
+			    str_begins_icase(param, "error=", &value) &&
+			    value[0] != '\0')
+				error = value;
 			conn->state = IMAP_URLAUTH_STATE_REQUEST_WAIT;
 			imap_urlauth_request_fail(conn,
 				conn->targets_head->requests_head, error);
@@ -739,9 +738,9 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 
 		if (strcasecmp(param, "hasnuls") == 0) {
 			urlreq->binary_has_nuls = TRUE;
-		} else if (strncasecmp(param, "bpstruct=", 9) == 0 &&
-			   param[9] != '\0') {
-			bpstruct = param+9;
+		} else if (str_begins_icase(param, "bpstruct=", &value) &&
+			   value[0] != '\0') {
+			bpstruct = value;
 		}
 	}
 

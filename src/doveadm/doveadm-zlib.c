@@ -96,15 +96,17 @@ struct client {
 static bool
 client_input_get_compress_algorithm(struct client *client, const char *line)
 {
+	const char *algorithm;
+
 	/* skip tag */
 	while (*line != ' ' && *line != '\0')
 		line++;
-	if (strncasecmp(line, " COMPRESS ", 10) != 0)
+	if (!str_begins_icase(line, " COMPRESS ", &algorithm))
 		return FALSE;
 
-	if (compression_lookup_handler(t_str_lcase(line+10),
+	if (compression_lookup_handler(t_str_lcase(algorithm),
 				       &client->handler) <= 0)
-		i_fatal("Unsupported compression mechanism: %s", line+10);
+		i_fatal("Unsupported compression mechanism: %s", algorithm);
 	return TRUE;
 }
 

@@ -54,7 +54,7 @@ proxy_send_starttls(struct submission_client *client, struct ostream *output)
 static buffer_t *
 proxy_compose_xclient_forward(struct submission_client *client)
 {
-	const char *const *arg;
+	const char *const *arg, *value;
 	string_t *str;
 
 	if (*client->common.auth_passdb_args == NULL)
@@ -62,10 +62,10 @@ proxy_compose_xclient_forward(struct submission_client *client)
 
 	str = t_str_new(128);
 	for (arg = client->common.auth_passdb_args; *arg != NULL; arg++) {
-		if (strncasecmp(*arg, "forward_", 8) == 0) {
+		if (str_begins_icase(*arg, "forward_", &value)) {
 			if (str_len(str) > 0)
 				str_append_c(str, '\t');
-			str_append_tabescaped(str, (*arg)+8);
+			str_append_tabescaped(str, value);
 		}
 	}
 	if (str_len(str) == 0)
@@ -499,7 +499,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	struct smtp_server_command *command = cmd->cmd;
 	struct ostream *output;
 	bool last_line = FALSE, invalid_line = FALSE;
-	const char *text = NULL, *enh_code = NULL;
+	const char *suffix, *text = NULL, *enh_code = NULL;
 	unsigned int status = 0;
 
 	i_assert(!client->destroyed);
@@ -566,17 +566,17 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		}
 
-		if (strncasecmp(text, "XCLIENT ", 8) == 0) {
+		if (str_begins_icase(text, "XCLIENT ", &suffix)) {
 			subm_client->proxy_capability |=
 				SMTP_CAPABILITY_XCLIENT;
 			i_free_and_null(subm_client->proxy_xclient);
 			subm_client->proxy_xclient = p_strarray_dup(
-				default_pool, t_strsplit_spaces(text + 8, " "));
+				default_pool, t_strsplit_spaces(suffix, " "));
 		} else if (strcasecmp(text, "STARTTLS") == 0) {
 			subm_client->proxy_capability |=
 				SMTP_CAPABILITY_STARTTLS;
-		} else if (strncasecmp(text, "AUTH", 4) == 0 &&
-			text[4] == ' ' && text[5] != '\0') {
+		} else if (str_begins_icase(text, "AUTH ", &suffix) &&
+			   suffix[0] != '\0') {
 			subm_client->proxy_capability |=
 				SMTP_CAPABILITY_AUTH;
 		} else if (strcasecmp(text, "ENHANCEDSTATUSCODES") == 0) {

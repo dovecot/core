@@ -445,10 +445,11 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 {
 	struct mailbox *box;
 	enum mailbox_existence existence;
+	const char *suffix;
 	int ret;
 
-	if (strncasecmp(ns->prefix, "INBOX", 5) == 0 &&
-	    ns->prefix[5] == mail_namespace_get_sep(ns)) {
+	if (str_begins_icase(ns->prefix, "INBOX", &suffix) &&
+	    suffix[0] == mail_namespace_get_sep(ns)) {
 		/* prefix=INBOX/ (or prefix=INBOX/something/) namespace exists.
 		   so we can create children to INBOX. */
 		ctx->inbox_info.flags &= ENUM_NEGATE(MAILBOX_NOINFERIORS);
@@ -570,6 +571,7 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 		(struct ns_list_iterate_context *)_ctx;
 	struct mail_namespace *ns;
 	const struct mailbox_info *info;
+	const char *suffix;
 	bool has_children;
 
 	if (ctx->cur_ns == NULL) {
@@ -636,8 +638,8 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 						MAILBOX_CHILD_SUBSCRIBED));
 			return FALSE;
 		}
-		if (strncasecmp(info->vname, "INBOX", 5) == 0 &&
-		    info->vname[5] == mail_namespace_get_sep(info->ns)) {
+		if (str_begins_icase(info->vname, "INBOX", &suffix) &&
+		    suffix[0] == mail_namespace_get_sep(info->ns)) {
 			/* we know now that INBOX has children */
 			ctx->inbox_info.flags |= MAILBOX_CHILDREN;
 			ctx->inbox_info.flags &= ENUM_NEGATE(MAILBOX_NOINFERIORS);

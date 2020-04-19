@@ -844,19 +844,19 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	struct mail_storage *storage;
 	struct mailbox *box;
 	enum mail_error open_error = 0;
-	const char *errstr = NULL;
+	const char *suffix, *errstr = NULL;
 
 	i_assert(uni_utf8_str_is_valid(vname));
 
-	if (strncasecmp(vname, "INBOX", 5) == 0 &&
+	if (str_begins_icase(vname, "INBOX", &suffix) &&
 	    !str_begins_with(vname, "INBOX")) {
 		/* make sure INBOX shows up in uppercase everywhere. do this
 		   regardless of whether we're in inbox=yes namespace, because
 		   clients expect INBOX to be case insensitive regardless of
 		   server's internal configuration. */
-		if (vname[5] == '\0')
+		if (suffix[0] == '\0')
 			vname = "INBOX";
-		else if (vname[5] != mail_namespace_get_sep(list->ns))
+		else if (suffix[0] != mail_namespace_get_sep(list->ns))
 			/* not INBOX prefix */ ;
 		else if (strncasecmp(list->ns->prefix, vname, 6) == 0 &&
 			 !str_begins_with(list->ns->prefix, "INBOX")) {
@@ -866,7 +866,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 				list->ns->prefix);
 			open_error = MAIL_ERROR_TEMP;
 		} else {
-			vname = t_strconcat("INBOX", vname + 5, NULL);
+			vname = t_strconcat("INBOX", suffix, NULL);
 		}
 	}
 

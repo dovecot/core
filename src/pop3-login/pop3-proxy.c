@@ -23,7 +23,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	struct dsasl_client_settings sasl_set;
 	const unsigned char *sasl_output;
 	size_t len;
-	const char *mech_name, *error;
+	const char *mech_name, *value, *error;
 	string_t *str = t_str_new(128);
 
 	i_assert(client->common.proxy_ttl > 1);
@@ -31,10 +31,10 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	    !client->common.proxy_not_trusted) {
 		string_t *fwd = t_str_new(128);
                 for(const char *const *ptr = client->common.auth_passdb_args;*ptr != NULL; ptr++) {
-                        if (strncasecmp(*ptr, "forward_", 8) == 0) {
+                        if (str_begins_icase(*ptr, "forward_", &value)) {
                                 if (str_len(fwd) > 0)
                                         str_append_c(fwd, '\t');
-                                str_append_tabescaped(fwd, (*ptr)+8);
+                                str_append_tabescaped(fwd, value);
                         }
 		}
 

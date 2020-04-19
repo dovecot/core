@@ -417,11 +417,11 @@ static bool mail_cache_fields_parse(const char *key, const char *value,
 	for (arr = t_strsplit_spaces(value, " ,"); *arr != NULL; arr++) {
 		const char *name = *arr;
 
-		if (strncasecmp(name, "hdr.", 4) == 0 &&
-		    !message_header_name_is_valid(name+4)) {
+		if (str_begins_icase(name, "hdr.", &name) &&
+		    !message_header_name_is_valid(name)) {
 			*error_r = t_strdup_printf(
 				"Invalid %s: %s is not a valid header name",
-				key, name + 4);
+				key, name);
 			return FALSE;
 		}
 	}

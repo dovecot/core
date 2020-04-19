@@ -212,10 +212,12 @@ mail_namespace_is_inbox_noinferiors(struct mail_namespace *ns)
 static inline bool
 mail_namespace_prefix_is_inbox(struct mail_namespace *ns)
 {
+	const char *suffix;
+
 	return (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 	       (ns->prefix_len == 6) &&
-	       (strncasecmp(ns->prefix, "INBOX", 5) == 0) &&
-	       (ns->prefix[5] == mail_namespace_get_sep(ns));
+	       (str_begins_icase(ns->prefix, "INBOX", &suffix)) &&
+	       (suffix[0] == mail_namespace_get_sep(ns));
 }
 
 #endif
