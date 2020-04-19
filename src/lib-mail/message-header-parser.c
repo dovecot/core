@@ -434,3 +434,25 @@ message_header_strdup(pool_t pool, const unsigned char *data, size_t size)
 	}
 	return str_c(str);
 }
+
+bool message_header_name_is_valid(const char *name)
+{
+	/*
+	  field-name      =   1*ftext
+
+	  ftext           =   %d33-57 /          ; Printable US-ASCII
+			      %d59-126           ;  characters not including
+						 ;  ":".
+	*/
+	for (unsigned int i = 0; name[i] != '\0'; i++) {
+		unsigned char c = name[i];
+		if (c >= 33 && c <= 57) {
+			/* before ":" */
+		} else if (c >= 59 && c <= 126) {
+			/* after ":" */
+		} else {
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
