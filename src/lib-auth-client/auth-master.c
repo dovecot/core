@@ -723,66 +723,6 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	return ctx.return_value;
 }
 
-struct auth_master_cache_ctx {
-	struct auth_master_connection *conn;
-	unsigned int count;
-	bool failed;
-};
-
-static bool
-auth_cache_flush_reply_callback(const char *cmd, const char *const *args,
-				void *context)
-{
-	struct auth_master_cache_ctx *ctx = context;
-
-	if (strcmp(cmd, "OK") != 0)
-		ctx->failed = TRUE;
-	else if (args[0] == NULL || str_to_uint(args[0], &ctx->count) < 0)
-		ctx->failed = TRUE;
-
-	io_loop_stop(ctx->conn->ioloop);
-	return TRUE;
-}
-
-int auth_master_cache_flush(struct auth_master_connection *conn,
-			    const char *const *users, unsigned int *count_r)
-{
-	struct auth_master_cache_ctx ctx;
-	string_t *str;
-
-	i_zero(&ctx);
-	ctx.conn = conn;
-
-	conn->reply_callback = auth_cache_flush_reply_callback;
-	conn->reply_context = &ctx;
-
-	str = t_str_new(128);
-	str_printfa(str, "CACHE-FLUSH\t%u", auth_master_next_request_id(conn));
-	if (users != NULL) {
-		for (; *users != NULL; users++) {
-			str_append_c(str, '\t');
-			str_append_tabescaped(str, *users);
-		}
-	}
-	str_append_c(str, '\n');
-
-	auth_master_event_create(conn, "auth cache flush: ");
-
-	e_debug(conn->event, "Started cache flush");
-
-	(void)auth_master_run_cmd(conn, str_c(str));
-
-	if (ctx.failed)
-		e_debug(conn->event, "Cache flush failed");
-	else
-		e_debug(conn->event, "Finished cache flush");
-	auth_master_event_finish(conn);
-
-	conn->reply_context = NULL;
-	*count_r = ctx.count;
-	return ctx.failed ? -1 : 0;
-}
-
 struct auth_master_user_list_ctx {
 	struct auth_master_connection *conn;
 	string_t *username;
@@ -936,4 +876,64 @@ int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 	str_free(&ctx->username);
 	i_free(ctx);
 	return ret;
+}
+
+struct auth_master_cache_ctx {
+	struct auth_master_connection *conn;
+	unsigned int count;
+	bool failed;
+};
+
+static bool
+auth_cache_flush_reply_callback(const char *cmd, const char *const *args,
+				void *context)
+{
+	struct auth_master_cache_ctx *ctx = context;
+
+	if (strcmp(cmd, "OK") != 0)
+		ctx->failed = TRUE;
+	else if (args[0] == NULL || str_to_uint(args[0], &ctx->count) < 0)
+		ctx->failed = TRUE;
+
+	io_loop_stop(ctx->conn->ioloop);
+	return TRUE;
+}
+
+int auth_master_cache_flush(struct auth_master_connection *conn,
+			    const char *const *users, unsigned int *count_r)
+{
+	struct auth_master_cache_ctx ctx;
+	string_t *str;
+
+	i_zero(&ctx);
+	ctx.conn = conn;
+
+	conn->reply_callback = auth_cache_flush_reply_callback;
+	conn->reply_context = &ctx;
+
+	str = t_str_new(128);
+	str_printfa(str, "CACHE-FLUSH\t%u", auth_master_next_request_id(conn));
+	if (users != NULL) {
+		for (; *users != NULL; users++) {
+			str_append_c(str, '\t');
+			str_append_tabescaped(str, *users);
+		}
+	}
+	str_append_c(str, '\n');
+
+	auth_master_event_create(conn, "auth cache flush: ");
+
+	e_debug(conn->event, "Started cache flush");
+
+	(void)auth_master_run_cmd(conn, str_c(str));
+
+	if (ctx.failed)
+		e_debug(conn->event, "Cache flush failed");
+	else
+		e_debug(conn->event, "Finished cache flush");
+	auth_master_event_finish(conn);
+
+	conn->reply_context = NULL;
+	*count_r = ctx.count;
+	return ctx.failed ? -1 : 0;
 }
