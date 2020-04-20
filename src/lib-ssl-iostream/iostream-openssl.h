@@ -87,6 +87,7 @@ void openssl_iostream_context_unref(struct ssl_iostream_context *ctx);
 void openssl_iostream_global_deinit(void);
 
 int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
+			      const char *set_name,
 			      EVP_PKEY **pkey_r, const char **error_r);
 bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 			     const char **reason_r);

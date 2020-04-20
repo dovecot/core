@@ -74,6 +74,7 @@ pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 }
 
 int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
+			      const char *set_name,
 			      EVP_PKEY **pkey_r, const char **error_r)
 {
 	struct ssl_iostream_password_context ctx;
@@ -95,8 +96,9 @@ int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 
 	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback, &ctx);
 	if (pkey == NULL && ctx.error == NULL) {
-		ctx.error = t_strdup_printf("Couldn't parse private SSL key: %s",
-					    openssl_iostream_error());
+		ctx.error = t_strdup_printf(
+			"Couldn't parse private SSL key (%s setting): %s",
+			set_name, openssl_iostream_error());
 	}
 	BIO_free(bio);
 
@@ -143,7 +145,7 @@ ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx, const char *set_name,
 	EVP_PKEY *pkey;
 	int ret = 0;
 
-	if (openssl_iostream_load_key(set, &pkey, error_r) < 0)
+	if (openssl_iostream_load_key(set, set_name, &pkey, error_r) < 0)
 		return -1;
 	if (SSL_CTX_use_PrivateKey(ctx->ssl_ctx, pkey) == 0) {
 		*error_r = t_strdup_printf(

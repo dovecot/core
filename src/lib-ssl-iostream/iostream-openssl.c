@@ -91,18 +91,19 @@ openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert,
 }
 
 static int
-openssl_iostream_use_key(struct ssl_iostream *ssl_io,
+openssl_iostream_use_key(struct ssl_iostream *ssl_io, const char *set_name,
 			 const struct ssl_iostream_cert *set,
 			 const char **error_r)
 {
 	EVP_PKEY *pkey;
 	int ret = 0;
 
-	if (openssl_iostream_load_key(set, &pkey, error_r) < 0)
+	if (openssl_iostream_load_key(set, set_name, &pkey, error_r) < 0)
 		return -1;
 	if (SSL_use_PrivateKey(ssl_io->ssl, pkey) != 1) {
-		*error_r = t_strdup_printf("Can't load SSL private key: %s",
-					   openssl_iostream_key_load_error());
+		*error_r = t_strdup_printf(
+			"Can't load SSL private key (%s setting): %s",
+			set_name, openssl_iostream_key_load_error());
 		ret = -1;
 	}
 	EVP_PKEY_free(pkey);
@@ -219,7 +220,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 	}
 	if (set->cert.key != NULL && strcmp(ctx_set->cert.key, set->cert.key) != 0) {
-		if (openssl_iostream_use_key(ssl_io, &set->cert, error_r) < 0)
+		if (openssl_iostream_use_key(ssl_io, "ssl_key", &set->cert, error_r) < 0)
 			return -1;
 	}
 	if (set->alt_cert.cert != NULL && strcmp(ctx_set->alt_cert.cert, set->alt_cert.cert) != 0) {
@@ -227,7 +228,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 	}
 	if (set->alt_cert.key != NULL && strcmp(ctx_set->alt_cert.key, set->alt_cert.key) != 0) {
-		if (openssl_iostream_use_key(ssl_io, &set->alt_cert, error_r) < 0)
+		if (openssl_iostream_use_key(ssl_io, "ssl_alt_key", &set->alt_cert, error_r) < 0)
 			return -1;
 	}
 	if (set->verify_remote_cert) {
