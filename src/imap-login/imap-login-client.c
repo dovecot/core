@@ -553,7 +553,7 @@ static struct client_vfuncs imap_client_vfuncs = {
 	.free = client_common_default_free,
 };
 
-static const struct login_binary imap_login_binary = {
+static struct login_binary imap_login_binary = {
 	.protocol = "imap",
 	.process_name = "imap-login",
 	.default_port = 143,

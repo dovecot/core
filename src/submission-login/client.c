@@ -296,7 +296,7 @@ static struct client_vfuncs submission_client_vfuncs = {
 	.proxy_get_state = submission_proxy_get_state,
 };
 
-static const struct login_binary submission_login_binary = {
+static struct login_binary submission_login_binary = {
 	.protocol = "submission",
 	.process_name = "submission-login",
 	.default_port = 587,

@@ -333,7 +333,7 @@ static struct client_vfuncs pop3_client_vfuncs = {
 	.free = client_common_default_free,
 };
 
-static const struct login_binary pop3_login_binary = {
+static struct login_binary pop3_login_binary = {
 	.protocol = "pop3",
 	.process_name = "pop3-login",
 	.default_port = 110,

@@ -39,7 +39,7 @@ static struct event_category event_category_auth = {
 	.name = "auth",
 };
 
-const struct login_binary *login_binary;
+struct login_binary *login_binary;
 struct auth_client *auth_client;
 struct master_auth *master_auth;
 bool closing_down, login_debug;
@@ -501,7 +501,7 @@ static void main_deinit(void)
 	event_unref(&event_auth);
 }
 
-int login_binary_run(const struct login_binary *binary,
+int login_binary_run(struct login_binary *binary,
 		     int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
