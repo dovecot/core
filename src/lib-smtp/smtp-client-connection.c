@@ -39,6 +39,10 @@ static void
 smtp_client_connection_established(struct smtp_client_connection *conn);
 static void
 smtp_client_connection_start_transaction(struct smtp_client_connection *conn);
+static void
+smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn);
+static bool
+smtp_client_connection_last_ip(struct smtp_client_connection *conn);
 
 /*
  * Capabilities
@@ -280,6 +284,14 @@ void smtp_client_connection_fail(struct smtp_client_connection *conn,
 {
 	struct smtp_reply reply;
 	const char *text_lines[] = {error, NULL};
+
+	if (status == SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED &&
+	    !smtp_client_connection_last_ip(conn)) {
+		i_assert(conn->to_connect == NULL);
+		conn->to_connect = timeout_add_short(0, smtp_client_connection_connect_next_ip,
+						     conn);
+		return;
+	}
 
 	i_zero(&reply);
 	reply.status = status;
@@ -1486,6 +1498,13 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 		conn->to_connect = timeout_add(msecs,
 			smtp_client_connection_connect_timeout, conn);
 	}
+}
+
+static bool
+smtp_client_connection_last_ip(struct smtp_client_connection *conn)
+{
+	i_assert(conn->prev_connect_idx < conn->ips_count);
+	return (conn->prev_connect_idx + 1) % conn->ips_count == 0;
 }
 
 static void
