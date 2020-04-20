@@ -15,6 +15,9 @@ struct smtp_submit_input {
 
 	/* Event to use as parent for the submit event */
 	struct event *event_parent;
+
+	/* Allow running sendmail as root */
+	bool allow_root:1;
 };
 
 struct smtp_submit_result {

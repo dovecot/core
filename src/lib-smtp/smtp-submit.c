@@ -31,6 +31,7 @@ struct smtp_submit_session {
 	struct smtp_submit_settings set;
 	struct ssl_iostream_settings ssl_set;
 	struct event *event;
+	bool allow_root:1;
 };
 
 struct smtp_submit {
@@ -84,6 +85,7 @@ smtp_submit_session_init(const struct smtp_submit_input *input,
 		ssl_iostream_settings_init_from(pool, &session->ssl_set,
 						input->ssl);
 	}
+	session->allow_root = input->allow_root;
 
 	session->event = event_create(input->event_parent);
 	event_add_category(session->event, &event_category_smtp_submit);
@@ -416,6 +418,7 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	pc_set.input_idle_timeout_msecs = set->submission_timeout * 1000;
 	pc_set.debug = set->mail_debug;
 	pc_set.event = subm->event;
+	pc_set.allow_root = subm->session->allow_root;
 	restrict_access_init(&pc_set.restrict_set);
 
 	pc = program_client_local_create
