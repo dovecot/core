@@ -292,7 +292,6 @@ client_handle_download_request(struct client_request *creq,
 		output = http_server_response_get_payload_output(
 			resp, IO_BLOCK_SIZE, TRUE);
 
-		ret = 0;
 		switch (o_stream_send_istream(output, fstream)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
@@ -300,7 +299,8 @@ client_handle_download_request(struct client_request *creq,
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 			/* finish it */
 			ret = o_stream_finish(output);
-			if (ret >= 0)
+			i_assert(ret != 0);
+			if (ret > 0)
 				break;
 			/* fall through */
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
@@ -316,7 +316,6 @@ client_handle_download_request(struct client_request *creq,
 				i_stream_get_name(fstream),
 				i_stream_get_error(fstream));
 		}
-		i_assert(ret != 0);
 
 		if (debug) {
 			i_debug("test server: download: "
@@ -495,7 +494,6 @@ client_request_echo_ostream_blocking(struct client_request *creq,
 	if (tset.server_cork)
 		o_stream_cork(payload_output);
 
-	ret = 0;
 	switch (o_stream_send_istream(payload_output, input)) {
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
@@ -503,7 +501,8 @@ client_request_echo_ostream_blocking(struct client_request *creq,
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 		/* finish it */
 		ret = o_stream_finish(payload_output);
-		if (ret >= 0)
+		i_assert(ret != 0);
+		if (ret > 0)
 			break;
 		/* fall through */
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
@@ -519,7 +518,7 @@ client_request_echo_ostream_blocking(struct client_request *creq,
 			i_stream_get_name(input), creq->path,
 			i_stream_get_error(input));
 	}
-	i_assert(ret != 0);
+
 	if (debug) {
 		i_debug("test server: echo: "
 			"sent all payload for %s", creq->path);
