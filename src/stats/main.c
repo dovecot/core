@@ -13,9 +13,10 @@
 #include "client-reader.h"
 #include "client-http.h"
 
-const struct stats_settings *stats_settings;
 struct stats_metrics *stats_metrics;
 time_t stats_startup_time;
+
+static const struct stats_settings *stats_settings;
 
 static bool client_is_writer(const char *path)
 {
