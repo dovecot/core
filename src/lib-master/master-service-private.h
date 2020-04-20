@@ -82,6 +82,7 @@ struct master_service {
 	bool call_avail_overflow:1;
 	bool config_path_changed_with_param:1;
 	bool want_ssl_settings:1;
+	bool want_ssl_server:1;
 	bool ssl_ctx_initialized:1;
 	bool config_path_from_master:1;
 	bool log_initialized:1;

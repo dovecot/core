@@ -191,9 +191,10 @@ static void master_service_init_socket_listeners(struct master_service *service)
 			}
 		}
 	}
-	service->want_ssl_settings = have_ssl_sockets ||
-		(service->flags & (MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
-				   MASTER_SERVICE_FLAG_HAVE_STARTTLS)) != 0;
+	service->want_ssl_server = have_ssl_sockets ||
+		(service->flags & MASTER_SERVICE_FLAG_HAVE_STARTTLS) != 0;
+	service->want_ssl_settings = service->want_ssl_server ||
+		(service->flags & MASTER_SERVICE_FLAG_USE_SSL_SETTINGS) != 0;
 }
 
 struct master_service *
@@ -640,7 +641,7 @@ void master_service_init_finish(struct master_service *service)
 		lib_signals_set_handler(SIGQUIT, 0, sig_close_listeners, service);
 	}
 	master_service_io_listeners_add(service);
-	if (service->want_ssl_settings &&
+	if (service->want_ssl_server &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_SSL_INIT) == 0)
 		master_service_ssl_ctx_init(service);
 
