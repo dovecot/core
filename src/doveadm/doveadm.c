@@ -346,7 +346,7 @@ int main(int argc, char *argv[])
 	} else {
 		doveadm_read_settings();
 	}
-	master_service_init_log(master_service, "doveadm: ");
+	master_service_init_log(master_service);
 
 	doveadm_cmds_init();
 	for (i = 0; i < N_ELEMENTS(doveadm_cmdline_commands); i++)

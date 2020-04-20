@@ -373,7 +373,7 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_NO_SSL_INIT;
 
 	master_service = master_service_init("auth", service_flags, &argc, &argv, "w");
-	master_service_init_log(master_service, "auth: ");
+	master_service_init_log(master_service);
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {

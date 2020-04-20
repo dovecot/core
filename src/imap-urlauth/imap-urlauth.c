@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 			return FATAL_DEFAULT;
 		}
 	}
-	master_service_init_log(master_service, "imap-urlauth: ");
+	master_service_init_log(master_service);
 
 	i_zero(&input);
 	input.roots = set_roots;

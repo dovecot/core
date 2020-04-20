@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
-	master_service_init_log(master_service, "config: ");
+	master_service_init_log(master_service);
 
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);

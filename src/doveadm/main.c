@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 					 &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	master_service_init_log(master_service, "doveadm: ");
+	master_service_init_log(master_service);
 	main_preinit();
 	master_service_set_die_callback(master_service, doveadm_die);
 

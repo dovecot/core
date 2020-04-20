@@ -503,10 +503,10 @@ master_service_try_init_log(struct master_service *service,
 	return TRUE;
 }
 
-void master_service_init_log(struct master_service *service,
-			     const char *prefix)
+void master_service_init_log(struct master_service *service)
 {
-	master_service_init_log_with_prefix(service, prefix);
+	master_service_init_log_with_prefix(service, t_strdup_printf(
+		"%s: ", service->configured_name));
 }
 
 void master_service_init_log_with_prefix(struct master_service *service,

@@ -341,7 +341,7 @@ int main(int argc, char *argv[])
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	master_service_init_log(master_service, "director: ");
+	master_service_init_log(master_service);
 
 	main_preinit();
 	director->test_port = test_port;

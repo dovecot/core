@@ -430,7 +430,7 @@ sig_log_reopen(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 	unsigned int uninitialized_count;
 	service_signal(services->log, SIGUSR1, &uninitialized_count);
 
-	master_service_init_log(master_service, "master: ");
+	master_service_init_log(master_service);
 	i_set_fatal_handler(master_fatal_callback);
 }
 
@@ -870,7 +870,7 @@ int main(int argc, char *argv[])
 	pidfile_path =
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
 
-	master_service_init_log(master_service, "master: ");
+	master_service_init_log(master_service);
 	startup_early_errors_flush();
 	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
 			       &orig_info_callback, &orig_debug_callback);

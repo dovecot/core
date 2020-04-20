@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 	array_append_zero(&aenvs);
 	accepted_envs = p_strarray_dup(default_pool, array_front(&aenvs));
 
-	master_service_init_log(master_service, "script: ");
+	master_service_init_log(master_service);
 	if (argv[0] == NULL)
 		i_fatal("Missing script path");
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);

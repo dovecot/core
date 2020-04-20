@@ -129,8 +129,7 @@ void master_service_env_clean(void);
 
 /* Initialize logging. Only the first call changes the actual logging
    functions. The following calls change the log prefix. */
-void master_service_init_log(struct master_service *service,
-			     const char *prefix);
+void master_service_init_log(struct master_service *service);
 /* Initialize/change log prefix to the given log prefix. */
 void master_service_init_log_with_prefix(struct master_service *service,
 					 const char *prefix);

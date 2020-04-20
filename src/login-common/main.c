@@ -522,8 +522,7 @@ int login_binary_run(struct login_binary *binary,
 	master_service = master_service_init(login_binary->process_name,
 					     service_flags, &argc, &argv,
 					     "Dl:R:S");
-	master_service_init_log(master_service, t_strconcat(
-		login_binary->process_name, ": ", NULL));
+	master_service_init_log(master_service);
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {

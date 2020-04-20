@@ -410,7 +410,7 @@ int main(int argc, char *argv[])
 	if (argc < 1)
 		i_fatal("Usage: rawlog [-f in|out] [-I] [-b] [-t] <binary> <arguments>");
 
-	master_service_init_log(master_service, "rawlog: ");
+	master_service_init_log(master_service);
 	master_service_init_finish(master_service);
 
 	executable = argv[0];

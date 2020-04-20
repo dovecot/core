@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 	if (master_service_settings_read_simple(master_service, set_roots,
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
-	master_service_init_log(master_service, "replicator: ");
+	master_service_init_log(master_service);
 
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
