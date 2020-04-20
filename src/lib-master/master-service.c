@@ -506,6 +506,12 @@ master_service_try_init_log(struct master_service *service,
 void master_service_init_log(struct master_service *service,
 			     const char *prefix)
 {
+	master_service_init_log_with_prefix(service, prefix);
+}
+
+void master_service_init_log_with_prefix(struct master_service *service,
+					 const char *prefix)
+{
 	if (service->log_initialized) {
 		/* change only the prefix */
 		i_set_failure_prefix("%s", prefix);
