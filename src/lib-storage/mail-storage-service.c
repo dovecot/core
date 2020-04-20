@@ -899,7 +899,7 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 		user->log_prefix = p_strdup(user->pool, str_c(str));
 	} T_END;
 
-	master_service_init_log(ctx->service, user->log_prefix);
+	master_service_init_log_with_prefix(ctx->service, user->log_prefix);
 	/* replace the whole log prefix with mail_log_prefix */
 	event_replace_log_prefix(user->event, user->log_prefix);
 
@@ -991,9 +991,11 @@ mail_storage_service_init(struct master_service *service,
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0) {
 		/* note: we may not have read any settings yet, so this logging
 		   may still be going to wrong location */
+		const char *configured_name =
+			master_service_get_configured_name(service);
 		ctx->default_log_prefix =
-			p_strconcat(pool, service->name, ": ", NULL);
-		master_service_init_log(service, ctx->default_log_prefix);
+			p_strconcat(pool, configured_name, ": ", NULL);
+		master_service_init_log_with_prefix(service, ctx->default_log_prefix);
 	}
 	dict_drivers_register_builtin();
 	if (storage_service_global == NULL)
@@ -1259,9 +1261,11 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	    !ctx->log_initialized) {
 		/* initialize logging again, in case we only read the
 		   settings for the first above */
+		const char *configured_name =
+			master_service_get_configured_name(ctx->service);
 		ctx->log_initialized = TRUE;
-		master_service_init_log(ctx->service,
-			t_strconcat(ctx->service->name, ": ", NULL));
+		master_service_init_log_with_prefix(ctx->service,
+			t_strconcat(configured_name, ": ", NULL));
 		update_log_prefix = TRUE;
 	}
 	sets = master_service_settings_parser_get_others(master_service,

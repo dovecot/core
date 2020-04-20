@@ -351,7 +351,7 @@ int main(int argc, char *argv[])
 	if (director->test_port != 0) {
 		/* we're testing, possibly writing to same log file.
 		   make it clear which director we are. */
-		master_service_init_log(master_service,
+		master_service_init_log_with_prefix(master_service,
 			t_strdup_printf("director(%s): ",
 					net_ip2addr(&director->self_ip)));
 	}

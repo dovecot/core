@@ -21,7 +21,7 @@ static void
 sig_reopen_logs(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
 	master_service->log_initialized = FALSE;
-	master_service_init_log(master_service, global_log_prefix);
+	master_service_init_log_with_prefix(master_service, global_log_prefix);
 }
 
 static void main_init(void)
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 	if (master_service_settings_read_simple(master_service,
 						NULL, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
-	master_service_init_log(master_service, global_log_prefix);
+	master_service_init_log_with_prefix(master_service, global_log_prefix);
 
 	verbose_proctitle = master_service_settings_get(master_service)->verbose_proctitle;
 

@@ -523,7 +523,7 @@ void master_service_init_log_with_prefix(struct master_service *service,
 
 void master_service_init_log_with_pid(struct master_service *service)
 {
-	master_service_init_log(service, t_strdup_printf(
+	master_service_init_log_with_prefix(service, t_strdup_printf(
 		"%s(%s): ", service->configured_name, my_pid));
 }
 
