@@ -215,10 +215,10 @@ stats_http_resource_root_request(void *context ATTR_UNUSED,
  * Server
  */
 
-void client_http_init(void)
+void client_http_init(const struct stats_settings *set)
 {
 	struct http_server_settings http_set = {
-		.rawlog_dir = stats_settings->stats_http_rawlog_dir,
+		.rawlog_dir = set->stats_http_rawlog_dir,
 	};
 
 	i_array_init(&stats_http_resources, 8);

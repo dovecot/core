@@ -22,7 +22,7 @@ void stats_http_resource_add(const char *path, const char *title,
 			typeof(context), struct http_server_request *req, \
 			const char *sub_path))))
 
-void client_http_init(void);
+void client_http_init(const struct stats_settings *set);
 void client_http_deinit(void);
 
 #endif
