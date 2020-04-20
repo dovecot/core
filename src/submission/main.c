@@ -29,6 +29,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#define DNS_CLIENT_SOCKET_PATH "dns-client"
+
 #define LMTP_MASTER_FIRST_LISTEN_FD 3
 
 #define IS_STANDALONE() \
@@ -283,6 +285,7 @@ int main(int argc, char *argv[])
 	struct smtp_server_settings smtp_server_set;
 	struct smtp_client_settings smtp_client_set;
 	const char *username = NULL, *auth_socket_path = "auth-master";
+	const char *tmp_socket_path;
 	const char *error;
 	int c;
 
@@ -360,10 +363,14 @@ int main(int argc, char *argv[])
 	smtp_server = smtp_server_init(&smtp_server_set);
 	smtp_server_command_register(smtp_server, "BURL", cmd_burl, 0);
 
+	if (t_abspath(DNS_CLIENT_SOCKET_PATH, &tmp_socket_path, &error) < 0)
+		i_fatal("t_abspath(%s) failed: %s", DNS_CLIENT_SOCKET_PATH, error);
+
 	/* initialize SMTP client */
 	i_zero(&smtp_client_set);
 	smtp_client_set.my_hostname = my_hostdomain();
 	smtp_client_set.debug = submission_debug;
+	smtp_client_set.dns_client_socket_path = tmp_socket_path;
 	smtp_client = smtp_client_init(&smtp_client_set);
 
 	if (!IS_STANDALONE())
