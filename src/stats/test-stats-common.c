@@ -1,6 +1,7 @@
 /* Copyright (c) 2019 Dovecot authors, see the included COPYING file */
 
 #include "test-stats-common.h"
+#include <time.h>
 #include <unistd.h>
 
 struct event_category test_category = {
@@ -14,6 +15,7 @@ struct event_category child_test_category = {
 
 pool_t test_pool;
 struct stats_metrics *stats_metrics = NULL;
+time_t stats_startup_time;
 
 static bool callback_added = FALSE;
 
@@ -44,6 +46,7 @@ void test_init(const char *settings_blob)
 
 	stats_event_categories_init();
 	test_pool = pool_alloconly_create(MEMPOOL_GROWING"test pool", 2048);
+	stats_startup_time = time(NULL);
 
 	/* register test categories */
 	stats_event_category_register(test_category.name, NULL);
