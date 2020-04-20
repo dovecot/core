@@ -997,8 +997,7 @@ int main(int argc, char *argv[])
 		i_fatal_status(EX_USAGE, "Unknown argument: %s", argv[optind]);
 	}
 
-	master_service_init_log(master_service,
-				t_strdup_printf("imap-urlauth[%s]: ", my_pid));
+	master_service_init_log_with_pid(master_service);
 	master_service_set_die_callback(master_service, imap_urlauth_worker_die);
 
 	storage_service =

@@ -5,7 +5,6 @@
 #include "ioloop.h"
 #include "randgen.h"
 #include "str.h"
-#include "hostpid.h"
 #include "stats-dist.h"
 #include "process-title.h"
 #include "env-util.h"
@@ -162,7 +161,7 @@ int main(int argc, char *argv[])
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	master_service_init_log(master_service, t_strdup_printf("dict(%s): ", my_pid));
+	master_service_init_log_with_pid(master_service);
 	main_preinit();
 	master_service_set_die_callback(master_service, dict_die);
 

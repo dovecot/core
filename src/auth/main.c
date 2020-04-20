@@ -9,7 +9,6 @@
 #include "child-wait.h"
 #include "sql-api.h"
 #include "module-dir.h"
-#include "hostpid.h"
 #include "randgen.h"
 #include "process-title.h"
 #include "settings-parser.h"
@@ -379,8 +378,7 @@ int main(int argc, char *argv[])
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'w':
-			master_service_init_log(master_service,
-				t_strdup_printf("auth-worker(%s): ", my_pid));
+			master_service_init_log_with_pid(master_service);
 			worker = TRUE;
 			break;
 		default:
