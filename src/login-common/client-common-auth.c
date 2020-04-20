@@ -264,7 +264,7 @@ void client_proxy_finish_destroy_client(struct client *client)
 
 	/* Include hostname in the log message in case it's different from the
 	   IP address in the prefix. */
-	str_printfa(str, "started proxying to %s",
+	str_printfa(str, "Started proxying to %s",
 		    login_proxy_get_host(client->login_proxy));
 	if (strcmp(client->virtual_user, client->proxy_user) != 0) {
 		/* remote username is different, log it */
