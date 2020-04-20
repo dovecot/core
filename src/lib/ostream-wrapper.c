@@ -398,7 +398,6 @@ wrapper_ostream_writev_full(struct wrapper_ostream *wostream,
 
 	/* Blocking; loop and wait until all is sent */
 
-	i = 0;
 	sent_total = 0;
 	for (;;) {
 		struct const_iovec niov;
@@ -641,11 +640,10 @@ wrapper_ostream_sendv_real(struct wrapper_ostream *wostream,
 
 	/* Determine total size of data to send */
 	size = 0;
-	for (i = 0, size = 0; i < iov_count; i++)
+	for (i = 0; i < iov_count; i++)
 		size += iov[i].iov_len;
 
 	/* Flush buffer if required */
-	ret = 1;
 	if (!wrapper_ostream_is_empty(wostream) &&
 	    (!stream->corked || wrapper_ostream_is_filled(wostream)) &&
 	    wrapper_ostream_send_prepare(wostream, size) &&
