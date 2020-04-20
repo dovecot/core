@@ -122,7 +122,8 @@ int main(int argc, char *argv[])
 		NULL
 	};
 	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS;
+		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
+		MASTER_SERVICE_FLAG_HAVE_STARTTLS;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP |
