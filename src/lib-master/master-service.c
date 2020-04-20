@@ -193,8 +193,6 @@ static void master_service_init_socket_listeners(struct master_service *service)
 	}
 	service->want_ssl_server = have_ssl_sockets ||
 		(service->flags & MASTER_SERVICE_FLAG_HAVE_STARTTLS) != 0;
-	service->want_ssl_settings = service->want_ssl_server ||
-		(service->flags & MASTER_SERVICE_FLAG_USE_SSL_SETTINGS) != 0;
 }
 
 struct master_service *
@@ -283,6 +281,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 	T_BEGIN {
 		master_service_init_socket_listeners(service);
 	} T_END;
+	service->want_ssl_settings = service->want_ssl_server ||
+		(service->flags & MASTER_SERVICE_FLAG_USE_SSL_SETTINGS) != 0;
 
 #ifdef HAVE_SSL
 	/* load SSL module if necessary */
