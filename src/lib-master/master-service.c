@@ -5,6 +5,7 @@
 #include "lib-event-private.h"
 #include "event-filter.h"
 #include "ioloop.h"
+#include "hostpid.h"
 #include "path-util.h"
 #include "array.h"
 #include "strescape.h"
@@ -512,6 +513,12 @@ void master_service_init_log(struct master_service *service,
 	}
 	if (master_service_try_init_log(service, prefix))
 		service->log_initialized = TRUE;
+}
+
+void master_service_init_log_with_pid(struct master_service *service)
+{
+	master_service_init_log(service, t_strdup_printf(
+		"%s(%s): ", service->configured_name, my_pid));
 }
 
 void master_service_init_stats_client(struct master_service *service,

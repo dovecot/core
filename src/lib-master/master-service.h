@@ -131,6 +131,8 @@ void master_service_env_clean(void);
    functions. The following calls change the log prefix. */
 void master_service_init_log(struct master_service *service,
 			     const char *prefix);
+/* Initialize/change log prefix to "configured_name(my_pid): " */
+void master_service_init_log_with_pid(struct master_service *service);
 /* Initialize stats client (if it's not already initialized). This is called
    automatically if MASTER_SERVICE_FLAG_SEND_STATS is enabled. If
    silent_notfound_errors is set, connect() errors aren't logged if they're
