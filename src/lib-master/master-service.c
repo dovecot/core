@@ -192,7 +192,8 @@ static void master_service_init_socket_listeners(struct master_service *service)
 		}
 	}
 	service->want_ssl_settings = have_ssl_sockets ||
-		(service->flags & MASTER_SERVICE_FLAG_USE_SSL_SETTINGS) != 0;
+		(service->flags & (MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
+				   MASTER_SERVICE_FLAG_HAVE_STARTTLS)) != 0;
 }
 
 struct master_service *

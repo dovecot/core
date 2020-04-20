@@ -38,7 +38,10 @@ enum master_service_flags {
 	   initialization doesn't unnecessarily use up memory in data stack. */
 	MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME = 0x800,
 	/* Don't connect at startup to the stats process. */
-	MASTER_SERVICE_FLAG_DONT_SEND_STATS	= 0x1000
+	MASTER_SERVICE_FLAG_DONT_SEND_STATS	= 0x1000,
+	/* Service supports STARTTLS-like feature. SSL server must be
+	   initialized even if there are no ssl=yes listeners. */
+	MASTER_SERVICE_FLAG_HAVE_STARTTLS	= 0x2000,
 };
 
 struct master_service_connection_proxy {
