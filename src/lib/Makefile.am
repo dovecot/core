@@ -32,6 +32,7 @@ liblib_la_SOURCES = \
 	eacces-error.c \
 	env-util.c \
 	event-filter.c \
+	event-filter-parser.c \
 	event-log.c \
 	execv-const.c \
 	failures.c \
