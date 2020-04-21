@@ -94,30 +94,6 @@ static bool openmetrics_check_name(const char *name)
 	return TRUE;
 }
 
-static bool openmetrics_check_metric(const struct metric *metric)
-{
-	const char *const *filters;
-	unsigned int i, count;
-
-	if (!openmetrics_check_name(metric->name))
-		return FALSE;
-
-	if (!array_is_created(&metric->set->filter))
-		return TRUE;
-
-	filters = array_get(&metric->set->filter, &count);
-	if (count == 0)
-		return TRUE;
-	i_assert(count % 2 == 0);
-
-	count /= 2;
-	for (i = 1; i < count; i++) {
-		if (!openmetrics_check_name(filters[i * 2]))
-			return FALSE;
-	}
-	return TRUE;
-}
-
 static void openmetrics_export_dovecot(string_t *out, int64_t timestamp)
 {
 	i_assert(stats_startup_time <= ioloop_time);
@@ -132,35 +108,6 @@ static void openmetrics_export_dovecot(string_t *out, int64_t timestamp)
 	str_append(out, "# TYPE dovecot_build_info untyped\n");
 	str_printfa(out, "dovecot_build_info{"OPENMETRICS_BUILD_INFO"} "
 			 "1 %"PRId64"\n", timestamp);
-}
-
-static void
-openmetrics_export_metric_labels(string_t *out, const struct metric *metric)
-{
-	const char *const *filters;
-	unsigned int i, count;
-
-	if (!array_is_created(&metric->set->filter))
-		return;
-
-	filters = array_get(&metric->set->filter, &count);
-	if (count == 0)
-		return;
-	i_assert(count % 2 == 0);
-
-	str_append(out, filters[0]);
-	str_append(out, "=\"");
-	json_append_escaped(out, filters[1]);
-	str_append_c(out, '"');
-
-	count /= 2;
-	for (i = 1; i < count; i++) {
-		str_append_c(out, ',');
-		str_append(out, filters[i * 2]);
-		str_append(out, "=\"");
-		json_append_escaped(out, filters[i * 2 + 1]);
-		str_append_c(out, '"');
-	}
 }
 
 static void
@@ -604,7 +551,7 @@ openmetrics_export_continue(struct openmetrics_request *req, string_t *out,
 		do {
 			req->metric = stats_metrics_iterate(req->stats_iter);
 		} while (req->metric != NULL &&
-			 !openmetrics_check_metric(req->metric));
+			 !openmetrics_check_name(req->metric->name));
 		if (req->metric == NULL) {
 			/* Finished exporting metrics. */
 			req->state = OPENMETRICS_REQUEST_STATE_FINISHED;
@@ -615,8 +562,7 @@ openmetrics_export_continue(struct openmetrics_request *req, string_t *out,
 			req->labels = str_new(default_pool, 32);
 		else
 			str_truncate(req->labels, 0);
-		openmetrics_export_metric_labels(req->labels, req->metric);
-		req->labels_pos = str_len(req->labels);
+		req->labels_pos = 0;
 
 		/* Start with count output for this metric. */
 		req->metric_type = OPENMETRICS_METRIC_TYPE_COUNT;
@@ -802,11 +748,11 @@ void stats_service_openmetrics_init(void)
 
 	iter = stats_metrics_iterate_init(stats_metrics);
 	while ((metric = stats_metrics_iterate(iter)) != NULL) {
-		if (!openmetrics_check_metric(metric)) {
+		if (!openmetrics_check_name(metric->name)) {
 			i_warning(
 				"stats: openmetrics: "
 				"Metric `%s' is not valid for OpenMetrics"
-				"(invalid metric or label name; skipped)",
+				"(invalid metric name; skipped)",
 				metric->name);
 		}
 	}
