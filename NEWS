@@ -1,3 +1,21 @@
+v2.3.10.1  2020-05-18  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	- CVE-2020-10957: lmtp/submission: A client can crash the server by
+	  sending a NOOP command with an invalid string parameter. This occurs
+	  particularly for a parameter that doesn't start with a double quote.
+	  This applies to all SMTP services, including submission-login, which
+	  makes it possible to crash the submission service without
+	  authentication.
+	- CVE-2020-10958: lmtp/submission: Sending many invalid or unknown
+	  commands can cause the server to access freed memory, which can lead
+	  to a server crash. This happens when the server closes the connection
+	  with a "421 Too many invalid commands" error. The bad command limit
+	  depends on the service (lmtp or submission) and varies between 10 to
+	  20 bad commands.
+	- CVE-2020-10967: lmtp/submission: Issuing the RCPT command with an
+	  address that has the empty quoted string as local-part causes the lmtp
+	  service to crash.
+
 v2.3.10  2020-03-06  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Disable retpoline migitations by default. These can cause severe
