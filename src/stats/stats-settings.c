@@ -8,6 +8,7 @@
 #include "array.h"
 
 /* <settings checks> */
+#include "event-filter.h"
 #include <math.h>
 /* </settings checks> */
 
@@ -102,12 +103,9 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 
 static const struct setting_define stats_metric_setting_defines[] = {
 	DEF(SET_STR, metric_name),
-	DEF(SET_STR, event_name),
-	DEF(SET_STR, source_location),
-	DEF(SET_STR, categories),
 	DEF(SET_STR, fields),
 	DEF(SET_STR, group_by),
-	{ SET_STRLIST, "filter", offsetof(struct stats_metric_settings, filter), NULL },
+	DEF(SET_STR, filter),
 	DEF(SET_STR, exporter),
 	DEF(SET_STR, exporter_include),
 	DEF(SET_STR, description),
@@ -116,10 +114,8 @@ static const struct setting_define stats_metric_setting_defines[] = {
 
 static const struct stats_metric_settings stats_metric_default_settings = {
 	.metric_name = "",
-	.event_name = "",
-	.source_location = "",
-	.categories = "",
 	.fields = "",
+	.filter = "",
 	.exporter = "",
 	.group_by = "",
 	.exporter_include = "name hostname timestamps categories fields",
@@ -479,23 +475,15 @@ static bool parse_metric_group_by(struct stats_metric_settings *set,
 static bool stats_metric_settings_check(void *_set, pool_t pool, const char **error_r)
 {
 	struct stats_metric_settings *set = _set;
-	const char *p;
 
 	if (set->metric_name[0] == '\0') {
 		*error_r = "Metric name can't be empty";
 		return FALSE;
 	}
-	if (set->source_location[0] != '\0') {
-		if ((p = strchr(set->source_location, ':')) == NULL) {
-			*error_r = "source_location is missing ':'";
-			return FALSE;
-		}
-		if (str_to_uint(p+1, &set->parsed_source_linenum) < 0 ||
-		    set->parsed_source_linenum == 0) {
-			*error_r = "source_location has invalid line number after ':'";
-			return FALSE;
-		}
-	}
+
+	set->parsed_filter = event_filter_create_fragment(pool);
+	if (event_filter_parse(set->filter, set->parsed_filter, error_r) < 0)
+		return FALSE;
 
 	if (!parse_metric_group_by(set, pool, error_r))
 		return FALSE;

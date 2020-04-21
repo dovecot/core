@@ -97,15 +97,12 @@ struct stats_metric_settings_group_by {
 struct stats_metric_settings {
 	const char *metric_name;
 	const char *description;
-	const char *event_name;
-	const char *source_location;
-	const char *categories;
 	const char *fields;
 	const char *group_by;
-	ARRAY(const char *) filter;
+	const char *filter;
 
-	unsigned int parsed_source_linenum;
 	ARRAY(struct stats_metric_settings_group_by) parsed_group_by;
+	struct event_filter *parsed_filter;
 
 	/* exporter related fields */
 	const char *exporter;

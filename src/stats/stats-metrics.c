@@ -27,37 +27,6 @@ stats_metric_event(struct metric *metric, struct event *event, pool_t pool);
 static struct metric *
 stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t pool);
 
-static void
-stats_metric_settings_to_query(const struct stats_metric_settings *set,
-			       struct event_filter_query *query_r)
-{
-	i_zero(query_r);
-
-	/* generate fields for event filter */
-	if (array_is_created(&set->filter)) {
-		struct event_filter_field *filter_fields;
-		const char *const *filters;
-		unsigned int i, count;
-
-		filters = array_get(&set->filter, &count);
-		i_assert(count % 2 == 0);
-		count /= 2;
-
-		filter_fields = t_new(struct event_filter_field, count + 1);
-		for (i = 0; i < count; i++) {
-			filter_fields[i].key = filters[i*2];
-			filter_fields[i].value = filters[i*2+1];
-		}
-		query_r->fields = filter_fields;
-	}
-
-	/* add query to the event filter */
-	query_r->categories = t_strsplit_spaces(set->categories, " ");
-	query_r->name = set->event_name;
-	query_r->source_filename = t_strcut(set->source_location, ':');
-	query_r->source_linenum = set->parsed_source_linenum;
-}
-
 static void stats_exporters_add_set(struct stats_metrics *metrics,
 				    const struct stats_exporter_settings *set)
 {
@@ -131,7 +100,6 @@ stats_metric_alloc(pool_t pool, const char *name,
 static void stats_metrics_add_set(struct stats_metrics *metrics,
 				  const struct stats_metric_settings *set)
 {
-	struct event_filter_query query;
 	struct exporter *const *exporter;
 	struct metric *metric;
 	const char *const *fields;
@@ -146,10 +114,8 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 
 	array_push_back(&metrics->metrics, &metric);
 
-	stats_metric_settings_to_query(set, &query);
-	query.context = metric;
-	event_filter_add(metrics->stats_filter, &query);
-	event_filter_add(metrics->combined_filter, &query);
+	event_filter_merge_with_context(metrics->stats_filter, set->parsed_filter, metric);
+	event_filter_merge_with_context(metrics->combined_filter, set->parsed_filter, metric);
 
 	/*
 	 * Done with statistics setup, now onto exporter setup
@@ -188,8 +154,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 			i_warning("Ignoring unknown exporter include '%s'", *tmp);
 	}
 
-	/* query already constructed */
-	event_filter_add(metrics->export_filter, &query);
+	event_filter_merge_with_context(metrics->export_filter, set->parsed_filter, metric);
 }
 
 static void

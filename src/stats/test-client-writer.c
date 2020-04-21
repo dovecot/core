@@ -100,7 +100,7 @@ bool test_stats_callback(struct event *event,
 static const char *settings_blob_1 =
 "metric=test\n"
 "metric/test/metric_name=test\n"
-"metric/test/event_name=test\n"
+"metric/test/filter=event:test\n"
 "\n";
 
 static void test_client_writer(void)
