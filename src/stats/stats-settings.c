@@ -101,7 +101,7 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 	{ type, #name, offsetof(struct stats_metric_settings, name), NULL }
 
 static const struct setting_define stats_metric_setting_defines[] = {
-	DEF(SET_STR, name),
+	DEF(SET_STR, metric_name),
 	DEF(SET_STR, event_name),
 	DEF(SET_STR, source_location),
 	DEF(SET_STR, categories),
@@ -115,7 +115,7 @@ static const struct setting_define stats_metric_setting_defines[] = {
 };
 
 static const struct stats_metric_settings stats_metric_default_settings = {
-	.name = "",
+	.metric_name = "",
 	.event_name = "",
 	.source_location = "",
 	.categories = "",
@@ -130,7 +130,7 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 	.defines = stats_metric_setting_defines,
 	.defaults = &stats_metric_default_settings,
 
-	.type_offset = offsetof(struct stats_metric_settings, name),
+	.type_offset = offsetof(struct stats_metric_settings, metric_name),
 	.struct_size = sizeof(struct stats_metric_settings),
 
 	.parent_offset = (size_t)-1,
@@ -481,7 +481,7 @@ static bool stats_metric_settings_check(void *_set, pool_t pool, const char **er
 	struct stats_metric_settings *set = _set;
 	const char *p;
 
-	if (set->name[0] == '\0') {
+	if (set->metric_name[0] == '\0') {
 		*error_r = "Metric name can't be empty";
 		return FALSE;
 	}
@@ -530,7 +530,7 @@ static bool stats_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		if (!found) {
 			*error_r = t_strdup_printf("metric %s refers to "
 						   "non-existent exporter '%s'",
-						   (*metric)->name,
+						   (*metric)->metric_name,
 						   (*metric)->exporter);
 			return FALSE;
 		}

@@ -95,7 +95,7 @@ struct stats_metric_settings_group_by {
 /* </settings checks> */
 
 struct stats_metric_settings {
-	const char *name;
+	const char *metric_name;
 	const char *description;
 	const char *event_name;
 	const char *source_location;

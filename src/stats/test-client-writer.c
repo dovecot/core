@@ -99,7 +99,7 @@ bool test_stats_callback(struct event *event,
 
 static const char *settings_blob_1 =
 "metric=test\n"
-"metric/test/name=test\n"
+"metric/test/metric_name=test\n"
 "metric/test/event_name=test\n"
 "\n";
 

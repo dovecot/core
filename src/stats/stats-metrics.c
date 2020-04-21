@@ -138,7 +138,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 	const char *const *tmp;
 
 	fields = t_strsplit_spaces(set->fields, " ");
-	metric = stats_metric_alloc(metrics->pool, set->name, set, fields);
+	metric = stats_metric_alloc(metrics->pool, set->metric_name, set, fields);
 
 	if (array_is_created(&set->parsed_group_by))
 		metric->group_by = array_get(&set->parsed_group_by,
@@ -167,7 +167,7 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 
 	if (metric->export_info.exporter == NULL)
 		i_panic("Could not find exporter (%s) for metric (%s)",
-			set->exporter, set->name);
+			set->exporter, set->metric_name);
 
 	/* Defaults */
 	metric->export_info.include = EVENT_EXPORTER_INCL_NONE;
