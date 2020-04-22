@@ -1204,7 +1204,8 @@ http_client_request_continue_payload(struct http_client_request **_req,
 			io_loop_run(client_ioloop);
 
 			if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT &&
-				req->payload_input->eof) {
+			    req->payload_input != NULL &&
+			    req->payload_input->eof) {
 				i_stream_unref(&req->payload_input);
 				req->payload_input = NULL;
 				break;
