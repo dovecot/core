@@ -87,6 +87,8 @@ int smtp_param_parse(pool_t pool, const char *text,
 
 void smtp_params_add_one(ARRAY_TYPE(smtp_param) *params, pool_t pool,
 			 const char *keyword, const char *value);
+bool smtp_params_drop_one(ARRAY_TYPE(smtp_param) *params, const char *keyword,
+			  const char **value_r);
 
 /* write */
 
