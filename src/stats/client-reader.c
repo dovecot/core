@@ -77,6 +77,23 @@ static void reader_client_dump_metric(string_t *str, const struct metric *metric
 }
 
 static void
+reader_client_append_sub_name(string_t *str, const char *sub_name)
+{
+	for (; *sub_name != '\0'; sub_name++) {
+		switch (*sub_name) {
+		case '\t':
+		case '\n':
+		case '\r':
+		case ' ':
+			str_append_c(str, '_');
+			break;
+		default:
+			str_append_c(str, *sub_name);
+		}
+	}
+}
+
+static void
 reader_client_dump_sub_metrics(struct ostream *output, const struct metric *metric,
 			       const char *sub_name, const char *const *fields)
 {
@@ -85,13 +102,13 @@ reader_client_dump_sub_metrics(struct ostream *output, const struct metric *metr
 	if (!array_is_created(&metric->sub_metrics))
 		return;
 	string_t *str = t_str_new(128);
-	str_append_tabescaped(str, sub_name);
+	reader_client_append_sub_name(str, sub_name);
 	str_append_c(str, '_');
 	root_pos = str->used;
 
 	array_foreach(&metric->sub_metrics, sub_metrics) {
 		str_truncate(str, root_pos);
-		str_append_tabescaped(str, (*sub_metrics)->sub_name);
+		reader_client_append_sub_name(str, (*sub_metrics)->sub_name);
 		name_pos = str->used;
 		reader_client_dump_metric(str, *sub_metrics, fields);
 		o_stream_nsend(output, str_data(str), str_len(str));
