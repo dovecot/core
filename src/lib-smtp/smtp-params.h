@@ -85,6 +85,9 @@ int smtp_param_parse(pool_t pool, const char *text,
 
 /* manipulate */
 
+void smtp_params_copy(pool_t pool, ARRAY_TYPE(smtp_param) *dst,
+		      const ARRAY_TYPE(smtp_param) *src) ATTR_NULL(3);
+
 void smtp_params_add_one(ARRAY_TYPE(smtp_param) *params, pool_t pool,
 			 const char *keyword, const char *value);
 bool smtp_params_drop_one(ARRAY_TYPE(smtp_param) *params, const char *keyword,
@@ -117,7 +120,7 @@ int smtp_params_mail_parse(pool_t pool, const char *args,
 /* manipulate */
 
 void smtp_params_mail_copy(pool_t pool, struct smtp_params_mail *dst,
-			   const struct smtp_params_mail *src) ATTR_NULL(3);
+			   const struct smtp_params_mail *src);
 
 void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
 				const char *keyword, const char *value)

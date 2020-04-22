@@ -92,6 +92,24 @@ int smtp_param_parse(pool_t pool, const char *text,
 
 /* manipulate */
 
+void smtp_params_copy(pool_t pool, ARRAY_TYPE(smtp_param) *dst,
+		      const ARRAY_TYPE(smtp_param) *src)
+{
+	const struct smtp_param *param;
+
+	if (!array_is_created(src))
+		return;
+
+	p_array_init(dst, pool, array_count(src));
+	array_foreach(src, param) {
+		struct smtp_param param_new;
+
+		param_new.keyword = p_strdup(pool, param->keyword);
+		param_new.value = p_strdup(pool, param->value);
+		array_push_back(dst, &param_new);
+	}
+}
+
 void smtp_params_add_one(ARRAY_TYPE(smtp_param) *params, pool_t pool,
 			 const char *keyword, const char *value)
 {
@@ -503,18 +521,7 @@ void smtp_params_mail_copy(pool_t pool, struct smtp_params_mail *dst,
 	dst->ret = src->ret;
 	dst->size = src->size;
 
-	if (array_is_created(&src->extra_params)) {
-		const struct smtp_param *param;
-		struct smtp_param param_new;
-
-		p_array_init(&dst->extra_params, pool,
-			     array_count(&src->extra_params));
-		array_foreach(&src->extra_params, param) {
-			param_new.keyword = p_strdup(pool, param->keyword);
-			param_new.value = p_strdup(pool, param->value);
-			array_push_back(&dst->extra_params, &param_new);
-		}
-	}
+	smtp_params_copy(pool, &dst->extra_params, &src->extra_params);
 }
 
 void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
@@ -1071,18 +1078,7 @@ void smtp_params_rcpt_copy(pool_t pool, struct smtp_params_rcpt *dst,
 	dst->orcpt.addr_raw = p_strdup(pool, src->orcpt.addr_raw);
 	dst->orcpt.addr = smtp_address_clone(pool, src->orcpt.addr);
 
-	if (array_is_created(&src->extra_params)) {
-		const struct smtp_param *param;
-		struct smtp_param param_new;
-
-		p_array_init(&dst->extra_params, pool,
-			array_count(&src->extra_params));
-		array_foreach(&src->extra_params, param) {
-			param_new.keyword = p_strdup(pool, param->keyword);
-			param_new.value = p_strdup(pool, param->value);
-			array_push_back(&dst->extra_params, &param_new);
-		}
-	}
+	smtp_params_copy(pool, &dst->extra_params, &src->extra_params);
 }
 
 void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
