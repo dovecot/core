@@ -83,6 +83,11 @@ enum smtp_param_parse_error {
 int smtp_param_parse(pool_t pool, const char *text,
 		     struct smtp_param *param_r, const char **error_r);
 
+/* manipulate */
+
+void smtp_params_add_one(ARRAY_TYPE(smtp_param) *params, pool_t pool,
+			 const char *keyword, const char *value);
+
 /* write */
 
 void smtp_param_write(string_t *out, const struct smtp_param *param);

@@ -90,6 +90,22 @@ int smtp_param_parse(pool_t pool, const char *text,
 	return 1;
 }
 
+/* manipulate */
+
+void smtp_params_add_one(ARRAY_TYPE(smtp_param) *params, pool_t pool,
+			 const char *keyword, const char *value)
+{
+	struct smtp_param param;
+
+	if (!array_is_created(params))
+		p_array_init(params, pool, 4);
+
+	i_zero(&param);
+	param.keyword = p_strdup(pool, keyword);
+	param.value = p_strdup(pool, value);
+	array_push_back(params, &param);
+}
+
 /* write */
 
 static bool smtp_param_value_valid(const char *value)
@@ -484,15 +500,7 @@ void smtp_params_mail_copy(pool_t pool, struct smtp_params_mail *dst,
 void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
 				const char *keyword, const char *value)
 {
-	struct smtp_param param;
-
-	if (!array_is_created(&params->extra_params))
-		p_array_init(&params->extra_params, pool, 4);
-
-	i_zero(&param);
-	param.keyword = p_strdup(pool, keyword);
-	param.value = p_strdup(pool, value);
-	array_push_back(&params->extra_params, &param);
+	smtp_params_add_one(&params->extra_params, pool, keyword, value);
 }
 
 bool smtp_params_mail_drop_extra(struct smtp_params_mail *params,
@@ -1075,15 +1083,7 @@ void smtp_params_rcpt_copy(pool_t pool, struct smtp_params_rcpt *dst,
 void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
 				const char *keyword, const char *value)
 {
-	struct smtp_param param;
-
-	if (!array_is_created(&params->extra_params))
-		p_array_init(&params->extra_params, pool, 4);
-
-	i_zero(&param);
-	param.keyword = p_strdup(pool, keyword);
-	param.value = p_strdup(pool, value);
-	array_push_back(&params->extra_params, &param);
+	smtp_params_add_one(&params->extra_params, pool, keyword, value);
 }
 
 bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,
