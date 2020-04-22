@@ -90,6 +90,10 @@ void smtp_params_copy(pool_t pool, ARRAY_TYPE(smtp_param) *dst,
 
 void smtp_params_add_one(ARRAY_TYPE(smtp_param) *params, pool_t pool,
 			 const char *keyword, const char *value);
+void smtp_params_add_encoded(ARRAY_TYPE(smtp_param) *params, pool_t pool,
+			     const char *keyword, const unsigned char *value,
+			     size_t value_len);
+
 bool smtp_params_drop_one(ARRAY_TYPE(smtp_param) *params, const char *keyword,
 			  const char **value_r);
 
@@ -102,6 +106,9 @@ void smtp_param_write(string_t *out, const struct smtp_param *param);
 const struct smtp_param *
 smtp_params_get_param(const ARRAY_TYPE(smtp_param) *params,
 		      const char *keyword);
+int smtp_params_decode_param(const ARRAY_TYPE(smtp_param) *params,
+			     const char *keyword, string_t **value_r,
+			     bool allow_nul, const char **error_r);
 
 bool smtp_params_equal(const ARRAY_TYPE(smtp_param) *params1,
 		       const ARRAY_TYPE(smtp_param) *params2);
@@ -128,6 +135,10 @@ void smtp_params_mail_copy(pool_t pool, struct smtp_params_mail *dst,
 void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
 				const char *keyword, const char *value)
 				ATTR_NULL(4);
+void smtp_params_mail_encode_extra(struct smtp_params_mail *params, pool_t pool,
+				   const char *keyword,
+				   const unsigned char *value,
+				   size_t value_len);
 bool smtp_params_mail_drop_extra(struct smtp_params_mail *params,
 				 const char *keyword, const char **value_r)
 				 ATTR_NULL(3);
@@ -142,6 +153,9 @@ void smtp_params_mail_write(string_t *buffer, enum smtp_capability caps,
 const struct smtp_param *
 smtp_params_mail_get_extra(const struct smtp_params_mail *params,
 			   const char *keyword);
+int smtp_params_mail_decode_extra(const struct smtp_params_mail *params,
+				  const char *keyword, string_t **value_r,
+				  bool allow_nul, const char **error_r);
 
 /* events */
 
@@ -175,6 +189,10 @@ void smtp_params_rcpt_copy(pool_t pool, struct smtp_params_rcpt *dst,
 void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
 				const char *keyword, const char *value)
 				ATTR_NULL(4);
+void smtp_params_rcpt_encode_extra(struct smtp_params_rcpt *params, pool_t pool,
+				   const char *keyword,
+				   const unsigned char *value,
+				   size_t value_len);
 bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,
 				 const char *keyword, const char **value_r)
 				 ATTR_NULL(3);
@@ -192,6 +210,9 @@ void smtp_params_rcpt_write(string_t *buffer, enum smtp_capability caps,
 const struct smtp_param *
 smtp_params_rcpt_get_extra(const struct smtp_params_rcpt *params,
 			   const char *keyword);
+int smtp_params_rcpt_decode_extra(const struct smtp_params_rcpt *params,
+				  const char *keyword, string_t **value_r,
+				  bool allow_nul, const char **error_r);
 
 bool smtp_params_rcpt_equal(const struct smtp_params_rcpt *params1,
 			    const struct smtp_params_rcpt *params2);

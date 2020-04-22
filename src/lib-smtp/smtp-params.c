@@ -124,6 +124,16 @@ void smtp_params_add_one(ARRAY_TYPE(smtp_param) *params, pool_t pool,
 	array_push_back(params, &param);
 }
 
+void smtp_params_add_encoded(ARRAY_TYPE(smtp_param) *params, pool_t pool,
+			     const char *keyword, const unsigned char *value,
+			     size_t value_len)
+{
+	string_t *value_enc = t_str_new(value_len * 2);
+
+	smtp_xtext_encode(value_enc, value, value_len);
+	smtp_params_add_one(params, pool, keyword, str_c(value_enc));
+}
+
 bool smtp_params_drop_one(ARRAY_TYPE(smtp_param) *params, const char *keyword,
 			  const char **value_r)
 {
@@ -195,6 +205,22 @@ smtp_params_get_param(const ARRAY_TYPE(smtp_param) *params,
 			return param;
 	}
 	return NULL;
+}
+
+int smtp_params_decode_param(const ARRAY_TYPE(smtp_param) *params,
+			     const char *keyword, string_t **value_r,
+			     bool allow_nul, const char **error_r)
+{
+	const struct smtp_param *param;
+
+	param = smtp_params_get_param(params, keyword);
+	if (param == NULL)
+		return 0;
+
+	*value_r = t_str_new(strlen(param->value) * 2);
+	if (smtp_xtext_decode(*value_r, param->value, allow_nul, error_r) <= 0)
+		return -1;
+	return 1;
 }
 
 bool smtp_params_equal(const ARRAY_TYPE(smtp_param) *params1,
@@ -569,6 +595,15 @@ void smtp_params_mail_add_extra(struct smtp_params_mail *params, pool_t pool,
 	smtp_params_add_one(&params->extra_params, pool, keyword, value);
 }
 
+void smtp_params_mail_encode_extra(struct smtp_params_mail *params, pool_t pool,
+				   const char *keyword,
+				   const unsigned char *value,
+				   size_t value_len)
+{
+	smtp_params_add_encoded(&params->extra_params, pool,
+				keyword, value, value_len);
+}
+
 bool smtp_params_mail_drop_extra(struct smtp_params_mail *params,
 				 const char *keyword, const char **value_r)
 {
@@ -711,6 +746,14 @@ smtp_params_mail_get_extra(const struct smtp_params_mail *params,
 			   const char *keyword)
 {
 	return smtp_params_get_param(&params->extra_params, keyword);
+}
+
+int smtp_params_mail_decode_extra(const struct smtp_params_mail *params,
+				  const char *keyword, string_t **value_r,
+				  bool allow_nul, const char **error_r)
+{
+	return smtp_params_decode_param(&params->extra_params,
+					keyword, value_r, allow_nul, error_r);
 }
 
 /* events */
@@ -1119,6 +1162,15 @@ void smtp_params_rcpt_add_extra(struct smtp_params_rcpt *params, pool_t pool,
 	smtp_params_add_one(&params->extra_params, pool, keyword, value);
 }
 
+void smtp_params_rcpt_encode_extra(struct smtp_params_rcpt *params, pool_t pool,
+				   const char *keyword,
+				   const unsigned char *value,
+				   size_t value_len)
+{
+	smtp_params_add_encoded(&params->extra_params, pool,
+				keyword, value, value_len);
+}
+
 bool smtp_params_rcpt_drop_extra(struct smtp_params_rcpt *params,
 				 const char *keyword, const char **value_r)
 {
@@ -1219,6 +1271,14 @@ smtp_params_rcpt_get_extra(const struct smtp_params_rcpt *params,
 			   const char *keyword)
 {
 	return smtp_params_get_param(&params->extra_params, keyword);
+}
+
+int smtp_params_rcpt_decode_extra(const struct smtp_params_rcpt *params,
+				  const char *keyword, string_t **value_r,
+				  bool allow_nul, const char **error_r)
+{
+	return smtp_params_decode_param(&params->extra_params,
+					keyword, value_r, allow_nul, error_r);
 }
 
 bool smtp_params_rcpt_equal(const struct smtp_params_rcpt *params1,
