@@ -4,6 +4,7 @@
 #include "dovecot-version.h"
 #include "str.h"
 #include "array.h"
+#include "json-parser.h"
 #include "ioloop.h"
 #include "ostream.h"
 #include "stats-dist.h"
@@ -117,46 +118,6 @@ static bool openmetrics_check_metric(const struct metric *metric)
 	return TRUE;
 }
 
-/* https://prometheus.io/docs/prometheus/latest/querying/basics/#literals:
-
-   PromQL follows the same escaping rules as Go. In single or double quotes a
-   backslash begins an escape sequence, which may be followed by a, b, f, n, r,
-   t, v or \. Specific characters can be provided using octal (\nnn) or
-   hexadecimal (\xnn, \unnnn and \Unnnnnnnn).
-
-   https://golang.org/ref/spec#String_literals:
-
-   Interpreted string literals are character sequences between double quotes, as
-   in "bar". Within the quotes, any character may appear except newline and
-   unescaped double quote. The text between the quotes forms the value of the
-   literal, with backslash escapes interpreted as they are in rune literals
-   (except that \' is illegal and \" is legal), with the same restrictions.
-
-   -> Cannot use strescape.h, since \' is illegal.
- */
-static void openmetrics_escape_string(string_t *dest, const char *value)
-{
-	const unsigned char *pstart, *p, *pend;
-
-	pstart = p = (const unsigned char *)value;
-	pend = pstart + strlen(value);
-
-	/* See if we need to quote it */
-	for (; p < pend; p++) {
-		if (*p == '\n' || *p == '"')
-			break;
-	}
-
-	/* Quote */
-	str_append_data(dest, pstart, (size_t)(p - pstart));
-
-	for (; p < pend; p++) {
-		if (*p == '\n' || *p == '"')
-			str_append_c(dest, '\\');
-		str_append_data(dest, p, 1);
-	}
-}
-
 static void openmetrics_export_dovecot(string_t *out, int64_t timestamp)
 {
 	i_assert(stats_startup_time <= ioloop_time);
@@ -189,7 +150,7 @@ openmetrics_export_metric_labels(string_t *out, const struct metric *metric)
 
 	str_append(out, filters[0]);
 	str_append(out, "=\"");
-	openmetrics_escape_string(out, filters[1]);
+	json_append_escaped(out, filters[1]);
 	str_append_c(out, '"');
 
 	count /= 2;
@@ -197,7 +158,7 @@ openmetrics_export_metric_labels(string_t *out, const struct metric *metric)
 		str_append_c(out, ',');
 		str_append(out, filters[i * 2]);
 		str_append(out, "=\"");
-		openmetrics_escape_string(out, filters[i * 2 + 1]);
+		json_append_escaped(out, filters[i * 2 + 1]);
 		str_append_c(out, '"');
 	}
 }
@@ -383,7 +344,7 @@ openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 			     const struct metric *metric, int64_t timestamp)
 {
 	str_append_c(req->labels, '"');
-	openmetrics_escape_string(req->labels, metric->sub_name);
+	json_append_escaped(req->labels, metric->sub_name);
 	str_append_c(req->labels, '"');
 
 	if (req->metric_type == OPENMETRICS_METRIC_TYPE_HISTOGRAM) {
