@@ -75,12 +75,23 @@ enum smtp_param_parse_error {
 };
 
 /*
- * Parser
+ * Common
  */
+
+/* parse */
 
 int smtp_param_parse(pool_t pool, const char *text,
 		     struct smtp_param *param_r, const char **error_r);
+
+/* write */
+
 void smtp_param_write(string_t *out, const struct smtp_param *param);
+
+/* evaluate */
+
+const struct smtp_param *
+smtp_params_get_param(const ARRAY_TYPE(smtp_param) *params,
+		      const char *keyword);
 
 /*
  * MAIL parameters

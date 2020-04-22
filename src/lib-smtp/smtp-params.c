@@ -14,8 +14,10 @@
 #include <ctype.h>
 
 /*
- * SMTP parameter parsing
+ * Common
  */
+
+/* parse */
 
 static int
 smtp_param_do_parse(struct smtp_parser *parser, struct smtp_param *param_r)
@@ -88,6 +90,8 @@ int smtp_param_parse(pool_t pool, const char *text,
 	return 1;
 }
 
+/* write */
+
 static bool smtp_param_value_valid(const char *value)
 {
 	const char *p = value;
@@ -105,6 +109,24 @@ void smtp_param_write(string_t *out, const struct smtp_param *param)
 		str_append_c(out, '=');
 		str_append(out, param->value);
 	}
+}
+
+/* evaluate */
+
+const struct smtp_param *
+smtp_params_get_param(const ARRAY_TYPE(smtp_param) *params,
+		      const char *keyword)
+{
+	const struct smtp_param *param;
+
+	if (!array_is_created(params))
+		return NULL;
+
+	array_foreach(params, param) {
+		if (strcasecmp(param->keyword, keyword) == 0)
+			return param;
+	}
+	return NULL;
 }
 
 /*
@@ -636,16 +658,7 @@ const struct smtp_param *
 smtp_params_mail_get_extra(const struct smtp_params_mail *params,
 			   const char *keyword)
 {
-	const struct smtp_param *param;
-
-	if (!array_is_created(&params->extra_params))
-		return NULL;
-
-	array_foreach(&params->extra_params, param) {
-		if (strcasecmp(param->keyword, keyword) == 0)
-			return param;
-	}
-	return NULL;
+	return smtp_params_get_param(&params->extra_params, keyword);
 }
 
 /* events */
@@ -1194,16 +1207,7 @@ const struct smtp_param *
 smtp_params_rcpt_get_extra(const struct smtp_params_rcpt *params,
 			   const char *keyword)
 {
-	const struct smtp_param *param;
-
-	if (!array_is_created(&params->extra_params))
-		return NULL;
-
-	array_foreach(&params->extra_params, param) {
-		if (strcasecmp(param->keyword, keyword) == 0)
-			return param;
-	}
-	return NULL;
+	return smtp_params_get_param(&params->extra_params, keyword);
 }
 
 bool smtp_params_rcpt_equal(const struct smtp_params_rcpt *params1,
