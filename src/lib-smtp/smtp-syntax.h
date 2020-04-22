@@ -15,7 +15,9 @@ void smtp_string_write(string_t *out, const char *value);
  * Xtext encoding
  */
 
-int smtp_xtext_parse(const char *xtext,	const char **value_r,
+int smtp_xtext_decode(string_t *out, const char *xtext, bool allow_nul,
+		      const char **error_r);
+int smtp_xtext_parse(const char *xtext, const char **value_r,
 		     const char **error_r);
 
 void smtp_xtext_encode(string_t *out, const unsigned char *data, size_t size);
