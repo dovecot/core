@@ -366,21 +366,10 @@ openmetrics_export_sub_metric_get(struct openmetrics_request_sub_metric *reqsm)
 {
 	struct metric *const *sub_metric;
 
-	/* Get the first valid sub-metric */
-
 	if (reqsm->sub_index >= array_count(&reqsm->metric->sub_metrics))
 		return NULL;
 
 	sub_metric = array_idx(&reqsm->metric->sub_metrics, reqsm->sub_index);
-	while (((*sub_metric)->group_by == NULL ||
-	        !openmetrics_check_name((*sub_metric)->group_by->field)) &&
-	       ++reqsm->sub_index < array_count(&reqsm->metric->sub_metrics)) {
-		sub_metric = array_idx(&reqsm->metric->sub_metrics,
-				       reqsm->sub_index);
-	}
-	if (reqsm->sub_index == array_count(&reqsm->metric->sub_metrics))
-		return NULL;
-
 	return *sub_metric;
 }
 
@@ -403,6 +392,7 @@ openmetrics_export_sub_metric_down(struct openmetrics_request *req)
 	/* Descend further into sub-metric tree */
 
 	if (reqsm->metric->group_by == NULL ||
+	    !openmetrics_check_name(reqsm->metric->group_by->field) ||
 	    !array_is_created(&reqsm->metric->sub_metrics) ||
 	    array_count(&reqsm->metric->sub_metrics) == 0)
 		return NULL;
