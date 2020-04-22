@@ -140,7 +140,7 @@ const char *ssl_iostream_get_pfs(struct ssl_iostream *ssl_io);
 /* Returns currently used SSL protocol name. Returns NULL if handshake
    has not yet been made.
 
-   This returns values like SSLv3, TLSv1, TLSv1.1, TLSv1.2
+   This returns values like SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
 */
 const char *ssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io);
 

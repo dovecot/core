@@ -63,7 +63,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_dh = "",
 	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
 	.ssl_curve_list = "",
-	.ssl_min_protocol = "TLSv1",
+	.ssl_min_protocol = "TLSv1.2",
 	.ssl_cert_username_field = "commonName",
 	.ssl_crypto_device = "",
 	.ssl_verify_client_cert = FALSE,
