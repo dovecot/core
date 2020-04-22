@@ -197,6 +197,31 @@ smtp_params_get_param(const ARRAY_TYPE(smtp_param) *params,
 	return NULL;
 }
 
+bool smtp_params_equal(const ARRAY_TYPE(smtp_param) *params1,
+		       const ARRAY_TYPE(smtp_param) *params2)
+{
+	const struct smtp_param *param1, *param2;
+
+	if (!array_is_created(params1) || array_count(params1) == 0) {
+		return (!array_is_created(params2) ||
+			array_count(params2) == 0);
+	}
+	if (!array_is_created(params2) || array_count(params2) == 0)
+		return FALSE;
+
+	if (array_count(params1) != array_count(params2))
+		return FALSE;
+
+	array_foreach(params1, param1) {
+		param2 = smtp_params_get_param(params2, param1->keyword);
+		if (param2 == NULL)
+			return FALSE;
+		if (null_strcmp(param1->value, param2->value) != 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 /*
  * MAIL parameters
  */
@@ -1221,25 +1246,8 @@ bool smtp_params_rcpt_equal(const struct smtp_params_rcpt *params1,
 	}
 
 	/* extra parameters */
-	if (array_is_created(&params1->extra_params) !=
-	    array_is_created(&params2->extra_params))
-		return FALSE;
-	if (array_is_created(&params1->extra_params)) {
-		const struct smtp_param *param1, *param2;
-	
-		if (array_count(&params1->extra_params) !=
-		    array_count(&params2->extra_params))
-			return FALSE;
-		array_foreach(&params1->extra_params, param1) {
-			param2 = smtp_params_rcpt_get_extra(
-				params2, param1->keyword);
-			if (param2 == NULL)
-				return FALSE;
-			if (null_strcmp(param1->value, param2->value) != 0)
-				return FALSE;
-		}
-	}
-	return TRUE;
+	return smtp_params_equal(&params1->extra_params,
+				 &params2->extra_params);
 }
 
 /* events */

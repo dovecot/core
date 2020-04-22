@@ -103,6 +103,9 @@ const struct smtp_param *
 smtp_params_get_param(const ARRAY_TYPE(smtp_param) *params,
 		      const char *keyword);
 
+bool smtp_params_equal(const ARRAY_TYPE(smtp_param) *params1,
+		       const ARRAY_TYPE(smtp_param) *params2);
+
 /*
  * MAIL parameters
  */
