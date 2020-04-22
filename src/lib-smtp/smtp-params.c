@@ -165,6 +165,20 @@ void smtp_param_write(string_t *out, const struct smtp_param *param)
 	}
 }
 
+static void
+smtp_params_write(string_t *buffer, const ARRAY_TYPE(smtp_param) *params)
+{
+	const struct smtp_param *param;
+
+	if (!array_is_created(params))
+		return;
+
+	array_foreach(params, param) {
+		smtp_param_write(buffer, param);
+		str_append_c(buffer, ' ');
+	}
+}
+
 /* evaluate */
 
 const struct smtp_param *
@@ -659,14 +673,7 @@ void smtp_params_mail_write(string_t *buffer, enum smtp_capability caps,
 	smtp_params_mail_write_ret(buffer, caps, params);
 	smtp_params_mail_write_size(buffer, caps, params);
 
-	if (array_is_created(&params->extra_params)) {
-		const struct smtp_param *param;
-
-		array_foreach(&params->extra_params, param) {
-			smtp_param_write(buffer, param);
-			str_append_c(buffer, ' ');
-		}
-	}
+	smtp_params_write(buffer, &params->extra_params);
 
 	if (str_len(buffer) > init_len)
 		str_truncate(buffer, str_len(buffer)-1);
@@ -1174,14 +1181,7 @@ void smtp_params_rcpt_write(string_t *buffer, enum smtp_capability caps,
 	smtp_params_rcpt_write_notify(buffer, caps, params);
 	smtp_params_rcpt_write_orcpt(buffer, caps, params);
 
-	if (array_is_created(&params->extra_params)) {
-		const struct smtp_param *param;
-
-		array_foreach(&params->extra_params, param) {
-			smtp_param_write(buffer, param);
-			str_append_c(buffer, ' ');
-		}
-	}
+	smtp_params_write(buffer, &params->extra_params);
 
 	if (str_len(buffer) > init_len)
 		str_truncate(buffer, str_len(buffer)-1);
