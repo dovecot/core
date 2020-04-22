@@ -3,6 +3,7 @@
 #include "stats-common.h"
 #include "array.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "stats-dist.h"
 #include "time-util.h"
 #include "event-filter.h"
@@ -25,23 +26,6 @@ static void
 stats_metric_event(struct metric *metric, struct event *event, pool_t pool);
 static struct metric *
 stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t pool);
-
-/* This does not need to be unique as it's a display name */
-static const char *sub_metric_name_create(pool_t pool, const char *name)
-{
-	string_t *sub_name = str_new(pool, 32);
-	/* use up to 32 bytes */
-	for (const char *p = name; *p != '\0' && sub_name->used < 32;
-	    p++) {
-		char c = *p;
-		if (!i_isalnum(c))
-			c = '_';
-		else
-			c = i_tolower(c);
-		str_append_c(sub_name, c);
-	}
-	return str_c(sub_name);
-}
 
 static void
 stats_metric_settings_to_query(const struct stats_metric_settings *set,
@@ -352,7 +336,7 @@ stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t po
 	array_append_zero(&fields);
 	sub_metric = stats_metric_alloc(pool, metric->name, metric->set,
 					array_idx(&fields, 0));
-	sub_metric->sub_name = sub_metric_name_create(pool, name);
+	sub_metric->sub_name = p_strdup(pool, str_sanitize_utf8(name, 32));
 	array_append(&metric->sub_metrics, &sub_metric, 1);
 	return sub_metric;
 }
