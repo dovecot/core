@@ -122,16 +122,17 @@ int message_parser_read_more(struct message_parser_ctx *ctx,
 	return 1;
 }
 
-static struct message_part *
-message_part_append(pool_t pool, struct message_part *parent)
+static void
+message_part_append(struct message_parser_ctx *ctx)
 {
+	struct message_part *parent = ctx->part;
 	struct message_part *p, *part, **list;
 
 	i_assert(parent != NULL);
 	i_assert((parent->flags & (MESSAGE_PART_FLAG_MULTIPART |
 				   MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0);
 
-	part = p_new(pool, struct message_part, 1);
+	part = p_new(ctx->part_pool, struct message_part, 1);
 	part->parent = parent;
 	for (p = parent; p != NULL; p = p->parent)
 		p->children_count++;
@@ -147,7 +148,7 @@ message_part_append(pool_t pool, struct message_part *parent)
 		list = &(*list)->next;
 
 	*list = part;
-	return part;
+	ctx->part = part;
 }
 
 static void message_part_finish(struct message_parser_ctx *ctx)
@@ -175,7 +176,7 @@ static void parse_next_body_multipart_init(struct message_parser_ctx *ctx)
 static int parse_next_body_message_rfc822_init(struct message_parser_ctx *ctx,
 					       struct message_block *block_r)
 {
-	ctx->part = message_part_append(ctx->part_pool, ctx->part);
+	message_part_append(ctx);
 	return parse_next_header_init(ctx, block_r);
 }
 
@@ -225,7 +226,7 @@ boundary_line_find(struct message_parser_ctx *ctx,
 static int parse_next_mime_header_init(struct message_parser_ctx *ctx,
 				       struct message_block *block_r)
 {
-	ctx->part = message_part_append(ctx->part_pool, ctx->part);
+	message_part_append(ctx);
 	ctx->part->flags |= MESSAGE_PART_FLAG_IS_MIME;
 
 	return parse_next_header_init(ctx, block_r);
