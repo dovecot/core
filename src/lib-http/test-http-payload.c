@@ -39,6 +39,7 @@ enum payload_handling {
 };
 
 static bool debug = FALSE;
+static bool small_socket_buffers = FALSE;
 static const char *failure = NULL;
 static struct timeout *to_continue = NULL;
 static bool files_finished = FALSE;
@@ -940,8 +941,11 @@ test_client_create_clients(const struct http_client_settings *client_set)
 	struct http_client_context *http_context = NULL;
 	unsigned int i;
 
-	to_client_progress = timeout_add(CLIENT_PROGRESS_TIMEOUT*1000,
-					 test_client_progress_timeout, NULL);
+	if (!small_socket_buffers) {
+		to_client_progress = timeout_add(
+			CLIENT_PROGRESS_TIMEOUT*1000,
+			test_client_progress_timeout, NULL);
+	}
 
 	if (!tset.parallel_clients_global)
 		http_context = http_client_context_create(client_set);
@@ -986,7 +990,8 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 	size_t psize, fsize, pleft;
 	off_t ret;
 
-	timeout_reset(to_client_progress);
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	/* read payload */
 	while ((ret = i_stream_read_more(payload, &pdata, &psize)) > 0) {
@@ -1072,7 +1077,8 @@ test_client_download_response(const struct http_response *resp,
 			tcreq->files_idx);
 	}
 
-	timeout_reset(to_client_progress);
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tcreq->files_idx < count);
@@ -1227,7 +1233,8 @@ static void test_client_echo_payload_input(struct test_client_request *tcreq)
 	size_t psize, fsize, pleft;
 	off_t ret;
 
-	timeout_reset(to_client_progress);
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	/* read payload */
 	while ((ret = i_stream_read_more(payload, &pdata, &psize)) > 0) {
@@ -1312,7 +1319,8 @@ test_client_echo_response(const struct http_response *resp,
 			tcreq->files_idx);
 	}
 
-	timeout_reset(to_client_progress);
+	if (to_client_progress != NULL)
+		timeout_reset(to_client_progress);
 
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tcreq->files_idx < count);
@@ -1644,6 +1652,11 @@ test_init_server_settings(struct http_server_settings *server_set_r)
 	i_zero(server_set_r);
 	server_set_r->request_limits.max_payload_size = (uoff_t)-1;
 	server_set_r->debug = debug;
+
+	if (small_socket_buffers) {
+		server_set_r->socket_send_buffer_size = 40960;
+		server_set_r->socket_recv_buffer_size = 40960;
+	}
 }
 
 static void
@@ -1654,6 +1667,13 @@ test_init_client_settings(struct http_client_settings *client_set_r)
 	client_set_r->max_attempts = 1;
 	client_set_r->max_idle_time_msecs =  5* 1000;
 	client_set_r->debug = debug;
+
+	if (small_socket_buffers) {
+		client_set_r->socket_send_buffer_size = 40960;
+		client_set_r->socket_recv_buffer_size = 40960;
+		client_set_r->request_timeout_msecs = 20 * 60 * 1000;
+		client_set_r->connect_timeout_msecs = 20 * 60 * 1000;
+	}
 }
 
 static void
@@ -2247,10 +2267,13 @@ int main(int argc, char *argv[])
 	(void)signal(SIGSEGV, test_signal_handler);
 	(void)signal(SIGABRT, test_signal_handler);
 
-	while ((c = getopt(argc, argv, "D")) > 0) {
+	while ((c = getopt(argc, argv, "DS")) > 0) {
 		switch (c) {
 		case 'D':
 			debug = TRUE;
+			break;
+		case 'S':
+			small_socket_buffers = TRUE;
 			break;
 		default:
 			i_fatal("Usage: %s [-D]", argv[0]);
