@@ -1081,7 +1081,6 @@ void wrapper_ostream_continue(struct wrapper_ostream *wostream)
 
 	if (wostream->flush_waiting) {
 		/* Inside wrapper_ostream_flush_wait() */
-		i_assert(!wostream->output_closed);
 		ioloop = wostream->flush_ioloop;
 	}
 	if (stream->ostream.closed ||
