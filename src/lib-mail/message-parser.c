@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "str.h"
 #include "istream.h"
 #include "rfc822-parser.h"
@@ -126,7 +126,7 @@ static void
 message_part_append(struct message_parser_ctx *ctx)
 {
 	struct message_part *parent = ctx->part;
-	struct message_part *part, **list;
+	struct message_part *part;
 
 	i_assert(parent != NULL);
 	i_assert((parent->flags & (MESSAGE_PART_FLAG_MULTIPART |
@@ -141,16 +141,26 @@ message_part_append(struct message_parser_ctx *ctx)
 		parent->body_size.physical_size +
 		parent->header_size.physical_size;
 
-	list = &part->parent->children;
-	while (*list != NULL)
-		list = &(*list)->next;
+	/* add to parent's linked list */
+	*ctx->next_part = part;
+	/* update the parent's end-of-linked-list pointer */
+	struct message_part **next_part = &part->next;
+	array_push_back(&ctx->next_part_stack, &next_part);
+	/* This part is now the new parent for the next message_part_append()
+	   call. Its linked list begins with the children pointer. */
+	ctx->next_part = &part->children;
 
-	*list = part;
 	ctx->part = part;
 }
 
 static void message_part_finish(struct message_parser_ctx *ctx)
 {
+	struct message_part **const *parent_next_partp;
+
+	parent_next_partp = array_back(&ctx->next_part_stack);
+	array_pop_back(&ctx->next_part_stack);
+	ctx->next_part = *parent_next_partp;
+
 	message_size_add(&ctx->part->parent->body_size, &ctx->part->body_size);
 	message_size_add(&ctx->part->parent->body_size, &ctx->part->header_size);
 	ctx->part->parent->children_count += 1 + ctx->part->children_count;
@@ -678,7 +688,9 @@ message_parser_init(pool_t part_pool, struct istream *input,
 	ctx = message_parser_init_int(input, hdr_flags, flags);
 	ctx->part_pool = part_pool;
 	ctx->parts = ctx->part = p_new(part_pool, struct message_part, 1);
+	ctx->next_part = &ctx->part->children;
 	ctx->parse_next_block = parse_next_header_init;
+	p_array_init(&ctx->next_part_stack, ctx->parser_pool, 4);
 	return ctx;
 }
 

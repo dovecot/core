@@ -29,6 +29,9 @@ struct message_parser_ctx {
 	const char *last_boundary;
 	struct message_boundary *boundaries;
 
+	struct message_part **next_part;
+	ARRAY(struct message_part **) next_part_stack;
+
 	size_t skip;
 	char last_chr;
 	unsigned int want_count;
