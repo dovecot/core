@@ -178,20 +178,20 @@ static void
 wrapper_ostream_output_manage(struct wrapper_ostream *wostream, bool sending)
 {
 	struct ostream_private *stream = &wostream->ostream;
-	bool no_data;
+	bool must_flush, no_data;
 
 	if (wostream->output_closed)
 		return;
 
-	no_data = (!sending && wrapper_ostream_is_empty(wostream)) ||
-		   (stream->corked && !wostream->flushing &&
-		    !stream->finished && !wrapper_ostream_is_filled(wostream));
+	must_flush = (sending || stream->finished || wostream->flush_pending);
+	no_data = (wrapper_ostream_is_empty(wostream) ||
+		   (stream->corked && !wrapper_ostream_is_filled(wostream)));
 
-	if ((stream->ostream.closed || no_data) && !wostream->flush_pending)
+	if (!must_flush && (no_data || stream->ostream.closed))
 		wrapper_ostream_output_halt(wostream);
 	else {
 		wrapper_ostream_output_resume(wostream);
-		if (wostream->flush_pending && wostream->output != NULL)
+		if (wostream->output != NULL && must_flush)
 			o_stream_set_flush_pending(wostream->output, TRUE);
 	}
 }
