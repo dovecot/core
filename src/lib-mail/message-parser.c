@@ -173,10 +173,24 @@ static void message_part_finish(struct message_parser_ctx *ctx)
 	ctx->part = ctx->part->parent;
 }
 
+static void message_boundary_free(struct message_boundary *b)
+{
+	i_free(b->boundary);
+	i_free(b);
+}
+
 static void
 boundary_remove_until(struct message_parser_ctx *ctx,
 		      struct message_boundary *boundary)
 {
+	while (ctx->boundaries != boundary) {
+		struct message_boundary *cur = ctx->boundaries;
+
+		i_assert(cur != NULL);
+		ctx->boundaries = cur->next;
+		message_boundary_free(cur);
+
+	}
 	ctx->boundaries = boundary;
 }
 
@@ -184,15 +198,14 @@ static void parse_next_body_multipart_init(struct message_parser_ctx *ctx)
 {
 	struct message_boundary *b;
 
-	b = p_new(ctx->parser_pool, struct message_boundary, 1);
+	b = i_new(struct message_boundary, 1);
 	b->part = ctx->part;
 	b->boundary = ctx->last_boundary;
+	ctx->last_boundary = NULL;
 	b->len = strlen(b->boundary);
 
 	b->next = ctx->boundaries;
 	ctx->boundaries = b;
-
-	ctx->last_boundary = NULL;
 }
 
 static int parse_next_body_message_rfc822_init(struct message_parser_ctx *ctx,
@@ -309,6 +322,8 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 			     struct message_block *block_r, bool first_line)
 {
 	size_t line_size;
+	size_t boundary_len = boundary->len;
+	bool boundary_epilogue_found = boundary->epilogue_found;
 
 	i_assert(ctx->last_boundary == NULL);
 
@@ -341,7 +356,7 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 		i_assert(block_r->data[0] == '\n');
 		line_size = 1;
 	}
-	line_size += 2 + boundary->len + (boundary->epilogue_found ? 2 : 0);
+	line_size += 2 + boundary_len + (boundary_epilogue_found ? 2 : 0);
 	i_assert(block_r->size >= ctx->skip + line_size);
 	block_r->size = line_size;
 	parse_body_add_block(ctx, block_r);
@@ -503,9 +518,9 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "boundary") == 0) {
 			/* truncate excessively long boundaries */
+			i_free(ctx->last_boundary);
 			ctx->last_boundary =
-				p_strndup(ctx->parser_pool, results[1],
-					  BOUNDARY_STRING_MAX_LEN);
+				i_strndup(results[1], BOUNDARY_STRING_MAX_LEN);
 			break;
 		}
 	}
@@ -628,7 +643,7 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		i_assert(!ctx->multipart);
 		part->flags = 0;
 	}
-	ctx->last_boundary = NULL;
+	i_free(ctx->last_boundary);
 
 	if (!ctx->part_seen_content_type ||
 	    (part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
@@ -692,11 +707,8 @@ message_parser_init_int(struct istream *input,
 			enum message_parser_flags flags)
 {
 	struct message_parser_ctx *ctx;
-	pool_t pool;
 
-	pool = pool_alloconly_create("Message Parser", 1024);
-	ctx = p_new(pool, struct message_parser_ctx, 1);
-	ctx->parser_pool = pool;
+	ctx = i_new(struct message_parser_ctx, 1);
 	ctx->hdr_flags = hdr_flags;
 	ctx->flags = flags;
 	ctx->input = input;
@@ -716,7 +728,7 @@ message_parser_init(pool_t part_pool, struct istream *input,
 	ctx->parts = ctx->part = p_new(part_pool, struct message_part, 1);
 	ctx->next_part = &ctx->part->children;
 	ctx->parse_next_block = parse_next_header_init;
-	p_array_init(&ctx->next_part_stack, ctx->parser_pool, 4);
+	i_array_init(&ctx->next_part_stack, 4);
 	return ctx;
 }
 
@@ -743,8 +755,11 @@ int message_parser_deinit_from_parts(struct message_parser_ctx **_ctx,
 
 	if (ctx->hdr_parser_ctx != NULL)
 		message_parse_header_deinit(&ctx->hdr_parser_ctx);
+	boundary_remove_until(ctx, NULL);
 	i_stream_unref(&ctx->input);
-	pool_unref(&ctx->parser_pool);
+	array_free(&ctx->next_part_stack);
+	i_free(ctx->last_boundary);
+	i_free(ctx);
 	i_assert(ret < 0 || *parts_r != NULL);
 	return ret;
 }
