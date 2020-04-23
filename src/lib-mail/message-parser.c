@@ -31,8 +31,14 @@ boundary_find(struct message_boundary *boundaries,
 	while (boundaries != NULL) {
 		if (boundaries->len <= len &&
 		    memcmp(boundaries->boundary, data, boundaries->len) == 0 &&
-		    (best == NULL || best->len < boundaries->len))
+		    (best == NULL || best->len < boundaries->len)) {
 			best = boundaries;
+			if (best->len == len) {
+				/* This is exactly the wanted boundary. There
+				   can't be a better one. */
+				break;
+			}
+		}
 
 		boundaries = boundaries->next;
 	}
@@ -213,15 +219,27 @@ boundary_line_find(struct message_parser_ctx *ctx,
 	/* need to find the end of line */
 	data += 2;
 	size -= 2;
-	if (memchr(data, '\n', size) == NULL &&
+	const unsigned char *lf_pos = memchr(data, '\n', size);
+	if (lf_pos == NULL &&
 	    size+2 < BOUNDARY_END_MAX_LEN &&
 	    !ctx->input->eof && !full) {
 		/* no LF found */
 		ctx->want_count = BOUNDARY_END_MAX_LEN;
 		return 0;
 	}
+	size_t find_size = size;
 
-	*boundary_r = boundary_find(ctx->boundaries, data, size);
+	if (lf_pos != NULL) {
+		find_size = lf_pos - data;
+		if (find_size > 0 && data[find_size-1] == '\r')
+			find_size--;
+		if (find_size > 2 && data[find_size-1] == '-' &&
+		    data[find_size-2] == '-')
+			find_size -= 2;
+	} else if (find_size > BOUNDARY_END_MAX_LEN)
+		find_size = BOUNDARY_END_MAX_LEN;
+
+	*boundary_r = boundary_find(ctx->boundaries, data, find_size);
 	if (*boundary_r == NULL)
 		return -1;
 
