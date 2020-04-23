@@ -211,16 +211,15 @@ boundary_line_find(struct message_parser_ctx *ctx,
 	}
 
 	/* need to find the end of line */
-	if (memchr(data + 2, '\n', size - 2) == NULL &&
-	    size < BOUNDARY_END_MAX_LEN &&
+	data += 2;
+	size -= 2;
+	if (memchr(data, '\n', size) == NULL &&
+	    size+2 < BOUNDARY_END_MAX_LEN &&
 	    !ctx->input->eof && !full) {
 		/* no LF found */
 		ctx->want_count = BOUNDARY_END_MAX_LEN;
 		return 0;
 	}
-
-	data += 2;
-	size -= 2;
 
 	*boundary_r = boundary_find(ctx->boundaries, data, size);
 	if (*boundary_r == NULL)
