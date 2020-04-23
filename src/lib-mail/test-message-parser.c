@@ -839,6 +839,136 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_mime_part_nested_limit(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"\n"
+"--1\n"
+"Content-Type: multipart/mixed; boundary=\"2\"\n"
+"\n"
+"--2\n"
+"Content-Type: text/plain\n"
+"\n"
+"1\n"
+"--2\n"
+"Content-Type: text/plain\n"
+"\n"
+"22\n"
+"--1\n"
+"Content-Type: text/plain\n"
+"\n"
+"333\n";
+	const struct message_parser_settings parser_set = {
+		.max_nested_mime_parts = 2,
+	};
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *part;
+	struct message_block block;
+	pool_t pool;
+	int ret;
+
+	test_begin("message parser mime part nested limit");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, &parser_set);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	test_assert(ret < 0);
+	message_parser_deinit(&parser, &parts);
+
+	part = parts;
+	test_assert(part->children_count == 2);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 45);
+	test_assert(part->header_size.virtual_size == 45+2);
+	test_assert(part->body_size.lines == 15);
+	test_assert(part->body_size.physical_size == 148);
+	test_assert(part->body_size.virtual_size == 148+15);
+
+	part = parts->children;
+	test_assert(part->children_count == 0);
+	test_assert(part->flags == MESSAGE_PART_FLAG_IS_MIME);
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 45);
+	test_assert(part->header_size.virtual_size == 45+2);
+	test_assert(part->body_size.lines == 7);
+	test_assert(part->body_size.physical_size == 64);
+	test_assert(part->body_size.virtual_size == 64+7);
+
+	part = parts->children->next;
+	test_assert(part->children_count == 0);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 26);
+	test_assert(part->header_size.virtual_size == 26+2);
+	test_assert(part->body_size.lines == 1);
+	test_assert(part->body_size.physical_size == 4);
+	test_assert(part->body_size.virtual_size == 4+1);
+
+	test_parsed_parts(input, parts);
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
+static void test_message_parser_mime_part_nested_limit_rfc822(void)
+{
+static const char input_msg[] =
+"Content-Type: message/rfc822\n"
+"\n"
+"Content-Type: message/rfc822\n"
+"\n"
+"Content-Type: text/plain\n"
+"\n"
+"1\n";
+	const struct message_parser_settings parser_set = {
+		.max_nested_mime_parts = 2,
+	};
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *part;
+	struct message_block block;
+	pool_t pool;
+	int ret;
+
+	test_begin("message parser mime part nested limit rfc822");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, &parser_set);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	test_assert(ret < 0);
+	message_parser_deinit(&parser, &parts);
+
+	part = parts;
+	test_assert(part->children_count == 1);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MESSAGE_RFC822 | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 30);
+	test_assert(part->header_size.virtual_size == 30+2);
+	test_assert(part->body_size.lines == 5);
+	test_assert(part->body_size.physical_size == 58);
+	test_assert(part->body_size.virtual_size == 58+5);
+
+	part = parts->children;
+	test_assert(part->children_count == 0);
+	test_assert(part->flags == MESSAGE_PART_FLAG_IS_MIME);
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 30);
+	test_assert(part->header_size.virtual_size == 30+2);
+	test_assert(part->body_size.lines == 3);
+	test_assert(part->body_size.physical_size == 28);
+	test_assert(part->body_size.virtual_size == 28+3);
+
+	test_parsed_parts(input, parts);
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -854,6 +984,8 @@ int main(void)
 		test_message_parser_continuing_mime_boundary_reverse,
 		test_message_parser_long_mime_boundary,
 		test_message_parser_no_eoh,
+		test_message_parser_mime_part_nested_limit,
+		test_message_parser_mime_part_nested_limit_rfc822,
 		NULL
 	};
 	return test_run(test_functions);

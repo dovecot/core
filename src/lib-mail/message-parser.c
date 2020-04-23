@@ -157,11 +157,16 @@ message_part_append(struct message_parser_ctx *ctx)
 	ctx->next_part = &part->children;
 
 	ctx->part = part;
+	ctx->nested_parts_count++;
+	i_assert(ctx->nested_parts_count < ctx->max_nested_mime_parts);
 }
 
 static void message_part_finish(struct message_parser_ctx *ctx)
 {
 	struct message_part **const *parent_next_partp;
+
+	i_assert(ctx->nested_parts_count > 0);
+	ctx->nested_parts_count--;
 
 	parent_next_partp = array_back(&ctx->next_part_stack);
 	array_pop_back(&ctx->next_part_stack);
@@ -542,6 +547,11 @@ static bool block_is_at_eoh(const struct message_block *block)
 	return FALSE;
 }
 
+static bool parse_too_many_nested_mime_parts(struct message_parser_ctx *ctx)
+{
+	return ctx->nested_parts_count > ctx->max_nested_mime_parts;
+}
+
 #define MUTEX_FLAGS \
 	(MESSAGE_PART_FLAG_MESSAGE_RFC822 | MESSAGE_PART_FLAG_MULTIPART)
 
@@ -566,8 +576,12 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		   "\n--boundary" belongs to us or to a previous boundary.
 		   this is a problem if the boundary prefixes are identical,
 		   because MIME requires only the prefix to match. */
-		parse_next_body_multipart_init(ctx);
-		ctx->multipart = TRUE;
+		if (!parse_too_many_nested_mime_parts(ctx)) {
+			parse_next_body_multipart_init(ctx);
+			ctx->multipart = TRUE;
+		} else {
+			part->flags &= ~MESSAGE_PART_FLAG_MULTIPART;
+		}
 	}
 
 	/* before parsing the header see if we can find a --boundary from here.
@@ -671,12 +685,16 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		i_assert(ctx->last_boundary == NULL);
 		ctx->multipart = FALSE;
 		ctx->parse_next_block = parse_next_body_to_boundary;
-	} else if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0)
+	} else if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0 &&
+		   !parse_too_many_nested_mime_parts(ctx)) {
 		ctx->parse_next_block = parse_next_body_message_rfc822_init;
-	else if (ctx->boundaries != NULL)
-		ctx->parse_next_block = parse_next_body_to_boundary;
-	else
-		ctx->parse_next_block = parse_next_body_to_eof;
+	} else {
+		part->flags &= ~MESSAGE_PART_FLAG_MESSAGE_RFC822;
+		if (ctx->boundaries != NULL)
+			ctx->parse_next_block = parse_next_body_to_boundary;
+		else
+			ctx->parse_next_block = parse_next_body_to_eof;
+	}
 
 	ctx->want_count = 1;
 
@@ -710,6 +728,9 @@ message_parser_init_int(struct istream *input,
 	ctx = i_new(struct message_parser_ctx, 1);
 	ctx->hdr_flags = set->hdr_flags;
 	ctx->flags = set->flags;
+	ctx->max_nested_mime_parts = set->max_nested_mime_parts != 0 ?
+		set->max_nested_mime_parts :
+		MESSAGE_PARSER_DEFAULT_MAX_NESTED_MIME_PARTS;
 	ctx->input = input;
 	i_stream_ref(input);
 	return ctx;
@@ -754,6 +775,8 @@ int message_parser_deinit_from_parts(struct message_parser_ctx **_ctx,
 	if (ctx->hdr_parser_ctx != NULL)
 		message_parse_header_deinit(&ctx->hdr_parser_ctx);
 	boundary_remove_until(ctx, NULL);
+	i_assert(ctx->nested_parts_count == 0);
+
 	i_stream_unref(&ctx->input);
 	array_free(&ctx->next_part_stack);
 	i_free(ctx->last_boundary);
