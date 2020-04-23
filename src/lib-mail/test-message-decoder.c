@@ -105,6 +105,7 @@ static void test_message_decoder_multipart(void)
 		"\n"
 		"?garbage\n"
 		"--foo--\n";
+	const struct message_parser_settings parser_set = { .flags = 0, };
 	struct message_parser_ctx *parser;
 	struct message_decoder_context *decoder;
 	struct message_part *parts;
@@ -116,7 +117,8 @@ static void test_message_decoder_multipart(void)
 	test_begin("message decoder multipart");
 
 	istream = test_istream_create(test_message_input);
-	parser = message_parser_init(pool_datastack_create(), istream, 0, 0);
+	parser = message_parser_init(pool_datastack_create(), istream,
+				     &parser_set);
 	decoder = message_decoder_init(NULL, 0);
 
 	test_istream_set_allow_eof(istream, FALSE);

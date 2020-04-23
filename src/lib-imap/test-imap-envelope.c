@@ -118,6 +118,11 @@ static const unsigned int parse_tests_count = N_ELEMENTS(parse_tests);
 static struct message_part_envelope *
 msg_parse(pool_t pool, const char *message)
 {
+	const struct message_parser_settings parser_set = {
+		.hdr_flags = MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
+			MESSAGE_HEADER_PARSER_FLAG_DROP_CR,
+		.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
+	};
 	struct message_parser_ctx *parser;
 	struct message_part_envelope *envlp = NULL;
 	struct istream *input;
@@ -126,10 +131,7 @@ msg_parse(pool_t pool, const char *message)
 	int ret;
 
 	input = i_stream_create_from_data(message, strlen(message));
-	parser = message_parser_init(pool, input,
-			MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
-			MESSAGE_HEADER_PARSER_FLAG_DROP_CR,
-			MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
+	parser = message_parser_init(pool, input, &parser_set);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		i_assert(block.part->parent == NULL);
 		message_part_envelope_parse_from_header(pool, &envlp, block.hdr);

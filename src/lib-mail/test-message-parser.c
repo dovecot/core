@@ -39,6 +39,8 @@ static const char test_msg[] =
 "\n";
 #define TEST_MSG_LEN (sizeof(test_msg)-1)
 
+static const struct message_parser_settings set_empty = { .flags = 0 };
+
 static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
 {
 	while (p1 != NULL || p2 != NULL) {
@@ -71,6 +73,9 @@ static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
 
 static void test_parsed_parts(struct istream *input, struct message_part *parts)
 {
+	const struct message_parser_settings parser_set = {
+		.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
+	};
 	struct message_parser_ctx *parser;
 	struct message_block block;
 	struct message_part *parts2;
@@ -81,8 +86,7 @@ static void test_parsed_parts(struct istream *input, struct message_part *parts)
 	if (i_stream_get_size(input, TRUE, &input_size) < 0)
 		i_unreached();
 
-	parser = message_parser_init_from_parts(parts, input, 0,
-					MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
+	parser = message_parser_init_from_parts(parts, input, &parser_set);
 	for (i = 1; i <= input_size*2+1; i++) {
 		test_istream_set_size(input, i/2);
 		if (i > TEST_MSG_LEN*2)
@@ -111,9 +115,11 @@ static void test_message_parser_small_blocks(void)
 	output = t_str_new(128);
 
 	/* full parsing */
-	parser = message_parser_init(pool, input, 0,
-		MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
-		MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES);
+	const struct message_parser_settings full_parser_set = {
+		.flags = MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
+			MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES,
+	};
+	parser = message_parser_init(pool, input, &full_parser_set);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		if (block.hdr != NULL)
 			message_header_line_write(output, block.hdr);
@@ -129,7 +135,7 @@ static void test_message_parser_small_blocks(void)
 	i_stream_seek(input, 0);
 	test_istream_set_allow_eof(input, FALSE);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	for (i = 1; i <= TEST_MSG_LEN*2+1; i++) {
 		test_istream_set_size(input, i/2);
 		if (i > TEST_MSG_LEN*2)
@@ -147,8 +153,11 @@ static void test_message_parser_small_blocks(void)
 	test_istream_set_allow_eof(input, FALSE);
 
 	end_of_headers_idx = (strstr(test_msg, "\n-----") - test_msg);
-	parser = message_parser_init_from_parts(parts, input, 0,
-					MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
+	const struct message_parser_settings preparsed_parser_set = {
+		.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
+	};
+	parser = message_parser_init_from_parts(parts, input,
+						&preparsed_parser_set);
 	for (i = 1; i <= TEST_MSG_LEN*2+1; i++) {
 		test_istream_set_size(input, i/2);
 		if (i > TEST_MSG_LEN*2)
@@ -190,7 +199,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -255,7 +264,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -311,7 +320,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -349,7 +358,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -394,7 +403,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -455,7 +464,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -516,7 +525,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -578,7 +587,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -661,7 +670,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
@@ -721,7 +730,7 @@ static void test_message_parser_no_eoh(void)
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	test_assert(message_parser_parse_next_block(parser, &block) > 0 &&
 		    block.hdr != NULL && strcmp(block.hdr->name, "a") == 0 &&
 		    block.hdr->value_len == 1 && block.hdr->value[0] == 'b');
@@ -777,7 +786,7 @@ static const char input_msg[] =
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set_empty);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);

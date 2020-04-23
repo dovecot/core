@@ -381,6 +381,11 @@ static const unsigned int normalize_tests_count = N_ELEMENTS(normalize_tests);
 static struct message_part *
 msg_parse(pool_t pool, const char *message, bool parse_bodystructure)
 {
+	const struct message_parser_settings parser_set = {
+		.hdr_flags = MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
+			MESSAGE_HEADER_PARSER_FLAG_DROP_CR,
+		.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
+	};
 	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_block block;
@@ -388,10 +393,7 @@ msg_parse(pool_t pool, const char *message, bool parse_bodystructure)
 	int ret;
 
 	input = i_stream_create_from_data(message, strlen(message));
-	parser = message_parser_init(pool, input,
-			MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
-			MESSAGE_HEADER_PARSER_FLAG_DROP_CR,
-			MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
+	parser = message_parser_init(pool, input, &parser_set);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		if (parse_bodystructure) {
 			message_part_data_parse_from_header(pool, block.part,

@@ -351,14 +351,13 @@ static int preparsed_parse_next_header_init(struct message_parser_ctx *ctx,
 struct message_parser_ctx *
 message_parser_init_from_parts(struct message_part *parts,
 			       struct istream *input,
-			       enum message_header_parser_flags hdr_flags,
-			       enum message_parser_flags flags)
+			       const struct message_parser_settings *set)
 {
 	struct message_parser_ctx *ctx;
 
 	i_assert(parts != NULL);
 
-	ctx = message_parser_init_int(input, hdr_flags, flags);
+	ctx = message_parser_init_int(input, set);
 	ctx->preparsed = TRUE;
 	ctx->parts = ctx->part = parts;
 	ctx->parse_next_block = preparsed_parse_next_header_init;

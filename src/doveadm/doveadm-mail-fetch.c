@@ -265,6 +265,9 @@ static int fetch_text(struct fetch_cmd_context *ctx)
 
 static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 {
+	const struct message_parser_settings parser_set = {
+		.hdr_flags = MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
+	};
 	struct istream *input;
 	struct message_parser_ctx *parser;
 	struct message_decoder_context *decoder;
@@ -275,9 +278,7 @@ static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 		return -1;
 
-	parser = message_parser_init(pool_datastack_create(), input,
-				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
-				     0);
+	parser = message_parser_init(pool_datastack_create(), input, &parser_set);
 	decoder = message_decoder_init(NULL, 0);
 
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
