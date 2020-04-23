@@ -28,6 +28,7 @@ libmail_la_SOURCES = \
 	message-header-parser.c \
 	message-id.c \
 	message-parser.c \
+	message-parser-from-parts.c \
 	message-part.c \
 	message-part-data.c \
 	message-part-serialize.c \
@@ -42,7 +43,8 @@ libmail_la_SOURCES = \
 	rfc822-parser.c
 
 noinst_HEADERS = \
-	html-entities.h
+	html-entities.h \
+	message-parser-private.h
 
 headers = \
 	istream-attachment-connector.h \
