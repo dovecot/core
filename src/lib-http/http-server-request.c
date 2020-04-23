@@ -410,6 +410,9 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_connection_remove_request(conn, req);
 	conn->stats.response_count++;
 
+	if (req->response != NULL)
+		http_server_response_request_finished(req->response);
+
 	if (tunnel_callback == NULL) {
 		if (req->connection_close) {
 			http_server_connection_close(&conn,

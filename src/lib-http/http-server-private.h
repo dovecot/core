@@ -207,6 +207,8 @@ void http_server_ostream_continue(struct http_server_ostream *hsostream);
 
 void http_server_ostream_output_available(
 	struct http_server_ostream *hsostream);
+void http_server_ostream_response_finished(
+	struct http_server_ostream *hsostream);
 void http_server_ostream_response_destroyed(
 	struct http_server_ostream *hsostream);
 
@@ -224,6 +226,7 @@ void http_server_response_request_free(struct http_server_response *resp);
 void http_server_response_request_destroy(struct http_server_response *resp);
 void http_server_response_request_abort(struct http_server_response *resp,
 					const char *reason);
+void http_server_response_request_finished(struct http_server_response *resp);
 
 int http_server_response_send(struct http_server_response *resp);
 int http_server_response_send_more(struct http_server_response *resp);

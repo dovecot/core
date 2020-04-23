@@ -323,6 +323,14 @@ http_server_response_flush_payload(struct http_server_response *resp)
 	return 1;
 }
 
+void http_server_response_request_finished(struct http_server_response *resp)
+{
+	e_debug(resp->event, "Finished");
+
+	if (resp->payload_stream != NULL)
+		http_server_ostream_response_finished(resp->payload_stream);
+}
+
 int http_server_response_finish_payload_out(struct http_server_response *resp)
 {
 	struct http_server_request *req = resp->request;

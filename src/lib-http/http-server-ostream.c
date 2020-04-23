@@ -295,6 +295,14 @@ http_server_ostream_create(struct http_server_response *resp,
 				      blocking, resp->event);
 }
 
+void http_server_ostream_response_finished(
+	struct http_server_ostream *hsostream)
+{
+	e_debug(hsostream->wostream.event, "Response payload finished");
+
+	wrapper_ostream_output_destroyed(&hsostream->wostream);
+}
+
 void http_server_ostream_response_destroyed(
 	struct http_server_ostream *hsostream)
 {
