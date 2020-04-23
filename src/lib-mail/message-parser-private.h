@@ -12,14 +12,14 @@ struct message_boundary {
 	struct message_boundary *next;
 
 	struct message_part *part;
-	const char *boundary;
+	char *boundary;
 	size_t len;
 
 	bool epilogue_found:1;
 };
 
 struct message_parser_ctx {
-	pool_t parser_pool, part_pool;
+	pool_t part_pool;
 	struct istream *input;
 	struct message_part *parts, *part;
 	const char *broken_reason;
@@ -27,7 +27,7 @@ struct message_parser_ctx {
 	enum message_header_parser_flags hdr_flags;
 	enum message_parser_flags flags;
 
-	const char *last_boundary;
+	char *last_boundary;
 	struct message_boundary *boundaries;
 
 	struct message_part **next_part;
