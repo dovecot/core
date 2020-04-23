@@ -18,6 +18,7 @@ enum message_parser_flags {
 };
 
 #define MESSAGE_PARSER_DEFAULT_MAX_NESTED_MIME_PARTS 100
+#define MESSAGE_PARSER_DEFAULT_MAX_TOTAL_MIME_PARTS 10000
 
 struct message_parser_settings {
 	enum message_header_parser_flags hdr_flags;
@@ -26,6 +27,9 @@ struct message_parser_settings {
 	/* Maximum nested MIME parts.
 	   0 = MESSAGE_PARSER_DEFAULT_MAX_NESTED_MIME_PARTS. */
 	unsigned int max_nested_mime_parts;
+	/* Maximum MIME parts in total.
+	   0 = MESSAGE_PARSER_DEFAULT_MAX_TOTAL_MIME_PARTS. */
+	unsigned int max_total_mime_parts;
 };
 
 struct message_parser_ctx;

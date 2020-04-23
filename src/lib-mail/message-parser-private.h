@@ -24,10 +24,12 @@ struct message_parser_ctx {
 	struct message_part *parts, *part;
 	const char *broken_reason;
 	unsigned int nested_parts_count;
+	unsigned int total_parts_count;
 
 	enum message_header_parser_flags hdr_flags;
 	enum message_parser_flags flags;
 	unsigned int max_nested_mime_parts;
+	unsigned int max_total_mime_parts;
 
 	char *last_boundary;
 	struct message_boundary *boundaries;
