@@ -1,6 +1,7 @@
 /* Copyright (c) 2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "istream.h"
 #include "dns-lookup.h"
 #include "ostream-wrapper.h"
 
@@ -186,7 +187,27 @@ http_server_ostream_wait_begin(struct wrapper_ostream *wostream,
 
 	i_assert(hsostream->resp != NULL);
 	i_assert(!hsostream->response_destroyed);
+
 	http_server_connection_ref(conn);
+
+	/* When the response payload output stream is written from inside the
+	   request callback, the incoming payload stream is not destroyed yet,
+	   even though it is read to the end. This could lead to problems, so we
+	   make an effort to destroy it here.
+	 */
+	if (conn->incoming_payload != NULL) {
+		struct http_server_request *req = hsostream->resp->request;
+		struct istream *payload;
+
+		if (!i_stream_read_eof(conn->incoming_payload))
+			i_unreached();
+		payload = req->req.payload;
+		req->req.payload = NULL;
+		i_stream_unref(&payload);
+
+		i_assert(conn->incoming_payload == NULL);
+	}
+
 	prev_ioloop = http_server_connection_switch_ioloop_to(conn, ioloop);
 	return prev_ioloop;
 }
