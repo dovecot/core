@@ -477,8 +477,10 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "boundary") == 0) {
+			/* truncate excessively long boundaries */
 			ctx->last_boundary =
-				p_strdup(ctx->parser_pool, results[1]);
+				p_strndup(ctx->parser_pool, results[1],
+					  BOUNDARY_STRING_MAX_LEN);
 			break;
 		}
 	}

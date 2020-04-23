@@ -5,7 +5,8 @@
 
 /* RFC-2046 requires boundaries are max. 70 chars + "--" prefix + "--" suffix.
    We'll add a bit more just in case. */
-#define BOUNDARY_END_MAX_LEN (70 + 2 + 2 + 10)
+#define BOUNDARY_STRING_MAX_LEN (70 + 10)
+#define BOUNDARY_END_MAX_LEN (BOUNDARY_STRING_MAX_LEN + 2 + 2)
 
 struct message_boundary {
 	struct message_boundary *next;
