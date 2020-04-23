@@ -1639,6 +1639,24 @@ test_run_client_server(
 }
 
 static void
+test_init_server_settings(struct http_server_settings *server_set_r)
+{
+	i_zero(server_set_r);
+	server_set_r->request_limits.max_payload_size = (uoff_t)-1;
+	server_set_r->debug = debug;
+}
+
+static void
+test_init_client_settings(struct http_client_settings *client_set_r)
+{
+	i_zero(client_set_r);
+	client_set_r->max_redirects = 0;
+	client_set_r->max_attempts = 1;
+	client_set_r->max_idle_time_msecs =  5* 1000;
+	client_set_r->debug = debug;
+}
+
+static void
 test_run_sequential(
 	void (*client_init)(const struct http_client_settings *client_set))
 {
@@ -1655,21 +1673,15 @@ test_run_sequential(
 	ssl_client_set.verbose = debug;
 
 	/* server settings */
-	i_zero(&http_server_set);
-	http_server_set.max_pipelined_requests = 0;
-	http_server_set.debug = debug;
+	test_init_server_settings(&http_server_set);
 	http_server_set.ssl = &ssl_server_set;
-	http_server_set.request_limits.max_payload_size = (uoff_t)-1;
+	http_server_set.max_pipelined_requests = 0;
 
 	/* client settings */
-	i_zero(&http_client_set);
-	http_client_set.max_idle_time_msecs = 5 * 1000;
+	test_init_client_settings(&http_client_set);
+	http_client_set.ssl = &ssl_client_set;
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 1;
-	http_client_set.max_redirects = 0;
-	http_client_set.max_attempts = 1;
-	http_client_set.ssl = &ssl_client_set;
-	http_client_set.debug = debug;
 
 	test_files_init();
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
@@ -1695,21 +1707,15 @@ test_run_pipeline(
 	ssl_client_set.verbose = debug;
 
 	/* server settings */
-	i_zero(&http_server_set);
-	http_server_set.max_pipelined_requests = 4;
+	test_init_server_settings(&http_server_set);
 	http_server_set.ssl = &ssl_server_set;
-	http_server_set.debug = debug;
-	http_server_set.request_limits.max_payload_size = (uoff_t)-1;
+	http_server_set.max_pipelined_requests = 4;
 
 	/* client settings */
-	i_zero(&http_client_set);
-	http_client_set.max_idle_time_msecs = 5 * 1000;
+	test_init_client_settings(&http_client_set);
+	http_client_set.ssl = &ssl_client_set;
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 8;
-	http_client_set.max_redirects = 0;
-	http_client_set.max_attempts = 1;
-	http_client_set.ssl = &ssl_client_set;
-	http_client_set.debug = debug;
 
 	test_files_init();
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
@@ -1735,21 +1741,15 @@ test_run_parallel(
 	ssl_client_set.verbose = debug;
 
 	/* server settings */
-	i_zero(&http_server_set);
-	http_server_set.max_pipelined_requests = 4;
+	test_init_server_settings(&http_server_set);
 	http_server_set.ssl = &ssl_server_set;
-	http_server_set.debug = debug;
-	http_server_set.request_limits.max_payload_size = (uoff_t)-1;
+	http_server_set.max_pipelined_requests = 4;
 
 	/* client settings */
-	i_zero(&http_client_set);
-	http_client_set.max_idle_time_msecs = 5 * 1000;
+	test_init_client_settings(&http_client_set);
+	http_client_set.ssl = &ssl_client_set;
 	http_client_set.max_parallel_connections = 40;
 	http_client_set.max_pipelined_requests = 8;
-	http_client_set.max_redirects = 0;
-	http_client_set.max_attempts = 1;
-	http_client_set.ssl = &ssl_client_set;
-	http_client_set.debug = debug;
 
 	test_files_init();
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
