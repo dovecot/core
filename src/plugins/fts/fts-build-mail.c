@@ -475,6 +475,9 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		    const char **retriable_err_msg_r,
 		    bool *may_need_retry_r)
 {
+	const struct message_parser_settings parser_set = {
+		.hdr_flags = MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
+	};
 	struct fts_mail_build_context ctx;
 	struct istream *input;
 	struct message_parser_ctx *parser;
@@ -503,9 +506,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		ctx.pending_input = buffer_create_dynamic(default_pool, 128);
 
 	prev_part = NULL;
-	parser = message_parser_init(pool_datastack_create(), input,
-				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
-				     0);
+	parser = message_parser_init(pool_datastack_create(), input, &parser_set);
 
 	decoder = message_decoder_init(update_ctx->normalizer, 0);
 	for (;;) {

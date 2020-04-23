@@ -51,8 +51,7 @@ struct message_parser_ctx {
 
 struct message_parser_ctx *
 message_parser_init_int(struct istream *input,
-			enum message_header_parser_flags hdr_flags,
-			enum message_parser_flags flags);
+			const struct message_parser_settings *set);
 int message_parser_read_more(struct message_parser_ctx *ctx,
 			     struct message_block *block_r, bool *full_r);
 

@@ -17,6 +17,11 @@ enum message_parser_flags {
 	MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES		= 0x08
 };
 
+struct message_parser_settings {
+	enum message_header_parser_flags hdr_flags;
+	enum message_parser_flags flags;
+};
+
 struct message_parser_ctx;
 
 struct message_block {
@@ -45,8 +50,7 @@ extern message_part_header_callback_t *null_message_part_header_callback;
    are allocated from. */
 struct message_parser_ctx *
 message_parser_init(pool_t part_pool, struct istream *input,
-		    enum message_header_parser_flags hdr_flags,
-		    enum message_parser_flags flags);
+		    const struct message_parser_settings *set);
 /* Deinitialize message parser. The ctx must NOT have been created by
    message_parser_init_from_parts(). */
 void message_parser_deinit(struct message_parser_ctx **ctx,
@@ -55,8 +59,7 @@ void message_parser_deinit(struct message_parser_ctx **ctx,
 struct message_parser_ctx *
 message_parser_init_from_parts(struct message_part *parts,
 			       struct istream *input,
-			       enum message_header_parser_flags hdr_flags,
-			       enum message_parser_flags flags);
+			       const struct message_parser_settings *set);
 /* Same as message_parser_deinit(), but return an error message describing
    why the preparsed parts didn't match the message. This can also safely be
    called even when preparsed parts weren't used - it'll always just return

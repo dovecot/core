@@ -703,14 +703,13 @@ static int parse_next_header_init(struct message_parser_ctx *ctx,
 
 struct message_parser_ctx *
 message_parser_init_int(struct istream *input,
-			enum message_header_parser_flags hdr_flags,
-			enum message_parser_flags flags)
+			const struct message_parser_settings *set)
 {
 	struct message_parser_ctx *ctx;
 
 	ctx = i_new(struct message_parser_ctx, 1);
-	ctx->hdr_flags = hdr_flags;
-	ctx->flags = flags;
+	ctx->hdr_flags = set->hdr_flags;
+	ctx->flags = set->flags;
 	ctx->input = input;
 	i_stream_ref(input);
 	return ctx;
@@ -718,12 +717,11 @@ message_parser_init_int(struct istream *input,
 
 struct message_parser_ctx *
 message_parser_init(pool_t part_pool, struct istream *input,
-		    enum message_header_parser_flags hdr_flags,
-		    enum message_parser_flags flags)
+		    const struct message_parser_settings *set)
 {
 	struct message_parser_ctx *ctx;
 
-	ctx = message_parser_init_int(input, hdr_flags, flags);
+	ctx = message_parser_init_int(input, set);
 	ctx->part_pool = part_pool;
 	ctx->parts = ctx->part = p_new(part_pool, struct message_part, 1);
 	ctx->next_part = &ctx->part->children;

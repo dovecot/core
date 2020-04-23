@@ -65,6 +65,7 @@ static const char test_msg[] =
 
 static void test_message_part_idx(void)
 {
+	const struct message_parser_settings set = { .flags = 0 };
 	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts, *part, *prev_part;
@@ -77,7 +78,7 @@ static void test_message_part_idx(void)
 	pool = pool_alloconly_create("message parser", 10240);
 	input = i_stream_create_from_data(test_msg, TEST_MSG_LEN);
 
-	parser = message_parser_init(pool, input, 0, 0);
+	parser = message_parser_init(pool, input, &set);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		part_idx = message_part_to_idx(block.part);
 		test_assert(part_idx >= prev_idx);

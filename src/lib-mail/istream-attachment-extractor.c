@@ -696,6 +696,10 @@ i_stream_create_attachment_extractor(struct istream *input,
 				     struct istream_attachment_settings *set,
 				     void *context)
 {
+	const struct message_parser_settings parser_set = {
+		.flags = MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
+			MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES,
+	};
 	struct attachment_istream *astream;
 
 	i_assert(set->min_size > 0);
@@ -722,9 +726,7 @@ i_stream_create_attachment_extractor(struct istream *input,
 	astream->istream.istream.seekable = FALSE;
 
 	astream->pool = pool_alloconly_create("istream attachment", 1024);
-	astream->parser = message_parser_init(astream->pool, input, 0,
-				MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
-				MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES);
+	astream->parser = message_parser_init(astream->pool, input, &parser_set);
 	return i_stream_create(&astream->istream, input,
 			       i_stream_get_fd(input), 0);
 }
