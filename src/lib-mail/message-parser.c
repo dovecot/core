@@ -150,6 +150,13 @@ message_part_append(pool_t pool, struct message_part *parent)
 	return part;
 }
 
+static void message_part_finish(struct message_parser_ctx *ctx)
+{
+	message_size_add(&ctx->part->parent->body_size, &ctx->part->body_size);
+	message_size_add(&ctx->part->parent->body_size, &ctx->part->header_size);
+	ctx->part = ctx->part->parent;
+}
+
 static void parse_next_body_multipart_init(struct message_parser_ctx *ctx)
 {
 	struct message_boundary *b;
@@ -267,19 +274,16 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 			     struct message_boundary *boundary,
 			     struct message_block *block_r, bool first_line)
 {
-	struct message_part *part;
 	size_t line_size;
 
 	i_assert(ctx->last_boundary == NULL);
 
 	/* get back to parent MIME part, summing the child MIME part sizes
 	   into parent's body sizes */
-	for (part = ctx->part; part != boundary->part; part = part->parent) {
-		message_size_add(&part->parent->body_size, &part->body_size);
-		message_size_add(&part->parent->body_size, &part->header_size);
+	while (ctx->part != boundary->part) {
+		message_part_finish(ctx);
+		i_assert(ctx->part != NULL);
 	}
-	i_assert(part != NULL);
-	ctx->part = part;
 
 	if (boundary->epilogue_found) {
 		/* this boundary isn't needed anymore */
@@ -734,13 +738,8 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 		i_assert(ctx->input->eof || ctx->input->closed ||
 			 ctx->input->stream_errno != 0 ||
 			 ctx->broken_reason != NULL);
-		while (ctx->part->parent != NULL) {
-			message_size_add(&ctx->part->parent->body_size,
-					 &ctx->part->body_size);
-			message_size_add(&ctx->part->parent->body_size,
-					 &ctx->part->header_size);
-			ctx->part = ctx->part->parent;
-		}
+		while (ctx->part->parent != NULL)
+			message_part_finish(ctx);
 	}
 
 	if (block_r->size == 0) {
