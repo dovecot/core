@@ -723,21 +723,32 @@ void http_server_connection_handle_output_error(
 	}
 }
 
-static bool
+enum _output_result {
+	/* Error */
+	_OUTPUT_ERROR = -1,
+	/* Output blocked */
+	_OUTPUT_BLOCKED = 0,
+	/* Successful, but no more responses are ready to be sent */
+	_OUTPUT_FINISHED = 1,
+	/* Successful and more responses can be sent */
+	_OUTPUT_AVAILABLE = 2,
+};
+
+static enum _output_result
 http_server_connection_next_response(struct http_server_connection *conn)
 {
 	struct http_server_request *req;
 	int ret;
 
 	if (conn->output_locked)
-		return FALSE;
+		return _OUTPUT_BLOCKED;
 
 	req = conn->request_queue_head;
 	if (req == NULL || req->state == HTTP_SERVER_REQUEST_STATE_NEW) {
 		/* No requests pending */
 		e_debug(conn->event, "No more requests pending");
 		http_server_connection_start_idle_timeout(conn);
-		return FALSE;
+		return _OUTPUT_FINISHED;
 	}
 	if (req->state < HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND) {
 		if (req->state == HTTP_SERVER_REQUEST_STATE_PROCESSING) {
@@ -765,13 +776,13 @@ http_server_connection_next_response(struct http_server_connection *conn)
 			if (o_stream_send(output, response,
 					  strlen(response)) < 0) {
 				http_server_connection_handle_output_error(conn);
-				return FALSE;
+				return _OUTPUT_ERROR;
 			}
 
 			e_debug(conn->event, "Sent 100 Continue");
 			req->sent_100_continue = TRUE;
 		}
-		return FALSE;
+		return _OUTPUT_FINISHED;
 	}
 
 	i_assert(req->state == HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND &&
@@ -785,33 +796,45 @@ http_server_connection_next_response(struct http_server_connection *conn)
 	http_server_request_immune_unref(&req);
 
 	if (ret < 0)
-		return FALSE;
+		return _OUTPUT_ERROR;
 
 	http_server_connection_reset_idle_timeout(conn);
-	return TRUE;
+	return (ret > 0 ? _OUTPUT_AVAILABLE : _OUTPUT_BLOCKED);
 }
 
 static int
 http_server_connection_send_responses(struct http_server_connection *conn)
 {
+	enum _output_result ores = _OUTPUT_AVAILABLE;
+
 	http_server_connection_ref(conn);
 
 	/* Send more responses until no more responses remain, the output
 	   blocks again, or the connection is closed */
-	while (!conn->closed && http_server_connection_next_response(conn));
+	while (!conn->closed && ores == _OUTPUT_AVAILABLE)
+		ores = http_server_connection_next_response(conn);
 
-	if (http_server_connection_unref_is_closed(conn))
+	if (http_server_connection_unref_is_closed(conn) ||
+	    ores == _OUTPUT_ERROR)
 		return -1;
 
 	/* Accept more requests if possible */
 	if (conn->incoming_payload == NULL &&
 	    (conn->request_queue_count <
 	     conn->server->set.max_pipelined_requests) &&
-	    !conn->server->shutting_down) {
+	    !conn->server->shutting_down)
 		http_server_connection_input_resume(conn);
+
+	switch (ores) {
+	case _OUTPUT_ERROR:
+	case _OUTPUT_AVAILABLE:
+		break;
+	case _OUTPUT_BLOCKED:
+		return 0;
+	case _OUTPUT_FINISHED:
 		return 1;
 	}
-	return 0;
+	i_unreached();
 }
 
 int http_server_connection_flush(struct http_server_connection *conn)
@@ -833,13 +856,14 @@ int http_server_connection_output(struct http_server_connection *conn)
 {
 	bool pipeline_was_full =
 		http_server_connection_pipeline_is_full(conn);
-	int ret;
+	int ret = 1;
 
 	if (http_server_connection_flush(conn) < 0)
 		return -1;
 
 	if (!conn->output_locked) {
-		if (http_server_connection_send_responses(conn) < 0)
+		ret = http_server_connection_send_responses(conn);
+		if (ret < 0)
 			return -1;
 	} else if (conn->request_queue_head != NULL) {
 		struct http_server_request *req = conn->request_queue_head;
@@ -856,9 +880,12 @@ int http_server_connection_output(struct http_server_connection *conn)
 		if (http_server_connection_unref_is_closed(conn) || ret < 0)
 			return -1;
 
-		if (!conn->output_locked) {
+		if (ret > 0) {
+			i_assert(!conn->output_locked);
+
 			/* Room for more responses */
-			if (http_server_connection_send_responses(conn) < 0)
+			ret = http_server_connection_send_responses(conn);
+			if (ret < 0)
 				return -1;
 		} else if (conn->io_resp_payload != NULL) {
 			/* Server is causing idle time */
@@ -883,7 +910,7 @@ int http_server_connection_output(struct http_server_connection *conn)
 			http_server_connection_input_set_pending(conn);
 	}
 
-	return 1;
+	return ret;
 }
 
 void http_server_connection_output_trigger(struct http_server_connection *conn)
