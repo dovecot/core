@@ -387,6 +387,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 			/* keep local connection address for LOCAL */
 			/*i_debug("haproxy(v2): Local connection (rip=%s)",
 				net_ip2addr(real_remote_ip));*/
+			i = size; /* we should skip all the remaining data which can be present in PROXY protocol */
 			break;
 		case HAPROXY_CMD_PROXY:
 			if ((hdr->fam & 0x0f) != HAPROXY_SOCK_STREAM) {
