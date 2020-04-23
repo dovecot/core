@@ -173,6 +173,13 @@ static void message_part_finish(struct message_parser_ctx *ctx)
 	ctx->part = ctx->part->parent;
 }
 
+static void
+boundary_remove_until(struct message_parser_ctx *ctx,
+		      struct message_boundary *boundary)
+{
+	ctx->boundaries = boundary;
+}
+
 static void parse_next_body_multipart_init(struct message_parser_ctx *ctx)
 {
 	struct message_boundary *b;
@@ -314,10 +321,10 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 
 	if (boundary->epilogue_found) {
 		/* this boundary isn't needed anymore */
-		ctx->boundaries = boundary->next;
+		boundary_remove_until(ctx, boundary->next);
 	} else {
 		/* forget about the boundaries we possibly skipped */
-		ctx->boundaries = boundary;
+		boundary_remove_until(ctx, boundary);
 	}
 
 	/* the boundary itself should already be in buffer. add that. */
