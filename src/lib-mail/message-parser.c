@@ -126,7 +126,7 @@ static void
 message_part_append(struct message_parser_ctx *ctx)
 {
 	struct message_part *parent = ctx->part;
-	struct message_part *p, *part, **list;
+	struct message_part *part, **list;
 
 	i_assert(parent != NULL);
 	i_assert((parent->flags & (MESSAGE_PART_FLAG_MULTIPART |
@@ -134,8 +134,6 @@ message_part_append(struct message_parser_ctx *ctx)
 
 	part = p_new(ctx->part_pool, struct message_part, 1);
 	part->parent = parent;
-	for (p = parent; p != NULL; p = p->parent)
-		p->children_count++;
 
 	/* set child position */
 	part->physical_pos =
@@ -155,6 +153,7 @@ static void message_part_finish(struct message_parser_ctx *ctx)
 {
 	message_size_add(&ctx->part->parent->body_size, &ctx->part->body_size);
 	message_size_add(&ctx->part->parent->body_size, &ctx->part->header_size);
+	ctx->part->parent->children_count += 1 + ctx->part->children_count;
 	ctx->part = ctx->part->parent;
 }
 
