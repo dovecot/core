@@ -59,6 +59,7 @@ static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
 		    p1->body_size.physical_size != p2->body_size.physical_size ||
 		    p1->body_size.virtual_size != p2->body_size.virtual_size ||
 		    p1->body_size.lines != p2->body_size.lines ||
+		    p1->children_count != p2->children_count ||
 		    p1->flags != p2->flags)
 			return FALSE;
 
@@ -195,6 +196,7 @@ static const char input_msg[] =
 	message_parser_deinit(&parser, &parts);
 
 	test_assert((parts->flags & MESSAGE_PART_FLAG_MULTIPART) != 0);
+	test_assert(parts->children_count == 4);
 	test_assert(parts->header_size.lines == 2);
 	test_assert(parts->header_size.physical_size == 48);
 	test_assert(parts->header_size.virtual_size == 48+2);
@@ -218,6 +220,7 @@ static const char input_msg[] =
 	test_assert(parts->children->next->next->next->header_size.virtual_size == 23);
 	test_assert(parts->children->next->next->next->header_size.lines == 0);
 	for (part = parts->children; part != NULL; part = part->next) {
+		test_assert(part->children_count == 0);
 		test_assert(part->body_size.physical_size == 0);
 		test_assert(part->body_size.virtual_size == 0);
 	}
@@ -258,6 +261,7 @@ static const char input_msg[] =
 	message_parser_deinit(&parser, &parts);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(parts->children_count == 2);
 	test_assert(parts->header_size.lines == 2);
 	test_assert(parts->header_size.physical_size == 46);
 	test_assert(parts->header_size.virtual_size == 46+2);
@@ -265,6 +269,7 @@ static const char input_msg[] =
 	test_assert(parts->body_size.physical_size == 86);
 	test_assert(parts->body_size.virtual_size == 86+8);
 
+	test_assert(parts->children->children_count == 0);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->physical_pos == 51);
 	test_assert(parts->children->header_size.lines == 1);
@@ -274,6 +279,7 @@ static const char input_msg[] =
 	test_assert(parts->children->body_size.physical_size == 0);
 	test_assert(parts->children->children == NULL);
 
+	test_assert(parts->children->next->children_count == 0);
 	test_assert(parts->children->next->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->next->physical_pos == 101);
 	test_assert(parts->children->next->header_size.lines == 2);
@@ -310,6 +316,7 @@ static const char input_msg[] =
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
 
+	test_assert(parts->children_count == 0);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 1);
 	test_assert(parts->header_size.physical_size == 45);
@@ -347,6 +354,7 @@ static const char input_msg[] =
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
 
+	test_assert(parts->children_count == 0);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
 	test_assert(parts->header_size.physical_size == 46);
@@ -391,6 +399,7 @@ static const char input_msg[] =
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
 
+	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
 	test_assert(parts->header_size.physical_size == 45);
@@ -398,6 +407,7 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 7);
 	test_assert(parts->body_size.physical_size == 84);
 	test_assert(parts->body_size.virtual_size == 84+7);
+	test_assert(parts->children->children_count == 1);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->physical_pos == 49);
 	test_assert(parts->children->header_size.lines == 2);
@@ -406,6 +416,7 @@ static const char input_msg[] =
 	test_assert(parts->children->body_size.lines == 4);
 	test_assert(parts->children->body_size.physical_size == 35);
 	test_assert(parts->children->body_size.virtual_size == 35+4);
+	test_assert(parts->children->children->children_count == 0);
 	test_assert(parts->children->children->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->children->physical_pos == 98);
 	test_assert(parts->children->children->header_size.lines == 2);
@@ -449,6 +460,7 @@ static const char input_msg[] =
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
 
+	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
 	test_assert(parts->header_size.physical_size == 45);
@@ -456,6 +468,7 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 7);
 	test_assert(parts->body_size.physical_size == 86);
 	test_assert(parts->body_size.virtual_size == 86+7);
+	test_assert(parts->children->children_count == 1);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->physical_pos == 50);
 	test_assert(parts->children->header_size.lines == 2);
@@ -464,6 +477,7 @@ static const char input_msg[] =
 	test_assert(parts->children->body_size.lines == 4);
 	test_assert(parts->children->body_size.physical_size == 36);
 	test_assert(parts->children->body_size.virtual_size == 36+4);
+	test_assert(parts->children->children->children_count == 0);
 	test_assert(parts->children->children->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->children->physical_pos == 100);
 	test_assert(parts->children->children->header_size.lines == 2);
@@ -507,6 +521,7 @@ static const char input_msg[] =
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
 
+	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
 	test_assert(parts->header_size.physical_size == 45);
@@ -514,6 +529,7 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 7);
 	test_assert(parts->body_size.physical_size == 86);
 	test_assert(parts->body_size.virtual_size == 86+7);
+	test_assert(parts->children->children_count == 1);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->physical_pos == 49);
 	test_assert(parts->children->header_size.lines == 2);
@@ -522,6 +538,7 @@ static const char input_msg[] =
 	test_assert(parts->children->body_size.lines == 4);
 	test_assert(parts->children->body_size.physical_size == 36);
 	test_assert(parts->children->body_size.virtual_size == 36+4);
+	test_assert(parts->children->children->children_count == 0);
 	test_assert(parts->children->children->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->children->physical_pos == 100);
 	test_assert(parts->children->children->header_size.lines == 2);
@@ -567,6 +584,7 @@ static const char input_msg[] =
 	message_parser_deinit(&parser, &parts);
 
 	part = parts;
+	test_assert(part->children_count == 3);
 	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(part->header_size.lines == 2);
 	test_assert(part->header_size.physical_size == 45);
@@ -576,6 +594,7 @@ static const char input_msg[] =
 	test_assert(part->body_size.virtual_size == 112+9);
 
 	part = parts->children;
+	test_assert(part->children_count == 0);
 	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(part->physical_pos == 49);
 	test_assert(part->header_size.lines == 1);
@@ -589,6 +608,7 @@ static const char input_msg[] =
 	   we could make it, but it would complicate the message-parser even
 	   more. */
 	part = parts->children->next;
+	test_assert(part->children_count == 0);
 	test_assert(part->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(part->physical_pos == 117);
 	test_assert(part->header_size.lines == 1);
@@ -599,6 +619,7 @@ static const char input_msg[] =
 	test_assert(part->children == NULL);
 
 	part = parts->children->next->next;
+	test_assert(part->children_count == 0);
 	test_assert(part->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(part->header_size.lines == 0);
 	test_assert(part->header_size.physical_size == 0);
@@ -645,6 +666,7 @@ static const char input_msg[] =
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
 
+	test_assert(parts->children_count == 3);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
 	test_assert(parts->header_size.physical_size == 46);
@@ -652,6 +674,7 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 11);
 	test_assert(parts->body_size.physical_size == 121);
 	test_assert(parts->body_size.virtual_size == 121+11);
+	test_assert(parts->children->children_count == 1);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->physical_pos == 51);
 	test_assert(parts->children->header_size.lines == 2);
@@ -660,6 +683,7 @@ static const char input_msg[] =
 	test_assert(parts->children->body_size.lines == 3);
 	test_assert(parts->children->body_size.physical_size == 34);
 	test_assert(parts->children->body_size.virtual_size == 34+3);
+	test_assert(parts->children->children->children_count == 0);
 	test_assert(parts->children->children->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->children->physical_pos == 100);
 	test_assert(parts->children->children->header_size.lines == 2);
@@ -668,6 +692,7 @@ static const char input_msg[] =
 	test_assert(parts->children->children->body_size.lines == 0);
 	test_assert(parts->children->children->body_size.physical_size == 4);
 	test_assert(parts->children->children->body_size.virtual_size == 4);
+	test_assert(parts->children->next->children_count == 0);
 	test_assert(parts->children->next->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->next->physical_pos == 136);
 	test_assert(parts->children->next->header_size.lines == 2);
