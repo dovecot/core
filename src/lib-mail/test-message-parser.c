@@ -736,6 +736,100 @@ static void test_message_parser_no_eoh(void)
 	test_end();
 }
 
+static void test_message_parser_long_mime_boundary(void)
+{
+	/* Close the boundaries in wrong reverse order. But because all
+	   boundaries are actually truncated to the same size (..890) it
+	   works the same as if all of them were duplicate boundaries. */
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"1234567890123456789012345678901234567890123456789012345678901234567890123456789012\"\n"
+"\n"
+"--1234567890123456789012345678901234567890123456789012345678901234567890123456789012\n"
+"Content-Type: multipart/mixed; boundary=\"123456789012345678901234567890123456789012345678901234567890123456789012345678901\"\n"
+"\n"
+"--123456789012345678901234567890123456789012345678901234567890123456789012345678901\n"
+"Content-Type: multipart/mixed; boundary=\"12345678901234567890123456789012345678901234567890123456789012345678901234567890\"\n"
+"\n"
+"--12345678901234567890123456789012345678901234567890123456789012345678901234567890\n"
+"Content-Type: text/plain\n"
+"\n"
+"1\n"
+"--1234567890123456789012345678901234567890123456789012345678901234567890123456789012\n"
+"Content-Type: text/plain\n"
+"\n"
+"22\n"
+"--123456789012345678901234567890123456789012345678901234567890123456789012345678901\n"
+"Content-Type: text/plain\n"
+"\n"
+"333\n"
+"--12345678901234567890123456789012345678901234567890123456789012345678901234567890\n"
+"Content-Type: text/plain\n"
+"\n"
+"4444\n";
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *part;
+	struct message_block block;
+	pool_t pool;
+	int ret;
+
+	test_begin("message parser long mime boundary");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, 0, 0);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	test_assert(ret < 0);
+	message_parser_deinit(&parser, &parts);
+
+	part = parts;
+	test_assert(part->children_count == 6);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 126);
+	test_assert(part->header_size.virtual_size == 126+2);
+	test_assert(part->body_size.lines == 22);
+	test_assert(part->body_size.physical_size == 871);
+	test_assert(part->body_size.virtual_size == 871+22);
+
+	part = parts->children;
+	test_assert(part->children_count == 5);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 125);
+	test_assert(part->header_size.virtual_size == 125+2);
+	test_assert(part->body_size.lines == 19);
+	test_assert(part->body_size.physical_size == 661);
+	test_assert(part->body_size.virtual_size == 661+19);
+
+	part = parts->children->children;
+	test_assert(part->children_count == 4);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 124);
+	test_assert(part->header_size.virtual_size == 124+2);
+	test_assert(part->body_size.lines == 16);
+	test_assert(part->body_size.physical_size == 453);
+	test_assert(part->body_size.virtual_size == 453+16);
+
+	part = parts->children->children->children;
+	for (unsigned int i = 1; i <= 3; i++, part = part->next) {
+		test_assert(part->children_count == 0);
+		test_assert(part->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
+		test_assert(part->header_size.lines == 2);
+		test_assert(part->header_size.physical_size == 26);
+		test_assert(part->header_size.virtual_size == 26+2);
+		test_assert(part->body_size.lines == 0);
+		test_assert(part->body_size.physical_size == i);
+		test_assert(part->body_size.virtual_size == i);
+	}
+
+	test_parsed_parts(input, parts);
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -749,6 +843,7 @@ int main(void)
 		test_message_parser_continuing_mime_boundary,
 		test_message_parser_continuing_truncated_mime_boundary,
 		test_message_parser_continuing_mime_boundary_reverse,
+		test_message_parser_long_mime_boundary,
 		test_message_parser_no_eoh,
 		NULL
 	};
