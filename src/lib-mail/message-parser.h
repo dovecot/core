@@ -17,9 +17,15 @@ enum message_parser_flags {
 	MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES		= 0x08
 };
 
+#define MESSAGE_PARSER_DEFAULT_MAX_NESTED_MIME_PARTS 100
+
 struct message_parser_settings {
 	enum message_header_parser_flags hdr_flags;
 	enum message_parser_flags flags;
+
+	/* Maximum nested MIME parts.
+	   0 = MESSAGE_PARSER_DEFAULT_MAX_NESTED_MIME_PARTS. */
+	unsigned int max_nested_mime_parts;
 };
 
 struct message_parser_ctx;
