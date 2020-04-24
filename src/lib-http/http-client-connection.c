@@ -1299,7 +1299,7 @@ http_client_connection_continue_request(struct http_client_connection *conn)
 	reqs = array_get(&conn->request_wait_list, &count);
 	i_assert(count > 0 || conn->to_requests == NULL);
 	if (count == 0 || !conn->output_locked)
-		return 0;
+		return 1;
 
 	req = reqs[count-1];
 	pipelined = (count > 1 || conn->pending_request != NULL);
@@ -1309,15 +1309,15 @@ http_client_connection_continue_request(struct http_client_connection *conn)
 			"Request aborted before sending payload was complete.");
 		if (count == 1) {
 			http_client_connection_close(&conn);
-		} else {
-			o_stream_unset_flush_callback(conn->conn.output);
-			conn->output_broken = TRUE;
+			return -1;
 		}
-		return 0;
+		o_stream_unset_flush_callback(conn->conn.output);
+		conn->output_broken = TRUE;
+		return -1;
 	}
 
 	if (req->payload_sync && !req->payload_sync_continue)
-		return 0;
+		return 1;
 
 	tmp_conn = conn;
 	http_client_connection_ref(tmp_conn);
@@ -1330,7 +1330,7 @@ http_client_connection_continue_request(struct http_client_connection *conn)
 		if (http_client_connection_check_ready(conn) > 0)
 			http_client_peer_trigger_request_handler(conn->peer);
 	}
-	return 0;
+	return ret;
 }
 
 int http_client_connection_output(struct http_client_connection *conn)
@@ -1353,9 +1353,7 @@ int http_client_connection_output(struct http_client_connection *conn)
 		!ssl_iostream_is_handshaked(conn->ssl_iostream))
 		return 1;
 
-	if (http_client_connection_continue_request(conn) < 0)
-		return -1;
-	return 1;
+	return http_client_connection_continue_request(conn);
 }
 
 void http_client_connection_start_tunnel(struct http_client_connection **_conn,
