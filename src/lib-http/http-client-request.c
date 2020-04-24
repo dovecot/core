@@ -1273,12 +1273,10 @@ int http_client_request_send_more(struct http_client_request *req,
 			http_client_connection_stop_request_timeout(conn);
 			if (req->client != NULL && req->client->waiting)
 				io_loop_stop(req->client->ioloop);
-		} else {
-			/* finished sending payload */
-			if (http_client_request_finish_payload_out(req) < 0)
-				return -1;
+			return 0;
 		}
-		return 0;
+		/* Finished sending payload */
+		return http_client_request_finish_payload_out(req);
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 		/* input is blocking (client needs to act; disable timeout) */
 		conn->output_locked = TRUE;
@@ -1325,6 +1323,7 @@ http_client_request_send_real(struct http_client_request *req, bool pipelined)
 	struct http_client_connection *conn = req->conn;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
+	int ret;
 
 	i_assert(!req->conn->output_locked);
 	i_assert(req->payload_output == NULL);
@@ -1435,8 +1434,11 @@ http_client_request_send_real(struct http_client_request *req, bool pipelined)
 	req->sent_global_ioloop_usecs = ioloop_global_wait_usecs;
 	req->sent_http_ioloop_usecs =
 		io_wait_timer_get_usecs(req->conn->io_wait_timer);
+
+	ret = 1;
 	o_stream_cork(conn->conn.output);
 	req->request_offset = conn->conn.output->offset;
+
 	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
 		http_client_connection_handle_output_error(conn);
 		return -1;
@@ -1446,7 +1448,8 @@ http_client_request_send_real(struct http_client_request *req, bool pipelined)
 
 	if (req->payload_output != NULL) {
 		if (!req->payload_sync) {
-			if (http_client_request_send_more(req, pipelined) < 0)
+			ret = http_client_request_send_more(req, pipelined);
+			if (ret < 0)
 				return -1;
 		} else {
 			e_debug(req->event, "Waiting for 100-continue");
@@ -1466,7 +1469,7 @@ http_client_request_send_real(struct http_client_request *req, bool pipelined)
 			return -1;
 		}
 	}
-	return 0;
+	return ret;
 }
 
 int http_client_request_send(struct http_client_request *req, bool pipelined)
