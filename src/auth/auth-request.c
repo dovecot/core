@@ -1266,6 +1266,9 @@ void auth_request_policy_check_callback(int result, void *context)
 	struct auth_policy_check_ctx *ctx = context;
 
 	ctx->request->policy_processed = TRUE;
+	/* It's possible that multiple policy lookups return a penalty.
+	   Sum them all up to the event. */
+	ctx->request->policy_penalty += result < 0 ? 0 : result;
 
 	if (ctx->request->set->policy_log_only && result != 0) {
 		auth_request_policy_penalty_finish(context);
