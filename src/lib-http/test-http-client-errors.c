@@ -990,6 +990,161 @@ static void test_broken_payload(void)
 }
 
 /*
+ * Retry payload
+ */
+
+/* server */
+
+struct _reply_payload_sctx {
+	bool eoh;
+};
+
+static int test_retry_payload_init(struct server_connection *conn)
+{
+	struct _reply_payload_sctx *ctx;
+
+	ctx = p_new(conn->pool, struct _reply_payload_sctx, 1);
+	conn->context = ctx;
+	return 0;
+}
+
+static void test_retry_payload_input(struct server_connection *conn)
+{
+	struct _reply_payload_sctx *ctx = conn->context;
+	const char *line;
+
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (*line == '\0') {
+			ctx->eoh = TRUE;
+			continue;
+		}
+		if (ctx->eoh)
+			break;
+	}
+
+	if (conn->conn.input->stream_errno != 0) {
+		i_fatal("server: Stream error: %s",
+			i_stream_get_error(conn->conn.input));
+	}
+	if (conn->conn.input->eof)
+		i_fatal("server: Client stream ended prematurely");
+	if (line == NULL)
+		return;
+
+	i_assert(ctx->eoh);
+
+	if (strcmp(line, "This is the payload we expect.") == 0) {
+		if (debug)
+			i_debug("Expected payload received");
+		o_stream_nsend_str(conn->conn.output,
+				   "HTTP/1.1 500 Oh no!\r\n"
+				   "Content-Length: 17\r\n"
+				   "\r\n"
+				   "Expected result\r\n");
+	} else {
+		if (debug)
+			i_debug("Unexpected payload received");
+		o_stream_nsend_str(conn->conn.output,
+				   "HTTP/1.1 501 Oh no!\r\n"
+				   "Content-Length: 17\r\n"
+				   "\r\n"
+				   "Unexpected result\r\n");
+	}
+	server_connection_deinit(&conn);
+}
+
+static void test_server_retry_payload(unsigned int index)
+{
+	test_server_init = test_retry_payload_init;
+	test_server_input = test_retry_payload_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _retry_payload_ctx {
+	unsigned int count;
+};
+
+struct _retry_payload_request_ctx {
+	struct _retry_payload_ctx *ctx;
+	struct http_client_request *req;
+};
+
+static void
+test_client_retry_payload_response(const struct http_response *resp,
+				   struct _retry_payload_request_ctx *rctx)
+{
+	struct _retry_payload_ctx *ctx = rctx->ctx;
+
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == 500);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (http_client_request_try_retry(rctx->req)) {
+		if (debug)
+			i_debug("retrying");
+		return;
+	}
+	i_free(rctx);
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static bool
+test_client_retry_payload(const struct http_client_settings *client_set)
+{
+	static const char payload[] = "This is the payload we expect.\r\n";
+	struct _retry_payload_ctx *ctx;
+	struct _retry_payload_request_ctx *rctx;
+	struct http_client_request *hreq;
+	struct istream *input;
+
+	ctx = i_new(struct _retry_payload_ctx, 1);
+	ctx->count = 1;
+
+	http_client = http_client_init(client_set);
+
+	input = i_stream_create_from_data(payload, sizeof(payload)-1);
+
+	rctx = i_new(struct _retry_payload_request_ctx, 1);
+	rctx->ctx = ctx;
+
+	rctx->req = hreq = http_client_request(
+		http_client, "GET", net_ip2addr(&bind_ip), "/retry-payload.txt",
+		test_client_retry_payload_response, rctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_set_payload(hreq, input, FALSE);
+	http_client_request_submit(hreq);
+
+	i_stream_unref(&input);
+	return TRUE;
+}
+
+/* test */
+
+static void test_retry_payload(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.max_attempts = 2;
+
+	server_read_max = 0;
+
+	test_begin("retry payload");
+	test_run_client_server(&http_client_set,
+			       test_client_retry_payload,
+			       test_server_retry_payload, 1, NULL);
+	test_end();
+}
+
+/*
  * Connection lost
  */
 
@@ -3098,6 +3253,7 @@ static void (*const test_functions[])(void) = {
 	test_unseekable_redirect,
 	test_unseekable_retry,
 	test_broken_payload,
+	test_retry_payload,
 	test_connection_lost,
 	test_connection_lost_100,
 	test_connection_lost_sub_ioloop,
