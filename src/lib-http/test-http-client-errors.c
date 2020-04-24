@@ -28,6 +28,7 @@
 
 struct server_connection {
 	struct connection conn;
+	void *context;
 
 	pool_t pool;
 	bool version_sent:1;
@@ -59,6 +60,8 @@ static unsigned int server_pids_count = 0;
 static struct connection_list *server_conn_list;
 static size_t server_read_max = 0;
 static unsigned int server_index;
+static int (*test_server_init)(struct server_connection *conn);
+static void (*test_server_deinit)(struct server_connection *conn);
 static void (*test_server_input)(struct server_connection *conn);
 
 /* client */
@@ -3195,6 +3198,11 @@ static void server_connection_init(int fd)
 
 	connection_init_server(server_conn_list, &conn->conn,
 			       "server connection", fd, fd);
+
+	if (test_server_init != NULL) {
+		if (test_server_init(conn) != 0)
+			return;
+	}
 }
 
 static void server_connection_deinit(struct server_connection **_conn)
@@ -3202,6 +3210,9 @@ static void server_connection_deinit(struct server_connection **_conn)
 	struct server_connection *conn = *_conn;
 
 	*_conn = NULL;
+
+	if (test_server_deinit != NULL)
+		test_server_deinit(conn);
 
 	connection_deinit(&conn->conn);
 	pool_unref(&conn->pool);
@@ -3309,6 +3320,10 @@ test_run_client_server(const struct http_client_settings *client_set,
 
 	server_pids = NULL;
 	server_pids_count = 0;
+
+	test_server_init = NULL;
+	test_server_deinit = NULL;
+	test_server_input = NULL;
 
 	if (server_tests_count > 0) {
 		int fds[server_tests_count];
