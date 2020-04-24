@@ -500,7 +500,6 @@ int http_server_response_send_more(struct http_server_response *resp)
 	struct http_server_connection *conn = resp->request->conn;
 	struct ostream *output = resp->payload_output;
 	enum ostream_send_istream_result res;
-	int ret = 0;
 
 	i_assert(resp->payload_output != NULL);
 
@@ -512,7 +511,7 @@ int http_server_response_send_more(struct http_server_response *resp)
 	if (resp->payload_stream != NULL) {
 		conn->output_locked = TRUE;
 		http_server_ostream_continue(resp->payload_stream);
-		return 0;
+		return (conn->output_locked ? 0 : 1);
 	}
 
 	i_assert(resp->payload_input != NULL);
@@ -534,25 +533,25 @@ int http_server_response_send_more(struct http_server_response *resp)
 				i_stream_get_name(resp->payload_input));
 			http_server_connection_close(
 				&conn, "Payload read failure");
-			ret = -1;
-		} else {
-			ret = 1;
+			return -1;
 		}
-		break;
+		/* Finished sending payload */
+		e_debug(resp->event, "Finish sending payload");
+		return http_server_response_finish_payload_out(resp);
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 		/* Input is blocking (server needs to act; disable timeout) */
 		conn->output_locked = TRUE;
 		http_server_connection_stop_idle_timeout(conn);
 		conn->io_resp_payload = io_add_istream(resp->payload_input,
 			http_server_response_payload_input, resp);
-		break;
+		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		/* Output is blocking (client needs to act; enable timeout) */
 		conn->output_locked = TRUE;
 		http_server_connection_start_idle_timeout(conn);
 		o_stream_set_flush_pending(output, TRUE);
 		//e_debug(resp->event, "Partially sent payload");
-		break;
+		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		/* We're in the middle of sending a response, so the connection
 		   will also have to be aborted */
@@ -561,22 +560,13 @@ int http_server_response_send_more(struct http_server_response *resp)
 			i_stream_get_error(resp->payload_input));
 		http_server_connection_close(&conn,
 			"Payload read failure");
-		ret = -1;
-		break;
+		return -1;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		/* Failed to send response */
 		http_server_connection_handle_output_error(conn);
-		ret = -1;
-		break;
+		return -1;
 	}
-
-	if (ret != 0) {
-		/* Finished sending payload (or error) */
-		e_debug(resp->event, "Finish sending payload");
-		if (http_server_response_finish_payload_out(resp) < 0)
-			return -1;
-	}
-	return ret < 0 ? -1 : 0;
+	i_unreached();
 }
 
 static int http_server_response_send_real(struct http_server_response *resp)
@@ -588,6 +578,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	uoff_t content_length = 0;
 	bool chunked = FALSE, send_content_length = FALSE, close = FALSE;
 	bool is_head = http_request_method_is(&req->req, "HEAD");
+	int ret;
 
 	i_assert(!conn->output_locked);
 
@@ -732,8 +723,10 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	iov[2].iov_base = "\r\n";
 	iov[2].iov_len = 2;
 
+	ret = 1;
 	req->state = HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT;
 	o_stream_cork(conn->conn.output);
+
 	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
 		http_server_connection_handle_output_error(conn);
 		return -1;
@@ -745,7 +738,8 @@ static int http_server_response_send_real(struct http_server_response *resp)
 		http_server_ostream_output_available(resp->payload_stream);
 	if (resp->payload_output != NULL) {
 		/* Non-blocking payload */
-		if (http_server_response_send_more(resp) < 0)
+		ret = http_server_response_send_more(resp);
+		if (ret < 0)
 			return -1;
 	} else {
 		/* No payload to send */
@@ -761,7 +755,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 		http_server_connection_handle_output_error(conn);
 		return -1;
 	}
-	return 0;
+	return ret;
 }
 
 int http_server_response_send(struct http_server_response *resp)
