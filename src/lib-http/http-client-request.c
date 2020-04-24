@@ -1681,6 +1681,26 @@ void http_client_request_finish(struct http_client_request *req)
 	http_client_request_unref(&req);
 }
 
+static int
+http_client_request_reset(struct http_client_request *req, bool rewind,
+			  const char **error_r)
+{
+	/* Rewind payload stream */
+	if (rewind && req->payload_input != NULL && req->payload_size > 0) {
+		if (req->payload_input->v_offset != req->payload_offset &&
+		    !req->payload_input->seekable) {
+			*error_r = "Cannot resend payload; "
+				   "stream is not seekable";
+			return -1;
+		}
+		i_stream_seek(req->payload_input, req->payload_offset);
+	}
+
+	/* Drop payload output stream from previous attempt */
+	o_stream_unref(&req->payload_output);
+	return 0;
+}
+
 void http_client_request_redirect(struct http_client_request *req,
 				  unsigned int status, const char *location)
 {
@@ -1718,24 +1738,12 @@ void http_client_request_redirect(struct http_client_request *req,
 		return;
 	}
 
-	/* rewind payload stream */
-	if (req->payload_input != NULL && req->payload_size > 0 &&
-	    status != 303) {
-		if (req->payload_input->v_offset != req->payload_offset &&
-			!req->payload_input->seekable) {
-			http_client_request_error(
-				&req, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
-				"Redirect failed: "
-				"Cannot resend payload; "
-				"stream is not seekable");
-			return;
-		} else {
-			i_stream_seek(req->payload_input, req->payload_offset);
-		}
+	if (http_client_request_reset(req, (status != 303), &error) < 0) {
+		http_client_request_error(
+			&req, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+			t_strdup_printf("Redirect failed: %s", error));
+		return;
 	}
-
-	/* drop payload output stream from previous attempt */
-	o_stream_unref(&req->payload_output);
 
 	target = http_url_create_target(url);
 
@@ -1779,27 +1787,18 @@ void http_client_request_redirect(struct http_client_request *req,
 
 void http_client_request_resubmit(struct http_client_request *req)
 {
+	const char *error;
+
 	i_assert(!req->payload_wait);
 
 	e_debug(req->event, "Resubmitting request");
 
-	/* rewind payload stream */
-	if (req->payload_input != NULL && req->payload_size > 0) {
-		if (req->payload_input->v_offset != req->payload_offset &&
-		    !req->payload_input->seekable) {
-			http_client_request_error(&req,
-				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
-				"Resubmission failed: "
-				"Cannot resend payload; "
-				"stream is not seekable");
-			return;
-		} else {
-			i_stream_seek(req->payload_input, req->payload_offset);
-		}
+	if (http_client_request_reset(req, TRUE, &error) < 0) {
+		http_client_request_error(
+			&req, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+			t_strdup_printf("Resubmission failed: %s", error));
+		return;
 	}
-
-	/* drop payload output stream from previous attempt */
-	o_stream_unref(&req->payload_output);
 
 	req->peer = NULL;
 	req->state = HTTP_REQUEST_STATE_QUEUED;
