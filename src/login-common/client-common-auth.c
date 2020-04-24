@@ -9,6 +9,7 @@
 #include "str.h"
 #include "safe-memset.h"
 #include "time-util.h"
+#include "settings-parser.h"
 #include "login-proxy.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
@@ -134,7 +135,7 @@ static void client_auth_parse_args(struct client *client, bool success,
 				   const char *const *args,
 				   struct client_auth_reply *reply_r)
 {
-	const char *key, *value, *p;
+	const char *key, *value, *p, *error;
 	ARRAY_TYPE(const_string) alt_usernames;
 
 	t_array_init(&alt_usernames, 4);
@@ -173,12 +174,16 @@ static void client_auth_parse_args(struct client *client, bool success,
 		else if (strcmp(key, "pass") == 0)
 			reply_r->password = value;
 		else if (strcmp(key, "proxy_timeout") == 0) {
-			if (str_to_uint(value, &reply_r->proxy_timeout_msecs) < 0) {
+			/* backwards compatibility: plain number is seconds */
+			if (str_to_uint(value, &reply_r->proxy_timeout_msecs) == 0)
+				reply_r->proxy_timeout_msecs *= 1000;
+			else if (settings_get_time_msecs(value,
+				&reply_r->proxy_timeout_msecs, &error) < 0) {
 				e_error(client->event,
 					"BUG: Auth service returned invalid "
-					"proxy_timeout value: %s", value);
+					"proxy_timeout value '%s': %s",
+					value, error);
 			}
-			reply_r->proxy_timeout_msecs *= 1000;
 		} else if (strcmp(key, "proxy_refresh") == 0) {
 			if (str_to_uint(value, &reply_r->proxy_refresh_secs) < 0) {
 				e_error(client->event,
