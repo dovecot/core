@@ -1426,6 +1426,8 @@ http_client_request_send_real(struct http_client_request *req, bool pipelined)
 	iov[2].iov_len = 2;
 
 	req->state = HTTP_REQUEST_STATE_PAYLOAD_OUT;
+	req->payload_finished = FALSE;
+
 	req->send_attempts++;
 	if (req->first_sent_time.tv_sec == 0)
 		req->first_sent_time = ioloop_timeval;
@@ -1698,6 +1700,10 @@ http_client_request_reset(struct http_client_request *req, bool rewind,
 
 	/* Drop payload output stream from previous attempt */
 	o_stream_unref(&req->payload_output);
+
+	/* Reset payload state */
+	req->payload_finished = FALSE;
+
 	return 0;
 }
 
