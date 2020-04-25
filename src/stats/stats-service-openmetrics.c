@@ -4,7 +4,7 @@
 #include "dovecot-version.h"
 #include "str.h"
 #include "array.h"
-#include "json-parser.h"
+#include "json-generator.h"
 #include "ioloop.h"
 #include "ostream.h"
 #include "stats-dist.h"
