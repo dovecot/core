@@ -190,14 +190,12 @@ void auth_request_success(struct auth_request *request,
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	if (!request->set->policy_check_after_auth) {
-		buffer_t buf;
-		buffer_create_from_const_data(&buf, "", 0);
-		struct auth_policy_check_ctx ctx = {
-			.success_data = &buf,
-			.request = request,
-			.type = AUTH_POLICY_CHECK_TYPE_SUCCESS,
-		};
-		auth_request_policy_check_callback(0, &ctx);
+		struct auth_policy_check_ctx *ctx =
+			p_new(request->pool, struct auth_policy_check_ctx, 1);
+		ctx->success_data = buffer_create_dynamic(request->pool, 1);
+		ctx->request = request;
+		ctx->type = AUTH_POLICY_CHECK_TYPE_SUCCESS;
+		auth_request_policy_check_callback(0, ctx);
 		return;
 	}
 
