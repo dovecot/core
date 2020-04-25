@@ -1317,19 +1317,11 @@ http_client_connection_continue_request(struct http_client_connection *conn)
 	if (req->payload_sync && !req->payload_sync_continue)
 		return 0;
 
-	o_stream_cork(conn->conn.output);
-
 	tmp_conn = conn;
 	http_client_connection_ref(tmp_conn);
 	ret = http_client_request_send_more(req, pipelined);
 	if (!http_client_connection_unref(&tmp_conn) || ret < 0)
 		return -1;
-
-	if (conn->conn.output != NULL &&
-	    o_stream_uncork_flush(conn->conn.output) < 0) {
-		http_client_connection_handle_output_error(conn);
-		return -1;
-	}
 
 	if (!conn->output_locked) {
 		/* room for new requests */
