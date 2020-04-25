@@ -677,6 +677,8 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	tmp_conn = conn;
 	http_client_connection_ref(tmp_conn);
 	ret = http_client_request_send(req, pipelined);
+	if (ret == 0 && conn->conn.output != NULL)
+		o_stream_set_flush_pending(conn->conn.output, TRUE);
 	if (!http_client_connection_unref(&tmp_conn) || ret < 0)
 		return -1;
 
