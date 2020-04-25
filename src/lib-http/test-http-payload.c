@@ -309,14 +309,12 @@ client_handle_download_request(struct client_request *creq,
 				"write(%s) failed: %s",
 				o_stream_get_name(output),
 				o_stream_get_error(output));
-			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 			i_assert(fstream->stream_errno != 0);
 			i_fatal("test server: download: "
 				"read(%s) failed: %s",
 				i_stream_get_name(fstream),
 				i_stream_get_error(fstream));
-			break;
 		}
 		i_assert(ret != 0);
 
@@ -514,14 +512,12 @@ client_request_echo_ostream_blocking(struct client_request *creq,
 			"write(%s) failed for %s: %s",
 			o_stream_get_name(payload_output), creq->path,
 			o_stream_get_error(payload_output));
-		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		i_assert(input->stream_errno != 0);
 		i_fatal("test server: echo: "
 			"read(%s) failed for %s: %s",
 			i_stream_get_name(input), creq->path,
 			i_stream_get_error(input));
-		break;
 	}
 	i_assert(ret != 0);
 	if (debug) {
