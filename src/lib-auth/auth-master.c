@@ -550,6 +550,11 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 		str_printfa(str, "\treal_rport=%d", info->real_remote_port);
 	if (info->debug)
 		str_append(str, "\tdebug");
+	if (info->forward_fields != NULL &&
+	    *info->forward_fields != '\0') {
+		str_append(str, "\tforward_fields=");
+		str_append_tabescaped(str, info->forward_fields);
+	}
 }
 
 static void
