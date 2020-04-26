@@ -104,6 +104,8 @@ int dict_init(const char *uri, const struct dict_settings *set,
 	struct event *event = event_create(set->event_parent);
 	event_add_category(event, &event_category_dict);
 	event_add_str(event, "driver", dict->name);
+	if (set->username[0] != '\0')
+		event_add_str(event, "user", set->username);
 	event_set_append_log_prefix(event, t_strdup_printf("dict(%s)<%s>: ",
 				    dict->name, set->username));
 	set_dup.event_parent = event;
