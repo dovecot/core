@@ -89,6 +89,8 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 		return -1;
 	}
 	event_add_str(conn->conn.event, "dict_name", conn->name);
+	if (conn->username[0] != '\0')
+		event_add_str(conn->conn.event, "user", conn->username);
 	uri = strlist[i+1];
 
 	i_zero(&dict_set);
