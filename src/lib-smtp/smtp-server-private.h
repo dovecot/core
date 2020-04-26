@@ -421,6 +421,7 @@ void smtp_server_transaction_finished(struct smtp_server_transaction *trans,
  * Server
  */
 
+void smtp_server_event_init(struct smtp_server *server, struct event *event);
 int smtp_server_init_ssl_ctx(struct smtp_server *server, const char **error_r);
 
 #endif

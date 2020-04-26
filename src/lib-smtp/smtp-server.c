@@ -88,14 +88,19 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	/* There is no event log prefix added here, since the server itself does
 	   not log anything. */
 	server->event = event_create(set->event_parent);
-	event_add_category(server->event, &event_category_smtp_server);
-	event_add_str(server->event, "protocol",
-		      smtp_protocol_name(server->set.protocol));
+	smtp_server_event_init(server, server->event);
 	event_set_forced_debug(server->event, set->debug);
 
 	server->conn_list = smtp_server_connection_list_init();
 	smtp_server_commands_init(server);
 	return server;
+}
+
+void smtp_server_event_init(struct smtp_server *server, struct event *event)
+{
+	event_add_category(event, &event_category_smtp_server);
+	event_add_str(event, "protocol",
+		      smtp_protocol_name(server->set.protocol));
 }
 
 void smtp_server_deinit(struct smtp_server **_server)

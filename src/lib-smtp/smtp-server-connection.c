@@ -769,9 +769,10 @@ smtp_server_connection_event_create(struct smtp_server *server,
 {
 	struct event *conn_event;
 
-	if (set != NULL && set->event_parent != NULL)
+	if (set != NULL && set->event_parent != NULL) {
 		conn_event = event_create(set->event_parent);
-	else
+		smtp_server_event_init(server, conn_event);
+	} else
 		conn_event = event_create(server->event);
 	event_set_append_log_prefix(
 		conn_event, t_strdup_printf(
