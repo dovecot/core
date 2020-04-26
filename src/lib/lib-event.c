@@ -88,10 +88,11 @@ static void event_copy_parent_defaults(struct event *event,
 }
 
 static bool
-event_find_category(struct event *event, const struct event_category *category);
+event_find_category(const struct event *event,
+		    const struct event_category *category);
 
 static struct event_field *
-event_find_field_int(struct event *event, const char *key);
+event_find_field_int(const struct event *event, const char *key);
 
 static void event_set_changed(struct event *event)
 {
@@ -623,7 +624,7 @@ struct event *event_set_ptr(struct event *event, const char *key, void *value)
 	return event;
 }
 
-void *event_get_ptr(struct event *event, const char *key)
+void *event_get_ptr(const struct event *event, const char *key)
 {
 	const struct event_pointer *p;
 
@@ -743,7 +744,8 @@ static struct event_category *event_category_register(struct event_category *cat
 }
 
 static bool
-event_find_category(struct event *event, const struct event_category *category)
+event_find_category(const struct event *event,
+		    const struct event_category *category)
 {
 	struct event_internal_category *internal = category->internal;
 	struct event_category *const *categoryp;
@@ -785,7 +787,7 @@ event_add_category(struct event *event, struct event_category *category)
 }
 
 static struct event_field *
-event_find_field_int(struct event *event, const char *key)
+event_find_field_int(const struct event *event, const char *key)
 {
 	struct event_field *field;
 
@@ -800,7 +802,7 @@ event_find_field_int(struct event *event, const char *key)
 }
 
 const struct event_field *
-event_find_field(struct event *event, const char *key)
+event_find_field(const struct event *event, const char *key)
 {
 	const struct event_field *field = event_find_field_int(event, key);
 	if (field != NULL || event->parent == NULL)
@@ -809,7 +811,7 @@ event_find_field(struct event *event, const char *key)
 }
 
 const char *
-event_find_field_str(struct event *event, const char *key)
+event_find_field_str(const struct event *event, const char *key)
 {
 	const struct event_field *field;
 
@@ -922,23 +924,23 @@ void event_field_clear(struct event *event, const char *key)
 	event_add_str(event, key, "");
 }
 
-struct event *event_get_parent(struct event *event)
+struct event *event_get_parent(const struct event *event)
 {
 	return event->parent;
 }
 
-void event_get_create_time(struct event *event, struct timeval *tv_r)
+void event_get_create_time(const struct event *event, struct timeval *tv_r)
 {
 	*tv_r = event->tv_created;
 }
 
-bool event_get_last_send_time(struct event *event, struct timeval *tv_r)
+bool event_get_last_send_time(const struct event *event, struct timeval *tv_r)
 {
 	*tv_r = event->tv_last_sent;
 	return tv_r->tv_sec != 0;
 }
 
-void event_get_last_duration(struct event *event, intmax_t *duration_r)
+void event_get_last_duration(const struct event *event, intmax_t *duration_r)
 {
 	if (event->tv_last_sent.tv_sec == 0) {
 		*duration_r = 0;
@@ -948,7 +950,7 @@ void event_get_last_duration(struct event *event, intmax_t *duration_r)
 }
 
 const struct event_field *
-event_get_fields(struct event *event, unsigned int *count_r)
+event_get_fields(const struct event *event, unsigned int *count_r)
 {
 	if (!array_is_created(&event->fields)) {
 		*count_r = 0;
@@ -958,7 +960,7 @@ event_get_fields(struct event *event, unsigned int *count_r)
 }
 
 struct event_category *const *
-event_get_categories(struct event *event, unsigned int *count_r)
+event_get_categories(const struct event *event, unsigned int *count_r)
 {
 	if (!array_is_created(&event->categories)) {
 		*count_r = 0;

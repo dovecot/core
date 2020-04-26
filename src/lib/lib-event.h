@@ -247,7 +247,7 @@ enum log_type event_get_min_log_level(const struct event *event);
 struct event *event_set_ptr(struct event *event, const char *key, void *value);
 /* Return a pointer set with event_set_ptr(), or NULL if it doesn't exist.
    The pointer is looked up only from the event itself, not its parents. */
-void *event_get_ptr(struct event *event, const char *key);
+void *event_get_ptr(const struct event *event, const char *key);
 
 /* Add NULL-terminated list of categories to the event. The categories pointer
    doesn't need to stay valid afterwards, but the event_category structs
@@ -288,31 +288,32 @@ event_add_fields(struct event *event, const struct event_add_field *fields);
 void event_field_clear(struct event *event, const char *key);
 
 /* Returns the parent event, or NULL if it doesn't exist. */
-struct event *event_get_parent(struct event *event);
+struct event *event_get_parent(const struct event *event);
 /* Get the event's creation time. */
-void event_get_create_time(struct event *event, struct timeval *tv_r);
+void event_get_create_time(const struct event *event, struct timeval *tv_r);
 /* Get the time when the event was last sent. Returns TRUE if time was
    returned, FALSE if event has never been sent. */
-bool event_get_last_send_time(struct event *event, struct timeval *tv_r);
+bool event_get_last_send_time(const struct event *event, struct timeval *tv_r);
 /* Get the event duration field, calculated after event has been sent. */
-void event_get_last_duration(struct event *event, intmax_t *duration_msec_r);
+void event_get_last_duration(const struct event *event,
+			     intmax_t *duration_msec_r);
 /* Returns field for a given key, or NULL if it doesn't exist. If the key
    isn't found from the event itself, find it from parent events. */
 const struct event_field *
-event_find_field(struct event *event, const char *key);
+event_find_field(const struct event *event, const char *key);
 /* Returns the given key's value as string, or NULL if it doesn't exist.
    If the field isn't stored as a string, the result is allocated from
    data stack. */
 const char *
-event_find_field_str(struct event *event, const char *key);
+event_find_field_str(const struct event *event, const char *key);
 /* Returns all key=value fields that the event has.
    Parent events' fields aren't returned. */
 const struct event_field *
-event_get_fields(struct event *event, unsigned int *count_r);
+event_get_fields(const struct event *event, unsigned int *count_r);
 /* Return all categories that the event has.
    Parent events' categories aren't returned. */
 struct event_category *const *
-event_get_categories(struct event *event, unsigned int *count_r);
+event_get_categories(const struct event *event, unsigned int *count_r);
 
 /* Export the event into a tabescaped string, so its fields are separated
    with TABs and there are no NUL, CR or LF characters. */
