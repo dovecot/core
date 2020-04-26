@@ -331,6 +331,7 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 	info.remote_ip = input->remote_ip;
 	info.local_port = input->local_port;
 	info.remote_port = input->remote_port;
+	info.forward_fields = input->forward_fields;
 	info.debug = input->debug;
 
 	ret = auth_master_user_lookup(ctx->conn, *user, &info, pool,

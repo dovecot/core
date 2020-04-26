@@ -56,6 +56,8 @@ struct mail_storage_service_input {
 
 	const char *const *userdb_fields;
 
+	const char *forward_fields;
+
 	/* Override specified global flags */
 	enum mail_storage_service_flags flags_override_add;
 	enum mail_storage_service_flags flags_override_remove;
