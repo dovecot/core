@@ -114,7 +114,7 @@ static void stats_client_destroy(struct connection *conn)
 
 	/* after reconnection the IDs need to be re-sent */
 	for (event = events_get_head(); event != NULL; event = event->next)
-		event->id_sent_to_stats = FALSE;
+		event->sent_to_stats_id = 0;
 
 	client->handshaked = FALSE;
 	connection_disconnect(conn);
@@ -169,12 +169,17 @@ stats_event_write(struct event *event, const struct failure_context *ctx,
 	parent_event = merged_event->parent;
 
 	if (parent_event != NULL) {
-		if (!parent_event->id_sent_to_stats)
+		if (parent_event->sent_to_stats_id !=
+		    parent_event->change_id)
 			stats_event_write(parent_event, ctx, str, TRUE);
+		i_assert(parent_event->sent_to_stats_id != 0);
 	}
 	if (begin) {
-		str_printfa(str, "BEGIN\t%"PRIu64"\t", event->id);
-		event->id_sent_to_stats = TRUE;
+		i_assert(event == merged_event);
+		const char *cmd = event->sent_to_stats_id == 0 ?
+			"BEGIN" : "UPDATE";
+		str_printfa(str, "%s\t%"PRIu64"\t", cmd, event->id);
+		event->sent_to_stats_id = event->change_id;
 	} else {
 		str_append(str, "EVENT\t");
 	}
@@ -207,7 +212,7 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 static void
 stats_client_free_event(struct stats_client *client, struct event *event)
 {
-	if (!event->id_sent_to_stats)
+	if (event->sent_to_stats_id == 0)
 		return;
 	o_stream_nsend_str(client->conn.output,
 			   t_strdup_printf("END\t%"PRIu64"\n", event->id));

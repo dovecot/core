@@ -334,7 +334,7 @@ static void test_no_merging2(void)
 	TST_BEGIN("no merging parent sent to stats");
 	struct event *parent_ev = event_create(NULL);
 	event_add_category(parent_ev, &test_cats[0]);
-	parent_ev->id_sent_to_stats = TRUE;
+	parent_ev->sent_to_stats_id = parent_ev->change_id;
 	id = parent_ev->id;
 	struct event *child_ev = event_create(parent_ev);
 	event_add_category(child_ev, &test_cats[1]);
@@ -361,7 +361,7 @@ static void test_no_merging3(void)
 	lp = __LINE__ - 1;
 	idp = parent_ev->id;
 	event_add_category(parent_ev, &test_cats[0]);
-	parent_ev->id_sent_to_stats = FALSE;
+	parent_ev->sent_to_stats_id = 0;
 	ioloop_timeval.tv_sec++;
 	struct event *child_ev = event_create(parent_ev);
 	event_add_category(child_ev, &test_cats[1]);
@@ -416,7 +416,7 @@ static void test_merge_events2(void)
 	TST_BEGIN("merge events parent sent to stats");
 	struct event *parent_ev = event_create(NULL);
 	event_add_category(parent_ev, &test_cats[3]);
-	parent_ev->id_sent_to_stats = TRUE;
+	parent_ev->sent_to_stats_id = parent_ev->change_id;
 	struct event *merge_ev1 = event_create(parent_ev);
 	event_add_category(merge_ev1, &test_cats[0]);
 	event_add_category(merge_ev1, &test_cats[1]);
@@ -520,6 +520,98 @@ static void test_merge_events_skip_parents(void)
 	test_end();
 }
 
+static struct event *make_event(struct event *parent,
+				struct event_category *cat,
+				int *line_r, uint64_t *id_r)
+{
+	struct event *event;
+	int line;
+
+	event = event_create(parent);
+	line = __LINE__ -1;
+
+	if (line_r != NULL)
+		*line_r = line;
+	if (id_r != NULL)
+		*id_r = event->id;
+
+	/* something in the test infrastructure assumes that at least one
+	   category is always present - make it happy */
+	event_add_category(event, cat);
+
+	/* advance the clock to avoid event sending optimizations */
+	ioloop_timeval.tv_sec++;
+
+	return event;
+}
+
+static void test_parent_update_post_send(void)
+{
+	struct event *a, *b, *c;
+	uint64_t id;
+	int line, line_log1, line_log2;
+
+	TST_BEGIN("parent updated after send");
+
+	a = make_event(NULL, &test_cats[0], &line, &id);
+	b = make_event(a, &test_cats[1], NULL, NULL);
+	c = make_event(b, &test_cats[2], NULL, NULL);
+
+	/* set initial field values */
+	event_add_int(a, "a", 1);
+	event_add_int(b, "b", 2);
+	event_add_int(c, "c", 3);
+
+	/* force 'a' event to be sent */
+	e_info(b, "field 'a' should be 1");
+	line_log1 = __LINE__ - 1;
+
+	event_add_int(a, "a", 1000); /* update parent */
+
+	/* log child, which should re-sent parent */
+	e_info(c, "field 'a' should be 1000");
+	line_log2 = __LINE__ - 1;
+
+	event_unref(&a);
+	event_unref(&b);
+	event_unref(&c);
+
+	/* EVENT <parent> <type> ... */
+	/* BEGIN <id> <parent> <type> ... */
+	/* END <id> */
+	test_assert(
+		compare_test_stats_to(
+			/* first e_info() */
+			"BEGIN	%"PRIu64"	0	1	0	0"
+			"	stest-event-stats.c	%d	ctest1"
+			"	Ia	1\n"
+			"EVENT	%"PRIu64"	1	1	0"
+			"	stest-event-stats.c	%d"
+			"	l1	0	ctest2" "	Ib	2\n"
+			/* second e_info() */
+			"UPDATE	%"PRIu64"	0	1	0	0"
+			"	stest-event-stats.c	%d	ctest1"
+			"	Ia	1000\n"
+			"BEGIN	%"PRIu64"	%"PRIu64"	1	0	0"
+			"	stest-event-stats.c	%d"
+			"	l0	0	ctest2	Ib	2\n"
+			"EVENT	%"PRIu64"	1	1	0"
+			"	stest-event-stats.c	%d"
+			"	l1	0	ctest3"
+			"	Ic	3\n"
+			"END\t%"PRIu64"\n"
+			"END\t%"PRIu64"\n",
+			id, line, /* BEGIN */
+			id, line_log1, /* EVENT */
+			id, line, /* UPDATE */
+			id + 1, id, line, /* BEGIN */
+			id + 1, line_log2, /* EVENT */
+			id + 1 /* END */,
+			id /* END */));
+
+	test_end();
+}
+
 static int run_tests(void)
 {
 	int ret;
@@ -531,6 +623,7 @@ static int run_tests(void)
 		test_merge_events2,
 		test_skip_parents,
 		test_merge_events_skip_parents,
+		test_parent_update_post_send,
 		NULL
 	};
 	struct ioloop *ioloop = io_loop_create();

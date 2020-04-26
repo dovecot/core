@@ -16,6 +16,15 @@ struct event {
 	struct event *parent;
 	uint64_t id;
 
+	/* Avoid sending the event to stats over and over.  The 'change_id'
+	   increments every time something about this event changes.  If
+	   'sent_to_stats_id' matches 'change_id', we skip sending this
+	   event out.  If it doesn't match, we send it and set
+	   'sent_to_stats_id' to 'change_id'. sent_to_stats_id=0 is reserved
+	   for "event hasn't been sent". 'change_id' can never be 0. */
+	uint32_t change_id;
+	uint32_t sent_to_stats_id;
+
 	char *log_prefix;
 	unsigned int log_prefixes_dropped;
 	event_log_prefix_callback_t *log_prefix_callback;
@@ -30,7 +39,6 @@ struct event {
 	bool forced_debug:1;
 	bool always_log_source:1;
 	bool sending_debug_log:1;
-	bool id_sent_to_stats:1;
 	bool debug_level_checked:1;
 
 /* Fields that are exported & imported: */

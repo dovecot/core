@@ -93,6 +93,16 @@ event_find_category(struct event *event, const struct event_category *category);
 static struct event_field *
 event_find_field_int(struct event *event, const char *key);
 
+static void event_set_changed(struct event *event)
+{
+	event->change_id++;
+	/* It's unlikely that change_id will ever wrap, but lets be safe
+	   anyway. */
+	if (event->change_id == 0 ||
+	    event->change_id == event->sent_to_stats_id)
+		event->change_id++;
+}
+
 static bool
 event_call_callbacks(struct event *event, enum event_callback_type type,
 		     struct failure_context *ctx, const char *fmt, va_list args)
@@ -312,7 +322,7 @@ struct event *event_minimize(struct event *event)
 	/* find the bound for field/category flattening */
 	flatten_bound = NULL;
 	for (cur = event->parent; cur != NULL; cur = cur->parent) {
-		if (!cur->id_sent_to_stats &&
+		if (cur->sent_to_stats_id == 0 &&
 		    timeval_cmp(&cur->tv_created_ioloop,
 				&event->tv_created_ioloop) == 0)
 			continue;
@@ -324,7 +334,7 @@ struct event *event_minimize(struct event *event)
 	/* continue to find the bound for empty event skipping */
 	skip_bound = NULL;
 	for (; cur != NULL; cur = cur->parent) {
-		if (!cur->id_sent_to_stats &&
+		if (cur->sent_to_stats_id == 0 &&
 		    (!array_is_created(&cur->fields) || array_is_empty(&cur->fields)) &&
 		    (!array_is_created(&cur->categories) || array_is_empty(&cur->categories)))
 			continue;
@@ -367,6 +377,7 @@ event_create_internal(struct event *parent, const char *source_filename,
 	i_gettimeofday(&event->tv_created);
 	event->source_filename = p_strdup(pool, source_filename);
 	event->source_linenum = source_linenum;
+	event->change_id = 1;
 	if (parent != NULL) {
 		event->parent = parent;
 		event_ref(event->parent);
@@ -757,6 +768,7 @@ event_add_categories(struct event *event,
 		if (!event_find_category(event, categories[i]))
 			array_push_back(&event->categories, &representative);
 	}
+	event_set_changed(event);
 	event->debug_level_checked = FALSE;
 	return event;
 }
@@ -826,6 +838,7 @@ event_get_field(struct event *event, const char *key)
 		field = array_append_space(&event->fields);
 		field->key = p_strdup(event->pool, key);
 	}
+	event_set_changed(event);
 	return field;
 }
 
@@ -868,6 +881,7 @@ event_inc_int(struct event *event, const char *key, intmax_t num)
 		return event_add_int(event, key, num);
 
 	field->value.intmax += num;
+	event_set_changed(event);
 	return event;
 }
 
