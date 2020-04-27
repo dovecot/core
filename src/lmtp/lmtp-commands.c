@@ -80,7 +80,8 @@ int client_default_cmd_rcpt(struct client *client,
 	   value here.
 	 */
 	event_add_str(rcpt->event, "user", username);
-	event_add_str(rcpt->event, "detail", detail);
+	if (detail[0] != '\0')
+		event_add_str(rcpt->event, "detail", detail);
 
 	if (client->lmtp_set->lmtp_proxy) {
 		/* proxied? */
