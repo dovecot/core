@@ -524,6 +524,7 @@ int main(int argc, char *argv[])
 	dinput.mail_from = mail_from;
 	dinput.rcpt_to = final_rcpt_to;
 
+	event_add_str(event, "protocol", "lda");
 	event_add_str(event, "user", user);
 	if (mail_from != NULL) {
 		event_add_str(event, "mail_from",
