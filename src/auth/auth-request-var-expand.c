@@ -47,6 +47,17 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	{ '\0', NULL, "auth_domain" },
 	{ '\0', NULL, "local_name" },
 	{ '\0', NULL, "client_id" },
+
+	/* aliases: */
+	{ '\0', NULL, "local_ip" },
+	{ '\0', NULL, "remote_ip" },
+	{ '\0', NULL, "local_port" },
+	{ '\0', NULL, "remote_port" },
+	{ '\0', NULL, "real_local_ip" },
+	{ '\0', NULL, "real_remote_ip" },
+	{ '\0', NULL, "real_local_port" },
+	{ '\0', NULL, "real_remote_port" },
+
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
 };
@@ -99,9 +110,11 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[3].value = escape_func(fields->service, auth_request);
 	/* tab[4] = we have no home dir */
 	if (fields->local_ip.family != 0)
-		tab[5].value = net_ip2addr(&fields->local_ip);
+		tab[5].value = tab[35].value =
+			net_ip2addr(&fields->local_ip);
 	if (fields->remote_ip.family != 0)
-		tab[6].value = net_ip2addr(&fields->remote_ip);
+		tab[6].value = tab[36].value =
+			net_ip2addr(&fields->remote_ip);
 	tab[7].value = dec2str(auth_request->client_pid);
 	if (auth_request->mech_password != NULL) {
 		tab[8].value = escape_func(auth_request->mech_password,
@@ -122,8 +135,8 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	case AUTH_REQUEST_SECURED_TLS: tab[11].value = "TLS"; break;
 	default: tab[11].value = ""; break;
 	};
-	tab[12].value = dec2str(fields->local_port);
-	tab[13].value = dec2str(fields->remote_port);
+	tab[12].value = tab[37].value = dec2str(fields->local_port);
+	tab[13].value = tab[38].value = dec2str(fields->remote_port);
 	tab[14].value = fields->valid_client_cert ? "valid" : "";
 
 	if (fields->requested_login_user != NULL) {
@@ -141,11 +154,13 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[18].value = fields->session_id == NULL ? NULL :
 		escape_func(fields->session_id, auth_request);
 	if (fields->real_local_ip.family != 0)
-		tab[19].value = net_ip2addr(&fields->real_local_ip);
+		tab[19].value = tab[39].value =
+			net_ip2addr(&fields->real_local_ip);
 	if (fields->real_remote_ip.family != 0)
-		tab[20].value = net_ip2addr(&fields->real_remote_ip);
-	tab[21].value = dec2str(fields->real_local_port);
-	tab[22].value = dec2str(fields->real_remote_port);
+		tab[20].value = tab[40].value =
+			net_ip2addr(&fields->real_remote_ip);
+	tab[21].value = tab[41].value = dec2str(fields->real_local_port);
+	tab[22].value = tab[42].value = dec2str(fields->real_remote_port);
 	tab[23].value = i_strchr_to_next(username, '@');
 	if (tab[23].value != NULL) {
 		tab[23].value = escape_func(t_strcut(tab[23].value, '@'),

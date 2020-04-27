@@ -83,16 +83,19 @@ static bool test_empty_request(string_t *str, const char *input)
 static void test_auth_request_var_expand_shortlong(void)
 {
 	static const char *test_input_short =
-		"%u\n%n\n%d\n%s\n%h\n%l\n%r\n%p\n%w\n%m\n%c\n%a\n%b\n%k\n";
+		"%u\n%n\n%d\n%s\n%h\n%l\n%r\n%l\n%r\n%p\n%w\n%m\n%c\n"
+		"%a\n%b\n%a\n%b\n%k\n";
 	static const char *test_input_long =
 		"%{user}\n%{username}\n%{domain}\n%{service}\n%{home}\n"
-		"%{lip}\n%{rip}\n%{pid}\n%{password}\n%{mech}\n%{secured}\n"
-		"%{lport}\n%{rport}\n%{cert}\n";
+		"%{lip}\n%{rip}\n%{local_ip}\n%{remote_ip}\n"
+		"%{pid}\n%{password}\n%{mech}\n%{secured}\n"
+		"%{lport}\n%{rport}\n%{local_port}\n%{remote_port}\n%{cert}\n";
 	static const char *test_output =
 		/* %{home} is intentionally always expanding to empty */
 		"+user@+domain1@+domain2\n+user\n+domain1@+domain2\n+service\n\n"
-		"7.91.205.21\n73.150.2.210\n54321\n+password\n+mech\nsecured\n"
-		"21\n210\nvalid\n";
+		"7.91.205.21\n73.150.2.210\n7.91.205.21\n73.150.2.210\n"
+		"54321\n+password\n+mech\nsecured\n"
+		"21\n210\n21\n210\nvalid\n";
 	const struct var_expand_table *tab;
 	string_t *str = t_str_new(256);
 	const char *error;
@@ -149,11 +152,15 @@ static void test_auth_request_var_expand_long(void)
 	static const char *test_input =
 		"%{login_user}\n%{login_username}\n%{login_domain}\n%{session}\n"
 		"%{real_lip}\n%{real_rip}\n%{real_lport}\n%{real_rport}\n"
+		"%{real_local_ip}\n%{real_remote_ip}\n"
+		"%{real_local_port}\n%{real_remote_port}\n"
 		"%{master_user}\n%{session_pid}\n"
 		"%{orig_user}\n%{orig_username}\n%{orig_domain}\n";
 	static const char *test_output =
 		"+loginuser@+logindomain1@+logindomain2\n+loginuser\n+logindomain1@+logindomain2\n+session\n"
 		"13.81.174.20\n13.81.174.21\n200\n201\n"
+		"13.81.174.20\n13.81.174.21\n"
+		"200\n201\n"
 		"+masteruser@+masterdomain1@+masterdomain2\n5000\n"
 		"+origuser@+origdomain1@+origdomain2\n+origuser\n+origdomain1@+origdomain2\n";
 	string_t *str = t_str_new(256);
