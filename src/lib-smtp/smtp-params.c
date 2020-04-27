@@ -1206,8 +1206,8 @@ smtp_params_rcpt_get_extra(const struct smtp_params_rcpt *params,
 	return NULL;
 }
 
-bool smtp_params_rcpt_equals(const struct smtp_params_rcpt *params1,
-			     const struct smtp_params_rcpt *params2)
+bool smtp_params_rcpt_equal(const struct smtp_params_rcpt *params1,
+			    const struct smtp_params_rcpt *params2)
 {
 	if (params1 == NULL || params2 == NULL)
 		return (params1 == params2);

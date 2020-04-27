@@ -130,7 +130,7 @@ smtp_server_transaction_find_rcpt_duplicate(
 		if (drcpt == rcpt)
 			continue;
 		if (smtp_address_equals(drcpt->path, rcpt->path) &&
-		    smtp_params_rcpt_equals(&drcpt->params, &rcpt->params))
+		    smtp_params_rcpt_equal(&drcpt->params, &rcpt->params))
 			return drcpt;
 	}
 	return NULL;
