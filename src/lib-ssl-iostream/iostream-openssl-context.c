@@ -510,7 +510,7 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 	const EC_GROUP *ecgrp;
 
 	if (set->cert.key != NULL) {
-		if (openssl_iostream_load_key(&set->cert, &pkey, error_r) < 0)
+		if (openssl_iostream_load_key(&set->cert, "ssl_key", &pkey, error_r) < 0)
 			return -1;
 
 		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&
@@ -523,7 +523,7 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 		EVP_PKEY_free(pkey);
 	}
 	if (nid == 0 && set->alt_cert.key != NULL) {
-		if (openssl_iostream_load_key(&set->alt_cert, &pkey, error_r) < 0)
+		if (openssl_iostream_load_key(&set->alt_cert, "ssl_alt_key", &pkey, error_r) < 0)
 			return -1;
 
 		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&
