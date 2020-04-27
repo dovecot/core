@@ -118,7 +118,7 @@ mail_deliver_fields_update(struct mail_deliver_fields *fields, pool_t pool,
 		return;
 	fields->filled = TRUE;
 
-	if (mail_get_first_header(mail, "Message-ID", &message_id) > 0)
+	if (mail_get_message_id(mail, &message_id) > 0)
 		message_id = str_sanitize(message_id, 200);
 	update_str_field(pool, &fields->message_id, message_id);
 
