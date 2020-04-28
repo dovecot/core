@@ -1121,7 +1121,8 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 			}
 			if (!array_is_created(&event->categories))
 				p_array_init(&event->categories, event->pool, 4);
-			array_push_back(&event->categories, &category);
+			if (!event_find_category(event, category))
+				array_push_back(&event->categories, &category);
 			break;
 		}
 		case EVENT_CODE_TV_LAST_SENT:
@@ -1173,6 +1174,11 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 				}
 				break;
 			case EVENT_CODE_FIELD_STR:
+				if (field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+				    null_strcmp(field->value.str, *args) == 0) {
+					/* already identical value */
+					break;
+				}
 				field->value_type = EVENT_FIELD_VALUE_TYPE_STR;
 				field->value.str = p_strdup(event->pool, *args);
 				break;
