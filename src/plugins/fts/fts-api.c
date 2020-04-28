@@ -10,6 +10,10 @@
 #include "mail-search.h"
 #include "fts-api-private.h"
 
+struct event_category event_category_fts = {
+	.name = "fts",
+};
+
 static ARRAY(const struct fts_backend *) backends;
 
 void fts_backend_register(const struct fts_backend *backend)
