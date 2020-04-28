@@ -180,6 +180,36 @@ writer_client_input_event_begin(struct writer_client *client,
 }
 
 static bool
+writer_client_input_event_update(struct writer_client *client,
+				 const char *const *args, const char **error_r)
+{
+	struct stats_event *stats_event, *parent_stats_event;
+	struct event *parent_event;
+	uint64_t event_id, parent_event_id;
+
+	if (args[0] == NULL || args[1] == NULL ||
+	    str_to_uint64(args[0], &event_id) < 0 ||
+	    str_to_uint64(args[1], &parent_event_id) < 0) {
+		*error_r = "Invalid event IDs";
+		return FALSE;
+	}
+	stats_event = writer_client_find_event(client, event_id);
+	if (stats_event == NULL) {
+		*error_r = "Unknown event ID";
+		return FALSE;
+	}
+	parent_stats_event = parent_event_id == 0 ? NULL :
+		writer_client_find_event(client, parent_event_id);
+	parent_event = parent_stats_event == NULL ? NULL :
+		parent_stats_event->event;
+	if (stats_event->event->parent != parent_event) {
+		*error_r = "Event unexpectedly changed parent";
+		return FALSE;
+	}
+	return event_import_unescaped(stats_event->event, args, error_r);
+}
+
+static bool
 writer_client_input_event_end(struct writer_client *client,
 			      const char *const *args, const char **error_r)
 {
@@ -252,6 +282,8 @@ writer_client_input_args(struct connection *conn, const char *const *args)
 		ret = writer_client_input_event(client, args+1, &error);
 	else if (strcmp(cmd, "BEGIN") == 0)
 		ret = writer_client_input_event_begin(client, args+1, &error);
+	else if (strcmp(cmd, "UPDATE") == 0)
+		ret = writer_client_input_event_update(client, args+1, &error);
 	else if (strcmp(cmd, "END") == 0)
 		ret = writer_client_input_event_end(client, args+1, &error);
 	else if (strcmp(cmd, "CATEGORY") == 0)
