@@ -203,7 +203,7 @@ http_server_ostream_create(struct http_server_response *resp,
 			   size_t max_buffer_size, bool blocking);
 bool http_server_ostream_get_size(struct http_server_ostream *hsostream,
 				  uoff_t *size_r);
-void http_server_ostream_continue(struct http_server_ostream *hsostream);
+int http_server_ostream_continue(struct http_server_ostream *hsostream);
 
 void http_server_ostream_output_available(
 	struct http_server_ostream *hsostream);

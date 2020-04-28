@@ -880,9 +880,7 @@ int http_server_connection_output(struct http_server_connection *conn)
 		if (http_server_connection_unref_is_closed(conn) || ret < 0)
 			return -1;
 
-		if (ret > 0) {
-			i_assert(!conn->output_locked);
-
+		if (!conn->output_locked) {
 			/* Room for more responses */
 			ret = http_server_connection_send_responses(conn);
 			if (ret < 0)

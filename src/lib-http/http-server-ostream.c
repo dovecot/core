@@ -224,7 +224,7 @@ http_server_ostream_wait_end(struct wrapper_ostream *wostream,
 	http_server_connection_unref(&conn);
 }
 
-void http_server_ostream_continue(struct http_server_ostream *hsostream)
+int http_server_ostream_continue(struct http_server_ostream *hsostream)
 {
 	struct wrapper_ostream *wostream = &hsostream->wostream;
 	struct http_server_response *resp = hsostream->resp;
@@ -234,7 +234,7 @@ void http_server_ostream_continue(struct http_server_ostream *hsostream)
 	i_assert(hsostream->response_destroyed ||
 		 resp->request->state >= HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT);
 
-	wrapper_ostream_continue(wostream);
+	return wrapper_ostream_continue(wostream);
 }
 
 bool http_server_ostream_get_size(struct http_server_ostream *hsostream,

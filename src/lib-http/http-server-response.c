@@ -510,8 +510,7 @@ int http_server_response_send_more(struct http_server_response *resp)
 
 	if (resp->payload_stream != NULL) {
 		conn->output_locked = TRUE;
-		http_server_ostream_continue(resp->payload_stream);
-		return (conn->output_locked ? 0 : 1);
+		return http_server_ostream_continue(resp->payload_stream);
 	}
 
 	i_assert(resp->payload_input != NULL);
@@ -544,7 +543,7 @@ int http_server_response_send_more(struct http_server_response *resp)
 		http_server_connection_stop_idle_timeout(conn);
 		conn->io_resp_payload = io_add_istream(resp->payload_input,
 			http_server_response_payload_input, resp);
-		return 0;
+		return 1;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		/* Output is blocking (client needs to act; enable timeout) */
 		conn->output_locked = TRUE;
@@ -744,10 +743,15 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	} else {
 		/* No payload to send */
 		e_debug(resp->event, "No payload to send");
-		if (resp->payload_stream != NULL)
-			http_server_ostream_continue(resp->payload_stream);
+		if (resp->payload_stream != NULL) {
+			ret = http_server_ostream_continue(resp->payload_stream);
+			if (ret < 0)
+				return -1;
+		}
 		conn->output_locked = FALSE;
-		http_server_response_finish_payload_out(resp);
+		ret = http_server_response_finish_payload_out(resp);
+		if (ret < 0)
+			return -1;
 	}
 
 	if (conn->conn.output != NULL && !resp->payload_corked &&
