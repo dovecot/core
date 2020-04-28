@@ -1285,7 +1285,7 @@ int http_client_request_send_more(struct http_client_request *req,
 		conn->io_req_payload = io_add_istream_to(
 			cctx->ioloop, req->payload_input,
 			http_client_request_payload_input, req);
-		return 0;
+		return 1;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		/* output is blocking (server needs to act; enable timeout) */
 		conn->output_locked = TRUE;
