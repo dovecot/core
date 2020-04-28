@@ -1026,10 +1026,11 @@ static void test_retry_payload_input(struct server_connection *conn)
 		i_fatal("server: Stream error: %s",
 			i_stream_get_error(conn->conn.input));
 	}
-	if (conn->conn.input->eof)
-		i_fatal("server: Client stream ended prematurely");
-	if (line == NULL)
+	if (line == NULL) {
+		if (conn->conn.input->eof)
+			i_fatal("server: Client stream ended prematurely");
 		return;
+	}
 
 	i_assert(ctx->eoh);
 
