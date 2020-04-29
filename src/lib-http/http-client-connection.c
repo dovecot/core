@@ -634,7 +634,8 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 	req = wait_reqs[wait_count-1];
 
 	req->payload_sync_continue = TRUE;
-	(void)http_client_request_send_more(req, FALSE);
+	if (conn->conn.output != NULL)
+		o_stream_set_flush_pending(conn->conn.output, TRUE);
 }
 
 int http_client_connection_next_request(struct http_client_connection *conn)
@@ -1112,7 +1113,8 @@ static void http_client_connection_input(struct connection *_conn)
 				return;
 			}
 
-			(void)http_client_request_send_more(req, FALSE);
+			if (conn->conn.output != NULL)
+				o_stream_set_flush_pending(conn->conn.output, TRUE);
 			return;
 		} else if (response.status / 100 == 1) {
 			/* ignore other 1xx for now */
