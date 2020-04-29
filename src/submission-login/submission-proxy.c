@@ -431,13 +431,10 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	   So for now we'll just forward the error message. This
 	   shouldn't be a real problem since of course everyone will
 	   be using only Dovecot as their backend :) */
-	if ((status / 100) == 2) {
-		submission_proxy_error(client, AUTH_FAILED_MSG);
-	} else {
-		i_assert(subm_client->proxy_reply != NULL);
-		smtp_server_reply_submit(subm_client->proxy_reply);
-		subm_client->pending_auth = NULL;
-	}
+	i_assert((status / 100) != 2);
+	i_assert(subm_client->proxy_reply != NULL);
+	smtp_server_reply_submit(subm_client->proxy_reply);
+	subm_client->pending_auth = NULL;
 
 	if (client->set->auth_verbose) {
 		client_proxy_log_failure(client, text);
