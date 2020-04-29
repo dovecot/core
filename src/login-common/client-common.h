@@ -323,7 +323,6 @@ int client_auth_read_line(struct client *client);
 
 void client_proxy_finish_destroy_client(struct client *client);
 void client_proxy_log_failure(struct client *client, const char *line);
-void client_proxy_failed(struct client *client, bool send_line);
 const char *client_proxy_get_state(struct client *client);
 
 void clients_notify_auth_connected(void);

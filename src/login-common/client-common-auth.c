@@ -309,7 +309,7 @@ void client_proxy_log_failure(struct client *client, const char *line)
 	e_info(login_proxy_get_event(client->login_proxy), "%s", str_c(str));
 }
 
-void client_proxy_failed(struct client *client, bool send_line)
+static void client_proxy_failed(struct client *client, bool send_line)
 {
 	if (send_line)
 		client_proxy_error(client, PROXY_FAILURE_MSG);
