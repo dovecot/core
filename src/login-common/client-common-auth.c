@@ -306,9 +306,8 @@ void client_proxy_log_failure(struct client *client, const char *line)
 
 void client_proxy_failed(struct client *client, bool send_line)
 {
-	if (send_line) {
+	if (send_line)
 		client_proxy_error(client, PROXY_FAILURE_MSG);
-	}
 
 	if (client->proxy_sasl_client != NULL)
 		dsasl_client_free(&client->proxy_sasl_client);
@@ -317,7 +316,6 @@ void client_proxy_failed(struct client *client, bool send_line)
 	i_free_and_null(client->proxy_user);
 	i_free_and_null(client->proxy_master_user);
 
-	/* call this last - it may destroy the client */
 	client_auth_failed(client);
 }
 
