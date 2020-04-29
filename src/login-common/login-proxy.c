@@ -334,12 +334,10 @@ static int login_proxy_connect(struct login_proxy *proxy)
 					  proxy->source_ip.family == 0 ? NULL :
 					  &proxy->source_ip);
 	if (proxy->server_fd == -1) {
-		string_t *str = t_str_new(128);
-		proxy_connect_error_append(proxy, FALSE, str);
-		login_proxy_failed(proxy, proxy->event,
-				   LOGIN_PROXY_FAILURE_TYPE_CONNECT,
-				   str_c(str));
-		return -1;
+		if (!proxy_connect_failed(proxy))
+			return -1;
+		/* trying to reconnect later */
+		return 0;
 	}
 	proxy->server_io = io_add(proxy->server_fd, IO_WRITE,
 				  proxy_wait_connect, proxy);
