@@ -82,6 +82,7 @@ static int proxy_write_starttls(struct imap_client *client, string_t *str)
 		    !str_array_icase_find(t_strsplit(client->proxy_backend_capability, " "), "STARTTLS")) {
 			e_error(login_proxy_get_event(client->common.login_proxy),
 				"Remote doesn't support STARTTLS");
+			client_proxy_failed(&client->common, TRUE);
 			return -1;
 		}
 		str_append(str, "S STARTTLS\r\n");
@@ -122,6 +123,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		    login_proxy_get_ssl_flags(client->common.login_proxy) == 0) {
 			e_error(login_proxy_get_event(client->common.login_proxy),
 				"Remote advertised LOGINDISABLED and SSL/TLS not enabled");
+			client_proxy_failed(&client->common, TRUE);
 			return -1;
 		}
 		str_append(str, "L LOGIN ");
@@ -153,6 +155,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 			e_error(login_proxy_get_event(client->common.login_proxy),
 				"SASL mechanism %s init failed: %s",
 				mech_name, error);
+			client_proxy_failed(&client->common, TRUE);
 			return -1;
 		}
 		str_append_c(str, ' ');
@@ -178,6 +181,7 @@ static int proxy_input_banner(struct imap_client *client,
 		e_error(login_proxy_get_event(client->common.login_proxy),
 			"Remote returned invalid banner: %s",
 			str_sanitize(line, 160));
+		client_proxy_failed(&client->common, TRUE);
 		return -1;
 	}
 
@@ -266,10 +270,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		/* this is a banner */
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_BANNER;
 		imap_client->proxy_seen_banner = TRUE;
-		if (proxy_input_banner(imap_client, output, line) < 0) {
-			client_proxy_failed(client, TRUE);
+		if (proxy_input_banner(imap_client, output, line) < 0)
 			return -1;
-		}
 		return 0;
 	} else if (*line == '+') {
 		/* AUTHENTICATE started. finish it. */
@@ -330,10 +332,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		/* i/ostreams changed. */
 		output = login_proxy_get_ostream(client->login_proxy);
 		str = t_str_new(128);
-		if (proxy_write_login(imap_client, str) < 0) {
-			client_proxy_failed(client, TRUE);
+		if (proxy_write_login(imap_client, str) < 0)
 			return -1;
-		}
 		o_stream_nsend(output, str_data(str), str_len(str));
 		return 1;
 	} else if (str_begins(line, "L OK ")) {
