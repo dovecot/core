@@ -174,6 +174,16 @@ static void proxy_fail_connect(struct login_proxy *proxy)
 	proxy->num_waiting_connections_updated = TRUE;
 }
 
+void login_proxy_append_success_log_info(struct login_proxy *proxy,
+					 string_t *str)
+{
+	int msecs = timeval_diff_msecs(&ioloop_timeval, &proxy->created);
+	str_printfa(str, " (%d.%03d secs", msecs/1000, msecs%1000);
+	if (proxy->reconnect_count > 0)
+		str_printfa(str, ", %u reconnects", proxy->reconnect_count);
+	str_append_c(str, ')');
+}
+
 static void
 proxy_log_connect_error(struct login_proxy *proxy, bool reconnect)
 {

@@ -59,6 +59,8 @@ int login_proxy_starttls(struct login_proxy *proxy);
 struct istream *login_proxy_get_istream(struct login_proxy *proxy);
 struct ostream *login_proxy_get_ostream(struct login_proxy *proxy);
 
+void login_proxy_append_success_log_info(struct login_proxy *proxy,
+					 string_t *str);
 struct event *login_proxy_get_event(struct login_proxy *proxy);
 const char *login_proxy_get_host(const struct login_proxy *proxy) ATTR_PURE;
 in_port_t login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;

@@ -277,6 +277,7 @@ void client_proxy_finish_destroy_client(struct client *client)
 	if (client->proxy_master_user != NULL)
 		str_printfa(str, " (master %s)", client->proxy_master_user);
 
+	login_proxy_append_success_log_info(client->login_proxy, str);
 	e_info(login_proxy_get_event(client->login_proxy), "%s", str_c(str));
 	login_proxy_detach(client->login_proxy);
 	client_destroy_success(client, NULL);
