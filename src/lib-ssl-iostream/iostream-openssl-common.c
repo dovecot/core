@@ -9,6 +9,16 @@
 #include <openssl/err.h>
 #include <arpa/inet.h>
 
+/*
+ * SSL_TXT_TLSV1_3 is not defined in the openssl headers up to 1.1.1g.
+ * Define it here as no other part of the code uses those defines.
+ *
+ * https://github.com/openssl/openssl/pull/6720
+ */
+#ifndef SSL_TXT_TLSV1_3
+#define SSL_TXT_TLSV1_3 "TLSv1.3"
+#endif
+
 /* openssl_min_protocol_to_options() scans this array for name and returns
    version and opt. opt is used with SSL_set_options() and version is used with
    SSL_set_min_proto_version(). Using either method should enable the same
@@ -23,6 +33,8 @@ static const struct {
 	{ SSL_TXT_TLSV1_1, TLS1_1_VERSION, SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 },
 	{ SSL_TXT_TLSV1_2, TLS1_2_VERSION,
 		SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 },
+	{ SSL_TXT_TLSV1_3, TLS1_3_VERSION,
+		SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1_2 },
 };
 int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
 				    int *version_r)

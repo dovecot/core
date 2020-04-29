@@ -171,7 +171,7 @@ static int ssl_protocols_to_min_protocol(const char *ssl_protocols,
 					 const char **error_r)
 {
 	static const char *protocol_versions[] = {
-		"SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2",
+		"SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3",
 	};
 	/* Array where -1 = disable, 0 = not found, 1 = enable */
 	int protos[N_ELEMENTS(protocol_versions)];
