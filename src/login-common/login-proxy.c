@@ -241,17 +241,23 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 	return TRUE;
 }
 
-static void proxy_wait_connect(struct login_proxy *proxy)
+static bool proxy_connect_failed(struct login_proxy *proxy)
 {
 	bool reconnect;
 
+	proxy_fail_connect(proxy);
+	reconnect = proxy_try_reconnect(proxy);
+	proxy_log_connect_error(proxy, reconnect);
+	if (!reconnect)
+		login_proxy_free(&proxy);
+	return reconnect;
+}
+
+static void proxy_wait_connect(struct login_proxy *proxy)
+{
 	errno = net_geterror(proxy->server_fd);
 	if (errno != 0) {
-		proxy_fail_connect(proxy);
-		reconnect = proxy_try_reconnect(proxy);
-		proxy_log_connect_error(proxy, reconnect);
-		if (!reconnect)
-			login_proxy_free(&proxy);
+		(void)proxy_connect_failed(proxy);
 		return;
 	}
 	proxy->connected = TRUE;
