@@ -125,8 +125,9 @@ wrapper_ostream_create(struct wrapper_ostream *wostream,
 		       size_t max_buffer_size, bool blocking,
 		       struct event *event) ATTR_NULL(4);
 
-/* Continue sending output. */
-void wrapper_ostream_continue(struct wrapper_ostream *wostream);
+/* Continue sending output. Returns 1 if all buffered data is sent so far,
+   0 if not, and -1 if an error occurred. */
+int wrapper_ostream_continue(struct wrapper_ostream *wostream);
 /* Trigger an (asynchronous) flush on the output stream. */
 void wrapper_ostream_trigger_flush(struct wrapper_ostream *wostream);
 

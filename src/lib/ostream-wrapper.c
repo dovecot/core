@@ -1071,13 +1071,13 @@ wrapper_ostream_create(struct wrapper_ostream *wostream,
 	return o_stream_create(&wostream->ostream, NULL, -1);
 }
 
-void wrapper_ostream_continue(struct wrapper_ostream *wostream)
+int wrapper_ostream_continue(struct wrapper_ostream *wostream)
 {
 	struct ostream_private *stream = &wostream->ostream;
 	struct ostream *ostream = &stream->ostream;
 	struct ioloop *ioloop = NULL;
 	bool use_cork = !stream->corked;
-	int ret;
+	int ret = 1;
 
 	if (wostream->flush_waiting) {
 		/* Inside wrapper_ostream_flush_wait() */
@@ -1088,14 +1088,15 @@ void wrapper_ostream_continue(struct wrapper_ostream *wostream)
 	     wostream->output != NULL &&
 	     o_stream_get_buffer_used_size(wostream->output) == 0)) {
 		/* Already finished */
-		if (wrapper_ostream_finish(wostream) == 0)
-			return;
+		ret = wrapper_ostream_finish(wostream);
+		if (ret == 0)
+			return 0;
 	}
 	if (wostream->flush_waiting) {
 		i_assert(ioloop != NULL);
 		io_loop_stop(ioloop);
 		wostream->flush_waiting = FALSE;
-		return;
+		return ret;
 	}
 
 	/* Set flush_pending = FALSE first before calling the flush callback,
@@ -1132,7 +1133,20 @@ void wrapper_ostream_continue(struct wrapper_ostream *wostream)
 	if (!stream->ostream.blocking)
 		wrapper_ostream_output_manage(wostream, FALSE);
 
+	if (ret < 0 || ostream->stream_errno != 0 ||
+	    wostream->pending_errno != 0)
+		ret = -1;
+	else if (wostream->output_closed)
+		ret = 1;
+	else if (!wrapper_ostream_is_empty(wostream) &&
+		 (!stream->corked || wrapper_ostream_is_filled(wostream)))
+		ret = 0;
+	else if (wostream->flush_pending)
+		ret = 0;
+
 	o_stream_unref(&ostream);
+
+	return ret;
 }
 
 void wrapper_ostream_trigger_flush(struct wrapper_ostream *wostream)
