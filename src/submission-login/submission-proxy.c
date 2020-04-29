@@ -103,6 +103,7 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		   disabled; i.e., due to the lack of TLS */
 		e_error(login_proxy_get_event(client->common.login_proxy),
 			"Server has disabled authentication (TLS required?)");
+		client_proxy_failed(&client->common, TRUE);
 		return -1;
 	}
 
@@ -130,6 +131,7 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		e_error(login_proxy_get_event(client->common.login_proxy),
 			"SASL mechanism %s init failed: %s",
 			mech_name, error);
+		client_proxy_failed(&client->common, TRUE);
 		return -1;
 	}
 	if (len == 0)
@@ -160,6 +162,7 @@ submission_proxy_continue_sasl_auth(struct client *client, struct ostream *outpu
 	if (base64_decode(line, strlen(line), NULL, str) < 0) {
 		e_error(login_proxy_get_event(client->login_proxy),
 			"Server sent invalid base64 data in AUTH response");
+		client_proxy_failed(client, TRUE);
 		return -1;
 	}
 	ret = dsasl_client_input(client->proxy_sasl_client,
@@ -171,6 +174,7 @@ submission_proxy_continue_sasl_auth(struct client *client, struct ostream *outpu
 	if (ret < 0) {
 		e_error(login_proxy_get_event(client->login_proxy),
 			"Server sent invalid authentication data: %s", error);
+		client_proxy_failed(client, TRUE);
 		return -1;
 	}
 	i_assert(ret == 0);
@@ -318,24 +322,21 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			return 0;
 
 		if (subm_client->proxy_state == SUBMISSION_PROXY_TLS_EHLO) {
-			if (proxy_send_login(subm_client, output) < 0) {
-				client_proxy_failed(client, TRUE);
+			if (proxy_send_login(subm_client, output) < 0)
 				return -1;
-			}
 			return 0;
 		}
 
 		ssl_flags = login_proxy_get_ssl_flags(client->login_proxy);
 		if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
-			if (proxy_send_login(subm_client, output) < 0) {
-				client_proxy_failed(client, TRUE);
+			if (proxy_send_login(subm_client, output) < 0)
 				return -1;
-			}
 		} else {
 			if ((subm_client->proxy_capability &
 			     SMTP_CAPABILITY_STARTTLS) == 0) {
 				e_error(login_proxy_get_event(client->login_proxy),
 					"Remote doesn't support STARTTLS");
+				client_proxy_failed(client, TRUE);
 				return -1;
 			}
 			o_stream_nsend_str(output, "STARTTLS\r\n");
@@ -383,10 +384,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		if (status == 334 && client->proxy_sasl_client != NULL) {
 			/* continue SASL authentication */
 			if (submission_proxy_continue_sasl_auth(client, output,
-								text) < 0) {
-				client_proxy_failed(client, TRUE);
+								text) < 0)
 				return -1;
-			}
 			return 0;
 		}
 
