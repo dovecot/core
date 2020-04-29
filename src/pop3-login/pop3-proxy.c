@@ -262,8 +262,9 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			line += 5;
 		client_proxy_log_failure(client, line);
 	}
-	client->proxy_auth_failed = TRUE;
-	client_proxy_failed(client, FALSE);
+	login_proxy_failed(client->login_proxy,
+			   login_proxy_get_event(client->login_proxy),
+			   LOGIN_PROXY_FAILURE_TYPE_AUTH, NULL);
 	return -1;
 }
 

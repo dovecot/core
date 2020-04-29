@@ -397,6 +397,7 @@ static void proxy_failed(struct client *client,
 		client_proxy_failed(client, TRUE);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+		client->proxy_auth_failed = TRUE;
 		client_proxy_failed(client, FALSE);
 		break;
 	}
