@@ -90,6 +90,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 		e_error(login_proxy_get_event(client->common.login_proxy),
 			"SASL mechanism %s init failed: %s",
 			mech_name, error);
+		client_proxy_failed(&client->common, TRUE);
 		return -1;
 	}
 	if (len == 0)
@@ -119,6 +120,7 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 	if (base64_decode(line, strlen(line), NULL, str) < 0) {
 		e_error(login_proxy_get_event(client->login_proxy),
 			"Server sent invalid base64 data in AUTH response");
+		client_proxy_failed(client, TRUE);
 		return -1;
 	}
 	ret = dsasl_client_input(client->proxy_sasl_client,
@@ -130,6 +132,7 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 	if (ret < 0) {
 		e_error(login_proxy_get_event(client->login_proxy),
 			"Server sent invalid authentication data: %s", error);
+		client_proxy_failed(client, TRUE);
 		return -1;
 	}
 	i_assert(ret == 0);
@@ -166,10 +169,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 
 		ssl_flags = login_proxy_get_ssl_flags(client->login_proxy);
 		if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
-			if (proxy_send_login(pop3_client, output) < 0) {
-				client_proxy_failed(client, TRUE);
+			if (proxy_send_login(pop3_client, output) < 0)
 				return -1;
-			}
 		} else {
 			o_stream_nsend_str(output, "STLS\r\n");
 			pop3_client->proxy_state = POP3_PROXY_STARTTLS;
@@ -189,10 +190,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		}
 		/* i/ostreams changed. */
 		output = login_proxy_get_ostream(client->login_proxy);
-		if (proxy_send_login(pop3_client, output) < 0) {
-			client_proxy_failed(client, TRUE);
+		if (proxy_send_login(pop3_client, output) < 0)
 			return -1;
-		}
 		return 1;
 	case POP3_PROXY_XCLIENT:
 		if (!str_begins(line, "+OK")) {
@@ -221,10 +220,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		    client->proxy_sasl_client != NULL) {
 			/* continue SASL authentication */
 			if (pop3_proxy_continue_sasl_auth(client, output,
-							  line+2) < 0) {
-				client_proxy_failed(client, TRUE);
+							  line+2) < 0)
 				return -1;
-			}
 			return 0;
 		}
 		if (!str_begins(line, "+OK"))
