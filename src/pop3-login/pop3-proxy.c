@@ -184,10 +184,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
-		if (login_proxy_starttls(client->login_proxy) < 0) {
-			client_proxy_failed(client, TRUE);
+		if (login_proxy_starttls(client->login_proxy) < 0)
 			return -1;
-		}
 		/* i/ostreams changed. */
 		output = login_proxy_get_ostream(client->login_proxy);
 		if (proxy_send_login(pop3_client, output) < 0)

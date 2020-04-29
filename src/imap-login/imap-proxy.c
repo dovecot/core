@@ -325,10 +325,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		}
 		/* STARTTLS successful, begin TLS negotiation. */
-		if (login_proxy_starttls(client->login_proxy) < 0) {
-			client_proxy_failed(client, TRUE);
+		if (login_proxy_starttls(client->login_proxy) < 0)
 			return -1;
-		}
 		/* i/ostreams changed. */
 		output = login_proxy_get_ostream(client->login_proxy);
 		str = t_str_new(128);

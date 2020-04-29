@@ -284,8 +284,7 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 	if ((proxy->ssl_flags & PROXY_SSL_FLAG_YES) != 0 &&
 	    (proxy->ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
 		if (login_proxy_starttls(proxy) < 0) {
-			login_proxy_free(&proxy);
-			return;
+			/* proxy is already destroyed */
 		}
 	}
 }
@@ -702,6 +701,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	if (ssl_iostream_client_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
 		e_error(proxy->event, "Failed to create SSL client context: %s",
 			error);
+		client_proxy_failed(proxy->client, TRUE);
 		return -1;
 	}
 
@@ -711,6 +711,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 					&proxy->server_ssl_iostream,
 					&error) < 0) {
 		e_error(proxy->event, "Failed to create SSL client: %s", error);
+		client_proxy_failed(proxy->client, TRUE);
 		ssl_iostream_context_unref(&ssl_ctx);
 		return -1;
 	}
@@ -719,6 +720,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		error = ssl_iostream_get_last_error(proxy->server_ssl_iostream);
 		e_error(proxy->event, "Failed to start SSL handshake: %s",
 			ssl_iostream_get_last_error(proxy->server_ssl_iostream));
+		client_proxy_failed(proxy->client, TRUE);
 		return -1;
 	}
 
