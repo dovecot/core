@@ -223,8 +223,7 @@ proxy_connect_error_append(struct login_proxy *proxy, bool reconnect,
 static void proxy_reconnect_timeout(struct login_proxy *proxy)
 {
 	timeout_remove(&proxy->to);
-	if (login_proxy_connect(proxy) < 0)
-		login_proxy_free(&proxy);
+	(void)login_proxy_connect(proxy);
 }
 
 static bool proxy_try_reconnect(struct login_proxy *proxy)
@@ -318,6 +317,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
 		e_error(proxy->event, "Host is down");
+		login_proxy_free(&proxy);
 		return -1;
 	}
 
@@ -328,6 +328,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 		string_t *str = t_str_new(128);
 		proxy_connect_error_append(proxy, FALSE, str);
 		e_error(proxy->event, "%s", str_c(str));
+		login_proxy_free(&proxy);
 		return -1;
 	}
 	proxy->server_io = io_add(proxy->server_fd, IO_WRITE,
@@ -371,12 +372,10 @@ int login_proxy_new(struct client *client, struct event *event,
 	client_ref(client);
 	event_ref(proxy->event);
 
-	if (login_proxy_connect(proxy) < 0) {
-		login_proxy_free(&proxy);
-		return -1;
-	}
-
 	DLLIST_PREPEND(&login_proxies_pending, proxy);
+
+	if (login_proxy_connect(proxy) < 0)
+	        return -1;
 
 	proxy->input_callback = input_callback;
 	proxy->failure_callback = failure_callback;
