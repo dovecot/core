@@ -128,21 +128,29 @@ static void
 smtp_client_connection_login_callback(struct smtp_client_connection *conn,
 				      const struct smtp_reply *reply)
 {
-	smtp_client_command_callback_t *callback = conn->login_callback;
-	void *context = conn->login_context;
+	const struct smtp_client_login_callback *cb;
+	ARRAY(struct smtp_client_login_callback) login_cbs;
 
 	if (conn->state_data.login_reply == NULL) {
 		conn->state_data.login_reply =
 			smtp_reply_clone(conn->state_pool, reply);
 	}
 
-	conn->login_callback = NULL;
-	conn->login_context = NULL;
-
-	if (conn->closed)
+	if (!array_is_created(&conn->login_callbacks) ||
+	    array_count(&conn->login_callbacks) == 0)
 		return;
-	if (callback != NULL)
-		callback(reply, context);
+
+	t_array_init(&login_cbs, array_count(&conn->login_callbacks));
+	array_copy(&login_cbs.arr, 0, &conn->login_callbacks.arr, 0,
+		   array_count(&conn->login_callbacks));
+	array_foreach(&login_cbs, cb) {
+		i_assert(cb->callback != NULL);
+		if (conn->closed)
+			break;
+		if (cb->callback != NULL)
+			cb->callback(reply, cb->context);
+	}
+	array_clear(&conn->login_callbacks);
 }
 
 static void
@@ -1660,17 +1668,72 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 	}
 }
 
+static void
+smtp_client_connection_already_connected(struct smtp_client_connection *conn)
+{
+	i_assert(conn->state_data.login_reply != NULL);
+
+	timeout_remove(&conn->to_connect);
+
+	e_debug(conn->event, "Already connected");
+
+	smtp_client_connection_login_callback(
+		conn, conn->state_data.login_reply);
+}
+
+static void
+smtp_client_connection_connect_more(struct smtp_client_connection *conn)
+{
+	if (!array_is_created(&conn->login_callbacks) ||
+	    array_count(&conn->login_callbacks) == 0) {
+		/* No login callbacks required */
+		return;
+	}
+	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY) {
+		/* Login callbacks will be called once the connection succeeds
+		   or fails. */
+		return;
+	}
+
+	if (array_count(&conn->login_callbacks) > 1) {
+		/* Another login callback is already pending */
+		i_assert(conn->to_connect != NULL);
+		return;
+	}
+
+	/* Schedule immediate login callback */
+	i_assert(conn->to_connect == NULL);
+	conn->to_connect = timeout_add(
+		0, smtp_client_connection_already_connected, conn);
+}
+
 void smtp_client_connection_connect(
 	struct smtp_client_connection *conn,
 	smtp_client_command_callback_t login_callback, void *login_context)
 {
-	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED) {
-		i_assert(login_callback == NULL);
+	struct smtp_client_login_callback *login_cb;
+
+	if (conn->closed)
 		return;
+
+	if (login_callback != NULL) {
+		if (!array_is_created(&conn->login_callbacks))
+			i_array_init(&conn->login_callbacks, 4);
+
+		login_cb = array_append_space(&conn->login_callbacks);
+		login_cb->callback = login_callback;
+		login_cb->context = login_context;
 	}
 
-	if (conn->closed || conn->failing)
+	if (conn->state != SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED) {
+		/* Already connecting or connected */
+		smtp_client_connection_connect_more(conn);
 		return;
+	}
+	if (conn->failing)
+		return;
+
+	e_debug(conn->event, "Disconnected");
 
 	conn->xclient_replies_expected = 0;
 	conn->authenticated = FALSE;
@@ -1680,10 +1743,6 @@ void smtp_client_connection_connect(
 	conn->handshake_failed = FALSE;
 	conn->sent_quit = FALSE;
 	conn->reset_needed = FALSE;
-
-	i_assert(conn->login_callback == NULL);
-	conn->login_callback = login_callback;
-	conn->login_context = login_context;
 
 	smtp_client_connection_set_state(
 		conn, SMTP_CLIENT_CONNECTION_STATE_CONNECTING);
@@ -1998,6 +2057,7 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 	connection_deinit(&conn->conn);
 
 	i_free(conn->ips);
+	array_free(&conn->login_callbacks);
 	pool_unref(&conn->cap_pool);
 	pool_unref(&conn->state_pool);
 	pool_unref(&conn->pool);
