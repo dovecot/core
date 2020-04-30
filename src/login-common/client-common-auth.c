@@ -331,27 +331,7 @@ static void proxy_input(struct client *client)
 	const char *line;
 	unsigned int duration;
 
-	if (client->login_proxy == NULL) {
-		/* we're just freeing the proxy */
-		return;
-	}
-
 	input = login_proxy_get_istream(client->login_proxy);
-	if (input == NULL) {
-		if (client->destroyed) {
-			/* we came here from client_destroy() */
-			return;
-		}
-
-		/* failed for some reason, probably server disconnected */
-		login_proxy_failed(client->login_proxy,
-				   login_proxy_get_event(client->login_proxy),
-				   LOGIN_PROXY_FAILURE_TYPE_CONNECT, NULL);
-		return;
-	}
-
-	i_assert(!client->destroyed);
-
 	switch (i_stream_read(input)) {
 	case -2:
 		login_proxy_failed(client->login_proxy,

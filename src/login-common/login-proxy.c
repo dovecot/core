@@ -528,9 +528,6 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 		i_assert(proxy->client_output == NULL);
 
 		DLLIST_REMOVE(&login_proxies_pending, proxy);
-
-		if (proxy->input_callback != NULL)
-			proxy->input_callback(proxy->client);
 	}
 	client->login_proxy = NULL;
 
