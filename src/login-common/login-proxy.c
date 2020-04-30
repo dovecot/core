@@ -283,10 +283,7 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 static void proxy_connect_timeout(struct login_proxy *proxy)
 {
 	errno = ETIMEDOUT;
-	proxy_log_connect_error(proxy, FALSE);
-	if (!proxy->connected)
-		proxy_fail_connect(proxy);
-	login_proxy_free(&proxy);
+	(void)proxy_connect_failed(proxy);
 }
 
 static int login_proxy_connect(struct login_proxy *proxy)
