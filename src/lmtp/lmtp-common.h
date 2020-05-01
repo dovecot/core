@@ -11,6 +11,9 @@
 #include "lmtp-client.h"
 #include "lmtp-settings.h"
 
+#define LMTP_RCPT_FORWARD_CAPABILITY "XRCPTFORWARD"
+#define LMTP_RCPT_FORWARD_PARAMETER  "XRCPTFORWARD"
+
 typedef void lmtp_client_created_func_t(struct client **client);
 
 extern lmtp_client_created_func_t *hook_client_created;

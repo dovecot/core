@@ -20,6 +20,8 @@ struct lmtp_recipient {
 	enum lmtp_recipient_type type;
 	void *backend_context;
 
+	const char *forward_fields;
+
 	/* Module-specific contexts. */
 	ARRAY(union lmtp_recipient_module_context *) module_contexts;
 };

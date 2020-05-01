@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "iostream-ssl.h"
 #include "str.h"
+#include "strescape.h"
 #include "time-util.h"
 #include "smtp-common.h"
 #include "smtp-params.h"
@@ -49,6 +50,9 @@ struct lmtp_proxy_recipient {
 	struct lmtp_proxy_connection *conn;
 
 	struct smtp_address *address;
+
+	const unsigned char *forward_fields;
+	size_t forward_fields_size;
 
 	bool rcpt_to_failed:1;
 	bool data_reply_received:1;
@@ -99,6 +103,9 @@ static struct lmtp_proxy *
 lmtp_proxy_init(struct client *client,
 		struct smtp_server_transaction *trans)
 {
+	const char *extra_capabilities[] = {
+		LMTP_RCPT_FORWARD_CAPABILITY,
+		NULL };
 	struct smtp_client_settings lmtp_set;
 	struct lmtp_proxy *proxy;
 
@@ -110,6 +117,7 @@ lmtp_proxy_init(struct client *client,
 
 	i_zero(&lmtp_set);
 	lmtp_set.my_hostname = client->my_domain;
+	lmtp_set.extra_capabilities = extra_capabilities;
 	lmtp_set.dns_client_socket_path = dns_client_socket_path;
 	lmtp_set.max_reply_size = LMTP_MAX_REPLY_SIZE;
 	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_proxy_rawlog_dir;
@@ -200,6 +208,16 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_STARTTLS;
 }
 
+static bool
+lmtp_proxy_connection_has_rcpt_forward(struct lmtp_proxy_connection *conn)
+{
+	const struct smtp_capability_extra *cap_extra =
+		smtp_client_connection_get_extra_capability(
+			conn->lmtp_conn, LMTP_RCPT_FORWARD_CAPABILITY);
+
+	return (cap_extra != NULL);
+}
+
 static struct lmtp_proxy_connection *
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  const struct lmtp_proxy_rcpt_settings *set)
@@ -256,6 +274,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			conn->set.host, conn->set.port,
 			ssl_mode, &lmtp_set);
 	}
+	smtp_client_connection_accept_extra_capability(
+		conn->lmtp_conn, LMTP_RCPT_FORWARD_CAPABILITY);
 	smtp_client_connection_connect(conn->lmtp_conn, NULL, NULL);
 
 	conn->lmtp_trans = smtp_client_transaction_create(
@@ -475,7 +495,7 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 	struct smtp_reply reply;
 	struct smtp_client_transaction_rcpt *relay_rcpt;
 	struct smtp_params_rcpt *rcpt_params = &rcpt->params;
-	bool add_orcpt_param = FALSE;
+	bool add_orcpt_param = FALSE, add_xrcptforward_param = FALSE;
 	pool_t param_pool;
 
 	if (!lmtp_proxy_handle_reply(lprcpt, proxy_reply, &reply))
@@ -492,9 +512,14 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 	    !smtp_address_equals(lprcpt->address, rcpt->path))
 		add_orcpt_param = TRUE;
 
+	/* Add forward fields parameter when passdb returned forward_* fields */
+	if (lprcpt->forward_fields != NULL &&
+	    lmtp_proxy_connection_has_rcpt_forward(conn))
+		add_xrcptforward_param = TRUE;
+
 	/* Copy params when changes are pending */
 	param_pool = NULL;
-	if (add_orcpt_param) {
+	if (add_orcpt_param || add_xrcptforward_param) {
 		param_pool = pool_datastack_create();
 		rcpt_params = p_new(param_pool, struct smtp_params_rcpt, 1);
 		smtp_params_rcpt_copy(param_pool, rcpt_params, &rcpt->params);
@@ -504,6 +529,12 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 	if (add_orcpt_param) {
 		smtp_params_rcpt_set_orcpt(rcpt_params, param_pool,
 					   rcpt->path);
+	}
+	/* Add forward fields parameter */
+	if (add_xrcptforward_param) {
+		smtp_params_rcpt_encode_extra(
+			rcpt_params, param_pool, LMTP_RCPT_FORWARD_PARAMETER,
+			lprcpt->forward_fields, lprcpt->forward_fields_size);
 	}
 
 	smtp_server_recipient_add_hook(
@@ -535,6 +566,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	const char *const *fields, *errstr, *orig_username = username;
 	struct smtp_proxy_data proxy_data;
 	struct smtp_address *user;
+	string_t *fwfields;
 	pool_t auth_pool;
 	int ret;
 
@@ -555,6 +587,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	info.real_local_port = client->real_local_port;
 	info.remote_port = client->remote_port;
 	info.real_remote_port = client->real_remote_port;
+	info.forward_fields = lrcpt->forward_fields;
 
 	// FIXME: make this async
 	auth_pool = pool_alloconly_create("auth lookup", 1024);
@@ -636,7 +669,6 @@ int lmtp_proxy_rcpt(struct client *client,
 		client->proxy = lmtp_proxy_init(client, trans);
 
 	conn = lmtp_proxy_get_connection(client->proxy, &set);
-	pool_unref(&auth_pool);
 
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lprcpt->rcpt = lrcpt;
@@ -645,6 +677,27 @@ int lmtp_proxy_rcpt(struct client *client,
 
 	lrcpt->type = LMTP_RECIPIENT_TYPE_PROXY;
 	lrcpt->backend_context = lprcpt;
+
+	/* Copy forward fields returned from passdb */
+	fwfields = NULL;
+	for (const char *const *ptr = fields; *ptr != NULL; ptr++) {
+		if (strncasecmp(*ptr, "forward_", 8) != 0)
+			continue;
+
+		if (fwfields == NULL)
+			fwfields = t_str_new(128);
+		else
+			str_append_c(fwfields, '\t');
+
+		str_append_tabescaped(fwfields, (*ptr) + 8);
+	}
+	if (fwfields != NULL) {
+		lprcpt->forward_fields = p_memdup(
+			rcpt->pool, str_data(fwfields), str_len(fwfields));
+		lprcpt->forward_fields_size = str_len(fwfields);
+	}
+
+	pool_unref(&auth_pool);
 
 	smtp_client_connection_connect(conn->lmtp_conn,
 				       lmtp_proxy_rcpt_login_cb, lprcpt);

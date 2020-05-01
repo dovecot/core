@@ -317,6 +317,7 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		smtp_server_connection_is_ssl_secured(client->conn);
 	input.conn_secured = input.conn_ssl_secured ||
 		smtp_server_connection_is_trusted(client->conn);
+	input.forward_fields = lrcpt->forward_fields;
 
 	event_add_str(rcpt->event, "session", session_id);
 	input.parent_event = rcpt->event;

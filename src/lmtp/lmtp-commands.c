@@ -46,6 +46,42 @@ int client_default_cmd_mail(struct client *client,
  * RCPT command
  */
 
+static int
+cmd_rcpt_handle_forward_fields(struct smtp_server_cmd_ctx *cmd,
+			       struct lmtp_recipient *lrcpt)
+{
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
+	string_t *xforward;
+	const char *error;
+	int ret;
+
+	ret = smtp_params_rcpt_decode_extra(&rcpt->params,
+					    LMTP_RCPT_FORWARD_PARAMETER,
+					    &xforward, FALSE, &error);
+	if (ret < 0) {
+		smtp_server_reply(cmd, 501, "5.5.4",
+				  "Invalid "LMTP_RCPT_FORWARD_PARAMETER"= "
+				  "parameter: %s", error);
+		return -1;
+	}
+	if (ret == 0)
+		return 0;
+
+	/* Check the real IP rather than the proxied client IP, since XCLIENT
+	   command will update that, thereby making it untrusted. Unlike the
+	   XCLIENT command, the RCPT forward parameter needs to be used after
+	   the XCLIENT is first issued. */
+	if (!smtp_server_connection_is_trusted(rcpt->conn)) {
+		smtp_server_reply(cmd, 550, "5.7.14",
+				  "Unacceptable "LMTP_RCPT_FORWARD_PARAMETER"= "
+				  "parameter: You are not from trusted IP");
+		return -1;
+	}
+
+	lrcpt->forward_fields = p_strdup(rcpt->pool, str_c(xforward));
+	return 0;
+}
+
 int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_recipient *rcpt)
 {
@@ -53,6 +89,9 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	struct lmtp_recipient *lrcpt;
 
 	lrcpt = lmtp_recipient_create(client, rcpt);
+
+	if (cmd_rcpt_handle_forward_fields(cmd, lrcpt) < 0)
+		return -1;
 
 	return client->v.cmd_rcpt(client, cmd, lrcpt);
 }
