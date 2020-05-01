@@ -244,18 +244,20 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	lmtp_set.mail_send_broken_path = TRUE;
 
 	if (conn->set.hostip.family != 0) {
-		lmtp_conn = smtp_client_connection_create_ip(proxy->lmtp_client,
-			set->protocol, &conn->set.hostip, conn->set.port,
+		lmtp_conn = smtp_client_connection_create_ip(
+			proxy->lmtp_client, set->protocol,
+			&conn->set.hostip, conn->set.port,
 			conn->set.host, ssl_mode, &lmtp_set);
 	} else {
-		lmtp_conn = smtp_client_connection_create(proxy->lmtp_client,
-			set->protocol, conn->set.host, conn->set.port,
+		lmtp_conn = smtp_client_connection_create(
+			proxy->lmtp_client, set->protocol,
+			conn->set.host, conn->set.port,
 			ssl_mode, &lmtp_set);
 	}
 	smtp_client_connection_connect(lmtp_conn, NULL, NULL);
 
-	conn->lmtp_trans = smtp_client_transaction_create(lmtp_conn,
-		trans->mail_from, &trans->params, 0,
+	conn->lmtp_trans = smtp_client_transaction_create(
+		lmtp_conn, trans->mail_from, &trans->params, 0,
 		lmtp_proxy_connection_finish, conn);
 	smtp_client_connection_unref(&lmtp_conn);
 
@@ -397,10 +399,10 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_recipient *lrcpt,
 				set->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
 		} else if (strcmp(key, "user") == 0 ||
 			   strcmp(key, "destuser") == 0) {
-			/* changing the username */
+			/* Changing the username */
 			*address = value;
 		} else {
-			/* just ignore it */
+			/* Just ignore it */
 		}
 	}
 	if (proxying && set->host == NULL) {
@@ -436,7 +438,7 @@ lmtp_proxy_rcpt_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 {
 	struct client *client = lprcpt->rcpt->client;
 
-	/* add to proxy recipients */
+	/* Add to proxy recipients */
 	array_push_back(&client->proxy->rcpt_to, &lprcpt);
 }
 
@@ -451,14 +453,14 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 		return;
 
 	if (smtp_reply_is_success(proxy_reply)) {
-		/* if backend accepts it, we accept it too */
+		/* If backend accepts it, we accept it too */
 
-		/* the default 2.0.0 code won't do */
+		/* The default 2.0.0 code won't do */
 		if (!smtp_reply_has_enhanced_code(proxy_reply))
 			reply.enhanced_code = SMTP_REPLY_ENH_CODE(2, 1, 0);
 	}
 
-	/* forward reply */
+	/* Forward reply */
 	smtp_server_recipient_reply_forward(rcpt, &reply);
 }
 
@@ -509,15 +511,17 @@ int lmtp_proxy_rcpt(struct client *client,
 	ret = auth_master_pass_lookup(auth_conn, username, &info,
 				      auth_pool, &fields);
 	if (ret <= 0) {
-		errstr = ret < 0 && fields[0] != NULL ?
-			t_strdup(fields[0]) : "Temporary user lookup failure";
+		errstr = (ret < 0 && fields[0] != NULL ?
+			  t_strdup(fields[0]) :
+			  "Temporary user lookup failure");
 		pool_unref(&auth_pool);
 		if (ret < 0) {
 			smtp_server_recipient_reply(rcpt, 451, "4.3.0", "%s",
 						    errstr);
 			return -1;
 		} else {
-			/* user not found from passdb. revert to local delivery */
+			/* User not found from passdb: revert to local delivery.
+			 */
 			return 0;
 		}
 	}
@@ -528,12 +532,12 @@ int lmtp_proxy_rcpt(struct client *client,
 	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
 
 	if (!lmtp_proxy_rcpt_parse_fields(lrcpt, &set, fields, &username)) {
-		/* not proxying this user */
+		/* Not proxying this user */
 		pool_unref(&auth_pool);
 		return 0;
 	}
 	if (strcmp(username, orig_username) != 0) {
-		/* the existing "user" event field is overridden with the new
+		/* The existing "user" event field is overridden with the new
 		   user name, while old username is available as "orig_user" */
 		event_add_str(rcpt->event, "user", username);
 		event_add_str(rcpt->event, "orig_user", orig_username);
@@ -549,11 +553,12 @@ int lmtp_proxy_rcpt(struct client *client,
 			pool_unref(&auth_pool);
 			return -1;
 		}
-		/* username changed. change the address as well */
+		/* Username changed. change the address as well */
 		if (*detail == '\0') {
 			address = user;
 		} else {
-			address = smtp_address_add_detail_temp(user, detail, delim);
+			address = smtp_address_add_detail_temp(
+				user, detail, delim);
 		}
 	} else if (lmtp_proxy_is_ourself(client, &set)) {
 		e_error(rcpt->event, "Proxying to <%s> loops to itself",
@@ -632,7 +637,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 	struct smtp_reply reply;
 	string_t *msg;
 
-	/* compose log message */
+	/* Compose log message */
 	msg = t_str_new(128);
 	str_printfa(msg, "%s: ", trans->id);
 	if (smtp_reply_is_success(proxy_reply))
@@ -646,14 +651,14 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 		    rcpt_index + 1, array_count(&trans->rcpt_to),
 		    timeval_diff_msecs(&ioloop_timeval, &times->started));
 
-	/* handle reply */
+	/* Handle reply */
 	if (smtp_reply_is_success(proxy_reply)) {
-		/* if backend accepts it, we accept it too */
+		/* If backend accepts it, we accept it too */
 		e_info(rcpt->event, "%s", str_c(msg));
 
-		/* substitute our own success message */
+		/* Substitute our own success message */
 		smtp_reply_printf(&reply, 250, "%s Saved", trans->id);
-		/* do let the enhanced code through */
+		/* Do let the enhanced code through */
 		if (!smtp_reply_has_enhanced_code(proxy_reply))
 			reply.enhanced_code = SMTP_REPLY_ENH_CODE(2, 0, 0);
 		else
@@ -673,7 +678,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 			return;
 	}
 
-	/* forward reply */
+	/* Forward reply */
 	smtp_server_recipient_reply_forward(rcpt, &reply);
 }
 
@@ -707,35 +712,37 @@ void lmtp_proxy_data(struct client *client,
 		size = (uoff_t)-1;
 	}
 
-	/* create the data_input streams first */
+	/* Create the data_input streams first */
 	array_foreach(&proxy->connections, conns) {
 		struct lmtp_proxy_connection *conn = *conns;
 
 		if (conn->finished) {
-			/* this connection had already failed */
+			/* This connection had already failed */
 			continue;
 		}
 
-		if (size == (uoff_t)-1)
-			conn->data_input = i_stream_create_limit(data_input, (uoff_t)-1);
-		else
-			conn->data_input = i_stream_create_sized(data_input, size);
+		if (size == (uoff_t)-1) {
+			conn->data_input =
+				i_stream_create_limit(data_input, (uoff_t)-1);
+		} else {
+			conn->data_input =
+				i_stream_create_sized(data_input, size);
+		}
 	}
-	/* now that all the streams are created, start reading them
+	/* Now that all the streams are created, start reading them
 	   (reading them earlier could have caused the data_input parent's
 	   offset to change) */
 	array_foreach(&proxy->connections, conns) {
 		struct lmtp_proxy_connection *conn = *conns;
 
 		if (conn->finished) {
-			/* this connection had already failed */
+			/* This connection had already failed */
 			continue;
 		}
 
 		smtp_client_transaction_set_timeout(conn->lmtp_trans,
-			proxy->max_timeout_msecs);
-		smtp_client_transaction_send(conn->lmtp_trans,
-			conn->data_input,
-			lmtp_proxy_data_dummy_cb, conn);
+						    proxy->max_timeout_msecs);
+		smtp_client_transaction_send(conn->lmtp_trans, conn->data_input,
+					     lmtp_proxy_data_dummy_cb, conn);
 	}
 }
