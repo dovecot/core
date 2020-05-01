@@ -36,7 +36,7 @@ int client_default_cmd_mail(struct client *client,
 			    struct smtp_server_cmd_mail *data ATTR_UNUSED)
 {
 	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
-		/* connect to anvil before dropping privileges */
+		/* Connect to anvil before dropping privileges */
 		lmtp_anvil_init();
 	}
 	return 1;
@@ -117,11 +117,11 @@ cmd_data_create_added_headers(struct client *client,
 
 	str = t_str_new(512);
 
-	/* headers for local deliveries only */
+	/* Headers for local deliveries only */
 	if (client->local != NULL)
 		lmtp_local_add_headers(client->local, trans, str);
 
-	/* headers for local and proxied messages */
+	/* Headers for local and proxied messages */
 	proxy_offset = str_len(str);
 	if (client->lmtp_set->lmtp_add_received_header) {
 		const struct lmtp_settings *lmtp_set = client->lmtp_set;
@@ -211,14 +211,14 @@ int cmd_data_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	if (ret == 0)
 		return 0;
 	if (ret < 0 && data_input->stream_errno != 0) {
-		/* client probably disconnected */
+		/* Client probably disconnected */
 		return -1;
 	}
 
 	/* Current data stream position is the data size */
 	client->state.data_size = data_input->v_offset;
 
-	/* the ending "." line was seen. finish delivery. */
+	/* The ending "." line was seen. finish delivery. */
 	return cmd_data_finish(client, cmd, trans);
 }
 
@@ -251,10 +251,10 @@ int client_default_cmd_data(struct client *client,
 	struct istream *input_local, *input_proxy;
 	struct istream *inputs[3];
 
-	/* formulate prepended headers for both local and proxy delivery */
+	/* Formulate prepended headers for both local and proxy delivery */
 	cmd_data_create_added_headers(client, cmd, trans);
 
-	/* construct message streams for local and proxy delivery */
+	/* Construct message streams for local and proxy delivery */
 	input_local = input_proxy = NULL;
 	if (client->local != NULL) {
 		inputs[0] = i_stream_create_from_data(
