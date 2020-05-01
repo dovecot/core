@@ -194,6 +194,10 @@ struct smtp_client_connection {
 	struct ssl_iostream *ssl_iostream;
 
 	enum smtp_client_connection_state state;
+	pool_t state_pool;
+	struct {
+		struct smtp_reply *login_reply;
+	} state_data;
 
 	smtp_client_command_callback_t *login_callback;
 	void *login_context;

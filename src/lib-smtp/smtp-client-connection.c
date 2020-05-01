@@ -131,6 +131,11 @@ smtp_client_connection_login_callback(struct smtp_client_connection *conn,
 	smtp_client_command_callback_t *callback = conn->login_callback;
 	void *context = conn->login_context;
 
+	if (conn->state_data.login_reply == NULL) {
+		conn->state_data.login_reply =
+			smtp_reply_clone(conn->state_pool, reply);
+	}
+
 	conn->login_callback = NULL;
 	conn->login_context = NULL;
 
@@ -1491,6 +1496,10 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 	if (conn->closed || conn->failing)
 		return;
 
+	/* Clear state data */
+	i_zero(&conn->state_data);
+	p_clear(conn->state_pool);
+
 	if (connection_client_connect(&conn->conn) < 0) {
 		smtp_client_connection_connected(&conn->conn, FALSE);
 		return;
@@ -1860,6 +1869,8 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->caps.standard = conn->set.forced_capabilities;
 	conn->cap_pool = pool_alloconly_create(
 		"smtp client connection capabilities", 128);
+	conn->state_pool = pool_alloconly_create(
+		"smtp client connection state", 256);
 
 	if (set != NULL && set->event_parent != NULL)
 		conn_event = event_create(set->event_parent);
@@ -1988,6 +1999,7 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 
 	i_free(conn->ips);
 	pool_unref(&conn->cap_pool);
+	pool_unref(&conn->state_pool);
 	pool_unref(&conn->pool);
 }
 
