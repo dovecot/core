@@ -475,6 +475,8 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 	struct smtp_reply reply;
 	struct smtp_client_transaction_rcpt *relay_rcpt;
 	struct smtp_params_rcpt *rcpt_params = &rcpt->params;
+	bool add_orcpt_param = FALSE;
+	pool_t param_pool;
 
 	if (!lmtp_proxy_handle_reply(lprcpt, proxy_reply, &reply))
 		return;
@@ -487,11 +489,21 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 	   therefore the RCPT address changed) and there is no ORCPT parameter
 	   yet. */
 	if (!smtp_params_rcpt_has_orcpt(rcpt_params) &&
-	    !smtp_address_equals(lprcpt->address, rcpt->path)) {
-		pool_t pool = pool_datastack_create();
-		rcpt_params = p_new(pool, struct smtp_params_rcpt, 1);
-		smtp_params_rcpt_copy(pool, rcpt_params, &rcpt->params);
-		smtp_params_rcpt_set_orcpt(rcpt_params, pool, rcpt->path);
+	    !smtp_address_equals(lprcpt->address, rcpt->path))
+		add_orcpt_param = TRUE;
+
+	/* Copy params when changes are pending */
+	param_pool = NULL;
+	if (add_orcpt_param) {
+		param_pool = pool_datastack_create();
+		rcpt_params = p_new(param_pool, struct smtp_params_rcpt, 1);
+		smtp_params_rcpt_copy(param_pool, rcpt_params, &rcpt->params);
+	}
+
+	/* Add ORCPT */
+	if (add_orcpt_param) {
+		smtp_params_rcpt_set_orcpt(rcpt_params, param_pool,
+					   rcpt->path);
 	}
 
 	smtp_server_recipient_add_hook(
