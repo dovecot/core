@@ -465,6 +465,46 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 	smtp_server_recipient_reply_forward(rcpt, &reply);
 }
 
+static void
+lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
+{
+	struct lmtp_proxy_recipient *lprcpt = context;
+	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
+	struct lmtp_proxy_connection *conn = lprcpt->conn;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
+	struct smtp_reply reply;
+	struct smtp_client_transaction_rcpt *relay_rcpt;
+	struct smtp_params_rcpt *rcpt_params = &rcpt->params;
+
+	if (!lmtp_proxy_handle_reply(lprcpt, proxy_reply, &reply))
+		return;
+	if (!smtp_reply_is_success(proxy_reply)) {
+		smtp_server_recipient_reply_forward(rcpt, &reply);
+		return;
+	}
+
+	/* Add an ORCPT parameter when passdb changed the username (and
+	   therefore the RCPT address changed) and there is no ORCPT parameter
+	   yet. */
+	if (!smtp_params_rcpt_has_orcpt(rcpt_params) &&
+	    !smtp_address_equals(lprcpt->address, rcpt->path)) {
+		pool_t pool = pool_datastack_create();
+		rcpt_params = p_new(pool, struct smtp_params_rcpt, 1);
+		smtp_params_rcpt_copy(pool, rcpt_params, &rcpt->params);
+		smtp_params_rcpt_set_orcpt(rcpt_params, pool, rcpt->path);
+	}
+
+	smtp_server_recipient_add_hook(
+		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
+		lmtp_proxy_rcpt_approved, lprcpt);
+
+	relay_rcpt = smtp_client_transaction_add_pool_rcpt(
+		conn->lmtp_trans, rcpt->pool, lprcpt->address, rcpt_params,
+		lmtp_proxy_rcpt_cb, lprcpt);
+	smtp_client_transaction_rcpt_set_data_callback(
+		relay_rcpt, lmtp_proxy_data_cb, lprcpt);
+}
+
 int lmtp_proxy_rcpt(struct client *client,
 		    struct smtp_server_cmd_ctx *cmd,
 		    struct lmtp_recipient *lrcpt,
@@ -483,8 +523,6 @@ int lmtp_proxy_rcpt(struct client *client,
 	const char *const *fields, *errstr, *orig_username = username;
 	struct smtp_proxy_data proxy_data;
 	struct smtp_address *user;
-	struct smtp_client_transaction_rcpt *relay_rcpt;
-	struct smtp_params_rcpt *rcpt_params = &rcpt->params;
 	pool_t auth_pool;
 	int ret;
 
@@ -585,17 +623,6 @@ int lmtp_proxy_rcpt(struct client *client,
 	if (client->proxy == NULL)
 		client->proxy = lmtp_proxy_init(client, trans);
 
-	/* Add an ORCPT parameter when passdb changed the username (and
-	   therefore the RCPT address changed) and there is no ORCPT parameter
-	   yet. */
-	if (!smtp_params_rcpt_has_orcpt(rcpt_params) &&
-	    !smtp_address_equals(address, rcpt->path)) {
-		pool_t pool = pool_datastack_create();
-		rcpt_params = p_new(pool, struct smtp_params_rcpt, 1);
-		smtp_params_rcpt_copy(pool, rcpt_params, &rcpt->params);
-		smtp_params_rcpt_set_orcpt(rcpt_params, pool, rcpt->path);
-	}
-
 	conn = lmtp_proxy_get_connection(client->proxy, &set);
 	pool_unref(&auth_pool);
 
@@ -607,15 +634,8 @@ int lmtp_proxy_rcpt(struct client *client,
 	lrcpt->type = LMTP_RECIPIENT_TYPE_PROXY;
 	lrcpt->backend_context = lprcpt;
 
-	smtp_server_recipient_add_hook(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
-		lmtp_proxy_rcpt_approved, lprcpt);
-
-	relay_rcpt = smtp_client_transaction_add_pool_rcpt(
-		conn->lmtp_trans, rcpt->pool, address, rcpt_params,
-		lmtp_proxy_rcpt_cb, lprcpt);
-	smtp_client_transaction_rcpt_set_data_callback(
-		relay_rcpt, lmtp_proxy_data_cb, lprcpt);
+	smtp_client_connection_connect(conn->lmtp_conn,
+				       lmtp_proxy_rcpt_login_cb, lprcpt);
 	return 1;
 }
 
