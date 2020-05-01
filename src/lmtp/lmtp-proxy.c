@@ -59,6 +59,7 @@ struct lmtp_proxy_connection {
 	struct lmtp_proxy_rcpt_settings set;
 	char *host;
 
+	struct smtp_client_connection *lmtp_conn;
 	struct smtp_client_transaction *lmtp_trans;
 	struct istream *data_input;
 	struct timeout *to;
@@ -133,6 +134,8 @@ lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
 {
 	if (conn->lmtp_trans != NULL)
 		smtp_client_transaction_destroy(&conn->lmtp_trans);
+	if (conn->lmtp_conn != NULL)
+		smtp_client_connection_close(&conn->lmtp_conn);
 	timeout_remove(&conn->to);
 	i_stream_unref(&conn->data_input);
 	i_free(conn->host);
@@ -202,7 +205,6 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  const struct lmtp_proxy_rcpt_settings *set)
 {
 	struct smtp_client_settings lmtp_set;
-	struct smtp_client_connection *lmtp_conn;
 	struct smtp_server_transaction *trans = proxy->trans;
 	struct lmtp_proxy_connection *const *conns, *conn;
 	enum smtp_client_connection_ssl_mode ssl_mode;
@@ -244,22 +246,21 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	lmtp_set.mail_send_broken_path = TRUE;
 
 	if (conn->set.hostip.family != 0) {
-		lmtp_conn = smtp_client_connection_create_ip(
+		conn->lmtp_conn = smtp_client_connection_create_ip(
 			proxy->lmtp_client, set->protocol,
 			&conn->set.hostip, conn->set.port,
 			conn->set.host, ssl_mode, &lmtp_set);
 	} else {
-		lmtp_conn = smtp_client_connection_create(
+		conn->lmtp_conn = smtp_client_connection_create(
 			proxy->lmtp_client, set->protocol,
 			conn->set.host, conn->set.port,
 			ssl_mode, &lmtp_set);
 	}
-	smtp_client_connection_connect(lmtp_conn, NULL, NULL);
+	smtp_client_connection_connect(conn->lmtp_conn, NULL, NULL);
 
 	conn->lmtp_trans = smtp_client_transaction_create(
-		lmtp_conn, trans->mail_from, &trans->params, 0,
+		conn->lmtp_conn, trans->mail_from, &trans->params, 0,
 		lmtp_proxy_connection_finish, conn);
-	smtp_client_connection_unref(&lmtp_conn);
 
 	smtp_client_transaction_start(conn->lmtp_trans,
 				      lmtp_proxy_mail_cb, conn);
