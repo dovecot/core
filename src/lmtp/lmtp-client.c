@@ -395,7 +395,7 @@ static bool client_connection_is_trusted(void *context)
 			break;
 		}
 
-		if (net_is_in_network(&client->remote_ip, &net_ip, bits))
+		if (net_is_in_network(&client->real_remote_ip, &net_ip, bits))
 			return TRUE;
 	}
 	return FALSE;
