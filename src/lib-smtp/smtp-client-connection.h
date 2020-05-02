@@ -37,22 +37,25 @@ extern const char *const smtp_client_connection_state_names[];
 
 struct smtp_client_connection *
 smtp_client_connection_create(struct smtp_client *client,
-	enum smtp_protocol protocol, const char *host, in_port_t port,
-	enum smtp_client_connection_ssl_mode ssl_mode,
-	const struct smtp_client_settings *set)
-	ATTR_NULL(6);
+			      enum smtp_protocol protocol,
+			      const char *host, in_port_t port,
+			      enum smtp_client_connection_ssl_mode ssl_mode,
+			      const struct smtp_client_settings *set)
+			      ATTR_NULL(6);
 struct smtp_client_connection *
 smtp_client_connection_create_ip(struct smtp_client *client,
-	enum smtp_protocol protocol, const struct ip_addr *ip, in_port_t port,
-	const char *hostname, enum smtp_client_connection_ssl_mode ssl_mode,
-	const struct smtp_client_settings *set)
-	ATTR_NULL(5,7);
+				 enum smtp_protocol protocol,
+				 const struct ip_addr *ip, in_port_t port,
+				 const char *hostname,
+				 enum smtp_client_connection_ssl_mode ssl_mode,
+				 const struct smtp_client_settings *set)
+				 ATTR_NULL(5, 7);
 struct smtp_client_connection *
 smtp_client_connection_create_unix(struct smtp_client *client,
 				   enum smtp_protocol protocol,
 				   const char *path,
 				   const struct smtp_client_settings *set)
-	ATTR_NULL(4);
+				   ATTR_NULL(4);
 
 void smtp_client_connection_ref(struct smtp_client_connection *conn);
 void smtp_client_connection_unref(struct smtp_client_connection **_conn);
@@ -65,7 +68,8 @@ void smtp_client_connection_update_proxy_data(
 void smtp_client_connection_cork(struct smtp_client_connection *conn);
 void smtp_client_connection_uncork(struct smtp_client_connection *conn);
 
-void smtp_client_connection_connect(struct smtp_client_connection *conn,
+void smtp_client_connection_connect(
+	struct smtp_client_connection *conn,
 	smtp_client_command_callback_t login_callback, void *login_context);
 void smtp_client_connection_disconnect(struct smtp_client_connection *conn);
 
