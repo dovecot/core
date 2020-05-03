@@ -74,6 +74,7 @@ struct login_proxy {
 	bool detached:1;
 	bool destroying:1;
 	bool delayed_disconnect:1;
+	bool disable_reconnect:1;
 	bool num_waiting_connections_updated:1;
 };
 
@@ -189,8 +190,7 @@ void login_proxy_append_success_log_info(struct login_proxy *proxy,
 }
 
 static void
-proxy_connect_error_append(struct login_proxy *proxy, bool reconnect,
-			   string_t *str)
+proxy_connect_error_append(struct login_proxy *proxy, string_t *str)
 {
 	struct ip_addr local_ip;
 	in_port_t local_port;
@@ -217,10 +217,6 @@ proxy_connect_error_append(struct login_proxy *proxy, bool reconnect,
 	}
 
 	str_append_c(str, ')');
-	if (reconnect) {
-		str_printfa(str, " - reconnecting (attempt #%d)",
-			    proxy->reconnect_count);
-	}
 }
 
 static void proxy_reconnect_timeout(struct login_proxy *proxy)
@@ -234,6 +230,8 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 	int since_started_msecs, left_msecs;
 
 	if (proxy->reconnect_count >= proxy->client->set->login_proxy_max_reconnects)
+		return FALSE;
+	if (proxy->disable_reconnect)
 		return FALSE;
 
 	since_started_msecs =
@@ -254,20 +252,13 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 static bool proxy_connect_failed(struct login_proxy *proxy)
 {
 	string_t *str = t_str_new(128);
-	bool reconnect;
 
 	if (!proxy->connected)
 		proxy_fail_connect(proxy);
-	reconnect = proxy_try_reconnect(proxy);
-	proxy_connect_error_append(proxy, reconnect, str);
-	if (reconnect)
-		e_debug(proxy->event, "%s", str_c(str));
-	else {
-		login_proxy_failed(proxy, proxy->event,
-				   LOGIN_PROXY_FAILURE_TYPE_CONNECT,
-				   str_c(str));
-	}
-	return reconnect;
+	proxy_connect_error_append(proxy, str);
+	return login_proxy_failed(proxy, proxy->event,
+				  LOGIN_PROXY_FAILURE_TYPE_CONNECT,
+				  str_c(str));
 }
 
 static void proxy_wait_connect(struct login_proxy *proxy)
@@ -327,6 +318,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
+		proxy->disable_reconnect = TRUE;
 		login_proxy_failed(proxy, proxy->event,
 				   LOGIN_PROXY_FAILURE_TYPE_CONNECT,
 				   "Host is down");
@@ -395,6 +387,7 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	if (!proxy->num_waiting_connections_updated) {
 		i_assert(proxy->state_rec->num_waiting_connections > 0);
 		proxy->state_rec->num_waiting_connections--;
+		proxy->num_waiting_connections_updated = TRUE;
 	}
 	if (proxy->connected) {
 		i_assert(proxy->state_rec->num_proxying_connections > 0);
@@ -411,6 +404,7 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 		net_disconnect(proxy->server_fd);
 		proxy->server_fd = -1;
 	}
+	proxy->connected = FALSE;
 }
 
 static void login_proxy_free_final(struct login_proxy *proxy)
@@ -550,21 +544,28 @@ void login_proxy_free(struct login_proxy **_proxy)
 	login_proxy_free_full(_proxy, NULL, 0);
 }
 
-void login_proxy_failed(struct login_proxy *proxy, struct event *event,
+bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 			enum login_proxy_failure_type type, const char *reason)
 {
 	const char *log_prefix;
+	bool try_reconnect = TRUE;
 
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
 		log_prefix = "Aborting due to internal error: ";
+		try_reconnect = FALSE;
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
+		log_prefix = "";
+		try_reconnect = FALSE;
+		break;
 	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
 		log_prefix = "";
 		break;
-	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
+		try_reconnect = FALSE;
+		/* fall through */
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
 		log_prefix = "Aborting due to remote server: ";
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
@@ -572,9 +573,17 @@ void login_proxy_failed(struct login_proxy *proxy, struct event *event,
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		log_prefix = "";
+		try_reconnect = FALSE;
 		break;
 	default:
 		i_unreached();
+	}
+
+	if (try_reconnect && proxy_try_reconnect(proxy)) {
+		e_debug(event, "%s%s - reconnecting (attempt #%d)",
+			log_prefix, reason, proxy->reconnect_count);
+		proxy->failure_callback(proxy->client, type, reason, TRUE);
+		return TRUE;
 	}
 
 	if (type != LOGIN_PROXY_FAILURE_TYPE_AUTH)
@@ -582,6 +591,7 @@ void login_proxy_failed(struct login_proxy *proxy, struct event *event,
 	else if (proxy->client->set->auth_verbose)
 		client_proxy_log_failure(proxy->client, reason);
 	proxy->failure_callback(proxy->client, type, reason, FALSE);
+	return FALSE;
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,

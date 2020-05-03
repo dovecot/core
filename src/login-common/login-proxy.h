@@ -71,8 +71,9 @@ int login_proxy_new(struct client *client, struct event *event,
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy **proxy);
 
-/* Login proxying session has failed. */
-void login_proxy_failed(struct login_proxy *proxy, struct event *event,
+/* Login proxying session has failed. Returns TRUE if the reconnection is
+   attempted. */
+bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 			enum login_proxy_failure_type type, const char *reason);
 
 /* Return TRUE if host/port/destuser combination points to same as current

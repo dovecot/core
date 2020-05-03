@@ -314,8 +314,6 @@ static void client_proxy_failed(struct client *client, bool send_line)
 	if (send_line)
 		client_proxy_error(client, PROXY_FAILURE_MSG);
 
-	if (client->proxy_sasl_client != NULL)
-		dsasl_client_free(&client->proxy_sasl_client);
 	login_proxy_free(&client->login_proxy);
 	proxy_free_password(client);
 	i_free_and_null(client->proxy_user);
@@ -369,8 +367,15 @@ static void proxy_input(struct client *client)
 static void proxy_failed(struct client *client,
 			 enum login_proxy_failure_type type,
 			 const char *reason ATTR_UNUSED,
-			 bool reconnecting ATTR_UNUSED)
+			 bool reconnecting)
 {
+	if (client->proxy_sasl_client != NULL)
+		dsasl_client_free(&client->proxy_sasl_client);
+	if (reconnecting) {
+		client->v.proxy_reset(client);
+		return;
+	}
+
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
 	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
