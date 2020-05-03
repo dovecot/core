@@ -309,11 +309,8 @@ void client_proxy_log_failure(struct client *client, const char *line)
 	e_info(login_proxy_get_event(client->login_proxy), "%s", str_c(str));
 }
 
-static void client_proxy_failed(struct client *client, bool send_line)
+static void client_proxy_failed(struct client *client)
 {
-	if (send_line)
-		client_proxy_error(client, PROXY_FAILURE_MSG);
-
 	login_proxy_free(&client->login_proxy);
 	proxy_free_password(client);
 	i_free_and_null(client->proxy_user);
@@ -383,13 +380,13 @@ static void proxy_failed(struct client *client,
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
-		client_proxy_failed(client, TRUE);
+		client_proxy_error(client, PROXY_FAILURE_MSG);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		client->proxy_auth_failed = TRUE;
-		client_proxy_failed(client, FALSE);
 		break;
 	}
+	client_proxy_failed(client);
 }
 
 static bool
