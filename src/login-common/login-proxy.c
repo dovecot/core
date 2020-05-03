@@ -160,6 +160,8 @@ static void proxy_plain_connected(struct login_proxy *proxy)
 
 static void proxy_fail_connect(struct login_proxy *proxy)
 {
+	i_assert(!proxy->num_waiting_connections_updated);
+
 	if (timeval_cmp(&proxy->created, &proxy->state_rec->last_success) < 0) {
 		/* there was a successful connection done since we started
 		   connecting. perhaps this is just a temporary one-off
