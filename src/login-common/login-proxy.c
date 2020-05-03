@@ -739,9 +739,10 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 	io_remove(&proxy->server_io);
 	if (ssl_iostream_client_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
-		e_error(proxy->event, "Failed to create SSL client context: %s",
-			error);
-		client_proxy_failed(proxy->client, TRUE);
+		const char *reason = t_strdup_printf(
+			"Failed to create SSL client context: %s", error);
+		login_proxy_failed(proxy, proxy->event,
+				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
 
@@ -750,17 +751,21 @@ int login_proxy_starttls(struct login_proxy *proxy)
 					&proxy->server_output,
 					&proxy->server_ssl_iostream,
 					&error) < 0) {
-		e_error(proxy->event, "Failed to create SSL client: %s", error);
-		client_proxy_failed(proxy->client, TRUE);
+		const char *reason = t_strdup_printf(
+			"Failed to create SSL client: %s", error);
+		login_proxy_failed(proxy, proxy->event,
+				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		ssl_iostream_context_unref(&ssl_ctx);
 		return -1;
 	}
 	ssl_iostream_context_unref(&ssl_ctx);
 	if (ssl_iostream_handshake(proxy->server_ssl_iostream) < 0) {
 		error = ssl_iostream_get_last_error(proxy->server_ssl_iostream);
-		e_error(proxy->event, "Failed to start SSL handshake: %s",
+		const char *reason = t_strdup_printf(
+			"Failed to start SSL handshake: %s",
 			ssl_iostream_get_last_error(proxy->server_ssl_iostream));
-		client_proxy_failed(proxy->client, TRUE);
+		login_proxy_failed(proxy, proxy->event,
+				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
 

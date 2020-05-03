@@ -344,7 +344,9 @@ static void proxy_input(struct client *client)
 		}
 
 		/* failed for some reason, probably server disconnected */
-		client_proxy_failed(client, TRUE);
+		login_proxy_failed(client->login_proxy,
+				   login_proxy_get_event(client->login_proxy),
+				   LOGIN_PROXY_FAILURE_TYPE_CONNECT, NULL);
 		return;
 	}
 
@@ -352,22 +354,24 @@ static void proxy_input(struct client *client)
 
 	switch (i_stream_read(input)) {
 	case -2:
-		e_error(login_proxy_get_event(client->login_proxy),
-			"Disconnected by proxy: "
-			"Received too long line from remote server");
-		client_proxy_failed(client, TRUE);
+		login_proxy_failed(client->login_proxy,
+				   login_proxy_get_event(client->login_proxy),
+				   LOGIN_PROXY_FAILURE_TYPE_PROTOCOL,
+				   "Too long input line");
 		return;
 	case -1:
 		line = i_stream_next_line(input);
 		duration = ioloop_time - client->created;
-		e_error(login_proxy_get_event(client->login_proxy),
+		const char *reason = t_strdup_printf(
 			"Disconnected by server: %s "
 			"(state=%s, duration=%us)%s",
 			io_stream_get_disconnect_reason(input, NULL),
 			client_proxy_get_state(client), duration,
 			line == NULL ? "" : t_strdup_printf(
 				" - BUG: line not read: %s", line));
-		client_proxy_failed(client, TRUE);
+		login_proxy_failed(client->login_proxy,
+				   login_proxy_get_event(client->login_proxy),
+				   LOGIN_PROXY_FAILURE_TYPE_CONNECT, reason);
 		return;
 	}
 

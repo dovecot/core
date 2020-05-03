@@ -80,9 +80,10 @@ static int proxy_write_starttls(struct imap_client *client, string_t *str)
 	if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) != 0) {
 		if (client->proxy_backend_capability != NULL &&
 		    !str_array_icase_find(t_strsplit(client->proxy_backend_capability, " "), "STARTTLS")) {
-			e_error(login_proxy_get_event(client->common.login_proxy),
-				"Remote doesn't support STARTTLS");
-			client_proxy_failed(&client->common, TRUE);
+			login_proxy_failed(client->common.login_proxy,
+				login_proxy_get_event(client->common.login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG,
+				"STARTTLS not supported");
 			return -1;
 		}
 		str_append(str, "S STARTTLS\r\n");
@@ -121,9 +122,10 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		/* logging in normally - use LOGIN command */
 		if (client->proxy_logindisabled &&
 		    login_proxy_get_ssl_flags(client->common.login_proxy) == 0) {
-			e_error(login_proxy_get_event(client->common.login_proxy),
-				"Remote advertised LOGINDISABLED and SSL/TLS not enabled");
-			client_proxy_failed(&client->common, TRUE);
+			login_proxy_failed(client->common.login_proxy,
+				login_proxy_get_event(client->common.login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG,
+				"LOGINDISABLED advertised, but SSL/TLS not enabled");
 			return -1;
 		}
 		str_append(str, "L LOGIN ");
@@ -152,10 +154,12 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	if (client->proxy_sasl_ir) {
 		if (dsasl_client_output(client->common.proxy_sasl_client,
 					&output, &len, &error) < 0) {
-			e_error(login_proxy_get_event(client->common.login_proxy),
+			const char *reason = t_strdup_printf(
 				"SASL mechanism %s init failed: %s",
 				mech_name, error);
-			client_proxy_failed(&client->common, TRUE);
+			login_proxy_failed(client->common.login_proxy,
+				login_proxy_get_event(client->common.login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 			return -1;
 		}
 		str_append_c(str, ' ');
@@ -178,10 +182,11 @@ static int proxy_input_banner(struct imap_client *client,
 	int ret;
 
 	if (!str_begins(line, "* OK ")) {
-		e_error(login_proxy_get_event(client->common.login_proxy),
-			"Remote returned invalid banner: %s",
+		const char *reason = t_strdup_printf("Invalid banner: %s",
 			str_sanitize(line, 160));
-		client_proxy_failed(&client->common, TRUE);
+		login_proxy_failed(client->common.login_proxy,
+			login_proxy_get_event(client->common.login_proxy),
+			LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 		return -1;
 	}
 
@@ -285,9 +290,11 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		str = t_str_new(128);
 		if (line[1] != ' ' ||
 		    base64_decode(line+2, strlen(line+2), NULL, str) < 0) {
-			e_error(login_proxy_get_event(client->login_proxy),
-				"Server sent invalid base64 data in AUTHENTICATE response");
-			client_proxy_failed(client, TRUE);
+			const char *reason = t_strdup_printf(
+				"Invalid base64 data in AUTHENTICATE response");
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 			return -1;
 		}
 		ret = dsasl_client_input(client->proxy_sasl_client,
@@ -297,10 +304,11 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 						  &data, &data_len, &error);
 		}
 		if (ret < 0) {
-			e_error(login_proxy_get_event(client->login_proxy),
-				"Server sent invalid authentication data: %s",
-				error);
-			client_proxy_failed(client, TRUE);
+			const char *reason = t_strdup_printf(
+				"Invalid authentication data: %s", error);
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 			return -1;
 		}
 		i_assert(ret == 0);
@@ -318,10 +326,12 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 
 		if (!str_begins(line, "S OK ")) {
 			/* STARTTLS failed */
-			e_error(login_proxy_get_event(client->login_proxy),
-				"Remote STARTTLS failed: %s",
+			const char *reason = t_strdup_printf(
+				"STARTTLS failed: %s",
 				str_sanitize(line + 5, 160));
-			client_proxy_failed(client, TRUE);
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_REMOTE, reason);
 			return -1;
 		}
 		/* STARTTLS successful, begin TLS negotiation. */
