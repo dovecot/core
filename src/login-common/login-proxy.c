@@ -319,7 +319,6 @@ int login_proxy_new(struct client *client, struct event *event,
 
 	if (client->proxy_ttl <= 1) {
 		e_error(event, "TTL reached zero - proxies appear to be looping?");
-		event_unref(&event);
 		return -1;
 	}
 
