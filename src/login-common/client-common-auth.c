@@ -382,6 +382,26 @@ static void proxy_input(struct client *client)
 	o_stream_unref(&output);
 }
 
+static void proxy_failed(struct client *client,
+			 enum login_proxy_failure_type type,
+			 const char *reason ATTR_UNUSED,
+			 bool reconnecting ATTR_UNUSED)
+{
+	switch (type) {
+	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+		client_proxy_failed(client, TRUE);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+		client_proxy_failed(client, FALSE);
+		break;
+	}
+}
+
 static bool
 proxy_check_start(struct client *client, struct event *event,
 		  const struct client_auth_reply *reply,
@@ -478,7 +498,8 @@ static int proxy_start(struct client *client,
 		"proxy(%s,%s:%u): ", client->virtual_user,
 		net_ip2addr(&proxy_set.ip), proxy_set.port));
 
-	if (login_proxy_new(client, event, &proxy_set, proxy_input) < 0) {
+	if (login_proxy_new(client, event, &proxy_set, proxy_input,
+			    proxy_failed) < 0) {
 		event_unref(&event);
 		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;

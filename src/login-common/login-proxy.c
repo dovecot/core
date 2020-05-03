@@ -65,6 +65,7 @@ struct login_proxy {
 	enum login_proxy_ssl_flags ssl_flags;
 
 	login_proxy_input_callback_t *input_callback;
+	login_proxy_failure_callback_t *failure_callback;
 
 	bool connected:1;
 	bool detached:1;
@@ -340,7 +341,8 @@ static int login_proxy_connect(struct login_proxy *proxy)
 
 int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
-		    login_proxy_input_callback_t *input_callback)
+		    login_proxy_input_callback_t *input_callback,
+		    login_proxy_failure_callback_t *failure_callback)
 {
 	struct login_proxy *proxy;
 
@@ -377,6 +379,7 @@ int login_proxy_new(struct client *client, struct event *event,
 	DLLIST_PREPEND(&login_proxies_pending, proxy);
 
 	proxy->input_callback = input_callback;
+	proxy->failure_callback = failure_callback;
 	client->login_proxy = proxy;
 	return 0;
 }
@@ -547,6 +550,38 @@ void login_proxy_free(struct login_proxy **_proxy)
 	login_proxy_free_full(_proxy, NULL, 0);
 }
 
+void login_proxy_failed(struct login_proxy *proxy, struct event *event,
+			enum login_proxy_failure_type type, const char *reason)
+{
+	const char *log_prefix;
+
+	switch (type) {
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
+		log_prefix = "Aborting due to internal error: ";
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
+		log_prefix = "";
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
+		log_prefix = "Aborting due to remote server: ";
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+		log_prefix = "Remote server sent invalid input: ";
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+		log_prefix = "";
+		break;
+	default:
+		i_unreached();
+	}
+
+	if (reason != NULL)
+		e_error(event, "%s%s", log_prefix, reason);
+	proxy->failure_callback(proxy->client, type, reason, FALSE);
+}
+
 bool login_proxy_is_ourself(const struct client *client, const char *host,
 			    in_port_t port, const char *destuser)
 {
@@ -668,6 +703,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 	}
 
 	proxy->input_callback = NULL;
+	proxy->failure_callback = NULL;
 
 	if (login_proxy_ipc_server == NULL) {
 		login_proxy_ipc_server =

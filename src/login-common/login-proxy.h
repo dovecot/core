@@ -22,6 +22,25 @@ enum login_proxy_ssl_flags {
 	PROXY_SSL_FLAG_ANY_CERT	= 0x04
 };
 
+enum login_proxy_failure_type {
+	/* connect() failed or remote disconnected us. */
+	LOGIN_PROXY_FAILURE_TYPE_CONNECT,
+	/* Internal error. */
+	LOGIN_PROXY_FAILURE_TYPE_INTERNAL,
+	/* Internal configuration error. */
+	LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG,
+	/* Remote command failed unexpectedly. */
+	LOGIN_PROXY_FAILURE_TYPE_REMOTE,
+	/* Remote isn't configured as expected (e.g. STARTTLS required, but
+	   no such capability). */
+	LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG,
+	/* Remote server is unexpectedly violating the protocol standard. */
+	LOGIN_PROXY_FAILURE_TYPE_PROTOCOL,
+	/* Authentication failed to backend. The LOGIN/AUTH command reply was
+	   already sent to the client. */
+	LOGIN_PROXY_FAILURE_TYPE_AUTH,
+};
+
 struct login_proxy_settings {
 	const char *host;
 	struct ip_addr ip, source_ip;
@@ -35,14 +54,26 @@ struct login_proxy_settings {
 
 /* Called when new input comes from proxy. */
 typedef void login_proxy_input_callback_t(struct client *client);
+/* Called when proxying fails. If reconnecting=TRUE, this is just an
+   intermediate notification that the proxying will attempt to reconnect soon
+   before failing. */
+typedef void login_proxy_failure_callback_t(struct client *client,
+					    enum login_proxy_failure_type type,
+					    const char *reason,
+					    bool reconnecting);
 
 /* Create a proxy to given host. Returns NULL if failed. Given callback is
    called when new input is available from proxy. */
 int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
-		    login_proxy_input_callback_t *input_callback);
+		    login_proxy_input_callback_t *input_callback,
+		    login_proxy_failure_callback_t *failure_callback);
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy **proxy);
+
+/* Login proxying session has failed. */
+void login_proxy_failed(struct login_proxy *proxy, struct event *event,
+			enum login_proxy_failure_type type, const char *reason);
 
 /* Return TRUE if host/port/destuser combination points to same as current
    connection. */
