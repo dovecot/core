@@ -506,7 +506,6 @@ static int proxy_start(struct client *client,
 	if (login_proxy_new(client, event, &proxy_set, proxy_input,
 			    proxy_failed) < 0) {
 		event_unref(&event);
-		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 	event_unref(&event);

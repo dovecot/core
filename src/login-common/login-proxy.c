@@ -260,8 +260,9 @@ static bool proxy_connect_failed(struct login_proxy *proxy)
 	if (reconnect)
 		e_debug(proxy->event, "%s", str_c(str));
 	else {
-		e_error(proxy->event, "%s", str_c(str));
-		login_proxy_free(&proxy);
+		login_proxy_failed(proxy, proxy->event,
+				   LOGIN_PROXY_FAILURE_TYPE_CONNECT,
+				   str_c(str));
 	}
 	return reconnect;
 }
@@ -307,6 +308,13 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	proxy->num_waiting_connections_updated = FALSE;
 	rec->num_waiting_connections++;
 
+	if (proxy->client->proxy_ttl <= 1) {
+		login_proxy_failed(proxy, proxy->event,
+			LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG,
+			"TTL reached zero - proxies appear to be looping?");
+		return -1;
+	}
+
 	if (rec->last_success.tv_sec == 0) {
 		/* first connect to this IP. don't start immediately failing
 		   the check below. */
@@ -316,8 +324,9 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
-		e_error(proxy->event, "Host is down");
-		login_proxy_free(&proxy);
+		login_proxy_failed(proxy, proxy->event,
+				   LOGIN_PROXY_FAILURE_TYPE_CONNECT,
+				   "Host is down");
 		return -1;
 	}
 
@@ -327,8 +336,9 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	if (proxy->server_fd == -1) {
 		string_t *str = t_str_new(128);
 		proxy_connect_error_append(proxy, FALSE, str);
-		e_error(proxy->event, "%s", str_c(str));
-		login_proxy_free(&proxy);
+		login_proxy_failed(proxy, proxy->event,
+				   LOGIN_PROXY_FAILURE_TYPE_CONNECT,
+				   str_c(str));
 		return -1;
 	}
 	proxy->server_io = io_add(proxy->server_fd, IO_WRITE,
@@ -350,11 +360,6 @@ int login_proxy_new(struct client *client, struct event *event,
 	i_assert(set->host != NULL && set->host[0] != '\0');
 	i_assert(client->login_proxy == NULL);
 
-	if (client->proxy_ttl <= 1) {
-		e_error(event, "TTL reached zero - proxies appear to be looping?");
-		return -1;
-	}
-
 	proxy = i_new(struct login_proxy, 1);
 	proxy->client = client;
 	proxy->event = event;
@@ -374,13 +379,11 @@ int login_proxy_new(struct client *client, struct event *event,
 
 	DLLIST_PREPEND(&login_proxies_pending, proxy);
 
-	if (login_proxy_connect(proxy) < 0)
-	        return -1;
-
 	proxy->input_callback = input_callback;
 	proxy->failure_callback = failure_callback;
 	client->login_proxy = proxy;
-	return 0;
+
+	return login_proxy_connect(proxy);
 }
 
 static void login_proxy_disconnect(struct login_proxy *proxy)
