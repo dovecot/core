@@ -449,12 +449,9 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	smtp_server_reply_submit(subm_client->proxy_reply);
 	subm_client->pending_auth = NULL;
 
-	if (client->set->auth_verbose) {
-		client_proxy_log_failure(client, text);
-	}
 	login_proxy_failed(client->login_proxy,
 			   login_proxy_get_event(client->login_proxy),
-			   LOGIN_PROXY_FAILURE_TYPE_AUTH, NULL);
+			   LOGIN_PROXY_FAILURE_TYPE_AUTH, text);
 	return -1;
 }
 

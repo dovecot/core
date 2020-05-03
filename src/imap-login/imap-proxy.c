@@ -359,13 +359,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
 
 		line += 2;
-		if (client->set->auth_verbose) {
-			const char *log_line = line;
-
-			if (strncasecmp(log_line, "NO ", 3) == 0)
-				log_line += 3;
-			client_proxy_log_failure(client, log_line);
-		}
+		const char *log_line = line;
+		if (strncasecmp(log_line, "NO ", 3) == 0)
+			log_line += 3;
 #define STR_NO_IMAP_RESP_CODE_AUTHFAILED "NO ["IMAP_RESP_CODE_AUTHFAILED"]"
 		if (str_begins(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED)) {
 			/* the remote sent a generic "authentication failed"
@@ -395,7 +391,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 
 		login_proxy_failed(client->login_proxy,
 				   login_proxy_get_event(client->login_proxy),
-				   LOGIN_PROXY_FAILURE_TYPE_AUTH, NULL);
+				   LOGIN_PROXY_FAILURE_TYPE_AUTH, log_line);
 		return -1;
 	} else if (strncasecmp(line, "* CAPABILITY ", 13) == 0) {
 		i_free(imap_client->proxy_backend_capability);

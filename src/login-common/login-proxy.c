@@ -574,8 +574,10 @@ void login_proxy_failed(struct login_proxy *proxy, struct event *event,
 		i_unreached();
 	}
 
-	if (reason != NULL)
+	if (type != LOGIN_PROXY_FAILURE_TYPE_AUTH)
 		e_error(event, "%s%s", log_prefix, reason);
+	else if (proxy->client->set->auth_verbose)
+		client_proxy_log_failure(proxy->client, reason);
 	proxy->failure_callback(proxy->client, type, reason, FALSE);
 }
 

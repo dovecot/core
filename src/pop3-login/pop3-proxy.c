@@ -266,14 +266,11 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 	}
 
-	if (client->set->auth_verbose) {
-		if (str_begins(line, "-ERR "))
-			line += 5;
-		client_proxy_log_failure(client, line);
-	}
+	if (str_begins(line, "-ERR "))
+		line += 5;
 	login_proxy_failed(client->login_proxy,
 			   login_proxy_get_event(client->login_proxy),
-			   LOGIN_PROXY_FAILURE_TYPE_AUTH, NULL);
+			   LOGIN_PROXY_FAILURE_TYPE_AUTH, line);
 	return -1;
 }
 
