@@ -64,7 +64,7 @@ struct login_proxy {
 	unsigned int reconnect_count;
 	enum login_proxy_ssl_flags ssl_flags;
 
-	proxy_callback_t *callback;
+	login_proxy_input_callback_t *input_callback;
 
 	bool connected:1;
 	bool detached:1;
@@ -143,7 +143,7 @@ static void proxy_client_disconnected_input(struct login_proxy *proxy)
 
 static void proxy_prelogin_input(struct login_proxy *proxy)
 {
-	proxy->callback(proxy->client);
+	proxy->input_callback(proxy->client);
 }
 
 static void proxy_plain_connected(struct login_proxy *proxy)
@@ -340,7 +340,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 
 int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
-		    proxy_callback_t *callback)
+		    login_proxy_input_callback_t *input_callback)
 {
 	struct login_proxy *proxy;
 
@@ -376,7 +376,7 @@ int login_proxy_new(struct client *client, struct event *event,
 
 	DLLIST_PREPEND(&login_proxies_pending, proxy);
 
-	proxy->callback = callback;
+	proxy->input_callback = input_callback;
 	client->login_proxy = proxy;
 	return 0;
 }
@@ -524,8 +524,8 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 
 		DLLIST_REMOVE(&login_proxies_pending, proxy);
 
-		if (proxy->callback != NULL)
-			proxy->callback(proxy->client);
+		if (proxy->input_callback != NULL)
+			proxy->input_callback(proxy->client);
 	}
 	client->login_proxy = NULL;
 
@@ -667,7 +667,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 				    login_proxy_notify, proxy);
 	}
 
-	proxy->callback = NULL;
+	proxy->input_callback = NULL;
 
 	if (login_proxy_ipc_server == NULL) {
 		login_proxy_ipc_server =
