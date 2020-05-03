@@ -185,9 +185,9 @@ void login_proxy_append_success_log_info(struct login_proxy *proxy,
 }
 
 static void
-proxy_log_connect_error(struct login_proxy *proxy, bool reconnect)
+proxy_connect_error_append(struct login_proxy *proxy, bool reconnect,
+			   string_t *str)
 {
-	string_t *str = t_str_new(128);
 	struct ip_addr local_ip;
 	in_port_t local_port;
 
@@ -213,12 +213,9 @@ proxy_log_connect_error(struct login_proxy *proxy, bool reconnect)
 	}
 
 	str_append_c(str, ')');
-	if (!reconnect)
-		e_error(proxy->event, "%s", str_c(str));
-	else {
+	if (reconnect) {
 		str_printfa(str, " - reconnecting (attempt #%d)",
 			    proxy->reconnect_count);
-		e_debug(proxy->event, "%s", str_c(str));
 	}
 }
 
@@ -253,13 +250,19 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 
 static bool proxy_connect_failed(struct login_proxy *proxy)
 {
+	string_t *str = t_str_new(128);
 	bool reconnect;
 
-	proxy_fail_connect(proxy);
+	if (!proxy->connected)
+		proxy_fail_connect(proxy);
 	reconnect = proxy_try_reconnect(proxy);
-	proxy_log_connect_error(proxy, reconnect);
-	if (!reconnect)
+	proxy_connect_error_append(proxy, reconnect, str);
+	if (reconnect)
+		e_debug(proxy->event, "%s", str_c(str));
+	else {
+		e_error(proxy->event, "%s", str_c(str));
 		login_proxy_free(&proxy);
+	}
 	return reconnect;
 }
 
@@ -321,7 +324,9 @@ static int login_proxy_connect(struct login_proxy *proxy)
 					  proxy->source_ip.family == 0 ? NULL :
 					  &proxy->source_ip);
 	if (proxy->server_fd == -1) {
-		proxy_log_connect_error(proxy, FALSE);
+		string_t *str = t_str_new(128);
+		proxy_connect_error_append(proxy, FALSE, str);
+		e_error(proxy->event, "%s", str_c(str));
 		return -1;
 	}
 	proxy->server_io = io_add(proxy->server_fd, IO_WRITE,
