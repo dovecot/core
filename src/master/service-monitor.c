@@ -389,7 +389,7 @@ static void service_monitor_listen_start_force(struct service *service)
 
 void service_monitor_listen_start(struct service *service)
 {
-	if (service->process_avail > 0 ||
+	if (service->process_avail > 0 || service->to_throttle != NULL ||
 	    (service->process_count == service->process_limit &&
 	     service->listen_pending))
 		return;
