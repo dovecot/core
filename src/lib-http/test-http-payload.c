@@ -30,7 +30,7 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#define CLIENT_PROGRESS_TIMEOUT     10
+#define CLIENT_PROGRESS_TIMEOUT     30
 
 enum payload_handling {
 	PAYLOAD_HANDLING_LOW_LEVEL,
