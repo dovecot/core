@@ -7,10 +7,12 @@ AM_CPPFLAGS = \
 libtest_la_SOURCES = \
 	test-common.c \
 	test-istream.c \
-	test-ostream.c
+	test-ostream.c \
+	test-subprocess.c
 
 headers = \
-	test-common.h
+	test-common.h \
+	test-subprocess.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
