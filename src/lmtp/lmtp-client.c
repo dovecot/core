@@ -29,7 +29,7 @@
 
 static const struct smtp_server_callbacks lmtp_callbacks;
 static const struct lmtp_client_vfuncs lmtp_client_vfuncs;
-	
+
 struct lmtp_module_register lmtp_module_register = { 0 };
 
 static struct client *clients = NULL;
@@ -207,10 +207,10 @@ struct client *client_create(int fd_in, int fd_out,
 			SMTP_SERVER_WORKAROUND_MAILBOX_FOR_PATH;
 	}
 
-	client->conn = smtp_server_connection_create
-		(lmtp_server, fd_in, fd_out,
-			&conn->remote_ip, conn->remote_port,
-			conn->ssl, &lmtp_set, &lmtp_callbacks, client);
+	client->conn = smtp_server_connection_create(
+		lmtp_server, fd_in, fd_out,
+		&conn->remote_ip, conn->remote_port, conn->ssl,
+		&lmtp_set, &lmtp_callbacks, client);
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
@@ -287,8 +287,8 @@ void client_disconnect(struct client *client, const char *enh_code,
 			        smtp_server_state_names[client->state.state]);
 
 	if (conn != NULL) {
-		smtp_server_connection_terminate(&conn,
-			(enh_code == NULL ? "4.0.0" : enh_code), reason);
+		smtp_server_connection_terminate(
+			&conn, (enh_code == NULL ? "4.0.0" : enh_code), reason);
 	}
 }
 
