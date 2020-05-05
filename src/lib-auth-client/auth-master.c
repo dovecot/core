@@ -352,7 +352,9 @@ static int auth_master_input_line(struct connection *_conn, const char *line)
 	int ret;
 
 	ret = connection_input_line_default(_conn, line);
-	return (io_loop_is_running(cur_ioloop) ? ret : 0);
+	if (ret > 0 && !io_loop_is_running(cur_ioloop))
+		return 0;
+	return ret;
 }
 
 static void auth_master_connected(struct connection *_conn, bool success)
