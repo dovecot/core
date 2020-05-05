@@ -89,6 +89,24 @@ test_run_client_server(const struct http_client_settings *client_set,
 		       test_dns_init_t dns_test) ATTR_NULL(3);
 
 /*
+ * Utility
+ */
+
+static void
+test_client_assert_response(const struct http_response *resp,
+			    bool condition)
+{
+	const char *reason = (resp->reason != NULL ? resp->reason : "<NULL>");
+
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (!condition)
+		i_error("BAD RESPONSE: %u %s", resp->status, reason);
+	else if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+}
+
+/*
  * Unconfigured SSL
  */
 
@@ -102,11 +120,8 @@ static void
 test_client_unconfigured_ssl_response(const struct http_response *resp,
 				      struct _unconfigured_ssl *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -179,11 +194,8 @@ static void
 test_client_unconfigured_ssl_abort_response2(
 	const struct http_response *resp, struct _unconfigured_ssl_abort *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
 
 	i_free(ctx);
 	io_loop_stop(ioloop);
@@ -246,11 +258,8 @@ static void
 test_client_invalid_url_response(const struct http_response *resp,
 				 struct _invalid_url *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_INVALID_URL);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_INVALID_URL);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -310,12 +319,9 @@ static void
 test_client_host_lookup_failed_response(const struct http_response *resp,
 					struct _host_lookup_failed *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status ==
-		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -389,11 +395,8 @@ test_client_connection_refused_response(const struct http_response *resp,
 	test_assert(ctx->to == NULL);
 	timeout_remove(&ctx->to);
 
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -498,11 +501,9 @@ test_client_connection_lost_prematurely_response(
 	test_assert(ctx->to == NULL);
 	timeout_remove(&ctx->to);
 
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -583,11 +584,8 @@ static void
 test_client_connection_timed_out_response(const struct http_response *resp,
 					  struct _connection_timed_out *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -707,11 +705,10 @@ static void
 test_client_invalid_redirect_response(const struct http_response *resp,
 				      void *context ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
 	io_loop_stop(ioloop);
 }
 
@@ -794,11 +791,9 @@ static void
 test_client_unseekable_redirect_response(const struct http_response *resp,
 					 void *context ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_ABORTED);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_ABORTED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
 	io_loop_stop(ioloop);
 }
 
@@ -864,11 +859,9 @@ static void
 test_client_unseekable_retry_response(const struct http_response *resp,
 				      void *context ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_ABORTED);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_ABORTED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
 	io_loop_stop(ioloop);
 }
 
@@ -941,11 +934,9 @@ static void
 test_client_broken_payload_response(const struct http_response *resp,
 				    void *context ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD);
 
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
 	io_loop_stop(ioloop);
 }
 
@@ -1078,11 +1069,7 @@ test_client_retry_payload_response(const struct http_response *resp,
 {
 	struct _retry_payload_ctx *ctx = rctx->ctx;
 
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == 500);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(resp, resp->status == 500);
 
 	if (http_client_request_try_retry(rctx->req)) {
 		if (debug)
@@ -1199,11 +1186,9 @@ test_client_connection_lost_response(const struct http_response *resp,
 {
 	struct _connection_lost_ctx *ctx = rctx->ctx;
 
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
 
 	if (http_client_request_try_retry(rctx->req)) {
 		if (debug)
@@ -1334,11 +1319,9 @@ static void
 test_client_connection_lost_100_response(const struct http_response *resp,
 					 struct _connection_lost_100_ctx *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -1437,12 +1420,10 @@ static void
 test_client_connection_lost_sub_ioloop_response2(
 	const struct http_response *resp, struct ioloop *sub_ioloop)
 {
-	if (debug)
-		i_debug("SUB-RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == 200 ||
-		    resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		(resp->status == 200 ||
+		 resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST));
 
 	io_loop_stop(sub_ioloop);
 }
@@ -1576,16 +1557,14 @@ static void
 test_client_early_success_response(const struct http_response *resp,
 				   struct _early_success_ctx *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
 	if (ctx->count == 2) {
-		test_assert(resp->status ==
-			    HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE);
+		test_client_assert_response(
+			resp,
+			resp->status == HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE);
 	} else {
-		test_assert(resp->status == 200);
+		test_client_assert_response(resp, resp->status == 200);
 	}
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
 	if (--ctx->count == 0) {
 		io_loop_stop(ioloop);
 		i_free(ctx);
@@ -1692,11 +1671,8 @@ static void
 test_client_bad_response_response(const struct http_response *resp,
 				  struct _bad_response_ctx *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -1775,11 +1751,8 @@ static void
 test_client_request_timed_out1_response(const struct http_response *resp,
 					struct _request_timed_out1_ctx *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -1832,11 +1805,8 @@ static void
 test_client_request_timed_out2_response(const struct http_response *resp,
 					struct _request_timed_out2_ctx *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT);
 	test_assert(ctx->to != NULL);
 
 	if (--ctx->count > 0) {
@@ -2095,10 +2065,7 @@ test_client_request_failed_blocking_response(
 	const struct http_response *resp,
 	struct _request_failed_blocking_ctx *ctx ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	i_assert(resp->status == 500);
+	test_client_assert_response(resp, resp->status == 500);
 }
 
 static bool
@@ -2291,11 +2258,7 @@ test_client_retry_with_delay_response(
 {
 	int real_delay, exp_delay;
 
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == 500);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(resp, resp->status == 500);
 
 	if (ctx->retries > 0) {
 		/* check delay */
@@ -2372,12 +2335,9 @@ test_client_dns_service_failure_response(
 	const struct http_response *resp,
 	struct _dns_service_failure *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status ==
-		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -2457,12 +2417,9 @@ test_client_dns_timeout_response(
 	const struct http_response *resp,
 	struct _dns_timeout *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status ==
-		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -2549,12 +2506,9 @@ static void
 test_client_dns_lookup_failure_response(const struct http_response *resp,
 					struct _dns_lookup_failure *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status ==
-		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -2683,12 +2637,9 @@ static void
 test_client_dns_lookup_ttl_response_stage2(const struct http_response *resp,
 					   struct _dns_lookup_ttl *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status ==
-		    HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -2723,10 +2674,7 @@ static void
 test_client_dns_lookup_ttl_response_stage1(const struct http_response *resp,
 					   struct _dns_lookup_ttl *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == 200);
+	test_client_assert_response(resp, resp->status == 200);
 
 	if (--ctx->count == 0) {
 		ctx->to = timeout_add(2000,
@@ -2817,11 +2765,9 @@ static void
 test_client_peer_reuse_failure_response2(const struct http_response *resp,
 					 struct _peer_reuse_failure *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+	test_client_assert_response(
+		resp, http_response_is_internal_error(resp));
 
-	test_assert(http_response_is_internal_error(resp));
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
 	i_free(ctx);
 	io_loop_stop(ioloop);
 }
@@ -2845,17 +2791,15 @@ static void
 test_client_peer_reuse_failure_response1(const struct http_response *resp,
 					 struct _peer_reuse_failure *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
 	if (ctx->first) {
-		test_assert(resp->status == 200);
+		test_client_assert_response(resp, resp->status == 200);
 
 		ctx->first = FALSE;
 		ctx->to = timeout_add_short(
 			500, test_client_peer_reuse_failure_next, ctx);
 	} else {
-		test_assert(http_response_is_internal_error(resp));
+		test_client_assert_response(
+			resp, http_response_is_internal_error(resp));
 	}
 
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
@@ -2985,11 +2929,8 @@ static void
 test_client_reconnect_failure_response2(const struct http_response *resp,
 					struct _reconnect_failure_ctx *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(
+		resp, resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
 
 	io_loop_stop(ioloop);
 	i_free(ctx);
@@ -3016,11 +2957,7 @@ static void
 test_client_reconnect_failure_response1(const struct http_response *resp,
 					struct _reconnect_failure_ctx *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == 200);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(resp, resp->status == 200);
 
 	ctx->to = timeout_add_short(
 		5000, test_client_reconnect_failure_next, ctx);
@@ -3138,11 +3075,7 @@ static void
 test_client_multi_ip_attempts_response(const struct http_response *resp,
 				       struct _multi_ip_attempts *ctx)
 {
-	if (debug)
-		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
-
-	test_assert(resp->status == 200);
-	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_client_assert_response(resp, resp->status == 200);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
