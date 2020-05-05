@@ -1038,7 +1038,7 @@ static void test_retry_payload_input(struct server_connection *conn)
 			i_debug("Unexpected payload received");
 		o_stream_nsend_str(conn->conn.output,
 				   "HTTP/1.1 501 Oh no!\r\n"
-				   "Content-Length: 17\r\n"
+				   "Content-Length: 19\r\n"
 				   "\r\n"
 				   "Unexpected result\r\n");
 	}
