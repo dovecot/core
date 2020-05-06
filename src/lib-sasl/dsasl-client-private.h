@@ -3,6 +3,10 @@
 
 #include "dsasl-client.h"
 
+enum dsasl_mech_security_flags {
+	DSASL_MECH_SEC_ALLOW_NULS	= 0x0001,
+};
+
 struct dsasl_client {
 	pool_t pool;
 	struct dsasl_client_settings set;
@@ -13,6 +17,7 @@ struct dsasl_client {
 struct dsasl_client_mech {
 	const char *name;
 	size_t struct_size;
+	enum dsasl_mech_security_flags flags;
 
 	int (*input)(struct dsasl_client *client,
 		     const unsigned char *input, size_t input_len,

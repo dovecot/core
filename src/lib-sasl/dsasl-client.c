@@ -86,6 +86,11 @@ int dsasl_client_input(struct dsasl_client *client,
 		       const unsigned char *input, size_t input_len,
 		       const char **error_r)
 {
+	if ((client->mech->flags & DSASL_MECH_SEC_ALLOW_NULS) == 0 &&
+	    memchr(input, '\0', input_len) != NULL) {
+		*error_r = "Unexpected NUL in input data";
+		return -1;
+	}
 	return client->mech->input(client, input, input_len, error_r);
 }
 
