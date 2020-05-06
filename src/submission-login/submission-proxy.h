@@ -4,7 +4,9 @@
 void submission_proxy_reset(struct client *client);
 int submission_proxy_parse_line(struct client *client, const char *line);
 
-void submission_proxy_error(struct client *client, const char *text);
+void submission_proxy_failed(struct client *client,
+			     enum login_proxy_failure_type type,
+			     const char *reason, bool reconnecting);
 const char *submission_proxy_get_state(struct client *client);
 
 #endif

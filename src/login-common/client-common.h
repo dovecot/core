@@ -123,7 +123,9 @@ struct client_vfuncs {
 			    const char *text);
 	void (*proxy_reset)(struct client *client);
 	int (*proxy_parse_line)(struct client *client, const char *line);
-	void (*proxy_error)(struct client *client, const char *text);
+	void (*proxy_failed)(struct client *client,
+			     enum login_proxy_failure_type type,
+			     const char *reason, bool reconnecting);
 	const char *(*proxy_get_state)(struct client *client);
 	void (*send_raw_data)(struct client *client,
 			      const void *data, size_t size);
@@ -310,6 +312,9 @@ void client_send_raw(struct client *client, const char *data);
 void client_common_send_raw_data(struct client *client,
 				 const void *data, size_t size);
 void client_common_default_free(struct client *client);
+void client_common_proxy_failed(struct client *client,
+				enum login_proxy_failure_type type,
+				const char *reason, bool reconnecting);
 
 void client_set_auth_waiting(struct client *client);
 void client_auth_send_challenge(struct client *client, const char *data);

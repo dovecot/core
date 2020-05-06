@@ -292,7 +292,7 @@ static struct client_vfuncs submission_client_vfuncs = {
 	.auth_result = submission_client_auth_result,
 	.proxy_reset = submission_proxy_reset,
 	.proxy_parse_line = submission_proxy_parse_line,
-	.proxy_error = submission_proxy_error,
+	.proxy_failed = submission_proxy_failed,
 	.proxy_get_state = submission_proxy_get_state,
 };
 

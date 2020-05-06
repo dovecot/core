@@ -456,16 +456,41 @@ void submission_proxy_reset(struct client *client)
 	subm_client->proxy_reply = NULL;
 }
 
-void submission_proxy_error(struct client *client, const char *text)
+static void
+submission_proxy_send_failure_reply(struct submission_client *subm_client,
+				    enum login_proxy_failure_type type,
+				    const char *reason ATTR_UNUSED)
+{
+	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
+	if (cmd == NULL)
+		return;
+
+	subm_client->pending_auth = NULL;
+	switch (type) {
+	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+		smtp_server_reply(cmd, 535, "5.7.8", LOGIN_PROXY_FAILURE_MSG);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+		/* reply was already sent */
+		break;
+	}
+}
+
+void submission_proxy_failed(struct client *client,
+			     enum login_proxy_failure_type type,
+			     const char *reason, bool reconnecting)
 {
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
 
-	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
-	if (cmd != NULL) {
-		subm_client->pending_auth = NULL;
-		smtp_server_reply(cmd, 535, "5.7.8", "%s", text);
-	}
+	if (!reconnecting)
+		submission_proxy_send_failure_reply(subm_client, type, reason);
+	client_common_proxy_failed(client, type, reason, reconnecting);
 }
 
 const char *submission_proxy_get_state(struct client *client)

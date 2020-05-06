@@ -449,10 +449,42 @@ void imap_proxy_reset(struct client *client)
 	imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_NONE;
 }
 
-void imap_proxy_error(struct client *client, const char *text)
+static void
+imap_proxy_send_failure_reply(struct imap_client *imap_client,
+			      enum login_proxy_failure_type type,
+			      const char *reason ATTR_UNUSED)
 {
-	client_send_reply_code(client, IMAP_CMD_REPLY_NO,
-			       IMAP_RESP_CODE_UNAVAILABLE, text);
+	switch (type) {
+	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
+	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+		client_send_reply_code(&imap_client->common, IMAP_CMD_REPLY_NO,
+				       IMAP_RESP_CODE_UNAVAILABLE,
+				       LOGIN_PROXY_FAILURE_MSG);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
+		client_send_reply_code(&imap_client->common, IMAP_CMD_REPLY_NO,
+				       IMAP_RESP_CODE_SERVERBUG,
+				       LOGIN_PROXY_FAILURE_MSG);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+		/* reply was already sent */
+		break;
+	}
+}
+
+void imap_proxy_failed(struct client *client,
+		       enum login_proxy_failure_type type,
+		       const char *reason, bool reconnecting)
+{
+	struct imap_client *imap_client =
+		container_of(client, struct imap_client, common);
+
+	if (!reconnecting)
+		imap_proxy_send_failure_reply(imap_client, type, reason);
+	client_common_proxy_failed(client, type, reason, reconnecting);
 }
 
 const char *imap_proxy_get_state(struct client *client)

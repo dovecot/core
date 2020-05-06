@@ -270,9 +270,34 @@ void pop3_proxy_reset(struct client *client)
 	pop3_client->proxy_state = POP3_PROXY_BANNER;
 }
 
-void pop3_proxy_error(struct client *client, const char *text)
+static void
+pop3_proxy_send_failure_reply(struct client *client,
+			      enum login_proxy_failure_type type,
+			      const char *reason ATTR_UNUSED)
 {
-	client_send_reply(client, POP3_CMD_REPLY_ERROR, text);
+	switch (type) {
+	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+		client_send_reply(client, POP3_CMD_REPLY_ERROR,
+				  LOGIN_PROXY_FAILURE_MSG);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+		/* reply was already sent */
+		break;
+	}
+}
+
+void pop3_proxy_failed(struct client *client,
+		       enum login_proxy_failure_type type,
+		       const char *reason, bool reconnecting)
+{
+	if (!reconnecting)
+		pop3_proxy_send_failure_reply(client, type, reason);
+	client_common_proxy_failed(client, type, reason, reconnecting);
 }
 
 const char *pop3_proxy_get_state(struct client *client)

@@ -16,8 +16,6 @@
 #include "master-service-ssl-settings.h"
 #include "client-common.h"
 
-#define PROXY_FAILURE_MSG "Account is temporarily unavailable."
-
 /* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
@@ -283,11 +281,6 @@ void client_proxy_finish_destroy_client(struct client *client)
 	client_destroy_success(client, NULL);
 }
 
-static void client_proxy_error(struct client *client, const char *text)
-{
-	client->v.proxy_error(client, text);
-}
-
 const char *client_proxy_get_state(struct client *client)
 {
 	return client->v.proxy_get_state(client);
@@ -361,10 +354,10 @@ static void proxy_input(struct client *client)
 	o_stream_unref(&output);
 }
 
-static void proxy_failed(struct client *client,
-			 enum login_proxy_failure_type type,
-			 const char *reason ATTR_UNUSED,
-			 bool reconnecting)
+void client_common_proxy_failed(struct client *client,
+				enum login_proxy_failure_type type,
+				const char *reason ATTR_UNUSED,
+				bool reconnecting)
 {
 	if (client->proxy_sasl_client != NULL)
 		dsasl_client_free(&client->proxy_sasl_client);
@@ -380,7 +373,6 @@ static void proxy_failed(struct client *client,
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
-		client_proxy_error(client, PROXY_FAILURE_MSG);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		client->proxy_auth_failed = TRUE;
@@ -456,7 +448,9 @@ static int proxy_start(struct client *client,
 		"proxy(%s): ", client->virtual_user));
 
 	if (!proxy_check_start(client, event, reply, &sasl_mech, &ip)) {
-		client_proxy_error(client, PROXY_FAILURE_MSG);
+		client->v.proxy_failed(client,
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL,
+			LOGIN_PROXY_FAILURE_MSG, FALSE);
 		event_unref(&event);
 		return -1;
 	}
@@ -486,7 +480,7 @@ static int proxy_start(struct client *client,
 		net_ip2addr(&proxy_set.ip), proxy_set.port));
 
 	if (login_proxy_new(client, event, &proxy_set, proxy_input,
-			    proxy_failed) < 0) {
+			    client->v.proxy_failed) < 0) {
 		event_unref(&event);
 		return -1;
 	}

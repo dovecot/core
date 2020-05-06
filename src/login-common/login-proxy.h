@@ -10,6 +10,8 @@
    TTL extension feature. */
 #define LOGIN_PROXY_TTL 5
 
+#define LOGIN_PROXY_FAILURE_MSG "Account is temporarily unavailable."
+
 struct client;
 struct login_proxy;
 
