@@ -217,6 +217,9 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 {
 	int since_started_msecs, left_msecs;
 
+	if (proxy->reconnect_count >= proxy->client->set->login_proxy_max_reconnects)
+		return FALSE;
+
 	since_started_msecs =
 		timeval_diff_msecs(&ioloop_timeval, &proxy->created);
 	if (since_started_msecs < 0)
