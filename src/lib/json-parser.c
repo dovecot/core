@@ -194,8 +194,10 @@ static int json_skip_string(struct json_parser *parser)
 			case 't':
 				break;
 			case 'u':
-				if (parser->end - parser->data < 4)
+				if (parser->end - parser->data < 4) {
+					parser->data = parser->end;
 					return -1;
+				}
 				parser->data += 3;
 				break;
 			default:

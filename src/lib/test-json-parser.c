@@ -212,7 +212,7 @@ static void test_json_parser_skip_object_fields(void)
 		 "\"realm\":\"/employees\","
 		 "\"token_type\":\"Bearer\","
 		 "\"expires_in\":2377,"
-		 "\"client_id\":\"mosaic\","
+		 "\"client_i\\u0064\":\"mosaic\\u0064\","
 		 "\"email\":\"\","
 		 "\"extensions\":"
 		 "{\"algorithm\":\"cuttlefish\","
@@ -244,14 +244,15 @@ static void test_json_parser_skip_object_fields(void)
 		test_assert(strcmp(value, keys[i]) == 0);
 		json_parse_skip_next(parser);
 	}
+	test_assert(i == keys_count);
 	test_assert(json_parser_deinit(&parser, &error) == 0);
 	i_stream_unref(&input);
 
 	i = 0;
 	input = test_istream_create_data(test_input, strlen(test_input));
 	parser = json_parser_init(input);
-	for (pos = 0; pos <= strlen(test_input); pos +=2) {
-		test_istream_set_size(input, pos);
+	for (pos = 0; pos <= strlen(test_input)*2; pos++) {
+		test_istream_set_size(input, pos/2);
 		ret = json_parse_next(parser, &type, &value);
 		if (ret == 0)
 			continue;
@@ -263,6 +264,7 @@ static void test_json_parser_skip_object_fields(void)
 		json_parse_skip_next(parser);
 		i++;
 	}
+	test_assert(i == keys_count);
 	test_assert(json_parser_deinit(&parser, &error) == 0);
 	i_stream_unref(&input);
 	test_end();
@@ -280,14 +282,15 @@ static void test_json_parser_skip_object_fields(void)
 		test_assert(ret > 0 && type != JSON_TYPE_OBJECT_KEY);
 		json_parse_skip(parser);
 	}
+	test_assert(i == keys_count);
 	test_assert(json_parser_deinit(&parser, &error) == 0);
 	i_stream_unref(&input);
 
 	i = 0;
 	input = test_istream_create_data(test_input, strlen(test_input));
 	parser = json_parser_init(input);
-	for (pos = 0; pos <= strlen(test_input); pos +=2) {
-		test_istream_set_size(input, pos);
+	for (pos = 0; pos <= strlen(test_input)*2; pos++) {
+		test_istream_set_size(input, pos/2);
 		ret = json_parse_next(parser, &type, &value);
 		if (ret < 0)
 			break;
@@ -302,6 +305,7 @@ static void test_json_parser_skip_object_fields(void)
 			json_parse_skip(parser);
 		}
 	}
+	test_assert(i == keys_count);
 	test_assert(json_parser_deinit(&parser, &error) == 0);
 	i_stream_unref(&input);
 
