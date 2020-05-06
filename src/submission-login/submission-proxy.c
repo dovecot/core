@@ -432,14 +432,20 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	   So for now we'll just forward the error message. This
 	   shouldn't be a real problem since of course everyone will
 	   be using only Dovecot as their backend :) */
-	i_assert((status / 100) != 2);
-	i_assert(subm_client->proxy_reply != NULL);
-	smtp_server_reply_submit(subm_client->proxy_reply);
-	subm_client->pending_auth = NULL;
+	enum login_proxy_failure_type failure_type =
+		LOGIN_PROXY_FAILURE_TYPE_AUTH;
+	if ((status / 100) == 4)
+		failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
+	else {
+		i_assert((status / 100) != 2);
+		i_assert(subm_client->proxy_reply != NULL);
+		smtp_server_reply_submit(subm_client->proxy_reply);
+		subm_client->pending_auth = NULL;
+	}
 
 	login_proxy_failed(client->login_proxy,
 			   login_proxy_get_event(client->login_proxy),
-			   LOGIN_PROXY_FAILURE_TYPE_AUTH, text);
+			   failure_type, text);
 	return -1;
 }
 
@@ -472,6 +478,13 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 		i_assert(cmd != NULL);
 		subm_client->pending_auth = NULL;
 		smtp_server_reply(cmd, 454, "4.7.0", LOGIN_PROXY_FAILURE_MSG);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
+		i_assert(cmd != NULL);
+		subm_client->pending_auth = NULL;
+
+		i_assert(subm_client->proxy_reply != NULL);
+		smtp_server_reply_submit(subm_client->proxy_reply);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		/* reply was already sent */

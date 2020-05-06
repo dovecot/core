@@ -247,6 +247,13 @@ client_send_login_reply(struct imap_client *client, string_t *str,
 	str_append(str, "\r\n");
 }
 
+static bool auth_resp_code_is_tempfail(const char *resp_code)
+{
+	/* Dovecot uses [UNAVAILABLE] for failures that can be retried.
+	   Non-retriable failures are [SERVERBUG]. */
+	return strcasecmp(resp_code, IMAP_RESP_CODE_UNAVAILABLE) == 0;
+}
+
 int imap_proxy_parse_line(struct client *client, const char *line)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
@@ -351,6 +358,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		const char *log_line = line;
 		if (strncasecmp(log_line, "NO ", 3) == 0)
 			log_line += 3;
+		enum login_proxy_failure_type failure_type =
+			LOGIN_PROXY_FAILURE_TYPE_AUTH;
 #define STR_NO_IMAP_RESP_CODE_AUTHFAILED "NO ["IMAP_RESP_CODE_AUTHFAILED"]"
 		if (str_begins(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED)) {
 			/* the remote sent a generic "authentication failed"
@@ -363,8 +372,13 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 					       AUTH_FAILED_MSG);
 		} else if (str_begins(line, "NO [")) {
 			/* remote sent some other resp-code. forward it. */
-			client_send_raw(client, t_strconcat(
-				imap_client->cmd_tag, " ", line, "\r\n", NULL));
+			const char *resp_code = t_strcut(line + 4, ']');
+			if (auth_resp_code_is_tempfail(resp_code))
+				failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
+			else {
+				client_send_raw(client, t_strconcat(
+					imap_client->cmd_tag, " ", line, "\r\n", NULL));
+			}
 		} else {
 			/* there was no [resp-code], so remote isn't Dovecot
 			   v1.2+. we could either forward the line as-is and
@@ -380,7 +394,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 
 		login_proxy_failed(client->login_proxy,
 				   login_proxy_get_event(client->login_proxy),
-				   LOGIN_PROXY_FAILURE_TYPE_AUTH, log_line);
+				   failure_type, log_line);
 		return -1;
 	} else if (strncasecmp(line, "* CAPABILITY ", 13) == 0) {
 		i_free(imap_client->proxy_backend_capability);
@@ -452,7 +466,7 @@ void imap_proxy_reset(struct client *client)
 static void
 imap_proxy_send_failure_reply(struct imap_client *imap_client,
 			      enum login_proxy_failure_type type,
-			      const char *reason ATTR_UNUSED)
+			      const char *reason)
 {
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
@@ -468,6 +482,10 @@ imap_proxy_send_failure_reply(struct imap_client *imap_client,
 		client_send_reply_code(&imap_client->common, IMAP_CMD_REPLY_NO,
 				       IMAP_RESP_CODE_SERVERBUG,
 				       LOGIN_PROXY_FAILURE_MSG);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
+		client_send_raw(&imap_client->common, t_strconcat(
+			imap_client->cmd_tag, " NO ", reason, "\r\n", NULL));
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		/* reply was already sent */

@@ -575,6 +575,9 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 		log_prefix = "";
 		try_reconnect = FALSE;
 		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
+		log_prefix = "";
+		break;
 	default:
 		i_unreached();
 	}
@@ -586,7 +589,8 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 		return TRUE;
 	}
 
-	if (type != LOGIN_PROXY_FAILURE_TYPE_AUTH)
+	if (type != LOGIN_PROXY_FAILURE_TYPE_AUTH &&
+	    type != LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL)
 		e_error(event, "%s%s", log_prefix, reason);
 	else if (proxy->client->set->auth_verbose)
 		client_proxy_log_failure(proxy->client, reason);

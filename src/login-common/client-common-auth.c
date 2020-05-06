@@ -375,6 +375,7 @@ void client_common_proxy_failed(struct client *client,
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
 		client->proxy_auth_failed = TRUE;
 		break;
 	}

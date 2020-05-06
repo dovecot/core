@@ -41,6 +41,9 @@ enum login_proxy_failure_type {
 	/* Authentication failed to backend. The LOGIN/AUTH command reply was
 	   already sent to the client. */
 	LOGIN_PROXY_FAILURE_TYPE_AUTH,
+	/* Authentication failed with a temporary failure code. Attempting it
+	   again might work. */
+	LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL,
 };
 
 struct login_proxy_settings {

@@ -248,18 +248,23 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	   So for now we'll just forward the error message. This
 	   shouldn't be a real problem since of course everyone will
 	   be using only Dovecot as their backend :) */
+	enum login_proxy_failure_type failure_type =
+		LOGIN_PROXY_FAILURE_TYPE_AUTH;
 	if (!str_begins(line, "-ERR ")) {
 		client_send_reply(client, POP3_CMD_REPLY_ERROR,
 				  AUTH_FAILED_MSG);
+	} else if (str_begins(line, "-ERR [SYS/TEMP]")) {
+		/* delay sending the reply until we know if we reconnect */
+		failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
+		line += 5;
 	} else {
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
+		line += 5;
 	}
 
-	if (str_begins(line, "-ERR "))
-		line += 5;
 	login_proxy_failed(client->login_proxy,
 			   login_proxy_get_event(client->login_proxy),
-			   LOGIN_PROXY_FAILURE_TYPE_AUTH, line);
+			   failure_type, line);
 	return -1;
 }
 
@@ -273,7 +278,7 @@ void pop3_proxy_reset(struct client *client)
 static void
 pop3_proxy_send_failure_reply(struct client *client,
 			      enum login_proxy_failure_type type,
-			      const char *reason ATTR_UNUSED)
+			      const char *reason)
 {
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
@@ -284,6 +289,9 @@ pop3_proxy_send_failure_reply(struct client *client,
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
 		client_send_reply(client, POP3_CMD_REPLY_ERROR,
 				  LOGIN_PROXY_FAILURE_MSG);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
+		client_send_reply(client, POP3_CMD_REPLY_ERROR, reason);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		/* reply was already sent */
