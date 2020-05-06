@@ -722,7 +722,6 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	iov[2].iov_base = "\r\n";
 	iov[2].iov_len = 2;
 
-	ret = 1;
 	req->state = HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT;
 	o_stream_cork(conn->conn.output);
 
