@@ -199,6 +199,7 @@ static int json_skip_string(struct json_parser *parser)
 				parser->data += 3;
 				break;
 			default:
+				parser->error = "Invalid escape string";
 				return -1;
 			}
 		}
@@ -332,6 +333,7 @@ static int json_parse_string(struct json_parser *parser, bool allow_skip,
 					return ret;
 				break;
 			default:
+				parser->error = "Invalid escape string";
 				return -1;
 			}
 			break;
