@@ -402,7 +402,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_CAPABILITY;
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_CAPABILITY;
 		if (str_begins(line, "C OK ") &&
-		    client->proxy_password != NULL) {
+		    HAS_NO_BITS(imap_client->proxy_sent_state,
+				IMAP_PROXY_SENT_STATE_AUTHENTICATE |
+				IMAP_PROXY_SENT_STATE_LOGIN)) {
 			/* pipelining was disabled, send the login now. */
 			str = t_str_new(128);
 			if (proxy_write_login(imap_client, str) < 0)
