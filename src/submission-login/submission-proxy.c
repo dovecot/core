@@ -473,7 +473,7 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
-		smtp_server_reply(cmd, 535, "5.7.8", LOGIN_PROXY_FAILURE_MSG);
+		smtp_server_reply(cmd, 454, "4.7.0", LOGIN_PROXY_FAILURE_MSG);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		/* reply was already sent */
