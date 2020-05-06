@@ -269,6 +269,10 @@ static int json_parse_unicode_escape(struct json_parser *parser)
 			t_strdup_printf("Invalid unicode character U+%04x", chr);
 		return -1;
 	}
+	if (chr == 0) {
+		parser->error = "\\u0000 not supported in strings";
+		return -1;
+	}
 	uni_ucs4_to_utf8_c(chr, parser->value);
 	parser->data += 3;
 	return 1;
@@ -295,9 +299,8 @@ static int json_parse_string(struct json_parser *parser, bool allow_skip,
 			*value_r = str_c(parser->value);
 			return 1;
 		}
-		if (*parser->data != '\\')
-			str_append_c(parser->value, *parser->data);
-		else {
+		switch (*parser->data) {
+		case '\\':
 			if (++parser->data == parser->end)
 				return 0;
 			switch (*parser->data) {
@@ -328,6 +331,13 @@ static int json_parse_string(struct json_parser *parser, bool allow_skip,
 			default:
 				return -1;
 			}
+			break;
+		case '\0':
+			parser->error = "NULs not supported in strings";
+			return -1;
+		default:
+			str_append_c(parser->value, *parser->data);
+			break;
 		}
 	}
 	return 0;

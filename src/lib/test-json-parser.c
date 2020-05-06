@@ -309,7 +309,8 @@ static void test_json_parser_skip_object_fields(void)
 }
 
 static int
-test_json_parse_input(const char *test_input, enum json_parser_flags flags)
+test_json_parse_input(const void *test_input, size_t test_input_size,
+		      enum json_parser_flags flags)
 {
 	struct json_parser *parser;
 	struct istream *input;
@@ -317,7 +318,7 @@ test_json_parse_input(const char *test_input, enum json_parser_flags flags)
 	const char *value, *error;
 	int ret = 0;
 
-	input = test_istream_create_data(test_input, strlen(test_input));
+	input = test_istream_create_data(test_input, test_input_size);
 	parser = json_parser_init_flags(input, flags);
 	while (json_parse_next(parser, &type, &value) > 0)
 		ret++;
@@ -346,7 +347,9 @@ static void test_json_parser_primitive_values(void)
 
 	test_begin("json_parser (primitives)");
 	for (i = 0; i < N_ELEMENTS(test_inputs); i++)
-		test_assert_idx(test_json_parse_input(test_inputs[i].str, JSON_PARSER_NO_ROOT_OBJECT) == test_inputs[i].ret, i);
+		test_assert_idx(test_json_parse_input(test_inputs[i].str,
+						      strlen(test_inputs[i].str),
+						      JSON_PARSER_NO_ROOT_OBJECT) == test_inputs[i].ret, i);
 	test_end();
 }
 
@@ -371,7 +374,25 @@ static void test_json_parser_errors(void)
 
 	test_begin("json parser error handling");
 	for (i = 0; i < N_ELEMENTS(test_inputs); i++)
-		test_assert_idx(test_json_parse_input(test_inputs[i], 0) < 0, i);
+		test_assert_idx(test_json_parse_input(test_inputs[i],
+						      strlen(test_inputs[i]),
+						      0) < 0, i);
+	test_end();
+}
+
+static void test_json_parser_nuls_in_string(void)
+{
+	static const unsigned char test_input[] =
+	{ '{', '"', 'k', '"', ':', '"', '\0', '"', '}' };
+	static const unsigned char test_input2[] =
+	{ '{', '"', 'k', '"', ':', '"', '\\', '\0', '"', '}' };
+	static const unsigned char test_input3[] =
+	{ '{', '"', 'k', '"', ':', '"', '\\', 'u', '0', '0', '0', '0', '"', '}' };
+
+	test_begin("json parser nuls in string");
+	test_assert(test_json_parse_input(test_input, sizeof(test_input), 0) < 0);
+	test_assert(test_json_parse_input(test_input2, sizeof(test_input2), 0) < 0);
+	test_assert(test_json_parse_input(test_input3, sizeof(test_input3), 0) < 0);
 	test_end();
 }
 
@@ -405,6 +426,7 @@ void test_json_parser(void)
 	test_json_parser_skip_object_fields();
 	test_json_parser_primitive_values();
 	test_json_parser_errors();
+	test_json_parser_nuls_in_string();
 	test_json_append_escaped();
 	test_json_append_escaped_data();
 }
