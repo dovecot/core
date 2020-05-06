@@ -224,7 +224,7 @@ rpa_read_buffer(pool_t pool, const unsigned char **data,
 		return 0;
 
 	len = *p++;
-	if (p + len > end)
+	if (p + len > end || len == 0)
 		return 0;
 
 	*buffer = p_malloc(pool, len);
