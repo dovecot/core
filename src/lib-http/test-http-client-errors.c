@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "hostpid.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -1034,8 +1035,8 @@ static void test_retry_payload_input(struct server_connection *conn)
 				   "\r\n"
 				   "Expected result\r\n");
 	} else {
-		if (debug)
-			i_debug("Unexpected payload received");
+		i_error("Unexpected payload received: `%s'",
+			str_sanitize(line, 128));
 		o_stream_nsend_str(conn->conn.output,
 				   "HTTP/1.1 501 Oh no!\r\n"
 				   "Content-Length: 19\r\n"
