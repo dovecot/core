@@ -361,9 +361,6 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 	const char *server_final_message;
 	size_t len;
 
-	if (auth_request_fail_on_nuls(auth_request, data, data_size))
-		return;
-
 	if (request->client_first_message_bare == NULL) {
 		/* Received client-first-message */
 		if (parse_scram_client_first(request, data,

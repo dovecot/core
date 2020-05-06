@@ -23,9 +23,6 @@ otp_send_challenge(struct auth_request *auth_request,
 		(struct otp_auth_request *)auth_request;
 	const char *answer;
 
-	if (auth_request_fail_on_nuls(auth_request, credentials, size))
-		return;
-
 	if (otp_parse_dbentry(t_strndup(credentials, size),
 			      &request->state) != 0) {
 		e_error(request->auth_request.mech_event,
@@ -204,9 +201,6 @@ static void
 mech_otp_auth_phase2(struct auth_request *auth_request,
 		     const unsigned char *data, size_t data_size)
 {
-	if (auth_request_fail_on_nuls(auth_request, data, data_size))
-		return;
-
 	const char *str = t_strndup(data, data_size);
 
 	if (str_begins(str, "hex:")) {

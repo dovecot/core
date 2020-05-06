@@ -11,9 +11,6 @@ mech_external_auth_continue(struct auth_request *request,
 {
 	const char *authzid, *error;
 
-	if (auth_request_fail_on_nuls(request, data, data_size))
-		return;
-
 	authzid = t_strndup(data, data_size);
 	if (request->user == NULL) {
 		e_info(request->mech_event,

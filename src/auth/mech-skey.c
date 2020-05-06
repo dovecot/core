@@ -162,9 +162,6 @@ static void
 mech_skey_auth_continue(struct auth_request *auth_request,
 		       const unsigned char *data, size_t data_size)
 {
-	if (auth_request_fail_on_nuls(auth_request, data, data_size))
-		return;
-
 	if (auth_request->user == NULL) {
 		mech_skey_auth_phase1(auth_request, data, data_size);
 	} else {
