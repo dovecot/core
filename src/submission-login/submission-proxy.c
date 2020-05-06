@@ -21,15 +21,6 @@ static const char *submission_proxy_state_names[SUBMISSION_PROXY_STATE_COUNT] = 
 	"banner", "ehlo", "starttls", "tls-ehlo", "xclient", "authenticate"
 };
 
-static void proxy_free_password(struct client *client)
-{
-	if (client->proxy_password == NULL)
-		return;
-
-	safe_memset(client->proxy_password, 0, strlen(client->proxy_password));
-	i_free_and_null(client->proxy_password);
-}
-
 static buffer_t *
 proxy_compose_xclient_forward(struct submission_client *client)
 {
@@ -143,8 +134,6 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		base64_encode(sasl_output, len, str);
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
-
-	proxy_free_password(&client->common);
 
 	if (client->proxy_state != SUBMISSION_PROXY_XCLIENT)
 		client->proxy_state = SUBMISSION_PROXY_AUTHENTICATE;

@@ -65,15 +65,6 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 	str_append(str, ")\r\n");
 }
 
-static void proxy_free_password(struct client *client)
-{
-	if (client->proxy_password == NULL)
-		return;
-
-	safe_memset(client->proxy_password, 0, strlen(client->proxy_password));
-	i_free_and_null(client->proxy_password);
-}
-
 static int proxy_write_starttls(struct imap_client *client, string_t *str)
 {
 	enum login_proxy_ssl_flags ssl_flags = login_proxy_get_ssl_flags(client->common.login_proxy);
@@ -135,7 +126,6 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		str_append(str, "\r\n");
 
 		client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_LOGIN;
-		proxy_free_password(&client->common);
 		return 0;
 	}
 
@@ -169,7 +159,6 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 			base64_encode(output, len, str);
 	}
 	str_append(str, "\r\n");
-	proxy_free_password(&client->common);
 	client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_AUTHENTICATE;
 	return 0;
 }

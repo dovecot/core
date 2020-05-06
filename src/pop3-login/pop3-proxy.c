@@ -17,15 +17,6 @@ static const char *pop3_proxy_state_names[POP3_PROXY_STATE_COUNT] = {
 	"banner", "starttls", "xclient", "login1", "login2"
 };
 
-static void proxy_free_password(struct client *client)
-{
-	if (client->proxy_password == NULL)
-		return;
-
-	safe_memset(client->proxy_password, 0, strlen(client->proxy_password));
-	i_free_and_null(client->proxy_password);
-}
-
 static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 {
 	struct dsasl_client_settings sasl_set;
@@ -102,7 +93,6 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
 
-	proxy_free_password(&client->common);
 	if (client->proxy_state != POP3_PROXY_XCLIENT)
 		client->proxy_state = POP3_PROXY_LOGIN2;
 	return 0;
@@ -219,7 +209,6 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		/* USER successful, send PASS */
 		o_stream_nsend_str(output, t_strdup_printf(
 			"PASS %s\r\n", client->proxy_password));
-		proxy_free_password(client);
 		pop3_client->proxy_state = POP3_PROXY_LOGIN2;
 		return 0;
 	case POP3_PROXY_LOGIN2:
