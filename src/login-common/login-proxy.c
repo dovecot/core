@@ -30,7 +30,10 @@
 #define KILLED_BY_DIRECTOR_REASON "Disconnected by proxy: Kicked via director"
 #define KILLED_BY_SHUTDOWN_REASON "Disconnected by proxy: Process shutting down"
 #define PROXY_IMMEDIATE_FAILURE_SECS 30
+/* Wait this long before retrying on reconnect */
 #define PROXY_CONNECT_RETRY_MSECS 1000
+/* Don't even try to reconnect if proxying will timeout in less than this. */
+#define PROXY_CONNECT_RETRY_MIN_MSECS (PROXY_CONNECT_RETRY_MSECS + 100)
 #define PROXY_DISCONNECT_INTERVAL_MSECS 100
 
 #define LOGIN_PROXY_SIDE_CLIENT IOSTREAM_PROXY_SIDE_LEFT
@@ -238,11 +241,11 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 	if (since_started_msecs < 0)
 		return FALSE; /* time moved backwards */
 	left_msecs = proxy->connect_timeout_msecs - since_started_msecs;
-	if (left_msecs <= 0)
+	if (left_msecs <= PROXY_CONNECT_RETRY_MIN_MSECS)
 		return FALSE;
 
 	login_proxy_disconnect(proxy);
-	proxy->to = timeout_add(I_MIN(PROXY_CONNECT_RETRY_MSECS, left_msecs),
+	proxy->to = timeout_add(PROXY_CONNECT_RETRY_MSECS,
 				proxy_reconnect_timeout, proxy);
 	proxy->reconnect_count++;
 	return TRUE;
