@@ -162,7 +162,8 @@ static struct auth_request *mech_apop_auth_new(void)
 const struct mech_module mech_apop = {
 	"APOP",
 
-	.flags = MECH_SEC_PRIVATE | MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
+	.flags = MECH_SEC_PRIVATE | MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
+		 MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_VERIFY_RESPONSE,
 
 	mech_apop_auth_new,

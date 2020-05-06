@@ -750,7 +750,7 @@ const struct mech_module mech_gssapi = {
 const struct mech_module mech_gssapi_spnego = {
 	"GSS-SPNEGO",
 
-	.flags = 0,
+	.flags = MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	mech_gssapi_auth_new,

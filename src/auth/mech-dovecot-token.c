@@ -81,7 +81,7 @@ static struct auth_request *mech_dovecot_token_auth_new(void)
 const struct mech_module mech_dovecot_token = {
 	"DOVECOT-TOKEN",
 
-	.flags = MECH_SEC_PRIVATE,
+	.flags = MECH_SEC_PRIVATE | MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	mech_dovecot_token_auth_new,

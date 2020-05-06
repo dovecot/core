@@ -78,7 +78,7 @@ static struct auth_request *mech_plain_auth_new(void)
 const struct mech_module mech_plain = {
 	"PLAIN",
 
-	.flags = MECH_SEC_PLAINTEXT,
+	.flags = MECH_SEC_PLAINTEXT | MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_VERIFY_PLAIN,
 
 	mech_plain_auth_new,

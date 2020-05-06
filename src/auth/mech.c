@@ -68,6 +68,8 @@ void mech_generic_auth_free(struct auth_request *request)
 bool auth_request_fail_on_nuls(struct auth_request *request,
 			       const unsigned char *data, size_t data_size)
 {
+	if ((request->mech->flags & MECH_SEC_ALLOW_NULS) != 0)
+		return FALSE;
 	if (memchr(data, '\0', data_size) != NULL) {
 		e_debug(request->mech_event, "Unexpected NUL in auth data");
 		auth_request_fail(request);

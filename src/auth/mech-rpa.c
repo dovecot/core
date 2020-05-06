@@ -580,7 +580,7 @@ const struct mech_module mech_rpa = {
 	"RPA",
 
 	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
-		MECH_SEC_MUTUAL_AUTH,
+		MECH_SEC_MUTUAL_AUTH | MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	mech_rpa_auth_new,

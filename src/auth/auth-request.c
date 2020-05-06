@@ -635,6 +635,11 @@ void auth_request_initial(struct auth_request *request)
 	i_assert(request->state == AUTH_REQUEST_STATE_NEW);
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	if (auth_request_fail_on_nuls(request, request->initial_response,
+				      request->initial_response_len))
+		return;
+
 	request->mech->auth_initial(request, request->initial_response,
 				    request->initial_response_len);
 }
@@ -648,6 +653,9 @@ void auth_request_continue(struct auth_request *request,
 		auth_request_success(request, "", 0);
 		return;
 	}
+
+	if (auth_request_fail_on_nuls(request, data, data_size))
+		return;
 
 	auth_request_refresh_last_access(request);
 	request->mech->auth_continue(request, data, data_size);
