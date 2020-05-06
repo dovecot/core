@@ -27,6 +27,7 @@ enum json_state {
 };
 
 struct json_parser {
+	pool_t pool;
 	struct istream *input;
 	uoff_t highwater_offset;
 	enum json_parser_flags flags;
@@ -111,8 +112,11 @@ struct json_parser *json_parser_init_flags(struct istream *input,
 					   enum json_parser_flags flags)
 {
 	struct json_parser *parser;
+	pool_t pool = pool_alloconly_create("json parser",
+					    sizeof(struct json_parser)+64);
 
-	parser = i_new(struct json_parser, 1);
+	parser = p_new(pool, struct json_parser, 1);
+	parser->pool = pool;
 	parser->input = input;
 	parser->flags = flags;
 	parser->value = str_new(default_pool, 128);
@@ -132,7 +136,7 @@ int json_parser_deinit(struct json_parser **_parser, const char **error_r)
 
 	if (parser->error != NULL) {
 		/* actual parser error */
-		*error_r = parser->error;
+		*error_r = t_strdup(parser->error);
 	} else if (parser->input->stream_errno != 0) {
 		*error_r = t_strdup_printf("read(%s) failed: %s",
 					   i_stream_get_name(parser->input),
@@ -148,7 +152,7 @@ int json_parser_deinit(struct json_parser **_parser, const char **error_r)
 	i_stream_unref(&parser->input);
 	array_free(&parser->nesting);
 	str_free(&parser->value);
-	i_free(parser);
+	pool_unref(&parser->pool);
 	return *error_r != NULL ? -1 : 0;
 }
 
@@ -254,10 +258,9 @@ static int json_parse_unicode_escape(struct json_parser *parser)
 		}
 		if (parser->data[0] != '\\' || parser->data[1] != 'u' ||
 		    !UTF16_VALID_LOW_SURROGATE(chr)) {
-			parser->error =
-				t_strdup_printf("High surrogate 0x%04x seen, "
-						"but not followed by low surrogate",
-						hi_surg);
+			parser->error = p_strdup_printf(parser->pool,
+				"High surrogate 0x%04x seen, "
+				"but not followed by low surrogate", hi_surg);
 			return -1;
 		}
 		chr = uni_join_surrogate(hi_surg, chr);
@@ -265,8 +268,8 @@ static int json_parse_unicode_escape(struct json_parser *parser)
 	}
 
 	if (!uni_is_valid_ucs4(chr)) {
-		parser->error =
-			t_strdup_printf("Invalid unicode character U+%04x", chr);
+		parser->error = p_strdup_printf(parser->pool,
+			"Invalid unicode character U+%04x", chr);
 		return -1;
 	}
 	if (chr == 0) {
