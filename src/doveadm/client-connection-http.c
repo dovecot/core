@@ -148,7 +148,8 @@ static void doveadm_http_server_json_error(void *context, const char *error)
 	o_stream_nsend_str(output, "\"]");
 }
 
-static void doveadm_http_server_json_success(void *context, struct istream *result)
+static void
+doveadm_http_server_json_success(void *context, struct istream *result)
 {
 	struct client_request_http *req = context;
 	struct ostream *output = req->output;
@@ -266,15 +267,15 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	doveadm_cmd_context_unref(&cctx);
 }
 
-static int
-request_json_parse_init(struct client_request_http *req)
+static int request_json_parse_init(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (type != JSON_TYPE_ARRAY) {
 		/* request must be a JSON array */
@@ -291,15 +292,15 @@ request_json_parse_init(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_cmd(struct client_request_http *req)
+static int request_json_parse_cmd(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (type == JSON_TYPE_ARRAY_END) {
 		/* end of command list */
@@ -323,8 +324,7 @@ request_json_parse_cmd(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_cmd_name(struct client_request_http *req)
+static int request_json_parse_cmd_name(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
@@ -334,7 +334,8 @@ request_json_parse_cmd_name(struct client_request_http *req)
 	bool found;
 	int pargc, ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (type != JSON_TYPE_STRING) {
 		/* command name must be a string */
@@ -373,15 +374,15 @@ request_json_parse_cmd_name(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_cmd_params(struct client_request_http *req)
+static int request_json_parse_cmd_params(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (type == JSON_TYPE_OBJECT_END) {
 		/* empty command parameters object; parse command ID next */
@@ -401,8 +402,7 @@ request_json_parse_cmd_params(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_cmd_param_key(struct client_request_http *req)
+static int request_json_parse_cmd_param_key(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
@@ -411,7 +411,8 @@ request_json_parse_cmd_param_key(struct client_request_http *req)
 	bool found;
 	int ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (type == JSON_TYPE_OBJECT_END) {
 		/* end of parameters; parse command ID next */
@@ -450,8 +451,7 @@ request_json_parse_cmd_param_key(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_param_value(struct client_request_http *req)
+static int request_json_parse_param_value(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
@@ -478,7 +478,8 @@ request_json_parse_param_value(struct client_request_http *req)
 		return 1;
 	}
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (req->cmd_param->type == CMD_PARAM_ARRAY) {
 		const char *tmp;
@@ -526,14 +527,12 @@ request_json_parse_param_value(struct client_request_http *req)
 		}
 		break;
 	case CMD_PARAM_INT64:
-		if (str_to_int64(value, &req->cmd_param->value.v_int64) != 0) {
+		if (str_to_int64(value, &req->cmd_param->value.v_int64) != 0)
 			req->method_err = 400;
-		}
 		break;
 	case CMD_PARAM_IP:
-		if (net_addr2ip(value, &req->cmd_param->value.v_ip) != 0) {
+		if (net_addr2ip(value, &req->cmd_param->value.v_ip) != 0)
 			req->method_err = 400;
-		}
 		break;
 	case CMD_PARAM_STR:
 		req->cmd_param->value.v_string = p_strdup(req->pool, value);
@@ -547,15 +546,15 @@ request_json_parse_param_value(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_param_array(struct client_request_http *req)
+static int request_json_parse_param_array(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (type == JSON_TYPE_ARRAY_END) {
 		/* end of array: continue with next parameter */
@@ -579,8 +578,7 @@ request_json_parse_param_array(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_param_istream(struct client_request_http *req)
+static int request_json_parse_param_istream(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	struct istream *v_input = req->cmd_param->value.v_istream;
@@ -613,15 +611,15 @@ request_json_parse_param_istream(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_cmd_id(struct client_request_http *req)
+static int request_json_parse_cmd_id(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (type != JSON_TYPE_STRING) {
 		/* command ID must be a string */
@@ -637,15 +635,15 @@ request_json_parse_cmd_id(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_cmd_done(struct client_request_http *req)
+static int request_json_parse_cmd_done(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	if (type != JSON_TYPE_ARRAY_END) {
 		/* command array must end here */
@@ -663,15 +661,15 @@ request_json_parse_cmd_done(struct client_request_http *req)
 	return 1;
 }
 
-static int
-request_json_parse_done(struct client_request_http *req)
+static int request_json_parse_done(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
 
-	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret <= 0)
 		return ret;
 	/* only gets here when there is spurious additional JSON */
 	http_server_request_fail_text(http_sreq,
@@ -680,8 +678,7 @@ request_json_parse_done(struct client_request_http *req)
 	return -1;
 }
 
-static int
-doveadm_http_server_json_parse_v1(struct client_request_http *req)
+static int doveadm_http_server_json_parse_v1(struct client_request_http *req)
 {
 	/* parser state machine */
 	switch (req->parse_state) {
@@ -736,7 +733,7 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 			req->input, JSON_PARSER_NO_ROOT_OBJECT);
 	}
 
-	while ((ret=doveadm_http_server_json_parse_v1(req)) > 0);
+	while ((ret = doveadm_http_server_json_parse_v1(req)) > 0);
 
 	if (http_server_request_get_response(http_sreq) != NULL) {
 		/* already responded */
@@ -789,8 +786,7 @@ static void doveadm_http_server_camelcase_value(string_t *value)
 	str_truncate(value, k);
 }
 
-static void
-doveadm_http_server_send_api_v1(struct client_request_http *req)
+static void doveadm_http_server_send_api_v1(struct client_request_http *req)
 {
 	struct ostream *output = req->output;
 	const struct doveadm_cmd_ver2 *cmd;
@@ -878,8 +874,7 @@ doveadm_http_server_options_handler(struct client_request_http *req)
 	http_server_response_submit(http_resp);
 }
 
-static void
-doveadm_http_server_print_mounts(struct client_request_http *req)
+static void doveadm_http_server_print_mounts(struct client_request_http *req)
 {
 	struct ostream *output = req->output;
 	unsigned int i;
@@ -1149,8 +1144,7 @@ doveadm_http_server_handle_request(void *context,
 	}
 
 	if (ep == NULL) {
-		http_server_request_fail(http_sreq,
-			404, "Path Not Found");
+		http_server_request_fail(http_sreq, 404, "Path Not Found");
 		return;
 	}
 
@@ -1187,8 +1181,7 @@ static const struct http_server_callbacks doveadm_http_callbacks = {
         .handle_request = doveadm_http_server_handle_request
 };
 
-static void
-client_connection_http_free(struct client_connection *_conn)
+static void client_connection_http_free(struct client_connection *_conn)
 {
 	struct client_connection_http *conn =
 		(struct client_connection_http *)_conn;
@@ -1201,8 +1194,7 @@ client_connection_http_free(struct client_connection *_conn)
 	}
 }
 
-struct client_connection *
-client_connection_http_create(int fd, bool ssl)
+struct client_connection *client_connection_http_create(int fd, bool ssl)
 {
 	struct client_connection_http *conn;
 	pool_t pool;
@@ -1226,7 +1218,7 @@ client_connection_http_create(int fd, bool ssl)
 
 static void
 doveadm_http_server_connection_destroy(void *context,
-	const char *reason ATTR_UNUSED)
+				       const char *reason ATTR_UNUSED)
 {
 	struct client_connection_http *conn =
 		(struct client_connection_http *)context;
