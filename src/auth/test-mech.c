@@ -98,14 +98,14 @@ static void test_mech_prepare_request(struct auth_request *request,
 	request->handler = handler;
 	request->id = running_test+1;
 	request->mech_password = NULL;
-	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+	request->state = AUTH_REQUEST_STATE_NEW;
 	request->set = global_auth_settings;
 	request->connect_uid = running_test;
 	handler->refcount = 1;
 
 	auth_fields_add(request->extra_fields, "nodelay", "", 0);
 	auth_request_ref(request);
-	auth_request_state_count[AUTH_REQUEST_STATE_MECH_CONTINUE] = 1;
+	auth_request_state_count[AUTH_REQUEST_STATE_NEW] = 1;
 	challenge = NULL;
 
 	if (username != NULL)
@@ -130,7 +130,7 @@ static void test_mech_handle_challenge(struct auth_request *request,
 			(struct digest_auth_request *) request;
 		digest_request->nonce = "OA6MG9tEQGm2hh";
 	}
-	request->mech->auth_continue(request, in, in_len);
+	auth_request_continue(request, in, in_len);
 }
 
 static inline const unsigned char *
@@ -287,8 +287,10 @@ static void test_mechs(void)
 		if (tests[running_test].expect_error != NULL)
 			test_expect_error_string(tests[running_test].expect_error);
 
-		mech->auth_initial(request, tests[running_test].in,
-				   tests[running_test].len);
+		request->state = AUTH_REQUEST_STATE_NEW;
+		request->initial_response = tests[running_test].in;
+		request->initial_response_len = tests[running_test].len;
+		auth_request_initial(request);
 
 		if (challenge != NULL) {
 			test_mech_handle_challenge(request, tests[running_test].in,
