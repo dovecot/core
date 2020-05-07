@@ -293,4 +293,17 @@ int json_ostream_open_string_stream(struct json_ostream *stream,
 struct ostream *
 json_ostream_nopen_string_stream(struct json_ostream *stream, const char *name);
 
+/*
+ * <space>
+ */
+
+/* Try to prepare the stream for writing raw JSON text to the underlying output
+   stream directly. Returns 1 if ready, 0 if the json output stream needs to be
+   flushed more (tried implicitly) before the stream can be opened, -1 if error.
+ */
+int json_ostream_open_space(struct json_ostream *stream, const char *name);
+void json_ostream_nopen_space(struct json_ostream *stream, const char *name);
+/* Continue after writing raw JSON to the underlying output stream directly. */
+void json_ostream_close_space(struct json_ostream *stream);
+
 #endif

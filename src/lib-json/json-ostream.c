@@ -38,6 +38,8 @@ struct json_ostream {
 	bool value_opened:1;
 	bool value_persists:1;
 	bool string_opened:1;
+	bool space_opening:1;
+	bool space_opened:1;
 	bool last_errors_not_checked:1;
 	bool error_handling_disabled:1;
 	bool nfailed:1;
@@ -261,6 +263,15 @@ static int json_ostream_do_write_more(struct json_ostream *stream)
 
 	if (stream->closed)
 		return -1;
+	if (stream->space_opened) {
+		if (stream->space_opening) {
+			ret = json_generate_space_open(stream->generator);
+			if (ret <= 0)
+				return ret;
+			stream->space_opening = FALSE;
+		}
+		return 1;
+	}
 
 	switch (stream->node.value.content_type) {
 	case JSON_CONTENT_TYPE_STRING:
@@ -406,6 +417,7 @@ json_ostream_write_init(struct json_ostream *stream, const char *name,
 {
 	int ret;
 
+	i_assert(!stream->space_opened);
 	i_assert(name == NULL || !stream->string_opened);
 	i_assert(!stream->string_opened || type == JSON_TYPE_STRING);
 
@@ -414,6 +426,30 @@ json_ostream_write_init(struct json_ostream *stream, const char *name,
 		return ret;
 
 	if (stream->string_opened)
+		return 1;
+
+	if (name != NULL) {
+		i_assert(!stream->member_name_written);
+		ret = json_generate_object_member(stream->generator, name);
+		if (ret <= 0)
+			return ret;
+	}
+	stream->member_name_written = FALSE;
+	return 1;
+}
+
+static int
+json_ostream_write_space_init(struct json_ostream *stream, const char *name)
+{
+	int ret;
+
+	i_assert(!stream->string_opened);
+
+	ret = json_ostream_flush(stream);
+	if (ret <= 0)
+		return ret;
+
+	if (stream->space_opened)
 		return 1;
 
 	if (name != NULL) {
@@ -1198,6 +1234,8 @@ json_ostream_do_write_node(struct json_ostream *stream,
 int json_ostream_write_node(struct json_ostream *stream,
 			    const struct json_node *node, bool copy)
 {
+	i_assert(!stream->space_opened);
+
 	return json_ostream_do_write_node(stream, node, TRUE, copy);
 }
 
@@ -1271,4 +1309,42 @@ json_ostream_nopen_string_stream(struct json_ostream *stream, const char *name)
 	ret = json_ostream_open_string_stream(stream, name, &ostream);
 	json_ostream_nwrite_post(stream, ret);
 	return ostream;
+}
+
+/*
+ * <space>
+ */
+
+int json_ostream_open_space(struct json_ostream *stream, const char *name)
+{
+	int ret;
+
+	ret = json_ostream_write_space_init(stream, name);
+	if (ret <= 0)
+		return ret;
+
+	i_zero(&stream->node);
+	stream->space_opened = TRUE;
+	stream->space_opening = TRUE;
+
+	return json_ostream_write_more(stream);
+}
+
+void json_ostream_nopen_space(struct json_ostream *stream, const char *name)
+{
+	int ret;
+
+	if (!json_ostream_nwrite_pre(stream))
+		return;
+	ret = json_ostream_open_space(stream, name);
+	json_ostream_nwrite_post(stream, ret);
+}
+
+void json_ostream_close_space(struct json_ostream *stream)
+{
+	i_assert(stream->space_opened);
+	i_assert(!stream->space_opening);
+
+	json_generate_space_close(stream->generator);
+	stream->space_opened = FALSE;
 }

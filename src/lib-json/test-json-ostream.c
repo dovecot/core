@@ -2415,6 +2415,253 @@ static void test_json_ostream_nwrite_tree(void)
 	str_free(&buffer);
 }
 
+static void test_json_ostream_nwrite_space(void)
+{
+	string_t *buffer;
+	struct ostream *output;
+	struct json_ostream *joutput;
+
+	buffer = str_new(default_pool, 256);
+	output = o_stream_create_buffer(buffer);
+	o_stream_set_no_error_handling(output, TRUE);
+
+	/* <space> */
+	test_begin("json ostream nwrite space - <space>");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "212345");
+	json_ostream_close_space(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("212345", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ <space> ] */
+	test_begin("json ostream nwrite space - [ <space> ]");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_array(joutput, NULL);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_array(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("[\"frop\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ <space>, string ] */
+	test_begin("json ostream nwrite space - [ <space>, string ]");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_array(joutput, NULL);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nwrite_string(joutput, NULL, "friep");
+	json_ostream_nascend_array(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("[\"frop\",\"friep\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ string, <space> ] */
+	test_begin("json ostream nwrite space - [ string, <space> ]");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_array(joutput, NULL);
+	json_ostream_nwrite_string(joutput, NULL, "frop");
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "[13234]");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_array(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("[\"frop\",[13234]]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ <space>, <space> ] */
+	test_begin("json ostream nwrite space - [ <space>, <space> ]");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_array(joutput, NULL);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"friep\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_array(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("[\"frop\",\"friep\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "a": <space> } */
+	test_begin("json ostream nwrite space - { \"a\": <space> }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nopen_space(joutput, "a");
+	o_stream_nsend_str(output, "\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\"}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "a": <space>, "b": string } */
+	test_begin("json ostream nwrite space - "
+		   "{ \"a\": <space>, \"b\": string }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nopen_space(joutput, "a");
+	o_stream_nsend_str(output, "\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nwrite_string(joutput, "b", "friep");
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\",\"b\":\"friep\"}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "a": string, "b": <space> } */
+	test_begin("json ostream nwrite space - "
+		   "{ \"a\": string, \"b\": <space> }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nwrite_string(joutput, "a", "frop");
+	json_ostream_nopen_space(joutput, "b");
+	o_stream_nsend_str(output, "[13234]");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\",\"b\":[13234]}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "a": <space>, "b": <space> } */
+	test_begin("json ostream nwrite space - "
+		   "{ \"a\": <space>, \"b\": <space> }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nopen_space(joutput, "a");
+	o_stream_nsend_str(output, "\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nopen_space(joutput, "b");
+	o_stream_nsend_str(output, "\"friep\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\",\"b\":\"friep\"}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { <space> } */
+	test_begin("json ostream nwrite space - { <space> }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"a\":\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\"}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { <space>, "b": string } */
+	test_begin("json ostream nwrite space - { <space>, \"b\": string }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"a\":\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nwrite_string(joutput, "b", "friep");
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\",\"b\":\"friep\"}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "a": string, <space> } */
+	test_begin("json ostream nwrite space - "
+		   "{ \"a\": string, <space> }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nwrite_string(joutput, "a", "frop");
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"b\":[13234]");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\",\"b\":[13234]}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { <space>, <space> } */
+	test_begin("json ostream nwrite space - { <space>, <space> }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"a\":\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"b\":\"friep\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\",\"b\":\"friep\"}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { "a": <space>, <space> } */
+	test_begin("json ostream nwrite space - { \"a\": <space>, <space> }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nopen_space(joutput, "a");
+	o_stream_nsend_str(output, "\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"b\":\"friep\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\",\"b\":\"friep\"}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* { <space>, "b": <space> } */
+	test_begin("json ostream nwrite space - { <space>, \"b\": <space> }");
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nopen_space(joutput, NULL);
+	o_stream_nsend_str(output, "\"a\":\"frop\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nopen_space(joutput, "b");
+	o_stream_nsend_str(output, "\"friep\"");
+	json_ostream_close_space(joutput);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\",\"b\":\"friep\"}", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	o_stream_destroy(&output);
+	str_free(&buffer);
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -2424,6 +2671,7 @@ int main(int argc, char *argv[])
 		test_json_ostream_nwrite,
 		test_json_ostream_write_tree,
 		test_json_ostream_nwrite_tree,
+		test_json_ostream_nwrite_space,
 		NULL
 	};
 
