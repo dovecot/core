@@ -87,6 +87,11 @@ int json_generate_text(struct json_generator *generator, const char *str);
 int json_generate_text_stream(struct json_generator *generator,
 			      struct istream *input);
 
+/* <space> */
+
+int json_generate_space_open(struct json_generator *generator);
+void json_generate_space_close(struct json_generator *generator);
+
 /* value */
 
 int json_generate_value(struct json_generator *generator,

@@ -24,6 +24,7 @@ enum json_generator_state {
 	JSON_GENERATOR_STATE_OBJECT_VALUE,
 	JSON_GENERATOR_STATE_STRING,
 	JSON_GENERATOR_STATE_TEXT,
+	JSON_GENERATOR_STATE_SPACE,
 	JSON_GENERATOR_STATE_END,
 };
 
@@ -286,7 +287,8 @@ int json_generator_flush(struct json_generator *generator)
 			break;
 
 		i_assert(generator->write_state != JSON_GENERATOR_STATE_STRING &&
-			 generator->write_state != JSON_GENERATOR_STATE_TEXT);
+			 generator->write_state != JSON_GENERATOR_STATE_TEXT &&
+			 generator->write_state != JSON_GENERATOR_STATE_SPACE);
 		if (generator->write_state == JSON_GENERATOR_STATE_VALUE_END)
 			generator->write_state = JSON_GENERATOR_STATE_VALUE_NEXT;
 		if (generator->write_state == JSON_GENERATOR_STATE_VALUE_NEXT) {
@@ -329,7 +331,8 @@ int json_generator_flush(struct json_generator *generator)
 			break;
 		}
 		if (generator->state != JSON_GENERATOR_STATE_STRING &&
-			generator->state != JSON_GENERATOR_STATE_TEXT)
+		    generator->state != JSON_GENERATOR_STATE_TEXT &&
+		    generator->state != JSON_GENERATOR_STATE_SPACE)
 			break;
 		generator->write_state = JSON_GENERATOR_STATE_VALUE_NEXT;
 		/* Fall through */
@@ -409,6 +412,10 @@ int json_generator_flush(struct json_generator *generator)
 		}
 		generator->write_state = JSON_GENERATOR_STATE_VALUE_END;
 	}
+	/* flush opening <space> */
+	if (generator->state == JSON_GENERATOR_STATE_SPACE &&
+	    generator->write_state != JSON_GENERATOR_STATE_SPACE)
+		generator->write_state = JSON_GENERATOR_STATE_SPACE;
 	/* flush string stream */
 	if (generator->text_stream) {
 		i_assert(generator->value_input != NULL);
@@ -1059,6 +1066,34 @@ int json_generate_text_stream(struct json_generator *generator,
 	if (json_generator_flush(generator) < 0)
 		return -1;
 	return 1;
+}
+
+/*
+ * <space>
+ */
+
+int json_generate_space_open(struct json_generator *generator)
+{
+	int ret;
+
+	if (generator->state != JSON_GENERATOR_STATE_SPACE) {
+		i_assert(generator->state == JSON_GENERATOR_STATE_VALUE ||
+			 generator->state == JSON_GENERATOR_STATE_OBJECT_MEMBER);
+		generator->state = JSON_GENERATOR_STATE_SPACE;
+	}
+
+	ret = json_generator_flush(generator);
+	i_assert(ret <= 0 ||
+		 generator->write_state == JSON_GENERATOR_STATE_SPACE);
+	return ret;
+}
+
+void json_generate_space_close(struct json_generator *generator)
+{
+	i_assert(generator->state == JSON_GENERATOR_STATE_SPACE);
+	i_assert(generator->write_state == JSON_GENERATOR_STATE_SPACE);
+
+	json_generator_value_end(generator);
 }
 
 /*
