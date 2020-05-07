@@ -402,7 +402,7 @@ static int request_json_parse_cmd_params(struct client_request_http *req)
 	return 1;
 }
 
-static int request_json_parse_cmd_param_key(struct client_request_http *req)
+static int request_json_parse_param_key(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
@@ -696,7 +696,7 @@ static int doveadm_http_server_json_parse_v1(struct client_request_http *req)
 		return request_json_parse_cmd_params(req);
 	/* parameter key: string */
 	case CLIENT_REQUEST_PARSE_CMD_PARAM_KEY:
-		return request_json_parse_cmd_param_key(req);
+		return request_json_parse_param_key(req);
 	/* parameter value */
 	case CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE:
 		return request_json_parse_param_value(req);
