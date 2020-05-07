@@ -283,14 +283,18 @@ pop3_proxy_send_failure_reply(struct client *client,
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
 	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
-	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
-	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+		client_send_reply(client, POP3_CMD_REPLY_TEMPFAIL,
+				  LOGIN_PROXY_FAILURE_MSG);
+		break;
+	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
+	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
 		client_send_reply(client, POP3_CMD_REPLY_ERROR,
 				  LOGIN_PROXY_FAILURE_MSG);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
+		/* [SYS/TEMP] prefix is already in the reason string */
 		client_send_reply(client, POP3_CMD_REPLY_ERROR, reason);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
