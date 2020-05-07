@@ -64,8 +64,6 @@ const struct mech_module *mech_module_find(const char *name);
 void mech_generic_auth_initial(struct auth_request *request,
 			       const unsigned char *data, size_t data_size);
 void mech_generic_auth_free(struct auth_request *request);
-bool auth_request_fail_on_nuls(struct auth_request *request,
-			       const unsigned char *data, size_t data_size);
 
 struct mechanisms_register *
 mech_register_init(const struct auth_settings *set);

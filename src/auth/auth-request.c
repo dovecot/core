@@ -630,6 +630,19 @@ bool auth_request_import(struct auth_request *request,
 	return TRUE;
 }
 
+static bool auth_request_fail_on_nuls(struct auth_request *request,
+			       const unsigned char *data, size_t data_size)
+{
+	if ((request->mech->flags & MECH_SEC_ALLOW_NULS) != 0)
+		return FALSE;
+	if (memchr(data, '\0', data_size) != NULL) {
+		e_debug(request->mech_event, "Unexpected NUL in auth data");
+		auth_request_fail(request);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 void auth_request_initial(struct auth_request *request)
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_NEW);
