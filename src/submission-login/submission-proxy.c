@@ -391,10 +391,9 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			return 0;
 		}
 
-		if (subm_client->proxy_reply == NULL) {
-			subm_client->proxy_reply = smtp_server_reply_create(
-				command, status, enh_code);
-		}
+		i_assert(subm_client->proxy_reply == NULL);
+		subm_client->proxy_reply = smtp_server_reply_create(
+			command, status, enh_code);
 		smtp_server_reply_add_text(subm_client->proxy_reply, text);
 
 		if (!last_line)
@@ -462,10 +461,7 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 				    const char *reason ATTR_UNUSED)
 {
 	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
-	if (cmd == NULL)
-		return;
 
-	subm_client->pending_auth = NULL;
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
 	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
@@ -473,10 +469,13 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+		i_assert(cmd != NULL);
+		subm_client->pending_auth = NULL;
 		smtp_server_reply(cmd, 454, "4.7.0", LOGIN_PROXY_FAILURE_MSG);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		/* reply was already sent */
+		i_assert(cmd == NULL);
 		break;
 	}
 }
