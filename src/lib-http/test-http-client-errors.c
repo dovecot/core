@@ -987,22 +987,22 @@ static void test_broken_payload(void)
 
 /* server */
 
-struct _reply_payload_sctx {
+struct _retry_payload_sctx {
 	bool eoh;
 };
 
 static int test_retry_payload_init(struct server_connection *conn)
 {
-	struct _reply_payload_sctx *ctx;
+	struct _retry_payload_sctx *ctx;
 
-	ctx = p_new(conn->pool, struct _reply_payload_sctx, 1);
+	ctx = p_new(conn->pool, struct _retry_payload_sctx, 1);
 	conn->context = ctx;
 	return 0;
 }
 
 static void test_retry_payload_input(struct server_connection *conn)
 {
-	struct _reply_payload_sctx *ctx = conn->context;
+	struct _retry_payload_sctx *ctx = conn->context;
 	const char *line;
 
 	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
