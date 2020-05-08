@@ -28,11 +28,19 @@ static void passdb_mock_verify_plain(struct auth_request *request, const char *p
 	callback(PASSDB_RESULT_OK, request);
 }
 
+static void passdb_mock_lookup_credentials(struct auth_request *request,
+					   lookup_credentials_callback_t *callback)
+{
+	passdb_handle_credentials(PASSDB_RESULT_OK, "password", "PLAIN",
+				  callback, request);
+}
+
 static struct passdb_module_interface mock_interface = {
 	.name = "mock",
 	.init = passdb_mock_init,
 	.deinit = passdb_mock_deinit,
 	.verify_plain = passdb_mock_verify_plain,
+	.lookup_credentials = passdb_mock_lookup_credentials,
 };
 
 struct auth_passdb_settings mock_passdb_set = {
