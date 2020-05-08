@@ -1031,6 +1031,7 @@ static void test_retry_payload_input(struct server_connection *conn)
 			i_debug("Expected payload received");
 		o_stream_nsend_str(conn->conn.output,
 				   "HTTP/1.1 500 Oh no!\r\n"
+				   "Connection: close\r\n"
 				   "Content-Length: 17\r\n"
 				   "\r\n"
 				   "Expected result\r\n");
@@ -1039,6 +1040,7 @@ static void test_retry_payload_input(struct server_connection *conn)
 			str_sanitize(line, 128));
 		o_stream_nsend_str(conn->conn.output,
 				   "HTTP/1.1 501 Oh no!\r\n"
+				   "Connection: close\r\n"
 				   "Content-Length: 19\r\n"
 				   "\r\n"
 				   "Unexpected result\r\n");
