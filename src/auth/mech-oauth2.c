@@ -101,19 +101,14 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	const char *error;
 	const char *token = NULL;
 	const char *const *ptr;
+	const char *username;
 	const char *const *fields =
 		t_strsplit(t_strndup(data, data_size), "\x01");
 	for(ptr = fields; *ptr != NULL; ptr++) {
 		if (str_begins(*ptr, "user=")) {
 			/* xoauth2 does not require unescaping because the data
 			   format does not contain anything to escape */
-			const char *username = (*ptr)+5;
-			if (!auth_request_set_username(request, username, &error)) {
-				e_info(request->mech_event,
-				       "%s", error);
-				auth_request_fail(request);
-				return;
-			}
+			username = (*ptr)+5;
 			user_given = TRUE;
 		} else if (str_begins(*ptr, "auth=")) {
 			const char *value = (*ptr)+5;
@@ -128,6 +123,13 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 			}
 		}
 		/* do not fail on unexpected fields */
+	}
+
+	if (user_given && !auth_request_set_username(request, username, &error)) {
+		e_info(request->mech_event,
+		       "%s", error);
+		auth_request_fail(request);
+		return;
 	}
 
 	if (user_given && token != NULL)
@@ -196,9 +198,6 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 					"Invalid username escaping");
 				 auth_request_fail(request);
 				 return;
-			} else if (!auth_request_set_username(request, username, &error)) {
-				e_info(request->mech_event,
-				       "%s", error);
 			} else {
 				user_given = TRUE;
 			}
@@ -225,6 +224,12 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			}
 		}
 		/* do not fail on unexpected fields */
+	}
+	if (user_given && !auth_request_set_username(request, username, &error)) {
+		e_info(request->mech_event,
+		       "%s", error);
+		auth_request_fail(request);
+		return;
 	}
 	if (user_given && token != NULL)
 		auth_request_verify_plain(request, token,
