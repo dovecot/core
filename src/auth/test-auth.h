@@ -8,6 +8,8 @@
 
 struct auth_passdb;
 
+extern struct auth_passdb_settings mock_passdb_set;
+
 void test_auth_request_var_expand(void);
 void test_db_dict_parse_cache_key(void);
 void test_username_filter(void);

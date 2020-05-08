@@ -35,7 +35,7 @@ static struct passdb_module_interface mock_interface = {
 	.verify_plain = passdb_mock_verify_plain,
 };
 
-static struct auth_passdb_settings set = {
+struct auth_passdb_settings mock_passdb_set = {
 	.name = "mock",
 	.driver = "mock",
 	.args = "",
@@ -95,7 +95,7 @@ void passdb_mock_mod_deinit(void)
 struct auth_passdb *passdb_mock(void)
 {
 	struct auth_passdb *ret = i_new(struct auth_passdb, 1);
-	ret->set = &set;
+	ret->set = &mock_passdb_set;
 	ret->passdb = mock_passdb_mod;
 	return ret;
 }

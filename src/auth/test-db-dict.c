@@ -1,5 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
+#include "lib.h"
+#include "auth-settings.h"
 #include "test-auth.h"
 #include "array.h"
 #include "db-dict.h"
