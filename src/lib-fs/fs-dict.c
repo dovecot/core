@@ -87,7 +87,7 @@ static void fs_dict_deinit(struct fs *_fs)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
 
-	dict_deinit(&fs->dict);
+	if (fs->dict != NULL) dict_deinit(&fs->dict);
 	i_free(fs);
 }
 
