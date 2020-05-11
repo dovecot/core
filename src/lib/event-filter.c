@@ -212,8 +212,10 @@ void event_filter_add(struct event_filter *filter,
 	}
 }
 
-void event_filter_merge(struct event_filter *dest,
-			const struct event_filter *src)
+static void
+event_filter_merge_with_context_internal(struct event_filter *dest,
+					 const struct event_filter *src,
+					 void *new_context, bool with_context)
 {
 	const struct event_filter_query_internal *int_query;
 	struct event_filter_query query;
@@ -221,7 +223,7 @@ void event_filter_merge(struct event_filter *dest,
 
 	array_foreach(&src->queries, int_query) T_BEGIN {
 		i_zero(&query);
-		query.context = int_query->context;
+		query.context = with_context ? new_context : int_query->context;
 		query.name = int_query->name;
 		query.source_filename = int_query->source_filename;
 		query.source_linenum = int_query->source_linenum;
@@ -260,6 +262,19 @@ void event_filter_merge(struct event_filter *dest,
 
 		event_filter_add(dest, &query);
 	} T_END;
+}
+
+void event_filter_merge(struct event_filter *dest,
+			const struct event_filter *src)
+{
+	event_filter_merge_with_context_internal(dest, src, NULL, FALSE);
+}
+
+void event_filter_merge_with_context(struct event_filter *dest,
+				     const struct event_filter *src,
+				     void *new_context)
+{
+	event_filter_merge_with_context_internal(dest, src, new_context, TRUE);
 }
 
 static void

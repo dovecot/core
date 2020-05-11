@@ -38,6 +38,11 @@ void event_filter_add(struct event_filter *filter,
 /* Add queries from source filter to destination filter. */
 void event_filter_merge(struct event_filter *dest,
 			const struct event_filter *src);
+/* Add queries from source filter to destination filter, but with supplied
+   context overriding whatever context source queries had. */
+void event_filter_merge_with_context(struct event_filter *dest,
+				     const struct event_filter *src,
+				     void *new_context);
 
 /* Export the filter into a tabescaped string, so its fields are separated
    with TABs and there are no NUL, CR or LF characters. The context pointers
