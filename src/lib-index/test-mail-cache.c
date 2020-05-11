@@ -442,9 +442,8 @@ static void test_mail_cache_add_decisions(void)
 			&ctx.cache->fields[cache_fields[i].idx];
 		test_assert_idx(priv->field.decision == expected_decisions[i], i);
 		test_assert_idx(!priv->decision_dirty, i);
-		/* uid_highwater is updated only for the changed state */
 		uint32_t uid_highwater = priv->uid_highwater;
-		if (i == TEST_FIELD_NO)
+		if (i != TEST_FIELD_NO_FORCED)
 			test_assert_idx(uid_highwater == 1, i);
 		else
 			test_assert_idx(uid_highwater == 0, i);
