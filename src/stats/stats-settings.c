@@ -481,6 +481,12 @@ static bool stats_metric_settings_check(void *_set, pool_t pool, const char **er
 		return FALSE;
 	}
 
+	if (set->filter[0] == '\0') {
+		*error_r = t_strdup_printf("metric %s { filter } is empty - "
+					   "will not match anything", set->metric_name);
+		return FALSE;
+	}
+
 	set->parsed_filter = event_filter_create_fragment(pool);
 	if (event_filter_parse(set->filter, set->parsed_filter, error_r) < 0)
 		return FALSE;
