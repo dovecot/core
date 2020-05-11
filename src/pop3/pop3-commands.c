@@ -187,18 +187,27 @@ static int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 }
 
 static struct mail_search_args *
-pop3_search_build(struct client *client, uint32_t seq)
+pop3_search_build_seqset(ARRAY_TYPE(seq_range) *seqset)
 {
 	struct mail_search_args *search_args;
 	struct mail_search_arg *sarg;
 
 	search_args = mail_search_build_init();
-	if (seq == 0) {
-		sarg = mail_search_build_add(search_args, SEARCH_SEQSET);
-		sarg->value.seqset = client->all_seqs;
-	} else {
-		mail_search_build_add_seqset(search_args, seq, seq);
-	}
+	sarg = mail_search_build_add(search_args, SEARCH_SEQSET);
+	sarg->value.seqset = *seqset;
+	return search_args;
+}
+
+static struct mail_search_args *
+pop3_search_build(struct client *client, uint32_t seq)
+{
+	struct mail_search_args *search_args;
+
+	if (seq == 0)
+		return pop3_search_build_seqset(&client->all_seqs);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_seqset(search_args, seq, seq);
 	return search_args;
 }
 
