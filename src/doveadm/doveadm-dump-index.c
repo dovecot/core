@@ -7,9 +7,9 @@
 #include "file-lock.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"
-#include "mail-index-private.h"
 #include "mail-cache-private.h"
 #include "mail-index-modseq.h"
+#include "mail-storage-private.h"
 #include "doveadm-dump.h"
 
 #include <stdio.h>
@@ -86,11 +86,6 @@ struct mailbox_list_index_msgs_record {
 	uint32_t unseen;
 	uint32_t recent;
 	uint32_t uidnext;
-};
-struct mailbox_index_vsize {
-	uint64_t vsize;
-	uint32_t highest_uid;
-	uint32_t message_count;
 };
 
 struct fts_index_header {
