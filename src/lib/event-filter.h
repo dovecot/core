@@ -64,12 +64,12 @@ bool event_filter_match_source(struct event_filter *filter, struct event *event,
 			       unsigned int source_linenum,
 			       const struct failure_context *ctx);
 
-/* Iterate through all queries that match the event. */
+/* Iterate through all queries with non-NULL context that match the event. */
 struct event_filter_match_iter *
 event_filter_match_iter_init(struct event_filter *filter, struct event *event,
 			     const struct failure_context *ctx);
 /* Return context for the query that matched, or NULL when there are no more
-   matches. */
+   matches.  Note: This skips over any queries that have NULL context. */
 void *event_filter_match_iter_next(struct event_filter_match_iter *iter);
 void event_filter_match_iter_deinit(struct event_filter_match_iter **iter);
 
