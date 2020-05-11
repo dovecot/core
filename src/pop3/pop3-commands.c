@@ -247,7 +247,7 @@ bool client_update_mails(struct client *client)
 	/* translate msgnums to sequences (in case POP3 ordering is
 	   different) */
 	t_array_init(&deleted_msgs, 8);
-	if (client->deleted_bitmask != NULL) {
+	if (client->deleted_bitmask != NULL && client->quit_seen) {
 		for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
 			bit = 1 << (msgnum % CHAR_BIT);
 			if ((client->deleted_bitmask[msgnum / CHAR_BIT] & bit) != 0)
@@ -268,7 +268,7 @@ bool client_update_mails(struct client *client)
 	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(ctx, &mail)) {
-		if (client->quit_seen && seq_range_exists(&deleted_msgs, mail->seq))
+		if (seq_range_exists(&deleted_msgs, mail->seq))
 			client_expunge(client, mail);
 		else if (seq_range_exists(&seen_msgs, mail->seq))
 			mail_update_flags(mail, MODIFY_ADD, MAIL_SEEN);
