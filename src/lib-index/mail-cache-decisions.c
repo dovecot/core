@@ -186,6 +186,7 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 			     unsigned int field)
 {
 	struct mail_cache *cache = view->cache;
+	struct mail_cache_field_private *priv;
 	uint32_t uid;
 
 	i_assert(field < cache->fields_count);
@@ -193,20 +194,21 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 	if (view->no_decision_updates)
 		return;
 
-	if (cache->fields[field].field.decision != MAIL_CACHE_DECISION_NO) {
+	priv = &cache->fields[field];
+	if (priv->field.decision != MAIL_CACHE_DECISION_NO) {
 		/* a) forced decision
 		   b) we're already caching it, so it just wasn't in cache */
 		return;
 	}
 
 	/* field used the first time */
-	cache->fields[field].field.decision = MAIL_CACHE_DECISION_TEMP;
-	cache->fields[field].field.last_used = ioloop_time;
-	cache->fields[field].decision_dirty = TRUE;
+	priv->field.decision = MAIL_CACHE_DECISION_TEMP;
+	priv->field.last_used = ioloop_time;
+	priv->decision_dirty = TRUE;
 	cache->field_header_write_pending = TRUE;
 
 	mail_index_lookup_uid(view->view, seq, &uid);
-	cache->fields[field].uid_highwater = uid;
+	priv->uid_highwater = uid;
 
 	struct event_passthrough *e =
 		mail_cache_decision_changed_event(cache, cache->event, field)->
@@ -215,7 +217,7 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 		add_str("old_decision", "no")->
 		add_str("new_decision", "temp");
 	e_debug(e->event(), "Adding field %s to cache for the first time (uid=%u)",
-		cache->fields[field].field.name, uid);
+		priv->field.name, uid);
 }
 
 int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
