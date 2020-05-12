@@ -226,7 +226,10 @@ static bool parse_next(char **data, char **key, char **value)
 		while (*p != '\0' && *p != ',')
 			p++;
 
-		*data = p+1;
+		*data = p;
+		/* If there is more to parse, ensure it won't get skipped
+		   because *p is set to NUL below */
+		if (**data != '\0') (*data)++;
 		while (IS_LWS(p[-1]))
 			p--;
 		*p = '\0';
