@@ -391,7 +391,11 @@ static void test_mechs(void)
 	password_schemes_deinit();
 	passdb_mock_mod_deinit();
 	passdbs_deinit();
+	userdbs_deinit();
 	event_unref(&auth_event);
+	mech_deinit(global_auth_settings);
+	mech_register_deinit(&mech_reg);
+	auths_free();
 }
 
 int main(void)
