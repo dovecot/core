@@ -271,6 +271,7 @@ int mail_cache_sync_reset_id(struct mail_cache *cache);
    in the cache file. */
 void mail_cache_decision_state_update(struct mail_cache_view *view,
 				      uint32_t seq, unsigned int field);
+const char *mail_cache_decision_to_string(enum mail_cache_decision_type dec);
 struct event_passthrough *
 mail_cache_decision_changed_event(struct mail_cache *cache, struct event *event,
 				  unsigned int field);

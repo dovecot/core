@@ -70,6 +70,19 @@
 #include "ioloop.h"
 #include "mail-cache-private.h"
 
+const char *mail_cache_decision_to_string(enum mail_cache_decision_type dec)
+{
+	switch (dec & ~MAIL_CACHE_DECISION_FORCED) {
+	case MAIL_CACHE_DECISION_NO:
+		return "no";
+	case MAIL_CACHE_DECISION_TEMP:
+		return "temp";
+	case MAIL_CACHE_DECISION_YES:
+		return "yes";
+	}
+	i_unreached();
+}
+
 struct event_passthrough *
 mail_cache_decision_changed_event(struct mail_cache *cache, struct event *event,
 				  unsigned int field)

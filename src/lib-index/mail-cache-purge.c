@@ -26,19 +26,6 @@ struct mail_cache_copy_context {
 	bool new_msg;
 };
 
-static const char *cache_decision_str(enum mail_cache_decision_type dec)
-{
-	switch (dec & ~MAIL_CACHE_DECISION_FORCED) {
-	case MAIL_CACHE_DECISION_NO:
-		return "no";
-	case MAIL_CACHE_DECISION_TEMP:
-		return "temp";
-	case MAIL_CACHE_DECISION_YES:
-		return "yes";
-	}
-	i_unreached();
-}
-
 static void
 mail_cache_merge_bitmask(struct mail_cache_copy_context *ctx,
 			 const struct mail_cache_iterate_field *field)
@@ -176,7 +163,7 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 		 priv->field.last_used < ctx->max_temp_drop_time) {
 		/* YES or TEMP decision field hasn't been accessed for a long
 		   time now. Drop it. */
-		const char *dec_str = cache_decision_str(dec);
+		const char *dec_str = mail_cache_decision_to_string(dec);
 		struct event_passthrough *e =
 			event_create_passthrough(ctx->event)->
 			set_name("mail_cache_purge_drop_field")->
