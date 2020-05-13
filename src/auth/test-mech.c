@@ -396,6 +396,7 @@ static void test_mechs(void)
 	mech_deinit(global_auth_settings);
 	mech_register_deinit(&mech_reg);
 	auths_free();
+	i_unlink("auth-token-secret.dat");
 }
 
 int main(void)
