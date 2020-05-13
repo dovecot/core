@@ -138,6 +138,8 @@ static void client_auth_parse_args(struct client *client, bool success,
 
 	t_array_init(&alt_usernames, 4);
 	i_zero(reply_r);
+	reply_r->proxy_host_immediate_failure_after_secs =
+		LOGIN_PROXY_DEFAULT_HOST_IMMEDIATE_FAILURE_AFTER_SECS;
 
 	for (; *args != NULL; args++) {
 		p = strchr(*args, '=');
@@ -180,6 +182,15 @@ static void client_auth_parse_args(struct client *client, bool success,
 				e_error(client->event,
 					"BUG: Auth service returned invalid "
 					"proxy_timeout value '%s': %s",
+					value, error);
+			}
+		} else if (strcmp(key, "proxy_host_immediate_failure_after") == 0) {
+			if (settings_get_time(value,
+				&reply_r->proxy_host_immediate_failure_after_secs,
+				&error) < 0) {
+				e_error(client->event,
+					"BUG: Auth service returned invalid "
+					"proxy_host_immediate_failure_after value '%s': %s",
 					value, error);
 			}
 		} else if (strcmp(key, "proxy_refresh") == 0) {
@@ -474,6 +485,8 @@ static int proxy_start(struct client *client,
 		proxy_set.connect_timeout_msecs = client->set->login_proxy_timeout;
 	proxy_set.notify_refresh_secs = reply->proxy_refresh_secs;
 	proxy_set.ssl_flags = reply->ssl_flags;
+	proxy_set.host_immediate_failure_after_secs =
+		reply->proxy_host_immediate_failure_after_secs;
 
 	/* Include destination ip:port also in the log prefix */
 	event_set_append_log_prefix(event, t_strdup_printf(

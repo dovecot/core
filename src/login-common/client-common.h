@@ -87,6 +87,7 @@ struct client_auth_reply {
 	in_port_t port;
 	unsigned int proxy_timeout_msecs;
 	unsigned int proxy_refresh_secs;
+	unsigned int proxy_host_immediate_failure_after_secs;
 	enum login_proxy_ssl_flags ssl_flags;
 
 	/* all the key=value fields returned by passdb */

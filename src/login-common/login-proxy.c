@@ -29,7 +29,6 @@
 #define KILLED_BY_ADMIN_REASON "Disconnected by proxy: Kicked by admin"
 #define KILLED_BY_DIRECTOR_REASON "Disconnected by proxy: Kicked via director"
 #define KILLED_BY_SHUTDOWN_REASON "Disconnected by proxy: Process shutting down"
-#define PROXY_IMMEDIATE_FAILURE_SECS 30
 /* Wait this long before retrying on reconnect */
 #define PROXY_CONNECT_RETRY_MSECS 1000
 /* Don't even try to reconnect if proxying will timeout in less than this. */
@@ -64,6 +63,7 @@ struct login_proxy {
 	in_port_t port;
 	unsigned int connect_timeout_msecs;
 	unsigned int notify_refresh_secs;
+	unsigned int host_immediate_failure_after_secs;
 	unsigned int reconnect_count;
 	enum login_proxy_ssl_flags ssl_flags;
 
@@ -314,8 +314,10 @@ static int login_proxy_connect(struct login_proxy *proxy)
 		   the check below. */
 		rec->last_success.tv_sec = ioloop_timeval.tv_sec - 1;
 	}
-	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
-	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
+	if (proxy->host_immediate_failure_after_secs != 0 &&
+	    timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
+	    rec->last_failure.tv_sec - rec->last_success.tv_sec >
+	    	proxy->host_immediate_failure_after_secs &&
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
 		proxy->disable_reconnect = TRUE;
@@ -364,6 +366,8 @@ int login_proxy_new(struct client *client, struct event *event,
 	proxy->port = set->port;
 	proxy->connect_timeout_msecs = set->connect_timeout_msecs;
 	proxy->notify_refresh_secs = set->notify_refresh_secs;
+	proxy->host_immediate_failure_after_secs =
+		set->host_immediate_failure_after_secs;
 	proxy->ssl_flags = set->ssl_flags;
 	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
 						 proxy->port);
