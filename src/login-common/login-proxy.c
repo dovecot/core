@@ -233,6 +233,18 @@ proxy_connect_error_append(struct login_proxy *proxy, string_t *str)
 	str_append_c(str, ')');
 }
 
+static void
+login_proxy_set_destination(struct login_proxy *proxy, const char *host,
+			    const struct ip_addr *ip, in_port_t port)
+{
+	proxy->ip = *ip;
+	i_free(proxy->host);
+	proxy->host = i_strdup(host);
+	proxy->port = port;
+	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
+						 proxy->port);
+}
+
 static void proxy_reconnect_timeout(struct login_proxy *proxy)
 {
 	timeout_remove(&proxy->to);
@@ -382,25 +394,20 @@ int login_proxy_new(struct client *client, struct event *event,
 	proxy->event = event;
 	proxy->server_fd = -1;
 	proxy->created = ioloop_timeval;
-	proxy->ip = set->ip;
 	proxy->source_ip = set->source_ip;
-	proxy->host = i_strdup(set->host);
-	proxy->port = set->port;
 	proxy->connect_timeout_msecs = set->connect_timeout_msecs;
 	proxy->notify_refresh_secs = set->notify_refresh_secs;
 	proxy->host_immediate_failure_after_secs =
 		set->host_immediate_failure_after_secs;
 	proxy->ssl_flags = set->ssl_flags;
-	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
-						 proxy->port);
 	proxy->rawlog_dir = i_strdup_empty(set->rawlog_dir);
+	login_proxy_set_destination(proxy, set->host, &set->ip, set->port);
 
 	/* add event fields */
 	event_add_str(proxy->event, "source_ip",
 		      login_proxy_get_source_host(proxy));
-	event_add_str(proxy->event, "dest_ip", net_ip2addr(&proxy->ip));
-	event_add_int(proxy->event, "dest_port",
-		      login_proxy_get_port(proxy));
+	event_add_str(proxy->event, "dest_ip", net_ip2addr(&set->ip));
+	event_add_int(proxy->event, "dest_port", set->port);
 	event_add_str(event, "dest_host", set->host);
 	event_add_str(event, "master_user", client->proxy_master_user);
 
