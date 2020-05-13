@@ -480,6 +480,7 @@ imap_proxy_send_failure_reply(struct imap_client *imap_client,
 	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
 		client_send_reply_code(&imap_client->common, IMAP_CMD_REPLY_NO,
 				       IMAP_RESP_CODE_UNAVAILABLE,
 				       LOGIN_PROXY_FAILURE_MSG);

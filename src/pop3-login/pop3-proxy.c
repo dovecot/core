@@ -285,6 +285,7 @@ pop3_proxy_send_failure_reply(struct client *client,
 	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
 		client_send_reply(client, POP3_CMD_REPLY_TEMPFAIL,
 				  LOGIN_PROXY_FAILURE_MSG);
 		break;

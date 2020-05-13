@@ -394,6 +394,44 @@ static void proxy_reset(struct client *client)
 	client->v.proxy_reset(client);
 }
 
+static bool
+proxy_try_redirect(struct client *client, const char *destination,
+		   const char **error_r)
+{
+	const char *host;
+	struct ip_addr ip;
+	in_port_t port;
+
+	if (net_str2hostport(destination,
+			     login_proxy_get_port(client->login_proxy),
+			     &host, &port) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to parse host:port '%s'", destination);
+		return FALSE;
+	}
+	if (net_addr2ip(host, &ip) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to parse IP '%s' (DNS lookups not supported)",
+			host);
+		return FALSE;
+	}
+	login_proxy_redirect_finish(client->login_proxy, &ip, port);
+	return TRUE;
+}
+
+static void
+proxy_redirect(struct client *client, struct event *event,
+	       const char *destination)
+{
+	const char *error;
+
+	proxy_reset(client);
+	if (!proxy_try_redirect(client, destination, &error)) {
+		login_proxy_failed(client->login_proxy, event,
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG, error);
+	}
+}
+
 void client_common_proxy_failed(struct client *client,
 				enum login_proxy_failure_type type,
 				const char *reason ATTR_UNUSED,
@@ -413,6 +451,7 @@ void client_common_proxy_failed(struct client *client,
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
 		client->proxy_auth_failed = TRUE;
 		break;
 	}
@@ -524,7 +563,7 @@ static int proxy_start(struct client *client,
 	client->proxy_not_trusted = reply->proxy_not_trusted;
 
 	if (login_proxy_new(client, event, &proxy_set, proxy_input,
-			    client->v.proxy_failed) < 0) {
+			    client->v.proxy_failed, proxy_redirect) < 0) {
 		event_unref(&event);
 		return -1;
 	}

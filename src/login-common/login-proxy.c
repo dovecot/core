@@ -45,6 +45,11 @@ enum login_proxy_free_flags {
 	LOGIN_PROXY_FREE_FLAG_DELAYED = BIT(0)
 };
 
+struct login_proxy_redirect {
+	struct ip_addr ip;
+	in_port_t port;
+};
+
 struct login_proxy {
 	struct login_proxy *prev, *next;
 
@@ -64,6 +69,7 @@ struct login_proxy {
 	struct ip_addr ip, source_ip;
 	char *host;
 	in_port_t port;
+	ARRAY(struct login_proxy_redirect) redirect_path;
 	unsigned int connect_timeout_msecs;
 	unsigned int notify_refresh_secs;
 	unsigned int host_immediate_failure_after_secs;
@@ -73,6 +79,7 @@ struct login_proxy {
 
 	login_proxy_input_callback_t *input_callback;
 	login_proxy_failure_callback_t *failure_callback;
+	login_proxy_redirect_callback_t *redirect_callback;
 
 	bool connected:1;
 	bool detached:1;
@@ -280,6 +287,24 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 	return TRUE;
 }
 
+static bool
+proxy_have_connected(struct login_proxy *proxy,
+		     const struct ip_addr *ip, in_port_t port)
+{
+	const struct login_proxy_redirect *redirect;
+
+	if (net_ip_compare(&proxy->ip, ip) && proxy->port == port)
+		return TRUE;
+	if (!array_is_created(&proxy->redirect_path))
+		return FALSE;
+
+	array_foreach(&proxy->redirect_path, redirect) {
+		if (net_ip_compare(&redirect->ip, ip) && redirect->port == port)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static bool proxy_connect_failed(struct login_proxy *proxy)
 {
 	string_t *str = t_str_new(128);
@@ -387,7 +412,8 @@ static int login_proxy_connect(struct login_proxy *proxy)
 int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
 		    login_proxy_input_callback_t *input_callback,
-		    login_proxy_failure_callback_t *failure_callback)
+		    login_proxy_failure_callback_t *failure_callback,
+		    login_proxy_redirect_callback_t *redirect_callback)
 {
 	struct login_proxy *proxy;
 
@@ -423,6 +449,7 @@ int login_proxy_new(struct client *client, struct event *event,
 
 	proxy->input_callback = input_callback;
 	proxy->failure_callback = failure_callback;
+	proxy->redirect_callback = redirect_callback;
 	client->login_proxy = proxy;
 
 	struct event_passthrough *e = event_create_passthrough(proxy->event)->
@@ -479,6 +506,7 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 	o_stream_destroy(&proxy->client_output);
 	client_unref(&proxy->client);
 	event_unref(&proxy->event);
+	array_free(&proxy->redirect_path);
 	i_free(proxy->host);
 	i_free(proxy->rawlog_dir);
 	i_free(proxy);
@@ -653,6 +681,11 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
 		log_prefix = "";
 		break;
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
+		proxy->redirect_callback(proxy->client, event, reason);
+		/* return value doesn't matter here, because we can't be
+		   coming from login_proxy_connect(). */
+		return FALSE;
 	default:
 		i_unreached();
 	}
@@ -688,6 +721,40 @@ bool login_proxy_is_ourself(const struct client *client, const char *host,
 		return FALSE;
 
 	return strcmp(client->virtual_user, destuser) == 0;
+}
+
+void login_proxy_redirect_finish(struct login_proxy *proxy,
+				 const struct ip_addr *ip, in_port_t port)
+{
+	struct login_proxy_redirect *redirect;
+
+	i_assert(port != 0);
+
+	if (proxy_have_connected(proxy, ip, port)) {
+		const char *error = t_strdup_printf(
+			"Proxying loops - already connected to %s:%d",
+			net_ip2addr(ip), port);
+		login_proxy_failed(proxy, proxy->event,
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG, error);
+		return;
+	}
+	i_assert(proxy->client->proxy_ttl > 0);
+	proxy->client->proxy_ttl--;
+
+	/* add current ip/port to redirect path */
+	if (!array_is_created(&proxy->redirect_path))
+		i_array_init(&proxy->redirect_path, 2);
+	redirect = array_append_space(&proxy->redirect_path);
+	redirect->ip = proxy->ip;
+	redirect->port = proxy->port;
+
+	/* disconnect from current backend */
+	login_proxy_disconnect(proxy);
+
+	const char *ip_str = net_ip2addr(ip);
+	e_debug(proxy->event, "Redirecting to %s:%u", ip_str, port);
+	login_proxy_set_destination(proxy, ip_str, ip, port);
+	(void)login_proxy_connect(proxy);
 }
 
 struct istream *login_proxy_get_istream(struct login_proxy *proxy)

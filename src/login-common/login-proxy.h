@@ -45,6 +45,9 @@ enum login_proxy_failure_type {
 	/* Authentication failed with a temporary failure code. Attempting it
 	   again might work. */
 	LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL,
+	/* Authentication requests connecting to another host. The reason
+	   string contains the host (and optionally :port). */
+	LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT,
 };
 
 struct login_proxy_settings {
@@ -69,15 +72,25 @@ typedef void login_proxy_failure_callback_t(struct client *client,
 					    enum login_proxy_failure_type type,
 					    const char *reason,
 					    bool reconnecting);
+/* Redirect connection to destination (host:port). The callback needs to call
+   login_proxy_redirect_finish() or login_proxy_failed(). */
+typedef void login_proxy_redirect_callback_t(struct client *client,
+					     struct event *event,
+					     const char *destination);
 
 /* Create a proxy to given host. Returns NULL if failed. Given callback is
    called when new input is available from proxy. */
 int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
 		    login_proxy_input_callback_t *input_callback,
-		    login_proxy_failure_callback_t *failure_callback);
+		    login_proxy_failure_callback_t *failure_callback,
+		    login_proxy_redirect_callback_t *redirect_callback);
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy **proxy);
+
+/* Finish redirection to ip:port from a redirect callback. */
+void login_proxy_redirect_finish(struct login_proxy *proxy,
+				 const struct ip_addr *ip, in_port_t port);
 
 /* Login proxying session has failed. Returns TRUE if the reconnection is
    attempted. */
