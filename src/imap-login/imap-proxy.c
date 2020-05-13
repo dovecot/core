@@ -13,6 +13,7 @@
 #include "imap-login-client.h"
 #include "client-authenticate.h"
 #include "imap-resp-code.h"
+#include "imap-url.h"
 #include "imap-quote.h"
 #include "imap-proxy.h"
 
@@ -254,6 +255,33 @@ static bool auth_resp_code_is_tempfail(const char *resp_code)
 	return strcasecmp(resp_code, IMAP_RESP_CODE_UNAVAILABLE) == 0;
 }
 
+static bool
+auth_resp_code_parse_referral(struct client *client, const char *resp_code,
+			      const char **userhostport_r)
+{
+	struct imap_url *url;
+	const char *referral, *error;
+
+	if (strncasecmp(resp_code, "REFERRAL ", 9) != 0)
+		return FALSE;
+	referral = resp_code + 9;
+
+	if (imap_url_parse(referral, NULL, 0, &url, &error) < 0) {
+		e_debug(login_proxy_get_event(client->login_proxy),
+			"Couldn't parse REFERRAL '%s': %s", referral, error);
+		return FALSE;
+	}
+
+	string_t *str = t_str_new(128);
+	if (url->userid != NULL)
+		str_printfa(str, "%s@", url->userid);
+	str_append(str, url->host.name);
+	if (url->port != 0)
+		str_printfa(str, ":%u", url->port);
+	*userhostport_r = str_c(str);
+	return TRUE;
+}
+
 int imap_proxy_parse_line(struct client *client, const char *line)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
@@ -375,6 +403,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			const char *resp_code = t_strcut(line + 4, ']');
 			if (auth_resp_code_is_tempfail(resp_code))
 				failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
+			else if (auth_resp_code_parse_referral(client, resp_code,
+							       &log_line))
+				failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT;
 			else {
 				client_send_raw(client, t_strconcat(
 					imap_client->cmd_tag, " ", line, "\r\n", NULL));
