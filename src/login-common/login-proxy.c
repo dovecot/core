@@ -243,6 +243,11 @@ login_proxy_set_destination(struct login_proxy *proxy, const char *host,
 	proxy->port = port;
 	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
 						 proxy->port);
+
+	/* Include destination ip:port also in the log prefix */
+	event_set_append_log_prefix(proxy->event, t_strdup_printf(
+		"proxy(%s,%s:%u): ", proxy->client->virtual_user,
+		net_ip2addr(&proxy->ip), proxy->port));
 }
 
 static void proxy_reconnect_timeout(struct login_proxy *proxy)

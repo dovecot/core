@@ -511,11 +511,6 @@ static int proxy_start(struct client *client,
 		reply->proxy_host_immediate_failure_after_secs;
 	proxy_set.rawlog_dir = client->set->login_proxy_rawlog_dir;
 
-	/* Include destination ip:port also in the log prefix */
-	event_set_append_log_prefix(event, t_strdup_printf(
-		"proxy(%s,%s:%u): ", client->virtual_user,
-		net_ip2addr(&proxy_set.ip), proxy_set.port));
-
 	client->proxy_mech = sasl_mech;
 	client->proxy_user = i_strdup(reply->destuser);
 	client->proxy_master_user = i_strdup(reply->master_user);
