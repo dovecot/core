@@ -158,9 +158,15 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 			reply_r->reason = value;
 		else if (strcmp(key, "host") == 0)
 			reply_r->host = value;
-		else if (strcmp(key, "hostip") == 0)
-			reply_r->hostip = value;
-		else if (strcmp(key, "source_ip") == 0)
+		else if (strcmp(key, "hostip") == 0) {
+			if (value[0] != '\0' &&
+			    net_addr2ip(value, &reply_r->host_ip) < 0) {
+				e_error(client->event,
+					"Auth service returned invalid "
+					"hostip %s", value);
+				return FALSE;
+			}
+		} else if (strcmp(key, "source_ip") == 0)
 			reply_r->source_ip = value;
 		else if (strcmp(key, "port") == 0) {
 			if (net_str2port(value, &reply_r->port) < 0) {
@@ -249,6 +255,25 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 
 	if (reply_r->destuser == NULL)
 		reply_r->destuser = client->virtual_user;
+
+	if (reply_r->proxy) {
+		if (reply_r->password == NULL) {
+			e_error(client->event, "proxy: pass field is missing");
+			return FALSE;
+		}
+		if (reply_r->host == NULL || reply_r->host[0] == '\0') {
+			e_error(client->event, "proxy: host field not given");
+			return FALSE;
+		}
+
+		if (reply_r->host_ip.family == 0 &&
+		    net_addr2ip(reply_r->host, &reply_r->host_ip) < 0) {
+			e_error(client->event,
+				"proxy: host %s is not an IP (auth should have changed it)",
+				reply_r->host);
+			return FALSE;
+		}
+	}
 	return TRUE;
 }
 
@@ -456,29 +481,11 @@ void client_common_proxy_failed(struct client *client,
 static bool
 proxy_check_start(struct client *client, struct event *event,
 		  const struct client_auth_reply *reply,
-		  const struct dsasl_client_mech **sasl_mech_r,
-		  struct ip_addr *ip_r)
+		  const struct dsasl_client_mech **sasl_mech_r)
 {
-	if (reply->password == NULL) {
-		e_error(event, "password not given");
-		return FALSE;
-	}
-	if (reply->host == NULL || *reply->host == '\0') {
-		e_error(event, "host not given");
-		return FALSE;
-	}
-
-	if (reply->hostip != NULL && reply->hostip[0] != '\0') {
-		if (net_addr2ip(reply->hostip, ip_r) < 0) {
-			e_error(event, "Invalid hostip %s", reply->hostip);
-			return FALSE;
-		}
-	} else if (net_addr2ip(reply->host, ip_r) < 0) {
-		e_error(event,
-			"BUG: host %s is not an IP (auth should have changed it)",
-			reply->host);
-		return FALSE;
-	}
+	i_assert(reply->password != NULL);
+	i_assert(reply->host != NULL && reply->host[0] != '\0');
+	i_assert(reply->host_ip.family != 0);
 
 	if (reply->proxy_mech != NULL) {
 		*sasl_mech_r = dsasl_client_mech_find(reply->proxy_mech);
@@ -505,7 +512,6 @@ static int proxy_start(struct client *client,
 {
 	struct login_proxy_settings proxy_set;
 	const struct dsasl_client_mech *sasl_mech = NULL;
-	struct ip_addr ip;
 	struct event *event;
 
 	i_assert(reply->destuser != NULL);
@@ -519,7 +525,7 @@ static int proxy_start(struct client *client,
 	event_set_append_log_prefix(event, t_strdup_printf(
 		"proxy(%s): ", client->virtual_user));
 
-	if (!proxy_check_start(client, event, reply, &sasl_mech, &ip)) {
+	if (!proxy_check_start(client, event, reply, &sasl_mech)) {
 		client->v.proxy_failed(client,
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL,
 			LOGIN_PROXY_FAILURE_MSG, FALSE);
@@ -529,7 +535,7 @@ static int proxy_start(struct client *client,
 
 	i_zero(&proxy_set);
 	proxy_set.host = reply->host;
-	proxy_set.ip = ip;
+	proxy_set.ip = reply->host_ip;
 	if (reply->source_ip != NULL) {
 		if (net_addr2ip(reply->source_ip, &proxy_set.source_ip) < 0)
 			proxy_set.source_ip.family = 0;
