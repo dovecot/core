@@ -129,7 +129,7 @@ static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t poo
 	array_push_back(alt_usernames, &value);
 }
 
-static void client_auth_parse_args(const struct client *client, bool success,
+static bool client_auth_parse_args(const struct client *client, bool success,
 				   const char *const *args,
 				   struct client_auth_reply *reply_r)
 {
@@ -167,6 +167,7 @@ static void client_auth_parse_args(const struct client *client, bool success,
 				e_error(client->event,
 					"Auth service returned invalid "
 					"port number: %s", value);
+				return FALSE;
 			}
 		} else if (strcmp(key, "destuser") == 0)
 			reply_r->destuser = value;
@@ -179,24 +180,27 @@ static void client_auth_parse_args(const struct client *client, bool success,
 			else if (settings_get_time_msecs(value,
 				&reply_r->proxy_timeout_msecs, &error) < 0) {
 				e_error(client->event,
-					"BUG: Auth service returned invalid "
+					"Auth service returned invalid "
 					"proxy_timeout value '%s': %s",
 					value, error);
+				return FALSE;
 			}
 		} else if (strcmp(key, "proxy_host_immediate_failure_after") == 0) {
 			if (settings_get_time(value,
 				&reply_r->proxy_host_immediate_failure_after_secs,
 				&error) < 0) {
 				e_error(client->event,
-					"BUG: Auth service returned invalid "
+					"Auth service returned invalid "
 					"proxy_host_immediate_failure_after value '%s': %s",
 					value, error);
+				return FALSE;
 			}
 		} else if (strcmp(key, "proxy_refresh") == 0) {
 			if (str_to_uint(value, &reply_r->proxy_refresh_secs) < 0) {
 				e_error(client->event,
-					"BUG: Auth service returned invalid "
+					"Auth service returned invalid "
 					"proxy_refresh value: %s", value);
+				return FALSE;
 			}
 		} else if (strcmp(key, "proxy_mech") == 0)
 			reply_r->proxy_mech = value;
@@ -245,6 +249,7 @@ static void client_auth_parse_args(const struct client *client, bool success,
 
 	if (reply_r->destuser == NULL)
 		reply_r->destuser = client->virtual_user;
+	return TRUE;
 }
 
 static void proxy_free_password(struct client *client)
@@ -781,7 +786,12 @@ client_auth_reply_args(struct client *client, enum sasl_server_reply sasl_reply,
 
 	timeout_remove(&client->to_auth_waiting);
 	if (args != NULL) {
-		client_auth_parse_args(client, success, args, reply_r);
+		if (!client_auth_parse_args(client, success, args, reply_r)) {
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_AUTHFAILED, reply_r,
+				AUTH_FAILED_MSG);
+			return FALSE;
+		}
 		if (!success) {
 			if (reply_r->reason == NULL)
 				reply_r->reason = data;
