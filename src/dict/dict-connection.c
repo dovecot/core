@@ -244,6 +244,7 @@ static void dict_connection_destroy(struct connection *_conn)
 	o_stream_close(conn->conn.output);
 	dict_connection_cmds_output_more(conn);
 
+	io_remove(&conn->conn.io);
 	dict_connection_unref_safe(conn);
 }
 
