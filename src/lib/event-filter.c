@@ -69,23 +69,35 @@ struct event_filter {
 	int refcount;
 	ARRAY(struct event_filter_query_internal) queries;
 
+	bool fragment;
 	bool named_queries_only;
 };
 
 static struct event_filter *event_filters = NULL;
 
-struct event_filter *event_filter_create(void)
+static struct event_filter *event_filter_create_real(pool_t pool, bool fragment)
 {
 	struct event_filter *filter;
-	pool_t pool = pool_alloconly_create("event filter", 2048);
 
 	filter = p_new(pool, struct event_filter, 1);
 	filter->pool = pool;
 	filter->refcount = 1;
 	filter->named_queries_only = TRUE;
+	filter->fragment = fragment;
 	p_array_init(&filter->queries, pool, 4);
-	DLLIST_PREPEND(&event_filters, filter);
+	if (!fragment)
+		DLLIST_PREPEND(&event_filters, filter);
 	return filter;
+}
+
+struct event_filter *event_filter_create(void)
+{
+	return event_filter_create_real(pool_alloconly_create("event filter", 2048), FALSE);
+}
+
+struct event_filter *event_filter_create_fragment(pool_t pool)
+{
+	return event_filter_create_real(pool, TRUE);
 }
 
 void event_filter_ref(struct event_filter *filter)
@@ -106,8 +118,12 @@ void event_filter_unref(struct event_filter **_filter)
 	if (--filter->refcount > 0)
 		return;
 
-	DLLIST_REMOVE(&event_filters, filter);
-	pool_unref(&filter->pool);
+	if (!filter->fragment) {
+		DLLIST_REMOVE(&event_filters, filter);
+
+		/* fragments' pools are freed by the consumer */
+		pool_unref(&filter->pool);
+	}
 }
 
 static bool

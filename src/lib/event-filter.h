@@ -27,6 +27,7 @@ struct event_filter_query {
 };
 
 struct event_filter *event_filter_create(void);
+struct event_filter *event_filter_create_fragment(pool_t pool);
 void event_filter_ref(struct event_filter *filter);
 void event_filter_unref(struct event_filter **filter);
 
