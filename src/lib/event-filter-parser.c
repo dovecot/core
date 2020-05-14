@@ -79,8 +79,8 @@ static int parse_query(const char *str, struct event_filter_query *query_r,
 	return 0;
 }
 
-static int event_filter_parse_into(struct event_filter *filter, const char *str,
-				   const char **error_r)
+int event_filter_parse(const char *str, struct event_filter *filter,
+		       const char **error_r)
 {
 	struct event_filter_query query;
 	const char *p;
@@ -119,20 +119,5 @@ static int event_filter_parse_into(struct event_filter *filter, const char *str,
 
 	*error_r = NULL;
 
-	return 0;
-}
-
-int event_filter_parse(const char *str, struct event_filter **filter_r,
-		       const char **error_r)
-{
-	struct event_filter *filter = event_filter_create();
-
-	if (event_filter_parse_into(filter, str, error_r) < 0) {
-		event_filter_unref(&filter);
-		*filter_r = NULL;
-		return -1;
-	}
-
-	*filter_r = filter;
 	return 0;
 }

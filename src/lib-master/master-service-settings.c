@@ -119,8 +119,10 @@ log_filter_parse(const char *set_name, const char *set_value,
 		return TRUE;
 	}
 
-	if (event_filter_parse(set_value, filter_r, &error) < 0) {
+	*filter_r = event_filter_create();
+	if (event_filter_parse(set_value, *filter_r, &error) < 0) {
 		*error_r = t_strdup_printf("Invalid %s: %s", set_name, error);
+		event_filter_unref(filter_r);
 		return FALSE;
 	}
 	return TRUE;

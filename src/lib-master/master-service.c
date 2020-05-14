@@ -336,11 +336,13 @@ master_service_init(const char *name, enum master_service_flags flags,
 	if (value != NULL) {
 		struct event_filter *filter;
 		const char *error;
-		if (event_filter_parse(value, &filter, &error) < 0) {
+		filter = event_filter_create();
+		if (event_filter_parse(value, filter, &error) < 0) {
 			i_error("Invalid "DOVECOT_LOG_DEBUG_ENV" - ignoring: %s",
 				error);
+		} else {
+			event_set_global_debug_log_filter(filter);
 		}
-		event_set_global_debug_log_filter(filter);
 		event_filter_unref(&filter);
 	}
 

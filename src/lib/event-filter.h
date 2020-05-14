@@ -60,8 +60,8 @@ bool event_filter_import_unescaped(struct event_filter *filter,
 				   const char *const *args,
 				   const char **error_r);
 
-/* Parse a string-ified query */
-int event_filter_parse(const char *str, struct event_filter **filter_r,
+/* Parse a string-ified query, filling the passed in filter */
+int event_filter_parse(const char *str, struct event_filter *filter,
 		       const char **error_r);
 
 /* Returns TRUE if the event matches the event filter. */
