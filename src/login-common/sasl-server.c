@@ -574,5 +574,6 @@ void sasl_server_auth_abort(struct client *client)
 		anvil_client_query_abort(anvil, &client->anvil_query);
 		i_free(client->anvil_request);
 	}
-	sasl_server_auth_cancel(client, NULL, NULL, SASL_SERVER_REPLY_AUTH_ABORTED);
+	sasl_server_auth_cancel(client, "Aborted", NULL,
+				SASL_SERVER_REPLY_AUTH_ABORTED);
 }
