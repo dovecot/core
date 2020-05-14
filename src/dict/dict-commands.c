@@ -264,13 +264,17 @@ cmd_iterate_flush_finish(struct dict_connection_cmd *cmd, string_t *str)
 
 static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 {
-	string_t *str;
+	string_t *str = t_str_new(256);
 	const char *key, *value;
+
+	if (cmd->conn->destroyed) {
+		cmd_iterate_flush_finish(cmd, str);
+		return 1;
+	}
 
 	if (!dict_connection_flush_if_full(cmd->conn))
 		return 0;
 
-	str = t_str_new(256);
 	while (dict_iterate(cmd->iter, &key, &value)) {
 		cmd->rows++;
 		str_truncate(str, 0);
