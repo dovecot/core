@@ -1,7 +1,6 @@
 /* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "lib-signals.h"
 #include "str.h"
 #include "hostpid.h"
 #include "ioloop.h"
@@ -16,16 +15,18 @@
 #include "master-service.h"
 #include "istream-dot.h"
 #include "test-common.h"
+#include "test-subprocess.h"
 
 #include "smtp-address.h"
 #include "smtp-submit.h"
 
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <sys/stat.h>
-#include <signal.h>
-#include <unistd.h>
 #include <fcntl.h>
+
+#define SERVER_KILL_TIMEOUT_SECS    20
+
+static void main_deinit(void);
 
 static const char *test_message1 =
 	"Subject: Test message\r\n"
@@ -75,9 +76,7 @@ static char *tmp_dir = NULL;
 /* server */
 static struct io *io_listen;
 static int fd_listen = -1;
-static pid_t *server_pids = NULL;
 static in_port_t server_port = 0;
-static unsigned int server_pids_count = 0;
 static struct connection_list *server_conn_list;
 static unsigned int server_index;
 static void (*test_server_input)(struct server_connection *conn);
@@ -1981,6 +1980,11 @@ static void test_server_run(unsigned int index)
  * Tests
  */
 
+struct test_server_data {
+	unsigned int index;
+	test_server_init_t server_test;
+};
+
 static int test_open_server_fd(in_port_t *bind_port)
 {
 	int fd = net_listen(&bind_ip, bind_port, 128);
@@ -1991,22 +1995,6 @@ static int test_open_server_fd(in_port_t *bind_port)
 			net_ip2addr(&bind_ip), *bind_port);
 	}
 	return fd;
-}
-
-static void test_servers_kill_forced(void)
-{
-	unsigned int i;
-
-	if (server_pids_count > 0) {
-		for (i = 0; i < server_pids_count; i++) {
-			if (server_pids[i] != (pid_t)-1) {
-				(void)kill(server_pids[i], SIGKILL);
-				(void)waitpid(server_pids[i], NULL, 0);
-				server_pids[i] = -1;
-			}
-		}
-	}
-	server_pids_count = 0;
 }
 
 static void test_tmp_dir_init(void)
@@ -2070,23 +2058,29 @@ static void test_message_delivery(const char *message, const char *file)
 	i_stream_unref(&input);
 }
 
-static void
-test_run_server(unsigned int index, test_server_init_t server_test)
+static int test_run_server(struct test_server_data *data)
 {
-	server_port = bind_ports[index];
+	server_port = bind_ports[data->index];
 
-	i_set_failure_prefix("SERVER[%u]: ", index + 1);
+	main_deinit();
+	master_service_deinit_forked(&master_service);
+
+	i_set_failure_prefix("SERVER[%u]: ", data->index + 1);
 
 	if (debug)
 		i_debug("PID=%s", my_pid);
 
 	ioloop = io_loop_create();
-	server_test(index);
+	data->server_test(data->index);
 	io_loop_destroy(&ioloop);
+
+	if (debug)
+		i_debug("Terminated");
 
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
 	test_tmp_dir_deinit();
+	return 0;
 }
 
 static void
@@ -2106,6 +2100,9 @@ test_run_client(const struct smtp_submit_settings *submit_set,
 		io_loop_run(ioloop);
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
+
+	if (debug)
+		i_debug("Terminated");
 }
 
 static void
@@ -2116,62 +2113,34 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 {
 	unsigned int i;
 
-	server_pids = NULL;
-	server_pids_count = 0;
-
 	test_tmp_dir_init();
 
 	if (server_tests_count > 0) {
 		int fds[server_tests_count];
 
 		bind_ports = i_new(in_port_t, server_tests_count);
-
-		lib_signals_ioloop_detach();
-
-		server_pids = i_new(pid_t, server_tests_count);
-		for (i = 0; i < server_tests_count; i++)
-			server_pids[i] = (pid_t)-1;
-		server_pids_count = server_tests_count;
-
 		for (i = 0; i < server_tests_count; i++)
 			fds[i] = test_open_server_fd(&bind_ports[i]);
 
 		for (i = 0; i < server_tests_count; i++) {
+			struct test_server_data data;
+
+			i_zero(&data);
+			data.index = i;
+			data.server_test = server_test;
+
+			/* Fork server */
 			fd_listen = fds[i];
-			if ((server_pids[i] = fork()) == (pid_t)-1)
-				i_fatal("fork() failed: %m");
-			if (server_pids[i] == 0) {
-				server_pids[i] = (pid_t)-1;
-				server_pids_count = 0;
-				hostpid_init();
-				while (current_ioloop != NULL) {
-					ioloop = current_ioloop;
-					io_loop_destroy(&ioloop);
-				}
-				lib_signals_deinit();
-
-				/* child: server */
-				test_run_server(i, server_test);
-
-				i_free(server_pids);
-				/* wait for it to be killed; this way, valgrind
-				   will not object to this process going away
-				   inelegantly. */
-				i_sleep_intr_secs(60);
-				exit(1);
-			}
-			if (fd_listen != -1)
-				i_close_fd(&fd_listen);
+			test_subprocess_fork(test_run_server, &data, FALSE);
+			i_close_fd(&fd_listen);
 		}
-		lib_signals_ioloop_attach();
 	}
 
-	/* parent: client */
+	/* Run client */
 	test_run_client(submit_set, client_test);
 
 	i_unset_failure_prefix();
-	test_servers_kill_forced();
-	i_free(server_pids);
+	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
 	i_free(bind_ports);
 	test_tmp_dir_deinit();
 }
@@ -2180,42 +2149,14 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
  * Main
  */
 
-volatile sig_atomic_t terminating = 0;
-
-static void test_signal_handler(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	int signo = si->si_signo;
-
-	if (terminating != 0)
-		raise(signo);
-	terminating = 1;
-
-	/* make sure we don't leave any pesky children alive */
-	test_servers_kill_forced();
-
-	(void)signal(signo, SIG_DFL);
-	raise(signo);
-}
-
-static void test_atexit(void)
-{
-	test_servers_kill_forced();
-}
-
 static void main_init(void)
 {
-	atexit(test_atexit);
-	lib_signals_ignore(SIGPIPE, TRUE);
-	lib_signals_set_handler(SIGTERM, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGQUIT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGINT, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGSEGV, 0, test_signal_handler, NULL);
-	lib_signals_set_handler(SIGABRT, 0, test_signal_handler, NULL);
+	/* nothing yet */
 }
 
 static void main_deinit(void)
 {
-	/* nothing yet */
+	/* nothing yet; also called from sub-processes */
 }
 
 int main(int argc, char *argv[])
@@ -2241,6 +2182,7 @@ int main(int argc, char *argv[])
 	}
 
 	master_service_init_finish(master_service);
+	test_subprocesses_init(debug);
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
@@ -2249,6 +2191,7 @@ int main(int argc, char *argv[])
 
 	ret = test_run(test_functions);
 
+	test_subprocesses_deinit();
 	main_deinit();
 	master_service_deinit(&master_service);
 
