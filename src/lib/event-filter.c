@@ -584,6 +584,8 @@ bool event_filter_match_source(struct event_filter *filter, struct event *event,
 {
 	const struct event_filter_query_internal *query;
 
+	i_assert(!filter->fragment);
+
 	if (!event_filter_match_fastpath(filter, event))
 		return FALSE;
 
@@ -607,6 +609,8 @@ event_filter_match_iter_init(struct event_filter *filter, struct event *event,
 			     const struct failure_context *ctx)
 {
 	struct event_filter_match_iter *iter;
+
+	i_assert(!filter->fragment);
 
 	iter = i_new(struct event_filter_match_iter, 1);
 	iter->filter = filter;
