@@ -757,6 +757,19 @@ void login_proxy_redirect_finish(struct login_proxy *proxy,
 	(void)login_proxy_connect(proxy);
 }
 
+void login_proxy_get_redirect_path(struct login_proxy *proxy, string_t *str)
+{
+	const struct login_proxy_redirect *redirect;
+
+	str_printfa(str, "%s:%u", net_ip2addr(&proxy->ip), proxy->port);
+	if (!array_is_created(&proxy->redirect_path))
+		return;
+	array_foreach(&proxy->redirect_path, redirect) {
+		str_printfa(str, ",%s:%u",
+			    net_ip2addr(&redirect->ip), redirect->port);
+	}
+}
+
 struct istream *login_proxy_get_istream(struct login_proxy *proxy)
 {
 	return proxy->server_input;

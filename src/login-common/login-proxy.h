@@ -88,6 +88,8 @@ int login_proxy_new(struct client *client, struct event *event,
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy **proxy);
 
+/* Append to str host:ip[,host2:ip[,...]] path of redirects followed so far. */
+void login_proxy_get_redirect_path(struct login_proxy *proxy, string_t *str);
 /* Finish redirection to ip:port from a redirect callback. */
 void login_proxy_redirect_finish(struct login_proxy *proxy,
 				 const struct ip_addr *ip, in_port_t port);
