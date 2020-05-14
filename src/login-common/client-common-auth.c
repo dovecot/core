@@ -387,17 +387,21 @@ static void proxy_input(struct client *client)
 	i_stream_unref(&input);
 }
 
+static void proxy_reset(struct client *client)
+{
+	if (client->proxy_sasl_client != NULL)
+		dsasl_client_free(&client->proxy_sasl_client);
+	client->v.proxy_reset(client);
+}
+
 void client_common_proxy_failed(struct client *client,
 				enum login_proxy_failure_type type,
 				const char *reason ATTR_UNUSED,
 				bool reconnecting)
 {
-	if (client->proxy_sasl_client != NULL)
-		dsasl_client_free(&client->proxy_sasl_client);
-	if (reconnecting) {
-		client->v.proxy_reset(client);
+	proxy_reset(client);
+	if (reconnecting)
 		return;
-	}
 
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
