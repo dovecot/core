@@ -1,6 +1,7 @@
 #ifndef SASL_SERVER_H
 #define SASL_SERVER_H
 
+struct auth_request_info;
 struct client;
 
 enum sasl_server_reply {
@@ -27,6 +28,10 @@ const struct auth_mech_desc *
 sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r);
 const struct auth_mech_desc *
 sasl_server_find_available_mech(struct client *client, const char *name);
+
+int sasl_server_auth_request_info_fill(struct client *client,
+				       struct auth_request_info *info_r,
+				       const char **client_error_r);
 
 void sasl_server_auth_begin(struct client *client, const char *mech_name,
 			    enum sasl_server_auth_flags flags,
