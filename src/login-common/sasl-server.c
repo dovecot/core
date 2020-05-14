@@ -434,8 +434,7 @@ static bool get_cert_username(struct client *client, const char **username_r,
 	return TRUE;
 }
 
-void sasl_server_auth_begin(struct client *client,
-			    const char *service, const char *mech_name,
+void sasl_server_auth_begin(struct client *client, const char *mech_name,
 			    enum sasl_server_auth_flags flags,
 			    const char *initial_resp_base64,
 			    sasl_server_callback_t *callback)
@@ -479,7 +478,7 @@ void sasl_server_auth_begin(struct client *client,
 
 	i_zero(&info);
 	info.mech = mech->name;
-	info.service = service;
+	info.service = login_binary->protocol;
 	info.session_id = client_get_session_id(client);
 
 	if (!get_cert_username(client, &info.cert_username, &error)) {

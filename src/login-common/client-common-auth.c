@@ -896,8 +896,8 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 
 	client_ref(client);
 	client->auth_initializing = TRUE;
-	sasl_server_auth_begin(client, login_binary->protocol, mech_name,
-			       auth_flags, init_resp, sasl_callback);
+	sasl_server_auth_begin(client, mech_name, auth_flags,
+			       init_resp, sasl_callback);
 	client->auth_initializing = FALSE;
 	if (!client->authenticating)
 		return 1;
