@@ -99,8 +99,8 @@ struct client_auth_reply {
 	ARRAY_TYPE(const_string) alt_usernames;
 
 	/* for proxying */
-	const char *host, *source_ip;
-	struct ip_addr host_ip;
+	const char *host;
+	struct ip_addr source_ip, host_ip;
 	const char *destuser, *password, *proxy_mech;
 	in_port_t port;
 	unsigned int proxy_timeout_msecs;

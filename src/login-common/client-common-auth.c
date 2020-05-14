@@ -166,9 +166,15 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 					"hostip %s", value);
 				return FALSE;
 			}
-		} else if (strcmp(key, "source_ip") == 0)
-			reply_r->source_ip = value;
-		else if (strcmp(key, "port") == 0) {
+		} else if (strcmp(key, "source_ip") == 0) {
+			if (value[0] != '\0' &&
+			    net_addr2ip(value, &reply_r->source_ip) < 0) {
+				e_error(client->event,
+					"Auth service returned invalid "
+					"source_ip %s", value);
+				return FALSE;
+			}
+		} else if (strcmp(key, "port") == 0) {
 			if (net_str2port(value, &reply_r->port) < 0) {
 				e_error(client->event,
 					"Auth service returned invalid "
@@ -536,9 +542,8 @@ static int proxy_start(struct client *client,
 	i_zero(&proxy_set);
 	proxy_set.host = reply->host;
 	proxy_set.ip = reply->host_ip;
-	if (reply->source_ip != NULL) {
-		if (net_addr2ip(reply->source_ip, &proxy_set.source_ip) < 0)
-			proxy_set.source_ip.family = 0;
+	if (reply->source_ip.family != 0) {
+		proxy_set.source_ip = reply->source_ip;
 	} else if (login_source_ips_count > 0) {
 		/* select the next source IP with round robin. */
 		proxy_set.source_ip = login_source_ips[login_source_ips_idx];
