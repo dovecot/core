@@ -241,10 +241,31 @@ static bool dict_connection_flush_if_full(struct dict_connection *conn)
 	return TRUE;
 }
 
+static void
+cmd_iterate_flush_finish(struct dict_connection_cmd *cmd, string_t *str)
+{
+	const char *error;
+
+	event_set_name(cmd->event, "dict_server_iteration_finished");
+	str_truncate(str, 0);
+	if (dict_iterate_deinit(&cmd->iter, &error) < 0) {
+		event_add_str(cmd->event, "error", error);
+		e_error(cmd->event, "dict_iterate() failed: %s", error);
+		str_printfa(str, "%c%s", DICT_PROTOCOL_REPLY_FAIL, error);
+	} else {
+		event_add_int(cmd->event, "rows", cmd->rows);
+		e_debug(cmd->event, "Iteration finished");
+	}
+	dict_cmd_reply_handle_stats(cmd, str, cmd_stats.iterations);
+	str_append_c(str, '\n');
+
+	cmd->reply = i_strdup(str_c(str));
+}
+
 static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 {
 	string_t *str;
-	const char *key, *value, *error;
+	const char *key, *value;
 
 	if (!dict_connection_flush_if_full(cmd->conn))
 		return 0;
@@ -273,21 +294,7 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 		return 0;
 	}
 
-	event_set_name(cmd->event, "dict_server_iteration_finished");
-
-	str_truncate(str, 0);
-	if (dict_iterate_deinit(&cmd->iter, &error) < 0) {
-		event_add_str(cmd->event, "error", error);
-		e_error(cmd->event, "dict_iterate() failed: %s", error);
-		str_printfa(str, "%c%s", DICT_PROTOCOL_REPLY_FAIL, error);
-	} else {
-		event_add_int(cmd->event, "rows", cmd->rows);
-		e_debug(cmd->event, "Iteration finished");
-	}
-	dict_cmd_reply_handle_stats(cmd, str, cmd_stats.iterations);
-	str_append_c(str, '\n');
-
-	cmd->reply = i_strdup(str_c(str));
+	cmd_iterate_flush_finish(cmd, str);
 	return 1;
 }
 
