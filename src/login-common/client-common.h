@@ -96,6 +96,7 @@ enum client_list_type {
 struct client_auth_reply {
 	const char *master_user, *reason;
 	enum client_auth_fail_code fail_code;
+	ARRAY_TYPE(const_string) alt_usernames;
 
 	/* for proxying */
 	const char *host, *hostip, *source_ip;

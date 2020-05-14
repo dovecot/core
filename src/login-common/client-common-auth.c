@@ -129,15 +129,14 @@ static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t poo
 	array_push_back(alt_usernames, &value);
 }
 
-static void client_auth_parse_args(struct client *client, bool success,
+static void client_auth_parse_args(const struct client *client, bool success,
 				   const char *const *args,
 				   struct client_auth_reply *reply_r)
 {
 	const char *key, *value, *p, *error;
-	ARRAY_TYPE(const_string) alt_usernames;
 
-	t_array_init(&alt_usernames, 4);
 	i_zero(reply_r);
+	t_array_init(&reply_r->alt_usernames, 4);
 	reply_r->proxy_host_immediate_failure_after_secs =
 		LOGIN_PROXY_DEFAULT_HOST_IMMEDIATE_FAILURE_AFTER_SECS;
 
@@ -233,22 +232,13 @@ static void client_auth_parse_args(struct client *client, bool success,
 			/* already handled in sasl-server.c */
 		} else if (str_begins(key, "user_")) {
 			if (success) {
-				alt_username_set(&alt_usernames, client->pool,
-						 key, value);
+				alt_username_set(&reply_r->alt_usernames,
+						 client->pool, key, value);
 			}
 		} else if (str_begins(key, "forward_")) {
 			/* these are passed to upstream */
 		} else
 			e_debug(event_auth, "Ignoring unknown passdb extra field: %s", key);
-	}
-	if (array_count(&alt_usernames) > 0) {
-		const char **alt;
-
-		alt = p_new(client->pool, const char *,
-			    array_count(&alt_usernames) + 1);
-		memcpy(alt, array_front(&alt_usernames),
-		       sizeof(*alt) * array_count(&alt_usernames));
-		client->alt_usernames = alt;
 	}
 	if (reply_r->port == 0)
 		reply_r->port = login_binary->default_port;
@@ -587,6 +577,16 @@ static bool
 client_auth_handle_reply(struct client *client,
 			 const struct client_auth_reply *reply, bool success)
 {
+	if (array_count(&reply->alt_usernames) > 0) {
+		const char **alt;
+
+		alt = p_new(client->pool, const char *,
+			    array_count(&reply->alt_usernames) + 1);
+		memcpy(alt, array_front(&reply->alt_usernames),
+		       sizeof(*alt) * array_count(&reply->alt_usernames));
+		client->alt_usernames = alt;
+	}
+
 	if (reply->proxy) {
 		/* we want to proxy the connection to another server.
 		   don't do this unless authentication succeeded. with
