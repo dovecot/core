@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "strescape.h"
 #include "safe-memset.h"
 #include "time-util.h"
 #include "settings-parser.h"
@@ -222,6 +223,8 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 			reply_r->proxy_nopipelining = TRUE;
 		else if (strcmp(key, "proxy_not_trusted") == 0)
 			reply_r->proxy_not_trusted = TRUE;
+		else if (strcmp(key, "proxy_redirect_reauth") == 0)
+			reply_r->proxy_redirect_reauth = TRUE;
 		else if (strcmp(key, "master") == 0) {
 			/* ignore empty master field */
 			if (*value != '\0')
@@ -420,14 +423,108 @@ static void proxy_reset(struct client *client)
 	client->v.proxy_reset(client);
 }
 
+static void
+proxy_redirect_reauth_callback(struct auth_client_request *request,
+			       enum auth_request_status status,
+			       const char *data_base64 ATTR_UNUSED,
+			       const char *const *args, void *context)
+{
+	struct client *client = context;
+	struct client_auth_reply reply;
+	const char *error = NULL;
+
+	i_assert(client->reauth_request == request);
+
+	client->reauth_request = NULL;
+	switch (status) {
+	case AUTH_REQUEST_STATUS_CONTINUE:
+		error = "Unexpected SASL continuation request received";
+		break;
+	case AUTH_REQUEST_STATUS_OK:
+		if (!client_auth_parse_args(client, FALSE, args, &reply)) {
+			error = "Redirect authentication returned invalid input";
+			break;
+		}
+
+		if (!reply.proxy) {
+			error = "Redirect authentication is missing proxy field";
+			break;
+		}
+		login_proxy_redirect_finish(client->login_proxy,
+					    &reply.host_ip, reply.port);
+		return;
+	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
+		error = "Internal authentication failure";
+		break;
+	case AUTH_REQUEST_STATUS_FAIL:
+		if (!client_auth_parse_args(client, FALSE, args, &reply))
+			error = "Failed to parse auth reply";
+		else if (reply.reason == NULL || reply.reason[0] == '\0')
+			error = "Redirect authentication unexpectedly failed";
+		else
+			error = t_strdup_printf(
+				"Redirect authentication unexpectedly failed: %s",
+				reply.reason);
+		break;
+	case AUTH_REQUEST_STATUS_ABORT:
+		error = "Redirect authentication aborted";
+		break;
+	}
+	i_assert(error != NULL);
+	login_proxy_failed(client->login_proxy,
+			   login_proxy_get_event(client->login_proxy),
+			   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, error);
+}
+
+static void
+proxy_redirect_reauth(struct client *client, const char *destuser,
+		      const struct ip_addr *ip, in_port_t port)
+{
+	struct auth_request_info info;
+	const char *client_error;
+
+	if (sasl_server_auth_request_info_fill(client, &info, &client_error) < 0) {
+		const char *error = t_strdup_printf(
+			"Unexpected failure on reauth: %s", client_error);
+		login_proxy_failed(client->login_proxy,
+			login_proxy_get_event(client->login_proxy),
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, error);
+		return;
+	}
+	string_t *hosts_attempted = t_str_new(64);
+	str_append(hosts_attempted, "proxy_redirect_host_attempts=");
+	login_proxy_get_redirect_path(client->login_proxy, hosts_attempted);
+	unsigned int connect_timeout_msecs =
+		login_proxy_get_connect_timeout_msecs(client->login_proxy);
+	const char *const extra_fields[] = {
+		t_strdup_printf("proxy_redirect_host_next=%s:%u",
+				net_ip2addr(ip), port),
+		str_c(hosts_attempted),
+		t_strdup_printf("destuser=%s", str_tabescape(destuser)),
+		t_strdup_printf("proxy_timeout=%u", connect_timeout_msecs),
+	};
+	info.mech = "EXTERNAL";
+	t_array_init(&info.extra_fields, N_ELEMENTS(extra_fields));
+	array_append(&info.extra_fields, extra_fields,
+		     N_ELEMENTS(extra_fields));
+	client->reauth_request =
+		auth_client_request_new(auth_client, &info,
+					proxy_redirect_reauth_callback, client);
+}
+
 static bool
 proxy_try_redirect(struct client *client, const char *destination,
 		   const char **error_r)
 {
-	const char *host;
+	const char *host, *p, *destuser = client->proxy_user;
 	struct ip_addr ip;
 	in_port_t port;
 
+	p = strrchr(destination, '@');
+	if (p != NULL) {
+		destuser = t_strdup_until(destination, p);
+		destination = p+1;
+	}
 	if (net_str2hostport(destination,
 			     login_proxy_get_port(client->login_proxy),
 			     &host, &port) < 0) {
@@ -441,7 +538,12 @@ proxy_try_redirect(struct client *client, const char *destination,
 			host);
 		return FALSE;
 	}
-	login_proxy_redirect_finish(client->login_proxy, &ip, port);
+	/* At least for now we support sending the destuser only for reauth
+	   requests. */
+	if (client->proxy_redirect_reauth)
+		proxy_redirect_reauth(client, destuser, &ip, port);
+	else
+		login_proxy_redirect_finish(client->login_proxy, &ip, port);
 	return TRUE;
 }
 
@@ -454,7 +556,8 @@ proxy_redirect(struct client *client, struct event *event,
 	proxy_reset(client);
 	if (!proxy_try_redirect(client, destination, &error)) {
 		login_proxy_failed(client->login_proxy, event,
-			LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG, error);
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG,
+			t_strdup_printf("Redirect to %s: %s", destination, error));
 	}
 }
 
@@ -567,6 +670,7 @@ static int proxy_start(struct client *client,
 	client->proxy_noauth = reply->proxy_noauth;
 	client->proxy_nopipelining = reply->proxy_nopipelining;
 	client->proxy_not_trusted = reply->proxy_not_trusted;
+	client->proxy_redirect_reauth = reply->proxy_redirect_reauth;
 
 	if (login_proxy_new(client, event, &proxy_set, proxy_input,
 			    client->v.proxy_failed, proxy_redirect) < 0) {

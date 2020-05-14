@@ -115,6 +115,7 @@ struct client_auth_reply {
 	bool proxy_noauth:1;
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;
+	bool proxy_redirect_reauth:1;
 	bool nologin:1;
 };
 
@@ -204,6 +205,7 @@ struct client {
 	char *auth_mech_name;
 	enum sasl_server_auth_flags auth_flags;
 	struct auth_client_request *auth_request;
+	struct auth_client_request *reauth_request;
 	string_t *auth_response;
 	time_t auth_first_started, auth_finished;
 	const char *sasl_final_resp;
@@ -255,6 +257,7 @@ struct client {
 	bool proxy_noauth:1;
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;
+	bool proxy_redirect_reauth:1;
 	bool auth_waiting:1;
 	bool notified_auth_ready:1;
 	bool notified_disconnect:1;

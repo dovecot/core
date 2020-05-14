@@ -811,6 +811,12 @@ login_proxy_get_ssl_flags(const struct login_proxy *proxy)
 	return proxy->ssl_flags;
 }
 
+unsigned int
+login_proxy_get_connect_timeout_msecs(const struct login_proxy *proxy)
+{
+	return proxy->connect_timeout_msecs;
+}
+
 static void
 login_proxy_finished(enum iostream_proxy_side side,
 		     enum iostream_proxy_status status,
