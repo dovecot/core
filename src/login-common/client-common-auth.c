@@ -772,6 +772,29 @@ void client_auth_send_challenge(struct client *client, const char *data)
 	o_stream_nsendv(client->output, iov, 3);
 }
 
+static bool
+client_auth_reply_args(struct client *client, enum sasl_server_reply sasl_reply,
+		       const char *data, const char *const *args,
+		       struct client_auth_reply *reply_r)
+{
+	bool success = sasl_reply == SASL_SERVER_REPLY_SUCCESS;
+
+	timeout_remove(&client->to_auth_waiting);
+	if (args != NULL) {
+		client_auth_parse_args(client, success, args, reply_r);
+		if (!success) {
+			if (reply_r->reason == NULL)
+				reply_r->reason = data;
+			reply_r->nologin = TRUE;
+		}
+		reply_r->all_fields = args;
+		client->last_auth_fail = reply_r->fail_code;
+		if (client_auth_handle_reply(client, reply_r, success))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static void
 sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 	      const char *data, const char *const *args)
@@ -786,31 +809,19 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 	i_zero(&reply);
 	switch (sasl_reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
-		timeout_remove(&client->to_auth_waiting);
-		if (args != NULL) {
-			client_auth_parse_args(client, TRUE, args, &reply);
-			reply.all_fields = args;
-			client->last_auth_fail = reply.fail_code;
-			if (client_auth_handle_reply(client, &reply, TRUE))
-				break;
-		}
+		if (!client_auth_reply_args(client, sasl_reply,
+					    data, args, &reply))
+			break;
+
 		client_auth_result(client, CLIENT_AUTH_RESULT_SUCCESS,
 				   &reply, NULL);
 		client_destroy_success(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 	case SASL_SERVER_REPLY_AUTH_ABORTED:
-		timeout_remove(&client->to_auth_waiting);
-		if (args != NULL) {
-			client_auth_parse_args(client, FALSE, args, &reply);
-			if (reply.reason == NULL)
-				reply.reason = data;
-			client->last_auth_fail = reply.fail_code;
-			reply.nologin = TRUE;
-			reply.all_fields = args;
-			if (client_auth_handle_reply(client, &reply, FALSE))
-				break;
-		}
+		if (!client_auth_reply_args(client, sasl_reply,
+					    data, args, &reply))
+			break;
 
 		if (sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED) {
 			client_auth_result(client, CLIENT_AUTH_RESULT_ABORTED,
