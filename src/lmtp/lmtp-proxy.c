@@ -887,21 +887,117 @@ lmtp_proxy_rcpt_handle_not_proxied(struct lmtp_proxy_recipient *lprcpt,
 	return -1;
 }
 
-int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
+static void
+lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
+			       const char *const *fields)
 {
+	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
 	struct client *client = lrcpt->client;
-	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
 	struct lmtp_proxy_connection *conn;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
-	struct lmtp_proxy_recipient *lprcpt;
 	struct smtp_address *address = rcpt->path;
+	const char *username = lrcpt->username, *errstr;
+	struct smtp_address *user;
+	int ret;
+
+	if (result <= 0) {
+		errstr = (result < 0 && fields[0] != NULL ?
+			  t_strdup(fields[0]) :
+			  "Temporary user lookup failure");
+		if (result < 0) {
+			smtp_server_recipient_reply(rcpt, 451, "4.3.0", "%s",
+						    errstr);
+			return;
+		} else {
+			/* User not found from passdb. revert to local delivery
+			 */
+			(void)lmtp_rcpt_continue(lrcpt);
+			return;
+		}
+	}
+
+	i_zero(&set);
+	set.set.port = (client->local_port != 0 ?
+			client->local_port : LMTP_PROXY_DEFAULT_PORT);
+	set.set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
+	set.protocol = SMTP_PROTOCOL_LMTP;
+
+	ret = lmtp_proxy_rcpt_parse_fields(lprcpt, &set, fields, &username);
+	if (ret < 0) {
+		smtp_server_recipient_reply(
+			rcpt, 550, "5.3.5",
+			"Internal user lookup failure");
+		return;
+	}
+	if (ret == 0) {
+		/* Not proxying this user */
+		ret = lmtp_proxy_rcpt_handle_not_proxied(lprcpt, &set, username);
+		if (ret < 0)
+			return;
+		(void)lmtp_rcpt_continue(lrcpt);
+		return;
+	}
+
+	e_debug(rcpt->event, "Recipient maps to proxy user %s", username);
+
+	if (strcmp(username, lrcpt->username) != 0) {
+		/* The existing "user" event field is overridden with the new
+		   user name, while old username is available as "orig_user" */
+		event_add_str(rcpt->event, "user", username);
+		event_add_str(rcpt->event, "original_user", lrcpt->username);
+
+		if (smtp_address_parse_username(pool_datastack_create(),
+						username, &user, &errstr) < 0) {
+			e_error(rcpt->event, "%s: "
+				"Username `%s' returned by passdb lookup is not a valid SMTP address",
+				lrcpt->username, username);
+			smtp_server_recipient_reply(
+				rcpt, 550, "5.3.5",
+				"Internal user lookup failure");
+			return;
+		}
+		/* Username changed. change the address as well */
+		if (*lrcpt->detail == '\0') {
+			address = user;
+		} else {
+			address = smtp_address_add_detail_temp(
+				user, lrcpt->detail, lrcpt->delim);
+		}
+	} else if (lmtp_proxy_is_ourself(client, &set)) {
+		e_error(rcpt->event, "Proxying to <%s> loops to itself",
+			username);
+		smtp_server_recipient_reply(rcpt, 554, "5.4.6",
+					    "Proxying loops to itself");
+		return;
+	}
+
+	if (lmtp_proxy_rcpt_get_connection(lprcpt, &set, &conn) < 0)
+		return;
+
+	lprcpt->address = smtp_address_clone(rcpt->pool, address);
+
+	smtp_server_recipient_add_hook(
+		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY,
+		lmtp_proxy_rcpt_destroy, lprcpt);
+	smtp_server_recipient_add_hook(
+		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
+		lmtp_proxy_rcpt_approved, lprcpt);
+
+	smtp_client_connection_connect(conn->lmtp_conn,
+				       lmtp_proxy_rcpt_login_cb, lprcpt);
+}
+
+int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
+{
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
+	struct lmtp_proxy_recipient *lprcpt;
+	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
-	const char *const *fields, *errstr, *username;
-	struct smtp_address *user;
+	const char *const *fields, *username;
 	pool_t auth_pool;
-	int result, ret;
+	int result;
 
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lprcpt->rcpt = lrcpt;
@@ -921,98 +1017,9 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
 	result = auth_master_pass_lookup(auth_conn, username, &info,
 					 auth_pool, &fields);
-	if (result <= 0) {
-		errstr = (result < 0 && fields[0] != NULL ?
-			  t_strdup(fields[0]) :
-			  "Temporary user lookup failure");
-		pool_unref(&auth_pool);
-		if (result < 0) {
-			smtp_server_recipient_reply(rcpt, 451, "4.3.0", "%s",
-						    errstr);
-			return -1;
-		} else {
-			/* User not found from passdb. revert to local delivery
-			 */
-			return lmtp_rcpt_continue(lrcpt);
-		}
-	}
-
-	i_zero(&set);
-	set.set.port = (client->local_port != 0 ?
-			client->local_port : LMTP_PROXY_DEFAULT_PORT);
-	set.set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
-	set.protocol = SMTP_PROTOCOL_LMTP;
-
-	ret = lmtp_proxy_rcpt_parse_fields(lprcpt, &set, fields, &username);
-	if (ret < 0) {
-		smtp_server_recipient_reply(
-			rcpt, 550, "5.3.5",
-			"Internal user lookup failure");
-		pool_unref(&auth_pool);
-		return -1;
-	}
-	if (ret == 0) {
-		/* Not proxying this user */
-		ret = lmtp_proxy_rcpt_handle_not_proxied(lprcpt, &set, username);
-		pool_unref(&auth_pool);
-		if (ret < 0)
-			return ret;
-		return lmtp_rcpt_continue(lrcpt);
-	}
-
-	e_debug(rcpt->event, "Recipient maps to proxy user %s", username);
-
-	if (strcmp(username, lrcpt->username) != 0) {
-		/* The existing "user" event field is overridden with the new
-		   user name, while old username is available as "orig_user" */
-		event_add_str(rcpt->event, "user", username);
-		event_add_str(rcpt->event, "original_user", lrcpt->username);
-
-		if (smtp_address_parse_username(pool_datastack_create(),
-						username, &user, &errstr) < 0) {
-			e_error(rcpt->event, "%s: "
-				"Username `%s' returned by passdb lookup is not a valid SMTP address",
-				lrcpt->username, username);
-			smtp_server_recipient_reply(
-				rcpt, 550, "5.3.5",
-				"Internal user lookup failure");
-			pool_unref(&auth_pool);
-			return -1;
-		}
-		/* Username changed. change the address as well */
-		if (*lrcpt->detail == '\0') {
-			address = user;
-		} else {
-			address = smtp_address_add_detail_temp(
-				user, lrcpt->detail, lrcpt->delim);
-		}
-	} else if (lmtp_proxy_is_ourself(client, &set)) {
-		e_error(rcpt->event, "Proxying to <%s> loops to itself",
-			username);
-		smtp_server_recipient_reply(rcpt, 554, "5.4.6",
-					    "Proxying loops to itself");
-		pool_unref(&auth_pool);
-		return -1;
-	}
-
-	if (lmtp_proxy_rcpt_get_connection(lprcpt, &set, &conn) < 0) {
-		pool_unref(&auth_pool);
-		return -1;
-	}
-
-	lprcpt->address = smtp_address_clone(rcpt->pool, address);
-
-	smtp_server_recipient_add_hook(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY,
-		lmtp_proxy_rcpt_destroy, lprcpt);
-	smtp_server_recipient_add_hook(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
-		lmtp_proxy_rcpt_approved, lprcpt);
-
+	lmtp_proxy_rcpt_user_lookup_cb(lprcpt, result, fields);
 	pool_unref(&auth_pool);
 
-	smtp_client_connection_connect(conn->lmtp_conn,
-				       lmtp_proxy_rcpt_login_cb, lprcpt);
 	return 0;
 }
 
