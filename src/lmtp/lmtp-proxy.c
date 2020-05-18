@@ -901,7 +901,7 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	const char *const *fields, *errstr, *username, *orig_username;
 	struct smtp_address *user;
 	pool_t auth_pool;
-	int ret;
+	int result, ret;
 
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lprcpt->rcpt = lrcpt;
@@ -919,14 +919,14 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	username = orig_username = lrcpt->username;
 	auth_pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
-	ret = auth_master_pass_lookup(auth_conn, username, &info,
-				      auth_pool, &fields);
-	if (ret <= 0) {
-		errstr = (ret < 0 && fields[0] != NULL ?
+	result = auth_master_pass_lookup(auth_conn, username, &info,
+					 auth_pool, &fields);
+	if (result <= 0) {
+		errstr = (result < 0 && fields[0] != NULL ?
 			  t_strdup(fields[0]) :
 			  "Temporary user lookup failure");
 		pool_unref(&auth_pool);
-		if (ret < 0) {
+		if (result < 0) {
 			smtp_server_recipient_reply(rcpt, 451, "4.3.0", "%s",
 						    errstr);
 			return -1;
