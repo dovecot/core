@@ -590,6 +590,12 @@ int lmtp_proxy_rcpt(struct client *client,
 	trans = smtp_server_connection_get_transaction(cmd->conn);
 	i_assert(trans != NULL); /* MAIL command is synchronous */
 
+	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
+	lprcpt->rcpt = lrcpt;
+
+	lrcpt->type = LMTP_RECIPIENT_TYPE_PROXY;
+	lrcpt->backend_context = lprcpt;
+
 	i_zero(&input);
 	input.module = input.service = "lmtp";
 	mail_storage_service_init_settings(storage_service, &input);
@@ -688,13 +694,8 @@ int lmtp_proxy_rcpt(struct client *client,
 
 	conn = lmtp_proxy_get_connection(client->proxy, &set);
 
-	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
-	lprcpt->rcpt = lrcpt;
 	lprcpt->address = smtp_address_clone(rcpt->pool, address);
 	lprcpt->conn = conn;
-
-	lrcpt->type = LMTP_RECIPIENT_TYPE_PROXY;
-	lrcpt->backend_context = lprcpt;
 
 	/* Copy forward fields returned from passdb */
 	fwfields = NULL;
