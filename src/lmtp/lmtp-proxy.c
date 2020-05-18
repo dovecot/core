@@ -898,7 +898,7 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	struct smtp_address *address = rcpt->path;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
-	const char *const *fields, *errstr, *username, *orig_username;
+	const char *const *fields, *errstr, *username;
 	struct smtp_address *user;
 	pool_t auth_pool;
 	int result, ret;
@@ -916,7 +916,7 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);
 
 	// FIXME: make this async
-	username = orig_username = lrcpt->username;
+	username = lrcpt->username;
 	auth_pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
 	result = auth_master_pass_lookup(auth_conn, username, &info,
@@ -962,17 +962,17 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 
 	e_debug(rcpt->event, "Recipient maps to proxy user %s", username);
 
-	if (strcmp(username, orig_username) != 0) {
+	if (strcmp(username, lrcpt->username) != 0) {
 		/* The existing "user" event field is overridden with the new
 		   user name, while old username is available as "orig_user" */
 		event_add_str(rcpt->event, "user", username);
-		event_add_str(rcpt->event, "original_user", orig_username);
+		event_add_str(rcpt->event, "original_user", lrcpt->username);
 
 		if (smtp_address_parse_username(pool_datastack_create(),
 						username, &user, &errstr) < 0) {
 			e_error(rcpt->event, "%s: "
 				"Username `%s' returned by passdb lookup is not a valid SMTP address",
-				orig_username, username);
+				lrcpt->username, username);
 			smtp_server_recipient_reply(
 				rcpt, 550, "5.3.5",
 				"Internal user lookup failure");
