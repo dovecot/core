@@ -863,6 +863,7 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 	const char *value;
 	const char *const *args = reply->args;
 	unsigned int i, len;
+	int result;
 
 	if (reply->errormsg != NULL) {
 		lookup->fields = p_new(lookup->pool, const char *, 2);
@@ -875,11 +876,11 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 	i_assert(reply->reply != NULL);
 	i_assert(args != NULL);
 
-	lookup->return_value = parse_reply(lookup, reply->reply, args);
+	result = parse_reply(lookup, reply->reply, args);
 
 	len = str_array_length(args);
 	i_assert(*args != NULL || len == 0); /* for static analyzer */
-	if (lookup->return_value >= 0) {
+	if (result >= 0) {
 		lookup->fields = p_new(lookup->pool, const char *, len + 1);
 		for (i = 0; i < len; i++)
 			lookup->fields[i] = p_strdup(lookup->pool, args[i]);
@@ -910,6 +911,7 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 				lookup->expected_reply);
 		}
 	}
+	lookup->return_value = result;
 	return 1;
 }
 
