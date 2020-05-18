@@ -53,7 +53,8 @@ mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 			/* make sure the last message is in the range */
 			mailbox_get_seq_range(box, 1, (uint32_t)-1,
 					      &seq1, &seq2);
-			seq_range_array_add(&arg->value.seqset, seq2);
+			if (seq2 != 0)
+				seq_range_array_add(&arg->value.seqset, seq2);
 		}
 	}
 }
