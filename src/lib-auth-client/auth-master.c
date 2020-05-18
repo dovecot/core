@@ -940,6 +940,11 @@ static void
 auth_master_pass_lookup_finished(struct auth_master_lookup *_lookup,
 				 int result, const char *const *fields,
 				 struct auth_master_pass_lookup_ctx *ctx);
+static struct auth_master_request *
+auth_master_pass_lookup_start(struct auth_master_lookup *lookup,
+			      struct auth_master_connection *conn,
+			      const char *user,
+			      const struct auth_user_info *info);
 
 int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
@@ -947,7 +952,6 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 {
 	struct auth_master_lookup lookup;
 	struct auth_master_request *req;
-	string_t *args;
 
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
 		/* non-allowed characters, the user can't exist */
@@ -965,29 +969,9 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	};
 
 	i_zero(&lookup);
-	lookup.conn = conn;
-	lookup.return_value = -1;
 	lookup.pool = pool;
-	lookup.expected_reply = "PASS";
-	lookup.user = user;
 
-	args = t_str_new(128);
-	str_append(args, user);
-	auth_user_info_export(args, info);
-
-	lookup.event = auth_master_user_event_create(
-		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
-	event_add_str(lookup.event, "user", user);
-
-	struct event_passthrough *e =
-		event_create_passthrough(lookup.event)->
-		set_name("auth_client_passdb_lookup_started");
-	e_debug(e->event(), "Started passdb lookup");
-
-	req = auth_master_request(conn, "PASS", str_data(args), str_len(args),
-				  auth_lookup_reply_callback, &lookup);
-
-	auth_master_request_set_event(req, lookup.event);
+	req = auth_master_pass_lookup_start(&lookup, conn, user, info);
 	(void)auth_master_request_wait(req);
 
 	auth_master_pass_lookup_finished(&lookup, lookup.return_value,
@@ -1026,6 +1010,41 @@ auth_master_pass_lookup_finished(struct auth_master_lookup *_lookup,
 	}
 
 	auth_master_pass_lookup_callback(ctx, result, fields);
+}
+
+static struct auth_master_request *
+auth_master_pass_lookup_start(struct auth_master_lookup *lookup,
+			      struct auth_master_connection *conn,
+			      const char *user,
+			      const struct auth_user_info *info)
+{
+	struct auth_master_request *req;
+	string_t *args;
+
+	lookup->conn = conn;
+	lookup->return_value = -1;
+	lookup->expected_reply = "PASS";
+	lookup->user = user;
+
+	args = t_str_new(128);
+	str_append(args, user);
+	auth_user_info_export(args, info);
+
+	lookup->event = auth_master_user_event_create(
+		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
+	event_add_str(lookup->event, "user", user);
+
+	struct event_passthrough *e =
+		event_create_passthrough(lookup->event)->
+		set_name("auth_client_passdb_lookup_started");
+	e_debug(e->event(), "Started passdb lookup");
+
+	req = auth_master_request(conn, "PASS", str_data(args), str_len(args),
+				  auth_lookup_reply_callback, lookup);
+
+	auth_master_request_set_event(req, lookup->event);
+
+	return req;
 }
 
 /*
