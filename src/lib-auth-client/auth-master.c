@@ -921,6 +921,26 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 
 /* PASS */
 
+struct auth_master_pass_lookup_ctx {
+	pool_t pool;
+
+	int result;
+	const char *const *fields;
+};
+
+static void
+auth_master_pass_lookup_callback(struct auth_master_pass_lookup_ctx *ctx,
+				 int result, const char *const *fields)
+{
+	ctx->result = result;
+	ctx->fields = p_strarray_dup(ctx->pool, fields);
+}
+
+static void
+auth_master_pass_lookup_finished(struct auth_master_lookup *_lookup,
+				 int result, const char *const *fields,
+				 struct auth_master_pass_lookup_ctx *ctx);
+
 int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char *const **fields_r)
@@ -938,6 +958,11 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 		*fields_r = empty_str_array;
 		return -1;
 	}
+
+	struct auth_master_pass_lookup_ctx ctx = {
+		.pool = pool,
+		.result = -1,
+	};
 
 	i_zero(&lookup);
 	lookup.conn = conn;
@@ -965,31 +990,42 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	auth_master_request_set_event(req, lookup.event);
 	(void)auth_master_request_wait(req);
 
-	*fields_r = lookup.fields != NULL ? lookup.fields :
-		p_new(pool, const char *, 1);
+	auth_master_pass_lookup_finished(&lookup, lookup.return_value,
+					 lookup.fields, &ctx);
+	event_unref(&lookup.event);
 
-	if (lookup.return_value <= 0) {
+	*fields_r = ctx.fields != NULL ? ctx.fields :
+		p_new(pool, const char *, 1);
+	return ctx.result;
+
+}
+
+static void
+auth_master_pass_lookup_finished(struct auth_master_lookup *_lookup,
+				 int result, const char *const *fields,
+				 struct auth_master_pass_lookup_ctx *ctx)
+{
+	if (result <= 0) {
 		struct event_passthrough *e =
-			event_create_passthrough(lookup.event)->
+			event_create_passthrough(_lookup->event)->
 			set_name("auth_client_passdb_lookup_finished");
-		if ((*fields_r)[0] == NULL) {
+		if (fields == NULL || fields[0] == NULL) {
 			e->add_str("error", "Lookup failed");
 			e_debug(e->event(), "Passdb lookup failed");
 		} else {
-			e->add_str("error", (*fields_r)[0]);
+			e->add_str("error", fields[0]);
 			e_debug(e->event(), "Passdb lookup failed: %s",
-				(*fields_r)[0]);
+				fields[0]);
 		}
 	} else {
 		struct event_passthrough *e =
-			event_create_passthrough(lookup.event)->
+			event_create_passthrough(_lookup->event)->
 			set_name("auth_client_passdb_lookup_finished");
 		e_debug(e->event(), "Finished passdb lookup (%s)",
-			t_strarray_join(*fields_r, " "));
+			(fields == NULL ? "" : t_strarray_join(fields, " ")));
 	}
-	event_unref(&lookup.event);
 
-	return lookup.return_value;
+	auth_master_pass_lookup_callback(ctx, result, fields);
 }
 
 /*
