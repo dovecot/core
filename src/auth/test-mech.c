@@ -28,9 +28,11 @@ extern const struct mech_module mech_digest_md5;
 extern const struct mech_module mech_dovecot_token;
 extern const struct mech_module mech_external;
 extern const struct mech_module mech_login;
+extern const struct mech_module mech_ntlm;
 extern const struct mech_module mech_oauthbearer;
 extern const struct mech_module mech_otp;
 extern const struct mech_module mech_plain;
+extern const struct mech_module mech_rpa;
 extern const struct mech_module mech_scram_sha1;
 extern const struct mech_module mech_scram_sha256;
 extern const struct mech_module mech_xoauth2;
@@ -399,10 +401,74 @@ static void test_mechs(void)
 	i_unlink("auth-token-secret.dat");
 }
 
+static void test_rpa(void)
+{
+	static struct auth_request_handler handler = {
+		.callback = auth_client_request_mock_callback,
+		.reply_callback = request_handler_reply_mock_callback,
+		.reply_continue_callback = request_handler_reply_continue_mock_callback,
+		.verify_plain_continue_callback = verify_plain_continue_mock_callback,
+	};
+
+	const struct mech_module *mech = &mech_rpa;
+	test_begin("test rpa");
+	struct auth_request *req = mech->auth_new();
+	global_auth_settings->realms_arr = t_strsplit("example.com", " ");
+	req->set = global_auth_settings;
+	req->service = "login";
+	req->handler = &handler;
+	req->mech_event = event_create(NULL);
+	req->event = event_create(NULL);
+	req->mech = mech;
+	req->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+	auth_request_state_count[AUTH_REQUEST_STATE_MECH_CONTINUE] = 1;
+	mech->auth_initial(req, UCHAR_LEN("\x60\x11\x06\x09\x60\x86\x48\x01\x86\xf8\x73\x01\x01\x01\x00\x04\x00\x00\x01"));
+	mech->auth_continue(req, UCHAR_LEN("\x60\x11\x06\x09\x60\x86\x48\x01\x86\xf8\x73\x01\x01\x00\x03A@A\x00"));
+	test_assert(req->failed == TRUE);
+	test_assert(req->passdb_success == FALSE);
+	event_unref(&req->mech_event);
+	event_unref(&req->event);
+	mech->auth_free(req);
+	test_end();
+}
+
+static void test_ntlm(void)
+{
+	static struct auth_request_handler handler = {
+		.callback = auth_client_request_mock_callback,
+		.reply_callback = request_handler_reply_mock_callback,
+		.reply_continue_callback = request_handler_reply_continue_mock_callback,
+		.verify_plain_continue_callback = verify_plain_continue_mock_callback,
+	};
+
+	const struct mech_module *mech = &mech_ntlm;
+	test_begin("test ntlm");
+	struct auth_request *req = mech->auth_new();
+	global_auth_settings->realms_arr = t_strsplit("example.com", " ");
+	req->set = global_auth_settings;
+	req->service = "login";
+	req->handler = &handler;
+	req->mech_event = event_create(NULL);
+	req->event = event_create(NULL);
+	req->mech = mech;
+	req->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+	auth_request_state_count[AUTH_REQUEST_STATE_MECH_CONTINUE] = 1;
+	mech->auth_initial(req, UCHAR_LEN("NTLMSSP\x00\x01\x00\x00\x00\x00\x02\x00\x00""AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
+	mech->auth_continue(req, UCHAR_LEN("NTLMSSP\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00""AA\x00\x00\x41\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00""orange""\x00"));
+	test_assert(req->failed == TRUE);
+	test_assert(req->passdb_success == FALSE);
+	event_unref(&req->mech_event);
+	event_unref(&req->event);
+	mech->auth_free(req);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mechs,
+		test_rpa,
+		test_ntlm,
 		NULL
 	};
 
