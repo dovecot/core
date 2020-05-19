@@ -9,9 +9,9 @@ enum libsig_flags {
 	LIBSIG_FLAG_DELAYED	= 0x01,
 	/* Restart syscalls instead of having them fail with EINTR */
 	LIBSIG_FLAG_RESTART	= 0x02,
-	/* Don't automatically shift delayed signal handling for this signal
+	/* Automatically shift delayed signal handling for this signal
 	   to a newly started ioloop. */
-	LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE = 0x04,
+	LIBSIG_FLAG_IOLOOP_AUTOMOVE = 0x04,
 };
 #define LIBSIG_FLAGS_SAFE (LIBSIG_FLAG_DELAYED | LIBSIG_FLAG_RESTART)
 

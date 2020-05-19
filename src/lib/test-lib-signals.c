@@ -49,7 +49,8 @@ test_lib_signals_delayed(void)
 	i_zero(&tctx);
 
 	lib_signals_init();
-	lib_signals_set_handler(SIGALRM, LIBSIG_FLAGS_SAFE,
+	lib_signals_set_handler(SIGALRM,
+		LIBSIG_FLAGS_SAFE | LIBSIG_FLAG_IOLOOP_AUTOMOVE,
 		signal_handler_delayed, &tctx);
 
 	ioloop = io_loop_create();
@@ -75,7 +76,8 @@ test_lib_signals_delayed(void)
 	ioloop = io_loop_create();
 
 	lib_signals_init();
-	lib_signals_set_handler(SIGALRM, LIBSIG_FLAGS_SAFE,
+	lib_signals_set_handler(SIGALRM,
+		LIBSIG_FLAGS_SAFE | LIBSIG_FLAG_IOLOOP_AUTOMOVE,
 		signal_handler_delayed, &tctx);
 
 	to_kill = timeout_add_short(200, kill_timeout, &tctx);
@@ -108,7 +110,8 @@ test_lib_signals_delayed_nested_ioloop(void)
 	i_zero(&tctx);
 
 	lib_signals_init();
-	lib_signals_set_handler(SIGALRM, LIBSIG_FLAGS_SAFE,
+	lib_signals_set_handler(SIGALRM,
+		LIBSIG_FLAGS_SAFE | LIBSIG_FLAG_IOLOOP_AUTOMOVE,
 		signal_handler_delayed, &tctx);
 
 	/* briefly run outer ioloop */
@@ -154,8 +157,7 @@ test_lib_signals_delayed_no_ioloop_automove(void)
 	ioloop1 = io_loop_create();
 
 	lib_signals_init();
-	lib_signals_set_handler(SIGALRM,
-		LIBSIG_FLAGS_SAFE | LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE,
+	lib_signals_set_handler(SIGALRM, LIBSIG_FLAGS_SAFE,
 		signal_handler_delayed, &tctx);
 
 	/* briefly run outer ioloop */
@@ -201,8 +203,7 @@ test_lib_signals_delayed_no_ioloop_automove(void)
 	ioloop1 = io_loop_create();
 
 	lib_signals_init();
-	lib_signals_set_handler(SIGALRM,
-		LIBSIG_FLAGS_SAFE | LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE,
+	lib_signals_set_handler(SIGALRM, LIBSIG_FLAGS_SAFE,
 		signal_handler_delayed, &tctx);
 
 	/* briefly run outer ioloop */

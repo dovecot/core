@@ -112,8 +112,7 @@ void child_wait_init(void)
 
 	hash_table_create_direct(&child_pids, default_pool, 0);
 
-	lib_signals_set_handler(SIGCHLD,
-		LIBSIG_FLAGS_SAFE | LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE,
+	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
 		sigchld_handler, NULL);
 }
 

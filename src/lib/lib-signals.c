@@ -180,7 +180,7 @@ static void signal_handle_shadowed(void)
 		for (h = signal_handlers[sis[i].si_signo]; h != NULL;
 		     h = h->next) {
 			if ((h->flags & LIBSIG_FLAG_DELAYED) == 0 ||
-			    (h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) == 0)
+			    (h->flags & LIBSIG_FLAG_IOLOOP_AUTOMOVE) != 0)
 				continue;
 			if (h->shadowed &&
 			    h->current_ioloop != current_ioloop) {
@@ -281,7 +281,7 @@ static void ATTR_NULL(1) signal_read(void *context ATTR_UNUSED)
 				   context */
 				continue;
 			}
-			if ((h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) != 0 &&
+			if ((h->flags & LIBSIG_FLAG_IOLOOP_AUTOMOVE) == 0 &&
 			    h->current_ioloop != current_ioloop) {
 				/* cannot run handler in current ioloop
 				   (shadowed) */
@@ -546,7 +546,7 @@ void lib_signals_switch_ioloop(int signo,
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 		if (h->handler == handler && h->context == context) {
 			i_assert((h->flags & LIBSIG_FLAG_DELAYED) != 0);
-			i_assert((h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) != 0);
+			i_assert((h->flags & LIBSIG_FLAG_IOLOOP_AUTOMOVE) == 0);
 			h->current_ioloop = current_ioloop;
 			/* check whether we can now handle any shadowed delayed
 			   signals */

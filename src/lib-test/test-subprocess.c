@@ -52,12 +52,15 @@ test_subprocess_child(int (*func)(void *context), void *context,
 	lib_signals_deinit();
 	lib_signals_init();
 
-	lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED,
-				test_subprocess_signal, NULL);
-	lib_signals_set_handler(SIGQUIT, LIBSIG_FLAG_DELAYED,
-				test_subprocess_signal, NULL);
-	lib_signals_set_handler(SIGINT, LIBSIG_FLAG_DELAYED,
-				test_subprocess_signal, NULL);
+	lib_signals_set_handler(SIGTERM,
+		LIBSIG_FLAG_DELAYED | LIBSIG_FLAG_IOLOOP_AUTOMOVE,
+		test_subprocess_signal, NULL);
+	lib_signals_set_handler(SIGQUIT,
+		LIBSIG_FLAG_DELAYED | LIBSIG_FLAG_IOLOOP_AUTOMOVE,
+		test_subprocess_signal, NULL);
+	lib_signals_set_handler(SIGINT,
+		LIBSIG_FLAG_DELAYED | LIBSIG_FLAG_IOLOOP_AUTOMOVE,
+		test_subprocess_signal, NULL);
 
 	ret = func(context);
 
