@@ -31,6 +31,8 @@ extern volatile unsigned int signal_term_counter;
 /* Convert si_code to string */
 const char *lib_signal_code_to_str(int signo, int sicode);
 
+/* Detach IOs from all ioloops. This isn't normally necessary, except when
+   forking a process. */
 void lib_signals_ioloop_detach(void);
 void lib_signals_ioloop_attach(void);
 
